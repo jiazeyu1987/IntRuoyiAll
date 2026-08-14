@@ -230,6 +230,40 @@ class DccControlledFileMapperTest extends BaseDbUnitTest {
     }
 
     @Test
+    void selectCurrentApprovedFilesByIds_keepsExternalProjectFileAndDropsOldRevision() {
+        DccControlledFileDO oldRevision = insertControlledFile(720L, "旧修订", "revision.pdf", "REV-001");
+        DccControlledFileDO currentRevision = DccControlledFileDO.builder()
+                .categoryId(10L)
+                .directoryId(20L)
+                .originalFileId(30L)
+                .title("新修订")
+                .versionNo("V2.0")
+                .effectiveDate(LocalDate.of(2026, 6, 18))
+                .remark("current-approved-selected")
+                .status("ACTIVE")
+                .requesterId(99L)
+                .processDefinitionKey("dcc-controlled-file-approval")
+                .build();
+        setField(currentRevision, "masterId", 720L);
+        setField(currentRevision, "fileName", "revision.pdf");
+        setField(currentRevision, "fileNumber", "REV-001");
+        setField(currentRevision, "sourceFileId", 30L);
+        setField(currentRevision, "submitterId", 99L);
+        controlledFileMapper.insert(currentRevision);
+        DccControlledFileDO externalProjectFile = insertControlledFile(721L, "外部项目文件", "external-project.pdf", "EXT-001");
+        executeUpdate("UPDATE dcc_controlled_file SET dcc_project_code_id = ? WHERE id = ?",
+                129L, externalProjectFile.getId());
+
+        List<Long> ids = controlledFileMapper.selectCurrentApprovedFilesByIds(List.of(
+                        oldRevision.getId(), currentRevision.getId(), externalProjectFile.getId()))
+                .stream()
+                .map(DccControlledFileDO::getId)
+                .toList();
+
+        assertEquals(List.of(currentRevision.getId(), externalProjectFile.getId()), ids);
+    }
+
+    @Test
     void selectWorkflowList_filtersProjectCodeByLatestSuccessfulRecognitionWhenDirectFieldMissing() {
         DccControlledFileDO ledgerOnly = insertControlledFile(711L, "账本详情文件", "ledger-detail.pdf", "LD-001");
         DccControlledFileDO direct = insertControlledFile(712L, "直接详情文件", "direct-detail.pdf", "DD-001");
@@ -303,6 +337,33 @@ class DccControlledFileMapperTest extends BaseDbUnitTest {
         assertEquals(List.of(childPathMatched.getId(), pathMatched.getId(), idMatched.getId()), ids);
     }
 
+    @Test
+    void sourceOwnershipMigrationQueries_includeDeletedHistoryAndExcludeOwnedRecords() {
+        insertSourceReference(9901L, 9700L, 0);
+        insertSourceReference(9902L, 9700L, 1);
+        insertSourceReference(9903L, 9701L, 0);
+        executeUpdate("""
+                INSERT INTO dcc_controlled_file_source_ownership
+                (id, controlled_file_id, source_file_id, origin_source_file_id, source_sha256, ownership_type,
+                 claimed_by, claimed_time, tenant_id, create_time, update_time, creator, updater, deleted)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
+                """, 9801L, 9901L, 9700L, 9700L, "owner-sha", "HISTORICAL_MIGRATION",
+                120L, 0L, "120", "120", 0);
+
+        List<DccControlledFileDO> unowned = controlledFileMapper.selectUnownedSourceReferences(0L, 10);
+
+        assertEquals(List.of(9902L, 9903L), unowned.stream().map(DccControlledFileDO::getId).toList());
+        assertEquals(3L, controlledFileMapper.countAllSourceReferences(0L));
+        assertEquals(2L, controlledFileMapper.countUnownedSourceReferences(0L));
+        assertEquals(1L, controlledFileMapper.countSharedSourceGroups(0L));
+        assertEquals(2L, controlledFileMapper.countSharedSourceRecords(0L));
+        assertNotNull(controlledFileMapper.selectByIdAndTenantIncludingDeleted(0L, 9902L));
+
+        assertEquals(1, controlledFileMapper.updateSourceFileIdIncludingDeleted(
+                0L, 9902L, 9700L, 19700L, 120L));
+        assertEquals(19700L, queryLong("SELECT source_file_id FROM dcc_controlled_file WHERE id = ?", 9902L));
+    }
+
     private DccControlledFileDO insertControlledFile(Long masterId, String title, String fileName, String fileNumber) {
         executeUpdate("""
                 INSERT INTO dcc_controlled_file_master
@@ -330,6 +391,19 @@ class DccControlledFileMapperTest extends BaseDbUnitTest {
         setField(file, "submitterId", 99L);
         controlledFileMapper.insert(file);
         return file;
+    }
+
+    private void insertSourceReference(Long id, Long sourceFileId, int deleted) {
+        executeUpdate("""
+                INSERT INTO dcc_controlled_file
+                (id, master_id, category_id, directory_id, source_file_id, original_file_id,
+                 file_name, title, file_number, version_no, status, submitter_id, requester_id,
+                 tenant_id, create_time, update_time, creator, updater, deleted)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
+                """, id, id + 1000, 10L, 20L, sourceFileId, sourceFileId,
+                "source-" + id + ".docx", "source-" + id, "SRC-" + id,
+                "V1.0", "ACTIVE", 120L, 120L, 0L, "120", "120", deleted);
     }
 
     private int countById(String tableName, Long id) {

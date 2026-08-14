@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-product-catalog">
     <div class="mb-16px flex items-center gap-8px">
       <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / DCC产品目录</span>
     </div>
@@ -27,6 +27,7 @@
     >
       <template #actions>
         <el-button
+          class="scheme-d-btn scheme-d-btn--success"
           type="primary"
           plain
           @click="openForm('create')"
@@ -221,6 +222,7 @@
             <template #default="{ row }">
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--primary"
                 type="primary"
                 @click="openForm('update', row)"
                 v-hasPermi="['dcc:project-code:update']"
@@ -229,6 +231,7 @@
               </el-button>
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--danger"
                 type="danger"
                 @click="handleDelete(row)"
                 v-hasPermi="['dcc:project-code:delete']"
@@ -242,7 +245,7 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
-  <Dialog v-model="formVisible" title="产品目录维护" width="820px">
+  <Dialog v-model="formVisible" class="scheme-d-form-control" title="产品目录维护" width="820px">
     <el-form
       ref="formRef"
       v-loading="formLoading"
@@ -325,8 +328,17 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button type="primary" :disabled="formLoading" @click="submitForm">确定</el-button>
-      <el-button @click="formVisible = false">取消</el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="primary"
+          :disabled="formLoading"
+          @click="submitForm"
+        >
+          确定
+        </el-button>
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="formVisible = false">取消</el-button>
+      </div>
     </template>
   </Dialog>
 </template>

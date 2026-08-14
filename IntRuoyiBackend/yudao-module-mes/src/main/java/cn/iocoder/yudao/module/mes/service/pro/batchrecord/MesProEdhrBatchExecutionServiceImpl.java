@@ -3073,8 +3073,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public EdhrBatchExecutionReviewTimelineRespVO getReviewTimeline(Long id) {
         MesProEdhrBatchExecutionDO batch = validateBatchExists(id);
+        syncIfActive(batch);
+        batch = batchExecutionMapper.selectById(batch.getId());
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
         batchExecutionVisibilityService.requireVisibleBatch(batch, tasks, currentUserId());
         List<MesProEdhrBatchExecutionSignatureDO> signatures =
@@ -3083,7 +3086,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 batchArchiveMapper.selectListByBatchExecutionId(batch.getId());
         List<MesProEdhrBatchDossierItemDO> dossierItems =
                 dossierItemMapper.selectListByBatchExecutionId(batch.getId());
-        Map<Long, TaskGate> taskGateMap = buildTaskGateMap(batch, tasks);
+        Map<Long, TaskGate> taskGateMap = buildReviewTimelineTaskGateMap(batch, tasks);
         List<String> taskIds = tasks.stream()
                 .map(MesProEdhrBatchExecutionTaskDO::getId)
                 .filter(Objects::nonNull)
@@ -3091,8 +3094,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .toList();
         List<MesProEdhrFlowEventDO> flowEvents =
                 flowEventMapper.selectListByTaskIds(taskIds, FLOW_EVENT_TYPE_FLOW_INTERVENTION);
+        boolean readonlyReviewTimeline = batch != null && !isActiveBatch(batch);
         List<EdhrBatchExecutionReviewTimelineRespVO.ExecutionReview> executionReviews = tasks.stream()
-                .map(this::toExecutionReview)
+                .map(task -> toExecutionReview(task, readonlyReviewTimeline))
                 .filter(Objects::nonNull)
                 .toList();
         List<EdhrBatchExecutionReviewTimelineRespVO.ApprovalRecord> approvalRecords = executionReviews.stream()
@@ -3123,6 +3127,23 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setArchiveVersions(archives.stream().map(this::toArchiveResp).toList())
                 .setDossierItems(dossierItems.stream().map(this::toTimelineDossierItem).toList())
                 .setExecutionReviews(executionReviews);
+    }
+
+    private Map<Long, TaskGate> buildReviewTimelineTaskGateMap(MesProEdhrBatchExecutionDO batch,
+                                                               List<MesProEdhrBatchExecutionTaskDO> tasks) {
+        if (batch != null && !isActiveBatch(batch)) {
+            return tasks.stream()
+                    .filter(task -> task.getId() != null)
+                    .collect(Collectors.toMap(MesProEdhrBatchExecutionTaskDO::getId,
+                            task -> readonlyReviewTimelineGate(),
+                            (left, right) -> left,
+                            LinkedHashMap::new));
+        }
+        return buildTaskGateMap(batch, tasks);
+    }
+
+    private TaskGate readonlyReviewTimelineGate() {
+        return new TaskGate(false, "历史批次只读");
     }
 
     @Override
@@ -4089,6 +4110,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                           MesProRouteDO route,
                                                           List<MesProRouteProcessDO> routeProcesses) {
         if (batch.getRouteVersionId() != null) {
+            if (hasFrozenBatchTaskConfigSnapshot(batch.getRouteSnapshotJson())) {
+                return resolveFrozenBatchTaskConfigs(batch);
+            }
+            if (hasCurrentBatchProcessConfig(route.getId())) {
+                return resolveBatchTaskConfigs(route, routeProcesses);
+            }
             return resolveFrozenBatchTaskConfigs(batch);
         }
         return resolveBatchTaskConfigs(route, routeProcesses);
@@ -4701,7 +4728,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private String resolveRouteFormSlotType(String formSlotType) {
-        return StrUtil.blankToDefault(StrUtil.trim(formSlotType), FORM_SLOT_MAIN);
+        String trimmed = StrUtil.trim(formSlotType);
+        if (StrUtil.isBlank(trimmed) || !ROUTE_FORM_SLOT_TYPES.contains(trimmed)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+        }
+        return trimmed;
     }
 
     private Boolean resolveRouteRecordbookEnabled(Boolean recordbookEnabled, String recordCategory) {
@@ -4950,6 +4981,15 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private boolean hasBatchFlowConfigContext(Long routeId, String batchUseType) {
         MesProRouteFlowConfigDO flowConfig = routeFlowConfigMapper.selectByRouteIdAndUseType(routeId, batchUseType);
         return flowConfig == null || MesProRouteFlowContextMatcher.isFlowContext(flowConfig, routeId, batchUseType);
+    }
+
+    private boolean hasCurrentBatchProcessConfig(Long routeId) {
+        if (routeId == null) {
+            return false;
+        }
+        return !routeFlowProcessConfigMapper
+                .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .isEmpty();
     }
 
     private boolean isOwnedByEnabledProcessConfig(
@@ -6409,6 +6449,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     private EdhrBatchExecutionReviewTimelineRespVO.ExecutionReview toExecutionReview(
             MesProEdhrBatchExecutionTaskDO task) {
+        return toExecutionReview(task, false);
+    }
+
+    private EdhrBatchExecutionReviewTimelineRespVO.ExecutionReview toExecutionReview(
+            MesProEdhrBatchExecutionTaskDO task,
+            boolean persistedExecutionOnly) {
         if (task.getExecutionId() == null) {
             return null;
         }
@@ -6444,7 +6490,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         .setExecutionSnapshotJson(execution.getExecutionSnapshotJson())
                         .setCellValuesJson(execution.getCellValuesJson())
                         .setRemark(execution.getRemark())
-                        .setSignatureCellMarkers(resolveSignatureCellMarkers(execution, task)))
+                        .setSignatureCellMarkers(resolveSignatureCellMarkers(execution, task, persistedExecutionOnly)))
                 .setFieldAuditSummary(toFieldAuditSummary(execution, auditBatches))
                 .setSignatureSummary(toSignatureSummary(executionSignatures))
                 .setSignatureRecords(executionSignatures.stream()
@@ -6492,10 +6538,22 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private List<EdhrBatchExecutionReviewTimelineRespVO.SignatureCellMarker> resolveSignatureCellMarkers(
             MesProBatchRecordExecutionDO execution,
             MesProEdhrBatchExecutionTaskDO task) {
+        return resolveSignatureCellMarkers(execution, task, false);
+    }
+
+    private List<EdhrBatchExecutionReviewTimelineRespVO.SignatureCellMarker> resolveSignatureCellMarkers(
+            MesProBatchRecordExecutionDO execution,
+            MesProEdhrBatchExecutionTaskDO task,
+            boolean persistedExecutionOnly) {
         List<EdhrBatchExecutionReviewTimelineRespVO.SignatureCellMarker> snapshotMarkers =
                 extractSignatureCellMarkers(execution.getExecutionSnapshotJson());
         if (!snapshotMarkers.isEmpty()) {
             return snapshotMarkers;
+        }
+        List<EdhrBatchExecutionReviewTimelineRespVO.SignatureCellMarker> layoutMarkers =
+                extractSignatureCellMarkers(execution.getSheetLayoutJson());
+        if (!layoutMarkers.isEmpty() || persistedExecutionOnly) {
+            return layoutMarkers;
         }
         if (StrUtil.isBlank(task.getBatchRecordReportId())) {
             return List.of();

@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.dcc.dal.mysql.file;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDistributionRecipientDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -16,4 +18,22 @@ public interface DccControlledFileDistributionRecipientMapper extends BaseMapper
     default List<DccControlledFileDistributionRecipientDO> selectListByUserId(Long userId) {
         return selectList(DccControlledFileDistributionRecipientDO::getUserId, userId);
     }
+
+    @Select("""
+            SELECT COUNT(1)
+            FROM dcc_controlled_file_distribution_recipient recipient
+            INNER JOIN dcc_controlled_file_distribution distribution
+                    ON distribution.id = recipient.distribution_id
+            WHERE recipient.tenant_id = #{tenantId}
+              AND distribution.tenant_id = #{tenantId}
+              AND distribution.controlled_file_id = #{controlledFileId}
+              AND recipient.user_id = #{userId}
+              AND distribution.distribution_medium = 'PUBLIC_FOLDER'
+              AND distribution.status IN ('PENDING', 'SENT', 'READ', 'ACKNOWLEDGED')
+              AND recipient.deleted = 0
+              AND distribution.deleted = 0
+            """)
+    long countActiveElectronicRecipientAccess(@Param("tenantId") Long tenantId,
+                                              @Param("controlledFileId") Long controlledFileId,
+                                              @Param("userId") Long userId);
 }

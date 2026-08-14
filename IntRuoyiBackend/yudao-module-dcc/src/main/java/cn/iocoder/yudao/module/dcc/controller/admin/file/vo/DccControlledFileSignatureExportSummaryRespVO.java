@@ -44,8 +44,23 @@ public class DccControlledFileSignatureExportSummaryRespVO {
         @Schema(description = "受控副本摘要状态", example = "NOT_APPLICABLE")
         private String controlledCopyHashStatus;
 
+        @Schema(description = "受控副本文件 ID", example = "8400999")
+        private Long controlledCopyFileId;
+
+        @Schema(description = "受控副本 SHA-256")
+        private String controlledCopyHash;
+
         @Schema(description = "证据状态", example = "VALID")
         private String evidenceStatus;
+
+        @Schema(description = "权威复算失败原因", example = "CONTROLLED_COPY_HASH_MISMATCH")
+        private String verificationReason;
+
+        @Schema(description = "受控副本绑定事件键", example = "process-900")
+        private String bindingEventKey;
+
+        @Schema(description = "受控副本绑定时间")
+        private LocalDateTime boundAt;
 
         @Schema(description = "证据摘要短码", example = "6f2c91ab03d4")
         private String evidenceHashShort;

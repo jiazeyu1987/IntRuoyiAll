@@ -10,7 +10,7 @@
         <div class="calendar-toolbar">
           <div class="toolbar-block toolbar-block-left">
             <el-button @click="backToTaskPage">
-              <Icon icon="ep:arrow-left" class="mr-5px" /> 返回排产
+              <Icon icon="ep:arrow-left" class="mr-5px" /> 返回
             </el-button>
             <div class="toolbar-title-group">
               <h2>{{ monthTitle }}</h2>

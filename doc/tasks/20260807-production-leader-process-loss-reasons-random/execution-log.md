@@ -1,0 +1,39 @@
+# Execution Log
+
+- Intent: 用户要求给生产组长工序配置列表的每个工序随机新增 1~6 个损耗原因。
+- Scope: 仅本机 `int_main`，仅当前确认登录租户，使用真实前端页面完成写入。
+- Skill: 使用 `playwright` 技能执行真实页面路径；遵守 `docs/database-rules.md`、`docs/login-access.md`、`docs/e2e-rules.md`、`docs/local-runtime.md` 和 `docs/task-closeout-rules.md`。
+- BDD: 每个工序新增随机数量损耗原因 -> Given 生产组长打开工序配置列表, When 对每个目标工序逐个打开新增损耗原因并保存, Then 每个工序新增数量均为 1~6 且页面显示保存成功。
+- BDD: 新增数据可追溯 -> Given 本任务为每个新增原因生成带任务标识的名称, When 完成页面写入后进行只读核验, Then 每条新增原因可按工序、名称和系统生成编码追溯。
+- BDD: 写入失败立即停止 -> Given 任一工序新增请求失败或返回非预期业务码, When 页面暴露错误, Then 停止后续工序写入并记录失败工序，不切换租户、账号、端口或数据源。
+- Experience gate: 已读取 `docs/experience-index.md`，本任务匹配 `docs/backend-development.md#生产组长工序配置维护权限不得被工序开始快照误拦`、`docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁`、`docs/e2e-rules.md#写入型远程下拉候选新鲜度门禁`；使用正式 `process-config/list` 数据源和任务标识名称，不使用一线设备账号接口、直接 SQL 或 API-only 写入。
+- Git preflight: `int_main` 存在并发 QA 规程未提交改动；按项目脏工作区基线规则显式暂存 6 个既有文件并提交 `6ebb603c4`（`chore: baseline concurrent qa regulation changes`）。`git diff --cached --check` 仅报告并发任务 `task.md` 末尾空行，未修改该并发任务内容。
+- Runtime preflight: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS；前端 `http://127.0.0.1:8081/` -> HTTP 200，PID `51364`；后端 `http://127.0.0.1:48081/actuator/health` -> `UP`，PID `38500`，归属 `E:\IntRuoyi` 的 `int_main` 稳定运行 Jar。
+- Playwright prerequisite: `npx` 位于 `D:\Programs\npx.ps1`，满足 `playwright` 技能前置条件。
+- Push preflight: `git ls-remote origin HEAD` 首次失败，GitHub URL 级代理指向未监听的本地端口；按 `docs/powershell-memory.md#GitHub-HTTPS-443-本地代理门禁` 在最终推送前核对 Windows 当前代理端口并使用一次性 Git 代理参数复验，不修改全局 Git 配置。
+- RED: Playwright 真实页面 `测试租户/admin -> 生产组长 -> 工序配置` 初始列表包含 `66` 个工序，任务标识 `RLR0807` 命中 `0` 个工序，符合预期未配置状态。
+- GREEN: Playwright CLI 逐工序打开“新增损耗”弹窗并保存 -> PASS；`66` 个工序共新增 `237` 条，每个工序 `1..6` 条，分布为 `1:9、2:12、3:11、4:11、5:11、6:12`。
+- GREEN: 页面重新加载后的正式 `process-config/list` 响应逐条核对 -> PASS；`processCount=66`、`uniqueRouteProcessCount=66`、`totalCreated=237`、数量越界 `0`、缺编码 `0`、异常名称 `0`、重复 ID `0`、重复名称 `0`、目标 HTTP 错误 `0`、page error `0`。
+- GREEN: Playwright CLI 页面查找首尾任务原因 -> `RLR0807-001-01` 命中 `球囊扩张压力泵 / 1 - 粗洗工序 / LOSS-928896-001`；`RLR0807-066-01` 命中 `ACD04 Unauthorized Route / 10 - ACD04 Unauthorized Process / LOSS-980630-001`。
+- UI note: 页面存在 `2` 条与本任务无关的“审批待办数量加载失败：系统异常”console error，并显示同源全局 toast；损耗原因目标接口、目标页面脚本和本任务写入均无错误，未隐藏或改写该并发环境问题。
+- Evidence: 临时结构化结果 `output/playwright/20260807-production-leader-process-loss-reasons-random/batch-add-result.json`，最终页面截图 `output/playwright/20260807-production-leader-process-loss-reasons-random/final-process-config.png`；核心统计和逐工序编码已归档到 `verification-report.md`，临时产物列入 cleanup。
+- Concurrency: 执行期间共享 `int_main` 出现并发基线提交；本任务前置日志被 `9c7507e1d` 吸收，完整验证报告与 `ready_for_closeout` 状态随后被 `e111d1543`（`chore: baseline concurrent frontline updates`）吸收。当前任务不修改并发源码、测试、SQL 或其它任务文档，后续仅显式暂存本任务三个核心记录。
+- Experience consolidation: 已按 `project-experience-consolidation` 检查长期经验归宿；本次可复用规则已完整存在于 `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁`、`docs/e2e-rules.md#写入型远程下拉候选新鲜度门禁` 和 `docs/backend-development.md#生产组长工序配置维护权限不得被工序开始快照误拦`，未重复新增长期经验文档。
+- Closeout preview: `task_closeout.py --mode preview` -> `status: ready`，仅删除本任务 `output/playwright/20260807-production-leader-process-loss-reasons-random/`，保留 `task.md`、`execution-log.md`、`verification-report.md`，blocked/warnings 均为 `none`。
+- Closeout apply: `task_closeout.py --mode apply` -> `status: applied`，本任务 Playwright 临时目录已删除；任务隔离 npm 缓存 `E:\Int\DevCache\npm-cache-lossreason0807` 已确认无占用进程后删除并复核 `CACHE_EXISTS=false`。
+- Push blocker: 最终 `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS；GitHub URL 级配置端口 `127.0.0.1:7890` 未监听，一次性改用 Clash 当前 `mixed-port=8902` 后 TLS 握手异常断开，禁用 URL 级代理后的直连也被重置。Clash 控制面进一步确认当前节点及自动选择组全部 `48` 个节点健康检查失败；因此无法执行强制 `git push origin int_main`，任务保持 `ready_for_closeout`，未修改全局 Git 或系统代理配置。
+- User regression evidence: 用户截图显示默认生产组长页面的 `球囊扩张导管` 多个工序仍为“暂无损耗原因”。重新通过真实登录页进入 `芋道源码/admin` 后，负责路线与截图一致。
+- BDD: 修正错误租户并补齐当前列表 -> Given 默认 `芋道源码/admin` 的生产组长工序配置列表, When 对当前页面每个工序新增随机 `1..6` 个带 `RLR0807M` 前缀的损耗原因, Then `105` 个工序的任务原因数均为 `1..6` 且页面不再出现“暂无损耗原因”。
+- RED: Playwright CLI `run-code --filename output/playwright/20260807-production-leader-process-loss-reasons-random-fix/red-current-page.js` -> FAIL（预期）；`rowCount=105`、`emptyRowCount=104`、`taskReasonCount=0`。
+- Root cause: 首次执行选择了 `测试租户/admin` 的 `66` 个工序，用户实际查看的是默认 `芋道源码/admin` 的另一套 `105` 个工序；首次验证范围正确但目标租户错误。
+- Runtime interruption: 批量写入期间共享 `int_main` 后端被并发任务重启两次；目标请求超时或业务码 `401` 时立即停止。前端自动刷新令牌后的同请求重试以最终成功响应为准；每次恢复均重新登录同一 `芋道源码/admin` 并按 `RLR0807M` 页面现有值断点续跑，未切换租户、账号或数据源。
+- GREEN: Playwright CLI 真实页面逐工序保存 -> PASS；当前默认租户 `105` 个工序共新增 `313` 条 `RLR0807M` 原因。
+- GREEN: 独立完整页面重载后执行 `verify-current-page.js` -> PASS；`rowCount=105`、`totalTaskReasons=313`、`emptyRowCount=0`、`violationCount=0`、`missingCodeCount=0`、`duplicateNameCount=0`。
+- GREEN distribution: `1:27、2:19、3:18、4:18、5:16、6:7`；路线汇总为 `球囊扩张导管:63、棘突球囊扩张导管:83、球囊扩张压力泵:47、路线状态机E2E-20260718100825:46、测试节点-工艺路线-状态删除:40、按压式球囊扩充压力泵:34`。
+- Visual verification: `1600x900` 最终截图显示用户截图中的 `球囊扩张导管` 前 8 个工序均已有系统编码和 `RLR0807M` 原因，不再显示“暂无损耗原因”。
+- Experience consolidation: 根因属于登录/租户范围门禁，已合并到既有 `docs/login-access.md#本机登录来源`：截图或当前页面写入前必须核对同一真实会话的租户/账号、可见业务范围和列表数量，禁止静默切换到另一测试租户；未新建长期经验文档。
+- Correction closeout preview: `task_closeout.py --mode preview` -> `status: ready`；保留 `task.md`、`execution-log.md`、`verification-report.md`，计划删除修正用 `bug-regression-evidence.md` 和 `output/playwright/20260807-production-leader-process-loss-reasons-random-fix/`，blocked 为 `none`；首次临时目录已不存在，仅产生预期 warning。
+- Correction closeout apply: `task_closeout.py --mode apply` -> `status: applied`；修正用证据草稿和 Playwright 临时目录已删除，三个核心任务记录均保留；Playwright 会话 `lossreasonfix0807` 已关闭。
+- Implementation/closeout commit: `5278e375d`（`docs: correct production leader loss reason scope`），仅包含本任务四个记录变更（含清理删除）及 `docs/login-access.md` 的租户门禁经验。
+- Push: 默认 GitHub URL 级代理 `127.0.0.1:7890` 未监听，当前 Clash `8902` TLS 握手失败；一次性禁用该 URL 代理后直连 `git ls-remote origin HEAD` 成功，随后 `git -c http.https://github.com.proxy= push origin int_main` -> PASS，`a8ecf9fc6..5278e375d` 已推送；未修改全局 Git 或系统代理配置。
+- Final verification: 数据核验、可视核验、经验沉淀、临时产物清理和实现记录推送均完成，任务状态更新为 `completed`。

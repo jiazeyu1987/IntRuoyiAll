@@ -15,7 +15,7 @@ export interface ApprovalPrintTemplateVO {
   remark?: string
   requiredPlaceholders: string[]
   supportedPlaceholders: string[]
-  updateTime?: string
+  updateTime?: number
 }
 
 export interface ControlledFileApprovalPrintHtmlVO {

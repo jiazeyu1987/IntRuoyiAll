@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileNasDirect
 import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileNasDirectoryTreeRespVO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.FileUploadSecurityPolicy;
 import cn.iocoder.yudao.module.infra.service.file.access.FileDirectLinkAccessContext;
 import cn.iocoder.yudao.module.infra.service.file.NasConnectionConfig;
 import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
@@ -29,6 +30,7 @@ import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_DIRECT_LINK_BLOCKED_BY_DCC;
+import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_UPLOAD_EXECUTABLE_BLOCKED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -48,6 +50,8 @@ class FileControllerTest extends BaseMockitoUnitTest {
 
     @Mock
     private FileService fileService;
+    @Mock
+    private FileUploadSecurityPolicy fileUploadSecurityPolicy;
     @Mock
     private NasBrowserService nasBrowserService;
     @Mock
@@ -200,6 +204,21 @@ class FileControllerTest extends BaseMockitoUnitTest {
         assertEquals("/admin-api/infra/file/28/get/showroom/company/20260521/company%20cover.png",
                 result.getData());
         assertTrue(result.getData().startsWith("/admin-api/infra/file/28/get/"));
+        verify(fileUploadSecurityPolicy).validate("company cover.png", "png".getBytes());
+    }
+
+    @Test
+    void uploadFile_whenExecutableRejected_doesNotCreateStorageObjectOrRecord() throws Exception {
+        byte[] content = new byte[]{'M', 'Z', 0, 0};
+        FileUploadReqVO reqVO = new FileUploadReqVO();
+        reqVO.setFile(new MockMultipartFile("file", "installer.EXE", "application/octet-stream", content));
+        doThrow(exception(FILE_UPLOAD_EXECUTABLE_BLOCKED, "installer.EXE"))
+                .when(fileUploadSecurityPolicy).validate("installer.EXE", content);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> fileController.uploadFile(reqVO));
+
+        assertEquals(FILE_UPLOAD_EXECUTABLE_BLOCKED.getCode(), ex.getCode());
+        verify(fileService, never()).createFileAndReturnId(any(), any(), any(), any());
     }
 
     @Test

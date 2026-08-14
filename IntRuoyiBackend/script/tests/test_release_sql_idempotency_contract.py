@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -123,6 +124,28 @@ def test_dcc_controlled_file_change_type_sql_is_idempotent_and_release_scoped() 
     assert "CALL intruoyi_add_dcc_controlled_file_change_type()" in text
     assert "column_name = 'change_type'" in text
     assert "ALTER TABLE `dcc_controlled_file`\n      ADD COLUMN `change_type`" in text
+
+
+def test_dcc_base_schema_controlled_print_menu_does_not_reuse_legacy_fixed_id() -> None:
+    text = (REPO_ROOT / "sql" / "mysql" / "20260513_dcc_base_schema.sql").read_text(encoding="utf-8")
+
+    match = re.search(
+        r"INSERT INTO `system_menu`\s*\((?P<columns>[^)]*)\)\s*"
+        r"SELECT (?P<select>[^;]*'dcc:controlled-file:print'[^;]*)"
+        r"WHERE NOT EXISTS \((?P<guard>[^;]*)\);",
+        text,
+        re.S,
+    )
+
+    assert match, "base schema must still seed the controlled print menu permission"
+    assert "`id`" not in match.group("columns"), (
+        "controlled print base schema seed must not hardcode legacy menu id 6813; "
+        "checksum drift replays can encounter target databases where that id is already occupied"
+    )
+    assert not re.search(r"\b6813\b", match.group("select")), (
+        "controlled print base schema seed must allocate a safe id instead of inserting 6813"
+    )
+    assert "`permission` = 'dcc:controlled-file:print'" in match.group("guard")
 
 
 def test_system_password_policy_sql_is_idempotent() -> None:

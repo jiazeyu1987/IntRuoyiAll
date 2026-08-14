@@ -1,0 +1,268 @@
+{
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "targetResults": [
+    {
+      "label": "待办",
+      "viewType": "TODO",
+      "total": 128,
+      "listSize": 10,
+      "applicantRows": 4,
+      "namedRows": [
+        {
+          "id": "DCC:DCC_CONTROLLED_FILE_TASK:c1d6eef8-8fbf-11f1-a00f-00155d2984a0",
+          "initiatorUserId": 1,
+          "initiatorUserName": "瑛泰管理员(admin)"
+        },
+        {
+          "id": "DCC:DCC_CONTROLLED_FILE_TASK:0cf42401-8e8f-11f1-a5cc-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "DCC:DCC_CONTROLLED_FILE_TASK:5c78b229-8e8e-11f1-a5cc-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "DCC:DCC_CONTROLLED_FILE_TASK:bc175096-8e6d-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        }
+      ],
+      "applicantCells": [
+        "--",
+        "瑛泰管理员(admin)",
+        "--",
+        "彭云凤(pengyunfeng)",
+        "--",
+        "王思雨(wangsiyu)",
+        "--",
+        "--",
+        "彭云凤(pengyunfeng)",
+        "--",
+        "彭云凤(pengyunfeng)",
+        "--",
+        "彭云凤(pengyunfeng)",
+        "--",
+        "彭云凤(pengyunfeng)",
+        "--",
+        "彭云凤(pengyunfeng)",
+        "--",
+        "彭云凤(pengyunfeng)",
+        "董玉萍(A2020067)"
+      ]
+    },
+    {
+      "label": "已办",
+      "viewType": "DONE",
+      "total": 3222,
+      "listSize": 20,
+      "applicantRows": 6,
+      "namedRows": [
+        {
+          "id": "DCC:DCC_CONTROLLED_FILE_TASK:094d8a10-8e8f-11f1-a5cc-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "DCC:DCC_CONTROLLED_FILE_TASK:0599d0bf-8e8f-11f1-a5cc-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "DCC:DCC_CONTROLLED_FILE_TASK:58c7df12-8e8e-11f1-a5cc-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "DCC:DCC_CONTROLLED_FILE_TASK:550d9611-8e8e-11f1-a5cc-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "DCC:DCC_CONTROLLED_FILE_TASK:19801360-8e8e-11f1-a5cc-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "DCC:DCC_CONTROLLED_FILE_TASK:6e422cdc-8e7e-11f1-aa29-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        }
+      ],
+      "applicantCells": [
+        "--",
+        "彭云凤(pengyunfeng)",
+        "--",
+        "彭云凤(pengyunfeng)",
+        "--",
+        "王思雨(wangsiyu)",
+        "--",
+        "王思雨(wangsiyu)",
+        "--",
+        "王思雨(wangsiyu)",
+        "--",
+        "--",
+        "--",
+        "--",
+        "--",
+        "--",
+        "--",
+        "--",
+        "--",
+        "彭云凤(pengyunfeng)"
+      ]
+    },
+    {
+      "label": "我发起的",
+      "viewType": "MY_INITIATED",
+      "total": 392,
+      "listSize": 20,
+      "applicantRows": 20,
+      "namedRows": [
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:c1cd2ae6-8fbf-11f1-a00f-00155d2984a0",
+          "initiatorUserId": 1,
+          "initiatorUserName": "瑛泰管理员(admin)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:0599828d-8e8f-11f1-a5cc-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:197cdefe-8e8e-11f1-a5cc-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:39fb6cce-8e81-11f1-aa29-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:76f6dfd2-8e7e-11f1-aa29-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:6354eeb1-8e7e-11f1-aa29-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:4d0a25b0-8e7e-11f1-aa29-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:4a887d80-8e76-11f1-8686-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:36b8777f-8e76-11f1-8686-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:0e9ad88e-8e76-11f1-8686-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:aae28f33-8e6d-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:05d23ecc-8e6d-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:9315d65b-8e6c-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:53fbed5f-8e6b-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:3f68e67e-8e6b-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:29f5dedd-8e6b-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:04a999e1-8e69-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:ef177180-8e68-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:bf32664a-8e68-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 910250,
+          "initiatorUserName": "王思雨(wangsiyu)"
+        },
+        {
+          "id": "BPM:BPM_PROCESS_INSTANCE:fa9edf24-8e66-11f1-93ff-00155d2984a0",
+          "initiatorUserId": 151,
+          "initiatorUserName": "彭云凤(pengyunfeng)"
+        }
+      ],
+      "applicantCells": [
+        "瑛泰管理员(admin)",
+        "彭云凤(pengyunfeng)",
+        "王思雨(wangsiyu)",
+        "王思雨(wangsiyu)",
+        "王思雨(wangsiyu)",
+        "彭云凤(pengyunfeng)",
+        "彭云凤(pengyunfeng)",
+        "王思雨(wangsiyu)",
+        "彭云凤(pengyunfeng)",
+        "彭云凤(pengyunfeng)",
+        "彭云凤(pengyunfeng)",
+        "彭云凤(pengyunfeng)",
+        "王思雨(wangsiyu)",
+        "王思雨(wangsiyu)",
+        "彭云凤(pengyunfeng)",
+        "彭云凤(pengyunfeng)",
+        "彭云凤(pengyunfeng)",
+        "彭云凤(pengyunfeng)",
+        "王思雨(wangsiyu)",
+        "彭云凤(pengyunfeng)"
+      ]
+    },
+    {
+      "label": "抄送",
+      "viewType": "CC",
+      "total": 0,
+      "listSize": 0,
+      "applicantRows": 0,
+      "namedRows": [],
+      "applicantCells": []
+    }
+  ],
+  "namedResultCount": 30,
+  "pageErrors": [],
+  "consoleErrors": [],
+  "abortedReadRequests": [
+    "GET http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO net::ERR_ABORTED",
+    "GET http://127.0.0.1:8081/admin-api/approval-center/modules net::ERR_ABORTED"
+  ],
+  "targetNetworkFailures": [],
+  "targetWriteRequests": []
+}

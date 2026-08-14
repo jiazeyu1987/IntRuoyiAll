@@ -1,6 +1,7 @@
 <template>
   <Dialog
     v-model="dialogVisible"
+    class="scheme-d-basic-data-page scheme-d-basic-data-page--form-template scheme-d-form-control"
     title="填写配置"
     width="calc(100vw - 32px)"
     :fullscreen="true"
@@ -25,8 +26,8 @@
 
         <section class="batch-record-cell-rules-editor__summary">
           <span class="batch-record-cell-rules-editor__name">{{ templateName }}</span>
-          <el-tag type="primary" effect="plain">规则 {{ ruleRows.length }}</el-tag>
-          <el-tag :type="pendingCount > 0 ? 'warning' : 'success'" effect="plain">
+          <el-tag class="scheme-d-tag" type="primary" effect="plain">规则 {{ ruleRows.length }}</el-tag>
+          <el-tag class="scheme-d-tag" :type="pendingCount > 0 ? 'warning' : 'success'" effect="plain">
             待确认 {{ pendingCount }}
           </el-tag>
           <el-radio-group
@@ -59,7 +60,7 @@
               <strong>原表单</strong>
               <p>点击任意单元格只会选中规则目标，不会触发日期框、签名框或复选框。</p>
             </div>
-            <el-tag type="info" effect="plain">只读</el-tag>
+            <el-tag class="scheme-d-tag" type="info" effect="plain">只读</el-tag>
           </div>
 
           <el-alert
@@ -134,7 +135,7 @@
               <strong>辅助表单预览</strong>
               <p>点击黄色表格单元格后，再点击左侧未灰化的原表单元格建立映射。</p>
             </div>
-            <el-tag type="warning" effect="plain">实时</el-tag>
+            <el-tag class="scheme-d-tag" type="warning" effect="plain">实时</el-tag>
           </div>
 
           <div class="batch-record-cell-rules-editor__assist-preview-scroll">
@@ -145,7 +146,7 @@
             <template v-else>
               <div class="batch-record-cell-rules-editor__assist-grid-meta">
                 <strong>{{ selectedAssistFillerUserLabel }}</strong>
-                <el-tag size="small" effect="plain">
+                <el-tag class="scheme-d-tag" size="small" effect="plain">
                   辅助表格 {{ assistGridRowCount }} × {{ assistGridColumnCount }}
                 </el-tag>
               </div>
@@ -248,6 +249,7 @@
                   />
                 </el-select>
                 <el-button
+                  class="scheme-d-btn scheme-d-btn--success"
                   type="primary"
                   plain
                   :disabled="readonlyMode || !pendingAssistFillerUserId"
@@ -275,6 +277,7 @@
                   <el-button
                     size="small"
                     link
+                    class="scheme-d-row-action scheme-d-row-action--danger"
                     type="danger"
                     :disabled="readonlyMode"
                     @click="removeAssistFillerUser(userId)"
@@ -423,6 +426,7 @@
                         />
                         <el-button
                           link
+                          class="scheme-d-row-action scheme-d-row-action--danger"
                           type="danger"
                           @click="removeSelectedStringOption(optionIndex)"
                         >
@@ -431,6 +435,7 @@
                       </div>
                       <el-button
                         link
+                        class="scheme-d-row-action scheme-d-row-action--success"
                         type="primary"
                         @click="addSelectedStringOption"
                       >
@@ -461,6 +466,7 @@
                 </div>
                 <el-button
                   size="small"
+                  class="scheme-d-btn scheme-d-btn--success"
                   type="primary"
                   plain
                   :disabled="readonlyMode || !selectedCell"
@@ -550,6 +556,7 @@
                     <div class="batch-record-cell-rules-editor__assist-actions">
                       <el-button
                         size="small"
+                        class="scheme-d-btn scheme-d-btn--primary"
                         :disabled="readonlyMode || !selectedCell"
                         @click="assignSelectedCellToAssistRow(assistRow.rowKey)"
                       >
@@ -557,6 +564,7 @@
                       </el-button>
                       <el-button
                         size="small"
+                        class="scheme-d-btn scheme-d-btn--warning"
                         :disabled="readonlyMode || assistRowIndex === 0"
                         @click="moveAssistRow(assistRow.rowKey, -1)"
                       >
@@ -564,6 +572,7 @@
                       </el-button>
                       <el-button
                         size="small"
+                        class="scheme-d-btn scheme-d-btn--warning"
                         :disabled="readonlyMode || assistRowIndex === editableAssistRows.length - 1"
                         @click="moveAssistRow(assistRow.rowKey, 1)"
                       >
@@ -571,6 +580,7 @@
                       </el-button>
                       <el-button
                         size="small"
+                        class="scheme-d-btn scheme-d-btn--danger"
                         type="danger"
                         plain
                         :disabled="readonlyMode"
@@ -588,12 +598,18 @@
           <el-empty v-else description="请在左侧表单中点击一个单元格" />
         </div>
 
-        <div class="batch-record-cell-rules-editor__side-actions">
-          <el-button @click="dialogVisible = false">关闭</el-button>
-          <el-button :loading="loading" :disabled="loading || saving" @click="reloadTemplateRules">
+        <div class="batch-record-cell-rules-editor__side-actions scheme-d-dialog-footer">
+          <el-button class="scheme-d-btn scheme-d-btn--danger" @click="dialogVisible = false">关闭</el-button>
+          <el-button
+            class="scheme-d-btn scheme-d-btn--warning"
+            :loading="loading"
+            :disabled="loading || saving"
+            @click="reloadTemplateRules"
+          >
             重新读取
           </el-button>
           <el-button
+            class="scheme-d-btn scheme-d-btn--success"
             type="primary"
             :loading="saving"
             :disabled="!canConfirmRules"

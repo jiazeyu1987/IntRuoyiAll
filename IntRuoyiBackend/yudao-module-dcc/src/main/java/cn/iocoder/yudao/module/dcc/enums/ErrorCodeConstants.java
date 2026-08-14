@@ -15,6 +15,7 @@ public interface ErrorCodeConstants {
     ErrorCode APPROVAL_ROUTE_NODE_EMPTY = new ErrorCode(1_080_000_005, "Approval route nodes cannot be empty");
     ErrorCode ROUTE_PREVIEW_APPROVER_NOT_FOUND = new ErrorCode(1_080_000_006, "Route preview failed because a stage has no resolved approver");
     ErrorCode FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS = new ErrorCode(1_080_000_007, "File category is not bound to a directory");
+    ErrorCode FILE_CATEGORY_UNCLASSIFIED_DIRECTORY_NOT_EXISTS = new ErrorCode(1_080_000_196, "Unclassified upload directory does not exist");
     ErrorCode CONTROLLED_FILE_ROUTE_NOT_CONFIGURED = new ErrorCode(1_080_000_008, "Controlled file route is not configured");
     ErrorCode CONTROLLED_FILE_NOT_EXISTS = new ErrorCode(1_080_000_009, "Controlled file does not exist");
     ErrorCode CONTROLLED_FILE_WITHDRAW_NOT_ALLOWED = new ErrorCode(1_080_000_010, "Current controlled file cannot be withdrawn");
@@ -135,6 +136,8 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH = new ErrorCode(1_080_000_114, "DCC viewer token context mismatch");
     ErrorCode CONTROLLED_FILE_UPLOAD_TICKET_INVALID = new ErrorCode(1_080_000_115, "DCC upload ticket is invalid");
     ErrorCode CONTROLLED_FILE_UPLOAD_SESSION_INVALID = new ErrorCode(1_080_000_116, "DCC upload session is invalid");
+    ErrorCode CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT = new ErrorCode(1_080_000_198,
+            "DCC upload slot already contains different content");
     ErrorCode DCC_DOWNLOAD_ENCRYPTION_CONTRACT_MISSING = new ErrorCode(1_080_000_117, "DCC download encryption contract is missing");
     ErrorCode DCC_DOWNLOAD_ENCRYPTION_EVIDENCE_INVALID = new ErrorCode(1_080_000_118, "DCC download encryption evidence is invalid");
     ErrorCode DCC_DOWNLOAD_REQUEST_ID_REQUIRED = new ErrorCode(1_080_000_119, "DCC download request id is required");
@@ -174,6 +177,16 @@ public interface ErrorCodeConstants {
     ErrorCode PROJECT_CODE_DELETE_REFERENCED = new ErrorCode(1_080_000_141,
             "DCC project code cannot be deleted because DCC files still reference it");
     ErrorCode PROJECT_CODE_STATUS_INVALID = new ErrorCode(1_080_000_142, "DCC project code status is invalid");
+    ErrorCode PRODUCT_ONBOARDING_NOT_EXISTS = new ErrorCode(1_080_000_191,
+            "DCC product onboarding request does not exist");
+    ErrorCode PRODUCT_ONBOARDING_DUPLICATE_PROJECT_CODE = new ErrorCode(1_080_000_192,
+            "DCC product onboarding project code already exists or is pending");
+    ErrorCode PRODUCT_ONBOARDING_STATUS_INVALID = new ErrorCode(1_080_000_193,
+            "DCC product onboarding request status is invalid");
+    ErrorCode PRODUCT_ONBOARDING_MDM_PRODUCT_INVALID = new ErrorCode(1_080_000_194,
+            "DCC product onboarding MDM product is invalid: {}");
+    ErrorCode PRODUCT_ONBOARDING_REQUIRED_FIELD_MISSING = new ErrorCode(1_080_000_195,
+            "DCC product onboarding required field is missing: {}");
     ErrorCode DCC_PRODUCT_CATALOG_ROW_KEY_INVALID = new ErrorCode(1_080_000_148,
             "DCC product catalog row key is invalid: {}");
     ErrorCode DCC_PRODUCT_CATALOG_DATA_SOURCE_INVALID = new ErrorCode(1_080_000_149,
@@ -242,6 +255,8 @@ public interface ErrorCodeConstants {
             "DCC project-code assignment metadata audit does not exist");
     ErrorCode PROJECT_CODE_ASSIGNMENT_ASSIGNEE_PERMISSION_MISSING = new ErrorCode(1_080_000_168,
             "DCC project-code assignment assignee lacks the assignment execution menu permission");
+    ErrorCode PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH = new ErrorCode(1_080_000_197,
+            "DCC project-code assignment target project does not match requested project code");
     ErrorCode CONTROLLED_FILE_PERSONAL_PAGE_DISABLED = new ErrorCode(1_080_000_169,
             "DCC personal file page is retired; use controlled file browser");
     ErrorCode DCC_DMR_SHEET_ROOT_CONFIG_MISSING = new ErrorCode(1_080_000_170,
@@ -273,5 +288,25 @@ public interface ErrorCodeConstants {
     ErrorCode FILE_TYPE_TAXONOMY_PARENT_CHANGE_FORBIDDEN = new ErrorCode(1_080_000_187,
             "DCC file type taxonomy parent cannot be changed");
     ErrorCode PROJECT_CODE_DISABLED = new ErrorCode(1_080_000_188, "DCC project code is disabled");
+    ErrorCode CONTROLLED_FILE_PRINT_NOT_ALLOWED = new ErrorCode(1_080_000_189,
+            "Current controlled file cannot be printed as a controlled copy");
+    ErrorCode CONTROLLED_FILE_PRINT_REQUIRED_FIELD_MISSING = new ErrorCode(1_080_000_190,
+            "Controlled print request is missing required print fields");
+    ErrorCode CONTROLLED_FILE_APPROVER_POST_REQUIRED = new ErrorCode(1_080_000_199,
+            "审批人未配置系统岗位");
+    ErrorCode CONTROLLED_FILE_ROUTE_NOT_READY = new ErrorCode(1_080_000_200,
+            "审批路线未就绪：{}");
+    ErrorCode CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH = new ErrorCode(1_080_000_201,
+            "审批路线快照与实际任务分配不一致");
+    ErrorCode CONTROLLED_FILE_FINAL_APPROVAL_NOT_READY = new ErrorCode(1_080_000_202,
+            "最终批准条件未就绪：{}");
+    ErrorCode CONTROLLED_FILE_SIGNATURE_BINDING_FAILED = new ErrorCode(1_080_000_203,
+            "签名证据受控副本绑定失败：{}");
+    ErrorCode CONTROLLED_FILE_SOURCE_OWNERSHIP_CONFLICT = new ErrorCode(1_080_000_204,
+            "正式源文件已由其它受控记录占用：sourceFileId={}");
+    ErrorCode CONTROLLED_FILE_SOURCE_ISOLATION_FAILED = new ErrorCode(1_080_000_205,
+            "正式源文件隔离失败：{}");
+    ErrorCode CONTROLLED_FILE_SOURCE_MIGRATION_CONFLICT = new ErrorCode(1_080_000_206,
+            "正式源文件历史迁移发生并发变更：controlledFileId={}");
 
 }

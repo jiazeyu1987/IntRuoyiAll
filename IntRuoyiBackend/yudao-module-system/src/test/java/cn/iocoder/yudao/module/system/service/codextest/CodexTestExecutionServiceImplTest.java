@@ -66,12 +66,30 @@ class CodexTestExecutionServiceImplTest extends BaseDbUnitTest {
         List<CodexTestExecutionCaseDO> executionCases = codexTestExecutionCaseMapper.selectListByExecutionId(executionId);
         assertEquals(1, executionCases.size());
         assertEquals("排产手动重排", executionCases.get(0).getCaseNameSnapshot());
+        assertEquals("PLAYWRIGHT_E2E", executionCases.get(0).getAnalysisModeSnapshot());
         assertEquals(2, executionCases.get(0).getCheckpointCount());
         List<CodexTestCheckpointResultDO> results =
                 codexTestCheckpointResultMapper.selectListByExecutionCaseId(executionCases.get(0).getId());
         assertEquals(2, results.size());
         assertEquals("NOT_RUN", results.get(0).getStatus());
         assertEquals("重排成功", results.get(0).getExpectedTextSnapshot());
+    }
+
+    @Test
+    void startSequentialExecution_snapshotsCodeReadonlyAnalysisMode() {
+        CodexTestCaseSaveReqVO caseReqVO =
+                CodexTestCaseServiceImplTest.buildCaseReq("批记录测试-生产组长-01-工艺路线配置", false);
+        caseReqVO.setProject("批记录");
+        caseReqVO.setAnalysisMode("CODE_READONLY");
+        Long caseId = codexTestCaseService.createCase(caseReqVO);
+
+        Long executionId = codexTestExecutionService.startExecution(startReq("SEQUENTIAL", caseId), 99L);
+
+        CodexTestExecutionCaseDO executionCase =
+                codexTestExecutionCaseMapper.selectListByExecutionId(executionId).get(0);
+        assertEquals("CODE_READONLY", executionCase.getAnalysisModeSnapshot());
+        CodexTestExecutionRespVO executionRespVO = codexTestExecutionService.getExecution(executionId);
+        assertEquals("CODE_READONLY", executionRespVO.getCases().get(0).getAnalysisModeSnapshot());
     }
 
     @Test

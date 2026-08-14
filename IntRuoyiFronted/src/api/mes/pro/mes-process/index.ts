@@ -1,55 +1,37 @@
-import { ProRouteResourceApi, type ProRouteResourceVO } from '@/api/mes/pro/route/resource'
+import request from '@/config/axios'
 
 export interface MesProcessMachineryVO {
-  machineryId?: number
+  id?: number
+  machinerySortNo?: number
   machineryCode?: string
   machineryName?: string
-  machineryQuantity?: number
-  machineryStandardHourlyCapacity?: number
 }
 
-export interface MesProcessVO extends ProRouteResourceVO {
-  mesProcessCode?: string
-  mesProcessName?: string
-  executionProcessName?: string
-  dailyCapacity10_5?: number
-  dailyWorkerQuantity?: number
-  processPrice?: number
-  feedbackEnabled?: boolean
-  batchRecordEnabled?: boolean
-  batchRecordProcessName?: string
+export interface MesProcessVO {
+  id: number
+  rowKey: string
+  sourceFileName: string
+  sourceSheetName: string
+  sourceRowNo: number
+  sortNo: number
+  catalogCode: string
+  productName: string
+  sourceMachineryCodes: string
+  mesProcessName: string
+  sourceMachineryName: string
+  sourceMachineryQuantity: string
+  dailyCapacity10_5: string
+  dailyWorkerQuantity: string
+  mesProcessCode: string
+  processPrice: string
+  feedbackFlag: string
+  batchRecordFlag: string
+  batchRecordProcessName: string
   machineryList?: MesProcessMachineryVO[]
 }
 
 export const MesProcessApi = {
   getMesProcessPage: async (params: any) => {
-    const data = await ProRouteResourceApi.getResourcePage(params)
-    return {
-      ...data,
-      list: (data.list || []).map(toMesProcessRow)
-    }
+    return await request.get({ url: '/mes/pro/mes-process/page', params })
   }
 }
-
-const toMesProcessRow = (row: ProRouteResourceVO): MesProcessVO => ({
-  ...row,
-  mesProcessCode: row.processCode,
-  mesProcessName: row.processName,
-  executionProcessName: row.processName,
-  dailyCapacity10_5: row.budgetDailyCapacity,
-  dailyWorkerQuantity: row.workerQuantity,
-  batchRecordEnabled: Boolean(row.batchRecordReportName || row.batchRecordReportId),
-  batchRecordProcessName: row.batchRecordReportName,
-  machineryList:
-    row.resourceType === 'MACHINE'
-      ? [
-          {
-            machineryId: row.machineryId,
-            machineryCode: row.machineryCode,
-            machineryName: row.machineryName,
-            machineryQuantity: row.machineryQuantity,
-            machineryStandardHourlyCapacity: row.machineryStandardHourlyCapacity
-          }
-        ]
-      : []
-})

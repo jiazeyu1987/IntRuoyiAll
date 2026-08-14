@@ -4,7 +4,9 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureAuthorizationService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
@@ -19,6 +21,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -47,6 +50,10 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     private DccElectronicSignatureAuthorizationService authorizationService;
     @Mock
     private MesProBatchRecordExecutionSignatureMapper signatureMapper;
+    @Mock
+    private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
+    @Mock
+    private PasswordEncoder passwordEncoder;
     @Mock
     private DeptService deptService;
     @Mock
@@ -91,6 +98,71 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
             assertEquals("CAPTURED", captor.getValue().getSnapshotStatus());
             assertTrue(Boolean.TRUE.equals(captor.getValue().getPasswordVerified()));
         }
+    }
+
+    @Test
+    void recordProductionSubmitSignature_usesSelectedEmployeeActorInsteadOfLoginUser() {
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            when(authorizationService.isElectronicSignatureEnabled(9102L)).thenReturn(true);
+            when(adminUserService.getUser(9102L)).thenReturn(AdminUserDO.builder()
+                    .id(9102L)
+                    .username("selected_employee")
+                    .nickname("实际填写员工")
+                    .deptId(20L)
+                    .postIds(Set.of(30L))
+                    .password("selected-password-hash")
+                    .build());
+            when(adminUserService.isPasswordMatch("selected-secret", "selected-password-hash")).thenReturn(true);
+            stubActorSnapshotForUser(9102L);
+            when(signatureMapper.insert(any(MesProBatchRecordExecutionSignatureDO.class))).thenReturn(1);
+
+            signatureService.recordProductionSubmitSignature(9102L, "selected-secret", "一线生产报工提交");
+
+            ArgumentCaptor<MesProBatchRecordExecutionSignatureDO> captor =
+                    ArgumentCaptor.forClass(MesProBatchRecordExecutionSignatureDO.class);
+            verify(signatureMapper).insert(captor.capture());
+            assertEquals(9102L, captor.getValue().getActorId());
+            assertEquals("PRODUCTION_SUBMIT", captor.getValue().getActionType());
+            assertEquals("selected_employee", captor.getValue().getActorUsernameSnapshot());
+            assertEquals("实际填写员工", captor.getValue().getActorNicknameSnapshot());
+            assertEquals("一线生产报工提交", captor.getValue().getSignaturePurpose());
+            verify(authorizationService).isElectronicSignatureEnabled(9102L);
+            verify(adminUserService).getUser(9102L);
+            verify(adminUserService, never()).getUser(9001L);
+        }
+    }
+
+    @Test
+    void recordProductionSubmitSignature_usesTemporaryEmployeeProfilePasswordHash() {
+        when(adminUserService.getUser(8801L)).thenReturn(null);
+        when(employeeProfileMapper.selectById(8801L)).thenReturn(MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(8801L)
+                .leaderUserId(3001L)
+                .employeeCode("TMP-8801")
+                .employeeName("临时工甲")
+                .displayName("临时工甲")
+                .employeeType("TEMPORARY")
+                .signaturePasswordHash("bcrypt-temp-sign")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(passwordEncoder.matches("tmp-secret", "bcrypt-temp-sign")).thenReturn(true);
+        when(signatureMapper.insert(any(MesProBatchRecordExecutionSignatureDO.class))).thenReturn(1);
+
+        signatureService.recordProductionSubmitSignature(8801L, "tmp-secret", "一线生产报工提交");
+
+        ArgumentCaptor<MesProBatchRecordExecutionSignatureDO> captor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionSignatureDO.class);
+        verify(signatureMapper).insert(captor.capture());
+        assertEquals(8801L, captor.getValue().getActorId());
+        assertEquals("PRODUCTION_SUBMIT", captor.getValue().getActionType());
+        assertEquals("TMP-8801", captor.getValue().getActorUsernameSnapshot());
+        assertEquals("临时工甲", captor.getValue().getActorNicknameSnapshot());
+        assertEquals("临时工甲", captor.getValue().getActorName());
+        assertEquals("一线生产报工提交", captor.getValue().getSignaturePurpose());
+        verify(passwordEncoder).matches("tmp-secret", "bcrypt-temp-sign");
+        verify(authorizationService, never()).isElectronicSignatureEnabled(8801L);
+        verify(adminUserService, never()).isPasswordMatch(any(), any());
     }
 
     @Test
@@ -310,6 +382,10 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     private void stubActorSnapshot() {
+        stubActorSnapshotForUser(99L);
+    }
+
+    private void stubActorSnapshotForUser(Long actorId) {
         DeptDO dept = new DeptDO();
         dept.setId(20L);
         dept.setName("质量部");
@@ -321,7 +397,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         role.setName("质量审核员");
         when(deptService.getDept(20L)).thenReturn(dept);
         when(postService.getPostList(Set.of(30L))).thenReturn(List.of(post));
-        when(permissionService.getUserRoleIdListByUserId(99L)).thenReturn(Set.of(40L));
+        when(permissionService.getUserRoleIdListByUserId(actorId)).thenReturn(Set.of(40L));
         when(roleService.getRoleList(Set.of(40L))).thenReturn(List.of(role));
     }
 

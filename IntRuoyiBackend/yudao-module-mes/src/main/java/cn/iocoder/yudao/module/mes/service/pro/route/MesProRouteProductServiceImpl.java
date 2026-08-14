@@ -511,6 +511,84 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long saveRouteProductByItem(Long itemId, Long routeId) {
+        MesProRouteProductDO existing = routeProductMapper.selectByItemId(itemId);
+        if (routeId == null) {
+            if (existing == null) {
+                return null;
+            }
+            routeService.validateRouteNotEnable(existing.getRouteId());
+            routeProductBomService.deleteRouteProductBomByRouteIdAndProductId(existing.getRouteId(), itemId);
+            routeProductMapper.deleteById(existing.getId());
+            return null;
+        }
+        if (existing == null) {
+            routeService.validateRouteNotEnable(routeId);
+            MesProRouteProductDO routeProduct = MesProRouteProductDO.builder()
+                    .routeId(routeId)
+                    .itemId(itemId)
+                    .quantity(1)
+                    .productionTime(BigDecimal.ONE)
+                    .timeUnitType("MINUTE")
+                    .build();
+            routeProductMapper.insert(routeProduct);
+            return routeProduct.getId();
+        }
+        if (Objects.equals(existing.getRouteId(), routeId)) {
+            return existing.getId();
+        }
+        routeService.validateRouteNotEnable(existing.getRouteId());
+        routeService.validateRouteNotEnable(routeId);
+        routeProductBomService.deleteRouteProductBomByRouteIdAndProductId(existing.getRouteId(), itemId);
+        MesProRouteProductDO updateObj = BeanUtils.toBean(existing, MesProRouteProductDO.class);
+        updateObj.setRouteId(routeId);
+        routeProductMapper.updateById(updateObj);
+        return updateObj.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long saveQaRegulationRouteProductByItem(Long itemId, Long routeId) {
+        return savePublishedRouteProductByItem(itemId, routeId);
+    }
+
+    private Long savePublishedRouteProductByItem(Long itemId, Long routeId) {
+        if (routeId == null) {
+            throw exception(PRO_ROUTE_NOT_EXISTS);
+        }
+        MesProRouteDO route = routeMapper.selectById(routeId);
+        if (route == null) {
+            throw exception(PRO_ROUTE_NOT_EXISTS);
+        }
+        MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(routeId);
+        if (activeVersion == null) {
+            throw exception(PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS, routeId);
+        }
+        MesProRouteProductDO existing = routeProductMapper.selectByItemId(itemId);
+        if (existing == null) {
+            MesProRouteProductDO routeProduct = MesProRouteProductDO.builder()
+                    .routeId(routeId)
+                    .itemId(itemId)
+                    .quantity(1)
+                    .productionTime(BigDecimal.ONE)
+                    .timeUnitType("MINUTE")
+                    .remark("QA 规程手动绑定")
+                    .build();
+            routeProductMapper.insert(routeProduct);
+            return routeProduct.getId();
+        }
+        if (Objects.equals(existing.getRouteId(), routeId)) {
+            return existing.getId();
+        }
+        routeProductBomService.deleteRouteProductBomByRouteIdAndProductId(existing.getRouteId(), itemId);
+        MesProRouteProductDO updateObj = BeanUtils.toBean(existing, MesProRouteProductDO.class);
+        updateObj.setRouteId(routeId);
+        routeProductMapper.updateById(updateObj);
+        return updateObj.getId();
+    }
+
+    @Override
     public List<MesProRouteProductDO> getRouteProductListByRouteId(Long routeId) {
         return routeProductMapper.selectListByRouteId(routeId);
     }

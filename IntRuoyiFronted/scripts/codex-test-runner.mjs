@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { resolveCaseSpecificGuidance } from './codex-test-runner-guidance.mjs'
+import { collectCodeReadonlyEvidence } from './codex-test-readonly-evidence.mjs'
 
 await import('playwright')
 
@@ -13,21 +16,30 @@ const FRONTEND_BASE_URL = requiredEnv('CODEX_TEST_FRONTEND_BASE_URL')
 const WORKING_DIRECTORY = process.env.CODEX_TEST_WORKDIR || process.cwd()
 const PROJECT_ROOT = process.env.CODEX_TEST_PROJECT_ROOT || WORKING_DIRECTORY
 const FRONTEND_PROJECT_ROOT = process.env.CODEX_TEST_FRONTEND_ROOT || process.cwd()
+const PLAYWRIGHT_HARNESS_PATH = path.join(FRONTEND_PROJECT_ROOT, 'scripts', 'codex-test-playwright-harness.cjs')
+const CODEX_READONLY_RESULT_SCHEMA_PATH = path.join(
+  FRONTEND_PROJECT_ROOT,
+  'scripts',
+  'codex-test-readonly-result.schema.json'
+)
 const RUNNER_NAME = process.env.CODEX_TEST_RUNNER_NAME || `${os.hostname()}-codex-runner`
 const CODEX_COMMAND = process.env.CODEX_CLI_COMMAND || (process.platform === 'win32' ? 'codex.cmd' : 'codex')
 const LOOP = process.argv.includes('--loop')
 const POLL_INTERVAL_MS = Number(process.env.CODEX_TEST_POLL_INTERVAL_MS || '5000')
 const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_MS || '20000')
-const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
-const CODEX_EXEC_READONLY_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_READONLY_TIMEOUT_MS || '120000')
-const CODEX_READONLY_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_READONLY_REASONING_EFFORT || 'medium'
-const CODEX_MUTATING_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT || 'medium'
+const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '360000')
+const CODEX_EXEC_READONLY_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_READONLY_TIMEOUT_MS || '360000')
+const CODEX_READONLY_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_READONLY_REASONING_EFFORT || 'low'
+const CODEX_MUTATING_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT || 'low'
 const CODEX_IGNORE_RULES = process.env.CODEX_TEST_CODEX_IGNORE_RULES !== 'false'
 const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
+const CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS || '90000')
 const CODEX_CHILD_SETTLE_TIMEOUT_MS = Number(process.env.CODEX_TEST_CHILD_SETTLE_TIMEOUT_MS || '5000')
 const COMPLETE_CASE_SUMMARY_MAX_LENGTH = 512
 const CODEX_FAILURE_DETAIL_MAX_LENGTH = 2400
 const RUNNER_HTTP_CONNECTION_HEADERS = { Connection: 'close' }
+const ANALYSIS_MODE_PLAYWRIGHT_E2E = 'PLAYWRIGHT_E2E'
+const ANALYSIS_MODE_CODE_READONLY = 'CODE_READONLY'
 const READONLY_TASK_PATTERN = /(只读|仅查看|只查看|查看|确认.{0,20}可见|不修改|不保存|不提交|read[- ]?only|view only)/i
 const NEGATED_WRITE_TASK_PATTERN = /(不修改|不新增|不创建|不编辑|不保存|不提交|不删除|不作废|不审批|不发布|不导入|不上传|不下载|不取消|不启用|不禁用|不清理|不复位|不生成|不填写|不签名|不写入)/gi
 const WRITE_TASK_PATTERN = /(新增|创建|修改|编辑|保存|提交|删除|作废|审批|发布|导入|上传|下载|取消|启用|禁用|清理|复位|生成|填写|签名|写入|create|update|edit|save|submit|delete|void|approve|publish|import|upload|cancel|enable|disable|write)/i
@@ -60,14 +72,14 @@ function runnerHeaders(extraHeaders = {}) {
   }
 }
 
-async function postJson(url, body) {
+async function postJson(url, body, options = {}) {
   const response = await requestWithTimeout(url, {
     method: 'POST',
     headers: runnerHeaders({
       'Content-Type': 'application/json'
     }),
     body: JSON.stringify(body)
-  })
+  }, options.timeoutMs)
   const payload = await response.json()
   if (!response.ok || payload.code !== 0) {
     throw new Error(`${url} failed: ${payload.msg || response.statusText}`)
@@ -75,9 +87,9 @@ async function postJson(url, body) {
   return payload.data
 }
 
-async function requestWithTimeout(url, options) {
+async function requestWithTimeout(url, options, timeoutMs = CODEX_TEST_API_TIMEOUT_MS) {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), CODEX_TEST_API_TIMEOUT_MS)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
   try {
     return await fetch(`${API_BASE}${url}`, {
       ...options,
@@ -86,7 +98,7 @@ async function requestWithTimeout(url, options) {
     })
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error(`${url} timed out after ${CODEX_TEST_API_TIMEOUT_MS}ms`)
+      throw new Error(`${url} timed out after ${timeoutMs}ms`)
     }
     throw error
   } finally {
@@ -98,22 +110,89 @@ function spawnCodex(args) {
   const isWindowsCommandScript = process.platform === 'win32' && /\.(cmd|bat)$/i.test(CODEX_COMMAND)
   const command = isWindowsCommandScript ? 'cmd.exe' : CODEX_COMMAND
   const commandArgs = isWindowsCommandScript ? ['/d', '/s', '/c', CODEX_COMMAND, ...args] : args
-  return spawn(command, commandArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
+  return spawn(command, commandArgs, {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_PATH: resolveFrontendNodePath(),
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: resolveBrowserExecutablePath(),
+      CODEX_TEST_PLAYWRIGHT_HARNESS_PATH: PLAYWRIGHT_HARNESS_PATH
+    }
+  })
+}
+
+function resolveFrontendNodePath() {
+  const frontendNodeModules = path.join(FRONTEND_PROJECT_ROOT, 'node_modules')
+  const currentNodePath = process.env.NODE_PATH || ''
+  return [frontendNodeModules, currentNodePath].filter(Boolean).join(path.delimiter)
+}
+
+function resolveBrowserExecutablePath() {
+  const configuredPath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+  if (configuredPath) {
+    if (!existsSync(configuredPath)) {
+      throw new Error(`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH does not exist: ${configuredPath}`)
+    }
+    return configuredPath
+  }
+  const browserCandidates = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+  ]
+  const browserExecutablePath = browserCandidates.find((candidate) => existsSync(candidate))
+  if (!browserExecutablePath) {
+    throw new Error('No local Chrome or Edge executable found for Playwright browser launch')
+  }
+  return browserExecutablePath
+}
+
+function resolveNavigationHints(task) {
+  const text = taskText(task)
+  const hints = [
+    'This frontend uses Vue history routes, not hash routes; do not navigate with /#/ paths.'
+  ]
+  if (/工艺路线|route/i.test(text)) {
+    hints.push('工艺路线 list page: /mes/pro/route (Vue history route; do not use /#/mes/route).')
+  }
+  if (/批记录|eDHR|edhr|batch record/i.test(text)) {
+    hints.push('批记录 execution list page: /mes/pro/feedback/edhr-batch-execution (Vue history route).')
+    hints.push('批记录表单配置 list page: /mes/pro/batch-record-form-list (Vue history route).')
+  }
+  if (/智能排产|排产|排程|schedule/i.test(text)) {
+    hints.push('智能排产 task list page: /mes/pro/task (Vue history route).')
+    hints.push('排程日历 page: /mes/pro/schedule-calendar (Vue history route).')
+  }
+  return hints.join('\n')
 }
 
 function codexExecutionArgs(task) {
   const args = []
+  const isCodeReadonly = resolveAnalysisMode(task) === ANALYSIS_MODE_CODE_READONLY
   if (CODEX_IGNORE_RULES) {
     args.push('--ignore-rules')
   }
   args.push('--disable', 'remote_plugin')
-  const reasoningEffort = isReadOnlyTask(task)
+  if (isCodeReadonly) {
+    args.push('--sandbox', 'read-only', '--output-schema', CODEX_READONLY_RESULT_SCHEMA_PATH)
+  } else {
+    args.push('--dangerously-bypass-approvals-and-sandbox')
+  }
+  const reasoningEffort = isCodeReadonly || isReadOnlyTask(task)
     ? CODEX_READONLY_REASONING_EFFORT
     : CODEX_MUTATING_REASONING_EFFORT
   if (reasoningEffort) {
     args.push('-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`)
   }
   return args
+}
+
+function resolveCodexWorkingDirectory(task) {
+  if (resolveAnalysisMode(task) === ANALYSIS_MODE_CODE_READONLY) {
+    return PROJECT_ROOT
+  }
+  return WORKING_DIRECTORY
 }
 
 function redactSensitiveText(value) {
@@ -220,7 +299,7 @@ async function heartbeat(runnerSessionId, runningExecutionCaseIds = []) {
   return await postJson('/system/codex-test-runner/heartbeat', {
     runnerSessionId,
     runningExecutionCaseIds
-  })
+  }, { timeoutMs: CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS })
 }
 
 async function reportProgress(task, progress) {
@@ -243,18 +322,20 @@ function assertTaskNotCanceled(task, heartbeatResult) {
 async function runCodexForTask(task, runnerSessionId) {
   const outputFile = path.join(os.tmpdir(), `codex-test-result-${task.executionCaseId}-${Date.now()}.json`)
   const codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)
-  const prompt = buildPrompt(task, codexExecTimeoutMs)
+  const codeReadonlyEvidence = resolveAnalysisMode(task) === ANALYSIS_MODE_CODE_READONLY
+    ? collectCodeReadonlyEvidence(task, PROJECT_ROOT)
+    : ''
+  const prompt = buildPrompt(task, codexExecTimeoutMs, codeReadonlyEvidence)
   const args = [
     'exec',
     '-',
     '--skip-git-repo-check',
-    '--dangerously-bypass-approvals-and-sandbox',
     '--ephemeral',
     ...codexExecutionArgs(task),
     '--output-last-message',
     outputFile,
     '-C',
-    WORKING_DIRECTORY
+    resolveCodexWorkingDirectory(task)
   ]
   const child = spawnCodex(args)
   const stdout = []
@@ -348,7 +429,31 @@ async function runCodexForTask(task, runnerSessionId) {
   return result
 }
 
-function buildPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)) {
+function buildPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task), codeReadonlyEvidence = '') {
+  const analysisMode = resolveAnalysisMode(task)
+  if (analysisMode === ANALYSIS_MODE_CODE_READONLY) {
+    return buildCodeReadonlyPrompt(task, codeReadonlyEvidence)
+  }
+  return buildPlaywrightPrompt(task, codexExecTimeoutMs)
+}
+
+function resolveCodeReadonlyDescription(task) {
+  const description = String(task.testDataText || '').trim()
+  if (!description) {
+    throw new Error('CODE_READONLY task checkpoint description is missing')
+  }
+  return description
+}
+
+function buildCodeReadonlyPrompt(task, codeReadonlyEvidence = '') {
+  const description = resolveCodeReadonlyDescription(task)
+  return `分析${description}在当前系统里是否已经实现,是否过度限制,回复限制在100字以内
+
+实时只读代码证据：
+${codeReadonlyEvidence || 'Runner 未提供任何匹配代码证据。'}`
+}
+
+function buildPlaywrightPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)) {
   const taskMode = isReadOnlyTask(task) ? 'READ_ONLY' : 'MUTATING_OR_UNKNOWN'
   const executionBudgetSeconds = Math.max(30, Math.floor(codexExecTimeoutMs / 1000) - 10)
   return `You are executing an enterprise E2E test with Playwright.
@@ -358,8 +463,49 @@ This is a browser execution task, not a repository development task.
 Do not create or modify repository files, task documents, source code, configuration, build outputs, Git state, commits, branches, or worktrees.
 Do not run project builds or project test suites.
 Use only task-owned temporary files under ${WORKING_DIRECTORY}.
+Execution strategy: create one temporary Node.js Playwright script under ${WORKING_DIRECTORY}, keep it as a short scenario script, run it with node, then return the final JSON.
+Official reusable Playwright harness: ${PLAYWRIGHT_HARNESS_PATH}
+Your temporary script must import the harness exactly like this:
+const { createCodexTestPlaywrightHarness } = require(${JSON.stringify(PLAYWRIGHT_HARNESS_PATH)});
+const harness = createCodexTestPlaywrightHarness({ baseUrl: ${JSON.stringify(FRONTEND_BASE_URL)}, targetPath: '<target Vue history path>', tempRoot: ${JSON.stringify(WORKING_DIRECTORY)}, frontendRoot: ${JSON.stringify(FRONTEND_PROJECT_ROOT)}, checkpointCount: ${task.checkpoints.length}, summaryPrefix: ${JSON.stringify(task.caseName)} });
+harness.startExecution(async (h) => {
+  await h.ensureHistoryPageReady('<target Vue history path>');
+  // Put only checkpoint-specific browser steps here.
+});
+Keep the temporary scenario script under 250 lines and 12000 bytes. Generate only scenario orchestration: checkpoint order, fixed sample values, and the minimum target-page interactions that are not already provided by the harness.
+Do not reimplement shared helpers such as captureScreenshot, recordCheckpoint, printOutputAndExit, clickVisibleTextAction, clickRouteRowAction, clickDialogBusinessAction, runBrowserFlow, login handling, deadline handling, Element Plus MessageBox confirmation, quick-filter helpers, row-action resolution, or route dialog form-item helpers. Use the corresponding harness methods instead. If a tiny case-local helper is absolutely required, keep it business-specific and do not duplicate any harness helper.
+Before running the temporary Node.js Playwright script, run node --check <temporary-script-path>. This syntax check does not count as running the browser script. If node --check fails, fix the generated script before browser launch instead of running invalid JavaScript.
+Generated scripts must avoid redeclaring const or let identifiers in the same function or block. Do not reuse names such as modal, dialog, rows, values, result, or button for a second const/let declaration in the same scope; either assign to an existing let variable or use a unique name such as detailDialog, retryDialog, copiedRows, or tabVisibility. If a syntax error says Identifier '<name>' has already been declared, repair the duplicate declaration before executing the script.
+Generated scripts must not reference block-scoped variables outside the try/catch/block where they are declared. If a value such as cleanupOutcome, resetOutcome, detailOutcome, or routeValues is needed after a try block, declare let cleanupOutcome = null before the try and assign it inside, or build the final summary from checkpointResults instead. Never write const cleanupOutcome inside try { ... } and then read cleanupOutcome after the try/catch.
+Generated Playwright scripts must treat page.url() as a synchronous string-returning method. Never write await page.url(), page.url().catch(...), or await pageHandle.url().catch(...). Use a synchronous helper such as try { return page.url(); } catch { return 'url-unavailable'; } when collecting diagnostic URLs.
+Do not inspect the repository before the first browser attempt; inspect local source only if the browser path is blocked by selectors, routes, or prerequisite evidence.
+When the temporary script prints raw JSON with checkpointResults, return that JSON immediately.
+Run the temporary Playwright script at most once before returning. If stdout contains raw JSON with checkpointResults, return that JSON verbatim immediately. Do not keep debugging, rerunning, or launching extra browsers after JSON is available.
+If the temporary script exits with a JSON result that contains FAIL or BLOCKED checkpoints, return that JSON as the business evidence instead of spending the remaining budget trying to repair the generated script.
+The final assistant response must be exactly the JSON object printed by the temporary Playwright script. Do not add analysis, screenshots, markdown fences, or follow-up debugging after the JSON. If the temporary script reports BLOCKED or FAIL, return that same JSON immediately as the final answer.
+The temporary Playwright script must enforce its own overall deadline that is shorter than the remaining execution budget. Hard cap the temporary browser script deadline at 240000ms. Do not compute the temporary script deadline from the full Codex exec timeout, because script generation can already consume several minutes before node starts. Use const scriptDeadlineMs = Math.min(240000, Math.max(30000, Number(process.env.CODEX_TEST_BROWSER_FLOW_TIMEOUT_MS || 240000))) and const deadlineAt = Date.now() + scriptDeadlineMs. Never generate deadlines such as 300000, 540000, or 560000ms for the temporary browser script. It must race the main browser flow against that deadline and always print checkpointResults JSON before the Codex child timeout. If the deadline is reached, close the browser and return BLOCKED checkpoints for unfinished items instead of letting codex exec hit the outer child timeout. After printing the deadline BLOCKED JSON, force the temporary Node process to exit with process.exit(0); do not leave an unresolved flowPromise or Playwright browser watcher alive after Promise.race resolves. The deadline handler should include the current URL, current visible page text, and the last known phase/checkpoint in actualText, but it must not keep debugging or rerun the browser script.
+For Element Plus dialogs, click visible buttons by accessible role or exact visible text.
+Element Plus dialog/drawer footer action buttons such as save or confirm may be outside the field form scope; after filling fields, search the entire visible dialog/drawer or page for 保存/确定/提交, not only the field form scope.
+Element Plus button innerText may contain whitespace between Chinese characters, such as 保 存; use the whitespace-tolerant action regex /保\\s*存|确\\s*定|提\\s*交/ instead of exact /^保存$/ text.
+Business confirmation dialogs may use verb-specific primary buttons instead of generic save labels, for example 确认复制, 复制, 确认发布, 发布, 启用, 停用, 删除, 确认删除. Use a business action regex such as /保\\s*存|确\\s*定|提\\s*交|确\\s*认\\s*复\\s*制|复\\s*制|确\\s*认\\s*发\\s*布|发\\s*布|启\\s*用|停\\s*用|确\\s*认\\s*删\\s*除|删\\s*除/ and search the current visible dialog or drawer before any background row buttons.
+When an Element Plus message box is visible, click the primary action only inside .el-message-box:visible or .el-overlay-message-box:visible. Do not include background page buttons in the same locator while a message box is visible. Use .el-message-box__btns button or .el-overlay-message-box button filtered by 确定/确认/删除, and prefer the visible primary button in that message box. If a click is intercepted by .el-overlay-message-box, re-scope to the visible message box and retry once.
+After clicking a visible Element Plus message-box primary action, wait for the same visible .el-message-box/.el-overlay-message-box to become hidden before reading background page state. If the message box remains visible, return BLOCKED with the message-box title/text/buttons instead of polling stale workspace or table text.
+Use this deterministic Element Plus footer selector after filling a dialog or drawer: page.locator('.el-dialog__footer button, .el-drawer__footer button').filter({ hasText: /保\\s*存|确\\s*定|提\\s*交/ }).
+Some pages render save actions in custom footer rows instead of .el-dialog__footer or .el-drawer__footer; if the scoped footer selector has no visible candidate, locate the visible action across the current dialog/drawer or page with page.locator('button, .el-button').filter({ hasText: /保\\s*存|确\\s*定|提\\s*交/ }) before declaring the save button missing.
+Do not use locator.last() for save/confirm buttons because hidden duplicate buttons can appear after the visible action in DOM order. Iterate candidates and click the first visible enabled one, for example: const actionCandidates = page.locator('.el-dialog:visible button, .el-drawer:visible button, .el-overlay:visible button, button, .el-button').filter({ hasText: /保\\s*存|确\\s*定|提\\s*交/ }); const actionCount = await actionCandidates.count(); for (let i = 0; i < actionCount; i += 1) { const action = actionCandidates.nth(i); if (await action.isVisible().catch(() => false) && await action.isEnabled().catch(() => false)) { await action.scrollIntoViewIfNeeded().catch(() => {}); await action.click(); break; } }.
+Form inputs inside add/edit dialogs must be scoped to the currently visible .el-dialog or .el-drawer. Do not fill background list filter inputs after opening a dialog or drawer, even if the background field has a matching placeholder such as 路线编码. After filling required dialog fields, verify the dialog-scoped inputValue before clicking save; if the dialog-scoped 编码 input does not equal the fixed route code, keep filling the visible dialog input instead of clicking save.
+When filling Element Plus dialog fields, locate only .el-form-item containers for the exact label; do not search broad div, section, row, or column containers by hasText because a whole 基础信息 section can contain both 编码 and 名称. For 名称, the container text must include 名称 and must not also include 编码 or 基础信息 before filling the contained input. Prefer .el-form-item:visible filtered by exact label text, then fill the input inside that exact form item.
+Case-specific browser guidance:
+${resolveCaseSpecificGuidance(task)}
+When the local login page appears, scope all login locators to .login-form and use the visible prefilled login form values or read VITE_APP_DEFAULT_LOGIN_* from the frontend .env files under the frontend project root. If a tenant select exists, select/fill it from .login-form .el-select using VITE_APP_DEFAULT_LOGIN_TENANT first. Fill the username only with .login-form input[placeholder="请输入用户名"] or .login-form input.el-input__inner:not([type="password"]):not([role="combobox"]); fill the password only with .login-form input[type="password"] or .login-form input[placeholder="请输入密码"]. Always overwrite the .login-form username and password inputs with the local default login values before clicking 登录. Do not keep stale prefilled username or password values. If the local default username or password is missing and the visible input remains empty, return BLOCKED before clicking 登录; do not submit an empty login form. Never fill login by using page.locator('input:visible').first(), and do not use locator.filter({ hasNot: page.locator('[type="password"]') }) to exclude password fields because that does not exclude the input element itself. After clicking 登录, wait for the /admin-api/system/auth/login POST response with business code 0, then wait for /admin-api/system/auth/get-permission-info and for the URL to leave /login. Never click 登录 and then continue waiting for business controls when the login response is missing or not business code 0. After the URL leaves /login, explicitly navigate back to the target history route such as /mes/pro/route before waiting for business controls; do not assume the redirect parameter completed the target navigation. Do not require INT_RUOYI_E2E_USERNAME or INT_RUOYI_E2E_PASSWORD for local IntRuoyi login. Never print passwords, tokens, cookies, Authorization headers, or raw credential values.
+List query buttons may be labeled 查询 or 搜索; use page.getByRole('button', { name: /查询|搜索/ }) or page.locator('button, .el-button').filter({ hasText: /查询|搜索/ }) instead of searching only for 搜索.
 Playwright project root: ${FRONTEND_PROJECT_ROOT}
 Project guidance root: ${PROJECT_ROOT}
+Playwright dependency note: temporary Node scripts can use require('playwright') because NODE_PATH includes ${FRONTEND_PROJECT_ROOT}/node_modules.
+Browser executable path: ${resolveBrowserExecutablePath()}
+Browser launch note: temporary Playwright scripts must launch with chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || '${resolveBrowserExecutablePath()}' }).
+Navigation hints:
+${resolveNavigationHints(task)}
 Complete the browser verification and return the final JSON within ${executionBudgetSeconds} seconds.
 Do not ask for clarification. If login, selector, data, service, permission, or runtime prerequisites are missing, return a BLOCKED checkpoint result instead of waiting.
 For READ_ONLY tasks, do not click create, save, submit, delete, import, upload, approve, cancel, or any action that mutates business data.
@@ -408,8 +554,23 @@ function isReadOnlyTask(task) {
   return hasReadOnlyIntent && !hasWriteIntent
 }
 
+function resolveAnalysisMode(task) {
+  if (!task.analysisMode) {
+    return ANALYSIS_MODE_PLAYWRIGHT_E2E
+  }
+  if (task.analysisMode === ANALYSIS_MODE_CODE_READONLY) {
+    return ANALYSIS_MODE_CODE_READONLY
+  }
+  if (task.analysisMode === ANALYSIS_MODE_PLAYWRIGHT_E2E) {
+    return ANALYSIS_MODE_PLAYWRIGHT_E2E
+  }
+  throw new Error(`Unsupported Codex analysisMode: ${task.analysisMode}`)
+}
+
 function resolveCodexExecTimeoutMs(task) {
-  return isReadOnlyTask(task) ? CODEX_EXEC_READONLY_TIMEOUT_MS : CODEX_EXEC_TIMEOUT_MS
+  return resolveAnalysisMode(task) === ANALYSIS_MODE_CODE_READONLY || isReadOnlyTask(task)
+    ? CODEX_EXEC_READONLY_TIMEOUT_MS
+    : CODEX_EXEC_TIMEOUT_MS
 }
 
 async function reportTaskResult(task, result) {

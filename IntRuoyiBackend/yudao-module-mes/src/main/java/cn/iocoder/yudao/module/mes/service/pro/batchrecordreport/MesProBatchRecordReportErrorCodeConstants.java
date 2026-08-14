@@ -32,6 +32,12 @@ public interface MesProBatchRecordReportErrorCodeConstants {
     ErrorCode PRO_BATCH_RECORD_REPORT_CELL_RULE_CELL_MISSING = new ErrorCode(1_040_509_026, "电子批记录单元格规则对应单元格不存在：第 {} 行第 {} 列");
     ErrorCode PRO_BATCH_RECORD_REPORT_LEGACY_LAYOUT_MIGRATION_REQUIRED =
             new ErrorCode(1_040_509_069, "电子批记录报表仍为旧布局，请先通过导入、升版或显式迁移入口完成迁移：{}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_TARGET_CHANGED =
+            new ErrorCode(1_040_509_070, "工艺路线候选版本已变化，请重新预检后再导入：预期 {}，当前 {}");
+    ErrorCode PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_STATUS_BLOCKED =
+            new ErrorCode(1_040_509_071, "工艺路线候选版本 {} 当前状态为 {}，请先撤回、取消或完成发布后再导入");
+    ErrorCode PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_SOURCE_CHANGED =
+            new ErrorCode(1_040_509_072, "工艺路线草稿 {} 的来源版本已变化：草稿来源 {}，当前生效版本 {}，请先取消该草稿后重新导入");
     ErrorCode PRO_BATCH_RECORD_REPORT_SIGNATURE_CELL_DUPLICATE =
             new ErrorCode(1_040_509_027, "电子批记录签名单元格重复：{}");
     ErrorCode PRO_BATCH_RECORD_REPORT_SIGNATURE_REVIEW_SOURCE_REQUIRED =

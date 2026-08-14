@@ -243,6 +243,30 @@ class DccBaseSchemaTest {
     }
 
     @Test
+    void mysqlSchemaShouldSupportProductOnboardingAndProjectMdmBinding() throws Exception {
+        Path projectDir = findProjectDir();
+        String schema = readDccRuntimeSchema(projectDir);
+        String testSchema = Files.readString(projectDir.resolve(
+                "yudao-module-dcc/src/test/resources/sql/create_tables.sql"));
+
+        assertSchemaHasColumns(schema, "dcc_project_code", List.of("product_master_id"));
+        assertNotNull(findCreateBlock(schema, "dcc_product_onboarding_request"),
+                "DCC schema must create product onboarding request table");
+        assertSchemaHasColumns(schema, "dcc_product_onboarding_request", List.of(
+                "product_master_id", "product_code", "dcc_product_code", "product_name_cn",
+                "project_name", "project_code", "status", "applicant_user_id", "approver_user_id",
+                "approved_time", "generated_project_code_id", "reject_reason"));
+        assertTrue(schema.contains("idx_dcc_product_onboarding_status"),
+                "DCC onboarding requests must be queryable by tenant and approval status");
+        assertTrue(schema.contains("uk_dcc_product_onboarding_pending_project"),
+                "DCC onboarding requests must block duplicate pending project codes");
+
+        assertSchemaHasColumns(testSchema, "dcc_project_code", List.of("product_master_id"));
+        assertNotNull(findCreateBlock(testSchema, "dcc_product_onboarding_request"),
+                "DCC test schema must create product onboarding request table");
+    }
+
+    @Test
     void mysqlSchemaShouldCreateProjectCodeAssignmentAuditTablesAndMenus() throws Exception {
         Path projectDir = findProjectDir();
         Path migrationFile = projectDir.resolve("sql/mysql/20260712_dcc_project_code_assignment_audit.sql");
@@ -951,6 +975,192 @@ class DccBaseSchemaTest {
     }
 
     @Test
+    void mysqlSchemaShouldSupportDccNasControlAuditFileDetails() throws Exception {
+        Path projectDir = findProjectDir();
+        Path migrationFile = projectDir.resolve("sql/mysql/20260803_dcc_nas_control_audit_file.sql");
+        Path testSchemaFile = projectDir.resolve("yudao-module-dcc/src/test/resources/sql/create_tables.sql");
+
+        assertTrue(Files.exists(migrationFile), "DCC NAS control audit file migration must exist");
+
+        String migrationSchema = Files.readString(migrationFile);
+        assertSchemaIsNonDestructive(migrationSchema, "NAS control audit file");
+
+        String runtimeSchema = readDccRuntimeSchema(projectDir);
+        assertNotNull(findCreateBlock(runtimeSchema, "dcc_nas_control_audit_file"),
+                "DCC runtime schema must create queryable NAS audit file details");
+        assertSchemaHasColumns(runtimeSchema, "dcc_nas_control_audit_file", List.of(
+                "task_id", "nas_share_name", "root_path", "normalized_relative_path", "path_hash",
+                "file_name", "file_size", "modified_at", "source_signature", "control_status",
+                "classification_status", "matched_project_code_id", "matched_file_type_taxonomy_id",
+                "matched_file_type_level1", "matched_file_type_level2", "matched_file_type_level3",
+                "matched_file_type_level4", "matched_file_type_level5", "classification_reason",
+                "download_status", "archive_status", "local_relative_path", "local_write_error_code",
+                "local_write_error", "archive_error_code", "archive_error", "controlled_file_id"));
+        assertColumnUsesBinaryCollation(runtimeSchema, "dcc_nas_control_audit_file",
+                "normalized_relative_path", "runtime");
+        assertColumnUsesBinaryCollation(runtimeSchema, "dcc_nas_control_audit_file",
+                "local_relative_path", "runtime");
+        assertTrue(runtimeSchema.contains("PENDING_RECOGNITION"),
+                "DCC audit file schema must define the initial recognition status");
+        assertTrue(runtimeSchema.contains("NOT_SELECTED") && runtimeSchema.contains("NOT_STARTED"),
+                "DCC audit file schema must define independent initial download/archive statuses");
+        assertIndexColumns(runtimeSchema, "dcc_nas_control_audit_file", "idx_dcc_nas_audit_file_task",
+                List.of("tenant_id", "task_id", "id"), "runtime");
+        assertIndexColumns(runtimeSchema, "dcc_nas_control_audit_file", "idx_dcc_nas_audit_file_path_hash",
+                List.of("tenant_id", "nas_share_name", "path_hash", "deleted"), "runtime");
+        assertIndexColumns(runtimeSchema, "dcc_nas_control_audit_file", "idx_dcc_nas_audit_file_status",
+                List.of("tenant_id", "classification_status", "download_status", "archive_status"), "runtime");
+
+        String testSchema = Files.readString(testSchemaFile);
+        assertNotNull(findCreateBlock(testSchema, "dcc_nas_control_audit_file"),
+                "DCC test schema must include NAS audit file details");
+        assertSchemaHasColumns(testSchema, "dcc_nas_control_audit_file", List.of(
+                "task_id", "nas_share_name", "root_path", "normalized_relative_path", "path_hash",
+                "file_name", "file_size", "modified_at", "source_signature", "control_status",
+                "classification_status", "download_status", "archive_status", "local_write_error_code",
+                "archive_error_code", "tenant_id"));
+    }
+
+    @Test
+    void mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot() throws Exception {
+        Path projectDir = findProjectDir();
+        Path migrationFile = projectDir.resolve("sql/mysql/20260803_dcc_nas_control_audit_file.sql");
+        Path testSchemaFile = projectDir.resolve("yudao-module-dcc/src/test/resources/sql/create_tables.sql");
+        Path respVOFile = projectDir.resolve("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccNasControlAuditFileRespVO.java");
+        Path doFile = projectDir.resolve("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccNasControlAuditFileDO.java");
+
+        String migrationSchema = Files.readString(migrationFile);
+        assertSchemaHasColumns(migrationSchema, "dcc_nas_control_audit_file", List.of(
+                "classification_candidates_json", "expected_local_relative_path"));
+        assertColumnUsesBinaryCollation(migrationSchema, "dcc_nas_control_audit_file",
+                "expected_local_relative_path", "recognition snapshot migration");
+
+        String testSchema = Files.readString(testSchemaFile);
+        assertSchemaHasColumns(testSchema, "dcc_nas_control_audit_file", List.of(
+                "classification_candidates_json", "expected_local_relative_path"));
+
+        String respVO = Files.readString(respVOFile);
+        assertTrue(respVO.contains("private String classificationCandidatesJson;"),
+                "Audit file response must expose persisted recognition candidates");
+        assertTrue(respVO.contains("private String expectedLocalRelativePath;"),
+                "Audit file response must expose backend-generated expected local relative path");
+
+        String dataObject = Files.readString(doFile);
+        assertTrue(dataObject.contains("private String classificationCandidatesJson;"),
+                "Audit file DO must persist recognition candidates");
+        assertTrue(dataObject.contains("private String expectedLocalRelativePath;"),
+                "Audit file DO must persist expected local relative path");
+    }
+
+    @Test
+    void mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots() throws Exception {
+        Path projectDir = findProjectDir();
+        Path migrationFile = projectDir.resolve("sql/mysql/20260803_dcc_nas_uncontrolled_import_task_snapshot.sql");
+        Path testSchemaFile = projectDir.resolve("yudao-module-dcc/src/test/resources/sql/create_tables.sql");
+        Path taskDOFile = projectDir.resolve("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileNasTransferTaskDO.java");
+        Path itemDOFile = projectDir.resolve("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileNasTransferTaskItemDO.java");
+        Path auditFileDOFile = projectDir.resolve("yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccNasControlAuditFileDO.java");
+
+        assertTrue(Files.exists(migrationFile), "DCC NAS uncontrolled import task snapshot migration must exist");
+
+        String migrationSchema = Files.readString(migrationFile);
+        assertSchemaIsNonDestructive(migrationSchema, "NAS uncontrolled import task snapshot");
+        assertSchemaHasColumns(migrationSchema, "dcc_controlled_file_nas_transfer_task",
+                List.of("audit_task_id", "idempotency_key", "request_hash"));
+        assertTrue(Pattern.compile("MODIFY\\s+COLUMN\\s+`template_category_id`\\s+bigint\\s+DEFAULT\\s+NULL",
+                        Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(migrationSchema).find(),
+                "NAS uncontrolled import migration must allow task template_category_id to be nullable");
+        assertTrue(Pattern.compile("MODIFY\\s+COLUMN\\s+`effective_date`\\s+date\\s+DEFAULT\\s+NULL",
+                        Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(migrationSchema).find(),
+                "NAS uncontrolled import migration must allow task effective_date to be nullable");
+        assertSchemaHasColumns(migrationSchema, "dcc_controlled_file_nas_transfer_task_item",
+                List.of("audit_file_id", "source_signature", "classification_status_snapshot",
+                        "matched_project_code_id_snapshot", "matched_file_type_taxonomy_id_snapshot",
+                        "matched_file_type_level1_snapshot", "matched_file_type_level2_snapshot",
+                        "matched_file_type_level3_snapshot", "matched_file_type_level4_snapshot",
+                        "matched_file_type_level5_snapshot", "classification_reason_snapshot",
+                        "classification_candidates_json_snapshot", "local_relative_path",
+                        "local_write_status", "local_write_error_code", "local_write_error",
+                        "archive_status", "archive_error_code", "archive_error",
+                        "archive_category_id_snapshot", "archive_directory_id_snapshot",
+                        "archive_dcc_project_code_id_snapshot", "archive_file_type_taxonomy_id_snapshot",
+                        "archive_change_type_snapshot", "archive_file_name_snapshot",
+                        "archive_file_number_snapshot", "archive_version_no_snapshot",
+                        "archive_effective_date_snapshot", "archive_remark_snapshot"));
+        assertSchemaHasColumns(migrationSchema, "dcc_nas_control_audit_file",
+                List.of("selected_import_task_id", "selected_import_task_item_id"));
+        assertTrue(Pattern.compile("ADD\\s+INDEX\\s+`idx_dcc_nas_transfer_import_idempotency`\\s*"
+                                + "\\(`tenant_id`,\\s*`operator_user_id`,\\s*`idempotency_key`,\\s*`deleted`\\)",
+                        Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(migrationSchema).find(),
+                "NAS uncontrolled import task snapshot migration must index idempotency lookup");
+        assertTrue(Pattern.compile("ADD\\s+INDEX\\s+`idx_dcc_nas_transfer_item_audit_file`\\s*"
+                                + "\\(`tenant_id`,\\s*`audit_file_id`,\\s*`deleted`\\)",
+                        Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(migrationSchema).find(),
+                "NAS uncontrolled import task snapshot migration must index audit-file lookup");
+        assertTrue(Pattern.compile("`local_relative_path`\\s+varchar\\(1024\\)\\s+CHARACTER\\s+SET\\s+utf8mb4\\s+COLLATE\\s+utf8mb4_bin",
+                        Pattern.CASE_INSENSITIVE).matcher(migrationSchema).find(),
+                "NAS uncontrolled import task snapshot migration must store local relative paths with binary collation");
+
+        String testSchema = Files.readString(testSchemaFile);
+        assertSchemaHasColumns(testSchema, "dcc_controlled_file_nas_transfer_task",
+                List.of("audit_task_id", "idempotency_key", "request_hash"));
+        assertColumnNullable(testSchema, "dcc_controlled_file_nas_transfer_task", "template_category_id",
+                "test NAS uncontrolled import task");
+        assertTrue(Pattern.compile("`effective_date`\\s+DATE\\s+NULL",
+                        Pattern.CASE_INSENSITIVE).matcher(testSchema).find(),
+                "DCC test schema must allow nullable dcc_controlled_file_nas_transfer_task.effective_date");
+        assertSchemaHasColumns(testSchema, "dcc_controlled_file_nas_transfer_task_item",
+                List.of("audit_file_id", "source_signature", "classification_status_snapshot",
+                        "classification_candidates_json_snapshot", "local_relative_path",
+                        "local_write_status", "archive_status",
+                        "archive_category_id_snapshot", "archive_directory_id_snapshot",
+                        "archive_dcc_project_code_id_snapshot", "archive_file_type_taxonomy_id_snapshot",
+                        "archive_change_type_snapshot", "archive_file_name_snapshot",
+                        "archive_file_number_snapshot", "archive_version_no_snapshot",
+                        "archive_effective_date_snapshot", "archive_remark_snapshot"));
+        assertSchemaHasColumns(testSchema, "dcc_nas_control_audit_file",
+                List.of("selected_import_task_id", "selected_import_task_item_id"));
+
+        String taskDO = Files.readString(taskDOFile);
+        assertTrue(taskDO.contains("private Long auditTaskId;"), "NAS transfer task DO must bind audit task");
+        assertTrue(taskDO.contains("private String idempotencyKey;"), "NAS transfer task DO must persist idempotency key");
+        assertTrue(taskDO.contains("private String requestHash;"), "NAS transfer task DO must persist canonical request hash");
+
+        String itemDO = Files.readString(itemDOFile);
+        assertTrue(itemDO.contains("private Long auditFileId;"), "NAS transfer item DO must bind audit file");
+        assertTrue(itemDO.contains("private String sourceSignature;"), "NAS transfer item DO must persist source signature snapshot");
+        assertTrue(itemDO.contains("private String localRelativePath;"), "NAS transfer item DO must persist local relative path snapshot");
+        assertTrue(itemDO.contains("private String localWriteStatus;"), "NAS transfer item DO must separate local write status");
+        assertTrue(itemDO.contains("private String archiveStatus;"), "NAS transfer item DO must separate archive status");
+        assertTrue(itemDO.contains("private Long archiveCategoryIdSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive category id snapshot");
+        assertTrue(itemDO.contains("private Long archiveDirectoryIdSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive directory id snapshot");
+        assertTrue(itemDO.contains("private Long archiveDccProjectCodeIdSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive project code id snapshot");
+        assertTrue(itemDO.contains("private Long archiveFileTypeTaxonomyIdSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive file type taxonomy id snapshot");
+        assertTrue(itemDO.contains("private String archiveChangeTypeSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive change type snapshot");
+        assertTrue(itemDO.contains("private String archiveFileNameSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive file name snapshot");
+        assertTrue(itemDO.contains("private String archiveFileNumberSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive file number snapshot");
+        assertTrue(itemDO.contains("private String archiveVersionNoSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive version snapshot");
+        assertTrue(itemDO.contains("private LocalDate archiveEffectiveDateSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive effective date snapshot");
+        assertTrue(itemDO.contains("private String archiveRemarkSnapshot;"),
+                "NAS uncontrolled import item DO must persist formal archive remark snapshot");
+
+        String auditFileDO = Files.readString(auditFileDOFile);
+        assertTrue(auditFileDO.contains("private Long selectedImportTaskId;"),
+                "Audit file DO must expose selected import task binding");
+        assertTrue(auditFileDO.contains("private Long selectedImportTaskItemId;"),
+                "Audit file DO must expose selected import task item binding");
+    }
+
+    @Test
     void mysqlSchemaShouldAllowNasTransferWithoutProductBinding() throws Exception {
         Path projectDir = findProjectDir();
         Path baseSchemaFile = projectDir.resolve("sql/mysql/20260513_dcc_base_schema.sql");
@@ -1314,6 +1524,21 @@ class DccBaseSchemaTest {
                 + tableName + "." + indexName);
         assertTrue(extractIndexColumns(matcher.group(1)).equals(expectedColumns),
                 "DCC " + schemaName + " schema unique key " + tableName + "." + indexName
+                        + " must use columns " + expectedColumns + ", actual "
+                        + extractIndexColumns(matcher.group(1)));
+    }
+
+    private static void assertIndexColumns(String schema, String tableName, String indexName,
+                                           List<String> expectedColumns, String schemaName) {
+        String createBlock = findCreateBlock(schema, tableName);
+        assertNotNull(createBlock, "Missing table " + tableName + " in " + schemaName + " schema");
+        Matcher matcher = Pattern.compile("(?:KEY|INDEX)\\s+`" + Pattern.quote(indexName)
+                        + "`\\s*\\(([^)]*)\\)",
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(createBlock);
+        assertTrue(matcher.find(), "DCC " + schemaName + " schema must define index "
+                + tableName + "." + indexName);
+        assertTrue(extractIndexColumns(matcher.group(1)).equals(expectedColumns),
+                "DCC " + schemaName + " schema index " + tableName + "." + indexName
                         + " must use columns " + expectedColumns + ", actual "
                         + extractIndexColumns(matcher.group(1)));
     }

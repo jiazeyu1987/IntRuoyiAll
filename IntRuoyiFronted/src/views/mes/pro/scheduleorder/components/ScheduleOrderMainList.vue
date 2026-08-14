@@ -5,12 +5,18 @@
     :query-model="queryModel"
     label-width="88px"
     :filter-definitions="filterDefinitions"
+    :show-quick-filter="!showMultiFilter"
     :show-quick-filter-label="false"
     :quick-filter-state="quickFilterState"
     :selected-filter-definition="selectedFilterDefinition"
     :operator-options="operatorOptions"
+    :show-multi-filter="showMultiFilter"
+    :multi-filter-definitions="multiFilterDefinitions"
+    :multi-filter-state="multiFilterState"
+    :show-multi-filter-operators="showMultiFilterOperators"
     :columns="columns"
     :column-saving="columnSaving"
+    :sort-state="sortState"
     :show-column-settings="false"
     :show-column-reset="false"
     :total="total"
@@ -20,8 +26,14 @@
     @update:limit="emit('update:limit', $event)"
     @update:quick-filter-state="emit('update:quickFilterState', $event)"
     @quick-filter-query="emit('quickFilterQuery')"
+    @update:multi-filter-state="emit('update:multiFilterState', $event)"
+    @multi-filter-query="emit('multiFilterQuery')"
+    @multi-filter-reset="emit('multiFilterReset')"
+    @multi-filter-remove="emit('multiFilterRemove', $event)"
     @column-change="emit('columnChange', $event)"
     @column-reset="emit('columnReset')"
+    @update:sort-state="emit('update:sortState', $event)"
+    @sort-change="emit('sortChange', $event)"
     @pagination="emit('pagination', $event)"
     >
       <template #actions>
@@ -55,6 +67,10 @@ import type {
   TableQuickFilterDefinition,
   TableQuickFilterOperator
 } from '@/hooks/web/useTableQuickFilter'
+import type {
+  ListMultiFilterDefinition,
+  ListMultiFilterState
+} from '@/hooks/web/useTableMultiFilter'
 import type { UserTableColumnState } from '@/hooks/web/useUserTableColumns'
 
 defineOptions({ name: 'ScheduleOrderMainList' })
@@ -110,8 +126,16 @@ defineProps({
     default: undefined
   },
   operatorOptions: { type: Array as PropType<TableQuickFilterOperator[]>, required: true },
+  showMultiFilter: { type: Boolean, default: false },
+  multiFilterDefinitions: { type: Array as PropType<ListMultiFilterDefinition[]>, default: () => [] },
+  multiFilterState: {
+    type: Object as PropType<ListMultiFilterState>,
+    default: () => ({ conditions: [] })
+  },
+  showMultiFilterOperators: { type: Boolean, default: true },
   columns: { type: Array as PropType<UserTableColumnState[]>, required: true },
   columnSaving: { type: Boolean, required: true },
+  sortState: { type: Object as PropType<ScheduleOrderSortState>, default: () => ({}) },
   total: { type: Number, required: true }
 })
 
@@ -120,8 +144,14 @@ const emit = defineEmits([
   'update:limit',
   'update:quickFilterState',
   'quickFilterQuery',
+  'update:multiFilterState',
+  'multiFilterQuery',
+  'multiFilterReset',
+  'multiFilterRemove',
   'columnChange',
   'columnReset',
+  'update:sortState',
+  'sortChange',
   'pagination'
 ])
 

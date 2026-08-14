@@ -33,10 +33,12 @@ public class MesProProcessPoolEventDO extends TenantBaseDO {
 
     private Long poolId;
     private String eventType;
+    private String eventIdempotencyKey;
     private Long workOrderId;
     private Long routeId;
     private Long routeProcessId;
     private Long processId;
+    private Long qaProcessId;
     private Long actualEmployeeId;
     private Long deviceAccountId;
     private Long deviceId;
@@ -44,6 +46,7 @@ public class MesProProcessPoolEventDO extends TenantBaseDO {
     private String templateType;
     private String feedbackSourceType;
     private Long feedbackSourceId;
+    private Long recordbookEntryId;
     private String recordbookSourceType;
     private Long recordbookSourceId;
     private String rawPayload;

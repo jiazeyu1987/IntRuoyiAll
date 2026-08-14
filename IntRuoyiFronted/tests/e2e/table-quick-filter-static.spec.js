@@ -3,7 +3,7 @@ const path = require('node:path')
 const assert = require('node:assert/strict')
 
 const repoRoot = path.resolve(__dirname, '..', '..')
-const backendRoot = path.resolve(repoRoot, '..', 'ruoyi-vue-pro')
+const backendRoot = path.resolve(repoRoot, '..', 'IntRuoyiBackend')
 
 const readSource = (relativePath, root = repoRoot) => {
   const absolutePath = path.join(root, relativePath)
@@ -26,7 +26,13 @@ assertContains(componentSource, /查询/, 'component must render query action')
 assertContains(componentSource, /包含/, 'component must render contains operator label')
 assertContains(componentSource, /等于/, 'component must render equals operator label')
 assertContains(componentSource, /介于/, 'component must render between operator label')
+assertContains(
+  componentSource,
+  /selectedDefinition\?\.type === 'date'[\s\S]*type="date"[\s\S]*value-format="YYYY-MM-DD"/,
+  'component must render single-date control'
+)
 assertContains(componentSource, /el-date-picker[\s\S]*daterange/, 'component must render date range control')
+assertContains(componentSource, /table-quick-filter__value--single-date/, 'component must size single-date control')
 assertContains(componentSource, /el-autocomplete/, 'component must render autocomplete control')
 assertContains(
   componentSource,
@@ -48,6 +54,7 @@ assertContains(hookSource, /export const useTableQuickFilter/, 'hook must export
 assertContains(hookSource, /TableQuickFilterDefinition/, 'hook must define filter definition type')
 assertContains(hookSource, /text/, 'hook must support text fields')
 assertContains(hookSource, /select/, 'hook must support select fields')
+assertContains(hookSource, /date:\s*\['eq'\]/, 'hook must support single-date fields')
 assertContains(hookSource, /dateRange/, 'hook must support date range fields')
 assertContains(hookSource, /autocomplete/, 'hook must support autocomplete fields')
 assertContains(hookSource, /quickFilter/, 'hook must write quickFilter into query params')
@@ -99,20 +106,18 @@ const representativePages = [
     requiredFields: ['keyword', 'fileName', 'fileNumber', 'status', 'categoryId']
   },
   {
-    file: 'src/views/dcc/controlled-file/detail/index.vue',
-    tableKey: 'dcc.controlledFile.detail.signatureEvidence',
-    requiredFields: ['versionNo', 'signer', 'role', 'action', 'signedAt']
+    file: 'src/views/dcc/controlled-file/signatures/index.vue',
+    tableKey: 'dcc.electronicSignature.records',
+    requiredFields: ['fileNumber', 'versionNo', 'signerUserId', 'taskActionResult', 'meaningCode']
   }
 ]
 
 for (const page of representativePages) {
   const source = readSource(page.file)
-  if (page.tableKey === 'mes.pro.scheduleOrder.main') {
-    assertContains(source, /UnifiedListTemplate/, `${page.file} must render TableQuickFilter through UnifiedListTemplate`)
-    assertContains(source, /:quick-filter-state=/, `${page.file} must bind quick filter state to UnifiedListTemplate`)
-  } else {
-    assertContains(source, /TableQuickFilter/, `${page.file} must render TableQuickFilter`)
-  }
+  assertContains(source, /UnifiedListTemplate/, `${page.file} must render the standard list template`)
+  assertContains(source, /:quick-filter-state=/, `${page.file} must bind quick filter state to UnifiedListTemplate`)
+  assertContains(source, /@update:quick-filter-state=/, `${page.file} must receive condition Tab state updates from UnifiedListTemplate`)
+  assertContains(source, /@quick-filter-query=/, `${page.file} must query through the standard condition Tab bridge`)
   assertContains(source, /useTableQuickFilter/, `${page.file} must use unified quick filter hook`)
   assertContains(source, new RegExp(page.tableKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${page.file} must keep stable table key`)
   assertContains(source, /quickFilterDefinitions|QuickFilterDefinition/, `${page.file} must declare filter definitions`)

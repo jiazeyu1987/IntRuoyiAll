@@ -37,6 +37,12 @@ def migration_text() -> str:
     return MIGRATION.read_text(encoding="utf-8")
 
 
+def extract_block(sql: str, start: str, end: str) -> str:
+    assert start in sql, f"Missing block start: {start}"
+    assert end in sql, f"Missing block end: {end}"
+    return sql[sql.index(start) : sql.index(end)]
+
+
 def test_smart_scheduling_test_items_migration_exists_with_release_metadata() -> None:
     sql = migration_text()
     first_line = sql.splitlines()[0]
@@ -86,3 +92,39 @@ def test_smart_scheduling_test_items_seed_checkpoints_are_complete() -> None:
     assert "severity" in sql
     assert "CRITICAL" in sql
     assert "MAJOR" in sql
+
+
+def test_smart_scheduling_test_items_seed_temp_tables_match_target_text_collation() -> None:
+    sql = migration_text()
+
+    case_seed_table = extract_block(
+        sql,
+        "CREATE TEMPORARY TABLE `tmp_codex_smart_scheduling_case_seed`",
+        "INSERT INTO `tmp_codex_smart_scheduling_case_seed`",
+    )
+    case_ids_table = extract_block(
+        sql,
+        "CREATE TEMPORARY TABLE `tmp_codex_smart_scheduling_case_ids`",
+        "INSERT INTO `tmp_codex_smart_scheduling_case_ids`",
+    )
+    checkpoint_seed_table = extract_block(
+        sql,
+        "CREATE TEMPORARY TABLE `tmp_codex_smart_scheduling_checkpoint_seed`",
+        "INSERT INTO `tmp_codex_smart_scheduling_checkpoint_seed`",
+    )
+
+    for table_sql in (case_seed_table, case_ids_table, checkpoint_seed_table):
+        assert "COLLATE=utf8mb4_0900_ai_ci" in table_sql
+
+    assert "`existing`.`name` = `seed`.`case_name`" in sql
+    assert "`case_item`.`name` = `seed`.`case_name`" in sql
+    assert "`case_ids`.`case_name` = `seed`.`case_name`" in sql
+    assert "`checkpoint`.`sort` = `seed`.`checkpoint_sort`" in sql
+
+
+def test_smart_scheduling_test_items_seed_does_not_reopen_temporary_seed_table() -> None:
+    sql = migration_text()
+
+    assert ") <> (SELECT COUNT(*) FROM `tmp_codex_smart_scheduling_checkpoint_seed`)" not in sql
+    assert "v_expected_checkpoint_count" in sql
+    assert "v_actual_checkpoint_count" in sql

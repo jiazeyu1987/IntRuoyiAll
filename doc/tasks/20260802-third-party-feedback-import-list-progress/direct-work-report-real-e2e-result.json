@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "uploadFile": "C:\\Users\\BJB110\\Desktop\\文档\\李萍.xlsx",
+  "submittedCount": 1,
+  "importedCount": 1,
+  "feedbackCodes": [
+    "FB-000644"
+  ],
+  "importRecordIds": [
+    1754
+  ],
+  "scheduleOrderCodes": [
+    "SCH-881MO093613-20260707-0001"
+  ],
+  "feedbackListRows": 1,
+  "scheduleSnapshots": [
+    {
+      "id": 131,
+      "code": "SCH-881MO093613-20260707-0001",
+      "completedQuantity": 5018,
+      "uncompletedQuantity": 20982,
+      "progressPercent": 19.3,
+      "status": 2,
+      "processCount": 26
+    }
+  ]
+}

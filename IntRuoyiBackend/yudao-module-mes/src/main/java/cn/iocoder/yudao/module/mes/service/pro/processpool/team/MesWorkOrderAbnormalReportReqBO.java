@@ -10,10 +10,6 @@ import lombok.experimental.Accessors;
 public class MesWorkOrderAbnormalReportReqBO {
 
     private Long workOrderId;
-    private Long routeProcessId;
-    private Long processId;
-    private Long sourceEventId;
     private Long markerUserId;
-    private String abnormalReasonCode;
     private String abnormalDescription;
 }

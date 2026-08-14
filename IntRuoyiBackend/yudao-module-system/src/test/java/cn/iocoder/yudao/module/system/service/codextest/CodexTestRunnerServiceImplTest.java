@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerClaimReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerClaimRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCompleteCaseReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerHeartbeatReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerProgressReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
@@ -34,6 +35,7 @@ import java.util.List;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RESULT_SCHEMA_INVALID;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_OFFLINE;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Import({CodexTestCaseServiceImpl.class, CodexTestExecutionServiceImpl.class, CodexTestRunnerServiceImpl.class})
@@ -77,6 +79,7 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         assertEquals(1, claimRespVO.getTasks().size());
         CodexTestRunnerClaimRespVO.Task task = claimRespVO.getTasks().get(0);
         assertEquals(executionId, task.getExecutionId());
+        assertEquals("PLAYWRIGHT_E2E", task.getAnalysisMode());
         assertEquals("在排产工单页签选择用户手写工单号后点击手动重排", task.getMethodText());
         assertEquals(2, task.getCheckpoints().size());
         assertEquals("CLAIMED", codexTestExecutionCaseMapper.selectById(task.getExecutionCaseId()).getStatus());
@@ -98,6 +101,22 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         assertEquals("产品编号没有变成橙色", executionCase.getFailureReason());
         CodexTestExecutionDO execution = codexTestExecutionMapper.selectById(executionId);
         assertEquals("FAIL", execution.getStatus());
+    }
+
+    @Test
+    void claimTasks_includesCodeReadonlyAnalysisMode() {
+        Long runnerSessionId = registerRunner();
+        CodexTestCaseSaveReqVO reqVO = validScheduleCaseReq("批记录测试-生产组长-01-工艺路线配置", false);
+        reqVO.setProject("批记录");
+        reqVO.setAnalysisMode("CODE_READONLY");
+        Long caseId = codexTestCaseService.createCase(reqVO);
+        codexTestExecutionService.startExecution(startReq(caseId), 99L);
+
+        CodexTestRunnerClaimRespVO.Task task =
+                codexTestRunnerService.claimTasks(claimReq(runnerSessionId), RUNNER_TOKEN).getTasks().get(0);
+
+        assertEquals("CODE_READONLY", task.getAnalysisMode());
+        assertTrue(task.getMethodText().contains("排产工单页签"));
     }
 
     @Test
@@ -283,6 +302,43 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         assertEquals(runnerSession.getId(), status.getLatestRunnerSessionId());
         assertTrue(status.getHeartbeatAgeSeconds() >= 60);
         assertTrue(status.getMessage().contains("心跳已过期"));
+    }
+
+    @Test
+    void heartbeat_renewsStaleRegisteredOnlineSession() {
+        ReflectionTestUtils.setField(codexTestRunnerService, "runnerHeartbeatTimeoutSeconds", 60);
+        LocalDateTime staleHeartbeatTime = LocalDateTime.now().minusSeconds(120);
+        CodexTestRunnerSessionDO runnerSession = new CodexTestRunnerSessionDO();
+        runnerSession.setRunnerName("local-runner-delayed-heartbeat");
+        runnerSession.setStatus("ONLINE");
+        runnerSession.setCapabilitiesJson("{\"playwright\":true,\"codex\":true}");
+        runnerSession.setMaxParallelism(1);
+        runnerSession.setLastHeartbeatTime(staleHeartbeatTime);
+        runnerSession.setCurrentRunningCount(1);
+        codexTestRunnerSessionMapper.insert(runnerSession);
+        CodexTestRunnerHeartbeatReqVO heartbeatReqVO = new CodexTestRunnerHeartbeatReqVO();
+        heartbeatReqVO.setRunnerSessionId(runnerSession.getId());
+        heartbeatReqVO.setRunningExecutionCaseIds(List.of());
+
+        codexTestRunnerService.heartbeat(heartbeatReqVO, RUNNER_TOKEN);
+
+        CodexTestRunnerSessionDO renewedSession = codexTestRunnerSessionMapper.selectById(runnerSession.getId());
+        assertTrue(renewedSession.getLastHeartbeatTime().isAfter(staleHeartbeatTime));
+        assertEquals(0, renewedSession.getCurrentRunningCount());
+        assertTrue(codexTestRunnerService.getRunnerStatus().getOnline());
+    }
+
+    @Test
+    void heartbeat_rejectsExplicitlyOfflineSession() {
+        Long runnerSessionId = registerRunner();
+        CodexTestRunnerSessionDO runnerSession = codexTestRunnerSessionMapper.selectById(runnerSessionId);
+        runnerSession.setStatus("OFFLINE");
+        codexTestRunnerSessionMapper.updateById(runnerSession);
+        CodexTestRunnerHeartbeatReqVO heartbeatReqVO = new CodexTestRunnerHeartbeatReqVO();
+        heartbeatReqVO.setRunnerSessionId(runnerSessionId);
+
+        assertServiceException(() -> codexTestRunnerService.heartbeat(heartbeatReqVO, RUNNER_TOKEN),
+                CODEX_TEST_RUNNER_OFFLINE);
     }
 
     @Test

@@ -193,6 +193,46 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
     }
 
     @Override
+    public Map<Long, MatrixPositionIds> getActiveMatrixPositionIdsByCategoryIds(List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> distinctCategoryIds = categoryIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (distinctCategoryIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, DccCategoryApprovalRouteDO> routeByCategoryId = routeMapper.selectList(
+                        new LambdaQueryWrapperX<DccCategoryApprovalRouteDO>()
+                                .in(DccCategoryApprovalRouteDO::getCategoryId, distinctCategoryIds)
+                                .eq(DccCategoryApprovalRouteDO::getActive, Boolean.TRUE))
+                .stream()
+                .collect(Collectors.toMap(DccCategoryApprovalRouteDO::getCategoryId, Function.identity(),
+                        this::selectLaterRoute, LinkedHashMap::new));
+        if (routeByCategoryId.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, DccCategoryApprovalRouteDO> routeById = routeByCategoryId.values().stream()
+                .collect(Collectors.toMap(DccCategoryApprovalRouteDO::getId, Function.identity(),
+                        (left, right) -> left, LinkedHashMap::new));
+        Map<Long, List<DccCategoryApprovalRouteNodeDO>> nodesByRouteId = routeNodeMapper
+                .selectListByRouteIds(routeById.keySet())
+                .stream()
+                .collect(Collectors.groupingBy(DccCategoryApprovalRouteNodeDO::getRouteId, LinkedHashMap::new,
+                        Collectors.toList()));
+        Map<Long, MatrixPositionIds> result = new LinkedHashMap<>();
+        routeByCategoryId.forEach((categoryId, route) -> {
+            List<DccCategoryApprovalRouteNodeDO> nodes = nodesByRouteId.getOrDefault(route.getId(), List.of());
+            result.put(categoryId, new MatrixPositionIds(
+                    extractMatrixPositionIds(nodes, 2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode()),
+                    extractMatrixPositionIds(nodes, 3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode())));
+        });
+        return result;
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public DccCategoryApprovalRouteDO saveApprovalMatrix(Long categoryId, DccCategoryApprovalMatrixSaveReqVO reqVO) {
         MatrixSaveContext context = prepareMatrixSaveContext(categoryId, reqVO);
@@ -926,6 +966,43 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
                 || DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus().equals(status)
                 || DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL.getStatus().equals(status)
                 || DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(status);
+    }
+
+    private DccCategoryApprovalRouteDO selectLaterRoute(DccCategoryApprovalRouteDO left,
+                                                        DccCategoryApprovalRouteDO right) {
+        Comparator<DccCategoryApprovalRouteDO> comparator = Comparator
+                .comparing(DccCategoryApprovalRouteDO::getVersionNo, Comparator.nullsFirst(Integer::compareTo))
+                .thenComparing(DccCategoryApprovalRouteDO::getId, Comparator.nullsFirst(Long::compareTo));
+        return comparator.compare(left, right) >= 0 ? left : right;
+    }
+
+    private List<Long> extractMatrixPositionIds(List<DccCategoryApprovalRouteNodeDO> nodes, Integer stageNo,
+                                                String stageCode) {
+        return nodes.stream()
+                .filter(node -> isMatrixStageNode(node, stageNo, stageCode))
+                .filter(node -> "DCC_POSITION".equals(normalizeLegacySubjectType(node)))
+                .flatMap(node -> readCandidateSourceIdsWithFallback(node).stream())
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .toList();
+    }
+
+    private boolean isMatrixStageNode(DccCategoryApprovalRouteNodeDO node, Integer stageNo, String stageCode) {
+        if (Objects.equals(node.getStageNo(), stageNo)) {
+            return true;
+        }
+        return StrUtil.equalsIgnoreCase(stageCode, StrUtil.blankToDefault(node.getStageCode(), ""));
+    }
+
+    private List<Long> readCandidateSourceIdsWithFallback(DccCategoryApprovalRouteNodeDO node) {
+        LinkedHashSet<Long> ids = new LinkedHashSet<>(readCandidateSourceIds(node));
+        if (node.getSubjectId() != null) {
+            ids.add(node.getSubjectId());
+        }
+        if (node.getCandidateSourceId() != null) {
+            ids.add(node.getCandidateSourceId());
+        }
+        return ids.stream().toList();
     }
 
     private List<Long> readCandidateSourceIds(DccCategoryApprovalRouteNodeDO node) {

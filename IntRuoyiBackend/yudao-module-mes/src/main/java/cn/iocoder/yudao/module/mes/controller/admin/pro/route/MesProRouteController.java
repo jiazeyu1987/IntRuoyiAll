@@ -165,6 +165,15 @@ public class MesProRouteController {
                 .setId(route.getId()).setName(route.getName()).setCode(route.getCode())));
     }
 
+    @GetMapping("/item-binding-list")
+    @Operation(summary = "获得产品侧工艺路线绑定选择列表", description = "用于 MES 物料产品选择工艺路线；包含状态，保存时仍按路线是否启用做正式校验")
+    @PreAuthorize("@ss.hasPermission('mes:md-item:query')")
+    public CommonResult<List<MesProRouteRespVO>> getRouteItemBindingList() {
+        List<MesProRouteDO> list = routeService.getRouteList();
+        return success(convertList(list, route -> new MesProRouteRespVO()
+                .setId(route.getId()).setName(route.getName()).setCode(route.getCode()).setStatus(route.getStatus())));
+    }
+
     @GetMapping("/export-excel")
     @Operation(summary = "导出工艺路线 Excel")
     @PreAuthorize("@ss.hasPermission('mes:pro-route:export')")

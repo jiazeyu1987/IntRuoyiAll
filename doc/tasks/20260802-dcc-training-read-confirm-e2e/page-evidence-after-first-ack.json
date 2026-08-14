@@ -1,0 +1,517 @@
+{
+  "timestamp": "2026-08-02T10:39:50.193Z",
+  "fileId": "2054545668044070281",
+  "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+  "manager": {
+    "detail": {
+      "id": "2054545668044070281",
+      "masterId": "2054545668044062890",
+      "categoryId": 906104,
+      "directoryId": 906515,
+      "title": "Codex DCC 培训阅读确认 20260802093955",
+      "fileName": "Codex DCC 培训阅读确认 20260802093955",
+      "contentType": "application/pdf",
+      "previewKind": "PDF",
+      "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+      "sourceFileId": 9198354916348,
+      "originalFileId": 9198354916348,
+      "publishedFileId": 9198354916366,
+      "stampedFileId": 9198354916366,
+      "productMasterId": null,
+      "productCode": "HGGW",
+      "productName": "一次性使用亲水涂层导丝",
+      "dccProjectCodeId": 234,
+      "projectCodeRecognitionType": null,
+      "projectCodeRecognitionText": null,
+      "projectCodeRecognizedBy": null,
+      "projectCodeRecognizedTime": null,
+      "fileTypeTaxonomyId": 102,
+      "fileTypeLevel1": "技术文档",
+      "fileTypeLevel2": "设计和开发输出阶段",
+      "fileTypeLevel3": "来料/过程/成品检验规范",
+      "fileTypeLevel4": null,
+      "fileTypeLevel5": null,
+      "needTraining": true,
+      "processType": "CONTROLLED_FILE",
+      "versionNo": "V1.0",
+      "currentActiveVersionNo": null,
+      "effectiveDate": [
+        2026,
+        8,
+        2
+      ],
+      "remark": "新建 E2E 20260802093955",
+      "status": "TRAINING_IN_PROGRESS",
+      "requesterId": 151,
+      "processInstanceId": "24aa2cd4-8e56-11f1-ada6-00155d2984a0",
+      "processDefinitionKey": "dcc-controlled-file-approval",
+      "submittedTime": 1785663606000,
+      "approvedTime": 1785665885000,
+      "publishedTime": null,
+      "rejectedTime": null,
+      "stampedTime": 1785665885000,
+      "obsoletedBy": null,
+      "obsoletedTime": null,
+      "obsoleteReason": null,
+      "supersededByFileId": null,
+      "rejectReason": null,
+      "finalizationError": "",
+      "canPreview": false,
+      "canDownload": false,
+      "accessExplanation": {
+        "detailSource": "DIRECTORY_ADMIN",
+        "detailReason": "目录管理员",
+        "detailDeniedReason": null,
+        "publishedPreviewSource": null,
+        "publishedPreviewReason": null,
+        "pendingPreviewSource": null,
+        "pendingPreviewReason": null,
+        "downloadSource": "DOWNLOAD_POLICY",
+        "downloadReason": null,
+        "downloadDeniedReason": "STATUS_NOT_ACTIVE"
+      },
+      "systemRecordDownloadOpen": false,
+      "modifying": false,
+      "canObsolete": false,
+      "canPublish": false,
+      "canManualRelease": false,
+      "actionProjection": {
+        "actionLocked": true,
+        "actionLockReason": "Controlled file candidate is in workflow",
+        "allowedActions": [
+          "VIEW"
+        ],
+        "canWithdraw": false,
+        "pendingRequestId": "2054545668044070281",
+        "pendingVersionNo": "V1.0"
+      },
+      "hasPendingTrainingAcknowledgement": false,
+      "externalReview": null,
+      "routeSnapshots": [
+        {
+          "id": "2054545668077598995",
+          "routeVersionNo": 4,
+          "stageNo": 1,
+          "stageCode": "DOC_CONTROL_REVIEW",
+          "stageName": "文控审核",
+          "stageOrder": 1,
+          "candidateSourceType": "USER",
+          "candidateSourceId": 376,
+          "candidateSourceIds": null,
+          "approveMethod": "ANY",
+          "approveRatio": null,
+          "requireAllApprovals": false,
+          "resolvedUserIds": [
+            376
+          ]
+        },
+        {
+          "id": "2054545668077598996",
+          "routeVersionNo": 4,
+          "stageNo": 2,
+          "stageCode": "MATRIX_REVIEW",
+          "stageName": "审核会签",
+          "stageOrder": 2,
+          "candidateSourceType": "USER",
+          "candidateSourceId": 1074,
+          "candidateSourceIds": null,
+          "approveMethod": "ALL",
+          "approveRatio": 100,
+          "requireAllApprovals": true,
+          "resolvedUserIds": [
+            1074
+          ]
+        },
+        {
+          "id": "2054545668077598997",
+          "routeVersionNo": 4,
+          "stageNo": 3,
+          "stageCode": "MATRIX_APPROVAL",
+          "stageName": "批准",
+          "stageOrder": 3,
+          "candidateSourceType": "USER",
+          "candidateSourceId": 424,
+          "candidateSourceIds": null,
+          "approveMethod": "ANY",
+          "approveRatio": null,
+          "requireAllApprovals": false,
+          "resolvedUserIds": [
+            424
+          ]
+        },
+        {
+          "id": "2054545668077598998",
+          "routeVersionNo": 4,
+          "stageNo": 4,
+          "stageCode": "DOC_CONTROL_APPROVAL",
+          "stageName": "文控批准",
+          "stageOrder": 4,
+          "candidateSourceType": "USER",
+          "candidateSourceId": 910250,
+          "candidateSourceIds": null,
+          "approveMethod": "ANY",
+          "approveRatio": null,
+          "requireAllApprovals": false,
+          "resolvedUserIds": [
+            910250
+          ]
+        }
+      ],
+      "versionHistory": [
+        {
+          "id": "2054545668044070281",
+          "title": "Codex DCC 培训阅读确认 20260802093955",
+          "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+          "versionNo": "V1.0",
+          "status": "TRAINING_IN_PROGRESS",
+          "effectiveDate": [
+            2026,
+            8,
+            2
+          ],
+          "publishedTime": null,
+          "obsoletedTime": null,
+          "supersededByFileId": null,
+          "remark": "新建 E2E 20260802093955",
+          "canPreview": false,
+          "canDownload": false
+        }
+      ],
+      "distributionStatuses": [
+        {
+          "id": 4332,
+          "departmentId": 339,
+          "distributionMedium": "PUBLIC_FOLDER",
+          "status": "READ",
+          "acknowledgedBy": null,
+          "acknowledgedAt": null,
+          "recoveredBy": null,
+          "recoveredAt": null,
+          "recipientUserIds": [
+            885,
+            937,
+            957,
+            1074,
+            1194,
+            1354,
+            1453,
+            1499
+          ],
+          "recipients": [
+            {
+              "id": 46747,
+              "userId": 885,
+              "readAt": null,
+              "acknowledgedAt": null,
+              "ackComment": null
+            },
+            {
+              "id": 46748,
+              "userId": 937,
+              "readAt": null,
+              "acknowledgedAt": null,
+              "ackComment": null
+            },
+            {
+              "id": 46749,
+              "userId": 957,
+              "readAt": null,
+              "acknowledgedAt": null,
+              "ackComment": null
+            },
+            {
+              "id": 46750,
+              "userId": 1074,
+              "readAt": 1785666180000,
+              "acknowledgedAt": null,
+              "ackComment": null
+            },
+            {
+              "id": 46751,
+              "userId": 1194,
+              "readAt": null,
+              "acknowledgedAt": null,
+              "ackComment": null
+            },
+            {
+              "id": 46752,
+              "userId": 1354,
+              "readAt": null,
+              "acknowledgedAt": null,
+              "ackComment": null
+            },
+            {
+              "id": 46753,
+              "userId": 1453,
+              "readAt": null,
+              "acknowledgedAt": null,
+              "ackComment": null
+            },
+            {
+              "id": 46754,
+              "userId": 1499,
+              "readAt": null,
+              "acknowledgedAt": null,
+              "ackComment": null
+            }
+          ]
+        },
+        {
+          "id": 4333,
+          "departmentId": 253,
+          "distributionMedium": "PUBLIC_FOLDER",
+          "status": "READ",
+          "acknowledgedBy": null,
+          "acknowledgedAt": null,
+          "recoveredBy": null,
+          "recoveredAt": null,
+          "recipientUserIds": [
+            424
+          ],
+          "recipients": [
+            {
+              "id": 46755,
+              "userId": 424,
+              "readAt": 1785666180000,
+              "acknowledgedAt": null,
+              "ackComment": null
+            }
+          ]
+        }
+      ],
+      "trainingStatuses": [
+        {
+          "id": 108,
+          "departmentId": 339,
+          "status": "PENDING",
+          "assignments": [
+            {
+              "id": 1034,
+              "userId": 885,
+              "status": "PENDING",
+              "acknowledgedAt": null,
+              "accumulatedViewSeconds": 0,
+              "requiredViewSeconds": 600,
+              "eligibleToAcknowledge": false
+            },
+            {
+              "id": 1035,
+              "userId": 937,
+              "status": "PENDING",
+              "acknowledgedAt": null,
+              "accumulatedViewSeconds": 0,
+              "requiredViewSeconds": 600,
+              "eligibleToAcknowledge": false
+            },
+            {
+              "id": 1036,
+              "userId": 957,
+              "status": "PENDING",
+              "acknowledgedAt": null,
+              "accumulatedViewSeconds": 0,
+              "requiredViewSeconds": 600,
+              "eligibleToAcknowledge": false
+            },
+            {
+              "id": 1037,
+              "userId": 1074,
+              "status": "PENDING",
+              "acknowledgedAt": null,
+              "accumulatedViewSeconds": 25,
+              "requiredViewSeconds": 600,
+              "eligibleToAcknowledge": false
+            },
+            {
+              "id": 1038,
+              "userId": 1194,
+              "status": "PENDING",
+              "acknowledgedAt": null,
+              "accumulatedViewSeconds": 0,
+              "requiredViewSeconds": 600,
+              "eligibleToAcknowledge": false
+            },
+            {
+              "id": 1039,
+              "userId": 1354,
+              "status": "PENDING",
+              "acknowledgedAt": null,
+              "accumulatedViewSeconds": 0,
+              "requiredViewSeconds": 600,
+              "eligibleToAcknowledge": false
+            },
+            {
+              "id": 1040,
+              "userId": 1453,
+              "status": "PENDING",
+              "acknowledgedAt": null,
+              "accumulatedViewSeconds": 0,
+              "requiredViewSeconds": 600,
+              "eligibleToAcknowledge": false
+            },
+            {
+              "id": 1041,
+              "userId": 1499,
+              "status": "PENDING",
+              "acknowledgedAt": null,
+              "accumulatedViewSeconds": 0,
+              "requiredViewSeconds": 600,
+              "eligibleToAcknowledge": false
+            }
+          ]
+        },
+        {
+          "id": 109,
+          "departmentId": 253,
+          "status": "ACKNOWLEDGED",
+          "assignments": [
+            {
+              "id": 1042,
+              "userId": 424,
+              "status": "ACKNOWLEDGED",
+              "acknowledgedAt": 1785667057000,
+              "accumulatedViewSeconds": 625,
+              "requiredViewSeconds": 600,
+              "eligibleToAcknowledge": false
+            }
+          ]
+        }
+      ],
+      "signatureSummaries": [
+        {
+          "id": 887,
+          "taskId": "24aa53f6-8e56-11f1-ada6-00155d2984a0",
+          "actorId": 376,
+          "actionType": "APPROVE",
+          "taskActionResult": "APPROVED",
+          "revisionId": "2054545668044070281",
+          "versionNo": "V1.0",
+          "meaningCode": "DOC_CONTROL_REVIEW_APPROVE",
+          "controlledCopyHashStatus": "NOT_APPLICABLE",
+          "evidenceStatus": "VALID",
+          "evidenceHashShort": "9eb3044e928f",
+          "actorUsernameSnapshot": "zhaohaichen",
+          "actorNicknameSnapshot": "赵海辰",
+          "actorDeptIdSnapshot": 226,
+          "actorDeptNameSnapshot": "QMS",
+          "actorPostNamesSnapshot": "DCC真实E2E签名岗位",
+          "actorRoleNamesSnapshot": "审批中心入口、文控",
+          "signaturePurpose": "DOC_CONTROL_REVIEW_APPROVE",
+          "authorizationBasis": "DCC电子签名授权启用；系统角色/岗位快照已记录",
+          "authenticationMethod": "PASSWORD",
+          "recordVersionSnapshot": "V1.0",
+          "recordHashSnapshot": "0a371e931f6203ec41f61919da44df3fb4d2952e57618d5e606dac53baad08b3",
+          "clientIpSnapshot": "127.0.0.1",
+          "userAgentSnapshot": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "snapshotStatus": "CAPTURED",
+          "signatureMode": "PASSWORD",
+          "comment": "E2E V1.0 文控审核 同意 20260802093955",
+          "signedAt": 1785663612000
+        },
+        {
+          "id": 889,
+          "taskId": "284666b8-8e56-11f1-ada6-00155d2984a0",
+          "actorId": 1074,
+          "actionType": "APPROVE",
+          "taskActionResult": "APPROVED",
+          "revisionId": "2054545668044070281",
+          "versionNo": "V1.0",
+          "meaningCode": "MATRIX_REVIEW_APPROVE",
+          "controlledCopyHashStatus": "NOT_APPLICABLE",
+          "evidenceStatus": "VALID",
+          "evidenceHashShort": "d5b8d4d47dfa",
+          "actorUsernameSnapshot": "zhaojie",
+          "actorNicknameSnapshot": "赵杰",
+          "actorDeptIdSnapshot": 339,
+          "actorDeptNameSnapshot": "生产计划",
+          "actorPostNamesSnapshot": "DCC真实E2E签名岗位",
+          "actorRoleNamesSnapshot": "审批中心入口、排产员、文控",
+          "signaturePurpose": "MATRIX_REVIEW_APPROVE",
+          "authorizationBasis": "DCC电子签名授权启用；系统角色/岗位快照已记录",
+          "authenticationMethod": "PASSWORD",
+          "recordVersionSnapshot": "V1.0",
+          "recordHashSnapshot": "0a371e931f6203ec41f61919da44df3fb4d2952e57618d5e606dac53baad08b3",
+          "clientIpSnapshot": "127.0.0.1",
+          "userAgentSnapshot": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "snapshotStatus": "CAPTURED",
+          "signatureMode": "PASSWORD",
+          "comment": "E2E V1.0 会签审核 同意 20260802093955",
+          "signedAt": 1785663618000
+        },
+        {
+          "id": 891,
+          "taskId": "2c0320d0-8e56-11f1-ada6-00155d2984a0",
+          "actorId": 424,
+          "actionType": "APPROVE",
+          "taskActionResult": "APPROVED",
+          "revisionId": "2054545668044070281",
+          "versionNo": "V1.0",
+          "meaningCode": "MATRIX_APPROVAL_APPROVE",
+          "controlledCopyHashStatus": "NOT_APPLICABLE",
+          "evidenceStatus": "VALID",
+          "evidenceHashShort": "5d31250dcac4",
+          "actorUsernameSnapshot": "zhaomingyu",
+          "actorNicknameSnapshot": "赵明玉",
+          "actorDeptIdSnapshot": 253,
+          "actorDeptNameSnapshot": "质量体系部",
+          "actorPostNamesSnapshot": "DCC真实E2E签名岗位",
+          "actorRoleNamesSnapshot": "审批中心入口、文控",
+          "signaturePurpose": "MATRIX_APPROVAL_APPROVE",
+          "authorizationBasis": "DCC电子签名授权启用；系统角色/岗位快照已记录",
+          "authenticationMethod": "PASSWORD",
+          "recordVersionSnapshot": "V1.0",
+          "recordHashSnapshot": "0a371e931f6203ec41f61919da44df3fb4d2952e57618d5e606dac53baad08b3",
+          "clientIpSnapshot": "127.0.0.1",
+          "userAgentSnapshot": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "snapshotStatus": "CAPTURED",
+          "signatureMode": "PASSWORD",
+          "comment": "E2E V1.0 会签批准 同意 20260802093955",
+          "signedAt": 1785663624000
+        },
+        {
+          "id": 920,
+          "taskId": "2fcbe8c9-8e56-11f1-ada6-00155d2984a0",
+          "actorId": 910250,
+          "actionType": "APPROVE",
+          "taskActionResult": "APPROVED",
+          "revisionId": "2054545668044070281",
+          "versionNo": "V1.0",
+          "meaningCode": "DOC_CONTROL_APPROVAL_APPROVE",
+          "controlledCopyHashStatus": "NOT_APPLICABLE",
+          "evidenceStatus": "VALID",
+          "evidenceHashShort": "5a760064c90f",
+          "actorUsernameSnapshot": "wangsiyu",
+          "actorNicknameSnapshot": "王思雨",
+          "actorDeptIdSnapshot": 226,
+          "actorDeptNameSnapshot": "QMS",
+          "actorPostNamesSnapshot": "DCC真实E2E签名岗位",
+          "actorRoleNamesSnapshot": "审批中心入口、文控、文控、文控下载",
+          "signaturePurpose": "DOC_CONTROL_APPROVAL_APPROVE",
+          "authorizationBasis": "DCC电子签名授权启用；系统角色/岗位快照已记录",
+          "authenticationMethod": "PASSWORD",
+          "recordVersionSnapshot": "V1.0",
+          "recordHashSnapshot": "0a371e931f6203ec41f61919da44df3fb4d2952e57618d5e606dac53baad08b3",
+          "clientIpSnapshot": "127.0.0.1",
+          "userAgentSnapshot": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "snapshotStatus": "CAPTURED",
+          "signatureMode": "PASSWORD",
+          "comment": "E2E V1.0 文控批准 同意 20260802093955",
+          "signedAt": 1785665885000
+        }
+      ]
+    },
+    "trainingText": "培训状态 部门 受训人 培训摘要 生产计划 陈晨 (chenchen) 待确认 0分0秒 / 10分0秒 未达标 部门：待确认 确认：- 生产计划 孙荣荣 (sunrongrong) 待确认 0分0秒 / 10分0秒 未达标 部门：待确认 确认：- 生产计划 刘儒 (liuru) 待确认 0分0秒 / 10分0秒 未达标 部门：待确认 确认：- 生产计划 赵杰 (zhaojie) 待确认 0分25秒 / 10分0秒 未达标 部门：待确认 确认：- 生产计划 薛建霞 (xuejianxia) 待确认 0分0秒 / 10分0秒 未达标 部门：待确认 确认：- 生产计划 滕伟华 (tengweihua) 待确认 0分0秒 / 10分0秒 未达标 部门：待确认 确认：- 生产计划 石海松 (shihaisong) 待确认 0分0秒 / 10分0秒 未达标 部门：待确认 确认：- 生产计划 马玲玲 (malingling) 待确认 0分0秒 / 10分0秒 未达标 部门：待确认 确认：- 质量体系部 赵明玉 (zhaomingyu) 已确认 10分25秒 / 10分0秒 已确认 部门：已确认 确认：2026-08-02 18:37:37",
+    "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manager-training-status-CODX-DCC-TRAIN-20260802093955.png"
+  },
+  "pending": {
+    "payload": {
+      "code": 0,
+      "msg": "",
+      "data": {
+        "total": 0,
+        "list": []
+      }
+    },
+    "bodyText": "瑛泰管理系统 个人中心 936 审批中心 2 电子签名 文控中心 基础数据 MES 系统 系统管理 版本信息未生成 文控中心 / 我的培训 请输入菜单内容 赵杰 我的培训 快速过滤 文件类别 等于 请选择值 查询 显示字段 文件标题 文件编号 版本 来源部门 培训摘要 操作 Codex DCC 培训阅读确认 20260802093955 CODX-DCC-TRAIN-20260802093955 V1.0 生产计划 待查看 0分25秒 / 10分0秒 还需 9分35秒 发布：- 进入培训 文件详情 共 1 条 20条/页 1 前往 页 Copyright ©2026 瑛泰管理系统",
+    "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\pending-training-mine-zhaojie-CODX-DCC-TRAIN-20260802093955.png"
+  }
+}

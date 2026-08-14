@@ -207,7 +207,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_SCHEDULE_ORDER_NOT_EXISTS = new ErrorCode(1_040_270_000, "排产工单不存在");
     ErrorCode PRO_SCHEDULE_ORDER_PROMISE_DATE_REQUIRED = new ErrorCode(1_040_270_001, "承诺交期不能为空");
     ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE = new ErrorCode(1_040_270_002, "该生产工单已存在排产工单");
-    ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED = new ErrorCode(1_040_270_003, "生产工单已完成或已取消，不能生成排产工单");
+    ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED = new ErrorCode(1_040_270_003, "生产工单不是已确认状态，不能生成排产工单");
     ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_FROZEN = new ErrorCode(1_040_270_004, "生产工单已临时冻结，不能生成排产工单");
     ErrorCode PRO_SCHEDULE_ORDER_ROUTE_REQUIRED = new ErrorCode(1_040_270_005, "产品缺少启用工艺路线，不能生成排产工单");
     ErrorCode PRO_SCHEDULE_ORDER_ROUTE_PROCESS_REQUIRED = new ErrorCode(1_040_270_006, "工艺路线缺少工序，不能生成排产工单");
@@ -227,6 +227,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_SCHEDULE_ORDER_PROCESS_WIP_NOT_EXISTS = new ErrorCode(1_040_270_020, "当前没有可写入的工序在制记录，processId={}");
     ErrorCode PRO_SCHEDULE_ORDER_PROCESS_WIP_CALENDAR_RULE_REQUIRED = new ErrorCode(1_040_270_021, "工序启用夜班但缺少排程日历规则，processId={}");
     ErrorCode PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED = new ErrorCode(1_040_270_022, "资源计算排产工序缺少可用资源产能，routeProcessId={}");
+    ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED = new ErrorCode(1_040_270_023, "生产工单缺少 ERP 正式生产订单同步记录或正式 ID/编号，不能生成排产工单");
 
     // ========== MES 第三方报工待归属（1-040-272-000） ==========
     ErrorCode PRO_FEEDBACK_IMPORT_RECORD_NOT_EXISTS = new ErrorCode(1_040_272_000, "待归属记录不存在");
@@ -277,6 +278,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ROLE_CATEGORY_REQUIRED = new ErrorCode(1_040_271_048, "批记录附件默认角色分类 batch-record 不存在或未启用");
     ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ENABLED_USER_NOT_ENOUGH = new ErrorCode(1_040_271_049, "当前租户启用用户少于 2 人，无法初始化批记录附件上传角色");
     ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID = new ErrorCode(1_040_271_050, "批记录附件负责人配置无效：{}");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID = new ErrorCode(1_040_271_051, "工序开始生产组长配置无效：{}");
     ErrorCode PRO_ROUTE_VERSION_STALE = new ErrorCode(1_040_271_029, "工艺路线版本已变更，请刷新后再操作，routeId={}，expectedRouteVersionId={}，activeRouteVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_NOT_EXISTS = new ErrorCode(1_040_271_030, "工艺路线版本不存在，routeVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS = new ErrorCode(1_040_271_031, "工艺路线缺少当前生效版本，routeId={}");
@@ -421,6 +423,10 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_IMPORT_ROUTE_NO_STEP = new ErrorCode(1_040_501_404, "导入路线没有工序：{}");
     ErrorCode PRO_ROUTE_IMPORT_SEQUENCE_DUPLICATE = new ErrorCode(1_040_501_405, "导入路线 {} 的工序序号重复：{}");
     ErrorCode PRO_ROUTE_IMPORT_FINAL_PROCESS_INVALID = new ErrorCode(1_040_501_406, "导入路线必须且只能有一个最终工序：{}");
+    ErrorCode PRO_ROUTE_DCC_BINDING_VERSION_CONFLICT = new ErrorCode(1_040_501_500,
+            "工艺路线 DCC 项目代码关系已变化，请刷新后重试，routeId={}，expectedVersion={}，currentVersion={}");
+    ErrorCode PRO_ROUTE_DCC_PROJECT_INVALID = new ErrorCode(1_040_501_501,
+            "DCC 项目代码不存在或已停用：{}");
     ErrorCode PRO_ROUTE_IMPORT_PROCESS_CONFLICT = new ErrorCode(1_040_501_407, "工序编码 {} 的名称不一致，本地：{}，导入：{}");
     ErrorCode PRO_ROUTE_IMPORT_PROCESS_NAME_EXISTS = new ErrorCode(1_040_501_408, "工序名称 {} 已存在但编码不一致");
     ErrorCode PRO_ROUTE_IMPORT_CHECK_PROCESS_INVALID = new ErrorCode(1_040_501_409, "检验工序映射无效：{}");
@@ -530,6 +536,20 @@ public interface ErrorCodeConstants {
             "PQC 简化模板只允许检测成功或检测失败");
     ErrorCode PRO_FRONTLINE_TEMPLATE_SUBMIT_TIME_FORBIDDEN = new ErrorCode(1_040_506_105,
             "一线固定模板不允许前端录入提交时间");
+    ErrorCode PRO_FRONTLINE_PQC_REGULATION_REQUIRED = new ErrorCode(1_040_506_106,
+            "当前工序缺少已发布 QA 检验规程，activeOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_FRONTLINE_PQC_TASK_REQUIRED = new ErrorCode(1_040_506_107,
+            "当前工序缺少待执行 PQC 检验任务，activeOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH = new ErrorCode(1_040_506_108,
+            "PQC 检验任务身份与提交上下文不一致：{}");
+    ErrorCode PRO_FRONTLINE_PQC_TASK_STATUS_INVALID = new ErrorCode(1_040_506_109,
+            "PQC 检验任务状态不允许提交：taskId={}，status={}");
+    ErrorCode PRO_FRONTLINE_PQC_TASK_QUANTITY_MISMATCH = new ErrorCode(1_040_506_110,
+            "PQC 检验任务数量与提交数量不一致：taskId={}，plannedQuantity={}，actualQuantity={}");
+    ErrorCode PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED = new ErrorCode(1_040_506_111,
+            "PQC 检验任务生成前置条件不满足：{}");
+    ErrorCode PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT = new ErrorCode(1_040_506_112,
+            "PQC 检验任务身份已存在，禁止重复生成：{}");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");
@@ -564,6 +584,27 @@ public interface ErrorCodeConstants {
     // ========== MES 质量管理-质检方案产品关联（1-040-600-200） ==========
     ErrorCode QC_TEMPLATE_ITEM_NOT_EXISTS = new ErrorCode(1_040_600_200, "质检方案产品关联不存在");
     ErrorCode QC_TEMPLATE_ITEM_DUPLICATE = new ErrorCode(1_040_600_201, "该产品已关联此质检方案");
+    // ========== MES 质量管理-QA 检验规程（1-040-600-300） ==========
+    ErrorCode QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS =
+            new ErrorCode(1_040_600_300, "QA 检验规程发布版本不存在：{}");
+    ErrorCode QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED =
+            new ErrorCode(1_040_600_301, "QA 检验规程版本不是已发布状态，不能作为发布版本证据：{}");
+    ErrorCode QA_INSPECTION_REGULATION_NOT_EXISTS =
+            new ErrorCode(1_040_600_302, "QA 检验规程不存在：{}");
+    ErrorCode QA_INSPECTION_REGULATION_SNAPSHOT_INVALID =
+            new ErrorCode(1_040_600_303, "QA 检验规程发布快照无效：{}");
+    ErrorCode QA_INSPECTION_REGULATION_REQUIRED_RULE_MISSING =
+            new ErrorCode(1_040_600_304, "QA 检验规程发布失败，缺少必要检验规则：{}");
+    ErrorCode QA_INSPECTION_REGULATION_ITEM_INVALID =
+            new ErrorCode(1_040_600_305, "QA 检验规程检验项目无效：{}");
+    ErrorCode QA_INSPECTION_REGULATION_VERSION_IMMUTABLE =
+            new ErrorCode(1_040_600_306, "QA 检验规程版本已发布，不允许原地修改：{}");
+    ErrorCode QA_INSPECTION_REGULATION_VERSION_CONFLICT =
+            new ErrorCode(1_040_600_307, "QA 检验规程版本状态冲突，无法执行当前操作：{}");
+    ErrorCode QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID =
+            new ErrorCode(1_040_600_308, "QA 检验规程末检适用性配置无效：{}");
+    ErrorCode QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID =
+            new ErrorCode(1_040_600_309, "QA 检验规程 DCC 项目代码无效：{}");
 
     // ========== MES 质量管理-质检指标（1-040-601-000） ==========
     ErrorCode QC_INDICATOR_NOT_EXISTS = new ErrorCode(1_040_601_000, "质检指标不存在");
@@ -769,6 +810,7 @@ public interface ErrorCodeConstants {
     ErrorCode WM_TRANSFER_ALREADY_FINISHED = new ErrorCode(1_040_710_007, "转移单已完成或已取消，无法继续操作");
     ErrorCode WM_TRANSFER_NO_LINE = new ErrorCode(1_040_710_008, "转移单至少需要一条行数据");
     ErrorCode WM_TRANSFER_DETAIL_QUANTITY_MISMATCH = new ErrorCode(1_040_710_009, "转移单行数量与明细数量不一致");
+    ErrorCode WM_TRANSFER_MANUAL_OPERATION_FORBIDDEN = new ErrorCode(1_040_710_010, "转移单由 ERP/正式库存链路生成，禁止 MES 本地手工写操作");
     ErrorCode WM_TRANSFER_LINE_NOT_EXISTS = new ErrorCode(1_040_710_100, "转移单行不存在");
     ErrorCode WM_TRANSFER_LINE_QUANTITY_EXCEED_STOCK = new ErrorCode(1_040_710_101, "转移数量不能超过库存数量");
     ErrorCode WM_TRANSFER_DETAIL_NOT_EXISTS = new ErrorCode(1_040_710_200, "调拨明细不存在");
@@ -1014,10 +1056,10 @@ public interface ErrorCodeConstants {
             "设备账号上下文不完整或不一致：{}");
     ErrorCode PRO_FRONTLINE_ROUTE_PROCESS_WORKSTATION_REQUIRED = new ErrorCode(1_040_760_104,
             "工艺路线工序缺少正式工作站绑定，routeId={}, processId={}");
-    ErrorCode PRO_FRONTLINE_PROCESS_EMPLOYEE_EMPTY = new ErrorCode(1_040_760_105,
-            "当前工序没有绑定可切换员工，workstationId={}, processId={}");
-    ErrorCode PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_BOUND = new ErrorCode(1_040_760_106,
-            "实际填写员工 {} 不属于当前工序 {} 的绑定员工");
+    ErrorCode PRO_FRONTLINE_LEADER_EMPLOYEE_EMPTY = new ErrorCode(1_040_760_105,
+            "当前生产组长没有启用的生产人员，leaderUserId={}, processId={}");
+    ErrorCode PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_IN_TEAM = new ErrorCode(1_040_760_106,
+            "实际填写员工 {} 不属于当前生产组长的启用生产人员，processId={}");
     ErrorCode PRO_FRONTLINE_TEMPLATE_BINDING_SOURCE_MISSING = new ErrorCode(1_040_760_107,
             "实际员工工序模板绑定来源未接入，无法重新加载模板");
     ErrorCode PRO_FRONTLINE_TEMPLATE_NOT_EXISTS = new ErrorCode(1_040_760_108,
@@ -1030,6 +1072,24 @@ public interface ErrorCodeConstants {
             "提交设备/工作站上下文与授权工序不一致，submittedDeviceId={}, submittedWorkstationId={}, expectedDeviceId={}, expectedWorkstationId={}");
     ErrorCode PRO_FRONTLINE_TEMPLATE_MISMATCH = new ErrorCode(1_040_760_112,
             "提交模板编号与当前实际员工工序模板不一致：{}");
+    ErrorCode PRO_FRONTLINE_PQC_ACTIVE_ORDER_EMPTY = new ErrorCode(1_040_760_113,
+            "当前没有活跃订单，PQC 不能选择订单");
+    ErrorCode PRO_FRONTLINE_PQC_ACTIVE_ORDER_REQUIRED = new ErrorCode(1_040_760_114,
+            "PQC 选择的订单不是当前活跃订单，workOrderId={}, routeId={}");
+    ErrorCode PRO_FRONTLINE_PQC_ACTIVE_ORDER_ROUTE_REQUIRED = new ErrorCode(1_040_760_115,
+            "PQC 活跃订单缺少产品对应的正式工艺路线，workOrderId={}, productId={}, routeId={}");
+    ErrorCode PRO_FRONTLINE_PQC_ROUTE_PROCESS_EMPTY = new ErrorCode(1_040_760_116,
+            "PQC 活跃订单对应工艺路线没有可选工序，workOrderId={}, routeId={}");
+    ErrorCode PRO_FRONTLINE_PQC_PERSONNEL_EMPTY = new ErrorCode(1_040_760_117,
+            "PQC 员工和 PQC 组长来源为空，无法切换填写员工");
+    ErrorCode PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND = new ErrorCode(1_040_760_118,
+            "实际填写员工 {} 不属于 PQC 员工或 PQC 组长");
+    ErrorCode PRO_FRONTLINE_PRESSURE_PUMP_ROUTE_EMPTY = new ErrorCode(1_040_760_119,
+            "压力泵角色授权缺少启用压力泵工艺路线，无法切换工序，loginUserId={}");
+    ErrorCode PRO_FRONTLINE_PRESSURE_PUMP_ROUTE_PROCESS_EMPTY = new ErrorCode(1_040_760_120,
+            "压力泵角色授权缺少有效工艺路线工序，routeIds={}");
+    ErrorCode PRO_FRONTLINE_ACTUAL_EMPLOYEE_LEADER_ASSIGNMENT_INVALID = new ErrorCode(1_040_760_121,
+            "实际填写员工必须且只能属于一个启用的生产组长，actualEmployeeId={}");
 
     // ========== MES 工序池审核副本（1-040-760-200） ==========
     ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_200,
@@ -1044,8 +1104,8 @@ public interface ErrorCodeConstants {
             "工序池审核副本电子签名已存在：{}");
 
     // ========== MES 工序池班组长工作台（1-040-760-300） ==========
-    ErrorCode PRO_PROCESS_POOL_TEAM_SCOPE_DENIED = new ErrorCode(1_040_760_300,
-            "班组长不在该员工或工序的负责范围内");
+    ErrorCode PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED = new ErrorCode(1_040_760_344,
+            "班组长不在该{}的负责范围内");
     ErrorCode PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED = new ErrorCode(1_040_760_301,
             "班组长工作台缺少负责范围上下文：{}");
     ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_STATUS_INVALID = new ErrorCode(1_040_760_302,
@@ -1056,6 +1116,108 @@ public interface ErrorCodeConstants {
             "不良原因缺少必填字段：{}");
     ErrorCode PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID = new ErrorCode(1_040_760_305,
             "设备参数上下限无效，下限不能大于上限：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS = new ErrorCode(1_040_760_306,
+            "班组活跃订单不存在：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS = new ErrorCode(1_040_760_307,
+            "班组员工档案不存在或已禁用：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_DEVICE_NOT_EXISTS = new ErrorCode(1_040_760_308,
+            "班组设备不存在：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_DEVICE_UNAVAILABLE = new ErrorCode(1_040_760_309,
+            "班组设备当前不可用于新报工，设备编号：{}，状态：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_DEVICE_STATUS_INVALID = new ErrorCode(1_040_760_310,
+            "班组设备状态无效：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED = new ErrorCode(1_040_760_311,
+            "报工确认分配必须使用当前班组活跃订单：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH = new ErrorCode(1_040_760_312,
+            "报工确认分配总数必须等于本次报工数量：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH = new ErrorCode(1_040_760_313,
+            "活跃订单当前工序剩余数量不足，无法确认分配：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED = new ErrorCode(1_040_760_314,
+            "报工确认缺少有效报工数量：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE = new ErrorCode(1_040_760_315,
+            "该员工报工已完成订单分配确认，禁止重复确认：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_MODE_INVALID = new ErrorCode(1_040_760_316,
+            "报工确认分配方式无效：{}");
+    ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_BINDING_REQUIRED = new ErrorCode(1_040_760_317,
+            "订单工序完成缺少正式批记录绑定，routeProcessId={}");
+    ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_318,
+            "订单工序完成缺少正式批记录字段映射，routeProcessId={}，batchRecordReportId={}，field={}");
+    ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED = new ErrorCode(1_040_760_319,
+            "订单工序完成批记录回填缺少报工来源值，eventId={}，field={}");
+    ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_EXECUTION_REQUIRED = new ErrorCode(1_040_760_320,
+            "订单工序完成批记录回填缺少执行实例，batchRecordReportId={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_TRACE_REQUIRED = new ErrorCode(1_040_760_321,
+            "P6 只读核验缺少报工分配记录，eventId={}，workOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_ORDER_PROCESS_COMPLETION_TRACE_REQUIRED = new ErrorCode(1_040_760_322,
+            "P6 只读核验缺少订单工序完成记录，workOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_TRACE_REQUIRED = new ErrorCode(1_040_760_323,
+            "P6 只读核验缺少正式批记录回填证据，workOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED = new ErrorCode(1_040_760_324,
+            "活跃订单缺少当前工序生产系数和目标数量快照：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_ROOT_EVENT_REQUIRED = new ErrorCode(1_040_760_325,
+            "报工确认必须以生产提交根事件为来源：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_BINDING_REQUIRED = new ErrorCode(1_040_760_326,
+            "报工确认缺少唯一正式 PQC 结构化绑定，eventId={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_NOT_ALLOCATABLE = new ErrorCode(1_040_760_327,
+            "报工确认 PQC 结果不可分配，eventId={}，inspectionResult={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_QUANTITY_MISMATCH = new ErrorCode(1_040_760_328,
+            "报工确认 PQC 合格可分配数量不足，eventId={}，confirmQuantity={}，qualifiedQuantity={}，consumedQuantity={}，allocatableQuantity={}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS = new ErrorCode(1_040_760_329,
+            "工序池提交事件已存在复核终态，禁止重复确认或退回：eventId={}，status={}");
+    ErrorCode PRO_PROCESS_POOL_PQC_RECORD_REQUIRED = new ErrorCode(1_040_760_331,
+            "PQC 提交事件缺少可汇集的正式检验记录：eventId={}");
+    ErrorCode PRO_PROCESS_POOL_PQC_PROCESS_INSPECTION_ALREADY_AGGREGATED = new ErrorCode(1_040_760_332,
+            "PQC 提交事件已汇集为过程检验记录，禁止重复汇集：eventId={}，reviewId={}");
+    ErrorCode PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED = new ErrorCode(1_040_760_333,
+            "原始记录补正必须基于最新退回复核记录：eventId={}，latestStatus={}");
+    ErrorCode PRO_PROCESS_POOL_REVISION_PRODUCTION_REPORT_APPROVED_LOCKED = new ErrorCode(1_040_760_351,
+            "生产报工已经确认通过，禁止修改：eventId={}");
+    ErrorCode PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED = new ErrorCode(1_040_760_334,
+            "生产报工通过必须使用报工分配确认链路：eventId={}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE = new ErrorCode(1_040_760_335,
+            "当前生产组长已有同名有效员工，请修改姓名或增加后缀：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER = new ErrorCode(1_040_760_336,
+            "正式工电子签名密码由用户管理统一维护，不能在生产人员档案中重置：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE = new ErrorCode(1_040_760_337,
+            "当前生产组长已关联该正式工，请启用或修改既有生产人员档案：{}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED = new ErrorCode(1_040_760_338,
+            "PQC 检验单只能由 PQC 组长确认或退回：eventId={}，leaderType={}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED = new ErrorCode(1_040_760_339,
+            "复核退回必须填写退回原因：eventId={}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_DUPLICATE = new ErrorCode(1_040_760_340,
+            "当前 PQC 组长已关联该检验员，请启用或维护既有关联：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_NOT_EXISTS = new ErrorCode(1_040_760_341,
+            "PQC 检验员关联不存在或不属于当前组长：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_EFFECTIVE_SCHEDULE_UNIQUE_REQUIRED = new ErrorCode(1_040_760_342,
+            "活跃订单缺少唯一有效排产工单：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED = new ErrorCode(1_040_760_343,
+            "活跃订单有效排产缺少正式路线或路线版本：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED = new ErrorCode(1_040_760_345,
+            "报工确认只能由生产组长执行：eventId={}，leaderType={}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_PERMISSION_REQUIRED = new ErrorCode(1_040_760_346,
+            "PQC 检验员必须拥有 PQC 权限角色：userId={}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_ROLE_REQUIRED = new ErrorCode(1_040_760_347,
+            "PQC 权限角色未配置或已禁用：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_OCCUPIED_BY_OTHER_LEADER = new ErrorCode(1_040_760_348,
+            "该 PQC 检验员已被其他 PQC 组长选择，不能重复关联：userId={}");
+    ErrorCode PRO_PROCESS_POOL_WORK_ORDER_ABNORMAL_OPEN_EXISTS = new ErrorCode(1_040_760_349,
+            "生产订单已存在未关闭异常：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_ABNORMAL_ORDER_FORBIDDEN = new ErrorCode(1_040_760_350,
+            "异常生产订单不参与报工分配：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_PROGRESS_REQUIRED = new ErrorCode(1_040_760_352,
+            "活跃订单生产进度和检验进度必须均为100%才能申请放行：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED = new ErrorCode(1_040_760_353,
+            "活跃订单申请放行缺少正式资料来源：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_OWNER_REQUIRED = new ErrorCode(1_040_760_354,
+            "活跃订单申请放行缺少生产负责人放行配置：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_MOVE_INVALID = new ErrorCode(1_040_760_355,
+            "活跃订单排序失败：{}");
+    ErrorCode PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_DUPLICATE = new ErrorCode(1_040_760_356,
+            "活跃订单同一工序存在多条正式目标快照：activeOrderId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT = new ErrorCode(1_040_760_357,
+            "报工分配版本已变化，请刷新后重试：eventId={}，expectedVersion={}，currentVersion={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED = new ErrorCode(1_040_760_358,
+            "订单分配已经放行，禁止调整：activeOrderId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

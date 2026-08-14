@@ -1,0 +1,36 @@
+{
+  "status": "BLOCKED",
+  "sourceRunId": "20260802101521",
+  "fileNumber": "CODX-DCC-ORIG-20260802101521",
+  "fileName": "Codex DCC 原版上传链路 20260802101521",
+  "controlledFileId": "2054545668044070287",
+  "startedAt": "2026-08-02T10:17:32.717Z",
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "dccWriteRequests": [],
+  "authorized": {
+    "username": "wangsiyu",
+    "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+    "browserTotal": 1,
+    "visibleRow": true,
+    "rowVersionNo": "V1.0",
+    "rowStatus": "ACTIVE",
+    "viewerPath": "/dcc/controlled-file/detail/2054545668044070287?viewer=1&from=browser&returnTo=/dcc/controlled-file/browser?pageNo=1%26pageSize=20%26scope=global%26keyword=CODX-DCC-ORIG-20260802101521",
+    "viewerLoaded": true,
+    "pageShowsCurrentActive": false,
+    "pageShowsFileNumber": false,
+    "linkageVisible": false,
+    "linkageRequiredLabelsVisible": false
+  },
+  "limited": {
+    "username": "pengyunfeng",
+    "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+    "responseCode": 0,
+    "browserTotal": 0,
+    "visibleTargetCount": 0,
+    "pageEvidence": "暂无匹配受控文件"
+  },
+  "blocker": "Controlled browser viewer opened current ACTIVE file, but viewer page does not show final directory path and publishedFileId/stampedFileId linkage section.",
+  "finishedAt": "2026-08-02T10:17:42.980Z"
+}

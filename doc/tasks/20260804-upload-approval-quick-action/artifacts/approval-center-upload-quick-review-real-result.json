@@ -1,0 +1,497 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "selectedTask": {
+    "id": "DCC:DCC_CONTROLLED_FILE_TASK:c1d6eef8-8fbf-11f1-a00f-00155d2984a0",
+    "moduleCode": "DCC",
+    "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+    "sourceTaskId": "c1d6eef8-8fbf-11f1-a00f-00155d2984a0",
+    "businessKey": "2054545668044070311",
+    "businessTitle": "123",
+    "businessCode": "123",
+    "currentNodeCode": "DOC_CONTROL_REVIEW",
+    "currentNodeName": "文控审核",
+    "availableActions": [
+      "PROCESS_IN_MODULE",
+      "APPROVE",
+      "REJECT"
+    ]
+  },
+  "targetResponses": [
+    {
+      "label": "approval-center-tasks-page",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "code": 0
+    },
+    {
+      "label": "approval-center-tasks-page",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=20&viewType=TODO&moduleCode=DCC&keyword=",
+      "code": 0
+    }
+  ],
+  "failedRequests": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user-table-column-config/get?tableKey=approval.center.todo.applicant.v1",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/showroom/assignment/page?status=OPEN&assigneeUserId=1&pageNo=1&pageSize=20",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user-table-column-config/get?tableKey=approval.center.myInitiated.applicant.v1",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user-table-column-config/get?tableKey=approval.center.cc.applicant.v1",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/work-order/page?pageNo=1&pageSize=1&status=1&type=1&temporaryFrozen=false",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/modules",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user-table-column-config/get?tableKey=approval.center.done.applicant.v1",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://hm.baidu.com/hm.gif?hca=9C84B2AF38FA8476&cc=1&ck=1&cl=24-bit&ds=1680x1000&vl=1000&ep=3454%2C3453&et=3&ja=0&ln=zh-cn&lo=0&rnd=1820440704&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fapproval-center%2Ftodo%3FmoduleCode%3DDCC%26viewType%3DTODO&v=1.3.2&lv=1&sn=34141&r=0&ww=1680&u=http%3A%2F%2F127.0.0.1%3A8081%2Fapproval-center%2Ftodo%3FmoduleCode%3DDCC%26viewType%3DTODO",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "reviewRequests": [],
+  "taskPageRows": [
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:c1d6eef8-8fbf-11f1-a00f-00155d2984a0",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "c1d6eef8-8fbf-11f1-a00f-00155d2984a0",
+      "businessKey": "2054545668044070311",
+      "businessStatus": "PENDING_DOC_CONTROL_REVIEW",
+      "businessTitle": "123",
+      "businessCode": "123",
+      "currentNodeCode": "DOC_CONTROL_REVIEW",
+      "currentNodeName": "文控审核",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:0cf42401-8e8f-11f1-a5cc-00155d2984a0",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "0cf42401-8e8f-11f1-a5cc-00155d2984a0",
+      "businessKey": "2054545668044070310",
+      "businessStatus": "PENDING_MATRIX_APPROVAL",
+      "businessTitle": "Codex DCC 分发回收纸质类别 DISTTENANT1202608030005",
+      "businessCode": "CODX-DCC-DIST-906104-DISTTENANT1202608030005",
+      "currentNodeCode": "MATRIX_APPROVAL",
+      "currentNodeName": "批准",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:5c78b229-8e8e-11f1-a5cc-00155d2984a0",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "5c78b229-8e8e-11f1-a5cc-00155d2984a0",
+      "businessKey": "2054545668044070309",
+      "businessStatus": "PENDING_DOC_CONTROL_APPROVAL",
+      "businessTitle": "Codex DCC 分发回收纸质类别 DISTTENANT1202608030004",
+      "businessCode": "CODX-DCC-DIST-906104-DISTTENANT1202608030004",
+      "currentNodeCode": "DOC_CONTROL_APPROVAL",
+      "currentNodeName": "文控批准",
+      "availableActions": [
+        "PROCESS_IN_MODULE"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:bc175096-8e6d-11f1-93ff-00155d2984a0",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "bc175096-8e6d-11f1-93ff-00155d2984a0",
+      "businessKey": "2054545668044070304",
+      "businessStatus": "PENDING_MATRIX_REVIEW",
+      "businessTitle": "Codex DCC 升版发布全链路 20260802202755",
+      "businessCode": "CODX-DCC-REV-FULL-20260802-20260802202755",
+      "currentNodeCode": "MATRIX_REVIEW",
+      "currentNodeName": "审核会签",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:1cb8852f-8e6d-11f1-93ff-00155d2984a0",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "1cb8852f-8e6d-11f1-93ff-00155d2984a0",
+      "businessKey": "2054545668044070303",
+      "businessStatus": "PENDING_MATRIX_REVIEW",
+      "businessTitle": "Codex DCC 升版发布全链路 20260802202300",
+      "businessCode": "CODX-DCC-REV-FULL-20260802-20260802202300",
+      "currentNodeCode": "MATRIX_REVIEW",
+      "currentNodeName": "审核会签",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:fa9f0646-8e66-11f1-93ff-00155d2984a0",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "fa9f0646-8e66-11f1-93ff-00155d2984a0",
+      "businessKey": "2054545668044070296",
+      "businessStatus": "PENDING_DOC_CONTROL_REVIEW",
+      "businessTitle": "Codex DCC 升版发布全链路 20260802194027",
+      "businessCode": "CODX-DCC-REV-FULL-20260802-20260802194027",
+      "currentNodeCode": "DOC_CONTROL_REVIEW",
+      "currentNodeName": "文控审核",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:e36374fa-8e5b-11f1-93ff-00155d2984a0",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "e36374fa-8e5b-11f1-93ff-00155d2984a0",
+      "businessKey": "2054545668044070289",
+      "businessStatus": "PENDING_DOC_CONTROL_APPROVAL",
+      "businessTitle": "Codex DCC 原版上传链路 20260802102045",
+      "businessCode": "CODX-DCC-ORIG-20260802102045",
+      "currentNodeCode": "DOC_CONTROL_APPROVAL",
+      "currentNodeName": "文控批准",
+      "availableActions": [
+        "PROCESS_IN_MODULE"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:3c91ac04-8e55-11f1-ada6-00155d2984a0",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "3c91ac04-8e55-11f1-ada6-00155d2984a0",
+      "businessKey": "2054545668044070275",
+      "businessStatus": "PENDING_APPLICANT_TRAINING_RECORD",
+      "businessTitle": "Codex DCC 培训阅读确认 20260802093307",
+      "businessCode": "CODX-DCC-TRAIN-20260802093307",
+      "currentNodeCode": "DOC_CONTROL_APPROVAL",
+      "currentNodeName": "文控批准",
+      "availableActions": [
+        "PROCESS_IN_MODULE"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:45d80296-8e53-11f1-ada6-00155d2984a0",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "45d80296-8e53-11f1-ada6-00155d2984a0",
+      "businessKey": "2054545668044070274",
+      "businessStatus": "PENDING_MATRIX_REVIEW",
+      "businessTitle": "Codex DCC 升版发布全链路 20260802091853",
+      "businessCode": "CODX-DCC-REV-FULL-20260802-20260802091853",
+      "currentNodeCode": "MATRIX_REVIEW",
+      "currentNodeName": "审核会签",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:1c2e3af1-8dd8-11f1-aad8-00155d9fd668",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "1c2e3af1-8dd8-11f1-aad8-00155d9fd668",
+      "businessKey": "2054545668044070248",
+      "businessStatus": "PENDING_DOC_CONTROL_APPROVAL",
+      "businessTitle": "Codex DCC 升版链路 20260801183721",
+      "businessCode": "CODX-DCC-REV-20260802-20260801183721",
+      "currentNodeCode": "DOC_CONTROL_APPROVAL",
+      "currentNodeName": "文控批准",
+      "availableActions": [
+        "PROCESS_IN_MODULE"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:8960e632-8dd7-11f1-aad8-00155d9fd668",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "8960e632-8dd7-11f1-aad8-00155d9fd668",
+      "businessKey": "2054545668044070247",
+      "businessStatus": "PENDING_DOC_CONTROL_APPROVAL",
+      "businessTitle": "Codex DCC 升版链路 20260801183308",
+      "businessCode": "CODX-DCC-REV-20260802-20260801183308",
+      "currentNodeCode": "DOC_CONTROL_APPROVAL",
+      "currentNodeName": "文控批准",
+      "availableActions": [
+        "PROCESS_IN_MODULE"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:4f0664f3-8dd7-11f1-aad8-00155d9fd668",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "4f0664f3-8dd7-11f1-aad8-00155d9fd668",
+      "businessKey": "2054545668044070246",
+      "businessStatus": "PENDING_DOC_CONTROL_REVIEW",
+      "businessTitle": "Codex DCC 升版链路 20260801183159",
+      "businessCode": "CODX-DCC-REV-20260802-20260801183159",
+      "currentNodeCode": "DOC_CONTROL_REVIEW",
+      "currentNodeName": "文控审核",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:163cbc3d-8dd7-11f1-aad8-00155d9fd668",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "163cbc3d-8dd7-11f1-aad8-00155d9fd668",
+      "businessKey": "2054545668044070245",
+      "businessStatus": "PENDING_DOC_CONTROL_REVIEW",
+      "businessTitle": "Codex DCC 升版链路 20260801183024",
+      "businessCode": "CODX-DCC-REV-20260802-20260801183024",
+      "currentNodeCode": "DOC_CONTROL_REVIEW",
+      "currentNodeName": "文控审核",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:d0a3a847-8dd6-11f1-aad8-00155d9fd668",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "d0a3a847-8dd6-11f1-aad8-00155d9fd668",
+      "businessKey": "2054545668044070244",
+      "businessStatus": "PENDING_DOC_CONTROL_REVIEW",
+      "businessTitle": "Codex DCC 升版链路 20260801182827",
+      "businessCode": "CODX-DCC-REV-20260802-20260801182827",
+      "currentNodeCode": "DOC_CONTROL_REVIEW",
+      "currentNodeName": "文控审核",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:6e74d6e1-8dd4-11f1-aad8-00155d9fd668",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "6e74d6e1-8dd4-11f1-aad8-00155d9fd668",
+      "businessKey": "2054545668044070243",
+      "businessStatus": "PENDING_DOC_CONTROL_REVIEW",
+      "businessTitle": "Codex DCC 升版链路 20260801181123",
+      "businessCode": "CODX-DCC-REV-20260802-20260801181123",
+      "currentNodeCode": "DOC_CONTROL_REVIEW",
+      "currentNodeName": "文控审核",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:3079ae9b-8dd4-11f1-aad8-00155d9fd668",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "3079ae9b-8dd4-11f1-aad8-00155d9fd668",
+      "businessKey": "2054545668044070242",
+      "businessStatus": "PENDING_DOC_CONTROL_REVIEW",
+      "businessTitle": "Codex DCC 升版链路 20260801180936",
+      "businessCode": "CODX-DCC-REV-20260802-20260801180936",
+      "currentNodeCode": "DOC_CONTROL_REVIEW",
+      "currentNodeName": "文控审核",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:a98e3865-8dd0-11f1-91aa-00155d9fd668",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "a98e3865-8dd0-11f1-91aa-00155d9fd668",
+      "businessKey": "2054545668044070241",
+      "businessStatus": "PENDING_DOC_CONTROL_REVIEW",
+      "businessTitle": "Codex DCC 升版链路 20260801174426",
+      "businessCode": "CODX-DCC-REV-20260802-20260801174426",
+      "currentNodeCode": "DOC_CONTROL_REVIEW",
+      "currentNodeName": "文控审核",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    },
+    {
+      "id": "DCC:DCC_CONTROLLED_FILE_TASK:ac2d1b8f-8dcf-11f1-91aa-00155d9fd668",
+      "moduleCode": "DCC",
+      "sourceTaskType": "DCC_CONTROLLED_FILE_TASK",
+      "sourceTaskId": "ac2d1b8f-8dcf-11f1-91aa-00155d9fd668",
+      "businessKey": "2054545668044070240",
+      "businessStatus": "PENDING_DOC_CONTROL_REVIEW",
+      "businessTitle": "Codex DCC 升版链路 20260801173720",
+      "businessCode": "CODX-DCC-REV-20260802-20260801173720",
+      "currentNodeCode": "DOC_CONTROL_REVIEW",
+      "currentNodeName": "文控审核",
+      "availableActions": [
+        "PROCESS_IN_MODULE",
+        "APPROVE",
+        "REJECT"
+      ]
+    }
+  ],
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260804-upload-approval-quick-action\\artifacts\\approval-center-upload-quick-review-real.png",
+  "state": {
+    "url": "http://127.0.0.1:8081/approval-center/todo?moduleCode=DCC&viewType=TODO",
+    "buttons": [
+      "版本信息未生成",
+      "查询",
+      "显示字段",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "处理",
+      "打开",
+      "轨迹",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "处理",
+      "打开",
+      "轨迹",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹",
+      "审批",
+      "处理",
+      "打开",
+      "轨迹"
+    ],
+    "tableRows": [
+      "文控审批文控受控文件任务123123文件编号：123版本：1.0文件类型：临床注册路径分析当前审批节点：文控审核文件编号：123版本：1.0分类：临床注册路径分析当前节点：文控审核盖章：需要分发：不需要用户 #1文控审核未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-04 12:48:37审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：批准文件编号：未配置中文值版本：1.0分类：其他当前节点：批准盖章：需要分发：需要用户 #151批准未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-03 00:27:27审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控批准文件编号：未配置中文值版本：1.0分类：其他当前节点：文控批准盖章：需要分发：需要用户 #910250文控批准未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-03 00:22:31处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：过程检验规程当前审批节点：审核会签文件编号：未配置中文值版本：1.0分类：过程检验规程当前节点：审核会签盖章：需要分发：不需要用户 #151审核会签未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 20:28:58审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：过程检验规程当前审批节点：审核会签文件编号：未配置中文值版本：1.0分类：过程检验规程当前节点：审核会签盖章：需要分发：不需要用户 #151审核会签未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 20:24:30审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：过程检验规程当前审批节点：文控审核文件编号：未配置中文值版本：1.0分类：过程检验规程当前节点：文控审核盖章：需要分发：不需要用户 #151文控审核未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 19:40:36审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：过程检验规程当前审批节点：文控批准文件编号：未配置中文值版本：1.0分类：过程检验规程当前节点：文控批准盖章：需要分发：不需要用户 #151文控批准未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 18:21:13处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控批准文件编号：未配置中文值版本：1.0分类：其他当前节点：文控批准盖章：需要分发：需要用户 #151文控批准未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 17:33:36处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：过程检验规程当前审批节点：审核会签文件编号：未配置中文值版本：1.0分类：过程检验规程当前节点：审核会签盖章：需要分发：不需要用户 #151审核会签未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 17:19:33审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控批准文件编号：未配置中文值版本：1.0分类：其他当前节点：文控批准盖章：需要分发：需要用户 #151文控批准未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 02:37:55处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控批准文件编号：未配置中文值版本：1.0分类：其他当前节点：文控批准盖章：需要分发：需要用户 #151文控批准未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 02:33:48处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控审核文件编号：未配置中文值版本：1.0分类：其他当前节点：文控审核盖章：需要分发：需要用户 #151文控审核未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 02:32:10审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控审核文件编号：未配置中文值版本：1.0分类：其他当前节点：文控审核盖章：需要分发：需要用户 #151文控审核未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 02:30:35审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控审核文件编号：未配置中文值版本：1.0分类：其他当前节点：文控审核盖章：需要分发：需要用户 #151文控审核未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 02:28:38审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控审核文件编号：未配置中文值版本：1.0分类：其他当前节点：文控审核盖章：需要分发：需要用户 #151文控审核未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 02:11:35审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控审核文件编号：未配置中文值版本：1.0分类：其他当前节点：文控审核盖章：需要分发：需要用户 #151文控审核未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 02:09:51审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控审核文件编号：未配置中文值版本：1.0分类：其他当前节点：文控审核盖章：需要分发：需要用户 #151文控审核未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 01:44:36审批处理打开 轨迹",
+      "文控审批文控受控文件任务未配置中文标题业务编号已配置文件编号：业务编号已配置版本：1.0文件类型：其他当前审批节点：文控审核文件编号：未配置中文值版本：1.0分类：其他当前节点：文控审核盖章：需要分发：需要用户 #151文控审核未配置中文状态-- 签名 审计签名授权通知证据账本轨迹2026-08-02 01:37:31审批处理打开 轨迹"
+    ],
+    "dialogText": "",
+    "bodyText": "瑛泰管理系统 展厅 个人中心 936 审批中心 128 流程管理 待办 128 已办 我发起的 抄送我的 OA 示例 电子签名 SRM 文控中心 CRM 系统 AI 大模型 基础数据 MES 系统 系统管理 报表管理 ERP 系统 版本信息未生成 审批中心 / 待办 请输入菜单内容 瑛泰管理员 审批中心 128 审批中心 6 个模块 待办 快速过滤 模块 等于 文控审批 查询 显示字段 来源 业务摘要 申请人 节点 审核人 能力 时间 操作 文控审批 文控受控文件任务 123 123 文件编号：123 版本：1.0 文件类型：临床注册路径分析 当前审批节点：文控审核 文件编号：123 版本：1.0 分类：临床注册路径分析 当前节点：文控审核 盖章：需要 分发：不需要 用户 #1 文控审核 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-04 12:48:37 审批 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：其他 当前审批节点：批准 文件编号：未配置中文值 版本：1.0 分类：其他 当前节点：批准 盖章：需要 分发：需要 用户 #151 批准 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-03 00:27:27 审批 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：其他 当前审批节点：文控批准 文件编号：未配置中文值 版本：1.0 分类：其他 当前节点：文控批准 盖章：需要 分发：需要 用户 #910250 文控批准 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-03 00:22:31 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：过程检验规程 当前审批节点：审核会签 文件编号：未配置中文值 版本：1.0 分类：过程检验规程 当前节点：审核会签 盖章：需要 分发：不需要 用户 #151 审核会签 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 20:28:58 审批 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：过程检验规程 当前审批节点：审核会签 文件编号：未配置中文值 版本：1.0 分类：过程检验规程 当前节点：审核会签 盖章：需要 分发：不需要 用户 #151 审核会签 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 20:24:30 审批 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：过程检验规程 当前审批节点：文控审核 文件编号：未配置中文值 版本：1.0 分类：过程检验规程 当前节点：文控审核 盖章：需要 分发：不需要 用户 #151 文控审核 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 19:40:36 审批 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：过程检验规程 当前审批节点：文控批准 文件编号：未配置中文值 版本：1.0 分类：过程检验规程 当前节点：文控批准 盖章：需要 分发：不需要 用户 #151 文控批准 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 18:21:13 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：其他 当前审批节点：文控批准 文件编号：未配置中文值 版本：1.0 分类：其他 当前节点：文控批准 盖章：需要 分发：需要 用户 #151 文控批准 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 17:33:36 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：过程检验规程 当前审批节点：审核会签 文件编号：未配置中文值 版本：1.0 分类：过程检验规程 当前节点：审核会签 盖章：需要 分发：不需要 用户 #151 审核会签 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 17:19:33 审批 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：其他 当前审批节点：文控批准 文件编号：未配置中文值 版本：1.0 分类：其他 当前节点：文控批准 盖章：需要 分发：需要 用户 #151 文控批准 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 02:37:55 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：其他 当前审批节点：文控批准 文件编号：未配置中文值 版本：1.0 分类：其他 当前节点：文控批准 盖章：需要 分发：需要 用户 #151 文控批准 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 02:33:48 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：其他 当前审批节点：文控审核 文件编号：未配置中文值 版本：1.0 分类：其他 当前节点：文控审核 盖章：需要 分发：需要 用户 #151 文控审核 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 02:32:10 审批 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：其他 当前审批节点：文控审核 文件编号：未配置中文值 版本：1.0 分类：其他 当前节点：文控审核 盖章：需要 分发：需要 用户 #151 文控审核 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 02:30:35 审批 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务编号已配置 文件编号：业务编号已配置 版本：1.0 文件类型：其他 当前审批节点：文控审核 文件编号：未配置中文值 版本：1.0 分类：其他 当前节点：文控审核 盖章：需要 分发：需要 用户 #151 文控审核 未配置中文状态 -- 签名 审计 签名授权 通知 证据账本 轨迹 2026-08-02 02:28:38 审批 处理 打开 轨迹 文控审批 文控受控文件任务 未配置中文标题 业务"
+  }
+}

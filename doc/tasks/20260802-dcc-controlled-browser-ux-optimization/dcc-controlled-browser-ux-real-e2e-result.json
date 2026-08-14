@@ -1,0 +1,117 @@
+{
+  "startedAt": "2026-08-02T16:20:59.358Z",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browserExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "target": {
+    "fileNumber": "CODX-DCC-ORIG-20260802101521",
+    "title": "Codex DCC 原版上传链路 20260802101521",
+    "controlledFileId": "2054545668044070287",
+    "versionNo": "V1.0",
+    "status": "ACTIVE",
+    "directoryPath": "4.Ohter",
+    "categoryName": "过程检验规程",
+    "publishedFileId": "9198354916366",
+    "stampedFileId": "9198354916366"
+  },
+  "accounts": {
+    "authorized": {
+      "username": "wangsiyu",
+      "label": "授权受控浏览账号"
+    },
+    "limited": {
+      "username": "pengyunfeng",
+      "label": "低权限账号"
+    }
+  },
+  "phases": [
+    {
+      "phase": "readonly-db-verification",
+      "controlledFileId": "2054545668044070287",
+      "status": "ACTIVE",
+      "versionNo": "V1.0",
+      "masterCurrentActiveControlledFileId": "2054545668044070287",
+      "categoryName": "过程检验规程",
+      "directoryId": "906515",
+      "bindingDirectoryPath": null,
+      "publishedFileId": "9198354916366",
+      "stampedFileId": "9198354916366",
+      "viewMatrixRuleCount": 8
+    },
+    {
+      "phase": "authorized-controlled-browser-ux",
+      "username": "wangsiyu",
+      "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+      "browserNetworkObserved": true,
+      "browserTotal": 1,
+      "visibleVersionNo": "V1.0",
+      "visibleStatus": "ACTIVE",
+      "directoryPath": "4.Ohter",
+      "viewerPath": "/dcc/controlled-file/detail/2054545668044070287?viewer=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253FpageNo%253D1%2526pageSize%253D20%2526scope%253Dglobal%2526keyword%253DCODX-DCC-ORIG-20260802101521",
+      "previewLoaded": true,
+      "previewKind": "PDF",
+      "previewFileName": "stamped-approval-sample.pdf",
+      "publishedFileId": "9198354916366",
+      "stampedFileId": "9198354916366",
+      "uxAssertions": [
+        "filter-summary",
+        "current-active-row-summary",
+        "distinct-preview-trace-signature-actions",
+        "viewer-business-linkage",
+        "advanced-published-stamped-ids"
+      ]
+    },
+    {
+      "phase": "limited-controlled-browser-negative-ux",
+      "username": "pengyunfeng",
+      "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+      "browserNetworkObserved": true,
+      "browserTotal": 0,
+      "visibleTargetCount": 0,
+      "permissionFeedback": "无权限或无匹配当前有效文件",
+      "targetNotRendered": true
+    }
+  ],
+  "targetNetworkFailures": [],
+  "nonTargetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "dccNonGetRequests": [],
+  "dccMutationRequests": [],
+  "databaseState": {
+    "files": [
+      {
+        "id": "2054545668044070287",
+        "title": "Codex DCC 原版上传链路 20260802101521",
+        "status": "ACTIVE",
+        "masterId": "2054545668044062896",
+        "versionNo": "V1.0",
+        "categoryId": "907233",
+        "changeType": "NEW",
+        "fileNumber": "CODX-DCC-ORIG-20260802101521",
+        "directoryId": "906515",
+        "stampedFileId": "9198354916366",
+        "fileTypeLevel1": "技术文档",
+        "fileTypeLevel2": "设计和开发输出阶段",
+        "fileTypeLevel3": "来料/过程/成品检验规范",
+        "publishedFileId": "9198354916366",
+        "bindingDirectoryPath": null
+      }
+    ],
+    "master": {
+      "id": "2054545668044062896",
+      "status": "ACTIVE_CHAIN",
+      "fileNumber": "CODX-DCC-ORIG-20260802101521",
+      "currentActiveControlledFileId": "2054545668044070287"
+    },
+    "category": {
+      "id": "907233",
+      "name": "过程检验规程",
+      "active": 1
+    },
+    "viewMatrixRuleCount": 8
+  },
+  "targetLinkErrorCount": 0,
+  "targetDccMutationRequestCount": 0,
+  "status": "PASS",
+  "finishedAt": "2026-08-02T16:21:10.913Z"
+}

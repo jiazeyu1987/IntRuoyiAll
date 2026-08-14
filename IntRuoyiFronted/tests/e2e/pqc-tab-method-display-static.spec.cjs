@@ -1,0 +1,76 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const workspaceRoot = path.resolve(__dirname, '../../..')
+const panelPath = path.join(
+  workspaceRoot,
+  'IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'
+)
+const panelSource = fs.readFileSync(panelPath, 'utf8')
+
+const tabStart = panelSource.indexOf('data-pqc-inspection-tabs')
+const tabEnd = panelSource.indexOf('</nav>', tabStart)
+assert.ok(tabStart >= 0 && tabEnd > tabStart, 'PQC inspection tab block must exist.')
+const tabBlock = panelSource.slice(tabStart, tabEnd)
+
+assert.match(
+  tabBlock,
+  /<strong>\{\{\s*formatPqcInspectionItemTabLabel\(item\)\s*\}\}<\/strong>/,
+  'PQC red-box tab title must use the dedicated display helper.'
+)
+
+const tabLabelHelperStart = panelSource.indexOf('const formatPqcInspectionItemTabLabel')
+const tabLabelHelperEnd = panelSource.indexOf('const formatPqcStandardSummary', tabLabelHelperStart)
+assert.ok(
+  tabLabelHelperStart >= 0 && tabLabelHelperEnd > tabLabelHelperStart,
+  'PQC tab label helper must exist.'
+)
+const tabLabelHelperBlock = panelSource.slice(tabLabelHelperStart, tabLabelHelperEnd)
+assert.match(
+  tabLabelHelperBlock,
+  /item\.itemName\s*\|\|\s*'未配置检验项目名称'/,
+  'PQC red-box tab title must display the formal inspection item name.'
+)
+assert.doesNotMatch(
+  tabLabelHelperBlock,
+  /formatPqcMethodSummary|item\.label|item\.key|itemCode/,
+  'PQC red-box tab title must not display method fallback, label, itemCode, or key.'
+)
+
+const methodDialogStart = panelSource.indexOf('data-pqc-method-dialog')
+const methodDialogEnd = panelSource.indexOf('<button type="button" @click="closePqcMethodDialog"', methodDialogStart)
+assert.ok(
+  methodDialogStart >= 0 && methodDialogEnd > methodDialogStart,
+  'PQC method dialog block must exist.'
+)
+const methodDialogBlock = panelSource.slice(methodDialogStart, methodDialogEnd)
+assert.match(
+  methodDialogBlock,
+  /<h3[^>]*>\{\{\s*activePqcMethodItem\.samplingPlanText\s*\}\}<\/h3>/,
+  'PQC method dialog title must display the formal QA sampling plan.'
+)
+assert.match(
+  methodDialogBlock,
+  /<p>\{\{\s*formatPqcMethodSummary\(activePqcMethodItem\)\s*\}\}<\/p>/,
+  'PQC method dialog body must display the same normalized inspection method.'
+)
+assert.doesNotMatch(
+  methodDialogBlock,
+  /<h3[^>]*>[\s\S]*activePqcMethodItem\.(label|itemName)[\s\S]*<\/h3>/,
+  'PQC method dialog title must not display the inspection item label in place of the sampling plan.'
+)
+
+assert.match(
+  panelSource,
+  /const normalizePqcInspectionMethodLabel = \(inspectionMethod: string\) =>[\s\S]*['"]Visual inspection['"][\s\S]*['"]目视检验['"]/,
+  'Visual inspection from the formal method field must display as 目视检验.'
+)
+
+assert.match(
+  panelSource,
+  /buildPqcItemDetailsPayload[\s\S]*itemCode: item\.key[\s\S]*itemName: item\.itemName[\s\S]*inspectionMethod: item\.processInspectionMethod/,
+  'Changing the red-box tab title must not alter itemCode/itemName/processInspectionMethod submission identity.'
+)
+
+console.log('PASS: PQC method dialog displays sampling plan and method while tabs preserve item identity')

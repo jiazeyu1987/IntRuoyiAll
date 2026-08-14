@@ -61,18 +61,28 @@ assert.match(
 )
 assert.match(
   uploadPage,
-  /getControlledFileUploadNameOptions\(\{\s*dccProjectCodeId,\s*fileTypeTaxonomyId\s*\}\)/,
-  'Upload page must load file name options by selected DCC project and file classification'
+  /const ensureUploadNameOptionsLoaded = async \(\) => \{[\s\S]*await loadUploadNameOptions\(formData\.dccProjectCodeId, formData\.fileTypeTaxonomyId\)/,
+  'Upload page must lazily load file name options by selected DCC project and file classification'
 )
 assert.match(
   uploadPage,
-  /const handleProjectCodeChange = async \(\) => \{[\s\S]*await refreshUploadNameOptionsForProjectTaxonomy\(\)/,
-  'Changing DCC project must refresh file name options'
+  /const queryUploadNameSuggestions = async \([\s\S]*await ensureUploadNameOptionsLoaded\(\)[\s\S]*callback\(suggestions\)/,
+  'File name suggestions must load history on demand when the user opens or queries the autocomplete'
 )
 assert.match(
   uploadPage,
-  /const handleFileTypeTaxonomyChange = async \(\) => \{[\s\S]*await refreshUploadNameOptionsForProjectTaxonomy\(\)/,
-  'Changing file classification must refresh file name options'
+  /const handleProjectCodeChange = async \(\) => \{[\s\S]*resetUploadNameContext\(true\)[\s\S]*\}/,
+  'Changing DCC project must clear stale file name options without calling the history API eagerly'
+)
+assert.doesNotMatch(
+  uploadPage,
+  /const handleProjectCodeChange = async \(\) => \{[\s\S]*refreshUploadNameOptionsForProjectTaxonomy\(\)/,
+  'Changing DCC project must not eagerly call upload-name-options'
+)
+assert.doesNotMatch(
+  uploadPage,
+  /const handleFileTypeTaxonomyChange = async \(\) => \{[\s\S]*refreshUploadNameOptionsForProjectTaxonomy\(\)/,
+  'Changing file classification must not eagerly call upload-name-options'
 )
 assert.match(
   uploadPage,

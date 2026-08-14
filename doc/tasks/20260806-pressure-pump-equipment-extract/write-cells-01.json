@@ -1,0 +1,604 @@
+[
+  {
+    "command": "set",
+    "path": "/Sheet1/A1",
+    "props": {
+      "value": "工序",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B1",
+    "props": {
+      "value": "设备",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C1",
+    "props": {
+      "value": "编码",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D1",
+    "props": {
+      "value": "参数1",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E1",
+    "props": {
+      "value": "标准1",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F1",
+    "props": {
+      "value": "参数2",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G1",
+    "props": {
+      "value": "标准2",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H1",
+    "props": {
+      "value": "参数3",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I1",
+    "props": {
+      "value": "标准3",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J1",
+    "props": {
+      "value": "参数4",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K1",
+    "props": {
+      "value": "标准4",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L1",
+    "props": {
+      "value": "参数5",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M1",
+    "props": {
+      "value": "标准5",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N1",
+    "props": {
+      "value": "备注",
+      "type": "string",
+      "font.bold": true,
+      "fill": "1F4E79",
+      "font.color": "FFFFFF"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A2",
+    "props": {
+      "value": "粗洗",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B2",
+    "props": {
+      "value": "超声波清洗机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C2",
+    "props": {
+      "value": "B09393",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D2",
+    "props": {
+      "value": "清洗次数",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E2",
+    "props": {
+      "value": "2",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F2",
+    "props": {
+      "value": "清洗介质",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G2",
+    "props": {
+      "value": "自来水",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H2",
+    "props": {
+      "value": "清洗功率",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I2",
+    "props": {
+      "value": "20-30%",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J2",
+    "props": {
+      "value": "清洗温度",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K2",
+    "props": {
+      "value": "室温",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L2",
+    "props": {
+      "value": "清洗时间",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M2",
+    "props": {
+      "value": "30min",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N2",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A3",
+    "props": {
+      "value": "精洗",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B3",
+    "props": {
+      "value": "超声波清洗机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C3",
+    "props": {
+      "value": "B09353",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D3",
+    "props": {
+      "value": "清洗次数",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E3",
+    "props": {
+      "value": "2",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F3",
+    "props": {
+      "value": "清洗介质",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G3",
+    "props": {
+      "value": "纯化水",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H3",
+    "props": {
+      "value": "清洗功率",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I3",
+    "props": {
+      "value": "100%",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J3",
+    "props": {
+      "value": "清洗温度",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K3",
+    "props": {
+      "value": "室温",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L3",
+    "props": {
+      "value": "清洗时间",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M3",
+    "props": {
+      "value": "30min",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N3",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A4",
+    "props": {
+      "value": "清洗",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B4",
+    "props": {
+      "value": "超声波清洗机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C4",
+    "props": {
+      "value": "B09353",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D4",
+    "props": {
+      "value": "清洗次数",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E4",
+    "props": {
+      "value": "2",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F4",
+    "props": {
+      "value": "清洗介质",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G4",
+    "props": {
+      "value": "纯化水",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H4",
+    "props": {
+      "value": "清洗功率",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I4",
+    "props": {
+      "value": "100%",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J4",
+    "props": {
+      "value": "清洗温度",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K4",
+    "props": {
+      "value": "室温",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L4",
+    "props": {
+      "value": "清洗时间",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M4",
+    "props": {
+      "value": "30min",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N4",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/A5",
+    "props": {
+      "value": "清洗",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/B5",
+    "props": {
+      "value": "箱型干燥机",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/C5",
+    "props": {
+      "value": "B04091",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/D5",
+    "props": {
+      "value": "烘干温度℃",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/E5",
+    "props": {
+      "value": "60±4",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/F5",
+    "props": {
+      "value": "烘干时间",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/G5",
+    "props": {
+      "value": "3h",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/H5",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/I5",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/J5",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/K5",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/L5",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/M5",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  },
+  {
+    "command": "set",
+    "path": "/Sheet1/N5",
+    "props": {
+      "value": "",
+      "type": "string"
+    }
+  }
+]

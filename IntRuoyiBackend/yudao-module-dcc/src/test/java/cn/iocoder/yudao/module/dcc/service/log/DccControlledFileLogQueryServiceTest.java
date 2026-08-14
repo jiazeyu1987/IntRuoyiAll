@@ -179,6 +179,48 @@ class DccControlledFileLogQueryServiceTest extends BaseDbUnitTest {
                 keywordPage.getList().stream().map(DccControlledFileLogRespVO::getLogType).toList());
     }
 
+    @Test
+    void getLogPage_handlesProjectCodeChangeWithMissingAssignmentAndProjectCode() {
+        DccControlledFileDO file = insertControlledFile(1201L, "DOC-1201", "签核追溯SOP", "V1.0");
+        DccControlledFileMetadataChangeDO change = DccControlledFileMetadataChangeDO.builder()
+                .id(5201L)
+                .controlledFileId(file.getId())
+                .masterId(file.getMasterId())
+                .operatorUserId(2201L)
+                .source("MANUAL")
+                .changeReason("历史修正追溯")
+                .changedFieldCount(1)
+                .changedTime(LocalDateTime.of(2026, 8, 2, 17, 30))
+                .build();
+        changeMapper.insert(change);
+        changeItemMapper.insert(DccControlledFileMetadataChangeItemDO.builder()
+                .id(5202L)
+                .changeId(change.getId())
+                .controlledFileId(file.getId())
+                .operatorUserId(2201L)
+                .fieldName("fileTypeLevel3")
+                .fieldLabel("文件类别 III")
+                .oldValueText(null)
+                .newValueText("修正后类别")
+                .changedTime(LocalDateTime.of(2026, 8, 2, 17, 31))
+                .build());
+
+        DccControlledFileLogPageReqVO req = new DccControlledFileLogPageReqVO();
+        req.setLogType("PROJECT_CODE_CHANGE");
+        req.setControlledFileId(file.getId());
+        PageResult<DccControlledFileLogRespVO> page = logQueryService.getLogPage(req);
+
+        assertEquals(1L, page.getTotal());
+        DccControlledFileLogRespVO row = page.getList().get(0);
+        assertEquals("PROJECT_CODE_CHANGE", row.getLogType());
+        assertEquals("DOC-1201", row.getFileNumber());
+        assertEquals("用户2201", row.getOperatorName());
+        assertEquals("文件类别 III / 修正后类别", row.getSummary());
+        assertEquals("修正后类别", row.getNewValueText());
+        assertTrue(row.getDetailJson().contains("\"assignmentNo\":\"\""));
+        assertTrue(row.getDetailJson().contains("\"fieldName\":\"fileTypeLevel3\""));
+    }
+
     private DccControlledFileDO insertControlledFile(Long id, String fileNumber, String fileName, String versionNo) {
         DccControlledFileDO file = DccControlledFileDO.builder()
                 .id(id)

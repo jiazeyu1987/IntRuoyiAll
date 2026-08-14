@@ -1,0 +1,83 @@
+{
+  "runId": "20260802101521-final-resume",
+  "fileNumber": "CODX-DCC-ORIG-20260802101521",
+  "fileName": "Codex DCC 原版上传链路 20260802101521",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "startedAt": "2026-08-02T10:22:35.966Z",
+  "phases": [
+    {
+      "phase": "resume-after-original-approval",
+      "v1ControlledFileId": "2054545668044070287"
+    },
+    {
+      "phase": "final-db-verification",
+      "v1Status": "ACTIVE",
+      "v1ChangeType": "NEW",
+      "v1VersionNo": "V1.0",
+      "currentActiveControlledFileId": "2054545668044070287",
+      "uploadApprovalTaskCount": 4,
+      "signatureCount": 4,
+      "validSignatureCount": 4,
+      "revisionFileCount": 0,
+      "stampedFileId": "9198354916366",
+      "publishedFileId": "9198354916366",
+      "processInstanceId": "16e8802b-8e5b-11f1-93ff-00155d2984a0",
+      "masterId": "2054545668044062896"
+    },
+    {
+      "phase": "controlled-browser-verification",
+      "username": "wangsiyu",
+      "controlledFileId": "2054545668044070287",
+      "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+      "viewerPath": "/dcc/controlled-file/detail/2054545668044070287?viewer=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253FpageNo%253D1%2526pageSize%253D20%2526scope%253Dglobal%2526keyword%253DCODX-DCC-ORIG-20260802101521",
+      "browserApiStatus": 200,
+      "browserTotal": 1,
+      "versionNo": "V1.0",
+      "status": "ACTIVE",
+      "directoryId": 906515,
+      "categoryId": 907233,
+      "previewKind": "PDF",
+      "previewFileName": "stamped-approval-sample.pdf"
+    }
+  ],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "databaseState": {
+    "file": {
+      "id": "2054545668044070287",
+      "title": "Codex DCC 原版上传链路 20260802101521",
+      "status": "ACTIVE",
+      "fileName": "Codex DCC 原版上传链路 20260802101521",
+      "masterId": "2054545668044062896",
+      "versionNo": "V1.0",
+      "categoryId": "907233",
+      "changeType": "NEW",
+      "fileNumber": "CODX-DCC-ORIG-20260802101521",
+      "directoryId": "906515",
+      "approvedTime": "2026-08-02 18:15:56",
+      "publishedTime": "2026-08-02 18:15:56",
+      "stampedFileId": "9198354916366",
+      "publishedFileId": "9198354916366",
+      "processInstanceId": "16e8802b-8e5b-11f1-93ff-00155d2984a0",
+      "fileTypeLevel1": "技术文档",
+      "fileTypeLevel2": "设计和开发输出阶段",
+      "fileTypeLevel3": "来料/过程/成品检验规范"
+    },
+    "master": {
+      "id": "2054545668044062896",
+      "status": "ACTIVE_CHAIN",
+      "fileNumber": "CODX-DCC-ORIG-20260802101521",
+      "currentActiveControlledFileId": "2054545668044070287"
+    },
+    "signatureCount": 4,
+    "validSignatureCount": 4,
+    "uploadApprovalTaskCount": 4,
+    "activeTaskCount": 0,
+    "revisionFileCount": 0
+  },
+  "v1ControlledFileId": "2054545668044070287",
+  "finishedAt": "2026-08-02T10:22:44.380Z",
+  "status": "PASS"
+}

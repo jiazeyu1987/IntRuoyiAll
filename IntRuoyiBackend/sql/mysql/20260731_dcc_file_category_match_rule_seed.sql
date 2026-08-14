@@ -10,12 +10,12 @@ CREATE PROCEDURE apply_dcc_file_category_match_rule_seed()
 BEGIN
   DROP TEMPORARY TABLE IF EXISTS `tmp_dcc_file_category_match_rule_seed`;
   CREATE TEMPORARY TABLE `tmp_dcc_file_category_match_rule_seed` (
-    `category_name` VARCHAR(128) NOT NULL,
-    `match_text` VARCHAR(255) NOT NULL,
-    `match_type` VARCHAR(32) NOT NULL,
+    `category_name` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    `match_text` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+    `match_type` VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
     `weight` INT NOT NULL,
     PRIMARY KEY (`category_name`, `match_text`, `match_type`)
-  ) ENGINE=MEMORY;
+  ) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
   INSERT INTO `tmp_dcc_file_category_match_rule_seed` (
     `category_name`, `match_text`, `match_type`, `weight`

@@ -4,6 +4,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATION_SQL = REPO_ROOT / "sql/mysql/20260710_dcc_product_catalog_database.sql"
 PROJECT_CODE_COLUMNS_SQL = REPO_ROOT / "sql/mysql/20260729_dcc_product_catalog_project_code_columns.sql"
+PROJECT_CODE_SCHEMA_GUARD_SQL = (
+    REPO_ROOT / "sql/mysql/20260802_dcc_product_catalog_project_code_schema_guard.sql"
+)
 APPLICATION_YAML = REPO_ROOT / "yudao-server/src/main/resources/application.yaml"
 
 
@@ -46,3 +49,17 @@ def test_product_catalog_project_code_columns_migration_backfills_exact_matches_
     assert "(2, '一次性使用血管鞘', 'VS')" in sql
     assert "(8, '介入手术器械包', 'ISK')" not in sql
     assert "(29, " not in sql
+
+
+def test_product_catalog_project_code_columns_have_schema_guard_for_code_only_release() -> None:
+    assert PROJECT_CODE_SCHEMA_GUARD_SQL.exists(), (
+        "DCC product catalog project columns are referenced by runtime code, so a schema-typed "
+        "required SQL guard must exist for code-only releases."
+    )
+    sql = PROJECT_CODE_SCHEMA_GUARD_SQL.read_text(encoding="utf-8")
+
+    assert "dependsOn=20260710_dcc_product_catalog_database; type=schema; riskLevel=medium" in sql
+    assert "ADD COLUMN `project_name` varchar(255) DEFAULT NULL COMMENT ''项目名称'' AFTER `product_code`" in sql
+    assert "ADD COLUMN `project_code` varchar(64) DEFAULT NULL COMMENT ''项目代码'' AFTER `project_name`" in sql
+    assert "CREATE TEMPORARY TABLE" not in sql
+    assert "UPDATE `dcc_product_catalog`" not in sql

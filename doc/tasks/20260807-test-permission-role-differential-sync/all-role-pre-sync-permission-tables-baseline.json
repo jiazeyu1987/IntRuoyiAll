@@ -1,0 +1,15 @@
+{
+  "output": "doc\\tasks\\20260807-test-permission-role-differential-sync\\all-role-pre-sync-permission-tables-baseline.sql",
+  "sha256": "80b46168d90a56455c3a84fe34c8e14baa1d17c0d4b6cfd88f1b68000205f5cc",
+  "bytes": 1448982,
+  "tables": [
+    "system_role_category",
+    "system_role",
+    "system_menu",
+    "system_role_menu",
+    "system_user_role",
+    "system_tenant_package",
+    "infra_release_migration",
+    "infra_release_operation_lock"
+  ]
+}

@@ -29,7 +29,17 @@
       />
     </el-select>
     <el-date-picker
-      v-if="selectedDefinition?.type === 'dateRange'"
+      v-if="selectedDefinition?.type === 'date'"
+      :model-value="state.value"
+      class="table-quick-filter__value table-quick-filter__value--single-date"
+      type="date"
+      value-format="YYYY-MM-DD"
+      :placeholder="selectedDefinition.placeholder || '请选择日期'"
+      @update:model-value="updateValue"
+      @keyup.enter="onQuery"
+    />
+    <el-date-picker
+      v-else-if="selectedDefinition?.type === 'dateRange'"
       :model-value="state.value"
       class="table-quick-filter__value table-quick-filter__value--date"
       type="daterange"
@@ -211,6 +221,12 @@ const onQuery = () => {
   flex-basis: 260px;
   min-width: 260px;
   width: 260px;
+}
+
+.table-quick-filter__value--single-date {
+  flex-basis: 180px;
+  min-width: 180px;
+  width: 180px;
 }
 </style>
 

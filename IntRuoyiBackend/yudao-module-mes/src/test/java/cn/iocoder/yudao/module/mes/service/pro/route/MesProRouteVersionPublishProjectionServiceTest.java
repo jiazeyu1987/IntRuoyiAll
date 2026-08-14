@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
@@ -23,6 +25,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
@@ -43,6 +47,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -92,10 +97,16 @@ class MesProRouteVersionPublishProjectionServiceTest {
     private BusinessApprovalPolicyMapper businessApprovalPolicyMapper;
     @Mock
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
+    @Mock
+    private MesProcessPoolDefectReasonMapper defectReasonMapper;
+    @Mock
+    private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
 
     @BeforeEach
     void setUpIds() {
         AtomicLong routeProcessIds = new AtomicLong(3000L);
+        lenient().when(defectReasonMapper.selectList(any())).thenReturn(List.of());
+        lenient().when(parameterRuleMapper.selectList(any())).thenReturn(List.of());
         lenient().when(routeProcessMapper.insert(any(MesProRouteProcessDO.class))).thenAnswer(invocation -> {
             MesProRouteProcessDO row = invocation.getArgument(0);
             row.setId(routeProcessIds.incrementAndGet());
@@ -155,6 +166,278 @@ class MesProRouteVersionPublishProjectionServiceTest {
         verify(routeMapper, never()).updateById(any(MesProRouteDO.class));
         verify(routeProcessMapper, never()).deleteByRouteId(9301L);
         verify(routeProcessMapper, never()).selectListByRouteId(9301L);
+    }
+
+    @Test
+    void projectCandidate_shouldPreserveFrozenRouteProcessWorkstationBinding() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(2402L)
+                .routeId(9401L)
+                .versionNo("V2")
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9401,
+                          "routeCode": "RT-9401-V2",
+                          "routeName": "正式工作站绑定路线",
+                          "status": 0,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 12,
+                              "nodes": [
+                                {
+                                  "routeProcessId": 928609,
+                                  "processId": 922985,
+                                  "routeProcessWorkstationId": 980010,
+                                  "workstationId": 922757,
+                                  "sort": 1,
+                                  "keyFlag": false,
+                                  "checkFlag": false
+                                }
+                              ],
+                              "edges": []
+                            },
+                            "products": [],
+                            "scheduleConfigs": [],
+                            "scheduleUseConfigs": [],
+                            "batchUseConfigs": []
+                          }
+                        }
+                        """)
+                .build();
+
+        service.projectCandidate(candidate);
+
+        ArgumentCaptor<MesProRouteProcessDO> processCaptor =
+                ArgumentCaptor.forClass(MesProRouteProcessDO.class);
+        verify(routeProcessMapper).insert(processCaptor.capture());
+        assertEquals(9401L, processCaptor.getValue().getRouteId());
+        assertEquals(922985L, processCaptor.getValue().getProcessId());
+        assertEquals(980010L, processCaptor.getValue().getWorkstationId());
+    }
+
+    @Test
+    void projectCandidate_shouldInheritTeamLeaderLossReasonsAndDeviceParameterRulesToNewRouteProcessIds() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(2502L)
+                .routeId(9501L)
+                .versionNo("V2")
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9501,
+                          "routeCode": "RT-9501-V2",
+                          "routeName": "生产组长配置继承路线",
+                          "status": 0,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 13,
+                              "nodes": [
+                                {
+                                  "routeProcessId": 8101,
+                                  "processId": 701,
+                                  "routeProcessWorkstationId": 980101,
+                                  "sort": 1,
+                                  "keyFlag": false,
+                                  "checkFlag": false
+                                }
+                              ],
+                              "edges": []
+                            },
+                            "products": [],
+                            "scheduleConfigs": [],
+                            "scheduleUseConfigs": [],
+                            "batchUseConfigs": []
+                          }
+                        }
+                        """)
+                .build();
+        lenient().when(defectReasonMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolDefectReasonDO.builder()
+                        .id(7101L)
+                        .routeProcessId(8101L)
+                        .processId(701L)
+                        .reasonType(MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS)
+                        .reasonCode("LOSS-8101-001")
+                        .reasonName("装配不到位")
+                        .enabled(Boolean.TRUE)
+                        .remark("旧路线工序损耗原因")
+                        .build()));
+        lenient().when(parameterRuleMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolDeviceParameterRuleDO.builder()
+                        .id(7201L)
+                        .routeProcessId(8101L)
+                        .processId(701L)
+                        .deviceId(4401L)
+                        .parameterCode("PRESSURE")
+                        .parameterName("撤压检测压力")
+                        .unit("ATM")
+                        .lowerLimit(new BigDecimal("20"))
+                        .upperLimit(new BigDecimal("25"))
+                        .defaultValue(new BigDecimal("22.5"))
+                        .valueType(MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL)
+                        .decimalScale(1)
+                        .enabled(Boolean.TRUE)
+                        .build()));
+
+        service.projectCandidate(candidate);
+
+        ArgumentCaptor<MesProcessPoolDefectReasonDO> lossCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDefectReasonDO.class);
+        verify(defectReasonMapper).insert(lossCaptor.capture());
+        assertEquals(null, lossCaptor.getValue().getId());
+        assertEquals(3001L, lossCaptor.getValue().getRouteProcessId());
+        assertEquals(701L, lossCaptor.getValue().getProcessId());
+        assertEquals(MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS, lossCaptor.getValue().getReasonType());
+        assertEquals("LOSS-8101-001", lossCaptor.getValue().getReasonCode());
+        assertEquals("装配不到位", lossCaptor.getValue().getReasonName());
+
+        ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> parameterCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
+        verify(parameterRuleMapper).insert(parameterCaptor.capture());
+        assertEquals(null, parameterCaptor.getValue().getId());
+        assertEquals(3001L, parameterCaptor.getValue().getRouteProcessId());
+        assertEquals(701L, parameterCaptor.getValue().getProcessId());
+        assertEquals(4401L, parameterCaptor.getValue().getDeviceId());
+        assertEquals("PRESSURE", parameterCaptor.getValue().getParameterCode());
+        assertEquals("撤压检测压力", parameterCaptor.getValue().getParameterName());
+        assertEquals(0, parameterCaptor.getValue().getLowerLimit().compareTo(new BigDecimal("20")));
+        assertEquals(0, parameterCaptor.getValue().getUpperLimit().compareTo(new BigDecimal("25")));
+    }
+
+    @Test
+    void projectCandidate_shouldNotInheritTeamLeaderConfigsFromClientRouteProcessId() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(2503L)
+                .routeId(9502L)
+                .versionNo("V2")
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9502,
+                          "routeCode": "RT-9502-V2",
+                          "routeName": "临时工序 ID 不继承配置",
+                          "status": 0,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 13,
+                              "nodes": [
+                                {
+                                  "routeProcessId": 8102,
+                                  "clientRouteProcessId": 9902,
+                                  "processId": 702,
+                                  "routeProcessWorkstationId": 980102,
+                                  "sort": 1,
+                                  "keyFlag": false,
+                                  "checkFlag": false
+                                }
+                              ],
+                              "edges": []
+                            },
+                            "products": [],
+                            "scheduleConfigs": [],
+                            "scheduleUseConfigs": [],
+                            "batchUseConfigs": []
+                          }
+                        }
+                        """)
+                .build();
+        when(defectReasonMapper.selectList(any())).thenReturn(List.of(), List.of(
+                MesProcessPoolDefectReasonDO.builder()
+                        .id(7301L)
+                        .routeProcessId(9902L)
+                        .processId(702L)
+                        .reasonType(MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS)
+                        .reasonCode("LOSS-CLIENT-001")
+                        .reasonName("不应继承的临时 ID 损耗原因")
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(parameterRuleMapper.selectList(any())).thenReturn(List.of(), List.of(
+                MesProcessPoolDeviceParameterRuleDO.builder()
+                        .id(7401L)
+                        .routeProcessId(9902L)
+                        .processId(702L)
+                        .deviceId(4402L)
+                        .parameterCode("CLIENT_ONLY")
+                        .parameterName("不应继承的临时 ID 参数")
+                        .valueType(MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD)
+                        .standardText("禁止继承")
+                        .enabled(Boolean.TRUE)
+                        .build()));
+
+        service.projectCandidate(candidate);
+
+        verify(defectReasonMapper, never()).insert(any(MesProcessPoolDefectReasonDO.class));
+        verify(parameterRuleMapper, never()).insert(any(MesProcessPoolDeviceParameterRuleDO.class));
+    }
+
+    @Test
+    void projectCandidate_shouldNotInheritTeamLeaderConfigsByProcessIdOrSortWithoutFrozenRouteProcessId() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(2504L)
+                .routeId(9503L)
+                .versionNo("V2")
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9503,
+                          "routeCode": "RT-9503-V2",
+                          "routeName": "正式路线工序 ID 严格继承",
+                          "status": 0,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 13,
+                              "nodes": [
+                                {
+                                  "routeProcessId": 8103,
+                                  "processId": 703,
+                                  "routeProcessWorkstationId": 980103,
+                                  "sort": 1,
+                                  "keyFlag": false,
+                                  "checkFlag": false
+                                }
+                              ],
+                              "edges": []
+                            },
+                            "products": [],
+                            "scheduleConfigs": [],
+                            "scheduleUseConfigs": [],
+                            "batchUseConfigs": []
+                          }
+                        }
+                        """)
+                .build();
+        when(defectReasonMapper.selectList(any())).thenReturn(List.of(), List.of(
+                MesProcessPoolDefectReasonDO.builder()
+                        .id(7501L)
+                        .routeProcessId(9103L)
+                        .processId(703L)
+                        .reasonType(MesProcessPoolDefectReasonDO.REASON_TYPE_LOSS)
+                        .reasonCode("LOSS-SAME-PROCESS-SORT")
+                        .reasonName("processId 和 sort 相同也不得继承")
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(parameterRuleMapper.selectList(any())).thenReturn(List.of(), List.of(
+                MesProcessPoolDeviceParameterRuleDO.builder()
+                        .id(7601L)
+                        .routeProcessId(9103L)
+                        .processId(703L)
+                        .deviceId(4403L)
+                        .parameterCode("SAME_PROCESS_SORT")
+                        .parameterName("processId 和 sort 相同也不得继承")
+                        .valueType(MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD)
+                        .standardText("禁止继承")
+                        .enabled(Boolean.TRUE)
+                        .build()));
+
+        service.projectCandidate(candidate);
+
+        verify(defectReasonMapper, never()).insert(any(MesProcessPoolDefectReasonDO.class));
+        verify(parameterRuleMapper, never()).insert(any(MesProcessPoolDeviceParameterRuleDO.class));
     }
 
     @Test

@@ -215,7 +215,7 @@ const openSimulate = async (task: EdhrBatchExecutionTaskRespVO) => {
       id: String(assertBatchExecutionId()),
       taskId: String(task.id),
       returnTo: route.fullPath,
-      returnLabel: '返回模板说明'
+      returnLabel: '返回'
     }
   })
 }

@@ -48,6 +48,9 @@ public class MesProRouteFlowFormBindingRespVO {
     @Schema(description = "对象级权限范围ID", example = "5001")
     private Long permissionScopeId;
 
+    @Schema(description = "记录类型快照 Hash", example = "sha256")
+    private String recordCategorySnapshotHash;
+
     @Schema(description = "必填策略：REQUIRED/CONDITIONAL_REQUIRED/OPTIONAL/SKIPPABLE_CONTROLLED", example = "REQUIRED")
     private String requiredPolicy;
 

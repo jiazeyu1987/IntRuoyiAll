@@ -697,7 +697,7 @@ async function runRealFlow(config) {
       verify: verifyResult.verifyData
     })
 
-    await clickVisibleButton(page, /^返回列表$/, '字段审计详情页缺少“返回列表”按钮。')
+    await clickVisibleButton(page, /^返回$/, '字段审计详情页缺少标准“返回”按钮。')
     await page.waitForURL(
       (url) => url.pathname === FIELD_AUDIT_LIST_ROUTE && url.searchParams.get('executionId') === String(config.executionId),
       { timeout: 60000 }

@@ -53,6 +53,7 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 ## 2026-07-24 本地重启脚本路径门禁
 
 - Trigger: 本地重启、E2E 复验、`restart-int-ruoyi-local.ps1`、`Missing int_main frontend path`、`yudao-ui-admin-vue3`、`IntRuoyiFronted`。
+- Canonical path: 当前 `int_main` 标准本地重启脚本是 `E:\IntRuoyi\IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1`；不得只检查工作区根 `scripts\runtime` 后就判定标准脚本缺失。
 - Preflight check: 执行本地重启脚本前，确认脚本解析出的前端根目录与本项目规则一致，当前主工作区前端根目录必须是 `E:\IntRuoyi\IntRuoyiFronted`。
 - Blocker: 脚本报 `Missing int_main frontend path: E:\IntRuoyi\yudao-ui-admin-vue3` 时必须停止该脚本路径，记录失败；不得通过新建同名目录、软链、换端口或静默跳过前端路径检查继续。
 - Verification: 记录脚本失败文本、端口归属 PID、`mvn.cmd -pl yudao-server -am -DskipTests package` 结果、重启后 `http://127.0.0.1:48081/actuator/health` 状态。
@@ -70,13 +71,14 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 
 ## 2026-07-24 隔离构建 Jar 加载门禁
 
-- Trigger: 主工作区存在并行脏改动，但需要把本任务后端修复加载到 `int_main` 的 `48081` 做真实 E2E；或页面仍提示 `请求地址不存在:<接口>`，怀疑运行中 Jar 未加载新 Controller。
-- Preflight check: 先确认 `48081` 监听 PID 的命令行属于预期源码或运行时 worktree、端口为 `48081`、`repo-root` 指向本项目；同时确认新 Jar 来自本次任务已验证的构建产物。若 `48081` 实际运行的是 `D:\IntRuoyiWorktree\...` 下的 runtime jar，必须在该 runtime worktree 内补齐源码、测试、schema 夹具并重建该 Jar，不能只检查 `E:\IntRuoyi` 主工作区源码。
-- Blocker: 如果 PID 归属不明、Jar 来源不明、目标 Jar 哈希与隔离构建 Jar 不一致，或主工作区源码混有其他任务改动，必须停止，不得从脏主工作区重新打包冒充本任务运行态。
-- Verification: 记录旧 PID、停止依据、新 PID、Jar SHA256、启动命令、`http://127.0.0.1:48081/actuator/health`、登录态目标接口业务响应、必要 schema 字段核对，并在 E2E 后记录真实数据库状态。
+- Trigger: 主工作区存在并行脏改动，但需要把本任务后端修复加载到 `int_main` 的 `48081` 做真实 E2E；或页面仍提示 `请求地址不存在:<接口>`、返回修复前旧业务错误，怀疑运行中 Jar 未加载新 Controller、Service 或 VO。
+- Preflight check: 先确认 `48081` 监听 PID 的命令行属于预期源码或运行时 worktree、端口为 `48081`、`repo-root` 指向本项目；同时确认新 Jar 来自本次任务已验证的构建产物。只为把 `int_main` 重启到最新后端、且主工作区存在并行脏改动时，应从干净 detached worktree 构建完整 server Jar，复制到稳定运行目录并校验 SHA256；在新 Jar 构建和哈希验证完成前不要停止旧 `48081` 后端。对 fat jar 内嵌模块，必须只读检查 `BOOT-INF/lib/<module>.jar` 是否包含本次新增或修改的关键 class，例如新增 Resolver、Controller、VO 字段载体；若本地 `target/classes` 有新 class 但运行 Jar 内嵌模块没有，视为运行态未刷新。若只热替换某个内嵌模块，必须以当前运行 Jar 内的旧模块为底保留其它并行任务依赖类，仅替换本任务 class；写回 `BOOT-INF/lib/*.jar` 时必须保持 Spring Boot nested jar 未压缩（例如 `jar uf0`，zip `compress_type=0`），否则运行时可能出现 classpath resource missing。若 `48081` 实际运行的是 `D:\IntRuoyiWorktree\...` 下的 runtime jar，必须在该 runtime worktree 内补齐源码、测试、schema 夹具并重建该 Jar，不能只检查 `E:\IntRuoyi` 主工作区源码。
+- Cross-module API check: 若修复新增或改动跨模块 Java API 方法，热替换时必须成组核对并替换接口、调用方、实现类、服务接口、服务实现和 Mapper/DAO 等全部相关 class；只替换直接报错的调用方 class 会导致运行态继续走旧实现或启动后 `NoSuchMethodError`。替换包含匿名类、局部类、lambda 或编译器生成伴随类的实现时，必须同时替换同名前缀的 `$*.class`，并在启动前从内嵌模块核对这些 class 均存在，避免运行时 `NoClassDefFoundError`。若目标修复还改变 Controller 注解、`@RequestParam(required=false)`、VO 字段或路由声明，必须同时用 `javap -v`、登录态 API 和真实页面路径核对运行 Jar 内对应 Controller/VO class 已刷新；只替换 Service/依赖模块会出现页面 `keyword=` 通过但缺省参数或新注解仍按旧 class 失败。只看到运行 Jar 内存在同名 Controller class 不足以证明映射已刷新；当页面仍报 `请求地址不存在` 时，必须用 `javap -private -verbose` 比对方法列表和 `GetMapping` 常量，防止 `target/classes` 已更新但内嵌模块 jar 仍是旧方法集。
+- Blocker: 如果 PID 归属不明、Jar 来源不明、目标 Jar 哈希与隔离构建 Jar 不一致、运行 Jar 内嵌模块缺少本次关键 class、热替换内嵌 jar 被压缩写入、或主工作区源码混有其他任务改动，必须停止，不得从脏主工作区重新打包冒充本任务运行态。
+- Verification: 记录旧 PID、停止依据、新 PID、Jar SHA256、启动命令、`http://127.0.0.1:48081/actuator/health`、端口监听新 PID 命令行、登录态目标接口业务响应、必要 schema 字段核对、内嵌模块关键 class 检查结果、嵌套 jar 压缩方式（`compress_type=0`），并在 E2E 后记录真实数据库状态。若使用临时 detached worktree 构建 Jar，收尾必须用 `git worktree remove --force <path>` 删除并复核 `Test-Path=False`。
 - Route check: 目标接口需要登录时，未登录请求返回 `401` 只能证明安全过滤器生效，不能证明 MVC 路由已加载；必须使用本机登录态请求目标接口，业务码为 `0` 或预期业务错误，才可宣称新 Controller 已进入运行态。
 - Forbidden action: 禁止强杀未知进程、随机换端口、用主工作区脏源码重新构建、只看 health 或未登录 `401` 就宣称修复已加载。
-- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/verification-report.md`。
+- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/verification-report.md`；`doc/tasks/20260803-controlled-file-category-missing/verification-report.md`；`doc/tasks/20260806-restart-latest-backend/verification-report.md`；`doc/tasks/20260807-pressure-pump-process-device-standards/verification-report.md`。
 
 ## 2026-07-25 本地后端数据库凭据门禁
 
@@ -86,6 +88,15 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Verification: 数据库前置条件修复后重新启动后端，记录 `48081` PID、命令行归属 `E:\IntRuoyi\IntRuoyiBackend`，并用 `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` 断言 `status=UP`。
 - Forbidden action: 禁止静默换端口、临时改 `application-local.yaml` 凭据、切换到 mock/空数据源、只启动前端就宣称前后端完成。
 - Evidence: `doc/tasks/20260725-start-local-frontend-backend/verification-report.md`。
+
+## 2026-08-08 标准本地 full 重启依赖容器退出门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component full` 或本地后端重启报 `Required Docker container is not running: int-ruoyi-mysql`，且 `int-ruoyi-mysql`、`int-ruoyi-redis`、`docker-minio-1` 显示为刚退出。
+- Preflight check: 先用 `docker ps -a` 只读确认容器名、状态和镜像均属于 IntRuoyi 本地依赖；再检查 `23306`、`26379`、`9000` 端口，不得读取或记录容器完整 env、数据库密码或 secret-bearing 输出。
+- Blocker: 容器不存在、Docker CLI 不可用、容器归属不明、端口被未知进程占用、MySQL/Redis/MinIO 启动后仍不可达时必须停止；不得改数据库端口、改后端端口、换数据源、mock 依赖或跳过后端启动。
+- Verification: 仅启动确认归属的本地依赖容器后，复核 `int-ruoyi-mysql`、`int-ruoyi-redis`、`docker-minio-1` 为 running，`23306`、`26379`、`9000` 可访问；随后重跑标准 full 重启脚本，并验证 `48081` health `UP`、`8081` HTTP `200`。
+- Forbidden action: 禁止删除或重建容器/volume、清空 MySQL 或 MinIO 数据、随机换端口、强杀未知进程、只启动前端或用 API-only 成功冒充 full 重启完成。
+- Evidence: `doc/tasks/20260808-restart-local-runtime/verification-report.md`。
 
 ## 2026-07-28 Docker Desktop E 盘 bind 挂载门禁
 
@@ -122,6 +133,51 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Verification: 记录 `docker exec onlyoffice curl http://host.docker.internal:48081/actuator/health` HTTP `200`、旧容器内 `127.0.0.1:48081` 不可达、Jar 内 `application-local.yaml` 目标行、后端 health `UP`，并用静态契约覆盖该默认值。
 - Forbidden action: 禁止把浏览器用的 OnlyOffice `base-url` 改成 `host.docker.internal`；禁止用 API-only 成功或未登录 `401` 冒充 OnlyOffice 容器已能下载文件；禁止修改测试服/生产配置来修复本地 Docker 网络问题。
 - Evidence: `doc/tasks/20260727-local-onlyoffice-download-failed/verification-report.md`。
+
+## 2026-08-04 DCC 上传预览 OnlyOffice 文档地址门禁
+
+- Trigger: DCC 文件上传页、`OnlyOffice 预览地址未准备好`、`upload-preview` 响应、`onlyofficeBaseUrl`、`onlyofficeDocumentUrl`、上传 `.docx/.xlsx` 后提交前预览为空。
+- Preflight check: 上传预览响应契约必须同时包含浏览器加载 OnlyOffice 的 `onlyofficeBaseUrl` 和带签名 token 的临时文件 `onlyofficeDocumentUrl`；`onlyofficeDocumentUrl` 应指向 `/admin-api/dcc/controlled-files/upload-preview/{fileId}/onlyoffice-file?token=...`，且文件类别从文件分类叶子节点自动绑定，不要求用户手填或选择。
+- Blocker: 响应只有 `onlyofficeBaseUrl`、缺 `onlyofficeDocumentUrl`、前端 parser 将 `onlyofficeDocumentUrl` 当成 forbidden raw file capability 拒绝、页面继续显示 `OnlyOffice 预览地址未准备好`、或响应暴露原始 `fileId` 时必须停止验收。
+- Verification: 前端静态合同必须覆盖 response parser、上传页 props 和 viewer props；后端 JUnit 必须覆盖签名文档地址和不暴露 `fileId`；真实 Playwright 必须通过上传页选择正式文件分类叶子节点、上传 `.xlsx/.docx`、断言 `previewKind=OFFICE`、`onlyofficeDocumentUrl` 有 token、页面无 `OnlyOffice 预览地址未准备好`，并清理临时上传 session。
+- Forbidden action: 禁止让用户手工填写文件类别或预览地址；禁止用 API-only 上传、旧历史截图、未登录 `401`、只看 health、隐藏预览区错误或复用未清理临时文件冒充通过。
+- Evidence: `doc/tasks/20260803-dcc-upload-onlyoffice-document-url/verification-report.md`。
+
+## 2026-08-02 本机 Docker 开机自启门禁
+
+- Trigger: 调整本机 Docker 开机自启、Docker Desktop 自动恢复容器、`docker update --restart`、清理非项目 Docker 运行项。
+- Preflight check: 先用 `docker inspect` 记录容器名、镜像、Compose project/service、restart policy 和状态；只允许与 IntRuoyi 明确相关的容器或已记录的本地依赖保留自启策略。
+- Blocker: 容器归属不明、Compose project 不属于 IntRuoyi/Yudao/已记录依赖、或无关容器 restart policy 不是 `no` 时必须阻塞自启合规结论。
+- Verification: `docker inspect` 复查所有本机容器，非 IntRuoyi 容器的 `HostConfig.RestartPolicy.Name` 必须为 `no`；记录未停止、未删除、未重建容器。
+- Forbidden action: 禁止通过停止、删除、重建容器来冒充禁用自启；禁止让 `docker_ragflow` 等无关栈保留 `always`、`unless-stopped` 或 `on-failure` 自启策略。
+- Evidence: `doc/tasks/20260802-docker-autostart-policy/verification-report.md`。
+
+## 2026-08-05 本机 Docker 未使用镜像清理门禁
+
+- Trigger: D 盘空间不足、`D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx` 过大、`docker system df` 显示大量未使用镜像、用户要求通过 Docker 命令清理未使用镜像。
+- Preflight check: 先记录 `docker system df`、`docker container ls -a` 和当前 D 盘可用空间；仅在用户明确要求清理镜像时执行 `docker image prune -a -f`，输出较大时用 `Tee-Object` 流式写入任务证据文件，不要先整体捕获到 PowerShell 变量。
+- Blocker: Docker CLI 不可用、Docker Desktop/WSL 引擎异常、无法确认命令只清镜像、或用户未授权清理 volume/container/build cache 时必须停止；不得手工删除 `docker_data.vhdx`。
+- Verification: 再次运行 `docker image prune -a -f` 应返回 `Total reclaimed space: 0B`；记录清理前后 `docker system df`，并确认容器仍存在、volume 未执行 prune。
+- Forbidden action: 禁止执行 `docker system prune --volumes`、`docker volume prune`、删除容器、删除 VHDX、或把 VHDX 文件未立刻缩小误判为清理失败；VHDX 回收/压缩必须作为单独授权任务处理。
+- Evidence: `doc/tasks/20260805-docker-unused-image-cleanup/verification-report.md`。
+
+## 2026-08-05 本机 Ruoyi Docker 未用容器卷镜像清理门禁
+
+- Trigger: 用户明确要求删除当前 Ruoyi 环境用不到的 Docker `image`、`volume`、`container`，或需要在 Docker Desktop WSL2 磁盘过大后进一步清理容器和卷。
+- Preflight check: 先记录 `docker system df`、`docker container ls -a`、`docker volume ls`、每个 volume 的容器引用关系，以及当前运行容器的 mount；只有在用户明确授权 volume/container 清理时，才能删除停止容器、悬挂卷和无容器引用镜像。
+- Blocker: 无法确认当前 Ruoyi 运行容器、无法确认 volume 引用关系、存在疑似 MySQL/MinIO/OnlyOffice 当前数据卷、Docker CLI 异常、或用户只授权镜像清理时必须停止；不得把 `docker system df` 的 image reclaimable 百分比当作删除正在运行容器镜像的依据。
+- Verification: 清理后运行 `docker container ls -a` 确认只剩当前运行容器；运行 volume 引用扫描确认每个剩余 volume 都被当前容器引用；再次运行 `docker image prune -a -f` 和 `docker volume prune -f` 应返回 `Total reclaimed space: 0B`。
+- Forbidden action: 禁止删除当前 MySQL 数据卷、MinIO 数据卷、OnlyOffice 卷、正在运行容器、`docker_data.vhdx`，或为了让 D 盘立刻变小而手工删除 VHDX；VHDX 压缩必须单独走管理员权限压缩流程。
+- Evidence: `doc/tasks/20260805-docker-ruoyi-unused-cleanup/verification-report.md`。
+
+## 2026-08-02 DCC 上传预览本机 MinIO 前置门禁
+
+- Trigger: DCC 原版上传、上传升版、`/admin-api/dcc/controlled-files/upload-preview`、`SdkClientException`、`Connect to 127.0.0.1:9000 failed: Connection refused`、`docker-minio-1`。
+- Preflight check: 跑 DCC 写入型上传 E2E 前，先确认 `docker-minio-1` 正在运行且 healthy，`http://127.0.0.1:9000/minio/health/ready` 返回 HTTP 200，`/data/yudao` bucket 目录存在；同时确认后端文件配置 endpoint 指向 `http://127.0.0.1:9000`、bucket 为 `yudao`，不得输出 access key 或 secret。
+- Blocker: MinIO 容器未运行、9000 未监听、ready health 非 200、bucket 缺失、后端 `48081` 未 UP，或标准 backend 重启仍在 Maven package 阶段时必须停止 DCC 完整链路结论。
+- Verification: MinIO ready 200、后端 health `UP`、前端 8081 HTTP 200 后，再用 Playwright 真实页面跑到 `upload-preview`，目标请求无 500，结果 JSON 中 `targetNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
+- Forbidden action: 禁止用 API-only 上传、SQL 改状态、mock 文件服务、切换存储实现、复用历史会话或复用半失败文件号冒充上传链路恢复；禁止在共享 Maven package 正在运行时抢占启动后端或强停未知进程。
+- Evidence: `doc/tasks/20260802-dcc-minio-object-storage-runtime/verification-report.md`。
 
 ## 2026-07-27 本地后端标准输出阻塞与日志目录门禁
 

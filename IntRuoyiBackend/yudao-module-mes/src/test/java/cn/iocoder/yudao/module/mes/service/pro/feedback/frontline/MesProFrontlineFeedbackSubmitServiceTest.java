@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitRespVO;
+import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
@@ -15,11 +17,15 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -38,6 +44,14 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
     @Mock
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
+    @Mock
+    private MesFrontlineLossReasonValidator lossReasonValidator;
+    @Mock
+    private MesFrontlineDeviceParameterValidator deviceParameterValidator;
+    @Mock
+    private MesMdAutoCodeRecordService autoCodeRecordService;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -48,17 +62,64 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 recordbookEntryService,
                 processPoolSubmitEventService,
                 submitAuthorizationService,
-                new MesProFrontlineFeedbackPayloadSplitter());
+                lossReasonValidator,
+                new MesProFrontlineFeedbackPayloadSplitter(),
+                autoCodeRecordService,
+                signatureService);
+    }
+
+    @Test
+    void shouldSignAsSelectedEmployeeWhenDeviceAccountIsLoggedIn() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(recordbookEntryService.createOriginalEntry(any()))
+                .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(signatureService.recordProductionSubmitSignature(9102L, "sign-123", "一线生产报工提交"))
+                .thenReturn(4001L);
+        stubValidLossReason();
+
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()
+                .setActualEmployeeId(9102L)
+                .setSignatureEmployeeId(9102L);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertEquals(801L, submitService.submit(reqVO).getProcessPoolEventId());
+        }
+
+        verify(submitAuthorizationService).authorize(argThat(command -> {
+            assertEquals(9001L, command.loginUserId());
+            assertEquals(9102L, command.actualEmployeeId());
+            assertEquals(9102L, command.signatureEmployeeId());
+            return true;
+        }));
+        verify(signatureService).recordProductionSubmitSignature(9102L, "sign-123", "一线生产报工提交");
+        verify(feedbackService).createFrontlineFeedback(argThat(payload -> {
+            assertEquals(9102L, payload.getFeedbackUserId());
+            return true;
+        }));
+        verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {
+            assertEquals(9102L, payload.getActualEmployeeId());
+            assertEquals(9102L, payload.getSignatureEmployeeId());
+            assertEquals(9001L, payload.getDeviceAccountUserId());
+            return true;
+        }));
     }
 
     @Test
     void shouldCreateFeedbackRecordbookAndProcessPoolEventInSingleCommand() {
-        when(feedbackService.createFeedback(any())).thenReturn(501L);
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(recordbookEntryService.createOriginalEntry(any()))
                 .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(autoCodeRecordService.generateAutoCode(any())).thenReturn("FB-F2-GEN");
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交")))
+                .thenReturn(4001L);
+        stubValidLossReason();
 
         MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        reqVO.getFeedbackPayload().setCode(null).setType(null);
         MesProFrontlineFeedbackSubmitRespVO respVO;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
@@ -70,12 +131,12 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         assertEquals(702L, respVO.getRecordbookEventId());
         assertEquals(801L, respVO.getProcessPoolEventId());
 
-        InOrder inOrder = inOrder(submitAuthorizationService, feedbackService, recordbookEntryService,
-                processPoolSubmitEventService);
+        InOrder inOrder = inOrder(submitAuthorizationService, lossReasonValidator, feedbackService,
+                recordbookEntryService, processPoolSubmitEventService);
         inOrder.verify(submitAuthorizationService).authorize(argThat(command -> {
             assertEquals(9001L, command.loginUserId());
-            assertEquals(3001L, command.actualEmployeeId());
-            assertEquals(3001L, command.signatureEmployeeId());
+            assertEquals(9001L, command.actualEmployeeId());
+            assertEquals(9001L, command.signatureEmployeeId());
             assertEquals(501L, command.deviceId());
             assertEquals(11L, command.workstationId());
             assertEquals(21L, command.routeId());
@@ -84,26 +145,138 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals("PRODUCTION_SIMPLE", command.templateNo());
             return true;
         }));
-        inOrder.verify(feedbackService).createFeedback(argThat(payload -> {
+        verify(submitAuthorizationService).authorizeActiveOrder(9001L, 41L, 21L, 71L, 31L);
+        inOrder.verify(lossReasonValidator).requireEnabledLossReasons(
+                71L,
+                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
+                new BigDecimal("2.500"));
+        inOrder.verify(feedbackService).createFrontlineFeedback(argThat(payload -> {
             assertEquals(new BigDecimal("100.500"), payload.getFeedbackQuantity());
             assertEquals(new BigDecimal("2.500"), payload.getUnqualifiedQuantity());
-            assertEquals(3001L, payload.getFeedbackUserId());
+            assertEquals(8301L, payload.getLossReasonId());
+            assertEquals("LOSS-001", payload.getLossReasonCodeSnapshot());
+            assertEquals("正常损耗", payload.getLossReasonNameSnapshot());
+            assertEquals(9001L, payload.getFeedbackUserId());
+            assertEquals("FB-F2-GEN", payload.getCode());
+            assertEquals(1, payload.getType());
             return true;
         }));
         inOrder.verify(feedbackService).submitFeedback(501L);
         inOrder.verify(recordbookEntryService).createOriginalEntry(argThat(payload -> {
             assertEquals(501L, payload.getFeedbackId());
             assertEquals(901L, payload.getRecordbookId());
-            assertEquals(new BigDecimal("120.000"), payload.getEntryContent().get("previousProcessInputQuantity"));
+            assertFalse(payload.getEntryContent().containsKey("previousProcessInputQuantity"));
             return true;
         }));
         inOrder.verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {
+            assertEquals("P0-SUBMIT-F2-20260730-001", payload.getProcessPoolSubmissionIdempotencyKey());
             assertEquals(501L, payload.getFeedbackId());
             assertEquals(701L, payload.getRecordbookEntryId());
             assertEquals(702L, payload.getRecordbookEventId());
             assertEquals(4001L, payload.getSignatureId());
+            assertEquals(8301L, payload.getRawPayload().get("lossReasonId"));
+            assertEquals("正常损耗", payload.getRawPayload().get("lossReasonNameSnapshot"));
             return true;
         }));
+    }
+
+    @Test
+    void shouldAssignProductionSubmitToSelectedActiveOrderWithoutQuantityCap() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(recordbookEntryService.createOriginalEntry(any()))
+                .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(signatureService.recordProductionSubmitSignature(9001L, "sign-123", "一线生产报工提交"))
+                .thenReturn(4001L);
+        stubValidLossReason();
+        MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        request.getFeedbackPayload().setOutputQuantity(new BigDecimal("200"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertEquals(801L, submitService.submit(request).getProcessPoolEventId());
+        }
+
+        verify(submitAuthorizationService).authorizeActiveOrder(9001L, 41L, 21L, 71L, 31L);
+        verify(feedbackService).createFrontlineFeedback(argThat(payload ->
+                new BigDecimal("200").compareTo(payload.getFeedbackQuantity()) == 0
+                        && Long.valueOf(41L).equals(payload.getWorkOrderId())));
+        verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload ->
+                new BigDecimal("200").compareTo(payload.getOutputQuantity()) == 0
+                        && Long.valueOf(41L).equals(payload.getWorkOrderId())));
+    }
+
+    @Test
+    void shouldRejectFrontlineProductionWithoutSelectedActiveOrder() {
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        reqVO.getFeedbackPayload().setWorkOrderId(null);
+        reqVO.getProcessPoolContext().setWorkOrderId(null);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                    () -> submitService.submit(reqVO));
+        }
+
+        verifyNoInteractions(feedbackService, recordbookEntryService, processPoolSubmitEventService, signatureService);
+    }
+
+    @Test
+    void shouldReturnExistingSubmitResultBeforeWritingDuplicateFeedback() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any()))
+                .thenReturn(Optional.of(new cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult()
+                        .setFeedbackId(501L)
+                        .setRecordbookEntryId(701L)
+                        .setRecordbookEventId(702L)
+                        .setProcessPoolEventId(801L)));
+        stubValidLossReason();
+
+        MesProFrontlineFeedbackSubmitRespVO respVO;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            respVO = submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq());
+        }
+
+        assertEquals(501L, respVO.getFeedbackId());
+        assertEquals(701L, respVO.getRecordbookEntryId());
+        assertEquals(702L, respVO.getRecordbookEventId());
+        assertEquals(801L, respVO.getProcessPoolEventId());
+        verify(processPoolSubmitEventService).findExistingSubmitEvent(argThat(payload -> {
+            assertEquals("P0-SUBMIT-F2-20260730-001", payload.getProcessPoolSubmissionIdempotencyKey());
+            assertEquals(41L, payload.getWorkOrderId());
+            assertEquals(71L, payload.getRouteProcessId());
+            assertEquals(31L, payload.getProcessId());
+            return true;
+        }));
+        verify(feedbackService, never()).createFrontlineFeedback(any());
+        verify(submitAuthorizationService, never()).authorizeActiveOrder(any(), any(), any(), any(), any());
+        verifyNoInteractions(autoCodeRecordService, signatureService);
+        verifyNoInteractions(recordbookEntryService);
+        verify(processPoolSubmitEventService, never()).createSubmitEvent(any());
+    }
+
+    @Test
+    void shouldRejectDisabledOrCrossRouteProcessLossReasonBeforeWritingAnyRecord() {
+        when(lossReasonValidator.requireEnabledLossReasons(
+                71L,
+                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
+                new BigDecimal("2.500")))
+                .thenThrow(new IllegalStateException("损耗原因不属于当前工序或已禁用"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(IllegalStateException.class,
+                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+        }
+
+        verify(submitAuthorizationService).authorize(any());
+        verify(lossReasonValidator).requireEnabledLossReasons(
+                71L,
+                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
+                new BigDecimal("2.500"));
+        verify(feedbackService, never()).createFrontlineFeedback(any());
+        verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService);
     }
 
     @Test
@@ -116,8 +289,22 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
         }
 
-        verify(feedbackService, never()).createFeedback(any());
+        verify(feedbackService, never()).createFrontlineFeedback(any());
         verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService, submitAuthorizationService);
+    }
+
+    @Test
+    void shouldRejectClientSuppliedSignatureIdBeforeWritingAnyRecord() {
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()
+                .setSignatureId(4001L);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
+        }
+
+        verifyNoInteractions(submitAuthorizationService, feedbackService, recordbookEntryService,
+                processPoolSubmitEventService, signatureService);
     }
 
     @Test
@@ -132,7 +319,79 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         }
 
         verify(submitAuthorizationService).authorize(any());
-        verify(feedbackService, never()).createFeedback(any());
+        verify(feedbackService, never()).createFrontlineFeedback(any());
         verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService);
+    }
+
+    @Test
+    void shouldSubmitWithoutDeviceParameterValidation() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(recordbookEntryService.createOriginalEntry(any()))
+                .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交")))
+                .thenReturn(4001L);
+        stubValidLossReason();
+
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        reqVO.getFeedbackPayload()
+                .setSelectedDevice(null)
+                .setDeviceParameterReadings(List.of());
+
+        MesProFrontlineFeedbackSubmitRespVO respVO;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            respVO = submitService.submit(reqVO);
+        }
+
+        assertEquals(801L, respVO.getProcessPoolEventId());
+        verify(submitAuthorizationService).authorize(any());
+        verifyNoInteractions(deviceParameterValidator);
+    }
+
+    @Test
+    void shouldRejectLossQuantityGreaterThanOutputBeforeWritingAnyRecord() {
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        reqVO.getFeedbackPayload()
+                .setOutputQuantity(new BigDecimal("10.000"))
+                .setLossQuantity(new BigDecimal("11.000"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
+        }
+
+        verifyNoInteractions(submitAuthorizationService, feedbackService, recordbookEntryService,
+                processPoolSubmitEventService);
+    }
+
+    @Test
+    void shouldRejectNegativeProductionQuantityBeforeWritingAnyRecord() {
+        MesProFrontlineFeedbackSubmitReqVO negativeOutputReq = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        negativeOutputReq.getFeedbackPayload()
+                .setOutputQuantity(new BigDecimal("-1.000"))
+                .setLossQuantity(BigDecimal.ZERO);
+        MesProFrontlineFeedbackSubmitReqVO negativeLossReq = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        negativeLossReq.getFeedbackPayload()
+                .setOutputQuantity(new BigDecimal("10.000"))
+                .setLossQuantity(new BigDecimal("-0.001"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(RuntimeException.class, () -> submitService.submit(negativeOutputReq));
+            assertThrows(RuntimeException.class, () -> submitService.submit(negativeLossReq));
+        }
+
+        verifyNoInteractions(submitAuthorizationService, feedbackService, recordbookEntryService,
+                processPoolSubmitEventService);
+    }
+
+    private void stubValidLossReason() {
+        when(lossReasonValidator.requireEnabledLossReasons(
+                71L,
+                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
+                new BigDecimal("2.500")))
+                .thenReturn(List.of(new MesFrontlineLossReasonSnapshot(8301L, "LOSS-001", "正常损耗")));
     }
 }

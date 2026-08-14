@@ -1,0 +1,7 @@
+{
+  "status": "FAIL",
+  "fileId": "2054545668044070298",
+  "fileNumber": "CODX-DCC-TRAIN-RERUN-20260802195426",
+  "finishedAt": "2026-08-02T12:32:56.132Z",
+  "error": "Error: ack button not eligible for zhaomingyu\n    at waitEligible ([stdin]:89:9)\n    at async ack ([stdin]:92:18)\n    at async [stdin]:141:23"
+}

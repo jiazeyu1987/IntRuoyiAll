@@ -32,6 +32,14 @@ public interface AdminUserApi {
     List<AdminUserRespDTO> getUserListBySubordinate(Long id);
 
     /**
+     * 按昵称模糊查询全量用户
+     *
+     * @param nickname 用户昵称
+     * @return 用户列表
+     */
+    List<AdminUserRespDTO> getUserListByNickname(String nickname);
+
+    /**
      * 通过用户 ID 查询用户们
      *
      * @param ids 用户 ID 们

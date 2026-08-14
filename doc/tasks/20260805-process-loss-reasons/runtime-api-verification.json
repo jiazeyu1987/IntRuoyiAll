@@ -1,0 +1,62 @@
+{
+  "taskId": "20260805-process-loss-reasons",
+  "generatedAt": "2026-08-05T15:16:08",
+  "tenantId": 122,
+  "backendUrl": "http://127.0.0.1:48093",
+  "checks": [
+    {
+      "name": "task users can login",
+      "status": "PASS",
+      "users": {
+        "leaderA": {
+          "username": "acd04lead1",
+          "userId": 914525
+        },
+        "leaderB": {
+          "username": "acd04lead2",
+          "userId": 914526
+        },
+        "worker": {
+          "username": "acd04worker",
+          "userId": 914527
+        }
+      }
+    },
+    {
+      "name": "leaders see only route-start authorized route processes",
+      "status": "PASS",
+      "leaderARouteProcessIds": [
+        980628,
+        980629
+      ],
+      "leaderBRouteProcessIds": [
+        980628,
+        980629
+      ],
+      "unauthorizedRouteProcessId": 980630
+    },
+    {
+      "name": "shared CRUD is visible across two authorized production leaders",
+      "status": "PASS",
+      "createdReasonId": 14,
+      "routeProcessId": 980628
+    },
+    {
+      "name": "runtime dropdown comes from backend config and filters disabled/deleted/cross-process reasons",
+      "status": "PASS",
+      "beforeDeleteReasonIds": [
+        9,
+        14
+      ],
+      "afterDeleteReasonIds": [
+        9
+      ],
+      "excludedReasonIds": [
+        10,
+        11,
+        14
+      ]
+    }
+  ],
+  "status": "PASS"
+}

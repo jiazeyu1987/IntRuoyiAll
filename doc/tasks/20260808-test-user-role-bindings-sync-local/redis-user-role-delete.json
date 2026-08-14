@@ -1,0 +1,7 @@
+{
+  "deletedKeyCountRequested": 0,
+  "stdout": [],
+  "stderr": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001B2CA6015A0"
+  ]
+}

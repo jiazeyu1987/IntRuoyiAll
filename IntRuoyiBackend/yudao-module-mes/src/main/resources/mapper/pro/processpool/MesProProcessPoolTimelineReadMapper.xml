@@ -9,7 +9,7 @@
         pool_event.device_account_id AS loginUserId,
         NULL AS loginUserName,
         pool_event.actual_employee_id AS actualEmployeeUserId,
-        NULL AS actualEmployeeUserName,
+        actual_employee.nickname AS actualEmployeeUserName,
         pool_event.signature_user_id AS signatureEmployeeUserId,
         NULL AS signatureEmployeeUserName,
         pool_event.signature_id AS electronicSignatureId,
@@ -30,6 +30,27 @@
         pool_event.work_order_id AS workOrderId,
         work_order.code AS workOrderCode,
         work_order.name AS workOrderName,
+        work_order.product_id AS productId,
+        product_item.code AS productCode,
+        product_item.name AS productName,
+        pqc_task.active_order_id AS activeOrderId,
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM mes_pro_process_pool_active_order_release_application release_application
+            INNER JOIN mes_pro_edhr_release_transaction release_transaction
+              ON release_transaction.id = release_application.release_transaction_id
+             AND release_transaction.tenant_id = release_application.tenant_id
+             AND release_transaction.deleted = 0
+             AND release_transaction.release_status = 'RELEASED'
+            WHERE release_application.tenant_id = pqc_task.tenant_id
+              AND release_application.active_order_id = pqc_task.active_order_id
+              AND release_application.deleted = 0
+        ) THEN TRUE ELSE FALSE END AS released,
+        pqc_task.id AS pqcTaskId,
+        pqc_task.inspection_type AS inspectionType,
+        pqc_task.business_date AS pqcBusinessDate,
+        pqc_task.shift_code AS pqcShiftCode,
+        pqc_task.round_no AS roundNo,
         pool_event.feedback_source_id AS sourceFeedbackId,
         NULL AS sourceRecordbookEntryId,
         pool_event.recordbook_source_id AS sourceRecordbookEventId,
@@ -37,6 +58,9 @@
         CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson,
         pqc.inspection_result AS pqcResult,
         pqc.inspection_result AS pqcSummary,
+        pqc.process_inspection_aggregation_status AS processInspectionAggregationStatus,
+        pqc.process_inspection_review_id AS processInspectionReviewId,
+        pqc.process_inspection_aggregated_at AS processInspectionAggregatedAt,
         NULL AS fifoAllocationStatus,
         NULL AS fifoAllocationSummary,
         COALESCE(review_copy_summary.review_status, 'PENDING') AS auditCopyStatus,
@@ -44,13 +68,20 @@
             WHEN review_copy_summary.review_copy_count IS NULL THEN '审核副本待生成'
             ELSE CONCAT('审核副本已提交，字段 ', COALESCE(review_copy_summary.field_count, 0), ' 个')
         END AS auditCopySummary,
+        latest_submission_review.review_status AS submissionReviewStatus,
+        latest_submission_review.review_remark AS submissionReviewRemark,
+        latest_submission_review.leader_user_id AS submissionReviewLeaderUserId,
+        review_leader.nickname AS submissionReviewLeaderUserName,
+        latest_submission_review.reviewed_at AS submissionReviewedAt,
         COALESCE(revision_summary.summary, '原始记录暂无修改') AS modificationHistorySummary
     </sql>
 
     <sql id="TimelineFilters">
         pool_event.deleted = 0
-        AND pool_event.server_submit_time <![CDATA[>=]]> #{reqVO.submittedAtStart}
-        AND pool_event.server_submit_time <![CDATA[<]]> #{reqVO.submittedAtEnd}
+        <if test="reqVO.submittedAtStart != null and reqVO.submittedAtEnd != null">
+            AND pool_event.server_submit_time <![CDATA[>=]]> #{reqVO.submittedAtStart}
+            AND pool_event.server_submit_time <![CDATA[<]]> #{reqVO.submittedAtEnd}
+        </if>
         <if test="reqVO.employeeUserId != null">
             AND pool_event.actual_employee_id = #{reqVO.employeeUserId}
         </if>
@@ -63,11 +94,24 @@
         <if test="reqVO.processId != null">
             AND pool_event.process_id = #{reqVO.processId}
         </if>
+        <if test="reqVO.processIds != null and reqVO.processIds.size() > 0">
+            AND pool_event.process_id IN
+            <foreach collection="reqVO.processIds" item="authorizedProcessId" open="(" separator="," close=")">
+                #{authorizedProcessId}
+            </foreach>
+        </if>
         <if test="reqVO.deviceId != null">
             AND pool_event.device_id = #{reqVO.deviceId}
         </if>
         <if test="reqVO.templateType != null and reqVO.templateType != ''">
             AND pool_event.template_type = #{reqVO.templateType}
+        </if>
+        <if test="reqVO.eventType != null and reqVO.eventType != ''">
+            AND pool_event.event_type = #{reqVO.eventType}
+        </if>
+        <if test="reqVO.requirePositiveOutputQuantity == true">
+            AND CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(
+                pool_event.raw_payload, '$.outputQuantity')), '') AS DECIMAL(24, 6)) <![CDATA[>]]> 0
         </if>
         <if test="reqVO.workOrderId != null">
             AND pool_event.work_order_id = #{reqVO.workOrderId}
@@ -75,6 +119,150 @@
         <if test="reqVO.workOrderCode != null and reqVO.workOrderCode != ''">
             AND work_order.code LIKE CONCAT('%', #{reqVO.workOrderCode}, '%')
         </if>
+        <if test="reqVO.productId != null">
+            AND work_order.product_id = #{reqVO.productId}
+        </if>
+        <if test="reqVO.productKeyword != null and reqVO.productKeyword != ''">
+            AND (
+                product_item.code LIKE CONCAT('%', #{reqVO.productKeyword}, '%')
+                OR product_item.name LIKE CONCAT('%', #{reqVO.productKeyword}, '%')
+            )
+        </if>
+        <if test="reqVO.inspectionType != null and reqVO.inspectionType != ''">
+            AND pqc_task.inspection_type = #{reqVO.inspectionType}
+        </if>
+        <if test="reqVO.roundNo != null">
+            AND pqc_task.round_no = #{reqVO.roundNo}
+        </if>
+        <if test="reqVO.submissionReviewStatus != null and reqVO.submissionReviewStatus != ''">
+            <choose>
+                <when test="reqVO.submissionReviewStatus == 'PENDING'">
+                    AND (latest_submission_review.review_status IS NULL OR latest_submission_review.review_status = 'PENDING')
+                </when>
+                <otherwise>
+                    AND latest_submission_review.review_status = #{reqVO.submissionReviewStatus}
+                </otherwise>
+            </choose>
+        </if>
+        <if test="reqVO.allocationView == 'WORKBENCH'">
+            AND pool_event.event_type = 'PRODUCTION_SUBMIT'
+            AND (
+                NOT EXISTS (
+                    SELECT 1
+                    FROM mes_pro_process_pool_report_allocation allocation
+                    WHERE allocation.tenant_id = pool_event.tenant_id
+                      AND allocation.event_id = pool_event.id
+                      AND allocation.deleted = 0
+                      AND allocation.lifecycle_status = 'CURRENT'
+                )
+                OR COALESCE((
+                    SELECT SUM(allocation.allocated_quantity)
+                    FROM mes_pro_process_pool_report_allocation allocation
+                    WHERE allocation.tenant_id = pool_event.tenant_id
+                      AND allocation.event_id = pool_event.id
+                      AND allocation.deleted = 0
+                      AND allocation.lifecycle_status = 'CURRENT'
+                ), 0) <![CDATA[<]]> COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(
+                    pool_event.raw_payload, '$.outputQuantity')) AS DECIMAL(24, 6)), 0)
+                OR EXISTS (
+                    SELECT 1
+                    FROM mes_pro_process_pool_report_allocation allocation
+                    WHERE allocation.tenant_id = pool_event.tenant_id
+                      AND allocation.event_id = pool_event.id
+                      AND allocation.deleted = 0
+                      AND allocation.lifecycle_status = 'CURRENT'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM mes_pro_process_pool_active_order_release_application release_application
+                          INNER JOIN mes_pro_edhr_release_transaction release_transaction
+                            ON release_transaction.id = release_application.release_transaction_id
+                           AND release_transaction.tenant_id = release_application.tenant_id
+                           AND release_transaction.deleted = 0
+                           AND release_transaction.release_status = 'RELEASED'
+                          WHERE release_application.tenant_id = allocation.tenant_id
+                            AND release_application.active_order_id = allocation.active_order_id
+                            AND release_application.deleted = 0
+                      )
+                )
+            )
+        </if>
+        <if test="reqVO.allocationView == 'HISTORY'">
+            AND pool_event.event_type = 'PRODUCTION_SUBMIT'
+        </if>
+        <if test="reqVO.pqcFormView == 'CURRENT'">
+            AND pool_event.event_type = 'PQC_INSPECTION'
+            AND (
+                latest_submission_review.review_status IS NULL
+                OR latest_submission_review.review_status <![CDATA[<>]]> 'APPROVED'
+            )
+            AND NOT EXISTS (
+                SELECT 1
+                FROM mes_pro_process_pool_active_order_release_application release_application
+                INNER JOIN mes_pro_edhr_release_transaction release_transaction
+                  ON release_transaction.id = release_application.release_transaction_id
+                 AND release_transaction.tenant_id = release_application.tenant_id
+                 AND release_transaction.deleted = 0
+                 AND release_transaction.release_status = 'RELEASED'
+                WHERE release_application.tenant_id = pqc_task.tenant_id
+                  AND release_application.active_order_id = pqc_task.active_order_id
+                  AND release_application.deleted = 0
+            )
+        </if>
+        <if test="reqVO.pqcFormView == 'HISTORY'">
+            AND pool_event.event_type = 'PQC_INSPECTION'
+            AND latest_submission_review.review_status = 'APPROVED'
+        </if>
+    </sql>
+
+    <sql id="TimelineAuthorityJoins">
+        LEFT JOIN mes_md_item product_item
+          ON product_item.id = work_order.product_id
+         AND product_item.tenant_id = pool_event.tenant_id
+         AND product_item.deleted = 0
+        LEFT JOIN system_users actual_employee
+          ON actual_employee.id = pool_event.actual_employee_id
+         AND actual_employee.tenant_id = pool_event.tenant_id
+         AND actual_employee.deleted = 0
+        LEFT JOIN mes_pqc_inspection_task pqc_task
+          ON pqc_task.tenant_id = pool_event.tenant_id
+         AND pqc_task.deleted = 0
+         AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
+         AND pqc_task.id = pool_event.feedback_source_id
+    </sql>
+
+    <sql id="LatestSubmissionReviewJoin">
+        LEFT JOIN (
+            SELECT tenant_id,
+                   event_id,
+                   leader_user_id,
+                   review_status,
+                   review_remark,
+                   reviewed_at
+            FROM (
+                SELECT review_log.tenant_id,
+                       review_log.event_id,
+                       review_log.leader_user_id,
+                       review_log.review_status,
+                       review_log.review_remark,
+                       review_log.reviewed_at,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY review_log.tenant_id, review_log.event_id
+                           ORDER BY review_log.reviewed_at DESC, review_log.id DESC
+                       ) AS review_rank
+                FROM mes_pro_process_pool_submission_review review_log
+                WHERE review_log.deleted = 0
+            ) ranked_review
+            WHERE ranked_review.review_rank = 1
+        ) latest_submission_review
+          ON latest_submission_review.event_id = pool_event.id
+         AND latest_submission_review.tenant_id = pool_event.tenant_id
+    </sql>
+
+    <sql id="SubmissionReviewLeaderJoin">
+        LEFT JOIN system_users review_leader
+          ON review_leader.id = latest_submission_review.leader_user_id
+         AND review_leader.tenant_id = pool_event.tenant_id
+         AND review_leader.deleted = 0
     </sql>
 
     <select id="selectTimelineCount" resultType="java.lang.Long">
@@ -82,7 +270,10 @@
         FROM mes_pro_process_pool_event pool_event
         LEFT JOIN mes_pro_work_order work_order
           ON work_order.id = pool_event.work_order_id
+         AND work_order.tenant_id = pool_event.tenant_id
          AND work_order.deleted = 0
+        <include refid="TimelineAuthorityJoins"/>
+        <include refid="LatestSubmissionReviewJoin"/>
         WHERE <include refid="TimelineFilters"/>
     </select>
 
@@ -92,15 +283,20 @@
         FROM mes_pro_process_pool_event pool_event
         LEFT JOIN mes_pro_work_order work_order
           ON work_order.id = pool_event.work_order_id
+         AND work_order.tenant_id = pool_event.tenant_id
          AND work_order.deleted = 0
+        <include refid="TimelineAuthorityJoins"/>
         LEFT JOIN mes_pro_process process
           ON process.id = pool_event.process_id
+         AND process.tenant_id = pool_event.tenant_id
          AND process.deleted = 0
         LEFT JOIN mes_md_workstation workstation
           ON workstation.id = pool_event.workstation_id
+         AND workstation.tenant_id = pool_event.tenant_id
          AND workstation.deleted = 0
         LEFT JOIN mes_pro_process_pool_pqc_record pqc
           ON pqc.event_id = pool_event.id
+         AND pqc.tenant_id = pool_event.tenant_id
          AND pqc.deleted = 0
         LEFT JOIN (
             SELECT review_copy.tenant_id,
@@ -122,6 +318,8 @@
         ) review_copy_summary
           ON review_copy_summary.event_id = pool_event.id
          AND review_copy_summary.tenant_id = pool_event.tenant_id
+        <include refid="LatestSubmissionReviewJoin"/>
+        <include refid="SubmissionReviewLeaderJoin"/>
         LEFT JOIN (
             SELECT tenant_id,
                    event_id,
@@ -134,7 +332,7 @@
           ON revision_summary.event_id = pool_event.id
          AND revision_summary.tenant_id = pool_event.tenant_id
         WHERE <include refid="TimelineFilters"/>
-        ORDER BY pool_event.server_submit_time ASC, pool_event.id ASC
+        ORDER BY pool_event.server_submit_time DESC, pool_event.id DESC
         LIMIT #{offset}, #{reqVO.pageSize}
     </select>
 
@@ -143,15 +341,20 @@
         FROM mes_pro_process_pool_event pool_event
         LEFT JOIN mes_pro_work_order work_order
           ON work_order.id = pool_event.work_order_id
+         AND work_order.tenant_id = pool_event.tenant_id
          AND work_order.deleted = 0
+        <include refid="TimelineAuthorityJoins"/>
         LEFT JOIN mes_pro_process process
           ON process.id = pool_event.process_id
+         AND process.tenant_id = pool_event.tenant_id
          AND process.deleted = 0
         LEFT JOIN mes_md_workstation workstation
           ON workstation.id = pool_event.workstation_id
+         AND workstation.tenant_id = pool_event.tenant_id
          AND workstation.deleted = 0
         LEFT JOIN mes_pro_process_pool_pqc_record pqc
           ON pqc.event_id = pool_event.id
+         AND pqc.tenant_id = pool_event.tenant_id
          AND pqc.deleted = 0
         LEFT JOIN (
             SELECT review_copy.tenant_id,
@@ -173,6 +376,8 @@
         ) review_copy_summary
           ON review_copy_summary.event_id = pool_event.id
          AND review_copy_summary.tenant_id = pool_event.tenant_id
+        <include refid="LatestSubmissionReviewJoin"/>
+        <include refid="SubmissionReviewLeaderJoin"/>
         LEFT JOIN (
             SELECT tenant_id,
                    event_id,
@@ -186,6 +391,40 @@
          AND revision_summary.tenant_id = pool_event.tenant_id
         WHERE pool_event.deleted = 0
           AND pool_event.id = #{id}
+    </select>
+
+    <select id="selectReportAllocationsByEventIds"
+            resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineReportAllocationReadDO">
+        SELECT allocation.event_id AS eventId,
+               allocation.id AS allocationId,
+               allocation.active_order_id AS activeOrderId,
+               allocation.work_order_id AS workOrderId,
+               work_order.code AS workOrderCode,
+               allocation.allocated_quantity AS allocatedQuantity,
+               CASE WHEN EXISTS (
+                   SELECT 1
+                   FROM mes_pro_process_pool_active_order_release_application release_application
+                   INNER JOIN mes_pro_edhr_release_transaction release_transaction
+                     ON release_transaction.id = release_application.release_transaction_id
+                    AND release_transaction.tenant_id = release_application.tenant_id
+                    AND release_transaction.deleted = 0
+                    AND release_transaction.release_status = 'RELEASED'
+                   WHERE release_application.tenant_id = allocation.tenant_id
+                     AND release_application.active_order_id = allocation.active_order_id
+                     AND release_application.deleted = 0
+               ) THEN TRUE ELSE FALSE END AS released
+        FROM mes_pro_process_pool_report_allocation allocation
+        LEFT JOIN mes_pro_work_order work_order
+          ON work_order.id = allocation.work_order_id
+         AND work_order.tenant_id = allocation.tenant_id
+         AND work_order.deleted = 0
+        WHERE allocation.deleted = 0
+          AND allocation.lifecycle_status = 'CURRENT'
+          AND allocation.event_id IN
+        <foreach collection="eventIds" item="eventId" open="(" separator="," close=")">
+            #{eventId}
+        </foreach>
+        ORDER BY allocation.event_id ASC, allocation.id ASC
     </select>
 
 </mapper>

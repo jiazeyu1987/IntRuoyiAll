@@ -15,20 +15,7 @@ public class MesWorkOrderAbnormalReportReqVO {
     @NotNull
     private Long workOrderId;
 
-    @Schema(description = "路线工序编号", example = "5001")
-    private Long routeProcessId;
-
-    @Schema(description = "工序编号", example = "6001")
-    private Long processId;
-
-    @Schema(description = "来源提交事件编号", example = "1001")
-    private Long sourceEventId;
-
-    @Schema(description = "异常原因编码", requiredMode = Schema.RequiredMode.REQUIRED, example = "LOSS-001")
-    @NotBlank
-    private String abnormalReasonCode;
-
-    @Schema(description = "异常说明", requiredMode = Schema.RequiredMode.REQUIRED, example = "损耗异常")
+    @Schema(description = "异常原因", requiredMode = Schema.RequiredMode.REQUIRED, example = "设备停机，影响生产")
     @NotBlank
     private String abnormalDescription;
 }

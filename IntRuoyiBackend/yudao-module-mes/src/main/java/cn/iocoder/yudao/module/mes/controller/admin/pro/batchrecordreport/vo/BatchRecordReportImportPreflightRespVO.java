@@ -66,6 +66,15 @@ public class BatchRecordReportImportPreflightRespVO {
     @Schema(description = "当前工艺路线版本是否活跃", example = "true")
     private Boolean currentRouteVersionActive;
 
+    @Schema(description = "当前未结束工艺路线候选版本 ID", example = "4002")
+    private Long currentRouteCandidateVersionId;
+
+    @Schema(description = "当前未结束工艺路线候选版本号", example = "V2")
+    private String currentRouteCandidateVersionNo;
+
+    @Schema(description = "当前未结束工艺路线候选版本状态", example = "DRAFT")
+    private String currentRouteCandidateVersionStatus;
+
     @Schema(description = "是否存在历史业务引用", example = "true")
     private Boolean hasHistoricalReferences;
 

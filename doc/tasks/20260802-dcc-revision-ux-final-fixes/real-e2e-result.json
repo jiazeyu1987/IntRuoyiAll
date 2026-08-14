@@ -1,0 +1,353 @@
+{
+  "status": "PASS",
+  "sourceResultPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-publish-real-e2e\\e2e-result.json",
+  "fileNumber": "CODX-DCC-REV-FULL-20260802-20260802091213",
+  "fileName": "Codex DCC 升版发布全链路 20260802091213",
+  "v1ControlledFileId": "2054545668044070271",
+  "v2ControlledFileId": "2054545668044070272",
+  "publishBpmProcessInstanceId": "6f007746-8e52-11f1-ada6-00155d2984a0",
+  "browserUser": "wangsiyu",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "startedAt": "2026-08-02T11:23:04.152Z",
+  "phases": [
+    {
+      "phase": "publish-completion-detail",
+      "status": "PASS"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "status": "PASS"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "status": "PASS"
+    }
+  ],
+  "targetNetworkFailures": [],
+  "auxiliaryRequestInterruptions": [
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "targetRequests": [
+    {
+      "phase": "login-wangsiyu",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-by-website?website=127.0.0.1:8081"
+    },
+    {
+      "phase": "login-wangsiyu",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-by-website?website=127.0.0.1:8081"
+    },
+    {
+      "phase": "login-wangsiyu",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-id-by-name?name=%E8%8A%8B%E9%81%93%E6%BA%90%E7%A0%81"
+    },
+    {
+      "phase": "login-wangsiyu",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-id-by-name?name=%E8%8A%8B%E9%81%93%E6%BA%90%E7%A0%81"
+    },
+    {
+      "phase": "login-wangsiyu",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/login"
+    },
+    {
+      "phase": "login-wangsiyu",
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/login"
+    },
+    {
+      "phase": "login-wangsiyu",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info"
+    },
+    {
+      "phase": "login-wangsiyu",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070272"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/directories/tree"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070272/paper-distributions/records"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/approval-print-template/active"
+    },
+    {
+      "phase": "publish-completion-detail",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/bpm/task/list-by-process-instance-id?processInstanceId=5bc70cf5-8e52-11f1-ada6-00155d2984a0"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/directories/tree"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&status=ACTIVE&keyword=CODX-DCC-REV-FULL-20260802-20260802091213&latestVersionOnly=true"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070272"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/directories/tree"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070272/paper-distributions/records"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/approval-print-template/active"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070272/preview-metadata"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070272/preview"
+    },
+    {
+      "phase": "controlled-browser-version-history-dialog",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/bpm/task/list-by-process-instance-id?processInstanceId=5bc70cf5-8e52-11f1-ada6-00155d2984a0"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/auth/get-permission-info"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/bpm/process-instance/get-approval-detail?processInstanceId=6f007746-8e52-11f1-ada6-00155d2984a0"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/bpm/process-instance/get-bpmn-model-view?id=6f007746-8e52-11f1-ada6-00155d2984a0"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/bpm/task/list-by-process-instance-id?processInstanceId=6f007746-8e52-11f1-ada6-00155d2984a0"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/file-categories"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/directories/tree"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files//paper-distributions/records"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/approval-print-template/active"
+    },
+    {
+      "phase": "bpm-marker-pageerror",
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files//access-explanation"
+    }
+  ],
+  "targetWriteRequests": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "screenshots": {
+    "detailPublishSummary": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-ux-final-fixes\\real-e2e-detail-publish-summary.png",
+    "previewVersionHistory": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-ux-final-fixes\\real-e2e-preview-version-history.png",
+    "bpmProcessDiagram": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-revision-ux-final-fixes\\real-e2e-bpm-process-diagram.png"
+  },
+  "detailVerification": {
+    "versionNo": "V2.0",
+    "status": "ACTIVE",
+    "currentActiveVersionNo": "V2.0",
+    "summaryText": "发布完成结果\n新版 ACTIVE · 旧版 SUPERSEDED · master 当前生效版本 · 受控浏览落位\n查看受控浏览当前有效版\n新版 ACTIVE\n已确认\nV2.0 / 现行\n新版审批完成后已进入 ACTIVE 状态。\n旧版 SUPERSEDED\n已确认\nCODX-DCC-REV-FULL-20260802-20260802091213 · 版本 V1.0 · Codex DCC 升版发布全链路 20260802091213\n旧版通过 supersededByFileId 指向当前生效版本。\nmaster 当前生效版本\n已确认\n已指向 V2.0\nmaster 当前生效版本应与当前详情版本一致。\n受控浏览落位\n已确认\n目录：4.Ohter；publishedFileId：9198354916362；stampedFileId：9198354916362\n受控浏览最终目录、发布文件和盖章文件已在详情页可追溯。",
+    "revisionRemark": "升版 E2E 20260802091213"
+  },
+  "previewVersionHistoryVerification": {
+    "viewerUrl": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070272?viewer=1&from=browser&returnTo=/dcc/controlled-file/browser?pageNo=1%26pageSize=20%26scope=global%26status=ACTIVE%26keyword=CODX-DCC-REV-FULL-20260802-20260802091213",
+    "dialogText": "版本历史\n标题\n\t\n文件编号\n\t\n版本\n\t\n升版原因/变更说明\n\t\n状态\n\t\n生效日期\n\t\n发布时间\n\t\n作废时间\n\t\n后继版本\nCodex DCC 升版发布全链路 20260802091213\n\t\nCODX-DCC-REV-FULL-20260802-20260802091213\n\t\nV1.0\n\t\n新建 E2E 20260802091213\n\t\n已替代\n\t\n2026-08-02\n\t\n2026-08-02 17:12:50\n\t\n-\n\t\n后继记录缺失：#2054545668044070400\n\n\nCodex DCC 升版发布全链路 20260802091213\n\t\nCODX-DCC-REV-FULL-20260802-20260802091213\n\t\nV2.0\n\t\n升版 E2E 20260802091213\n\t\n现行\n\t\n2026-08-02\n\t\n2026-08-02 17:16:23\n\t\n-\n\t\n无后继版本"
+  },
+  "bpmMarkerVerification": {
+    "processInstanceId": "6f007746-8e52-11f1-ada6-00155d2984a0",
+    "warningVisible": true,
+    "warningText": "流程图节点高亮不完整：flow_doc_control_approval_end:success、flow_matrix_approval_doc_control_approval:success、flow_start_doc_control_review:success、flow_doc_control_review_matrix_review:success、flow_matrix_review_matrix_approval:success、endEvent:success、startEvent:success、MATRIX_REVIEW:success、DOC_CONTROL_APPROVAL:success、DOC_CONTROL_REVIEW:success、MATRIX_APPROVAL:success",
+    "pageErrorsDuringBpmPhase": []
+  },
+  "completedAt": "2026-08-02T11:23:19.156Z"
+}

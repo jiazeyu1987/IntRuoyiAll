@@ -81,9 +81,9 @@ public class DccProjectCodeAssignmentServiceImpl implements DccProjectCodeAssign
         DccProjectCodeDO projectCode = validateProjectCode(projectCodeId);
         validateAssignee(reqVO.getAssigneeUserId());
         List<Long> selectedFileIds = normalizeSelectedFileIds(reqVO);
-        List<DccControlledFileDO> files = controlledFileMapper.selectAssociatedFilesByProjectCodeId(
-                projectCodeId,
-                SCOPE_SELECTED_FILES.equals(reqVO.getScopeMode()) ? selectedFileIds : null);
+        List<DccControlledFileDO> files = SCOPE_SELECTED_FILES.equals(reqVO.getScopeMode())
+                ? controlledFileMapper.selectCurrentApprovedFilesByIds(selectedFileIds)
+                : controlledFileMapper.selectAssociatedFilesByProjectCodeId(projectCodeId, null);
         validateScope(reqVO, selectedFileIds, files);
 
         LocalDateTime now = LocalDateTime.now();

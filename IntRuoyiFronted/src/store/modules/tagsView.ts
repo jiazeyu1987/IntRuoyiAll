@@ -18,6 +18,24 @@ const TAGS_VIEW_PATH_IDENTITY_PATHS = new Set([
   'pro/batch-record-template'
 ])
 
+const FORCED_CACHED_TAGS_VIEW_ROUTE_NAMES = new Set([
+  'DccControlledFileUpload',
+  'DccControlledFileBrowser',
+  'MesProRoute',
+  'MesProBatchRecordFormList'
+])
+
+const FORCED_CACHED_TAGS_VIEW_ROUTE_PATHS = new Set([
+  'controlled-file/upload',
+  'dcc/controlled-file/upload',
+  'controlled-file/browser',
+  'dcc/controlled-file/browser',
+  'mes/pro/route',
+  'pro/route',
+  'mes/pro/batch-record-form-list',
+  'pro/batch-record-form-list'
+])
+
 const normalizeTagsViewPath = (path: string) =>
   String(path || '')
     .split('?')[0]
@@ -29,6 +47,18 @@ const normalizeTagsViewPath = (path: string) =>
 const resolveActiveMenuPath = (view: RouteLocationNormalizedLoaded) => {
   const activeMenu = normalizeTagsViewPath(String(view.meta?.activeMenu || ''))
   return activeMenu ? `/${activeMenu}` : ''
+}
+
+const resolveCachedViewName = (view: RouteLocationNormalizedLoaded) =>
+  String(view.meta?.keepAliveName || view.name || '')
+
+const shouldForceCacheTagsView = (item: RouteLocationNormalizedLoaded) => {
+  const name = String(item.name || '')
+  const normalizedPath = normalizeTagsViewPath(item.path)
+  return (
+    FORCED_CACHED_TAGS_VIEW_ROUTE_NAMES.has(name) ||
+    FORCED_CACHED_TAGS_VIEW_ROUTE_PATHS.has(normalizedPath)
+  )
 }
 
 export interface TagsViewState {
@@ -153,12 +183,14 @@ export const useTagsViewStore = defineStore('tagsView', {
       const cacheMap: Set<string> = new Set()
       for (const v of this.visitedViews) {
         const item = getRawRoute(v)
-        const needCache = !item.meta?.noCache
+        const needCache = !item.meta?.noCache || shouldForceCacheTagsView(item)
         if (!needCache) {
           continue
         }
-        const name = item.name as string
-        cacheMap.add(name)
+        const name = resolveCachedViewName(item)
+        if (name) {
+          cacheMap.add(name)
+        }
       }
       if (Array.from(this.cachedViews).sort().toString() === Array.from(cacheMap).sort().toString())
         return
@@ -182,7 +214,8 @@ export const useTagsViewStore = defineStore('tagsView', {
     // 删除缓存
     delCachedView() {
       const route = router.currentRoute.value
-      const index = findIndex<string>(this.getCachedViews, (v) => v === route.name)
+      const cachedViewName = resolveCachedViewName(route)
+      const index = findIndex<string>(this.getCachedViews, (v) => v === cachedViewName)
       // 需要注释，解决“标签页刷新无效”。相关案例：https://github.com/yudaocode/yudao-ui-admin-vue3/issues/180
       // for (const v of this.visitedViews) {
       //   if (v.name === route.name) {

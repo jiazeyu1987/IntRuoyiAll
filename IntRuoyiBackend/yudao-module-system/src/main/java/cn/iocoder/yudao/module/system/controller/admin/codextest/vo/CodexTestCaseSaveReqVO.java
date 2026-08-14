@@ -38,6 +38,9 @@ public class CodexTestCaseSaveReqVO {
     @Schema(description = "用户手写测试数据")
     private String testDataText;
 
+    @Schema(description = "分析模式：PLAYWRIGHT_E2E/CODE_READONLY")
+    private String analysisMode;
+
     @Schema(description = "默认执行方式")
     private String defaultExecutionMode;
 

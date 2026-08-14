@@ -1,0 +1,22 @@
+# Execution Log
+
+- USER INTENT: 用户要求“只要求有qa,重复检测，其他的限制都去掉”。
+- SKILL: 使用 `change-request-triage` 记录需求变更裁定，使用 `backend-api-delivery` 执行后端行为变更。
+- BDD: QA 存在即可加入 -> Given 生产工单不是已确认且没有有效排产或产品正式路线绑定，但该产品存在已发布 QA 规程，When 生产组长搜索并加入该订单，Then 候选显示符合要求，新增接口创建活跃订单并生成 QA 驱动的工序快照/PQC 任务。
+- BDD: 缺少 QA 不可加入 -> Given 生产工单存在但产品没有已发布 QA 规程，When 生产组长搜索或提交加入，Then 候选显示缺少 QA，新增接口 fail fast，不创建活跃订单。
+- BDD: 重复活跃订单检测 -> Given 同一工单、QA 路线和 QA 版本已经存在 ACTIVE 活跃订单，When 再次提交加入，Then 不创建重复记录并返回已有活跃订单 ID。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" test` -> FAIL，上游模块没有匹配测试且未配置 `surefire.failIfNoSpecifiedTests=false`，需要改用项目专项测试命令。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，`MesProWorkOrderMapper.selectCandidatesByKeyword(...)` 尚不存在，证明新增测试先于实现暴露旧确认候选查询接口。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，19 tests / 0 failures / 0 errors / 0 skipped。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderActiveOrderErpPlannedStartTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，21 tests / 0 failures / 0 errors / 0 skipped。
+- MILESTONE: M1 完成，变更裁定为 accepted，范围限定为候选搜索和新增活跃订单后端路径。
+- MILESTONE: M2 完成，覆盖 QA 存在即可加入、缺 QA fail fast、重复检测、未确认工单可加入、无排产/路线绑定可加入。
+- MILESTONE: M3 完成，候选查询移除确认状态过滤，新增路径改为 `validateWorkOrderExists` + QA 规程解析路线/工序 + 重复检测。
+- MILESTONE: M4 完成，定向 Maven 验证通过。
+- VALIDATION: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260808-active-order-qa-only-gate/backend-api-evidence.md` -> PASS。
+- VALIDATION: `python C:\Users\BJB110\.codex\skills\change-request-triage\scripts\validate_change_request.py --evidence docs/changes/20260808-active-order-qa-only-gate.md` -> PASS。
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260808-active-order-qa-only-gate --mode preview` -> PASS，delete `<none>`，blocked `<none>`。
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260808-active-order-qa-only-gate --mode apply` -> PASS，deleted_paths `<none>`。
+- CODE CLEANUP: 删除已不再调用的有效排产、产品路线绑定、ACTIVE 路线快照解析私有 helper，并将候选上下文收敛为 QA 依赖。
+- REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderActiveOrderErpPlannedStartTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，21 tests / 0 failures / 0 errors / 0 skipped。
+- MILESTONE: M5 完成，补齐 backend-api evidence 与 verification report，完成收尾清理并标记 completed。

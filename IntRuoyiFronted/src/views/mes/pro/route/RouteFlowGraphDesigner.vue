@@ -218,6 +218,25 @@
                     </button>
                   </div>
                 </div>
+                <div
+                  class="route-flow-graph-designer__selected-detail-item"
+                  :class="{ 'is-selected': selectedBoundaryDetailFieldKey === 'productionLeader' }"
+                  data-flow-boundary-field="productionLeader"
+                >
+                  <div class="route-flow-graph-designer__selected-detail-content">
+                    <button
+                      aria-label="查看生产组长字段明细"
+                      :aria-pressed="selectedBoundaryDetailFieldKey === 'productionLeader'"
+                      class="route-flow-graph-designer__selected-detail-button"
+                      data-flow-action="select-boundary-detail-field"
+                      title="查看生产组长字段明细"
+                      type="button"
+                      @click="handleSelectBoundaryDetailField('productionLeader')"
+                    >
+                      <span>生产组长</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </template>
             <template v-else-if="selectedBoundaryType === 'END'">
@@ -576,7 +595,7 @@
         >
           <h4>字段明细</h4>
           <p
-            v-if="!selectedProcessDetailField && !(selectedBoundaryType === 'END' && selectedBoundaryDetailFieldKey === 'releaseOwner') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'batchRecordAttachment')"
+            v-if="!selectedProcessDetailField && !(selectedBoundaryType === 'END' && selectedBoundaryDetailFieldKey === 'releaseOwner') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'batchRecordAttachment') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'productionLeader')"
             class="route-flow-graph-designer__selected-field-empty"
           >
             点击左侧字段查看明细
@@ -678,6 +697,140 @@
                   </el-select>
                   <span class="route-flow-graph-designer__selected-detail-note">
                     已授权：{{ formatBatchRecordAttachmentAssignedUsers(owner) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <template v-else-if="selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'productionLeader'">
+            <div class="route-flow-graph-designer__selected-field-grid">
+              <span>当前工序</span>
+              <strong>工序开始</strong>
+              <span>字段名称</span>
+              <strong>生产组长</strong>
+              <span>字段来源</span>
+              <strong>当前工艺路线负责人配置</strong>
+            </div>
+            <div
+              v-loading="routeStartProductionLeadersLoading"
+              class="route-flow-graph-designer__selected-detail-editor"
+              :data-flow-field-editor="selectedBoundaryDetailFieldKey"
+              data-flow-panel="route-start-production-leader-detail"
+            >
+              <el-alert
+                v-if="routeStartProductionLeadersLoadError"
+                :title="routeStartProductionLeadersLoadError"
+                :closable="false"
+                show-icon
+                type="error"
+              />
+              <div class="route-flow-graph-designer__record-binding-toolbar">
+                <span>工序开始生产组长</span>
+                <div class="route-flow-graph-designer__record-binding-toolbar-actions">
+                  <el-button
+                    data-flow-action="add-route-start-production-leader"
+                    :disabled="routeStartProductionLeaderControlsDisabled || routeStartProductionLeaderProductionLines.length === 0"
+                    link
+                    size="small"
+                    type="primary"
+                    @click="handleRouteStartProductionLeaderAdd"
+                  >
+                    新增
+                  </el-button>
+                  <el-button
+                    data-flow-action="save-route-start-production-leaders"
+                    :disabled="routeStartProductionLeaderControlsDisabled || routeStartProductionLeaders.length === 0"
+                    :loading="routeStartProductionLeadersSaving"
+                    link
+                    size="small"
+                    type="primary"
+                    @click="handleRouteStartProductionLeaderSave"
+                  >
+                    保存
+                  </el-button>
+                </div>
+              </div>
+              <el-empty
+                v-if="routeStartProductionLeaderProductionLines.length === 0"
+                :image-size="38"
+                description="当前工艺路线暂无可负责范围，请先保存工艺路线"
+              />
+              <el-empty
+                v-else-if="routeStartProductionLeaders.length === 0"
+                :image-size="38"
+                description="暂无生产组长配置"
+              />
+              <div v-else class="route-flow-graph-designer__record-binding-list">
+                <div
+                  v-for="leader in routeStartProductionLeaders"
+                  :key="leader.draftKey"
+                  class="route-flow-graph-designer__record-binding-item"
+                  :data-route-start-production-leader="leader.draftKey"
+                >
+                  <el-select
+                    :model-value="leader.productionLineId"
+                    data-route-start-production-leader-production-line
+                    :disabled="routeStartProductionLeaderControlsDisabled"
+                    filterable
+                    placeholder="负责范围"
+                    size="small"
+                    :teleported="false"
+                    @change="(value) => handleRouteStartProductionLeaderProductionLineChange(leader, value as number | string)"
+                  >
+                    <el-option
+                      v-for="line in routeStartProductionLeaderProductionLines"
+                      :key="line.productionLineId"
+                      :label="formatRouteStartProductionLeaderProductionLineLabel(line)"
+                      :value="line.productionLineId"
+                    />
+                  </el-select>
+                  <el-select
+                    :model-value="leader.candidateSourceType"
+                    data-route-start-production-leader-source-type
+                    :disabled="routeStartProductionLeaderControlsDisabled"
+                    placeholder="组长来源"
+                    size="small"
+                    @change="(value) => handleRouteStartProductionLeaderSourceTypeChange(leader, String(value))"
+                  >
+                    <el-option
+                      v-for="item in ROUTE_START_PRODUCTION_LEADER_CANDIDATE_SOURCE_OPTIONS"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-select>
+                  <el-select
+                    :model-value="leader.candidateSourceIds"
+                    data-route-start-production-leader-candidate
+                    filterable
+                    multiple
+                    :disabled="routeStartProductionLeaderControlsDisabled"
+                    :loading="isRouteStartProductionLeaderCandidateOptionsLoading(leader)"
+                    placeholder="请选择生产组长"
+                    size="small"
+                    :teleported="false"
+                    @change="(value) => handleRouteStartProductionLeaderCandidateIdsChange(leader, value as Array<number | string>)"
+                    @visible-change="(visible) => visible && loadRouteStartProductionLeaderCandidateOptions(leader)"
+                  >
+                    <el-option
+                      v-for="item in buildRouteStartProductionLeaderCandidateOptions(leader)"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-select>
+                  <el-button
+                    data-flow-action="remove-route-start-production-leader"
+                    :disabled="routeStartProductionLeaderControlsDisabled"
+                    link
+                    size="small"
+                    type="danger"
+                    @click="handleRouteStartProductionLeaderRemove(leader)"
+                  >
+                    删除
+                  </el-button>
+                  <span class="route-flow-graph-designer__selected-detail-note">
+                    负责工序：{{ formatRouteStartProductionLeaderProcessSummary(leader) }}
                   </span>
                 </div>
               </div>
@@ -1478,7 +1631,9 @@ import {
   type ProRouteFlowFormSlotType,
   type ProRouteFlowProcessConfigSaveVO,
   type ProRouteFlowProcessConfigVO,
-  type ProRouteFlowRequiredPolicy
+  type ProRouteFlowRequiredPolicy,
+  type ProRouteStartProductionLeaderProductionLineVO,
+  type ProRouteStartProductionLeaderVO
 } from '@/api/mes/pro/route/flowconfig'
 import {
   BatchRecordReportApi,
@@ -1556,8 +1711,14 @@ type FormSlotViewSummaryItem = {
   processIndependentSummary: string
 }
 type ProcessDetailCapacitySourceFocus = 'resource' | 'schedule'
-type BoundaryDetailFieldKey = 'releaseOwner' | 'batchRecordAttachment'
+type BoundaryDetailFieldKey = 'releaseOwner' | 'batchRecordAttachment' | 'productionLeader'
 type BatchRecordAttachmentOwnerDraft = ProRouteBatchRecordAttachmentOwnerVO & {
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  candidateSourceNames: string[]
+}
+type RouteStartProductionLeaderDraft = ProRouteStartProductionLeaderVO & {
+  draftKey: string
   candidateSourceType: EdhrProcessFormCandidateSourceType
   candidateSourceIds: number[]
   candidateSourceNames: string[]
@@ -1836,6 +1997,13 @@ const RECORD_BINDING_CANDIDATE_SOURCE_OPTIONS: Array<{
   { label: '权限角色', value: 'ROLE' }
 ]
 const BATCH_RECORD_ATTACHMENT_CANDIDATE_SOURCE_OPTIONS = RECORD_BINDING_CANDIDATE_SOURCE_OPTIONS
+const ROUTE_START_PRODUCTION_LEADER_CANDIDATE_SOURCE_OPTIONS: Array<{
+  label: string
+  value: EdhrProcessFormCandidateSourceType
+}> = [
+  { label: '账号', value: 'USERS' },
+  { label: '权限角色', value: 'ROLE' }
+]
 const BATCH_RECORD_ATTACHMENT_DEFAULT_ITEMS = [
   {
     attachmentCode: 'INCOMING_INSPECTION_REPORT',
@@ -1986,6 +2154,15 @@ const batchRecordAttachmentOwnersInitializing = ref(false)
 const batchRecordAttachmentOwnersLoaded = ref(false)
 const batchRecordAttachmentOwnersLoadError = ref('')
 const batchRecordAttachmentOwners = ref<BatchRecordAttachmentOwnerDraft[]>([])
+const routeStartProductionLeadersLoading = ref(false)
+const routeStartProductionLeadersSaving = ref(false)
+const routeStartProductionLeadersLoaded = ref(false)
+const routeStartProductionLeadersLoadError = ref('')
+const routeStartProductionLeaders = ref<RouteStartProductionLeaderDraft[]>([])
+const routeStartProductionLeaderProductionLines =
+  ref<ProRouteStartProductionLeaderProductionLineVO[]>([])
+const routeStartProductionLeadersBaseline = ref('')
+let routeStartProductionLeaderDraftSequence = 0
 const releaseApprovalRuleForm = reactive<ReleaseApprovalRuleForm>({
   candidateSourceType: 'USER',
   candidateSourceId: undefined,
@@ -2298,7 +2475,7 @@ const openRecordBindingTargetLink = async (binding: RouteFlowRecordBinding) => {
     path: '/mes/pro/batch-record-form-list',
     query: {
       formTemplateId: String(binding.formTemplateId),
-      formSlotType: normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey)
+      formSlotType: requireRecordBindingSlotType(binding)
     }
   })
 }
@@ -2520,12 +2697,8 @@ const isRecordBindingSlotType = (value?: string | null): value is ProRouteFlowFo
 const normalizeRecordBindingSlotType = (
   formSlotType?: string | null,
   formBindingKey?: string | null
-): ProRouteFlowFormSlotType => {
-  const normalizedFormSlotType = normalizeNullableText(formSlotType)
-  if (isRecordBindingSlotType(normalizedFormSlotType)) return normalizedFormSlotType
-  const normalizedBindingKey = normalizeNullableText(formBindingKey)
-  if (isRecordBindingSlotType(normalizedBindingKey)) return normalizedBindingKey
-  return 'MAIN'
+): ProRouteFlowFormSlotType | undefined => {
+  return resolveRecordBindingSlotType(formSlotType, formBindingKey)
 }
 
 const resolveRecordBindingSlotType = (
@@ -2537,6 +2710,18 @@ const resolveRecordBindingSlotType = (
   const normalizedBindingKey = normalizeNullableText(formBindingKey)
   if (isRecordBindingSlotType(normalizedBindingKey)) return normalizedBindingKey
   return undefined
+}
+
+const requireRecordBindingSlotType = (
+  binding: Pick<RouteFlowRecordBinding, 'formSlotType' | 'formBindingKey'>
+): ProRouteFlowFormSlotType => {
+  const formSlotType = resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey)
+  if (!formSlotType) {
+    throw new Error(
+      `表单槽位绑定缺少显式槽位类型：formBindingKey=${binding.formBindingKey || '-'}`
+    )
+  }
+  return formSlotType
 }
 
 const requireLegacyBatchRecordSlotType = (
@@ -2567,7 +2752,8 @@ const buildSharedRecordBindingKey = (
 ) => {
   const formTemplateId = Number(binding.formTemplateId || 0)
   if (!Number.isFinite(formTemplateId) || formTemplateId <= 0) return null
-  const formSlotType = normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey)
+  const formSlotType = resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey)
+  if (!formSlotType) return null
   return `${formSlotType}_${formTemplateId}`
 }
 
@@ -2578,8 +2764,8 @@ const createLocalFormBindingKey = () => `FORM_BINDING_${Date.now()}_${localFormB
 const resolveNextAdditionalRecordBindingSlotType = (): ProRouteFlowFormSlotType => {
   const usedSlotTypes = new Set(
     selectedRecordBindings.value
-      .map((binding) => normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey))
-      .filter((slot) => slot !== 'MAIN')
+      .map((binding) => resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey))
+      .filter((slot): slot is ProRouteFlowFormSlotType => Boolean(slot) && slot !== 'MAIN')
   )
   return (
     ADDITIONAL_RECORD_BINDING_SLOT_TYPES.find((slot) => !usedSlotTypes.has(slot)) ||
@@ -2610,7 +2796,8 @@ const normalizeFormBinding = (
 ): RouteFlowRecordBinding | undefined => {
   const formTemplateId = Number(report.formTemplateId)
   if (!Number.isFinite(formTemplateId) || formTemplateId <= 0) return undefined
-  const formSlotType = normalizeRecordBindingSlotType(report.formSlotType, report.formBindingKey)
+  const formSlotType = resolveRecordBindingSlotType(report.formSlotType, report.formBindingKey)
+  if (!formSlotType) return undefined
   const formBindingKey = normalizeNullableText(report.formBindingKey) || `FORM_BINDING_${index + 1}`
   const instanceScope = normalizeRecordBindingInstanceScope(report.instanceScope)
   return {
@@ -2700,9 +2887,10 @@ const getRouteNodeLegacyBatchRecords = (node: RouteFlowNodeVO): RouteFlowLegacyB
 }
 
 const getRouteNodeAdditionalFormCount = (node: RouteFlowNodeVO) => {
-  return getRouteNodeBatchRecordBindings(node).filter(
-    (binding) => normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) !== 'MAIN'
-  ).length
+  return getRouteNodeBatchRecordBindings(node).filter((binding) => {
+    const formSlotType = resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey)
+    return Boolean(formSlotType) && formSlotType !== 'MAIN'
+  }).length
 }
 
 const isRouteNodeFormSlotConfigured = (node: RouteFlowNodeVO) =>
@@ -3479,10 +3667,7 @@ const copyRecordBindingForSelectedProcess = (
   index: number
 ): RouteFlowRecordBinding => {
   const formBindingKey = createLocalFormBindingKey()
-  const formSlotType = normalizeRecordBindingSlotType(
-    sourceBinding.formSlotType,
-    sourceBinding.formBindingKey
-  )
+  const formSlotType = requireRecordBindingSlotType(sourceBinding)
   const formTemplateId = Number(sourceBinding.formTemplateId || 0)
   const normalizedFormTemplateId =
     Number.isFinite(formTemplateId) && formTemplateId > 0 ? formTemplateId : null
@@ -4382,7 +4567,7 @@ const buildSelectedProcessAttributesDraftSnapshot = (draft: SelectedProcessAttri
       const instanceScope = normalizeRecordBindingInstanceScope(binding.instanceScope)
       return {
         formBindingKey: binding.formBindingKey || createLocalFormBindingKey(),
-        formSlotType: normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey),
+        formSlotType: requireRecordBindingSlotType(binding),
         formTemplateId: binding.formTemplateId || null,
         formTemplateName: binding.formTemplateName || null,
         instanceScope,
@@ -4648,7 +4833,7 @@ const buildFormBindingSaveRows = (
       const instanceScope = normalizeRecordBindingInstanceScope(binding.instanceScope)
       return {
         formBindingKey: binding.formBindingKey || createLocalFormBindingKey(),
-        formSlotType: normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey),
+        formSlotType: requireRecordBindingSlotType(binding),
         formTemplateId: Number(binding.formTemplateId),
         formTemplateName: binding.formTemplateName || null,
         instanceScope: instanceScope,
@@ -6140,6 +6325,7 @@ const saveFromParent = async () => {
       throw new Error(buildValidationErrorMessage(result))
     }
     applyPersistedRouteProcessIdMap(result.routeProcessIdMap)
+    await saveRouteStartProductionLeadersIfChanged()
     await saveSelectedProcessAttributeDrafts()
     markGraphSaveClean()
     emit('saved')
@@ -6158,7 +6344,8 @@ const persistRouteProcessDraftChanges = async () => {
 const hasWorkspaceDraftChanges = () =>
   graphDirty.value ||
   hasSelectedProcessAttributeDraftChanges() ||
-  hasRouteProcessUpdateDraftChanges()
+  hasRouteProcessUpdateDraftChanges() ||
+  hasRouteStartProductionLeaderDraftChanges()
 
 const discardWorkspaceDraftChanges = () => {
   graphDirty.value = false
@@ -7833,6 +8020,14 @@ const resetBatchRecordAttachmentOwners = () => {
   batchRecordAttachmentOwners.value = []
 }
 
+const resetRouteStartProductionLeaders = () => {
+  routeStartProductionLeadersLoaded.value = false
+  routeStartProductionLeadersLoadError.value = ''
+  routeStartProductionLeaders.value = []
+  routeStartProductionLeaderProductionLines.value = []
+  routeStartProductionLeadersBaseline.value = ''
+}
+
 const fillReleaseApprovalRuleForm = (rule?: EdhrWorkTaskAssignmentRuleRespVO | null) => {
   currentReleaseApprovalRule.value = rule || null
   releaseApprovalRuleForm.candidateSourceType = normalizeReleaseApprovalRuleCandidateSourceType(
@@ -8091,6 +8286,283 @@ const handleBatchRecordAttachmentOwnerSave = async () => {
   }
 }
 
+const normalizeRouteStartProductionLeaderCandidateSourceType = (
+  candidateSourceType?: string | null
+): EdhrProcessFormCandidateSourceType => {
+  return normalizeRecordBindingCandidateSourceType(candidateSourceType) || 'USERS'
+}
+
+const createRouteStartProductionLeaderDraft = (
+  leader?: Partial<ProRouteStartProductionLeaderVO>
+): RouteStartProductionLeaderDraft => ({
+  productionLineId: Number(
+    leader?.productionLineId || routeStartProductionLeaderProductionLines.value[0]?.productionLineId || 0
+  ),
+  productionLineCode: leader?.productionLineCode || null,
+  productionLineName: leader?.productionLineName || null,
+  candidateSourceType: normalizeRouteStartProductionLeaderCandidateSourceType(
+    leader?.candidateSourceType
+  ),
+  candidateSourceIds: normalizeRecordBindingCandidateIds(leader?.candidateSourceIds),
+  candidateSourceNames: normalizeRecordBindingCandidateNames(leader?.candidateSourceNames),
+  sort: Number(leader?.sort || routeStartProductionLeaderDraftSequence + 1),
+  remark: leader?.remark || null,
+  draftKey: `route-start-production-leader-${++routeStartProductionLeaderDraftSequence}`
+})
+
+const normalizeRouteStartProductionLeaders = (leaders: ProRouteStartProductionLeaderVO[]) =>
+  leaders.map(createRouteStartProductionLeaderDraft).sort((first, second) => {
+    const lineSort = Number(first.productionLineId || 0) - Number(second.productionLineId || 0)
+    if (lineSort !== 0) return lineSort
+    return Number(first.sort || 0) - Number(second.sort || 0)
+  })
+
+const buildRouteStartProductionLeaderSaveItems = () =>
+  routeStartProductionLeaders.value.map((leader) => ({
+    productionLineId: leader.productionLineId,
+    candidateSourceType: leader.candidateSourceType,
+    candidateSourceIds: leader.candidateSourceIds,
+    candidateSourceNames: leader.candidateSourceNames,
+    remark: leader.remark || null
+  }))
+
+const serializeRouteStartProductionLeaderSaveItems = () =>
+  JSON.stringify(buildRouteStartProductionLeaderSaveItems())
+
+const markRouteStartProductionLeadersClean = () => {
+  routeStartProductionLeadersBaseline.value = serializeRouteStartProductionLeaderSaveItems()
+}
+
+const hasRouteStartProductionLeaderDraftChanges = () =>
+  routeStartProductionLeadersLoaded.value &&
+  routeStartProductionLeadersBaseline.value !== serializeRouteStartProductionLeaderSaveItems()
+
+const resolveRouteStartProductionLeaderReadRouteVersionId = () =>
+  props.routeVersionEditContext?.lifecycleStatus === 'ACTIVE'
+    ? undefined
+    : props.routeVersionEditContext?.routeVersionId
+
+const formatRouteStartProductionLeaderProductionLineLabel = (
+  line: ProRouteStartProductionLeaderProductionLineVO
+) => {
+  const label = [line.productionLineCode, line.productionLineName].filter(Boolean).join(' / ')
+  return label || String(line.productionLineId)
+}
+
+const resolveRouteStartProductionLeaderProductionLine = (
+  leader: Pick<RouteStartProductionLeaderDraft, 'productionLineId'>
+) =>
+  routeStartProductionLeaderProductionLines.value.find(
+    (line) => Number(line.productionLineId) === Number(leader.productionLineId)
+  )
+
+const formatRouteStartProductionLeaderProcessSummary = (leader: RouteStartProductionLeaderDraft) => {
+  const productionLine = resolveRouteStartProductionLeaderProductionLine(leader)
+  const processNames = normalizeRecordBindingCandidateNames(productionLine?.processNames)
+  return processNames.length > 0 ? processNames.join('、') : '当前路线全部工序'
+}
+
+const loadRouteStartProductionLeaderCandidateOptions = async (
+  leader: Pick<RouteStartProductionLeaderDraft, 'candidateSourceType'>
+) => {
+  if (leader.candidateSourceType === 'ROLE') {
+    await loadRecordBindingRoleOptions()
+    return
+  }
+  await loadRecordBindingUserOptions()
+}
+
+const loadRouteStartProductionLeaders = async (force = false) => {
+  if (routeStartProductionLeadersLoaded.value && !force) return
+  if (!props.routeId) {
+    routeStartProductionLeadersLoadError.value = '请先保存工艺路线，再配置生产组长。'
+    return
+  }
+  routeStartProductionLeadersLoading.value = true
+  routeStartProductionLeadersLoadError.value = ''
+  try {
+    const routeVersionId = resolveRouteStartProductionLeaderReadRouteVersionId()
+    const [leaders, productionLines] = await Promise.all([
+      ProRouteFlowConfigApi.getRouteStartProductionLeaders(props.routeId, routeVersionId),
+      ProRouteFlowConfigApi.getRouteStartProductionLeaderProductionLines(props.routeId, routeVersionId),
+      loadRecordBindingUserOptions(),
+      loadRecordBindingRoleOptions()
+    ])
+    routeStartProductionLeaderProductionLines.value = productionLines
+    routeStartProductionLeaders.value = normalizeRouteStartProductionLeaders(leaders)
+    markRouteStartProductionLeadersClean()
+    routeStartProductionLeadersLoaded.value = true
+  } catch (error) {
+    routeStartProductionLeaderProductionLines.value = []
+    routeStartProductionLeaders.value = []
+    routeStartProductionLeadersBaseline.value = ''
+    const errorMessage = resolveErrorMessage(error, '生产组长配置加载失败。')
+    routeStartProductionLeadersLoadError.value = errorMessage
+    message.error(errorMessage)
+  } finally {
+    routeStartProductionLeadersLoading.value = false
+  }
+}
+
+const isRouteStartProductionLeaderCandidateOptionsLoading = (
+  leader: Pick<RouteStartProductionLeaderDraft, 'candidateSourceType'>
+) =>
+  leader.candidateSourceType === 'ROLE'
+    ? recordBindingRoleOptionsLoading.value
+    : recordBindingUserOptionsLoading.value
+
+const buildRouteStartProductionLeaderCandidateOptions = (
+  leader: RouteStartProductionLeaderDraft
+): RecordBindingCandidateOption[] => {
+  const baseOptions =
+    leader.candidateSourceType === 'ROLE'
+      ? recordBindingRoleOptions.value.map((role) => ({
+          label: formatRoleOptionLabel(role),
+          value: role.id
+        }))
+      : recordBindingUserOptions.value.map((user) => ({
+          label: formatUserOptionLabel(user),
+          value: user.id
+        }))
+  const optionById = new Map(baseOptions.map((option) => [Number(option.value), option]))
+  leader.candidateSourceIds.forEach((id, index) => {
+    if (optionById.has(Number(id))) return
+    optionById.set(Number(id), {
+      label: leader.candidateSourceNames[index] || String(id),
+      value: id
+    })
+  })
+  return Array.from(optionById.values())
+}
+
+const handleRouteStartProductionLeaderAdd = () => {
+  if (routeStartProductionLeaderControlsDisabled.value) return
+  const productionLine = routeStartProductionLeaderProductionLines.value[0]
+  if (!productionLine) {
+    message.warning('当前工艺路线暂无可负责范围，请先保存工艺路线')
+    return
+  }
+  routeStartProductionLeaders.value = [
+    ...routeStartProductionLeaders.value,
+    createRouteStartProductionLeaderDraft({
+      productionLineId: productionLine.productionLineId,
+      productionLineCode: productionLine.productionLineCode,
+      productionLineName: productionLine.productionLineName
+    })
+  ]
+}
+
+const handleRouteStartProductionLeaderRemove = (leader: RouteStartProductionLeaderDraft) => {
+  if (routeStartProductionLeaderControlsDisabled.value) return
+  routeStartProductionLeaders.value = routeStartProductionLeaders.value.filter(
+    (item) => item.draftKey !== leader.draftKey
+  )
+}
+
+const handleRouteStartProductionLeaderProductionLineChange = (
+  leader: RouteStartProductionLeaderDraft,
+  productionLineId: number | string
+) => {
+  if (routeStartProductionLeaderControlsDisabled.value) return
+  const normalizedProductionLineId = Number(productionLineId)
+  const productionLine = routeStartProductionLeaderProductionLines.value.find(
+    (item) => Number(item.productionLineId) === normalizedProductionLineId
+  )
+  leader.productionLineId = Number.isFinite(normalizedProductionLineId) ? normalizedProductionLineId : 0
+  leader.productionLineCode = productionLine?.productionLineCode || null
+  leader.productionLineName = productionLine?.productionLineName || null
+}
+
+const handleRouteStartProductionLeaderSourceTypeChange = (
+  leader: RouteStartProductionLeaderDraft,
+  candidateSourceType: string
+) => {
+  if (routeStartProductionLeaderControlsDisabled.value) return
+  leader.candidateSourceType = normalizeRouteStartProductionLeaderCandidateSourceType(candidateSourceType)
+  leader.candidateSourceIds = []
+  leader.candidateSourceNames = []
+  void loadRouteStartProductionLeaderCandidateOptions(leader)
+}
+
+const handleRouteStartProductionLeaderCandidateIdsChange = (
+  leader: RouteStartProductionLeaderDraft,
+  candidateSourceIds?: Array<number | string>
+) => {
+  if (routeStartProductionLeaderControlsDisabled.value) return
+  const ids = normalizeRecordBindingCandidateIds(candidateSourceIds)
+  const options = buildRouteStartProductionLeaderCandidateOptions(leader)
+  leader.candidateSourceIds = ids
+  leader.candidateSourceNames = ids.map(
+    (id) => options.find((option) => Number(option.value) === Number(id))?.label || String(id)
+  )
+}
+
+const requireRouteStartProductionLeaderSaveRouteVersionId = () => {
+  if (!props.routeId) {
+    throw new Error('请先保存工艺路线，再保存生产组长。')
+  }
+  const routeVersionId = requireCandidateRouteVersionId('生产组长保存')
+  if (routeStartProductionLeaders.value.length === 0) {
+    throw new Error('请先新增生产组长配置。')
+  }
+  const invalidProductionLine = routeStartProductionLeaders.value.find(
+    (leader) => !resolveRouteStartProductionLeaderProductionLine(leader)
+  )
+  if (invalidProductionLine) {
+    throw new Error('生产组长负责范围必须来自当前工艺路线。')
+  }
+  const invalidLeader = routeStartProductionLeaders.value.find(
+    (leader) => leader.candidateSourceIds.length === 0
+  )
+  if (invalidLeader) {
+    throw new Error(`请先选择${invalidLeader.productionLineName || '当前工艺路线'}生产组长。`)
+  }
+  return routeVersionId
+}
+
+const saveRouteStartProductionLeaders = async (options: { showSuccess?: boolean } = {}) => {
+  const routeVersionId = requireRouteStartProductionLeaderSaveRouteVersionId()
+  routeStartProductionLeadersSaving.value = true
+  routeStartProductionLeadersLoadError.value = ''
+  try {
+    await ProRouteFlowConfigApi.saveRouteStartProductionLeaders({
+      routeId: props.routeId,
+      routeVersionId,
+      items: buildRouteStartProductionLeaderSaveItems()
+    })
+    if (options.showSuccess) {
+      message.success('生产组长配置已保存')
+    }
+    await loadRouteStartProductionLeaders(true)
+  } finally {
+    routeStartProductionLeadersSaving.value = false
+  }
+}
+
+const saveRouteStartProductionLeadersIfChanged = async () => {
+  if (!hasRouteStartProductionLeaderDraftChanges()) return
+  try {
+    await saveRouteStartProductionLeaders()
+  } catch (error) {
+    const errorMessage = resolveErrorMessage(error, '生产组长配置保存失败。')
+    routeStartProductionLeadersLoadError.value = errorMessage
+    throw new Error(errorMessage)
+  }
+}
+
+const handleRouteStartProductionLeaderSave = async () => {
+  try {
+    routeStartProductionLeadersSaving.value = true
+    await saveRouteStartProductionLeaders({ showSuccess: true })
+  } catch (error) {
+    const errorMessage = resolveErrorMessage(error, '生产组长配置保存失败。')
+    routeStartProductionLeadersLoadError.value = errorMessage
+    message.error(errorMessage)
+  } finally {
+    routeStartProductionLeadersSaving.value = false
+  }
+}
+
 const handleSelectBoundaryDetailField = (fieldKey: BoundaryDetailFieldKey) => {
   selectedBoundaryDetailFieldKey.value = fieldKey
   if (fieldKey === 'releaseOwner' && !releaseApprovalRuleLoaded.value) {
@@ -8098,6 +8570,9 @@ const handleSelectBoundaryDetailField = (fieldKey: BoundaryDetailFieldKey) => {
   }
   if (fieldKey === 'batchRecordAttachment' && !batchRecordAttachmentOwnersLoaded.value) {
     void loadBatchRecordAttachmentOwners()
+  }
+  if (fieldKey === 'productionLeader' && !routeStartProductionLeadersLoaded.value) {
+    void loadRouteStartProductionLeaders()
   }
 }
 
@@ -8115,6 +8590,15 @@ const batchRecordAttachmentOwnerControlsDisabled = computed(
     batchRecordAttachmentOwnersLoading.value ||
     batchRecordAttachmentOwnersSaving.value ||
     batchRecordAttachmentOwnersInitializing.value ||
+    !props.routeId ||
+    !isDraftCandidateEdit.value
+)
+
+const routeStartProductionLeaderControlsDisabled = computed(
+  () =>
+    routeFlowWriteControlsDisabled.value ||
+    routeStartProductionLeadersLoading.value ||
+    routeStartProductionLeadersSaving.value ||
     !props.routeId ||
     !isDraftCandidateEdit.value
 )
@@ -8236,6 +8720,7 @@ watch(
   () => [props.routeId, props.routeVersionEditContext?.routeVersionId],
   () => {
     resetBatchRecordAttachmentOwners()
+    resetRouteStartProductionLeaders()
     if (props.routeId) {
       loadGraph()
       if (
@@ -8243,6 +8728,12 @@ watch(
         selectedBoundaryDetailFieldKey.value === 'batchRecordAttachment'
       ) {
         void loadBatchRecordAttachmentOwners()
+      }
+      if (
+        selectedBoundaryType.value === 'START' &&
+        selectedBoundaryDetailFieldKey.value === 'productionLeader'
+      ) {
+        void loadRouteStartProductionLeaders()
       }
     }
   },

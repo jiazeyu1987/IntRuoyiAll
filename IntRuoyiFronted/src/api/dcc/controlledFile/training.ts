@@ -19,10 +19,10 @@ export interface TrainingTaskProgressVO {
   requiredViewSeconds: number
   accumulatedViewSeconds: number
   eligibleToAcknowledge: boolean
-  firstViewedAt?: string
-  lastViewedAt?: string
-  acknowledgedAt?: string
-  publishedTime?: string
+  firstViewedAt?: number
+  lastViewedAt?: number
+  acknowledgedAt?: number
+  publishedTime?: number
   status: 'PENDING_VIEW' | 'READY_TO_ACKNOWLEDGE' | 'ACKNOWLEDGED'
 }
 
@@ -40,10 +40,10 @@ export interface TrainingExecutionRowVO {
   requiredViewSeconds: number
   accumulatedViewSeconds: number
   eligibleToAcknowledge: boolean
-  firstViewedAt?: string
-  lastViewedAt?: string
-  acknowledgedAt?: string
-  publishedTime?: string
+  firstViewedAt?: number
+  lastViewedAt?: number
+  acknowledgedAt?: number
+  publishedTime?: number
   status: 'PENDING_VIEW' | 'READY_TO_ACKNOWLEDGE' | 'ACKNOWLEDGED'
 }
 

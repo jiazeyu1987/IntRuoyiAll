@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS `mes_pro_batch_record_cell_link_rule` (
   `target_cell_key` varchar(32) NOT NULL COMMENT '目标单元格Key',
   `target_label` varchar(255) DEFAULT NULL COMMENT '目标单元格标签快照',
   `target_value_type` varchar(32) DEFAULT NULL COMMENT '目标单元格值类型快照',
+  `aggregation_strategy` varchar(32) DEFAULT NULL COMMENT '多源聚合策略：SUM/LIST/DISTINCT_LIST/FIRST/LAST/MIN/MAX',
   `overwrite_policy` varchar(32) NOT NULL DEFAULT 'ONLY_WHEN_EMPTY' COMMENT '覆盖策略',
   `template_snapshot_hash` char(64) NOT NULL COMMENT '配置时模板快照哈希',
   `rule_version` bigint NOT NULL COMMENT '规则版本',
@@ -50,6 +51,27 @@ CREATE TABLE IF NOT EXISTS `mes_pro_batch_record_cell_link_rule` (
 ALTER TABLE `mes_pro_batch_record_cell_link_rule`
   MODIFY COLUMN `batch_record_definition_id` bigint DEFAULT NULL COMMENT '批记录定义ID',
   MODIFY COLUMN `batch_record_version_id` bigint DEFAULT NULL COMMENT '批记录版本ID';
+
+DROP PROCEDURE IF EXISTS ensure_mes_batch_record_cell_link_rule_aggregation_strategy;
+DELIMITER $$
+CREATE PROCEDURE ensure_mes_batch_record_cell_link_rule_aggregation_strategy()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_batch_record_cell_link_rule'
+      AND COLUMN_NAME = 'aggregation_strategy'
+  ) THEN
+    ALTER TABLE `mes_pro_batch_record_cell_link_rule`
+      ADD COLUMN `aggregation_strategy` varchar(32) DEFAULT NULL COMMENT '多源聚合策略：SUM/LIST/DISTINCT_LIST/FIRST/LAST/MIN/MAX' AFTER `target_value_type`;
+  END IF;
+END$$
+DELIMITER ;
+
+CALL ensure_mes_batch_record_cell_link_rule_aggregation_strategy();
+
+DROP PROCEDURE IF EXISTS ensure_mes_batch_record_cell_link_rule_aggregation_strategy;
 
 INSERT INTO `system_menu`
 (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)

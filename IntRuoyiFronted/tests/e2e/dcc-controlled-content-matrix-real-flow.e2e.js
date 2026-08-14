@@ -1018,41 +1018,45 @@ async function selectDccProjectThroughUi(page, scenario) {
   }
 }
 
-function buildFileTypeTaxonomyPath(rows) {
+function buildFileTypeTaxonomyPath(rows, targetTaxonomyId) {
   const activeRows = (rows || []).filter((row) => row?.active !== false && row?.id)
-  const byParent = new Map()
-  for (const row of activeRows) {
-    const parentId = row.parentId == null ? 0 : Number(row.parentId)
-    if (!byParent.has(parentId)) byParent.set(parentId, [])
-    byParent.get(parentId).push(row)
-  }
-  for (const siblings of byParent.values()) {
-    siblings.sort((a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || String(a.name).localeCompare(String(b.name)))
-  }
-  let selectedPath = null
-  const walk = (parentId, path) => {
-    if (selectedPath) return
-    for (const row of byParent.get(parentId) || []) {
-      const nextPath = [...path, row]
-      const children = byParent.get(Number(row.id)) || []
-      if (nextPath.length >= 3 && children.length === 0) {
-        selectedPath = nextPath
-        return
-      }
-      walk(Number(row.id), nextPath)
-      if (selectedPath) return
+  const byId = new Map(activeRows.map((row) => [Number(row.id), row]))
+  const selectedPath = []
+  const visited = new Set()
+  let currentId = Number(targetTaxonomyId)
+  while (currentId) {
+    if (visited.has(currentId)) {
+      throw new Error(`DCC file type taxonomy contains a parent cycle at id=${currentId}`)
     }
+    visited.add(currentId)
+    const row = byId.get(currentId)
+    if (!row) {
+      throw new Error(`DCC category-bound file type taxonomy is missing or inactive: taxonomyId=${targetTaxonomyId}`)
+    }
+    selectedPath.unshift(row)
+    currentId = row.parentId == null ? 0 : Number(row.parentId)
   }
-  walk(0, [])
-  if (!selectedPath) {
-    throw new Error(`DCC file type taxonomy requires an active leaf with at least 3 levels; activeRowCount=${activeRows.length}`)
+  const hasActiveChildren = activeRows.some((row) => Number(row.parentId || 0) === Number(targetTaxonomyId))
+  if (selectedPath.length < 3 || hasActiveChildren) {
+    throw new Error(
+      `DCC file type taxonomy requires an active leaf with at least 3 levels for the category-bound node; ` +
+      `taxonomyId=${targetTaxonomyId}, depth=${selectedPath.length}, hasActiveChildren=${hasActiveChildren}`
+    )
   }
   return selectedPath
 }
 
 async function selectFileTypeTaxonomyThroughUi(page, scenario) {
-  const rows = await apiGet(page, '/dcc/file-type-taxonomies')
-  const pathRows = buildFileTypeTaxonomyPath(rows)
+  const [rows, categories] = await Promise.all([
+    apiGet(page, '/dcc/file-type-taxonomies'),
+    apiGet(page, '/dcc/file-categories')
+  ])
+  const category = (categories || []).find((row) => Number(row.id) === Number(scenario.categoryId))
+  const targetTaxonomyId = Number(category?.fileTypeTaxonomyId)
+  if (!Number.isFinite(targetTaxonomyId) || targetTaxonomyId <= 0) {
+    throw new Error(`DCC category has no formal file type taxonomy binding: categoryId=${scenario.categoryId}`)
+  }
+  const pathRows = buildFileTypeTaxonomyPath(rows, targetTaxonomyId)
   const item = formItem(page, '文件分类')
   await item.locator('.el-cascader').first().click()
   for (const row of pathRows) {
@@ -1400,7 +1404,15 @@ async function submitControlledFileThroughUi(page, scenario, runId, options = {}
   await page.getByText('受控文件提交', { exact: false }).first().waitFor({ state: 'visible', timeout: config.timeout })
   await selectDccProjectThroughUi(page, scenario)
   await selectFileTypeTaxonomyThroughUi(page, scenario)
-  await selectOptionByFormLabel(page, '文件类别', scenario.categoryName)
+  const categoryProjection = page.getByTestId('dcc-upload-category-leaf-display').first()
+  await categoryProjection.waitFor({ state: 'visible', timeout: config.timeout })
+  const projectedCategoryName = (await categoryProjection.innerText()).trim()
+  if (!projectedCategoryName.includes(scenario.categoryName)) {
+    throw new Error(
+      `DCC taxonomy did not auto-bind the expected formal category for ${scenario.contentType}: ` +
+      `expected=${scenario.categoryName}, actual=${projectedCategoryName || '<empty>'}`
+    )
+  }
   const leafReady = await page.getByText('当前绑定目录已经是最后一层目录', { exact: false })
     .first()
     .isVisible({ timeout: 5000 })
@@ -2095,6 +2107,7 @@ async function collectScenarioPreflight(page, scenario, submitterProfile) {
   const activeRoute = (routes || []).find((route) => route.active) || (routes || [])[0]
   const approvalCandidateResolution = resolveApprovalCandidatesForRoute(activeRoute, approvalPositions || [], users || [])
   let officialRoutePreview = []
+  let officialRouteReadinessBlockers = []
   let officialRoutePreviewError = null
   let uploadSizePolicyEvidence = {
     checks: [],
@@ -2107,9 +2120,15 @@ async function collectScenarioPreflight(page, scenario, submitterProfile) {
     blockers: []
   }
   try {
-    officialRoutePreview = await apiPostReadOnly(page, '/dcc/controlled-files/route-preview', {
+    const officialRouteReadiness = await apiPostReadOnly(page, '/dcc/controlled-files/route-preview', {
       categoryId: scenario.categoryId
     })
+    officialRoutePreview = Array.isArray(officialRouteReadiness?.nodes)
+      ? officialRouteReadiness.nodes
+      : []
+    officialRouteReadinessBlockers = Array.isArray(officialRouteReadiness?.blockers)
+      ? officialRouteReadiness.blockers
+      : []
   } catch (error) {
     officialRoutePreviewError = error.message
   }
@@ -2146,6 +2165,13 @@ async function collectScenarioPreflight(page, scenario, submitterProfile) {
     scenarioBlockers.push(`DCC ${scenario.contentType} category not found: categoryId=${scenario.categoryId}`)
   } else if (category.active === false) {
     scenarioBlockers.push(`DCC ${scenario.contentType} category is inactive: categoryId=${scenario.categoryId}`)
+  } else if (
+    category.lifecycleStage !== 'EXTERNAL_REVIEW' &&
+    (!Number.isFinite(Number(category.fileTypeTaxonomyId)) || Number(category.fileTypeTaxonomyId) <= 0)
+  ) {
+    scenarioBlockers.push(
+      `DCC category has no formal file type taxonomy binding: contentType=${scenario.contentType}, categoryId=${scenario.categoryId}`
+    )
   }
   if (!activeRoute) {
     scenarioBlockers.push(`DCC 审核矩阵 route missing for ${scenario.contentType}: categoryId=${scenario.categoryId}`)
@@ -2165,6 +2191,11 @@ async function collectScenarioPreflight(page, scenario, submitterProfile) {
         scenarioBlockers.push(`DCC official route preview resolves no approver for ${scenario.contentType} stage ${row.stageNo} ${row.stageName || ''}`.trim())
       }
     }
+  }
+  for (const blocker of officialRouteReadinessBlockers) {
+    scenarioBlockers.push(
+      `DCC official route readiness blocker for ${scenario.contentType}: ${blocker.reasonCode || 'UNKNOWN'} ${blocker.message || ''}`.trim()
+    )
   }
   if (!preflightOnly && !config.allowWrites) {
     scenarioBlockers.push('DCC_CONTROLLED_CONTENT_E2E_ALLOW_WRITES=1 is required for DCC write matrix full-flow')
@@ -2201,6 +2232,7 @@ async function collectScenarioPreflight(page, scenario, submitterProfile) {
     contentType: scenario.contentType,
     categoryId: scenario.categoryId,
     categoryName: category?.name || scenario.categoryName,
+    fileTypeTaxonomyId: category?.fileTypeTaxonomyId || null,
     categoryFound: Boolean(category),
     routeId: activeRoute?.id,
     activeRoute: activeRoute

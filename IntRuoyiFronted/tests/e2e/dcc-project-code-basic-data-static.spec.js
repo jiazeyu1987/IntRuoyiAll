@@ -12,7 +12,7 @@ const packageJson = JSON.parse(readSource('package.json'))
 const apiSource = readSource('src/api/dcc/controlledFile/projectCodes.ts')
 const pageSource = readSource('src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue')
 const pageEntrySource = readSource('src/views/dcc/controlled-file/basic-data/project-code/index.vue')
-const dccSchema = readWorkspaceSource('ruoyi-vue-pro/sql/mysql/20260513_dcc_base_schema.sql')
+const dccSchema = readWorkspaceSource('IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql')
 
 const extractBetween = (source, startToken, endToken) => {
   const start = source.indexOf(startToken)

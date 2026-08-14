@@ -12,7 +12,10 @@
       <template #default>
         <div class="route-edit-page__error-content">
           <span>请从工艺流程列表选择有效路线后再进入编辑。</span>
-          <el-button type="primary" link @click="handleBackToList">返回列表</el-button>
+          <el-button type="primary" link @click="handleBackToList">
+            <Icon icon="ep:arrow-left" class="mr-5px" />
+            返回
+          </el-button>
         </div>
       </template>
     </el-alert>
@@ -30,7 +33,7 @@
       @success="handleSaved"
     />
     <div
-      v-if="!routeEditBlockingError && !['flow', 'basic', 'mesProcess', 'product'].includes(activeRouteTab)"
+      v-if="!routeEditBlockingError && !['flow', 'basic', 'product', 'dcc'].includes(activeRouteTab)"
       class="route-edit-page__actions"
     >
       <el-button
@@ -109,8 +112,8 @@ const routeVersionEditContext = computed<RouteVersionEditContext | undefined>(()
 })
 const initialTab = computed(() => {
   const tab = String(route.query.tab || '')
-  if (['basic', 'mesProcess', 'flow', 'product'].includes(tab)) {
-    return tab as 'basic' | 'mesProcess' | 'flow' | 'product'
+  if (['basic', 'flow', 'product'].includes(tab)) {
+    return tab as 'basic' | 'flow' | 'product'
   }
   return 'flow'
 })

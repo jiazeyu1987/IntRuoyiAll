@@ -1,0 +1,20 @@
+{
+  "maxId": 4236,
+  "indexes": [
+    {
+      "seq": 1,
+      "column": "user_id",
+      "keyName": "idx_user_id",
+      "nonUnique": 1
+    },
+    {
+      "seq": 1,
+      "column": "id",
+      "keyName": "PRIMARY",
+      "nonUnique": 0
+    }
+  ],
+  "autoIncrement": 4237,
+  "duplicateTenantUserRoleRows": 0,
+  "duplicateTenantUserRoleActiveRows": 0
+}

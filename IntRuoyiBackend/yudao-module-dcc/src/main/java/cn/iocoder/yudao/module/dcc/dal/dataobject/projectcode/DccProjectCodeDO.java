@@ -22,6 +22,7 @@ public class DccProjectCodeDO extends TenantBaseDO {
 
     @TableId
     private Long id;
+    private Long productMasterId;
     private String docControlNo;
     private String projectName;
     private String projectCode;

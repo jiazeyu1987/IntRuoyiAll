@@ -40,8 +40,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_DIRECTORY_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DISABLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 
@@ -82,6 +82,9 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
                 ? null
                 : projectCodeAssignmentService.assertMetadataUpdateAllowed(userId, id, reqVO.getAssignmentId());
         NormalizedMetadata metadata = validateAndNormalize(reqVO);
+        if (!docControl && !Objects.equals(authorization.projectCodeId(), metadata.dccProjectCodeId())) {
+            throw exception(PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH);
+        }
 
         DccControlledFileDO file = controlledFileMapper.selectById(id);
         if (file == null) {
@@ -96,15 +99,11 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
         }
         pendingActionGuard.assertNoPendingBusinessAction(file);
         validateCategory(metadata.categoryId());
-        DccCategoryDirectoryBindingDO binding = categoryDirectoryBindingMapper.selectActiveByCategoryId(metadata.categoryId());
-        if (binding == null) {
-            throw exception(FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS);
-        }
-        Long selectedDirectoryId = validateSelectedDirectory(binding.getDirectoryId(), metadata.directoryId());
+        Long selectedDirectoryId = resolveSelectedDirectoryId(metadata.categoryId(), metadata.directoryId());
 
         DccControlledFileMasterDO master = validateMasterLink(file);
         List<DccControlledFileDO> chainFiles = controlledFileMapper.selectListByMasterId(master.getId());
-        validateNoTargetChainConflict(master, file, metadata);
+        validateNoTargetChainConflict(master, file, metadata, selectedDirectoryId);
         validateChainContainsFile(chainFiles, file);
 
         controlledFileMasterMapper.updateById(DccControlledFileMasterDO.builder()
@@ -151,7 +150,7 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
     }
 
     private NormalizedMetadata validateAndNormalize(DccControlledFileMetadataUpdateReqVO reqVO) {
-        if (reqVO == null || reqVO.getCategoryId() == null || reqVO.getDirectoryId() == null
+        if (reqVO == null || reqVO.getCategoryId() == null
                 || reqVO.getNeedTraining() == null || StrUtil.isBlank(reqVO.getFileName())) {
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
         }
@@ -222,6 +221,14 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
         }
     }
 
+    private Long resolveSelectedDirectoryId(Long categoryId, Long selectedDirectoryId) {
+        DccCategoryDirectoryBindingDO binding = categoryDirectoryBindingMapper.selectActiveByCategoryId(categoryId);
+        if (binding == null || binding.getDirectoryId() == null) {
+            return DccUploadDirectoryResolver.resolveUnclassifiedUploadDirectory(directoryMapper.selectEnabledList()).getId();
+        }
+        return validateSelectedDirectory(binding.getDirectoryId(), selectedDirectoryId);
+    }
+
     private Long validateSelectedDirectory(Long bindingDirectoryId, Long selectedDirectoryId) {
         List<DccFileDirectoryDO> directories = directoryMapper.selectEnabledList();
         boolean bindingExists = directories.stream().anyMatch(item -> Objects.equals(item.getId(), bindingDirectoryId));
@@ -249,9 +256,9 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
     }
 
     private void validateNoTargetChainConflict(DccControlledFileMasterDO currentMaster, DccControlledFileDO file,
-                                               NormalizedMetadata metadata) {
+                                               NormalizedMetadata metadata, Long selectedDirectoryId) {
         DccControlledFileMasterDO targetMaster = controlledFileMasterMapper.selectByCategoryIdAndDirectoryIdAndFileName(
-                metadata.categoryId(), metadata.directoryId(), metadata.fileName());
+                metadata.categoryId(), selectedDirectoryId, metadata.fileName());
         if (targetMaster == null || Objects.equals(targetMaster.getId(), currentMaster.getId())) {
             return;
         }

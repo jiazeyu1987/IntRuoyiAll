@@ -2,6 +2,7 @@ import request from '@/config/axios'
 
 export type CodexTestProject = '智能排产' | '文控' | '批记录' | '工艺路线'
 export type CodexTestProgressPhase = 'METHOD' | 'CHECKPOINT' | 'DONE'
+export type CodexTestAnalysisMode = 'PLAYWRIGHT_E2E' | 'CODE_READONLY'
 
 export const CODEX_TEST_PROJECT_OPTIONS: Array<{ label: CodexTestProject; value: CodexTestProject }> = [
   { label: '智能排产', value: '智能排产' },
@@ -27,6 +28,7 @@ export interface CodexTestCaseVO {
   nodeChainSort?: number
   methodText: string
   testDataText?: string
+  analysisMode?: CodexTestAnalysisMode
   defaultExecutionMode: 'SEQUENTIAL' | 'PARALLEL'
   parallelSafe: boolean
   status: 'ENABLE' | 'DISABLE'
@@ -59,6 +61,20 @@ export interface CodexTestExecutionStartReqVO {
   caseIds: number[]
 }
 
+export interface CodexTestCodeReadonlyCaseReqVO {
+  name: string
+  project: CodexTestProject
+  methodText: string
+  testDataText?: string
+  sort?: number
+  checkpoints: CodexTestCheckpointVO[]
+}
+
+export interface CodexTestCodeReadonlyExecutionStartReqVO {
+  targetTenantId: number
+  caseDefinition: CodexTestCodeReadonlyCaseReqVO
+}
+
 export interface CodexTestExecutionPageReqVO extends PageParam {
   targetTenantId?: number
   status?: string
@@ -83,6 +99,7 @@ export interface CodexTestExecutionCaseVO {
   caseNameSnapshot: string
   methodTextSnapshot: string
   testDataTextSnapshot?: string
+  analysisModeSnapshot?: CodexTestAnalysisMode
   checkpointCount: number
   status: string
   runnerSessionId?: number
@@ -158,6 +175,15 @@ export const startCodexTestExecution = (data: CodexTestExecutionStartReqVO) => {
   return request.post<number>({ url: '/system/codex-test-execution/start', data })
 }
 
+export const startCodeReadonlyCodexTestExecution = (
+  data: CodexTestCodeReadonlyExecutionStartReqVO
+) => {
+  return request.post<number>({
+    url: '/system/codex-test-execution/start-code-readonly',
+    data
+  })
+}
+
 export const cancelCodexTestExecution = (executionId: number) => {
   return request.post<boolean>({
     url: '/system/codex-test-execution/cancel',
@@ -174,6 +200,13 @@ export const getCodexTestExecutionPage = (params: CodexTestExecutionPageReqVO) =
 
 export const getCodexTestExecution = (id: number) => {
   return request.get<CodexTestExecutionVO>({ url: '/system/codex-test-execution/get?id=' + id })
+}
+
+export const getCodexTestExecutionResult = (id: number) => {
+  return request.get<CodexTestExecutionVO>({
+    url: '/system/codex-test-execution/result?id=' + id,
+    timeout: 120000
+  })
 }
 
 export const getCodexTestExecutionMonitor = () => {

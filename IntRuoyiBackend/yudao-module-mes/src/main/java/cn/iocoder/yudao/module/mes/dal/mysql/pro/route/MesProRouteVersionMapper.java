@@ -27,10 +27,18 @@ public interface MesProRouteVersionMapper extends BaseMapperX<MesProRouteVersion
     }
 
     @Select("SELECT * FROM mes_pro_route_version "
-            + "WHERE deleted = b'0' AND route_id = #{routeId} "
-            + "AND active = b'1' AND lifecycle_status = 'ACTIVE' "
+            + "WHERE deleted = 0 AND route_id = #{routeId} "
+            + "AND active = 1 AND lifecycle_status = 'ACTIVE' "
             + "LIMIT 1 FOR UPDATE")
     MesProRouteVersionDO selectActiveByRouteIdForUpdate(Long routeId);
+
+    @Select("SELECT v.* FROM mes_pro_route_version v "
+            + "INNER JOIN mes_pro_route r ON r.id = v.route_id AND r.deleted = b'0' "
+            + "WHERE v.deleted = b'0' AND v.active = b'1' AND v.lifecycle_status = 'ACTIVE'")
+    List<MesProRouteVersionDO> selectActiveListWithExistingRoutes();
+
+    @Select("SELECT * FROM mes_pro_route_version WHERE deleted = b'0' AND id = #{id} FOR UPDATE")
+    MesProRouteVersionDO selectByIdForUpdate(Long id);
 
     default MesProRouteVersionDO selectByRouteIdAndVersionNo(Long routeId, String versionNo) {
         return selectOne(new LambdaQueryWrapperX<MesProRouteVersionDO>()

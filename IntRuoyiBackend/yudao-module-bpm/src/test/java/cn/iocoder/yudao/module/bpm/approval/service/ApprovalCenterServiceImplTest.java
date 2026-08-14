@@ -162,6 +162,23 @@ class ApprovalCenterServiceImplTest {
     }
 
     @Test
+    void getTaskPageFailsFastWhenProviderReportsTodoTotalWithoutFirstPageRows() {
+        ApprovalTaskProvider inconsistentProvider = inconsistentTotalProvider(ApprovalModuleCode.BPM, 128L);
+        ApprovalCenterService service = new ApprovalCenterServiceImpl(
+                new ApprovalTaskProviderRegistry(List.of(inconsistentProvider)), permissionApi, adminUserApi,
+                signatureRecordService);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> service.getTaskPage(100L, new ApprovalTaskQuery()
+                        .setViewType(ApprovalTaskViewType.TODO)
+                        .setPageNo(1)
+                        .setPageSize(10)));
+
+        assertTrue(ex.getMessage().contains("APPROVAL_ADAPTER_PAGE_INCONSISTENT"));
+        assertTrue(ex.getMessage().contains("BPM reported total 128"));
+    }
+
+    @Test
     void getTaskPageEnrichesAssigneeUserNameForVisibleRows() {
         ApprovalTaskSummary row = summary("bpm-todo-row", LocalDateTime.parse("2026-07-18T19:17:59"))
                 .setAssigneeUserId(910272L);
@@ -185,6 +202,32 @@ class ApprovalCenterServiceImplTest {
         assertEquals(1L, page.getTotal());
         assertEquals("aoteman", page.getList().get(0).getAssigneeUserName());
         verify(adminUserApi).getUserMap(Set.of(910272L));
+    }
+
+    @Test
+    void getTaskPageEnrichesInitiatorUserNameForVisibleRows() {
+        ApprovalTaskSummary row = summary("bpm-initiated-row", LocalDateTime.parse("2026-07-18T19:35:23"))
+                .setInitiatorUserId(151L);
+        AdminUserRespDTO user = new AdminUserRespDTO();
+        user.setId(151L);
+        user.setUsername("wangxin");
+        user.setNickname("王鑫");
+        when(adminUserApi.getUserMap(Set.of(151L))).thenReturn(Map.of(151L, user));
+        ApprovalTaskProvider provider = provider(ApprovalModuleCode.BPM, Set.of(ApprovalTaskViewType.TODO),
+                List.of(row), loginUserId -> true);
+        ApprovalCenterService service = new ApprovalCenterServiceImpl(
+                new ApprovalTaskProviderRegistry(List.of(provider)), permissionApi, adminUserApi,
+                signatureRecordService);
+
+        PageResult<ApprovalTaskSummary> page = service.getTaskPage(100L, new ApprovalTaskQuery()
+                .setModuleCode(ApprovalModuleCode.BPM)
+                .setViewType(ApprovalTaskViewType.TODO)
+                .setPageNo(1)
+                .setPageSize(10));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals("王鑫(wangxin)", page.getList().get(0).getInitiatorUserName());
+        verify(adminUserApi).getUserMap(Set.of(151L));
     }
 
     @Test
@@ -537,6 +580,51 @@ class ApprovalCenterServiceImplTest {
                 int fromIndex = Math.min((safePageNo - 1) * safePageSize, rows.size());
                 int toIndex = Math.min(fromIndex + safePageSize, rows.size());
                 return new PageResult<>(rows.subList(fromIndex, toIndex), (long) rows.size());
+            }
+
+            @Override
+            public List<ApprovalTaskTimelineEntry> listTimeline(ApprovalTaskTimelineQueryContext context) {
+                return List.of();
+            }
+        };
+    }
+
+    private static ApprovalTaskProvider inconsistentTotalProvider(ApprovalModuleCode moduleCode, long total) {
+        return new ApprovalTaskProvider() {
+
+            @Override
+            public ApprovalModuleCode getModuleCode() {
+                return moduleCode;
+            }
+
+            @Override
+            public String getModuleName() {
+                return moduleCode.name();
+            }
+
+            @Override
+            public String getProviderCode() {
+                return moduleCode.name().toLowerCase() + "-inconsistent-provider";
+            }
+
+            @Override
+            public String getProviderVersion() {
+                return "phase1";
+            }
+
+            @Override
+            public Set<ApprovalTaskViewType> getSupportedViewTypes() {
+                return Set.of(ApprovalTaskViewType.TODO);
+            }
+
+            @Override
+            public Set<ApprovalTaskCapability> getCapabilities() {
+                return Set.of(ApprovalTaskCapability.TIMELINE);
+            }
+
+            @Override
+            public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
+                return new PageResult<>(List.of(), total);
             }
 
             @Override

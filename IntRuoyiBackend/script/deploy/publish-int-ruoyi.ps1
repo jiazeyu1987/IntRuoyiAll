@@ -2907,10 +2907,22 @@ function Get-ReleaseObjectPropertyText {
     )
 
     $property = $Object.PSObject.Properties[$PropertyName]
-    if ($null -eq $property -or $null -eq $property.Value) {
-        return ''
+    if ($null -ne $property) {
+        if ($null -eq $property.Value) {
+            return ''
+        }
+        return ([string]$property.Value).Trim()
     }
-    return ([string]$property.Value).Trim()
+
+    if ($Object -is [System.Collections.IDictionary] -and $Object.Contains($PropertyName)) {
+        $value = $Object[$PropertyName]
+        if ($null -eq $value) {
+            return ''
+        }
+        return ([string]$value).Trim()
+    }
+
+    return ''
 }
 
 function Get-ReleaseManifestCreatedAt {
@@ -3097,11 +3109,27 @@ function Resolve-ReleaseChangeSummaryCodexCliCommand {
     } else {
         $ConfiguredCommand.Trim()
     }
-    $command = Get-Command -Name $commandName -ErrorAction SilentlyContinue
-    if ($null -eq $command) {
+    $commands = @(Get-Command -Name $commandName -All -ErrorAction SilentlyContinue)
+    if ($commands.Count -eq 0) {
         Fail "Codex CLI is required to generate release change summary but was not found: $commandName"
     }
-    return $command.Source
+
+    $nativeCommand = @($commands | Where-Object { $_.CommandType -eq 'Application' } | Select-Object -First 1)
+    if ($nativeCommand.Count -gt 0) {
+        return $nativeCommand[0].Source
+    }
+
+    $firstCommand = $commands[0]
+    $scriptPath = [string]$firstCommand.Source
+    if ($firstCommand.CommandType -eq 'ExternalScript' -and [System.IO.Path]::GetExtension($scriptPath).Equals('.ps1', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $cmdShimPath = [System.IO.Path]::ChangeExtension($scriptPath, '.cmd')
+        if (Test-Path -LiteralPath $cmdShimPath -PathType Leaf) {
+            return $cmdShimPath
+        }
+        Fail "Codex CLI command resolved to a PowerShell shim but no native .cmd shim was found: $scriptPath"
+    }
+
+    return $scriptPath
 }
 
 function ConvertTo-WindowsProcessArgument {
@@ -3238,6 +3266,7 @@ function New-ReleaseCodexSummarySchema {
 function New-ReleaseCodexSummaryPrompt {
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [array]$Facts,
         [Parameter(Mandatory = $true)]
         [string]$PreviousReleaseTag,
@@ -3330,6 +3359,7 @@ function ConvertTo-ValidatedReleaseCodexSummaryItems {
 function Invoke-ReleaseCodexSummary {
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [array]$Facts,
         [Parameter(Mandatory = $true)]
         [string]$PreviousReleaseTag,
@@ -3473,6 +3503,7 @@ function Write-FrontendReleaseInfo {
         Fail "Frontend build output missing before writing release-info.json: $distDir"
     }
 
+    $changeSet = Get-ReleaseChangeSetForManifest
     $releaseInfo = [ordered]@{
         manifestVersion = '1.0'
         packageId = $packageDirectoryName
@@ -3480,12 +3511,7 @@ function Write-FrontendReleaseInfo {
         createdAt = Get-ReleaseManifestCreatedAt
         createdBy = $OperatorName
         sourceRepos = New-ReleaseSourceRepoManifestEntries
-        changeSet = [ordered]@{
-            summary = "Release package $packageDirectoryName"
-            component = $Component
-            includeShowroomBuildPackage = [bool]$publishWebsite
-            includeOnlyOffice = [bool]$IncludeOnlyOffice
-        }
+        changeSet = $changeSet
         publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }
         components = Get-ReleaseComponentManifestNames
     }

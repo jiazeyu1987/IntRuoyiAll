@@ -73,6 +73,20 @@ public interface MesProBatchRecordReportService {
                                                          Long expectedRouteVersionId,
                                                          Long approvalSubmitterUserId);
 
+    MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
+                                                         String batchRecordName, String importAction,
+                                                         Long expectedSourceVersionId,
+                                                         String expectedTargetVersionNo,
+                                                         List<String> productNames,
+                                                         Boolean rebuildBatchRecord,
+                                                         List<Long> selectedRouteProductIds,
+                                                         List<String> selectedProductNames,
+                                                         Boolean routeUpgradeConfirmed,
+                                                         Long expectedRouteId,
+                                                         Long expectedRouteVersionId,
+                                                         Long expectedRouteCandidateVersionId,
+                                                         Long approvalSubmitterUserId);
+
     MesProBatchRecordVersionApprovalResult submitBatchRecordVersionApproval(Long versionId, Long actorUserId);
 
     MesProBatchRecordVersionApprovalResult handleBatchRecordVersionApprovalCallback(String approvalInstanceId,

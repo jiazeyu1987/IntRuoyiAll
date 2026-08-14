@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRecordbookDO;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.List;
+
 @Mapper
 public interface MesProEdhrRecordbookMapper extends BaseMapperX<MesProEdhrRecordbookDO> {
 
@@ -24,5 +26,16 @@ public interface MesProEdhrRecordbookMapper extends BaseMapperX<MesProEdhrRecord
 
     default MesProEdhrRecordbookDO selectByRecordbookCode(String recordbookCode) {
         return selectOne(MesProEdhrRecordbookDO::getRecordbookCode, recordbookCode);
+    }
+
+    default List<MesProEdhrRecordbookDO> selectOpenProductionListByWorkOrder(String workOrderCode,
+                                                                             Long workOrderId) {
+        return selectList(new LambdaQueryWrapperX<MesProEdhrRecordbookDO>()
+                .eq(MesProEdhrRecordbookDO::getRecordbookType, "PRODUCTION")
+                .eq(MesProEdhrRecordbookDO::getStatus, "OPEN")
+                .and(wrapper -> wrapper.eq(MesProEdhrRecordbookDO::getBusinessObjectCode, workOrderCode)
+                        .or()
+                        .eq(MesProEdhrRecordbookDO::getBusinessObjectId, workOrderId))
+                .orderByAsc(MesProEdhrRecordbookDO::getId));
     }
 }

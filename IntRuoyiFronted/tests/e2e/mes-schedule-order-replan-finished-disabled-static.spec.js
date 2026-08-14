@@ -15,9 +15,15 @@ assert.ok(
   source.includes('const isScheduleOrderReplanable = (row: MesProScheduleOrderVO) =>'),
   '前端必须集中定义排产工单是否可重排。'
 )
+const replanableMatch = source.match(
+  /const isScheduleOrderReplanable = \(row: MesProScheduleOrderVO\) => \{([\s\S]*?)\n\}/
+)
+assert.ok(replanableMatch, '前端必须存在可独立核对的排产工单重排资格函数。')
+const replanableSource = replanableMatch[1]
 assert.ok(
-  source.includes('row.status !== SCHEDULE_ORDER_STATUS_FINISHED') &&
-    source.includes('row.status !== SCHEDULE_ORDER_STATUS_CANCELED'),
+  replanableSource.includes('Number(row.status)') &&
+    replanableSource.includes('status !== SCHEDULE_ORDER_STATUS_FINISHED') &&
+    replanableSource.includes('status !== SCHEDULE_ORDER_STATUS_CANCELED'),
   '完成和取消排产工单必须不可重排。'
 )
 assert.ok(

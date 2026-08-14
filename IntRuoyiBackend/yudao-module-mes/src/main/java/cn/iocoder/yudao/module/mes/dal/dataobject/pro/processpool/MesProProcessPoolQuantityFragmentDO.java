@@ -26,12 +26,15 @@ import java.math.BigDecimal;
 public class MesProProcessPoolQuantityFragmentDO extends TenantBaseDO {
 
     public static final String ALLOCATION_STATUS_AVAILABLE = "AVAILABLE";
+    public static final String ALLOCATION_STATUS_ALLOCATED = "ALLOCATED";
+    public static final String SOURCE_QUANTITY_TYPE_OUTPUT = "OUTPUT";
 
     @TableId
     private Long id;
 
     private Long poolId;
     private Long eventId;
+    private Long productionSubmitEventId;
     private Long workOrderId;
     private Long routeId;
     private Long routeProcessId;

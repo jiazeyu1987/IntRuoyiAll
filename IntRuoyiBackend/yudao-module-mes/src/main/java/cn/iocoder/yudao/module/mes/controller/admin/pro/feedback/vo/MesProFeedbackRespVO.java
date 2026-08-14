@@ -184,6 +184,15 @@ public class MesProFeedbackRespVO {
     @Schema(description = "其他废品数量", example = "0")
     private BigDecimal otherScrapQuantity;
 
+    @Schema(description = "损耗原因 ID", example = "8301")
+    private Long lossReasonId;
+
+    @Schema(description = "损耗原因编码快照", example = "LOSS-001")
+    private String lossReasonCodeSnapshot;
+
+    @Schema(description = "损耗原因名称快照", example = "正常损耗")
+    private String lossReasonNameSnapshot;
+
     @Schema(description = "报工用户编号", example = "1")
     private Long feedbackUserId;
 

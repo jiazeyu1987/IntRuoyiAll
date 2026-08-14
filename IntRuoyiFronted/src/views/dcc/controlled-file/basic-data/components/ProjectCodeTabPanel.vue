@@ -1,5 +1,5 @@
 <template>
-  <ContentWrap>
+  <ContentWrap class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-project-code">
     <div class="mb-16px flex items-center gap-8px">
       <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / DCC项目代码</span>
     </div>
@@ -26,9 +26,10 @@
     >
       <template #actions>
         <el-button
+          class="scheme-d-btn scheme-d-btn--success"
           type="primary"
           plain
-          :disabled="batchAiCategoryRunning"
+          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
           @click="openForm('create')"
           v-hasPermi="['dcc:project-code:create']"
         >
@@ -36,7 +37,42 @@
           新增项目代码
         </el-button>
         <el-button
-          :disabled="batchAiCategoryRunning"
+          class="scheme-d-btn scheme-d-btn--primary"
+          type="primary"
+          plain
+          data-testid="dcc-product-onboarding-open"
+          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
+          @click="openProductOnboardingDialog"
+          v-hasPermi="['dcc:project-code:create']"
+        >
+          <Icon icon="ep:connection" class="mr-5px" />
+          产品建档申请
+        </el-button>
+        <el-button
+          v-if="canRunProjectCodeListNameAutoClassify"
+          class="scheme-d-btn scheme-d-btn--primary"
+          type="primary"
+          plain
+          data-testid="dcc-project-code-list-auto-classify-unclassified"
+          :loading="listUnclassifiedAutoClassifyRunning"
+          :disabled="
+            loading ||
+            exportLoading ||
+            previewLoading ||
+            confirmLoading ||
+            aiCategoryRunning ||
+            batchAiCategoryRunning ||
+            listUnclassifiedAutoClassifyRunning ||
+            unclassifiedAutoClassifyRunning
+          "
+          @click="handleListAutoClassifyUnclassifiedProjectCodes"
+        >
+          <Icon icon="ep:magic-stick" class="mr-5px" />
+          按文件名归类未分类
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--primary"
+          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
           @click="openImportDialog"
           v-hasPermi="['dcc:project-code:import']"
         >
@@ -44,8 +80,9 @@
           导入
         </el-button>
         <el-button
+          class="scheme-d-btn scheme-d-btn--warning"
           :loading="exportLoading"
-          :disabled="batchAiCategoryRunning"
+          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
           @click="handleExport"
           v-hasPermi="['dcc:project-code:export']"
         >
@@ -54,11 +91,20 @@
         </el-button>
         <el-button
           v-if="canRunBatchAiCategory"
+          class="scheme-d-btn scheme-d-btn--primary"
           type="primary"
           plain
           data-testid="dcc-project-code-batch-ai-category"
           :loading="batchAiCategoryRunning"
-          :disabled="loading || exportLoading || previewLoading || confirmLoading || aiCategoryRunning"
+          :disabled="
+            loading ||
+            exportLoading ||
+            previewLoading ||
+            confirmLoading ||
+            aiCategoryRunning ||
+            listUnclassifiedAutoClassifyRunning ||
+            unclassifiedAutoClassifyRunning
+          "
           @click="handleBatchAiCategoryProjectCodes"
         >
           <Icon icon="ep:magic-stick" class="mr-5px" />
@@ -66,6 +112,24 @@
         </el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <div
+          v-if="listUnclassifiedAutoClassifyProgressVisible"
+          class="dcc-project-code-batch-ai-category-progress"
+          data-testid="dcc-project-code-list-auto-classify-progress"
+        >
+          <div class="dcc-project-code-batch-ai-category-progress-head">
+            <span>按文件名归类未分类进度</span>
+            <div class="dcc-project-code-batch-ai-category-progress-head-actions">
+              <span>
+                已处理项目 {{ listUnclassifiedAutoClassifyProcessedProjects }}/{{
+                  listUnclassifiedAutoClassifyTotalProjects
+                }}
+                ，已归类文件 {{ listUnclassifiedAutoClassifyProcessedFiles }} 份
+              </span>
+            </div>
+          </div>
+          <el-progress :percentage="listUnclassifiedAutoClassifyProgressPercent" :stroke-width="6" />
+        </div>
         <div
           v-if="batchAiCategoryProgressVisible"
           class="dcc-project-code-batch-ai-category-progress"
@@ -81,7 +145,7 @@
               </span>
               <el-button
                 link
-                class="dcc-project-code-batch-ai-category-progress-close"
+                class="dcc-project-code-batch-ai-category-progress-close scheme-d-btn scheme-d-btn--danger scheme-d-row-action scheme-d-row-action--danger scheme-d-icon-button"
                 data-testid="dcc-project-code-batch-ai-category-progress-close"
                 aria-label="关闭批量AI分类进度"
                 @click="handleCloseBatchAiCategoryProgress"
@@ -104,6 +168,7 @@
           >
             <el-button
               link
+              class="scheme-d-row-action scheme-d-row-action--danger"
               type="danger"
               data-testid="dcc-project-code-batch-ai-category-view-failures"
               @click="handleViewBatchAiCategoryFailures"
@@ -112,6 +177,7 @@
             </el-button>
             <el-button
               link
+              class="scheme-d-row-action scheme-d-row-action--warning"
               type="primary"
               data-testid="dcc-project-code-batch-ai-category-export-failures"
               :loading="batchAiCategoryFailureExporting"
@@ -228,6 +294,7 @@
           >
             <template #default="{ row }">
               <el-tag
+                class="scheme-d-tag"
                 effect="plain"
                 :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.routeStatus)"
                 :title="getDccProjectGovernance(row.projectName)?.routeCodes?.join('、') || ''"
@@ -245,6 +312,7 @@
           >
             <template #default="{ row }">
               <el-tag
+                class="scheme-d-tag"
                 effect="plain"
                 :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.mainBatchRecordStatus)"
                 :title="getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos?.join('、') || ''"
@@ -262,6 +330,7 @@
           >
             <template #default="{ row }">
               <el-tag
+                class="scheme-d-tag"
                 effect="plain"
                 :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.lossReportStatus)"
                 :title="getDccProjectGovernance(row.projectName)?.lossReportCodes?.join('、') || ''"
@@ -279,6 +348,7 @@
           >
             <template #default="{ row }">
               <el-tag
+                class="scheme-d-tag"
                 effect="plain"
                 :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.processInspectionStatus)"
                 :title="getDccProjectGovernance(row.projectName)?.processInspectionCodes?.join('、') || ''"
@@ -296,12 +366,31 @@
           >
             <template #default="{ row }">
               <el-tag
+                class="scheme-d-tag"
                 effect="plain"
                 :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.parameterRecordStatus)"
                 :title="getDccProjectGovernance(row.projectName)?.parameterRecordCodes?.join('、') || ''"
               >
                 {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.parameterRecordStatus) }}
               </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isProjectCodeColumnVisible('qaRegulationStatus')"
+            label="QA规程"
+            prop="qaRegulationStatus"
+            :width="getProjectCodeColumnWidthString('qaRegulationStatus', 130)"
+            v-bind="sortColumnAttrs('qaRegulationStatus')"
+          >
+            <template #default="{ row }">
+              <el-button
+                link
+                type="primary"
+                data-testid="dcc-project-code-qa-regulation-link"
+                @click="openQaRegulation(row)"
+              >
+                {{ formatQaRegulationStatus(row.id) }}
+              </el-button>
             </template>
           </el-table-column>
           <el-table-column
@@ -322,6 +411,7 @@
             <template #default="{ row }">
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--primary"
                 type="primary"
                 @click="openForm('update', row)"
                 v-hasPermi="['dcc:project-code:update']"
@@ -330,13 +420,21 @@
               </el-button>
               <el-button
                 link
+                class="scheme-d-row-action scheme-d-row-action--danger"
                 type="danger"
                 @click="handleDelete(row)"
                 v-hasPermi="['dcc:project-code:delete']"
               >
                 删除
               </el-button>
-              <el-button link type="primary" @click="openProjectCodeDetail(row)">详情</el-button>
+              <el-button
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                @click="openProjectCodeDetail(row)"
+              >
+                详情
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -346,6 +444,7 @@
 
   <el-dialog
     v-model="importVisible"
+    class="scheme-d-form-control"
     title="DCC基础数据导入"
     width="1080px"
     data-testid="dcc-project-code-import-dialog"
@@ -359,20 +458,26 @@
         :on-change="handleImportFileChange"
         :on-remove="handleImportFileRemove"
       >
-        <el-button>
+        <el-button class="scheme-d-btn scheme-d-btn--neutral">
           <Icon icon="ep:folder-opened" class="mr-5px" />
           选择文件
         </el-button>
       </el-upload>
-      <el-button @click="handleDownloadTemplate">
+      <el-button class="scheme-d-btn scheme-d-btn--warning" @click="handleDownloadTemplate">
         <Icon icon="ep:document" class="mr-5px" />
         模板
       </el-button>
-      <el-button type="primary" :loading="previewLoading" @click="handleImportPreview">
+      <el-button
+        class="scheme-d-btn scheme-d-btn--primary"
+        type="primary"
+        :loading="previewLoading"
+        @click="handleImportPreview"
+      >
         <Icon icon="ep:view" class="mr-5px" />
         预览
       </el-button>
       <el-button
+        class="scheme-d-btn scheme-d-btn--success"
         type="success"
         :disabled="!previewResult || previewResult.failureCount > 0"
         :loading="confirmLoading"
@@ -388,12 +493,12 @@
       class="dcc-project-code-import-summary"
       data-testid="dcc-project-code-import-summary"
     >
-      <el-tag>总数 {{ previewResult.totalCount }}</el-tag>
-      <el-tag type="success">新增 {{ previewResult.createCount }}</el-tag>
-      <el-tag type="warning">更新 {{ previewResult.updateCount }}</el-tag>
-      <el-tag type="info">停用 {{ previewResult.disableCount }}</el-tag>
-      <el-tag>不变 {{ previewResult.unchangedCount }}</el-tag>
-      <el-tag :type="previewResult.failureCount > 0 ? 'danger' : 'success'">
+      <el-tag class="scheme-d-tag">总数 {{ previewResult.totalCount }}</el-tag>
+      <el-tag class="scheme-d-tag" type="success">新增 {{ previewResult.createCount }}</el-tag>
+      <el-tag class="scheme-d-tag" type="warning">更新 {{ previewResult.updateCount }}</el-tag>
+      <el-tag class="scheme-d-tag" type="info">停用 {{ previewResult.disableCount }}</el-tag>
+      <el-tag class="scheme-d-tag">不变 {{ previewResult.unchangedCount }}</el-tag>
+      <el-tag class="scheme-d-tag" :type="previewResult.failureCount > 0 ? 'danger' : 'success'">
         失败 {{ previewResult.failureCount }}
       </el-tag>
     </div>
@@ -407,7 +512,7 @@
       <el-table-column label="行号" prop="rowNo" width="80" />
       <el-table-column label="动作" prop="importAction" width="110">
         <template #default="{ row }">
-          <el-tag :type="importActionTagType(row.importAction)">
+          <el-tag class="scheme-d-tag" :type="importActionTagType(row.importAction)">
             {{ formatImportAction(row.importAction) }}
           </el-tag>
         </template>
@@ -423,7 +528,7 @@
     </el-table>
   </el-dialog>
 
-  <Dialog v-model="formVisible" title="项目代码维护" width="760px">
+  <Dialog v-model="formVisible" class="scheme-d-form-control" title="项目代码维护" width="760px">
     <el-form
       ref="formRef"
       v-loading="formLoading"
@@ -466,13 +571,132 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button type="primary" :disabled="formLoading" @click="submitForm">确定</el-button>
-      <el-button @click="formVisible = false">取消</el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="primary"
+          :disabled="formLoading"
+          @click="submitForm"
+        >
+          确定
+        </el-button>
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="formVisible = false">取消</el-button>
+      </div>
+    </template>
+  </Dialog>
+
+  <Dialog
+    v-model="productOnboardingVisible"
+    class="scheme-d-form-control"
+    title="产品建档申请"
+    width="820px"
+  >
+    <el-alert
+      class="mb-12px"
+      type="info"
+      :closable="false"
+      title="审批通过后生成 DCC 项目代码并绑定 MDM 产品"
+      show-icon
+    />
+    <el-form
+      ref="productOnboardingFormRef"
+      v-loading="productOnboardingLoading"
+      :model="productOnboardingFormData"
+      :rules="productOnboardingFormRules"
+      label-width="130px"
+    >
+      <el-form-item label="关联 MDM 产品" prop="productMasterId">
+        <el-select
+          v-model="productOnboardingFormData.productMasterId"
+          class="!w-full"
+          filterable
+          clearable
+          :loading="productOnboardingProductLoading"
+          placeholder="可选择已有 MDM 产品；未选择时填写下方产品信息"
+          @change="handleProductOnboardingMdmProductChange"
+        >
+          <el-option
+            v-for="product in productOnboardingProducts"
+            :key="product.id"
+            :label="`${product.nameCn} / ${product.dccProductCode || product.productCode}`"
+            :value="product.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="产品编码" prop="productCode">
+        <el-input v-model="productOnboardingFormData.productCode" placeholder="请输入 MDM 产品编码" />
+      </el-form-item>
+      <el-form-item label="DCC 产品编号" prop="dccProductCode">
+        <el-input v-model="productOnboardingFormData.dccProductCode" placeholder="14 位字母或数字" />
+      </el-form-item>
+      <el-form-item label="产品中文名" prop="productNameCn">
+        <el-input v-model="productOnboardingFormData.productNameCn" placeholder="请输入产品中文名" />
+      </el-form-item>
+      <el-form-item label="产品英文名" prop="productNameEn">
+        <el-input v-model="productOnboardingFormData.productNameEn" placeholder="请输入产品英文名" />
+      </el-form-item>
+      <el-form-item label="型号规格" prop="modelSpecification">
+        <el-input v-model="productOnboardingFormData.modelSpecification" placeholder="请输入型号规格" />
+      </el-form-item>
+      <el-form-item label="产品类别" prop="productCategory">
+        <el-input v-model="productOnboardingFormData.productCategory" placeholder="请输入产品类别" />
+      </el-form-item>
+      <el-form-item label="文控" prop="docControlNo">
+        <el-input v-model="productOnboardingFormData.docControlNo" placeholder="请输入文控" />
+      </el-form-item>
+      <el-form-item label="目标项目名称" prop="projectName">
+        <el-input v-model="productOnboardingFormData.projectName" placeholder="审批通过后生成的项目名称" />
+      </el-form-item>
+      <el-form-item label="目标项目代码" prop="projectCode">
+        <el-input v-model="productOnboardingFormData.projectCode" placeholder="审批通过后生成的项目代码" />
+      </el-form-item>
+      <el-form-item label="DCC 类别" prop="category">
+        <el-input v-model="productOnboardingFormData.category" placeholder="请输入 DCC 类别" />
+      </el-form-item>
+      <el-form-item label="项目组负责人" prop="projectLeader">
+        <el-input v-model="productOnboardingFormData.projectLeader" placeholder="请输入项目组负责人" />
+      </el-form-item>
+      <el-form-item label="项目工程师" prop="projectEngineer">
+        <el-input v-model="productOnboardingFormData.projectEngineer" placeholder="请输入项目工程师" />
+      </el-form-item>
+      <el-form-item label="存放位置" prop="storageLocation">
+        <el-input v-model="productOnboardingFormData.storageLocation" placeholder="请输入存放位置" />
+      </el-form-item>
+      <el-form-item label="优先级" prop="priority">
+        <el-input v-model="productOnboardingFormData.priority" placeholder="请输入优先级" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <div class="scheme-d-dialog-footer">
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="productOnboardingVisible = false">
+          取消
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--primary"
+          type="primary"
+          data-testid="dcc-product-onboarding-submit"
+          :loading="productOnboardingSubmitting"
+          @click="submitProductOnboardingRequest"
+        >
+          提交申请
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="success"
+          data-testid="dcc-product-onboarding-approve"
+          :disabled="!productOnboardingCreatedRequestId"
+          :loading="productOnboardingApproving"
+          @click="approveProductOnboardingCreatedRequest"
+        >
+          审批通过
+        </el-button>
+      </div>
     </template>
   </Dialog>
 
   <el-drawer
     v-model="detailDrawerVisible"
+    class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-project-code scheme-d-form-control"
     title="DCC基础条目"
     size="96%"
     data-testid="dcc-project-code-detail-drawer"
@@ -481,7 +705,7 @@
       <el-descriptions v-if="selectedProjectCode" :column="2" border>
         <el-descriptions-item label="文控">{{ selectedProjectCode.docControlNo || '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="selectedProjectCode.status === 'ENABLE' ? 'success' : 'info'">
+          <el-tag class="scheme-d-tag" :type="selectedProjectCode.status === 'ENABLE' ? 'success' : 'info'">
             {{ formatStatus(selectedProjectCode.status) }}
           </el-tag>
         </el-descriptions-item>
@@ -507,16 +731,44 @@
           </span>
           <el-button
             v-if="canRunAiCategory"
+            class="scheme-d-btn scheme-d-btn--primary"
             data-testid="dcc-project-code-ai-category"
             size="small"
             type="primary"
             :loading="aiCategoryRunning"
-            :disabled="!selectedProjectCode?.id || associatedFilesLoading || batchAiCategoryRunning"
+            :disabled="
+              !selectedProjectCode?.id ||
+              associatedFilesLoading ||
+              batchAiCategoryRunning ||
+              listUnclassifiedAutoClassifyRunning ||
+              unclassifiedAutoClassifyRunning
+            "
             @click="handleAiCategoryAssociatedFiles"
           >
             AI分类
           </el-button>
           <el-button
+            v-if="canRunAssociatedNameAutoClassify"
+            class="scheme-d-btn scheme-d-btn--primary"
+            data-testid="dcc-project-code-auto-classify-unclassified"
+            size="small"
+            type="primary"
+            plain
+            :loading="unclassifiedAutoClassifyRunning"
+            :disabled="
+              !selectedProjectCode?.id ||
+              associatedFilesLoading ||
+              aiCategoryRunning ||
+              batchAiCategoryRunning ||
+              listUnclassifiedAutoClassifyRunning ||
+              associatedUnclassifiedFileCount === 0
+            "
+            @click="handleAutoClassifyUnclassifiedAssociatedFiles"
+          >
+            按文件名归类未分类
+          </el-button>
+          <el-button
+            class="scheme-d-btn scheme-d-btn--primary"
             data-testid="dcc-project-code-assignment-open"
             size="small"
             type="primary"
@@ -528,6 +780,7 @@
             分配修正
           </el-button>
           <el-button
+            class="scheme-d-btn scheme-d-btn--neutral"
             data-testid="dcc-project-code-assignment-records"
             size="small"
             plain
@@ -536,7 +789,7 @@
           >
             分配记录
           </el-button>
-          <el-tag size="small" type="info">共 {{ associatedFilesTotal }} 份</el-tag>
+          <el-tag class="scheme-d-tag" size="small" type="info">共 {{ associatedFilesTotal }} 份</el-tag>
         </div>
       </div>
       <div
@@ -561,7 +814,7 @@
                   @click="selectAssociatedStage(stage.key)"
                 >
                   <span class="dcc-project-code-associated-item-label">{{ stage.label }}</span>
-                  <el-tag size="small" type="info">{{ stage.count }} 份</el-tag>
+                  <el-tag class="scheme-d-tag" size="small" type="info">{{ stage.count }} 份</el-tag>
                 </button>
               </div>
             </section>
@@ -582,7 +835,7 @@
                   @click="selectAssociatedType(typeGroup.key)"
                 >
                   <span class="dcc-project-code-associated-item-label">{{ typeGroup.label }}</span>
-                  <el-tag size="small" type="info">{{ typeGroup.files.length }} 份</el-tag>
+                  <el-tag class="scheme-d-tag" size="small" type="info">{{ typeGroup.files.length }} 份</el-tag>
                 </button>
               </div>
               <el-empty v-else description="当前阶段暂无文件类型" :image-size="64" />
@@ -594,13 +847,14 @@
             >
               <div class="dcc-project-code-associated-panel-title">
                 <span>{{ selectedAssociatedTypeGroup?.label || '文件列表' }}</span>
-                <el-tag size="small" type="info">
+                <el-tag class="scheme-d-tag" size="small" type="info">
                   {{ selectedAssociatedFilesTotal }} 份
                 </el-tag>
               </div>
               <el-table
                 :data="selectedAssociatedPagedFiles"
                 :show-overflow-tooltip="true"
+                :row-class-name="resolveAssociatedFileRowClassName"
                 @selection-change="handleAssociatedFileSelectionChange"
               >
                 <el-table-column type="selection" width="48" />
@@ -609,6 +863,15 @@
                     <el-link type="primary" @click="openControlledFileDetail(row)">
                       {{ row.fileName || row.title || '-' }}
                     </el-link>
+                    <el-tag
+                      v-if="isAssociatedRouteFocus(row)"
+                      class="ml-6px scheme-d-tag"
+                      data-testid="dcc-project-code-associated-route-focus"
+                      size="small"
+                      type="success"
+                    >
+                      当前联动
+                    </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column label="文件编号" prop="fileNumber" min-width="280" />
@@ -642,7 +905,7 @@
     </div>
   </el-drawer>
 
-  <Dialog v-model="assignmentDialogVisible" title="分配修正任务" width="620px">
+  <Dialog v-model="assignmentDialogVisible" class="scheme-d-form-control" title="分配修正任务" width="620px">
     <el-form label-width="96px">
       <el-form-item label="被分配人">
         <el-select
@@ -699,15 +962,25 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="assignmentDialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="assignmentSubmitting" @click="submitAssignmentDialog">
-        创建分配
-      </el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button class="scheme-d-btn scheme-d-btn--neutral" @click="assignmentDialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--success"
+          type="primary"
+          :loading="assignmentSubmitting"
+          @click="submitAssignmentDialog"
+        >
+          创建分配
+        </el-button>
+      </div>
     </template>
   </Dialog>
 
   <el-drawer
     v-model="assignmentRecordsVisible"
+    class="scheme-d-basic-data-page scheme-d-basic-data-page--dcc-project-code"
     title="分配记录"
     size="920px"
     data-testid="dcc-project-code-assignment-records-drawer"
@@ -738,6 +1011,7 @@
         <template #default="{ row }">
           <el-button
             link
+            class="scheme-d-row-action scheme-d-row-action--primary"
             type="primary"
             @click="goAssignmentAudit(row)"
             v-hasPermi="['dcc:project-code-assignment:audit:query']"
@@ -746,6 +1020,7 @@
           </el-button>
           <el-button
             link
+            class="scheme-d-row-action scheme-d-row-action--danger"
             type="danger"
             :disabled="row.status !== 'ACTIVE'"
             @click="handleRevokeAssignment(row)"
@@ -781,7 +1056,9 @@ import {
   exportControlledFileRecognitionRecordExcel,
   getControlledFileBatchRecognitionTask,
   getLatestControlledFileBatchRecognitionTask,
+  updateControlledFileMetadata,
   type ControlledFileBatchRecognitionTaskRespVO,
+  type ControlledFileMetadataUpdateReqVO,
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
 import {
@@ -795,11 +1072,14 @@ import type {
   DccProjectCodePageReqVO,
   DccProjectCodeRespVO,
   DccProjectCodeSaveReqVO,
-  DccProjectCodeUpdateReqVO
+  DccProjectCodeUpdateReqVO,
+  DccProductOnboardingCreateReqVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
+  approveProductOnboardingRequest,
   classifyProjectCodeAssociatedFileByAi,
   createProjectCode,
+  createProductOnboardingRequest,
   DCC_PROJECT_CODE_STATUS_DISABLE,
   DCC_PROJECT_CODE_STATUS_ENABLE,
   deleteProjectCode,
@@ -817,13 +1097,22 @@ import {
   getDccProjectGovernanceStatus,
   type DccProjectGovernanceStatusVO
 } from '@/api/mes/pro/dccProjectGovernance'
+import {
+  QcTemplateApi,
+  type QaInspectionRegulationProjectStatusVO
+} from '@/api/mes/qc/template'
 import { formatControlledFileDateTime } from '../../detail/presentation'
 import { openControlledFileViewer } from '../../shared/viewer-navigation'
 import {
+  DCC_TECHNICAL_DOCUMENT_ROOT_NAME,
   DCC_UNCLASSIFIED_TAXONOMY_STAGE,
+  type DccFileTypeTaxonomyStageTypeOption,
   buildDccFileTypeTaxonomyStageNameMap,
+  buildDccFileTypeTaxonomyStageTypeNameMap,
+  buildDccFileTypeTaxonomyStageTypeOptionsMap,
   getDccFileTypeTaxonomyStageRows,
   resolveDccFileTypeTaxonomyStageName,
+  resolveDccFileTypeTaxonomyStageTypeName,
   toDccFileTypeTaxonomyStageOptions
 } from '../../shared/file-type-taxonomy-stage'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
@@ -836,12 +1125,18 @@ import {
   type DccProjectCodeAssignmentCreateReqVO,
   type DccProjectCodeAssignmentRespVO
 } from '@/api/dcc/controlledFile/projectCodeAssignments'
+import {
+  getProductSimpleList,
+  MDM_PRODUCT_STATUS_ENABLE,
+  type MdmProductSimpleRespVO
+} from '@/api/mdm/product'
 
 defineOptions({ name: 'ProjectCodeTabPanel' })
 
 type AssociatedTypeGroup = {
   key: string
   label: string
+  taxonomyId?: number
   files: ControlledFileVO[]
 }
 
@@ -855,7 +1150,10 @@ type AssociatedStageGroup = {
 type AssignmentUserOption = Pick<UserVO, 'id' | 'nickname' | 'username'> &
   Partial<Pick<UserVO, 'status' | 'disabled'>>
 
+type ProductOnboardingFormData = DccProductOnboardingCreateReqVO
+
 const DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE = 200
+const DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE = 100
 const DCC_PROJECT_CODE_UNCLASSIFIED_TYPE = '未分类文件类型'
 const BATCH_AI_CATEGORY_POLL_INTERVAL_MS = 1000
 
@@ -914,6 +1212,7 @@ const projectCodeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'lossReportStatus', label: '损耗单', width: 110 },
   { key: 'processInspectionStatus', label: '过程检验单', width: 130 },
   { key: 'parameterRecordStatus', label: '参数记录表', width: 130 },
+  { key: 'qaRegulationStatus', label: 'QA规程', width: 130 },
   { key: 'updateTime', label: '更新时间', width: 180 },
   { key: 'actions', label: '关联文档', width: 240, hideable: false, business: false }
 ]
@@ -948,6 +1247,10 @@ const list = ref<DccProjectCodeRespVO[]>([])
 const total = ref(0)
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
 const dccProjectGovernanceByProjectName = ref<Record<string, DccProjectGovernanceStatusVO>>({})
+const qaRegulationStatusByDccProjectCodeId = ref<
+  Record<number, QaInspectionRegulationProjectStatusVO>
+>({})
+const qaRegulationStatusPermissionDenied = ref(false)
 const selectedProjectCode = ref<DccProjectCodeRespVO | null>(null)
 const associatedNavigationFiles = ref<ControlledFileVO[]>([])
 const associatedFilesTotal = ref(0)
@@ -962,19 +1265,56 @@ const assignmentRecordsTotal = ref(0)
 const selectedAssociatedFileIds = ref<Array<number | string>>([])
 const selectedAssociatedStageKey = ref('')
 const selectedAssociatedTypeKey = ref('')
+const focusedAssociatedFileId = ref<number | null>(null)
 const aiCategoryRunning = ref(false)
 const aiCategoryProcessed = ref(0)
 const aiCategoryTotal = ref(0)
+const unclassifiedAutoClassifyRunning = ref(false)
+const listUnclassifiedAutoClassifyRunning = ref(false)
+const listUnclassifiedAutoClassifyTotalProjects = ref(0)
+const listUnclassifiedAutoClassifyProcessedProjects = ref(0)
+const listUnclassifiedAutoClassifyProcessedFiles = ref(0)
 const batchAiCategoryTask = ref<ControlledFileBatchRecognitionTaskRespVO | null>(null)
 const batchAiCategoryDismissedTaskId = ref<number | null>(null)
 const batchAiCategoryFailureExporting = ref(false)
 let detailRequestSequence = 0
+let qaRegulationStatusLoadSerial = 0
 let batchAiCategoryPollTimer: ReturnType<typeof setTimeout> | null = null
 let batchAiCategoryTerminalHandledTaskId: number | null = null
 const importFileList = ref<any[]>([])
 const importFile = ref<File | null>(null)
 const previewResult = ref<DccProjectCodeImportPreviewRespVO | null>(null)
 const importRows = computed<DccProjectCodeImportRowRespVO[]>(() => previewResult.value?.rows || [])
+const productOnboardingVisible = ref(false)
+const productOnboardingLoading = ref(false)
+const productOnboardingSubmitting = ref(false)
+const productOnboardingApproving = ref(false)
+const productOnboardingProductLoading = ref(false)
+const productOnboardingCreatedRequestId = ref<number | null>(null)
+const productOnboardingFormRef = ref()
+const productOnboardingProducts = ref<MdmProductSimpleRespVO[]>([])
+const productOnboardingFormData = reactive<ProductOnboardingFormData>({
+  productMasterId: undefined,
+  productCode: '',
+  dccProductCode: '',
+  productNameCn: '',
+  productNameEn: '',
+  modelSpecification: '',
+  productCategory: '',
+  docControlNo: '',
+  projectName: '',
+  projectCode: '',
+  category: '',
+  commissionedProduction: '',
+  projectLeader: '',
+  projectEngineer: '',
+  storageLocation: '',
+  priority: ''
+})
+const productOnboardingFormRules = reactive<FormRules>({
+  projectName: [{ required: true, message: '目标项目名称不能为空', trigger: 'blur' }],
+  projectCode: [{ required: true, message: '目标项目代码不能为空', trigger: 'blur' }]
+})
 const assignmentForm = reactive<{
   assigneeUserId?: number
   scopeMode: DccProjectCodeAssignmentCreateReqVO['scopeMode']
@@ -998,8 +1338,23 @@ const canRunAiCategory = computed(
     checkPermi(['dcc:project-code:update']) &&
     checkPermi(['dcc:controlled-file:update'])
 )
+const canRunAssociatedNameAutoClassify = computed(() => checkPermi(['dcc:controlled-file:update']))
+const canRunProjectCodeListNameAutoClassify = computed(
+  () => canRunAssociatedNameAutoClassify.value
+)
 const canRunBatchAiCategory = computed(
   () => canRunAiCategory.value && checkRole(['doc_control'])
+)
+const listUnclassifiedAutoClassifyProgressVisible = computed(
+  () => listUnclassifiedAutoClassifyRunning.value
+)
+const listUnclassifiedAutoClassifyProgressPercent = computed(() =>
+  listUnclassifiedAutoClassifyTotalProjects.value === 0
+    ? 0
+    : Math.floor(
+        (listUnclassifiedAutoClassifyProcessedProjects.value * 100) /
+          listUnclassifiedAutoClassifyTotalProjects.value
+      )
 )
 const batchAiCategoryRunning = computed(() =>
   ['WAITING', 'RUNNING'].includes(batchAiCategoryTask.value?.status || '')
@@ -1101,6 +1456,72 @@ const resolveAiCategoryErrorMessage = (error: unknown) => {
   return '未知后端错误'
 }
 const normalizeAssociatedLevel = (level: unknown) => String(level || '').trim()
+const normalizeAutoClassifyText = (value: unknown) =>
+  String(value || '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\.[a-z0-9]{1,8}$/i, '')
+    .replace(/[\s_\-—–/\\()[\]{}【】（）《》<>.,，。:：;；!！?？"'“”‘’]+/g, '')
+    .trim()
+const splitAutoClassifyTokens = (value: unknown) => {
+  const normalized = normalizeAutoClassifyText(value)
+  const tokens = new Set<string>()
+  const words = normalized.match(/[a-z0-9]+|[\u4e00-\u9fa5]/gi) || []
+  for (const word of words) {
+    if (word) {
+      tokens.add(word)
+    }
+  }
+  for (const gramSize of [2, 3, 4]) {
+    for (let index = 0; index <= normalized.length - gramSize; index += 1) {
+      tokens.add(normalized.slice(index, index + gramSize))
+    }
+  }
+  return Array.from(tokens)
+}
+const autoClassifyTextSimilarityScore = (left: string, right: string) => {
+  if (!left || !right) {
+    return 0
+  }
+  if (left === right) {
+    return 1
+  }
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index)
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex]
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + substitutionCost
+      )
+    }
+    previous.splice(0, previous.length, ...current)
+  }
+  return 1 - previous[right.length] / Math.max(left.length, right.length)
+}
+const autoClassifyTokenOverlapScore = (left: string, right: string) => {
+  const leftTokens = new Set(splitAutoClassifyTokens(left))
+  const rightTokens = splitAutoClassifyTokens(right)
+  if (leftTokens.size === 0 || rightTokens.length === 0) {
+    return 0
+  }
+  const matched = rightTokens.filter((token) => leftTokens.has(token)).length
+  return matched / rightTokens.length
+}
+const autoClassifySubstringScore = (left: string, right: string) => {
+  if (!left || !right) {
+    return 0
+  }
+  if (left.includes(right)) {
+    return 1
+  }
+  if (right.includes(left)) {
+    return left.length / right.length
+  }
+  return 0
+}
 const associatedTaxonomyStageRows = computed(() =>
   getDccFileTypeTaxonomyStageRows(fileTypeTaxonomies.value)
 )
@@ -1113,6 +1534,15 @@ const associatedTaxonomyStageNames = computed(
 const associatedTaxonomyStageNameMap = computed(() =>
   buildDccFileTypeTaxonomyStageNameMap(fileTypeTaxonomies.value)
 )
+const associatedTaxonomyStageTypeNameMap = computed(() =>
+  buildDccFileTypeTaxonomyStageTypeNameMap(fileTypeTaxonomies.value)
+)
+const associatedTaxonomyStageTypeOptionsMap = computed(() =>
+  buildDccFileTypeTaxonomyStageTypeOptionsMap(fileTypeTaxonomies.value)
+)
+const associatedAutoClassifyTargetOptions = computed(() =>
+  Array.from(associatedTaxonomyStageTypeOptionsMap.value.values()).flat()
+)
 const resolveAssociatedStageKey = (file: ControlledFileVO) => {
   const stage = normalizeAssociatedLevel(file.fileTypeLevel2)
   if (stage && associatedTaxonomyStageNames.value.has(stage)) {
@@ -1123,24 +1553,119 @@ const resolveAssociatedStageKey = (file: ControlledFileVO) => {
     DCC_UNCLASSIFIED_TAXONOMY_STAGE
   )
 }
-const resolveAssociatedTypeName = (file: ControlledFileVO) =>
-  normalizeAssociatedLevel(file.fileTypeLevel3) || DCC_PROJECT_CODE_UNCLASSIFIED_TYPE
+const resolveAssociatedTypeName = (file: ControlledFileVO) => {
+  const resolvedTaxonomyType = resolveDccFileTypeTaxonomyStageTypeName(
+    file,
+    associatedTaxonomyStageTypeNameMap.value
+  )
+  return (
+    resolvedTaxonomyType?.typeName ||
+    normalizeAssociatedLevel(file.fileTypeLevel3) ||
+    DCC_PROJECT_CODE_UNCLASSIFIED_TYPE
+  )
+}
+const isAssociatedFileUnclassified = (file: ControlledFileVO) =>
+  resolveAssociatedStageKey(file) === DCC_UNCLASSIFIED_TAXONOMY_STAGE ||
+  resolveAssociatedTypeName(file) === DCC_PROJECT_CODE_UNCLASSIFIED_TYPE
+const associatedUnclassifiedFiles = computed(() =>
+  associatedNavigationFiles.value.filter(isAssociatedFileUnclassified)
+)
+const associatedUnclassifiedFileCount = computed(() => associatedUnclassifiedFiles.value.length)
+const calculateAutoClassifySimilarity = (
+  file: ControlledFileVO,
+  target: DccFileTypeTaxonomyStageTypeOption
+) => {
+  const fileText = normalizeAutoClassifyText(
+    `${file.fileName || ''} ${file.title || ''} ${file.fileNumber || ''}`
+  )
+  const targetTypeText = normalizeAutoClassifyText(target.label)
+  const targetPathText = normalizeAutoClassifyText(`${target.stageName} ${target.label}`)
+  return (
+    autoClassifySubstringScore(fileText, targetTypeText) * 0.45 +
+    autoClassifyTextSimilarityScore(fileText, targetTypeText) * 0.25 +
+    autoClassifyTokenOverlapScore(fileText, targetTypeText) * 0.2 +
+    autoClassifyTokenOverlapScore(fileText, targetPathText) * 0.1
+  )
+}
+const resolveBestAssociatedAutoClassifyTarget = (
+  file: ControlledFileVO,
+  targetOptions: DccFileTypeTaxonomyStageTypeOption[]
+) => {
+  if (targetOptions.length === 0) {
+    return undefined
+  }
+  let bestTarget = targetOptions[0]
+  let bestScore = Number.NEGATIVE_INFINITY
+  for (const target of targetOptions) {
+    const score = calculateAutoClassifySimilarity(file, target)
+    if (score > bestScore) {
+      bestTarget = target
+      bestScore = score
+    }
+  }
+  return bestTarget
+}
+const buildDccAssociatedFileAutoClassifyPayload = (
+  file: ControlledFileVO,
+  target: DccFileTypeTaxonomyStageTypeOption,
+  projectCode?: DccProjectCodeRespVO | null
+): ControlledFileMetadataUpdateReqVO => {
+  const fileName = normalizeAssociatedLevel(file.fileName || file.title)
+  if (!fileName) {
+    throw new Error(`文件 ${file.id} 缺少文件名称，无法自动归类`)
+  }
+  if (!file.categoryId || !file.directoryId) {
+    throw new Error(`文件 ${fileName} 缺少文件类别或目录，无法保存分类`)
+  }
+  const ownerProjectCode = projectCode || selectedProjectCode.value
+  return {
+    changeReason: `按文件名相似度自动归类未分类文件：${target.stageName}/${target.label}`,
+    productMasterId: null,
+    productName: normalizeAssociatedLevel(ownerProjectCode?.projectName || file.productName) || undefined,
+    dccProjectCodeId: ownerProjectCode?.id || file.dccProjectCodeId || null,
+    needTraining: Boolean(file.needTraining),
+    fileTypeTaxonomyId: target.taxonomyId,
+    fileTypeLevel1: DCC_TECHNICAL_DOCUMENT_ROOT_NAME,
+    fileTypeLevel2: target.stageName,
+    fileTypeLevel3: target.label,
+    fileTypeLevel4: null,
+    fileTypeLevel5: null,
+    fileName,
+    productCode: normalizeAssociatedLevel(ownerProjectCode?.projectCode || file.productCode) || undefined,
+    fileNumber: normalizeAssociatedLevel(file.fileNumber) || null,
+    categoryId: file.categoryId,
+    directoryId: file.directoryId
+  }
+}
+const createAssociatedStageGroup = (stageKey: string, label = stageKey): AssociatedStageGroup => {
+  const associatedStageTypeOptions = associatedTaxonomyStageTypeOptionsMap.value.get(stageKey) || []
+  const typeMap = new Map<string, AssociatedTypeGroup>()
+  for (const option of associatedStageTypeOptions) {
+    typeMap.set(option.value, {
+      key: option.value,
+      label: option.label,
+      taxonomyId: option.taxonomyId,
+      files: []
+    })
+  }
+  return {
+    key: stageKey,
+    label,
+    count: 0,
+    types: Array.from(typeMap.values())
+  }
+}
 const associatedStageGroups = computed<AssociatedStageGroup[]>(() => {
   const stageMap = new Map<string, AssociatedStageGroup>()
   for (const option of associatedTaxonomyStageOptions.value) {
-    stageMap.set(option.value, { key: option.value, label: option.label, count: 0, types: [] })
+    stageMap.set(option.value, createAssociatedStageGroup(option.value, option.label))
   }
 
   for (const file of associatedNavigationFiles.value) {
     const stageKey = resolveAssociatedStageKey(file)
     let stageGroup = stageMap.get(stageKey)
     if (!stageGroup) {
-      stageGroup = {
-        key: stageKey,
-        label: stageKey,
-        count: 0,
-        types: []
-      }
+      stageGroup = createAssociatedStageGroup(stageKey)
       stageMap.set(stageKey, stageGroup)
     }
     const typeName = resolveAssociatedTypeName(file)
@@ -1187,6 +1712,8 @@ const handleAssociatedFilePagination = () => {
     associatedFilePage.pageNo = maxPage
   }
 }
+const resolveAssociatedInitialTypeKey = (stage: AssociatedStageGroup) =>
+  stage.types.find((typeGroup) => typeGroup.files.length > 0)?.key || stage.types[0]?.key || ''
 const ensureAssociatedSelection = () => {
   const stages = associatedStageGroups.value
   if (stages.length === 0) {
@@ -1201,7 +1728,7 @@ const ensureAssociatedSelection = () => {
   const previousTypeKey = selectedAssociatedTypeKey.value
   selectedAssociatedStageKey.value = nextStage.key
   const currentType = nextStage.types.find((typeGroup) => typeGroup.key === selectedAssociatedTypeKey.value)
-  selectedAssociatedTypeKey.value = currentType?.key || nextStage.types[0]?.key || ''
+  selectedAssociatedTypeKey.value = currentType?.key || resolveAssociatedInitialTypeKey(nextStage)
   if (
     previousStageKey !== selectedAssociatedStageKey.value ||
     previousTypeKey !== selectedAssociatedTypeKey.value
@@ -1213,7 +1740,7 @@ const ensureAssociatedSelection = () => {
 const selectAssociatedStage = (stageKey: string) => {
   selectedAssociatedStageKey.value = stageKey
   const stage = associatedStageGroups.value.find((item) => item.key === stageKey)
-  selectedAssociatedTypeKey.value = stage?.types[0]?.key || ''
+  selectedAssociatedTypeKey.value = stage ? resolveAssociatedInitialTypeKey(stage) : ''
   selectedAssociatedFileIds.value = []
   resetAssociatedFilePage()
 }
@@ -1222,8 +1749,55 @@ const selectAssociatedType = (typeKey: string) => {
   selectedAssociatedFileIds.value = []
   resetAssociatedFilePage()
 }
+
+const isSameAssociatedFileId = (file: ControlledFileVO, fileId?: number | null) =>
+  Boolean(fileId && Number(file.id) === Number(fileId))
+
+const isAssociatedRouteFocus = (row: ControlledFileVO) =>
+  isSameAssociatedFileId(row, focusedAssociatedFileId.value)
+
+const resolveAssociatedFileRowClassName = ({ row }: { row: ControlledFileVO }) =>
+  isAssociatedRouteFocus(row) ? 'is-associated-route-focus' : ''
+
+const resolveAssociatedRouteFocusFile = () => {
+  const associatedFileId = resolveQueryAssociatedFileId()
+  if (associatedFileId) {
+    return associatedNavigationFiles.value.find((file) => isSameAssociatedFileId(file, associatedFileId))
+  }
+  const taxonomyId = resolveQueryAssociatedTaxonomyId()
+  if (taxonomyId) {
+    return associatedNavigationFiles.value.find((file) => Number(file.fileTypeTaxonomyId) === taxonomyId)
+  }
+  return undefined
+}
+
+const applyAssociatedRouteFocus = () => {
+  const associatedFocus = route.query.associatedFocus
+  const associatedFileId = resolveQueryAssociatedFileId()
+  const taxonomyId = resolveQueryAssociatedTaxonomyId()
+  if (!associatedFocus && !associatedFileId && !taxonomyId) {
+    focusedAssociatedFileId.value = null
+    return false
+  }
+  focusedAssociatedFileId.value = associatedFileId ?? null
+  const targetFile = resolveAssociatedRouteFocusFile()
+  if (!targetFile) {
+    return false
+  }
+  selectedAssociatedStageKey.value = resolveAssociatedStageKey(targetFile)
+  selectedAssociatedTypeKey.value = resolveAssociatedTypeName(targetFile)
+  resetAssociatedFilePage()
+  const files = selectedAssociatedTypeGroup.value?.files || []
+  const focusedIndex = files.findIndex((file) => isSameAssociatedFileId(file, associatedFileId))
+  if (focusedIndex >= 0) {
+    associatedFilePage.pageNo = Math.floor(focusedIndex / associatedFilePage.pageSize) + 1
+  }
+  handleAssociatedFilePagination()
+  return true
+}
 const formData = ref<DccProjectCodeUpdateReqVO>({
   id: 0,
+  productMasterId: undefined,
   docControlNo: '',
   projectName: '',
   projectCode: '',
@@ -1260,9 +1834,26 @@ const queryParams = reactive<DccProjectCodePageQuery>({
 const resolveQueryProjectCodeId = () =>
   Array.isArray(route.query.projectCodeId) ? route.query.projectCodeId[0] : route.query.projectCodeId
 
+const resolveQueryAssociatedFileId = () => {
+  const raw = Array.isArray(route.query.associatedFileId)
+    ? route.query.associatedFileId[0]
+    : route.query.associatedFileId
+  const value = Number(raw)
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+const resolveQueryAssociatedTaxonomyId = () => {
+  const raw = Array.isArray(route.query.fileTypeTaxonomyId)
+    ? route.query.fileTypeTaxonomyId[0]
+    : route.query.fileTypeTaxonomyId
+  const value = Number(raw)
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
+
 const resetFormData = () => {
   formData.value = {
     id: 0,
+    productMasterId: undefined,
     docControlNo: '',
     projectName: '',
     projectCode: '',
@@ -1312,6 +1903,58 @@ const loadDccProjectGovernanceStatus = async (rows: DccProjectCodeRespVO[]) => {
   )
 }
 
+const loadQaRegulationStatuses = async (rows: DccProjectCodeRespVO[]) => {
+  const loadSerial = ++qaRegulationStatusLoadSerial
+  const dccProjectCodeIds = rows
+    .map((row) => Number(row.id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+  if (dccProjectCodeIds.length === 0) {
+    if (loadSerial === qaRegulationStatusLoadSerial) {
+      qaRegulationStatusPermissionDenied.value = false
+      qaRegulationStatusByDccProjectCodeId.value = {}
+    }
+    return
+  }
+  if (!checkPermi(['mes:qc-template:query'])) {
+    if (loadSerial === qaRegulationStatusLoadSerial) {
+      qaRegulationStatusPermissionDenied.value = true
+      qaRegulationStatusByDccProjectCodeId.value = {}
+    }
+    return
+  }
+  const statuses = await QcTemplateApi.getQaRegulationProjectStatuses(dccProjectCodeIds)
+  if (loadSerial !== qaRegulationStatusLoadSerial) {
+    return
+  }
+  qaRegulationStatusPermissionDenied.value = false
+  qaRegulationStatusByDccProjectCodeId.value = Object.fromEntries(
+    statuses.map((status) => [status.dccProjectCodeId, status])
+  )
+}
+
+const formatQaRegulationStatus = (dccProjectCodeId?: number) => {
+  if (qaRegulationStatusPermissionDenied.value) {
+    return '无查询权限'
+  }
+  const status = dccProjectCodeId
+    ? qaRegulationStatusByDccProjectCodeId.value[dccProjectCodeId]
+    : undefined
+  if (status?.lifecycleStatus === 'PUBLISHED') {
+    return '已发布'
+  }
+  if (status?.configured) {
+    return '草稿'
+  }
+  return '未配置'
+}
+
+const openQaRegulation = (row: DccProjectCodeRespVO) => {
+  router.push({
+    name: 'MesProProcessPoolQaRegulation',
+    query: { dccProjectCodeId: String(row.id) }
+  })
+}
+
 const loadFileTypeTaxonomies = async () => {
   fileTypeTaxonomies.value = await getFileTypeTaxonomyList()
 }
@@ -1322,10 +1965,31 @@ const getList = async () => {
     const data = await getProjectCodePage(queryParams)
     list.value = data.list
     total.value = data.total
-    await loadDccProjectGovernanceStatus(data.list)
+    await Promise.all([
+      loadDccProjectGovernanceStatus(data.list),
+      loadQaRegulationStatuses(data.list)
+    ])
   } finally {
     loading.value = false
   }
+}
+
+const fetchAllFilteredProjectCodes = async () => {
+  const fetchProjectCodePage = (pageNo: number) =>
+    getProjectCodePage({
+      ...queryParams,
+      pageNo,
+      pageSize: DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE
+    })
+  const firstPage = await fetchProjectCodePage(1)
+  const projectCodes = [...firstPage.list]
+  const total = firstPage.total
+  const pageCount = Math.ceil(total / DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE)
+  for (let pageNo = 2; pageNo <= pageCount; pageNo += 1) {
+    const data = await fetchProjectCodePage(pageNo)
+    projectCodes.push(...data.list)
+  }
+  return { projectCodes, total, pageCount }
 }
 
 const projectCodeQuickFilter = useTableQuickFilter(
@@ -1362,6 +2026,7 @@ const openForm = (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {
   if (type === 'update' && row) {
     formData.value = {
       id: row.id,
+      productMasterId: row.productMasterId,
       docControlNo: row.docControlNo || '',
       projectName: row.projectName,
       projectCode: row.projectCode || '',
@@ -1377,6 +2042,7 @@ const openForm = (type: 'create' | 'update', row?: DccProjectCodeRespVO) => {
 }
 
 const buildSavePayload = (): DccProjectCodeSaveReqVO => ({
+  productMasterId: formData.value.productMasterId,
   docControlNo: formData.value.docControlNo,
   projectName: formData.value.projectName,
   projectCode: formData.value.projectCode,
@@ -1410,6 +2076,105 @@ const submitForm = async () => {
     await getList()
   } finally {
     formLoading.value = false
+  }
+}
+
+const resetProductOnboardingFormData = () => {
+  Object.assign(productOnboardingFormData, {
+    productMasterId: undefined,
+    productCode: '',
+    dccProductCode: '',
+    productNameCn: '',
+    productNameEn: '',
+    modelSpecification: '',
+    productCategory: '',
+    docControlNo: '',
+    projectName: '',
+    projectCode: '',
+    category: '',
+    commissionedProduction: '',
+    projectLeader: '',
+    projectEngineer: '',
+    storageLocation: '',
+    priority: ''
+  })
+  productOnboardingCreatedRequestId.value = null
+  productOnboardingFormRef.value?.resetFields()
+}
+
+const loadProductOnboardingProducts = async () => {
+  productOnboardingProductLoading.value = true
+  try {
+    productOnboardingProducts.value = await getProductSimpleList({
+      status: MDM_PRODUCT_STATUS_ENABLE,
+      requireDccProductCode: true
+    })
+  } finally {
+    productOnboardingProductLoading.value = false
+  }
+}
+
+const openProductOnboardingDialog = async () => {
+  productOnboardingVisible.value = true
+  productOnboardingLoading.value = true
+  resetProductOnboardingFormData()
+  try {
+    await loadProductOnboardingProducts()
+  } finally {
+    productOnboardingLoading.value = false
+  }
+}
+
+const handleProductOnboardingMdmProductChange = (productId?: number | string) => {
+  const selectedProduct = productOnboardingProducts.value.find(
+    (product) => Number(product.id) === Number(productId)
+  )
+  if (!selectedProduct) {
+    return
+  }
+  productOnboardingFormData.productCode = selectedProduct.productCode
+  productOnboardingFormData.dccProductCode = selectedProduct.dccProductCode || ''
+  productOnboardingFormData.productNameCn = selectedProduct.nameCn
+  productOnboardingFormData.productNameEn = selectedProduct.nameEn || ''
+  productOnboardingFormData.modelSpecification = selectedProduct.modelSpecification || ''
+  productOnboardingFormData.productCategory = selectedProduct.category || ''
+  if (!productOnboardingFormData.projectName) {
+    productOnboardingFormData.projectName = selectedProduct.nameCn
+  }
+  if (!productOnboardingFormData.projectCode && selectedProduct.dccProductCode) {
+    productOnboardingFormData.projectCode = selectedProduct.dccProductCode
+  }
+}
+
+const submitProductOnboardingRequest = async () => {
+  const valid = await productOnboardingFormRef.value?.validate()
+  if (!valid) {
+    return
+  }
+  productOnboardingSubmitting.value = true
+  try {
+    productOnboardingCreatedRequestId.value = await createProductOnboardingRequest({
+      ...productOnboardingFormData,
+      productMasterId: productOnboardingFormData.productMasterId || undefined
+    })
+    message.success('产品建档申请已提交')
+  } finally {
+    productOnboardingSubmitting.value = false
+  }
+}
+
+const approveProductOnboardingCreatedRequest = async () => {
+  if (!productOnboardingCreatedRequestId.value) {
+    return
+  }
+  productOnboardingApproving.value = true
+  try {
+    await approveProductOnboardingRequest(productOnboardingCreatedRequestId.value)
+    message.success('产品建档申请已审批通过')
+    productOnboardingVisible.value = false
+    await getList()
+  } finally {
+    productOnboardingApproving.value = false
   }
 }
 
@@ -1540,12 +2305,33 @@ const getAssociatedFiles = async (
     associatedNavigationFiles.value = navigationFiles
     associatedFilesTotal.value = total
     resetAssociatedFilePage()
-    ensureAssociatedSelection()
+    if (!applyAssociatedRouteFocus()) {
+      ensureAssociatedSelection()
+    }
   } finally {
     if (canApplyDetailResult()) {
       associatedFilesLoading.value = false
     }
   }
+}
+
+const fetchProjectCodeAssociatedFiles = async (projectCodeId: number | string) => {
+  const associatedFiles: ControlledFileVO[] = []
+  const fetchAssociatedPage = (pageNo: number) =>
+    getProjectCodeControlledFilesPage(projectCodeId, {
+      pageNo,
+      pageSize: DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE,
+      keyword: undefined,
+      status: undefined
+    })
+  const firstPage = await fetchAssociatedPage(1)
+  associatedFiles.push(...firstPage.list)
+  const pageCount = Math.ceil(firstPage.total / DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE)
+  for (let pageNo = 2; pageNo <= pageCount; pageNo += 1) {
+    const data = await fetchAssociatedPage(pageNo)
+    associatedFiles.push(...data.list)
+  }
+  return associatedFiles
 }
 
 const loadAssociatedFilesForDetail = async (projectCodeId: number | string, requestToken: number) => {
@@ -1809,7 +2595,12 @@ const restoreLatestBatchAiCategoryTask = async () => {
 }
 
 const handleBatchAiCategoryProjectCodes = async () => {
-  if (!canRunBatchAiCategory.value || batchAiCategoryRunning.value || aiCategoryRunning.value) {
+  if (
+    !canRunBatchAiCategory.value ||
+    batchAiCategoryRunning.value ||
+    aiCategoryRunning.value ||
+    listUnclassifiedAutoClassifyRunning.value
+  ) {
     return
   }
   const task = await createControlledFileBatchRecognitionTask({
@@ -1832,7 +2623,12 @@ const handleBatchAiCategoryProjectCodes = async () => {
 
 const handleAiCategoryAssociatedFiles = async () => {
   const projectCodeId = selectedProjectCode.value?.id
-  if (!projectCodeId || aiCategoryRunning.value || batchAiCategoryRunning.value) {
+  if (
+    !projectCodeId ||
+    aiCategoryRunning.value ||
+    batchAiCategoryRunning.value ||
+    listUnclassifiedAutoClassifyRunning.value
+  ) {
     return
   }
   aiCategoryRunning.value = true
@@ -1875,6 +2671,161 @@ const handleAiCategoryAssociatedFiles = async () => {
     await getAssociatedFiles()
   } finally {
     aiCategoryRunning.value = false
+  }
+}
+
+const autoClassifyUnclassifiedFilesForProjectCode = async (
+  projectCode: DccProjectCodeRespVO,
+  targetOptions: DccFileTypeTaxonomyStageTypeOption[]
+) => {
+  const associatedFiles = await fetchProjectCodeAssociatedFiles(projectCode.id)
+  const filesToClassify = associatedFiles.filter(isAssociatedFileUnclassified)
+  let processedFileCount = 0
+  for (const file of filesToClassify) {
+    const target = resolveBestAssociatedAutoClassifyTarget(file, targetOptions)
+    if (!target) {
+      throw new Error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
+    }
+    const payload = buildDccAssociatedFileAutoClassifyPayload(file, target, projectCode)
+    await updateControlledFileMetadata(file.id, payload)
+    processedFileCount += 1
+  }
+  if (processedFileCount > 0) {
+    const refreshedFiles = await fetchProjectCodeAssociatedFiles(projectCode.id)
+    const remainingCount = refreshedFiles.filter(isAssociatedFileUnclassified).length
+    if (remainingCount > 0) {
+      throw new Error(
+        `项目代码 ${projectCode.projectCode || projectCode.id} 自动归类后仍有 ${remainingCount} 份文件停留在未分类`
+      )
+    }
+  }
+  return processedFileCount
+}
+
+const resetListUnclassifiedAutoClassifyProgress = () => {
+  listUnclassifiedAutoClassifyTotalProjects.value = 0
+  listUnclassifiedAutoClassifyProcessedProjects.value = 0
+  listUnclassifiedAutoClassifyProcessedFiles.value = 0
+}
+
+const handleListAutoClassifyUnclassifiedProjectCodes = async () => {
+  if (
+    !canRunProjectCodeListNameAutoClassify.value ||
+    listUnclassifiedAutoClassifyRunning.value ||
+    aiCategoryRunning.value ||
+    batchAiCategoryRunning.value ||
+    unclassifiedAutoClassifyRunning.value
+  ) {
+    return
+  }
+  resetListUnclassifiedAutoClassifyProgress()
+  listUnclassifiedAutoClassifyRunning.value = true
+  try {
+    await loadFileTypeTaxonomies()
+    const targetOptions = associatedAutoClassifyTargetOptions.value
+    if (targetOptions.length === 0) {
+      message.error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
+      return
+    }
+    const { projectCodes, total } = await fetchAllFilteredProjectCodes()
+    listUnclassifiedAutoClassifyTotalProjects.value = total
+    if (projectCodes.length === 0) {
+      message.info('当前筛选条件下没有项目代码')
+      return
+    }
+    try {
+      await message.confirm(
+        `将按当前筛选条件处理 ${total} 个全部项目代码，包括未加载分页；系统会按文件名相似度归类每个项目代码下的未分类文件，不会只处理当前页。是否继续？`,
+        '按文件名归类未分类'
+      )
+    } catch (error) {
+      if (isCancelError(error)) {
+        return
+      }
+      throw error
+    }
+
+    for (const projectCode of projectCodes) {
+      const classifiedFileCount = await autoClassifyUnclassifiedFilesForProjectCode(
+        projectCode,
+        targetOptions
+      )
+      listUnclassifiedAutoClassifyProcessedFiles.value += classifiedFileCount
+      listUnclassifiedAutoClassifyProcessedProjects.value += 1
+    }
+    await getList()
+    if (detailDrawerVisible.value && selectedProjectCode.value?.id) {
+      await getAssociatedFiles()
+    }
+    message.success(
+      `已按当前筛选条件处理 ${listUnclassifiedAutoClassifyProcessedProjects.value} 个项目代码，归类 ${listUnclassifiedAutoClassifyProcessedFiles.value} 份未分类文件`
+    )
+  } catch (error) {
+    message.error(
+      `列表批量按文件名归类失败：已处理项目 ${listUnclassifiedAutoClassifyProcessedProjects.value}/${listUnclassifiedAutoClassifyTotalProjects.value}，已归类文件 ${listUnclassifiedAutoClassifyProcessedFiles.value} 份，后端错误：${resolveAiCategoryErrorMessage(error)}`
+    )
+    throw error
+  } finally {
+    listUnclassifiedAutoClassifyRunning.value = false
+  }
+}
+
+const handleAutoClassifyUnclassifiedAssociatedFiles = async () => {
+  const projectCodeId = selectedProjectCode.value?.id
+  if (
+    !projectCodeId ||
+    unclassifiedAutoClassifyRunning.value ||
+    aiCategoryRunning.value ||
+    batchAiCategoryRunning.value ||
+    listUnclassifiedAutoClassifyRunning.value
+  ) {
+    return
+  }
+  const filesToClassify = [...associatedUnclassifiedFiles.value]
+  if (filesToClassify.length === 0) {
+    message.info('当前产品没有未分类或未分类文件类型文件')
+    return
+  }
+  const targetOptions = associatedAutoClassifyTargetOptions.value
+  if (targetOptions.length === 0) {
+    message.error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
+    return
+  }
+  try {
+    await message.confirm(
+      `将按文件名相似度归类 ${filesToClassify.length} 份未分类文件，完成后不会保留在未分类或未分类文件类型中。是否继续？`,
+      '按文件名归类未分类'
+    )
+  } catch {
+    return
+  }
+
+  let processedCount = 0
+  unclassifiedAutoClassifyRunning.value = true
+  try {
+    for (const file of filesToClassify) {
+      const target = resolveBestAssociatedAutoClassifyTarget(file, targetOptions)
+      if (!target) {
+        throw new Error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
+      }
+      const payload = buildDccAssociatedFileAutoClassifyPayload(file, target)
+      await updateControlledFileMetadata(file.id, payload)
+      processedCount += 1
+    }
+    await getAssociatedFiles()
+    await getList()
+    if (associatedUnclassifiedFileCount.value > 0) {
+      throw new Error(`自动归类完成后仍有 ${associatedUnclassifiedFileCount.value} 份文件停留在未分类，请检查文件元数据`)
+    }
+    message.success(`已按文件名归类 ${processedCount} 份未分类文件`)
+  } catch (error) {
+    message.error(
+      `自动归类失败：已处理 ${processedCount}/${filesToClassify.length}，后端错误：${resolveAiCategoryErrorMessage(error)}`
+    )
+    await getAssociatedFiles()
+    throw error
+  } finally {
+    unclassifiedAutoClassifyRunning.value = false
   }
 }
 
@@ -1986,6 +2937,17 @@ watch(
   () => route.query.projectCodeId,
   async () => {
     await syncDetailFromRoute()
+  }
+)
+
+watch(
+  () => [route.query.associatedFocus, route.query.associatedFileId, route.query.fileTypeTaxonomyId],
+  () => {
+    if (detailDrawerVisible.value) {
+      if (!applyAssociatedRouteFocus()) {
+        ensureAssociatedSelection()
+      }
+    }
   }
 )
 </script>
@@ -2207,6 +3169,10 @@ watch(
   color: #1677ff;
   background: #eef6ff;
   border-color: #1677ff;
+}
+
+.dcc-project-code-associated-file-table :deep(.is-associated-route-focus > td) {
+  background: #f0f9eb !important;
 }
 
 .dcc-project-code-associated-item-label {

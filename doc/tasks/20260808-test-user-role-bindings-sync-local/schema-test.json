@@ -1,0 +1,284 @@
+{
+  "systemRole": [
+    {
+      "type": "bigint",
+      "column": "category_id",
+      "nullable": "YES",
+      "collation": null
+    },
+    {
+      "type": "varchar(100)",
+      "column": "code",
+      "nullable": "NO",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "datetime",
+      "column": "create_time",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "varchar(64)",
+      "column": "creator",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "tinyint",
+      "column": "data_scope",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "varchar(500)",
+      "column": "data_scope_dept_ids",
+      "nullable": "NO",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "bit(1)",
+      "column": "deleted",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "bigint",
+      "column": "id",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "varchar(30)",
+      "column": "name",
+      "nullable": "NO",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "varchar(500)",
+      "column": "remark",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "int",
+      "column": "sort",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "tinyint",
+      "column": "status",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "bigint",
+      "column": "tenant_id",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "tinyint",
+      "column": "type",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "datetime",
+      "column": "update_time",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "varchar(64)",
+      "column": "updater",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    }
+  ],
+  "systemUsers": [
+    {
+      "type": "varchar(512)",
+      "column": "avatar",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "datetime",
+      "column": "create_time",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "varchar(64)",
+      "column": "creator",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "bit(1)",
+      "column": "deleted",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "bigint",
+      "column": "dept_id",
+      "nullable": "YES",
+      "collation": null
+    },
+    {
+      "type": "varchar(50)",
+      "column": "email",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "bigint",
+      "column": "id",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "datetime",
+      "column": "login_date",
+      "nullable": "YES",
+      "collation": null
+    },
+    {
+      "type": "varchar(50)",
+      "column": "login_ip",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "varchar(11)",
+      "column": "mobile",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "varchar(30)",
+      "column": "nickname",
+      "nullable": "NO",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "varchar(100)",
+      "column": "password",
+      "nullable": "NO",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "datetime",
+      "column": "password_update_time",
+      "nullable": "YES",
+      "collation": null
+    },
+    {
+      "type": "varchar(255)",
+      "column": "post_ids",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "varchar(500)",
+      "column": "remark",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "tinyint",
+      "column": "sex",
+      "nullable": "YES",
+      "collation": null
+    },
+    {
+      "type": "tinyint",
+      "column": "status",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "bigint",
+      "column": "tenant_id",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "datetime",
+      "column": "update_time",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "varchar(64)",
+      "column": "updater",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "varchar(30)",
+      "column": "username",
+      "nullable": "NO",
+      "collation": "utf8mb4_unicode_ci"
+    }
+  ],
+  "systemUserRole": [
+    {
+      "type": "datetime",
+      "column": "create_time",
+      "nullable": "YES",
+      "collation": null
+    },
+    {
+      "type": "varchar(64)",
+      "column": "creator",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "bit(1)",
+      "column": "deleted",
+      "nullable": "YES",
+      "collation": null
+    },
+    {
+      "type": "bigint",
+      "column": "id",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "bigint",
+      "column": "role_id",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "bigint",
+      "column": "tenant_id",
+      "nullable": "NO",
+      "collation": null
+    },
+    {
+      "type": "datetime",
+      "column": "update_time",
+      "nullable": "YES",
+      "collation": null
+    },
+    {
+      "type": "varchar(64)",
+      "column": "updater",
+      "nullable": "YES",
+      "collation": "utf8mb4_unicode_ci"
+    },
+    {
+      "type": "bigint",
+      "column": "user_id",
+      "nullable": "NO",
+      "collation": null
+    }
+  ]
+}

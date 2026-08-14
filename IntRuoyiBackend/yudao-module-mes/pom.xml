@@ -120,6 +120,7 @@
                                 <testInclude>**/MesProRouteProcessControllerTest.java</testInclude>
                                 <testInclude>**/MesProRouteProcessServiceImplTest.java</testInclude>
                                 <testInclude>**/MesProRouteProcessControllerWorkstationViewTest.java</testInclude>
+                                <testInclude>**/MesProRouteVersionPublishProjectionServiceTest.java</testInclude>
                                 <testInclude>**/MesProRouteScheduleConfigServiceTest.java</testInclude>
                                 <testInclude>**/MesProRouteScheduleConfigServiceImplTest.java</testInclude>
                             </testIncludes>
@@ -153,6 +154,7 @@
                                 <include>**/MesProRouteProcessControllerTest.java</include>
                                 <include>**/MesProRouteProcessServiceImplTest.java</include>
                                 <include>**/MesProRouteProcessControllerWorkstationViewTest.java</include>
+                                <include>**/MesProRouteVersionPublishProjectionServiceTest.java</include>
                                 <include>**/MesProRouteScheduleConfigServiceTest.java</include>
                                 <include>**/MesProRouteScheduleConfigServiceImplTest.java</include>
                             </includes>
@@ -162,6 +164,176 @@
                                 <exclude>**/batchrecord/**</exclude>
                                 <exclude>**/job/batchrecord/**</exclude>
                             </excludes>
+                            <systemPropertyVariables>
+                                <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>mes-ac-m20-pqc-review-targeted-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/MesTeamLeaderSubmissionReviewServiceTest.java</testInclude>
+                                <testInclude>**/MesPqcProcessInspectionAggregationServiceTest.java</testInclude>
+                                <testInclude>**/MesProcessPoolTeamLeaderSchemaTest.java</testInclude>
+                                <testInclude>**/MesQaPqcSchemaTest.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/MesTeamLeaderSubmissionReviewServiceTest.java</include>
+                                <include>**/MesPqcProcessInspectionAggregationServiceTest.java</include>
+                                <include>**/MesProcessPoolTeamLeaderSchemaTest.java</include>
+                                <include>**/MesQaPqcSchemaTest.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>mes-ac-m04-active-order-targeted-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/MesTeamLeaderActiveOrderManualSortTest.java</testInclude>
+                                <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
+                                <testInclude>**/MesProcessPoolTeamLeaderControllerTest.java</testInclude>
+                                <testInclude>**/MesActiveOrderTransferTraceServiceTest.java</testInclude>
+                                <testInclude>**/MesActiveOrderTransferTraceSchemaTest.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/MesTeamLeaderActiveOrderManualSortTest.java</include>
+                                <include>**/MesTeamLeaderActiveOrderServiceTest.java</include>
+                                <include>**/MesProcessPoolTeamLeaderControllerTest.java</include>
+                                <include>**/MesActiveOrderTransferTraceServiceTest.java</include>
+                                <include>**/MesActiveOrderTransferTraceSchemaTest.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>mes-pressure-pump-device-standard-targeted-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/MesTeamLeaderRuntimeConfigServiceTest.java</testInclude>
+                                <testInclude>**/MesTeamLeaderProcessConfigServiceTest.java</testInclude>
+                                <testInclude>**/MesFrontlineRuntimeConfigServiceTest.java</testInclude>
+                                <testInclude>**/MesFrontlineRuntimeConfigControllerTest.java</testInclude>
+                                <testInclude>**/MesFrontlineDeviceParameterValidatorTest.java</testInclude>
+                                <testInclude>**/MesProcessPoolTeamLeaderSchemaTest.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/MesTeamLeaderRuntimeConfigServiceTest.java</include>
+                                <include>**/MesTeamLeaderProcessConfigServiceTest.java</include>
+                                <include>**/MesFrontlineRuntimeConfigServiceTest.java</include>
+                                <include>**/MesFrontlineRuntimeConfigControllerTest.java</include>
+                                <include>**/MesFrontlineDeviceParameterValidatorTest.java</include>
+                                <include>**/MesProcessPoolTeamLeaderSchemaTest.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>mes-frontline-formal-submit-targeted-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/MesFrontlineUniqueLeaderAssignmentTest.java</testInclude>
+                                <testInclude>**/MesFrontlineDeviceParameterValidatorTest.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/MesFrontlineUniqueLeaderAssignmentTest.java</include>
+                                <include>**/MesFrontlineDeviceParameterValidatorTest.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>mes-frontline-pqc-formal-submit-targeted-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/MesQaPqcSchemaTest.java</testInclude>
+                                <testInclude>**/MesFrontlinePqcContextServiceTest.java</testInclude>
+                                <testInclude>**/MesProcessPoolPqcEventTest.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/MesQaPqcSchemaTest.java</include>
+                                <include>**/MesFrontlinePqcContextServiceTest.java</include>
+                                <include>**/MesProcessPoolPqcEventTest.java</include>
+                            </includes>
                             <systemPropertyVariables>
                                 <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
                             </systemPropertyVariables>

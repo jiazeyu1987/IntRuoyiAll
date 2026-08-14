@@ -30,7 +30,7 @@ class MesProBatchRecordCellLinkSchemaTest {
                 "sourceType", "sourceReportId", "sourceReportName", "sourceRowIndex", "sourceColumnIndex", "sourceCellKey",
                 "sourceFieldCode", "sourceFieldName", "sourceLabel", "sourceValueType", "targetReportId", "targetReportName", "targetRowIndex",
                 "targetColumnIndex", "targetCellKey", "targetLabel", "targetValueType",
-                "overwritePolicy", "templateSnapshotHash", "ruleVersion", "enabled", "remark");
+                "aggregationStrategy", "overwritePolicy", "templateSnapshotHash", "ruleVersion", "enabled", "remark");
     }
 
     @Test
@@ -91,7 +91,7 @@ class MesProBatchRecordCellLinkSchemaTest {
                 "source_type", "source_report_id", "source_report_name", "source_row_index", "source_column_index",
                 "source_cell_key", "source_field_code", "source_field_name", "source_label", "source_value_type", "target_report_id",
                 "target_report_name", "target_row_index", "target_column_index", "target_cell_key",
-                "target_label", "target_value_type", "overwrite_policy", "template_snapshot_hash",
+                "target_label", "target_value_type", "aggregation_strategy", "overwrite_policy", "template_snapshot_hash",
                 "rule_version", "enabled", "tenant_id", "active_pair_unique_flag",
                 "active_target_unique_flag")) {
             assertTrue(schemaContainsToken(schema, column), "Missing column " + column);

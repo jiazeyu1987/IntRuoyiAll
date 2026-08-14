@@ -103,6 +103,8 @@ class DccControlledFileMessageOutboxTest extends BaseMockitoUnitTest {
     private PermissionApi permissionApi;
     @Mock
     private DccControlledContentAdapter platformAdapter;
+    @Mock
+    private DccControlledFileSignatureBindingService signatureBindingService;
 
     private DccControlledFileMessageDeliveryService messageDeliveryService;
     @InjectMocks

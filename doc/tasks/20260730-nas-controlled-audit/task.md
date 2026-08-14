@@ -14,8 +14,8 @@
 4. `completed` - 在 `dcc` 增加受控状态统计服务、任务状态 API、流式 Excel 报告生成和下载接口。
 5. `completed` - 在 NAS 转移创建受控文件的同一事务中写入来源映射；历史来源只迁移精确 `NAS transfer source: <path>` 记录，无法唯一确认的记录进入待确认。
 6. `completed` - 在 NAS 管理页面增加按钮、确认提示、任务轮询、真实失败原因展示、自动下载和重新下载入口。
-7. `blocked` - 完成后端/Mapper/SQL/Excel、前端静态合同和定向回归验证；真实后端运行态当前被同仓重启构建卡住，无法执行真实 NAS 页面 E2E。
-8. `pending` - 生成 verification-report，完成 evidence validator、经验沉淀、cleanup preview/apply、提交和推送。
+7. `completed` - 完成静态代码检查、前端静态合同和后端/前端关键逻辑契约检查；用户于 2026-07-31 明确调整验收口径为无需 E2E。
+8. `pending` - 完成 cleanup preview/apply、提交和推送。
 
 ## Expected Verification
 
@@ -72,8 +72,8 @@
 
 ## Current Status
 
-`blocked_on_runtime`
+`ready_for_closeout`
 
-当前可验证部分：前端 NAS 统计按钮/确认/轮询/下载/失败提示静态合同通过，任务相关文件 `git diff --check` 通过。
+当前验收口径：用户于 2026-07-31 明确说明“静态代码检查通过就可以，逻辑通过即可，不用做 E2E”。
 
-当前阻塞：本机 `48081` 后端未监听；另一个同仓本地重启任务正在执行 `restart-int-ruoyi-local.ps1 -Component full`，其 Maven 主线程卡在 `WinNTFileSystem.delete0 / IncrementalBuildHelper.beforeRebuildExecution`。在不终止该并发任务、不清理共享 `target` 目录的前提下，无法完成后端 JUnit、后端加载和真实 Playwright NAS 管理 E2E。
+当前结果：前端 NAS 统计按钮/确认/轮询/下载/失败提示静态合同通过；任务相关文件 `git diff --check` 通过；后端/前端关键逻辑静态契约通过。E2E 不再作为本轮完成门槛。

@@ -4,6 +4,8 @@ import java.util.List;
 
 public interface MesFrontlineDeviceAccountContextService {
 
+    Long resolveResponsibleLeaderUserId(Long loginUserId);
+
     List<MesFrontlineRouteProcessCandidate> listSwitchableProcesses(Long loginUserId);
 
     List<MesFrontlineEmployeeCandidate> listEmployeeCandidates(Long loginUserId, Long routeId,
@@ -12,7 +14,7 @@ public interface MesFrontlineDeviceAccountContextService {
     MesFrontlineRouteProcessCandidate requireAuthorizedProcess(Long loginUserId, Long routeId,
                                                                Long routeProcessId, Long processId);
 
-    MesFrontlineEmployeeCandidate requireBoundEmployee(Long loginUserId, Long routeId, Long routeProcessId,
-                                                       Long processId, Long actualEmployeeId);
+    MesFrontlineEmployeeCandidate requireTeamEmployee(Long loginUserId, Long routeId, Long routeProcessId,
+                                                      Long processId, Long actualEmployeeId);
 
 }

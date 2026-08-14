@@ -58,9 +58,9 @@ assert.ok(
 )
 
 assert.ok(
-  /key:\s*'completionFilter'[\s\S]*label:\s*'完成筛选'[\s\S]*queryParamKey:\s*'completionFilter'/.test(source) &&
-    !/#extra-filters[\s\S]*label="完成筛选"/.test(source),
-  '完成筛选必须融合进统一快速筛选列表，且继续写回 completionFilter 查询参数。'
+  /key:\s*'completionFilter'[\s\S]*label:\s*'完成状态'[\s\S]*queryParamKey:\s*'completionFilter'/.test(source) &&
+    !/#extra-filters[\s\S]*label="完成状态"/.test(source),
+  '完成状态必须融合进统一快速筛选列表，且继续写回 completionFilter 查询参数。'
 )
 
 assert.ok(

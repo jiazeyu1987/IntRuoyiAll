@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.schedule;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoSchedulePreviewReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoSchedulePreviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoScheduleApplyRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightSummaryRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.calendar.MesProScheduleCalendarRulesRespVO;
@@ -560,6 +561,42 @@ class MesProAutoScheduleAlgorithmContractTest {
         assertEquals(1L, capacityIssues.get(0).getWorkOrderId());
         assertEquals(300L, capacityIssues.get(0).getProcessId());
         assertEquals("夜班工序缺少可用夜班班次或夜班产能", capacityIssues.get(0).getMessage());
+    }
+
+    @Test
+    void apply_shouldPersistBlockedIssueAndContinueSchedulableWorkOrders() {
+        urgentWorkOrder.setProductId(101L);
+        urgentOrder.setProductId(101L);
+        lenient().when(scheduleOrderProcessMapper.selectListByScheduleOrderId(502L)).thenReturn(List.of(
+                scheduleOrderProcess(603L, 502L, 300L, 1,
+                        MesProScheduleCapacityModeEnum.FINITE_HOURLY.getMode(),
+                        new BigDecimal("5"), null, null, false),
+                scheduleOrderProcess(604L, 502L, 301L, 2,
+                        MesProScheduleCapacityModeEnum.INFINITE_FORMULA.getMode(),
+                        null, new BigDecimal("3"), new BigDecimal("30"), false)));
+        MesProAutoSchedulePreviewReqVO reqVO = req();
+
+        MesProAutoSchedulePreviewRespVO preview = autoScheduleService.preview(reqVO);
+        reqVO.setCalendarContextToken(preview.getCalendarContextToken());
+        MesProAutoScheduleApplyRespVO response = autoScheduleService.apply(reqVO);
+
+        assertTrue(response.getApplied());
+        assertEquals(1, response.getSummary().getBlockingIssueCount());
+        assertEquals(2, response.getSummary().getGeneratedTaskCount());
+        assertEquals(2, response.getCreatedTaskIds().size());
+        ArgumentCaptor<MesProTaskDO> taskCaptor = ArgumentCaptor.forClass(MesProTaskDO.class);
+        verify(taskMapper, org.mockito.Mockito.atLeastOnce()).insert(taskCaptor.capture());
+        assertTrue(taskCaptor.getAllValues().stream().allMatch(task -> Long.valueOf(2L).equals(task.getWorkOrderId())));
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        ArgumentCaptor<List<MesProScheduleIssueDO>> issueCaptor = ArgumentCaptor.forClass((Class) List.class);
+        verify(scheduleIssueMapper, org.mockito.Mockito.atLeastOnce()).insertBatch(issueCaptor.capture());
+        List<MesProScheduleIssueDO> insertedIssues = issueCaptor.getAllValues().stream()
+                .flatMap(List::stream)
+                .toList();
+        assertTrue(insertedIssues.stream().anyMatch(issue -> Long.valueOf(1L).equals(issue.getWorkOrderId())
+                && "BLOCKING".equals(issue.getSeverity())
+                && issue.getMessage().contains("工单未配置工艺路线")));
     }
 
     @Test

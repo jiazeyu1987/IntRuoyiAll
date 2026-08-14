@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicy;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicyMode;
@@ -12,6 +13,8 @@ import cn.iocoder.yudao.module.bpm.formcenter.model.FormTemplateVersionRef;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
@@ -27,6 +30,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
@@ -48,6 +53,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -128,6 +136,10 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private BusinessApprovalPolicyMapper businessApprovalPolicyMapper;
     @Resource
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
+    @Resource
+    private MesProcessPoolDefectReasonMapper defectReasonMapper;
+    @Resource
+    private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
 
     @Transactional(rollbackFor = Exception.class)
     public void projectCandidate(MesProRouteVersionDO candidate) {
@@ -149,6 +161,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                 configSnapshots.getJSONArray(BATCH_USE_CONFIGS_KEY), routeProcesses);
         projectUseConfigs(candidate.getId(), routeId, SCHEDULE_USE_TYPE,
                 configSnapshots.getJSONArray(SCHEDULE_USE_CONFIGS_KEY), routeProcesses);
+        inheritTeamLeaderProcessPoolConfigs(routeProcesses);
     }
 
     private JSONObject parseSnapshot(MesProRouteVersionDO candidate) {
@@ -194,7 +207,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         routeProcessMapper.deleteByRouteId(routeId);
         List<JSONObject> processSnapshots = nodes.stream().map(JSONObject.class::cast).toList();
         Map<Integer, MesProRouteProcessDO> routeProcessBySort = new LinkedHashMap<>();
-        Map<Long, MesProRouteProcessDO> routeProcessByOriginalId = new LinkedHashMap<>();
+        Map<Long, MesProRouteProcessDO> routeProcessByReferenceId = new LinkedHashMap<>();
+        Map<Long, MesProRouteProcessDO> routeProcessByFrozenOfficialRouteProcessId = new LinkedHashMap<>();
         processSnapshots.stream()
                 .sorted(Comparator.comparing(node -> node.getInteger("sort")))
                 .forEach(node -> {
@@ -203,6 +217,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
                             .routeId(routeId)
                             .processId(process.getId())
+                            .workstationId(node.getLong("routeProcessWorkstationId"))
                             .sort(sort)
                             .keyFlag(node.getBoolean("keyFlag"))
                             .checkFlag(node.getBoolean("checkFlag"))
@@ -210,16 +225,18 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     routeProcessMapper.insert(routeProcess);
                     routeProcess = requireProjectedRouteProcessId(routeId, sort, routeProcess);
                     routeProcessBySort.put(sort, routeProcess);
-                    Long originalRouteProcessId = node.getLong("routeProcessId");
-                    if (originalRouteProcessId != null) {
-                        routeProcessByOriginalId.put(originalRouteProcessId, routeProcess);
+                    Long frozenOfficialRouteProcessId = node.getLong("routeProcessId");
+                    if (frozenOfficialRouteProcessId != null) {
+                        routeProcessByReferenceId.put(frozenOfficialRouteProcessId, routeProcess);
+                        routeProcessByFrozenOfficialRouteProcessId.put(frozenOfficialRouteProcessId, routeProcess);
                     }
                     Long clientRouteProcessId = node.getLong("clientRouteProcessId");
                     if (clientRouteProcessId != null) {
-                        routeProcessByOriginalId.put(clientRouteProcessId, routeProcess);
+                        routeProcessByReferenceId.put(clientRouteProcessId, routeProcess);
                     }
                 });
-        return new RouteProcessProjection(routeProcessBySort, routeProcessByOriginalId);
+        return new RouteProcessProjection(routeProcessBySort, routeProcessByReferenceId,
+                routeProcessByFrozenOfficialRouteProcessId);
     }
 
     private MesProRouteProcessDO requireProjectedRouteProcessId(Long routeId, Integer sort,
@@ -861,7 +878,31 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         if (routeVersionId == null || StrUtil.isBlank(formBindingKey)) {
             throw new IllegalArgumentException("routeVersionId and formBindingKey are required");
         }
-        return "EDHR_RF_" + routeVersionId + "_" + formBindingKey;
+        String prefix = "EDHR_RF_" + routeVersionId + "_";
+        String actionCode = prefix + formBindingKey;
+        if (actionCode.length() <= 64) {
+            return actionCode;
+        }
+        String hash = sha256Hex(actionCode).substring(0, 12);
+        int maxKeyLength = 64 - prefix.length() - 1 - hash.length();
+        if (maxKeyLength <= 0) {
+            throw new IllegalArgumentException("route form action code prefix is too long: " + routeVersionId);
+        }
+        return prefix + formBindingKey.substring(0, maxKeyLength) + "_" + hash;
+    }
+
+    private static String sha256Hex(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder builder = new StringBuilder(digest.length * 2);
+            for (byte item : digest) {
+                builder.append(String.format("%02x", item));
+            }
+            return builder.toString();
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is required", ex);
+        }
     }
 
     private void syncRouteFormFillRule(Long routeVersionId, Long routeProcessId, String formBindingKey,
@@ -895,8 +936,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             return routeProcesses.bySort().get(sort);
         }
         Long routeProcessId = config.getLong("routeProcessId");
-        if (routeProcessId != null && routeProcesses.byOriginalId().containsKey(routeProcessId)) {
-            return routeProcesses.byOriginalId().get(routeProcessId);
+        if (routeProcessId != null && routeProcesses.byRouteProcessReferenceId().containsKey(routeProcessId)) {
+            return routeProcesses.byRouteProcessReferenceId().get(routeProcessId);
         }
         String processName = requireText(config, "processName");
         return routeProcesses.bySort().values().stream()
@@ -916,7 +957,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             return requireRouteProcessBySort(routeProcesses.bySort(), sort);
         }
         Long routeProcessId = object.getLong(idKey);
-        MesProRouteProcessDO routeProcess = routeProcessId == null ? null : routeProcesses.byOriginalId().get(routeProcessId);
+        MesProRouteProcessDO routeProcess = routeProcessId == null ? null
+                : routeProcesses.byRouteProcessReferenceId().get(routeProcessId);
         if (routeProcess == null || routeProcess.getId() == null) {
             throw new IllegalArgumentException("route process id does not exist: " + routeProcessId);
         }
@@ -939,13 +981,125 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         return value;
     }
 
+    // QA 规程不是损耗原因或设备参数标准的数据源；clientRouteProcessId 只用于流程图投影引用。
+    // 生产组长配置只按冻结快照中的正式 routeProcessId 继承，运行态不得 fallback 回读旧 routeProcessId。
+    private void inheritTeamLeaderProcessPoolConfigs(RouteProcessProjection routeProcesses) {
+        if (routeProcesses.byFrozenOfficialRouteProcessId().isEmpty()) {
+            return;
+        }
+        Set<Long> frozenOfficialRouteProcessIds = new LinkedHashSet<>(
+                routeProcesses.byFrozenOfficialRouteProcessId().keySet());
+        Set<Long> projectedRouteProcessIds = new LinkedHashSet<>();
+        for (MesProRouteProcessDO routeProcess : routeProcesses.byFrozenOfficialRouteProcessId().values()) {
+            if (routeProcess != null && routeProcess.getId() != null) {
+                projectedRouteProcessIds.add(routeProcess.getId());
+            }
+        }
+        inheritDefectReasons(frozenOfficialRouteProcessIds, projectedRouteProcessIds,
+                routeProcesses.byFrozenOfficialRouteProcessId());
+        inheritDeviceParameterRules(frozenOfficialRouteProcessIds, projectedRouteProcessIds,
+                routeProcesses.byFrozenOfficialRouteProcessId());
+    }
+
+    private void inheritDefectReasons(Set<Long> frozenOfficialRouteProcessIds, Set<Long> projectedRouteProcessIds,
+                                      Map<Long, MesProRouteProcessDO> projectedByFrozenOfficialRouteProcessId) {
+        if (frozenOfficialRouteProcessIds.isEmpty() || projectedRouteProcessIds.isEmpty()) {
+            return;
+        }
+        Set<String> existingKeys = new LinkedHashSet<>();
+        List<MesProcessPoolDefectReasonDO> existingProjectedReasons = defectReasonMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolDefectReasonDO>()
+                        .in(MesProcessPoolDefectReasonDO::getRouteProcessId, projectedRouteProcessIds));
+        for (MesProcessPoolDefectReasonDO reason : existingProjectedReasons) {
+            existingKeys.add(defectReasonKey(reason.getRouteProcessId(), reason.getReasonType(), reason.getReasonCode()));
+        }
+        List<MesProcessPoolDefectReasonDO> sourceReasons = defectReasonMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolDefectReasonDO>()
+                        .in(MesProcessPoolDefectReasonDO::getRouteProcessId, frozenOfficialRouteProcessIds));
+        for (MesProcessPoolDefectReasonDO source : sourceReasons) {
+            MesProRouteProcessDO projected = projectedByFrozenOfficialRouteProcessId.get(source.getRouteProcessId());
+            if (projected == null || projected.getId() == null) {
+                continue;
+            }
+            String targetKey = defectReasonKey(projected.getId(), source.getReasonType(), source.getReasonCode());
+            if (!existingKeys.add(targetKey)) {
+                continue;
+            }
+            defectReasonMapper.insert(MesProcessPoolDefectReasonDO.builder()
+                    .leaderUserId(source.getLeaderUserId())
+                    .reasonType(source.getReasonType())
+                    .reasonCode(source.getReasonCode())
+                    .reasonName(source.getReasonName())
+                    .routeProcessId(projected.getId())
+                    .processId(projected.getProcessId())
+                    .enabled(source.getEnabled())
+                    .remark(source.getRemark())
+                    .build());
+        }
+    }
+
+    private void inheritDeviceParameterRules(Set<Long> frozenOfficialRouteProcessIds,
+                                             Set<Long> projectedRouteProcessIds,
+                                             Map<Long, MesProRouteProcessDO> projectedByFrozenOfficialRouteProcessId) {
+        if (frozenOfficialRouteProcessIds.isEmpty() || projectedRouteProcessIds.isEmpty()) {
+            return;
+        }
+        Set<String> existingKeys = new LinkedHashSet<>();
+        List<MesProcessPoolDeviceParameterRuleDO> existingProjectedRules = deviceParameterRuleMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
+                        .in(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, projectedRouteProcessIds));
+        for (MesProcessPoolDeviceParameterRuleDO rule : existingProjectedRules) {
+            existingKeys.add(deviceParameterRuleKey(rule.getRouteProcessId(), rule.getDeviceId(), rule.getParameterCode()));
+        }
+        List<MesProcessPoolDeviceParameterRuleDO> sourceRules = deviceParameterRuleMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
+                        .in(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, frozenOfficialRouteProcessIds));
+        for (MesProcessPoolDeviceParameterRuleDO source : sourceRules) {
+            MesProRouteProcessDO projected = projectedByFrozenOfficialRouteProcessId.get(source.getRouteProcessId());
+            if (projected == null || projected.getId() == null) {
+                continue;
+            }
+            String targetKey = deviceParameterRuleKey(projected.getId(), source.getDeviceId(), source.getParameterCode());
+            if (!existingKeys.add(targetKey)) {
+                continue;
+            }
+            deviceParameterRuleMapper.insert(MesProcessPoolDeviceParameterRuleDO.builder()
+                    .leaderUserId(source.getLeaderUserId())
+                    .routeProcessId(projected.getId())
+                    .processId(projected.getProcessId())
+                    .deviceId(source.getDeviceId())
+                    .parameterCode(source.getParameterCode())
+                    .parameterName(source.getParameterName())
+                    .unit(source.getUnit())
+                    .lowerLimit(source.getLowerLimit())
+                    .upperLimit(source.getUpperLimit())
+                    .defaultValue(source.getDefaultValue())
+                    .valueType(source.getValueType())
+                    .standardText(source.getStandardText())
+                    .optionValuesJson(source.getOptionValuesJson())
+                    .defaultText(source.getDefaultText())
+                    .decimalScale(source.getDecimalScale())
+                    .enabled(source.getEnabled())
+                    .build());
+        }
+    }
+
+    private String defectReasonKey(Long routeProcessId, String reasonType, String reasonCode) {
+        return routeProcessId + "|" + StrUtil.nullToEmpty(reasonType) + "|" + StrUtil.nullToEmpty(reasonCode);
+    }
+
+    private String deviceParameterRuleKey(Long routeProcessId, Long deviceId, String parameterCode) {
+        return routeProcessId + "|" + deviceId + "|" + StrUtil.nullToEmpty(parameterCode);
+    }
+
     @SuppressWarnings("unused")
     private MesProRouteScheduleConfigMapper routeScheduleConfigMapper() {
         return routeScheduleConfigMapper;
     }
 
     private record RouteProcessProjection(Map<Integer, MesProRouteProcessDO> bySort,
-                                          Map<Long, MesProRouteProcessDO> byOriginalId) {
+                                          Map<Long, MesProRouteProcessDO> byRouteProcessReferenceId,
+                                          Map<Long, MesProRouteProcessDO> byFrozenOfficialRouteProcessId) {
     }
 
     private record IndexedFlowEdge(JSONObject edge, int sort, int index) {

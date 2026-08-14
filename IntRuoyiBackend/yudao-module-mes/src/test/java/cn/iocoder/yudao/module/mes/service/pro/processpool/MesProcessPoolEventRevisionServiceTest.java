@@ -4,9 +4,11 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDiffDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,18 +39,21 @@ class MesProcessPoolEventRevisionServiceTest {
     private MesProProcessPoolEventRevisionDiffMapper revisionDiffMapper;
     @Mock
     private MesProcessPoolFifoAllocationService fifoAllocationService;
+    @Mock
+    private MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
 
     private MesProcessPoolEventRevisionService service;
 
     @BeforeEach
     void setUp() {
         service = new MesProcessPoolEventRevisionServiceImpl(eventMapper, revisionMapper,
-                revisionDiffMapper, fifoAllocationService);
+                revisionDiffMapper, fifoAllocationService, submissionReviewMapper);
     }
 
     @Test
     void updateUnallocatedEventCreatesFieldDiffAndSignatureLog() {
-        when(eventMapper.selectById(1001L)).thenReturn(event());
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejectedReview());
         when(eventMapper.selectBySignatureId(9002L)).thenReturn(null);
         when(revisionMapper.selectBySignatureId(9002L)).thenReturn(null);
         when(revisionMapper.insert(any(MesProProcessPoolEventRevisionDO.class))).thenAnswer(invocation -> {
@@ -97,7 +102,8 @@ class MesProcessPoolEventRevisionServiceTest {
     @Test
     void rejectsUpdateWithoutNewSignature() {
         MesProcessPoolEventRevisionUpdateReqBO req = updateReq().setRevisionSignatureId(9001L);
-        when(eventMapper.selectById(1001L)).thenReturn(event());
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejectedReview());
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(req));
 
@@ -119,7 +125,8 @@ class MesProcessPoolEventRevisionServiceTest {
 
     @Test
     void rejectsUpdateWhenRevisionSignatureAlreadyUsed() {
-        when(eventMapper.selectById(1001L)).thenReturn(event());
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejectedReview());
         when(eventMapper.selectBySignatureId(9002L)).thenReturn(null);
         when(revisionMapper.selectBySignatureId(9002L)).thenReturn(new MesProProcessPoolEventRevisionDO());
 
@@ -143,7 +150,7 @@ class MesProcessPoolEventRevisionServiceTest {
 
     @Test
     void rejectsUpdateWhenEventRawPayloadMissing() {
-        when(eventMapper.selectById(1001L)).thenReturn(event().setRawPayload(" "));
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event().setRawPayload(" "));
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(updateReq()));
 
@@ -154,7 +161,7 @@ class MesProcessPoolEventRevisionServiceTest {
 
     @Test
     void rejectsUpdateWhenEventRawPayloadIsInvalidJson() {
-        when(eventMapper.selectById(1001L)).thenReturn(event().setRawPayload("{bad"));
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event().setRawPayload("{bad"));
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(updateReq()));
 
@@ -178,13 +185,38 @@ class MesProcessPoolEventRevisionServiceTest {
     void rejectsUpdateWhenAffectsQuantityFragmentIsNull() {
         MesProcessPoolEventRevisionUpdateReqBO req = updateReq();
         req.getChangedFields().get(0).setAffectsQuantityFragment(null);
-        when(eventMapper.selectById(1001L)).thenReturn(event());
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejectedReview());
         when(eventMapper.selectBySignatureId(9002L)).thenReturn(null);
         when(revisionMapper.selectBySignatureId(9002L)).thenReturn(null);
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(req));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED.getCode(), ex.getCode());
+        verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+
+    @Test
+    void rejectsCorrectionWhenLatestSubmissionReviewIsMissing() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(null);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(updateReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED.getCode(), ex.getCode());
+        verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+
+    @Test
+    void rejectsCorrectionWhenLatestSubmissionReviewIsApproved() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(submissionReviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(approvedReview());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(updateReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED.getCode(), ex.getCode());
         verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
         verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
     }
@@ -222,6 +254,28 @@ class MesProcessPoolEventRevisionServiceTest {
                         .affectsQuantityFragment(false)
                         .originalField(MesProcessPoolFragmentOriginalField.REMARK)
                         .build()))
+                .build();
+    }
+
+    static MesProcessPoolSubmissionReviewDO rejectedReview() {
+        return MesProcessPoolSubmissionReviewDO.builder()
+                .id(8001L)
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
+                .reviewRemark("压力曲线异常，退回补正")
+                .reviewedAt(LocalDateTime.of(2026, 8, 3, 10, 30))
+                .build();
+    }
+
+    static MesProcessPoolSubmissionReviewDO approvedReview() {
+        return MesProcessPoolSubmissionReviewDO.builder()
+                .id(8002L)
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
+                .reviewRemark("数据和签名一致")
+                .reviewedAt(LocalDateTime.of(2026, 8, 3, 11, 30))
                 .build();
     }
 }

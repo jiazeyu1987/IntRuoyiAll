@@ -6,9 +6,11 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDiffDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -22,6 +24,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_FIFO_LOCK_STATUS_UNKNOWN;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_PRODUCTION_REPORT_APPROVED_LOCKED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_SIGNATURE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_SIGNATURE_REUSED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH;
@@ -34,26 +38,46 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
     private final MesProProcessPoolEventRevisionMapper revisionMapper;
     private final MesProProcessPoolEventRevisionDiffMapper revisionDiffMapper;
     private final MesProcessPoolFifoAllocationService fifoAllocationService;
+    private final MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
 
     public MesProcessPoolEventRevisionServiceImpl(MesProProcessPoolEventMapper eventMapper,
                                                   MesProProcessPoolEventRevisionMapper revisionMapper,
                                                   MesProProcessPoolEventRevisionDiffMapper revisionDiffMapper,
-                                                  MesProcessPoolFifoAllocationService fifoAllocationService) {
+                                                  MesProcessPoolFifoAllocationService fifoAllocationService,
+                                                  MesProcessPoolSubmissionReviewMapper submissionReviewMapper) {
         this.eventMapper = eventMapper;
         this.revisionMapper = revisionMapper;
         this.revisionDiffMapper = revisionDiffMapper;
         this.fifoAllocationService = fifoAllocationService;
+        this.submissionReviewMapper = submissionReviewMapper;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long updateOriginalRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return updateRecord(reqBO, RevisionPolicy.REJECTED_REVIEW_REQUIRED);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long updateProductionReportRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return updateRecord(reqBO, RevisionPolicy.PRODUCTION_REPORT_CORRECTION);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long updatePqcInspectionRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
+        return updateRecord(reqBO, RevisionPolicy.PQC_INSPECTION_CORRECTION);
+    }
+
+    private Long updateRecord(MesProcessPoolEventRevisionUpdateReqBO reqBO, RevisionPolicy revisionPolicy) {
         validateRequest(reqBO);
-        MesProProcessPoolEventDO event = eventMapper.selectById(reqBO.getEventId());
+        MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(reqBO.getEventId());
         if (event == null) {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());
         }
         validateJsonPayload(event.getRawPayload(), "rawPayload");
+        validateRevisionPolicy(event, revisionPolicy);
         validateSignature(reqBO, event);
         validateDiffAndFifoLocks(reqBO);
 
@@ -87,6 +111,32 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         return revision.getId();
     }
 
+    private void validateRevisionPolicy(MesProProcessPoolEventDO event, RevisionPolicy revisionPolicy) {
+        if (RevisionPolicy.REJECTED_REVIEW_REQUIRED.equals(revisionPolicy)) {
+            validateLatestRejectedReview(event.getId());
+            return;
+        }
+        if (RevisionPolicy.PRODUCTION_REPORT_CORRECTION.equals(revisionPolicy)) {
+            validateProductionReportCorrection(event);
+            return;
+        }
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionEvent");
+        }
+    }
+
+    private void validateProductionReportCorrection(MesProProcessPoolEventDO event) {
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionSubmitEvent");
+        }
+        MesProcessPoolSubmissionReviewDO latestReview =
+                submissionReviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        if (latestReview != null
+                && MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(latestReview.getReviewStatus())) {
+            throw exception(PRO_PROCESS_POOL_REVISION_PRODUCTION_REPORT_APPROVED_LOCKED, event.getId());
+        }
+    }
+
     private void validateRequest(MesProcessPoolEventRevisionUpdateReqBO reqBO) {
         if (reqBO == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "revisionRequest");
@@ -108,6 +158,16 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         requirePositive(reqBO.getModifiedByUserId(), "modifiedByUserId");
         if (CollUtil.isEmpty(reqBO.getChangedFields())) {
             throw exception(PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED);
+        }
+    }
+
+    private void validateLatestRejectedReview(Long eventId) {
+        MesProcessPoolSubmissionReviewDO latestReview =
+                submissionReviewMapper.selectLatestByEventIdForUpdate(eventId);
+        if (latestReview == null
+                || !MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(latestReview.getReviewStatus())) {
+            throw exception(PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED,
+                    eventId, latestReview == null ? "MISSING" : latestReview.getReviewStatus());
         }
     }
 
@@ -165,6 +225,8 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
     private String toOriginalFieldName(MesProcessPoolFragmentOriginalField field) {
         return switch (field) {
             case OUTPUT_QUANTITY -> "输出数量";
+            case LOSS_QUANTITY -> "损耗数量";
+            case DEVICE_PARAMETERS -> "设备参数";
             case QUALITY_STATUS -> "质量状态";
             case ALLOCATABLE_STATUS -> "可分配状态";
             case REMARK -> "备注";
@@ -186,5 +248,11 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         } catch (RuntimeException ex) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, fieldName);
         }
+    }
+
+    private enum RevisionPolicy {
+        REJECTED_REVIEW_REQUIRED,
+        PRODUCTION_REPORT_CORRECTION,
+        PQC_INSPECTION_CORRECTION
     }
 }

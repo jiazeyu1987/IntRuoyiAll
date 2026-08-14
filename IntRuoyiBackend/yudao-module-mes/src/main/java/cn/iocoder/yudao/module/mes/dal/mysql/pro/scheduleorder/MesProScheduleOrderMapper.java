@@ -57,10 +57,39 @@ public interface MesProScheduleOrderMapper extends BaseMapperX<MesProScheduleOrd
                 "promiseDate", QuickFilterUtils.QuickFilterField.localDateRange(MesProScheduleOrderDO::getPromiseDate),
                 "status", QuickFilterUtils.QuickFilterField.integerSelect(MesProScheduleOrderDO::getStatus)
         ));
-        return selectPage(reqVO, queryWrapper
-                .orderByAsc(MesProScheduleOrderDO::getPromiseDate)
-                .orderByAsc(MesProScheduleOrderDO::getPriorityNo)
-                .orderByAsc(MesProScheduleOrderDO::getId));
+        applyPageSort(queryWrapper, reqVO);
+        return selectPage(reqVO, queryWrapper);
+    }
+
+    default void applyPageSort(LambdaQueryWrapperX<MesProScheduleOrderDO> queryWrapper,
+                               MesProScheduleOrderPageReqVO reqVO) {
+        boolean hasSortField = hasText(reqVO.getSortField());
+        boolean hasSortOrder = hasText(reqVO.getSortOrder());
+        if (hasSortField != hasSortOrder) {
+            throw new IllegalArgumentException("排产工单排序字段和方向必须同时提供");
+        }
+        if (!hasSortField) {
+            queryWrapper.orderByAsc(MesProScheduleOrderDO::getPromiseDate)
+                    .orderByAsc(MesProScheduleOrderDO::getPriorityNo)
+                    .orderByAsc(MesProScheduleOrderDO::getId);
+            return;
+        }
+        if (!"priorityNo".equals(reqVO.getSortField())) {
+            throw new IllegalArgumentException("排产工单排序字段不支持: " + reqVO.getSortField());
+        }
+        if ("asc".equals(reqVO.getSortOrder())) {
+            queryWrapper.orderByAsc(MesProScheduleOrderDO::getPriorityNo);
+        } else if ("desc".equals(reqVO.getSortOrder())) {
+            queryWrapper.orderByDesc(MesProScheduleOrderDO::getPriorityNo);
+        } else {
+            throw new IllegalArgumentException("排产工单排序方向不支持: " + reqVO.getSortOrder());
+        }
+        queryWrapper.orderByAsc(MesProScheduleOrderDO::getPromiseDate)
+                .orderByAsc(MesProScheduleOrderDO::getId);
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     default MesProScheduleOrderDO selectEffectiveByWorkOrderId(Long workOrderId) {

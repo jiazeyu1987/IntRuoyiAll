@@ -43,6 +43,8 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
     private DccApprovalPositionRuntimeResolver positionRuntimeResolver;
     @Resource
     private AdminUserApi adminUserApi;
+    @Resource
+    private DccApprovalParticipantPostValidator approvalParticipantPostValidator;
 
     public Map<String, List<Long>> resolveStartUserSelectAssignees(DccControlledFileDO file, Long submitterUserId) {
         if (file == null || file.getCategoryId() == null) {
@@ -57,6 +59,14 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
     }
 
     public ResolvedRoute resolveRoute(Long categoryId, Long submitterUserId) {
+        return resolveRoute(categoryId, submitterUserId, true);
+    }
+
+    public ResolvedRoute resolveRouteForReadiness(Long categoryId, Long submitterUserId) {
+        return resolveRoute(categoryId, submitterUserId, false);
+    }
+
+    private ResolvedRoute resolveRoute(Long categoryId, Long submitterUserId, boolean requireConfiguredPosts) {
         DccCategoryApprovalRouteDO route = routeMapper.selectLatestActiveByCategoryId(categoryId);
         if (route == null) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
@@ -70,7 +80,7 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
         }
         List<ResolvedRouteNode> resolvedNodes = routeNodes.stream()
-                .map(routeNode -> resolveRouteNode(routeNode, submitterUserId))
+                .map(routeNode -> resolveRouteNode(routeNode, submitterUserId, requireConfiguredPosts))
                 .toList();
         if (toPendingStatus(resolvedNodes.get(0).stageNo()) == null) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
@@ -92,8 +102,9 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
                         ResolvedRouteNode::resolvedUserIds, (left, right) -> left, HashMap::new));
     }
 
-    private ResolvedRouteNode resolveRouteNode(DccCategoryApprovalRouteNodeDO routeNode, Long submitterUserId) {
-        List<Long> resolvedUserIds = resolveApprovers(routeNode, submitterUserId);
+    private ResolvedRouteNode resolveRouteNode(DccCategoryApprovalRouteNodeDO routeNode, Long submitterUserId,
+                                               boolean requireConfiguredPosts) {
+        List<Long> resolvedUserIds = resolveApprovers(routeNode, submitterUserId, requireConfiguredPosts);
         return new ResolvedRouteNode(
                 routeNode.getStageNo(),
                 routeNode.getStageCode(),
@@ -109,13 +120,14 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         );
     }
 
-    private List<Long> resolveApprovers(DccCategoryApprovalRouteNodeDO routeNode, Long submitterUserId) {
+    private List<Long> resolveApprovers(DccCategoryApprovalRouteNodeDO routeNode, Long submitterUserId,
+                                        boolean requireConfiguredPosts) {
         List<Long> candidateSourceIds = readCandidateSourceIds(routeNode.getCandidateSourceIds(), routeNode.getCandidateSourceId());
         if ("USER".equalsIgnoreCase(routeNode.getCandidateSourceType())) {
             if (candidateSourceIds.isEmpty()) {
                 throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
             }
-            validateResolvedUserIds(candidateSourceIds);
+            validateResolvedUserIds(candidateSourceIds, requireConfiguredPosts);
             return candidateSourceIds;
         }
         if (!"POSITION".equalsIgnoreCase(routeNode.getCandidateSourceType())) {
@@ -135,15 +147,18 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
             throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
         }
         List<Long> resolvedUserIds = new ArrayList<>(userIds);
-        validateResolvedUserIds(resolvedUserIds);
+        validateResolvedUserIds(resolvedUserIds, requireConfiguredPosts);
         return resolvedUserIds;
     }
 
-    private void validateResolvedUserIds(List<Long> userIds) {
+    private void validateResolvedUserIds(List<Long> userIds, boolean requireConfiguredPosts) {
         try {
             adminUserApi.validateUserList(userIds);
         } catch (ServiceException ex) {
             throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+        }
+        if (requireConfiguredPosts) {
+            approvalParticipantPostValidator.requireConfiguredPosts(userIds);
         }
     }
 

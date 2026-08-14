@@ -51,7 +51,7 @@ requireIn(workflowApi, 'fileTypeTaxonomyIds', '受控文件查询参数必须支
 for (const token of [
   "getProjectCodePage",
   "DCC_PROJECT_CODE_STATUS_ENABLE",
-  "getFileTypeTaxonomyList",
+  "getFileTypeTaxonomyUploadOptions",
   "handleTree",
   'label="DCC项目"',
   'label="文件分类"',
@@ -77,7 +77,7 @@ for (const autoRevisionToken of [
   'await resolveHistoryRevisionTarget(item.value)',
   "formData.changeType = 'NEW'",
   '请选择历史文件名称后再升版',
-  'formData.changeType === \'REVISION\' && !formData.revisionTargetControlledFileId'
+  'revisionTargetPreflightBlockReason'
 ]) {
   requireIn(uploadPage, autoRevisionToken, `上传页必须按历史文件名称自动判定新建/升版：${autoRevisionToken}`)
 }
@@ -101,13 +101,18 @@ for (const removed of [
   assert(!uploadPage.includes(removed), `上传页必须移除路线预览展示契约：${removed}`)
 }
 
-for (const bindingGuard of [
+for (const unclassifiedLandingToken of [
   'availableCategories',
-  'category.directoryId',
-  '当前文件类别未绑定提交目录，请先在 DCC 文件类别维护目录绑定',
-  '暂无已绑定提交目录的文件类别'
+  '未配置专属目录',
+  '按规则发布到“未分类”',
+  'defaultUnclassified'
 ]) {
-  requireIn(uploadPage, bindingGuard, `上传页必须阻止未绑定提交目录的文件类别：${bindingGuard}`)
+  requireIn(uploadPage, unclassifiedLandingToken, `上传页必须把未绑定提交目录的文件类别自动落位到未分类：${unclassifiedLandingToken}`)
 }
+
+assert(
+  !uploadPage.includes('请先在 DCC 文件类别维护目录绑定'),
+  '上传页不得要求提交人手工维护文件类别提交目录绑定'
+)
 
 console.log('DCC upload project taxonomy revision static contract passed.')

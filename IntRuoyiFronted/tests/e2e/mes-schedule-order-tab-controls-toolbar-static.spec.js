@@ -78,9 +78,14 @@ assert.match(
   /<template #actions>[\s\S]*schedule-order-pool__admission-actions[\s\S]*重置[\s\S]*选中工单加入排产工单池[\s\S]*UserTableColumnSettings/,
   '同步工单页签工具栏必须包含重置、入池和显示字段。'
 )
-for (const forbidden of ['schedule-order-pool__admission-summary', '可入池', '已入池', '警告', '阻断']) {
+for (const forbidden of ['schedule-order-pool__admission-summary', '可入池', '警告', '阻断']) {
   assert.equal(admissionActionsSource.includes(forbidden), false, `同步工单页签工具栏不能继续渲染 ${forbidden}。`)
 }
+assert.match(
+  admissionActionsSource,
+  /schedule-order-pool__admission-show-admitted[\s\S]*显示已入池订单/,
+  '同步工单页签工具栏允许渲染新的显示已入池订单开关。'
+)
 assert.match(
   source,
   /\.schedule-order-pool__admission-template\s+:deep\(\.unified-list-template__query-form\)\s*\{[\s\S]*flex-wrap:\s*nowrap;[\s\S]*align-items:\s*center;/,

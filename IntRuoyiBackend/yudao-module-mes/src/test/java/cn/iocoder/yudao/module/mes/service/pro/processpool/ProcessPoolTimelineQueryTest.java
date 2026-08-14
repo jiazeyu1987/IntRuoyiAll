@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ProcessPoolTimelineQueryTest {
 
     @Test
-    void shouldReturnDailyEventsOrderedByServerSubmittedAt() {
+    void shouldReturnDailyEventsOrderedByServerSubmittedAtDesc() {
         ProcessPoolTimelineTestSupport.InMemoryTimelineReadMapper mapper = mapper(
                 event(1002L, "2026-07-30T09:10:00", 2001L, 6001L, 9001L, "PRODUCTION_SIMPLIFIED", 30001L),
                 event(1001L, "2026-07-30T08:30:00", 2002L, 6002L, 9002L, "PQC_SIMPLIFIED", 30002L));
@@ -25,12 +25,35 @@ class ProcessPoolTimelineQueryTest {
         PageResult<ProcessPoolTimelineEventRespVO> page = service(mapper).getTimelinePage(reqVO);
 
         assertEquals(2L, page.getTotal());
-        assertEquals(1001L, page.getList().get(0).getId());
-        assertEquals(LocalDateTime.parse("2026-07-30T08:30:00"), page.getList().get(0).getSubmittedAt());
-        assertEquals("王鑫", page.getList().get(0).getActualEmployeeUserName());
-        assertEquals("王鑫", page.getList().get(0).getSignatureEmployeeUserName());
+        assertEquals(1002L, page.getList().get(0).getId());
+        assertEquals(LocalDateTime.parse("2026-07-30T09:10:00"), page.getList().get(0).getSubmittedAt());
+        assertEquals("张可莹", page.getList().get(0).getActualEmployeeUserName());
+        assertEquals("张可莹", page.getList().get(0).getSignatureEmployeeUserName());
         assertEquals("device-account-A", page.getList().get(0).getLoginUserName());
-        assertEquals("PQC_SIMPLIFIED", page.getList().get(0).getTemplateType());
-        assertEquals("WO-30002", page.getList().get(0).getWorkOrderCode());
+        assertEquals("PRODUCTION_SIMPLIFIED", page.getList().get(0).getTemplateType());
+        assertEquals("WO-30001", page.getList().get(0).getWorkOrderCode());
+        assertEquals("{\"outputQuantity\":10,\"lossQuantity\":1}", page.getList().get(0).getOriginalPayloadJson());
+        assertEquals("REJECTED", page.getList().get(0).getSubmissionReviewStatus());
+        assertEquals("压力填写不正确，已要求修正", page.getList().get(0).getSubmissionReviewRemark());
+        assertEquals(3001L, page.getList().get(0).getSubmissionReviewLeaderUserId());
+        assertEquals("生产组长", page.getList().get(0).getSubmissionReviewLeaderUserName());
+        assertEquals(LocalDateTime.parse("2026-07-30T09:30:00"),
+                page.getList().get(0).getSubmissionReviewedAt());
+    }
+
+    @Test
+    void shouldExposePqcProcessInspectionAggregationStatus() {
+        ProcessPoolTimelineTestSupport.InMemoryTimelineReadMapper mapper = mapper(
+                event(2001L, "2026-07-30T08:30:00", 2001L, 6001L, 9001L, "PQC_SIMPLIFIED", 30001L)
+                        .setProcessInspectionAggregationStatus("AGGREGATED")
+                        .setProcessInspectionReviewId(7003L)
+                        .setProcessInspectionAggregatedAt(LocalDateTime.parse("2026-07-30T09:45:00")));
+
+        PageResult<ProcessPoolTimelineEventRespVO> page = service(mapper).getTimelinePage(pageReq());
+
+        assertEquals("AGGREGATED", page.getList().get(0).getProcessInspectionAggregationStatus());
+        assertEquals(7003L, page.getList().get(0).getProcessInspectionReviewId());
+        assertEquals(LocalDateTime.parse("2026-07-30T09:45:00"),
+                page.getList().get(0).getProcessInspectionAggregatedAt());
     }
 }

@@ -9,7 +9,10 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUpl
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkOverlayRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccExternalFileReviewApproveTaskReqVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryLifecycleStageEnum;
 import cn.iocoder.yudao.module.dcc.service.audit.DccAccessBoundaryLogCreateCommand;
 import cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditService;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadSizePolicyMatch;
@@ -24,7 +27,6 @@ import cn.iocoder.yudao.module.infra.service.file.FileService;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
-import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,13 +47,16 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CATEGORY_DISABLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_PURPOSE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_PREVIEW_SINGLE_FILE_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_UPLOAD_SIZE_EXCEEDED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_UPLOAD_SIZE_POLICY_MISSING;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_LIFECYCLE_STAGE_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -62,7 +67,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -86,21 +90,26 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     private DccControlledFileAccessAuditService accessAuditService;
     @Mock
     private DccControlledFileCategoryPermissionSupport permissionSupport;
+    @Mock
+    private DccFileCategoryMapper categoryMapper;
 
     @InjectMocks
     private DccControlledFileUploadServiceImpl uploadService;
 
     @BeforeEach
-    void setUpCategoryUploadPermission() {
-        lenient().when(permissionSupport.hasCategoryPermission(anyLong(), anyLong(),
-                any(DccFileCategoryPermissionActionEnum.class))).thenReturn(true);
+    void setUpCategory() {
+        lenient().when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
+                .id(10L)
+                .active(true)
+                .lifecycleStage(DccFileCategoryLifecycleStageEnum.PLAN.getCode())
+                .build());
     }
 
     @Test
-    void uploadResponseContract_exposesUploadTicketOnlyAsBindingCredential() throws Exception {
+    void uploadResponseContract_exposesUploadTicketAndSignedOnlyOfficeDocumentUrlWithoutFileId() throws Exception {
         assertTrue(hasBeanProperty(DccControlledFileUploadRespVO.class, "uploadTicket"));
         assertFalse(hasBeanProperty(DccControlledFileUploadRespVO.class, "fileId"));
-        assertFalse(hasBeanProperty(DccControlledFileUploadRespVO.class, "onlyofficeDocumentUrl"));
+        assertTrue(hasBeanProperty(DccControlledFileUploadRespVO.class, "onlyofficeDocumentUrl"));
     }
 
     @Test
@@ -199,20 +208,18 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void uploadPreviewFile_sourceDocx_successCreatesTicketAndDoesNotExposeFileId() throws Exception {
+    void uploadPreviewFile_withoutCategoryUploadPermission_successCreatesTicketAndDoesNotExposeFileId() throws Exception {
         ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", new DccOnlyOfficePreviewProperties());
         DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
                 new MockMultipartFile("files", "sample.docx",
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         "docx".getBytes()));
         mockSizePolicy("SOURCE", 4L);
-        when(fileService.createFile(eq("docx".getBytes()), eq("sample.docx"), eq("dcc/original"),
+        when(fileService.createFileAndReturnId(eq("docx".getBytes()), eq("sample.docx"), eq("dcc/original"),
                 eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document")))
-                .thenReturn("http://test.yudao.iocoder.cn/dcc/original/sample.docx");
-        doReturn(FileDO.builder().id(100L).name("sample.docx")
-                .url("http://test.yudao.iocoder.cn/dcc/original/sample.docx").build())
-                .when(fileMapper).selectFirstOne(org.mockito.ArgumentMatchers.<SFunction<FileDO, ?>>any(),
-                        eq("http://test.yudao.iocoder.cn/dcc/original/sample.docx"));
+                .thenReturn(100L);
+        when(fileMapper.selectById(100L)).thenReturn(storedFile(100L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
         when(watermarkService.build(99L, "preview", "sample.docx"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder()
                         .label("受控预览")
@@ -232,7 +239,8 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                         .build());
         when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
                 "UT-20260528-0001", "session-1", "SOURCE", "AVAILABLE",
-                LocalDateTime.of(2026, 5, 28, 12, 30)));
+                LocalDateTime.of(2026, 5, 28, 12, 30), 100L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 4L));
 
         DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
                 auditContext("REQ-UPLOAD-SUCCESS"));
@@ -266,24 +274,43 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         assertEquals("10.0.0.9", auditCaptor.getValue().sourceIp());
         assertEquals("REQ-UPLOAD-SUCCESS", auditCaptor.getValue().requestId());
         assertEquals("JUnit", auditCaptor.getValue().userAgent());
+        verify(permissionSupport, never()).hasCategoryPermission(anyLong(), anyLong(),
+                any(DccFileCategoryPermissionActionEnum.class));
     }
 
     @Test
-    void uploadPreviewFile_withoutCategoryUploadPermission_deniesBeforePolicyOrStorage() {
+    void uploadPreviewFile_sourceXlsx_withOnlyOfficeConfigReturnsSignedDocumentUrl() throws Exception {
+        DccOnlyOfficePreviewProperties properties = configuredOnlyOfficeProperties();
+        ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", properties);
         DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
-                new MockMultipartFile("files", "SOP-001.docx",
-                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        "doc".getBytes()));
-        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
-                .thenReturn(false);
+                new MockMultipartFile("files", "report.xlsx",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "xlsx".getBytes()));
+        mockSizePolicy("SOURCE", 4L);
+        when(fileService.createFileAndReturnId(eq("xlsx".getBytes()), eq("report.xlsx"), eq("dcc/original"),
+                eq("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")))
+                .thenReturn(104L);
+        when(fileMapper.selectById(104L)).thenReturn(storedFile(104L, "report.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        when(watermarkService.build(99L, "preview", "report.xlsx"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+        when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
+                "UT-20260803-0001", "session-1", "SOURCE", "AVAILABLE",
+                LocalDateTime.of(2026, 8, 3, 12, 30), 104L, "report.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 4L));
+        when(onlyOfficePreviewTokenService.issue(DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW, 104L))
+                .thenReturn("signed-upload-preview-token");
 
-        assertServiceException(() -> uploadService.uploadPreviewFile(99L, reqVO,
-                        auditContext("REQ-UPLOAD-NO-CATEGORY-PERMISSION")),
-                CONTROLLED_FILE_ACCESS_DENIED);
+        DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
+                auditContext("REQ-XLSX-ONLYOFFICE"));
 
-        verify(uploadSizePolicyService, never()).validateUploadSize(any(), any(), anyLong(), any());
-        verify(fileService, never()).createFile(any(), any(), any(), any());
-        verify(uploadTicketService, never()).createTicket(any());
+        assertEquals("OFFICE", respVO.getPreviewKind());
+        assertEquals("http://onlyoffice.local", respVO.getOnlyofficeBaseUrl());
+        assertEquals("http://host.docker.internal:48081/admin-api/dcc/controlled-files/upload-preview/104"
+                        + "/onlyoffice-file?token=signed-upload-preview-token",
+                readBeanProperty(respVO, "onlyofficeDocumentUrl"));
+        assertNull(respVO.getPreviewUnavailableReason());
+        verify(onlyOfficePreviewTokenService).issue(DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW, 104L);
     }
 
     @Test
@@ -297,6 +324,137 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         verify(uploadSizePolicyService, never()).validateUploadSize(any(), any(), anyLong(), any());
         verify(fileService, never()).createFile(any(), any(), any(), any());
         verify(uploadTicketService, never()).createTicket(any());
+    }
+
+    @Test
+    void uploadPreviewFile_missingCategory_throwsBeforePolicyOrStorage() {
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
+                new MockMultipartFile("files", "sample.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "docx".getBytes()));
+        reqVO.setCategoryId(999999999L);
+
+        assertServiceException(() -> uploadService.uploadPreviewFile(99L, reqVO,
+                auditContext("REQ-CATEGORY-MISSING")), FILE_CATEGORY_NOT_EXISTS);
+
+        verify(uploadSizePolicyService, never()).validateUploadSize(any(), any(), anyLong(), any());
+        verify(fileService, never()).createFile(any(), any(), any(), any());
+        verify(fileService, never()).createFileAndReturnId(any(), any(), any(), any());
+        verify(uploadTicketService, never()).createTicket(any());
+    }
+
+    @Test
+    void uploadPreviewFile_disabledCategory_throwsBeforePolicyOrStorage() {
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
+                .id(10L)
+                .active(false)
+                .lifecycleStage(DccFileCategoryLifecycleStageEnum.PLAN.getCode())
+                .build());
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
+                new MockMultipartFile("files", "sample.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "docx".getBytes()));
+
+        assertServiceException(() -> uploadService.uploadPreviewFile(99L, reqVO,
+                auditContext("REQ-CATEGORY-DISABLED")), CONTROLLED_FILE_CATEGORY_DISABLED);
+
+        verify(uploadSizePolicyService, never()).validateUploadSize(any(), any(), anyLong(), any());
+        verify(fileService, never()).createFile(any(), any(), any(), any());
+        verify(fileService, never()).createFileAndReturnId(any(), any(), any(), any());
+        verify(uploadTicketService, never()).createTicket(any());
+    }
+
+    @Test
+    void uploadPreviewFile_invalidCategoryLifecycleStage_throwsBeforePolicyOrStorage() {
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
+                .id(10L)
+                .active(true)
+                .lifecycleStage("ARCHIVED")
+                .build());
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
+                new MockMultipartFile("files", "sample.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "docx".getBytes()));
+
+        assertServiceException(() -> uploadService.uploadPreviewFile(99L, reqVO,
+                auditContext("REQ-CATEGORY-LIFECYCLE")), FILE_CATEGORY_LIFECYCLE_STAGE_INVALID, "ARCHIVED");
+
+        verify(uploadSizePolicyService, never()).validateUploadSize(any(), any(), anyLong(), any());
+        verify(fileService, never()).createFile(any(), any(), any(), any());
+        verify(fileService, never()).createFileAndReturnId(any(), any(), any(), any());
+        verify(uploadTicketService, never()).createTicket(any());
+    }
+
+    @Test
+    void uploadPreviewFile_sameContentInActiveSlotReturnsOriginalTicketWithoutSecondStorageWrite() throws Exception {
+        ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", new DccOnlyOfficePreviewProperties());
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
+                new MockMultipartFile("files", "sample.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "docx".getBytes()));
+        mockSizePolicy("SOURCE", 4L);
+        when(uploadTicketService.reuseActiveTicketOrReject(any())).thenReturn(new DccUploadTicketCreated(
+                "UT-ORIGINAL", "session-1", "SOURCE", "AVAILABLE",
+                LocalDateTime.of(2026, 8, 11, 12, 30), 100L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 4L));
+        when(fileMapper.selectById(100L)).thenReturn(storedFile(100L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        when(watermarkService.build(99L, "preview", "sample.docx"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+
+        DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
+                auditContext("REQ-IDEMPOTENT-RETRY"));
+
+        assertEquals("UT-ORIGINAL", respVO.getUploadTicket());
+        assertEquals(4L, respVO.getFileSize());
+        verify(fileService, never()).createFileAndReturnId(any(), any(), any(), any());
+        verify(uploadTicketService, never()).createTicket(any());
+    }
+
+    @Test
+    void uploadPreviewFile_differentContentInActiveSlotRejectsBeforeStorageWrite() throws Exception {
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
+                new MockMultipartFile("files", "sample.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "new-content".getBytes()));
+        mockSizePolicy("SOURCE", 11L);
+        when(uploadTicketService.reuseActiveTicketOrReject(any())).thenThrow(
+                cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                        CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT));
+
+        assertServiceException(() -> uploadService.uploadPreviewFile(99L, reqVO,
+                auditContext("REQ-SLOT-CONFLICT")), CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT);
+
+        verify(fileService, never()).createFileAndReturnId(any(), any(), any(), any());
+        verify(uploadTicketService, never()).createTicket(any());
+    }
+
+    @Test
+    void uploadPreviewFile_concurrentWinnerDeletesLosingStorageAndReturnsWinnerTicket() throws Exception {
+        ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", new DccOnlyOfficePreviewProperties());
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("SOURCE",
+                new MockMultipartFile("files", "sample.docx",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "docx".getBytes()));
+        mockSizePolicy("SOURCE", 4L);
+        when(fileService.createFileAndReturnId(any(), eq("sample.docx"), eq("dcc/original"), any()))
+                .thenReturn(105L);
+        when(fileMapper.selectById(105L)).thenReturn(storedFile(105L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        when(fileMapper.selectById(100L)).thenReturn(storedFile(100L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
+                "UT-WINNER", "session-1", "SOURCE", "AVAILABLE",
+                LocalDateTime.of(2026, 8, 11, 12, 30), 100L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 4L));
+        when(watermarkService.build(99L, "preview", "sample.docx"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+
+        DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
+                auditContext("REQ-CONCURRENT-WINNER"));
+
+        assertEquals("UT-WINNER", respVO.getUploadTicket());
+        verify(fileService).deleteFile(105L);
     }
 
     @Test
@@ -365,16 +523,14 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         DccControlledFileUploadPreviewReqVO reqVO = uploadReq("DRAWING_PDF",
                 new MockMultipartFile("files", "drawing.pdf", "application/pdf", "%PDF-1.4".getBytes()));
         mockSizePolicy("DRAWING_PDF", 8L);
-        when(fileService.createFile(eq("%PDF-1.4".getBytes()), eq("drawing.pdf"), eq("dcc/original"), eq("application/pdf")))
-                .thenReturn("http://test.yudao.iocoder.cn/dcc/original/drawing.pdf");
-        doReturn(FileDO.builder().id(102L).name("drawing.pdf").url("http://test.yudao.iocoder.cn/dcc/original/drawing.pdf").build())
-                .when(fileMapper).selectFirstOne(org.mockito.ArgumentMatchers.<SFunction<FileDO, ?>>any(),
-                        eq("http://test.yudao.iocoder.cn/dcc/original/drawing.pdf"));
+        when(fileService.createFileAndReturnId(eq("%PDF-1.4".getBytes()), eq("drawing.pdf"), eq("dcc/original"),
+                eq("application/pdf"))).thenReturn(102L);
+        when(fileMapper.selectById(102L)).thenReturn(storedFile(102L, "drawing.pdf", "application/pdf"));
         when(watermarkService.build(99L, "preview", "drawing.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
         when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
                 "UT-20260528-0002", "session-1", "DRAWING_PDF", "AVAILABLE",
-                LocalDateTime.of(2026, 5, 28, 12, 30)));
+                LocalDateTime.of(2026, 5, 28, 12, 30), 102L, "drawing.pdf", "application/pdf", 8L));
 
         DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
                 auditContext("REQ-DRAWING"));
@@ -400,16 +556,14 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         DccControlledFileUploadPreviewReqVO reqVO = uploadReq("TRAINING_RECORD",
                 new MockMultipartFile("files", "training.pdf", "application/pdf", "%PDF-1.4".getBytes()));
         mockSizePolicy("TRAINING_RECORD", 8L);
-        when(fileService.createFile(eq("%PDF-1.4".getBytes()), eq("training.pdf"), eq("dcc/original"), eq("application/pdf")))
-                .thenReturn("http://test.yudao.iocoder.cn/dcc/original/training.pdf");
-        doReturn(FileDO.builder().id(103L).name("training.pdf").url("http://test.yudao.iocoder.cn/dcc/original/training.pdf").build())
-                .when(fileMapper).selectFirstOne(org.mockito.ArgumentMatchers.<SFunction<FileDO, ?>>any(),
-                        eq("http://test.yudao.iocoder.cn/dcc/original/training.pdf"));
+        when(fileService.createFileAndReturnId(eq("%PDF-1.4".getBytes()), eq("training.pdf"), eq("dcc/original"),
+                eq("application/pdf"))).thenReturn(103L);
+        when(fileMapper.selectById(103L)).thenReturn(storedFile(103L, "training.pdf", "application/pdf"));
         when(watermarkService.build(99L, "preview", "training.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
         when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
                 "UT-20260528-0003", "session-1", "TRAINING_RECORD", "AVAILABLE",
-                LocalDateTime.of(2026, 5, 28, 12, 30)));
+                LocalDateTime.of(2026, 5, 28, 12, 30), 103L, "training.pdf", "application/pdf", 8L));
 
         DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
                 auditContext("REQ-TRAINING"));
@@ -427,17 +581,17 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         "docx".getBytes()));
         mockSizePolicy("SOURCE", 4L);
-        when(fileService.createFile(eq("docx".getBytes()), eq("sample.docx"), eq("dcc/original"),
+        when(fileService.createFileAndReturnId(eq("docx".getBytes()), eq("sample.docx"), eq("dcc/original"),
                 eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document")))
-                .thenReturn("http://test.yudao.iocoder.cn/dcc/original/sample.docx");
-        doReturn(FileDO.builder().id(101L).name("sample.docx").url("http://test.yudao.iocoder.cn/dcc/original/sample.docx").build())
-                .when(fileMapper).selectFirstOne(org.mockito.ArgumentMatchers.<SFunction<FileDO, ?>>any(),
-                        eq("http://test.yudao.iocoder.cn/dcc/original/sample.docx"));
+                .thenReturn(101L);
+        when(fileMapper.selectById(101L)).thenReturn(storedFile(101L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
         when(watermarkService.build(99L, "preview", "sample.docx"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
         when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
                 "UT-20260528-0004", "session-1", "SOURCE", "AVAILABLE",
-                LocalDateTime.of(2026, 5, 28, 12, 30)));
+                LocalDateTime.of(2026, 5, 28, 12, 30), 101L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 4L));
 
         DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
                 auditContext("REQ-OFFICE-MISSING"));
@@ -480,11 +634,10 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         "docx".getBytes()));
         mockSizePolicy("SOURCE", 4L);
-        when(fileService.createFile(eq("docx".getBytes()), eq("sample.docx"), eq("dcc/original"),
+        when(fileService.createFileAndReturnId(eq("docx".getBytes()), eq("sample.docx"), eq("dcc/original"),
                 eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document")))
-                .thenReturn("http://test.yudao.iocoder.cn/dcc/original/sample.docx");
-        doReturn(null).when(fileMapper).selectFirstOne(org.mockito.ArgumentMatchers.<SFunction<FileDO, ?>>any(),
-                eq("http://test.yudao.iocoder.cn/dcc/original/sample.docx"));
+                .thenReturn(106L);
+        when(fileMapper.selectById(106L)).thenReturn(null);
 
         assertThrows(Exception.class, () -> uploadService.uploadPreviewFile(99L, reqVO,
                 auditContext("REQ-FILE-MISSING")));
@@ -511,9 +664,22 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                         "v1", 100, 3));
     }
 
+    private FileDO storedFile(Long id, String name, String contentType) {
+        return FileDO.builder().id(id).name(name).type(contentType).build();
+    }
+
     private boolean hasBeanProperty(Class<?> clazz, String propertyName) throws Exception {
         return Arrays.stream(Introspector.getBeanInfo(clazz).getPropertyDescriptors())
                 .anyMatch(descriptor -> propertyName.equals(descriptor.getName()));
+    }
+
+    private Object readBeanProperty(Object bean, String propertyName) throws Exception {
+        return Arrays.stream(Introspector.getBeanInfo(bean.getClass()).getPropertyDescriptors())
+                .filter(descriptor -> propertyName.equals(descriptor.getName()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing bean property: " + propertyName))
+                .getReadMethod()
+                .invoke(bean);
     }
 
     private boolean hasJsonProperty(Class<?> clazz, String propertyName) {
@@ -531,6 +697,14 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         Schema schema = field.getAnnotation(Schema.class);
         assertNotNull(schema);
         assertTrue(schema.hidden());
+    }
+
+    private DccOnlyOfficePreviewProperties configuredOnlyOfficeProperties() {
+        DccOnlyOfficePreviewProperties properties = new DccOnlyOfficePreviewProperties();
+        properties.setBaseUrl("http://onlyoffice.local/");
+        properties.setJwtSecret("unit-test-secret");
+        properties.setPublicFileBaseUrl("http://host.docker.internal:48081/");
+        return properties;
     }
 
     private static final class ReadFailingMultipartFile implements MultipartFile {

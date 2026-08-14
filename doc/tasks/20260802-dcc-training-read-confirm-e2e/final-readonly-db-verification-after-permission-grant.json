@@ -1,0 +1,191 @@
+{
+  "file": {
+    "id": "2054545668044070281",
+    "title": "Codex DCC 培训阅读确认 20260802093955",
+    "status": "PENDING_MANUAL_DISTRIBUTION",
+    "masterId": "2054545668044062890",
+    "versionNo": "V1.0",
+    "changeType": "NEW",
+    "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+    "approvedTime": "2026-08-02 18:18:05",
+    "needTraining": 1,
+    "publishedTime": null,
+    "stampedFileId": "9198354916366",
+    "publishedFileId": "9198354916366",
+    "processInstanceId": "24aa2cd4-8e56-11f1-ada6-00155d2984a0"
+  },
+  "master": {
+    "id": "2054545668044062890",
+    "status": "ACTIVE_CHAIN",
+    "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+    "currentActiveControlledFileId": null
+  },
+  "checkedAt": "2026-08-02 19:31:52",
+  "trainings": [
+    {
+      "id": "108",
+      "status": "ACKNOWLEDGED",
+      "departmentId": "339",
+      "departmentName": "生产计划"
+    },
+    {
+      "id": "109",
+      "status": "ACKNOWLEDGED",
+      "departmentId": "253",
+      "departmentName": "质量体系部"
+    }
+  ],
+  "progressRows": [
+    {
+      "id": "1028",
+      "userId": "885",
+      "nickname": "陈晨",
+      "username": "chenchen",
+      "lastViewedAt": "2026-08-02 19:27:54",
+      "firstViewedAt": "2026-08-02 18:52:37",
+      "acknowledgedAt": "2026-08-02 19:25:34",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 748
+    },
+    {
+      "id": "1029",
+      "userId": "937",
+      "nickname": "孙荣荣",
+      "username": "sunrongrong",
+      "lastViewedAt": "2026-08-02 19:27:55",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:25:54",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 725
+    },
+    {
+      "id": "1030",
+      "userId": "957",
+      "nickname": "刘儒",
+      "username": "liuru",
+      "lastViewedAt": "2026-08-02 19:27:55",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:26:54",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 663
+    },
+    {
+      "id": "1031",
+      "userId": "1074",
+      "nickname": "赵杰",
+      "username": "zhaojie",
+      "lastViewedAt": "2026-08-02 19:24:11",
+      "firstViewedAt": "2026-08-02 18:23:00",
+      "acknowledgedAt": "2026-08-02 19:23:42",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 628
+    },
+    {
+      "id": "1032",
+      "userId": "1194",
+      "nickname": "薛建霞",
+      "username": "xuejianxia",
+      "lastViewedAt": "2026-08-02 19:27:55",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:25:44",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 709
+    },
+    {
+      "id": "1033",
+      "userId": "1354",
+      "nickname": "滕伟华",
+      "username": "tengweihua",
+      "lastViewedAt": "2026-08-02 19:27:55",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:26:54",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 666
+    },
+    {
+      "id": "1034",
+      "userId": "1453",
+      "nickname": "石海松",
+      "username": "shihaisong",
+      "lastViewedAt": "2026-08-02 19:27:55",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:27:44",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 616
+    },
+    {
+      "id": "1035",
+      "userId": "1499",
+      "nickname": "马玲玲",
+      "username": "malingling",
+      "lastViewedAt": "2026-08-02 19:27:56",
+      "firstViewedAt": "2026-08-02 18:55:03",
+      "acknowledgedAt": "2026-08-02 19:26:54",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 666
+    },
+    {
+      "id": "1036",
+      "userId": "424",
+      "nickname": "赵明玉",
+      "username": "zhaomingyu",
+      "lastViewedAt": "2026-08-02 18:38:06",
+      "firstViewedAt": "2026-08-02 18:23:00",
+      "acknowledgedAt": "2026-08-02 18:37:37",
+      "requiredViewSeconds": 600,
+      "accumulatedViewSeconds": 625
+    }
+  ],
+  "candidateDccUsers": [
+    {
+      "id": "151",
+      "roles": "approval_center_entry,BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_RECORD_UPLOAD_1,BATCH_ATTACHMENT_STERILIZATION_REPORT_UPLOAD_1,rd_doc_corrector,体系工程师",
+      "deptId": "132",
+      "nickname": "彭云凤",
+      "username": "pengyunfeng",
+      "hasControlledFileQuery": true
+    },
+    {
+      "id": "910250",
+      "roles": "approval_center_entry,doc_control,wenkong,wenkong_download",
+      "deptId": "226",
+      "nickname": "王思雨",
+      "username": "wangsiyu",
+      "hasControlledFileQuery": true
+    },
+    {
+      "id": "376",
+      "roles": "approval_center_entry,wenkong",
+      "deptId": "226",
+      "nickname": "赵海辰",
+      "username": "zhaohaichen",
+      "hasControlledFileQuery": true
+    },
+    {
+      "id": "1074",
+      "roles": "approval_center_entry,mes_scheduler,wenkong",
+      "deptId": "339",
+      "nickname": "赵杰",
+      "username": "zhaojie",
+      "hasControlledFileQuery": true
+    },
+    {
+      "id": "424",
+      "roles": "approval_center_entry,wenkong",
+      "deptId": "253",
+      "nickname": "赵明玉",
+      "username": "zhaomingyu",
+      "hasControlledFileQuery": true
+    }
+  ],
+  "categoryDistributeRules": [
+    {
+      "id": "2546",
+      "active": 1,
+      "scopeType": "GLOBAL",
+      "subjectId": "1",
+      "actionType": "DISTRIBUTE",
+      "subjectType": "USER"
+    }
+  ]
+}

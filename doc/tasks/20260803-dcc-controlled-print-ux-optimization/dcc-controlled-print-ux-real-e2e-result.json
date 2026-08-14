@@ -1,0 +1,300 @@
+{
+  "status": "PASS",
+  "runId": "20260802184519",
+  "config": {
+    "baseUrl": "http://127.0.0.1:8081",
+    "backendUrl": "http://127.0.0.1:48081",
+    "tenant": "芋道源码",
+    "positiveUsername": "wangsiyu",
+    "negativeUsername": "zhangkeying",
+    "controlledFileId": "2054545668044070287",
+    "fileNumber": "CODX-DCC-ORIG-20260802101521",
+    "versionNo": "V1.0",
+    "copies": 2
+  },
+  "runtime": {
+    "browserExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+  },
+  "activeFile": {
+    "id": "2054545668044070287",
+    "fileNumber": "CODX-DCC-ORIG-20260802101521",
+    "versionNo": "V1.0",
+    "status": "ACTIVE",
+    "masterId": "2054545668044062896",
+    "currentActiveId": "2054545668044070287",
+    "publishedFileId": "9198354916366",
+    "stampedFileId": "9198354916366"
+  },
+  "positive": {
+    "login": {
+      "username": "wangsiyu",
+      "loginCode": 0,
+      "auth": {
+        "tenantId": "1",
+        "user": {},
+        "hasAccessToken": true,
+        "permissionInfoCode": 401,
+        "permissionUser": null,
+        "hasControlledPrintMenuPermission": false,
+        "controlledPrintPermissions": [],
+        "roles": []
+      }
+    },
+    "browserPrintButtonDiagnostics": {
+      "browserRowDirectPrintVisible": true,
+      "detailEntryUsedForPrint": false
+    },
+    "browser": {
+      "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&status=ACTIVE&pageNo=1&pageSize=20",
+      "apiRow": {
+        "id": "2054545668044070287",
+        "masterId": "2054545668044062896",
+        "categoryId": 907233,
+        "directoryId": 906515,
+        "directoryPath": "质量管理/4.Ohter",
+        "title": "Codex DCC 原版上传链路 20260802101521",
+        "fileName": "Codex DCC 原版上传链路 20260802101521",
+        "contentType": null,
+        "previewKind": null,
+        "fileNumber": "CODX-DCC-ORIG-20260802101521",
+        "sourceFileId": null,
+        "originalFileId": null,
+        "publishedFileId": 9198354916366,
+        "stampedFileId": 9198354916366,
+        "productMasterId": null,
+        "productCode": "HGGW",
+        "productName": "一次性使用亲水涂层导丝",
+        "dccProjectCodeId": 234,
+        "projectCodeRecognitionType": null,
+        "projectCodeRecognitionText": null,
+        "projectCodeRecognizedBy": null,
+        "projectCodeRecognizedTime": null,
+        "fileTypeTaxonomyId": 102,
+        "fileTypeLevel1": "技术文档",
+        "fileTypeLevel2": "设计和开发输出阶段",
+        "fileTypeLevel3": "来料/过程/成品检验规范",
+        "fileTypeLevel4": null,
+        "fileTypeLevel5": null,
+        "needTraining": false,
+        "processType": "CONTROLLED_FILE",
+        "versionNo": "V1.0",
+        "currentActiveVersionNo": "V1.0",
+        "effectiveDate": [
+          2026,
+          8,
+          2
+        ],
+        "remark": "新建 E2E 20260802101521",
+        "status": "ACTIVE",
+        "requesterId": 151,
+        "processInstanceId": null,
+        "processDefinitionKey": null,
+        "submittedTime": null,
+        "approvedTime": null,
+        "publishedTime": 1785665756000,
+        "rejectedTime": null,
+        "stampedTime": null,
+        "obsoletedBy": null,
+        "obsoletedTime": null,
+        "obsoleteReason": null,
+        "supersededByFileId": null,
+        "rejectReason": null,
+        "finalizationError": null,
+        "canPreview": true,
+        "canDownload": true,
+        "canPrint": true,
+        "accessExplanation": {
+          "detailSource": "DIRECTORY_ADMIN",
+          "detailReason": "目录管理员",
+          "detailDeniedReason": null,
+          "publishedPreviewSource": "DIRECTORY_ADMIN",
+          "publishedPreviewReason": "目录管理员",
+          "pendingPreviewSource": null,
+          "pendingPreviewReason": null,
+          "downloadSource": "DOWNLOAD_POLICY",
+          "downloadReason": "下载权限由独立下载策略服务放行",
+          "downloadDeniedReason": null
+        },
+        "systemRecordDownloadOpen": false,
+        "modifying": false,
+        "canObsolete": false,
+        "canPublish": null,
+        "canManualRelease": false,
+        "actionProjection": {
+          "actionLocked": false,
+          "actionLockReason": null,
+          "allowedActions": [
+            "VIEW",
+            "PREVIEW",
+            "DOWNLOAD",
+            "PRINT"
+          ],
+          "canWithdraw": false,
+          "pendingRequestId": null,
+          "pendingVersionNo": null
+        },
+        "hasPendingTrainingAcknowledgement": null,
+        "externalReview": null,
+        "routeSnapshots": null,
+        "versionHistory": [
+          {
+            "id": "2054545668044070287",
+            "title": "Codex DCC 原版上传链路 20260802101521",
+            "fileNumber": "CODX-DCC-ORIG-20260802101521",
+            "versionNo": "V1.0",
+            "status": "ACTIVE",
+            "publishedFileId": 9198354916366,
+            "stampedFileId": 9198354916366,
+            "currentActiveVersionNo": "V1.0",
+            "effectiveDate": [
+              2026,
+              8,
+              2
+            ],
+            "publishedTime": 1785665756000,
+            "obsoletedTime": null,
+            "supersededByFileId": null,
+            "remark": "新建 E2E 20260802101521",
+            "canPreview": true,
+            "canDownload": true
+          }
+        ],
+        "distributionStatuses": null,
+        "trainingStatuses": null,
+        "signatureSummaries": null
+      }
+    },
+    "printRecord": {
+      "id": 9,
+      "controlledFileId": "2054545668044070287",
+      "fileNumber": "CODX-DCC-ORIG-20260802101521",
+      "versionNo": "V1.0",
+      "printNo": "DCCP-20260803024527-7C69A88D",
+      "purpose": "DCC受控打印UX验证-20260802184519",
+      "copies": 2,
+      "receivingDepartment": "质量保证部-20260802184519",
+      "useLocation": "DCC E2E验证工位-20260802184519",
+      "printUserId": 910250,
+      "printUserName": "王思雨 (wangsiyu)",
+      "printTime": 1785696327094,
+      "approvalStatus": "DIRECT_PRINTED",
+      "approvalUserId": null,
+      "approvalUserName": null,
+      "approvalTime": null
+    },
+    "copyNumbers": [
+      "DCCP-20260803024527-7C69A88D-01",
+      "DCCP-20260803024527-7C69A88D-02"
+    ],
+    "printWindowAssertions": {
+      "containsWatermark": true,
+      "containsPrintNo": true,
+      "containsFileNumber": true,
+      "containsVersion": true,
+      "containsCopyNumber": true,
+      "containsDirectPrintPolicy": true
+    },
+    "resultDialogAssertions": {
+      "containsPrintNo": true,
+      "containsCopyNumber": true,
+      "containsViewRecordEntry": true
+    }
+  },
+  "negative": {
+    "login": {
+      "username": "zhangkeying",
+      "loginCode": 0,
+      "auth": {
+        "tenantId": "1",
+        "user": {},
+        "hasAccessToken": true,
+        "permissionInfoCode": 401,
+        "permissionUser": null,
+        "hasControlledPrintMenuPermission": false,
+        "controlledPrintPermissions": [],
+        "roles": []
+      }
+    },
+    "permissionBlock": {
+      "browserPath": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&status=ACTIVE&pageNo=1&pageSize=20",
+      "detailPath": "/dcc/controlled-file/detail/2054545668044070287?traceability=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253Fscope%253Dglobal%2526keyword%253DCODX-DCC-ORIG-20260802101521%2526status%253DACTIVE%2526pageNo%253D1%2526pageSize%253D20",
+      "visibleRowsForFile": 1,
+      "browserPrintButtonCount": 0,
+      "visiblePrintButtonCount": 0,
+      "hintText": "无受控打印权限\n\n当前账号缺少受控打印菜单权限，或该文件类别未授予 PRINT 打印权限；页面已按只读方式隐藏受控打印入口。"
+    }
+  },
+  "apiVerification": {
+    "recordsFromUiReload": {
+      "id": 9,
+      "controlledFileId": "2054545668044070287",
+      "fileNumber": "CODX-DCC-ORIG-20260802101521",
+      "versionNo": "V1.0",
+      "printNo": "DCCP-20260803024527-7C69A88D",
+      "purpose": "DCC受控打印UX验证-20260802184519",
+      "copies": 2,
+      "receivingDepartment": "质量保证部-20260802184519",
+      "useLocation": "DCC E2E验证工位-20260802184519",
+      "printUserId": 910250,
+      "printUserName": "王思雨 (wangsiyu)",
+      "printTime": 1785696327000,
+      "approvalStatus": "DIRECT_PRINTED",
+      "approvalUserId": null,
+      "approvalUserName": null,
+      "approvalTime": null
+    },
+    "recordsDirectFetch": {
+      "httpStatus": 200,
+      "code": 0,
+      "msg": "",
+      "matchedRecord": {
+        "id": 9,
+        "controlledFileId": "2054545668044070287",
+        "fileNumber": "CODX-DCC-ORIG-20260802101521",
+        "versionNo": "V1.0",
+        "printNo": "DCCP-20260803024527-7C69A88D",
+        "purpose": "DCC受控打印UX验证-20260802184519",
+        "copies": 2,
+        "receivingDepartment": "质量保证部-20260802184519",
+        "useLocation": "DCC E2E验证工位-20260802184519",
+        "printUserId": 910250,
+        "printUserName": "王思雨 (wangsiyu)",
+        "printTime": 1785696327000,
+        "approvalStatus": "DIRECT_PRINTED",
+        "approvalUserId": null,
+        "approvalUserName": null,
+        "approvalTime": null
+      },
+      "totalReturned": 9
+    }
+  },
+  "dbVerification": {
+    "printRecord": {
+      "id": "9",
+      "controlledFileId": "2054545668044070287",
+      "fileNumber": "CODX-DCC-ORIG-20260802101521",
+      "versionNo": "V1.0",
+      "printNo": "DCCP-20260803024527-7C69A88D",
+      "purpose": "DCC受控打印UX验证-20260802184519",
+      "copies": 2,
+      "receivingDepartment": "质量保证部-20260802184519",
+      "useLocation": "DCC E2E验证工位-20260802184519",
+      "printUserId": "910250",
+      "printUserName": "王思雨 (wangsiyu)",
+      "approvalStatus": "DIRECT_PRINTED",
+      "approvalUserId": "NULL",
+      "approvalUserName": "NULL",
+      "printTime": "2026-08-03 02:45:27"
+    }
+  },
+  "artifacts": {
+    "printWindowScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-controlled-print-ux-optimization\\controlled-print-ux-window-20260802184519.png",
+    "printRecordsScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-controlled-print-ux-optimization\\controlled-print-ux-records-20260802184519.png",
+    "negativePermissionScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260803-dcc-controlled-print-ux-optimization\\controlled-print-ux-negative-20260802184519.png"
+  },
+  "navigationAborts": [],
+  "targetNetworkFailures": [],
+  "targetBadResponses": [],
+  "consoleErrors": [],
+  "pageErrors": []
+}

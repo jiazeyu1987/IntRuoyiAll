@@ -107,10 +107,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     @Override
     @DataPermission(enable = false)
     public AuthLoginRespVO login(AuthLoginReqVO reqVO) {
-        // 校验验证码
-        validateCaptcha(reqVO);
-
-        // 使用账号密码，进行登录
+        // 使用账号密码，进行登录；账号登录已移除图形验证码要求
         AdminUserDO user = authenticate(reqVO.getUsername(), reqVO.getPassword());
 
         // 如果 socialType 非空，说明需要绑定社交用户

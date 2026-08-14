@@ -1,0 +1,588 @@
+{
+  "startedAt": "2026-08-08T14:52:45.277Z",
+  "identityLabel": "芋道源码/admin",
+  "targetPath": "/mes/pro/feedback/edhr-batch-production-fill",
+  "targetRequests": [
+    {
+      "endpoint": "/admin-api/system/auth/login",
+      "method": "POST",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "message": ""
+    },
+    {
+      "endpoint": "/admin-api/system/auth/login",
+      "method": "POST",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "message": ""
+    },
+    {
+      "endpoint": "/admin-api/system/auth/get-permission-info",
+      "method": "GET",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "message": ""
+    },
+    {
+      "endpoint": "/admin-api/system/auth/get-permission-info",
+      "method": "GET",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "message": ""
+    },
+    {
+      "endpoint": "/admin-api/system/auth/get-permission-info",
+      "method": "GET",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "message": ""
+    },
+    {
+      "endpoint": "/admin-api/mes/pro/feedback/frontline/device-account/processes",
+      "method": "GET",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "message": ""
+    },
+    {
+      "endpoint": "/admin-api/mes/pro/feedback/frontline/device-account/runtime-config",
+      "method": "GET",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "message": ""
+    },
+    {
+      "endpoint": "/admin-api/mes/pro/feedback/frontline/device-account/switch-employee",
+      "method": "POST",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "message": ""
+    },
+    {
+      "endpoint": "/admin-api/mes/pro/feedback/frontline/submit",
+      "method": "POST",
+      "httpStatus": 200,
+      "businessCode": 1040760111,
+      "message": "提交设备/工作站上下文与授权工序不一致，submittedDeviceId=980009, submittedWorkstationId=980010, expectedDeviceId=41, expectedWorkstationId=980010"
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "requestFailures": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/erp/kingdee-sync/run/page?pageNo=1&pageSize=1&syncType=SALE_ORDER",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/work-order/page?pageNo=1&pageSize=1&status=1&type=1&temporaryFrozen=false",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/showroom/assignment/page?status=OPEN&assigneeUserId=1&pageNo=1&pageSize=20",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/infra/job/page?pageNo=1&pageSize=1&handlerName=kingdeeStockSyncJob",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/social-user/get-bind-list",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/infra/job/page?pageNo=1&pageSize=1&handlerName=kingdeeProductItemSyncJob",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/erp/kingdee-sync/run/page?pageNo=1&pageSize=1&syncType=PRODUCTION_ORDER",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/profile-workbench-task-visibility/hidden-keys",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user-table-column-config/get?tableKey=profile.workbench.todo",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/infra/job/page?pageNo=1&pageSize=1&handlerName=kingdeeSaleOrderSyncJob",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/infra/job/page?pageNo=1&pageSize=1&handlerName=kingdeeProductionOrderSyncJob",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/erp/kingdee-sync/run/page?pageNo=1&pageSize=1&syncType=PRODUCT",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/infra/job/page?pageNo=1&pageSize=1&handlerName=kingdeeBomSyncJob",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/distribution-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-release-setting/dossier-requirements",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/erp/kingdee-sync/run/page?pageNo=1&pageSize=20&status=10",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/erp/kingdee-sync/run/page?pageNo=1&pageSize=1&syncType=PURCHASE_ORDER",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/get-unread-count",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-recordbook-setting/global",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/erp/kingdee-config/active-connection",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user-table-column-config/get?tableKey=system.notify.my-message",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/erp/kingdee-sync/run/page?pageNo=1&pageSize=1&syncType=BOM",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=READY_TO_ACKNOWLEDGE",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/erp/kingdee-sync/run/page?pageNo=1&pageSize=1&syncType=PRODUCTION_MATERIAL_LIST",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/notify-message/my-page?pageNo=1&pageSize=20",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/training-tasks/my-page?pageNo=1&pageSize=1&status=PENDING_VIEW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/system/user/profile/get",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/infra/job/page?pageNo=1&pageSize=1&handlerName=kingdeeProductionMaterialListSyncJob",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/erp/kingdee-sync/run/page?pageNo=1&pageSize=1&syncType=STOCK",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/infra/job/page?pageNo=1&pageSize=1&handlerName=kingdeePurchaseOrderSyncJob",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://hm.baidu.com/hm.gif?hca=D229C8081536E797&cc=1&ck=1&cl=24-bit&ds=1440x900&vl=900&ep=5393%2C5393&et=3&ja=0&ln=zh-cn&lo=0&rnd=926363022&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8081%2Fuser%2Fprofile&v=1.3.2&lv=1&sn=44347&r=0&ww=1440&u=http%3A%2F%2F127.0.0.1%3A8081%2Fuser%2Fprofile",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "uiSnapshots": {
+    "beforeSubmit": {
+      "url": "http://127.0.0.1:8081/mes/pro/feedback/edhr-batch-production-fill",
+      "processLabel": "1. 粗洗工序",
+      "employeeLabel": "112",
+      "activeDeviceTab": "超声波清洗机",
+      "allDeviceTabs": [
+        "超声波清洗机"
+      ],
+      "outputQuantity": "",
+      "submitButtonText": "正式提交",
+      "submitButtonDisabled": false,
+      "visibleStatusText": []
+    },
+    "afterFill": {
+      "url": "http://127.0.0.1:8081/mes/pro/feedback/edhr-batch-production-fill",
+      "processLabel": "1. 粗洗工序",
+      "employeeLabel": "112",
+      "activeDeviceTab": "超声波清洗机",
+      "allDeviceTabs": [
+        "超声波清洗机"
+      ],
+      "outputQuantity": "1",
+      "submitButtonText": "正式提交",
+      "submitButtonDisabled": false,
+      "visibleStatusText": []
+    },
+    "confirmationText": "生产订单：无需工单；工序：1. 粗洗工序；实际员工：112；完成数量：1件；损耗数量：0件；设备：超声波清洗机；设备参数：清洗次数=2、清洗介质=自来水、清洗功率=0%（参数异常）、清洗温度=室温、清洗时间=30min；正式提交后不可修改，请核对无误后确认。",
+    "afterSubmitAttempt": {
+      "url": "http://127.0.0.1:8081/mes/pro/feedback/edhr-batch-production-fill",
+      "processLabel": "1. 粗洗工序",
+      "employeeLabel": "112",
+      "activeDeviceTab": "超声波清洗机",
+      "allDeviceTabs": [
+        "超声波清洗机"
+      ],
+      "outputQuantity": "1",
+      "submitButtonText": "正式提交",
+      "submitButtonDisabled": false,
+      "visibleStatusText": [
+        "提交设备/工作站上下文与授权工序不一致，submittedDeviceId=980009, submittedWorkstationId=980010, expectedDeviceId=41, expectedWorkstationId=980010"
+      ]
+    }
+  },
+  "finishedAt": "2026-08-08T14:52:57.518Z",
+  "submit": {
+    "httpStatus": 200,
+    "response": {
+      "code": 1040760111,
+      "msg": "提交设备/工作站上下文与授权工序不一致，submittedDeviceId=980009, submittedWorkstationId=980010, expectedDeviceId=41, expectedWorkstationId=980010",
+      "data": null
+    },
+    "payload": {
+      "feedbackPayload": {
+        "workstationId": 980010,
+        "routeId": 922119,
+        "processId": 922985,
+        "workOrderId": null,
+        "taskId": null,
+        "itemId": null,
+        "scheduledQuantity": null,
+        "outputQuantity": 1,
+        "lossQuantity": 0,
+        "lossDetails": [],
+        "selectedDevice": {
+          "deviceId": 980009,
+          "deviceCode": "B09393",
+          "deviceName": "超声波清洗机"
+        },
+        "deviceParameterReadings": [
+          {
+            "deviceId": 980009,
+            "deviceCode": "B09393",
+            "deviceName": "超声波清洗机",
+            "parameterCode": "PP_01_B09393_01",
+            "parameterName": "清洗次数",
+            "unit": null,
+            "value": 2,
+            "lowerLimit": 2,
+            "upperLimit": 2,
+            "parameterStatus": "NORMAL"
+          },
+          {
+            "deviceId": 980009,
+            "deviceCode": "B09393",
+            "deviceName": "超声波清洗机",
+            "parameterCode": "PP_01_B09393_03",
+            "parameterName": "清洗功率",
+            "unit": "%",
+            "value": 0,
+            "lowerLimit": 20,
+            "upperLimit": 30,
+            "parameterStatus": "BELOW_LOWER"
+          },
+          {
+            "deviceId": 980009,
+            "deviceCode": "B09393",
+            "deviceName": "超声波清洗机",
+            "parameterCode": "PP_01_B09393_05",
+            "parameterName": "清洗时间",
+            "unit": "min",
+            "value": 30,
+            "lowerLimit": 30,
+            "upperLimit": 30,
+            "parameterStatus": "NORMAL"
+          }
+        ],
+        "laborScrapQuantity": 0,
+        "materialScrapQuantity": 0,
+        "otherScrapQuantity": 0,
+        "approveUserId": 1
+      },
+      "processPoolSubmissionIdempotencyKey": "frontline-submit-route-922119-route-process-980661-process-922985-workstation-980010-employee-980023-draft-1786200774101-hce2h3vj",
+      "processPoolContext": {
+        "workOrderId": null,
+        "taskId": null,
+        "routeId": 922119,
+        "routeProcessId": 980661,
+        "processId": 922985,
+        "workstationId": 980010,
+        "deviceId": 980009,
+        "deviceAccountUserId": 1,
+        "templateType": "PRODUCTION_SIMPLIFIED"
+      },
+      "actualEmployeeId": 980023,
+      "signatureEmployeeId": 980023,
+      "signaturePassword": "***REDACTED***",
+      "rawPayload": {
+        "routeId": 922119,
+        "processId": 922985,
+        "routeProcessId": 980661,
+        "actualEmployeeId": 980023,
+        "templateCode": "PRODUCTION_SIMPLIFIED",
+        "fieldValues": {
+          "DEVICE": "超声波清洗机",
+          "DEVICE_PARAMETERS": {
+            "超声波清洗机": {
+              "PP_01_B09393_01": 2,
+              "PP_01_B09393_03": 0,
+              "PP_01_B09393_05": 30
+            }
+          },
+          "OUTPUT_QUANTITY": 1,
+          "SCRAP_QUANTITY": 0
+        },
+        "lossDetails": [],
+        "lossReasonDetails": [],
+        "selectedDevice": {
+          "deviceId": 980009,
+          "deviceCode": "B09393",
+          "deviceName": "超声波清洗机"
+        },
+        "deviceParameterReadings": [
+          {
+            "deviceId": 980009,
+            "deviceCode": "B09393",
+            "deviceName": "超声波清洗机",
+            "parameterCode": "PP_01_B09393_01",
+            "parameterName": "清洗次数",
+            "unit": null,
+            "value": 2,
+            "lowerLimit": 2,
+            "upperLimit": 2,
+            "parameterStatus": "NORMAL"
+          },
+          {
+            "deviceId": 980009,
+            "deviceCode": "B09393",
+            "deviceName": "超声波清洗机",
+            "parameterCode": "PP_01_B09393_03",
+            "parameterName": "清洗功率",
+            "unit": "%",
+            "value": 0,
+            "lowerLimit": 20,
+            "upperLimit": 30,
+            "parameterStatus": "BELOW_LOWER"
+          },
+          {
+            "deviceId": 980009,
+            "deviceCode": "B09393",
+            "deviceName": "超声波清洗机",
+            "parameterCode": "PP_01_B09393_05",
+            "parameterName": "清洗时间",
+            "unit": "min",
+            "value": 30,
+            "lowerLimit": 30,
+            "upperLimit": 30,
+            "parameterStatus": "NORMAL"
+          }
+        ],
+        "equipmentParameterRules": {
+          "超声波清洗机": [
+            {
+              "parameterCode": "PP_01_B09393_01",
+              "parameterName": "清洗次数",
+              "unit": null,
+              "lowerLimit": 2,
+              "upperLimit": 2,
+              "valueType": "INTEGER",
+              "standardText": "2"
+            },
+            {
+              "parameterCode": "PP_01_B09393_02",
+              "parameterName": "清洗介质",
+              "unit": null,
+              "lowerLimit": null,
+              "upperLimit": null,
+              "valueType": "TEXT_STANDARD",
+              "standardText": "自来水"
+            },
+            {
+              "parameterCode": "PP_01_B09393_03",
+              "parameterName": "清洗功率",
+              "unit": "%",
+              "lowerLimit": 20,
+              "upperLimit": 30,
+              "valueType": "DECIMAL",
+              "standardText": "20-30%"
+            },
+            {
+              "parameterCode": "PP_01_B09393_04",
+              "parameterName": "清洗温度",
+              "unit": null,
+              "lowerLimit": null,
+              "upperLimit": null,
+              "valueType": "TEXT_STANDARD",
+              "standardText": "室温"
+            },
+            {
+              "parameterCode": "PP_01_B09393_05",
+              "parameterName": "清洗时间",
+              "unit": "min",
+              "lowerLimit": 30,
+              "upperLimit": 30,
+              "valueType": "INTEGER",
+              "standardText": "30min"
+            }
+          ]
+        }
+      }
+    },
+    "contextComparison": {
+      "submitted": {
+        "routeId": 922119,
+        "routeProcessId": 980661,
+        "processId": 922985,
+        "workstationId": 980010,
+        "deviceId": 980009,
+        "selectedDeviceId": 980009,
+        "actualEmployeeId": 980023,
+        "signatureEmployeeId": 980023,
+        "templateType": "PRODUCTION_SIMPLIFIED"
+      },
+      "authorizedCandidate": {
+        "routeId": 922119,
+        "routeProcessId": 980661,
+        "processId": 922985,
+        "workstationId": 980010,
+        "deviceId": 41,
+        "deviceCode": "A03190",
+        "deviceName": "球囊成型机",
+        "processName": "粗洗工序"
+      },
+      "runtimeConfig": {
+        "routeId": 922119,
+        "routeProcessId": 980661,
+        "processId": 922985,
+        "productionSubmitContext": {
+          "workOrderId": null,
+          "workOrderCode": null,
+          "workOrderName": null,
+          "taskId": null,
+          "routeId": 922119,
+          "routeProcessId": 980661,
+          "processId": 922985,
+          "workstationId": 980010,
+          "itemId": null,
+          "approveUserId": 1,
+          "recordbookId": null,
+          "scheduledQuantity": null,
+          "expireDate": null
+        },
+        "devices": [
+          {
+            "deviceId": 980009,
+            "deviceCode": "B09393",
+            "deviceName": "超声波清洗机",
+            "parameterCodes": [
+              "PP_01_B09393_01",
+              "PP_01_B09393_02",
+              "PP_01_B09393_03",
+              "PP_01_B09393_04",
+              "PP_01_B09393_05"
+            ]
+          }
+        ],
+        "employees": [
+          {
+            "employeeProfileId": 980023,
+            "systemUserId": null,
+            "employeeCode": "TMP-1785945170345",
+            "displayName": "112"
+          },
+          {
+            "employeeProfileId": 980027,
+            "systemUserId": null,
+            "employeeCode": "TMP-1785986543162",
+            "displayName": "113"
+          },
+          {
+            "employeeProfileId": 980030,
+            "systemUserId": null,
+            "employeeCode": "TMP-1785995410143",
+            "displayName": "114"
+          },
+          {
+            "employeeProfileId": 980029,
+            "systemUserId": 587,
+            "employeeCode": "USER-587",
+            "displayName": "方王魏"
+          },
+          {
+            "employeeProfileId": 980028,
+            "systemUserId": 548,
+            "employeeCode": "USER-548",
+            "displayName": "李业辉"
+          },
+          {
+            "employeeProfileId": 980025,
+            "systemUserId": 559,
+            "employeeCode": "USER-559",
+            "displayName": "李之音"
+          },
+          {
+            "employeeProfileId": 980026,
+            "systemUserId": 1759,
+            "employeeCode": "USER-1759",
+            "displayName": "王一林"
+          },
+          {
+            "employeeProfileId": 980024,
+            "systemUserId": 1681,
+            "employeeCode": "USER-1681",
+            "displayName": "陈丽"
+          }
+        ]
+      }
+    }
+  }
+}

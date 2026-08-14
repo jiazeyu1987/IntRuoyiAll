@@ -292,7 +292,7 @@
       />
     </template>
 
-    <template v-else-if="resolvedPreviewKind === 'DOWNLOAD_ONLY'">
+    <template v-else-if="resolvedPreviewKind === 'DOWNLOAD_ONLY' && !errorMessage">
       <el-empty description="当前文件类型仅支持下载，不提供在线预览" />
     </template>
 
@@ -341,6 +341,7 @@ const props = defineProps<{
   previewBlob?: Blob | Uint8Array | null
   previewKind?: ControlledFilePreviewKind | null
   onlyofficeBaseUrl?: string
+  onlyofficeDocumentUrl?: string
   previewUnavailableReason?: string
   watermark?: ControlledPreviewWatermark | null
   title?: string
@@ -633,7 +634,7 @@ const loadPreview = async () => {
   resolvedPreviewMetadata.value = null
   resolvedPreviewKind.value = ''
   resolvedOnlyOfficeBaseUrl.value = props.onlyofficeBaseUrl || ''
-  resolvedOnlyOfficeDocumentUrl.value = ''
+  resolvedOnlyOfficeDocumentUrl.value = props.onlyofficeDocumentUrl || ''
   resolvedPreviewUnavailableReason.value = props.previewUnavailableReason || ''
   resolvedFileName.value = props.title || ''
   await resetPreviewState()
@@ -651,6 +652,13 @@ const loadPreview = async () => {
       resolvedFileName.value = metadata.fileName || resolvedFileName.value
     } else {
       resolvedPreviewKind.value = normalizePreviewKind(props.previewKind)
+    }
+
+    if (resolvedPreviewUnavailableReason.value) {
+      if (resolvedPreviewKind.value !== 'OFFICE') {
+        errorMessage.value = resolvedPreviewUnavailableReason.value
+      }
+      return
     }
 
     if (resolvedPreviewKind.value === 'OFFICE' || resolvedPreviewKind.value === 'DOWNLOAD_ONLY') {
@@ -707,6 +715,7 @@ watch(
     props.previewBlob,
     props.previewKind,
     props.onlyofficeBaseUrl,
+    props.onlyofficeDocumentUrl,
     props.previewUnavailableReason,
     props.watermark?.text,
     props.watermark?.traceCode

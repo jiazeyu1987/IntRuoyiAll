@@ -6,6 +6,8 @@ public interface DccUploadTicketService {
 
     DccUploadTicketCreated createTicket(DccUploadTicketCreateCommand command);
 
+    DccUploadTicketCreated reuseActiveTicketOrReject(DccUploadTicketPreflightCommand command);
+
     DccUploadTicketBoundFile resolveForBinding(DccUploadTicketResolveCommand command);
 
     void markBound(DccUploadTicketMarkBoundCommand command);

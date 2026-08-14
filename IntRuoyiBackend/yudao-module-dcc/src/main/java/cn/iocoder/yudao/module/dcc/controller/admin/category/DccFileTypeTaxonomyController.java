@@ -34,6 +34,16 @@ public class DccFileTypeTaxonomyController {
     @Resource
     private DccFileTypeTaxonomyAdminService taxonomyAdminService;
 
+    @GetMapping("/upload-options")
+    @Operation(summary = "获取上传可用的文件类型分类候选")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<List<DccFileTypeTaxonomyRespVO>> getUploadTaxonomyOptions() {
+        return success(taxonomyAdminService.getTaxonomyList().stream()
+                .filter(item -> Boolean.TRUE.equals(item.getActive()))
+                .map(item -> BeanUtils.toBean(item, DccFileTypeTaxonomyRespVO.class))
+                .toList());
+    }
+
     @GetMapping
     @Operation(summary = "获取文件类型五级分类列表")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:category:manage')")

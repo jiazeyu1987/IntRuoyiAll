@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "AORD_V4_M0_A6_PREFLIGHT_V1",
+  "status": "BLOCKED",
+  "canRunRealE2E": false,
+  "generatedAt": "2026-08-09T09:22:39.182Z",
+  "blockers": [
+    {
+      "checkKey": "ENVIRONMENT",
+      "blockerType": "MISSING_EXPLICIT_ENV",
+      "message": "A6 preflight is missing explicit authorization, fixture, account, or signature environment variables",
+      "missingEnvKeys": [
+        "AORD_V4_M0_AUTHORIZATION_TOKEN",
+        "AORD_V4_M0_BACKEND_URL",
+        "AORD_V4_M0_BROWSER_PATH",
+        "AORD_V4_M0_DB_CONTAINER",
+        "AORD_V4_M0_DB_SCHEMA",
+        "AORD_V4_M0_FRONTEND_URL",
+        "AORD_V4_M0_PQC_INSPECTOR_PASSWORD",
+        "AORD_V4_M0_PQC_INSPECTOR_SIGNATURE_PASSWORD",
+        "AORD_V4_M0_PQC_INSPECTOR_USERNAME",
+        "AORD_V4_M0_PQC_LEADER_PASSWORD",
+        "AORD_V4_M0_PQC_LEADER_SIGNATURE_PASSWORD",
+        "AORD_V4_M0_PQC_LEADER_USERNAME",
+        "AORD_V4_M0_PRODUCTION_LEADER_PASSWORD",
+        "AORD_V4_M0_PRODUCTION_LEADER_SIGNATURE_PASSWORD",
+        "AORD_V4_M0_PRODUCTION_LEADER_USERNAME",
+        "AORD_V4_M0_PRODUCTION_WORKER_PASSWORD",
+        "AORD_V4_M0_PRODUCTION_WORKER_SIGNATURE_PASSWORD",
+        "AORD_V4_M0_PRODUCTION_WORKER_USERNAME",
+        "AORD_V4_M0_PRODUCT_ID",
+        "AORD_V4_M0_RELEASE_OWNER_PASSWORD",
+        "AORD_V4_M0_RELEASE_OWNER_SIGNATURE_PASSWORD",
+        "AORD_V4_M0_RELEASE_OWNER_USERNAME",
+        "AORD_V4_M0_ROUTE_ID",
+        "AORD_V4_M0_ROUTE_PROCESS_IDS",
+        "AORD_V4_M0_ROUTE_VERSION_ID",
+        "AORD_V4_M0_TENANT_ID",
+        "AORD_V4_M0_TENANT_NAME"
+      ]
+    }
+  ],
+  "sideEffects": {
+    "browserBusinessWrites": 0,
+    "businessApiWrites": 0,
+    "sqlWrites": 0,
+    "manifestCreated": false
+  }
+}

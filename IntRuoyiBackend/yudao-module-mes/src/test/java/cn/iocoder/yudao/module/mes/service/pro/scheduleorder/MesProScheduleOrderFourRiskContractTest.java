@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.scheduleorder;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderOperationLogDO;
@@ -10,6 +11,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrd
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderOperationLogMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.task.MesProTaskMapper;
+import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum;
 import org.junit.jupiter.api.Test;
@@ -24,7 +26,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,7 +53,7 @@ class MesProScheduleOrderFourRiskContractTest {
     private MesProTaskMapper taskMapper;
 
     @Test
-    void syncFeedbackProgress_shouldUseAttributedFeedbackAndKeepOverReportedQuantityVisible() {
+    void syncFeedbackProgress_shouldRejectOverReportedQuantityBeforeWritingProgress() {
         MesProScheduleOrderDO order = MesProScheduleOrderDO.builder()
                 .id(501L)
                 .code("SCH-RISK-001")
@@ -72,21 +77,15 @@ class MesProScheduleOrderFourRiskContractTest {
                 feedback(9003L, "20.000000", MesProFeedbackStatusEnum.UNCHECK.getStatus())
         ));
 
-        scheduleOrderService.syncFeedbackProgress(501L);
+        ServiceException ex = assertThrows(ServiceException.class, () -> scheduleOrderService.syncFeedbackProgress(501L));
 
-        verify(scheduleOrderProcessMapper).updateProgress(701L, new BigDecimal("170.000000"),
+        assertEquals(ErrorCodeConstants.PRO_FEEDBACK_QUANTITY_EXCEED.getCode(), ex.getCode());
+        verify(scheduleOrderProcessMapper, never()).updateProgress(701L, new BigDecimal("170.000000"),
                 BigDecimal.ZERO.setScale(6), new BigDecimal("100.000000"));
-        verify(scheduleOrderMapper).updateProgressSummary(501L, new BigDecimal("100.000000"),
+        verify(scheduleOrderMapper, never()).updateProgressSummary(501L, new BigDecimal("100.000000"),
                 new BigDecimal("100.000000"), BigDecimal.ZERO.setScale(6), new BigDecimal("100.000000"),
                 MesProScheduleOrderStatusEnum.FINISHED.getStatus());
-        ArgumentCaptor<MesProScheduleOrderOperationLogDO> logCaptor =
-                ArgumentCaptor.forClass(MesProScheduleOrderOperationLogDO.class);
-        verify(scheduleOrderOperationLogMapper).insert(logCaptor.capture());
-        assertTrue(logCaptor.getValue().getOperationType().contains("SYNC_PROGRESS"));
-        String afterSnapshotJson = logCaptor.getValue().getAfterSnapshotJson();
-        assertTrue(afterSnapshotJson.contains("\"reportedQuantity\":170.000000"));
-        assertTrue(afterSnapshotJson.contains("\"overReportedQuantity\":70.000000"));
-        assertTrue(afterSnapshotJson.contains("\"progressPercent\":100.000000"));
+        verify(scheduleOrderOperationLogMapper, never()).insert(any(MesProScheduleOrderOperationLogDO.class));
     }
 
     private MesProFeedbackDO feedback(Long id, String quantity, Integer status) {

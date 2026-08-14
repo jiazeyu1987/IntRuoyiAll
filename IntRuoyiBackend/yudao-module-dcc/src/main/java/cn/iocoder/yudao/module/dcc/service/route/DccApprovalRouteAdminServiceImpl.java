@@ -25,6 +25,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeM
 import cn.iocoder.yudao.module.dcc.enums.DccApprovalModeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.dcc.service.position.DccApprovalPositionRuntimeResolver;
+import cn.iocoder.yudao.module.dcc.service.file.DccApprovalParticipantPostValidator;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -69,6 +70,8 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
     private AdminUserApi adminUserApi;
     @Resource
     private DccApprovalPositionRuntimeResolver positionRuntimeResolver;
+    @Resource
+    private DccApprovalParticipantPostValidator approvalParticipantPostValidator;
 
     private static final Map<Integer, FixedStageDefinition> FIXED_STAGE_MAP = List.of(
             new FixedStageDefinition(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), 1, false),
@@ -342,6 +345,7 @@ public class DccApprovalRouteAdminServiceImpl implements DccApprovalRouteAdminSe
         } catch (ServiceException ex) {
             throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
         }
+        approvalParticipantPostValidator.requireConfiguredPosts(candidateSourceIds);
     }
 
     private DccCategoryApprovalRouteNodeDO toRouteNode(Long routeId, DccApprovalRouteNodeSaveReqVO reqVO) {

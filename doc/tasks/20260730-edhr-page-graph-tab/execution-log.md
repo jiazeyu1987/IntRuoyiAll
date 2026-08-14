@@ -63,3 +63,35 @@
 - REGRESSION rerun: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> PASS。
 - REGRESSION rerun: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
 - Git closeout blocker update: `git status --short --branch --untracked-files=all` shows current branch `int_main...origin/int_main [ahead 1]` plus unrelated untracked files under other task directories and `resource/`; final push remains blocked to avoid pushing non-task commit/history.
+
+## 2026-07-31 Flow Graph Visual Correction
+
+- User intent: 当前“批记录页面关系图”不像流转关系图，只是卡片；需要改成类似流转关系图的节点连线视觉。
+- Skill: 使用 `frontend-feature-delivery`，因为本次是用户可见前端页面视觉和交互结构修正。
+- Rules read: `docs/frontend-development.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md`、`frontend-feature-delivery/references/frontend-contract.md`。
+- BDD: 流转关系图视觉 -> Given 用户进入“批记录页面关系图”, When 页面渲染, Then 应看到画布中的节点、箭头连线和连线标签，而不是按分组堆叠的卡片列表。
+- BDD: 节点跳转保持 -> Given 用户点击已有正式路由的节点, When 节点跳转, Then 仍进入对应页面；Given 节点待接入, Then 仍保持禁用且不执行假跳转。
+- RED: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> FAIL，原因：旧页面缺少 `edhr-page-graph-page__canvas`，仍是分组卡片视觉。
+- Implementation: `BatchPageGraphPage.vue` 改为单一 flow canvas；节点使用 `x/y` 定位，连线使用 SVG path + arrow marker，保留 `data-edhr-page-node`、`data-edhr-page-edge` 和原路由跳转逻辑。
+- GREEN: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- TYPE CHECK: `pnpm ts:check` -> PASS；首次 5 分钟超时后仅停止本任务残留 `vue-tsc` 进程树，复跑明确通过。
+- Real E2E: `node doc/tasks/20260730-edhr-page-graph-tab/edhr-page-graph-real-e2e.mjs` -> PASS，status `GRAPH_AND_DOWNSTREAM_PASS`；12 nodes / 11 edges / 6 disabled pending nodes；生产填写、PQC填写、正式批记录节点路由跳转 PASS；MES mutating requests = 0。
+- Visual check: screenshot `E:\IntRuoyi\output\playwright\edhr-page-graph-real-e2e-rerun.png` shows a node-link canvas with lane labels and arrow connectors, not grouped card columns.
+
+## 2026-07-31 VueFlow Flow Graph Refinement
+
+- User intent: 上一版虽然已有节点连线，但仍不像现有 MES 流转关系图；需要更贴近“流转关系图”而不是卡片画布。
+- Reference inspected: `IntRuoyiFronted/src/views/mes/pro/route/RouteFlowGraphDesigner.vue` 的 VueFlow 画布、smoothstep 箭头、节点样式和网格背景。
+- BDD: 复用流转图视觉 -> Given 用户打开“批记录页面关系图”, When 页面渲染, Then 应看到类似 MES 工艺路线流转关系图的 VueFlow 节点、平滑箭头连线和网格画布。
+- BDD: VueFlow 节点点击 -> Given 节点已有正式路由, When 用户点击 VueFlow 节点内容, Then 不应被画布层拦截，应进入对应页面；待接入节点仍 disabled。
+- Implementation: `BatchPageGraphPage.vue` 改为导入 `@vue-flow/core`，通过 `VueFlow`、`Handle`、`MarkerType.ArrowClosed`、`smoothstep` 边和固定节点坐标渲染；保留 `data-edhr-page-node`、`data-edhr-page-edge` 作为真实 E2E 证据选择器。
+- RED: `node doc/tasks/20260730-edhr-page-graph-tab/edhr-page-graph-real-e2e.mjs` -> FAIL，原因：VueFlow pane/nodes 容器拦截 `production-fill` 节点点击。
+- Fix: 只读页面设置 `:pan-on-drag="false"`，并将 `.vue-flow__pane` / `.vue-flow__nodes` pointer events 穿透，具体 `.vue-flow__node` 和节点内容保持可点击。
+- GREEN: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> PASS，静态合同锁定 VueFlow、smoothstep、ArrowClosed、点击层级和禁止回退旧 SVG path。
+- REGRESSION: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- TYPE CHECK: `pnpm ts:check` -> 首次 5 分钟超时，仅停止本任务残留 `vue-tsc` 进程树后以 10 分钟窗口复跑 PASS。
+- Real E2E: `node doc/tasks/20260730-edhr-page-graph-tab/edhr-page-graph-real-e2e.mjs` -> PASS，status `GRAPH_AND_DOWNSTREAM_PASS`；12 nodes / 11 edges / 6 disabled pending nodes；生产填写、PQC填写、正式批记录节点路由跳转 PASS；MES mutating requests = 0。
+- Visual check: screenshot `E:\IntRuoyi\output\playwright\edhr-page-graph-real-e2e-rerun.png` shows a VueFlow-style page relationship graph with grid background, lane labels, nodes and smooth arrow connectors.
+- Final verification: `pnpm ts:check` -> PASS；`python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260730-edhr-page-graph-tab/frontend-feature-evidence.md` -> PASS；`python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260730-edhr-page-graph-tab/bug-regression-evidence.md` -> PASS；`git diff --check -- IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchPageGraphPage.vue IntRuoyiFronted/tests/e2e/edhr-batch-page-graph-tab-static.spec.js doc/tasks/20260730-edhr-page-graph-tab` -> PASS，仅 CRLF 提示。
+- Experience consolidation: 更新 `docs/frontend-development.md#前端-vueflow-只读图点击层级门禁` 和 `docs/experience-index.md`，记录只读 VueFlow 图中 pane/nodes 容器拦截节点点击的复发防止门禁；`rg --line-number "vue-flow__pane intercepts pointer events|前端 VueFlow 只读图点击层级门禁|批记录页面关系图" docs/experience-index.md docs/frontend-development.md` -> PASS。

@@ -32,6 +32,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_DIRECTORY_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -172,6 +173,31 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         verify(projectCodeAssignmentService).assertMetadataUpdateAllowed(123L, 900L, 9100L);
         verify(controlledFileMapper).updateById(any(DccControlledFileDO.class));
         verify(metadataChangeAuditService).recordMetadataChange(any());
+    }
+
+    @Test
+    void updateMetadata_assignedUserCannotChangeOutsideAssignmentTargetProject() {
+        DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
+        reqVO.setAssignmentId(9100L);
+        reqVO.setDccProjectCodeId(3001L);
+        when(permissionApi.hasAnyRoles(123L, "doc_control"))
+                .thenReturn(false);
+        when(projectCodeAssignmentService.assertMetadataUpdateAllowed(123L, 900L, 9100L))
+                .thenReturn(DccProjectCodeAssignmentAuthorization.assignedUser(9100L, 3000L));
+        when(projectCodeMapper.selectById(3001L)).thenReturn(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO.builder()
+                        .id(3001L)
+                        .projectName("其他项目")
+                        .projectCode("OTHER")
+                        .status("ENABLE")
+                        .build());
+
+        assertServiceException(() -> metadataUpdateService.updateMetadata(123L, 900L, reqVO),
+                PROJECT_CODE_ASSIGNMENT_TARGET_PROJECT_MISMATCH);
+
+        verify(controlledFileMapper, never()).selectById(900L);
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        verify(metadataChangeAuditService, never()).recordMetadataChange(any());
     }
 
     @Test
@@ -344,6 +370,30 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void updateMetadata_unboundCategoryUsesUnclassifiedDirectory() {
+        DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
+        reqVO.setDirectoryId(null);
+        mockDocControl();
+        when(controlledFileMapper.selectById(900L)).thenReturn(activeFile());
+        when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(activeFile()));
+        when(categoryMapper.selectById(11L)).thenReturn(DccFileCategoryDO.builder().id(11L).active(Boolean.TRUE).build());
+        when(categoryDirectoryBindingMapper.selectActiveByCategoryId(11L)).thenReturn(null);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(unclassifiedDirectory(910000L)));
+
+        metadataUpdateService.updateMetadata(99L, 900L, reqVO);
+
+        ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
+        verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
+        assertEquals(910000L, masterCaptor.getValue().getDirectoryId());
+
+        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).updateById(fileCaptor.capture());
+        assertEquals(910000L, fileCaptor.getValue().getDirectoryId());
+        verify(controlledFileMasterMapper).selectByCategoryIdAndDirectoryIdAndFileName(11L, 910000L, "NEW-SOP");
+    }
+
+    @Test
     void updateMetadata_conflictingTargetMasterFailsInsteadOfMergingChains() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         mockDocControl();
@@ -443,6 +493,17 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
                 .name("目录-" + id)
                 .active(Boolean.TRUE)
                 .sort(1)
+                .build();
+    }
+
+    private DccFileDirectoryDO unclassifiedDirectory(Long id) {
+        return DccFileDirectoryDO.builder()
+                .id(id)
+                .parentId(null)
+                .code(DccUploadDirectoryResolver.UNCLASSIFIED_UPLOAD_DIRECTORY_CODE)
+                .name("未分类")
+                .active(Boolean.TRUE)
+                .sort(99)
                 .build();
     }
 }

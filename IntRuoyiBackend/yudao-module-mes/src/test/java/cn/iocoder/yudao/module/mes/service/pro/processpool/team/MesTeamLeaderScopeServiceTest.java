@@ -42,6 +42,17 @@ class MesTeamLeaderScopeServiceTest {
     }
 
     @Test
+    void shouldIncludePqcLeaderSelfInResponsibleEmployeesForSelfInspectionVisibility() {
+        when(scopeMapper.selectActiveScopesByLeader(100L, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
+                .thenReturn(List.of(pqcEmployeeScope(2001L)));
+
+        Set<Long> employeeIds = service.listResponsibleEmployeeIds(100L,
+                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC);
+
+        assertEquals(Set.of(100L, 2001L), employeeIds);
+    }
+
+    @Test
     void shouldRejectOutOfScopeEmployeeAccess() {
         when(scopeMapper.selectActiveScopesByLeader(100L, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION))
                 .thenReturn(List.of(employeeScope(2001L)));
@@ -50,7 +61,8 @@ class MesTeamLeaderScopeServiceTest {
                 () -> service.assertCanAccessEmployee(100L,
                         MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, 9001L));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals("班组长不在该员工的负责范围内", ex.getMessage());
     }
 
     @Test
@@ -62,7 +74,31 @@ class MesTeamLeaderScopeServiceTest {
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.assertCanMaintainProcess(100L, 9001L));
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), ex.getCode());
+        assertEquals("班组长不在该工序的负责范围内", ex.getMessage());
+    }
+
+    @Test
+    void shouldAllowExtendedMaintenanceScopesOnlyInsideExplicitScope() {
+        when(scopeMapper.selectActiveScopesByLeader(100L, null))
+                .thenReturn(List.of(productionLineScope(7001L), equipmentScope(8001L), orderScope(9001L)));
+
+        service.assertCanMaintainProductionLine(100L, 7001L);
+        service.assertCanMaintainEquipment(100L, 8001L);
+        service.assertCanMaintainOrder(100L, 9001L);
+
+        ServiceException lineDenied = assertThrows(ServiceException.class,
+                () -> service.assertCanMaintainProductionLine(100L, 7002L));
+        ServiceException equipmentDenied = assertThrows(ServiceException.class,
+                () -> service.assertCanMaintainEquipment(100L, 8002L));
+        ServiceException orderDenied = assertThrows(ServiceException.class,
+                () -> service.assertCanMaintainOrder(100L, 9002L));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), lineDenied.getCode());
+        assertEquals("班组长不在该产线的负责范围内", lineDenied.getMessage());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), equipmentDenied.getCode());
+        assertEquals("班组长不在该设备的负责范围内", equipmentDenied.getMessage());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), orderDenied.getCode());
+        assertEquals("班组长不在该订单的负责范围内", orderDenied.getMessage());
     }
 
     private static MesProcessPoolTeamLeaderScopeDO employeeScope(Long employeeUserId) {
@@ -81,6 +117,46 @@ class MesTeamLeaderScopeServiceTest {
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_PROCESS)
                 .processId(processId)
+                .enabled(Boolean.TRUE)
+                .build();
+    }
+
+    private static MesProcessPoolTeamLeaderScopeDO pqcEmployeeScope(Long employeeUserId) {
+        return MesProcessPoolTeamLeaderScopeDO.builder()
+                .leaderUserId(100L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
+                .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE)
+                .employeeUserId(employeeUserId)
+                .enabled(Boolean.TRUE)
+                .build();
+    }
+
+    private static MesProcessPoolTeamLeaderScopeDO productionLineScope(Long productionLineId) {
+        return MesProcessPoolTeamLeaderScopeDO.builder()
+                .leaderUserId(100L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_PRODUCTION_LINE)
+                .productionLineId(productionLineId)
+                .enabled(Boolean.TRUE)
+                .build();
+    }
+
+    private static MesProcessPoolTeamLeaderScopeDO equipmentScope(Long equipmentId) {
+        return MesProcessPoolTeamLeaderScopeDO.builder()
+                .leaderUserId(100L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EQUIPMENT)
+                .equipmentId(equipmentId)
+                .enabled(Boolean.TRUE)
+                .build();
+    }
+
+    private static MesProcessPoolTeamLeaderScopeDO orderScope(Long workOrderId) {
+        return MesProcessPoolTeamLeaderScopeDO.builder()
+                .leaderUserId(100L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_ORDER)
+                .workOrderId(workOrderId)
                 .enabled(Boolean.TRUE)
                 .build();
     }

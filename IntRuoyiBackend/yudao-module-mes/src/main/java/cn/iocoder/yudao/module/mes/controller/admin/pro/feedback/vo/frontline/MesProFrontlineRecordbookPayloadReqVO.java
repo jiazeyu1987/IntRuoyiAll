@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -25,10 +24,6 @@ public class MesProFrontlineRecordbookPayloadReqVO {
     @Schema(description = "条目正文", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "条目正文不能为空")
     private Map<String, Object> entryContent;
-
-    @Schema(description = "上工序输入数量", requiredMode = Schema.RequiredMode.REQUIRED, example = "120.000")
-    @NotNull(message = "上工序输入数量不能为空")
-    private BigDecimal previousProcessInputQuantity;
 
     @Schema(description = "设备参数", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "设备参数不能为空")

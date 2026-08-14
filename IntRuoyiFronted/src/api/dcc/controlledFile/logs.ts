@@ -29,7 +29,7 @@ export interface DccControlledFileLogRespVO {
   id: string
   logType: DccControlledFileLogType | string
   sourceRecordId?: number | null
-  occurredAt?: string | null
+  occurredAt?: number | null
   actionLabel?: string | null
   resultLabel?: string | null
   fileNumber?: string | null
@@ -48,5 +48,9 @@ export interface DccControlledFileLogRespVO {
 export const getControlledFileLogPage = async (
   params: DccControlledFileLogPageReqVO
 ): Promise<PageResult<DccControlledFileLogRespVO[]>> => {
-  return await request.get({ url: '/dcc/controlled-file-logs/page', params })
+  return await request.get({
+    url: '/dcc/controlled-file-logs/page',
+    params,
+    ignoreErrorMessage: true
+  })
 }

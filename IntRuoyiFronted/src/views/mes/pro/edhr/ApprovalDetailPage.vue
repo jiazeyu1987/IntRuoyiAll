@@ -7,7 +7,10 @@
           <div class="edhr-detail__subtitle">审批详情只读展示执行快照、追踪、签名记录和归档状态</div>
         </div>
         <div class="edhr-detail__actions">
-          <el-button @click="goBack">返回审批列表</el-button>
+          <el-button @click="goBack">
+            <Icon icon="ep:arrow-left" class="mr-5px" />
+            返回
+          </el-button>
           <el-button type="primary" :loading="loading" @click="loadDetail">刷新</el-button>
         </div>
       </div>

@@ -423,23 +423,10 @@ const formatHash = (hash?: string) => {
 }
 
 const formatRecordSignedAt = (signedAt?: SignatureGovernanceRecordRespVO['signedAt']) => {
-  if (signedAt == null || signedAt === '') {
+  if (signedAt == null) {
     return '-'
   }
-  if (typeof signedAt === 'number') {
-    return formatDate(new Date(signedAt))
-  }
-  const text = String(signedAt).trim()
-  if (!text) {
-    return '-'
-  }
-  if (/^\d+$/.test(text)) {
-    const timestamp = Number(text)
-    return formatDate(new Date(timestamp))
-  }
-  const normalizedText = text.includes('T') ? text : text.replace(' ', 'T')
-  const date = new Date(normalizedText)
-  return Number.isNaN(date.getTime()) ? text : formatDate(date)
+  return formatDate(new Date(signedAt))
 }
 
 const revokeRecordPdfPreviewUrl = () => {

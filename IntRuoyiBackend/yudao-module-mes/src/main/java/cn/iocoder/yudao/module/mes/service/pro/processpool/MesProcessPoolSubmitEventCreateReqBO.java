@@ -5,6 +5,7 @@ import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -12,6 +13,7 @@ import java.util.Map;
 public class MesProcessPoolSubmitEventCreateReqBO {
 
     private Long feedbackId;
+    private String processPoolSubmissionIdempotencyKey;
     private Long recordbookEntryId;
     private Long recordbookEventId;
     private Long workOrderId;
@@ -28,7 +30,12 @@ public class MesProcessPoolSubmitEventCreateReqBO {
     private String templateType;
     private BigDecimal outputQuantity;
     private BigDecimal lossQuantity;
-    private BigDecimal previousProcessInputQuantity;
+    private Long lossReasonId;
+    private String lossReasonCodeSnapshot;
+    private String lossReasonNameSnapshot;
+    private List<?> lossDetails;
+    private Object selectedDevice;
+    private List<?> deviceParameterReadings;
     private Map<String, Object> equipmentParameters;
     private Map<String, Object> rawPayload;
     private LocalDateTime submittedAt;

@@ -1,0 +1,217 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenantUser": "芋道源码/admin",
+  "startDate": "2026-08-06",
+  "selectedRows": [
+    "881MO093613 阻断：受保护任务未绑定工作站 总量 26000 19.48% 2026-06-20 15:59:00 2026-07-28 08:00:00 2026-08-20 09:49:00 1 吹球囊成型 0.00% 2026-07-07 16:31:31 查看 调整 交期 冻结 完成",
+    "881MO093616 总量 26000 3.85% 2026-06-16 16:26:00 2026-07-09 08:00:00 2026-08-18 15:39:00 3 吹球囊成型 0.00% 2026-07-07 16:31:30 查看 调整 交期 冻结 完成",
+    "881MO093615 总量 26000 17.94% 2026-06-22 22:46:00 2026-07-08 08:00:00 2026-08-27 18:57:00 100 吹球囊成型 0.00% 2026-07-07 16:31:29 查看 调整 交期 冻结 完成",
+    "881MO098538 总量 26000 0.00% 2026-06-16 11:50:00 2026-08-06 15:08:00 2026-09-08 18:57:00 100 吹球囊成型 0.00% 2026-07-07 16:31:31 查看 调整 交期 冻结 完成",
+    "CODEX-FACTOR-20260708093210 总量 2600 0.00% - 2026-08-07 11:16:00 2026-09-21 16:46:00 100 吹球囊成型 0.00% 2026-07-10 16:20:27 查看 调整 交期 冻结 完成",
+    "E2E-SYNC-NOPD-20260708094004 总量 26 0.00% - 2026-08-07 11:38:00 2026-09-21 16:52:00 100 吹球囊成型 0.00% 2026-08-04 17:57:38 查看 调整 交期 冻结 完成",
+    "SMART-SCHED-20260619T103607080085020-MO 总量 260 0.00% - 2026-08-07 11:39:00 2026-09-21 17:45:00 100 吹球囊成型 0.00% 2026-08-04 17:57:38 查看 调整 交期 冻结 完成",
+    "SMART-SCHED-20260619T114409114550113-MO 总量 260 0.00% - 2026-08-07 11:42:00 2026-09-21 18:38:00 100 吹球囊成型 0.00% 2026-08-04 17:57:39 查看 调整 交期 冻结 完成",
+    "SMART-SCHED-20260619T131801886377743-MO 总量 260 0.00% - 2026-08-07 11:45:00 2026-09-22 08:32:00 100 吹球囊成型 0.00% 2026-08-04 17:57:39 查看 调整 交期 冻结 完成",
+    "SMART-SCHED-20260630-RERUN6-MO 总量 230 0.00% - 2026-08-06 08:17:00 2026-08-07 13:49:00 100 吹球囊成型 0.00% 2026-08-04 17:59:00 查看 调整 交期 冻结 完成",
+    "TESTERP6E90C3FBF0E4 总量 9683 0.00% - 2026-08-06 08:00:00 2026-08-07 13:25:00 100 吹球囊成型 0.00% 2026-08-04 17:57:38 查看 调整 交期 冻结 完成",
+    "881MO093617 总量 26000 0.29% 2026-06-16 14:20:00 2026-08-06 18:42:00 2026-09-18 18:57:00 200 吹球囊成型 0.00% 2026-07-07 16:31:30 查看 调整 交期 冻结 完成"
+  ],
+  "targetRequests": [
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/schedule-order/preflight",
+      "postData": {
+        "scopeType": "SELECTED",
+        "scheduleOrderIds": [
+          131,
+          128,
+          127,
+          130,
+          136,
+          142,
+          144,
+          145,
+          146,
+          147,
+          143,
+          129
+        ],
+        "includeAdmissionDiff": false,
+        "startTime": "2026-08-06 00:00:00",
+        "capacityMode": "PLANNED"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/auto-schedule/replan/preview",
+      "postData": {
+        "scheduleOrderIds": [
+          131,
+          128,
+          127,
+          130,
+          136,
+          142,
+          144,
+          145,
+          146,
+          147,
+          143,
+          129
+        ],
+        "startTime": "2026-08-06 00:00:00",
+        "runtimeCapacityBasis": "PLANNED",
+        "preserveManualLockedTasks": true
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/auto-schedule/replan/apply",
+      "postData": {
+        "scheduleOrderIds": [
+          131,
+          128,
+          127,
+          130,
+          136,
+          142,
+          144,
+          145,
+          146,
+          147,
+          143,
+          129
+        ],
+        "startTime": "2026-08-06 00:00:00",
+        "runtimeCapacityBasis": "PLANNED",
+        "preserveManualLockedTasks": true,
+        "calendarContextToken": "<redacted>",
+        "idempotencyKey": "<redacted>"
+      }
+    }
+  ],
+  "targetResponses": [
+    {
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/schedule-order/preflight",
+      "status": 200,
+      "payload": {
+        "code": 0,
+        "msg": "",
+        "result": "WARN",
+        "summary": {
+          "passCount": 7,
+          "warnCount": 5,
+          "blockedCount": 0
+        },
+        "issueCount": 5,
+        "calendarContextTokenPresent": false
+      }
+    },
+    {
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/auto-schedule/replan/preview",
+      "status": 200,
+      "payload": {
+        "code": 0,
+        "msg": "",
+        "summary": {
+          "workOrderCount": 12,
+          "generatedTaskCount": 490,
+          "preservedTaskCount": 10,
+          "blockingIssueCount": 1,
+          "appliedWorkOrderCount": 11,
+          "blockedWorkOrderCount": 1,
+          "skippedWorkOrderCount": 0,
+          "shortageCount": 319,
+          "startTime": 1783468800000,
+          "endTime": 1790037120000
+        },
+        "issueCount": 324,
+        "calendarContextTokenPresent": true
+      }
+    },
+    {
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/auto-schedule/replan/apply",
+      "status": 200,
+      "payload": {
+        "code": 0,
+        "msg": "",
+        "summary": {
+          "workOrderCount": 12,
+          "generatedTaskCount": 490,
+          "preservedTaskCount": 10,
+          "blockingIssueCount": 1,
+          "appliedWorkOrderCount": 11,
+          "blockedWorkOrderCount": 1,
+          "skippedWorkOrderCount": 0,
+          "shortageCount": 319,
+          "startTime": 1783468800000,
+          "endTime": 1790037120000
+        },
+        "issueCount": 324,
+        "calendarContextTokenPresent": false
+      }
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "progressSnapshots": [
+    {
+      "progressText": "重排进度 36%",
+      "confirmDialogVisible": false,
+      "dateDialogVisible": true,
+      "skippedNoticeVisible": false
+    },
+    {
+      "progressText": "重排进度 61%",
+      "confirmDialogVisible": false,
+      "dateDialogVisible": true,
+      "skippedNoticeVisible": true
+    },
+    {
+      "progressText": "重排进度 72%",
+      "confirmDialogVisible": false,
+      "dateDialogVisible": true,
+      "skippedNoticeVisible": true
+    },
+    {
+      "progressText": "重排进度 81%",
+      "confirmDialogVisible": false,
+      "dateDialogVisible": true,
+      "skippedNoticeVisible": true
+    },
+    {
+      "progressText": "重排进度 85%",
+      "confirmDialogVisible": false,
+      "dateDialogVisible": true,
+      "skippedNoticeVisible": true
+    },
+    {
+      "progressText": "重排进度 0%",
+      "confirmDialogVisible": false,
+      "dateDialogVisible": false,
+      "skippedNoticeVisible": false
+    }
+  ],
+  "applyStatus": 200,
+  "applyPayload": {
+    "code": 0,
+    "msg": "",
+    "summary": {
+      "workOrderCount": 12,
+      "generatedTaskCount": 490,
+      "preservedTaskCount": 10,
+      "blockingIssueCount": 1,
+      "appliedWorkOrderCount": 11,
+      "blockedWorkOrderCount": 1,
+      "skippedWorkOrderCount": 0,
+      "shortageCount": 319,
+      "startTime": 1783468800000,
+      "endTime": 1790037120000
+    },
+    "issueCount": 324,
+    "calendarContextTokenPresent": false
+  },
+  "successMessageVisible": true,
+  "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260804-mes-partial-replan-blockers\\artifacts\\full-select-replan-admin-e2e-2026-08-05T02-23-40-841Z.png"
+}

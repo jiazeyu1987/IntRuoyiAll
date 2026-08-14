@@ -17,15 +17,25 @@
         :quick-filter-state="scheduleOrderQuickFilter.state"
         :selected-filter-definition="scheduleOrderQuickFilter.selectedDefinition.value"
         :operator-options="scheduleOrderQuickFilter.operatorOptions.value"
+        :show-multi-filter="true"
+        :multi-filter-definitions="scheduleOrderMultiFilterDefinitions"
+        :multi-filter-state="scheduleOrderMultiFilter.state"
+        :show-multi-filter-operators="false"
         :columns="scheduleOrderColumns"
         :column-saving="scheduleOrderColumnSaving"
+        v-model:sort-state="scheduleOrderSortState"
         :total="scheduleOrderTotal"
         @update:page="scheduleOrderQueryParams.pageNo = $event"
         @update:limit="scheduleOrderQueryParams.pageSize = $event"
         @update:quick-filter-state="scheduleOrderQuickFilter.updateState"
         @quick-filter-query="scheduleOrderQuickFilter.applyQuickFilter"
+        @update:multi-filter-state="scheduleOrderMultiFilter.updateState"
+        @multi-filter-query="scheduleOrderMultiFilter.applyMultiFilter"
+        @multi-filter-reset="scheduleOrderMultiFilter.resetMultiFilter"
+        @multi-filter-remove="scheduleOrderMultiFilter.removeConditionAndApply"
         @column-change="saveScheduleOrderColumnConfig"
         @column-reset="resetScheduleOrderColumnConfig"
+        @sort-change="handleScheduleOrderSortChange"
         @pagination="getScheduleOrderList"
       >
         <template #actions>
@@ -87,6 +97,7 @@
             :stripe="true"
             :show-overflow-tooltip="true"
             :cell-class-name="getMainTableCellClassName"
+            :header-cell-class-name="getScheduleOrderHeaderCellClassName"
             :row-class-name="getScheduleOrderRowClassName"
             row-key="id"
             @selection-change="handleScheduleOrderSelectionChange"
@@ -99,6 +110,29 @@
           fixed="left"
           :selectable="isScheduleOrderSelectable"
         />
+        <el-table-column label="重排状态" width="104" fixed="left" align="center">
+          <template #default="{ row }">
+            <span
+              v-if="!isScheduleOrderReplanable(row)"
+              class="schedule-order-pool__replan-block-reason"
+              role="status"
+              :aria-label="`不可重排：${getScheduleOrderReplanBlockReason(row)}`"
+            >
+              <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
+              <span>不可重排</span>
+              <small>{{ getScheduleOrderReplanBlockReason(row) }}</small>
+            </span>
+            <span
+              v-else
+              class="schedule-order-pool__replan-available"
+              role="status"
+              aria-label="可重排"
+            >
+              <Icon icon="ep:circle-check-filled" :size="13" aria-hidden="true" />
+              可重排
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column
           v-if="isScheduleOrderColumnVisible('code')"
           label="排产工单号"
@@ -118,16 +152,28 @@
           v-bind="sortColumnAttrs('erpWorkOrderCode')"
         >
           <template #default="{ row }">
-            <el-button
-              v-if="row.erpWorkOrderCode"
-              link
-              type="primary"
-              class="schedule-order-pool__inline-link"
-              @click="openWorkOrder(row)"
-            >
-              {{ row.erpWorkOrderCode }}
-            </el-button>
-            <span v-else>--</span>
+            <div class="schedule-order-pool__work-order-ref">
+              <el-button
+                v-if="row.erpWorkOrderCode"
+                link
+                type="primary"
+                class="schedule-order-pool__inline-link"
+                @click="openWorkOrder(row)"
+              >
+                {{ getScheduleOrderSourceCodeText(row) }}
+              </el-button>
+              <span v-else>--</span>
+              <el-tooltip
+                v-if="Number(row.blockingIssueCount || 0) > 0"
+                effect="dark"
+                placement="top"
+                :content="row.latestBlockingIssueMessage || '存在阻断问题'"
+              >
+                <span class="schedule-order-pool__blocking-reason">
+                  阻断：{{ row.latestBlockingIssueMessage || '存在阻断问题' }}
+                </span>
+              </el-tooltip>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -210,9 +256,20 @@
           v-bind="sortColumnAttrs('plannedStartTime')"
         >
           <template #default="{ row }">
-            <span :class="{ 'schedule-order-pool__risk-text': isStartRisk(row) }">
-              {{ formatDateTime(row.plannedStartTime) }}
-            </span>
+            <div class="schedule-order-pool__risk-cell">
+              <span :class="{ 'schedule-order-pool__risk-text': isStartRisk(row) }">
+                {{ formatDateTime(row.plannedStartTime) }}
+              </span>
+              <span
+                v-if="getStartRiskText(row)"
+                class="schedule-order-pool__risk-indicator schedule-order-pool__risk-indicator--critical"
+                role="status"
+                :aria-label="getStartRiskText(row)"
+              >
+                <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
+                {{ getStartRiskText(row) }}
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -224,9 +281,20 @@
           v-bind="sortColumnAttrs('plannedEndTime')"
         >
           <template #default="{ row }">
-            <span :class="{ 'schedule-order-pool__warning-text': isDeliveryRisk(row) }">
-              {{ formatDateTime(row.plannedEndTime) }}
-            </span>
+            <div class="schedule-order-pool__risk-cell">
+              <span :class="{ 'schedule-order-pool__warning-text': isDeliveryRisk(row) }">
+                {{ formatDateTime(row.plannedEndTime) }}
+              </span>
+              <span
+                v-if="getDeliveryRiskText(row)"
+                class="schedule-order-pool__risk-indicator"
+                role="status"
+                :aria-label="getDeliveryRiskText(row)"
+              >
+                <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
+                {{ getDeliveryRiskText(row) }}
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -235,7 +303,7 @@
           prop="priorityNo"
           :width="getScheduleOrderColumnWidthString('priorityNo', 100)"
           align="center"
-          v-bind="sortColumnAttrs('priorityNo')"
+          v-bind="sortColumnAttrs({ key: 'priorityNo', sortable: 'custom' })"
         />
         <el-table-column
           v-if="isScheduleOrderColumnVisible('productionMaterialList')"
@@ -255,7 +323,22 @@
                 row.productionMaterialListSummary || `共 ${row.productionMaterialListCount} 张`
               }}
             </el-link>
-            <span v-else class="schedule-order-pool__material-missing">缺失</span>
+            <el-tooltip
+              v-else
+              :content="MISSING_MATERIAL_LIST_HINT"
+              effect="dark"
+              placement="top"
+              popper-class="schedule-order-pool__missing-value-popper"
+            >
+              <span
+                class="schedule-order-pool__missing-value-hint schedule-order-pool__material-missing"
+                tabindex="0"
+                :aria-label="MISSING_MATERIAL_LIST_HINT"
+              >
+                <span>缺失</span>
+                <Icon icon="ep:question-filled" :size="14" aria-hidden="true" />
+              </span>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column
@@ -281,7 +364,22 @@
               }}</span>
               <span>{{ formatPercent(row.currentProcessProgressPercent) }}%</span>
             </div>
-            <span v-else>-</span>
+            <el-tooltip
+              v-else
+              :content="MISSING_CURRENT_PROCESS_HINT"
+              effect="dark"
+              placement="top"
+              popper-class="schedule-order-pool__missing-value-popper"
+            >
+              <span
+                class="schedule-order-pool__missing-value-hint schedule-order-pool__current-process-missing"
+                tabindex="0"
+                :aria-label="MISSING_CURRENT_PROCESS_HINT"
+              >
+                <span>-</span>
+                <Icon icon="ep:question-filled" :size="14" aria-hidden="true" />
+              </span>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column
@@ -338,7 +436,7 @@
                 type="success"
                 @click="openManualFinishDialog(row)"
               >
-                完成
+                强制完成
               </el-button>
               <el-button
                 v-if="row.manualFinished"
@@ -348,7 +446,7 @@
                 :title="buildManualFinishTooltip(row)"
                 @click="openRevokeManualFinishDialog(row)"
               >
-                撤销
+                撤销强制完成
               </el-button>
             </div>
           </template>
@@ -364,11 +462,14 @@
               table-key="mes.pro.scheduleOrder.admissionDiff"
               :query-model="workOrderAdmissionQueryParams"
               label-width="88px"
-              :filter-definitions="workOrderAdmissionQuickFilterDefinitions"
-              :show-quick-filter-label="false"
-              :quick-filter-state="workOrderAdmissionQuickFilter.state"
-              :selected-filter-definition="workOrderAdmissionQuickFilter.selectedDefinition.value"
-              :operator-options="workOrderAdmissionQuickFilter.operatorOptions.value"
+              :filter-definitions="[]"
+              :show-quick-filter="false"
+              :quick-filter-state="{}"
+              :operator-options="[]"
+              :show-multi-filter="true"
+              :multi-filter-definitions="workOrderAdmissionMultiFilterDefinitions"
+              :multi-filter-state="workOrderAdmissionMultiFilter.state"
+              :show-multi-filter-operators="false"
               :columns="workOrderAdmissionColumns"
               :column-saving="workOrderAdmissionColumnSaving"
               :show-column-settings="false"
@@ -376,17 +477,16 @@
               :total="workOrderAdmissionTotal"
               v-model:page="workOrderAdmissionQueryParams.pageNo"
               v-model:limit="workOrderAdmissionQueryParams.pageSize"
-              @update:quick-filter-state="workOrderAdmissionQuickFilter.updateState"
-              @quick-filter-query="workOrderAdmissionQuickFilter.applyQuickFilter"
+              @update:multi-filter-state="workOrderAdmissionMultiFilter.updateState"
+              @multi-filter-query="workOrderAdmissionMultiFilter.applyMultiFilter"
+              @multi-filter-reset="workOrderAdmissionMultiFilter.resetMultiFilter"
+              @multi-filter-remove="workOrderAdmissionMultiFilter.removeCondition"
               @column-change="saveWorkOrderAdmissionColumnConfig"
               @column-reset="resetWorkOrderAdmissionColumnConfig"
               @pagination="getWorkOrderAdmissionList"
             >
               <template #actions>
                 <div class="schedule-order-pool__admission-actions schedule-order-pool__admission-bar">
-                  <el-button @click="resetWorkOrderAdmissionQuery">
-                    <Icon icon="ep:refresh" class="mr-5px" /> 重置
-                  </el-button>
                   <el-button
                     type="primary"
                     :loading="workOrderAdmissionSaving"
@@ -644,6 +744,7 @@
             :min="1"
             :step="1"
             :precision="0"
+            aria-label="新优先级"
             controls-position="right"
             class="!w-180px"
           />
@@ -741,23 +842,45 @@
 
     <Dialog
       v-model="manualFinishDialogVisible"
-      :title="manualFinishDialogMode === 'MANUAL_FINISH' ? '排产工单人工完成' : '撤销排产工单人工完成'"
+      :title="manualFinishDialogMode === 'MANUAL_FINISH' ? '排产工单强制完成' : '撤销排产工单强制完成'"
       width="460px"
     >
-      <el-form label-width="88px">
+      <el-alert
+        v-if="manualFinishDialogMode === 'MANUAL_FINISH'"
+        class="mb-16px"
+        type="warning"
+        :closable="false"
+        show-icon
+        title="这是有权限人员执行的强制关闭操作。强制完成后汇总按 100% 展示，真实工序进度仍保留，可撤销。"
+      />
+      <el-alert
+        v-else
+        class="mb-16px"
+        type="info"
+        :closable="false"
+        show-icon
+        title="撤销后将根据真实工序进度恢复汇总状态。"
+      />
+      <el-form label-width="128px">
         <el-form-item label="排产工单号">
           <span>{{ manualFinishTarget?.code || '-' }}</span>
         </el-form-item>
         <el-form-item label="来源生产工单号">
           <span>{{ manualFinishTarget?.erpWorkOrderCode || '-' }}</span>
         </el-form-item>
-        <el-form-item :label="manualFinishDialogMode === 'MANUAL_FINISH' ? '完成原因' : '撤销原因'">
+        <el-form-item
+          :label="manualFinishDialogMode === 'MANUAL_FINISH' ? '强制完成原因' : '撤销强制完成原因'"
+        >
           <el-input
             v-model="manualFinishReason"
             type="textarea"
             :rows="3"
             maxlength="500"
-            placeholder="请填写操作原因"
+            :placeholder="
+              manualFinishDialogMode === 'MANUAL_FINISH'
+                ? '请填写强制完成原因'
+                : '请填写撤销强制完成原因'
+            "
           />
         </el-form-item>
       </el-form>
@@ -768,7 +891,7 @@
           :loading="manualFinishSaving"
           @click="submitManualFinishAction"
         >
-          {{ manualFinishDialogMode === 'MANUAL_FINISH' ? '设为已完成' : '撤销已完成' }}
+          {{ manualFinishDialogMode === 'MANUAL_FINISH' ? '强制完成' : '撤销强制完成' }}
         </el-button>
       </template>
     </Dialog>
@@ -984,7 +1107,7 @@
         type="warning"
         :closable="false"
         show-icon
-        title="该工单已人工完成，列表按 100% 展示；以下工序仍显示真实报工进度。"
+        title="该工单已由有权限人员强制关闭；汇总按 100% 展示，以下工序仍保留真实进度，可撤销强制完成。"
       />
       <UnifiedListTemplate
         table-key="mes.pro.scheduleOrder.processRoute"
@@ -1427,7 +1550,7 @@
           <template #title>
             <div class="schedule-order-pool__capacity-alert">
               <span>
-                排产前检查是只读诊断；手动重排会生成变更预览，无阻断才直接应用重排。应用前会再次校验阻断问题，成功后正式排程立即更新。
+                排产前检查是只读诊断；手动重排会生成变更预览。可归因到工单的阻断会跳过该工单，其余可排工单继续应用；全局阻断仍会停止应用。
               </span>
               <span>{{ runtimeCapacityBasisDifferenceText }}</span>
             </div>
@@ -1511,8 +1634,12 @@
           />
           <el-alert
             v-if="preflightHasBlockedIssue"
-            title="存在阻断问题，不能应用重排。"
-            type="error"
+            :title="
+              preflightHasGlobalBlockedIssue
+                ? '存在无法归因到工单的阻断问题，不能应用重排。'
+                : '存在部分工单阻断；应用时将跳过问题工单，其余可排工单可继续重排。'
+            "
+            :type="preflightHasGlobalBlockedIssue ? 'error' : 'warning'"
             :closable="false"
             show-icon
           />
@@ -1606,8 +1733,12 @@
         />
         <el-alert
           v-if="replanPreviewHasBlockedIssue"
-          title="重排预览存在阻断问题，请先处理下方问题列表后再应用重排。"
-          type="error"
+          :title="
+            replanPreviewHasGlobalBlockedIssue
+              ? '重排预览存在无法归因到工单的阻断问题，不能应用重排。'
+              : '重排预览存在部分工单阻断；确认后将仅应用其余可排工单。'
+          "
+          :type="replanPreviewHasGlobalBlockedIssue ? 'error' : 'warning'"
           :closable="false"
           show-icon
         />
@@ -1758,7 +1889,7 @@
 
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import { ElMessageBox } from 'element-plus'
+import { ElNotification } from 'element-plus'
 import download from '@/utils/download'
 import { generateUUID } from '@/utils'
 import { dateFormatter, formatDate, formatDateTimeValue } from '@/utils/formatTime'
@@ -1797,6 +1928,10 @@ import {
   type TableQuickFilterDefinition,
   type TableQuickFilterValue
 } from '@/hooks/web/useTableQuickFilter'
+import {
+  useTableMultiFilter,
+  type ListMultiFilterDefinition
+} from '@/hooks/web/useTableMultiFilter'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import BaseScheduleOrderMainList from './components/ScheduleOrderMainList.vue'
 import ScheduleOrderProcessDetail from './components/ScheduleOrderProcessDetail.vue'
@@ -1858,6 +1993,10 @@ const ScheduleOrderMainList = BaseScheduleOrderMainList as typeof BaseScheduleOr
 
 const SCHEDULE_ORDER_STATUS_FINISHED = 3
 const SCHEDULE_ORDER_STATUS_CANCELED = 4
+const MISSING_MATERIAL_LIST_HINT =
+  '未查询到生产用料清单。仍可调整优先级、设置承诺交期和冻结/解冻；入池与手动重排以正式排产检查结果为准。'
+const MISSING_CURRENT_PROCESS_HINT =
+  '当前列表未解析出可显示的未完成工序，该展示值不作为统一禁用判据。仍可调整优先级、设置承诺交期和冻结/解冻；入池与手动重排以正式排产检查结果为准。'
 const { emitter } = useEmitt()
 
 const scheduleOrderTableHeight = '100%'
@@ -2041,27 +2180,64 @@ const scheduleOrderQueryParams = reactive({
   code: undefined as string | undefined,
   erpWorkOrderCode: undefined as string | undefined,
   currentProcessId: undefined as number | undefined,
-  completionFilter: 'INCOMPLETE' as 'INCOMPLETE' | 'ALL' | 'COMPLETED',
+  completionFilter: undefined as 'INCOMPLETE' | 'ALL' | 'COMPLETED' | undefined,
   promiseDate: undefined as string[] | undefined,
+  sortField: undefined as string | undefined,
+  sortOrder: undefined as 'asc' | 'desc' | undefined,
   quickFilter: undefined as any
 })
+const scheduleOrderSortState = ref<{
+  key?: string
+  prop?: string
+  order?: 'ascending' | 'descending' | null
+}>({})
+const scheduleOrderCompletionFilterOptions = [
+  { label: '未完成', value: 'INCOMPLETE' },
+  { label: '全部', value: 'ALL' },
+  { label: '已完成', value: 'COMPLETED' }
+]
 const scheduleOrderQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   { key: 'code', label: '排产工单号', type: 'text', placeholder: '请输入排产工单号' },
   {
     key: 'completionFilter',
-    label: '完成筛选',
+    label: '完成状态',
     type: 'select',
     queryParamKey: 'completionFilter',
-    options: [
-      { label: '未完成', value: 'INCOMPLETE' },
-      { label: '全部', value: 'ALL' },
-      { label: '已完成', value: 'COMPLETED' }
-    ]
+    options: scheduleOrderCompletionFilterOptions
   },
   { key: 'erpWorkOrderCode', label: '来源生产工单号', type: 'text', placeholder: '请输入来源生产工单号' },
   { key: 'productName', label: '产品名称', type: 'text', placeholder: '请输入产品名称' },
   { key: 'productSpecification', label: '规格型号', type: 'text', placeholder: '请输入规格型号' },
   { key: 'promiseDate', label: '承诺交期', type: 'dateRange' }
+]
+const scheduleOrderMultiFilterDefinitions: ListMultiFilterDefinition[] = [
+  {
+    key: 'code',
+    label: '排产工单号',
+    type: 'text',
+    queryParamKey: 'code',
+    placeholder: '请输入排产工单号'
+  },
+  {
+    key: 'erpWorkOrderCode',
+    label: '来源生产工单号',
+    type: 'text',
+    queryParamKey: 'erpWorkOrderCode',
+    placeholder: '请输入来源生产工单号'
+  },
+  {
+    key: 'completionFilter',
+    label: '完成状态',
+    type: 'select',
+    queryParamKey: 'completionFilter',
+    options: scheduleOrderCompletionFilterOptions
+  },
+  {
+    key: 'promiseDate',
+    label: '承诺交期',
+    type: 'dateRange',
+    queryParamKey: 'promiseDate'
+  }
 ]
 
 const processDialogVisible = ref(false)
@@ -2137,16 +2313,15 @@ const workOrderAdmissionList = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const selectedWorkOrders = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const workOrderAdmissionTotal = ref(0)
 let workOrderAdmissionRequestSerial = 0
-const DEFAULT_WORK_ORDER_ADMISSION_STATUS = 'READY_TO_ADMIT'
 const workOrderAdmissionQueryParams = reactive({
   pageNo: 1,
   pageSize: 10,
   workOrderCode: undefined as string | undefined,
   productCode: undefined as string | undefined,
-  admissionStatus: DEFAULT_WORK_ORDER_ADMISSION_STATUS as string | undefined,
-  quickFilter: undefined as TableQuickFilterValue | undefined
+  admissionStatus: undefined as string | undefined,
+  requestDate: undefined as string[] | undefined
 })
-const workOrderAdmissionQuickFilterDefinitions: TableQuickFilterDefinition[] = [
+const workOrderAdmissionMultiFilterDefinitions: ListMultiFilterDefinition[] = [
   {
     key: 'workOrderCode',
     label: '工单编码',
@@ -2161,8 +2336,6 @@ const workOrderAdmissionQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     queryParamKey: 'productCode',
     placeholder: '请输入产品编号'
   },
-  { key: 'productName', label: '产品名称', type: 'text', placeholder: '请输入产品名称' },
-  { key: 'productSpecification', label: '规格型号', type: 'text', placeholder: '请输入规格型号' },
   {
     key: 'admissionStatus',
     label: '入池状态',
@@ -2174,7 +2347,12 @@ const workOrderAdmissionQuickFilterDefinitions: TableQuickFilterDefinition[] = [
       { label: '阻断', value: 'BLOCKED' }
     ]
   },
-  { key: 'requestDate', label: '需求日期', type: 'dateRange' }
+  {
+    key: 'requestDate',
+    label: '需求日期',
+    type: 'dateRange',
+    queryParamKey: 'requestDate'
+  }
 ]
 const replanDrawerVisible = ref(false)
 const replanSettingsDialogVisible = ref(false)
@@ -2293,6 +2471,27 @@ const preflightHasBlockedIssue = computed(() => {
   )
 })
 
+const isPreflightIssueAttributableToWorkOrder = (
+  issue: MesProScheduleOrderPreflightIssueVO
+) => {
+  if (issue.workOrderId || issue.scheduleOrderId || issue.workOrderCode || issue.scheduleOrderCode) {
+    return true
+  }
+  return (
+    Boolean(issue.objectId) &&
+    ['WORK_ORDER', 'SCHEDULE_ORDER'].includes(String(issue.objectType || '').toUpperCase())
+  )
+}
+
+const preflightHasGlobalBlockedIssue = computed(() => {
+  return Boolean(
+    preflightResult.value?.issues?.some(
+      (issue: MesProScheduleOrderPreflightIssueVO) =>
+        issue.severity === 'BLOCKED' && !isPreflightIssueAttributableToWorkOrder(issue)
+    )
+  )
+})
+
 const findScheduleOrderByPreflightIssue = (issue: MesProScheduleOrderPreflightIssueVO) => {
   if (!issue.scheduleOrderId) {
     return undefined
@@ -2321,6 +2520,24 @@ const replanPreviewHasBlockedIssue = computed(() => {
     (replanPreview.value?.summary?.blockingIssueCount ?? 0) > 0 ||
       replanPreview.value?.issues?.some((issue) => issue.severity === 'BLOCKING')
   )
+})
+
+const isAutoScheduleIssueAttributableToWorkOrder = (issue: ProTaskAutoScheduleIssueVO) => {
+  return Boolean(issue.workOrderId || issue.workOrderCode)
+}
+
+const hasGlobalReplanBlockingIssue = (
+  preview: ProTaskAutoScheduleReplanPreviewRespVO | null | undefined
+) => {
+  const blockingIssues = (preview?.issues || []).filter((issue) => issue.severity === 'BLOCKING')
+  if ((preview?.summary?.blockingIssueCount ?? 0) > 0 && !blockingIssues.length) {
+    return true
+  }
+  return blockingIssues.some((issue) => !isAutoScheduleIssueAttributableToWorkOrder(issue))
+}
+
+const replanPreviewHasGlobalBlockedIssue = computed(() => {
+  return hasGlobalReplanBlockingIssue(replanPreview.value)
 })
 
 const replanFeedbackProtectedTasks = computed(() => {
@@ -2414,8 +2631,6 @@ const replanIssueRows = computed<ReplanIssueRow[]>(() => {
 
 type SkippedSelectedReplanRow = {
   code: string
-  productCode: string
-  productName: string
   reason: string
 }
 
@@ -2449,50 +2664,41 @@ const buildSkippedSelectedReplanRows = (preview: ProTaskAutoScheduleReplanPrevie
         : '预览未生成任务，请检查路线、日历产能或已保护任务'
       return {
         code: row.erpWorkOrderCode || row.code,
-        productCode: row.productCode || '-',
-        productName: row.productName || '-',
         reason
       }
     })
 }
 
-const confirmSkippedSelectedReplanRows = async (preview: ProTaskAutoScheduleReplanPreviewRespVO) => {
+const notifySkippedSelectedReplanRows = (preview: ProTaskAutoScheduleReplanPreviewRespVO) => {
   const skippedRows = buildSkippedSelectedReplanRows(preview)
   if (!skippedRows.length) {
-    return true
+    return
   }
   const rowHtml = skippedRows
+    .slice(0, 6)
     .map(
       (row, index) =>
-        `<li><strong>${index + 1}. ${escapeHtml(row.code)}</strong> ` +
-        `(${escapeHtml(row.productCode)} / ${escapeHtml(row.productName)})：${escapeHtml(
+        `<li><strong>${index + 1}. 工单：${escapeHtml(row.code)}</strong>；原因：${escapeHtml(
           row.reason
         )}</li>`
     )
     .join('')
-  try {
-    await ElMessageBox.confirm(
-      `<div class="schedule-order-pool__skipped-confirm">
-        <p>以下选中的排产工单本次不会参与排产：</p>
+  const moreText =
+    skippedRows.length > 6
+      ? `<p>另有 ${skippedRows.length - 6} 个工单未参与，请在标红行查看原因。</p>`
+      : ''
+  ElNotification({
+    title: '存在未参与排产的工单',
+    message: `<div class="schedule-order-pool__skipped-notice">
+        <p>以下工单本次被阻断：</p>
         <ul>${rowHtml}</ul>
-        <p>是否继续应用其余可排工单？</p>
+        ${moreText}
+        <p>系统将直接应用其余可排工单，阻断工单会标红。</p>
       </div>`,
-      '存在未参与排产的工单',
-      {
-        dangerouslyUseHTMLString: true,
-        confirmButtonText: '继续应用',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    return true
-  } catch (error) {
-    if (error !== 'cancel' && error !== 'close') {
-      console.error('[MES] 未参与排产工单确认失败', error)
-      message.error(resolveProjectionErrorMessage(error, '手动重排确认'))
-    }
-    return false
-  }
+    dangerouslyUseHTMLString: true,
+    type: 'warning',
+    duration: 9000
+  })
 }
 
 const canApplyReplan = computed(() => {
@@ -2514,8 +2720,10 @@ const resolveScheduleReplanProjection = () => {
     (!hasReplanPermission.value && '当前账号没有手动重排权限') ||
     (!scopeRows.length && '请先勾选需要重排的排产工单') ||
     blockedScopeReason ||
-    (preflightHasBlockedIssue.value && '排产前检查存在阻断问题，不能应用重排') ||
-    (replanPreviewHasBlockedIssue.value && '重排预览存在阻断问题，不能应用重排') ||
+    (preflightHasGlobalBlockedIssue.value &&
+      '排产前检查存在无法归因到工单的阻断问题，不能应用重排') ||
+    (replanPreviewHasGlobalBlockedIssue.value &&
+      '重排预览存在无法归因到工单的阻断问题，不能应用重排') ||
     '当前重排动作暂不可用。'
   return resolveControlledActionProjection(
     {
@@ -2525,10 +2733,10 @@ const resolveScheduleReplanProjection = () => {
         hasReplanPermission.value &&
         scopeRows.length > 0 &&
         blockedRows.length === 0 &&
-        !preflightHasBlockedIssue.value &&
-        !replanPreviewHasBlockedIssue.value,
+        !preflightHasGlobalBlockedIssue.value &&
+        !replanPreviewHasGlobalBlockedIssue.value,
       permissionGranted: hasReplanPermission.value,
-      locked: preflightHasBlockedIssue.value || replanPreviewHasBlockedIssue.value,
+      locked: preflightHasGlobalBlockedIssue.value || replanPreviewHasGlobalBlockedIssue.value,
       lockReason: blockerMessage,
       disabledReason: blockerMessage
     },
@@ -2694,8 +2902,13 @@ const getScheduleOrderList = async () => {
   scheduleOrderLoading.value = true
   try {
     const data = await MesProScheduleOrderApi.getScheduleOrderPage(scheduleOrderQueryParams)
-    scheduleOrderList.value = sortScheduleOrderListForDisplay(data.list || [])
+    const rows = data.list || []
+    scheduleOrderList.value =
+      scheduleOrderQueryParams.sortField && scheduleOrderQueryParams.sortOrder
+        ? rows
+        : sortScheduleOrderListForDisplay(rows)
     scheduleOrderTotal.value = data.total
+    void syncScheduleOrderPriorityAriaSort()
   } finally {
     scheduleOrderLoading.value = false
   }
@@ -2718,6 +2931,12 @@ async function loadLatestSuccessfulScheduleApplyTime() {
 const scheduleOrderQuickFilter = useTableQuickFilter(
   'mes.pro.scheduleOrder.main',
   scheduleOrderQuickFilterDefinitions,
+  scheduleOrderQueryParams,
+  getScheduleOrderList
+)
+const scheduleOrderMultiFilter = useTableMultiFilter(
+  'mes.pro.scheduleOrder.main',
+  scheduleOrderMultiFilterDefinitions,
   scheduleOrderQueryParams,
   getScheduleOrderList
 )
@@ -2850,6 +3069,44 @@ const sortScheduleOrderListForDisplay = (rows: MesProScheduleOrderVO[]) => {
       String(right.code || right.erpWorkOrderCode || '')
     )
   })
+}
+
+const getScheduleOrderHeaderCellClassName = ({ column }: { column?: { property?: string } }) => {
+  return column?.property === 'priorityNo' ? 'schedule-order-pool__priority-sort-header' : ''
+}
+
+const getScheduleOrderPriorityAriaSortValue = () => {
+  const activeSortProp = scheduleOrderSortState.value.prop || scheduleOrderSortState.value.key
+  if (activeSortProp !== 'priorityNo') return 'none'
+  if (scheduleOrderSortState.value.order === 'ascending') return 'ascending'
+  if (scheduleOrderSortState.value.order === 'descending') return 'descending'
+  return 'none'
+}
+
+const syncScheduleOrderPriorityAriaSort = async () => {
+  await nextTick()
+  const ariaSort = getScheduleOrderPriorityAriaSortValue()
+  const priorityHeaders = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      '[data-user-table-key="mes.pro.scheduleOrder.main"] .schedule-order-pool__priority-sort-header'
+    )
+  )
+  priorityHeaders.forEach((header) => {
+    header.setAttribute('aria-sort', ariaSort)
+  })
+}
+
+const handleScheduleOrderSortChange = async ({ prop, order }: { prop?: string; order?: string | null }) => {
+  scheduleOrderQueryParams.pageNo = 1
+  if (prop !== 'priorityNo' || (order !== 'ascending' && order !== 'descending')) {
+    scheduleOrderQueryParams.sortField = undefined
+    scheduleOrderQueryParams.sortOrder = undefined
+    await getScheduleOrderList()
+    return
+  }
+  scheduleOrderQueryParams.sortField = prop === 'priorityNo' ? 'priorityNo' : undefined
+  scheduleOrderQueryParams.sortOrder = order === 'ascending' ? 'asc' : 'desc'
+  await getScheduleOrderList()
 }
 
 const openScheduleOrderExportDialog = () => {
@@ -3102,13 +3359,17 @@ const submitManualFinishAction = async () => {
     return
   }
   if (!manualFinishReason.value.trim()) {
-    message.warning(manualFinishDialogMode.value === 'MANUAL_FINISH' ? '完成原因不能为空' : '撤销原因不能为空')
+    message.warning(
+      manualFinishDialogMode.value === 'MANUAL_FINISH'
+        ? '强制完成原因不能为空'
+        : '撤销强制完成原因不能为空'
+    )
     return
   }
   const confirmText =
     manualFinishDialogMode.value === 'MANUAL_FINISH'
-      ? '确认将该排产工单设为已完成吗？设置后列表会按 100% 已完成展示。'
-      : '确认撤销该排产工单的人工完成吗？撤销后会恢复真实报工进度。'
+      ? '确认强制完成该排产工单吗？这是有权限人员执行的强制关闭操作；强制完成后汇总按 100% 展示，真实工序进度仍保留，可撤销。'
+      : '确认撤销该排产工单的强制完成吗？撤销后将根据真实工序进度恢复汇总状态。'
   await message.confirm(confirmText)
   manualFinishSaving.value = true
   try {
@@ -3117,13 +3378,13 @@ const submitManualFinishAction = async () => {
         id: manualFinishTarget.value.id,
         reason: manualFinishReason.value
       })
-      message.success('排产工单已设为已完成')
+      message.success('排产工单已强制完成')
     } else {
       await MesProScheduleOrderApi.revokeManualFinishScheduleOrder({
         id: manualFinishTarget.value.id,
         reason: manualFinishReason.value
       })
-      message.success('排产工单已撤销人工完成')
+      message.success('排产工单已撤销强制完成')
     }
     manualFinishDialogVisible.value = false
     await getScheduleOrderList()
@@ -3154,10 +3415,10 @@ const operationTraceFieldLabelMap: Record<string, string> = {
   frozenTime: '冻结时间',
   frozenBy: '冻结人',
   freezeReason: '冻结原因',
-  manualFinished: '人工完成',
-  manualFinishedTime: '人工完成时间',
-  manualFinishedBy: '人工完成人',
-  manualFinishedReason: '人工完成原因',
+  manualFinished: '强制完成',
+  manualFinishedTime: '强制完成时间',
+  manualFinishedBy: '强制完成人',
+  manualFinishedReason: '强制完成原因',
   status: '状态',
   remark: '备注'
 }
@@ -3257,30 +3518,12 @@ const getWorkOrderAdmissionList = async () => {
   }
 }
 
-const workOrderAdmissionQuickFilter = useTableQuickFilter(
+const workOrderAdmissionMultiFilter = useTableMultiFilter(
   'mes.pro.scheduleOrder.admissionDiff',
-  workOrderAdmissionQuickFilterDefinitions,
+  workOrderAdmissionMultiFilterDefinitions,
   workOrderAdmissionQueryParams,
   getWorkOrderAdmissionList
 )
-
-const handleWorkOrderAdmissionQuery = () => {
-  workOrderAdmissionQueryParams.pageNo = 1
-  getWorkOrderAdmissionList()
-}
-
-const resetWorkOrderAdmissionQuery = () => {
-  workOrderAdmissionQuickFilter.updateState({
-    fieldKey: workOrderAdmissionQuickFilterDefinitions[0]?.key,
-    operator: 'contains',
-    value: undefined
-  })
-  workOrderAdmissionQueryParams.workOrderCode = undefined
-  workOrderAdmissionQueryParams.productCode = undefined
-  workOrderAdmissionQueryParams.admissionStatus = DEFAULT_WORK_ORDER_ADMISSION_STATUS
-  delete workOrderAdmissionQueryParams.quickFilter
-  handleWorkOrderAdmissionQuery()
-}
 
 const handleWorkOrderAdmissionSelectionChange = (rows: MesProScheduleOrderAdmissionDiffRowVO[]) => {
   selectedWorkOrders.value = rows
@@ -3296,7 +3539,14 @@ const getMainTableCellClassName = ({
 }
 
 const getScheduleOrderRowClassName = ({ row }: { row: MesProScheduleOrderVO }) => {
-  return row.frozen ? 'schedule-order-pool__row--frozen' : ''
+  const classes: string[] = []
+  if (row.frozen) {
+    classes.push('schedule-order-pool__row--frozen')
+  }
+  if (Number(row.blockingIssueCount || 0) > 0) {
+    classes.push('schedule-order-pool__row--blocked')
+  }
+  return classes.join(' ')
 }
 
 const getScheduleOrderReplanBlockReason = (row: MesProScheduleOrderVO) => {
@@ -3307,10 +3557,11 @@ const getScheduleOrderReplanBlockReason = (row: MesProScheduleOrderVO) => {
 }
 
 const isScheduleOrderReplanable = (row: MesProScheduleOrderVO) => {
+  const status = Number(row.status)
   return (
     !row.frozen &&
-    row.status !== SCHEDULE_ORDER_STATUS_FINISHED &&
-    row.status !== SCHEDULE_ORDER_STATUS_CANCELED
+    status !== SCHEDULE_ORDER_STATUS_FINISHED &&
+    status !== SCHEDULE_ORDER_STATUS_CANCELED
   )
 }
 
@@ -3394,6 +3645,12 @@ const isScheduleOrderParticipatingInLastReplan = (row: MesProScheduleOrderVO) =>
   return Boolean(
     scheduleOrderId && getLastReplanParticipatingScheduleOrderIdSet().has(scheduleOrderId)
   )
+}
+
+const getScheduleOrderSourceCodeText = (row: MesProScheduleOrderVO) => {
+  const completedSuffix =
+    row.manualFinished || Number(row.status) === SCHEDULE_ORDER_STATUS_FINISHED ? '(已完成)' : ''
+  return `${row.erpWorkOrderCode}${completedSuffix}`
 }
 
 const getScheduleOrderProductCodeClass = (row: MesProScheduleOrderVO) => {
@@ -3498,6 +3755,20 @@ watch(
   }
 )
 
+watch(
+  () => scheduleOrderSortState.value.order,
+  () => {
+    void syncScheduleOrderPriorityAriaSort()
+  }
+)
+
+watch(
+  () => scheduleOrderSortState.value.prop,
+  () => {
+    void syncScheduleOrderPriorityAriaSort()
+  }
+)
+
 watch(replanDrawerVisible, (visible) => {
   if (!visible) {
     replanSettingsDialogVisible.value = false
@@ -3578,7 +3849,8 @@ const previewReplan = async () => {
   try {
     const request = buildReplanRequest()
     await runPreflightForRequest(request)
-    if (preflightHasBlockedIssue.value) {
+    if (preflightHasGlobalBlockedIssue.value) {
+      message.error('排产前检查存在无法归因到工单的阻断问题，不能生成重排预览')
       return
     }
     await previewReplanForRequest(request)
@@ -3598,7 +3870,17 @@ const buildReplanApplySuccessMessage = (result: ProTaskAutoScheduleApplyRespVO) 
   const createdCount = result.createdTaskIds?.length ?? 0
   const deletedCount = result.deletedTaskIds?.length ?? 0
   const preservedCount = result.preservedTaskIds?.length ?? 0
-  return `应用重排成功：正式排程已更新，新增任务 ${createdCount} 个，删除任务 ${deletedCount} 个，保留任务 ${preservedCount} 个。`
+  const appliedWorkOrderCount = result.summary?.appliedWorkOrderCount
+  const blockedWorkOrderCount = result.summary?.blockedWorkOrderCount
+  const skippedWorkOrderCount = result.summary?.skippedWorkOrderCount
+  const workOrderSummary = [
+    appliedWorkOrderCount !== undefined ? `应用工单 ${appliedWorkOrderCount} 个` : '',
+    blockedWorkOrderCount !== undefined ? `标记阻断 ${blockedWorkOrderCount} 个` : '',
+    skippedWorkOrderCount !== undefined ? `跳过 ${skippedWorkOrderCount} 个` : ''
+  ]
+    .filter(Boolean)
+    .join('，')
+  return `应用重排成功：${workOrderSummary ? `${workOrderSummary}，` : ''}正式排程已更新，新增任务 ${createdCount} 个，删除任务 ${deletedCount} 个，保留任务 ${preservedCount} 个。`
 }
 
 const applyReplan = async () => {
@@ -3620,23 +3902,17 @@ const confirmApplyReplanStartChoice = async () => {
   startReplanApplyProgress()
   try {
     const preflight = await runPreflightForRequest(applyRequest)
-    if (preflight.result === 'BLOCKED' || preflightHasBlockedIssue.value) {
-      throw new Error('排产前检查存在阻断问题，不能应用重排')
+    if (preflight.result === 'BLOCKED' && preflightHasGlobalBlockedIssue.value) {
+      throw new Error('排产前检查存在无法归因到工单的阻断问题，不能应用重排')
     }
     const freshPreview = await previewReplanForRequest(applyRequest)
     if (!freshPreview?.calendarContextToken) {
       throw new Error('重排预览缺少日历上下文，不能应用重排')
     }
-    if (
-      (freshPreview.summary?.blockingIssueCount ?? 0) > 0 ||
-      freshPreview.issues?.some((issue) => issue.severity === 'BLOCKING')
-    ) {
-      throw new Error('重排预览存在阻断问题，不能应用重排')
+    if (hasGlobalReplanBlockingIssue(freshPreview)) {
+      throw new Error('重排预览存在无法归因到工单的阻断问题，不能应用重排')
     }
-    const shouldContinueSkippedRows = await confirmSkippedSelectedReplanRows(freshPreview)
-    if (!shouldContinueSkippedRows) {
-      return
-    }
+    notifySkippedSelectedReplanRows(freshPreview)
     const applyResult = await ProTaskAutoScheduleApi.replanApply({
       ...applyRequest,
       reason: replanForm.reason?.trim() || undefined,
@@ -3891,21 +4167,38 @@ const formatIssueDate = (value?: string) => {
   return value ? formatDate(new Date(value), 'YYYY-MM-DD') : '-'
 }
 
-const isStartRisk = (row: MesProScheduleOrderVO) => {
-  return Boolean(
-    row.plannedStartTime && row.latestStartTime && row.plannedStartTime > row.latestStartTime
-  )
+const getStartRiskText = (row: MesProScheduleOrderVO) => {
+  if (!row.plannedStartTime || !row.latestStartTime) return ''
+  const plannedStart = dayjs(row.plannedStartTime)
+  const latestStart = dayjs(row.latestStartTime)
+  if (!plannedStart.isValid() || !latestStart.isValid() || !plannedStart.isAfter(latestStart)) {
+    return ''
+  }
+
+  const overdueMinutes = Math.max(1, Math.ceil(plannedStart.diff(latestStart, 'minute', true)))
+  if (overdueMinutes < 60) return `晚于最晚开工 ${overdueMinutes} 分钟`
+  if (overdueMinutes < 24 * 60) return `晚于最晚开工 ${Math.ceil(overdueMinutes / 60)} 小时`
+  return `晚于最晚开工 ${Math.ceil(overdueMinutes / (24 * 60))} 天`
 }
 
-const isDeliveryRisk = (row: MesProScheduleOrderVO) => {
-  const plannedEndDate = formatDateTime(row.plannedEndTime).slice(0, 10)
-  return Boolean(row.plannedEndTime && row.promiseDate && plannedEndDate > row.promiseDate)
+const isStartRisk = (row: MesProScheduleOrderVO) => Boolean(getStartRiskText(row))
+
+const getDeliveryRiskText = (row: MesProScheduleOrderVO) => {
+  if (!row.plannedEndTime || !row.promiseDate) return ''
+  const plannedEndDate = dayjs(row.plannedEndTime).startOf('day')
+  const promiseDate = dayjs(row.promiseDate).startOf('day')
+  if (!plannedEndDate.isValid() || !promiseDate.isValid()) return ''
+
+  const overdueDays = plannedEndDate.diff(promiseDate, 'day')
+  return overdueDays > 0 ? `逾承诺交期 ${overdueDays} 天` : ''
 }
+
+const isDeliveryRisk = (row: MesProScheduleOrderVO) => Boolean(getDeliveryRiskText(row))
 
 const buildManualFinishTooltip = (row: MesProScheduleOrderVO) => {
   return [
-    row.manualFinishedTime ? `时间：${formatDateTime(row.manualFinishedTime)}` : '',
-    row.manualFinishedReason ? `原因：${row.manualFinishedReason}` : ''
+    row.manualFinishedTime ? `强制完成时间：${formatDateTime(row.manualFinishedTime)}` : '',
+    row.manualFinishedReason ? `强制完成原因：${row.manualFinishedReason}` : ''
   ]
     .filter(Boolean)
     .join('\n')
@@ -3968,6 +4261,7 @@ const getReasonCodeText = (reasonCode?: string) => {
       BLOCKED_INVALID_FINITE_CAPACITY: '缺产能',
       BLOCKED_INVALID_INFINITE_FORMULA: '缺无限产能公式',
       BLOCKED_CALENDAR_RULE_MISSING: '缺日历',
+      BLOCKED_ERP_SYNC_RECORD_MISSING: '缺 ERP 正式订单',
       WARN_ERP_SYNC_RECORD_MISSING: '缺 ERP 同步证据'
     }[reasonCode || ''] || '未知原因'
   )
@@ -4065,8 +4359,8 @@ const getOperationTypeText = (type: string) => {
     UNFREEZE: '解冻',
     UPDATE: '修改',
     DELETE: '删除',
-    MANUAL_FINISH: '人工完成',
-    REVOKE_MANUAL_FINISH: '撤销人工完成',
+    MANUAL_FINISH: '强制完成',
+    REVOKE_MANUAL_FINISH: '撤销强制完成',
     SYNC_PROGRESS: '同步进度'
   }
   return textMap[type] || type || '-'
@@ -4291,12 +4585,12 @@ onMounted(async () => {
   gap: 10px 16px;
 }
 
-:global(.schedule-order-pool__skipped-confirm ul) {
+:global(.schedule-order-pool__skipped-notice ul) {
   margin: 8px 0;
   padding-left: 18px;
 }
 
-:global(.schedule-order-pool__skipped-confirm li) {
+:global(.schedule-order-pool__skipped-notice li) {
   margin: 6px 0;
   line-height: 1.5;
 }
@@ -4362,6 +4656,36 @@ onMounted(async () => {
   line-height: 18px;
 }
 
+.schedule-order-pool__replan-block-reason {
+  display: inline-flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.schedule-order-pool__replan-block-reason small {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.schedule-order-pool__replan-available {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #237804;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
 .schedule-order-pool :deep(.schedule-order-pool__main-table__cell--wrap .cell) {
   white-space: normal;
   word-break: break-all;
@@ -4377,6 +4701,34 @@ onMounted(async () => {
 .schedule-order-pool :deep(.schedule-order-pool__row--frozen .cell) {
   color: #5f3b00;
   font-weight: 600;
+}
+
+.schedule-order-pool :deep(.schedule-order-pool__row--blocked td.el-table__cell) {
+  background: #fff1f0 !important;
+}
+
+.schedule-order-pool :deep(.schedule-order-pool__row--blocked .cell) {
+  color: #8a1f11;
+  font-weight: 600;
+}
+
+.schedule-order-pool__work-order-ref {
+  display: inline-flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.schedule-order-pool__blocking-reason {
+  display: inline-block;
+  max-width: 100%;
+  color: #cf1322;
+  font-size: 12px;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .schedule-order-pool__freeze-badge {
@@ -4661,9 +5013,67 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.schedule-order-pool__risk-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.schedule-order-pool__risk-indicator {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: #ad4e00;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.schedule-order-pool__risk-indicator--critical {
+  color: #b42318;
+}
+
 .schedule-order-pool__material-missing {
   color: #cf1322;
   font-weight: 600;
+}
+
+.schedule-order-pool__missing-value-hint {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  gap: 4px;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.schedule-order-pool__missing-value-hint:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
+.schedule-order-pool__missing-value-hint .icon {
+  flex: 0 0 auto;
+}
+
+:global(.schedule-order-pool__missing-value-popper) {
+  max-width: 360px;
+  line-height: 20px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.schedule-order-pool__current-process-missing {
+  color: var(--el-text-color-secondary);
 }
 
 .schedule-order-pool__reason-cell {

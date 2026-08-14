@@ -24,7 +24,8 @@ export const REQUIRED_FEATURE_IDS = Object.freeze([
   'domain-trace',
   'permission-matrix',
   'archive-health/runtime-control',
-  'batch-version/phase1-approval'
+  'batch-version/phase1-approval',
+  'release-dossier-requirement/setting'
 ])
 
 export const RELEASE_COVERAGE_EXCLUDED_EDHR_SOURCE_FILES = Object.freeze([
@@ -510,6 +511,42 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
     packageScript: 'e2e:edhr:batch-version-phase1',
     checkScript: 'e2e:edhr:batch-version-phase1:check',
     taskEvidence: 'doc/tasks/20260708-edhr-version-implementation/execution-log.md'
+  },
+  {
+    featureId: 'release-dossier-requirement/setting',
+    featureName: 'eDHR release dossier requirement setting',
+    routes: ['/user/profile'],
+    sourceFiles: [
+      'src/api/mes/pro/edhr/releaseDossierRequirementSetting.ts',
+      'src/views/Profile/Index.vue',
+      'src/views/Profile/components/EdhrReleaseDossierRequirementSetting.vue',
+      'src/views/Profile/components/index.ts',
+      'src/views/mes/pro/edhr/shared/releaseCheckPresentation.ts'
+    ],
+    apiTokens: [
+      '/mes/pro/edhr-release-setting/dossier-requirements',
+      'getEdhrReleaseDossierRequirementSetting',
+      'updateEdhrReleaseDossierRequirementSetting',
+      'incomingInspectionReportRequired',
+      'sterilizationReportRequired',
+      'finishedProductInspectionReportRequired',
+      'finishedProductInspectionRecordRequired',
+      'DOSSIER_INCOMING_INSPECTION_REPORT',
+      'DOSSIER_FINISHED_PRODUCT_INSPECTION_RECORD'
+    ],
+    e2eTokens: [
+      '/user/profile',
+      '/mes/pro/edhr-release-setting/dossier-requirements',
+      'profile-config-visible',
+      'toggle-incoming-inspection-report',
+      'real-profile-config-dossier-switch',
+      'PASS',
+      'BLOCKED'
+    ],
+    e2eFile: 'tests/e2e/edhr-release-dossier-requirement-setting-real.e2e.js',
+    packageScript: 'e2e:edhr:release-dossier-requirement',
+    checkScript: 'e2e:edhr:release-dossier-requirement:check',
+    taskEvidence: '../doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md'
   }
 ])
 

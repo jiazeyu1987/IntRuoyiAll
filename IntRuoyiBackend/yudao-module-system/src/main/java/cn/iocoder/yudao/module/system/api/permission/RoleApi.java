@@ -23,6 +23,14 @@ public interface RoleApi {
     List<RoleRespDTO> getRoleList(Collection<Long> ids);
 
     /**
+     * 获得指定角色编码的角色信息
+     *
+     * @param code 角色编码
+     * @return 角色信息
+     */
+    RoleRespDTO getRoleByCode(String code);
+
+    /**
      * 校验角色们是否有效。如下情况，视为无效：
      * 1. 角色编号不存在
      * 2. 角色被禁用

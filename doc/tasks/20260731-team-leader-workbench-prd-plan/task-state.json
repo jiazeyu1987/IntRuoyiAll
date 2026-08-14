@@ -1,0 +1,525 @@
+{
+  "schema_version": 2,
+  "task_id": "20260731-team-leader-workbench-prd-plan",
+  "mode": "full",
+  "status": "completed",
+  "current_phase": null,
+  "phase_statuses": [
+    {
+      "phase_id": "P1",
+      "title": "班组配置与活跃订单后端模型",
+      "objective": "建立生产组长可维护的活跃订单池、班组员工、设备、设备参数和工序关系后端模型与服务。",
+      "owned_paths": [
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes"
+      ],
+      "dependencies": [],
+      "deliverables": [
+        "活跃订单加入、移出、查询服务与接口。",
+        "班组员工、设备、设备参数、工序-员工、工序-设备、工序-异常配置服务。",
+        "后端单元测试和 Controller 权限映射测试。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P1-AC1",
+          "text": "实现当前里程碑目标：建立生产组长可维护的活跃订单池、班组员工、设备、设备参数和工序关系后端模型与服务。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
+          ]
+        },
+        {
+          "ac_id": "P1-AC2",
+          "text": "交付物已落地：活跃订单加入、移出、查询服务与接口。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
+          ]
+        },
+        {
+          "ac_id": "P1-AC3",
+          "text": "交付物已落地：班组员工、设备、设备参数、工序-员工、工序-设备、工序-异常配置服务。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
+          ]
+        },
+        {
+          "ac_id": "P1-AC4",
+          "text": "交付物已落地：后端单元测试和 Controller 权限映射测试。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
+          ]
+        },
+        {
+          "ac_id": "P1-AC5",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "P1 backend runtime config and active order model/controller/schema tests passed."
+      ],
+      "last_reviewed_at": "2026-07-31T14:15:54+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P2",
+      "title": "员工填报配置驱动",
+      "objective": "让生产员工填报页的员工、设备、设备参数和不良原因全部来自生产组长维护的运行态配置。",
+      "owned_paths": [
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes",
+        "IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue",
+        "IntRuoyiFronted/src/api/mes/pro/processpool",
+        "IntRuoyiFronted/tests/e2e"
+      ],
+      "dependencies": [
+        "P1"
+      ],
+      "deliverables": [
+        "员工端运行态配置接口。",
+        "员工填报页配置驱动改造。",
+        "员工端静态合同和类型检查证据。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P2-AC1",
+          "text": "实现当前里程碑目标：让生产员工填报页的员工、设备、设备参数和不良原因全部来自生产组长维护的运行态配置。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P2-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P2"
+          ]
+        },
+        {
+          "ac_id": "P2-AC2",
+          "text": "交付物已落地：员工端运行态配置接口。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P2-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P2"
+          ]
+        },
+        {
+          "ac_id": "P2-AC3",
+          "text": "交付物已落地：员工填报页配置驱动改造。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P2-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P2"
+          ]
+        },
+        {
+          "ac_id": "P2-AC4",
+          "text": "交付物已落地：员工端静态合同和类型检查证据。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P2-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P2"
+          ]
+        },
+        {
+          "ac_id": "P2-AC5",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P2-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P2"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P2-Implementation-Evidence",
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P2"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Starting P2 employee reporting runtime config delivery.",
+        "P2 employee runtime config, temp worker switch, frontend static contract, and ts:check passed."
+      ],
+      "last_reviewed_at": "2026-07-31T16:40:30+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P3",
+      "title": "报工确认与活跃订单分配",
+      "objective": "生产组长确认员工报工时支持 FIFO 自动分配到活跃订单，并允许手动分配或调整。",
+      "owned_paths": [
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes",
+        "IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue",
+        "IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts",
+        "IntRuoyiFronted/tests/e2e"
+      ],
+      "dependencies": [
+        "P2"
+      ],
+      "deliverables": [
+        "报工确认分配模型、服务和接口。",
+        "FIFO 自动分配服务。",
+        "生产组长报工确认 UI 的 FIFO 自动分配与手动调整能力。",
+        "后端和前端静态合同验证。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P3-AC1",
+          "text": "实现当前里程碑目标：生产组长确认员工报工时支持 FIFO 自动分配到活跃订单，并允许手动分配或调整。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P3-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P3"
+          ]
+        },
+        {
+          "ac_id": "P3-AC2",
+          "text": "交付物已落地：报工确认分配模型、服务和接口。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P3-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P3"
+          ]
+        },
+        {
+          "ac_id": "P3-AC3",
+          "text": "交付物已落地：FIFO 自动分配服务。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P3-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P3"
+          ]
+        },
+        {
+          "ac_id": "P3-AC4",
+          "text": "交付物已落地：生产组长报工确认 UI 的 FIFO 自动分配与手动调整能力。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P3-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P3"
+          ]
+        },
+        {
+          "ac_id": "P3-AC5",
+          "text": "交付物已落地：后端和前端静态合同验证。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P3-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P3"
+          ]
+        },
+        {
+          "ac_id": "P3-AC6",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P3-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P3"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P3-Implementation-Evidence",
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P3"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Starting P3 report confirmation allocation and FIFO/manual split delivery.",
+        "P3 report allocation, FIFO/manual split, duplicate confirmation lock, backend tests, frontend static contract, and ts:check passed."
+      ],
+      "last_reviewed_at": "2026-07-31T17:35:32+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P4",
+      "title": "订单工序完成与批记录回填",
+      "objective": "按订单工序累计确认分配数量判断完成，并把设备参数等报工数据回填到正式批记录表单。",
+      "owned_paths": [
+        "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes",
+        "IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue",
+        "IntRuoyiFronted/tests/e2e"
+      ],
+      "dependencies": [
+        "P3"
+      ],
+      "deliverables": [
+        "订单工序累计完成服务。",
+        "正式批记录表单绑定读取和字段回填服务。",
+        "缺正式绑定、缺字段映射和并发确认阻塞测试。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P4-AC1",
+          "text": "实现当前里程碑目标：按订单工序累计确认分配数量判断完成，并把设备参数等报工数据回填到正式批记录表单。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P4-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P4"
+          ]
+        },
+        {
+          "ac_id": "P4-AC2",
+          "text": "交付物已落地：订单工序累计完成服务。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P4-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P4"
+          ]
+        },
+        {
+          "ac_id": "P4-AC3",
+          "text": "交付物已落地：正式批记录表单绑定读取和字段回填服务。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P4-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P4"
+          ]
+        },
+        {
+          "ac_id": "P4-AC4",
+          "text": "交付物已落地：缺正式绑定、缺字段映射和并发确认阻塞测试。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P4-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P4"
+          ]
+        },
+        {
+          "ac_id": "P4-AC5",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P4-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P4"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P4-Implementation-Evidence",
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P4"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "Starting P4 order-process completion and formal batch-record backfill delivery with RED tests captured.",
+        "P4 order-process completion, formal batch-record backfill, missing mapping/binding blockers, idempotent completed-process handling, schema contract, and P3/P4 regression passed."
+      ],
+      "last_reviewed_at": "2026-07-31T18:09:44+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P5",
+      "title": "生产组长前端工作台重构",
+      "objective": "将生产组长页签重构为报工确认工作台和班组配置中心，移除手输 ID 为主的旧交互。",
+      "owned_paths": [
+        "IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue",
+        "IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts",
+        "IntRuoyiFronted/tests/e2e"
+      ],
+      "dependencies": [
+        "P4"
+      ],
+      "deliverables": [
+        "报工确认工作台。",
+        "班组配置中心。",
+        "活跃订单异常上报选择器。",
+        "前端静态合同和类型检查证据。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P5-AC1",
+          "text": "实现当前里程碑目标：将生产组长页签重构为报工确认工作台和班组配置中心，移除手输 ID 为主的旧交互。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P5-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P5"
+          ]
+        },
+        {
+          "ac_id": "P5-AC2",
+          "text": "交付物已落地：报工确认工作台。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P5-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P5"
+          ]
+        },
+        {
+          "ac_id": "P5-AC3",
+          "text": "交付物已落地：班组配置中心。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P5-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P5"
+          ]
+        },
+        {
+          "ac_id": "P5-AC4",
+          "text": "交付物已落地：活跃订单异常上报选择器。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P5-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P5"
+          ]
+        },
+        {
+          "ac_id": "P5-AC5",
+          "text": "交付物已落地：前端静态合同和类型检查证据。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P5-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P5"
+          ]
+        },
+        {
+          "ac_id": "P5-AC6",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P5-Implementation-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P5"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P5-Implementation-Evidence",
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P5"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "P5 frontend workbench refactor, config center API wrappers, active-order abnormal selector, structured detail, static contracts, adjacent contracts, and ts:check passed."
+      ],
+      "last_reviewed_at": "2026-07-31T18:23:44+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P6",
+      "title": "真实 E2E 与回归",
+      "objective": "通过真实 Playwright 用户路径验证生产组长配置、员工填报、报工确认分配、订单工序完成和批记录回填闭环。",
+      "owned_paths": [
+        "IntRuoyiFronted/tests/e2e/team-leader-workbench-real-flow.e2e.ts",
+        "doc/tasks/20260731-team-leader-workbench-prd-plan"
+      ],
+      "dependencies": [
+        "P5"
+      ],
+      "deliverables": [
+        "真实 E2E 脚本。",
+        "E2E 证据、测试报告和清理记录。",
+        "可用于融合 int_main 的最终验证记录。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P6-AC1",
+          "text": "实现当前里程碑目标：通过真实 Playwright 用户路径验证生产组长配置、员工填报、报工确认分配、订单工序完成和批记录回填闭环。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/p6-real-e2e-evidence.md",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P6-Real-E2E-Gate-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P6"
+          ]
+        },
+        {
+          "ac_id": "P6-AC2",
+          "text": "交付物已落地：真实 E2E 脚本。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/p6-real-e2e-evidence.md",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P6-Real-E2E-Gate-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P6"
+          ]
+        },
+        {
+          "ac_id": "P6-AC3",
+          "text": "交付物已落地：E2E 证据、测试报告和清理记录。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/p6-real-e2e-evidence.md",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P6-Real-E2E-Gate-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P6"
+          ]
+        },
+        {
+          "ac_id": "P6-AC4",
+          "text": "交付物已落地：可用于融合 int_main 的最终验证记录。",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/p6-real-e2e-evidence.md",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P6-Real-E2E-Gate-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P6"
+          ]
+        },
+        {
+          "ac_id": "P6-AC5",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/p6-real-e2e-evidence.md",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P6-Real-E2E-Gate-Evidence",
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P6"
+          ]
+        }
+      ],
+      "evidence": [
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/p6-real-e2e-evidence.md",
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-P6-Real-E2E-Gate-Evidence",
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P6"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "P6 real Playwright write E2E, task-owned data cleanup, static contracts, frontend ts:check, and backend regression passed.",
+        "P6 fixture IDs: WO=980007 TASK=980008 ROUTE=980003 ROUTE_PROCESS=980006 PROCESS=980002 ITEM=980001 EMPLOYEE_PROFILE=980014 DEVICE=980005 RECORDBOOK=980010 SIGNATURE=922734."
+      ],
+      "last_reviewed_at": "2026-08-01T06:20:46+00:00",
+      "status": "completed"
+    }
+  ],
+  "planner_review_status": "approved",
+  "test_status": "passed",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "created_at": "2026-07-31T13:28:15+00:00",
+  "updated_at": "2026-08-01T08:46:30+00:00",
+  "branch": "codex/20260731_shengchanbanzuzhang",
+  "baseline_revision": "39bf462aff2361ed02d9aa34b182101748d836cc",
+  "workspace_root": "E:\\IntRuoyi",
+  "tasks_root": "E:\\IntRuoyi\\doc\\tasks",
+  "task_dir": "E:\\IntRuoyi\\doc\\tasks\\20260731-team-leader-workbench-prd-plan",
+  "goal": "生产组长工作台改造 PRD",
+  "artifacts": {
+    "prd": "E:\\IntRuoyi\\doc\\tasks\\20260731-team-leader-workbench-prd-plan\\prd.md",
+    "test_plan": "E:\\IntRuoyi\\doc\\tasks\\20260731-team-leader-workbench-prd-plan\\test-plan.md",
+    "task_state": "E:\\IntRuoyi\\doc\\tasks\\20260731-team-leader-workbench-prd-plan\\task-state.json",
+    "execution_log": "E:\\IntRuoyi\\doc\\tasks\\20260731-team-leader-workbench-prd-plan\\execution-log.md",
+    "test_report": "E:\\IntRuoyi\\doc\\tasks\\20260731-team-leader-workbench-prd-plan\\test-report.md"
+  }
+}

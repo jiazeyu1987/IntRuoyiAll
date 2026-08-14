@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowFormBindingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteStartProductionLeaderProductionLineRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
@@ -31,6 +32,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionG
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +48,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.math.BigDecimal;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Set;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_TYPE_INVALID;
@@ -118,6 +121,68 @@ class MesProRouteFlowConfigServiceImplTest {
         Field field = MesProRouteFlowConfigServiceImpl.class.getDeclaredField("permissionGateService");
 
         assertTrue(field.isAnnotationPresent(Resource.class));
+    }
+
+    @Test
+    void routeFlowProcessQueryMethods_shouldNotBeResourceInjectionMethods() throws NoSuchMethodException {
+        Method method = MesProRouteFlowConfigServiceImpl.class.getDeclaredMethod(
+                "getRouteFlowProcessConfigList", Long.class, String.class);
+
+        assertFalse(method.isAnnotationPresent(Resource.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void parseCandidateRouteProcesses_shouldUseFormalWorkstationBindingField() throws Exception {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(9901L)
+                .routeId(10L)
+                .build();
+        JSONObject flowGraph = JSON.parseObject("""
+                {
+                  "nodes": [
+                    {
+                      "routeProcessId": 100,
+                      "processId": 1000,
+                      "routeProcessWorkstationId": 980010,
+                      "workstationId": 922757,
+                      "sort": 1,
+                      "keyFlag": true,
+                      "checkFlag": false
+                    }
+                  ]
+                }
+                """);
+        Method method = MesProRouteFlowConfigServiceImpl.class.getDeclaredMethod(
+                "parseCandidateRouteProcesses", MesProRouteVersionDO.class, JSONObject.class);
+        method.setAccessible(true);
+
+        List<MesProRouteProcessDO> result =
+                (List<MesProRouteProcessDO>) method.invoke(service, candidate, flowGraph);
+
+        assertEquals(1, result.size());
+        assertEquals(980010L, result.get(0).getWorkstationId());
+    }
+
+    @Test
+    void getRouteStartProductionLeaderProductionLines_shouldUseCurrentRouteAsResponsibleScope() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("RT-10").name("压力泵路线").build();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .id(100L).routeId(10L).processId(1000L).sort(1).build();
+        MesProProcessDO process = MesProProcessDO.builder().id(1000L).code("P1000").name("粗洗").build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(routeProcess));
+        doReturn(List.of(process)).when(processMapper).selectBatchIds(anyCollection());
+
+        List<MesProRouteStartProductionLeaderProductionLineRespVO> result =
+                service.getRouteStartProductionLeaderProductionLines(10L, null);
+
+        assertEquals(1, result.size());
+        assertEquals(10L, result.get(0).getProductionLineId());
+        assertEquals("RT-10", result.get(0).getProductionLineCode());
+        assertEquals("压力泵路线", result.get(0).getProductionLineName());
+        assertEquals(List.of(100L), result.get(0).getRouteProcessIds());
+        assertEquals(List.of("粗洗"), result.get(0).getProcessNames());
     }
 
     @Test
@@ -1940,12 +2005,21 @@ class MesProRouteFlowConfigServiceImplTest {
 
         service.saveRouteFlowConfig(reqVO);
 
-        verify(routeCandidateConfigService).saveConfigSnapshot(eq(1002L), eq("batchUseConfigs"),
-                argThat(snapshot -> snapshot instanceof List<?>
-                        && snapshot.toString().contains("FB-USER")
-                        && snapshot.toString().contains("recordbookEnabled=false")
-                        && snapshot.toString().contains("candidateSourceType=USERS")
-                        && snapshot.toString().contains("candidateSourceIds=[9001]")));
+        ArgumentCaptor<Object> snapshotCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(routeCandidateConfigService).saveConfigSnapshot(
+                eq(1002L), eq("batchUseConfigs"), snapshotCaptor.capture());
+        @SuppressWarnings("unchecked")
+        List<MesProRouteFlowProcessConfigSaveReqVO> snapshot =
+                (List<MesProRouteFlowProcessConfigSaveReqVO>) snapshotCaptor.getValue();
+        MesProRouteFlowFormBindingSaveReqVO savedBinding = snapshot.get(0).getFormBindings().get(0);
+        assertEquals("FB-USER", savedBinding.getFormBindingKey());
+        assertEquals(Boolean.FALSE, savedBinding.getRecordbookEnabled());
+        assertEquals("USERS", savedBinding.getCandidateSourceType());
+        assertEquals(List.of(9001L), savedBinding.getCandidateSourceIds());
+        assertTrue(savedBinding.getRecordCategorySnapshotHash().matches("[0-9a-f]{64}"));
+        assertTrue(savedBinding.getSlotConfigSnapshotHash().matches("[0-9a-f]{64}"));
+        assertFalse(savedBinding.getRecordCategorySnapshotHash()
+                .equals(savedBinding.getSlotConfigSnapshotHash()));
         verify(adminUserApi).validateUserList(List.of(9001L));
         verify(routeFlowConfigMapper, never()).insert(any(MesProRouteFlowConfigDO.class));
         verify(routeFlowConfigMapper, never()).updateById(any(MesProRouteFlowConfigDO.class));

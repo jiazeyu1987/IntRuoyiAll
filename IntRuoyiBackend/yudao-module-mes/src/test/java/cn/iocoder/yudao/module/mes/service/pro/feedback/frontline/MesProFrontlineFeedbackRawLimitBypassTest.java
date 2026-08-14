@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
+import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
@@ -15,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,6 +37,14 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
     @Mock
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
+    @Mock
+    private MesFrontlineLossReasonValidator lossReasonValidator;
+    @Mock
+    private MesFrontlineDeviceParameterValidator deviceParameterValidator;
+    @Mock
+    private MesMdAutoCodeRecordService autoCodeRecordService;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -44,7 +55,12 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
                 recordbookEntryService,
                 processPoolSubmitEventService,
                 submitAuthorizationService,
-                new MesProFrontlineFeedbackPayloadSplitter());
+                lossReasonValidator,
+                new MesProFrontlineFeedbackPayloadSplitter(),
+                autoCodeRecordService,
+                signatureService);
+        org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
+                .thenReturn(4001L);
     }
 
     @Test
@@ -56,7 +72,8 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
         reqVO.getRecordbookPayload().setEquipmentParameters(outOfLimitParameters);
         reqVO.getRawPayload().put("equipmentParameters", outOfLimitParameters);
 
-        when(feedbackService.createFeedback(any())).thenReturn(501L);
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(recordbookEntryService.createOriginalEntry(any()))
                 .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);

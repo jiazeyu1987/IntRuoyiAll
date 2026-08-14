@@ -230,6 +230,108 @@
           </div>
         </el-descriptions-item>
       </el-descriptions>
+      <div
+        v-if="detail"
+        v-loading="traceLoading"
+        class="process-pool-detail__trace"
+        data-p0-production-execution-trace
+      >
+        <div class="process-pool-detail__trace-head">
+          <span>生产执行闭环 Trace</span>
+          <el-tag v-if="trace" :type="trace.complete === false ? 'danger' : 'success'" effect="dark">
+            {{ trace.complete === false ? '未闭环' : '已闭环' }}
+          </el-tag>
+        </div>
+        <el-alert
+          v-if="traceLoadError"
+          :title="traceLoadError"
+          type="error"
+          :closable="false"
+          show-icon
+        />
+        <template v-else-if="trace">
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="processPoolEventId">
+              {{ trace.processPoolEventId }}
+            </el-descriptions-item>
+            <el-descriptions-item label="提交">
+              {{ formatTraceSection(trace.submit) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="质量">
+              {{ formatTraceSection(trace.quality) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="复核">
+              {{ formatTraceSection(trace.review) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="分配">
+              {{ formatTraceSection(trace.allocation) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="完成">
+              {{ formatTraceSection(trace.completion) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="批记录">
+              {{ formatTraceSection(trace.batchRecord) }}
+            </el-descriptions-item>
+          </el-descriptions>
+          <div
+            v-if="trace.closureEvidence"
+            class="process-pool-detail__closure-evidence"
+            data-p0-closure-evidence
+          >
+            <div class="process-pool-detail__closure-evidence-head">
+              <span>闭环证据包：九项审计问题</span>
+              <el-tag
+                :type="trace.closureEvidence.complete === false ? 'danger' : 'success'"
+                effect="plain"
+              >
+                {{ trace.closureEvidence.complete === false ? '证据不完整' : '证据完整' }}
+              </el-tag>
+            </div>
+            <el-descriptions :column="1" border size="small">
+              <el-descriptions-item
+                v-for="answer in closureEvidenceAnswers"
+                :key="answer.answerKey"
+                :label="closureEvidenceAnswerLabel(answer.answerKey)"
+              >
+                {{ formatClosureEvidenceAnswer(answer) }}
+                <div class="process-pool-detail__muted">
+                  来源：{{ formatClosureEvidenceSourceIds(answer) }}
+                </div>
+                <div class="process-pool-detail__muted">
+                  只读复验：{{ formatReadOnlyVerificationEntries(answer.readOnlyVerificationEntries) }}
+                </div>
+              </el-descriptions-item>
+              <el-descriptions-item label="同源校验">
+                {{ formatSameSourceChecks(trace.closureEvidence.sameSourceChecks) }}
+              </el-descriptions-item>
+            </el-descriptions>
+            <el-alert
+              v-if="trace.closureEvidence.complete === false"
+              class="mt-8px"
+              :title="formatTraceBlockers(trace.closureEvidence.blockers)"
+              type="warning"
+              :closable="false"
+              show-icon
+            />
+          </div>
+          <el-alert
+            v-else-if="trace.complete === true && !trace.closureEvidence"
+            class="mt-8px"
+            title="trace complete=true 但后端未返回 closureEvidence，不能作为 P0 完整闭环证据。"
+            type="error"
+            :closable="false"
+            show-icon
+          />
+          <el-alert
+            v-if="trace.complete === false"
+            class="mt-8px"
+            :title="formatTraceBlockers(trace.blockers)"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+        </template>
+      </div>
       <el-empty v-else-if="!detailLoading" description="请选择工序池提交事件" />
     </div>
   </el-drawer>
@@ -238,8 +340,15 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import {
+  getProductionExecutionTrace,
   getProcessPoolTimelineDetail,
   getProcessPoolTimelinePage,
+  type ProductionExecutionEvidenceAnswerVO,
+  type ProductionExecutionReadOnlyVerificationEntryVO,
+  type ProductionExecutionSameSourceCheckVO,
+  type ProductionExecutionTraceBlockerVO,
+  type ProductionExecutionTraceSectionVO,
+  type ProductionExecutionTraceVO,
   type ProcessPoolTimelineDetailVO,
   type ProcessPoolTimelineEventVO,
   type ProcessPoolTimelinePageReqVO
@@ -249,15 +358,58 @@ import { formatDateTimeValue } from '@/utils/formatTime'
 defineOptions({ name: 'MesProProcessPoolTimeline' })
 
 type ViewMode = 'timeline' | 'gantt'
+type ClosureEvidenceAnswerKey =
+  | 'who'
+  | 'device'
+  | 'process'
+  | 'quantity'
+  | 'quality'
+  | 'signature'
+  | 'workOrder'
+  | 'review'
+  | 'batchRecord'
+
+const CLOSURE_EVIDENCE_ANSWER_ORDER: ClosureEvidenceAnswerKey[] = [
+  'who',
+  'device',
+  'process',
+  'quantity',
+  'quality',
+  'signature',
+  'workOrder',
+  'review',
+  'batchRecord'
+]
+
+const CLOSURE_EVIDENCE_ANSWER_LABELS: Record<ClosureEvidenceAnswerKey, string> = {
+  who: '谁',
+  device: '设备',
+  process: '工序',
+  quantity: '数量',
+  quality: '质量',
+  signature: '签名',
+  workOrder: '生产工单',
+  review: '班组长复核',
+  batchRecord: '批记录追溯'
+}
 
 const queryFormRef = ref()
 const loading = ref(false)
 const detailLoading = ref(false)
+const traceLoading = ref(false)
 const detailVisible = ref(false)
 const loadError = ref('')
+const traceLoadError = ref('')
 const total = ref(0)
 const list = ref<ProcessPoolTimelineEventVO[]>([])
 const detail = ref<ProcessPoolTimelineDetailVO>()
+const trace = ref<ProductionExecutionTraceVO>()
+const closureEvidenceAnswers = computed<ProductionExecutionEvidenceAnswerVO[]>(() => {
+  const answers = trace.value?.closureEvidence?.answers || {}
+  return CLOSURE_EVIDENCE_ANSWER_ORDER.map((answerKey) => answers[answerKey]).filter(
+    (answer): answer is ProductionExecutionEvidenceAnswerVO => Boolean(answer)
+  )
+})
 const viewMode = ref<ViewMode>('timeline')
 const viewModeOptions = [
   { label: '时间轴', value: 'timeline' },
@@ -341,15 +493,86 @@ const openDetail = async (event: ProcessPoolTimelineEventVO) => {
   }
   detailVisible.value = true
   detailLoading.value = true
+  traceLoading.value = false
   detail.value = undefined
+  trace.value = undefined
+  traceLoadError.value = ''
   try {
     detail.value = await getProcessPoolTimelineDetail(Number(event.id))
+    await loadProductionExecutionTrace(detail.value.processPoolEventId)
   } catch (error) {
     const message = resolveErrorMessage(error, '工序池提交事件详情加载失败')
     ElMessage.error(message)
   } finally {
     detailLoading.value = false
   }
+}
+
+const loadProductionExecutionTrace = async (processPoolEventId?: number) => {
+  if (!processPoolEventId) {
+    traceLoadError.value = '后端未返回 processPoolEventId，不能打开 P0 生产执行闭环 trace。'
+    return
+  }
+  traceLoading.value = true
+  try {
+    trace.value = await getProductionExecutionTrace(processPoolEventId)
+  } catch (error) {
+    trace.value = undefined
+    traceLoadError.value = resolveErrorMessage(error, 'P0 生产执行闭环 trace 加载失败')
+  } finally {
+    traceLoading.value = false
+  }
+}
+
+const formatTraceBlockers = (blockers?: ProductionExecutionTraceBlockerVO[]) => {
+  if (!blockers || blockers.length === 0) {
+    return 'trace 未闭环，但后端未返回 blocker；请补齐机器可读阻塞原因。'
+  }
+  return blockers.map((blocker) => `${blocker.code}: ${blocker.message}`).join('；')
+}
+
+const formatTraceSection = (section?: ProductionExecutionTraceSectionVO) => {
+  if (!section) return '缺少分组'
+  const blockerText = formatTraceBlockers(section.blockers)
+  return section.status === 'BLOCKED'
+    ? `${section.status} - ${blockerText}`
+    : section.status
+}
+
+const closureEvidenceAnswerLabel = (answerKey: string) =>
+  CLOSURE_EVIDENCE_ANSWER_LABELS[answerKey as ClosureEvidenceAnswerKey] || answerKey
+
+const formatClosureEvidenceValue = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return '--'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
+
+const formatClosureEvidenceSourceIds = (answer?: ProductionExecutionEvidenceAnswerVO) => {
+  const sourceIds = answer?.sourceIds || {}
+  const entries = Object.entries(sourceIds).filter(([, value]) => value !== null && value !== undefined && value !== '')
+  if (entries.length === 0) return '缺少正式来源 ID'
+  return entries.map(([key, value]) => `${key}=${formatClosureEvidenceValue(value)}`).join('；')
+}
+
+const formatClosureEvidenceAnswer = (answer: ProductionExecutionEvidenceAnswerVO) => {
+  const sameSourceText = answer.sameSource === false ? '同源失败' : '同源通过'
+  const blockerText = answer.blockers?.length ? `；阻塞：${formatTraceBlockers(answer.blockers)}` : ''
+  return `${formatClosureEvidenceValue(answer.value)}；${sameSourceText}${blockerText}`
+}
+
+const formatReadOnlyVerificationEntries = (entries?: ProductionExecutionReadOnlyVerificationEntryVO[]) => {
+  if (!entries || entries.length === 0) return '缺少只读复验入口'
+  return entries
+    .map((entry) => `${entry.verificationKey || '--'} ${entry.method || 'GET'} ${entry.path || '--'}`)
+    .join('；')
+}
+
+const formatSameSourceChecks = (checks?: ProductionExecutionSameSourceCheckVO[]) => {
+  if (!checks || checks.length === 0) return '缺少同源校验'
+  return checks
+    .map((check) => `${check.checkKey}: ${check.passed === false ? '失败' : '通过'}`)
+    .join('；')
 }
 
 const formatDateTime = (value?: string | number | Date) => formatDateTimeValue(value, '--')
@@ -474,6 +697,37 @@ onMounted(() => getList())
 
 .process-pool-event__summary {
   overflow-wrap: anywhere;
+}
+
+.process-pool-detail__trace {
+  margin-top: 16px;
+}
+
+.process-pool-detail__trace-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.process-pool-detail__closure-evidence {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.process-pool-detail__closure-evidence-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #172033;
+  font-weight: 600;
 }
 
 .process-pool-gantt {

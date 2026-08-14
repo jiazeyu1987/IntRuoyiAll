@@ -8,13 +8,13 @@
           :src="auditIconsMap[processInstance.status]"
           alt=""
         />
-        <div class="flex">
+        <div v-if="showProcessInstanceTechnicalHeader" class="flex">
           <div class="text-#878c93 h-15px">编号：{{ id }}</div>
           <Icon icon="ep:printer" class="ml-15px cursor-pointer" @click="handlePrint" />
         </div>
-        <el-divider class="!my-8px" />
+        <el-divider v-if="showProcessInstanceTechnicalHeader" class="!my-8px" />
         <div class="flex items-center gap-5 mb-10px h-40px">
-          <div class="text-26px font-bold mb-5px">{{ processInstance.name }}</div>
+          <div class="text-26px font-bold mb-5px">{{ processInstanceDisplayName }}</div>
           <dict-tag
             v-if="processInstance.status"
             :type="DICT_TYPE.BPM_PROCESS_INSTANCE_STATUS"
@@ -39,10 +39,7 @@
           <div class="text-#878c93"> {{ formatDate(processInstance.startTime) }} 提交 </div>
         </div>
 
-        <el-tabs v-model="activeTab">
-          <!-- 表单信息 -->
-          <el-tab-pane label="审批详情" name="form">
-            <div class="form-scroll-area">
+        <div class="form-scroll-area">
               <el-scrollbar>
                 <el-row>
                   <el-col :span="17" class="!flex !flex-col formCol">
@@ -62,7 +59,74 @@
                       </el-col>
                       <!-- 情况二：业务表单 -->
                       <div v-if="processDefinition?.formType === BpmModelFormType.CUSTOM">
-                        <BusinessFormComponent :id="processInstance.businessKey" />
+                        <div
+                          v-if="isDccControlledFileCustomForm"
+                          class="bpm-dcc-approval-summary"
+                          data-testid="bpm-dcc-approval-compact-summary"
+                          v-loading="dccApprovalFileLoading"
+                        >
+                          <div class="bpm-dcc-approval-summary__head">
+                            <div>
+                              <div class="bpm-dcc-approval-summary__eyebrow">审核内容</div>
+                              <div class="bpm-dcc-approval-summary__title">
+                                {{
+                                  dccApprovalFileDetail?.title ||
+                                  processInstanceDisplayName ||
+                                  '文控受控文件审批'
+                                }}
+                              </div>
+                              <div class="bpm-dcc-approval-summary__subtitle">
+                                审核页默认只展示审批判断所需信息；项目代码联动、受控浏览落位和排障详情请在文控处理页查看。
+                              </div>
+                            </div>
+                            <el-tag type="success" effect="plain">精简审核视图</el-tag>
+                          </div>
+                          <el-alert
+                            v-if="dccApprovalFileError"
+                            class="mb-12px"
+                            type="error"
+                            show-icon
+                            :closable="false"
+                            title="审核内容加载失败"
+                            :description="dccApprovalFileError"
+                          />
+                          <el-descriptions :column="2" border>
+                            <el-descriptions-item label="文件标题">
+                              {{ dccApprovalFileDetail?.title || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="文件编号">
+                              {{ dccApprovalFileDetail?.fileNumber || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="版本">
+                              {{ dccApprovalFileDetail?.versionNo || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="生效日期">
+                              {{ dccApprovalFileDetail?.effectiveDate || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="提交人">
+                              {{ processInstance?.startUser?.nickname || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="提交时间">
+                              {{ formatDate(processInstance.startTime) || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="当前步骤">
+                              {{ currentApprovalStepLabel }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="当前处理人">
+                              {{ currentApprovalActorText }}
+                            </el-descriptions-item>
+                          </el-descriptions>
+                          <div
+                            class="bpm-dcc-approval-preview"
+                            data-testid="bpm-dcc-approval-file-preview"
+                          >
+                            <ProtectedPdfViewer
+                              :controlled-file-id="dccControlledFileBusinessId"
+                              :title="dccApprovalFileDetail?.title || '受控文件预览'"
+                            />
+                          </div>
+                        </div>
+                        <BusinessFormComponent v-else :id="processInstance.businessKey" />
                       </div>
                     </div>
                   </el-col>
@@ -73,44 +137,6 @@
                 </el-row>
               </el-scrollbar>
             </div>
-          </el-tab-pane>
-
-          <!-- 流程图 -->
-          <el-tab-pane label="流程图" name="diagram">
-            <div class="form-scroll-area">
-              <ProcessInstanceSimpleViewer
-                v-show="
-                  processDefinition.modelType && processDefinition.modelType === BpmModelType.SIMPLE
-                "
-                :loading="processInstanceLoading"
-                :model-view="processModelView"
-              />
-              <ProcessInstanceBpmnViewer
-                v-show="
-                  processDefinition.modelType && processDefinition.modelType === BpmModelType.BPMN
-                "
-                :loading="processInstanceLoading"
-                :model-view="processModelView"
-              />
-            </div>
-          </el-tab-pane>
-
-          <!-- 流转记录 -->
-          <el-tab-pane label="流转记录" name="record">
-            <div class="form-scroll-area">
-              <el-scrollbar>
-                <ProcessInstanceTaskList :loading="processInstanceLoading" :id="id" />
-              </el-scrollbar>
-            </div>
-          </el-tab-pane>
-
-          <!-- 流转评论 TODO 待开发 -->
-          <el-tab-pane label="流转评论" name="comment" v-if="false">
-            <div class="form-scroll-area">
-              <el-scrollbar> 流转评论 </el-scrollbar>
-            </div>
-          </el-tab-pane>
-        </el-tabs>
 
         <div class="b-t-solid border-t-1px border-[var(--el-border-color)]">
           <!-- 操作栏按钮 -->
@@ -135,15 +161,14 @@
 <script lang="ts" setup>
 import { formatDate } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'
-import { BpmModelType, BpmModelFormType } from '@/utils/constants'
+import { BpmModelFormType } from '@/utils/constants'
 import { setConfAndFields2 } from '@/utils/formCreate'
 import { registerComponent } from '@/utils/routerHelper'
 import type { ApiAttrs } from '@form-create/element-ui/types/config'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
 import * as UserApi from '@/api/system/user'
-import ProcessInstanceBpmnViewer from './ProcessInstanceBpmnViewer.vue'
-import ProcessInstanceSimpleViewer from './ProcessInstanceSimpleViewer.vue'
-import ProcessInstanceTaskList from './ProcessInstanceTaskList.vue'
+import { getControlledFile, type ControlledFileVO } from '@/api/dcc/controlledFile/workflow'
+import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'
 import ProcessInstanceOperationButton from './ProcessInstanceOperationButton.vue'
 import ProcessInstanceTimeline from './ProcessInstanceTimeline.vue'
 import { FieldPermissionType } from '@/components/SimpleProcessDesignerV2/src/consts'
@@ -153,6 +178,7 @@ import approveSvg from '@/assets/svgs/bpm/approve.svg'
 import rejectSvg from '@/assets/svgs/bpm/reject.svg'
 import cancelSvg from '@/assets/svgs/bpm/cancel.svg'
 import PrintDialog from './PrintDialog.vue'
+import { resolveDccTimelineActivityName } from '@/views/dcc/controlled-file/shared/stage-name'
 
 defineOptions({ name: 'BpmProcessInstanceDetail' })
 const props = defineProps<{
@@ -164,7 +190,6 @@ const message = useMessage() // 消息弹窗
 const processInstanceLoading = ref(false) // 流程实例的加载中
 const processInstance = ref<any>({}) // 流程实例
 const processDefinition = ref<any>({}) // 流程定义
-const processModelView = ref<any>({}) // 流程模型视图
 const operationButtonRef = ref() // 操作按钮组件 ref
 const auditIconsMap = {
   [TaskStatusEnum.RUNNING]: runningSvg,
@@ -172,6 +197,19 @@ const auditIconsMap = {
   [TaskStatusEnum.REJECT]: rejectSvg,
   [TaskStatusEnum.CANCEL]: cancelSvg
 }
+
+const DCC_APPROVAL_PROCESS_TITLE_LABELS: Record<string, string> = {
+  'DCC Controlled File Approval': '文控受控文件审批'
+}
+
+const resolveProcessInstanceDisplayName = (value?: string) => {
+  const normalized = String(value || '').trim()
+  return normalized ? DCC_APPROVAL_PROCESS_TITLE_LABELS[normalized] || normalized : ''
+}
+
+const processInstanceDisplayName = computed(() =>
+  resolveProcessInstanceDisplayName(processInstance.value?.name)
+)
 
 // ========== 申请信息 ==========
 const fApi = ref<ApiAttrs>() //
@@ -187,12 +225,106 @@ const writableFields: Array<string> = [] // 表单可以编辑的字段
 const getDetail = () => {
   // 获得审批详情
   getApprovalDetail()
-  // 获得流程模型视图
-  getProcessModelView()
 }
 
 /** 加载流程实例 */
 const BusinessFormComponent = ref<any>(null) // 异步组件
+const dccApprovalFileDetail = ref<ControlledFileVO>()
+const dccApprovalFileLoading = ref(false)
+const dccApprovalFileError = ref('')
+
+const normalizeCustomViewPath = (value?: string) =>
+  String(value || '')
+    .trim()
+    .replace(/^@\/views\//, '')
+    .replace(/^src\/views\//, '')
+    .replace(/^views\//, '')
+    .replace(/^\/+/, '')
+    .replace(/\.vue$/, '')
+    .replace(/\/index$/, '')
+
+const isDccControlledFileCustomForm = computed(
+  () =>
+    normalizeCustomViewPath(processDefinition.value?.formCustomViewPath) ===
+    'dcc/controlled-file/detail'
+)
+
+const showProcessInstanceTechnicalHeader = computed(() => !isDccControlledFileCustomForm.value)
+
+const dccControlledFileBusinessId = computed(() => {
+  const value = String(processInstance.value?.businessKey || '').trim()
+  return /^\d+$/.test(value) ? value : ''
+})
+
+const currentApprovalNodes = computed(() =>
+  activityNodes.value.filter((node) =>
+    [TaskStatusEnum.WAIT, TaskStatusEnum.RUNNING, TaskStatusEnum.APPROVING].includes(
+      node.status as TaskStatusEnum
+    )
+  )
+)
+
+const currentApprovalStepLabel = computed(() => {
+  const currentNode = currentApprovalNodes.value[0]
+  if (currentNode) {
+    return resolveDccTimelineActivityName(currentNode.id, currentNode.name)
+  }
+  if (processInstance.value?.status === TaskStatusEnum.APPROVE) {
+    return '流程已完成'
+  }
+  return '-'
+})
+
+const getUserDisplayName = (user?: ProcessInstanceApi.User) => {
+  if (!user) {
+    return ''
+  }
+  return user.nickname || (user.id ? `用户#${user.id}` : '')
+}
+
+const currentApprovalActorText = computed(() => {
+  const actorNames = currentApprovalNodes.value.flatMap((node) => {
+    const taskActors = (node.tasks || [])
+      .flatMap((task) => [getUserDisplayName(task.assigneeUser), getUserDisplayName(task.ownerUser)])
+      .filter(Boolean)
+    const candidateActors = (node.candidateUsers || []).map(getUserDisplayName).filter(Boolean)
+    return [...taskActors, ...candidateActors]
+  })
+  return Array.from(new Set(actorNames)).join('、') || '-'
+})
+
+const resetDccApprovalFileSummary = () => {
+  dccApprovalFileDetail.value = undefined
+  dccApprovalFileError.value = ''
+  dccApprovalFileLoading.value = false
+}
+
+const resolveDccApprovalFileError = (error: unknown) => {
+  if (error instanceof Error && error.message && error.message !== 'error') {
+    return error.message
+  }
+  if (typeof error === 'string' && error && error !== 'error') {
+    return error
+  }
+  return '受控文件审核内容加载失败，请联系文控管理员。'
+}
+
+const loadDccApprovalFileSummary = async () => {
+  resetDccApprovalFileSummary()
+  if (!dccControlledFileBusinessId.value) {
+    dccApprovalFileError.value = '流程业务单据缺少受控文件 ID，无法展示审核内容。'
+    return
+  }
+  dccApprovalFileLoading.value = true
+  try {
+    dccApprovalFileDetail.value = await getControlledFile(dccControlledFileBusinessId.value)
+  } catch (error) {
+    dccApprovalFileError.value = resolveDccApprovalFileError(error)
+  } finally {
+    dccApprovalFileLoading.value = false
+  }
+}
+
 /** 获取审批详情 */
 const activityNodes = ref<ProcessInstanceApi.ApprovalNodeInfo[]>([]) // 审批节点信息
 const getApprovalDetail = async () => {
@@ -214,9 +346,11 @@ const getApprovalDetail = async () => {
     }
     processInstance.value = data.processInstance
     processDefinition.value = data.processDefinition
+    activityNodes.value = data.activityNodes || []
 
     // 设置表单信息
     if (processDefinition.value.formType === BpmModelFormType.NORMAL) {
+      resetDccApprovalFileSummary()
       // 获取表单字段权限
       const formFieldsPermission = data.formFieldsPermission
       // 清空可编辑字段为空
@@ -244,32 +378,22 @@ const getApprovalDetail = async () => {
           })
         }
       })
+    } else if (isDccControlledFileCustomForm.value) {
+      BusinessFormComponent.value = null
+      void loadDccApprovalFileSummary()
     } else {
+      resetDccApprovalFileSummary()
       // 注意：data.processDefinition.formCustomViewPath 是组件的全路径，例如说：/crm/contract/detail/index.vue
       BusinessFormComponent.value = registerComponent(data.processDefinition.formCustomViewPath)
     }
 
     // 获取审批节点，显示 Timeline 的数据
-    activityNodes.value = data.activityNodes
+    activityNodes.value = data.activityNodes || []
 
     // 获取待办任务显示操作按钮
     operationButtonRef.value?.loadTodoTask(data.todoTask)
   } finally {
     processInstanceLoading.value = false
-  }
-}
-
-/** 获取流程模型视图*/
-const getProcessModelView = async () => {
-  if (BpmModelType.BPMN === processDefinition.value?.modelType) {
-    // 重置，解决 BPMN 流程图刷新不会重新渲染问题
-    processModelView.value = {
-      bpmnXml: ''
-    }
-  }
-  const data = await ProcessInstanceApi.getProcessInstanceBpmnModelView(props.id)
-  if (data) {
-    processModelView.value = data
   }
 }
 
@@ -302,9 +426,6 @@ const printRef = ref()
 const handlePrint = async () => {
   printRef.value.open(props.id)
 }
-
-/** 当前的 Tab */
-const activeTab = ref('form')
 
 /** 初始化 */
 const userOptions = ref<UserApi.UserVO[]>([]) // 用户列表
@@ -358,6 +479,55 @@ $process-header-height: 194px;
 .form-box {
   :deep(.el-card) {
     border: none;
+  }
+}
+
+.bpm-dcc-approval-summary {
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 12px;
+  background: #fff;
+  padding: 18px;
+}
+
+.bpm-dcc-approval-summary__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.bpm-dcc-approval-summary__eyebrow {
+  color: var(--el-color-primary);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.bpm-dcc-approval-summary__title {
+  color: var(--el-text-color-primary);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.bpm-dcc-approval-summary__subtitle {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.bpm-dcc-approval-preview {
+  margin-top: 16px;
+  min-height: 360px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 10px;
+  overflow: hidden;
+
+  :deep(.protected-viewer-shell) {
+    min-height: 360px;
+    border: none;
+    border-radius: 0;
   }
 }
 </style>

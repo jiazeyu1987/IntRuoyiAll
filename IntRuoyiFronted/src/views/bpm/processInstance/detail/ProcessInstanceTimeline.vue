@@ -11,7 +11,8 @@
     >
       <template #dot>
         <div
-          class="position-absolute left--10px top--6px rounded-full border border-solid border-#dedede w-30px h-30px flex justify-center items-center bg-#3f73f7 p-5px"
+          class="position-absolute left--10px top--6px rounded-full border border-solid border-#dedede w-30px h-30px flex justify-center items-center p-5px"
+          :style="{ backgroundColor: getApprovalNodeDotColor(activity.status) }"
         >
           <img class="w-full h-full" :src="getApprovalNodeImg(activity.nodeType)" alt="" />
           <div
@@ -28,7 +29,10 @@
       <div class="flex flex-col items-start gap2" :id="`activity-task-${activity.id}-${index}`">
         <!-- 第一行：节点名称、时间 -->
         <div class="flex w-full">
-          <div class="font-bold">
+          <div
+            class="font-bold"
+            :style="isCurrentApprovalNodeStatus(activity.status) ? { color: APPROVAL_ACTIVE_COLOR } : undefined"
+          >
             {{ resolveDccTimelineActivityName(activity.id, activity.name) }}
             <span v-if="activity.status === TaskStatusEnum.SKIP">【跳过】</span>
           </div>
@@ -212,6 +216,16 @@ const props = withDefaults(
   }
 )
 const { push } = useRouter() // 路由
+const APPROVAL_ACTIVE_COLOR = '#00b32a'
+const APPROVAL_NODE_DEFAULT_COLOR = '#3f73f7'
+
+const isCurrentApprovalNodeStatus = (taskStatus: number) =>
+  [TaskStatusEnum.WAIT, TaskStatusEnum.RUNNING, TaskStatusEnum.APPROVING].includes(
+    taskStatus as TaskStatusEnum
+  )
+
+const getApprovalNodeDotColor = (taskStatus: number) =>
+  isCurrentApprovalNodeStatus(taskStatus) ? APPROVAL_ACTIVE_COLOR : APPROVAL_NODE_DEFAULT_COLOR
 
 // 审批节点
 const statusIconMap2 = {
@@ -222,7 +236,7 @@ const statusIconMap2 = {
   // 待审批
   '0': { color: '#00b32a', icon: 'ep:loading' },
   // 审批中
-  '1': { color: '#448ef7', icon: 'ep:loading' },
+  '1': { color: APPROVAL_ACTIVE_COLOR, icon: 'ep:loading' },
   // 审批通过
   '2': { color: '#00b32a', icon: 'ep:circle-check-filled' },
   // 审批不通过
@@ -244,7 +258,7 @@ const statusIconMap = {
   '-1': { color: '#909398', icon: Clock },
   '0': { color: '#00b32a', icon: Clock },
   // 审批中
-  '1': { color: '#448ef7', icon: Loading },
+  '1': { color: APPROVAL_ACTIVE_COLOR, icon: Loading },
   // 审批通过
   '2': { color: '#00b32a', icon: Check },
   // 审批不通过

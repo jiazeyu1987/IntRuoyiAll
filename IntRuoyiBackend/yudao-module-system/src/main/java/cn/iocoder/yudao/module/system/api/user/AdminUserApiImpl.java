@@ -7,7 +7,9 @@ import cn.iocoder.yudao.framework.datapermission.core.annotation.DataPermission;
 import cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.dept.UserPostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import cn.iocoder.yudao.module.system.dal.mysql.dept.UserPostMapper;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
@@ -32,12 +34,14 @@ public class AdminUserApiImpl implements AdminUserApi {
     private AdminUserService userService;
     @Resource
     private DeptService deptService;
+    @Resource
+    private UserPostMapper userPostMapper;
 
     @Override
     @DataPermission(enable = false) // 忽略数据权限，避免因为过滤，导致无法查询用户。类似：https://github.com/YunaiV/ruoyi-vue-pro/issues/1051
     public AdminUserRespDTO getUser(Long id) {
         AdminUserDO user = userService.getUser(id);
-        return BeanUtils.toBean(user, AdminUserRespDTO.class);
+        return toUserRespDTO(user);
     }
 
     @Override
@@ -58,6 +62,12 @@ public class AdminUserApiImpl implements AdminUserApi {
         List<AdminUserDO> users = userService.getUserListByDeptIds(deptIds);
         users.removeIf(item -> ObjUtil.equal(item.getId(), id)); // 排除自己
         return BeanUtils.toBean(users, AdminUserRespDTO.class);
+    }
+
+    @Override
+    @DataPermission(enable = false)
+    public List<AdminUserRespDTO> getUserListByNickname(String nickname) {
+        return BeanUtils.toBean(userService.getUserListByNickname(nickname), AdminUserRespDTO.class);
     }
 
     @Override
@@ -88,6 +98,15 @@ public class AdminUserApiImpl implements AdminUserApi {
     @Override
     public void validatePassword(Long id, String rawPassword) {
         userService.validateOldPassword(id, rawPassword);
+    }
+
+    private AdminUserRespDTO toUserRespDTO(AdminUserDO user) {
+        AdminUserRespDTO respDTO = BeanUtils.toBean(user, AdminUserRespDTO.class);
+        if (respDTO == null || respDTO.getId() == null) {
+            return respDTO;
+        }
+        respDTO.setPostIds(convertSet(userPostMapper.selectListByUserId(respDTO.getId()), UserPostDO::getPostId));
+        return respDTO;
     }
 
 }

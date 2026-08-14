@@ -1,0 +1,7 @@
+{
+  "status": "FAIL",
+  "fileId": "2054545668044070298",
+  "fileNumber": "CODX-DCC-TRAIN-RERUN-20260802195426",
+  "finishedAt": "2026-08-02T14:08:00.334Z",
+  "error": "page.waitForTimeout: Target page, context or browser has been closed\n    at openAndAck ([stdin]:102:18)\n    at async [stdin]:153:36"
+}

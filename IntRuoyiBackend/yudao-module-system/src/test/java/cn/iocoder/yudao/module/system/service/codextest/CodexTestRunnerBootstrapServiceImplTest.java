@@ -7,6 +7,9 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -24,6 +27,8 @@ class CodexTestRunnerBootstrapServiceImplTest extends BaseDbUnitTest {
     private CodexTestRunnerBootstrapService codexTestRunnerBootstrapService;
     @Resource
     private CodexTestRunnerSessionMapper codexTestRunnerSessionMapper;
+    @Resource
+    private PlatformTransactionManager transactionManager;
 
     @Test
     void ensureRunnerAvailable_doesNotStartWrapperWhenHealthyRunnerAlreadyOnline() {
@@ -65,6 +70,35 @@ class CodexTestRunnerBootstrapServiceImplTest extends BaseDbUnitTest {
         registrationThread.start();
 
         assertDoesNotThrow(() -> codexTestRunnerBootstrapService.ensureRunnerAvailable());
+        registrationThread.join();
+    }
+
+    @Test
+    void ensureRunnerAvailable_observesRegistrationOutsideCallerRepeatableReadSnapshot() throws Exception {
+        Path starterScript = Files.createTempFile("codex-runner-bootstrap-transaction-test", ".ps1");
+        Files.writeString(starterScript,
+                "param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Rest)\nStart-Sleep -Milliseconds 500\n",
+                StandardCharsets.UTF_8);
+        ReflectionTestUtils.setField(codexTestRunnerBootstrapService, "runnerOnDemandEnabled", true);
+        ReflectionTestUtils.setField(codexTestRunnerBootstrapService, "runnerStarterScript", starterScript.toString());
+        ReflectionTestUtils.setField(codexTestRunnerBootstrapService, "runnerToken", "test-runner-token");
+        ReflectionTestUtils.setField(codexTestRunnerBootstrapService, "startupTimeoutSeconds", 2);
+        ReflectionTestUtils.setField(codexTestRunnerBootstrapService, "startupPollIntervalMillis", 50);
+
+        Thread registrationThread = new Thread(() -> {
+            try {
+                Thread.sleep(200);
+                insertOnlineRunner();
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        registrationThread.start();
+
+        TransactionTemplate callerTransaction = new TransactionTemplate(transactionManager);
+        callerTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        assertDoesNotThrow(() -> callerTransaction.executeWithoutResult(
+                status -> codexTestRunnerBootstrapService.ensureRunnerAvailable()));
         registrationThread.join();
     }
 

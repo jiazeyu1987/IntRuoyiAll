@@ -41,7 +41,7 @@ export interface SignatureGovernanceRecordRespVO {
   meaningCode?: string
   meaningLabel?: string
   comment?: string
-  signedAt?: string | number
+  signedAt?: number
   evidenceHash?: string
   evidenceStatus?: string
   detailRouteName?: string

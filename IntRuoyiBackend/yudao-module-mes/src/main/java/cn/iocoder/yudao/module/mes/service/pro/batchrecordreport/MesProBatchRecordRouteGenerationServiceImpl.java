@@ -156,8 +156,21 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                                                                                    Long expectedRouteId,
                                                                                    Long expectedRouteVersionId,
                                                                                    Boolean routeUpgradeConfirmed) {
+        return generateRouteOnlyForUploadedWord(batchRecordName, parsedTables, productNames,
+                expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed, null);
+    }
+
+    @Override
+    public MesProBatchRecordRouteGenerationResult generateRouteOnlyForUploadedWord(String batchRecordName,
+                                                                                   List<MesProBatchRecordParsedTable> parsedTables,
+                                                                                   List<String> productNames,
+                                                                                   Long expectedRouteId,
+                                                                                   Long expectedRouteVersionId,
+                                                                                   Boolean routeUpgradeConfirmed,
+                                                                                   Long expectedRouteCandidateVersionId) {
         return generateForUploadedWord(batchRecordName, parsedTables, List.of(), productNames, null, null, false,
-                expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed, false);
+                expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed,
+                expectedRouteCandidateVersionId, false);
     }
 
     @Override
@@ -168,7 +181,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                                                                            Long batchRecordDefinitionId,
                                                                            Long batchRecordVersionId) {
         return generateForUploadedWord(batchRecordName, parsedTables, reports, productNames,
-                batchRecordDefinitionId, batchRecordVersionId, true, null, null, false, false);
+                batchRecordDefinitionId, batchRecordVersionId, true, null, null, false, null, false);
     }
 
     @Override
@@ -183,7 +196,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                                                                            Boolean routeUpgradeConfirmed) {
         return generateForUploadedWord(batchRecordName, parsedTables, reports, productNames,
                 batchRecordDefinitionId, batchRecordVersionId, true,
-                expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed, false);
+                expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed, null, false);
     }
 
     @Override
@@ -198,8 +211,26 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                                                                            Boolean routeUpgradeConfirmed,
                                                                            boolean applyExistingRouteRebuild) {
         return generateForUploadedWord(batchRecordName, parsedTables, reports, productNames,
+                batchRecordDefinitionId, batchRecordVersionId, expectedRouteId, expectedRouteVersionId,
+                routeUpgradeConfirmed, null, applyExistingRouteRebuild);
+    }
+
+    @Override
+    public MesProBatchRecordRouteGenerationResult generateForUploadedWord(String batchRecordName,
+                                                                           List<MesProBatchRecordParsedTable> parsedTables,
+                                                                           List<MesProBatchRecordReportView> reports,
+                                                                           List<String> productNames,
+                                                                           Long batchRecordDefinitionId,
+                                                                           Long batchRecordVersionId,
+                                                                           Long expectedRouteId,
+                                                                           Long expectedRouteVersionId,
+                                                                           Boolean routeUpgradeConfirmed,
+                                                                           Long expectedRouteCandidateVersionId,
+                                                                           boolean applyExistingRouteRebuild) {
+        return generateForUploadedWord(batchRecordName, parsedTables, reports, productNames,
                 batchRecordDefinitionId, batchRecordVersionId, true,
-                expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed, applyExistingRouteRebuild);
+                expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed,
+                expectedRouteCandidateVersionId, applyExistingRouteRebuild);
     }
 
     @Override
@@ -212,6 +243,22 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             Long expectedRouteId,
             Long expectedRouteVersionId,
             Boolean routeUpgradeConfirmed) {
+        return generateBatchRecordBindingCandidateForUploadedWord(batchRecordName, parsedTables, reports,
+                batchRecordDefinitionId, batchRecordVersionId, expectedRouteId, expectedRouteVersionId,
+                routeUpgradeConfirmed, null);
+    }
+
+    @Override
+    public MesProBatchRecordRouteGenerationResult generateBatchRecordBindingCandidateForUploadedWord(
+            String batchRecordName,
+            List<MesProBatchRecordParsedTable> parsedTables,
+            List<MesProBatchRecordReportView> reports,
+            Long batchRecordDefinitionId,
+            Long batchRecordVersionId,
+            Long expectedRouteId,
+            Long expectedRouteVersionId,
+            Boolean routeUpgradeConfirmed,
+            Long expectedRouteCandidateVersionId) {
         validateUploadedWordRoute(parsedTables);
         List<RouteProcessReportBinding> bindings = buildProcessReportBindings(parsedTables, reports, true);
         RouteGenerationTarget target = resolveRouteGenerationTarget(
@@ -222,16 +269,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         }
         MesProRouteDO route = target.route();
         MesProRouteVersionDO activeVersion = target.activeVersion();
-        MesProRouteVersionDO candidate = routeVersionMapper.selectOpenCandidateByRouteId(route.getId());
-        if (candidate != null && !STATUS_DRAFT.equals(candidate.getLifecycleStatus())) {
-            throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
-                    "工艺路线已有不可修改的候选版本：" + candidate.getId());
-        }
-        if (candidate != null && !Objects.equals(candidate.getSourceRouteVersionId(), activeVersion.getId())) {
-            throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
-                    "工艺路线草稿来源版本已变化：" + candidate.getSourceRouteVersionId()
-                            + "/" + activeVersion.getId());
-        }
+        MesProRouteVersionDO candidate = lockAndValidateRouteCandidate(
+                route, activeVersion, expectedRouteCandidateVersionId);
         String snapshotJson = candidate == null
                 ? routeService.buildCurrentRouteSnapshotJson(route.getId(), activeVersion.getId())
                 : candidate.getRouteSnapshotJson();
@@ -406,6 +445,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                                                                            Long expectedRouteId,
                                                                            Long expectedRouteVersionId,
                                                                            Boolean routeUpgradeConfirmed,
+                                                                           Long expectedRouteCandidateVersionId,
                                                                            boolean applyExistingRouteRebuild) {
         validateUploadedWordRoute(parsedTables);
         List<String> normalizedProductNames = normalizeProductNames(productNames);
@@ -426,8 +466,11 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             routeMapper.insert(route);
             routeOwnerPermissionService.bindCurrentUserAsOwner(route.getId());
         } else if (target.existing()) {
-            MesProRouteVersionDO candidateRouteVersion = createCandidateRouteVersion(
-                    route, sourceRouteVersion, bindings, normalizedProductNames, bindBatchRecordReports);
+            MesProRouteVersionDO candidateRouteVersion = createOrUpdateCandidateRouteVersion(
+                    route, sourceRouteVersion, bindings, normalizedProductNames, bindBatchRecordReports,
+                    expectedRouteCandidateVersionId);
+            RouteProductBindingResult productBindingResult = inspectExistingRouteProductBindings(
+                    route.getId(), normalizedProductNames);
             return MesProBatchRecordRouteGenerationResult.builder()
                     .routeId(route.getId())
                     .routeCode(route.getCode())
@@ -436,9 +479,9 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .routeVersionNo(candidateRouteVersion.getVersionNo())
                     .routeProcessCount(bindings.size())
                     .batchRecordRouteBindingCount(bindBatchRecordReports ? bindings.size() : 0)
-                    .boundProductNameCount(0)
-                    .boundProductCodeCount(0)
-                    .skippedProductNames(normalizedProductNames)
+                    .boundProductNameCount(productBindingResult.boundProductNameCount())
+                    .boundProductCodeCount(productBindingResult.boundProductCodeCount())
+                    .skippedProductNames(productBindingResult.skippedProductNames())
                     .build();
         }
         RouteUpgradePreservedData preservedData = target.preservedData();
@@ -549,6 +592,22 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     private RouteGenerationTarget resolveRouteGenerationTarget(String routeName, Long expectedRouteId,
                                                                Long expectedRouteVersionId,
                                                                Boolean routeUpgradeConfirmed) {
+        if (expectedRouteId != null) {
+            MesProRouteDO expectedRoute = routeMapper.selectById(expectedRouteId);
+            MesProRouteVersionDO activeVersion = expectedRoute == null
+                    ? null : routeVersionMapper.selectActiveByRouteId(expectedRouteId);
+            Long currentVersionId = activeVersion == null ? null : activeVersion.getId();
+            if (expectedRoute == null || !Objects.equals(expectedRouteVersionId, currentVersionId)) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_TARGET_CHANGED,
+                        expectedRouteId, expectedRouteVersionId,
+                        expectedRoute == null ? null : expectedRoute.getId(), currentVersionId);
+            }
+            if (!Boolean.TRUE.equals(routeUpgradeConfirmed)) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_CONFIRM_REQUIRED,
+                        routeName);
+            }
+            return new RouteGenerationTarget(expectedRoute, activeVersion, true);
+        }
         List<MesProRouteDO> routes = routeMapper.selectListByName(routeName);
         if (routes.size() > 1) {
             String routeCodes = routes.stream()
@@ -708,11 +767,56 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         return routeVersion;
     }
 
-    private MesProRouteVersionDO createCandidateRouteVersion(MesProRouteDO route,
-                                                             MesProRouteVersionDO sourceVersion,
-                                                             List<RouteProcessReportBinding> bindings,
-                                                             List<String> productNames,
-                                                             boolean bindBatchRecordReports) {
+    private MesProRouteVersionDO lockAndValidateRouteCandidate(MesProRouteDO route,
+                                                               MesProRouteVersionDO sourceVersion,
+                                                               Long expectedRouteCandidateVersionId) {
+        MesProRouteVersionDO lockedActiveVersion = routeVersionMapper.selectActiveByRouteIdForUpdate(route.getId());
+        Long expectedActiveVersionId = sourceVersion == null ? null : sourceVersion.getId();
+        Long currentActiveVersionId = lockedActiveVersion == null ? null : lockedActiveVersion.getId();
+        if (!Objects.equals(expectedActiveVersionId, currentActiveVersionId)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants
+                            .PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_TARGET_CHANGED,
+                    route.getId(), expectedActiveVersionId, route.getId(), currentActiveVersionId);
+        }
+        MesProRouteVersionDO candidateVersion = routeVersionMapper.selectOpenCandidateByRouteId(route.getId());
+        if (candidateVersion != null
+                && (Objects.equals(MesProRouteVersionMapper.STATUS_PENDING_APPROVAL,
+                        candidateVersion.getLifecycleStatus())
+                || Objects.equals(MesProRouteVersionMapper.STATUS_READY_TO_PUBLISH,
+                        candidateVersion.getLifecycleStatus()))) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants
+                            .PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_STATUS_BLOCKED,
+                    candidateVersion.getVersionNo(), candidateVersion.getLifecycleStatus());
+        }
+        Long currentCandidateVersionId = candidateVersion == null ? null : candidateVersion.getId();
+        if (!Objects.equals(expectedRouteCandidateVersionId, currentCandidateVersionId)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants
+                            .PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_TARGET_CHANGED,
+                    expectedRouteCandidateVersionId, currentCandidateVersionId);
+        }
+        if (candidateVersion != null && !Objects.equals(STATUS_DRAFT, candidateVersion.getLifecycleStatus())) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants
+                            .PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_STATUS_BLOCKED,
+                    candidateVersion.getVersionNo(), candidateVersion.getLifecycleStatus());
+        }
+        if (candidateVersion != null
+                && !Objects.equals(candidateVersion.getSourceRouteVersionId(), currentActiveVersionId)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants
+                            .PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_SOURCE_CHANGED,
+                    candidateVersion.getVersionNo(), candidateVersion.getSourceRouteVersionId(),
+                    currentActiveVersionId);
+        }
+        return candidateVersion;
+    }
+
+    private MesProRouteVersionDO createOrUpdateCandidateRouteVersion(MesProRouteDO route,
+                                                                     MesProRouteVersionDO sourceVersion,
+                                                                     List<RouteProcessReportBinding> bindings,
+                                                                     List<String> productNames,
+                                                                     boolean bindBatchRecordReports,
+                                                                     Long expectedRouteCandidateVersionId) {
+        MesProRouteVersionDO candidateVersion = lockAndValidateRouteCandidate(
+                route, sourceVersion, expectedRouteCandidateVersionId);
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("routeId", route.getId());
         snapshot.put("routeCode", route.getCode());
@@ -770,18 +874,34 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         configSnapshots.put("batchUseConfigs", batchUseConfigSnapshots);
         snapshot.put("configSnapshots", configSnapshots);
 
-        MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder()
-                .routeId(route.getId())
-                .versionNo(nextRouteVersionNo(route.getId()))
-                .active(false)
-                .lifecycleStatus(STATUS_DRAFT)
-                .sourceRouteVersionId(sourceVersion == null ? null : sourceVersion.getId())
-                .routeSnapshotJson(snapshot.toJSONString())
-                .changeSummaryJson("{\"source\":\"EDHR_WORD_IMPORT\",\"changeType\":\"ROUTE_REBUILD_CANDIDATE\"}")
-                .remark("eDHR Word导入生成路线候选版本，待发布后生效")
-                .build();
-        routeVersionMapper.insert(routeVersion);
-        return routeVersion;
+        String snapshotJson = snapshot.toJSONString();
+        String changeSummaryJson =
+                "{\"source\":\"EDHR_WORD_IMPORT\",\"changeType\":\"ROUTE_REBUILD_CANDIDATE\"}";
+        String remark = "eDHR Word导入更新路线候选版本，待发布后生效";
+        if (candidateVersion == null) {
+            candidateVersion = MesProRouteVersionDO.builder()
+                    .routeId(route.getId())
+                    .versionNo(nextRouteVersionNo(route.getId()))
+                    .active(false)
+                    .lifecycleStatus(STATUS_DRAFT)
+                    .sourceRouteVersionId(sourceVersion == null ? null : sourceVersion.getId())
+                    .routeSnapshotJson(snapshotJson)
+                    .changeSummaryJson(changeSummaryJson)
+                    .remark(remark)
+                    .build();
+            routeVersionMapper.insert(candidateVersion);
+            return candidateVersion;
+        }
+        MesProRouteVersionDO update = new MesProRouteVersionDO();
+        update.setId(candidateVersion.getId());
+        update.setRouteSnapshotJson(snapshotJson);
+        update.setChangeSummaryJson(changeSummaryJson);
+        update.setRemark(remark);
+        routeVersionMapper.updateById(update);
+        candidateVersion.setRouteSnapshotJson(snapshotJson);
+        candidateVersion.setChangeSummaryJson(changeSummaryJson);
+        candidateVersion.setRemark(remark);
+        return candidateVersion;
     }
 
     private Map<String, Object> buildCandidateFlowGraphSnapshot(List<Map<String, Object>> processSnapshots) {
@@ -995,6 +1115,41 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         return new RouteProductBindingResult(boundProductNames.size(), boundItemIds.size(), skippedProductNames);
     }
 
+    private RouteProductBindingResult inspectExistingRouteProductBindings(Long routeId, List<String> productNames) {
+        Set<Long> boundItemIds = new LinkedHashSet<>();
+        Set<String> boundProductNames = new LinkedHashSet<>();
+        List<String> skippedProductNames = new ArrayList<>();
+        for (String productName : productNames) {
+            List<Long> itemIds = resolveDccProjectProductIds(productName);
+            if (itemIds.isEmpty()) {
+                skippedProductNames.add(productName);
+                continue;
+            }
+            List<MesProRouteProductDO> bindings = routeProductMapper.selectListByItemIds(itemIds);
+            List<MesProRouteProductDO> conflictBindings = bindings.stream()
+                    .filter(binding -> !Objects.equals(binding.getRouteId(), routeId))
+                    .toList();
+            if (!conflictBindings.isEmpty()) {
+                throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_BIND_FAILED,
+                        "产品已绑定其他工艺路线：" + formatRouteProductConflicts(conflictBindings));
+            }
+            List<Long> missingItemIds = itemIds.stream()
+                    .filter(itemId -> bindings.stream().noneMatch(binding -> Objects.equals(binding.getRouteId(), routeId)
+                            && Objects.equals(binding.getItemId(), itemId)))
+                    .toList();
+            if (!missingItemIds.isEmpty()) {
+                throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_BIND_FAILED,
+                        "产品未绑定当前工艺路线：" + missingItemIds);
+            }
+            boundProductNames.add(productName);
+            boundItemIds.addAll(itemIds);
+        }
+        if (boundItemIds.isEmpty()) {
+            throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_EMPTY, String.join("、", productNames));
+        }
+        return new RouteProductBindingResult(boundProductNames.size(), boundItemIds.size(), skippedProductNames);
+    }
+
     private String formatRouteProductConflicts(List<MesProRouteProductDO> bindings) {
         Set<Long> itemIds = bindings.stream()
                 .map(MesProRouteProductDO::getItemId)
@@ -1036,10 +1191,6 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     private Long resolveDccProjectItemId(String projectName, String projectCode) {
         MesMdItemDO existing = itemMapper.selectByCode(projectCode);
         if (existing != null) {
-            if (!StrUtil.equals(existing.getName(), projectName)) {
-                throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_BIND_FAILED,
-                        "DCC项目代码已存在不同产品名称：" + projectCode);
-            }
             if (!CommonStatusEnum.isEnable(existing.getStatus()) || !Boolean.TRUE.equals(existing.getBatchFlag())) {
                 throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_BIND_FAILED,
                         "DCC项目产品未启用批次绑定：" + projectCode);

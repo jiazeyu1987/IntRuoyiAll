@@ -40,6 +40,7 @@ import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.*;
+import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackErrorCodeConstants.PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED;
 
 /**
  * MES 生产报工 Service 实现类
@@ -86,6 +87,15 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     @Override
     public Long createFeedbackWithScheduleSnapshot(MesProFeedbackSaveReqVO createReqVO) {
         return createFeedbackInternal(createReqVO, true);
+    }
+
+    @Override
+    public Long createFrontlineFeedback(MesProFeedbackSaveReqVO createReqVO) {
+        validateFrontlineFeedbackData(createReqVO);
+        MesProFeedbackDO feedback = BeanUtils.toBean(createReqVO, MesProFeedbackDO.class)
+                .setStatus(MesProFeedbackStatusEnum.PREPARE.getStatus());
+        feedbackMapper.insert(feedback);
+        return feedback.getId();
     }
 
     private Long createFeedbackInternal(MesProFeedbackSaveReqVO createReqVO, boolean keepProvidedScheduleSnapshot) {
@@ -316,21 +326,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
         // 2.1 校验工艺路线 + 工序配置有效
         MesProRouteProcessDO routeProcess = routeContext.routeProcess();
         // 2.2 校验数量
-        boolean checkFlag = Boolean.TRUE.equals(routeProcess.getCheckFlag());
-        if (checkFlag) {
-            // 需要检验：只需填报工数量，且必须 > 0
-            if (reqVO.getFeedbackQuantity() == null
-                    || reqVO.getFeedbackQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-                throw exception(PRO_FEEDBACK_QUANTITY_MUST_POSITIVE);
-            }
-        } else {
-            // 不需检验：需填合格品 + 不良品数量，合计 > 0
-            BigDecimal qualified = ObjectUtil.defaultIfNull(reqVO.getQualifiedQuantity(), BigDecimal.ZERO);
-            BigDecimal unqualified = ObjectUtil.defaultIfNull(reqVO.getUnqualifiedQuantity(), BigDecimal.ZERO);
-            if (qualified.add(unqualified).compareTo(BigDecimal.ZERO) <= 0) {
-                throw exception(PRO_FEEDBACK_QUALIFIED_UNQUALIFIED_REQUIRED);
-            }
-        }
+        validateFeedbackQuantity(reqVO, routeProcess);
 
         // 3. 校验工单已确认
         MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmed(reqVO.getWorkOrderId());
@@ -343,6 +339,53 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
         validateTaskRelation(task, workstation, workOrder, reqVO,
                 routeContext.relationRouteId(), routeContext.relationProcessId());
         return task;
+    }
+
+    private void validateFrontlineFeedbackData(MesProFeedbackSaveReqVO reqVO) {
+        requireFrontlineFeedbackContext(reqVO, "request");
+        requireFrontlineFeedbackContext(reqVO.getCode(), "code");
+        requireFrontlineFeedbackContext(reqVO.getType(), "type");
+        requireFrontlineFeedbackContext(reqVO.getWorkstationId(), "workstationId");
+        requireFrontlineFeedbackContext(reqVO.getRouteId(), "routeId");
+        requireFrontlineFeedbackContext(reqVO.getProcessId(), "processId");
+        requireFrontlineFeedbackContext(reqVO.getFeedbackQuantity(), "feedbackQuantity");
+        requireFrontlineFeedbackContext(reqVO.getFeedbackUserId(), "feedbackUserId");
+        requireFrontlineFeedbackContext(reqVO.getFeedbackTime(), "feedbackTime");
+        requireFrontlineFeedbackContext(reqVO.getApproveUserId(), "approveUserId");
+
+        FeedbackRouteContext routeContext = resolveFeedbackRouteContext(reqVO, false);
+        MesMdWorkstationDO workstation = workstationService.validateWorkstationExists(reqVO.getWorkstationId());
+        if (ObjUtil.notEqual(workstation.getProcessId(), routeContext.relationProcessId())) {
+            throw exception(PRO_WORKSTATION_PROCESS_MISMATCH);
+        }
+        validateFeedbackQuantity(reqVO, routeContext.routeProcess());
+    }
+
+    private void validateFeedbackQuantity(MesProFeedbackSaveReqVO reqVO, MesProRouteProcessDO routeProcess) {
+        boolean checkFlag = Boolean.TRUE.equals(routeProcess.getCheckFlag());
+        if (checkFlag) {
+            // 需要检验：只需填报工数量，且必须 > 0
+            if (reqVO.getFeedbackQuantity() == null
+                    || reqVO.getFeedbackQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                throw exception(PRO_FEEDBACK_QUANTITY_MUST_POSITIVE);
+            }
+            return;
+        }
+        // 不需检验：需填合格品 + 不良品数量，合计 > 0
+        BigDecimal qualified = ObjectUtil.defaultIfNull(reqVO.getQualifiedQuantity(), BigDecimal.ZERO);
+        BigDecimal unqualified = ObjectUtil.defaultIfNull(reqVO.getUnqualifiedQuantity(), BigDecimal.ZERO);
+        if (qualified.add(unqualified).compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_FEEDBACK_QUALIFIED_UNQUALIFIED_REQUIRED);
+        }
+    }
+
+    private void requireFrontlineFeedbackContext(Object value, String fieldName) {
+        if (value == null) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, fieldName);
+        }
+        if (value instanceof String text && text.isBlank()) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, fieldName);
+        }
     }
 
     private FeedbackRouteContext resolveFeedbackRouteContext(MesProFeedbackSaveReqVO reqVO,

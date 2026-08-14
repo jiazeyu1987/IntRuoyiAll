@@ -101,6 +101,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_ROUTE_SCHEDULE_CONFIG_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_ROUTE_FLOW_CONFIG_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -222,6 +224,16 @@ class MesProScheduleOrderServiceImplTest {
                         org.mockito.ArgumentMatchers.anyCollection(),
                         org.mockito.ArgumentMatchers.eq(CommonStatusEnum.ENABLE.getStatus())))
                 .thenReturn(List.of());
+        org.mockito.Mockito.lenient().when(syncRecordMapper.selectByWorkOrderId(
+                        org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(invocation -> {
+                    Long workOrderId = invocation.getArgument(0);
+                    return MesKingdeeProductionOrderSyncRecordDO.builder()
+                            .workOrderId(workOrderId)
+                            .sourceFid("FID-" + workOrderId)
+                            .sourceBillNo("ERP-MO-" + workOrderId)
+                            .build();
+                });
     }
 
     private Map<Long, Long> identityMap(java.util.Collection<Long> processIds) {
@@ -2105,7 +2117,11 @@ class MesProScheduleOrderServiceImplTest {
                 .thenReturn(List.of(MesMdItemDO.builder().id(20L).code("ITEM-BD-001").name("球囊导管").build()));
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(List.of(900L))).thenReturn(List.of());
         when(syncRecordMapper.selectByWorkOrderId(100L))
-                .thenReturn(MesKingdeeProductionOrderSyncRecordDO.builder().workOrderId(100L).build());
+                .thenReturn(MesKingdeeProductionOrderSyncRecordDO.builder()
+                        .workOrderId(100L)
+                        .sourceFid("FID-100")
+                        .sourceBillNo("MO-100")
+                        .build());
 
         MesProScheduleOrderPreflightRespVO result = scheduleOrderService.preflight(reqVO);
 
@@ -2511,6 +2527,8 @@ class MesProScheduleOrderServiceImplTest {
         when(syncRecordMapper.selectByWorkOrderId(100L)).thenReturn(MesKingdeeProductionOrderSyncRecordDO.builder()
                 .id(500L)
                 .workOrderId(100L)
+                .sourceFid("FID-100")
+                .sourceBillNo("MO-001")
                 .build());
 
         MesProScheduleOrderPreflightRespVO result = scheduleOrderService.preflight(reqVO);
@@ -2568,9 +2586,11 @@ class MesProScheduleOrderServiceImplTest {
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(30L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))
                 .thenReturn(List.of(
                         MesProRouteFlowProcessConfigDO.builder().routeFlowConfigId(30L).routeId(30L).routeProcessId(300L)
-                                .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE).build(),
+                                .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE)
+                                .productionQuantityFactor(BigDecimal.ONE).build(),
                         MesProRouteFlowProcessConfigDO.builder().routeFlowConfigId(30L).routeId(30L).routeProcessId(301L)
-                                .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE).build()
+                                .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE)
+                                .productionQuantityFactor(BigDecimal.ONE).build()
                 ));
         when(routeScheduleConfigMapper.selectListByRouteVersionId(701L)).thenReturn(List.of(
                 MesProRouteScheduleConfigDO.builder()
@@ -2705,6 +2725,33 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
+    void createFromWorkOrder_shouldRejectMissingProductionQuantityFactor() {
+        MesProScheduleOrderCreateFromWorkOrderReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrderReqVO();
+        reqVO.setWorkOrderId(100L);
+        reqVO.setPromiseDate(LocalDate.of(2026, 7, 10));
+        stubSimpleSchedulableWorkOrder(100L, "MO-100", 20L, 30L, 300L, 40L, 700L, 800L, "B010", "首道工序");
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(30L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))
+                .thenReturn(List.of(MesProRouteFlowProcessConfigDO.builder()
+                        .routeFlowConfigId(30L)
+                        .routeId(30L)
+                        .routeProcessId(300L)
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        doAnswer(invocation -> {
+            MesProScheduleOrderDO scheduleOrder = invocation.getArgument(0);
+            scheduleOrder.setId(900L);
+            return 1;
+        }).when(scheduleOrderMapper).insert(any(MesProScheduleOrderDO.class));
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> scheduleOrderService.createFromWorkOrder(reqVO));
+
+        assertEquals(PRO_ROUTE_FLOW_CONFIG_PRODUCTION_QUANTITY_FACTOR_INVALID.getCode(), exception.getCode());
+        verify(scheduleOrderProcessMapper, never()).insert(any(MesProScheduleOrderProcessDO.class));
+    }
+
+    @Test
     void createFromWorkOrders_shouldDeduplicateAndCreateEverySelectedWorkOrderWithSamePromiseDate() {
         MesProScheduleOrderCreateFromWorkOrdersReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrdersReqVO();
         reqVO.setWorkOrderIds(List.of(100L, 101L, 100L));
@@ -2754,6 +2801,41 @@ class MesProScheduleOrderServiceImplTest {
                 .toList());
         orderCaptor.getAllValues().forEach(order -> assertNull(order.getPromiseDate()));
         verify(scheduleOrderProcessMapper, times(2)).insert(any(MesProScheduleOrderProcessDO.class));
+    }
+
+    @Test
+    void createFromWorkOrders_shouldFailFastWhenSelectedWorkOrderMissingErpFormalIdentity() {
+        MesProScheduleOrderCreateFromWorkOrdersReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrdersReqVO();
+        reqVO.setWorkOrderIds(List.of(100L));
+        reqVO.setPromiseDate(LocalDate.of(2026, 7, 10));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
+        when(workOrderMapper.selectById(100L)).thenReturn(workOrder(100L, "MO-100", 20L));
+        when(syncRecordMapper.selectByWorkOrderId(100L)).thenReturn(null);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> scheduleOrderService.createFromWorkOrders(reqVO));
+
+        assertEquals(1_040_270_023, exception.getCode());
+        verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));
+        verify(scheduleOrderProcessMapper, never()).insert(any(MesProScheduleOrderProcessDO.class));
+    }
+
+    @Test
+    void createFromWorkOrders_shouldFailFastWhenSelectedWorkOrderNotConfirmed() {
+        MesProScheduleOrderCreateFromWorkOrdersReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrdersReqVO();
+        reqVO.setWorkOrderIds(List.of(100L));
+        reqVO.setPromiseDate(LocalDate.of(2026, 7, 10));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
+        MesProWorkOrderDO workOrder = workOrder(100L, "MO-100", 20L);
+        workOrder.setStatus(MesProWorkOrderStatusEnum.PREPARE.getStatus());
+        when(workOrderMapper.selectById(100L)).thenReturn(workOrder);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> scheduleOrderService.createFromWorkOrders(reqVO));
+
+        assertEquals(PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED.getCode(), exception.getCode());
+        verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));
+        verify(scheduleOrderProcessMapper, never()).insert(any(MesProScheduleOrderProcessDO.class));
     }
 
     @Test
@@ -2914,9 +2996,11 @@ class MesProScheduleOrderServiceImplTest {
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(30L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))
                 .thenReturn(List.of(
                         MesProRouteFlowProcessConfigDO.builder().routeFlowConfigId(30L).routeId(30L).routeProcessId(300L)
-                                .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE).build(),
+                                .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE)
+                                .productionQuantityFactor(BigDecimal.ONE).build(),
                         MesProRouteFlowProcessConfigDO.builder().routeFlowConfigId(30L).routeId(30L).routeProcessId(301L)
-                                .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE).build()
+                                .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE)
+                                .productionQuantityFactor(BigDecimal.ONE).build()
                 ));
         when(routeScheduleConfigMapper.selectListByRouteVersionId(700L)).thenReturn(List.of(finiteConfig, infiniteConfig));
         when(processMapper.selectBatchIds(List.of(40L, 41L))).thenReturn(List.of(
@@ -3097,13 +3181,14 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
-    void createFromWorkOrder_shouldNotDefaultShiftHoursWhenMissing() {
+    void createFromWorkOrder_shouldUseDefaultShiftHoursWhenWorkstationShiftHoursMissing() {
         MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
                 .id(108L).code("ERP-MO-009").productId(28L).quantity(BigDecimal.ONE)
                 .status(MesProWorkOrderStatusEnum.CONFIRMED.getStatus()).temporaryFrozen(Boolean.FALSE).build();
         MesProRouteProductDO routeProduct = MesProRouteProductDO.builder().routeId(38L).itemId(28L).build();
         MesProRouteDO route = MesProRouteDO.builder().id(38L).code("ROUTE-I").status(CommonStatusEnum.ENABLE.getStatus()).build();
-        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder().id(308L).routeId(38L).processId(48L).sort(1).build();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .id(308L).routeId(38L).processId(48L).sort(1).workstationId(508L).build();
         MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder().id(708L).routeId(38L).versionNo("V1").active(Boolean.TRUE).build();
         MesProScheduleOrderCreateFromWorkOrderReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrderReqVO();
         reqVO.setWorkOrderId(108L);
@@ -3118,7 +3203,8 @@ class MesProScheduleOrderServiceImplTest {
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(38L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))
                 .thenReturn(List.of(MesProRouteFlowProcessConfigDO.builder().routeFlowConfigId(38L)
                         .routeId(38L).routeProcessId(308L)
-                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE).build()));
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE)
+                        .productionQuantityFactor(BigDecimal.ONE).build()));
         when(routeScheduleConfigMapper.selectListByRouteVersionId(708L)).thenReturn(List.of(
                 MesProRouteScheduleConfigDO.builder()
                         .id(812L)
@@ -3131,13 +3217,25 @@ class MesProScheduleOrderServiceImplTest {
         when(processMapper.selectBatchIds(List.of(48L))).thenReturn(List.of(
                 MesProProcessDO.builder().id(48L).code("B048").name("设备工序").build()
         ));
+        when(routeProcessFlowEdgeMapper.selectListByRouteId(38L)).thenReturn(List.of());
+        when(workstationMapper.selectBatchIds(Set.of(508L))).thenReturn(List.of(
+                MesMdWorkstationDO.builder().id(508L).code("WS-508").name("设备工位")
+                        .processId(48L).singleStandardHourlyCapacity(new BigDecimal("9.000000")).build()
+        ));
+        when(workstationMapper.selectListByProcessIds(
+                List.of(48L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of());
+        when(workstationMachineMapper.selectListByWorkstationIds(List.of(508L))).thenReturn(List.of());
+        when(workstationWorkerMapper.selectListByWorkstationIds(List.of(508L))).thenReturn(List.of(
+                MesMdWorkstationWorkerDO.builder().id(608L).workstationId(508L).quantity(1).build()
+        ));
+        when(machineryProcessMapper.selectListByMachineryIds(Set.of())).thenReturn(List.of());
         scheduleOrderService.createFromWorkOrder(reqVO);
 
         ArgumentCaptor<MesProScheduleOrderProcessDO> processCaptor =
                 ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
         verify(scheduleOrderProcessMapper).insert(processCaptor.capture());
-        assertNull(processCaptor.getValue().getShiftHours());
-        assertNull(processCaptor.getValue().getShiftCapacityTotal());
+        assertEquals(0, processCaptor.getValue().getShiftHours().compareTo(new BigDecimal("10.5")));
+        assertEquals(0, processCaptor.getValue().getShiftCapacityTotal().compareTo(new BigDecimal("94.5000000")));
     }
 
     @Test
@@ -3163,7 +3261,8 @@ class MesProScheduleOrderServiceImplTest {
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(39L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))
                 .thenReturn(List.of(MesProRouteFlowProcessConfigDO.builder().routeFlowConfigId(39L)
                         .routeId(39L).routeProcessId(309L)
-                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE).build()));
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()).enabled(Boolean.TRUE)
+                        .productionQuantityFactor(BigDecimal.ONE).build()));
         when(routeScheduleConfigMapper.selectListByRouteVersionId(709L)).thenReturn(List.of(
                 MesProRouteScheduleConfigDO.builder()
                         .id(813L)
@@ -3256,6 +3355,7 @@ class MesProScheduleOrderServiceImplTest {
                         .routeProcessId(routeProcessId)
                         .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
                         .enabled(Boolean.TRUE)
+                        .productionQuantityFactor(BigDecimal.ONE)
                         .build()));
         when(routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId)).thenReturn(List.of(
                 MesProRouteScheduleConfigDO.builder()

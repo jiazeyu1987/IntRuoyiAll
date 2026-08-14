@@ -75,6 +75,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -87,6 +90,7 @@ import java.util.Objects;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_AUTO_SCHEDULE_ORDER_NOT_SCHEDULABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_AUTO_SCHEDULE_SCOPE_EMPTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -98,6 +102,15 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProAutoScheduleContractTest {
+
+    @Test
+    void sourceContract_shouldNotDefaultMissingProductionQuantityFactorToOne() throws Exception {
+        String source = Files.readString(resolveSourcePath(
+                "service/pro/schedule/MesProAutoScheduleServiceImpl.java"), StandardCharsets.UTF_8);
+
+        assertFalse(source.matches("(?s).*productionQuantityFactor\\s*==\\s*null\\s*\\?.{0,120}DEFAULT_PRODUCTION_QUANTITY_FACTOR.*"),
+                "自动排产缺少生产系数时必须 fail-fast，不能默认 DEFAULT_PRODUCTION_QUANTITY_FACTOR");
+    }
 
     @InjectMocks
     private MesProAutoScheduleServiceImpl autoScheduleService;
@@ -493,6 +506,15 @@ class MesProAutoScheduleContractTest {
         reqVO.setRuntimeCapacityBasis("PLANNED");
         reqVO.setPreserveManualLockedTasks(true);
         return reqVO;
+    }
+
+    private static Path resolveSourcePath(String relative) {
+        Path cwd = Path.of("").toAbsolutePath();
+        if ("yudao-module-mes".equals(cwd.getFileName().toString())) {
+            return cwd.resolve("src/main/java/cn/iocoder/yudao/module/mes").resolve(relative);
+        }
+        return cwd.resolve("IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes")
+                .resolve(relative);
     }
 
 }

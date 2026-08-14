@@ -164,6 +164,7 @@ import {
   createUploadSizePolicy,
   getUploadSizePolicyList,
   updateUploadSizePolicy,
+  type DccUploadSizePolicySaveReqVO,
   type DccUploadSizePolicyScopeType,
   type DccUploadSizePolicyVO
 } from '@/api/dcc/controlledFile/uploadSizePolicies'
@@ -356,7 +357,7 @@ const validateScope = () => {
   return true
 }
 
-const buildPayload = (): DccUploadSizePolicyVO => ({
+const buildPayload = (): DccUploadSizePolicySaveReqVO => ({
   policyCode: formData.policyCode.trim(),
   scopeType: formData.scopeType,
   categoryId: needsCategory.value ? formData.categoryId : null,

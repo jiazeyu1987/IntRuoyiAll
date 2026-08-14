@@ -27,6 +27,8 @@ export interface MesProScheduleOrderVO {
   progressPercent: number
   diffStatus: number
   riskStatus: number
+  blockingIssueCount?: number
+  latestBlockingIssueMessage?: string
   frozen?: boolean
   frozenTime?: string
   frozenBy?: number
@@ -289,6 +291,8 @@ export interface MesProScheduleOrderPageReqVO {
   status?: number
   frozen?: boolean
   completionFilter?: 'INCOMPLETE' | 'ALL' | 'COMPLETED'
+  sortField?: string
+  sortOrder?: 'asc' | 'desc'
   exportColumns?: string[]
   quickFilter?: TableQuickFilterValue
 }

@@ -22,6 +22,14 @@ public interface MesProBatchRecordRouteGenerationService {
                                                                             Long expectedRouteVersionId,
                                                                             Boolean routeUpgradeConfirmed);
 
+    MesProBatchRecordRouteGenerationResult generateRouteOnlyForUploadedWord(String batchRecordName,
+                                                                            List<MesProBatchRecordParsedTable> parsedTables,
+                                                                            List<String> productNames,
+                                                                            Long expectedRouteId,
+                                                                            Long expectedRouteVersionId,
+                                                                            Boolean routeUpgradeConfirmed,
+                                                                            Long expectedRouteCandidateVersionId);
+
     MesProBatchRecordRouteGenerationResult generateForUploadedWord(String batchRecordName,
                                                                    List<MesProBatchRecordParsedTable> parsedTables,
                                                                    List<MesProBatchRecordReportView> reports,
@@ -50,6 +58,18 @@ public interface MesProBatchRecordRouteGenerationService {
                                                                    Boolean routeUpgradeConfirmed,
                                                                    boolean applyExistingRouteRebuild);
 
+    MesProBatchRecordRouteGenerationResult generateForUploadedWord(String batchRecordName,
+                                                                   List<MesProBatchRecordParsedTable> parsedTables,
+                                                                   List<MesProBatchRecordReportView> reports,
+                                                                   List<String> productNames,
+                                                                   Long batchRecordDefinitionId,
+                                                                   Long batchRecordVersionId,
+                                                                   Long expectedRouteId,
+                                                                   Long expectedRouteVersionId,
+                                                                   Boolean routeUpgradeConfirmed,
+                                                                   Long expectedRouteCandidateVersionId,
+                                                                   boolean applyExistingRouteRebuild);
+
     MesProBatchRecordRouteGenerationResult generateBatchRecordBindingCandidateForUploadedWord(
             String batchRecordName,
             List<MesProBatchRecordParsedTable> parsedTables,
@@ -59,4 +79,15 @@ public interface MesProBatchRecordRouteGenerationService {
             Long expectedRouteId,
             Long expectedRouteVersionId,
             Boolean routeUpgradeConfirmed);
+
+    MesProBatchRecordRouteGenerationResult generateBatchRecordBindingCandidateForUploadedWord(
+            String batchRecordName,
+            List<MesProBatchRecordParsedTable> parsedTables,
+            List<MesProBatchRecordReportView> reports,
+            Long batchRecordDefinitionId,
+            Long batchRecordVersionId,
+            Long expectedRouteId,
+            Long expectedRouteVersionId,
+            Boolean routeUpgradeConfirmed,
+            Long expectedRouteCandidateVersionId);
 }

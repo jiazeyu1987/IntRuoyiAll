@@ -54,11 +54,27 @@ const dialogTitle = computed(() => {
   return titles[formType.value] || formType.value
 })
 
+const waitForContentRef = async () => {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await nextTick()
+    if (contentRef.value?.open) {
+      return contentRef.value
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  throw new Error('打开工艺路线表单失败：表单内容未加载')
+}
+
 const open = async (type: string, id?: number) => {
-  dialogVisible.value = true
   formType.value = type
-  await nextTick()
-  await contentRef.value?.open(type, id)
+  dialogVisible.value = true
+  try {
+    const content = await waitForContentRef()
+    await content.open(type, id)
+  } catch (error) {
+    dialogVisible.value = false
+    throw error
+  }
 }
 
 const handleSuccess = () => {

@@ -1,13 +1,16 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SUBMIT_DEVICE_CONTEXT_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_SIGNATURE_EMPLOYEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_TEMPLATE_MISMATCH;
 
@@ -16,11 +19,39 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
 
     private final MesFrontlineDeviceAccountContextService contextService;
     private final MesFrontlineTemplateResolver templateResolver;
+    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
+    private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
 
     public MesFrontlineSubmitAuthorizationServiceImpl(MesFrontlineDeviceAccountContextService contextService,
-                                                      MesFrontlineTemplateResolver templateResolver) {
+                                                      MesFrontlineTemplateResolver templateResolver,
+                                                      MesProcessPoolActiveOrderMapper activeOrderMapper,
+                                                      MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper) {
         this.contextService = contextService;
         this.templateResolver = templateResolver;
+        this.activeOrderMapper = activeOrderMapper;
+        this.processSnapshotMapper = processSnapshotMapper;
+    }
+
+    @Override
+    public void authorizeActiveOrder(Long loginUserId, Long workOrderId, Long routeId,
+                                     Long routeProcessId, Long processId) {
+        requireValue(workOrderId, "workOrderId");
+        requireValue(routeId, "routeId");
+        requireValue(routeProcessId, "routeProcessId");
+        requireValue(processId, "processId");
+        Long leaderUserId = contextService.resolveResponsibleLeaderUserId(loginUserId);
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper
+                .selectActiveByLeaderAndWorkOrderForUpdate(leaderUserId, workOrderId);
+        if (activeOrder == null || !Objects.equals(routeId, activeOrder.getRouteId())) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrder");
+        }
+        MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot = processSnapshotMapper
+                .selectByActiveOrderAndProcess(activeOrder.getId(), routeProcessId, processId);
+        if (processSnapshot == null
+                || !Objects.equals(workOrderId, processSnapshot.getWorkOrderId())
+                || !Objects.equals(routeId, processSnapshot.getRouteId())) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrderProcess");
+        }
     }
 
     @Override
@@ -32,12 +63,7 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
         }
         MesFrontlineRouteProcessCandidate process = contextService.requireAuthorizedProcess(command.loginUserId(),
                 command.routeId(), command.routeProcessId(), command.processId());
-        if (!Objects.equals(command.deviceId(), process.deviceId())
-                || !Objects.equals(command.workstationId(), process.workstationId())) {
-            throw exception(PRO_FRONTLINE_SUBMIT_DEVICE_CONTEXT_MISMATCH,
-                    command.deviceId(), command.workstationId(), process.deviceId(), process.workstationId());
-        }
-        contextService.requireBoundEmployee(command.loginUserId(), process.routeId(), process.routeProcessId(),
+        contextService.requireTeamEmployee(command.loginUserId(), process.routeId(), process.routeProcessId(),
                 process.processId(), command.actualEmployeeId());
         MesFrontlineTemplateDescriptor template = templateResolver.resolve(new MesFrontlineTemplateRequest(
                 command.loginUserId(), command.actualEmployeeId(), process.routeId(),
@@ -57,7 +83,6 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
         requireValue(command.loginUserId(), "loginUserId");
         requireValue(command.actualEmployeeId(), "actualEmployeeId");
         requireValue(command.signatureEmployeeId(), "signatureEmployeeId");
-        requireValue(command.deviceId(), "deviceId");
         requireValue(command.workstationId(), "workstationId");
         requireValue(command.routeId(), "routeId");
         requireValue(command.routeProcessId(), "routeProcessId");

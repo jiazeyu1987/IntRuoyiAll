@@ -13,10 +13,10 @@ const taxonomyStageUtility = readSource('src/views/dcc/controlled-file/shared/fi
 const workspaceRoot = path.resolve(root, '..')
 const readWorkspaceSource = (relativePath) => fs.readFileSync(path.join(workspaceRoot, relativePath), 'utf8')
 const categorySaveReq = readWorkspaceSource(
-  'ruoyi-vue-pro/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/vo/DccFileCategorySaveReqVO.java'
+  'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/category/vo/DccFileCategorySaveReqVO.java'
 )
 const categoryAdminService = readWorkspaceSource(
-  'ruoyi-vue-pro/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccFileCategoryAdminServiceImpl.java'
+  'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccFileCategoryAdminServiceImpl.java'
 )
 
 assert.equal(

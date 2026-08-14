@@ -1,0 +1,34 @@
+{
+  "status": "passed",
+  "migrationCount": 2,
+  "migrations": [
+    {
+      "migrationId": "20260513_dcc_base_schema",
+      "file": "sql/mysql/20260513_dcc_base_schema.sql",
+      "sha256": "a99df8754f552dd0ef94466117326c3e76d033e7cbae7319fe84fdc64984aa50",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260803_dcc_unclassified_upload_directory_seed",
+      "file": "sql/mysql/20260803_dcc_unclassified_upload_directory_seed.sql",
+      "sha256": "5fbd03eee3ba9dc1edd244f99408564b37ae46fd932f2161c0b9907feb2819ec",
+      "type": "seed",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "low"
+    }
+  ]
+}

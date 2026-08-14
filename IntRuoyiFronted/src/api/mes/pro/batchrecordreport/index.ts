@@ -105,6 +105,9 @@ export interface BatchRecordReportImportPreflightVO {
   currentRouteVersionId?: number
   currentRouteVersionNo?: string
   currentRouteVersionActive?: boolean
+  currentRouteCandidateVersionId?: number
+  currentRouteCandidateVersionNo?: string
+  currentRouteCandidateVersionStatus?: string
   hasHistoricalReferences?: boolean
   referenceBlockers?: BatchRecordReportReferenceBlockerVO[]
   allowedActions?: BatchRecordWordImportAction[]
@@ -288,7 +291,8 @@ export const BatchRecordReportApi = {
     expectedTargetVersionNo?: string,
     routeUpgradeConfirmed = false,
     expectedRouteId?: number,
-    expectedRouteVersionId?: number
+    expectedRouteVersionId?: number,
+    expectedRouteCandidateVersionId?: number
   ) => {
     const data = new FormData()
     data.append('file', file)
@@ -308,6 +312,9 @@ export const BatchRecordReportApi = {
     }
     if (expectedRouteVersionId !== undefined) {
       data.append('expectedRouteVersionId', String(expectedRouteVersionId))
+    }
+    if (expectedRouteCandidateVersionId != null) {
+      data.append('expectedRouteCandidateVersionId', String(expectedRouteCandidateVersionId))
     }
     data.append('rebuildBatchRecord', String(rebuildBatchRecord))
     productNames.forEach((productName) => data.append('productNames', productName))

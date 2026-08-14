@@ -72,7 +72,7 @@
             :prefix-icon="iconLock"
             show-password
             type="password"
-            @keyup.enter="getCode()"
+            @keyup.enter="submitLogin()"
           />
         </el-form-item>
       </el-col>
@@ -103,18 +103,10 @@
             :title="t('login.login')"
             class="w-full"
             type="primary"
-            @click="getCode()"
+            @click="submitLogin()"
           />
         </el-form-item>
       </el-col>
-      <Verify
-        v-if="loginData.captchaEnable === 'true'"
-        ref="verify"
-        :captchaType="captchaType"
-        :imgSize="{ width: '400px', height: '200px' }"
-        mode="pop"
-        @success="handleLogin"
-      />
     </el-row>
   </el-form>
 </template>
@@ -145,8 +137,6 @@ const permissionStore = usePermissionStore()
 const redirect = ref<string>('')
 const loginLoading = ref(false)
 const loginErrorMessage = ref('')
-const verify = ref()
-const captchaType = ref('blockPuzzle') // blockPuzzle 滑块 clickWord 点击文字 pictureWord 文字验证码
 
 const getShow = computed(() => unref(getLoginState) === LoginStateEnum.LOGIN)
 
@@ -158,27 +148,18 @@ const LoginRules = {
 const tenantHistoryOptions = ref<authUtil.LoginTenantHistoryRecord[]>([])
 const loginData = reactive({
   isShowPassword: false,
-  captchaEnable: import.meta.env.VITE_APP_CAPTCHA_ENABLE,
   tenantEnable: import.meta.env.VITE_APP_TENANT_ENABLE,
   loginForm: {
     tenantName: import.meta.env.VITE_APP_DEFAULT_LOGIN_TENANT || '',
     username: import.meta.env.VITE_APP_DEFAULT_LOGIN_USERNAME || '',
     password: import.meta.env.VITE_APP_DEFAULT_LOGIN_PASSWORD || '',
-    captchaVerification: '',
     rememberMe: true // 默认记录我。如果不需要，可手动修改
   }
 })
 
-// 获取验证码
-const getCode = async () => {
-  // 情况一，未开启：则直接登录
-  if (loginData.captchaEnable === 'false') {
-    await handleLogin({})
-  } else {
-    // 情况二，已开启：则展示验证码；只有完成验证码的情况，才进行登录
-    // 弹出验证码
-    verify.value.show()
-  }
+// 账号密码登录不再触发图形验证码，直接进入正式登录接口。
+const submitLogin = async () => {
+  await handleLogin()
 }
 // 获取租户 ID
 const getTenantId = async () => {
@@ -240,7 +221,7 @@ const getTenantByWebsite = async () => {
 }
 const loading = ref() // ElLoading.service 返回的实例
 // 登录
-const handleLogin = async (params: any) => {
+const handleLogin = async () => {
   loginLoading.value = true
   loginErrorMessage.value = ''
   try {
@@ -254,7 +235,6 @@ const handleLogin = async (params: any) => {
       return
     }
     const loginDataLoginForm = { ...loginData.loginForm }
-    loginDataLoginForm.captchaVerification = params.captchaVerification
     const res = await LoginApi.login(loginDataLoginForm, tenantId)
     if (!res) {
       return

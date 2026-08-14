@@ -74,13 +74,6 @@
           </el-form-item>
         </el-tab-pane>
         <template v-if="formData.id">
-          <el-tab-pane label="MES 工序" name="mesProcess" lazy>
-            <RouteMesProcessList
-              :route-id="formData.id"
-              :form-type="productionConfigFormType"
-              :submitting="formLoading"
-            />
-          </el-tab-pane>
           <el-tab-pane label="流转关系图" name="flow" lazy>
             <RouteFlowGraphDesigner
               ref="routeFlowGraphDesignerRef"
@@ -104,6 +97,54 @@
               @request-submit="handleSubmitRequest"
             />
           </el-tab-pane>
+          <el-tab-pane label="DCC项目代码" name="dcc" lazy>
+            <div class="route-dcc-project-binding" v-loading="dccProjectBindingLoading">
+              <el-alert
+                title="QA 规程只通过 DCC 项目代码关联。这里保存的是工艺路线与 DCC 项目代码的正式关系，不保存 QA 规程。"
+                type="info"
+                :closable="false"
+                show-icon
+              />
+              <el-form-item label="项目代码">
+                <el-select
+                  v-model="dccProjectBindingForm.dccProjectCodeId"
+                  class="route-dcc-project-binding__select"
+                  filterable
+                  remote
+                  clearable
+                  reserve-keyword
+                  :remote-method="loadDccProjectCodeOptions"
+                  :loading="dccProjectCodeLoading"
+                  placeholder="请输入项目名称或项目代码搜索"
+                >
+                  <el-option
+                    v-for="projectCode in dccProjectCodeOptions"
+                    :key="projectCode.id"
+                    :label="formatDccProjectCodeOption(projectCode)"
+                    :value="projectCode.id"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-space>
+                <el-button
+                  type="primary"
+                  :disabled="!dccProjectBindingForm.dccProjectCodeId"
+                  @click="saveDccProjectBinding"
+                >
+                  保存DCC项目代码
+                </el-button>
+                <el-button
+                  :disabled="!dccProjectBinding.bound"
+                  @click="deleteDccProjectBinding"
+                >
+                  解除绑定
+                </el-button>
+                <span class="route-dcc-project-binding__version">
+                  当前关系版本：{{ dccProjectBinding.version }}
+                </span>
+              </el-space>
+            </div>
+          </el-tab-pane>
         </template>
       </el-tabs>
     </el-form>
@@ -116,8 +157,14 @@ import { CommonStatusEnum } from '@/utils/constants'
 import {
   ProRouteApi,
   ProRouteVO,
+  type RouteDccProjectBindingVO,
   type RouteVersionEditContext
 } from '@/api/mes/pro/route'
+import {
+  DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCodePage,
+  type DccProjectCodeRespVO
+} from '@/api/dcc/controlledFile/projectCodes'
 import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
 import * as DeptApi from '@/api/system/dept'
 import * as UserApi from '@/api/system/user'
@@ -127,7 +174,6 @@ import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './route
 defineOptions({ name: 'RouteFormContent' })
 
 const RouteFlowGraphDesigner = defineAsyncComponent(() => import('./RouteFlowGraphDesigner.vue'))
-const RouteMesProcessList = defineAsyncComponent(() => import('./RouteMesProcessList.vue'))
 const RouteProductList = defineAsyncComponent(() => import('./RouteProductList.vue'))
 
 const props = withDefaults(
@@ -178,9 +224,9 @@ const YINGTAI_ROOT_NAME = '瑛泰医疗'
 const PRODUCTION_CENTER_NAME = '生产制造中心'
 type RouteFormInitialTab =
   | 'basic'
-  | 'mesProcess'
   | 'flow'
   | 'product'
+  | 'dcc'
 
 const activeTab = ref<RouteFormInitialTab>('basic')
 const formData = ref<ProRouteVO>({
@@ -203,6 +249,16 @@ const pendingFlowAutoLayoutKey = ref('')
 const completedFlowAutoLayoutEntryKey = ref('')
 const ownerLeaderCandidates = ref<RouteOwnerCandidate[]>([])
 let ownerLeaderCandidatesPromise: Promise<void> | undefined
+const dccProjectBinding = ref<RouteDccProjectBindingVO>({
+  routeId: 0,
+  dccProjectCodeId: undefined,
+  version: 0,
+  bound: false
+})
+const dccProjectBindingForm = reactive<{ dccProjectCodeId?: number }>({})
+const dccProjectBindingLoading = ref(false)
+const dccProjectCodeLoading = ref(false)
+const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 
 const isDraftCandidateVersion = computed(
   () => routeVersionEditContext.value?.lifecycleStatus === 'DRAFT'
@@ -231,6 +287,7 @@ const open = async (type: string, id?: number, initialTab: RouteFormInitialTab =
   try {
     if (id) {
       formData.value = await ProRouteApi.getRoute(id)
+      await loadDccProjectBinding(id)
     }
     if (id && initialTab === 'basic') {
       await ensureOwnerLeaderCandidatesLoaded()
@@ -405,6 +462,14 @@ const resetForm = () => {
     remark: ''
   }
   formRef.value?.resetFields()
+  dccProjectBinding.value = {
+    routeId: 0,
+    dccProjectCodeId: undefined,
+    version: 0,
+    bound: false
+  }
+  dccProjectBindingForm.dccProjectCodeId = undefined
+  dccProjectCodeOptions.value = []
 }
 
 const buildFlowAutoLayoutEntryKey = () => {
@@ -462,6 +527,86 @@ const runPendingFlowAutoLayout = async () => {
 const handleRouteTabChange = (tabName: string | number) => {
   if (tabName === 'flow') {
     triggerFlowAutoLayout()
+  }
+  if (tabName === 'dcc') {
+    void loadDccProjectCodeOptions('')
+  }
+}
+
+const loadDccProjectBinding = async (routeId: number) => {
+  dccProjectBindingLoading.value = true
+  try {
+    const data = await ProRouteApi.getRouteDccProjectBinding(routeId)
+    dccProjectBinding.value = data
+    dccProjectBindingForm.dccProjectCodeId = data.dccProjectCodeId ?? undefined
+  } finally {
+    dccProjectBindingLoading.value = false
+  }
+}
+
+const loadDccProjectCodeOptions = async (keyword = '') => {
+  dccProjectCodeLoading.value = true
+  try {
+    const page = await getProjectCodePage({
+      pageNo: 1,
+      pageSize: 20,
+      keyword,
+      status: DCC_PROJECT_CODE_STATUS_ENABLE
+    })
+    dccProjectCodeOptions.value = page.list || []
+  } catch (error) {
+    message.error(resolveRouteOperationErrorMessage(error, '加载DCC项目代码失败'))
+    throw error
+  } finally {
+    dccProjectCodeLoading.value = false
+  }
+}
+
+const formatDccProjectCodeOption = (projectCode: DccProjectCodeRespVO) =>
+  [projectCode.projectCode, projectCode.projectName, projectCode.id].filter(Boolean).join(' / ')
+
+const saveDccProjectBinding = async () => {
+  if (!formData.value.id || !dccProjectBindingForm.dccProjectCodeId) return
+  dccProjectBindingLoading.value = true
+  try {
+    const data = await ProRouteApi.saveRouteDccProjectBinding({
+      routeId: formData.value.id,
+      dccProjectCodeId: dccProjectBindingForm.dccProjectCodeId,
+      expectedVersion: dccProjectBinding.value.version
+    })
+    dccProjectBinding.value = data
+    dccProjectBindingForm.dccProjectCodeId = data.dccProjectCodeId ?? undefined
+    message.success('DCC项目代码已保存')
+  } catch (error) {
+    message.error(resolveRouteOperationErrorMessage(error, '保存DCC项目代码失败'))
+    throw error
+  } finally {
+    dccProjectBindingLoading.value = false
+  }
+}
+
+const deleteDccProjectBinding = async () => {
+  if (!formData.value.id || !dccProjectBinding.value.bound) return
+  try {
+    await message.confirm('确认解除当前工艺路线与DCC项目代码的关系吗？')
+  } catch (error) {
+    if (isRouteConfirmCancel(error)) return
+    throw error
+  }
+  dccProjectBindingLoading.value = true
+  try {
+    const data = await ProRouteApi.deleteRouteDccProjectBinding(
+      formData.value.id,
+      dccProjectBinding.value.version
+    )
+    dccProjectBinding.value = data
+    dccProjectBindingForm.dccProjectCodeId = undefined
+    message.success('DCC项目代码已解除')
+  } catch (error) {
+    message.error(resolveRouteOperationErrorMessage(error, '解除DCC项目代码失败'))
+    throw error
+  } finally {
+    dccProjectBindingLoading.value = false
   }
 }
 
@@ -612,5 +757,22 @@ defineExpose({
 .route-owner-suggestion__dept {
   color: #6b7280;
   font-size: 12px;
+}
+
+.route-dcc-project-binding {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 760px;
+  padding-top: 12px;
+}
+
+.route-dcc-project-binding__select {
+  width: 420px;
+}
+
+.route-dcc-project-binding__version {
+  color: #64748b;
+  font-size: 13px;
 }
 </style>

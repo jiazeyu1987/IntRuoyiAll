@@ -1,6 +1,17 @@
 <template>
-  <Dialog v-model="dialogVisible" title="导入表单模板" width="520">
-    <el-form ref="formRef" :model="formData" :rules="formRules" label-width="96px">
+  <Dialog
+    v-model="dialogVisible"
+    class="form-template-import-dialog scheme-d-form-control"
+    title="导入表单模板"
+    width="640px"
+  >
+    <el-form
+      ref="formRef"
+      class="form-template-import-dialog__form"
+      :model="formData"
+      :rules="formRules"
+      label-position="top"
+    >
       <el-form-item label="模板名称" prop="templateName">
         <el-autocomplete
           v-model="formData.templateName"
@@ -20,7 +31,7 @@
             </div>
           </template>
         </el-autocomplete>
-        <div class="mt-4px text-12px text-gray-500">
+        <div class="form-template-import-dialog__hint">
           版本号由系统自动生成；选择已有模板将自动提交升版审批。
         </div>
       </el-form-item>
@@ -29,12 +40,15 @@
           v-model="formData.remark"
           maxlength="200"
           placeholder="请输入备注"
+          :rows="3"
           type="textarea"
         />
       </el-form-item>
       <el-form-item label="模板文件" prop="file">
         <el-upload
           ref="uploadRef"
+          class="form-template-import-dialog__upload"
+          data-testid="form-template-import-upload"
           v-model:file-list="fileList"
           :auto-upload="false"
           :limit="1"
@@ -48,8 +62,23 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button :disabled="loading" @click="dialogVisible = false">取消</el-button>
-      <el-button :loading="loading" type="primary" @click="submitForm">导入</el-button>
+      <div class="scheme-d-dialog-footer">
+        <el-button
+          class="scheme-d-btn scheme-d-btn--neutral"
+          :disabled="loading"
+          @click="dialogVisible = false"
+        >
+          取消
+        </el-button>
+        <el-button
+          class="scheme-d-btn scheme-d-btn--primary"
+          :loading="loading"
+          type="primary"
+          @click="submitForm"
+        >
+          导入
+        </el-button>
+      </div>
     </template>
   </Dialog>
 </template>
@@ -133,7 +162,9 @@ const handleTemplateOptionSelect = (item: FormTemplateListItemVO & { value: stri
 }
 
 const handleTemplateNameInput = () => {
-  const selected = templateOptions.value.find((item) => item.templateId === formData.selectedTemplateId)
+  const selected = templateOptions.value.find(
+    (item) => item.templateId === formData.selectedTemplateId
+  )
   if (!selected || selected.templateName !== formData.templateName) {
     formData.selectedTemplateId = undefined
   }
@@ -181,3 +212,139 @@ const submitForm = async () => {
   }
 }
 </script>
+
+<style lang="scss">
+.form-template-import-dialog.el-dialog {
+  max-width: calc(100vw - 32px);
+}
+
+.form-template-import-dialog {
+  .el-dialog__body {
+    max-height: calc(100vh - 172px);
+    padding: 24px 28px !important;
+    overflow-y: auto;
+  }
+
+  .el-dialog__footer {
+    padding: 16px 28px 20px;
+  }
+
+  .form-template-import-dialog__form {
+    .el-form-item {
+      margin-bottom: 20px;
+    }
+
+    .el-form-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .el-form-item__label {
+      height: auto;
+      padding: 0;
+      margin-bottom: 8px;
+      color: #263247;
+      font-weight: 600;
+      line-height: 20px;
+    }
+
+    :where(.el-autocomplete, .el-input, .el-textarea) {
+      width: 100%;
+    }
+
+    .el-textarea__inner {
+      resize: vertical;
+    }
+  }
+
+  .form-template-import-dialog__hint {
+    margin-top: 6px;
+    color: #7b8496;
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .form-template-import-dialog__upload {
+    display: block;
+    width: 100%;
+
+    .el-upload {
+      display: block;
+      width: 100%;
+    }
+
+    .el-upload-dragger {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 136px;
+      padding: 24px 20px;
+      background: #fafcff;
+      border-color: #cbd6e4;
+      border-radius: 6px;
+      transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+    }
+
+    .el-upload-dragger:hover,
+    .el-upload-dragger.is-dragover {
+      background: #f4f8ff;
+      border-color: var(--scheme-d-primary);
+    }
+
+    .iconify {
+      width: 30px;
+      height: 30px;
+      margin-bottom: 10px;
+      color: var(--scheme-d-primary);
+    }
+
+    .el-upload__text {
+      color: #5d6879;
+      line-height: 22px;
+      text-align: center;
+    }
+
+    .el-upload-list {
+      margin-top: 10px;
+    }
+
+    .el-upload-list__item {
+      height: auto;
+      min-height: 34px;
+      padding: 6px 28px 6px 8px;
+      line-height: 20px;
+    }
+
+    :where(.el-upload-list__item-name, .el-upload-list__item-file-name) {
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .form-template-import-dialog.el-dialog {
+    max-width: calc(100vw - 24px);
+  }
+
+  .form-template-import-dialog {
+    .el-dialog__body {
+      max-height: calc(100dvh - 154px);
+      padding: 20px 18px !important;
+    }
+
+    .el-dialog__footer {
+      padding: 14px 18px 16px;
+    }
+
+    .form-template-import-dialog__upload .el-upload-dragger {
+      min-height: 120px;
+      padding: 20px 12px;
+    }
+  }
+}
+</style>

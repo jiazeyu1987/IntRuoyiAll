@@ -14,7 +14,7 @@ assert.match(
 )
 assert.match(
   routeEditPage,
-  /v-if="routeEditBlockingError"[\s\S]{0,800}返回列表/,
+  /v-if="routeEditBlockingError"[\s\S]{0,800}<Icon\s+icon="ep:arrow-left"[\s\S]{0,160}返回/,
   'Invalid or failed route edit loads must show a visible error with a return-to-list action.'
 )
 assert.match(

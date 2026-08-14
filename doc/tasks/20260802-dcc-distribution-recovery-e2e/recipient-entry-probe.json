@@ -1,0 +1,35 @@
+{
+  "user": "panhaitao",
+  "profileUrl": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070261?viewer=1&from=profile-distribution&distributionId=4307&recipientId=46494",
+  "distributionTaskPayload": null,
+  "initialProfileBody": "抱歉，您访问的页面不存在。\n返回首页",
+  "rowVisible": 0,
+  "clickedDetailUrl": "",
+  "clickedDetailText": "",
+  "directGotDetail": true,
+  "directUrl": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070261?viewer=1&from=profile-distribution&distributionId=4307&recipientId=46494",
+  "directBody": "瑛泰管理系统\n个人中心\n0\n审批中心\n0\n版本信息未生成\n请输入菜单内容\n潘海涛\n受控文件详情\n返回\n受控文件预览\n当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。\n没有该操作权限\n审批\n分发\n版本\n文件类别\t-\n受控目录\t-\n文件名称\t-\n产品编号\t-\n产品名称\t\n-\n\nDCC基础条目\t-\n文件类别 I\t-\n文件类别 II\t-\n文件类别 III\t-\n文件类别 IV\t-\n文件类别 V\t-\n培训要求\t无需培训\n现行版本\t-\n流程实例\t-\n提交人\t-\n提交时间\t-\n发布时间\t-\n流程定义\t-\n提交备注\t-\nCopyright ©2026 瑛泰管理系统\n没有该操作权限\n没有该操作权限\n没有该操作权限\n没有该操作权限\n没有该操作权限\n\n没有该操作权限；没有该操作权限\n\n没有该操作权限\n没有该操作权限",
+  "confirmButtonCount": 0,
+  "hits": [
+    {
+      "status": 200,
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070261"
+    },
+    {
+      "status": 200,
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070261/access-explanation"
+    },
+    {
+      "status": 200,
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070261/preview-metadata"
+    },
+    {
+      "status": 200,
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/dcc/controlled-files/2054545668044070261/paper-distributions/records"
+    }
+  ]
+}

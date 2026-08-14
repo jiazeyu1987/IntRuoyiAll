@@ -1,0 +1,379 @@
+{
+  "task_id": "20260812-frontline-pqc-dcc-qa-delivery-supervision",
+  "goal": "Supervise, verify, and fast-forward merge C00, DF01-DF11, INT12, and VAL13 into int_main after the design release gate passes",
+  "status": "executing",
+  "current_stage": "execution",
+  "planner_review_status": "approved",
+  "plan_review_status": "approved",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "plan_revisions": 1,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "tasks": [
+    {
+      "task_id": "C00",
+      "title": "Contract and schema baseline",
+      "status": "completed",
+      "dependency_ids": [],
+      "write_scope": [
+        "IntRuoyiBackend/sql/mysql/20260812*_mes_*.sql",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java/**/MesQaPqcSchemaTest.java",
+        "doc/tasks/20260812-frontline-pqc-dcc-qa-c00/**"
+      ],
+      "acceptance_ids": [
+        "AC-01",
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-07",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "/root/c00_worker",
+      "last_outcome": "C00 PASS: independent TC-C00-SCHEMA verification passed, commit a1c032581 fast-forward merged into int_main."
+    },
+    {
+      "task_id": "DF01",
+      "title": "Active order selection identity",
+      "status": "completed",
+      "dependency_ids": [
+        "C00"
+      ],
+      "write_scope": [
+        "active-order list backend files",
+        "DF01 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "/root",
+      "last_outcome": "DF01 PASS: user-authorized overlap stash preserved original dirty content, int_main fast-forward merged to a145f0dc0, post-merge targeted Maven regression passed again at 2026-08-12T15:42:42+08:00."
+    },
+    {
+      "task_id": "DF02",
+      "title": "Active-order route snapshot resolver",
+      "status": "completed",
+      "dependency_ids": [
+        "C00"
+      ],
+      "write_scope": [
+        "active-order snapshot resolver files",
+        "DF02 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-09",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "/root/df02_clean_executor",
+      "last_outcome": "DF02 PASS: supervisor review passed, Maven target passed in DF02 worktree and int_main Surefire report confirms 5 tests / 0 failures / 0 errors; commit eb44e4c80 fast-forward merged into int_main."
+    },
+    {
+      "task_id": "DF03",
+      "title": "Route to DCC project binding",
+      "status": "completed",
+      "dependency_ids": [
+        "C00"
+      ],
+      "write_scope": [
+        "route-DCC backend/frontend files",
+        "DF03 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-07",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "/root",
+      "last_outcome": "DF03 PASS: int_main already at commit 5d503ea5e, DF03 branch is ancestor/equal, branch runtime guard passed, post-merge-equivalent Maven 10 tests and frontend static contract passed."
+    },
+    {
+      "task_id": "DF05",
+      "title": "DCC directly reads QA regulation relation",
+      "status": "completed",
+      "dependency_ids": [
+        "C00"
+      ],
+      "write_scope": [
+        "QA/DCC management frontend and QA service segment",
+        "DF05 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-07",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "/root/df02_clean_executor",
+      "last_outcome": "DF05 PASS: independent supervisor verification passed, commit 37414e367 fast-forward merged into int_main, post-merge Node contracts and Maven 8-test regression passed."
+    },
+    {
+      "task_id": "DF04",
+      "title": "Unique enabled DCC project resolver",
+      "status": "completed",
+      "dependency_ids": [
+        "DF02",
+        "DF03"
+      ],
+      "write_scope": [
+        "DCC resolver files",
+        "DF04 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-07",
+        "AC-09",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "/root",
+      "last_outcome": "DF04 PASS/CLOSED: implementation commit d781ca689 and closeout commit 66b5607a8 fast-forward merged into int_main; clean DF04 worktree removed; port slot 18 released for DF06."
+    },
+    {
+      "task_id": "DF06",
+      "title": "Active order QA version lock",
+      "status": "completed",
+      "dependency_ids": [
+        "DF04",
+        "DF05"
+      ],
+      "write_scope": [
+        "active-order lock and task generation files",
+        "DF06 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-08",
+        "AC-09",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "/root/df06_worker",
+      "last_outcome": "DF06 PASS/CLOSED: branch task/20260812-frontline-pqc-dcc-qa-df06 absorbed latest int_main, target Maven 33 tests PASS, touched regression 39 tests PASS, schema 7 tests PASS, independent verification PASS, fast-forward merged into int_main at fd6e923a5; worktree removed and slot 18 released."
+    },
+    {
+      "task_id": "DF07",
+      "title": "Locked QA version processes",
+      "status": "completed",
+      "dependency_ids": [
+        "DF05",
+        "DF06"
+      ],
+      "write_scope": [
+        "QA locked-version process read segment",
+        "DF07 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-07",
+        "AC-09",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "/root",
+      "last_outcome": "DF07 PASS/CLOSED: implementation commit 8e156fbf8 fast-forward merged into int_main; target Maven 12 tests PASS, backend-api validator PASS, independent verification PASS; worktree removed and slot 18 released."
+    },
+    {
+      "task_id": "DF08",
+      "title": "QA process inspection item aggregation",
+      "status": "completed",
+      "dependency_ids": [
+        "DF07"
+      ],
+      "write_scope": [
+        "QA item/equipment assembly segment",
+        "DF08 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-08",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "/root",
+      "last_outcome": "DF08 PASS/CLOSED: target Maven 13 tests PASS, backend-api evidence validator PASS, independent supervisor gate PASS, commit 7d9f41e92 fast-forward merged into int_main; worktree removed and slot 18 released."
+    },
+    {
+      "task_id": "DF09",
+      "title": "PQC task and production event overlay",
+      "status": "ready",
+      "dependency_ids": [
+        "DF08"
+      ],
+      "write_scope": [
+        "PQC task overlay and production event helper",
+        "DF09 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-08",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "",
+      "last_outcome": "Ready after DF08 fast-forward merge and closeout."
+    },
+    {
+      "task_id": "DF10",
+      "title": "Backend process page projection",
+      "status": "pending",
+      "dependency_ids": [
+        "DF02",
+        "DF07",
+        "DF08",
+        "DF09"
+      ],
+      "write_scope": [
+        "frontline PQC backend projection",
+        "DF10 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-07",
+        "AC-09",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "",
+      "last_outcome": "Waiting for prerequisite tasks."
+    },
+    {
+      "task_id": "DF11",
+      "title": "Frontend item and task projection",
+      "status": "pending",
+      "dependency_ids": [
+        "DF08",
+        "DF09"
+      ],
+      "write_scope": [
+        "frontline PQC frontend API/type projection",
+        "DF11 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-08",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "",
+      "last_outcome": "Waiting for prerequisite tasks."
+    },
+    {
+      "task_id": "INT12",
+      "title": "Final frontline PQC integration",
+      "status": "pending",
+      "dependency_ids": [
+        "DF01",
+        "DF02",
+        "DF03",
+        "DF04",
+        "DF05",
+        "DF06",
+        "DF07",
+        "DF08",
+        "DF09",
+        "DF10",
+        "DF11"
+      ],
+      "write_scope": [
+        "final integration backend/frontend files",
+        "INT12 task record"
+      ],
+      "acceptance_ids": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "owner_agent": "",
+      "last_outcome": "Waiting for prerequisite tasks."
+    },
+    {
+      "task_id": "VAL13",
+      "title": "Independent acceptance",
+      "status": "pending",
+      "dependency_ids": [
+        "INT12"
+      ],
+      "write_scope": [
+        "test-report.md only plus read-only verification"
+      ],
+      "acceptance_ids": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13",
+        "AC-14"
+      ],
+      "owner_agent": "",
+      "last_outcome": "Waiting for prerequisite tasks."
+    }
+  ],
+  "updated_at": "2026-08-13T06:07:00+08:00"
+}

@@ -30,6 +30,21 @@ assert.match(
   /return await fetch\(`\$\{API_BASE\}\$\{url\}`,[\s\S]*signal: controller\.signal[\s\S]*cache:\s*'no-store'/,
   'Runner fetch 必须保持每次请求独立且不缓存，超时后下次 heartbeat/register 应重新建链路。'
 )
+assert.match(
+  runner,
+  /const CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS = Number\(process\.env\.CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS \|\| '90000'\)/,
+  'Runner heartbeat 客户端超时必须覆盖后端 60 秒 heartbeat 窗口，不能用默认 30000ms 提前误判在线 Runner 失败。'
+)
+assert.match(
+  runner,
+  /async function requestWithTimeout\(url, options, timeoutMs = CODEX_TEST_API_TIMEOUT_MS\)[\s\S]*setTimeout\(\(\) => controller\.abort\(\), timeoutMs\)[\s\S]*throw new Error\(`\$\{url\} timed out after \$\{timeoutMs\}ms`\)/,
+  'Runner HTTP helper 必须允许 heartbeat 使用专用 timeout，并在错误文本中记录实际 timeoutMs。'
+)
+assert.match(
+  runner,
+  /async function heartbeat\([\s\S]*return await postJson\('\/system\/codex-test-runner\/heartbeat'[\s\S]*\{ timeoutMs: CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS \}\s*\)/,
+  'Runner heartbeat 请求必须使用 CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS，避免单次后端排队超过 30 秒时把用例误报 BLOCKED。'
+)
 assert.doesNotMatch(
   runner,
   /axios\.create|keepAlive:\s*true|new Agent\(\{\s*keepAlive:\s*true/,

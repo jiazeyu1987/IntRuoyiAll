@@ -35,6 +35,7 @@
 ## 收尾规则
 
 - 实现和验证完成后，先将任务状态设为 `ready_for_closeout`。
+- `## Current Status` 下第一条非空文本必须直接以 `ready_for_closeout`、`completed`、`blocked` 或 `in_progress` 开头；不要把状态值包在反引号里，也不要在状态值前添加说明文字，否则 cleanup apply 会解析为 `unknown` 并阻塞。
 - 运行 task-closeout-cleanup preview，确认 keep/delete/blocked/warnings。
 - preview 无异常后运行 apply。
 - apply 通过后再标记 `completed`。
@@ -52,8 +53,8 @@
 ## 任务验证脚本保留门禁
 
 - Trigger: 任务把一次性验证脚本放在 `doc/tasks/<task-id>/` 下，尤其是 `.cjs`、`.mjs`、临时 Playwright 脚本或生成脚本。
-- Preflight check: cleanup 前先判断脚本是临时产物还是需要随任务证据长期保留；若需要保留，必须写入 `## Cleanup Keep`，且每条保留项必须是单独一行纯路径（不要把路径包在反引号里，也不要在同一行追加说明文字）；同时检查是否被 `.gitignore` 的 `doc/tasks/**/*.cjs` 等规则忽略。
-- Blocker: 需要保留但未进入 `Cleanup Keep`、`Cleanup Keep` 因内联说明/反引号被解析成错误路径、或 `git status --untracked-files=all` 看不到脚本且未确认忽略规则时，不得提交完成。
+- Preflight check: cleanup 前先判断脚本是临时产物还是需要随任务证据长期保留；若需要保留，必须写入 `## Cleanup Keep`，并按 `- doc/tasks/<task-id>/<file>` 这种单独 bullet 路径逐行列出（不要把路径包在反引号里，也不要在同一行追加说明文字）；同时检查是否被 `.gitignore` 的 `doc/tasks/**/*.cjs` 等规则忽略。
+- Blocker: 需要保留但未进入 `Cleanup Keep`、`Cleanup Keep` 因缺少 bullet、内联说明或反引号被解析成错误路径、或 `git status --untracked-files=all` 看不到脚本且未确认忽略规则时，不得提交完成。
 - Verification: cleanup preview 显示脚本在 keep 列表；提交前对被忽略但需要保留的脚本使用 `git add -f <path>`，并在任务日志记录原因。
 - Forbidden action: 禁止把生成脚本、截图、stdout/stderr 日志等临时产物混入最终提交；禁止因为脚本被忽略就误以为验证证据已提交。
 

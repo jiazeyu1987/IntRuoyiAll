@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "actor": "芋道源码/admin",
+  "baseUrl": "http://127.0.0.1:8081",
+  "validateStatus": 200,
+  "formalSubmitRequestCount": 0,
+  "inputModes": {
+    "inspectionQuantity": "locked",
+    "scrapQuantity": "filled"
+  },
+  "metrics": {
+    "fullscreenRoot": true,
+    "dialogExists": true,
+    "dialogVisible": true,
+    "dialogInsideRoot": true,
+    "topElementInsideDialog": true,
+    "dialogText": "电子签名确认后将生成本次PQC正式提交签名。登录密码 取消 确认签名并提交"
+  },
+  "consoleErrors": [
+    "设备账号上下文不完整或不一致：activeOrder.processSnapshot.activeOrderId=30"
+  ],
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260807-frontline-pqc-fullscreen-submit-dialog\\evidence\\pqc-fullscreen-submit-dialog-real-check.png"
+}

@@ -13,6 +13,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
@@ -25,6 +27,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductBomMapp
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -39,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
@@ -82,10 +86,33 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
     private BusinessApprovalPolicyMapper businessApprovalPolicyMapper;
     @Mock
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
+    @Mock
+    private MesProcessPoolDefectReasonMapper defectReasonMapper;
+    @Mock
+    private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
+
+    @BeforeEach
+    void setUpProcessPoolConfigMappers() {
+        lenient().when(defectReasonMapper.selectList(any())).thenReturn(List.of());
+        lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of());
+    }
 
     @AfterEach
     void clearTenantContext() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void routeFormActionCode_shouldStayWithinApprovalPolicyColumnForLongFormBindingKey() {
+        String shortActionCode = MesProRouteVersionPublishProjectionServiceImpl.routeFormActionCode(
+                9202L, "FB-IPQC");
+        assertEquals("EDHR_RF_9202_FB-IPQC", shortActionCode);
+
+        String actionCode = MesProRouteVersionPublishProjectionServiceImpl.routeFormActionCode(
+                631L, "FORM_BINDING_AORD_1786339591064_980674_PROCESS_INSPECTION");
+
+        assertTrue(actionCode.startsWith("EDHR_RF_631_"));
+        assertTrue(actionCode.length() <= 64);
     }
 
     @Test

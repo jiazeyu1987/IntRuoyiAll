@@ -18,6 +18,15 @@ import java.util.List;
 @Mapper
 public interface MesMdItemMapper extends BaseMapperX<MesMdItemDO> {
 
+    default MesMdItemDO selectByIdForUpdate(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesMdItemDO>()
+                .eq(MesMdItemDO::getId, id)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesMdItemDO> selectListAll() {
         return selectList(new LambdaQueryWrapperX<MesMdItemDO>()
                 .orderByDesc(MesMdItemDO::getId));
@@ -75,6 +84,20 @@ public interface MesMdItemMapper extends BaseMapperX<MesMdItemDO> {
         return selectList(new LambdaQueryWrapperX<MesMdItemDO>()
                 .likeIfPresent(MesMdItemDO::getCode, code)
                 .orderByAsc(MesMdItemDO::getId));
+    }
+
+    default List<MesMdItemDO> selectListByCodeOrNameLike(String keyword, int limit) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return List.of();
+        }
+        int safeLimit = Math.max(1, Math.min(limit, 20));
+        String searchText = keyword.trim();
+        return selectList(new LambdaQueryWrapperX<MesMdItemDO>()
+                .and(wrapper -> wrapper.like(MesMdItemDO::getCode, searchText)
+                        .or()
+                        .like(MesMdItemDO::getName, searchText))
+                .orderByDesc(MesMdItemDO::getId)
+                .last("LIMIT " + safeLimit));
     }
 
     default List<MesMdItemDO> selectListBySpecificationLike(String specification) {

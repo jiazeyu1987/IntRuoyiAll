@@ -50,4 +50,4 @@
 ## Blockers And Follow-Up
 
 - Full business flow for this page graph verification is PASS after current backend runtime reload.
-- Browser still reports one non-MES avatar resource `502`; this is outside the page graph, production/PQC and formal batch-record route assertions.
+- Browser still reports non-MES avatar resource `502`; this is outside the page graph, production/PQC and formal batch-record route assertions.

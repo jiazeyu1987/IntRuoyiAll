@@ -136,6 +136,8 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     private DccControlledContentAdapter platformAdapter;
     @Resource
     private DccControlledFilePendingActionGuard pendingActionGuard;
+    @Resource
+    private DccControlledFileSignatureBindingService signatureBindingService;
 
     @Override
     public void handleProcessInstanceStatusChanged(BpmProcessInstanceStatusEvent event) {
@@ -293,7 +295,8 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
 
     private void runFinalizationWithFailureHandling(DccControlledFileDO file, Long actorId, String eventKey) {
         try {
-            transactionTemplate.executeWithoutResult(status -> finalizeRevision(file.getId(), false, actorId, eventKey));
+            transactionTemplate.executeWithoutResult(status ->
+                    finalizeRevision(file.getId(), false, actorId, eventKey, true));
         } catch (RuntimeException ex) {
             String failureReason = resolveFailureReason(ex);
             transactionTemplate.executeWithoutResult(status -> markFinalizationFailed(file.getId(), failureReason));
@@ -317,10 +320,11 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     }
 
     private void finalizeRevision(Long fileId, boolean skipGovernance) {
-        finalizeRevision(fileId, skipGovernance, null, "dcc-finalization:" + fileId);
+        finalizeRevision(fileId, skipGovernance, null, "dcc-finalization:" + fileId, false);
     }
 
-    private void finalizeRevision(Long fileId, boolean skipGovernance, Long actorId, String eventKey) {
+    private void finalizeRevision(Long fileId, boolean skipGovernance, Long actorId, String eventKey,
+                                  boolean bindSignatureEvidence) {
         DccControlledFileDO file = controlledFileMapper.selectById(fileId);
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
@@ -350,6 +354,9 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             throw exception(FILE_CATEGORY_NOT_EXISTS);
         }
         PublishedArtifact publishedArtifact = resolveStampedPublishedArtifact(file, skipGovernance);
+        if (bindSignatureEvidence) {
+            signatureBindingService.bindPublishedCopy(file, publishedArtifact.publishedFileId(), actorId, eventKey);
+        }
         if (skipGovernance) {
             activateRevisionWithoutGovernance(file, master, publishedArtifact, actorId, eventKey);
             return;

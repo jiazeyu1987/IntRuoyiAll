@@ -1,0 +1,635 @@
+# Execution Log
+
+## User Intent
+
+- 用户要求按照 BDD + 严格 TDD 方式完成文档设计。
+- 设计应尽量复用当前系统。
+- 点击“统计未受控文件”后，用户可选择是否将新的未受控文件下载到本地对应目录。
+- 选中文件下载后，系统依据路径或名称，将文件归入对应 DCC 项目代码下某个 item 的某个文件分类。
+- 无法判断项目代码、item 或分类时，必须标记为“未分类/待处理”。
+
+## Command Intent
+
+- 读取项目任务、后端、前端、数据库、E2E 和编码规则，确保设计符合现有门禁。
+- 读取 `bdd-tdd-acceptance-planner` 技能及验收文档结构。
+- 只读检索现有 DCC/NAS 实现、分类规则、测试和历史任务证据。
+- 生成任务设计与验收文档，不运行生产构建、不修改生产代码、不操作真实 NAS 或数据库。
+- 当前继续按已生成开发文档执行实现与验证，优先推进 schema 明细表切片；本轮只修改迁移、测试 schema、DO/Mapper、测试与任务证据，不操作真实 NAS 或真实业务数据库。
+- 按用户要求继续优化开发文档，补齐大文件传输、本地路径可写性、状态机、并发和 content 权限门禁，确保按文档开发时能被测试验证拦住潜在问题。
+- 本轮继续优化 import-selected 和 local-write-result 文档门禁，只修改设计、BDD/TDD/E2E、测试数据和任务证据，不新增生产代码、不操作真实 NAS、本地目录或业务数据库。
+- 本轮继续加固 import-selected 后续实现文档门禁，只修改设计、BDD/TDD/E2E、测试数据和任务证据，补齐旧 NAS transfer 必填字段隔离、legacy processor 跳过、幂等并发保护和正式归档元数据来源验证。
+
+## BDD Evidence
+
+BDD: 扫描并选择下载可识别的未受控文件 -> Given NAS 已连接且文件尚未进入 DCC 管理 When 用户扫描并选择下载 Then 文件进入本地对应目录并归入唯一识别的项目代码、item 与文件分类。
+
+BDD: 无法唯一归类的文件进入待处理 -> Given 未受控文件无法从路径或名称唯一识别项目代码、item 或分类 When 用户选择下载 Then 文件保留可追溯下载结果并标记为“未分类/待处理”，不得默认归类。
+
+BDD: 目录授权前不创建导入任务 -> Given 用户已勾选未受控文件并打开下载归类预览 When 浏览器不支持目录选择或用户取消目录选择 Then 后端不创建 import task、不下载内容、不回写本地成功、不创建 DCC 受控文件。
+
+BDD: 幂等与已归档冲突 -> Given 同一 audit file 已经完成归档 When 用户使用相同或不同 idempotencyKey 重复提交 Then 相同 key 返回原任务，不同 key 返回已处理或冲突状态，不创建第二个受控文件。
+
+BDD: 未受控扫描明细可审计持久化 -> Given NAS audit 扫描发现未受控文件 When 系统保存 audit task Then 每个未受控文件都有 `dcc_nas_control_audit_file` 明细、source signature、初始识别/下载/归档状态和 tenant-scoped path hash 索引。
+
+BDD: 大文件下载使用二进制传输 -> Given 未受控文件超过 JSON/base64 安全承载范围 When 用户选择本地目录并开始下载 Then content 接口使用二进制、流式或明确分块传输，失败回写 `LOCAL_WRITE_FAILED`。
+
+BDD: 本地目标路径不可安全写入时阻塞 -> Given 目标本地路径已存在、过长或规范化冲突 When 用户确认下载 Then 系统记录 `LOCAL_PATH_COLLISION` 或 `LOCAL_PATH_TOO_LONG`，不得覆盖、截断、自动改名或归档。
+
+BDD: 并发处理同一 audit file 只有一个归档结果 -> Given 两个请求同时提交同一 audit file When 后端创建或执行 import task Then 只有一个请求可归档，另一个返回明确冲突或已处理。
+
+
+BDD: Import-selected rejects unrecognized or stale snapshot -> Given audit file is PENDING_RECOGNITION, cross-task, or has stale sourceSignature When import-selected is called Then backend rejects without creating import task, reading NAS content, writing local result, or creating controlled file.
+
+BDD: Content download is task and tenant bound -> Given user knows another task or tenant auditFileId When content is requested through current importTaskId Then backend rejects without returning bytes, moving to CONTENT_READY, local-write-result, or archive.
+
+BDD: Deterministic pre-recognition only updates audit snapshot -> Given audit files are still `PENDING_RECOGNITION` When `/files/recognize` runs Then backend writes `MATCHED / UNCLASSIFIED_PENDING / AMBIGUOUS`, stable reason codes, candidate summary and expected local relative path without reading file bytes or creating DCC controlled files.
+
+BDD: Import-selected is atomic -> Given selected files contain a valid audit file and an invalid audit file When import-selected is called Then backend rejects the whole request without partial task rows, partial SELECTED statuses, content reads, local-write-result, or DCC archive.
+
+BDD: Import request hash is canonical -> Given the same selected audit files are submitted with the same idempotencyKey in a different order When import-selected is called again Then backend returns the original task; duplicate audit ids fail before hashing and are not silently deduplicated.
+
+BDD: Import-selected idempotency is transaction protected -> Given an identical idempotent import task appears after the first lookup but before insert When the backend enters task creation transaction Then it rechecks the key/hash under lock and returns the existing task without task/item/audit writes.
+
+BDD: Import-selected controller is write-permission protected -> Given an authorized user submits selected uncontrolled audit files through the NAS audit task API When `/dcc/controlled-files/nas-control-audit/{taskId}/import-selected` is called Then the controller requires NAS transfer write permissions, validates the request body, binds current login user and audit task id, and delegates to the import-selected service without exposing legacy transfer defaults.
+
+BDD: Local write result replay is idempotent -> Given a matched audit file has already completed LOCAL_WRITTEN and archive When the same local-write-result is replayed Then backend returns current state without creating another controlled file or ACTIVE NAS source mapping; conflicting terminal results are rejected.
+
+BDD: Import-selected task snapshots are schema-backed -> Given selected audit files will be locked into an import task When the backend creates `NAS_UNCONTROLLED_IMPORT` Then task header stores audit task, idempotency key and canonical request hash, task items store audit file/source signature/recognition/local path snapshots, and audit files expose current import task/item binding for duplicate-selection checks.
+
+BDD: Import-selected does not reuse legacy NAS transfer defaults -> Given NAS_UNCONTROLLED_IMPORT reuses the transfer task table When import-selected creates a task Then task-level template/effective date/project defaults are not required or fabricated, and old NAS/LOCAL_FOLDER flows still keep their required-input validation.
+
+BDD: Legacy processor skips uncontrolled import tasks -> Given a NAS_UNCONTROLLED_IMPORT task exists When existing NAS transfer processors run before content and LOCAL_WRITTEN Then they skip the task and do not read NAS content, submit DCC files, or write ACTIVE NAS source mappings.
+
+BDD: Archive metadata missing is visible -> Given a matched file is LOCAL_WRITTEN but formal DCC archive metadata source is missing When backend attempts archive Then it records ARCHIVE_METADATA_REQUIRED or an explicit blocked/failed state instead of using current date, empty template, or old task defaults.
+
+## Milestone Log
+
+### M1
+
+- 状态：`completed`
+- 已完成：读取任务收尾、PowerShell/UTF-8、前后端开发、数据库、E2E 和技术栈路由规则；读取 BDD/TDD 验收规划技能；核对 `docs/experience-index.md` 中 DCC 分类、规则 seed、真实 E2E、no-fallback 相关门禁。
+- 阻塞：无。
+
+### M2
+
+- 状态：`completed`
+- 已完成：形成 `design.md`，明确复用 NAS 管理页、未受控统计任务、NAS transfer 链路、DCC 项目代码、文件分类树和 `dcc_file_category_match_rule`；定义 `未分类/待处理` 为正式业务状态。
+- 阻塞：无。
+
+### M3
+
+- 状态：`completed`
+- 已完成：生成 `docs/acceptance/bdd-scenarios.md`、`docs/acceptance/tdd-plan.md`、`docs/acceptance/e2e-plan.md`、`docs/acceptance/test-data.md`，覆盖可识别归档、待处理、浏览器目录写入 fail-fast、NAS 文件变化、权限不足、重复提交和分页边界。
+- 阻塞：无。
+
+### M4
+
+- 状态：`ready_for_closeout`
+- 已完成：执行验收结构 validator、UTF-8 读取检查和 `git diff --check`；新增 `verification-report.md`；运行 task-closeout-cleanup preview/apply，结果无删除项；按 project-experience-consolidation 将 closeout 状态格式经验合并到 `docs/task-closeout-rules.md` 和 `docs/experience-index.md`。
+- 阻塞：最终 Git 收尾未执行。当前工作区存在任务开始前的其它任务改动和未跟踪目录，且分支 `int_main` 已 ahead 2；按项目规则必须先处理脏工作区基线和 push 阻塞，本任务不能清理、改写或混合提交并发任务资产。
+
+### M5
+
+- 状态：`completed`
+- 已完成：按用户要求优化文档，补强开发前置门禁、两阶段处理时序、`LOCAL_WRITTEN` 后置归档、路径安全校验、路径冲突阻塞、仅查看不下载、本地写入失败不归档、NAS 文件变化复核和归档失败状态分离。
+- 阻塞：无。
+
+### M6
+
+- 状态：`completed`
+- 已完成：继续优化潜在开发问题，补齐 `PENDING_RECOGNITION` 初始识别状态、`local_write_error_code/archive_error_code` 错误码、`source_signature` 生成格式、先目录授权再创建 import task 的请求时序、取消目录选择无后端任务、已归档 audit file 重复提交冲突、`auditTaskId/importTaskId` 命名边界，以及从仓库根目录可执行的后端 Maven、后端 SQL pytest、前端 pnpm 命令。
+- 阻塞：无。
+
+### M7
+
+- 状态：`completed`
+- 已完成：按 `project-experience-consolidation` 收尾门禁，将浏览器本地目录写入的通用 E2E 门禁合并到 `docs/e2e-rules.md#浏览器本地目录写入门禁`，并在 `docs/experience-index.md` 增加关键词索引，避免后续开发把 ZIP、默认下载目录、API-only 下载或目录授权前创建后端任务误写成通过。
+- 阻塞：无。
+
+### M8
+
+- 状态：`completed`
+- 已完成：读取 `database-schema-delivery` 技能和数据库契约；按严格 TDD 完成 `dcc_nas_control_audit_file` schema 切片，新增迁移、test schema、DO、Mapper、JUnit schema 测试和 SQL 静态合同测试；修正 schema 测试的非破坏性断言范围，只扫描本次 migration，不放宽全局非破坏性规则。
+- 验证：Maven schema JUnit PASS，SQL pytest PASS，database-schema-evidence validator PASS。
+- 阻塞：无。
+
+### M9
+
+- 状态：`completed`
+- 已完成：按用户要求优化文档潜在问题，补齐二进制/分块内容下载、content 绑定权限校验、本地目标已存在、路径过长、安全目录段、状态流转终态、并发处理同一 audit file 的事务门禁，并同步更新 BDD、TDD、E2E 和测试数据文档。
+- 阻塞：无。
+
+### M10
+
+- Status: completed
+- Completed: strengthened executable docs for no backend mutation on directory cancel/unsupported browser/precheck failure, files page API contract, UNCLASSIFIED_PENDING vs AMBIGUOUS split, import-selected rejection rules, content/local-write-result snapshot binding, cross-task/signature-invalid E2E, and test-data cleanup boundaries.
+- Verification: acceptance validator PASS, UTF-8 read check PASS, scoped git diff --check PASS.
+- Blockers: none for documentation; implementation remains in progress.
+
+## Verification Evidence
+
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，输出 `BDD/TDD acceptance plan validation passed.`
+- GREEN: `node -e "<utf8 read check>"` -> PASS，10 个本任务、验收和经验文档均 `contains_replacement=false`。
+- GREEN: `git -C E:\IntRuoyi diff --check -- docs/acceptance/... docs/task-closeout-rules.md docs/experience-index.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/...` -> PASS，仅提示 LF 将被 Git 转换为 CRLF，无 trailing whitespace 或 whitespace error。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode preview` -> PASS，keep 4 个正式任务文档，delete/blocked/warnings 均为 none。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode apply` -> PASS，deleted_paths 为 none。
+- GREEN: `project-experience-consolidation` -> PASS，新增 closeout 状态格式规则，避免 `Current Status` 因反引号或前置说明被 cleanup apply 解析为 `unknown`。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，本轮优化后结构校验仍通过。
+- GREEN: `node -e "<utf8 read check>"` -> PASS，本轮优化触达文档均 `contains_replacement=false`。
+- GREEN: `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS，仅提示 LF 将被 Git 转换为 CRLF，无 whitespace error。
+- GREEN: `task_closeout.py --task-id 20260802-dcc-uncontrolled-file-local-import-design --mode preview/apply` -> PASS，本轮优化后 cleanup apply 无删除项、无 blocked、无 warnings。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，本轮二次优化后结构校验仍通过。
+- GREEN: `node -e "<utf8 read check>"` -> PASS，本轮二次优化触达 5 个文档均 `contains_replacement=false`。
+- GREEN: `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS，仅提示 LF 将被 Git 转换为 CRLF，无 whitespace error。
+- GREEN: `project-experience-consolidation` -> PASS，浏览器本地目录写入门禁已合并到 `docs/e2e-rules.md`，关键词索引已写入 `docs/experience-index.md`。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，长期经验合并后结构校验仍通过。
+- GREEN: `node -e "<utf8 read check>"` -> PASS，10 个任务、验收和经验文档均 `contains_replacement=false`。
+- GREEN: `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/... docs/acceptance/... docs/e2e-rules.md docs/experience-index.md` -> PASS，仅提示 LF 将被 Git 转换为 CRLF，无 whitespace error。
+- Documentation-only verification: 本任务未修改生产代码、数据库、运行环境或真实 NAS 文件；后续实现 RED/GREEN 命令已写入 `docs/acceptance/tdd-plan.md`。
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，初始失败原因为 `dcc_nas_control_audit_file` migration 不存在，符合 schema RED 预期。
+- RED: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> FAIL，初始失败原因为 SQL 静态合同或 migration 尚未存在，符合 schema RED 预期。
+- FIX: Maven GREEN 首次重跑失败在新增测试把历史 runtime schema 全量执行 `DELETE FROM dcc_` 扫描；已收敛为仅对本次 migration 做非破坏性断言，runtime schema 仅用于验证新表可发现，未放宽全局规则。
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS，2 passed in 3.18s。
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS，本轮文档补强后验收结构仍通过。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\database-schema-evidence.md` -> PASS，`Database schema evidence is valid.`
+- GREEN: `node -e "<utf8 read check>"` -> PASS，本任务 9 个任务、验收和 schema 证据文档均 `contains_replacement=false`。
+- GREEN: `git diff --check -- <本任务文档与schema切片文件>` -> PASS，仅存在 Git 行尾转换 warning，无 whitespace error。
+
+- GREEN: python -X utf8 C:/Users/BJB110/.codex/skills/bdd-tdd-acceptance-planner/scripts/validate_acceptance_plan.py --root E:/IntRuoyi -> PASS, M10 doc strengthening after user request.
+- GREEN: python -X utf8 -c utf8_read_check -> PASS, 8 task/acceptance docs contain no replacement characters.
+- GREEN: git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md -> PASS, only Git LF-to-CRLF warnings.
+
+## Existing Worktree Baseline
+
+- 任务开始时根仓库分支为 `int_main`，相对 `origin/int_main` ahead 2。
+- 工作区存在其它任务改动和未跟踪目录；本任务不得改写或清理这些并发任务资产。
+- 提交前按项目 Git 规则需单独处理任务开始时的脏工作区基线，并记录 commit hash 与文件清单；本轮未执行 baseline commit、implementation commit 或 push，原因是当前任务只应收口文档设计，且不得混合提交其它并发任务资产。
+
+### M11
+
+- Status: completed
+- Completed: implemented backend files page query slice for GET /dcc/controlled-files/nas-control-audit/{taskId}/files, including controller contract, page request/response VOs, service method, mapper filters, and stable id ordering.
+- RED: targeted controller contract failed because the /files endpoint mapping was missing.
+- GREEN: targeted controller contract and adjacent audit service/controller regression passed.
+- Blockers: none for this slice; recognize/import/content/local-write/frontend/E2E remain in progress.
+
+## M11 Verification Evidence
+
+- RED: targeted DccNasControlAuditControllerTest#nasControlAudit_mapsFilesPageWithControlledFileQueryPermission -> FAIL, missing endpoint mapping /dcc/controlled-files/nas-control-audit/{taskId}/files.
+- GREEN: targeted DccNasControlAuditControllerTest#nasControlAudit_mapsFilesPageWithControlledFileQueryPermission -> PASS, Tests run 1, Failures 0, Errors 0, Skipped 0.
+- REGRESSION: DccNasControlAuditControllerTest,DccNasControlAuditServiceImplTest -> PASS, Tests run 3, Failures 0, Errors 0, Skipped 0.
+
+### M12
+
+- Status: completed
+- Completed: optimized development documents for recognition candidate persistence, stable recognition reason codes, import task/item snapshot fields, idempotency request hash conflicts, backend-regenerated local-relative-path verification, pre-import local path precheck boundaries, explicit selected-id scope, and E2E/test-data evidence for those gates.
+- Verification: acceptance validator PASS, UTF-8 read check PASS, scoped git diff --check PASS.
+- Blockers: none for documentation; implementation remains in progress.
+
+## M12 Verification Evidence
+
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: PowerShell UTF-8 read check for `design.md`, `bdd-scenarios.md`, `tdd-plan.md`, `e2e-plan.md`, and `test-data.md` -> PASS, all `contains_replacement=False`.
+- GREEN: `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
+
+### M13
+
+- Status: completed
+- Completed: implemented deterministic backend pre-recognition for `POST /dcc/controlled-files/nas-control-audit/{taskId}/files/recognize`; it reuses enabled DCC project codes, active file categories, active category match rules and active taxonomy paths to populate audit-file classification snapshots.
+- Behavior: unique project + unique category writes `MATCHED`; missing project/category writes `UNCLASSIFIED_PENDING`; multiple project/category candidates writes `AMBIGUOUS`; unknown category rule type fails fast instead of silently downgrading.
+- Boundaries: recognition only updates `dcc_nas_control_audit_file` snapshot fields and does not read NAS content, download bytes, create import tasks, write local result, archive files, or create DCC controlled files.
+- Blockers: import-selected, content binary download, local-write-result, frontend static contract and real E2E remain in progress.
+
+## M13 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: recognition snapshot columns/fields such as `classification_candidates_json` were missing.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksProjectAndCategoryWhenUnique" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: recognize VO/service implementation was not present.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksProjectAndCategoryWhenUnique" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksProjectAndCategoryWhenUnique,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksPendingWhenProjectOrCategoryMissing,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksAmbiguousWhenProjectOrCategoryHasMultipleCandidates,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_doesNotRewriteImportedOrArchivedSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileDetails,DccBaseSchemaTest#mysqlSchemaShouldSupportDccNasControlAuditFileRecognitionSnapshot,DccNasControlAuditControllerTest,DccNasControlAuditServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS, 2 passed in 0.17s.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8 read check for `task.md`, `execution-log.md`, `verification-report.md`, and `backend-api-evidence.md` -> PASS, all `contains_replacement=False`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- <M13 implementation, schema, SQL contract and task evidence files>` -> PASS, only Git LF-to-CRLF warnings.
+
+### M14
+
+- Status: completed
+- Completed: optimized executable development docs for import-selected atomicity, canonical request hash ordering, audit/import binding visibility, active duplicate binding rejection, local-write-result idempotency, and conflicting terminal write-result rejection.
+- Scope: documentation and task evidence only; no production code, NAS files, local folders, runtime services, or business data were modified.
+- Verification: acceptance validator PASS, UTF-8 read check PASS, scoped git diff --check PASS.
+- Blockers: none for documentation; import-selected, content binary download, local-write-result, frontend static contract and real E2E remain implementation work.
+
+## M14 Verification Evidence
+
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8 read check for `task.md`, `execution-log.md`, `design.md`, `verification-report.md`, `bdd-scenarios.md`, `tdd-plan.md`, `e2e-plan.md`, and `test-data.md` -> PASS, all `contains_replacement=False`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- <M14 task and acceptance docs>` -> PASS, only Git LF-to-CRLF warnings for acceptance docs.
+
+### M15
+
+- Status: completed
+- Completed: implemented import-selected task snapshot schema slice for `NAS_UNCONTROLLED_IMPORT`, including additive migration fields on `dcc_controlled_file_nas_transfer_task`, `dcc_controlled_file_nas_transfer_task_item`, and `dcc_nas_control_audit_file`; synced DO fields, DCC test schema, JUnit schema contract and SQL static contract.
+- Scope: schema/persistence contract only; no import-selected service/API behavior, content download, local-write-result, NAS files, local folders or business data were modified.
+- Diagnostic: the targeted Maven run initially had a stale surefire report from the RED phase and briefly showed the known Windows Maven `WinNTFileSystem.delete0` cleanup stack; final command output completed with `BUILD SUCCESS`.
+- Blockers: none for this schema slice; import-selected service/API, content binary download, local-write-result, frontend static contract and real E2E remain implementation work.
+
+## M15 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: `DCC NAS uncontrolled import task snapshot migration must exist`.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_dcc_nas_uncontrolled_import_task_snapshot_sql.py IntRuoyiBackend/script/tests/test_dcc_nas_control_audit_file_sql.py -q` -> PASS, 4 passed in 1.49s.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\database-schema-evidence.md` -> PASS, `Database schema evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8 read check for M15 task/evidence files -> PASS, all `contains_replacement=False`.
+- GREEN: scoped `git diff --check` for M15 tracked files -> PASS, no whitespace errors.
+- GREEN: trailing whitespace check for new SQL contract file -> PASS.
+
+### M16
+
+- Status: completed
+- Completed: strengthened executable docs for legacy NAS transfer field isolation, `NAS_UNCONTROLLED_IMPORT` processor isolation, idempotency/concurrency locking, stable audit-row locking, and formal archive metadata source requirements.
+- Scope: documentation and task evidence only; no production code, NAS files, local folders, runtime services or business data were modified.
+- Verification: acceptance validator PASS, UTF-8 read check PASS, scoped git diff --check PASS.
+- Blockers: none for documentation; import-selected service/API, content binary download, local-write-result, frontend static contract and real E2E remain implementation work.
+
+## M16 Verification Evidence
+
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8 read check for `task.md`, `execution-log.md`, `design.md`, `verification-report.md`, `bdd-scenarios.md`, `tdd-plan.md`, `e2e-plan.md`, and `test-data.md` -> PASS, all `contains_replacement=False`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/design.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/bdd-scenarios.md docs/acceptance/tdd-plan.md docs/acceptance/e2e-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
+
+### M17
+
+- Status: completed
+- Completed: implemented the first import-selected backend contract/isolation slice: added `DccNasUncontrolledImportSelectedReqVO` without legacy transfer target fields, added `createUncontrolledImportTask(Long userId, Long auditTaskId, DccNasUncontrolledImportSelectedReqVO reqVO)` to the transfer service, added `SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT`, and made the legacy waiting processor skip that source type before claiming, reading NAS content, submitting DCC files, or writing ACTIVE NAS source mappings.
+- Boundary: `createUncontrolledImportTask` deliberately fails fast with `UnsupportedOperationException` until the next TDD slice implements atomic validation and persistence; this avoids default success, fallback, or partial import behavior.
+- Diagnostic: the first GREEN attempt failed because the now-skipped task no longer consumed an old `selectById` test stub; the unused stub was removed and the same targeted command passed.
+- Blockers: full import-selected task creation, canonical request hash, audit-file locking/binding, content binary download, local-write-result, archive, frontend static contract and real E2E remain in progress.
+
+## M17 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: `DccNasUncontrolledImportSelectedReqVO` class missing.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: legacy processor claimed `sourceType=NAS_UNCONTROLLED_IMPORT` through `taskMapper.claimWaitingTask(77L, ...)`.
+- FIX: same targeted Maven command first failed after implementation with Mockito `UnnecessaryStubbingException` because `taskMapper.selectById(77L)` was no longer used once the processor correctly skipped the import task; removed that obsolete test stub.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M17 task/evidence/backend files -> PASS, `contains_replacement=[]`, `trailing_whitespace=[]`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- <M17 tracked task/backend files>` -> PASS, only Git LF-to-CRLF warnings.
+
+### M18
+
+- Status: completed
+- Completed: implemented service-level `createUncontrolledImportTask` persistence for explicit selected audit files: validates the full request before writing, rejects duplicates/stale/non-importable audit files, computes a canonical order-insensitive request hash, inserts `NAS_UNCONTROLLED_IMPORT` task and task-item snapshots without legacy task target fields, and updates audit rows with `downloadStatus=SELECTED` plus import task/item bindings.
+- Boundary: this slice is service-level only; controller route, content download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
+- Diagnostic: the first GREEN attempt after implementation failed because the test captured two audit updates with two single-invocation verifies; changed the test capture to `times(2)` and reran successfully.
+- Blockers: idempotency conflict/reuse, content binary download, local-write-result idempotency, archive metadata failure path, controller mapping, frontend and real E2E still need subsequent RED/GREEN slices.
+
+## M18 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: service still threw `UnsupportedOperationException` from the fail-fast M17 stub.
+- FIX: first GREEN attempt failed with Mockito `TooManyActualInvocations` because the test captured two audit row updates using two one-time verifies; changed to `verify(auditFileMapper, times(2)).updateById(...)`.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+
+### M19
+
+- Status: completed
+- Completed: implemented service-level import-selected idempotency hardening: same `idempotencyKey + requestHash` returns the existing task even when selected files arrive in a different order, different request hash throws a conflict before audit reads or writes, duplicate audit ids fail before hashing/writes, and the creation transaction rechecks the idempotency key with `FOR UPDATE` before inserting.
+- Boundary: this slice is still service-level only; controller route, content download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
+- Diagnostic: RED reproduced the race gap because the service inserted a new task `8202` instead of returning the transaction-visible existing task `8102`; first GREEN run then exposed an obsolete Mockito insert stub after the new guard skipped insertion, and the unused stub was removed.
+- Blockers: content binary download, local-write-result idempotency, archive metadata failure path, controller mapping, frontend and real E2E still need subsequent RED/GREEN slices.
+
+## M19 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: service returned newly inserted task `8202` instead of existing idempotent task `8102`.
+- FIX: first M19 GREEN attempt failed with Mockito `UnnecessaryStubbingException` because `taskMapper.insert(...)` was no longer used after the transaction recheck correctly returned the existing task; removed the obsolete insert stub.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M19 task/evidence/backend files -> PASS, `UTF8_AND_TRAILING_WHITESPACE_CHECK_PASS`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- <M19 tracked task/backend files>` -> PASS, only Git LF-to-CRLF warnings.
+
+### M20
+
+- Status: completed
+- Completed: implemented the import-selected controller contract for `POST /dcc/controlled-files/nas-control-audit/{taskId}/import-selected`; the endpoint requires the NAS transfer write permission combination, validates `@RequestBody DccNasUncontrolledImportSelectedReqVO`, binds `getLoginUserId()` and the path `taskId`, and delegates to `DccControlledFileNasTransferService#createUncontrolledImportTask`.
+- Boundary: this slice exposes the already verified service-level import-selected creation/idempotency through the controller only; content binary download, local-write-result, archive execution, frontend static contract and real E2E remain in progress.
+- Blockers: content binary download, local-write-result idempotency, archive metadata failure path, frontend and real E2E still need subsequent RED/GREEN slices.
+
+## M20 Verification Evidence
+
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest#nasControlAudit_mapsImportSelectedWithTransferWritePermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: missing endpoint mapping `/dcc/controlled-files/nas-control-audit/{taskId}/import-selected`.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest#nasControlAudit_mapsImportSelectedWithTransferWritePermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M20 task evidence files -> PASS, `UTF8_AND_TRAILING_WHITESPACE_CHECK_PASS`.
+- GREEN: `git diff --check -- <M20 task evidence and controller files>` -> PASS, only Git LF-to-CRLF warnings.
+
+### M21
+
+- Status: completed
+- BDD: NAS uncontrolled import content download is binary and snapshot-bound -> Given a selected `NAS_UNCONTROLLED_IMPORT` task item is bound to the current user, audit file, source signature and local relative path snapshot When the frontend requests the content endpoint Then backend returns `ResponseEntity<byte[]>` binary bytes with content disposition and `X-Source-Signature`, and does not mutate local-write/archive/controlled-file state.
+- BDD: NAS uncontrolled import content rejects stale or cross-task requests -> Given the selected audit file no longer matches the import task, source signature or local relative path snapshot When content is requested Then backend fails fast before reading NAS bytes and before updating audit/task item/archive state.
+- Completed: added service contract `DccControlledFileNasTransferService#readUncontrolledImportContent(...)`, service implementation with import task/audit file/task item snapshot checks, and controller contract/implementation for `GET /dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}/files/{auditFileId}/content`.
+- Contract: controller requires `dcc:controlled-file:submit`, `dcc:controlled-file:directory:manage`, and `dcc:controlled-file:category:manage`; request binds path `importTaskId`, path `auditFileId`, query `sourceSignature`, and query `localRelativePath`; response is `ResponseEntity<byte[]>`, not `CommonResult`.
+- Isolation note: main worktree GREEN was previously blocked by concurrent non-task DCC Maven writes to shared `target`; M21 was verified in isolated worktree `D:\IntRuoyiWorktree\dcc-uncontrolled-import-m21-verify-20260803` detached at `72712e92d chore: baseline concurrent download entry updates`.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_returnsBinaryForBoundTaskWithoutMutatingLocalOrArchiveState,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_rejectsCrossTaskOrStaleSignatureWithoutReadingNas" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: service interface did not expose `readUncontrolledImportContent(...)`.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasUncontrolledImportControllerTest#nasUncontrolledImport_mapsContentAsBinaryWithSnapshotQueryParamsAndWritePermission" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: missing `DccNasUncontrolledImportController`.
+- GREEN: isolated worktree `D:\IntRuoyiWorktree\dcc-uncontrolled-import-m21-verify-20260803`; `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasUncontrolledImportControllerTest#nasUncontrolledImport_mapsContentAsBinaryWithSnapshotQueryParamsAndWritePermission,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_returnsBinaryForBoundTaskWithoutMutatingLocalOrArchiveState,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_rejectsCrossTaskOrStaleSignatureWithoutReadingNas" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: isolated worktree `D:\IntRuoyiWorktree\dcc-uncontrolled-import-m21-verify-20260803`; `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest,DccNasUncontrolledImportControllerTest,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_returnsBinaryForBoundTaskWithoutMutatingLocalOrArchiveState,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_rejectsCrossTaskOrStaleSignatureWithoutReadingNas" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 14, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M21 task evidence files -> PASS, `UTF8_AND_TRAILING_WHITESPACE_CHECK_PASS`.
+- GREEN: `git -C E:\IntRuoyi diff --check -- <M21 task evidence files>` -> PASS, only Git LF-to-CRLF warnings.
+- Remaining: local-write-result, formal archive, frontend static contract and real E2E remain in progress; task-owned closeout/commit remains blocked by mixed concurrent workspace state.
+
+### M22
+
+- Status: completed
+- BDD: NAS uncontrolled import local-write-result is snapshot-bound -> Given a selected `NAS_UNCONTROLLED_IMPORT` task item belongs to the current user and matches audit file/source signature/local relative path snapshots When the browser reports `LOCAL_WRITTEN` Then backend updates audit download status and task item local-write status only, and does not read NAS content, create a controlled file, submit workflow, archive, or write an ACTIVE NAS source mapping.
+- BDD: NAS uncontrolled import local-write-result terminal replay is guarded -> Given a selected file has already reached terminal local-write state When the same `LOCAL_WRITTEN` result is replayed Then backend returns current task state without mutating or archiving again; when a conflicting terminal status is submitted Then backend fails fast before mutation or archive side effects.
+- Completed: added `DccNasUncontrolledImportLocalWriteResultReqVO`, controller route `POST /dcc/controlled-files/nas-uncontrolled-import/tasks/{importTaskId}/files/{auditFileId}/local-write-result`, service contract `recordUncontrolledImportLocalWriteResult(...)`, snapshot/state validation, `LOCAL_WRITTEN` and `LOCAL_WRITE_FAILED` state updates, idempotent success replay, and conflicting terminal rejection.
+- Contract: controller requires `dcc:controlled-file:submit`, `dcc:controlled-file:directory:manage`, and `dcc:controlled-file:category:manage`; request binds path `importTaskId`, path `auditFileId`, and `@Valid @RequestBody` fields `sourceSignature`, `localRelativePath`, `localWriteStatus`, `localWriteErrorCode`, and `localWriteError`; response remains `CommonResult<DccControlledFileNasTransferRespVO>`.
+- Boundary: M22 records local browser write outcome and explicitly prevents archive side effects; formal DCC archive creation, archive metadata required/blocked state, frontend static contract and real E2E remain separate milestones.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccNasUncontrolledImportControllerTest#nasUncontrolledImport_mapsLocalWriteResultWithSnapshotBodyAndWritePermission,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_marksLocalWrittenWithoutArchiveSideEffects,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_replaysSameSuccessWithoutMutatingOrArchivingAgain,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_rejectsConflictingTerminalResultWithoutArchive" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: local-write-result controller/service/VO contract was not implemented when the M22 tests were introduced.
+- FIX: first M22 GREEN attempts exposed test harness issues after implementation: replay/conflict tests needed the no-op transaction manager because `recordUncontrolledImportLocalWriteResult(...)` is transactional, and obsolete stubs caused Mockito `UnnecessaryStubbingException`; tests were tightened without adding fallback behavior.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccNasUncontrolledImportControllerTest#nasUncontrolledImport_mapsLocalWriteResultWithSnapshotBodyAndWritePermission,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_marksLocalWrittenWithoutArchiveSideEffects,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_replaysSameSuccessWithoutMutatingOrArchivingAgain,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_rejectsConflictingTerminalResultWithoutArchive" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dmaven.resources.skip=true" "-Dtest=DccNasControlAuditControllerTest,DccNasUncontrolledImportControllerTest,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_returnsBinaryForBoundTaskWithoutMutatingLocalOrArchiveState,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_rejectsCrossTaskOrStaleSignatureWithoutReadingNas,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_marksLocalWrittenWithoutArchiveSideEffects,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_replaysSameSuccessWithoutMutatingOrArchivingAgain,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_rejectsConflictingTerminalResultWithoutArchive" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 18, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M22 task/backend files -> PASS, `UTF8_AND_TRAILING_WHITESPACE_CHECK_PASS`.
+- GREEN: `git diff --check -- <M22 task evidence and backend files>` -> PASS, only Git LF-to-CRLF warnings.
+- Remaining: formal archive execution, frontend static contract and real E2E remain in progress; task-owned closeout/commit remains blocked by mixed concurrent workspace state.
+
+### M23
+
+- Status: completed for archive metadata required blocker slice.
+- BDD: Archive metadata missing after local write is visible -> Given a matched `NAS_UNCONTROLLED_IMPORT` audit file is selected and the browser has written it locally When `local-write-result` posts `LOCAL_WRITTEN` but no formal DCC archive metadata source exists Then backend keeps `downloadStatus=LOCAL_WRITTEN`, records `archiveStatus=FAILED` and `archiveErrorCode=ARCHIVE_METADATA_REQUIRED`, and does not read NAS, upload an original file, submit workflow, create a controlled file, or write an ACTIVE NAS source mapping.
+- BDD: Archive metadata blocker replay is idempotent -> Given a matched file already reached `LOCAL_WRITTEN` with `ARCHIVE_METADATA_REQUIRED` When the same `LOCAL_WRITTEN` local-write-result is replayed Then backend returns the current task state without mutating audit/task item state and without repeating any archive side effects.
+- Completed: added explicit `AUDIT_FILE_ARCHIVE_STATUS_FAILED` and `ARCHIVE_METADATA_REQUIRED` handling in `recordUncontrolledImportLocalWriteResult(...)`; matched files now move from local-write success into a visible archive metadata blocker instead of staying `NOT_STARTED` or fabricating legacy task metadata.
+- Completed: tightened the service test harness copies for task/item/category snapshots so audit-file id, source signature, recognition snapshot, local-write status and archive status are preserved in map-backed tests.
+- Boundary: this slice intentionally does not create controlled files or ACTIVE NAS source mappings because the formal archive metadata source is still undefined by design; M24 remains required for the success archive path after that source is modeled and tested.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_requiresArchiveMetadataForMatchedLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: existing implementation left `archiveStatus=NOT_STARTED` instead of `FAILED/ARCHIVE_METADATA_REQUIRED`.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_requiresArchiveMetadataForMatchedLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccNasUncontrolledImportControllerTest#nasUncontrolledImport_mapsLocalWriteResultWithSnapshotBodyAndWritePermission,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_marksLocalWrittenAndArchiveMetadataBlockWithoutSideEffects,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_replaysSameSuccessWithoutMutatingOrArchivingAgain,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_rejectsConflictingTerminalResultWithoutArchive,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_requiresArchiveMetadataForMatchedLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am "-Dmaven.resources.skip=true" "-Dtest=DccNasControlAuditControllerTest,DccNasUncontrolledImportControllerTest,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs,DccControlledFileNasTransferServiceTest#processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsInvalidSelectionAtomically,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_returnsBinaryForBoundTaskWithoutMutatingLocalOrArchiveState,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_rejectsCrossTaskOrStaleSignatureWithoutReadingNas,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_marksLocalWrittenAndArchiveMetadataBlockWithoutSideEffects,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_replaysSameSuccessWithoutMutatingOrArchivingAgain,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_rejectsConflictingTerminalResultWithoutArchive,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_requiresArchiveMetadataForMatchedLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 19, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M23 task/evidence/backend files -> PASS, `contains_replacement=[]`, `trailing_whitespace=[]`.
+- GREEN: `git diff --check -- <M23 task evidence and backend files>` -> PASS, only Git LF-to-CRLF warnings.
+- Remaining: formal archive success metadata source, controlled-file creation, ACTIVE NAS source mapping, frontend static contract and real E2E remain in progress; task-owned closeout/commit remains blocked by mixed concurrent workspace state.
+
+### M25
+
+- Status: completed for frontend static contract and minimal UI/API integration slice.
+- BDD: Browser directory authorization gates import-selected -> Given a completed NAS uncontrolled audit task and selected downloadable files When the user chooses to download to a local directory Then the page obtains `showDirectoryPicker` authorization and validates each backend `expectedLocalRelativePath` before calling `/import-selected`.
+- BDD: Local write success is reported only after close -> Given an import-selected task and selected audit-file snapshot When content Blob is downloaded and local writable stream closes successfully Then the page posts `LOCAL_WRITTEN` with the same source signature and local relative path snapshot.
+- BDD: Local write failure remains visible -> Given the local file write fails after content download When file handle or writable stream throws Then the page posts `LOCAL_WRITE_FAILED` with explicit error code/message and displays the failure instead of claiming import success.
+- BDD: Unrecognized files remain pending -> Given audit rows are `UNCLASSIFIED_PENDING` or `AMBIGUOUS` When the user opens completed audit task details Then those rows remain visible as “未分类/待处理” or “待确认”, may be selected for local pending-folder download, and are not eligible for automatic DCC archive.
+- BDD: Archive metadata blocker is explicit -> Given a matched file reaches local write success but backend returns `ARCHIVE_METADATA_REQUIRED` When the page reloads audit-file rows Then the page displays “归档元数据待补齐” instead of archive success.
+- Completed: added static contract `dcc-nas-uncontrolled-local-import-static.spec.js` and package script `e2e:dcc:nas-uncontrolled-local-import:static`.
+- Completed: extended NAS API wrapper with files page, recognize, import-selected, content binary download and local-write-result calls, using `auditFileId/sourceSignature/expectedLocalRelativePath` snapshots.
+- Completed: extended NAS management page with completed-audit file table, recognition refresh, downloadable-status selection, `showDirectoryPicker`, nested local directory/file creation, Blob write/close, `LOCAL_WRITTEN` after close, `LOCAL_WRITE_FAILED` on write failure, and visible `ARCHIVE_METADATA_REQUIRED`/未分类待处理 states.
+- Boundary: this frontend slice does not implement formal archive success, controlled-file creation, ACTIVE NAS source mapping, real local filesystem E2E, or fallback ZIP/default download behavior.
+- RED: `node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js` -> FAIL, expected reason: `package.json` lacked `e2e:dcc:nas-uncontrolled-local-import:static`, and NAS page/API lacked the local directory import contract.
+- GREEN: `node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS.
+- GREEN: `node tests/e2e/nas-control-audit-static.spec.js` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS, current frontend workspace type check completed successfully.
+- GREEN: UTF-8/trailing whitespace check for M25 frontend files -> PASS, `contains_replacement=[]`, `trailing_whitespace=[]`.
+- GREEN: `git diff --check -- IntRuoyiFronted/package.json IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts IntRuoyiFronted/src/api/system/nas/index.ts IntRuoyiFronted/src/views/system/nas/index.vue IntRuoyiFronted/tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js` -> PASS, only Git LF-to-CRLF warnings.
+- Remaining: formal archive success metadata source, controlled-file creation, ACTIVE NAS source mapping and real Playwright E2E remain in progress; final closeout/commit/push remains blocked by mixed concurrent workspace state.
+
+### M26
+
+- Status: completed for M24 archive metadata precondition hardening.
+- BDD: Formal archive metadata snapshot is required -> Given a matched audit file reaches `LOCAL_WRITTEN` but the import task item only has recognition snapshots, local relative path, `matchedProjectCodeId`, `matchedFileTypeTaxonomyId`, or candidate JSON When backend evaluates formal DCC archive Then it must keep the visible `ARCHIVE_METADATA_REQUIRED` blocker and must not read NAS bytes, upload original file, submit workflow, create a controlled file, or insert ACTIVE NAS source mapping.
+- Completed: rechecked the current M24 precondition against `DccControlledFileNasTransferTaskItemDO`, `DccNasControlAuditFileDO`, `DccControlledFileSubmitReqVO`, and `recordUncontrolledImportLocalWriteResult(...)`; current schema does not persist a processing-item-level formal archive metadata snapshot for `categoryId`, `directoryId`, `dccProjectCodeId`, `fileTypeTaxonomyId`, `changeType`, `fileNumber`, `versionNo`, `effectiveDate`, and source remark.
+- Completed: updated `design.md`, `docs/acceptance/bdd-scenarios.md`, `docs/acceptance/tdd-plan.md`, `task.md`, and `verification-report.md` so future M24 development must first add RED/schema/VO/service evidence for the formal metadata source before enabling successful archive creation.
+- BLOCKER: M24 formal archive success path -> FAIL, missing processing-item-level formal archive metadata source; impact: controlled-file creation and ACTIVE NAS source mapping must remain blocked by `ARCHIVE_METADATA_REQUIRED` instead of using legacy task defaults, current date, empty template, or `classificationCandidatesJson`.
+- Verification: document-only hardening; no production code, NAS file, local directory, database data, workflow submit, controlled-file creation, or ACTIVE NAS source mapping was modified.
+
+### M27
+
+- Status: completed for document consistency and implementation-readiness audit.
+- BDD: Documentation markers remain searchable -> Given a future developer follows only this task package and acceptance documents When they search for the critical gates Then each core document exposes the same `ARCHIVE_METADATA_REQUIRED`, `未分类/待处理`, `showDirectoryPicker`, `LOCAL_WRITTEN`, and `NAS_UNCONTROLLED_IMPORT` markers without relying on memory from this chat.
+- RED: `node -e "<doc consistency marker scan>"` -> FAIL, expected reason: `docs/acceptance/tdd-plan.md` did not contain `未分类/待处理`, and `docs/acceptance/test-data.md` did not contain `未分类/待处理`, `showDirectoryPicker`, or `NAS_UNCONTROLLED_IMPORT`.
+- Completed: updated `docs/acceptance/tdd-plan.md` to state that unresolvable project code/item/category must remain official `未分类/待处理`, and updated `docs/acceptance/test-data.md` to bind local-directory samples to `showDirectoryPicker` and `NAS_UNCONTROLLED_IMPORT`.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: `node -e "<doc consistency marker scan>"` -> PASS, `DOC_CONSISTENCY_PASS files=8 markers=5`.
+- GREEN: `node -e "<utf8/trailing whitespace check>"` -> PASS, `UTF8_TRAILING_CHECK_PASS files=5`.
+- GREEN: `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md docs/acceptance/tdd-plan.md docs/acceptance/test-data.md` -> PASS, only Git LF-to-CRLF warnings.
+- Project experience consolidation: merged the reusable marker-scan lesson into `docs/e2e-rules.md#规划型 E2E 前置与业务 RED 分离门禁` and indexed it in `docs/experience-index.md`.
+- GREEN: `rg -n "doc consistency marker scan|关键业务标记扫描|ARCHIVE_METADATA_REQUIRED" docs\experience-index.md docs\e2e-rules.md` -> PASS, index route and target gate are searchable.
+- GREEN: long-term docs UTF-8/trailing whitespace check and scoped `git diff --check` for `docs/e2e-rules.md` and `docs/experience-index.md` -> PASS, only Git LF-to-CRLF warnings.
+- Boundary: documentation-only consistency hardening; no production code, NAS file, local directory, database data, workflow submit, controlled-file creation, or ACTIVE NAS source mapping was modified.
+
+### M24
+
+- Status: completed for formal archive metadata snapshot and archive success path slice.
+- BDD: Formal archive metadata snapshot drives archive -> Given a matched `NAS_UNCONTROLLED_IMPORT` audit file reaches `LOCAL_WRITTEN` and its import task item has a complete processing-item-level formal archive metadata snapshot When backend records the local write result Then it reads the NAS source, uploads the original file, submits DCC workflow with only snapshot metadata, inserts an ACTIVE exact NAS source mapping, and marks audit/item archived.
+- BDD: Missing formal archive metadata remains blocked -> Given a matched file reaches `LOCAL_WRITTEN` without complete archive snapshot metadata When backend evaluates archive eligibility Then it keeps `ARCHIVE_METADATA_REQUIRED` and does not read NAS, upload an original file, submit workflow, create a controlled file, or write ACTIVE NAS source mapping.
+- Completed: added processing-item-level formal archive snapshot fields to `DccControlledFileNasTransferTaskItemDO`, migration SQL, test schema, schema/JUnit/Python contracts, and service test copy helpers.
+- Completed: changed `recordUncontrolledImportLocalWriteResult(...)` so matched files archive only from complete `archive*Snapshot` fields; legacy task header defaults, recognition candidates, current date, and matched taxonomy snapshots alone are not accepted as formal submit metadata.
+- Completed: successful archive path now calls `nasBrowserService.readFile(...)`, `fileService.createFileAndReturnId(...)`, `workflowService.submitControlledFileWithoutApproval(...)`, inserts exact NAS source mapping, sets audit `archiveStatus=ARCHIVED`, and keeps same `LOCAL_WRITTEN` replay guard from re-archiving.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccControlledFileNasTransferServiceTest#archiveAfterLocalWritten_archivesOnlyFromFormalMetadataSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: `DccControlledFileNasTransferTaskItemDO` did not expose the formal archive snapshot setters.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: migration/test schema lacked the full formal archive snapshot contract and nullable `template_category_id/effective_date` support for `NAS_UNCONTROLLED_IMPORT`.
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccControlledFileNasTransferServiceTest#archiveAfterLocalWritten_archivesOnlyFromFormalMetadataSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_requiresArchiveMetadataForMatchedLocalWritten" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportNasUncontrolledImportTaskSnapshots" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_nas_uncontrolled_import_task_snapshot_sql.py -q` -> PASS, 2 passed in 0.20s.
+- REGRESSION: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_returnsBinaryForBoundTaskWithoutMutatingLocalOrArchiveState+readUncontrolledImportContent_rejectsCrossTaskOrStaleSignatureWithoutReadingNas+recordUncontrolledImportLocalWriteResult_marksLocalWrittenAndArchiveMetadataBlockWithoutSideEffects+recordUncontrolledImportLocalWriteResult_replaysSameSuccessWithoutMutatingOrArchivingAgain+recordUncontrolledImportLocalWriteResult_rejectsConflictingTerminalResultWithoutArchive+recordUncontrolledImportLocalWriteResult_requiresArchiveMetadataForMatchedLocalWritten+archiveAfterLocalWritten_archivesOnlyFromFormalMetadataSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\backend-api-evidence.md` -> PASS, `Backend API evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\database-schema-evidence.md` -> PASS, `Database schema evidence is valid.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M24 files -> PASS, `UTF8_TRAILING_CHECK_PASS files=12`.
+- GREEN: `git diff --check -- <M24 task evidence and backend files>` -> PASS, only Git LF-to-CRLF warnings.
+- Boundary: real Playwright E2E, task closeout, commit and push remain pending due runtime/test-data prerequisites and mixed concurrent workspace state.
+
+### M28
+
+- Status: completed for real E2E readiness audit; full real E2E remains blocked.
+- BDD: Real local import E2E prerequisites are explicit -> Given the NAS uncontrolled local-import flow requires a real completed audit task, browser directory authorization and local-write-result callbacks When the task is verified in the local runtime Then verification must first prove frontend/backend runtime ownership, browser File System Access API support, applied runtime schema, test-tenant page access, and task-owned NAS sample data; otherwise it must record E2E BLOCKED instead of claiming PASS from static contracts or API-only probes.
+- Readiness PASS: `Get-NetTCPConnection -LocalPort 8081,48081` plus process command-line inspection -> PASS, frontend PID 28264 runs Vite from `E:\IntRuoyi\IntRuoyiFronted`, backend PID 42064 runs an `E:\IntRuoyi\output\runtime\int_main\...jar` with `repo-root=E:\IntRuoyi\IntRuoyiBackend` and `--server.port=48081`.
+- Readiness PASS: `Invoke-WebRequest http://127.0.0.1:8081/` and `Invoke-WebRequest http://127.0.0.1:48081/actuator/health` -> PASS, frontend HTTP 200 and backend health body indicates `UP`.
+- RED: `node -e "chromium.launch({ headless: true })"` from `IntRuoyiFronted` -> FAIL, expected reason: Playwright bundled Chromium executable is missing at `E:\Int\DevCache\playwright-browsers\chromium_headless_shell-1223\...\chrome-headless-shell.exe`; impact: the default project Playwright runner cannot execute real E2E until browsers are installed or the E2E command explicitly gates an approved system Chrome executable.
+- Readiness PASS: `node -e "chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' })"` -> PASS, system Chrome reaches `http://127.0.0.1:8081/` in a secure context and exposes `showDirectoryPicker`, `FileSystemDirectoryHandle.getFileHandle`, and `FileSystemFileHandle.createWritable`.
+- Readiness PASS: `node - <stdin Playwright system-Chrome NAS route probe; credentials redacted>` -> PASS, `测试租户/aoteman` can log in, navigate to `/system/nas`, see `NAS 管理`, and see the `统计未受控文件` button.
+- RED: `docker exec int-ruoyi-mysql sh -lc 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql ... SHOW COLUMNS FROM dcc_nas_control_audit_file'` -> FAIL, expected reason: runtime database table `dcc_nas_control_audit_file` does not exist.
+- RED: `docker exec int-ruoyi-mysql sh -lc 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql ... information_schema.COLUMNS import snapshot probe'` -> FAIL, expected reason: runtime database has `dcc_controlled_file_nas_transfer_task`, `dcc_controlled_file_nas_transfer_task_item`, and `dcc_nas_control_audit_task`, but lacks `dcc_nas_control_audit_file` and lacks the queried import snapshot columns (`audit_task_id`, `idempotency_key`, `request_hash`, `audit_file_id`, `source_signature`, `local_relative_path`, `archive_*_snapshot`).
+- BLOCKER: Real E2E cannot run safely until the local test database applies the task-owned migrations `IntRuoyiBackend/sql/mysql/20260803_dcc_nas_control_audit_file.sql` and `IntRuoyiBackend/sql/mysql/20260803_dcc_nas_uncontrolled_import_task_snapshot.sql`; without them, the real page path will fail at uncontrolled-file pagination/recognition/import-selected/local-write-result and cannot prove download-to-local classification behavior.
+- BLOCKER: Real E2E still also needs task-owned completed audit data with matched, `UNCLASSIFIED_PENDING/AMBIGUOUS`, and metadata-blocker cases plus a cleanup plan; current audit did not start NAS scanning or mutate NAS/database data because the runtime schema prerequisite failed first.
+- Boundary: no production code, NAS files, local directories, business rows or schema were modified during M28; all checks were read-only except browser login session state.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: `node -e "<UTF-8 replacement character check for task.md/execution-log.md/verification-report.md>"` -> PASS, `UTF8_READ_PASS files=3`.
+- GREEN: `git diff --check -- doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/task.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/execution-log.md doc/tasks/20260802-dcc-uncontrolled-file-local-import-design/verification-report.md` -> PASS, only Git LF-to-CRLF warnings.
+- GREEN: project-experience-consolidation -> PASS, merged the reusable runtime-schema readiness lesson into `docs/e2e-rules.md#Schema-backed E2E 迁移与字段可选态门禁` and indexed `dcc_nas_control_audit_file` / `import snapshot` keywords in `docs/experience-index.md`.
+- GREEN: `rg -n "dcc_nas_control_audit_file|import snapshot|运行库迁移未应用|表不存在" docs\experience-index.md docs\e2e-rules.md` -> PASS.
+- GREEN: UTF-8/diff checks for `docs/e2e-rules.md`, `docs/experience-index.md`, and the three task docs -> PASS; `git diff --check` reports only LF-to-CRLF warnings.
+
+### M29
+
+- Status: completed for executable real E2E prerequisite gate; full real E2E remains blocked.
+- BDD: Real local import E2E prerequisite gate is executable -> Given the NAS uncontrolled local-import flow requires runtime schema, browser directory authorization and task-owned audit sample data When the real E2E check command is run Then it must verify these prerequisites through the real local runtime and fail fast with explicit blockers instead of claiming PASS from static contracts, API-only checks or browser capability probes.
+- RED: `pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` from `IntRuoyiFronted` -> FAIL, expected reason: `package.json` did not expose the real E2E prerequisite gate script.
+- Completed: added `IntRuoyiFronted/tests/e2e/dcc-nas-uncontrolled-local-import-real.e2e.js` and package script `e2e:dcc:nas-uncontrolled-local-import:real:check`.
+- Completed: extended `dcc-nas-uncontrolled-local-import-static.spec.js` to lock the real gate script, required runtime tables/columns, `MYSQL_ROOT_PASSWORD` container-secret usage, approved browser executable path, File System Access API tokens, and `DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID` sample-data precondition.
+- GREEN: `node --check tests/e2e/dcc-nas-uncontrolled-local-import-real.e2e.js` -> PASS.
+- GREEN: `node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS.
+- RED/BLOCKER: `pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> FAIL, expected reason: runtime schema still lacks `dcc_nas_control_audit_file`, import snapshot columns on transfer task/task item tables, and `DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID` is not provided for task-owned completed audit sample data.
+- Readiness PASS inside M29 gate: current frontend/backend runtime and browser File System Access API are no longer the blocking reason after the probe was stabilized; the remaining blockers are schema migration application and task-owned audit sample data.
+- Boundary: M29 added only executable test/preflight assets and documentation; it did not start NAS scanning, apply database migrations, mutate business rows, write local files, submit workflow, create controlled files, or write ACTIVE NAS source mappings.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for M29 files -> PASS, `UTF8_TRAILING_CHECK_PASS files=7`.
+- GREEN: `git diff --check -- <M29 frontend/task/acceptance files>` -> PASS, only Git LF-to-CRLF warnings.
+
+### M30
+
+- Status: completed for local runtime schema/sample prerequisite gate; full real page E2E remains blocked on NAS source bytes and explicit shared-NAS authorization.
+- BDD: Runtime migration and sample gate is executable -> Given the real NAS uncontrolled local-import E2E requires schema columns, File System Access API and task-owned audit rows When the local test DB migrations and fixture are applied Then `DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID=1` must make the real prerequisite gate pass, while full page E2E still fails fast until real NAS source files are authorized and present.
+- RED: applying `IntRuoyiBackend/sql/mysql/20260803_dcc_nas_uncontrolled_import_task_snapshot.sql` to the local Docker MySQL initially failed because the stored procedures lacked `DELIMITER $$` / `END$$` / `DELIMITER ;`; impact: runtime schema could not be safely migrated.
+- RED: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_nas_uncontrolled_import_task_snapshot_sql.py -q` -> FAIL before the fix, expected reason: SQL migration did not include the required delimiter contract for MySQL stored procedure bodies.
+- GREEN: added the delimiter contract to `test_dcc_nas_uncontrolled_import_task_snapshot_sql.py` and fixed `20260803_dcc_nas_uncontrolled_import_task_snapshot.sql`; `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_nas_uncontrolled_import_task_snapshot_sql.py -q` -> PASS, 2 passed.
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_nas_control_audit_file_sql.py -q` -> PASS, 2 passed.
+- GREEN: local Docker MySQL migration apply -> PASS for `20260803_dcc_nas_control_audit_file.sql` and `20260803_dcc_nas_uncontrolled_import_task_snapshot.sql`; runtime schema probe confirms `dcc_nas_control_audit_file` and import snapshot columns exist.
+- GREEN: inserted task-owned fixture marker `codex-20260802-dcc-uncontrolled-local-import` in tenant `122` for operator `914520`, audit task `1`, with one `MATCHED` pending row, one `UNCLASSIFIED_PENDING` row, and one `MATCHED + LOCAL_WRITTEN + ARCHIVE_METADATA_REQUIRED` row.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS`.
+- GREEN: task fixture probe -> PASS, audit task `1` is `COMPLETED`, share snapshot is `CODEx_LOCAL_FIXTURE`, and file rows include `MATCHED/NOT_SELECTED`, `UNCLASSIFIED_PENDING/NOT_SELECTED`, and `MATCHED/LOCAL_WRITTEN/ARCHIVE_METADATA_REQUIRED`.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: `node --check tests\e2e\dcc-nas-uncontrolled-local-import-real.e2e.js` and `node tests\e2e\dcc-nas-uncontrolled-local-import-static.spec.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS.
+- GREEN: UTF-8/trailing whitespace check for 9 scoped files -> PASS, `UTF8_TRAILING_CHECK_PASS files=9`.
+- GREEN: `git diff --check -- <M30 scoped files>` -> PASS, only Git LF-to-CRLF warnings.
+- BLOCKER: full real page E2E cannot be claimed yet because backend content download reads `nasBrowserService.readFile(auditFile.normalizedRelativePath)`, and the current fixture only creates DB rows for `codex-dcc-uncontrolled-local-import/...`; no evidence exists that corresponding task-owned source bytes exist on the configured shared NAS, and this task has no explicit authorization to create files on shared NAS.
+- Cleanup plan: before final closeout after full E2E, delete task-owned transfer task/items and audit rows by tenant `122`, marker `codex-20260802-dcc-uncontrolled-local-import`, audit task id `1`, and `source_type='NAS_UNCONTROLLED_IMPORT'`; do not delete unrelated NAS, DCC or tenant data.
+- Boundary: M30 mutated only the local Docker test database and task-owned migration/test/doc files; it did not write NAS files, local user directories, remote servers, workflow submissions, controlled files or ACTIVE NAS source mappings.
+
+### M31
+
+- Status: completed for independent completion audit blocker clarity; full real page E2E remains blocked on authorized shared NAS source bytes.
+- BDD: Full real page E2E blocker is explicit -> Given `real:check` proves runtime schema, browser File System Access API and task-owned audit rows When the full real E2E command is run without check mode Then it must fail fast with a blocker that names authorized shared NAS source files for `DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID`, and must not imply the prerequisite gate is enough to claim page download success.
+- RED: `node tests\e2e\dcc-nas-uncontrolled-local-import-static.spec.js` -> FAIL, expected reason: `dcc-nas-uncontrolled-local-import-real.e2e.js` still told users to run `real:check` first instead of explicitly naming missing authorized shared NAS source files.
+- GREEN: `node --check tests\e2e\dcc-nas-uncontrolled-local-import-real.e2e.js` -> PASS.
+- GREEN: `node tests\e2e\dcc-nas-uncontrolled-local-import-static.spec.js` -> PASS.
+- GREEN/BLOCKER: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; node tests\e2e\dcc-nas-uncontrolled-local-import-real.e2e.js` -> FAIL as expected, blocker is now `full real page flow requires authorized shared NAS source files for DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID before it can be claimed; run real:check only proves prerequisites.`
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS`.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for 5 scoped M31 files -> PASS, `UTF8_TRAILING_CHECK_PASS files=5`.
+- GREEN: `git diff --check -- <M31 scoped files>` -> PASS, only Git LF-to-CRLF warnings.
+- Project experience consolidation: merged the reusable `real:check` vs full real E2E source-file authorization lesson into `docs/e2e-rules.md#浏览器本地目录写入门禁` and indexed it in `docs/experience-index.md`.
+- GREEN: `rg -n "real:check|授权.*源文件|full 真实页面" docs\e2e-rules.md docs\experience-index.md` -> PASS, the new route points to the browser local-directory write gate.
+- GREEN: final acceptance validator, UTF-8/trailing whitespace check for 7 scoped files, and scoped `git diff --check` -> PASS after experience consolidation; diff-check only reports Git LF-to-CRLF warnings.
+- Boundary: M31 changed only the executable E2E blocker wording, static contract, and task evidence. It did not create NAS files, write local folders, mutate runtime DB, submit workflow, create controlled files, or write ACTIVE NAS source mappings.
+
+### M32
+
+- Status: completed for pending-review local download behavior; full real page E2E remains blocked on authorized shared NAS source bytes.
+- BDD: Pending-review files can be locally downloaded only -> Given audit files are `UNCLASSIFIED_PENDING` or `AMBIGUOUS` with backend expected paths under `_未分类待处理` When the user explicitly selects them for local download Then the page and backend allow content download/local write, mark the item `LOCAL_WRITTEN` and `PENDING_MANUAL_REVIEW`, and do not create a DCC controlled file, submit workflow, read archive metadata, or write ACTIVE NAS source mapping.
+- RED: frontend static contract initially failed because `isNasUncontrolledFileImportSelectable` allowed only `MATCHED` rows; expected failure locked that `MATCHED`, `UNCLASSIFIED_PENDING`, and `AMBIGUOUS` must all be selectable when snapshot/path prerequisites are present.
+- RED: targeted backend Maven initially failed because pending-review import selection, content download and local-write-result paths rejected `PENDING_MANUAL_REVIEW`, and ambiguous recognition left archive status `NOT_STARTED` instead of pending manual review.
+- RED: `real:check` initially failed because audit task `1` lacked a `UNCLASSIFIED_PENDING/AMBIGUOUS` row with an `_未分类待处理` expected local path, proving the runtime fixture was too weak.
+- Completed: recognition now writes `_未分类待处理/<原 NAS 相对路径>` and `archiveStatus=PENDING_MANUAL_REVIEW` for unresolved or ambiguous rows; import-selected/content/local-write-result allow those rows for local download only; non-matched local-write success remains pending manual review with no archive side effects.
+- Completed: NAS page selection now allows `MATCHED`, `UNCLASSIFIED_PENDING`, and `AMBIGUOUS` rows only when audit id, source signature, expected local path and terminal-state guards are satisfied; the prompt now asks users to select downloadable uncontrolled files rather than only uniquely matched files.
+- Completed: real E2E prerequisite gate now requires `PENDING_PATH` evidence for `_未分类待处理` and the local Docker fixture row `id=2` under audit task `1` was updated to `expected_local_relative_path='_未分类待处理/codex-dcc-uncontrolled-local-import/unknown/Needs-Manual-Project.pdf'` and `archive_status='PENDING_MANUAL_REVIEW'`.
+- GREEN: `node --check tests\e2e\dcc-nas-uncontrolled-local-import-real.e2e.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS`.
+- GREEN/BLOCKER: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; node tests\e2e\dcc-nas-uncontrolled-local-import-real.e2e.js` -> expected fail-fast with `full real page flow requires authorized shared NAS source files...`.
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-dcc -am -rf :yudao-module-dcc "-Dmaven.resources.skip=true" "-Dtest=DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksUnclassifiedPendingWhenCategoryMissing,DccNasControlAuditServiceImplTest#recognizeUncontrolledFileDetails_marksAmbiguousWhenProjectOrCategoryHasMultipleCandidates,DccControlledFileNasTransferServiceTest#createUncontrolledImportTask_allowsPendingReviewFilesForLocalDownloadOnly,DccControlledFileNasTransferServiceTest#readUncontrolledImportContent_returnsPendingReviewBinaryWithoutArchiving,DccControlledFileNasTransferServiceTest#recordUncontrolledImportLocalWriteResult_marksPendingReviewLocalWrittenWithoutArchiveSideEffects" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- GREEN: UTF-8/trailing whitespace check for 14 scoped M32 files -> PASS, `UTF8_TRAILING_CHECK_PASS files=14`.
+- GREEN: `git diff --check -- <M32 scoped task/backend/frontend/acceptance/experience files>` -> PASS, only Git LF-to-CRLF warnings.
+- Project experience consolidation: merged the reusable rule that pending/unclassified local-directory downloads must be covered by static contracts, fixtures and real gates into `docs/e2e-rules.md#浏览器本地目录写入门禁`, and indexed `_未分类待处理` / `PENDING_MANUAL_REVIEW` keywords in `docs/experience-index.md`.
+- Boundary: M32 changed task-owned code/tests/docs and one task-owned local Docker fixture row only. It did not write shared NAS source files, write local user directories, submit workflow, create controlled files, or write ACTIVE NAS source mappings.
+
+### M33
+
+- Status: completed for current executable gate revalidation; overall task remains blocked on authorized shared NAS source bytes.
+- BDD: Full page E2E remains blocked until source bytes are authorized -> Given static contracts and `real:check` pass for audit task `1` When the full real E2E is run without confirmed task-owned shared NAS source files Then it must fail fast with the authorized-source-file blocker and must not claim real local download/classification success.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS, command exited `0`.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS`.
+- GREEN/BLOCKER: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; node tests\e2e\dcc-nas-uncontrolled-local-import-real.e2e.js` -> FAIL as expected, blocker is `full real page flow requires authorized shared NAS source files for DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID before it can be claimed; run real:check only proves prerequisites.`
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, `BDD/TDD acceptance plan validation passed.`
+- Boundary: M33 did not write shared NAS files, local user directories, runtime business rows, workflow submissions, controlled files, or ACTIVE NAS source mappings; only current gate evidence was refreshed in this task log.
+
+### M34
+
+- Status: blocked by shared NAS write permission after explicit user authorization.
+- BDD: Authorized shared NAS source setup is required for full page E2E -> Given the user authorizes creating or confirming the 3 task-owned source files in the shared NAS test area When the full E2E prepares source bytes Then it must create or verify the real NAS files before clicking the page import flow; if the configured NAS account cannot write the test directory, the run must fail fast and must not claim local download/classification PASS.
+- User authorization: 用户明确允许“在共享 NAS 测试目录创建/确认这 3 个任务测试文件并跑 full E2E”。
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS, command exited `0`.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS`.
+- RED/BLOCKER: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; $env:DCC_NAS_UNCONTROLLED_IMPORT_ALLOW_NAS_WRITE='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real` -> FAIL, expected blocker after authorization is `prepareSharedNasSourceFiles failed: New-Item : Access to the path 'codex-dcc-uncontrolled-local-import' is denied`.
+- Impact: full real page E2E cannot currently reach the red-box-button user path because source file preparation fails before browser selection/local write; this is a NAS permission precondition, not a static contract, runtime schema, browser capability, or implementation-success failure.
+- Required next precondition: grant the configured NAS account write permission to the task-owned test directory under `\\172.30.30.4\质量体系文件`, provide an existing writable subdirectory and update the fixture/script path accordingly, or manually place and confirm the 3 expected source files before rerunning full E2E.
+- Boundary: M34 did not persist shared NAS test files because directory creation was denied; it did not write browser local files, submit workflow, create controlled files, or write ACTIVE NAS source mappings.
+
+### M35
+
+- Status: completed for the user-updated scope: do not write NAS; select 3 already-existing files under `\\172.30.30.4\质量体系文件` for full verification.
+- BDD: Existing NAS files drive full local import -> Given the NAS share already contains 3 source files and the user clicks the red-box uncontrolled-file download button When the page imports the selected matched and pending-review files Then the browser directory picker writes them into the expected local project/category and `_未分类待处理` paths, reports local-write results, keeps unresolved files in manual review, and creates no ACTIVE NAS source mapping.
+- User scope change: 用户明确要求“不要写了,从\\172.30.30.4\质量体系文件选3个已经存在的文件进行验证”； completion gate was updated from NAS test-file creation to read-only NAS source verification.
+- Runtime fix: `48081` initially ran `backend-runtime-control-20260804-dcc-upload-onlyoffice-document-url.jar`; a task-owned runtime jar `backend-runtime-control-20260804-dcc-nas-uncontrolled-import.jar` was created by injecting only the fixed `NasBrowserServiceImpl*` classes into the old embedded infra jar and writing `BOOT-INF/lib/yudao-module-infra-2026.04-SNAPSHOT.jar` with `jar uf0`.
+- RED: first runtime injection replaced the whole infra jar -> FAIL, expected reason: old runtime DCC code required `FileDirectLinkAccessGuard.class`; restored old backend and changed packaging to preserve the old embedded infra jar while replacing only NAS browser classes.
+- RED: second runtime injection used compressed nested jar -> FAIL, expected reason: Spring Boot nested jars under `BOOT-INF/lib` must remain uncompressed; `python -X utf8 -c "<zip info>"` showed `compress_type=8` versus old jar `compress_type=0`; changed outer update to `jar uf0`.
+- GREEN: runtime switch -> PASS, `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` returned `{"status":"UP"}`, `netstat` showed `48081` listener PID `14800`, and `jps -lv` showed `backend-runtime-control-20260804-dcc-nas-uncontrolled-import.jar`.
+- RED: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real` -> FAIL, expected reason: E2E assumed `.pdf` files start with `%PDF`, but the existing NAS files are valid source bytes whose first bytes are not `%PDF`.
+- GREEN: updated full E2E to hash existing NAS source bytes with PowerShell provider reads plus .NET SHA-256 and compare local output length/hash instead of file extension magic; `node --check tests\e2e\dcc-nas-uncontrolled-local-import-real.e2e.js` -> PASS.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS, including the no-NAS-write and SHA-256 byte-equality static contracts.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS`.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_E2E_PASS`; summary path `doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\artifacts\local-import-full-e2e\dcc-nas-uncontrolled-local-import-full-summary.json`.
+- GREEN: local file evidence -> PASS, `PTCABC/设计验证方案/2025年质量方针与目标.pdf` length `504442` sha256 `ed996c8069d4e4a8ca13cfce20a2389f6f973c1d34e7fbe78ce5a9cdeb9578c6`; `_未分类待处理/1. QMS documents/0 QM/2026年质量方针与目标(1).pdf` length `487322` sha256 `89de57954568a630dda388f3ad61120c511b5efd7f3c4d5f9d1e551039a191b9`.
+- GREEN: final read-only DB verification -> PASS, audit row `1` is `LOCAL_WRITTEN/FAILED/ARCHIVE_METADATA_REQUIRED` with no controlled file; audit row `2` is `LOCAL_WRITTEN/PENDING_MANUAL_REVIEW`; `NAS_UNCONTROLLED_IMPORT` task count is `1`; local-written item count is `2`; target path `dcc_controlled_file_nas_source` count for `source_type='NAS_UNCONTROLLED_IMPORT'` is `0`.
+- Project experience consolidation: merged the reusable existing-NAS-file SHA-256 verification lesson into `docs/e2e-rules.md#浏览器本地目录写入门禁`, and merged the Spring Boot nested jar `jar uf0` hot-swap lesson into `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`; indexed both in `docs/experience-index.md`.
+- GREEN: cleanup evidence validators before apply -> PASS, `validate_backend_api.py`, `validate_database_schema.py`, and `validate_frontend_feature.py` all reported valid evidence.
+- GREEN: task-closeout cleanup -> PASS, preview and apply both reported `blocked: <none>` and `warnings: <none>`; post-apply preview reports `delete: <none>`.
+- Commit/push gate: not executed because current `int_main` workspace has unrelated concurrent dirty files and is `ahead 3, behind 2` versus `origin/int_main`; task-owned verification is complete, but final `completed` status remains pending safe commit/push boundary resolution.
+- Boundary: M35 did not create, overwrite or delete shared NAS files. It wrote only browser-harness local files under the task artifact directory, updated task-owned test/script/docs, restarted the local `48081` runtime with a task-owned jar, and mutated task-owned local Docker fixture/import rows required by the real E2E.
+
+### M36
+
+- Status: completed for commit/merge closeout after user authorization.
+- User authorization: 用户要求“先提交前后端然后融合合并”。
+- GREEN: `git diff --check -- IntRuoyiBackend IntRuoyiFronted` -> PASS, no whitespace errors; only Git LF-to-CRLF warnings were reported in earlier scoped checks.
+- GREEN: `git add -- IntRuoyiBackend IntRuoyiFronted` followed by `git diff --cached --name-status` -> PASS, staged 16 frontend/backend files only.
+- GREEN: `git diff --cached --check` -> PASS.
+- GREEN: `git commit -m "chore: baseline frontend and backend changes before merge"` -> PASS, commit `a564e19cc`.
+- Baseline commit scope: DCC upload/OnlyOffice backend/frontend changes, DCC NAS uncontrolled import frontend/backend/runtime test changes, MES team leader workbench frontend change, and related frontend E2E tests.
+- Merge preflight: `git fetch origin int_main` and `git -c http.proxy= -c https.proxy= fetch origin int_main` both failed with `Failed to connect to github.com port 443 via 127.0.0.1`; `git config --show-origin --get-regexp ...proxy...` showed no Git proxy config, `Test-NetConnection github.com -Port 443` succeeded, and `Test-NetConnection 127.0.0.1 -Port 7890` failed. This indicates a system-level Git proxy interception remains before final push/fetch can complete.
+- GREEN: `git commit -m "docs: record DCC NAS validation closeout evidence"` -> PASS, commit `231dddee7`.
+- GREEN: `git merge --no-edit origin/int_main` -> PASS after resolving add/add PQC planning document conflicts by taking the remote completed/ready-for-closeout versions instead of the stale local pending versions; merge commit `d865d4189`.
+- GREEN: `$env:NO_PROXY='github.com'; $env:no_proxy='github.com'; git fetch origin int_main` -> PASS after bypassing the unavailable local proxy route, then remote advanced by 4 PQC implementation commits.
+- GREEN: second `git merge --no-edit origin/int_main` -> PASS with automatic merges in PQC/MES code, `docs/backend-development.md`, `docs/experience-index.md`, and `TeamLeaderWorkbenchPage.vue`; merge commit `6db2b752f`.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS after both merges.
+- GREEN: push preflight large object scan -> PASS, max object size `481806` bytes.
+- BLOCKED: final `$env:NO_PROXY='github.com'; $env:no_proxy='github.com'; git fetch origin int_main` / `git push origin int_main` cannot complete because GitHub HTTPS 443 is currently unreachable from the workstation. `git ls-remote origin HEAD` briefly succeeded with `NO_PROXY`, but subsequent direct fetch/ls-remote failed with `Failed to connect to github.com port 443 after 21101 ms`, `Test-NetConnection github.com -Port 443` returned `TcpTestSucceeded: False`, and the local 8902 proxy path returned `Recv failure: Connection was reset`.
+- Current Git state at the time: `int_main` was locally ahead of `origin/int_main` by 7 commits and no longer behind at the last successful fetch/merge point; tracked working tree was clean, with only unrelated untracked task directories remaining. This was superseded by M37 when the user explicitly changed the completion gate to local fusion verification.
+
+### M37
+
+- Status: completed after user changed the completion gate.
+- User scope change: 用户明确要求“不用推送,本地融合验证完就算目标完成”。
+- Completion gate update: remote `git push origin int_main` and final "not ahead of origin" checks are removed from this task's completion criteria by explicit user override; local `int_main` fusion plus documented verification is now the final gate.
+- Evidence retained: frontend/backend baseline commit `a564e19cc`, task evidence commit `231dddee7`, local merge commits `d865d4189` and `6db2b752f`, post-merge `pnpm e2e:dcc:nas-uncontrolled-local-import:static` PASS, cleanup preview/apply PASS, and M35 full real E2E PASS using existing NAS files.
+- Boundary: no new NAS write, no remote push, no destructive Git operation, and no staging of unrelated concurrent task files was performed for this scope change.
+
+### M38
+
+- Status: completed for post-fusion full E2E revalidation on local `int_main`.
+- BDD: Post-fusion existing-NAS local import remains valid -> Given local `int_main` has completed the approved fusion and the existing NAS file fixture is still available When the red-box uncontrolled-file local import E2E is rerun Then static contracts, prerequisite checks, browser directory writes, SHA-256 byte equality and backend status side effects must all pass without creating or overwriting shared NAS files.
+- GREEN: prerequisite gate -> PASS, `npx` is available at `D:\Programs\npx.ps1`, package scripts `e2e:dcc:nas-uncontrolled-local-import:static`, `real:check` and `real` exist, and both E2E files exist.
+- GREEN: local runtime gate -> PASS, `http://127.0.0.1:48081/actuator/health` returned `UP`, `http://127.0.0.1:8081/` returned HTTP `200`, backend PID `14800` runs `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260804-dcc-nas-uncontrolled-import.jar`, and frontend PID `28264` runs Vite on `8081`.
+- GREEN: `pnpm e2e:dcc:nas-uncontrolled-local-import:static` -> PASS.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real:check` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_CHECK_PASS`.
+- GREEN: `$env:DCC_NAS_UNCONTROLLED_IMPORT_AUDIT_TASK_ID='1'; pnpm e2e:dcc:nas-uncontrolled-local-import:real` -> PASS, `DCC_NAS_UNCONTROLLED_LOCAL_IMPORT_REAL_E2E_PASS`.
+- GREEN: summary artifact -> PASS, `doc\tasks\20260802-dcc-uncontrolled-file-local-import-design\artifacts\local-import-full-e2e\dcc-nas-uncontrolled-local-import-full-summary.json` shows `nasReadyCount=3`, one `import-selected`, two `content`, two `local-write-result`, directory handle/write/close events for the matched path and `_未分类待处理`, `TASK_COUNT=1`, `LOCAL_WRITTEN_ITEMS=2`, and `ACTIVE_SOURCE_COUNT=0`.
+- Boundary: M38 did not write shared NAS files, did not push to remote, did not rebuild from the dirty workspace, and did not stage unrelated concurrent task files.

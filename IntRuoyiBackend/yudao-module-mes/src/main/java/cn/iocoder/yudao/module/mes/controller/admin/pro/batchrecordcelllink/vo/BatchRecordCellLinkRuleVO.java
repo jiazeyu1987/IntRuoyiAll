@@ -30,6 +30,7 @@ public class BatchRecordCellLinkRuleVO {
     private String targetCellKey;
     private String targetLabel;
     private String targetValueType;
+    private String aggregationStrategy;
     private String overwritePolicy;
     private String templateSnapshotHash;
     private Long ruleVersion;

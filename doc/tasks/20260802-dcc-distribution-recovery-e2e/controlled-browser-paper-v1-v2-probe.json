@@ -1,0 +1,22 @@
+{
+  "fileNumber": "CODX-DCC-DIST-REC-DISTREC20260802173908",
+  "actor": "wangsiyu",
+  "startedAt": "2026-08-02T10:16:35.555Z",
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "browserUrl": "http://127.0.0.1:8081/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-DIST-REC-DISTREC20260802173908&pageNo=1&pageSize=20",
+  "total": 1,
+  "rows": [
+    {
+      "id": "2054545668044070280",
+      "fileNumber": "CODX-DCC-DIST-REC-DISTREC20260802173908",
+      "versionNo": "V2.0",
+      "status": "ACTIVE"
+    }
+  ],
+  "v1Visible": false,
+  "v2Visible": true,
+  "status": "PASS",
+  "finishedAt": "2026-08-02T10:16:40.770Z"
+}

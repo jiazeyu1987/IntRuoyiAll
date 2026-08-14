@@ -29,7 +29,7 @@ const mainVersionSection = extractBetween(
 const versionDialogSection = extractBetween(
   detailPage,
   'data-testid="dcc-controlled-preview-version-dialog"',
-  '<ControlledFileMetadataDialog',
+  'data-testid="dcc-controlled-print-dialog"',
   'version preview dialog'
 )
 

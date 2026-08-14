@@ -407,7 +407,8 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/approval-center/index.vue'),
         name: 'ApprovalCenterTodo',
         meta: {
-          noCache: true,
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
           canTo: true,
           title: '待办',
           approvalTodoBadge: true,
@@ -422,7 +423,8 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/approval-center/index.vue'),
         name: 'ApprovalCenterDone',
         meta: {
-          noCache: true,
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
           canTo: true,
           title: '已办',
           tagsViewKey: '/approval-center',
@@ -436,7 +438,8 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/approval-center/index.vue'),
         name: 'ApprovalCenterMyInitiated',
         meta: {
-          noCache: true,
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
           canTo: true,
           title: '我发起的',
           tagsViewKey: '/approval-center',
@@ -450,7 +453,8 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/approval-center/index.vue'),
         name: 'ApprovalCenterCc',
         meta: {
-          noCache: true,
+          noCache: false,
+          keepAliveName: 'ApprovalCenterWorkbench',
           canTo: true,
           title: '抄送我的',
           tagsViewKey: '/approval-center',
@@ -1145,7 +1149,15 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/dcc/controlled-file/detail/index.vue'),
         name: 'DccControlledFileDetail',
         beforeEnter: (to) => {
-          if (String(to.query.viewer || '') === '1') {
+          const isApprovalHandling =
+            String(to.query.handling || '') === 'approval' &&
+            String(to.query.from || '') === 'approval-center' &&
+            Boolean(String(to.query.processInstanceId || '') || String(to.query.taskId || ''))
+          const isBrowserTraceability =
+            String(to.query.traceability || '') === '1' &&
+            String(to.query.from || '') === 'browser' &&
+            Boolean(String(to.query.returnTo || ''))
+          if (String(to.query.viewer || '') === '1' || isApprovalHandling || isBrowserTraceability) {
             return true
           }
           return { name: 'DccControlledFileBrowser' }
@@ -1677,6 +1689,21 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-release',
+        component: () => import('@/views/mes/pro/edhr-release/ReleasePage.vue'),
+        name: 'MesProEdhrReleasePage',
+        meta: {
+          noCache: true,
+          tagsViewKeyMode: 'path',
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '放行追溯',
+          activeMenu: '/mes/pro/feedback/edhr-release',
+          permission: ['mes:pro-edhr-release:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-field-audit',
         component: () => import('@/views/mes/pro/edhr/FieldAuditPage.vue'),
         name: 'MesProFeedbackEdhrFieldAudit',
@@ -1845,20 +1872,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'pro/feedback/edhr-batch-history',
-        component: () => import('@/views/mes/pro/edhr-batch/BatchRecordHistoryPage.vue'),
-        name: 'MesProEdhrBatchHistory',
-        meta: {
-          noCache: false,
-          hidden: true,
-          canTo: true,
-          icon: '',
-          title: '历史批记录',
-          activeMenu: '/mes/pro/feedback/edhr-batch-history',
-          permission: ['mes:pro-edhr-batch-execution:query']
-        }
-      },
-      {
         path: 'pro/feedback/edhr-batch-production-fill',
         component: () => import('@/views/mes/pro/edhr-batch/BatchProductionFillPage.vue'),
         name: 'MesProEdhrBatchProductionFill',
@@ -1867,7 +1880,7 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: '生产填写',
+          title: '一线生产',
           activeMenu: '/mes/pro/feedback/edhr-batch-production-fill',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
@@ -1881,8 +1894,22 @@ const remainingRouter: AppRouteRecordRaw[] = [
           hidden: true,
           canTo: true,
           icon: '',
-          title: 'PQC填写',
+          title: '一线PQC',
           activeMenu: '/mes/pro/feedback/edhr-batch-pqc-fill',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
+        path: 'pro/feedback/edhr-batch-test',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchRecordTestPage.vue'),
+        name: 'MesProEdhrBatchRecordTest',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '批记录测试',
+          activeMenu: '/mes/pro/feedback/edhr-batch-test',
           permission: ['mes:pro-edhr-batch-execution:query']
         }
       },
@@ -1982,6 +2009,48 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: '工序池班组长工作台',
           activeMenu: '/mes/pro/process-pool/team-leader',
           permission: ['mes:pro-process-pool-team-leader:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/qa-regulation',
+        component: () => import('@/views/mes/pro/processpool/QaRegulationPage.vue'),
+        name: 'MesProProcessPoolQaRegulation',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'QA 规程配置',
+          activeMenu: '/mes/pro/process-pool/qa-regulation',
+          permission: ['mes:qa-inspection-regulation:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/production-leader',
+        component: () => import('@/views/mes/pro/processpool/ProductionLeaderWorkbenchPage.vue'),
+        name: 'MesProProcessPoolProductionLeaderWorkbench',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '生产组长',
+          activeMenu: '/mes/pro/process-pool/production-leader',
+          permission: ['mes:pro-process-pool-team-leader:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/pqc-leader',
+        component: () => import('@/views/mes/pro/processpool/PqcLeaderWorkbenchPage.vue'),
+        name: 'MesProProcessPoolPqcLeaderWorkbench',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'PQC组长',
+          activeMenu: '/mes/pro/process-pool/pqc-leader',
+          permission: ['mes:pro-process-pool-pqc-leader:query']
         }
       },
       {

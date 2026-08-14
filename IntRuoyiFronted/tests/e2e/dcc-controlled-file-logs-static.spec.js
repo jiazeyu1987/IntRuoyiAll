@@ -47,6 +47,11 @@ assert.match(
   /url:\s*'\/dcc\/controlled-file-logs\/page'/,
   '文控日志 API 必须调用统一后端分页接口'
 )
+assert.match(
+  logsApi,
+  /ignoreErrorMessage:\s*true/,
+  '文控日志主查询错误必须由页面 loadError 统一展示，禁止 axios 全局提示和页面提示重复弹出系统异常'
+)
 assert.match(logsApi, /DccControlledFileLogPageReqVO/, '文控日志 API 必须声明请求类型')
 assert.match(logsApi, /DccControlledFileLogRespVO/, '文控日志 API 必须声明响应类型')
 

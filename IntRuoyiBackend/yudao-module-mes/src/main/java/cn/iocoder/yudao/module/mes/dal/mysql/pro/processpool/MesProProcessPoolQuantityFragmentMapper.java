@@ -15,4 +15,32 @@ public interface MesProProcessPoolQuantityFragmentMapper extends BaseMapperX<Mes
                 .eq(MesProProcessPoolQuantityFragmentDO::getEventId, eventId)
                 .orderByAsc(MesProProcessPoolQuantityFragmentDO::getId));
     }
+
+    default List<MesProProcessPoolQuantityFragmentDO> selectListByEventIdForUpdate(Long eventId) {
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolQuantityFragmentDO>()
+                .eq(MesProProcessPoolQuantityFragmentDO::getEventId, eventId)
+                .orderByAsc(MesProProcessPoolQuantityFragmentDO::getId)
+                .last("FOR UPDATE"));
+    }
+
+    default List<MesProProcessPoolQuantityFragmentDO> selectListByProductionSubmitEventIdForUpdate(
+            Long productionSubmitEventId) {
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolQuantityFragmentDO>()
+                .eq(MesProProcessPoolQuantityFragmentDO::getProductionSubmitEventId, productionSubmitEventId)
+                .orderByAsc(MesProProcessPoolQuantityFragmentDO::getId)
+                .last("FOR UPDATE"));
+    }
+
+    default List<MesProProcessPoolQuantityFragmentDO> selectOutputListByProductionSubmitEventIdForUpdate(
+            Long productionSubmitEventId) {
+        if (productionSubmitEventId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolQuantityFragmentDO>()
+                .eq(MesProProcessPoolQuantityFragmentDO::getProductionSubmitEventId, productionSubmitEventId)
+                .eq(MesProProcessPoolQuantityFragmentDO::getSourceQuantityType,
+                        MesProProcessPoolQuantityFragmentDO.SOURCE_QUANTITY_TYPE_OUTPUT)
+                .orderByAsc(MesProProcessPoolQuantityFragmentDO::getId)
+                .last("FOR UPDATE"));
+    }
 }

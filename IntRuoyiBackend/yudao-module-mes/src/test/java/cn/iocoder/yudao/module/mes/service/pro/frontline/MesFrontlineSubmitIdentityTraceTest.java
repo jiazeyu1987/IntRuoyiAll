@@ -16,12 +16,17 @@ class MesFrontlineSubmitIdentityTraceTest {
     private MesFrontlineDeviceAccountContextService contextService;
     @Mock
     private MesFrontlineTemplateResolver templateResolver;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
 
     @BeforeEach
     void setUp() {
-        submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(contextService, templateResolver);
+        submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
+                contextService, templateResolver, activeOrderMapper, processSnapshotMapper);
     }
 
     @Test
@@ -32,7 +37,7 @@ class MesFrontlineSubmitIdentityTraceTest {
                 new MesFrontlineRouteProcessCandidate(101L, "R-101", "Route 101",
                         1001L, 201L, "P-201", "Granulation", 10,
                         501L, "D-501", "Device 501", 301L, "WS-301", "Workstation 301"));
-        when(contextService.requireBoundEmployee(9001L, 101L, 1001L, 201L, 10001L)).thenReturn(
+        when(contextService.requireTeamEmployee(9001L, 101L, 1001L, 201L, 10001L)).thenReturn(
                 new MesFrontlineEmployeeCandidate(10001L, "E1001", "Alice"));
         when(templateResolver.resolve(new MesFrontlineTemplateRequest(9001L, 10001L, 101L, 1001L, 201L))).thenReturn(
                 new MesFrontlineTemplateDescriptor("TPL-201-E1001", "BATCH_RECORD",

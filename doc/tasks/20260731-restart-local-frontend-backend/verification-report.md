@@ -2,22 +2,31 @@
 
 ## Result
 
-blocked
+ready_for_closeout
 
 ## Checks
 
-- `8081` 端口：仍由重启前旧 Vite 进程 `57460` 监听，full 脚本未执行到前端重启。
-- `48081` 端口：未监听，旧后端已在标准重启过程中停止，新后端未成功启动。
-- 后端 Maven 打包：`mvn -pl yudao-server -am -DskipTests package` 连续两次停在 `yudao-module-infra` javac class 写入阶段，未生成新的启动 Jar。
-- JVM 线程栈：`jcmd Thread.print` 显示 Maven 主线程停在 `sun.nio.ch.FileDispatcherImpl.write0` / `com.sun.tools.javac.jvm.ClassWriter.writeClass`。
+- `8081` 端口：标准 Vite 前端 PID `14800` 正常监听，命令行归属 `E:\IntRuoyi\IntRuoyiFronted`。
+- 前端入口：`http://127.0.0.1:8081/` 返回 HTTP 200。
+- Vite 依赖缓存：`node_modules\.vite-env-local-8081\deps\_metadata.json` 存在。
+- `48081` 端口：Java PID `37212` 正常监听，运行 Jar 与 `repo-root` 均归属当前 `E:\IntRuoyi` 主工作区。
+- 后端健康检查：`http://127.0.0.1:48081/actuator/health` 返回 `{"status":"UP"}`。
+- 本地依赖：`int-ruoyi-mysql`、`int-ruoyi-redis` 正常运行，`docker-minio-1` 为 healthy。
 
 ## Evidence Files
 
-- `doc/tasks/20260731-restart-local-frontend-backend/restart-full.log`
-- `doc/tasks/20260731-restart-local-frontend-backend/restart-full-retry2.log`
+- `output/runtime/int_main/frontend-runtime-control-20260731-180652.out.log`
+- `output/runtime/int_main/frontend-runtime-control-20260731-180652.err.log`
+- `output/runtime/int_main/backend-runtime-control-20260731-200535.out.log`
+- `output/runtime/int_main/backend-runtime-control-20260731-200535.err.log`
+- `output/runtime/int_main/frontend-runtime-control-20260731-200542.out.log`
+- `output/runtime/int_main/frontend-runtime-control-20260731-200542.err.log`
 
-## Not Completed
+旧失败启动日志与诊断 debug 日志的关键结论已归档到本报告和 `execution-log.md`，原始临时日志按 closeout 规则清理。
 
-- 未通过 `http://127.0.0.1:48081/actuator/health` 的 `status=UP` 验证。
-- 未通过重启后 `http://127.0.0.1:8081/` HTTP 200 验证。
-- 未执行 fallback：未用旧 runtime Jar 代替标准打包启动，未换端口，未停止非本任务进程。
+## Final Result
+
+- 前后端启动与规定入口验证已通过。
+- 未执行 fallback：未换端口、未切换依赖源、未使用 mock、未停止无关进程。
+- task-closeout-cleanup preview/apply 均通过，核心任务记录保留，任务临时日志已清理。
+- Git 提交/推送因共享 `int_main` 并行脏改动和任务期间新提交而阻塞；按所有权门禁未把无关任务改动纳入本任务提交，因此状态保持 `ready_for_closeout`。

@@ -16,4 +16,54 @@ public interface MesProcessPoolTeamLeaderScopeMapper extends BaseMapperX<MesProc
                 .eqIfPresent(MesProcessPoolTeamLeaderScopeDO::getLeaderType, leaderType)
                 .eq(MesProcessPoolTeamLeaderScopeDO::getEnabled, Boolean.TRUE));
     }
+
+    default List<MesProcessPoolTeamLeaderScopeDO> selectActiveScopesByLeaderType(String leaderType) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolTeamLeaderScopeDO>()
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderType, leaderType)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getEnabled, Boolean.TRUE)
+                .orderByAsc(MesProcessPoolTeamLeaderScopeDO::getLeaderUserId)
+                .orderByAsc(MesProcessPoolTeamLeaderScopeDO::getEmployeeUserId));
+    }
+
+    default List<MesProcessPoolTeamLeaderScopeDO> selectPqcEmployeeScopes(Long leaderUserId, Boolean enabled) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolTeamLeaderScopeDO>()
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderUserId, leaderUserId)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderType,
+                        MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getScopeType,
+                        MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE)
+                .eqIfPresent(MesProcessPoolTeamLeaderScopeDO::getEnabled, enabled)
+                .orderByAsc(MesProcessPoolTeamLeaderScopeDO::getId));
+    }
+
+    default MesProcessPoolTeamLeaderScopeDO selectPqcEmployeeScope(Long leaderUserId, Long employeeUserId) {
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolTeamLeaderScopeDO>()
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderUserId, leaderUserId)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderType,
+                        MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getScopeType,
+                        MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getEmployeeUserId, employeeUserId));
+    }
+
+    default MesProcessPoolTeamLeaderScopeDO selectProductionEmployeeScope(Long leaderUserId, Long employeeUserId) {
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolTeamLeaderScopeDO>()
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderUserId, leaderUserId)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderType,
+                        MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getScopeType,
+                        MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getEmployeeUserId, employeeUserId));
+    }
+
+    default List<MesProcessPoolTeamLeaderScopeDO> selectActivePqcEmployeeScopesByEmployeeUserId(Long employeeUserId) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolTeamLeaderScopeDO>()
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderType,
+                        MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getScopeType,
+                        MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getEmployeeUserId, employeeUserId)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getEnabled, Boolean.TRUE)
+                .orderByAsc(MesProcessPoolTeamLeaderScopeDO::getLeaderUserId));
+    }
 }

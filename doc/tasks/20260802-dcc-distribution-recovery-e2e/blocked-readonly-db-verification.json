@@ -1,0 +1,100 @@
+{
+  "files": [
+    {
+      "id": "2054545668044070279",
+      "status": "SUPERSEDED",
+      "masterId": "2054545668044062889",
+      "versionNo": "V1.0",
+      "categoryId": "907233",
+      "categoryName": "过程检验规程"
+    },
+    {
+      "id": "2054545668044070280",
+      "status": "ACTIVE",
+      "masterId": "2054545668044062889",
+      "versionNo": "V2.0",
+      "categoryId": "907233",
+      "categoryName": "过程检验规程"
+    }
+  ],
+  "master": {
+    "id": "2054545668044062889",
+    "status": "ACTIVE_CHAIN",
+    "currentActiveControlledFileId": "2054545668044070280"
+  },
+  "fileNumber": "CODX-DCC-DIST-REC-DISTREC20260802173908",
+  "distributions": [
+    {
+      "id": "4323",
+      "status": "PENDING",
+      "versionNo": "V1.0",
+      "fileStatus": "SUPERSEDED",
+      "recipients": [],
+      "recoveredAt": null,
+      "recoveredBy": null,
+      "departmentId": 144,
+      "acknowledgedAt": null,
+      "acknowledgedBy": null,
+      "controlledFileId": "2054545668044070279",
+      "distributionMedium": "PAPER",
+      "recoveredByUsername": null,
+      "acknowledgedByUsername": null
+    },
+    {
+      "id": "4324",
+      "status": "PENDING",
+      "versionNo": "V2.0",
+      "fileStatus": "ACTIVE",
+      "recipients": [],
+      "recoveredAt": null,
+      "recoveredBy": null,
+      "departmentId": 144,
+      "acknowledgedAt": null,
+      "acknowledgedBy": null,
+      "controlledFileId": "2054545668044070280",
+      "distributionMedium": "PAPER",
+      "recoveredByUsername": null,
+      "acknowledgedByUsername": null
+    }
+  ],
+  "categoryPermissionRules": [
+    {
+      "id": "2574",
+      "active": 1,
+      "scopeType": "GLOBAL",
+      "subjectId": "910414",
+      "actionType": "UPLOAD",
+      "categoryId": "907233",
+      "subjectType": "ROLE"
+    },
+    {
+      "id": "2609",
+      "active": 1,
+      "scopeType": "GLOBAL",
+      "subjectId": "151",
+      "actionType": "UPLOAD",
+      "categoryId": "907233",
+      "subjectType": "USER"
+    },
+    {
+      "id": "2610",
+      "active": 1,
+      "scopeType": "GLOBAL",
+      "subjectId": "910250",
+      "actionType": "UPLOAD",
+      "categoryId": "907233",
+      "subjectType": "USER"
+    },
+    {
+      "id": "2611",
+      "active": 1,
+      "scopeType": "GLOBAL",
+      "subjectId": "910250",
+      "actionType": "APPROVE",
+      "categoryId": "907233",
+      "subjectType": "USER"
+    }
+  ],
+  "checkedAt": "2026-08-02T10:17:09.580Z",
+  "permissionBlocker": true
+}

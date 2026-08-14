@@ -1,0 +1,32 @@
+# Execution Log：一线提交到生产组长显示链路修复
+
+- 2026-08-09 USER INTENT：用户要求补齐一线生产“提交成功 -> 生产组长显示”链路。
+- 2026-08-09 RULES READ：已读取 `bug-regression-fix-loop` 与 evidence contract、`docs/task-closeout-rules.md`、`docs/backend-development.md`、`docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/powershell-encoding.md` 和 `docs/experience-index.md` 匹配门禁。
+- BDD: 唯一生产组长看见一线正式提交 -> Given 一线生产按正式员工陈丽完成唯一一次签名提交并生成事件 `192` / When 对应唯一生产组长进入提交日期为 `2026-08-09` 的“报工管理” / Then 列表返回事件 `192`，显示陈丽、粗洗工序和完成数量 `123`，且不需要生产工单上下文。
+- BDD: 未复核提交不进入报工历史 -> Given 事件 `192` 尚无生产组长通过复核 / When 对应组长进入“报工历史” / Then 不显示事件 `192`。
+- BDD: 非负责组长仍不可见 -> Given 另一生产组长不负责陈丽 / When 查询同一提交日期 / Then 列表不返回事件 `192`。
+- 2026-08-09 REPRODUCTION：真实 Playwright 登录 `芋道源码/admin`，进入“生产组长 > 报工管理”；`/team-leader/submission/page?pageNo=1&pageSize=10&leaderType=PRODUCTION&submitDate=2026-08-09` 返回业务码 `0`、`total=0`，页面随后回退到 `2026-08-07` 并显示刘悦悦 5 条旧记录，未出现陈丽。进入“报工历史”显示 `No Data`。全程未发出 MES 写请求。
+- 2026-08-09 DATA SOURCE：复用前序用户明确授权形成的正式事件 `192`、报工 `877`、签名 `3396`；不重复提交、不直接修改业务数据。
+- 2026-08-09 ROOT CAUSE：`MesTeamLeaderWorkbenchServiceImpl` 只按 `MesTeamLeaderScopeService.listResponsibleEmployeeIds` 返回的有效 `PRODUCTION/EMPLOYEE` 范围查询提交事件。事件 `192.actual_employee_id=1681` 与陈丽档案 `system_user_id=1681` 一致，但该档案没有 leader `1` 的员工范围，因此被正式读链路过滤；不是提交事件、工单上下文、日期或前端展示错误。
+- 2026-08-09 DATA PREFLIGHT：本机数据库共有 17 条未删除生产人员档案，其中 15 条启用；14 条档案缺少对应组长员工范围，其中 12 条为启用档案。已有匹配范围的启用状态错位数为 0，档案派生身份 `(tenant_id, leader_user_id, COALESCE(system_user_id,id))` 无重复。
+- 2026-08-09 FIX BOUNDARY：保留 `mes_pro_process_pool_team_leader_scope` 作为唯一读权限来源；不增加读取时从人员档案推断、管理员全量可见、自愈写入或默认组长 fallback。通过正式幂等数据迁移补齐历史档案范围，未来新增/启停继续由既有运行时代码同步。
+- RED: `python -X utf8 -m pytest script/tests/test_mes_team_leader_employee_scope_backfill_sql.py -q` -> FAIL, 3 个迁移契约测试均因正式 SQL 文件尚不存在而失败，符合预期。
+- GREEN: `python -X utf8 -m pytest script/tests/test_mes_team_leader_employee_scope_backfill_sql.py -q` -> PASS, 3 passed。
+- GREEN: `python -X utf8 -c '...run_migration_policy_gate("sql/mysql")...'` -> PASS, 454 个正式迁移通过 metadata、依赖环境和 migrationId 策略校验。
+- 2026-08-09 LOCAL MIGRATION：将 `20260809_mes_team_leader_employee_scope_backfill.sql` 应用到当前本机 MySQL，首次新增 14 条范围；迁移内置缺表、档案派生身份重复、已有范围重复、启用状态错位和迁移后覆盖失败门禁，任一异常均回滚。
+- 2026-08-09 IDEMPOTENCY：同一迁移第二次执行成功，migration marker 行数仍为 14；未重复插入。
+- 2026-08-09 DATA VERIFY：迁移后人员档案缺失范围数 `0`、启用状态错位数 `0`、生产员工有效范围重复组数 `0`；陈丽 `employee_user_id=1681` 已存在 tenant `1` / leader `1` / `PRODUCTION` / `EMPLOYEE` 启用范围 `980054`。
+- 2026-08-09 VERIFY NOTE：首个辅助事件关联查询误用了不存在的 `event.feedback_record_id` 列并返回 SQL `1054`；该查询未写数据，随即改为只用事件表正式列验证，不影响迁移执行和已完成的不变量校验。
+- REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderScopeServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesTeamLeaderWorkbenchServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 24 tests / 0 failures / 0 errors / BUILD SUCCESS。
+- 2026-08-09 RUNTIME：最终 E2E 前发现 `48081` 短暂未监听；未改端口、未启动 worktree、未停止进程。随后确认并发任务已从 `E:\IntRuoyi\output\runtime\int_main\...jar` 启动 `48081`，PID `46904` 归属主工作区且 health `UP`，前端 `8081` 归属 `E:\IntRuoyi`。
+- 2026-08-09 PLAYWRIGHT CLI BLOCKER：命名 CLI 会话在 Windows 触发项目门禁列明的 `UV_HANDLE_CLOSING` 断言，因此未用 CLI 结果放行；会话正常关闭，本任务两个可能含登录预填值的 YAML 快照未回显并已删除，任务 session 进程数为 0。
+- 2026-08-09 E2E HARNESS：新增聚焦的仓库 Playwright 只读脚本 `tests/e2e/production-leader-report-visibility-real.e2e.js`。前三次调试分别修正响应监听时序、Element Plus 页签定位和可见数量断言；这些失败未生成 PASS 结论，也未发送 MES 写请求。
+- GREEN: `node --check tests/e2e/production-leader-report-visibility-real.e2e.js` -> PASS。
+- GREEN: `node tests/e2e/production-leader-report-visibility-real.e2e.js` -> PASS；真实页面 `/mes/pro/process-pool/production-leader` 的“报工管理”返回 HTTP `200` / business code `0` / `total=1`，事件 `192` 对应报工 `877`，可见行显示 `陈丽 / 粗洗工序 / 123 件`；“报工历史”返回 `total=0` 且不含事件 `192`。最终运行 `mesWriteRequests=[]`、`targetRequestFailures=[]`、`nonTargetLocalFailures=[]`、`pageErrors=[]`、`consoleErrors=[]`。
+- 2026-08-09 VISUAL VERIFY：最终截图已人工检查，表格加载遮罩已消失，目标行、页签和分页无重叠；截图仅用于本任务收尾，列入 cleanup candidate。
+- 2026-08-09 EXPERIENCE：按 `project-experience-consolidation` 合并到既有 `docs/backend-development.md#MES 生产人员档案正式工重复关联门禁`，新增历史档案范围正式迁移规则；未新建长期经验文档。
+- GREEN: `validate_bug_regression.py --evidence doc/tasks/20260809-frontline-submit-leader-visibility/bug-evidence.md` -> PASS，Bug regression evidence is valid。
+- GREEN: `validate_database_schema.py --evidence doc/tasks/20260809-frontline-submit-leader-visibility/database-schema-evidence.md` -> PASS，Database schema evidence is valid。首次校验因临时 evidence 使用全角冒号缺少精确 `BDD:/RED:/GREEN:` marker 而失败，补正 evidence marker 后通过；不影响产品或迁移验证。
+- 2026-08-09 CLOSEOUT PREVIEW：`task_closeout.py --mode preview --worktree-closeout off` -> READY；保留 `task.md`、`execution-log.md`、`verification-report.md`，计划删除两份临时 evidence 和本任务 Playwright 输出，blocker `0`、warning `0`。
+- 2026-08-09 CLOSEOUT APPLY：`task_closeout.py --mode apply --worktree-closeout off` -> APPLIED；仅删除 `bug-evidence.md`、`database-schema-evidence.md` 和 `output/playwright/20260809-frontline-submit-leader-visibility`，未执行 Git 或 worktree 操作。
+- 2026-08-09 FINAL STATUS：`completed`；正式迁移、后端回归、真实页面显示、历史页状态、证据校验、经验沉淀和任务清理均已完成。

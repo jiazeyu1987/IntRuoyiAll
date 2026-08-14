@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineReportAllocationReadDO;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -77,6 +78,11 @@ final class ProcessPoolTimelineTestSupport {
                 .setFifoAllocationSummary("已分配 6，待分配 4")
                 .setAuditCopyStatus("PENDING")
                 .setAuditCopySummary("审核副本待生成")
+                .setSubmissionReviewStatus("REJECTED")
+                .setSubmissionReviewRemark("压力填写不正确，已要求修正")
+                .setSubmissionReviewLeaderUserId(3001L)
+                .setSubmissionReviewLeaderUserName("生产组长")
+                .setSubmissionReviewedAt(LocalDateTime.parse("2026-07-30T09:30:00"))
                 .setModificationHistorySummary("原始记录暂无修改");
     }
 
@@ -84,6 +90,9 @@ final class ProcessPoolTimelineTestSupport {
 
         private final List<ProcessPoolTimelineEventReadDO> events;
         private ProcessPoolTimelinePageReqVO lastPageQuery;
+        private int countQueryCalls;
+        private int pageQueryCalls;
+        private int detailQueryCalls;
 
         private InMemoryTimelineReadMapper(List<ProcessPoolTimelineEventReadDO> events) {
             this.events = new ArrayList<>(events);
@@ -93,21 +102,36 @@ final class ProcessPoolTimelineTestSupport {
             return lastPageQuery;
         }
 
+        int getCountQueryCalls() {
+            return countQueryCalls;
+        }
+
+        int getPageQueryCalls() {
+            return pageQueryCalls;
+        }
+
+        int getDetailQueryCalls() {
+            return detailQueryCalls;
+        }
+
         @Override
         public Long selectTimelineCount(ProcessPoolTimelinePageReqVO reqVO) {
+            countQueryCalls++;
             lastPageQuery = reqVO;
             return (long) filter(reqVO).count();
         }
 
         @Override
         public List<ProcessPoolTimelineEventReadDO> selectTimelinePage(ProcessPoolTimelinePageReqVO reqVO) {
+            pageQueryCalls++;
             lastPageQuery = reqVO;
             int pageNo = reqVO.getPageNo() == null ? 1 : reqVO.getPageNo();
             int pageSize = reqVO.getPageSize() == null ? 10 : reqVO.getPageSize();
             long offset = (long) (pageNo - 1) * pageSize;
             return filter(reqVO)
                     .sorted(Comparator.comparing(ProcessPoolTimelineEventReadDO::getSubmittedAt)
-                            .thenComparing(ProcessPoolTimelineEventReadDO::getId))
+                            .thenComparing(ProcessPoolTimelineEventReadDO::getId)
+                            .reversed())
                     .skip(offset)
                     .limit(pageSize)
                     .toList();
@@ -115,18 +139,28 @@ final class ProcessPoolTimelineTestSupport {
 
         @Override
         public ProcessPoolTimelineEventReadDO selectTimelineDetailById(Long id) {
+            detailQueryCalls++;
             return events.stream()
                     .filter(event -> Objects.equals(event.getId(), id))
                     .findFirst()
                     .orElse(null);
         }
 
+        @Override
+        public List<ProcessPoolTimelineReportAllocationReadDO> selectReportAllocationsByEventIds(List<Long> eventIds) {
+            return List.of();
+        }
+
         private Stream<ProcessPoolTimelineEventReadDO> filter(ProcessPoolTimelinePageReqVO reqVO) {
             return events.stream()
-                    .filter(event -> !event.getSubmittedAt().isBefore(reqVO.getSubmittedAtStart()))
-                    .filter(event -> event.getSubmittedAt().isBefore(reqVO.getSubmittedAtEnd()))
+                    .filter(event -> reqVO.getSubmittedAtStart() == null
+                            || !event.getSubmittedAt().isBefore(reqVO.getSubmittedAtStart()))
+                    .filter(event -> reqVO.getSubmittedAtEnd() == null
+                            || event.getSubmittedAt().isBefore(reqVO.getSubmittedAtEnd()))
                     .filter(event -> reqVO.getEmployeeUserId() == null
                             || Objects.equals(event.getActualEmployeeUserId(), reqVO.getEmployeeUserId()))
+                    .filter(event -> reqVO.getEmployeeUserIds() == null || reqVO.getEmployeeUserIds().isEmpty()
+                            || reqVO.getEmployeeUserIds().contains(event.getActualEmployeeUserId()))
                     .filter(event -> reqVO.getProcessId() == null
                             || Objects.equals(event.getProcessId(), reqVO.getProcessId()))
                     .filter(event -> reqVO.getDeviceId() == null
@@ -136,7 +170,25 @@ final class ProcessPoolTimelineTestSupport {
                     .filter(event -> reqVO.getWorkOrderId() == null
                             || Objects.equals(event.getWorkOrderId(), reqVO.getWorkOrderId()))
                     .filter(event -> reqVO.getWorkOrderCode() == null
-                            || Objects.equals(event.getWorkOrderCode(), reqVO.getWorkOrderCode()));
+                            || event.getWorkOrderCode().contains(reqVO.getWorkOrderCode()))
+                    .filter(event -> reqVO.getProductId() == null
+                            || Objects.equals(event.getProductId(), reqVO.getProductId()))
+                    .filter(event -> reqVO.getProductKeyword() == null
+                            || containsIgnoreCase(event.getProductCode(), reqVO.getProductKeyword())
+                            || containsIgnoreCase(event.getProductName(), reqVO.getProductKeyword()))
+                    .filter(event -> reqVO.getInspectionType() == null
+                            || Objects.equals(event.getInspectionType(), reqVO.getInspectionType()))
+                    .filter(event -> reqVO.getRoundNo() == null
+                            || Objects.equals(event.getRoundNo(), reqVO.getRoundNo()))
+                    .filter(event -> reqVO.getSubmissionReviewStatus() == null
+                            || Objects.equals(event.getSubmissionReviewStatus(), reqVO.getSubmissionReviewStatus()));
+        }
+
+        private boolean containsIgnoreCase(String source, String keyword) {
+            if (source == null || keyword == null) {
+                return false;
+            }
+            return source.toLowerCase().contains(keyword.toLowerCase());
         }
     }
 }

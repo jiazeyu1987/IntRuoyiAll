@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.controller.admin.file;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditTaskRespVO;
 import cn.iocoder.yudao.module.dcc.service.file.DccNasControlAuditService;
@@ -9,12 +10,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Arrays;
@@ -29,6 +32,9 @@ class DccNasControlAuditControllerTest extends BaseMockitoUnitTest {
     private static final String START_PATH = "/dcc/controlled-files/nas-control-audit/start";
     private static final String GET_PATH = "/dcc/controlled-files/nas-control-audit/{taskId}";
     private static final String DOWNLOAD_PATH = "/dcc/controlled-files/nas-control-audit/{taskId}/download";
+    private static final String FILES_PATH = "/dcc/controlled-files/nas-control-audit/{taskId}/files";
+    private static final String IMPORT_SELECTED_PATH =
+            "/dcc/controlled-files/nas-control-audit/{taskId}/import-selected";
 
     @Mock
     private DccNasControlAuditService auditService;
@@ -48,6 +54,29 @@ class DccNasControlAuditControllerTest extends BaseMockitoUnitTest {
         Method download = findMappedMethod(GetMapping.class, DOWNLOAD_PATH);
         assertEquals(ResponseEntity.class, download.getReturnType());
         assertPermission(download);
+    }
+
+    @Test
+    void nasControlAudit_mapsFilesPageWithControlledFileQueryPermission() {
+        Method files = findMappedMethod(GetMapping.class, FILES_PATH);
+
+        assertCommonPageResultType(files,
+                "cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditFileRespVO");
+        assertPermission(files);
+    }
+
+    @Test
+    void nasControlAudit_mapsImportSelectedWithTransferWritePermission() throws Exception {
+        Method importSelected = findMappedMethod(PostMapping.class, IMPORT_SELECTED_PATH);
+
+        assertCommonResultType(importSelected,
+                Class.forName("cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferRespVO"));
+        assertPermissionContains(importSelected,
+                "dcc:controlled-file:submit",
+                "dcc:controlled-file:directory:manage",
+                "dcc:controlled-file:category:manage");
+        assertValidRequestBody(importSelected,
+                "cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO");
     }
 
     private Method findMappedMethod(Class<? extends Annotation> mappingAnnotationType, String expectedFullPath) {
@@ -92,10 +121,45 @@ class DccNasControlAuditControllerTest extends BaseMockitoUnitTest {
         assertEquals(expectedDataType, parameterizedType.getActualTypeArguments()[0]);
     }
 
+    private void assertCommonPageResultType(Method method, String expectedDataTypeName) {
+        assertEquals(CommonResult.class, method.getReturnType());
+        Type genericReturnType = method.getGenericReturnType();
+        assertTrue(genericReturnType instanceof ParameterizedType);
+        ParameterizedType commonResultType = (ParameterizedType) genericReturnType;
+        assertEquals(CommonResult.class, commonResultType.getRawType());
+        assertTrue(commonResultType.getActualTypeArguments()[0] instanceof ParameterizedType);
+        ParameterizedType pageResultType = (ParameterizedType) commonResultType.getActualTypeArguments()[0];
+        assertEquals(PageResult.class, pageResultType.getRawType());
+        assertEquals(expectedDataTypeName, pageResultType.getActualTypeArguments()[0].getTypeName());
+    }
+
     private void assertPermission(Method method) {
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
         assertNotNull(preAuthorize, "Missing @PreAuthorize on NAS control audit endpoint");
         assertTrue(preAuthorize.value().contains("dcc:controlled-file:query"));
+    }
+
+    private void assertPermissionContains(Method method, String... expectedPermissions) {
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+        assertNotNull(preAuthorize, "Missing @PreAuthorize on NAS control audit endpoint");
+        for (String expectedPermission : expectedPermissions) {
+            assertTrue(preAuthorize.value().contains(expectedPermission),
+                    "Missing permission " + expectedPermission + " on " + method.getName());
+        }
+    }
+
+    private void assertValidRequestBody(Method method, String expectedTypeName) {
+        boolean found = Arrays.stream(method.getParameters())
+                .anyMatch(parameter -> expectedTypeName.equals(parameter.getType().getName())
+                        && parameter.isAnnotationPresent(RequestBody.class)
+                        && hasValidAnnotation(parameter));
+        assertTrue(found, "Missing @Valid @RequestBody parameter: " + expectedTypeName);
+    }
+
+    private boolean hasValidAnnotation(Parameter parameter) {
+        return Arrays.stream(parameter.getAnnotations())
+                .map(annotation -> annotation.annotationType().getName())
+                .anyMatch("jakarta.validation.Valid"::equals);
     }
 
     private String normalizePath(String path) {

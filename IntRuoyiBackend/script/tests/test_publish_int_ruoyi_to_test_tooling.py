@@ -131,6 +131,141 @@ def _invoke_codex_summary_validator(
     )
 
 
+def _invoke_source_repo_identity_for_ordered_dictionary() -> subprocess.CompletedProcess[str]:
+    text = read_publish_script()
+    property_function = _extract_powershell_function(text, "Get-ReleaseObjectPropertyText")
+    identity_function = _extract_powershell_function(text, "Get-ReleaseSourceRepoIdentity")
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {property_function}
+        {identity_function}
+        try {{
+            $repo = [ordered]@{{
+                name = 'ruoyi-vue-pro'
+                pathRole = 'backend'
+                commit = 'abc123'
+            }}
+            $identity = Get-ReleaseSourceRepoIdentity -Repo $repo
+            Write-Output $identity
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def _invoke_codex_command_resolver(configured_command: str) -> subprocess.CompletedProcess[str]:
+    function_text = _extract_powershell_function(
+        read_publish_script(),
+        "Resolve-ReleaseChangeSummaryCodexCliCommand",
+    )
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {function_text}
+        try {{
+            $configuredCommand = @'
+{configured_command}
+'@
+            $result = Resolve-ReleaseChangeSummaryCodexCliCommand -ConfiguredCommand $configuredCommand
+            Write-Output $result
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def _invoke_empty_codex_summary() -> subprocess.CompletedProcess[str]:
+    function_text = _extract_powershell_function(read_publish_script(), "Invoke-ReleaseCodexSummary")
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {function_text}
+        try {{
+            $summary = Invoke-ReleaseCodexSummary -Facts @() -PreviousReleaseTag 'previous' -CurrentReleaseTag 'current'
+            $summary | ConvertTo-Json -Compress
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def test_source_repo_identity_reads_ordered_dictionary_manifest_entries() -> None:
+    result = _invoke_source_repo_identity_for_ordered_dictionary()
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == "backend"
+
+
+def test_codex_command_resolver_uses_native_cmd_when_configured_command_is_ps1(tmp_path: Path) -> None:
+    ps1_path = tmp_path / "codex.ps1"
+    cmd_path = tmp_path / "codex.cmd"
+    ps1_path.write_text("Write-Output ps1\n", encoding="utf-8")
+    cmd_path.write_text("@echo off\r\necho cmd\r\n", encoding="utf-8")
+
+    result = _invoke_codex_command_resolver(str(ps1_path))
+
+    assert result.returncode == 0
+    assert Path(result.stdout.strip()) == cmd_path
+
+
+def test_codex_summary_accepts_empty_git_change_facts_without_cli_fallback() -> None:
+    result = _invoke_empty_codex_summary()
+
+    assert result.returncode == 0
+    summary = json.loads(result.stdout)
+    assert summary["summaryGenerator"] == "none"
+    assert summary["items"] is None or summary["items"] == []
+
+
 def test_only_one_publish_script_entrypoint_remains() -> None:
     publish_like = sorted(
         path.name
@@ -307,8 +442,11 @@ def test_build_release_writes_frontend_release_info_before_docker_context() -> N
     assert "release-info.json" in release_info_body
     assert "New-ReleaseSourceRepoManifestEntries" in release_info_body
     assert "releaseTag = $PackageTag" in release_info_body
+    assert "changeSet = Get-ReleaseChangeSetForManifest" in release_info_body
+    assert "gitChanges = @($gitChangeSummary.items)" in text
     assert "publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }" in release_info_body
-    assert "includeOnlyOffice = [bool]$IncludeOnlyOffice" in release_info_body
+    assert "includeOnlyOffice = [bool]$IncludeOnlyOffice" in text
+    assert 'summary = "Release package $packageDirectoryName"' not in release_info_body
     assert "[System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))" in release_info_body
 
     write_release_info_index = text.index("Write-FrontendReleaseInfo -PackageTag $ReleaseTag")

@@ -1177,6 +1177,7 @@ const schedulerSettingsLoaded = ref(false)
 const schedulerSettingsDialogVisible = ref(false)
 const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
 const router = useRouter()
+const DEFAULT_SHIFT_HOURS = 10.5
 const shiftHoursFormRef = ref()
 const policySettingsFormRef = ref()
 const fullConfigInputRef = ref<HTMLInputElement>()
@@ -1445,17 +1446,29 @@ const schedulerWorkbenchProcessWipQuickFilterDefinitions: TableQuickFilterDefini
   { key: 'estimatedCompletionTime', label: '预计完工', type: 'dateRange' }
 ]
 const shiftHoursForm = reactive({
-  shiftHours: undefined as number | undefined
+  shiftHours: DEFAULT_SHIFT_HOURS
 })
 const shiftHoursSetting = ref<SchedulerWorkbenchShiftHoursVO>({
+  shiftHours: DEFAULT_SHIFT_HOURS,
   workstationCount: 0,
   configuredWorkstationCount: 0,
   missingWorkstationCount: 0,
   distinctShiftHoursCount: 0,
   updatedWorkstationCount: 0
 })
+const shiftHoursRequiredRule = (
+  _rule: unknown,
+  value: number | undefined,
+  callback: (error?: Error) => void
+) => {
+  if (value === undefined || value === null || Number(value) <= 0) {
+    callback(new Error('班次小时必须大于 0'))
+    return
+  }
+  callback()
+}
 const shiftHoursRules = {
-  shiftHours: [{ required: true, message: '班次小时不能为空', trigger: 'blur' }]
+  shiftHours: [{ validator: shiftHoursRequiredRule, trigger: 'blur' }]
 }
 const defaultScheduleRules = (): ProScheduleCalendarRulesRespVO => ({
   skipStatutoryHolidays: false,
@@ -1771,8 +1784,12 @@ const handleProcessWipSortChange = () => {
 }
 
 const loadShiftHoursSetting = async () => {
-  shiftHoursSetting.value = await SchedulerWorkbenchApi.getShiftHoursSetting()
-  shiftHoursForm.shiftHours = shiftHoursSetting.value.shiftHours
+  const loadedSetting = await SchedulerWorkbenchApi.getShiftHoursSetting()
+  shiftHoursSetting.value = {
+    ...loadedSetting,
+    shiftHours: loadedSetting.shiftHours ?? DEFAULT_SHIFT_HOURS
+  }
+  shiftHoursForm.shiftHours = shiftHoursSetting.value.shiftHours ?? DEFAULT_SHIFT_HOURS
 }
 
 const loadScheduleRules = async () => {
@@ -1800,7 +1817,11 @@ const saveShiftHoursSetting = async () => {
     shiftHoursSetting.value = await SchedulerWorkbenchApi.saveShiftHoursSetting({
       shiftHours: shiftHoursForm.shiftHours
     })
-    shiftHoursForm.shiftHours = shiftHoursSetting.value.shiftHours
+    shiftHoursSetting.value = {
+      ...shiftHoursSetting.value,
+      shiftHours: shiftHoursSetting.value.shiftHours ?? DEFAULT_SHIFT_HOURS
+    }
+    shiftHoursForm.shiftHours = shiftHoursSetting.value.shiftHours ?? DEFAULT_SHIFT_HOURS
     ElMessage.success('班次小时已统一保存')
   } finally {
     shiftHoursSaving.value = false
@@ -1815,6 +1836,7 @@ const savePolicySettings = async () => {
       policySettingsForm,
       await SchedulerWorkbenchApi.savePolicySettings({ ...policySettingsForm })
     )
+    await Promise.all([loadSummary(), loadProcessWipStatistics()])
     ElMessage.success('排产策略已保存')
   } finally {
     policySettingsSaving.value = false

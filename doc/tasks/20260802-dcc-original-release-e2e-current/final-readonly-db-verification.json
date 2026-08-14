@@ -1,0 +1,33 @@
+{
+  "file": {
+    "id": "2054545668044070287",
+    "title": "Codex DCC 原版上传链路 20260802101521",
+    "status": "ACTIVE",
+    "fileName": "Codex DCC 原版上传链路 20260802101521",
+    "masterId": "2054545668044062896",
+    "versionNo": "V1.0",
+    "categoryId": "907233",
+    "changeType": "NEW",
+    "fileNumber": "CODX-DCC-ORIG-20260802101521",
+    "directoryId": "906515",
+    "approvedTime": "2026-08-02 18:15:56",
+    "publishedTime": "2026-08-02 18:15:56",
+    "stampedFileId": "9198354916366",
+    "publishedFileId": "9198354916366",
+    "processInstanceId": "16e8802b-8e5b-11f1-93ff-00155d2984a0",
+    "fileTypeLevel1": "技术文档",
+    "fileTypeLevel2": "设计和开发输出阶段",
+    "fileTypeLevel3": "来料/过程/成品检验规范"
+  },
+  "master": {
+    "id": "2054545668044062896",
+    "status": "ACTIVE_CHAIN",
+    "fileNumber": "CODX-DCC-ORIG-20260802101521",
+    "currentActiveControlledFileId": "2054545668044070287"
+  },
+  "signatureCount": 4,
+  "validSignatureCount": 4,
+  "uploadApprovalTaskCount": 4,
+  "activeTaskCount": 0,
+  "revisionFileCount": 0
+}

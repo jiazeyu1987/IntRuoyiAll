@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "targetEnvironment": "test",
+  "items": [
+    {
+      "migrationId": "20260716_mes_route_version_permission_menu",
+      "file": "../../../IntRuoyiBackend/sql/mysql/20260716_mes_route_version_permission_menu.sql",
+      "sha256": "e2a604e128dbc50001b35cb7af08299f52f9ed1ad310cb640f664df0dc1d5d59",
+      "action": "APPLY",
+      "reason": "migration is pending and prerequisites are satisfied"
+    },
+    {
+      "migrationId": "20260728_mes_scheduler_route_flow_list_permission",
+      "file": "../../../IntRuoyiBackend/sql/mysql/20260728_mes_scheduler_route_flow_list_permission.sql",
+      "sha256": "abbdec3d040e0421d70314413a98bb9329268af39286f5dac460d3bf1fc8d710",
+      "action": "APPLY",
+      "reason": "migration is pending and prerequisites are satisfied"
+    }
+  ]
+}

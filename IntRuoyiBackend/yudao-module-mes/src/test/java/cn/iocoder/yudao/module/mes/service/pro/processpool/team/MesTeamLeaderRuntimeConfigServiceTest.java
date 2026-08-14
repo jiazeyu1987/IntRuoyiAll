@@ -1,0 +1,877 @@
+package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
+
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamLeaderScopeMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
+import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class MesTeamLeaderRuntimeConfigServiceTest {
+
+    @Mock
+    private MesTeamLeaderScopeService scopeService;
+    @Mock
+    private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
+    @Mock
+    private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
+    @Mock
+    private MesProcessPoolTeamLeaderScopeMapper scopeMapper;
+    @Mock
+    private MesProcessPoolTeamDeviceMapper deviceMapper;
+    @Mock
+    private MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
+    @Mock
+    private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
+    @Mock
+    private MesProRouteProcessMapper routeProcessMapper;
+    @Mock
+    private MesProcessPoolDefectReasonMapper defectReasonMapper;
+    @Mock
+    private MesProcessPoolTeamMaintenanceAuditMapper auditMapper;
+    @Mock
+    private AdminUserApi adminUserApi;
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    private MesTeamLeaderRuntimeConfigService service;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(scopeMapper.insert(any(MesProcessPoolTeamLeaderScopeDO.class))).thenReturn(1);
+        lenient().when(scopeMapper.updateById(any(MesProcessPoolTeamLeaderScopeDO.class))).thenReturn(1);
+        service = new MesTeamLeaderRuntimeConfigServiceImpl(scopeService, routeStartAuthorizationService,
+                employeeProfileMapper, scopeMapper, deviceMapper, processDeviceMapper, parameterRuleMapper,
+                routeProcessMapper, defectReasonMapper, auditMapper,
+                adminUserApi, passwordEncoder);
+    }
+
+    @Test
+    void shouldCreateTemporaryProductionPersonWithSignaturePasswordHashAndAudit() {
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of());
+        when(passwordEncoder.encode("sign-123")).thenReturn("bcrypt-temp-sign");
+        when(scopeMapper.selectProductionEmployeeScope(3001L, 8801L)).thenReturn(null);
+        when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8801L);
+            return 1;
+        });
+
+        Long profileId = service.createTemporaryEmployee(MesTeamTemporaryEmployeeCreateReqBO.builder()
+                .leaderUserId(3001L)
+                .displayName("临时工甲")
+                .signaturePassword("sign-123")
+                .build());
+
+        assertEquals(8801L, profileId);
+        ArgumentCaptor<MesProcessPoolTeamEmployeeProfileDO> profileCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamEmployeeProfileDO.class);
+        verify(employeeProfileMapper).insert(profileCaptor.capture());
+        assertEquals("临时工甲", profileCaptor.getValue().getDisplayName());
+        assertEquals("TEMPORARY", profileCaptor.getValue().getEmployeeType());
+        assertNull(profileCaptor.getValue().getSystemUserId());
+        assertEquals("bcrypt-temp-sign", profileCaptor.getValue().getSignaturePasswordHash());
+        assertNotNull(profileCaptor.getValue().getSignaturePasswordUpdatedAt());
+        ArgumentCaptor<MesProcessPoolTeamLeaderScopeDO> scopeCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamLeaderScopeDO.class);
+        verify(scopeMapper).insert(scopeCaptor.capture());
+        assertEquals(3001L, scopeCaptor.getValue().getLeaderUserId());
+        assertEquals(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, scopeCaptor.getValue().getLeaderType());
+        assertEquals(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE, scopeCaptor.getValue().getScopeType());
+        assertEquals(8801L, scopeCaptor.getValue().getEmployeeUserId());
+        assertEquals(Boolean.TRUE, scopeCaptor.getValue().getEnabled());
+        verify(scopeService, never()).assertCanAccessEmployee(any(), any(), any());
+        verify(scopeService, never()).assertCanMaintainProcess(any(), any());
+        verify(adminUserApi, never()).validateUser(any());
+        verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldLinkFormalUserWithoutStoringSignaturePassword() {
+        AdminUserRespDTO formalUser = new AdminUserRespDTO();
+        formalUser.setId(2001L);
+        formalUser.setNickname("张三");
+        when(adminUserApi.getUser(2001L)).thenReturn(formalUser);
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of());
+        when(scopeMapper.selectProductionEmployeeScope(3001L, 2001L)).thenReturn(null);
+        when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8802L);
+            return 1;
+        });
+
+        Long profileId = service.linkFormalEmployee(MesTeamFormalEmployeeLinkReqBO.builder()
+                .leaderUserId(3001L)
+                .systemUserId(2001L)
+                .displayName("张三")
+                .build());
+
+        assertEquals(8802L, profileId);
+        verify(adminUserApi).validateUser(2001L);
+        ArgumentCaptor<MesProcessPoolTeamEmployeeProfileDO> profileCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamEmployeeProfileDO.class);
+        verify(employeeProfileMapper).insert(profileCaptor.capture());
+        assertEquals(2001L, profileCaptor.getValue().getSystemUserId());
+        assertEquals("FORMAL", profileCaptor.getValue().getEmployeeType());
+        assertNull(profileCaptor.getValue().getSignaturePasswordHash());
+        ArgumentCaptor<MesProcessPoolTeamLeaderScopeDO> scopeCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamLeaderScopeDO.class);
+        verify(scopeMapper).insert(scopeCaptor.capture());
+        assertEquals(3001L, scopeCaptor.getValue().getLeaderUserId());
+        assertEquals(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, scopeCaptor.getValue().getLeaderType());
+        assertEquals(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE, scopeCaptor.getValue().getScopeType());
+        assertEquals(2001L, scopeCaptor.getValue().getEmployeeUserId());
+        assertEquals(Boolean.TRUE, scopeCaptor.getValue().getEnabled());
+        verify(scopeService, never()).assertCanAccessEmployee(any(), any(), any());
+        verify(scopeService, never()).assertCanMaintainProcess(any(), any());
+        verify(adminUserApi, never()).getUserListBySubordinate(3001L);
+        verify(passwordEncoder, never()).encode(any());
+    }
+
+    @Test
+    void shouldRejectDuplicateFormalUserBeforeDatabaseInsert() {
+        AdminUserRespDTO formalUser = new AdminUserRespDTO();
+        formalUser.setId(2001L);
+        formalUser.setNickname("张三");
+        when(adminUserApi.getUser(2001L)).thenReturn(formalUser);
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(8802L)
+                .leaderUserId(3001L)
+                .systemUserId(2001L)
+                .employeeCode("USER-2001")
+                .displayName("张三")
+                .employeeName("张三")
+                .employeeType("FORMAL")
+                .enabled(Boolean.TRUE)
+                .build()));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.linkFormalEmployee(
+                MesTeamFormalEmployeeLinkReqBO.builder()
+                        .leaderUserId(3001L)
+                        .systemUserId(2001L)
+                        .displayName("张三-A")
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_EMPLOYEE_DUPLICATE.getCode(),
+                ex.getCode());
+        verify(employeeProfileMapper, never()).insert(any(MesProcessPoolTeamEmployeeProfileDO.class));
+    }
+
+    @Test
+    void shouldRejectDuplicateActiveDisplayNameForSameLeaderWithSuffixGuidance() {
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(8801L)
+                .leaderUserId(3001L)
+                .displayName("张三")
+                .employeeName("张三")
+                .employeeType("TEMPORARY")
+                .enabled(Boolean.TRUE)
+                .build()));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.createTemporaryEmployee(
+                MesTeamTemporaryEmployeeCreateReqBO.builder()
+                        .leaderUserId(3001L)
+                        .displayName("张三")
+                        .signaturePassword("sign-123")
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE.getCode(),
+                ex.getCode());
+        verify(employeeProfileMapper, never()).insert(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        verify(passwordEncoder, never()).encode(any());
+    }
+
+    @Test
+    void shouldSearchFormalCandidatesFromAllSystemUsers() {
+        AdminUserRespDTO zhang = new AdminUserRespDTO();
+        zhang.setId(2001L);
+        zhang.setNickname("张三");
+        when(adminUserApi.getUserListByNickname("张")).thenReturn(List.of(zhang));
+
+        List<MesTeamFormalUserCandidateBO> candidates = service.searchFormalUserCandidates(3001L, "张");
+
+        assertEquals(1, candidates.size());
+        assertEquals(2001L, candidates.get(0).getSystemUserId());
+        assertEquals("张三", candidates.get(0).getDisplayName());
+        verify(adminUserApi, never()).getUserListBySubordinate(3001L);
+    }
+
+    @Test
+    void shouldNotQueryAllUsersWhenFormalCandidateKeywordIsBlank() {
+        assertTrue(service.searchFormalUserCandidates(3001L, "  ").isEmpty());
+
+        verify(adminUserApi, never()).getUserListByNickname(any());
+    }
+
+    @Test
+    void shouldAllowResetOnlyTemporaryEmployeeSignaturePassword() {
+        when(employeeProfileMapper.selectById(8801L)).thenReturn(MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(8801L)
+                .leaderUserId(3001L)
+                .displayName("临时工甲")
+                .employeeType("TEMPORARY")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(passwordEncoder.encode("new-sign")).thenReturn("bcrypt-new-sign");
+
+        service.resetTemporaryEmployeeSignaturePassword(MesTeamTempSignaturePasswordResetReqBO.builder()
+                .leaderUserId(3001L)
+                .employeeProfileId(8801L)
+                .signaturePassword("new-sign")
+                .build());
+
+        ArgumentCaptor<MesProcessPoolTeamEmployeeProfileDO> updateCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamEmployeeProfileDO.class);
+        verify(employeeProfileMapper).updateById(updateCaptor.capture());
+        assertEquals(8801L, updateCaptor.getValue().getId());
+        assertEquals("bcrypt-new-sign", updateCaptor.getValue().getSignaturePasswordHash());
+
+        when(employeeProfileMapper.selectById(8802L)).thenReturn(MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(8802L)
+                .leaderUserId(3001L)
+                .displayName("正式工甲")
+                .employeeType("FORMAL")
+                .systemUserId(2001L)
+                .enabled(Boolean.TRUE)
+                .build());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.resetTemporaryEmployeeSignaturePassword(
+                MesTeamTempSignaturePasswordResetReqBO.builder()
+                        .leaderUserId(3001L)
+                        .employeeProfileId(8802L)
+                        .signaturePassword("new-sign")
+                        .build()));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER.getCode(),
+                ex.getCode());
+    }
+
+    @Test
+    void shouldManageProductionPersonnelListStatusRenameAndAuditForCurrentLeaderOnly() {
+        MesProcessPoolTeamEmployeeProfileDO temporary = MesProcessPoolTeamEmployeeProfileDO.builder()
+                .id(8801L)
+                .leaderUserId(3001L)
+                .displayName("临时工甲")
+                .employeeName("临时工甲")
+                .employeeType("TEMPORARY")
+                .enabled(Boolean.TRUE)
+                .build();
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(temporary));
+
+        List<MesProcessPoolTeamEmployeeProfileDO> profiles = service.listEmployeeProfiles(3001L, null);
+
+        assertEquals(1, profiles.size());
+        assertEquals(3001L, profiles.get(0).getLeaderUserId());
+        assertEquals("临时工甲", profiles.get(0).getDisplayName());
+
+        when(employeeProfileMapper.selectById(8801L)).thenReturn(temporary);
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of());
+
+        service.renameEmployee(MesTeamEmployeeDisplayNameUpdateReqBO.builder()
+                .leaderUserId(3001L)
+                .employeeProfileId(8801L)
+                .displayName("临时工甲-A")
+                .build());
+
+        ArgumentCaptor<MesProcessPoolTeamEmployeeProfileDO> renameCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamEmployeeProfileDO.class);
+        verify(employeeProfileMapper).updateById(renameCaptor.capture());
+        assertEquals(8801L, renameCaptor.getValue().getId());
+        assertEquals("临时工甲-A", renameCaptor.getValue().getDisplayName());
+        verify(auditMapper, org.mockito.Mockito.atLeastOnce()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+
+        service.updateEmployeeEnabled(MesTeamEmployeeStatusUpdateReqBO.builder()
+                .leaderUserId(3001L)
+                .employeeProfileId(8801L)
+                .enabled(Boolean.FALSE)
+                .build());
+
+        ArgumentCaptor<MesProcessPoolTeamEmployeeProfileDO> disableCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamEmployeeProfileDO.class);
+        verify(employeeProfileMapper, org.mockito.Mockito.times(2)).updateById(disableCaptor.capture());
+        assertEquals(Boolean.FALSE, disableCaptor.getValue().getEnabled());
+        assertNotNull(disableCaptor.getValue().getDisabledAt());
+
+        MesProcessPoolTeamMaintenanceAuditDO audit = MesProcessPoolTeamMaintenanceAuditDO.builder()
+                .id(9901L)
+                .leaderUserId(3001L)
+                .targetId(8801L)
+                .actionType("DISABLE_EMPLOYEE")
+                .resultStatus("SUCCESS")
+                .changeSummary("禁用生产人员：临时工甲-A")
+                .auditTime(LocalDateTime.now())
+                .build();
+        when(auditMapper.selectList(any())).thenReturn(List.of(audit));
+        List<MesProcessPoolTeamMaintenanceAuditDO> audits = service.listEmployeeAuditRecords(3001L, 8801L);
+        assertEquals(1, audits.size());
+        assertEquals("DISABLE_EMPLOYEE", audits.get(0).getActionType());
+        assertEquals("SUCCESS", audits.get(0).getResultStatus());
+    }
+
+    @Test
+    void shouldCreateTemporaryEmployeeWithoutSystemUser() {
+        when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8801L);
+            return 1;
+        });
+
+        Long employeeProfileId = service.createEmployee(MesTeamEmployeeProfileSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .employeeCode("TMP-001")
+                .employeeName("临时工甲")
+                .employeeType("TEMPORARY")
+                .build());
+
+        assertEquals(8801L, employeeProfileId);
+        ArgumentCaptor<MesProcessPoolTeamEmployeeProfileDO> profileCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamEmployeeProfileDO.class);
+        verify(employeeProfileMapper).insert(profileCaptor.capture());
+        assertNull(profileCaptor.getValue().getSystemUserId());
+        assertEquals("TEMPORARY", profileCaptor.getValue().getEmployeeType());
+        assertTrue(profileCaptor.getValue().getEnabled());
+
+        verify(auditMapper, org.mockito.Mockito.atLeastOnce()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldListCurrentLeaderEnabledDevicesBeforeAnyProcessBindingExists() {
+        when(deviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamDeviceDO.builder()
+                        .id(7001L)
+                        .leaderUserId(3001L)
+                        .deviceCode("C01017")
+                        .deviceName("撤压机")
+                        .deviceStatus("ENABLED")
+                        .enabled(Boolean.TRUE)
+                        .build()));
+
+        List<MesProcessPoolTeamDeviceDO> devices = service.listDevices(3001L, Boolean.TRUE);
+
+        assertEquals(1, devices.size());
+        assertEquals("C01017", devices.get(0).getDeviceCode());
+        assertEquals("撤压机", devices.get(0).getDeviceName());
+        assertTrue(devices.get(0).getEnabled());
+        verify(processDeviceMapper, never()).selectList(any());
+    }
+
+    @Test
+    void shouldCreateDeviceAndRejectRepairingDeviceWhenBindingProcess() {
+        when(deviceMapper.insert(any(MesProcessPoolTeamDeviceDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolTeamDeviceDO.class).setId(7001L);
+            return 1;
+        });
+
+        Long deviceId = service.createDevice(MesTeamDeviceSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .deviceCode("D-001")
+                .deviceName("压力泵")
+                .deviceStatus("ENABLED")
+                .build());
+
+        assertEquals(7001L, deviceId);
+        ArgumentCaptor<MesProcessPoolTeamDeviceDO> deviceCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamDeviceDO.class);
+        verify(deviceMapper).insert(deviceCaptor.capture());
+        assertEquals("ENABLED", deviceCaptor.getValue().getDeviceStatus());
+        assertTrue(deviceCaptor.getValue().getEnabled());
+
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceCode("D-001")
+                .deviceName("压力泵")
+                .deviceStatus("REPAIRING")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.bindDeviceToProcess(
+                MesTeamProcessDeviceBindingSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .deviceId(7001L)
+                        .routeProcessId(7101L)
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_DEVICE_UNAVAILABLE.getCode(), ex.getCode());
+        verify(processDeviceMapper, never()).insert(any(MesProcessPoolTeamProcessDeviceDO.class));
+    }
+
+    @Test
+    void shouldBindDeviceByRouteProcessAndResolveFormalProcessIdServerSide() {
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceCode("D-001")
+                .deviceName("压力泵")
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(processDeviceMapper.insert(any(MesProcessPoolTeamProcessDeviceDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolTeamProcessDeviceDO.class).setId(8101L);
+            return 1;
+        });
+
+        Long bindingId = service.bindDeviceToProcess(MesTeamProcessDeviceBindingSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .build());
+
+        assertEquals(8101L, bindingId);
+        verify(routeStartAuthorizationService).assertCanMaintainRouteProcess(3001L, 7101L);
+        verify(scopeService, never()).assertCanMaintainProcess(any(), any());
+        ArgumentCaptor<MesProcessPoolTeamProcessDeviceDO> bindingCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamProcessDeviceDO.class);
+        verify(processDeviceMapper).insert(bindingCaptor.capture());
+        assertEquals(6001L, bindingCaptor.getValue().getProcessId());
+        assertEquals(7001L, bindingCaptor.getValue().getDeviceId());
+        assertTrue(bindingCaptor.getValue().getEnabled());
+    }
+
+    @Test
+    void shouldUpdateDeviceStatusForRepairDisableAndRecover() {
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceCode("D-001")
+                .deviceName("压力泵")
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+
+        service.updateDeviceStatus(MesTeamDeviceStatusUpdateReqBO.builder()
+                .leaderUserId(3001L)
+                .deviceId(7001L)
+                .deviceStatus("REPAIRING")
+                .build());
+
+        ArgumentCaptor<MesProcessPoolTeamDeviceDO> repairCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamDeviceDO.class);
+        verify(deviceMapper).updateById(repairCaptor.capture());
+        assertEquals(7001L, repairCaptor.getValue().getId());
+        assertEquals("REPAIRING", repairCaptor.getValue().getDeviceStatus());
+        assertTrue(repairCaptor.getValue().getEnabled());
+        assertNotNull(repairCaptor.getValue().getStatusChangedAt());
+
+        service.updateDeviceStatus(MesTeamDeviceStatusUpdateReqBO.builder()
+                .leaderUserId(3001L)
+                .deviceId(7001L)
+                .deviceStatus("DISABLED")
+                .build());
+
+        ArgumentCaptor<MesProcessPoolTeamDeviceDO> disableCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamDeviceDO.class);
+        verify(deviceMapper, org.mockito.Mockito.times(2)).updateById(disableCaptor.capture());
+        assertEquals("DISABLED", disableCaptor.getValue().getDeviceStatus());
+        assertEquals(Boolean.FALSE, disableCaptor.getValue().getEnabled());
+
+        service.updateDeviceStatus(MesTeamDeviceStatusUpdateReqBO.builder()
+                .leaderUserId(3001L)
+                .deviceId(7001L)
+                .deviceStatus("ENABLED")
+                .build());
+
+        ArgumentCaptor<MesProcessPoolTeamDeviceDO> recoverCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolTeamDeviceDO.class);
+        verify(deviceMapper, org.mockito.Mockito.times(3)).updateById(recoverCaptor.capture());
+        assertEquals("ENABLED", recoverCaptor.getValue().getDeviceStatus());
+        assertTrue(recoverCaptor.getValue().getEnabled());
+    }
+
+
+    @Test
+    void shouldSaveParameterTargetValueByRouteProcessMappedDeviceAndUpsertSameContext() {
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamProcessDeviceDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .enabled(Boolean.TRUE)
+                .build()));
+        when(parameterRuleMapper.selectOne(any())).thenReturn(null, MesProcessPoolDeviceParameterRuleDO.builder()
+                .id(8401L)
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .parameterCode("pressure")
+                .parameterName("压力")
+                .unit("MPa")
+                .lowerLimit(new BigDecimal("10"))
+                .upperLimit(new BigDecimal("20"))
+                .defaultValue(new BigDecimal("15"))
+                .standardText("10-20MPa，目标15MPa")
+                .valueType("DECIMAL")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(parameterRuleMapper.insert(any(MesProcessPoolDeviceParameterRuleDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolDeviceParameterRuleDO.class).setId(8401L);
+            return 1;
+        });
+
+        Long ruleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .parameterCode("pressure")
+                .parameterName("压力")
+                .unit("MPa")
+                .lowerLimit(new BigDecimal("10"))
+                .upperLimit(new BigDecimal("20"))
+                .targetValue(new BigDecimal("15"))
+                .standardText("10-20MPa，目标15MPa")
+                .valueType("DECIMAL")
+                .build());
+
+        assertEquals(8401L, ruleId);
+        ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> ruleCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
+        verify(parameterRuleMapper).insert(ruleCaptor.capture());
+        assertEquals(7101L, ruleCaptor.getValue().getRouteProcessId());
+        assertEquals(6001L, ruleCaptor.getValue().getProcessId());
+        assertEquals(new BigDecimal("15"), ruleCaptor.getValue().getDefaultValue());
+        assertEquals("10-20MPa，目标15MPa", ruleCaptor.getValue().getStandardText());
+        assertEquals("MPa", ruleCaptor.getValue().getUnit());
+
+        Long updatedRuleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .parameterCode("pressure")
+                .parameterName("压力更新")
+                .unit("MPa")
+                .lowerLimit(new BigDecimal("11"))
+                .upperLimit(new BigDecimal("21"))
+                .targetValue(new BigDecimal("16"))
+                .standardText("11-21MPa，目标16MPa")
+                .valueType("DECIMAL")
+                .build());
+
+        assertEquals(8401L, updatedRuleId);
+        verify(parameterRuleMapper, org.mockito.Mockito.times(1)).insert(any(MesProcessPoolDeviceParameterRuleDO.class));
+        ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> updateCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
+        verify(parameterRuleMapper).updateById(updateCaptor.capture());
+        assertEquals(8401L, updateCaptor.getValue().getId());
+        assertEquals(new BigDecimal("16"), updateCaptor.getValue().getDefaultValue());
+        assertEquals("压力更新", updateCaptor.getValue().getParameterName());
+        assertEquals("11-21MPa，目标16MPa", updateCaptor.getValue().getStandardText());
+    }
+
+    @Test
+    void shouldSaveTextStandardWithoutNumericValues() {
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamProcessDeviceDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .enabled(Boolean.TRUE)
+                .build()));
+        when(parameterRuleMapper.selectOne(any())).thenReturn(null);
+        when(parameterRuleMapper.insert(any(MesProcessPoolDeviceParameterRuleDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolDeviceParameterRuleDO.class).setId(8402L);
+            return 1;
+        });
+
+        Long ruleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .parameterCode("cleaning-medium")
+                .parameterName("清洗介质")
+                .standardText("纯化水")
+                .valueType("TEXT_STANDARD")
+                .build());
+
+        assertEquals(8402L, ruleId);
+        ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> ruleCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
+        verify(parameterRuleMapper).insert(ruleCaptor.capture());
+        assertEquals("纯化水", ruleCaptor.getValue().getStandardText());
+        assertNull(ruleCaptor.getValue().getLowerLimit());
+        assertNull(ruleCaptor.getValue().getDefaultValue());
+        assertNull(ruleCaptor.getValue().getUpperLimit());
+        assertEquals("TEXT_STANDARD", ruleCaptor.getValue().getValueType());
+    }
+
+    @Test
+    void shouldSaveBooleanParameterWithBinaryDefault() {
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamProcessDeviceDO.builder()
+                .leaderUserId(3001L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .enabled(Boolean.TRUE)
+                .build()));
+        when(parameterRuleMapper.selectOne(any())).thenReturn(null);
+        when(parameterRuleMapper.insert(any(MesProcessPoolDeviceParameterRuleDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolDeviceParameterRuleDO.class).setId(8404L);
+            return 1;
+        });
+
+        Long ruleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .parameterCode("METERING_VALID")
+                .parameterName("在计量效期内")
+                .targetValue(BigDecimal.ZERO)
+                .standardText("是否在计量效期内")
+                .valueType("BOOLEAN")
+                .build());
+
+        assertEquals(8404L, ruleId);
+        ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> ruleCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
+        verify(parameterRuleMapper).insert(ruleCaptor.capture());
+        assertEquals("BOOLEAN", ruleCaptor.getValue().getValueType());
+        assertEquals(BigDecimal.ZERO, ruleCaptor.getValue().getDefaultValue());
+        assertNull(ruleCaptor.getValue().getLowerLimit());
+        assertNull(ruleCaptor.getValue().getUpperLimit());
+    }
+
+    @Test
+    void shouldRejectBooleanParameterWithNonBinaryDefaultOrLimits() {
+        ServiceException missingDefault = assertThrows(ServiceException.class, () ->
+                service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(7101L)
+                        .deviceId(7001L)
+                        .parameterCode("METERING_VALID")
+                        .parameterName("在计量效期内")
+                        .standardText("是否在计量效期内")
+                        .valueType("BOOLEAN")
+                        .build()));
+
+        ServiceException invalidDefault = assertThrows(ServiceException.class, () ->
+                service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(7101L)
+                        .deviceId(7001L)
+                        .parameterCode("METERING_VALID")
+                        .parameterName("在计量效期内")
+                        .targetValue(new BigDecimal("2"))
+                        .standardText("是否在计量效期内")
+                        .valueType("BOOLEAN")
+                        .build()));
+
+        ServiceException invalidLimits = assertThrows(ServiceException.class, () ->
+                service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(7101L)
+                        .deviceId(7001L)
+                        .parameterCode("METERING_VALID")
+                        .parameterName("在计量效期内")
+                        .lowerLimit(BigDecimal.ZERO)
+                        .targetValue(BigDecimal.ONE)
+                        .standardText("是否在计量效期内")
+                        .valueType("BOOLEAN")
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID.getCode(),
+                missingDefault.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID.getCode(),
+                invalidDefault.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID.getCode(),
+                invalidLimits.getCode());
+        verify(parameterRuleMapper, never()).insert(any(MesProcessPoolDeviceParameterRuleDO.class));
+    }
+
+    @Test
+    void shouldSaveNumericRangeWithoutTargetValue() {
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(MesProcessPoolTeamProcessDeviceDO.builder()
+                .leaderUserId(3001L)
+                .processId(6001L)
+                .deviceId(7001L)
+                .enabled(Boolean.TRUE)
+                .build()));
+        when(parameterRuleMapper.selectOne(any())).thenReturn(null);
+        when(parameterRuleMapper.insert(any(MesProcessPoolDeviceParameterRuleDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolDeviceParameterRuleDO.class).setId(8403L);
+            return 1;
+        });
+
+        Long ruleId = service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .deviceId(7001L)
+                .parameterCode("pressure-range")
+                .parameterName("压力范围")
+                .unit("MPa")
+                .lowerLimit(new BigDecimal("0.5"))
+                .upperLimit(new BigDecimal("0.6"))
+                .standardText("0.5-0.6MPa")
+                .valueType("DECIMAL")
+                .build());
+
+        assertEquals(8403L, ruleId);
+        ArgumentCaptor<MesProcessPoolDeviceParameterRuleDO> ruleCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDeviceParameterRuleDO.class);
+        verify(parameterRuleMapper).insert(ruleCaptor.capture());
+        assertNull(ruleCaptor.getValue().getDefaultValue());
+        assertEquals(new BigDecimal("0.5"), ruleCaptor.getValue().getLowerLimit());
+        assertEquals(new BigDecimal("0.6"), ruleCaptor.getValue().getUpperLimit());
+    }
+
+    @Test
+    void shouldRejectParameterRuleWithoutRouteProcessUnmappedDeviceOrTargetOutsideRange() {
+        ServiceException missingRouteProcess = assertThrows(ServiceException.class,
+                () -> service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .deviceId(7001L)
+                        .parameterCode("pressure")
+                        .lowerLimit(new BigDecimal("10"))
+                        .upperLimit(new BigDecimal("20"))
+                        .targetValue(new BigDecimal("15"))
+                        .standardText("10-20MPa，目标15MPa")
+                        .valueType("DECIMAL")
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(),
+                missingRouteProcess.getCode());
+        verify(parameterRuleMapper, never()).insert(any(MesProcessPoolDeviceParameterRuleDO.class));
+
+        when(routeProcessMapper.selectById(7101L)).thenReturn(routeProcess(7101L, 9001L, 6001L, 10));
+        when(deviceMapper.selectById(7001L)).thenReturn(MesProcessPoolTeamDeviceDO.builder()
+                .id(7001L)
+                .leaderUserId(3001L)
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+
+        ServiceException unmappedDevice = assertThrows(ServiceException.class,
+                () -> service.saveDeviceParameterRule(MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(7101L)
+                        .deviceId(7001L)
+                        .parameterCode("pressure")
+                        .lowerLimit(new BigDecimal("10"))
+                        .upperLimit(new BigDecimal("20"))
+                        .targetValue(new BigDecimal("15"))
+                        .standardText("10-20MPa，目标15MPa")
+                        .valueType("DECIMAL")
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED.getCode(), unmappedDevice.getCode());
+
+        ServiceException invalidTarget = assertThrows(ServiceException.class, () -> service.saveDeviceParameterRule(
+                MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(3001L)
+                        .routeProcessId(7101L)
+                        .deviceId(7001L)
+                        .parameterCode("pressure")
+                        .lowerLimit(new BigDecimal("10"))
+                        .upperLimit(new BigDecimal("20"))
+                        .targetValue(new BigDecimal("25"))
+                        .standardText("10-20MPa，目标25MPa")
+                        .valueType("DECIMAL")
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID.getCode(),
+                invalidTarget.getCode());
+        verify(parameterRuleMapper, never()).updateById(any(MesProcessPoolDeviceParameterRuleDO.class));
+    }
+
+    @Test
+    void shouldBindLossReasonToRouteProcessSharedByRouteStartProductionLeaders() {
+        when(defectReasonMapper.insert(any(MesProcessPoolDefectReasonDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolDefectReasonDO.class).setId(8301L);
+            return 1;
+        });
+
+        Long reasonId = service.saveProcessDefectReason(MesTeamProcessDefectReasonSaveReqBO.builder()
+                .leaderUserId(3001L)
+                .routeProcessId(7101L)
+                .processId(6001L)
+                .reasonType("LOSS")
+                .reasonCode("LOSS-001")
+                .reasonName("正常损耗")
+                .build());
+
+        assertEquals(8301L, reasonId);
+        verify(routeStartAuthorizationService).assertCanMaintainRouteProcess(3001L, 7101L);
+        verify(scopeService, never()).assertCanMaintainProcess(3001L, 6001L);
+        ArgumentCaptor<MesProcessPoolDefectReasonDO> reasonCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolDefectReasonDO.class);
+        verify(defectReasonMapper).insert(reasonCaptor.capture());
+        assertNull(reasonCaptor.getValue().getLeaderUserId(),
+                "LOSS reason ownership must not be scoped to the editor production leader");
+        assertEquals(7101L, reasonCaptor.getValue().getRouteProcessId());
+        assertEquals(6001L, reasonCaptor.getValue().getProcessId());
+        assertEquals("LOSS-001", reasonCaptor.getValue().getReasonCode());
+        assertTrue(reasonCaptor.getValue().getEnabled());
+    }
+
+    private static MesProRouteProcessDO routeProcess(Long id, Long routeId, Long processId, Integer sort) {
+        return MesProRouteProcessDO.builder()
+                .id(id)
+                .routeId(routeId)
+                .processId(processId)
+                .sort(sort)
+                .build();
+    }
+}

@@ -29,19 +29,15 @@ class MesProcessPoolEventServiceTest extends BaseDbUnitTest {
     @Test
     void shouldRejectEventWhenRequiredContextMissing() {
         List<Consumer<MesProcessPoolCreateEventReqDTO>> missingContextCases = List.of(
-                req -> req.setWorkOrderId(null),
                 req -> req.setRouteId(null),
                 req -> req.setRouteProcessId(null),
                 req -> req.setProcessId(null),
                 req -> req.setActualEmployeeId(null),
                 req -> req.setDeviceAccountId(null),
-                req -> req.setDeviceId(null),
                 req -> req.setWorkstationId(null),
                 req -> req.setTemplateType(null),
                 req -> req.setFeedbackSourceType(null),
                 req -> req.setFeedbackSourceId(null),
-                req -> req.setRecordbookSourceType(null),
-                req -> req.setRecordbookSourceId(null),
                 req -> req.setRawPayload(" "),
                 req -> req.setSignatureId(null),
                 req -> req.setSignatureUserId(null)
@@ -56,6 +52,50 @@ class MesProcessPoolEventServiceTest extends BaseDbUnitTest {
             assertEquals(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
         }
         assertEquals(0L, processPoolEventMapper.selectCount());
+    }
+
+    @Test
+    void shouldRejectPqcEventWhenWorkOrderMissing() {
+        MesProcessPoolCreateEventReqDTO req = validEventReq()
+                .setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                .setWorkOrderId(null);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> processPoolEventService.createEvent(req));
+
+        assertEquals(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+        assertEquals(0L, processPoolEventMapper.selectCount());
+    }
+
+    @Test
+    void shouldPersistProductionSubmitWithoutConfiguredDevice() {
+        MesProcessPoolCreateEventReqDTO req = validEventReq().setDeviceId(null);
+
+        Long eventId = processPoolEventService.createEvent(req);
+
+        MesProProcessPoolEventDO event = processPoolEventMapper.selectById(eventId);
+        assertEquals(null, event.getDeviceId());
+        assertEquals(req.getWorkstationId(), event.getWorkstationId());
+        assertEquals(req.getDeviceAccountId(), event.getDeviceAccountId());
+    }
+
+    @Test
+    void shouldPersistProductionSubmitWithoutWorkOrderAndRecordbook() {
+        MesProcessPoolCreateEventReqDTO req = validEventReq()
+                .setWorkOrderId(null)
+                .setRecordbookEntryId(null)
+                .setRecordbookSourceType(null)
+                .setRecordbookSourceId(null);
+
+        Long eventId = processPoolEventService.createEvent(req);
+
+        MesProProcessPoolEventDO event = processPoolEventMapper.selectById(eventId);
+        assertEquals(null, event.getWorkOrderId());
+        assertEquals(req.getRouteId(), event.getRouteId());
+        assertEquals(req.getRouteProcessId(), event.getRouteProcessId());
+        assertEquals(req.getProcessId(), event.getProcessId());
+        assertEquals(null, event.getRecordbookEntryId());
+        assertEquals(null, event.getRecordbookSourceType());
+        assertEquals(null, event.getRecordbookSourceId());
     }
 
     @Test
@@ -87,6 +127,7 @@ class MesProcessPoolEventServiceTest extends BaseDbUnitTest {
         Long actualEmployeeId = randomLongId();
         return MesProcessPoolCreateEventReqDTO.builder()
                 .eventType("PRODUCTION_SUBMIT")
+                .eventIdempotencyKey("P0-SUBMIT-" + randomLongId())
                 .workOrderId(randomLongId())
                 .routeId(randomLongId())
                 .routeProcessId(randomLongId())
@@ -98,6 +139,7 @@ class MesProcessPoolEventServiceTest extends BaseDbUnitTest {
                 .templateType("PRODUCTION_SIMPLE")
                 .feedbackSourceType("MES_PRO_FEEDBACK")
                 .feedbackSourceId(randomLongId())
+                .recordbookEntryId(randomLongId())
                 .recordbookSourceType("MES_RECORDBOOK_ENTRY")
                 .recordbookSourceId(randomLongId())
                 .rawPayload("{\"outputQuantity\":10}")

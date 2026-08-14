@@ -9,4 +9,10 @@ public interface MesTeamLeaderScopeService {
     void assertCanAccessEmployee(Long leaderUserId, String leaderType, Long employeeUserId);
 
     void assertCanMaintainProcess(Long leaderUserId, Long processId);
+
+    void assertCanMaintainProductionLine(Long leaderUserId, Long productionLineId);
+
+    void assertCanMaintainEquipment(Long leaderUserId, Long equipmentId);
+
+    void assertCanMaintainOrder(Long leaderUserId, Long workOrderId);
 }

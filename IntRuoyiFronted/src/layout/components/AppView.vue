@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { useAppStore } from '@/store/modules/app'
 import { Footer } from '@/layout/components/Footer'
@@ -16,10 +17,14 @@ const footer = computed(() => appStore.getFooter)
 const tagsViewStore = useTagsViewStore()
 const currentRoute = useRoute()
 
+const resolveKeepAliveName = (route: RouteLocationNormalizedLoaded) =>
+  String(route.meta?.keepAliveName || route.name || '')
+
 const getCaches = computed((): string[] => {
   const caches = new Set(tagsViewStore.getCachedViews)
-  if (currentRoute.name && currentRoute.meta?.noCache !== true) {
-    caches.add(String(currentRoute.name))
+  const keepAliveName = resolveKeepAliveName(currentRoute)
+  if (keepAliveName && currentRoute.meta?.noCache !== true) {
+    caches.add(keepAliveName)
   }
   return Array.from(caches)
 })

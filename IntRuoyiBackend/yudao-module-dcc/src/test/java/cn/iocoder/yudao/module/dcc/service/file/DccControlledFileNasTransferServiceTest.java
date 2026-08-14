@@ -5,6 +5,8 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportLocalWriteResultReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccCategoryDirectoryBindingDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccDirectoryAccessRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
@@ -13,6 +15,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileLocalFol
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasSourceDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskItemDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccCategoryDirectoryBindingMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryDistributionRuleMapper;
@@ -25,6 +28,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileLocalFolderUp
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasSourceMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskItemMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeMapper;
@@ -82,6 +86,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -120,6 +125,8 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileNasSourceMapper nasSourceMapper;
     @Mock
+    private DccNasControlAuditFileMapper auditFileMapper;
+    @Mock
     private DccProjectCodeMapper projectCodeMapper;
     @Mock
     private DccControlledFileLocalFolderUploadChunkMapper uploadChunkMapper;
@@ -157,6 +164,649 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     @AfterEach
     void clearTenantContext() {
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void createUncontrolledImportTask_doesNotRequireLegacyNasTransferInputs() throws Exception {
+        Class<?> requestType = Class.forName("cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO");
+        Method method = DccControlledFileNasTransferService.class
+                .getMethod("createUncontrolledImportTask", Long.class, Long.class, requestType);
+
+        assertEquals(DccControlledFileNasTransferRespVO.class, method.getReturnType());
+        for (Method requestMethod : requestType.getMethods()) {
+            String methodName = requestMethod.getName();
+            assertTrue(!methodName.contains("TemplateCategoryId")
+                            && !methodName.contains("EffectiveDate")
+                            && !methodName.contains("DccProjectCodeId"),
+                    "NAS uncontrolled import request must not expose legacy transfer target field: " + methodName);
+        }
+    }
+
+    @Test
+    void processWaitingTasks_skipsNasUncontrolledImportUntilContentAndLocalWritten() {
+        DccControlledFileNasTransferTaskDO importTask = DccControlledFileNasTransferTaskDO.builder()
+                .id(77L)
+                .auditTaskId(7001L)
+                .operatorUserId(99L)
+                .sourceType("NAS_UNCONTROLLED_IMPORT")
+                .status(DccControlledFileNasTransferServiceImpl.TASK_STATUS_WAITING)
+                .idempotencyKey("idem-import-77")
+                .requestHash("a".repeat(64))
+                .build();
+        when(taskMapper.selectWaitingTasks(any(LocalDateTime.class))).thenReturn(List.of(importTask));
+
+        transferService.processWaitingTasks();
+
+        verify(taskMapper, never()).claimWaitingTask(eq(77L), any(LocalDateTime.class));
+        verify(nasBrowserService, never()).listFiles(any());
+        verify(nasBrowserService, never()).readFile(any());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void createUncontrolledImportTask_createsTaskItemsAndAuditBindingsAtomically() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccNasControlAuditFileDO designFile = matchedAuditFile(101L, "QMS/PRJ-20260728/design.pdf",
+                "sig-design", "PRJ-20260728/Design/design.pdf", 120L);
+        DccNasControlAuditFileDO specFile = matchedAuditFile(102L, "QMS/PRJ-20260728/spec.pdf",
+                "sig-spec", "PRJ-20260728/Spec/spec.pdf", 80L);
+        DccNasUncontrolledImportSelectedReqVO reqVO = uncontrolledImportReq("idem-create-001",
+                selectedAuditFile(102L, "sig-spec", "PRJ-20260728/Spec/spec.pdf"),
+                selectedAuditFile(101L, "sig-design", "PRJ-20260728/Design/design.pdf"));
+
+        lenient().when(taskMapper.selectOne(any())).thenReturn(null);
+        lenient().when(auditFileMapper.selectBatchIds(any())).thenReturn(List.of(specFile, designFile));
+        AtomicLong nextTaskId = new AtomicLong(8001L);
+        AtomicLong nextItemId = new AtomicLong(9001L);
+        List<DccControlledFileNasTransferTaskItemDO> insertedItems = new ArrayList<>();
+        final DccControlledFileNasTransferTaskDO[] storedTask = new DccControlledFileNasTransferTaskDO[1];
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskDO task = invocation.getArgument(0);
+            task.setId(nextTaskId.getAndIncrement());
+            storedTask[0] = task;
+            return 1;
+        }).when(taskMapper).insert(any(DccControlledFileNasTransferTaskDO.class));
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskItemDO item = invocation.getArgument(0);
+            item.setId(nextItemId.getAndIncrement());
+            insertedItems.add(item);
+            return 1;
+        }).when(taskItemMapper).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        lenient().when(taskMapper.selectById(8001L)).thenAnswer(invocation -> storedTask[0]);
+
+        DccControlledFileNasTransferRespVO response =
+                transferService.createUncontrolledImportTask(99L, 7001L, reqVO);
+
+        assertEquals(8001L, response.getTaskId());
+        ArgumentCaptor<DccControlledFileNasTransferTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasTransferTaskDO.class);
+        verify(taskMapper).insert(taskCaptor.capture());
+        DccControlledFileNasTransferTaskDO task = taskCaptor.getValue();
+        assertEquals(7001L, task.getAuditTaskId());
+        assertEquals(99L, task.getOperatorUserId());
+        assertEquals(DccControlledFileNasTransferServiceImpl.SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT,
+                task.getSourceType());
+        assertEquals(DccControlledFileNasTransferServiceImpl.TASK_STATUS_WAITING, task.getStatus());
+        assertEquals("idem-create-001", task.getIdempotencyKey());
+        assertEquals(64, task.getRequestHash().length());
+        assertTrue(task.getTemplateCategoryId() == null);
+        assertTrue(task.getEffectiveDate() == null);
+        assertTrue(task.getDccProjectCodeId() == null);
+        assertEquals(2L, task.getExpectedFileCount());
+        assertEquals(200L, task.getExpectedTotalBytes());
+
+        assertEquals(2, insertedItems.size());
+        assertEquals(101L, insertedItems.get(0).getAuditFileId());
+        assertEquals("sig-design", insertedItems.get(0).getSourceSignature());
+        assertEquals("MATCHED", insertedItems.get(0).getClassificationStatusSnapshot());
+        assertEquals("PRJ-20260728/Design/design.pdf", insertedItems.get(0).getLocalRelativePath());
+        assertEquals("NOT_STARTED", insertedItems.get(0).getLocalWriteStatus());
+        assertEquals("NOT_STARTED", insertedItems.get(0).getArchiveStatus());
+        assertEquals(DccControlledFileNasTransferServiceImpl.ITEM_STATUS_WAITING, insertedItems.get(0).getStatus());
+        assertEquals(102L, insertedItems.get(1).getAuditFileId());
+
+        ArgumentCaptor<DccNasControlAuditFileDO> auditUpdateCaptor =
+                ArgumentCaptor.forClass(DccNasControlAuditFileDO.class);
+        verify(auditFileMapper, times(2)).updateById(auditUpdateCaptor.capture());
+        Map<Long, DccNasControlAuditFileDO> updatedById = new LinkedHashMap<>();
+        for (DccNasControlAuditFileDO updated : auditUpdateCaptor.getAllValues()) {
+            updatedById.put(updated.getId(), updated);
+        }
+        assertEquals("SELECTED", updatedById.get(101L).getDownloadStatus());
+        assertEquals(8001L, updatedById.get(101L).getSelectedImportTaskId());
+        assertEquals(9001L, updatedById.get(101L).getSelectedImportTaskItemId());
+        assertEquals("PRJ-20260728/Design/design.pdf", updatedById.get(101L).getLocalRelativePath());
+        assertEquals("SELECTED", updatedById.get(102L).getDownloadStatus());
+        assertEquals(9002L, updatedById.get(102L).getSelectedImportTaskItemId());
+        verify(nasBrowserService, never()).readFile(any());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void createUncontrolledImportTask_allowsPendingReviewFilesForLocalDownloadOnly() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccNasControlAuditFileDO pendingFile = pendingReviewAuditFile(103L,
+                "QMS/unknown/no-project-random-file.pdf", "sig-pending-review",
+                "_未分类待处理/QMS/unknown/no-project-random-file.pdf", 42L,
+                "UNCLASSIFIED_PENDING", "PROJECT_CODE_NOT_FOUND");
+        DccNasUncontrolledImportSelectedReqVO reqVO = uncontrolledImportReq("idem-pending-review-001",
+                selectedAuditFile(103L, "sig-pending-review",
+                        "_未分类待处理/QMS/unknown/no-project-random-file.pdf"));
+
+        lenient().when(taskMapper.selectOne(any())).thenReturn(null);
+        lenient().when(auditFileMapper.selectBatchIds(any())).thenReturn(List.of(pendingFile));
+        AtomicLong nextTaskId = new AtomicLong(8011L);
+        AtomicLong nextItemId = new AtomicLong(9011L);
+        List<DccControlledFileNasTransferTaskItemDO> insertedItems = new ArrayList<>();
+        final DccControlledFileNasTransferTaskDO[] storedTask = new DccControlledFileNasTransferTaskDO[1];
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskDO task = invocation.getArgument(0);
+            task.setId(nextTaskId.getAndIncrement());
+            storedTask[0] = task;
+            return 1;
+        }).when(taskMapper).insert(any(DccControlledFileNasTransferTaskDO.class));
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskItemDO item = invocation.getArgument(0);
+            item.setId(nextItemId.getAndIncrement());
+            insertedItems.add(item);
+            return 1;
+        }).when(taskItemMapper).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        lenient().when(taskMapper.selectById(8011L)).thenAnswer(invocation -> storedTask[0]);
+
+        DccControlledFileNasTransferRespVO response =
+                transferService.createUncontrolledImportTask(99L, 7001L, reqVO);
+
+        assertEquals(8011L, response.getTaskId());
+        assertEquals(1, insertedItems.size());
+        DccControlledFileNasTransferTaskItemDO item = insertedItems.get(0);
+        assertEquals(103L, item.getAuditFileId());
+        assertEquals("UNCLASSIFIED_PENDING", item.getClassificationStatusSnapshot());
+        assertEquals("_未分类待处理/QMS/unknown/no-project-random-file.pdf", item.getLocalRelativePath());
+        assertEquals("PENDING_MANUAL_REVIEW", item.getArchiveStatus());
+        ArgumentCaptor<DccNasControlAuditFileDO> auditUpdateCaptor =
+                ArgumentCaptor.forClass(DccNasControlAuditFileDO.class);
+        verify(auditFileMapper).updateById(auditUpdateCaptor.capture());
+        DccNasControlAuditFileDO updated = auditUpdateCaptor.getValue();
+        assertEquals("SELECTED", updated.getDownloadStatus());
+        assertEquals("PENDING_MANUAL_REVIEW", updated.getArchiveStatus());
+        assertEquals(8011L, updated.getSelectedImportTaskId());
+        assertEquals(9011L, updated.getSelectedImportTaskItemId());
+        verify(nasBrowserService, never()).readFile(any());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void createUncontrolledImportTask_rejectsInvalidSelectionAtomically() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccNasControlAuditFileDO validFile = matchedAuditFile(201L, "QMS/PRJ-20260728/valid.pdf",
+                "sig-valid", "PRJ-20260728/Design/valid.pdf", 11L);
+        DccNasControlAuditFileDO pendingFile = matchedAuditFile(202L, "QMS/PRJ-20260728/pending.pdf",
+                "sig-pending", "PRJ-20260728/Design/pending.pdf", 12L);
+        pendingFile.setClassificationStatus("PENDING_RECOGNITION");
+        DccNasUncontrolledImportSelectedReqVO reqVO = uncontrolledImportReq("idem-invalid-001",
+                selectedAuditFile(201L, "sig-valid", "PRJ-20260728/Design/valid.pdf"),
+                selectedAuditFile(202L, "sig-pending", "PRJ-20260728/Design/pending.pdf"));
+        lenient().when(taskMapper.selectOne(any())).thenReturn(null);
+        lenient().when(auditFileMapper.selectBatchIds(any())).thenReturn(List.of(validFile, pendingFile));
+
+        assertThrows(IllegalStateException.class,
+                () -> transferService.createUncontrolledImportTask(99L, 7001L, reqVO));
+
+        verify(taskMapper, never()).insert(any(DccControlledFileNasTransferTaskDO.class));
+        verify(taskItemMapper, never()).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+        verify(nasBrowserService, never()).readFile(any());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void createUncontrolledImportTask_returnsExistingTaskForSameIdempotencyHashRegardlessOfOrder() {
+        TenantContextHolder.setTenantId(1L);
+        DccNasUncontrolledImportSelectedReqVO reqVO = uncontrolledImportReq("idem-existing-001",
+                selectedAuditFile(302L, "sig-spec", "PRJ-20260728/Spec/spec.pdf"),
+                selectedAuditFile(301L, "sig-design", "PRJ-20260728/Design/design.pdf"));
+        String requestHash = uncontrolledImportRequestHash(7001L, reqVO);
+        DccControlledFileNasTransferTaskDO existingTask = uncontrolledImportTask(
+                8101L, 99L, 7001L, "idem-existing-001", requestHash);
+        when(taskMapper.selectOne(any())).thenReturn(existingTask);
+        when(taskMapper.selectById(8101L)).thenReturn(existingTask);
+
+        DccControlledFileNasTransferRespVO response =
+                transferService.createUncontrolledImportTask(99L, 7001L, reqVO);
+
+        assertEquals(8101L, response.getTaskId());
+        verify(auditFileMapper, never()).selectBatchIds(any());
+        verify(taskMapper, never()).insert(any(DccControlledFileNasTransferTaskDO.class));
+        verify(taskItemMapper, never()).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+    }
+
+    @Test
+    void createUncontrolledImportTask_rechecksIdempotencyInsideTransactionBeforeInsert() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccNasUncontrolledImportSelectedReqVO reqVO = uncontrolledImportReq("idem-race-001",
+                selectedAuditFile(401L, "sig-design", "PRJ-20260728/Design/design.pdf"));
+        String requestHash = uncontrolledImportRequestHash(7001L, reqVO);
+        DccControlledFileNasTransferTaskDO existingTask = uncontrolledImportTask(
+                8102L, 99L, 7001L, "idem-race-001", requestHash);
+        when(taskMapper.selectOne(any())).thenReturn(null, existingTask);
+        when(taskMapper.selectById(8102L)).thenReturn(existingTask);
+
+        DccControlledFileNasTransferRespVO response =
+                transferService.createUncontrolledImportTask(99L, 7001L, reqVO);
+
+        assertEquals(8102L, response.getTaskId());
+        verify(auditFileMapper, never()).selectBatchIds(any());
+        verify(taskMapper, never()).insert(any(DccControlledFileNasTransferTaskDO.class));
+        verify(taskItemMapper, never()).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+    }
+
+    @Test
+    void createUncontrolledImportTask_rejectsSameIdempotencyWithDifferentRequestHash() {
+        TenantContextHolder.setTenantId(1L);
+        DccNasUncontrolledImportSelectedReqVO reqVO = uncontrolledImportReq("idem-conflict-001",
+                selectedAuditFile(501L, "sig-design", "PRJ-20260728/Design/design.pdf"));
+        DccControlledFileNasTransferTaskDO existingTask = uncontrolledImportTask(
+                8103L, 99L, 7001L, "idem-conflict-001", "b".repeat(64));
+        when(taskMapper.selectOne(any())).thenReturn(existingTask);
+
+        assertThrows(IllegalStateException.class,
+                () -> transferService.createUncontrolledImportTask(99L, 7001L, reqVO));
+
+        verify(auditFileMapper, never()).selectBatchIds(any());
+        verify(taskMapper, never()).insert(any(DccControlledFileNasTransferTaskDO.class));
+        verify(taskItemMapper, never()).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+    }
+
+    @Test
+    void createUncontrolledImportTask_rejectsDuplicateAuditIdsBeforeHashingOrWrites() {
+        TenantContextHolder.setTenantId(1L);
+        DccNasUncontrolledImportSelectedReqVO reqVO = uncontrolledImportReq("idem-duplicate-001",
+                selectedAuditFile(601L, "sig-design", "PRJ-20260728/Design/design.pdf"),
+                selectedAuditFile(601L, "sig-design", "PRJ-20260728/Design/design.pdf"));
+
+        assertThrows(IllegalStateException.class,
+                () -> transferService.createUncontrolledImportTask(99L, 7001L, reqVO));
+
+        verify(taskMapper, never()).selectOne(any());
+        verify(auditFileMapper, never()).selectBatchIds(any());
+        verify(taskMapper, never()).insert(any(DccControlledFileNasTransferTaskDO.class));
+        verify(taskItemMapper, never()).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+    }
+
+    @Test
+    void readUncontrolledImportContent_returnsBinaryForBoundTaskWithoutMutatingLocalOrArchiveState() {
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8201L, 99L, 7001L, "idem-content-001", "c".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(701L, "QMS/PRJ-20260728/design.pdf",
+                "sig-content", "PRJ-20260728/Design/design.pdf", 3L);
+        auditFile.setDownloadStatus(DccControlledFileNasTransferServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+        auditFile.setSelectedImportTaskId(8201L);
+        auditFile.setSelectedImportTaskItemId(9301L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/design.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9301L, task, auditFile);
+        when(taskMapper.selectById(8201L)).thenReturn(task);
+        when(auditFileMapper.selectById(701L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9301L)).thenReturn(item);
+        when(nasBrowserService.readFile("QMS/PRJ-20260728/design.pdf"))
+                .thenReturn(new NasFileReadResult("design.pdf", "QMS/PRJ-20260728/design.pdf",
+                        "application/pdf", "pdf".getBytes(StandardCharsets.UTF_8)));
+
+        DccControlledFileBinary binary = transferService.readUncontrolledImportContent(
+                99L, 8201L, 701L, "sig-content", "PRJ-20260728/Design/design.pdf");
+
+        assertEquals("design.pdf", binary.fileName());
+        assertEquals("application/octet-stream", binary.contentType());
+        assertEquals("pdf", new String(binary.bytes(), StandardCharsets.UTF_8));
+        verify(nasBrowserService).readFile("QMS/PRJ-20260728/design.pdf");
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+        verify(taskItemMapper, never()).updateById(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void readUncontrolledImportContent_returnsPendingReviewBinaryWithoutArchiving() {
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8211L, 99L, 7001L, "idem-content-pending-001", "p".repeat(64));
+        DccNasControlAuditFileDO auditFile = pendingReviewAuditFile(711L,
+                "QMS/unknown/no-project-random-file.pdf", "sig-content-pending",
+                "_未分类待处理/QMS/unknown/no-project-random-file.pdf", 4L,
+                "UNCLASSIFIED_PENDING", "PROJECT_CODE_NOT_FOUND");
+        auditFile.setDownloadStatus(DccControlledFileNasTransferServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+        auditFile.setSelectedImportTaskId(8211L);
+        auditFile.setSelectedImportTaskItemId(9311L);
+        auditFile.setLocalRelativePath("_未分类待处理/QMS/unknown/no-project-random-file.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9311L, task, auditFile);
+        item.setArchiveStatus("PENDING_MANUAL_REVIEW");
+        when(taskMapper.selectById(8211L)).thenReturn(task);
+        when(auditFileMapper.selectById(711L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9311L)).thenReturn(item);
+        when(nasBrowserService.readFile("QMS/unknown/no-project-random-file.pdf"))
+                .thenReturn(new NasFileReadResult("no-project-random-file.pdf",
+                        "QMS/unknown/no-project-random-file.pdf", "application/pdf",
+                        "pending".getBytes(StandardCharsets.UTF_8)));
+
+        DccControlledFileBinary binary = transferService.readUncontrolledImportContent(
+                99L, 8211L, 711L, "sig-content-pending",
+                "_未分类待处理/QMS/unknown/no-project-random-file.pdf");
+
+        assertEquals("no-project-random-file.pdf", binary.fileName());
+        assertEquals("pending", new String(binary.bytes(), StandardCharsets.UTF_8));
+        verify(nasBrowserService).readFile("QMS/unknown/no-project-random-file.pdf");
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+        verify(taskItemMapper, never()).updateById(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void readUncontrolledImportContent_rejectsCrossTaskOrStaleSignatureWithoutReadingNas() {
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8202L, 99L, 7001L, "idem-content-002", "d".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(702L, "QMS/PRJ-20260728/stale.pdf",
+                "sig-current", "PRJ-20260728/Design/stale.pdf", 3L);
+        auditFile.setDownloadStatus(DccControlledFileNasTransferServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+        auditFile.setSelectedImportTaskId(9999L);
+        auditFile.setSelectedImportTaskItemId(9302L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/stale.pdf");
+        when(taskMapper.selectById(8202L)).thenReturn(task);
+        when(auditFileMapper.selectById(702L)).thenReturn(auditFile);
+
+        assertThrows(IllegalStateException.class, () -> transferService.readUncontrolledImportContent(
+                99L, 8202L, 702L, "sig-stale", "PRJ-20260728/Design/stale.pdf"));
+
+        verify(nasBrowserService, never()).readFile(anyString());
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+        verify(taskItemMapper, never()).updateById(any(DccControlledFileNasTransferTaskItemDO.class));
+    }
+
+    @Test
+    void recordUncontrolledImportLocalWriteResult_marksLocalWrittenAndArchiveMetadataBlockWithoutSideEffects() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8203L, 99L, 7001L, "idem-local-write-001", "e".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(703L, "QMS/PRJ-20260728/local.pdf",
+                "sig-local", "PRJ-20260728/Design/local.pdf", 6L);
+        auditFile.setDownloadStatus(DccControlledFileNasTransferServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+        auditFile.setSelectedImportTaskId(8203L);
+        auditFile.setSelectedImportTaskItemId(9303L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/local.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9303L, task, auditFile);
+        when(taskMapper.selectById(8203L)).thenReturn(task);
+        when(auditFileMapper.selectById(703L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9303L)).thenReturn(item);
+        stubAggregatedTaskItemSummary(() -> List.of(item));
+
+        DccControlledFileNasTransferRespVO response = transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8203L, 703L, localWriteResultReq("sig-local",
+                        "PRJ-20260728/Design/local.pdf", "LOCAL_WRITTEN", null, null));
+
+        assertEquals(8203L, response.getTaskId());
+        ArgumentCaptor<DccNasControlAuditFileDO> auditCaptor =
+                ArgumentCaptor.forClass(DccNasControlAuditFileDO.class);
+        verify(auditFileMapper).updateById(auditCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", auditCaptor.getValue().getDownloadStatus());
+        assertEquals("FAILED", auditCaptor.getValue().getArchiveStatus());
+        assertEquals("ARCHIVE_METADATA_REQUIRED", auditCaptor.getValue().getArchiveErrorCode());
+        ArgumentCaptor<DccControlledFileNasTransferTaskItemDO> itemCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasTransferTaskItemDO.class);
+        verify(taskItemMapper).updateById(itemCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", itemCaptor.getValue().getLocalWriteStatus());
+        assertEquals("FAILED", itemCaptor.getValue().getArchiveStatus());
+        assertEquals("ARCHIVE_METADATA_REQUIRED", itemCaptor.getValue().getArchiveErrorCode());
+        verify(nasBrowserService, never()).readFile(anyString());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void recordUncontrolledImportLocalWriteResult_marksPendingReviewLocalWrittenWithoutArchiveSideEffects() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8212L, 99L, 7001L, "idem-local-write-pending-001", "q".repeat(64));
+        DccNasControlAuditFileDO auditFile = pendingReviewAuditFile(712L,
+                "QMS/unknown/no-project-random-file.pdf", "sig-local-pending",
+                "_未分类待处理/QMS/unknown/no-project-random-file.pdf", 4L,
+                "UNCLASSIFIED_PENDING", "PROJECT_CODE_NOT_FOUND");
+        auditFile.setDownloadStatus(DccControlledFileNasTransferServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+        auditFile.setSelectedImportTaskId(8212L);
+        auditFile.setSelectedImportTaskItemId(9312L);
+        auditFile.setLocalRelativePath("_未分类待处理/QMS/unknown/no-project-random-file.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9312L, task, auditFile);
+        item.setArchiveStatus("PENDING_MANUAL_REVIEW");
+        when(taskMapper.selectById(8212L)).thenReturn(task);
+        when(auditFileMapper.selectById(712L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9312L)).thenReturn(item);
+        stubAggregatedTaskItemSummary(() -> List.of(item));
+
+        DccControlledFileNasTransferRespVO response = transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8212L, 712L, localWriteResultReq("sig-local-pending",
+                        "_未分类待处理/QMS/unknown/no-project-random-file.pdf", "LOCAL_WRITTEN", null, null));
+
+        assertEquals(8212L, response.getTaskId());
+        ArgumentCaptor<DccNasControlAuditFileDO> auditCaptor =
+                ArgumentCaptor.forClass(DccNasControlAuditFileDO.class);
+        verify(auditFileMapper).updateById(auditCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", auditCaptor.getValue().getDownloadStatus());
+        assertEquals("PENDING_MANUAL_REVIEW", auditCaptor.getValue().getArchiveStatus());
+        assertTrue(auditCaptor.getValue().getArchiveErrorCode() == null);
+        ArgumentCaptor<DccControlledFileNasTransferTaskItemDO> itemCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasTransferTaskItemDO.class);
+        verify(taskItemMapper).updateById(itemCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", itemCaptor.getValue().getLocalWriteStatus());
+        assertEquals("PENDING_MANUAL_REVIEW", itemCaptor.getValue().getArchiveStatus());
+        assertEquals(DccControlledFileNasTransferServiceImpl.ITEM_STATUS_COMPLETED,
+                itemCaptor.getValue().getStatus());
+        verify(nasBrowserService, never()).readFile(anyString());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void recordUncontrolledImportLocalWriteResult_replaysSameSuccessWithoutMutatingOrArchivingAgain() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8204L, 99L, 7001L, "idem-local-write-002", "f".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(704L, "QMS/PRJ-20260728/replay.pdf",
+                "sig-replay", "PRJ-20260728/Design/replay.pdf", 8L);
+        auditFile.setDownloadStatus("LOCAL_WRITTEN");
+        auditFile.setArchiveStatus("FAILED");
+        auditFile.setArchiveErrorCode("ARCHIVE_METADATA_REQUIRED");
+        auditFile.setSelectedImportTaskId(8204L);
+        auditFile.setSelectedImportTaskItemId(9304L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/replay.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9304L, task, auditFile);
+        item.setLocalWriteStatus("LOCAL_WRITTEN");
+        item.setArchiveStatus("FAILED");
+        item.setArchiveErrorCode("ARCHIVE_METADATA_REQUIRED");
+        item.setStatus(DccControlledFileNasTransferServiceImpl.ITEM_STATUS_FAILED);
+        when(taskMapper.selectById(8204L)).thenReturn(task);
+        when(auditFileMapper.selectById(704L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9304L)).thenReturn(item);
+        stubAggregatedTaskItemSummary(() -> List.of(item));
+
+        DccControlledFileNasTransferRespVO response = transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8204L, 704L, localWriteResultReq("sig-replay",
+                        "PRJ-20260728/Design/replay.pdf", "LOCAL_WRITTEN", null, null));
+
+        assertEquals(8204L, response.getTaskId());
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+        verify(taskItemMapper, never()).updateById(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void recordUncontrolledImportLocalWriteResult_rejectsConflictingTerminalResultWithoutArchive() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8205L, 99L, 7001L, "idem-local-write-003", "a".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(705L, "QMS/PRJ-20260728/conflict.pdf",
+                "sig-conflict", "PRJ-20260728/Design/conflict.pdf", 5L);
+        auditFile.setDownloadStatus("LOCAL_WRITTEN");
+        auditFile.setSelectedImportTaskId(8205L);
+        auditFile.setSelectedImportTaskItemId(9305L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/conflict.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9305L, task, auditFile);
+        item.setLocalWriteStatus("LOCAL_WRITTEN");
+        when(taskMapper.selectById(8205L)).thenReturn(task);
+        when(auditFileMapper.selectById(705L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9305L)).thenReturn(item);
+
+        assertThrows(IllegalStateException.class, () -> transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8205L, 705L, localWriteResultReq("sig-conflict",
+                        "PRJ-20260728/Design/conflict.pdf", "LOCAL_WRITE_FAILED",
+                        "LOCAL_PATH_COLLISION", "target already exists")));
+
+        verify(auditFileMapper, never()).updateById(any(DccNasControlAuditFileDO.class));
+        verify(taskItemMapper, never()).updateById(any(DccControlledFileNasTransferTaskItemDO.class));
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void recordUncontrolledImportLocalWriteResult_requiresArchiveMetadataForMatchedLocalWritten() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8206L, 99L, 7001L, "idem-local-write-004", "b".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(706L, "QMS/PRJ-20260728/archive-metadata.pdf",
+                "sig-archive-metadata", "PRJ-20260728/Design/archive-metadata.pdf", 7L);
+        auditFile.setDownloadStatus(DccControlledFileNasTransferServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+        auditFile.setSelectedImportTaskId(8206L);
+        auditFile.setSelectedImportTaskItemId(9306L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/archive-metadata.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9306L, task, auditFile);
+        when(taskMapper.selectById(8206L)).thenReturn(task);
+        when(auditFileMapper.selectById(706L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9306L)).thenReturn(item);
+        stubAggregatedTaskItemSummary(() -> List.of(item));
+
+        DccControlledFileNasTransferRespVO response = transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8206L, 706L, localWriteResultReq("sig-archive-metadata",
+                        "PRJ-20260728/Design/archive-metadata.pdf", "LOCAL_WRITTEN", null, null));
+
+        assertEquals(8206L, response.getTaskId());
+        ArgumentCaptor<DccNasControlAuditFileDO> auditCaptor =
+                ArgumentCaptor.forClass(DccNasControlAuditFileDO.class);
+        verify(auditFileMapper).updateById(auditCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", auditCaptor.getValue().getDownloadStatus());
+        assertEquals("FAILED", auditCaptor.getValue().getArchiveStatus());
+        assertEquals("ARCHIVE_METADATA_REQUIRED", auditCaptor.getValue().getArchiveErrorCode());
+        assertEquals(null, auditCaptor.getValue().getControlledFileId());
+        ArgumentCaptor<DccControlledFileNasTransferTaskItemDO> itemCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasTransferTaskItemDO.class);
+        verify(taskItemMapper).updateById(itemCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", itemCaptor.getValue().getLocalWriteStatus());
+        assertEquals("FAILED", itemCaptor.getValue().getArchiveStatus());
+        assertEquals("ARCHIVE_METADATA_REQUIRED", itemCaptor.getValue().getArchiveErrorCode());
+        verify(nasBrowserService, never()).readFile(anyString());
+        verify(fileService, never()).createFileAndReturnId(any(byte[].class), anyString(), anyString(), anyString());
+        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void archiveAfterLocalWritten_archivesOnlyFromFormalMetadataSnapshot() {
+        ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileNasTransferTaskDO task = uncontrolledImportTask(
+                8207L, 99L, 7001L, "idem-local-write-005", "c".repeat(64));
+        DccNasControlAuditFileDO auditFile = matchedAuditFile(707L, "QMS/PRJ-20260728/archive-success.pdf",
+                "sig-archive-success", "PRJ-20260728/Design/archive-success.pdf", 7L);
+        auditFile.setDownloadStatus(DccControlledFileNasTransferServiceImpl.AUDIT_FILE_DOWNLOAD_STATUS_SELECTED);
+        auditFile.setSelectedImportTaskId(8207L);
+        auditFile.setSelectedImportTaskItemId(9307L);
+        auditFile.setLocalRelativePath("PRJ-20260728/Design/archive-success.pdf");
+        DccControlledFileNasTransferTaskItemDO item = uncontrolledImportItem(9307L, task, auditFile);
+        item.setArchiveCategoryIdSnapshot(9101L);
+        item.setArchiveDirectoryIdSnapshot(9201L);
+        item.setArchiveDccProjectCodeIdSnapshot(3000L);
+        item.setArchiveFileTypeTaxonomyIdSnapshot(9100L);
+        item.setArchiveChangeTypeSnapshot("NEW");
+        item.setArchiveFileNameSnapshot("Archive Success.pdf");
+        item.setArchiveFileNumberSnapshot("DCC-UCF-0001");
+        item.setArchiveVersionNoSnapshot("V1.0");
+        item.setArchiveEffectiveDateSnapshot(LocalDate.of(2026, 8, 3));
+        item.setArchiveRemarkSnapshot("NAS uncontrolled import source: QMS/PRJ-20260728/archive-success.pdf");
+        when(taskMapper.selectById(8207L)).thenReturn(task);
+        when(auditFileMapper.selectById(707L)).thenReturn(auditFile);
+        when(taskItemMapper.selectById(9307L)).thenReturn(item);
+        when(nasBrowserService.readFile("QMS/PRJ-20260728/archive-success.pdf"))
+                .thenReturn(new NasFileReadResult("archive-success.pdf",
+                        "QMS/PRJ-20260728/archive-success.pdf",
+                        "application/pdf", "pdf".getBytes(StandardCharsets.UTF_8)));
+        when(fileService.createFileAndReturnId(any(byte[].class), eq("archive-success.pdf"),
+                eq("dcc/original"), eq("application/pdf"))).thenReturn(5107L);
+        when(workflowService.submitControlledFileWithoutApproval(eq(99L), any(DccControlledFileSubmitReqVO.class)))
+                .thenReturn(6107L);
+        stubAggregatedTaskItemSummary(() -> List.of(item));
+
+        DccControlledFileNasTransferRespVO response = transferService.recordUncontrolledImportLocalWriteResult(
+                99L, 8207L, 707L, localWriteResultReq("sig-archive-success",
+                        "PRJ-20260728/Design/archive-success.pdf", "LOCAL_WRITTEN", null, null));
+
+        assertEquals(8207L, response.getTaskId());
+        verify(nasBrowserService).readFile("QMS/PRJ-20260728/archive-success.pdf");
+        verify(fileService).createFileAndReturnId(any(byte[].class), eq("archive-success.pdf"),
+                eq("dcc/original"), eq("application/pdf"));
+        ArgumentCaptor<DccControlledFileSubmitReqVO> submitCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSubmitReqVO.class);
+        verify(workflowService).submitControlledFileWithoutApproval(eq(99L), submitCaptor.capture());
+        DccControlledFileSubmitReqVO submitReqVO = submitCaptor.getValue();
+        assertEquals(9101L, submitReqVO.getCategoryId());
+        assertEquals(9201L, submitReqVO.getDirectoryId());
+        assertEquals(3000L, submitReqVO.getDccProjectCodeId());
+        assertEquals(9100L, submitReqVO.getFileTypeTaxonomyId());
+        assertEquals("NEW", submitReqVO.getChangeType());
+        assertEquals("Archive Success.pdf", submitReqVO.getFileName());
+        assertEquals("DCC-UCF-0001", submitReqVO.getFileNumber());
+        assertEquals("V1.0", submitReqVO.getVersionNo());
+        assertEquals(LocalDate.of(2026, 8, 3), submitReqVO.getEffectiveDate());
+        assertEquals("NAS uncontrolled import source: QMS/PRJ-20260728/archive-success.pdf",
+                submitReqVO.getRemark());
+        assertEquals(5107L, submitReqVO.getOriginalFileId());
+        ArgumentCaptor<DccNasControlAuditFileDO> auditCaptor =
+                ArgumentCaptor.forClass(DccNasControlAuditFileDO.class);
+        verify(auditFileMapper).updateById(auditCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", auditCaptor.getValue().getDownloadStatus());
+        assertEquals("ARCHIVED", auditCaptor.getValue().getArchiveStatus());
+        assertEquals(6107L, auditCaptor.getValue().getControlledFileId());
+        ArgumentCaptor<DccControlledFileNasTransferTaskItemDO> itemCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasTransferTaskItemDO.class);
+        verify(taskItemMapper).updateById(itemCaptor.capture());
+        assertEquals("LOCAL_WRITTEN", itemCaptor.getValue().getLocalWriteStatus());
+        assertEquals("ARCHIVED", itemCaptor.getValue().getArchiveStatus());
+        assertEquals(DccControlledFileNasTransferServiceImpl.ITEM_STATUS_COMPLETED,
+                itemCaptor.getValue().getStatus());
+        ArgumentCaptor<DccControlledFileNasSourceDO> nasSourceCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasSourceDO.class);
+        verify(nasSourceMapper).insert(nasSourceCaptor.capture());
+        DccControlledFileNasSourceDO nasSource = nasSourceCaptor.getValue();
+        assertEquals(6107L, nasSource.getControlledFileId());
+        assertEquals("quality", nasSource.getNasShareName());
+        assertEquals("QMS/PRJ-20260728/archive-success.pdf", nasSource.getNormalizedRelativePath());
+        assertEquals(DccNasControlAuditServiceImpl.SOURCE_TYPE_NAS_TRANSFER, nasSource.getSourceType());
+        assertEquals(DccNasControlAuditServiceImpl.SOURCE_CONFIDENCE_EXACT, nasSource.getSourceConfidence());
     }
 
     @Test
@@ -1135,18 +1785,41 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void transfer_rejectsSelectedCategoryWithoutDirectoryBinding() {
+    void transfer_unboundSelectedCategoryUsesUnclassifiedDirectory() {
         ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
         TenantContextHolder.setTenantId(1L);
         when(categoryMapper.selectById(900250L)).thenReturn(otherCategory());
         when(categoryDirectoryBindingMapper.selectActiveByCategoryId(900250L)).thenReturn(null);
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of(unclassifiedDirectory(910000L)));
+        when(taskMapper.selectActiveTask()).thenReturn(null);
+        lenient().when(taskMapper.selectWaitingTasks(any(LocalDateTime.class))).thenReturn(List.of());
 
-        IllegalStateException exception = assertThrows(IllegalStateException.class,
-                () -> transferService.transfer(99L, buildReq()));
+        AtomicLong nextTaskId = new AtomicLong(1000L);
+        List<DccControlledFileNasTransferTaskItemDO> storedItems = new ArrayList<>();
+        Map<Long, DccControlledFileNasTransferTaskDO> storedTasks = new LinkedHashMap<>();
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskDO task = invocation.getArgument(0);
+            task.setId(nextTaskId.getAndIncrement());
+            storedTasks.put(task.getId(), copyTask(task));
+            return 1;
+        }).when(taskMapper).insert(any(DccControlledFileNasTransferTaskDO.class));
+        AtomicLong nextItemId = new AtomicLong(2000L);
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskItemDO item = invocation.getArgument(0);
+            item.setId(nextItemId.getAndIncrement());
+            storedItems.add(copyItem(item));
+            return 1;
+        }).when(taskItemMapper).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        when(taskMapper.selectById(anyLong())).thenAnswer(invocation ->
+                storedTasks.get(invocation.getArgument(0)));
+        stubAggregatedTaskItemSummary(() -> storedItems);
 
-        assertEquals("当前 DCC 模板类别未绑定受控目录，请先在 DCC 文件类别维护目录绑定", exception.getMessage());
-        verify(taskMapper, never()).insert(any(DccControlledFileNasTransferTaskDO.class));
-        verify(taskItemMapper, never()).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        DccControlledFileNasTransferRespVO response = transferService.transfer(99L, buildReq());
+
+        assertEquals(1000L, response.getTaskId());
+        assertEquals(DccControlledFileNasTransferServiceImpl.TASK_STATUS_WAITING, response.getStatus());
+        assertEquals(2, response.getRemainingPendingCount());
+        assertEquals(3000L, readLongProperty(storedTasks.get(1000L), "dccProjectCodeId"));
         verify(nasBrowserService, never()).listFiles(any());
         verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
     }
@@ -1174,45 +1847,87 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void processWaitingTasks_failsTaskWhenSelectedCategoryBindingMissing() {
+    void processWaitingTasks_unboundSelectedCategoryUsesUnclassifiedDirectory() {
         ReflectionTestUtils.setField(transferService, "transactionManager", noopTransactionManager());
         TenantContextHolder.setTenantId(1L);
-        DccControlledFileNasTransferTaskDO task = DccControlledFileNasTransferTaskDO.builder()
-                .id(10L)
-                .operatorUserId(99L)
-                .templateCategoryId(900250L)
-                .dccProjectCodeId(3000L)
-                .productMasterId(null)
-                .effectiveDate(LocalDate.of(2026, 5, 23))
-                .selectedNasPathsJson("[\"1. QMS documents\"]")
-                .status(DccControlledFileNasTransferServiceImpl.TASK_STATUS_WAITING)
-                .build();
-        when(taskMapper.selectWaitingTasks(any(LocalDateTime.class))).thenReturn(List.of(task));
-        when(taskMapper.claimWaitingTask(eq(10L), any(LocalDateTime.class))).thenReturn(1);
-        when(taskMapper.selectById(10L)).thenReturn(task);
-        when(directoryMapper.selectList()).thenReturn(List.of(directory(902634L, null, "1. QMS documents", 1)));
-        when(directoryAccessRuleMapper.selectList()).thenReturn(List.of());
+        Map<Long, DccControlledFileNasTransferTaskDO> tasks = new LinkedHashMap<>();
+        Map<Long, DccControlledFileNasTransferTaskItemDO> items = new LinkedHashMap<>();
+        configureSingleDirectoryTask(tasks, items, "1. QMS documents");
         when(categoryMapper.selectList()).thenReturn(List.of(otherCategory()));
         when(categoryMapper.selectById(900250L)).thenReturn(otherCategory());
         when(categoryDirectoryBindingMapper.selectList()).thenReturn(List.of());
+        AtomicLong nextItemId = new AtomicLong(101L);
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskItemDO item = invocation.getArgument(0);
+            item.setId(nextItemId.getAndIncrement());
+            items.put(item.getId(), copyItem(item));
+            return 1;
+        }).when(taskItemMapper).insert(any(DccControlledFileNasTransferTaskItemDO.class));
+        when(taskItemMapper.claimWaitingItem(anyLong())).thenAnswer(invocation -> {
+            DccControlledFileNasTransferTaskItemDO item = items.get(invocation.getArgument(0));
+            if (item == null || !DccControlledFileNasTransferServiceImpl.ITEM_STATUS_WAITING.equals(item.getStatus())) {
+                return 0;
+            }
+            item.setStatus(DccControlledFileNasTransferServiceImpl.ITEM_STATUS_RUNNING);
+            return 1;
+        });
+        when(taskItemMapper.selectById(anyLong())).thenAnswer(invocation -> copyItem(items.get(invocation.getArgument(0))));
+        doAnswer(invocation -> {
+            DccControlledFileNasTransferTaskItemDO updatedItem = invocation.getArgument(0);
+            items.put(updatedItem.getId(), copyItem(updatedItem));
+            return 1;
+        }).when(taskItemMapper).updateById(any(DccControlledFileNasTransferTaskItemDO.class));
+
+        List<DccFileDirectoryDO> directories = new ArrayList<>(List.of(
+                unclassifiedDirectory(910000L),
+                directory(902634L, null, "1. QMS documents", 1)
+        ));
+        AtomicLong nextDirectoryId = new AtomicLong(920000L);
+        when(directoryMapper.selectList()).thenAnswer(invocation -> directories.stream()
+                .map(DccControlledFileNasTransferServiceTest::copyDirectory)
+                .toList());
+        doAnswer(invocation -> {
+            DccFileDirectoryDO directory = invocation.getArgument(0);
+            directory.setId(nextDirectoryId.getAndIncrement());
+            directories.add(copyDirectory(directory));
+            return 1;
+        }).when(directoryMapper).insert(any(DccFileDirectoryDO.class));
+        when(directoryAccessRuleMapper.selectList()).thenReturn(List.of());
         when(permissionRuleMapper.selectList()).thenReturn(List.of());
         when(distributionRuleMapper.selectList()).thenReturn(List.of());
         when(trainingRuleMapper.selectList()).thenReturn(List.of());
         when(routeMapper.selectList()).thenReturn(List.of());
         when(routeNodeMapper.selectList()).thenReturn(List.of());
+        when(nasBrowserService.readDirectoryAcl("1. QMS documents")).thenReturn(sampleAcl("1. QMS documents"));
+        when(nasBrowserService.listFiles("1. QMS documents")).thenReturn(new FileNasListRespVO().setItems(List.of(
+                new FileNasListRespVO.Item().setName("Quality Manual.pdf")
+                        .setPath("1. QMS documents/Quality Manual.pdf").setDir(false).setSize(10L)
+        )));
+        when(nasBrowserService.readFile("1. QMS documents/Quality Manual.pdf"))
+                .thenReturn(new NasFileReadResult("Quality Manual.pdf", "1. QMS documents/Quality Manual.pdf",
+                        "application/pdf", "pdf".getBytes()));
+        when(fileService.createFileAndReturnId(eq("pdf".getBytes()), eq("Quality Manual.pdf"), eq("dcc/original"),
+                eq("application/pdf"))).thenReturn(5001L);
+        when(workflowService.submitControlledFileWithoutApproval(eq(99L), any(DccControlledFileSubmitReqVO.class)))
+                .thenReturn(6001L);
 
         transferService.processWaitingTasks();
+        DccControlledFileNasTransferRespVO result = transferService.getTask(99L, 10L);
 
-        ArgumentCaptor<DccControlledFileNasTransferTaskDO> taskCaptor =
-                ArgumentCaptor.forClass(DccControlledFileNasTransferTaskDO.class);
-        verify(taskMapper).updateById(taskCaptor.capture());
-        DccControlledFileNasTransferTaskDO failedTask = taskCaptor.getValue();
-        assertEquals(DccControlledFileNasTransferServiceImpl.TASK_STATUS_FAILED, failedTask.getStatus());
-        assertEquals("当前 DCC 模板类别未绑定受控目录，请先在 DCC 文件类别维护目录绑定",
-                failedTask.getLastFailureMessage());
-        verify(taskItemMapper, never()).selectFirstWaitingItemByTaskId(10L);
-        verify(nasBrowserService, never()).listFiles(any());
-        verify(workflowService, never()).submitControlledFileWithoutApproval(anyLong(), any(DccControlledFileSubmitReqVO.class));
+        assertEquals(DccControlledFileNasTransferServiceImpl.TASK_STATUS_COMPLETED, result.getStatus());
+        assertEquals(1, result.getCreatedDirectoryCount());
+        assertEquals(0, result.getFailedFileCount());
+        DccFileDirectoryDO importedRoot = directories.stream()
+                .filter(directory -> Long.valueOf(920000L).equals(directory.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(910000L, importedRoot.getParentId());
+        assertEquals("1. QMS documents", importedRoot.getName());
+        ArgumentCaptor<DccControlledFileSubmitReqVO> submitCaptor =
+                ArgumentCaptor.forClass(DccControlledFileSubmitReqVO.class);
+        verify(workflowService).submitControlledFileWithoutApproval(eq(99L), submitCaptor.capture());
+        assertEquals(900250L, submitCaptor.getValue().getCategoryId());
+        assertEquals(920000L, submitCaptor.getValue().getDirectoryId());
     }
 
     @Test
@@ -2105,6 +2820,149 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
                 "cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLocalFolderImportChunkReqVO");
     }
 
+    private static DccNasUncontrolledImportSelectedReqVO uncontrolledImportReq(
+            String idempotencyKey, DccNasUncontrolledImportSelectedReqVO.SelectedFile... selectedFiles) {
+        DccNasUncontrolledImportSelectedReqVO reqVO = new DccNasUncontrolledImportSelectedReqVO();
+        reqVO.setSelectionScope("EXPLICIT_SELECTED_FILES");
+        reqVO.setIdempotencyKey(idempotencyKey);
+        reqVO.setSelectedFiles(List.of(selectedFiles));
+        return reqVO;
+    }
+
+    private static DccNasUncontrolledImportSelectedReqVO.SelectedFile selectedAuditFile(
+            Long auditFileId, String sourceSignature, String localRelativePath) {
+        DccNasUncontrolledImportSelectedReqVO.SelectedFile selectedFile =
+                new DccNasUncontrolledImportSelectedReqVO.SelectedFile();
+        selectedFile.setAuditFileId(auditFileId);
+        selectedFile.setSourceSignature(sourceSignature);
+        selectedFile.setLocalRelativePath(localRelativePath);
+        return selectedFile;
+    }
+
+    private static DccNasUncontrolledImportLocalWriteResultReqVO localWriteResultReq(
+            String sourceSignature, String localRelativePath, String status, String errorCode, String errorMessage) {
+        DccNasUncontrolledImportLocalWriteResultReqVO reqVO = new DccNasUncontrolledImportLocalWriteResultReqVO();
+        reqVO.setSourceSignature(sourceSignature);
+        reqVO.setLocalRelativePath(localRelativePath);
+        reqVO.setLocalWriteStatus(status);
+        reqVO.setLocalWriteErrorCode(errorCode);
+        reqVO.setLocalWriteError(errorMessage);
+        return reqVO;
+    }
+
+    private static DccNasControlAuditFileDO matchedAuditFile(Long id,
+                                                             String normalizedRelativePath,
+                                                             String sourceSignature,
+                                                             String expectedLocalRelativePath,
+                                                             Long fileSize) {
+        return DccNasControlAuditFileDO.builder()
+                .id(id)
+                .taskId(7001L)
+                .nasShareName("quality")
+                .normalizedRelativePath(normalizedRelativePath)
+                .pathHash("hash-" + id)
+                .fileName(normalizedRelativePath.substring(normalizedRelativePath.lastIndexOf('/') + 1))
+                .fileSize(fileSize)
+                .modifiedAt(LocalDateTime.of(2026, 8, 3, 9, 30))
+                .sourceSignature(sourceSignature)
+                .controlStatus("NOT_CONTROLLED")
+                .classificationStatus("MATCHED")
+                .matchedProjectCodeId(3000L)
+                .matchedFileTypeTaxonomyId(9100L)
+                .matchedFileTypeLevel1("Design")
+                .classificationReason("MATCHED")
+                .classificationCandidatesJson("[]")
+                .expectedLocalRelativePath(expectedLocalRelativePath)
+                .downloadStatus("NOT_SELECTED")
+                .archiveStatus("NOT_STARTED")
+                .build();
+    }
+
+    private static DccNasControlAuditFileDO pendingReviewAuditFile(Long id,
+                                                                   String normalizedRelativePath,
+                                                                   String sourceSignature,
+                                                                   String expectedLocalRelativePath,
+                                                                   Long fileSize,
+                                                                   String classificationStatus,
+                                                                   String classificationReason) {
+        DccNasControlAuditFileDO file = matchedAuditFile(
+                id, normalizedRelativePath, sourceSignature, expectedLocalRelativePath, fileSize);
+        file.setClassificationStatus(classificationStatus);
+        file.setClassificationReason(classificationReason);
+        file.setMatchedProjectCodeId(null);
+        file.setMatchedFileTypeTaxonomyId(null);
+        file.setMatchedFileTypeLevel1(null);
+        file.setClassificationCandidatesJson("[]");
+        file.setArchiveStatus("PENDING_MANUAL_REVIEW");
+        return file;
+    }
+
+    private static DccControlledFileNasTransferTaskDO uncontrolledImportTask(Long id,
+                                                                             Long userId,
+                                                                             Long auditTaskId,
+                                                                             String idempotencyKey,
+                                                                             String requestHash) {
+        return DccControlledFileNasTransferTaskDO.builder()
+                .id(id)
+                .auditTaskId(auditTaskId)
+                .operatorUserId(userId)
+                .selectedNasPathsJson("[]")
+                .sourceType(DccControlledFileNasTransferServiceImpl.SOURCE_TYPE_NAS_UNCONTROLLED_IMPORT)
+                .idempotencyKey(idempotencyKey)
+                .requestHash(requestHash)
+                .status(DccControlledFileNasTransferServiceImpl.TASK_STATUS_WAITING)
+                .expectedFileCount(1L)
+                .expectedTotalBytes(120L)
+                .uploadedFileCount(0L)
+                .uploadedTotalBytes(0L)
+                .build();
+    }
+
+    private static DccControlledFileNasTransferTaskItemDO uncontrolledImportItem(
+            Long id, DccControlledFileNasTransferTaskDO task, DccNasControlAuditFileDO auditFile) {
+        return DccControlledFileNasTransferTaskItemDO.builder()
+                .id(id)
+                .taskId(task.getId())
+                .auditFileId(auditFile.getId())
+                .itemType(DccControlledFileNasTransferServiceImpl.ITEM_TYPE_FILE)
+                .nasPath(auditFile.getNormalizedRelativePath())
+                .itemName(auditFile.getFileName())
+                .sourceSignature(auditFile.getSourceSignature())
+                .classificationStatusSnapshot(auditFile.getClassificationStatus())
+                .matchedProjectCodeIdSnapshot(auditFile.getMatchedProjectCodeId())
+                .matchedFileTypeTaxonomyIdSnapshot(auditFile.getMatchedFileTypeTaxonomyId())
+                .classificationReasonSnapshot(auditFile.getClassificationReason())
+                .classificationCandidatesJsonSnapshot(auditFile.getClassificationCandidatesJson())
+                .localRelativePath(auditFile.getLocalRelativePath())
+                .localWriteStatus("NOT_STARTED")
+                .archiveStatus("NOT_STARTED")
+                .status(DccControlledFileNasTransferServiceImpl.ITEM_STATUS_WAITING)
+                .attemptCount(0)
+                .build();
+    }
+
+    private static String uncontrolledImportRequestHash(Long auditTaskId,
+                                                        DccNasUncontrolledImportSelectedReqVO reqVO) {
+        StringBuilder raw = new StringBuilder("DCC_NAS_UNCONTROLLED_IMPORT");
+        appendLengthPrefixed(raw, String.valueOf(auditTaskId));
+        reqVO.getSelectedFiles().stream()
+                .sorted(Comparator.comparing(DccNasUncontrolledImportSelectedReqVO.SelectedFile::getAuditFileId))
+                .forEach(selectedFile -> {
+                    appendLengthPrefixed(raw, String.valueOf(selectedFile.getAuditFileId()));
+                    appendLengthPrefixed(raw, selectedFile.getSourceSignature());
+                    appendLengthPrefixed(raw, selectedFile.getLocalRelativePath());
+                });
+        try {
+            return sha256Hex(raw.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (Exception exception) {
+            throw new AssertionError("Cannot compute uncontrolled import request hash", exception);
+        }
+    }
+
+    private static void appendLengthPrefixed(StringBuilder builder, String value) {
+        builder.append('|').append(value.length()).append(':').append(value);
+    }
+
     private static Object newLocalFolderImportReq(String rootDirectoryName,
                                                   List<String> relativePaths,
                                                   MockMultipartFile... files) throws Exception {
@@ -2297,6 +3155,19 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
                 .build();
     }
 
+    private static DccFileDirectoryDO unclassifiedDirectory(Long id) {
+        return DccFileDirectoryDO.builder()
+                .id(id)
+                .parentId(null)
+                .code(DccUploadDirectoryResolver.UNCLASSIFIED_UPLOAD_DIRECTORY_CODE)
+                .name("未分类")
+                .active(Boolean.TRUE)
+                .sort(99)
+                .remark("test")
+                .accessRuleManuallyBound(Boolean.FALSE)
+                .build();
+    }
+
     private static DccCategoryDirectoryBindingDO binding(Long categoryId, Long directoryId) {
         return DccCategoryDirectoryBindingDO.builder()
                 .id(300L + categoryId + directoryId)
@@ -2355,6 +3226,7 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
         }
         DccControlledFileNasTransferTaskDO copied = DccControlledFileNasTransferTaskDO.builder()
                 .id(source.getId())
+                .auditTaskId(source.getAuditTaskId())
                 .operatorUserId(source.getOperatorUserId())
                 .templateCategoryId(source.getTemplateCategoryId())
                 .dccProjectCodeId(source.getDccProjectCodeId())
@@ -2362,6 +3234,8 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
                 .effectiveDate(source.getEffectiveDate())
                 .selectedNasPathsJson(source.getSelectedNasPathsJson())
                 .sourceType(source.getSourceType())
+                .idempotencyKey(source.getIdempotencyKey())
+                .requestHash(source.getRequestHash())
                 .status(source.getStatus())
                 .nextCheckAt(source.getNextCheckAt())
                 .lastRunAt(source.getLastRunAt())
@@ -2386,11 +3260,40 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
         return DccControlledFileNasTransferTaskItemDO.builder()
                 .id(source.getId())
                 .taskId(source.getTaskId())
+                .auditFileId(source.getAuditFileId())
                 .parentItemId(source.getParentItemId())
                 .itemType(source.getItemType())
                 .nasPath(source.getNasPath())
                 .itemName(source.getItemName())
                 .sourceFileId(source.getSourceFileId())
+                .sourceSignature(source.getSourceSignature())
+                .classificationStatusSnapshot(source.getClassificationStatusSnapshot())
+                .matchedProjectCodeIdSnapshot(source.getMatchedProjectCodeIdSnapshot())
+                .matchedFileTypeTaxonomyIdSnapshot(source.getMatchedFileTypeTaxonomyIdSnapshot())
+                .matchedFileTypeLevel1Snapshot(source.getMatchedFileTypeLevel1Snapshot())
+                .matchedFileTypeLevel2Snapshot(source.getMatchedFileTypeLevel2Snapshot())
+                .matchedFileTypeLevel3Snapshot(source.getMatchedFileTypeLevel3Snapshot())
+                .matchedFileTypeLevel4Snapshot(source.getMatchedFileTypeLevel4Snapshot())
+                .matchedFileTypeLevel5Snapshot(source.getMatchedFileTypeLevel5Snapshot())
+                .classificationReasonSnapshot(source.getClassificationReasonSnapshot())
+                .classificationCandidatesJsonSnapshot(source.getClassificationCandidatesJsonSnapshot())
+                .localRelativePath(source.getLocalRelativePath())
+                .localWriteStatus(source.getLocalWriteStatus())
+                .localWriteErrorCode(source.getLocalWriteErrorCode())
+                .localWriteError(source.getLocalWriteError())
+                .archiveStatus(source.getArchiveStatus())
+                .archiveErrorCode(source.getArchiveErrorCode())
+                .archiveError(source.getArchiveError())
+                .archiveCategoryIdSnapshot(source.getArchiveCategoryIdSnapshot())
+                .archiveDirectoryIdSnapshot(source.getArchiveDirectoryIdSnapshot())
+                .archiveDccProjectCodeIdSnapshot(source.getArchiveDccProjectCodeIdSnapshot())
+                .archiveFileTypeTaxonomyIdSnapshot(source.getArchiveFileTypeTaxonomyIdSnapshot())
+                .archiveChangeTypeSnapshot(source.getArchiveChangeTypeSnapshot())
+                .archiveFileNameSnapshot(source.getArchiveFileNameSnapshot())
+                .archiveFileNumberSnapshot(source.getArchiveFileNumberSnapshot())
+                .archiveVersionNoSnapshot(source.getArchiveVersionNoSnapshot())
+                .archiveEffectiveDateSnapshot(source.getArchiveEffectiveDateSnapshot())
+                .archiveRemarkSnapshot(source.getArchiveRemarkSnapshot())
                 .status(source.getStatus())
                 .attemptCount(source.getAttemptCount())
                 .failureStage(source.getFailureStage())
@@ -2424,6 +3327,7 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
                 .code(source.getCode())
                 .name(source.getName())
                 .parentId(source.getParentId())
+                .fileTypeTaxonomyId(source.getFileTypeTaxonomyId())
                 .active(source.getActive())
                 .sort(source.getSort())
                 .source(source.getSource())

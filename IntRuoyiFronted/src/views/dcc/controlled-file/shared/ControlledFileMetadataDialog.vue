@@ -117,6 +117,7 @@
       </el-form-item>
       <el-form-item label="受控目录" :error="metadataDialog.fieldErrors.directoryId">
         <el-select
+          v-if="selectedCategory?.directoryId"
           v-model="metadataForm.directoryId"
           class="!w-full"
           filterable
@@ -130,7 +131,53 @@
             :value="directory.value"
           />
         </el-select>
+        <el-alert
+          v-else-if="metadataForm.categoryId"
+          :closable="false"
+          show-icon
+          type="info"
+          title="当前文件类别未绑定受控目录，系统将自动落位到未分类目录。"
+        />
+        <el-alert
+          v-else
+          :closable="false"
+          show-icon
+          type="info"
+          title="请选择文件类别后查看目录范围。"
+        />
       </el-form-item>
+      <div class="metadata-impact-preview" data-testid="dcc-metadata-impact-preview">
+        <div class="metadata-impact-preview__title">变更影响预览</div>
+        <div class="metadata-impact-preview__grid">
+          <div class="metadata-impact-preview__item">
+            <span class="metadata-impact-preview__label">当前 DCC 项目</span>
+            <span class="metadata-impact-preview__value">{{ currentProjectCodeImpactText }}</span>
+          </div>
+          <div class="metadata-impact-preview__item">
+            <span class="metadata-impact-preview__label">目标 DCC 项目</span>
+            <span class="metadata-impact-preview__value">{{ targetProjectCodeImpactText }}</span>
+          </div>
+          <div class="metadata-impact-preview__item">
+            <span class="metadata-impact-preview__label">当前分类路径</span>
+            <span class="metadata-impact-preview__value">{{ currentTaxonomyImpactText }}</span>
+          </div>
+          <div class="metadata-impact-preview__item">
+            <span class="metadata-impact-preview__label">目标分类路径</span>
+            <span class="metadata-impact-preview__value">{{ targetTaxonomyImpactText }}</span>
+          </div>
+          <div class="metadata-impact-preview__item">
+            <span class="metadata-impact-preview__label">当前受控目录</span>
+            <span class="metadata-impact-preview__value">{{ currentDirectoryImpactText }}</span>
+          </div>
+          <div class="metadata-impact-preview__item">
+            <span class="metadata-impact-preview__label">受控浏览目录落位</span>
+            <span class="metadata-impact-preview__value">{{ targetDirectoryImpactText }}</span>
+          </div>
+        </div>
+        <div class="metadata-impact-preview__hint">
+          保存后将同步更新 DCC 项目代码关联文档、受控浏览目录落位和修正追溯记录。
+        </div>
+      </div>
       <el-form-item label="修改说明">
         <el-input
           v-model="metadataForm.changeReason"
@@ -192,6 +239,7 @@ const emit = defineEmits<{
 }>()
 
 const message = useMessage()
+const UNCLASSIFIED_DIRECTORY_AUTO_TEXT = '未分类（自动落位）'
 
 const metadataDialog = reactive({
   submitting: false,
@@ -360,6 +408,10 @@ const directoryOptions = computed(() => {
   return collectDirectoryOptions(category.directoryId)
 })
 
+const selectedCategoryUsesUnclassifiedDirectory = computed(() =>
+  Boolean(metadataForm.categoryId && selectedCategory.value && !selectedCategory.value.directoryId)
+)
+
 const trimToUndefined = (value: string) => {
   const trimmed = value.trim()
   return trimmed ? trimmed : undefined
@@ -372,6 +424,71 @@ const trimToNull = (value: string) => {
 
 const formatProjectCodeOptionLabel = (projectCode: DccProjectCodeRespVO) =>
   [projectCode.projectName, projectCode.projectCode, projectCode.docControlNo].filter(Boolean).join(' / ')
+
+const formatImpactPath = (items: Array<string | null | undefined>) => {
+  const parts = items.map((item) => item?.trim()).filter((item): item is string => Boolean(item))
+  return parts.length ? parts.join(' / ') : '-'
+}
+
+const resolveDirectoryPathById = (directoryId?: number) => {
+  if (!directoryId) {
+    return '-'
+  }
+  const nodes: string[] = []
+  const visited = new Set<number>()
+  let current = directoryById.value.get(directoryId)
+  while (current?.id && !visited.has(current.id)) {
+    visited.add(current.id)
+    nodes.unshift(current.name)
+    current = current.parentId ? directoryById.value.get(current.parentId) : undefined
+  }
+  return nodes.length ? nodes.join('/') : '-'
+}
+
+const currentProjectCodeImpactText = computed(() =>
+  formatImpactPath([props.file?.productName, props.file?.productCode]) ||
+  (props.file?.dccProjectCodeId ? `项目#${props.file.dccProjectCodeId}` : '-')
+)
+
+const targetProjectCodeImpactText = computed(() => {
+  if (selectedProjectCode.value) {
+    return formatProjectCodeOptionLabel(selectedProjectCode.value)
+  }
+  return formatImpactPath([metadataForm.productName, metadataForm.productCode])
+})
+
+const currentTaxonomyImpactText = computed(() =>
+  formatImpactPath([
+    props.file?.fileTypeLevel1,
+    props.file?.fileTypeLevel2,
+    props.file?.fileTypeLevel3,
+    props.file?.fileTypeLevel4,
+    props.file?.fileTypeLevel5
+  ])
+)
+
+const targetTaxonomyImpactText = computed(() =>
+  taxonomyPathNames.value.length
+    ? taxonomyPathNames.value.join(' / ')
+    : formatImpactPath([
+        metadataForm.fileTypeLevel1,
+        metadataForm.fileTypeLevel2,
+        metadataForm.fileTypeLevel3,
+        metadataForm.fileTypeLevel4,
+        metadataForm.fileTypeLevel5
+      ])
+)
+
+const selectedDirectoryOption = computed(() =>
+  directoryOptions.value.find((item) => item.value === metadataForm.directoryId)
+)
+
+const currentDirectoryImpactText = computed(() => resolveDirectoryPathById(props.file?.directoryId))
+const targetDirectoryImpactText = computed(() =>
+  selectedCategoryUsesUnclassifiedDirectory.value
+    ? UNCLASSIFIED_DIRECTORY_AUTO_TEXT
+    : selectedDirectoryOption.value?.label || resolveDirectoryPathById(metadataForm.directoryId)
+)
 
 const applyDccProjectCodeProductNumber = () => {
   metadataForm.productCode = selectedProjectCode.value?.projectCode?.trim() || ''
@@ -530,11 +647,12 @@ const validateMetadataDialog = () => {
   if (!metadataForm.categoryId) {
     errors.categoryId = '请选择文件类别'
   }
-  if (metadataForm.categoryId && !selectedCategory.value?.directoryId) {
-    errors.directoryId = '当前类别未绑定受控目录'
-  } else if (!metadataForm.directoryId) {
+  if (!selectedCategoryUsesUnclassifiedDirectory.value && !metadataForm.directoryId) {
     errors.directoryId = '请选择受控目录'
-  } else if (!directoryOptions.value.some((item) => item.value === metadataForm.directoryId)) {
+  } else if (
+    !selectedCategoryUsesUnclassifiedDirectory.value &&
+    !directoryOptions.value.some((item) => item.value === metadataForm.directoryId)
+  ) {
     errors.directoryId = '请选择类别绑定范围内的受控目录'
   }
   metadataDialog.fieldErrors = errors
@@ -559,8 +677,20 @@ const buildMetadataPayload = (): ControlledFileMetadataUpdateReqVO => ({
   productCode: trimToUndefined(selectedProjectCode.value?.projectCode || metadataForm.productCode),
   fileNumber: metadataForm.fileNumber.trim(),
   categoryId: metadataForm.categoryId as number,
-  directoryId: metadataForm.directoryId as number
+  directoryId: selectedCategoryUsesUnclassifiedDirectory.value ? null : metadataForm.directoryId || null
 })
+
+const resolveMetadataPermissionErrorMessage = (error: unknown, defaultMessage: string) => {
+  const message = resolveReadSideErrorMessage(error, defaultMessage)
+  if (
+    message.includes('Only doc control can update controlled file metadata') ||
+    message.includes('CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED') ||
+    message.includes('1080000124')
+  ) {
+    return '当前账号未被后端识别为文控角色（doc_control）。请确认已分配文控角色并重新登录；如果刚调整过权限，请刷新 user_role_ids 权限缓存后重试。'
+  }
+  return message
+}
 
 const submitMetadataDialog = async () => {
   if (!props.file?.id || !validateMetadataDialog()) {
@@ -574,7 +704,7 @@ const submitMetadataDialog = async () => {
     emit('saved')
     dialogVisible.value = false
   } catch (error) {
-    metadataDialog.inlineError = resolveReadSideErrorMessage(
+    metadataDialog.inlineError = resolveMetadataPermissionErrorMessage(
       error,
       '基础信息保存失败，请查看错误提示后重试。'
     )
@@ -610,5 +740,65 @@ watch(
   gap: 6px;
   min-height: 24px;
   align-items: center;
+}
+
+.metadata-impact-preview {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px 96px;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fafcff;
+}
+
+.metadata-impact-preview__title {
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.metadata-impact-preview__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metadata-impact-preview__item {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.metadata-impact-preview__label {
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.metadata-impact-preview__value {
+  overflow: hidden;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadata-impact-preview__hint {
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+@media (max-width: 720px) {
+  .metadata-impact-preview {
+    margin-left: 0;
+  }
+
+  .metadata-impact-preview__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

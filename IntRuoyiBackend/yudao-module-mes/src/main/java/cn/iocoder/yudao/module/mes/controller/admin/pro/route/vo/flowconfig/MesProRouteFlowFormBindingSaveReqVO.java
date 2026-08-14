@@ -52,6 +52,9 @@ public class MesProRouteFlowFormBindingSaveReqVO {
     @Schema(description = "对象级权限范围ID", example = "5001")
     private Long permissionScopeId;
 
+    @Schema(description = "记录类型快照 Hash，由后端保存时生成", example = "sha256")
+    private String recordCategorySnapshotHash;
+
     @Schema(description = "必填策略：REQUIRED/CONDITIONAL_REQUIRED/OPTIONAL/SKIPPABLE_CONTROLLED", example = "REQUIRED")
     private String requiredPolicy;
 
@@ -63,6 +66,9 @@ public class MesProRouteFlowFormBindingSaveReqVO {
 
     @Schema(description = "归档可见性：FINAL_DHR/INTERNAL_REVIEW/AUDIT_ONLY/ATTACHMENT_REFERENCE", example = "FINAL_DHR")
     private String archiveVisibility;
+
+    @Schema(description = "槽位配置快照 Hash，由后端保存时生成", example = "sha256")
+    private String slotConfigSnapshotHash;
 
     @Schema(description = "填写人来源：USER/USERS/ROLE", example = "USERS")
     private String candidateSourceType;

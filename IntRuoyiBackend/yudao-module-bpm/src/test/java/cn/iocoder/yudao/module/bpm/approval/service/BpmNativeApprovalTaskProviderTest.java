@@ -30,6 +30,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -281,6 +282,31 @@ class BpmNativeApprovalTaskProviderTest {
         ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
         verify(taskService).getTaskDonePage(eq(100L), captor.capture());
         assertEquals("已办", captor.getValue().getName());
+    }
+
+    @Test
+    void pageDoneKeepsLegacyHistoricTaskWhenTaskStatusIsMissing() {
+        HistoricTaskInstance task = mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("task-done-legacy");
+        when(task.getName()).thenReturn("历史已办审批");
+        when(task.getTaskDefinitionKey()).thenReturn("legacyApprovalTask");
+        when(task.getProcessInstanceId()).thenReturn("pi-done-legacy");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getEndTime()).thenReturn(new Date(1782180300000L));
+        when(task.getTaskLocalVariables()).thenReturn(Map.of());
+        when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, null, 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_TASK_DONE:task-done-legacy", summary.getId());
+        assertEquals("DONE", summary.getBusinessStatus());
+        assertNull(summary.getApprovalResult());
+        assertNull(summary.getApprovalRemark());
+        assertEquals("pi-done-legacy", summary.getDetailQuery().get("id"));
     }
 
     @Test

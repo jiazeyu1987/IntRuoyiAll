@@ -29,9 +29,12 @@ public class MesProcessPoolTeamMaintenanceAuditDO extends TenantBaseDO {
     private Long id;
 
     private Long leaderUserId;
+    private Long operatorUserId;
     private String actionType;
     private String targetType;
     private Long targetId;
+    private String resultStatus;
+    private String changeSummary;
     private String beforeSnapshot;
     private String afterSnapshot;
     private LocalDateTime auditTime;

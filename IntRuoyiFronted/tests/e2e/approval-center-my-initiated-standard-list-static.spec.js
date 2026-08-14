@@ -5,7 +5,7 @@ assertApprovalCenterStandardListContract({
   routeName: 'ApprovalCenterMyInitiated',
   routeTitle: '我发起的',
   viewType: 'MY_INITIATED',
-  tableKey: 'approval.center.myInitiated'
+  tableKey: 'approval.center.myInitiated.applicant.v1'
 })
 
 console.log('PASS: approval center MY_INITIATED standard list template static contract')

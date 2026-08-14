@@ -238,8 +238,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         detailQuery.put("taskId", task.getId());
         Map<String, Object> variables = task.getProcessVariables();
         Map<String, String> decisionDetailQuery = buildDecisionDetailQuery(variables, task.getProcessInstanceId());
-        ApprovalTaskReviewResult approvalResult = ApprovalTaskResultSupport.fromBpmTaskStatus(
-                FlowableUtils.getTaskStatus(task), "BPM done " + task.getId());
+        ApprovalTaskReviewResult approvalResult = resolveDoneApprovalResult(task);
         return ApprovalTaskSummary.builder()
                 .id("BPM:" + DONE_SOURCE + ":" + task.getId())
                 .moduleCode(ApprovalModuleCode.BPM)
@@ -333,6 +332,12 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             return null;
         }
         return Long.valueOf(value);
+    }
+
+    private static ApprovalTaskReviewResult resolveDoneApprovalResult(HistoricTaskInstance task) {
+        Integer taskStatus = FlowableUtils.getTaskStatus(task);
+        return taskStatus == null ? null : ApprovalTaskResultSupport.fromBpmTaskStatus(
+                taskStatus, "BPM done " + task.getId());
     }
 
     private static BpmTaskPageReqVO buildTaskPageReqVO(ApprovalTaskQueryContext context) {

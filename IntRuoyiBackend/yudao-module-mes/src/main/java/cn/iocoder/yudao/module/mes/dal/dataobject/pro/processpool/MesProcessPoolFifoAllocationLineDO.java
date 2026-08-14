@@ -31,6 +31,7 @@ public class MesProcessPoolFifoAllocationLineDO extends TenantBaseDO {
     private String allocationBatchNo;
     private Long processPoolId;
     private Long sourceEventId;
+    private Integer reportAllocationVersion;
     private Long sourceQuantityFragmentId;
     private Long sourceRouteProcessId;
     private Long sourceProcessId;
@@ -41,6 +42,8 @@ public class MesProcessPoolFifoAllocationLineDO extends TenantBaseDO {
     private Long targetProcessId;
     private BigDecimal allocatedQuantity;
     private String allocationStatus;
+    private String lifecycleStatus;
+    private Integer supersededVersion;
     private String remark;
 
 }

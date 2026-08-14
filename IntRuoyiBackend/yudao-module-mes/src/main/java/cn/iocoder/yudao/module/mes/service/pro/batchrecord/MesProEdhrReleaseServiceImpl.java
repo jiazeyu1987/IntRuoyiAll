@@ -4,7 +4,9 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.signature.BpmApprovalSignatureRecordDO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.signature.BpmApprovalSignatureRecordMapper;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
@@ -121,6 +123,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private static final String RULE_SCOPE_TYPE_ROUTE = "ROUTE";
     private static final String ACTION_BATCH_RELEASE = "BATCH_RELEASE";
     private static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
+    private static final String APPROVAL_SOURCE_TASK_TYPE_EDHR_WORK_TASK = "EDHR_WORK_TASK";
+    private static final String APPROVAL_REVIEW_RESULT_APPROVE = "APPROVE";
 
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
@@ -143,6 +147,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Resource
     private MesProEdhrWorkTaskAssignmentRuleMapper workTaskAssignmentRuleMapper;
     @Resource
+    private BpmApprovalSignatureRecordMapper approvalSignatureRecordMapper;
+    @Resource
     private AdminUserApi adminUserApi;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
@@ -154,6 +160,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrReleaseDossierRequirementSettingService dossierRequirementSettingService;
     @Resource
     private MesProEdhrCandidateResolver candidateResolver;
+    @Resource
+    private MesOrderReleaseCompletenessService releaseCompletenessService;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -318,7 +326,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(reqVO.getReleaseTransactionId());
         }
 
-        MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
         requirePrecheckPassed(transaction);
         requireDossierRequirementConfigHashCurrent(extractDossierRequirementConfigHash(transaction));
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
@@ -348,6 +356,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         recordTransactionEvent(transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_RELEASED,
                 actorUserId, reason, null, idempotencyKey, signatureEvidence.aggregateHash(), occurredAt);
         batch = requireBatchExecution(transaction.getBatchExecutionId());
+        recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_RELEASED,
+                actorUserId, reason, null, idempotencyKey, signatureEvidence.aggregateHash(), occurredAt);
         return toResp(batch, transaction);
     }
 
@@ -363,7 +373,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(reqVO.getReleaseTransactionId());
         }
 
-        MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
         requirePendingApproval(transaction);
         MesProEdhrWorkTaskDO approvalTask =
                 workTaskService.validateReleaseApprovalTask(null, transaction.getId());
@@ -371,6 +381,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         LocalDateTime occurredAt = now();
         Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
         String opinion = StrUtil.trim(reqVO.getApprovalOpinion());
+        requireApprovalCenterSignoffEvidence(approvalTask, actorUserId, signoffEvidenceHash);
 
         releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
                 .setId(transaction.getId())
@@ -384,7 +395,10 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         workTaskService.completeReleaseApprovalTask(approvalTask.getId(), transaction.getId(), "APPROVE", opinion);
         recordTransactionEvent(transaction, EVENT_TYPE_APPROVE, fromStatus, STATUS_RELEASED,
                 actorUserId, null, opinion, idempotencyKey, signoffEvidenceHash, occurredAt);
-        return toResp(requireBatchExecution(transaction.getBatchExecutionId()), transaction);
+        MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
+        recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_APPROVE, fromStatus, STATUS_RELEASED,
+                actorUserId, null, opinion, idempotencyKey, signoffEvidenceHash, occurredAt);
+        return toResp(batch, transaction);
     }
 
     @Override
@@ -399,13 +413,20 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(reqVO.getReleaseTransactionId());
         }
 
-        MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
-        requirePendingApproval(transaction);
-        MesProEdhrWorkTaskDO approvalTask =
-                workTaskService.validateReleaseApprovalTask(null, transaction.getId());
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
+        MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();
         Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
+        MesProEdhrWorkTaskDO approvalTask = null;
+        if (STATUS_PRECHECK_PASSED.equals(fromStatus)) {
+            requirePrecheckPassed(transaction);
+            requireReleaseOwner(batch, actorUserId);
+        } else if (STATUS_PENDING_APPROVAL.equals(fromStatus)) {
+            approvalTask = workTaskService.validateReleaseApprovalTask(null, transaction.getId());
+        } else {
+            throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
+        }
 
         releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
                 .setId(transaction.getId())
@@ -414,10 +435,14 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setRejectedAt(occurredAt)
                 .setRejectReason(reason));
         transaction = releaseTransactionMapper.selectById(transaction.getId());
-        workTaskService.completeReleaseApprovalTask(approvalTask.getId(), transaction.getId(), "REJECT", reason);
+        if (approvalTask != null) {
+            workTaskService.completeReleaseApprovalTask(approvalTask.getId(), transaction.getId(), "REJECT", reason);
+        }
         recordTransactionEvent(transaction, EVENT_TYPE_REJECT, fromStatus, STATUS_REJECTED,
                 actorUserId, reason, null, idempotencyKey, null, occurredAt);
-        return toResp(requireBatchExecution(transaction.getBatchExecutionId()), transaction);
+        recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_REJECT, fromStatus, STATUS_REJECTED,
+                actorUserId, reason, null, idempotencyKey, null, occurredAt);
+        return toResp(batch, transaction);
     }
 
     @Override
@@ -432,7 +457,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(reqVO.getReleaseTransactionId());
         }
 
-        MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
         requirePendingApproval(transaction);
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();
@@ -448,7 +473,10 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         workTaskService.cancelReleaseApprovalTask(transaction.getId(), reason);
         recordTransactionEvent(transaction, EVENT_TYPE_WITHDRAW, fromStatus, STATUS_WITHDRAWN,
                 actorUserId, reason, null, idempotencyKey, null, occurredAt);
-        return toResp(requireBatchExecution(transaction.getBatchExecutionId()), transaction);
+        MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
+        recordTerminalOperationAudit(batch, transaction, EVENT_TYPE_WITHDRAW, fromStatus, STATUS_WITHDRAWN,
+                actorUserId, reason, null, idempotencyKey, null, occurredAt);
+        return toResp(batch, transaction);
     }
 
     @Override
@@ -523,6 +551,14 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         return transaction;
     }
 
+    private MesProEdhrReleaseTransactionDO requireTransactionForUpdate(Long releaseTransactionId) {
+        MesProEdhrReleaseTransactionDO transaction = releaseTransactionMapper.selectByIdForUpdate(releaseTransactionId);
+        if (transaction == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
+        }
+        return transaction;
+    }
+
     private void requirePrecheckEditable(MesProEdhrReleaseTransactionDO transaction) {
         if (STATUS_PRECHECK_REQUIRED.equals(transaction.getReleaseStatus())
                 || STATUS_PRECHECK_FAILED.equals(transaction.getReleaseStatus())
@@ -574,6 +610,33 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             throw exception(PRO_EDHR_RELEASE_SIGNATURE_PASSWORD_REQUIRED);
         }
         return password;
+    }
+
+    private void requireApprovalCenterSignoffEvidence(MesProEdhrWorkTaskDO approvalTask,
+                                                       Long actorUserId,
+                                                       String signoffEvidenceHash) {
+        if (approvalTask == null || approvalTask.getId() == null || actorUserId == null) {
+            throw exception(PRO_EDHR_RELEASE_SIGNOFF_REQUIRED);
+        }
+        List<BpmApprovalSignatureRecordDO> records = approvalSignatureRecordMapper.selectList(
+                new LambdaQueryWrapperX<BpmApprovalSignatureRecordDO>()
+                        .eq(BpmApprovalSignatureRecordDO::getModuleCode, MODULE_EDHR)
+                        .eq(BpmApprovalSignatureRecordDO::getSourceTaskType, APPROVAL_SOURCE_TASK_TYPE_EDHR_WORK_TASK)
+                        .eq(BpmApprovalSignatureRecordDO::getSourceTaskId, String.valueOf(approvalTask.getId()))
+                        .eq(BpmApprovalSignatureRecordDO::getSignerUserId, actorUserId)
+                        .eq(BpmApprovalSignatureRecordDO::getReviewResult, APPROVAL_REVIEW_RESULT_APPROVE));
+        boolean evidenceMatched = records.stream().anyMatch(record ->
+                Boolean.TRUE.equals(record.getPasswordVerified())
+                        && matchesSignoffEvidenceHash(record.getSignatureImageFileUrl(), signoffEvidenceHash));
+        if (!evidenceMatched) {
+            throw exception(PRO_EDHR_RELEASE_SIGNOFF_REQUIRED);
+        }
+    }
+
+    private boolean matchesSignoffEvidenceHash(String signatureImageFileUrl, String signoffEvidenceHash) {
+        String normalizedUrl = StrUtil.trim(signatureImageFileUrl);
+        return StrUtil.isNotBlank(normalizedUrl)
+                && Objects.equals(DigestUtil.sha256Hex(normalizedUrl), signoffEvidenceHash);
     }
 
     private String requireIdempotencyKey(String rawIdempotencyKey) {
@@ -648,26 +711,27 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                         MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_RECORD,
                         CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_RECORD, "成品检记录",
                         "成品检记录限制"),
-                buildSourceNotIntegratedItem(releaseTransactionId, batch, checkedAt, CHECK_INSPECTION_RESULT,
-                        "检验结果检查", "INSPECTION", MODULE_QMS,
-                        "未接入当前批次/SN 的 IQC/IPQC/OQC/RQC 合格记录来源",
-                        "补齐检验记录接口或配置检验来源后重新预检"),
-                buildSourceNotIntegratedItem(releaseTransactionId, batch, checkedAt, CHECK_DEVIATION_CLOSED,
-                        "偏差关闭检查", "DEVIATION", MODULE_QMS,
-                        "未接入当前批次/SN 的偏差关闭状态来源",
-                        "确认偏差记录已关闭并接入偏差查询后重新预检"),
-                buildSourceNotIntegratedItem(releaseTransactionId, batch, checkedAt, CHECK_REWORK_CLOSED,
-                        "返工完成检查", "REWORK", MODULE_MES,
-                        "未接入当前批次/SN 的返工审批与完成记录来源",
-                        "补齐返工记录和审批状态后重新预检"),
-                buildSourceNotIntegratedItem(releaseTransactionId, batch, checkedAt, CHECK_SCRAP_RECORDED,
-                        "报废记录检查", "SCRAP", MODULE_MES,
-                        "未接入当前批次/SN 的报废记录来源",
-                        "确认报废记录齐套或明确无报废后重新预检"),
-                buildSourceNotIntegratedItem(releaseTransactionId, batch, checkedAt, CHECK_INVENTORY_CONSISTENCY,
-                        "库存一致性检查", "INVENTORY", MODULE_WMS,
-                        "未接入当前批次/SN 的库存数量、状态和质量状态来源",
-                        "接入库存记录并确认放行数量、批次/SN 与库存状态一致"));
+                buildCompletenessSourceItem(releaseTransactionId, batch, checkedAt,
+                        releaseCompletenessService.evaluateInspectionResult(batch)),
+                buildCompletenessSourceItem(releaseTransactionId, batch, checkedAt,
+                        releaseCompletenessService.evaluateDeviationClosed(batch)),
+                buildCompletenessSourceItem(releaseTransactionId, batch, checkedAt,
+                        releaseCompletenessService.evaluateReworkClosed(batch)),
+                buildCompletenessSourceItem(releaseTransactionId, batch, checkedAt,
+                        releaseCompletenessService.evaluateScrapRecorded(batch)),
+                buildCompletenessSourceItem(releaseTransactionId, batch, checkedAt,
+                        releaseCompletenessService.evaluateInventoryConsistency(batch)));
+    }
+
+    private MesProEdhrReleaseCheckItemDO buildCompletenessSourceItem(Long releaseTransactionId,
+                                                                     MesProEdhrBatchExecutionDO batch,
+                                                                     LocalDateTime checkedAt,
+                                                                     MesOrderReleaseCompletenessCheck sourceCheck) {
+        return buildItem(releaseTransactionId, batch, checkedAt, sourceCheck.checkCode(),
+                sourceCheck.checkCategory(), sourceCheck.checkName(), sourceCheck.checkResult(),
+                sourceCheck.severity(), sourceCheck.responsibilityModule(), sourceCheck.sourceObjectType(),
+                sourceCheck.sourceObjectId(), sourceCheck.sourceObjectCode(), sourceCheck.failureReason(),
+                sourceCheck.remediationSuggestion());
     }
 
     private MesProEdhrReleaseCheckItemDO buildDossierRequirementItem(Long releaseTransactionId,
@@ -1246,6 +1310,82 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setOccurredAt(occurredAt));
     }
 
+    private void recordTerminalOperationAudit(MesProEdhrBatchExecutionDO batch,
+                                              MesProEdhrReleaseTransactionDO transaction,
+                                              String eventType,
+                                              String fromStatus,
+                                              String toStatus,
+                                              Long actorUserId,
+                                              String reason,
+                                              String opinion,
+                                              String idempotencyKey,
+                                              String signoffEvidenceHash,
+                                              LocalDateTime occurredAt) {
+        Map<String, Object> beforePayload = new LinkedHashMap<>();
+        beforePayload.put("releaseTransactionId", transaction.getId());
+        beforePayload.put("releaseStatus", fromStatus);
+        Map<String, Object> afterPayload = new LinkedHashMap<>();
+        afterPayload.put("releaseTransactionId", transaction.getId());
+        afterPayload.put("releaseStatus", toStatus);
+        afterPayload.put("submittedBy", transaction.getSubmittedBy());
+        afterPayload.put("approvedBy", transaction.getApprovedBy());
+        afterPayload.put("rejectedBy", transaction.getRejectedBy());
+        afterPayload.put("withdrawnBy", transaction.getWithdrawnBy());
+        afterPayload.put("signoffEvidenceHash", signoffEvidenceHash);
+
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("requestSource", "RELEASE_TERMINAL");
+        metadata.put("eventType", eventType);
+        metadata.put("reason", reason);
+        metadata.put("opinion", opinion);
+        metadata.put("idempotencyKey", idempotencyKey);
+        metadata.put("signoffEvidenceHash", signoffEvidenceHash);
+        metadata.put("permissionDecision", "ALLOW");
+        metadata.put("resultStatus", "SUCCESS");
+        metadata.put("batchExecutionId", batch.getId());
+        metadata.put("releaseTransactionId", transaction.getId());
+        metadata.put("fromStatus", fromStatus);
+        metadata.put("toStatus", toStatus);
+
+        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+                .setRequestId(idempotencyKey)
+                .setObjectType("RELEASE_TRANSACTION")
+                .setObjectId(String.valueOf(transaction.getId()))
+                .setBatchExecutionId(batch.getId())
+                .setRouteId(batch.getRouteId())
+                .setOperationType(eventType)
+                .setActionName(resolveTerminalAuditActionName(eventType))
+                .setActorUserId(actorUserId)
+                .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                .setPermissionCode(resolveTerminalAuditPermissionCode(eventType))
+                .setPermissionDecision("ALLOW")
+                .setResultStatus("SUCCESS")
+                .setBeforeSummaryHash(hashReleaseAuditPayload(beforePayload))
+                .setAfterSummaryHash(hashReleaseAuditPayload(afterPayload))
+                .setMetadataJson(JSON.toJSONString(metadata))
+                .setOccurredAt(occurredAt));
+    }
+
+    private String resolveTerminalAuditActionName(String eventType) {
+        return switch (eventType) {
+            case EVENT_TYPE_SUBMIT -> "放行负责人电子签名放行";
+            case EVENT_TYPE_APPROVE -> "审批中心批准放行";
+            case EVENT_TYPE_REJECT -> "放行退回";
+            case EVENT_TYPE_WITHDRAW -> "撤回放行审批";
+            default -> "eDHR 放行终态操作";
+        };
+    }
+
+    private String resolveTerminalAuditPermissionCode(String eventType) {
+        return switch (eventType) {
+            case EVENT_TYPE_SUBMIT -> "mes:pro-edhr-release:submit";
+            case EVENT_TYPE_APPROVE -> "mes:pro-edhr-release:approve";
+            case EVENT_TYPE_REJECT -> "mes:pro-edhr-release:reject";
+            case EVENT_TYPE_WITHDRAW -> "mes:pro-edhr-release:withdraw";
+            default -> "mes:pro-edhr-release:update";
+        };
+    }
+
     private Map<String, Object> toPrecheckAuditItemPayload(MesProEdhrReleaseCheckItemDO item) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("id", item.getId());
@@ -1408,5 +1548,39 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
 
     private LocalDateTime now() {
         return LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrReleaseRespVO submitForApproval(MesProEdhrReleaseSubmitForApprovalCommand command) {
+        String idempotencyKey = requireIdempotencyKey(command.getIdempotencyKey());
+        MesProEdhrReleaseTransactionEventDO existingEvent =
+                releaseTransactionEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(
+                        command.getReleaseTransactionId(), EVENT_TYPE_SUBMIT, idempotencyKey);
+        if (existingEvent != null) {
+            return get(command.getReleaseTransactionId());
+        }
+
+        MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(command.getReleaseTransactionId());
+        requirePrecheckPassed(transaction);
+        requireDossierRequirementConfigHashCurrent(extractDossierRequirementConfigHash(transaction));
+        MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
+        String fromStatus = transaction.getReleaseStatus();
+        LocalDateTime occurredAt = now();
+        Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
+        String reason = StrUtil.blankToDefault(StrUtil.trim(command.getSubmitReason()),
+                "生产组长申请生成放行资料，提交负责人审批");
+        MesProEdhrWorkTaskDO approvalTask = workTaskService.createReleaseApprovalTaskAfterSubmit(transaction, batch);
+
+        releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
+                .setId(transaction.getId())
+                .setReleaseStatus(STATUS_PENDING_APPROVAL)
+                .setSubmitIdempotencyKey(idempotencyKey)
+                .setSubmittedBy(actorUserId)
+                .setSubmittedAt(occurredAt));
+        transaction = releaseTransactionMapper.selectById(transaction.getId());
+        recordTransactionEvent(transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_PENDING_APPROVAL,
+                actorUserId, reason, null, idempotencyKey, null, occurredAt);
+        return toResp(batch, transaction).setReleaseApprovalWorkTaskId(approvalTask.getId());
     }
 }

@@ -45,6 +45,11 @@ export interface ProRouteProductBindFromWorkOrdersRespVO {
   conflictItemCodes: string[]
 }
 
+export interface ProRouteProductByItemSaveReqVO {
+  itemId: number
+  routeId?: number | null
+}
+
 // MES 工艺路线产品 API
 export const ProRouteProductApi = {
   // 按工艺路线查询产品列表
@@ -55,6 +60,21 @@ export const ProRouteProductApi = {
   // 查询工艺路线产品详情
   getRouteProduct: async (id: number) => {
     return await request.get({ url: `/mes/pro/route-product/get?id=` + id })
+  },
+
+  // 按产品物料查询当前工艺路线绑定
+  getRouteProductByItem: async (itemId: number) => {
+    return await request.get({ url: `/mes/pro/route-product/get-by-item`, params: { itemId } })
+  },
+
+  // 按产品物料保存或解除当前工艺路线绑定
+  saveRouteProductByItem: async (data: ProRouteProductByItemSaveReqVO) => {
+    return await request.post({ url: `/mes/pro/route-product/save-by-item`, data })
+  },
+
+  // QA 规程按产品物料绑定已发布工艺路线
+  saveQaRegulationRouteProductByItem: async (data: ProRouteProductByItemSaveReqVO) => {
+    return await request.post({ url: `/mes/pro/route-product/save-qa-regulation-route-by-item`, data })
   },
 
   // 新增工艺路线产品

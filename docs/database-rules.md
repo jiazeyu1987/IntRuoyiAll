@@ -11,6 +11,15 @@
 - 优先使用 `SHOW TABLES`、`DESCRIBE <table>`、已有 migration、mapper XML、现有 SQL 模板或测试夹具作为证据。
 - 不得仅凭 DO 类名、字段猜测、历史记忆或旧项目文档编写运行 SQL。
 
+### 运行态迁移漂移系统异常门禁
+
+- Trigger: 页面或接口在当前代码已支持的路径上提示 `系统异常`，后端栈包含缺表、缺列、`doesn't have a default value`、`cannot be null`、旧索引冲突，或源码已有对应正式迁移但运行库 schema 可能滞后。
+- Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
+- Blocker: 无法确认当前后端实际连接库、目标迁移依赖未满足、运行态表结构与迁移前置不一致、迁移会破坏现有唯一性或历史数据，或只能通过默认值、吞异常、伪造上下文继续提交时必须停止。
+- Verification: 迁移前用可重复运行的运行态 schema 契约记录 RED；执行正式迁移后用同一契约记录 GREEN，并运行目标服务回归和不写基线业务数据的真实页面复验。成功写入型 E2E 仍须遵守测试租户、任务自有数据和明确授权门禁。
+- Forbidden action: 禁止在源码已有正式迁移时新增业务 fallback、把空业务上下文伪造成默认 ID、手工只改单列而遗漏生成列/索引/相邻表、仅凭迁移文件存在宣称运行态已修复，或在未授权的 admin 基线租户自动重放正式写请求。
+- Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`。
+
 ### 一对多读模型聚合门禁
 
 - Trigger: 时间轴、看板、列表页、详情摘要或报表读模型需要 JOIN 审核记录、修改历史、附件、字段明细、分配记录等一对多子表。
@@ -29,14 +38,32 @@
 - Forbidden action: 禁止直接 SQL 删除业务关系来掩盖读模型缺陷，禁止 catch 后返回空页，禁止前端隐藏 toast，禁止用“未知路线/未知产品”等默认文案替代正式主数据完整性。
 - Evidence: `doc/tasks/20260730-mes-process-mapping-tab/bug-regression-evidence.md`。
 
+### 全局只读 Excel 种子租户边界门禁
+
+- Trigger: MES 工序、产品目录、标准只读目录、Excel/外部文件基线等全局只读种子写入 `tenant_id=0`，但页面在普通业务租户下读取。
+- Preflight check: 写全局只读种子前先确认读模型是否应跨租户共享；若种子固定 `tenant_id=0`，对应 DO 或表必须显式 `@TenantIgnore` / `ignore-tables`，并同步确认子表、明细表、分页 count 与 page 查询都不会被当前租户条件过滤。
+- Blocker: 主表忽略租户但子表未忽略、SQL 种子写 `tenant_id=0` 但 Mapper 仍受 `tenant_id=<当前租户>` 限制、只在 Mockito 单元测试通过但未覆盖租户过滤、或用复制多租户数据掩盖全局基线设计不清时必须停止。
+- Verification: 静态合同或 Mapper/集成测试必须同时断言全局只读目录 DO 的租户忽略、SQL 种子租户口径、32/固定行数等源文件基线、以及明细表不会被租户过滤；有运行态时再用业务租户真实页面/API 证明列表非空且行数一致。
+- Forbidden action: 禁止把 `tenant_id=0` 当作业务租户可见的默认值，禁止只改前端空状态或返回空页，禁止把全局目录改成按当前租户复制多份而不说明同步和一致性策略。
+- Evidence: `doc/tasks/mes-process-xlsx-sync-20260731/verification-report.md`。
+
 ### 数据修复临时表排序规则门禁
 
 - Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量或用户变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。
 - Preflight check: 写入前用 `information_schema.COLUMNS` 核对目标字符列 `COLLATION_NAME`；临时表字符串列必须声明与目标列一致的 `CHARACTER SET` 和 `COLLATE`，或在比较表达式上显式 `COLLATE` 到目标列排序规则。
-- Blocker: MySQL 报 `ERROR 1267 Illegal mix of collations`，或发现临时字符串列与目标字符列排序规则不一致时必须停止并回滚当前事务。
-- Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果。
+- Blocker: MySQL 报 `ERROR 1267 Illegal mix of collations`，或发现临时字符串列与目标字符列排序规则不一致时必须停止并回滚当前事务；MySQL 报 `ERROR 1137 Can't reopen table` 时也必须停止，不能把已提交前后的汇总 SELECT 当作成功证据。
+- Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果；同一事务内需要多次统计同一临时表时，先 `SELECT COUNT(*) INTO` 过程变量，或拆成多条不重复打开同一临时表的语句。
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
-- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`。
+- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用。
+
+### 数据修复 DML 影响行数读取顺序门禁
+
+- Trigger: 数据修复事务在 `INSERT`、`UPDATE` 或 `DELETE` 后同时需要断言 `ROW_COUNT()`，并读取 `LAST_INSERT_ID()`、执行 `SET`、`SELECT` 或其它会改变会话诊断值的语句。
+- Preflight check: 每条 DML 后必须第一时间执行 `SET @affected_rows = ROW_COUNT()` 保存影响行数；需要自增 ID 时，只能在影响行数保存完成后读取 `LAST_INSERT_ID()`，后续断言必须使用已保存变量。
+- Blocker: 在读取 `ROW_COUNT()` 前执行任何其它语句，或事务断言得到与 DML 预期不符的影响行数时必须停止并确认事务未提交；不得把诊断值被覆盖误判为业务前置条件失败。
+- Verification: 至少覆盖一次预期影响行数断言、目标主键/业务键查询和失败事务回滚核对；若失败发生在 `COMMIT` 前，必须重新查询所有目标表，证明没有部分业务写入。
+- Forbidden action: 禁止在 DML 与 `ROW_COUNT()` 之间读取 `LAST_INSERT_ID()`、执行额外 `SET/SELECT` 或依赖客户端输出；禁止删除影响行数断言来让脚本继续执行。
+- Evidence: `doc/tasks/20260807-pressure-pump-equipment-ledger-correction/execution-log.md`。
 
 ### DCC 文件类别规则种子门禁
 
@@ -47,6 +74,24 @@
 - Forbidden action: 禁止直接 SQL 修 `dcc_controlled_file` 分类、禁止循环单文件 API 打补丁、禁止 seed 静默插入 0 行、禁止把 `AMBIGUOUS` / `UNCLASSIFIED` 当成功、禁止用硬编码 fallback 掩盖类别规则缺口。
 - Evidence: `doc/tasks/20260731-dcc-file-category-rules/verification-report.md`。
 
+### DCC 上传大小策略默认种子门禁
+
+- Trigger: DCC 上传、`upload-preview`、`DCC upload size policy is missing or invalid`、`dcc_controlled_file_upload_policy`、上传大小策略 seed、`SOURCE` / `DRAWING_PDF` / `TRAINING_RECORD` / `EXTERNAL_REVIEW_OUTPUT`。
+- Preflight check: 修复上传大小策略缺失时，先核对 `dcc_controlled_file_upload_policy` 和 `dcc_file_category` 当前迁移结构；正式方案应补可发布的目的级或全局策略种子，不得放宽 `DccUploadSizePolicyService` 的 fail-fast 校验。种子必须幂等、按租户写入、只在缺有效 `GLOBAL` 或同目的 `PURPOSE` 策略时插入，并通过存储过程或等价机制在表缺失或插入不完整时 fail fast。
+- Blocker: 上传路径靠 catch、默认成功、默认 maxBytes、前端隐藏错误或临时 API-only 配置消除提示；SQL 缺 release-migration 元数据；策略 seed 覆盖/删除用户已有策略；或没有覆盖全部受支持上传 purpose 时必须停止。
+- Verification: 运行 `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_upload_size_policy_seed_sql.py`、`python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --output <task-dir>\migration-policy-gate.json`，并复跑 DCC 上传大小策略服务/上传预览目标 JUnit。
+- Forbidden action: 禁止把缺策略改成运行时 fallback，禁止直接改远端库不留迁移，禁止扩大为无上限上传，禁止更新或删除既有策略来绕过唯一键，禁止用类别级上传权限证明大小策略正确。
+- Evidence: `doc/tasks/20260803-dcc-upload-size-policy-fix/verification-report.md`。
+
+### DCC 项目代码 MDM 产品建档绑定门禁
+
+- Trigger: DCC 产品立项、产品建档申请、`dcc_product_onboarding_request`、`dcc_project_code.product_master_id`、MDM 产品绑定、受控文件提交需要按项目代码带出产品主数据。
+- Preflight check: 修改 schema、服务或页面前，必须同时核对 DCC 项目代码表、MDM 产品主数据、建档申请状态机、受控文件提交来源和 DCC 测试 fixture；审批通过生成项目代码时，`productMasterId` 必须来自启用 MDM 产品或审批阶段正式创建的 MDM 产品；审批阶段重复项目代码校验必须排除当前待审批申请自身，但继续拦截其它待审批申请和已存在项目代码。
+- Blocker: 缺申请表、缺项目代码 MDM 绑定字段、目标项目代码已存在、其它待审批申请重复、审批把当前申请自身误判为重复、MDM 产品禁用或缺正式 DCC 产品编号、受控文件提交只能从前端 payload/项目名/空值推断产品时必须停止。
+- Verification: 至少运行产品建档服务测试、受控文件提交 MDM 绑定测试、聚焦 schema 测试、前端静态契约和 backend/database/frontend evidence validator；审批重复校验回归必须覆盖“当前待审批申请自身不算重复”；真实写入 E2E 只有在确认本机运行态、测试租户/账号和可清理任务数据后执行。
+- Forbidden action: 禁止用 DCC 产品目录、`formBindings`、默认项目代码、前端文案、空 `productMasterId`、直接 SQL 补字段、API-only 审批或 mock MDM 产品替代正式建档审批和 MDM 主数据绑定。
+- Evidence: `doc/tasks/20260803-dcc-product-onboarding-flow/verification-report.md`。
+
 ### 中文菜单名称 ASCII 安全迁移门禁
 
 - Trigger: 菜单、权限、租户套餐或动态路由 SQL 需要写入中文入口名称，尤其通过 MySQL 客户端、Docker `mysql < file.sql`、PowerShell/stdin 或发布迁移执行 `system_menu.name` 更新。
@@ -55,6 +100,33 @@
 - Verification: 记录修复前旧值或乱码 HEX、修复后 `HEX(name)`、目标行 `permission/path/component/component_name/deleted` 不变、聚焦 migration policy gate，以及真实页面动态菜单不再显示旧名称。
 - Forbidden action: 禁止用前端硬编码标题遮盖动态菜单旧值；禁止直接执行含中文字符串字面量的 SQL 后不复核 HEX；禁止扩大 `WHERE` 范围或改角色/租户绑定来掩盖菜单名未更新。
 - Evidence: `doc/tasks/20260728-fix-product-menu-title-runtime/execution-log.md`。
+
+### 系统角色菜单授权 tenant 1 admin 门禁
+
+- Trigger: 新增或收敛 `system_role`、`system_role_menu`、`system_user_role`、动态菜单权限角色、admin 授权、只允许特定角色看某菜单/页签，且迁移通过 `system_tenant_package.menu_ids` 扫描目标租户。
+- Preflight check: 写角色/菜单迁移前，必须核对 tenant 1 的 `system_tenant.package_id` 是否能通过套餐表命中；若 admin 用户需要被赋权，迁移必须显式把 tenant 1 纳入目标角色集合，不能只依赖套餐 menu_ids 扫描。
+- Blocker: tenant 1 `admin` 用户存在但目标角色集合不包含 tenant 1、`system_role_category.code='menu'` 缺失、同租户目标角色 code 重复，或迁移只能让租户套餐角色看到菜单而 admin 用户不能通过标准权限解析拿到权限时必须停止。
+- Verification: 静态 SQL 合同必须断言 tenant 1 显式纳入目标集合、admin 被写入 `system_user_role`、目标菜单只授权给正式角色、非目标角色仅软删除；同时运行聚焦 role/menu SQL 测试和 release migration policy gate 依赖闭包。
+- Forbidden action: 禁止把 `tenant_admin`/`super_admin` 菜单绑定当作“只有目标角色可见”的替代；禁止用前端隐藏菜单、硬编码 admin bypass、默认成功权限或 broad role grant 掩盖 role/menu/user-role 链路未命中。
+- Evidence: `doc/tasks/20260806-qa-role-permission-tab/verification-report.md`；`IntRuoyiBackend/sql/mysql/20260806_mes_qa_role_permission_tab.sql`。
+
+### 跨环境角色权限差异同步门禁
+
+- Trigger: 将本机角色权限平移到测试服/其它环境、修复某角色缺按钮或缺权限，或提出“删除目标环境全部角色后从本机重灌”。
+- Preflight check: 角色必须按 `tenant_id + role.code`、菜单按 `permission` 并核对正式菜单 ID 解析，先比较有效 `system_role_menu`、`system_tenant_package.menu_ids`、目标账号全部有效角色和 `infra_release_migration`；冻结正式迁移白名单并备份精确目标行、套餐完整 JSON、角色/用户绑定计数与业务哈希。若迁移会按旧权限继承新权限，必须提前枚举所有源授权和跨租户实际影响。
+- Blocker: 同租户角色 code 不唯一、权限对应多个冲突菜单、迁移依赖未应用、套餐 JSON 无效、目标角色/菜单前置缺失、没有可执行精确恢复路径，或差异无法收敛到已测试的正式迁移时必须停止；不得扩大为角色全量覆盖。
+- Verification: 迁移前先用目标环境有效权限断言形成 RED，运行迁移合同与正式 preflight；写入后核对目标/禁止权限、精确角色菜单增量、套餐增量、迁移 SHA/状态、跨租户边界，以及 `system_role`/`system_user_role` 计数和绑定哈希不变；权限缓存按租户化/非租户化真实 key 精确失效，最后由目标账号退出后重新登录走真实页面验证。
+- Forbidden action: 禁止删除目标环境角色后复制本机数据、复制角色或角色菜单自增 ID、改 `system_user_role` 冒充菜单授权、恢复创建/删除/导出等非白名单权限、清空全库 Redis、读取或复用现有 token 绕过登录、用 API-only 或数据库查询宣称页面 E2E 通过。
+- Evidence: `doc/tasks/20260807-test-permission-role-differential-sync/verification-report.md`。
+
+### DCC 菜单恢复与无下载角色隔离门禁
+
+- Trigger: 跨环境同步用户角色、恢复 `文控中心` / `电子签名` / `基础数据` 等动态菜单，或要求账号可浏览 DCC 但继续禁止下载。
+- Preflight check: 写 `system_user_role` / `system_role_menu` 前，必须枚举候选角色的全部有效 `system_menu.permission`，并按后端正式下载判定同时核对用户、角色、岗位、部门链的类别和目录规则；至少显式排除 `dcc:controlled-file:directory:manage`、`dcc:controlled-file:access-rule:manage`、`dcc:controlled-file:category:manage`、`dcc:controlled-file:download`，确认目录管理权限是否会旁路类别与目录下载校验。
+- Blocker: 候选共享角色包含任一下载旁路权限、任一用户/角色/岗位/部门规则可放行下载、目标账号身份不唯一、菜单白名单包含未启用或已删除菜单，或写入后不能清理目标用户精确角色缓存时必须停止；不得直接绑定该共享角色。
+- Verification: 记录变更前后有效用户角色、三个目标根菜单的角色解析来源、角色危险权限计数、动态授权计数、用户/角色/岗位/部门类别与目录下载规则计数，以及精确角色缓存失效结果；没有活动登录 token 时明确记录 UI/API 未验收，不得以匿名请求或 mock 替代。
+- Forbidden action: 禁止只检查 `dcc:controlled-file:download` 菜单、只恢复根菜单后推断下载仍被禁止、用共享高权限角色冒充本机入口对齐、清空全库权限缓存，或以用户看不到下载按钮代替后端下载权限链验证。
+- Evidence: `doc/tasks/20260807-align-test-zhaohaichen-role-bindings-local/verification-report.md`。
 
 ### 测试管理 schema 迁移门禁
 
@@ -95,11 +167,20 @@
 ### MES 三页签跨环境同步完整性门禁
 
 - Trigger: 将工序设置、工艺流程、排产工单等 MES 页面数据从本机、其它租户或其它环境同步到测试服/正式服，且用户要求“只同步这些页签、其它不同步”。
-- Preflight check: 写入前必须先生成白名单表清单和显式列清单，只读核对源/目标 schema、源数据父子范围、依赖闭包、目标同 ID 业务身份、以及所有白名单外活动引用；排产配置按当前路线工序身份收敛，排产工单按 `scheduleOrderId + routeProcessId` 快照身份收敛；工序设置批记录表单必须按 `batch_record_report_id -> mes_pro_batch_record_report.report_id` 核对正式报表元数据，并继续核对其 `batch_record_definition_id`、`batch_record_version_id` 是否在目标租户可解析。
+- Preflight check: 写入前必须先生成白名单表清单和显式列清单，只读核对源/目标 schema、源数据父子范围、依赖闭包、目标同 ID 业务身份、以及所有白名单外活动引用；排产配置按当前路线工序身份收敛，排产工单按 `scheduleOrderId + routeProcessId` 快照身份收敛；工序设置批记录表单必须按 `batch_record_report_id -> mes_pro_batch_record_report.report_id` 核对正式报表元数据，并继续核对其 `batch_record_definition_id`、`batch_record_version_id` 是否在目标租户可解析；对齐路线工序时必须区分页面可见的有效路线范围与挂在已删除路线下的孤儿历史行，比较口径应使用 `rp.deleted=b'0'` 且 JOIN `mes_pro_route.deleted=b'0'` 的有效路线工序集合。
 - Blocker: 目标 schema 不能承载源数据、目标缺正式依赖、同 ID 业务身份不一致、目标白名单外存在活动引用、源数据存在孤儿子记录或删除历史混入范围、或工序设置页面所需批记录报表元数据缺失时，必须停止；不得删除或改写目标数据。
-- Verification: 记录源/目标租户、白名单逐表行数、缺失/不一致依赖、白名单外引用表列计数、源关键快照容量、目标 schema 列类型、批记录报表元数据缺失数、备份恢复路径和零写入/事务回滚证据；写入后还必须比对行数、主键集合、业务键和显式列 hash，并用真实页面验证三页签列表接口不再返回 `系统异常`。
+- Verification: 记录源/目标租户、白名单逐表行数、缺失/不一致依赖、白名单外引用表列计数、源关键快照容量、目标 schema 列类型、批记录报表元数据缺失数、备份恢复路径和零写入/事务回滚证据；写入后还必须比对行数、主键集合、业务键和显式列 hash，并单独记录有效路线工序集合与全部 active 路线工序的差异原因；用真实页面验证三页签列表接口不再返回 `系统异常`。
 - Forbidden action: 禁止用表单槽位 `formBindings` 补批记录表单、用当前路线重建历史排产快照、自动补默认日历/产能/用户/物料、随机重映射 ID、关闭外键、全库重置、API-only 伪验证或把依赖数据偷偷纳入“页签同步”。
 - Evidence: `doc/tasks/20260731-mes-three-tab-test-sync/verification-report.md`。
+
+### 生产用料清单跨环境白名单 upsert 门禁
+
+- Trigger: 将 `mes_kingdee_production_material_list`、生产用料清单、ERP 用料清单、白名单表级 upsert 或类似明细表从本机同步到测试服/其它租户。
+- Preflight check: 写入前必须只读核对源/目标 schema、唯一业务键、租户集合、目标原始行数、菜单/权限/同步任务前置，以及测试服备份；关联 ID 不得直接复制本地值，必须按目标租户和正式父表唯一解析；若同租户同生产工单编码存在多条未删除工单，必须按当前排程/任务实际引用的 `work_order_id` 与 PML 归属逐一拆分。
+- Blocker: 目标表缺列/缺唯一键、租户不匹配、备份失败、目标父表同编码不唯一、缺少同租户物料/工单/BOM、PML 挂在未排程重复工单而当前排程工单缺 PML、或生成跨租户 `product_id` / `child_material_id` / `work_order_id` / `work_order_bom_id` 时必须停止并修正；不得把跨租户 ID 视为已解析。
+- Verification: 写入后必须比对源/目标业务键总数、按租户行数、显式业务字段 hash、staging 表清理状态，并按目标租户复核 `work_order_id`、`product_id`、`child_material_id`、`work_order_bom_id` 均指向未删除正式父表；排程日历验证还必须覆盖当前月份接口，防止修完首个缺口后暴露下一张工单缺 PML；页面/API 验证需区分真实登录页 E2E、只读 API、token-bootstrap 页面渲染。
+- Forbidden action: 禁止复制本地自增 ID、跨租户引用物料主数据、用全库编码唯一替代同租户唯一、删除目标差异行、绕过备份、API-only 冒充页面验证、或在验证码阻塞时宣称登录页 E2E 通过。
+- Evidence: `doc/tasks/20260801-production-material-list-data-sync-test/verification-report.md`；`doc/tasks/20260801-fix-test-schedule-material-item-mapping/verification-report.md`。
 
 ## 租户和菜单权限
 

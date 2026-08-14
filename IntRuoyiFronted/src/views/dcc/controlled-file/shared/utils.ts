@@ -79,6 +79,7 @@ export const getRequirementTagType = (
 }
 
 const FIXED_DCC_POSITION_NAME_MAP = new Map<number, string>([
+  [900332, '文控'],
   [900333, '部门负责人'],
   [900334, '部门授权代表'],
   [900335, '编制部门负责人'],

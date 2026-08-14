@@ -130,10 +130,13 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
     @Override
     public CodexTestRunnerHeartbeatRespVO heartbeat(CodexTestRunnerHeartbeatReqVO heartbeatReqVO, String token) {
         validateRunnerToken(token);
-        validateOnlineRunner(heartbeatReqVO.getRunnerSessionId());
+        validateRegisteredRunner(heartbeatReqVO.getRunnerSessionId());
         List<Long> runningIds = heartbeatReqVO.getRunningExecutionCaseIds() == null
                 ? List.of() : heartbeatReqVO.getRunningExecutionCaseIds();
-        codexTestRunnerSessionMapper.heartbeat(heartbeatReqVO.getRunnerSessionId(), LocalDateTime.now(), runningIds.size());
+        if (codexTestRunnerSessionMapper.heartbeat(
+                heartbeatReqVO.getRunnerSessionId(), LocalDateTime.now(), runningIds.size()) != 1) {
+            throw exception(CODEX_TEST_RUNNER_OFFLINE);
+        }
         List<Long> cancelIds = CollUtil.isEmpty(runningIds) ? List.of()
                 : codexTestExecutionCaseMapper.selectListByIds(runningIds).stream()
                 .filter(executionCase -> EXECUTION_CANCELED.equals(executionCase.getStatus()))
@@ -303,9 +306,18 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
     }
 
     private CodexTestRunnerSessionDO validateOnlineRunner(Long runnerSessionId) {
+        CodexTestRunnerSessionDO runnerSession = validateRegisteredRunner(runnerSessionId);
+        if (runnerSession.getLastHeartbeatTime() == null
+                || runnerSession.getLastHeartbeatTime().isBefore(
+                LocalDateTime.now().minusSeconds(runnerHeartbeatTimeoutSeconds))) {
+            throw exception(CODEX_TEST_RUNNER_OFFLINE);
+        }
+        return runnerSession;
+    }
+
+    private CodexTestRunnerSessionDO validateRegisteredRunner(Long runnerSessionId) {
         CodexTestRunnerSessionDO runnerSession = codexTestRunnerSessionMapper.selectById(runnerSessionId);
-        if (runnerSession == null || !RUNNER_ONLINE.equals(runnerSession.getStatus())
-                || runnerSession.getLastHeartbeatTime().isBefore(LocalDateTime.now().minusSeconds(runnerHeartbeatTimeoutSeconds))) {
+        if (runnerSession == null || !RUNNER_ONLINE.equals(runnerSession.getStatus())) {
             throw exception(CODEX_TEST_RUNNER_OFFLINE);
         }
         return runnerSession;
@@ -321,6 +333,8 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
         task.setExecutionCaseId(executionCase.getId());
         task.setTargetTenantId(execution.getTargetTenantId());
         task.setExecutionMode(execution.getExecutionMode());
+        task.setAnalysisMode(StrUtil.blankToDefault(
+                executionCase.getAnalysisModeSnapshot(), ANALYSIS_MODE_PLAYWRIGHT_E2E));
         task.setCaseName(executionCase.getCaseNameSnapshot());
         task.setMethodText(executionCase.getMethodTextSnapshot());
         task.setTestDataText(executionCase.getTestDataTextSnapshot());

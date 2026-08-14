@@ -26,8 +26,13 @@ const actionBuilder = sliceBetween(
 
 assert.match(
   actionBuilder,
-  /key: 'release-reject'[\s\S]*label: '拒收'[\s\S]*permission: \['mes:pro-edhr-batch-execution:quality-reject'\][\s\S]*disabled: !canQualityReject\.value[\s\S]*onClick: openQualityRejectDialog/,
-  '右侧必须提供“拒收”按钮，并绑定现有质量拒收动作。'
+  /key: 'release-return'[\s\S]*label: '退回'[\s\S]*permission: \['mes:pro-edhr-release:reject'\][\s\S]*disabled: !canReturnRelease\.value[\s\S]*onClick: openReleaseReturnDialog/,
+  '右侧必须提供正式“退回”按钮，并绑定放行退回动作。'
+)
+assert.match(
+  actionBuilder,
+  /key: 'quality-reject'[\s\S]*label: '质量拒收'[\s\S]*permission: \['mes:pro-edhr-batch-execution:quality-reject'\][\s\S]*disabled: !canQualityReject\.value[\s\S]*onClick: openQualityRejectDialog/,
+  '右侧必须保留独立“质量拒收”按钮，不能冒充放行退回。'
 )
 assert.match(
   actionBuilder,
@@ -37,7 +42,7 @@ assert.match(
 assert.match(
   actionBuilder,
   /return buildReleaseDecisionActionItems\(\)/,
-  '放行可操作阶段必须统一使用拒收/放行两个动作。'
+  '放行可操作阶段必须统一使用退回/质量拒收/放行三个动作。'
 )
 assert.doesNotMatch(
   actionBuilder,
@@ -72,6 +77,12 @@ const qualityRejectDialog = sliceBetween(
 )
 assert.match(qualityRejectDialog, /label="签名密码"[\s\S]*v-model="qualityRejectForm\.password"[\s\S]*type="password"[\s\S]*show-password/, '拒收弹窗必须要求签名密码。')
 assert.match(qualityRejectDialog, /qualityRejectSignatureTimeForm/, '拒收弹窗必须保留签名显示时间。')
+
+assert.match(
+  detail,
+  /<Dialog title="放行退回"[\s\S]*v-model="releaseReturnDialogVisible"[\s\S]*label="退回原因"[\s\S]*v-model="releaseReturnForm\.rejectReason"[\s\S]*确认退回/,
+  '放行退回必须使用独立退回弹窗，不能复用质量拒收弹窗。'
+)
 
 assert.match(
   detail,

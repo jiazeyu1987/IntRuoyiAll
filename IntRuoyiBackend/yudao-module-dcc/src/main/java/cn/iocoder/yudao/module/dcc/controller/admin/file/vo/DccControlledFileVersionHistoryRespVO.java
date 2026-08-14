@@ -13,11 +13,15 @@ public class DccControlledFileVersionHistoryRespVO {
     private String fileNumber;
     private String versionNo;
     private String status;
+    private String currentActiveVersionNo;
+    private Boolean publishedArtifactAvailable;
+    private Boolean stampedArtifactAvailable;
     private LocalDate effectiveDate;
     private LocalDateTime publishedTime;
     private LocalDateTime obsoletedTime;
     private Long supersededByFileId;
     private String remark;
     private Boolean canPreview;
+    private String previewUnavailableReason;
     private Boolean canDownload;
 }

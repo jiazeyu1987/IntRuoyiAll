@@ -309,6 +309,7 @@ const categoryOptions = computed(() =>
       item.active && item.id !== undefined
   )
 )
+const activePositions = computed(() => positions.value.filter((item) => item.active))
 
 const routeQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   {
@@ -351,7 +352,7 @@ const loadRouteSubjectLookups = async () => {
     getApprovalPositionList(),
     getSimpleUserList()
   ])
-  positions.value = positionList.filter((item) => item.active)
+  positions.value = positionList
   users.value = userList
   routeSubjectLookupsLoaded.value = true
 }
@@ -362,6 +363,7 @@ const handleQuery = async (resetPage = true) => {
   }
   loading.value = true
   try {
+    await loadRouteSubjectLookups()
     const pageResult = await getApprovalRoutePage(queryParams)
     routes.value = pageResult.list ?? []
     routeTotal.value = pageResult.total ?? 0
@@ -404,7 +406,7 @@ const handleCreateRoute = async () => {
     category: resolveSelectedCategory(),
     categories: categoryOptions.value,
     users: users.value,
-    positions: positions.value
+    positions: activePositions.value
   })
 }
 
@@ -420,7 +422,7 @@ const handleEditRoute = async (row: ControlledFileApprovalRouteVO) => {
     categories: categoryOptions.value,
     route: row,
     users: users.value,
-    positions: positions.value
+    positions: activePositions.value
   })
 }
 
@@ -477,6 +479,11 @@ const normalizeRouteNodeText = (value?: string | number | null) => {
   return String(value).trim()
 }
 
+const TECHNICAL_ROUTE_NODE_LABEL_PATTERN = /^(?:审批角色#\d+|[a-z]+(?:-[a-z0-9]+)+)$/i
+
+const isRouteNodeTechnicalLabel = (value: string) =>
+  TECHNICAL_ROUTE_NODE_LABEL_PATTERN.test(value.trim())
+
 const getRouteNodeCandidateIds = (node: ControlledFileApprovalRouteNodeVO) => {
   if (node.candidateSourceIds?.length) {
     return node.candidateSourceIds
@@ -489,12 +496,30 @@ const resolveRouteNodeUserName = (userId: number) => {
   return user ? formatDccSimpleUserLabel(user) : `用户#${userId}`
 }
 
+const resolveRouteNodePositionName = (positionId: number) => {
+  const positionName = resolveDccPositionName(positionId, positions.value)
+  return isRouteNodeTechnicalLabel(positionName) ? '' : positionName
+}
+
+const resolveRouteNodePositionNames = (node: ControlledFileApprovalRouteNodeVO) => {
+  const positionNames = getRouteNodeCandidateIds(node)
+    .map(resolveRouteNodePositionName)
+    .filter(Boolean)
+  return positionNames.join('、')
+}
+
 const formatRouteNodeSubject = (node: ControlledFileApprovalRouteNodeVO) => {
+  if (node.candidateSourceType === 'POSITION') {
+    const positionNames = resolveRouteNodePositionNames(node)
+    if (positionNames) {
+      return positionNames
+    }
+  }
   const explicitLabel =
     normalizeRouteNodeText(node.subjectLabel) ||
     normalizeRouteNodeText(node.subjectName) ||
     normalizeRouteNodeText(node.subjectDepartmentPath)
-  if (explicitLabel) {
+  if (explicitLabel && !isRouteNodeTechnicalLabel(explicitLabel)) {
     return explicitLabel
   }
   const candidateIds = getRouteNodeCandidateIds(node)
@@ -505,7 +530,7 @@ const formatRouteNodeSubject = (node: ControlledFileApprovalRouteNodeVO) => {
     return candidateIds.map(resolveRouteNodeUserName).join('、')
   }
   if (node.candidateSourceType === 'POSITION') {
-    return candidateIds.map((id) => resolveDccPositionName(id, positions.value)).join('、')
+    return '-'
   }
   return candidateIds.join('、')
 }
@@ -552,7 +577,6 @@ const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
 
 onMounted(async () => {
   await loadInitialCategoryOptions()
-  await loadRouteSubjectLookups()
   await handleQuery()
 })
 </script>

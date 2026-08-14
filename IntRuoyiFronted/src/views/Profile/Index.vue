@@ -41,8 +41,17 @@
         </el-tab-pane>
         <el-tab-pane label="配置" name="config" v-if="hasGoldenFingerPermission">
           <div class="profile-config-pane">
-            <EdhrRecordbookGlobalSetting />
-            <EdhrReleaseDossierRequirementSetting />
+            <el-tabs v-model="activeConfigName" class="profile-config-tabs">
+              <el-tab-pane label="eDHR记录本" name="recordbook">
+                <EdhrRecordbookGlobalSetting />
+              </el-tab-pane>
+              <el-tab-pane label="放行资料要求" name="releaseDossier">
+                <EdhrReleaseDossierRequirementSetting />
+              </el-tab-pane>
+              <el-tab-pane label="ERP表格自动同步" name="erpTableSync">
+                <ProfileErpTableAutoSyncSetting />
+              </el-tab-pane>
+            </el-tabs>
           </div>
         </el-tab-pane>
         <el-tab-pane :label="t('profile.info.userSocial')" name="userSocial" v-if="isAdminUser">
@@ -61,6 +70,7 @@ import {
   BasicInfo,
   EdhrReleaseDossierRequirementSetting,
   EdhrRecordbookGlobalSetting,
+  ProfileErpTableAutoSyncSetting,
   ProfileWorkbench,
   ResetPwd,
   UserSocial
@@ -92,6 +102,7 @@ const resolveProfileActiveTab = () => {
 }
 
 const activeName = ref(resolveProfileActiveTab())
+const activeConfigName = ref('recordbook')
 const unreadNotifyMessageCount = ref(0)
 const hasUnreadNotifyMessage = computed(() => unreadNotifyMessageCount.value > 0)
 

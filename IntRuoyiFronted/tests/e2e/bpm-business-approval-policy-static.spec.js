@@ -24,6 +24,7 @@ assert.match(
 assert.match(apiSource, /BusinessApprovalPolicySwitchModeReqVO/, 'business approval API must expose switch request VO')
 assert.match(apiSource, /signaturePassword\?:\s*string/, 'switch-mode VO must carry electronic signature password')
 assert.match(apiSource, /switchPolicyMode/, 'business approval API must expose one-click switch-mode endpoint')
+assert.match(apiSource, /approvalSwitchScope\?:\s*boolean/, 'page request must support the approval-switch scope flag')
 assert.match(messageSource, /prompt\(content:\s*string,\s*tip:\s*string,\s*options:/, 'message.prompt must support password input options')
 
 assert.match(pageSource, /UnifiedListTemplate/, 'policy page must use the unified list template')
@@ -43,6 +44,16 @@ assert.match(pageSource, /signaturePassword\s*[,}]/, 'switch-mode request payloa
 assert.match(pageSource, /审批流程已开启/, 'policy switch must show BPM approval enabled copy')
 assert.match(pageSource, /审批已关闭/, 'policy switch must show approval disabled copy')
 assert.match(pageSource, /BPM审批/, 'BPM_REQUIRED policies must display as normal BPM approval')
+assert.match(
+  pageSource,
+  /approvalSwitchScope:\s*true/,
+  'policy page must default to the approval-switch scope instead of a single mode'
+)
+assert.doesNotMatch(
+  pageSource,
+  /policyMode:\s*'BPM_REQUIRED'\s+as\s+BusinessApprovalPolicyMode\s*\|\s*undefined/,
+  'policy page must not hide closed approval policies by defaulting policyMode to BPM_REQUIRED'
+)
 assert.match(pageSource, /历史签名模式/, 'legacy SIGNATURE_REQUIRED policies must not be presented as approval switch enabled')
 assert.match(pageSource, /关闭审批/, 'policy form must expose disabled approval mode')
 assert.match(pageSource, /VOID:\s*'作废'/, 'VOID action code must display as Chinese void label')
@@ -51,6 +62,7 @@ assert.match(pageSource, /REJECTED:\s*'已驳回'/, 'REJECTED object state must 
 assert.match(pageSource, /READY:\s*'就绪'/, 'READY object state must display as Chinese ready label')
 assert.match(pageSource, /PUBLISHED:\s*'已发布'/, 'PUBLISHED object state must display as Chinese published label')
 assert.match(pageSource, /DISABLED:\s*'已禁用'/, 'DISABLED object state must display as Chinese disabled label')
+assert.match(pageSource, /DCC_UPLOAD:\s*'受控文件上传'/, 'DCC upload executor code must display as Chinese label')
 assert.match(pageSource, /EDHR_BATCH_VOID:\s*'批次执行作废'/, 'EDHR batch void executor code must display as Chinese label')
 assert.match(pageSource, /FORM_TEMPLATE_OBSOLETE:\s*'表单模板作废'/, 'form template obsolete executor code must display as Chinese label')
 assert.match(

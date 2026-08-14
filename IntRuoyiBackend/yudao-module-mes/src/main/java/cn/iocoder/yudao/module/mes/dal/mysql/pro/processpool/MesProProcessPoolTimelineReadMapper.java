@@ -15,4 +15,7 @@ public interface MesProProcessPoolTimelineReadMapper {
 
     ProcessPoolTimelineEventReadDO selectTimelineDetailById(@Param("id") Long id);
 
+    List<ProcessPoolTimelineReportAllocationReadDO> selectReportAllocationsByEventIds(
+            @Param("eventIds") List<Long> eventIds);
+
 }

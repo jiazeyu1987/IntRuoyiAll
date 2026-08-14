@@ -86,12 +86,15 @@ public class MesProBatchRecordReportController {
             @RequestParam(value = "selectedProductNames", required = false) List<String> selectedProductNames,
             @RequestParam(value = "routeUpgradeConfirmed", defaultValue = "false") Boolean routeUpgradeConfirmed,
             @RequestParam(value = "expectedRouteId", required = false) Long expectedRouteId,
-            @RequestParam(value = "expectedRouteVersionId", required = false) Long expectedRouteVersionId) {
+            @RequestParam(value = "expectedRouteVersionId", required = false) Long expectedRouteVersionId,
+            @RequestParam(value = "expectedRouteCandidateVersionId", required = false)
+            Long expectedRouteCandidateVersionId) {
         return success(toImportRespVO(batchRecordReportService.recognizeUploadedRoute(
                 file, routeKey, batchRecordName, resolveImportAction(importAction, upgrade), expectedSourceVersionId,
                 expectedTargetVersionNo, productNames,
                 rebuildBatchRecord, selectedRouteProductIds, selectedProductNames,
-                routeUpgradeConfirmed, expectedRouteId, expectedRouteVersionId, getLoginUserId())));
+                routeUpgradeConfirmed, expectedRouteId, expectedRouteVersionId,
+                expectedRouteCandidateVersionId, getLoginUserId())));
     }
 
     @GetMapping("/recognize-uploaded/preflight")
@@ -307,6 +310,9 @@ public class MesProBatchRecordReportController {
         response.setCurrentRouteVersionId(result.currentRouteVersionId());
         response.setCurrentRouteVersionNo(result.currentRouteVersionNo());
         response.setCurrentRouteVersionActive(result.currentRouteVersionActive());
+        response.setCurrentRouteCandidateVersionId(result.currentRouteCandidateVersionId());
+        response.setCurrentRouteCandidateVersionNo(result.currentRouteCandidateVersionNo());
+        response.setCurrentRouteCandidateVersionStatus(result.currentRouteCandidateVersionStatus());
         response.setHasHistoricalReferences(result.hasHistoricalReferences());
         response.setAllowedActions(result.allowedActions());
         response.setRecommendedAction(result.recommendedAction());

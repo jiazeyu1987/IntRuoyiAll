@@ -70,8 +70,8 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
             ApprovalTaskProvider provider = providerRegistry.requireProvider(safeQuery.getModuleCode());
             assertProviderVisible(provider, loginUserId);
             assertViewSupported(provider, viewType);
-            return enrichAssigneeUserNames(requirePage(provider.page(
-                    toContext(loginUserId, provider, safeQuery, globalView))));
+            ApprovalTaskQueryContext context = toContext(loginUserId, provider, safeQuery, globalView);
+            return enrichTaskUserNames(requireConsistentPage(provider, context, provider.page(context)));
         }
 
         List<ApprovalTaskProvider> matchedProviders = providerRegistry.listProviders().stream()
@@ -83,15 +83,18 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         }
         ApprovalTaskQuery globalWindowQuery = toGlobalWindowQuery(safeQuery);
         List<PageResult<ApprovalTaskSummary>> providerPages = matchedProviders.stream()
-                .map(provider -> requirePage(provider.page(toContext(loginUserId, provider, globalWindowQuery,
-                        globalView))))
+                .map(provider -> {
+                    ApprovalTaskQueryContext context = toContext(loginUserId, provider, globalWindowQuery,
+                            globalView);
+                    return requireConsistentPage(provider, context, provider.page(context));
+                })
                 .toList();
         List<ApprovalTaskSummary> rows = providerPages.stream()
                 .flatMap(page -> page.getList().stream())
                 .sorted(Comparator.comparing(ApprovalCenterServiceImpl::sortTime,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
-        enrichAssigneeUserNames(rows);
+        enrichTaskUserNames(rows);
         return pageRows(rows, safeQuery.getPageNo(), safeQuery.getPageSize(), sumTotal(providerPages));
     }
 
@@ -204,6 +207,19 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         return page;
     }
 
+    private static PageResult<ApprovalTaskSummary> requireConsistentPage(ApprovalTaskProvider provider,
+                                                                         ApprovalTaskQueryContext context,
+                                                                         PageResult<ApprovalTaskSummary> page) {
+        PageResult<ApprovalTaskSummary> requiredPage = requirePage(page);
+        if (requiredPage.getTotal() > 0 && requiredPage.getList().isEmpty()
+                && safePageNo(context.getPageNo()) == 1) {
+            throw new IllegalStateException("APPROVAL_ADAPTER_PAGE_INCONSISTENT: "
+                    + provider.getModuleCode() + " reported total " + requiredPage.getTotal()
+                    + " but returned no rows for the first page");
+        }
+        return requiredPage;
+    }
+
     private static ApprovalTaskQuery toGlobalWindowQuery(ApprovalTaskQuery query) {
         int safePageNo = safePageNo(query.getPageNo());
         int safePageSize = safePageSize(query.getPageSize());
@@ -243,35 +259,42 @@ public class ApprovalCenterServiceImpl implements ApprovalCenterService {
         return pages.stream().mapToLong(PageResult::getTotal).sum();
     }
 
-    private PageResult<ApprovalTaskSummary> enrichAssigneeUserNames(PageResult<ApprovalTaskSummary> page) {
-        enrichAssigneeUserNames(page.getList());
+    private PageResult<ApprovalTaskSummary> enrichTaskUserNames(PageResult<ApprovalTaskSummary> page) {
+        enrichTaskUserNames(page.getList());
         return page;
     }
 
-    private void enrichAssigneeUserNames(List<ApprovalTaskSummary> rows) {
-        Set<Long> assigneeUserIds = new LinkedHashSet<>();
+    private void enrichTaskUserNames(List<ApprovalTaskSummary> rows) {
+        Set<Long> userIds = new LinkedHashSet<>();
         rows.forEach(row -> {
+            if (row.getInitiatorUserId() != null) {
+                userIds.add(row.getInitiatorUserId());
+            }
             if (row.getAssigneeUserId() != null) {
-                assigneeUserIds.add(row.getAssigneeUserId());
+                userIds.add(row.getAssigneeUserId());
             }
         });
-        if (assigneeUserIds.isEmpty()) {
+        if (userIds.isEmpty()) {
             return;
         }
-        Map<Long, AdminUserRespDTO> userMap = Objects.requireNonNull(adminUserApi.getUserMap(assigneeUserIds),
-                "APPROVAL_ASSIGNEE_USER_MAP_REQUIRED");
+        Map<Long, AdminUserRespDTO> userMap = Objects.requireNonNull(adminUserApi.getUserMap(userIds),
+                "APPROVAL_TASK_USER_MAP_REQUIRED");
         rows.forEach(row -> {
-            Long assigneeUserId = row.getAssigneeUserId();
-            if (assigneeUserId == null) {
-                return;
-            }
-            AdminUserRespDTO user = userMap.get(assigneeUserId);
-            row.setAssigneeUserName(user == null ? resolveMissingUserName(assigneeUserId) : resolveUserName(user));
+            row.setInitiatorUserName(resolveTaskUserName(userMap, row.getInitiatorUserId()));
+            row.setAssigneeUserName(resolveTaskUserName(userMap, row.getAssigneeUserId()));
         });
     }
 
-    private static String resolveMissingUserName(Long assigneeUserId) {
-        return "用户不存在(" + assigneeUserId + ")";
+    private static String resolveTaskUserName(Map<Long, AdminUserRespDTO> userMap, Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        AdminUserRespDTO user = userMap.get(userId);
+        return user == null ? resolveMissingUserName(userId) : resolveUserName(user);
+    }
+
+    private static String resolveMissingUserName(Long userId) {
+        return "用户不存在(" + userId + ")";
     }
 
     private static String resolveUserName(AdminUserRespDTO user) {

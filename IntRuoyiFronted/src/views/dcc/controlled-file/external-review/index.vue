@@ -257,9 +257,8 @@ const formData = reactive({
   remark: ''
 })
 
-const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请选择有上传权限的文件类别。'
 const availableCategories = computed(() =>
-  categories.value.filter((category) => category.active && category.canUpload !== false)
+  categories.value.filter((category) => category.active)
 )
 
 const formRules = reactive<FormRules>({
@@ -268,11 +267,6 @@ const formRules = reactive<FormRules>({
       validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
         if (!value) {
           callback(new Error('请选择文件类别'))
-          return
-        }
-        const category = categories.value.find((item) => item.id === Number(value))
-        if (category?.canUpload === false) {
-          callback(new Error(categoryUploadPermissionMessage))
           return
         }
         callback()

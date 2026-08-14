@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.erp.controller.admin.config;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.module.erp.controller.admin.config.vo.ErpKingdeeActiveConnectionRespVO;
+import cn.iocoder.yudao.module.erp.controller.admin.config.vo.ErpKingdeeActiveConnectionSaveReqVO;
 import cn.iocoder.yudao.module.erp.controller.admin.config.vo.ErpKingdeeExternalWritePermissionRespVO;
 import cn.iocoder.yudao.module.erp.controller.admin.config.vo.ErpKingdeeExternalWritePermissionSaveReqVO;
 import cn.iocoder.yudao.module.erp.controller.admin.config.vo.ErpKingdeeConfigRespVO;
@@ -42,6 +44,21 @@ public class ErpKingdeeConfigController {
     public CommonResult<Boolean> saveConfig(@Valid @RequestBody ErpKingdeeConfigSaveReqVO saveReqVO) {
         kingdeeConfigService.saveConfig(saveReqVO);
         return success(true);
+    }
+
+    @GetMapping("/active-connection")
+    @Operation(summary = "获取 ERP 金蝶当前连接")
+    @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-execution:golden-finger')")
+    public CommonResult<ErpKingdeeActiveConnectionRespVO> getActiveConnection() {
+        return success(kingdeeConfigService.getActiveConnection());
+    }
+
+    @PutMapping("/active-connection")
+    @Operation(summary = "保存 ERP 金蝶当前连接")
+    @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-execution:golden-finger')")
+    public CommonResult<ErpKingdeeActiveConnectionRespVO> updateActiveConnection(
+            @Valid @RequestBody ErpKingdeeActiveConnectionSaveReqVO saveReqVO) {
+        return success(kingdeeConfigService.updateActiveConnection(saveReqVO));
     }
 
     @GetMapping("/external-write-permission")

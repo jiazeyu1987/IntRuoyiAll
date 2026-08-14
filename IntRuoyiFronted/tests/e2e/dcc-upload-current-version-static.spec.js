@@ -9,6 +9,7 @@ const packageJson = JSON.parse(readSource('package.json'))
 const workflowApi = readSource('src/api/dcc/controlledFile/workflow.ts')
 const uploadPage = readSource('src/views/dcc/controlled-file/upload/index.vue')
 const submitter = readSource('src/views/dcc/controlled-file/upload/submitter.ts')
+const realE2e = readSource('tests/e2e/dcc-upload-current-version-real.e2e.js')
 const extractBetween = (source, startToken, endToken) => {
   const startIndex = source.indexOf(startToken)
   const endIndex = source.indexOf(endToken, startIndex + startToken.length)
@@ -109,15 +110,25 @@ assert.match(
   /watch\(\s*\(\) => formData\.fileNumber[\s\S]*loadCurrentVersionByFileNumber/,
   '上传页必须在文件编号变化时查询现行版本供用户核对。'
 )
-assert.doesNotMatch(
+assert.match(
   currentVersionLookupBlock,
   /formData\.changeType\s*=\s*'REVISION'/,
-  '文件编号查询不得自动判定升版，升版只能来自历史文件名称下拉选择。'
+  '文件编号命中现行版本时必须自动切换为升版，避免同编号新建 master。'
+)
+assert.match(
+  currentVersionLookupBlock,
+  /revisionTargetControlledFileId\s*=\s*info\.currentControlledFileId/,
+  '文件编号命中现行版本时必须绑定现行版本作为升版目标。'
 )
 assert.match(
   uploadPage,
   /data-testid="dcc-upload-current-version-panel"/,
   '上传页必须展示同编号现行版本面板，便于用户核对当前有效版本。'
+)
+assert.match(
+  uploadPage,
+  /当前变更方式：{{ formData\.changeType === 'REVISION' \? '升版' : '新建' }}/,
+  '现行版本面板必须展示当前变更方式，避免用户误判新建或升版状态。'
 )
 for (const label of ['原版本路径', '源文件路径', '受控文件路径']) {
   assert.match(
@@ -130,6 +141,11 @@ assert.match(
   uploadPage,
   /currentVersionInfo\.value\?\.modifying[\s\S]*已有未完成流程/,
   '上传页提交前必须在同编号修改中时直接阻断并提示。'
+)
+assert.match(
+  realE2e,
+  /const currentVersionResponsePromise = page\.waitForResponse\([\s\S]*await fileNumberInput\.fill\(selectedFile\.fileNumber\)[\s\S]*const currentVersionResponse = await currentVersionResponsePromise/,
+  '真实 E2E 必须先注册 current-version 响应监听再输入文件编号，避免请求过快导致脚本漏听。'
 )
 
 console.log('PASS: DCC upload current version static contract')

@@ -31,6 +31,13 @@ public interface CodexTestCaseMapper extends BaseMapperX<CodexTestCaseDO> {
         return selectList(CodexTestCaseDO::getId, ids);
     }
 
+    default List<CodexTestCaseDO> selectListByProjectAndName(String project, String name) {
+        return selectList(new LambdaQueryWrapperX<CodexTestCaseDO>()
+                .eq(CodexTestCaseDO::getProject, project)
+                .eq(CodexTestCaseDO::getName, name)
+                .orderByAsc(CodexTestCaseDO::getId));
+    }
+
     default Long selectCountByNodeChainNameAndSort(String nodeChainName, Integer nodeChainSort, Long excludeId) {
         return selectCount(new LambdaQueryWrapperX<CodexTestCaseDO>()
                 .eq(CodexTestCaseDO::getNodeChainName, nodeChainName)

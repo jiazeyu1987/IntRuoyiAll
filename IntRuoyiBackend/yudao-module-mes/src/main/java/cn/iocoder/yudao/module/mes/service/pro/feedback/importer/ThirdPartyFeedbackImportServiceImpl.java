@@ -4,7 +4,9 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackImportRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
@@ -15,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProSchedu
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.task.MesProTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackImportRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
@@ -23,9 +26,14 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrd
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.task.MesProTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodeRuleCodeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
+import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import jakarta.annotation.Resource;
@@ -93,6 +101,8 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
     @Resource
     private MesMdItemMapper itemMapper;
     @Resource
+    private MesMdWorkstationMapper workstationMapper;
+    @Resource
     private MesProProcessMapper processMapper;
     @Resource
     private MesProRouteProcessService routeProcessService;
@@ -104,6 +114,10 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
     private AdminUserMapper adminUserMapper;
     @Resource
     private MesProFeedbackMapper feedbackMapper;
+    @Resource
+    private MesMdAutoCodeRecordService autoCodeRecordService;
+    @Resource
+    private MesProFeedbackService feedbackService;
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ThirdPartyFeedbackImportResult importWorkbook(MultipartFile file) {
@@ -244,6 +258,7 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
         Map<Long, MesProProcessDO> processDoMap = loadProcesses(processMap, scheduleProcessIdentityProcessIdMap);
 
         List<Long> importRecordIds = new ArrayList<>();
+        List<String> feedbackCodes = new ArrayList<>();
         List<ThirdPartyFeedbackImportResult.DirectWorkReportDetail> directWorkReportDetails = new ArrayList<>();
         for (DirectWorkReportExcelRow row : rowsWithWorkOrder) {
             DirectProgressResolution resolution = resolveDirectProgressTarget(row, workOrderMap, scheduleOrderMap,
@@ -258,26 +273,48 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
             }
             DirectProgressTarget target = resolution.target();
             MesProScheduleOrderProcessDO beforeProgress = copyDirectProgressSnapshot(target.scheduleOrderProcess());
-            String progressWarningCode = resolveDirectProgressWarningCode(row, beforeProgress);
-            String progressWarningMessage = buildDirectProgressWarningMessage(progressWarningCode, beforeProgress);
+            if (!hasEnoughRemainingQuantity(row, beforeProgress)) {
+                skippedRows++;
+                directWorkReportSkipWarnings.add(buildDirectWorkReportSkipWarning(row, target.workOrder(),
+                        target.scheduleOrder(), target.scheduleOrderProcess(), itemMap, "REMAINING_NOT_ENOUGH",
+                        "报工数量超过当前工序剩余数量，本行未生成正式报工。"));
+                continue;
+            }
+            DirectFeedbackContext directFeedbackContext = buildDirectFeedbackContext(row, target, itemMap);
+            if (directFeedbackContext.skipWarning() != null) {
+                skippedRows++;
+                directWorkReportSkipWarnings.add(directFeedbackContext.skipWarning());
+                continue;
+            }
             MesProFeedbackImportRecordDO record = buildDirectImportRecord(sourceFileName, sourceFileSha256, row,
                     target.scheduleOrder().getId(), target.scheduleOrderProcess().getId(), 1, buildTraceRemark(row));
-            record.setAttributionStatus(ATTRIBUTION_STATUS_ATTRIBUTED);
-            record.setAttributionTargetType(MesProFeedbackImportRecordDO.ATTRIBUTION_TARGET_TYPE_CURRENT_ORDER);
-            record.setProgressSourceType(MesProFeedbackImportRecordDO.PROGRESS_SOURCE_TYPE_DIRECT_WORK_REPORT);
-            record.setProgressQuantity(row.feedbackQuantity());
-            record.setProgressAppliedTime(LocalDateTime.now());
-            record.setProgressWarningCode(progressWarningCode);
-            record.setProgressWarningMessage(progressWarningMessage);
             importRecordMapper.insert(record);
+            Long feedbackId = feedbackService.createFeedbackWithScheduleSnapshot(directFeedbackContext.request());
+            feedbackMapper.updateById(new MesProFeedbackDO()
+                    .setId(feedbackId)
+                    .setSourceImportRecordId(record.getId()));
+            importRecordMapper.updateById(MesProFeedbackImportRecordDO.builder()
+                    .id(record.getId())
+                    .feedbackId(feedbackId)
+                    .attributionStatus(ATTRIBUTION_STATUS_ATTRIBUTED)
+                    .attributionTargetType(MesProFeedbackImportRecordDO.ATTRIBUTION_TARGET_TYPE_CURRENT_ORDER)
+                    .scheduleOrderId(target.scheduleOrder().getId())
+                    .scheduleOrderProcessId(target.scheduleOrderProcess().getId())
+                    .build());
+            feedbackService.submitFeedback(feedbackId, true);
             Map<Long, MesProScheduleOrderProcessDO> recalculatedProcessMap =
                     recalculateDirectProgressForScheduleOrder(target.scheduleOrder());
             MesProScheduleOrderProcessDO afterProgress = recalculatedProcessMap.getOrDefault(
                     target.scheduleOrderProcess().getId(),
                     buildDirectProgressAfterSnapshot(beforeProgress, row.feedbackQuantity()));
             importRecordIds.add(record.getId());
-            directWorkReportDetails.add(buildDirectProgressDetail(row, target, itemMap, beforeProgress, afterProgress,
-                    record.getId(), progressWarningCode, progressWarningMessage));
+            feedbackCodes.add(directFeedbackContext.feedbackCode());
+            ThirdPartyFeedbackImportResult.DirectWorkReportDetail detail = buildDirectProgressDetail(row, target,
+                    itemMap, beforeProgress, afterProgress, record.getId(), null, null);
+            detail.setFeedbackCode(directFeedbackContext.feedbackCode());
+            detail.setResultCode("FEEDBACK_SUBMITTED");
+            detail.setResultMessage("已生成并提交正式报工，排产进度已按正式报工重算。");
+            directWorkReportDetails.add(detail);
             target.scheduleOrderProcess().setReportedQuantity(afterProgress.getReportedQuantity());
             target.scheduleOrderProcess().setProgressPercent(afterProgress.getProgressPercent());
             target.scheduleOrderProcess().setRemainingQuantity(afterProgress.getRemainingQuantity());
@@ -287,9 +324,9 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
         result.setSheetCount(parseResult.sheetCount());
         result.setImportedCount(importRecordIds.size());
         result.setPendingCount(0);
-        result.setSubmittedCount(0);
+        result.setSubmittedCount(feedbackCodes.size());
         result.setSkippedRows(skippedRows);
-        result.setFeedbackCodes(List.of());
+        result.setFeedbackCodes(feedbackCodes);
         result.setImportRecordIds(importRecordIds);
         result.setDirectWorkReportDetails(directWorkReportDetails);
         result.setDirectWorkReportSkipWarnings(directWorkReportSkipWarnings);
@@ -771,6 +808,197 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
                 new DirectProgressTarget(workOrder, scheduleOrder, scheduleOrderProcess, scheduleProcessIdentityProcessId));
     }
 
+    private boolean hasEnoughRemainingQuantity(DirectWorkReportExcelRow row,
+                                               MesProScheduleOrderProcessDO scheduleOrderProcess) {
+        BigDecimal remainingQuantity = normalizeQuantity(scheduleOrderProcess.getRemainingQuantity());
+        return remainingQuantity.compareTo(BigDecimal.ZERO) > 0
+                && normalizeQuantity(row.feedbackQuantity()).compareTo(remainingQuantity) <= 0;
+    }
+
+    private DirectFeedbackContext buildDirectFeedbackContext(DirectWorkReportExcelRow row,
+                                                             DirectProgressTarget target,
+                                                             Map<Long, MesMdItemDO> itemMap) {
+        MesProTaskDO task = resolveDirectFeedbackTask(row, target);
+        if (task == null) {
+            return DirectFeedbackContext.skip(buildDirectWorkReportSkipWarning(row, target.workOrder(),
+                    target.scheduleOrder(), target.scheduleOrderProcess(), itemMap, "ACTIVE_TASK_NOT_FOUND",
+                    "未找到与排产工序唯一匹配的未完成生产任务，本行未生成正式报工。"));
+        }
+        DirectUserResolution feedbackUser = resolveDirectFeedbackUser(row);
+        if (feedbackUser.user() == null) {
+            return DirectFeedbackContext.skip(buildDirectWorkReportSkipWarning(row, target.workOrder(),
+                    target.scheduleOrder(), target.scheduleOrderProcess(), itemMap, feedbackUser.reasonCode(),
+                    feedbackUser.reason()));
+        }
+        DirectUserResolution approveUser = resolveDirectApproveUser(row);
+        if (approveUser.user() == null) {
+            return DirectFeedbackContext.skip(buildDirectWorkReportSkipWarning(row, target.workOrder(),
+                    target.scheduleOrder(), target.scheduleOrderProcess(), itemMap, approveUser.reasonCode(),
+                    approveUser.reason()));
+        }
+        MesProRouteProcessDO routeProcess = routeProcessService.resolveFrozenRouteProcess(
+                target.scheduleOrderProcess().getRouteProcessId(), target.scheduleOrder().getRouteId(),
+                target.scheduleOrderProcess().getProcessId());
+        DirectWorkstationResolution workstationResolution = resolveDirectFeedbackWorkstation(task, routeProcess);
+        if (workstationResolution.workstationId() == null) {
+            return DirectFeedbackContext.skip(buildDirectWorkReportSkipWarning(row, target.workOrder(),
+                    target.scheduleOrder(), target.scheduleOrderProcess(), itemMap,
+                    workstationResolution.reasonCode(), workstationResolution.reason()));
+        }
+        boolean checkFlag = Boolean.TRUE.equals(routeProcess.getCheckFlag());
+        String feedbackCode = autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.PRO_FEEDBACK_CODE.getCode());
+        MesProFeedbackSaveReqVO req = new MesProFeedbackSaveReqVO();
+        req.setCode(feedbackCode);
+        req.setType(MesProFeedbackTypeEnum.SELF.getType());
+        req.setWorkstationId(workstationResolution.workstationId());
+        req.setRouteId(task.getRouteId());
+        req.setProcessId(routeProcess.getProcessId());
+        req.setWorkOrderId(task.getWorkOrderId());
+        req.setTaskId(task.getId());
+        req.setItemId(task.getItemId());
+        req.setScheduledQuantity(task.getQuantity());
+        req.setFeedbackQuantity(row.feedbackQuantity());
+        req.setFeedbackUserId(feedbackUser.user().getId());
+        req.setFeedbackTime(row.feedbackTime());
+        req.setApproveUserId(approveUser.user().getId());
+        req.setRemark(buildTraceRemark(row));
+        if (checkFlag) {
+            req.setQualifiedQuantity(BigDecimal.ZERO);
+            req.setUnqualifiedQuantity(BigDecimal.ZERO);
+            req.setUncheckQuantity(row.feedbackQuantity());
+        } else {
+            req.setQualifiedQuantity(row.feedbackQuantity());
+            req.setUnqualifiedQuantity(BigDecimal.ZERO);
+            req.setUncheckQuantity(BigDecimal.ZERO);
+        }
+        req.setLaborScrapQuantity(BigDecimal.ZERO);
+        req.setMaterialScrapQuantity(BigDecimal.ZERO);
+        req.setOtherScrapQuantity(BigDecimal.ZERO);
+        req.setScheduleOrderId(target.scheduleOrder().getId());
+        req.setScheduleOrderProcessId(target.scheduleOrderProcess().getId());
+        return DirectFeedbackContext.success(feedbackCode, req);
+    }
+
+    private MesProTaskDO resolveDirectFeedbackTask(DirectWorkReportExcelRow row,
+                                                   DirectProgressTarget target) {
+        List<MesProTaskScheduleExtDO> extList = taskScheduleExtMapper.selectListByScheduleOrderProcessIds(
+                List.of(target.scheduleOrderProcess().getId()));
+        if (extList == null || extList.isEmpty()) {
+            return null;
+        }
+        List<Long> taskIds = extList.stream()
+                .map(MesProTaskScheduleExtDO::getTaskId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        List<MesProTaskDO> tasks = taskIds.isEmpty() ? List.of() : taskMapper.selectListByIds(taskIds);
+        List<MesProTaskDO> candidates = tasks.stream()
+                .filter(Objects::nonNull)
+                .filter(task -> !MesProTaskStatusEnum.isEndStatus(task.getStatus()))
+                .filter(task -> Objects.equals(task.getWorkOrderId(), target.scheduleOrder().getWorkOrderId()))
+                .filter(task -> task.getRouteId() != null)
+                .filter(task -> task.getItemId() != null)
+                .filter(task -> task.getQuantity() != null)
+                .filter(task -> matchesDirectFeedbackTaskProcess(task, target))
+                .toList();
+        List<MesProTaskDO> taskCodeMatches = candidates.stream()
+                .filter(task -> StrUtil.equals(task.getCode(), row.taskCode()))
+                .toList();
+        if (taskCodeMatches.size() == 1) {
+            return taskCodeMatches.get(0);
+        }
+        if (taskCodeMatches.size() > 1) {
+            return null;
+        }
+        return candidates.size() == 1 ? candidates.get(0) : null;
+    }
+
+    private DirectWorkstationResolution resolveDirectFeedbackWorkstation(MesProTaskDO task,
+                                                                         MesProRouteProcessDO routeProcess) {
+        if (task.getWorkstationId() != null) {
+            return DirectWorkstationResolution.success(task.getWorkstationId());
+        }
+        Long processId = routeProcess == null ? null : routeProcess.getProcessId();
+        if (processId == null) {
+            return DirectWorkstationResolution.fail("WORKSTATION_NOT_FOUND",
+                    "生产任务缺少工作站，且排产工序缺少正式工序，本行未生成正式报工。");
+        }
+        List<MesMdWorkstationDO> workstations = workstationMapper.selectListByProcessIds(List.of(processId));
+        List<MesMdWorkstationDO> candidates = workstations == null ? List.of() : workstations.stream()
+                .filter(Objects::nonNull)
+                .filter(workstation -> workstation.getId() != null)
+                .filter(workstation -> Objects.equals(workstation.getProcessId(), processId))
+                .toList();
+        if (candidates.size() == 1) {
+            return DirectWorkstationResolution.success(candidates.get(0).getId());
+        }
+        if (candidates.isEmpty()) {
+            return DirectWorkstationResolution.fail("WORKSTATION_NOT_FOUND",
+                    "生产任务缺少工作站，且工序没有唯一工作站配置，本行未生成正式报工。");
+        }
+        return DirectWorkstationResolution.fail("WORKSTATION_NOT_UNIQUE",
+                "生产任务缺少工作站，且工序存在多个工作站配置，无法唯一生成正式报工。");
+    }
+
+    private boolean matchesDirectFeedbackTaskProcess(MesProTaskDO task,
+                                                     DirectProgressTarget target) {
+        Long taskProcessId = task.getProcessId();
+        Long scheduleProcessId = target.scheduleProcessIdentityProcessId() == null
+                ? target.scheduleOrderProcess().getProcessId() : target.scheduleProcessIdentityProcessId();
+        if (taskProcessId == null || scheduleProcessId == null) {
+            return false;
+        }
+        if (taskProcessId <= 0
+                && target.scheduleOrderProcess().getProcessId() != null
+                && target.scheduleOrderProcess().getProcessId() <= 0) {
+            return true;
+        }
+        List<Long> processIds = List.of(taskProcessId, scheduleProcessId).stream()
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .toList();
+        Map<Long, Long> processIdentityMap = processIds.isEmpty() ? Map.of()
+                : routeProcessService.getProcessIdentityMap(processIds);
+        if (processIdentityMap == null) {
+            processIdentityMap = Map.of();
+        }
+        Long taskIdentity = processIdentityMap.getOrDefault(taskProcessId, taskProcessId);
+        Long scheduleIdentity = processIdentityMap.getOrDefault(scheduleProcessId, scheduleProcessId);
+        return Objects.equals(taskIdentity, scheduleIdentity);
+    }
+
+    private DirectUserResolution resolveDirectFeedbackUser(DirectWorkReportExcelRow row) {
+        if (StrUtil.isBlank(row.feedbackUserCode())) {
+            return DirectUserResolution.fail("FEEDBACK_USER_NOT_FOUND", "报工人编码为空，本行未生成正式报工。");
+        }
+        AdminUserDO user = adminUserMapper.selectByUsername(row.feedbackUserCode());
+        if (user == null) {
+            return DirectUserResolution.fail("FEEDBACK_USER_NOT_FOUND",
+                    "报工人编码未匹配到系统用户，本行未生成正式报工。");
+        }
+        return DirectUserResolution.success(user);
+    }
+
+    private DirectUserResolution resolveDirectApproveUser(DirectWorkReportExcelRow row) {
+        if (StrUtil.isBlank(row.approverName())) {
+            return DirectUserResolution.fail("APPROVER_NOT_FOUND", "审批人为空，本行未生成正式报工。");
+        }
+        AdminUserDO approverByUsername = adminUserMapper.selectByUsername(row.approverName());
+        if (approverByUsername != null) {
+            return DirectUserResolution.success(approverByUsername);
+        }
+        List<AdminUserDO> approvers = adminUserMapper.selectListByNicknamesExact(List.of(row.approverName()));
+        if (approvers == null || approvers.isEmpty()) {
+            return DirectUserResolution.fail("APPROVER_NOT_FOUND",
+                    "审批人未匹配到唯一系统用户，本行未生成正式报工。");
+        }
+        if (approvers.size() > 1) {
+            return DirectUserResolution.fail("APPROVER_NOT_UNIQUE",
+                    "审批人匹配到多个系统用户，本行未生成正式报工。");
+        }
+        return DirectUserResolution.success(approvers.get(0));
+    }
+
     private String resolveDirectProgressWarningCode(DirectWorkReportExcelRow row,
                                                     MesProScheduleOrderProcessDO scheduleOrderProcess) {
         BigDecimal remainingQuantity = defaultZero(scheduleOrderProcess.getRemainingQuantity());
@@ -831,7 +1059,6 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
                 scheduleOrderProcessMapper.selectListByScheduleOrderId(scheduleOrder.getId());
         Map<Long, BigDecimal> completedByProcessId = sumFeedbackProgressByScheduleOrderProcessId(
                 feedbackMapper.selectProgressListByScheduleOrderId(scheduleOrder.getId()));
-        mergeQuantity(completedByProcessId, sumDirectProgressByScheduleOrderProcessId(scheduleOrder.getId()));
         Map<Long, MesProScheduleOrderProcessDO> result = new LinkedHashMap<>();
         for (MesProScheduleOrderProcessDO process : processes) {
             BigDecimal plannedQuantity = normalizeQuantity(process.getPlannedQuantity());
@@ -870,30 +1097,6 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
                     BigDecimal::add);
         }
         return result;
-    }
-
-    private Map<Long, BigDecimal> sumDirectProgressByScheduleOrderProcessId(Long scheduleOrderId) {
-        Map<Long, BigDecimal> result = new LinkedHashMap<>();
-        List<MesProFeedbackImportRecordDO> records =
-                importRecordMapper.selectAppliedDirectProgressListByScheduleOrderId(scheduleOrderId);
-        if (records == null) {
-            return result;
-        }
-        for (MesProFeedbackImportRecordDO record : records) {
-            if (record.getScheduleOrderProcessId() == null) {
-                continue;
-            }
-            result.merge(record.getScheduleOrderProcessId(), normalizeQuantity(record.getProgressQuantity()),
-                    BigDecimal::add);
-        }
-        return result;
-    }
-
-    private void mergeQuantity(Map<Long, BigDecimal> target, Map<Long, BigDecimal> source) {
-        if (source == null || source.isEmpty()) {
-            return;
-        }
-        source.forEach((key, value) -> target.merge(key, value, BigDecimal::add));
     }
 
     private MesProScheduleOrderProcessDO buildDirectProgressAfterSnapshot(MesProScheduleOrderProcessDO beforeProgress,
@@ -1036,6 +1239,45 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
 
         private static DirectProgressResolution skip(ThirdPartyFeedbackImportResult.DirectWorkReportSkipWarning warning) {
             return new DirectProgressResolution(null, warning);
+        }
+    }
+
+    private record DirectFeedbackContext(String feedbackCode,
+                                         MesProFeedbackSaveReqVO request,
+                                         ThirdPartyFeedbackImportResult.DirectWorkReportSkipWarning skipWarning) {
+
+        private static DirectFeedbackContext success(String feedbackCode, MesProFeedbackSaveReqVO request) {
+            return new DirectFeedbackContext(feedbackCode, request, null);
+        }
+
+        private static DirectFeedbackContext skip(ThirdPartyFeedbackImportResult.DirectWorkReportSkipWarning warning) {
+            return new DirectFeedbackContext(null, null, warning);
+        }
+    }
+
+    private record DirectWorkstationResolution(Long workstationId,
+                                               String reasonCode,
+                                               String reason) {
+
+        private static DirectWorkstationResolution success(Long workstationId) {
+            return new DirectWorkstationResolution(workstationId, null, null);
+        }
+
+        private static DirectWorkstationResolution fail(String reasonCode, String reason) {
+            return new DirectWorkstationResolution(null, reasonCode, reason);
+        }
+    }
+
+    private record DirectUserResolution(AdminUserDO user,
+                                        String reasonCode,
+                                        String reason) {
+
+        private static DirectUserResolution success(AdminUserDO user) {
+            return new DirectUserResolution(user, null, null);
+        }
+
+        private static DirectUserResolution fail(String reasonCode, String reason) {
+            return new DirectUserResolution(null, reasonCode, reason);
         }
     }
 

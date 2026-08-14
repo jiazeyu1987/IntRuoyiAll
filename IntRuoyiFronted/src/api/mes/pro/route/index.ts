@@ -73,6 +73,19 @@ export interface ProRouteCopyReqVO {
   targetName: string
 }
 
+export interface RouteDccProjectBindingVO {
+  routeId: number
+  dccProjectCodeId?: number | null
+  version: number
+  bound: boolean
+}
+
+export interface RouteDccProjectBindingSaveReqVO {
+  routeId: number
+  dccProjectCodeId: number
+  expectedVersion?: number
+}
+
 export interface ProRouteScheduleConfigVO {
   id?: number
   routeVersionId: number
@@ -277,6 +290,11 @@ export const ProRouteApi = {
     return await request.get({ url: `/mes/pro/route/simple-list` })
   },
 
+  // 查询产品侧工艺路线绑定选择列表
+  getRouteItemBindingList: async () => {
+    return await request.get({ url: `/mes/pro/route/item-binding-list` })
+  },
+
   // 查询工艺路线详情
   getRoute: async (id: number) => {
     return await request.get({ url: `/mes/pro/route/get?id=` + id })
@@ -305,6 +323,30 @@ export const ProRouteApi = {
   // 删除工艺路线
   deleteRoute: async (id: number) => {
     return await request.delete({ url: `/mes/pro/route/delete?id=` + id })
+  },
+
+  // 查询工艺路线 DCC 项目代码关系
+  getRouteDccProjectBinding: async (routeId: number) => {
+    return await request.get<RouteDccProjectBindingVO>({
+      url: `/mes/pro/route/dcc-project-binding`,
+      params: { routeId }
+    })
+  },
+
+  // 保存工艺路线 DCC 项目代码关系
+  saveRouteDccProjectBinding: async (data: RouteDccProjectBindingSaveReqVO) => {
+    return await request.put<RouteDccProjectBindingVO>({
+      url: `/mes/pro/route/dcc-project-binding`,
+      data
+    })
+  },
+
+  // 解除工艺路线 DCC 项目代码关系
+  deleteRouteDccProjectBinding: async (routeId: number, expectedVersion?: number) => {
+    return await request.delete<RouteDccProjectBindingVO>({
+      url: `/mes/pro/route/dcc-project-binding`,
+      params: { routeId, expectedVersion }
+    })
   },
 
   // 导出工艺路线 Excel

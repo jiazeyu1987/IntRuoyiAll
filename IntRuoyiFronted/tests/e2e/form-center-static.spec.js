@@ -126,7 +126,7 @@ assertIncludes(templatePage, 'openSelectedTemplateCellLinks')
 assertIncludes(templatePage, "path: '/mes/pro/batch-record-cell-link'")
 assertIncludes(templatePage, 'templateId: row.templateId')
 assertIncludes(templatePage, 'versionNo: row.versionNo')
-assertIncludes(templatePage, "returnLabel: '返回表单模板'")
+assertIncludes(templatePage, "returnLabel: '返回'")
 if (/obsoleteTemplateVersion/.test(templatePage)) {
   throw new Error('表单模板页面不能继续调用直接作废 API，必须提交 BPM 作废申请')
 }
@@ -294,7 +294,13 @@ assertIncludes(actionPanel, 'abandonFormInstance')
 assertIncludes(actionPanel, 'buildSubmitPayload')
 assertIncludes(actionPanel, 'actionFormData.value.startUserSelectAssignees')
 assertIncludes(actionPanel, 'EdhrExecutionTemplateEditableForm')
-assertIncludes(actionPanel, 'getTemplateVersion')
+assertIncludes(actionPanel, 'resolveEmbeddedTemplateVersionForActionForm')
+assertIncludes(actionPanel, '动态表单运行态缺少 openTask 模板快照，无法渲染')
+assertNotIncludes(
+  actionPanel,
+  'getTemplateVersion',
+  'ActionFormPanel 运行态不得调用模板管理版本接口'
+)
 assertIncludes(actionPanel, 'applyLatestDraftSnapshotFormData')
 assertIncludes(actionPanel, 'startUserSelectAssignees 必须是对象')
 assertIncludes(actionPanel, 'FORM_POLICY_NOT_FOUND')

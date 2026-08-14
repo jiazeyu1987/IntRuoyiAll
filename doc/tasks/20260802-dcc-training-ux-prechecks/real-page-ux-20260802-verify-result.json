@@ -1,0 +1,12 @@
+{
+  "status": "FAIL",
+  "finishedAt": "2026-08-02T15:57:04.837Z",
+  "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"dcc-training-rule-permission-precheck\"]').first() to be visible\u001b[22m\n\n    at verifyTrainingRulePrechecks (E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-ux-prechecks\\real-page-ux-e2e.cjs:338:28)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-ux-prechecks\\real-page-ux-e2e.cjs:373:25)",
+  "targetFile": {
+    "id": "2054545668044070298",
+    "fileNumber": "CODX-DCC-TRAIN-RERUN-20260802195426",
+    "title": "Codex DCC 培训阅读确认复跑 20260802195426",
+    "trainingUsername": "zhaomingyu",
+    "managerUsername": "wangsiyu"
+  }
+}

@@ -9,7 +9,10 @@
           </div>
         </div>
         <div class="edhr-domain-trace-detail__actions">
-          <el-button @click="backToPage">返回列表</el-button>
+          <el-button @click="backToPage">
+            <Icon icon="ep:arrow-left" class="mr-5px" />
+            返回
+          </el-button>
           <el-button @click="openExecution">执行表单</el-button>
           <el-button
             v-hasPermi="[EDHR_DOMAIN_TRACE_VERIFY_PERMISSION]"

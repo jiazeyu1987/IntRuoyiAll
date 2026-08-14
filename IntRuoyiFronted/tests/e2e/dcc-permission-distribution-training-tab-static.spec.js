@@ -26,7 +26,7 @@ const distributionShell = readSource('src/views/dcc/controlled-file/distribution
 const trainingShell = readSource('src/views/dcc/controlled-file/training/index.vue')
 const remainingRoute = readSource('src/router/modules/remaining.ts')
 const retireSql = readWorkspaceSource(
-  'ruoyi-vue-pro/sql/mysql/20260714_dcc_distribution_training_menu_retire.sql'
+  'IntRuoyiBackend/sql/mysql/20260714_dcc_distribution_training_menu_retire.sql'
 )
 
 assert.equal(
@@ -49,8 +49,8 @@ assert.ok(
 assert.ok(!categoriesPage.includes('label="分发培训"'), '文控权限页不应继续提供合并分发培训页签')
 
 for (const [source, title, apiToken] of [
-  [distributionTab, '分发规则', 'getCategoryDistributionRules(category.id)'],
-  [trainingTab, '培训规则', 'getCategoryTrainingRules(category.id)']
+  [distributionTab, '分发规则', 'getCategoryDistributionRules(categoryId)'],
+  [trainingTab, '培训规则', 'getCategoryTrainingRules(categoryId)']
 ]) {
   assert.ok(source.includes('<UnifiedListTemplate'), `${title}页签必须使用标准列表模板`)
   assert.ok(source.includes(apiToken), `${title}页签必须保留真实规则接口：${apiToken}`)

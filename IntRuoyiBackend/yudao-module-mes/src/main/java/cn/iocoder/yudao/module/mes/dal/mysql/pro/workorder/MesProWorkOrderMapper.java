@@ -24,6 +24,15 @@ import java.util.Map;
 @Mapper
 public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
 
+    default MesProWorkOrderDO selectByIdForUpdate(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProWorkOrderDO>()
+                .eq(MesProWorkOrderDO::getId, id)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProWorkOrderDO> selectListAll() {
         return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
                 .orderByAsc(MesProWorkOrderDO::getId));
@@ -69,6 +78,21 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
 
     default MesProWorkOrderDO selectByCode(String code) {
         return selectOne(MesProWorkOrderDO::getCode, code);
+    }
+
+    default List<MesProWorkOrderDO> selectCandidatesByKeyword(String keyword, Collection<Long> productIds) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        String searchText = keyword.trim();
+        return selectList(new LambdaQueryWrapperX<MesProWorkOrderDO>()
+                .and(wrapper -> {
+                    wrapper.like(MesProWorkOrderDO::getCode, searchText);
+                    if (productIds != null && !productIds.isEmpty()) {
+                        wrapper.or().in(MesProWorkOrderDO::getProductId, productIds);
+                    }
+                })
+                .orderByDesc(MesProWorkOrderDO::getId));
     }
 
     default List<MesProWorkOrderDO> selectListByCodes(Collection<String> codes) {

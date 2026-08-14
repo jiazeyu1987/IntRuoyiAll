@@ -1,0 +1,55 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "targetScheduleOrderCode": "SCH-CODEX-FACTOR-20260708093210-20260710-0001",
+  "targetErpWorkOrderCode": "CODEX-FACTOR-20260708093210",
+  "filteredParams": {
+    "pageNo": "1",
+    "pageSize": "20",
+    "completionFilter": "ALL",
+    "code": "SCH-CODEX-FACTOR-20260708093210-20260710-0001",
+    "erpWorkOrderCode": "CODEX-FACTOR-20260708093210"
+  },
+  "resetParams": {
+    "pageNo": "1",
+    "pageSize": "20"
+  },
+  "initialTotal": 17,
+  "filteredTotal": 1,
+  "resetTotal": 47,
+  "legacyQuickFilterVisibleCount": 0,
+  "conditionEmptyPromptVisibleCount": 0,
+  "conditionEmptyPromptTextCount": 0,
+  "admissionTargetWorkOrderCode": "SMART-SCHED-20260630-RERUN5-MO",
+  "admissionTargetProductCode": "AW.106.03.08.1007",
+  "admissionTargetStatus": "READY_TO_ADMIT",
+  "admissionFilteredParams": {
+    "pageNo": "1",
+    "pageSize": "20",
+    "admissionStatus": "READY_TO_ADMIT",
+    "workOrderCode": "SMART-SCHED-20260630-RERUN5-MO",
+    "productCode": "AW.106.03.08.1007"
+  },
+  "admissionResetParams": {
+    "pageNo": "1",
+    "pageSize": "20"
+  },
+  "admissionInitialTotal": 84,
+  "admissionFilteredTotal": 1,
+  "admissionResetTotal": 1483,
+  "admissionLegacyQuickFilterVisibleCount": 0,
+  "targetWriteRequestCount": 0,
+  "targetBadResponseCount": 0,
+  "targetAbortedRequestCount": 1,
+  "targetAbortedRequests": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/schedule-order/page?pageNo=1&pageSize=20&completionFilter=INCOMPLETE",
+      "errorText": "net::ERR_ABORTED"
+    }
+  ],
+  "runtimeIssueCount": 0
+}

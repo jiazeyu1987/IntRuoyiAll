@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Validated
@@ -29,8 +30,32 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
     }
 
     @Override
+    public Optional<MesProcessPoolSubmitEventResult> findExistingSubmitEvent(MesProcessPoolSubmitEventCreateReqBO reqBO) {
+        return eventService.findExistingSubmitEvent(toLookupReq(reqBO));
+    }
+
+    @Override
     public Long createSubmitEvent(MesProcessPoolSubmitEventCreateReqBO reqBO) {
         return eventService.createEvent(toCreateEventReq(reqBO));
+    }
+
+    private MesProcessPoolCreateEventReqDTO toLookupReq(MesProcessPoolSubmitEventCreateReqBO reqBO) {
+        if (reqBO == null) {
+            return null;
+        }
+        return MesProcessPoolCreateEventReqDTO.builder()
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .eventIdempotencyKey(reqBO.getProcessPoolSubmissionIdempotencyKey())
+                .workOrderId(reqBO.getWorkOrderId())
+                .routeId(reqBO.getRouteId())
+                .routeProcessId(reqBO.getRouteProcessId())
+                .processId(reqBO.getProcessId())
+                .actualEmployeeId(reqBO.getActualEmployeeId())
+                .deviceAccountId(reqBO.getDeviceAccountUserId())
+                .deviceId(reqBO.getDeviceId())
+                .workstationId(reqBO.getWorkstationId())
+                .templateType(reqBO.getTemplateType())
+                .build();
     }
 
     private MesProcessPoolCreateEventReqDTO toCreateEventReq(MesProcessPoolSubmitEventCreateReqBO reqBO) {
@@ -39,6 +64,7 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
         }
         return MesProcessPoolCreateEventReqDTO.builder()
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .eventIdempotencyKey(reqBO.getProcessPoolSubmissionIdempotencyKey())
                 .workOrderId(reqBO.getWorkOrderId())
                 .routeId(reqBO.getRouteId())
                 .routeProcessId(reqBO.getRouteProcessId())
@@ -50,7 +76,8 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
                 .templateType(reqBO.getTemplateType())
                 .feedbackSourceType(FEEDBACK_SOURCE_TYPE)
                 .feedbackSourceId(reqBO.getFeedbackId())
-                .recordbookSourceType(RECORDBOOK_SOURCE_TYPE)
+                .recordbookEntryId(reqBO.getRecordbookEntryId())
+                .recordbookSourceType(reqBO.getRecordbookEventId() == null ? null : RECORDBOOK_SOURCE_TYPE)
                 .recordbookSourceId(reqBO.getRecordbookEventId())
                 .rawPayload(toJsonOrNull(reqBO.getRawPayload()))
                 .clientSubmitTime(reqBO.getSubmittedAt())
@@ -80,8 +107,15 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
         fragmentPayload.put("feedbackId", reqBO.getFeedbackId());
         fragmentPayload.put("recordbookEntryId", reqBO.getRecordbookEntryId());
         fragmentPayload.put("recordbookEventId", reqBO.getRecordbookEventId());
-        fragmentPayload.put("previousProcessInputQuantity", reqBO.getPreviousProcessInputQuantity());
         fragmentPayload.put("equipmentParameters", reqBO.getEquipmentParameters());
+        fragmentPayload.put("selectedDevice", reqBO.getSelectedDevice());
+        fragmentPayload.put("deviceParameterReadings", reqBO.getDeviceParameterReadings());
+        if (QUANTITY_TYPE_LOSS.equals(sourceQuantityType)) {
+            fragmentPayload.put("lossDetails", reqBO.getLossDetails());
+            fragmentPayload.put("lossReasonId", reqBO.getLossReasonId());
+            fragmentPayload.put("lossReasonCodeSnapshot", reqBO.getLossReasonCodeSnapshot());
+            fragmentPayload.put("lossReasonNameSnapshot", reqBO.getLossReasonNameSnapshot());
+        }
         fragments.add(MesProcessPoolQuantityFragmentCreateDTO.builder()
                 .sourceQuantityType(sourceQuantityType)
                 .qualityStatus(sourceQuantityType)

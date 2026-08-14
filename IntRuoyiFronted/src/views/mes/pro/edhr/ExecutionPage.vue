@@ -11,7 +11,8 @@
         </div>
         <div class="edhr-page-shell__actions">
           <el-button @click="handleBackToList">
-            {{ backToBatchLabel }}
+            <Icon icon="ep:arrow-left" class="mr-5px" />
+            返回
           </el-button>
           <el-button
             v-if="!isTrackingReadonlyMode && !isReadonly"
@@ -4314,9 +4315,6 @@ const executionPageSubtitle = computed(() =>
 )
 
 const currentBatchExecutionId = computed(() => readRouteQueryString(route.query.batchExecutionId))
-const backToBatchLabel = computed(() =>
-  currentBatchExecutionId.value ? '返回批次详情' : '返回批次执行'
-)
 
 const buildCellValueKey = (rowIndex: number, columnIndex: number) => `${rowIndex}:${columnIndex}`
 

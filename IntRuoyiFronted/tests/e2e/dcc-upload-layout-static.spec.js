@@ -47,6 +47,13 @@ const expectedSections = [
     labels: ['文件名称', '文件编号', '产品编号', '版本号', '生效日期', '提交备注']
   },
   {
+    testId: 'dcc-upload-preflight-panel',
+    className: 'upload-section--preflight',
+    title: '提交前校验',
+    labels: [],
+    texts: ['文件编号/版本 · 文件类别 · 审批人链路 · 受控浏览目录 · 浏览权限范围']
+  },
+  {
     testId: 'dcc-upload-section-approval',
     className: 'upload-section--approval',
     title: '审批要求',
@@ -74,6 +81,53 @@ assert(
   template.includes('data-testid="dcc-upload-single-page-grid"'),
   '上传页必须使用单页网格承载提交范围、文件信息、审批要求和附件上传'
 )
+assert(
+  template.includes('data-testid="dcc-upload-left-column"'),
+  '上传页必须提供左侧主列承载提交范围、文件信息和提交前校验'
+)
+assert(
+  template.includes('data-testid="dcc-upload-right-column"'),
+  '上传页必须提供右侧附件列承载审批要求和附件上传'
+)
+
+const assertSectionOrder = (source, sectionIds, scopeName) => {
+  let previousIndex = -1
+  for (const sectionId of sectionIds) {
+    const sectionIndex = source.indexOf(`data-testid="${sectionId}"`)
+    assert(sectionIndex > previousIndex, `${scopeName} 分组缺失或顺序错误：${sectionId}`)
+    previousIndex = sectionIndex
+  }
+}
+
+const leftColumnStart = template.indexOf('data-testid="dcc-upload-left-column"')
+const rightColumnStart = template.indexOf('data-testid="dcc-upload-right-column"')
+const submitSectionStart = template.indexOf('data-testid="dcc-upload-section-submit"')
+assert(
+  leftColumnStart >= 0 && rightColumnStart > leftColumnStart,
+  '提交前校验必须位于左侧主列，不能排在右侧附件预览之后'
+)
+assert(submitSectionStart > rightColumnStart, '提交按钮区必须仍位于双列工作台之后')
+
+const leftColumn = template.slice(leftColumnStart, rightColumnStart)
+const rightColumn = template.slice(rightColumnStart, submitSectionStart)
+assertSectionOrder(
+  leftColumn,
+  ['dcc-upload-section-scope', 'dcc-upload-section-file', 'dcc-upload-preflight-panel'],
+  '左侧主列'
+)
+assertSectionOrder(
+  rightColumn,
+  ['dcc-upload-section-approval', 'dcc-upload-section-attachment'],
+  '右侧附件列'
+)
+assert(
+  !rightColumn.includes('data-testid="dcc-upload-preflight-panel"'),
+  '提交前校验不得留在右侧附件预览流中'
+)
+assert(
+  !leftColumn.includes('data-testid="dcc-upload-section-attachment"'),
+  '附件上传不得进入左侧主列挤占提交前校验位置'
+)
 
 let lastIndex = -1
 for (const section of expectedSections) {
@@ -97,7 +151,7 @@ const behaviorHooks = [
   'loadUploadDirectoryTree',
   'queryUploadNameSuggestions',
   'handleHistoryFileNameSelect',
-  'handleProductMasterChange',
+  'handleProjectCodeChange',
   'handleFileChange',
   'handleDrawingPdfChange',
   'cleanupCurrentUploadSession',
@@ -125,6 +179,7 @@ for (const removed of [
 const requiredLayoutRules = [
   '.upload-workbench',
   '.upload-workbench__grid',
+  '.upload-workbench__column',
   'grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)',
   '.upload-submit-bar',
   'margin-bottom: 10px',
@@ -135,6 +190,11 @@ const requiredLayoutRules = [
 for (const rule of requiredLayoutRules) {
   assert(style.includes(rule), `上传页缺少单页紧凑排版样式：${rule}`)
 }
+
+assert(
+  !style.includes('grid-template-areas:'),
+  '提交前校验不能继续依赖共享网格行，否则长附件预览会把左侧校验区向下推'
+)
 
 const forbiddenTerms = ['mock', 'placeholder data', 'fallback', '降级', '吞异常']
 for (const term of forbiddenTerms) {

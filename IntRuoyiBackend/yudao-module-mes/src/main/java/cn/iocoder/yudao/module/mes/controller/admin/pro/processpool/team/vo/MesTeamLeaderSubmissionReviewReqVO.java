@@ -25,4 +25,8 @@ public class MesTeamLeaderSubmissionReviewReqVO {
 
     @Schema(description = "复核说明", example = "已复核")
     private String reviewRemark;
+
+    @Schema(description = "电子签名密码", requiredMode = Schema.RequiredMode.REQUIRED, example = "******")
+    @NotBlank(message = "电子签名密码不能为空")
+    private String signaturePassword;
 }

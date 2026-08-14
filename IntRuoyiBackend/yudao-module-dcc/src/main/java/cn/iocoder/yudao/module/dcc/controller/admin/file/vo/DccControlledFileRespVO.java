@@ -13,10 +13,14 @@ public class DccControlledFileRespVO {
     private Long masterId;
     private Long categoryId;
     private Long directoryId;
+    private String directoryPath;
     private String title;
     private String fileName;
     private String contentType;
     private String previewKind;
+    private String previewUnavailableReason;
+    private Boolean publishedArtifactAvailable;
+    private Boolean stampedArtifactAvailable;
     private String fileNumber;
     private Long productMasterId;
     private String productCode;
@@ -55,6 +59,7 @@ public class DccControlledFileRespVO {
     private String finalizationError;
     private Boolean canPreview;
     private Boolean canDownload;
+    private Boolean canPrint;
     private DccControlledFileAccessExplanationRespVO accessExplanation;
     private Boolean systemRecordDownloadOpen;
     private Boolean modifying;

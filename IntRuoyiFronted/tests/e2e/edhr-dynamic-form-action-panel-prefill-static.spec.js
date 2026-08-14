@@ -13,7 +13,7 @@ const instanceApi = read('src/api/form-center/instance.ts')
 assert.match(
   templateApi,
   /export\s+const\s+getTemplateVersion[\s\S]*?\/form-center\/templates\/\$\{templateId\}\/versions\/\$\{versionNo\}/,
-  '动态表单动作面板必须能按 templateId + versionNo 精确读取模板版本。'
+  '模板管理页面仍可按 templateId + versionNo 精确读取模板版本。'
 )
 assert.match(
   instanceApi,
@@ -25,10 +25,10 @@ assert.match(
   /import\s+EdhrExecutionTemplateEditableForm\s+from\s+'@\/views\/mes\/pro\/edhr\/components\/EdhrExecutionTemplateEditableForm\.vue'/,
   'ActionFormPanel 必须渲染真实模板控件，不能只展示快照 JSON。'
 )
-assert.match(
+assert.doesNotMatch(
   actionPanel,
   /getTemplateVersion/,
-  'ActionFormPanel 必须读取模板版本布局。'
+  'ActionFormPanel 是运行态业务面板，不得请求模板管理版本接口。'
 )
 assert.match(
   actionPanel,
@@ -57,8 +57,13 @@ assert.match(
 )
 assert.match(
   actionPanel,
-  /getTemplateVersion\(templateId,\s*versionNo\)/,
-  'ActionFormPanel 必须使用 route form 上下文里的 templateId + versionNo 加载模板。'
+  /resolveEmbeddedTemplateVersionForActionForm\(\)/,
+  'ActionFormPanel 必须使用 openTask 传入的嵌入模板快照加载运行态布局。'
+)
+assert.match(
+  actionPanel,
+  /动态表单运行态缺少 openTask 模板快照，无法渲染/,
+  '运行态缺少嵌入模板快照时必须可见失败，不能降级请求模板管理接口。'
 )
 assert.match(
   actionPanel,

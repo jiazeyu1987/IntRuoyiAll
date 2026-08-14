@@ -18,6 +18,18 @@ import java.util.concurrent.Callable;
 @Component
 public class ScheduleDefaultCompatibilityPolicy {
 
+    private static final BigDecimal DEFAULT_SHIFT_HOURS = new BigDecimal("10.5");
+
+    public BigDecimal defaultShiftHoursWhenMissing() {
+        return DEFAULT_SHIFT_HOURS;
+    }
+
+    public BigDecimal shiftHoursOrDefault(BigDecimal shiftHours) {
+        return shiftHours == null || shiftHours.compareTo(BigDecimal.ZERO) <= 0
+                ? defaultShiftHoursWhenMissing()
+                : shiftHours;
+    }
+
     public String businessDefaultCapacityMode(String capacityMode, String actualMode, String plannedMode) {
         return actualMode.equalsIgnoreCase(capacityMode) ? actualMode : plannedMode;
     }

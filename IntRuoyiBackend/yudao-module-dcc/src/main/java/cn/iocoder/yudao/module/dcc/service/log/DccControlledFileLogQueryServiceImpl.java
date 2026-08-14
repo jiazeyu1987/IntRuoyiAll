@@ -455,10 +455,10 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
                                                        Map<Long, DccProjectCodeDO> projectCodeMap,
                                                        Map<Long, DccProjectCodeAssignmentDO> assignmentMap,
                                                        Map<Long, AdminUserRespDTO> userMap) {
-        DccControlledFileMetadataChangeDO change = changeMap.get(item.getChangeId());
-        DccControlledFileDO file = fileMap.get(item.getControlledFileId());
-        DccProjectCodeDO projectCode = projectCodeMap.get(item.getProjectCodeId());
-        DccProjectCodeAssignmentDO assignment = assignmentMap.get(item.getAssignmentId());
+        DccControlledFileMetadataChangeDO change = item.getChangeId() == null ? null : changeMap.get(item.getChangeId());
+        DccControlledFileDO file = item.getControlledFileId() == null ? null : fileMap.get(item.getControlledFileId());
+        DccProjectCodeDO projectCode = item.getProjectCodeId() == null ? null : projectCodeMap.get(item.getProjectCodeId());
+        DccProjectCodeAssignmentDO assignment = item.getAssignmentId() == null ? null : assignmentMap.get(item.getAssignmentId());
         LocalDateTime occurredAt = firstNonNull(item.getChangedTime(), change != null ? change.getChangedTime() : null);
         DccControlledFileLogRespVO row = newRow(TYPE_PROJECT_CODE_CHANGE, item.getId(), occurredAt,
                 "字段修改", "成功");
@@ -468,7 +468,8 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
         row.setOperatorUserId(item.getOperatorUserId());
         row.setOperatorName(resolveUserName(userMap, item.getOperatorUserId()));
         row.setRelatedObject(resolveProjectCodeText(projectCode));
-        row.setSummary(joinNotBlank(" / ", item.getFieldLabel(), item.getOldValueText() + " -> " + item.getNewValueText()));
+        String valueChangeText = joinNotBlank(" -> ", item.getOldValueText(), item.getNewValueText());
+        row.setSummary(joinNotBlank(" / ", item.getFieldLabel(), valueChangeText));
         row.setOldValueText(item.getOldValueText());
         row.setNewValueText(item.getNewValueText());
         row.setReason(change != null ? change.getChangeReason() : null);
@@ -479,8 +480,8 @@ public class DccControlledFileLogQueryServiceImpl implements DccControlledFileLo
                 "fieldLabel", blankToEmpty(item.getFieldLabel()),
                 "source", change == null ? "" : blankToEmpty(change.getSource())
         )));
-        String keywordText = keywordText(row) + " " + item.getFieldName() + " " + item.getFieldLabel()
-                + " " + resolveProjectCodeText(projectCode);
+        String keywordText = joinNotBlank(" ", keywordText(row), item.getFieldName(), item.getFieldLabel(),
+                resolveProjectCodeText(projectCode));
         return new LogCandidate(row, TYPE_PROJECT_CODE_CHANGE, "SUCCESS",
                 idSet(item.getControlledFileId()), item.getProjectCodeId(), item.getAssignmentId(),
                 item.getOperatorUserId(), item.getFieldName(), keywordText);

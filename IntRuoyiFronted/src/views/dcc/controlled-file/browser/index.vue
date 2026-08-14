@@ -208,6 +208,12 @@
           @header-dragend="handleDccBrowserHeaderDragend"
           @sort-change="handleTemplateSortChange"
         >
+          <template #empty>
+            <div class="browser-permission-empty-state" data-testid="dcc-browser-permission-empty-state">
+              <div class="browser-permission-empty-state__title">{{ tableEmptyText }}</div>
+              <div class="browser-permission-empty-state__description">{{ tableEmptyHint }}</div>
+            </div>
+          </template>
           <el-table-column
             v-if="isDccBrowserColumnVisible('fileName')"
             label="文件名称"
@@ -236,6 +242,19 @@
                   </span>
                 </span>
               </el-tooltip>
+              <div
+                v-for="metadata in [getBrowserCurrentActiveRowSummary(row)]"
+                :key="`${metadata.versionNo}-${metadata.directoryPath}`"
+                class="browser-current-active-row-summary"
+                data-testid="dcc-browser-current-active-row-summary"
+              >
+                <el-tag size="small" type="success" effect="dark">当前有效版</el-tag>
+                <span>版本号：{{ metadata.versionNo }}</span>
+                <span>目录路径：{{ metadata.directoryPath }}</span>
+                <span>发布文件：{{ metadata.publishedFileStatus }}</span>
+                <span>盖章文件：{{ metadata.stampedFileStatus }}</span>
+                <span>{{ metadata.currentVersionSource }}</span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -246,34 +265,41 @@
             v-bind="sortColumnAttrs('fileNumber')"
           >
             <template #default="{ row }">
-              <div
-                v-if="getSelectedVersion(row).fileNumber"
-                class="browser-file-number-cell"
-              >
-                <el-tooltip :content="getSelectedVersion(row).fileNumber" placement="top">
-                  <el-button
-                    class="browser-file-number browser-file-number--link"
-                    data-testid="dcc-browser-file-number-detail-link"
-                    link
-                    type="primary"
-                    @click="openDetail(getSelectedVersion(row).id)"
-                  >
+              <div class="browser-file-number-wrapper">
+                <div
+                  v-if="getSelectedVersion(row).fileNumber"
+                  class="browser-file-number-cell"
+                >
+                  <span class="browser-file-number">
                     {{ getSelectedVersion(row).fileNumber }}
-                  </el-button>
-                </el-tooltip>
-                <el-tooltip content="复制文件编号" placement="top">
-                  <el-button
-                    class="browser-file-number-copy"
-                    data-testid="dcc-browser-file-number-copy"
-                    link
-                    type="primary"
-                    @click.stop="copyFileNumber(getSelectedVersion(row).fileNumber)"
-                  >
-                    <Icon icon="ep:copy-document" />
-                  </el-button>
-                </el-tooltip>
+                  </span>
+                  <el-tooltip content="复制文件编号" placement="top">
+                    <el-button
+                      class="browser-file-number-copy"
+                      data-testid="dcc-browser-file-number-copy"
+                      link
+                      type="primary"
+                      @click.stop="copyFileNumber(getSelectedVersion(row).fileNumber)"
+                    >
+                      <Icon icon="ep:copy-document" />
+                    </el-button>
+                  </el-tooltip>
+                </div>
+                <span v-else class="browser-file-number">-</span>
+                <div
+                  v-for="metadata in [getBrowserCurrentActiveRowSummary(row)]"
+                  :key="`file-number-${metadata.versionNo}-${metadata.directoryPath}`"
+                  class="browser-current-active-row-summary browser-current-active-row-summary--file-number"
+                  data-testid="dcc-browser-file-number-current-active-summary"
+                >
+                  <el-tag size="small" type="success" effect="dark">当前有效版</el-tag>
+                  <span>版本号：{{ metadata.versionNo }}</span>
+                  <span>目录路径：{{ metadata.directoryPath }}</span>
+                  <span>发布文件：{{ metadata.publishedFileStatus }}</span>
+                  <span>盖章文件：{{ metadata.stampedFileStatus }}</span>
+                  <span>{{ metadata.currentVersionSource }}</span>
+                </div>
               </div>
-              <span v-else class="browser-file-number">-</span>
             </template>
           </el-table-column>
           <el-table-column
@@ -305,7 +331,7 @@
               {{ categoryNameMap.get(row.categoryId) || '-' }}
             </template>
           </el-table-column>
-          <el-table-column v-if="isDccBrowserColumnVisible('versionSummary')" label="版本摘要" prop="versionSummary" :min-width="getDccBrowserColumnMinWidthString('versionSummary', 310)" v-bind="sortColumnAttrs('versionSummary')">
+          <el-table-column label="版本摘要" v-if="isDccBrowserColumnVisible('versionSummary')" prop="versionSummary" :min-width="getDccBrowserColumnMinWidthString('versionSummary', 310)" v-bind="sortColumnAttrs('versionSummary')">
             <template #default="{ row }">
               <div
                 v-for="summary in [
@@ -338,6 +364,9 @@
                     <el-tag :type="summary.versionKindTagType">
                       {{ summary.versionKindText }}
                     </el-tag>
+                    <el-tag v-if="summary.isCurrentActiveVersion" type="success" effect="dark">
+                      当前有效版 / ACTIVE / {{ summary.versionText }}
+                    </el-tag>
                     <el-tag v-if="summary.modifying" type="warning">修改中</el-tag>
                   </div>
                 </div>
@@ -348,12 +377,12 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column v-if="isDccBrowserColumnVisible('remark')" label="备注" prop="remark" :min-width="getDccBrowserColumnMinWidthString('remark', 220)" show-overflow-tooltip v-bind="sortColumnAttrs('remark')">
+          <el-table-column label="备注" v-if="isDccBrowserColumnVisible('remark')" prop="remark" :min-width="getDccBrowserColumnMinWidthString('remark', 220)" show-overflow-tooltip v-bind="sortColumnAttrs('remark')">
             <template #default="{ row }">
               {{ getSelectedVersion(row).remark || '-' }}
             </template>
           </el-table-column>
-          <el-table-column v-if="isDccBrowserColumnVisible('operation')" label="操作" prop="operation" align="center" fixed="right" :width="getDccBrowserColumnWidthString('operation', 260)">
+          <el-table-column v-if="isDccBrowserColumnVisible('operation')" label="操作" prop="operation" align="center" fixed="right" :width="getDccBrowserColumnWidthString('operation', 320)">
             <template #default="{ row }">
               <div class="browser-row-actions">
                 <el-button
@@ -365,6 +394,23 @@
                   预览
                 </el-button>
                 <el-button
+                  v-if="getSelectedVersion(row).id"
+                  data-testid="dcc-browser-row-traceability"
+                  link
+                  type="primary"
+                  @click="openDetail(getSelectedVersion(row).id)"
+                >
+                  追溯
+                </el-button>
+                <el-button
+                  v-if="getSelectedVersion(row).id"
+                  link
+                  type="primary"
+                  @click="openSignatureEvidence(getSelectedVersion(row).id)"
+                >
+                  签核
+                </el-button>
+                <el-button
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canDownload"
                   link
                   type="primary"
@@ -372,6 +418,15 @@
                   @click="openDownload(getSelectedVersion(row).id)"
                 >
                   下载
+                </el-button>
+                <el-button
+                  v-if="getBrowserRowActionState(getSelectedVersion(row)).canPrint"
+                  v-hasPermi="['dcc:controlled-file:print']"
+                  link
+                  type="primary"
+                  @click="openControlledPrintDialog(getSelectedVersion(row))"
+                >
+                  受控打印
                 </el-button>
                 <el-dropdown
                   v-if="hasBrowserMoreActions(row)"
@@ -878,7 +933,7 @@ import {
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
 import { useUserStore } from '@/store/modules/user'
-import { openControlledFileViewer } from '../shared/viewer-navigation'
+import { openControlledFileTraceability } from '../shared/viewer-navigation'
 import {
   hasDccControlledFileActionProjection,
   isDccControlledFileActionUnlocked
@@ -899,7 +954,10 @@ import {
 import {
   BROWSER_STATUS_FILTER_OPTIONS,
   getBrowserVersionSummary,
-  getBrowserRowActionState
+  getBrowserRowActionState,
+  getBrowserPublishedFileStatusText,
+  getBrowserStampedFileStatusText,
+  getBrowserCurrentVersionSourceText
 } from './presentation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
 
@@ -921,9 +979,9 @@ const dccBrowserDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'directory', label: '所在目录', minWidth: 220, visible: false },
   { key: 'productName', label: '产品名称', minWidth: 150, visible: false },
   { key: 'category', label: '类别', minWidth: 160, visible: false },
-  { key: 'versionSummary', label: '版本摘要', minWidth: 310, visible: false },
+  { key: 'versionSummary', label: '版本摘要', minWidth: 310 },
   { key: 'remark', label: '备注', minWidth: 220, visible: false },
-  { key: 'operation', label: '操作', width: 260, hideable: false, business: false }
+  { key: 'operation', label: '操作', width: 320, hideable: false, business: false }
 ]
 const dccBrowserQueryInputFields = ['keyword', 'status', 'categoryId']
 const {
@@ -982,6 +1040,10 @@ const resolveBrowserErrorMessage = (error: unknown, fallback: string) => {
 }
 
 type BrowserSearchScope = BrowserSearchScopeValue
+type BrowserPaginationPayload = {
+  page?: number
+  limit?: number
+}
 
 const browserSearchScopeOptions = [
   { label: '当前目录', value: BROWSER_SEARCH_SCOPE_CURRENT },
@@ -1008,6 +1070,7 @@ const batchRecognitionExistingRecordPolicyOptions = [
 const directoryLoading = ref(false)
 const loading = ref(false)
 const total = ref(0)
+const browserListErrorMessage = ref<string>('')
 const directories = ref<ControlledFileDirectoryNode[]>([])
 const categories = ref<ControlledFileCategoryVO[]>([])
 const downloadLoadingId = ref<number>()
@@ -1047,7 +1110,17 @@ type ControlledFileBrowserRow = ControlledFileVO & {
 }
 
 type ControlledFileBrowserVersion = ControlledFileVersionHistoryVO &
-  Pick<ControlledFileVO, 'actionProjection'>
+  Partial<Pick<ControlledFileVO, 'directoryId'>> &
+  Pick<
+    ControlledFileVO,
+    | 'actionProjection'
+    | 'canPreview'
+    | 'canDownload'
+    | 'canPrint'
+    | 'publishedArtifactAvailable'
+    | 'stampedArtifactAvailable'
+    | 'currentActiveVersionNo'
+  >
 
 type ControlledFileDirectoryNode = ControlledFileDirectoryVO & {
   leaf?: boolean
@@ -1142,14 +1215,39 @@ const isCurrentDirectorySearch = computed(() => searchScope.value === BROWSER_SE
 const isGlobalSearch = computed(() => searchScope.value === BROWSER_SEARCH_SCOPE_GLOBAL)
 const isQueryDisabled = computed(() => isCurrentDirectorySearch.value && !selectedDirectoryId.value)
 const tableEmptyText = computed(() => {
-  if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
-    return '请先选择目录'
+  if (browserListErrorMessage.value) {
+    return '列表数据已失效'
   }
-  return queryParams.keyword ? '暂无匹配受控文件' : '暂无受控文件'
+  if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
+    return '请先选择受控浏览目录'
+  }
+  return '无权限或无匹配当前有效文件'
 })
 const selectedDirectoryPath = computed(
   () => selectedDirectory.value?.directoryPath || selectedDirectory.value?.name || ''
 )
+const browserDirectoryScopeText = computed(() => {
+  if (isGlobalSearch.value) {
+    return '全域受控浏览'
+  }
+  return selectedDirectoryPath.value || '未选择目录'
+})
+const browserKeywordText = computed(() => normalizeKeyword(queryParams.keyword) || '未设置')
+const browserCategoryText = computed(() => {
+  if (!queryParams.categoryId) {
+    return '全部类别'
+  }
+  return categoryNameMap.value.get(queryParams.categoryId) || `类别 #${queryParams.categoryId}`
+})
+const tableEmptyHint = computed(() => {
+  if (browserListErrorMessage.value) {
+    return `${browserListErrorMessage.value}。已清空上一次结果，避免把旧文件误认为当前筛选结果。`
+  }
+  if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
+    return '请选择左侧目录后再按目录/分类/项目代码定位当前有效文件。'
+  }
+  return `当前筛选条件：目录 ${browserDirectoryScopeText.value}；分类 ${browserCategoryText.value}；关键字 ${browserKeywordText.value}。若目标 ACTIVE 文件已发布但不可见，通常表示当前账号无权限或筛选条件下无匹配当前有效文件。`
+})
 const batchRecognitionScopeLabel = computed(() =>
   isCurrentDirectorySearch.value ? '当前目录 + 子目录' : '全域'
 )
@@ -1240,21 +1338,47 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   fileNumber: row.fileNumber || '',
   versionNo: row.versionNo,
   status: row.status,
+  publishedArtifactAvailable: row.publishedArtifactAvailable,
+  stampedArtifactAvailable: row.stampedArtifactAvailable,
+  currentActiveVersionNo: row.currentActiveVersionNo,
   effectiveDate: row.effectiveDate,
   publishedTime: row.publishedTime,
   obsoletedTime: row.obsoletedTime,
   supersededByFileId: row.supersededByFileId,
   remark: row.remark,
+  directoryId: row.directoryId,
   canPreview: row.canPreview,
   canDownload: row.canDownload,
+  canPrint: row.canPrint,
   modifying: row.modifying,
   actionProjection: row.actionProjection
 })
 
+const hydrateCurrentBrowserVersionActionState = (
+  row: ControlledFileBrowserRow,
+  version: ControlledFileBrowserVersion
+): ControlledFileBrowserVersion => {
+  if (String(version.id) !== String(row.id)) {
+    return version
+  }
+  return {
+    ...version,
+    publishedArtifactAvailable:
+      version.publishedArtifactAvailable ?? row.publishedArtifactAvailable,
+    stampedArtifactAvailable:
+      version.stampedArtifactAvailable ?? row.stampedArtifactAvailable,
+    currentActiveVersionNo: version.currentActiveVersionNo ?? row.currentActiveVersionNo,
+    canPreview: version.canPreview ?? row.canPreview,
+    canDownload: version.canDownload ?? row.canDownload,
+    canPrint: version.canPrint ?? row.canPrint,
+    actionProjection: version.actionProjection ?? row.actionProjection
+  }
+}
+
 const getVersionOptions = (row: ControlledFileBrowserRow): ControlledFileBrowserVersion[] => {
-  const historyOptions = (row.versionHistory || []).filter(
-    (item): item is ControlledFileBrowserVersion => isValidBrowserOptionId(item.id)
-  )
+  const historyOptions = (row.versionHistory || [])
+    .filter((item): item is ControlledFileBrowserVersion => isValidBrowserOptionId(item.id))
+    .map((version) => hydrateCurrentBrowserVersionActionState(row, version))
   if (historyOptions.length) {
     return historyOptions
   }
@@ -1299,6 +1423,17 @@ const getBrowserFileNameTooltip = (row: ControlledFileBrowserRow) => {
   return displayName
 }
 
+const getBrowserCurrentActiveRowSummary = (row: ControlledFileBrowserRow) => {
+  const selectedVersion = getSelectedVersion(row)
+  return {
+    versionNo: selectedVersion.versionNo || row.versionNo || '-',
+    directoryPath: getBrowserDirectoryPath(row.directoryId),
+    publishedFileStatus: getBrowserPublishedFileStatusText(selectedVersion),
+    stampedFileStatus: getBrowserStampedFileStatusText(selectedVersion),
+    currentVersionSource: getBrowserCurrentVersionSourceText(selectedVersion)
+  }
+}
+
 const hasBrowserMoreActions = (row: ControlledFileBrowserRow) =>
   canEditMetadata.value &&
   isLatestVersionSelected(row) &&
@@ -1307,7 +1442,13 @@ const hasBrowserMoreActions = (row: ControlledFileBrowserRow) =>
 
 const hasBrowserRowActions = (row: ControlledFileBrowserRow) => {
   const actionState = getBrowserRowActionState(getSelectedVersion(row))
-  return actionState.canPreview || actionState.canDownload || hasBrowserMoreActions(row)
+  return Boolean(
+    actionState.canPreview ||
+      actionState.canDownload ||
+      actionState.canPrint ||
+      getSelectedVersion(row).id ||
+      hasBrowserMoreActions(row)
+  )
 }
 
 const getBrowserRowActionBlockReason = (row: ControlledFileBrowserRow) => {
@@ -1498,6 +1639,18 @@ const isDefaultEmptyBrowserRememberedState = (state: DccBrowserRememberedState) 
 const resolveRememberedDirectoryId = (rememberedState?: DccBrowserRememberedState) =>
   rememberedState?.lastOpenedDirectoryId || rememberedState?.directoryId
 
+const buildBrowserRestoredRememberedState = (
+  rememberedState: DccBrowserRememberedState
+): DccBrowserRememberedState => {
+  const rememberedDirectoryId = resolveRememberedDirectoryId(rememberedState)
+  return {
+    ...rememberedState,
+    scope: rememberedDirectoryId ? BROWSER_SEARCH_SCOPE_CURRENT : rememberedState.scope,
+    directoryId: rememberedDirectoryId,
+    lastOpenedDirectoryId: rememberedDirectoryId
+  }
+}
+
 const buildBrowserRouteQueryFromRememberedState = (state: DccBrowserRememberedState) => {
   const query: Record<string, string> = {
     pageNo: String(state.pageNo || 1),
@@ -1619,13 +1772,7 @@ const restoreBrowserRouteFromRememberedState = async (
     if (!rememberedState) {
       return false
     }
-    const rememberedDirectoryId = resolveRememberedDirectoryId(rememberedState)
-    const restoredState: DccBrowserRememberedState = {
-      ...rememberedState,
-      scope: rememberedDirectoryId ? BROWSER_SEARCH_SCOPE_CURRENT : rememberedState.scope,
-      directoryId: rememberedDirectoryId,
-      lastOpenedDirectoryId: rememberedDirectoryId
-    }
+    const restoredState = buildBrowserRestoredRememberedState(rememberedState)
     await withBrowserRouteSyncGuard(() =>
       router.replace({
         path: route.path,
@@ -1888,6 +2035,8 @@ const clearSelectedDirectory = () => {
   selectedDirectory.value = undefined
   list.value = []
   total.value = 0
+  browserListErrorMessage.value = ''
+  clearBrowserLoadedListState()
 }
 
 const parseBrowserSearchScope = (value: unknown): BrowserSearchScope => {
@@ -1907,6 +2056,42 @@ const buildBrowserRouteQuery = () => {
 
 const buildBrowserRouteQueryFromRoute = () =>
   buildBrowserRouteQueryFromRememberedState(buildBrowserRememberedStateFromRoute())
+
+let browserDirectoriesLoaded = false
+let browserLastLoadedRouteStateKey: string | undefined
+
+const buildBrowserRouteStateKey = (query: Record<string, string> = buildBrowserRouteQuery()) =>
+  JSON.stringify(query)
+
+const buildBrowserRouteRestoreQuery = () => {
+  const rememberedState = readBrowserRememberedState()
+  if (hasBrowserRouteQuery()) {
+    return mergeBrowserRouteQueryWithRememberedDirectory(rememberedState)
+  }
+  if (rememberedState) {
+    return buildBrowserRouteQueryFromRememberedState(
+      buildBrowserRestoredRememberedState(rememberedState)
+    )
+  }
+  return buildBrowserRouteQueryFromRoute()
+}
+
+const buildBrowserRouteRestoreStateKey = () =>
+  buildBrowserRouteStateKey(buildBrowserRouteRestoreQuery())
+
+const clearBrowserLoadedListState = () => {
+  browserLastLoadedRouteStateKey = undefined
+}
+
+const markBrowserListLoadedForState = (routeStateKey: string) => {
+  browserLastLoadedRouteStateKey = routeStateKey
+}
+
+const shouldKeepBrowserLoadedStateOnRouteReturn = (targetRouteStateKey: string) =>
+  browserDirectoriesLoaded &&
+  browserLastLoadedRouteStateKey === targetRouteStateKey &&
+  !directoryLoading.value &&
+  !loading.value
 
 let browserRouteSyncing = false
 
@@ -1933,6 +2118,10 @@ const syncRouteFromBrowserState = async () => {
 }
 
 const restoreBrowserDirectoryTreeAndList = async () => {
+  const targetRouteStateKey = buildBrowserRouteRestoreStateKey()
+  if (shouldKeepBrowserLoadedStateOnRouteReturn(targetRouteStateKey)) {
+    return
+  }
   const restoredFromQueryOrCache = await restoreBrowserInitialRouteState()
   await loadDirectories()
   await getList()
@@ -1948,9 +2137,12 @@ const buildBrowserReturnPath = () => {
 }
 
 const getList = async () => {
+  const requestRouteStateKey = buildBrowserRouteStateKey()
+  browserListErrorMessage.value = ''
   if (isCurrentDirectorySearch.value && !selectedDirectoryId.value) {
     list.value = []
     total.value = 0
+    markBrowserListLoadedForState(requestRouteStateKey)
     return
   }
   loading.value = true
@@ -1961,18 +2153,31 @@ const getList = async () => {
       selectedVersionId: resolveInitialSelectedVersionId(item)
     }))
     total.value = data.total
+    markBrowserListLoadedForState(requestRouteStateKey)
+  } catch (error) {
+    list.value = []
+    total.value = 0
+    clearBrowserLoadedListState()
+    browserListErrorMessage.value = resolveBrowserErrorMessage(error, '受控浏览列表加载失败，请重新登录或刷新后重试。')
+    throw error
   } finally {
     loading.value = false
   }
+}
+const reloadBrowserListAndCommitState = async () => {
+  await getList()
+  await syncRouteFromBrowserState()
+  persistBrowserRememberedState()
 }
 const dccBrowserQuickFilter = useTableQuickFilter(
   'dcc.controlledFile.browser.main',
   dccBrowserQuickFilterDefinitions,
   queryParams,
-  getList
+  reloadBrowserListAndCommitState
 )
 
 const loadDirectories = async () => {
+  browserDirectoriesLoaded = false
   directoryLoading.value = true
   try {
     restoreBrowserMetadataCache()
@@ -1985,6 +2190,7 @@ const loadDirectories = async () => {
     applyDirectoryTree(rootDirectories)
     await openRememberedDirectoryInTree()
     persistBrowserMetadataCache()
+    browserDirectoriesLoaded = true
   } finally {
     directoryLoading.value = false
   }
@@ -2012,8 +2218,8 @@ const selectDirectoryAndLoad = async (data: ControlledFileDirectoryVO) => {
   await nextTick()
   syncDirectoryTreeExpandedState()
   directoryTreeRef.value?.setCurrentKey(directory.id)
-  await syncRouteFromBrowserState()
   await getList()
+  await syncRouteFromBrowserState()
   persistBrowserRememberedState()
 }
 
@@ -2108,15 +2314,15 @@ const handleQuery = async (skipEmptyReset = false) => {
     return
   }
   queryParams.pageNo = 1
-  await syncRouteFromBrowserState()
   await getList()
+  await syncRouteFromBrowserState()
   persistBrowserRememberedState()
 }
 
 const handleSearchScopeChange = async () => {
   queryParams.pageNo = 1
-  await syncRouteFromBrowserState()
   await getList()
+  await syncRouteFromBrowserState()
   persistBrowserRememberedState()
 }
 
@@ -2142,8 +2348,8 @@ const refreshDirectories = async () => {
 }
 
 const refreshList = async () => {
-  await syncRouteFromBrowserState()
   await Promise.all([loadCategories(), getList()])
+  await syncRouteFromBrowserState()
   persistBrowserRememberedState()
 }
 
@@ -2505,8 +2711,8 @@ const showBatchRecognitionRecords = async (recognitionStatus: 'SUCCESS' | 'FAILE
   queryParams.batchRecognitionTaskId = taskId
   queryParams.pageNo = 1
   batchRecognitionProgressVisible.value = false
-  await syncRouteFromBrowserState()
   await getList()
+  await syncRouteFromBrowserState()
   persistBrowserRememberedState()
   message.success(recognitionStatus === 'SUCCESS' ? '已显示本次识别成功记录' : '已显示本次识别失败记录')
 }
@@ -2554,22 +2760,63 @@ const confirmBatchRecognition = async () => {
   }
 }
 
-const handlePagination = async () => {
-  const normalizedPageSize = resolveBrowserPageSize(queryParams.pageSize)
-  if (queryParams.pageSize !== normalizedPageSize) {
-    queryParams.pageSize = normalizedPageSize
+const handlePagination = async (payload?: BrowserPaginationPayload) => {
+  const previousRouteState = buildBrowserRememberedStateFromRoute()
+  const previousPageNo = previousRouteState.pageNo || 1
+  const previousPageSize = resolveBrowserPageSize(previousRouteState.pageSize)
+  const nextPageNo = parsePositiveNumber(payload?.page) || queryParams.pageNo
+  const normalizedPageSize = resolveBrowserPageSize(payload?.limit || queryParams.pageSize)
+  queryParams.pageNo = nextPageNo
+  queryParams.pageSize = normalizedPageSize
+  try {
+    await getList()
+    await syncRouteFromBrowserState()
+    persistBrowserRememberedState()
+  } catch (error) {
+    queryParams.pageNo = previousPageNo
+    queryParams.pageSize = previousPageSize
+    message.error('分页跳转失败，已恢复当前页码，请重新登录或刷新后重试。')
+    throw error
   }
-  await syncRouteFromBrowserState()
-  await getList()
-  persistBrowserRememberedState()
 }
 
 const openPreview = (id: number | string) => {
-  window.open(buildControlledFileViewerPath(id, 'browser', buildBrowserReturnPath()), '_blank')
+  const normalizedId = String(id || '').trim()
+  if (!normalizedId) {
+    message.error('文件预览缺少文件 ID，无法打开预览。')
+    return
+  }
+  const previewWindow = window.open(
+    buildControlledFileViewerPath(normalizedId, 'browser', buildBrowserReturnPath()),
+    '_blank'
+  )
+  if (!previewWindow) {
+    message.error('预览窗口打开失败，请检查浏览器弹窗拦截设置。')
+    return
+  }
 }
 
 const openDetail = (id: number | string) => {
-  openControlledFileViewer(router, route, id, 'browser')
+  openControlledFileTraceability(router, route, id, 'browser', 'trace')
+}
+
+const openSignatureEvidence = (id: number | string) => {
+  openControlledFileTraceability(router, route, id, 'browser', 'signature')
+}
+
+const openControlledPrintDialog = (file: ControlledFileBrowserVersion) => {
+  const normalizedId = String(file?.id || '').trim()
+  if (!normalizedId) {
+    message.error('受控打印缺少文件 ID，无法打开打印申请。')
+    return
+  }
+  const query = new URLSearchParams({
+    traceability: '1',
+    from: 'browser',
+    controlledPrint: '1',
+    returnTo: encodeURIComponent(buildBrowserReturnPath())
+  })
+  router.push(`/dcc/controlled-file/detail/${normalizedId}?${query.toString()}`)
 }
 
 const copyFileNumber = async (fileNumber?: string) => {
@@ -2740,7 +2987,8 @@ onBeforeUnmount(() => {
 
 .browser-list-template {
   display: flex;
-  height: 100%;
+  flex: 1 1 auto;
+  height: auto;
   min-height: 0;
   flex-direction: column;
 }
@@ -2758,6 +3006,28 @@ onBeforeUnmount(() => {
 
 .browser-list-template :deep(.unified-list-template__table-shell .el-table) {
   height: 100%;
+}
+
+.browser-permission-empty-state {
+  display: grid;
+  gap: 8px;
+  padding: 42px 24px;
+  text-align: center;
+}
+
+.browser-permission-empty-state__title {
+  color: #172033;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.browser-permission-empty-state__description {
+  max-width: 620px;
+  margin: 0 auto;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .browser-directory-scroll {
@@ -2869,11 +3139,37 @@ onBeforeUnmount(() => {
   -webkit-line-clamp: 2;
 }
 
+.browser-current-active-row-summary {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 6px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.browser-current-active-row-summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .browser-file-number-cell {
   display: flex;
   max-width: 100%;
   min-width: 0;
   align-items: center;
+  gap: 4px;
+}
+
+.browser-file-number-wrapper {
+  display: flex;
+  max-width: 100%;
+  min-width: 0;
+  flex-direction: column;
   gap: 4px;
 }
 
@@ -2893,6 +3189,10 @@ onBeforeUnmount(() => {
 .browser-file-number-copy {
   flex: 0 0 auto;
   padding: 0 2px;
+}
+
+.browser-current-active-row-summary--file-number {
+  margin-top: 0;
 }
 
 .browser-version-summary {

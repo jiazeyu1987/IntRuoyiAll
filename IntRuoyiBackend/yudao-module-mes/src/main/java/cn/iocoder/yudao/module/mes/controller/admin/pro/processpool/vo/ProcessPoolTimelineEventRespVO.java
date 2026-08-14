@@ -4,7 +4,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Schema(description = "管理后台 - MES 工序池提交事件时间轴 Response VO")
 @Data
@@ -92,6 +95,36 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "生产工单名称", example = "生产工单")
     private String workOrderName;
 
+    @Schema(description = "产品编号", example = "91001")
+    private Long productId;
+
+    @Schema(description = "产品编码", example = "PP-88")
+    private String productCode;
+
+    @Schema(description = "产品名称", example = "球囊扩张压力泵")
+    private String productName;
+
+    @Schema(description = "PQC 关联活跃订单编号", example = "880001")
+    private Long activeOrderId;
+
+    @Schema(description = "PQC 关联活跃订单是否已放行")
+    private Boolean released;
+
+    @Schema(description = "PQC 检验任务编号", example = "980001")
+    private Long pqcTaskId;
+
+    @Schema(description = "PQC 检验类型", example = "PATROL")
+    private String inspectionType;
+
+    @Schema(description = "PQC 业务日期")
+    private LocalDate pqcBusinessDate;
+
+    @Schema(description = "PQC 班次编码", example = "DAY")
+    private String pqcShiftCode;
+
+    @Schema(description = "PQC 检验轮次", example = "2")
+    private Integer roundNo;
+
     @Schema(description = "来源报工编号", example = "7001")
     private Long sourceFeedbackId;
 
@@ -101,14 +134,50 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "来源记录本事件编号", example = "7201")
     private Long sourceRecordbookEventId;
 
+    @Schema(description = "完成数量")
+    private BigDecimal outputQuantity;
+
+    @Schema(description = "损耗数量")
+    private BigDecimal lossQuantity;
+
+    @Schema(description = "当前报工分配订单")
+    private List<ReportAllocationRespVO> reportAllocations;
+
+    @Schema(description = "当前已分配数量")
+    private BigDecimal reportAllocatedQuantity;
+
+    @Schema(description = "当前未分配数量")
+    private BigDecimal reportUnallocatedQuantity;
+
+    @Schema(description = "损耗原因明细")
+    private List<LossDetailRespVO> lossDetails;
+
+    @Schema(description = "选用设备快照")
+    private SelectedDeviceRespVO selectedDevice;
+
+    @Schema(description = "选用设备参数读数")
+    private List<DeviceParameterReadingRespVO> deviceParameterReadings;
+
     @Schema(description = "提交摘要")
     private String submittedSummary;
+
+    @Schema(description = "原始 payload")
+    private String originalPayloadJson;
 
     @Schema(description = "PQC 结果", example = "PASS")
     private String pqcResult;
 
     @Schema(description = "PQC 摘要")
     private String pqcSummary;
+
+    @Schema(description = "过程检验汇集状态", example = "AGGREGATED")
+    private String processInspectionAggregationStatus;
+
+    @Schema(description = "触发过程检验汇集的复核编号", example = "7003")
+    private Long processInspectionReviewId;
+
+    @Schema(description = "过程检验汇集时间")
+    private LocalDateTime processInspectionAggregatedAt;
 
     @Schema(description = "FIFO 分配状态", example = "PARTIAL")
     private String fifoAllocationStatus;
@@ -122,7 +191,66 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "审核副本摘要")
     private String auditCopySummary;
 
+    @Schema(description = "最新组长复核状态", example = "REJECTED")
+    private String submissionReviewStatus;
+
+    @Schema(description = "最新组长复核说明")
+    private String submissionReviewRemark;
+
+    @Schema(description = "最新组长复核人用户编号", example = "3001")
+    private Long submissionReviewLeaderUserId;
+
+    @Schema(description = "最新组长复核人姓名", example = "生产组长")
+    private String submissionReviewLeaderUserName;
+
+    @Schema(description = "最新组长复核时间")
+    private LocalDateTime submissionReviewedAt;
+
     @Schema(description = "修改历史摘要")
     private String modificationHistorySummary;
+
+    @Data
+    @Accessors(chain = true)
+    public static class LossDetailRespVO {
+        private Long reasonId;
+        private String reasonCode;
+        private String reasonName;
+        private BigDecimal quantity;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class SelectedDeviceRespVO {
+        private Long deviceId;
+        private String deviceCode;
+        private String deviceName;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class DeviceParameterReadingRespVO {
+        private Long deviceId;
+        private String deviceCode;
+        private String deviceName;
+        private String parameterCode;
+        private String parameterName;
+        private String unit;
+        private BigDecimal value;
+        private BigDecimal lowerLimit;
+        private BigDecimal upperLimit;
+        private String parameterStatus;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class ReportAllocationRespVO {
+        private Long allocationId;
+        private Long activeOrderId;
+        private Long workOrderId;
+        private String workOrderCode;
+        private BigDecimal allocatedQuantity;
+        private Boolean released;
+        private Boolean editable;
+    }
 
 }

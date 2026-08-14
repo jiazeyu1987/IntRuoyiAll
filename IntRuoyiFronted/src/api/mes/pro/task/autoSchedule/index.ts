@@ -70,6 +70,9 @@ export interface ProTaskAutoScheduleSummaryVO {
   generatedTaskCount: number
   preservedTaskCount: number
   blockingIssueCount: number
+  appliedWorkOrderCount: number
+  blockedWorkOrderCount: number
+  skippedWorkOrderCount: number
   shortageCount: number
   startTime?: string
   endTime?: string

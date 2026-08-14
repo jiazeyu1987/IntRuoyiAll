@@ -55,6 +55,7 @@ export interface BatchRecordCellLinkRuleVO {
   targetCellKey?: string
   targetLabel?: string
   targetValueType?: string
+  aggregationStrategy?: string
   overwritePolicy?: string
   templateSnapshotHash?: string
   ruleVersion?: number

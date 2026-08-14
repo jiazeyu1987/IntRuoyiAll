@@ -10,12 +10,10 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesProFrontlineProcessPoolContextReqVO {
 
-    @Schema(description = "生产工单编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "41")
-    @NotNull(message = "生产工单不能为空")
+    @Schema(description = "生产工单编号；一线生产不匹配工单时为空", example = "41")
     private Long workOrderId;
 
-    @Schema(description = "生产任务编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "51")
-    @NotNull(message = "生产任务不能为空")
+    @Schema(description = "生产任务编号；一线生产不匹配任务时为空", example = "51")
     private Long taskId;
 
     @Schema(description = "工艺路线编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "21")
@@ -34,8 +32,7 @@ public class MesProFrontlineProcessPoolContextReqVO {
     @NotNull(message = "工作站不能为空")
     private Long workstationId;
 
-    @Schema(description = "设备编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "501")
-    @NotNull(message = "设备不能为空")
+    @Schema(description = "设备编号；无正式设备配置的工序可为空", example = "501")
     private Long deviceId;
 
     @Schema(description = "设备账号用户编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "9001")

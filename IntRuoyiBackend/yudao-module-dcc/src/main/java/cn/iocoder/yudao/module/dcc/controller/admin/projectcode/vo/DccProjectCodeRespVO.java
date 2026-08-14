@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 public class DccProjectCodeRespVO {
 
     private Long id;
+    private Long productMasterId;
     private String docControlNo;
     private String projectName;
     private String projectCode;

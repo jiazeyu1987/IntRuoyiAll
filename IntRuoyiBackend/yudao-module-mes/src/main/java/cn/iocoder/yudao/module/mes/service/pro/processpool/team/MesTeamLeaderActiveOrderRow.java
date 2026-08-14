@@ -1,0 +1,42 @@
+package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
+
+import lombok.Data;
+import lombok.experimental.Accessors;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+/**
+ * 生产组长活跃订单列表读模型。
+ */
+@Data
+@Accessors(chain = true)
+public class MesTeamLeaderActiveOrderRow {
+
+    private Long id;
+    private Long leaderUserId;
+    private Long workOrderId;
+    private String workOrderCode;
+    private Long productId;
+    private String productName;
+    private String productCode;
+    private BigDecimal quantity;
+    private Long routeId;
+    private String routeName;
+    private Long routeVersionId;
+    private String routeVersionNo;
+    private BigDecimal erpFixedQuantitySnapshot;
+    private BigDecimal productionProgressPercent;
+    private BigDecimal inspectionProgressPercent;
+    private String activeStatus;
+    private String businessStatus;
+    private LocalDateTime joinedAt;
+    private LocalDateTime removedAt;
+    private Integer version;
+    private Boolean abnormal;
+    private String abnormalReason;
+    private LocalDateTime abnormalReportedAt;
+    private String releaseApplicationStatus;
+    private String releaseApplicationBlockerSummary;
+    private Long releaseApprovalWorkTaskId;
+}

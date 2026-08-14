@@ -1,0 +1,40 @@
+{
+  "repairId": "ACM04_RRM_PRIMARY_PROCESS_TASK_20260805_LOCAL",
+  "taskId": "20260805-ac-m04-acceptance-sync",
+  "database": "ruoyi-vue-pro",
+  "environment": "local-docker-only",
+  "tenantId": 1,
+  "creator": "rrm-acm04",
+  "updater": "rrm-acm04",
+  "remark": "rrm-ac-m04-pqc-source-task",
+  "sourceIdentity": {
+    "workOrderId": 980008,
+    "workOrderCode": "RRM-20260801-PP-MO-001",
+    "routeId": 922119,
+    "routeProcessId": 928609,
+    "processId": 922985,
+    "workstationId": 980010,
+    "itemId": 902149,
+    "adjacentTaskId": 981939
+  },
+  "rows": [
+    {
+      "table": "mes_pro_task",
+      "primaryKey": 981940,
+      "semanticKey": {
+        "workOrderId": 980008,
+        "routeId": 922119,
+        "processId": 922985
+      },
+      "code": "RRM-20260805-PRIMARY-922985",
+      "name": "RRM primary process source task 922985",
+      "workstationId": 980010,
+      "itemId": 902149,
+      "quantity": "10.000000",
+      "status": 0,
+      "beforeCount": 0,
+      "afterCount": 1
+    }
+  ],
+  "rollback": "db-repair/rrm-primary-process-task-rollback.sql"
+}
