@@ -109,11 +109,11 @@
 ### Playwright 目标链路与外部资源异常归因门禁
 
 - Trigger: Playwright 捕获到 `console error`、`requestfailed` 或非 2xx 响应，且失败 URL 包含外部头像、图片、CDN、非当前页签接口或其它非本轮目标链路资源。
-- Preflight check: 采集失败请求的完整 URL、状态码和资源类型；按本机前端、当前后端、目标业务 API 与目标读写接口定义目标链路。多页签页面必须按当前验收页签精确限定目标接口，例如审批中心“已办”只把 `/approval-center/done` 和 `viewType=DONE` 列为目标链路，页签切换中被浏览器中止的 TODO 请求只能单独记录为非 DONE 审批中心请求，不得冒充 DONE 失败。只读页面若自动触发命令式 POST（如一线页面 `switch-employee` 用于授权校验、运行态读取和模板解析），必须先核对后端实现没有 insert/update/delete 或业务状态推进，再把它单独归类为“只读型 POST”；不得把它混入目标业务写请求，也不得在未核对实现时直接放行。只有在确认非目标 URL 未造成目标控件缺失且目标行为断言独立通过后，才允许将其单独记录为非目标链路异常；不得用域名白名单批量忽略错误。
+- Preflight check: 采集失败请求的完整 URL、状态码和资源类型；按本机前端、当前后端、目标业务 API 与目标读写接口定义目标链路。多页签页面必须按当前验收页签精确限定目标接口，例如审批中心“已办”只把 `/approval-center/done` 和 `viewType=DONE` 列为目标链路，页签切换中被浏览器中止的 TODO 请求只能单独记录为非 DONE 审批中心请求，不得冒充 DONE 失败。只读页面若自动触发命令式 POST（如一线页面 `switch-employee` 用于授权校验、运行态读取和模板解析），必须先核对后端实现没有 insert/update/delete 或业务状态推进，再把它单独归类为“只读型 POST”；不得把它混入目标业务写请求，也不得在未核对实现时直接放行。只有在确认非目标 URL 未造成目标控件缺失且目标行为断言独立通过后，才允许将其单独记录为非目标链路异常；不得用域名白名单批量忽略错误。控制台通用超时只有在时间、URL 和错误类型都与已记录的第三方请求超时精确关联时才可单独分类；未关联超时、同域业务请求或权限错误继续作为目标失败。
 - Blocker: 任一本机目标业务请求失败、出现未解释的 `pageerror`、外部或非目标请求失败导致目标页面或控件不可用、无法确认目标写请求数量，或失败请求归属不明确时必须停止。
-- Verification: 证据必须同时记录目标链路错误数、非目标同域请求或外部异常 URL 与状态码、`pageerror` 数量、目标 UI 断言、目标写请求数量，以及被单独归类的只读型 POST 数量和后端只读实现依据；只读/取消确认路径必须明确证明真正业务写请求为 0。
-- Forbidden action: 禁止全局关闭 console/network 断言、忽略全部第三方域名、把页面 HTTP 200 当作目标功能通过，或省略外部异常证据。
-- Evidence: `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/verification-report.md`，DCC 列表只读 E2E 将外部头像 502 与本机/DCC 目标链路分开归因，并证明目标链路错误数和 DCC 写请求数均为 0；`doc/tasks/20260811-route-publish-chain-clarity/verification-report.md`，一线生产只读 E2E 将模板解析 `switch-employee` POST 与真正业务写请求分开统计，核对后端只读实现后证明业务写请求为 0。
+- Verification: 证据必须同时记录目标链路错误数、非目标同域请求或外部异常 URL 与状态码、`pageerror` 数量、目标 UI 断言、目标写请求数量，以及被单独归类的只读型 POST 数量和后端只读实现依据；只读/取消确认路径必须明确证明真正业务写请求为 0。若分类控制台超时，还必须保存与之关联的第三方失败请求 URL 和分类数量，并用负向合同证明未关联超时不会被忽略。
+- Forbidden action: 禁止全局关闭 console/network 断言、忽略全部第三方域名、仅按错误文案宽泛忽略超时、把页面 HTTP 200 当作目标功能通过，或省略外部异常证据。
+- Evidence: `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/verification-report.md`，DCC 列表只读 E2E 将外部头像 502 与本机/DCC 目标链路分开归因，并证明目标链路错误数和 DCC 写请求数均为 0；`doc/tasks/20260811-route-publish-chain-clarity/verification-report.md`，一线生产只读 E2E 将模板解析 `switch-employee` POST 与真正业务写请求分开统计，核对后端只读实现后证明业务写请求为 0；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md`，活跃订单提交 E2E 以精确关联合同分离第三方请求超时，目标页面、请求、HTTP 和控制台错误均保持为 0。
 
 ### 多步骤 E2E 子步骤与脚本总状态判定门禁
 
@@ -227,11 +227,11 @@
 ### 真实 E2E 动态事件查询与确认响应门禁
 
 - Trigger: 真实 E2E 在页面写入后需要只读发现新生成事件、提交记录、分配记录、审计记录或其它运行态 ID，或确认按钮依赖后端写接口完成后继续断言。
-- Preflight check: 只读发现接口必须携带后端分页接口要求的完整查询条件，例如日期、租户、业务对象、提交编码或任务自有前缀；确认类动作必须等待对应写接口响应，断言 HTTP 成功且业务 `code=0`，再进入后续 UI 或只读核验。
-- Blocker: 只按列表默认条件查询导致接口 500、跨日/跨页误选、用外部预填 eventId 替代页面提交后动态发现、等待瞬时 toast 而未等待写接口响应，或确认接口业务码非 0 时必须停止。
-- Verification: 静态合同应锁定真实 E2E 对必填查询条件、动态 ID 占位符和确认接口响应断言的使用；真实 E2E 证据需记录动态发现的 ID、确认接口路径、业务响应校验和后置只读核验结果。
-- Forbidden action: 禁止把 toast 文案、列表第一行、硬编码事件 ID、API-only 写入、或忽略业务 `code` 的 HTTP 200 当作确认完成。
-- Evidence: `doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md`，生产组长真实 E2E 事件发现补齐 `submitDate`，确认报工改为等待 allocation confirm 响应并断言业务码。
+- Preflight check: 只读发现接口必须携带后端分页接口要求的完整查询条件，例如日期、租户、业务对象、提交编码或任务自有前缀；确认类动作必须等待对应写接口响应，断言 HTTP 成功且业务 `code=0`，再进入后续 UI 或只读核验。若确认动作会刷新列表或状态投影，还必须在触发保存前注册保存后列表响应等待，并按本次事件/业务身份核对正式响应中的目标行。
+- Blocker: 只按列表默认条件查询导致接口 500、跨日/跨页误选、用外部预填 eventId 替代页面提交后动态发现、等待瞬时 toast 而未等待写接口响应、保存后只读取旧 DOM/旧响应、或确认接口业务码非 0 时必须停止。
+- Verification: 静态合同应锁定真实 E2E 对必填查询条件、动态 ID 占位符、确认接口响应和保存后正式列表响应断言的使用；真实 E2E 证据需记录动态发现的 ID、确认接口路径、业务响应校验、保存后列表目标行和后置只读核验结果。
+- Forbidden action: 禁止把 toast 文案、弹窗关闭、列表第一行、保存前缓存响应、硬编码事件 ID、API-only 写入、或忽略业务 `code` 的 HTTP 200 当作确认完成。
+- Evidence: `doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md`，生产组长真实 E2E 事件发现补齐 `submitDate`，确认报工改为等待 allocation confirm 响应并断言业务码；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md`，组长改配保存后等待 `/submission/page` 正式响应，核对 O1/O2 精确行、超量清零与红色状态消失。
 
 ### Schema-backed E2E 迁移与字段可选态门禁
 
@@ -289,11 +289,11 @@
 ### 写入型 E2E 任务自有模拟环境门禁
 
 - Trigger: 写入型、多账号、权限范围、共享数据或跨角色可见性的真实 E2E 初始判断为缺少测试账号、租户、路线、工序、报工样本或可清理数据前置。
-- Preflight check: 先判断缺口是否可在本机测试租户内用任务自有前缀、安全 fixture 脚本和正式 schema/API 补齐；fixture 必须创建真实账号、角色、权限、业务对象和清理范围，密码只能由环境变量注入，不得写入日志或证据。涉及正式生产提交、报工、批记录或生产组长可见性闭环时，fixture 还必须逐项断言已确认工单、非空记录本字段 schema、生产组长 `PRODUCTION + EMPLOYEE` 正式人员范围，以及每轮运行新业务签名，不能复用旧提交痕迹。验收要求覆盖不同员工或不同工序时，任何写请求前必须从页面运行态盘点去重后的正式员工、路线工序和 MES 工序数量；不足目标组合时先 BLOCKED，再用固定任务身份补齐正式员工档案、人员范围、工序配置、签名授权及授权审计，不能把选择入口可用当作已覆盖组合。涉及同一目标工序的多类传统报表资料时，启动任何写路径前必须只读统计每类正式 `batchRecordReportId` 的非空数，并证明同一任务自有路线工序具备完整组合；`formSlotType + formTemplateId` 只能证明动态表单槽位，不能替代传统报表绑定。跨角色签名链路还必须先证明每个业务账号能登录且签名口令已通过安全环境变量注入，数据库中仅存在账号或签名授权行不算凭据可用。
+- Preflight check: 先判断缺口是否可在本机测试租户内用任务自有前缀、安全 fixture 脚本和正式 schema/API 补齐；fixture 必须创建真实账号、角色、权限、业务对象和清理范围，密码只能由环境变量注入，不得写入日志或证据。角色权限除目标菜单外，还必须盘点页面全局壳层会自动请求的角标、待办或导航查询权限；缺少这些只读权限会制造与目标业务无关的控制台错误，必须在 fixture 合同中显式列出，不能靠 E2E 忽略。涉及正式生产提交、报工、批记录或生产组长可见性闭环时，fixture 还必须逐项断言已确认工单、非空记录本字段 schema、生产组长 `PRODUCTION + EMPLOYEE` 正式人员范围，以及每轮运行新业务签名，不能复用旧提交痕迹。验收要求覆盖不同员工或不同工序时，任何写请求前必须从页面运行态盘点去重后的正式员工、路线工序和 MES 工序数量；不足目标组合时先 BLOCKED，再用固定任务身份补齐正式员工档案、人员范围、工序配置、签名授权及授权审计，不能把选择入口可用当作已覆盖组合。涉及同一目标工序的多类传统报表资料时，启动任何写路径前必须只读统计每类正式 `batchRecordReportId` 的非空数，并证明同一任务自有路线工序具备完整组合；`formSlotType + formTemplateId` 只能证明动态表单槽位，不能替代传统报表绑定。跨角色签名链路还必须先证明每个业务账号能登录且签名口令已通过安全环境变量注入，数据库中仅存在账号或签名授权行不算凭据可用。
 - Blocker: 无测试租户授权、缺正式 schema、缺目标工序要求的任一传统报表绑定、只有动态表单槽位、跨角色登录/签名凭据未证明、缺必要菜单/角色权限、无法清理任务自有数据、只能使用 `芋道源码/admin` 或需要生产/无关真实业务数据时，必须继续记录 BLOCKED。
 - Verification: 模拟环境完成后必须分别记录 fixture 输出、运行态 API 只读核验、真实 Playwright 页面路径、跨账号可见性、目标写接口业务 `code=0`、目标 HTTP/page errors 为空，以及删除/禁用/清理后的状态。正式提交链路必须额外记录生成的报工、记录本、工序池事件 ID；多员工、多工序验收还必须逐轮记录页面所选员工、路线工序、MES 工序和签名主体，并以正式数据库事实证明匹配，不能只统计入口数量。人员范围验收还需用对应组长可见、非对应组长不可见证明范围生效。若前置阻塞，证据必须记录各正式来源总数/非空数、完整组合查询结果、缺失的凭据类别、实际业务写请求数和任务残留数，不能只写“缺 fixture”。
 - Forbidden action: 禁止把 API-only、静态合同、默认 admin、mock 数据或前端直塞 localStorage 当作写入型 E2E 通过；禁止因首次缺账号就跳过可安全构造的任务自有模拟环境。
-- Evidence: `doc/tasks/20260805-process-loss-reasons/verification-report.md`，AC-D04 先从缺生产组长/员工前置转为任务自有模拟环境，再用两个生产组长真实页面验证授权工序、共享新增、共享修改和删除停用；`doc/tasks/20260807-formal-frontline-production-submit/verification-report.md`，一线正式提交 fixture 补齐已确认工单、记录本 schema、`PRODUCTION + EMPLOYEE` scope 和新签名后，真实提交事件只对对应生产组长可见。
+- Evidence: `doc/tasks/20260805-process-loss-reasons/verification-report.md`，AC-D04 先从缺生产组长/员工前置转为任务自有模拟环境，再用两个生产组长真实页面验证授权工序、共享新增、共享修改和删除停用；`doc/tasks/20260807-formal-frontline-production-submit/verification-report.md`，一线正式提交 fixture 补齐已确认工单、记录本 schema、`PRODUCTION + EMPLOYEE` scope 和新签名后，真实提交事件只对对应生产组长可见；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md`，任务角色补齐全局审批角标查询权限 `1221` 后，真实页面目标控制台错误归零。
 
 ### 写入型 E2E 响应不确定断点恢复门禁
 
