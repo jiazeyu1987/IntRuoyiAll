@@ -176,6 +176,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_MISMATCH;
@@ -973,7 +974,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     private List<MesProRouteDO> resolveEnabledProductRoutes(MesProWorkOrderDO workOrder) {
         if (workOrder.getProductId() == null) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
+            throw exception(PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED);
         }
         List<Long> productRouteIds = routeProductMapper.selectListByItemId(workOrder.getProductId()).stream()
                 .map(MesProRouteProductDO::getRouteId)
@@ -981,7 +982,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .distinct()
                 .toList();
         if (productRouteIds.isEmpty()) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
+            throw exception(PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED);
         }
         List<MesProRouteDO> productRoutes = routeMapper.selectList(MesProRouteDO::getId, productRouteIds).stream()
                 .filter(route -> CommonStatusEnum.isEnable(route.getStatus()))
@@ -989,7 +990,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .sorted(Comparator.comparing(MesProRouteDO::getId))
                 .toList();
         if (productRoutes.isEmpty()) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
+            throw exception(PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED);
         }
         return productRoutes;
     }

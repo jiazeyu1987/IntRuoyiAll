@@ -94,6 +94,15 @@
 - GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseLossSourceReaderTest,MesTeamLeaderActiveOrderReleaseLossReportWriterTest,MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest" test` -> PASS；BUILD SUCCESS，Tests run: 10, Failures: 0, Errors: 0, Skipped: 0。
 - A5 静态证据：writer/completeness 不引用 `rawPayload`、当前用户、当前时间、`formBindings`、默认 `MAIN`、历史 execution、precheck 或 `submitForApproval`；reader 唯一的 raw payload 读取仅用于精确提取 `lossDetails`，测试证明 `lossQuantity=999` 和旧别名 `lossReasonDetails` 均不能作为正式来源。重放幂等键只由当前 source snapshot、当前 batch task、工序和正式 evidence hash 组成。
 - A5 已知集成约束：共享 `saveSystemCellLinkChanges` 仍以当前会话/数据库时间形成审计批次 actor/time，无法把既有生产填写/审核签名导入审计签名行；A5 返回并哈希原始生产签名证据、将填写/审核人员与时间写入正式目标格，并在 audit reason 记录原始签名 ID。若 A2 要求审计批次自身签名行等于生产原始签名，需扩展共享审计导入端口，A5 未越权修改该共享服务。
+- BDD: 路线 template 25 损耗单写入当前 FormCenter 实例 -> Given 工序存在唯一 `LOSS_REPORT` template 25 路线绑定、`FORM_TEMPLATE_VERSION + FORMTPL:<versionId>` 的 `PRODUCTION_LOSS` 映射和当前 eDHR batch 已关联的唯一 `ROUTE_FORM/LOSS_REPORT` 动态任务；When A5 write 执行；Then 仅写该任务已关联的 FormCenter instance 并提交 EFFECTIVE，返回 instance、submit snapshot/head hash、source/signature evidence，不打开传统 execution。
+- RED: P4 复审聚焦命令在动态 FormCenter 成功路径修正前 -> FAIL；`MesTeamLeaderActiveOrderReleaseLossReportWriterTest` 9 tests / 0 failures / 2 errors，两个错误均由 `requireCurrentBatchTask` 抛出“当前 eDHR 批次缺少唯一 LOSS_REPORT 正式目标任务”，证明 writer 成功路径未使用当前 batch task 已关联的唯一动态 LOSS_REPORT 目标任务。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseLossReportWriterTest,MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseLossSourceReaderTest,MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest" "-Dmaven.compiler.useIncrementalCompilation=false" test` -> PASS；BUILD SUCCESS，Tests run: 17, Failures: 0, Errors: 0, Skipped: 0。覆盖动态 template 25 当前任务匹配、FormCenter EFFECTIVE 写入、传统损耗 writer、正式损耗来源 reader 和三资料完成性。
+- BDD: 动态损耗单 task 必须匹配路线 record 快照 -> Given template 25 路线绑定的 `recordCategorySnapshotHash` 与当前 eDHR `ROUTE_FORM/LOSS_REPORT` task 的 `routeBindingSnapshotHash` 不一致；When A5 动态端口 write；Then 在读取/保存 FormCenter 草稿前以 source-required 失败，不调用 `saveDraft` 或 `submitInstance`，避免把过期绑定实例当作正式放行资料。
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest" test` -> FAIL；新增 `recordCategorySnapshotMismatchFailsBeforeDraftOrSubmit` 后 Tests run: 3, Failures: 1，失败原因为 record hash 错配时旧实现仍调用 `FormCenterRuntimeService.saveDraft`。
+- A5 record-hash 修正：`MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImpl.validateWriteCommand` 同时要求 `binding.recordCategorySnapshotHash` 非空且等于 `task.routeBindingSnapshotHash`，并继续校验 slot hash、binding id、template 25、version、instance 身份；成功夹具改为使用正式 record hash。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest" test` -> PASS；BUILD SUCCESS，Tests run: 3, Failures: 0, Errors: 0, Skipped: 0。
+- REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseLossReportWriterTest,MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseLossSourceReaderTest,MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest" "-Dmaven.compiler.useIncrementalCompilation=false" test` -> PASS；BUILD SUCCESS，Tests run: 18, Failures: 0, Errors: 0, Skipped: 0。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseLossReportWriterTest,MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest" "-Dmaven.compiler.useIncrementalCompilation=false" test` -> PASS；BUILD SUCCESS，Tests run: 16, Failures: 0, Errors: 0, Skipped: 0。该命令为 P4 主审指定的 writer/dynamic port/completeness 聚焦验收。
 
 ### A3 GREEN - Batch Record Writer
 
@@ -433,3 +442,320 @@
 - PREFLIGHT CONTRACT: `active-order-release-dossier-v4-preflight.cjs:494` 要求 `batch_record_report_id IS NOT NULL`，并在 `:507` 明确每个 route process 需要唯一非空 `MAIN / PROCESS_INSPECTION / LOSS_REPORT` report identity；当前压力泵 `PROCESS_INSPECTION` 为 `0/14` traditional report identity，不满足该合同。
 - WRITER CONTRACT: `MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl.java:529-532` 在缺唯一传统 `PROCESS_INSPECTION` 报表绑定时返回 `PROCESS_INSPECTION_REPORT_BINDING_REQUIRED`，处理建议是“通过批记录配置维护 batchRecordReportId 和 PROCESS_INSPECTION 类型”。因此现有生产代码不会把 `form_template_id=28` 当作 A4 正式目标报表。
 - SUPERVISOR DECISION: 主 Agent 不进行 fallback、不调整业务口径、不以 `formBindings` 冒充传统报表，也不发起真实写入 E2E。P7 只能保持 `blocked`，直到用户明确授权修改 M0/V4 合同与实现口径，或业务侧补齐压力泵 14/14 工序的传统 `PROCESS_INSPECTION.batch_record_report_id`、QA、mapping 和五角色真实登录/签名前置。
+
+### P7 Pressure Pump Route Slot Binding And Publish
+
+- USER AUTHORIZATION: 用户要求“把 14 个工序都绑定过程检验记录表单和损耗单，然后发布一个新的版本”。本轮授权仅覆盖 tenant `1` 本机 int_main 路线 `922119 / RT000028 / 球囊扩张压力泵` 的路线候选版本、批记录配置表单槽位绑定和路线版本发布；不修改 M0/V4 writer 合同，不把本次配置冒充真实放行 E2E 完成。
+- BDD: 压力泵 V27 补齐过程检验和损耗槽位 -> Given 当前生效版本为 `627/V27/ACTIVE` 且当前有效 14 个工序已有 MAIN 批记录表单；When 基于 V27 创建候选版，在每个工序保留现有 MAIN 绑定并补齐 `PROCESS_INSPECTION/form_template_id=28/过程检验记录` 与 `LOSS_REPORT/form_template_id=25/损耗单`；Then 新版本发布后 14 个工序均应同时存在 MAIN、PROCESS_INSPECTION、LOSS_REPORT 三类配置，且不覆盖 V27 已有 MAIN reportId。
+- PREFLIGHT: 本机运行态 `http://127.0.0.1:8081` 与 `http://127.0.0.1:48081/actuator/health` 可用；MySQL 当前库为 `ruoyi-vue-pro`；`bpm_form_template_version` 中 `template_id=25` 最新发布版为 `id=27/V2.0/PUBLISHED`，`template_id=28` 最新发布版为 `id=32/V3.0/PUBLISHED`。
+- PREFLIGHT: 当前 V27 有 14 个有效工序 `980661..980674`；当前 BATCH 配置已有 14/14 MAIN 绑定、2/14 PROCESS_INSPECTION 槽位和 4/14 LOSS_REPORT 槽位。目标写入方式为正式后端 API：`/mes/pro/route-version/create-candidate`、`/mes/pro/route/flow-config/batch-record/save`、`/mes/pro/route-version/submit-publish`。
+
+### P7 V29 Supervisor Recheck
+
+- CURRENT FACT: 只读 SQL 复核发现压力泵路线当前最新发布版已是 `632/V29/ACTIVE`，`631/V28` 与 `627/V27` 均已 `SUPERSEDED`；该变化来自共享运行态其它任务，本轮未发布路线版本、未写库。
+- CONTRACT GUARD: P7 中断留下的 A4/A5 formBinding 合同偏移已回退；四个 writer 相关文件对 `FORM_BINDING_WRITER_REQUIRED`、template `28/25` 常量和新增 helper 的 diff 均为 0。当前仍按 `prd.md:22` 和 `test-plan.md:100` 执行：动态 formBindings 不得作为正式放行资料来源。
+- READ-ONLY DB: `VERSION_ACTIVE|632|V29|ACTIVE|1|631`；当前工序 `14` 个，routeProcessId `9908090160..9908090173`；当前工序绑定统计为 `MAIN 14/14`、`PROCESS_INSPECTION form_template_id=28 14/14`、`LOSS_REPORT form_template_id=25 14/14`，但 `PROCESS_INSPECTION` 与 `LOSS_REPORT` 的传统 `batch_record_report_id` 均为 `0/14`，传统 `MAIN+PI+LOSS` 完整组合仍为 `0/14`。
+- READ-ONLY DB: 产品绑定 4 条，其中启用状态产品仍为 `901965/902149/924005` 三个，未冻结唯一 product；V29 QA regulation 为 `0/14`，三类 source mapping `PROCESS_POOL_REPORT/PQC_AGGREGATE_DETAIL/PRODUCTION_LOSS` 总数为 `0`；路线级 `RELEASE_APPROVE` rule 仍为 1 条，但放行负责人真实 UI 登录/签名未证明。
+- VERIFICATION: `node --check tests/e2e/active-order-release-dossier-v4-preflight.cjs` -> PASS；`node --check tests/e2e/active-order-release-dossier-v4-preflight-static.spec.cjs` -> PASS；`node tests/e2e/active-order-release-dossier-v4-preflight-static.spec.cjs` -> PASS。completion gate -> FAIL，原因保持为 `blocking_prereqs is not empty`、`test_status is not passed`、`P7/P7-AC1/P7-AC2/P7-AC3 not completed`。
+- STATE UPDATE: 主 Agent 已用监督器脚本将 `task-state.json.blocking_prereqs` 更新为 V29 当前事实，P7 仍为 `blocked`、P7 AC `0/3 completed`；未创建 manifest、业务 E2E spec 或业务 ID，SQL/API/UI 业务写入均为 0。
+
+### P7 V29 Product And Contract Recheck
+
+- PRODUCT READ-ONLY: 当前 route `922119` 的历史 active orders 中，启用产品唯一命中 `902149 / AW.107.02.01.2010 / 球囊扩张压力泵`；另有 `902101` active order 但 item status 为 `1`，不属于启用产品。route 绑定层仍有启用产品 `901965/902149/924005` 三个，因此 P7 只能把 `902149` 作为推荐冻结对象，不能在未获确认时自动创建 V29 task-owned fixture。
+- ACTIVE ORDER READ-ONLY: route `922119` 当前 active order 仍落在旧 routeVersion `627`，V29 `632` 下 active order count 为 `0`；因此真实 A6 仍需要创建任务自有 V29 fixture，不能复用旧 V27 活跃订单冒充 V29 验收。
+- CONTRACT BLOCKER: 当前 PRD/test-plan 仍禁止 dynamic formBindings 作为正式放行资料来源；即便 V29 已有 PI/LOSS 槽位 14/14，A4/A5 writer 和 preflight 仍要求传统 `batch_record_report_id`、QA、mapping、签名证据链路。未获用户明确授权前，不修改 M0/V4 合同，不进入真实业务写入。
+- STATE UPDATE: `task-state.json.blocking_prereqs` 已收窄产品 blocker：记录 `902149` 是现有启用 active orders 的唯一命中，但 V29 task-owned fixture 仍需显式冻结。
+
+### P7 FormBinding Formal Target Contract Change
+
+- USER AUTHORIZATION: 用户冻结测试物料为 `902149 / AW.107.02.01.2010 / 球囊扩张压力泵`；明确要求过程检验记录表单和损耗单使用工艺路线 V29 已绑定的表单；授权真实 E2E 使用同一 admin 账号完成当前测试路径。凭据不写入文档、命令证据或 manifest。
+- CONTRACT: `MAIN` 批记录继续只读逐工序传统批记录绑定。`PROCESS_INSPECTION` 的 `form_template_id=28` 与 `LOSS_REPORT` 的 `form_template_id=25` 可作为各自正式目标载体；二者不提供业务填写事实，正式内容来源仍分别是 CONFIRMED PQC aggregate + PUBLISHED QA，以及已签名生产损耗事实。
+- QA CONTRACT: 当前产品按路线物料代码唯一映射 DCC 项目代码；过程检验使用该 DCC 项目、同一稳定 `processId` 对应的最新 PUBLISHED QA 版本，不以 V29 缺直接 QA 行静默降级为空标准。
+- BDD: 路线动态表单被识别但自动写入尚未接通 -> Given V29 每个工序存在唯一有效 `PROCESS_INSPECTION/form_template_id=28` 或 `LOSS_REPORT/form_template_id=25` 绑定；When A4/A5 在无副作用 plan 阶段解析正式目标；Then 返回精确的动态 FormCenter 自动写入 blocker，定位到绑定 ID/key，不再误报传统 reportId 缺失，不调用传统 mapping/execution 写入。
+- BDD: 动态正式资料成功生成 -> Given 动态绑定的已发布 template version、`FORM_TEMPLATE_VERSION` 精确字段映射、正式 PQC/损耗来源和原始签名均完整；When A4/A5 在生成事务中写入并提交 FormCenter instance；Then 当前 batch/task 关联的实例生效、字段值和来源 hash 可审计、签名证据等于原始记录，之后才允许完成性检查和放行待办。
+- RED: `javac @p7-formbinding-javac.args` 后执行 `mvn -pl yudao-module-mes -Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseLossReportWriterTest -Dsurefire.failIfNoSpecifiedTests=false surefire:test` -> FAIL，18 tests / 2 failures；PI 实际返回旧 `PROCESS_INSPECTION_REPORT_BINDING_REQUIRED`，LOSS 也未返回专用动态自动写入 blocker，失败原因与合同变更预期一致。
+- GREEN: 同一 response-file 编译当前两个 writer 与测试后，执行相同聚焦 `surefire:test` -> PASS，18 tests / 0 failures / 0 errors。A4/A5 已能精确识别 template 28/25 动态正式目标并在真实自动写入尚未实现时返回专用 blocker；传统 writer 回归保持通过，且 blocker 分支未调用传统 mapping/execution 写入。
+## 2026-08-10 P7/A6 单账号动态表单前置门禁
+
+- BDD: 用户明确授权单一 admin 承担五个 E2E 角色 -> Given `AORD_V4_M0_ACCOUNT_MODE=SINGLE_ADMIN_APPROVED` 且五个角色显式配置为同一启用账号和签名; When 执行只读 preflight; Then 允许复用该账号并逐角色完成真实页面登录，不把账号重复误报为 blocker。
+- BDD: 压力泵 V29 动态正式目标与 QA 门禁 -> Given 14 个当前工序都有传统 MAIN、模板 28 过程检验和模板 25 损耗表单绑定; When 执行只读 preflight; Then MAIN 按传统 APPROVED 报表验证，PI/LOSS 按最新 PUBLISHED 模板版本与 `FORM_TEMPLATE_VERSION` 映射验证，QA 按当前工序的稳定 `process_id` 选择对应产品最新 PUBLISHED 版本。
+- RED: `node tests/e2e/active-order-release-dossier-v4-preflight-static.spec.cjs` -> 预期 FAIL，现有 preflight 尚无显式单 admin 模式、动态模板 28/25 正式目标和稳定工序最新 PUBLISHED QA 合同。
+- BDD: 生产 reader 使用稳定工序最新 QA -> Given 当前 V29 routeProcessId 与历史已发布 QA 的 routeProcessId 不同但 `processId` 相同，且存在多个 PUBLISHED QA 版本; When 过程检验 writer 读取正式 QA 图; Then 按 `publishedAt`、版本 ID 选择最新 PUBLISHED 版本，不要求 V29 自身重复发布 QA，也不退回任意旧版本。
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 预期 FAIL，mapper/reader 尚无 `selectPublishedListByStableProcess` 合同且仍按当前 routeVersionId/routeProcessId 精确读取。
+
+## 2026-08-10 P7/A6 V29 真实只读门禁与稳定工序 QA reader
+
+- GREEN: `node tests/e2e/active-order-release-dossier-v4-preflight-static.spec.cjs` -> PASS；单 admin 明确授权模式、动态模板 28/25、稳定工序最新 PUBLISHED QA 和无秘密结果合同均通过静态验证。
+- REAL PREFLIGHT: 在本机 `int_main` 前端 `8081`、后端 `48081` health `UP` 下，以用户冻结的 product `902149`、route `922119`、routeVersion `632` 和 14 个当前 routeProcessId 运行只读门禁；真实登录/签名秘密仅运行时注入，未写入命令证据、任务文档或结果 JSON。
+- BLOCKED: 可执行 preflight -> exit `2`，`BLOCKED / DYNAMIC_FORM_TEMPLATE_SNAPSHOT_INVALID`；首个失败定位到 routeProcessId `9908090160` 的 `LOSS_REPORT`。只读 SQL 进一步确认 `LOSS_REPORT 14/14` 与 `PROCESS_INSPECTION 14/14` 的 `record_category_snapshot_hash`、`slot_config_snapshot_hash` 均为空。
+- SIDE EFFECT AUDIT: `browserBusinessWrites=0`、`businessApiWrites=0`、`sqlWrites=0`、`manifestCreated=false`。门禁在任何业务写入前停止，未创建 fixture、业务 ID 或残留数据。
+- DATA BLOCKERS: 模板 28/25 所需 `FORM_TEMPLATE_VERSION` 映射 `PQC_AGGREGATE_DETAIL/PRODUCTION_LOSS` 均为 `0`；13/14 最新 PUBLISHED QA 存在 `equipment_required` 项无正式设备关联；动态绑定候选仍为用户 `149/152`，与本轮 admin 执行账号不同。
+- GREEN: 隔离编译 `MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl` 及依赖后运行 JUnit Console -> `2 tests / 2 successful / 0 failed`；已验证 V29 routeProcessId 可通过稳定 `processId` 选择较新的 PUBLISHED QA，不调用旧 routeVersion/routeProcess 精确 selector。
+- STANDARD LIFECYCLE BLOCKER: 标准定向 Maven GREEN 命令在执行目标测试前被本任务范围外的 `MesProcessPoolPqcInspectionCorrectionCommand` Lombok getter/setter 编译错误阻断，共 40 个 missing-symbol；本轮未修改该并发任务代码，也未把隔离 GREEN 记作标准 Maven GREEN。
+
+### Dynamic Route Binding Snapshot Hash Root Fix
+
+- BDD: 候选路线保存冻结动态表单快照 -> Given 候选路线工序配置包含已发布动态模板、正式槽位策略和唯一填写候选；When 通过正式路线配置服务保存候选版本；Then 候选快照中的动态绑定必须同时包含不同的 64 位 `recordCategorySnapshotHash` 与 `slotConfigSnapshotHash`，后续发布投影不得生成空 hash。
+- RED: 定向 `javac` 编译 `MesProRouteFlowConfigServiceImplTest` -> FAIL，新增断言无法解析 `MesProRouteFlowFormBindingSaveReqVO.getRecordCategorySnapshotHash/getSlotConfigSnapshotHash`；证明动态候选快照模型和保存链路尚未承载两类正式 hash，失败原因符合预期。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProRouteFlowConfigServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`43 tests / 0 failures / 0 errors`。候选版本保存现在由后端基于路线、工序、模板发布版本、槽位策略和候选身份生成不同的两类 SHA-256；候选快照解析、页面响应和发布投影链路均保留该正式证据。
+- RUNTIME/DATA NOTE: 代码修复不回写既有已发布 V29，也不直接 SQL 修补历史快照。当前 int_main 稳定运行包仍未包含本次源码改动；必须在正式构建部署后通过页面创建并发布下一候选版本，才能让新路线绑定获得非空 hash。
+
+### A4 Dynamic Form Revision
+
+- BDD: 唯一 DCC 产品项目限定最新发布 QA -> Given 当前产品存在唯一启用且 `productMasterId` 精确相等的 DCC 项目，并存在同路线稳定 `processId` 的多个 PUBLISHED QA 版本; When A4 读取过程检验正式来源; Then 只选择该正式产品项目下同工序的最新 PUBLISHED QA 图，并把 DCC 项目身份纳入来源审计。
+- BDD: 缺正式 DCC 产品项目时不读取 QA -> Given 产品只有名称相似的 DCC 项目或 DCC 项目未显式绑定该 `productMasterId`; When A4 执行无副作用 plan; Then 返回 `PQC_DCC_PROJECT_IDENTITY_REQUIRED`，不按名称、项目代码或 `ID/IDPR` 猜测，不读取 QA、不写 execution、不写 FormCenter instance。
+- BDD: template 28 动态目标正式生成 -> Given CONFIRMED PQC 汇集、PQC/复核原始签名、唯一 DCC 产品项目、最新 PUBLISHED QA、唯一 template 28 已发布绑定和 `FORM_TEMPLATE_VERSION + FORMTPL:<versionId>` 精确 fieldCode 映射完整; When A4 写入当前 `batchExecutionId/batchTaskId` 的 `ROUTE_FORM` 任务; Then 写入并提交该任务已关联的 FormCenter instance，返回逐字段来源 hash、正式提交快照审计 ID/head hash 和原始签名，且不创建传统 execution。
+- BDD: 动态模板、映射或签名缺失时无副作用阻塞 -> Given template version 不匹配/非 PUBLISHED、识别 fieldCode 不唯一、映射缺失或 PQC/复核签名缺失; When A4 执行 plan; Then 返回精确 blocker，FormCenter save/submit、传统 execution 和传统 field audit 调用均为 0。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL；reactor 进入 `yudao-module-mes:testCompile` 后仅因 `MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort` 尚不存在出现 2 个缺符号错误，符合 template 28 正式自动写入端口尚未实现的预期原因；上游 23 个模块均成功，非 fixture、依赖或错误模块路径失败。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS；`MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest` 2/2、`MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest` 4/4、`MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest` 12/12，合计 18/18，Failures 0，Errors 0。
+- IMPLEMENTATION: 新增 A4 template 28 动态 FormCenter port 与 QA-DCC provenance port；reader 先按产品 `productMasterId` 解析唯一启用 DCC 项目，再按 `productId + routeId + stable processId` 选择同 DCC 项目身份下最新 PUBLISHED QA；writer 在 plan 阶段校验 DCC 项目、QA provenance、template 28 精确版本、`FORM_TEMPLATE_VERSION + FORMTPL:<versionId>` 映射和签名证据。
+- IMPLEMENTATION: write 阶段仅允许写当前 batch task 已关联的 `EDHR_ROUTE_FORM` FormCenter instance；校验 tenant、task、binding、template version、actionCode、slot/hash 和业务上下文后保存草稿并提交 EFFECTIVE；返回 FormCenter instance ID、提交快照 ID、fieldAuditHeadHash、sourceSnapshotHash 和原始 PQC/复核签名 evidence，不创建传统 PROCESS_INSPECTION execution。
+- REVIEW: 主 Agent 中断无最终回报的 A4 executor 后复核 surefire 报告与源码边界；P3 AC 标记 completed。P4/LOSS_REPORT template 25 动态写入仍为 needs_revision，不得由 A4 结果冒充完成；P7 真实 E2E 仍需等待 P4、运行包更新、新候选版本 hash、字段映射、QA 设备关联和 fixture。
+- RED: 主审补充 DCC 来源门禁后追加 `productLinkedQaWithoutExplicitDccProvenanceIsNotExposedAsFormalQa` 与 `qaWithoutExplicitDccProvenanceBlocksBeforeBindingOrAnyTargetWrite`；`mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，`MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort` 缺符号；证明现有实现还没有显式 QA-DCC provenance 端口，不能只靠 `productId/routeId/processId` 把 PUBLISHED QA 当作正式 DCC QA。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，18 tests / 0 failures / 0 errors / 0 skipped。A4 已实现 template 28 FormCenter 动态正式写入端口成功路径：校验 task/binding/instance 身份、精确 PUBLISHED template version、`FORM_TEMPLATE_VERSION + FORMTPL:<versionId>` fieldCode 映射、必填字段、现有值冲突、提交后 EFFECTIVE 状态和 SUBMIT 快照 audit head；writer 成功路径返回 FormCenter instance id、审计快照 id/head hash、逐字段 source hash 和原始签名，不创建传统 execution。
+- GREEN: 同一聚焦命令覆盖正式来源门禁：reader 只接受唯一 `productMasterId` 精确匹配的启用 DCC 项目；最新 PUBLISHED QA 候选必须经 `MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort` 验证后才暴露为正式 QA，缺显式 provenance 时返回 `PQC_DCC_QA_PROVENANCE_REQUIRED`，不加载 QA item/equipment、不解析绑定、不调用 FormCenter save/submit、不调用传统 execution/field audit。默认生产 provenance 端口当前严格阻塞，原因是当前 schema/数据尚无可验证 QA-DCC 项目关系；未猜测 `ID`/`IDPR`。
+- REGRESSION: `mvn -rf :yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，18 tests / 0 failures / 0 errors / 0 skipped；补充验证从失败续跑到 `yudao-module-showroom` 与 `yudao-server` 后 reactor `BUILD SUCCESS`，但 A4 标准验收以 `-pl yudao-module-mes` 聚焦命令为准。
+- SIDE EFFECT AUDIT: 本轮未执行 SQL/API/UI 业务写入，未创建 batch execution、batch task、传统 execution、FormCenter instance 或 manifest；仅修改 A4 reader/writer/动态表单端口/QA provenance 端口及对应 JUnit、execution-log。`test-report.md`、`task-state.json`、A2 编排、A5 损耗 writer、前端均未作为本轮 A4 实现目标修改。
+- REMAINING BLOCKER: 当前真实产品 `902149` 与路线 V29 虽有 template 28/25 绑定，但库内尚缺“QA PUBLISHED version 属于该 DCC project”的显式 provenance/关系表或解析结果；因此正式运行会精确阻塞为 `PQC_DCC_QA_PROVENANCE_REQUIRED`，不会把名称候选 `ID` 或模板识别 `PQC-IDPR-001` 当作可猜测身份。
+
+### P7 Pressure Pump V29 Form/QA Correspondence
+
+- USER INTENT: 用户要求先把当前压力泵目标做正式来源对应；本轮仅只读核对 tenant `1`、product `902149 / AW.107.02.01.2010`、route `922119 / RT000028`、V29 `routeVersionId=632`，不写业务库、不运行真实业务 E2E、不修改生产代码。
+- BDD: 压力泵 V29 正式来源对应表 -> Given 用户冻结的产品 `902149`、路线 `922119` 和当前 ACTIVE V29；When 按 14 个当前 routeProcessId 读取 MAIN 批记录、template 28 过程检验、template 25 损耗单、稳定 processId 最新 PUBLISHED QA 与 DCC 项目代码关系；Then 能对应的来源进入候选表，缺正式关系、字段映射、设备关联或快照 hash 时继续在首次业务写前阻塞。
+- READ-ONLY SQL: 通过本机 `int-ruoyi-mysql` 容器只读 SELECT 复核，V29 `632` 为 `ACTIVE`；当前 routeProcessId 为 `9908090160..9908090173` 共 14 道工序。
+- CORRESPONDENCE PASS: 14/14 工序都有 MAIN 批记录绑定；14/14 工序都有 `PROCESS_INSPECTION` 动态绑定，模板 `28`、最新发布模板版本 `32 / V3.0`；14/14 工序都有 `LOSS_REPORT` 动态绑定，模板 `25`、最新发布模板版本 `27 / V2.0`。
+- QA CANDIDATE PASS: 按 product `902149` + route `922119` + 当前工序稳定 `process_id` 能找到 14/14 最新 PUBLISHED QA 候选；其中 1/14 设备关联完整，13/14 存在 `equipment_required` 项缺正式设备关联。
+- BLOCKER / DYNAMIC SNAPSHOT: V29 现有 28 条 PI/LOSS 动态绑定的 `record_category_snapshot_hash` 与 `slot_config_snapshot_hash` 仍为空；这是旧 V29 发布前生成的历史数据，不做 SQL 回填。需运行包加载已修复的路线保存逻辑后，通过正式页面/接口创建并发布下一候选版本，生成非空 hash。
+- BLOCKER / FIELD MAPPING: `FORM_TEMPLATE_VERSION` 维度启用映射为 0；template 28 缺 `PQC_AGGREGATE_DETAIL` 到 `FORMTPL:32` 的正式字段映射，template 25 缺 `PRODUCTION_LOSS` 到 `FORMTPL:27` 的正式字段映射。MAIN 批记录目标报表对应 `PROCESS_POOL_REPORT` 映射计数也为 0。
+- BLOCKER / DCC PROJECT IDENTITY: 当前 `dcc_project_code` 无 `product_master_id=902149` 的启用项目，别名表也无 `902149` 或 `AW.107.02.01.2010` 的启用别名；现有启用 DCC 项目为 `ID/product_master_id=11` 与 `IDPR/product_master_id=13`，不能按当前严格合同自动当作 `902149` 的正式 DCC 项目来源。
+- RESULT: 已完成“先对应”的只读候选表收敛；当前可对应的是三类表单绑定和 14 条 QA 候选，尚不可进入真实写入 E2E，因为 DCC 项目身份、动态模板字段映射、13 条 QA 设备关联和新版本动态绑定 hash 未满足。
+
+### P7 Pressure Pump V29 Correspondence Artifact
+
+- ARTIFACT: `doc/tasks/20260809-active-order-release-dossier-v4-delivery/p7-pressure-pump-v29-correspondence.md` 已生成逐工序对应表。
+- READ-ONLY RESULT: 14/14 MAIN 批记录、14/14 template 28 过程检验、14/14 template 25 损耗单、14/14 stable process 最新 PUBLISHED QA 均已对应；清洗工序 QA 明确来自 DCC 受控文件 `PQC-ID-001 / G/0`，其余 13 条为旧 M0 派生或本地 fixture。
+- REMAINING BLOCKERS: `AW.107.02.01.2010` 到 DCC 项目 `ID/IDPR` 的正式身份关系未命中；template 28/25 的 `FORM_TEMPLATE_VERSION` 字段映射为 0；V29 动态绑定 hash 为空；13 条 QA 设备关联缺口仍存在。
+
+### P4 Loss Dynamic Form Main Review
+
+- MAIN REVIEW: P4 executor completed LOSS_REPORT template 25 dynamic FormCenter gap without changing `task-state.json` or `test-report.md`.
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest" test` -> FAIL，3 tests / 1 failure；record hash mismatch still reached `saveDraft` before the fix.
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest" test` -> PASS，3 tests / 0 failures / 0 errors。
+- MAIN REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseLossReportWriterTest,MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，16 tests / 0 failures / 0 errors，BUILD SUCCESS。
+- IMPLEMENTATION: LOSS dynamic port now fails before draft/submit when task/binding record hash mismatches, preserves slot hash/template/version/actionCode checks, writes only current task FormCenter instance, requires EFFECTIVE submit snapshot evidence, and lets dossier completeness accept dynamic LOSS evidence.
+- GATE STATUS: P4 is not advanced yet. Three independent tester dispatch attempts failed to return a `test-report.md` update and did not start a new Maven process; main Agent interrupted the stalled tester agents rather than fabricating independent evidence.
+
+### P7/A6 Read-Only Gate Refresh - 2026-08-11
+
+- USER INTENT: 主线程要求继续 P7/A6，但仅执行最新只读前置门禁和证据刷新；禁止 SQL 写入、业务 API 写入、Playwright 业务写入、manifest 创建、task-state/test-report 修改。
+- SCOPE: tenant 1；product `902149` / `AW.107.02.01.2010`；route `922119` / `RT000028` / `球囊扩张压力泵`；routeVersion `632` / `V29` / `ACTIVE`。
+- BDD: P7 read-only gate -> Given P1-P6 已完成且 P7 仍需真实 fixture/E2E 前置；When 在不做业务写入的前提下运行静态合同、可执行 preflight 和只读 SELECT；Then 若显式环境、正式来源、动态映射、QA 设备、hash 或账号前置不齐，必须 STRUCTURED_BLOCKED 且副作用为 0。
+- COMMAND: `node --check tests/e2e/active-order-release-dossier-v4-preflight.cjs` -> PASS。
+- COMMAND: `node --check tests/e2e/active-order-release-dossier-v4-preflight-static.spec.cjs` -> PASS。
+- COMMAND: `node tests/e2e/active-order-release-dossier-v4-preflight-static.spec.cjs` -> PASS，静态合同确认 SINGLE_ADMIN_APPROVED、BIT 字段 `CAST(... AS UNSIGNED)`、非空密码/签名口令、不要求自设长度、动态 PI/LOSS 合同、FORM_TEMPLATE_VERSION 映射检查仍存在。
+- COMMAND: `node tests/e2e/active-order-release-dossier-v4-preflight.cjs --result-path ../doc/tasks/20260809-active-order-release-dossier-v4-delivery/a6-preflight-blocked.json` -> BLOCKED / exit 2；blocker=`ENVIRONMENT/MISSING_EXPLICIT_ENV`；缺 28 个显式 `AORD_V4_M0_*` 环境变量；sideEffects=`browserBusinessWrites=0,businessApiWrites=0,sqlWrites=0,manifestCreated=false`；未启动业务写入 E2E。
+- SELECT: docker container `int-ruoyi-mysql` / schema `ruoyi-vue-pro` 只读查询；未直接 SQL 写入。
+- SELECT RESULT: route `922119` 最新三版为 V29 `id=632 ACTIVE`、V28 `id=631 SUPERSEDED`、V27 `id=627 SUPERSEDED`；product binding 命中 `902149` / `AW.107.02.01.2010`。
+- SELECT RESULT: V29 route processes `9908090160..9908090173` 共 14 条；route_process 逐工序 MAIN report id 非空 `14/14`。
+- SELECT RESULT: `mes_pro_route_flow_process_batch_record` 三类计数为 MAIN `14/14`、PROCESS_INSPECTION template `28` / version `32` `14/14`、LOSS_REPORT template `25` / version `27` `14/14`。
+- SELECT RESULT: dynamic binding hashes remain missing: PROCESS_INSPECTION rows `14`, record_category_snapshot_hash `0/14`, slot_config_snapshot_hash `0/14`; LOSS_REPORT rows `14`, record_category_snapshot_hash `0/14`, slot_config_snapshot_hash `0/14`。
+- SELECT RESULT: template versions exist and are published: `32/template 28/V3.0/PUBLISHED` and `27/template 25/V2.0/PUBLISHED`。
+- SELECT RESULT: FORM_TEMPLATE_VERSION dynamic mappings remain missing: PI mapping `FORM_TEMPLATE_VERSION:32 -> FORMTPL:32 / PQC_AGGREGATE_DETAIL` count `0`; LOSS mapping `FORM_TEMPLATE_VERSION:27 -> FORMTPL:27 / PRODUCTION_LOSS` count `0`。
+- SELECT RESULT: latest PUBLISHED QA by stable process identity exists for `14/14` and all have items; equipment completeness remains blocker: only `1/14` QA rows have `missing_equipment_count=0`, total missing equipment links `44`。
+- SELECT RESULT: DCC direct product identity remains missing: `dcc_project_code` direct match for `product_master_id=902149` or `AW.107.02.01.2010` count `0`。
+- SELECT RESULT: RELEASE_APPROVE route-level rule exists uniquely: count `1`, rule `9000253153`, source `USER/1`。
+- NOT COMPLETED: admin single-account UI/login/signature proof was not executed because explicit account/password/signature env variables are absent and main thread instructed stop expansion before further queries; no secret values were logged。
+- STRUCTURED_BLOCKED: P7 cannot enter manifest or real business E2E. Blocking prereqs now are: missing explicit AORD env/account/signature/browser/db container variables; DCC product identity for `902149/AW.107.02.01.2010`; FORM_TEMPLATE_VERSION mappings for `32/PQC_AGGREGATE_DETAIL` and `27/PRODUCTION_LOSS`; non-empty dynamic binding hashes for V29 PI/LOSS; QA equipment mappings for 13/14 process QA rows; admin single-account UI/login/signature proof.
+
+### P7 Pressure Pump Field Correspondence - 2026-08-11
+
+- USER INTENT: 用户要求“先对应”，并明确目标为 `902149 / AW.107.02.01.2010 / 球囊扩张压力泵`；过程检验记录表单和损耗单使用工艺路线当前绑定表单，QA 来源应按 DCC 项目代码对应的最新发布 QA 数据理解。
+- BDD: 压力泵字段对应复核 -> Given V29 已发布且 14 个工序已有 PI/LOSS 动态表单绑定；When 按 `productId=902149 + routeId=922119 + stable processId` 只读匹配最新 PUBLISHED QA，并检查 FORM_TEMPLATE_VERSION 字段规则；Then 输出可执行对应结论，若当前接口或模板结构无法承载完整映射则在业务写入前阻塞。
+- SELECT: `mes_md_item` -> product `902149` = `AW.107.02.01.2010 / 球囊扩张压力泵`。
+- SELECT: route `922119` 最新发布版本为 `V29 / routeVersionId=632 / ACTIVE`；V29 14 个工序均有批记录、template 28/version 32 过程检验记录、template 25/version 27 损耗单绑定。
+- SELECT: `bpm_form_template_version` -> template version 32 过程检验记录有 56 个识别字段；template version 27 损耗单有 8 个识别字段。
+- SELECT: 当前 `mes_pro_batch_record_cell_link_rule` 中 `FORM_TEMPLATE_VERSION` 仅存在 `PRODUCTION_WORK_ORDER -> FORMTPL:32/27` 各 1 条；`PQC_AGGREGATE_DETAIL` 和 `PRODUCTION_LOSS` 映射仍为 0。
+- READ SOURCE: `/mes/pro/batch-record-cell-link/rules/save` 在 `FORM_TEMPLATE_VERSION` 作用域下只允许 `PRODUCTION_WORK_ORDER` 来源，当前正式接口不能保存 `PQC_AGGREGATE_DETAIL` 或 `PRODUCTION_LOSS` 来源映射。
+- READ SOURCE / SELECT: 当前 PROCESS_INSPECTION writer 按精确 sourceKey 要求 14 工序最新 QA 合计约 `794` 条必填映射，但模板 32 只有 `56` 个可写字段；当前 LOSS writer 要求 `15` 个唯一来源字段，但模板 27 只有 `8` 个可写字段。
+- RESULT: 已更新 `p7-pressure-pump-v29-correspondence.md`，记录业务层可对应口径和当前实现/模板不能直接落库的结构性阻塞；未执行业务 API 写入、SQL 写入、Playwright 写入或 manifest 创建。
+
+### P7 Dynamic Form Mapping Save - 2026-08-11
+
+- BDD: 动态正式来源字段规则可配置 -> Given template 28/25 的目标是 `FORM_TEMPLATE_VERSION` 范围下的 `FORMTPL:<versionId>`，且 sourceType 是 `PQC_AGGREGATE_DETAIL` 或 `PRODUCTION_LOSS`; When 管理员通过正式 batch-record-cell-link 保存字段规则; Then 规则必须保留正式 sourceType/sourceFieldCode/target field，并且不能把动态来源降级为生产工单或普通批记录单元格。
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest#saveRules_acceptsFormalDynamicSourceForFormTemplateVersionScope" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> expected FAIL；当前 `FORM_TEMPLATE_VERSION` 保存逻辑拒绝非 `PRODUCTION_WORK_ORDER` 来源，导致 PI/LOSS 动态正式映射无法通过正式接口落库。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest#saveRules_acceptsFormalDynamicSourceForFormTemplateVersionScope" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，1/1；`PQC_AGGREGATE_DETAIL` 在 `FORM_TEMPLATE_VERSION` scope 下可保存为字段级正式来源，保留 `sourceType/sourceReportId/sourceFieldCode/sourceFieldName/targetCellKey`。
+- REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，10/10；覆盖 `PQC_AGGREGATE_DETAIL` 与 `PRODUCTION_LOSS` 两类动态正式来源。
+- REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseLossReportWriterTest,MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，44/44。
+- EXECUTOR RECHECK: 2026-08-11 06:29 重跑 `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseLossReportWriterTest,MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 44, Failures: 0, Errors: 0, Skipped: 0。
+- IMPLEMENTATION: `MesProBatchRecordCellLinkServiceImpl` 新增 `PQC_AGGREGATE_DETAIL` 与 `PRODUCTION_LOSS` 作为 `FORM_TEMPLATE_VERSION` 的正式字段级 source type；非模板版本 scope 仍拒绝这些动态来源，生产工单自动预填逻辑保持原行为。
+- REMAINING BLOCKER: 本次只打通正式规则表达入口，未猜测或写入 14 工序的真实字段映射；V29 仍缺实际 `PQC_AGGREGATE_DETAIL -> FORMTPL:32`、`PRODUCTION_LOSS -> FORMTPL:27` 规则数据、动态绑定 hash、DCC 产品身份关系和 13/14 QA 设备关联。
+
+### P7 Pressure Pump Template Field Correspondence - 2026-08-11
+
+- USER INTENT: 用户要求“先对应”压力泵现有工艺路线绑定的过程检验记录表单和损耗单；本轮仅做只读 SQL/源码复核并更新对应表，不写业务 SQL、不调用业务写 API、不创建 fixture/manifest。
+- READ-ONLY SQL: template 28 当前发布目标为 `FORMTPL:32 / V3.0`，recognized fields `56`；template 25 当前发布目标为 `FORMTPL:27 / V2.0`，recognized fields `8`；现有 `PQC_AGGREGATE_DETAIL -> FORMTPL:32` 和 `PRODUCTION_LOSS -> FORMTPL:27` 启用规则均为 `0`。
+- READ-ONLY SQL: 压力泵 14 个稳定工序最新 PUBLISHED QA 合计 `78` 条 item；按当前 PI writer 的逐 QA 明细规则，理论需要 `794` 条 source key 映射（item 明细 `696` + 14 道工序 header/DCC `98`），超过 template 28 的 56 个字段。
+- CODE REVIEW: 当前 PI writer 要求 `inspectionType|itemCode|sampleNo|fieldCode` 精确 sourceCellKey；当前 LOSS writer 要求 15 个 `PRODUCTION_LOSS` 字段。二者均不能靠全局 `FORM_TEMPLATE_VERSION` 规则把 14 工序真实来源安全压进当前模板。
+- ARTIFACT: `p7-pressure-pump-v29-correspondence.md#2026-08-11-字段级对应复核` 已追加可审核对应结论：业务来源能对应，当前可执行方案必须新增摘要 source writer 或扩展 template 28/25；禁止写猜测映射或用重复字段占位冒充完成。
+
+### P7 Pressure Pump Main Correspondence Recheck - 2026-08-11
+
+- USER INTENT: 用户要求“你帮我先对应”；本轮仅把压力泵 14 工序、当前路线绑定 PI/LOSS 表单和最新 PUBLISHED QA 做正式对应，不保存字段规则、不写 SQL、不创建业务 fixture。
+- BDD: 先对应压力泵放行资料来源 -> Given 产品 `902149 / AW.107.02.01.2010`、路线 `922119 / RT000028`、V29 已发布且每工序绑定了 PI/LOSS formBindings; When 读取模板字段、QA 最新发布数据和现有字段规则结构; Then 输出可执行对应表，并在字段规则无法安全承载时阻塞写入。
+- READ-ONLY SQL: docker container `int-ruoyi-mysql` / schema `ruoyi-vue-pro`；使用容器内 MySQL 环境变量连接，只输出字段、计数、版本和工序信息，不输出数据库口令。
+- SELECT RESULT: template 28 最新发布目标 `FORMTPL:32 / V3.0`，recognized fields 56；template 25 最新发布目标 `FORMTPL:27 / V2.0`，recognized fields 8。
+- SELECT RESULT: 14/14 工序均可按 `productId=902149 + routeId=922119 + stable processId` 对应最新 PUBLISHED QA；QA item 数分别为 3、3、3、3、3、15、3、3、5、13、15、3、3、3；设备缺口分别为 2、2、0、2、2、8、2、2、3、7、8、2、2、2。
+- SCHEMA CHECK: `mes_pro_batch_record_cell_link_rule.source_cell_key` 为 `varchar(32)`；当前 PI writer 期望 `inspectionType|itemCode|sampleNo|fieldCode` 精确 key，多数真实 QA key 无法安全落库。
+- CODE REVIEW: `FORM_TEMPLATE_VERSION` 是模板版本全局 scope，缺 routeProcess 维度；PI writer 还会拒绝当前工序不存在的 source key，因此不能把 14 工序不同 QA item 混入一套全局规则。
+- CODE REVIEW: 当前正式 saveRules 对动态来源会重写 `source_cell_key=<sourceType>:<sourceFieldCode>`，与 PI writer 精确 key 和 LOSS writer 测试期望 key 不一致。
+- RESULT: 已更新 `p7-pressure-pump-v29-correspondence.md#2026-08-11-主线对应确认`；业务来源已对应，字段规则写入保持阻塞，需先改合同/writer 或扩展模板/规则维度后才能进入真实写入 E2E。
+
+### P7 Dynamic Summary Writer Main Integration - 2026-08-11
+
+- USER INTENT: 继续推进 P7，基于用户已确认的压力泵路线绑定表单口径，让 template 28/25 动态表单可以承载过程检验与损耗摘要来源，而不是继续要求逐 QA 明细或 15 个损耗字段一对一落到全局模板规则。
+- BDD: 动态表单摘要写入 -> Given 压力泵 V29 每工序已经绑定 template 28 过程检验记录和 template 25 损耗单；When release writer 读取正式 PQC/feedback/签名/产品主数据并发现目标是 FormCenter 动态表单；Then writer 使用 `SUMMARY|<field>` 的字段级正式来源生成摘要，写入当前 batch/task 的 FormCenter instance，并保留 source hash、field audit 和签名 evidence。
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseLossReportWriterTest,MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，45 tests / 1 failure；`MesTeamLeaderActiveOrderReleaseLossReportWriterTest.shouldTreatRouteBoundLossFormTemplateAsFormalTargetButBlockWhenDynamicMappingsAreMissing` 仍用旧字段 `reviewerSignedAt` 验证动态映射缺失，实际新链路先要求正式产品主数据和 `productLabel` 摘要映射。
+- FIX: 更新 LOSS 动态映射缺失测试夹具，补正式产品主数据，使该用例真正验证 template 25 动态摘要映射缺失；断言字段改为 `productLabel`，不降低生产校验。
+- GREEN: `mvn -q -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseLossReportWriterTest,MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test; if ($LASTEXITCODE -eq 0) { Write-Output 'BUILD_SUCCESS_EXIT_0' } else { Write-Output ('BUILD_FAILED_EXIT_' + $LASTEXITCODE) }` -> PASS，`BUILD_SUCCESS_EXIT_0`。
+- MAIN REVIEW: PI writer dynamic path now requires template 28 `PQC_AGGREGATE_DETAIL` summary rules and writes `batchCode/dccProjectCode/dccProjectName/qaVersionNo/itemSummary/resultSummary/equipmentSummary/overallJudgement/inspectorSignedInfo/reviewerSignedInfo` to FormCenter. LOSS writer dynamic path now requires template 25 `PRODUCTION_LOSS` summary rules, formal enabled product master data, and writes `productLabel/batchCode/productionSummary/lossSummary/lossDetailsSummary/fillerSignedInfo/reviewerSignedInfo/approvalSummary` to FormCenter.
+- REMAINING P7 BLOCKERS: 当前库仍缺实际 `FORM_TEMPLATE_VERSION:32 -> FORMTPL:32 / PQC_AGGREGATE_DETAIL` 与 `FORM_TEMPLATE_VERSION:27 -> FORMTPL:27 / PRODUCTION_LOSS` 摘要字段规则；V29 PI/LOSS 动态绑定 hash 仍为空；`902149/AW.107.02.01.2010` 到 DCC 项目身份仍未直接命中；13/14 QA 设备关联仍不完整；manifest、真实 Playwright 业务 E2E 和最终只读断言仍未创建/执行。
+## 2026-08-11 pressure pump dynamic field correspondence
+
+BDD: 先对应压力泵动态过程检验与损耗字段 -> Given 用户明确产品为 902149 / AW.107.02.01.2010 / 球囊扩张压力泵，且 PI/LOSS 使用工艺路线 V29 已绑定表单 When 使用 tenant 1 admin 登录态读取正式路线、表单中心模板并通过正式规则保存接口提交摘要映射 Then 14 道工序应对应到 template 28 / template 25，字段规则应保存为 FORMTPL:32 与 FORMTPL:27 的摘要 source 映射。
+
+RED: POST /mes/pro/batch-record-cell-link/rules/save for FORMTPL:32 -> FAIL, returned 1040509089 批记录表单布局 JSON 无效：FORMTPL:32；未记录口令或 token。
+
+RED: POST /mes/pro/batch-record-cell-link/rules/save for FORMTPL:27 -> FAIL, returned 1040509089 批记录表单布局 JSON 无效：FORMTPL:27；未记录口令或 token。
+
+Evidence: GET /mes/pro/route-version/list-by-route?routeId=922119 -> code 0, latest active V29 id=632；GET /mes/pro/route/flow-config?routeId=922119&routeVersionId=632&useType=BATCH -> code 0, 14 process configs with MAIN + PROCESS_INSPECTION + LOSS_REPORT bindings；GET /form-center/templates/28/versions/V3.0 -> code 0, PUBLISHED, recognizedFields=56；GET /form-center/templates/25/versions/V2.0 -> code 0, PUBLISHED, recognizedFields=8。
+
+Blocker: 正式规则保存接口当前不能解析动态 FormCenter 的 FORMTPL:32 / FORMTPL:27 布局 JSON，因此不能通过正式接口落摘要字段规则；未使用 SQL 绕过、未发布新版本、未创建业务 E2E fixture。
+
+Runtime blocker: 当前 48081 后端为本日早间旧 runtime jar，未证明已加载当前动态摘要 writer/cell-link 解析改动；主工作区同时存在多项并发脏改动，按 docs/local-runtime.md 运行态门禁，不能直接从脏主工作区重包重启冒充本任务运行态。下一步需要干净可验证构建/运行态刷新后重试正式规则保存。
+
+## 2026-08-11 P7 runtime mapping supervisor follow-up
+
+- SUPERVISOR: 按 development-plan-supervisor 恢复当前状态，current_phase=P7，P1-P6 completed，P7 blocked/test_status running；本轮只允许推进当前 P7，不重规划、不改 future scope。
+- EXECUTOR: 已启动唯一 P7 executor p7_runtime_mapping_executor，目标为刷新可验证运行态后通过正式接口保存压力泵 V29 PI/LOSS 摘要字段规则，或返回精确 blocker。
+- INTERRUPT: executor 超过监督等待窗口未回报且本机无 Maven/构建进程运行；主线程中断该 executor，未采纳其未完成工作。
+- READ-ONLY RESULT: 当前 48081 仍是旧 int_main runtime jar；/mes/pro/batch-record-cell-link/workbench-context?templateId=28&versionNo=V3.0 与 template 25/V2.0 仍返回系统异常，规则未落库。
+- STATE UPDATE: task-state.json 已补充 P7 blocker：旧 runtime 未证明加载当前动态 FormCenter 解析/摘要 writer，且主工作区存在并发脏改动，按 local-runtime 门禁不能直接从脏主工作区重包重启作为 P7 证据。
+- REMAINING: P7 仍需干净可验证运行态刷新、正式规则保存、V29 新候选保存/发布生成动态绑定 hash、DCC 产品身份或代码合同、QA 设备关联、任务自有 fixture manifest、真实 Playwright E2E 和最终只读断言。
+
+## 2026-08-11 P7 pressure pump correspondence main retry
+
+- USER INTENT: 用户要求“你帮我先对应”；本轮使用本机 tenant 1/admin 登录态，目标仍为 `902149 / AW.107.02.01.2010 / 球囊扩张压力泵`，只通过正式接口和本机正式迁移修复尝试推进字段对应，不记录口令或 token。
+- BDD: 先对应压力泵 PI/LOSS 摘要字段 -> Given route `922119` 最新发布 `V29 / routeVersionId=632` 已有 14/14 MAIN、14/14 PROCESS_INSPECTION、14/14 LOSS_REPORT；When 读取 template 28/25、QA 发布证据并保存 `PQC_AGGREGATE_DETAIL` / `PRODUCTION_LOSS` 摘要字段规则；Then 规则必须通过正式 `batch-record-cell-link` API 落库，不能用 SQL 直接插入规则。
+- SELECT/API: `GET /mes/pro/route-version/list-by-route?routeId=922119` -> code 0，latest active `V29 / id=632`。
+- SELECT/API: `GET /mes/pro/route/flow-config?routeId=922119&routeVersionId=632&useType=BATCH` -> code 0，`14/14 MAIN`、`14/14 PROCESS_INSPECTION`、`14/14 LOSS_REPORT`。
+- SELECT/API: template 28 `V3.0 / FORMTPL:32` -> code 0，PUBLISHED，recognized fields 56；template 25 `V2.0 / FORMTPL:27` -> code 0，PUBLISHED，recognized fields 8。
+- SELECT/API: 14 个稳定工序均可按 `productId=902149 + routeId=922119 + stable processId` 读取对应 QA 发布证据；当前 project-status 只返回清洗工序 `regulationId=53 / versionId=54 / G/0` 为当前直接 PUBLISHED 状态，其余 13 条仍是历史 routeVersionId=448 的 PUBLISHED 证据，后续真实 E2E 仍需按 writer 的正式准入复验。
+- RED: `GET /mes/pro/batch-record-cell-link/workbench-context?templateId=28&versionNo=V3.0` -> FAIL，后端日志首个数据库异常为 `Unknown column 'aggregation_strategy' in 'field list'`，运行库 schema 落后于当前 Mapper。
+- GREEN: runtime schema repair -> PASS，通过本机 Docker MySQL 对 `mes_pro_batch_record_cell_link_rule` 添加正式迁移中已有的 nullable `aggregation_strategy varchar(32)`；复查 `information_schema.COLUMNS` 返回该列。
+- GREEN: `GET /mes/pro/batch-record-cell-link/workbench-context?templateId=28&versionNo=V3.0` 和 template 25/V2.0 -> code 0；当前仅证明 schema 漂移已解除。
+- RED: `GET /mes/pro/batch-record-cell-link/form-cells?reportId=FORMTPL:32` -> FAIL，`1040509089 批记录表单布局 JSON 无效：FORMTPL:32`。
+- RED: `GET /mes/pro/batch-record-cell-link/form-cells?reportId=FORMTPL:27` -> FAIL，`1040509089 批记录表单布局 JSON 无效：FORMTPL:27`。
+- CURRENT RULES: `FORMTPL:32` 仍仅有 1 条 `PRODUCTION_WORK_ORDER/batchCode -> 4:1 生产批号`；`FORMTPL:27` 仍仅有 1 条 `PRODUCTION_WORK_ORDER/batchCode -> 5:3 批号`；未写入 `PQC_AGGREGATE_DETAIL` 或 `PRODUCTION_LOSS` 摘要规则。
+- RESULT: 已完成业务对应和 schema 漂移修复；正式字段规则保存仍阻塞于动态 FormCenter `form-cells` 布局解析，未使用 SQL 绕过、未发布新路线版本、未创建 fixture/manifest、未运行真实业务 E2E。
+
+## 2026-08-11 P7 pressure pump correspondence root recheck
+
+- USER INTENT: 用户再次要求“你帮我先对应”；本轮只复核并确认当前对应结果，不从脏主工作区重包重启，不用 SQL 直插规则。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`MesProBatchRecordCellLinkServiceImplTest` 11/11，说明工作区代码已具备动态 `FORMTPL` 解析/规则表达能力。
+- API RECHECK: 使用 tenant 1/admin 登录态调用当前 `48081` 正式接口；`GET /mes/pro/batch-record-cell-link/form-cells?reportId=FORMTPL:32` -> `1040509089 批记录表单布局 JSON 无效：FORMTPL:32`；`FORMTPL:27` -> `1040509089 批记录表单布局 JSON 无效：FORMTPL:27`。未记录口令、token 或连接串。
+- RESULT: “先对应”的业务映射保持确认：压力泵 V29 的 14 个工序 PI 用 template 28 / `FORMTPL:32`，LOSS 用 template 25 / `FORMTPL:27`；实际规则仍未落库，当前卡点是 `48081` 运行包未承载已通过测试的动态 FormCenter 解析能力。
+## P7 FormCenter Real Jimu Layout Runtime Regression
+
+- BDD: FormCenter recognized fields remain linkable when the published Jimu schema contains `sheetLayoutJson` but no explicit `cellRules` -> Given published template versions `FORMTPL:32` and `FORMTPL:27` have valid `recognized_schema_json` plus Jimu `sheetLayoutJson` without top-level `cellRules`, When an authorized administrator loads `/mes/pro/batch-record-cell-link/form-cells`, Then the service must expose the recognized non-signature fields as linkable targets instead of returning layout-invalid.
+- RED: authenticated `GET /admin-api/mes/pro/batch-record-cell-link/form-cells?reportId=FORMTPL:32` and `FORMTPL:27` on `48081` -> FAIL, both returned business code `1040509089`; runtime log pointed to `MesProBatchRecordCellLinkServiceImpl.getFormTemplateCells(...:229)` because the Jimu layout branch produced zero linkable target cells.
+- ROOT CAUSE: published FormCenter versions `32` and `27` contain valid `recognized_schema_json` and valid Jimu `sheetLayoutJson`, but their Jimu schema has no top-level `cellRules`. `resolveTemplateLayout` selected the Jimu layout solely because `sheetLayoutJson` existed, so the mapper never projected recognized fields and the final linkable-target invariant failed.
+- RED: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` with the new regression before the fix -> FAIL, 12 tests / 1 error; `getFormCells_usesRecognizedFieldsWhenJimuLayoutHasNoCellRules` reproduced `1040509089` from `getFormTemplateCells`.
+- FIX: `resolveTemplateLayout` now uses Jimu `sheetLayoutJson` only when the Jimu schema includes explicit non-empty `cellRules`; otherwise, a FormCenter template with valid `recognized_schema_json` uses the recognized-field projection. This keeps malformed templates fail-fast and does not use `formBindings` or SQL to infer batch-record sources.
+- GREEN: targeted new regression `mvn.cmd -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest#getFormCells_usesRecognizedFieldsWhenJimuLayoutHasNoCellRules" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> PASS, 1 test / 0 failures / 0 errors.
+- GREEN: focused service regression `mvn.cmd -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> PASS, 12 tests / 0 failures / 0 errors.
+- RUNTIME CHECK: current `48081` is `backend-runtime-control-20260811-125316.jar`, health `UP`, and its nested MES jar contains the earlier `recognizedProjection` constants; however it was built before this final branch fix. Formal `form-cells` still fails on that running jar until a clean, verifiable runtime refresh is performed.
+- BLOCKER: No PI/LOSS summary rules were saved and no V29 route version was published in this executor pass. Per `docs/local-runtime.md`, the main workspace contains unrelated concurrent dirty changes, so I did not rebuild/restart `48081` from the dirty workspace and did not hand-patch the nested Spring Boot jar. Next minimum step is a clean runtime build containing this exact cell-link fix plus already-approved P7 changes, then retry formal `rules/save` for `FORMTPL:32` and `FORMTPL:27`.
+
+## P7 Dynamic Summary And Work-Order Rule Coexistence - 2026-08-11
+
+- BDD: PI 摘要规则与生产批号规则共存 -> Given 一个 `FORM_TEMPLATE_VERSION` scope 同时保存正式 `PRODUCTION_WORK_ORDER/batchCode` 规则和 `PQC_AGGREGATE_DETAIL` 摘要规则；When release writer 生成过程检验动态表单；Then writer 只消费 PQC 摘要规则，批号继续由生产工单预填规则负责，且不得要求或写入重复的 PQC batchCode 映射。
+- BDD: LOSS 摘要规则与生产批号规则共存 -> Given template 25 同时保存正式 `PRODUCTION_WORK_ORDER/batchCode` 规则和 `PRODUCTION_LOSS` 摘要规则；When release writer 生成损耗动态表单；Then writer 只消费 LOSS 摘要规则，并仅把产品名称、型号规格、生产数量、损耗与签名备注、批准签名写入对应语义字段。
+- BDD: FormCenter 生产工单预填与 release writer 分工 -> Given 一个模板版本同时存在生产工单规则、PQC 摘要规则或 LOSS 摘要规则；When `buildFormTemplateVersionPrefillData` 组装预填数据；Then 只执行 `PRODUCTION_WORK_ORDER` 规则，明确跳过两类 release writer 正式来源，未知 sourceType 仍立即失败。
+- RUNTIME GREEN: tenant 1/admin 登录态正式接口 `GET /mes/pro/batch-record-cell-link/form-cells?reportId=FORMTPL:32` -> code 0，cells=56，linkable=56；`FORMTPL:27` -> code 0，cells=8，linkable=8；未记录 token、口令或连接串。
+- GREEN: `POST /mes/pro/batch-record-cell-link/rules/save` for `FORM_TEMPLATE_VERSION:32 / FORMTPL:32` -> code 0，savedCount=10；保留 `PRODUCTION_WORK_ORDER/batchCode -> 4:1 生产批号`，新增 9 条 `PQC_AGGREGATE_DETAIL/SUMMARY|*` 摘要规则。
+- GREEN: `POST /mes/pro/batch-record-cell-link/rules/save` for `FORM_TEMPLATE_VERSION:27 / FORMTPL:27` -> code 0，savedCount=6；保留 `PRODUCTION_WORK_ORDER/batchCode -> 5:3 批号`，新增 5 条 `PRODUCTION_LOSS/SUMMARY|*` 摘要规则。
+- API VERIFY: `GET /mes/pro/batch-record-cell-link/workbench-context?templateId=28&versionNo=V3.0` -> total=10/workOrder=1/pqc=9/loss=0；`templateId=25&versionNo=V2.0` -> total=6/workOrder=1/pqc=0/loss=5。
+- RED: `mvn.cmd -q -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseLossReportWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> FAIL，Tests run 41 / Failures 1；原因是 `MesTeamLeaderActiveOrderReleaseLossReportWriterTest.shouldWriteRouteBoundLossFormTemplateAlongsideWorkOrderBatchCodeRule` 仍断言旧显示格式 `signedAt=2026-08-01 09:00:00`，与当前正式 `LocalDateTime.toString()` 摘要格式不一致。
+- FIX: 校准 LossReportWriterTest 的批准签名摘要断言为 `signedAt=2026-08-01T09:00`，仍保留 userId=3001 和 signatureId=1201 断言；未改生产代码或运行库数据。
+- GREEN: 同一聚焦 Maven 复跑后目标 surefire 报告通过：`MesProBatchRecordCellLinkServiceImplTest` 19/19，`MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest` 12/12，`MesTeamLeaderActiveOrderReleaseLossReportWriterTest` 10/10；Maven PID 已退出，无残留测试进程。
+- REMAINING BLOCKER: 本轮仅完成“先对应”字段规则落库；P7 仍未完成 V29 下一候选保存/发布生成动态绑定 hash、902149/AW.107.02.01.2010 的 DCC provenance/13 道工序 QA 设备补齐、task-owned fixture manifest、真实 Playwright 业务 E2E 与最终只读业务断言。
+
+## P7 Route Project Code And DCC QA Provenance - 2026-08-11
+
+- BDD: 路线项目代码解析 DCC 项目 -> Given 压力泵当前路线版本快照包含物料代码 `ID`，DCC 存在唯一启用 `projectCode=ID` 项目且其 `productMasterId` 不是 MES 产品 `902149`; When 过程检验 reader 解析正式 DCC 身份; Then 按路线物料代码精确命中 DCC `ID`，不得把 `902149` 当 DCC `productMasterId`，也不得猜测 `IDPR`。
+- BDD: DCC 项目限定最新发布 QA -> Given 当前产品、路线和稳定工序存在多个 PUBLISHED QA 候选; When reader 按路线已解析 DCC 项目筛选 QA; Then 只接受规程代码中精确项目段 `PQC-ID-*` 的候选并按 `publishedAt/versionId/regulationId` 选择最新版本，`PQC-IDPR-*`、M0 派生或缺显式项目段的候选返回 `PQC_DCC_QA_PROVENANCE_REQUIRED`。
+- BDD: QA 来源缺失时在目标解析前阻塞 -> Given 压力泵 14 个稳定工序中只有 1 个最新 PUBLISHED QA 具备 `ID` 项目来源，其余 13 个缺正式 DCC 来源或设备关联; When release writer 执行无副作用 plan; Then 每个缺口按 PQC task/routeProcess 返回精确 blocker，且不解析表单绑定、不写 execution、不写 FormCenter instance。
+
+## P7 Pressure Pump Template Identity Gate - 2026-08-11
+
+- BDD: ID 产品不得写入 IDPR 过程检验模板 -> Given 产品 `902149 / AW.107.02.01.2010` 通过路线项目物料精确对应 DCC `ID / 球囊扩张压力泵`; When 读取路线当前绑定的 template 28 / version 32 / V3.0 正式字段; Then 若模板正文明确标识 `PQC-IDPR-001 / 按压式球囊扩张压力泵`，必须在任何放行业务写入前阻塞，不得把 `ID` 数据写入 `IDPR` 表单。
+- API VERIFY: tenant 1/admin 正式登录后只读复核 `FORMTPL:32` -> code 0，56 个可映射字段；其中 `6:1` 的正式标签为 `PQC-IDPR-001（/）按压式球囊扩张压力泵组装过程检验规程`。未记录口令、token 或连接串。
+- API VERIFY: 当前已保存 PI 规则仍为 total=10/workOrder=1/pqc=9，其中 `PQC_AGGREGATE_DETAIL.dccProjectCode -> 6:1`、`dccProjectName -> 4:3 型号/规格`；这会把 `ID` 项目身份写入 `IDPR` 静态规程区域，并把 DCC 项目名写入产品规格字段，语义不成立。
+- BLOCKER: `902149` 的 DCC 项目身份与 template 28 当前发布内容不一致。P7 不得继续创建 fixture 或执行真实业务 E2E，直到通过正式模板/路线流程选择或发布与 `ID / 球囊扩张压力泵` 一致的过程检验记录模板，并重新保存字段映射与动态绑定快照；禁止以 `IDPR` 模板代替。
+
+## P7 Route DCC And QA Provenance GREEN - 2026-08-11
+
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL；生产 reader 构造器尚无 `MesProRouteVersionMapper/MesMdItemService`，`InspectionSource` 尚无 `routeProjectCode`，严格证明旧实现仍把 MES productId 当作 DCC productMasterId。
+- IMPLEMENTATION: reader 只读取命令指定的已发布 ACTIVE/SUPERSEDED 路线版本快照，要求目标 productId 存在于 `configSnapshots.products`，再以路线物料代码与唯一启用 DCC `projectCode` 精确相交；`ID` 不会命中 `IDPR`。writer 改为校验 `routeProjectCode == dccProject.projectCode`，不再要求 `902149 == DCC productMasterId=11`。
+- IMPLEMENTATION: QA provenance 只接受当前 PUBLISHED regulation/version 且 regulation code 精确以 `PQC-<routeProjectCode>-` 开头；`PQC-IDPR-*` 和 `M0-*` 对 `ID` 均返回 `PQC_DCC_QA_PROVENANCE_REQUIRED`，成功证据使用长度前缀 canonical payload 计算 SHA-256。
+- BUILD NOTE: 首次 GREEN 复跑被本任务早期隔离 javac 留在 `target/test-classes` 的旧生产 `.class` 遮蔽；只用当前 `target/classes` 对应类覆盖该可再生成任务产物，未清理共享 target、未触碰其他任务产物。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS；21 tests / 0 failures / 0 errors / 0 skipped，标准 lifecycle BUILD SUCCESS。
+- RUNTIME/DATA: 本轮未重启 48081、未写数据库、未修改路线或 QA。当前正式数据仍会只接受清洗工序 `PQC-ID-001`，其余 13 个 M0/fixture QA 将在写入前精确阻塞。
+
+## P7 Process Inspection Template DCC Identity GREEN - 2026-08-11
+
+- BDD: ID 产品不得写入 IDPR 动态表单实例 -> Given reader 已从正式路线快照解析 `routeProjectCode=ID`，且当前绑定模板可映射字段标签包含 `PQC-IDPR-001`；When writer 解析过程检验动态表单目标；Then 必须返回 `PROCESS_INSPECTION_TEMPLATE_DCC_IDENTITY_REQUIRED`，包含 expected=ID/actual=[IDPR] 定位信息，并且不创建或保存 FormCenter instance。
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL；测试编译明确指出 `resolveTarget` 尚无 expectedDccProjectCode 参数，旧接口不能验证绑定模板的 DCC 项目身份。
+- IMPLEMENTATION: 动态表单端口从正式 recognized field 标签提取受控文件代码 `PQC-<projectCode>-<suffix>`，要求唯一项目代码与 reader 解析的路线 DCC projectCode 精确相等；缺失、多值或 ID/IDPR 不一致均在任何实例写入前阻塞。writer 显式传入 `source.routeProjectCode`，不增加 fallback 或别名匹配。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS；24 tests / 0 failures / 0 errors / 0 skipped，四份 Surefire 报告时间为 2026-08-11 20:19:34..36，本任务 Maven 进程已退出。
+- RUNTIME/DATA: 本轮未重启 48081、未写数据库、未修改路线/模板/QA。现有 template 28 V3.0 的 `PQC-IDPR-001` 将对压力泵 DCC `ID` 严格阻塞；必须通过正式模板发布与路线候选重绑解决，不能用字段映射覆盖静态受控文件身份。
+- BDD: 已发布路线快照损坏必须立即失败 -> Given 过程检验 reader 读取命令指定的已发布路线版本；When `routeSnapshotJson` 非法或 `configSnapshots.products` 结构无效；Then 必须抛出包含 routeVersionId 与原因的 `IllegalStateException`，不得吞异常并伪装成“无 DCC 匹配”，也不得继续读取 PQC task。
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest#malformedPublishedRouteSnapshotFailsFastInsteadOfLookingLikeNoDccMatch" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL；1 test / 1 failure，旧实现未抛异常。
+- IMPLEMENTATION: `parseRouteVersionProductIds` 对 JSON 解析失败、products 类型异常、非对象元素和无效 itemId 统一抛出显式 `IllegalStateException`，不包含快照原文；移除 catch 后返回空集合的静默降级。
+- BUILD NOTE: 标准 lifecycle 已成功重编译 2621 个主源码与 435 个测试源码，但 `target/test-classes` 中仍有本任务早期隔离 javac 生成的旧 ReaderImpl class 遮蔽当前 `target/classes`；以当前主编译产物覆盖该任务自有可再生成 class 后执行 Surefire 聚焦回归，未清理共享 target。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" surefire:test` -> PASS；25 tests / 0 failures / 0 errors / 0 skipped，BUILD SUCCESS。
+- INDEPENDENT TEST: tester 只更新 `test-report.md`，标准 Maven 同一四类聚焦回归 25/25 PASS；结论为本身份门禁切片可放行，P7 整体仍 BLOCKED / NOT COMPLETE。
+- INTEGRATION GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseOrchestrationRedTest,MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest,MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImplTest,MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest,MesTeamLeaderActiveOrderReleaseLossSourceReaderTest,MesTeamLeaderActiveOrderReleaseLossReportWriterTest,MesTeamLeaderActiveOrderReleaseLossReportDynamicFormPortImplTest,MesTeamLeaderActiveOrderReleaseDossierCompletenessCheckerTest,MesTeamLeaderActiveOrderReleaseSourceSnapshotHasherTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS；68 tests / 0 failures / 0 errors / 0 skipped，BUILD SUCCESS。覆盖编排、批记录、PI、LOSS、完成性与 source hash 集成回归。
+
+## P7 Frontend Integration Contract CRLF Regression - 2026-08-11
+
+- BDD: Windows CRLF 不得破坏放行申请静态合同 -> Given 工作台 Vue 文件在 Windows 并发编辑后使用 CRLF；When A1 放行申请静态合同提取 blocker 警告块；Then 合同必须先把 CRLF 归一化为 LF，再验证正式 locator/reason/suggestion，不得把换行格式变化误报成页面功能缺失。
+- RED: `node tests/e2e/team-leader-active-order-release-application-static.spec.js` -> FAIL；页面实际仍存在 `releaseApplicationBlockers` 警告块，但 `extractBlock` 的 LF 锚点无法命中 CRLF 源文件，首个失败为 `missing block start`。
+- FIX: 仅在该任务静态合同的 UTF-8 读取 helper 中归一化 `\r\n -> \n`；未改页面行为、接口或产品文案。
+- GREEN: `node tests/e2e/team-leader-active-order-release-application-static.spec.js` -> PASS；相邻 `team-leader-workbench-static.spec.cjs` 与 `team-leader-workbench-sfc-style-compile-static.spec.cjs` 同时 PASS。
+- GREEN: `pnpm ts:check` -> PASS，exit 0。
+
+## P7/A6 Current Formal Prerequisite Gate - 2026-08-11
+
+- SCOPE: tenant `1`；product `902149 / AW.107.02.01.2010 / 球囊扩张压力泵`；route `922119 / RT000028`。本轮只读取当前 int_main 运行态和 MySQL 正式数据，不使用 SQL/API/UI 写入。
+- BDD: A6 在正式来源不完整时必须停在首次业务写前 -> Given P7 要求 14 道工序使用 DCC 项目 `ID` 的最新 PUBLISHED QA、项目身份一致的过程检验模板及完整动态绑定快照；When 对当前 ACTIVE 路线执行实时只读前置门禁；Then 任一身份、QA、设备或 hash 不满足都必须 `STRUCTURED_BLOCKED`，不得创建 fixture、manifest 或启动业务 Playwright。
+- RUNTIME READ-ONLY: `http://127.0.0.1:8081` -> HTTP `200`；`http://127.0.0.1:48081/actuator/health` -> `UP`。仅执行 `GET/HEAD`，未登录、未记录凭据。
+- ROUTE READ-ONLY: route `922119` 当前仅有一个 ACTIVE 版本，仍为 `632 / V29 / ACTIVE`；其后续不存在更高版本，当前工序 `9908090160..9908090173` 共 `14` 道。
+- DCC IDENTITY READ-ONLY: V29 产品快照包含 `902149`，并包含路线项目物料 `924005 / code=ID / 球囊扩张压力泵`；启用 DCC 项目唯一精确命中 `ID / 球囊扩张压力泵`。`IDPR` 是另一启用项目，名称为按压式球囊扩张压力泵，不得替代。
+- PROCESS INSPECTION TEMPLATE READ-ONLY: template `28` 最新 PUBLISHED 仍为 `versionId=32 / V3.0`，正式识别内容命中 `PQC-IDPR-001`；与当前产品 DCC `ID` 不一致，过程检验模板身份门禁不通过。
+- QA PROVENANCE READ-ONLY: 按 `productId=902149 + routeId=922119 + stable processId` 选出的 14 条最新 PUBLISHED QA 中，仅清洗工序 `9908090162` 命中 `PQC-ID-001-RP980647 / versionId=54 / G/0`；其余 `13/14` 为 `RRM-*`，不具备 `PQC-ID-*` 正式 provenance。
+- QA EQUIPMENT READ-ONLY: 仅清洗工序设备关联完整；其余 `13/14` 工序仍有缺口，共缺 `44` 个 required-item equipment 关联，不能进入正式放行资料生成。
+- DYNAMIC SNAPSHOT READ-ONLY: V29 `PROCESS_INSPECTION` 绑定 `14` 条、`LOSS_REPORT` 绑定 `14` 条；两类绑定的 `record_category_snapshot_hash` 与 `slot_config_snapshot_hash` 均为 `0/14` 非空。
+- STRUCTURED_BLOCKED: 当前同时存在模板 DCC 身份不一致、QA provenance `1/14`、设备完整 `1/14`、动态快照 hash `0/14` 四类正式阻塞；P7-AC1/P7-AC2/P7-AC3 仍未满足，未启动 fixture manifest、真实业务 Playwright 或最终只读业务断言。
+- SIDE EFFECT AUDIT: `browserBusinessWrites=0`、`businessApiWrites=0`、`sqlWrites=0`、`manifestCreated=false`；未改 `task-state.json`、`test-report.md`、开发计划、PRD、测试计划或生产代码。
+- INDEPENDENT TEST: tester 对同一实时 int_main/正式数据只读门禁复核通过，`test-report.md` 记录 blocker evidence `PASS/RELEASED`；P7 仍 `BLOCKED / NOT COMPLETE`，P7 AC `0/3`，并独立确认 template IDPR、QA `1/14`、设备完整 `1/14`/缺 44、PI/LOSS hash `0/14` 与四类副作用为 0。
+- MAIN REVIEW: executor 严格停在首次业务写前，未创建 manifest/fixture/业务 spec；tester 未修改生产代码或主状态。主线程同步 `task-state.json`，保持 P7 blocked/test_status running，不推进阶段。
+- FINAL STRUCTURE: `task-state.json` UTF-8 JSON parse PASS；任务范围 `git diff --check` 无 whitespace error，仅现有 LF/CRLF 转换提示；无本任务 Surefire 或 vue-tsc 残留进程。
+
+## 2026-08-13 PRD correction - correspondence only
+
+- USER INTENT: 用户明确“这里只做对应关系，数据生成是生产组长点击申请放行的时候再生成；点击的时候不会出现数量不一致，也不存在复核人的时间逻辑问题”。
+- BDD: 对应关系配置不生成数据 -> Given 用户在批记录单元格链接页面为当前工序配置一线生产元素到批记录表单单元格/重复行的对应关系；When 保存配置；Then 系统只保存 source-to-cell 规则，不创建批记录正式数据、field audit、签名证据、FormCenter instance、release dossier 或待办。
+- BDD: 申请放行时按提交顺序使用重复行 -> Given 当前工序目标表单配置了由用户选择的重复行组，且一线生产历史已经完成；When 生产组长点击申请放行；Then 后端按提交顺序把每次提交写入下一条未使用重复行，未用到的重复行保持空白，重复行数量来自表单结构和用户配置而非全局固定 4 行。
+- DOC UPDATE: `prd.md` 已补齐 Scope、Non-Goals、User Scenarios、Functional Requirements 和 Acceptance Criteria，明确配置阶段只做对应关系，真正数据生成在申请放行事务内发生。
+- EXPERIENCE GATE: 已核对既有长期经验 `docs/backend-development.md#批记录单元格链接预填落库边界`，其中已明确配置保存、一线生产事实形成、申请放行资料生成是三个独立阶段；本轮仅把该门禁补入任务文档，不新建长期经验文档。

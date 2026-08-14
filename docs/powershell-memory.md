@@ -180,6 +180,15 @@
 - Forbidden action: 禁止把 PowerShell 参数拆分错误误判为产品编译失败；禁止移除 `-am` 或改成更宽测试作为绕过。
 - Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码。
 
+### PowerShell JDBC/JShell 中文证据输出门禁
+
+- Trigger: 在 PowerShell 中通过 JShell、JDBC 或 Java 小脚本读取 MySQL 中文业务数据，并把结果作为任务证据或迁移源核对。
+- Preflight check: 终端输出即使设置 `$OutputEncoding` 与 `-J-Dfile.encoding=UTF-8` 仍可能出现中文乱码；关键证据必须由 Java 端用 `Files.writeString(..., StandardCharsets.UTF_8)` 写入任务文件，再用 `Get-Content -Encoding utf8` 或 Node UTF-8 API 读取复核。
+- Blocker: 只看到终端乱码且未生成 UTF-8 文件证据时，不得据此编写中文迁移、判断业务名称或记录验收结论。
+- Verification: 记录 UTF-8 证据文件路径、文件大小、关键中文字段复读结果，以及最终 SQL/任务文档未出现乱码。
+- Forbidden action: 禁止把 JShell/PowerShell 乱码输出直接复制进 SQL、Markdown 或验收报告；禁止用乱码等价匹配替代正式中文业务键。
+- Evidence: `doc/tasks/20260812-dcc-qa-idi-backend-persistence/execution-log.md`，IDI QA 固化中 JDBC 终端输出乱码，改为写入 `idi-db-source-dump.tsv` 与 `idi-db-apply-verification.txt` 后复核中文业务键。
+
 ### Maven 单模块陈旧依赖门禁
 
 - Trigger: 在多模块 Maven 项目中只运行单模块目标测试，失败发生在测试启动前，错误指向上游模块 API、DTO、枚举、Mapper 或 service contract 缺失/签名不一致。
@@ -193,10 +202,11 @@
 
 - Trigger: 已修改当前模块 main 源码的方法签名、构造器参数或 mapper 默认方法，但 `mvn -pl <module> -am "-Dtest=..." test` 在 testCompile 阶段仍报旧签名、旧构造器或“找不到刚新增的方法”，且日志显示 main `compile` 为 `Nothing to compile - all classes are up to date`。
 - Preflight check: 先确认生产源码确实包含新签名，再只对当前目标模块运行 `mvn -pl <module> clean test "-Dtest=..." "-Dsurefire.failIfNoSpecifiedTests=false"`；不得清理无关模块 target。
+- Preflight check: 若目标测试已进入 Surefire 但异常行为与当前源码明显不一致，必须检查 `target/test-classes` 是否残留与 `target/classes` 同路径的生产 `.class`；Surefire 会优先加载测试输出目录，旧生产类会覆盖当前正式编译结果。确认污染后优先精确清除重复生产类；若安全策略或并发写入不允许精确删除，则只对当前模块运行标准 `mvn clean` 并重新验证。
 - Blocker: 当前模块 `clean` 后仍看见旧签名、`target` 删除失败、或存在并行 Maven 写同一模块 target 时，必须停止并按目标目录异常门禁处理。
-- Verification: 记录第一次未重编译的失败、`clean test` 是否进入 Surefire、目标测试数量和 PASS/FAIL。
-- Forbidden action: 禁止把同模块陈旧 class 的 testCompile 失败当成业务失败；禁止靠修改测试绕过旧 class；禁止用全仓清理替代当前模块最小 clean。
-- Evidence: `doc\tasks\20260808-active-order-product-search\execution-log.md`，活跃订单产品搜索新增 `MesMdItemMapper` 构造器依赖和 mapper 方法后，`-pl yudao-module-mes -am` testCompile 仍看到旧 class；仅清理 `yudao-module-mes` 后 main 重新编译，43 个目标测试 PASS。
+- Verification: 记录第一次未重编译或旧类覆盖的失败、重复生产类计数、`clean test` 是否进入 Surefire、目标测试数量和 PASS/FAIL。
+- Forbidden action: 禁止把同模块陈旧 class 的 testCompile 失败当成业务失败；禁止把 `target/test-classes` 旧生产类覆盖导致的 Surefire 失败当成当前源码缺陷；禁止靠修改测试绕过旧 class；禁止用全仓清理替代当前模块最小 clean。
+- Evidence: `doc\tasks\20260808-active-order-product-search\execution-log.md`，活跃订单产品搜索新增 `MesMdItemMapper` 构造器依赖和 mapper 方法后，`-pl yudao-module-mes -am` testCompile 仍看到旧 class；仅清理 `yudao-module-mes` 后 main 重新编译，43 个目标测试 PASS。`doc/tasks/20260811-process-pool-report-cell-link-config/execution-log.md`，报工字段映射验证中 Surefire 已进入目标测试但仍执行旧动态表单逻辑，最终定位 `target/test-classes` 残留 19 个生产类覆盖 `target/classes`；执行当前模块 `mvn clean` 后批记录链接全类 19/19 和相邻回归 15/15 PASS。`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，DCC-QA 定向测试异常堆栈与当前源码不一致时再次确认同类污染，当前 MES 模块标准 `mvn clean` 后生产/测试编译及 19 个核心测试通过。
 
 ### Maven 静态源码合同工作目录门禁
 

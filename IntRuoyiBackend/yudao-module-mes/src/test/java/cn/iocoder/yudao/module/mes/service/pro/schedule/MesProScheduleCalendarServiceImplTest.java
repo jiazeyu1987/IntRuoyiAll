@@ -403,6 +403,59 @@ class MesProScheduleCalendarServiceImplTest {
     }
 
     @Test
+    void refreshPlanCapacityForShiftHours_shouldUpdateEveryShiftOnceAndEveryLineCapacity() {
+        MesProScheduleCalendarSimulationDO simulation = MesProScheduleCalendarSimulationDO.builder()
+                .id(11L)
+                .currentDate(LocalDateTime.of(2026, 5, 13, 0, 0))
+                .build();
+        MesMdProductionLineDO firstLine = MesMdProductionLineDO.builder()
+                .id(600L)
+                .code("LINE-01")
+                .name("Line 01")
+                .calendarPlanId(800L)
+                .build();
+        MesMdProductionLineDO secondLine = MesMdProductionLineDO.builder()
+                .id(601L)
+                .code("LINE-02")
+                .name("Line 02")
+                .calendarPlanId(800L)
+                .build();
+        MesCalPlanShiftDO dayShift = MesCalPlanShiftDO.builder()
+                .id(801L)
+                .planId(800L)
+                .sort(1)
+                .name("Day")
+                .startTime("08:00")
+                .endTime("14:00")
+                .build();
+        MesCalPlanShiftDO nightShift = MesCalPlanShiftDO.builder()
+                .id(802L)
+                .planId(800L)
+                .sort(2)
+                .name("Night")
+                .startTime("20:00")
+                .endTime("02:00")
+                .build();
+        when(simulationMapper.selectByTenantId(1L)).thenReturn(simulation);
+        when(productionLineMapper.selectListByStatus(0)).thenReturn(List.of(firstLine, secondLine));
+        when(planShiftService.getPlanShiftListByPlanId(800L)).thenReturn(List.of(dayShift, nightShift));
+
+        service.refreshPlanCapacityForShiftHours(new BigDecimal("8"));
+
+        verify(planShiftMapper).updateEndTimeById(801L, "16:00");
+        verify(planShiftMapper).updateEndTimeById(802L, "04:00");
+        verify(planShiftMapper, times(2)).updateEndTimeById(anyLong(), anyString());
+        verify(capacityPlanMapper).updateCapacityMinutesByLineAndShiftFromDate(
+                600L, 801L, LocalDate.now().atStartOfDay(), 480);
+        verify(capacityPlanMapper).updateCapacityMinutesByLineAndShiftFromDate(
+                600L, 802L, LocalDate.now().atStartOfDay(), 480);
+        verify(capacityPlanMapper).updateCapacityMinutesByLineAndShiftFromDate(
+                601L, 801L, LocalDate.now().atStartOfDay(), 480);
+        verify(capacityPlanMapper).updateCapacityMinutesByLineAndShiftFromDate(
+                601L, 802L, LocalDate.now().atStartOfDay(), 480);
+    }
+
+    @Test
     void circularReferenceProneCollaborators_shouldUseLazyInjection() throws NoSuchFieldException {
         assertLazyInjected("workOrderService");
         assertLazyInjected("routeService");

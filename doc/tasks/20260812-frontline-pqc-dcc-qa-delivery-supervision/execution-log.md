@@ -263,3 +263,183 @@
 - GREEN: DF08 fast-forward merge -> PASS，int_main 从 8e156fbf8 fast-forward 到 7d9f41e92；合并后 HEAD..task/20260812-frontline-pqc-dcc-qa-df08 无差异。
 - GREEN: DF08 worktree cleanup -> PASS，DF08 worktree 已删除；端口登记中 DF08 active=false，slot 18 无 active 占用，8099/48099 无监听。
 - NOTE: 未 push、未部署、未启动服务、未操作远程服务器或共享业务数据。主工作区其它既有并发脏改动保持原状。
+
+## 2026-08-13 06:34:00 +0800 Wave 6 DF09 dispatch
+
+- GREEN: DF09 dependency gate -> PASS，DF08 在 task-state.json 中为 completed，且 DF08 收尾提交 94fdce5c0 位于 int_main HEAD。
+- GREEN: DF09 worktree gate -> PASS，新建 D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df09，分支 task/20260812-frontline-pqc-dcc-qa-df09，HEAD 为 94fdce5c0。
+- GREEN: DF09 port reservation -> PASS，slot 18 已登记 active，前端 8099、后端 48099；当前 DF09 不启动服务，仅保留隔离运行资格。
+- DF09 owner: /root/df09_worker。
+- DF09 write scope: 仅限 PQC task mapper/overlay、production event/process snapshot helper、MesFrontlinePqcTaskOverlayTest、MesFrontlineProductionSubmitCandidateTest 及 DF09 自有任务记录；禁止过滤外层 QA 工序/检验项目，禁止修改最终 controller/page submit flow。
+
+## 2026-08-13 07:35:00 +0800 DF09 verification and merge
+
+- RED: supervisor-added DF09 stable sorting scenario -> FAIL，原实现按输入顺序输出 [1004, 1003, 1001, 1002]，期望按 businessDate、FIRST/PATROL_AM/PATROL_PM/FINAL、roundNo、taskId 输出 [1001, 1002, 1003, 1004]。
+- GREEN: DF09 target Maven -> PASS，MesFrontlinePqcTaskOverlayTest 与 MesFrontlineProductionSubmitCandidateTest 共 6 tests / 0 failures / 0 errors / 0 skipped。
+- GREEN: DF09 static gates -> PASS，git diff --check、未跟踪文件空白扫描、禁止项扫描、backend-api evidence validator 均通过。
+- GREEN: DF09 implementation commit -> PASS，提交 a386dc0da feat(mes): add frontline PQC task overlay，仅包含 DF09 归属的 5 个后端/测试文件和 4 个任务证据文件。
+- GREEN: DF09 fast-forward merge -> PASS，int_main 从 94fdce5c0 fast-forward 到 a386dc0da；合并前主线旧的未跟踪 DF09 文档副本已按 current-task 精确文件路径删除，由 a386dc0da 中的正式版本替换。
+- GREEN: DF09 worktree cleanup -> PASS，D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df09 已删除；端口登记中 DF09 active=false，slot 18 releasedAt/deletedAt=2026-08-13T07:42:00+08:00，8099/48099 无监听。
+- GREEN: branch runtime guard -> PASS，int_main 仍使用 frontend 8081 / backend 48081。
+- NOTE: 未 push、未部署、未启动服务、未操作远程服务器或共享业务数据。主工作区其它既有并发脏改动保持原状。
+## 2026-08-13 07:55:00 +0800 Wave 7 DF10/DF11 dispatch
+
+- GREEN: DF10 dependency gate -> PASS, DF02/DF07/DF08/DF09 are completed and DF09 commit a386dc0da is int_main HEAD.
+- GREEN: DF11 dependency gate -> PASS, DF08/DF09 are completed and both tasks have disjoint backend/frontend write scopes.
+- GREEN: DF10 worktree gate -> PASS, D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df10 exists on branch task/20260812-frontline-pqc-dcc-qa-df10 at a386dc0da; port registry active slot 13, frontend 8094, backend 48094.
+- GREEN: DF11 worktree gate -> PASS, D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df11 exists on branch task/20260812-frontline-pqc-dcc-qa-df11 at a386dc0da; port registry active slot 14, frontend 8095, backend 48095.
+- DF10 owner: /root/df10_worker. Scope: dedicated frontline PQC backend projection, MesFrontlinePqcContextService*, MesFrontlinePqcProcessRespVO*, MesFrontlinePqcContextServiceTest*, and DF10 task records only.
+- DF11 owner: /root/df11_worker. Scope: frontline PQC frontend API/types/static contract, src/api/mes/pro/feedback/**, src/api/mes/qc/template/index.ts, tests/e2e/frontline-pqc-qa-process-contract-static.spec.cjs, and DF11 task records only; page components remain for INT12.
+- NOTE: No services started, no shared business data changed, no remote server/deploy operation performed.
+
+## 2026-08-13 08:05:00 +0800 Wave 7 DF10/DF11 recovery redispatch
+
+- BLOCKER CLEARED: /root/df10_worker and /root/df11_worker exceeded the wait window without returning RED/GREEN or blocker status; supervisor interrupted both to prevent concurrent writes.
+- GREEN: DF10 worktree recovery check -> PASS, DF10 only has untracked task evidence docs and no product-code diff; worktree remains on task/20260812-frontline-pqc-dcc-qa-df10 at a386dc0da with slot 13.
+- GREEN: DF11 worktree recovery check -> PASS, DF11 has task evidence docs plus one untracked static contract test draft and no page/backend/schema diff; worktree remains on task/20260812-frontline-pqc-dcc-qa-df11 at a386dc0da with slot 14.
+- GREEN: Redispatch -> PASS, DF10 reassigned to /root/df10_worker_2 and DF11 reassigned to /root/df11_worker_2. Existing task docs/test draft are preserved; new workers must continue from them and produce real RED/GREEN evidence.
+
+## 2026-08-13 08:15:00 +0800 DF11 second recovery redispatch
+
+- BLOCKER CLEARED: /root/df11_worker_2 did not return RED/GREEN after follow-up and had no visible target command running; supervisor interrupted it to avoid idle ownership.
+- GREEN: DF11 worktree check -> PASS, only DF11 task docs and the static contract draft are present; no page/backend/schema/主管状态文件 were modified in the DF11 worktree.
+- GREEN: DF11 redispatch -> PASS, DF11 reassigned to /root/df11_worker_3 with the same write scope and a direct instruction to run the existing static contract as RED before implementation.
+
+## 2026-08-13 08:58:00 +0800 Wave 7 DF10/DF11 implementation ready for independent verification
+
+- GREEN: DF10 supervisor completion -> PASS, after /root/df10_worker_2 returned incomplete, supervisor fixed NOT_CREATED rule-key semantics, reran target Maven, and recorded evidence. MesFrontlinePqcContextServiceTest 4 tests / 0 failures / 0 errors; backend-api validator PASS; git diff --check PASS; production introduced forbidden-source scan PASS.
+- GREEN: DF11 supervisor completion -> PASS, after /root/df11_worker_3 stalled with code changes but no evidence, supervisor ran isolated baseline RED, node GREEN, pnpm install --frozen-lockfile for missing worktree node_modules, pnpm ts:check PASS, frontend validator PASS, git diff --check PASS, and introduced forbidden-source scan PASS.
+- NOTE: DF10/DF11 are not marked completed yet; both require independent tester PASS before commit/merge/cleanup or INT12 dispatch.
+
+## 2026-08-13 12:25:00 +0800 Wave 7 round-2 independent verification
+
+- TEST FAIL: DF10 round-2 independent gate -> FAIL. The production-submit candidate gap from round 1 is fixed and the focused Maven suite passes, but the dedicated response still omits the frozen contract's inspectionTypeRules, taskSummary, task-option ruleSort/inspectionTypeRule/taskStatus, and complete published-version item fields.
+- TEST FAIL: DF11 round-2 independent gate -> FAIL. Required task-option fields are no longer optional, but the frontend contract still omits inspectionTypeRules, taskSummary, ruleSort/inspectionTypeRule/full task states, keeps the old workOrderId+routeId helper, uses a non-frozen endpoint path, lacks stable projection/stale-response evidence, and modified a page outside DF11 ownership.
+- GREEN: supervisor state gate -> PASS. DF10 and DF11 remain needs_revision; INT12 and VAL13 remain pending and were not dispatched.
+- REVIEW FIX: DF10 returned to /root/df10_fix_worker and DF11 returned to /root/df11_worker_3 with only the round-2 findings, frozen interface contract, strict TDD, and original ownership constraints. A third independent pass will be required before merge.
+- NOTE: No commit, merge, worktree cleanup, service start, deployment, or business-data write was performed for this failed gate.
+
+## 2026-08-13 16:05:00 +0800 DF11 narrow typecheck scope clarification
+
+- BLOCKER: The strict DF11 API DTO correctly makes task identity, status, ruleSort, and inspectionTypeRule mandatory, but the existing page-local PQC snapshot omits those fields, so pnpm ts:check fails.
+- REVIEW: The frozen DF11 plan simultaneously requires pnpm ts:check PASS and says page components are owned by INT12. The local snapshot adapter is the direct compile consumer of the strict DTO, so leaving it unchanged makes DF11's own completion gate impossible.
+- SCOPE CLARIFICATION: DF11 may perform only a minimal local snapshot type/pass-through update in FrontlineFixedTemplatePanel.vue and its existing frontlineDeviceEmployeeContext helper. Rendering, interaction, loading semantics, selection, submission, and other final page behavior remain owned by INT12.
+- NO EXPANSION: This clarification does not authorize fallback, optional API fields, compatibility response shapes, endpoint duplication, or any business-flow change.
+
+## 2026-08-13 16:35:00 +0800 Wave 7 round-2 repairs ready for retest
+
+- GREEN: DF10 repair -> PASS, target Maven MesFrontlinePqcContextServiceTest 5 tests / 0 failures / 0 errors; backend evidence validator, diff check, full-contract scan, no-inference/no-fallback scans and UTF-8 evidence checks pass.
+- GREEN: DF11 formal DTO/projection -> PASS, node focused contract verifies exact activeOrderId endpoint, old-helper removal, complete rule/summary/item/task/candidate DTOs, reverse-order AM/PM stability, active-order stale-response rejection, and removal of process-field task synthesis.
+- GREEN: DF11 type regression -> PASS, pnpm ts:check exit 0 after the page consumes only formal pqcTaskOptions and the active-order consumer rejects superseded responses before state mutation.
+- GREEN: DF11 static gates -> PASS, frontend evidence validator and git diff --check pass; no fallback, optional compatibility DTO, mock/default success, formBindings, NUMBER/CHOICE alias, or legacy request was introduced.
+- RED: DF11 runtime-consumer stale isolation -> FAIL, static contract showed the active-order consumer itself lacked a request token even though the standalone projection loader had one.
+- GREEN: DF11 runtime-consumer stale isolation -> PASS, selectFrontlinePqcActiveOrder now rejects superseded responses before mutating processOptions; the page ignores only the explicit superseded-request signal.
+- RED: DF11 canonical item fields -> FAIL, frontend API/page still retained acceptanceStandard/processInspectionMethod aliases that are not in the frozen published-version contract.
+- GREEN: DF11 canonical item fields -> PASS, API/page now consume standardText/inspectionMethod only; node contract and pnpm ts:check both pass.
+- RED: DF11 canonical resultType -> FAIL, page numeric control still accepted NUMBER/DECIMAL/MEASURE/MEASURED_VALUE aliases.
+- GREEN: DF11 canonical resultType -> PASS, page numeric control now branches only on typed NUMERIC; node contract and pnpm ts:check pass.
+- NOTE: DF10 and DF11 remain in_progress until a third independent tester pass. No commit, merge, cleanup, service start, deployment, or business-data write has occurred.
+- RED: DF11 duplicate active-order identity -> FAIL, refresh selection still compared workOrderId + routeId and could preserve a different active-order row with the same order/route.
+- GREEN: DF11 duplicate active-order identity -> PASS, cache identity, refresh retention, selection and process request now all use activeOrderId; node contract and pnpm ts:check pass.
+- NOTE: development-plan-supervisor resume script is incompatible with this supervised-complex-delivery artifact schema: it requires development-plan.md/current_phase, while this approved task uses dev-plan.md/current_stage. No files were generated or rewritten; supervision continues with the existing supervised-complex-delivery task-state contract.
+
+## 2026-08-13 21:08:00 +0800 Machine-restart recovery
+
+- GREEN: supervisor recovery gate -> PASS, active goal and supervised task artifacts remain present; design release run `20260812T001009Z-e59e06` still records `final_decision: pass`.
+- GREEN: Git/worktree recovery -> PASS, `int_main` remains at `a386dc0da`; DF10 and DF11 worktrees remain under `D:/IntRuoyiWorktree`, each on its original task branch and base commit with task-owned diffs preserved.
+- GREEN: concurrency recovery -> PASS, no child Agent survived the restart; effective capacity remains three working child Agents plus the supervisor.
+- TEST INCOMPLETE: neither DF10 nor DF11 has `independent-test-report-round-3.md`; prior round-2 FAIL reports remain historical evidence only. Round 3 is re-dispatched and neither task is released, committed, merged, or cleaned yet.
+- NOTE: No service was started, no port was claimed, and no business data, remote server, push, or deployment operation was performed during recovery.
+
+## 2026-08-13 22:20:00 +0800 DF10 round-3 independent gate and remediation scope
+
+- TEST FAIL: DF10 round-3 independent gate -> FAIL. A clean Maven reactor compile fails before tests because the dedicated PQC item VO removed `acceptanceStandard/processInspectionMethod` while its controller converter still calls the two obsolete setters.
+- TEST FAIL: DF10 frozen dependency contract -> FAIL. The projection duplicates regulation/version/process/item mapper reads instead of calling DF07's locked-version service boundary.
+- ROOT CAUSE: DF07 implemented only `getLockedVersionProcessesForOrder`, although the frozen design requires a full `getLockedVersionForOrder` aggregate consumed by DF08/DF10; DF10 copied the missing aggregate responsibility into a private resolver.
+- SCOPE AMENDMENT: DF10 round-3 remediation owns the locked-version method only in QA service/interface/test, migration of DF10 to that full aggregate, and deletion of the two obsolete setters in the dedicated PQC controller converter. The production-route converter at the later call site remains unchanged.
+- NO FALLBACK: Compatibility fields will not be restored. Management `getPublishedVersion/getCurrent`, production-route response, frontend, schema and mappers remain out of scope.
+- RED: `mvn -pl yudao-module-mes -am "-DskipITs" "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, yudao-module-mes compilation error at the two obsolete dedicated-PQC setters; tests did not run.
+- NOTE: The supervised-complex-delivery package contains no task-state validator script; task-state JSON was instead parsed successfully with `ConvertFrom-Json` after the scope update. This is a tooling absence, not an implementation fallback.
+
+## 2026-08-13 22:30:00 +0800 DF11 round-3 independent gate and remediation scope
+
+- TEST FAIL: DF11 round-3 independent gate -> FAIL. The actual picker still keys and compares rows by `workOrderId + routeId`, so duplicate active-order rows share identity despite the formal activeOrderId contract.
+- TEST FAIL: DF11 strict task source -> FAIL. The API DTO and page still flatten selected task fields onto the process while also exposing `pqcTaskOptions`, leaving two task authorities.
+- TEST GAP: The executable stale-response scenario exercises an unused loader; the real `selectFrontlinePqcActiveOrder` request-token path is checked only as source text.
+- SCOPE AMENDMENT: DF11 round-3 remediation owns only activeOrderId picker identity, removal of flattened task fields/adapter, an executable real-consumer out-of-order test, and deletion of the two unused projection/order abstractions.
+- NO EXPANSION: Personnel, equipment, submission, backend, route management, and other final INT12 interactions remain unchanged. No fallback or optional compatibility DTO is authorized.
+
+## 2026-08-13 22:35:00 +0800 Wave 7 round-3 remediation dispatch
+
+- DF10 owner: `/root/df10_round3_worker`; works only in the existing DF10 worktree and the amended DF10 scope. The independent reviewer is not reused as executor.
+- DF11 owner: `/root/df11_round3_worker`; works only in the existing DF11 worktree and the amended DF11 scope. The independent reviewer is not reused as executor.
+- CONCURRENCY: DF10 backend and DF11 frontend write scopes are disjoint; neither may edit supervisor state or the other worktree.
+
+## 2026-08-14 00:05:00 +0800 Round-3 remediation timeout handoff
+
+- BLOCKER CLEARED: The first DF10/DF11 remediation workers did not produce a RED/GREEN result within the tightened wait window. They were interrupted before any test command was left running.
+- PRESERVED WORK: DF10 left the intended QA service aggregate signature/implementation edits in its worktree; DF11 left the intended activeOrderId identity and single-task-source edits plus strengthened static tests. No worktree content was discarded.
+- HANDOFF ATTEMPT: DF10 and DF11 were first resumed on their original agents because the slots appeared occupied after interruption. The later live-agent snapshot established those two were interrupted and the fresh DF10 finisher existed; the correction below is authoritative.
+- RECOVERY CORRECTION: The fresh DF10 finisher dispatch was delayed by the concurrency gate but did create `/root/df10_round3_finisher`; it is now the active DF10 owner. DF11 remains temporarily unassigned until its separate finisher dispatch succeeds.
+- RECOVERY INSPECTION: DF10 currently has only the QA service signature/implementation half of the intended migration; the context service and tests still use the duplicated private mapper resolver and old process-only method names. DF11 source contains the intended identity/task-source fixes and strengthened static test draft. Neither task is treated as GREEN.
+
+## 2026-08-14 00:45:00 +0800 DF10 remediation GREEN and DF11 finisher dispatch
+
+- GREEN: DF10 combined regression -> PASS, `MesQaInspectionRegulationServiceTest` plus `MesFrontlinePqcContextServiceTest` ran 18 tests with zero failures/errors.
+- GREEN: DF10 contract -> PASS, runtime projection consumes the full `getLockedVersionForOrder` aggregate; the private mapper aggregate is removed; the dedicated PQC converter drops old aliases while the production-route mapping remains unchanged.
+- GREEN: DF10 static/evidence gates -> PASS, backend API validator, bug-regression validator, diff check and precise forbidden scans pass. Task remains unmerged pending independent re-verification.
+- HANDOFF: DF11 now assigned to `/root/df11_round3_finisher` for immediate Node/typecheck/evidence verification and only actual-failure repair.
+
+## 2026-08-14 01:15:00 +0800 DF11 remediation GREEN
+
+- GREEN: DF11 node static -> PASS, frontline PQC process contract preserves full DTOs, formal activeOrderId identity, stable AM/PM order and real stale isolation.
+- GREEN: DF11 typecheck -> PASS, `pnpm ts:check` exit 0.
+- GREEN: DF11 evidence/static gates -> PASS, frontend-feature validator, bug-regression validator, diff check and forbidden scans all pass; diff check only reports LF/CRLF working-copy warnings.
+- GREEN: DF11 contract -> PASS, production source no longer has workOrderId+routeId picker identity, process-level flattened task reads, unused projection loader/rule-order export, or old active-order process helper.
+- NOTE: DF10 and DF11 remain unmerged and require independent re-verification before Wave 8 INT12 dispatch.
+
+## 2026-08-14 03:45:00 +0800 Wave 7 round-4 independent verification
+
+- GREEN: DF10 round-4 independent verification -> PASS. Target Maven ran 18 tests / 0 failures / 0 errors / 0 skipped; backend evidence validator, bug-regression validator, diff check and precise scans passed.
+- GREEN: DF10 contract review -> PASS. Runtime projection consumes `MesQaInspectionRegulationService#getLockedVersionForOrder`; private locked QA mapper aggregate is absent; dedicated PQC converter old aliases are absent and production-route mapping is unchanged.
+- GREEN: DF11 round-4 independent verification -> PASS. Node static contract, pnpm ts:check, frontend-feature validator, bug-regression validator, diff check and precise added-line/owned-file scans passed.
+- GREEN: DF11 contract review -> PASS. activeOrderId is the picker/request/cache identity; task identity is read only from pqcTaskOptions plus page-local selected task id; real consumer stale isolation is covered; unused production loader/rule-order exports are absent.
+- NOTE: DF10 and DF11 are ready for commit/merge decision. No commit, merge, cleanup, service start, deploy, remote operation, or business-data write has been performed in this recovery pass.
+
+## 2026-08-14 04:05:00 +0800 Commit and merge gate
+
+- BLOCKED: `E:/IntRuoyi` is on `int_main...origin/int_main [ahead 1]` with extensive unrelated tracked and untracked changes. The dirty state includes many DCC/MES/frontline/task-doc files outside DF10/DF11 ownership.
+- IMPACT: DF10 and DF11 implementation worktrees are verified and ready for closeout, but committing/merging into `int_main` now risks mixing unrelated user/concurrent-task changes or merging against a non-clean baseline.
+- DECISION: Stop before Git commit/merge/cleanup. No task branch commit, fast-forward merge, worktree deletion, service start, push, deployment, or business-data write was performed.
+- NEXT ACTION REQUIRED: User must explicitly authorize one of: handle/commit the unrelated `int_main` dirty baseline first, isolate a clean main worktree for merge, or stop at verified-ready state.
+
+## 2026-08-14 04:25:00 +0800 Documentation and experience closeout
+
+- GREEN: DF10/DF11 round-4 supervisor records -> PASS, `task.md` and `test-report.md` now record both independent PASS results and the current merge blocker.
+- GREEN: project experience consolidation -> PASS, reusable lesson merged into `docs/worktree-memory.md#并行子-agent-控制权隔离门禁` and routed from `docs/experience-index.md`; no new long-term document was created.
+- GREEN: documentation verification -> PASS, UTF-8 readback passed for changed Markdown files; `rg` finds the new experience keywords; `git diff --check` passed with only LF/CRLF working-copy warnings.
+- NOTE: No production code, service, database, remote server, push, commit, merge, cleanup, or business data was changed in this documentation closeout.
+
+## 2026-08-14 05:15:00 +0800 DF10/DF11 clean integration verification
+
+- GREEN: DF11 branch integration -> PASS, task/20260812-frontline-pqc-dcc-qa-df11 merged task/20260812-frontline-pqc-dcc-qa-df10 with merge commit 817687224; no merge conflicts occurred in the clean DF11 worktree.
+- GREEN: Combined backend verification -> PASS, Maven ran MesQaInspectionRegulationServiceTest and MesFrontlinePqcContextServiceTest, 18 tests with 0 failures, 0 errors and BUILD SUCCESS.
+- GREEN: Combined frontend verification -> PASS, frontline-pqc-qa-process-contract-static.spec.cjs passed and pnpm ts:check exited 0.
+- GREEN: Static/evidence gates -> PASS, git diff --check, scripts/preflight/branch-runtime-port-guard.ps1, backend-api validator, frontend-feature validator, both bug-regression validators and precise forbidden-source scans passed.
+- BLOCKER: Main workspace merge protection found E:/IntRuoyi has 6 overlapping dirty files. A binary patch was saved at D:/IntRuoyiWorktree/.merge-protect/20260814-df10-df11/unstaged.patch and cached patch length is 0.
+- BLOCKER DETAIL: The patch can cleanly apply to 4 files on integrated HEAD, but MesFrontlinePqcContextServiceImpl.java and FrontlineFixedTemplatePanel.vue would apply with conflicts. The backend conflict includes an older local private QA source path that conflicts with the verified MesQaInspectionRegulationService#getLockedVersionForOrder contract, so supervisor stopped before fast-forwarding int_main.
+- NOTE: No E:/IntRuoyi files were restored, merged, staged, committed, deleted, or cleaned in this pass; no service, database, remote server, push, deploy or business-data operation was performed.
+## 2026-08-14 05:25:00 +0800 Read-only merge feasibility check
+
+- GREEN: Fast-forward ancestry -> PASS, git merge-base --is-ancestor int_main task/20260812-frontline-pqc-dcc-qa-df11 returned exit 0. The integrated branch 817687224 can fast-forward int_main at Git graph level.
+- GREEN: Integrated branch remains clean -> PASS, task/20260812-frontline-pqc-dcc-qa-df11 has no uncommitted changes after DF10+DF11 integration verification.
+- BLOCKER CONFIRMED: The only remaining merge blocker is E:/IntRuoyi dirty overlap on 6 files; patch stat is 303 insertions and 136 deletions. Two overlapping files conflict with integrated HEAD: MesFrontlinePqcContextServiceImpl.java and FrontlineFixedTemplatePanel.vue.
+- NEXT SAFE BASE: 817687224 is the verified base for INT12 after the user decides how to handle the conflicting main-workspace local patch.
+- GREEN: git merge --ff-only task/20260812-frontline-pqc-dcc-qa-df11 -> PASS，int_main=817687224。
+- Verification: DF10/DF11 集成分支后端 18 tests PASS、前端静态合同与 ts:check PASS、四类 evidence validator PASS；主线 branch runtime guard 与 diff check PASS。
+- 保护策略：unstaged.patch SHA256=58BCFA26BF58932B8D10AE37E4626B8378B79BAA923152493560106BD9233D1E；冲突的后端服务实现和前端主页面旧改动未恢复；4 个无冲突文件已选择性恢复。
+
+- Cleanup: DF10/DF11 已合入 int_main 817687224 后执行 task-closeout-cleanup preview/apply（worktree-closeout off）并完成注册 worktree 移除；8094/48094、8095/48095 无监听，端口登记已释放。DF11 目录仍残留被 Git 忽略的 node_modules/build 输出，未做递归强制删除，待最终收尾按精确目录清理。
+
+- INT12 RED: 冻结 Maven 命令虽执行 33 个既有测试并通过，但 MesFrontlinePqcEmployeeSwitchServiceTest、MesFrontlinePqcSubmissionConcurrencyTest 等冻结测试类缺失，不能作为 GREEN；runtime static 因 switch 仍使用 workOrderId/routeId 失败，formal-submit static 因缺正式 QA/task identity 失败。执行 Agent 正在补正式身份、task 行锁/hash/event 和全链 resultType。
+- Cleanup recovery: Git 已注销但残留的 DF11 ignored node_modules/build 输出已从原 worktree 路径移入可恢复隔离目录 D:\IntRuoyiWorktree\.cleanup-trash\20260814-frontline-pqc-dcc-qa-df11-residual；原 DF11 worktree 路径现不存在，未递归删除残留数据。

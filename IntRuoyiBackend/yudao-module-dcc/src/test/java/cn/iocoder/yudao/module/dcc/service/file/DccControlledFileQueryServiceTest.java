@@ -47,7 +47,6 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileAccessE
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileDownloadRecordMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileWatermarkTraceMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentFileMapper;
-import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileProcessTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
@@ -170,6 +169,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileSignatureMapper signatureMapper;
     @Mock
+    private DccControlledFileSignatureBindingService signatureBindingService;
+    @Mock
     private DccExternalFileReviewMapper externalReviewMapper;
     @Mock
     private DccControlledFileAccessLogMapper accessLogMapper;
@@ -203,8 +204,6 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     private PlatformTransactionManager transactionManager;
     @Mock
     private DccControlledFileBrowserSettingsService browserSettingsService;
-    @Mock
-    private DccProjectCodeAssignmentMapper projectCodeAssignmentMapper;
     @Mock
     private DccProjectCodeAssignmentFileMapper projectCodeAssignmentFileMapper;
     @Mock
@@ -575,6 +574,60 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertFalse(Boolean.TRUE.equals(result.getVersionHistory().get(0).getCanPreview()));
         assertEquals("正式预览文件不存在或已被删除",
                 result.getVersionHistory().get(0).getPreviewUnavailableReason());
+    }
+
+    @Test
+    void getControlledFile_signatureSummaryMarksPublishedCopyBindingMissingAsInvalid() {
+        LocalDateTime signedAt = LocalDateTime.of(2026, 8, 12, 9, 30);
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(997L)
+                .masterId(731L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .publishedFileId(7007L)
+                .title("Published with historical signatures")
+                .fileName("published-signature.pdf")
+                .fileNumber("SOP-997")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        DccControlledFileSignatureDO signature = DccControlledFileSignatureDO.builder()
+                .id(8801L)
+                .controlledFileId(997L)
+                .revisionId(997L)
+                .versionNo("1.0")
+                .taskId("task-997")
+                .actorId(101L)
+                .actionType("APPROVE")
+                .meaningCode("REVIEW_APPROVE")
+                .controlledCopyHashStatus("NOT_APPLICABLE")
+                .evidenceStatus("VALID")
+                .evidenceHash("abcdef1234567890")
+                .actorUsernameSnapshot("approver")
+                .actorNicknameSnapshot("Approver")
+                .signedAt(signedAt)
+                .build();
+        when(controlledFileMapper.selectById(997L)).thenReturn(file);
+        when(controlledFileMapper.selectListByMasterId(731L)).thenReturn(List.of(file));
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.VIEW))
+                .thenReturn(true);
+        when(fileMapper.selectById(7007L)).thenReturn(FileDO.builder()
+                .id(7007L)
+                .name("published-signature.pdf")
+                .type("application/pdf")
+                .configId(1L)
+                .path("dcc/published-signature.pdf")
+                .build());
+        stubEmptyDetailRelations(997L);
+        when(signatureMapper.selectListByControlledFileId(997L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file)).thenReturn(
+                DccControlledFileSignatureBindingVerification.invalid("CONTROLLED_COPY_BINDING_MISSING"));
+
+        DccControlledFileRespVO result = queryService.getControlledFile(99L, 997L);
+
+        assertEquals(1, result.getSignatureSummaries().size());
+        assertEquals("INVALID", result.getSignatureSummaries().get(0).getControlledCopyHashStatus());
+        assertEquals("INVALID", result.getSignatureSummaries().get(0).getEvidenceStatus());
     }
 
     @Test
@@ -2154,8 +2207,6 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .name("active-browser-projection.pdf")
                 .type("application/pdf")
                 .build());
-        when(projectCodeAssignmentMapper.selectActiveProjectCodeIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
-                .thenReturn(List.of());
 
         DccControlledFileRespVO detail = queryService.getControlledFile(99L, 1012L);
         DccControlledFileRespVO pageRow = queryService.getControlledFilePage(99L, pageReqVO).getList().get(0);
@@ -2606,8 +2657,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .effectiveDate(LocalDate.of(2026, 7, 13))
                 .build();
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
-        when(projectCodeAssignmentMapper.selectActiveProjectCodeIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
-                .thenReturn(List.of(3001L));
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of(981L));
         when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L))))
@@ -2659,8 +2709,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .effectiveDate(LocalDate.of(2026, 7, 13))
                 .build();
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
-        when(projectCodeAssignmentMapper.selectActiveProjectCodeIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
-                .thenReturn(List.of(3001L));
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of(981L));
         when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
@@ -2714,8 +2763,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
         when(permissionApi.hasAnyRoles(99L, DccControlledFileMetadataUpdateService.DOC_CONTROL_ROLE_CODE))
                 .thenReturn(true);
-        when(projectCodeAssignmentMapper.selectActiveProjectCodeIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
-                .thenReturn(List.of(3001L));
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
         when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
                 .thenReturn(List.of(981L));
         when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L))))
@@ -2728,6 +2776,105 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(1L, result.getTotal());
         assertEquals(List.of(981L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
         verify(controlledFileMapper).selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), isNull(), eq(Set.of(981L)));
+    }
+
+    @Test
+    void getControlledFile_assignmentExecutorCanAccessDistributedFileOutsideCorrectionAssignments() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(964L).categoryId(10L).directoryId(20L).requesterId(88L).publishedFileId(524L)
+                .title("Distributed assignment scope").fileNumber("SOP-964").versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build();
+        when(controlledFileMapper.selectById(964L)).thenReturn(file);
+        when(permissionApi.hasAnyPermissions(120L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(
+                eq(120L), any(LocalDateTime.class))).thenReturn(List.of());
+        when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(31L, 120L))
+                .thenReturn(List.of(964L));
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 964L, 120L)).thenReturn(1L);
+        when(fileMapper.selectById(524L)).thenReturn(FileDO.builder()
+                .id(524L).name("recipient-scope.pdf").type("application/pdf").build());
+        stubEmptyDetailRelations(964L);
+
+        DccControlledFileRespVO result = queryService.getControlledFile(120L, 964L);
+
+        assertTrue(result.getCanPreview());
+        assertTrue(result.getCanDownload());
+    }
+
+    @Test
+    void getControlledFileBrowserPage_assignmentExecutorWithoutAssignmentDoesNotFallBackToDirectoryScope() {
+        DccControlledFilePageReqVO reqVO = new DccControlledFilePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        DccControlledFileDO unrelated = DccControlledFileDO.builder()
+                .id(961L)
+                .masterId(761L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(11L)
+                .publishedFileId(506L)
+                .title("Unassigned")
+                .fileName("unassigned.pdf")
+                .fileNumber("FI-961")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
+                .thenReturn(List.of(unrelated));
+
+        PageResult<DccControlledFileRespVO> result = queryService.getControlledFileBrowserPage(99L, reqVO);
+
+        assertEquals(0L, result.getTotal());
+        assertTrue(result.getList().isEmpty());
+    }
+
+    @Test
+    void getControlledFile_assignmentExecutorCannotOpenUnassignedFileDespiteDirectoryManagement() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(962L)
+                .masterId(762L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(11L)
+                .publishedFileId(507L)
+                .title("Unassigned detail")
+                .fileName("unassigned-detail.pdf")
+                .fileNumber("FI-962")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        when(controlledFileMapper.selectById(962L)).thenReturn(file);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+
+        assertServiceException(() -> queryService.getControlledFile(99L, 962L), CONTROLLED_FILE_ACCESS_DENIED);
+    }
+
+    @Test
+    void getControlledFile_explicitFullFileScopeCanOpenFile() {
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(963L)
+                .masterId(763L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .requesterId(11L)
+                .title("Full scope")
+                .fileName("full-scope.pdf")
+                .fileNumber("FI-963")
+                .versionNo("1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build();
+        when(controlledFileMapper.selectById(963L)).thenReturn(file);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:controlled-file:scope:all")).thenReturn(true);
+        stubEmptyDetailRelations(963L);
+
+        DccControlledFileRespVO result = queryService.getControlledFile(99L, 963L);
+
+        assertEquals(963L, result.getId());
     }
 
     @Test

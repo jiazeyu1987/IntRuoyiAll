@@ -4,6 +4,7 @@
 
     <sql id="TimelineColumns">
         pool_event.id AS id,
+        pool_event.event_type AS eventType,
         pool_event.pool_id AS processPoolId,
         pool_event.server_submit_time AS submittedAt,
         pool_event.device_account_id AS loginUserId,
@@ -54,6 +55,11 @@
         pool_event.feedback_source_id AS sourceFeedbackId,
         NULL AS sourceRecordbookEntryId,
         pool_event.recordbook_source_id AS sourceRecordbookEventId,
+        pool_event.report_management_status AS reportManagementStatus,
+        pool_event.report_output_quantity AS reportOutputQuantity,
+        pool_event.report_allocated_quantity AS reportAllocatedQuantity,
+        pool_event.report_unallocated_quantity AS reportUnallocatedQuantity,
+        pool_event.report_release_status AS reportReleaseStatus,
         CONCAT(pool_event.event_type, ' / ', pool_event.template_type) AS submittedSummary,
         CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson,
         pqc.inspection_result AS pqcResult,
@@ -100,6 +106,12 @@
                 #{authorizedProcessId}
             </foreach>
         </if>
+        <if test="reqVO.routeProcessIds != null and reqVO.routeProcessIds.size() > 0">
+            AND pool_event.route_process_id IN
+            <foreach collection="reqVO.routeProcessIds" item="authorizedRouteProcessId" open="(" separator="," close=")">
+                #{authorizedRouteProcessId}
+            </foreach>
+        </if>
         <if test="reqVO.deviceId != null">
             AND pool_event.device_id = #{reqVO.deviceId}
         </if>
@@ -110,8 +122,7 @@
             AND pool_event.event_type = #{reqVO.eventType}
         </if>
         <if test="reqVO.requirePositiveOutputQuantity == true">
-            AND CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(
-                pool_event.raw_payload, '$.outputQuantity')), '') AS DECIMAL(24, 6)) <![CDATA[>]]> 0
+            AND pool_event.report_output_quantity <![CDATA[>]]> 0
         </if>
         <if test="reqVO.workOrderId != null">
             AND pool_event.work_order_id = #{reqVO.workOrderId}
@@ -146,44 +157,8 @@
         </if>
         <if test="reqVO.allocationView == 'WORKBENCH'">
             AND pool_event.event_type = 'PRODUCTION_SUBMIT'
-            AND (
-                NOT EXISTS (
-                    SELECT 1
-                    FROM mes_pro_process_pool_report_allocation allocation
-                    WHERE allocation.tenant_id = pool_event.tenant_id
-                      AND allocation.event_id = pool_event.id
-                      AND allocation.deleted = 0
-                      AND allocation.lifecycle_status = 'CURRENT'
-                )
-                OR COALESCE((
-                    SELECT SUM(allocation.allocated_quantity)
-                    FROM mes_pro_process_pool_report_allocation allocation
-                    WHERE allocation.tenant_id = pool_event.tenant_id
-                      AND allocation.event_id = pool_event.id
-                      AND allocation.deleted = 0
-                      AND allocation.lifecycle_status = 'CURRENT'
-                ), 0) <![CDATA[<]]> COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(
-                    pool_event.raw_payload, '$.outputQuantity')) AS DECIMAL(24, 6)), 0)
-                OR EXISTS (
-                    SELECT 1
-                    FROM mes_pro_process_pool_report_allocation allocation
-                    WHERE allocation.tenant_id = pool_event.tenant_id
-                      AND allocation.event_id = pool_event.id
-                      AND allocation.deleted = 0
-                      AND allocation.lifecycle_status = 'CURRENT'
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM mes_pro_process_pool_active_order_release_application release_application
-                          INNER JOIN mes_pro_edhr_release_transaction release_transaction
-                            ON release_transaction.id = release_application.release_transaction_id
-                           AND release_transaction.tenant_id = release_application.tenant_id
-                           AND release_transaction.deleted = 0
-                           AND release_transaction.release_status = 'RELEASED'
-                          WHERE release_application.tenant_id = allocation.tenant_id
-                            AND release_application.active_order_id = allocation.active_order_id
-                            AND release_application.deleted = 0
-                      )
-                )
+            AND pool_event.report_management_status IN (
+                'UNALLOCATED', 'PARTIALLY_ALLOCATED', 'PENDING_RELEASE'
             )
         </if>
         <if test="reqVO.allocationView == 'HISTORY'">
@@ -272,8 +247,22 @@
           ON work_order.id = pool_event.work_order_id
          AND work_order.tenant_id = pool_event.tenant_id
          AND work_order.deleted = 0
-        <include refid="TimelineAuthorityJoins"/>
-        <include refid="LatestSubmissionReviewJoin"/>
+        <if test="reqVO.productKeyword != null and reqVO.productKeyword != ''">
+            LEFT JOIN mes_md_item product_item
+              ON product_item.id = work_order.product_id
+             AND product_item.tenant_id = pool_event.tenant_id
+             AND product_item.deleted = 0
+        </if>
+        <if test="reqVO.inspectionType != null or reqVO.roundNo != null or reqVO.pqcFormView != null">
+            LEFT JOIN mes_pqc_inspection_task pqc_task
+              ON pqc_task.tenant_id = pool_event.tenant_id
+             AND pqc_task.deleted = 0
+             AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
+             AND pqc_task.id = pool_event.feedback_source_id
+        </if>
+        <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView != null">
+            <include refid="LatestSubmissionReviewJoin"/>
+        </if>
         WHERE <include refid="TimelineFilters"/>
     </select>
 

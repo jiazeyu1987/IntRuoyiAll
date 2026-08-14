@@ -49,10 +49,10 @@ assert.match(
   /data-frontline-device-metering-validity[\s\S]*在计量效期内/,
   '设备卡片下方的逐设备计量效期 checkbox 必须保留。'
 )
-assert.match(
+assert.doesNotMatch(
   panel,
   /key: 'validity'[\s\S]*label: '效期'/,
-  '底部全局效期确认项必须保留。'
+  '底部全局效期确认项必须删除，只保留设备卡片逐设备计量效期 checkbox。'
 )
 assert.match(
   panel,

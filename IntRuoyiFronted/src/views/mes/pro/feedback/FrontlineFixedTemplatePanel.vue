@@ -583,8 +583,28 @@
             :disabled="payloadLoading || submitConfirmationOpen || productionSubmitSuccessOpen || productionSubmitFailureOpen"
             @click="openPicker('order')"
           >
-            <div class="top-label">活跃订单</div>
-            <div class="top-value">{{ productionOrderLabel }}</div>
+            <div class="frontline-production-order-summary" aria-label="活跃订单">
+              <span
+                class="frontline-production-order-summary__value"
+                data-frontline-production-order-code
+              >
+                {{ productionOrderLabel }}
+              </span>
+              <span
+                v-if="productionBatchCodeLabel"
+                class="frontline-production-order-summary__value"
+                data-frontline-production-batch-code
+              >
+                {{ productionBatchCodeLabel }}
+              </span>
+              <span
+                v-if="selectedActiveOrder"
+                class="frontline-production-order-summary__value"
+                data-frontline-production-product-name
+              >
+                {{ productionProductNameLabel }}
+              </span>
+            </div>
           </button>
           <div
             class="frontline-top-card top-box frontline-production-selection-card frontline-production-process-nav-card"
@@ -1349,14 +1369,15 @@ import {
 import {
   FRONTLINE_PQC_NO_PENDING_ORDER_TEXT,
   FrontlinePqcStaleActiveOrderSelectionError,
+  FrontlineProductionStaleActiveOrderSelectionError,
   buildFrontlineActiveOrderPickerKey,
   createFrontlineDeviceEmployeeState,
   isSameFrontlineActiveOrder,
-  loadFrontlineDeviceProcesses,
   loadFrontlineProductionActiveOrders,
   loadFrontlinePqcActiveOrders,
   preloadFrontlineProductionRuntimeCache,
   preloadFrontlinePqcSwitchingCache,
+  selectFrontlineProductionActiveOrder,
   selectFrontlineProcess,
   selectFrontlinePqcActiveOrder,
   selectFrontlinePqcProcess,
@@ -1609,10 +1630,23 @@ const selectedActiveOrder = computed(() => deviceState.selectedActiveOrder)
 
 const productionOrderLabel = computed(() => {
   const selectedOrder = selectedActiveOrder.value
-  return selectedOrder?.workOrderCode ||
-    selectedOrder?.workOrderName ||
-    '未选择'
+  if (!selectedOrder) {
+    return '未选择'
+  }
+  const workOrderCode = selectedOrder.workOrderCode?.trim()
+  if (!workOrderCode) {
+    throw new Error(`一线活跃订单缺少正式订单号：workOrderId=${selectedOrder.workOrderId}`)
+  }
+  return workOrderCode
 })
+
+const productionBatchCodeLabel = computed(() =>
+  selectedActiveOrder.value?.batchCode?.trim() || ''
+)
+
+const productionProductNameLabel = computed(() =>
+  selectedActiveOrder.value?.productName?.trim() || ''
+)
 
 const formatProductionQuantity = (quantity: number) => {
   if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -3209,8 +3243,15 @@ const handleProductionFullscreenToggle = async () => {
   }
 }
 
+interface ProductionInitialProcessIdentity {
+  routeId?: number
+  routeProcessId?: number
+  processId?: number
+}
+
 const findInitialProcess = (
-  processes: Array<FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO> = switchableProcessOptions.value
+  processes: Array<FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO> = switchableProcessOptions.value,
+  requestedIdentity: ProductionInitialProcessIdentity = context
 ) => {
   if (isPqcMode.value) {
     const qaProcesses = processes.filter(isFrontlinePqcProcess)
@@ -3219,9 +3260,9 @@ const findInitialProcess = (
     ) || qaProcesses[0]
   }
   const productionProcesses = processes.filter(isFrontlineProductionProcess)
-  const requestedRouteId = context.routeId
-  const requestedRouteProcessId = context.routeProcessId
-  const requestedProcessId = context.processId
+  const requestedRouteId = requestedIdentity.routeId
+  const requestedRouteProcessId = requestedIdentity.routeProcessId
+  const requestedProcessId = requestedIdentity.processId
   if (requestedRouteId || requestedRouteProcessId || requestedProcessId) {
     const matchedProcess = productionProcesses.find((process) =>
       (!requestedRouteId || process.routeId === requestedRouteId) &&
@@ -3286,17 +3327,48 @@ const handleActiveOrderSearchEnter = async () => {
   }
 }
 
-const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
+const handleSelectActiveOrder = async (
+  activeOrder: FrontlineActiveOrderVO,
+  requestedProcessIdentity?: ProductionInitialProcessIdentity
+) => {
   if (!isPqcMode.value) {
-    const selectedProcess = deviceState.selectedProcess
-    if (isFrontlineProductionProcess(selectedProcess) && selectedProcess.routeId !== activeOrder.routeId) {
-      message.error('所选活跃订单不包含当前工序，请先选择该订单路线下的工序。')
-      return
-    }
-    deviceState.selectedActiveOrder = activeOrder
+    const selectionRequestId = ++activeOrderSelectionRequestId
+    processSelectionRequestId += 1
+    productionEmployeeSelectionRequestId += 1
     applyActiveOrderToContext(activeOrder)
+    employeeTemplateCode.value = undefined
     payloadPreview.value = undefined
     closePicker()
+    let processes: FrontlineDeviceRouteProcessVO[]
+    try {
+      processes = await selectFrontlineProductionActiveOrder(deviceState, activeOrder)
+    } catch (error) {
+      if (
+        selectionRequestId !== activeOrderSelectionRequestId ||
+        error instanceof FrontlineProductionStaleActiveOrderSelectionError
+      ) {
+        return
+      }
+      message.error(resolveErrorMessage(error))
+      return
+    }
+    if (selectionRequestId !== activeOrderSelectionRequestId) {
+      return
+    }
+    const initialProcess = findInitialProcess(processes, requestedProcessIdentity)
+    if (!initialProcess || !isFrontlineProductionProcess(initialProcess)) {
+      const error = new Error(
+        '生产工单 ' + (activeOrder.workOrderCode || activeOrder.workOrderId) +
+        ' 的正式工艺路线没有可用工序。'
+      )
+      message.error(error.message)
+      throw error
+    }
+    try {
+      await handleSelectProcess(initialProcess)
+    } catch (error) {
+      message.error(resolveErrorMessage(error))
+    }
     return
   }
   pqcSubmitReceipt.value = undefined
@@ -3753,6 +3825,8 @@ interface FrontlineFormalSubmitContext {
   scheduleOrderProcessId?: number
   scheduledQuantity?: number
   expireDate?: string
+  frontlineSessionSnapshotId?: string
+  frontlineSessionSnapshotHash?: string
 }
 
 const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
@@ -3779,7 +3853,41 @@ const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
     scheduleOrderId: serverContext?.scheduleOrderId,
     scheduleOrderProcessId: serverContext?.scheduleOrderProcessId,
     scheduledQuantity: serverContext?.scheduledQuantity,
-    expireDate: serverContext?.expireDate ? String(serverContext.expireDate) : undefined
+    expireDate: serverContext?.expireDate ? String(serverContext.expireDate) : undefined,
+    frontlineSessionSnapshotId: deviceState.runtimeConfig?.frontlineSessionSnapshotId,
+    frontlineSessionSnapshotHash: deviceState.runtimeConfig?.frontlineSessionSnapshotHash
+  }
+}
+
+const assertProductionSubmitSnapshotContext = (formalContext: FrontlineFormalSubmitContext) => {
+  const selectedProcess = deviceState.selectedProcess
+  const selectedEmployee = deviceState.selectedEmployee
+  const snapshotContext = deviceState.runtimeConfig?.productionSubmitContext
+  if (!isFrontlineProductionProcess(selectedProcess)) {
+    throw new Error('当前提交快照缺少正式生产工序，无法提交。')
+  }
+  if (!snapshotContext) {
+    throw new Error('当前提交快照缺少正式运行配置，无法提交。')
+  }
+  if (
+    formalContext.routeId !== selectedProcess.routeId ||
+    formalContext.routeProcessId !== selectedProcess.routeProcessId ||
+    formalContext.processId !== selectedProcess.processId
+  ) {
+    throw new Error('当前提交快照与所选工序不一致，请重新选择活跃订单或工序。')
+  }
+  if (
+    snapshotContext.routeId !== formalContext.routeId ||
+    snapshotContext.routeProcessId !== formalContext.routeProcessId ||
+    snapshotContext.processId !== formalContext.processId
+  ) {
+    throw new Error('当前提交快照与运行配置不一致，请刷新后重试。')
+  }
+  if (!selectedEmployee || selectedEmployee.userId !== formalContext.signatureEmployeeId) {
+    throw new Error('当前提交快照与所选员工不一致，请重新选择员工。')
+  }
+  if (!formalContext.frontlineSessionSnapshotId || !formalContext.frontlineSessionSnapshotHash) {
+    throw new Error('缺少一线生产会话快照，无法提交。')
   }
 }
 
@@ -3838,6 +3946,7 @@ const buildFrontlineFormalSubmitPayload = (
   rawPayload: FrontlineTemplatePayloadReqVO
 ): ProFrontlineFeedbackSubmitReqVO => {
   const formalContext = readFrontlineFormalSubmitContext()
+  assertProductionSubmitSnapshotContext(formalContext)
   assertFrontlineFormalSubmitContext(formalContext)
   const signaturePassword = productionSignaturePassword.value.trim()
   if (!signaturePassword) {
@@ -3868,6 +3977,7 @@ const buildFrontlineFormalSubmitPayload = (
         remark: firstRouteQueryText(['recordbookRemark'])
       }
     : undefined
+  const runtimeConfig = deviceState.runtimeConfig!
   return {
     feedbackPayload: {
       workstationId: formalContext.workstationId!,
@@ -3907,6 +4017,8 @@ const buildFrontlineFormalSubmitPayload = (
     actualEmployeeId: context.actualEmployeeId!,
     signatureEmployeeId: formalContext.signatureEmployeeId!,
     signaturePassword,
+    frontlineSessionSnapshotId: runtimeConfig.frontlineSessionSnapshotId,
+    frontlineSessionSnapshotHash: runtimeConfig.frontlineSessionSnapshotHash,
     rawPayload: buildProductionStructuredRawPayload(rawPayload) as unknown as Record<string, unknown>
   }
 }
@@ -4166,6 +4278,8 @@ const normalizePqcDefectDescription = () => {
 const applyActiveOrderToContext = (activeOrder: FrontlineActiveOrderVO) => {
   context.workOrderId = activeOrder.workOrderId
   context.routeId = activeOrder.routeId
+  context.routeProcessId = undefined
+  context.processId = undefined
 }
 
 const applyProcessToContext = (
@@ -4326,22 +4440,23 @@ const formatTemplateName = (templateCode?: FrontlineTemplateCode) => {
 }
 
 const initializeProductionSelection = async () => {
-  const [processes, activeOrders] = await Promise.all([
-    loadFrontlineDeviceProcesses(deviceState),
-    loadFrontlineProductionActiveOrders(deviceState)
-  ])
-  const initialProcess = findInitialProcess(processes)
-  if (initialProcess) {
-    await handleSelectProcess(initialProcess)
-  }
-  const initialActiveOrder = context.workOrderId
+  const activeOrders = await loadFrontlineProductionActiveOrders(deviceState)
+  const requestedActiveOrder = context.workOrderId
     ? activeOrders.find((order) =>
       order.workOrderId === context.workOrderId &&
       (!context.routeId || order.routeId === context.routeId)
     )
     : undefined
+  const initialActiveOrder = requestedActiveOrder || activeOrders[0]
   if (initialActiveOrder) {
-    await handleSelectActiveOrder(initialActiveOrder)
+    const requestedProcessIdentity = requestedActiveOrder
+      ? {
+          routeId: requestedActiveOrder.routeId,
+          routeProcessId: context.routeProcessId,
+          processId: context.processId
+        }
+      : undefined
+    await handleSelectActiveOrder(initialActiveOrder, requestedProcessIdentity)
   }
 }
 
@@ -4459,7 +4574,7 @@ onUnmounted(() => {
   width: 1920px;
   height: 1080px;
   box-sizing: border-box;
-  grid-template-rows: 130px minmax(0, 1fr);
+  grid-template-rows: minmax(130px, auto) minmax(0, 1fr);
   gap: 20px;
   padding: 28px;
   overflow: hidden;
@@ -4649,6 +4764,35 @@ onUnmounted(() => {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.frontline-production-selection-card[data-frontline-production-active-order-card] {
+  padding: 14px 22px;
+}
+
+.frontline-production-order-summary {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 5px;
+  align-content: center;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.frontline-production-order-summary .frontline-production-order-summary__value {
+  display: block;
+  min-width: 0;
+  overflow: visible;
+  color: var(--frontline-ink);
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.08;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .frontline-top-card.is-login-employee {

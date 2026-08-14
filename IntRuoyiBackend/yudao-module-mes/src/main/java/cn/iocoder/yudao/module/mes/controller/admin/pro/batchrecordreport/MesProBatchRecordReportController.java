@@ -76,6 +76,7 @@ public class MesProBatchRecordReportController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("routeKey") String routeKey,
             @RequestParam("batchRecordName") String batchRecordName,
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
             @RequestParam("upgrade") Boolean upgrade,
             @RequestParam(value = "importAction", required = false) String importAction,
             @RequestParam(value = "expectedSourceVersionId", required = false) Long expectedSourceVersionId,
@@ -94,7 +95,7 @@ public class MesProBatchRecordReportController {
                 expectedTargetVersionNo, productNames,
                 rebuildBatchRecord, selectedRouteProductIds, selectedProductNames,
                 routeUpgradeConfirmed, expectedRouteId, expectedRouteVersionId,
-                expectedRouteCandidateVersionId, getLoginUserId())));
+                expectedRouteCandidateVersionId, dccProjectCodeId, getLoginUserId())));
     }
 
     @GetMapping("/recognize-uploaded/preflight")
@@ -102,9 +103,10 @@ public class MesProBatchRecordReportController {
     public CommonResult<BatchRecordReportImportPreflightRespVO> preflightUploadedRoute(
             @RequestParam("routeKey") String routeKey,
             @RequestParam("batchRecordName") String batchRecordName,
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
             @RequestParam("productNames") List<String> productNames) {
         return success(toPreflightRespVO(batchRecordReportService.preflightUploadedRoute(
-                routeKey, batchRecordName, productNames)));
+                routeKey, batchRecordName, productNames, dccProjectCodeId)));
     }
 
     @PostMapping("/version-approval/submit")
@@ -307,6 +309,8 @@ public class MesProBatchRecordReportController {
         response.setCurrentRouteId(result.currentRouteId());
         response.setCurrentRouteCode(result.currentRouteCode());
         response.setCurrentRouteName(result.currentRouteName());
+        response.setCurrentRouteStatus(result.currentRouteStatus());
+        response.setRouteRestoreRequired(result.routeRestoreRequired());
         response.setCurrentRouteVersionId(result.currentRouteVersionId());
         response.setCurrentRouteVersionNo(result.currentRouteVersionNo());
         response.setCurrentRouteVersionActive(result.currentRouteVersionActive());

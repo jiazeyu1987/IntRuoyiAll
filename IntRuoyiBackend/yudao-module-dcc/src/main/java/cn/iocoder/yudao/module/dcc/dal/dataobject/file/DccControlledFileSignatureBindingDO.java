@@ -25,6 +25,7 @@ public class DccControlledFileSignatureBindingDO extends BaseDO {
     private Long controlledFileId;
     private String originalEvidenceHash;
     private Long controlledCopyFileId;
+    private String controlledCopyObjectKey;
     private String controlledCopySha256;
     private String controlledCopyHashAlgorithm;
     private LocalDateTime boundAt;

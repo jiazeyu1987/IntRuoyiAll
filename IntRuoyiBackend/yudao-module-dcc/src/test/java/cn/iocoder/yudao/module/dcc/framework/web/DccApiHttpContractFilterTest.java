@@ -17,6 +17,7 @@ import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeC
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.UNAUTHORIZED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_APPROVER_POST_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EXPORT_BLOCKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,6 +74,18 @@ class DccApiHttpContractFilterTest {
     void doFilter_mapsTaskReadinessRouteMismatchToHttpBadRequest() throws Exception {
         assertStatus("/admin-api/dcc/controlled-files/900/task-action-readiness",
                 CommonResult.error(CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH), 400);
+    }
+
+    @Test
+    void doFilter_mapsSignatureEvidenceExportBlockedToHttpBadRequest() throws Exception {
+        assertStatus("/admin-api/dcc/controlled-files/900/signature-evidence-export",
+                CommonResult.error(CONTROLLED_FILE_SIGNATURE_EXPORT_BLOCKED), 400);
+    }
+
+    @Test
+    void doFilter_mapsSignatureBindingMigrationFailureToHttpBadRequest() throws Exception {
+        assertStatus("/admin-api/dcc/controlled-files/900/signature-binding-migration",
+                CommonResult.error(CONTROLLED_FILE_SIGNATURE_EXPORT_BLOCKED), 400);
     }
 
     @SuppressWarnings("rawtypes")

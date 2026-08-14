@@ -905,7 +905,7 @@
               </el-button>
             </div>
           </template>
-          <template v-else>
+          <template v-else-if="selectedProcessDetailField">
             <div class="route-flow-graph-designer__selected-field-grid">
               <span>当前工序</span>
               <strong :title="selectedNodeFullName">{{ selectedNodeFullName || '-' }}</strong>
@@ -1581,6 +1581,7 @@ import {
 } from '@vue-flow/core'
 import {
   ProRouteApi,
+  type MesRouteId,
   type ProRouteVO,
   type ProRouteScheduleConfigVO,
   type ProRouteVersionLifecycleStatus,
@@ -1737,12 +1738,6 @@ type RecordBindingCandidateOption = {
   label: string
   value: number
 }
-type RecordBindingCopySourceOption = {
-  label: string
-  value: string
-  routeProcessId: number
-  binding: RouteFlowRecordBinding
-}
 type ProcessFormBindingCopySourceOption = {
   label: string
   value: number
@@ -1895,7 +1890,7 @@ type BatchRecordReportSelectOption = Pick<
 >
 type SelectedProcessAttributes = {
   routeProcessId?: number
-  routeVersionId?: number
+  routeVersionId?: MesRouteId
   routeScheduleConfigId?: number | null
   scheduleConfigVersion?: string | null
   capacityMode?: ProRouteScheduleConfigVO['capacityMode'] | null
@@ -1916,7 +1911,7 @@ type SelectedProcessAttributesDraft = SelectedProcessAttributes & {
 type SelectedProcessRouteConfigCache = {
   key: string
   routeInfo: ProRouteVO
-  readableRouteVersionId: number
+  readableRouteVersionId: MesRouteId
   scheduleConfigs: ProRouteFlowProcessConfigVO[]
   batchConfigs: ProRouteFlowProcessConfigVO[]
   routeScheduleConfigs: ProRouteScheduleConfigVO[]
@@ -2070,6 +2065,7 @@ const flowEdges = ref<RouteFlowVueEdge[]>([])
 const graphCanvasRef = ref<HTMLElement>()
 const processOptions = ref<ProProcessVO[]>([])
 const pendingDeletedRouteProcessIds = ref<Set<number>>(new Set())
+const loadedRouteProcessIds = ref<Set<number>>(new Set())
 const nextDraftRouteProcessId = ref(-1)
 const invalidRouteProcessIds = ref<Set<number>>(new Set())
 const selectedRouteProcessId = ref<number | null>(null)
@@ -2103,7 +2099,6 @@ const recordBindingUserOptions = ref<UserVO[]>([])
 const recordBindingUserOptionsLoading = ref(false)
 const recordBindingRoleOptions = ref<RoleVO[]>([])
 const recordBindingRoleOptionsLoading = ref(false)
-const recordBindingCopySourceByKey = reactive<Record<string, string>>({})
 const processFormBindingCopyPopoverVisible = ref(false)
 const processFormBindingCopySourceRouteProcessId = ref<number | null>(null)
 const selectedProcessAttributeDrafts = reactive<Record<number, SelectedProcessAttributesDraft>>({})
@@ -2116,7 +2111,7 @@ const capacityOverrideDialogVisible = ref(false)
 const capacityOverrideSaving = ref(false)
 const capacityOverrideFormRef = ref()
 const capacityOverrideForm = reactive<{ hourlyCapacity?: number }>({})
-const capacityOverrideRouteVersionId = ref<number | null>(null)
+const capacityOverrideRouteVersionId = ref<MesRouteId | null>(null)
 const capacityOverrideRouteProcessId = ref<number | null>(null)
 const capacityOverrideCandidateCreating = ref(false)
 const capacityOverrideRepairHourlyCapacity = ref<number | undefined>()
@@ -2466,20 +2461,6 @@ const openProcessTargetLink = async () => {
   })
 }
 
-const openRecordBindingTargetLink = async (binding: RouteFlowRecordBinding) => {
-  if (!binding.formTemplateId) {
-    throw new Error(`批记录表单跳转缺少表单模板: routeProcessId=${selectedRouteProcessId.value}`)
-  }
-  await persistRouteFlowReturnState()
-  await router.push({
-    path: '/mes/pro/batch-record-form-list',
-    query: {
-      formTemplateId: String(binding.formTemplateId),
-      formSlotType: requireRecordBindingSlotType(binding)
-    }
-  })
-}
-
 const openLegacyBatchRecordTargetLink = async (report: RouteFlowLegacyBatchRecord) => {
   const reportId = normalizeNullableText(report.batchRecordReportId)
   if (!reportId) {
@@ -2694,13 +2675,6 @@ const normalizeRecordBindingCandidateNames = (candidateSourceNames?: string[] | 
 const isRecordBindingSlotType = (value?: string | null): value is ProRouteFlowFormSlotType =>
   RECORD_BINDING_SLOT_TYPES.includes(value as ProRouteFlowFormSlotType)
 
-const normalizeRecordBindingSlotType = (
-  formSlotType?: string | null,
-  formBindingKey?: string | null
-): ProRouteFlowFormSlotType | undefined => {
-  return resolveRecordBindingSlotType(formSlotType, formBindingKey)
-}
-
 const resolveRecordBindingSlotType = (
   formSlotType?: string | null,
   formBindingKey?: string | null
@@ -2892,9 +2866,6 @@ const getRouteNodeAdditionalFormCount = (node: RouteFlowNodeVO) => {
     return Boolean(formSlotType) && formSlotType !== 'MAIN'
   }).length
 }
-
-const isRouteNodeFormSlotConfigured = (node: RouteFlowNodeVO) =>
-  getRouteNodeAdditionalFormCount(node) > 0
 
 const isMainBatchRecordForm = (report: RouteFlowLegacyBatchRecord) =>
   resolveRecordBindingSlotType(report.formSlotType, report.batchRecordReportId) === 'MAIN'
@@ -3178,15 +3149,6 @@ const buildRecordBindingCandidateOptions = (
   ]
 }
 
-const buildRecordBindingCandidateSummary = (binding: RouteFlowRecordBinding) => {
-  const sourceType = normalizeRecordBindingCandidateSourceType(binding.candidateSourceType)
-  const selectedId = getRecordBindingCandidateSourceId(binding)
-  if (!sourceType || !selectedId) return '默认使用表单填写人'
-  const names = normalizeRecordBindingCandidateNames(binding.candidateSourceNames)
-  const sourceLabel = sourceType === 'ROLE' ? '角色' : '个人'
-  return `覆盖${sourceLabel}：${names[0] || selectedId}`
-}
-
 const formatRecordBindingFillerSummary = (binding: RouteFlowRecordBinding) => {
   const sourceType = normalizeRecordBindingCandidateSourceType(binding.candidateSourceType)
   const candidateSourceNames = normalizeRecordBindingCandidateNames(binding.candidateSourceNames)
@@ -3412,18 +3374,6 @@ const removeSelectedRecordBinding = (binding: RouteFlowRecordBinding) => {
   selectedRecordBindings.value = selectedRecordBindings.value.filter(
     (item) => item.formBindingKey !== binding.formBindingKey
   )
-  delete recordBindingCopySourceByKey[binding.formBindingKey]
-  syncSelectedRecordBindingsToDraft()
-}
-
-const moveSelectedRecordBinding = (index: number, direction: -1 | 1) => {
-  if (recordBindingEditorDisabled.value) return
-  const nextIndex = index + direction
-  if (nextIndex < 0 || nextIndex >= selectedRecordBindings.value.length) return
-  const next = [...selectedRecordBindings.value]
-  const [item] = next.splice(index, 1)
-  next.splice(nextIndex, 0, item)
-  selectedRecordBindings.value = next
   syncSelectedRecordBindingsToDraft()
 }
 
@@ -3520,28 +3470,6 @@ const getLegacyBatchRecordDisplayName = (report: RouteFlowLegacyBatchRecord) =>
   report.batchRecordReportId ||
   '未命名批记录表单'
 
-const buildRecordBindingCopySourceValue = (routeProcessId: number, binding: RouteFlowRecordBinding) =>
-  `${routeProcessId}::${binding.formBindingKey}`
-
-const getRecordBindingCopySourceOptions = (
-  targetBinding: RouteFlowRecordBinding
-): RecordBindingCopySourceOption[] => {
-  const currentRouteProcessId = selectedProcessAttributes.routeProcessId
-  return routeNodes.value
-    .filter((node) => node.routeProcessId !== currentRouteProcessId)
-    .flatMap((node) =>
-      getRouteNodeBatchRecordBindings(node)
-        .filter((binding) => isRecordBindingConfigured(binding))
-        .map((binding, index) => ({
-          label: `${nodeLabel(node)} / ${index + 1}. ${getFormBindingDisplayName(binding)} / ${buildRecordBindingCandidateSummary(binding)}`,
-          value: buildRecordBindingCopySourceValue(node.routeProcessId, binding),
-          routeProcessId: node.routeProcessId,
-          binding
-        }))
-    )
-    .filter((option) => option.value !== buildRecordBindingCopySourceValue(currentRouteProcessId || 0, targetBinding))
-}
-
 const getProcessFormBindingCopySourceOptions = (): ProcessFormBindingCopySourceOption[] => {
   const currentRouteProcessId = selectedProcessAttributes.routeProcessId
   return routeNodes.value
@@ -3568,25 +3496,6 @@ const findProcessFormBindingCopySourceOption = () => {
   )
 }
 
-const findRecordBindingCopySourceOption = (
-  targetBinding: RouteFlowRecordBinding
-): RecordBindingCopySourceOption | undefined => {
-  const sourceValue = recordBindingCopySourceByKey[targetBinding.formBindingKey]
-  if (!sourceValue) return undefined
-  return getRecordBindingCopySourceOptions(targetBinding).find((option) => option.value === sourceValue)
-}
-
-const handleRecordBindingCopySourceChange = (
-  binding: RouteFlowRecordBinding,
-  sourceValue: string
-) => {
-  if (!sourceValue) {
-    delete recordBindingCopySourceByKey[binding.formBindingKey]
-    return
-  }
-  recordBindingCopySourceByKey[binding.formBindingKey] = sourceValue
-}
-
 const handleProcessFormBindingCopySourceChange = (routeProcessId?: number | string | null) => {
   const normalizedRouteProcessId = Number(routeProcessId || 0)
   processFormBindingCopySourceRouteProcessId.value =
@@ -3599,51 +3508,6 @@ const handleProcessFormBindingCopyPopoverHide = () => {
   processFormBindingCopySourceRouteProcessId.value = null
 }
 
-const copySelectedRecordBindingFromSource = (targetBinding: RouteFlowRecordBinding) => {
-  if (recordBindingEditorDisabled.value) return
-  const sourceOption = findRecordBindingCopySourceOption(targetBinding)
-  if (!sourceOption) {
-    message.error('请选择要复制的来源表单槽位。')
-    return
-  }
-  const sourceBinding = sourceOption.binding
-  if (sourceBinding.formTemplateId && hasDuplicateFormTemplate(targetBinding, sourceBinding.formTemplateId)) {
-    message.error('同一工序表单重复：同一个表单模板只能选择一次。')
-    return
-  }
-  const instanceScope = normalizeRecordBindingInstanceScope(sourceBinding.instanceScope)
-  const targetKey = targetBinding.formBindingKey
-  const targetSort = targetBinding.reportSort
-  Object.assign(targetBinding, {
-    formSlotType: sourceBinding.formSlotType,
-    formTemplateId: sourceBinding.formTemplateId,
-    formTemplateName: sourceBinding.formTemplateName || sourceBinding.formTemplateNameSnapshot || null,
-    formTemplateNameSnapshot: sourceBinding.formTemplateNameSnapshot || null,
-    lastPublishedTemplateVersionId: sourceBinding.lastPublishedTemplateVersionId || null,
-    lastPublishedTemplateVersionNo: sourceBinding.lastPublishedTemplateVersionNo || null,
-    instanceScope,
-    sharedFormKey: instanceScope === 'BATCH_SHARED' ? buildSharedRecordBindingKey(sourceBinding) : null,
-    fillableScopeJson:
-      instanceScope === 'BATCH_SHARED' ? SHARED_FORM_FILLABLE_SCOPE_JSON : null,
-    recordCategory: sourceBinding.recordCategory || null,
-    validationProfile: sourceBinding.validationProfile || null,
-    requiredPolicy: normalizeRecordBindingRequiredPolicy(sourceBinding.requiredPolicy),
-    requiredConditionJson: sourceBinding.requiredConditionJson || null,
-    ownerRoleKey: sourceBinding.ownerRoleKey || null,
-    archiveVisibility: sourceBinding.archiveVisibility || null,
-    permissionRule: null,
-    candidateSourceType: normalizeRecordBindingCandidateSourceType(sourceBinding.candidateSourceType),
-    candidateSourceIds: normalizeRecordBindingCandidateIds(sourceBinding.candidateSourceIds),
-    candidateSourceNames: normalizeRecordBindingCandidateNames(sourceBinding.candidateSourceNames),
-    remark: sourceBinding.remark || null,
-    formBindingKey: targetKey,
-    reportSort: targetSort
-  })
-  delete recordBindingCopySourceByKey[targetKey]
-  syncSelectedRecordBindingsToDraft()
-  message.success('已复制表单槽位配置')
-}
-
 const copySelectedProcessFormBindingsFromSource = () => {
   if (recordBindingEditorDisabled.value) return
   const sourceOption = findProcessFormBindingCopySourceOption()
@@ -3653,9 +3517,6 @@ const copySelectedProcessFormBindingsFromSource = () => {
   }
   const sourceBindings = sourceOption.bindings
   selectedRecordBindings.value = sourceBindings.map(copyRecordBindingForSelectedProcess)
-  Object.keys(recordBindingCopySourceByKey).forEach((key) => {
-    delete recordBindingCopySourceByKey[key]
-  })
   processFormBindingCopySourceRouteProcessId.value = null
   processFormBindingCopyPopoverVisible.value = false
   syncSelectedRecordBindingsToDraft()
@@ -3853,12 +3714,6 @@ const formatRouteProcessIntegerCapacity = (value?: number | string | null) => {
   })
 }
 
-const formatRouteProcessShiftCapacity = (value?: number | string | null) => {
-  const numberValue = normalizeRouteProcessCapacityValue(value)
-  if (numberValue === undefined) return '未配置'
-  return `${formatRouteProcessCapacity(numberValue)}/班次`
-}
-
 const formatRouteProcessIntegerShiftCapacity = (value?: number | string | null) => {
   const numberValue = normalizeRouteProcessCapacityValue(value)
   if (numberValue === undefined) return '未配置'
@@ -3921,29 +3776,6 @@ const capacityOverrideButtonDisabled = computed(
 const capacityOverrideButtonTitle = computed(() =>
   isDraftCandidateEdit.value ? '产能覆盖' : CANDIDATE_EDIT_REQUIRED_MESSAGE
 )
-
-const formatRouteProcessWorkerQuantity = (value?: number | null) => {
-  const numberValue = normalizeRouteProcessCapacityValue(value)
-  return numberValue === undefined ? '未配置' : `${numberValue.toLocaleString('zh-CN')}人`
-}
-
-const formatRouteProcessMachineQuantity = (value?: number | null) => {
-  const numberValue = normalizeRouteProcessCapacityValue(value)
-  return numberValue === undefined ? '未配置' : `${numberValue.toLocaleString('zh-CN')}台`
-}
-
-const getRouteProcessCapacitySourceLabel = (value?: ProRouteProcessVO['capacitySource']) => {
-  if (value === 'MACHINE') return '设备'
-  if (value === 'WORKER') return '人工'
-  return '未配置'
-}
-
-const getRouteProcessStandardResourceLabel = (row?: ProRouteProcessVO) => {
-  if (!row) return '-'
-  if (row.capacitySource === 'MACHINE') return formatRouteProcessMachineQuantity(row.machineryQuantityTotal)
-  if (row.capacitySource === 'WORKER') return formatRouteProcessWorkerQuantity(row.workerQuantityTotal)
-  return '未配置'
-}
 
 const getRouteProcessResourceStatusLabel = (value?: ProRouteProcessVO['resourceStatus']) => {
   if (value === 'NORMAL') return '正常'
@@ -4453,11 +4285,6 @@ const getSelectedProductionQuantityFactorCoverageStatus = (): ProcessDetailCover
     ? 'covered'
     : 'missing'
 
-const normalizeShiftCapacity = (value?: number | string | null) => {
-  const numeric = numericValue(value)
-  return numeric === undefined ? undefined : Number(numeric.toFixed(6))
-}
-
 const normalizeHourlyCapacity = (value?: number | string | null) => {
   const numeric = numericValue(value)
   return numeric === undefined ? undefined : Number(numeric.toFixed(6))
@@ -4679,7 +4506,7 @@ const applySelectedProcessAttributesDraft = (draft: SelectedProcessAttributesDra
 
 const buildSelectedProcessAttributesDraft = (
   node: RouteFlowNodeVO,
-  routeVersionId: number,
+  routeVersionId: MesRouteId,
   scheduleRow?: ProRouteFlowProcessConfigVO,
   routeScheduleConfig?: ProRouteScheduleConfigVO,
   routeProcess?: ProRouteProcessVO,
@@ -5028,7 +4855,7 @@ const clearCapacityOverrideAutoOpenQuery = async () => {
   if (normalizeRouteQueryText(route.query.capacityOverride) !== CAPACITY_OVERRIDE_AUTO_OPEN_QUERY_VALUE) {
     return
   }
-  const nextQuery: Record<string, string | string[] | undefined> = { ...route.query }
+  const nextQuery = { ...route.query }
   delete nextQuery.capacityOverride
   await router.replace({ query: nextQuery })
 }
@@ -5054,7 +4881,10 @@ const tryOpenCapacityOverrideFromRouteQuery = async () => {
   }
 }
 
-const syncCapacityOverrideDraftBaseline = async (routeVersionId: number, routeProcessId: number) => {
+const syncCapacityOverrideDraftBaseline = async (
+  routeVersionId: MesRouteId,
+  routeProcessId: number
+) => {
   const routeScheduleConfigs = await ProRouteApi.getScheduleConfigListByRouteVersion(routeVersionId)
   const routeScheduleConfig = findRouteProcessConfig(routeScheduleConfigs, routeProcessId)
   if (!routeScheduleConfig) {
@@ -5210,7 +5040,8 @@ const clearSelectedProcessAttributeDraftForRouteProcess = (routeProcessId: numbe
 const markRouteProcessGraphSaveClean = () => {
   graphDirty.value = false
   pendingDeletedRouteProcessIds.value = new Set()
-  nextDraftRouteProcessId.value = -1
+  resetLoadedRouteProcessIds()
+  nextDraftRouteProcessId.value = resolveNextDraftRouteProcessId()
   resetRouteProcessKeyFlagBaselines()
   resetRouteProcessCheckFlagBaselines()
   resetRouteProcessWorkstationIdBaselines()
@@ -5483,11 +5314,6 @@ const resolveExplicitRouteFlowRouteProcessId = () => {
   return Number.isFinite(routeProcessId) && routeProcessId > 0 ? routeProcessId : null
 }
 
-const resolveRouteFlowReturnState = () => {
-  const restoredRouteProcessId = resolveExplicitRouteFlowRouteProcessId()
-  return { restoredRouteProcessId }
-}
-
 const restoreRouteFlowSelection = (
   selection: RouteFlowLastSelectionState,
   options: { source: RouteFlowSelectionRestoreSource }
@@ -5736,7 +5562,8 @@ const loadGraph = async () => {
         return (left.sort || 0) - (right.sort || 0)
       })
     pendingDeletedRouteProcessIds.value = new Set()
-    nextDraftRouteProcessId.value = -1
+    resetLoadedRouteProcessIds()
+    nextDraftRouteProcessId.value = resolveNextDraftRouteProcessId()
     connectionPopoverVisible.value = false
     connectionSourceInputText.value = ''
     connectionTargetInputText.value = ''
@@ -5805,7 +5632,7 @@ const applyDefaultKeyProcessLocally = () => {
 const resetRouteProcessKeyFlagBaselines = () => {
   clearRouteProcessKeyFlagBaselines()
   routeNodes.value
-    .filter((node) => !isDraftRouteProcessId(node.routeProcessId))
+    .filter((node) => isLoadedRouteProcessId(node.routeProcessId))
     .forEach((node) => {
       routeProcessKeyFlagBaselines[node.routeProcessId] = Boolean(node.keyFlag)
     })
@@ -5814,7 +5641,7 @@ const resetRouteProcessKeyFlagBaselines = () => {
 const resetRouteProcessCheckFlagBaselines = () => {
   clearRouteProcessCheckFlagBaselines()
   routeNodes.value
-    .filter((node) => !isDraftRouteProcessId(node.routeProcessId))
+    .filter((node) => isLoadedRouteProcessId(node.routeProcessId))
     .forEach((node) => {
       routeProcessCheckFlagBaselines[node.routeProcessId] = Boolean(node.checkFlag)
     })
@@ -5828,7 +5655,7 @@ const normalizeRouteProcessWorkstationId = (workstationId?: number | null) => {
 const resetRouteProcessWorkstationIdBaselines = () => {
   clearRouteProcessWorkstationIdBaselines()
   routeNodes.value
-    .filter((node) => !isDraftRouteProcessId(node.routeProcessId))
+    .filter((node) => isLoadedRouteProcessId(node.routeProcessId))
     .forEach((node) => {
       routeProcessWorkstationIdBaselines[node.routeProcessId] =
         normalizeRouteProcessWorkstationId(node.routeProcessWorkstationId)
@@ -5837,7 +5664,7 @@ const resetRouteProcessWorkstationIdBaselines = () => {
 
 const getChangedRouteProcessKeyFlagNodes = () =>
   routeNodes.value.filter((node) => {
-    if (isDraftRouteProcessId(node.routeProcessId)) return false
+    if (!isLoadedRouteProcessId(node.routeProcessId)) return false
     const baseline = routeProcessKeyFlagBaselines[node.routeProcessId]
     return baseline !== undefined && baseline !== Boolean(node.keyFlag)
   })
@@ -5847,7 +5674,7 @@ const hasRouteProcessKeyFlagDraftChanges = () =>
 
 const getChangedRouteProcessCheckFlagNodes = () =>
   routeNodes.value.filter((node) => {
-    if (isDraftRouteProcessId(node.routeProcessId)) return false
+    if (!isLoadedRouteProcessId(node.routeProcessId)) return false
     const baseline = routeProcessCheckFlagBaselines[node.routeProcessId]
     return baseline !== undefined && baseline !== Boolean(node.checkFlag)
   })
@@ -5857,7 +5684,7 @@ const hasRouteProcessCheckFlagDraftChanges = () =>
 
 const getChangedRouteProcessWorkstationNodes = () =>
   routeNodes.value.filter((node) => {
-    if (isDraftRouteProcessId(node.routeProcessId)) return false
+    if (!isLoadedRouteProcessId(node.routeProcessId)) return false
     const baseline = routeProcessWorkstationIdBaselines[node.routeProcessId]
     return (
       baseline !== undefined &&
@@ -5913,9 +5740,7 @@ const removeRouteProcessesFromDraft = (removedRouteProcessIds: number[]) => {
   if (removedRouteProcessIds.length === 0) return
   const removedRouteProcessIdSet = new Set(removedRouteProcessIds)
   clearRouteFlowLastSelectionRouteProcess(removedRouteProcessIdSet)
-  const persistedRemovedRouteProcessIds = removedRouteProcessIds.filter(
-    (routeProcessId) => !isDraftRouteProcessId(routeProcessId)
-  )
+  const persistedRemovedRouteProcessIds = removedRouteProcessIds.filter(isLoadedRouteProcessId)
   if (persistedRemovedRouteProcessIds.length > 0) {
     pendingDeletedRouteProcessIds.value = new Set([
       ...pendingDeletedRouteProcessIds.value,
@@ -6085,7 +5910,7 @@ const buildPayload = (): RouteFlowGraphSaveReqVO => ({
   })),
   routeProcessCreates: routeNodes.value
     .filter(isActiveRouteNode)
-    .filter((node) => isDraftRouteProcessId(node.routeProcessId))
+    .filter((node) => isNewDraftRouteProcess(node.routeProcessId))
     .map((node) => ({
       clientRouteProcessId: node.routeProcessId,
       routeId: props.routeId,
@@ -6279,7 +6104,8 @@ const applyPersistedRouteProcessIdMap = (routeProcessIdMap?: Record<string, numb
 const markGraphSaveClean = () => {
   graphDirty.value = false
   pendingDeletedRouteProcessIds.value = new Set()
-  nextDraftRouteProcessId.value = -1
+  resetLoadedRouteProcessIds()
+  nextDraftRouteProcessId.value = resolveNextDraftRouteProcessId()
   resetRouteProcessKeyFlagBaselines()
   resetRouteProcessCheckFlagBaselines()
   resetRouteProcessWorkstationIdBaselines()
@@ -7903,6 +7729,25 @@ const isBoundaryEdgeId = (edgeId: string | number) => {
 
 const isDraftRouteProcessId = (routeProcessId: number) => {
   return routeProcessId < 0
+}
+
+const isLoadedRouteProcessId = (routeProcessId: number) => {
+  return loadedRouteProcessIds.value.has(Number(routeProcessId))
+}
+
+const isNewDraftRouteProcess = (routeProcessId: number) => {
+  return isDraftRouteProcessId(routeProcessId) && !isLoadedRouteProcessId(routeProcessId)
+}
+
+const resetLoadedRouteProcessIds = () => {
+  loadedRouteProcessIds.value = new Set(routeNodes.value.map((node) => Number(node.routeProcessId)))
+}
+
+const resolveNextDraftRouteProcessId = () => {
+  const negativeRouteProcessIds = routeNodes.value
+    .map((node) => Number(node.routeProcessId))
+    .filter(isDraftRouteProcessId)
+  return negativeRouteProcessIds.length === 0 ? -1 : Math.min(...negativeRouteProcessIds) - 1
 }
 
 const isActiveRouteProcessId = (routeProcessId: number) => {

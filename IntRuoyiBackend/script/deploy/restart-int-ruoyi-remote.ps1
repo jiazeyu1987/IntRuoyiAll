@@ -64,6 +64,20 @@ function Invoke-SshCommand {
     }
 }
 
+function ConvertTo-ShellSingleQuotedLiteral {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Value,
+        [string]$Purpose = 'shell literal'
+    )
+
+    if ($Value.Contains("'")) {
+        Fail "$Purpose contains an unsupported single quote: $Value"
+    }
+    return "'$Value'"
+}
+
 function Assert-RemoteRuntimeDataOnDataDisk {
     $command = @"
 set -eu
@@ -104,6 +118,36 @@ for object in $sampleObjectArguments; do
     exit 1
   fi
 done
+"@
+    Invoke-SshCommand $command
+}
+
+function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable {
+    $remoteAppDirLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $RemoteAppDir -Purpose 'remote app directory'
+    $command = @"
+set -eu
+cd $remoteAppDirLiteral
+if [ ! -f .env ]; then
+  echo "Missing remote runtime env file: $RemoteAppDir/.env" >&2
+  exit 1
+fi
+public_file_base_url=`$(awk -F= '`$1 == "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL" { sub(/^[^=]*=/, ""); print; found = 1; exit } END { if (found != 1) exit 2 }' .env)
+if [ -z "`$public_file_base_url" ]; then
+  echo "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL is blank; remote OnlyOffice preview requires an explicit backend file URL." >&2
+  exit 1
+fi
+case "`$public_file_base_url" in
+  *host.docker.internal*)
+    echo "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL must not use host.docker.internal; remote OnlyOffice containers must reach the backend through the compose service name backend." >&2
+    exit 1
+    ;;
+esac
+health_url="`$(printf '%s' "`$public_file_base_url" | sed 's#/*`$##')/actuator/health"
+if ! docker inspect intruoyi-onlyoffice >/dev/null 2>&1; then
+  echo "Missing intruoyi-onlyoffice container; cannot verify OnlyOffice document-server file download path." >&2
+  exit 1
+fi
+docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 "`$health_url" >/dev/null
 "@
     Invoke-SshCommand $command
 }
@@ -157,6 +201,7 @@ if ($Component -eq 'backend' -or $Component -eq 'full') {
         Fail 'Missing -RemoteMinioContainer; remote backend restart requires an explicit MinIO container.'
     }
     Assert-RemoteShowroomMediaBucketConsistency
+    Assert-RemoteOnlyOfficePublicFileBaseUrlReachable
 }
 if ($Component -eq 'website') {
     Invoke-SshCommand "cd '$RemoteAppDir' && docker compose restart website"

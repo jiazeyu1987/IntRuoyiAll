@@ -1,5 +1,7 @@
 import request from '@/config/axios'
 
+export type MesRouteId = number | string
+
 // MES 工艺路线 VO
 export interface ProRouteVO {
   id?: number // 编号
@@ -88,7 +90,7 @@ export interface RouteDccProjectBindingSaveReqVO {
 
 export interface ProRouteScheduleConfigVO {
   id?: number
-  routeVersionId: number
+  routeVersionId: MesRouteId
   routeProcessId: number
   capacityMode: 'RESOURCE_CALCULATED' | 'MANUAL_OVERRIDE' | 'FINITE_HOURLY' | 'INFINITE_FORMULA'
   hourlyCapacity?: number
@@ -128,19 +130,19 @@ export interface ProRouteVersionVO {
 }
 
 export interface RouteVersionEditContext {
-  routeVersionId: number
+  routeVersionId: MesRouteId
   versionNo: string
   lifecycleStatus: ProRouteVersionLifecycleStatus
 }
 
 export interface ProRouteVersionCreateReqVO {
-  routeId: number
-  sourceRouteVersionId?: number
+  routeId: MesRouteId
+  sourceRouteVersionId?: MesRouteId
   changeReason?: string
 }
 
 export interface ProRouteVersionSubmitPublishReqVO {
-  id: number
+  id: MesRouteId
 }
 
 export interface ProRouteVersionBlockerVO {
@@ -239,7 +241,7 @@ export interface RouteFlowGraphVO extends RouteFlowValidationVO {
 
 export interface RouteFlowGraphSaveReqVO {
   routeId: number
-  routeVersionId?: number
+  routeVersionId?: MesRouteId
   graphVersion: number
   edges: RouteFlowEdgeVO[]
   boundaryEdges: RouteFlowBoundaryEdgeVO[]
@@ -296,7 +298,7 @@ export const ProRouteApi = {
   },
 
   // 查询工艺路线详情
-  getRoute: async (id: number) => {
+  getRoute: async (id: MesRouteId) => {
     return await request.get({ url: `/mes/pro/route/get?id=` + id })
   },
 
@@ -326,7 +328,7 @@ export const ProRouteApi = {
   },
 
   // 查询工艺路线 DCC 项目代码关系
-  getRouteDccProjectBinding: async (routeId: number) => {
+  getRouteDccProjectBinding: async (routeId: MesRouteId) => {
     return await request.get<RouteDccProjectBindingVO>({
       url: `/mes/pro/route/dcc-project-binding`,
       params: { routeId }
@@ -342,7 +344,7 @@ export const ProRouteApi = {
   },
 
   // 解除工艺路线 DCC 项目代码关系
-  deleteRouteDccProjectBinding: async (routeId: number, expectedVersion?: number) => {
+  deleteRouteDccProjectBinding: async (routeId: MesRouteId, expectedVersion?: number) => {
     return await request.delete<RouteDccProjectBindingVO>({
       url: `/mes/pro/route/dcc-project-binding`,
       params: { routeId, expectedVersion }
@@ -387,7 +389,7 @@ export const ProRouteApi = {
   },
 
   // 查询路线排产配置
-  getScheduleConfigListByRouteVersion: async (routeVersionId: number) => {
+  getScheduleConfigListByRouteVersion: async (routeVersionId: MesRouteId) => {
     return await request.get<ProRouteScheduleConfigVO[]>({
       url: `/mes/pro/route-schedule-config/list-by-route-version?routeVersionId=${routeVersionId}`
     })
@@ -409,7 +411,7 @@ export const ProRouteApi = {
   },
 
   // 查询工艺路线工序流转关系图
-  getRouteProcessFlowGraph: async (routeId: number, routeVersionId?: number) => {
+  getRouteProcessFlowGraph: async (routeId: MesRouteId, routeVersionId?: MesRouteId) => {
     return await request.get<RouteFlowGraphVO>({
       url: `/mes/pro/route-process-flow/get`,
       params: { routeId, routeVersionId }
@@ -441,7 +443,7 @@ export const ProRouteApi = {
   },
 
   // 查询工艺路线版本列表
-  getRouteVersionList: async (routeId: number) => {
+  getRouteVersionList: async (routeId: MesRouteId) => {
     return await request.get<ProRouteVersionVO[]>({
       url: `${PRO_ROUTE_VERSION_BASE_URL}/list-by-route`,
       params: { routeId }
@@ -449,7 +451,7 @@ export const ProRouteApi = {
   },
 
   // 查询工艺路线版本详情
-  getRouteVersion: async (id: number) => {
+  getRouteVersion: async (id: MesRouteId) => {
     return await request.get<ProRouteVersionVO>({
       url: `${PRO_ROUTE_VERSION_BASE_URL}/get`,
       params: { id }
@@ -465,7 +467,7 @@ export const ProRouteApi = {
   },
 
   // 查询候选版本发布阻断项
-  getRouteVersionBlockers: async (id: number) => {
+  getRouteVersionBlockers: async (id: MesRouteId) => {
     return await request.get<ProRouteVersionBlockerVO>({
       url: `${PRO_ROUTE_VERSION_BASE_URL}/blockers`,
       params: { id }
@@ -473,28 +475,28 @@ export const ProRouteApi = {
   },
 
   // 提交工艺路线候选版本发布审批
-  submitRouteCandidateVersion: async (id: number) => {
+  submitRouteCandidateVersion: async (id: MesRouteId) => {
     return await request.post<ProRouteVersionVO>({
       url: `${PRO_ROUTE_VERSION_BASE_URL}/submit?id=${id}`
     })
   },
 
   // 撤回工艺路线候选版本审核
-  withdrawRouteCandidateVersion: async (id: number) => {
+  withdrawRouteCandidateVersion: async (id: MesRouteId) => {
     return await request.post<ProRouteVersionVO>({
       url: `${PRO_ROUTE_VERSION_BASE_URL}/withdraw?id=${id}`
     })
   },
 
   // 重新打开已驳回工艺路线候选版本
-  reopenRouteCandidateVersion: async (id: number) => {
+  reopenRouteCandidateVersion: async (id: MesRouteId) => {
     return await request.post<ProRouteVersionVO>({
       url: `${PRO_ROUTE_VERSION_BASE_URL}/reopen?id=${id}`
     })
   },
 
   // 取消工艺路线候选版本
-  cancelRouteCandidateVersion: async (id: number) => {
+  cancelRouteCandidateVersion: async (id: MesRouteId) => {
     return await request.post<ProRouteVersionVO>({
       url: `${PRO_ROUTE_VERSION_BASE_URL}/cancel?id=${id}`
     })

@@ -15,7 +15,7 @@ const productionPicker = panel.slice(productionPickerStart, productionPickerEnd)
 
 assert.match(
   productionPicker,
-  /v-if="pickerStatusText"[\s\S]*class="frontline-picker__empty"[\s\S]*role="status"[\s\S]*aria-live="polite"[\s\S]*\{\{ pickerStatusText \}\}/,
+  /v-else-if="pickerStatusText"[\s\S]*class="frontline-picker__empty"[\s\S]*role="status"[\s\S]*aria-live="polite"[\s\S]*\{\{ pickerStatusText \}\}/,
   'production process and employee pickers must expose loading, prerequisite, empty, and error state text.'
 )
 
@@ -51,8 +51,13 @@ const productionInitialization = panel.slice(
 )
 assert.match(
   productionInitialization,
-  /await loadFrontlineDeviceProcesses\(deviceState\)[\s\S]*findInitialProcess\(processes\)[\s\S]*await handleSelectProcess\(initialProcess\)/,
-  'production initialization must load and select the formal process context.'
+  /loadFrontlineProductionActiveOrders\(deviceState\)[\s\S]*requestedActiveOrder\s*\|\|\s*activeOrders\[0\][\s\S]*await handleSelectActiveOrder\(initialActiveOrder,\s*requestedProcessIdentity\)/,
+  'production initialization must select the requested or first order and let the order workflow refresh formal processes.'
+)
+assert.doesNotMatch(
+  productionInitialization,
+  /loadFrontlineDeviceProcesses\(deviceState\)/,
+  'production initialization must not pre-read a global process list outside the selected order workflow.'
 )
 
 const mountedStart = panel.indexOf('onMounted(async () => {')

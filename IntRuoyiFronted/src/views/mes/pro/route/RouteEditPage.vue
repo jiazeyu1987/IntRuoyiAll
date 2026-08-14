@@ -63,6 +63,7 @@ import {
 } from './routeCandidateEntry'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
 import { useTagsViewStore } from '@/store/modules/tagsView'
+import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 
 defineOptions({ name: 'MesProRouteEdit' })
 
@@ -78,10 +79,10 @@ const LIST_EDIT_ROUTE_DRAFT_ORIGIN = 'list-edit'
 const LIST_EDIT_DISCARD_ON_UNSAVED_EXIT = '1'
 const INVALID_ROUTE_EDIT_MESSAGE = '编辑工艺路线失败：缺少有效路线编号'
 
-const routeId = computed(() => Number(route.params.id || route.query.id))
+const routeId = computed(() => parsePositiveRouteQueryId(route.params.id || route.query.id))
 const isCurrentRouteEditPage = computed(() => route.name === 'MesProRouteEdit')
 const routeIdInvalidError = computed(() =>
-  isCurrentRouteEditPage.value && (!Number.isFinite(routeId.value) || routeId.value <= 0)
+  isCurrentRouteEditPage.value && !routeId.value
     ? INVALID_ROUTE_EDIT_MESSAGE
     : ''
 )
@@ -97,8 +98,8 @@ const targetRouteProcessId = computed(() => {
   return Number.isFinite(value) && value > 0 ? value : undefined
 })
 const routeVersionEditContext = computed<RouteVersionEditContext | undefined>(() => {
-  const routeVersionId = Number(normalizeRouteQueryText(route.query.routeVersionId))
-  if (!Number.isFinite(routeVersionId) || routeVersionId <= 0) {
+  const routeVersionId = parsePositiveRouteQueryId(route.query.routeVersionId)
+  if (!routeVersionId) {
     return undefined
   }
   const versionNo = normalizeRouteQueryText(route.query.routeVersionNo)
@@ -112,8 +113,8 @@ const routeVersionEditContext = computed<RouteVersionEditContext | undefined>(()
 })
 const initialTab = computed(() => {
   const tab = String(route.query.tab || '')
-  if (['basic', 'flow', 'product'].includes(tab)) {
-    return tab as 'basic' | 'flow' | 'product'
+  if (['basic', 'flow', 'product', 'dcc'].includes(tab)) {
+    return tab as 'basic' | 'flow' | 'product' | 'dcc'
   }
   return 'flow'
 })
@@ -321,7 +322,7 @@ const handleSaved = async () => {
 }
 
 const handleEditProductionConfig = async () => {
-  if (!Number.isFinite(routeId.value) || routeId.value <= 0) {
+  if (!routeId.value) {
     message.error('进入候选版本失败：缺少有效路线编号')
     return
   }

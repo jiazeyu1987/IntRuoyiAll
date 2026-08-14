@@ -673,8 +673,8 @@ const isApprovalReviewFilterActive = computed(
 const importQueryFormRef = ref()
 const thirdPartyImportFormRef = ref()
 const importAttributionDialogRef = ref()
-const thirdPartyImportFormComponent = shallowRef<Component | null>(null)
-const importAttributionDialogComponent = shallowRef<Component | null>(null)
+const thirdPartyImportFormComponent = shallowRef<Component>()
+const importAttributionDialogComponent = shallowRef<Component>()
 
 const clearFeedbackQueryFields = () => {
   queryParams.id = undefined

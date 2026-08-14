@@ -19,10 +19,23 @@ class MesReportAllocationPoolQuantityServiceTest {
         MesProProcessPoolEventDO event = MesProProcessPoolEventDO.builder()
                 .id(176L)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
-                .rawPayload("{\"outputQuantity\":411111}")
+                .reportOutputQuantity(new BigDecimal("411111"))
                 .build();
 
         BigDecimal quantity = service.requirePoolQuantity(event);
+
+        assertEquals(0, new BigDecimal("411111").compareTo(quantity));
+    }
+
+    @Test
+    void shouldInitializeFormalOutputFromSubmittedPayload() {
+        MesProProcessPoolEventDO event = MesProProcessPoolEventDO.builder()
+                .id(176L)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .rawPayload("{\"outputQuantity\":411111}")
+                .build();
+
+        BigDecimal quantity = service.requireSubmittedOutputQuantity(event);
 
         assertEquals(0, new BigDecimal("411111").compareTo(quantity));
     }

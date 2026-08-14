@@ -24,7 +24,7 @@ assert.match(
 )
 
 const activeOrderTableStart = page.indexOf('data-team-leader-active-order-list')
-const activeOrderTableEnd = page.indexOf('data-team-leader-active-order-transfer-trace', activeOrderTableStart)
+const activeOrderTableEnd = page.indexOf('</UnifiedListTemplate>', activeOrderTableStart)
 assert.ok(activeOrderTableStart >= 0 && activeOrderTableEnd > activeOrderTableStart, '必须定位活跃订单表格边界。')
 const activeOrderTable = page.slice(activeOrderTableStart, activeOrderTableEnd)
 const operationColumn = activeOrderTable.match(

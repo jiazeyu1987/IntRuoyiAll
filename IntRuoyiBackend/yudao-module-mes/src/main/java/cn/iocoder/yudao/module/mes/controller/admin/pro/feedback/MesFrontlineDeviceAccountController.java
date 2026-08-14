@@ -214,6 +214,7 @@ public class MesFrontlineDeviceAccountController {
         respVO.setProductId(candidate.productId());
         respVO.setProductCode(candidate.productCode());
         respVO.setProductName(candidate.productName());
+        respVO.setBatchCode(candidate.batchCode());
         respVO.setQuantity(candidate.quantity());
         respVO.setRouteId(candidate.routeId());
         respVO.setRouteCode(candidate.routeCode());
@@ -231,6 +232,7 @@ public class MesFrontlineDeviceAccountController {
                 .setProductId(activeOrder.getProductId())
                 .setProductCode(activeOrder.getProductCode())
                 .setProductName(activeOrder.getProductName())
+                .setBatchCode(activeOrder.getBatchCode())
                 .setQuantity(activeOrder.getErpFixedQuantitySnapshot() == null
                         ? activeOrder.getQuantity() : activeOrder.getErpFixedQuantitySnapshot())
                 .setRouteId(activeOrder.getRouteId())
@@ -499,6 +501,11 @@ public class MesFrontlineDeviceAccountController {
             return item;
         }).toList());
         respVO.setProductionSubmitContext(toProductionSubmitContextRespVO(config.productionSubmitContext()));
+        respVO.setEmployeeSwitchSnapshots(config.employeeSwitchSnapshots().stream()
+                .map(MesFrontlineDeviceAccountController::toSwitchEmployeeRespVO)
+                .toList());
+        respVO.setFrontlineSessionSnapshotId(config.frontlineSessionSnapshotId());
+        respVO.setFrontlineSessionSnapshotHash(config.frontlineSessionSnapshotHash());
         return respVO;
     }
 

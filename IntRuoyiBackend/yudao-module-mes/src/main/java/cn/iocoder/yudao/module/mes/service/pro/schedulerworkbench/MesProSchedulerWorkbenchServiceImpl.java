@@ -48,6 +48,8 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     private static final String POLICY_SETTINGS_CONFIG_KEY = "mes.scheduler-workbench.policy-settings";
     private static final Set<String> PRIORITY_RULES = Set.of("PROMISE_DATE", "ORDER_PRIORITY", "CREATED_TIME");
     private static final BigDecimal CAPACITY_DIFF_EPSILON = new BigDecimal("0.000001");
+    private static final String WORKER_CAPACITY_APPLICABILITY_TEXT =
+            "人效h仅影响资源计算模式且产能来源为人工的工序；设备产能、手工覆盖和无限公式不受影响。人数仅作为新配置默认值，不强制重算现有工位。";
     private static final Set<String> DEFAULT_SCHEDULE_CAPACITY_MODES = Set.of(
             MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode(),
             MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode(),
@@ -69,6 +71,8 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     private MesProRouteScheduleConfigMapper routeScheduleConfigMapper;
     @Resource
     private MesProRouteScheduleConfigService routeScheduleConfigService;
+    @Resource
+    private MesProSchedulerWorkbenchRuntimeStatusService runtimeStatusService;
     @Value("${mes.schedule.default-route-capacity-mode:RESOURCE_CALCULATED}")
     private String defaultRouteCapacityMode = MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode();
     @Value("${mes.schedule.capacity-audit-enabled:true}")
@@ -158,6 +162,11 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
             configService.updateConfig(saveReqVO);
         }
         applyWorkerHumanEfficiencyIfChanged(previousSettings, normalizedReqVO);
+        if (previousSettings == null || !Objects.equals(previousSettings.getNightlyReplanTime(),
+                normalizedReqVO.getNightlyReplanTime())) {
+            runtimeStatusService.updateNightlyReplanTime(normalizedReqVO.getNightlyReplanTime());
+        }
+        normalizedReqVO.setWorkerCapacityApplicabilityText(WORKER_CAPACITY_APPLICABILITY_TEXT);
         return normalizedReqVO;
     }
 
@@ -352,7 +361,9 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     }
 
     private MesProSchedulerWorkbenchPolicySettingsRespVO defaultPolicySettings() {
-        return normalizePolicySettings(null);
+        MesProSchedulerWorkbenchPolicySettingsRespVO settings = normalizePolicySettings(null);
+        settings.setWorkerCapacityApplicabilityText(WORKER_CAPACITY_APPLICABILITY_TEXT);
+        return settings;
     }
 
     private MesProSchedulerWorkbenchPolicySettingsRespVO parsePolicySettings(String value) {
@@ -361,6 +372,7 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
                     MesProSchedulerWorkbenchPolicySettingsRespVO.class);
             settings = normalizePolicySettings(settings);
             validatePolicySettings(settings);
+            settings.setWorkerCapacityApplicabilityText(WORKER_CAPACITY_APPLICABILITY_TEXT);
             return settings;
         } catch (JsonProcessingException ex) {
             throw exception(PRO_SCHEDULER_WORKBENCH_POLICY_SETTINGS_INVALID);

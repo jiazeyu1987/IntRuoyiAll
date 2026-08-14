@@ -281,7 +281,9 @@ const recordDrawerVisible = ref(false)
 const recordDetail = ref<CodexTestApi.CodexTestExecutionVO>()
 const artifactPreviewUrl = ref('')
 
-const recordQueryParams = reactive<CodexTestApi.CodexTestExecutionPageReqVO>({
+const recordQueryParams = reactive<
+  CodexTestApi.CodexTestExecutionPageReqVO & { pageNo: number; pageSize: number }
+>({
   pageNo: 1,
   pageSize: 10,
   targetTenantId: undefined,

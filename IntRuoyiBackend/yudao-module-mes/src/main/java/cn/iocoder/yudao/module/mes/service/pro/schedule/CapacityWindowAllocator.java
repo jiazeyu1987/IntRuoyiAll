@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.schedule;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.mes.dal.dataobject.cal.plan.MesCalPlanDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.cal.plan.MesCalPlanShiftDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdProductionLineDO;
@@ -219,6 +220,20 @@ public class CapacityWindowAllocator {
     public boolean isNightShift(MesCalPlanShiftDO shift) {
         return MesProScheduleCalendarRuleSupport.DATE_SHIFT_NIGHT.equals(
                 MesProScheduleCalendarRuleSupport.resolveShiftCode(shift));
+    }
+
+    public int calculateShiftCapacityMinutes(MesCalPlanShiftDO shift) {
+        if (shift == null || StrUtil.isBlank(shift.getStartTime()) || StrUtil.isBlank(shift.getEndTime())) {
+            return 0;
+        }
+        LocalDate referenceDate = LocalDate.of(2000, 1, 1);
+        LocalDateTime shiftStart = buildShiftDateTime(referenceDate, shift.getStartTime());
+        LocalDateTime shiftEnd = buildShiftDateTime(referenceDate, shift.getEndTime());
+        if (!shiftEnd.isAfter(shiftStart)) {
+            shiftEnd = shiftEnd.plusDays(1);
+        }
+        long minutes = Duration.between(shiftStart, shiftEnd).toMinutes();
+        return minutes <= 0 ? 0 : (int) Math.min(minutes, Integer.MAX_VALUE);
     }
 
     public String buildShiftCapacityKey(LocalDate date, Long shiftId) {

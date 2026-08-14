@@ -73,6 +73,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteScheduleConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleDefaultCompatibilityPolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -147,6 +148,8 @@ class MesProScheduleOrderServiceImplTest {
     private MesProRouteProcessMapper routeProcessMapper;
     @Mock
     private MesProRouteProcessService routeProcessService;
+    @Mock
+    private MesProRouteScheduleConfigService routeScheduleConfigService;
     @Mock
     private MesProRouteProcessFlowEdgeMapper routeProcessFlowEdgeMapper;
     @Mock
@@ -1958,6 +1961,52 @@ class MesProScheduleOrderServiceImplTest {
         }
 
         assertEquals(PRO_SCHEDULE_ORDER_PROCESS_WIP_CALENDAR_RULE_REQUIRED.getCode(), exception.getCode());
+        verify(scheduleOrderProcessMapper, never()).updateById(any(MesProScheduleOrderProcessDO.class));
+        verify(scheduleOrderOperationLogMapper, never()).insert(any(MesProScheduleOrderOperationLogDO.class));
+    }
+
+    @Test
+    void saveProcessWipSettings_shouldRejectNightShiftBeforeWritingWhenNightResourcesAreMissing() {
+        MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
+                .id(900902L)
+                .routeId(500902L)
+                .routeVersionId(600902L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderProcessDO process = MesProScheduleOrderProcessDO.builder()
+                .id(800902L)
+                .scheduleOrderId(900902L)
+                .routeVersionId(600902L)
+                .routeProcessId(710902L)
+                .processId(700902L)
+                .enabled(Boolean.TRUE)
+                .progressPercent(new BigDecimal("20"))
+                .nightShiftEnabled(Boolean.FALSE)
+                .build();
+        MesProRouteScheduleConfigDO routeConfig = routeConfig(750902L, 600902L, 710902L, false);
+        routeConfig.setCalendarRuleId(300902L);
+        MesProScheduleOrderProcessWipSettingsReqVO reqVO = new MesProScheduleOrderProcessWipSettingsReqVO();
+        reqVO.setRouteVersionId(600902L);
+        reqVO.setRouteProcessId(710902L);
+        reqVO.setNightShiftEnabled(Boolean.TRUE);
+        reqVO.setReason("工作台设置夜班");
+        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900902L))).thenReturn(List.of(process));
+        when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600902L, 710902L))
+                .thenReturn(routeConfig);
+        org.mockito.Mockito.doThrow(new ServiceException(400,
+                        "工序启用夜班失败：工作站[吹球囊成型]所在产线缺少夜班班次或夜班产能"))
+                .when(routeScheduleConfigService)
+                .validateNightShiftResources(710902L, MesProScheduleCapacityModeEnum.FINITE_HOURLY.getMode());
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> scheduleOrderService.saveProcessWipSettings(reqVO));
+
+        assertEquals(400, ex.getCode());
+        assertTrue(ex.getMessage().contains("吹球囊成型"));
+        assertTrue(ex.getMessage().contains("夜班班次或夜班产能"));
+        verify(routeScheduleConfigMapper, never()).updateById(any(MesProRouteScheduleConfigDO.class));
         verify(scheduleOrderProcessMapper, never()).updateById(any(MesProScheduleOrderProcessDO.class));
         verify(scheduleOrderOperationLogMapper, never()).insert(any(MesProScheduleOrderOperationLogDO.class));
     }

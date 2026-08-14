@@ -52,6 +52,8 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_422, "eDHR 批次执行对应工艺路线缺少生效版本，routeId={}");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED =
             new ErrorCode(1_040_750_423, "作废申请待处理，只能撤回作废申请");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED =
+            new ErrorCode(1_040_750_424, "当前工单产品未绑定启用的工艺路线，请先完成产品与工艺路线绑定");
     ErrorCode PRO_EDHR_RELEASE_PRECHECK_REQUIRED =
             new ErrorCode(1_040_750_430, "eDHR 放行前检查未通过，禁止提交放行");
     ErrorCode PRO_EDHR_RELEASE_STATUS_INVALID =

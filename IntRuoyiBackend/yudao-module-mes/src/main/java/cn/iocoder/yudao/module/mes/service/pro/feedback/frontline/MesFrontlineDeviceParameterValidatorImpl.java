@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceParameterOption;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTeamDeviceOption;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -85,6 +87,84 @@ public class MesFrontlineDeviceParameterValidatorImpl implements MesFrontlineDev
                         "missing parameterCode=" + rule.getParameterCode());
             }
         }
+    }
+
+    @Override
+    public void validateSnapshotDeviceAndParameters(
+            List<MesFrontlineTeamDeviceOption> snapshotDevices,
+            MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice,
+            List<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO> deviceParameterReadings) {
+        List<MesFrontlineTeamDeviceOption> allowedDevices = snapshotDevices == null ? List.of() : snapshotDevices;
+        if (selectedDevice == null || selectedDevice.getDeviceId() == null) {
+            if (deviceParameterReadings != null && !deviceParameterReadings.isEmpty()) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID, "selectedDevice");
+            }
+            return;
+        }
+        MesFrontlineTeamDeviceOption device = allowedDevices.stream()
+                .filter(item -> item != null && Objects.equals(item.deviceId(), selectedDevice.getDeviceId()))
+                .findFirst()
+                .orElseThrow(() -> exception(PRO_FRONTLINE_FEEDBACK_DEVICE_INVALID, selectedDevice.getDeviceId()));
+        Map<String, MesFrontlineDeviceParameterOption> parametersByCode = device.parameters().stream()
+                .collect(Collectors.toMap(MesFrontlineDeviceParameterOption::parameterCode,
+                        Function.identity(), (left, ignored) -> left, LinkedHashMap::new));
+        Set<String> submittedParameterCodes = new LinkedHashSet<>();
+        for (MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading
+                : deviceParameterReadings == null
+                ? List.<MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO>of()
+                : deviceParameterReadings) {
+            validateReadingAgainstSnapshot(device, reading, parametersByCode);
+            if (!submittedParameterCodes.add(reading.getParameterCode())) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID,
+                        "duplicate parameterCode=" + reading.getParameterCode());
+            }
+        }
+        for (MesFrontlineDeviceParameterOption parameter : parametersByCode.values()) {
+            if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(parameter.valueType())) {
+                continue;
+            }
+            if (!submittedParameterCodes.contains(parameter.parameterCode())) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID,
+                        "missing parameterCode=" + parameter.parameterCode());
+            }
+        }
+    }
+
+    private static void validateReadingAgainstSnapshot(
+            MesFrontlineTeamDeviceOption device,
+            MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading,
+            Map<String, MesFrontlineDeviceParameterOption> parametersByCode) {
+        if (reading == null || !Objects.equals(device.deviceId(), reading.getDeviceId())
+                || StrUtil.isBlank(reading.getParameterCode())) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, "parameterCode");
+        }
+        MesFrontlineDeviceParameterOption parameter = parametersByCode.get(reading.getParameterCode());
+        if (parameter == null || MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_TEXT_STANDARD.equals(
+                parameter.valueType())) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
+        }
+        boolean selectParameter = MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT.equals(parameter.valueType());
+        if (selectParameter) {
+            if (StrUtil.isBlank(reading.getTextValue()) || parameter.optionValues() == null
+                    || !parameter.optionValues().contains(reading.getTextValue())) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
+            }
+        } else if (reading.getValue() == null) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
+        }
+        if (MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_BOOLEAN.equals(parameter.valueType())
+                && BigDecimal.ZERO.compareTo(reading.getValue()) != 0
+                && BigDecimal.ONE.compareTo(reading.getValue()) != 0) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_PARAMETER_INVALID, reading.getParameterCode());
+        }
+        reading.setDeviceCode(device.deviceCode())
+                .setDeviceName(device.deviceName())
+                .setParameterName(parameter.parameterName())
+                .setUnit(parameter.unit())
+                .setLowerLimit(parameter.lowerLimit())
+                .setUpperLimit(parameter.upperLimit())
+                .setParameterStatus(selectParameter ? PARAMETER_STATUS_NORMAL
+                        : resolveParameterStatus(reading.getValue(), parameter.lowerLimit(), parameter.upperLimit()));
     }
 
     private MesProcessPoolTeamDeviceDO requireEnabledDevice(Long deviceId) {

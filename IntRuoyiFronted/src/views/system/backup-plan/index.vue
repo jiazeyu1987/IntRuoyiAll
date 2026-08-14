@@ -286,7 +286,7 @@ const status = ref<BackupPlanStatusVO>()
 const historyList = ref<BackupPlanBackupPointVO[]>([])
 const total = ref(0)
 const quickFilterState = reactive({})
-const queryParams = reactive<PageParam>({
+const queryParams = reactive<PageParam & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: 10
 })

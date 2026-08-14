@@ -21,7 +21,7 @@ assertMatch(
 
 assertMatch(
   routeFormContent,
-  /const open = async \(type: string, id\?: number, initialTab: RouteFormInitialTab = 'basic'\) => \{[\s\S]*activeTab\.value = id \? initialTab : 'basic'/,
+  /const open = async \(type: string, id\?: MesRouteId, initialTab: RouteFormInitialTab = 'basic'\) => \{[\s\S]*activeTab\.value = id \? initialTab : 'basic'/,
   'route form open must accept an initial tab for existing routes while defaulting create flow to basic'
 )
 

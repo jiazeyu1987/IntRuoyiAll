@@ -1854,7 +1854,9 @@
           />
         </div>
         <div class="schedule-order-pool__replan-start-hint">
-          当前选择日期：{{ replanStartDate || '未选择' }}，起排时间 {{ replanStartDateStartTime }}
+          当前选择日期：{{ replanStartDate || '未选择' }}，计算日期从 00:00 开始；起排时间
+          {{ replanStartDateStartTime }}。下一可用班次由排程日历决定，例如白班 08:00 开始时，实际任务按班次
+          08:00 开始。
         </div>
         <div class="schedule-order-pool__dialog-footer">
           <el-button @click="replanStartDateDialogVisible = false">取消</el-button>
@@ -1936,10 +1938,7 @@ import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import BaseScheduleOrderMainList from './components/ScheduleOrderMainList.vue'
 import ScheduleOrderProcessDetail from './components/ScheduleOrderProcessDetail.vue'
 import ScheduleOrderReplanDrawer from './components/ScheduleOrderReplanDrawer.vue'
-import {
-  resolveControlledActionProjection,
-  resolveProjectionErrorMessage
-} from '@/api/form-center/actionProjection'
+import { resolveControlledActionProjection } from '@/api/form-center/actionProjection'
 
 defineOptions({ name: 'MesProScheduleOrder' })
 
@@ -2405,6 +2404,14 @@ const replanStartDateStartTime = computed(() =>
   replanStartDate.value ? buildWholeDayReplanStartTime(replanStartDate.value) : '未选择'
 )
 
+const hasErpSourceWarning = (preflight?: MesProScheduleOrderPreflightRespVO | null) =>
+  Boolean(
+    preflight?.issues?.some(
+      (issue: MesProScheduleOrderPreflightIssueVO) =>
+        issue.reasonCode === 'WARN_ERP_SYNC_RECORD_MISSING'
+    )
+  )
+
 const buildReplanRequest = (startTime?: string): ProTaskAutoSchedulePreviewReqVO => {
   const resolvedStartTime = startTime || buildWholeDayReplanStartTime(replanForm.startTime)
   if (!resolvedStartTime) {
@@ -2629,11 +2636,6 @@ const replanIssueRows = computed<ReplanIssueRow[]>(() => {
   return rows
 })
 
-type SkippedSelectedReplanRow = {
-  code: string
-  reason: string
-}
-
 const escapeHtml = (value: string | number | undefined | null) => {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -2744,8 +2746,6 @@ const resolveScheduleReplanProjection = () => {
   )
 }
 const replanProjectionState = computed(resolveScheduleReplanProjection)
-const scheduleReplanActionProjection = computed(() => replanProjectionState.value)
-
 let replanApplyProgressTimer: number | null = null
 
 const clearReplanApplyProgressTimer = () => {
@@ -3845,21 +3845,6 @@ const previewReplanForRequest = async (request: ProTaskAutoSchedulePreviewReqVO)
   }
 }
 
-const previewReplan = async () => {
-  try {
-    const request = buildReplanRequest()
-    await runPreflightForRequest(request)
-    if (preflightHasGlobalBlockedIssue.value) {
-      message.error('排产前检查存在无法归因到工单的阻断问题，不能生成重排预览')
-      return
-    }
-    await previewReplanForRequest(request)
-  } catch (error) {
-    console.error('[MES] 重排预览失败', error)
-    message.error(error instanceof Error ? error.message : '重排预览失败，请查看接口返回信息')
-  }
-}
-
 const buildReplanApplyIdempotencyKey = (request: ProTaskAutoSchedulePreviewReqVO) => {
   const scopeKey = [...request.scheduleOrderIds].sort((left, right) => left - right).join('-')
   const startKey = dayjs(request.startTime).format('YYYYMMDDHHmmss')
@@ -3905,6 +3890,12 @@ const confirmApplyReplanStartChoice = async () => {
     if (preflight.result === 'BLOCKED' && preflightHasGlobalBlockedIssue.value) {
       throw new Error('排产前检查存在无法归因到工单的阻断问题，不能应用重排')
     }
+    const erpSourceWarningConfirmed = hasErpSourceWarning(preflight)
+    if (erpSourceWarningConfirmed) {
+      await message.confirm(
+        '排产范围内存在缺少 ERP 正式同步记录或正式 ID/编号的工单。确认后才会应用正式排程；请先确认这些工单来源可信。'
+      )
+    }
     const freshPreview = await previewReplanForRequest(applyRequest)
     if (!freshPreview?.calendarContextToken) {
       throw new Error('重排预览缺少日历上下文，不能应用重排')
@@ -3917,7 +3908,8 @@ const confirmApplyReplanStartChoice = async () => {
       ...applyRequest,
       reason: replanForm.reason?.trim() || undefined,
       calendarContextToken: freshPreview.calendarContextToken,
-      idempotencyKey: buildReplanApplyIdempotencyKey(applyRequest)
+      idempotencyKey: buildReplanApplyIdempotencyKey(applyRequest),
+      ...(erpSourceWarningConfirmed ? { erpSourceRiskConfirmed: true } : {})
     })
     updateLastReplanParticipatingScheduleOrders(freshPreview)
     message.success(buildReplanApplySuccessMessage(applyResult))

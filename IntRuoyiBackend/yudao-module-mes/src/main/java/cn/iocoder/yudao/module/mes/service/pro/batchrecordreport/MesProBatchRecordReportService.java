@@ -26,6 +26,10 @@ public interface MesProBatchRecordReportService {
     MesProBatchRecordImportPreflightResult preflightUploadedRoute(String routeKey, String batchRecordName,
                                                                   List<String> productNames);
 
+    MesProBatchRecordImportPreflightResult preflightUploadedRoute(String routeKey, String batchRecordName,
+                                                                  List<String> productNames,
+                                                                  Long dccProjectCodeId);
+
     MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
                                                          String batchRecordName, Boolean upgrade,
                                                          List<String> productNames,
@@ -40,6 +44,15 @@ public interface MesProBatchRecordReportService {
                                                          Boolean rebuildBatchRecord,
                                                          List<Long> selectedRouteProductIds,
                                                          List<String> selectedProductNames);
+
+    MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
+                                                         String batchRecordName, String importAction,
+                                                         Long expectedSourceVersionId,
+                                                         List<String> productNames,
+                                                         Boolean rebuildBatchRecord,
+                                                         List<Long> selectedRouteProductIds,
+                                                         List<String> selectedProductNames,
+                                                         Long dccProjectCodeId);
 
     MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
                                                          String batchRecordName, String importAction,
@@ -85,6 +98,21 @@ public interface MesProBatchRecordReportService {
                                                          Long expectedRouteId,
                                                          Long expectedRouteVersionId,
                                                          Long expectedRouteCandidateVersionId,
+                                                         Long approvalSubmitterUserId);
+
+    MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
+                                                         String batchRecordName, String importAction,
+                                                         Long expectedSourceVersionId,
+                                                         String expectedTargetVersionNo,
+                                                         List<String> productNames,
+                                                         Boolean rebuildBatchRecord,
+                                                         List<Long> selectedRouteProductIds,
+                                                         List<String> selectedProductNames,
+                                                         Boolean routeUpgradeConfirmed,
+                                                         Long expectedRouteId,
+                                                         Long expectedRouteVersionId,
+                                                         Long expectedRouteCandidateVersionId,
+                                                         Long dccProjectCodeId,
                                                          Long approvalSubmitterUserId);
 
     MesProBatchRecordVersionApprovalResult submitBatchRecordVersionApproval(Long versionId, Long actorUserId);

@@ -33,11 +33,20 @@
 - 跨分支集成：各任务单测不能代替合并后的真实Bean注入和接口组合回归；共享文件必须按波次串行移交。
 - 脏主工作区融合：创建任务分支以已提交 `int_main` 为基线；合并前计算任务真实增量与主工作区未提交文件交集，存在无法归属的重叠时立即停止。
 - 状态文件：主管独占 `task-state.json`，所有状态写入串行执行并在写后复读；子Agent不得修改。
+- 并行 Agent 控制权：worker/reviewer/tester 不得中断、恢复或重派同级 Agent；同级控制权只由主管执行，误中断后必须重跑对应独立验证。
 - 暂存和提交：只使用明确任务路径，禁止 `git add -A`、回滚或清理并发任务改动；不执行push。
 
 ## Current Status
 
-in_progress：M0/M1完成；Wave 0 C00 已合入 int_main，提交号 a1c032581。Wave 1 DF01、DF02、DF03、DF05 均已通过主管复核、验证并合入 int_main。Wave 2 DF04 已通过主管复核和独立验证，提交号 d781ca689；DF04 收尾记录提交 66b5607a8 已合入。Wave 3 DF06 已吸收最新 int_main、复验通过并 fast-forward 合入 int_main，提交 fd6e923a5；DF06 worktree 已删除，slot 18 已释放。Wave 4 DF07 已通过 RED/GREEN、backend-api validator、独立验证和主管 fast-forward 合并，提交 8e156fbf8 已合入 int_main；DF07 worktree 已删除，slot 18 已释放。Wave 5 DF08 已通过 RED/GREEN、backend-api validator、独立验证和主管 fast-forward 合并，提交 7d9f41e92 已合入 int_main；DF08 worktree 已删除，slot 18 已释放。下一步进入 Wave 6 DF09。
+in_progress：M0/M1完成；Wave 0 C00 已合入 int_main，提交号 a1c032581。Wave 1 DF01、DF02、DF03、DF05 均已通过主管复核、验证并合入 int_main。Wave 2 DF04 已通过主管复核和独立验证，提交号 d781ca689；DF04 收尾记录提交 66b5607a8 已合入。Wave 3 DF06 已吸收最新 int_main、复验通过并 fast-forward 合入 int_main，提交 fd6e923a5；DF06 worktree 已删除，slot 18 已释放。Wave 4 DF07 已通过 RED/GREEN、backend-api validator、独立验证和主管 fast-forward 合并，提交 8e156fbf8 已合入 int_main；DF07 worktree 已删除，slot 18 已释放。Wave 5 DF08 已通过 RED/GREEN、backend-api validator、独立验证和主管 fast-forward 合并，提交 7d9f41e92 已合入 int_main；DF08 worktree 已删除，slot 18 已释放。Wave 6 DF09 已通过主管独立补测、RED/GREEN、backend-api validator、禁止项扫描和 fast-forward 合并，提交 a386dc0da 已合入 int_main。Wave 7 DF10/DF11 已完成 round-4 独立验证并均为 PASS，但尚未提交、合并或清理；当前阻塞在 `E:/IntRuoyi` 主工作区存在大量非 DF10/DF11 归属的未提交/未跟踪改动，需用户明确选择主线脏基线处理方式后才能继续 commit/merge/closeout。
+
+## Status Update 2026-08-13 07:55:00 +0800
+
+Wave 7 DF10/DF11 已并行派发：DF10 负责后端一线 PQC 工序页投影，DF11 负责前端 API 类型和静态合同；两个任务写范围分离，均从 int_main HEAD a386dc0da 创建/复用 worktree，并已通过端口登记与分支运行门禁。未启动服务、未修改共享业务数据、未执行 push/部署/远程操作。
+
+## Status Update 2026-08-14 04:25:00 +0800
+
+Wave 7 DF10/DF11 round-4 独立验证均已 PASS：DF10 后端 18 项目标测试、backend/bug validator、diff check 和禁止项扫描通过；DF11 node 静态合同、pnpm ts:check、frontend/bug validator、diff check 和禁止项扫描通过。当前停止在 verified-ready 状态：未提交、未合并、未清理 worktree、未启动服务、未写业务数据。主线脏工作区阻塞后续合并决策。
 
 ## Cleanup Keep
 
@@ -90,3 +99,16 @@ DF08 首个执行 Agent 超过等待窗口仍无任务文档、代码 diff 或�
 ## Status Update 2026-08-13 06:07:00 +0800
 
 Wave 5 DF08 已完成：目标 Maven 13 项 PASS，git diff --check、禁止项扫描、backend-api evidence validator 和独立验证均 PASS；提交 7d9f41e92 已 fast-forward 合入 int_main。DF08 worktree 已删除，slot 18 已释放。Wave 6 DF09 状态更新为 ready。
+
+## Status Update 2026-08-13 06:34:00 +0800
+
+Wave 6 DF09 已派发：依赖 DF08 已完成并合入 int_main；worktree 为 D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df09，分支为 task/20260812-frontline-pqc-dcc-qa-df09，端口 slot 18（8099/48099）。DF09 范围限定为 PQC task overlay 和 production event candidate helper；不得过滤 QA 工序/检验项目，不得编辑最终 controller/page submit flow。
+
+## Status Update 2026-08-13 07:35:00 +0800
+
+Wave 6 DF09 已完成：主管独立复核发现原证据缺少稳定业务排序覆盖，已补 RED 并修正 overlay 排序；最终目标 Maven 6 tests PASS，git diff --check、禁止项扫描、backend-api evidence validator 与 branch runtime guard 均 PASS；提交 a386dc0da 已 fast-forward 合入 int_main。DF09 worktree 已删除，slot 18 已释放。Wave 7 DF10/DF11 依赖已满足。
+
+## Status Update 2026-08-14 05:15:00 +0800
+
+DF11 分支已通过 merge commit 817687224 合入 DF10 分支 fa520e027，形成 DF10+DF11 集成状态。集成验证 PASS：后端 Maven MesQaInspectionRegulationServiceTest + MesFrontlinePqcContextServiceTest 共 18 tests PASS；前端 frontline-pqc-qa-process-contract-static.spec.cjs PASS；pnpm ts:check exit 0；backend/frontend/bug evidence validators、git diff --check、branch runtime guard 和禁止项扫描均 PASS。主线 fast-forward 仍停止：E:/IntRuoyi 现有本地重叠 patch 中 MesFrontlinePqcContextServiceImpl.java 和 FrontlineFixedTemplatePanel.vue 会在 DF10+DF11 正式集成状态上产生三方冲突，不能安全自动套回。
+- 2026-08-14：经用户授权，以 DF10/DF11 正式合同为准完成快进；int_main 已到 817687224。冲突旧改动仅保留在保护 patch，未自动套回；4 个无冲突本地改动已恢复。INT12 已就绪。

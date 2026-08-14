@@ -70,6 +70,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_ASSOCIATED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DELETE_REFERENCED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DUPLICATE;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 
 @Import(DccProjectCodeServiceImpl.class)
 class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
@@ -315,11 +316,56 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void pageForDocControlUserShouldKeepFullProjectCodeScope() {
+    void pageForAssignmentExecutorWithoutAssignmentsShouldReturnEmptyScope() {
+        insertProjectCode("1", "项目A", "CODE-A");
+        insertProjectCode("2", "项目B", "CODE-B");
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code-assignment:execute")).thenReturn(true);
+
+        DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+
+        PageResult<DccProjectCodeDO> pageResult = projectCodeService.getProjectCodePage(123L, reqVO);
+
+        assertEquals(0L, pageResult.getTotal());
+        assertTrue(pageResult.getList().isEmpty());
+    }
+
+    @Test
+    void detailForAssignmentExecutorOutsideAssignedScopeShouldBeRejected() {
+        DccProjectCodeDO unassignedProjectCode = insertProjectCode("1", "项目A", "CODE-A");
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code-assignment:execute")).thenReturn(true);
+
+        assertServiceException(() -> projectCodeService.getProjectCode(123L, unassignedProjectCode.getId()),
+                PROJECT_CODE_NOT_EXISTS);
+    }
+
+    @Test
+    void pageForImportExportUserShouldNotGainFullProjectCodeScope() {
+        insertProjectCode("1", "项目A", "CODE-A");
+        insertProjectCode("2", "项目B", "CODE-B");
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code:scope:all")).thenReturn(false);
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code:import")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(123L, "dcc:project-code:export")).thenReturn(true);
+
+        DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+
+        PageResult<DccProjectCodeDO> pageResult = projectCodeService.getProjectCodePage(123L, reqVO);
+
+        assertEquals(0L, pageResult.getTotal());
+    }
+
+    @Test
+    void pageForExplicitFullScopeUserShouldKeepFullProjectCodeScope() {
         DccProjectCodeDO firstProjectCode = insertProjectCode("1", "项目A", "CODE-A");
         DccProjectCodeDO secondProjectCode = insertProjectCode("2", "项目B", "CODE-B");
         insertAssignment(firstProjectCode.getId(), 123L, STATUS_ACTIVE, LocalDateTime.now().plusDays(1));
-        when(permissionApi.hasAnyRolesOrSuperAdmin(eq(99L), any(String[].class))).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code:scope:all")).thenReturn(true);
 
         DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
         reqVO.setPageNo(1);

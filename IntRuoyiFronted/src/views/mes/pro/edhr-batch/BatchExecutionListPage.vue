@@ -1364,19 +1364,6 @@ const edhrBatchQuickFilter = useTableQuickFilter(
   getList
 )
 
-const resetQuery = () => {
-  queryParams.pageNo = 1
-  queryParams.pageSize = 10
-  queryParams.batchExecutionCode = ''
-  queryParams.workOrderCode = ''
-  queryParams.batchCode = ''
-  queryParams.productCode = ''
-  queryParams.routeCode = ''
-  queryParams.status = undefined
-  queryParams.createTime = undefined
-  edhrBatchQuickFilter.resetQuickFilter()
-}
-
 const normalizeRouteQueryText = (value: unknown) => {
   const rawValue = Array.isArray(value) ? value[0] : value
   return typeof rawValue === 'string' ? rawValue.trim() : ''
@@ -1427,30 +1414,6 @@ const prefillWorkOrderForCreateDialog = async (prefillWorkOrderCode: string) => 
   createForm.workOrderId = matchedWorkOrder.id
   createForm.batchCode = matchedWorkOrder.batchCode || createForm.batchCode
   await loadCreateRouteOptions(matchedWorkOrder.id)
-}
-
-const openReadinessDialog = (row?: EdhrBatchExecutionRespVO) => {
-  traceActionDialogVisible.value = false
-  readinessError.value = ''
-  readinessResult.value = undefined
-  readinessForm.routeId = row?.routeId ? String(row.routeId) : ''
-  readinessDialogVisible.value = true
-  if (row && !row.routeId) {
-    readinessError.value = '当前批次缺少路线 ID，无法自动预检。'
-  }
-  loadReadinessUsers()
-}
-
-const loadReadinessUsers = async () => {
-  readinessUserLoading.value = true
-  try {
-    readinessUserOptions.value = await UserApi.getSimpleUserList()
-  } catch (error) {
-    readinessUserOptions.value = []
-    readinessError.value = resolveErrorMessage(error, '演练用户列表加载失败。')
-  } finally {
-    readinessUserLoading.value = false
-  }
 }
 
 const buildSelectableWorkOrderQueries = (keyword: string) => {

@@ -248,13 +248,19 @@
   - IntRuoyiBackend/yudao-module-mes/src/main/java/**/MesFrontlinePqcContextServiceImpl*
   - IntRuoyiBackend/yudao-module-mes/src/main/java/**/MesFrontlinePqcProcessRespVO*
   - IntRuoyiBackend/yudao-module-mes/src/test/java/**/MesFrontlinePqcContextServiceTest*
+  - IntRuoyiBackend/yudao-module-mes/src/main/java/**/MesQaInspectionRegulationService* locked-version contract only
+  - IntRuoyiBackend/yudao-module-mes/src/test/java/**/MesQaInspectionRegulationServiceTest* locked-version contract only
+  - IntRuoyiBackend/yudao-module-mes/src/main/java/**/MesFrontlineDeviceAccountController* canonical PQC item mapping compile fix only
 - write_scope:
   - Dedicated PQC response assembler and service projection after DF01 releases the shared service file.
-  - Do not edit controller, frontend component, production-route response model, schema, or upstream mappers.
+  - Round-3 remediation may replace DF07's incomplete process-only locked reader with the frozen full `getLockedVersionForOrder` aggregate and migrate DF10 to that service boundary.
+  - Round-3 remediation may delete only the two obsolete canonical PQC item alias setter calls from the controller; the production-route response mapping remains unchanged.
+  - Do not edit any other controller behavior, frontend component, production-route response model, schema, or upstream mapper.
 - acceptance_ids: [AC-03, AC-04, AC-05, AC-06, AC-07, AC-09, AC-11, AC-12, AC-13]
 - validation_steps:
   - mvn -pl yudao-module-mes -am "-DskipITs" "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
-- done_definition: listProcessesByActiveOrder(activeOrderId) uses batched reads, returns all locked QA processes/items with task state overlay, and does not call management current QA or route-process QA validation.
+- done_definition: listProcessesByActiveOrder(activeOrderId) calls the frozen DF07 full locked-version aggregate, uses batched reads, returns all locked QA processes/items with task state overlay, compiles without canonical-item compatibility aliases, and does not call management current QA or route-process QA validation.
+- bug_regression_evidence: DF10 task `bug-regression-evidence.md` records the clean-compile regression and duplicated locked-version boundary RED/GREEN.
 
 ### DF11
 
@@ -265,15 +271,20 @@
 - affected_paths:
   - IntRuoyiFronted/src/api/mes/pro/feedback/**
   - IntRuoyiFronted/src/api/mes/qc/template/index.ts
+  - IntRuoyiFronted/src/views/mes/pro/feedback/frontlineDeviceEmployeeContext.ts
+  - IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue local PQC snapshot type adapter only
   - IntRuoyiFronted/tests/e2e/frontline-pqc-qa-process-contract-static.spec.cjs
 - write_scope:
-  - Frontline PQC API types, request helpers, static contract tests, and typecheck fixes.
-  - Do not edit page components; INT12 owns final page behavior.
+  - Frontline PQC API types, request helpers, pure projection, stale-response isolation, static contract tests, and typecheck fixes.
+  - The page component may receive the minimal local PQC snapshot type pass-through required by the strict API DTO; INT12 owns final rendering, personnel, equipment and submission behavior.
+  - Round-3 remediation may change the existing active-order picker key/equality to `activeOrderId`, keep the selected task only as page-local `activePqcTaskOptionId`, and remove the process-level flattened task compatibility shape.
+  - Round-3 remediation must execute the real active-order consumer with out-of-order responses and remove unconsumed projection/order helpers; it must not add a second stale-response mechanism.
 - acceptance_ids: [AC-03, AC-04, AC-05, AC-06, AC-08, AC-11, AC-12, AC-13]
 - validation_steps:
   - node tests/e2e/frontline-pqc-qa-process-contract-static.spec.cjs
   - pnpm ts:check
-- done_definition: Frontend uses getPqcProcesses(activeOrderId), retains full item/task/rule/equipment fields, preserves AM/PM task identity, and typecheck passes.
+- done_definition: Frontend uses activeOrderId as the only picker/request/cache identity, reads task identity only from pqcTaskOptions, retains full item/task/rule/equipment fields, proves real-consumer stale isolation, preserves AM/PM task identity, and typecheck passes.
+- bug_regression_evidence: DF11 task `bug-regression-evidence.md` records duplicate-row identity, dual task authority and real-consumer stale-response RED/GREEN.
 
 ### INT12
 

@@ -82,6 +82,7 @@ class ErpKingdeeTableAutoSyncContractTest {
                 "PURCHASE_ORDER",
                 "SALE_ORDER",
                 "PRODUCTION_ORDER",
+                "PRODUCTION_PICK_LIST",
                 "PRODUCTION_MATERIAL_LIST",
                 "BOM"
         }) {
@@ -94,6 +95,7 @@ class ErpKingdeeTableAutoSyncContractTest {
                 "kingdeePurchaseOrderSyncJob",
                 "kingdeeSaleOrderSyncJob",
                 "kingdeeProductionOrderSyncJob",
+                "kingdeeProductionPickListSyncJob",
                 "kingdeeProductionMaterialListSyncJob",
                 "kingdeeBomSyncJob"
         }) {

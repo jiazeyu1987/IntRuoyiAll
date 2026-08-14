@@ -64,16 +64,18 @@ for (const sourceToken of [
   'currentVersionInfo',
   'selectedCategory.value',
   'selectedUploadDirectoryPath',
-  'approvalPositionIds',
-  'signoffPositionIds'
+  'routeReadiness.value?.ready',
+  'routeReadiness.value.blockers',
+  'checkControlledFileRouteReadiness',
+  'selectedSignoffUserIds'
 ]) {
   assert.match(uploadPage, new RegExp(sourceToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `upload preflight must use formal source: ${sourceToken}`)
 }
 
-for (const field of ['sourceFileId', 'originalFileId', 'publishedFileId', 'stampedFileId']) {
-  assert.match(workflowApi, new RegExp(`${field}\\?: number \\| null`), `frontend detail VO must expose ${field}`)
-  assert.match(dccRespVO, new RegExp(`private Long ${field};`), `backend detail VO must expose ${field}`)
-  assert.match(queryService, new RegExp(`respVO\\.set${field[0].toUpperCase()}${field.slice(1)}\\(file\\.get${field[0].toUpperCase()}${field.slice(1)}\\(\\)\\)`), `query service must project ${field}`)
+for (const field of ['publishedArtifactAvailable', 'stampedArtifactAvailable', 'previewUnavailableReason']) {
+  assert.match(workflowApi, new RegExp(`${field}\\?:`), `frontend detail VO must expose business artifact state: ${field}`)
+  assert.match(dccRespVO, new RegExp(`private (?:Boolean|String) ${field};`), `backend detail VO must expose business artifact state: ${field}`)
+  assert.match(queryService, new RegExp(`respVO\\.set${field[0].toUpperCase()}${field.slice(1)}\\(`), `query service must project business artifact state: ${field}`)
 }
 
 const controlledBrowserSection = extractBetween(
@@ -82,14 +84,14 @@ const controlledBrowserSection = extractBetween(
   '</ContentWrap>',
   'detail controlled browser linkage section'
 )
-for (const label of ['受控浏览入口', '最终目录路径', 'publishedFileId', 'stampedFileId', 'master 当前生效版本']) {
+for (const label of ['受控浏览入口', '最终目录路径', '发布文件', '盖章文件', 'master 当前生效版本']) {
   assert.match(controlledBrowserSection, new RegExp(label), `detail controlled browser linkage must show ${label}`)
 }
 for (const token of [
   'openControlledBrowserLocation',
   'directoryPathMap',
-  'fileDetail?.publishedFileId',
-  'fileDetail?.stampedFileId',
+  'fileDetail.value?.publishedArtifactAvailable',
+  'fileDetail.value?.stampedArtifactAvailable',
   'fileDetail?.currentActiveVersionNo',
   'buildControlledFileViewerPath'
 ]) {

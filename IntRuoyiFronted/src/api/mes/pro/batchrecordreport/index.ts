@@ -102,6 +102,8 @@ export interface BatchRecordReportImportPreflightVO {
   currentRouteId?: number
   currentRouteCode?: string
   currentRouteName?: string
+  currentRouteStatus?: number
+  routeRestoreRequired?: boolean
   currentRouteVersionId?: number
   currentRouteVersionNo?: string
   currentRouteVersionActive?: boolean
@@ -281,6 +283,7 @@ export const BatchRecordReportApi = {
     file: File,
     routeKey: string,
     batchRecordName: string,
+    dccProjectCodeId: number,
     upgrade: boolean,
     productNames: string[],
     rebuildBatchRecord = true,
@@ -298,6 +301,7 @@ export const BatchRecordReportApi = {
     data.append('file', file)
     data.append('routeKey', routeKey)
     data.append('batchRecordName', batchRecordName)
+    data.append('dccProjectCodeId', String(dccProjectCodeId))
     data.append('upgrade', String(upgrade))
     data.append('importAction', importAction)
     if (expectedSourceVersionId !== undefined) {
@@ -330,10 +334,16 @@ export const BatchRecordReportApi = {
     return result.data
   },
 
-  preflightUploadedRoute: async (routeKey: string, batchRecordName: string, productNames: string[]) => {
+  preflightUploadedRoute: async (
+    routeKey: string,
+    batchRecordName: string,
+    dccProjectCodeId: number,
+    productNames: string[]
+  ) => {
     const params = new URLSearchParams()
     params.append('routeKey', routeKey)
     params.append('batchRecordName', batchRecordName)
+    params.append('dccProjectCodeId', String(dccProjectCodeId))
     productNames.forEach((productName) => params.append('productNames', productName))
     const query = params.toString()
     return await request.get<BatchRecordReportImportPreflightVO>({

@@ -6,6 +6,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.B
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkWorkbenchContextRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupSaveRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -62,6 +64,14 @@ public class MesProBatchRecordCellLinkController {
         return success(cellLinkService.saveRules(reqVO));
     }
 
+
+    @PostMapping("/repeat-row-group/save")
+    @Operation(summary = "保存批记录重复行组对应关系")
+    @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-cell-link:update')")
+    public CommonResult<BatchRecordRepeatRowGroupSaveRespVO> saveRepeatRowGroup(
+            @Valid @RequestBody BatchRecordRepeatRowGroupSaveReqVO reqVO) {
+        return success(cellLinkService.saveRepeatRowGroup(reqVO));
+    }
     @GetMapping("/prefill")
     @Operation(summary = "预览目标执行表单自动带值")
     @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-cell-link:query') "

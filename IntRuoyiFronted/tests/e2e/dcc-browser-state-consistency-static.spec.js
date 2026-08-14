@@ -80,22 +80,27 @@ assert.match(
   'table empty hint must explain that data was cleared because the last query failed.'
 )
 
-const handleQueryBlock = extractBetween(
+const reloadBrowserListAndCommitStateBlock = extractBetween(
   browserPage,
-  'const handleQuery = async',
-  'const handleSearchScopeChange = async'
+  'const reloadBrowserListAndCommitState = async',
+  'const dccBrowserQuickFilter = useTableQuickFilter'
 )
 assertBefore(
-  handleQueryBlock,
+  reloadBrowserListAndCommitStateBlock,
   'await getList()',
   'await syncRouteFromBrowserState()',
-  'handleQuery must only sync URL and remembered state after the list request succeeds.'
+  'unified quick filtering must only sync URL and remembered state after the list request succeeds.'
+)
+assert.match(
+  browserPage,
+  /@quick-filter-query="dccBrowserQuickFilter\.applyQuickFilter"/,
+  'the unified browser filter must apply through the state-consistent quick-filter hook.'
 )
 
 const handleSearchScopeChangeBlock = extractBetween(
   browserPage,
   'const handleSearchScopeChange = async',
-  'const resetQuery = async'
+  'const refreshDirectories = async'
 )
 assertBefore(
   handleSearchScopeChangeBlock,
@@ -190,7 +195,7 @@ assert.match(
 
 const stateConsistencyImplementation = [
   getListBlock,
-  handleQueryBlock,
+  reloadBrowserListAndCommitStateBlock,
   handleSearchScopeChangeBlock,
   handlePaginationBlock,
   openPreviewBlock,

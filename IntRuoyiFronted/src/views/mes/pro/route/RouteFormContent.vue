@@ -100,6 +100,18 @@
           <el-tab-pane label="DCC项目代码" name="dcc" lazy>
             <div class="route-dcc-project-binding" v-loading="dccProjectBindingLoading">
               <el-alert
+                v-if="dccProjectBindingError"
+                :title="dccProjectBindingError"
+                type="error"
+                :closable="false"
+                show-icon
+              >
+                <template #default>
+                  <el-button type="primary" link @click="loadDccProjectData">重新加载</el-button>
+                </template>
+              </el-alert>
+              <template v-else>
+              <el-alert
                 title="QA 规程只通过 DCC 项目代码关联。这里保存的是工艺路线与 DCC 项目代码的正式关系，不保存 QA 规程。"
                 type="info"
                 :closable="false"
@@ -143,6 +155,7 @@
                   当前关系版本：{{ dccProjectBinding.version }}
                 </span>
               </el-space>
+              </template>
             </div>
           </el-tab-pane>
         </template>
@@ -157,6 +170,7 @@ import { CommonStatusEnum } from '@/utils/constants'
 import {
   ProRouteApi,
   ProRouteVO,
+  type MesRouteId,
   type RouteDccProjectBindingVO,
   type RouteVersionEditContext
 } from '@/api/mes/pro/route'
@@ -257,6 +271,7 @@ const dccProjectBinding = ref<RouteDccProjectBindingVO>({
 })
 const dccProjectBindingForm = reactive<{ dccProjectCodeId?: number }>({})
 const dccProjectBindingLoading = ref(false)
+const dccProjectBindingError = ref('')
 const dccProjectCodeLoading = ref(false)
 const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 
@@ -278,16 +293,16 @@ const generateCode = async () => {
   formData.value.code = await AutoCodeRecordApi.generateAutoCode(MesAutoCodeRuleCode.PRO_ROUTE_CODE)
 }
 
-const open = async (type: string, id?: number, initialTab: RouteFormInitialTab = 'basic') => {
+const open = async (type: string, id?: MesRouteId, initialTab: RouteFormInitialTab = 'basic') => {
   formType.value = type
   activeTab.value = id ? initialTab : 'basic'
   resetForm()
   formLoading.value = true
   let shouldTriggerFlowAutoLayout = false
+  const shouldLoadDccProjectData = activeTab.value === 'dcc'
   try {
     if (id) {
       formData.value = await ProRouteApi.getRoute(id)
-      await loadDccProjectBinding(id)
     }
     if (id && initialTab === 'basic') {
       await ensureOwnerLeaderCandidatesLoaded()
@@ -298,6 +313,9 @@ const open = async (type: string, id?: number, initialTab: RouteFormInitialTab =
   }
   if (shouldTriggerFlowAutoLayout) {
     triggerFlowAutoLayout()
+  }
+  if (shouldLoadDccProjectData) {
+    await loadDccProjectData()
   }
 }
 
@@ -469,6 +487,7 @@ const resetForm = () => {
     bound: false
   }
   dccProjectBindingForm.dccProjectCodeId = undefined
+  dccProjectBindingError.value = ''
   dccProjectCodeOptions.value = []
 }
 
@@ -529,11 +548,27 @@ const handleRouteTabChange = (tabName: string | number) => {
     triggerFlowAutoLayout()
   }
   if (tabName === 'dcc') {
-    void loadDccProjectCodeOptions('')
+    void loadDccProjectData()
   }
 }
 
-const loadDccProjectBinding = async (routeId: number) => {
+const loadDccProjectData = async () => {
+  if (!formData.value.id) return
+  dccProjectBindingError.value = ''
+  try {
+    await loadDccProjectBinding(formData.value.id)
+    await loadDccProjectCodeOptions('')
+  } catch (error) {
+    const errorMessage = resolveRouteOperationErrorMessage(
+      error,
+      '加载DCC项目代码配置失败，请查看后端返回错误'
+    )
+    dccProjectBindingError.value = errorMessage
+    message.error(errorMessage)
+  }
+}
+
+const loadDccProjectBinding = async (routeId: MesRouteId) => {
   dccProjectBindingLoading.value = true
   try {
     const data = await ProRouteApi.getRouteDccProjectBinding(routeId)

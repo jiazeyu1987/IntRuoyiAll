@@ -4,8 +4,8 @@
       class="mb-12px"
       type="info"
       :closable="false"
-      title="生产数量、生产用时仍在工艺路线关联产品中维护"
-      description="这里仅维护产品当前选用的工艺路线，路线内的产品参数继续在工艺路线关联产品中管理。"
+      title="工艺路线关联产品只维护产品编号"
+      description="这里维护产品当前选用的工艺路线，工艺路线内关联产品时只需要录入产品编号。"
     />
     <el-alert
       v-if="isCurrentRouteLocked && !isDetail"

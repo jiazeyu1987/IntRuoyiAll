@@ -243,6 +243,11 @@ public class MesMdItemServiceImpl implements MesMdItemService {
     }
 
     @Override
+    public MesMdItemDO getItemByCode(String code) {
+        return itemMapper.selectByCode(code);
+    }
+
+    @Override
     public PageResult<MesMdItemDO> getItemPage(MesMdItemPageReqVO pageReqVO) {
         // 查找时，如果查找某个分类编号，则包含它的子分类
         Set<Long> itemTypeIds = null;

@@ -17,6 +17,8 @@ public enum ErpKingdeeTableAutoSyncTypeEnum {
     PURCHASE_ORDER(ErpKingdeeSyncTypeEnum.PURCHASE_ORDER.getType(), "采购订单", "kingdeePurchaseOrderSyncJob"),
     SALE_ORDER(ErpKingdeeSyncTypeEnum.SALE_ORDER.getType(), "销售订单", "kingdeeSaleOrderSyncJob"),
     PRODUCTION_ORDER(ErpKingdeeSyncTypeEnum.PRODUCTION_ORDER.getType(), "生产工单", "kingdeeProductionOrderSyncJob"),
+    PRODUCTION_PICK_LIST(ErpKingdeeSyncTypeEnum.PRODUCTION_PICK_LIST.getType(), "生产领料单列表",
+            "kingdeeProductionPickListSyncJob"),
     PRODUCTION_MATERIAL_LIST(ErpKingdeeSyncTypeEnum.PRODUCTION_MATERIAL_LIST.getType(), "生产用料清单",
             "kingdeeProductionMaterialListSyncJob"),
     BOM(ErpKingdeeSyncTypeEnum.BOM.getType(), "产品 BOM", "kingdeeBomSyncJob");

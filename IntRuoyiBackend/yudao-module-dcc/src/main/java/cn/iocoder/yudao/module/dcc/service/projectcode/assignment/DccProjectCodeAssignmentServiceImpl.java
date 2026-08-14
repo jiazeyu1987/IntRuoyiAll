@@ -5,6 +5,8 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCreateReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCandidatePageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCandidateRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentFilePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentPageReqVO;
@@ -19,6 +21,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmen
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataUpdateService;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -119,6 +122,45 @@ public class DccProjectCodeAssignmentServiceImpl implements DccProjectCodeAssign
     public PageResult<DccProjectCodeAssignmentRespVO> getMyAssignmentPage(Long userId,
                                                                           DccProjectCodeAssignmentPageReqVO reqVO) {
         return toAssignmentRespPage(assignmentMapper.selectPage(null, userId, reqVO));
+    }
+
+    @Override
+    public PageResult<DccProjectCodeAssignmentCandidateRespVO> getAssignmentCandidatePage(
+            Long userId, Long projectCodeId, DccProjectCodeAssignmentCandidatePageReqVO reqVO) {
+        validateProjectCode(projectCodeId);
+        PageResult<DccControlledFileDO> page = controlledFileMapper.selectAssignmentCandidatePage(reqVO);
+        Set<Long> currentProjectIds = page.getList().stream()
+                .map(DccControlledFileDO::getDccProjectCodeId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, DccProjectCodeDO> projectMap = currentProjectIds.isEmpty()
+                ? Map.of()
+                : convertMap(projectCodeMapper.selectBatchIds(currentProjectIds), DccProjectCodeDO::getId);
+        List<DccProjectCodeAssignmentCandidateRespVO> rows = page.getList().stream()
+                .map(file -> toAssignmentCandidate(file, projectMap.get(file.getDccProjectCodeId())))
+                .toList();
+        return new PageResult<>(rows, page.getTotal());
+    }
+
+    private DccProjectCodeAssignmentCandidateRespVO toAssignmentCandidate(DccControlledFileDO file,
+                                                                          DccProjectCodeDO currentProject) {
+        DccProjectCodeAssignmentCandidateRespVO respVO = new DccProjectCodeAssignmentCandidateRespVO();
+        respVO.setId(file.getId());
+        respVO.setMasterId(file.getMasterId());
+        respVO.setFileName(file.getFileName());
+        respVO.setFileNumber(file.getFileNumber());
+        respVO.setVersionNo(file.getVersionNo());
+        respVO.setStatus(file.getStatus());
+        respVO.setCurrentProjectCodeId(file.getDccProjectCodeId());
+        respVO.setCurrentProjectName(currentProject == null ? null : currentProject.getProjectName());
+        respVO.setCurrentProjectCode(currentProject == null ? null : currentProject.getProjectCode());
+        boolean selectable = DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+                || DccControlledFileStatusEnum.APPROVED.getStatus().equals(file.getStatus());
+        respVO.setSelectable(selectable);
+        if (!selectable && DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus().equals(file.getStatus())) {
+            respVO.setDisabledReason("审批中的文件不可创建修正任务，请先撤回或完成审批后处理");
+        }
+        return respVO;
     }
 
     @Override

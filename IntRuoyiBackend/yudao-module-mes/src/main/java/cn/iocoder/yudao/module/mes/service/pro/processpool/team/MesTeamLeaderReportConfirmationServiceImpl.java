@@ -28,7 +28,6 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAll
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoTargetWorkOrder;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
-import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -82,6 +81,8 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
     private final MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
     private final MesWorkOrderAbnormalStateService abnormalStateService;
     private final MesReportAllocationQualityGateService qualityGateService;
+    private final MesReportAllocationPoolQuantityService poolQuantityService;
+    private final MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
@@ -100,7 +101,8 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                                                        MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper,
                                                        MesTeamLeaderOrderProcessTargetService orderProcessTargetService,
                                                        MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService,
-                                                       MesWorkOrderAbnormalStateService abnormalStateService) {
+                                                       MesWorkOrderAbnormalStateService abnormalStateService,
+                                                       MesProductionReportManagementSummaryService reportManagementSummaryService) {
         this.scopeService = scopeService;
         this.eventMapper = eventMapper;
         this.activeOrderMapper = activeOrderMapper;
@@ -116,8 +118,10 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         this.orderProcessTargetService = orderProcessTargetService;
         this.orderProcessCompletionService = orderProcessCompletionService;
         this.abnormalStateService = abnormalStateService;
+        this.reportManagementSummaryService = reportManagementSummaryService;
+        this.poolQuantityService = new MesReportAllocationPoolQuantityService();
         this.qualityGateService = new MesReportAllocationQualityGateService(
-                new MesReportAllocationPoolQuantityService(), eventMapper, pqcRecordMapper,
+                poolQuantityService, eventMapper, pqcRecordMapper,
                 pqcTaskMapper, pqcPieceDetailMapper);
     }
 
@@ -188,6 +192,8 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                         .processId(event.getProcessId())
                         .allocatedQuantity(line.quantity())
                         .allocationMode(reqBO.getAllocationMode())
+                        .lifecycleStatus(MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
+                        .createdVersion(1)
                         .confirmedAt(confirmedAt)
                         .build())
                 .toList();
@@ -195,6 +201,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
             throw new IllegalStateException("Failed to insert MES team leader report allocation lines");
         }
         orderProcessCompletionService.applyConfirmedAllocations(event, rows);
+        reportManagementSummaryService.refreshProductionEvent(event);
         return review.getId();
     }
 
@@ -383,25 +390,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
     }
 
     private BigDecimal extractSubmittedQuantity(MesProProcessPoolEventDO event) {
-        if (StrUtil.isBlank(event.getRawPayload())) {
-            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, event.getId());
-        }
-        try {
-            JsonNode root = JsonUtils.getObjectMapper().readTree(event.getRawPayload());
-            JsonNode quantityNode = root.get("outputQuantity");
-            if (quantityNode == null || !quantityNode.isNumber()) {
-                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, event.getId());
-            }
-            BigDecimal quantity = quantityNode.decimalValue();
-            if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
-                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, event.getId());
-            }
-            return quantity;
-        } catch (RuntimeException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, event.getId());
-        }
+        return poolQuantityService.requirePoolQuantity(event);
     }
 
     private void validateConfirmReq(MesTeamLeaderReportConfirmationReqBO reqBO) {

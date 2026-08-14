@@ -232,7 +232,7 @@
             />
           </el-form-item>
           <el-form-item
-            label="夜班"
+            label="默认允许使用夜班"
             prop="defaultNightShiftEnabled"
             class="scheduler-workbench__policy-item"
           >
@@ -240,8 +240,8 @@
               v-model="policySettingsForm.defaultNightShiftEnabled"
               :disabled="!canUpdateSettings"
               inline-prompt
-              active-text="开启"
-              inactive-text="关闭"
+              active-text="允许"
+              inactive-text="不允许"
             />
           </el-form-item>
           <el-form-item
@@ -272,6 +272,59 @@
               :disabled="!canUpdateSettings"
             />
           </el-form-item>
+          <div class="scheduler-workbench__policy-runtime-status">
+            <el-alert
+              :title="
+                policySettingsForm.workerCapacityApplicabilityText ||
+                '人效h仅影响资源计算模式且产能来源为人工的工序；设备产能、手工覆盖和无限公式不受影响。'
+              "
+              type="info"
+              :closable="false"
+              show-icon
+            />
+            <el-alert
+              title="默认允许使用夜班只代表新工序默认允许排夜班；不会自动创建夜班班次、设备或产能。"
+              type="warning"
+              :closable="false"
+              show-icon
+            />
+            <div class="scheduler-workbench__runtime-card">
+              <div>
+                <strong>可用夜班班次与产能</strong>
+                <small>{{ nightShiftCapacityStatusText }}</small>
+              </div>
+              <el-tag :type="nightShiftCapacityTagType" effect="light">
+                {{ nightShiftCapacityStatus?.available ? '可用' : '不可用' }}
+              </el-tag>
+              <small
+                v-if="nightShiftCapacityStatus?.shifts?.length"
+                class="scheduler-workbench__runtime-detail"
+              >
+                {{
+                  nightShiftCapacityStatus.shifts
+                    .map(
+                      (shift) =>
+                        `${shift.shiftName || shift.shiftId || '夜班'} ${shift.startTime || '--'}-${shift.endTime || '--'}，产线 ${shift.capacityLineCount || 0} 条`
+                    )
+                    .join('；')
+                }}
+              </small>
+            </div>
+            <div class="scheduler-workbench__runtime-card">
+              <div>
+                <strong>自动排产任务</strong>
+                <small>{{ autoScheduleJobStatusText }}</small>
+              </div>
+              <el-tag :type="autoScheduleJobTagType" effect="light">
+                {{ autoScheduleJobStatus?.enabled ? '已启用' : '未启用' }}
+              </el-tag>
+              <small class="scheduler-workbench__runtime-detail">
+                处理器 mesProNightlyReplanJob；下次触发
+                {{ formatDateTimeValue(autoScheduleJobStatus?.nextTriggerTime, '未计算') }}；最近日志
+                {{ formatAutoScheduleLatestLogText(autoScheduleJobStatus) }}
+              </small>
+            </div>
+          </div>
           <div class="scheduler-workbench__settings-actions">
             <el-button
               plain
@@ -1113,6 +1166,8 @@ import download from '@/utils/download'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   SchedulerWorkbenchApi,
+  type AutoScheduleJobStatusVO,
+  type NightShiftCapacityStatusVO,
   type SchedulerWorkbenchFullConfigImportRespVO,
   type SchedulerWorkbenchPolicySettingsVO,
   type SchedulerWorkbenchRouteActiveOrderVO,
@@ -1188,6 +1243,8 @@ const activeWipTab = ref('process-list')
 const replanExplanationLoading = ref(false)
 const replanExplanationError = ref('')
 const replanExplanation = ref<ProTaskReplanExplanationRespVO | null>(null)
+const autoScheduleJobStatus = ref<AutoScheduleJobStatusVO | null>(null)
+const nightShiftCapacityStatus = ref<NightShiftCapacityStatusVO | null>(null)
 let replanExplanationRequest: Promise<void> | null = null
 let schedulerWorkbenchRequestSerial = 0
 let schedulerWorkbenchSecondaryFrameId: number | undefined
@@ -1492,7 +1549,8 @@ const policySettingsForm = reactive<SchedulerWorkbenchPolicySettingsVO>({
   defaultInfiniteDurationBaseHours: undefined,
   defaultNightShiftEnabled: false,
   defaultWorkerQuantity: 5,
-  defaultWorkerSingleHourlyCapacity: 30
+  defaultWorkerSingleHourlyCapacity: 30,
+  workerCapacityApplicabilityText: ''
 })
 const timeRule = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value || '')) {
@@ -1571,6 +1629,43 @@ const shiftHoursSettingText = computed(() => {
   }
   return '未配置'
 })
+
+const autoScheduleJobTagType = computed(() => {
+  if (!autoScheduleJobStatus.value?.configured) return 'danger'
+  return autoScheduleJobStatus.value.enabled ? 'success' : 'warning'
+})
+
+const autoScheduleJobStatusText = computed(() => {
+  const status = autoScheduleJobStatus.value
+  if (!status?.configured) return '自动排产任务未注册'
+  const enabledText = status.enabled ? '已注册并启用' : '已注册但未启用'
+  return `${enabledText}，cron ${status.cronExpression || '未配置'}`
+})
+
+const nightShiftCapacityTagType = computed(() =>
+  nightShiftCapacityStatus.value?.available ? 'success' : 'danger'
+)
+
+const nightShiftCapacityStatusText = computed(() => {
+  const status = nightShiftCapacityStatus.value
+  if (!status) return '正在读取可用夜班班次和产能'
+  if (!status.availableShiftCount) return '没有可用夜班班次'
+  if (!status.capacityLineCount) return '已有夜班班次，但没有可用夜班产能'
+  return `可用夜班 ${status.availableShiftCount} 个，具备夜班产能的产线 ${status.capacityLineCount} 条`
+})
+
+const formatAutoScheduleLatestLogText = (status?: AutoScheduleJobStatusVO | null) => {
+  if (!status?.latestBeginTime) return '暂无执行日志'
+  const statusText =
+    status.latestStatus === 'SUCCESS'
+      ? '成功'
+      : status.latestStatus === 'FAILURE'
+        ? '失败'
+        : status.latestStatus === 'RUNNING'
+          ? '运行中'
+          : status.latestStatus || '未知'
+  return `${formatDateTimeValue(status.latestBeginTime, '未知时间')} ${statusText}`
+}
 
 const loadSummary = async (requestSerial?: number) => {
   loading.value = true
@@ -1807,6 +1902,15 @@ const loadPolicySettings = async () => {
   Object.assign(policySettingsForm, await SchedulerWorkbenchApi.getPolicySettings())
 }
 
+const loadRuntimeStatus = async () => {
+  const [jobStatus, capacityStatus] = await Promise.all([
+    SchedulerWorkbenchApi.getAutoScheduleJobStatus(),
+    SchedulerWorkbenchApi.getNightShiftCapacityStatus()
+  ])
+  autoScheduleJobStatus.value = jobStatus
+  nightShiftCapacityStatus.value = capacityStatus
+}
+
 const saveShiftHoursSetting = async () => {
   await shiftHoursFormRef.value.validate()
   if (!shiftHoursForm.shiftHours || shiftHoursForm.shiftHours <= 0) {
@@ -1836,6 +1940,7 @@ const savePolicySettings = async () => {
       policySettingsForm,
       await SchedulerWorkbenchApi.savePolicySettings({ ...policySettingsForm })
     )
+    await loadRuntimeStatus()
     await Promise.all([loadSummary(), loadProcessWipStatistics()])
     ElMessage.success('排产策略已保存')
   } finally {
@@ -1926,7 +2031,8 @@ const ensureSchedulerSettingsLoaded = async () => {
         await Promise.all([
           loadShiftHoursSetting(),
           loadPolicySettings(),
-          loadScheduleRules()
+          loadScheduleRules(),
+          loadRuntimeStatus()
         ])
         schedulerSettingsLoaded.value = true
       } finally {
@@ -2408,8 +2514,45 @@ onBeforeUnmount(() => {
 }
 
 .scheduler-workbench__policy-checks,
+.scheduler-workbench__policy-runtime-status,
 .scheduler-workbench__settings-actions {
   grid-column: 1 / -1;
+}
+
+.scheduler-workbench__policy-runtime-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.scheduler-workbench__policy-runtime-status > :deep(.el-alert) {
+  grid-column: 1 / -1;
+}
+
+.scheduler-workbench__runtime-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.scheduler-workbench__runtime-card > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.scheduler-workbench__runtime-card small {
+  color: var(--el-text-color-secondary);
+  line-height: 20px;
+}
+
+.scheduler-workbench__runtime-detail {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
 }
 
 .scheduler-workbench__policy-checks :deep(.el-form-item__label) {
@@ -2828,6 +2971,10 @@ onBeforeUnmount(() => {
   }
 
   .scheduler-workbench__policy-form {
+    grid-template-columns: 1fr;
+  }
+
+  .scheduler-workbench__policy-runtime-status {
     grid-template-columns: 1fr;
   }
 

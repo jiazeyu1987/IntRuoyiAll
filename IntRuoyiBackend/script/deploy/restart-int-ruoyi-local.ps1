@@ -203,6 +203,38 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260530_dcc_tenant_scoped_code_indexes.sql'
     },
     [PSCustomObject]@{
+        Name = 'MES route DCC project binding schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  EXISTS (
+    SELECT 1
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_route_dcc_project_binding'
+  )
+  AND (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_route_dcc_project_binding'
+      AND COLUMN_NAME IN ('route_id', 'dcc_project_code_id', 'version', 'active_route_id')
+  ) = 4
+  AND (
+    SELECT COUNT(DISTINCT INDEX_NAME)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_route_dcc_project_binding'
+      AND INDEX_NAME IN (
+        'uk_mes_pro_route_dcc_current',
+        'uk_mes_pro_route_dcc_history_version',
+        'idx_mes_pro_route_dcc_project'
+      )
+  ) = 3
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260813_mes_route_dcc_project_binding_schema.sql'
+    },
+    [PSCustomObject]@{
         Name = 'DCC file-category batch recognition schema'
         ProbeSql = @'
 SELECT CASE WHEN

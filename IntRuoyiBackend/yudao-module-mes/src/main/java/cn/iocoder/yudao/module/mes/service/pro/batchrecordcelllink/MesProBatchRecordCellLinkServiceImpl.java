@@ -17,16 +17,25 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.B
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkSourceFieldVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkWorkbenchContextRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupMappingSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupMappingVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupRecordSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupRecordVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupSaveRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRulesRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordCellLinkRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordRepeatRowGroupDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordRepeatRowGroupMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
@@ -68,6 +77,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private static final String SOURCE_TYPE_PROCESS_POOL_REPORT = "PROCESS_POOL_REPORT";
     private static final String SOURCE_TYPE_PQC_AGGREGATE_DETAIL = "PQC_AGGREGATE_DETAIL";
     private static final String SOURCE_TYPE_PRODUCTION_LOSS = "PRODUCTION_LOSS";
+    private static final String FORM_SLOT_TYPE_PROCESS_INSPECTION = "PROCESS_INSPECTION";
+    private static final String FORM_SLOT_TYPE_LOSS_REPORT = "LOSS_REPORT";
     private static final String PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID = "PRODUCTION_WORK_ORDER";
     private static final String PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME = "生产工单";
     private static final String PROCESS_POOL_REPORT_SOURCE_REPORT_ID = "PROCESS_POOL_REPORT";
@@ -89,9 +100,29 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             new WorkOrderSourceField("requestDate", "需求日期", "DATETIME", MesProWorkOrderDO::getRequestDate),
             new WorkOrderSourceField("remark", "备注", "STRING", MesProWorkOrderDO::getRemark));
     private static final List<ProcessPoolReportSourceField> PROCESS_POOL_REPORT_BASE_SOURCE_FIELDS = List.of(
-            new ProcessPoolReportSourceField("allocatedQuantity", "放行分配数量", "NUMBER"),
-            new ProcessPoolReportSourceField("outputQuantity", "本次报工产出数量", "NUMBER"),
-            new ProcessPoolReportSourceField("lossQuantity", "本次报工损耗数量", "NUMBER"));
+            ProcessPoolReportSourceField.base("allocatedQuantity", "放行分配数量", "NUMBER"),
+            ProcessPoolReportSourceField.base("outputQuantity", "本次报工产出数量", "NUMBER"),
+            ProcessPoolReportSourceField.base("lossQuantity", "本次报工损耗数量", "NUMBER"),
+            ProcessPoolReportSourceField.base("laborScrapQuantity", "本次报工工废数量", "NUMBER"),
+            ProcessPoolReportSourceField.base("materialScrapQuantity", "本次报工料废数量", "NUMBER"),
+            ProcessPoolReportSourceField.base("otherScrapQuantity", "本次报工其他废品数量", "NUMBER"),
+            ProcessPoolReportSourceField.base("lossReasonCodeSnapshot", "损耗原因编码", "STRING"),
+            ProcessPoolReportSourceField.base("lossReasonNameSnapshot", "损耗原因名称", "STRING"),
+            ProcessPoolReportSourceField.base("actualEmployeeId", "实际操作员工", "NUMBER"),
+            ProcessPoolReportSourceField.base("serverSubmitTime", "提交时间", "STRING"),
+            ProcessPoolReportSourceField.base("signatureId", "提交签名编号", "NUMBER"),
+            ProcessPoolReportSourceField.base("signatureUserId", "签名用户", "NUMBER"),
+            ProcessPoolReportSourceField.base("deviceId", "事件设备编号", "NUMBER"),
+            ProcessPoolReportSourceField.base("workstationId", "工作站编号", "NUMBER"),
+            ProcessPoolReportSourceField.base("deviceAccountId", "设备账号", "NUMBER"),
+            ProcessPoolReportSourceField.base("selectedDevice.deviceId", "选用设备编号", "NUMBER"),
+            ProcessPoolReportSourceField.base("selectedDevice.deviceCode", "选用设备编码", "STRING"),
+            ProcessPoolReportSourceField.base("selectedDevice.deviceName", "选用设备名称", "STRING"),
+            ProcessPoolReportSourceField.base("deviceMeteringValidity.inMeteringValidityPeriod",
+                    "选用设备计量有效期内", "BOOLEAN"),
+            ProcessPoolReportSourceField.base("clearanceConfirmations.workplace.confirmed", "清场确认", "BOOLEAN"),
+            ProcessPoolReportSourceField.base("clearanceConfirmations.material.confirmed", "物料确认", "BOOLEAN"),
+            ProcessPoolReportSourceField.base("clearanceConfirmations.cleaning.confirmed", "清洁确认", "BOOLEAN"));
     private static final Set<String> PROCESS_POOL_REPORT_NUMBER_AGGREGATION_STRATEGIES =
             Set.of("SUM", "FIRST", "LAST", "MIN", "MAX");
     private static final Set<String> PROCESS_POOL_REPORT_TEXT_AGGREGATION_STRATEGIES =
@@ -99,6 +130,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
 
     @Resource
     private MesProBatchRecordCellLinkRuleMapper ruleMapper;
+    @Resource
+    private MesProBatchRecordRepeatRowGroupMapper repeatRowGroupMapper;
     @Resource
     private MesProBatchRecordReportMapper reportMapper;
     @Resource
@@ -159,7 +192,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setSourceFields(toSourceFieldVOList(scope))
                 .setDefaultSourceReportId(defaultSourceReportId)
                 .setDefaultTargetReportId(defaultTargetReportId)
-                .setRules(toRuleVOList(ruleMapper.selectListByScope(scope.type(), scope.id())));
+                .setRules(toRuleVOList(ruleMapper.selectListByScope(scope.type(), scope.id())))
+                .setRepeatRowGroups(toRepeatRowGroupVOList(repeatRowGroupMapper.selectListByScope(scope.type(), scope.id())));
     }
 
     @Override
@@ -290,7 +324,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                             sourceType);
                 }
                 ProcessPoolReportSourceField sourceField = requireProcessPoolReportSourceField(scope,
-                        StrUtil.blankToDefault(item.getSourceFieldCode(), item.getSourceCellKey()));
+                        StrUtil.blankToDefault(item.getSourceFieldCode(), item.getSourceCellKey()),
+                        targetReport.routeProcessId());
                 item.setAggregationStrategy(requireProcessPoolReportAggregationStrategy(
                         item.getAggregationStrategy(), sourceField.valueType()));
                 sourceSpec = SourceSpec.processPoolReport(sourceField);
@@ -344,6 +379,48 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setRules(toRuleVOList(ruleMapper.selectListByScope(scope.type(), scope.id())));
     }
 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public BatchRecordRepeatRowGroupSaveRespVO saveRepeatRowGroup(BatchRecordRepeatRowGroupSaveReqVO reqVO) {
+        if (reqVO.getRecords() == null || reqVO.getRecords().isEmpty()
+                || reqVO.getMappings() == null || reqVO.getMappings().isEmpty()) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_RULE_EMPTY);
+        }
+        Scope scope = resolveRepeatRowGroupScope(reqVO);
+        TargetSpec targetReport = resolveTargetSpec(scope, reqVO.getTargetReportId());
+        BatchRecordCellLinkFormCellsRespVO targetCells = getFormCells(reqVO.getTargetReportId(), scope.versionId());
+        validateRepeatRowGroupRequest(reqVO, scope, targetReport, targetCells);
+        List<BatchRecordRepeatRowGroupRecordVO> records = toRepeatRowRecords(reqVO.getRecords());
+        List<BatchRecordRepeatRowGroupMappingVO> mappings = toRepeatRowMappings(reqVO, scope, targetCells, records);
+        long configVersion = System.currentTimeMillis();
+        String recordsJson = JSON.toJSONString(records);
+        String mappingsJson = JSON.toJSONString(mappings);
+        MesProBatchRecordRepeatRowGroupDO row = new MesProBatchRecordRepeatRowGroupDO()
+                .setScopeType(scope.type())
+                .setScopeId(scope.id())
+                .setRouteId(reqVO.getRouteId())
+                .setBatchRecordDefinitionId(scope.definitionId())
+                .setBatchRecordVersionId(scope.versionId())
+                .setRouteProcessId(reqVO.getRouteProcessId())
+                .setTargetReportId(targetReport.reportId())
+                .setTargetReportName(targetReport.reportName())
+                .setTemplateStartRowIndex(reqVO.getTemplateStartRowIndex())
+                .setTemplateEndRowIndex(reqVO.getTemplateEndRowIndex())
+                .setRepeatAreaStartRowIndex(reqVO.getRepeatAreaStartRowIndex())
+                .setRepeatAreaEndRowIndex(reqVO.getRepeatAreaEndRowIndex())
+                .setSourceType(normalizeSourceType(reqVO.getMappings().get(0).getSourceType()))
+                .setRecordsJson(recordsJson)
+                .setMappingsJson(mappingsJson)
+                .setConfigVersion(configVersion)
+                .setTemplateSnapshotHash(DigestUtil.sha256Hex(targetCells.getLayoutSnapshotHash()
+                        + "|" + recordsJson + "|" + mappingsJson))
+                .setEnabled(reqVO.getEnabled() == null || Boolean.TRUE.equals(reqVO.getEnabled()))
+                .setRemark(StrUtil.trim(reqVO.getRemark()));
+        repeatRowGroupMapper.deleteEnabledByScopeAndTargetReport(scope.type(), scope.id(), targetReport.reportId());
+        repeatRowGroupMapper.insert(row);
+        return toRepeatRowGroupSaveResp(row, records, mappings);
+    }
     @Override
     public BatchRecordCellLinkPrefillRespVO getPrefill(Long targetExecutionId, Long workTaskId) {
         MesProBatchRecordExecutionDO targetExecution = executionMapper.selectById(targetExecutionId);
@@ -598,6 +675,213 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         return Scope.routeVersion(reqVO.getBatchRecordDefinitionId(), versionId);
     }
 
+
+    private Scope resolveRepeatRowGroupScope(BatchRecordRepeatRowGroupSaveReqVO reqVO) {
+        Long versionId = reqVO.getScopeId() == null ? reqVO.getBatchRecordVersionId() : reqVO.getScopeId();
+        if (reqVO.getBatchRecordDefinitionId() == null || versionId == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SCOPE_REQUIRED);
+        }
+        return Scope.routeVersion(reqVO.getBatchRecordDefinitionId(), versionId);
+    }
+
+    private void validateRepeatRowGroupRequest(BatchRecordRepeatRowGroupSaveReqVO reqVO, Scope scope,
+                                               TargetSpec targetReport,
+                                               BatchRecordCellLinkFormCellsRespVO targetCells) {
+        if (reqVO.getRouteProcessId() == null || reqVO.getTemplateStartRowIndex() == null
+                || reqVO.getTemplateEndRowIndex() == null || reqVO.getRepeatAreaStartRowIndex() == null
+                || reqVO.getRepeatAreaEndRowIndex() == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SCOPE_REQUIRED);
+        }
+        if (targetReport.routeProcessId() != null && !Objects.equals(targetReport.routeProcessId(), reqVO.getRouteProcessId())) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_REPORT_NOT_EXISTS,
+                    reqVO.getTargetReportId());
+        }
+        if (reqVO.getTemplateStartRowIndex() > reqVO.getTemplateEndRowIndex()
+                || reqVO.getRepeatAreaStartRowIndex() > reqVO.getRepeatAreaEndRowIndex()
+                || reqVO.getTemplateStartRowIndex() < reqVO.getRepeatAreaStartRowIndex()
+                || reqVO.getTemplateEndRowIndex() > reqVO.getRepeatAreaEndRowIndex()) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    targetReport.reportId());
+        }
+        Set<Integer> sequences = new LinkedHashSet<>();
+        Set<String> recordRows = new LinkedHashSet<>();
+        for (BatchRecordRepeatRowGroupRecordSaveReqVO record : reqVO.getRecords()) {
+            if (record.getRecordSequence() == null || record.getStartRowIndex() == null || record.getEndRowIndex() == null
+                    || record.getRecordSequence() <= 0 || record.getStartRowIndex() > record.getEndRowIndex()
+                    || record.getStartRowIndex() < reqVO.getRepeatAreaStartRowIndex()
+                    || record.getEndRowIndex() > reqVO.getRepeatAreaEndRowIndex()) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                        targetReport.reportId());
+            }
+            if (!sequences.add(record.getRecordSequence())
+                    || !recordRows.add(record.getStartRowIndex() + ":" + record.getEndRowIndex())) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PAIR_DUPLICATE,
+                        "REPEAT_ROW_GROUP", record.getRecordSequence());
+            }
+        }
+        for (int sequence = 1; sequence <= sequences.size(); sequence++) {
+            if (!sequences.contains(sequence)) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                        targetReport.reportId());
+            }
+        }
+        Set<String> templateTargets = new LinkedHashSet<>();
+        for (BatchRecordRepeatRowGroupMappingSaveReqVO mapping : reqVO.getMappings()) {
+            String sourceType = normalizeSourceType(mapping.getSourceType());
+            if (!SOURCE_TYPE_PROCESS_POOL_REPORT.equals(sourceType)) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                        mapping.getSourceType());
+            }
+            ProcessPoolReportSourceField sourceField = requireProcessPoolReportSourceField(scope,
+                    mapping.getSourceFieldCode(), reqVO.getRouteProcessId());
+            BatchRecordCellLinkCellVO templateCell = requireCell(targetCells,
+                    mapping.getTemplateTargetRowIndex(), mapping.getTemplateTargetColumnIndex());
+            if (!Boolean.TRUE.equals(templateCell.getLinkableAsTarget())) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_TARGET_NOT_WRITABLE,
+                        targetReport.reportName(), templateCell.getCellKey());
+            }
+            String templateKey = templateCell.getCellKey();
+            if (!templateTargets.add(templateKey)) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_TARGET_DUPLICATE,
+                        targetReport.reportName(), templateKey);
+            }
+            if (StrUtil.isBlank(sourceField.code())) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                        mapping.getSourceFieldCode());
+            }
+        }
+    }
+
+    private List<BatchRecordRepeatRowGroupRecordVO> toRepeatRowRecords(
+            List<BatchRecordRepeatRowGroupRecordSaveReqVO> records) {
+        return records.stream()
+                .sorted((left, right) -> Integer.compare(left.getRecordSequence(), right.getRecordSequence()))
+                .map(record -> new BatchRecordRepeatRowGroupRecordVO()
+                        .setRecordSequence(record.getRecordSequence())
+                        .setStartRowIndex(record.getStartRowIndex())
+                        .setEndRowIndex(record.getEndRowIndex())
+                        .setRecordKey("R" + record.getRecordSequence() + ":" + record.getStartRowIndex()
+                                + "-" + record.getEndRowIndex()))
+                .toList();
+    }
+
+    private List<BatchRecordRepeatRowGroupMappingVO> toRepeatRowMappings(
+            BatchRecordRepeatRowGroupSaveReqVO reqVO,
+            Scope scope,
+            BatchRecordCellLinkFormCellsRespVO targetCells,
+            List<BatchRecordRepeatRowGroupRecordVO> records) {
+        Set<String> projectedTargets = new LinkedHashSet<>();
+        List<BatchRecordRepeatRowGroupMappingVO> result = new ArrayList<>();
+        for (BatchRecordRepeatRowGroupMappingSaveReqVO mapping : reqVO.getMappings()) {
+            ProcessPoolReportSourceField sourceField = requireProcessPoolReportSourceField(scope,
+                    mapping.getSourceFieldCode(), reqVO.getRouteProcessId());
+            BatchRecordCellLinkCellVO templateCell = requireCell(targetCells,
+                    mapping.getTemplateTargetRowIndex(), mapping.getTemplateTargetColumnIndex());
+            String firstProjection = null;
+            int rowOffset = mapping.getTemplateTargetRowIndex() - reqVO.getTemplateStartRowIndex();
+            for (BatchRecordRepeatRowGroupRecordVO record : records) {
+                int projectedRow = record.getStartRowIndex() + rowOffset;
+                if (projectedRow > record.getEndRowIndex()) {
+                    throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                            targetCells.getReportName());
+                }
+                BatchRecordCellLinkCellVO projectedCell = requireCell(targetCells, projectedRow,
+                        mapping.getTemplateTargetColumnIndex());
+                if (!Boolean.TRUE.equals(projectedCell.getLinkableAsTarget())) {
+                    throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_TARGET_NOT_WRITABLE,
+                            targetCells.getReportName(), projectedCell.getCellKey());
+                }
+                if (!projectedTargets.add(record.getRecordSequence() + ":" + projectedCell.getCellKey())) {
+                    throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_TARGET_DUPLICATE,
+                            targetCells.getReportName(), projectedCell.getCellKey());
+                }
+                if (firstProjection == null) {
+                    firstProjection = projectedCell.getCellKey();
+                }
+            }
+            result.add(new BatchRecordRepeatRowGroupMappingVO()
+                    .setSourceType(SOURCE_TYPE_PROCESS_POOL_REPORT)
+                    .setSourceFieldCode(sourceField.code())
+                    .setSourceFieldName(StrUtil.blankToDefault(mapping.getSourceFieldName(), sourceField.name()))
+                    .setSourceValueType(sourceField.valueType())
+                    .setTemplateTargetRowIndex(templateCell.getRowIndex())
+                    .setTemplateTargetColumnIndex(templateCell.getColumnIndex())
+                    .setTemplateTargetCellKey(templateCell.getCellKey())
+                    .setTargetValueType(templateCell.getValueType())
+                    .setProjectionTargetCellKey(firstProjection));
+        }
+        return List.copyOf(result);
+    }
+
+    private List<BatchRecordRepeatRowGroupVO> toRepeatRowGroupVOList(List<MesProBatchRecordRepeatRowGroupDO> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+                .map(row -> toRepeatRowGroupVO(row,
+                        parseRepeatRowRecords(row.getRecordsJson()),
+                        parseRepeatRowMappings(row.getMappingsJson())))
+                .toList();
+    }
+
+    private BatchRecordRepeatRowGroupSaveRespVO toRepeatRowGroupSaveResp(MesProBatchRecordRepeatRowGroupDO row,
+                                                                         List<BatchRecordRepeatRowGroupRecordVO> records,
+                                                                         List<BatchRecordRepeatRowGroupMappingVO> mappings) {
+        BatchRecordRepeatRowGroupSaveRespVO resp = new BatchRecordRepeatRowGroupSaveRespVO();
+        copyRepeatRowGroupFields(resp, row, records, mappings);
+        return resp;
+    }
+
+    private BatchRecordRepeatRowGroupVO toRepeatRowGroupVO(MesProBatchRecordRepeatRowGroupDO row,
+                                                           List<BatchRecordRepeatRowGroupRecordVO> records,
+                                                           List<BatchRecordRepeatRowGroupMappingVO> mappings) {
+        BatchRecordRepeatRowGroupVO vo = new BatchRecordRepeatRowGroupVO();
+        copyRepeatRowGroupFields(vo, row, records, mappings);
+        return vo;
+    }
+
+    private void copyRepeatRowGroupFields(BatchRecordRepeatRowGroupVO vo, MesProBatchRecordRepeatRowGroupDO row,
+                                          List<BatchRecordRepeatRowGroupRecordVO> records,
+                                          List<BatchRecordRepeatRowGroupMappingVO> mappings) {
+        vo.setId(row.getId())
+                .setScopeType(row.getScopeType())
+                .setScopeId(row.getScopeId())
+                .setRouteId(row.getRouteId())
+                .setBatchRecordDefinitionId(row.getBatchRecordDefinitionId())
+                .setBatchRecordVersionId(row.getBatchRecordVersionId())
+                .setRouteProcessId(row.getRouteProcessId())
+                .setTargetReportId(row.getTargetReportId())
+                .setTargetReportName(row.getTargetReportName())
+                .setTemplateStartRowIndex(row.getTemplateStartRowIndex())
+                .setTemplateEndRowIndex(row.getTemplateEndRowIndex())
+                .setRepeatAreaStartRowIndex(row.getRepeatAreaStartRowIndex())
+                .setRepeatAreaEndRowIndex(row.getRepeatAreaEndRowIndex())
+                .setSourceType(row.getSourceType())
+                .setRecords(records)
+                .setMappings(mappings)
+                .setConfigVersion(row.getConfigVersion())
+                .setTemplateSnapshotHash(row.getTemplateSnapshotHash())
+                .setEnabled(row.getEnabled())
+                .setRemark(row.getRemark());
+    }
+
+    private List<BatchRecordRepeatRowGroupRecordVO> parseRepeatRowRecords(String recordsJson) {
+        if (StrUtil.isBlank(recordsJson)) {
+            return List.of();
+        }
+        List<BatchRecordRepeatRowGroupRecordVO> records =
+                JSON.parseArray(recordsJson, BatchRecordRepeatRowGroupRecordVO.class);
+        return records == null ? List.of() : records;
+    }
+
+    private List<BatchRecordRepeatRowGroupMappingVO> parseRepeatRowMappings(String mappingsJson) {
+        if (StrUtil.isBlank(mappingsJson)) {
+            return List.of();
+        }
+        List<BatchRecordRepeatRowGroupMappingVO> mappings =
+                JSON.parseArray(mappingsJson, BatchRecordRepeatRowGroupMappingVO.class);
+        return mappings == null ? List.of() : mappings;
+    }
     private Scope resolveExecutionScope(MesProBatchRecordExecutionDO execution, MesProBatchRecordReportDO report) {
         if (execution.getBatchRecordDefinitionId() != null && execution.getBatchRecordVersionId() != null) {
             return Scope.routeVersion(execution.getBatchRecordDefinitionId(), execution.getBatchRecordVersionId());
@@ -634,7 +918,36 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                     ? requireFormTemplateVersion(scope.id())
                     : scope.templateVersion()));
         }
-        return selectReportsInScope(scope).stream().map(this::toFormVO).toList();
+        Map<String, Long> routeProcessIdByReportId = routeProcessIdByReportId(scope);
+        return selectReportsInScope(scope).stream()
+                .map(report -> toFormVO(report, routeProcessIdByReportId.get(report.getReportId())))
+                .toList();
+    }
+
+    private Map<String, Long> routeProcessIdByReportId(Scope scope) {
+        if (!Objects.equals(scope.type(), SCOPE_TYPE_ROUTE_VERSION) || scope.versionId() == null) {
+            return Map.of();
+        }
+        Map<String, LinkedHashSet<Long>> idsByReportId = new LinkedHashMap<>();
+        for (MesProRouteFlowProcessBatchRecordDO binding :
+                routeFlowProcessBatchRecordMapper.selectListByBatchRecordVersionId(scope.versionId())) {
+            if (StrUtil.isBlank(binding.getBatchRecordReportId())
+                    || Objects.equals(FORM_SLOT_TYPE_PROCESS_INSPECTION, binding.getFormSlotType())
+                    || Objects.equals(FORM_SLOT_TYPE_LOSS_REPORT, binding.getFormSlotType())
+                    || !Objects.equals("BATCH_RECORD", binding.getRecordCategory())
+                    || binding.getRouteProcessId() == null) {
+                continue;
+            }
+            idsByReportId.computeIfAbsent(binding.getBatchRecordReportId(), ignored -> new LinkedHashSet<>())
+                    .add(binding.getRouteProcessId());
+        }
+        Map<String, Long> result = new LinkedHashMap<>();
+        idsByReportId.forEach((reportId, routeProcessIds) -> {
+            if (routeProcessIds.size() == 1) {
+                result.put(reportId, routeProcessIds.iterator().next());
+            }
+        });
+        return result;
     }
 
     private TargetSpec resolveTargetSpec(Scope scope, String targetReportId) {
@@ -647,12 +960,13 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             FormTemplateVersionDO templateVersion = scope.templateVersion() == null
                     ? requireFormTemplateVersion(scope.id())
                     : scope.templateVersion();
-            return new TargetSpec(expectedReportId, formTemplateReportName(templateVersion), null, null);
+            return new TargetSpec(expectedReportId, formTemplateReportName(templateVersion), null, null, null);
         }
         MesProBatchRecordReportDO report = requireReport(targetReportId);
         requireReportInScope(scope, report);
         return new TargetSpec(report.getReportId(), report.getReportName(),
-                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId());
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(),
+                routeProcessIdByReportId(scope).get(report.getReportId()));
     }
 
     private MesProBatchRecordReportDO requireReport(String reportId) {
@@ -722,7 +1036,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                             .setSourceType(SOURCE_TYPE_PROCESS_POOL_REPORT)
                             .setFieldCode(field.code())
                             .setFieldName(field.name())
-                            .setValueType(field.valueType()))
+                            .setValueType(field.valueType())
+                            .setRouteProcessId(field.routeProcessId()))
                     .forEach(result::add);
         }
         return List.copyOf(result);
@@ -738,9 +1053,13 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                         fieldCode));
     }
 
-    private ProcessPoolReportSourceField requireProcessPoolReportSourceField(Scope scope, String fieldCode) {
+    private ProcessPoolReportSourceField requireProcessPoolReportSourceField(Scope scope, String fieldCode,
+                                                                            Long targetRouteProcessId) {
         String normalized = StrUtil.trim(fieldCode);
-        return processPoolReportSourceFields(scope).stream()
+        List<ProcessPoolReportSourceField> supportedFields = targetRouteProcessId == null
+                ? PROCESS_POOL_REPORT_BASE_SOURCE_FIELDS
+                : processPoolReportSourceFields(scope, targetRouteProcessId);
+        return supportedFields.stream()
                 .filter(field -> field.code().equals(normalized))
                 .findFirst()
                 .orElseThrow(() -> exception(
@@ -749,17 +1068,23 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     }
 
     private List<ProcessPoolReportSourceField> processPoolReportSourceFields(Scope scope) {
+        return processPoolReportSourceFields(scope, null);
+    }
+
+    private List<ProcessPoolReportSourceField> processPoolReportSourceFields(Scope scope, Long targetRouteProcessId) {
         Map<String, ProcessPoolReportSourceField> fields = new LinkedHashMap<>();
-        PROCESS_POOL_REPORT_BASE_SOURCE_FIELDS.forEach(field -> fields.put(field.code(), field));
+        PROCESS_POOL_REPORT_BASE_SOURCE_FIELDS.forEach(field -> fields.put(processPoolReportFieldMapKey(field), field));
         if (scope.versionId() == null) {
             return List.copyOf(fields.values());
         }
-        List<Long> routeProcessIds = routeFlowProcessBatchRecordMapper
-                .selectListByBatchRecordVersionId(scope.versionId()).stream()
-                .map(MesProRouteFlowProcessBatchRecordDO::getRouteProcessId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
+        List<Long> routeProcessIds = targetRouteProcessId == null
+                ? routeFlowProcessBatchRecordMapper
+                        .selectListByBatchRecordVersionId(scope.versionId()).stream()
+                        .map(MesProRouteFlowProcessBatchRecordDO::getRouteProcessId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList()
+                : List.of(targetRouteProcessId);
         if (routeProcessIds.isEmpty()) {
             return List.copyOf(fields.values());
         }
@@ -777,16 +1102,46 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                         MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
                         "PROCESS_POOL_REPORT 参数定义不完整");
             }
-            ProcessPoolReportSourceField field =
-                    new ProcessPoolReportSourceField(code, name, processPoolReportValueType(rule.getValueType()));
-            ProcessPoolReportSourceField existing = fields.putIfAbsent(code, field);
-            if (existing != null && !existing.equals(field)) {
-                throw exception(
-                        MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
-                        "PROCESS_POOL_REPORT 参数编码冲突：" + code);
-            }
+        addProcessPoolReportParameterFields(fields, rule, code, name, processPoolReportValueType(rule.getValueType()));
         }
         return List.copyOf(fields.values());
+    }
+
+    private void addProcessPoolReportParameterFields(Map<String, ProcessPoolReportSourceField> fields,
+                                                     MesProcessPoolDeviceParameterRuleDO rule,
+                                                     String code,
+                                                     String name,
+                                                     String valueType) {
+        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
+                "deviceParameterReadings." + code + ".value", name + "实际值", valueType, rule.getRouteProcessId()));
+        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
+                "deviceParameterReadings." + code + ".unit", name + "单位", "STRING", rule.getRouteProcessId()));
+        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
+                "deviceParameterReadings." + code + ".lowerLimit", name + "下限", "NUMBER", rule.getRouteProcessId()));
+        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
+                "deviceParameterReadings." + code + ".upperLimit", name + "上限", "NUMBER", rule.getRouteProcessId()));
+        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
+                "deviceParameterReadings." + code + ".parameterStatus", name + "状态", "STRING", rule.getRouteProcessId()));
+        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
+                "equipmentParameterRules." + code + ".standardText", name + "参考标准", "STRING", rule.getRouteProcessId()));
+        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
+                "equipmentParameterRules." + code + ".defaultText", name + "默认文本", "STRING", rule.getRouteProcessId()));
+        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
+                "equipmentParameterRules." + code + ".defaultValue", name + "默认值", "NUMBER", rule.getRouteProcessId()));
+    }
+
+    private void addProcessPoolReportField(Map<String, ProcessPoolReportSourceField> fields,
+                                           ProcessPoolReportSourceField field) {
+        ProcessPoolReportSourceField existing = fields.putIfAbsent(processPoolReportFieldMapKey(field), field);
+        if (existing != null && !existing.equals(field)) {
+            throw exception(
+                    MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                    "PROCESS_POOL_REPORT 字段冲突：" + field.code());
+        }
+    }
+
+    private String processPoolReportFieldMapKey(ProcessPoolReportSourceField field) {
+        return (field.routeProcessId() == null ? "*" : String.valueOf(field.routeProcessId())) + "|" + field.code();
     }
 
     private String processPoolReportValueType(String parameterValueType) {
@@ -886,13 +1241,14 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         return rule;
     }
 
-    private BatchRecordCellLinkFormRespVO toFormVO(MesProBatchRecordReportDO report) {
+    private BatchRecordCellLinkFormRespVO toFormVO(MesProBatchRecordReportDO report, Long routeProcessId) {
         return new BatchRecordCellLinkFormRespVO()
                 .setId(report.getId())
                 .setBatchRecordName(report.getBatchRecordName())
                 .setFormSlotType(report.getFormSlotType())
                 .setBatchRecordDefinitionId(report.getBatchRecordDefinitionId())
                 .setBatchRecordVersionId(report.getBatchRecordVersionId())
+                .setRouteProcessId(routeProcessId)
                 .setSourceTableIndex(report.getSourceTableIndex())
                 .setTableTitle(report.getTableTitle())
                 .setReportId(report.getReportId())
@@ -1416,11 +1772,19 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                                         Function<MesProWorkOrderDO, Object> valueExtractor) {
     }
 
-    private record ProcessPoolReportSourceField(String code, String name, String valueType) {
+    private record ProcessPoolReportSourceField(String code, String name, String valueType, Long routeProcessId) {
+        static ProcessPoolReportSourceField base(String code, String name, String valueType) {
+            return new ProcessPoolReportSourceField(code, name, valueType, null);
+        }
+
+        static ProcessPoolReportSourceField ofRouteProcess(String code, String name, String valueType,
+                                                           Long routeProcessId) {
+            return new ProcessPoolReportSourceField(code, name, valueType, routeProcessId);
+        }
     }
 
     private record TargetSpec(String reportId, String reportName, Long batchRecordDefinitionId,
-                              Long batchRecordVersionId) {
+                              Long batchRecordVersionId, Long routeProcessId) {
     }
 
     private record SourceSpec(String sourceType, String reportId, String reportName, Integer rowIndex,

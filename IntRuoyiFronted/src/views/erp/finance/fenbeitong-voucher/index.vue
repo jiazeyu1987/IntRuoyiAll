@@ -520,8 +520,9 @@ const handlePrepareMock = async () => {
   syncMappingToForm()
   prepareLoading.value = true
   try {
-    processResult.value = await FenbeitongVoucherApi.prepareConfiguredFixedJson(buildConfiguredRequest())
-    traceQuery.sourceId = processResult.value.sourceId
+    const result = await FenbeitongVoucherApi.prepareConfiguredFixedJson(buildConfiguredRequest())
+    processResult.value = result
+    traceQuery.sourceId = result.sourceId
     message.success('本地准备记录已生成，未调用金蝶保存')
   } finally {
     prepareLoading.value = false

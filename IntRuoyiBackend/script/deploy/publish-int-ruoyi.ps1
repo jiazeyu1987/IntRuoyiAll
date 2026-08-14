@@ -55,6 +55,12 @@ param(
     [string]$DccOnlyOfficeJwtSecret = $env:DCC_ONLYOFFICE_JWT_SECRET,
     [string]$DccOnlyOfficeBaseUrl = $env:DCC_ONLYOFFICE_BASE_URL,
     [string]$DccOnlyOfficePublicFileBaseUrl = $env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL,
+    [string]$DccOnlyOfficeReleaseE2eTenant = $env:DCC_ONLYOFFICE_RELEASE_E2E_TENANT,
+    [string]$DccOnlyOfficeReleaseE2eUsername = $env:DCC_ONLYOFFICE_RELEASE_E2E_USERNAME,
+    [string]$DccOnlyOfficeReleaseE2ePassword = $env:DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD,
+    [string]$DccOnlyOfficeReleaseE2eDocxFileId = $env:DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID,
+    [string]$DccOnlyOfficeReleaseE2eXlsxFileId = $env:DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID,
+    [string]$DccOnlyOfficeReleaseE2ePptxFileId = $env:DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID,
     [string]$DccDownloadEncryptionPolicyVersion = $env:DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION,
     [string]$DccDownloadEncryptionKeyId = $env:DCC_DOWNLOAD_ENCRYPTION_KEY_ID,
     [string]$DccDownloadEncryptionBase64Key = $env:DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY,
@@ -933,10 +939,13 @@ function Get-RemoteComposeServices {
 }
 
 function Get-RemoteRuntimeEnvMap {
-    if (-not (Test-RemoteFileExists -Path $remoteEnv)) {
+    param(
+        [string]$Path = $remoteEnv
+    )
+    if (-not (Test-RemoteFileExists -Path $Path)) {
         return @{}
     }
-    $result = Invoke-SshCapture -Command "cat '$remoteEnv'"
+    $result = Invoke-SshCapture -Command "cat '$Path'"
     $map = @{}
     foreach ($line in ($result.Output -split "`r?`n")) {
         if ([string]::IsNullOrWhiteSpace($line)) {
@@ -1198,10 +1207,7 @@ function Set-PublishRuntimeDefaultsForTarget {
         -Name 'DCC_ONLYOFFICE_BASE_URL' `
         -CurrentValue $script:DccOnlyOfficeBaseUrl `
         -HardcodedValue "http://${TargetServerHost}:$OnlyOfficeHostPort"
-    $script:DccOnlyOfficePublicFileBaseUrl = Resolve-PublishRuntimeValue `
-        -Name 'DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL' `
-        -CurrentValue $script:DccOnlyOfficePublicFileBaseUrl `
-        -HardcodedValue "http://backend:48081"
+    $script:DccOnlyOfficePublicFileBaseUrl = "http://backend:48081"
     $script:DccDownloadEncryptionPolicyVersion = Resolve-PublishRuntimeValue `
         -Name 'DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION' `
         -CurrentValue $script:DccDownloadEncryptionPolicyVersion `
@@ -4264,12 +4270,14 @@ $remoteWebsiteStagingDir = "$remoteReleaseDir/website"
 $remoteWebsitePreviousDir = "$RemoteAppDir/website.previous"
 $schedulerSmokeFrontendDirectory = '/opt/intruoyi/runtime/smoke/yudao-ui-admin-vue3'
 $schedulerSmokeScriptName = 'e2e:mes:smart-scheduling-smoke'
+$onlyOfficeReleasePreviewScriptName = 'e2e:dcc:onlyoffice-release-preview'
 $schedulerSmokeNodeImage = 'mcr.microsoft.com/playwright:v1.60.0-noble'
 $schedulerSmokeRunnerLocalDir = Join-Path $releaseDir 'smoke'
 $remoteSchedulerSmokeRoot = "$RemoteAppDir/smoke"
 $remoteSchedulerSmokeFrontendDir = "$remoteSchedulerSmokeRoot/yudao-ui-admin-vue3"
 $remoteSchedulerSmokeBinDir = "$remoteSchedulerSmokeRoot/bin"
 $remoteSchedulerSmokeNpmWrapper = "$remoteSchedulerSmokeBinDir/npm"
+$onlyOfficeReleasePreviewEnvFile = "$RemoteAppDir/onlyoffice-release-preview.env"
 $backendRuntimeBaseConfig = Resolve-BackendRuntimeBaseConfig
 $smartReleaseReportOnlyEnabled = Resolve-SmartReleaseReportOnlyEnabled
 if ($publishBackend -and $Mode -notin @('deploy-release', 'mark-tested')) {
@@ -4388,18 +4396,26 @@ $envArgs
 }
 
 function New-SchedulerSmokeRunnerPackage {
-    if (-not $publishBackend) {
+    if (-not ($publishBackend -or $publishFrontend)) {
         return
     }
 
     $smokeTestsSourceDir = Join-Path $frontendDir 'tests\e2e'
     $realFlowSource = Join-Path $smokeTestsSourceDir 'smart-scheduling-smoke-real-flow.e2e.js'
     $staticSpecSource = Join-Path $smokeTestsSourceDir 'smart-scheduling-smoke-real-flow-static.spec.js'
+    $onlyOfficeRealFlowSource = Join-Path $smokeTestsSourceDir 'dcc-onlyoffice-release-preview-real.e2e.js'
+    $onlyOfficeStaticSpecSource = Join-Path $smokeTestsSourceDir 'dcc-onlyoffice-release-preview-static.spec.js'
     if (-not (Test-Path -LiteralPath $realFlowSource -PathType Leaf)) {
         Fail "Smart scheduling smoke E2E script missing: $realFlowSource"
     }
     if (-not (Test-Path -LiteralPath $staticSpecSource -PathType Leaf)) {
         Fail "Smart scheduling smoke static script missing: $staticSpecSource"
+    }
+    if (-not (Test-Path -LiteralPath $onlyOfficeRealFlowSource -PathType Leaf)) {
+        Fail "OnlyOffice release preview E2E script missing: $onlyOfficeRealFlowSource"
+    }
+    if (-not (Test-Path -LiteralPath $onlyOfficeStaticSpecSource -PathType Leaf)) {
+        Fail "OnlyOffice release preview static script missing: $onlyOfficeStaticSpecSource"
     }
 
     if (Test-Path -LiteralPath $schedulerSmokeRunnerLocalDir) {
@@ -4418,7 +4434,9 @@ function New-SchedulerSmokeRunnerPackage {
   "private": true,
   "scripts": {
     "e2e:mes:smart-scheduling-smoke:check": "node tests/e2e/smart-scheduling-smoke-real-flow-static.spec.js",
-    "e2e:mes:smart-scheduling-smoke": "node tests/e2e/smart-scheduling-smoke-real-flow.e2e.js"
+    "e2e:mes:smart-scheduling-smoke": "node tests/e2e/smart-scheduling-smoke-real-flow.e2e.js",
+    "e2e:dcc:onlyoffice-release-preview:check": "node tests/e2e/dcc-onlyoffice-release-preview-static.spec.js",
+    "e2e:dcc:onlyoffice-release-preview": "node tests/e2e/dcc-onlyoffice-release-preview-real.e2e.js"
   },
   "devDependencies": {
     "playwright": "1.60.0",
@@ -4429,11 +4447,13 @@ function New-SchedulerSmokeRunnerPackage {
     Write-Utf8LfNoBomFile -Path (Join-Path $localFrontendDir 'package.json') -Content $packageJson
     Copy-Item -LiteralPath $realFlowSource -Destination (Join-Path $localTestsDir 'smart-scheduling-smoke-real-flow.e2e.js') -Force
     Copy-Item -LiteralPath $staticSpecSource -Destination (Join-Path $localTestsDir 'smart-scheduling-smoke-real-flow-static.spec.js') -Force
+    Copy-Item -LiteralPath $onlyOfficeRealFlowSource -Destination (Join-Path $localTestsDir 'dcc-onlyoffice-release-preview-real.e2e.js') -Force
+    Copy-Item -LiteralPath $onlyOfficeStaticSpecSource -Destination (Join-Path $localTestsDir 'dcc-onlyoffice-release-preview-static.spec.js') -Force
     Write-Utf8LfNoBomFile -Path (Join-Path $localBinDir 'npm') -Content (New-SchedulerSmokeNpmWrapperContent)
 }
 
 function Copy-SchedulerSmokeRunnerToServer {
-    if (-not $publishBackend) {
+    if (-not ($publishBackend -or $publishFrontend)) {
         return
     }
 
@@ -4443,7 +4463,7 @@ function Copy-SchedulerSmokeRunnerToServer {
     Info "Copying scheduler smoke runner to the $PublishTargetName server"
     Invoke-SshCommand "mkdir -p '$RemoteAppDir' '$remoteSchedulerSmokeRoot' '$remoteSchedulerSmokeFrontendDir/input' '$remoteSchedulerSmokeFrontendDir/output/artifacts' '$remoteSchedulerSmokeBinDir'"
     Copy-ToServer -LocalPath $schedulerSmokeRunnerLocalDir -RemotePath $RemoteAppDir -Recursive
-    Invoke-SshCommand "chmod +x '$remoteSchedulerSmokeNpmWrapper' && test -f '$remoteSchedulerSmokeFrontendDir/package.json' && test -f '$remoteSchedulerSmokeFrontendDir/tests/e2e/smart-scheduling-smoke-real-flow.e2e.js'"
+    Invoke-SshCommand "chmod +x '$remoteSchedulerSmokeNpmWrapper' && test -f '$remoteSchedulerSmokeFrontendDir/package.json' && test -f '$remoteSchedulerSmokeFrontendDir/tests/e2e/smart-scheduling-smoke-real-flow.e2e.js' && test -f '$remoteSchedulerSmokeFrontendDir/tests/e2e/dcc-onlyoffice-release-preview-real.e2e.js' && test -f '$remoteSchedulerSmokeFrontendDir/tests/e2e/dcc-onlyoffice-release-preview-static.spec.js'"
     Invoke-SshCommand "cd '$remoteSchedulerSmokeFrontendDir' && '$remoteSchedulerSmokeNpmWrapper' install --no-audit --no-fund"
 }
 
@@ -4455,6 +4475,69 @@ function Assert-RemoteSchedulerSmokeRuntime {
     Info "Checking scheduler smoke runtime on the $PublishTargetName server"
     Invoke-SshCommand "docker exec intruoyi-backend sh -lc 'test `"`${YUDAO_MES_SCHEDULER_WORKBENCH_SMOKE_TEST_FRONTEND_DIRECTORY}`" = `"$schedulerSmokeFrontendDirectory`" && test `"`${YUDAO_MES_SCHEDULER_WORKBENCH_SMOKE_TEST_SCRIPT_NAME}`" = `"$schedulerSmokeScriptName`" && test -d `"$schedulerSmokeFrontendDirectory`" && test -f `"$schedulerSmokeFrontendDirectory/package.json`" && test -x /usr/local/bin/npm && npm --version >/dev/null'"
     Invoke-SshCommand "cd '$remoteSchedulerSmokeFrontendDir' && '$remoteSchedulerSmokeNpmWrapper' exec -- node --check tests/e2e/smart-scheduling-smoke-real-flow.e2e.js"
+    Invoke-SshCommand "cd '$remoteSchedulerSmokeFrontendDir' && '$remoteSchedulerSmokeNpmWrapper' run e2e:dcc:onlyoffice-release-preview:check"
+}
+
+function Invoke-RemoteOnlyOfficeReleasePreviewGate {
+    if (-not ($publishBackend -or $publishFrontend)) {
+        return
+    }
+
+    $failGate = {
+        param([string]$FailureCode, [string]$Details)
+        if ($publishBackend) {
+            Invoke-ReleaseOperationLockRelease -Status 'FAILED' -ErrorMessage $FailureCode
+        }
+        Fail "$FailureCode`: $Details"
+    }
+
+    $onlyOfficeLogPaths = @(
+        '/var/log/onlyoffice/documentserver/converter/out.log',
+        '/var/log/onlyoffice/documentserver/converter/err.log',
+        '/var/log/onlyoffice/documentserver/docservice/out.log',
+        '/var/log/onlyoffice/documentserver/docservice/err.log'
+    )
+    $logLineCounts = @{}
+    foreach ($logPath in $onlyOfficeLogPaths) {
+        $logPathLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $logPath -Purpose 'OnlyOffice log path'
+        $countResult = Invoke-SshCapture -Command "docker exec intruoyi-onlyoffice sh -c `"test -f $logPathLiteral && wc -l < $logPathLiteral`"" -IgnoreExitCode
+        $lineCount = 0L
+        if (-not $countResult.Ok -or -not [long]::TryParse($countResult.Output.Trim(), [ref]$lineCount)) {
+            & $failGate 'ONLYOFFICE_RELEASE_LOG_GATE_FAILED' "Unable to capture the initial line count for $logPath"
+        }
+        $logLineCounts[$logPath] = $lineCount
+    }
+
+    Info 'Running real DOCX/XLSX/PPTX OnlyOffice controlled preview release gate'
+    $previewScriptPath = "$remoteSchedulerSmokeFrontendDir/tests/e2e/dcc-onlyoffice-release-preview-real.e2e.js"
+    $previewCommand = "test -f '$previewScriptPath' && test -f '$onlyOfficeReleasePreviewEnvFile' && docker run --rm --network host --env-file '$onlyOfficeReleasePreviewEnvFile' -v '$RemoteAppDir`:$RemoteAppDir' -w '$remoteSchedulerSmokeFrontendDir' '$schedulerSmokeNodeImage' npm run $onlyOfficeReleasePreviewScriptName"
+    $previewResult = Invoke-SshCapture -Command $previewCommand -IgnoreExitCode
+    if (-not $previewResult.Ok) {
+        & $failGate 'ONLYOFFICE_RELEASE_PREVIEW_GATE_FAILED' $previewResult.Output
+    }
+    if (-not [string]::IsNullOrWhiteSpace($previewResult.Output)) {
+        Write-Host $previewResult.Output
+    }
+
+    $newLogLines = @()
+    foreach ($logPath in $onlyOfficeLogPaths) {
+        $startLine = [long]$logLineCounts[$logPath] + 1
+        $logPathLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $logPath -Purpose 'OnlyOffice log path'
+        $tailResult = Invoke-SshCapture -Command "docker exec intruoyi-onlyoffice tail -n +$startLine $logPathLiteral" -IgnoreExitCode
+        if (-not $tailResult.Ok) {
+            & $failGate 'ONLYOFFICE_RELEASE_LOG_GATE_FAILED' "Unable to read new OnlyOffice log lines from $logPath"
+        }
+        if (-not [string]::IsNullOrWhiteSpace($tailResult.Output)) {
+            $newLogLines += $tailResult.Output
+        }
+    }
+    $onlyOfficeFailurePattern = '(?im)(\[ERROR\]|dnsLookup.*(error|fail)|ENOTFOUND|checkIpFilter.*(error|deny|forbid)|download.*(error|fail)|convert.*(error|fail))'
+    $matchingLogErrors = @($newLogLines | Where-Object { $_ -match $onlyOfficeFailurePattern })
+    if ($matchingLogErrors.Count -gt 0) {
+        & $failGate 'ONLYOFFICE_RELEASE_LOG_GATE_FAILED' (($matchingLogErrors | Select-Object -First 10) -join "`n")
+    }
+
+    Info 'OnlyOffice real DOCX/XLSX/PPTX preview and incremental error-log gates passed'
 }
 
 function Get-RequiredDatabaseSqlFileName {
@@ -5324,7 +5407,7 @@ if ($publishBackend -and $Mode -eq 'build-release' -and -not $SkipMinioSync) {
     }
 }
 
-if ($publishBackend) {
+if ($publishBackend -or $publishFrontend) {
     New-SchedulerSmokeRunnerPackage
 }
 
@@ -5374,8 +5457,10 @@ Prepare-RemoteReleaseTree
 
 Info 'Writing remote compose environment file locally'
 $existingRemoteEnv = @{}
+$existingOnlyOfficeReleasePreviewEnv = @{}
 if (($publishBackend -or $publishFrontend) -and $Mode -ne 'build-release') {
     $existingRemoteEnv = Get-RemoteRuntimeEnvMap
+    $existingOnlyOfficeReleasePreviewEnv = Get-RemoteRuntimeEnvMap -Path $onlyOfficeReleasePreviewEnvFile
 }
 function Resolve-ExistingRuntimeEnvValue {
     param(
@@ -5404,7 +5489,7 @@ $effectiveEdhrS3RequireLegalHold = if (-not [string]::IsNullOrWhiteSpace($EdhrS3
 $effectiveDccViewerTokenHmacSecret = if (-not [string]::IsNullOrWhiteSpace($DccViewerTokenHmacSecret)) { $DccViewerTokenHmacSecret } elseif ($existingRemoteEnv.ContainsKey('DCC_VIEWER_TOKEN_HMAC_SECRET')) { $existingRemoteEnv['DCC_VIEWER_TOKEN_HMAC_SECRET'] } else { '' }
 $effectiveDccOnlyOfficeJwtSecret = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeJwtSecret)) { $DccOnlyOfficeJwtSecret } elseif ($existingRemoteEnv.ContainsKey('DCC_ONLYOFFICE_JWT_SECRET')) { $existingRemoteEnv['DCC_ONLYOFFICE_JWT_SECRET'] } else { '' }
 $effectiveDccOnlyOfficeBaseUrl = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeBaseUrl)) { $DccOnlyOfficeBaseUrl } elseif ($existingRemoteEnv.ContainsKey('DCC_ONLYOFFICE_BASE_URL')) { $existingRemoteEnv['DCC_ONLYOFFICE_BASE_URL'] } else { '' }
-$effectiveDccOnlyOfficePublicFileBaseUrl = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficePublicFileBaseUrl)) { $DccOnlyOfficePublicFileBaseUrl } elseif ($existingRemoteEnv.ContainsKey('DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL')) { $existingRemoteEnv['DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL'] } else { '' }
+$effectiveDccOnlyOfficePublicFileBaseUrl = "http://backend:48081"
 $effectiveDccDownloadEncryptionPolicyVersion = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionPolicyVersion)) { $DccDownloadEncryptionPolicyVersion } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION'] } else { '' }
 $effectiveDccDownloadEncryptionKeyId = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionKeyId)) { $DccDownloadEncryptionKeyId } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_KEY_ID')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_KEY_ID'] } else { '' }
 $effectiveDccDownloadEncryptionBase64Key = if (-not [string]::IsNullOrWhiteSpace($DccDownloadEncryptionBase64Key)) { $DccDownloadEncryptionBase64Key } elseif ($existingRemoteEnv.ContainsKey('DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY')) { $existingRemoteEnv['DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY'] } else { '' }
@@ -5417,6 +5502,33 @@ $effectiveBackendRuntimeBaseTarSha256 = if (-not [string]::IsNullOrWhiteSpace($B
 $effectiveBackendRuntimeBaseImage = if (-not [string]::IsNullOrWhiteSpace($BackendRuntimeBaseImage)) { $BackendRuntimeBaseImage } elseif ($existingRemoteEnv.ContainsKey('RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_IMAGE')) { $existingRemoteEnv['RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_IMAGE'] } else { '' }
 $effectiveBackendRuntimeBaseDigest = if (-not [string]::IsNullOrWhiteSpace($BackendRuntimeBaseDigest)) { $BackendRuntimeBaseDigest } elseif ($existingRemoteEnv.ContainsKey('RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_DIGEST')) { $existingRemoteEnv['RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_DIGEST'] } else { '' }
 $effectiveBackendRuntimeBaseVersion = if (-not [string]::IsNullOrWhiteSpace($BackendRuntimeBaseVersion)) { $BackendRuntimeBaseVersion } elseif ($existingRemoteEnv.ContainsKey('RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_VERSION')) { $existingRemoteEnv['RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_VERSION'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2eBaseUrl = "http://127.0.0.1:$FrontendPort"
+$effectiveDccOnlyOfficeReleaseE2eTenant = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2eTenant)) { $DccOnlyOfficeReleaseE2eTenant } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_TENANT')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_TENANT'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2eUsername = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2eUsername)) { $DccOnlyOfficeReleaseE2eUsername } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_USERNAME')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_USERNAME'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2ePassword = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2ePassword)) { $DccOnlyOfficeReleaseE2ePassword } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2eDocxFileId = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2eDocxFileId)) { $DccOnlyOfficeReleaseE2eDocxFileId } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2eXlsxFileId = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2eXlsxFileId)) { $DccOnlyOfficeReleaseE2eXlsxFileId } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID'] } else { '' }
+$effectiveDccOnlyOfficeReleaseE2ePptxFileId = if (-not [string]::IsNullOrWhiteSpace($DccOnlyOfficeReleaseE2ePptxFileId)) { $DccOnlyOfficeReleaseE2ePptxFileId } elseif ($existingOnlyOfficeReleasePreviewEnv.ContainsKey('DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID')) { $existingOnlyOfficeReleasePreviewEnv['DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID'] } else { '' }
+if ($publishBackend -or $publishFrontend) {
+    foreach ($requiredValue in @(
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_TENANT'; Value = $effectiveDccOnlyOfficeReleaseE2eTenant },
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_USERNAME'; Value = $effectiveDccOnlyOfficeReleaseE2eUsername },
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD'; Value = $effectiveDccOnlyOfficeReleaseE2ePassword }
+    )) {
+        if ([string]::IsNullOrWhiteSpace([string]$requiredValue.Value)) {
+            Fail "Missing $($requiredValue.Name); the real DOCX/XLSX/PPTX release preview gate is mandatory."
+        }
+    }
+    foreach ($requiredFile in @(
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID'; Value = $effectiveDccOnlyOfficeReleaseE2eDocxFileId },
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID'; Value = $effectiveDccOnlyOfficeReleaseE2eXlsxFileId },
+        @{ Name = 'DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID'; Value = $effectiveDccOnlyOfficeReleaseE2ePptxFileId }
+    )) {
+        if ([string]::IsNullOrWhiteSpace([string]$requiredFile.Value) -or [string]$requiredFile.Value -notmatch '^\d+$') {
+            Fail "Missing or invalid $($requiredFile.Name); a numeric controlled-file ID is required for the real release preview gate."
+        }
+    }
+}
 $effectiveSchedulerSmokeFrontendDirectory = $schedulerSmokeFrontendDirectory
 $effectiveSchedulerSmokeScriptName = $schedulerSmokeScriptName
 $effectiveMesSmokeBaseUrl = Resolve-ExistingRuntimeEnvValue -Name 'MES_SMOKE_BASE_URL' -DefaultValue "http://127.0.0.1:$FrontendPort"
@@ -5547,6 +5659,17 @@ RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_VERSION=$BackendRuntimeBaseVersion
 "@
 $remoteEnvLocal = Join-Path $releaseDir '.env'
 Write-Utf8LfNoBomFile -Path $remoteEnvLocal -Content $remoteEnvContent
+$onlyOfficeReleasePreviewEnvContent = @"
+DCC_ONLYOFFICE_RELEASE_E2E_BASE_URL=$effectiveDccOnlyOfficeReleaseE2eBaseUrl
+DCC_ONLYOFFICE_RELEASE_E2E_TENANT=$effectiveDccOnlyOfficeReleaseE2eTenant
+DCC_ONLYOFFICE_RELEASE_E2E_USERNAME=$effectiveDccOnlyOfficeReleaseE2eUsername
+DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD=$effectiveDccOnlyOfficeReleaseE2ePassword
+DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID=$effectiveDccOnlyOfficeReleaseE2eDocxFileId
+DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID=$effectiveDccOnlyOfficeReleaseE2eXlsxFileId
+DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID=$effectiveDccOnlyOfficeReleaseE2ePptxFileId
+"@
+$onlyOfficeReleasePreviewEnvLocal = Join-Path $localTempRoot "$packageDirectoryName-onlyoffice-release-preview.env"
+Write-Utf8LfNoBomFile -Path $onlyOfficeReleasePreviewEnvLocal -Content $onlyOfficeReleasePreviewEnvContent
 
 Info "Copying compose and environment files to the $PublishTargetName server"
 $composeLocal = Join-Path $releaseDir 'docker-compose.yml'
@@ -5556,9 +5679,17 @@ if (-not (Test-Path -LiteralPath $composeLocal)) {
 if ($publishBackend -or $publishFrontend) {
     Copy-ToServer -LocalPath $composeLocal -RemotePath $remoteCompose
     Copy-ToServer -LocalPath $remoteEnvLocal -RemotePath $remoteEnv
+    try {
+        Copy-ToServer -LocalPath $onlyOfficeReleasePreviewEnvLocal -RemotePath $onlyOfficeReleasePreviewEnvFile
+        Invoke-SshCommand "chmod 600 '$onlyOfficeReleasePreviewEnvFile'"
+    } finally {
+        if (Test-Path -LiteralPath $onlyOfficeReleasePreviewEnvLocal) {
+            Remove-Item -LiteralPath $onlyOfficeReleasePreviewEnvLocal -Force
+        }
+    }
     Assert-RemoteRuntimeEnvImageTag
 }
-if ($publishBackend) { Copy-SchedulerSmokeRunnerToServer }
+if ($publishBackend -or $publishFrontend) { Copy-SchedulerSmokeRunnerToServer }
 if ($publishBackend -or $publishFrontend) {
     Copy-ToServer -LocalPath $imageTar -RemotePath $remoteImageTar
 }
@@ -5695,14 +5826,10 @@ if ($publishFrontend) {
 if ($publishBackend) { Assert-RemoteSchedulerSmokeRuntime }
 if ($IncludeOnlyOffice) {
     Wait-RemoteHttpOk -Url "http://127.0.0.1:$OnlyOfficeHostPort/healthcheck" -TimeoutSeconds 180
-    Assert-RemoteOnlyOfficePublicFileBaseUrlReachable
 }
+if ($publishBackend) { Assert-RemoteOnlyOfficePublicFileBaseUrlReachable }
 if ($publishWebsite) {
     Wait-RemoteHttpOk -Url "http://127.0.0.1:$WebsiteHostPort/showroom" -TimeoutSeconds 180
-}
-
-if ($publishBackend) {
-    Invoke-ReleaseOperationLockRelease -Status 'APPLIED'
 }
 
 if ($publishBackend) { Wait-HttpOk -Url "http://${ServerHost}:$BackendPort/actuator/health" -TimeoutSeconds 180 }
@@ -5723,6 +5850,11 @@ if ($publishWebsite) { Wait-HttpOk -Url "http://${ServerHost}:$WebsiteHostPort/"
 if ($publishWebsite) { Wait-HttpOk -Url "http://${ServerHost}:$WebsiteHostPort/showroom" -TimeoutSeconds 180 }
 if ($publishWebsite) { Assert-PublicWebsiteEntryReadback }
 if ($publishWebsite) { Assert-PublicWebsiteScopedReleaseCurrent }
+if ($publishBackend -or $publishFrontend) { Invoke-RemoteOnlyOfficeReleasePreviewGate }
+
+if ($publishBackend) {
+    Invoke-ReleaseOperationLockRelease -Status 'APPLIED'
+}
 
 if ($Mode -eq 'deploy-release' -and @('prod', 'backup') -contains $Environment) {
     Write-NasReleaseDeploymentHistory -PackageTag $ReleaseTag -HistoryAction 'deploy' -HistoryEnvironment $Environment

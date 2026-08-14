@@ -5,9 +5,8 @@ import cn.hutool.core.collection.ListUtil;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.util.collection.MapUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductBindFromWorkOrdersReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductBindFromWorkOrdersRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductByItemSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductCandidateCopyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductCopyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductSaveReqVO;
@@ -62,20 +61,13 @@ public class MesProRouteProductController {
         return success(routeProductService.copyRouteProduct(copyReqVO));
     }
 
-    @PostMapping("/bind-from-work-orders")
-    @Operation(summary = "从生产订单补齐工艺路线产品")
+    @PostMapping("/copy-candidate")
+    @Operation(summary = "复制工艺路线候选版本产品")
     @PreAuthorize("@ss.hasPermission('mes:pro-route:update')")
-    public CommonResult<MesProRouteProductBindFromWorkOrdersRespVO> bindFromWorkOrders(
-            @Valid @RequestBody MesProRouteProductBindFromWorkOrdersReqVO reqVO) {
-        return success(routeProductService.bindFromWorkOrders(reqVO.getRouteId(), reqVO.getRouteVersionId()));
-    }
-
-    @PostMapping("/preview-bind-from-work-orders")
-    @Operation(summary = "预览从生产订单补齐工艺路线产品")
-    @PreAuthorize("@ss.hasPermission('mes:pro-route:update')")
-    public CommonResult<MesProRouteProductBindFromWorkOrdersRespVO> previewBindFromWorkOrders(
-            @Valid @RequestBody MesProRouteProductBindFromWorkOrdersReqVO reqVO) {
-        return success(routeProductService.previewBindFromWorkOrders(reqVO.getRouteId(), reqVO.getRouteVersionId()));
+    public CommonResult<Long> copyCandidateRouteProduct(
+            @Valid @RequestBody MesProRouteProductCandidateCopyReqVO copyReqVO) {
+        return success(routeProductService.copyCandidateRouteProduct(copyReqVO.getRouteId(),
+                copyReqVO.getRouteVersionId(), copyReqVO.getSourceItemId(), copyReqVO.getTargetItemId()));
     }
 
     @PutMapping("/update")
@@ -114,6 +106,21 @@ public class MesProRouteProductController {
         return success(true);
     }
 
+    @DeleteMapping("/delete-candidate")
+    @Operation(summary = "删除工艺路线候选版本产品")
+    @Parameters({
+            @Parameter(name = "routeId", description = "工艺路线编号", required = true),
+            @Parameter(name = "itemId", description = "产品物料编号", required = true),
+            @Parameter(name = "routeVersionId", description = "路线候选版本编号", required = true)
+    })
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:update')")
+    public CommonResult<Boolean> deleteCandidateRouteProduct(@RequestParam("routeId") Long routeId,
+                                                             @RequestParam("itemId") Long itemId,
+                                                             @RequestParam("routeVersionId") Long routeVersionId) {
+        routeProductService.deleteCandidateRouteProduct(routeId, itemId, routeVersionId);
+        return success(true);
+    }
+
     @GetMapping("/get")
     @Operation(summary = "获得工艺路线产品")
     @Parameter(name = "id", description = "编号", required = true, example = "1024")
@@ -134,10 +141,15 @@ public class MesProRouteProductController {
 
     @GetMapping("/list-by-route")
     @Operation(summary = "按工艺路线获得产品列表")
-    @Parameter(name = "routeId", description = "工艺路线编号", required = true, example = "1")
+    @Parameters({
+            @Parameter(name = "routeId", description = "工艺路线编号", required = true, example = "1"),
+            @Parameter(name = "routeVersionId", description = "路线版本编号；为空时读取正式关系")
+    })
     @PreAuthorize("@ss.hasPermission('mes:pro-route:query')")
-    public CommonResult<List<MesProRouteProductRespVO>> getRouteProductListByRoute(@RequestParam("routeId") Long routeId) {
-        List<MesProRouteProductDO> list = routeProductService.getRouteProductListByRouteId(routeId);
+    public CommonResult<List<MesProRouteProductRespVO>> getRouteProductListByRoute(
+            @RequestParam("routeId") Long routeId,
+            @RequestParam(value = "routeVersionId", required = false) Long routeVersionId) {
+        List<MesProRouteProductDO> list = routeProductService.getRouteProductListByRouteId(routeId, routeVersionId);
         return success(buildRouteProductRespVOList(list));
     }
 

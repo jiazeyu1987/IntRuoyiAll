@@ -34,17 +34,6 @@
           <Icon icon="ep:plus" class="mr-5px" /> 关联产品
         </el-button>
         <el-button
-          v-if="canBindFromWorkOrders"
-          type="primary"
-          plain
-          :loading="bindFromWorkOrdersLoading"
-          :disabled="productionConfigActionDisabled"
-          :title="productionConfigActionDisabled ? CANDIDATE_EDIT_REQUIRED_MESSAGE : ''"
-          @click="handleBindFromWorkOrders"
-        >
-          <Icon icon="ep:connection" class="mr-5px" /> 补齐产品
-        </el-button>
-        <el-button
           v-if="isEditable"
           type="primary"
           :disabled="submitting || productionConfigActionDisabled"
@@ -65,7 +54,7 @@
           border
           :stripe="true"
           :show-overflow-tooltip="true"
-          row-key="id"
+          row-key="itemId"
           @header-dragend="handleRouteProductHeaderDragend"
           @sort-change="handleTemplateSortChange"
         >
@@ -167,7 +156,7 @@
                 link
                 type="danger"
                 :disabled="productionConfigActionDisabled"
-                @click="handleDelete(scope.row.id)"
+                @click="handleDelete(scope.row)"
               >
                 删除
               </el-button>
@@ -178,54 +167,41 @@
     </UnifiedListTemplate>
 
     <!-- 表单弹窗：添加/修改 -->
-    <Dialog :title="formTitle" v-model="formVisible" width="960px">
+    <Dialog :title="formTitle" v-model="formVisible" width="640px">
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="产品" prop="itemId">
-              <MdItemSelect v-model="formData.itemId" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="生产数量" prop="quantity">
-              <el-input-number
-                v-model="formData.quantity"
-                :min="1"
-                controls-position="right"
-                class="!w-1/1"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="生产用时" prop="productionTime">
-              <el-input-number
-                v-model="formData.productionTime"
-                :min="0"
-                :precision="2"
-                controls-position="right"
-                class="!w-1/1"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="时间单位" prop="timeUnitType">
-              <el-select v-model="formData.timeUnitType" placeholder="请选择" class="!w-1/1">
-                <el-option
-                  v-for="dict in getStrDictOptions(DICT_TYPE.MES_TIME_UNIT_TYPE)"
-                  :key="dict.value"
-                  :label="dict.label"
-                  :value="dict.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="备注" prop="remark">
-          <el-input v-model="formData.remark" type="textarea" placeholder="请输入备注" />
+        <el-form-item label="产品编号" prop="productCode">
+          <el-autocomplete
+            v-model="formData.productCode"
+            :fetch-suggestions="queryRouteProductCodeSuggestions"
+            value-key="code"
+            placeholder="请输入产品名称或编号"
+            clearable
+            :trigger-on-focus="false"
+            class="!w-1/1"
+            @select="handleRouteProductCodeSelect"
+            @input="handleRouteProductCodeInput"
+          >
+            <template #default="{ item }">
+              <div
+                class="route-product-suggestion"
+                :class="
+                  item.isLinked
+                    ? 'route-product-suggestion--linked'
+                    : 'route-product-suggestion--unlinked'
+                "
+              >
+                <span class="route-product-suggestion__code">{{ item.code }}</span>
+                <span class="route-product-suggestion__name">{{ item.name }}</span>
+                <span class="route-product-suggestion__status">
+                  {{ item.isLinked ? '已添加' : '未添加' }}
+                </span>
+              </div>
+            </template>
+          </el-autocomplete>
         </el-form-item>
       </el-form>
       <!-- 编辑时展示产品 BOM 配置 -->
-      <template v-if="formType2 === 'update' && formData.id">
+      <template v-if="formType2 === 'update' && formData.id && formData.itemId">
         <el-divider content-position="left">产品 BOM 配置</el-divider>
         <RouteProductBomList
           :routeId="routeId"
@@ -240,7 +216,7 @@
       </template>
     </Dialog>
 
-    <Dialog :title="copyFormTitle" v-model="copyFormVisible" width="960px">
+    <Dialog :title="copyFormTitle" v-model="copyFormVisible" width="640px">
       <el-form ref="copyFormRef" :model="copyFormData" :rules="copyFormRules" label-width="100px">
         <el-row :gutter="20">
           <el-col :span="12">
@@ -249,47 +225,38 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="目标产品" prop="targetItemId">
-              <MdItemSelect v-model="copyFormData.targetItemId" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="生产数量" prop="quantity">
-              <el-input-number
-                v-model="copyFormData.quantity"
-                :min="1"
-                controls-position="right"
+            <el-form-item label="目标产品编号" prop="targetProductCode">
+              <el-autocomplete
+                v-model="copyFormData.targetProductCode"
+                :fetch-suggestions="queryRouteProductCodeSuggestions"
+                value-key="code"
+                placeholder="请输入产品名称或编号"
+                clearable
+                :trigger-on-focus="false"
                 class="!w-1/1"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="生产用时" prop="productionTime">
-              <el-input-number
-                v-model="copyFormData.productionTime"
-                :min="0"
-                :precision="2"
-                controls-position="right"
-                class="!w-1/1"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="时间单位" prop="timeUnitType">
-              <el-select v-model="copyFormData.timeUnitType" placeholder="请选择" class="!w-1/1">
-                <el-option
-                  v-for="dict in getStrDictOptions(DICT_TYPE.MES_TIME_UNIT_TYPE)"
-                  :key="dict.value"
-                  :label="dict.label"
-                  :value="dict.value"
-                />
-              </el-select>
+                @select="handleCopyTargetProductCodeSelect"
+                @input="handleCopyTargetProductCodeInput"
+              >
+                <template #default="{ item }">
+                  <div
+                    class="route-product-suggestion"
+                    :class="
+                      item.isLinked
+                        ? 'route-product-suggestion--linked'
+                        : 'route-product-suggestion--unlinked'
+                    "
+                  >
+                    <span class="route-product-suggestion__code">{{ item.code }}</span>
+                    <span class="route-product-suggestion__name">{{ item.name }}</span>
+                    <span class="route-product-suggestion__status">
+                      {{ item.isLinked ? '已添加' : '未添加' }}
+                    </span>
+                  </div>
+                </template>
+              </el-autocomplete>
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="备注" prop="remark">
-          <el-input v-model="copyFormData.remark" type="textarea" placeholder="请输入备注" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button type="primary" @click="submitCopyForm" :disabled="copyFormLoading">
@@ -302,14 +269,11 @@
 </template>
 
 <script setup lang="ts">
-import { getStrDictOptions, DICT_TYPE } from '@/utils/dict'
-import {
-  ProRouteProductApi,
-  type ProRouteProductVO,
-  type ProRouteProductBindFromWorkOrdersRespVO
-} from '@/api/mes/pro/route/product'
-import type { RouteVersionEditContext } from '@/api/mes/pro/route'
-import MdItemSelect from '@/views/mes/md/item/components/MdItemSelect.vue'
+import { DICT_TYPE } from '@/utils/dict'
+import { CommonStatusEnum } from '@/utils/constants'
+import { ProRouteProductApi, type ProRouteProductVO } from '@/api/mes/pro/route/product'
+import type { MesRouteId, RouteVersionEditContext } from '@/api/mes/pro/route'
+import { MdItemApi, type MdItemVO } from '@/api/mes/md/item'
 import RouteProductBomList from './RouteProductBomList.vue'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -352,14 +316,9 @@ const requireCandidateRouteVersionId = (actionName: string) => {
   }
   return props.routeVersionEditContext!.routeVersionId
 }
-const canBindFromWorkOrders = computed(
-  () => ['detail', 'update'].includes(props.formType) && !!props.routeId
-)
-
 // ==================== 列表 ====================
 const loading = ref(false) // 列表的加载中
 const list = ref<ProRouteProductVO[]>([]) // 列表的数据
-const bindFromWorkOrdersLoading = ref(false)
 const routeProductTableKey = 'mes.pro.route.product'
 const routeProductDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'itemCode', label: '产品物料编码', width: 150, hideable: false },
@@ -458,7 +417,10 @@ watch(
 const getList = async () => {
   loading.value = true
   try {
-    list.value = await ProRouteProductApi.getRouteProductListByRoute(props.routeId)
+    list.value = await ProRouteProductApi.getRouteProductListByRoute(
+      props.routeId,
+      props.routeVersionEditContext?.routeVersionId
+    )
     routeProductQueryParams.pageNo = 1
   } finally {
     loading.value = false
@@ -472,7 +434,7 @@ const formLoading = ref(false) // 表单的加载中
 const formType2 = ref('') // 表单的类型：create - 新增；update - 修改
 const formData = ref<any>({}) // 表单数据
 const formRules = reactive({
-  itemId: [{ required: true, message: '产品不能为空', trigger: 'change' }]
+  productCode: [{ required: true, message: '产品编号不能为空', trigger: 'blur' }]
 })
 const formRef = ref() // 表单 Ref
 
@@ -484,7 +446,127 @@ const copyFormRef = ref()
 const copySourceProductText = ref('')
 const copyFormData = ref<any>({})
 const copyFormRules = reactive({
-  targetItemId: [{ required: true, message: '目标产品不能为空', trigger: 'change' }]
+  targetProductCode: [{ required: true, message: '目标产品编号不能为空', trigger: 'blur' }]
+})
+
+type RouteProductSuggestion = MdItemVO & { value: string; isLinked: boolean }
+
+const normalizeRouteProductCode = (value: unknown) => String(value ?? '').trim()
+const linkedRouteProductIds = computed(
+  () => new Set(list.value.map((product) => product.itemId).filter((itemId) => itemId != null))
+)
+const buildRouteProductSuggestion = (item: MdItemVO): RouteProductSuggestion => ({
+  ...item,
+  value: item.code,
+  isLinked: linkedRouteProductIds.value.has(item.id)
+})
+const sortRouteProductSuggestions = (
+  left: RouteProductSuggestion,
+  right: RouteProductSuggestion
+) =>
+  Number(left.isLinked) - Number(right.isLinked) ||
+  left.code.localeCompare(right.code, 'zh-CN', { numeric: true })
+
+const queryRouteProductCodeSuggestions = async (
+  queryString: string,
+  callback: (items: RouteProductSuggestion[]) => void
+) => {
+  const keyword = normalizeRouteProductCode(queryString)
+  if (!keyword) {
+    callback([])
+    return
+  }
+  try {
+    const queryParams = {
+      pageNo: 1,
+      pageSize: 20,
+      status: CommonStatusEnum.ENABLE
+    }
+    const [codeResult, nameResult] = await Promise.all([
+      MdItemApi.getItemPage({ ...queryParams, code: keyword }),
+      MdItemApi.getItemPage({ ...queryParams, name: keyword })
+    ])
+    const uniqueItems = new Map<number, MdItemVO>()
+    for (const item of [...(codeResult?.list ?? []), ...(nameResult?.list ?? [])]) {
+      uniqueItems.set(item.id, item)
+    }
+    callback([...uniqueItems.values()].map(buildRouteProductSuggestion).sort(sortRouteProductSuggestions))
+  } catch (error) {
+    callback([])
+    message.error(resolveRouteOperationErrorMessage(error, '产品查询失败，请查看后端返回错误'))
+  }
+}
+
+const applyRouteProductItemToForm = (item: MdItemVO) => {
+  formData.value.itemId = item.id
+  formData.value.productCode = item.code
+  formData.value.itemCode = item.code
+  formData.value.itemName = item.name
+}
+
+const applyCopyTargetProductItemToForm = (item: MdItemVO) => {
+  copyFormData.value.targetItemId = item.id
+  copyFormData.value.targetProductCode = item.code
+  copyFormData.value.targetItemCode = item.code
+}
+
+const handleRouteProductCodeSelect = (item: RouteProductSuggestion) => {
+  applyRouteProductItemToForm(item)
+}
+
+const handleCopyTargetProductCodeSelect = (item: RouteProductSuggestion) => {
+  applyCopyTargetProductItemToForm(item)
+}
+
+const handleRouteProductCodeInput = () => {
+  if (normalizeRouteProductCode(formData.value.productCode) !== formData.value.itemCode) {
+    formData.value.itemId = undefined
+    formData.value.itemName = undefined
+  }
+}
+
+const handleCopyTargetProductCodeInput = () => {
+  if (normalizeRouteProductCode(copyFormData.value.targetProductCode) !== copyFormData.value.targetItemCode) {
+    copyFormData.value.targetItemId = undefined
+  }
+}
+
+const resolveProductCode = async (rawCode: unknown, fieldName: string) => {
+  const code = normalizeRouteProductCode(rawCode)
+  if (!code) {
+    throw new Error(fieldName + '不能为空')
+  }
+  const item = await MdItemApi.getItemByCode(code)
+  if (!item?.id) {
+    throw new Error('未找到' + fieldName + '：' + code)
+  }
+  if (item.status !== CommonStatusEnum.ENABLE) {
+    throw new Error(fieldName + '已禁用：' + code)
+  }
+  if (item.code !== code) {
+    throw new Error(fieldName + '解析结果不一致：' + code)
+  }
+  return item
+}
+
+const resolveRouteProductCodeForSubmit = async () => {
+  const item = await resolveProductCode(formData.value.productCode, '产品编号')
+  applyRouteProductItemToForm(item)
+  return item
+}
+
+const resolveCopyTargetProductCodeForSubmit = async () => {
+  const item = await resolveProductCode(copyFormData.value.targetProductCode, '目标产品编号')
+  applyCopyTargetProductItemToForm(item)
+  copyFormData.value.targetItemCode = item.code
+  return item
+}
+
+const buildRouteProductSavePayload = (item: MdItemVO, routeVersionId: MesRouteId) => ({
+  id: formData.value.id,
+  routeId: formData.value.routeId ?? props.routeId,
+  routeVersionId,
+  itemId: item.id
 })
 
 /** 添加/修改操作 */
@@ -496,33 +578,28 @@ const openForm = (type: string, row?: ProRouteProductVO) => {
   if (type === 'create') {
     formData.value = {
       routeId: props.routeId,
-      quantity: 1,
-      productionTime: 1,
-      timeUnitType: 'MINUTE'
+      productCode: undefined,
+      itemId: undefined
     }
   } else {
-    formData.value = { ...row }
+    formData.value = { ...row, productCode: row?.itemCode }
   }
-  formRef.value?.resetFields()
+  nextTick(() => formRef.value?.clearValidate())
 }
 
 const openCopyForm = (row: ProRouteProductVO) => {
-  if (!row.id) {
-    throw new Error('复制关联产品失败：缺少源关联产品编号')
-  }
   copyFormVisible.value = true
   copyFormTitle.value = '复制产品'
   copySourceProductText.value = `${row.itemCode || ''} ${row.itemName || ''}`.trim()
   copyFormData.value = {
     routeVersionId: requireCandidateRouteVersionId('产品复制打开'),
     sourceRouteProductId: row.id,
+    sourceItemId: row.itemId,
     targetItemId: undefined,
-    quantity: row.quantity,
-    productionTime: row.productionTime,
-    timeUnitType: row.timeUnitType,
-    remark: row.remark
+    targetProductCode: undefined,
+    targetItemCode: undefined
   }
-  copyFormRef.value?.resetFields()
+  nextTick(() => copyFormRef.value?.clearValidate())
 }
 
 /** 打开关联物料详情页 */
@@ -540,12 +617,19 @@ const handleOpenItemDetail = async (row: ProRouteProductVO) => {
 const submitForm = async () => {
   const valid = await formRef.value.validate()
   if (!valid) return
+  let productItem: MdItemVO
+  try {
+    productItem = await resolveRouteProductCodeForSubmit()
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '产品编号校验失败')
+    return
+  }
   formLoading.value = true
   try {
-    const payload = {
-      ...formData.value,
-      routeVersionId: requireCandidateRouteVersionId('产品绑定保存')
-    }
+    const payload = buildRouteProductSavePayload(
+      productItem,
+      requireCandidateRouteVersionId('产品绑定保存')
+    )
     if (formType2.value === 'create') {
       await ProRouteProductApi.createRouteProduct(payload)
       message.success(t('common.createSuccess'))
@@ -563,11 +647,21 @@ const submitForm = async () => {
 const submitCopyForm = async () => {
   const valid = await copyFormRef.value.validate()
   if (!valid) return
+  let targetItem: MdItemVO
+  try {
+    targetItem = await resolveCopyTargetProductCodeForSubmit()
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '目标产品编号校验失败')
+    return
+  }
   copyFormLoading.value = true
   try {
-    await ProRouteProductApi.copyRouteProduct({
-      ...copyFormData.value,
-      routeVersionId: requireCandidateRouteVersionId('产品复制保存')
+    const routeVersionId = requireCandidateRouteVersionId('产品复制保存')
+    await ProRouteProductApi.copyCandidateRouteProduct({
+      routeId: props.routeId,
+      routeVersionId,
+      sourceItemId: copyFormData.value.sourceItemId,
+      targetItemId: targetItem.id
     })
     message.success('复制成功')
     copyFormVisible.value = false
@@ -577,42 +671,15 @@ const submitCopyForm = async () => {
   }
 }
 
-const buildBindFromWorkOrdersPreviewMessage = (
-  preview: ProRouteProductBindFromWorkOrdersRespVO
-) => {
-  return `将按当前工艺路线名称，从生产工单中补齐同名产品编号。\n新增 ${preview.createdCount} 个，跳过 ${preview.existingCount} 个，冲突 ${preview.conflictCount} 个。是否继续？`
-}
-
-const confirmBindFromWorkOrdersPreview = async (
-  preview: ProRouteProductBindFromWorkOrdersRespVO
-) => {
-  await message.confirm(buildBindFromWorkOrdersPreviewMessage(preview), '产品补齐预览')
-}
-
-const handleBindFromWorkOrders = async () => {
-  bindFromWorkOrdersLoading.value = true
-  try {
-    const routeVersionId = requireCandidateRouteVersionId('产品补齐保存')
-    const preview = await ProRouteProductApi.previewBindFromWorkOrders({
-      routeId: props.routeId,
-      routeVersionId: requireCandidateRouteVersionId('产品补齐保存')
-    })
-    await confirmBindFromWorkOrdersPreview(preview)
-    const result = await ProRouteProductApi.bindFromWorkOrders({ routeId: props.routeId, routeVersionId })
-    message.success(
-      `补齐完成：新增 ${result.createdCount} 个，跳过 ${result.existingCount} 个，冲突 ${result.conflictCount} 个`
-    )
-    await getList()
-  } finally {
-    bindFromWorkOrdersLoading.value = false
-  }
-}
-
 /** 删除按钮操作 */
-const handleDelete = async (id: number) => {
+const handleDelete = async (row: ProRouteProductVO) => {
   try {
     await message.delConfirm()
-    await ProRouteProductApi.deleteRouteProduct(id, requireCandidateRouteVersionId('产品删除'))
+    await ProRouteProductApi.deleteCandidateRouteProduct(
+      props.routeId,
+      row.itemId,
+      requireCandidateRouteVersionId('产品删除')
+    )
     message.success(t('common.delSuccess'))
     await getList()
   } catch (error) {
@@ -625,12 +692,41 @@ const handleDelete = async (id: number) => {
 
 /** 监听路线编号变化 */
 watch(
-  () => props.routeId,
-  (val) => {
-    if (val) {
+  () => [props.routeId, props.routeVersionEditContext?.routeVersionId] as const,
+  ([routeId]) => {
+    if (routeId) {
       getList()
     }
   },
   { immediate: true }
 )
 </script>
+
+<style scoped>
+.route-product-suggestion {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.4fr) 56px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.route-product-suggestion--unlinked {
+  color: var(--el-color-success);
+}
+
+.route-product-suggestion--linked {
+  color: var(--el-color-danger);
+}
+
+.route-product-suggestion__code,
+.route-product-suggestion__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-product-suggestion__status {
+  text-align: right;
+}
+</style>

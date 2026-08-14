@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordDefinitionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordVersionMigrationItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
@@ -26,8 +27,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRe
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMigrationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordImportResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.DccProjectResolver;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,6 +88,10 @@ public class MesProBatchRecordVersionGovernanceServiceImpl implements MesProBatc
     private MesProEdhrUnifiedChangeService unifiedChangeService;
     @Resource
     private MesProBatchRecordReportService batchRecordReportService;
+    @Resource
+    private DccProjectResolver dccProjectResolver;
+    @Resource
+    private MesProRouteVersionMapper routeVersionMapper;
 
     @Override
     public MesProBatchRecordVersionGovernanceSummaryRespVO getSummary(Long definitionId) {
@@ -270,9 +277,16 @@ public class MesProBatchRecordVersionGovernanceServiceImpl implements MesProBatc
                 .setStatus(STATUS_VOIDED)
                 .setRemark(StrUtil.blankToDefault(remark, "草稿重新上传后作废")));
 
+        Long routeId = oldVersion.getRouteId();
+        DccProjectResolver.ResolvedProject selectedProject = dccProjectResolver.requireEnabledByRoute(routeId);
+        MesProRouteVersionDO activeRouteVersion = routeVersionMapper.selectActiveByRouteId(routeId);
+        MesProRouteVersionDO routeCandidateVersion = routeVersionMapper.selectOpenCandidateByRouteId(routeId);
         MesProBatchRecordImportResult importResult = batchRecordReportService.recognizeUploadedRoute(
                 file, definition.getRouteKey(), definition.getBatchRecordName(), "UPGRADE",
-                oldVersion.getSourceVersionId(), null, productNames, true, List.of(), productNames);
+                oldVersion.getSourceVersionId(), null, productNames, true, List.of(), productNames,
+                true, routeId, activeRouteVersion == null ? null : activeRouteVersion.getId(),
+                routeCandidateVersion == null ? null : routeCandidateVersion.getId(),
+                selectedProject.dccProjectCodeId(), getLoginUserId());
         Long newVersionId = importResult.batchRecordVersionId();
         if (newVersionId == null || Objects.equals(newVersionId, oldVersion.getId())) {
             throw exception(PRO_BATCH_RECORD_REPORT_VERSION_DRAFT_REUPLOAD_INVALID, versionId);

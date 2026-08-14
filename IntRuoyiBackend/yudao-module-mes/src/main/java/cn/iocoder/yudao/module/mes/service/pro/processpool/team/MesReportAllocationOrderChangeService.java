@@ -43,6 +43,7 @@ public class MesReportAllocationOrderChangeService {
     private final MesTeamLeaderOrderProcessTargetService targetService;
     private final MesReportAllocationQuantityFragmentService fragmentService;
     private final MesTeamLeaderOrderProcessCompletionService completionService;
+    private final MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     public MesReportAllocationOrderChangeService(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -53,7 +54,8 @@ public class MesReportAllocationOrderChangeService {
             MesReportAllocationReleaseStateService releaseStateService,
             MesTeamLeaderOrderProcessTargetService targetService,
             MesReportAllocationQuantityFragmentService fragmentService,
-            MesTeamLeaderOrderProcessCompletionService completionService) {
+            MesTeamLeaderOrderProcessCompletionService completionService,
+            MesProductionReportManagementSummaryService reportManagementSummaryService) {
         this.activeOrderMapper = activeOrderMapper;
         this.eventMapper = eventMapper;
         this.allocationMapper = allocationMapper;
@@ -63,6 +65,7 @@ public class MesReportAllocationOrderChangeService {
         this.targetService = targetService;
         this.fragmentService = fragmentService;
         this.completionService = completionService;
+        this.reportManagementSummaryService = reportManagementSummaryService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -181,6 +184,7 @@ public class MesReportAllocationOrderChangeService {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
                     eventId, version - 1, state.getCurrentVersion());
         }
+        reportManagementSummaryService.refreshProductionEvent(event);
     }
 
     private void insertAudit(Long eventId, int version, Long activeOrderId, Long actorUserId, String reason,

@@ -293,14 +293,23 @@
             v-bind="sortColumnAttrs('routeStatus')"
           >
             <template #default="{ row }">
-              <el-tag
-                class="scheme-d-tag"
-                effect="plain"
-                :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.routeStatus)"
-                :title="getDccProjectGovernance(row.projectName)?.routeCodes?.join('、') || ''"
-              >
-                {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.routeStatus) }}
-              </el-tag>
+              <div class="dcc-project-code-governance-cell">
+                <el-tag
+                  class="scheme-d-tag"
+                  effect="plain"
+                  :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.routeStatus)"
+                  :title="getDccProjectGovernance(row.projectName)?.routeCodes?.join('、') || ''"
+                >
+                  {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.routeStatus) }}
+                </el-tag>
+                <span
+                  v-if="formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.routeVersionNos)"
+                  class="dcc-project-code-governance-version"
+                  data-testid="dcc-project-code-governance-version-route"
+                >
+                  版本 {{ formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.routeVersionNos) }}
+                </span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -311,14 +320,23 @@
             v-bind="sortColumnAttrs('mainBatchRecordStatus')"
           >
             <template #default="{ row }">
-              <el-tag
-                class="scheme-d-tag"
-                effect="plain"
-                :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.mainBatchRecordStatus)"
-                :title="getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos?.join('、') || ''"
-              >
-                {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.mainBatchRecordStatus) }}
-              </el-tag>
+              <div class="dcc-project-code-governance-cell">
+                <el-tag
+                  class="scheme-d-tag"
+                  effect="plain"
+                  :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.mainBatchRecordStatus)"
+                  :title="getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos?.join('、') || ''"
+                >
+                  {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.mainBatchRecordStatus) }}
+                </el-tag>
+                <span
+                  v-if="formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos)"
+                  class="dcc-project-code-governance-version"
+                  data-testid="dcc-project-code-governance-version-main-batch-record"
+                >
+                  版本 {{ formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.mainBatchRecordVersionNos) }}
+                </span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -329,14 +347,23 @@
             v-bind="sortColumnAttrs('lossReportStatus')"
           >
             <template #default="{ row }">
-              <el-tag
-                class="scheme-d-tag"
-                effect="plain"
-                :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.lossReportStatus)"
-                :title="getDccProjectGovernance(row.projectName)?.lossReportCodes?.join('、') || ''"
-              >
-                {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.lossReportStatus) }}
-              </el-tag>
+              <div class="dcc-project-code-governance-cell">
+                <el-tag
+                  class="scheme-d-tag"
+                  effect="plain"
+                  :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.lossReportStatus)"
+                  :title="getDccProjectGovernance(row.projectName)?.lossReportCodes?.join('、') || ''"
+                >
+                  {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.lossReportStatus) }}
+                </el-tag>
+                <span
+                  v-if="formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.lossReportVersionNos)"
+                  class="dcc-project-code-governance-version"
+                  data-testid="dcc-project-code-governance-version-loss-report"
+                >
+                  版本 {{ formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.lossReportVersionNos) }}
+                </span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -347,14 +374,23 @@
             v-bind="sortColumnAttrs('processInspectionStatus')"
           >
             <template #default="{ row }">
-              <el-tag
-                class="scheme-d-tag"
-                effect="plain"
-                :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.processInspectionStatus)"
-                :title="getDccProjectGovernance(row.projectName)?.processInspectionCodes?.join('、') || ''"
-              >
-                {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.processInspectionStatus) }}
-              </el-tag>
+              <div class="dcc-project-code-governance-cell">
+                <el-tag
+                  class="scheme-d-tag"
+                  effect="plain"
+                  :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.processInspectionStatus)"
+                  :title="getDccProjectGovernance(row.projectName)?.processInspectionCodes?.join('、') || ''"
+                >
+                  {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.processInspectionStatus) }}
+                </el-tag>
+                <span
+                  v-if="formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.processInspectionVersionNos)"
+                  class="dcc-project-code-governance-version"
+                  data-testid="dcc-project-code-governance-version-process-inspection"
+                >
+                  版本 {{ formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.processInspectionVersionNos) }}
+                </span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -365,14 +401,23 @@
             v-bind="sortColumnAttrs('parameterRecordStatus')"
           >
             <template #default="{ row }">
-              <el-tag
-                class="scheme-d-tag"
-                effect="plain"
-                :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.parameterRecordStatus)"
-                :title="getDccProjectGovernance(row.projectName)?.parameterRecordCodes?.join('、') || ''"
-              >
-                {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.parameterRecordStatus) }}
-              </el-tag>
+              <div class="dcc-project-code-governance-cell">
+                <el-tag
+                  class="scheme-d-tag"
+                  effect="plain"
+                  :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.parameterRecordStatus)"
+                  :title="getDccProjectGovernance(row.projectName)?.parameterRecordCodes?.join('、') || ''"
+                >
+                  {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.parameterRecordStatus) }}
+                </el-tag>
+                <span
+                  v-if="formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.parameterRecordVersionNos)"
+                  class="dcc-project-code-governance-version"
+                  data-testid="dcc-project-code-governance-version-parameter-record"
+                >
+                  版本 {{ formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.parameterRecordVersionNos) }}
+                </span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -773,7 +818,7 @@
             size="small"
             type="primary"
             plain
-            :disabled="!selectedProjectCode?.id || associatedFilesTotal === 0"
+            :disabled="!selectedProjectCode?.id"
             @click="openAssignmentDialog"
             v-hasPermi="['dcc:project-code-assignment:assign']"
           >
@@ -905,7 +950,7 @@
     </div>
   </el-drawer>
 
-  <Dialog v-model="assignmentDialogVisible" class="scheme-d-form-control" title="分配修正任务" width="620px">
+  <Dialog v-model="assignmentDialogVisible" class="scheme-d-form-control" title="分配修正任务" width="920px">
     <el-form label-width="96px">
       <el-form-item label="被分配人">
         <el-select
@@ -934,11 +979,73 @@
         </el-radio-group>
         <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
           <template v-if="assignmentForm.scopeMode === DCC_PROJECT_CODE_ASSIGNMENT_SCOPE_SELECTED">
-            将按当前勾选的 {{ selectedAssociatedFileIds.length }} 份文件生成快照。
+            将按全局候选中勾选的 {{ selectedAssignmentCandidateIds.length }} 份文件生成快照。
           </template>
           <template v-else>
             将按后端当前有效项目代码口径生成 {{ associatedFilesTotal }} 份文件快照。
           </template>
+        </div>
+      </el-form-item>
+      <el-form-item
+        v-if="assignmentForm.scopeMode === DCC_PROJECT_CODE_ASSIGNMENT_SCOPE_SELECTED"
+        label="选择文件"
+      >
+        <div class="w-full" data-testid="dcc-project-code-assignment-global-search">
+          <div class="mb-8px flex gap-8px">
+            <el-input
+              v-model="assignmentCandidateQuery.keyword"
+              clearable
+              placeholder="全局搜索文件名称或编号"
+              @keyup.enter="searchAssignmentCandidates"
+            />
+            <el-button
+              class="scheme-d-btn scheme-d-btn--primary"
+              type="primary"
+              :loading="assignmentCandidatesLoading"
+              @click="searchAssignmentCandidates"
+            >
+              搜索
+            </el-button>
+          </div>
+          <el-table
+            v-loading="assignmentCandidatesLoading"
+            :data="assignmentCandidates"
+            row-key="id"
+            :row-class-name="resolveAssignmentCandidateRowClass"
+            @selection-change="handleAssignmentCandidateSelectionChange"
+          >
+            <el-table-column type="selection" width="48" :selectable="isAssignmentCandidateSelectable" />
+            <el-table-column label="文件" min-width="220">
+              <template #default="{ row }">{{ row.fileName || row.fileNumber || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="当前项目" min-width="190">
+              <template #default="{ row }">
+                {{ row.currentProjectName || '未归属' }}
+                <span v-if="row.currentProjectCode"> / {{ row.currentProjectCode }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="版本" prop="versionNo" width="80" />
+            <el-table-column label="状态" prop="status" width="220">
+              <template #default="{ row }">
+                <el-tag class="scheme-d-tag" :type="row.selectable === false ? 'warning' : 'success'">
+                  {{ row.status }}
+                </el-tag>
+                <div v-if="row.selectable === false" class="mt-4px text-12px text-[var(--el-color-warning)]">
+                  {{
+                    row.disabledReason ||
+                    '审批中的文件不可创建修正任务，请先撤回或完成审批后处理'
+                  }}
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+          <Pagination
+            v-if="assignmentCandidatesTotal > 0"
+            v-model:limit="assignmentCandidateQuery.pageSize"
+            v-model:page="assignmentCandidateQuery.pageNo"
+            :total="assignmentCandidatesTotal"
+            @pagination="loadAssignmentCandidates"
+          />
         </div>
       </el-form-item>
       <el-form-item label="有效期">
@@ -1120,8 +1227,10 @@ import {
   DCC_PROJECT_CODE_ASSIGNMENT_SCOPE_ALL,
   DCC_PROJECT_CODE_ASSIGNMENT_SCOPE_SELECTED,
   createProjectCodeAssignment,
+  getProjectCodeAssignmentCandidatePage,
   getProjectCodeAssignmentPage,
   revokeProjectCodeAssignment,
+  type DccProjectCodeAssignmentCandidateRespVO,
   type DccProjectCodeAssignmentCreateReqVO,
   type DccProjectCodeAssignmentRespVO
 } from '@/api/dcc/controlledFile/projectCodeAssignments'
@@ -1207,11 +1316,11 @@ const projectCodeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'projectCode', label: '项目代码', minWidth: 120 },
   { key: 'category', label: '类别', minWidth: 120 },
   { key: 'associatedFileCount', label: '关联文件数', width: 120 },
-  { key: 'routeStatus', label: '工艺路线', width: 120 },
-  { key: 'mainBatchRecordStatus', label: '主批记录', width: 120 },
-  { key: 'lossReportStatus', label: '损耗单', width: 110 },
-  { key: 'processInspectionStatus', label: '过程检验单', width: 130 },
-  { key: 'parameterRecordStatus', label: '参数记录表', width: 130 },
+  { key: 'routeStatus', label: '工艺路线', width: 140 },
+  { key: 'mainBatchRecordStatus', label: '主批记录', width: 150 },
+  { key: 'lossReportStatus', label: '损耗单', width: 130 },
+  { key: 'processInspectionStatus', label: '过程检验单', width: 150 },
+  { key: 'parameterRecordStatus', label: '参数记录表', width: 150 },
   { key: 'qaRegulationStatus', label: 'QA规程', width: 130 },
   { key: 'updateTime', label: '更新时间', width: 180 },
   { key: 'actions', label: '关联文档', width: 240, hideable: false, business: false }
@@ -1257,6 +1366,10 @@ const associatedFilesTotal = ref(0)
 const assignmentDialogVisible = ref(false)
 const assignmentUsersLoading = ref(false)
 const assignmentSubmitting = ref(false)
+const assignmentCandidatesLoading = ref(false)
+const assignmentCandidates = ref<DccProjectCodeAssignmentCandidateRespVO[]>([])
+const assignmentCandidatesTotal = ref(0)
+const selectedAssignmentCandidateIds = ref<Array<number | string>>([])
 const assignmentUsers = ref<AssignmentUserOption[]>([])
 const assignmentRecordsVisible = ref(false)
 const assignmentRecordsLoading = ref(false)
@@ -1329,6 +1442,11 @@ const assignmentForm = reactive<{
 const assignmentRecordQuery = reactive({
   pageNo: 1,
   pageSize: 10
+})
+const assignmentCandidateQuery = reactive({
+  pageNo: 1,
+  pageSize: 10,
+  keyword: ''
 })
 const aiCategoryProgressPercent = computed(() =>
   aiCategoryTotal.value === 0 ? 0 : Math.floor((aiCategoryProcessed.value * 100) / aiCategoryTotal.value)
@@ -1881,6 +1999,17 @@ const formatDccProjectGovernanceStatus = (status?: string) => {
   return '未配置'
 }
 
+const formatDccProjectGovernanceVersions = (versionNos?: string[] | null) => {
+  const normalizedVersionNos = Array.from(
+    new Set(
+      (versionNos || [])
+        .map((versionNo) => String(versionNo || '').trim())
+        .filter(Boolean)
+    )
+  )
+  return normalizedVersionNos.join('、')
+}
+
 const resolveDccProjectGovernanceTagType = (status?: string) => {
   if (status === 'OK') {
     return 'success'
@@ -2355,6 +2484,9 @@ const resetAssignmentForm = () => {
   assignmentForm.scopeMode = DCC_PROJECT_CODE_ASSIGNMENT_SCOPE_ALL
   assignmentForm.expireTime = ''
   assignmentForm.assignmentReason = ''
+  selectedAssignmentCandidateIds.value = []
+  assignmentCandidateQuery.pageNo = 1
+  assignmentCandidateQuery.keyword = ''
 }
 
 const handleAssociatedFileSelectionChange = (rows: ControlledFileVO[]) => {
@@ -2363,17 +2495,47 @@ const handleAssociatedFileSelectionChange = (rows: ControlledFileVO[]) => {
     .filter((id): id is number | string => id !== null && typeof id !== 'undefined' && String(id).length > 0)
 }
 
+const loadAssignmentCandidates = async () => {
+  const projectCodeId = selectedProjectCode.value?.id
+  if (!projectCodeId) {
+    assignmentCandidates.value = []
+    assignmentCandidatesTotal.value = 0
+    return
+  }
+  assignmentCandidatesLoading.value = true
+  try {
+    const data = await getProjectCodeAssignmentCandidatePage(projectCodeId, assignmentCandidateQuery)
+    assignmentCandidates.value = data.list
+    assignmentCandidatesTotal.value = data.total
+  } finally {
+    assignmentCandidatesLoading.value = false
+  }
+}
+
+const searchAssignmentCandidates = async () => {
+  assignmentCandidateQuery.pageNo = 1
+  await loadAssignmentCandidates()
+}
+
+const handleAssignmentCandidateSelectionChange = (
+  rows: DccProjectCodeAssignmentCandidateRespVO[]
+) => {
+  selectedAssignmentCandidateIds.value = rows.filter((row) => row.selectable !== false).map((row) => row.id)
+}
+
+const isAssignmentCandidateSelectable = (row: DccProjectCodeAssignmentCandidateRespVO) =>
+  row.selectable !== false
+
+const resolveAssignmentCandidateRowClass = ({ row }: { row: DccProjectCodeAssignmentCandidateRespVO }) =>
+  row.selectable === false ? 'is-disabled' : ''
+
 const openAssignmentDialog = async () => {
   if (!selectedProjectCode.value?.id) {
     return
   }
-  if (associatedFilesTotal.value <= 0) {
-    message.error('当前项目代码没有可分配文件')
-    return
-  }
   resetAssignmentForm()
   assignmentDialogVisible.value = true
-  await loadAssignmentUsers()
+  await Promise.all([loadAssignmentUsers(), loadAssignmentCandidates()])
 }
 
 const submitAssignmentDialog = async () => {
@@ -2384,7 +2546,7 @@ const submitAssignmentDialog = async () => {
   }
   if (
     assignmentForm.scopeMode === DCC_PROJECT_CODE_ASSIGNMENT_SCOPE_SELECTED &&
-    selectedAssociatedFileIds.value.length === 0
+    selectedAssignmentCandidateIds.value.length === 0
   ) {
     message.error('请选择需要分配的文件')
     return
@@ -2394,7 +2556,7 @@ const submitAssignmentDialog = async () => {
     const payload: DccProjectCodeAssignmentCreateReqVO = {
       assigneeUserId: assignmentForm.assigneeUserId,
       scopeMode: assignmentForm.scopeMode,
-      fileIds: selectedAssociatedFileIds.value,
+      fileIds: selectedAssignmentCandidateIds.value,
       expireTime: assignmentForm.expireTime || null,
       assignmentReason: assignmentForm.assignmentReason.trim() || null
     }
@@ -2953,6 +3115,20 @@ watch(
 </script>
 
 <style scoped>
+.dcc-project-code-governance-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.2;
+}
+
+.dcc-project-code-governance-version {
+  color: var(--el-text-color-regular);
+  font-size: 12px;
+  white-space: normal;
+}
+
 .dcc-project-code-import-toolbar {
   display: flex;
   flex-wrap: wrap;

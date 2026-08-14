@@ -39,13 +39,18 @@ assert.match(
 )
 assert.match(
   initializeProductionSelectionBlock,
-  /await loadFrontlineDeviceProcesses\(deviceState\)[\s\S]*findInitialProcess\(processes\)[\s\S]*await handleSelectProcess\(initialProcess\)/,
-  'Production mode must enter SOP process reporting from device-account processes without selecting an active order.'
+  /loadFrontlineProductionActiveOrders\(deviceState\)[\s\S]*requestedActiveOrder\s*\|\|\s*activeOrders\[0\][\s\S]*await handleSelectActiveOrder\(initialActiveOrder,\s*requestedProcessIdentity\)/,
+  'Production mode must select the requested or first active order before refreshing its route processes.'
+)
+assert.doesNotMatch(
+  initializeProductionSelectionBlock,
+  /loadFrontlineDeviceProcesses\(deviceState\)/,
+  'Production startup must not select from a global process read before the order is selected.'
 )
 assert.match(
   onMountedBlock,
   /Promise\.all\(\[[\s\S]*catalogRequest,[\s\S]*initializeProductionSelection\(\)[\s\S]*\]\)/,
-  'Production startup must load catalog and device-account processes without waiting for active orders.'
+  'Production startup must load the catalog and order-driven selection workflow concurrently.'
 )
 const productionStartupBlock = onMountedBlock.slice(onMountedBlock.indexOf('const [loadedCatalog] = await Promise.all(['))
 assert.doesNotMatch(
@@ -57,14 +62,10 @@ assert.doesNotMatch(
 const submitBlockedBlock = sliceBetween(panel, 'const isSubmitBlocked = computed(() =>', 'const statusText = computed')
 assert.match(
   submitBlockedBlock,
-  /isPqcMode\.value && !deviceState\.selectedActiveOrder/,
-  'Only PQC mode may block the fill panel for missing active order.'
+  /!deviceState\.selectedActiveOrder/,
+  'Production and PQC modes must block filling until the current active order is formally selected.'
 )
-assert.doesNotMatch(
-  submitBlockedBlock,
-  /!context\.workOrderId|!context\.taskId/,
-  'Production SOP entry must not be blocked by missing order or task context.'
-)
+assert.doesNotMatch(submitBlockedBlock, /!context\.taskId/)
 
 const preliminaryPayloadContextBlock = sliceBetween(
   panel,
@@ -74,7 +75,7 @@ const preliminaryPayloadContextBlock = sliceBetween(
 assert.doesNotMatch(
   preliminaryPayloadContextBlock,
   /if\s*\(\s*!context\.workOrderId\s*\)/,
-  'Preliminary production SOP payload validation must not require order context before entering fact-reporting draft.'
+  'Preliminary production payload validation must rely on the selected active order state, not stale route query context.'
 )
 
 const formalSubmitContextBlock = sliceBetween(

@@ -20,12 +20,12 @@ class MesFrontlineRuntimeConfigProcessScopeTest {
         assertTrue(payload.contains("lossDetails"), "submit payload must carry all loss detail ids and quantities");
         assertTrue(payload.contains("selectedDevice"), "submit payload must carry selected device id/code/name snapshot");
         assertTrue(payload.contains("deviceParameterReadings"), "submit payload must carry selected device parameter readings");
-        assertTrue(lossValidator.contains("requireEnabledLossReasons"),
-                "loss validator must validate all loss details by current routeProcessId");
+        assertTrue(lossValidator.contains("requireSnapshotLossReasons"),
+                "loss validator must validate all loss details from the maximized runtime snapshot");
         assertTrue(submitService.contains("validateLossDetailTotal"),
                 "submit service must reject lossQuantity != sum(lossDetails.quantity) before authorization/write");
-        assertTrue(!submitService.contains("validateSelectedDeviceAndParameters"),
-                "submit service must not validate selected device and parameters during formal submit");
+        assertTrue(submitService.contains("validateSnapshotDeviceAndParameters"),
+                "submit service must validate selected device and parameters from the runtime snapshot");
         assertTrue(deviceValidator.contains("routeProcessId")
                         && deviceValidator.contains("processId")
                         && deviceValidator.contains("deviceId")

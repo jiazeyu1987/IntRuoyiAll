@@ -1,10 +1,11 @@
 import request from '@/config/axios'
+import type { MesRouteId } from '@/api/mes/pro/route'
 
 // MES 工艺路线产品 VO
 export interface ProRouteProductVO {
   id?: number // 编号
   routeId: number // 工艺路线编号
-  routeVersionId?: number // 工艺路线版本编号
+  routeVersionId?: MesRouteId // 工艺路线版本编号
   itemId: number // 产品物料编号
   itemCode?: string // 产品编码
   itemName?: string // 产品名称
@@ -18,7 +19,7 @@ export interface ProRouteProductVO {
 }
 
 export interface ProRouteProductCopyReqVO {
-  routeVersionId?: number
+  routeVersionId?: MesRouteId
   sourceRouteProductId: number
   targetItemId: number
   quantity?: number
@@ -27,22 +28,11 @@ export interface ProRouteProductCopyReqVO {
   remark?: string
 }
 
-export interface ProRouteProductBindFromWorkOrdersReqVO {
+export interface ProRouteProductCandidateCopyReqVO {
   routeId: number
-  routeVersionId: number
-}
-
-export interface ProRouteProductBindFromWorkOrdersRespVO {
-  routeId: number
-  routeName: string
-  matchedCount: number
-  existingCount: number
-  createdCount: number
-  conflictCount: number
-  itemCodes: string[]
-  creatableItemCodes: string[]
-  existingItemCodes: string[]
-  conflictItemCodes: string[]
+  routeVersionId: MesRouteId
+  sourceItemId: number
+  targetItemId: number
 }
 
 export interface ProRouteProductByItemSaveReqVO {
@@ -53,8 +43,11 @@ export interface ProRouteProductByItemSaveReqVO {
 // MES 工艺路线产品 API
 export const ProRouteProductApi = {
   // 按工艺路线查询产品列表
-  getRouteProductListByRoute: async (routeId: number) => {
-    return await request.get({ url: `/mes/pro/route-product/list-by-route?routeId=` + routeId })
+  getRouteProductListByRoute: async (routeId: number, routeVersionId?: MesRouteId) => {
+    return await request.get({
+      url: `/mes/pro/route-product/list-by-route`,
+      params: { routeId, routeVersionId }
+    })
   },
 
   // 查询工艺路线产品详情
@@ -87,14 +80,9 @@ export const ProRouteProductApi = {
     return await request.post({ url: `/mes/pro/route-product/copy`, data })
   },
 
-  // 预览从生产订单补齐工艺路线产品
-  previewBindFromWorkOrders: async (data: ProRouteProductBindFromWorkOrdersReqVO) => {
-    return await request.post({ url: `/mes/pro/route-product/preview-bind-from-work-orders`, data })
-  },
-
-  // 从生产订单补齐工艺路线产品
-  bindFromWorkOrders: async (data: ProRouteProductBindFromWorkOrdersReqVO) => {
-    return await request.post({ url: `/mes/pro/route-product/bind-from-work-orders`, data })
+  // 复制候选版本中的工艺路线产品
+  copyCandidateRouteProduct: async (data: ProRouteProductCandidateCopyReqVO) => {
+    return await request.post({ url: `/mes/pro/route-product/copy-candidate`, data })
   },
 
   // 修改工艺路线产品
@@ -103,7 +91,19 @@ export const ProRouteProductApi = {
   },
 
   // 删除工艺路线产品
-  deleteRouteProduct: async (id: number, routeVersionId: number) => {
+  deleteRouteProduct: async (id: number, routeVersionId: MesRouteId) => {
     return await request.delete({ url: `/mes/pro/route-product/delete`, params: { id, routeVersionId } })
+  },
+
+  // 删除候选版本中的工艺路线产品
+  deleteCandidateRouteProduct: async (
+    routeId: number,
+    itemId: number,
+    routeVersionId: MesRouteId
+  ) => {
+    return await request.delete({
+      url: `/mes/pro/route-product/delete-candidate`,
+      params: { routeId, itemId, routeVersionId }
+    })
   }
 }

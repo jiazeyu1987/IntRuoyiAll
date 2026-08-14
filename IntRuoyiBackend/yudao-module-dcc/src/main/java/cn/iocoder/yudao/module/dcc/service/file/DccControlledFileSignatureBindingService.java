@@ -27,7 +27,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 public class DccControlledFileSignatureBindingService {
 
     static final String COPY_HASH_ALGORITHM = "SHA256";
-    static final String BINDING_PAYLOAD_VERSION = "v1";
+    static final String BINDING_PAYLOAD_VERSION = "v2";
+    static final String LEGACY_BINDING_PAYLOAD_VERSION = "v1";
 
     @Resource
     private DccControlledFileSignatureBindingMapper bindingMapper;
@@ -45,13 +46,14 @@ public class DccControlledFileSignatureBindingService {
         if (signatures == null || signatures.isEmpty()) {
             throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         }
-        byte[] controlledCopyContent = readControlledCopyContent(controlledCopyFileId);
+        FileDO controlledCopyFile = requireControlledCopyFile(controlledCopyFileId);
+        byte[] controlledCopyContent = readControlledCopyContent(controlledCopyFile);
         for (DccControlledFileSignatureDO signature : signatures) {
             if (signature == null || signature.getId() == null || StrUtil.isBlank(signature.getEvidenceHash())) {
                 throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
             }
             DccControlledFileSignatureBindingDO candidate = createBindingEvent(signature, file, controlledCopyFileId,
-                    controlledCopyContent, boundBy, bindingEventKey);
+                    controlledCopyFile.getPath(), controlledCopyContent, boundBy, bindingEventKey);
             DccControlledFileSignatureBindingDO existing = bindingMapper.selectBySignatureId(signature.getId());
             if (existing == null) {
                 bindingMapper.insert(candidate);
@@ -67,6 +69,7 @@ public class DccControlledFileSignatureBindingService {
     DccControlledFileSignatureBindingDO createBindingEvent(DccControlledFileSignatureDO signature,
                                                             DccControlledFileDO file,
                                                             Long controlledCopyFileId,
+                                                            String controlledCopyObjectKey,
                                                             byte[] controlledCopyContent,
                                                             Long boundBy,
                                                             String bindingEventKey) {
@@ -75,9 +78,10 @@ public class DccControlledFileSignatureBindingService {
                 .controlledFileId(file.getId())
                 .originalEvidenceHash(signature.getEvidenceHash())
                 .controlledCopyFileId(controlledCopyFileId)
+                .controlledCopyObjectKey(controlledCopyObjectKey)
                 .controlledCopySha256(sha256Hex(controlledCopyContent))
                 .controlledCopyHashAlgorithm(COPY_HASH_ALGORITHM)
-                .boundAt(LocalDateTime.now())
+                .boundAt(LocalDateTime.now().withNano(0))
                 .boundBy(boundBy)
                 .bindingEventKey(bindingEventKey)
                 .bindingPayloadVersion(BINDING_PAYLOAD_VERSION)
@@ -108,7 +112,12 @@ public class DccControlledFileSignatureBindingService {
         }
         byte[] currentContent;
         try {
-            currentContent = readControlledCopyContent(binding.getControlledCopyFileId());
+            FileDO currentFile = requireControlledCopyFile(binding.getControlledCopyFileId());
+            if (!StrUtil.equals(binding.getControlledCopyObjectKey(), currentFile.getPath())) {
+                return DccControlledFileSignatureBindingVerification.invalid(
+                        "CONTROLLED_COPY_OBJECT_KEY_MISMATCH", binding);
+            }
+            currentContent = readControlledCopyContent(currentFile);
         } catch (RuntimeException ex) {
             return DccControlledFileSignatureBindingVerification.invalid("CONTROLLED_COPY_FILE_UNREADABLE", binding);
         }
@@ -118,11 +127,15 @@ public class DccControlledFileSignatureBindingService {
         return DccControlledFileSignatureBindingVerification.bound(binding);
     }
 
-    private byte[] readControlledCopyContent(Long fileId) {
+    private FileDO requireControlledCopyFile(Long fileId) {
         FileDO file = fileService.getFile(fileId);
         if (file == null || file.getConfigId() == null || StrUtil.isBlank(file.getPath())) {
             throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED, "受控副本文件不存在");
         }
+        return file;
+    }
+
+    private byte[] readControlledCopyContent(FileDO file) {
         try {
             byte[] content = fileService.getFileContent(file.getConfigId(), file.getPath());
             if (content == null || content.length == 0) {
@@ -140,17 +153,43 @@ public class DccControlledFileSignatureBindingService {
                 && Objects.equals(left.getControlledFileId(), right.getControlledFileId())
                 && StrUtil.equalsIgnoreCase(left.getOriginalEvidenceHash(), right.getOriginalEvidenceHash())
                 && Objects.equals(left.getControlledCopyFileId(), right.getControlledCopyFileId())
+                && StrUtil.equals(left.getControlledCopyObjectKey(), right.getControlledCopyObjectKey())
                 && StrUtil.equalsIgnoreCase(left.getControlledCopySha256(), right.getControlledCopySha256());
     }
 
     private boolean hasValidBindingHash(DccControlledFileSignatureBindingDO binding) {
-        return BINDING_PAYLOAD_VERSION.equals(binding.getBindingPayloadVersion())
-                && COPY_HASH_ALGORITHM.equals(binding.getBindingHashAlgorithm())
-                && StrUtil.equalsIgnoreCase(binding.getBindingHash(),
-                sha256Hex(canonicalBindingPayload(binding).getBytes(StandardCharsets.UTF_8)));
+        if (!COPY_HASH_ALGORITHM.equals(binding.getBindingHashAlgorithm())) {
+            return false;
+        }
+        String canonicalPayload;
+        if (BINDING_PAYLOAD_VERSION.equals(binding.getBindingPayloadVersion())) {
+            canonicalPayload = canonicalBindingPayload(binding);
+        } else if (LEGACY_BINDING_PAYLOAD_VERSION.equals(binding.getBindingPayloadVersion())) {
+            canonicalPayload = canonicalLegacyBindingPayload(binding);
+        } else {
+            return false;
+        }
+        return StrUtil.equalsIgnoreCase(binding.getBindingHash(),
+                sha256Hex(canonicalPayload.getBytes(StandardCharsets.UTF_8)));
     }
 
     private String canonicalBindingPayload(DccControlledFileSignatureBindingDO binding) {
+        return String.join("\n",
+                "payloadVersion=" + StrUtil.nullToEmpty(binding.getBindingPayloadVersion()),
+                "tenantId=" + TenantContextHolder.getRequiredTenantId(),
+                "signatureId=" + binding.getSignatureId(),
+                "controlledFileId=" + binding.getControlledFileId(),
+                "originalEvidenceHash=" + StrUtil.nullToEmpty(binding.getOriginalEvidenceHash()),
+                "controlledCopyFileId=" + binding.getControlledCopyFileId(),
+                "controlledCopyObjectKey=" + StrUtil.nullToEmpty(binding.getControlledCopyObjectKey()),
+                "controlledCopySha256=" + StrUtil.nullToEmpty(binding.getControlledCopySha256()),
+                "controlledCopyHashAlgorithm=" + StrUtil.nullToEmpty(binding.getControlledCopyHashAlgorithm()),
+                "boundAt=" + binding.getBoundAt(),
+                "boundBy=" + binding.getBoundBy(),
+                "bindingEventKey=" + StrUtil.nullToEmpty(binding.getBindingEventKey()));
+    }
+
+    private String canonicalLegacyBindingPayload(DccControlledFileSignatureBindingDO binding) {
         return String.join("\n",
                 "payloadVersion=" + StrUtil.nullToEmpty(binding.getBindingPayloadVersion()),
                 "tenantId=" + TenantContextHolder.getRequiredTenantId(),

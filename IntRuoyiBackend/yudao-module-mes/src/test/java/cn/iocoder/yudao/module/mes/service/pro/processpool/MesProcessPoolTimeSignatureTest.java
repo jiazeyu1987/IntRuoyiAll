@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCre
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 
 import java.time.LocalDateTime;
 
@@ -27,6 +29,8 @@ class MesProcessPoolTimeSignatureTest extends BaseDbUnitTest {
 
     @Resource
     private MesProProcessPoolEventMapper processPoolEventMapper;
+    @MockitoBean
+    private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     @Test
     void shouldUseServerSubmitTimeAndKeepActualEmployeeAsSignatureSubject() {

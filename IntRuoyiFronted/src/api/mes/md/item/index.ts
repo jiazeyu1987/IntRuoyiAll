@@ -39,6 +39,11 @@ export const MdItemApi = {
     return await request.get({ url: `/mes/md/item/get?id=` + id })
   },
 
+  // 按产品编号查询物料产品
+  getItemByCode: async (code: string) => {
+    return await request.get({ url: `/mes/md/item/get-by-code`, params: { code } })
+  },
+
   // 新增物料产品
   createItem: async (data: MdItemVO) => {
     return await request.post({ url: `/mes/md/item/create`, data })

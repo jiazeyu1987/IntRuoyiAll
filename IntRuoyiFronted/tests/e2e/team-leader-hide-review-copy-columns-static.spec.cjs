@@ -45,7 +45,7 @@ for (const [key, label] of [
 
 for (const [key, label, marker] of [
   ['deviceParameterReadings', '设备参数', 'data-team-leader-device-parameter-readings'],
-  ['operation', '操作', 'data-team-leader-detail-event-id'],
+  ['operation', '操作', 'data-team-leader-correction-event-id'],
   ['lossQuantity', '损耗数量', 'data-team-leader-loss-quantity']
 ]) {
   assert.match(

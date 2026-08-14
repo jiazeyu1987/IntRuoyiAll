@@ -154,6 +154,9 @@ public class MesProFrontlineFeedbackPayloadReqVO {
         @Schema(description = "参数读数", example = "50")
         private BigDecimal value;
 
+        @Schema(description = "参数文本值，用于下拉、文本类设备参数", example = "合格")
+        private String textValue;
+
         @Schema(description = "配置下限", example = "20")
         private BigDecimal lowerLimit;
 

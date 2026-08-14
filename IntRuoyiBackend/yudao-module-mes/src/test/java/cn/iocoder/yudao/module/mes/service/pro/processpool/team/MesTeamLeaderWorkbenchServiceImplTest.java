@@ -75,7 +75,8 @@ class MesTeamLeaderWorkbenchServiceImplTest {
         assertEquals(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT, captor.getValue().getEventType());
         assertEquals(Boolean.TRUE, captor.getValue().getRequirePositiveOutputQuantity());
         assertEquals("WORKBENCH", captor.getValue().getAllocationView());
-        assertEquals(Set.of(8101L, 8102L), captor.getValue().getProcessIds());
+        assertEquals(Set.of(9101L, 9102L), captor.getValue().getRouteProcessIds());
+        assertEquals(null, captor.getValue().getProcessIds());
         assertEquals(null, captor.getValue().getEmployeeUserIds());
     }
 
@@ -94,7 +95,8 @@ class MesTeamLeaderWorkbenchServiceImplTest {
         ArgumentCaptor<MesTeamLeaderSubmissionPageReqVO> captor =
                 ArgumentCaptor.forClass(MesTeamLeaderSubmissionPageReqVO.class);
         verify(timelineService).getTimelinePage(captor.capture());
-        assertEquals(Set.of(922987L), captor.getValue().getProcessIds());
+        assertEquals(Set.of(928611L), captor.getValue().getRouteProcessIds());
+        assertEquals(null, captor.getValue().getProcessIds());
         assertEquals(Boolean.TRUE, captor.getValue().getRequirePositiveOutputQuantity());
         assertEquals(null, captor.getValue().getEmployeeUserIds());
     }

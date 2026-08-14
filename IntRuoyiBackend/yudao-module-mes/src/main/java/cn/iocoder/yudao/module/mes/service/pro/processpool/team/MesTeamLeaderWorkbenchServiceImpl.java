@@ -51,21 +51,21 @@ public class MesTeamLeaderWorkbenchServiceImpl implements MesTeamLeaderWorkbench
             reqVO.setEmployeeUserIds(responsibleEmployeeIds);
             reqVO.setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION);
         } else if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(leaderType)) {
-            Set<Long> processIds = listAuthorizedProcessIds(leaderUserId);
-            if (processIds.isEmpty()) {
+            Set<Long> routeProcessIds = listAuthorizedRouteProcessIds(leaderUserId);
+            if (routeProcessIds.isEmpty()) {
                 return PageResult.empty();
             }
-            reqVO.setProcessIds(processIds);
+            reqVO.setRouteProcessIds(routeProcessIds);
             reqVO.setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT);
             reqVO.setRequirePositiveOutputQuantity(Boolean.TRUE);
         }
         return timelineService.getTimelinePage(reqVO);
     }
 
-    private Set<Long> listAuthorizedProcessIds(Long leaderUserId) {
+    private Set<Long> listAuthorizedRouteProcessIds(Long leaderUserId) {
         return routeStartAuthorizationService.listAuthorizedRouteProcesses(leaderUserId)
                     .stream()
-                    .map(MesProRouteProcessDO::getProcessId)
+                    .map(MesProRouteProcessDO::getId)
                     .filter(java.util.Objects::nonNull)
                     .collect(java.util.stream.Collectors.toSet());
     }
@@ -75,7 +75,7 @@ public class MesTeamLeaderWorkbenchServiceImpl implements MesTeamLeaderWorkbench
         validateLeaderContext(leaderUserId, leaderType);
         ProcessPoolTimelineDetailRespVO detail = timelineService.getTimelineDetail(eventId);
         if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(leaderType)) {
-            if (!listAuthorizedProcessIds(leaderUserId).contains(detail.getProcessId())) {
+            if (!listAuthorizedRouteProcessIds(leaderUserId).contains(detail.getRouteProcessId())) {
                 throw exception(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "工序报工");
             }
         } else {

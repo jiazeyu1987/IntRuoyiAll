@@ -60,6 +60,8 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 
 - Keep user-facing updates concise and necessary: blocking questions, blockers, completed work, verification results, or information explicitly requested by the user.
 - When ambiguity affects safety, data, scope, release, or irreversible changes, stop and ask a concise action-oriented question before proceeding.
+- 用户提示不合理时，先核对当前代码、文档和业务规则；发现错误或风险必须指出并给出可执行修正，不得盲从。
+- 回复用户时默认按“用户不懂代码”处理：用简单、业务化的话说明做了什么、业务影响、风险和下一步；除非用户明确要求技术细节，不要用代码、文件名、函数、类、接口等技术表达来解释。
 
 ## Rule Precedence and Ownership
 

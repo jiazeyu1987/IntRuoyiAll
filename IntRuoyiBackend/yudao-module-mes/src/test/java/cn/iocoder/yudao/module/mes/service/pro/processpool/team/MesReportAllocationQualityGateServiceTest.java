@@ -76,6 +76,7 @@ class MesReportAllocationQualityGateServiceTest {
         return MesProProcessPoolEventDO.builder()
                 .id(1001L).eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
                 .workOrderId(9001L).routeProcessId(5001L).processId(6001L)
+                .reportOutputQuantity(new BigDecimal(quantity))
                 .rawPayload("{\"outputQuantity\":" + quantity + "}").build();
     }
 

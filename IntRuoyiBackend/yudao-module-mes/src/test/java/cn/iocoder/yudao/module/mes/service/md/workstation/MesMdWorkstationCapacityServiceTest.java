@@ -218,6 +218,64 @@ class MesMdWorkstationCapacityServiceTest {
     }
 
     @Test
+    void getCapacityMetricsUsingShiftHours_workerHumanEfficiencyChangesWorkerCapacityOnly() {
+        MesMdWorkstationDO beforeChange = MesMdWorkstationDO.builder()
+                .id(11L)
+                .shiftHours(new BigDecimal("8"))
+                .singleStandardHourlyCapacity(new BigDecimal("30"))
+                .build();
+        MesMdWorkstationDO afterChange = MesMdWorkstationDO.builder()
+                .id(12L)
+                .shiftHours(new BigDecimal("8"))
+                .singleStandardHourlyCapacity(new BigDecimal("15"))
+                .build();
+        when(workstationWorkerService.getWorkstationWorkerListByWorkstationIds(any())).thenReturn(List.of());
+        when(workRecordService.getClockInWorkRecordListByWorkstationIds(any())).thenReturn(List.of());
+        when(workstationMachineService.getWorkstationMachineListByWorkstationIds(any())).thenReturn(List.of());
+        when(machineryService.getMachineryMap(any())).thenReturn(Map.of());
+
+        Map<Long, MesMdWorkstationCapacityMetrics> metrics = capacityService
+                .getCapacityMetricsUsingShiftHours(List.of(beforeChange, afterChange));
+
+        assertEquals(0, metrics.get(11L).getTodayCapacity().compareTo(new BigDecimal("240")));
+        assertEquals(0, metrics.get(12L).getTodayCapacity().compareTo(new BigDecimal("120")));
+    }
+
+    @Test
+    void getCapacityMetricsUsingShiftHours_machineCapacityIgnoresWorkerHumanEfficiency() {
+        MesMdWorkstationDO beforeChange = MesMdWorkstationDO.builder()
+                .id(13L)
+                .processId(113L)
+                .shiftHours(new BigDecimal("8"))
+                .singleStandardHourlyCapacity(new BigDecimal("30"))
+                .build();
+        MesMdWorkstationDO afterChange = MesMdWorkstationDO.builder()
+                .id(14L)
+                .processId(113L)
+                .shiftHours(new BigDecimal("8"))
+                .singleStandardHourlyCapacity(new BigDecimal("15"))
+                .build();
+        when(workstationWorkerService.getWorkstationWorkerListByWorkstationIds(any())).thenReturn(List.of());
+        when(workRecordService.getClockInWorkRecordListByWorkstationIds(any())).thenReturn(List.of());
+        when(workstationMachineService.getWorkstationMachineListByWorkstationIds(any())).thenReturn(List.of(
+                MesMdWorkstationMachineDO.builder().workstationId(13L).machineryId(131L).quantity(1).build(),
+                MesMdWorkstationMachineDO.builder().workstationId(14L).machineryId(131L).quantity(1).build()));
+        when(machineryProcessService.getMachineryProcessListByMachineryIdsAndProcessIds(any(), any()))
+                .thenReturn(List.of(MesDvMachineryProcessDO.builder()
+                        .machineryId(131L).processId(113L)
+                        .standardHourlyCapacity(new BigDecimal("20"))
+                        .build()));
+        when(machineryService.getMachineryMap(any())).thenReturn(Map.of(
+                131L, MesDvMachineryDO.builder().id(131L).build()));
+
+        Map<Long, MesMdWorkstationCapacityMetrics> metrics = capacityService
+                .getCapacityMetricsUsingShiftHours(List.of(beforeChange, afterChange));
+
+        assertEquals(0, metrics.get(13L).getTodayCapacity().compareTo(new BigDecimal("160")));
+        assertEquals(0, metrics.get(14L).getTodayCapacity().compareTo(new BigDecimal("160")));
+    }
+
+    @Test
     void getCapacityMetricsUsingShiftHours_withZeroProcessIdDoesNotFallbackToWorkerCapacity() {
         MesMdWorkstationDO workstation = MesMdWorkstationDO.builder()
                 .id(10L)

@@ -5,6 +5,7 @@ import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 生产组长活跃订单列表读模型。
@@ -20,12 +21,14 @@ public class MesTeamLeaderActiveOrderRow {
     private Long productId;
     private String productName;
     private String productCode;
+    private String batchCode;
     private BigDecimal quantity;
     private Long routeId;
     private String routeName;
     private Long routeVersionId;
     private String routeVersionNo;
     private BigDecimal erpFixedQuantitySnapshot;
+    private List<ProcessRemainingQuantity> processRemainingQuantities = List.of();
     private BigDecimal productionProgressPercent;
     private BigDecimal inspectionProgressPercent;
     private String activeStatus;
@@ -39,4 +42,15 @@ public class MesTeamLeaderActiveOrderRow {
     private String releaseApplicationStatus;
     private String releaseApplicationBlockerSummary;
     private Long releaseApprovalWorkTaskId;
+
+    @Data
+    @Accessors(chain = true)
+    public static class ProcessRemainingQuantity {
+
+        private Long routeProcessId;
+        private Long processId;
+        private BigDecimal plannedQuantity;
+        private BigDecimal allocatedQuantity;
+        private BigDecimal remainingQuantity;
+    }
 }

@@ -50,6 +50,22 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImplTest {
         assertFalse(result.isVerifiedFor(project("ID"), regulation(null, "PQC-ID-001"), version()));
     }
 
+    @Test
+    void retiredLockedVersionRemainsVerifiableAfterRegulationPublishesANewerVersion() {
+        DccProjectCodeDO project = project("ID");
+        project.setStatus("DISABLE");
+        MesQaInspectionRegulationDO regulation = regulation(11L, "PQC-ID-001");
+        regulation.setCurrentVersionId(32L);
+        MesQaInspectionRegulationVersionDO version = version();
+        version.setLifecycleStatus("RETIRED");
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution result =
+                port.verify(project, regulation, version);
+
+        assertTrue(result.isVerifiedFor(project, regulation, version));
+        assertEquals("DCC_QA_PROJECT_RELATION", result.getProvenanceType());
+    }
+
     private DccProjectCodeDO project(String projectCode) {
         DccProjectCodeDO project = DccProjectCodeDO.builder().id(11L).productMasterId(11L)
                 .projectCode(projectCode).projectName("球囊扩张压力泵").status("ENABLE").build();

@@ -1211,11 +1211,15 @@ const syncTemplateRouteContext = async () => {
   if (!row) {
     row = await TemplateApi.getTemplateVersion(templateId, versionNo)
   }
+  if (!row) {
+    throw new Error(`未找到表单模板 ${templateId} 的版本 ${versionNo}。`)
+  }
+  const resolvedRow = row
   list.value = [
-    row,
-    ...list.value.filter((item) => templateRowKey(item) !== templateRowKey(row))
+    resolvedRow,
+    ...list.value.filter((item) => templateRowKey(item) !== templateRowKey(resolvedRow))
   ]
-  selectedTemplateKey.value = templateRowKey(row)
+  selectedTemplateKey.value = templateRowKey(resolvedRow)
   if (isDesignerMode.value && templateDesignerMode.value === 'edit') {
     reloadEditableTemplateRules()
   }
@@ -1250,21 +1254,6 @@ const openTemplateActionDialog = (row: FormTemplateListItemVO, action: FormTempl
   selectedTemplateKey.value = templateRowKey(row)
   consumedTemplateActionKey.value = buildTemplateActionKey(row, action)
   signatureDialogVisible.value = true
-}
-
-const openSelectedTemplateAction = async (action: FormTemplateAction) => {
-  if (!selectedTemplate.value) return
-  const row = selectedTemplate.value
-  await router.push({
-    path: route.path,
-    query: {
-      ...route.query,
-      templateId: row.templateId,
-      versionNo: row.versionNo,
-      action
-    }
-  })
-  openTemplateActionDialog(row, action)
 }
 
 const handleTemplateActionQuery = async () => {

@@ -297,11 +297,127 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         if (sourceEvent == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfillSourceEvent");
         }
+        Object eventContextValue = eventContextSourceValue(sourceEvent, sourceFieldCode);
+        if (eventContextValue != null) {
+            return eventContextValue;
+        }
         JsonNode payload = payloadCache.computeIfAbsent(sourceEvent.getId(), ignored -> rawPayload(sourceEvent));
-        JsonNode node = payload.get(sourceFieldCode);
+        JsonNode node = payloadSourceValue(payload, sourceFieldCode);
         if (node == null || node.isNull() || (node.isTextual() && StrUtil.isBlank(node.asText()))) {
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED, sourceEvent.getId(), sourceFieldCode);
         }
+        return jsonNodeValue(node);
+    }
+
+    private Object eventContextSourceValue(MesProProcessPoolEventDO sourceEvent, String sourceFieldCode) {
+        return switch (sourceFieldCode) {
+            case "actualEmployeeId" -> sourceEvent.getActualEmployeeId();
+            case "deviceAccountId" -> sourceEvent.getDeviceAccountId();
+            case "deviceId" -> sourceEvent.getDeviceId();
+            case "workstationId" -> sourceEvent.getWorkstationId();
+            case "serverSubmitTime" -> sourceEvent.getServerSubmitTime() == null
+                    ? null : sourceEvent.getServerSubmitTime().toString();
+            case "signatureId" -> sourceEvent.getSignatureId();
+            case "signatureUserId" -> sourceEvent.getSignatureUserId();
+            default -> null;
+        };
+    }
+
+    private JsonNode payloadSourceValue(JsonNode payload, String sourceFieldCode) {
+        if (sourceFieldCode.startsWith("selectedDevice.")) {
+            return payload.path("selectedDevice").get(sourceFieldCode.substring("selectedDevice.".length()));
+        }
+        if (sourceFieldCode.startsWith("deviceParameterReadings.")) {
+            return nestedParameterArrayValue(payload.path("deviceParameterReadings"),
+                    sourceFieldCode.substring("deviceParameterReadings.".length()));
+        }
+        if (sourceFieldCode.startsWith("equipmentParameterRules.")) {
+            return equipmentParameterRuleValue(payload.path("equipmentParameterRules"),
+                    sourceFieldCode.substring("equipmentParameterRules.".length()));
+        }
+        if (sourceFieldCode.startsWith("clearanceConfirmations.")) {
+            return keyedArrayValue(payload.path("clearanceConfirmations"),
+                    sourceFieldCode.substring("clearanceConfirmations.".length()), "key");
+        }
+        if (sourceFieldCode.startsWith("deviceMeteringValidity.")) {
+            return deviceMeteringValidityValue(payload, sourceFieldCode.substring("deviceMeteringValidity.".length()));
+        }
+        return payload.get(sourceFieldCode);
+    }
+
+    private JsonNode nestedParameterArrayValue(JsonNode arrayNode, String parameterAndProperty) {
+        int split = parameterAndProperty.lastIndexOf('.');
+        if (split <= 0 || split >= parameterAndProperty.length() - 1 || !arrayNode.isArray()) {
+            return null;
+        }
+        String parameterCode = parameterAndProperty.substring(0, split);
+        String property = parameterAndProperty.substring(split + 1);
+        for (JsonNode item : arrayNode) {
+            if (parameterCode.equals(text(item, "parameterCode"))) {
+                JsonNode value = item.get(property);
+                if ((value == null || value.isNull()) && "value".equals(property)) {
+                    value = item.get("textValue");
+                }
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private JsonNode equipmentParameterRuleValue(JsonNode root, String parameterAndProperty) {
+        int split = parameterAndProperty.lastIndexOf('.');
+        if (split <= 0 || split >= parameterAndProperty.length() - 1 || !root.isObject()) {
+            return null;
+        }
+        String parameterCode = parameterAndProperty.substring(0, split);
+        String property = parameterAndProperty.substring(split + 1);
+        for (JsonNode rules : root) {
+            if (!rules.isArray()) {
+                continue;
+            }
+            for (JsonNode rule : rules) {
+                if (parameterCode.equals(text(rule, "parameterCode"))) {
+                    return rule.get(property);
+                }
+            }
+        }
+        return null;
+    }
+
+    private JsonNode keyedArrayValue(JsonNode arrayNode, String keyAndProperty, String keyField) {
+        int split = keyAndProperty.lastIndexOf('.');
+        if (split <= 0 || split >= keyAndProperty.length() - 1 || !arrayNode.isArray()) {
+            return null;
+        }
+        String key = keyAndProperty.substring(0, split);
+        String property = keyAndProperty.substring(split + 1);
+        for (JsonNode item : arrayNode) {
+            if (key.equals(text(item, keyField))) {
+                return item.get(property);
+            }
+        }
+        return null;
+    }
+
+    private JsonNode deviceMeteringValidityValue(JsonNode payload, String property) {
+        JsonNode arrayNode = payload.path("deviceMeteringValidity");
+        if (!arrayNode.isArray()) {
+            return null;
+        }
+        Long selectedDeviceId = longValue(payload.path("selectedDevice").get("deviceId"));
+        JsonNode single = null;
+        int count = 0;
+        for (JsonNode item : arrayNode) {
+            count += 1;
+            single = item;
+            if (selectedDeviceId != null && Objects.equals(selectedDeviceId, longValue(item.get("deviceId")))) {
+                return item.get(property);
+            }
+        }
+        return count == 1 ? single.get(property) : null;
+    }
+
+    private Object jsonNodeValue(JsonNode node) {
         if (node.isNumber()) {
             return node.decimalValue();
         }
@@ -544,6 +660,18 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         if (valueType == MesProBatchRecordExecutionFieldAuditValueType.BOOLEAN && value instanceof Boolean bool) {
             return bool;
         }
+        if (valueType == MesProBatchRecordExecutionFieldAuditValueType.BOOLEAN && value instanceof Number number) {
+            return number.intValue() == 1;
+        }
+        if (valueType == MesProBatchRecordExecutionFieldAuditValueType.BOOLEAN) {
+            String text = StrUtil.trim(String.valueOf(value));
+            if ("1".equals(text) || "true".equalsIgnoreCase(text)) {
+                return true;
+            }
+            if ("0".equals(text) || "false".equalsIgnoreCase(text)) {
+                return false;
+            }
+        }
         return String.valueOf(value);
     }
 
@@ -621,6 +749,10 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
     private static Integer integer(JsonNode node, String fieldName) {
         JsonNode value = node.get(fieldName);
         return value == null || !value.isNumber() ? null : value.intValue();
+    }
+
+    private static Long longValue(JsonNode node) {
+        return node == null || node.isNull() || !node.isNumber() ? null : node.longValue();
     }
 
     private static String text(JsonNode node, String fieldName) {

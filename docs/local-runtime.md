@@ -73,12 +73,22 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 
 - Trigger: 主工作区存在并行脏改动，但需要把本任务后端修复加载到 `int_main` 的 `48081` 做真实 E2E；或页面仍提示 `请求地址不存在:<接口>`、返回修复前旧业务错误，怀疑运行中 Jar 未加载新 Controller、Service 或 VO。
 - Preflight check: 先确认 `48081` 监听 PID 的命令行属于预期源码或运行时 worktree、端口为 `48081`、`repo-root` 指向本项目；同时确认新 Jar 来自本次任务已验证的构建产物。只为把 `int_main` 重启到最新后端、且主工作区存在并行脏改动时，应从干净 detached worktree 构建完整 server Jar，复制到稳定运行目录并校验 SHA256；在新 Jar 构建和哈希验证完成前不要停止旧 `48081` 后端。对 fat jar 内嵌模块，必须只读检查 `BOOT-INF/lib/<module>.jar` 是否包含本次新增或修改的关键 class，例如新增 Resolver、Controller、VO 字段载体；若本地 `target/classes` 有新 class 但运行 Jar 内嵌模块没有，视为运行态未刷新。若只热替换某个内嵌模块，必须以当前运行 Jar 内的旧模块为底保留其它并行任务依赖类，仅替换本任务 class；写回 `BOOT-INF/lib/*.jar` 时必须保持 Spring Boot nested jar 未压缩（例如 `jar uf0`，zip `compress_type=0`），否则运行时可能出现 classpath resource missing。若 `48081` 实际运行的是 `D:\IntRuoyiWorktree\...` 下的 runtime jar，必须在该 runtime worktree 内补齐源码、测试、schema 夹具并重建该 Jar，不能只检查 `E:\IntRuoyi` 主工作区源码。
+- Launch template check: 若为了启动已验证的预构建 Jar 而复用 `restart-int-ruoyi-local.ps1` 中的 `$backendScript` here-string，必须在停止旧进程前解析并验证该 here-string 引用的全部外层参数默认值，包括 OnlyOffice 地址和 DCC 电子签名证据密钥配置；只抽取 here-string、未带入外层变量会把必需环境变量展开为空，导致新进程在 Spring Bean 初始化阶段 fail fast。预检至少应生成待启动脚本的脱敏结构摘要，并断言每个必需环境变量非空；不得输出密钥原值。若无法证明自定义启动器与标准脚本参数等价，应停止并扩展标准脚本的预构建 Jar 入口，不能先停旧服务再试错。
 - Cross-module API check: 若修复新增或改动跨模块 Java API 方法，热替换时必须成组核对并替换接口、调用方、实现类、服务接口、服务实现和 Mapper/DAO 等全部相关 class；只替换直接报错的调用方 class 会导致运行态继续走旧实现或启动后 `NoSuchMethodError`。替换包含匿名类、局部类、lambda 或编译器生成伴随类的实现时，必须同时替换同名前缀的 `$*.class`，并在启动前从内嵌模块核对这些 class 均存在，避免运行时 `NoClassDefFoundError`。若目标修复还改变 Controller 注解、`@RequestParam(required=false)`、VO 字段或路由声明，必须同时用 `javap -v`、登录态 API 和真实页面路径核对运行 Jar 内对应 Controller/VO class 已刷新；只替换 Service/依赖模块会出现页面 `keyword=` 通过但缺省参数或新注解仍按旧 class 失败。只看到运行 Jar 内存在同名 Controller class 不足以证明映射已刷新；当页面仍报 `请求地址不存在` 时，必须用 `javap -private -verbose` 比对方法列表和 `GetMapping` 常量，防止 `target/classes` 已更新但内嵌模块 jar 仍是旧方法集。
 - Blocker: 如果 PID 归属不明、Jar 来源不明、目标 Jar 哈希与隔离构建 Jar 不一致、运行 Jar 内嵌模块缺少本次关键 class、热替换内嵌 jar 被压缩写入、或主工作区源码混有其他任务改动，必须停止，不得从脏主工作区重新打包冒充本任务运行态。
 - Verification: 记录旧 PID、停止依据、新 PID、Jar SHA256、启动命令、`http://127.0.0.1:48081/actuator/health`、端口监听新 PID 命令行、登录态目标接口业务响应、必要 schema 字段核对、内嵌模块关键 class 检查结果、嵌套 jar 压缩方式（`compress_type=0`），并在 E2E 后记录真实数据库状态。若使用临时 detached worktree 构建 Jar，收尾必须用 `git worktree remove --force <path>` 删除并复核 `Test-Path=False`。
 - Route check: 目标接口需要登录时，未登录请求返回 `401` 只能证明安全过滤器生效，不能证明 MVC 路由已加载；必须使用本机登录态请求目标接口，业务码为 `0` 或预期业务错误，才可宣称新 Controller 已进入运行态。
 - Forbidden action: 禁止强杀未知进程、随机换端口、用主工作区脏源码重新构建、只看 health 或未登录 `401` 就宣称修复已加载。
-- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/verification-report.md`；`doc/tasks/20260803-controlled-file-category-missing/verification-report.md`；`doc/tasks/20260806-restart-latest-backend/verification-report.md`；`doc/tasks/20260807-pressure-pump-process-device-standards/verification-report.md`。
+- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/verification-report.md`；`doc/tasks/20260803-controlled-file-category-missing/verification-report.md`；`doc/tasks/20260806-restart-latest-backend/verification-report.md`；`doc/tasks/20260807-pressure-pump-process-device-standards/verification-report.md`；`doc/tasks/20260810-rebuild-restart-int-main-pqc-fix/verification-report.md`。
+
+## 2026-08-14 DCC 历史签名密钥保留与迁移门禁
+
+- Trigger: DCC 已生效文件的签名记录显示 `VALID`，但证据导出返回 `1080000092`；历史绑定迁移返回 `1080000207`；签名 `keyVersion` 与当前运行密钥版本不同；最终受控副本绑定为空。
+- Preflight check: 先只读盘点目标文件的签名数量、证据状态、`keyVersion`、最终受控副本和绑定记录；再确认历史 `keyVersion -> secret` 是否通过正式的历史校验密钥配置提供。任何核对和日志都只能记录“是否存在、版本名和匹配数量”，不得输出密钥原值、原始签名载荷或完整 HMAC。
+- Blocker: 历史密钥不存在、密钥版本未映射、或按原签名规范复算 HMAC 不匹配时，必须停止绑定迁移和导出成功结论；系统应明确要求补齐历史密钥或重新签署。
+- Verification: 对每条原签名先完成 HMAC 校验，再创建冻结最终副本 `fileId + objectKey + SHA-256` 的不可变绑定；迁移后复核绑定数量、绑定完整性、导出 HTTP/业务码和归档文件内容。密钥轮换时必须保留仍在法定或业务留存期内证据的历史校验密钥，并完成旧版本导出回归。
+- Forbidden action: 禁止把当前密钥猜测映射到旧版本，禁止绕过 HMAC 直接插入绑定，禁止仅把状态改为 `VALID`，禁止用数据库手工回填 hash/objectKey 冒充正式迁移成功。
+- Evidence: `doc/tasks/20260813-dcc-residual-issues-fix/verification-report.md`。
 
 ## 2026-07-25 本地后端数据库凭据门禁
 
@@ -206,6 +216,24 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Verification: 记录首次前端启动失败日志、`pnpm install --frozen-lockfile` 结果、必要时 `pnpm install --frozen-lockfile --force` 结果、真实包路径 Node 解析探针 PASS、重新启动前端后 `http://127.0.0.1:8081/` HTTP `200`。
 - Forbidden action: 禁止手工复制缺失包、手工创建 `node_modules` symlink/junction、修改 `package.json` 或 lockfile 绕过、换端口、跳过前端、或把后端 health `UP` 冒充前后端均已启动。
 - Evidence: `doc/tasks/20260728-start-local-frontend-backend-runtime/verification-report.md`。
+
+## 2026-08-14 标准 full 重启测试编译阻塞门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component full` 或 `-Component backend` 在 `mvn -pl yudao-server -am -DskipTests package` 阶段失败，日志出现 `testCompile`、`COMPILATION ERROR`、测试类引用当前生产代码不存在的常量、方法、字段或 VO setter。
+- Preflight check: 本地重启前若当前工作区存在未完成的测试/生产代码不一致风险，先用标准脚本实际打包结果作为门禁；`-DskipTests` 仍会编译测试代码，不能把它理解成完全跳过测试编译。
+- Blocker: 标准脚本退出码非 `0`、Maven 测试编译失败、`yudao-server-exec.jar` 未重新生成，或当前运行进程来源不是本次标准脚本成功启动时，必须停止完整重启结论；只能记录当前端口是否已有可访问运行态，不能宣称标准 full 重启完成。
+- Verification: 记录 Maven 失败模块、失败测试文件、缺失符号、脚本退出码；同时复核 `8081` HTTP 状态、`48081` health 状态、监听 PID、命令行归属和运行 Jar 路径，明确区分“当前可访问”和“本次标准重启成功”。
+- Forbidden action: 禁止改用 `-Dmaven.test.skip=true`、旧 Jar、手工 Java 启动、API-only health、随机端口或跳过后端打包来冒充标准 full 重启成功；禁止为重启任务擅自修改无关测试或生产代码。
+- Evidence: `doc/tasks/20260813-restart-local-runtime/verification-report.md`。
+
+## 2026-08-14 主工作区并发重启所有权门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component full` 长时间打包期间，`8081/48081` 监听 PID、运行 Jar 或启动时间发生变化；同一 `E:\IntRuoyi` 主工作区还有其它 Maven 测试、打包或重启任务；当前重启准备再次执行 `Stop-Port`。
+- Preflight check: 重启前记录 `8081/48081` 的 PID、启动时间、命令行和运行路径；长时间打包期间再次检查监听归属。若监听 PID 在当前脚本尚未启动新服务前变化，必须把它视为可能由并发任务新启动的共享运行态，并核对同工作区 Maven/Java 进程和新运行 Jar 时间，不能继续沿用启动前的“旧进程可停止”判断。
+- Blocker: 新监听进程不是本次重启启动、同一工作区存在并发测试或重启、或无法证明新 PID 可由当前任务停止时，必须中止当前任务自有构建并保留新进程；不得让标准脚本后续第二次 `Stop-Port` 终止并发任务的新运行态。
+- Verification: 记录本次任务自有构建已停止且无残留 Maven 进程；分别核对最终前端、后端 PID 与启动时间，确认均在用户请求后启动、路径属于 `E:\IntRuoyi`，并验证前端 HTTP `200`、后端 health `UP`。若后端由并发任务重启、前端由当前任务单独重启，必须明确记录组件归属，不得宣称当前 `full` 脚本退出码为 `0`。
+- Forbidden action: 禁止只凭“同属 int_main”强停请求后新出现的 PID；禁止并发任务仍在共享主工作区构建或重启时盲目重跑 `full`；禁止把被中止的 `full` 脚本记录为成功。
+- Evidence: `doc/tasks/20260814-restart-local-runtime/verification-report.md`。
 
 ## 禁止做法
 

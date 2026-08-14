@@ -11,26 +11,28 @@
 - [x] 实现最小正式修复，不引入 fallback
 - [x] 运行后端隔离回归、前端静态验证和只读真实路径 E2E
 - [x] 确认生产代码已进入 `origin/int_main`
-- [ ] 使用确认的测试租户和任务自有数据运行写入型分配减少 E2E
+- [x] 使用用户明确授权的 `芋道源码/admin` 和当前数据运行写入型分配 E2E，并恢复原始分配状态
+- [x] 清理本任务临时脚本、隔离测试产物和截图，保留核心任务记录
 
 ## Expected Verification
 
 - 后端回归覆盖分配满 1 个工序为 1/N、分配满多个工序按数量累计、减少后回退。
 - 前端静态回归覆盖分配数量允许 0 或空且空按 0 处理。
 - 真实前端只读路径核对活跃订单池生产进度列与正式接口一致。
-- 写入型减少数量 E2E 必须使用确认的测试租户、账号和可清理任务数据；缺少前置时保持阻塞。
+- 写入型 E2E 使用用户明确指定的本机 `芋道源码/admin` 和当前数据；只修改一个可编辑报工事件，测试前保存原始快照，测试后通过真实页面恢复并复核。
 - 检查无静默降级、无吞异常、无默认成功值。
 
 ## Experience Gate Summary
 
 - `docs/backend-development.md#fifo-自动分配当前工序快照边界`：正式分配必须使用 `activeOrderId + routeProcessId + processId` 和正数目标数量快照，指定订单缺失时 fail-fast。
 - `docs/backend-development.md#工序共享分配池与旧报工终结链路边界`：FIFO 和手动分配共享同一正式分配事实链路，不以来源工序或前端展示补丁替代。
-- `docs/e2e-rules.md` 与 `docs/login-access.md`：写入型 E2E 禁止使用 admin 基线数据，必须使用确认的测试租户和任务自有数据。
+- `docs/e2e-rules.md` 与 `docs/login-access.md`：写入型 E2E 默认使用任务自有数据；本轮用户随后明确要求使用 `芋道源码/admin` 和当前数据，因此将写入范围收敛到单个事件并强制恢复原始分配数量。
+- `docs/e2e-rules.md#当前共享数据写入-e2e-派生状态恢复门禁`：当前数据写入必须同时恢复正式源事实并复核派生进度；相同源事实重新保存触发正式重算时，不得强制恢复陈旧派生值。
 - 已执行 `project-experience-consolidation` 检查；上述已有长期经验文档已经覆盖本次经验，无需创建或修改长期经验文档。
 
 ## Current Status
 
-blocked - 生产代码和回归测试已进入 `origin/int_main`，后端隔离 JUnit 37/37、前端静态回归和只读 Playwright 均通过；缺少可安全写入的测试租户、账号和任务自有分配数据，不能执行“减少已分配数量”的写入型真实 E2E。
+completed - 真实写入 Playwright 已通过：0 和空值均使目标订单生产进度从 7.142857% 回退到 0%，FIFO 和手动满额均恢复到 7.142857%；最终分配数量、FIFO 模式和全部规范化进度均恢复。任务临时产物已按预览范围清理，核心记录保留。
 
 ## 设计约束检查
 
@@ -49,6 +51,8 @@ blocked - 生产代码和回归测试已进入 `origin/int_main`，后端隔离 
 - doc/tasks/20260810-active-order-progress-allocation/junit-target-test.stderr.txt
 - doc/tasks/20260810-active-order-progress-allocation/isolated-test-runtime
 - output/playwright/20260810-active-order-progress-allocation
+- doc/tasks/20260810-active-order-progress-allocation/current-data-write-progress-e2e.cjs
+- output/playwright/20260810-active-order-progress-allocation-write
 
 ## Cleanup Keep
 
