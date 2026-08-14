@@ -35,16 +35,19 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
     }
 
     @Override
-    public void authorizeActiveOrder(Long loginUserId, Long workOrderId, Long routeId,
+    public void authorizeActiveOrder(Long loginUserId, Long activeOrderId, Long workOrderId, Long routeId,
                                      Long routeProcessId, Long processId) {
+        requireValue(activeOrderId, "activeOrderId");
         requireValue(workOrderId, "workOrderId");
         requireValue(routeId, "routeId");
         requireValue(routeProcessId, "routeProcessId");
         requireValue(processId, "processId");
         Long leaderUserId = contextService.resolveResponsibleLeaderUserId(loginUserId);
-        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper
-                .selectActiveByLeaderAndWorkOrderForUpdate(leaderUserId, workOrderId);
-        if (activeOrder == null || !Objects.equals(routeId, activeOrder.getRouteId())) {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
+        if (activeOrder == null || !"ACTIVE".equals(activeOrder.getActiveStatus())
+                || !Objects.equals(leaderUserId, activeOrder.getLeaderUserId())
+                || !Objects.equals(workOrderId, activeOrder.getWorkOrderId())
+                || !Objects.equals(routeId, activeOrder.getRouteId())) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrder");
         }
         MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot = processSnapshotMapper

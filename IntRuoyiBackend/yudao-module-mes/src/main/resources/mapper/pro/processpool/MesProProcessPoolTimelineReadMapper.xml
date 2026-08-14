@@ -390,6 +390,20 @@
                allocation.work_order_id AS workOrderId,
                work_order.code AS workOrderCode,
                allocation.allocated_quantity AS allocatedQuantity,
+               CASE
+                   WHEN process_snapshot.planned_quantity_snapshot IS NULL THEN NULL
+                   ELSE GREATEST(
+                       COALESCE(order_process_allocation.total_allocated_quantity, 0)
+                           - process_snapshot.planned_quantity_snapshot,
+                       0
+                   )
+               END AS overageQuantity,
+               CASE
+                   WHEN process_snapshot.planned_quantity_snapshot IS NULL THEN NULL
+                   WHEN COALESCE(order_process_allocation.total_allocated_quantity, 0)
+                           > process_snapshot.planned_quantity_snapshot THEN TRUE
+                   ELSE FALSE
+               END AS needsAdjustment,
                CASE WHEN EXISTS (
                    SELECT 1
                    FROM mes_pro_process_pool_active_order_release_application release_application
@@ -407,6 +421,27 @@
           ON work_order.id = allocation.work_order_id
          AND work_order.tenant_id = allocation.tenant_id
          AND work_order.deleted = 0
+        LEFT JOIN mes_pro_process_pool_active_order_process_snapshot process_snapshot
+          ON process_snapshot.active_order_id = allocation.active_order_id
+         AND process_snapshot.route_process_id = allocation.route_process_id
+         AND process_snapshot.process_id = allocation.process_id
+         AND process_snapshot.tenant_id = allocation.tenant_id
+         AND process_snapshot.deleted = 0
+        LEFT JOIN (
+            SELECT tenant_id,
+                   active_order_id,
+                   route_process_id,
+                   process_id,
+                   SUM(allocated_quantity) AS total_allocated_quantity
+            FROM mes_pro_process_pool_report_allocation
+            WHERE deleted = 0
+              AND lifecycle_status = 'CURRENT'
+            GROUP BY tenant_id, active_order_id, route_process_id, process_id
+        ) order_process_allocation
+          ON order_process_allocation.active_order_id = allocation.active_order_id
+         AND order_process_allocation.route_process_id = allocation.route_process_id
+         AND order_process_allocation.process_id = allocation.process_id
+         AND order_process_allocation.tenant_id = allocation.tenant_id
         WHERE allocation.deleted = 0
           AND allocation.lifecycle_status = 'CURRENT'
           AND allocation.event_id IN

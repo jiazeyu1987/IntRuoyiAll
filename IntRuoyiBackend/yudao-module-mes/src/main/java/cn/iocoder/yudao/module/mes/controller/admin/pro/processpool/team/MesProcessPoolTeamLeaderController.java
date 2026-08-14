@@ -1035,6 +1035,9 @@ public class MesProcessPoolTeamLeaderController {
                 .setRouteProcessId(line.getRouteProcessId())
                 .setProcessId(line.getProcessId())
                 .setAllocatedQuantity(line.getAllocatedQuantity())
+                .setOverageQuantity(line.getOverageQuantity())
+                .setNeedsAdjustment(line.getNeedsAdjustment())
+                .setAllocationMode(line.getAllocationMode())
                 .setReleased(line.getReleased())
                 .setEditable(line.getEditable());
     }
@@ -1053,6 +1056,8 @@ public class MesProcessPoolTeamLeaderController {
                                 .setWorkOrderId(line.getWorkOrderId()).setWorkOrderCode(line.getWorkOrderCode())
                                 .setRouteProcessId(line.getRouteProcessId()).setProcessId(line.getProcessId())
                                 .setAllocatedQuantity(line.getAllocatedQuantity())
+                                .setOverageQuantity(line.getOverageQuantity())
+                                .setNeedsAdjustment(line.getNeedsAdjustment())
                                 .setAllocationMode(line.getAllocationMode()).setReleased(line.getReleased())
                                 .setEditable(line.getEditable())).toList());
     }

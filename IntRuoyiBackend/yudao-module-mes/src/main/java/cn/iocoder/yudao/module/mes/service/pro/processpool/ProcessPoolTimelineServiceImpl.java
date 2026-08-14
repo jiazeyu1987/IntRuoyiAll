@@ -204,11 +204,21 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                             .setWorkOrderId(line.getWorkOrderId())
                             .setWorkOrderCode(line.getWorkOrderCode())
                             .setAllocatedQuantity(line.getAllocatedQuantity())
+                            .setOverageQuantity(requireAllocationOverage(line))
+                            .setNeedsAdjustment(Boolean.TRUE.equals(line.getNeedsAdjustment()))
                             .setReleased(Boolean.TRUE.equals(line.getReleased()))
                             .setEditable(!Boolean.TRUE.equals(line.getReleased())))
                     .toList();
             event.setReportAllocations(lines);
         }
+    }
+
+    private static BigDecimal requireAllocationOverage(ProcessPoolTimelineReportAllocationReadDO line) {
+        if (line.getOverageQuantity() == null || line.getNeedsAdjustment() == null) {
+            throw new IllegalStateException("Missing formal order-process overage for report allocation "
+                    + line.getAllocationId());
+        }
+        return line.getOverageQuantity();
     }
 
     private static BigDecimal toBigDecimal(Object value) {

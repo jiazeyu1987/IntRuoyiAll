@@ -667,16 +667,16 @@
               <template #default="{ row }">
                 <div class="team-leader-workbench__structured-list" data-team-leader-report-allocations>
                   <el-tag
-                    v-for="item in row.reportAllocations || []"
+                    v-for="item in row.reportAllocations"
                     :key="item.allocationId"
-                    :type="item.released ? 'success' : 'warning'"
+                    :type="item.needsAdjustment ? 'danger' : item.released ? 'success' : 'warning'"
                     effect="plain"
                   >
                     {{ item.workOrderCode || item.workOrderId }}：{{ item.allocatedQuantity }}（{{
                       item.released ? '已放行' : '未放行'
-                    }}）
+                    }}）<template v-if="item.needsAdjustment">，超量 {{ item.overageQuantity }}</template>
                   </el-tag>
-                  <span v-if="!row.reportAllocations?.length">--</span>
+                  <span v-if="!row.reportAllocations.length">--</span>
                 </div>
               </template>
             </el-table-column>
@@ -2873,7 +2873,7 @@
                 filterable
                 popper-class="team-leader-workbench__allocation-order-popper"
                 placeholder="请选择活跃订单"
-                @change="markManualAllocation"
+                @change="markManualAllocation(row)"
               >
                 <template #label="{ label }">
                   <span class="team-leader-workbench__allocation-order-label">{{ label }}</span>
@@ -2927,7 +2927,7 @@
                   step-strictly
                   :controls="false"
                   class="team-leader-workbench__allocation-quantity-input"
-                  @change="markManualAllocation"
+                  @change="markManualAllocation(row)"
                 />
                 <el-button
                   size="small"
@@ -4008,28 +4008,15 @@ const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
 const canAllocateSubmission = (row: ProcessPoolTimelineEventVO) =>
   isProductionLeader.value && !isProductionReportHistoryTab.value && Boolean(row.id)
 
-const findReportSelectedActiveOrder = (event: ProcessPoolTimelineEventVO) => {
-  const workOrderId = Number(event.workOrderId)
-  if (!Number.isFinite(workOrderId) || workOrderId <= 0) return undefined
-  return activeOrderOptions.value.find((order) => Number(order.workOrderId) === workOrderId)
-}
-
-const resolveActiveOrderFormalQuantity = (order?: TeamLeaderActiveOrderRespVO) => {
-  const quantity = Number(order?.erpFixedQuantitySnapshot)
-  return Number.isFinite(quantity) && quantity > 0 ? quantity : undefined
-}
-
 const resolveProductionReportOverageQuantity = (event: ProcessPoolTimelineEventVO) => {
-  const outputQuantity = Number(event.outputQuantity)
-  if (!Number.isFinite(outputQuantity) || outputQuantity <= 0) return 0
-  if (event.reportAllocations?.length) {
-    const unallocatedQuantity = Number(event.reportUnallocatedQuantity)
-    return Number.isFinite(unallocatedQuantity) && unallocatedQuantity >= 0
-      ? unallocatedQuantity
-      : outputQuantity
-  }
-  const orderQuantity = resolveActiveOrderFormalQuantity(findReportSelectedActiveOrder(event))
-  return orderQuantity === undefined ? outputQuantity : Math.max(0, outputQuantity - orderQuantity)
+  return event.reportAllocations.reduce((total, allocation) => {
+    const overageQuantity = Number(allocation.overageQuantity)
+    if (allocation.needsAdjustment !== true) return total
+    if (!Number.isFinite(overageQuantity) || overageQuantity <= 0) {
+      throw new Error(`报工分配 ${allocation.allocationId} 缺少正式订单超量数量`)
+    }
+    return total + overageQuantity
+  }, 0)
 }
 
 const allocationTotalQuantity = computed(() => allocationRows.value.reduce(
@@ -5806,8 +5793,12 @@ const submitProcessConfigParameterRule = async () => {
   }
 }
 
-const markManualAllocation = () => {
+const markManualAllocation = (line?: TeamLeaderReportAllocationDraftLine) => {
   reviewForm.allocationMode = 'MANUAL'
+  if (line) {
+    line.overageQuantity = 0
+    line.needsAdjustment = false
+  }
 }
 
 const addAllocationLine = () => {
@@ -5815,6 +5806,8 @@ const addAllocationLine = () => {
   allocationRows.value.push({
     activeOrderId: undefined,
     allocatedQuantity: 0,
+    overageQuantity: 0,
+    needsAdjustment: false,
     editable: true,
     released: false
   })
@@ -5862,33 +5855,15 @@ const findAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) =>
 }
 
 const resolveAllocationOverageQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
-  if (line.editable === false) return 0
-  const allocatedQuantity = normalizeAllocationInteger(line.allocatedQuantity)
-  if (allocatedQuantity === 0) return 0
-  const orderQuantity = resolveActiveOrderFormalQuantity(findAllocationActiveOrder(line))
-  return orderQuantity === undefined ? allocatedQuantity : Math.max(0, allocatedQuantity - orderQuantity)
-}
-
-const prefillSelectedOrderAllocation = (
-  event: ProcessPoolTimelineEventVO,
-  snapshot: TeamLeaderReportAllocationSnapshotRespVO
-) => {
-  if (snapshot.lines?.length) return
-  const workOrderId = Number(event.workOrderId)
-  const outputQuantity = requirePositiveInteger(event.outputQuantity, '本次报工数量必须为正整数')
-  const selectedOrder = activeOrderOptions.value.find(
-    (order) => Number(order.workOrderId) === workOrderId
-  )
-  if (!selectedOrder) return
-  reviewForm.allocationMode = 'MANUAL'
-  allocationRows.value = [{
-    activeOrderId: requirePositiveNumber(selectedOrder.id, '原报工活跃订单不能为空'),
-    workOrderId: selectedOrder.workOrderId,
-    workOrderCode: selectedOrder.workOrderCode,
-    allocatedQuantity: outputQuantity,
-    editable: true,
-    released: false
-  }]
+  if (line.needsAdjustment === undefined || line.overageQuantity === undefined) {
+    throw new Error(`报工分配 ${line.allocationId} 缺少正式订单超量状态`)
+  }
+  if (!line.needsAdjustment) return 0
+  const overageQuantity = Number(line.overageQuantity)
+  if (!Number.isFinite(overageQuantity) || overageQuantity <= 0) {
+    throw new Error(`报工分配 ${line.allocationId} 缺少正式订单超量数量`)
+  }
+  return overageQuantity
 }
 
 const formatAllocationOrderProductionQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
@@ -5972,7 +5947,7 @@ const applyAllocationShortcut = (
 ) => {
   try {
     line.allocatedQuantity = resolveAllocationShortcutQuantity(line, mode)
-    markManualAllocation()
+    markManualAllocation(line)
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '快捷分配失败'))
   }
@@ -5981,7 +5956,7 @@ const applyAllocationShortcut = (
 const clearAllocationQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
   if (line.editable === false) return
   line.allocatedQuantity = 0
-  markManualAllocation()
+  markManualAllocation(line)
 }
 
 const previewFifoAllocation = async () => {
@@ -5994,11 +5969,13 @@ const previewFifoAllocation = async () => {
     })
     reviewForm.allocationMode = 'FIFO'
     allocationSnapshot.value = preview
-    allocationRows.value = (preview.lines || []).map((line) => ({
+    allocationRows.value = preview.lines.map((line) => ({
       activeOrderId: requirePositiveNumber(line.activeOrderId, 'FIFO 分配返回活跃订单不能为空'),
       workOrderId: line.workOrderId,
       workOrderCode: line.workOrderCode,
       allocatedQuantity: line.allocatedQuantity,
+      overageQuantity: line.overageQuantity,
+      needsAdjustment: line.needsAdjustment,
       remainingQuantityBeforeAllocation: line.remainingQuantityBeforeAllocation,
       allocationId: line.allocationId,
       routeProcessId: line.routeProcessId,
@@ -6077,7 +6054,7 @@ const getOrCreateAllocationSaveIdempotencyKey = (request: {
 
 const applyAllocationSnapshot = (snapshot: TeamLeaderReportAllocationSnapshotRespVO) => {
   allocationSnapshot.value = snapshot
-  allocationRows.value = (snapshot.lines || []).map((line) => ({ ...line }))
+  allocationRows.value = snapshot.lines.map((line) => ({ ...line }))
 }
 
 const buildReviewSignaturePayload = () => {
@@ -6939,7 +6916,6 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
       loadActiveOrders()
     ])
     applyAllocationSnapshot(snapshot)
-    prefillSelectedOrderAllocation(event, snapshot)
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '报工分配加载失败'))
   }

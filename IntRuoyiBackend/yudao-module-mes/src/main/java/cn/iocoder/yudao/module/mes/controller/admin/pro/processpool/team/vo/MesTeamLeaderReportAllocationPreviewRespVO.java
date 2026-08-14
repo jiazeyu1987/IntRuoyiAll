@@ -43,6 +43,14 @@ public class MesTeamLeaderReportAllocationPreviewRespVO {
         @Schema(description = "本次分配数量", example = "50")
         private BigDecimal allocatedQuantity;
 
+        @Schema(description = "当前订单工序超量数量", example = "4")
+        private BigDecimal overageQuantity;
+
+        @Schema(description = "是否需要组长调整", example = "true")
+        private Boolean needsAdjustment;
+
+        private String allocationMode;
+
         @Schema(description = "分配前该订单当前工序剩余数量", example = "50")
         private BigDecimal remainingQuantityBeforeAllocation;
 

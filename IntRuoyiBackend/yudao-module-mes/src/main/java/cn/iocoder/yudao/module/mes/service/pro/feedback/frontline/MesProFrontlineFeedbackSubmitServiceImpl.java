@@ -126,6 +126,9 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 .setRecordbookEntryId(recordbookResult == null ? null : recordbookResult.getRecordbookEntryId())
                 .setRecordbookEventId(recordbookResult == null ? null : recordbookResult.getRecordbookEventId());
         Long processPoolEventId = processPoolSubmitEventService.createSubmitEvent(eventPayload);
+        MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
+        processPoolSubmitEventService.createInitialAllocation(processPoolEventId,
+                context.getActiveOrderId(), reqVO.getFeedbackPayload().getOutputQuantity());
 
         return new MesProFrontlineFeedbackSubmitRespVO()
                 .setFeedbackId(feedbackId)
@@ -137,7 +140,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
     private void validateSelectedActiveOrderContext(MesProFrontlineFeedbackSubmitReqVO reqVO) {
         MesProFrontlineFeedbackPayloadReqVO feedback = reqVO.getFeedbackPayload();
         MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
-        if (feedback.getWorkOrderId() == null || context.getWorkOrderId() == null) {
+        if (context.getActiveOrderId() == null || feedback.getWorkOrderId() == null
+                || context.getWorkOrderId() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "selectedActiveOrder");
         }
         if (!Objects.equals(feedback.getWorkOrderId(), context.getWorkOrderId())
@@ -149,7 +153,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
 
     private void authorizeSelectedActiveOrder(MesProFrontlineFeedbackSubmitReqVO reqVO, Long loginUserId) {
         MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
-        submitAuthorizationService.authorizeActiveOrder(loginUserId, context.getWorkOrderId(),
+        submitAuthorizationService.authorizeActiveOrder(loginUserId, context.getActiveOrderId(), context.getWorkOrderId(),
                 context.getRouteId(), context.getRouteProcessId(), context.getProcessId());
     }
 

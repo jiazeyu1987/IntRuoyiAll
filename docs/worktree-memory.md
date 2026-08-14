@@ -39,11 +39,11 @@
 ### 隔离验证 Worktree 编译基线差异门禁
 
 - Trigger: 隔离验证 worktree 应用当前任务 diff 后，Maven 在目标 Surefire 前被非当前任务源码或测试编译错误阻塞；常见于主工作区已有并行 compile baseline 但新 worktree 基于较旧 HEAD。
-- Preflight check: 先用目标 Maven 失败日志定位阻塞文件，再从主工作区读取该文件的精确 diff；只允许同步已存在于主工作区、且为到达当前任务目标测试所必需的最小编译基线，并在任务日志中标注为 verification unblocker。隔离源码范围还必须包含后端根级构建配置，例如 `lombok.config`；缺少该文件会让正式的链式 setter 在隔离编译中变成 `void`，产生大面积伪编译错误。
+- Preflight check: 先用目标 Maven 失败日志定位阻塞文件，再从主工作区读取该文件的精确 diff；只允许同步已存在于主工作区、且为到达当前任务目标测试所必需的最小编译基线，并在任务日志中标注为 verification unblocker。隔离源码范围还必须包含后端根级构建配置，例如 `lombok.config`；缺少该文件会让正式的链式 setter 在隔离编译中变成 `void`，产生大面积伪编译错误。若必须临时覆盖 dirty 基线，应用前必须生成逐文件清单，至少记录相对路径、原文件是否存在、原始 SHA-256 和覆盖 SHA-256；运行验证后按清单精确恢复原有文件、删除覆盖新增文件，并再次逐项验证原始哈希或不存在状态。
 - Blocker: 编译阻塞需要业务语义判断、主工作区没有对应已验证 diff、基线 diff 会改变当前任务目标行为、无法区分当前任务 deliverable 与验证环境补丁，或隔离目录缺少根级构建配置时必须停止；不得继续扩大同步范围或把隔离前置缺失写成源码失败。
-- Verification: 记录每个 baseline patch 的来源文件、`git apply --check` 结果、根级构建配置清单、首次失败摘要、补齐后的目标 Maven PASS 摘要，以及验证 worktree `git status --short --branch` 中这些差异仍被标注为非当前 deliverable。
-- Forbidden action: 禁止把无关 compile baseline 混入当前任务实现结论、禁止用整仓 patch 或 `git add -A` 复制并行改动、禁止把未到达 Surefire 的编译通过写成目标测试通过、禁止在最终提交时不区分当前任务和 verification unblocker。
-- Evidence: `doc/tasks/20260805-ac-m19-deterministic-backfill/verification-report.md`，AC-M19 新 worktree 验证中先后同步主工作区 QA/PQC 最小编译基线，解除非 AC-M19 编译阻塞后目标 Maven 两组 JUnit 均 PASS；`doc/tasks/20260805-ac-m18-progress-repair/verification-report.md`，AC-M18 隔离 worktree 先补主工作区 QA/PQC 编译前置，再到达并通过目标 AC-M18 Surefire；`doc/tasks/20260813-concurrent-regression-repair-reverify/verification-report.md`，隔离源码首次漏掉根级 `lombok.config` 时产生大面积链式 setter 伪错误，补齐正式配置后 2654 个主源码编译和 26 项定向测试全部通过。
+- Verification: 记录每个 baseline patch 的来源文件、`git apply --check` 结果、根级构建配置清单、首次失败摘要、补齐后的目标 Maven PASS 摘要，以及验证 worktree `git status --short --branch` 中这些差异仍被标注为非当前 deliverable。使用覆盖清单时还必须记录总项数、恢复原有文件数、删除覆盖新增文件数、哈希/存在性错误数和最终端口/进程状态。
+- Forbidden action: 禁止把无关 compile baseline 混入当前任务实现结论、禁止用整仓 patch 或 `git add -A` 复制并行改动、禁止把未到达 Surefire 的编译通过写成目标测试通过、禁止在最终提交时不区分当前任务和 verification unblocker；禁止依赖人工记忆恢复、整目录覆盖或在未通过清单核验时提交/清理 worktree。
+- Evidence: `doc/tasks/20260805-ac-m19-deterministic-backfill/verification-report.md`，AC-M19 新 worktree 验证中先后同步主工作区 QA/PQC 最小编译基线，解除非 AC-M19 编译阻塞后目标 Maven 两组 JUnit 均 PASS；`doc/tasks/20260805-ac-m18-progress-repair/verification-report.md`，AC-M18 隔离 worktree 先补主工作区 QA/PQC 编译前置，再到达并通过目标 AC-M18 Surefire；`doc/tasks/20260813-concurrent-regression-repair-reverify/verification-report.md`，隔离源码首次漏掉根级 `lombok.config` 时产生大面积链式 setter 伪错误，补齐正式配置后 2654 个主源码编译和 26 项定向测试全部通过；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md`，临时运行覆盖 36 项在真实 E2E 后恢复 13 个原有文件并删除 23 个覆盖新增文件，逐项核验错误数为 0。
 
 ## 多 Worktree 批量融合门禁
 

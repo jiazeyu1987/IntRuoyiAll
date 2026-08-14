@@ -16,6 +16,7 @@ public class MesProcessPoolSubmitEventCreateReqBO {
     private String processPoolSubmissionIdempotencyKey;
     private Long recordbookEntryId;
     private Long recordbookEventId;
+    private Long activeOrderId;
     private Long workOrderId;
     private Long taskId;
     private Long routeId;

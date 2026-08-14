@@ -157,6 +157,7 @@ export interface ProFrontlineRecordbookPayloadReqVO {
 }
 
 export interface ProFrontlineProcessPoolContextReqVO {
+  activeOrderId: number
   workOrderId?: number
   taskId?: number
   routeId: number

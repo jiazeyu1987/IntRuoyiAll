@@ -81,6 +81,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                 lossReasonSnapshot);
         MesProcessPoolSubmitEventCreateReqBO eventPayload = new MesProcessPoolSubmitEventCreateReqBO()
                 .setProcessPoolSubmissionIdempotencyKey(reqVO.getProcessPoolSubmissionIdempotencyKey())
+                .setActiveOrderId(context.getActiveOrderId())
                 .setWorkOrderId(context.getWorkOrderId())
                 .setTaskId(context.getTaskId())
                 .setRouteId(context.getRouteId())
@@ -119,6 +120,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         if (reqVO.getRawPayload() != null) {
             payload.putAll(reqVO.getRawPayload());
         }
+        payload.put("activeOrderId", reqVO.getProcessPoolContext().getActiveOrderId());
         payload.put("outputQuantity", feedback.getOutputQuantity());
         payload.put("lossQuantity", feedback.getLossQuantity());
         payload.put("lossDetails", feedback.getLossDetails());

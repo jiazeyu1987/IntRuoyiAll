@@ -151,7 +151,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals("frontline-session-snapshot-hash-001", command.frontlineSessionSnapshotHash());
             return true;
         }));
-        verify(submitAuthorizationService).authorizeActiveOrder(9001L, 41L, 21L, 71L, 31L);
+        verify(submitAuthorizationService).authorizeActiveOrder(9001L, 81L, 41L, 21L, 71L, 31L);
+        verify(processPoolSubmitEventService).createInitialAllocation(801L, 81L, new BigDecimal("100.500"));
         inOrder.verify(lossReasonValidator).requireSnapshotLossReasons(
                 any(),
                 eq(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails()),
@@ -204,7 +205,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals(801L, submitService.submit(request).getProcessPoolEventId());
         }
 
-        verify(submitAuthorizationService).authorizeActiveOrder(9001L, 41L, 21L, 71L, 31L);
+        verify(submitAuthorizationService).authorizeActiveOrder(9001L, 81L, 41L, 21L, 71L, 31L);
         verify(feedbackService).createFrontlineFeedback(argThat(payload ->
                 new BigDecimal("200").compareTo(payload.getFeedbackQuantity()) == 0
                         && Long.valueOf(41L).equals(payload.getWorkOrderId())));
@@ -256,7 +257,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             return true;
         }));
         verify(feedbackService, never()).createFrontlineFeedback(any());
-        verify(submitAuthorizationService, never()).authorizeActiveOrder(any(), any(), any(), any(), any());
+        verify(submitAuthorizationService, never()).authorizeActiveOrder(any(), any(), any(), any(), any(), any());
         verifyNoInteractions(autoCodeRecordService, signatureService);
         verifyNoInteractions(recordbookEntryService);
         verify(processPoolSubmitEventService, never()).createSubmitEvent(any());

@@ -3765,6 +3765,7 @@ const assertFormalPayloadContext = () => {
 }
 
 interface FrontlineFormalSubmitContext {
+  activeOrderId?: number
   workOrderId?: number
   workOrderCode?: string
   taskId?: number
@@ -3792,6 +3793,7 @@ const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
   const selectedActiveOrder = deviceState.selectedActiveOrder
   const serverContext = deviceState.runtimeConfig?.productionSubmitContext
   return {
+    activeOrderId: selectedActiveOrder?.activeOrderId,
     workOrderId: selectedActiveOrder?.workOrderId,
     workOrderCode: selectedActiveOrder?.workOrderCode,
     taskId: serverContext?.taskId,
@@ -3852,6 +3854,7 @@ const assertProductionSubmitSnapshotContext = (formalContext: FrontlineFormalSub
 const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmitContext) => {
   const missingFields: string[] = []
   const requiredFields: Array<[keyof FrontlineFormalSubmitContext, string]> = [
+    ['activeOrderId', '活跃订单编号'],
     ['workOrderId', '活跃订单'],
     ['routeId', '路线'],
     ['routeProcessId', '路线工序'],
@@ -3883,6 +3886,7 @@ const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmit
   if (
     !activeOrder ||
     !isFrontlineProductionProcess(selectedProcess) ||
+    activeOrder.activeOrderId !== formalContext.activeOrderId ||
     activeOrder.routeId !== selectedProcess.routeId
   ) {
     throw new Error('订单与工序上下文不一致，请重新选择活跃订单或工序。')
@@ -3962,6 +3966,7 @@ const buildFrontlineFormalSubmitPayload = (
     recordbookPayload,
     processPoolSubmissionIdempotencyKey: submitIdempotencyKey,
     processPoolContext: {
+      activeOrderId: formalContext.activeOrderId!,
       workOrderId: formalContext.workOrderId,
       taskId: formalContext.taskId,
       routeId: formalContext.routeId!,

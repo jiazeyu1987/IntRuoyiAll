@@ -10,11 +10,11 @@ const api = readUtf8('src/api/mes/pro/processpool/index.ts')
 const teamLeaderApi = readUtf8('src/api/mes/pro/processpool/teamLeader.ts')
 
 assert.match(api, /allocationView\?:\s*'WORKBENCH'\s*\|\s*'HISTORY'/)
-assert.match(api, /reportAllocations\?:\s*ProcessPoolTimelineReportAllocationVO\[\]/)
+assert.match(api, /reportAllocations:\s*ProcessPoolTimelineReportAllocationVO\[\]/)
 assert.match(api, /reportUnallocatedQuantity\?:\s*number/)
 assert.match(page, /key:\s*'reportAllocations',\s*label:\s*'分配订单'/)
 assert.match(page, /data-team-leader-report-allocations/)
-assert.match(page, /:type="item\.released\s*\?\s*'success'\s*:\s*'warning'"[\s\S]*已放行/)
+assert.match(page, /:type="item\.needsAdjustment\s*\?\s*'danger'\s*:\s*item\.released\s*\?\s*'success'\s*:\s*'warning'"[\s\S]*已放行/)
 assert.match(
   page,
   /allocationView:\s*isProductionLeader\.value[\s\S]*isProductionReportHistoryTab\.value[\s\S]*'HISTORY'[\s\S]*'WORKBENCH'/

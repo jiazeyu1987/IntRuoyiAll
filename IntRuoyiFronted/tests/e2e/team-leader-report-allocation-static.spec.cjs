@@ -71,7 +71,7 @@ assert.match(
 )
 assert.match(
   page,
-  /<el-input-number[\s\S]*v-model="row\.allocatedQuantity"[\s\S]*:precision="0"[\s\S]*:step="1"[\s\S]*@change="markManualAllocation"/,
+  /<el-input-number[\s\S]*v-model="row\.allocatedQuantity"[\s\S]*:precision="0"[\s\S]*:step="1"[\s\S]*@change="markManualAllocation\(row\)"/,
   'allocation quantity input must be constrained to integer steps without removing manual input.'
 )
 assert.match(

@@ -1,0 +1,292 @@
+{
+  "status": "PASS",
+  "reason": "真实页面完成一线 O1 超量提交、组长红色识别及改配 O2，外部编排已清理并核验任务数据零残留",
+  "config": {
+    "frontendUrl": "http://127.0.0.1:8099",
+    "backendUrl": "http://127.0.0.1:48099",
+    "runtimeMode": "WORKTREE",
+    "runtimeEvidenceFile": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\e2e-artifacts\\runtime-evidence.json",
+    "fixtureManifestPath": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\e2e-artifacts\\fixture-manifest.json",
+    "orchestratorExecutable": "python",
+    "orchestratorScript": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\fas_fixture_orchestrator.py",
+    "allowedTestTenantIds": [
+      "122"
+    ],
+    "allowedTestTenantNames": [
+      "测试租户"
+    ],
+    "tenantId": "122",
+    "tenant": "测试租户",
+    "runId": "FAS-20260814-20260814225404-31632",
+    "frontlineUsername": "fasfl20260814225404",
+    "frontlinePassword": "[REDACTED]",
+    "leaderUsername": "fasld20260814225404",
+    "leaderPassword": "[REDACTED]",
+    "o1ActiveOrderId": "87",
+    "o1WorkOrderId": "982707",
+    "o1WorkOrderCode": "FAS-20260814-20260814225404-31632-O1",
+    "o2ActiveOrderId": "88",
+    "o2WorkOrderId": "982708",
+    "o2WorkOrderCode": "FAS-20260814-20260814225404-31632-O2",
+    "routeId": "980116",
+    "routeProcessId": "9908090221",
+    "processId": "9908090125",
+    "actualEmployeeId": "9908090236",
+    "submitQuantity": 10,
+    "o1PlannedQuantity": 6,
+    "o2PlannedQuantity": 20,
+    "signaturePassword": "[REDACTED]",
+    "feedbackCode": "FAS-20260814-20260814225404-31632-Q",
+    "headed": false,
+    "fixture": {
+      "schemaVersion": "fas-fixture-v1",
+      "cleanupContract": "fas-cleanup-v1",
+      "taskId": "20260814-frontline-active-order-submit-allocation-docs",
+      "runId": "FAS-20260814-20260814225404-31632",
+      "preparedAt": "2026-08-14T22:54:04.318799+00:00",
+      "tenant": {
+        "id": "122",
+        "name": "测试租户"
+      },
+      "accounts": {
+        "frontlineUsername": "fasfl20260814225404",
+        "leaderUsername": "fasld20260814225404"
+      },
+      "orders": {
+        "o1": {
+          "activeOrderId": "87",
+          "workOrderId": "982707",
+          "workOrderCode": "FAS-20260814-20260814225404-31632-O1",
+          "plannedQuantity": 6
+        },
+        "o2": {
+          "activeOrderId": "88",
+          "workOrderId": "982708",
+          "workOrderCode": "FAS-20260814-20260814225404-31632-O2",
+          "plannedQuantity": 20
+        }
+      },
+      "context": {
+        "routeId": "980116",
+        "routeProcessId": "9908090221",
+        "processId": "9908090125",
+        "actualEmployeeId": "9908090236",
+        "submitQuantity": 10,
+        "feedbackCode": "FAS-20260814-20260814225404-31632-Q"
+      },
+      "owned": {
+        "userIds": [
+          "9908090236",
+          "9908090237"
+        ],
+        "roleIds": [
+          "910482",
+          "910483"
+        ],
+        "roleMenuIds": [
+          "912530",
+          "912531",
+          "912532",
+          "912533",
+          "912534",
+          "912535",
+          "912536",
+          "912537",
+          "912538",
+          "912539",
+          "912540",
+          "912541",
+          "912542",
+          "912543",
+          "912544",
+          "912545"
+        ],
+        "userRoleIds": [
+          "4601",
+          "4602"
+        ],
+        "signatureGrantIds": [
+          "9908090239",
+          "9908090240"
+        ],
+        "processId": "9908090125",
+        "workstationId": "9908090120",
+        "routeId": "980116",
+        "routeProcessId": "9908090221",
+        "routeVersionId": "654",
+        "employeeProfileId": "9908090219",
+        "employeeBindingId": "40",
+        "itemId": "982928",
+        "workOrderIds": [
+          "982707",
+          "982708"
+        ],
+        "activeOrderIds": [
+          "87",
+          "88"
+        ],
+        "activeSnapshotIds": [
+          "250",
+          "251"
+        ]
+      }
+    },
+    "missing": []
+  },
+  "runtimeEvidence": {
+    "mode": "WORKTREE",
+    "workspaceRoot": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation",
+    "frontendPid": 4880,
+    "backendPid": 36136,
+    "sourceRevision": "33302985228b16faae2695458b03268098a433af",
+    "sourceFingerprintSha256": "14a337113187b74d9d09f0a46f705544efae2524c7ecb62ebda8adcb6e9205eb",
+    "backendArtifactSha256": "0cc711621a66c13ba2c56f0bacb832d5fcf88e75cf00d269fd9306e48d7f7f77"
+  },
+  "fixtureVerification": {
+    "status": "READY",
+    "fixtureVerified": true,
+    "permissionsVerified": true,
+    "taskDataVerified": true,
+    "cleanupReady": true,
+    "taskId": "20260814-frontline-active-order-submit-allocation-docs",
+    "runId": "FAS-20260814-20260814225404-31632",
+    "tenantId": "122"
+  },
+  "cleanupResult": {
+    "status": "CLEAN",
+    "cleanupPerformed": true,
+    "cleanupVerified": true,
+    "remainingTaskDataCount": 0,
+    "deletedRowCount": 67,
+    "taskId": "20260814-frontline-active-order-submit-allocation-docs",
+    "runId": "FAS-20260814-20260814225404-31632",
+    "tenantId": "122"
+  },
+  "eventId": "228",
+  "steps": [
+    "一线测试账号通过真实登录页登录",
+    "一线页面明确选择 O1：FAS-20260814-20260814225404-31632-O1",
+    "一线超量提交成功，事件 ID=228",
+    "生产组长测试账号通过真实登录页登录",
+    "组长列表确认 O1=10，红色待调整 4",
+    "组长通过页面改配为 O1=6、O2=4",
+    "组长列表刷新后显示 O1/O2 当前分配，红色待调整标识已消失",
+    "只读核验确认版本 1 初始基线与版本 2 手工改配审计完整"
+  ],
+  "diagnostics": {
+    "pageErrors": [],
+    "consoleErrors": [],
+    "requestFailures": [
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:8099/admin-api/system/notify-message/get-unread-count",
+        "errorText": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "https://api.iconify.design/fa.json?icons=slack",
+        "errorText": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:8099/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+        "errorText": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:8099/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO",
+        "errorText": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "https://hm.baidu.com/hm.gif?hca=0CCCBFE8FAE15C0D&cc=1&ck=1&cl=24-bit&ds=1280x720&vl=720&et=0&ja=0&ln=zh-cn&lo=0&rnd=1535009617&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8099%2Findex&v=1.3.2&lv=1&api=4_0&sn=1943&r=0&ww=1280&u=http%3A%2F%2F127.0.0.1%3A8099%2Findex&tt=%E7%91%9B%E6%B3%B0%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F%20-%20%E7%99%BB%E5%BD%95",
+        "errorText": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "https://hm.baidu.com/hm.gif?hca=0CCCBFE8FAE15C0D&cc=1&ck=1&cl=24-bit&ds=1280x720&vl=720&ep=2562%2C2562&et=3&ja=0&ln=zh-cn&lo=0&rnd=1703209433&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8099%2Findex&v=1.3.2&lv=1&sn=1943&r=0&ww=1280&u=http%3A%2F%2F127.0.0.1%3A8099%2Findex",
+        "errorText": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:8099/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO",
+        "errorText": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:8099/release-info.json",
+        "errorText": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "http://127.0.0.1:8099/admin-api/system/notify-message/get-unread-count",
+        "errorText": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "https://hm.baidu.com/hm.gif?hca=05B333F3589AE635&cc=1&ck=1&cl=24-bit&ds=1280x720&vl=720&et=0&ja=0&ln=zh-cn&lo=0&rnd=1814771493&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8099%2Findex&v=1.3.2&lv=1&api=4_0&sn=1950&r=0&ww=1280&u=http%3A%2F%2F127.0.0.1%3A8099%2Findex&tt=%E7%91%9B%E6%B3%B0%E7%AE%A1%E7%90%86%E7%B3%BB%E7%BB%9F",
+        "errorText": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "https://hm.baidu.com/hm.gif?hca=05B333F3589AE635&cc=1&ck=1&cl=24-bit&ds=1280x720&vl=720&ep=2672%2C2672&et=3&ja=0&ln=zh-cn&lo=0&rnd=1987928461&si=a1ff8825baa73c3a78eb96aa40325abc&su=http%3A%2F%2F127.0.0.1%3A8099%2Findex&v=1.3.2&lv=1&sn=1950&r=0&ww=1280&u=http%3A%2F%2F127.0.0.1%3A8099%2Findex",
+        "errorText": "net::ERR_ABORTED"
+      }
+    ],
+    "targetRequestFailures": [],
+    "targetResponseErrors": [],
+    "writeRequests": [
+      {
+        "method": "POST",
+        "pathname": "/admin-api/mes/pro/feedback/frontline/submit"
+      },
+      {
+        "method": "POST",
+        "pathname": "/admin-api/mes/pro/process-pool/team-leader/submission/allocation/confirm"
+      }
+    ],
+    "targetConsoleErrors": [],
+    "externalResourceConsoleErrors": []
+  },
+  "writeRequestCount": 2,
+  "adjustedSnapshot": {
+    "eventId": "228",
+    "version": 2,
+    "poolQuantity": 10,
+    "releasedAllocatedQuantity": 0,
+    "editableAllocatedQuantity": 10,
+    "totalAllocatedQuantity": 10,
+    "unallocatedQuantity": 0,
+    "lines": [
+      {
+        "allocationId": "133",
+        "activeOrderId": "87",
+        "workOrderId": "982707",
+        "workOrderCode": "FAS-20260814-20260814225404-31632-O1",
+        "routeProcessId": "9908090221",
+        "processId": "9908090125",
+        "allocatedQuantity": 6,
+        "overageQuantity": 0,
+        "needsAdjustment": false,
+        "allocationMode": "MANUAL",
+        "released": false,
+        "editable": true
+      },
+      {
+        "allocationId": "134",
+        "activeOrderId": "88",
+        "workOrderId": "982708",
+        "workOrderCode": "FAS-20260814-20260814225404-31632-O2",
+        "routeProcessId": "9908090221",
+        "processId": "9908090125",
+        "allocatedQuantity": 4,
+        "overageQuantity": 0,
+        "needsAdjustment": false,
+        "allocationMode": "MANUAL",
+        "released": false,
+        "editable": true
+      }
+    ]
+  },
+  "auditCount": 3
+}

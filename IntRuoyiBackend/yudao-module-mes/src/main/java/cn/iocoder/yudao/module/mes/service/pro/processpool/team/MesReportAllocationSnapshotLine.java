@@ -15,6 +15,8 @@ public class MesReportAllocationSnapshotLine {
     private Long routeProcessId;
     private Long processId;
     private BigDecimal allocatedQuantity;
+    private BigDecimal overageQuantity;
+    private Boolean needsAdjustment;
     private String allocationMode;
     private Boolean released;
     private Boolean editable;

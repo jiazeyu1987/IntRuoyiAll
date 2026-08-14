@@ -407,7 +407,9 @@ export interface TeamLeaderReportAllocationLine {
   routeProcessId?: number
   processId?: number
   allocatedQuantity: number | string
-  allocationMode?: 'FIFO' | 'MANUAL'
+  overageQuantity?: number | string
+  needsAdjustment?: boolean
+  allocationMode?: 'FRONTLINE_SELECTED' | 'FIFO' | 'MANUAL'
   remainingQuantityBeforeAllocation?: number | string
   released?: boolean
   editable?: boolean

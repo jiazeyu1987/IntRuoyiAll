@@ -71,18 +71,19 @@ public class MesTeamLeaderOrderProcessCompletionService {
     @Transactional(rollbackFor = Exception.class)
     public void applyConfirmedAllocations(MesProProcessPoolEventDO event,
                                           Collection<MesProcessPoolReportAllocationDO> confirmedAllocations) {
-        reconcileAffectedAllocations(event, confirmedAllocations, true);
+        reconcileAffectedAllocations(event, confirmedAllocations, true, false);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void reconcileAffectedAllocations(MesProProcessPoolEventDO event,
                                              Collection<MesProcessPoolReportAllocationDO> affectedAllocations) {
-        reconcileAffectedAllocations(event, affectedAllocations, false);
+        reconcileAffectedAllocations(event, affectedAllocations, false, true);
     }
 
     private void reconcileAffectedAllocations(MesProProcessPoolEventDO event,
                                               Collection<MesProcessPoolReportAllocationDO> affectedAllocations,
-                                              boolean backfillCompletedProcess) {
+                                              boolean backfillCompletedProcess,
+                                              boolean allowAdjustableOverage) {
         if (event == null || event.getId() == null || event.getRouteProcessId() == null || event.getProcessId() == null
                 || affectedAllocations == null || affectedAllocations.isEmpty()
                 || affectedAllocations.stream().anyMatch(allocation -> allocation == null
@@ -113,11 +114,13 @@ public class MesTeamLeaderOrderProcessCompletionService {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             MesTeamLeaderOrderProcessTarget target = orderProcessTargetService.requireTarget(
                     representativeAllocation.getActiveOrderId(), workOrderId, key.routeProcessId(), key.processId());
-            if (confirmedQuantity.compareTo(target.plannedQuantity()) > 0) {
+            if (!allowAdjustableOverage && confirmedQuantity.compareTo(target.plannedQuantity()) > 0) {
                 throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH, workOrderId);
             }
+            BigDecimal scheduleProgressQuantity = allowAdjustableOverage
+                    ? confirmedQuantity.min(target.plannedQuantity()) : confirmedQuantity;
             syncFormalScheduleProgress(workOrderId, key.routeProcessId(), key.processId(),
-                    confirmedQuantity, target.plannedQuantity());
+                    scheduleProgressQuantity, target.plannedQuantity());
 
             MesProcessPoolOrderProcessCompletionDO completion =
                     completionMapper.selectByWorkOrderAndProcessForUpdate(workOrderId, key.routeProcessId(),

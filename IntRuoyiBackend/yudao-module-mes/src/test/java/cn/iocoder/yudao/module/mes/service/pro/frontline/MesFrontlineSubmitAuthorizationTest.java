@@ -102,24 +102,36 @@ class MesFrontlineSubmitAuthorizationTest {
     @Test
     void shouldAuthorizeSelectedActiveOrderForResponsibleLeaderAndProcessSnapshot() {
         when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
-        when(activeOrderMapper.selectActiveByLeaderAndWorkOrderForUpdate(3001L, 41L)).thenReturn(
-                MesProcessPoolActiveOrderDO.builder().id(81L).workOrderId(41L).routeId(21L).build());
+        when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
+                        .routeId(21L).activeStatus("ACTIVE").build());
         when(processSnapshotMapper.selectByActiveOrderAndProcess(81L, 71L, 31L)).thenReturn(
                 MesProcessPoolActiveOrderProcessSnapshotDO.builder()
                         .activeOrderId(81L).workOrderId(41L).routeId(21L)
                         .routeProcessId(71L).processId(31L).build());
 
         assertDoesNotThrow(() -> submitAuthorizationService.authorizeActiveOrder(
-                9001L, 41L, 21L, 71L, 31L));
+                9001L, 81L, 41L, 21L, 71L, 31L));
     }
 
     @Test
     void shouldRejectSelectedActiveOrderThatIsNoLongerActiveForResponsibleLeader() {
         when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
-        when(activeOrderMapper.selectActiveByLeaderAndWorkOrderForUpdate(3001L, 41L)).thenReturn(null);
+        when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
+                        .routeId(21L).activeStatus("REMOVED").build());
 
         assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
-                9001L, 41L, 21L, 71L, 31L));
+                9001L, 81L, 41L, 21L, 71L, 31L));
+    }
+
+    @Test
+    void shouldRejectDifferentActiveOrderEvenWhenItBelongsToTheSameWorkOrder() {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        when(activeOrderMapper.selectByIdForUpdate(82L)).thenReturn(null);
+
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 82L, 41L, 21L, 71L, 31L));
     }
 
     private void givenSnapshot(List<MesFrontlineEmployeeSwitchResult> employees,
