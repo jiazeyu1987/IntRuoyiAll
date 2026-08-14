@@ -13,6 +13,7 @@ Wire the frontline PQC page to the formal activeOrderId projection and formal su
 - GREEN: node tests/e2e/mes-frontline-pqc-qa-process-runtime-static.spec.cjs -> PASS, frontline PQC QA process runtime contract.
 - GREEN: node tests/e2e/frontline-pqc-formal-submit-static.spec.js -> PASS, frontline PQC formal submit static contract.
 - GREEN: pnpm ts:check -> PASS, exit 0 at 2026-08-14T12:04+08:00.
+- GREEN: post-restart runtime/static submit contracts and `pnpm ts:check` -> PASS at 2026-08-14T16:43+08:00.
 
 ## Verification
 

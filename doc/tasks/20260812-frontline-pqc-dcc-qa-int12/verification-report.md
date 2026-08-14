@@ -12,6 +12,10 @@ ready_for_closeout
 - TypeScript: PASS, pnpm ts:check, exit 0.
 - Root handoff recheck: PASS, backend focused Maven rerun 2026-08-14T12:52:53+08:00, 33 tests, 0 failures, 0 errors, 0 skipped.
 - Root handoff recheck: PASS, runtime static contract, formal submit static contract, pnpm ts:check, backend/frontend/bug evidence validators, git diff --check, and scoped formal-contract forbidden scans.
+- Post-merge contract repair: PASS, removed the unused `workOrderId + routeId` runtime process query and its product/project-code inference instead of adapting tests to the forbidden path.
+- Post-merge focused service test: PASS, 4 tests, 0 failures/errors/skips, BUILD SUCCESS, 2026-08-14T16:32:16+08:00.
+- Post-merge frozen regression: PASS, 33 tests, 0 failures/errors/skips, BUILD SUCCESS, 2026-08-14T16:43:14+08:00.
+- Post-restart frontend verification: PASS, both static contracts and `pnpm ts:check`.
 
 ## Contract Notes
 

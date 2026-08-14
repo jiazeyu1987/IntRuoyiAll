@@ -21,6 +21,8 @@ The final integration had not fully connected DF10/DF11 formal DTOs to the runti
 - GREEN: node tests/e2e/mes-frontline-pqc-qa-process-runtime-static.spec.cjs -> PASS.
 - GREEN: node tests/e2e/frontline-pqc-formal-submit-static.spec.js -> PASS.
 - GREEN: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineActiveOrderControllerTest,MesProFrontlineFeedbackSubmitServiceTest,MesFrontlinePqcContextServiceTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 33 tests.
+- RED: post-merge frozen test -> FAIL, obsolete route-product-to-DCC inference intercepted the formal locked-QA path.
+- GREEN: obsolete compatibility query removed; focused service test 4/4 PASS and frozen regression 33/33 PASS at 2026-08-14T16:43:14+08:00.
 
 ## Verification
 

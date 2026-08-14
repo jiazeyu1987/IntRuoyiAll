@@ -11,6 +11,9 @@ Integrate the verified DF10/DF11 frontline PQC projection and formal submit cont
 - BDD: 幂等与并发唯一 -> Given 同一 PENDING task 收到相同或冲突并发提交, When task 行锁、CAS 与 canonical hash 执行, Then 仅生成一份正式签名/明细/event，相同内容回同一回执，冲突内容零写入拒绝。
 - RED: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineActiveOrderControllerTest,MesProFrontlineFeedbackSubmitServiceTest,MesFrontlinePqcContextServiceTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, integration initially missed formal task identity validation and release-writer resultType alignment.
 - GREEN: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineActiveOrderControllerTest,MesProFrontlineFeedbackSubmitServiceTest,MesFrontlinePqcContextServiceTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 33 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS at 2026-08-14T12:07:31+08:00.
+- RED: post-merge frozen test -> FAIL, the unused legacy process-query overload inferred DCC from route product codes before locked-QA validation.
+- GREEN: post-merge service test -> PASS, 4 tests; legacy overload and product/project-code inference removed.
+- GREEN: post-merge frozen regression -> PASS, 33 tests, 0 failures/errors/skips, BUILD SUCCESS at 2026-08-14T16:43:14+08:00.
 
 ## Verification
 
@@ -22,6 +25,7 @@ Integrate the verified DF10/DF11 frontline PQC projection and formal submit cont
 
 - Backend focused Maven passed with 33 tests and BUILD SUCCESS at 2026-08-14T12:07:31+08:00.
 - No API-only mock, fallback, default-success, product/material inference, or current-QA lookup was accepted as verification.
+- Runtime process projection now exposes only the formal `activeOrderId` service entry; no `workOrderId + routeId` compatibility query remains.
 
 ## Blockers
 
