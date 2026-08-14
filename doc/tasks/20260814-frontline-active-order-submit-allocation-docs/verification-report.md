@@ -24,10 +24,10 @@
 - PASS：主验证真实 E2E 事件 227 退出码 0；O1 计划 6、提交并初始分配 10、超量 4 且红色，组长调整为 O1=6/O2=4 后总量 10、超量 0、红色消失，审计 3 条。
 - PASS：独立测试真实 E2E 事件 228 重新创建任务 fixture 并复跑同一路径，P5-AC1 至 P5-AC8 按融合前口径全部通过；目标业务写请求 2，目标页面、请求、HTTP 和控制台错误均为 0。
 - CLEAN：两轮 E2E `finally` 清理及独立二次 cleanup 均为 `CLEAN`、`cleanupVerified=true`、`remainingTaskDataCount=0`；服务已停止，8099/48099 均无监听。
-- READY FOR FUSION：真实验证和独立复核已满足融合前门禁；尚待清理临时产物、提交任务分支、融合 `int_main` 和融合后验证。
+- PASS：任务实现提交 `dd446b06f`，融合提交 `25d1654e5`；`int_main` 已通过 `--ff-only` 快进融合，主工作区并发 dirty 路径与任务实际增量交集为 0，未覆盖或提交无关改动，未推送。
+- PASS：融合后后端 50/50 定向测试、前端 9 项静态合同、后端 Node 合同 8/8、TypeScript 类型检查和 30 模块 Maven 全量构建全部通过，并生成 `yudao-server-exec.jar`。
+- COMPLETE：P1-P5 与全部验收标准均已完成，`test_status=passed`，任务数据残留 0，服务已停止，任务状态为 `completed`。
 
 ## Remaining Work
 
-- 按任务清理门禁删除本任务临时运行产物，只保留正式任务文档、fixture 编排器和最终 E2E 证据。
-- 仅提交任务自有变更，并按 worktree 与端口保护门禁融合 `int_main`，不得带入 dirty 基线覆盖或其它并发任务变更。
-- 融合后执行差异、任务状态和必要回归核验，再将 P5 与任务状态标记为完成。
+- 无。本任务不包含远端推送，后续推送需另行明确授权。

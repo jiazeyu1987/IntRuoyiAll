@@ -27,7 +27,7 @@
 - [x] P2：后端实现 GREEN。
 - [x] P3：前端合同 RED。
 - [x] P4：前端实现 GREEN。
-- [ ] P5：真实 E2E、回归与融合 int_main。
+- [x] P5：真实 E2E、回归与融合 int_main。
 
 ## Expected Verification
 
@@ -70,7 +70,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Cleanup Keep
 
@@ -96,4 +96,6 @@ ready_for_closeout
 - 主验证事件 227 和独立复核事件 228 均通过；初始版本 1 为 `FRONTLINE_SELECTED`，调整后版本 2 为 `MANUAL`，分配总量始终等于提交量 10，审计记录完整。
 - 两次真实 E2E 均只产生 2 个目标写请求，目标页面、接口、HTTP 和控制台错误均为 0；E2E 清理和独立二次清理均为 `CLEAN`、任务数据残留 0。
 - 为构建当前 dirty 基线而使用的临时运行覆盖已按 36 项清单恢复：13 个原有文件逐项校验原始 SHA-256，23 个覆盖新增文件逐项确认不存在；8099/48099 服务已停止且端口空闲。
-- 当前只剩任务产物清理、任务分支提交、融合 `int_main` 及融合后验证；完成前 P5 里程碑保持未勾选。
+- 任务变更已通过提交 `dd446b06f` 保存，当前 `int_main` 已快进到融合提交 `25d1654e5`；未执行推送。
+- 融合后在 `E:\IntRuoyi` 复跑后端 50 项定向测试、9 项前端静态合同、TypeScript 类型检查和 30 模块 Maven 全量构建，全部通过；全量构建生成 `yudao-server-exec.jar`。
+- P1 至 P5 全部完成，机器状态为 `completed`、测试状态为 `passed`，任务数据残留 0，任务运行服务已停止。

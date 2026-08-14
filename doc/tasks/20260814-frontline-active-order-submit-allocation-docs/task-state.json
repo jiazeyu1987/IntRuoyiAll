@@ -2,8 +2,8 @@
   "schema_version": 2,
   "task_id": "20260814-frontline-active-order-submit-allocation-docs",
   "mode": "full",
-  "status": "ready_for_execution",
-  "current_phase": "P5",
+  "status": "completed",
+  "current_phase": null,
   "phase_statuses": [
     {
       "phase_id": "P1",
@@ -421,89 +421,105 @@
         {
           "ac_id": "P5-AC1",
           "text": "实现当前里程碑目标：通过真实一线提交和生产组长调整路径证明目标业务闭环，并完成回归、清理和融合前验证。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
             "test-report.md#p5",
             "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
-            "e2e-artifacts/evidence.md"
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
           ]
         },
         {
           "ac_id": "P5-AC2",
           "text": "交付物已落地：真实 Playwright E2E 证据。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
             "test-report.md#p5",
             "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
-            "e2e-artifacts/evidence.md"
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
           ]
         },
         {
           "ac_id": "P5-AC3",
           "text": "交付物已落地：定向回归、清理和融合 int_main 证据。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
             "test-report.md#p5",
             "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
-            "e2e-artifacts/evidence.md"
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
           ]
         },
         {
           "ac_id": "P5-AC4",
           "text": "交付物已落地：构造任务自有活跃订单 O1、O2，其中 O1 当前工序可承接数量小于提交数量。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
             "test-report.md#p5",
             "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
-            "e2e-artifacts/evidence.md"
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
           ]
         },
         {
           "ac_id": "P5-AC5",
           "text": "交付物已落地：一线账号选择 O1 提交 Q。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
             "test-report.md#p5",
             "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
-            "e2e-artifacts/evidence.md"
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
           ]
         },
         {
           "ac_id": "P5-AC6",
           "text": "交付物已落地：生产组长账号查看报工管理列表，确认 O1 红色标识。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
             "test-report.md#p5",
             "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
-            "e2e-artifacts/evidence.md"
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
           ]
         },
         {
           "ac_id": "P5-AC7",
           "text": "交付物已落地：生产组长把部分数量调整到 O2，确认当前分配、审计和红色标识变化。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
             "test-report.md#p5",
             "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
-            "e2e-artifacts/evidence.md"
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
           ]
         },
         {
           "ac_id": "P5-AC8",
           "text": "已完成当前里程碑验证并记录执行与测试证据",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": [
             "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
             "test-report.md#p5",
             "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
-            "e2e-artifacts/evidence.md"
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
           ]
         }
       ],
@@ -511,20 +527,23 @@
         "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
         "test-report.md#p5",
         "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
-        "e2e-artifacts/evidence.md"
+        "e2e-artifacts/evidence.md",
+        "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+        "test-report.md#p5-真实-e2e-独立复核2026-08-15"
       ],
       "notes": [
         "Mapped test topics require main-agent review.",
         "禁止用芋道源码/admin、mock、API-only、静态合同或直接 SQL 替代真实用户路径；P5 通过前不得融合 int_main",
         "专用真实 E2E 脚本及静态合同已补齐；当前只剩已确认测试租户、独立账号、任务自有 O1/O2 和清理方案前置",
-        "P5 独立复核失败：修复访问令牌、实际清理、BLOCKED 分类、worktree 端口和租户归属、Long ID 精度及静态合同强度后再执行真实 E2E"
+        "P5 独立复核失败：修复访问令牌、实际清理、BLOCKED 分类、worktree 端口和租户归属、Long ID 精度及静态合同强度后再执行真实 E2E",
+        "真实 E2E、独立复核、零残留清理、融合 int_main、50 项后端测试、9 项前端合同、类型检查与全量 Maven 构建均通过。"
       ],
-      "last_reviewed_at": "2026-08-14T19:51:37+00:00",
-      "status": "in_progress"
+      "last_reviewed_at": "2026-08-14T23:54:42+00:00",
+      "status": "completed"
     }
   ],
   "planner_review_status": "approved",
-  "test_status": "running",
+  "test_status": "passed",
   "blocking_prereqs": [],
   "iteration_counts": {
     "planner_revisions": 0,
@@ -532,7 +551,7 @@
     "test_loops": 2
   },
   "created_at": "2026-08-14T07:51:40+00:00",
-  "updated_at": "2026-08-14T22:27:35+00:00",
+  "updated_at": "2026-08-14T23:55:04+00:00",
   "branch": "codex/20260814-frontline-active-order-submit-allocation",
   "baseline_revision": "33302985228b16faae2695458b03268098a433af",
   "workspace_root": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation",

@@ -237,3 +237,17 @@ BDD: 非活跃订单不可作为分配目标 -> Given O9 未加入当前组长�
 - OVERLAY-RESTORE: 临时运行覆盖清单共 36 项；13 个原有文件逐项恢复并匹配 `originalSha256`，23 个覆盖新增文件逐项删除并确认不存在，验证错误数 0。运行覆盖只用于证明当前 dirty 基线可构建和可执行，未纳入任务产品交付。
 - STATUS: 实现、真实 E2E、独立测试和零残留清理均已通过，任务进入 `ready_for_closeout`；剩余步骤为任务临时产物清理、任务分支提交、融合 `int_main` 和融合后核验。
 - EXPERIENCE: 按 `project-experience-consolidation` 将本任务可复用门禁合并到既有 `docs/e2e-rules.md`、`docs/worktree-memory.md` 和 `docs/experience-index.md`：写入型 fixture 需包含全局壳层只读权限；状态变更后必须等待正式列表响应；第三方超时仅可按精确关联分类；临时运行覆盖必须以原始/覆盖哈希清单恢复。未新建长期经验文档。
+
+## P5 融合 int_main 与融合后验证（2026-08-15）
+
+- CLEANUP: `task_closeout.py --mode preview --worktree-closeout off` 返回 `status=ready`、`blocked=[]`，保留 14 项正式任务文档/证据并识别 38 项临时产物；`--mode apply` 已删除全部候选文件，但脚本在清理空目录时触发 Windows `FileNotFoundError`。再次 preview 返回 `delete=[]`、`blocked=[]`，随后精确删除剩余 13 个临时覆盖备份文件；正式保留项完整，临时文件残留 0。该脚本空目录竞态不影响文件清理结论。
+- GREEN: 清理后 9 项前端静态合同 -> PASS，`STATIC_TOTAL=9 / STATIC_FAILED=0`；后端 Node 静态合同 8/8、fixture self-test、E2E `node --check` 与 `git diff --check` 均通过。
+- GREEN: 清理后 `pnpm ts:check` -> PASS。
+- GIT: 任务实现与证据提交为 `dd446b06f`；为保留 `int_main` dirty 工作区的并发修改，先将本任务 3 处长期经验增量及任务目录精确提交为 `a740592fb`，再把当前 `int_main` 合入任务分支，产生融合提交 `25d1654e5`。
+- GIT: 融合前通过 merge-base 增量门禁确认任务分支相对 `int_main` 的实际增量为 44 个产品/测试文件，与主工作区 11614 个 tracked/untracked dirty 路径交集为 0；`branch-runtime-port-guard.ps1` 在任务分支和主分支均通过。
+- GREEN: `git merge --ff-only codex/20260814-frontline-active-order-submit-allocation` -> PASS；`int_main` 从 `a740592fb` 快进到 `25d1654e5`，未覆盖、暂存或提交任何无关 dirty 改动，未推送。
+- GREEN: 融合后 `mvn.cmd -pl yudao-module-mes "-Dtest=MesFrontlineActiveOrderInitialAllocationContractTest,MesFrontlineSubmitAuthorizationTest,MesProFrontlineFeedbackSubmitServiceTest,MesProFrontlineFeedbackPayloadSplitterTest,MesProcessPoolSubmitEventServiceAdapterTest,MesReportAllocationCommandServiceTest,MesFrontlineInitialAllocationSchemaTest,ProcessPoolTimelineReportAllocationProjectionTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，50/50，0 failures，0 errors，0 skipped。
+- GREEN: 融合后 9 项前端静态合同、后端 Node 静态合同 8/8 与 `pnpm ts:check` -> PASS。
+- GREEN: 融合后 `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS；30 个 reactor 模块全部 SUCCESS，生成 `IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar`。
+- GREEN: `check_plan_completion.py --apply` -> PASS，`complete=true`；P1-P5 和全部验收标准均为 `completed`，`test_status=passed`，无阻塞前置。
+- FINAL: 本任务业务实现、真实页面验收、独立测试、数据清理、长期经验沉淀、融合与融合后回归全部完成。
