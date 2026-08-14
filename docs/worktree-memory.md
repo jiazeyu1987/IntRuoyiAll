@@ -55,6 +55,15 @@
 - Forbidden action: 禁止用整文件 `ours/theirs` 覆盖经验门禁文档；禁止因为上游 whitespace 遗留就静默改写大量远端历史文件；禁止在未重跑端口 guard 和目标验证前提交或推送融合结果。
 - Evidence: `doc/tasks/merge-int-main-code-20260728/verification-report.md`，本地 `int_main` 领先 5、落后 445 后融合 `origin/int_main`，保留远端新增前端经验门禁并通过前端 `ts:check`、后端 `compile` 和端口 guard。
 
+## Windows Fast-forward 检出半写恢复门禁
+
+- Trigger: Windows 工作区执行 fast-forward merge、`reset --merge`、`reset --hard`、`read-tree -u` 或 `checkout-index` 时长时间低 CPU 等待，命令超时后遗留 `index.lock`、半写 index、目标新增文件变成 untracked，或工作区与 HEAD/index 三者不一致。
+- Preflight check: 风险操作前必须记录初始 `HEAD`、目标提交、分支、完整 clean 状态；出现超时后先确认 `MERGE_HEAD`、任务自有 Git 进程、`index.lock` 和当前引用，停止时只处理本任务进程。若普通恢复持续卡住，可用独立 `GIT_INDEX_FILE` 执行 `git read-tree <target>` 验证目标树可读；需要借用同提交工作区复制文件时，先验证源 `HEAD` 等于目标，并枚举源 dirty/staged/untracked 路径，命中路径必须直接读取目标 blob，不得复制脏内容。Windows tar 解包可能因文件名编码产生未跟踪乱码副本，不能只检查 tracked diff。
+- Blocker: 初始工作区非 clean、存在同工作区并发写操作、源 HEAD 不等于目标、无法证明目标变更/删除路径集合、独立 target index 无法创建、恢复后仍有 tracked diff，或目标运行端口/健康检查失败时必须停止。
+- Verification: 恢复完成后同时证明当前分支 `HEAD == target`、目标 index 已安装、`git -c core.safecrlf=false diff --name-only --no-renames` 为空，并用 `git ls-files --others --exclude-standard -z` 做 NUL 安全的未跟踪路径复核；若发现解包副本，只能在证明初始 clean、路径属于当前任务且解析后仍位于预期目录内时删除精确路径。再运行分支端口 guard、后端 health 和前端 HTTP 验证。CRLF warning 不得代替真实 diff 结论，应关闭 `core.safecrlf` 告警后读取实际路径列表。
+- Forbidden action: 禁止在前一个 Git 进程仍运行时叠加 merge/reset/stash；禁止用 `-X theirs`、整目录 dirty 副本或随机 tar 快照覆盖语义；禁止先更新分支引用再验证工作区/index；禁止删除无法证明属于失败合并产物的文件；禁止把运行态可用冒充 tracked worktree 已收敛。
+- Evidence: `doc/tasks/merge-int-main-start-runtime-20260731/verification-report.md`，`int_shedule` 从卡死的 merge/reset 半写状态恢复到 `origin/int_main=e9eca0b3`，tracked diff 归零后再启动 `8021/48021` 并通过 health/HTTP 验证。
+
 ## Worktree 前端依赖启动门禁
 
 - Trigger: 在 `D:\IntRuoyiWorktree\` 下新增或恢复 worktree 后启动前端、运行 Vite、执行前端 `pnpm` 脚本、执行真实 E2E，或日志出现 `Command "vite" not found`、`node_modules\.bin\vite` 缺失、`cross-env is not recognized`。
