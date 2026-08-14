@@ -20,7 +20,7 @@ assert.match(
 )
 assert.match(
   apiSource,
-  /export interface FrontlinePqcInspectionSubmitReqVO[\s\S]*productionSubmitEventId: number[\s\S]*scrapQuantity: number[\s\S]*signaturePassword: string/,
+  /export interface FrontlinePqcInspectionSubmitReqVO[\s\S]*activeOrderId: number[\s\S]*pqcTaskId: number[\s\S]*regulationVersionId: number[\s\S]*qaProcessId: number[\s\S]*actualEmployeeId: number[\s\S]*productionSubmitEventId\?: number[\s\S]*scrapQuantity: number[\s\S]*signaturePassword: string/,
   'Formal PQC submit must send an explicit production event, structured scrap quantity, and one-time signature password.'
 )
 const submitContract = apiSource.slice(
@@ -51,13 +51,13 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /scrapQuantity:\s*normalizePqcQuantity\(pqcDraft\.scrapQuantity\)/,
-  'PQC submit request must carry structured scrap quantity.'
+  /actualEmployeeId:\s*employee\.userId/,
+  'PQC submit request must preserve the explicitly switched actual employee.'
 )
 assert.match(
   panelSource,
-  /const assertPqcFormalSubmissionReady[\s\S]*productionSubmitCandidates[\s\S]*selectedPqcProductionSubmitEventId/,
-  'PQC click validation must fail fast when formal production binding is missing.'
+  /scrapQuantity:\s*normalizePqcQuantity\(pqcDraft\.scrapQuantity\)/,
+  'PQC submit request must carry structured scrap quantity.'
 )
 assert.match(
   panelSource,
@@ -79,7 +79,7 @@ const pqcOrderSelectionHandler = panelSource.slice(
 )
 assert.match(
   pqcOrderSelectionHandler,
-  /try \{\n\s+processes = await selectFrontlinePqcActiveOrder[\s\S]*catch \(error\) \{\n\s+message\.error\(resolveErrorMessage\(error\)\)[\s\S]*\n\s+return/,
+  /try \{\n\s+processes = await selectFrontlinePqcActiveOrder[\s\S]*catch \(error\) \{[\s\S]*message\.error\(resolveErrorMessage\(error\)\)[\s\S]*\n\s+return/,
   'PQC order initialization failures must remain visible without breaking the mounted page.'
 )
 

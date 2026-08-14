@@ -28,6 +28,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditValueType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.PqcResultValueValidator;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -554,24 +555,13 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
     }
 
     private String expectedJudgement(MesQaInspectionRegulationItemDO item, String measuredValue) {
-        if ("NUMBER".equals(item.getResultType())) {
-            try {
-                BigDecimal value = new BigDecimal(measuredValue);
-                boolean below = item.getStandardLowerLimit() != null
-                        && value.compareTo(item.getStandardLowerLimit()) < 0;
-                boolean above = item.getStandardUpperLimit() != null
-                        && value.compareTo(item.getStandardUpperLimit()) > 0;
-                return below || above ? MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE
-                        : MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
-            } catch (NumberFormatException ex) {
-                return null;
-            }
+        try {
+            return PqcResultValueValidator.validate(item.getResultType(), measuredValue,
+                    item.getStandardLowerLimit(), item.getStandardUpperLimit(),
+                    item.getStandardPrecision()).judgement();
+        } catch (IllegalArgumentException ex) {
+            return null;
         }
-        if (("BOOLEAN".equals(item.getResultType()) || "CHOICE".equals(item.getResultType()))
-                && "不合格".equals(measuredValue)) {
-            return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
-        }
-        return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
     }
 
     private MesProRouteFlowProcessBatchRecordDO formalBinding(
@@ -798,8 +788,8 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
 
     private Object mappedMeasuredValue(MesPqcProcessInspectionAggregateDetailDO detail) {
         return switch (detail.getResultType()) {
-            case "NUMBER" -> new BigDecimal(detail.getMeasuredValue());
-            case "CHOICE", "BOOLEAN", "STRING" -> detail.getMeasuredValue();
+            case "NUMERIC" -> new BigDecimal(detail.getMeasuredValue());
+            case "BOOLEAN", "TEXT" -> detail.getMeasuredValue();
             default -> throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
                     "过程检验实测值类型不受支持，itemCode=" + detail.getItemCode()
                             + "，resultType=" + detail.getResultType());

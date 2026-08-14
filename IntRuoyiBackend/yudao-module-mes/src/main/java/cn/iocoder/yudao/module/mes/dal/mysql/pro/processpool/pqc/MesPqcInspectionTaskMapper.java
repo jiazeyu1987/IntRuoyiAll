@@ -112,12 +112,22 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
     }
 
     default int updateSubmittedIfPending(Long id, Integer actualInspectionQuantity,
+                                         String submittedContentHash,
                                          String pendingStatus, String submittedStatus) {
         return update(null, new LambdaUpdateWrapper<MesPqcInspectionTaskDO>()
                 .set(MesPqcInspectionTaskDO::getActualInspectionQuantity, actualInspectionQuantity)
+                .set(MesPqcInspectionTaskDO::getSubmittedContentHash, submittedContentHash)
                 .set(MesPqcInspectionTaskDO::getTaskStatus, submittedStatus)
                 .eq(MesPqcInspectionTaskDO::getId, id)
                 .eq(MesPqcInspectionTaskDO::getTaskStatus, pendingStatus));
+    }
+
+    default int updateSubmittedEventId(Long id, Long submittedEventId) {
+        return update(null, new LambdaUpdateWrapper<MesPqcInspectionTaskDO>()
+                .set(MesPqcInspectionTaskDO::getSubmittedEventId, submittedEventId)
+                .eq(MesPqcInspectionTaskDO::getId, id)
+                .eq(MesPqcInspectionTaskDO::getTaskStatus, MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED)
+                .isNull(MesPqcInspectionTaskDO::getSubmittedEventId));
     }
 
     default int updateConfirmedIfSubmitted(Long id, String submittedStatus, String confirmedStatus) {

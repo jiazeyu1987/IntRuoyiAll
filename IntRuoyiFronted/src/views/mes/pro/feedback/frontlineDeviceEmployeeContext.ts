@@ -114,6 +114,7 @@ export const buildFrontlineEmployeeSwitchPayload = (
 export const buildFrontlinePqcEmployeeSwitchPayload = (
   activeOrder: FrontlineActiveOrderVO | undefined,
   process: FrontlinePqcProcessVO | undefined,
+  taskOption: FrontlinePqcProcessVO['pqcTaskOptions'][number] | undefined,
   actualEmployeeId: number | undefined
 ): FrontlinePqcSwitchActualEmployeeReqVO => {
   if (!activeOrder) {
@@ -125,11 +126,14 @@ export const buildFrontlinePqcEmployeeSwitchPayload = (
   if (!actualEmployeeId) {
     throw new Error('实际填写员工不能为空')
   }
+  if (!taskOption) {
+    throw new Error('当前PQC任务不能为空')
+  }
   return {
-    workOrderId: activeOrder.workOrderId,
-    routeId: process.routeId,
+    activeOrderId: activeOrder.activeOrderId,
     regulationVersionId: process.regulationVersionId,
     qaProcessId: process.qaProcessId,
+    pqcTaskId: taskOption.pqcTaskId,
     actualEmployeeId
   }
 }
@@ -523,26 +527,37 @@ export const switchFrontlineActualEmployee = async (
 
 export const switchFrontlinePqcActualEmployee = async (
   state: FrontlineDeviceEmployeeState,
+  taskOption: FrontlinePqcProcessVO['pqcTaskOptions'][number] | undefined,
   actualEmployeeId: number
 ): Promise<FrontlinePqcSwitchActualEmployeeRespVO> => {
   const payload = buildFrontlinePqcEmployeeSwitchPayload(
     state.selectedActiveOrder,
     state.selectedProcess as FrontlinePqcProcessVO | undefined,
+    taskOption,
     actualEmployeeId
   )
+  const requestToken = ++state.employeeSwitchRequestToken
   state.template = undefined
   state.loadingTemplate = true
   state.lastError = undefined
   try {
     const result = await ProFeedbackApi.switchFrontlinePqcActualEmployee(payload)
+    if (state.employeeSwitchRequestToken !== requestToken) {
+      return result
+    }
     state.selectedEmployee = state.employeeOptions.find((employee) => employee.userId === result.actualEmployeeId)
     state.template = result.template
     return result
   } catch (error) {
+    if (state.employeeSwitchRequestToken !== requestToken) {
+      throw error
+    }
     state.lastError = resolveFrontlineErrorMessage(error)
     throw error
   } finally {
-    state.loadingTemplate = false
+    if (state.employeeSwitchRequestToken === requestToken) {
+      state.loadingTemplate = false
+    }
   }
 }
 

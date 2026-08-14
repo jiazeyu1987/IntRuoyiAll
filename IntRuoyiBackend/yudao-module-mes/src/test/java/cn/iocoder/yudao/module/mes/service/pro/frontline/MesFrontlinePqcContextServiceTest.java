@@ -2,7 +2,6 @@ package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
-import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcProcessRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
@@ -14,10 +13,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
@@ -142,42 +137,29 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
-    void listProcessesReturnsAllQaProcessesOwnedByResolvedDccProjectEvenWithoutPendingTasks() {
-        givenDccOwnedQaContext();
-        MesQaInspectionRegulationProcessDO secondProcess = qaProcess(9002L, "ID-QA-002", "精洗", 2);
-        when(regulationProcessMapper.selectListByVersionId(REGULATION_VERSION_ID))
-                .thenReturn(List.of(qaProcess(QA_PROCESS_ID, "ID-QA-001", "清洗", 1), secondProcess));
-        when(regulationItemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(
-                qaItem(QA_PROCESS_ID, "ID-001"), qaItem(secondProcess.getId(), "ID-002")));
-        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of());
-
-        List<MesFrontlinePqcProcessCandidate> result = service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID);
-
-        assertEquals(2, result.size());
-        assertEquals(List.of("清洗", "精洗"),
-                result.stream().map(MesFrontlinePqcProcessCandidate::qaProcessName).toList());
-        assertEquals(DCC_PROJECT_ID, result.get(0).dccProjectCodeId());
-        assertEquals(REGULATION_VERSION_ID, result.get(0).regulationVersionId());
-        assertNull(result.get(0).pqcTaskId());
-        verify(regulationMapper).selectById(REGULATION_ID);
-    }
-
-    @Test
-    void pendingTaskWithUnknownQaProcessFailsFast() {
-        givenDccOwnedQaContext();
-        when(regulationProcessMapper.selectListByVersionId(REGULATION_VERSION_ID))
-                .thenReturn(List.of(qaProcess(QA_PROCESS_ID, "ID-QA-001", "清洗", 1)));
-        when(regulationItemMapper.selectListByVersionId(REGULATION_VERSION_ID))
-                .thenReturn(List.of(qaItem(QA_PROCESS_ID, "ID-001")));
+    void lockedQaProjectionRejectsTaskFromUnknownQaProcess() {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
+                LocalDateTime.of(2026, 8, 12, 8, 0));
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder);
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route());
+        when(regulationService.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, REGULATION_VERSION_ID))
+                .thenReturn(lockedQaAggregate("PUBLISHED",
+                        qaPublishedProcess(QA_PROCESS_ID, "ID-QA-001", "清洗", 1,
+                                qaPublishedItem("ID-001", List.of("FIRST")))));
         when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 MesPqcInspectionTaskDO.builder().id(9101L).activeOrderId(ACTIVE_ORDER_ID)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(9999L)
-                        .taskStatus("PENDING").build()));
+                        .inspectionRuleKey("FIRST").inspectionType("FIRST")
+                        .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FIRST").roundNo(1)
+                        .plannedInspectionQuantity(5).taskStatus("PENDING").build()));
 
         ServiceException error = assertThrows(ServiceException.class,
-                () -> service.listProcessesByActiveOrder(WORK_ORDER_ID, ROUTE_ID));
+                () -> service.listProcessesByActiveOrder(ACTIVE_ORDER_ID));
 
         assertEquals(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH.getCode(), error.getCode());
+        verify(regulationService).getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, REGULATION_VERSION_ID);
+        verify(dccProjectCodeMapper, never()).selectEnabledList();
     }
 
     @Test
@@ -333,26 +315,6 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH.getCode(), error.getCode());
     }
 
-    private void givenDccOwnedQaContext() {
-        when(activeOrderMapper.selectActiveByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
-                .thenReturn(activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID, LocalDateTime.of(2026, 8, 12, 8, 0)));
-        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
-        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route());
-        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersion(PRODUCT_ID));
-        when(itemService.getItemMap(Set.of(PRODUCT_ID))).thenReturn(Map.of(PRODUCT_ID, productItem()));
-        DccProjectCodeDO project = DccProjectCodeDO.builder().id(DCC_PROJECT_ID)
-                .projectCode("BOUND-ID").projectName("正式绑定项目").productMasterId(PRODUCT_ID).build();
-        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(project);
-        when(regulationMapper.selectById(REGULATION_ID)).thenReturn(
-                MesQaInspectionRegulationDO.builder().id(REGULATION_ID).dccProjectCodeId(DCC_PROJECT_ID)
-                        .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
-                        .lifecycleStatus("PUBLISHED").currentVersionId(REGULATION_VERSION_ID).build());
-        when(versionMapper.selectById(REGULATION_VERSION_ID)).thenReturn(
-                MesQaInspectionRegulationVersionDO.builder().id(REGULATION_VERSION_ID)
-                        .regulationId(REGULATION_ID).versionNo("G/0").lifecycleStatus("PUBLISHED")
-                        .finalInspectionApplicable(true).build());
-    }
-
     private static MesProcessPoolActiveOrderDO activeOrder(long id, long workOrderId, LocalDateTime joinedAt) {
         return MesProcessPoolActiveOrderDO.builder().id(id).workOrderId(workOrderId).routeId(ROUTE_ID)
                 .routeVersionId(ROUTE_VERSION_ID).activeStatus("ACTIVE").businessStatus("ACTIVE")
@@ -380,11 +342,6 @@ class MesFrontlinePqcContextServiceTest {
 
     private static MesMdItemDO productItem() {
         return MesMdItemDO.builder().id(PRODUCT_ID).code("PUMP-001").name("球囊扩张压力泵").build();
-    }
-
-    private static MesQaInspectionRegulationProcessDO qaProcess(long id, String code, String name, int sort) {
-        return MesQaInspectionRegulationProcessDO.builder().id(id).regulationVersionId(REGULATION_VERSION_ID)
-                .processCode(code).processName(name).sort(sort).build();
     }
 
     private static MesQaInspectionRegulationPublishedVersionRespVO lockedQaAggregate(
@@ -460,23 +417,6 @@ class MesFrontlinePqcContextServiceTest {
                 .sourceOriginalExcerpt("原始摘录")
                 .sourceOriginalMethod("原始方法")
                 .build();
-    }
-
-    private static MesQaInspectionRegulationItemDO qaItem(long qaProcessId, String code) {
-        return qaItem(qaProcessId, code, "PATROL");
-    }
-
-    private static MesQaInspectionRegulationItemDO qaItem(long qaProcessId, String code, String inspectionType) {
-        return MesQaInspectionRegulationItemDO.builder().regulationVersionId(REGULATION_VERSION_ID)
-                .qaProcessId(qaProcessId).itemSort(1).inspectionType(inspectionType)
-                .itemCode(code).itemName("外观")
-                .inspectionMethod("目测").standardText("应符合要求").inspectionTool("目测")
-                .samplingPlanText("按规程抽样").resultType("BOOLEAN").equipmentRequired(false)
-                .firstInspectionQuantity("FIRST".equals(inspectionType) ? 5 : null)
-                .patrolInspectionRatio("PATROL".equals(inspectionType) ? new BigDecimal("25.00") : null)
-                .critical(true).failureRule("任一件不合格即失败").sourceNote("QA 发布来源")
-                .sourceOriginalPage(12).sourceOriginalItem("原始项目")
-                .sourceOriginalExcerpt("原始摘录").sourceOriginalMethod("原始方法").build();
     }
 
     private static String inspectionTypeRulesJson() {
