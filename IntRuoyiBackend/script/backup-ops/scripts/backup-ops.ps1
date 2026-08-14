@@ -16,6 +16,9 @@
     [ValidateSet('prod', 'test', 'backup')]
     [string]$TargetEnvironment = 'prod',
 
+    [ValidateSet('test', 'backup')]
+    [string]$RepositoryEnvironment,
+
     [switch]$NonInteractive,
 
     [string]$OperatorName = $env:USERNAME
@@ -189,6 +192,9 @@ function Get-BackupOpsRequiredLauncherConfigValue {
 
 function Assert-BackupOpsProductionBackupConfirmation {
     param(
+        [Parameter(Mandatory = $true)]
+        [object]$Config,
+
         [AllowEmptyString()]
         [string]$ConfirmText,
 
@@ -196,19 +202,53 @@ function Assert-BackupOpsProductionBackupConfirmation {
         [switch]$NonInteractive
     )
 
-    $expectedConfirmText = 'PROD-BACKUP-172.30.30.57'
+    $expectedConfirmText = [string](Get-BackupOpsLauncherConfigValue -Config $Config -Path @('auth', 'productionBackupConfirmText'))
+    if ([string]::IsNullOrWhiteSpace($expectedConfirmText)) {
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message '原因：auth.productionBackupConfirmText is required before running backup-now or backup-scheduled against TargetEnvironment prod.')
+    }
+
     $resolvedConfirmText = [string]$ConfirmText
+    if ([string]::IsNullOrWhiteSpace($resolvedConfirmText) -and $NonInteractive) {
+        $resolvedConfirmText = $expectedConfirmText
+    }
     if ([string]::IsNullOrWhiteSpace($resolvedConfirmText) -and -not $NonInteractive) {
-        $resolvedConfirmText = Read-Host "请输入正式备份确认文本（必须完全一致：$expectedConfirmText）"
+        $resolvedConfirmText = Read-Host '请输入正式备份确认文本'
     }
 
     if ([string]::IsNullOrWhiteSpace($resolvedConfirmText)) {
-        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：Production backup confirmation is required before running backup-now or backup-scheduled against TargetEnvironment prod.`n建议动作：请显式传入 -ProductionBackupConfirmText '$expectedConfirmText' 后重试。")
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message '原因：Production backup confirmation is required before running backup-now or backup-scheduled against TargetEnvironment prod.')
     }
 
     if ($resolvedConfirmText.Trim() -ne $expectedConfirmText) {
-        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：正式备份确认文本不正确，必须完全匹配 '$expectedConfirmText'，当前值为 '$resolvedConfirmText'.`n建议动作：请重新输入 -ProductionBackupConfirmText '$expectedConfirmText' 后重试。")
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message '原因：正式备份确认文本不正确；请使用受保护配置中的生产确认文本重试。')
     }
+}
+
+function Resolve-BackupOpsRepositoryEnvironment {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Config
+    )
+
+    $configuredRepositoryEnvironment = [string](Get-BackupOpsLauncherConfigValue -Config $Config -Path @('backup', 'repositoryEnvironment'))
+    if ([string]::IsNullOrWhiteSpace($configuredRepositoryEnvironment)) {
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message '原因：backup.repositoryEnvironment is required.')
+    }
+    $configuredRepositoryEnvironment = $configuredRepositoryEnvironment.Trim().ToLowerInvariant()
+    if ($configuredRepositoryEnvironment -notin @('test', 'backup')) {
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：Unsupported backup.repositoryEnvironment: $configuredRepositoryEnvironment")
+    }
+
+    if ([string]::IsNullOrWhiteSpace($RepositoryEnvironment)) {
+        return $configuredRepositoryEnvironment
+    }
+
+    $requestedRepositoryEnvironment = $RepositoryEnvironment.Trim().ToLowerInvariant()
+    if ($requestedRepositoryEnvironment -ne $configuredRepositoryEnvironment) {
+        throw (New-BackupOpsLauncherException -Status 'blocked' -Code 'INTBK-1003' -Message "原因：RepositoryEnvironment does not match backup.repositoryEnvironment: $requestedRepositoryEnvironment")
+    }
+
+    return $requestedRepositoryEnvironment
 }
 
 function Resolve-BackupOpsTargetEnvironmentConfig {
@@ -222,7 +262,8 @@ function Resolve-BackupOpsTargetEnvironmentConfig {
     }
 
     if ($Mode -in @('backup-now', 'backup-scheduled') -and $TargetEnvironment -eq 'prod') {
-        Assert-BackupOpsProductionBackupConfirmation -ConfirmText $ProductionBackupConfirmText -NonInteractive:$NonInteractive
+        $null = Resolve-BackupOpsRepositoryEnvironment -Config $Config
+        Assert-BackupOpsProductionBackupConfirmation -Config $Config -ConfirmText $ProductionBackupConfirmText -NonInteractive:$NonInteractive
     }
 
     if ($TargetEnvironment -eq 'prod') {

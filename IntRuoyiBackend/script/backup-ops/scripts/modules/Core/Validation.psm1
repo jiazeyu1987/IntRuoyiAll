@@ -210,6 +210,7 @@ function Assert-BackupOpsConfiguration {
         @('tools', 'minioClientImage'),
         @('tools', 'archiveImage'),
         @('backup', 'schedule'),
+        @('backup', 'repositoryEnvironment'),
         @('backup', 'localWorkspaceRoot'),
         @('backup', 'keepDaysRemote'),
         @('backup', 'keepDaysLocal'),
@@ -235,6 +236,8 @@ function Assert-BackupOpsConfiguration {
     $requiredSecretPaths = @(
         @('ssh', 'user'),
         @('auth', 'sshKeyPath'),
+        @('auth', 'productionBackupConfirmText'),
+        @('taskPrincipal', 'principalId'),
         @('rehearsal', 'tenantName'),
         @('rehearsal', 'username'),
         @('rehearsal', 'password')
@@ -263,6 +266,10 @@ function Assert-BackupOpsConfiguration {
     $backupFrequency = $backupFrequency.Trim().ToUpperInvariant()
     if ($backupFrequency -notin @('DAILY', 'WEEKLY')) {
         Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.frequency must be DAILY or WEEKLY.' -Target 'backup.frequency'
+    }
+    $repositoryEnvironment = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('backup', 'repositoryEnvironment'))
+    if ($repositoryEnvironment -notin @('test', 'backup')) {
+        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.repositoryEnvironment must be test or backup.' -Target 'backup.repositoryEnvironment'
     }
     $backupWeekday = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('backup', 'weekday'))
     if ($backupFrequency -eq 'WEEKLY' -and $backupWeekday -notmatch '^(?:MON|TUE|WED|THU|FRI|SAT|SUN)$') {
