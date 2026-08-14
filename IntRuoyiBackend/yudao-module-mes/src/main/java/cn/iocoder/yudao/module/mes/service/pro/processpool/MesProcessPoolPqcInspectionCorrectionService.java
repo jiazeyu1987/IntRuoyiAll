@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.PqcResultValueValidator;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcProcessInspectionAggregationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeService;
@@ -433,25 +434,14 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     }
 
     private String resolvePieceJudgement(MesPqcInspectionPieceDetailDO detail, String value) {
-        if ("NUMBER".equals(detail.getResultType())) {
-            try {
-                BigDecimal measuredValue = new BigDecimal(value);
-                boolean belowLowerLimit = detail.getStandardLowerLimit() != null
-                        && measuredValue.compareTo(detail.getStandardLowerLimit()) < 0;
-                boolean aboveUpperLimit = detail.getStandardUpperLimit() != null
-                        && measuredValue.compareTo(detail.getStandardUpperLimit()) > 0;
-                return belowLowerLimit || aboveUpperLimit
-                        ? MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE
-                        : MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
-            } catch (NumberFormatException ex) {
-                return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
-            }
+        try {
+            return PqcResultValueValidator.validate(detail.getResultType(), value,
+                    detail.getStandardLowerLimit(), detail.getStandardUpperLimit(),
+                    detail.getStandardPrecision()).judgement();
+        } catch (IllegalArgumentException ex) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                    "itemResults.sampleValues: " + ex.getMessage());
         }
-        if (("BOOLEAN".equals(detail.getResultType()) || "CHOICE".equals(detail.getResultType()))
-                && "不合格".equals(value)) {
-            return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE;
-        }
-        return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
     }
 
     private ObjectNode requireObject(String json, String fieldName) {

@@ -20,8 +20,9 @@ public interface MesFrontlinePqcContextService {
 
     MesFrontlineEmployeeCandidate requirePqcEmployee(Long loginUserId, Long actualEmployeeId);
 
-    MesFrontlinePqcEmployeeSwitchResult switchPqcActualEmployee(Long loginUserId, Long workOrderId, Long routeId,
+    MesFrontlinePqcEmployeeSwitchResult switchPqcActualEmployee(Long loginUserId, Long activeOrderId,
                                                                 Long regulationVersionId, Long qaProcessId,
+                                                                Long pqcTaskId,
                                                                 Long actualEmployeeId);
 
     Optional<MesFrontlinePqcSubmitResult> getSubmittedPqcInspection(Long loginUserId, Long pqcTaskId);

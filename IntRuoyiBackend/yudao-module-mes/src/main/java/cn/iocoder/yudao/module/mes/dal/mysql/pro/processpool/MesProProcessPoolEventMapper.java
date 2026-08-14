@@ -96,6 +96,17 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
                 .last("LIMIT 1"));
     }
 
+    default List<MesProProcessPoolEventDO> selectListPqcByTaskId(String feedbackSourceType, Long pqcTaskId) {
+        if (feedbackSourceType == null || pqcTaskId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                .eq(MesProProcessPoolEventDO::getFeedbackSourceType, feedbackSourceType)
+                .eq(MesProProcessPoolEventDO::getFeedbackSourceId, pqcTaskId)
+                .orderByAsc(MesProProcessPoolEventDO::getId));
+    }
+
     default List<MesProProcessPoolEventDO> selectProductionSubmitsByWorkOrderAndRoute(Long workOrderId,
                                                                                      Long routeId) {
         if (workOrderId == null || routeId == null) {

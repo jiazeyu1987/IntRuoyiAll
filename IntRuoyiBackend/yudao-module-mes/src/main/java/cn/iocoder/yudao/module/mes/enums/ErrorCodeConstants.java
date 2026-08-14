@@ -550,6 +550,10 @@ public interface ErrorCodeConstants {
             "PQC 检验任务生成前置条件不满足：{}");
     ErrorCode PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT = new ErrorCode(1_040_506_112,
             "PQC 检验任务身份已存在，禁止重复生成：{}");
+    ErrorCode PRO_FRONTLINE_PQC_SUBMISSION_CONTENT_CONFLICT = new ErrorCode(1_040_506_113,
+            "PQC 检验任务已以其它内容提交，taskId={}");
+    ErrorCode PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID = new ErrorCode(1_040_506_114,
+            "PQC 检验结果不符合正式合同：{}");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");

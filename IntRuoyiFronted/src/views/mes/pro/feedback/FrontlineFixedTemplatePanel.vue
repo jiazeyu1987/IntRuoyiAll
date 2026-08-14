@@ -385,6 +385,19 @@
         </section>
 
         <section class="frontline-work-panel frontline-pqc-fill-panel">
+          <label v-if="pqcProductionSubmitCandidates.length" class="frontline-pqc-production-submit">
+            <span>生产提交事件</span>
+            <select v-model="selectedPqcProductionSubmitEventId" data-pqc-production-submit-select>
+              <option :value="undefined">请选择</option>
+              <option
+                v-for="candidate in pqcProductionSubmitCandidates"
+                :key="candidate.eventId"
+                :value="candidate.eventId"
+              >
+                {{ candidate.eventId }} / {{ candidate.serverSubmitTime }}
+              </option>
+            </select>
+          </label>
           <div class="frontline-pqc-type-tabs">
             <button
               v-for="tab in pqcInspectionTypeTabs"
@@ -1568,6 +1581,7 @@ const pqcSignatureDialogVisible = ref(false)
 const pqcSignaturePassword = ref('')
 const pqcSubmitReceipt = ref<FrontlinePqcInspectionSubmitRespVO>()
 const pqcSubmitResultUncertain = ref(false)
+const selectedPqcProductionSubmitEventId = ref<number>()
 
 const isPqcMode = computed(() => props.mode === 'pqc')
 const PRODUCTION_CANVAS_WIDTH = 1920
@@ -1681,6 +1695,12 @@ const activePqcTaskOption = computed<PqcTaskOptionSnapshot | undefined>(() => {
   }
   return getSelectedPqcTaskOption(process)
 })
+
+const pqcProductionSubmitCandidates = computed(() =>
+  isFrontlinePqcProcess(deviceState.selectedProcess)
+    ? deviceState.selectedProcess.productionSubmitCandidates || []
+    : []
+)
 
 const pqcInspectionItems = computed<PqcInspectionItem[]>(() =>
   (activePqcTaskOption.value?.inspectionItems || []).map((item) => ({
@@ -2476,7 +2496,11 @@ const findPqcTaskOption = (
 ) => getPqcTaskOptions(process).find((option) => option.inspectionType === inspectionType)
 
 const formatPqcTaskOptionLabel = (option: PqcTaskOptionSnapshot) =>
-  option.inspectionType === 'FIRST'
+  option.inspectionRuleKey === 'PATROL_AM'
+    ? '上午巡检'
+    : option.inspectionRuleKey === 'PATROL_PM'
+      ? '下午巡检'
+      : option.inspectionType === 'FIRST'
     ? '首检'
     : option.inspectionType === 'FINAL'
       ? '末检'
@@ -2512,6 +2536,7 @@ const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
   pqcSignaturePassword.value = ''
   pqcSubmitReceipt.value = undefined
   pqcSubmitResultUncertain.value = false
+  selectedPqcProductionSubmitEventId.value = undefined
   clearPqcPieceValues()
 }
 
@@ -2526,7 +2551,16 @@ const clearPqcTaskOptionDraft = () => {
   pqcSignaturePassword.value = ''
   pqcSubmitReceipt.value = undefined
   pqcSubmitResultUncertain.value = false
+  selectedPqcProductionSubmitEventId.value = undefined
   clearPqcPieceValues()
+}
+
+const clearPqcExecutionSelection = () => {
+  deviceState.selectedEmployee = undefined
+  deviceState.template = undefined
+  context.actualEmployeeId = undefined
+  employeeTemplateCode.value = undefined
+  clearPqcTaskOptionDraft()
 }
 
 const applyPqcTaskOptionToSelectedProcess = (option: PqcTaskOptionSnapshot) => {
@@ -2536,6 +2570,10 @@ const applyPqcTaskOptionToSelectedProcess = (option: PqcTaskOptionSnapshot) => {
     message.error(error.message)
     throw error
   }
+  deviceState.selectedEmployee = undefined
+  deviceState.template = undefined
+  context.actualEmployeeId = undefined
+  employeeTemplateCode.value = undefined
   applyPqcTaskOptionToDraft(option)
   payloadPreview.value = undefined
 }
@@ -3265,6 +3303,7 @@ const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
   pqcSubmitResultUncertain.value = false
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
+  clearPqcExecutionSelection()
   const selectionRequestId = ++activeOrderSelectionRequestId
   let processes: FrontlinePqcProcessVO[]
   try {
@@ -3309,6 +3348,7 @@ const handleSelectProcess = async (
   }
 
   if (isFrontlinePqcProcess(selectedProcess)) {
+    clearPqcExecutionSelection()
     await selectFrontlinePqcProcess(deviceState, selectedProcess)
   } else {
     await selectFrontlineProcess(deviceState, selectedProcess)
@@ -3356,16 +3396,11 @@ const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
   const selectionRequestId = shouldClosePickerImmediately
     ? ++productionEmployeeSelectionRequestId
     : 0
-  if (isPqcMode.value && !isCurrentLoginEmployee(employee)) {
-    const error = new Error('一线PQC员工已锁定为当前登录账号，不能切换。')
-    message.error(error.message)
-    throw error
-  }
   if (shouldClosePickerImmediately) {
     closePicker()
   }
   const result = isPqcMode.value
-    ? await switchFrontlinePqcActualEmployee(deviceState, employee.userId)
+    ? await switchFrontlinePqcActualEmployee(deviceState, activePqcTaskOption.value, employee.userId)
     : await switchFrontlineActualEmployee(deviceState, employee.userId)
   if (shouldClosePickerImmediately && selectionRequestId !== productionEmployeeSelectionRequestId) {
     return
@@ -3562,6 +3597,12 @@ const assertPqcSignatureAndQuantityReady = (requirePassword = false) => {
   }
 }
 
+const assertPqcFormalSubmissionReady = () => {
+  if (!deviceState.selectedEmployee || !activePqcTaskOption.value) {
+    throw new Error('请先完成PQC人员和任务切换。')
+  }
+}
+
 const handleValidate = async () => {
   if (pqcSubmitResultUncertain.value) {
     message.error('PQC正式提交结果不确定，请刷新页面或联系组长核对后再操作。')
@@ -3586,6 +3627,7 @@ const handleValidate = async () => {
     return
   }
   try {
+    assertPqcFormalSubmissionReady()
     assertPqcSignatureAndQuantityReady()
     assertPqcInspectionDisplayFieldsReady()
   } catch (error) {
@@ -4030,7 +4072,7 @@ const buildPqcInspectionSubmitPayload = (): FrontlinePqcInspectionSubmitReqVO =>
   const process = deviceState.selectedProcess
   const employee = deviceState.selectedEmployee
   const taskOption = activePqcTaskOption.value
-  if (!isFrontlinePqcProcess(process) || !taskOption) {
+  if (!isFrontlinePqcProcess(process) || !taskOption || !employee) {
     throw new Error('缺少PQC任务上下文，无法提交。')
   }
   const inspectionResult = resolvePqcResult()
@@ -4041,6 +4083,8 @@ const buildPqcInspectionSubmitPayload = (): FrontlinePqcInspectionSubmitReqVO =>
     pqcTaskId: taskOption.pqcTaskId,
     regulationVersionId: taskOption.regulationVersionId,
     qaProcessId: taskOption.qaProcessId,
+    actualEmployeeId: employee.userId,
+    productionSubmitEventId: selectedPqcProductionSubmitEventId.value,
     workOrderId: activeOrder?.workOrderId,
     routeId: process.routeId,
     inspectionType: taskOption.inspectionType,

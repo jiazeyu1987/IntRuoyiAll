@@ -92,6 +92,34 @@ public class MesProBatchRecordExecutionSignatureService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public Long recordPqcSubmitSignature(Long actorId, String password, String comment) {
+        if (actorId == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        AdminUserDO user = adminUserService.getUser(actorId);
+        if (user == null || !authorizationService.isElectronicSignatureEnabled(actorId)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_PQC_SUBMIT,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null);
+    }
+
+    public void validatePqcSubmitSignature(Long actorId, String password) {
+        if (actorId == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        AdminUserDO user = adminUserService.getUser(actorId);
+        if (user == null || !authorizationService.isElectronicSignatureEnabled(actorId)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        if (StrUtil.isBlank(user.getPassword())
+                || !adminUserService.isPasswordMatch(password, user.getPassword())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public Long recordTeamLeaderReviewSignature(Long actorId, String password, String comment) {
         if (actorId == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);

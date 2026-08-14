@@ -8,13 +8,9 @@ import lombok.Data;
 @Data
 public class MesFrontlinePqcSwitchEmployeeReqVO {
 
-    @Schema(description = "生产工单编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "生产工单编号不能为空")
-    private Long workOrderId;
-
-    @Schema(description = "工艺路线编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "工艺路线编号不能为空")
-    private Long routeId;
+    @Schema(description = "活跃订单编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "活跃订单编号不能为空")
+    private Long activeOrderId;
 
     @Schema(description = "QA 规程发布版本编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "QA 规程发布版本编号不能为空")
@@ -23,6 +19,10 @@ public class MesFrontlinePqcSwitchEmployeeReqVO {
     @Schema(description = "QA 工序编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "QA 工序编号不能为空")
     private Long qaProcessId;
+
+    @Schema(description = "PQC 检验任务编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "PQC 检验任务不能为空")
+    private Long pqcTaskId;
 
     @Schema(description = "实际填写员工编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "实际填写员工编号不能为空")

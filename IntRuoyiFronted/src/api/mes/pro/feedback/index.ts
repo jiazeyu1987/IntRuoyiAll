@@ -357,10 +357,10 @@ export interface FrontlineSwitchActualEmployeeReqVO {
 }
 
 export interface FrontlinePqcSwitchActualEmployeeReqVO {
-  workOrderId: number
-  routeId: number
+  activeOrderId: number
   regulationVersionId: number
   qaProcessId: number
+  pqcTaskId: number
   actualEmployeeId: number
 }
 
@@ -372,10 +372,12 @@ export interface FrontlinePqcItemResultSubmitReqVO {
 }
 
 export interface FrontlinePqcInspectionSubmitReqVO {
-  activeOrderId?: number
+  activeOrderId: number
   pqcTaskId: number
   regulationVersionId: number
   qaProcessId: number
+  actualEmployeeId: number
+  productionSubmitEventId?: number
   workOrderId?: number
   routeId?: number
   inspectionType?: string
@@ -383,7 +385,7 @@ export interface FrontlinePqcInspectionSubmitReqVO {
   shiftCode?: string
   roundNo?: number
   actualInspectionQuantity: number
-  scrapQuantity?: number
+  scrapQuantity: number
   signaturePassword: string
   nonconformanceDescription?: string
   itemResults?: FrontlinePqcItemResultSubmitReqVO[]
