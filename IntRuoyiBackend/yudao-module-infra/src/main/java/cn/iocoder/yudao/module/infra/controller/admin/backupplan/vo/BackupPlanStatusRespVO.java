@@ -25,6 +25,12 @@ public class BackupPlanStatusRespVO {
     @Schema(description = "每周星期")
     private String weekday;
 
+    @Schema(description = "备份仓库环境：test/backup")
+    private String repositoryEnvironment;
+
+    @Schema(description = "最近成功备份点最大新鲜度小时数")
+    private Integer maxFreshnessHours;
+
     @Schema(description = "下次运行时间")
     private LocalDateTime nextRunTime;
 

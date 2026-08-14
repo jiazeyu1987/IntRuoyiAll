@@ -19,6 +19,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -88,6 +89,7 @@ class RuntimeBackupDrillServiceImplTest {
         assertEquals("nas-backup-points/20260526-010203/manifest/manifest.json",
                 backupPoint.getManifestPath());
         assertEquals("20260526_010203", backupPoint.getImageTag());
+        assertEquals(LocalDateTime.of(2026, 5, 26, 1, 2, 3), backupPoint.getCompletedAt());
         assertEquals("incremental-manifest", backupPoint.getBackupMode());
         assertEquals(5, backupPoint.getRetentionKeepLast());
         assertEquals(30, backupPoint.getRetentionKeepDays());
@@ -105,6 +107,20 @@ class RuntimeBackupDrillServiceImplTest {
         assertEquals("PASSED", backupPoint.getRehearsalStatus());
         assertNotNull(backupPoint.getLastVerifiedAt());
         assertTrue(backupPoint.getUnrecoverableReasons().isEmpty());
+    }
+
+    @Test
+    void listBackupPointsShouldExposeNullCompletedAtWhenManifestCompletedAtIsInvalid() throws Exception {
+        createBackupPoint("20260526-010203", true, true, false, false, false);
+        Files.writeString(backupPointsRoot.resolve("20260526-010203").resolve("manifest").resolve("manifest.json"),
+                """
+                        {"backupId":"20260526-010203","targetEnvironment":"test","targetHost":"172.30.30.58","time":{"completedAt":"not-a-date"},"deploy":{"imageTag":"20260526_010203"},"backupStrategy":{"mode":"incremental-manifest"},"retentionPolicy":{"keepLast":5,"keepDays":30,"maxNasUsedPercent":90},"objectDeltaStats":{"addedCount":1,"modifiedCount":2,"deletedCount":3,"reusedCount":4}}
+                        """, StandardCharsets.UTF_8);
+
+        RuntimeControlBackupPointRespVO backupPoint = backupDrillService.listBackupPoints().get(0);
+
+        assertNull(backupPoint.getCompletedAt());
+        assertEquals("RECOVERABLE", backupPoint.getRecoverabilityStatus());
     }
 
     @Test
@@ -164,7 +180,7 @@ class RuntimeBackupDrillServiceImplTest {
         if (manifest) {
             Files.writeString(root.resolve("manifest").resolve("manifest.json"),
                     """
-                            {"backupId":"%s","targetEnvironment":"test","targetHost":"172.30.30.58","deploy":{"imageTag":"20260526_010203"},"backupStrategy":{"mode":"incremental-manifest"},"retentionPolicy":{"keepLast":5,"keepDays":30,"maxNasUsedPercent":90},"objectDeltaStats":{"addedCount":1,"modifiedCount":2,"deletedCount":3,"reusedCount":4}}
+                            {"backupId":"%s","targetEnvironment":"test","targetHost":"172.30.30.58","time":{"completedAt":"2026-05-26T01:02:03"},"deploy":{"imageTag":"20260526_010203"},"backupStrategy":{"mode":"incremental-manifest"},"retentionPolicy":{"keepLast":5,"keepDays":30,"maxNasUsedPercent":90},"objectDeltaStats":{"addedCount":1,"modifiedCount":2,"deletedCount":3,"reusedCount":4}}
                             """.formatted(backupId), StandardCharsets.UTF_8);
             Files.writeString(root.resolve("manifest").resolve("dcc-backup-manifest.json"),
                     """

@@ -124,6 +124,7 @@ public class RuntimeBackupDrillServiceImpl implements RuntimeBackupDrillService 
         }
         String deployImageTag = text(manifest.at("/deploy"), "imageTag");
         backupPoint.setImageTag(StrUtil.blankToDefault(deployImageTag, text(manifest, "imageTag")));
+        backupPoint.setCompletedAt(parseManifestCompletedAt(manifest));
         backupPoint.setBackupMode(text(manifest.at("/backupStrategy"), "mode"));
         JsonNode retentionPolicy = manifest.at("/retentionPolicy");
         backupPoint.setRetentionKeepLast(integer(retentionPolicy, "keepLast"));
@@ -134,6 +135,21 @@ public class RuntimeBackupDrillServiceImpl implements RuntimeBackupDrillService 
         backupPoint.setObjectModifiedCount(integer(objectDeltaStats, "modifiedCount"));
         backupPoint.setObjectDeletedCount(integer(objectDeltaStats, "deletedCount"));
         backupPoint.setObjectReusedCount(integer(objectDeltaStats, "reusedCount"));
+    }
+
+    private LocalDateTime parseManifestCompletedAt(JsonNode manifest) {
+        String value = firstText(manifest, List.of("completedAt", "finishedAt"));
+        if (StrUtil.isBlank(value)) {
+            value = firstText(manifest.at("/time"), List.of("completedAt", "finishedAt"));
+        }
+        if (StrUtil.isBlank(value)) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(value);
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     private void populateDccManifestSummary(RuntimeControlBackupPointRespVO backupPoint, String dccManifestPath,

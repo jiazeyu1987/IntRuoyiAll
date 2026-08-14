@@ -21,6 +21,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 
@@ -61,7 +63,7 @@ public class BackupPlanServiceImpl implements BackupPlanService {
 
     @Override
     public BackupPlanStatusRespVO getStatus() {
-        BackupPlanSchedule schedule = readSchedule();
+        BackupPlanSchedule schedule = readSchedule(false);
         BackupPlanSchedulerStatus schedulerStatus = schedulerGateway.getStatus();
         List<RuntimeControlBackupPointRespVO> backupPoints = backupDrillService.listBackupPoints();
         return buildStatus(schedule, schedulerStatus, backupPoints.isEmpty() ? null : backupPoints.get(0));
@@ -78,7 +80,7 @@ public class BackupPlanServiceImpl implements BackupPlanService {
 
     @Override
     public BackupPlanStatusRespVO enable() {
-        BackupPlanSchedule schedule = readSchedule();
+        BackupPlanSchedule schedule = readSchedule(true);
         assertBackupScriptsExist(schedule);
         schedulerGateway.registerOrUpdate(schedule);
         schedulerGateway.enable();
@@ -110,23 +112,87 @@ public class BackupPlanServiceImpl implements BackupPlanService {
         respVO.setFrequency(schedule.getFrequency());
         respVO.setTime(schedule.getTime());
         respVO.setWeekday(schedule.getWeekday());
+        respVO.setRepositoryEnvironment(schedule.getRepositoryEnvironment());
+        respVO.setMaxFreshnessHours(schedule.getMaxFreshnessHours());
         respVO.setNextRunTime(schedulerStatus.getNextRunTime());
         respVO.setLastRunTime(schedulerStatus.getLastRunTime());
         respVO.setLastResultCode(schedulerStatus.getLastResultCode());
-        respVO.setBlockedReason(schedulerStatus.getBlockedReason());
+        String blockedReason = firstBlockedReason(scheduleConfigBlockedReason(schedule), schedulerBlockedReason(schedule, schedulerStatus),
+                backupFreshnessBlockedReason(schedule, latestBackupPoint));
+        respVO.setBlockedReason(blockedReason);
         respVO.setLatestBackupPoint(latestBackupPoint);
         boolean enabled = Boolean.TRUE.equals(schedulerStatus.getEnabled());
         respVO.setPlanStatus(enabled ? "已开启" : "已关闭");
-        if (StrUtil.isNotBlank(schedulerStatus.getBlockedReason())) {
+        if (schedulerStatus.getQueryExitCode() != null && schedulerStatus.getQueryExitCode() != 0) {
             respVO.setHealthStatus("配置异常");
         } else if (!enabled) {
             respVO.setHealthStatus("已关闭");
         } else if (schedulerStatus.getLastResultCode() != null && schedulerStatus.getLastResultCode() != 0) {
             respVO.setHealthStatus("上次失败");
+            if (StrUtil.isBlank(respVO.getBlockedReason())) {
+                respVO.setBlockedReason("计划任务上次运行失败：" + schedulerStatus.getLastResultCode());
+            }
+        } else if (StrUtil.isNotBlank(blockedReason)) {
+            respVO.setHealthStatus("配置异常");
         } else {
             respVO.setHealthStatus("正常");
         }
         return respVO;
+    }
+
+    private String firstBlockedReason(String... reasons) {
+        for (String reason : reasons) {
+            if (StrUtil.isNotBlank(reason)) {
+                return reason;
+            }
+        }
+        return null;
+    }
+
+    private String scheduleConfigBlockedReason(BackupPlanSchedule schedule) {
+        if (!List.of("test", "backup").contains(schedule.getRepositoryEnvironment())) {
+            return "backup.repositoryEnvironment 必须显式配置为 test 或 backup";
+        }
+        if (schedule.getMaxFreshnessHours() == null || schedule.getMaxFreshnessHours() <= 0) {
+            return "backup.maxFreshnessHours 必须配置为正整数";
+        }
+        return null;
+    }
+
+    private String schedulerBlockedReason(BackupPlanSchedule schedule, BackupPlanSchedulerStatus schedulerStatus) {
+        if (StrUtil.isNotBlank(schedulerStatus.getBlockedReason())) {
+            return schedulerStatus.getBlockedReason();
+        }
+        String taskToRun = schedulerStatus.getTaskToRun();
+        if (StrUtil.isNotBlank(taskToRun)) {
+            String expectedScript = schedule.getBackupScriptPath().toString().toLowerCase(Locale.ROOT);
+            String actualCommand = taskToRun.toLowerCase(Locale.ROOT);
+            if (!actualCommand.contains(expectedScript)) {
+                return "计划任务脚本路径异常";
+            }
+        }
+        if (Boolean.TRUE.equals(schedulerStatus.getEnabled()) && schedulerStatus.getNextRunTime() == null) {
+            return "下次运行时间缺失";
+        }
+        return null;
+    }
+
+    private String backupFreshnessBlockedReason(BackupPlanSchedule schedule,
+                                                RuntimeControlBackupPointRespVO latestBackupPoint) {
+        if (schedule.getMaxFreshnessHours() == null || schedule.getMaxFreshnessHours() <= 0) {
+            return null;
+        }
+        if (latestBackupPoint == null) {
+            return "最近成功备份点缺失";
+        }
+        if (latestBackupPoint.getCompletedAt() == null) {
+            return "最近成功备份点 manifest completedAt 缺失或非法";
+        }
+        long ageHours = Duration.between(latestBackupPoint.getCompletedAt(), LocalDateTime.now()).toHours();
+        if (ageHours > schedule.getMaxFreshnessHours()) {
+            return "最近成功备份点 completedAt 超过 backup.maxFreshnessHours";
+        }
+        return null;
     }
 
     private BackupPlanSchedule normalizeSchedule(BackupPlanScheduleSaveReqVO reqVO) {
@@ -142,14 +208,14 @@ public class BackupPlanServiceImpl implements BackupPlanService {
         if (WEEKLY.equals(frequency) && !WEEKDAYS.contains(weekday)) {
             throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "weekday");
         }
-        BackupPlanSchedule schedule = baseSchedule();
+        BackupPlanSchedule schedule = readSchedule(true);
         schedule.setFrequency(frequency);
         schedule.setTime(time);
         schedule.setWeekday(WEEKLY.equals(frequency) ? weekday : null);
         return schedule;
     }
 
-    private BackupPlanSchedule readSchedule() {
+    private BackupPlanSchedule readSchedule(boolean strict) {
         Path configPath = resolveConfigPath();
         JsonNode root = readConfig(configPath);
         JsonNode backup = root.path("backup");
@@ -160,7 +226,31 @@ public class BackupPlanServiceImpl implements BackupPlanService {
         schedule.setFrequency(frequency);
         schedule.setTime(scheduleTime);
         schedule.setWeekday(weekday);
+        schedule.setRepositoryEnvironment(readRepositoryEnvironment(backup, strict));
+        schedule.setMaxFreshnessHours(readMaxFreshnessHours(backup, strict));
         return schedule;
+    }
+
+    private String readRepositoryEnvironment(JsonNode backup, boolean strict) {
+        String repositoryEnvironment = StrUtil.trimToEmpty(backup.path("repositoryEnvironment").asText(null)).toLowerCase(Locale.ROOT);
+        if (!List.of("test", "backup").contains(repositoryEnvironment)) {
+            if (strict) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "backup.repositoryEnvironment");
+            }
+            return null;
+        }
+        return repositoryEnvironment;
+    }
+
+    private Integer readMaxFreshnessHours(JsonNode backup, boolean strict) {
+        JsonNode node = backup.path("maxFreshnessHours");
+        if (!node.isInt() || node.asInt() <= 0) {
+            if (strict) {
+                throw exception(RUNTIME_CONTROL_ACTION_PARAMETER_REQUIRED, "backup.maxFreshnessHours");
+            }
+            return null;
+        }
+        return node.asInt();
     }
 
     private BackupPlanSchedule baseSchedule() {
