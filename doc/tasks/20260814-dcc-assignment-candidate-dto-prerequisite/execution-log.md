@@ -40,3 +40,14 @@
 - GREEN: `task.md` 尾部空白格式问题已修正，逐文件 whitespace gate -> PASS。
 - GREEN: 独立 Agent 验证 -> PASS；正式字段合同、消费者一致性、UTF-8、冲突标记、禁止项与精确文件范围均无发现。
 - STATUS: 实现和必需验证已完成，状态进入 `ready_for_closeout`；剩余为精确提交、`int_main` 快进合并和任务 worktree 清理。
+
+## Closeout
+
+- COMMIT: 仅暂存两个 DTO 与六份任务证据，提交 `f7e540c937bb825077bf0f6f149f6a4c13af163a`（`fix(dcc): restore assignment candidate DTO contracts`）。
+- MERGE: `int_main` 从 `bba5ba689a75008a0fb8d1ce3eb9f38ee68e47a4` 以 `git merge --ff-only` 快进到 `f7e540c937bb825077bf0f6f149f6a4c13af163a`；未合入其它工作区改动。
+- RECOVERY: 首次快进被 0 字节、超过 7 小时且无活动 Git 进程的 `.git/index.lock` 拦截；按陈旧锁门禁只删除该精确锁文件后重试成功，分支和工作区内容未丢失。
+- PRESERVATION: 主工作区两个未跟踪 DTO 在合并前与任务实现逐文件内容等值；既有 patch 备份 `doc/tasks/20260814-fast-forward-int-main/patch-backups/20260814-dcc-assignment-candidate-dtos-untracked.patch` 保持未应用且 SHA-256 为 `4DD0EF21D2D297318491EA68BA1FCE439B6082D901C03678D36E750C4829AB74`。临时原文件副本移入可恢复目录 `D:/IntRuoyiWorktree/.cleanup-trash/20260815-dcc-dto-prerequisite-merge-protect`。
+- GREEN: 合并后在 `int_main` 复跑 DCC service + mapper reactor 回归 -> PASS；23 项，Failures 0、Errors 0、Skipped 0，`BUILD SUCCESS`。
+- CLEANUP: `task-closeout-cleanup` preview/apply -> PASS；保留全部正式任务记录、技能证据和独立报告，删除项为空。
+- CLEANUP: 隔离 worktree 已移除，Git 注册与物理目录均不存在；8095/48095 无监听；slot 14 登记在官方互斥锁内更新为 `active=false`，branch runtime guard PASS；已删除合并完成的任务分支。
+- STATUS: `completed`。未 push、未部署、未操作远端或共享业务数据，未自动套回任何冲突旧改动。

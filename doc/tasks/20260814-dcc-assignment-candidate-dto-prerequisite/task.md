@@ -10,8 +10,8 @@
 - [x] M2：建立隔离 worktree、释放本任务空 worktree 槽位并登记 `int_main slot 14`。
 - [x] M3：记录 BDD，复现干净 checkout 的编译 RED。
 - [x] M4：仅新增两个正式 DTO，运行目标测试和回归 GREEN。
-- [ ] M5：主管代码评审、独立 Agent 验证、提交并 `--ff-only` 合入 `int_main`。
-- [ ] M6：按规则清理本任务 worktree 和端口登记。
+- [x] M5：主管代码评审、独立 Agent 验证、提交并 `--ff-only` 合入 `int_main`。
+- [x] M6：按规则清理本任务 worktree 和端口登记。
 
 ## 预期验证
 
@@ -35,4 +35,4 @@
 
 ## Current Status
 
-ready_for_closeout
+completed

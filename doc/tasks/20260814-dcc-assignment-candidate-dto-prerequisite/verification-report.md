@@ -3,7 +3,7 @@
 ## Scope
 
 - Verification for the isolated missing DTO prerequisite only.
-- Commit, fast-forward merge and worktree cleanup remain pending closeout operations.
+- Commit, fast-forward merge and worktree cleanup are complete.
 
 ## BDD And TDD
 
@@ -40,4 +40,4 @@
 
 ## Verdict
 
-PASS. The task is `ready_for_closeout`; only exact commit, `int_main` fast-forward merge and task-owned worktree cleanup remain.
+PASS. Commit `f7e540c937bb825077bf0f6f149f6a4c13af163a` was fast-forward merged into `int_main`. The same 23-test DCC reactor regression passed after merge. Cleanup preview/apply passed with all formal evidence retained; the linked worktree, branch and active slot registration were removed. The preserved old patch remains unapplied. Task status is `completed`.
