@@ -575,7 +575,7 @@ type CodexTestMethodItem = {
 
 const runningExecutionStatuses = ['PENDING', 'CLAIMED', 'RUNNING']
 
-const queryParams = reactive<CodexTestApi.CodexTestCasePageReqVO>({
+const queryParams = reactive<CodexTestApi.CodexTestCasePageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: 10,
   name: '',

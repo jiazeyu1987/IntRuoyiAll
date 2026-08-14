@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.QuickFilterUtils;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCandidatePageReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -150,6 +151,35 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
             """)
     List<DccControlledFileDO> selectCurrentApprovedFilesByIds0(@Param("fileIds") Collection<Long> fileIds);
 
+    default PageResult<DccControlledFileDO> selectAssignmentCandidatePage(
+            DccProjectCodeAssignmentCandidatePageReqVO reqVO) {
+        String keyword = StrUtil.trimToNull(reqVO.getKeyword());
+        LambdaQueryWrapperX<DccControlledFileDO> query = new LambdaQueryWrapperX<DccControlledFileDO>()
+                .in(DccControlledFileDO::getStatus, List.of(
+                        DccControlledFileStatusEnum.ACTIVE.getStatus(),
+                        DccControlledFileStatusEnum.APPROVED.getStatus(),
+                        DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus()));
+        query.isNotNull(DccControlledFileDO::getMasterId);
+        if (keyword != null) {
+            query.and(wrapper -> wrapper.like(DccControlledFileDO::getFileName, keyword)
+                    .or().like(DccControlledFileDO::getTitle, keyword)
+                    .or().like(DccControlledFileDO::getFileNumber, keyword));
+        }
+        query.apply("""
+                NOT EXISTS (
+                    SELECT 1
+                    FROM dcc_controlled_file newer_file
+                    WHERE newer_file.deleted = 0
+                      AND newer_file.master_id = dcc_controlled_file.master_id
+                      AND newer_file.status IN ('ACTIVE', 'APPROVED', 'PENDING_DOC_CONTROL_REVIEW')
+                      AND newer_file.id > dcc_controlled_file.id
+                )
+                """);
+        query.orderByDesc(DccControlledFileDO::getCreateTime)
+                .orderByDesc(DccControlledFileDO::getId);
+        return selectPage(reqVO, query);
+    }
+
     default long selectCountByReferencedFileId(Long fileId) {
         if (fileId == null) {
             return 0L;
@@ -184,10 +214,16 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
               ON source_owner.tenant_id = controlled_file.tenant_id
              AND source_owner.controlled_file_id = controlled_file.id
              AND source_owner.deleted = 0
+            LEFT JOIN dcc_controlled_file_source_migration source_migration
+              ON source_migration.tenant_id = controlled_file.tenant_id
+             AND source_migration.controlled_file_id = controlled_file.id
+             AND source_migration.deleted = 0
             WHERE controlled_file.tenant_id = #{tenantId}
               AND controlled_file.source_file_id IS NOT NULL
               AND source_owner.id IS NULL
-            ORDER BY controlled_file.source_file_id, controlled_file.id
+            ORDER BY CASE WHEN source_migration.migration_status = 'FAILED' THEN 1 ELSE 0 END,
+                     controlled_file.source_file_id,
+                     controlled_file.id
             LIMIT #{limit}
             """)
     List<DccControlledFileDO> selectUnownedSourceReferences(@Param("tenantId") Long tenantId,

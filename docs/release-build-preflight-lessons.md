@@ -841,12 +841,16 @@
 
 ## 2026-07-27 OnlyOffice public-file-base URL 容器健康检查引号门禁
 
-- Trigger: `publish-test` / `deploy-release` 包含 OnlyOffice，发布脚本需要从 `intruoyi-onlyoffice` 容器内校验 `DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL` 是否能访问后端健康检查。
-- Preflight check: 容器内 URL 校验命令不得通过嵌套 `sh -lc` 拼接带引号 URL；应先用脚本内单引号 literal 函数生成 URL 参数，再直接执行 `docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 '<healthUrl>'`。静态测试必须断言目标函数内不存在 `docker exec intruoyi-onlyoffice sh -lc`。
-- Blocker: `ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE` 出现时，若从 `intruoyi-onlyoffice` 容器直接 `wget` / `curl` 同一 `backend:48081/actuator/health` 返回 200，必须判定为发布脚本校验命令问题，不能把运行态网络或 OnlyOffice 配置当作失败根因。
-- Verification: 运行 `python -X utf8 -m pytest script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url -q` 和扩展发布脚本回归；远端复验用容器内 `wget http://backend:48081/actuator/health` 或等价 curl 证明真实网络路径。
-- Forbidden action: 不得复用已失败 releaseTag；不得因为外部 backend/frontend/OnlyOffice HTTP 200 就手工标记发布成功；不得跳过 OnlyOffice 容器内可达性检查。
-- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`release-20260727-onlyoffice-test-r260727-codeonly-r4` 容器已切换且外部健康通过，但最终校验因 `sh -lc` 拆参失败，发布锁已收口为 `FAILED`，后续必须用新 tag。
+- Trigger: `publish-test` / `deploy-release` 包含 OnlyOffice，或只发布/重启后端但后端会重新生成 OnlyOffice 文件下载地址；发布脚本需要从 `intruoyi-onlyoffice` 容器内校验 `DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL` 是否能访问后端健康检查。
+- Preflight check: 远端 Compose 运行态的 `DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL` 必须固定为 `http://backend:48081`，不得继承远端陈旧值或使用 Linux 容器可能无法解析的 `host.docker.internal`。容器内 URL 校验命令不得通过嵌套 `sh -lc` 拼接带引号 URL；应先用脚本内单引号 literal 函数生成 URL 参数，再直接执行 `docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 '<healthUrl>'`。静态测试必须覆盖完整发布、后端单独发布和远程后端重启。
+- Blocker: `ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE`、`getaddrinfo ENOTFOUND host.docker.internal` 或 OnlyOffice 错误码 -4 出现时必须停止；若从 `intruoyi-onlyoffice` 容器直接 `wget` / `curl` 同一 `backend:48081/actuator/health` 返回 200，则判定为配置继承或校验命令问题，不能把浏览器可访问或外部容器健康当作文件下载链路成功。
+- Verification: 运行 `python -X utf8 -m pytest script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_remote_backend_deploy_replaces_stale_onlyoffice_public_file_url script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_remote_restart_checks_onlyoffice_public_file_url_from_document_server_container -q` 和扩展发布脚本回归；远端复验用 OnlyOffice 容器内 `curl http://backend:48081/actuator/health` 证明真实网络路径，并通过真实受控预览确认目标工作簿加载成功。
+- Forbidden action: 不得复用已失败 releaseTag；不得因为外部 backend/frontend/OnlyOffice HTTP 200 就手工标记发布成功；不得让后端单独发布/重启跳过 OnlyOffice 容器内可达性检查；不得保留 `host.docker.internal` 作为远端 fallback。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`doc/tasks/20260813-test-onlyoffice-xlsx-download-failed/verification-report.md`；`release-20260727-onlyoffice-test-r260727-codeonly-r4` 容器已切换且外部健康通过，但最终校验因 `sh -lc` 拆参失败，发布锁已收口为 `FAILED`，后续必须用新 tag。
+- 2026-08-13 增量门禁：只验证 HTTP/容器健康和 `backend:48081` 可达仍不足以证明 Office 预览可用。后端或前端发布必须在成功锁之前，由 Playwright 经真实前端登录逐一打开固定的 DOCX、XLSX、PPTX 正式受控样本，确认元数据为 `OFFICE`、只读水印存在、OnlyOffice iframe/content 已加载且页面无文档错误；任一类型缺账号、文件 ID、读取权限或真实内容均 fail fast。发布验收凭据使用服务器专用权限 `600` 的 env-file，禁止进入 release package、业务 `.env`、任务文档或命令输出。
+- 2026-08-13 样本有效性：代表记录存在、扩展名正确、状态为 ACTIVE 不等于样本健康。若 OnlyOffice 返回 `-85`（内容与扩展名不匹配）、底层 OOXML 不是 ZIP 内容或转换失败，该样本必须从门禁配置中剔除并补充新的正式受控样本；不得用临时上传、改扩展名或 API-only 探针冒充正式页面 E2E。PPTX 等业务入口当前不允许提交时，应明确阻塞补数或单独评审业务范围，不能在发布任务中顺手放宽上传格式。
+- 2026-08-13 日志边界：在真实三类预览前记录 converter/docservice 的行数，预览后只扫描新增日志，命中 `[ERROR]`、DNS、`checkIpFilter`、下载或转换错误即将发布锁置为 FAILED。不得扫描容器全部历史日志造成旧错误误阻断，也不得只匹配 `download/convert` 关键词而漏掉通用 `[ERROR]` 与错误码。
+- Evidence: `doc/tasks/20260813-onlyoffice-release-real-preview-gate/ci-cd-evidence.md`；测试服 DOCX/XLSX 通过，唯一 PPTX 正式样本因 `-85` 被门禁按设计阻断。
 
 ## 2026-07-27 code-only 空 APPLY 队列门禁
 

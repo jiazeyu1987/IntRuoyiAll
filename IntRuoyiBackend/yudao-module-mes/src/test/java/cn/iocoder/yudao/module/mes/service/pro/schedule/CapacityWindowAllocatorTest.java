@@ -134,6 +134,14 @@ class CapacityWindowAllocatorTest {
         assertEquals(LocalDateTime.of(2026, 5, 15, 9, 0), windows.get(0).usableEnd);
     }
 
+    @Test
+    void calculateShiftCapacityMinutes_shouldUseTheSameCrossDayRuleAsScheduling() {
+        assertEquals(480, allocator.calculateShiftCapacityMinutes(
+                shift(31L, "NIGHT", "20:00", "04:00")));
+        assertEquals(480, allocator.calculateShiftCapacityMinutes(
+                shift(30L, "DAY", "08:00", "16:00")));
+    }
+
     private MesCalPlanShiftDO shift(Long id, String name, String startTime, String endTime) {
         return MesCalPlanShiftDO.builder()
                 .id(id)

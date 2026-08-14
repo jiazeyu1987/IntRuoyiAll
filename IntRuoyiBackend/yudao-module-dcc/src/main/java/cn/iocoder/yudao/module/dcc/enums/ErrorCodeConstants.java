@@ -308,5 +308,7 @@ public interface ErrorCodeConstants {
             "正式源文件隔离失败：{}");
     ErrorCode CONTROLLED_FILE_SOURCE_MIGRATION_CONFLICT = new ErrorCode(1_080_000_206,
             "正式源文件历史迁移发生并发变更：controlledFileId={}");
+    ErrorCode CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED = new ErrorCode(1_080_000_207,
+            "历史签名受控副本绑定迁移被阻止：{}");
 
 }

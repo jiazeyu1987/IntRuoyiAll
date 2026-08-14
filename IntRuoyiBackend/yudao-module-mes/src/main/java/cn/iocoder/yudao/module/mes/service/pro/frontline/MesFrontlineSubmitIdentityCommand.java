@@ -8,5 +8,7 @@ public record MesFrontlineSubmitIdentityCommand(Long loginUserId,
                                                 Long routeId,
                                                 Long routeProcessId,
                                                 Long processId,
-                                                String templateNo) {
+                                                String templateNo,
+                                                String frontlineSessionSnapshotId,
+                                                String frontlineSessionSnapshotHash) {
 }

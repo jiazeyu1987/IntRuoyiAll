@@ -82,6 +82,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
     @Mock
     private MesWorkOrderAbnormalStateService abnormalStateService;
+    @Mock
+    private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     private MesTeamLeaderSubmissionReviewService submissionReviewService;
     private MesTeamLeaderReportConfirmationService reportConfirmationService;
@@ -97,7 +99,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 activeOrderMapper, workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper,
                 pqcRecordMapper, fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper,
                 pqcPieceDetailMapper, orderProcessTargetService, orderProcessCompletionService,
-                abnormalStateService);
+                abnormalStateService, reportManagementSummaryService);
     }
 
     @Test

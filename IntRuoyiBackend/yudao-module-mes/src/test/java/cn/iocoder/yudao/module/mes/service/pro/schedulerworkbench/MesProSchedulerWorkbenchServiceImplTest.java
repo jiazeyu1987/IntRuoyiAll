@@ -23,6 +23,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -37,9 +38,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 
 @ExtendWith(MockitoExtension.class)
@@ -66,6 +69,8 @@ class MesProSchedulerWorkbenchServiceImplTest {
     private MesProRouteScheduleConfigMapper routeScheduleConfigMapper;
     @Mock
     private MesProRouteScheduleConfigService routeScheduleConfigService;
+    @Mock
+    private MesProSchedulerWorkbenchRuntimeStatusService runtimeStatusService;
 
     @Test
     void getSummary_shouldAggregateTodayStatsAndFixedSchedulerSteps() {
@@ -238,6 +243,8 @@ class MesProSchedulerWorkbenchServiceImplTest {
         assertEquals(false, settings.getDefaultNightShiftEnabled());
         assertEquals(5, settings.getDefaultWorkerQuantity());
         assertEquals(new BigDecimal("30"), settings.getDefaultWorkerSingleHourlyCapacity());
+        assertEquals("人效h仅影响资源计算模式且产能来源为人工的工序；设备产能、手工覆盖和无限公式不受影响。人数仅作为新配置默认值，不强制重算现有工位。",
+                settings.getWorkerCapacityApplicabilityText());
         assertEquals(null, settings.getDefaultInfiniteDurationQuantityFactorHours());
         assertEquals(null, settings.getDefaultInfiniteDurationBaseHours());
     }
@@ -245,6 +252,7 @@ class MesProSchedulerWorkbenchServiceImplTest {
     @Test
     void savePolicySettings_shouldCreateInfraConfigWhenMissing() {
         when(configService.getConfigByKey("mes.scheduler-workbench.policy-settings")).thenReturn(null);
+        when(workstationMapper.selectListByStatus(0)).thenReturn(List.of());
         MesProSchedulerWorkbenchPolicySettingsRespVO reqVO = policySettings("01:30", "03:15",
                 "ORDER_PRIORITY", true, false, true,
                 true, "FINITE_HOURLY", new BigDecimal("96"), null, null,
@@ -267,6 +275,9 @@ class MesProSchedulerWorkbenchServiceImplTest {
                         && config.getValue().contains("\"defaultFiniteHourlyCapacity\":96")
                         && config.getValue().contains("\"defaultWorkerQuantity\":6")
                         && Boolean.FALSE.equals(config.getVisible())));
+        InOrder persistenceOrder = inOrder(configService, runtimeStatusService);
+        persistenceOrder.verify(configService).createConfig(any(ConfigSaveReqVO.class));
+        persistenceOrder.verify(runtimeStatusService).updateNightlyReplanTime("03:15");
     }
 
     @Test
@@ -275,6 +286,7 @@ class MesProSchedulerWorkbenchServiceImplTest {
         config.setId(9001L);
         config.setConfigKey("mes.scheduler-workbench.policy-settings");
         when(configService.getConfigByKey("mes.scheduler-workbench.policy-settings")).thenReturn(config);
+        when(workstationMapper.selectListByStatus(0)).thenReturn(List.of());
 
         service.savePolicySettings(policySettings("05:00", "06:00", "CREATED_TIME",
                 false, true, true,
@@ -286,6 +298,7 @@ class MesProSchedulerWorkbenchServiceImplTest {
                         && "mes.scheduler-workbench.policy-settings".equals(update.getKey())
                         && update.getValue().contains("\"priorityRule\":\"CREATED_TIME\"")
                         && update.getValue().contains("\"defaultWorkerSingleHourlyCapacity\":32")));
+        verify(runtimeStatusService).updateNightlyReplanTime("06:00");
     }
 
     @Test
@@ -304,13 +317,17 @@ class MesProSchedulerWorkbenchServiceImplTest {
                 .thenReturn(List.of(MesMdWorkstationMachineDO.builder()
                         .id(201L).workstationId(102L).machineryId(301L).build()));
 
-        service.savePolicySettings(policySettings("02:00", "02:00", "PROMISE_DATE",
+        MesProSchedulerWorkbenchPolicySettingsRespVO saved = service.savePolicySettings(policySettings("02:00", "02:00", "PROMISE_DATE",
                 true, true, true,
                 true, "RESOURCE_CALCULATED", null, null, null,
                 false, 5, new BigDecimal("60")));
 
         verify(workstationMapper).updateSingleStandardHourlyCapacity(101L, new BigDecimal("60"));
         verify(workstationMapper, never()).updateSingleStandardHourlyCapacity(102L, new BigDecimal("60"));
+        assertEquals("人效h仅影响资源计算模式且产能来源为人工的工序；设备产能、手工覆盖和无限公式不受影响。人数仅作为新配置默认值，不强制重算现有工位。",
+                saved.getWorkerCapacityApplicabilityText());
+        verify(configService).updateConfig(argThat((ConfigSaveReqVO update) ->
+                !update.getValue().contains("workerCapacityApplicabilityText")));
     }
 
     @Test
@@ -329,11 +346,13 @@ class MesProSchedulerWorkbenchServiceImplTest {
                 false, 5, new BigDecimal("60.000")));
 
         verifyNoInteractions(workstationMapper, workstationMachineService);
+        verify(runtimeStatusService).updateNightlyReplanTime("04:00");
     }
 
     @Test
     void savePolicySettings_shouldAcceptDecimalManualOverrideHourlyCapacity() {
         when(configService.getConfigByKey("mes.scheduler-workbench.policy-settings")).thenReturn(null);
+        when(workstationMapper.selectListByStatus(0)).thenReturn(List.of());
 
         MesProSchedulerWorkbenchPolicySettingsRespVO saved = service.savePolicySettings(policySettings("05:00", "06:00",
                 "CREATED_TIME", false, true, true,
@@ -387,6 +406,7 @@ class MesProSchedulerWorkbenchServiceImplTest {
     @Test
     void savePolicySettings_shouldAcceptResourceCalculatedWithoutManualOrFormulaDefaults() {
         when(configService.getConfigByKey("mes.scheduler-workbench.policy-settings")).thenReturn(null);
+        when(workstationMapper.selectListByStatus(0)).thenReturn(List.of());
 
         MesProSchedulerWorkbenchPolicySettingsRespVO saved = service.savePolicySettings(policySettings("01:30", "03:15",
                 "ORDER_PRIORITY", true, false, true,

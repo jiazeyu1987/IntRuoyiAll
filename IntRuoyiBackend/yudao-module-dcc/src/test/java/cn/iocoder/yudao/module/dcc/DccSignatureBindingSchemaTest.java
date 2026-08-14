@@ -22,10 +22,23 @@ class DccSignatureBindingSchemaTest {
         assertBindingSchema(testSchema);
     }
 
+    @Test
+    void objectKeyMigrationFailsFastWhenHistoricalControlledCopyIsMissing() throws Exception {
+        Path projectDir = findProjectDir();
+        String migration = Files.readString(projectDir.resolve(
+                "sql/mysql/20260813_dcc_signature_binding_object_key.sql")).toLowerCase(Locale.ROOT);
+
+        assertTrue(migration.contains("information_schema.columns"));
+        assertTrue(migration.contains("inner join `infra_file`"));
+        assertTrue(migration.contains("signal sqlstate '45000'"));
+        assertTrue(migration.contains("modify column `controlled_copy_object_key` varchar(1024) not null"));
+    }
+
     private void assertBindingSchema(String schema) {
         assertTrue(schema.contains("`dcc_controlled_file_signature_binding`"));
         assertTrue(schema.contains("`original_evidence_hash`"));
         assertTrue(schema.contains("`controlled_copy_file_id`"));
+        assertTrue(schema.contains("`controlled_copy_object_key`"));
         assertTrue(schema.contains("`controlled_copy_sha256`"));
         assertTrue(schema.contains("`binding_event_key`"));
         assertTrue(schema.contains("`binding_hash`"));

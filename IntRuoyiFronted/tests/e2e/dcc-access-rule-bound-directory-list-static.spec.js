@@ -78,12 +78,15 @@ assert.ok(
   'page must load bound directories from the dedicated API'
 )
 assert.ok(
-  accessRulePage.includes('const boundDirectoryMap = computed(() => new Map(boundDirectories.value.map((item) => [item.id, item])))'),
+  accessRulePage.includes('const boundDirectoryMap = computed(') &&
+    accessRulePage.includes('parsePositiveRouteQueryId(item.id), item'),
   'page must derive bound-directory state only from the dedicated bound-directory list'
 )
 assert.ok(
   accessRulePage.includes('draftSelectedDirectoryId.value === selectedDirectoryId.value') &&
-    accessRulePage.includes('!boundDirectoryMap.value.has(selectedDirectoryId.value)'),
+    accessRulePage.includes(
+      '!boundDirectoryMap.value.has(parsePositiveRouteQueryId(selectedDirectoryId.value))'
+    ),
   'draft state must only apply to selected directories that are absent from the bound-directory list'
 )
 assert.ok(
@@ -99,12 +102,16 @@ assert.ok(
   'page header context must indicate the unsaved draft directory state'
 )
 assert.ok(
-  accessRulePage.includes('if (boundDirectoryMap.value.has(queryDirectoryId))') &&
-    accessRulePage.includes('await selectDirectory(queryDirectoryId, true)'),
+  accessRulePage.includes('const boundDirectory = findBoundDirectoryByIdText(queryDirectoryId)') &&
+    accessRulePage.includes('await selectDirectory(boundDirectory.id, false)') &&
+    accessRulePage.includes('await selectDirectory(directory.id, true)'),
   'query-directory initialization must keep directories outside the bound list in draft mode even if rules load'
 )
 assert.ok(
-  accessRulePage.includes('if (boundDirectoryMap.value.has(directoryId))') &&
+  accessRulePage.includes(
+    'if (boundDirectoryMap.value.has(parsePositiveRouteQueryId(directoryId)))'
+  ) &&
+    accessRulePage.includes('await selectDirectory(directoryId, false)') &&
     accessRulePage.includes('await selectDirectory(directoryId, true)'),
   'tree-select must treat directories outside the bound list as unsaved drafts before save'
 )
@@ -112,7 +119,7 @@ assert.ok(
 for (const behaviorToken of [
   'addRule',
   'saveRules',
-  'reloadCurrentRules',
+  'loadRules',
   'getDirectoryAccessRules',
   'row.canQuery',
   'row.canDownload',

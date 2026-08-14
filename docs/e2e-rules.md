@@ -23,6 +23,24 @@
 
 ## 静态合同与真实 E2E 同步门禁
 
+### E2E 运行态代码来源门禁
+
+- Trigger: 本地端口已有后端进程、运行 Jar 早于目标提交、目标修复依赖新增类或迁移，或完整构建被其它模块编译错误阻断但仍需做定向 E2E。
+- Preflight check: 在浏览器验证前同时记录分支、提交、监听端口进程和运行 Jar；按目标修复列出关键类或资源，并直接核对运行 Jar 内嵌模块是否包含它们。需要组合定向测试 Jar 时，只能使用同一提交的干净 worktree 构建产物，校验内嵌 Jar 哈希和 Spring Boot nested Jar 压缩方式，并明确标为测试运行产物。
+- Blocker: 运行 Jar 来源不明、关键类缺失、内嵌模块不是同一提交、哈希或压缩方式不符、替换后 health 未恢复，或定向组合产物被用作完整发布构建通过证据时必须停止。
+- Verification: 证据包含提交、运行 Jar 路径与哈希、关键类清单、替换模块哈希、端口 PID 和 health；完整构建若失败，必须单独记录失败模块与错误数量，定向 E2E 只能证明目标模块运行行为，不能证明发布构建通过。
+- Forbidden action: 禁止在未核对运行 Jar 内容时宣称当前代码 E2E 通过；禁止把旧 Jar、脏主工作区临时编译物、跨提交模块或静默拼装产物冒充当前运行态。
+- Evidence: `doc/tasks/20260811-dcc-critical-remediation-int-main-admin-e2e/verification-report.md`。
+
+### PDF 预览非空渲染门禁
+
+- Trigger: 页面预览接口返回 PDF HTTP 200，但截图仍显示加载态、空白容器，或任务要求证明真实文件可以预览。
+- Preflight check: Playwright 必须等待实际 PDF canvas 可见并完成渲染；在截图前同时检查 canvas 宽高大于 0，并对画布分布采样，确认存在足够的非白、非透明像素。二进制响应、元数据和 DOM 文案只能作为辅助证据，不能替代画布渲染。
+- Blocker: 只有 HTTP 200、`application/pdf`、预览 token 或元数据成功，但 canvas 不存在、尺寸为 0、像素全空白、仍在加载或截图不可见时必须记录预览 E2E 失败。
+- Verification: 证据包含预览 URL、元数据不可用原因、PDF 响应状态与内容类型、canvas 宽高、采样像素数、非白像素数和渲染完成后的页面截图。
+- Forbidden action: 禁止在 canvas 渲染完成前截图，禁止只凭网络响应或 `canPreview=true` 宣称用户实际可以预览。
+- Evidence: `doc/tasks/20260811-dcc-critical-remediation-int-main-admin-e2e/verification-report.md`。
+
 ### E2E 脚本入口存在性门禁
 
 - Trigger: 任务验收文档指定 `pnpm test:e2e ...`、`pnpm test <target>`、Playwright spec 文件或新增真实用户路径 E2E。
@@ -91,11 +109,19 @@
 ### Playwright 目标链路与外部资源异常归因门禁
 
 - Trigger: Playwright 捕获到 `console error`、`requestfailed` 或非 2xx 响应，且失败 URL 包含外部头像、图片、CDN、非当前页签接口或其它非本轮目标链路资源。
-- Preflight check: 采集失败请求的完整 URL、状态码和资源类型；按本机前端、当前后端、目标业务 API 与目标读写接口定义目标链路。多页签页面必须按当前验收页签精确限定目标接口，例如审批中心“已办”只把 `/approval-center/done` 和 `viewType=DONE` 列为目标链路，页签切换中被浏览器中止的 TODO 请求只能单独记录为非 DONE 审批中心请求，不得冒充 DONE 失败。只有在确认非目标 URL 未造成目标控件缺失且目标行为断言独立通过后，才允许将其单独记录为非目标链路异常；不得用域名白名单批量忽略错误。
+- Preflight check: 采集失败请求的完整 URL、状态码和资源类型；按本机前端、当前后端、目标业务 API 与目标读写接口定义目标链路。多页签页面必须按当前验收页签精确限定目标接口，例如审批中心“已办”只把 `/approval-center/done` 和 `viewType=DONE` 列为目标链路，页签切换中被浏览器中止的 TODO 请求只能单独记录为非 DONE 审批中心请求，不得冒充 DONE 失败。只读页面若自动触发命令式 POST（如一线页面 `switch-employee` 用于授权校验、运行态读取和模板解析），必须先核对后端实现没有 insert/update/delete 或业务状态推进，再把它单独归类为“只读型 POST”；不得把它混入目标业务写请求，也不得在未核对实现时直接放行。只有在确认非目标 URL 未造成目标控件缺失且目标行为断言独立通过后，才允许将其单独记录为非目标链路异常；不得用域名白名单批量忽略错误。
 - Blocker: 任一本机目标业务请求失败、出现未解释的 `pageerror`、外部或非目标请求失败导致目标页面或控件不可用、无法确认目标写请求数量，或失败请求归属不明确时必须停止。
-- Verification: 证据必须同时记录目标链路错误数、非目标同域请求或外部异常 URL 与状态码、`pageerror` 数量、目标 UI 断言和目标写请求数量；只读/取消确认路径必须明确证明写请求为 0。
+- Verification: 证据必须同时记录目标链路错误数、非目标同域请求或外部异常 URL 与状态码、`pageerror` 数量、目标 UI 断言、目标写请求数量，以及被单独归类的只读型 POST 数量和后端只读实现依据；只读/取消确认路径必须明确证明真正业务写请求为 0。
 - Forbidden action: 禁止全局关闭 console/network 断言、忽略全部第三方域名、把页面 HTTP 200 当作目标功能通过，或省略外部异常证据。
-- Evidence: `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/verification-report.md`，DCC 列表只读 E2E 将外部头像 502 与本机/DCC 目标链路分开归因，并证明目标链路错误数和 DCC 写请求数均为 0。
+- Evidence: `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/verification-report.md`，DCC 列表只读 E2E 将外部头像 502 与本机/DCC 目标链路分开归因，并证明目标链路错误数和 DCC 写请求数均为 0；`doc/tasks/20260811-route-publish-chain-clarity/verification-report.md`，一线生产只读 E2E 将模板解析 `switch-employee` POST 与真正业务写请求分开统计，核对后端只读实现后证明业务写请求为 0。
+
+### 多步骤 E2E 子步骤与脚本总状态判定门禁
+
+- Trigger: 一个真实 E2E 同时执行多个业务步骤，某个目标步骤已收到明确成功响应并形成状态证据，但脚本在后续无关断言、证据分类或清理后检查中最终退出失败。
+- Preflight check: 必须逐步记录目标请求路径、HTTP/业务码、关键返回字段、页面触发动作、数据影响和后续失败断言；只有能够证明后续失败不可能改变目标步骤结果时，才允许把该子步骤单独记为 PASS，同时保留脚本整体 FAIL。
+- Blocker: 目标步骤只看到页面文案、没有响应或状态证据，后续失败可能发生在同一事务/同一状态提交、脚本吞掉目标异常、或无法证明失败断言与目标步骤独立时，子步骤不得判 PASS。
+- Verification: 报告必须同时写明“脚本整体状态”和“目标子步骤状态”，列出成功响应的业务码/关键字段、整体失败断言及二者独立性依据；应修正过期脚本分类规则并补跑，不能长期只依赖部分通过结论。
+- Forbidden action: 禁止把脚本整体 FAIL 改写成整条链路 PASS；禁止因最后一个通用断言失败而否认已经有精确动态证据的独立步骤；禁止删除失败断言或忽略真实目标网络异常来制造绿色结果。
 
 ### Playwright 登录重定向与目标接口监听门禁
 
@@ -239,12 +265,22 @@
 - Forbidden action: 禁止留下全局开关关闭、禁止记录密码/token、禁止用未复验的 `finally` 假设恢复成功。
 - Evidence: `doc/tasks/20260725-edhr-global-recordbook-switch/verification-report.md`。
 
+### 当前共享数据写入 E2E 派生状态恢复门禁
+
+- Trigger: 用户明确授权 Playwright 使用当前共享数据、既有管理员数据或非任务新建数据执行写入验证，且页面结果包含由分配、配置、明细或关系实时计算的进度、汇总、状态或统计值。
+- Preflight check: 默认禁用当前共享数据写入；只有用户对租户、账号和“当前数据”作出明确授权后，才能把写入范围收敛到一个稳定业务对象。写入前必须同时保存正式源事实快照和所有受影响派生值；每个成功写响应后立即记录当前版本，异常恢复必须优先复用同一真实页面。若相同源事实重新保存后派生值与测试前不同，先核对历史记录身份、聚合分组和正式计算来源，再把首次正式重算后的值作为规范基线，不能把陈旧派生值当作恢复目标。
+- Concurrent identity recheck: 共享 `int_main` 数据可能在代码构建、运行态重启或只读诊断期间被其它正式页面任务修改。首次目标写入前必须从真实页面重新核对稳定业务 ID、编码、删除状态、启用状态、ACTIVE 版本和未结束候选；若目标被删除、替换、改绑或版本链漂移，立即停止。不得把预检返回的“新建”当作原目标恢复，不得创建新业务对象冒充原对象继续验收。
+- Blocker: 无明确当前数据授权、无法唯一定位写入对象、原始源事实快照不完整、写入后无法通过页面恢复、恢复后的源事实不一致、派生值差异无法由正式计算来源解释、目标页面未刷新受影响派生接口、当前数据缺少能触发目标计算分支的正式样本，或异常分支不能确认服务端是否已写入时必须停止，并记录精确对象和残留影响。
+- Verification: 证据必须包含租户/账号标签、稳定业务对象身份、写前源事实、每轮页面写响应、目标页面刷新接口响应、变更态派生值、最终源事实数量/模式/只读状态等值比较、全部受影响派生值与规范基线比较、`pageErrors` 和目标接口错误为空。写入生成的正式审计版本可以保留，但不得把审计存在误判为业务数据未恢复。若配置变更理论上只影响特定计算分支，必须证明当前页面数据实际命中该分支；否则记录为数据前置 BLOCKED，不得用未命中的手动覆盖、固定产能或 API-only 结果冒充正向通过。
+- Forbidden action: 禁止把直接 API/SQL 写入当作页面 E2E，禁止只恢复输入数量而不复核派生进度，禁止强行把正式重算结果改回陈旧页面值，禁止在恢复失败后继续其它写入场景，禁止用成功路径末尾的假设代替 `finally` 异常恢复。
+- Evidence: `doc/tasks/20260810-active-order-progress-allocation/verification-report.md`；`doc/tasks/20260811-scheduler-night-shift-human-efficiency-admin-e2e/verification-report.md`。
+
 
 
 ## 官方登录前置与 admin-only 全量验证门禁
 
 - Trigger: E2E 脚本调用 `scripts/preflight/login-preflight.mjs`、执行 `芋道源码/admin` 只读全量验证、或工作区融合后发现真实 E2E 登录前置脚本缺失/目标文案过期。
-- Preflight check: `scripts/preflight/login-preflight.mjs` 必须存在于工作区根目录并通过真实前端登录；目标文本必须使用当前页面真实可见文案，不得沿用历史菜单标题。从 `.env` 读取 `VITE_APP_DEFAULT_LOGIN_*` 时，解析器必须允许键、等号和值之间存在空白（例如 `\s*=\s*`），调用登录脚本前先确认租户、用户名和密码均为非空；不得让缺失值造成后续 `--tenant/--username/--password` 参数错位并误报登录响应超时。密码只能通过临时环境变量或命令参数传入，任务日志和证据必须脱敏。若 Playwright 默认浏览器缓存缺失，先检查本机稳定 Chrome/Edge 可执行文件并通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 显式传入；只有缺少可用浏览器时才记录 E2E BLOCKED，不得临时下载浏览器或把浏览器缺失写成业务页面失败。
+- Preflight check: `scripts/preflight/login-preflight.mjs` 必须存在于工作区根目录并通过真实前端登录；目标文本必须使用当前页面真实可见文案，不得沿用历史菜单标题。从 `.env` 读取 `VITE_APP_DEFAULT_LOGIN_*` 时，解析器必须允许键、等号和值之间存在空白（例如 `\s*=\s*`），调用登录脚本前先确认租户、用户名和密码均为非空；不得让缺失值造成后续 `--tenant/--username/--password` 参数错位并误报登录响应超时。Windows/PowerShell 下传递中文租户名、目标文案或其它中文参数给 Node/Playwright 时，优先使用 Node `spawn` 参数数组、临时环境变量或已验证的 UTF-8 包装脚本；若 `waitForResponse` 超时但诊断脚本能看到真实登录请求成功，应先排查参数编码和脚本锚点，不得直接判定登录接口或业务页面失败。密码只能通过临时环境变量或命令参数传入，任务日志和证据必须脱敏。若 Playwright 默认浏览器缓存缺失，先检查本机稳定 Chrome/Edge 可执行文件并通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 显式传入；只有缺少可用浏览器时才记录 E2E BLOCKED，不得临时下载浏览器或把浏览器缺失写成业务页面失败。
 - Blocker: 若只授权 `芋道源码/admin`，写入型、多用户、签名、放行、发布或需测试租户数据清理的 E2E 必须记录 BLOCKED；不得在 admin 基线租户上创造测试写入数据，也不得用 API-only、直连历史 execution 填写页或 mock 代替。
 - Verification: 管理员只读验证应优先覆盖登录前置、目标页面文案、关键目标接口业务码、批次详情、只读预览、伴随单据、表单日志、权限可见性和无 MES 写请求；当前活动填写必须走正式页面按钮或 `openTask` 返回上下文，历史只读必须走 tracking 模式。若先因浏览器缓存或运行库迁移缺失失败，必须记录 RED 原因、解除动作和复跑 GREEN 证据。
 - Forbidden action: 禁止删除或跳过官方登录 preflight；禁止把缺失 preflight 脚本当成 E2E 通过；禁止在真实脚本中保留历史默认密码；禁止把过期固定批次/任务 ID 当作长期前置。
@@ -263,6 +299,7 @@
 
 - Trigger: 写入请求已发出，但浏览器等待业务响应、列表刷新或页面确认时超时；批量页面维护只完成部分记录；重新执行可能重复提交、覆盖并发数据或误判失败。
 - Preflight check: 写入型测试脚本必须在每次目标写响应明确成功后立即持久化回执身份和当前进度，再执行页面复位、可操作性或最终网络诊断断言。恢复前必须启动新的只读会话，按稳定记录 ID、业务编码或唯一业务键把每个目标分类为“仍为原值”“已经是目标值”“出现其它值”；同时重新核对所属业务对象、启用状态和全部非目标记录。只有仍为原值的目标才能进入待处理集合；已是目标值的记录必须跳过；并发新增的非目标记录若不违反业务唯一性，纳入保持快照，不得删除或覆盖。
+- 页面请求监听必须先于触发动作建立，尤其是 Element Plus 远程下拉的 `fill`、输入或点击动作；这类动作可能立即发出请求，先操作后等待会漏掉响应并制造假超时。超时后仍须按稳定业务键只读核验，不能仅凭等待器超时判定写入失败。
 - Blocker: 缺少稳定记录身份、当前值既不是原值也不是目标值、目标记录被删除或移动、内部编码/启用状态漂移、同一精确范围仍有活动写入任务、或无法区分超时请求是否落库时必须停止；不得继续批量重放。
 - Verification: 记录恢复前 `completed/pending/diverged` 数量；如果失败发生在成功回执后的页面断言或诊断阶段，先用已持久化回执和全新只读会话确认该轮正式事实，再决定剩余轮次，不能把 harness FAIL 等同于业务写入失败。当前会话实际写请求数必须与 pending 数完全一致、每个写响应业务码成功；最终用全新只读会话断言目标值全部完成、ID/业务编码/所属对象/启用状态保持、非目标记录保持、占位值为零且 MES 写请求为零。
 - Forbidden action: 禁止把客户端超时直接当作服务端失败并盲目重试；禁止为恢复方便删除并发新增数据、重建整批记录、改用直接 SQL/API-only 写入、扩大范围或把其它当前值强制覆盖成目标值。
@@ -424,10 +461,12 @@
 
 - Trigger: 修改 Element Plus `el-select` 多选字段、`el-input-number` 数字步进控件、`el-switch` 旁状态标签、弹窗内多列配置表单、角色/人员/租户/目标项等较长业务名称的输入或选中标签显示。
 - Preflight check: 先按 `label-width + grid-template-columns + gap` 核算真实输入区宽度；关键字段必须使用专用布局类和静态合同覆盖。`el-input-number` 默认宽度可能大于网格列，必须显式设置 `width: 100%` 收敛到所在列；文本输入列需要 `min-width: 0` 和 `width: 100%`。必要时在 `el-select` 控件作用域内覆盖 `.el-select__tags-text` 默认省略宽度。窄栏里的 Switch 主标签与状态提示不得全部挤在一个可收缩 flex 行内，状态提示较长时应独占行或使用明确 grid 布局，并对关键标签设置不换行；禁用提示不能只用过浅灰色小字，应有足够对比度或明确状态条承载。Playwright 操作 Element Plus Switch 时，不得点击隐藏的 `input[role="switch"]`；应先等待可见 `.el-switch` 不含 `is-disabled`，再点击可见 `.el-switch` 或 `.el-switch__core`，最后读取隐藏 input 的 `aria-checked` 轮询校验状态，避免页面初始加载禁用态点击被吞掉。
+- Preflight check: 多控件使用 CSS Grid 保持同一主行时，`grid-column: 1 / -1` 的条件提示、校验标签或状态条必须放在全部主行控件之后；若插在输入框与按钮之间，自动布局会让提示占满当前行并把后续按钮推到下一行。Playwright 判断是否同一行应比较数字框/选择框等可见控件外壳与按钮的中心线或整体边界，不得用原生 `input` 内部元素的 `top` 直接比较，因为控件内部垂直留白不同会造成误判。
 - Blocker: 若选中值、输入值或 Switch 状态提示在控件内仍显示为 `...`、换行后被裁切、文字对比度过低导致视觉上看不清、数字步进控件溢出挤压相邻输入框、只靠 tooltip 或下拉选项完整展示、或静态合同无法锁定该字段专用布局，必须停止并修复布局。
 - Verification: 静态合同或真实 E2E 必须断言目标控件有专用布局类、关键列宽足够、数字步进控件收敛到当前列、文本输入框可完整占满分配列、选中标签未继续使用默认省略宽度，Switch 状态提示完整可见、不会被窄栏裁切，且颜色对比足够；涉及 Switch 写入的真实 E2E 还必须记录点击前后 `aria-checked` 与保存接口 payload 一致。
+- Verification: 网格主控件完整显示场景还必须锁定跨整行提示位于主控件之后，并在真实页面记录各可见控件外壳的边界或中心线，证明输入框和按钮没有被条件提示拆成两行。
 - Forbidden action: 禁止把 `collapse-tags-tooltip`、扩大整页/整弹窗、硬编码当前角色名/目标项名、只验证下拉选项文本、或只调宽一个控件但让相邻控件继续被挤压当成“显示完整”。
-- Evidence: `doc/tasks/20260725-edhr-pressure-pump-v13-filler-role/verification-report.md`；`doc/tasks/20260726-codex-test-target-item-input-display/verification-report.md`；`doc/tasks/20260728-edhr-detail-assist-preview-switch/execution-log.md`；`doc/tasks/20260805-profile-nas-table-auto-sync/execution-log.md`。
+- Evidence: `doc/tasks/20260725-edhr-pressure-pump-v13-filler-role/verification-report.md`；`doc/tasks/20260726-codex-test-target-item-input-display/verification-report.md`；`doc/tasks/20260728-edhr-detail-assist-preview-switch/execution-log.md`；`doc/tasks/20260805-profile-nas-table-auto-sync/execution-log.md`；`doc/tasks/20260813-allocation-dialog-remove-fifo-full-display/verification-report.md`。
 
 ### Element Plus 表格长文本换行与固定列边界门禁
 
@@ -484,11 +523,11 @@
 ### Codex Runner CODE_READONLY 长任务与实时代码证据门禁
 
 - Trigger: 测试管理行级“测试”显示 `timeout of 30000ms exceeded`、按需 Runner 已注册但启动接口不返回 executionId、长时间 Codex 任务因迟到 heartbeat 中断，或 Windows `read-only` sandbox 报 `apply deny-read ACLs` / 无法读取正式项目代码。
-- Preflight check: 按需 Runner 可用性探测必须在调用方 `REPEATABLE_READ` 业务事务之外读取最新注册会话；heartbeat 入口必须将“已注册且未显式下线”的身份状态校验与 claim/status 使用的心跳新鲜度校验分离，允许迟到的有效 heartbeat 续租但不得放宽任务领取新鲜度；前端执行结果查询必须使用独立于普通 API 的长请求预算，并在非终态继续轮询。`CODE_READONLY` 必须使用低推理、原生 `read-only` sandbox、严格输出 Schema 和正式项目根；若 Windows sandbox 无法执行 shell，只允许 Runner 从明确白名单的前端 `src`/E2E、后端模块 `src/main`/`src/test` 与受控 SQL 目录实时收集有界证据，按 View/API/Router/Controller/Service/DAL/测试/SQL 分类配额和业务行为别名截取片段，再交给 Codex 只做结构化判断。
-- Blocker: Runner 注册提交后启动事务仍读取旧快照、heartbeat 自身因超过 freshness 阈值被拒绝、显式 `OFFLINE` 会话可被续租、结果查询仍继承 30 秒全局预算、证据扫描进入整个后端根/`target`/依赖/任务记录、通用 `API` 等结构词耗尽证据配额、缺少匹配源码仍给 PASS、Codex CLI 未返回严格结构化结果，或页面没有 executionId/真实回复时必须停止通过结论。
-- Verification: 后端必须覆盖“调用方重复读事务可见新注册 Runner”“迟到 ONLINE heartbeat 可续租”“显式 OFFLINE heartbeat 被拒绝”；Runner 静态测试必须覆盖只读 sandbox、Schema、正式项目根、证据白名单/数量/字节上限、分类配额和业务别名；真实 Playwright 路径必须从页面点击行级“测试”，记录 executionId、最终状态、Codex CLI 实际回复和截图，并确认页面未出现通用 30 秒超时。任务结束前还要确认 Runner `currentRunningCount=0` 或已继续空闲 heartbeat。
+- Preflight check: 按需 Runner 可用性探测必须在调用方 `REPEATABLE_READ` 业务事务之外读取最新注册会话；heartbeat 入口必须将“已注册且未显式下线”的身份状态校验与 claim/status 使用的心跳新鲜度校验分离，允许迟到的有效 heartbeat 续租但不得放宽任务领取新鲜度；前端执行结果查询必须使用独立于普通 API 的长请求预算，并在非终态继续轮询。`CODE_READONLY` 必须使用低推理、原生 `read-only` sandbox、严格输出 Schema 和正式项目根；Runner 构造提示词所需的业务描述必须从 claim Task 的正式字段读取（当前为 `testDataText`），不得从 Checkpoint 猜测 `remark` 等未声明字段，修改提示词前必须同时核对响应 VO、任务快照映射和 Runner 读取点。若 Windows sandbox 无法执行 shell，只允许 Runner 从明确白名单的前端 `src`/E2E、后端模块 `src/main`/`src/test` 与受控 SQL 目录实时收集有界证据，按 View/API/Router/Controller/Service/DAL/测试/SQL 分类配额和业务行为别名截取片段，再交给 Codex 只做结构化判断。职责描述类 CODE_READONLY 提示词必须先拆解参与角色、页面入口/按钮、输入来源、关键对象、路由、API、权限、状态链路、结果去向和测试证据；PASS 只能用于每个关键义务都有实时证据支持，核心入口/API/状态链路/权限/测试证据缺失应返回 FAIL，只有无相关源码证据或描述无法拆解时才返回 BLOCKED。用户可见的 `summary`、`actualText`、`mismatchDescription` 必须先给一句业务结论，再用通俗话说明冲突在哪里、是否需要修改和应核对哪条业务流程；若证据属于相邻角色或另一条业务链，必须明确说明“测试拿错了链路”，不得用 API、Controller、Service、Mapper、SQL、字段名、枚举名、文件名或类名堆叠成技术审计报告。
+- Blocker: Runner 注册提交后启动事务仍读取旧快照、heartbeat 自身因超过 freshness 阈值被拒绝、显式 `OFFLINE` 会话可被续租、结果查询仍继承 30 秒全局预算、Runner 读取 claim 协议未声明字段或正式 `testDataText` 未进入提示词、证据扫描进入整个后端根/`target`/依赖/任务记录、通用 `API` 等结构词耗尽证据配额、缺少匹配源码仍给 PASS、职责描述提示词允许相邻业务词/局部页面/部分链路冒充完整职责 PASS、用户可见回复只罗列技术对象而没有说明业务冲突和是否需要修改、Codex CLI 未返回严格结构化结果，或页面没有 executionId/真实回复时必须停止通过结论。
+- Verification: 后端必须覆盖“调用方重复读事务可见新注册 Runner”“迟到 ONLINE heartbeat 可续租”“显式 OFFLINE heartbeat 被拒绝”；Runner 静态测试必须覆盖只读 sandbox、Schema、正式项目根、claim Task/Checkpoint 字段归属、证据白名单/数量/字节上限、分类配额、业务别名、职责描述拆解、PASS/FAIL/BLOCKED 门槛、局部证据不得通过，以及用户可见回复包含简明结论、业务冲突、是否需要修改并避免技术词堆叠；真实 Playwright 路径必须从页面点击行级“测试”，记录 executionId、最终状态、Codex CLI 实际回复和截图，并确认页面未出现通用 30 秒超时或 claim 字段缺失错误。任务结束前还要确认 Runner `currentRunningCount=0` 或已继续空闲 heartbeat。
 - Forbidden action: 禁止把 `read-only` 失败静默降级为 `workspace-write`、bypass 或 API-only；禁止把任务文档、历史截图、生成目录、依赖或构建输出当作当前代码证据；禁止仅靠 prompt 要求 Codex 自行无界搜索；禁止为接受迟到 heartbeat 而放宽 claim/status 的新鲜度校验；禁止用 mock、默认成功或 Runner 进程存在冒充 Codex CLI 完成。
-- Evidence: `doc/tasks/20260809-batch-record-test-codex-cli-response/verification-report.md`，2026-08-09 批记录测试启动事务、心跳续租、独立结果预算和 Windows 只读实时代码证据修复。
+- Evidence: `doc/tasks/20260809-batch-record-test-codex-cli-response/verification-report.md`，2026-08-09 批记录测试启动事务、心跳续租、独立结果预算和 Windows 只读实时代码证据修复；`doc/tasks/20260811-batch-record-test-short-prompt/verification-report.md`，2026-08-11 claim 正式描述字段与短提示词真实页面回归。
 
 1. 阶段 1：启动与事务。必查项：启动请求是否返回 executionId、Runner 注册提交时间与调用事务隔离；Fail Fast：注册成功但启动仍等待到全局超时；必须记录：请求耗时、Runner session 和事务回归测试。
 2. 阶段 2：执行与心跳。必查项：领取、执行期 heartbeat、会话状态和 `currentRunningCount`；Fail Fast：迟到 heartbeat 中断任务或显式离线会话被恢复；必须记录：heartbeat age、终止原因和会话终态。

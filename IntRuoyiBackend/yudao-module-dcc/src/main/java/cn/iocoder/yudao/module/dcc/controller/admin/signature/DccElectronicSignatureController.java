@@ -51,4 +51,5 @@ public class DccElectronicSignatureController {
     public CommonResult<DccSignatureVerifyRespVO> verifySignatureEvidence(@PathVariable("id") Long id) {
         return success(managementService.verifySignatureEvidence(id));
     }
+
 }

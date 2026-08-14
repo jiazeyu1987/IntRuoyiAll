@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCandidateRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
@@ -55,6 +56,8 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderPro
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderProcessConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRow;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
@@ -125,6 +128,8 @@ class MesProcessPoolTeamLeaderControllerTest {
     private MesTeamLeaderProcessConfigService processConfigService;
     @Mock
     private MesTeamLeaderActiveOrderService activeOrderService;
+    @Mock
+    private MesTeamLeaderActiveOrderDetailService activeOrderDetailService;
     @Mock
     private MesTeamLeaderReportConfirmationService reportConfirmationService;
     @Mock
@@ -276,6 +281,12 @@ class MesProcessPoolTeamLeaderControllerTest {
                 .setRouteVersionId(448L)
                 .setRouteVersionNo("V1")
                 .setErpFixedQuantitySnapshot(new BigDecimal("200"))
+                .setProcessRemainingQuantities(List.of(new MesTeamLeaderActiveOrderRow.ProcessRemainingQuantity()
+                        .setRouteProcessId(5001L)
+                        .setProcessId(6001L)
+                        .setPlannedQuantity(new BigDecimal("100.000000"))
+                        .setAllocatedQuantity(new BigDecimal("70"))
+                        .setRemainingQuantity(new BigDecimal("30.000000"))))
                 .setProductionProgressPercent(new BigDecimal("10.000000"))
                 .setInspectionProgressPercent(new BigDecimal("10.000000"))
                 .setActiveStatus("ACTIVE")
@@ -315,11 +326,61 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals("按压式球囊扩充压力泵工艺路线", listResponse.getData().get(0).getRouteName());
         assertEquals("V1", listResponse.getData().get(0).getRouteVersionNo());
         assertEquals(new BigDecimal("200"), listResponse.getData().get(0).getErpFixedQuantitySnapshot());
+        assertEquals(1, listResponse.getData().get(0).getProcessRemainingQuantities().size());
+        assertEquals(5001L, listResponse.getData().get(0).getProcessRemainingQuantities().get(0).getRouteProcessId());
+        assertEquals(6001L, listResponse.getData().get(0).getProcessRemainingQuantities().get(0).getProcessId());
+        assertEquals(new BigDecimal("100.000000"),
+                listResponse.getData().get(0).getProcessRemainingQuantities().get(0).getPlannedQuantity());
+        assertEquals(new BigDecimal("70"),
+                listResponse.getData().get(0).getProcessRemainingQuantities().get(0).getAllocatedQuantity());
+        assertEquals(new BigDecimal("30.000000"),
+                listResponse.getData().get(0).getProcessRemainingQuantities().get(0).getRemainingQuantity());
         assertEquals(new BigDecimal("10.000000"), listResponse.getData().get(0).getProductionProgressPercent());
         assertEquals(new BigDecimal("10.000000"), listResponse.getData().get(0).getInspectionProgressPercent());
         assertEquals("ACTIVE", listResponse.getData().get(0).getActiveStatus());
         assertEquals("ACTIVE", listResponse.getData().get(0).getBusinessStatus());
         assertEquals(0, listResponse.getData().get(0).getVersion());
+    }
+
+    @Test
+    void activeOrderDetailInjectsCurrentLeaderAndExposesGroupedSubmissions() {
+        MesTeamLeaderActiveOrderDetail.SubmissionDetail submission =
+                new MesTeamLeaderActiveOrderDetail.SubmissionDetail()
+                        .setEventId(7001L)
+                        .setSubmittedQuantity(new BigDecimal("30"))
+                        .setSubmitterName("张三")
+                        .setReviewerName("生产组长甲")
+                        .setSubmittedAt(LocalDateTime.of(2026, 8, 13, 8, 10));
+        MesTeamLeaderActiveOrderDetail.ProcessDetail process =
+                new MesTeamLeaderActiveOrderDetail.ProcessDetail()
+                        .setRouteProcessId(5001L)
+                        .setProcessId(6001L)
+                        .setProcessCode("P-001")
+                        .setProcessName("粗洗")
+                        .setRequiredQuantity(new BigDecimal("100"))
+                        .setSubmittedQuantity(new BigDecimal("30"))
+                        .setSubmissionCount(1)
+                        .setSubmissions(List.of(submission));
+        when(activeOrderDetailService.getDetail(3001L, 8101L)).thenReturn(
+                new MesTeamLeaderActiveOrderDetail()
+                        .setActiveOrderId(8101L)
+                        .setWorkOrderId(9001L)
+                        .setWorkOrderCode("881MO090889")
+                        .setRouteName("球囊扩张压力泵工艺路线")
+                        .setProcesses(List.of(process)));
+
+        CommonResult<MesTeamLeaderActiveOrderDetailRespVO> response;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
+            response = controller.getActiveOrderDetail(8101L);
+        }
+
+        assertEquals(8101L, response.getData().getActiveOrderId());
+        assertEquals("粗洗", response.getData().getProcesses().get(0).getProcessName());
+        assertEquals("张三", response.getData().getProcesses().get(0).getSubmissions().get(0).getSubmitterName());
+        assertEquals("生产组长甲",
+                response.getData().getProcesses().get(0).getSubmissions().get(0).getReviewerName());
+        verify(activeOrderDetailService).getDetail(3001L, 8101L);
     }
 
     @Test
@@ -920,6 +981,8 @@ class MesProcessPoolTeamLeaderControllerTest {
                 new String[]{"/production-execution/trace"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("getActiveOrderTransferTrace", new Class[]{Long.class}, GetMapping.class,
                 new String[]{"/active-order/transfer-trace"}, "mes:pro-process-pool-team-leader:query");
+        assertEndpoint("getActiveOrderDetail", new Class[]{Long.class}, GetMapping.class,
+                new String[]{"/active-order/detail"}, "mes:pro-process-pool-team-leader:query");
 
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionPageReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionReviewReqVO.class);

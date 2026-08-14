@@ -1,12 +1,15 @@
 package cn.iocoder.yudao.module.mes;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.scheduleconfig.MesProRouteResourceCapacityPreviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.scheduleconfig.MesProRouteScheduleConfigRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.scheduleconfig.MesProRouteScheduleConfigSaveReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.cal.plan.MesCalPlanDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.cal.plan.MesCalPlanShiftDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdProductionLineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationMachineDO;
@@ -14,16 +17,20 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstatio
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProCapacityPlanDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleCalendarRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProCapacityPlanMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleCalendarRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryProcessService;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
+import cn.iocoder.yudao.module.mes.service.cal.plan.MesCalPlanService;
+import cn.iocoder.yudao.module.mes.service.cal.plan.MesCalPlanShiftService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdProductionLineService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationMachineService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService;
@@ -32,6 +39,8 @@ import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteCandidateConfigS
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionLifecycleServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteScheduleConfigServiceImpl;
+import cn.iocoder.yudao.module.mes.service.pro.schedule.CapacityWindowAllocator;
+import cn.iocoder.yudao.module.mes.enums.cal.MesCalPlanStatusEnum;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -42,9 +51,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +102,8 @@ class MesProRouteScheduleConfigServiceTest {
     @Mock
     private MesProScheduleCalendarRuleMapper scheduleCalendarRuleMapper;
     @Mock
+    private MesProCapacityPlanMapper capacityPlanMapper;
+    @Mock
     private MesMdWorkstationService workstationService;
     @Mock
     private MesMdWorkstationMachineService workstationMachineService;
@@ -108,6 +121,12 @@ class MesProRouteScheduleConfigServiceTest {
     private MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
     @Mock
     private MesProRouteCandidateConfigService routeCandidateConfigService;
+    @Mock
+    private MesCalPlanShiftService planShiftService;
+    @Mock
+    private MesCalPlanService planService;
+    @Spy
+    private CapacityWindowAllocator capacityWindowAllocator = new CapacityWindowAllocator();
 
     @BeforeEach
     void stubCurrentRouteProcessIdentity() {
@@ -665,9 +684,10 @@ class MesProRouteScheduleConfigServiceTest {
 
         when(routeVersionMapper.selectById(100L)).thenReturn(draftVersion());
         when(routeProcessService.resolveCurrentRouteProcess(200L, 10L, null)).thenReturn(process());
-        when(scheduleCalendarRuleMapper.selectByTenantId(1L)).thenReturn(MesProScheduleCalendarRuleDO.builder()
-                .id(900L)
-                .build());
+        MesProScheduleCalendarRuleDO calendarRule = MesProScheduleCalendarRuleDO.builder().id(900L).build();
+        when(scheduleCalendarRuleMapper.selectByTenantId(1L)).thenReturn(calendarRule);
+        when(scheduleCalendarRuleMapper.selectById(900L)).thenReturn(calendarRule);
+        stubAvailableNightShift();
 
         TenantContextHolder.setTenantId(1L);
         try {
@@ -686,6 +706,107 @@ class MesProRouteScheduleConfigServiceTest {
         assertEquals("DAY_AND_NIGHT", saved.get("remark"));
         assertEquals(700L, ((Number) saved.get("id")).longValue());
         verify(routeScheduleConfigMapper, never()).updateById(any(MesProRouteScheduleConfigDO.class));
+    }
+
+    @Test
+    void saveConfig_shouldRejectNightShiftWhenProductionLineHasNoNightShift() {
+        MesProRouteScheduleConfigSaveReqVO reqVO = baseReq();
+        reqVO.setCapacityMode("MANUAL_OVERRIDE");
+        reqVO.setHourlyCapacity(new BigDecimal("12"));
+        reqVO.setNightShiftEnabled(Boolean.TRUE);
+
+        when(routeVersionMapper.selectById(100L)).thenReturn(draftVersion());
+        when(routeProcessService.resolveCurrentRouteProcess(200L, 10L, null)).thenReturn(process());
+        MesProScheduleCalendarRuleDO calendarRule = MesProScheduleCalendarRuleDO.builder().id(900L).build();
+        when(scheduleCalendarRuleMapper.selectByTenantId(1L)).thenReturn(calendarRule);
+        MesMdWorkstationDO workstation = nightShiftWorkstation();
+        when(workstationService.getWorkstation(800L)).thenReturn(workstation);
+        when(productionLineService.getProductionLine(1000L)).thenReturn(MesMdProductionLineDO.builder()
+                .id(1000L)
+                .name("吹球囊成型线")
+                .calendarPlanId(1100L)
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build());
+        when(planService.getPlan(1100L)).thenReturn(MesCalPlanDO.builder()
+                .id(1100L)
+                .status(MesCalPlanStatusEnum.CONFIRMED.getStatus())
+                .build());
+        when(planShiftService.getPlanShiftListByPlanId(1100L)).thenReturn(List.of(
+                MesCalPlanShiftDO.builder().id(1200L).name("白班").sort(1)
+                        .startTime("08:00").endTime("16:00").build()));
+
+        TenantContextHolder.setTenantId(1L);
+        ServiceException ex;
+        try {
+            ex = assertThrows(ServiceException.class, () -> service.saveConfig(reqVO));
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertEquals(400, ex.getCode());
+        assertTrue(ex.getMessage().contains("吹球囊成型线"));
+        assertTrue(ex.getMessage().contains("夜班班次"));
+        verify(routeCandidateConfigService, never()).saveConfigSnapshot(anyLong(), anyString(), any());
+    }
+
+    @Test
+    void saveConfig_shouldRejectNightShiftWhenFutureNightCapacityPlanIsMissing() {
+        MesProRouteScheduleConfigSaveReqVO reqVO = baseReq();
+        reqVO.setCapacityMode("MANUAL_OVERRIDE");
+        reqVO.setHourlyCapacity(new BigDecimal("12"));
+        reqVO.setNightShiftEnabled(Boolean.TRUE);
+
+        when(routeVersionMapper.selectById(100L)).thenReturn(draftVersion());
+        when(routeProcessService.resolveCurrentRouteProcess(200L, 10L, null)).thenReturn(process());
+        MesProScheduleCalendarRuleDO calendarRule = MesProScheduleCalendarRuleDO.builder().id(900L).build();
+        when(scheduleCalendarRuleMapper.selectByTenantId(1L)).thenReturn(calendarRule);
+        stubAvailableNightShift();
+        when(capacityPlanMapper.selectListByLineIdsAndDate(any(), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+        TenantContextHolder.setTenantId(1L);
+        ServiceException ex;
+        try {
+            ex = assertThrows(ServiceException.class, () -> service.saveConfig(reqVO));
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertEquals(400, ex.getCode());
+        assertTrue(ex.getMessage().contains("夜班班次"));
+        assertTrue(ex.getMessage().contains("产能计划"));
+        verify(routeCandidateConfigService, never()).saveConfigSnapshot(anyLong(), anyString(), any());
+    }
+
+    @Test
+    void saveConfig_shouldRejectResourceCalculatedNightShiftWhenMachineProcessCapacityIsMissing() {
+        MesProRouteScheduleConfigSaveReqVO reqVO = baseReq();
+        reqVO.setCapacityMode("RESOURCE_CALCULATED");
+        reqVO.setNightShiftEnabled(Boolean.TRUE);
+
+        when(routeVersionMapper.selectById(100L)).thenReturn(draftVersion());
+        when(routeProcessService.resolveCurrentRouteProcess(200L, 10L, null)).thenReturn(process());
+        MesProScheduleCalendarRuleDO calendarRule = MesProScheduleCalendarRuleDO.builder().id(900L).build();
+        when(scheduleCalendarRuleMapper.selectByTenantId(1L)).thenReturn(calendarRule);
+        stubAvailableNightShift();
+        when(workstationMachineService.getWorkstationMachineListByWorkstationIds(Set.of(800L))).thenReturn(List.of(
+                MesMdWorkstationMachineDO.builder().id(1300L).workstationId(800L).machineryId(1400L).quantity(1).build()));
+        when(machineryService.getMachineryMap(Set.of(1400L))).thenReturn(Map.of(1400L,
+                MesDvMachineryDO.builder().id(1400L).code("DEV-BALLOON").name("吹球囊设备").build()));
+        when(machineryProcessService.getMachineryProcessListByMachineryIdsAndProcessIds(
+                Set.of(1400L), Set.of(300L))).thenReturn(List.of());
+        TenantContextHolder.setTenantId(1L);
+        ServiceException ex;
+        try {
+            ex = assertThrows(ServiceException.class, () -> service.saveConfig(reqVO));
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertEquals(400, ex.getCode());
+        assertTrue(ex.getMessage().contains("DEV-BALLOON"));
+        assertTrue(ex.getMessage().contains("设备工序小时产能"));
+        verify(routeCandidateConfigService, never()).saveConfigSnapshot(anyLong(), anyString(), any());
     }
 
     @Test
@@ -982,5 +1103,43 @@ class MesProRouteScheduleConfigServiceTest {
 
     private MesProRouteProcessDO process() {
         return MesProRouteProcessDO.builder().id(200L).routeId(10L).processId(300L).workstationId(800L).build();
+    }
+
+    private void stubAvailableNightShift() {
+        MesMdWorkstationDO workstation = nightShiftWorkstation();
+        when(workstationService.getWorkstation(800L)).thenReturn(workstation);
+        when(productionLineService.getProductionLine(1000L)).thenReturn(MesMdProductionLineDO.builder()
+                .id(1000L)
+                .name("吹球囊成型线")
+                .calendarPlanId(1100L)
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build());
+        when(planService.getPlan(1100L)).thenReturn(MesCalPlanDO.builder()
+                .id(1100L)
+                .status(MesCalPlanStatusEnum.CONFIRMED.getStatus())
+                .build());
+        when(planShiftService.getPlanShiftListByPlanId(1100L)).thenReturn(List.of(
+                MesCalPlanShiftDO.builder().id(1201L).name("夜班").sort(3)
+                        .startTime("20:00").endTime("04:00").build()));
+        lenient().when(capacityPlanMapper.selectListByLineIdsAndDate(any(), any(LocalDateTime.class)))
+                .thenReturn(List.of(MesProCapacityPlanDO.builder()
+                        .lineId(1000L)
+                        .shiftId(1201L)
+                        .enabled(Boolean.TRUE)
+                        .capacityMinutes(480)
+                        .build()));
+    }
+
+    private MesMdWorkstationDO nightShiftWorkstation() {
+        return MesMdWorkstationDO.builder()
+                .id(800L)
+                .code("WS-BALLOON")
+                .name("吹球囊成型工作站")
+                .processId(300L)
+                .productionLineId(1000L)
+                .singleStandardHourlyCapacity(new BigDecimal("6"))
+                .shiftHours(new BigDecimal("8"))
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
     }
 }

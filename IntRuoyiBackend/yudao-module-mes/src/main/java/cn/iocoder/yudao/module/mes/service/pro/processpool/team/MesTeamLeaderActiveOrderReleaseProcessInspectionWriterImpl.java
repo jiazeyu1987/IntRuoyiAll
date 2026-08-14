@@ -386,22 +386,20 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         MesQaInspectionRegulationVersionDO version = source.getRegulationVersion();
         boolean regulationValid = regulation != null && regulation.getId() != null
                 && Objects.equals(command.getTenantId(), regulation.getTenantId())
-                && Objects.equals(command.getProductId(), regulation.getProductId())
-                && Objects.equals(command.getRouteId(), regulation.getRouteId())
-                && Objects.equals(task.getProcessId(), regulation.getProcessId())
+                && source.getDccProject() != null
+                && Objects.equals(source.getDccProject().getId(), regulation.getDccProjectCodeId())
                 && MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA.equals(regulation.getOwnerModule())
-                && "PUBLISHED".equals(regulation.getLifecycleStatus())
-                && Objects.equals(task.getRegulationVersionId(), regulation.getCurrentVersionId());
+                && "PUBLISHED".equals(regulation.getLifecycleStatus());
         boolean versionValid = version != null && version.getId() != null
                 && Objects.equals(command.getTenantId(), version.getTenantId())
                 && Objects.equals(regulation == null ? null : regulation.getId(), version.getRegulationId())
                 && Objects.equals(task.getRegulationVersionId(), version.getId())
-                && "PUBLISHED".equals(version.getLifecycleStatus())
+                && Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())
                 && version.getPublishedAt() != null && StrUtil.isNotBlank(version.getSnapshotJson());
         if (!regulationValid || !versionValid) {
             blockers.add(blocker("PQC_QA_REGULATION_REQUIRED", "ROUTE_PROCESS", task.getRouteProcessId(),
-                    null, "PQC task 缺少同产品、同路线、同稳定工序的最新 PUBLISHED QA 版本",
-                    "请发布并绑定正式 QA 检验规程"));
+                    null, "PQC task 缺少活跃订单冻结的正式 DCC-QA 版本",
+                    "请核对工艺路线正式 DCC 绑定及活跃订单冻结的 QA 版本"));
             return false;
         }
         String mismatchItem = qaMismatchItem(source);
@@ -426,11 +424,10 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 || !Objects.equals(command.getTenantId(), project.getTenantId())
                 || StrUtil.isBlank(source.getRouteProjectCode())
                 || !Objects.equals(StrUtil.trim(source.getRouteProjectCode()), StrUtil.trim(project.getProjectCode()))
-                || StrUtil.isBlank(project.getProjectCode()) || StrUtil.isBlank(project.getProjectName())
-                || !"ENABLE".equals(project.getStatus())) {
-            blockers.add(blocker("PQC_DCC_PROJECT_IDENTITY_REQUIRED", "PRODUCT", command.getProductId(), null,
-                    "路线项目代码与唯一启用 DCC 项目身份不一致",
-                    "请通过正式路线版本产品快照配置唯一 DCC 项目代码；禁止把 MES productId 当作 DCC productMasterId"));
+                || StrUtil.isBlank(project.getProjectCode()) || StrUtil.isBlank(project.getProjectName())) {
+            blockers.add(blocker("PQC_DCC_PROJECT_IDENTITY_REQUIRED", "ACTIVE_ORDER", command.getActiveOrderId(), null,
+                    "活跃订单冻结的 DCC 项目身份不完整或不一致",
+                    "请核对工艺路线正式 DCC 绑定及活跃订单冻结身份"));
             return false;
         }
         return true;

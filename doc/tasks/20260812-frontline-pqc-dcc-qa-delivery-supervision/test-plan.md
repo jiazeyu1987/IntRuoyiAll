@@ -143,9 +143,11 @@ This test plan maps each implementation task to concrete verification evidence. 
 - environment_or_setup: DF10 worktree after DF02, DF07, DF08, and DF09 merges; pressure-pump fixtures and disabled-DCC historical-order fixture.
 - steps:
   - Run DF10 RED/GREEN command.
+  - Run the QA locked-version service test together with the DF10 projection test and verify the full `getLockedVersionForOrder` aggregate is the only runtime QA read boundary.
   - Review service for batched reads and dedicated MesFrontlinePqcProcessRespVO.
+  - Compile the controller consumer and verify only the dedicated PQC mapping drops obsolete aliases while the production-route response remains unchanged.
   - Confirm production-route process response is unchanged.
-- expected_result: Active-order process GET projection returns all locked QA processes/items plus task state and candidates without N+1, current-QA lookup, or route-process QA validation.
+- expected_result: Active-order process GET projection returns all locked QA processes/items plus task state and candidates through the frozen full locked-version service boundary, without N+1, compatibility aliases, current-QA lookup, or route-process QA validation.
 - evidence: Maven output, context service tests, diff review, execution-log markers.
 
 ### TC-DF11-FRONTEND-PROJECTION
@@ -156,9 +158,11 @@ This test plan maps each implementation task to concrete verification evidence. 
 - environment_or_setup: DF11 worktree after DF08 and DF09 merges; frontend dependencies installed.
 - steps:
   - Run node tests/e2e/frontline-pqc-qa-process-contract-static.spec.cjs.
-  - Run pnpm ts:check.
+  - Run pnpm ts:check; page-local changes remain limited to formal active-order/task identity and strict DTO consumption.
   - Review API types for activeOrderId-only request, full item fields, resultType union, and inspectionRuleKey union.
-- expected_result: Frontend contracts can display QA processes, full item details, four task rule keys, status/options, and production candidates without page-component changes.
+  - Execute the real `selectFrontlinePqcActiveOrder` consumer with reversed response completion and assert only the latest activeOrderId mutates page state.
+  - Verify duplicate rows with the same workOrderId/routeId have distinct picker keys and active states, and no process-level flattened task identity remains.
+- expected_result: Frontend contracts expose QA processes, full item details, four task rule keys, status/options, production candidates and stable sorting; selection is keyed only by activeOrderId, task identity comes only from pqcTaskOptions, and real-consumer stale responses cannot overwrite the latest order.
 - evidence: Node static output, TypeScript output, diff review, execution-log markers.
 
 ### TC-INT12-INTEGRATION

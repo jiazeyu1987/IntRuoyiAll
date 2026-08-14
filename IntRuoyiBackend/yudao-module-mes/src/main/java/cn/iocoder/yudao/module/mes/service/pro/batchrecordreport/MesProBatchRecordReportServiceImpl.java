@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext;
@@ -12,6 +13,7 @@ import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalReques
 import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportAssistRowVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportDeleteAllRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
@@ -31,6 +33,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBa
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
@@ -46,6 +49,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessCon
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -130,6 +134,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     private MesMdItemMapper itemMapper;
     @Resource
     private DccProjectCodeMapper dccProjectCodeMapper;
+    @Resource
+    private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
     @Resource
     private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Resource
@@ -247,11 +253,20 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     @Override
     public MesProBatchRecordImportPreflightResult preflightUploadedRoute(String routeKey, String batchRecordName,
                                                                          List<String> productNames) {
+        return preflightUploadedRoute(routeKey, batchRecordName, productNames, null);
+    }
+
+    @Override
+    public MesProBatchRecordImportPreflightResult preflightUploadedRoute(String routeKey, String batchRecordName,
+                                                                         List<String> productNames,
+                                                                         Long dccProjectCodeId) {
         String normalizedRouteKey = MesProBatchRecordRecognitionRouteKeys.normalize(routeKey);
         if (!MesProBatchRecordRecognitionRouteKeys.isFixedRoute(normalizedRouteKey)) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_INVALID, routeKey);
         }
         String normalizedBatchRecordName = normalizeBatchRecordName(batchRecordName);
+        DccProjectCodeDO selectedDccProjectCode = requireSelectedDccProjectCode(
+                dccProjectCodeId, normalizedBatchRecordName);
         List<String> normalizedProductNames = normalizeRouteProductNames(productNames);
         validateDccProjectNameMatchesBatchRecordName(normalizedBatchRecordName, normalizedProductNames);
         MesProBatchRecordDefinitionDO definition = definitionMapper.selectByNameAndRouteKey(
@@ -281,11 +296,13 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         String recommendedAction = allowedActions.contains(IMPORT_ACTION_UPGRADE)
                 && (currentBatchRecordHasMainReports || !blockers.isEmpty())
                 ? IMPORT_ACTION_UPGRADE : IMPORT_ACTION_REBUILD_V1;
-        List<MesProRouteDO> governedRoutes = resolveGovernedRoutesForDccProject(normalizedBatchRecordName);
+        List<MesProRouteDO> governedRoutes = resolveGovernedRoutesForDccProject(selectedDccProjectCode);
         MesProRouteDO route = governedRoutes.size() == 1 ? governedRoutes.get(0) : null;
         MesProRouteVersionDO routeVersion = route == null ? null : routeVersionMapper.selectActiveByRouteId(route.getId());
         MesProRouteVersionDO routeCandidateVersion = route == null
                 ? null : routeVersionMapper.selectOpenCandidateByRouteId(route.getId());
+        boolean routeRestoreRequired = route != null
+                && Objects.equals(CommonStatusEnum.DISABLE.getStatus(), route.getStatus());
         String routeGovernanceStatus = resolveRouteGovernanceStatus(governedRoutes);
         boolean importActionLocked = pendingApprovalLocked
                 || ROUTE_GOVERNANCE_DUPLICATE_BLOCKED.equals(routeGovernanceStatus)
@@ -310,6 +327,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .currentRouteId(route == null ? null : route.getId())
                 .currentRouteCode(route == null ? null : route.getCode())
                 .currentRouteName(route == null ? null : route.getName())
+                .currentRouteStatus(route == null ? null : route.getStatus())
+                .routeRestoreRequired(routeRestoreRequired)
                 .currentRouteVersionId(routeVersion == null ? null : routeVersion.getId())
                 .currentRouteVersionNo(routeVersion == null ? null : routeVersion.getVersionNo())
                 .currentRouteVersionActive(routeVersion == null ? null : routeVersion.getActive())
@@ -324,7 +343,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                         ? null : recommendedAction)
                 .nextVersionNo(currentVersion == null ? "V1.0" : nextVersionNo(definitionVersions))
                 .routeProductOptions(importActionLocked
-                        ? List.of() : buildRouteProductOptions(route, routeVersion, normalizedProductNames))
+                        ? List.of() : buildRouteProductOptions(route, routeVersion, normalizedProductNames,
+                        selectedDccProjectCode))
                 .build();
     }
 
@@ -338,8 +358,24 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         return ROUTE_GOVERNANCE_DUPLICATE_BLOCKED;
     }
 
-    private void ensureNoDuplicateRouteForProjectName(String projectName) {
-        List<MesProRouteDO> routes = resolveGovernedRoutesForDccProject(projectName);
+    private DccProjectCodeDO requireSelectedDccProjectCode(Long dccProjectCodeId, String batchRecordName) {
+        if (dccProjectCodeId == null) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_REQUIRED);
+        }
+        DccProjectCodeDO projectCode = dccProjectCodeMapper.selectById(dccProjectCodeId);
+        if (projectCode == null
+                || !DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_REQUIRED);
+        }
+        if (!StrUtil.equals(StrUtil.trim(projectCode.getProjectName()), batchRecordName)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_MISMATCH,
+                    projectCode.getProjectName(), batchRecordName);
+        }
+        return projectCode;
+    }
+
+    private void ensureNoDuplicateRouteForDccProject(DccProjectCodeDO selectedDccProjectCode) {
+        List<MesProRouteDO> routes = resolveGovernedRoutesForDccProject(selectedDccProjectCode);
         if (routes.size() <= 1) {
             return;
         }
@@ -348,33 +384,66 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                         + "/" + route.getId())
                 .collect(java.util.stream.Collectors.joining("、"));
         throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_DUPLICATE,
-                projectName, routeCodes);
+                selectedDccProjectCode.getProjectName(), routeCodes);
     }
 
-    private List<MesProRouteDO> resolveGovernedRoutesForDccProject(String projectName) {
+    private List<MesProRouteDO> resolveGovernedRoutesForDccProject(Long dccProjectCodeId) {
+        if (dccProjectCodeId == null) {
+            return List.of();
+        }
+        DccProjectCodeDO selectedProjectCode = dccProjectCodeMapper.selectById(dccProjectCodeId);
+        if (selectedProjectCode == null) {
+            return List.of();
+        }
+        return resolveGovernedRoutesForDccProject(selectedProjectCode);
+    }
+
+    private List<MesProRouteDO> resolveGovernedRoutesForDccProject(DccProjectCodeDO selectedProjectCode) {
+        List<MesRouteDccProjectBindingDO> formalBindings =
+                routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(selectedProjectCode.getId());
+        List<MesProRouteDO> routes = !formalBindings.isEmpty()
+                ? resolveRoutesByDccProjectBinding(selectedProjectCode, formalBindings)
+                : resolveRoutesByDccProjectProductBinding(selectedProjectCode);
+        requireRoutesHaveActiveVersions(routes);
+        return routes;
+    }
+
+    private void requireRoutesHaveActiveVersions(List<MesProRouteDO> routes) {
+        if (routes.size() != 1) {
+            return;
+        }
+        for (MesProRouteDO route : routes) {
+            if (routeVersionMapper.selectActiveByRouteId(route.getId()) == null) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_BIND_FAILED,
+                        "工艺路线缺少当前ACTIVE版本："
+                                + StrUtil.blankToDefault(route.getCode(), String.valueOf(route.getId()))
+                                + "/" + route.getId());
+            }
+        }
+    }
+
+    private List<MesProRouteDO> resolveRoutesByDccProjectBinding(
+            DccProjectCodeDO selectedProjectCode, List<MesRouteDccProjectBindingDO> bindings) {
         LinkedHashMap<Long, MesProRouteDO> routeById = new LinkedHashMap<>();
-        for (MesProRouteDO route : routeMapper.selectListByName(projectName)) {
-            routeById.putIfAbsent(route.getId(), route);
-        }
-        Set<Long> dccProductItemIds = resolveDccProjectProductItemIds(projectName);
-        if (dccProductItemIds.isEmpty()) {
-            return new ArrayList<>(routeById.values());
-        }
-        List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByItemIds(dccProductItemIds);
-        if (routeProducts.isEmpty()) {
-            return new ArrayList<>(routeById.values());
-        }
-        Map<Long, MesProRouteDO> productRouteById = routeMapper.selectBatchIds(routeProducts.stream()
-                        .map(MesProRouteProductDO::getRouteId)
+        List<Long> boundRouteIds = bindings.stream()
+                        .map(MesRouteDccProjectBindingDO::getRouteId)
                         .filter(Objects::nonNull)
                         .distinct()
-                        .toList())
-                .stream()
+                        .toList();
+        Map<Long, MesProRouteDO> routeBySelectedId = routeMapper.selectBatchIds(boundRouteIds).stream()
                 .filter(route -> route.getId() != null)
                 .collect(java.util.stream.Collectors.toMap(MesProRouteDO::getId, route -> route,
                         (left, right) -> left, LinkedHashMap::new));
-        for (MesProRouteProductDO routeProduct : routeProducts) {
-            MesProRouteDO route = productRouteById.get(routeProduct.getRouteId());
+        if (routeBySelectedId.size() != boundRouteIds.size()) {
+            List<Long> missingRouteIds = boundRouteIds.stream()
+                    .filter(routeId -> !routeBySelectedId.containsKey(routeId))
+                    .toList();
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_BIND_FAILED,
+                    "DCC项目正式绑定的工艺路线不存在或已删除："
+                            + selectedProjectCode.getProjectName() + "/" + missingRouteIds);
+        }
+        for (MesRouteDccProjectBindingDO binding : bindings) {
+            MesProRouteDO route = routeBySelectedId.get(binding.getRouteId());
             if (route != null) {
                 routeById.putIfAbsent(route.getId(), route);
             }
@@ -382,33 +451,72 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         return new ArrayList<>(routeById.values());
     }
 
-    private Set<Long> resolveDccProjectProductItemIds(String projectName) {
-        List<DccProjectCodeDO> projectCodes = dccProjectCodeMapper.selectEnabledListByProjectName(projectName);
-        if (projectCodes == null || projectCodes.isEmpty()) {
-            return Set.of();
+    private List<MesProRouteDO> resolveRoutesByDccProjectProductBinding(DccProjectCodeDO selectedProjectCode) {
+        String projectCode = StrUtil.trimToNull(selectedProjectCode.getProjectCode());
+        if (projectCode == null) {
+            return List.of();
         }
-        Set<String> normalizedProjectCodes = projectCodes.stream()
-                .map(DccProjectCodeDO::getProjectCode)
-                .map(StrUtil::trim)
-                .filter(StrUtil::isNotBlank)
-                .collect(LinkedHashSet::new, Set::add, Set::addAll);
-        if (normalizedProjectCodes.isEmpty()) {
-            return Set.of();
+        MesMdItemDO item = itemMapper.selectByCode(projectCode);
+        if (item == null) {
+            return List.of();
         }
-        return itemMapper.selectListByCodes(normalizedProjectCodes).stream()
-                .map(MesMdItemDO::getId)
+        if (!CommonStatusEnum.isEnable(item.getStatus()) || !Boolean.TRUE.equals(item.getBatchFlag())) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_BIND_FAILED,
+                    "DCC项目产品未启用批次绑定：" + projectCode);
+        }
+        List<MesProRouteProductDO> productBindings = routeProductMapper.selectListByItemId(item.getId());
+        if (productBindings.isEmpty()) {
+            return List.of();
+        }
+        List<Long> routeIds = productBindings.stream()
+                .map(MesProRouteProductDO::getRouteId)
                 .filter(Objects::nonNull)
-                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+                .distinct()
+                .toList();
+        if (routeIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, MesProRouteDO> routeBySelectedId = routeMapper.selectBatchIds(routeIds).stream()
+                .filter(route -> route.getId() != null)
+                .collect(java.util.stream.Collectors.toMap(MesProRouteDO::getId, route -> route,
+                        (left, right) -> left, LinkedHashMap::new));
+        if (routeBySelectedId.size() != routeIds.size()) {
+            List<Long> missingRouteIds = routeIds.stream()
+                    .filter(routeId -> !routeBySelectedId.containsKey(routeId))
+                    .toList();
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_BIND_FAILED,
+                    "DCC项目产品绑定的工艺路线不存在或已删除："
+                            + selectedProjectCode.getProjectName() + "/" + missingRouteIds);
+        }
+        LinkedHashMap<Long, MesProRouteDO> routeById = new LinkedHashMap<>();
+        for (MesProRouteProductDO binding : productBindings) {
+            MesProRouteDO route = routeBySelectedId.get(binding.getRouteId());
+            if (route != null) {
+                MesRouteDccProjectBindingDO currentBinding =
+                        routeDccProjectBindingMapper.selectCurrentByRouteId(route.getId());
+                if (currentBinding != null
+                        && !Objects.equals(currentBinding.getDccProjectCodeId(), selectedProjectCode.getId())) {
+                    throw exception(MesProBatchRecordReportErrorCodeConstants
+                                    .PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_BIND_FAILED,
+                            "产品绑定路线已正式属于其他DCC项目："
+                                    + StrUtil.blankToDefault(route.getCode(), String.valueOf(route.getId()))
+                                    + "/" + route.getId());
+                }
+                routeById.putIfAbsent(route.getId(), route);
+            }
+        }
+        return new ArrayList<>(routeById.values());
     }
 
-    private void ensureRouteUpgradeConfirmedIfNeeded(String projectName, boolean routeRebuildRequested,
+    private void ensureRouteUpgradeConfirmedIfNeeded(DccProjectCodeDO selectedDccProjectCode,
+                                                     boolean routeRebuildRequested,
                                                      Boolean routeUpgradeConfirmed, Long expectedRouteId,
                                                      Long expectedRouteVersionId,
                                                      Long expectedRouteCandidateVersionId) {
         if (!routeRebuildRequested) {
             return;
         }
-        List<MesProRouteDO> routes = resolveGovernedRoutesForDccProject(projectName);
+        List<MesProRouteDO> routes = resolveGovernedRoutesForDccProject(selectedDccProjectCode);
         if (routes.isEmpty()) {
             if (expectedRouteId != null || expectedRouteVersionId != null
                     || expectedRouteCandidateVersionId != null) {
@@ -421,7 +529,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(route.getId());
         if (!Boolean.TRUE.equals(routeUpgradeConfirmed)) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_CONFIRM_REQUIRED,
-                    projectName);
+                    selectedDccProjectCode.getProjectName());
         }
         Long currentVersionId = activeVersion == null ? null : activeVersion.getId();
         if (!Objects.equals(expectedRouteId, route.getId())
@@ -519,6 +627,21 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     public MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
                                                                 String batchRecordName, String importAction,
                                                                 Long expectedSourceVersionId,
+                                                                List<String> productNames,
+                                                                Boolean rebuildBatchRecord,
+                                                                List<Long> selectedRouteProductIds,
+                                                                List<String> selectedProductNames,
+                                                                Long dccProjectCodeId) {
+        return recognizeUploadedRoute(file, routeKey, batchRecordName, importAction, expectedSourceVersionId,
+                null, productNames, rebuildBatchRecord, selectedRouteProductIds, selectedProductNames,
+                false, null, null, null, dccProjectCodeId, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
+                                                                String batchRecordName, String importAction,
+                                                                Long expectedSourceVersionId,
                                                                 String expectedTargetVersionNo,
                                                                 List<String> productNames,
                                                                 Boolean rebuildBatchRecord,
@@ -580,12 +703,36 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                                                                 Long expectedRouteVersionId,
                                                                 Long expectedRouteCandidateVersionId,
                                                                 Long approvalSubmitterUserId) {
+        return recognizeUploadedRoute(file, routeKey, batchRecordName, importAction, expectedSourceVersionId,
+                expectedTargetVersionNo, productNames, rebuildBatchRecord, selectedRouteProductIds,
+                selectedProductNames, routeUpgradeConfirmed, expectedRouteId, expectedRouteVersionId,
+                expectedRouteCandidateVersionId, null, approvalSubmitterUserId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProBatchRecordImportResult recognizeUploadedRoute(MultipartFile file, String routeKey,
+                                                                String batchRecordName, String importAction,
+                                                                Long expectedSourceVersionId,
+                                                                String expectedTargetVersionNo,
+                                                                List<String> productNames,
+                                                                Boolean rebuildBatchRecord,
+                                                                List<Long> selectedRouteProductIds,
+                                                                List<String> selectedProductNames,
+                                                                Boolean routeUpgradeConfirmed,
+                                                                Long expectedRouteId,
+                                                                Long expectedRouteVersionId,
+                                                                Long expectedRouteCandidateVersionId,
+                                                                Long dccProjectCodeId,
+                                                                Long approvalSubmitterUserId) {
         String normalizedRouteKey = MesProBatchRecordRecognitionRouteKeys.normalize(routeKey);
         if (!MesProBatchRecordRecognitionRouteKeys.isFixedRoute(normalizedRouteKey)) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_INVALID, routeKey);
         }
         String normalizedBatchRecordName = normalizeBatchRecordName(batchRecordName);
-        ensureNoDuplicateRouteForProjectName(normalizedBatchRecordName);
+        DccProjectCodeDO selectedDccProjectCode = requireSelectedDccProjectCode(
+                dccProjectCodeId, normalizedBatchRecordName);
+        ensureNoDuplicateRouteForDccProject(selectedDccProjectCode);
         List<String> normalizedProductNames = normalizeRouteProductNames(productNames);
         validateDccProjectNameMatchesBatchRecordName(normalizedBatchRecordName, normalizedProductNames);
         String normalizedImportAction = normalizeImportAction(importAction);
@@ -595,7 +742,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         List<Long> normalizedRouteProductIds = normalizeSelectedRouteProductIds(selectedRouteProductIds);
         List<String> normalizedSelectedProductNames = normalizeOptionalRouteProductNames(selectedProductNames);
         boolean routeRebuildRequested = !normalizedRouteProductIds.isEmpty() || !normalizedSelectedProductNames.isEmpty();
-        ensureRouteUpgradeConfirmedIfNeeded(normalizedBatchRecordName, routeRebuildRequested || rebuildRecord,
+        ensureRouteUpgradeConfirmedIfNeeded(selectedDccProjectCode, routeRebuildRequested || rebuildRecord,
                 routeUpgradeConfirmed, expectedRouteId, expectedRouteVersionId,
                 expectedRouteCandidateVersionId);
         if (!rebuildRecord && !routeRebuildRequested) {
@@ -658,10 +805,11 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_FORM_SLOT_EXISTS,
                     normalizedBatchRecordName, "主批记录");
         }
-        Long routeProductScopeRouteId = resolveRouteProductScopeRouteId(sourceVersion, normalizedBatchRecordName,
+        Long routeProductScopeRouteId = resolveRouteProductScopeRouteId(sourceVersion, selectedDccProjectCode.getId(),
                 expectedRouteId, expectedRouteVersionId);
         List<String> routeProductNames = routeRebuildRequested
-                ? resolveSelectedRouteProductNames(normalizedBatchRecordName, routeProductScopeRouteId,
+                ? resolveSelectedRouteProductNames(normalizedBatchRecordName, selectedDccProjectCode,
+                routeProductScopeRouteId,
                 normalizedRouteProductIds,
                 normalizedSelectedProductNames)
                 : List.of();
@@ -706,7 +854,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     normalizedBatchRecordName, parsedTables, importResult.reports(),
                     definition.getId(), targetVersion.getId(),
                     expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed,
-                    expectedRouteCandidateVersionId);
+                    expectedRouteCandidateVersionId, selectedDccProjectCode.getId());
             targetVersion.setRouteId(routeResult.routeId());
             targetVersion.setSourceRouteId(targetSourceVersion == null ? null : targetSourceVersion.getRouteId());
             versionMapper.updateById(targetVersion);
@@ -715,7 +863,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 routeResult = routeGenerationService.generateRouteOnlyForUploadedWord(
                         normalizedBatchRecordName, parsedTables, routeProductNames,
                         expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed,
-                        expectedRouteCandidateVersionId);
+                        expectedRouteCandidateVersionId, selectedDccProjectCode.getId());
             } else {
                 List<MesProBatchRecordReportView> reportsForRoute = rebuildRecord
                         ? importResult.reports()
@@ -724,7 +872,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                         normalizedBatchRecordName, parsedTables, reportsForRoute, routeProductNames,
                         definition.getId(), targetVersion.getId(),
                         expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed,
-                        expectedRouteCandidateVersionId, rebuildRecord);
+                        expectedRouteCandidateVersionId, rebuildRecord, selectedDccProjectCode.getId());
                 targetVersion.setRouteId(routeResult.routeId());
                 targetVersion.setSourceRouteId(targetSourceVersion == null ? null : targetSourceVersion.getRouteId());
                 versionMapper.updateById(targetVersion);
@@ -952,7 +1100,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     }
 
     private List<MesProBatchRecordImportRouteProductOption> buildRouteProductOptions(
-            MesProRouteDO route, MesProRouteVersionDO routeVersion, List<String> requestedProductNames) {
+            MesProRouteDO route, MesProRouteVersionDO routeVersion, List<String> requestedProductNames,
+            DccProjectCodeDO selectedDccProjectCode) {
         Map<String, MesProBatchRecordImportRouteProductOption> options = new LinkedHashMap<>();
         Set<Long> existingRouteProductItemIds = new LinkedHashSet<>();
         if (route != null) {
@@ -994,9 +1143,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             }
         }
         for (String productName : requestedProductNames) {
-            Set<Long> requestedItemIds = resolveDccProjectProductItemIds(productName);
-            if (!requestedItemIds.isEmpty()
-                    && requestedItemIds.stream().anyMatch(existingRouteProductItemIds::contains)) {
+            Set<Long> selectedProjectItemIds = resolveSelectedDccProjectProductItemIds(selectedDccProjectCode);
+            if (selectedProjectItemIds.stream().anyMatch(existingRouteProductItemIds::contains)) {
                 continue;
             }
             options.putIfAbsent(productName, MesProBatchRecordImportRouteProductOption.builder()
@@ -1008,10 +1156,23 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         return new ArrayList<>(options.values());
     }
 
-    private Long resolveRouteProductScopeRouteId(MesProBatchRecordVersionDO sourceVersion, String projectName,
+    private Set<Long> resolveSelectedDccProjectProductItemIds(DccProjectCodeDO selectedDccProjectCode) {
+        String projectCode = StrUtil.trimToNull(selectedDccProjectCode.getProjectCode());
+        if (projectCode == null) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_DCC_PROJECT_PRODUCT_MISSING,
+                    selectedDccProjectCode.getId());
+        }
+        MesMdItemDO item = itemMapper.selectByCode(projectCode);
+        if (item == null || !CommonStatusEnum.isEnable(item.getStatus()) || !Boolean.TRUE.equals(item.getBatchFlag())) {
+            return Set.of();
+        }
+        return Set.of(item.getId());
+    }
+
+    private Long resolveRouteProductScopeRouteId(MesProBatchRecordVersionDO sourceVersion, Long dccProjectCodeId,
                                                  Long expectedRouteId, Long expectedRouteVersionId) {
         if (expectedRouteId != null) {
-            List<MesProRouteDO> routes = resolveGovernedRoutesForDccProject(projectName);
+            List<MesProRouteDO> routes = resolveGovernedRoutesForDccProject(dccProjectCodeId);
             if (routes.size() != 1 || !Objects.equals(routes.get(0).getId(), expectedRouteId)) {
                 Long currentRouteId = routes.size() == 1 ? routes.get(0).getId() : null;
                 MesProRouteVersionDO activeVersion = currentRouteId == null
@@ -1034,7 +1195,9 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         return null;
     }
 
-    private List<String> resolveSelectedRouteProductNames(String batchRecordName, Long routeProductScopeRouteId,
+    private List<String> resolveSelectedRouteProductNames(String batchRecordName,
+                                                          DccProjectCodeDO selectedDccProjectCode,
+                                                          Long routeProductScopeRouteId,
                                                           List<Long> selectedRouteProductIds,
                                                           List<String> selectedProductNames) {
         LinkedHashSet<String> productNames = new LinkedHashSet<>(selectedProductNames);
@@ -1085,7 +1248,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_PRODUCT_SCOPE_INVALID,
                             routeProduct.getId());
                 }
-                productNames.add(resolveSelectedRouteProductProjectName(batchRecordName, item));
+                productNames.add(resolveSelectedRouteProductProjectName(
+                        batchRecordName, selectedDccProjectCode, item));
             }
         }
         if (productNames.isEmpty()) {
@@ -1094,13 +1258,12 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         return new ArrayList<>(productNames);
     }
 
-    private String resolveSelectedRouteProductProjectName(String batchRecordName,
-                                                         cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO item) {
-        List<DccProjectCodeDO> projectCodes = dccProjectCodeMapper.selectEnabledListByProjectName(batchRecordName);
-        for (DccProjectCodeDO projectCode : projectCodes) {
-            if (StrUtil.equals(StrUtil.trim(projectCode.getProjectCode()), StrUtil.trim(item.getCode()))) {
-                return batchRecordName;
-            }
+    private String resolveSelectedRouteProductProjectName(
+            String batchRecordName,
+            DccProjectCodeDO selectedDccProjectCode,
+            cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO item) {
+        if (StrUtil.equals(StrUtil.trim(selectedDccProjectCode.getProjectCode()), StrUtil.trim(item.getCode()))) {
+            return batchRecordName;
         }
         return item.getName();
     }

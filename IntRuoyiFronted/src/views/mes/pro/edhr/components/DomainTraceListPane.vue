@@ -231,7 +231,7 @@ const normalizeText = (value: unknown) => {
   return rawValue == null ? '' : String(rawValue).trim()
 }
 
-const queryParams = reactive<EdhrDomainTracePageReqVO>({
+const queryParams = reactive<EdhrDomainTracePageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: props.pageSize,
   executionId: parsePositiveNumber(props.executionId),

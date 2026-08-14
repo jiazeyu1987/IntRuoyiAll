@@ -23,7 +23,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -49,3 +49,13 @@ ready_for_closeout
 - IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationService.java
 - IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationServiceImpl.java
 - IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/qa/regulation/MesQaInspectionRegulationServiceTest.java
+
+## Closeout Evidence
+
+- DF07 implementation commit: 8e156fbf8 feat(mes): read locked QA version processes.
+- int_main fast-forward merge: PASS, int_main HEAD advanced to 8e156fbf8.
+- Main-worktree stale DF07 task docs were preserved before merge in stash@{0}: protect stale main df07 docs before df07 merge.
+- DF07 worktree removal: PASS, D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df07 removed after clean status check.
+- Runtime slot release: PASS, slot 18 / ports 8099 and 48099 marked inactive in D:/IntRuoyiWorktree/.ports/worktree-ports.json.
+- Branch runtime guard after release: PASS for int_main 8081/48081.
+- No push, deployment, remote-server operation, service start, or shared business data mutation was performed.

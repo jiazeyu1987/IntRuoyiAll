@@ -182,6 +182,8 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_AUTO_SCHEDULE_ORDER_BLOCKED = new ErrorCode(1_040_250_019, "排产工单{}排产失败：{}");
     ErrorCode PRO_AUTO_SCHEDULE_ROUTE_VERSION_REQUIRED = new ErrorCode(1_040_250_020, "排产工单缺少冻结工艺路线版本，scheduleOrderId={}");
     ErrorCode PRO_AUTO_SCHEDULE_REPLAN_SCOPE_LOCKED = new ErrorCode(1_040_250_021, "排产重排范围已有审批中申请：{}");
+    ErrorCode PRO_AUTO_SCHEDULE_ERP_SOURCE_CONFIRMATION_REQUIRED = new ErrorCode(1_040_250_022,
+            "排产范围缺少 ERP 正式同步记录或正式 ID/编号，必须显式确认来源风险后才能应用正式排程");
 
     // ========== MES 排程日历（1-040-260-000） ==========
     ErrorCode PRO_SCHEDULE_CALENDAR_INVALID_MONTH = new ErrorCode(1_040_260_000, "排程日历月份格式无效");
@@ -391,7 +393,6 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_NOT_EXISTS = new ErrorCode(1_040_501_000, "工艺路线不存在");
     ErrorCode PRO_ROUTE_CODE_DUPLICATE = new ErrorCode(1_040_501_001, "工艺路线编码已存在");
     ErrorCode PRO_ROUTE_ENABLE_NO_PROCESS = new ErrorCode(1_040_501_002, "请先添加组成工序");
-    ErrorCode PRO_ROUTE_ENABLE_NO_KEY_PROCESS = new ErrorCode(1_040_501_003, "工艺路线必须要有关键工序");
     ErrorCode PRO_ROUTE_ENABLE_PRODUCT_NO_BOM = new ErrorCode(1_040_501_004, "产品 {} 未配置工序的 BOM 消耗");
     ErrorCode PRO_ROUTE_IS_ENABLE = new ErrorCode(1_040_501_005, "工艺路线已启用，不允许操作");
     ErrorCode PRO_ROUTE_NAME_DUPLICATE = new ErrorCode(1_040_501_006, "工艺路线名称已存在");
@@ -409,9 +410,7 @@ public interface ErrorCodeConstants {
     // ========== MES 生产管理-工艺路线产品（1-040-501-200） ==========
     ErrorCode PRO_ROUTE_PRODUCT_NOT_EXISTS = new ErrorCode(1_040_501_200, "工艺路线产品不存在");
     ErrorCode PRO_ROUTE_PRODUCT_ITEM_DUPLICATE = new ErrorCode(1_040_501_201, "此产品已配置了工艺路线");
-    ErrorCode PRO_ROUTE_PRODUCT_WORK_ORDER_MATCH_EMPTY = new ErrorCode(1_040_501_202, "未找到产品名称等于当前工艺路线名称的生产订单产品：{}");
     ErrorCode PRO_ROUTE_PRODUCT_ITEM_BOUND_OTHER_ROUTE = new ErrorCode(1_040_501_203, "以下产品已配置了其它工艺路线：{}");
-    ErrorCode PRO_ROUTE_PRODUCT_ROUTE_NAME_EMPTY = new ErrorCode(1_040_501_204, "工艺路线名称不能为空，无法从生产订单补齐产品");
     // ========== MES 生产管理-工艺路线产品BOM（1-040-501-300） ==========
     ErrorCode PRO_ROUTE_PRODUCT_BOM_NOT_EXISTS = new ErrorCode(1_040_501_300, "工艺路线产品 BOM 不存在");
     ErrorCode PRO_ROUTE_PRODUCT_BOM_DUPLICATE = new ErrorCode(1_040_501_301, "当前 BOM 物料在此工序已经配置过");
@@ -1090,6 +1089,10 @@ public interface ErrorCodeConstants {
             "压力泵角色授权缺少有效工艺路线工序，routeIds={}");
     ErrorCode PRO_FRONTLINE_ACTUAL_EMPLOYEE_LEADER_ASSIGNMENT_INVALID = new ErrorCode(1_040_760_121,
             "实际填写员工必须且只能属于一个启用的生产组长，actualEmployeeId={}");
+    ErrorCode PRO_FRONTLINE_SESSION_SNAPSHOT_NOT_EXISTS = new ErrorCode(1_040_760_122,
+            "一线运行快照不存在或已过期，请退出最大化后重新进入，snapshotId={}");
+    ErrorCode PRO_FRONTLINE_SESSION_SNAPSHOT_INVALID = new ErrorCode(1_040_760_123,
+            "一线运行快照校验失败：{}");
 
     // ========== MES 工序池审核副本（1-040-760-200） ==========
     ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_200,

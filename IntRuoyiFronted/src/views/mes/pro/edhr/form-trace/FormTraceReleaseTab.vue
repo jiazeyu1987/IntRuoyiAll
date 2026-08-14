@@ -360,7 +360,7 @@ const eventList = ref<EdhrReleaseEventRespVO[]>([])
 const checkItemTotal = ref(0)
 const eventTotal = ref(0)
 
-const queryParams = reactive({
+const queryParams = reactive<EdhrReleasePageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: 10,
   batchExecutionCode:
@@ -368,7 +368,7 @@ const queryParams = reactive({
   workOrderCode: typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : '',
   batchCode: typeof route.query.batchCode === 'string' ? route.query.batchCode : '',
   productCode: typeof route.query.productCode === 'string' ? route.query.productCode : ''
-}) as EdhrReleasePageReqVO
+})
 
 const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
   pageNo: 1,

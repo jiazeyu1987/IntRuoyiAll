@@ -69,6 +69,7 @@ public class MesReportAllocationCommandService {
     private final MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
     private final MesReportAllocationQuantityFragmentService quantityFragmentService;
     private final MesTeamLeaderOrderProcessCompletionService completionService;
+    private final MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
@@ -88,7 +89,8 @@ public class MesReportAllocationCommandService {
             MesTeamLeaderFifoAllocationService fifoService,
             MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService,
             MesReportAllocationQuantityFragmentService quantityFragmentService,
-            MesTeamLeaderOrderProcessCompletionService completionService) {
+            MesTeamLeaderOrderProcessCompletionService completionService,
+            MesProductionReportManagementSummaryService reportManagementSummaryService) {
         this.scopeService = scopeService;
         this.eventMapper = eventMapper;
         this.activeOrderMapper = activeOrderMapper;
@@ -104,6 +106,7 @@ public class MesReportAllocationCommandService {
         this.routeStartAuthorizationService = routeStartAuthorizationService;
         this.quantityFragmentService = quantityFragmentService;
         this.completionService = completionService;
+        this.reportManagementSummaryService = reportManagementSummaryService;
     }
 
     public MesReportAllocationSnapshot getCurrent(Long eventId, Long leaderUserId, String leaderType) {
@@ -247,6 +250,7 @@ public class MesReportAllocationCommandService {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
                     event.getId(), command.getExpectedVersion(), state.getCurrentVersion());
         }
+        reportManagementSummaryService.refreshProductionEvent(event);
         return buildSnapshot(event, pool, newVersion, next);
     }
 

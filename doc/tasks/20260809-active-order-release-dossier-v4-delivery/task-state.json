@@ -114,7 +114,7 @@
     {
       "phase_id": "P3",
       "title": "过程检验单 writer（A4）",
-      "objective": "从 CONFIRMED PQC 汇集与 PUBLISHED QA 版本生成传统正式 PROCESS_INSPECTION execution。",
+      "objective": "从 CONFIRMED PQC 汇集与 DCC 项目同工序最新 PUBLISHED QA 版本生成正式 PROCESS_INSPECTION 资料；传统 report 走 execution，路线 template 28 绑定走正式 FormCenter instance。",
       "owned_paths": [
         "release inspection writer、QA/PQC reader、映射、聚焦 JUnit。"
       ],
@@ -122,13 +122,13 @@
         "P2"
       ],
       "deliverables": [
-        "传统正式 execution 与当前 batch/task 关联，逐项 field audit 和签名完整，无 raw payload/状态替代。"
+        "正式 execution 或 FormCenter instance 与当前 batch/task 关联，逐项 field audit/source hash 和原始签名完整，无 raw payload/状态替代；动态自动写入未接通时精确阻塞。"
       ],
       "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
       "acceptance_criteria": [
         {
           "ac_id": "P3-AC1",
-          "text": "实现当前里程碑目标：从 CONFIRMED PQC 汇集与 PUBLISHED QA 版本生成传统正式 PROCESS_INSPECTION execution。",
+          "text": "实现当前里程碑目标：从 CONFIRMED PQC 汇集与 DCC 项目同工序最新 PUBLISHED QA 版本生成正式 PROCESS_INSPECTION 资料；传统 report 走 execution，路线 template 28 绑定走正式 FormCenter instance。",
           "status": "completed",
           "evidence": [
             "execution-log.md#A4-Process-Inspection-Writer",
@@ -137,7 +137,7 @@
         },
         {
           "ac_id": "P3-AC2",
-          "text": "交付物已落地：传统正式 execution 与当前 batch/task 关联，逐项 field audit 和签名完整，无 raw payload/状态替代。",
+          "text": "交付物已落地：正式 execution 或 FormCenter instance 与当前 batch/task 关联，逐项 field audit/source hash 和原始签名完整，无 raw payload/状态替代；动态自动写入未接通时精确阻塞。",
           "status": "completed",
           "evidence": [
             "execution-log.md#A4-Process-Inspection-Writer",
@@ -160,15 +160,17 @@
       ],
       "notes": [
         "Mapped test topics require main-agent review.",
-        "Migrated from approved A4 history; final serialized A3-A5 gate passed."
+        "Migrated from approved A4 history; final serialized A3-A5 gate passed.",
+        "Development-plan contract expanded to DCC latest PUBLISHED QA plus template 28 FormCenter success; prior traditional-only evidence does not prove the new milestone.",
+        "2026-08-11 main takeover: A4 dynamic template 28 path reached standard Maven GREEN 18/18 across dynamic FormCenter port, stable-process QA reader, and writer; P4 remains needs_revision for LOSS_REPORT template 25."
       ],
-      "last_reviewed_at": "2026-08-09T15:36:49+00:00",
+      "last_reviewed_at": "2026-08-11T00:20:00+08:00",
       "status": "completed"
     },
     {
       "phase_id": "P4",
       "title": "损耗单 writer 与完成性（A5）",
-      "objective": "对账正式 feedback 和已签名事件损耗明细，生成传统 LOSS_REPORT execution，并提供三资料完成性检查。",
+      "objective": "对账正式 feedback 和已签名事件损耗明细，生成正式 LOSS_REPORT 资料；传统 report 走 execution，路线 template 25 绑定走正式 FormCenter instance，并提供三资料完成性检查。",
       "owned_paths": [
         "release loss writer、completeness、聚焦 JUnit。"
       ],
@@ -182,7 +184,7 @@
       "acceptance_criteria": [
         {
           "ac_id": "P4-AC1",
-          "text": "实现当前里程碑目标：对账正式 feedback 和已签名事件损耗明细，生成传统 LOSS_REPORT execution，并提供三资料完成性检查。",
+          "text": "实现当前里程碑目标：对账正式 feedback 和已签名事件损耗明细，生成正式 LOSS_REPORT 资料；传统 report 走 execution，路线 template 25 绑定走正式 FormCenter instance，并提供三资料完成性检查。",
           "status": "completed",
           "evidence": [
             "execution-log.md#A5-Loss-Report-Writer-And-Completeness",
@@ -214,9 +216,10 @@
       ],
       "notes": [
         "Mapped test topics require main-agent review.",
-        "Migrated from approved A5 history; final serialized A3-A5 gate passed."
+        "Migrated from approved A5 history; final serialized A3-A5 gate passed.",
+        "Development-plan contract expanded to template 25 FormCenter success; prior traditional-only evidence does not prove the new milestone."
       ],
-      "last_reviewed_at": "2026-08-09T15:36:50+00:00",
+      "last_reviewed_at": "2026-08-10T20:33:25+00:00",
       "status": "completed"
     },
     {
@@ -350,7 +353,16 @@
             "execution-log.md#DCC-Catheter-Formal-Source-Mapping-Refinement",
             "test-report.md#A6-前置门禁",
             "test-report.md#P7/A6-独立阻塞复核",
-            "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence"
+            "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence",
+            "execution-log.md#P7-V29-Supervisor-Recheck",
+            "execution-log.md#P7-V29-Product-And-Contract-Recheck",
+            "execution-log.md#2026-08-10-P7/A6-V29-真实只读门禁与稳定工序-QA-reader",
+            "execution-log.md#P7-Dynamic-Form-Mapping-Save",
+            "test-report.md#P7-Dynamic-Form-Mapping-Save-独立验证",
+            "execution-log.md#P7-Pressure-Pump-Template-Field-Correspondence-2026-08-11",
+            "p7-pressure-pump-v29-correspondence.md#2026-08-11-字段级对应复核",
+            "execution-log.md#P7-Dynamic-Summary-Writer-Main-Integration",
+            "execution-log.md#P7-FormCenter-Real-Jimu-Layout-Runtime-Regression"
           ]
         },
         {
@@ -361,7 +373,16 @@
             "execution-log.md#DCC-Catheter-Formal-Source-Mapping-Refinement",
             "test-report.md#A6-前置门禁",
             "test-report.md#P7/A6-独立阻塞复核",
-            "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence"
+            "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence",
+            "execution-log.md#P7-V29-Supervisor-Recheck",
+            "execution-log.md#P7-V29-Product-And-Contract-Recheck",
+            "execution-log.md#2026-08-10-P7/A6-V29-真实只读门禁与稳定工序-QA-reader",
+            "execution-log.md#P7-Dynamic-Form-Mapping-Save",
+            "test-report.md#P7-Dynamic-Form-Mapping-Save-独立验证",
+            "execution-log.md#P7-Pressure-Pump-Template-Field-Correspondence-2026-08-11",
+            "p7-pressure-pump-v29-correspondence.md#2026-08-11-字段级对应复核",
+            "execution-log.md#P7-Dynamic-Summary-Writer-Main-Integration",
+            "execution-log.md#P7-FormCenter-Real-Jimu-Layout-Runtime-Regression"
           ]
         },
         {
@@ -372,7 +393,16 @@
             "execution-log.md#DCC-Catheter-Formal-Source-Mapping-Refinement",
             "test-report.md#A6-前置门禁",
             "test-report.md#P7/A6-独立阻塞复核",
-            "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence"
+            "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence",
+            "execution-log.md#P7-V29-Supervisor-Recheck",
+            "execution-log.md#P7-V29-Product-And-Contract-Recheck",
+            "execution-log.md#2026-08-10-P7/A6-V29-真实只读门禁与稳定工序-QA-reader",
+            "execution-log.md#P7-Dynamic-Form-Mapping-Save",
+            "test-report.md#P7-Dynamic-Form-Mapping-Save-独立验证",
+            "execution-log.md#P7-Pressure-Pump-Template-Field-Correspondence-2026-08-11",
+            "p7-pressure-pump-v29-correspondence.md#2026-08-11-字段级对应复核",
+            "execution-log.md#P7-Dynamic-Summary-Writer-Main-Integration",
+            "execution-log.md#P7-FormCenter-Real-Jimu-Layout-Runtime-Regression"
           ]
         }
       ],
@@ -380,36 +410,53 @@
         "execution-log.md#DCC-Catheter-Formal-Source-Mapping-Refinement",
         "test-report.md#A6-前置门禁",
         "test-report.md#P7/A6-独立阻塞复核",
-        "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence"
+        "execution-log.md#P7-Pressure-Pump-Per-Process-Source-Correspondence",
+        "execution-log.md#P7-V29-Supervisor-Recheck",
+        "execution-log.md#P7-V29-Product-And-Contract-Recheck",
+        "execution-log.md#2026-08-10-P7/A6-V29-真实只读门禁与稳定工序-QA-reader",
+        "execution-log.md#P7-Dynamic-Form-Mapping-Save",
+        "test-report.md#P7-Dynamic-Form-Mapping-Save-独立验证",
+        "execution-log.md#P7-Pressure-Pump-Template-Field-Correspondence-2026-08-11",
+        "p7-pressure-pump-v29-correspondence.md#2026-08-11-字段级对应复核",
+        "execution-log.md#P7-Dynamic-Summary-Writer-Main-Integration",
+        "execution-log.md#P7-FormCenter-Real-Jimu-Layout-Runtime-Regression"
       ],
       "notes": [
         "Mapped test topics require main-agent review.",
         "Current A6 executor gate is fail-fast before first business write; mapping review is released but real fixture and E2E are not complete.",
         "Independent tester released blocker evidence only: syntax 2/2 and static contract 1/1 pass; real preflight is structured blocked, P7 AC 0/3, business E2E 0.",
-        "Pressure pump per-process correspondence rechecked by main agent after A6 follow-up was interrupted for no return; no business writes or manifest were created."
+        "Pressure pump per-process correspondence rechecked by main agent after A6 follow-up was interrupted for no return; no business writes or manifest were created.",
+        "P7 refreshed after pressure pump route advanced to V29 ACTIVE.",
+        "P7 product is user-frozen to 902149 and single-admin preflight authorization is explicit.",
+        "Real read-only preflight reached formal data validation and blocked on empty dynamic binding snapshot hashes with zero side effects; fixture and business E2E remain unstarted.",
+        "2026-08-11 main sync: P4 completed, P7 remains blocked on current pressure pump V29 formal preflight prerequisites.",
+        "2026-08-11 A6 read-only gate refresh: node/static/preflight and SELECT evidence recorded; zero business side effects; P7 remains blocked.",
+        "2026-08-11 main sync: dynamic source save entry is implemented and independently verified 44/44; P7 remains blocked on real mapping data, V29 hashes, DCC provenance/equipment, fixture and real E2E.",
+        "2026-08-11 field correspondence: business sources map to pressure pump V29 bindings, but current PI/LOSS writer granularity is incompatible with template 28/25 capacity; no guessed mapping written.",
+        "2026-08-11 main integration: PI/LOSS dynamic summary-source writers are present and main focused Maven is GREEN; P7 remains blocked on independent tester evidence plus runtime data/formal mapping/hash/DCC/equipment/E2E prerequisites.",
+        "2026-08-11 executor fixed FormCenter real Jimu layout fallback in source; main follow-up confirmed current 48081 P7 cell-link runtime and saved FORM_TEMPLATE_VERSION:32/27 PI/LOSS summary rules through formal API.",
+        "2026-08-11 strict identity gate: pressure-pump route resolves DCC project ID; QA must be current PQC-ID-* and the bound process-inspection template must identify the same ID project. Main and independent focused regressions are 25/25 PASS, and the post-identity A2-A5 integration gate is 68/68 PASS; current template 28/V3.0 is IDPR and therefore remains blocked before any FormCenter write.",
+        "2026-08-11 current formal gate independently revalidated: V29/632 remains the only ACTIVE version with 14 processes; formal PQC-ID QA provenance and complete equipment are each 1/14 (44 equipment links missing), PI/LOSS record and slot hashes are each 0/14, and all business side-effect counters remain zero."
       ],
-      "last_reviewed_at": "2026-08-10T03:21:14+00:00",
+      "last_reviewed_at": "2026-08-11T13:27:00+00:00",
       "status": "blocked"
     }
   ],
   "planner_review_status": "approved",
   "test_status": "running",
   "blocking_prereqs": [
-    "current P7 target is pressure pump route 922119 / RT000028 / V27 / routeVersionId 627 ACTIVE; catheter route 900025 and products 902231/902252/902262/907242 are stale for current target",
-    "pressure pump route has three enabled productIds 901965/902149/924005; a single formal productId is not frozen",
-    "pressure pump V27 snapshot routeProcessIds 980645..980658 are deleted historical rows, while current active routeProcessIds are 980661..980674; they map 1:1 by process_id/sort but the fixture must freeze which context is used before writes",
-    "pressure pump MAIN batch record source maps 14/14 by report metadata to definition 47 and APPROVED version 130, but PROCESS_INSPECTION only exists as formBindings for rough wash/fine wash 2/14 and has 0/14 traditional batch_record_report_id identities; current M0 contract does not allow formBindings to substitute traditional PROCESS_INSPECTION reports",
-    "pressure pump PROCESS_INSPECTION report candidate a08b8aa2ed5d4e4b874db88505db22ea exists but has null batch_record_definition_id and batch_record_version_id, so it cannot satisfy traditional report identity/current APPROVED preflight",
-    "pressure pump formal QA and mappings are incomplete: only 1/14 QA regulations are PUBLISHED with item count 3, PROCESS_POOL_REPORT/PQC_AGGREGATE_DETAIL/PRODUCTION_LOSS source mappings are all 0, and release owner still needs explicit env plus real UI login/signature proof"
+    "P7: pressure pump PI/LOSS summary field rules are saved through formal API on current 48081 runtime (FORMTPL:32 total=10/workOrder=1/pqc=9; FORMTPL:27 total=6/workOrder=1/loss=5). Independent identity-gate verification is 25/25 PASS, but the PI rules are not releasable because template 28/V3.0 identifies PQC-IDPR-001 while product 902149 resolves to DCC project ID.",
+    "P7: current ACTIVE pressure pump V29 routeVersionId=632 dynamic PROCESS_INSPECTION/LOSS_REPORT bindings still have empty record_category_snapshot_hash and slot_config_snapshot_hash; requires formally saved/published next candidate version, not SQL backfill.",
+    "P7: remaining real E2E prerequisites include an ID-compatible formal process-inspection template and corrected mappings, explicit DCC provenance for product 902149/AW.107.02.01.2010 (only 1/14 latest QA candidates is PQC-ID), complete QA equipment associations (only 1/14 complete, 44 links missing), task-owned fixture manifest, real Playwright business flow, and final read-only business assertions."
   ],
   "iteration_counts": {
     "planner_revisions": 0,
     "plan_revisions": 0,
-    "executor_loops": 2,
-    "test_loops": 2
+    "executor_loops": 4,
+    "test_loops": 3
   },
   "created_at": null,
-  "updated_at": "2026-08-10T03:21:14+00:00",
+  "updated_at": "2026-08-11T13:27:00+00:00",
   "branch": null,
   "baseline_revision": null,
   "workspace_root": "E:\\IntRuoyi",

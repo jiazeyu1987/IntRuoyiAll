@@ -18,20 +18,19 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImp
         String projectCode = dccProject == null ? null : StrUtil.trim(dccProject.getProjectCode());
         String regulationCode = regulation == null ? null : StrUtil.trim(regulation.getRegulationCode());
         Long versionId = version == null ? null : version.getId();
-        boolean publishedIdentity = dccProject != null && dccProject.getId() != null
+        boolean lockedIdentity = dccProject != null && dccProject.getId() != null
                 && StrUtil.isNotBlank(projectCode)
                 && regulation != null && regulation.getId() != null
                 && StrUtil.isNotBlank(regulationCode)
                 && java.util.Objects.equals(dccProject.getId(), regulation.getDccProjectCodeId())
                 && "PUBLISHED".equals(regulation.getLifecycleStatus())
                 && version != null && versionId != null
-                && "PUBLISHED".equals(version.getLifecycleStatus())
+                && java.util.Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())
                 && version.getPublishedAt() != null
-                && java.util.Objects.equals(regulation.getCurrentVersionId(), versionId)
                 && java.util.Objects.equals(regulation.getId(), version.getRegulationId())
                 && java.util.Objects.equals(dccProject.getTenantId(), regulation.getTenantId())
                 && java.util.Objects.equals(regulation.getTenantId(), version.getTenantId());
-        if (publishedIdentity) {
+        if (lockedIdentity) {
             return new Resolution()
                     .setDccProjectCodeId(dccProject.getId())
                     .setRegulationId(regulation.getId())

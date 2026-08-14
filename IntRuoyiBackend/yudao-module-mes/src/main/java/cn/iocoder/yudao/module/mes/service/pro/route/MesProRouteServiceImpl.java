@@ -2,11 +2,11 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRoutePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteRespVO;
@@ -77,6 +77,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     private static final String OWNER_PREFIX = "[owner]";
     private static final String OWNER_SUFFIX = "[/owner]";
+    private static final String COPY_NAME_SUFFIX = "-副本";
+    private static final int MAX_COPY_NAME_SUFFIX_ATTEMPTS = 1000;
     private static final String SNAPSHOT_CONFIGS_KEY = "configSnapshots";
     private static final String FLOW_GRAPH_KEY = "flowGraph";
     private static final String PRODUCTS_KEY = "products";
@@ -93,6 +95,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private static final String ROUTE_VERSION_STATUS_DRAFT = "DRAFT";
     private static final String ROUTE_VERSION_STATUS_PENDING_APPROVAL = "PENDING_APPROVAL";
     private static final String ROUTE_VERSION_STATUS_READY_TO_PUBLISH = "READY_TO_PUBLISH";
+    private static final String ROUTE_VERSION_STATUS_CANCELLED = "CANCELLED";
     private static final List<String> PENDING_ROUTE_VERSION_STATUSES = List.of(
             ROUTE_VERSION_STATUS_READY_TO_PUBLISH,
             ROUTE_VERSION_STATUS_PENDING_APPROVAL,
@@ -192,11 +195,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     public Long copyRoute(Long sourceRouteId, String targetCode, String targetName) {
         MesProRouteDO sourceRoute = validateRouteExists(sourceRouteId);
         validateRouteCodeUnique(null, targetCode);
-        validateRouteNameUnique(null, targetName);
+        String resolvedTargetName = resolveUniqueCopyRouteName(targetName);
 
         MesProRouteDO targetRoute = MesProRouteDO.builder()
                 .code(targetCode)
-                .name(targetName)
+                .name(resolvedTargetName)
                 .description(sourceRoute.getDescription())
                 .status(CommonStatusEnum.DISABLE.getStatus())
                 .remark(sourceRoute.getRemark())
@@ -326,6 +329,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         validateRouteExists(id);
         // 1.2 已启用的工艺路线，不允许删除
         validateRouteNotEnable(id);
+        // 1.3 删除路线前必须结束其开放候选，避免留下无法再编辑或发布的孤立草稿
+        cancelOpenCandidateBeforeDelete(id);
 
         // 2.1 级联删除
         routeProcessFlowService.deleteByRouteId(id);
@@ -334,6 +339,25 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         routeProductBomService.deleteRouteProductBomByRouteId(id);
         // 2.2 删除工艺路线
         routeMapper.deleteById(id);
+    }
+
+    private void cancelOpenCandidateBeforeDelete(Long routeId) {
+        MesProRouteVersionDO candidate = routeVersionMapper.selectOpenCandidateByRouteId(routeId);
+        if (candidate == null) {
+            return;
+        }
+        if (!(ROUTE_VERSION_STATUS_DRAFT.equals(candidate.getLifecycleStatus())
+                || ROUTE_VERSION_STATUS_READY_TO_PUBLISH.equals(candidate.getLifecycleStatus()))) {
+            throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
+                    candidate.getId(), candidate.getLifecycleStatus());
+        }
+        MesProRouteVersionDO update = new MesProRouteVersionDO();
+        update.setId(candidate.getId());
+        update.setLifecycleStatus(ROUTE_VERSION_STATUS_CANCELLED);
+        if (routeVersionMapper.updateById(update) != 1) {
+            throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, candidate.getId());
+        }
+        platformAdapter.recordCancelled(candidate, SecurityFrameworkUtils.getLoginUserId());
     }
 
     @Override
@@ -365,6 +389,21 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         }
     }
 
+    private String resolveUniqueCopyRouteName(String targetName) {
+        if (routeMapper.selectByName(targetName) == null) {
+            return targetName;
+        }
+        String copyNameBase = targetName.endsWith(COPY_NAME_SUFFIX) ? targetName : targetName + COPY_NAME_SUFFIX;
+        int startIndex = copyNameBase.equals(targetName) ? 2 : 1;
+        for (int copyIndex = startIndex; copyIndex <= MAX_COPY_NAME_SUFFIX_ATTEMPTS; copyIndex++) {
+            String candidateName = copyIndex == 1 ? copyNameBase : copyNameBase + copyIndex;
+            if (routeMapper.selectByName(candidateName) == null) {
+                return candidateName;
+            }
+        }
+        throw exception(PRO_ROUTE_NAME_DUPLICATE);
+    }
+
     /**
      * 启用工艺路线时的校验
      */
@@ -374,15 +413,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         if (CollUtil.isEmpty(processList)) {
             throw exception(PRO_ROUTE_ENABLE_NO_PROCESS);
         }
-        // 2. 必须有关键工序
-        boolean hasKeyProcess = processList.stream()
-                .anyMatch(process -> BooleanUtil.isTrue(process.getKeyFlag()));
-        if (BooleanUtil.isFalse(hasKeyProcess)) {
-            throw exception(PRO_ROUTE_ENABLE_NO_KEY_PROCESS);
-        }
-        // 3. 流转关系图必须完整有效
+        // 2. 流转关系图必须完整有效
         routeProcessFlowService.validateRouteEnable(routeId);
-        // 4. 所有产品必须配置了 BOM 消耗
+        // 3. 所有产品必须配置了 BOM 消耗
     }
 
     @Override

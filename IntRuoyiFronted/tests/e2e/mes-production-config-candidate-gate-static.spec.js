@@ -17,7 +17,6 @@ const routeProductBomApi = read('yudao-ui-admin-vue3/src/api/mes/pro/route/produ
 const flowConfigApi = read('yudao-ui-admin-vue3/src/api/mes/pro/route/flowconfig.ts')
 const productSaveReq = read('ruoyi-vue-pro/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/vo/product/MesProRouteProductSaveReqVO.java')
 const productCopyReq = read('ruoyi-vue-pro/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/vo/product/MesProRouteProductCopyReqVO.java')
-const productBindReq = read('ruoyi-vue-pro/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/vo/product/MesProRouteProductBindFromWorkOrdersReqVO.java')
 const productBomSaveReq = read('ruoyi-vue-pro/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/vo/productbom/MesProRouteProductBomSaveReqVO.java')
 const productService = read('ruoyi-vue-pro/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/route/MesProRouteProductServiceImpl.java')
 const productBomService = read('ruoyi-vue-pro/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/route/MesProRouteProductBomServiceImpl.java')
@@ -126,7 +125,6 @@ assert.match(
 for (const token of [
   "requireCandidateRouteVersionId('产品绑定打开')",
   "requireCandidateRouteVersionId('产品复制打开')",
-  "requireCandidateRouteVersionId('产品补齐保存')",
   "requireCandidateRouteVersionId('产品删除')"
 ]) {
   assert.match(routeProductList, new RegExp(token.replace(/[()']/g, '\\$&')), `关联产品入口必须校验 ${token}。`)
@@ -135,11 +133,6 @@ assert.match(
   routeProductList,
   /copyFormData\.value = \{[\s\S]*routeVersionId:\s*requireCandidateRouteVersionId\('产品复制打开'\)/,
   '关联产品复制表单必须携带候选 routeVersionId。'
-)
-assert.match(
-  routeProductList,
-  /previewBindFromWorkOrders\(\{[\s\S]*routeVersionId:\s*requireCandidateRouteVersionId\('产品补齐保存'\)/,
-  '从生产订单补齐产品预览和保存必须携带候选 routeVersionId。'
 )
 assert.match(
   routeProductList,
@@ -152,13 +145,12 @@ assert.match(routeProductBomList, /requireCandidateRouteVersionId\('BOM 物料�
 assert.match(routeProductBomList, /routeVersionId:\s*requireCandidateRouteVersionId\('BOM 物料保存'\)/, '产品 BOM 保存必须携带候选 routeVersionId。')
 assert.match(routeProductBomList, /deleteRouteProductBom\(id,\s*requireCandidateRouteVersionId\('BOM 物料删除'\)\)/, '产品 BOM 删除必须携带候选 routeVersionId。')
 
-assert.match(routeProductApi, /routeVersionId\?:\s*number[\s\S]*sourceRouteProductId/, '前端产品复制请求必须包含 routeVersionId。')
-assert.match(routeProductApi, /export interface ProRouteProductBindFromWorkOrdersReqVO \{[\s\S]*routeVersionId:\s*number/, '前端产品补齐请求必须要求 routeVersionId。')
-assert.match(routeProductApi, /deleteRouteProduct:\s*async\s*\(id:\s*number,\s*routeVersionId:\s*number\)/, '前端产品删除 API 必须要求 routeVersionId。')
+assert.match(routeProductApi, /routeVersionId\?:\s*MesRouteId[\s\S]*sourceRouteProductId/, '前端产品复制请求必须包含 routeVersionId。')
+assert.match(routeProductApi, /deleteRouteProduct:\s*async\s*\(id:\s*number,\s*routeVersionId:\s*MesRouteId\)/, '前端产品删除 API 必须要求 routeVersionId。')
 assert.match(routeProductBomApi, /routeVersionId\?:\s*number/, '前端产品 BOM VO 必须包含 routeVersionId。')
 assert.match(routeProductBomApi, /deleteRouteProductBom:\s*async\s*\(id:\s*number,\s*routeVersionId:\s*number\)/, '前端产品 BOM 删除 API 必须要求 routeVersionId。')
 
-for (const source of [productSaveReq, productCopyReq, productBindReq, productBomSaveReq]) {
+for (const source of [productSaveReq, productCopyReq, productBomSaveReq]) {
   assert.match(source, /private\s+Long\s+routeVersionId;/, '后端产品/BOM 写请求必须承载 routeVersionId。')
 }
 
@@ -167,7 +159,6 @@ assert.match(productService, /throw exception\(PRO_ROUTE_VERSION_NOT_EXISTS, rou
 assert.match(productService, /throw exception\(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE/, '产品服务必须拒绝非 DRAFT 或 routeId 不匹配的候选版本。')
 assert.match(productService, /copyRouteProduct[\s\S]*saveConfigSnapshot\(candidateVersion\.getId\(\), "products"/, '产品复制必须写候选 products 快照。')
 assert.match(productService, /copyRouteProduct[\s\S]*saveConfigSnapshot\(candidateVersion\.getId\(\), "productBoms"/, '产品复制必须同步写候选 productBoms 快照。')
-assert.match(productService, /bindFromWorkOrders\(Long routeId, Long routeVersionId\)/, '产品补齐保存必须接收候选 routeVersionId。')
 assert.match(productService, /deleteRouteProduct\(Long id, Long routeVersionId\)/, '产品删除必须接收候选 routeVersionId。')
 assert.match(productService, /deleteRouteProduct[\s\S]*saveConfigSnapshot\(candidateVersion\.getId\(\), "productBoms"/, '产品删除必须同步移除候选 productBoms 快照。')
 

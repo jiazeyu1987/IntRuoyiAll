@@ -10,9 +10,9 @@
 
 - `工序开始`：上传人、附件负责人或开始动作配置，不提供放行资料正文。
 - `批记录表单`：工序设置中逐工序正式 BATCH 绑定，目标为正式生产批记录。
-- `formBindings/表单槽位`：动态/特殊补充表单链路，不得补齐批记录、过程检验单或损耗单的正式来源。
+- `formBindings/表单槽位`：动态表单目标链路。它不得替代 `MAIN` 批记录；对于本合同明确的 `PROCESS_INSPECTION/form_template_id=28` 和 `LOSS_REPORT/form_template_id=25`，可作为各自正式目标载体，但业务内容仍必须来自 PQC/QA 或已签名生产损耗事实。
 
-代码中的 `formSlotType=PROCESS_INSPECTION/LOSS_REPORT` 是传统批报表任务的技术分类字段，不等于动态 `formBindings`。A4/A5 必须使用带 `batchRecordReportId` 的传统正式报表执行，不得切到 FormCenter 动态实例。
+代码中的 `formSlotType=PROCESS_INSPECTION/LOSS_REPORT` 同时用于区分传统报表绑定和动态表单绑定。A4/A5 必须按路线冻结的唯一绑定类型执行：传统绑定走 `batchRecordReportId` execution；上述指定动态绑定走已发布 FormCenter template version、精确字段映射和正式 instance 提交。不得在两条目标链路之间猜测或静默降级。
 
 ## 2. 适用经验门禁
 
@@ -93,10 +93,12 @@
 | `PQC_QA_REGULATION_REQUIRED` | 缺当前产品/工序发布 QA 规程版本 |
 | `PQC_QA_ITEM_MISMATCH` | 汇集项目、方法、上下限、设备、判定与发布版本不一致 |
 | `PQC_SIGNATURE_REQUIRED` | 缺 PQC 填写或 PQC 组长复核签名证据 |
-| `PROCESS_INSPECTION_REPORT_BINDING_REQUIRED` | 缺传统正式过程检验报表绑定 |
+| `PROCESS_INSPECTION_REPORT_BINDING_REQUIRED` | 缺唯一有效过程检验目标绑定 |
+| `PROCESS_INSPECTION_DYNAMIC_FORM_AUTOWRITE_REQUIRED` | 已识别 template 28 正式目标，但 FormCenter 自动写入/提交链路尚未接通 |
 | `PROCESS_INSPECTION_MAPPING_REQUIRED` | 缺 PQC 汇集到目标单元格的启用映射 |
 | `LOSS_SOURCE_REQUIRED` | 缺可追溯生产损耗事实或总量/明细不一致 |
-| `LOSS_REPORT_BINDING_REQUIRED` | 缺传统正式损耗报表绑定 |
+| `LOSS_REPORT_BINDING_REQUIRED` | 缺唯一有效损耗目标绑定 |
+| `LOSS_REPORT_DYNAMIC_FORM_AUTOWRITE_REQUIRED` | 已识别 template 25 正式目标，但 FormCenter 自动写入/提交链路尚未接通 |
 | `LOSS_REPORT_MAPPING_REQUIRED` | 缺生产损耗到目标单元格的启用映射 |
 | `ZERO_LOSS_CONFIRMATION_UNSUPPORTED` | 无损耗但目标模板没有正式无损耗确认字段及映射 |
 | `DOSSIER_SIGNATURE_INCOMPLETE` | 任一资料填写/审核签名或时间不完整 |
@@ -182,15 +184,15 @@ writer 必须先执行无副作用 plan/validate。存在 blocker 时返回 bloc
 
 正式目标：
 
-- 路线上的传统正式报表绑定：`batchRecordReportId` 非空、`formSlotType=PROCESS_INSPECTION`、report definition/version/snapshot 均有效。
-- `mes_pro_batch_record_execution`，关联当前 `batchExecutionId/batchExecutionTaskId`。
+- 路线上的唯一正式目标绑定：传统目标要求 `batchRecordReportId`、definition/version/snapshot 有效；动态目标要求 `formSlotType=PROCESS_INSPECTION`、`form_template_id=28`、非空稳定 binding key、已发布 template version 和 binding snapshot hash 完整。
+- 传统目标写 `mes_pro_batch_record_execution`；动态目标写当前 batch/task 的 `ROUTE_FORM` task 所关联 FormCenter instance，并提交到正式生效状态。
 - 当前代码正式类别沿用 `recordCategory=INTERNAL_RECORD`、`validationProfile=INTERNAL_TRACE`、负责人角色 `QUALITY`；不得因此改写正式来源规则。
 
-字段映射：扩展现有 `mes_pro_batch_record_cell_link_rule`，sourceType 固定为 `PQC_AGGREGATE_DETAIL`。每个必需 QA 项目/元数据/填写审核字段必须存在启用映射；按 report/version 读取，禁止根据中文标签猜 cell。
+字段映射：扩展现有 `mes_pro_batch_record_cell_link_rule`，sourceType 固定为 `PQC_AGGREGATE_DETAIL`。传统目标按 report/version 读取；动态目标按 `scope_type=FORM_TEMPLATE_VERSION` 与 `target_report_id=FORMTPL:<publishedTemplateVersionId>` 读取，并由识别 schema 的稳定 fieldCode 精确定位。每个必需 QA 项目/元数据/填写审核字段必须存在启用映射，禁止根据中文标签猜字段。
 
 完成条件：QA 项目集合完全匹配，实测值和判定一致，设备约束满足，所有必填目标格有审计，填写人=PQC 检验员、审核人=PQC 组长，签名时间来自正式记录。
 
-禁止来源：raw payload、仅 `SUBMITTED`/`CONFIRMED` 状态、前端显示值、默认上下限、当前用户/当前时间、动态 FormCenter 实例。
+禁止来源：raw payload、仅 `SUBMITTED`/`CONFIRMED` 状态、前端显示值、默认上下限、当前用户/当前时间。FormCenter instance 只能作为正式目标载体，不能反向冒充 PQC/QA 来源。
 
 ### 4.4 LossReportWriter
 
@@ -203,17 +205,17 @@ writer 必须先执行无副作用 plan/validate。存在 blocker 时返回 bloc
 
 正式目标：
 
-- 路线上的传统正式报表绑定：`batchRecordReportId` 非空、`formSlotType=LOSS_REPORT`、report definition/version/snapshot 均有效。
-- `mes_pro_batch_record_execution`，关联当前 `batchExecutionId/batchExecutionTaskId`。
+- 路线上的唯一正式目标绑定：传统目标要求 `batchRecordReportId`、definition/version/snapshot 有效；动态目标要求 `formSlotType=LOSS_REPORT`、`form_template_id=25`、非空稳定 binding key、已发布 template version 和 binding snapshot hash 完整。
+- 传统目标写 `mes_pro_batch_record_execution`；动态目标写当前 batch/task 的 `ROUTE_FORM` task 所关联 FormCenter instance，并提交到正式生效状态。
 - 当前代码正式类别沿用 `recordCategory=INTERNAL_RECORD`、`validationProfile=INTERNAL_TRACE`、负责人角色 `PRODUCTION`。
 
-字段映射：扩展现有 `mes_pro_batch_record_cell_link_rule`，sourceType 固定为 `PRODUCTION_LOSS`。至少覆盖产品、批号、工序、产出、损耗总量、分类数量、逐项原因、填写/审核和日期字段；禁止按标签猜 cell。
+字段映射：扩展现有 `mes_pro_batch_record_cell_link_rule`，sourceType 固定为 `PRODUCTION_LOSS`。传统目标按 report/version 读取；动态目标按 `scope_type=FORM_TEMPLATE_VERSION` 与 `target_report_id=FORMTPL:<publishedTemplateVersionId>` 读取。至少覆盖产品、批号、工序、产出、损耗总量、分类数量、逐项原因、填写/审核和日期字段；禁止按标签猜字段。
 
 零损耗规则：只有目标模板存在明确“无损耗确认”正式字段且存在启用映射时才能生成无损耗确认。当前 `MesProBatchRecordLossReportNormalizer` 不能证明这一字段，因此首个成功 fixture 必须使用大于 0 且原因完整的损耗；零损耗按 `ZERO_LOSS_CONFIRMATION_UNSUPPORTED` 阻塞，不能写空损耗单。
 
 完成条件：反馈总量、事件明细和目标值精确一致，原因完整，必填格及字段审计完整，填写/组长审核签名完整。
 
-禁止来源：只有 raw payload、只看 `unqualifiedQuantity` 而不对账、空原因、当前用户/当前时间、动态 FormCenter 实例。
+禁止来源：只有 raw payload、只看 `unqualifiedQuantity` 而不对账、空原因、当前用户/当前时间。FormCenter instance 只能作为正式目标载体，不能反向冒充生产损耗来源。
 
 ### 4.5 完成性检查
 
@@ -278,7 +280,7 @@ A6 成功造数后必须写出机器可读 UTF-8 JSON，字段完整且数组稳
 | --- | --- | --- |
 | 产品、工单、任务自有前缀 | 现有正式页面/API/领域 service 创建；禁止直接 SQL | 正式 ID、编码及租户 |
 | 路线、版本、工序及产品绑定 | `/mes/pro/route/*`、`/mes/pro/route-version/*`、`/mes/pro/route-process/*`、`/mes/pro/route-product/*` 的正式发布链路 | ACTIVE/发布版本和快照 ID |
-| 逐工序批记录、过程检验、损耗传统报表绑定 | `/mes/pro/route/flow-config/batch-record/save`；必须保存非空 `batchRecordReportId` 及准确类型 | routeProcess、report、definition、version |
+| 逐工序批记录、过程检验、损耗目标绑定 | `/mes/pro/route/flow-config/batch-record/save`；MAIN 必须保存非空 `batchRecordReportId`；PI/LOSS 可保存传统 report 或本合同指定动态 template，类型和快照必须准确 | routeProcess、绑定类型、report 或 published template version、snapshot hash |
 | QA 规程 | `POST /mes/qa/inspection-regulation/draft` 后 `POST /publish` | PUBLISHED version、items、equipment |
 | `RELEASE_APPROVE` | eDHR 路线放行负责人正式配置 `/route-release-approval-rule` | rule ID、候选来源及非空候选快照 |
 | 账号、角色、人员归属和签名 | 现有系统管理/人员/电子签名正式服务；使用任务专用测试账号 | user ID、角色、人员范围、有效签名配置 |
@@ -340,7 +342,7 @@ hash 至少覆盖：
 - tenant、active order、work order、product、batch、route/version 及排序后的工序快照身份。
 - 生产完成/分配/回填记录、正式提交事件、历史表单、反馈数量、设备参数、损耗总量和明细、组长确认及各自 value hash。
 - PQC task/record/event/review/aggregate detail、QA regulation version/item/equipment 及各自 value hash。
-- 三类传统正式报表 binding 的 routeProcess、report、definition/version、snapshot hash、record category 和技术 formSlotType。
+- 三类正式目标 binding 的 routeProcess、目标类型、report/definition/version 或 formTemplate/publishedTemplateVersion/bindingKey、snapshot hash、record category 和 formSlotType。
 - 命中的字段映射 rule ID、sourceType/sourceField、target cell、启用状态和版本/更新时间。
 - 所有填写/审核签名的 sourceType/sourceId/signatureId/userId/signedAt/evidenceHash。
 - 路线 `RELEASE_APPROVE` rule ID、候选来源、候选用户稳定快照。
@@ -374,8 +376,8 @@ hash 明确排除：申请时间、当前时间、`applyRemark`、当前 blocker
 | source hash 只覆盖部分 ID 且含 blocker type | A2 | 按 `AO_RELEASE_SOURCE_V1` 重做 canonical hash |
 | 当前单事务可能保留部分生成物 | A2 | facade + 生成事务 + 独立 BLOCKED 持久化 |
 | 批记录 backfill 未显式携带当前 batch/task | A3 | 小适配复用现有 writer，输出必须属于当前批次任务 |
-| 无过程检验 writer/映射 sourceType | A4 | 使用传统 PROCESS_INSPECTION 报表和 `PQC_AGGREGATE_DETAIL` 映射 |
-| 无损耗 writer/映射 sourceType | A5 | 使用传统 LOSS_REPORT 报表和 `PRODUCTION_LOSS` 映射 |
+| 无过程检验动态目标自动写入/映射 | A4/P7 | 支持 template 28 FormCenter 正式目标和 `PQC_AGGREGATE_DETAIL` 精确映射；未接通前返回专用 blocker |
+| 无损耗动态目标自动写入/映射 | A5/P7 | 支持 template 25 FormCenter 正式目标和 `PRODUCTION_LOSS` 精确映射；未接通前返回专用 blocker |
 | 当前模板不能证明无损耗确认字段 | A5/A6 | 零损耗阻塞；首个成功 fixture 使用正损耗 |
 | V4 指定前端静态测试路径不存在 | A1/A6 | 复用现有 static spec 或新增 V4 指定路径，禁止把不存在命令记 PASS |
 | 真实 fixture/manifest 尚未提供 | A6 | 按本文件入口和 manifest 实现并真实页面核验 |

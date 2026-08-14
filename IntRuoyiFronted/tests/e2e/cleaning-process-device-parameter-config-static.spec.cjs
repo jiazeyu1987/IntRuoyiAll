@@ -35,6 +35,21 @@ assert.match(
   /parameterCode:\s*parameterCodePrefix \+ '_ROOM_TEMPERATURE'[\s\S]*parameterName:\s*'室温'[\s\S]*valueType:\s*'DECIMAL'[\s\S]*targetValue:\s*26/,
   '清洗温度必须沿用精洗数字参数并默认 26。'
 )
+assert.match(
+  leaderPage,
+  /const CLEANING_PROCESS_TEMPERATURE_LABEL_DEVICE_CODES = new Set\(\['B04091', 'B09353'\]\)/,
+  'B04091 和 B09353 清洗工序温度文案必须使用专门设备编码精确限定。'
+)
+assert.match(
+  leaderPage,
+  /const resolveCleaningWashRoomTemperatureParameterName = \([\s\S]*config\.kind === 'CLEANING'[\s\S]*CLEANING_PROCESS_TEMPERATURE_LABEL_DEVICE_CODES\.has\(device\.deviceCode\?\.trim\(\) \|\| ''\)[\s\S]*\? '清洗温度'[\s\S]*: '室温'/,
+  '只有清洗工序 B04091 和 B09353 设备的室温描述可改为清洗温度，其它工序和设备必须保持室温。'
+)
+assert.match(
+  leaderPage,
+  /case 'CLEANING_ROOM_TEMPERATURE':[\s\S]*const roomTemperatureParameterName = resolveCleaningWashRoomTemperatureParameterName\(\s*cleaningWashConfig,\s*device\s*\)[\s\S]*parameterName: roomTemperatureParameterName[\s\S]*standardText:[\s\S]*roomTemperatureParameterName[\s\S]*roomTemperatureLower\.toFixed\(1\)[\s\S]*roomTemperatureDefault\.toFixed\(1\)/,
+  'B04091 和 B09353 清洗工序保存时必须把参数名称和标准描述同步写为清洗温度。'
+)
 for (const parameterCode of [
   'CLEANING_COUNT',
   'CLEANING_MEDIUM',

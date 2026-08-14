@@ -48,6 +48,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -114,6 +115,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrReleaseDossierRequirementSettingService dossierRequirementSettingService;
     @MockitoBean
     private MesOrderReleaseCompletenessService releaseCompletenessService;
+    @MockitoBean
+    private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     @BeforeEach
     void setUpDossierRequirementDefaults() {

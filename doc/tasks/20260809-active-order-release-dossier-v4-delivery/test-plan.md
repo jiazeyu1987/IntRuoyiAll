@@ -27,7 +27,7 @@
 - `test_case_id`: TC-A4-01
 - `mapped_task_ids`: A4
 - `mapped_acceptance_ids`: AC-02, AC-04, AC-08, AC-10, AC-13, AC-14, AC-15
-- `environment or setup`: CONFIRMED PQC task, aggregate rows, APPROVED signed review, PUBLISHED QA, traditional PROCESS_INSPECTION report/mapping.
+- `environment or setup`: CONFIRMED PQC task, aggregate rows, APPROVED signed review, DCC project/process latest PUBLISHED QA, and either a traditional PROCESS_INSPECTION report mapping or route template 28 published-version mapping.
 - `steps`: success; SUBMITTED-only; missing aggregate/QA item/equipment/mapping/signature; mismatch result.
 - `expected_result`: exact execution/audit/signature on success; specific blocker and no write otherwise.
 - `evidence`: focused JUnit output and field/source assertions.
@@ -37,7 +37,7 @@
 - `test_case_id`: TC-A5-01
 - `mapped_task_ids`: A5
 - `mapped_acceptance_ids`: AC-03, AC-09, AC-10, AC-11, AC-13, AC-14, AC-15
-- `environment or setup`: positive formal loss feedback/event/details, signed submit/confirm, traditional LOSS_REPORT report/mapping.
+- `environment or setup`: positive formal loss feedback/event/details, signed submit/confirm, and either a traditional LOSS_REPORT report mapping or route template 25 published-version mapping.
 - `steps`: success; total/detail mismatch; missing reason/mapping/signature; zero loss without formal confirm field; incomplete one of three documents.
 - `expected_result`: exact execution/audits on success; specific blockers; completeness never creates work task.
 - `evidence`: focused JUnit output.
@@ -97,6 +97,6 @@
 ## Regression and Safety
 
 - Existing active-order list/add, production/PQC submission review, batch backfill, eDHR precheck/release tests remain green.
-- No test may assert dynamic formBindings as batch record source.
+- No test may assert dynamic formBindings as `MAIN` batch record source. Tests may assert route template 28/25 bindings as PI/LOSS formal targets only when exact published-template mapping, FormCenter submission, source hash and original signature evidence are verified.
 - No E2E may write production/shared tenant data or log credentials.
 - A failed/missing environment is BLOCKED, not PASS and not replaced with mock/API-only.

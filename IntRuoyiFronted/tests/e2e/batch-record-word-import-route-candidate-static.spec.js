@@ -9,6 +9,8 @@ const apiSource = read('src/api/mes/pro/batchrecordreport/index.ts')
 const pageSource = read('src/views/mes/pro/batchrecordformlist/index.vue')
 
 for (const field of [
+  'currentRouteStatus?: number',
+  'routeRestoreRequired?: boolean',
   'currentRouteCandidateVersionId?: number',
   'currentRouteCandidateVersionNo?: string',
   'currentRouteCandidateVersionStatus?: string'
@@ -28,6 +30,19 @@ assert.ok(
     pageSource.includes('不会创建') &&
     pageSource.includes('待发布后生效'),
   '已有 DRAFT 候选时，页面必须明确提示更新现有草稿且不会创建下一版本。'
+)
+
+assert.ok(
+  pageSource.includes('确认后将先恢复路线，再生成/更新候选版本') &&
+    pageSource.includes('routeRestoreRequired'),
+  '唯一禁用路线导入时必须提示会先恢复路线，再生成或更新候选版本。'
+)
+
+assert.ok(
+  pageSource.includes("routeGovernanceStatus === 'DUPLICATE_BLOCKED'") &&
+    pageSource.includes('存在多条同名工艺路线') &&
+    pageSource.includes('请先人工确定/清理唯一保留路线'),
+  '存在重复同名路线时，页面必须阻止导入并提示先清理唯一保留路线。'
 )
 
 assert.ok(

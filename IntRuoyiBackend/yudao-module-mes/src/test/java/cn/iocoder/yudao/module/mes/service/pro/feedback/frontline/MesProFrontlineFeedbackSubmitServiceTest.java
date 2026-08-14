@@ -63,9 +63,11 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
+                deviceParameterValidator,
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
     }
 
     @Test
@@ -91,6 +93,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals(9001L, command.loginUserId());
             assertEquals(9102L, command.actualEmployeeId());
             assertEquals(9102L, command.signatureEmployeeId());
+            assertEquals("frontline-session-snapshot-001", command.frontlineSessionSnapshotId());
+            assertEquals("frontline-session-snapshot-hash-001", command.frontlineSessionSnapshotHash());
             return true;
         }));
         verify(signatureService).recordProductionSubmitSignature(9102L, "sign-123", "一线生产报工提交");
@@ -143,13 +147,15 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals(71L, command.routeProcessId());
             assertEquals(31L, command.processId());
             assertEquals("PRODUCTION_SIMPLE", command.templateNo());
+            assertEquals("frontline-session-snapshot-001", command.frontlineSessionSnapshotId());
+            assertEquals("frontline-session-snapshot-hash-001", command.frontlineSessionSnapshotHash());
             return true;
         }));
         verify(submitAuthorizationService).authorizeActiveOrder(9001L, 41L, 21L, 71L, 31L);
-        inOrder.verify(lossReasonValidator).requireEnabledLossReasons(
-                71L,
-                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
-                new BigDecimal("2.500"));
+        inOrder.verify(lossReasonValidator).requireSnapshotLossReasons(
+                any(),
+                eq(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails()),
+                eq(new BigDecimal("2.500")));
         inOrder.verify(feedbackService).createFrontlineFeedback(argThat(payload -> {
             assertEquals(new BigDecimal("100.500"), payload.getFeedbackQuantity());
             assertEquals(new BigDecimal("2.500"), payload.getUnqualifiedQuantity());
@@ -258,10 +264,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
     @Test
     void shouldRejectDisabledOrCrossRouteProcessLossReasonBeforeWritingAnyRecord() {
-        when(lossReasonValidator.requireEnabledLossReasons(
-                71L,
-                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
-                new BigDecimal("2.500")))
+        when(lossReasonValidator.requireSnapshotLossReasons(
+                any(),
+                eq(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails()),
+                eq(new BigDecimal("2.500"))))
                 .thenThrow(new IllegalStateException("损耗原因不属于当前工序或已禁用"));
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -271,10 +277,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         }
 
         verify(submitAuthorizationService).authorize(any());
-        verify(lossReasonValidator).requireEnabledLossReasons(
-                71L,
-                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
-                new BigDecimal("2.500"));
+        verify(lossReasonValidator).requireSnapshotLossReasons(
+                any(),
+                eq(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails()),
+                eq(new BigDecimal("2.500")));
         verify(feedbackService, never()).createFrontlineFeedback(any());
         verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService);
     }
@@ -308,7 +314,23 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
+    void shouldRejectMissingSessionSnapshotBeforeWritingAnyRecord() {
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()
+                .setFrontlineSessionSnapshotId(null)
+                .setFrontlineSessionSnapshotHash(null);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
+        }
+
+        verifyNoInteractions(submitAuthorizationService, feedbackService, recordbookEntryService,
+                processPoolSubmitEventService, signatureService);
+    }
+
+    @Test
     void shouldRejectUnauthorizedDeviceEmployeeContextBeforeWritingAnyRecord() {
+        org.mockito.Mockito.reset(submitAuthorizationService);
         when(submitAuthorizationService.authorize(any()))
                 .thenThrow(new IllegalStateException("route process not authorized"));
 
@@ -347,7 +369,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         assertEquals(801L, respVO.getProcessPoolEventId());
         verify(submitAuthorizationService).authorize(any());
-        verifyNoInteractions(deviceParameterValidator);
+        verify(deviceParameterValidator).validateSnapshotDeviceAndParameters(any(), any(), any());
     }
 
     @Test
@@ -388,10 +410,10 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     private void stubValidLossReason() {
-        when(lossReasonValidator.requireEnabledLossReasons(
-                71L,
-                MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails(),
-                new BigDecimal("2.500")))
+        when(lossReasonValidator.requireSnapshotLossReasons(
+                any(),
+                eq(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq().getFeedbackPayload().getLossDetails()),
+                eq(new BigDecimal("2.500"))))
                 .thenReturn(List.of(new MesFrontlineLossReasonSnapshot(8301L, "LOSS-001", "正常损耗")));
     }
 }

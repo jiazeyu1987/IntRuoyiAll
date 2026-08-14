@@ -50,6 +50,9 @@ public class DccControlledFileSignatureExportSummaryRespVO {
         @Schema(description = "受控副本 SHA-256")
         private String controlledCopyHash;
 
+        @Schema(description = "受控副本对象路径")
+        private String controlledCopyObjectKey;
+
         @Schema(description = "证据状态", example = "VALID")
         private String evidenceStatus;
 

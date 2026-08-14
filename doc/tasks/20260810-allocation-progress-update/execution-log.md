@@ -28,6 +28,7 @@
 - STATIC: 残留旧校验文案和 `allocatedQuantity` 正数注解搜索为空。
 - E2E SCRIPT CHECK: `node --check tests\\e2e\\team-leader-workbench-real-flow.e2e.js` -> PASS。
 - E2E BLOCKED: `TLW_FRONTEND_URL=http://127.0.0.1:8081 TLW_BACKEND_URL=http://127.0.0.1:48081 pnpm e2e:team-leader-workbench:real` -> non-zero；脚本生成 `IntRuoyiFronted/test-results/team-leader-workbench-real-flow/result.json`，状态 `BLOCKED`，原因是缺少真实写入型 E2E 前置条件。
+- E2E RERUN 2026-08-10T05:15:04Z: `node --check tests\\e2e\\team-leader-workbench-real-flow.e2e.js` -> PASS；`pnpm e2e:team-leader-workbench:real` -> exit 1 / lifecycle exit 2，`result.json` 状态仍为 `BLOCKED`。
 - E2E Missing: `TLW_TENANT`、`TLW_USERNAME`、`TLW_PASSWORD`、`TLW_WORK_ORDER_ID`、`TLW_WORK_ORDER_CODE`、`TLW_TASK_ID`、`TLW_ROUTE_ID`、`TLW_ROUTE_PROCESS_ID`、`TLW_PROCESS_ID`、`TLW_ITEM_ID`、`TLW_EMPLOYEE_PROFILE_ID`、`TLW_DEVICE_ID`、`TLW_RECORDBOOK_ID`、`TLW_SIGNATURE_ID`、`TLW_SIGNATURE_EMPLOYEE_ID`、`TLW_APPROVE_USER_ID`、`TLW_FEEDBACK_CODE`、`TLW_FEEDBACK_TYPE`。
 
 ## Blockers

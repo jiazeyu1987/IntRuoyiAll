@@ -17,11 +17,16 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 public class MesReportAllocationPoolQuantityService {
 
     public BigDecimal requirePoolQuantity(MesProProcessPoolEventDO event) {
-        if (event == null || !Objects.equals(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT,
-                event.getEventType())) {
-            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ROOT_EVENT_REQUIRED,
-                    event == null ? null : event.getId());
+        requireProductionEvent(event);
+        BigDecimal output = event.getReportOutputQuantity();
+        if (output == null || output.compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, event.getId());
         }
+        return output;
+    }
+
+    public BigDecimal requireSubmittedOutputQuantity(MesProProcessPoolEventDO event) {
+        requireProductionEvent(event);
         if (StrUtil.isBlank(event.getRawPayload())) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, event.getId());
         }
@@ -35,6 +40,14 @@ public class MesReportAllocationPoolQuantityService {
             throw ex;
         } catch (Exception ex) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, event.getId());
+        }
+    }
+
+    private void requireProductionEvent(MesProProcessPoolEventDO event) {
+        if (event == null || !Objects.equals(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT,
+                event.getEventType())) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ROOT_EVENT_REQUIRED,
+                    event == null ? null : event.getId());
         }
     }
 }

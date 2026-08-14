@@ -364,6 +364,24 @@ class DccControlledFileMapperTest extends BaseDbUnitTest {
         assertEquals(19700L, queryLong("SELECT source_file_id FROM dcc_controlled_file WHERE id = ?", 9902L));
     }
 
+    @Test
+    void selectUnownedSourceReferences_prioritizesUnattemptedRecordsBeforeFailedMigrations() {
+        insertSourceReference(9911L, 9710L, 1);
+        insertSourceReference(9912L, 9711L, 0);
+        executeUpdate("""
+                INSERT INTO dcc_controlled_file_source_migration
+                (id, controlled_file_id, legacy_source_file_id, migration_status, error_message,
+                 tenant_id, create_time, update_time, creator, updater, deleted)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
+                """, 9811L, 9911L, 9710L, "FAILED", "source object missing", 0L, "120", "120", 0);
+
+        List<DccControlledFileDO> candidates =
+                controlledFileMapper.selectUnownedSourceReferences(0L, 1);
+
+        assertEquals(List.of(9912L), candidates.stream().map(DccControlledFileDO::getId).toList());
+        assertEquals(2L, controlledFileMapper.countUnownedSourceReferences(0L));
+    }
+
     private DccControlledFileDO insertControlledFile(Long masterId, String title, String fileName, String fileNumber) {
         executeUpdate("""
                 INSERT INTO dcc_controlled_file_master

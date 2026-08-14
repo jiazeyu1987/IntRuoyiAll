@@ -248,6 +248,11 @@ const syncTypes = [
   { type: 'SALE_ORDER', label: '销售订单', handlerName: 'kingdeeSaleOrderSyncJob' },
   { type: 'PRODUCTION_ORDER', label: '生产工单', handlerName: 'kingdeeProductionOrderSyncJob' },
   {
+    type: 'PRODUCTION_PICK_LIST',
+    label: '生产领料单列表',
+    handlerName: 'kingdeeProductionPickListSyncJob'
+  },
+  {
     type: 'PRODUCTION_MATERIAL_LIST',
     label: '生产用料清单',
     handlerName: 'kingdeeProductionMaterialListSyncJob'

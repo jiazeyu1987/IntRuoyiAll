@@ -82,6 +82,8 @@ class MesP0PqcQualityAllocationGateTest {
     private MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
     @Mock
     private MesWorkOrderAbnormalStateService abnormalStateService;
+    @Mock
+    private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     private MesTeamLeaderReportConfirmationService service;
 
@@ -93,7 +95,8 @@ class MesP0PqcQualityAllocationGateTest {
         service = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper, activeOrderMapper,
                 workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper, pqcRecordMapper,
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
-                orderProcessTargetService, orderProcessCompletionService, abnormalStateService);
+                orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
+                reportManagementSummaryService);
     }
 
     @Test

@@ -219,15 +219,6 @@
               <el-button
                 link
                 type="primary"
-                :loading="routeProductBindLoadingId === scope.row.id"
-                @click="handleBindRouteProducts(scope.row)"
-                v-hasPermi="['mes:pro-route:update']"
-              >
-                产品
-              </el-button>
-              <el-button
-                link
-                type="primary"
                 :loading="routeCandidateEditLoadingId === scope.row.id"
                 @click="handleEditRouteProductionConfig(scope.row)"
                 v-hasPermi="['mes:pro-route:update']"
@@ -467,7 +458,6 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessageBox } from 'element-plus'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { dateFormatter, formatDateTimeValue } from '@/utils/formatTime'
 import { CommonStatusEnum } from '@/utils/constants'
@@ -480,7 +470,6 @@ import {
   type ProRouteVersionLifecycleStatus,
   type ProRouteVersionVO
 } from '@/api/mes/pro/route'
-import { ProRouteProductApi, type ProRouteProductBindFromWorkOrdersRespVO } from '@/api/mes/pro/route/product'
 import ControlledContentStateStrip from '@/components/ControlledContent/ControlledContentStateStrip.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
@@ -538,7 +527,6 @@ const routeVersions = ref<ProRouteVersionVO[]>([])
 const routeVersionBlockersById = reactive<Record<number, ProRouteVersionBlockerVO>>({})
 const routeVersionNoticeMessage = ref('')
 const routeVersionErrorMessage = ref('')
-const routeProductBindLoadingId = ref<number | undefined>()
 const routeCandidateEditLoadingId = ref<number | undefined>()
 const OPEN_CANDIDATE_CONFLICT_NOTICE =
   '当前路线存在多个打开中的候选版本，请通过待发布版本或编辑入口处理打开候选；版本列表仅展示草稿及已生效历史版本。'
@@ -973,60 +961,6 @@ const loadRouteVersionBlockers = async (id: number) => {
     message.error(routeVersionErrorMessage.value)
   } finally {
     routeVersionBlockerLoadingId.value = undefined
-  }
-}
-
-const buildRouteProductBindPreviewMessage = (
-  preview: ProRouteProductBindFromWorkOrdersRespVO
-) => {
-  return `将按路线“${preview.routeName}”扫描当前租户生产工单，产品名称完全一致的产品会加入该路线。\n新增 ${preview.createdCount} 个，跳过 ${preview.existingCount} 个，冲突 ${preview.conflictCount} 个。是否确认加入？`
-}
-
-const confirmRouteProductBindPreview = async (
-  preview: ProRouteProductBindFromWorkOrdersRespVO
-) => {
-  await message.confirm(buildRouteProductBindPreviewMessage(preview), '产品补齐预览')
-}
-
-const handleBindRouteProducts = async (row: ProRouteVO) => {
-  if (!row.id) {
-    throw new Error('补齐工艺路线产品失败：缺少路线编号')
-  }
-  routeProductBindLoadingId.value = row.id
-  try {
-    const candidateResult = await ensureSameSourceDraftCandidateForProductionConfig({
-      routeId: row.id,
-      actionName: '产品补齐',
-      changeReason: '产品补齐创建候选版本',
-      confirm: (content, title) => message.confirm(content, title),
-      success: (content) => message.success(content),
-      existingConfirmMessage:
-        '当前路线已有草稿候选版本。确认后会把产品补齐结果写入该候选版本，发布前不影响生效版本。是否继续？',
-      existingConfirmTitle: '进入候选版本',
-      createConfirmMessage:
-        '生效版本为只读。确认后创建候选版本，并把产品补齐结果写入候选版本，发布前不影响生效版本。是否继续？',
-      createConfirmTitle: '创建候选版本',
-      existingSuccessMessage: '正在使用已有候选版本补齐产品',
-      createdSuccessMessage: '候选版本已创建，正在补齐产品'
-    })
-    if (!candidateResult) return
-    const routeVersionId = candidateResult.candidate.id
-    const preview = await ProRouteProductApi.previewBindFromWorkOrders({ routeId: row.id, routeVersionId })
-    await confirmRouteProductBindPreview(preview)
-    const result = await ProRouteProductApi.bindFromWorkOrders({ routeId: row.id, routeVersionId })
-    message.success(
-      `产品补齐完成：新增 ${result.createdCount} 个，跳过 ${result.existingCount} 个，冲突 ${result.conflictCount} 个`
-    )
-    await getList()
-  } catch (error) {
-    if (isRouteCandidateConfirmCancel(error)) return
-    if (isRouteMultipleDraftCandidateError(error)) {
-      await openRouteVersionWorkspace(row, OPEN_CANDIDATE_CONFLICT_NOTICE)
-      return
-    }
-    message.error(resolveRouteVersionErrorMessage(error, '产品补齐失败，请查看后端返回错误'))
-  } finally {
-    routeProductBindLoadingId.value = undefined
   }
 }
 

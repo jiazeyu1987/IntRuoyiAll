@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.schedule;
 
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_AUTO_SCHEDULE_ERP_SOURCE_CONFIRMATION_REQUIRED;
+
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoSchedulePreviewReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoSchedulePreviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoScheduleApplyRespVO;
@@ -442,6 +444,32 @@ class MesProAutoScheduleAlgorithmContractTest {
     }
 
     @Test
+    void apply_shouldRequireExplicitConfirmationWhenErpFormalSourceIsMissing() {
+        MesProAutoSchedulePreviewReqVO reqVO = req();
+        MesProAutoSchedulePreviewRespVO preview = autoScheduleService.preview(reqVO);
+        reqVO.setCalendarContextToken(preview.getCalendarContextToken());
+        when(scheduleOrderService.preflight(any())).thenReturn(erpSourceWarningPreflightResp());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> autoScheduleService.apply(reqVO));
+
+        assertEquals(PRO_AUTO_SCHEDULE_ERP_SOURCE_CONFIRMATION_REQUIRED.getCode(), ex.getCode());
+        verify(taskMapper, never()).insert(any(MesProTaskDO.class));
+    }
+
+    @Test
+    void apply_shouldProceedAfterExplicitConfirmationWhenErpFormalSourceIsMissing() {
+        MesProAutoSchedulePreviewReqVO reqVO = req();
+        MesProAutoSchedulePreviewRespVO preview = autoScheduleService.preview(reqVO);
+        reqVO.setCalendarContextToken(preview.getCalendarContextToken());
+        reqVO.setErpSourceRiskConfirmed(Boolean.TRUE);
+        when(scheduleOrderService.preflight(any())).thenReturn(erpSourceWarningPreflightResp());
+
+        MesProAutoScheduleApplyRespVO response = autoScheduleService.apply(reqVO);
+
+        assertTrue(response.getApplied());
+    }
+
+    @Test
     void preview_shouldUseNightWindowWhenScheduleProcessAllowsNightShift() {
         lenient().when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(urgentOrder));
         lenient().when(scheduleOrderProcessMapper.selectListByScheduleOrderId(501L)).thenReturn(List.of(
@@ -632,6 +660,26 @@ class MesProAutoScheduleAlgorithmContractTest {
                 });
         when(routeProcessService.getRouteProcessListByRouteId(200L))
                 .thenReturn(List.of(finiteRouteProcess, formulaRouteProcess));
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                200L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(List.of(
+                MesProRouteFlowProcessConfigDO.builder()
+                        .id(2101L)
+                        .routeFlowConfigId(21L)
+                        .routeId(200L)
+                        .routeProcessId(30L)
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                        .enabled(Boolean.TRUE)
+                        .productionQuantityFactor(BigDecimal.ONE)
+                        .build(),
+                MesProRouteFlowProcessConfigDO.builder()
+                        .id(2102L)
+                        .routeFlowConfigId(21L)
+                        .routeId(200L)
+                        .routeProcessId(31L)
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                        .enabled(Boolean.TRUE)
+                        .productionQuantityFactor(BigDecimal.ONE)
+                        .build()));
         when(routeScheduleConfigMapper.selectListByRouteVersionId(700L)).thenReturn(List.of(
                 MesProRouteScheduleConfigDO.builder()
                         .id(9001L).routeVersionId(700L).itemId(100L).routeProcessId(30L)
@@ -908,6 +956,52 @@ class MesProAutoScheduleAlgorithmContractTest {
         assertEquals(LocalDateTime.of(2026, 5, 13, 10, 0), finiteTasks.get(0).getEndDate());
     }
 
+    @Test
+    void calculateRequiredProcessMinutes_shouldApplyWorkerEfficiencyOnlyToResourceCalculatedDuration() {
+        routeVersionMapper.selectActiveByRouteId(200L);
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .prepareTime(0)
+                .waitTime(0)
+                .build();
+        MesProScheduleOrderProcessDO resourceCalculated = MesProScheduleOrderProcessDO.builder()
+                .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
+                .build();
+        MesProScheduleOrderProcessDO manualOverride = MesProScheduleOrderProcessDO.builder()
+                .capacityMode(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode())
+                .build();
+        MesProScheduleOrderProcessDO infiniteFormula = MesProScheduleOrderProcessDO.builder()
+                .capacityMode(MesProScheduleCapacityModeEnum.INFINITE_FORMULA.getMode())
+                .infiniteDurationQuantityFactor(new BigDecimal("3"))
+                .infiniteDurationBaseMinutes(new BigDecimal("30"))
+                .build();
+
+        Integer durationAtThirtyPerHour = ReflectionTestUtils.invokeMethod(autoScheduleService,
+                "calculateRequiredProcessMinutes", new BigDecimal("30"), routeProcess,
+                new BigDecimal("30"), resourceCalculated);
+        Integer durationAtFifteenPerHour = ReflectionTestUtils.invokeMethod(autoScheduleService,
+                "calculateRequiredProcessMinutes", new BigDecimal("30"), routeProcess,
+                new BigDecimal("15"), resourceCalculated);
+        Integer manualBefore = ReflectionTestUtils.invokeMethod(autoScheduleService,
+                "calculateRequiredProcessMinutes", new BigDecimal("30"), routeProcess,
+                new BigDecimal("12"), manualOverride);
+        Integer manualAfter = ReflectionTestUtils.invokeMethod(autoScheduleService,
+                "calculateRequiredProcessMinutes", new BigDecimal("30"), routeProcess,
+                new BigDecimal("12"), manualOverride);
+        Integer formulaBefore = ReflectionTestUtils.invokeMethod(autoScheduleService,
+                "calculateRequiredProcessMinutes", new BigDecimal("30"), routeProcess,
+                new BigDecimal("30"), infiniteFormula);
+        Integer formulaAfter = ReflectionTestUtils.invokeMethod(autoScheduleService,
+                "calculateRequiredProcessMinutes", new BigDecimal("30"), routeProcess,
+                new BigDecimal("15"), infiniteFormula);
+
+        assertEquals(60, durationAtThirtyPerHour);
+        assertEquals(120, durationAtFifteenPerHour);
+        assertEquals(manualBefore, manualAfter);
+        assertEquals(150, manualAfter);
+        assertEquals(formulaBefore, formulaAfter);
+        assertEquals(120, formulaAfter);
+    }
+
     private MesProAutoSchedulePreviewReqVO req() {
         return req(List.of(502L, 501L), LocalDateTime.of(2026, 5, 13, 8, 0));
     }
@@ -1034,6 +1128,20 @@ class MesProAutoScheduleAlgorithmContractTest {
         var issue = new cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightIssueRespVO();
         issue.setSeverity("BLOCKED");
         issue.setMessage(message);
+        respVO.setIssues(List.of(issue));
+        return respVO;
+    }
+
+    private MesProScheduleOrderPreflightRespVO erpSourceWarningPreflightResp() {
+        MesProScheduleOrderPreflightRespVO respVO = new MesProScheduleOrderPreflightRespVO();
+        MesProScheduleOrderPreflightSummaryRespVO summary = new MesProScheduleOrderPreflightSummaryRespVO();
+        summary.setWarnCount(1);
+        respVO.setResult("WARN");
+        respVO.setSummary(summary);
+        var issue = new cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderPreflightIssueRespVO();
+        issue.setReasonCode("WARN_ERP_SYNC_RECORD_MISSING");
+        issue.setSeverity("WARN");
+        issue.setMessage("未找到生产工单的 ERP 正式同步记录或正式 ID/编号");
         respVO.setIssues(List.of(issue));
         return respVO;
     }

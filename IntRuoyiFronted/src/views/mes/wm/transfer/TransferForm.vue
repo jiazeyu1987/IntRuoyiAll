@@ -175,7 +175,7 @@ const formRules = reactive({
 const formRef = ref() // 表单 Ref
 
 /** 打开弹窗 */
-const open = async (type: string, id?: number) => {
+const open = async (_type: string, id?: number) => {
   dialogVisible.value = true
   formType.value = 'detail'
   resetForm()

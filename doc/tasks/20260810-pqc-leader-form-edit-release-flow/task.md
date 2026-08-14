@@ -20,6 +20,7 @@
 - [x] M4：运行前端静态、后端定向和回归验证。
 - [x] M5：先提交 worktree，再融合进 int_main。
 - [x] M6：完成收尾清理和最终记录。
+- [x] M7：使用 `芋道源码/admin` 和当前数据执行只读 Playwright E2E，验证 PQC 管理/历史操作边界。
 
 ## Expected Verification
 
@@ -33,7 +34,9 @@
 
 completed
 
-- 实现、定向验证、worktree 提交、`int_main` 融合、任务中间产物清理、worktree 移除和槽位释放均已完成。
+- 已使用 `芋道源码/admin` 和当前数据完成真实只读 E2E：PQC 管理当前列表 20/82 行均显示详情、复核、修改；PQC 历史 20/42 行仅显示详情；打开并取消 eventId=185 的修改、复核弹窗，并打开详情。
+- 本轮目标 MES 写请求、目标请求失败、本机 API 失败、页面异常和控制台错误均为 0。
+- `task-closeout-cleanup` preview/apply 均通过；已删除一次性脚本、失败截图及本任务 Playwright CLI 快照/trace，保留最终结果、四张截图和登录后 trace。
 
 ## 设计约束检查
 
@@ -46,3 +49,29 @@ completed
 - 已读取 `docs/experience-index.md`，本任务命中 PQC 填写、PQC 组长复核、AC-M21 过程检验汇集、PQC 待检工单、前端写入成功与列表刷新失败等门禁。
 - 适用门禁要求：PQC 复核通过必须形成正式结构化汇集事实；活跃订单放行只读取 CONFIRMED PQC 任务和汇集明细；前端写入成功后必须刷新正式列表，不用缓存或空结果冒充成功。
 - 已通过 `project-experience-consolidation` 将并行脏主工作区的手工三方融合门禁合并到 `docs/worktree-memory.md`。
+
+## Cleanup Candidates
+
+- `.playwright-cli/page-2026-08-10T14-43-07-053Z.yml`
+- `.playwright-cli/page-2026-08-10T14-44-20-265Z.yml`
+- `.playwright-cli/page-2026-08-10T14-45-53-295Z.yml`
+- `.playwright-cli/page-2026-08-10T14-46-31-310Z.yml`
+- `.playwright-cli/page-2026-08-10T14-50-54-527Z.yml`
+- `.playwright-cli/page-2026-08-10T14-51-36-450Z.yml`
+- `.playwright-cli/console-2026-08-10T14-43-05-542Z.log`
+- `.playwright-cli/console-2026-08-10T14-50-52-836Z.log`
+- `.playwright-cli/traces/trace-1786373026160.trace`
+- `.playwright-cli/traces/trace-1786373026160.network`
+- `.playwright-cli/traces/trace-1786373534672.trace`
+- `.playwright-cli/traces/trace-1786373534672.network`
+- `output/playwright/20260810-pqc-admin-current-data/pqc-admin-current-readonly.e2e.cjs`
+- `output/playwright/20260810-pqc-admin-current-data/pqc-e2e-failure.png`
+
+## Cleanup Keep
+
+- `output/playwright/20260810-pqc-admin-current-data/result.json`
+- `output/playwright/20260810-pqc-admin-current-data/pqc-current-management.png`
+- `output/playwright/20260810-pqc-admin-current-data/pqc-current-modify-dialog.png`
+- `output/playwright/20260810-pqc-admin-current-data/pqc-current-review-dialog.png`
+- `output/playwright/20260810-pqc-admin-current-data/pqc-history.png`
+- `output/playwright/20260810-pqc-admin-current-data/trace.zip`

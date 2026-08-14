@@ -149,6 +149,12 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "当前未分配数量")
     private BigDecimal reportUnallocatedQuantity;
 
+    @Schema(description = "报工管理状态", example = "PARTIALLY_ALLOCATED")
+    private String reportManagementStatus;
+
+    @Schema(description = "报工分配放行状态", example = "PARTIALLY_RELEASED")
+    private String reportReleaseStatus;
+
     @Schema(description = "损耗原因明细")
     private List<LossDetailRespVO> lossDetails;
 

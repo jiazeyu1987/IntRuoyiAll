@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 public class ProcessPoolTimelineEventReadDO {
 
     private Long id;
+    private String eventType;
     private Long processPoolId;
     private LocalDateTime submittedAt;
     private Long loginUserId;
@@ -50,6 +52,11 @@ public class ProcessPoolTimelineEventReadDO {
     private Long sourceFeedbackId;
     private Long sourceRecordbookEntryId;
     private Long sourceRecordbookEventId;
+    private String reportManagementStatus;
+    private BigDecimal reportOutputQuantity;
+    private BigDecimal reportAllocatedQuantity;
+    private BigDecimal reportUnallocatedQuantity;
+    private String reportReleaseStatus;
     private String submittedSummary;
     private String originalPayloadJson;
     private String pqcResult;

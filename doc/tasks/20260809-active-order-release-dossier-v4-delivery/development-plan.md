@@ -30,19 +30,19 @@
 
 任务编号：A4
 原始标题：过程检验单 writer
-目标：从 CONFIRMED PQC 汇集与 PUBLISHED QA 版本生成传统正式 PROCESS_INSPECTION execution。
+目标：从 CONFIRMED PQC 汇集与 DCC 项目同工序最新 PUBLISHED QA 版本生成正式 PROCESS_INSPECTION 资料；传统 report 走 execution，路线 template 28 绑定走正式 FormCenter instance。
 依赖节点：[A2-RED]
 涉及文件：release inspection writer、QA/PQC reader、映射、聚焦 JUnit。
 写入范围：A4 新增 inspection writer/reader/test 类、`execution-log.md`。
 验收编号：AC-02, AC-04, AC-08, AC-10, AC-13, AC-14, AC-15
 验证步骤：writer RED/GREEN、QA 项目/设备/超限/签名/映射负测。
-交付物：传统正式 execution 与当前 batch/task 关联，逐项 field audit 和签名完整，无 raw payload/状态替代。
+交付物：正式 execution 或 FormCenter instance 与当前 batch/task 关联，逐项 field audit/source hash 和原始签名完整，无 raw payload/状态替代；动态自动写入未接通时精确阻塞。
 
 ### 里程碑 4：损耗单 writer 与完成性（A5）
 
 任务编号：A5
 原始标题：损耗单 writer 与完成性
-目标：对账正式 feedback 和已签名事件损耗明细，生成传统 LOSS_REPORT execution，并提供三资料完成性检查。
+目标：对账正式 feedback 和已签名事件损耗明细，生成正式 LOSS_REPORT 资料；传统 report 走 execution，路线 template 25 绑定走正式 FormCenter instance，并提供三资料完成性检查。
 依赖节点：[A2-RED]
 涉及文件：release loss writer、completeness、聚焦 JUnit。
 写入范围：A5 新增 loss/completeness/test 类、`execution-log.md`。

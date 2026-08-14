@@ -64,7 +64,6 @@ class MesFrontlinePqcContextServiceTest {
     private static final long ROUTE_ID = 2001L;
     private static final long ROUTE_VERSION_ID = 3001L;
     private static final long PRODUCT_ID = 4001L;
-    private static final long DCC_ITEM_ID = 4002L;
     private static final long ACTIVE_ORDER_ID = 5001L;
     private static final long DCC_PROJECT_ID = 6001L;
     private static final long REGULATION_ID = 7001L;
@@ -160,7 +159,7 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(DCC_PROJECT_ID, result.get(0).dccProjectCodeId());
         assertEquals(REGULATION_VERSION_ID, result.get(0).regulationVersionId());
         assertNull(result.get(0).pqcTaskId());
-        verify(regulationMapper).selectByDccProjectCodeId(DCC_PROJECT_ID);
+        verify(regulationMapper).selectById(REGULATION_ID);
     }
 
     @Test
@@ -339,14 +338,12 @@ class MesFrontlinePqcContextServiceTest {
                 .thenReturn(activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID, LocalDateTime.of(2026, 8, 12, 8, 0)));
         when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
         when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route());
-        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersion(PRODUCT_ID, DCC_ITEM_ID));
-        when(itemService.getItemMap(Set.of(PRODUCT_ID, DCC_ITEM_ID))).thenReturn(Map.of(
-                PRODUCT_ID, productItem(),
-                DCC_ITEM_ID, MesMdItemDO.builder().id(DCC_ITEM_ID).code("ID").name("DCC项目代码").build()));
+        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersion(PRODUCT_ID));
+        when(itemService.getItemMap(Set.of(PRODUCT_ID))).thenReturn(Map.of(PRODUCT_ID, productItem()));
         DccProjectCodeDO project = DccProjectCodeDO.builder().id(DCC_PROJECT_ID)
-                .projectCode("ID").projectName("球囊扩张压力泵").productMasterId(PRODUCT_ID).build();
-        when(dccProjectCodeMapper.selectEnabledList()).thenReturn(List.of(project));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(
+                .projectCode("BOUND-ID").projectName("正式绑定项目").productMasterId(PRODUCT_ID).build();
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(project);
+        when(regulationMapper.selectById(REGULATION_ID)).thenReturn(
                 MesQaInspectionRegulationDO.builder().id(REGULATION_ID).dccProjectCodeId(DCC_PROJECT_ID)
                         .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
                         .lifecycleStatus("PUBLISHED").currentVersionId(REGULATION_VERSION_ID).build());
@@ -359,6 +356,8 @@ class MesFrontlinePqcContextServiceTest {
     private static MesProcessPoolActiveOrderDO activeOrder(long id, long workOrderId, LocalDateTime joinedAt) {
         return MesProcessPoolActiveOrderDO.builder().id(id).workOrderId(workOrderId).routeId(ROUTE_ID)
                 .routeVersionId(ROUTE_VERSION_ID).activeStatus("ACTIVE").businessStatus("ACTIVE")
+                .dccProjectCodeId(DCC_PROJECT_ID).qaRegulationId(REGULATION_ID)
+                .qaRegulationVersionId(REGULATION_VERSION_ID)
                 .joinedAt(joinedAt).build();
     }
 

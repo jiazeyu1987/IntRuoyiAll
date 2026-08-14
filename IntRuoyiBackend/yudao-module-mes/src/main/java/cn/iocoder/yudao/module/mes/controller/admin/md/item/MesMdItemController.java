@@ -30,6 +30,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -102,6 +103,16 @@ public class MesMdItemController {
     @PreAuthorize("@ss.hasPermission('mes:md-item:query')")
     public CommonResult<MesMdItemRespVO> getItem(@RequestParam("id") Long id) {
         MesMdItemDO item = itemService.getItem(id);
+        return success(buildItemVO(item));
+    }
+
+    @GetMapping("/get-by-code")
+    @Operation(summary = "按产品编号获得物料产品")
+    @Parameter(name = "code", description = "产品编号", required = true, example = "ITEM001")
+    @PreAuthorize("@ss.hasPermission('mes:md-item:query')")
+    public CommonResult<MesMdItemRespVO> getItemByCode(
+            @RequestParam("code") @NotBlank(message = "产品编号不能为空") String code) {
+        MesMdItemDO item = itemService.getItemByCode(code);
         return success(buildItemVO(item));
     }
 

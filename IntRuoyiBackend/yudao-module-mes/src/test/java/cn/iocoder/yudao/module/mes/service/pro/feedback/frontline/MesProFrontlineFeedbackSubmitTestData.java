@@ -57,6 +57,8 @@ final class MesProFrontlineFeedbackSubmitTestData {
 
         return new MesProFrontlineFeedbackSubmitReqVO()
                 .setProcessPoolSubmissionIdempotencyKey("P0-SUBMIT-F2-20260730-001")
+                .setFrontlineSessionSnapshotId("frontline-session-snapshot-001")
+                .setFrontlineSessionSnapshotHash("frontline-session-snapshot-hash-001")
                 .setActualEmployeeId(9001L)
                 .setSignatureEmployeeId(9001L)
                 .setSignaturePassword("sign-123")

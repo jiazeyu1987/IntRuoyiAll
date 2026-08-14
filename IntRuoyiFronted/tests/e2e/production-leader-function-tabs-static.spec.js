@@ -22,7 +22,7 @@ assert.doesNotMatch(
 
 assert.match(
   teamLeaderWorkbench,
-  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="活跃订单池"\s+name="activeOrder"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"[\s\S]*<el-tab-pane\s+label="工序配置"\s+name="processConfig"/,
+  /data-production-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="报工管理"\s+name="report"[\s\S]*<el-tab-pane\s+label="报工历史"\s+name="reportHistory"[\s\S]*<el-tab-pane\s+label="活跃订单池"\s+name="activeOrder"[\s\S]*<el-tab-pane\s+label="工序配置"\s+name="processConfig"/,
   'Shared workbench must render the retained production function tabs.'
 )
 assert.doesNotMatch(
@@ -41,7 +41,7 @@ assert.doesNotMatch(
   'Production module tab state must not retain the removed config key.'
 )
 
-for (const moduleName of ['Personnel', 'Report', 'ActiveOrder', 'Dashboard', 'ProcessConfig']) {
+for (const moduleName of ['Personnel', 'Report', 'ActiveOrder', 'ProcessConfig']) {
   assert.match(
     teamLeaderWorkbench,
     new RegExp(`const\\s+showProduction${moduleName}Module\\s*=\\s*computed\\([\\s\\S]*activeProductionModuleTab`),
@@ -76,13 +76,13 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+showPqcDashboardModule\s*=\s*computed\([\s\S]*showProductionDashboardModule[\s\S]*activePqcModuleTab[\s\S]*'dashboard'/,
-  '看板 tab must own the production daily close dashboard through the dedicated production dashboard gate.'
+  /const\s+showLegacyDailyCloseDashboardModule\s*=\s*computed\(\s*\(\)\s*=>\s*isProductionLeader\.value\s*&&\s*!showProductionModuleTabs\.value\s*\)/,
+  'The legacy daily close dashboard must remain available outside production and PQC module tabs.'
 )
 assert.match(
   teamLeaderWorkbench,
-  /<ContentWrap[\s\S]*v-if="showPqcDashboardModule"[\s\S]*data-role-matrix-daily-close/,
-  '看板 tab must own the daily close dashboard.'
+  /<ContentWrap[\s\S]*v-if="showLegacyDailyCloseDashboardModule"[\s\S]*data-role-matrix-daily-close/,
+  'The legacy daily close dashboard content must remain available.'
 )
 assert.doesNotMatch(
   teamLeaderWorkbench,

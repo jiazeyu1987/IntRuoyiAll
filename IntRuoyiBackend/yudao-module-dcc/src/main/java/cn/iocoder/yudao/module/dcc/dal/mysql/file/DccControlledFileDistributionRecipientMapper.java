@@ -36,4 +36,21 @@ public interface DccControlledFileDistributionRecipientMapper extends BaseMapper
     long countActiveElectronicRecipientAccess(@Param("tenantId") Long tenantId,
                                               @Param("controlledFileId") Long controlledFileId,
                                               @Param("userId") Long userId);
+
+    @Select("""
+            SELECT DISTINCT distribution.controlled_file_id
+            FROM dcc_controlled_file_distribution_recipient recipient
+            INNER JOIN dcc_controlled_file_distribution distribution
+                    ON distribution.id = recipient.distribution_id
+            WHERE recipient.tenant_id = #{tenantId}
+              AND distribution.tenant_id = #{tenantId}
+              AND recipient.user_id = #{userId}
+              AND distribution.distribution_medium = 'PUBLIC_FOLDER'
+              AND distribution.status IN ('PENDING', 'SENT', 'READ', 'ACKNOWLEDGED')
+              AND recipient.deleted = 0
+              AND distribution.deleted = 0
+            ORDER BY distribution.controlled_file_id
+            """)
+    List<Long> selectActiveElectronicControlledFileIdsByUserId(@Param("tenantId") Long tenantId,
+                                                                @Param("userId") Long userId);
 }

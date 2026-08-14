@@ -3,7 +3,6 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
-import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
@@ -13,7 +12,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
@@ -23,17 +21,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
-import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,8 +44,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
     private final MesQaInspectionRegulationVersionMapper regulationVersionMapper;
     private final MesQaInspectionRegulationItemMapper regulationItemMapper;
     private final MesQaInspectionRegulationItemEquipmentMapper regulationItemEquipmentMapper;
-    private final MesProRouteVersionMapper routeVersionMapper;
-    private final MesMdItemService itemService;
+    private final ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
     private final DccProjectCodeMapper dccProjectCodeMapper;
     private final MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort qaProvenancePort;
 
@@ -69,8 +58,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
             MesQaInspectionRegulationVersionMapper regulationVersionMapper,
             MesQaInspectionRegulationItemMapper regulationItemMapper,
             MesQaInspectionRegulationItemEquipmentMapper regulationItemEquipmentMapper,
-            MesProRouteVersionMapper routeVersionMapper,
-            MesMdItemService itemService,
+            ActiveOrderSnapshotResolver activeOrderSnapshotResolver,
             DccProjectCodeMapper dccProjectCodeMapper,
             MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort qaProvenancePort) {
         this.taskMapper = taskMapper;
@@ -82,15 +70,14 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
         this.regulationVersionMapper = regulationVersionMapper;
         this.regulationItemMapper = regulationItemMapper;
         this.regulationItemEquipmentMapper = regulationItemEquipmentMapper;
-        this.routeVersionMapper = routeVersionMapper;
-        this.itemService = itemService;
+        this.activeOrderSnapshotResolver = activeOrderSnapshotResolver;
         this.dccProjectCodeMapper = dccProjectCodeMapper;
         this.qaProvenancePort = qaProvenancePort;
     }
 
     @Override
     public SourceBundle read(MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command) {
-        RouteDccProject routeDccProject = resolveRouteDccProject(command);
+        LockedDccQa lockedDccQa = resolveLockedDccQa(command);
         List<MesPqcInspectionTaskDO> tasks = taskMapper.selectListByActiveOrderId(command.getActiveOrderId());
         List<MesPqcProcessInspectionAggregateDetailDO> details =
                 aggregateDetailMapper.selectListByActiveOrderId(command.getActiveOrderId());
@@ -101,7 +88,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
         List<InspectionSource> sources = tasks.stream()
                 .filter(Objects::nonNull)
                 .map(task -> readSource(command, task, detailsByTask.getOrDefault(task.getId(), List.of()),
-                        routeDccProject))
+                        lockedDccQa))
                 .toList();
         return new SourceBundle().setSources(sources);
     }
@@ -109,15 +96,14 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
     private InspectionSource readSource(MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command,
                                         MesPqcInspectionTaskDO task,
                                         List<MesPqcProcessInspectionAggregateDetailDO> details,
-                                        RouteDccProject routeDccProject) {
-        DccProjectCodeDO dccProject = routeDccProject.project();
+                                        LockedDccQa lockedDccQa) {
+        DccProjectCodeDO dccProject = lockedDccQa.project();
         Long eventId = uniqueId(details, MesPqcProcessInspectionAggregateDetailDO::getEventId);
         Long reviewId = uniqueId(details, MesPqcProcessInspectionAggregateDetailDO::getReviewId);
         MesProProcessPoolEventDO event = eventId == null ? null : eventMapper.selectById(eventId);
         MesProProcessPoolPqcRecordDO record = eventId == null ? null : pqcRecordMapper.selectByEventId(eventId);
         MesProcessPoolSubmissionReviewDO review = reviewId == null ? null : reviewMapper.selectById(reviewId);
-        PublishedQa publishedQa = dccProject == null ? PublishedQa.EMPTY
-                : selectPublishedQa(dccProject);
+        PublishedQa publishedQa = selectLockedQa(lockedDccQa);
         MesQaInspectionRegulationDO regulation = publishedQa.regulation();
         MesQaInspectionRegulationVersionDO version = publishedQa.version();
         List<MesQaInspectionRegulationItemDO> items = version == null ? List.of()
@@ -135,105 +121,51 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
                 .setRegulationItems(items == null ? List.of() : List.copyOf(items))
                 .setRegulationItemEquipment(equipment == null ? List.of() : List.copyOf(equipment))
                 .setDccProject(dccProject)
-                .setRouteProjectCode(routeDccProject.projectCode())
+                .setRouteProjectCode(lockedDccQa.projectCode())
                 .setQaDccProvenance(publishedQa.provenance());
     }
 
-    private RouteDccProject resolveRouteDccProject(
+    private LockedDccQa resolveLockedDccQa(
             MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command) {
-        if (command == null || command.getRouteId() == null || command.getRouteVersionId() == null
-                || command.getProductId() == null) {
-            return RouteDccProject.EMPTY;
+        if (command == null) {
+            throw new IllegalStateException("活跃订单放行命令不能为空");
         }
-        MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(command.getRouteVersionId());
-        if (!isPublishedRouteVersion(command.getRouteId(), routeVersion)) {
-            return RouteDccProject.EMPTY;
+        ActiveOrderSnapshotResolver.ActiveOrderSnapshot snapshot =
+                activeOrderSnapshotResolver.requireEffective(command.getActiveOrderId());
+        if (!Objects.equals(command.getRouteId(), snapshot.routeId())
+                || !Objects.equals(command.getRouteVersionId(), snapshot.routeVersionId())
+                || (command.getWorkOrderId() != null
+                && !Objects.equals(command.getWorkOrderId(), snapshot.workOrderId()))) {
+            throw new IllegalStateException("活跃订单冻结路线身份与放行命令不一致，activeOrderId="
+                    + command.getActiveOrderId());
         }
-        Set<Long> routeItemIds = parseRouteVersionProductIds(routeVersion);
-        if (!routeItemIds.contains(command.getProductId())) {
-            return RouteDccProject.EMPTY;
+        DccProjectCodeDO project = dccProjectCodeMapper.selectById(snapshot.dccProjectCodeId());
+        if (project == null || project.getId() == null || Boolean.TRUE.equals(project.getDeleted())
+                || (command.getTenantId() != null && !Objects.equals(command.getTenantId(), project.getTenantId()))) {
+            throw new IllegalStateException("活跃订单冻结 DCC 项目身份无效，activeOrderId="
+                    + command.getActiveOrderId() + "，dccProjectCodeId=" + snapshot.dccProjectCodeId());
         }
-        Map<Long, MesMdItemDO> itemMap = itemService.getItemMap(routeItemIds);
-        Set<String> routeItemCodes = (itemMap == null ? Map.<Long, MesMdItemDO>of() : itemMap).values().stream()
-                .filter(Objects::nonNull)
-                .map(MesMdItemDO::getCode)
-                .map(StrUtil::trim)
-                .filter(StrUtil::isNotBlank)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        List<DccProjectCodeDO> enabledProjects = dccProjectCodeMapper.selectEnabledList();
-        Map<Long, DccProjectCodeDO> matches = (enabledProjects == null
-                ? List.<DccProjectCodeDO>of() : enabledProjects).stream()
-                .filter(Objects::nonNull)
-                .filter(project -> project.getId() != null)
-                .filter(project -> routeItemCodes.contains(StrUtil.trim(project.getProjectCode())))
-                .collect(Collectors.toMap(DccProjectCodeDO::getId, Function.identity(), (left, right) -> left,
-                        LinkedHashMap::new));
-        if (matches.size() != 1) {
-            return RouteDccProject.EMPTY;
-        }
-        DccProjectCodeDO project = matches.values().iterator().next();
-        return new RouteDccProject(StrUtil.trim(project.getProjectCode()), project);
+        return new LockedDccQa(StrUtil.trim(project.getProjectCode()), project,
+                snapshot.qaRegulationId(), snapshot.qaRegulationVersionId());
     }
 
-    private boolean isPublishedRouteVersion(Long routeId, MesProRouteVersionDO routeVersion) {
-        if (routeVersion == null || !Objects.equals(routeId, routeVersion.getRouteId())) {
-            return false;
-        }
-        return (Boolean.TRUE.equals(routeVersion.getActive()) && "ACTIVE".equals(routeVersion.getLifecycleStatus()))
-                || (Boolean.FALSE.equals(routeVersion.getActive())
-                && "SUPERSEDED".equals(routeVersion.getLifecycleStatus()));
-    }
-
-    private Set<Long> parseRouteVersionProductIds(MesProRouteVersionDO routeVersion) {
-        try {
-            JSONObject routeSnapshot = JSONObject.parseObject(routeVersion.getRouteSnapshotJson());
-            JSONObject configSnapshots = routeSnapshot == null ? null : routeSnapshot.getJSONObject("configSnapshots");
-            Object rawProducts = configSnapshots == null ? null : configSnapshots.get("products");
-            Collection<?> products;
-            if (rawProducts instanceof JSONObject productsByKey) {
-                products = productsByKey.values();
-            } else if (rawProducts instanceof JSONArray productsArray) {
-                products = productsArray;
-            } else {
-                throw invalidRouteSnapshot(routeVersion, "configSnapshots.products 缺失或类型无效", null);
-            }
-            Set<Long> itemIds = new LinkedHashSet<>();
-            for (Object value : products) {
-                if (!(value instanceof JSONObject product)) {
-                    throw invalidRouteSnapshot(routeVersion, "configSnapshots.products 包含非对象元素", null);
-                }
-                Long itemId = product.getLong("itemId");
-                if (itemId == null || itemId <= 0) {
-                    throw invalidRouteSnapshot(routeVersion, "configSnapshots.products.itemId 无效", null);
-                }
-                itemIds.add(itemId);
-            }
-            return Set.copyOf(itemIds);
-        } catch (IllegalStateException ex) {
-            throw ex;
-        } catch (RuntimeException ex) {
-            throw invalidRouteSnapshot(routeVersion, "JSON 解析失败", ex);
-        }
-    }
-
-    private IllegalStateException invalidRouteSnapshot(MesProRouteVersionDO routeVersion, String reason,
-                                                        RuntimeException cause) {
-        String message = "已发布工艺路线版本快照无效，routeVersionId="
-                + (routeVersion == null ? null : routeVersion.getId()) + "，reason=" + reason;
-        return cause == null ? new IllegalStateException(message) : new IllegalStateException(message, cause);
-    }
-
-    private PublishedQa selectPublishedQa(DccProjectCodeDO dccProject) {
-        MesQaInspectionRegulationDO regulation = regulationMapper.selectByDccProjectCodeId(dccProject.getId());
-        if (regulation == null || regulation.getId() == null || regulation.getCurrentVersionId() == null
+    private PublishedQa selectLockedQa(LockedDccQa lockedDccQa) {
+        DccProjectCodeDO dccProject = lockedDccQa.project();
+        MesQaInspectionRegulationDO regulation = regulationMapper.selectById(lockedDccQa.qaRegulationId());
+        if (regulation == null || regulation.getId() == null
+                || !Objects.equals(dccProject.getId(), regulation.getDccProjectCodeId())
+                || !MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA.equals(regulation.getOwnerModule())
                 || !"PUBLISHED".equals(regulation.getLifecycleStatus())) {
-            return PublishedQa.EMPTY;
+            throw new IllegalStateException("活跃订单冻结 QA 规程身份无效，qaRegulationId="
+                    + lockedDccQa.qaRegulationId());
         }
         MesQaInspectionRegulationVersionDO version = regulationVersionMapper
-                .selectById(regulation.getCurrentVersionId());
+                .selectById(lockedDccQa.qaRegulationVersionId());
         if (version == null || version.getId() == null || version.getPublishedAt() == null
-                || !"PUBLISHED".equals(version.getLifecycleStatus())) {
-            return PublishedQa.EMPTY;
+                || !Objects.equals(regulation.getId(), version.getRegulationId())
+                || !Set.of("PUBLISHED", "RETIRED").contains(version.getLifecycleStatus())) {
+            throw new IllegalStateException("活跃订单冻结 QA 版本身份无效，qaRegulationVersionId="
+                    + lockedDccQa.qaRegulationVersionId());
         }
         MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort.Resolution provenance =
                 qaProvenancePort.verify(dccProject, regulation, version);
@@ -261,8 +193,9 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
         private static final PublishedQa EMPTY = new PublishedQa(null, null, null);
     }
 
-    private record RouteDccProject(String projectCode, DccProjectCodeDO project) {
-
-        private static final RouteDccProject EMPTY = new RouteDccProject(null, null);
+    private record LockedDccQa(String projectCode,
+                               DccProjectCodeDO project,
+                               Long qaRegulationId,
+                               Long qaRegulationVersionId) {
     }
 }

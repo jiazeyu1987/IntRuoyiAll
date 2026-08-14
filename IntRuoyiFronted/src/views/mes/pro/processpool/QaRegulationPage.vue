@@ -1067,12 +1067,6 @@ const resolveRequiredText = (value: unknown, label: string) => {
   return text
 }
 
-const cloneQaRegulationItems = (items: QaRegulationItem[]) =>
-  items.map((item) => ({
-    ...item,
-    equipmentOptions: item.equipmentOptions?.map((option) => ({ ...option }))
-  }))
-
 const replaceQaInspectionTypeRules = (
   rules: QaInspectionRegulationInspectionTypeRuleVO[]
 ) => {
@@ -1412,9 +1406,6 @@ onMounted(() => {
     ElMessage.error(message)
   })
 })
-
-const formatQaItemProcessName = (item: QaRegulationItem) =>
-  item.processName.trim() || '未填写 QA 工序'
 
 const formatQaItemSamplingPlan = (item: QaRegulationItem) =>
   item.samplingPlanText?.trim() || '未填写抽样方案'

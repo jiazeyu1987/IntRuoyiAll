@@ -27,13 +27,21 @@
 
 ## Current Status
 
-blocked
+in_progress
 
-A2-A5 后端实现及主审修正完成，最新稳定窗口串行集成回归 55/55 PASS；A1 前端入口硬化、前端回归及 `pnpm ts:check` PASS。用户已纠正 P7/A6 目标为 `球囊扩张压力泵`，导管路线 `900025` 与产品 `902231/902252/902262/907242` 已标记为当前目标外的 stale 证据。当前压力泵目标为 `922119 / RT000028 / V27 / routeVersionId=627 / ACTIVE`；A6 只读复核和独立测试均确认 blocker 证据可放行，但 P7 仍为 `BLOCKED / NOT COMPLETE`：启用产品 3 个未冻结唯一，当前工序 ID 与 V27 snapshot 工序 ID 口径未冻结，三类传统报表完整组合为 0/14，QA 仅 1/14 PUBLISHED，三类 source mapping 为 0，release owner 仍需真实 UI 登录/签名证明，preflight 仍缺 27 项显式环境变量。A6 本轮业务写、SQL 写、manifest 和残留数据均为 0。用户已授权将 `dev-plan.md` 改名并把七个既有节点转换为监督器里程碑结构；初始化已通过，P1-P6 完成状态及执行/独立测试证据已迁移，当前阶段为 P7/A6。
+A1-A5 的既有实现与聚焦回归保持通过。当前 P7/A6 目标已冻结为 tenant `1` 的 `902149 / AW.107.02.01.2010 / 球囊扩张压力泵`，路线为 `922119 / RT000028 / V29 / routeVersionId=632 / ACTIVE`，当前 14 个工序均有传统 MAIN、`form_template_id=28` 过程检验和 `form_template_id=25` 损耗表单绑定。用户已明确允许两类动态表单作为 A4/A5 正式目标载体，MAIN 仍只使用逐工序传统批记录绑定。
+
+P7 当前为 `BLOCKED / NOT COMPLETE`。真实只读 preflight 已使用用户授权的单一 admin 模式运行，并在首次业务写前返回 `DYNAMIC_FORM_TEMPLATE_SNAPSHOT_INVALID`：14 条过程检验和 14 条损耗绑定的 `record_category_snapshot_hash`、`slot_config_snapshot_hash` 全部为空。2026-08-11 已通过正式 API 保存模板 28/25 的摘要字段规则；后续已知前置仍包括 13/14 最新 PUBLISHED QA 存在必需设备关联缺失、动态 FormCenter 自动写入/提交/原始签名/完成性证据链尚未经过真实 E2E 证明，以及绑定候选用户 `149/152` 与 admin 执行账号不一致。门禁副作用为业务页面写 `0`、业务 API 写 `0`、SQL 写 `0`、manifest `0`；真实业务 E2E 尚未开始。
+
+P3/A4 已补齐 PROCESS_INSPECTION template 28 正式动态目标：QA reader 按 `productId + routeId + stable processId` 选择最新 PUBLISHED QA，并通过显式 DCC 项目身份校验；writer 可将当前 batch task 已关联的 FormCenter instance 写入、提交为 EFFECTIVE，并返回提交快照 ID、head hash、来源 hash 与原始 PQC/复核签名证据。标准 Maven 聚焦 `MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest`、`MesTeamLeaderActiveOrderReleaseProcessInspectionReaderTest`、`MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest` 合计 `18/18` PASS。动态绑定快照空值的保存根因也已修复，标准 Maven `MesProRouteFlowConfigServiceImplTest` `43/43` PASS。该代码尚未进入当前 int_main 稳定运行包，既有 V29 不做 SQL 回填；后续需通过正式页面发布下一候选版本取得有效 hash。
+
+2026-08-11 主线已按用户要求完成“先对应”的只读核对：`902149 / AW.107.02.01.2010 / 球囊扩张压力泵`、路线 `922119 / V29`、14 个工序 PI/LOSS 绑定关系明确。当前 48081 已通过正式 API 保存摘要字段规则：`FORMTPL:32` total=10/workOrder=1/pqc=9，`FORMTPL:27` total=6/workOrder=1/loss=5；但 PI 绑定的 template 28/V3.0 正文标识 `PQC-IDPR-001 / 按压式球囊扩张压力泵`，与该产品从正式路线解析出的 DCC `ID / 球囊扩张压力泵` 不一致，因此该 PI 映射不可放行。后端三重 fail-fast 门禁已由主审和独立 tester 25/25 验证，A2-A5 集成回归 68/68 PASS，前端合同与 `pnpm ts:check` PASS。实时门禁再次确认正式 PQC-ID QA 与完整设备均仅 1/14（缺 44 条设备关联），PI/LOSS 两类 hash 均 0/14，业务副作用为 0。P7 需正式发布 ID-compatible PI 模板并重绑/重映射，再补 13 条 QA provenance/设备、下一候选 hash、fixture manifest 和真实页面 E2E。
+
+2026-08-13 根据用户澄清更新 PRD：批记录单元格链接页面当前只做逐工序对应关系配置，不在配置保存或一线生产提交时生成正式批记录数据；真正的数据生成发生在生产组长点击“申请放行”时。重复行数量由目标表单实际结构和用户选择的重复行组决定，不全局写死为 4；配置阶段不以中间数量一致性或复核人时间推导作为 blocker。
 
 ## 设计约束检查
 
-- `是否引入 fallback/降级/吞异常`：否。正式来源或环境前置缺失时阻塞，不使用 mock、SQL 直改、API-only、默认 MAIN 或 formBindings 替代。
+- `是否引入 fallback/降级/吞异常`：否。正式来源或环境前置缺失时阻塞，不使用 mock、SQL 直改、API-only 或默认 MAIN 替代；动态 formBindings 仅按本轮明确合同作为 PI/LOSS 正式目标，不替代 MAIN 批记录。
 - `是否从根因和长期维护角度解决`：是。复用当前 eDHR、正式批记录、PQC 汇集、字段审计、放行事务和 RELEASE_APPROVE，不新增平行流程。
 - `是否存在临时补丁或绕过`：否。
 
@@ -47,6 +55,7 @@ A2-A5 后端实现及主审修正完成，最新稳定窗口串行集成回归 5
 ## Applicable Experience Gates
 
 - `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
+- `docs/backend-development.md#批记录单元格链接预填落库边界`
 - `docs/backend-development.md#edhr-放行负责人来源门禁`
 - `docs/backend-development.md#mes-pqc-项目级检验快照门禁`
 - `docs/frontend-development.md#前端写入成功与列表刷新失败分层门禁`
@@ -58,7 +67,7 @@ A2-A5 后端实现及主审修正完成，最新稳定窗口串行集成回归 5
 - doc/tasks/20260809-active-order-release-dossier-v4-delivery/task.md
 - doc/tasks/20260809-active-order-release-dossier-v4-delivery/request-analysis.md
 - doc/tasks/20260809-active-order-release-dossier-v4-delivery/prd.md
-- doc/tasks/20260809-active-order-release-dossier-v4-delivery/dev-plan.md
+- doc/tasks/20260809-active-order-release-dossier-v4-delivery/development-plan.md
 - doc/tasks/20260809-active-order-release-dossier-v4-delivery/test-plan.md
 - doc/tasks/20260809-active-order-release-dossier-v4-delivery/task-state.json
 - doc/tasks/20260809-active-order-release-dossier-v4-delivery/execution-log.md

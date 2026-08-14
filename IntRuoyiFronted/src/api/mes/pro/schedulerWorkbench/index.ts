@@ -158,6 +158,34 @@ export interface SchedulerWorkbenchPolicySettingsVO {
   defaultNightShiftEnabled: boolean
   defaultWorkerQuantity: number
   defaultWorkerSingleHourlyCapacity: number
+  workerCapacityApplicabilityText?: string
+}
+
+export interface AutoScheduleJobStatusVO {
+  configured: boolean
+  jobId?: number
+  jobName?: string
+  enabled: boolean
+  cronExpression?: string
+  nextTriggerTime?: string
+  latestBeginTime?: string
+  latestEndTime?: string
+  latestStatus?: 'RUNNING' | 'SUCCESS' | 'FAILURE' | string
+  latestResult?: string
+}
+
+export interface NightShiftCapacityStatusVO {
+  availableShiftCount: number
+  capacityLineCount: number
+  available: boolean
+  shifts: Array<{
+    planId?: number
+    shiftId?: number
+    shiftName?: string
+    startTime?: string
+    endTime?: string
+    capacityLineCount?: number
+  }>
 }
 
 export interface SchedulerWorkbenchRouteConfigImportRespVO {
@@ -190,13 +218,20 @@ export const SchedulerWorkbenchApi = {
   },
   getCapacityUnificationAudit: async (): Promise<SchedulerWorkbenchCapacityUnificationAuditVO> => {
     return await request.get({ url: '/mes/pro/scheduler-workbench/capacity-unification-audit' })
-  },  getPolicySettings: async (): Promise<SchedulerWorkbenchPolicySettingsVO> => {
+  },
+  getPolicySettings: async (): Promise<SchedulerWorkbenchPolicySettingsVO> => {
     return await request.get({ url: '/mes/pro/scheduler-workbench/policy-settings' })
   },
   savePolicySettings: async (
     data: SchedulerWorkbenchPolicySettingsVO
   ): Promise<SchedulerWorkbenchPolicySettingsVO> => {
     return await request.put({ url: '/mes/pro/scheduler-workbench/policy-settings', data })
+  },
+  getAutoScheduleJobStatus: async (): Promise<AutoScheduleJobStatusVO> => {
+    return await request.get({ url: '/mes/pro/scheduler-workbench/auto-schedule-job/status' })
+  },
+  getNightShiftCapacityStatus: async (): Promise<NightShiftCapacityStatusVO> => {
+    return await request.get({ url: '/mes/pro/scheduler-workbench/night-shift-capacity/status' })
   },
   exportRouteConfigPackage: async (): Promise<Blob> => {
     return await request.download({ url: '/mes/pro/scheduler-workbench/route-config/export' })

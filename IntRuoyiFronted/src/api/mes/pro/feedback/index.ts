@@ -177,6 +177,8 @@ export interface ProFrontlineFeedbackSubmitReqVO {
   signatureId?: number
   signatureEmployeeId: number
   signaturePassword: string
+  frontlineSessionSnapshotId: string
+  frontlineSessionSnapshotHash: string
   rawPayload: Record<string, unknown>
 }
 
@@ -315,6 +317,7 @@ export interface FrontlineActiveOrderVO {
   productId: number
   productCode?: string
   productName: string
+  batchCode?: string
   quantity: number
   routeId: number
   routeCode?: string
@@ -485,6 +488,9 @@ export interface FrontlineRuntimeConfigVO {
   devices: FrontlineRuntimeDeviceVO[]
   defectReasons: FrontlineRuntimeDefectReasonVO[]
   productionSubmitContext: FrontlineProductionSubmitContextVO
+  employeeSwitchSnapshots: FrontlineSwitchActualEmployeeRespVO[]
+  frontlineSessionSnapshotId: string
+  frontlineSessionSnapshotHash: string
 }
 
 export interface ThirdPartyFeedbackImportResultVO {

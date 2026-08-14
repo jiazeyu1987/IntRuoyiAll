@@ -12,8 +12,8 @@ export interface EdhrOperationAuditPageReqVO extends PageParam {
   routeProcessId?: EdhrRouteId
   reportId?: string
   recordCategory?: EdhrRecordCategory
-  objectType: string
-  objectId: string
+  objectType?: string
+  objectId?: string
   operationType?: string
   actorUserId?: number
   permissionDecision?: EdhrOperationAuditPermissionDecision

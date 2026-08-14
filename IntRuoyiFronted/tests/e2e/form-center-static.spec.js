@@ -340,8 +340,19 @@ assertIncludes(remainingRoutes, "permission: ['form:policy:query']")
 
 const formCenterSeed = read('../IntRuoyiBackend/sql/mysql/20260717_bpm_form_center.sql')
 const formCenterMoveSeed = read('../IntRuoyiBackend/sql/mysql/20260721_form_center_menu_under_basic_data.sql')
+const formTemplateSiblingSeed = read(
+  '../IntRuoyiBackend/sql/mysql/20260813_form_template_menu_before_form_center.sql'
+)
+const formCenterMenuHideSeed = read(
+  '../IntRuoyiBackend/sql/mysql/20260813_z_form_center_menu_hide.sql'
+)
 const formCenterRetireSeed = assertFile('../IntRuoyiBackend/sql/mysql/20260722_form_center_business_action_page_retire.sql')
-for (const sqlSource of [formCenterSeed, formCenterMoveSeed, formCenterRetireSeed]) {
+for (const sqlSource of [
+  formCenterSeed,
+  formCenterMoveSeed,
+  formTemplateSiblingSeed,
+  formCenterRetireSeed
+]) {
   assertNotIncludes(sqlSource, "'业务动作表单'")
   assertNotIncludes(sqlSource, "'business-action'")
   assertNotIncludes(sqlSource, "'form-center/business-action/index'")
@@ -349,6 +360,26 @@ for (const sqlSource of [formCenterSeed, formCenterMoveSeed, formCenterRetireSee
 }
 assertIncludes(formCenterSeed, "(605071210, '实例创建', 'form:instance:create', 3, 20, 605071200")
 assertIncludes(formCenterSeed, "(605071219, '实例快照查询', 'form:instance:snapshot:query', 3, 25, 605071200")
+assertIncludes(formTemplateSiblingSeed, "`parent_id` = @form_template_basic_data_menu_id")
+assertIncludes(formTemplateSiblingSeed, "`sort` = 29")
+assertIncludes(formTemplateSiblingSeed, "`path` = 'form-center/template'")
+assertIncludes(formTemplateSiblingSeed, "`permission` = 'form:template:query'")
+assertIncludes(formTemplateSiblingSeed, "`component` = 'form-center/template/index'")
+assertIncludes(formTemplateSiblingSeed, "`component_name` = 'FormCenterTemplate'")
+assertNotIncludes(formTemplateSiblingSeed, 'system_role_menu')
+assertNotIncludes(formTemplateSiblingSeed, 'system_tenant_package')
+assertIncludes(formCenterMenuHideSeed, '`id` = 605071200')
+assertIncludes(formCenterMenuHideSeed, '`id` = 605071220')
+assertIncludes(formCenterMenuHideSeed, '`visible` = b\'0\'')
+assertIncludes(formCenterMenuHideSeed, '`always_show` = b\'0\'')
+assertIncludes(formCenterMenuHideSeed, '`id` = 605071201')
+assertIncludes(formCenterMenuHideSeed, '`path` = \'form-center/template\'')
+assertIncludes(formCenterMenuHideSeed, '`permission` = \'form:template:query\'')
+assertIncludes(formCenterMenuHideSeed, '`id` = 605071221')
+assertIncludes(formCenterMenuHideSeed, '`permission` = \'form:effect:retry\'')
+assertNotIncludes(formCenterMenuHideSeed, '`deleted` = b\'1\'')
+assertNotIncludes(formCenterMenuHideSeed, 'system_role_menu')
+assertNotIncludes(formCenterMenuHideSeed, 'system_tenant_package')
 assertIncludes(formCenterRetireSeed, 'form_center_business_action_page_retire')
 assertIncludes(formCenterRetireSeed, '605071209')
 

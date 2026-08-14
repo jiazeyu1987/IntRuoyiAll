@@ -149,9 +149,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_VISIBLE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ROUTE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID;
@@ -421,6 +421,18 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals("eDHR 路线", routeOptions.get(0).getRouteName());
         assertEquals("eDHR 第二路线", routeOptions.get(1).getRouteName());
         assertTrue(routeOptions.stream().allMatch(option -> Boolean.TRUE.equals(option.getBatchRouteEnabled())));
+    }
+
+    @Test
+    void listRouteOptionsByWorkOrder_reportsMissingProductRouteBindingClearly() {
+        Fixture fixture = insertRouteFixture(true, true);
+        routeProductMapper.deleteByRouteId(fixture.routeId());
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> batchExecutionService.listRouteOptionsByWorkOrder(fixture.workOrderId()));
+
+        assertEquals(PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED.getCode(), exception.getCode());
+        assertEquals(PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED.getMsg(), exception.getMessage());
     }
 
     @Test
@@ -1420,7 +1432,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setWorkOrderId(fixture.workOrderId())
                 .setRouteId(fixture.routeId())
                 .setBatchCode("BATCH-EXPLICIT-DISABLED-ROUTE")),
-                PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
+                PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED);
     }
 
     @Test
@@ -6444,10 +6456,13 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         Fixture fixture = insertRouteFixture(true, true);
         routeProductMapper.deleteByRouteId(fixture.routeId());
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-NO-AUTO-ROUTE")),
-                PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                        .setWorkOrderId(fixture.workOrderId())
+                        .setBatchCode("BATCH-NO-AUTO-ROUTE")));
+
+        assertEquals(PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED.getCode(), exception.getCode());
+        assertEquals(PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED.getMsg(), exception.getMessage());
     }
 
     @Test

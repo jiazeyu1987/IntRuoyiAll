@@ -23,6 +23,13 @@ export class FrontlinePqcStaleActiveOrderSelectionError extends Error {
   }
 }
 
+export class FrontlineProductionStaleActiveOrderSelectionError extends Error {
+  constructor() {
+    super('生产工单选择已被更新请求替代')
+    this.name = 'FrontlineProductionStaleActiveOrderSelectionError'
+  }
+}
+
 interface FrontlineProductionRuntimeCacheEntry {
   runtimeConfig: FrontlineRuntimeConfigVO
   employeeOptions: FrontlineEmployeeCandidateVO[]
@@ -39,6 +46,7 @@ interface FrontlineProductionRuntimeCache {
 
 export interface FrontlineDeviceEmployeeState {
   activeOrderOptions: FrontlineActiveOrderVO[]
+  productionProcessOptions: FrontlineDeviceRouteProcessVO[]
   processOptions: Array<FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO>
   employeeOptions: FrontlineEmployeeCandidateVO[]
   selectedActiveOrder?: FrontlineActiveOrderVO
@@ -56,6 +64,7 @@ export interface FrontlineDeviceEmployeeState {
   pqcProcessOptionsRequests: Map<string, Promise<FrontlinePqcProcessVO[]>>
   pqcEmployeeOptionsCache?: FrontlineEmployeeCandidateVO[]
   pqcEmployeeOptionsRequest?: Promise<FrontlineEmployeeCandidateVO[]>
+  productionActiveOrderSelectionRequestToken: number
   pqcActiveOrderSelectionRequestToken: number
   processSelectionRequestToken: number
   employeeSwitchRequestToken: number
@@ -64,6 +73,7 @@ export interface FrontlineDeviceEmployeeState {
 
 export const createFrontlineDeviceEmployeeState = (): FrontlineDeviceEmployeeState => ({
   activeOrderOptions: [],
+  productionProcessOptions: [],
   processOptions: [],
   employeeOptions: [],
   loadingActiveOrders: false,
@@ -77,6 +87,7 @@ export const createFrontlineDeviceEmployeeState = (): FrontlineDeviceEmployeeSta
   },
   pqcProcessOptionsCache: new Map<string, FrontlinePqcProcessVO[]>(),
   pqcProcessOptionsRequests: new Map<string, Promise<FrontlinePqcProcessVO[]>>(),
+  productionActiveOrderSelectionRequestToken: 0,
   pqcActiveOrderSelectionRequestToken: 0,
   processSelectionRequestToken: 0,
   employeeSwitchRequestToken: 0
@@ -139,7 +150,10 @@ export const loadFrontlineDeviceProcesses = async (state: FrontlineDeviceEmploye
   state.lastError = undefined
   try {
     const processes = await ProFeedbackApi.getFrontlineDeviceAccountProcesses()
-    state.processOptions = processes
+    state.productionProcessOptions = processes
+    state.processOptions = state.selectedActiveOrder
+      ? processes.filter((process) => process.routeId === state.selectedActiveOrder?.routeId)
+      : []
     retainFrontlineRuntimeCacheForProcesses(state, processes)
     return processes
   } catch (error) {
@@ -180,6 +194,12 @@ export const loadFrontlineProductionActiveOrders = async (state: FrontlineDevice
       )
     ) {
       state.selectedActiveOrder = undefined
+      state.selectedProcess = undefined
+      state.selectedEmployee = undefined
+      state.runtimeConfig = undefined
+      state.template = undefined
+      state.processOptions = []
+      state.employeeOptions = []
     }
     return activeOrders
   } catch (error) {
@@ -287,6 +307,59 @@ export const preloadFrontlinePqcSwitchingCache = async (
   } catch (error) {
     state.lastError = resolveFrontlineErrorMessage(error)
     throw error
+  }
+}
+
+export const selectFrontlineProductionActiveOrder = async (
+  state: FrontlineDeviceEmployeeState,
+  activeOrder: FrontlineActiveOrderVO
+) => {
+  const requestToken = ++state.productionActiveOrderSelectionRequestToken
+  state.processSelectionRequestToken += 1
+  state.employeeSwitchRequestToken += 1
+  state.selectedActiveOrder = activeOrder
+  state.selectedProcess = undefined
+  state.selectedEmployee = undefined
+  state.runtimeConfig = undefined
+  state.template = undefined
+  state.productionProcessOptions = []
+  state.processOptions = []
+  state.employeeOptions = []
+  state.loadingProcesses = false
+  state.lastError = undefined
+
+  const orderLabel = activeOrder.workOrderCode || String(activeOrder.workOrderId)
+  if (!activeOrder.routeId) {
+    const error = new Error('生产工单 ' + orderLabel + ' 缺少正式工艺路线。')
+    state.lastError = error.message
+    throw error
+  }
+  state.loadingProcesses = true
+  try {
+    const processes = await ProFeedbackApi.getFrontlineDeviceAccountProcesses()
+    if (state.productionActiveOrderSelectionRequestToken !== requestToken) {
+      throw new FrontlineProductionStaleActiveOrderSelectionError()
+    }
+    state.productionProcessOptions = processes
+    retainFrontlineRuntimeCacheForProcesses(state, processes)
+    const routeProcesses = processes.filter(
+      (process) => process.routeId === activeOrder.routeId
+    )
+    if (routeProcesses.length === 0) {
+      throw new Error('生产工单 ' + orderLabel + ' 的正式工艺路线没有可用工序。')
+    }
+    state.processOptions = routeProcesses
+    return routeProcesses
+  } catch (error) {
+    if (state.productionActiveOrderSelectionRequestToken !== requestToken) {
+      throw new FrontlineProductionStaleActiveOrderSelectionError()
+    }
+    state.lastError = resolveFrontlineErrorMessage(error)
+    throw error
+  } finally {
+    if (state.productionActiveOrderSelectionRequestToken === requestToken) {
+      state.loadingProcesses = false
+    }
   }
 }
 
@@ -501,6 +574,14 @@ const cacheFrontlineRuntimeConfig = (
     runtimeConfig,
     employeeOptions: runtimeConfig.employees.map(toEmployeeCandidate)
   }
+  runtimeConfig.employeeSwitchSnapshots.forEach((snapshot) => {
+    cacheFrontlineEmployeeSwitchResult(state, {
+      routeId: process.routeId,
+      routeProcessId: process.routeProcessId,
+      processId: process.processId,
+      actualEmployeeId: snapshot.actualEmployeeId
+    }, snapshot)
+  })
 }
 
 const applyFrontlineRuntimeConfig = (

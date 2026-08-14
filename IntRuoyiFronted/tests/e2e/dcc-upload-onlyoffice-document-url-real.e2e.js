@@ -6,10 +6,12 @@ const XLSX = require('xlsx')
 
 const FRONTEND_ROOT = path.resolve(__dirname, '..', '..')
 const WORKSPACE_ROOT = path.resolve(FRONTEND_ROOT, '..')
-const TASK_ID = '20260803-dcc-upload-onlyoffice-document-url'
+const TASK_ID = process.env.DCC_UPLOAD_ONLYOFFICE_E2E_TASK_ID || '20260803-dcc-upload-onlyoffice-document-url'
 const TARGET_PATH = '/dcc/controlled-file/upload'
 const UNREADY_MESSAGE = 'OnlyOffice 预览地址未准备好'
-const OUTPUT_DIR = path.join(WORKSPACE_ROOT, 'output', 'playwright', TASK_ID)
+const OUTPUT_DIR = process.env.DCC_UPLOAD_ONLYOFFICE_E2E_OUTPUT_DIR
+  ? path.resolve(process.env.DCC_UPLOAD_ONLYOFFICE_E2E_OUTPUT_DIR)
+  : path.join(WORKSPACE_ROOT, 'output', 'playwright', TASK_ID)
 const EVIDENCE_PATH = path.join(OUTPUT_DIR, 'dcc-upload-onlyoffice-document-url-real-evidence.json')
 const SCREENSHOT_PATH = path.join(OUTPUT_DIR, 'dcc-upload-onlyoffice-document-url-real.png')
 const FIXTURE_PATH = path.join(OUTPUT_DIR, 'dcc-upload-onlyoffice-document-url-real.xlsx')

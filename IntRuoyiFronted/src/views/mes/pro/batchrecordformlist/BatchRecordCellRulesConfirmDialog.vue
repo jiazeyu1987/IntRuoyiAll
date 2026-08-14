@@ -656,8 +656,6 @@ const canNavigateNext = computed(() => Boolean(props.canNavigateNext))
 const navigationLoading = computed(() => Boolean(props.navigationLoading))
 const navigationErrorMessage = computed(() => String(props.navigationErrorMessage || '').trim())
 const navigationDisplayLabel = computed(() => props.navigationLabel || reportName.value)
-const unreviewedFillableCellCount = computed(() => summary.unreviewedFillableCellCount)
-
 const componentFlagBaseOptions = [
   { label: '文本输入 input-text', value: 'input-text' },
   { label: '数字输入 input-number', value: 'input-number' },
@@ -735,15 +733,6 @@ const normalizeAssistRows = (
     }))
 
 
-const normalizeRuleSource = (source?: string) => {
-  const normalized = String(source || '').trim().toUpperCase()
-  return normalized || 'MANUAL'
-}
-
-const isConfirmedRule = (rule: BatchRecordReportCellRuleVO) =>
-  Boolean(rule.reviewed) && normalizeRuleSource(rule.source) !== 'AUTO'
-
-const pendingCount = computed(() => ruleRows.value.filter((rule) => !isConfirmedRule(rule)).length)
 const canConfirmRules = computed(
   () => Boolean(reportId.value) && !loading.value && !saving.value && !navigationLoading.value
 )

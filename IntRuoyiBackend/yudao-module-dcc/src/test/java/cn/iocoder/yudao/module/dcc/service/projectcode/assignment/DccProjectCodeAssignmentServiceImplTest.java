@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCreateReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCandidatePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentRevokeReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeAssignmentDO;
@@ -34,6 +35,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_ASSIGNMENT_INACTIVE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_ASSIGNMENT_REVOKE_NOT_ALLOWED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -167,6 +169,30 @@ class DccProjectCodeAssignmentServiceImplTest extends BaseMockitoUnitTest {
 
         verify(assignmentMapper, never()).insert(any(DccProjectCodeAssignmentDO.class));
         verify(assignmentFileMapper, never()).insert(any(DccProjectCodeAssignmentFileDO.class));
+    }
+
+    @Test
+    void getAssignmentCandidatePage_returnsCrossProjectEligibleAndPendingDisabledRows() {
+        DccControlledFileDO active = controlledFile(900L, 700L, "ACTIVE");
+        active.setDccProjectCodeId(129L);
+        DccControlledFileDO pending = controlledFile(901L, 701L, "PENDING_DOC_CONTROL_REVIEW");
+        pending.setDccProjectCodeId(130L);
+        when(projectCodeMapper.selectById(3000L)).thenReturn(projectCode());
+        when(controlledFileMapper.selectAssignmentCandidatePage(any(DccProjectCodeAssignmentCandidatePageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(active, pending), 2L));
+
+        DccProjectCodeAssignmentCandidatePageReqVO reqVO = new DccProjectCodeAssignmentCandidatePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+        reqVO.setKeyword("DOC");
+        var result = assignmentService.getAssignmentCandidatePage(99L, 3000L, reqVO);
+
+        assertEquals(2L, result.getTotal());
+        var rows = result.getList();
+        assertTrue(rows.get(0).getSelectable());
+        assertEquals(129L, rows.get(0).getCurrentProjectCodeId());
+        assertFalse(rows.get(1).getSelectable());
+        assertEquals("审批中的文件不可创建修正任务，请先撤回或完成审批后处理", rows.get(1).getDisabledReason());
     }
 
     @Test

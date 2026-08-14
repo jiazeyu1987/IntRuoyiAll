@@ -73,6 +73,8 @@ class DccControlledFileSignatureBindingServiceTest extends BaseMockitoUnitTest {
         assertEquals(List.of("evidence-1", "evidence-2", "evidence-3", "evidence-4"),
                 captor.getAllValues().stream().map(DccControlledFileSignatureBindingDO::getOriginalEvidenceHash).toList());
         assertTrue(captor.getAllValues().stream().allMatch(binding -> binding.getControlledCopyFileId().equals(800L)));
+        assertTrue(captor.getAllValues().stream().allMatch(binding ->
+                "dcc/published/900.pdf".equals(binding.getControlledCopyObjectKey())));
         assertTrue(captor.getAllValues().stream().allMatch(binding -> binding.getControlledCopySha256().length() == 64));
         assertTrue(captor.getAllValues().stream().allMatch(binding -> binding.getBindingHash().length() == 64));
         verify(signatureMapper, never()).updateById(any(DccControlledFileSignatureDO.class));
@@ -102,7 +104,7 @@ class DccControlledFileSignatureBindingServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO file = publishedFile();
         DccControlledFileSignatureDO signature = signature(1001L, "evidence-1");
         DccControlledFileSignatureBindingDO existing = service.createBindingEvent(signature, file, 800L,
-                publishedPdf, 99L, "dcc-final-approval:900:task-4");
+                "dcc/published/900.pdf", publishedPdf, 99L, "dcc-final-approval:900:task-4");
         when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
         when(fileService.getFile(800L)).thenReturn(publishedFileRecord());
         when(fileService.getFileContent(7L, "dcc/published/900.pdf")).thenReturn(publishedPdf);
@@ -119,7 +121,7 @@ class DccControlledFileSignatureBindingServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO file = publishedFile();
         DccControlledFileSignatureDO signature = signature(1001L, "evidence-1");
         DccControlledFileSignatureBindingDO binding = service.createBindingEvent(signature, file, 800L,
-                publishedPdf, 99L, "process-900");
+                "dcc/published/900.pdf", publishedPdf, 99L, "process-900");
         when(bindingMapper.selectBySignatureId(1001L)).thenReturn(binding);
         when(fileService.getFile(800L)).thenReturn(publishedFileRecord());
         when(fileService.getFileContent(7L, "dcc/published/900.pdf"))

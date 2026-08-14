@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -36,6 +37,8 @@ class MesFrontlineRuntimeConfigServiceTest {
     @Mock
     private MesFrontlineDeviceAccountContextService contextService;
     @Mock
+    private MesFrontlineTemplateResolver templateResolver;
+    @Mock
     private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
     @Mock
     private MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
@@ -45,15 +48,25 @@ class MesFrontlineRuntimeConfigServiceTest {
     private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     @Mock
     private MesProcessPoolDefectReasonMapper defectReasonMapper;
+    @Mock
+    private MesFrontlineSessionSnapshotService sessionSnapshotService;
 
     private MesFrontlineRuntimeConfigServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new MesFrontlineRuntimeConfigServiceImpl(contextService, employeeProfileMapper,
-                processDeviceMapper, deviceMapper, parameterRuleMapper, defectReasonMapper);
+        service = new MesFrontlineRuntimeConfigServiceImpl(contextService, templateResolver, employeeProfileMapper,
+                processDeviceMapper, deviceMapper, parameterRuleMapper, defectReasonMapper, sessionSnapshotService);
+        org.mockito.Mockito.lenient().when(sessionSnapshotService.issue(any()))
+                .thenReturn(new MesFrontlineSessionSnapshotReference("snapshot-001", "hash-001"));
         org.mockito.Mockito.lenient().when(contextService.resolveResponsibleLeaderUserId(LOGIN_USER_ID))
                 .thenReturn(LOGIN_USER_ID);
+        org.mockito.Mockito.lenient().when(templateResolver.resolve(any(MesFrontlineTemplateRequest.class)))
+                .thenAnswer(invocation -> {
+                    MesFrontlineTemplateRequest request = invocation.getArgument(0);
+                    return new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION",
+                            request.routeProcessId(), request.processId(), request.actualEmployeeId());
+                });
     }
 
     @Test
@@ -121,6 +134,10 @@ class MesFrontlineRuntimeConfigServiceTest {
         when(defectReasonMapper.selectList(any())).thenReturn(List.of(
                 defectReason(8301L, ROUTE_PROCESS_ID, "LOSS", "LOSS-001", "正常损耗"),
                 defectReason(8302L, 2002L, "LOSS", "LOSS-002", "其它工序损耗")));
+        when(templateResolver.resolve(new MesFrontlineTemplateRequest(
+                LOGIN_USER_ID, 8801L, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID)))
+                .thenReturn(new MesFrontlineTemplateDescriptor(
+                        "FRONTLINE-PROD", "PRODUCTION", ROUTE_PROCESS_ID, PROCESS_ID, 8801L));
 
         MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
                 ROUTE_PROCESS_ID, PROCESS_ID);
@@ -156,6 +173,11 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertNull(config.productionSubmitContext().taskId());
         assertNull(config.productionSubmitContext().itemId());
         assertNull(config.productionSubmitContext().recordbookId());
+        assertEquals(1, config.employeeSwitchSnapshots().size());
+        assertEquals(8801L, config.employeeSwitchSnapshots().get(0).actualEmployeeId());
+        assertEquals(ROUTE_PROCESS_ID, config.employeeSwitchSnapshots().get(0).routeProcessId());
+        assertEquals("FRONTLINE-PROD", config.employeeSwitchSnapshots().get(0).template().templateNo());
+        assertEquals(8801L, config.employeeSwitchSnapshots().get(0).template().actualEmployeeId());
     }
 
     @Test
@@ -182,6 +204,10 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals(8801L, config.employees().get(0).employeeProfileId());
         assertEquals(8803L, config.employees().get(1).employeeProfileId());
         assertEquals(10003L, config.employees().get(1).systemUserId());
+        assertEquals(2, config.employeeSwitchSnapshots().size());
+        assertEquals(8801L, config.employeeSwitchSnapshots().get(0).actualEmployeeId());
+        assertEquals(10003L, config.employeeSwitchSnapshots().get(1).actualEmployeeId());
+        assertEquals(10003L, config.employeeSwitchSnapshots().get(1).template().actualEmployeeId());
     }
 
     @Test

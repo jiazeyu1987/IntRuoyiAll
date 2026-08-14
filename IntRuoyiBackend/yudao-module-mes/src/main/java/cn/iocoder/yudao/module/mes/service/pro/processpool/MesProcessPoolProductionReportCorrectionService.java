@@ -14,6 +14,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesFrontlineLossReasonSnapshot;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesFrontlineLossReasonValidator;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -49,6 +50,7 @@ public class MesProcessPoolProductionReportCorrectionService {
     private final MesProBatchRecordExecutionSignatureService signatureService;
     private final MesFrontlineLossReasonValidator lossReasonValidator;
     private final MesTeamLeaderScopeService scopeService;
+    private final MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     public MesProcessPoolProductionReportCorrectionService(
             MesProProcessPoolEventMapper eventMapper,
@@ -56,13 +58,15 @@ public class MesProcessPoolProductionReportCorrectionService {
             MesProcessPoolEventRevisionService revisionService,
             MesProBatchRecordExecutionSignatureService signatureService,
             MesFrontlineLossReasonValidator lossReasonValidator,
-            MesTeamLeaderScopeService scopeService) {
+            MesTeamLeaderScopeService scopeService,
+            MesProductionReportManagementSummaryService reportManagementSummaryService) {
         this.eventMapper = eventMapper;
         this.fragmentMapper = fragmentMapper;
         this.revisionService = revisionService;
         this.signatureService = signatureService;
         this.lossReasonValidator = lossReasonValidator;
         this.scopeService = scopeService;
+        this.reportManagementSummaryService = reportManagementSummaryService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -120,6 +124,10 @@ public class MesProcessPoolProductionReportCorrectionService {
                 .changedFields(changes)
                 .build());
 
+        event.setRawPayload(afterPayloadJson)
+                .setReportOutputQuantity(command.getOutputQuantity());
+        reportManagementSummaryService.refreshProductionEvent(event);
+
         if (beforeOutput.compareTo(command.getOutputQuantity()) != 0) {
             updateOutputFragment(outputFragment, command.getOutputQuantity());
         }
@@ -144,14 +152,6 @@ public class MesProcessPoolProductionReportCorrectionService {
                 || item.getReasonId() == null || item.getReasonId() <= 0
                 || item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0)) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "lossDetails");
-        }
-        if (command.getDeviceParameterReadings() == null) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterReadings");
-        }
-        if (command.getDeviceParameterReadings().stream().anyMatch(item -> item == null
-                || item.getDeviceId() == null || item.getDeviceId() <= 0
-                || StrUtil.isBlank(item.getParameterCode()) || item.getValue() == null)) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterReadings");
         }
         if (StrUtil.isBlank(command.getChangeReason())) {
             throw exception(PRO_PROCESS_POOL_REVISION_CHANGE_REASON_REQUIRED);
@@ -244,47 +244,53 @@ public class MesProcessPoolProductionReportCorrectionService {
             ObjectNode payload,
             ObjectNode fieldValues,
             List<MesProcessPoolEventRevisionFieldChangeBO> changes) {
-        ArrayNode original = requireArray(payload.get("deviceParameterReadings"),
-                "rawPayload.deviceParameterReadings");
+        ArrayNode original = optionalArray(payload.get("deviceParameterReadings"));
         Map<String, MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand> byKey =
-                requested.stream().collect(Collectors.toMap(
+                (requested == null ? List.<MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand>of()
+                        : requested).stream()
+                        .filter(item -> item != null
+                                && item.getDeviceId() != null && item.getDeviceId() > 0
+                                && StrUtil.isNotBlank(item.getParameterCode())
+                                && item.getValue() != null)
+                        .collect(Collectors.toMap(
                         item -> parameterKey(item.getDeviceId(), item.getParameterCode()),
                         item -> item,
-                        (left, right) -> {
-                            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterReadings");
-                        },
+                        (left, right) -> right,
                         LinkedHashMap::new));
-        if (byKey.size() != original.size()) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterReadings");
+        if (byKey.isEmpty() || original == null) {
+            return;
         }
 
         ArrayNode updated = original.deepCopy();
         for (JsonNode node : updated) {
-            ObjectNode reading = requireObject(node, "rawPayload.deviceParameterReadings.item");
-            Long deviceId = requireLong(reading.get("deviceId"), "deviceParameterReadings.deviceId");
+            if (!(node instanceof ObjectNode reading)) {
+                continue;
+            }
+            Long deviceId = longOrNull(reading.get("deviceId"));
             String parameterCode = text(reading, "parameterCode");
+            if (deviceId == null || deviceId <= 0 || StrUtil.isBlank(parameterCode)) {
+                continue;
+            }
             MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand change =
                     byKey.remove(parameterKey(deviceId, parameterCode));
-            if (change == null || change.getValue() == null) {
-                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterReadings");
+            if (change == null) {
+                continue;
             }
-            BigDecimal before = requireDecimal(reading.get("value"), "deviceParameterReadings.value");
+            BigDecimal before = decimalOrNull(reading.get("value"));
+            if (before != null && before.compareTo(change.getValue()) == 0) {
+                continue;
+            }
             reading.put("value", change.getValue());
             reading.put("parameterStatus", resolveParameterStatus(
                     change.getValue(), decimalOrNull(reading.get("lowerLimit")),
                     decimalOrNull(reading.get("upperLimit"))));
             updateParameterCopies(payload, fieldValues, reading, parameterCode, change.getValue());
-            if (before.compareTo(change.getValue()) != 0) {
-                String parameterName = StrUtil.blankToDefault(text(reading, "parameterName"), parameterCode);
-                String unit = text(reading, "unit");
-                String displayName = StrUtil.isBlank(unit) ? parameterName : parameterName + "（" + unit + "）";
-                changes.add(fieldChange("DEVICE_PARAMETERS." + parameterCode, displayName,
-                        before, change.getValue(), false, null,
-                        MesProcessPoolFragmentOriginalField.DEVICE_PARAMETERS));
-            }
-        }
-        if (!byKey.isEmpty()) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterReadings");
+            String parameterName = StrUtil.blankToDefault(text(reading, "parameterName"), parameterCode);
+            String unit = text(reading, "unit");
+            String displayName = StrUtil.isBlank(unit) ? parameterName : parameterName + "（" + unit + "）";
+            changes.add(fieldChange("DEVICE_PARAMETERS." + parameterCode, displayName,
+                    before, change.getValue(), false, null,
+                    MesProcessPoolFragmentOriginalField.DEVICE_PARAMETERS));
         }
         payload.set("deviceParameterReadings", updated);
     }
@@ -293,13 +299,35 @@ public class MesProcessPoolProductionReportCorrectionService {
                                        String parameterCode, BigDecimal value) {
         String deviceName = text(reading, "deviceName");
         if (StrUtil.isBlank(deviceName)) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterReadings.deviceName");
+            return;
         }
-        requireObject(requireObject(payload.get("equipmentParameters"), "rawPayload.equipmentParameters")
-                .get(deviceName), "rawPayload.equipmentParameters.device").put(parameterCode, value);
-        requireObject(requireObject(fieldValues.get("DEVICE_PARAMETERS"),
-                "rawPayload.fieldValues.DEVICE_PARAMETERS").get(deviceName),
-                "rawPayload.fieldValues.DEVICE_PARAMETERS.device").put(parameterCode, value);
+        ObjectNode equipmentParameters = objectChildWhenMissing(payload, "equipmentParameters");
+        if (equipmentParameters != null) {
+            ObjectNode deviceParameters = objectChildWhenMissing(equipmentParameters, deviceName);
+            if (deviceParameters != null) {
+                deviceParameters.put(parameterCode, value);
+            }
+        }
+        ObjectNode fieldDeviceParameters = objectChildWhenMissing(fieldValues, "DEVICE_PARAMETERS");
+        if (fieldDeviceParameters != null) {
+            ObjectNode fieldDevice = objectChildWhenMissing(fieldDeviceParameters, deviceName);
+            if (fieldDevice != null) {
+                fieldDevice.put(parameterCode, value);
+            }
+        }
+    }
+
+    private ObjectNode objectChildWhenMissing(ObjectNode parent, String fieldName) {
+        JsonNode existing = parent.get(fieldName);
+        if (existing instanceof ObjectNode object) {
+            return object;
+        }
+        if (existing != null && !existing.isNull()) {
+            return null;
+        }
+        ObjectNode created = JsonUtils.getObjectMapper().createObjectNode();
+        parent.set(fieldName, created);
+        return created;
     }
 
     private void updateOutputFragment(MesProProcessPoolQuantityFragmentDO fragment, BigDecimal outputQuantity) {
@@ -371,6 +399,9 @@ public class MesProcessPoolProductionReportCorrectionService {
     }
 
     private String formatValue(Object value) {
+        if (value == null) {
+            return "--";
+        }
         if (value instanceof BigDecimal number) {
             BigDecimal normalized = number.stripTrailingZeros();
             return normalized.compareTo(BigDecimal.ZERO) == 0 ? "0" : normalized.toPlainString();
@@ -420,6 +451,10 @@ public class MesProcessPoolProductionReportCorrectionService {
         return array;
     }
 
+    private ArrayNode optionalArray(JsonNode node) {
+        return node instanceof ArrayNode array ? array : null;
+    }
+
     private BigDecimal requireDecimal(JsonNode node, String fieldName) {
         BigDecimal value = decimalOrNull(node);
         if (value == null) {
@@ -437,6 +472,10 @@ public class MesProcessPoolProductionReportCorrectionService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, fieldName);
         }
         return node.longValue();
+    }
+
+    private Long longOrNull(JsonNode node) {
+        return node != null && node.canConvertToLong() ? node.longValue() : null;
     }
 
     private String text(JsonNode node, String fieldName) {

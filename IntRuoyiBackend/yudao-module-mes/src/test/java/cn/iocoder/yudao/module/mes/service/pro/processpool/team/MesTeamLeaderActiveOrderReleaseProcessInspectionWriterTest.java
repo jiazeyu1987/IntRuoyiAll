@@ -496,7 +496,8 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .reviewSignatureSnapshotJson("pqc-review-signature-evidence").build();
         review.setTenantId(TENANT_ID);
         MesQaInspectionRegulationDO regulation = MesQaInspectionRegulationDO.builder()
-                .id(REGULATION_ID).productId(PRODUCT_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                .id(REGULATION_ID).dccProjectCodeId(705L)
+                .productId(PRODUCT_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                 .routeProcessId(ROUTE_PROCESS_ID).processId(PROCESS_ID)
                 .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
                 .lifecycleStatus("PUBLISHED").currentVersionId(REGULATION_VERSION_ID).build();

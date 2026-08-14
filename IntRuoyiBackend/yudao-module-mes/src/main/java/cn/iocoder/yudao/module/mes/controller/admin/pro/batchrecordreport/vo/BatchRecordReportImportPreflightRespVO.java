@@ -57,6 +57,12 @@ public class BatchRecordReportImportPreflightRespVO {
     @Schema(description = "当前工艺路线名称", example = "球囊扩张压力泵方案")
     private String currentRouteName;
 
+    @Schema(description = "当前工艺路线状态", example = "0")
+    private Integer currentRouteStatus;
+
+    @Schema(description = "导入确认后是否需要先恢复启用当前工艺路线", example = "true")
+    private Boolean routeRestoreRequired;
+
     @Schema(description = "当前工艺路线版本 ID", example = "4001")
     private Long currentRouteVersionId;
 

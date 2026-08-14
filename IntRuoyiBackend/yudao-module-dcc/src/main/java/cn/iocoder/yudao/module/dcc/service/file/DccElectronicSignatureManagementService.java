@@ -42,5 +42,8 @@ public interface DccElectronicSignatureManagementService {
 
     DccControlledFileSignatureExportSummaryRespVO getSignatureExportSummary(Long controlledFileId);
 
+    DccControlledFileSignatureExportSummaryRespVO migratePublishedCopyBindings(
+            Long controlledFileId, Long operatorUserId, String requestId);
+
     DccSignatureEvidenceExportArtifact exportSignatureEvidence(Long controlledFileId);
 }

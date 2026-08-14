@@ -285,7 +285,7 @@ const getNumberQueryValue = (value: unknown) => {
   return Number.isFinite(numberValue) ? numberValue : undefined
 }
 
-const queryParams = reactive<DccControlledFileLogPageReqVO>({
+const queryParams = reactive<DccControlledFileLogPageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: 10,
   logType: getFirstQueryValue(route.query.logType),

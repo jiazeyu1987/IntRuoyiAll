@@ -3297,13 +3297,7 @@ const controlledFileId = computed(() => String(route.params.id || ''))
 const currentUserId = computed(() => userStore.getUser.id)
 const fileStatus = computed(() => toDccControlledFileStatus(fileDetail.value?.status))
 const obsoleteActionLocked = computed(() => Boolean(activeObsoleteAction.value))
-const obsoleteActionBlocked = computed(
-  () => obsoleteActionLocked.value || Boolean(activeObsoleteActionError.value)
-)
 const publishActionLocked = computed(() => Boolean(activePublishAction.value))
-const publishActionBlocked = computed(
-  () => publishActionLocked.value || Boolean(activePublishActionError.value)
-)
 const viewerMode = computed(() => isControlledFileViewerMode(route.query as Record<string, unknown>))
 const isBrowserTraceabilityPage = computed(
   () =>
@@ -4558,18 +4552,6 @@ const openPreview = () => {
 
 const openMetadataDialog = () => {
   metadataDialogVisible.value = true
-}
-
-const openPreviewApprovalDialog = () => {
-  previewInfoDialogs.approval = true
-}
-
-const openPreviewDistributionDialog = () => {
-  previewInfoDialogs.distribution = true
-}
-
-const openPreviewVersionDialog = () => {
-  previewInfoDialogs.version = true
 }
 
 const handleRecognizeProjectCode = async () => {

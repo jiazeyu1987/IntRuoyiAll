@@ -5,6 +5,8 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentAuditPageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentAuditRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCreateReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCandidatePageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCandidateRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentFilePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentPageReqVO;
@@ -66,6 +68,15 @@ public class DccProjectCodeAssignmentController {
     public CommonResult<PageResult<DccProjectCodeAssignmentRespVO>> getMyAssignmentPage(
             @Valid DccProjectCodeAssignmentPageReqVO reqVO) {
         return success(assignmentService.getMyAssignmentPage(getLoginUserId(), reqVO));
+    }
+
+    @GetMapping("/project-codes/{projectCodeId:\\d+}/assignment-candidates/page")
+    @Operation(summary = "全局搜索 DCC 项目代码修正候选文件")
+    @PreAuthorize("@ss.hasRole('doc_control') or @ss.hasPermission('dcc:project-code-assignment:assign')")
+    public CommonResult<PageResult<DccProjectCodeAssignmentCandidateRespVO>> getAssignmentCandidatePage(
+            @PathVariable("projectCodeId") Long projectCodeId,
+            @Valid DccProjectCodeAssignmentCandidatePageReqVO reqVO) {
+        return success(assignmentService.getAssignmentCandidatePage(getLoginUserId(), projectCodeId, reqVO));
     }
 
     @GetMapping("/project-code-assignments/{assignmentId:\\d+}/files/page")

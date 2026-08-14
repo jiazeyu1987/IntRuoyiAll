@@ -6,6 +6,7 @@ import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Schema(description = "管理后台 - MES 班组长活跃订单 Response VO")
 @Data
@@ -45,6 +46,9 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "ERP固定生产数量快照", example = "200")
     private BigDecimal erpFixedQuantitySnapshot;
 
+    @Schema(description = "各工序剩余可分配生产数量")
+    private List<ProcessRemainingQuantity> processRemainingQuantities = List.of();
+
     @Schema(description = "生产进度百分比", example = "10.000000")
     private BigDecimal productionProgressPercent;
 
@@ -83,4 +87,25 @@ public class MesTeamLeaderActiveOrderRespVO {
 
     @Schema(description = "放行审批待办编号", example = "7001")
     private Long releaseApprovalWorkTaskId;
+
+    @Schema(description = "管理后台 - MES 班组长活跃订单工序剩余量 Response VO")
+    @Data
+    @Accessors(chain = true)
+    public static class ProcessRemainingQuantity {
+
+        @Schema(description = "路线工序编号", example = "5001")
+        private Long routeProcessId;
+
+        @Schema(description = "工序编号", example = "6001")
+        private Long processId;
+
+        @Schema(description = "当前工序计划生产数量", example = "100")
+        private BigDecimal plannedQuantity;
+
+        @Schema(description = "当前工序已分配生产数量", example = "70")
+        private BigDecimal allocatedQuantity;
+
+        @Schema(description = "当前工序剩余可分配生产数量", example = "30")
+        private BigDecimal remainingQuantity;
+    }
 }

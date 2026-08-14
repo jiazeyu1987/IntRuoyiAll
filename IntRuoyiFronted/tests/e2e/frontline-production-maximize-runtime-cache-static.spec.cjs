@@ -7,6 +7,7 @@ const read = (relativePath) => fs.readFileSync(path.join(frontendRoot, relativeP
 
 const panel = read('src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue').replace(/\r\n/g, '\n')
 const context = read('src/views/mes/pro/feedback/frontlineDeviceEmployeeContext.ts').replace(/\r\n/g, '\n')
+const feedbackApi = read('src/api/mes/pro/feedback/index.ts').replace(/\r\n/g, '\n')
 
 const extractFunctionBlock = (source, name) => {
   const asyncStart = source.indexOf(`const ${name} = async`)
@@ -52,6 +53,11 @@ assert.doesNotMatch(
   /formBindings|batchRecordFormNames|batchRecordReport|attachment|fileContent|draft/,
   'production runtime cache must not cache form slot data, batch-record content, attachments, or drafts.'
 )
+assert.match(
+  feedbackApi,
+  /export interface FrontlineRuntimeConfigVO \{[\s\S]*employeeSwitchSnapshots:\s*FrontlineSwitchActualEmployeeRespVO\[\][\s\S]*\}/,
+  'runtime-config response must expose formal switch snapshots for every employee.'
+)
 
 const preloadBlock = extractFunctionBlock(context, 'preloadFrontlineProductionRuntimeCache')
 assert.match(
@@ -69,10 +75,27 @@ assert.match(
   /ProFeedbackApi\.getFrontlineRuntimeConfig\(\{[\s\S]*routeId:\s*process\.routeId[\s\S]*routeProcessId:\s*process\.routeProcessId[\s\S]*processId:\s*process\.processId[\s\S]*\}\)/,
   'preload must use the formal runtime-config API for each route process.'
 )
+assert.doesNotMatch(
+  preloadBlock,
+  /switchFrontlineActualEmployee|ProFeedbackApi\.switchFrontlineActualEmployee/,
+  'maximum-entry preload must not batch-call the context-changing employee switch POST.'
+)
 assert.match(
   preloadBlock,
   /state\.lastError\s*=\s*resolveFrontlineErrorMessage\(error\)[\s\S]*throw error/,
   'preload failure must be visible through formal error state and re-thrown.'
+)
+
+const cacheRuntimeBlock = extractFunctionBlock(context, 'cacheFrontlineRuntimeConfig')
+assert.match(
+  cacheRuntimeBlock,
+  /runtimeConfig\.employeeSwitchSnapshots\.forEach[\s\S]*cacheFrontlineEmployeeSwitchResult\(/,
+  'runtime-config caching must cache every formal employee switch snapshot.'
+)
+assert.match(
+  cacheRuntimeBlock,
+  /actualEmployeeId:\s*snapshot\.actualEmployeeId/,
+  'each employee switch snapshot must be cached by the same process and employee cache key used by manual switching.'
 )
 
 const selectProcessBlock = extractFunctionBlock(context, 'selectFrontlineProcess')
@@ -132,8 +155,13 @@ assert.match(
 const preloadPanelBlock = extractFunctionBlock(panel, 'preloadProductionRuntimeCacheForFullscreen')
 assert.match(
   preloadPanelBlock,
-  /preloadFrontlineProductionRuntimeCache\(deviceState,\s*switchableProcessOptions\.value\)/,
-  'production fullscreen preload must target the current switchable process list.'
+  /preloadFrontlineProductionRuntimeCache\(\s*deviceState,\s*switchableProcessOptions\.value\.filter\(isFrontlineProductionProcess\)\s*\)/,
+  'production fullscreen preload must target the current switchable production process list.'
+)
+assert.doesNotMatch(
+  preloadPanelBlock,
+  /isFrontlinePqcProcess|loadFrontlinePqcActiveOrders/,
+  'production fullscreen preload must not traverse PQC orders or PQC process choices.'
 )
 const fullscreenToggleBlock = extractFunctionBlock(panel, 'handleProductionFullscreenToggle')
 assert.match(

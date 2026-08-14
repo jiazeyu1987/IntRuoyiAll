@@ -8,5 +8,8 @@ public record MesFrontlineSubmitIdentityTrace(Long loginUserId,
                                              Long routeId,
                                              Long routeProcessId,
                                              Long processId,
-                                             String templateNo) {
+                                             String templateNo,
+                                             String frontlineSessionSnapshotId,
+                                             String frontlineSessionSnapshotHash,
+                                             MesFrontlineSessionSnapshot sessionSnapshot) {
 }

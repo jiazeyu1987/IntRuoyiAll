@@ -253,13 +253,18 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
         Map<Long, List<MesCalPlanShiftDO>> shiftsByPlanId = loadPlanShifts(lines);
         Set<Long> refreshedShiftIds = new LinkedHashSet<>();
         for (MesMdProductionLineDO line : lines) {
-            MesCalPlanShiftDO shift = firstShiftForLine(line, shiftsByPlanId);
-            String refreshedEndTime = calculateShiftEndTime(shift.getStartTime(), capacityMinutes);
-            if (refreshedShiftIds.add(shift.getId())) {
-                planShiftMapper.updateEndTimeById(shift.getId(), refreshedEndTime);
+            List<MesCalPlanShiftDO> shifts = shiftsByPlanId.get(line.getCalendarPlanId());
+            if (CollUtil.isEmpty(shifts)) {
+                throw exception0(400, "产线 " + line.getName() + " 未配置排班班次，无法同步班时");
             }
-            capacityPlanMapper.updateCapacityMinutesByLineAndShiftFromDate(
-                    line.getId(), shift.getId(), refreshStartDate, capacityMinutes);
+            for (MesCalPlanShiftDO shift : shifts) {
+                String refreshedEndTime = calculateShiftEndTime(shift.getStartTime(), capacityMinutes);
+                if (refreshedShiftIds.add(shift.getId())) {
+                    planShiftMapper.updateEndTimeById(shift.getId(), refreshedEndTime);
+                }
+                capacityPlanMapper.updateCapacityMinutesByLineAndShiftFromDate(
+                        line.getId(), shift.getId(), refreshStartDate, capacityMinutes);
+            }
         }
     }
 
@@ -1470,15 +1475,6 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
         return shiftsByPlanId;
     }
 
-    private MesCalPlanShiftDO firstShiftForLine(MesMdProductionLineDO line,
-                                                Map<Long, List<MesCalPlanShiftDO>> shiftsByPlanId) {
-        List<MesCalPlanShiftDO> shifts = shiftsByPlanId.get(line.getCalendarPlanId());
-        if (CollUtil.isEmpty(shifts)) {
-            throw exception0(400, "产线 " + line.getName() + " 未配置排班班次，无法同步班时");
-        }
-        return shifts.get(0);
-    }
-
     private String calculateShiftEndTime(String startTime, Integer capacityMinutes) {
         if (startTime == null || startTime.length() != 5) {
             throw exception0(400, "排班班次开始时间必须为 HH:mm 格式");
@@ -2110,4 +2106,3 @@ public class MesProScheduleCalendarServiceImpl implements MesProScheduleCalendar
     }
 
 }
-

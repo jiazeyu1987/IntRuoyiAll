@@ -2,13 +2,14 @@
   "schemaVersion": "AORD_V4_M0_A6_PREFLIGHT_V1",
   "status": "BLOCKED",
   "canRunRealE2E": false,
-  "generatedAt": "2026-08-09T09:22:39.182Z",
+  "generatedAt": "2026-08-10T20:36:52.237Z",
   "blockers": [
     {
       "checkKey": "ENVIRONMENT",
       "blockerType": "MISSING_EXPLICIT_ENV",
       "message": "A6 preflight is missing explicit authorization, fixture, account, or signature environment variables",
       "missingEnvKeys": [
+        "AORD_V4_M0_ACCOUNT_MODE",
         "AORD_V4_M0_AUTHORIZATION_TOKEN",
         "AORD_V4_M0_BACKEND_URL",
         "AORD_V4_M0_BROWSER_PATH",

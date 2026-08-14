@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
@@ -36,25 +37,31 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     private static final String PRODUCTION_CONTEXT_PREFIX = "productionSubmitContext.";
 
     private final MesFrontlineDeviceAccountContextService contextService;
+    private final MesFrontlineTemplateResolver templateResolver;
     private final MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
     private final MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
     private final MesProcessPoolTeamDeviceMapper deviceMapper;
     private final MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     private final MesProcessPoolDefectReasonMapper defectReasonMapper;
+    private final MesFrontlineSessionSnapshotService sessionSnapshotService;
 
     public MesFrontlineRuntimeConfigServiceImpl(
             MesFrontlineDeviceAccountContextService contextService,
+            MesFrontlineTemplateResolver templateResolver,
             MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper,
             MesProcessPoolTeamProcessDeviceMapper processDeviceMapper,
             MesProcessPoolTeamDeviceMapper deviceMapper,
             MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper,
-            MesProcessPoolDefectReasonMapper defectReasonMapper) {
+            MesProcessPoolDefectReasonMapper defectReasonMapper,
+            MesFrontlineSessionSnapshotService sessionSnapshotService) {
         this.contextService = contextService;
+        this.templateResolver = templateResolver;
         this.employeeProfileMapper = employeeProfileMapper;
         this.processDeviceMapper = processDeviceMapper;
         this.deviceMapper = deviceMapper;
         this.parameterRuleMapper = parameterRuleMapper;
         this.defectReasonMapper = defectReasonMapper;
+        this.sessionSnapshotService = sessionSnapshotService;
     }
 
     @Override
@@ -72,8 +79,34 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         List<MesFrontlineDefectReasonOption> defectReasons = toDefectReasonOptions(process, leaderUserIds);
         MesFrontlineProductionSubmitContext productionSubmitContext =
                 resolveProductionSubmitContext(process, responsibleLeaderUserId);
+        List<MesFrontlineEmployeeSwitchResult> employeeSwitchSnapshots =
+                resolveEmployeeSwitchSnapshots(loginUserId, process, employees);
+        MesFrontlineSessionSnapshotReference snapshotReference = sessionSnapshotService.issue(
+                new MesFrontlineSessionSnapshotContent(TenantContextHolder.getTenantId(), loginUserId,
+                        process.routeId(), process.routeProcessId(), process.processId(), process.workstationId(),
+                        employeeSwitchSnapshots, devices, defectReasons, productionSubmitContext));
         return new MesFrontlineRuntimeConfig(process.routeId(), process.routeProcessId(), process.processId(),
-                employees, devices, defectReasons, productionSubmitContext);
+                employees, devices, defectReasons, productionSubmitContext, employeeSwitchSnapshots,
+                snapshotReference.snapshotId(), snapshotReference.snapshotHash());
+    }
+
+    private List<MesFrontlineEmployeeSwitchResult> resolveEmployeeSwitchSnapshots(
+            Long loginUserId, MesFrontlineRouteProcessCandidate process,
+            List<MesFrontlineTeamEmployeeOption> employees) {
+        if (employees == null || employees.isEmpty()) {
+            return List.of();
+        }
+        return employees.stream().map(employee -> {
+            Long actualEmployeeId = resolveActualEmployeeId(employee);
+            MesFrontlineTemplateDescriptor template = templateResolver.resolve(new MesFrontlineTemplateRequest(
+                    loginUserId, actualEmployeeId, process.routeId(), process.routeProcessId(), process.processId()));
+            return new MesFrontlineEmployeeSwitchResult(loginUserId, actualEmployeeId,
+                    process.routeId(), process.routeProcessId(), process.processId(), false, template);
+        }).toList();
+    }
+
+    private static Long resolveActualEmployeeId(MesFrontlineTeamEmployeeOption employee) {
+        return employee.systemUserId() != null ? employee.systemUserId() : employee.employeeProfileId();
     }
 
     private MesFrontlineProductionSubmitContext resolveProductionSubmitContext(

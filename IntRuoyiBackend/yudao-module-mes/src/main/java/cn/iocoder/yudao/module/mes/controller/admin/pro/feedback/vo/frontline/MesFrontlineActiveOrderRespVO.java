@@ -24,6 +24,8 @@ public class MesFrontlineActiveOrderRespVO {
     private String productCode;
     @Schema(description = "产品名称", requiredMode = Schema.RequiredMode.REQUIRED)
     private String productName;
+    @Schema(description = "生产批次号")
+    private String batchCode;
     @Schema(description = "生产数量", requiredMode = Schema.RequiredMode.REQUIRED, example = "125.5")
     private BigDecimal quantity;
     @Schema(description = "工艺路线编号")

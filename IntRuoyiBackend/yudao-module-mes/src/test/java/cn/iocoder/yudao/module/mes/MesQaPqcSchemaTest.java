@@ -346,6 +346,17 @@ class MesQaPqcSchemaTest {
         assertFalse(fullSql.contains("mes_pro_process_pool_active_order_pqc_context"));
     }
 
+    @Test
+    void activeOrderAdmissionMustKeepQaSnapshotColumnsNullable() throws Exception {
+        String sql = readBackendSql("sql/mysql/20260813_mes_active_order_qa_decoupling.sql");
+
+        assertTrue(sql.contains("dependsOn=20260812_mes_pqc_dcc_qa_c00_schema"));
+        assertTrue(sql.contains("MODIFY COLUMN `dcc_project_code_id` bigint DEFAULT NULL"));
+        assertTrue(sql.contains("MODIFY COLUMN `qa_regulation_id` bigint DEFAULT NULL"));
+        assertTrue(sql.contains("MODIFY COLUMN `qa_regulation_version_id` bigint DEFAULT NULL"));
+        assertTrue(sql.contains("Rollback precondition"));
+    }
+
     private static String tableName(Class<?> clazz) {
         return clazz.getAnnotation(TableName.class).value();
     }

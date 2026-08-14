@@ -58,7 +58,6 @@ const emit = defineEmits<{
 const ganttContainer = ref<HTMLElement>()
 const ganttInited = ref(false)
 const SIDE_LABEL_VIEWPORT_PADDING = 380
-const COLLAPSED_PROJECT_SUMMARY_MIN_WIDTH = 160
 const COLLAPSED_PROJECT_SUMMARY_MAX_WIDTH = 360
 const COLLAPSED_PROJECT_SUMMARY_EDGE_GAP = 8
 const SUPPORTED_GANTT_DATE_INTERVAL_DAYS = Array.from({ length: 15 }, (_, index) => index + 1)

@@ -90,7 +90,7 @@ class MesProBatchRecordReportControllerTest {
         when(reportService.recognizeUploadedRoute(any(), eq("B"), eq("测试批记录"), eq("UPGRADE"), isNull(Long.class),
                 isNull(String.class),
                 eq(List.of("球囊扩张压力泵")), eq(true), eq(List.of(101L)), eq(List.of("球囊扩张压力泵")),
-                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class), isNull(Long.class)))
+                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class), eq(901L), isNull(Long.class)))
                 .thenReturn(importResult);
         when(reportService.existsBatchRecordName("B", "测试批记录")).thenReturn(true);
         when(reportService.getBatchRecordNameOptions()).thenReturn(List.of("测试批记录", "棘突球囊"));
@@ -132,7 +132,7 @@ class MesProBatchRecordReportControllerTest {
         CommonResult<BatchRecordReportImportRespVO> docResult = controller.importPilotDoc(docFile);
         CommonResult<BatchRecordReportImportRespVO> imageResult = controller.importImage(docFile);
         CommonResult<BatchRecordReportImportRespVO> uploadedRouteResult =
-                controller.recognizeUploadedRoute(docFile, "B", "测试批记录", true,
+                controller.recognizeUploadedRoute(docFile, "B", "测试批记录", 901L, true,
                         null, null, null,
                         List.of("球囊扩张压力泵"), true, List.of(101L), List.of("球囊扩张压力泵"),
                         false, null, null, null);
@@ -199,7 +199,7 @@ class MesProBatchRecordReportControllerTest {
         verify(reportService).importImage(docFile);
         verify(reportService).recognizeUploadedRoute(docFile, "B", "测试批记录", "UPGRADE", null, null,
                 List.of("球囊扩张压力泵"), true, List.of(101L), List.of("球囊扩张压力泵"),
-                false, null, null, null);
+                false, null, null, null, 901L, null);
         verify(reportService).existsBatchRecordName("B", "测试批记录");
         verify(reportService).getBatchRecordNameOptions();
         verify(reportService).getProductNameOptions("压力", true);
@@ -278,36 +278,38 @@ class MesProBatchRecordReportControllerTest {
     @Test
     void contractMappings_exposeUploadedRouteRecognitionEndpoint() throws Exception {
         Method recognizeMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
-                "recognizeUploadedRoute", MultipartFile.class, String.class, String.class, Boolean.class,
+                "recognizeUploadedRoute", MultipartFile.class, String.class, String.class, Long.class, Boolean.class,
                 String.class, Long.class, String.class, List.class, Boolean.class, List.class, List.class,
                 Boolean.class, Long.class, Long.class, Long.class);
         assertArrayEquals(new String[]{"/recognize-uploaded"}, recognizeMethod.getAnnotation(PostMapping.class).value());
         assertEquals("file", recognizeMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
         assertEquals("routeKey", recognizeMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
         assertEquals("batchRecordName", recognizeMethod.getParameters()[2].getAnnotation(RequestParam.class).value());
-        assertEquals("upgrade", recognizeMethod.getParameters()[3].getAnnotation(RequestParam.class).value());
-        assertEquals("importAction", recognizeMethod.getParameters()[4].getAnnotation(RequestParam.class).value());
-        assertEquals("expectedSourceVersionId", recognizeMethod.getParameters()[5].getAnnotation(RequestParam.class).value());
-        assertEquals("expectedTargetVersionNo", recognizeMethod.getParameters()[6].getAnnotation(RequestParam.class).value());
-        assertEquals("productNames", recognizeMethod.getParameters()[7].getAnnotation(RequestParam.class).value());
-        assertEquals("rebuildBatchRecord", recognizeMethod.getParameters()[8].getAnnotation(RequestParam.class).value());
-        assertEquals("true", recognizeMethod.getParameters()[8].getAnnotation(RequestParam.class).defaultValue());
-        assertEquals("selectedRouteProductIds", recognizeMethod.getParameters()[9].getAnnotation(RequestParam.class).value());
-        assertEquals("selectedProductNames", recognizeMethod.getParameters()[10].getAnnotation(RequestParam.class).value());
-        assertEquals("routeUpgradeConfirmed", recognizeMethod.getParameters()[11].getAnnotation(RequestParam.class).value());
-        assertEquals("false", recognizeMethod.getParameters()[11].getAnnotation(RequestParam.class).defaultValue());
-        assertEquals("expectedRouteId", recognizeMethod.getParameters()[12].getAnnotation(RequestParam.class).value());
-        assertEquals("expectedRouteVersionId", recognizeMethod.getParameters()[13].getAnnotation(RequestParam.class).value());
+        assertEquals("dccProjectCodeId", recognizeMethod.getParameters()[3].getAnnotation(RequestParam.class).value());
+        assertEquals("upgrade", recognizeMethod.getParameters()[4].getAnnotation(RequestParam.class).value());
+        assertEquals("importAction", recognizeMethod.getParameters()[5].getAnnotation(RequestParam.class).value());
+        assertEquals("expectedSourceVersionId", recognizeMethod.getParameters()[6].getAnnotation(RequestParam.class).value());
+        assertEquals("expectedTargetVersionNo", recognizeMethod.getParameters()[7].getAnnotation(RequestParam.class).value());
+        assertEquals("productNames", recognizeMethod.getParameters()[8].getAnnotation(RequestParam.class).value());
+        assertEquals("rebuildBatchRecord", recognizeMethod.getParameters()[9].getAnnotation(RequestParam.class).value());
+        assertEquals("true", recognizeMethod.getParameters()[9].getAnnotation(RequestParam.class).defaultValue());
+        assertEquals("selectedRouteProductIds", recognizeMethod.getParameters()[10].getAnnotation(RequestParam.class).value());
+        assertEquals("selectedProductNames", recognizeMethod.getParameters()[11].getAnnotation(RequestParam.class).value());
+        assertEquals("routeUpgradeConfirmed", recognizeMethod.getParameters()[12].getAnnotation(RequestParam.class).value());
+        assertEquals("false", recognizeMethod.getParameters()[12].getAnnotation(RequestParam.class).defaultValue());
+        assertEquals("expectedRouteId", recognizeMethod.getParameters()[13].getAnnotation(RequestParam.class).value());
+        assertEquals("expectedRouteVersionId", recognizeMethod.getParameters()[14].getAnnotation(RequestParam.class).value());
         assertEquals("expectedRouteCandidateVersionId",
-                recognizeMethod.getParameters()[14].getAnnotation(RequestParam.class).value());
+                recognizeMethod.getParameters()[15].getAnnotation(RequestParam.class).value());
 
         Method preflightMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
-                "preflightUploadedRoute", String.class, String.class, List.class);
+                "preflightUploadedRoute", String.class, String.class, Long.class, List.class);
         assertArrayEquals(new String[]{"/recognize-uploaded/preflight"},
                 preflightMethod.getAnnotation(GetMapping.class).value());
         assertEquals("routeKey", preflightMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
         assertEquals("batchRecordName", preflightMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
-        assertEquals("productNames", preflightMethod.getParameters()[2].getAnnotation(RequestParam.class).value());
+        assertEquals("dccProjectCodeId", preflightMethod.getParameters()[2].getAnnotation(RequestParam.class).value());
+        assertEquals("productNames", preflightMethod.getParameters()[3].getAnnotation(RequestParam.class).value());
 
         Method existsMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
                 "existsBatchRecordName", String.class, String.class);
@@ -398,12 +400,12 @@ class MesProBatchRecordReportControllerTest {
         when(reportService.recognizeUploadedRoute(any(), eq("B"), eq("测试批记录"), eq("UPGRADE"), isNull(Long.class),
                 isNull(String.class),
                 eq(List.of("球囊扩张压力泵")), eq(true), eq(List.<Long>of()), eq(List.of("球囊扩张压力泵")),
-                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class), isNull(Long.class)))
+                eq(false), isNull(Long.class), isNull(Long.class), isNull(Long.class), eq(901L), isNull(Long.class)))
                 .thenReturn(importResult);
 
         CommonResult<BatchRecordReportImportRespVO> importResponse = controller.recognizeUploadedRoute(
                 new MockMultipartFile("file", "phase-one.doc", "application/msword", new byte[]{1}),
-                "B", "测试批记录", true, null, null, null,
+                "B", "测试批记录", 901L, true, null, null, null,
                 List.of("球囊扩张压力泵"), true, List.of(), List.of("球囊扩张压力泵"),
                 false, null, null, null);
 
@@ -471,11 +473,11 @@ class MesProBatchRecordReportControllerTest {
                         .existing(true)
                         .build()))
                 .build();
-        when(reportService.preflightUploadedRoute("B", "测试批记录", List.of("球囊扩张压力泵")))
+        when(reportService.preflightUploadedRoute("B", "测试批记录", List.of("球囊扩张压力泵"), 901L))
                 .thenReturn(preflight);
 
         CommonResult<BatchRecordReportImportPreflightRespVO> response =
-                controller.preflightUploadedRoute("B", "测试批记录", List.of("球囊扩张压力泵"));
+                controller.preflightUploadedRoute("B", "测试批记录", 901L, List.of("球囊扩张压力泵"));
 
         assertTrue(response.isSuccess());
         assertEquals("V1.0", response.getData().getCurrentBatchRecordVersionNo());
@@ -492,6 +494,6 @@ class MesProBatchRecordReportControllerTest {
         assertEquals(1, response.getData().getRouteProductOptions().size());
         assertEquals("ROUTE_PRODUCT:101", response.getData().getRouteProductOptions().get(0).getOptionKey());
         assertEquals("球囊扩张压力泵", response.getData().getRouteProductOptions().get(0).getProductName());
-        verify(reportService).preflightUploadedRoute("B", "测试批记录", List.of("球囊扩张压力泵"));
+        verify(reportService).preflightUploadedRoute("B", "测试批记录", List.of("球囊扩张压力泵"), 901L);
     }
 }

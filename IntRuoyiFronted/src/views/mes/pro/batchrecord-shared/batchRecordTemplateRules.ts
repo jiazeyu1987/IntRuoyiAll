@@ -408,7 +408,7 @@ export const buildTemplateEditableCellContext = (
     placeholder: normalizedRule.placeholder,
     helpText: normalizedRule.helpText,
     source: normalizedRule.source,
-    reviewed: normalizedRule.reviewed,
+    reviewed: Boolean(normalizedRule.reviewed),
     unit: field.unit,
     format: field.format,
     options: field.options,
