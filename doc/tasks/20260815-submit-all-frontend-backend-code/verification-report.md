@@ -17,6 +17,12 @@
 
 ## Pending
 
-- 创建提交。
-- 检查提交后前后端残余改动。
-- 扫描待推送历史中的大对象并推送 `origin/int_main`。
+- 无。
+
+## Delivery
+
+- 代码提交：`8b78b65a72ae2a8bf81f2d674d4de3d515ef021e`。
+- 推送结果：`origin/int_main` 已更新到 `8b78b65a7`。
+- 提交后前后端残余：tracked=0、untracked=0。
+- 待推送历史大对象扫描：不存在大于等于 50MB 的 blob。
+- 根目录其他任务现场未纳入代码提交，保持原状。

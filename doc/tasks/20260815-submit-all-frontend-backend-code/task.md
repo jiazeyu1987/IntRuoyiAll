@@ -8,9 +8,9 @@
 
 - [x] M1：核对 Git 仓库、分支、远端、脏工作区、冲突、敏感文件和大文件。
 - [x] M2：运行前后端现有提交前验证与分支运行端口门禁。
-- [ ] M3：暂存并复核前后端全部代码文件，创建提交。
-- [ ] M4：复扫残余改动，提交必要任务记录并推送 `origin/int_main`。
-- [ ] M5：确认不再领先远端并完成收尾。
+- [x] M3：暂存并复核前后端全部代码文件，创建提交。
+- [x] M4：复扫残余改动，提交必要任务记录并推送 `origin/int_main`。
+- [x] M5：确认代码提交已到达远端并完成收尾记录。
 
 ## Expected Verification
 
@@ -35,8 +35,8 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Remaining Blockers
 
-- 待创建提交、复扫提交后前后端残余改动并推送到 `origin/int_main`。
+- 无。
