@@ -251,3 +251,8 @@ BDD: 非活跃订单不可作为分配目标 -> Given O9 未加入当前组长�
 - GREEN: 融合后 `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS；30 个 reactor 模块全部 SUCCESS，生成 `IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar`。
 - GREEN: `check_plan_completion.py --apply` -> PASS，`complete=true`；P1-P5 和全部验收标准均为 `completed`，`test_status=passed`，无阻塞前置。
 - FINAL: 本任务业务实现、真实页面验收、独立测试、数据清理、长期经验沉淀、融合与融合后回归全部完成。
+
+## 工作树与端口资源收尾（2026-08-15）
+
+- WORKTREE: `git worktree remove` 已先移除任务工作树的 Git 登记；Windows 首次返回“Directory not empty”，安全复核确认 `.git` 已不存在、任务进程为 0、8099/48099 无监听后，仅清理该任务路径内的残留文件和空目录。
+- GREEN: 任务工作树物理路径不存在，`git worktree list --porcelain` 无该登记，8099/48099 无监听；端口注册表中 slot 18 已标记 `active=false` 并记录释放时间，全部 active slot/前后端端口唯一性校验通过。
