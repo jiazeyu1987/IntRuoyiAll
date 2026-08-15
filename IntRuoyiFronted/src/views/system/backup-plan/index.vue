@@ -9,15 +9,18 @@
               管理员只需要选择开关、频率和时间，系统会按计划自动备份。
             </div>
           </div>
-          <el-button
-            plain
-            type="primary"
-            :loading="backupNowLoading"
-            @click="handleBackupNow"
-            v-hasPermi="['system:backup-plan:execute']"
-          >
-            现在备份一次
-          </el-button>
+          <div class="backup-plan-card__actions">
+            <el-button :loading="statusLoading" @click="loadAll">刷新状态</el-button>
+            <el-button
+              plain
+              type="primary"
+              :loading="backupNowLoading"
+              @click="handleBackupNow"
+              v-hasPermi="['system:backup-plan:execute']"
+            >
+              现在备份一次
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -37,6 +40,18 @@
         <div class="backup-plan-status-item">
           <span class="backup-plan-status-item__label">几点备份</span>
           <span>{{ scheduleForm.time || '--' }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">备份仓库</span>
+          <span>{{ formatRepositoryEnvironment(status?.repositoryEnvironment) }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">新鲜度阈值</span>
+          <span>{{ formatFreshnessThreshold(status?.maxFreshnessHours) }}</span>
+        </div>
+        <div class="backup-plan-status-item">
+          <span class="backup-plan-status-item__label">最新成功备份点</span>
+          <span>{{ formatLatestBackupPoint(status?.latestBackupPoint) }}</span>
         </div>
         <div class="backup-plan-status-item">
           <span class="backup-plan-status-item__label">下次备份时间</span>
@@ -61,6 +76,7 @@
       <el-divider />
 
       <el-form
+        v-if="canUpdateBackupPlan"
         class="backup-plan-form"
         label-width="96px"
         :model="scheduleForm"
@@ -115,6 +131,15 @@
           <el-button :loading="statusLoading" @click="loadAll">刷新状态</el-button>
         </el-form-item>
       </el-form>
+      <el-alert
+        v-else
+        class="mt-16px"
+        type="info"
+        title="当前账号只有查询权限"
+        description="可查看备份计划状态和备份包历史，不能修改备份计划。"
+        show-icon
+        :closable="false"
+      />
     </el-card>
 
     <el-card shadow="never" class="backup-plan-card mt-16px">
@@ -235,6 +260,7 @@
 <script setup lang="ts">
 import { ElMessageBox } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import { checkPermi } from '@/utils/permission'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import type { UserTableColumnState } from '@/hooks/web/useUserTableColumns'
 import {
@@ -296,6 +322,7 @@ const scheduleForm = reactive({
   time: '01:30',
   weekday: 'MON' as BackupPlanWeekday
 })
+const canUpdateBackupPlan = computed(() => checkPermi(['system:backup-plan:update']))
 const detailDialog = reactive<{
   visible: boolean
   item?: BackupPlanBackupPointVO
@@ -324,6 +351,24 @@ const handleQuickFilterStateUpdate = (state: Record<string, unknown>) => {
 const formatDateTime = (value?: string) => formatDateTimeValue(value, '--')
 
 const formatFrequency = (frequency?: string) => (frequency === 'WEEKLY' ? '每周' : '每天')
+
+const formatRepositoryEnvironment = (value?: string) => {
+  if (value === 'backup') return '备份仓库'
+  if (value === 'test') return '测试仓库'
+  return value ? `未知仓库（${value}）` : '未配置'
+}
+
+const formatFreshnessThreshold = (value?: number) => {
+  if (!value || value <= 0) return '未配置'
+  return `${value} 小时`
+}
+
+const formatLatestBackupPoint = (backupPoint?: BackupPlanBackupPointVO) => {
+  if (!backupPoint) return '暂无成功备份'
+  const completedAt = formatDateTime(backupPoint.completedAt)
+  if (backupPoint.backupId) return `${completedAt}（${backupPoint.backupId}）`
+  return completedAt
+}
 
 const formatLastResult = (currentStatus?: BackupPlanStatusVO) => {
   if (!currentStatus?.lastRunTime) return '暂无记录'
@@ -477,6 +522,12 @@ onMounted(loadAll)
   gap: 16px;
 }
 
+.backup-plan-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .backup-plan-card__title {
   color: #172033;
   font-size: 16px;
@@ -532,6 +583,10 @@ onMounted(loadAll)
   .backup-plan-card__header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .backup-plan-card__actions {
+    flex-wrap: wrap;
   }
 
   .backup-plan-status-grid {

@@ -139,6 +139,28 @@ class BackupPlanServiceImplTest {
     }
 
     @Test
+    void getStatusShouldExposeConfigAbnormalWhenRepositoryEnvironmentIsMissing() throws Exception {
+        writeBackupConfig("""
+                {
+                  "backup": {
+                    "frequency": "DAILY",
+                    "schedule": "01:30",
+                    "weekday": "MON",
+                    "maxFreshnessHours": 48
+                  }
+                }
+                """);
+        schedulerGateway.status.setEnabled(true);
+        schedulerGateway.status.setNextRunTime(LocalDateTime.of(2026, 7, 26, 1, 30));
+        schedulerGateway.status.setLastResultCode(0);
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("配置异常", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("backup.repositoryEnvironment"));
+    }
+
+    @Test
     void getStatusShouldExposeConfigAbnormalWhenFreshnessThresholdIsMissing() throws Exception {
         writeBackupConfig("""
                 {

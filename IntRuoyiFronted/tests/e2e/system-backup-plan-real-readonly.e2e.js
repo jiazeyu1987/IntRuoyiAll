@@ -21,6 +21,11 @@ function readLoginDefaults() {
   }
 }
 
+function requireSuccessPayload(payload, label) {
+  assert.ok(payload && (payload.code === 0 || payload.code === 200), `${label} failed: ${payload?.msg || payload?.code}`)
+  return payload.data
+}
+
 async function fillFirstVisible(locator, value, label) {
   const count = await locator.count()
   for (let index = 0; index < count; index += 1) {
@@ -84,9 +89,11 @@ async function run() {
   const config = {
     baseUrl: process.env.SYSTEM_BACKUP_PLAN_E2E_BASE_URL || 'http://127.0.0.1:8083',
     timeout: Number(process.env.SYSTEM_BACKUP_PLAN_E2E_TIMEOUT || 90000),
-    ...loginDefaults
+    tenant: process.env.SYSTEM_BACKUP_PLAN_E2E_TENANT || loginDefaults.tenant,
+    username: process.env.SYSTEM_BACKUP_PLAN_E2E_USERNAME || loginDefaults.username,
+    password: process.env.SYSTEM_BACKUP_PLAN_E2E_PASSWORD || loginDefaults.password
   }
-  assert.ok(config.tenant && config.username && config.password, 'Missing login defaults in frontend .env')
+  assert.ok(config.tenant && config.username && config.password, 'Missing explicit E2E login input or frontend .env defaults')
 
   const browser = await chromium.launch({ headless: process.env.HEADLESS !== 'false' })
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
@@ -126,6 +133,12 @@ async function run() {
     ])
     assert.equal(statusResponse.status(), 200, `backup status HTTP ${statusResponse.status()}`)
     assert.equal(historyResponse.status(), 200, `backup history HTTP ${historyResponse.status()}`)
+    const statusData = requireSuccessPayload(await statusResponse.json(), 'backup status')
+    requireSuccessPayload(await historyResponse.json(), 'backup history')
+    assert.ok(statusData && statusData.healthStatus, 'backup status must expose healthStatus')
+    if (statusData.healthStatus === '配置异常') {
+      assert.ok(statusData.blockedReason, 'configuration abnormal status must expose blockedReason')
+    }
 
     const pageRoot = page.locator('.backup-plan-page')
     await pageRoot.getByText('当前自动备份计划', { exact: false }).waitFor({
@@ -136,6 +149,15 @@ async function run() {
     await pageRoot.getByText('每天', { exact: false }).first().waitFor({ state: 'visible', timeout: config.timeout })
     await pageRoot.getByText('每周', { exact: false }).first().waitFor({ state: 'visible', timeout: config.timeout })
     await pageRoot.getByText('备份包历史', { exact: false }).waitFor({ state: 'visible', timeout: config.timeout })
+    for (const text of ['备份仓库', '新鲜度阈值', '最新成功备份点']) {
+      await pageRoot.getByText(text, { exact: true }).waitFor({ state: 'visible', timeout: config.timeout })
+    }
+    if (statusData.blockedReason) {
+      await pageRoot.getByText(statusData.blockedReason, { exact: false }).waitFor({
+        state: 'visible',
+        timeout: config.timeout
+      })
+    }
 
     const header = pageRoot.locator('.el-table__header-wrapper').first()
     for (const text of ['备份编号', '生成时间', '类型', '结果', '是否可恢复', '保存位置', '操作']) {

@@ -80,6 +80,15 @@ for (const token of ['权限角色名称', '权限角色标识']) {
   assert.ok(roleDataPermissionSource.includes(token), `数据权限弹窗必须改名：${token}`)
 }
 
+for (const token of [
+  '父子联动(选中父节点，自动选择子节点):',
+  ':check-strictly="!checkStrictly"',
+  'const checkStrictly = ref(true)',
+  'checkStrictly.value = true'
+]) {
+  assert.ok(roleAssignMenuSource.includes(token), `菜单权限弹窗必须支持最小权限父子联动控制：${token}`)
+}
+
 for (const forbiddenToken of [
   'label="岗位名称"',
   'placeholder="请输入岗位名称"',

@@ -150,7 +150,8 @@ public class BackupPlanServiceImpl implements BackupPlanService {
     }
 
     private String scheduleConfigBlockedReason(BackupPlanSchedule schedule) {
-        if (!List.of("test", "backup").contains(schedule.getRepositoryEnvironment())) {
+        String repositoryEnvironment = schedule.getRepositoryEnvironment();
+        if (!"test".equals(repositoryEnvironment) && !"backup".equals(repositoryEnvironment)) {
             return "backup.repositoryEnvironment 必须显式配置为 test 或 backup";
         }
         if (schedule.getMaxFreshnessHours() == null || schedule.getMaxFreshnessHours() <= 0) {

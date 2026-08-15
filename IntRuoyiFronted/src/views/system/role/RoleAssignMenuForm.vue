@@ -26,9 +26,12 @@
               inline-prompt
               @change="handleCheckedTreeExpand"
             />
+            父子联动(选中父节点，自动选择子节点):
+            <el-switch v-model="checkStrictly" active-text="是" inactive-text="否" inline-prompt />
           </template>
           <el-tree
             ref="treeRef"
+            :check-strictly="!checkStrictly"
             :data="menuOptions"
             :props="defaultProps"
             empty-text="加载中，请稍候"
@@ -77,6 +80,7 @@ const menuOptions = ref<any[]>([]) // 菜单树形结构
 const menuExpand = ref(false) // 展开/折叠
 const treeRef = ref() // 菜单树组件 Ref
 const treeNodeAll = ref(false) // 全选/全不选
+const checkStrictly = ref(true) // 是否父子联动
 
 /** 打开弹窗 */
 const open = async (row: RoleApi.RoleVO) => {
@@ -133,6 +137,7 @@ const resetForm = () => {
   // 重置选项
   treeNodeAll.value = false
   menuExpand.value = false
+  checkStrictly.value = true
   // 重置表单
   Object.assign(formData, createDefaultFormData())
   treeRef.value?.setCheckedNodes([])
