@@ -91,4 +91,6 @@
 - CLEANUP APPLY: PASS, `deleted_paths` was empty; current worktree is the primary `int_main` worktree, so no merge or primary-worktree removal was performed.
 - INTEGRATION: implementation commit `389c7bf9e` follows prerequisite commit `254bb6181` on local `int_main`; no remote push was performed.
 - EXPERIENCE: existing response-contract symmetry guidance remains in `docs/backend-development.md` and `docs/experience-index.md`; no duplicate long-term document is needed.
+- WORKTREE AUDIT: `D:/IntRuoyiWorktree/int12-formal-response-contract-fix` contained only 10 known INT12 test/evidence paths; four restored formal tests matched `int_main` byte-for-byte, `git cherry` marked its sole commit patch-equivalent, and no runtime slot registration existed.
+- WORKTREE CLEANUP: removed `D:/IntRuoyiWorktree/int12-formal-response-contract-fix` and deleted temporary branch `codex/int12-formal-response-contract-fix`; the original INT12 worktree and all unrelated worktrees were left untouched.
 - FINAL STATUS: `completed` with the user-approved real Playwright verification exception recorded above.

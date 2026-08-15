@@ -46,5 +46,6 @@ completed
 ## Final Closeout
 
 - Cleanup preview/apply: PASS, zero paths deleted; task records, formal evidence, formal tests, production code, and prerequisite overlap backup retained.
+- Task-owned temporary worktree cleanup: PASS, exact scope/hash and patch-equivalence checks completed before removing `D:/IntRuoyiWorktree/int12-formal-response-contract-fix` and its temporary branch; unrelated worktrees were not modified.
 - Local integration: PASS, prerequisite `254bb6181` and response-contract implementation `389c7bf9e` are on `int_main`.
 - Final result: completed with the explicitly recorded user waiver for real Playwright write-path verification; no new test was run after that instruction.

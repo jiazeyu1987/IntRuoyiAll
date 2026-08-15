@@ -28,7 +28,7 @@ completed
 
 The formal MES compile prerequisite was integrated into `int_main` as commit `254bb6181`; two newer scheduler-workbench differences were backed up and restored byte-for-byte without entering that commit. The response-contract remediation completed strict TDD. The expanded 44-test backend regression, required frontend static sequence, all three evidence validators and self-tests, `git diff --check`, and the precise formal-contract forbidden scan all pass.
 
-The user explicitly instructed `不用测试，继续推进` on 2026-08-15. Real write-path Playwright was therefore not run and is recorded as a user-approved verification exception, not as PASS. Implementation and all previously completed local gates are integrated into `int_main`; cleanup apply completed with zero deleted paths and all declared evidence retained.
+The user explicitly instructed `不用测试，继续推进` on 2026-08-15. Real write-path Playwright was therefore not run and is recorded as a user-approved verification exception, not as PASS. Implementation and all previously completed local gates are integrated into `int_main`; cleanup apply completed with zero deleted paths and all declared evidence retained. The unused task-owned response-contract worktree and its patch-equivalent temporary branch were removed after exact scope/hash checks.
 
 ## Authority And Ownership
 
