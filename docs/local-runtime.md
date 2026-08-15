@@ -8,7 +8,7 @@
 
 ## 固定端口
 
-PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
+PORT_CONTRACT_VERSION: 2026-08-15-branch-runtime-v4
 
 - `int_main` 前端专属端口：`8081`。
 - int_main 后端专属端口：48081。
@@ -48,7 +48,7 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - 如果端口被同一 runtime profile 的旧进程占用，可记录进程 ID、命令行和归属依据后停止对应旧进程，再启动。
 - 如果端口被未知进程、非 IntRuoyi 进程或其他 runtime profile 占用，必须 fail fast，不得强杀或换端口。
 - worktree 必须按 `docs/worktree-restrictions.md` 的 profile + slot 规则使用独立端口。
-- 附加 worktree 的 `slot` 只允许 `1..19`，必须由 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配；`slot >= 20` 或命中任一基准端口时必须 fail fast。
+- 附加 worktree 的 `slot` 只允许 `1..30`，必须由 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配；`slot >= 31` 或命中任一基准端口时必须 fail fast。槽位 `1..19` 保持原端口，`20..30` 使用 `docs\branch-runtime-ports.md` 的独立扩展段。
 
 ## 2026-07-24 本地重启脚本路径门禁
 
@@ -85,9 +85,10 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 
 - Trigger: DCC 已生效文件的签名记录显示 `VALID`，但证据导出返回 `1080000092`；历史绑定迁移返回 `1080000207`；签名 `keyVersion` 与当前运行密钥版本不同；最终受控副本绑定为空。
 - Preflight check: 先只读盘点目标文件的签名数量、证据状态、`keyVersion`、最终受控副本和绑定记录；再确认历史 `keyVersion -> secret` 是否通过正式的历史校验密钥配置提供。任何核对和日志都只能记录“是否存在、版本名和匹配数量”，不得输出密钥原值、原始签名载荷或完整 HMAC。
+- Partial reissue check: 如果历史版本曾更新签名证据但没有同步绑定，必须先校验绑定自身 hash、最终副本 `fileId + objectKey + SHA-256`，再要求重新封存审计表中存在“绑定原证据 hash -> 当前签名证据 hash”的精确连续记录。只有证据变化且审计链连续时才可继续；绑定被篡改、副本变化或审计记录不精确时必须拒绝。
 - Blocker: 历史密钥不存在、密钥版本未映射、或按原签名规范复算 HMAC 不匹配时，必须停止绑定迁移和导出成功结论；系统应明确要求补齐历史密钥或重新签署。
-- Verification: 对每条原签名先完成 HMAC 校验，再创建冻结最终副本 `fileId + objectKey + SHA-256` 的不可变绑定；迁移后复核绑定数量、绑定完整性、导出 HTTP/业务码和归档文件内容。密钥轮换时必须保留仍在法定或业务留存期内证据的历史校验密钥，并完成旧版本导出回归。
-- Forbidden action: 禁止把当前密钥猜测映射到旧版本，禁止绕过 HMAC 直接插入绑定，禁止仅把状态改为 `VALID`，禁止用数据库手工回填 hash/objectKey 冒充正式迁移成功。
+- Verification: 对每条原签名先完成 HMAC 校验，再创建冻结最终副本 `fileId + objectKey + SHA-256` 的不可变绑定；批准重新封存时，当前密钥重签、前后证据审计和既有绑定切换必须在同一事务完成。迁移后同时复核签名 `VALID`、绑定 `BOUND`、当前密钥版本、hash/objectKey 非空、文件级证据 PDF 和统一签名 PDF。成功写入后的 E2E 复跑必须使用显式只读模式，不得重复重新封存。
+- Forbidden action: 禁止把当前密钥猜测映射到旧版本，禁止绕过 HMAC 直接插入绑定，禁止仅把状态改为 `VALID`，禁止用数据库手工回填 hash/objectKey 冒充正式迁移成功，禁止在重新封存已成功后为补页面断言再次执行写接口。
 - Evidence: `doc/tasks/20260813-dcc-residual-issues-fix/verification-report.md`。
 
 ## 2026-07-25 本地后端数据库凭据门禁
@@ -239,7 +240,7 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 
 - 禁止把 `int_main` 改到随机端口启动。
 - 禁止非 `int_main` 使用 `8081/48081`。
-- 禁止任何附加 worktree 使用 `slot >= 20` 或其他 profile 的基准端口。
+- 禁止任何附加 worktree 使用 `slot >= 31` 或其他 profile 的基准端口。
 - 禁止把 `int_batch`、`int_shedule` 或 `int_qms` 的分支端口写入 `int_main` 默认配置。
 - 禁止通过修改共享 `.env` 或 `application-local.yaml` 来实现分支端口。
 - 禁止端口占用时静默换端口、静默跳过服务或宣称启动成功。

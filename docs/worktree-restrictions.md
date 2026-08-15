@@ -8,7 +8,7 @@
 
 ## 固定基线
 
-PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
+PORT_CONTRACT_VERSION: 2026-08-15-branch-runtime-v4
 
 - 主工作区：`E:\IntRuoyi`。
 - D-Main 工作区：`D:\ProjectPackage\IntRuoyi\IntRuoyiAll`。
@@ -29,9 +29,9 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - `int_batch` profile：基准前端 `8041`，基准后端 `48041`。
 - `int_shedule` profile：基准前端 `8021`，基准后端 `48021`。
 - `int_qms` profile：基准前端 `8061`，基准后端 `48061`。
-- 前端端口 = 所属 profile 前端基准端口 + slot。
-- 后端端口 = 所属 profile 后端基准端口 + slot。
-- `slot = 0` 只用于各 profile 的基准工作区；同一 profile 的附加 worktree 必须使用稳定槽位 `1..19`。
+- 槽位 `1..19` 的前后端端口继续按所属 profile 基准端口 + slot 计算。
+- 槽位 `20..30` 使用本文件定义的独立扩展端口段。
+- `slot = 0` 只用于各 profile 的基准工作区；同一 profile 的附加 worktree 必须使用稳定槽位 `1..30`。
 - 跨 profile 不共享 slot 语义；例如 `int_batch slot=1` 是 `8042/48042`，`int_qms slot=1` 是 `8062/48062`。
 - 分支端口矩阵的权威说明见 `docs\branch-runtime-ports.md`，提交、合并、推送前必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`。
 
@@ -49,11 +49,9 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - `int_batch` 基准工作区永远使用 `slot = 0`，前端 `8041`，后端 `48041`。
 - `int_shedule` 基准工作区永远使用 `slot = 0`，前端 `8021`，后端 `48021`。
 - `int_qms` 基准工作区永远使用 `slot = 0`，前端 `8061`，后端 `48061`。
-- 附加 worktree 必须使用稳定整数槽位，`slot = 1..19`。
-- `slot >= 20` 必须 fail fast；该范围会进入下一 profile 的保留端口段。
-- 附加 worktree 的端口按所属 runtime profile 的基准端口计算：
-  - 前端端口：profile 前端基准端口 + `slot`
-  - 后端端口：profile 后端基准端口 + `slot`
+- 附加 worktree 必须使用稳定整数槽位，`slot = 1..30`。
+- `slot >= 31` 必须 fail fast。
+- 槽位 `1..19` 的端口按所属 runtime profile 的基准端口计算；槽位 `20..30` 必须使用集中定义的扩展端口段，不得自行推算或随机选择。
 - 示例：
   - `int_main_d slot = 1`：前端 `8102`，后端 `48102`
   - `int_main slot = 1`：前端 `8082`，后端 `48082`
@@ -63,11 +61,11 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - `int_main_d` 必须使用 `8101/48101`，不得使用保留给 `E:\IntRuoyi` 的 `8081/48081`。
 - 非 `int_main` profile 永远不得使用 `8081` 或 `48081`。
 - 各 profile 的附加 worktree 可用端口段分别为：
-  - `int_shedule`：前端 `8022-8040`，后端 `48022-48040`
-  - `int_batch`：前端 `8042-8060`，后端 `48042-48060`
-  - `int_qms`：前端 `8062-8080`，后端 `48062-48080`
-  - `int_main`：前端 `8082-8100`，后端 `48082-48100`
-  - `int_main_d`：前端 `8102-8120`，后端 `48102-48120`
+  - `int_shedule`：槽位 `1..19` 为 `8022-8040/48022-48040`，槽位 `20..30` 为 `8121-8131/48121-48131`
+  - `int_batch`：槽位 `1..19` 为 `8042-8060/48042-48060`，槽位 `20..30` 为 `8132-8142/48132-48142`
+  - `int_qms`：槽位 `1..19` 为 `8062-8080/48062-48080`，槽位 `20..30` 为 `8143-8153/48143-48153`
+  - `int_main`：槽位 `1..19` 为 `8082-8100/48082-48100`，槽位 `20..30` 为 `8154-8164/48154-48164`
+  - `int_main_d`：槽位 `1..19` 为 `8102-8120/48102-48120`，槽位 `20..30` 为 `8165-8175/48165-48175`
 
 ## 端口登记表规则
 
@@ -114,7 +112,7 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - 禁止在未读取本文件时创建或启动 worktree。
 - 禁止非 `int_main` 使用 `8081/48081`。
 - 禁止任一 profile 使用其他 profile 的基准端口。
-- 禁止附加 worktree 使用 `slot >= 20`。
+- 禁止附加 worktree 使用 `slot >= 31`。
 - 禁止绕过 `scripts\runtime\reserve-worktree-slot.ps1` 手工猜测或并发写入槽位。
 - 禁止活动登记项复用其他 worktree 的 `profile/slot`、前端端口或后端端口。
 - 禁止随机选择端口或按启动顺序临时分配端口。

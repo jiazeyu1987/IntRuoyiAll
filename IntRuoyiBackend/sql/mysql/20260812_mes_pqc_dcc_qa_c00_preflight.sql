@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260811_mes_qa_dcc_project_scope; type=preflight; riskLevel=high
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260811_mes_qa_dcc_project_scope; type=data; riskLevel=high
 -- C00 preflight is read-only and must run before C00 schema, active-order/PQC submit write stop, and data backfill.
 
 DROP TEMPORARY TABLE IF EXISTS c00_preflight_release_metadata;
@@ -93,7 +93,7 @@ SELECT 'task_rule_key_ambiguous', task.id, SHA2(CONCAT('task-rule:', task.id), 2
 
 INSERT INTO c00_preflight_blocker_report
 SELECT 'formal_event_cardinality', task.id, SHA2(CONCAT('formal-event:', task.id), 256), COUNT(event.id),
-       'non-PENDING PQC task must have exactly one formal PQC event for CanonicalPqcSubmissionV1 reconstruction'
+       'SUBMITTED/CONFIRMED PQC task must have exactly one formal PQC event for CanonicalPqcSubmissionV1 reconstruction'
   FROM mes_pqc_inspection_task task
   LEFT JOIN mes_pro_process_pool_event event
     ON event.tenant_id = task.tenant_id
@@ -102,7 +102,7 @@ SELECT 'formal_event_cardinality', task.id, SHA2(CONCAT('formal-event:', task.id
    AND event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
    AND event.deleted = b'0'
  WHERE task.deleted = b'0'
-   AND task.task_status <> 'PENDING'
+   AND task.task_status IN ('SUBMITTED', 'CONFIRMED')
  GROUP BY task.id
 HAVING COUNT(event.id) <> 1;
 
