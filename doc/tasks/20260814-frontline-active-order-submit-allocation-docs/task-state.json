@@ -554,15 +554,15 @@
   "updated_at": "2026-08-14T23:55:04+00:00",
   "branch": "codex/20260814-frontline-active-order-submit-allocation",
   "baseline_revision": "33302985228b16faae2695458b03268098a433af",
-  "workspace_root": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation",
-  "tasks_root": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation\\doc\\tasks",
-  "task_dir": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs",
+  "workspace_root": "E:\\IntRuoyi",
+  "tasks_root": "E:\\IntRuoyi\\doc\\tasks",
+  "task_dir": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs",
   "goal": "PRD - 一线报工活跃订单自动分配",
   "artifacts": {
-    "prd": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\prd.md",
-    "test_plan": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\test-plan.md",
-    "task_state": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\task-state.json",
-    "execution_log": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\execution-log.md",
-    "test_report": "D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\test-report.md"
+    "prd": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\prd.md",
+    "test_plan": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\test-plan.md",
+    "task_state": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\task-state.json",
+    "execution_log": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\execution-log.md",
+    "test_report": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\test-report.md"
   }
 }

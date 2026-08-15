@@ -256,3 +256,9 @@ BDD: 非活跃订单不可作为分配目标 -> Given O9 未加入当前组长�
 
 - WORKTREE: `git worktree remove` 已先移除任务工作树的 Git 登记；Windows 首次返回“Directory not empty”，安全复核确认 `.git` 已不存在、任务进程为 0、8099/48099 无监听后，仅清理该任务路径内的残留文件和空目录。
 - GREEN: 任务工作树物理路径不存在，`git worktree list --porcelain` 无该登记，8099/48099 无监听；端口注册表中 slot 18 已标记 `active=false` 并记录释放时间，全部 active slot/前后端端口唯一性校验通过。
+
+## 融合后机器状态路径复核（2026-08-15）
+
+- RED: `check_plan_completion.py --cwd E:\IntRuoyi --task-dir E:\IntRuoyi\doc\tasks\20260814-frontline-active-order-submit-allocation-docs` -> FAIL，机器状态中的 artifact 路径仍指向已删除的任务 worktree，因此误报 `Missing artifact: execution_log/test_report`。
+- FIX: 将 `workspace_root`、`tasks_root`、`task_dir` 及全部 artifact 路径更新为融合后的 `E:\IntRuoyi` 正式位置；不改变业务实现、测试结果或原任务分支来源记录。
+- GREEN: 同一 `check_plan_completion.py` 命令复跑 -> PASS，退出码 0，返回 `complete=true`；融合后机器状态和正式任务文档位置一致。
