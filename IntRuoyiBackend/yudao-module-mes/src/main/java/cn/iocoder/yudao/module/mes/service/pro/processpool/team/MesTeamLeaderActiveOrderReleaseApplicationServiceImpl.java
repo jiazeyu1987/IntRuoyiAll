@@ -9,22 +9,20 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         implements MesTeamLeaderActiveOrderReleaseApplicationService {
 
     private final MesTeamLeaderActiveOrderReleaseGenerationService generationService;
-    private final MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService;
 
     public MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
-            MesTeamLeaderActiveOrderReleaseGenerationService generationService,
-            MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService) {
+            MesTeamLeaderActiveOrderReleaseGenerationService generationService) {
         this.generationService = generationService;
-        this.persistenceService = persistenceService;
     }
 
     @Override
     public MesTeamLeaderActiveOrderReleaseApplicationResult apply(
             Long leaderUserId, MesTeamLeaderActiveOrderReleaseApplyCommand command) {
-        try {
-            return generationService.generate(leaderUserId, command);
-        } catch (MesTeamLeaderActiveOrderReleaseBlockedException ex) {
-            return persistenceService.persistBlocked(ex.getApplication());
-        }
+        return generationService.generate(leaderUserId, command);
+    }
+
+    @Override
+    public MesTeamLeaderActiveOrderReleaseApplicationResult get(Long userId, Long activeOrderId) {
+        return generationService.get(userId, activeOrderId);
     }
 }

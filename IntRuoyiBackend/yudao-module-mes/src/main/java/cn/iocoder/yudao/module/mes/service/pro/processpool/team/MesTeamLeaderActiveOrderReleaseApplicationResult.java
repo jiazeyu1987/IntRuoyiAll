@@ -4,8 +4,6 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.time.LocalDateTime;
-import java.util.List;
-
 @Data
 @Accessors(chain = true)
 public class MesTeamLeaderActiveOrderReleaseApplicationResult {
@@ -14,12 +12,12 @@ public class MesTeamLeaderActiveOrderReleaseApplicationResult {
     private Long activeOrderId;
     private Long workOrderId;
     private String workOrderCode;
-    private Long batchExecutionId;
-    private Long releaseTransactionId;
-    private Long releaseApprovalWorkTaskId;
+    private String batchCode;
+    private Long routeId;
+    private Long routeVersionId;
+    private Long pqcReleaseWorkTaskId;
     private String status;
-    private String statusName;
-    private MesTeamLeaderActiveOrderReleaseDossierSummary dossierSummary;
-    private List<MesTeamLeaderActiveOrderReleaseBlocker> blockers;
+    private String sourceSnapshotHash;
+    private Integer version;
     private LocalDateTime appliedAt;
 }

@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
@@ -621,6 +622,15 @@ class MesTeamLeaderActiveOrderServiceTest {
         when(processSnapshotMapper.selectListByActiveOrderIds(List.of(8101L)))
                 .thenReturn(processSnapshots(8101L, 9001L, 10));
         when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
+        when(releaseApplicationMapper.selectLatestByActiveOrderIds(List.of(8101L))).thenReturn(List.of(
+                MesProcessPoolActiveOrderReleaseApplicationDO.builder()
+                        .id(7001L)
+                        .activeOrderId(8101L)
+                        .pqcReleaseWorkTaskId(8001L)
+                        .applicationStatus("PQC_RELEASE_PENDING")
+                        .sourceSnapshotHash("source-hash")
+                        .version(1)
+                        .build()));
 
         List<MesTeamLeaderActiveOrderRow> activeOrders = service.listActiveOrders(3001L);
 
@@ -638,6 +648,11 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertTrue(activeOrders.get(0).getAbnormal());
         assertEquals("设备停机", activeOrders.get(0).getAbnormalReason());
         assertEquals(LocalDateTime.of(2026, 8, 7, 11, 0), activeOrders.get(0).getAbnormalReportedAt());
+        assertEquals(7001L, activeOrders.get(0).getReleaseApplicationId());
+        assertEquals(8001L, activeOrders.get(0).getPqcReleaseWorkTaskId());
+        assertEquals("PQC_RELEASE_PENDING", activeOrders.get(0).getReleaseApplicationStatus());
+        assertEquals("source-hash", activeOrders.get(0).getReleaseSourceSnapshotHash());
+        assertEquals(1, activeOrders.get(0).getReleaseApplicationVersion());
         verify(activeOrderMapper).selectActiveListByLeader(3001L);
         verify(routeMapper).selectBatchIds(List.of(922119L));
         verify(routeVersionMapper).selectBatchIds(List.of(448L));

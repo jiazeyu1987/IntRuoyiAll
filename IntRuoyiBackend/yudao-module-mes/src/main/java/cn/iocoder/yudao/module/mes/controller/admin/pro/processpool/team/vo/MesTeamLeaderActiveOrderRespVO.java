@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -79,14 +81,22 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "最近未关闭异常上报时间")
     private LocalDateTime abnormalReportedAt;
 
-    @Schema(description = "放行资料申请状态", example = "PENDING_RELEASE_APPROVAL")
+    @Schema(description = "生产放行申请编号", example = "7001")
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long releaseApplicationId;
+
+    @Schema(description = "PQC生产放行待办编号", example = "8001")
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long pqcReleaseWorkTaskId;
+
+    @Schema(description = "生产放行申请状态", example = "PQC_RELEASE_PENDING")
     private String releaseApplicationStatus;
 
-    @Schema(description = "放行资料申请阻塞摘要", example = "缺少过程检验汇集明细")
-    private String releaseApplicationBlockerSummary;
+    @Schema(description = "生产放行正式来源快照哈希")
+    private String releaseSourceSnapshotHash;
 
-    @Schema(description = "放行审批待办编号", example = "7001")
-    private Long releaseApprovalWorkTaskId;
+    @Schema(description = "生产放行申请版本", example = "1")
+    private Integer releaseApplicationVersion;
 
     @Schema(description = "管理后台 - MES 班组长活跃订单工序剩余量 Response VO")
     @Data

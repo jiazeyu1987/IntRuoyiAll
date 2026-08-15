@@ -63,6 +63,16 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                 .last("LIMIT 1"));
     }
 
+    default MesProcessPoolActiveOrderReleaseApplicationDO selectLatestByActiveOrderId(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId, activeOrderId)
+                .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId)
+                .last("LIMIT 1"));
+    }
+
     default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectLatestByActiveOrderIds(
             Collection<Long> activeOrderIds) {
         if (activeOrderIds == null || activeOrderIds.isEmpty()) {
