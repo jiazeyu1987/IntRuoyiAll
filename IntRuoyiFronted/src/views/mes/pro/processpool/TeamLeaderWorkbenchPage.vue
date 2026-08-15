@@ -1296,7 +1296,7 @@
                 <el-tag
                   :type="formatActiveOrderReleaseStatusTag(row.releaseApplicationStatus)"
                   effect="plain"
-                  :title="row.releaseApplicationBlockerSummary || undefined"
+                  :title="row.releaseSourceSnapshotHash || undefined"
                 >
                   {{ formatActiveOrderReleaseStatus(row.releaseApplicationStatus) }}
                 </el-tag>
@@ -3258,6 +3258,7 @@ import {
   getProductionPersonnelList,
   getTeamLeaderActiveOrderDetail,
   getTeamLeaderActiveOrderList,
+  getTeamLeaderActiveOrderRelease,
   getCurrentTeamLeaderReportAllocation,
   getTeamLeaderSubmissionDetail,
   getTeamLeaderSubmissionPage,
@@ -3284,7 +3285,9 @@ import {
   type TeamLeaderActiveOrderCandidateRespVO,
   type TeamLeaderActiveOrderDetailRespVO,
   type TeamLeaderActiveOrderReleaseApplyRespVO,
+  type TeamLeaderActiveOrderReleaseApplicationStatus,
   type TeamLeaderActiveOrderReleaseBlockerRespVO,
+  type TeamLeaderActiveOrderReleaseFailureRespVO,
   type TeamLeaderActiveOrderRespVO,
   type TeamLeaderLossReasonVO,
   type TeamDeviceParameterRuleSaveReqVO,
@@ -3471,17 +3474,6 @@ type ActiveOrderReleaseApplicationLockState =
   | 'CONFIRMED_NOT_PROJECTED'
   | 'RECOVERED'
   | 'UNCERTAIN'
-
-interface ActiveOrderReleaseReceiptSnapshot {
-  status?: TeamLeaderActiveOrderRespVO['releaseApplicationStatus']
-  blockerSummary?: string
-  releaseApprovalWorkTaskId?: number
-}
-
-interface ActiveOrderReleaseReceiptConfirmation {
-  outcome: 'SUBMITTED' | 'NOT_SUBMITTED' | 'UNCERTAIN'
-  receipt: TeamLeaderActiveOrderRespVO
-}
 
 interface TeamLeaderReportAllocationDraftLine extends Omit<TeamLeaderReportAllocationLine, 'activeOrderId'> {
   activeOrderId?: number
@@ -4534,14 +4526,20 @@ const isActiveOrderProgressComplete = (value: number | string | undefined) => {
 }
 
 const formatActiveOrderReleaseStatus = (status?: string) => {
-  if (status === 'PENDING_RELEASE_APPROVAL') return '待负责人放行'
-  if (status === 'BLOCKED') return '资料阻塞'
-  return status || '未申请'
+  if (status === 'PQC_RELEASE_PENDING') return '待PQC放行'
+  if (status === 'PQC_RELEASE_REJECTED') return 'PQC已拒绝'
+  if (status === 'REPORT_UPLOAD_PENDING') return '待上传放行报告'
+  if (status === 'MANAGER_RELEASE_PENDING') return '待管理者代表放行'
+  if (status === 'RELEASED') return '已放行'
+  return '未申请'
 }
 
 const formatActiveOrderReleaseStatusTag = (status?: string) => {
-  if (status === 'PENDING_RELEASE_APPROVAL') return 'success'
-  if (status === 'BLOCKED') return 'warning'
+  if (status === 'PQC_RELEASE_PENDING') return 'warning'
+  if (status === 'PQC_RELEASE_REJECTED') return 'danger'
+  if (status === 'REPORT_UPLOAD_PENDING') return 'primary'
+  if (status === 'MANAGER_RELEASE_PENDING') return 'primary'
+  if (status === 'RELEASED') return 'success'
   return 'info'
 }
 
@@ -4573,7 +4571,7 @@ const isActiveOrderReleaseApplicationLocked = (activeOrderId: number) =>
 
 const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
   if (row.abnormal) return false
-  if (row.releaseApplicationStatus === 'PENDING_RELEASE_APPROVAL') return false
+  if (row.releaseApplicationStatus) return false
   return isActiveOrderProgressComplete(row.productionProgressPercent)
     && isActiveOrderProgressComplete(row.inspectionProgressPercent)
 }
@@ -4584,10 +4582,12 @@ const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrder
   }
   if (releaseApplicationLocks.has(row.id)) return '本次申请已提交，请先刷新列表'
   if (row.abnormal) return row.abnormalReason || '异常订单不能申请放行'
-  if (row.releaseApplicationStatus === 'PENDING_RELEASE_APPROVAL') return '已提交生产负责人放行'
+  if (row.releaseApplicationStatus) {
+    return `已进入${formatActiveOrderReleaseStatus(row.releaseApplicationStatus)}`
+  }
   if (!isActiveOrderProgressComplete(row.productionProgressPercent)) return '生产进度未达到100%'
   if (!isActiveOrderProgressComplete(row.inspectionProgressPercent)) return '检验进度未达到100%'
-  return '申请生成放行资料'
+  return '提交生产放行申请'
 }
 
 const formatTraceQuantity = (value: number | string | undefined) => {
@@ -7474,56 +7474,60 @@ const getOrCreateActiveOrderReleaseIdempotencyKey = (row: TeamLeaderActiveOrderR
   return idempotencyKey
 }
 
-const snapshotActiveOrderReleaseReceipt = (
-  row: TeamLeaderActiveOrderRespVO
-): ActiveOrderReleaseReceiptSnapshot => ({
-  status: row.releaseApplicationStatus,
-  blockerSummary: row.releaseApplicationBlockerSummary,
-  releaseApprovalWorkTaskId: row.releaseApprovalWorkTaskId
-})
+const ACTIVE_ORDER_RELEASE_STATUSES = new Set<TeamLeaderActiveOrderReleaseApplicationStatus>([
+  'PQC_RELEASE_PENDING',
+  'PQC_RELEASE_REJECTED',
+  'REPORT_UPLOAD_PENDING',
+  'MANAGER_RELEASE_PENDING',
+  'RELEASED'
+])
 
-const syncActiveOrderReceiptRows = (rows: TeamLeaderActiveOrderRespVO[]) => {
-  activeOrderOptions.value = rows
-  const maxPage = Math.max(1, Math.ceil(rows.length / activeOrderQuery.pageSize))
-  if (activeOrderQuery.pageNo > maxPage) {
-    activeOrderQuery.pageNo = maxPage
-  }
+const isActiveOrderReleaseStatus = (
+  value: unknown
+): value is TeamLeaderActiveOrderReleaseApplicationStatus =>
+  typeof value === 'string' &&
+  ACTIVE_ORDER_RELEASE_STATUSES.has(value as TeamLeaderActiveOrderReleaseApplicationStatus)
+
+const resolveActiveOrderReleaseFailure = (
+  error: unknown
+): TeamLeaderActiveOrderReleaseFailureRespVO | undefined => {
+  const candidate = (error as any)?.details ?? (error as any)?.response?.data?.data
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return undefined
+  if (!Array.isArray(candidate.blockers) || candidate.blockers.length === 0) return undefined
+  const blockersAreComplete = candidate.blockers.every((blocker: unknown) => {
+    if (!blocker || typeof blocker !== 'object' || Array.isArray(blocker)) return false
+    const record = blocker as Record<string, unknown>
+    return (
+      typeof record.blockerType === 'string' &&
+      record.blockerType.trim().length > 0 &&
+      typeof record.objectType === 'string' &&
+      record.objectType.trim().length > 0 &&
+      typeof record.reason === 'string' &&
+      record.reason.trim().length > 0 &&
+      typeof record.suggestion === 'string' &&
+      record.suggestion.trim().length > 0
+    )
+  })
+  return blockersAreComplete
+    ? (candidate as TeamLeaderActiveOrderReleaseFailureRespVO)
+    : undefined
 }
 
 const confirmActiveOrderReleaseApplicationReceipt = async (
-  row: TeamLeaderActiveOrderRespVO,
-  previousReceipt: ActiveOrderReleaseReceiptSnapshot
-): Promise<ActiveOrderReleaseReceiptConfirmation> => {
-  const rows = await getTeamLeaderActiveOrderList()
-  syncActiveOrderReceiptRows(rows)
-  const receipt = rows.find((candidate) => candidate.id === row.id)
-  if (!receipt) {
-    throw new Error(`正式活跃订单回执中缺少记录 ${row.id}`)
-  }
-  if (receipt.releaseApplicationStatus === 'PENDING_RELEASE_APPROVAL') {
-    return { outcome: 'SUBMITTED', receipt }
-  }
-  if (receipt.releaseApplicationStatus === 'BLOCKED') {
-    const receiptChanged =
-      previousReceipt.status !== 'BLOCKED' ||
-      previousReceipt.blockerSummary !== receipt.releaseApplicationBlockerSummary ||
-      previousReceipt.releaseApprovalWorkTaskId !== receipt.releaseApprovalWorkTaskId
-    return { outcome: receiptChanged ? 'SUBMITTED' : 'UNCERTAIN', receipt }
-  }
-  if (!receipt.releaseApplicationStatus && !previousReceipt.status) {
-    return { outcome: 'NOT_SUBMITTED', receipt }
-  }
-  return { outcome: 'UNCERTAIN', receipt }
+  row: TeamLeaderActiveOrderRespVO
+): Promise<TeamLeaderActiveOrderReleaseApplyRespVO> => {
+  const receipt = await getTeamLeaderActiveOrderRelease(row.id)
+  assertActiveOrderReleaseApplicationReceipt(receipt, row.id)
+  return receipt
 }
 
 const recoverUncertainActiveOrderReleaseApplication = async (
   row: TeamLeaderActiveOrderRespVO,
-  previousReceipt: ActiveOrderReleaseReceiptSnapshot,
   writeError: unknown
 ) => {
-  let confirmation: ActiveOrderReleaseReceiptConfirmation
+  let receipt: TeamLeaderActiveOrderReleaseApplyRespVO
   try {
-    confirmation = await confirmActiveOrderReleaseApplicationReceipt(row, previousReceipt)
+    receipt = await confirmActiveOrderReleaseApplicationReceipt(row)
   } catch (confirmationError) {
     releaseApplicationLocks.set(row.id, 'UNCERTAIN')
     releaseApplicationUncertainMessage.value =
@@ -7534,89 +7538,38 @@ const recoverUncertainActiveOrderReleaseApplication = async (
     return
   }
 
-  if (confirmation.outcome === 'SUBMITTED') {
-    releaseApplicationIdempotencyKeys.delete(row.id)
-    releaseApplicationLocks.set(row.id, 'RECOVERED')
-    releaseApplicationUncertainMessage.value = ''
-    ElMessage.warning(
-      `申请响应异常，但正式回执已确认：${formatActiveOrderReleaseStatus(confirmation.receipt.releaseApplicationStatus)}`
-    )
-    return
-  }
-  if (confirmation.outcome === 'NOT_SUBMITTED') {
-    releaseApplicationLocks.delete(row.id)
-    releaseApplicationUncertainMessage.value = ''
-    ElMessage.error(`申请放行失败：${resolveErrorMessage(writeError, '申请请求失败')}`)
-    return
-  }
-
-  releaseApplicationLocks.set(row.id, 'UNCERTAIN')
-  releaseApplicationUncertainMessage.value =
-    `申请响应不确定，正式回执未出现可证明本次提交的变化，请人工核对后刷新页面：` +
-    resolveErrorMessage(writeError, '申请响应异常')
-  ElMessage.error(releaseApplicationUncertainMessage.value)
+  releaseApplicationIdempotencyKeys.delete(row.id)
+  releaseApplicationLocks.set(row.id, 'RECOVERED')
+  releaseApplicationUncertainMessage.value = ''
+  ElMessage.warning(
+    `申请响应异常，但正式回执已确认：${formatActiveOrderReleaseStatus(receipt.status)}`
+  )
 }
 
 const assertActiveOrderReleaseApplicationReceipt = (
   result: TeamLeaderActiveOrderReleaseApplyRespVO,
-  activeOrderId: number
+  activeOrderId: number,
+  requireInitialStatus = false
 ) => {
-  if (result.activeOrderId !== activeOrderId) {
+  if (String(result.activeOrderId) !== String(activeOrderId)) {
     throw new Error('放行申请回执的活跃订单与当前订单不一致')
   }
   requirePositiveNumber(result.applicationId, '放行申请回执缺少申请记录ID')
   requirePositiveNumber(result.workOrderId, '放行申请回执缺少生产工单ID')
-  if (!result.statusName?.trim()) {
-    throw new Error('放行申请回执缺少状态名称')
-  }
-  if (!result.dossierSummary || !result.dossierSummary.sourceSnapshotHash?.trim()) {
-    throw new Error('放行申请回执缺少正式来源快照哈希')
-  }
-  if (!Array.isArray(result.blockers)) {
-    throw new Error('放行申请回执缺少阻塞项数组')
-  }
-  for (const blocker of result.blockers) {
-    if (
-      !blocker.blockerType?.trim() ||
-      !blocker.objectType?.trim() ||
-      !blocker.objectId?.trim() ||
-      !blocker.objectCode?.trim() ||
-      !blocker.reason?.trim() ||
-      !blocker.suggestion?.trim()
-    ) {
-      throw new Error('放行申请回执包含不完整的正式阻塞项')
-    }
-  }
-  if (result.status === 'BLOCKED') {
-    if (result.blockers.length === 0) {
-      throw new Error('资料生成阻塞回执缺少正式阻塞项')
-    }
-    if (
-      result.batchExecutionId !== null ||
-      result.releaseTransactionId !== null ||
-      result.releaseApprovalWorkTaskId !== null
-    ) {
-      throw new Error('资料生成阻塞回执不应包含批次、放行事务或负责人待办ID')
-    }
-    return
-  }
-  if (result.status !== 'PENDING_RELEASE_APPROVAL') {
+  requirePositiveNumber(result.routeId, '放行申请回执缺少工艺路线ID')
+  requirePositiveNumber(result.routeVersionId, '放行申请回执缺少工艺路线版本ID')
+  requirePositiveNumber(result.pqcReleaseWorkTaskId, '放行申请回执缺少PQC放行待办ID')
+  if (!isActiveOrderReleaseStatus(result.status)) {
     throw new Error(`不支持的放行申请状态：${String(result.status)}`)
   }
-  requirePositiveNumber(result.batchExecutionId, '放行申请回执缺少 eDHR 批次ID')
-  requirePositiveNumber(result.releaseTransactionId, '放行申请回执缺少放行事务ID')
-  requirePositiveNumber(result.releaseApprovalWorkTaskId, '放行申请回执缺少生产负责人待办ID')
-  if (result.blockers.length > 0) {
-    throw new Error('待生产负责人放行的正式回执不应包含阻塞项')
+  if (requireInitialStatus && result.status !== 'PQC_RELEASE_PENDING') {
+    throw new Error(`首次申请回执状态必须为待PQC放行，实际为：${result.status}`)
   }
-  if (
-    result.dossierSummary.batchRecordCount <= 0 ||
-    result.dossierSummary.processInspectionFormCount <= 0 ||
-    result.dossierSummary.lossReportFormCount <= 0 ||
-    result.dossierSummary.signatureEvidenceCount <= 0
-  ) {
-    throw new Error('待生产负责人放行的正式回执资料或签名证据不完整')
+  if (!result.sourceSnapshotHash?.trim()) {
+    throw new Error('放行申请回执缺少正式来源快照哈希')
   }
+  requirePositiveNumber(result.version, '放行申请回执缺少正式版本号')
+  if (!result.appliedAt) throw new Error('放行申请回执缺少申请时间')
 }
 
 const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRespVO) => {
@@ -7626,8 +7579,8 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
   }
   try {
     await ElMessageBox.confirm(
-      '系统将根据当前已填写并已确认的数据，申请生成放行资料并提交生产负责人审批；不会直接放行。',
-      '申请生成放行资料',
+      '系统将提交生产放行申请并生成一个PQC待办；不会创建批次、报告上传任务或最终放行事务。',
+      '提交生产放行申请',
       { type: 'warning', confirmButtonText: '申请放行', cancelButtonText: '取消' }
     )
   } catch (confirmationAction) {
@@ -7636,7 +7589,6 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
     return
   }
   const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
-  const previousReceipt = snapshotActiveOrderReleaseReceipt(row)
   const idempotencyKey = getOrCreateActiveOrderReleaseIdempotencyKey(row)
   releaseApplicationSubmittingId.value = row.id
   releaseApplicationBlockers.value = []
@@ -7646,16 +7598,24 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
     result = await applyTeamLeaderActiveOrderRelease({
       activeOrderId,
       idempotencyKey,
-      applyRemark: '生产组长申请生成放行资料'
+      applyRemark: '生产组长提交生产放行申请'
     })
   } catch (writeError) {
-    await recoverUncertainActiveOrderReleaseApplication(row, previousReceipt, writeError)
+    const failure = resolveActiveOrderReleaseFailure(writeError)
+    if (failure) {
+      releaseApplicationBlockers.value = failure.blockers
+      releaseApplicationLocks.delete(row.id)
+      releaseApplicationUncertainMessage.value = ''
+      ElMessage.error(resolveErrorMessage(writeError, failure.blockers[0].reason))
+    } else {
+      await recoverUncertainActiveOrderReleaseApplication(row, writeError)
+    }
     releaseApplicationSubmittingId.value = undefined
     return
   }
 
   try {
-    assertActiveOrderReleaseApplicationReceipt(result, row.id)
+    assertActiveOrderReleaseApplicationReceipt(result, row.id, true)
   } catch (receiptError) {
     releaseApplicationLocks.set(row.id, 'UNCERTAIN')
     releaseApplicationUncertainMessage.value =
@@ -7668,16 +7628,14 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
 
   releaseApplicationIdempotencyKeys.delete(row.id)
   releaseApplicationLocks.set(row.id, 'CONFIRMED')
-  releaseApplicationBlockers.value = result.blockers
-  if (result.status === 'BLOCKED') {
-    ElMessage.warning(result.statusName)
-  } else {
-    ElMessage.success(result.statusName)
-  }
+  ElMessage.success('生产放行申请已提交，待PQC放行')
   try {
     await loadActiveOrders()
     const refreshedReceipt = activeOrderOptions.value.find((candidate) => candidate.id === row.id)
-    if (refreshedReceipt?.releaseApplicationStatus === result.status) {
+    if (
+      refreshedReceipt?.releaseApplicationId === result.applicationId &&
+      refreshedReceipt.releaseApplicationStatus === result.status
+    ) {
       releaseApplicationLocks.delete(row.id)
     } else {
       releaseApplicationLocks.set(row.id, 'CONFIRMED_NOT_PROJECTED')

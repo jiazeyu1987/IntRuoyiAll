@@ -8,6 +8,7 @@ const knownTargets = new Map([
   ['e2e:frontline-team-config:static', ['node', 'tests/e2e/frontline-team-config-static.spec.cjs']],
   ['e2e:team-leader-report-allocation:static', ['node', 'tests/e2e/team-leader-report-allocation-static.spec.cjs']],
   ['e2e:team-leader-workbench:static', ['node', 'tests/e2e/team-leader-workbench-static.spec.cjs']],
+  ['sp1-production-release-contract', ['node', 'tests/e2e/sp1-production-release-contract.spec.cjs']],
   ['e2e:team-leader-workbench:real:check', ['node', '--check', 'tests/e2e/team-leader-workbench-real-flow.e2e.js']],
   ['e2e:team-leader-workbench:real', ['node', 'tests/e2e/team-leader-workbench-real-flow.e2e.js']]
 ])

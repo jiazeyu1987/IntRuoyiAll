@@ -59,7 +59,7 @@ type ApiError = Error & {
 
 const createApiError = (message: string, code: number | string, data: any): ApiError => {
   const error = new Error(message) as ApiError
-  const details = data?.details ?? null
+  const details = data?.data ?? data?.details ?? null
   error.code = code
   error.details = details
   error.backendErrorCode =
