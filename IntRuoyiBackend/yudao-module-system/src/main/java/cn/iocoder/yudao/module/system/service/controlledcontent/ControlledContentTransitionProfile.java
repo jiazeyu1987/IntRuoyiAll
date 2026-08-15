@@ -16,6 +16,7 @@ import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledC
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.PUBLISH;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.REJECT;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.REGISTER_ACTIVE;
+import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.REGISTER_READY_CANDIDATE;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.REQUEST_REWORK;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.RETRY_FINALIZATION;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.START_FINALIZATION;
@@ -23,6 +24,7 @@ import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledC
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.SUPERSEDE_ACTIVE;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.WITHDRAW;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.DCC_CONTROLLED_FILE;
+import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.DCC_REGISTRATION_CERTIFICATE;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.MES_ROUTE;
 
 public record ControlledContentTransitionProfile(
@@ -38,7 +40,10 @@ public record ControlledContentTransitionProfile(
                     DCC_CONTROLLED_FILE,
                     EnumSet.of(REGISTER_ACTIVE, CREATE_CANDIDATE, SUBMIT, WITHDRAW, CANCEL, APPROVE, REQUEST_REWORK, REJECT,
                             START_FINALIZATION, RETRY_FINALIZATION, FINALIZE_SUCCESS, FINALIZE_FAILED,
-                            SUPERSEDE_ACTIVE, OBSOLETE_ACTIVE)));
+                            SUPERSEDE_ACTIVE, OBSOLETE_ACTIVE)),
+            DCC_REGISTRATION_CERTIFICATE, new ControlledContentTransitionProfile(
+                    DCC_REGISTRATION_CERTIFICATE,
+                    EnumSet.of(REGISTER_ACTIVE, REGISTER_READY_CANDIDATE, PUBLISH, SUPERSEDE_ACTIVE)));
 
     public ControlledContentTransitionProfile {
         if (contentType == null) {

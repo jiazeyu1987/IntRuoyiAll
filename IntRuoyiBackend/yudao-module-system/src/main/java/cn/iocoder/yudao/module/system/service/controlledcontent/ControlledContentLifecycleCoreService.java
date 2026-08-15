@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.system.dal.mysql.controlledcontent.ControlledCont
 import cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentCanonicalStatus;
 import cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,7 @@ public class ControlledContentLifecycleCoreService {
                                                            Long nativeVersionId, String versionNo,
                                                            String domainStatus, Long actorId, String reason) {
         requireKey(key);
+        rejectRegistrationMutationWithoutProjection(key);
         validateSupportedAction(key, REGISTER_ACTIVE);
         ControlledContentVersionRefDO existingActiveRef = versionRefMapper.selectActive(key.getTenantId(),
                 key.getContentType().name(), key.getContentKey());
@@ -90,9 +92,8 @@ public class ControlledContentLifecycleCoreService {
                                                            Long nativeVersionId, String versionNo,
                                                            String domainStatus, Long sourceVersionRefId,
                                                            Long sourceNativeVersionId, Long actorId, String reason) {
-        if (key == null) {
-            throw new IllegalArgumentException("key must not be null");
-        }
+        requireKey(key);
+        rejectRegistrationMutationWithoutProjection(key);
         validateSupportedAction(key, CREATE_CANDIDATE);
         ControlledContentVersionRefDO existingOpenCandidate = versionRefMapper.selectOpenCandidate(key.getTenantId(),
                 key.getContentType().name(), key.getContentKey());
@@ -118,7 +119,12 @@ public class ControlledContentLifecycleCoreService {
                 .activeUniqueFlag(null)
                 .lastTransitionTime(transitionTime)
                 .build();
-        versionRefMapper.insert(ref);
+        try {
+            versionRefMapper.insert(ref);
+        } catch (DuplicateKeyException exception) {
+            throw new IllegalStateException(
+                    "controlled content already has an open candidate: concurrent create candidate", exception);
+        }
 
         ControlledContentTransitionAuditDO audit = ControlledContentTransitionAuditDO.builder()
                 .tenantId(key.getTenantId())
@@ -187,6 +193,7 @@ public class ControlledContentLifecycleCoreService {
                                                               Long actorId, String reason,
                                                               String approvalProcessInstanceId) {
         requireKey(key);
+        rejectRegistrationMutationWithoutProjection(key);
         ControlledContentVersionRefDO ref = requireRefByNativeVersion(key, nativeVersionId);
         return transitionVersionRef(key, ref, toStatus, domainToStatus, action, actorId, reason,
                 approvalProcessInstanceId, null);
@@ -203,6 +210,7 @@ public class ControlledContentLifecycleCoreService {
                                                                             String approvalProcessInstanceId,
                                                                             String eventKey) {
         requireKey(key);
+        rejectRegistrationMutationWithoutProjection(key);
         String normalizedEventKey = requireEventKey(eventKey);
         validateSupportedAction(key, action);
         ControlledContentVersionRefDO ref = requireRefByNativeVersion(key, nativeVersionId);
@@ -265,6 +273,7 @@ public class ControlledContentLifecycleCoreService {
                                    String activeDomainToStatus, String candidateDomainToStatus, Long actorId,
                                    String reason) {
         requireKey(key);
+        rejectRegistrationMutationWithoutProjection(key);
         validateSupportedAction(key, SUPERSEDE_ACTIVE);
         validateSupportedAction(key, PUBLISH);
         ControlledContentVersionRefDO activeRef = requireRefByNativeVersion(key, activeNativeVersionId);
@@ -303,6 +312,7 @@ public class ControlledContentLifecycleCoreService {
                                     String activeDomainToStatus, String candidateDomainToStatus, Long actorId,
                                     String reason, String eventKey) {
         requireKey(key);
+        rejectRegistrationMutationWithoutProjection(key);
         validateSupportedAction(key, SUPERSEDE_ACTIVE);
         validateSupportedAction(key, ControlledContentTransitionAction.FINALIZE_SUCCESS);
         String normalizedEventKey = requireEventKey(eventKey);
@@ -349,6 +359,7 @@ public class ControlledContentLifecycleCoreService {
     @Transactional(rollbackFor = Exception.class)
     public void linkSuccessorRef(ControlledContentKey key, Long nativeVersionId, Long successorNativeVersionId) {
         requireKey(key);
+        rejectRegistrationMutationWithoutProjection(key);
         ControlledContentVersionRefDO ref = requireRefByNativeVersion(key, nativeVersionId);
         ControlledContentVersionRefDO successorRef = requireRefByNativeVersion(key, successorNativeVersionId);
         versionRefMapper.update(null, new UpdateWrapper<ControlledContentVersionRefDO>()
@@ -380,6 +391,13 @@ public class ControlledContentLifecycleCoreService {
     private void requireKey(ControlledContentKey key) {
         if (key == null) {
             throw new IllegalArgumentException("key must not be null");
+        }
+    }
+
+    private void rejectRegistrationMutationWithoutProjection(ControlledContentKey key) {
+        if (key.getContentType()
+                == cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.DCC_REGISTRATION_CERTIFICATE) {
+            throw new IllegalStateException("registration controlled content mutations require projection snapshots");
         }
     }
 

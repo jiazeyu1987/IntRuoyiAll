@@ -1,22 +1,40 @@
 package cn.iocoder.yudao.module.system.service.controlledcontent;
 
+import cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction;
+import cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Set;
 
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.OBSOLETE_ACTIVE;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.PUBLISH;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.REGISTER_ACTIVE;
+import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.SUPERSEDE_ACTIVE;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentTransitionAction.WITHDRAW;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.DCC_CONTROLLED_FILE;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.MES_ROUTE;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ControlledContentTransitionProfileContractTest {
+
+    @Test
+    void registrationCertificateProfile_shouldExposeOnlyRegistrationActions() {
+        ControlledContentType registrationType = assertDoesNotThrow(
+                () -> ControlledContentType.valueOf("DCC_REGISTRATION_CERTIFICATE"));
+        ControlledContentTransitionAction readyCandidateAction = assertDoesNotThrow(
+                () -> ControlledContentTransitionAction.valueOf("REGISTER_READY_CANDIDATE"));
+
+        ControlledContentTransitionProfile profile = ControlledContentTransitionProfile.requiredFor(registrationType);
+
+        assertEquals(Set.of(REGISTER_ACTIVE, readyCandidateAction, PUBLISH, SUPERSEDE_ACTIVE),
+                profile.supportedActions());
+    }
 
     @Test
     void mesRouteProfile_shouldBeStaticManualPublishAndWithdrawToSameDraft() {

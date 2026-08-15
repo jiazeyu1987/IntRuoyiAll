@@ -6,6 +6,7 @@ package cn.iocoder.yudao.module.system.enums.controlledcontent;
 public enum ControlledContentTransitionAction {
 
     REGISTER_ACTIVE,
+    REGISTER_READY_CANDIDATE,
     CREATE_CANDIDATE,
     SUBMIT,
     WITHDRAW,

@@ -6,6 +6,7 @@ package cn.iocoder.yudao.module.system.enums.controlledcontent;
 public enum ControlledContentType {
 
     MES_ROUTE,
-    DCC_CONTROLLED_FILE
+    DCC_CONTROLLED_FILE,
+    DCC_REGISTRATION_CERTIFICATE
 
 }

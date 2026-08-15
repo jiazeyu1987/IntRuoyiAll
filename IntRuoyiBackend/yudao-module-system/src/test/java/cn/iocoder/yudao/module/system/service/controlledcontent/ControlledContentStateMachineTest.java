@@ -65,6 +65,22 @@ class ControlledContentStateMachineTest {
     }
 
     @Test
+    void registerReadyCandidate_shouldAllowOnlyInitialReadyProjection() {
+        ControlledContentTransitionAction action = assertDoesNotThrow(
+                () -> ControlledContentTransitionAction.valueOf("REGISTER_READY_CANDIDATE"));
+
+        assertAllowed(null, READY_TO_PUBLISH, action);
+        for (ControlledContentCanonicalStatus from : ControlledContentCanonicalStatus.values()) {
+            for (ControlledContentCanonicalStatus to : ControlledContentCanonicalStatus.values()) {
+                if (to != READY_TO_PUBLISH) {
+                    assertRejected(from, to, action);
+                }
+            }
+        }
+        assertRejected(ACTIVE, READY_TO_PUBLISH, action);
+    }
+
+    @Test
     void shouldRejectIllegalLifecycleTransitions() {
         assertRejected(DRAFT, ACTIVE, REGISTER_ACTIVE);
         assertRejected(ACTIVE, DRAFT, WITHDRAW);
