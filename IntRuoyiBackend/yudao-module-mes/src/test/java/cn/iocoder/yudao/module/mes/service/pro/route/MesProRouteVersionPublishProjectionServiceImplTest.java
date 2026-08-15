@@ -26,6 +26,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductBomMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeDetailResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeSaveCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeService;
+import com.alibaba.fastjson.JSONObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +42,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -47,6 +52,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionPublishProjectionServiceImplTest {
@@ -90,6 +96,8 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
     private MesProcessPoolDefectReasonMapper defectReasonMapper;
     @Mock
     private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
+    @Mock
+    private MesProEdhrPermissionScopeService permissionScopeService;
 
     @BeforeEach
     void setUpProcessPoolConfigMappers() {
@@ -302,6 +310,7 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
                           "routeCode": "RT-PUBLISH-LEGACY-MAIN",
                           "routeName": "发布保留主批记录",
                           "status": 1,
+                          "candidateSource": "EDHR_WORD_IMPORT",
                           "configSnapshots": {
                             "flowGraph": {
                               "graphVersion": 3,
@@ -365,6 +374,14 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
                                 ]
                               }
                             ],
+                            "routeStartProductionLeaders": [
+                              {
+                                "candidateSourceType": "USERS",
+                                "candidateSourceIds": [8001],
+                                "sort": 1
+                              }
+                            ],
+                            "batchRecordAttachmentOwners": [],
                             "scheduleUseConfigs": []
                           }
                         }
@@ -404,6 +421,175 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
         assertEquals("INTERNAL_RECORD", lossForm.getRecordCategory());
         assertEquals("INTERNAL_TRACE", lossForm.getValidationProfile());
         assertEquals(2, lossForm.getReportSort());
+
+        JSONObject configSnapshots = JSONObject.parseObject(candidate.getRouteSnapshotJson())
+                .getJSONObject("configSnapshots");
+        assertEquals(1, configSnapshots.getJSONArray("routeStartProductionLeaders").size());
+        assertTrue(configSnapshots.getJSONArray("batchRecordAttachmentOwners").isEmpty());
+        assertFalse(configSnapshots.containsKey("routeEndBindings"));
+        assertFalse(configSnapshots.containsKey("processEndBindings"));
+    }
+
+    @Test
+    void projectCandidate_whenNewEdhrProcessUsesClientReference_createsFormalPermissionScope() {
+        when(permissionScopeService.saveRules(any(MesProEdhrPermissionScopeSaveCommand.class)))
+                .thenReturn(new MesProEdhrPermissionScopeDetailResult().setScopeId(7301L));
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(9206L)
+                .routeId(9006L)
+                .versionNo("V7")
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9006,
+                          "routeCode": "RT-PUBLISH-NEW-PROCESS",
+                          "routeName": "发布新增工序",
+                          "status": 1,
+                          "candidateSource": "EDHR_WORD_IMPORT",
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 3,
+                              "nodes": [
+                                {
+                                  "clientRouteProcessId": -1,
+                                  "processId": 9406,
+                                  "sort": 1
+                                }
+                              ],
+                              "edges": [],
+                              "boundaryEdges": [],
+                              "layouts": []
+                            },
+                            "products": [],
+                            "productBoms": [],
+                            "scheduleConfigs": [],
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": -1,
+                                "executionMode": "SEQUENTIAL",
+                                "batchRecordReports": [
+                                  {
+                                    "batchRecordReportId": "REPORT-NEW",
+                                    "batchRecordDefinitionId": 1006,
+                                    "batchRecordVersionId": 2006,
+                                    "formSlotType": "MAIN",
+                                    "permissionScopeId": -1,
+                                    "recordCategorySnapshotHash": "client-record-hash",
+                                    "slotConfigSnapshotHash": "client-slot-hash",
+                                    "reportSort": 1
+                                  }
+                                ],
+                                "formBindings": []
+                              }
+                            ],
+                            "routeStartProductionLeaders": [],
+                            "batchRecordAttachmentOwners": [],
+                            "scheduleUseConfigs": []
+                          }
+                        }
+                        """)
+                .build();
+        doAnswer(invocation -> {
+            MesProRouteProcessDO process = invocation.getArgument(0);
+            process.setId(9506L);
+            return 1;
+        }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
+
+        service.projectCandidate(candidate);
+
+        ArgumentCaptor<MesProRouteFlowProcessBatchRecordDO> recordCaptor =
+                ArgumentCaptor.forClass(MesProRouteFlowProcessBatchRecordDO.class);
+        verify(routeFlowProcessBatchRecordMapper).insert(recordCaptor.capture());
+        MesProRouteFlowProcessBatchRecordDO record = recordCaptor.getValue();
+        assertEquals(7301L, record.getPermissionScopeId());
+        assertFalse("client-record-hash".equals(record.getRecordCategorySnapshotHash()));
+        assertFalse("client-slot-hash".equals(record.getSlotConfigSnapshotHash()));
+
+        ArgumentCaptor<MesProEdhrPermissionScopeSaveCommand> scopeCaptor =
+                ArgumentCaptor.forClass(MesProEdhrPermissionScopeSaveCommand.class);
+        verify(permissionScopeService).saveRules(scopeCaptor.capture());
+        assertEquals("9506|REPORT-NEW", scopeCaptor.getValue().getObjectId());
+        assertEquals(2, scopeCaptor.getValue().getRules().size());
+    }
+
+    @Test
+    void projectCandidate_whenEdhrBindingArraysAreIncomplete_rejectsBeforeLiveMutation() {
+        MesProRouteVersionDO candidate = buildIncompleteEdhrCandidate("""
+                {
+                  "routeProcessId": 9305,
+                  "executionMode": "SEQUENTIAL",
+                  "batchRecordReports": []
+                }
+                """, """
+                "routeStartProductionLeaders": [],
+                "batchRecordAttachmentOwners": []
+                """);
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.projectCandidate(candidate));
+
+        assertTrue(exception.getMessage().contains("formBindings"));
+        verifyNoInteractions(routeMapper, routeProcessMapper, flowEdgeMapper, boundaryEdgeMapper,
+                flowLayoutMapper, routeProductMapper, routeProductBomMapper, routeScheduleConfigMapper,
+                routeFlowConfigMapper, routeFlowProcessConfigMapper, routeFlowProcessBatchRecordMapper);
+    }
+
+    @Test
+    void projectCandidate_whenEdhrStartArraysAreIncomplete_rejectsBeforeLiveMutation() {
+        MesProRouteVersionDO candidate = buildIncompleteEdhrCandidate("""
+                {
+                  "routeProcessId": 9305,
+                  "executionMode": "SEQUENTIAL",
+                  "batchRecordReports": [],
+                  "formBindings": []
+                }
+                """, """
+                "batchRecordAttachmentOwners": []
+                """);
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.projectCandidate(candidate));
+
+        assertTrue(exception.getMessage().contains("routeStartProductionLeaders"));
+        verifyNoInteractions(routeMapper, routeProcessMapper, flowEdgeMapper, boundaryEdgeMapper,
+                flowLayoutMapper, routeProductMapper, routeProductBomMapper, routeScheduleConfigMapper,
+                routeFlowConfigMapper, routeFlowProcessConfigMapper, routeFlowProcessBatchRecordMapper);
+    }
+
+    private MesProRouteVersionDO buildIncompleteEdhrCandidate(String batchUseConfig,
+                                                               String startConfigurations) {
+        return MesProRouteVersionDO.builder()
+                .id(9205L)
+                .routeId(9005L)
+                .versionNo("V6")
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9005,
+                          "routeCode": "RT-PUBLISH-EDHR-PREFLIGHT",
+                          "routeName": "发布 Word 候选预检",
+                          "status": 1,
+                          "candidateSource": "EDHR_WORD_IMPORT",
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 3,
+                              "nodes": [
+                                {
+                                  "routeProcessId": 9305,
+                                  "processId": 9405,
+                                  "sort": 1
+                                }
+                              ],
+                              "edges": [],
+                              "boundaryEdges": [],
+                              "layouts": []
+                            },
+                            "products": [],
+                            "productBoms": [],
+                            "scheduleConfigs": [],
+                            "batchUseConfigs": [%s],
+                            %s,
+                            "scheduleUseConfigs": []
+                          }
+                        }
+                        """.formatted(batchUseConfig, startConfigurations))
+                .build();
     }
 
     @Test

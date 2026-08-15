@@ -40,9 +40,9 @@ assert.ok(
 
 assert.ok(
   pageSource.includes("routeGovernanceStatus === 'DUPLICATE_BLOCKED'") &&
-    pageSource.includes('存在多条同名工艺路线') &&
+    pageSource.includes('所选 DCC 项目代码存在多条正式路线绑定') &&
     pageSource.includes('请先人工确定/清理唯一保留路线'),
-  '存在重复同名路线时，页面必须阻止导入并提示先清理唯一保留路线。'
+  '存在重复 DCC 正式路线绑定时，页面必须阻止导入并提示先清理唯一保留路线。'
 )
 
 assert.ok(
@@ -62,6 +62,30 @@ assert.match(
   pageSource,
   /:disabled="isWordImportRouteCandidateLocked\(wordImportDialog\.preflight\)"/,
   '待审批或待发布候选存在时必须禁用工艺流程选择。'
+)
+
+assert.match(
+  pageSource,
+  /const routeFlowRebuildRequested = selection\.selectedOptions\.length > 0/,
+  '前端必须用“工艺流程”勾选项单独判定是否按 Word 重建 flowGraph，不能复用批记录表单勾选值。'
+)
+
+assert.match(
+  pageSource,
+  /const batchRecordBindingCandidateRequested = Boolean\(\s*selection\.routeUpgradeRequired && rebuildBatchRecord && !routeFlowRebuildRequested\s*\)/,
+  '仅导入批记录表单绑定时，可以生成绑定候选，但必须显式标识为非工艺流程重建。'
+)
+
+assert.ok(
+  !pageSource.includes('selection.selectedOptions.length || rebuildBatchRecord'),
+  '未勾选“工艺流程”时不得把批记录表单勾选值当作路线 flowGraph 重建触发条件。'
+)
+
+assert.ok(
+  pageSource.includes('批记录表单绑定候选') &&
+    pageSource.includes('沿用当前工艺流程节点和流程关系') &&
+    pageSource.includes('不按 Word 重建工艺流程'),
+  '仅批记录表单绑定候选的用户提示必须说明沿用 ACTIVE flowGraph，不按 Word 重建工艺流程。'
 )
 
 console.log('PASS: batch-record Word import route candidate governance static contract')

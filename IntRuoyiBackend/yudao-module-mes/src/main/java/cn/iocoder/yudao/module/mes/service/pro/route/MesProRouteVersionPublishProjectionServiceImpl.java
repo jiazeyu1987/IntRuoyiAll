@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicy;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicyMode;
@@ -44,6 +45,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductBomMapp
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrRouteFormFillEffectExecutor;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionRuleCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeDetailResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeSaveCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordFormSlotType;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSON;
@@ -71,12 +76,18 @@ import java.util.Set;
 public class MesProRouteVersionPublishProjectionServiceImpl {
 
     private static final String SNAPSHOT_CONFIGS_KEY = "configSnapshots";
+    private static final String CANDIDATE_SOURCE_KEY = "candidateSource";
+    private static final String CANDIDATE_SOURCE_EDHR_WORD_IMPORT = "EDHR_WORD_IMPORT";
     private static final String FLOW_GRAPH_KEY = "flowGraph";
     private static final String PRODUCTS_KEY = "products";
     private static final String PRODUCT_BOMS_KEY = "productBoms";
     private static final String SCHEDULE_CONFIGS_KEY = "scheduleConfigs";
     private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
     private static final String SCHEDULE_USE_CONFIGS_KEY = "scheduleUseConfigs";
+    private static final String BATCH_RECORD_REPORTS_KEY = "batchRecordReports";
+    private static final String FORM_BINDINGS_KEY = "formBindings";
+    private static final String ROUTE_START_PRODUCTION_LEADERS_KEY = "routeStartProductionLeaders";
+    private static final String BATCH_RECORD_ATTACHMENT_OWNERS_KEY = "batchRecordAttachmentOwners";
     private static final String BATCH_USE_TYPE = "BATCH";
     private static final String SCHEDULE_USE_TYPE = "SCHEDULE";
     private static final String FORM_POLICY_DATA_DOMAIN = "MES";
@@ -105,6 +116,12 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private static final String OWNER_ROLE_PRODUCTION = "PRODUCTION";
     private static final String OWNER_ROLE_QUALITY = "QUALITY";
     private static final String OWNER_ROLE_EQUIPMENT = "EQUIPMENT";
+    private static final String OBJECT_TYPE_ROUTE_PROCESS_BATCH_RECORD = "ROUTE_PROCESS_BATCH_RECORD";
+    private static final String PERMISSION_SUBJECT_TYPE_USER = "USER";
+    private static final String PERMISSION_DECISION_ALLOW = "ALLOW";
+    private static final String PERMISSION_STATUS_ENABLED = "ENABLED";
+    private static final int BATCH_RECORD_BINDING_PERMISSION_PRIORITY = 10;
+    private static final List<String> BATCH_RECORD_BINDING_ABILITIES = List.of("VIEW", "FILL");
 
     @Resource
     private MesProRouteMapper routeMapper;
@@ -140,6 +157,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private MesProcessPoolDefectReasonMapper defectReasonMapper;
     @Resource
     private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
+    @Resource
+    private MesProEdhrPermissionScopeService permissionScopeService;
 
     @Transactional(rollbackFor = Exception.class)
     public void projectCandidate(MesProRouteVersionDO candidate) {
@@ -148,6 +167,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         JSONObject configSnapshots = requireObject(snapshot, SNAPSHOT_CONFIGS_KEY);
         JSONObject flowGraph = requireObject(configSnapshots, FLOW_GRAPH_KEY);
         JSONArray nodes = requireFrozenFlowNodes(flowGraph);
+        validateEdhrWordImportSnapshot(snapshot, configSnapshots, nodes);
 
         updateRoute(routeId, snapshot);
         RouteProcessProjection routeProcesses = projectProcesses(routeId, nodes);
@@ -192,6 +212,65 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             throw new IllegalArgumentException("flowGraph nodes are required");
         }
         return nodes;
+    }
+
+    private void validateEdhrWordImportSnapshot(JSONObject snapshot,
+                                                JSONObject configSnapshots,
+                                                JSONArray nodes) {
+        if (!CANDIDATE_SOURCE_EDHR_WORD_IMPORT.equals(snapshot.getString(CANDIDATE_SOURCE_KEY))) {
+            return;
+        }
+        requireEdhrFlowNodeSnapshots(nodes);
+        JSONArray batchUseConfigs = requireExplicitArray(configSnapshots, BATCH_USE_CONFIGS_KEY);
+        for (int index = 0; index < batchUseConfigs.size(); index++) {
+            Object value = batchUseConfigs.get(index);
+            if (!(value instanceof JSONObject config)) {
+                throw new IllegalArgumentException("EDHR_WORD_IMPORT snapshot " + BATCH_USE_CONFIGS_KEY
+                        + "[" + index + "] must be an object");
+            }
+            requireExplicitObjectArray(config, BATCH_RECORD_REPORTS_KEY,
+                    BATCH_USE_CONFIGS_KEY + "[" + index + "]." + BATCH_RECORD_REPORTS_KEY);
+            requireExplicitObjectArray(config, FORM_BINDINGS_KEY,
+                    BATCH_USE_CONFIGS_KEY + "[" + index + "]." + FORM_BINDINGS_KEY);
+        }
+        requireExplicitObjectArray(configSnapshots, ROUTE_START_PRODUCTION_LEADERS_KEY,
+                ROUTE_START_PRODUCTION_LEADERS_KEY);
+        requireExplicitObjectArray(configSnapshots, BATCH_RECORD_ATTACHMENT_OWNERS_KEY,
+                BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+    }
+
+    private void requireEdhrFlowNodeSnapshots(JSONArray nodes) {
+        for (int index = 0; index < nodes.size(); index++) {
+            Object value = nodes.get(index);
+            if (!(value instanceof JSONObject node)) {
+                throw new IllegalArgumentException("EDHR_WORD_IMPORT snapshot flowGraph.nodes["
+                        + index + "] must be an object");
+            }
+            if (node.getLong("processId") == null || node.getInteger("sort") == null
+                    || (node.getLong("routeProcessId") == null && node.getLong("clientRouteProcessId") == null)) {
+                throw new IllegalArgumentException("EDHR_WORD_IMPORT snapshot flowGraph.nodes[" + index
+                        + "] missing processId/sort/publishable route process identity");
+            }
+        }
+    }
+
+    private JSONArray requireExplicitArray(JSONObject parent, String key) {
+        Object value = parent.get(key);
+        if (!(value instanceof JSONArray array)) {
+            throw new IllegalArgumentException("EDHR_WORD_IMPORT snapshot missing explicit array: " + key);
+        }
+        return array;
+    }
+
+    private JSONArray requireExplicitObjectArray(JSONObject parent, String key, String path) {
+        JSONArray array = requireExplicitArray(parent, key);
+        for (int index = 0; index < array.size(); index++) {
+            if (!(array.get(index) instanceof JSONObject)) {
+                throw new IllegalArgumentException("EDHR_WORD_IMPORT snapshot " + path
+                        + "[" + index + "] must be an object");
+            }
+        }
+        return array;
     }
 
     private void updateRoute(Long routeId, JSONObject snapshot) {
@@ -489,7 +568,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         }
         Set<Integer> occupiedReportSorts = new LinkedHashSet<>();
         String mainBatchRecordReportId = projectBatchRecordReports(routeId, useType, config, routeProcess,
-                processConfig, occupiedReportSorts);
+                processConfig, occupiedReportSorts, routeProcesses);
         if (StrUtil.isNotBlank(mainBatchRecordReportId)) {
             routeProcess.setBatchRecordReportId(mainBatchRecordReportId);
             routeProcessMapper.updateById(MesProRouteProcessDO.builder()
@@ -561,7 +640,8 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private String projectBatchRecordReports(Long routeId, String useType, JSONObject config,
                                              MesProRouteProcessDO routeProcess,
                                              MesProRouteFlowProcessConfigDO processConfig,
-                                             Set<Integer> occupiedReportSorts) {
+                                             Set<Integer> occupiedReportSorts,
+                                             RouteProcessProjection routeProcesses) {
         String mainBatchRecordReportId = null;
         for (JSONObject report : resolveProjectedBatchRecordReports(config)) {
             String batchRecordReportId = resolveProjectedBatchRecordReportId(report);
@@ -577,6 +657,9 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                 mainBatchRecordReportId = batchRecordReportId;
             }
             String recordCategory = resolveProjectedRecordCategory(report, formSlotType);
+            String validationProfile = resolveProjectedValidationProfile(report, recordCategory);
+            PublishedBatchRecordPermission permission = resolvePublishedBatchRecordPermission(
+                    routeId, routeProcess, config, report, batchRecordReportId, routeProcesses);
             routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
                     .routeFlowProcessConfigId(processConfig.getId())
                     .routeId(routeId)
@@ -590,19 +673,61 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     .sharedFormKey(StrUtil.blankToDefault(StrUtil.trim(report.getString("sharedFormKey")), null))
                     .fillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(report.getString("fillableScopeJson")), null))
                     .recordCategory(recordCategory)
-                    .validationProfile(resolveProjectedValidationProfile(report, recordCategory))
-                    .permissionScopeId(report.getLong("permissionScopeId"))
-                    .recordCategorySnapshotHash(report.getString("recordCategorySnapshotHash"))
+                    .validationProfile(validationProfile)
+                    .permissionScopeId(permission.permissionScopeId())
+                    .recordCategorySnapshotHash(permission.recordCategorySnapshotHash())
                     .requiredPolicy(resolveProjectedRequiredPolicy(report))
                     .requiredConditionJson(report.getString("requiredConditionJson"))
                     .ownerRoleKey(resolveProjectedOwnerRoleKey(report, formSlotType))
                     .archiveVisibility(resolveProjectedArchiveVisibility(report))
-                    .slotConfigSnapshotHash(report.getString("slotConfigSnapshotHash"))
+                    .slotConfigSnapshotHash(permission.slotConfigSnapshotHash())
                     .reportSort(reportSort)
                     .remark(report.getString("remark"))
                     .build());
         }
         return mainBatchRecordReportId;
+    }
+
+    private PublishedBatchRecordPermission resolvePublishedBatchRecordPermission(
+            Long routeId,
+            MesProRouteProcessDO routeProcess,
+            JSONObject config,
+            JSONObject report,
+            String batchRecordReportId,
+            RouteProcessProjection routeProcesses) {
+        Long routeProcessReferenceId = config.getLong("routeProcessId");
+        if (!routeProcesses.isClientReference(routeProcessReferenceId)) {
+            return new PublishedBatchRecordPermission(
+                    report.getLong("permissionScopeId"),
+                    report.getString("recordCategorySnapshotHash"),
+                    report.getString("slotConfigSnapshotHash"));
+        }
+        Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
+        MesProEdhrPermissionScopeDetailResult scope = permissionScopeService.saveRules(
+                new MesProEdhrPermissionScopeSaveCommand()
+                        .setScopeName("route-process-batch-record-" + routeProcess.getId() + "-"
+                                + StrUtil.trim(batchRecordReportId))
+                        .setObjectType(OBJECT_TYPE_ROUTE_PROCESS_BATCH_RECORD)
+                        .setObjectId(routeProcess.getId() + "|" + StrUtil.trim(batchRecordReportId))
+                        .setActorUserId(actorUserId)
+                        .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                        .setRules(BATCH_RECORD_BINDING_ABILITIES.stream()
+                                .map(ability -> new MesProEdhrPermissionRuleCommand()
+                                        .setSubjectType(PERMISSION_SUBJECT_TYPE_USER)
+                                        .setSubjectId(actorUserId)
+                                        .setAbility(ability)
+                                        .setDecision(PERMISSION_DECISION_ALLOW)
+                                        .setPriority(BATCH_RECORD_BINDING_PERMISSION_PRIORITY)
+                                        .setStatus(PERMISSION_STATUS_ENABLED))
+                                .toList()));
+        if (scope == null || scope.getScopeId() == null) {
+            throw new IllegalStateException("formal batch record permission scope is required: routeProcessId="
+                    + routeProcess.getId() + ", batchRecordReportId=" + batchRecordReportId);
+        }
+        String snapshotHash = sha256Hex(routeId + "|" + routeProcess.getId() + "|"
+                + batchRecordReportId + "|" + RECORD_CATEGORY_BATCH + "|"
+                + VALIDATION_PROFILE_BATCH + "|1");
+        return new PublishedBatchRecordPermission(scope.getScopeId(), snapshotHash, snapshotHash);
     }
 
     private List<JSONObject> resolveProjectedBatchRecordReports(JSONObject config) {
@@ -1100,6 +1225,17 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private record RouteProcessProjection(Map<Integer, MesProRouteProcessDO> bySort,
                                           Map<Long, MesProRouteProcessDO> byRouteProcessReferenceId,
                                           Map<Long, MesProRouteProcessDO> byFrozenOfficialRouteProcessId) {
+
+        private boolean isClientReference(Long routeProcessReferenceId) {
+            return routeProcessReferenceId != null
+                    && byRouteProcessReferenceId.containsKey(routeProcessReferenceId)
+                    && !byFrozenOfficialRouteProcessId.containsKey(routeProcessReferenceId);
+        }
+    }
+
+    private record PublishedBatchRecordPermission(Long permissionScopeId,
+                                                  String recordCategorySnapshotHash,
+                                                  String slotConfigSnapshotHash) {
     }
 
     private record IndexedFlowEdge(JSONObject edge, int sort, int index) {

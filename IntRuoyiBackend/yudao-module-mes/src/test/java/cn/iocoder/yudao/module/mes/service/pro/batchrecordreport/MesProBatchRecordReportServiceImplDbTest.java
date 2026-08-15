@@ -145,6 +145,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     @Resource
     private MesProBatchRecordReportService reportService;
     @Resource
+    private MesProBatchRecordRouteGenerationService routeGenerationService;
+    @Resource
     private MesProDccProjectGovernanceService dccProjectGovernanceService;
     @Resource
     private MesProBatchRecordReportMapper reportMapper;
@@ -1121,6 +1123,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
             routeMapper.updateById(new MesProRouteDO().setId(routeId).setStatus(status));
             return null;
         }).when(routeService).updateRouteStatus(eq(route.getId()), eq(CommonStatusEnum.ENABLE.getStatus()));
+        when(routeService.buildCurrentRouteSnapshotJson(route.getId(), activeVersion.getId()))
+                .thenReturn(buildCandidateSourceSnapshot(route));
 
         MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
                 new MockMultipartFile("file", "route-disabled-restore.doc", "application/msword",
@@ -1275,6 +1279,448 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void generateBatchRecordBindingCandidate_whenFlowNotSelected_preservesActiveFlowGraph() {
+        String productName = "仅绑定候选压力泵";
+        Long dccProjectCodeId = seedDccProjectCode(productName, "BRP-BINDING-ONLY");
+        MesProRouteDO route = MesProRouteDO.builder()
+                .code("ROUTE-BINDING-ONLY")
+                .name(productName)
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        routeMapper.insert(route);
+        String activeSnapshotJson = """
+                {
+                  "routeId": %d,
+                  "routeCode": "ROUTE-BINDING-ONLY",
+                  "routeName": "仅绑定候选压力泵",
+                  "status": 0,
+                  "configSnapshots": {
+                    "flowGraph": {
+                      "graphVersion": 7,
+                      "nodes": [
+                        {"routeProcessId": 910001, "processId": 911001, "sort": 1, "processName": "粗洗工序"},
+                        {"routeProcessId": 910002, "processId": 911002, "sort": 2, "processName": "精洗工序"}
+                      ],
+                      "edges": [
+                        {"sourceRouteProcessId": 910001, "targetRouteProcessId": 910002, "relationType": "NORMAL", "sort": 1}
+                      ],
+                      "boundaryEdges": [
+                        {"boundaryType": "START", "routeProcessId": 910001, "sort": 1},
+                        {"boundaryType": "END", "routeProcessId": 910002, "sort": 1}
+                      ]
+                    },
+                    "batchUseConfigs": [
+                      {"routeProcessId": 910001, "processId": 911001, "sort": 1, "processName": "粗洗工序", "batchRecordReports": [], "formBindings": []},
+                      {"routeProcessId": 910002, "processId": 911002, "sort": 2, "processName": "精洗工序", "batchRecordReports": [], "formBindings": []}
+                    ]
+                  }
+                }
+                """.formatted(route.getId());
+        MesProRouteVersionDO activeVersion = MesProRouteVersionDO.builder()
+                .routeId(route.getId())
+                .versionNo("V1")
+                .active(true)
+                .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson(activeSnapshotJson)
+                .build();
+        routeVersionMapper.insert(activeVersion);
+        bindRouteToDccProject(route.getId(), dccProjectCodeId);
+        when(routeService.buildCurrentRouteSnapshotJson(route.getId(), activeVersion.getId()))
+                .thenReturn(activeSnapshotJson);
+
+        Long batchRecordDefinitionId = 912001L;
+        Long batchRecordVersionId = 913001L;
+        List<MesProBatchRecordParsedTable> parsedTables = List.of(
+                TestBatchRecordFixtures.parsedTable(1, "产品信息"),
+                TestBatchRecordFixtures.parsedTable(2, "粗洗工序"),
+                TestBatchRecordFixtures.parsedTable(3, "精洗工序"));
+        List<MesProBatchRecordReportView> reports = List.of(
+                MesProBatchRecordReportView.builder()
+                        .batchRecordName(productName)
+                        .batchRecordDefinitionId(batchRecordDefinitionId)
+                        .batchRecordVersionId(batchRecordVersionId)
+                        .formSlotType(MesProBatchRecordFormSlotType.MAIN.getType())
+                        .sourceTableIndex(2)
+                        .tableTitle("粗洗工序")
+                        .reportId("binding-only-report-rough")
+                        .reportCode("EBR_BINDING_ONLY_T02")
+                        .reportName("粗洗工序")
+                        .build(),
+                MesProBatchRecordReportView.builder()
+                        .batchRecordName(productName)
+                        .batchRecordDefinitionId(batchRecordDefinitionId)
+                        .batchRecordVersionId(batchRecordVersionId)
+                        .formSlotType(MesProBatchRecordFormSlotType.MAIN.getType())
+                        .sourceTableIndex(3)
+                        .tableTitle("精洗工序")
+                        .reportId("binding-only-report-fine")
+                        .reportCode("EBR_BINDING_ONLY_T03")
+                        .reportName("精洗工序")
+                        .build());
+
+        MesProBatchRecordRouteGenerationResult result = routeGenerationService
+                .generateBatchRecordBindingCandidateForUploadedWord(
+                        productName, parsedTables, reports, batchRecordDefinitionId, batchRecordVersionId,
+                        route.getId(), activeVersion.getId(), true, null, dccProjectCodeId);
+
+        MesProRouteVersionDO candidate = routeVersionMapper.selectById(result.routeVersionId());
+        assertNotNull(candidate);
+        assertEquals("DRAFT", candidate.getLifecycleStatus());
+        assertFalse(candidate.getActive());
+        assertEquals(activeVersion.getId(), candidate.getSourceRouteVersionId());
+        JSONObject activeFlowGraph = JSONObject.parseObject(activeSnapshotJson)
+                .getJSONObject("configSnapshots").getJSONObject("flowGraph");
+        JSONObject candidateConfigSnapshots = JSONObject.parseObject(candidate.getRouteSnapshotJson())
+                .getJSONObject("configSnapshots");
+        assertEquals(activeFlowGraph, candidateConfigSnapshots.getJSONObject("flowGraph"));
+        assertEquals("binding-only-report-rough", candidateConfigSnapshots.getJSONArray("batchUseConfigs")
+                .getJSONObject(0).getJSONArray("batchRecordReports").getJSONObject(0)
+                .getString("batchRecordReportId"));
+        assertEquals("binding-only-report-fine", candidateConfigSnapshots.getJSONArray("batchUseConfigs")
+                .getJSONObject(1).getJSONArray("batchRecordReports").getJSONObject(0)
+                .getString("batchRecordReportId"));
+        assertTrue(candidateConfigSnapshots.getJSONArray("routeStartProductionLeaders").isEmpty());
+        assertTrue(candidateConfigSnapshots.getJSONArray("batchRecordAttachmentOwners").isEmpty());
+        verify(routeService).buildCurrentRouteSnapshotJson(route.getId(), activeVersion.getId());
+    }
+
+    @Test
+    void generateForUploadedWord_whenRebuildingExistingRoute_preservesMappedProcessConfigurations() {
+        String productName = "升版配置保留压力泵";
+        Long dccProjectCodeId = seedDccProjectCode(productName, "BRP-PRESERVE-CONFIG");
+        Long itemId = seedProductItem(productName, "BRP-PRESERVE-CONFIG");
+        MesProRouteDO route = MesProRouteDO.builder()
+                .code("ROUTE-PRESERVE-CONFIG")
+                .name(productName)
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        routeMapper.insert(route);
+        MesProProcessDO mixingProcess = MesProProcessDO.builder()
+                .code("PRESERVE-MIXING")
+                .name("混合工序")
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        processMapper.insert(mixingProcess);
+        MesProProcessDO packingProcess = MesProProcessDO.builder()
+                .code("PRESERVE-PACKING")
+                .name("包装工序")
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        processMapper.insert(packingProcess);
+        MesProRouteProcessDO firstMixingRouteProcess = MesProRouteProcessDO.builder()
+                .routeId(route.getId())
+                .processId(mixingProcess.getId())
+                .sort(1)
+                .keyFlag(true)
+                .checkFlag(false)
+                .build();
+        routeProcessMapper.insert(firstMixingRouteProcess);
+        MesProRouteProcessDO secondMixingRouteProcess = MesProRouteProcessDO.builder()
+                .routeId(route.getId())
+                .processId(mixingProcess.getId())
+                .sort(2)
+                .keyFlag(false)
+                .checkFlag(true)
+                .build();
+        routeProcessMapper.insert(secondMixingRouteProcess);
+        MesProRouteProcessDO packingRouteProcess = MesProRouteProcessDO.builder()
+                .routeId(route.getId())
+                .processId(packingProcess.getId())
+                .sort(3)
+                .keyFlag(false)
+                .checkFlag(false)
+                .build();
+        routeProcessMapper.insert(packingRouteProcess);
+        String activeSnapshotJson = """
+                {
+                  "routeId": %d,
+                  "routeCode": "ROUTE-PRESERVE-CONFIG",
+                  "routeName": "升版配置保留压力泵",
+                  "status": 0,
+                  "configSnapshots": {
+                    "flowGraph": {
+                      "graphVersion": 5,
+                      "nodes": [
+                        {"routeProcessId": %d, "processId": %d, "sort": 1, "processName": "混合工序", "keyFlag": true, "checkFlag": false},
+                        {"routeProcessId": %d, "processId": %d, "sort": 2, "processName": "混合工序", "keyFlag": false, "checkFlag": true},
+                        {"routeProcessId": %d, "processId": %d, "sort": 3, "processName": "包装工序", "keyFlag": false, "checkFlag": false}
+                      ],
+                      "edges": [],
+                      "boundaryEdges": [
+                        {"boundaryType": "START", "routeProcessId": %d, "sort": 1},
+                        {"boundaryType": "END", "routeProcessId": %d, "sort": 1}
+                      ]
+                    },
+                    "batchUseConfigs": [
+                      {
+                        "routeProcessId": %d, "processId": %d, "sort": 1, "processName": "混合工序",
+                        "batchRecordBindingSnapshotExplicit": true,
+                        "batchRecordReports": [{"batchRecordReportId": "old-mixing-1", "reportId": "old-mixing-1", "formSlotType": "MAIN", "permissionScopeId": 701001, "recordCategorySnapshotHash": "frozen-record-mixing-1", "slotConfigSnapshotHash": "frozen-slot-mixing-1", "reportSort": 1}],
+                        "formBindings": [{"routeProcessId": 1, "formTemplateId": 8101, "formBindingKey": "mixing-slot-1", "reportSort": 2}]
+                      },
+                      {
+                        "routeProcessId": %d, "processId": %d, "sort": 2, "processName": "混合工序",
+                        "batchRecordBindingSnapshotExplicit": true,
+                        "batchRecordReports": [{"batchRecordReportId": "old-mixing-2", "reportId": "old-mixing-2", "formSlotType": "MAIN", "permissionScopeId": 701002, "recordCategorySnapshotHash": "frozen-record-mixing-2", "slotConfigSnapshotHash": "frozen-slot-mixing-2", "reportSort": 1}],
+                        "formBindings": [{"routeProcessId": 2, "formTemplateId": 8102, "formBindingKey": "mixing-slot-2", "reportSort": 2}]
+                      },
+                      {
+                        "routeProcessId": %d, "processId": %d, "sort": 3, "processName": "包装工序",
+                        "batchRecordBindingSnapshotExplicit": true,
+                        "batchRecordReports": [],
+                        "formBindings": [{"routeProcessId": 3, "formTemplateId": 8201, "formBindingKey": "packing-slot", "reportSort": 2}]
+                      }
+                    ],
+                    "routeStartProductionLeaders": [{"productionLineId": 71, "candidateSourceType": "USERS", "candidateSourceIds": [701], "sort": 1}],
+                    "batchRecordAttachmentOwners": [{"attachmentCode": "BATCH_RECORD_PDF", "candidateSourceType": "USERS", "candidateSourceIds": [702, 703], "sort": 1}]
+                  }
+                }
+                """.formatted(
+                route.getId(),
+                firstMixingRouteProcess.getId(), mixingProcess.getId(),
+                secondMixingRouteProcess.getId(), mixingProcess.getId(),
+                packingRouteProcess.getId(), packingProcess.getId(),
+                firstMixingRouteProcess.getId(), packingRouteProcess.getId(),
+                firstMixingRouteProcess.getId(), mixingProcess.getId(),
+                secondMixingRouteProcess.getId(), mixingProcess.getId(),
+                packingRouteProcess.getId(), packingProcess.getId());
+        MesProRouteVersionDO activeVersion = MesProRouteVersionDO.builder()
+                .routeId(route.getId())
+                .versionNo("V1")
+                .active(true)
+                .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson(activeSnapshotJson)
+                .build();
+        routeVersionMapper.insert(activeVersion);
+        routeProductMapper.insert(MesProRouteProductDO.builder()
+                .routeId(route.getId())
+                .itemId(itemId)
+                .quantity(1)
+                .build());
+        bindRouteToDccProject(route.getId(), dccProjectCodeId);
+        when(routeService.buildCurrentRouteSnapshotJson(route.getId(), activeVersion.getId()))
+                .thenReturn(activeSnapshotJson);
+
+        Long batchRecordDefinitionId = 930001L;
+        Long batchRecordVersionId = 930002L;
+        List<MesProBatchRecordParsedTable> parsedTables = List.of(
+                TestBatchRecordFixtures.parsedTable(1, "产品信息"),
+                TestBatchRecordFixtures.parsedTable(2, "混合工序"),
+                TestBatchRecordFixtures.parsedTable(3, "包装工序"),
+                TestBatchRecordFixtures.parsedTable(4, "混合工序"));
+        List<MesProBatchRecordReportView> importedReports = List.of(
+                MesProBatchRecordReportView.builder()
+                        .batchRecordName(productName)
+                        .batchRecordDefinitionId(batchRecordDefinitionId)
+                        .batchRecordVersionId(batchRecordVersionId)
+                        .formSlotType(MesProBatchRecordFormSlotType.MAIN.getType())
+                        .sourceTableIndex(2)
+                        .tableTitle("混合工序")
+                        .reportId("word-new-mixing-1")
+                        .reportCode("WORD_NEW_MIX_1")
+                        .reportName("Word 新混合表 1")
+                        .build(),
+                MesProBatchRecordReportView.builder()
+                        .batchRecordName(productName)
+                        .batchRecordDefinitionId(batchRecordDefinitionId)
+                        .batchRecordVersionId(batchRecordVersionId)
+                        .formSlotType(MesProBatchRecordFormSlotType.MAIN.getType())
+                        .sourceTableIndex(3)
+                        .tableTitle("包装工序")
+                        .reportId("word-new-packing")
+                        .reportCode("WORD_NEW_PACK")
+                        .reportName("Word 新包装表")
+                        .build(),
+                MesProBatchRecordReportView.builder()
+                        .batchRecordName(productName)
+                        .batchRecordDefinitionId(batchRecordDefinitionId)
+                        .batchRecordVersionId(batchRecordVersionId)
+                        .formSlotType(MesProBatchRecordFormSlotType.MAIN.getType())
+                        .sourceTableIndex(4)
+                        .tableTitle("混合工序")
+                        .reportId("word-new-mixing-2")
+                        .reportCode("WORD_NEW_MIX_2")
+                        .reportName("Word 新混合表 2")
+                        .build());
+
+        MesProBatchRecordRouteGenerationResult result = routeGenerationService.generateForUploadedWord(
+                productName, parsedTables, importedReports, List.of(productName),
+                batchRecordDefinitionId, batchRecordVersionId,
+                route.getId(), activeVersion.getId(), true, null, true, dccProjectCodeId);
+
+        MesProRouteVersionDO candidate = routeVersionMapper.selectById(result.routeVersionId());
+        assertNotNull(candidate);
+        assertFalse(candidate.getActive());
+        assertEquals("DRAFT", candidate.getLifecycleStatus());
+        assertEquals(activeVersion.getId(), candidate.getSourceRouteVersionId());
+        JSONObject candidateSnapshot = JSONObject.parseObject(candidate.getRouteSnapshotJson());
+        JSONObject configSnapshots = candidateSnapshot.getJSONObject("configSnapshots");
+        com.alibaba.fastjson.JSONArray nodes = configSnapshots.getJSONObject("flowGraph").getJSONArray("nodes");
+        assertEquals(List.of("混合工序", "包装工序", "混合工序"), IntStream.range(0, nodes.size())
+                .mapToObj(index -> nodes.getJSONObject(index).getString("processName"))
+                .toList());
+        assertEquals(List.of(firstMixingRouteProcess.getId(), packingRouteProcess.getId(),
+                        secondMixingRouteProcess.getId()), IntStream.range(0, nodes.size())
+                .mapToObj(index -> nodes.getJSONObject(index).getLong("routeProcessId"))
+                .toList());
+        assertEquals(List.of(mixingProcess.getId(), packingProcess.getId(), mixingProcess.getId()),
+                IntStream.range(0, nodes.size())
+                        .mapToObj(index -> nodes.getJSONObject(index).getLong("processId"))
+                        .toList());
+
+        com.alibaba.fastjson.JSONArray batchUseConfigs = configSnapshots.getJSONArray("batchUseConfigs");
+        assertEquals(3, batchUseConfigs.size());
+        assertEquals("old-mixing-1", batchUseConfigs.getJSONObject(0)
+                .getJSONArray("batchRecordReports").getJSONObject(0).getString("batchRecordReportId"));
+        assertTrue(batchUseConfigs.getJSONObject(1).getJSONArray("batchRecordReports").isEmpty());
+        assertEquals("old-mixing-2", batchUseConfigs.getJSONObject(2)
+                .getJSONArray("batchRecordReports").getJSONObject(0).getString("batchRecordReportId"));
+        assertEquals(List.of(8101L, 8201L, 8102L), IntStream.range(0, batchUseConfigs.size())
+                .mapToObj(index -> batchUseConfigs.getJSONObject(index)
+                        .getJSONArray("formBindings").getJSONObject(0).getLong("formTemplateId"))
+                .toList());
+        assertEquals(List.of(firstMixingRouteProcess.getId(), packingRouteProcess.getId(),
+                        secondMixingRouteProcess.getId()), IntStream.range(0, batchUseConfigs.size())
+                .mapToObj(index -> batchUseConfigs.getJSONObject(index).getLong("routeProcessId"))
+                .toList());
+        for (int index = 0; index < batchUseConfigs.size(); index++) {
+            JSONObject batchUseConfig = batchUseConfigs.getJSONObject(index);
+            Long routeProcessId = batchUseConfig.getLong("routeProcessId");
+            JSONObject formBinding = batchUseConfig.getJSONArray("formBindings").getJSONObject(0);
+            assertEquals(routeProcessId, formBinding.getLong("routeProcessId"));
+            if (!batchUseConfig.getJSONArray("batchRecordReports").isEmpty()) {
+                JSONObject formalReport = batchUseConfig.getJSONArray("batchRecordReports").getJSONObject(0);
+                assertEquals(routeProcessId, formalReport.getLong("routeProcessId"));
+            }
+        }
+        JSONObject firstPreservedReport = batchUseConfigs.getJSONObject(0)
+                .getJSONArray("batchRecordReports").getJSONObject(0);
+        assertEquals(701001L, firstPreservedReport.getLong("permissionScopeId"));
+        assertEquals("frozen-record-mixing-1", firstPreservedReport.getString("recordCategorySnapshotHash"));
+        assertEquals("frozen-slot-mixing-1", firstPreservedReport.getString("slotConfigSnapshotHash"));
+        JSONObject secondPreservedReport = batchUseConfigs.getJSONObject(2)
+                .getJSONArray("batchRecordReports").getJSONObject(0);
+        assertEquals(701002L, secondPreservedReport.getLong("permissionScopeId"));
+        assertEquals("frozen-record-mixing-2", secondPreservedReport.getString("recordCategorySnapshotHash"));
+        assertEquals("frozen-slot-mixing-2", secondPreservedReport.getString("slotConfigSnapshotHash"));
+        assertFalse(candidate.getRouteSnapshotJson().contains("word-new-"));
+        assertFalse(candidate.getRouteSnapshotJson().contains("\"$ref\""));
+        assertEquals(JSONObject.parseObject(activeSnapshotJson).getJSONObject("configSnapshots")
+                        .getJSONArray("routeStartProductionLeaders"),
+                configSnapshots.getJSONArray("routeStartProductionLeaders"));
+        assertEquals(JSONObject.parseObject(activeSnapshotJson).getJSONObject("configSnapshots")
+                        .getJSONArray("batchRecordAttachmentOwners"),
+                configSnapshots.getJSONArray("batchRecordAttachmentOwners"));
+        com.alibaba.fastjson.JSONArray boundaryEdges = configSnapshots.getJSONObject("flowGraph")
+                .getJSONArray("boundaryEdges");
+        assertEquals(List.of("START", "END"), IntStream.range(0, boundaryEdges.size())
+                .mapToObj(index -> boundaryEdges.getJSONObject(index).getString("boundaryType"))
+                .toList());
+        assertFalse(configSnapshots.containsKey("routeEndBindings"));
+        assertFalse(configSnapshots.containsKey("processEndBindings"));
+        assertEquals(activeSnapshotJson, routeVersionMapper.selectById(activeVersion.getId()).getRouteSnapshotJson());
+        assertEquals(List.of(1, 2, 3), routeProcessMapper.selectListByRouteId(route.getId()).stream()
+                .map(MesProRouteProcessDO::getSort)
+                .toList());
+        verify(routeService).buildCurrentRouteSnapshotJson(route.getId(), activeVersion.getId());
+    }
+
+    @Test
+    void generateRouteOnlyForUploadedWord_whenConfiguredOccurrenceIsMissing_failsFast() {
+        String productName = "升版缺失配置压力泵";
+        Long dccProjectCodeId = seedDccProjectCode(productName, "BRP-MISSING-CONFIG");
+        Long itemId = seedProductItem(productName, "BRP-MISSING-CONFIG");
+        MesProRouteDO route = MesProRouteDO.builder()
+                .code("ROUTE-MISSING-CONFIG")
+                .name(productName)
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        routeMapper.insert(route);
+        MesProProcessDO retainedProcess = MesProProcessDO.builder()
+                .code("MISSING-CONFIG-RETAINED")
+                .name("保留工序")
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        processMapper.insert(retainedProcess);
+        MesProProcessDO missingProcess = MesProProcessDO.builder()
+                .code("MISSING-CONFIG-REMOVED")
+                .name("缺失工序")
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        processMapper.insert(missingProcess);
+        MesProRouteProcessDO retainedRouteProcess = MesProRouteProcessDO.builder()
+                .routeId(route.getId())
+                .processId(retainedProcess.getId())
+                .sort(1)
+                .keyFlag(false)
+                .checkFlag(false)
+                .build();
+        routeProcessMapper.insert(retainedRouteProcess);
+        MesProRouteProcessDO missingRouteProcess = MesProRouteProcessDO.builder()
+                .routeId(route.getId())
+                .processId(missingProcess.getId())
+                .sort(2)
+                .keyFlag(false)
+                .checkFlag(false)
+                .build();
+        routeProcessMapper.insert(missingRouteProcess);
+        String activeSnapshotJson = """
+                {
+                  "routeId": %d,
+                  "configSnapshots": {
+                    "flowGraph": {
+                      "graphVersion": 3,
+                      "nodes": [
+                        {"routeProcessId": %d, "processId": %d, "sort": 1, "processName": "保留工序"},
+                        {"routeProcessId": %d, "processId": %d, "sort": 2, "processName": "缺失工序"}
+                      ],
+                      "edges": [],
+                      "boundaryEdges": []
+                    },
+                    "batchUseConfigs": [
+                      {"routeProcessId": %d, "processId": %d, "sort": 1, "processName": "保留工序", "batchRecordReports": [], "formBindings": []},
+                      {"routeProcessId": %d, "processId": %d, "sort": 2, "processName": "缺失工序", "batchRecordReports": [{"batchRecordReportId": "must-not-be-lost", "reportSort": 1}], "formBindings": []}
+                    ]
+                  }
+                }
+                """.formatted(route.getId(),
+                retainedRouteProcess.getId(), retainedProcess.getId(),
+                missingRouteProcess.getId(), missingProcess.getId(),
+                retainedRouteProcess.getId(), retainedProcess.getId(),
+                missingRouteProcess.getId(), missingProcess.getId());
+        MesProRouteVersionDO activeVersion = MesProRouteVersionDO.builder()
+                .routeId(route.getId())
+                .versionNo("V1")
+                .active(true)
+                .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson(activeSnapshotJson)
+                .build();
+        routeVersionMapper.insert(activeVersion);
+        routeProductMapper.insert(MesProRouteProductDO.builder()
+                .routeId(route.getId())
+                .itemId(itemId)
+                .quantity(1)
+                .build());
+        bindRouteToDccProject(route.getId(), dccProjectCodeId);
+        when(routeService.buildCurrentRouteSnapshotJson(route.getId(), activeVersion.getId()))
+                .thenReturn(activeSnapshotJson);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> routeGenerationService.generateRouteOnlyForUploadedWord(
+                        productName,
+                        List.of(TestBatchRecordFixtures.parsedTable(1, "产品信息"),
+                                TestBatchRecordFixtures.parsedTable(2, "保留工序")),
+                        List.of(productName), route.getId(), activeVersion.getId(), true,
+                        null, dccProjectCodeId));
+
+        assertTrue(exception.getMessage().contains("processId=" + missingProcess.getId()));
+        assertTrue(exception.getMessage().contains("routeProcessId=" + missingRouteProcess.getId()));
+        assertTrue(exception.getMessage().contains("occurrence=1"));
+        assertEquals(activeSnapshotJson, routeVersionMapper.selectById(activeVersion.getId()).getRouteSnapshotJson());
+        assertNull(routeVersionMapper.selectOpenCandidateByRouteId(route.getId()));
+    }
+
+    @Test
     void recognizeUploadedRoute_whenRouteDraftCandidateExists_updatesDraftWithoutCreatingV3() {
         List<MesProBatchRecordParsedTable> parsedTables = List.of(
                 TestBatchRecordFixtures.parsedTable(1, "产品信息"),
@@ -1322,6 +1768,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         assertEquals("V2", preflight.currentRouteCandidateVersionNo());
         assertEquals("DRAFT", preflight.currentRouteCandidateVersionStatus());
         assertFalse(preflight.allowedActions().isEmpty());
+        when(routeService.buildCurrentRouteSnapshotJson(route.getId(), activeVersion.getId()))
+                .thenReturn(buildCandidateSourceSnapshot(route));
 
         MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
                 new MockMultipartFile("file", "route-draft-reuse.doc", "application/msword",
@@ -1357,6 +1805,10 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
             assertTrue(flowGraphNode.getLong("routeProcessId") != null
                     || flowGraphNode.getLong("clientRouteProcessId") != null);
         }
+        assertTrue(updatedSnapshot.getJSONObject("configSnapshots")
+                .getJSONArray("routeStartProductionLeaders").isEmpty());
+        assertTrue(updatedSnapshot.getJSONObject("configSnapshots")
+                .getJSONArray("batchRecordAttachmentOwners").isEmpty());
     }
 
     @Test
@@ -2132,6 +2584,84 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 SELECT COUNT(*) FROM mes_pro_route_dcc_project_binding
                 WHERE route_id = ? AND dcc_project_code_id = ? AND deleted = FALSE
                 """, result.routeId(), dccProjectCodeId));
+        assertEquals(1, rawCount("""
+                SELECT COUNT(*) FROM mes_pro_route_version
+                WHERE id = ? AND route_id = ? AND version_no = 'V1'
+                  AND active = TRUE AND lifecycle_status = 'ACTIVE'
+                """, result.routeVersionId(), result.routeId()));
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_process WHERE route_id = ?",
+                result.routeId()));
+        assertEquals(0, rawCount("SELECT COUNT(*) FROM mes_pro_route_process_flow_edge WHERE route_id = ?",
+                result.routeId()));
+        assertEquals(1, rawCount("""
+                SELECT COUNT(*) FROM mes_pro_route_process_flow_boundary_edge
+                WHERE route_id = ? AND boundary_type = 'START'
+                """, result.routeId()));
+        assertEquals(1, rawCount("""
+                SELECT COUNT(*) FROM mes_pro_route_process_flow_boundary_edge
+                WHERE route_id = ? AND boundary_type = 'END'
+                """, result.routeId()));
+        JSONObject routeSnapshot = JSONObject.parseObject(
+                routeVersionMapper.selectById(result.routeVersionId()).getRouteSnapshotJson());
+        JSONObject flowGraph = routeSnapshot.getJSONObject("configSnapshots").getJSONObject("flowGraph");
+        assertEquals(1, flowGraph.getJSONArray("nodes").size());
+        assertEquals(0, flowGraph.getJSONArray("edges").size());
+        assertEquals(2, flowGraph.getJSONArray("boundaryEdges").size());
+    }
+
+    @Test
+    void recognizeUploadedRoute_whenDccProjectCodeIdMissing_failsBeforeParsingWord() {
+        ServiceException exception = assertThrows(ServiceException.class, () -> reportService.recognizeUploadedRoute(
+                new MockMultipartFile("file", "missing-dcc.doc", "application/msword",
+                        "missing-dcc".getBytes(StandardCharsets.UTF_8)),
+                MesProBatchRecordRecognitionRouteKeys.B, "缺少DCC项目", "REBUILD_V1",
+                null, null, List.of("缺少DCC项目"), false,
+                List.of(), List.of("缺少DCC项目"), false,
+                null, null, null, null, null));
+
+        assertEquals(MesProBatchRecordReportErrorCodeConstants
+                .PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_REQUIRED.getCode(), exception.getCode());
+        verify(routeRecognizer, never()).recognize(any(), any(), any());
+    }
+
+    @Test
+    void recognizeUploadedRoute_whenExistingRouteFrozenIdsMissing_failsBeforeParsingWord() {
+        RouteUpgradeTarget target = seedRouteUpgradeTarget("缺少冻结路线ID压力泵", "BRP-MISSING-FROZEN-IDS");
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> reportService.recognizeUploadedRoute(
+                new MockMultipartFile("file", "missing-frozen-route.doc", "application/msword",
+                        "missing-frozen-route".getBytes(StandardCharsets.UTF_8)),
+                MesProBatchRecordRecognitionRouteKeys.B, target.productName(), "REBUILD_V1",
+                null, null, List.of(target.productName()), false,
+                List.of(target.routeProductId()), List.of(target.productName()), true,
+                null, null, null, target.dccProjectCodeId(), null));
+
+        assertEquals(MesProBatchRecordReportErrorCodeConstants
+                .PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_TARGET_CHANGED.getCode(), exception.getCode());
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_version WHERE route_id = ?",
+                target.routeId()));
+        verify(routeRecognizer, never()).recognize(any(), any(), any());
+    }
+
+    @Test
+    void recognizeUploadedRoute_whenCandidateIdChangedAfterPreflight_failsBeforeParsingWord() {
+        RouteUpgradeTarget target = seedRouteUpgradeTarget("候选漂移压力泵", "BRP-CANDIDATE-DRIFT");
+        long staleCandidateVersionId = 99887766L;
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> reportService.recognizeUploadedRoute(
+                new MockMultipartFile("file", "candidate-drift.doc", "application/msword",
+                        "candidate-drift".getBytes(StandardCharsets.UTF_8)),
+                MesProBatchRecordRecognitionRouteKeys.B, target.productName(), "REBUILD_V1",
+                null, null, List.of(target.productName()), false,
+                List.of(target.routeProductId()), List.of(target.productName()), true,
+                target.routeId(), target.activeVersionId(), staleCandidateVersionId,
+                target.dccProjectCodeId(), null));
+
+        assertEquals(MesProBatchRecordReportErrorCodeConstants
+                .PRO_BATCH_RECORD_REPORT_ROUTE_CANDIDATE_TARGET_CHANGED.getCode(), exception.getCode());
+        assertEquals(1, rawCount("SELECT COUNT(*) FROM mes_pro_route_version WHERE route_id = ?",
+                target.routeId()));
+        verify(routeRecognizer, never()).recognize(any(), any(), any());
     }
 
     @Test
@@ -5413,6 +5943,37 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         return dccProjectCodeMapper.selectByProjectNameAndProjectCode(projectName, projectCode).getId();
     }
 
+    private String buildCandidateSourceSnapshot(MesProRouteDO route) {
+        com.alibaba.fastjson.JSONArray nodes = new com.alibaba.fastjson.JSONArray();
+        for (MesProRouteProcessDO routeProcess : routeProcessMapper.selectListByRouteId(route.getId())) {
+            MesProProcessDO process = processMapper.selectById(routeProcess.getProcessId());
+            JSONObject node = new JSONObject(true);
+            node.put("routeProcessId", routeProcess.getId());
+            node.put("processId", routeProcess.getProcessId());
+            node.put("processName", process == null ? null : process.getName());
+            node.put("sort", routeProcess.getSort());
+            node.put("routeProcessWorkstationId", routeProcess.getWorkstationId());
+            node.put("keyFlag", Boolean.TRUE.equals(routeProcess.getKeyFlag()));
+            node.put("checkFlag", Boolean.TRUE.equals(routeProcess.getCheckFlag()));
+            nodes.add(node);
+        }
+        JSONObject flowGraph = new JSONObject(true);
+        flowGraph.put("graphVersion", 1L);
+        flowGraph.put("nodes", nodes);
+        flowGraph.put("edges", new com.alibaba.fastjson.JSONArray());
+        flowGraph.put("boundaryEdges", new com.alibaba.fastjson.JSONArray());
+        JSONObject configSnapshots = new JSONObject(true);
+        configSnapshots.put("flowGraph", flowGraph);
+        configSnapshots.put("batchUseConfigs", new com.alibaba.fastjson.JSONArray());
+        JSONObject snapshot = new JSONObject(true);
+        snapshot.put("routeId", route.getId());
+        snapshot.put("routeCode", route.getCode());
+        snapshot.put("routeName", route.getName());
+        snapshot.put("status", route.getStatus());
+        snapshot.put("configSnapshots", configSnapshots);
+        return snapshot.toJSONString();
+    }
+
     private void bindRouteToDccProject(Long routeId, Long dccProjectCodeId) {
         MesRouteDccProjectBindingDO binding = MesRouteDccProjectBindingDO.builder()
                 .routeId(routeId)
@@ -5421,6 +5982,38 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 .build();
         binding.setTenantId(1L);
         routeDccProjectBindingMapper.insert(binding);
+    }
+
+    private RouteUpgradeTarget seedRouteUpgradeTarget(String productName, String productCode) {
+        Long dccProjectCodeId = seedDccProjectCode(productName, productCode);
+        Long itemId = seedProductItem(productName, productCode);
+        MesProRouteDO route = MesProRouteDO.builder()
+                .code("ROUTE-" + productCode)
+                .name(productName)
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        routeMapper.insert(route);
+        MesProRouteVersionDO activeVersion = MesProRouteVersionDO.builder()
+                .routeId(route.getId())
+                .versionNo("V1")
+                .active(true)
+                .lifecycleStatus(MesProRouteVersionMapper.STATUS_ACTIVE)
+                .routeSnapshotJson("{}")
+                .build();
+        routeVersionMapper.insert(activeVersion);
+        MesProRouteProductDO routeProduct = MesProRouteProductDO.builder()
+                .routeId(route.getId())
+                .itemId(itemId)
+                .quantity(1)
+                .build();
+        routeProductMapper.insert(routeProduct);
+        bindRouteToDccProject(route.getId(), dccProjectCodeId);
+        return new RouteUpgradeTarget(productName, dccProjectCodeId, route.getId(),
+                activeVersion.getId(), routeProduct.getId());
+    }
+
+    private record RouteUpgradeTarget(String productName, Long dccProjectCodeId, Long routeId,
+                                      Long activeVersionId, Long routeProductId) {
     }
 
     private void insertAuxiliarySlotReport(String batchRecordName, MesProBatchRecordFormSlotType slotType,

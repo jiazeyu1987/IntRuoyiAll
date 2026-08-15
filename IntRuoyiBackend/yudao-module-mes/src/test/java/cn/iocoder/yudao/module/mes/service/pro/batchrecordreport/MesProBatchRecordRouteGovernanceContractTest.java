@@ -56,8 +56,13 @@ class MesProBatchRecordRouteGovernanceContractTest {
 
         assertFalse(serviceSource.contains("routeMapper.selectListByName(projectName)"),
                 "路线治理不得按 DCC 项目名称猜测工艺路线。");
-        assertTrue(serviceSource.contains("routeProductMapper.selectListByItemIds(dccProductItemIds)"),
-                "路线治理必须通过正式路线产品绑定定位路线。");
+        assertTrue(serviceSource.contains(
+                        "routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(selectedProjectCode.getId())")
+                        && serviceSource.contains("resolveRoutesByDccProjectBinding")
+                        && serviceSource.contains("resolveRoutesByDccProjectProductBinding"),
+                "路线治理必须优先按路线-DCC正式绑定定位；未建立正式绑定时，只允许按所选DCC项目代码对应的唯一物料路线绑定定位。");
+        assertTrue(serviceSource.contains("routeProductMapper.selectListByItemId(item.getId())"),
+                "DCC物料路线定位必须使用所选DCC项目代码对应的正式物料 ID。");
         assertFalse(generationSource.contains("routeMapper.selectListByName(routeName)"),
                 "Word 导入写入不得按批记录名称选择已有路线。");
         assertTrue(generationSource.contains("routeMapper.selectById(expectedRouteId)"),

@@ -40,11 +40,14 @@ for (const [pageName, relativePath] of [
     `${pageName} 同名工艺路线升版确认必须先写入已确认产线集合，再进入勾选产线逐项确认。`
   )
   assert.ok(
-    /const shouldConfirmRouteUpgrade = Boolean\([\s\S]*selection\.routeUpgradeRequired[\s\S]*selection\.selectedOptions\.length \|\| rebuildBatchRecord[\s\S]*\)/.test(source) &&
+    source.includes('const routeFlowRebuildRequested = selection.selectedOptions.length > 0') &&
+      source.includes('const batchRecordBindingCandidateRequested = Boolean(') &&
+      source.includes('selection.routeUpgradeRequired && rebuildBatchRecord && !routeFlowRebuildRequested') &&
+      /const shouldConfirmRouteUpgrade = Boolean\([\s\S]*selection\.routeUpgradeRequired[\s\S]*routeFlowRebuildRequested \|\| batchRecordBindingCandidateRequested[\s\S]*\)/.test(source) &&
       source.includes('routeUpgradeConfirmed: shouldConfirmRouteUpgrade') &&
       source.includes('expectedRouteId: shouldConfirmRouteUpgrade ? selection.expectedRouteId : undefined') &&
       source.includes('if (shouldConfirmRouteUpgrade) {'),
-    `${pageName} 未勾选工艺路线/产线时不得弹出工艺路线升版确认，也不得提交路线升版确认参数。`
+    `${pageName} 必须区分工艺流程重建候选和仅批记录表单绑定候选；未勾选工艺流程时不得把批记录表单勾选值当作 flowGraph 重建触发条件。`
   )
 }
 
