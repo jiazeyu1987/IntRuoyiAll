@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMes
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileReturnTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSignatureExportSummaryRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSignatureReissueReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTransferTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccSignatureActionRespVO;
 import org.junit.jupiter.api.Assertions;
@@ -128,6 +129,31 @@ class DccControlledFileTaskActionApiTest extends BaseMockitoUnitTest {
 
             assertEquals(900L, result.getData().getControlledFileId());
             verify(signatureManagementService).migratePublishedCopyBindings(900L, 99L, "REQ-MIGRATE-1");
+        }
+    }
+
+    @Test
+    void reissueSignatureEvidence_delegatesWithAuditedRequestIdAndReason() {
+        DccControlledFileSignatureExportSummaryRespVO summary = new DccControlledFileSignatureExportSummaryRespVO();
+        summary.setControlledFileId(900L);
+        when(signatureManagementService.reissuePublishedSignatureEvidence(900L, 99L, "REQ-REISSUE-1",
+                "旧密钥不可恢复，业务批准重新封存")).thenReturn(summary);
+        DccControlledFileSignatureReissueReqVO reqVO = new DccControlledFileSignatureReissueReqVO();
+        reqVO.setReason("旧密钥不可恢复，业务批准重新封存");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(DccControlledFileController.REQUEST_ID_HEADER, "REQ-REISSUE-1");
+        request.addHeader("User-Agent", "dcc-contract-test");
+        request.setRemoteAddr("127.0.0.1");
+
+        try (MockedStatic<SecurityFrameworkUtils> securityFrameworkUtilsMock = mockStatic(SecurityFrameworkUtils.class)) {
+            securityFrameworkUtilsMock.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+
+            CommonResult<DccControlledFileSignatureExportSummaryRespVO> result =
+                    controller.reissueSignatureEvidence(900L, reqVO, request);
+
+            assertEquals(900L, result.getData().getControlledFileId());
+            verify(signatureManagementService).reissuePublishedSignatureEvidence(900L, 99L,
+                    "REQ-REISSUE-1", "旧密钥不可恢复，业务批准重新封存");
         }
     }
 

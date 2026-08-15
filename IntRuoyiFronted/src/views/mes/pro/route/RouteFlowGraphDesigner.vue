@@ -2471,7 +2471,9 @@ const openLegacyBatchRecordTargetLink = async (report: RouteFlowLegacyBatchRecor
     path: '/mes/pro/batch-record-form-list',
     query: {
       reportId,
-      formSlotType: requireLegacyBatchRecordSlotType(report)
+      formSlotType: requireLegacyBatchRecordSlotType(report),
+      routeId: String(props.routeId),
+      routeProcessId: String(selectedRouteProcessId.value)
     }
   })
 }

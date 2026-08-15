@@ -1835,7 +1835,15 @@
       </el-table>
     </Dialog>
 
-    <Dialog v-model="replanStartDateDialogVisible" title="开始重排日期" width="460px">
+    </ScheduleOrderReplanDrawer>
+
+    <Dialog
+      v-model="replanStartDateDialogVisible"
+      title="开始重排日期"
+      width="460px"
+      :z-index="3900"
+      data-testid="schedule-order-replan-start-date-dialog"
+    >
       <div class="schedule-order-pool__replan-start-date">
         <el-alert
           title="开始重排会按所选日期整天重新检查、预览并直接应用，应用成功后正式排程立即更新。"
@@ -1870,7 +1878,6 @@
         </div>
       </div>
     </Dialog>
-    </ScheduleOrderReplanDrawer>
 
     <Dialog v-model="materialShortageDialogVisible" title="物料缺料明细" width="720px">
       <el-table

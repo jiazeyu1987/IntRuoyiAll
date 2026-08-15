@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchAutoScheduleJobStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchNightShiftCapacityStatusRespVO;
 import cn.iocoder.yudao.module.infra.controller.admin.job.vo.job.JobSaveReqVO;
@@ -13,19 +15,24 @@ import cn.iocoder.yudao.module.infra.dal.dataobject.job.JobDO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.job.JobLogDO;
 import cn.iocoder.yudao.module.infra.enums.job.JobLogStatusEnum;
 import cn.iocoder.yudao.module.infra.enums.job.JobStatusEnum;
+import cn.iocoder.yudao.module.mes.dal.dataobject.cal.plan.MesCalPlanDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.cal.plan.MesCalPlanShiftDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdProductionLineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProCapacityPlanDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdProductionLineMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProCapacityPlanMapper;
+import cn.iocoder.yudao.module.mes.enums.cal.MesCalPlanStatusEnum;
+import cn.iocoder.yudao.module.mes.service.cal.plan.MesCalPlanService;
 import cn.iocoder.yudao.module.mes.service.cal.plan.MesCalPlanShiftService;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.CapacityWindowAllocator;
+import cn.iocoder.yudao.module.mes.service.pro.schedule.MesProNightlyReplanResult;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -39,6 +46,7 @@ import static cn.iocoder.yudao.framework.common.enums.CommonStatusEnum.ENABLE;
 public class MesProSchedulerWorkbenchRuntimeStatusService {
 
     static final String NIGHTLY_REPLAN_HANDLER_NAME = "mesProNightlyReplanJob";
+    private static final TypeReference<Map<String, String>> TENANT_JOB_RESULT_TYPE = new TypeReference<>() { };
 
     @Resource
     private JobService jobService;
@@ -46,6 +54,8 @@ public class MesProSchedulerWorkbenchRuntimeStatusService {
     private JobLogService jobLogService;
     @Resource
     private MesMdProductionLineMapper productionLineMapper;
+    @Resource
+    private MesCalPlanService planService;
     @Resource
     private MesCalPlanShiftService planShiftService;
     @Resource
@@ -71,8 +81,11 @@ public class MesProSchedulerWorkbenchRuntimeStatusService {
         if (latestLog != null) {
             response.setLatestBeginTime(latestLog.getBeginTime());
             response.setLatestEndTime(latestLog.getEndTime());
-            response.setLatestStatus(resolveJobLogStatus(latestLog.getStatus()));
             response.setLatestResult(latestLog.getResult());
+            NightlyReplanExecutionAssessment assessment = assessNightlyReplanExecution(
+                    resolveJobLogStatus(latestLog.getStatus()), latestLog.getResult());
+            response.setLatestStatus(assessment.status());
+            response.setLatestResultSummary(assessment.summary());
         }
         return response;
     }
@@ -113,8 +126,15 @@ public class MesProSchedulerWorkbenchRuntimeStatusService {
         List<MesProSchedulerWorkbenchNightShiftCapacityStatusRespVO.NightShift> shiftRows = new ArrayList<>();
         Set<Long> capacityLineIds = new LinkedHashSet<>();
         for (Map.Entry<Long, List<MesMdProductionLineDO>> entry : linesByPlanId.entrySet()) {
+            MesCalPlanDO plan = planService.getPlan(entry.getKey());
+            if (plan == null || !Objects.equals(MesCalPlanStatusEnum.CONFIRMED.getStatus(), plan.getStatus())) {
+                continue;
+            }
             List<MesCalPlanShiftDO> nightShifts = safeList(planShiftService.getPlanShiftListByPlanId(entry.getKey()))
-                    .stream().filter(capacityWindowAllocator::isNightShift).toList();
+                    .stream()
+                    .filter(capacityWindowAllocator::isNightShift)
+                    .filter(this::hasValidShiftDuration)
+                    .toList();
             if (nightShifts.isEmpty()) {
                 continue;
             }
@@ -149,6 +169,14 @@ public class MesProSchedulerWorkbenchRuntimeStatusService {
         return response;
     }
 
+    private boolean hasValidShiftDuration(MesCalPlanShiftDO shift) {
+        try {
+            return capacityWindowAllocator.calculateShiftCapacityMinutes(shift) > 0;
+        } catch (RuntimeException invalidShiftTime) {
+            return false;
+        }
+    }
+
     private JobDO findNightlyReplanJob() {
         JobPageReqVO request = new JobPageReqVO();
         request.setPageNo(1);
@@ -177,6 +205,61 @@ public class MesProSchedulerWorkbenchRuntimeStatusService {
         if (JobLogStatusEnum.SUCCESS.getStatus().equals(status)) return "SUCCESS";
         if (JobLogStatusEnum.FAILURE.getStatus().equals(status)) return "FAILURE";
         throw new IllegalStateException("未知自动排产任务日志状态：" + status);
+    }
+
+    private NightlyReplanExecutionAssessment assessNightlyReplanExecution(String quartzStatus, String rawResult) {
+        if ("RUNNING".equals(quartzStatus)) {
+            return new NightlyReplanExecutionAssessment("RUNNING", "任务正在执行");
+        }
+        if ("FAILURE".equals(quartzStatus)) {
+            return new NightlyReplanExecutionAssessment("FAILURE",
+                    rawResult == null || rawResult.isBlank() ? "任务执行失败，未返回结果详情" : rawResult);
+        }
+        if (rawResult == null || rawResult.isBlank()) {
+            return new NightlyReplanExecutionAssessment("FAILURE", "任务未返回租户执行结果");
+        }
+
+        Map<String, String> tenantResults;
+        try {
+            tenantResults = JsonUtils.parseObject(rawResult, TENANT_JOB_RESULT_TYPE);
+        } catch (RuntimeException invalidResult) {
+            return new NightlyReplanExecutionAssessment("FAILURE",
+                    "任务执行结果格式无效：" + invalidResult.getMessage());
+        }
+        if (tenantResults == null || tenantResults.isEmpty()) {
+            return new NightlyReplanExecutionAssessment("FAILURE", "任务未返回租户执行结果");
+        }
+
+        List<Map.Entry<String, String>> orderedResults = new ArrayList<>(tenantResults.entrySet());
+        try {
+            orderedResults.sort(Comparator.comparingLong(entry -> Long.parseLong(entry.getKey())));
+        } catch (NumberFormatException invalidTenantId) {
+            return new NightlyReplanExecutionAssessment("FAILURE",
+                    "任务执行结果包含无效租户编号：" + invalidTenantId.getMessage());
+        }
+        List<Map.Entry<String, String>> failures = orderedResults.stream()
+                .filter(entry -> !MesProNightlyReplanResult.isSuccessfulJobMessage(entry.getValue()))
+                .toList();
+        int successCount = orderedResults.size() - failures.size();
+        String status = failures.isEmpty() ? "SUCCESS" : successCount == 0 ? "FAILURE" : "PARTIAL_FAILURE";
+        List<Map.Entry<String, String>> details = failures.isEmpty() ? orderedResults : failures;
+        String detailText = details.stream()
+                .map(entry -> "租户 " + entry.getKey() + "：" + normalizeTenantResult(entry.getValue()))
+                .collect(java.util.stream.Collectors.joining("；"));
+        String detailLabel = failures.isEmpty() ? "执行详情" : "失败详情";
+        return new NightlyReplanExecutionAssessment(status,
+                "成功租户 " + successCount + " 个，失败租户 " + failures.size() + " 个；"
+                        + detailLabel + "：" + detailText);
+    }
+
+    private String normalizeTenantResult(String result) {
+        if (result == null || result.isBlank()) {
+            return "未返回结果";
+        }
+        return result.replaceFirst("^[A-Za-z0-9_.$]+Exception:\\s*", "");
+    }
+
+    private record NightlyReplanExecutionAssessment(String status, String summary) {
     }
 
     private static <T> List<T> safeList(List<T> list) {

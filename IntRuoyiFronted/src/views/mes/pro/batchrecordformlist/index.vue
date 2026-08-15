@@ -2363,12 +2363,17 @@ const openTemplateAction = async (row: BatchRecordReportVO, action: 'signature' 
 }
 
 const handleCellLinks = async (row: BatchRecordReportVO) => {
+  const cellLinkRouteId = normalizeRouteQueryText(route.query.routeId)
+  const cellLinkRouteProcessId = normalizeRouteQueryText(route.query.routeProcessId)
   await router.push({
     path: '/mes/pro/batch-record-cell-link',
     query: {
       sourceReportId: row.reportId,
       definitionId: row.batchRecordDefinitionId ? String(row.batchRecordDefinitionId) : undefined,
-      versionId: row.batchRecordVersionId ? String(row.batchRecordVersionId) : undefined
+      versionId: row.batchRecordVersionId ? String(row.batchRecordVersionId) : undefined,
+      routeId: cellLinkRouteId || undefined,
+      routeProcessId: cellLinkRouteProcessId || undefined,
+      targetReportId: cellLinkRouteProcessId ? row.reportId : undefined
     }
   })
 }

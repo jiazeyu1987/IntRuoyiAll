@@ -146,7 +146,13 @@ async function verifyProcessPoolReportSource(page, context) {
   const sourcePanel = page.locator('.batch-record-cell-link__work-order-field-panel').first()
   await sourcePanel.waitFor({ state: 'visible', timeout: config.timeout })
   const panelText = (await sourcePanel.innerText()).replace(/\s+/g, ' ')
-  assert.match(panelText, /源字段\s*报工数据/, 'source panel must identify report data')
+  const targetForm = (context.forms || []).find((form) => form.reportId === context.defaultTargetReportId)
+  assert.ok(targetForm, `default target form missing: ${JSON.stringify(context)}`)
+  assert.match(panelText, /源字段/, 'source panel must identify source fields')
+  assert.ok(
+    panelText.includes(`${targetForm.reportName}的一线生产字段`),
+    `source panel must identify the selected target process: ${panelText}`
+  )
   for (const [, fieldName] of expectedFields) {
     assert.ok(panelText.includes(fieldName), `report data field is not visible: ${fieldName}`)
   }

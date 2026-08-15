@@ -93,6 +93,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleDefaultCompatibilityPolicy;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.identity.RouteProcessIdentity;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -159,6 +160,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORKSTATI
  */
 @Service
 @Validated
+@Slf4j
 public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderService {
 
     private static final DateTimeFormatter CODE_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
@@ -1464,10 +1466,51 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (CollUtil.isEmpty(wipProcesses)) {
             return Collections.emptyList();
         }
+        Set<Long> referencedRouteProcessIds = wipProcesses.stream()
+                .map(MesProScheduleOrderProcessDO::getRouteProcessId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<MesProRouteProcessDO> loadedRouteProcesses = loadRouteProcessesIncludingDeleted(
+                referencedRouteProcessIds);
+        Map<Long, MesProRouteProcessDO> currentRouteProcessMap = CollUtil.isEmpty(loadedRouteProcesses)
+                ? Collections.emptyMap()
+                : loadedRouteProcesses.stream().collect(Collectors.toMap(MesProRouteProcessDO::getId, item -> item,
+                (left, right) -> left, LinkedHashMap::new));
+        Set<Long> currentProcessIds = loadedRouteProcesses.stream()
+                .map(MesProRouteProcessDO::getProcessId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<MesProProcessDO> currentProcesses = loadProcessesIncludingDeleted(currentProcessIds);
+        Map<Long, MesProProcessDO> currentProcessMap = CollUtil.isEmpty(currentProcesses)
+                ? Collections.emptyMap()
+                : currentProcesses.stream().collect(Collectors.toMap(MesProProcessDO::getId, item -> item,
+                (left, right) -> left, LinkedHashMap::new));
+        Set<Long> readableRouteProcessIds = loadedRouteProcesses.stream()
+                .filter(routeProcess -> routeProcess.getId() != null
+                        && routeProcess.getProcessId() != null
+                        && currentProcessMap.containsKey(routeProcess.getProcessId()))
+                .map(MesProRouteProcessDO::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        List<MesProScheduleOrderProcessDO> unreadableWipProcesses = wipProcesses.stream()
+                .filter(process -> !readableRouteProcessIds.contains(process.getRouteProcessId()))
+                .toList();
+        if (CollUtil.isNotEmpty(unreadableWipProcesses)) {
+            log.warn("排产工作台忽略无法解析正式路线工序的历史在制快照: count={}, scheduleOrderProcessIds={}, routeProcessIds={}",
+                    unreadableWipProcesses.size(),
+                    unreadableWipProcesses.stream().map(MesProScheduleOrderProcessDO::getId).toList(),
+                    unreadableWipProcesses.stream().map(MesProScheduleOrderProcessDO::getRouteProcessId)
+                            .distinct().toList());
+        }
+        List<MesProScheduleOrderProcessDO> readableWipProcesses = wipProcesses.stream()
+                .filter(process -> readableRouteProcessIds.contains(process.getRouteProcessId()))
+                .toList();
+        if (CollUtil.isEmpty(readableWipProcesses)) {
+            return Collections.emptyList();
+        }
         Map<Long, RouteProcessIdentity> keyByScheduleOrderProcessId = new LinkedHashMap<>();
         Map<RouteProcessIdentity, List<MesProScheduleOrderProcessDO>> wipProcessesByRouteProcess =
                 new LinkedHashMap<>();
-        for (MesProScheduleOrderProcessDO process : wipProcesses) {
+        for (MesProScheduleOrderProcessDO process : readableWipProcesses) {
             RouteProcessIdentity key = resolveRouteProcessWipKey(process, scheduleOrderMap.get(process.getScheduleOrderId()));
             wipProcessesByRouteProcess.computeIfAbsent(key, ignored -> new ArrayList<>()).add(process);
             keyByScheduleOrderProcessId.put(process.getId(), key);
@@ -1486,26 +1529,12 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         Map<Long, MesProRouteVersionDO> routeVersionMap = CollUtil.isEmpty(routeVersions) ? Collections.emptyMap()
                 : routeVersions.stream().collect(Collectors.toMap(MesProRouteVersionDO::getId, item -> item,
                 (left, right) -> left, LinkedHashMap::new));
-        Set<Long> routeProcessIds = wipProcessesByRouteProcess.keySet().stream()
-                .map(RouteProcessIdentity::routeProcessId)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        List<MesProRouteProcessDO> currentRouteProcesses = loadRouteProcessesIncludingDeleted(routeProcessIds);
-        Map<Long, MesProRouteProcessDO> currentRouteProcessMap = CollUtil.isEmpty(currentRouteProcesses)
-                ? Collections.emptyMap()
-                : currentRouteProcesses.stream().collect(Collectors.toMap(MesProRouteProcessDO::getId, item -> item,
-                (left, right) -> left, LinkedHashMap::new));
+        List<MesProRouteProcessDO> currentRouteProcesses = loadedRouteProcesses.stream()
+                .filter(routeProcess -> readableRouteProcessIds.contains(routeProcess.getId()))
+                .toList();
         ResourceSnapshotContext currentResourceContext = buildResourceSnapshotContext(currentRouteProcesses, false);
-        Set<Long> currentProcessIds = currentRouteProcesses.stream()
-                .map(MesProRouteProcessDO::getProcessId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        List<MesProProcessDO> currentProcesses = loadProcessesIncludingDeleted(currentProcessIds);
-        Map<Long, MesProProcessDO> currentProcessMap = CollUtil.isEmpty(currentProcesses)
-                ? Collections.emptyMap()
-                : currentProcesses.stream().collect(Collectors.toMap(MesProProcessDO::getId, item -> item,
-                (left, right) -> left, LinkedHashMap::new));
         Map<RouteProcessIdentity, BigDecimal> todayFeedbackQuantityByRouteProcess =
-                sumTodayFinishedFeedbackByRouteProcess(wipProcesses, keyByScheduleOrderProcessId);
+                sumTodayFinishedFeedbackByRouteProcess(readableWipProcesses, keyByScheduleOrderProcessId);
         return wipProcessesByRouteProcess.entrySet().stream()
                 .map(entry -> {
                     RouteProcessIdentity key = entry.getKey();

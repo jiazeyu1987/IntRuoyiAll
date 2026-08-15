@@ -40,6 +40,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRes
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSignatureExportSummaryRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSignatureReissueReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceMigrationReadinessRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSourceMigrationResultRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
@@ -620,6 +621,17 @@ public class DccControlledFileController {
             @PathVariable("id") Long id, HttpServletRequest request) {
         return success(signatureManagementService.migratePublishedCopyBindings(id, getLoginUserId(),
                 auditContext(request, null).requireRequestId("signature binding migration")));
+    }
+
+    @PostMapping("/{id:\\d+}/signature-evidence-reissue")
+    @Operation(summary = "Reissue historical signature evidence after business approval")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage')")
+    public CommonResult<DccControlledFileSignatureExportSummaryRespVO> reissueSignatureEvidence(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody DccControlledFileSignatureReissueReqVO reqVO,
+            HttpServletRequest request) {
+        return success(signatureManagementService.reissuePublishedSignatureEvidence(id, getLoginUserId(),
+                auditContext(request, null).requireRequestId("signature evidence reissue"), reqVO.getReason()));
     }
 
     @GetMapping("/{id:\\d+}/signature-evidence-export")

@@ -17,6 +17,7 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -66,6 +67,50 @@ public class DccControlledFileSignatureBindingService {
         }
     }
 
+    public void bindPublishedCopyAfterEvidenceReissue(DccControlledFileDO file, Long controlledCopyFileId,
+                                                       Long boundBy, String bindingEventKey,
+                                                       Map<Long, String> previousEvidenceHashes) {
+        if (file == null || file.getId() == null || controlledCopyFileId == null
+                || StrUtil.isBlank(bindingEventKey) || previousEvidenceHashes == null
+                || previousEvidenceHashes.isEmpty()) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED, "重新封存绑定参数不完整");
+        }
+        List<DccControlledFileSignatureDO> signatures = signatureMapper.selectListByControlledFileId(file.getId());
+        if (signatures == null || signatures.isEmpty()) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        }
+        FileDO controlledCopyFile = requireControlledCopyFile(controlledCopyFileId);
+        byte[] controlledCopyContent = readControlledCopyContent(controlledCopyFile);
+        for (DccControlledFileSignatureDO signature : signatures) {
+            if (signature == null || signature.getId() == null || StrUtil.isBlank(signature.getEvidenceHash())) {
+                throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            }
+            DccControlledFileSignatureBindingDO candidate = createBindingEvent(signature, file, controlledCopyFileId,
+                    controlledCopyFile.getPath(), controlledCopyContent, boundBy, bindingEventKey);
+            DccControlledFileSignatureBindingDO existing = bindingMapper.selectBySignatureId(signature.getId());
+            if (existing == null) {
+                bindingMapper.insert(candidate);
+                continue;
+            }
+            String previousEvidenceHash = previousEvidenceHashes.get(signature.getId());
+            if (previousEvidenceHash == null) {
+                if (!sameImmutableBinding(existing, candidate) || !hasValidBindingHash(existing)) {
+                    throw differentBinding(signature.getId());
+                }
+                continue;
+            }
+            if (!sameReissuableBinding(existing, candidate, previousEvidenceHash)
+                    || !hasValidBindingHash(existing)) {
+                throw differentBinding(signature.getId());
+            }
+            candidate.setId(existing.getId());
+            if (bindingMapper.updateById(candidate) <= 0) {
+                throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED,
+                        "签名 " + signature.getId() + " 重新封存绑定更新失败");
+            }
+        }
+    }
+
     DccControlledFileSignatureBindingDO createBindingEvent(DccControlledFileSignatureDO signature,
                                                             DccControlledFileDO file,
                                                             Long controlledCopyFileId,
@@ -102,7 +147,6 @@ public class DccControlledFileSignatureBindingService {
         }
         if (!Objects.equals(binding.getSignatureId(), signature.getId())
                 || !Objects.equals(binding.getControlledFileId(), file.getId())
-                || !StrUtil.equalsIgnoreCase(binding.getOriginalEvidenceHash(), signature.getEvidenceHash())
                 || !Objects.equals(binding.getControlledCopyFileId(), file.getPublishedFileId())) {
             return DccControlledFileSignatureBindingVerification.invalid(
                     "CONTROLLED_COPY_BINDING_CONTEXT_MISMATCH", binding);
@@ -123,6 +167,10 @@ public class DccControlledFileSignatureBindingService {
         }
         if (!StrUtil.equalsIgnoreCase(binding.getControlledCopySha256(), sha256Hex(currentContent))) {
             return DccControlledFileSignatureBindingVerification.invalid("CONTROLLED_COPY_HASH_MISMATCH", binding);
+        }
+        if (!StrUtil.equalsIgnoreCase(binding.getOriginalEvidenceHash(), signature.getEvidenceHash())) {
+            return DccControlledFileSignatureBindingVerification.invalid(
+                    "CONTROLLED_COPY_BINDING_EVIDENCE_MISMATCH", binding);
         }
         return DccControlledFileSignatureBindingVerification.bound(binding);
     }
@@ -155,6 +203,22 @@ public class DccControlledFileSignatureBindingService {
                 && Objects.equals(left.getControlledCopyFileId(), right.getControlledCopyFileId())
                 && StrUtil.equals(left.getControlledCopyObjectKey(), right.getControlledCopyObjectKey())
                 && StrUtil.equalsIgnoreCase(left.getControlledCopySha256(), right.getControlledCopySha256());
+    }
+
+    private boolean sameReissuableBinding(DccControlledFileSignatureBindingDO existing,
+                                          DccControlledFileSignatureBindingDO candidate,
+                                          String previousEvidenceHash) {
+        return Objects.equals(existing.getSignatureId(), candidate.getSignatureId())
+                && Objects.equals(existing.getControlledFileId(), candidate.getControlledFileId())
+                && StrUtil.equalsIgnoreCase(existing.getOriginalEvidenceHash(), previousEvidenceHash)
+                && Objects.equals(existing.getControlledCopyFileId(), candidate.getControlledCopyFileId())
+                && StrUtil.equals(existing.getControlledCopyObjectKey(), candidate.getControlledCopyObjectKey())
+                && StrUtil.equalsIgnoreCase(existing.getControlledCopySha256(), candidate.getControlledCopySha256());
+    }
+
+    private RuntimeException differentBinding(Long signatureId) {
+        return exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED,
+                "签名 " + signatureId + " 已存在不同的受控副本绑定");
     }
 
     private boolean hasValidBindingHash(DccControlledFileSignatureBindingDO binding) {

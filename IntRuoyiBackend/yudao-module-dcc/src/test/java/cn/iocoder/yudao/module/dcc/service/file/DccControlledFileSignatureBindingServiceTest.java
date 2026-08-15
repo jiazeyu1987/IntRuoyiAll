@@ -19,6 +19,7 @@ import org.mockito.Mock;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_BINDING_FAILED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -117,6 +118,58 @@ class DccControlledFileSignatureBindingServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void bindPublishedCopyAfterEvidenceReissue_updatesMatchingOldBinding() throws Exception {
+        DccControlledFileDO file = publishedFile();
+        DccControlledFileSignatureDO oldSignature = signature(1001L, "evidence-before");
+        DccControlledFileSignatureDO reissuedSignature = signature(1001L, "evidence-after");
+        DccControlledFileSignatureBindingDO existing = service.createBindingEvent(oldSignature, file, 800L,
+                "dcc/published/900.pdf", publishedPdf, 98L, "historical:900:REQ-OLD");
+        existing.setId(2001L);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(reissuedSignature));
+        when(fileService.getFile(800L)).thenReturn(publishedFileRecord());
+        when(fileService.getFileContent(7L, "dcc/published/900.pdf")).thenReturn(publishedPdf);
+        when(bindingMapper.selectBySignatureId(1001L)).thenReturn(existing);
+        when(bindingMapper.updateById(any(DccControlledFileSignatureBindingDO.class))).thenReturn(1);
+
+        service.bindPublishedCopyAfterEvidenceReissue(file, 800L, 99L, "reissue:900:REQ-NEW",
+                Map.of(1001L, "evidence-before"));
+
+        ArgumentCaptor<DccControlledFileSignatureBindingDO> captor =
+                ArgumentCaptor.forClass(DccControlledFileSignatureBindingDO.class);
+        verify(bindingMapper).updateById(captor.capture());
+        assertEquals(2001L, captor.getValue().getId());
+        assertEquals("evidence-after", captor.getValue().getOriginalEvidenceHash());
+        assertEquals(800L, captor.getValue().getControlledCopyFileId());
+        assertEquals("dcc/published/900.pdf", captor.getValue().getControlledCopyObjectKey());
+        assertEquals("reissue:900:REQ-NEW", captor.getValue().getBindingEventKey());
+        assertEquals(64, captor.getValue().getBindingHash().length());
+        verify(bindingMapper, never()).insert(any(DccControlledFileSignatureBindingDO.class));
+    }
+
+    @Test
+    void bindPublishedCopyAfterEvidenceReissue_rejectsDifferentControlledCopy() throws Exception {
+        DccControlledFileDO file = publishedFile();
+        DccControlledFileSignatureDO reissuedSignature = signature(1001L, "evidence-after");
+        DccControlledFileSignatureBindingDO existing = DccControlledFileSignatureBindingDO.builder()
+                .id(2001L).signatureId(1001L).controlledFileId(900L)
+                .originalEvidenceHash("evidence-before").controlledCopyFileId(801L)
+                .controlledCopyObjectKey("dcc/published/different.pdf")
+                .controlledCopySha256("different").build();
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(reissuedSignature));
+        when(fileService.getFile(800L)).thenReturn(publishedFileRecord());
+        when(fileService.getFileContent(7L, "dcc/published/900.pdf")).thenReturn(publishedPdf);
+        when(bindingMapper.selectBySignatureId(1001L)).thenReturn(existing);
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.bindPublishedCopyAfterEvidenceReissue(file, 800L, 99L, "reissue:900:REQ-NEW",
+                        Map.of(1001L, "evidence-before")));
+
+        assertEquals(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED.getCode(), ex.getCode());
+        verify(bindingMapper, never()).insert(any(DccControlledFileSignatureBindingDO.class));
+        verify(bindingMapper, never()).updateById(any(DccControlledFileSignatureBindingDO.class));
+    }
+
+    @Test
     void verifyPublishedCopyBinding_detectsChangedPdfContent() throws Exception {
         DccControlledFileDO file = publishedFile();
         DccControlledFileSignatureDO signature = signature(1001L, "evidence-1");
@@ -132,6 +185,42 @@ class DccControlledFileSignatureBindingServiceTest extends BaseMockitoUnitTest {
 
         assertFalse(result.valid());
         assertEquals("CONTROLLED_COPY_HASH_MISMATCH", result.reasonCode());
+    }
+
+    @Test
+    void verifyPublishedCopyBinding_reportsVerifiedEvidenceMismatch() throws Exception {
+        DccControlledFileDO file = publishedFile();
+        DccControlledFileSignatureDO oldSignature = signature(1001L, "evidence-before");
+        DccControlledFileSignatureDO currentSignature = signature(1001L, "evidence-after");
+        DccControlledFileSignatureBindingDO binding = service.createBindingEvent(oldSignature, file, 800L,
+                "dcc/published/900.pdf", publishedPdf, 99L, "reissue:900:REQ-OLD");
+        when(bindingMapper.selectBySignatureId(1001L)).thenReturn(binding);
+        when(fileService.getFile(800L)).thenReturn(publishedFileRecord());
+        when(fileService.getFileContent(7L, "dcc/published/900.pdf")).thenReturn(publishedPdf);
+
+        DccControlledFileSignatureBindingVerification result =
+                service.verifyPublishedCopyBinding(currentSignature, file);
+
+        assertFalse(result.valid());
+        assertEquals("CONTROLLED_COPY_BINDING_EVIDENCE_MISMATCH", result.reasonCode());
+        assertEquals("evidence-before", result.binding().getOriginalEvidenceHash());
+    }
+
+    @Test
+    void verifyPublishedCopyBinding_rejectsTamperedBindingBeforeEvidenceMismatch() throws Exception {
+        DccControlledFileDO file = publishedFile();
+        DccControlledFileSignatureDO oldSignature = signature(1001L, "evidence-before");
+        DccControlledFileSignatureDO currentSignature = signature(1001L, "evidence-after");
+        DccControlledFileSignatureBindingDO binding = service.createBindingEvent(oldSignature, file, 800L,
+                "dcc/published/900.pdf", publishedPdf, 99L, "reissue:900:REQ-OLD");
+        binding.setBindingHash("tampered");
+        when(bindingMapper.selectBySignatureId(1001L)).thenReturn(binding);
+
+        DccControlledFileSignatureBindingVerification result =
+                service.verifyPublishedCopyBinding(currentSignature, file);
+
+        assertFalse(result.valid());
+        assertEquals("CONTROLLED_COPY_BINDING_TAMPERED", result.reasonCode());
     }
 
     private DccControlledFileDO publishedFile() {

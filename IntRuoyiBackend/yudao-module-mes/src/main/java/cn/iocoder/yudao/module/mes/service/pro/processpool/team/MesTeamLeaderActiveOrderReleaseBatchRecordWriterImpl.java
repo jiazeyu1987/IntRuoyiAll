@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordCellLinkRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
@@ -13,6 +14,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProce
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +45,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
     private static final String PROCESS_INSPECTION = "PROCESS_INSPECTION";
     private static final String LOSS_REPORT = "LOSS_REPORT";
     private static final String SOURCE_TYPE_PROCESS_POOL_REPORT = "PROCESS_POOL_REPORT";
+    private static final String SOURCE_TYPE_PRODUCTION_PICK_LIST = MesProductionPickListSourceService.SOURCE_TYPE;
     private static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     private static final String LEADER_TYPE_PRODUCTION = "PRODUCTION";
 
@@ -50,16 +53,19 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
     private final MesProBatchRecordCellLinkRuleMapper ruleMapper;
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     private final MesTeamLeaderBatchRecordBackfillService backfillService;
+    private final MesProductionPickListSourceService productionPickListSourceService;
 
     public MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(
             MesProRouteFlowProcessBatchRecordMapper bindingMapper,
             MesProBatchRecordCellLinkRuleMapper ruleMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
-            MesTeamLeaderBatchRecordBackfillService backfillService) {
+            MesTeamLeaderBatchRecordBackfillService backfillService,
+            MesProductionPickListSourceService productionPickListSourceService) {
         this.bindingMapper = bindingMapper;
         this.ruleMapper = ruleMapper;
         this.batchTaskMapper = batchTaskMapper;
         this.backfillService = backfillService;
+        this.productionPickListSourceService = productionPickListSourceService;
     }
 
     @Override
@@ -156,6 +162,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                             .setAggregateHash(completion.getAggregateHash())
                             .setIdempotencyKey(completion.getBackfillIdempotencyKey())
                             .setWorkOrder(plan.getCommand().getWorkOrder())
+                            .setDccProjectCodeId(plan.getCommand().getDccProjectCodeId())
                             .setBatchExecutionId(batchExecutionId)
                             .setBatchExecutionTaskId(task.getId()));
             if (backfill == null || backfill.getExecutionId() == null || backfill.getAuditBatchId() == null) {
@@ -184,6 +191,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
         if (command == null || command.getTenantId() == null || command.getActiveOrderId() == null
                 || command.getWorkOrderId() == null
                 || command.getRouteId() == null || command.getRouteVersionId() == null
+                || command.getDccProjectCodeId() == null
                 || command.getProductId() == null || StrUtil.isBlank(command.getBatchCode())
                 || command.getApplicantUserId() == null
                 || command.getWorkOrder() == null || command.getWorkOrder().getId() == null
@@ -270,7 +278,8 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
             for (MesProBatchRecordCellLinkRuleDO rule : rules) {
                 String targetCell = rule == null ? null : rule.getTargetRowIndex() + ":" + rule.getTargetColumnIndex();
                 if (rule == null || rule.getId() == null || !Boolean.TRUE.equals(rule.getEnabled())
-                        || !SOURCE_TYPE_PROCESS_POOL_REPORT.equals(StrUtil.trim(rule.getSourceType()))
+                        || !Set.of(SOURCE_TYPE_PROCESS_POOL_REPORT, SOURCE_TYPE_PRODUCTION_PICK_LIST)
+                                .contains(StrUtil.trim(rule.getSourceType()))
                         || StrUtil.isBlank(rule.getSourceFieldCode())
                         || !Objects.equals(binding.getBatchRecordReportId(), rule.getTargetReportId())
                         || rule.getTargetRowIndex() == null || rule.getTargetColumnIndex() == null
@@ -282,8 +291,8 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
         }
         if (!valid) {
             blockers.add(blocker("BATCH_RECORD_MAPPING_REQUIRED", "ROUTE_PROCESS", snapshot.getRouteProcessId(),
-                    "正式批记录缺少完整且唯一的 PROCESS_POOL_REPORT 字段映射",
-                    "请配置生产提交字段到当前批记录版本的启用映射"));
+                    "正式批记录缺少完整且唯一的报工/领料单字段映射",
+                    "请配置生产提交或领料单字段到当前批记录版本的启用映射"));
             return List.of();
         }
         return List.copyOf(rules);
@@ -373,14 +382,49 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                     "工序完成记录的末次组长确认不存在", "请修复生产完成确认追溯后重新申请"));
             return;
         }
-        if (!validateRuleSourceValues(events, allocations, rules)) {
+        List<MesProBatchRecordCellLinkRuleDO> reportRules = rules.stream()
+                .filter(rule -> SOURCE_TYPE_PROCESS_POOL_REPORT.equals(StrUtil.trim(rule.getSourceType())))
+                .toList();
+        if (!reportRules.isEmpty() && !validateRuleSourceValues(events, allocations, reportRules)) {
             blockers.add(blocker("BATCH_RECORD_MAPPING_REQUIRED", "ROUTE_PROCESS", snapshot.getRouteProcessId(),
                     "批记录字段映射缺少对应生产来源值或多来源聚合策略", "请补齐生产参数及正式字段映射"));
+            return;
+        }
+        if (!validatePickListSourceValues(command, snapshot, rules, blockers, sourceObjectIds, sourceValueHashes)) {
             return;
         }
         sourceObjectIds.add(completion.getId());
         sourceObjectIds.add(completion.getBackfillExecutionId());
         sourceValueHashes.add(hashCompletion(completion));
+    }
+
+    private boolean validatePickListSourceValues(
+            MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand command,
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+            List<MesProBatchRecordCellLinkRuleDO> rules,
+            List<MesTeamLeaderActiveOrderReleaseBlocker> blockers,
+            Set<Long> sourceObjectIds,
+            Set<String> sourceValueHashes) {
+        for (MesProBatchRecordCellLinkRuleDO rule : rules) {
+            if (!SOURCE_TYPE_PRODUCTION_PICK_LIST.equals(StrUtil.trim(rule.getSourceType()))) {
+                continue;
+            }
+            try {
+                MesProductionPickListSourceService.ResolvedValue resolved = productionPickListSourceService.resolveValue(
+                        new MesProductionPickListSourceService.ResolveCommand(command.getRouteId(),
+                                snapshot.getRouteProcessId(), command.getProductId(), command.getDccProjectCodeId(),
+                                command.getWorkOrder().getCode(), rule.getSourceFieldCode()));
+                sourceObjectIds.add(resolved.pickListId());
+                sourceObjectIds.add(resolved.pickListItemId());
+                sourceValueHashes.add(resolved.evidenceHash());
+            } catch (ServiceException ex) {
+                blockers.add(blocker("PRODUCTION_PICK_LIST_REQUIRED", "ROUTE_PROCESS",
+                        snapshot.getRouteProcessId(), ex.getMessage(),
+                        "请核对活跃订单工单、DCC 产品、已审核领料单及物料分录后重新申请"));
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean validEventContext(MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand command,

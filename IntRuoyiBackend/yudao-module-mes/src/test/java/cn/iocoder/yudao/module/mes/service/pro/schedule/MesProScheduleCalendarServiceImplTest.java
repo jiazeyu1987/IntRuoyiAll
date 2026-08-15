@@ -659,7 +659,7 @@ class MesProScheduleCalendarServiceImplTest {
     @Test
     void getMonth_shouldOnlyCountTasksWithEffectiveScheduleOrder() {
         stubRuleAndSimulation();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.of(2026, 5, 13);
         MesProTaskDO activeTask = MesProTaskDO.builder()
                 .id(100L)
                 .code("PT-ACTIVE")
@@ -747,7 +747,7 @@ class MesProScheduleCalendarServiceImplTest {
     @Test
     void getMonth_shouldIgnoreFinishedScheduleOrdersInCurrentCalendarContext() {
         stubRuleAndSimulation();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.of(2026, 5, 13);
         MesProTaskDO activeTask = MesProTaskDO.builder()
                 .id(100L)
                 .code("PT-ACTIVE")

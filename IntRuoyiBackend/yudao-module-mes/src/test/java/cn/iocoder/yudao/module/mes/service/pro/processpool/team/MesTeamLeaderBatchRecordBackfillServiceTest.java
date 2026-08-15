@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditValueType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,13 +52,15 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
     private MesProBatchRecordCellLinkRuleMapper ruleMapper;
     @Mock
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;
+    @Mock
+    private MesProductionPickListSourceService productionPickListSourceService;
 
     private MesTeamLeaderBatchRecordBackfillService service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderBatchRecordBackfillServiceImpl(bindingMapper, executionService, executionMapper,
-                ruleMapper, fieldAuditService);
+                ruleMapper, fieldAuditService, productionPickListSourceService);
     }
 
     @Test
@@ -179,6 +182,9 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
     void shouldRejectOpenedExecutionOutsideCurrentEdhrBatchTaskContext() {
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
                 .thenReturn(List.of(binding()));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(rule(1L, "outputQuantity", 5, 2,
+                        MesProBatchRecordExecutionFieldAuditValueType.NUMBER)));
         when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
                 .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
         when(executionMapper.selectById(8801L)).thenReturn(execution()
@@ -189,7 +195,7 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                 command().setBatchExecutionId(9701L).setBatchExecutionTaskId(9801L)));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_BATCH_RECORD_EXECUTION_REQUIRED.getCode(), ex.getCode());
-        verify(ruleMapper, never()).selectEnabledListByScopeAndTargetReport(any(), any(), any());
+        verify(ruleMapper).selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A");
         verify(fieldAuditService, never()).saveSystemCellLinkChanges(any());
     }
 
@@ -304,9 +310,6 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
     void shouldBlockWhenFormalFieldMappingIsMissing() {
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
                 .thenReturn(List.of(binding()));
-        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
-                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
-        when(executionMapper.selectById(8801L)).thenReturn(execution());
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
                 .thenReturn(List.of());
 
@@ -314,7 +317,38 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                 () -> service.backfillCompletedProcess(command()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED.getCode(), ex.getCode());
+        verify(executionService, never()).openOrCreateByContext(any());
         verify(fieldAuditService, never()).saveSystemCellLinkChanges(any());
+    }
+
+    @Test
+    void shouldResolveProductionPickListBeforeOpeningExecutionAndWriteFirstLotValue() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        MesProBatchRecordCellLinkRuleDO pickRule = ruleWithoutAggregationStrategy(3L,
+                "material.3201.lotNumber", 7, 2, MesProBatchRecordExecutionFieldAuditValueType.STRING);
+        pickRule.setSourceType("PRODUCTION_PICK_LIST");
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(pickRule));
+        when(productionPickListSourceService.resolveValue(any()))
+                .thenReturn(new MesProductionPickListSourceService.ResolvedValue(9001L, 9101L,
+                        "LOT-FIRST", "pick-evidence"));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(execution().setExecutionSnapshotJson("""
+                {"fields":[{"fieldPath":"report.materialLot","fieldKey":"materialLot",
+                "rowIndex":7,"columnIndex":2,"valueType":"STRING"}]}
+                """));
+        when(fieldAuditService.saveSystemCellLinkChanges(any()))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult().setChangedFieldCount(1));
+
+        service.backfillCompletedProcess(command().setWorkOrder(workOrder().setProductId(3101L)));
+
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> captor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService).saveSystemCellLinkChanges(captor.capture());
+        assertEquals("LOT-FIRST", captor.getValue().getChanges().get(0).getNewValueJson());
+        assertEquals(true, captor.getValue().getIdempotencyKey().contains(":PICK:"));
     }
 
     private static MesTeamLeaderBatchRecordBackfillCommand command() {
@@ -323,7 +357,8 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                 .setAllocation(allocation())
                 .setSourceEvents(List.of(event()))
                 .setAllocations(List.of(allocation()))
-                .setWorkOrder(workOrder());
+                .setWorkOrder(workOrder())
+                .setDccProjectCodeId(8001L);
     }
 
     private static MesTeamLeaderBatchRecordBackfillCommand aggregateCommand() {
@@ -342,6 +377,7 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                         allocation(7101L, 1001L, "120", LocalDateTime.of(2026, 8, 1, 8, 31)),
                         allocation(7102L, 1002L, "80", LocalDateTime.of(2026, 8, 1, 9, 1))))
                 .setWorkOrder(workOrder())
+                .setDccProjectCodeId(8001L)
                 .setAggregateHash("agg-two-events")
                 .setIdempotencyKey("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-two-events");
     }

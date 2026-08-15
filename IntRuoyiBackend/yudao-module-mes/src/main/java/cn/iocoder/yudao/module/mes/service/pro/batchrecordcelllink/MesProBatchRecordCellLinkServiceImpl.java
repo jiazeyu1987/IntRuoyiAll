@@ -75,8 +75,10 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private static final String SOURCE_TYPE_BATCH_RECORD_CELL = "BATCH_RECORD_CELL";
     private static final String SOURCE_TYPE_PRODUCTION_WORK_ORDER = "PRODUCTION_WORK_ORDER";
     private static final String SOURCE_TYPE_PROCESS_POOL_REPORT = "PROCESS_POOL_REPORT";
+    private static final String SOURCE_TYPE_PRODUCTION_PICK_LIST = MesProductionPickListSourceService.SOURCE_TYPE;
     private static final String SOURCE_TYPE_PQC_AGGREGATE_DETAIL = "PQC_AGGREGATE_DETAIL";
     private static final String SOURCE_TYPE_PRODUCTION_LOSS = "PRODUCTION_LOSS";
+    private static final String FORM_SLOT_TYPE_MAIN = "MAIN";
     private static final String FORM_SLOT_TYPE_PROCESS_INSPECTION = "PROCESS_INSPECTION";
     private static final String FORM_SLOT_TYPE_LOSS_REPORT = "LOSS_REPORT";
     private static final String PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID = "PRODUCTION_WORK_ORDER";
@@ -148,13 +150,15 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Resource
     private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
+    @Resource
+    private MesProductionPickListSourceService productionPickListSourceService;
 
     @Override
     public BatchRecordCellLinkWorkbenchContextRespVO getWorkbenchContext(Long routeId, Long definitionId,
                                                                          Long versionId, String sourceReportId,
                                                                          Long templateId, String versionNo) {
         Scope scope = resolveQueryScope(definitionId, versionId, sourceReportId, templateId, versionNo);
-        List<BatchRecordCellLinkFormRespVO> forms = selectFormsInScope(scope);
+        List<BatchRecordCellLinkFormRespVO> forms = selectFormsInScope(scope, routeId);
         if (forms.isEmpty()) {
             throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_FORM_LIST_EMPTY);
         }
@@ -189,7 +193,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setBatchRecordDefinitionId(scope.definitionId())
                 .setBatchRecordVersionId(scope.versionId())
                 .setForms(forms)
-                .setSourceFields(toSourceFieldVOList(scope))
+                .setSourceFields(toSourceFieldVOList(scope, routeId))
                 .setDefaultSourceReportId(defaultSourceReportId)
                 .setDefaultTargetReportId(defaultTargetReportId)
                 .setRules(toRuleVOList(ruleMapper.selectListByScope(scope.type(), scope.id())))
@@ -309,7 +313,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         for (BatchRecordCellLinkRuleSaveItemReqVO item : reqVO.getRules()) {
             String sourceType = normalizeSourceType(item.getSourceType());
             TargetSpec targetReport = targetCache.computeIfAbsent(item.getTargetReportId(),
-                    reportId -> resolveTargetSpec(scope, reportId));
+                    reportId -> resolveTargetSpec(scope, reportId, reqVO.getRouteId()));
             BatchRecordCellLinkFormCellsRespVO targetCells = cellsCache.computeIfAbsent(item.getTargetReportId(),
                     reportId -> getFormCells(reportId, scope.versionId()));
             SourceSpec sourceSpec;
@@ -329,6 +333,16 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 item.setAggregationStrategy(requireProcessPoolReportAggregationStrategy(
                         item.getAggregationStrategy(), sourceField.valueType()));
                 sourceSpec = SourceSpec.processPoolReport(sourceField);
+            } else if (SOURCE_TYPE_PRODUCTION_PICK_LIST.equals(sourceType)) {
+                if (!Objects.equals(scope.type(), SCOPE_TYPE_ROUTE_VERSION) || reqVO.getRouteId() == null) {
+                    throw exception(
+                            MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                            sourceType);
+                }
+                MesProductionPickListSourceService.SourceField sourceField = requireProductionPickListSourceField(
+                        reqVO.getRouteId(), targetReport.routeProcessId(),
+                        StrUtil.blankToDefault(item.getSourceFieldCode(), item.getSourceCellKey()));
+                sourceSpec = SourceSpec.productionPickList(sourceField);
             } else if (isFormTemplateFormalSource(sourceType)) {
                 if (!Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)) {
                     throw exception(
@@ -388,7 +402,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_RULE_EMPTY);
         }
         Scope scope = resolveRepeatRowGroupScope(reqVO);
-        TargetSpec targetReport = resolveTargetSpec(scope, reqVO.getTargetReportId());
+        TargetSpec targetReport = resolveTargetSpec(scope, reqVO.getTargetReportId(), reqVO.getRouteId());
         BatchRecordCellLinkFormCellsRespVO targetCells = getFormCells(reqVO.getTargetReportId(), scope.versionId());
         validateRepeatRowGroupRequest(reqVO, scope, targetReport, targetCells);
         List<BatchRecordRepeatRowGroupRecordVO> records = toRepeatRowRecords(reqVO.getRecords());
@@ -912,29 +926,30 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         return reportMapper.selectListByDefinitionIdAndVersionId(scope.definitionId(), scope.versionId());
     }
 
-    private List<BatchRecordCellLinkFormRespVO> selectFormsInScope(Scope scope) {
+    private List<BatchRecordCellLinkFormRespVO> selectFormsInScope(Scope scope, Long routeId) {
         if (Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)) {
             return List.of(toFormTemplateFormVO(scope.templateVersion() == null
                     ? requireFormTemplateVersion(scope.id())
                     : scope.templateVersion()));
         }
-        Map<String, Long> routeProcessIdByReportId = routeProcessIdByReportId(scope);
+        Map<String, Long> routeProcessIdByReportId = routeProcessIdByReportId(scope, routeId);
         return selectReportsInScope(scope).stream()
                 .map(report -> toFormVO(report, routeProcessIdByReportId.get(report.getReportId())))
                 .toList();
     }
 
     private Map<String, Long> routeProcessIdByReportId(Scope scope) {
+        return routeProcessIdByReportId(scope, null);
+    }
+
+    private Map<String, Long> routeProcessIdByReportId(Scope scope, Long routeId) {
         if (!Objects.equals(scope.type(), SCOPE_TYPE_ROUTE_VERSION) || scope.versionId() == null) {
             return Map.of();
         }
         Map<String, LinkedHashSet<Long>> idsByReportId = new LinkedHashMap<>();
-        for (MesProRouteFlowProcessBatchRecordDO binding :
-                routeFlowProcessBatchRecordMapper.selectListByBatchRecordVersionId(scope.versionId())) {
+        for (MesProRouteFlowProcessBatchRecordDO binding : selectBindingsInScope(scope, routeId)) {
             if (StrUtil.isBlank(binding.getBatchRecordReportId())
-                    || Objects.equals(FORM_SLOT_TYPE_PROCESS_INSPECTION, binding.getFormSlotType())
-                    || Objects.equals(FORM_SLOT_TYPE_LOSS_REPORT, binding.getFormSlotType())
-                    || !Objects.equals("BATCH_RECORD", binding.getRecordCategory())
+                    || !isFormalBatchRecordBinding(binding)
                     || binding.getRouteProcessId() == null) {
                 continue;
             }
@@ -950,7 +965,20 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         return result;
     }
 
-    private TargetSpec resolveTargetSpec(Scope scope, String targetReportId) {
+    private List<MesProRouteFlowProcessBatchRecordDO> selectBindingsInScope(Scope scope, Long routeId) {
+        Set<String> reportIds = selectReportsInScope(scope).stream()
+                .map(MesProBatchRecordReportDO::getReportId)
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (reportIds.isEmpty()) {
+            return List.of();
+        }
+        return routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(reportIds).stream()
+                .filter(binding -> routeId == null || Objects.equals(routeId, binding.getRouteId()))
+                .toList();
+    }
+
+    private TargetSpec resolveTargetSpec(Scope scope, String targetReportId, Long routeId) {
         if (Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)) {
             String expectedReportId = formTemplateReportId(scope.id());
             if (!Objects.equals(expectedReportId, targetReportId)) {
@@ -966,7 +994,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         requireReportInScope(scope, report);
         return new TargetSpec(report.getReportId(), report.getReportName(),
                 report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(),
-                routeProcessIdByReportId(scope).get(report.getReportId()));
+                routeProcessIdByReportId(scope, routeId).get(report.getReportId()));
     }
 
     private MesProBatchRecordReportDO requireReport(String reportId) {
@@ -1009,6 +1037,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         if (SOURCE_TYPE_BATCH_RECORD_CELL.equals(normalized)
                 || SOURCE_TYPE_PRODUCTION_WORK_ORDER.equals(normalized)
                 || SOURCE_TYPE_PROCESS_POOL_REPORT.equals(normalized)
+                || SOURCE_TYPE_PRODUCTION_PICK_LIST.equals(normalized)
                 || isFormTemplateFormalSource(normalized)) {
             return normalized;
         }
@@ -1021,7 +1050,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 || SOURCE_TYPE_PRODUCTION_LOSS.equals(sourceType);
     }
 
-    private List<BatchRecordCellLinkSourceFieldVO> toSourceFieldVOList(Scope scope) {
+    private List<BatchRecordCellLinkSourceFieldVO> toSourceFieldVOList(Scope scope, Long routeId) {
         List<BatchRecordCellLinkSourceFieldVO> result = new ArrayList<>();
         PRODUCTION_WORK_ORDER_SOURCE_FIELDS.stream()
                 .map(field -> new BatchRecordCellLinkSourceFieldVO()
@@ -1031,7 +1060,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                         .setValueType(field.valueType()))
                 .forEach(result::add);
         if (Objects.equals(scope.type(), SCOPE_TYPE_ROUTE_VERSION)) {
-            processPoolReportSourceFields(scope).stream()
+            processPoolReportSourceFields(scope, routeId, null).stream()
                     .map(field -> new BatchRecordCellLinkSourceFieldVO()
                             .setSourceType(SOURCE_TYPE_PROCESS_POOL_REPORT)
                             .setFieldCode(field.code())
@@ -1039,8 +1068,30 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                             .setValueType(field.valueType())
                             .setRouteProcessId(field.routeProcessId()))
                     .forEach(result::add);
+            if (routeId != null) {
+                productionPickListSourceService.listSourceFields(routeId).stream()
+                        .map(field -> new BatchRecordCellLinkSourceFieldVO()
+                                .setSourceType(SOURCE_TYPE_PRODUCTION_PICK_LIST)
+                                .setFieldCode(field.fieldCode())
+                                .setFieldName(field.fieldName())
+                                .setValueType(field.valueType())
+                                .setRouteProcessId(field.routeProcessId()))
+                        .forEach(result::add);
+            }
         }
         return List.copyOf(result);
+    }
+
+    private MesProductionPickListSourceService.SourceField requireProductionPickListSourceField(
+            Long routeId, Long targetRouteProcessId, String fieldCode) {
+        String normalized = StrUtil.trim(fieldCode);
+        return productionPickListSourceService.listSourceFields(routeId).stream()
+                .filter(field -> Objects.equals(targetRouteProcessId, field.routeProcessId()))
+                .filter(field -> field.fieldCode().equals(normalized))
+                .findFirst()
+                .orElseThrow(() -> exception(
+                        MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                        fieldCode));
     }
 
     private WorkOrderSourceField requireWorkOrderSourceField(String fieldCode) {
@@ -1068,18 +1119,23 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     }
 
     private List<ProcessPoolReportSourceField> processPoolReportSourceFields(Scope scope) {
-        return processPoolReportSourceFields(scope, null);
+        return processPoolReportSourceFields(scope, null, null);
     }
 
     private List<ProcessPoolReportSourceField> processPoolReportSourceFields(Scope scope, Long targetRouteProcessId) {
+        return processPoolReportSourceFields(scope, null, targetRouteProcessId);
+    }
+
+    private List<ProcessPoolReportSourceField> processPoolReportSourceFields(Scope scope, Long routeId,
+                                                                             Long targetRouteProcessId) {
         Map<String, ProcessPoolReportSourceField> fields = new LinkedHashMap<>();
         PROCESS_POOL_REPORT_BASE_SOURCE_FIELDS.forEach(field -> fields.put(processPoolReportFieldMapKey(field), field));
         if (scope.versionId() == null) {
             return List.copyOf(fields.values());
         }
         List<Long> routeProcessIds = targetRouteProcessId == null
-                ? routeFlowProcessBatchRecordMapper
-                        .selectListByBatchRecordVersionId(scope.versionId()).stream()
+                ? selectBindingsInScope(scope, routeId).stream()
+                        .filter(this::isFormalBatchRecordBinding)
                         .map(MesProRouteFlowProcessBatchRecordDO::getRouteProcessId)
                         .filter(Objects::nonNull)
                         .distinct()
@@ -1105,6 +1161,20 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         addProcessPoolReportParameterFields(fields, rule, code, name, processPoolReportValueType(rule.getValueType()));
         }
         return List.copyOf(fields.values());
+    }
+
+    private boolean isFormalBatchRecordBinding(MesProRouteFlowProcessBatchRecordDO binding) {
+        if (binding == null || StrUtil.isBlank(binding.getBatchRecordReportId())) {
+            return false;
+        }
+        String formSlotType = StrUtil.blankToDefault(StrUtil.trim(binding.getFormSlotType()), FORM_SLOT_TYPE_MAIN);
+        if (Objects.equals(FORM_SLOT_TYPE_PROCESS_INSPECTION, formSlotType)
+                || Objects.equals(FORM_SLOT_TYPE_LOSS_REPORT, formSlotType)) {
+            return false;
+        }
+        String recordCategory = StrUtil.blankToDefault(StrUtil.trim(binding.getRecordCategory()),
+                Objects.equals(FORM_SLOT_TYPE_MAIN, formSlotType) ? "BATCH_RECORD" : null);
+        return Objects.equals("BATCH_RECORD", recordCategory);
     }
 
     private void addProcessPoolReportParameterFields(Map<String, ProcessPoolReportSourceField> fields,
@@ -1809,6 +1879,14 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             return new SourceSpec(SOURCE_TYPE_PROCESS_POOL_REPORT, PROCESS_POOL_REPORT_SOURCE_REPORT_ID,
                     PROCESS_POOL_REPORT_SOURCE_REPORT_NAME, -1, -1, field.code(), field.code(), field.name(),
                     field.name(), field.valueType(), SOURCE_TYPE_PROCESS_POOL_REPORT + ":" + field.code());
+        }
+
+        static SourceSpec productionPickList(MesProductionPickListSourceService.SourceField field) {
+            return new SourceSpec(SOURCE_TYPE_PRODUCTION_PICK_LIST,
+                    MesProductionPickListSourceService.SOURCE_REPORT_ID,
+                    MesProductionPickListSourceService.SOURCE_REPORT_NAME,
+                    -1, -1, field.fieldCode(), field.fieldCode(), field.fieldName(),
+                    field.fieldName(), field.valueType(), SOURCE_TYPE_PRODUCTION_PICK_LIST + ":" + field.fieldCode());
         }
 
         static SourceSpec formTemplateFormalSource(String sourceType, BatchRecordCellLinkRuleSaveItemReqVO item) {

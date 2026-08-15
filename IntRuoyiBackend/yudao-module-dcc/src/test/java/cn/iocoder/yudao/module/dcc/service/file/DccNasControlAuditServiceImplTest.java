@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditRecognizeRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchRuleDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasSourceDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
@@ -221,7 +222,7 @@ class DccNasControlAuditServiceImplTest extends BaseMockitoUnitTest {
         when(taskMapper.claimWaitingTask(eq(TASK_ID), any(LocalDateTime.class))).thenReturn(1);
         when(taskMapper.selectById(TASK_ID)).thenReturn(task);
         when(nasSettingsService.getRequiredNasConfig()).thenReturn(config);
-        when(nasSourceMapper.selectLegacyNasTransferCandidates(TENANT_ID)).thenReturn(List.of());
+        when(nasSourceMapper.selectLegacyNasSourceCandidates(TENANT_ID, NAS_SHARE_NAME)).thenReturn(List.of());
         when(nasSourceMapper.selectCurrentActiveSources(TENANT_ID, NAS_SHARE_NAME)).thenReturn(List.of());
         doAnswer(invocation -> {
             NasRecursiveScanHandler handler = invocation.getArgument(2);
@@ -266,6 +267,107 @@ class DccNasControlAuditServiceImplTest extends BaseMockitoUnitTest {
                 eq("NAS受控状态统计-" + TASK_ID + ".xlsx"), eq("dcc-nas-control-audit"), anyString());
     }
 
+    @Test
+    void processWaitingTasks_migratesFixedRootLocalFolderSourceAsLegacyExact() {
+        ReflectionTestUtils.setField(auditService, "transactionManager", noopTransactionManager());
+        ReflectionTestUtils.setField(auditService, "multipartLocation", tempDir.toString());
+        TenantContextHolder.setTenantId(TENANT_ID);
+        NasConnectionConfig config = new NasConnectionConfig("nas.local", 445, NAS_SHARE_NAME, "", "user", "secret");
+        DccNasControlAuditTaskDO task = waitingAuditTask();
+        DccControlledFileNasSourceMapper.LegacyNasSourceCandidate candidate =
+                legacyCandidate(701L, "Local folder import source: " + NAS_PATH);
+        when(taskMapper.selectWaitingTasks()).thenReturn(List.of(task));
+        when(taskMapper.claimWaitingTask(eq(TASK_ID), any(LocalDateTime.class))).thenReturn(1);
+        when(taskMapper.selectById(TASK_ID)).thenReturn(task);
+        when(nasSettingsService.getRequiredNasConfig()).thenReturn(config);
+        when(nasSourceMapper.selectLegacyNasSourceCandidates(TENANT_ID, NAS_SHARE_NAME)).thenReturn(List.of(candidate));
+        when(nasSourceMapper.selectByControlledFileIdAndShareAndSourceType(701L, NAS_SHARE_NAME,
+                "LEGACY_LOCAL_FOLDER_IMPORT")).thenReturn(null);
+        when(nasSourceMapper.selectCurrentActiveSources(TENANT_ID, NAS_SHARE_NAME)).thenReturn(
+                List.of(activeSource(701L, NAS_PATH, "LEGACY_LOCAL_FOLDER_IMPORT", "LEGACY_EXACT")));
+        doAnswer(invocation -> {
+            NasRecursiveScanHandler handler = invocation.getArgument(2);
+            handler.onFile(scannedFile());
+            return null;
+        }).when(nasRecursiveScanService).scan(eq(config), anyCollection(), any(NasRecursiveScanHandler.class));
+        when(fileService.createFileAndReturnId(any(Path.class), anyLong(), eq("NAS受控状态统计-" + TASK_ID + ".xlsx"),
+                eq("dcc-nas-control-audit"), anyString())).thenReturn(900L);
+
+        auditService.processWaitingTasks();
+
+        ArgumentCaptor<DccControlledFileNasSourceDO> sourceCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasSourceDO.class);
+        verify(nasSourceMapper).insert(sourceCaptor.capture());
+        DccControlledFileNasSourceDO source = sourceCaptor.getValue();
+        assertEquals(701L, source.getControlledFileId());
+        assertEquals(NAS_SHARE_NAME, source.getNasShareName());
+        assertEquals(DccNasPathUtils.normalizeRelativePath(NAS_PATH), source.getNormalizedRelativePath());
+        assertEquals(DccNasPathUtils.pathHash(NAS_SHARE_NAME, NAS_PATH), source.getPathHash());
+        assertEquals("LEGACY_LOCAL_FOLDER_IMPORT", source.getSourceType());
+        assertEquals("LEGACY_EXACT", source.getSourceConfidence());
+        assertEquals(1L, task.getControlledFileCount());
+        assertEquals(0L, task.getNotControlledFileCount());
+        verify(auditFileMapper, never()).insert(any(DccNasControlAuditFileDO.class));
+    }
+
+    @Test
+    void processWaitingTasks_doesNotMigrateLocalFolderSourceOutsideFixedRoots() {
+        ReflectionTestUtils.setField(auditService, "transactionManager", noopTransactionManager());
+        ReflectionTestUtils.setField(auditService, "multipartLocation", tempDir.toString());
+        TenantContextHolder.setTenantId(TENANT_ID);
+        NasConnectionConfig config = new NasConnectionConfig("nas.local", 445, NAS_SHARE_NAME, "", "user", "secret");
+        DccNasControlAuditTaskDO task = waitingAuditTask();
+        DccControlledFileNasSourceMapper.LegacyNasSourceCandidate candidate =
+                legacyCandidate(703L, "Local folder import source: Downloads/CODE-A-OQ-report.pdf");
+        when(taskMapper.selectWaitingTasks()).thenReturn(List.of(task));
+        when(taskMapper.claimWaitingTask(eq(TASK_ID), any(LocalDateTime.class))).thenReturn(1);
+        when(taskMapper.selectById(TASK_ID)).thenReturn(task);
+        when(nasSettingsService.getRequiredNasConfig()).thenReturn(config);
+        when(nasSourceMapper.selectLegacyNasSourceCandidates(TENANT_ID, NAS_SHARE_NAME)).thenReturn(List.of(candidate));
+        when(nasSourceMapper.selectCurrentActiveSources(TENANT_ID, NAS_SHARE_NAME)).thenReturn(List.of());
+        doAnswer(invocation -> {
+            NasRecursiveScanHandler handler = invocation.getArgument(2);
+            handler.onFile(scannedFile());
+            return null;
+        }).when(nasRecursiveScanService).scan(eq(config), anyCollection(), any(NasRecursiveScanHandler.class));
+        when(fileService.createFileAndReturnId(any(Path.class), anyLong(), eq("NAS受控状态统计-" + TASK_ID + ".xlsx"),
+                eq("dcc-nas-control-audit"), anyString())).thenReturn(900L);
+
+        auditService.processWaitingTasks();
+
+        assertEquals(DccNasControlAuditServiceImpl.STATUS_COMPLETED, task.getStatus());
+        assertEquals(0L, task.getControlledFileCount());
+        assertEquals(1L, task.getNotControlledFileCount());
+        verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void processWaitingTasks_failsBeforeScanWhenMigratedSourceBaselineIsStillEmpty() {
+        ReflectionTestUtils.setField(auditService, "transactionManager", noopTransactionManager());
+        ReflectionTestUtils.setField(auditService, "multipartLocation", tempDir.toString());
+        TenantContextHolder.setTenantId(TENANT_ID);
+        NasConnectionConfig config = new NasConnectionConfig("nas.local", 445, NAS_SHARE_NAME, "", "user", "secret");
+        DccNasControlAuditTaskDO task = waitingAuditTask();
+        DccControlledFileNasSourceMapper.LegacyNasSourceCandidate candidate =
+                legacyCandidate(702L, "Local folder import source: " + NAS_PATH);
+        when(taskMapper.selectWaitingTasks()).thenReturn(List.of(task));
+        when(taskMapper.claimWaitingTask(eq(TASK_ID), any(LocalDateTime.class))).thenReturn(1);
+        when(taskMapper.selectById(TASK_ID)).thenReturn(task);
+        when(nasSettingsService.getRequiredNasConfig()).thenReturn(config);
+        when(nasSourceMapper.selectLegacyNasSourceCandidates(TENANT_ID, NAS_SHARE_NAME)).thenReturn(List.of(candidate));
+        when(nasSourceMapper.selectByControlledFileIdAndShareAndSourceType(702L, NAS_SHARE_NAME,
+                "LEGACY_LOCAL_FOLDER_IMPORT")).thenReturn(null);
+        when(nasSourceMapper.selectCurrentActiveSources(TENANT_ID, NAS_SHARE_NAME)).thenReturn(List.of());
+
+        auditService.processWaitingTasks();
+
+        assertEquals(DccNasControlAuditServiceImpl.STATUS_FAILED, task.getStatus());
+        assertTrue(task.getFailureReason().contains("NAS 受控来源基线不完整"));
+        verify(nasRecursiveScanService, never()).scan(any(), anyCollection(), any(NasRecursiveScanHandler.class));
+        verify(auditFileMapper, never()).insert(any(DccNasControlAuditFileDO.class));
+        verify(fileService, never()).createFileAndReturnId(any(Path.class), anyLong(), anyString(), anyString(), anyString());
+    }
+
     private DccNasControlAuditTaskDO completedAuditTask() {
         return DccNasControlAuditTaskDO.builder()
                 .id(TASK_ID)
@@ -273,6 +375,58 @@ class DccNasControlAuditServiceImplTest extends BaseMockitoUnitTest {
                 .status(DccNasControlAuditServiceImpl.STATUS_COMPLETED)
                 .tenantId(TENANT_ID)
                 .build();
+    }
+
+    private DccNasControlAuditTaskDO waitingAuditTask() {
+        return DccNasControlAuditTaskDO.builder()
+                .id(TASK_ID)
+                .nasShareName(NAS_SHARE_NAME)
+                .status(DccNasControlAuditServiceImpl.STATUS_WAITING)
+                .scannedFileCount(0L)
+                .controlledFileCount(0L)
+                .notControlledFileCount(0L)
+                .ambiguousFileCount(0L)
+                .sourceMissingCount(0L)
+                .skippedDirectoryCount(0L)
+                .tenantId(TENANT_ID)
+                .build();
+    }
+
+    private DccControlledFileNasSourceMapper.LegacyNasSourceCandidate legacyCandidate(Long controlledFileId,
+                                                                                      String remark) {
+        DccControlledFileNasSourceMapper.LegacyNasSourceCandidate candidate =
+                new DccControlledFileNasSourceMapper.LegacyNasSourceCandidate();
+        candidate.setControlledFileId(controlledFileId);
+        candidate.setFileName("CODE-A-OQ-report.pdf");
+        candidate.setVersionNo("V1.0");
+        candidate.setRemark(remark);
+        return candidate;
+    }
+
+    private DccControlledFileNasSourceMapper.ActiveNasSourceRow activeSource(Long controlledFileId,
+                                                                             String path,
+                                                                             String sourceType,
+                                                                             String confidence) {
+        DccControlledFileNasSourceMapper.ActiveNasSourceRow source =
+                new DccControlledFileNasSourceMapper.ActiveNasSourceRow();
+        source.setControlledFileId(controlledFileId);
+        source.setNasShareName(NAS_SHARE_NAME);
+        source.setNormalizedRelativePath(DccNasPathUtils.normalizeRelativePath(path));
+        source.setPathHash(DccNasPathUtils.pathHash(NAS_SHARE_NAME, path));
+        source.setSourceType(sourceType);
+        source.setSourceConfidence(confidence);
+        return source;
+    }
+
+    private NasRecursiveScannedFile scannedFile() {
+        return new NasRecursiveScannedFile(
+                "1. QMS documents",
+                NAS_PATH,
+                "CODE-A-OQ-report.pdf",
+                2048L,
+                MODIFIED_AT,
+                false,
+                false);
     }
 
     private DccNasControlAuditFileDO pendingAuditFile(Long id, String path, String fileName) {

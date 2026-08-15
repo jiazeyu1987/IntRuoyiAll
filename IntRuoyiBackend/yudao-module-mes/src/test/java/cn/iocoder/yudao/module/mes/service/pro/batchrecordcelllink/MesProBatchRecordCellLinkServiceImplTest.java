@@ -31,6 +31,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -75,16 +76,44 @@ class MesProBatchRecordCellLinkServiceImplTest {
     private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
     @Mock
     private MesProBatchRecordRepeatRowGroupMapper repeatRowGroupMapper;
+    @Mock
+    private MesProductionPickListSourceService productionPickListSourceService;
 
     @InjectMocks
     private MesProBatchRecordCellLinkServiceImpl service;
+
+    @BeforeEach
+    void setUpPickListCatalog() {
+        lenient().when(productionPickListSourceService.listSourceFields(any())).thenReturn(List.of());
+    }
+
+    @Test
+    void getWorkbenchContext_exposesProductionPickListFieldsForCurrentRouteProcess() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        when(productionPickListSourceService.listSourceFields(9001L)).thenReturn(List.of(
+                new MesProductionPickListSourceService.SourceField(
+                        "material.3201.lotNumber", "手柄（MAT-001）- 物料批次号", "STRING", 5001L)));
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null);
+
+        assertEquals(1, result.getSourceFields().stream()
+                .filter(field -> "PRODUCTION_PICK_LIST".equals(field.getSourceType()))
+                .filter(field -> "material.3201.lotNumber".equals(field.getFieldCode()))
+                .filter(field -> Long.valueOf(5001L).equals(field.getRouteProcessId()))
+                .count());
+    }
 
     @Test
     void getWorkbenchContext_exposesProcessPoolReportFieldsFromRouteParameters() {
         MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
         when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
         when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
-        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordVersionId(3001L)).thenReturn(List.of(
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
                 routeBinding(5001L, 3001L, "target-report"),
                 routeBinding(5002L, 3001L, "target-report")));
         lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
@@ -119,6 +148,55 @@ class MesProBatchRecordCellLinkServiceImplTest {
     }
 
     @Test
+    void getWorkbenchContext_resolvesMainSlotBlankRecordCategoryAsFormalBatchRecordProcess() {
+        MesProBatchRecordReportDO targetReport = report("rough-wash-report", "粗洗工序生产记录", 2001L, 3001L);
+        MesProRouteFlowProcessBatchRecordDO roughWashBinding = routeBinding(5001L, 3001L, "rough-wash-report")
+                .setBatchRecordVersionId(null)
+                .setRecordCategory(null)
+                .setFormSlotType("MAIN");
+        MesProRouteFlowProcessBatchRecordDO otherRouteBinding = routeBinding(6001L, 3001L, "rough-wash-report")
+                .setRouteId(9002L)
+                .setBatchRecordVersionId(null);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any()))
+                .thenReturn(List.of(roughWashBinding, otherRouteBinding));
+        lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
+                parameterRule(11L, 5001L, "cleaningCount", "清洗次数",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER),
+                parameterRule(12L, 5001L, "cleaningMedium", "清洗介质",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT),
+                parameterRule(13L, 5001L, "cleaningPower", "清洗功率",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL),
+                parameterRule(14L, 5001L, "roomTemperature", "室温",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL),
+                parameterRule(15L, 5001L, "cleaningDuration", "清洗时间",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER)));
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null);
+
+        assertEquals(5001L, result.getForms().get(0).getRouteProcessId());
+        assertProcessPoolSourceField(result, "outputQuantity", "本次报工产出数量", "NUMBER", null);
+        assertProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工", "NUMBER", null);
+        assertProcessPoolSourceField(result, "serverSubmitTime", "提交时间", "STRING", null);
+        assertProcessPoolSourceField(result, "selectedDevice.deviceName", "选用设备名称", "STRING", null);
+        assertProcessPoolSourceField(result, "deviceMeteringValidity.inMeteringValidityPeriod",
+                "选用设备计量有效期内", "BOOLEAN", null);
+        assertProcessPoolSourceField(result, "clearanceConfirmations.workplace.confirmed", "清场确认", "BOOLEAN", null);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningCount.value",
+                "清洗次数实际值", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningMedium.value",
+                "清洗介质实际值", "STRING", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningPower.value",
+                "清洗功率实际值", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.roomTemperature.value",
+                "室温实际值", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningDuration.value",
+                "清洗时间实际值", "NUMBER", 5001L);
+    }
+
+    @Test
     void saveRules_acceptsProcessPoolReportFieldWithExplicitAggregation() {
         stubProcessPoolSaveContext();
         when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
@@ -134,6 +212,27 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals("扩张压力实际值", row.getSourceFieldName());
         assertEquals("SUM", row.getAggregationStrategy());
         assertEquals("1:2", row.getTargetCellKey());
+    }
+
+    @Test
+    void saveRules_resolvesProcessParameterFromRequestedRouteWhenReportIsSharedAcrossRoutes() {
+        stubProcessPoolSaveContext();
+        MesProRouteFlowProcessBatchRecordDO currentRouteBinding =
+                routeBinding(5001L, 3001L, "target-report");
+        MesProRouteFlowProcessBatchRecordDO otherRouteBinding =
+                routeBinding(6001L, 3001L, "target-report").setRouteId(9002L);
+        when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any()))
+                .thenReturn(List.of(currentRouteBinding, otherRouteBinding));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+
+        service.saveRules(processPoolRuleSaveRequest("deviceParameterReadings.pressure.value", "SUM"));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        MesProBatchRecordCellLinkRuleDO row = captor.getValue().get(0);
+        assertEquals(9001L, row.getRouteId());
+        assertEquals("deviceParameterReadings.pressure.value", row.getSourceFieldCode());
+        assertEquals("扩张压力实际值", row.getSourceFieldName());
     }
 
     @Test
@@ -777,8 +876,10 @@ class MesProBatchRecordCellLinkServiceImplTest {
     private void stubProcessPoolSaveContext() {
         MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
         lenient().when(reportMapper.selectByReportId("target-report")).thenReturn(targetReport);
+        lenient().when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L))
+                .thenReturn(List.of(targetReport));
         lenient().when(reportService.getCellRules("target-report")).thenReturn(targetCellRules());
-        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordVersionId(3001L)).thenReturn(
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(
                 List.of(routeBinding(5001L, 3001L, "target-report")));
         lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
                 parameterRule(11L, 5001L, "pressure", "扩张压力",

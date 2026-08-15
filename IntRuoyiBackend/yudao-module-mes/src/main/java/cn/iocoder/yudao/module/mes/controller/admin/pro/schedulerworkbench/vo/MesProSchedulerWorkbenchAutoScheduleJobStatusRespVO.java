@@ -33,9 +33,12 @@ public class MesProSchedulerWorkbenchAutoScheduleJobStatusRespVO {
     @Schema(description = "最近一次执行结束时间")
     private LocalDateTime latestEndTime;
 
-    @Schema(description = "最近一次执行状态：RUNNING/SUCCESS/FAILURE")
+    @Schema(description = "最近一次执行状态：RUNNING/SUCCESS/PARTIAL_FAILURE/FAILURE")
     private String latestStatus;
 
     @Schema(description = "最近一次执行结果")
     private String latestResult;
+
+    @Schema(description = "最近一次执行结果的业务可读摘要")
+    private String latestResultSummary;
 }

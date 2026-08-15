@@ -158,7 +158,7 @@ export interface SchedulerWorkbenchPolicySettingsVO {
   defaultNightShiftEnabled: boolean
   defaultWorkerQuantity: number
   defaultWorkerSingleHourlyCapacity: number
-  workerCapacityApplicabilityText?: string
+  workerCapacityApplicabilityText: string
 }
 
 export interface AutoScheduleJobStatusVO {
@@ -170,8 +170,9 @@ export interface AutoScheduleJobStatusVO {
   nextTriggerTime?: string
   latestBeginTime?: string
   latestEndTime?: string
-  latestStatus?: 'RUNNING' | 'SUCCESS' | 'FAILURE' | string
+  latestStatus?: 'RUNNING' | 'SUCCESS' | 'PARTIAL_FAILURE' | 'FAILURE' | string
   latestResult?: string
+  latestResultSummary?: string
 }
 
 export interface NightShiftCapacityStatusVO {

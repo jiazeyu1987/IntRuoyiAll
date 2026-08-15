@@ -17,6 +17,11 @@ assert.equal(
 
 const source = fs.readFileSync(target, 'utf8')
 const contract = require(target)
+const fixtureTarget = path.resolve(
+  __dirname,
+  '../../../doc/tasks/20260814-frontline-active-order-submit-allocation-docs/fas_fixture_orchestrator.py'
+)
+const fixtureSource = fs.readFileSync(fixtureTarget, 'utf8')
 
 for (const requiredEnv of [
   'FAS_FRONTEND_URL',
@@ -37,16 +42,33 @@ for (const requiredEnv of [
 }
 
 assert.match(source, /8099[\s\S]*48099/, '真实 E2E 必须允许当前 worktree 的 8099/48099 端口对。')
-assert.doesNotMatch(source, /POST_MERGE_INT_MAIN|8081|48081/, '当前 P5 worktree 验证禁止接受 int_main 端口或 post-merge 模式。')
+assert.match(source, /POST_MERGE_INT_MAIN[\s\S]*8081[\s\S]*48081/, '真实 E2E 必须允许融合后 int_main 的 8081/48081 端口对。')
+assert.match(source, /ADMIN_TENANT1_INT_MAIN[\s\S]*8081[\s\S]*48081/, 'admin 补充验证必须通过独立运行模式绑定 int_main 8081/48081。')
+assert.match(source, /FAS_EVIDENCE_RUN_ID/, 'admin 补充验证必须要求本轮独立证据标识，禁止并发流程共用证据目录。')
+assert.match(source, /artifactDirFor/, '真实 E2E 必须通过统一 helper 生成按运行隔离的证据目录。')
+assert.match(source, /RUNTIME_PROFILES/, '运行模式必须通过显式运行态 profile 选择，不得混用端口和工作区。')
 assert.match(source, /validateRuntimeEvidence/, '真实 E2E 必须校验运行态归属和版本证据。')
 assert.match(source, /sourceRevision[\s\S]*sourceFingerprintSha256/, '运行态证据必须绑定源码版本和工作树指纹。')
 assert.match(source, /backendArtifactSha256/, '运行态证据必须核验实际后端产物哈希。')
 assert.match(source, /Get-NetTCPConnection[\s\S]*Get-CimInstance/, '运行态证据必须核验监听 PID 和进程命令行归属。')
 assert.match(source, /allowedTestTenantIds[\s\S]*allowedTestTenantNames/, '真实 E2E 必须使用显式测试租户 ID/名称白名单。')
-assert.match(source, /FIXED_TEST_TENANT[\s\S]*id:\s*['"]122['"][\s\S]*name:\s*['"]测试租户['"]/, 'P5 必须固定证明本机测试租户 122/测试租户。')
+assert.match(source, /FIXED_TEST_TENANT[\s\S]*id:\s*['"]122['"][\s\S]*name:\s*['"]测试租户['"]/, '真实 E2E 必须固定证明本机测试租户 122/测试租户。')
+assert.match(source, /ADMIN_SUPPLEMENT_TENANT[\s\S]*id:\s*['"]1['"][\s\S]*name:\s*['"]芋道源码['"]/, 'admin 补充模式必须固定租户 1/芋道源码。')
+assert.match(source, /fixtureMode[\s\S]*ADMIN_TENANT1/, 'admin 补充模式必须由 fixture mode 显式声明，不得从账号名猜测。')
+assert.match(fixtureSource, /protectedBaselineFingerprint/, 'admin fixture 必须记录不泄密的受保护基线指纹。')
+assert.match(fixtureSource, /protectedBaselineVerified/, 'verify/cleanup 必须证明 admin 受保护基线前后一致。')
+assert.match(fixtureSource, /ADMIN_TENANT1/, 'fixture 编排器必须提供独立的 tenant 1 admin 模式。')
 assert.match(source, /validateRuntimeEvidence\(config\)[\s\S]{0,500}verifyExternalFixture\(config\)[\s\S]{0,500}runScenario\(config\)/, '真实写入前必须依次完成运行态、fixture 与权限数据前置核验。')
 assert.doesNotMatch(source, /FORBIDDEN_TENANTS/, '租户归属不得只靠生产/admin 黑名单证明。')
 assert.match(source, /selectFrontlineActiveOrder/, '真实 E2E 必须通过页面明确选择 O1。')
+assert.match(source, /loginResponseWait[\s\S]*auth\/login/, '真实登录必须等待并核验正式登录响应，不得只等 URL。')
+assert.match(source, /waitForLoginFormShell[\s\S]*login-form[\s\S]*state:\s*['"]visible['"][\s\S]*selectLoginTenant/, '登录页必须先等待真实表单壳层可见，再读取租户下拉框，避免首屏 loading 竞争。')
+assert.match(
+  source,
+  /page\.goto\(`\$\{frontendUrl\}\/login\?redirect=\/index`[\s\S]{0,120}waitUntil:\s*['"]domcontentloaded['"]/,
+  '登录页必须等待 DOM 就绪，不得被持续轮询或外部资源阻塞在 networkidle。'
+)
+assert.match(source, /waitForURL\([\s\S]{0,240}waitUntil:\s*['"]commit['"]/, '登录成功后的 URL 门禁必须使用 commit，避免主应用长资源误报 load 超时。')
 assert.match(
   source,
   /const LEADER_ROUTE = ['"]\/mes\/pro\/process-pool\/production-leader['"]/,
@@ -62,6 +84,8 @@ assert.match(
 assert.match(source, /data-team-leader-report-overage/, '真实 E2E 必须验证组长列表红色待调整标识。')
 assert.match(source, /reallocateToSecondOrder/, '真实 E2E 必须通过组长页面把部分数量改配到 O2。')
 assert.match(source, /postSavePageResponse/, '组长改配后必须等待并核验正式报工管理列表刷新响应。')
+assert.match(source, /function observeWait[\s\S]*then\([\s\S]*error/, '多个 Playwright 等待必须在创建时立即观测 reject，禁止未处理 promise 跳过 finally cleanup。')
+assert.match(source, /postSavePageResponseWait\s*=\s*observeWait/, '改配后列表刷新等待必须使用可安全延后 await 的观测器。')
 assert.match(source, /assertAdjustedResponse/, '组长改配后必须从正式列表响应核验 O1、O2 数量和待调整状态。')
 assert.match(source, /data-team-leader-report-overage[^\n]*waitFor\(\{\s*state:\s*['"]hidden['"]/, '组长改配后必须等待红色待调整标识真正消失。')
 assert.match(source, /submission\/allocation\/audit/, '真实 E2E 必须只读核验初始分配与改配审计。')
@@ -146,6 +170,52 @@ assert.equal(
   false,
   '相邻超大 Long ID 不得因 Number 精度丢失被判为相等。'
 )
+assert.deepEqual(
+  contract.runtimeForMode('POST_MERGE_INT_MAIN'),
+  {
+    workspaceRoot: path.resolve(__dirname, '../../..'),
+    frontendUrls: ['http://127.0.0.1:8081', 'http://localhost:8081'],
+    backendUrl: 'http://127.0.0.1:48081',
+    frontendPort: 8081,
+    backendPort: 48081
+  },
+  '融合后模式必须精确绑定 E:\\IntRuoyi 的 8081/48081。'
+)
+assert.deepEqual(
+  contract.runtimeForMode('ADMIN_TENANT1_INT_MAIN'),
+  {
+    workspaceRoot: path.resolve(__dirname, '../../..'),
+    frontendUrls: ['http://127.0.0.1:8081', 'http://localhost:8081'],
+    backendUrl: 'http://127.0.0.1:48081',
+    frontendPort: 8081,
+    backendPort: 48081
+  },
+  'admin 补充模式必须精确绑定 E:\\IntRuoyi 的 8081/48081。'
+)
+assert.deepEqual(
+  contract.tenantForMode('ADMIN_TENANT1_INT_MAIN'),
+  { id: '1', name: '芋道源码', fixtureMode: 'ADMIN_TENANT1' },
+  'admin 补充模式必须精确绑定租户 1/芋道源码及 admin fixture 合同。'
+)
+assert.deepEqual(
+  contract.tenantForMode('POST_MERGE_INT_MAIN'),
+  { id: '122', name: '测试租户', fixtureMode: 'STANDARD_TENANT122' },
+  '原 P6 融合后模式必须仍固定租户 122/测试租户。'
+)
+assert.equal(
+  contract.artifactDirFor('ADMIN_TENANT1_INT_MAIN', 'p7-run-20260815'),
+  path.resolve(
+    __dirname,
+    '../../../doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-run-20260815'
+  ),
+  'admin 补充模式必须把每轮证据写入独立子目录。'
+)
+assert.throws(
+  () => contract.artifactDirFor('ADMIN_TENANT1_INT_MAIN', '../shared'),
+  /FAS_EVIDENCE_RUN_ID/,
+  '证据运行标识不得包含路径穿越或落入共享目录。'
+)
+assert.equal(contract.runtimeForMode('UNSUPPORTED'), undefined, '未知运行模式必须 fail fast，不得降级。')
 
 assert.deepEqual(
   contract.classifyConsoleErrors(
@@ -170,6 +240,39 @@ assert.deepEqual(
   contract.classifyConsoleErrors(['业务页面异常'], [{ method: 'GET', url: 'https://example.com/x', errorText: 'net::ERR_CONNECTION_TIMED_OUT' }]),
   { targetConsoleErrors: ['业务页面异常'], externalResourceConsoleErrors: [] },
   '业务控制台错误不得因同时存在第三方超时而被吞掉。'
+)
+assert.deepEqual(
+  contract.classifyConsoleErrors(
+    [
+      'Failed to load resource: the server responded with a status of 502 (Bad Gateway)',
+      'Failed to load resource: the server responded with a status of 502 (Bad Gateway)'
+    ],
+    [],
+    [
+      { method: 'GET', url: 'http://test.yudao.iocoder.cn/user/avatar/a.jpg', status: 502, statusText: 'Bad Gateway' },
+      { method: 'GET', url: 'http://test.yudao.iocoder.cn/user/avatar/a.jpg', status: 502, statusText: 'Bad Gateway' }
+    ]
+  ),
+  {
+    targetConsoleErrors: [],
+    externalResourceConsoleErrors: [
+      'Failed to load resource: the server responded with a status of 502 (Bad Gateway)',
+      'Failed to load resource: the server responded with a status of 502 (Bad Gateway)'
+    ]
+  },
+  '只有与逐条记录的非本机 HTTP 错误响应一一对应时，通用 console 502 才可归类为外部资源错误。'
+)
+assert.deepEqual(
+  contract.classifyConsoleErrors(
+    ['Failed to load resource: the server responded with a status of 502 (Bad Gateway)'],
+    [],
+    [{ method: 'GET', url: 'http://127.0.0.1:8081/admin-api/mes/pro/x', status: 502, statusText: 'Bad Gateway' }]
+  ),
+  {
+    targetConsoleErrors: ['Failed to load resource: the server responded with a status of 502 (Bad Gateway)'],
+    externalResourceConsoleErrors: []
+  },
+  '本机业务响应错误必须保持目标错误，禁止被外部资源分类吞掉。'
 )
 
 assert.throws(
@@ -209,7 +312,7 @@ assert.equal(
   '存在任务数据残留时不得进入 PASS。'
 )
 
-const artifactDir = path.resolve(__dirname, '../../../doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts')
+const artifactDir = path.resolve(__dirname, '../../../doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/worktree')
 const artifactPaths = ['result.json', 'evidence.md', 'scenario-state.json', 'cleanup-result.json']
   .map((name) => path.join(artifactDir, name))
 const artifactSnapshots = new Map(artifactPaths.map((filePath) => [
@@ -224,6 +327,7 @@ try {
   const runId = 'FAS-20260814-contract-cleanup'
   fs.writeFileSync(manifestPath, JSON.stringify({
     schemaVersion: 'fas-fixture-v1',
+    fixtureMode: 'STANDARD_TENANT122',
     taskId: '20260814-frontline-active-order-submit-allocation-docs',
     runId,
     tenant: { id: '122', name: '测试租户' },
@@ -274,7 +378,11 @@ try {
     encoding: 'utf8'
   })
   assert.equal(child.status, 2, `配置失败合同应以 BLOCKED 退出：${child.stderr || child.stdout}`)
-  assert.equal(fs.existsSync(cleanupMarkerPath), true, 'collectConfig 失败后仍必须调用外部 cleanup。')
+  assert.equal(
+    fs.existsSync(cleanupMarkerPath),
+    true,
+    `collectConfig 失败后仍必须调用外部 cleanup：${child.stderr || child.stdout}`
+  )
   const resultPath = path.join(artifactDir, 'result.json')
   const childResult = JSON.parse(fs.readFileSync(resultPath, 'utf8'))
   assert.equal(childResult.cleanupResult.status, 'CLEAN')

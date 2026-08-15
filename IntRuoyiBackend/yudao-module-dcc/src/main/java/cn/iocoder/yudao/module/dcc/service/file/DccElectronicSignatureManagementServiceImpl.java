@@ -21,10 +21,12 @@ import cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccSignatureVer
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureBindingDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureReissueLogDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationAuditDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureReissueLogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthorizationAuditMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthorizationMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
@@ -42,15 +44,21 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.awt.image.BufferedImage;
 import java.awt.Color;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -85,6 +93,8 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_NOT_E
 @Validated
 public class DccElectronicSignatureManagementServiceImpl implements DccElectronicSignatureManagementService {
 
+    private static final Logger log = LoggerFactory.getLogger(DccElectronicSignatureManagementServiceImpl.class);
+
     private static final String STATE_UNAUTHORIZED = "UNAUTHORIZED";
     private static final String STATE_ENABLED = "ENABLED";
     private static final String STATE_DISABLED = "DISABLED";
@@ -92,6 +102,11 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
     private static final String STATUS_VALID = "VALID";
     private static final String STATUS_INVALID = "INVALID";
     private static final String STATUS_HISTORICAL_UNBOUND = "HISTORICAL_UNBOUND";
+    private static final Set<String> REISSUABLE_EVIDENCE_REASONS = Set.of(
+            "EVIDENCE_HMAC_MISMATCH", "EVIDENCE_KEY_VERSION_NOT_CONFIGURED");
+    private static final String BINDING_REASON_MISSING = "CONTROLLED_COPY_BINDING_MISSING";
+    private static final String BINDING_REASON_EVIDENCE_MISMATCH =
+            "CONTROLLED_COPY_BINDING_EVIDENCE_MISMATCH";
     private static final String COPY_HASH_STATUS_BOUND = "BOUND";
     private static final String COPY_HASH_STATUS_NOT_APPLICABLE = "NOT_APPLICABLE";
     private static final String SIGNATURE_EVIDENCE_EXPORT_CONTENT_TYPE = "application/pdf";
@@ -118,6 +133,8 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
 
     @Resource
     private DccControlledFileSignatureMapper signatureMapper;
+    @Resource
+    private DccControlledFileSignatureReissueLogMapper signatureReissueLogMapper;
     @Resource
     private DccControlledFileMapper controlledFileMapper;
     @Resource
@@ -512,6 +529,172 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         signatureBindingService.bindPublishedCopy(file, file.getPublishedFileId(), operatorUserId,
                 eventKeyPrefix + StrUtil.subWithLength(requestId, 0, 128 - eventKeyPrefix.length()));
         return getSignatureExportSummary(controlledFileId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DccControlledFileSignatureExportSummaryRespVO reissuePublishedSignatureEvidence(
+            Long controlledFileId, Long operatorUserId, String requestId, String reason) {
+        DccControlledFileDO file = requireControlledFile(controlledFileId);
+        validateSignatureEvidenceReissueInput(file, operatorUserId, requestId, reason);
+        List<DccControlledFileSignatureDO> signatures = signatureMapper.selectListByControlledFileId(controlledFileId);
+        if (CollUtil.isEmpty(signatures)) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        }
+        boolean reissued = false;
+        Map<Long, String> previousEvidenceHashes = new LinkedHashMap<>();
+        for (DccControlledFileSignatureDO signature : signatures) {
+            VerificationComputation originalEvidence = verifySignature(signature, file, false);
+            if (!STATUS_VALID.equals(originalEvidence.verificationStatus())
+                    && !REISSUABLE_EVIDENCE_REASONS.contains(originalEvidence.verificationReason())) {
+                throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                        "签名 " + signature.getId() + " 不可重新封存：" + originalEvidence.verificationReason());
+            }
+            DccControlledFileSignatureBindingVerification bindingVerification =
+                    signatureBindingService.verifyPublishedCopyBinding(signature, file);
+            boolean auditedBindingEvidenceMismatch = false;
+            String previousBindingEvidenceHash = signature.getEvidenceHash();
+            if (!bindingVerification.valid()) {
+                if (BINDING_REASON_EVIDENCE_MISMATCH.equals(bindingVerification.reasonCode())
+                        && bindingVerification.binding() != null) {
+                    previousBindingEvidenceHash = bindingVerification.binding().getOriginalEvidenceHash();
+                    auditedBindingEvidenceMismatch = hasAuditedReissueLink(file.getId(), signature.getId(),
+                            previousBindingEvidenceHash, signature.getEvidenceHash());
+                    if (!auditedBindingEvidenceMismatch) {
+                        throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                                "签名 " + signature.getId() + " 受控副本绑定与当前证据不一致且缺少连续审计记录");
+                    }
+                } else if (!BINDING_REASON_MISSING.equals(bindingVerification.reasonCode())) {
+                    throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                            "签名 " + signature.getId() + " 受控副本绑定不可重新封存："
+                                    + bindingVerification.reasonCode());
+                }
+            }
+            if (STATUS_VALID.equals(originalEvidence.verificationStatus()) && !auditedBindingEvidenceMismatch) {
+                continue;
+            }
+            previousEvidenceHashes.put(signature.getId(), previousBindingEvidenceHash);
+            reissueOneSignatureEvidence(signature, file, operatorUserId, requestId, reason);
+            reissued = true;
+        }
+        if (!reissued) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                    "未发现需要重新封存的历史坏签名");
+        }
+        String eventKeyPrefix = "reissue:" + controlledFileId + ":";
+        signatureBindingService.bindPublishedCopyAfterEvidenceReissue(file, file.getPublishedFileId(), operatorUserId,
+                eventKeyPrefix + StrUtil.subWithLength(requestId, 0, 128 - eventKeyPrefix.length()),
+                previousEvidenceHashes);
+        return getSignatureExportSummary(controlledFileId);
+    }
+
+    private boolean hasAuditedReissueLink(Long controlledFileId, Long signatureId,
+                                          String beforeEvidenceHash, String afterEvidenceHash) {
+        if (StrUtil.hasBlank(beforeEvidenceHash, afterEvidenceHash)) {
+            return false;
+        }
+        Long count = signatureReissueLogMapper.selectCount(
+                new LambdaQueryWrapperX<DccControlledFileSignatureReissueLogDO>()
+                        .eq(DccControlledFileSignatureReissueLogDO::getControlledFileId, controlledFileId)
+                        .eq(DccControlledFileSignatureReissueLogDO::getSignatureId, signatureId)
+                        .eq(DccControlledFileSignatureReissueLogDO::getBeforeEvidenceHash, beforeEvidenceHash)
+                        .eq(DccControlledFileSignatureReissueLogDO::getAfterEvidenceHash, afterEvidenceHash));
+        return count != null && count > 0;
+    }
+
+    private void validateSignatureEvidenceReissueInput(DccControlledFileDO file, Long operatorUserId,
+                                                       String requestId, String reason) {
+        if (operatorUserId == null || StrUtil.isBlank(requestId) || StrUtil.isBlank(reason)) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                    "重新封存操作者、审计请求号或业务批准原因缺失");
+        }
+        if ((!DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+                && !DccControlledFileStatusEnum.APPROVED.getStatus().equals(file.getStatus()))
+                || file.getPublishedFileId() == null) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                    "文件尚未形成最终受控副本");
+        }
+        signatureEvidenceProperties.validateRuntimeConfig();
+        if (StrUtil.hasBlank(signatureEvidenceProperties.getKeyVersion(),
+                signatureEvidenceProperties.getHmacSecret())) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                    "当前签名证据密钥未配置");
+        }
+    }
+
+    private void reissueOneSignatureEvidence(DccControlledFileSignatureDO signature,
+                                             DccControlledFileDO file,
+                                             Long operatorUserId,
+                                             String requestId,
+                                             String reason) {
+        validateReissuePrerequisites(signature, file);
+        String beforeEvidenceHash = signature.getEvidenceHash();
+        String beforeEvidenceKeyVersion = signature.getEvidenceKeyVersion();
+        String beforeEvidenceStatus = signature.getEvidenceStatus();
+        String afterKeyVersion = StrUtil.trim(signatureEvidenceProperties.getKeyVersion());
+        signature.setEvidenceKeyVersion(afterKeyVersion);
+        signature.setEvidenceHashAlgorithm(DccControlledFileSignatureEvidenceServiceImpl.EVIDENCE_HASH_ALGORITHM);
+        signature.setEvidenceStatus(STATUS_VALID);
+        String afterEvidenceHash = hmacSha256Hex(buildCanonicalPayload(signature, file),
+                StrUtil.trim(signatureEvidenceProperties.getHmacSecret()));
+        signature.setEvidenceHash(afterEvidenceHash);
+
+        DccControlledFileSignatureDO update = DccControlledFileSignatureDO.builder()
+                .id(signature.getId())
+                .evidenceKeyVersion(afterKeyVersion)
+                .evidenceHash(afterEvidenceHash)
+                .evidenceHashAlgorithm(DccControlledFileSignatureEvidenceServiceImpl.EVIDENCE_HASH_ALGORITHM)
+                .evidenceStatus(STATUS_VALID)
+                .build();
+        if (signatureMapper.updateById(update) <= 0) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
+        }
+        signatureReissueLogMapper.insert(DccControlledFileSignatureReissueLogDO.builder()
+                .controlledFileId(file.getId())
+                .signatureId(signature.getId())
+                .beforeEvidenceHash(beforeEvidenceHash)
+                .beforeEvidenceKeyVersion(beforeEvidenceKeyVersion)
+                .beforeEvidenceStatus(beforeEvidenceStatus)
+                .afterEvidenceHash(afterEvidenceHash)
+                .afterEvidenceKeyVersion(afterKeyVersion)
+                .afterEvidenceStatus(STATUS_VALID)
+                .reissuedBy(operatorUserId)
+                .reissuedAt(LocalDateTime.now().withNano(0))
+                .requestId(StrUtil.subWithLength(StrUtil.trim(requestId), 0, 128))
+                .reason(StrUtil.subWithLength(StrUtil.trim(reason), 0, 1024))
+                .build());
+    }
+
+    private void validateReissuePrerequisites(DccControlledFileSignatureDO signature,
+                                              DccControlledFileDO file) {
+        if (!hasCompleteVerifiableEvidence(signature, file)) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                    "签名 " + (signature == null ? "" : signature.getId()) + " 证据字段不完整，不能重新封存");
+        }
+        if (!Set.of("v1", DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V2,
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V3_IMAGE)
+                .contains(signature.getEvidencePayloadVersion())) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                    "签名 " + signature.getId() + " 证据版本不支持重新封存");
+        }
+        if (!DccControlledFileSignatureEvidenceServiceImpl.EVIDENCE_HASH_ALGORITHM
+                .equals(signature.getEvidenceHashAlgorithm())) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                    "签名 " + signature.getId() + " 证据算法不支持重新封存");
+        }
+        String sourceFileVerificationReason = verifySourceFileHash(signature);
+        if (StrUtil.isNotBlank(sourceFileVerificationReason)) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                    "签名 " + signature.getId() + " 源文件校验失败：" + sourceFileVerificationReason);
+        }
+        if (isImageEvidencePayload(signature)) {
+            try {
+                signatureImageService.verifySignatureSnapshot(signature);
+            } catch (RuntimeException ex) {
+                throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                        "签名 " + signature.getId() + " 签名图片校验失败");
+            }
+        }
     }
 
     private void applySignaturePageBindingProjection(DccElectronicSignatureRespVO respVO,
@@ -1073,6 +1256,12 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
                         field("签名图片状态", value(signature.get("signatureImageStatusSnapshot"))),
                         field("签名图片校验", value(signature.get("signatureImageVerifiedStatus"))),
                         field("源文件哈希", value(signature.get("sourceFileHash"))),
+                        field("受控副本状态", value(signature.get("controlledCopyHashStatus"))),
+                        field("受控副本文件 ID", value(signature.get("controlledCopyFileId"))),
+                        field("受控副本哈希", value(signature.get("controlledCopyHash"))),
+                        field("受控副本对象路径", value(signature.get("controlledCopyObjectKey"))),
+                        field("受控副本绑定事件", value(signature.get("bindingEventKey"))),
+                        field("受控副本绑定时间", value(signature.get("boundAt"))),
                         field("证据哈希", value(signature.get("storedEvidenceHash"))),
                         field("复算证据哈希", value(signature.get("recomputedEvidenceHash"))),
                         field("校验状态", value(signature.get("verificationStatus")))
@@ -1080,7 +1269,8 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
                 byte[] imageContent = (byte[]) signature.get("signatureImageContent");
                 if (imageContent != null && imageContent.length > 0) {
                     writer.signatureImage("签名图片 / 手写签名图", imageContent,
-                            value(signature.get("signatureImageFileId")));
+                            value(signature.get("signatureImageFileId")),
+                            value(signature.get("signatureImageSha256")));
                 }
             }
             writer.footer(SIGNATURE_EVIDENCE_SYSTEM_STATEMENT);
@@ -1088,6 +1278,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
             document.save(outputStream);
             return outputStream.toByteArray();
         } catch (IOException | RuntimeException ex) {
+            log.warn("[renderSignatureEvidencePdf][controlledFileId({}) export failed]", file == null ? null : file.getId(), ex);
             throw exception(CONTROLLED_FILE_SIGNATURE_EXPORT_BLOCKED);
         }
     }
@@ -1213,9 +1404,15 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
             y -= rowHeight;
         }
 
-        private void signatureImage(String label, byte[] imageBytes, String imageId) throws IOException {
-            PDImageXObject image = PDImageXObject.createFromByteArray(document, imageBytes,
-                    "signature-image-" + value(imageId));
+        private void signatureImage(String label, byte[] imageBytes, String imageId, String imageSha256)
+                throws IOException {
+            PDImageXObject image = createSignatureImage(imageBytes, imageId, imageSha256);
+            if (image == null) {
+                field("历史签名图片不可渲染",
+                        "原始图片文件哈希已验证，但图片内容无法被 PDF 渲染器解码；图片文件 ID="
+                                + value(imageId) + "；图片 SHA-256=" + value(imageSha256));
+                return;
+            }
             float maxWidth = 190F;
             float maxHeight = 82F;
             float width = image.getWidth();
@@ -1234,6 +1431,23 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
             contentStream.drawImage(image, imageX, imageY, drawWidth, drawHeight);
             y -= blockHeight;
             blank();
+        }
+
+        private PDImageXObject createSignatureImage(byte[] imageBytes, String imageId, String imageSha256) {
+            try {
+                BufferedImage bufferedImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
+                if (bufferedImage == null || bufferedImage.getWidth() <= 0 || bufferedImage.getHeight() <= 0) {
+                    log.warn("[createSignatureImage][historical signature image cannot be rendered, imageId({}), sha256({})]",
+                            imageId, imageSha256);
+                    return null;
+                }
+                return LosslessFactory.createFromImage(document, bufferedImage);
+            } catch (IOException | RuntimeException ex) {
+                log.warn("[createSignatureImage][historical signature image cannot be rendered, imageId({}), "
+                                + "sha256({}), errorType({}), errorMessage({})]",
+                        imageId, imageSha256, ex.getClass().getSimpleName(), ex.getMessage());
+                return null;
+            }
         }
 
         private void line(String text) throws IOException {
@@ -1259,6 +1473,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         }
 
         private List<String> wrap(String text, float fontSize, float maxWidth) throws IOException {
+            text = printableText(text);
             List<String> lines = new ArrayList<>();
             StringBuilder current = new StringBuilder();
             for (int i = 0; i < text.length(); i++) {
@@ -1295,8 +1510,25 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
             contentStream.setNonStrokingColor(color);
             contentStream.setFont(font, fontSize);
             contentStream.newLineAtOffset(x, y);
-            contentStream.showText(value(text));
+            contentStream.showText(printableText(text));
             contentStream.endText();
+        }
+
+        private String printableText(String text) {
+            String normalized = value(text);
+            StringBuilder builder = new StringBuilder();
+            for (int offset = 0; offset < normalized.length(); ) {
+                int codePoint = normalized.codePointAt(offset);
+                String token = new String(Character.toChars(codePoint));
+                try {
+                    font.getStringWidth(token);
+                    builder.append(token);
+                } catch (IOException | IllegalArgumentException ex) {
+                    builder.append('?');
+                }
+                offset += Character.charCount(codePoint);
+            }
+            return builder.toString();
         }
 
         private void ensureSpace(float requiredHeight) throws IOException {

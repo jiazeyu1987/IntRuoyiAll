@@ -80,6 +80,19 @@ public interface MesProRouteFlowProcessBatchRecordMapper
                 .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getId));
     }
 
+    default List<MesProRouteFlowProcessBatchRecordDO> selectListByBatchRecordReportIds(
+            Collection<String> batchRecordReportIds) {
+        if (batchRecordReportIds == null || batchRecordReportIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProRouteFlowProcessBatchRecordDO>()
+                .in(MesProRouteFlowProcessBatchRecordDO::getBatchRecordReportId, batchRecordReportIds)
+                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getRouteId)
+                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getRouteProcessId)
+                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getReportSort)
+                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getId));
+    }
+
     default Long countByBatchRecordVersionId(Long batchRecordVersionId) {
         return selectCount(MesProRouteFlowProcessBatchRecordDO::getBatchRecordVersionId, batchRecordVersionId);
     }

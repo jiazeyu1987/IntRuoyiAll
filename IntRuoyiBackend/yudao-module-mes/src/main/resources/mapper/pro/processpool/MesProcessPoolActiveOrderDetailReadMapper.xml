@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDetailReadMapper">
+
+    <select id="selectByActiveOrderId"
+            resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderDetailReadDO">
+        SELECT process_snapshot.id AS snapshotId,
+               process_snapshot.active_order_id AS activeOrderId,
+               process_snapshot.work_order_id AS workOrderId,
+               work_order.code AS workOrderCode,
+               route.name AS routeName,
+               process_snapshot.route_process_id AS routeProcessId,
+               process_snapshot.process_id AS processId,
+               process.code AS processCode,
+               process.name AS processName,
+               process_snapshot.planned_quantity_snapshot AS requiredQuantity,
+               allocation.event_id AS eventId,
+               allocation.allocated_quantity AS submittedQuantity,
+               submitter.nickname AS submitterName,
+               reviewer.nickname AS reviewerName,
+               pool_event.server_submit_time AS submittedAt
+        FROM mes_pro_process_pool_active_order_process_snapshot process_snapshot
+        INNER JOIN mes_pro_process_pool_active_order active_order
+          ON active_order.id = process_snapshot.active_order_id
+         AND active_order.tenant_id = process_snapshot.tenant_id
+         AND active_order.deleted = 0
+        INNER JOIN mes_pro_work_order work_order
+          ON work_order.id = process_snapshot.work_order_id
+         AND work_order.tenant_id = process_snapshot.tenant_id
+         AND work_order.deleted = 0
+        INNER JOIN mes_pro_route route
+          ON route.id = process_snapshot.route_id
+         AND route.deleted = 0
+        INNER JOIN mes_pro_process process
+          ON process.id = process_snapshot.process_id
+         AND process.deleted = 0
+        LEFT JOIN mes_pro_process_pool_report_allocation allocation
+          ON allocation.active_order_id = process_snapshot.active_order_id
+         AND allocation.route_process_id = process_snapshot.route_process_id
+         AND allocation.process_id = process_snapshot.process_id
+         AND allocation.tenant_id = process_snapshot.tenant_id
+         AND allocation.lifecycle_status = 'CURRENT'
+         AND allocation.deleted = 0
+        LEFT JOIN mes_pro_process_pool_event pool_event
+          ON pool_event.id = allocation.event_id
+         AND pool_event.tenant_id = allocation.tenant_id
+         AND pool_event.event_type = 'PRODUCTION_SUBMIT'
+         AND pool_event.deleted = 0
+        LEFT JOIN system_users submitter
+          ON submitter.id = pool_event.actual_employee_id
+         AND submitter.tenant_id = pool_event.tenant_id
+         AND submitter.deleted = 0
+        LEFT JOIN (
+            SELECT tenant_id, event_id, leader_user_id
+            FROM (
+                SELECT review_log.tenant_id,
+                       review_log.event_id,
+                       review_log.leader_user_id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY review_log.tenant_id, review_log.event_id
+                           ORDER BY review_log.reviewed_at DESC, review_log.id DESC
+                       ) AS review_rank
+                FROM mes_pro_process_pool_submission_review review_log
+                WHERE review_log.deleted = 0
+            ) ranked_review
+            WHERE review_rank = 1
+        ) latest_review
+          ON latest_review.event_id = pool_event.id
+         AND latest_review.tenant_id = pool_event.tenant_id
+        LEFT JOIN system_users reviewer
+          ON reviewer.id = latest_review.leader_user_id
+         AND reviewer.tenant_id = pool_event.tenant_id
+         AND reviewer.deleted = 0
+        WHERE process_snapshot.active_order_id = #{activeOrderId}
+          AND process_snapshot.deleted = 0
+        ORDER BY process_snapshot.id ASC, pool_event.server_submit_time ASC, allocation.id ASC
+    </select>
+
+</mapper>

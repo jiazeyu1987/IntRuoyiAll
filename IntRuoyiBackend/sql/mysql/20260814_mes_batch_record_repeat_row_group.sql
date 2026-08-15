@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260514_mes_batch_record_report; type=schema; riskLevel=medium
 CREATE TABLE IF NOT EXISTS `mes_pro_batch_record_repeat_row_group` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
   `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',

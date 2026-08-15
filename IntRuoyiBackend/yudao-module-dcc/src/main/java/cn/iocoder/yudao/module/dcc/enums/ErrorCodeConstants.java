@@ -224,7 +224,7 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_SIGNATURE_IMAGE_MISSING = new ErrorCode(1_080_000_151,
             "DCC electronic signature image is missing or not enabled");
     ErrorCode CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID = new ErrorCode(1_080_000_152,
-            "DCC electronic signature image is invalid");
+            "签名图片内容无效，请上传可正常打开的 PNG/JPEG 图片");
     ErrorCode CONTROLLED_FILE_SIGNATURE_IMAGE_HASH_MISMATCH = new ErrorCode(1_080_000_153,
             "DCC electronic signature image hash verification failed");
     ErrorCode CONTROLLED_FILE_SIGNATURE_IMAGE_PERSIST_FAILED = new ErrorCode(1_080_000_154,

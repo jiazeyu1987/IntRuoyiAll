@@ -184,6 +184,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                         .setWorkOrderId(workOrder.getId())
                         .setRouteId(activeOrder.getRouteId())
                         .setRouteVersionId(activeOrder.getRouteVersionId())
+                        .setDccProjectCodeId(activeOrder.getDccProjectCodeId())
                         .setProductId(workOrder.getProductId())
                         .setBatchCode(batchCode)
                         .setApplicantUserId(leaderUserId)
