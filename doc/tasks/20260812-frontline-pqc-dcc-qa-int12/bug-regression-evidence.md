@@ -28,6 +28,9 @@ The final integration had not fully connected DF10/DF11 formal DTOs to the runti
 
 - Regressions covered: activeOrderId identity, locked QA task projection, actual employee switch, formal submit payload, resultType alignment, and separate AM/PM rule identity.
 - Real Playwright write-path E2E was not run because local runtime/test tenant/account/traceable task data were not confirmed; this remains a documented prerequisite, not a fallback.
+- 2026-08-15 response-shape regression: RED found all eight duplicated process fields; GREEN passed 5/5 after task identity was retained only in `pqcTaskOptions` and obsolete controller mapping code was removed.
+- Expanded regression: the seven-class backend suite passed 44/44 at 2026-08-15T15:39:40+08:00; the frontend type check and both formal static-contract tests also passed in the required order.
+- Final gates: bug-regression evidence validator and self-test, `git diff --check`, and the precise formal-contract forbidden scan all passed; forbidden scan reported 0 violations.
 
 ## Blockers
 

@@ -16,7 +16,7 @@
 - [x] M1：确认 20 文件正式来源、用户授权、原始 clean compile PASS 和当前缺类 RED。
 - [x] M2：从正式提交精确恢复剩余 18 个 MES 文件并验证范围/哈希。
 - [x] M3：运行 clean compile、DF06 前置命令、diff/UTF-8/风险扫描；DF06 前置已越过 main compile，下一阻塞为独立 INT12 测试辅助类。
-- [ ] M4：独立复验通过后提交并快进 `int_main`，清理本任务工作树状态。
+- [x] M4：独立复验通过后提交并接入 `int_main`；正式前置已由 `254bb6181` 集成并通过 INT12 扩展回归。
 
 ## Expected Verification
 
@@ -41,6 +41,6 @@
 
 ## Current Status
 
-`testing`
+`completed`
 
-18 个源码逐一与 `2810aec91` blob 相同，MES reactor clean compile 已 PASS。等待独立复验；测试编译缺失的 `MesProFrontlineFeedbackSubmitSnapshotTestSupport` 属于已提交 INT12 修复 `3e0df78fe`，不纳入本源码前置提交。
+18 个源码逐一与 `2810aec91` blob 相同，MES reactor clean compile 已 PASS，并已作为提交 `254bb6181` 接入 `int_main`。INT12 正式测试辅助类恢复后，扩展七类回归进入 Surefire 并通过 44/44，证明原缺类编译阻塞已正式解除。

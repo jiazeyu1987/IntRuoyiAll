@@ -26,6 +26,12 @@ Integrate the verified DF10/DF11 frontline PQC projection and formal submit cont
 - Backend focused Maven passed with 33 tests and BUILD SUCCESS at 2026-08-14T12:07:31+08:00.
 - No API-only mock, fallback, default-success, product/material inference, or current-QA lookup was accepted as verification.
 - Runtime process projection now exposes only the formal `activeOrderId` service entry; no `workOrderId + routeId` compatibility query remains.
+- Response contract now keeps `pqcTaskId`, rule/status, inspection type, business date, shift, round, and planned quantity only inside `pqcTaskOptions`; process-level duplicate fields and all backend writes to them were removed.
+- RED: focused context-service test reached Surefire and failed only on the eight duplicated process-level fields.
+- GREEN: focused context-service test passed 5/5 after the formal response correction.
+- REGRESSION: the expanded seven-class backend suite passed 44/44 with BUILD SUCCESS at 2026-08-15T15:39:40+08:00.
+- VALIDATOR: backend API evidence validator and self-test passed, exit 0.
+- FORBIDDEN: exact process-response scan passed with 0 violations; task identity is nested only and no controller/service process-level compatibility writer remains.
 
 ## Blockers
 

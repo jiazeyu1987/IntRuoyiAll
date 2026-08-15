@@ -12,6 +12,7 @@
 - BDD: 幂等与并发唯一 -> Given 同一 PENDING task 收到相同或冲突并发提交, When task 行锁、CAS 与 canonical hash 执行, Then 仅生成一份正式签名/明细/event，相同内容回同一回执，冲突内容零写入拒绝。
 - BDD: 巡检轮次独立 -> Given PATROL_AM 与 PATROL_PM 均为 PENDING, When 只提交上午任务, Then 上午 SUBMITTED 且下午仍 PENDING 并可独立填写提交。
 - BDD: 快速切换不串数据 -> Given 订单A请求慢于订单B, When 用户切换到B, Then A响应不得覆盖B的工序、任务、人员或草稿。
+- BDD: 工序响应不复制任务身份 -> Given 同一 QA 工序存在多个 PQC 任务选项, When 后端返回工序响应, Then 每个任务身份只存在于 `pqcTaskOptions`，工序顶层不再复制 `pqcTaskId`、规则、状态、检验类型、业务日期、班次、轮次或计划数量。
 
 ## Command Intent
 
@@ -42,3 +43,37 @@
 - REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineActiveOrderControllerTest,MesProFrontlineFeedbackSubmitServiceTest,MesFrontlinePqcContextServiceTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -rf :yudao-module-mes` -> PASS, 33 tests, 0 failures/errors/skips, BUILD SUCCESS at 2026-08-14T16:43:14+08:00.
 - GREEN: post-restart runtime static contract and formal submit static contract -> PASS; `pnpm ts:check` -> PASS.
 - M5 blocked: real Playwright write-path E2E still requires confirmed local runtime, test tenant/account, permissions, and traceable active-order/PQC task data. No mock or API-only substitute used.
+
+## 2026-08-15 Frontend Static Contract Closeout Recheck
+
+- DEPENDENCY: confirmed `IntRuoyiFronted/node_modules`, `node_modules/.bin/cross-env.cmd`, and `node_modules/.bin/vue-tsc.cmd` exist before installation.
+- GREEN: `pnpm install --frozen-lockfile` -> PASS, exit 0; lockfile was current and dependencies were already up to date. pnpm reported the configured ignored-build-script warning without failing installation.
+- GREEN: `pnpm ts:check` -> PASS, exit 0.
+- GREEN: `node tests/e2e/mes-frontline-pqc-qa-process-runtime-static.spec.cjs` -> PASS, exit 0, `PASS: frontline PQC QA process runtime contract`.
+- GREEN: `node tests/e2e/frontline-pqc-formal-submit-static.spec.js` -> PASS, exit 0, `PASS: frontline PQC formal submit static contract`.
+- VALIDATOR: frontend-feature, backend-api, and bug-regression evidence validators -> PASS, exit 0; all three validator self-tests -> PASS, exit 0.
+- STATIC: `git diff --check` -> PASS, exit 0; only existing LF-to-CRLF working-copy advisories were emitted.
+- BLOCKED: precise formal-contract forbidden scan -> FAIL, exit 1. The frontend API/page/context portion had zero violations, but the backend `MesFrontlinePqcProcessRespVO` still declares eight process-level task compatibility fields (`pqcTaskId`, `inspectionRuleKey`, `taskStatus`, `inspectionType`, `businessDate`, `shiftCode`, `roundNo`, `plannedInspectionQuantity`) and `MesFrontlinePqcContextServiceImpl` still writes all eight. This produced 16 violations against `interface-contracts.md` section 2, which places task identity only in `pqcTaskOptions`.
+- No production-code fix was made during this verification-only continuation. The task returned to `blocked`; no fallback, compatibility acceptance, or silent downgrade was used.
+- EXPERIENCE: consolidated the reusable cross-layer response-contract gate into the existing `docs/backend-development.md` PQC DCC-QA target-state section and added matching `docs/experience-index.md` keywords; no new long-term document was created.
+
+## 2026-08-15 Formal Response Contract Remediation
+
+- PREREQUISITE: formal 18-file MES compile prerequisite commit `90b2e1e73` was independently traced to `2810aec91`; it was cherry-picked to `int_main` as `254bb6181` after branch runtime guard PASS.
+- PRESERVATION: two newer scheduler-workbench files differed from the formal prerequisite. Both were backed up with hashes, removed for the cherry-pick, and restored byte-for-byte afterward; they remain unrelated unstaged modifications.
+- BDD: 工序响应不复制任务身份 -> Given 同一 QA 工序存在多个 PQC 任务选项/When 后端返回工序响应/Then 任务身份只存在于 `pqcTaskOptions`，工序顶层无八个重复字段。
+- RED PROBE: focused `MesFrontlinePqcContextServiceTest` command reached Surefire and was required to fail only on the exact response-shape assertion before production changes.
+- RED: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL as expected, Surefire ran 5 tests with exactly 1 failure; the new assertion found `[pqcTaskId, inspectionRuleKey, taskStatus, inspectionType, businessDate, shiftCode, roundNo, plannedInspectionQuantity]` at process-response top level.
+- IMPLEMENTATION: removed the eight process-level fields, the service's arbitrary pending-task projection, and the unused controller compatibility mapper that still wrote six removed fields. All per-task identity and inspection data remains in each `pqcTaskOptions` entry.
+- GREEN: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -rf :yudao-module-mes` -> PASS, 5 tests, 0 failures/errors/skips, BUILD SUCCESS at 2026-08-15T15:34:57+08:00.
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am "-Dtest=MesFrontlineActiveOrderControllerTest,MesFrontlinePqcContextServiceTest,MesFrontlinePqcEmployeeSwitchServiceTest,MesProFrontlineFeedbackSubmitServiceTest,MesFrontlinePqcSubmissionConcurrencyTest,MesProcessPoolPqcInspectionCorrectionServiceTest,MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 44 tests, 0 failures/errors/skips, BUILD SUCCESS at 2026-08-15T15:39:40+08:00.
+- FRONTEND DEPENDENCY: confirmed `pnpm-lock.yaml`, `node_modules`, and `node_modules/.bin/vue-tsc.cmd`; pnpm 10.22.0 and Node v24.12.0 are available.
+- GREEN: `pnpm ts:check` -> PASS, exit 0.
+- GREEN: `node tests/e2e/mes-frontline-pqc-qa-process-runtime-static.spec.cjs` -> PASS, exit 0, `PASS: frontline PQC QA process runtime contract`.
+- GREEN: `node tests/e2e/frontline-pqc-formal-submit-static.spec.js` -> PASS, exit 0, `PASS: frontline PQC formal submit static contract`.
+- VALIDATOR: final frontend-feature, backend-api, and bug-regression evidence validators -> PASS, exit 0; all three validator self-tests -> PASS, exit 0.
+- STATIC: final `git diff --check` -> PASS, exit 0; only existing LF-to-CRLF working-copy advisories were emitted.
+- FORBIDDEN: precise backend/frontend formal-response scan -> PASS, exit 0, 0 violations. The eight task fields are absent from the outer backend/frontend process response, present in task options, have no process-level backend writer or frontend reader, and the process API uses `activeOrderId` only.
+- CLEANUP PREVIEW: PASS with delete set empty after formally preserving the three validator evidence files and the prerequisite overlap backup; apply was not run because full INT12 remains blocked on real write-path prerequisites.
+- EXPERIENCE: project-level response-contract symmetry and negative-scan guidance already exists in `docs/backend-development.md` and is indexed by `docs/experience-index.md`; no duplicate or new long-term document was created.
+- STATUS: the requested static-contract closeout is PASS. Full INT12 remains BLOCKED only on the unconfirmed real Playwright write-path prerequisites; no mock or API-only substitute was used.

@@ -2,7 +2,7 @@
 
 ## Result
 
-ready_for_closeout
+blocked
 
 ## Passed Checks
 
@@ -16,6 +16,20 @@ ready_for_closeout
 - Post-merge focused service test: PASS, 4 tests, 0 failures/errors/skips, BUILD SUCCESS, 2026-08-14T16:32:16+08:00.
 - Post-merge frozen regression: PASS, 33 tests, 0 failures/errors/skips, BUILD SUCCESS, 2026-08-14T16:43:14+08:00.
 - Post-restart frontend verification: PASS, both static contracts and `pnpm ts:check`.
+- 2026-08-15 dependency gate: PASS, `pnpm install --frozen-lockfile` exit 0; lockfile current and dependencies already up to date.
+- 2026-08-15 frontend static closeout: PASS, `pnpm ts:check`, runtime static contract, and formal submit static contract each exited 0 in the required order.
+- 2026-08-15 evidence validation: PASS, frontend-feature/backend-api/bug-regression validators and all three validator self-tests exited 0.
+- 2026-08-15 diff check: PASS, `git diff --check` exited 0 with existing LF-to-CRLF advisories only.
+- 2026-08-15 formal response contract repair: PASS, the exact RED exposed all eight process-level task fields and the focused GREEN passed 5/5 after their removal.
+- 2026-08-15 expanded backend regression: PASS, 44 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS at 2026-08-15T15:39:40+08:00.
+- 2026-08-15 frontend dependency and static recheck: PASS, dependency state ready; `pnpm ts:check` and both required static-contract tests exited 0 in order.
+
+## Resolved Check
+
+- The earlier formal-contract forbidden scan found 16 backend violations from eight duplicated process-level task fields and their mapping writes. Strict TDD removed the fields and all writers; focused GREEN passed 5 tests and expanded regression passed 44 tests.
+- Final evidence validators: PASS, frontend-feature/backend-api/bug-regression validators and all three self-tests exited 0.
+- Final `git diff --check`: PASS, exit 0; only existing LF-to-CRLF working-copy advisories were emitted.
+- Final precise formal-contract forbidden scan: PASS, exit 0, 0 violations across backend outer/nested response shape, process-level writers, controller compatibility mapper, frontend outer/nested DTO shape, activeOrderId-only API request, and frontend process-level reads.
 
 ## Contract Notes
 

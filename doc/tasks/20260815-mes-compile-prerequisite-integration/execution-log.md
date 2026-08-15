@@ -22,3 +22,11 @@ GREEN: `mvn.cmd -pl yudao-module-mes -am "-DskipTests" clean compile` -> PASS，
 - Preservation：主工作区更晚的未跟踪排产服务差异已保存为 `doc/tasks/20260814-fast-forward-int-main/patch-backups/20260815-mes-scheduler-runtime-untracked-vs-prerequisite.patch`，SHA-256 `3FDCBACF6324152B7B2C9A9612798A28D881440125DED98A594F6AC6ED10D8A5`；未应用到本任务。
 - Target reachability：重新运行 `MesQaPqcSchemaTest` 命令后，main compile 已成功；随后停在 testCompile 缺少 `MesProFrontlineFeedbackSubmitSnapshotTestSupport`。该辅助类属于已提交 INT12 修复 `3e0df78fe`，因此本次不是 C00 RED，也不扩大当前 18 源码范围。
 - Remaining gate：独立复验、branch runtime guard、精确提交；之后接入 `3e0df78fe` 再恢复 C00/DF06 TDD。
+
+## 2026-08-15 Independent Integration Verification
+
+- Runtime guard：接入前 `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS。
+- Integration：18-file formal prerequisite was integrated into `int_main` as commit `254bb61814c6b41605ec8e1b8a6625a14fccd950`.
+- Preservation：two newer scheduler-workbench differences were backed up and restored byte-for-byte; neither entered the prerequisite commit.
+- Independent regression：the INT12 seven-class Maven suite reached Surefire and passed 44/44 with BUILD SUCCESS at 2026-08-15T15:39:40+08:00.
+- Final status：completed; the missing-type main/test compilation prerequisite is resolved without fallback or scope expansion.

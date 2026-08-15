@@ -24,9 +24,11 @@ Connect the already verified DF01-DF11 capabilities into the formal frontline PQ
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
-Implementation and local non-E2E verification are complete. Real write-path Playwright E2E remains blocked until a confirmed local runtime, test tenant/account, permissions, and traceable active-order/PQC task data are supplied; no mock/API-only substitute was used.
+The formal MES compile prerequisite was integrated into `int_main` as commit `254bb6181`; two newer scheduler-workbench differences were backed up and restored byte-for-byte without entering that commit. The response-contract remediation completed strict TDD. The expanded 44-test backend regression, required frontend static sequence, all three evidence validators and self-tests, `git diff --check`, and the precise formal-contract forbidden scan all pass.
+
+The remaining blocker is unchanged: real write-path Playwright requires confirmed local runtime, test tenant/account, permissions, and traceable active-order/PQC task data, which remain unavailable. Static verification was not substituted for that real user-path gate.
 
 ## Authority And Ownership
 
@@ -45,3 +47,10 @@ Implementation and local non-E2E verification are complete. Real write-path Play
 - 是否引入 fallback/降级/吞异常：否。
 - 是否从根因和长期维护角度解决：是；只连接正式 DF01-DF11 服务合同并删除旧身份链路，不复制上游解析。
 - 是否存在临时补丁或绕过：否；合并后发现的旧 `workOrderId + routeId` 产品推算入口已删除，没有通过补测试桩保留旧链路。
+
+## Cleanup Keep
+
+- `doc/tasks/20260812-frontline-pqc-dcc-qa-int12/backend-api-evidence.md`
+- `doc/tasks/20260812-frontline-pqc-dcc-qa-int12/bug-regression-evidence.md`
+- `doc/tasks/20260812-frontline-pqc-dcc-qa-int12/frontend-feature-evidence.md`
+- `doc/tasks/20260812-frontline-pqc-dcc-qa-int12/prerequisite-main-overlap-backup/`

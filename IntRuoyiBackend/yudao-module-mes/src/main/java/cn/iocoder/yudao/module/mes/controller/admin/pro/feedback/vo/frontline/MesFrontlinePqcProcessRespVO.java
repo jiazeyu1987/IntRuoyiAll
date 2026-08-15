@@ -34,26 +34,10 @@ public class MesFrontlinePqcProcessRespVO {
     private Integer qaProcessSort;
     @Schema(description = "活跃订单编号")
     private Long activeOrderId;
-    @Schema(description = "当前 PQC 检验任务编号")
-    private Long pqcTaskId;
-    @Schema(description = "当前任务规则键：FIRST/PATROL_AM/PATROL_PM/FINAL")
-    private String inspectionRuleKey;
-    @Schema(description = "当前待处理任务状态：PENDING；无待处理任务时为空")
-    private String taskStatus;
     @Schema(description = "发布态 QA 规程是否启用末检")
     private Boolean finalInspectionApplicable;
     @Schema(description = "锁定 QA 发布版本的四类检验规则")
     private List<QaInspectionTypeRule> inspectionTypeRules;
-    @Schema(description = "当前检验类型")
-    private String inspectionType;
-    @Schema(description = "业务日期")
-    private LocalDate businessDate;
-    @Schema(description = "班次编码")
-    private String shiftCode;
-    @Schema(description = "轮次")
-    private Integer roundNo;
-    @Schema(description = "计划检验数量")
-    private Integer plannedInspectionQuantity;
     @Schema(description = "当前任务的 QA 检验项目")
     private List<PqcInspectionItem> inspectionItems;
     @Schema(description = "当前 QA 工序的 PQC 任务摘要")
