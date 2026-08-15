@@ -37,20 +37,24 @@ const devicePanel = panel.slice(devicePanelStart, devicePanelEnd)
 
 assert.match(
   panel,
-  /type ProductionClearanceConfirmationKey = 'workplace' \| 'validity' \| 'material' \| 'cleaning'/,
+  /type ProductionClearanceConfirmationKey = 'workplace' \| 'material' \| 'cleaning'/,
   'clearance confirmation keys must be explicit and stable.'
 )
 assert.match(
   panel,
-  /const FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS[\s\S]*key: 'workplace'[\s\S]*label: '清场'[\s\S]*key: 'validity'[\s\S]*label: '效期'[\s\S]*key: 'material'[\s\S]*label: '物料'[\s\S]*key: 'cleaning'[\s\S]*label: '清洁'/,
-  'four short labels must be 清场、效期、物料、清洁 in stable order.'
+  /const FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS[\s\S]*key: 'workplace'[\s\S]*label: '清场'[\s\S]*key: 'material'[\s\S]*label: '物料'[\s\S]*key: 'cleaning'[\s\S]*label: '清洁'/,
+  'three short labels must be 清场、物料、清洁 in stable order.'
 )
-for (const label of ['清场', '效期', '物料', '清洁']) {
+assert.doesNotMatch(
+  panel,
+  /key: 'validity'[\s\S]*label: '效期'/,
+  'bottom global validity confirmation must be removed from clearance confirmations.'
+)
+for (const label of ['清场', '物料', '清洁']) {
   assert.ok(label.length <= 4, `visible label must be no longer than four characters: ${label}`)
 }
 for (const description of [
   '工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具',
-  '是否在计量效期内',
   '所有的物料转移到指定的区域存放并标识',
   '按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境'
 ]) {
@@ -69,7 +73,7 @@ assert.match(
 assert.match(
   devicePanel,
   /data-production-clearance-confirmations[\s\S]*v-for="confirmation in FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS"[\s\S]*<input[\s\S]*v-model="productionClearanceConfirmationDraft\[confirmation\.key\]"[\s\S]*type="checkbox"[\s\S]*data-production-clearance-checkbox/,
-  'device panel must render four editable checkbox controls bound to the clearance confirmation draft.'
+  'device panel must render editable checkbox controls bound to the three clearance confirmation items.'
 )
 assert.doesNotMatch(
   devicePanel,
@@ -115,12 +119,23 @@ for (const token of ['grid-template-rows: 118px minmax(0, 1fr) auto;', 'overflow
 const confirmationBlock = extractCssBlock(panel, '.frontline-production-clearance-confirmations')
 for (const token of [
   'display: grid;',
-  'grid-template-columns: repeat(2, minmax(0, 1fr));',
-  'grid-template-rows: repeat(2, minmax(0, auto));',
+  'grid-template-columns: repeat(3, minmax(0, 1fr));',
   'gap: 10px;',
   'min-height: 0;'
 ]) {
-  assert.ok(confirmationBlock.includes(token), `clearance confirmation row must use compact grid token: ${token}`)
+  assert.ok(confirmationBlock.includes(token), `clearance confirmation row must use compact three-item grid token: ${token}`)
+}
+assert.ok(
+  !confirmationBlock.includes('grid-template-rows: repeat(2, minmax(0, auto));'),
+  'clearance confirmation grid must no longer reserve a two-row layout after removing validity.'
+)
+
+const confirmationItemBlock = extractCssBlock(panel, '.frontline-production-clearance-confirmation')
+for (const token of [
+  'grid-template-columns: minmax(0, 1fr) auto;',
+  'min-width: 0;'
+]) {
+  assert.ok(confirmationItemBlock.includes(token), `each clearance confirmation item must stay compact in three columns: ${token}`)
 }
 
 const checkboxBlock = extractCssBlock(panel, '.frontline-production-clearance-checkbox')

@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitIdentityCommand;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitIdentityTrace;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventCreateReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
     private final MesProcessPoolSubmitEventService processPoolSubmitEventService;
     private final MesFrontlineSubmitAuthorizationService submitAuthorizationService;
     private final MesFrontlineLossReasonValidator lossReasonValidator;
+    private final MesFrontlineDeviceParameterValidator deviceParameterValidator;
     private final MesProFrontlineFeedbackPayloadSplitter payloadSplitter;
     private final MesMdAutoCodeRecordService autoCodeRecordService;
     private final MesProBatchRecordExecutionSignatureService signatureService;
@@ -52,6 +54,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                                                     MesProcessPoolSubmitEventService processPoolSubmitEventService,
                                                     MesFrontlineSubmitAuthorizationService submitAuthorizationService,
                                                     MesFrontlineLossReasonValidator lossReasonValidator,
+                                                    MesFrontlineDeviceParameterValidator deviceParameterValidator,
                                                     MesProFrontlineFeedbackPayloadSplitter payloadSplitter,
                                                     MesMdAutoCodeRecordService autoCodeRecordService,
                                                     MesProBatchRecordExecutionSignatureService signatureService) {
@@ -60,6 +63,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         this.processPoolSubmitEventService = processPoolSubmitEventService;
         this.submitAuthorizationService = submitAuthorizationService;
         this.lossReasonValidator = lossReasonValidator;
+        this.deviceParameterValidator = deviceParameterValidator;
         this.payloadSplitter = payloadSplitter;
         this.autoCodeRecordService = autoCodeRecordService;
         this.signatureService = signatureService;
@@ -77,12 +81,17 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         if (!Objects.equals(deviceAccountUserId, loginUserId)) {
             throw exception(PRO_FRONTLINE_FEEDBACK_DEVICE_ACCOUNT_MISMATCH, deviceAccountUserId);
         }
-        submitAuthorizationService.authorize(buildSubmitIdentityCommand(reqVO, loginUserId));
+        MesFrontlineSubmitIdentityTrace identityTrace = submitAuthorizationService.authorize(
+                buildSubmitIdentityCommand(reqVO, loginUserId));
         validateSelectedActiveOrderContext(reqVO);
-        List<MesFrontlineLossReasonSnapshot> lossReasonSnapshots = lossReasonValidator.requireEnabledLossReasons(
-                reqVO.getProcessPoolContext().getRouteProcessId(),
+        List<MesFrontlineLossReasonSnapshot> lossReasonSnapshots = lossReasonValidator.requireSnapshotLossReasons(
+                identityTrace.sessionSnapshot().content().defectReasons(),
                 reqVO.getFeedbackPayload().getLossDetails(),
                 reqVO.getFeedbackPayload().getLossQuantity());
+        deviceParameterValidator.validateSnapshotDeviceAndParameters(
+                identityTrace.sessionSnapshot().content().devices(),
+                reqVO.getFeedbackPayload().getSelectedDevice(),
+                reqVO.getFeedbackPayload().getDeviceParameterReadings());
         MesFrontlineLossReasonSnapshot lossReasonSnapshot = lossReasonSnapshots == null || lossReasonSnapshots.isEmpty()
                 ? null : lossReasonSnapshots.get(0);
 
@@ -117,6 +126,9 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 .setRecordbookEntryId(recordbookResult == null ? null : recordbookResult.getRecordbookEntryId())
                 .setRecordbookEventId(recordbookResult == null ? null : recordbookResult.getRecordbookEventId());
         Long processPoolEventId = processPoolSubmitEventService.createSubmitEvent(eventPayload);
+        MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
+        processPoolSubmitEventService.createInitialAllocation(processPoolEventId,
+                context.getActiveOrderId(), reqVO.getFeedbackPayload().getOutputQuantity());
 
         return new MesProFrontlineFeedbackSubmitRespVO()
                 .setFeedbackId(feedbackId)
@@ -128,7 +140,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
     private void validateSelectedActiveOrderContext(MesProFrontlineFeedbackSubmitReqVO reqVO) {
         MesProFrontlineFeedbackPayloadReqVO feedback = reqVO.getFeedbackPayload();
         MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
-        if (feedback.getWorkOrderId() == null || context.getWorkOrderId() == null) {
+        if (context.getActiveOrderId() == null || feedback.getWorkOrderId() == null
+                || context.getWorkOrderId() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "selectedActiveOrder");
         }
         if (!Objects.equals(feedback.getWorkOrderId(), context.getWorkOrderId())
@@ -140,7 +153,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
 
     private void authorizeSelectedActiveOrder(MesProFrontlineFeedbackSubmitReqVO reqVO, Long loginUserId) {
         MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
-        submitAuthorizationService.authorizeActiveOrder(loginUserId, context.getWorkOrderId(),
+        submitAuthorizationService.authorizeActiveOrder(loginUserId, context.getActiveOrderId(), context.getWorkOrderId(),
                 context.getRouteId(), context.getRouteProcessId(), context.getProcessId());
     }
 
@@ -167,6 +180,12 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         }
         if (StrUtil.isBlank(reqVO.getProcessPoolSubmissionIdempotencyKey())) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "processPoolSubmissionIdempotencyKey");
+        }
+        if (StrUtil.isBlank(reqVO.getFrontlineSessionSnapshotId())) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "frontlineSessionSnapshotId");
+        }
+        if (StrUtil.isBlank(reqVO.getFrontlineSessionSnapshotHash())) {
+            throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "frontlineSessionSnapshotHash");
         }
         if (reqVO.getRawPayload() == null) {
             throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "rawPayload");
@@ -296,7 +315,9 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 context.getRouteId(),
                 context.getRouteProcessId(),
                 context.getProcessId(),
-                context.getTemplateType());
+                context.getTemplateType(),
+                reqVO.getFrontlineSessionSnapshotId(),
+                reqVO.getFrontlineSessionSnapshotHash());
     }
 
 }

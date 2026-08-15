@@ -9,6 +9,7 @@ export interface ProTaskAutoSchedulePreviewReqVO {
   runtimeCapacityBasis: 'PLANNED' | 'ACTUAL'
   preserveManualLockedTasks?: boolean
   reason?: string
+  erpSourceRiskConfirmed?: boolean
 }
 
 export interface ProTaskAutoScheduleApplyReqVO extends ProTaskAutoSchedulePreviewReqVO {

@@ -103,6 +103,41 @@ class MesP0BatchRecordBackfillClosedLoopTest {
                 change.getExpectedOldValueHash());
     }
 
+    @Test
+    void shouldBackfillNestedProductionElementsFromProcessPoolReportPayloadAndEventContext() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(formalBinding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8802L));
+        when(executionMapper.selectById(8802L)).thenReturn(executionWithProductionElementFields());
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(
+                        reportRule(3L, "selectedDevice.deviceName", 7, 2, "STRING"),
+                        reportRule(4L, "deviceParameterReadings.pressure.value", 8, 2, "NUMBER"),
+                        reportRule(5L, "clearanceConfirmations.workplace.confirmed", 9, 2, "BOOLEAN"),
+                        reportRule(6L, "serverSubmitTime", 10, 2, "STRING"),
+                        reportRule(7L, "deviceParameterReadings.meteringValid.value", 11, 2, "BOOLEAN")));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult().setChangedFieldCount(5));
+
+        service.backfillCompletedProcess(new MesTeamLeaderBatchRecordBackfillCommand()
+                .setEvent(eventWithStructuredProductionPayload())
+                .setAllocation(allocation())
+                .setSourceEvents(List.of(eventWithStructuredProductionPayload()))
+                .setAllocations(List.of(allocation()))
+                .setWorkOrder(workOrder()));
+
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
+        List<MesProBatchRecordExecutionFieldAuditChange> changes = auditCaptor.getValue().getChanges();
+        assertEquals("超声波清洗机", changes.get(0).getNewValueJson());
+        assertEquals(new BigDecimal("20"), changes.get(1).getNewValueJson());
+        assertEquals(Boolean.TRUE, changes.get(2).getNewValueJson());
+        assertEquals("2026-08-03T10:00", changes.get(3).getNewValueJson());
+        assertEquals(Boolean.TRUE, changes.get(4).getNewValueJson());
+    }
+
     private static MesTeamLeaderBatchRecordBackfillCommand backfillCommand() {
         return new MesTeamLeaderBatchRecordBackfillCommand()
                 .setEvent(event())
@@ -119,6 +154,35 @@ class MesP0BatchRecordBackfillClosedLoopTest {
                 .routeProcessId(5001L)
                 .processId(6001L)
                 .rawPayload("{\"outputQuantity\":80,\"pressure\":15}")
+                .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 10, 0))
+                .build();
+    }
+
+    private static MesProProcessPoolEventDO eventWithStructuredProductionPayload() {
+        return MesProProcessPoolEventDO.builder()
+                .id(1001L)
+                .routeId(7001L)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .actualEmployeeId(3001L)
+                .deviceId(41L)
+                .workstationId(51L)
+                .rawPayload("""
+                        {
+                          "selectedDevice":{"deviceId":41,"deviceCode":"B09393","deviceName":"超声波清洗机"},
+                          "deviceParameterReadings":[
+                            {"deviceId":41,"deviceCode":"B09393","deviceName":"超声波清洗机",
+                             "parameterCode":"pressure","parameterName":"压力","unit":"kPa",
+                             "value":20,"lowerLimit":10,"upperLimit":30,"parameterStatus":"NORMAL"},
+                            {"deviceId":41,"deviceCode":"B09393","deviceName":"超声波清洗机",
+                             "parameterCode":"meteringValid","parameterName":"计量有效","unit":"",
+                             "value":1,"parameterStatus":"NORMAL"}
+                          ],
+                          "clearanceConfirmations":[
+                            {"key":"workplace","label":"清场","confirmed":true}
+                          ]
+                        }
+                        """)
                 .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 10, 0))
                 .build();
     }
@@ -166,6 +230,12 @@ class MesP0BatchRecordBackfillClosedLoopTest {
     private static MesProBatchRecordExecutionDO executionWithExistingPressure() {
         return MesProBatchRecordExecutionDO.builder()
                 .id(8801L)
+                .workOrderId(9001L)
+                .routeProcessId(5001L)
+                .batchRecordReportId("BR-FORM-A")
+                .batchRecordDefinitionId(400L)
+                .batchRecordVersionId(401L)
+                .recordCategory("BATCH_RECORD")
                 .status(0)
                 .fieldAuditRevision(1L)
                 .fieldAuditHeadHash("before-head")
@@ -183,8 +253,40 @@ class MesP0BatchRecordBackfillClosedLoopTest {
                 .build();
     }
 
+    private static MesProBatchRecordExecutionDO executionWithProductionElementFields() {
+        return MesProBatchRecordExecutionDO.builder()
+                .id(8802L)
+                .workOrderId(9001L)
+                .routeProcessId(5001L)
+                .batchRecordReportId("BR-FORM-A")
+                .batchRecordDefinitionId(400L)
+                .batchRecordVersionId(401L)
+                .recordCategory("BATCH_RECORD")
+                .status(0)
+                .fieldAuditRevision(1L)
+                .fieldAuditHeadHash("before-head")
+                .cellValuesHash("before-hash")
+                .executionSnapshotJson("""
+                        {"fields":[
+                          {"fieldPath":"report.device","fieldKey":"device","rowIndex":7,"columnIndex":2,"valueType":"STRING"},
+                          {"fieldPath":"report.upper","fieldKey":"upper","rowIndex":8,"columnIndex":2,"valueType":"NUMBER"},
+                          {"fieldPath":"report.clearance","fieldKey":"clearance","rowIndex":9,"columnIndex":2,"valueType":"BOOLEAN"},
+                          {"fieldPath":"report.submitTime","fieldKey":"submitTime","rowIndex":10,"columnIndex":2,"valueType":"STRING"},
+                          {"fieldPath":"report.meteringValid","fieldKey":"meteringValid","rowIndex":11,"columnIndex":2,"valueType":"BOOLEAN"}
+                        ]}
+                        """)
+                .cellValuesJson("[]")
+                .build();
+    }
+
     private static MesProBatchRecordCellLinkRuleDO reportRule(Long id, String sourceFieldCode, Integer rowIndex,
                                                               Integer columnIndex) {
+        return reportRule(id, sourceFieldCode, rowIndex, columnIndex,
+                MesProBatchRecordExecutionFieldAuditValueType.NUMBER.name());
+    }
+
+    private static MesProBatchRecordCellLinkRuleDO reportRule(Long id, String sourceFieldCode, Integer rowIndex,
+                                                              Integer columnIndex, String targetValueType) {
         MesProBatchRecordCellLinkRuleDO rule = new MesProBatchRecordCellLinkRuleDO();
         rule.setId(id);
         rule.setRuleVersion(1L);
@@ -196,7 +298,7 @@ class MesP0BatchRecordBackfillClosedLoopTest {
         rule.setTargetRowIndex(rowIndex);
         rule.setTargetColumnIndex(columnIndex);
         rule.setTargetCellKey("R" + rowIndex + "C" + columnIndex);
-        rule.setTargetValueType(MesProBatchRecordExecutionFieldAuditValueType.NUMBER.name());
+        rule.setTargetValueType(targetValueType);
         rule.setAggregationStrategy("LAST");
         rule.setEnabled(true);
         return rule;

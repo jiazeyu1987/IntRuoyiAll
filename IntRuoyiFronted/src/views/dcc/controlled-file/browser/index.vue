@@ -382,7 +382,7 @@
               {{ getSelectedVersion(row).remark || '-' }}
             </template>
           </el-table-column>
-          <el-table-column v-if="isDccBrowserColumnVisible('operation')" label="操作" prop="operation" align="center" fixed="right" :width="getDccBrowserColumnWidthString('operation', 320)">
+          <el-table-column v-if="isDccBrowserColumnVisible('operation')" label="操作" prop="operation" align="center" fixed="right" :width="getDccBrowserColumnWidthString('operation', 107)">
             <template #default="{ row }">
               <div class="browser-row-actions">
                 <el-button
@@ -889,7 +889,6 @@
 </template>
 
 <script lang="ts" setup>
-import { isSearchModelInputEmpty } from '@/utils/search'
 import { ElMessageBox, type ElTree } from 'element-plus'
 import { useClipboard } from '@vueuse/core'
 import download from '@/utils/download'
@@ -959,7 +958,6 @@ import {
   getBrowserStampedFileStatusText,
   getBrowserCurrentVersionSourceText
 } from './presentation'
-import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
 
 defineOptions({ name: 'DccControlledFileBrowser' })
 
@@ -972,7 +970,7 @@ const router = useRouter()
 const message = useMessage()
 const userStore = useUserStore()
 const { copy: copyToClipboard } = useClipboard({ legacy: true })
-const DCC_BROWSER_COLUMN_TABLE_KEY = 'dcc.controlledFile.browser.adminStyle'
+const DCC_BROWSER_COLUMN_TABLE_KEY = 'dcc.controlledFile.browser.compactActionsV2'
 const dccBrowserDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'fileName', label: '文件名称', minWidth: 280 },
   { key: 'fileNumber', label: '文件编号', minWidth: 160 },
@@ -981,9 +979,8 @@ const dccBrowserDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'category', label: '类别', minWidth: 160, visible: false },
   { key: 'versionSummary', label: '版本摘要', minWidth: 310 },
   { key: 'remark', label: '备注', minWidth: 220, visible: false },
-  { key: 'operation', label: '操作', width: 320, hideable: false, business: false }
+  { key: 'operation', label: '操作', width: 107, hideable: false, business: false }
 ]
-const dccBrowserQueryInputFields = ['keyword', 'status', 'categoryId']
 const {
   columns: dccBrowserColumns,
   saving: dccBrowserColumnSaving,
@@ -1199,21 +1196,33 @@ const categoryNameMap = computed(
   () => new Map(categories.value.map((item) => [item.id as number, item.name]))
 )
 const dccBrowserQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
-  { key: 'keyword', label: '全文关键字', type: 'text', placeholder: '请输入文件名称/编号' },
+  {
+    key: 'keyword',
+    label: '全文关键字',
+    type: 'text',
+    queryParamKey: 'keyword',
+    placeholder: '请输入文件名称/编号'
+  },
   { key: 'fileName', label: '文件名称', type: 'text', placeholder: '请输入文件名称' },
   { key: 'fileNumber', label: '文件编号', type: 'text', placeholder: '请输入文件编号' },
-  { key: 'status', label: '状态', type: 'select', options: BROWSER_STATUS_FILTER_OPTIONS },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    queryParamKey: 'status',
+    options: BROWSER_STATUS_FILTER_OPTIONS
+  },
   {
     key: 'categoryId',
     label: '类别',
     type: 'select',
+    queryParamKey: 'categoryId',
     options: categoryOptions.value.map((item) => ({ label: item.name, value: item.id as number }))
   }
 ])
 const canEditMetadata = computed(() => hasMetadataEditorRole(userStore.getRoles))
 const isCurrentDirectorySearch = computed(() => searchScope.value === BROWSER_SEARCH_SCOPE_CURRENT)
 const isGlobalSearch = computed(() => searchScope.value === BROWSER_SEARCH_SCOPE_GLOBAL)
-const isQueryDisabled = computed(() => isCurrentDirectorySearch.value && !selectedDirectoryId.value)
 const tableEmptyText = computed(() => {
   if (browserListErrorMessage.value) {
     return '列表数据已失效'
@@ -1824,14 +1833,6 @@ const persistBrowserRememberedState = () => {
   }
 }
 
-const clearBrowserRememberedState = () => {
-  try {
-    clearDccBrowserRememberedState(getBrowserCacheContext())
-  } catch (error) {
-    raiseBrowserCacheWriteError(error)
-  }
-}
-
 const restoreBrowserMetadataCache = () => {
   try {
     const metadataCache = readDccBrowserMetadataCache(getBrowserCacheContext())
@@ -2308,37 +2309,11 @@ watch(
   }
 )
 
-const handleQuery = async (skipEmptyReset = false) => {
-  if (skipEmptyReset !== true && isSearchModelInputEmpty(queryParams, dccBrowserQueryInputFields)) {
-    await resetQuery()
-    return
-  }
-  queryParams.pageNo = 1
-  await getList()
-  await syncRouteFromBrowserState()
-  persistBrowserRememberedState()
-}
-
 const handleSearchScopeChange = async () => {
   queryParams.pageNo = 1
   await getList()
   await syncRouteFromBrowserState()
   persistBrowserRememberedState()
-}
-
-const resetQuery = async () => {
-  clearSelectedDirectory()
-  queryParams.categoryId = undefined
-  queryParams.status = undefined
-  queryParams.keyword = undefined
-  queryParams.recognitionStatus = undefined
-  queryParams.batchRecognitionTaskId = undefined
-  searchScope.value = BROWSER_SEARCH_SCOPE_CURRENT
-  queryParams.pageSize = DCC_BROWSER_DEFAULT_PAGE_SIZE
-  directoryTreeRef.value?.setCurrentKey()
-  clearBrowserRememberedState()
-  await dccBrowserQuickFilter.resetQuickFilter()
-  await syncRouteFromBrowserState()
 }
 
 const refreshDirectories = async () => {
@@ -3230,11 +3205,19 @@ onBeforeUnmount(() => {
 }
 
 .browser-row-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
   justify-content: center;
-  gap: 4px 8px;
+  gap: 4px;
+}
+
+.browser-row-actions :deep(.el-button),
+.browser-row-actions :deep(.el-dropdown) {
+  min-width: 0;
+  margin-left: 0;
+  justify-self: center;
+  white-space: nowrap;
 }
 
 .browser-row-actions__empty {

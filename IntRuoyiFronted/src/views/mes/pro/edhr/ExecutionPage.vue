@@ -1555,9 +1555,7 @@ import {
   type ProFeedbackEdhrAssistRowVO,
   type ProFeedbackEdhrExecutionSnapshotVO,
   type ProFeedbackEdhrExecutionVO,
-  type ProFeedbackEdhrReviewAssigneeOptionVO,
   type ProFeedbackEdhrReviewAssigneeSelectionVO,
-  type ProFeedbackEdhrReviewCandidateUserVO,
   type ProFeedbackEdhrSnapshotFieldVO
 } from '@/api/mes/pro/feedback'
 import type {
@@ -3278,24 +3276,6 @@ const closeFillActionResultDialog = () => {
   fillActionResultDialogVisible.value = false
 }
 
-const resolveAssistFieldTypeLabel = (field: AssistFillField) => {
-  const labels: Record<AssistFillField['componentKind'], string> = {
-    text: '文本',
-    textarea: '长文本',
-    number: '数字',
-    date: '日期',
-    datetime: '日期时间',
-    select: '选项',
-    checkbox: '勾选',
-    'choice-group': '选项组',
-    signature: '签名',
-    'upload-file': '附件',
-    'upload-image': '图片',
-    'upload-images': '多图片'
-  }
-  return labels[field.componentKind] || field.valueType
-}
-
 const resolveTemplateSnapshotField = (context: TemplateEditableCellContext) =>
   templateFieldByCell.value.get(context.fieldIdentity)
 
@@ -4570,17 +4550,6 @@ const handleSaveFieldAuditChanges = async () => {
 const submitReviewAssigneeOptions = computed(() => execution.value?.reviewAssigneeOptions || [])
 const hasSubmitReviewAssigneeOptions = computed(() => submitReviewAssigneeOptions.value.length > 0)
 
-const formatSubmitReviewCandidateLabel = (candidate: ProFeedbackEdhrReviewCandidateUserVO) => {
-  const userName = typeof candidate.userName === 'string' ? candidate.userName.trim() : ''
-  return userName ? `${userName}（${candidate.userId}）` : String(candidate.userId)
-}
-
-const formatSubmitReviewAssigneeLabel = (option: ProFeedbackEdhrReviewAssigneeOptionVO) => {
-  const sourceName = typeof option.reviewSourceName === 'string' ? option.reviewSourceName.trim() : ''
-  if (sourceName) return sourceName
-  return option.signatureCellKey ? `签名 ${option.signatureCellKey}` : '审核/批准人'
-}
-
 const resetSubmitReviewAssigneeSelections = () => {
   Object.keys(submitReviewAssigneeSelections).forEach((key) => {
     delete submitReviewAssigneeSelections[key]
@@ -5408,15 +5377,6 @@ const resolveAssistBatchTaskStatusType = (row: EdhrBatchExecutionTaskRespVO) => 
   return 'info'
 }
 
-const resolveAssistBatchTaskSecondaryLabel = (row: EdhrBatchExecutionTaskRespVO) => {
-  const parts = [
-    row.routeProcessSort == null ? '' : `序号 ${row.routeProcessSort}`,
-    row.batchRecordReportName || row.formTemplateName || row.executionCode || '',
-    resolveAssistBatchTaskStatusLabel(row)
-  ].filter(Boolean)
-  return parts.join(' · ')
-}
-
 const isAssistWorkTaskActive = (row: EdhrWorkTaskRespVO) => sameRouteQueryId(workTaskId.value, row.id)
 
 const isAssistBatchTaskActive = (row: EdhrBatchExecutionTaskRespVO) =>
@@ -5456,18 +5416,6 @@ const resolveAssistProcessSwitchItemStatusLabel = (item: AssistProcessSwitchItem
 
 const resolveAssistProcessSwitchItemStatusType = (item: AssistProcessSwitchItem) =>
   resolveAssistBatchTaskStatusType(item.primaryTask)
-
-const resolveAssistProcessSwitchItemSecondaryLabel = (item: AssistProcessSwitchItem) => {
-  const formNames = item.tasks
-    .map((task) => task.batchRecordReportName || task.formTemplateName || task.executionCode || '')
-    .filter(Boolean)
-  const parts = [
-    item.routeProcessSort == null ? '' : `序号 ${item.routeProcessSort}`,
-    item.tasks.length > 1 ? `表单 ${item.tasks.length} 项` : formNames[0] || '',
-    item.primaryTask.disabledReason || item.primaryTask.gateMessage || item.primaryTask.slotBlockerMessage || ''
-  ].filter(Boolean)
-  return parts.join(' · ')
-}
 
 const resolveAssistFillerFormSourceLabel = (row: EdhrBatchExecutionTaskRespVO) =>
   !row.formTemplateId && row.formSlotType === 'MAIN' ? '批处理表单' : '工艺路线表单槽位'

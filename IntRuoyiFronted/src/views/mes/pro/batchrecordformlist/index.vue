@@ -318,7 +318,7 @@
       <el-form label-width="120px" class="batch-record-word-import-form">
         <el-form-item label="产品名称" required>
           <el-select
-            v-model="wordImportDialog.selectedProjectName"
+            v-model="wordImportDialog.selectedDccProjectCodeId"
             class="batch-record-word-import-form__project-select"
             filterable
             remote
@@ -331,7 +331,7 @@
               v-for="item in wordImportDialog.projectOptions"
               :key="item.id"
               :label="item.projectName"
-              :value="item.projectName"
+              :value="item.id"
             >
               <div class="batch-record-word-import-form__project-option">
                 <span class="batch-record-word-import-form__project-name">{{ item.projectName }}</span>
@@ -346,7 +346,7 @@
           <div class="batch-record-word-import-form__file-row">
             <el-button
               plain
-              :disabled="!wordImportDialog.selectedProjectName"
+              :disabled="!wordImportDialog.selectedDccProjectCodeId"
               @click="handleWordImportFileSelect"
             >
               选择文件
@@ -402,6 +402,23 @@
                 </div>
               </div>
               <el-alert
+                v-if="wordImportDialog.preflight.routeGovernanceStatus === 'DUPLICATE_BLOCKED'"
+                type="error"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                title="所选 DCC 项目代码存在多条正式路线绑定，请先人工确定/清理唯一保留路线。"
+              />
+              <el-alert
+                v-if="wordImportDialog.preflight.routeGovernanceStatus === 'CREATE_REQUIRED'
+                  && wordImportDialog.selectedRouteProductOptionKeys.length > 0"
+                type="info"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                title="所选 DCC 项目代码尚未绑定工艺路线，确认后将新建路线并写入正式绑定。"
+              />
+              <el-alert
                 v-if="wordImportDialog.preflight.routeUpgradeRequired
                   && wordImportDialog.selectedRouteProductOptionKeys.length > 0
                   && !wordImportDialog.preflight.currentRouteCandidateVersionId"
@@ -409,7 +426,26 @@
                 :closable="false"
                 show-icon
                 class="batch-record-word-import-form__reference-alert"
-                :title="`同一个路线名称只能有一个工艺路线，已存在“${wordImportDialog.preflight.currentRouteName || wordImportDialog.preflight.batchRecordName}”。导入时需要确认是否升版本。`"
+                :title="`所选 DCC 项目代码已正式绑定工艺路线“${wordImportDialog.preflight.currentRouteName || wordImportDialog.preflight.batchRecordName}”。本次勾选“工艺流程”后将按 Word 工序顺序生成/更新路线候选版本，发布后才生效；当前生效路线不会被覆盖。`"
+              />
+              <el-alert
+                v-if="wordImportDialog.preflight.routeUpgradeRequired
+                  && wordImportDialog.rebuildBatchRecord
+                  && wordImportDialog.selectedRouteProductOptionKeys.length === 0"
+                type="info"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                title="未勾选“工艺流程”时，本次仅生成/更新批记录表单绑定候选；候选沿用当前工艺流程节点和流程关系，不按 Word 重建工艺流程，发布后才生效。"
+              />
+              <el-alert
+                v-if="wordImportDialog.preflight.routeRestoreRequired
+                  && wordImportDialog.preflight.routeGovernanceStatus === 'UPGRADE_REQUIRED'"
+                type="warning"
+                :closable="false"
+                show-icon
+                class="batch-record-word-import-form__reference-alert"
+                title="当前唯一工艺路线已禁用，确认后将先恢复路线，再生成/更新候选版本。"
               />
               <el-alert
                 v-if="wordImportDialog.preflight.currentRouteCandidateVersionStatus === 'DRAFT'"
@@ -676,7 +712,7 @@ const wordImportDialog = reactive({
   visible: false,
   confirming: false,
   selectedFormSlotType: DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE as BatchRecordFormSlotType,
-  selectedProjectName: '',
+  selectedDccProjectCodeId: undefined as number | undefined,
   projectOptions: [] as DccProjectCodeRespVO[],
   projectLoading: false,
   preflightLoading: false,
@@ -1568,9 +1604,9 @@ const resolveWordImportRouteUpgradeMessage = (
 ) => {
   if (isWordImportRouteDraftCandidate(preflight)) {
     const candidateVersionNo = preflight.currentRouteCandidateVersionNo || '候选版本'
-    return `工艺路线“${preflight.currentRouteName || batchRecordName}”当前已有 ${candidateVersionNo} 草稿。确认后将更新现有 ${candidateVersionNo} 草稿，不会创建下一版本；草稿待发布后生效。`
+    return `工艺路线“${preflight.currentRouteName || batchRecordName}”当前已有 ${candidateVersionNo} 草稿。确认后将按 Word 工序顺序更新现有 ${candidateVersionNo} 草稿，不会创建下一版本；草稿发布后才生效，当前生效路线不会被覆盖。`
   }
-  return `同一个路线名称只能有一个工艺路线，已存在“${preflight.currentRouteName || batchRecordName}”（${preflight.currentRouteCode || '无编码'}，${preflight.currentRouteVersionNo || '无版本'}）。确认后将生成路线候选版本，待审批/发布后生效，不会创建第二条同名路线。`
+  return `所选 DCC 项目代码已正式绑定工艺路线“${preflight.currentRouteName || batchRecordName}”（${preflight.currentRouteCode || '无编码'}，${preflight.currentRouteVersionNo || '无版本'}）。确认后将按 Word 工序顺序生成/更新路线候选版本，发布后才生效；当前生效路线不会被覆盖。`
 }
 
 const resolveWordImportRouteUpgradeDialogTitle = (preflight?: BatchRecordReportImportPreflightVO) =>
@@ -1580,6 +1616,26 @@ const resolveWordImportRouteUpgradeConfirmText = (preflight?: BatchRecordReportI
   isWordImportRouteDraftCandidate(preflight)
     ? `更新 ${preflight?.currentRouteCandidateVersionNo || '候选版本'} 草稿`
     : '生成候选版本'
+
+const resolveWordImportBatchRecordBindingCandidateMessage = (
+  batchRecordName: string,
+  preflight: BatchRecordReportImportPreflightVO
+) => {
+  const candidateVersionNo = preflight.currentRouteCandidateVersionNo || '候选版本'
+  const routeName = preflight.currentRouteName || batchRecordName
+  if (isWordImportRouteDraftCandidate(preflight)) {
+    return `工艺路线“${routeName}”当前已有 ${candidateVersionNo} 草稿。本次未勾选“工艺流程”，确认后仅更新批记录表单绑定候选；候选沿用当前工艺流程节点和流程关系，不按 Word 重建工艺流程，发布后才生效。`
+  }
+  return `所选 DCC 项目代码已正式绑定工艺路线“${routeName}”。本次未勾选“工艺流程”，确认后仅生成批记录表单绑定候选；候选沿用当前工艺流程节点和流程关系，不按 Word 重建工艺流程，发布后才生效。`
+}
+
+const resolveWordImportBatchRecordBindingCandidateDialogTitle = (
+  preflight?: BatchRecordReportImportPreflightVO
+) => isWordImportRouteDraftCandidate(preflight) ? '确认更新批记录绑定草稿' : '确认生成批记录绑定候选'
+
+const resolveWordImportBatchRecordBindingCandidateConfirmText = (
+  preflight?: BatchRecordReportImportPreflightVO
+) => isWordImportRouteDraftCandidate(preflight) ? '更新绑定草稿' : '生成绑定候选'
 
 const addWordImportRouteUpgradeKey = (
   routeUpgradeKeys: Set<string>,
@@ -1660,7 +1716,7 @@ const resetWordImportDialog = () => {
   }
   wordImportDialog.confirming = false
   wordImportDialog.selectedFormSlotType = DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE
-  wordImportDialog.selectedProjectName = ''
+  wordImportDialog.selectedDccProjectCodeId = undefined
   wordImportDialog.projectOptions = []
   wordImportDialog.projectLoading = false
   resetWordImportPreflightState()
@@ -1685,6 +1741,14 @@ const clearWordImportState = () => {
   wordImportDialog.file = undefined
 }
 
+const getSelectedWordImportProject = () => {
+  const selectedId = wordImportDialog.selectedDccProjectCodeId
+  if (!selectedId) {
+    return undefined
+  }
+  return wordImportDialog.projectOptions.find((item) => item.id === selectedId)
+}
+
 const loadWordImportProjectOptions = async (keyword = '') => {
   const trimmedKeyword = keyword.trim()
   wordImportDialog.projectLoading = true
@@ -1706,17 +1770,14 @@ const loadWordImportProjectOptions = async (keyword = '') => {
       currentPageNo += 1
     } while (options.length < totalCount)
 
-    const selectedProject = wordImportDialog.projectOptions.find(
-      (item) => item.projectName === wordImportDialog.selectedProjectName
-    )
-    const optionMap = new Map<string, DccProjectCodeRespVO>()
-    if (selectedProject?.projectName) {
-      optionMap.set(selectedProject.projectName, selectedProject)
+    const selectedProject = getSelectedWordImportProject()
+    const optionMap = new Map<number, DccProjectCodeRespVO>()
+    if (selectedProject?.id) {
+      optionMap.set(selectedProject.id, selectedProject)
     }
     options.forEach((item) => {
-      const projectName = item.projectName?.trim()
-      if (projectName && !optionMap.has(projectName)) {
-        optionMap.set(projectName, item)
+      if (item.id && !optionMap.has(item.id)) {
+        optionMap.set(item.id, item)
       }
     })
     wordImportDialog.projectOptions = Array.from(optionMap.values())
@@ -1729,8 +1790,10 @@ const loadWordImportProjectOptions = async (keyword = '') => {
 
 const loadWordImportPreflight = async () => {
   const file = wordImportDialog.file
-  const selectedProjectName = wordImportDialog.selectedProjectName.trim()
-  if (!isMainWordImport.value || !file || !selectedProjectName) {
+  const selectedProject = getSelectedWordImportProject()
+  const selectedProjectName = selectedProject?.projectName?.trim() || ''
+  const selectedDccProjectCodeId = selectedProject?.id
+  if (!isMainWordImport.value || !file || !selectedProjectName || !selectedDccProjectCodeId) {
     resetWordImportPreflightState()
     return
   }
@@ -1741,6 +1804,7 @@ const loadWordImportPreflight = async () => {
     const preflight = await BatchRecordReportApi.preflightUploadedRoute(
       resolveWordImportRouteKey(file.name),
       selectedProjectName,
+      selectedDccProjectCodeId,
       productNames
     )
     wordImportDialog.preflight = preflight
@@ -1807,8 +1871,12 @@ const buildWordImportConfirmedSelection = (
   rebuildBatchRecord: boolean,
   selectedOptions: BatchRecordReportImportRouteProductOptionVO[]
 ): WordImportConfirmedSelection => {
+  const routeFlowRebuildRequested = selectedOptions.length > 0
+  const batchRecordBindingCandidateRequested = Boolean(
+    selection.routeUpgradeRequired && rebuildBatchRecord && !routeFlowRebuildRequested
+  )
   const shouldConfirmRouteUpgrade = Boolean(
-    selection.routeUpgradeRequired && (selection.selectedOptions.length || rebuildBatchRecord)
+    selection.routeUpgradeRequired && (routeFlowRebuildRequested || batchRecordBindingCandidateRequested)
   )
   return {
     importAction: selection.importAction,
@@ -1835,36 +1903,52 @@ const confirmWordImportUpgradeSelections = async (
   batchRecordName: string,
   selection: WordImportSelection
 ) => {
+  const preflight = wordImportDialog.preflight
+  if (!preflight) {
+    return false
+  }
   const rebuildBatchRecord = selection.rebuildBatchRecord
+  const routeFlowRebuildRequested = selection.selectedOptions.length > 0
+  const batchRecordBindingCandidateRequested = Boolean(
+    selection.routeUpgradeRequired && rebuildBatchRecord && !routeFlowRebuildRequested
+  )
   const selectedOptions: BatchRecordReportImportRouteProductOptionVO[] = []
   const confirmedRouteUpgradeKeys = new Set<string>()
   const skippedRouteUpgradeKeys = new Set<string>()
   const shouldConfirmRouteUpgrade = Boolean(
-    selection.routeUpgradeRequired && (selection.selectedOptions.length || rebuildBatchRecord)
+    selection.routeUpgradeRequired && (routeFlowRebuildRequested || batchRecordBindingCandidateRequested)
   )
-  if (isWordImportRouteDuplicateBlocked(wordImportDialog.preflight)) {
-    message.warning(`存在多条同名工艺路线：${formatWordImportDuplicateRoutes(wordImportDialog.preflight)}，请先人工确定/清理唯一保留路线。`)
+  if (isWordImportRouteDuplicateBlocked(preflight)) {
+    message.warning(`所选 DCC 项目代码存在多条正式路线绑定：${formatWordImportDuplicateRoutes(preflight)}，请先清理为唯一绑定。`)
     return false
   }
-  if (isWordImportRouteCandidateLocked(wordImportDialog.preflight)) {
-    message.warning(resolveWordImportActionLockedMessage(wordImportDialog.preflight))
+  if (isWordImportRouteCandidateLocked(preflight)) {
+    message.warning(resolveWordImportActionLockedMessage(preflight))
     return false
   }
   if (shouldConfirmRouteUpgrade) {
     try {
       await ElMessageBox.confirm(
-        resolveWordImportRouteUpgradeMessage(batchRecordName, wordImportDialog.preflight),
-        resolveWordImportRouteUpgradeDialogTitle(wordImportDialog.preflight),
+        batchRecordBindingCandidateRequested
+          ? resolveWordImportBatchRecordBindingCandidateMessage(batchRecordName, preflight)
+          : resolveWordImportRouteUpgradeMessage(batchRecordName, preflight),
+        batchRecordBindingCandidateRequested
+          ? resolveWordImportBatchRecordBindingCandidateDialogTitle(preflight)
+          : resolveWordImportRouteUpgradeDialogTitle(preflight),
         {
-          confirmButtonText: resolveWordImportRouteUpgradeConfirmText(wordImportDialog.preflight),
+          confirmButtonText: batchRecordBindingCandidateRequested
+            ? resolveWordImportBatchRecordBindingCandidateConfirmText(preflight)
+            : resolveWordImportRouteUpgradeConfirmText(preflight),
           cancelButtonText: '退出导入',
           distinguishCancelAndClose: true,
           type: 'warning'
         }
       )
-      collectWordImportCurrentRouteUpgradeKeys(wordImportDialog.preflight).forEach((routeUpgradeKey) => {
-        confirmedRouteUpgradeKeys.add(routeUpgradeKey)
-      })
+      if (routeFlowRebuildRequested) {
+        collectWordImportCurrentRouteUpgradeKeys(wordImportDialog.preflight).forEach((routeUpgradeKey) => {
+          confirmedRouteUpgradeKeys.add(routeUpgradeKey)
+        })
+      }
     } catch {
       return false
     }
@@ -1938,7 +2022,7 @@ const confirmWordImportUpgradeSelections = async (
 
 const openWordImportDialog = async () => {
   wordImportDialog.selectedFormSlotType = DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE
-  wordImportDialog.selectedProjectName = ''
+  wordImportDialog.selectedDccProjectCodeId = undefined
   wordImportDialog.projectOptions = []
   clearWordImportState()
   resetWordImportPreflightState()
@@ -1952,20 +2036,14 @@ const cancelWordImportDialog = () => {
 }
 
 const confirmWordImportDialog = async () => {
-  const selectedProjectName = wordImportDialog.selectedProjectName.trim()
+  const selectedProject = getSelectedWordImportProject()
+  const selectedProjectName = selectedProject?.projectName?.trim() || ''
   if (!wordImportDialog.selectedFormSlotType) {
     message.warning('请选择表单类型。')
     return
   }
-  if (!selectedProjectName) {
+  if (!selectedProjectName || !selectedProject?.id) {
     message.warning('请选择产品名称。')
-    return
-  }
-  const selectedProject = wordImportDialog.projectOptions.find(
-    (item) => item.projectName === selectedProjectName
-  )
-  if (!selectedProject) {
-    message.warning('只能从 DCC 项目代码页签中的产品名称下拉选择。')
     return
   }
   const file = wordImportDialog.file
@@ -1994,7 +2072,7 @@ const confirmWordImportDialog = async () => {
     return
   }
   if (isWordImportRouteDuplicateBlocked(wordImportDialog.preflight)) {
-    message.warning(`存在多条同名工艺路线：${formatWordImportDuplicateRoutes(wordImportDialog.preflight)}，请先人工确定/清理唯一保留路线。`)
+    message.warning(`所选 DCC 项目代码存在多条正式路线绑定：${formatWordImportDuplicateRoutes(wordImportDialog.preflight)}，请先清理为唯一绑定。`)
     return
   }
   if (wordImportDialog.selectedAction === 'REBUILD_V1'
@@ -2028,7 +2106,7 @@ const confirmWordImportDialog = async () => {
   if (confirmedSelection) {
     wordImportDialog.confirming = true
     try {
-      await runUploadedWordImport(file, batchRecordName, productNames, confirmedSelection)
+      await runUploadedWordImport(file, batchRecordName, selectedProject.id, productNames, confirmedSelection)
       wordImportDialog.visible = false
     } finally {
       wordImportDialog.confirming = false
@@ -2037,7 +2115,7 @@ const confirmWordImportDialog = async () => {
 }
 
 const handleWordImportFileSelect = () => {
-  if (!wordImportDialog.selectedProjectName.trim()) {
+  if (!wordImportDialog.selectedDccProjectCodeId) {
     message.warning('请选择产品名称。')
     return
   }
@@ -2075,6 +2153,7 @@ const handleImportFileChange = async (event: Event) => {
 const runUploadedWordImport = async (
   file: File,
   batchRecordName: string,
+  dccProjectCodeId: number,
   productNames: string[],
   selection: {
     importAction: BatchRecordWordImportAction
@@ -2102,6 +2181,7 @@ const runUploadedWordImport = async (
       file,
       wordImportRouteKey,
       batchRecordName,
+      dccProjectCodeId,
       upgrade,
       productNames,
       selection.rebuildBatchRecord,
@@ -2361,7 +2441,7 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  () => wordImportDialog.selectedProjectName,
+  () => wordImportDialog.selectedDccProjectCodeId,
   () => {
     if (!wordImportDialog.visible) {
       return

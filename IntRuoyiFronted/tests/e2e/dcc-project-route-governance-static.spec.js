@@ -41,10 +41,14 @@ const governanceApi = read('src/api/mes/pro/dccProjectGovernance.ts')
 assert.match(governanceApi, /\/mes\/pro\/dcc-project-governance\/status/)
 assert.match(governanceApi, /projectNames\.forEach/)
 assert.match(governanceApi, /routeStatus/)
+assert.match(governanceApi, /routeVersionNos\?: string\[\]/)
 assert.match(governanceApi, /mainBatchRecordStatus/)
 assert.match(governanceApi, /lossReportStatus/)
+assert.match(governanceApi, /lossReportVersionNos\?: string\[\]/)
 assert.match(governanceApi, /processInspectionStatus/)
+assert.match(governanceApi, /processInspectionVersionNos\?: string\[\]/)
 assert.match(governanceApi, /parameterRecordStatus/)
+assert.match(governanceApi, /parameterRecordVersionNos\?: string\[\]/)
 
 const projectCodePage = read('src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue')
 for (const label of ['工艺路线', '主批记录', '损耗单', '过程检验单', '参数记录表']) {
@@ -56,6 +60,15 @@ for (const label of ['工艺路线', '主批记录', '损耗单', '过程检验�
 assert.match(projectCodePage, /getDccProjectGovernanceStatus/)
 assert.match(projectCodePage, /dccProjectGovernanceByProjectName/)
 assert.match(projectCodePage, /formatDccProjectGovernanceStatus/)
+assert.match(projectCodePage, /formatDccProjectGovernanceVersions/)
+for (const field of ['routeVersionNos', 'mainBatchRecordVersionNos', 'lossReportVersionNos', 'processInspectionVersionNos', 'parameterRecordVersionNos']) {
+  assert(
+    projectCodePage.includes(field),
+    `DCC 项目代码列表必须可见展示 ${field}。`
+  )
+}
+assert.doesNotMatch(projectCodePage, /@click="[^"]*Version[^"]*"/)
+assert.doesNotMatch(projectCodePage, /<el-link[^>]*data-testid="dcc-project-code-governance-version/)
 assert.match(projectCodePage, /重复/)
 assert.match(projectCodePage, /未配置/)
 

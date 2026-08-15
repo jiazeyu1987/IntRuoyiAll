@@ -81,6 +81,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowContextMatcher;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteScheduleConfigService;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleDailyCompareStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
@@ -215,6 +216,8 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     private MesProRouteProcessMapper routeProcessMapper;
     @Resource
     private MesProRouteProcessService routeProcessService;
+    @Resource
+    private MesProRouteScheduleConfigService routeScheduleConfigService;
     @Resource
     private MesProRouteProcessFlowEdgeMapper routeProcessFlowEdgeMapper;
     @Resource
@@ -1604,6 +1607,10 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         MesProRouteScheduleConfigDO routeConfig = requireRouteScheduleConfig(reqVO.getRouteVersionId(),
                 reqVO.getRouteProcessId(), targetProcesses.get(0).getProcessId());
         Long calendarRuleId = resolveRequestedCalendarRuleId(reqVO, routeConfig);
+        if (Boolean.TRUE.equals(reqVO.getNightShiftEnabled())) {
+            routeScheduleConfigService.validateNightShiftResources(
+                    reqVO.getRouteProcessId(), routeConfig.getCapacityMode());
+        }
         updateRouteProcessNightShiftConfig(reqVO, routeConfig, calendarRuleId);
         LocalDateTime plannedStartTime = reqVO.getPlannedStartDate() == null
                 ? null : reqVO.getPlannedStartDate().atStartOfDay();

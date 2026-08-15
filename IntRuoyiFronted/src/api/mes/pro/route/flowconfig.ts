@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { MesRouteId } from '@/api/mes/pro/route'
 import type {
   EdhrProcessFormCandidateSourceType,
   EdhrProcessFormPermissionRuleRespVO
@@ -49,13 +50,13 @@ export interface ProRouteBatchRecordAttachmentOwnerItemSaveVO {
 
 export interface ProRouteBatchRecordAttachmentOwnerSaveVO {
   routeId: number
-  routeVersionId: number
+  routeVersionId: MesRouteId
   items: ProRouteBatchRecordAttachmentOwnerItemSaveVO[]
 }
 
 export interface ProRouteBatchRecordAttachmentOwnerInitVO {
   routeId: number
-  routeVersionId: number
+  routeVersionId: MesRouteId
 }
 
 export interface ProRouteStartProductionLeaderVO {
@@ -79,7 +80,7 @@ export interface ProRouteStartProductionLeaderItemSaveVO {
 
 export interface ProRouteStartProductionLeaderSaveVO {
   routeId: number
-  routeVersionId: number
+  routeVersionId: MesRouteId
   items: ProRouteStartProductionLeaderItemSaveVO[]
 }
 
@@ -204,7 +205,7 @@ export interface ProRouteFlowProcessConfigSaveVO {
 
 export interface ProRouteFlowConfigSaveVO {
   routeId: number
-  routeVersionId: number
+  routeVersionId: MesRouteId
   useType?: ProRouteFlowConfigType
   configVersion?: string | null
   remark?: string | null
@@ -212,7 +213,11 @@ export interface ProRouteFlowConfigSaveVO {
 }
 
 export const ProRouteFlowConfigApi = {
-  getProcessConfigList: async (routeId: number, useType: ProRouteFlowConfigType, routeVersionId?: number) => {
+  getProcessConfigList: async (
+    routeId: number,
+    useType: ProRouteFlowConfigType,
+    routeVersionId?: MesRouteId
+  ) => {
     return await request.get<ProRouteFlowProcessConfigVO[]>({
       url: '/mes/pro/route/flow-config',
       params: { routeId, useType, routeVersionId }
@@ -241,7 +246,7 @@ export const ProRouteFlowConfigApi = {
     })
   },
 
-  getBatchRecordAttachmentOwners: async (routeId: number, routeVersionId?: number) => {
+  getBatchRecordAttachmentOwners: async (routeId: number, routeVersionId?: MesRouteId) => {
     return await request.get<ProRouteBatchRecordAttachmentOwnerVO[]>({
       url: '/mes/pro/route/flow-config/batch-record-attachment-owners',
       params: { routeId, routeVersionId }
@@ -264,7 +269,7 @@ export const ProRouteFlowConfigApi = {
 
   getRouteStartProductionLeaderProductionLines: async (
     routeId: number,
-    routeVersionId?: number
+    routeVersionId?: MesRouteId
   ) => {
     return await request.get<ProRouteStartProductionLeaderProductionLineVO[]>({
       url: '/mes/pro/route/flow-config/route-start-production-leader-production-lines',
@@ -272,7 +277,7 @@ export const ProRouteFlowConfigApi = {
     })
   },
 
-  getRouteStartProductionLeaders: async (routeId: number, routeVersionId?: number) => {
+  getRouteStartProductionLeaders: async (routeId: number, routeVersionId?: MesRouteId) => {
     return await request.get<ProRouteStartProductionLeaderVO[]>({
       url: '/mes/pro/route/flow-config/route-start-production-leaders',
       params: { routeId, routeVersionId }

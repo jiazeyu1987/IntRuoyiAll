@@ -10,6 +10,8 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolQua
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -30,6 +32,8 @@ class MesP0FrontlineSubmitIdempotencyTest extends BaseDbUnitTest {
     private MesProProcessPoolEventMapper processPoolEventMapper;
     @Resource
     private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
+    @MockitoBean
+    private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     @Test
     void shouldReturnSameProductionSubmitEventForDuplicateIdempotencyKey() {

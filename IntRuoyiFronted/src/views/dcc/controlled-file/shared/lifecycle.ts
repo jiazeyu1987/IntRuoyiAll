@@ -276,13 +276,13 @@ export const mapDccControlledFileProjection = (
     permissionGranted: allowed,
     locked: lockedForAction,
     pending: lockedForAction,
-    pendingInstanceId: lockedForAction ? projection?.pendingRequestId : undefined,
+    pendingInstanceId: lockedForAction ? projection?.pendingRequestId ?? undefined : undefined,
     withdrawable: action === 'WITHDRAW' && projection?.canWithdraw === true,
     blockerCode: lockedForAction ? 'PENDING_APPROVAL_ACTION_LOCK' : allowed ? '' : 'ACTION_PROJECTION_BLOCKED',
     blockerReason: lockedForAction
       ? projection?.actionLockReason || '已有审批中的申请，请先撤回、审批或等待结束。'
-      : projection?.actionLockReason,
-    lockReason: lockedForAction ? projection?.actionLockReason : undefined
+      : projection?.actionLockReason || undefined,
+    lockReason: lockedForAction ? projection?.actionLockReason || undefined : undefined
   }
 }
 

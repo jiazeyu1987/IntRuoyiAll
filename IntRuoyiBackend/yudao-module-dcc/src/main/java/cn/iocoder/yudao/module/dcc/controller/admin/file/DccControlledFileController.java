@@ -386,7 +386,7 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "Get controlled file detail")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<DccControlledFileRespVO> getControlledFile(@PathVariable("id") Long id) {
         return success(queryService.getControlledFile(getLoginUserId(), id));
     }
@@ -613,6 +613,15 @@ public class DccControlledFileController {
         return success(signatureManagementService.getSignatureExportSummary(id));
     }
 
+    @PostMapping("/{id:\\d+}/signature-binding-migration")
+    @Operation(summary = "Migrate historical signatures to the final controlled copy")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:signature:manage')")
+    public CommonResult<DccControlledFileSignatureExportSummaryRespVO> migrateSignatureBinding(
+            @PathVariable("id") Long id, HttpServletRequest request) {
+        return success(signatureManagementService.migratePublishedCopyBindings(id, getLoginUserId(),
+                auditContext(request, null).requireRequestId("signature binding migration")));
+    }
+
     @GetMapping("/{id:\\d+}/signature-evidence-export")
     @Operation(summary = "Download controlled file signature evidence artifact")
     @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:query','dcc:controlled-file:download')")
@@ -709,7 +718,7 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}/preview")
     @Operation(summary = "Preview controlled file")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> previewControlledFile(@PathVariable("id") Long id,
                                                         @RequestHeader(VIEWER_TOKEN_HEADER) String viewerToken,
                                                         @RequestHeader(ACCESS_EVENT_CODE_HEADER) String accessEventCode,
@@ -732,7 +741,7 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}/preview-metadata")
     @Operation(summary = "Get controlled file preview metadata")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    @PreAuthorize("isAuthenticated()")
     public CommonResult<DccControlledFilePreviewMetadataRespVO> getPreviewMetadata(@PathVariable("id") Long id,
                                                                                   HttpServletRequest request) {
         return success(queryService.getPreviewMetadata(getLoginUserId(), id, auditContext(request, null)));
@@ -755,6 +764,7 @@ public class DccControlledFileController {
 
     @GetMapping("/{id:\\d+}/download")
     @Operation(summary = "Download controlled file")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> downloadControlledFile(@PathVariable("id") Long id,
                                                           @RequestParam("nonControlledWarningConfirmed")
                                                           Boolean nonControlledWarningConfirmed,

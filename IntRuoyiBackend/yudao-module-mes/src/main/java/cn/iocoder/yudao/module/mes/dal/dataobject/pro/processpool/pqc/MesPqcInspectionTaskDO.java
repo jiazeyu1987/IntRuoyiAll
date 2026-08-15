@@ -48,4 +48,6 @@ public class MesPqcInspectionTaskDO extends TenantBaseDO {
     private Integer plannedInspectionQuantity;
     private Integer actualInspectionQuantity;
     private String taskStatus;
+    private String submittedContentHash;
+    private Long submittedEventId;
 }

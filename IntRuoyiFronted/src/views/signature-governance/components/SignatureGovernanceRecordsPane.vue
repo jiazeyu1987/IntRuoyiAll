@@ -298,6 +298,8 @@ const {
 } = useUserTableColumns(tableKey, recordDefaultColumns)
 
 const queryParams = reactive<SignatureGovernanceRecordPageReqVO & {
+  pageNo: number
+  pageSize: number
   quickFilter?: TableQuickFilterValue
 }>({
   pageNo: 1,

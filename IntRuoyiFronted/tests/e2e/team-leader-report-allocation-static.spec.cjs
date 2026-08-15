@@ -66,12 +66,12 @@ assert.match(
 )
 assert.match(
   api,
-  /erpFixedQuantitySnapshot\?:\s*number\s*\|\s*string/,
-  'manual allocation shortcuts must use the formal active-order ERP fixed quantity snapshot as the order total.'
+  /processRemainingQuantities\?:\s*TeamLeaderActiveOrderProcessRemainingQuantity\[\]/,
+  'manual allocation shortcuts must receive formal per-process remaining quantities from the active-order list.'
 )
 assert.match(
   page,
-  /<el-input-number[\s\S]*v-model="row\.allocatedQuantity"[\s\S]*:precision="0"[\s\S]*:step="1"[\s\S]*@change="markManualAllocation"/,
+  /<el-input-number[\s\S]*v-model="row\.allocatedQuantity"[\s\S]*:precision="0"[\s\S]*:step="1"[\s\S]*@change="markManualAllocation\(row\)"/,
   'allocation quantity input must be constrained to integer steps without removing manual input.'
 )
 assert.match(
@@ -91,8 +91,23 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+resolveAllocationShortcutQuantity\s*=[\s\S]*order\.erpFixedQuantitySnapshot[\s\S]*resolveCurrentAllocationRemainingQuantity\(line\)[\s\S]*Math\.min\(orderQuantity,\s*currentRemainingQuantity\)[\s\S]*Math\.floor\(orderQuantity\s*\/\s*2\)[\s\S]*Math\.min\(halfOrderQuantity,\s*currentRemainingQuantity\)/,
-  'allocation shortcut math must cap by both the order total/half total and the current unallocated remaining quantity.'
+  /const\s+resolveAllocationOrderProcessRemainingQuantity\s*=[\s\S]*reviewEvent\.value\?\.processId[\s\S]*processRemainingQuantities\?\.filter[\s\S]*processMatches\.length\s*!==\s*1[\s\S]*remainingQuantity[\s\S]*当前工序剩余可分配数量/,
+  'allocation shortcut math must resolve the selected active order unique process target even when route-process versions differ.'
+)
+assert.doesNotMatch(
+  page.match(/const\s+resolveAllocationOrderProcessRemainingQuantity[\s\S]*?\n\}/)?.[0] || '',
+  /Number\(item\.routeProcessId\)\s*===\s*routeProcessId/,
+  'allocation shortcut must not reject the same unique business process because the report and active order use different route-process version ids.'
+)
+assert.match(
+  page,
+  /const\s+resolveAllocationShortcutQuantity\s*=[\s\S]*resolveAllocationOrderProcessRemainingQuantity\(order\)[\s\S]*resolveCurrentAllocationRemainingQuantity\(line\)[\s\S]*Math\.min\(orderProcessRemainingQuantity,\s*currentRemainingQuantity\)[\s\S]*Math\.floor\(orderProcessRemainingQuantity\s*\/\s*2\)[\s\S]*Math\.min\(halfOrderQuantity,\s*currentRemainingQuantity\)/,
+  'allocation shortcut math must cap by both the order current-process remaining quantity and the current report remaining quantity.'
+)
+assert.doesNotMatch(
+  page.match(/const\s+resolveAllocationShortcutQuantity[\s\S]*?\n\}/)?.[0] || '',
+  /order\.erpFixedQuantitySnapshot|order\.quantity/,
+  'allocation shortcut math must not fall back to active-order total quantity for max or half shortcuts.'
 )
 assert.match(
   page,
@@ -138,6 +153,40 @@ assert.match(
   page,
   /const\s+addAllocationLine\s*=[\s\S]*activeOrderId:\s*undefined[\s\S]*allocatedQuantity:\s*0/,
   'new manual allocation rows must start unselected instead of auto-filling a possibly invalid active order.'
+)
+assert.match(
+  page,
+  /v-for="order in getAvailableAllocationOrderOptions\(row\)"/,
+  'each allocation row must render only active orders that remain available for that row.'
+)
+const availableOptionsStart = page.indexOf('const getAvailableAllocationOrderOptions =')
+const availableOptionsEnd = page.indexOf('\nconst normalizeAllocationInteger', availableOptionsStart)
+assert.ok(availableOptionsStart >= 0 && availableOptionsEnd > availableOptionsStart, 'must locate allocation row candidate filter.')
+const availableOptionsBlock = page.slice(availableOptionsStart, availableOptionsEnd)
+assert.match(availableOptionsBlock, /allocationRows\.value/, 'allocation row candidates must inspect all allocation rows.')
+assert.match(availableOptionsBlock, /candidate\s*!==\s*line/, 'allocation row candidates must preserve the current row selection.')
+assert.match(availableOptionsBlock, /candidate\.activeOrderId/, 'allocation row candidates must inspect selected active-order ids.')
+assert.match(
+  availableOptionsBlock,
+  /order\?\.workOrderId[\s\S]*!selectedWorkOrderIds\.has\(workOrderId\)/,
+  'an order number selected by another allocation row must be removed from the current row candidate list even if its internal active-order record differs.'
+)
+const uniqueGuardStart = page.indexOf('const assertUniqueAllocationActiveOrders =')
+const uniqueGuardEnd = page.indexOf('\nconst buildAllocationSubmitLines', uniqueGuardStart)
+assert.ok(uniqueGuardStart >= 0 && uniqueGuardEnd > uniqueGuardStart, 'must locate duplicate allocation submit guard.')
+const uniqueGuardBlock = page.slice(uniqueGuardStart, uniqueGuardEnd)
+assert.match(uniqueGuardBlock, /allocationRows\.value/, 'duplicate allocation guard must inspect all allocation rows.')
+assert.match(uniqueGuardBlock, /selectedOrder\.workOrderId/, 'duplicate allocation guard must use formal work-order identity behind the visible order number.')
+assert.match(uniqueGuardBlock, /selectedWorkOrderIds\.has\(workOrderId\)/, 'duplicate allocation guard must detect a repeated order number.')
+assert.match(
+  uniqueGuardBlock,
+  /throw new Error\('同一订单编号不能重复分配'\)/,
+  'allocation confirmation must reject duplicated order numbers before sending the request.'
+)
+assert.match(
+  page,
+  /const\s+buildAllocationSubmitLines\s*=\s*\(\):\s*TeamLeaderReportAllocationLine\[\]\s*=>\s*\{\s*assertUniqueAllocationActiveOrders\(\)/,
+  'the final allocation payload builder must run the duplicate-order guard.'
 )
 assert.doesNotMatch(
   page,

@@ -377,28 +377,6 @@ const directoryAuthorizationQuickFilter = useTableQuickFilter(
 )
 
 const flatDirectories = computed(() => flattenTree(directories.value))
-const buildDirectoryPathMap = (
-  nodes: ControlledFileDirectoryVO[],
-  parentPath = '',
-  pathMap = new Map<string, string>()
-) => {
-  nodes.forEach((node) => {
-    if (!node.id) {
-      return
-    }
-    const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name
-    const directoryId = parsePositiveRouteQueryId(node.id)
-    if (directoryId) {
-      pathMap.set(directoryId, currentPath)
-    }
-    if (node.children?.length) {
-      buildDirectoryPathMap(node.children, currentPath, pathMap)
-    }
-  })
-  return pathMap
-}
-
-const directoryPathMap = computed(() => buildDirectoryPathMap(directories.value))
 const boundDirectoryMap = computed(
   () => new Map(boundDirectories.value.map((item) => [parsePositiveRouteQueryId(item.id), item]))
 )

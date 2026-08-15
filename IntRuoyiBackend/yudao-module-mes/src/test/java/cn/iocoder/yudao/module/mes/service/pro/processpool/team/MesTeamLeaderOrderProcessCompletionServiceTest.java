@@ -268,6 +268,37 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     @Test
+    void shouldPreserveAdjustableFrontlineOverageAndCapFormalScheduleProgressAtTarget() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO frontlineAllocation = allocation(9001L, "10")
+                .setAllocationMode(MesProcessPoolReportAllocationDO.MODE_FRONTLINE_SELECTED);
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("6")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(frontlineAllocation));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("6"));
+        stubFormalSchedule("6", "6");
+        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
+
+        service.reconcileAffectedAllocations(event, List.of(frontlineAllocation));
+
+        ArgumentCaptor<MesProcessPoolOrderProcessCompletionDO> completionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).insert(completionCaptor.capture());
+        MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
+        assertAmount("6", saved.getTargetQuantity());
+        assertAmount("10", saved.getConfirmedQuantity());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED, saved.getCompletionStatus());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED,
+                saved.getBackfillStatus());
+        verify(scheduleOrderProcessMapper).updateProgress(8801L, new BigDecimal("6.000000"),
+                new BigDecimal("0.000000"), new BigDecimal("100.000000"));
+        verify(scheduleOrderMapper).updateProgressSummary(7701L, new BigDecimal("6.000000"),
+                new BigDecimal("6.000000"), new BigDecimal("0.000000"), new BigDecimal("100.000000"),
+                MesProScheduleOrderStatusEnum.FINISHED.getStatus());
+        verify(backfillService, never()).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
+    }
+
+    @Test
     void shouldWaitForPerProcessSnapshotTargetBeforeBackfill() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "300");

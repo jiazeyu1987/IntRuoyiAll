@@ -798,17 +798,6 @@ const openRouteCapacityOverride = async (row: ProProcessVO) => {
   }
 }
 
-const openMachineryDialog = async (row: ProProcessVO) => {
-  processMachineryDialogVisible.value = true
-  processMachineryDialogTitle.value = `${row.code} 关联设备产能明细`
-  processMachineryLoading.value = true
-  try {
-    processMachineryList.value = await ProProcessApi.getProcessMachineryList(row.id!)
-  } finally {
-    processMachineryLoading.value = false
-  }
-}
-
 /** 删除按钮操作 */
 const handleDelete = async (id: number) => {
   try {

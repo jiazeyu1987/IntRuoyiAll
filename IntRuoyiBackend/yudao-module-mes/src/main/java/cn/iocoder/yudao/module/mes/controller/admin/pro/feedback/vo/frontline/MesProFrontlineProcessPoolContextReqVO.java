@@ -10,6 +10,11 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesProFrontlineProcessPoolContextReqVO {
 
+    @Schema(description = "一线生产明确选择的活跃订单编号", requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "8101")
+    @NotNull(message = "请选择活跃订单后再提交")
+    private Long activeOrderId;
+
     @Schema(description = "生产工单编号；一线生产不匹配工单时为空", example = "41")
     private Long workOrderId;
 

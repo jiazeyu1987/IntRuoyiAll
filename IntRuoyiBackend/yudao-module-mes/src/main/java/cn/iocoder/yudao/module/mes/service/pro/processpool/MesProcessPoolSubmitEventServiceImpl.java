@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolQuantityFragmentCreateDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandService;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
@@ -24,9 +25,12 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
     private static final String QUANTITY_TYPE_LOSS = "LOSS";
 
     private final MesProcessPoolEventService eventService;
+    private final MesReportAllocationCommandService reportAllocationCommandService;
 
-    public MesProcessPoolSubmitEventServiceImpl(MesProcessPoolEventService eventService) {
+    public MesProcessPoolSubmitEventServiceImpl(MesProcessPoolEventService eventService,
+                                                MesReportAllocationCommandService reportAllocationCommandService) {
         this.eventService = eventService;
+        this.reportAllocationCommandService = reportAllocationCommandService;
     }
 
     @Override
@@ -37,6 +41,11 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
     @Override
     public Long createSubmitEvent(MesProcessPoolSubmitEventCreateReqBO reqBO) {
         return eventService.createEvent(toCreateEventReq(reqBO));
+    }
+
+    @Override
+    public void createInitialAllocation(Long eventId, Long activeOrderId, BigDecimal outputQuantity) {
+        reportAllocationCommandService.createInitialAllocation(eventId, activeOrderId, outputQuantity);
     }
 
     private MesProcessPoolCreateEventReqDTO toLookupReq(MesProcessPoolSubmitEventCreateReqBO reqBO) {

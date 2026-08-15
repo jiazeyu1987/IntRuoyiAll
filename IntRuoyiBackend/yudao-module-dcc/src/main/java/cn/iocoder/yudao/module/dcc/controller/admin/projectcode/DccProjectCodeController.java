@@ -87,7 +87,8 @@ public class DccProjectCodeController {
     @Operation(summary = "获得 DCC 项目代码详情")
     @PreAuthorize("@ss.hasPermission('dcc:project-code:query')")
     public CommonResult<DccProjectCodeRespVO> getProjectCode(@PathVariable("id") Long id) {
-        return success(BeanUtils.toBean(projectCodeService.getProjectCode(id), DccProjectCodeRespVO.class));
+        return success(BeanUtils.toBean(projectCodeService.getProjectCode(getLoginUserId(), id),
+                DccProjectCodeRespVO.class));
     }
 
     @GetMapping("/{id:\\d+}/controlled-files/page")

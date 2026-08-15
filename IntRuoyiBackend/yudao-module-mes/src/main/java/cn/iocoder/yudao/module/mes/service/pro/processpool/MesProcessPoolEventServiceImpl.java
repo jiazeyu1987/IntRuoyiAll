@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQu
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolQuantityFragmentCreateDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,8 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
     private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
     @Resource
     private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
+    @Resource
+    private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     @Override
     public Optional<MesProcessPoolSubmitEventResult> findExistingSubmitEvent(MesProcessPoolCreateEventReqDTO reqDTO) {
@@ -70,6 +73,7 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
         LocalDateTime serverSubmitTime = LocalDateTime.now();
         MesProProcessPoolDO pool = getOrCreatePool(reqDTO, serverSubmitTime);
         MesProProcessPoolEventDO event = buildEvent(reqDTO, pool.getId(), serverSubmitTime);
+        reportManagementSummaryService.initializeProductionEvent(event);
         processPoolEventMapper.insert(event);
 
         createQuantityFragments(reqDTO, event);

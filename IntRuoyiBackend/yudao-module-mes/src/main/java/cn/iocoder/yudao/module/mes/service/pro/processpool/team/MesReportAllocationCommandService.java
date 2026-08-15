@@ -29,7 +29,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -69,6 +68,7 @@ public class MesReportAllocationCommandService {
     private final MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
     private final MesReportAllocationQuantityFragmentService quantityFragmentService;
     private final MesTeamLeaderOrderProcessCompletionService completionService;
+    private final MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
@@ -88,7 +88,8 @@ public class MesReportAllocationCommandService {
             MesTeamLeaderFifoAllocationService fifoService,
             MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService,
             MesReportAllocationQuantityFragmentService quantityFragmentService,
-            MesTeamLeaderOrderProcessCompletionService completionService) {
+            MesTeamLeaderOrderProcessCompletionService completionService,
+            MesProductionReportManagementSummaryService reportManagementSummaryService) {
         this.scopeService = scopeService;
         this.eventMapper = eventMapper;
         this.activeOrderMapper = activeOrderMapper;
@@ -104,6 +105,7 @@ public class MesReportAllocationCommandService {
         this.routeStartAuthorizationService = routeStartAuthorizationService;
         this.quantityFragmentService = quantityFragmentService;
         this.completionService = completionService;
+        this.reportManagementSummaryService = reportManagementSummaryService;
     }
 
     public MesReportAllocationSnapshot getCurrent(Long eventId, Long leaderUserId, String leaderType) {
@@ -138,15 +140,81 @@ public class MesReportAllocationCommandService {
                 .eventId(eventId).leaderUserId(leaderUserId).routeProcessId(event.getRouteProcessId())
                 .processId(event.getProcessId()).confirmQuantity(editablePool).excludedEventId(eventId)
                 .excludedActiveOrderIds(releasedIds).build());
-        List<MesReportAllocationSnapshotLine> lines = new ArrayList<>(toSnapshotLines(locked, releasedIds));
+        List<MesReportAllocationSnapshotLine> lines = new ArrayList<>(toSnapshotLines(locked, releasedIds,
+                calculateCurrentOverage(event, locked)));
         lines.addAll(preview.getLines().stream().map(line -> MesReportAllocationSnapshotLine.builder()
                 .activeOrderId(line.getActiveOrderId()).workOrderId(line.getWorkOrderId())
                 .workOrderCode(line.getWorkOrderCode()).routeProcessId(line.getRouteProcessId())
                 .processId(line.getProcessId()).allocatedQuantity(line.getAllocatedQuantity())
+                .overageQuantity(BigDecimal.ZERO).needsAdjustment(false)
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_FIFO).released(false).editable(true).build())
                 .toList());
         BigDecimal editableAllocated = preview.getTotalAllocatedQuantity();
         return snapshot(eventId, currentVersion(eventId), pool, lockedTotal, editableAllocated, lines);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void createInitialAllocation(Long eventId, Long activeOrderId, BigDecimal outputQuantity) {
+        if (eventId == null || activeOrderId == null || outputQuantity == null
+                || outputQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "frontlineInitialAllocation");
+        }
+        MesProProcessPoolEventDO event = requireEvent(eventId, true);
+        if (event.getDeviceAccountId() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "event.deviceAccountId");
+        }
+        BigDecimal pool = poolQuantityService.requirePoolQuantity(event);
+        if (pool.compareTo(outputQuantity) != 0) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH, quantityText(pool));
+        }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
+        if (activeOrder == null || !"ACTIVE".equals(activeOrder.getActiveStatus())
+                || !Objects.equals(event.getWorkOrderId(), activeOrder.getWorkOrderId())) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED, activeOrderId);
+        }
+        MesTeamLeaderOrderProcessTarget target = targetService.requireTarget(activeOrder,
+                event.getRouteProcessId(), event.getProcessId());
+        MesProcessPoolReportAllocationStateDO state = requireStateForUpdate(event, event.getDeviceAccountId());
+        List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventIdForUpdate(eventId);
+        if (!current.isEmpty() || state.getCurrentVersion() == null || state.getCurrentVersion() != 0) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
+                    eventId, 0, state.getCurrentVersion());
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        MesProcessPoolReportAllocationDO allocation = MesProcessPoolReportAllocationDO.builder()
+                .eventId(eventId).reviewId(null).leaderUserId(activeOrder.getLeaderUserId())
+                .activeOrderId(activeOrderId).workOrderId(activeOrder.getWorkOrderId())
+                .routeProcessId(target.routeProcessId()).processId(target.processId())
+                .allocatedQuantity(outputQuantity)
+                .allocationMode(MesProcessPoolReportAllocationDO.MODE_FRONTLINE_SELECTED)
+                .lifecycleStatus(MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
+                .createdVersion(1).confirmedAt(now).build();
+        if (!Boolean.TRUE.equals(allocationMapper.insertBatch(List.of(allocation)))) {
+            throw new IllegalStateException("Failed to insert frontline initial report allocation");
+        }
+        MesProcessPoolReportAllocationAdjustmentAuditDO audit =
+                MesProcessPoolReportAllocationAdjustmentAuditDO.builder()
+                        .eventId(eventId).allocationVersion(1).sourceAllocationId(allocation.getId())
+                        .activeOrderId(activeOrderId).workOrderId(activeOrder.getWorkOrderId())
+                        .routeProcessId(target.routeProcessId()).processId(target.processId())
+                        .beforeQuantity(BigDecimal.ZERO).afterQuantity(outputQuantity).deltaQuantity(outputQuantity)
+                        .actorUserId(event.getDeviceAccountId())
+                        .adjustmentReason("一线生产选择活跃订单后自动分配")
+                        .allocationMode(MesProcessPoolReportAllocationDO.MODE_FRONTLINE_SELECTED)
+                        .changeSource(MesProcessPoolReportAllocationAdjustmentAuditDO.SOURCE_INITIAL_BASELINE)
+                        .occurredAt(now).build();
+        if (!Boolean.TRUE.equals(auditMapper.insertBatch(List.of(audit)))) {
+            throw new IllegalStateException("Failed to insert frontline initial allocation audit");
+        }
+        state.setCurrentVersion(1).setLastIdempotencyKey(null)
+                .setLastRequestHash(null).setLastChangedBy(event.getDeviceAccountId()).setLastChangedAt(now);
+        if (stateMapper.updateById(state) != 1) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT, eventId, 0, 1);
+        }
+        quantityFragmentService.rebuildForVersion(event, 1, List.of(allocation));
+        completionService.reconcileAffectedAllocations(event, List.of(allocation));
+        reportManagementSummaryService.refreshProductionEvent(event);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -196,8 +264,8 @@ public class MesReportAllocationCommandService {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH, quantityText(pool));
         }
         Map<Long, MesProWorkOrderDO> workOrders = loadWorkOrders(activeOrders);
-        Map<Long, MesTeamLeaderOrderProcessTarget> targets = capAllocationsToAvailableCapacity(event, desired,
-                activeById, workOrders, availablePool);
+        AllocationValidation validation = validateAllocationTargets(event, desired, activeById, workOrders);
+        Map<Long, MesTeamLeaderOrderProcessTarget> targets = validation.targets();
         BigDecimal desiredTotal = desired.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         if (lockedTotal.add(desiredTotal).compareTo(pool) > 0) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH, quantityText(pool));
@@ -208,7 +276,8 @@ public class MesReportAllocationCommandService {
             if (!current.isEmpty()) {
                 completionService.reconcileAffectedAllocations(event, current);
             }
-            return buildSnapshot(event, pool, state.getCurrentVersion(), current);
+            return buildSnapshot(event, pool, state.getCurrentVersion(), current,
+                    validation.overageByActiveOrderId());
         }
 
         int newVersion = state.getCurrentVersion() + 1;
@@ -247,7 +316,8 @@ public class MesReportAllocationCommandService {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
                     event.getId(), command.getExpectedVersion(), state.getCurrentVersion());
         }
-        return buildSnapshot(event, pool, newVersion, next);
+        reportManagementSummaryService.refreshProductionEvent(event);
+        return buildSnapshot(event, pool, newVersion, next, validation.overageByActiveOrderId());
     }
 
     public List<MesProcessPoolReportAllocationAdjustmentAuditDO> listAudit(
@@ -257,12 +327,11 @@ public class MesReportAllocationCommandService {
         return auditMapper.selectListByEventId(eventId);
     }
 
-    private Map<Long, MesTeamLeaderOrderProcessTarget> capAllocationsToAvailableCapacity(
+    private AllocationValidation validateAllocationTargets(
             MesProProcessPoolEventDO event, Map<Long, BigDecimal> desired,
-            Map<Long, MesProcessPoolActiveOrderDO> activeById, Map<Long, MesProWorkOrderDO> workOrders,
-            BigDecimal availablePool) {
+            Map<Long, MesProcessPoolActiveOrderDO> activeById, Map<Long, MesProWorkOrderDO> workOrders) {
         if (desired.isEmpty()) {
-            return Map.of();
+            return new AllocationValidation(Map.of(), Map.of());
         }
         Map<Long, BigDecimal> allocatedElsewhere = allocationMapper
                 .selectListByActiveOrderIdsAndProcessForUpdate(desired.keySet(), event.getProcessId()).stream()
@@ -271,9 +340,8 @@ public class MesReportAllocationCommandService {
                         LinkedHashMap::new, Collectors.reducing(BigDecimal.ZERO,
                                 MesProcessPoolReportAllocationDO::getAllocatedQuantity, BigDecimal::add)));
         Map<Long, MesTeamLeaderOrderProcessTarget> targets = new LinkedHashMap<>();
-        BigDecimal remainingPool = availablePool;
-        for (Iterator<Map.Entry<Long, BigDecimal>> iterator = desired.entrySet().iterator(); iterator.hasNext();) {
-            Map.Entry<Long, BigDecimal> entry = iterator.next();
+        Map<Long, BigDecimal> overageByActiveOrderId = new LinkedHashMap<>();
+        for (Map.Entry<Long, BigDecimal> entry : desired.entrySet()) {
             MesProcessPoolActiveOrderDO order = activeById.get(entry.getKey());
             MesProWorkOrderDO workOrder = workOrders.get(order.getWorkOrderId());
             if (workOrder == null || workOrder.getQuantity() == null
@@ -282,18 +350,13 @@ public class MesReportAllocationCommandService {
             }
             MesTeamLeaderOrderProcessTarget target = targetService.requireUniqueTargetForProcess(order,
                     event.getProcessId());
-            BigDecimal remaining = target.plannedQuantity()
-                    .subtract(allocatedElsewhere.getOrDefault(order.getId(), BigDecimal.ZERO));
-            if (remaining.compareTo(BigDecimal.ZERO) <= 0 || remainingPool.compareTo(BigDecimal.ZERO) <= 0) {
-                iterator.remove();
-                continue;
-            }
-            BigDecimal actualQuantity = entry.getValue().min(remaining).min(remainingPool);
-            entry.setValue(actualQuantity);
-            remainingPool = remainingPool.subtract(actualQuantity);
             targets.put(order.getId(), target);
+            BigDecimal totalForOrder = allocatedElsewhere.getOrDefault(order.getId(), BigDecimal.ZERO)
+                    .add(entry.getValue());
+            BigDecimal overage = totalForOrder.subtract(target.plannedQuantity()).max(BigDecimal.ZERO);
+            overageByActiveOrderId.put(order.getId(), overage);
         }
-        return targets;
+        return new AllocationValidation(targets, overageByActiveOrderId);
     }
 
     private void insertAudits(MesProProcessPoolEventDO event, MesReportAllocationSaveCommand command,
@@ -379,9 +442,16 @@ public class MesReportAllocationCommandService {
     private MesReportAllocationSnapshot buildSnapshot(MesProProcessPoolEventDO event, BigDecimal pool,
                                                        int version,
                                                        List<MesProcessPoolReportAllocationDO> current) {
+        return buildSnapshot(event, pool, version, current, calculateCurrentOverage(event, current));
+    }
+
+    private MesReportAllocationSnapshot buildSnapshot(MesProProcessPoolEventDO event, BigDecimal pool,
+                                                       int version,
+                                                       List<MesProcessPoolReportAllocationDO> current,
+                                                       Map<Long, BigDecimal> overageByActiveOrderId) {
         Set<Long> released = releaseStateService.findReleasedActiveOrderIds(current.stream()
                 .map(MesProcessPoolReportAllocationDO::getActiveOrderId).distinct().toList());
-        List<MesReportAllocationSnapshotLine> lines = toSnapshotLines(current, released);
+        List<MesReportAllocationSnapshotLine> lines = toSnapshotLines(current, released, overageByActiveOrderId);
         BigDecimal releasedTotal = current.stream().filter(row -> released.contains(row.getActiveOrderId()))
                 .map(MesProcessPoolReportAllocationDO::getAllocatedQuantity).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal editableTotal = sumAllocations(current).subtract(releasedTotal);
@@ -399,7 +469,8 @@ public class MesReportAllocationCommandService {
     }
 
     private List<MesReportAllocationSnapshotLine> toSnapshotLines(
-            List<MesProcessPoolReportAllocationDO> rows, Set<Long> releasedIds) {
+            List<MesProcessPoolReportAllocationDO> rows, Set<Long> releasedIds,
+            Map<Long, BigDecimal> overageByActiveOrderId) {
         if (rows.isEmpty()) {
             return List.of();
         }
@@ -410,14 +481,47 @@ public class MesReportAllocationCommandService {
                         Comparator.nullsLast(Long::compareTo)))
                 .map(row -> {
                     boolean released = releasedIds.contains(row.getActiveOrderId());
+                    BigDecimal overage = overageByActiveOrderId.getOrDefault(
+                            row.getActiveOrderId(), BigDecimal.ZERO);
                     MesProWorkOrderDO workOrder = workOrders.get(row.getWorkOrderId());
                     return MesReportAllocationSnapshotLine.builder().allocationId(row.getId())
                             .activeOrderId(row.getActiveOrderId()).workOrderId(row.getWorkOrderId())
                             .workOrderCode(workOrder == null ? null : workOrder.getCode())
                             .routeProcessId(row.getRouteProcessId()).processId(row.getProcessId())
                             .allocatedQuantity(row.getAllocatedQuantity()).allocationMode(row.getAllocationMode())
+                            .overageQuantity(overage).needsAdjustment(overage.compareTo(BigDecimal.ZERO) > 0)
                             .released(released).editable(!released).build();
                 }).toList();
+    }
+
+    private Map<Long, BigDecimal> calculateCurrentOverage(
+            MesProProcessPoolEventDO event, List<MesProcessPoolReportAllocationDO> current) {
+        if (current.isEmpty()) {
+            return Map.of();
+        }
+        Set<Long> activeOrderIds = current.stream().map(MesProcessPoolReportAllocationDO::getActiveOrderId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, BigDecimal> allocatedElsewhere = allocationMapper
+                .selectListByActiveOrderIdsAndProcess(activeOrderIds, event.getProcessId()).stream()
+                .filter(row -> !Objects.equals(row.getEventId(), event.getId()))
+                .collect(Collectors.groupingBy(MesProcessPoolReportAllocationDO::getActiveOrderId,
+                        LinkedHashMap::new, Collectors.reducing(BigDecimal.ZERO,
+                                MesProcessPoolReportAllocationDO::getAllocatedQuantity, BigDecimal::add)));
+        Map<Long, BigDecimal> currentByActiveOrder = aggregateRows(current);
+        Map<Long, BigDecimal> result = new LinkedHashMap<>();
+        for (Long activeOrderId : activeOrderIds) {
+            MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(activeOrderId);
+            if (activeOrder == null) {
+                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED, activeOrderId);
+            }
+            MesTeamLeaderOrderProcessTarget target = targetService.requireUniqueTargetForProcess(
+                    activeOrder, event.getProcessId());
+            BigDecimal totalForOrder = allocatedElsewhere.getOrDefault(activeOrderId, BigDecimal.ZERO)
+                    .add(currentByActiveOrder.getOrDefault(activeOrderId, BigDecimal.ZERO));
+            result.put(activeOrderId,
+                    totalForOrder.subtract(target.plannedQuantity()).max(BigDecimal.ZERO));
+        }
+        return result;
     }
 
     private Map<Long, MesProWorkOrderDO> loadWorkOrders(List<MesProcessPoolActiveOrderDO> orders) {
@@ -523,5 +627,9 @@ public class MesReportAllocationCommandService {
 
     private String quantityText(BigDecimal quantity) {
         return quantity == null ? "null" : quantity.stripTrailingZeros().toPlainString();
+    }
+
+    private record AllocationValidation(Map<Long, MesTeamLeaderOrderProcessTarget> targets,
+                                        Map<Long, BigDecimal> overageByActiveOrderId) {
     }
 }

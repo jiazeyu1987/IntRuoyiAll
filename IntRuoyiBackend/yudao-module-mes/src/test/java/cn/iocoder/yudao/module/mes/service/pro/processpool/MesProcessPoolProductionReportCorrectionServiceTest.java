@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesFrontlineLossReasonValidator;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,13 +46,16 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     private MesFrontlineLossReasonValidator lossReasonValidator;
     @Mock
     private MesTeamLeaderScopeService scopeService;
+    @Mock
+    private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     private MesProcessPoolProductionReportCorrectionService service;
 
     @BeforeEach
     void setUp() {
         service = new MesProcessPoolProductionReportCorrectionService(
-                eventMapper, fragmentMapper, revisionService, signatureService, lossReasonValidator, scopeService);
+                eventMapper, fragmentMapper, revisionService, signatureService, lossReasonValidator, scopeService,
+                reportManagementSummaryService);
     }
 
     @Test
@@ -152,6 +156,90 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     }
 
     @Test
+    void correctsDeviceParameterReadingWhenEquipmentParameterCopiesAreMissing() {
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithDeviceReadingsButMissingParameterCopies());
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(704L);
+        MesProcessPoolProductionReportCorrectionCommand command = command()
+                .setOutputQuantity(new BigDecimal("4"))
+                .setLossDetails(List.of())
+                .setDeviceParameterReadings(List.of(
+                        new MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand()
+                                .setDeviceId(41L)
+                                .setParameterCode("pressure")
+                                .setValue(new BigDecimal("25"))));
+
+        assertEquals(704L, service.correct(command));
+
+        ArgumentCaptor<MesProcessPoolEventRevisionUpdateReqBO> revisionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(revisionCaptor.capture());
+        MesProcessPoolEventRevisionUpdateReqBO revision = revisionCaptor.getValue();
+        assertEquals(1, revision.getChangedFields().size());
+        assertEquals("DEVICE_PARAMETERS.pressure", revision.getChangedFields().get(0).getFieldCode());
+        assertEquals("20", revision.getChangedFields().get(0).getBeforeValue());
+        assertEquals("25", revision.getChangedFields().get(0).getAfterValue());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                revision.getAfterPayload().contains("\"equipmentParameters\":{\"球囊成型机\":{\"pressure\":25}}"));
+        org.junit.jupiter.api.Assertions.assertTrue(
+                revision.getAfterPayload().contains("\"DEVICE_PARAMETERS\":{\"球囊成型机\":{\"pressure\":25}}"));
+        verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+    }
+
+    @Test
+    void correctsOutputWhenOriginalDeviceParameterValueIsMissing() {
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithMissingDeviceParameterValue());
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(705L);
+        when(fragmentMapper.updateById(any(MesProProcessPoolQuantityFragmentDO.class))).thenReturn(1);
+        MesProcessPoolProductionReportCorrectionCommand command = command()
+                .setDeviceParameterReadings(List.of(
+                        new MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand()
+                                .setDeviceId(41L)
+                                .setParameterCode("pressure")));
+
+        assertEquals(705L, service.correct(command));
+
+        ArgumentCaptor<MesProcessPoolEventRevisionUpdateReqBO> revisionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(revisionCaptor.capture());
+        MesProcessPoolEventRevisionUpdateReqBO revision = revisionCaptor.getValue();
+        assertEquals(1, revision.getChangedFields().size());
+        assertEquals("OUTPUT_QUANTITY", revision.getChangedFields().get(0).getFieldCode());
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"value\":null"));
+        org.junit.jupiter.api.Assertions.assertFalse(revision.getAfterPayload().contains("\"value\":0"));
+    }
+
+    @Test
+    void correctsMissingOriginalDeviceParameterValueWhenLeaderProvidesOne() {
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithMissingDeviceParameterValue());
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(706L);
+        MesProcessPoolProductionReportCorrectionCommand command = command()
+                .setOutputQuantity(new BigDecimal("4"))
+                .setDeviceParameterReadings(List.of(
+                        new MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand()
+                                .setDeviceId(41L)
+                                .setParameterCode("pressure")
+                                .setValue(new BigDecimal("25"))));
+
+        assertEquals(706L, service.correct(command));
+
+        ArgumentCaptor<MesProcessPoolEventRevisionUpdateReqBO> revisionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(revisionCaptor.capture());
+        MesProcessPoolEventRevisionUpdateReqBO revision = revisionCaptor.getValue();
+        assertEquals(1, revision.getChangedFields().size());
+        assertEquals("DEVICE_PARAMETERS.pressure", revision.getChangedFields().get(0).getFieldCode());
+        assertEquals("--", revision.getChangedFields().get(0).getBeforeValue());
+        assertEquals("25", revision.getChangedFields().get(0).getAfterValue());
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"value\":25"));
+    }
+
+    @Test
     void recordsLossReasonChangesAsReadableRowsInsteadOfJson() {
         when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithBusinessDetails());
         when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
@@ -230,6 +318,24 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 + "\"deviceParameterReadings\":[{\"deviceId\":41,\"deviceName\":\"球囊成型机\","
                 + "\"parameterCode\":\"pressure\",\"parameterName\":\"压力\",\"unit\":\"kPa\","
                 + "\"value\":20,\"lowerLimit\":10,\"upperLimit\":30,\"parameterStatus\":\"NORMAL\"}]}");
+    }
+
+    private static MesProProcessPoolEventDO eventWithDeviceReadingsButMissingParameterCopies() {
+        return event().setRawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
+                + "\"outputQuantity\":4,\"lossQuantity\":0,\"lossDetails\":[],"
+                + "\"lossReasonDetails\":[],"
+                + "\"deviceParameterReadings\":[{\"deviceId\":41,\"deviceName\":\"球囊成型机\","
+                + "\"parameterCode\":\"pressure\",\"parameterName\":\"压力\",\"unit\":\"kPa\","
+                + "\"value\":20,\"lowerLimit\":10,\"upperLimit\":30,\"parameterStatus\":\"NORMAL\"}]}");
+    }
+
+    private static MesProProcessPoolEventDO eventWithMissingDeviceParameterValue() {
+        return event().setRawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
+                + "\"outputQuantity\":4,\"lossQuantity\":0,\"lossDetails\":[],"
+                + "\"lossReasonDetails\":[],"
+                + "\"deviceParameterReadings\":[{\"deviceId\":41,\"deviceName\":\"球囊成型机\","
+                + "\"parameterCode\":\"pressure\",\"parameterName\":\"压力\",\"unit\":\"kPa\","
+                + "\"value\":null,\"lowerLimit\":10,\"upperLimit\":30,\"parameterStatus\":null}]}");
     }
 
     private static MesProProcessPoolQuantityFragmentDO fragment() {

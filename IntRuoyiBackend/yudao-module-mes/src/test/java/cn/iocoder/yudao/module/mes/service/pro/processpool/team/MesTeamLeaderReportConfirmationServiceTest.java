@@ -76,6 +76,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
     private MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
     @Mock
     private MesWorkOrderAbnormalStateService abnormalStateService;
+    @Mock
+    private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     private MesTeamLeaderReportConfirmationService service;
 
@@ -87,7 +89,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
         service = new MesTeamLeaderReportConfirmationServiceImpl(scopeService, eventMapper, activeOrderMapper,
                 workOrderMapper, reviewMapper, allocationMapper, quantityFragmentMapper, pqcRecordMapper,
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
-                orderProcessTargetService, orderProcessCompletionService, abnormalStateService);
+                orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
+                reportManagementSummaryService);
         lenient().when(abnormalStateService.findOpenWorkOrderIds(anyCollection())).thenReturn(Set.of());
     }
 

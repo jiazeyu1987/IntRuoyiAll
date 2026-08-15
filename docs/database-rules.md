@@ -29,6 +29,15 @@
 - Forbidden action: 禁止用前端去重、分页后去重、默认取第一条、隐藏重复行或修改 count 掩盖 SQL 口径错误。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`。
 
+### 高频列表派生状态物化门禁
+
+- Trigger: 高频列表、工作台或分页接口为了判断待办状态、汇总数量或放行状态，在 count/page 查询中反复执行多张明细表的相关子查询、`SUM/EXISTS` 或逐行解析 JSON，且数据量增长后时延明显上升。
+- Preflight check: 先列全所有会改变派生结果的正式写入口，确定唯一主对象和正式源事实；在主对象上设计可校验的汇总字段及覆盖列表过滤、排序的组合索引，并保证新增、修改、分配、撤销、放行等入口在同一事务内同步刷新。历史迁移必须明确每类记录的正式数量来源，双来源不一致、数量非正数或来源缺失时 fail fast；仅对经业务语义确认不属于目标列表的历史事件设置明确的不适用状态。
+- Blocker: 只优化 SELECT 而未覆盖全部写入口、count 与 page 读取不同口径、运行时仍从 JSON 或明细表重新推断正式汇总、历史记录只能靠猜测数量补齐，或并发更新缺少统一加锁顺序时必须停止。
+- Verification: 静态合同断言高频列表不再包含相关汇总子查询和逐行 JSON 解析；单测覆盖新建、部分分配、全部分配、放行、撤销与更正后的状态同步；用真实数据副本连续执行迁移两次并核对字段、索引、状态数量及来源一致性；最后用真实页面记录首屏请求数，并在部署迁移和新后端后单独复测接口时延。
+- Forbidden action: 禁止用缓存、前端去重、减少页大小、延长超时、返回默认状态或把历史数量写成猜测值掩盖读模型根因；禁止在未执行正式迁移和重启新后端时宣称运行态接口已经加速。
+- Evidence: `doc/tasks/20260813-production-leader-report-management-performance/verification-report.md`。
+
 ### 只读资源池引用完整性门禁
 
 - Trigger: 资源池、MES 工序、工艺路线资源、报工映射等只读列表复用关系表组装跨主数据读模型，出现 `Missing route`、`Missing item`、`Missing process`、`Missing machinery` 或页面 `系统异常`。
@@ -54,7 +63,7 @@
 - Blocker: MySQL 报 `ERROR 1267 Illegal mix of collations`，或发现临时字符串列与目标字符列排序规则不一致时必须停止并回滚当前事务；MySQL 报 `ERROR 1137 Can't reopen table` 时也必须停止，不能把已提交前后的汇总 SELECT 当作成功证据。
 - Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果；同一事务内需要多次统计同一临时表时，先 `SELECT COUNT(*) INTO` 过程变量，或拆成多条不重复打开同一临时表的语句。
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
-- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用。
+- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用；`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，压力泵 QA 种子首次因临时工序表与正式表排序规则不一致而整事务回滚，显式统一为 `utf8mb4_unicode_ci` 后幂等迁移通过。
 
 ### 数据修复 DML 影响行数读取顺序门禁
 
@@ -64,6 +73,15 @@
 - Verification: 至少覆盖一次预期影响行数断言、目标主键/业务键查询和失败事务回滚核对；若失败发生在 `COMMIT` 前，必须重新查询所有目标表，证明没有部分业务写入。
 - Forbidden action: 禁止在 DML 与 `ROW_COUNT()` 之间读取 `LAST_INSERT_ID()`、执行额外 `SET/SELECT` 或依赖客户端输出；禁止删除影响行数断言来让脚本继续执行。
 - Evidence: `doc/tasks/20260807-pressure-pump-equipment-ledger-correction/execution-log.md`。
+
+### 数据迁移多语句原子性门禁
+
+- Trigger: 同一业务迁移需要连续执行两条或更多相互依赖的 `INSERT`、`UPDATE` 或 `DELETE`，任一语句失败会造成半迁移、类型和值不一致或新旧业务键并存。
+- Preflight check: 先完成缺表、缺列、重复业务键和影响范围检查，并断言目标业务组至少存在一组且每组待迁移参数数量完整；再用 `START TRANSACTION/COMMIT` 包裹全部关联 DML。静态合同必须断言所有关联 DML 位于同一事务内，并覆盖“目标零行”明确失败。
+- Blocker: 目标表不支持事务、目标业务组零行却允许迁移成功、目标组参数数量不完整、脚本在关联 DML 之间执行隐式提交 DDL、无法提供迁移前精确范围快照，或失败后不能证明连接关闭会回滚未提交事务时必须停止。
+- Verification: 先用缺少事务或缺少目标零行拦截的脚本得到 RED，再补事务与 fail-fast 预检得到 GREEN；执行后按迁移前冻结主键逐行核对全部关联字段，并通过真实页面或正式读接口证明运行态没有半迁移或零行假成功。
+- Forbidden action: 禁止依赖“通常不会失败”拆开提交关联 DML，禁止第一条成功后用第二条重试脚本补数据，禁止以页面只显示其中一部分字段掩盖迁移不完整。
+- Evidence: `doc/tasks/20260811-fine-wash-cleaning-params/execution-log.md`；`doc/tasks/20260811-cleaning-process-medium-temperature/execution-log.md`。
 
 ### DCC 文件类别规则种子门禁
 
@@ -101,6 +119,24 @@
 - Forbidden action: 禁止用前端硬编码标题遮盖动态菜单旧值；禁止直接执行含中文字符串字面量的 SQL 后不复核 HEX；禁止扩大 `WHERE` 范围或改角色/租户绑定来掩盖菜单名未更新。
 - Evidence: `doc/tasks/20260728-fix-product-menu-title-runtime/execution-log.md`。
 
+### 动态菜单跨父级移动路径保持门禁
+
+- Trigger: 将已有动态菜单从一个父菜单移动到另一个父菜单、调整同级顺序，且要求点击后继续进入原页面地址。
+- Preflight check: 先冻结移动前的完整路由、父级路径和子菜单 `path`，再按新父级路径计算移动后的子菜单 `path`；同时核对目标同级不存在完整路径冲突，并冻结菜单 ID、`type`、`component`、`component_name`、`permission`、按钮权限子菜单、角色菜单绑定和租户套餐绑定。迁移应只接受明确的移动前状态或目标最终状态，缺少正式菜单或出现冲突时 fail fast。
+- Blocker: 新父级与旧父级路径不同但仍沿用旧相对子路径，导致完整 URL 漂移；目标同级已占用计算后的路径；菜单组件或权限契约无法唯一确认；或必须改角色、套餐绑定才能掩盖菜单 ID 变化时必须停止。
+- Verification: 先用聚焦迁移合同记录 RED/GREEN，断言父级、同级 `sort`、目标 `path`、组件和权限保持契约；运行 release migration policy gate 的完整依赖闭包；在真实库幂等执行后比对按钮权限子菜单数、角色绑定和套餐绑定不变；最后使用 fresh 登录展开新父菜单，确认层级与同级顺序，点击菜单并断言 URL 仍为移动前完整地址。动态菜单缓存核对同时遵守 `docs/frontend-development.md#动态菜单真实可见性缓存门禁`。
+- Forbidden action: 禁止只改前端静态路由或硬编码侧边栏入口，禁止为保留地址新增重定向 fallback，禁止删除重建菜单造成 ID 和授权漂移，禁止用旧登录会话、直接 URL、API-only 或数据库结果代替真实侧边栏点击验证。
+- Evidence: `doc/tasks/20260813-move-form-template-menu/verification-report.md`。
+
+### 动态菜单入口隐藏与运行权限隔离门禁
+
+- Trigger: 用户要求删除、隐藏或下线左侧动态菜单/页签，但对应菜单树下仍有按钮权限、后台运行权限、实例处理或其它非页面能力需要保留。
+- Preflight check: 先区分 `type=1/2` 的可见目录/菜单和 `type=3` 的按钮权限；冻结目标可见入口、子入口、按钮权限、角色绑定、租户套餐绑定和相邻保留入口。仅需移除页面入口时，应只调整目标可见菜单的 `visible/always_show`，不得连带删除运行权限或业务数据。
+- Blocker: 无法确认子菜单是否仍被后台运行调用、必须删除 `type=3` 权限才能让页面消失、相邻保留菜单与目标父菜单仍存在依赖，或只有前端硬编码隐藏方案时必须停止。
+- Verification: 聚焦迁移合同先记录 RED/GREEN；运行完整 migration policy dependency closure；真实库执行后核对目标入口不可见、按钮权限和授权绑定不变；fresh 登录展开父菜单，确认目标入口消失、相邻保留入口仍可点击并进入原页面。
+- Forbidden action: 禁止把“删除页签”直接解释为删除表单/实例/权限数据，禁止软删除父菜单导致运行权限树丢失，禁止只删前端静态路由或用 CSS 隐藏，禁止用旧登录会话或直接 URL 代替真实侧边栏验证。
+- Evidence: `doc/tasks/20260813-remove-form-center-menu/verification-report.md`。
+
 ### 系统角色菜单授权 tenant 1 admin 门禁
 
 - Trigger: 新增或收敛 `system_role`、`system_role_menu`、`system_user_role`、动态菜单权限角色、admin 授权、只允许特定角色看某菜单/页签，且迁移通过 `system_tenant_package.menu_ids` 扫描目标租户。
@@ -109,6 +145,15 @@
 - Verification: 静态 SQL 合同必须断言 tenant 1 显式纳入目标集合、admin 被写入 `system_user_role`、目标菜单只授权给正式角色、非目标角色仅软删除；同时运行聚焦 role/menu SQL 测试和 release migration policy gate 依赖闭包。
 - Forbidden action: 禁止把 `tenant_admin`/`super_admin` 菜单绑定当作“只有目标角色可见”的替代；禁止用前端隐藏菜单、硬编码 admin bypass、默认成功权限或 broad role grant 掩盖 role/menu/user-role 链路未命中。
 - Evidence: `doc/tasks/20260806-qa-role-permission-tab/verification-report.md`；`IntRuoyiBackend/sql/mysql/20260806_mes_qa_role_permission_tab.sql`。
+
+### 定时任务迁移业务键与运行态注册门禁
+
+- Trigger: 数据库迁移新增或更新 `infra_job`、Quartz 定时任务、`handler_name`，或触发任务时报 `The job (...) referenced by the trigger does not exist`。
+- Preflight check: 写迁移前查询目标环境现有 `infra_job.id` 和 `handler_name`；新增任务不得假设固定自增 ID 可用，必须让数据库分配主键，并用全局稳定且唯一的 `handler_name` 作为幂等业务键。迁移落库后还要核对运行中 Quartz 是否已加载该任务。
+- Blocker: 目标固定 ID 已属于其它处理器、目标 `handler_name` 不唯一、迁移按 ID 更新可能覆盖无关任务，或数据库已有任务但 `qrtz_job_details` 尚未注册时必须停止；前者先修迁移，后者按本机运行规则重载正式运行态后再触发。
+- Verification: 静态迁移合同必须禁止固定任务 ID，并断言按 `handler_name` 新增/更新；落库后同时核对原有任务不变、新任务业务键与分配 ID、`qrtz_job_details` 注册状态、一次真实触发日志和任务业务结果。
+- Forbidden action: 禁止改用另一个猜测的固定 ID、覆盖或删除占用 ID 的现有任务、吞掉 Quartz 未注册异常、把数据库插入成功当作运行态可触发成功，或在任务未注册时循环重试。
+- Evidence: `doc/tasks/20260810-kingdee-stock-move-menu-admin-visible/verification-report.md`；`IntRuoyiBackend/script/tests/test_erp_kingdee_stock_move_readonly_sync.py`。
 
 ### 跨环境角色权限差异同步门禁
 
@@ -155,6 +200,15 @@
 - Forbidden action: 禁止在外部恢复任务仍活跃时把一次删除成功宣称为最终完成；禁止扩大删除范围、循环强删或终止无归属依据的并发任务。
 - Evidence: `doc/tasks/20260727-delete-duplicate-fill-rules/execution-log.md`。
 
+### 生产组长活跃订单正式移除链门禁
+
+- Trigger: 删除、批量移除或数据修复生产组长活跃订单、`mes_pro_process_pool_active_order`、`REMOVE_ACTIVE_ORDER`。
+- Preflight check: 先按 `tenant_id + active_order_id` 冻结目标主键和全字段快照，再通过 `active_order.work_order_id -> work_order.product_id -> md_item` 核对精确产品名、生产组长归属和 `ACTIVE` 状态；同时统计目标订单的 `CURRENT` 报工分配、放行申请和并发恢复进程。用户口述名称与正式产品名不一致时必须先确认目标主键集合，不能模糊匹配。
+- Blocker: 目标产品名无法精确解析、生产组长归属不一致、目标版本或状态在快照后变化、同范围恢复任务仍在运行、或正式移除接口不能完成分配失效与维护审计时必须停止。
+- Verification: 必须通过正式 `active-order/remove` 业务链逐条移除，并复核目标 `active_status/business_status=REMOVED`、`removed_at` 非空、版本递增、目标 `CURRENT` 分配为 0、`REMOVE_ACTIVE_ORDER/SUCCESS` 审计覆盖全部目标、非目标活跃订单主键集合不变，以及最终登录态列表不再返回目标订单。
+- Forbidden action: 禁止物理删除活跃订单，禁止直接 SQL 只改 `active_status` / `business_status`，禁止删除历史分配来伪造失效，禁止用近似产品名扩大范围，禁止把列表接口失败或空响应当作删除成功。
+- Evidence: `doc/tasks/20260811-delete-active-pressure-pump-orders/verification-report.md`。
+
 ### 工艺路线跨租户导入导出数据包完整性门禁
 
 - Trigger: 删除测试租户工艺路线后从其它租户导入、跨租户验证 `export-import-xlsx` / `import-workbook-xlsx`、或导入报 `工序BOM ... 工序编码 不能为空`、`工艺路线导入导出 Excel`、`工艺路线必须要有关键工序`。
@@ -193,6 +247,15 @@
   - 目标租户角色菜单绑定
   - 登录后权限响应
 - 写入型数据操作必须确认目标租户，不得污染生产租户、admin 基线数据或无关业务数据。
+
+### ERP 外部快照同步租户落库门禁
+
+- Trigger: 新增或修改金蝶等外部 ERP 快照表、同步服务、定时 Job、主子表落库或真实账套同步测试。
+- Preflight check: 主表和明细表都必须使用租户数据基类；同步入口必须从当前租户上下文取得必填租户 ID，并在主子记录写入前显式赋值。最小测试上下文、定时任务上下文和真实 Web 请求的租户拦截器装配可能不同，不能依赖数据库默认 `tenant_id=0` 或只依赖拦截器补值。
+- Blocker: 当前租户缺失、主子任一表写入 `tenant_id=0`、主子租户不一致、或真实同步后无法按租户证明行数和样例归属时必须停止；先清理本任务错误租户数据并修正正式写入链路，不能把全局默认租户当作测试租户成功。
+- Verification: 单元测试同时断言主表和明细表租户 ID；真实同步后按 `tenant_id` 分组核对主子表行数、错误租户为 0、任务种子为 0，并从目标租户抽样核对业务字段。
+- Forbidden action: 禁止依赖列默认值、测试专用 SQL 重写租户、查询时忽略租户、或仅凭总行数宣称同步通过。
+- Evidence: `doc/tasks/20260813-erp-production-pick-list-sync/verification-report.md`。
 
 ## 禁止做法
 

@@ -37,6 +37,9 @@ public class ProcessPoolTimelinePageReqVO extends PageParam {
     @Schema(description = "工序编号集合", hidden = true)
     private Set<Long> processIds;
 
+    @Schema(description = "工艺路线工序编号集合", hidden = true)
+    private Set<Long> routeProcessIds;
+
     @Schema(description = "设备编号", example = "9001")
     private Long deviceId;
 

@@ -1,10 +1,8 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
-import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductBindFromWorkOrdersRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductCopyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
@@ -12,13 +10,10 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductBomDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductBomMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -30,12 +25,11 @@ import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.*;
@@ -50,6 +44,14 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.*;
 public class MesProRouteProductServiceImpl implements MesProRouteProductService {
 
     private static final String PRODUCTS_CONFIG_KEY = "products";
+    private static final Set<String> READABLE_ROUTE_VERSION_STATUSES = Set.of(
+            MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_SUPERSEDED,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
 
     @Resource
     private MesProRouteProductMapper routeProductMapper;
@@ -59,10 +61,6 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private MesProRouteMapper routeMapper;
-    @Resource
-    private MesMdItemMapper itemMapper;
-    @Resource
-    private MesProWorkOrderMapper workOrderMapper;
 
     @Resource
     @Lazy
@@ -142,23 +140,60 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
     private Map<String, Object> resolveRouteProductsSnapshot(MesProRouteVersionDO candidateVersion, Long routeId) {
         Map<String, Object> products = new LinkedHashMap<>();
         Object snapshot = resolveConfigSnapshot(candidateVersion, PRODUCTS_CONFIG_KEY);
+        boolean hasProductSnapshot = snapshot != null;
+        boolean hasLegacyProductNameSnapshot = false;
         if (snapshot instanceof JSONObject productsByKey) {
             for (Map.Entry<String, Object> entry : productsByKey.entrySet()) {
-                products.put(entry.getKey(), normalizeProductSnapshot(entry.getValue()));
+                hasLegacyProductNameSnapshot |= collectProductSnapshot(
+                        products, entry.getValue(), candidateVersion.getId());
             }
         } else if (snapshot instanceof JSONArray productList) {
             for (Object value : productList) {
-                Map<String, Object> product = normalizeProductSnapshot(value);
-                products.put(String.valueOf(product.get("itemId")), product);
+                hasLegacyProductNameSnapshot |= collectProductSnapshot(
+                        products, value, candidateVersion.getId());
             }
+        } else if (snapshot != null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidateVersion.getId());
         }
-        if (!products.isEmpty()) {
+        if (hasLegacyProductNameSnapshot) {
+            mergeFormalRouteProducts(products, routeId, candidateVersion.getId());
+        }
+        if (hasProductSnapshot) {
             return products;
         }
         for (MesProRouteProductDO product : routeProductMapper.selectListByRouteId(routeId)) {
             products.put(String.valueOf(product.getItemId()), buildProductSnapshot(product));
         }
         return products;
+    }
+
+    private boolean collectProductSnapshot(Map<String, Object> products, Object value, Long candidateRouteVersionId) {
+        if (value instanceof JSONObject || value instanceof Map<?, ?>) {
+            Map<String, Object> product = normalizeProductSnapshot(value, candidateRouteVersionId);
+            Object itemId = product.get("itemId");
+            if (itemId == null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidateRouteVersionId);
+            }
+            products.put(String.valueOf(itemId), product);
+            return false;
+        }
+        if (value instanceof String productName && StrUtil.isNotBlank(productName)) {
+            return true;
+        }
+        throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidateRouteVersionId);
+    }
+
+    private void mergeFormalRouteProducts(Map<String, Object> products, Long routeId, Long candidateRouteVersionId) {
+        List<MesProRouteProductDO> formalProducts = routeProductMapper.selectListByRouteId(routeId);
+        if (formalProducts == null || formalProducts.isEmpty()) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidateRouteVersionId);
+        }
+        for (MesProRouteProductDO formalProduct : formalProducts) {
+            if (formalProduct.getItemId() == null) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidateRouteVersionId);
+            }
+            products.putIfAbsent(String.valueOf(formalProduct.getItemId()), buildProductSnapshot(formalProduct));
+        }
     }
 
     private Object resolveConfigSnapshot(MesProRouteVersionDO candidateVersion, String configKey) {
@@ -171,11 +206,16 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> normalizeProductSnapshot(Object value) {
+    private Map<String, Object> normalizeProductSnapshot(Object value, Long candidateRouteVersionId) {
         if (value instanceof JSONObject product) {
             return new LinkedHashMap<>(product);
         }
-        return JSON.parseObject(JSON.toJSONString(value), LinkedHashMap.class);
+        if (value instanceof Map<?, ?> product) {
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            product.forEach((key, productValue) -> normalized.put(String.valueOf(key), productValue));
+            return normalized;
+        }
+        throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidateRouteVersionId);
     }
 
     @Override
@@ -211,6 +251,27 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
         return targetProduct.getId();
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long copyCandidateRouteProduct(Long routeId, Long routeVersionId, Long sourceItemId, Long targetItemId) {
+        MesProRouteVersionDO candidateVersion = requireDraftCandidateVersion(routeVersionId, routeId);
+        Map<String, Object> products = resolveRouteProductsSnapshot(candidateVersion, routeId);
+        Object sourceSnapshot = products.get(String.valueOf(sourceItemId));
+        if (sourceSnapshot == null) {
+            throw exception(PRO_ROUTE_PRODUCT_NOT_EXISTS);
+        }
+        Map<String, Object> sourceProduct = normalizeProductSnapshot(sourceSnapshot, candidateVersion.getId());
+        Map<String, Object> targetProduct = new LinkedHashMap<>(sourceProduct);
+        targetProduct.put("routeId", routeId);
+        targetProduct.put("itemId", targetItemId);
+        products.put(String.valueOf(targetItemId), targetProduct);
+        routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), PRODUCTS_CONFIG_KEY, products);
+        routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), "productBoms",
+                buildRouteProductBomsSnapshotForProductCopy(
+                        candidateVersion, routeId, sourceItemId, targetItemId));
+        return candidateVersion.getId();
+    }
+
     private MesProRouteProductDO buildCopiedProduct(MesProRouteProductDO sourceProduct,
                                                     MesProRouteProductCopyReqVO copyReqVO) {
         MesProRouteProductDO targetProduct = BeanUtils.toBean(sourceProduct, MesProRouteProductDO.class);
@@ -224,122 +285,6 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
                 ? copyReqVO.getTimeUnitType() : sourceProduct.getTimeUnitType());
         targetProduct.setRemark(copyReqVO.getRemark() != null ? copyReqVO.getRemark() : sourceProduct.getRemark());
         return targetProduct;
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public MesProRouteProductBindFromWorkOrdersRespVO previewBindFromWorkOrders(Long routeId, Long routeVersionId) {
-        return buildBindFromWorkOrdersResult(routeId, routeVersionId, false);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public MesProRouteProductBindFromWorkOrdersRespVO bindFromWorkOrders(Long routeId, Long routeVersionId) {
-        return buildBindFromWorkOrdersResult(routeId, routeVersionId, true);
-    }
-
-    private MesProRouteProductBindFromWorkOrdersRespVO buildBindFromWorkOrdersResult(Long routeId,
-                                                                                     Long routeVersionId,
-                                                                                      boolean createMissing) {
-        MesProRouteDO route = routeMapper.selectById(routeId);
-        if (route == null) {
-            throw exception(PRO_ROUTE_NOT_EXISTS);
-        }
-        MesProRouteVersionDO candidateVersion = requireDraftCandidateVersion(routeVersionId, routeId);
-        String routeName = StrUtil.trim(route.getName());
-        if (StrUtil.isBlank(routeName)) {
-            throw exception(PRO_ROUTE_PRODUCT_ROUTE_NAME_EMPTY);
-        }
-
-        List<MesProWorkOrderDO> workOrders = workOrderMapper.selectListAll();
-        if (CollUtil.isEmpty(workOrders)) {
-            throw exception(PRO_ROUTE_PRODUCT_WORK_ORDER_MATCH_EMPTY, routeName);
-        }
-        List<Long> workOrderProductIds = workOrders.stream()
-                .map(MesProWorkOrderDO::getProductId)
-                .filter(ObjUtil::isNotNull)
-                .distinct()
-                .toList();
-        if (CollUtil.isEmpty(workOrderProductIds)) {
-            throw exception(PRO_ROUTE_PRODUCT_WORK_ORDER_MATCH_EMPTY, routeName);
-        }
-        List<MesMdItemDO> workOrderProducts = itemMapper.selectListByIds(workOrderProductIds);
-        Map<Long, MesMdItemDO> matchedItemMap = workOrderProducts.stream()
-                .filter(item -> StrUtil.equals(StrUtil.trim(item.getName()), routeName))
-                .collect(Collectors.toMap(MesMdItemDO::getId, item -> item, (left, right) -> left, LinkedHashMap::new));
-        if (matchedItemMap.isEmpty()) {
-            throw exception(PRO_ROUTE_PRODUCT_WORK_ORDER_MATCH_EMPTY, routeName);
-        }
-
-        List<MesProRouteProductDO> existingBindings =
-                routeProductMapper.selectListByItemIds(matchedItemMap.keySet());
-        Set<Long> existingCurrentRouteItemIds = candidateVersion == null
-                ? existingBindings.stream()
-                .filter(binding -> ObjUtil.equal(binding.getRouteId(), routeId))
-                .map(MesProRouteProductDO::getItemId)
-                .collect(Collectors.toSet())
-                : resolveRouteProductsSnapshot(candidateVersion, routeId).values().stream()
-                .map(this::normalizeProductSnapshot)
-                .map(product -> product.get("itemId"))
-                .filter(Objects::nonNull)
-                .map(value -> Long.valueOf(String.valueOf(value)))
-                .collect(Collectors.toSet());
-        Set<Long> conflictItemIds = existingBindings.stream()
-                .filter(binding -> ObjUtil.notEqual(binding.getRouteId(), routeId))
-                .map(MesProRouteProductDO::getItemId)
-                .distinct()
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        List<MesMdItemDO> creatableItems = matchedItemMap.values().stream()
-                .filter(item -> !existingCurrentRouteItemIds.contains(item.getId()))
-                .filter(item -> !conflictItemIds.contains(item.getId()))
-                .toList();
-        if (createMissing) {
-            if (candidateVersion != null) {
-                Map<String, Object> products = resolveRouteProductsSnapshot(candidateVersion, routeId);
-                for (MesMdItemDO item : creatableItems) {
-                    products.put(String.valueOf(item.getId()), buildProductSnapshot(buildAutoRouteProduct(routeId, item)));
-                }
-                routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), PRODUCTS_CONFIG_KEY, products);
-            } else {
-                for (MesMdItemDO item : creatableItems) {
-                    routeProductMapper.insert(buildAutoRouteProduct(routeId, item));
-                }
-            }
-        }
-
-        List<String> existingItemCodes = matchedItemMap.values().stream()
-                .filter(item -> existingCurrentRouteItemIds.contains(item.getId()))
-                .map(MesMdItemDO::getCode)
-                .toList();
-        List<String> conflictItemCodes = matchedItemMap.values().stream()
-                .filter(item -> conflictItemIds.contains(item.getId()))
-                .map(MesMdItemDO::getCode)
-                .toList();
-
-        return MesProRouteProductBindFromWorkOrdersRespVO.builder()
-                .routeId(routeId)
-                .routeName(routeName)
-                .matchedCount(matchedItemMap.size())
-                .existingCount(existingItemCodes.size())
-                .createdCount(creatableItems.size())
-                .conflictCount(conflictItemCodes.size())
-                .itemCodes(matchedItemMap.values().stream().map(MesMdItemDO::getCode).toList())
-                .creatableItemCodes(creatableItems.stream().map(MesMdItemDO::getCode).toList())
-                .existingItemCodes(existingItemCodes)
-                .conflictItemCodes(conflictItemCodes)
-                .build();
-    }
-
-    private MesProRouteProductDO buildAutoRouteProduct(Long routeId, MesMdItemDO item) {
-        return MesProRouteProductDO.builder()
-                .routeId(routeId)
-                .itemId(item.getId())
-                .quantity(1)
-                .productionTime(BigDecimal.ONE)
-                .timeUnitType("MINUTE")
-                .remark("生产订单自动补齐")
-                .build();
     }
 
     @Override
@@ -386,6 +331,19 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
         routeProductBomService.deleteRouteProductBomByRouteIdAndProductId(routeProduct.getRouteId(), routeProduct.getItemId());
         // 2.2 删除产品关联
         routeProductMapper.deleteById(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteCandidateRouteProduct(Long routeId, Long itemId, Long routeVersionId) {
+        MesProRouteVersionDO candidateVersion = requireDraftCandidateVersion(routeVersionId, routeId);
+        Map<String, Object> products = resolveRouteProductsSnapshot(candidateVersion, routeId);
+        if (products.remove(String.valueOf(itemId)) == null) {
+            throw exception(PRO_ROUTE_PRODUCT_NOT_EXISTS);
+        }
+        routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), PRODUCTS_CONFIG_KEY, products);
+        routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), "productBoms",
+                buildRouteProductBomsSnapshotWithoutProduct(candidateVersion, routeId, itemId));
     }
 
     private void validateRouteProductExists(Long id) {
@@ -591,6 +549,113 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
     @Override
     public List<MesProRouteProductDO> getRouteProductListByRouteId(Long routeId) {
         return routeProductMapper.selectListByRouteId(routeId);
+    }
+
+    @Override
+    public List<MesProRouteProductDO> getRouteProductListByRouteId(Long routeId, Long routeVersionId) {
+        if (routeVersionId == null) {
+            return getRouteProductListByRouteId(routeId);
+        }
+        MesProRouteVersionDO routeVersion = requireReadableRouteVersion(routeVersionId, routeId);
+        Object snapshot = resolveConfigSnapshot(routeVersion, PRODUCTS_CONFIG_KEY);
+        if (!(snapshot instanceof JSONObject) && !(snapshot instanceof JSONArray)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        Map<String, Object> products = new LinkedHashMap<>();
+        if (snapshot instanceof JSONObject productsByKey) {
+            for (Object value : productsByKey.values()) {
+                if (collectProductSnapshot(products, value, routeVersionId)) {
+                    throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+                }
+            }
+        } else {
+            for (Object value : (JSONArray) snapshot) {
+                if (collectProductSnapshot(products, value, routeVersionId)) {
+                    throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+                }
+            }
+        }
+        if (products.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, MesProRouteProductDO> formalProducts = new LinkedHashMap<>();
+        for (MesProRouteProductDO formalProduct : routeProductMapper.selectListByRouteId(routeId)) {
+            formalProducts.put(formalProduct.getItemId(), formalProduct);
+        }
+        List<MesProRouteProductDO> result = new ArrayList<>(products.size());
+        for (Object value : products.values()) {
+            Map<String, Object> product = normalizeProductSnapshot(value, routeVersionId);
+            Long itemId = requireProductSnapshotLong(product.get("itemId"), routeVersionId);
+            MesProRouteProductDO routeProduct = buildRouteProductFromSnapshot(routeId, routeVersionId, product);
+            MesProRouteProductDO formalProduct = formalProducts.get(itemId);
+            if (formalProduct != null) {
+                routeProduct.setId(formalProduct.getId());
+                routeProduct.setCreateTime(formalProduct.getCreateTime());
+            }
+            result.add(routeProduct);
+        }
+        return result;
+    }
+
+    private MesProRouteVersionDO requireReadableRouteVersion(Long routeVersionId, Long routeId) {
+        MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(routeVersionId);
+        if (routeVersion == null) {
+            throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, routeVersionId);
+        }
+        if (!Objects.equals(routeVersion.getRouteId(), routeId)
+                || !READABLE_ROUTE_VERSION_STATUSES.contains(routeVersion.getLifecycleStatus())) {
+            throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
+                    routeVersion.getId(), routeVersion.getLifecycleStatus());
+        }
+        return routeVersion;
+    }
+
+    private MesProRouteProductDO buildRouteProductFromSnapshot(
+            Long routeId, Long routeVersionId, Map<String, Object> product) {
+        MesProRouteProductDO result = new MesProRouteProductDO();
+        result.setRouteId(routeId);
+        result.setItemId(requireProductSnapshotLong(product.get("itemId"), routeVersionId));
+        result.setQuantity(toInteger(product.get("quantity"), routeVersionId));
+        result.setProductionTime(toBigDecimal(product.get("productionTime"), routeVersionId));
+        result.setTimeUnitType(product.get("timeUnitType") == null ? null : String.valueOf(product.get("timeUnitType")));
+        result.setRemark(product.get("remark") == null ? null : String.valueOf(product.get("remark")));
+        return result;
+    }
+
+    private Long requireProductSnapshotLong(Object value, Long routeVersionId) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text && StrUtil.isNotBlank(text)) {
+            try {
+                return Long.valueOf(text);
+            } catch (NumberFormatException ignored) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+            }
+        }
+        throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+    }
+
+    private Integer toInteger(Object value, Long routeVersionId) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return value instanceof Number number ? number.intValue() : Integer.valueOf(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+    }
+
+    private BigDecimal toBigDecimal(Object value, Long routeVersionId) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return value instanceof BigDecimal decimal ? decimal : new BigDecimal(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
     }
 
     @Override

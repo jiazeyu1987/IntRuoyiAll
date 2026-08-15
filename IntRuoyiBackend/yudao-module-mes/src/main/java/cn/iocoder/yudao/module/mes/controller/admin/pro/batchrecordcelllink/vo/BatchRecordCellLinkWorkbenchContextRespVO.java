@@ -19,4 +19,5 @@ public class BatchRecordCellLinkWorkbenchContextRespVO {
     private String defaultSourceReportId;
     private String defaultTargetReportId;
     private List<BatchRecordCellLinkRuleVO> rules;
+    private List<BatchRecordRepeatRowGroupVO> repeatRowGroups;
 }

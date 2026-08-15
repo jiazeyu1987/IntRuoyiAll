@@ -187,16 +187,12 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     }
 
     @Override
-    public List<MesQaInspectionRegulationProcessDO> getLockedVersionProcessesForOrder(
+    public MesQaInspectionRegulationPublishedVersionRespVO getLockedVersionForOrder(
             Long dccProjectCodeId, Long qaRegulationId, Long qaRegulationVersionId) {
         MesQaInspectionRegulationDO regulation = requireLockedRegulation(dccProjectCodeId, qaRegulationId);
         MesQaInspectionRegulationVersionDO version =
                 requireLockedVersion(regulation.getId(), qaRegulationVersionId);
-        List<MesQaInspectionRegulationProcessDO> processes = processMapper.selectListByVersionId(version.getId());
-        if (processes.isEmpty()) {
-            throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, version.getId());
-        }
-        return processes;
+        return buildVersionResp(regulation, version);
     }
 
     @Override

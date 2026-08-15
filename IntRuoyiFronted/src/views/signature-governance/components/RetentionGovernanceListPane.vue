@@ -146,10 +146,7 @@ import {
   type SignatureGovernanceRetentionPrecheckRespVO,
   type SignatureGovernanceRetentionReceiptRespVO
 } from '@/api/signature-governance/retention'
-import {
-  SIGNATURE_GOVERNANCE_PERMISSIONS,
-  type SignatureGovernanceBlocker
-} from '@/api/signature-governance/shared'
+import type { SignatureGovernanceBlocker } from '@/api/signature-governance/shared'
 import { useUserStore } from '@/store/modules/user'
 import {
   getDccElectronicSignaturePage,

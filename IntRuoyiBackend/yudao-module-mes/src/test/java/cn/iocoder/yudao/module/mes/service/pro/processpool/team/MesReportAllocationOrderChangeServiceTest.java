@@ -42,13 +42,15 @@ class MesReportAllocationOrderChangeServiceTest {
     @Mock private MesTeamLeaderOrderProcessTargetService targetService;
     @Mock private MesReportAllocationQuantityFragmentService fragmentService;
     @Mock private MesTeamLeaderOrderProcessCompletionService completionService;
+    @Mock private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     private MesReportAllocationOrderChangeService service;
 
     @BeforeEach
     void setUp() {
         service = new MesReportAllocationOrderChangeService(activeOrderMapper, eventMapper, allocationMapper,
-                stateMapper, auditMapper, releaseStateService, targetService, fragmentService, completionService);
+                stateMapper, auditMapper, releaseStateService, targetService, fragmentService, completionService,
+                reportManagementSummaryService);
     }
 
     @Test

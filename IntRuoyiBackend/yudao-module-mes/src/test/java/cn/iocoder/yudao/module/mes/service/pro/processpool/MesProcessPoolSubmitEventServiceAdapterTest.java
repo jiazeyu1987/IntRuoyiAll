@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationCommandService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,12 +28,14 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
 
     @Mock
     private MesProcessPoolEventService eventService;
+    @Mock
+    private MesReportAllocationCommandService reportAllocationCommandService;
 
     private MesProcessPoolSubmitEventService submitEventService;
 
     @BeforeEach
     void setUp() {
-        submitEventService = new MesProcessPoolSubmitEventServiceImpl(eventService);
+        submitEventService = new MesProcessPoolSubmitEventServiceImpl(eventService, reportAllocationCommandService);
     }
 
     @Test
@@ -98,5 +101,13 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
         assertFalse(dto.getQuantityFragments().get(1).getRawPayload().contains("previousProcessInputQuantity"));
         assertFalse(Arrays.stream(MesProcessPoolSubmitEventCreateReqBO.class.getDeclaredFields())
                 .anyMatch(field -> "previousProcessInputQuantity".equals(field.getName())));
+    }
+
+    @Test
+    void shouldDelegateInitialAllocationWithoutChangingSelectedOrderOrQuantity() {
+        submitEventService.createInitialAllocation(801L, 81L, new BigDecimal("100.500"));
+
+        verify(reportAllocationCommandService).createInitialAllocation(
+                801L, 81L, new BigDecimal("100.500"));
     }
 }

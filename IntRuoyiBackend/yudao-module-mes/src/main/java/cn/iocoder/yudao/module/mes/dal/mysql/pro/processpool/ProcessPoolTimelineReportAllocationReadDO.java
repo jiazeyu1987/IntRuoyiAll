@@ -15,5 +15,7 @@ public class ProcessPoolTimelineReportAllocationReadDO {
     private Long workOrderId;
     private String workOrderCode;
     private BigDecimal allocatedQuantity;
+    private BigDecimal overageQuantity;
+    private Boolean needsAdjustment;
     private Boolean released;
 }

@@ -368,29 +368,47 @@ class MesProRouteServiceImplTest {
     }
 
     @Test
-    void copyRoute_shouldRejectDuplicateNameAndSkipCreate() {
+    void copyRoute_shouldAppendSuffixWhenTargetNameExists() {
         Long sourceRouteId = 9004L;
+        Long targetRouteId = 9005L;
+        Long targetVersionId = 9205L;
         String targetCode = "ROUTE-COPY";
-        String targetName = "重复工艺路线";
+        String targetName = "源工艺路线-副本";
+        String resolvedTargetName = "源工艺路线-副本2";
 
         when(routeMapper.selectById(sourceRouteId)).thenReturn(MesProRouteDO.builder()
                 .id(sourceRouteId)
                 .code("ROUTE-SOURCE")
                 .name("源工艺路线")
                 .build());
+        when(routeMapper.selectByCode(targetCode)).thenReturn(null);
         when(routeMapper.selectByName(targetName)).thenReturn(MesProRouteDO.builder()
-                .id(9005L)
+                .id(9006L)
                 .code("ROUTE-EXISTING")
                 .name(targetName)
                 .build());
+        when(routeMapper.selectByName(resolvedTargetName)).thenReturn(null);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            MesProRouteDO targetRoute = invocation.getArgument(0);
+            targetRoute.setId(targetRouteId);
+            return 1;
+        }).when(routeMapper).insert(any(MesProRouteDO.class));
+        when(routeProductMapper.selectListByRouteId(sourceRouteId)).thenReturn(emptyList());
+        when(routeProductBomMapper.selectList(sourceRouteId, null, null)).thenReturn(emptyList());
+        when(routeProcessMapper.selectListByRouteId(sourceRouteId)).thenReturn(emptyList());
+        when(routeVersionMapper.selectActiveByRouteId(sourceRouteId)).thenReturn(null);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            MesProRouteVersionDO targetVersion = invocation.getArgument(0);
+            targetVersion.setId(targetVersionId);
+            return 1;
+        }).when(routeVersionMapper).insert(any(MesProRouteVersionDO.class));
 
-        AssertUtils.assertServiceException(
-                () -> routeService.copyRoute(sourceRouteId, targetCode, targetName),
-                ErrorCodeConstants.PRO_ROUTE_NAME_DUPLICATE
-        );
+        Long copiedRouteId = routeService.copyRoute(sourceRouteId, targetCode, targetName);
 
-        verify(routeMapper, never()).insert(any(MesProRouteDO.class));
-        verify(routeVersionMapper, never()).insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO.class));
+        assertEquals(targetRouteId, copiedRouteId);
+        ArgumentCaptor<MesProRouteDO> routeCaptor = ArgumentCaptor.forClass(MesProRouteDO.class);
+        verify(routeMapper).insert(routeCaptor.capture());
+        assertEquals(resolvedTargetName, routeCaptor.getValue().getName());
     }
 
     @Test
@@ -756,7 +774,7 @@ class MesProRouteServiceImplTest {
     }
 
     @Test
-    void updateRouteStatus_shouldKeepKeyProcessRequirement() {
+    void updateRouteStatus_shouldEnableRouteWithoutKeyProcess() {
         Long routeId = 1002L;
 
         MesProRouteDO route = MesProRouteDO.builder()
@@ -772,12 +790,9 @@ class MesProRouteServiceImplTest {
         when(routeMapper.selectById(routeId)).thenReturn(route);
         when(routeProcessService.getRouteProcessListByRouteId(routeId)).thenReturn(List.of(process));
 
-        AssertUtils.assertServiceException(
-                () -> routeService.updateRouteStatus(routeId, CommonStatusEnum.ENABLE.getStatus()),
-                ErrorCodeConstants.PRO_ROUTE_ENABLE_NO_KEY_PROCESS
-        );
+        assertDoesNotThrow(() -> routeService.updateRouteStatus(routeId, CommonStatusEnum.ENABLE.getStatus()));
 
-        verify(routeMapper, never()).updateById(any(MesProRouteDO.class));
+        verify(routeMapper).updateById(any(MesProRouteDO.class));
         verify(routeProductService, never()).getRouteProductListByRouteId(eq(routeId));
         verify(routeProductBomService, never()).getRouteProductBomList(any(), any(), any());
     }

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -62,9 +63,11 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
+                deviceParameterValidator,
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
                 .thenReturn(4001L);
     }
@@ -74,6 +77,7 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
         assertField(MesProFrontlineFeedbackPayloadReqVO.class, "lossDetails");
         assertField(MesProFrontlineFeedbackPayloadReqVO.class, "selectedDevice");
         assertField(MesProFrontlineFeedbackPayloadReqVO.class, "deviceParameterReadings");
+        assertField(MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO.class, "textValue");
     }
 
     @Test
@@ -105,8 +109,17 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
                 .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
         MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
-        when(lossReasonValidator.requireEnabledLossReasons(71L, reqVO.getFeedbackPayload().getLossDetails(),
-                new BigDecimal("2.500")))
+        reqVO.getFeedbackPayload().setDeviceParameterReadings(List.of(
+                new MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO()
+                        .setDeviceId(501L)
+                        .setDeviceCode("PT-A-03")
+                        .setDeviceName("压力泵")
+                        .setParameterCode("visualCheck")
+                        .setParameterName("外观确认")
+                        .setTextValue("符合要求")
+                        .setParameterStatus("NORMAL")));
+        when(lossReasonValidator.requireSnapshotLossReasons(any(), eq(reqVO.getFeedbackPayload().getLossDetails()),
+                eq(new BigDecimal("2.500"))))
                 .thenReturn(List.of(new MesFrontlineLossReasonSnapshot(8301L, "LOSS-001", "正常损耗")));
 
         reqVO.getRawPayload().put("lossDetails", List.of(
@@ -134,7 +147,12 @@ class MesProFrontlineFeedbackSubmitDetailContractTest {
                     ? reading.get("parameterStatus")
                     : ((MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO) firstReading)
                     .getParameterStatus();
-            assertEquals("ABOVE_UPPER", parameterStatus);
+            Object textValue = firstReading instanceof Map<?, ?> reading
+                    ? reading.get("textValue")
+                    : ((MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO) firstReading)
+                    .getTextValue();
+            assertEquals("NORMAL", parameterStatus);
+            assertEquals("符合要求", textValue);
             return true;
         }));
     }

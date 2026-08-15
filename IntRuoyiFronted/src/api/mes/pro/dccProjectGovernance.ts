@@ -8,18 +8,22 @@ export interface DccProjectGovernanceStatusVO {
   routeStatus?: DccProjectGovernanceStatus
   routeCount?: number
   routeCodes?: string[]
+  routeVersionNos?: string[]
   mainBatchRecordStatus?: DccProjectGovernanceStatus
   mainBatchRecordCount?: number
   mainBatchRecordVersionNos?: string[]
   lossReportStatus?: DccProjectGovernanceStatus
   lossReportCount?: number
   lossReportCodes?: string[]
+  lossReportVersionNos?: string[]
   processInspectionStatus?: DccProjectGovernanceStatus
   processInspectionCount?: number
   processInspectionCodes?: string[]
+  processInspectionVersionNos?: string[]
   parameterRecordStatus?: DccProjectGovernanceStatus
   parameterRecordCount?: number
   parameterRecordCodes?: string[]
+  parameterRecordVersionNos?: string[]
   blockerMessages?: string[]
 }
 

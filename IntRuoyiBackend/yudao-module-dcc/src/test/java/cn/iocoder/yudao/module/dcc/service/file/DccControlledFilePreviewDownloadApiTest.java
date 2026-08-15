@@ -81,15 +81,20 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void previewEndpoints_reuseQueryPermissionInsteadOfStandalonePreviewPermission() throws NoSuchMethodException {
+    void distributedReadEndpoints_requireLoginAndDelegateFileScopeToService() throws NoSuchMethodException {
+        Method detailMethod = DccControlledFileController.class.getMethod("getControlledFile", Long.class);
         Method previewMethod = DccControlledFileController.class.getMethod("previewControlledFile",
                 Long.class, String.class, String.class, String.class, String.class, String.class,
                 HttpServletRequest.class);
         Method previewMetadataMethod = DccControlledFileController.class.getMethod("getPreviewMetadata",
                 Long.class, HttpServletRequest.class);
+        Method downloadMethod = DccControlledFileController.class.getMethod("downloadControlledFile",
+                Long.class, Boolean.class, String.class, HttpServletRequest.class);
 
-        assertUsesMergedReadPermission(previewMethod);
-        assertUsesMergedReadPermission(previewMetadataMethod);
+        assertUsesAuthenticatedRowScope(detailMethod);
+        assertUsesAuthenticatedRowScope(previewMethod);
+        assertUsesAuthenticatedRowScope(previewMetadataMethod);
+        assertUsesAuthenticatedRowScope(downloadMethod);
     }
 
     @Test
@@ -303,11 +308,10 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
         assertFalse(parameter.isAnnotationPresent(RequestParam.class));
     }
 
-    private void assertUsesMergedReadPermission(Method method) {
+    private void assertUsesAuthenticatedRowScope(Method method) {
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
         assertNotNull(preAuthorize);
-        assertTrue(preAuthorize.value().contains("dcc:controlled-file:query"));
-        assertFalse(preAuthorize.value().contains("dcc:controlled-file:preview"));
+        assertEquals("isAuthenticated()", preAuthorize.value());
     }
 
     @Test

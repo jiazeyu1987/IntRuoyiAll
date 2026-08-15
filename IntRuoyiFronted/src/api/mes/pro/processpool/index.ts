@@ -57,6 +57,8 @@ export interface ProcessPoolTimelineReportAllocationVO {
   workOrderId: number
   workOrderCode?: string
   allocatedQuantity: number
+  overageQuantity: number
+  needsAdjustment: boolean
   released: boolean
   editable: boolean
 }
@@ -105,7 +107,7 @@ export interface ProcessPoolTimelineEventVO {
   sourceRecordbookEventId?: number
   outputQuantity?: number
   lossQuantity?: number
-  reportAllocations?: ProcessPoolTimelineReportAllocationVO[]
+  reportAllocations: ProcessPoolTimelineReportAllocationVO[]
   reportAllocatedQuantity?: number
   reportUnallocatedQuantity?: number
   lossDetails?: ProcessPoolTimelineLossDetailVO[]

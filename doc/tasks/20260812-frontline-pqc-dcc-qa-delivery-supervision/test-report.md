@@ -1,5 +1,17 @@
 # Frontline PQC DCC QA Delivery Test Report
 
+## Wave 7 Round-2 Independent Verification
+
+- status: FAIL
+- tested_task_ids: [DF10, DF11]
+- actual_result: Both second-round independent gates rejected incomplete formal contracts even though their focused commands passed.
+- DF10 gaps: inspectionTypeRules, taskSummary, task-option ruleSort/inspectionTypeRule/taskStatus, and complete published-version item fields.
+- DF11 gaps: the same frontend contract fields, complete task states, frozen activeOrderId endpoint migration, pure stable projection/stale-response isolation, backend parity, and scope compliance.
+- follow_up: Both tasks were returned to their executors. DF10 has since produced a new 5-test GREEN implementation and awaits round-3 independent verification. DF11 has produced the strict DTO/projection migration but remains in typecheck repair under the documented narrow page-local adapter clarification.
+- evidence:
+  - D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df10/doc/tasks/20260812-frontline-pqc-dcc-qa-df10/independent-test-report.md
+  - D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df11/doc/tasks/20260812-frontline-pqc-dcc-qa-df11/independent-test-report.md
+
 ## TC-C00-SCHEMA
 
 - status: PASS
@@ -260,3 +272,38 @@
 - Static gates: backend-api evidence validator PASS, git diff --check PASS, forbidden scan PASS。
 - Contract checks: FIRST/PATROL_AM/PATROL_PM/FINAL rule keys are preserved, PATROL_AM/PATROL_PM are not collapsed into PATROL, resultType remains BOOLEAN/NUMERIC/TEXT only, equipment options are preserved, and no product/material/route-process inference was added.
 - Cleanup: DF08 worktree removed and slot 18 released after confirming no 8099/48099 listeners.
+
+## Wave 7 DF10 Round-3 Independent Verification
+
+- Result: FAIL.
+- Mandatory Maven gate failed during `yudao-module-mes` compilation before tests ran: `MesFrontlineDeviceAccountController` still calls `setAcceptanceStandard` and `setProcessInspectionMethod`, but DF10 removed those setters from the shared PQC item VO.
+- Architecture gate failed: DF10 does not call the frozen DF07 `MesQaInspectionRegulationService#getLockedVersionProcessesForOrder` boundary required by its task contract. It adds a parallel private locked-QA resolver and directly reads regulation/version/process/item mappers, duplicating lifecycle and ownership validation.
+- Static checks: backend evidence validator PASS; `git diff --check` PASS with line-ending advisories; owned-path and precise forbidden-source scans PASS.
+- Decision impact: DF10 remains unmergeable and must return to the worker for a real RED/GREEN repair, then undergo another independent verification round.
+- Full report: `D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df10/doc/tasks/20260812-frontline-pqc-dcc-qa-df10/independent-test-report-round-3.md`.
+
+## Wave 7 DF10 / DF11 Round-4 Independent Verification
+
+- Result: PASS.
+- DF10 backend gate: `MesQaInspectionRegulationServiceTest` plus `MesFrontlinePqcContextServiceTest` ran 18 tests with 0 failures, 0 errors and 0 skipped; backend-api validator, bug-regression validator, `git diff --check` and forbidden scans passed.
+- DF10 contract review: one-line PQC projection now consumes `MesQaInspectionRegulationService#getLockedVersionForOrder`; the private locked QA mapper aggregate is absent; dedicated PQC item VO no longer exposes `acceptanceStandard/processInspectionMethod` aliases.
+- DF11 frontend gate: `node tests/e2e/frontline-pqc-qa-process-contract-static.spec.cjs`, `pnpm ts:check`, frontend-feature validator, bug-regression validator, `git diff --check` and production-source forbidden scans passed.
+- DF11 contract review: activeOrderId is the picker/request/cache identity; task source is under `pqcTaskOptions`; stale active-order response isolation is covered; unused production loader/rule-order exports are absent.
+- Reports: `D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df10/doc/tasks/20260812-frontline-pqc-dcc-qa-df10/independent-test-report-round-4.md`; `D:/IntRuoyiWorktree/20260812-frontline-pqc-dcc-qa-df11/doc/tasks/20260812-frontline-pqc-dcc-qa-df11/independent-test-report-round-4.md`.
+- Blocker: commit, merge and cleanup were not attempted because `E:/IntRuoyi` is dirty with extensive unrelated changes outside DF10/DF11 ownership.
+
+## Wave 7 DF10 / DF11 Clean Integration Verification
+
+- Result: PASS for the clean integrated branch; BLOCKED for E:/IntRuoyi fast-forward.
+- Integrated branch: task/20260812-frontline-pqc-dcc-qa-df11 at 817687224, after merging DF10 commit fa520e027.
+- Backend: MesQaInspectionRegulationServiceTest + MesFrontlinePqcContextServiceTest ran 18 tests with 0 failures/errors; BUILD SUCCESS at 2026-08-14T05:10:33+08:00.
+- Frontend: frontline-pqc-qa-process-contract-static.spec.cjs PASS; pnpm ts:check exit 0.
+- Static gates: branch runtime port guard PASS for DF11 slot 14 / 8095 / 48095; backend-api, frontend-feature and bug-regression evidence validators PASS; git diff --check PASS; forbidden scans PASS.
+- Merge blocker: the protected main-workspace patch for 6 dirty overlapping files can apply cleanly for 4 files, but conflicts on MesFrontlinePqcContextServiceImpl.java and FrontlineFixedTemplatePanel.vue; therefore int_main was not fast-forwarded and DF10/DF11 worktrees were not cleaned.
+## DF10/DF11 int_main integration - 2026-08-14
+
+- Decision: PASS
+- int_main: 817687224
+- Contract authority: DF10/DF11 formal contract
+- Conflict handling: protected patch retained; conflicting old edits were not reapplied
+- Verification: integrated backend 18 tests PASS; frontend static contract and ts:check PASS; all evidence validators PASS; int_main diff check and runtime-port guard PASS

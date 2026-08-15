@@ -69,7 +69,7 @@ assert.doesNotMatch(
 
 assert.match(
   page,
-  /const activePqcModuleTab = ref<'personnel' \| 'management' \| 'dashboard' \| 'detail'>\('personnel'\)/,
+  /const activePqcModuleTab = ref<'personnel' \| 'management' \| 'detail' \| 'history'>\('management'\)/,
   'PQC module tabs must include an in-page detail tab state.'
 )
 assert.match(

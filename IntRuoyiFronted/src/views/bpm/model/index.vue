@@ -40,7 +40,6 @@
 
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
-          ref="tableRef"
           v-loading="loading"
           class="bpm-model-unified-table"
           data-user-table-column-explicit
@@ -283,7 +282,6 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
-  <CategoryForm ref="categoryFormRef" @success="getList" />
   <Dialog title="流程审批路线" v-model="viewDetailVisible" width="520">
     <div
       v-if="selectedModel"
@@ -318,7 +316,6 @@ import { CategoryApi, CategoryVO } from '@/api/bpm/category'
 import * as ModelApi from '@/api/bpm/model'
 import * as FormApi from '@/api/bpm/form'
 import * as RoleApi from '@/api/system/role'
-import CategoryForm from '../category/CategoryForm.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
   useUserTableColumns,
@@ -330,14 +327,11 @@ import {
   type TableQuickFilterOption,
   type TableQuickFilterValue
 } from '@/hooks/web/useTableQuickFilter'
-import Sortable from 'sortablejs'
 import { formatDate } from '@/utils/formatTime'
 import { setConfAndFields2 } from '@/utils/formCreate'
 import { BpmModelFormType } from '@/utils/constants'
 import { checkPermi } from '@/utils/permission'
 import { useUserStoreWithOut } from '@/store/modules/user'
-import { cloneDeep } from 'lodash-es'
-import { useDebounceFn } from '@vueuse/core'
 import { subString } from '@/utils/index'
 
 defineOptions({ name: 'BpmModel' })
@@ -427,10 +421,6 @@ const {
 const loading = ref(true)
 const modelList = ref<ModelInfo[]>([])
 const categoryList = ref<CategoryVO[]>([])
-const isModelSorting = ref(false)
-const originalModelList = ref<ModelInfo[]>([])
-const tableRef = ref()
-let sortInstance: Sortable | null = null
 
 const MODEL_DISPLAY_NAME_MAP: Record<string, string> = {
   'DCC Controlled File Approval': 'DCC 受控文件审批',
@@ -521,16 +511,9 @@ const matchesQuickFilter = (row: ModelInfo) => {
 const filteredModelList = computed(() => modelList.value.filter((row) => matchesQuickFilter(row)))
 
 const pagedModelList = computed(() => {
-  if (isModelSorting.value) {
-    return filteredModelList.value
-  }
   const start = (queryParams.pageNo - 1) * queryParams.pageSize
   return filteredModelList.value.slice(start, start + queryParams.pageSize)
 })
-
-const isQuickFilterActive = computed(
-  () => Boolean(queryParams.quickFilter) || Boolean(queryParams.name?.trim())
-)
 
 const hasPermiUpdate = computed(() => checkPermi(['bpm:model:update']))
 const hasPermiDelete = computed(() => checkPermi(['bpm:model:delete']))
@@ -546,78 +529,8 @@ const hasPermiMore = computed(() =>
 )
 const hasPermiPdQuery = computed(() => checkPermi(['bpm:process-definition:query']))
 
-const destroySortInstance = () => {
-  if (!sortInstance) return
-  sortInstance.destroy()
-  sortInstance = null
-}
-
-const initSort = useDebounceFn(() => {
-  destroySortInstance()
-  const tableBody = document.querySelector('.bpm-model-unified-table .el-table__body-wrapper tbody')
-  if (!tableBody) return
-  sortInstance = Sortable.create(tableBody as HTMLElement, {
-    animation: 150,
-    draggable: '.el-table__row',
-    handle: '.drag-icon',
-    onEnd: ({ newDraggableIndex, oldDraggableIndex }) => {
-      if (
-        oldDraggableIndex === undefined ||
-        newDraggableIndex === undefined ||
-        oldDraggableIndex === newDraggableIndex
-      ) {
-        return
-      }
-      modelList.value.splice(newDraggableIndex, 0, modelList.value.splice(oldDraggableIndex, 1)[0])
-    }
-  })
-}, 200)
-
-const stopModelSort = () => {
-  destroySortInstance()
-  isModelSorting.value = false
-}
-
-const handlePagination = async () => {
-  if (isModelSorting.value) {
-    await nextTick()
-    initSort()
-  }
-}
-
-const handleModelSort = async () => {
-  if (isQuickFilterActive.value) {
-    message.warning('请先清空快速过滤后再排序模型')
-    return
-  }
-  originalModelList.value = cloneDeep(modelList.value)
-  queryParams.pageNo = 1
-  isModelSorting.value = true
-  await nextTick()
-  initSort()
-}
-
-const handleModelSortCancel = () => {
-  modelList.value = cloneDeep(originalModelList.value)
-  stopModelSort()
-}
-
-const handleModelSortSubmit = async () => {
-  const ids = modelList.value.map((item) => item.id)
-  await ModelApi.updateModelSortBatch(ids)
-  message.success('排序模型成功')
-  stopModelSort()
-  await getList()
-}
-
 const handleQuery = async () => {
-  stopModelSort()
   await modelQuickFilter.applyQuickFilter()
-}
-
-const resetQuery = async () => {
-  stopModelSort()
-  await modelQuickFilter.resetQuickFilter()
 }
 
 const getList = async () => {
@@ -634,24 +547,6 @@ const getList = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const handleCommand = (command: string) => {
-  switch (command) {
-    case 'handleCategoryAdd':
-      handleCategoryAdd()
-      break
-    case 'openCategoryManager':
-      push({ name: 'ApprovalCenterBpmCategory' })
-      break
-    default:
-      break
-  }
-}
-
-const categoryFormRef = ref()
-const handleCategoryAdd = () => {
-  categoryFormRef.value.open('create')
 }
 
 const viewDetailVisible = ref(false)
@@ -908,29 +803,6 @@ const modelApprovalRouteSteps = computed(() => [
   }
 ])
 
-const formatVisibleRange = (row?: ModelInfo | null) => {
-  const startUsers = row?.startUsers || []
-  const startDepts = row?.startDepts || []
-  if (startUsers.length === 0 && startDepts.length === 0) return '全部可见'
-  if (startUsers.length === 1) return startUsers[0].nickname
-  if (startDepts.length === 1) return startDepts[0].name
-  if (startDepts.length > 1) return `${startDepts[0].name}等 ${startDepts.length} 个部门可见`
-  return `${startUsers[0].nickname}等 ${startUsers.length} 人可见`
-}
-
-const formatModelFormInfo = (row?: ModelInfo | null) => {
-  if (!row) return '-'
-  if (row.formType === BpmModelFormType.NORMAL) return row.formName || '未命名表单'
-  if (row.formType === BpmModelFormType.CUSTOM)
-    return row.formCustomCreatePath || '未配置自定义表单'
-  return '暂无表单'
-}
-
-const formatModelDeployment = (row?: ModelInfo | null) => {
-  if (!row?.processDefinition) return '未部署'
-  return formatDate(new Date(row.processDefinition.deploymentTime))
-}
-
 const openModelView = async (row: ModelInfo) => {
   modelDetailLoading.value = true
   try {
@@ -1116,9 +988,6 @@ onMounted(() => {
   getList()
 })
 
-onBeforeUnmount(() => {
-  destroySortInstance()
-})
 </script>
 
 <style lang="scss" scoped>

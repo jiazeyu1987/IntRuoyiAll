@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceParameterOption;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTeamDeviceOption;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -180,6 +182,46 @@ class MesFrontlineDeviceParameterValidatorTest {
 
         assertDoesNotThrow(() -> validator.validateSelectedDeviceAndParameters(
                 7101L, 6001L, selectedDevice, List.of(reading)));
+    }
+
+    @Test
+    void validatesDeviceAndParameterReadingFromSnapshotWithoutMapperReads() {
+        MesFrontlineDeviceParameterValidator validator = new MesFrontlineDeviceParameterValidatorImpl(
+                processDeviceMapper, deviceMapper, parameterRuleMapper);
+        MesFrontlineTeamDeviceOption snapshotDevice = new MesFrontlineTeamDeviceOption(
+                7001L, "B09353", "超声波清洗机", "ENABLED", List.of(
+                new MesFrontlineDeviceParameterOption("temperature", "温度", "℃",
+                        BigDecimal.ZERO, new BigDecimal("10"), new BigDecimal("5"), "DECIMAL",
+                        null, List.of(), null, 1)));
+        MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice =
+                new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO().setDeviceId(7001L);
+        MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading =
+                new MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO()
+                        .setDeviceId(7001L).setParameterCode("temperature").setValue(new BigDecimal("11"));
+
+        validator.validateSnapshotDeviceAndParameters(List.of(snapshotDevice), selectedDevice, List.of(reading));
+
+        assertEquals("ABOVE_UPPER", reading.getParameterStatus());
+        assertEquals("B09353", reading.getDeviceCode());
+        assertEquals(new BigDecimal("10"), reading.getUpperLimit());
+        verifyNoInteractions(processDeviceMapper, deviceMapper, parameterRuleMapper);
+    }
+
+    @Test
+    void rejectsParameterThatIsAbsentFromSnapshot() {
+        MesFrontlineDeviceParameterValidator validator = new MesFrontlineDeviceParameterValidatorImpl(
+                processDeviceMapper, deviceMapper, parameterRuleMapper);
+        MesFrontlineTeamDeviceOption snapshotDevice = new MesFrontlineTeamDeviceOption(
+                7001L, "B09353", "超声波清洗机", "ENABLED", List.of());
+        MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO selectedDevice =
+                new MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO().setDeviceId(7001L);
+        MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO reading =
+                new MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO()
+                        .setDeviceId(7001L).setParameterCode("live-added").setValue(BigDecimal.ONE);
+
+        assertThrows(ServiceException.class, () -> validator.validateSnapshotDeviceAndParameters(
+                List.of(snapshotDevice), selectedDevice, List.of(reading)));
+        verifyNoInteractions(processDeviceMapper, deviceMapper, parameterRuleMapper);
     }
 
     private static MesProcessPoolTeamDeviceDO enabledDevice() {

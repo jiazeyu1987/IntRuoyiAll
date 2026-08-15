@@ -9,7 +9,8 @@ final class DccWorkflowApiContractPaths {
 
     private static final Set<String> ACTIONS = Set.of(
             "approve-task", "reject-task", "return-task", "transfer-task", "sign-task",
-            "task-action-readiness");
+            "task-action-readiness", "signature-export-summary", "signature-evidence-export",
+            "signature-binding-migration");
 
     private DccWorkflowApiContractPaths() {
     }

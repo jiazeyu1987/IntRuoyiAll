@@ -30,7 +30,6 @@ public class ProcessPoolProductionReportCorrectionReqVO {
     private List<LossDetailReqVO> lossDetails;
 
     @Valid
-    @NotNull(message = "设备参数不能为空")
     private List<DeviceParameterReadingReqVO> deviceParameterReadings;
 
     @NotBlank(message = "修改原因不能为空")
@@ -45,7 +44,8 @@ public class ProcessPoolProductionReportCorrectionReqVO {
                 .setEventId(eventId)
                 .setOutputQuantity(outputQuantity)
                 .setLossDetails(lossDetails.stream().map(LossDetailReqVO::toCommand).toList())
-                .setDeviceParameterReadings(deviceParameterReadings.stream()
+                .setDeviceParameterReadings((deviceParameterReadings == null ? List.<DeviceParameterReadingReqVO>of()
+                        : deviceParameterReadings).stream()
                         .map(DeviceParameterReadingReqVO::toCommand).toList())
                 .setChangeReason(changeReason)
                 .setSignaturePassword(signaturePassword);
@@ -71,13 +71,10 @@ public class ProcessPoolProductionReportCorrectionReqVO {
     @Data
     @Accessors(chain = true)
     public static class DeviceParameterReadingReqVO {
-        @NotNull(message = "设备参数所属设备不能为空")
         private Long deviceId;
 
-        @NotBlank(message = "设备参数编码不能为空")
         private String parameterCode;
 
-        @NotNull(message = "设备参数值不能为空")
         private BigDecimal value;
 
         private MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand toCommand() {

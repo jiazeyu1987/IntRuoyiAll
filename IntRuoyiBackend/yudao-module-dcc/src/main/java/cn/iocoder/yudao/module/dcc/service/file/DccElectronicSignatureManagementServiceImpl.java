@@ -27,6 +27,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthorizationAuditMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthorizationMapper;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserPageReqVO;
@@ -75,6 +76,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_AUTH_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EXPORT_BLOCKED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_NOT_AUTHORIZED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_NOT_EXISTS;
@@ -476,7 +478,54 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
                                                            AdminUserDO actor) {
         DccElectronicSignatureRespVO respVO = new DccElectronicSignatureRespVO();
         copySignatureFields(respVO, signature, controlledFile, actor);
+        applySignaturePageBindingProjection(respVO, signature, controlledFile);
         return respVO;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DccControlledFileSignatureExportSummaryRespVO migratePublishedCopyBindings(
+            Long controlledFileId, Long operatorUserId, String requestId) {
+        DccControlledFileDO file = requireControlledFile(controlledFileId);
+        if (operatorUserId == null || StrUtil.isBlank(requestId)) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                    "迁移操作者或审计请求号缺失");
+        }
+        if ((!DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+                && !DccControlledFileStatusEnum.APPROVED.getStatus().equals(file.getStatus()))
+                || file.getPublishedFileId() == null) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                    "文件尚未形成最终受控副本");
+        }
+        List<DccControlledFileSignatureDO> signatures = signatureMapper.selectListByControlledFileId(controlledFileId);
+        if (CollUtil.isEmpty(signatures)) {
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        }
+        for (DccControlledFileSignatureDO signature : signatures) {
+            VerificationComputation originalEvidence = verifySignature(signature, file, false);
+            if (!STATUS_VALID.equals(originalEvidence.verificationStatus())) {
+                throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                        "签名 " + signature.getId() + " 原始证据校验失败：" + originalEvidence.verificationReason());
+            }
+        }
+        String eventKeyPrefix = "historical:" + controlledFileId + ":";
+        signatureBindingService.bindPublishedCopy(file, file.getPublishedFileId(), operatorUserId,
+                eventKeyPrefix + StrUtil.subWithLength(requestId, 0, 128 - eventKeyPrefix.length()));
+        return getSignatureExportSummary(controlledFileId);
+    }
+
+    private void applySignaturePageBindingProjection(DccElectronicSignatureRespVO respVO,
+                                                     DccControlledFileSignatureDO signature,
+                                                     DccControlledFileDO controlledFile) {
+        if (controlledFile == null || controlledFile.getPublishedFileId() == null || signature == null) {
+            return;
+        }
+        DccControlledFileSignatureBindingVerification bindingVerification =
+                signatureBindingService.verifyPublishedCopyBinding(signature, controlledFile);
+        applyBindingProjection(respVO, bindingVerification);
+        if (!bindingVerification.valid()) {
+            respVO.setEvidenceStatus(STATUS_INVALID);
+        }
     }
 
     private void copySignatureFields(DccElectronicSignatureRespVO respVO,
@@ -558,7 +607,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         respVO.setControlledCopyHashStatus(COPY_HASH_STATUS_BOUND);
         respVO.setControlledCopyHash(binding.getControlledCopySha256());
         respVO.setControlledCopyHashShort(shortHashNullable(binding.getControlledCopySha256()));
-        respVO.setControlledCopyObjectKey(resolveFileObjectKey(binding.getControlledCopyFileId()));
+        respVO.setControlledCopyObjectKey(binding.getControlledCopyObjectKey());
     }
 
     private void applyBindingProjection(DccSignatureVerifyRespVO respVO,
@@ -662,6 +711,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
                 ? signature.getControlledCopyFileId() : binding.getControlledCopyFileId());
         item.setControlledCopyHash(binding == null
                 ? signature.getControlledCopyHash() : binding.getControlledCopySha256());
+        item.setControlledCopyObjectKey(binding == null ? null : binding.getControlledCopyObjectKey());
         item.setBindingEventKey(binding == null ? null : binding.getBindingEventKey());
         item.setBoundAt(binding == null ? null : binding.getBoundAt());
         item.setEvidenceStatus(computation.verificationStatus());
@@ -687,8 +737,15 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
 
     private VerificationComputation verifySignature(DccControlledFileSignatureDO signature,
                                                     DccControlledFileDO controlledFile) {
+        return verifySignature(signature, controlledFile, true);
+    }
+
+    private VerificationComputation verifySignature(DccControlledFileSignatureDO signature,
+                                                     DccControlledFileDO controlledFile,
+                                                     boolean requirePublishedCopyBinding) {
         LocalDateTime verifiedAt = LocalDateTime.now();
-        DccControlledFileSignatureBindingVerification bindingVerification = controlledFile != null
+        DccControlledFileSignatureBindingVerification bindingVerification = requirePublishedCopyBinding
+                && controlledFile != null
                 && controlledFile.getPublishedFileId() != null
                 ? signatureBindingService.verifyPublishedCopyBinding(signature, controlledFile)
                 : DccControlledFileSignatureBindingVerification.notApplicable();
@@ -706,10 +763,19 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
             return invalidVerification(null, null, STATUS_INVALID, verifiedAt,
                     "EVIDENCE_HASH_ALGORITHM_UNSUPPORTED", null, bindingVerification);
         }
-        if (StrUtil.isNotBlank(signatureEvidenceProperties.getKeyVersion())
-                && !StrUtil.equals(signatureEvidenceProperties.getKeyVersion(), signature.getEvidenceKeyVersion())) {
+        String configuredKeyVersion = StrUtil.trimToNull(signatureEvidenceProperties.getKeyVersion());
+        String verificationSecret;
+        if (configuredKeyVersion == null
+                || StrUtil.equals(configuredKeyVersion, signature.getEvidenceKeyVersion())) {
+            verificationSecret = StrUtil.trimToNull(signatureEvidenceProperties.getHmacSecret());
+        } else {
+            Map<String, String> verificationKeys = signatureEvidenceProperties.getVerificationKeys();
+            verificationSecret = verificationKeys == null ? null
+                    : StrUtil.trimToNull(verificationKeys.get(signature.getEvidenceKeyVersion()));
+        }
+        if (StrUtil.isBlank(verificationSecret)) {
             return invalidVerification(null, null, STATUS_INVALID, verifiedAt,
-                    "EVIDENCE_KEY_VERSION_MISMATCH", null, bindingVerification);
+                    "EVIDENCE_KEY_VERSION_NOT_CONFIGURED", null, bindingVerification);
         }
         String sourceFileVerificationReason = verifySourceFileHash(signature);
         if (StrUtil.isNotBlank(sourceFileVerificationReason)) {
@@ -732,7 +798,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
             }
         }
         String canonicalPayload = buildCanonicalPayload(signature, controlledFile);
-        String recomputedHash = hmacSha256Hex(canonicalPayload);
+        String recomputedHash = hmacSha256Hex(canonicalPayload, verificationSecret);
         if (!StrUtil.equalsIgnoreCase(signature.getEvidenceHash(), recomputedHash)) {
             return invalidVerification(canonicalPayload, recomputedHash, STATUS_INVALID, verifiedAt,
                     "EVIDENCE_HMAC_MISMATCH", signatureImageSnapshot, bindingVerification);
@@ -741,7 +807,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
             return invalidVerification(canonicalPayload, recomputedHash, STATUS_INVALID, verifiedAt,
                     "EVIDENCE_STATUS_INVALID", signatureImageSnapshot, bindingVerification);
         }
-        if (!bindingVerification.valid()) {
+        if (requirePublishedCopyBinding && !bindingVerification.valid()) {
             return invalidVerification(canonicalPayload, recomputedHash, STATUS_INVALID, verifiedAt,
                     bindingVerification.reasonCode(), signatureImageSnapshot, bindingVerification);
         }
@@ -863,10 +929,10 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         return payload.toString();
     }
 
-    private String hmacSha256Hex(String canonicalPayload) {
+    private String hmacSha256Hex(String canonicalPayload, String verificationSecret) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(signatureEvidenceProperties.getHmacSecret().getBytes(StandardCharsets.UTF_8),
+            mac.init(new SecretKeySpec(verificationSecret.getBytes(StandardCharsets.UTF_8),
                     "HmacSHA256"));
             return HexFormat.of().formatHex(mac.doFinal(canonicalPayload.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception ex) {
@@ -924,6 +990,7 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
                 ? signature.getControlledCopyFileId() : binding.getControlledCopyFileId());
         item.put("controlledCopyHash", binding == null
                 ? signature.getControlledCopyHash() : binding.getControlledCopySha256());
+        item.put("controlledCopyObjectKey", binding == null ? null : binding.getControlledCopyObjectKey());
         item.put("bindingEventKey", binding == null ? null : binding.getBindingEventKey());
         item.put("boundAt", binding == null ? null : binding.getBoundAt());
         item.put("signatureImageId", signature.getSignatureImageId());

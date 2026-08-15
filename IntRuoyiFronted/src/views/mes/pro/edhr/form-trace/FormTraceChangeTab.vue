@@ -412,7 +412,7 @@ const normalizeText = (value: unknown) => {
   return rawValue == null ? '' : String(rawValue).trim()
 }
 
-const queryParams = reactive<EdhrRecordChangePageReqVO>({
+const queryParams = reactive<EdhrRecordChangePageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: props.pageSize,
   changeType: EDHR_FORM_TRACE_CHANGE_TYPE,

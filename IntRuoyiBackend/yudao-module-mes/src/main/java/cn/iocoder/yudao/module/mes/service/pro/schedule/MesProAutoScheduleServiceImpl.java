@@ -4451,6 +4451,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         preflightReqVO.setCapacityMode(reqVO.getRuntimeCapacityBasis());
         MesProScheduleOrderPreflightRespVO preflightResp = Objects.requireNonNull(
                 scheduleOrderService.preflight(preflightReqVO), "schedule preflight returned null");
+        boolean erpSourceWarning = Optional.ofNullable(preflightResp.getIssues()).orElse(Collections.emptyList()).stream()
+                .anyMatch(issue -> "WARN_ERP_SYNC_RECORD_MISSING".equals(issue.getReasonCode()));
+        if (erpSourceWarning && !Boolean.TRUE.equals(reqVO.getErpSourceRiskConfirmed())) {
+            throw exception(PRO_AUTO_SCHEDULE_ERP_SOURCE_CONFIRMATION_REQUIRED);
+        }
         boolean blocked = PREFLIGHT_RESULT_BLOCKED.equals(preflightResp.getResult())
                 || (preflightResp.getSummary() != null
                 && ObjUtil.defaultIfNull(preflightResp.getSummary().getBlockedCount(), 0) > 0);

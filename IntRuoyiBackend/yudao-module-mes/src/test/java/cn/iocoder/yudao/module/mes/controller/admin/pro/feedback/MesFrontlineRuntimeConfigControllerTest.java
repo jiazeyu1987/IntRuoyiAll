@@ -7,11 +7,13 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDefectReaso
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceParameterOption;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceAccountContextService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchResult;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProductionSubmitContext;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfig;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTeamDeviceOption;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTeamEmployeeOption;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTemplateDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -51,7 +53,9 @@ class MesFrontlineRuntimeConfigControllerTest {
                 101L,
                 1001L,
                 201L,
-                List.of(new MesFrontlineTeamEmployeeOption(8801L, null, "TMP-001", "临时工甲", "临时工甲", "TEMPORARY")),
+                List.of(
+                        new MesFrontlineTeamEmployeeOption(8801L, null, "TMP-001", "临时工甲", "临时工甲", "TEMPORARY"),
+                        new MesFrontlineTeamEmployeeOption(8802L, 10002L, "EMP-002", "正式工乙", "正式工乙", "FORMAL")),
                 List.of(new MesFrontlineTeamDeviceOption(7001L, "D-001", "压力泵", "ENABLED", List.of(
                         new MesFrontlineDeviceParameterOption("pressure", "压力", "MPa",
                                  new BigDecimal("10"), new BigDecimal("20"), new BigDecimal("15"), "DECIMAL",
@@ -59,7 +63,13 @@ class MesFrontlineRuntimeConfigControllerTest {
                 List.of(new MesFrontlineDefectReasonOption(8301L, "LOSS", "LOSS-001", "正常损耗")),
                 new MesFrontlineProductionSubmitContext(41L, "WO-F2-001", "F2正式工单",
                         51L, 101L, 1001L, 201L, 301L, 61L, 9001L, 901L,
-                        new BigDecimal("300.000"), LocalDateTime.of(2026, 8, 30, 0, 0))
+                        new BigDecimal("300.000"), LocalDateTime.of(2026, 8, 30, 0, 0)),
+                List.of(
+                        new MesFrontlineEmployeeSwitchResult(9001L, 8801L, 101L, 1001L, 201L, false,
+                                new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 8801L)),
+                        new MesFrontlineEmployeeSwitchResult(9001L, 10002L, 101L, 1001L, 201L, false,
+                                new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 10002L)))
+                , "snapshot-001", "hash-001"
         );
         when(runtimeConfigService.getRuntimeConfig(9001L, 101L, 1001L, 201L)).thenReturn(runtimeConfig);
 
@@ -94,6 +104,14 @@ class MesFrontlineRuntimeConfigControllerTest {
         assertEquals(61L, data.getProductionSubmitContext().getItemId());
         assertEquals(9001L, data.getProductionSubmitContext().getApproveUserId());
         assertEquals(901L, data.getProductionSubmitContext().getRecordbookId());
+        assertEquals(2, data.getEmployeeSwitchSnapshots().size());
+        assertEquals(8801L, data.getEmployeeSwitchSnapshots().get(0).getActualEmployeeId());
+        assertEquals(1001L, data.getEmployeeSwitchSnapshots().get(0).getRouteProcessId());
+        assertEquals("FRONTLINE-PROD", data.getEmployeeSwitchSnapshots().get(0).getTemplate().getTemplateNo());
+        assertEquals(10002L, data.getEmployeeSwitchSnapshots().get(1).getActualEmployeeId());
+        assertEquals(10002L, data.getEmployeeSwitchSnapshots().get(1).getTemplate().getActualEmployeeId());
+        assertEquals("snapshot-001", data.getFrontlineSessionSnapshotId());
+        assertEquals("hash-001", data.getFrontlineSessionSnapshotHash());
     }
 
     @Test

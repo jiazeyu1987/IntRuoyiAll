@@ -14,6 +14,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class MesProFrontlineFeedbackPayloadSplitterTest {
 
@@ -37,7 +38,7 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals(8301L, feedbackPayload.getLossReasonId());
         assertEquals("LOSS-001", feedbackPayload.getLossReasonCodeSnapshot());
         assertEquals("正常损耗", feedbackPayload.getLossReasonNameSnapshot());
-        assertEquals(3001L, feedbackPayload.getFeedbackUserId());
+        assertEquals(9001L, feedbackPayload.getFeedbackUserId());
         assertEquals(submittedAt, feedbackPayload.getFeedbackTime());
         assertEquals(7001L, feedbackPayload.getApproveUserId());
         assertEquals("frontline production", feedbackPayload.getRemark());
@@ -51,6 +52,7 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals(reqVO.getRawPayload(), content.get("rawPayload"));
 
         MesProcessPoolSubmitEventCreateReqBO eventPayload = splitPayload.getProcessPoolEventPayload();
+        assertEquals(81L, eventPayload.getActiveOrderId());
         assertEquals(41L, eventPayload.getWorkOrderId());
         assertEquals(51L, eventPayload.getTaskId());
         assertEquals(21L, eventPayload.getRouteId());
@@ -59,14 +61,15 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals(11L, eventPayload.getWorkstationId());
         assertEquals(501L, eventPayload.getDeviceId());
         assertEquals(9001L, eventPayload.getDeviceAccountUserId());
-        assertEquals(3001L, eventPayload.getActualEmployeeId());
-        assertEquals(3001L, eventPayload.getSignatureEmployeeId());
-        assertEquals(4001L, eventPayload.getSignatureId());
+        assertEquals(9001L, eventPayload.getActualEmployeeId());
+        assertEquals(9001L, eventPayload.getSignatureEmployeeId());
+        assertNull(eventPayload.getSignatureId());
         assertEquals("PRODUCTION_SIMPLE", eventPayload.getTemplateType());
         assertEquals(new BigDecimal("100.500"), eventPayload.getOutputQuantity());
         assertEquals(new BigDecimal("2.500"), eventPayload.getLossQuantity());
         assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), eventPayload.getEquipmentParameters());
         Map<String, Object> eventRawPayload = eventPayload.getRawPayload();
+        assertEquals(81L, eventRawPayload.get("activeOrderId"));
         assertEquals("PRODUCTION_SIMPLE", eventRawPayload.get("templateType"));
         assertEquals(Map.of("P10", "WAITING"), eventRawPayload.get("routePredecessorStatuses"));
         assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), eventRawPayload.get("equipmentParameters"));

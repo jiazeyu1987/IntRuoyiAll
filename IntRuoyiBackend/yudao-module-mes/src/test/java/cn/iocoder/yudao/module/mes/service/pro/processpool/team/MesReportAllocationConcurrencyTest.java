@@ -46,6 +46,7 @@ class MesReportAllocationConcurrencyTest {
     @Mock private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
     @Mock private MesReportAllocationQuantityFragmentService quantityFragmentService;
     @Mock private MesTeamLeaderOrderProcessCompletionService completionService;
+    @Mock private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     private MesReportAllocationCommandService service;
 
@@ -54,7 +55,7 @@ class MesReportAllocationConcurrencyTest {
         service = new MesReportAllocationCommandService(scopeService, eventMapper, activeOrderMapper, workOrderMapper,
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
-                completionService);
+                completionService, reportManagementSummaryService);
         when(routeStartAuthorizationService.listAuthorizedRouteProcesses(3001L)).thenReturn(List.of(
                 MesProRouteProcessDO.builder().id(5001L).processId(6001L).build()));
     }

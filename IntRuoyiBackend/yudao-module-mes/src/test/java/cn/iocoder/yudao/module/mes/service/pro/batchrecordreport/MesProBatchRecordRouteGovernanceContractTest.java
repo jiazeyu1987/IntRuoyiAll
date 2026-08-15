@@ -23,9 +23,6 @@ class MesProBatchRecordRouteGovernanceContractTest {
     private static final Path CONTROLLER = Path.of(
             "src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecordreport/"
                     + "MesProBatchRecordReportController.java");
-    private static final Path ROUTE_MAPPER = Path.of(
-            "src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/route/MesProRouteMapper.java");
-
     @Test
     void preflightContract_exposesRouteGovernanceFields() throws Exception {
         String source = read(PREFLIGHT_RESULT);
@@ -53,17 +50,27 @@ class MesProBatchRecordRouteGovernanceContractTest {
     }
 
     @Test
-    void routeGeneration_reusesUniqueRouteAndBlocksHistoricalDuplicates() throws Exception {
-        String mapperSource = read(ROUTE_MAPPER);
+    void routeGeneration_usesFrozenRouteIdAndFormalProductBinding() throws Exception {
         String serviceSource = read(SERVICE);
         String generationSource = read(ROUTE_GENERATION_SERVICE);
 
-        assertTrue(mapperSource.contains("selectListByName"),
-                "路线治理必须能按路线名称查询全部同名路线。");
+        assertFalse(serviceSource.contains("routeMapper.selectListByName(projectName)"),
+                "路线治理不得按 DCC 项目名称猜测工艺路线。");
+        assertTrue(serviceSource.contains(
+                        "routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(selectedProjectCode.getId())")
+                        && serviceSource.contains("resolveRoutesByDccProjectBinding")
+                        && serviceSource.contains("resolveRoutesByDccProjectProductBinding"),
+                "路线治理必须优先按路线-DCC正式绑定定位；未建立正式绑定时，只允许按所选DCC项目代码对应的唯一物料路线绑定定位。");
+        assertTrue(serviceSource.contains("routeProductMapper.selectListByItemId(item.getId())"),
+                "DCC物料路线定位必须使用所选DCC项目代码对应的正式物料 ID。");
+        assertFalse(generationSource.contains("routeMapper.selectListByName(routeName)"),
+                "Word 导入写入不得按批记录名称选择已有路线。");
+        assertTrue(generationSource.contains("routeMapper.selectById(expectedRouteId)"),
+                "已有路线升级必须按预检冻结的 routeId 精确定位。");
         assertTrue(serviceSource.contains("PRO_BATCH_RECORD_REPORT_ROUTE_DUPLICATE"),
-                "同名多路线必须 fail fast，不能自动选择最新或任意一条。");
+                "正式产品绑定定位出多条路线时必须 fail fast，不能自动选择任意一条。");
         assertTrue(serviceSource.contains("PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_CONFIRM_REQUIRED"),
-                "已有唯一同名路线时，导入写入前必须校验用户确认升版本。");
+                "已有唯一正式绑定路线时，导入写入前必须校验用户确认升版本。");
         assertFalse(generationSource.contains("refreshExistingRouteForUploadedWord"),
                 "Word 重建已有路线不得直接删除 active 工序、流转关系和绑定。");
         assertFalse(generationSource.contains("createNextActiveRouteVersion"),
@@ -75,7 +82,7 @@ class MesProBatchRecordRouteGovernanceContractTest {
     }
 
     @Test
-    void dccProjectGovernanceStatusEndpoint_isMesOwnedAndProjectNameBased() throws Exception {
+    void dccProjectGovernanceStatusEndpoint_isMesOwnedAndUsesFormalProductIdentity() throws Exception {
         Path controller = Path.of(
                 "src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/dccprojectgovernance/"
                         + "MesProDccProjectGovernanceController.java");
@@ -89,8 +96,12 @@ class MesProBatchRecordRouteGovernanceContractTest {
         String serviceSource = read(service);
         assertTrue(controllerSource.contains("/mes/pro/dcc-project-governance/status"),
                 "治理状态接口路径必须由 MES 模块提供。");
-        assertTrue(serviceSource.contains("projectName"),
-                "治理状态聚合必须按 DCC 项目名称匹配。");
+        assertTrue(serviceSource.contains("selectEnabledListByProjectName")
+                        && serviceSource.contains("selectListByCodes")
+                        && serviceSource.contains("selectListByItemIds"),
+                "治理状态必须经 DCC 项目代码、MES 物料编码和路线产品绑定定位路线。");
+        assertFalse(serviceSource.contains("routeMapper.selectListByName(projectName)"),
+                "治理状态不得按项目名称等于路线名称进行匹配。");
         assertTrue(serviceSource.contains("LOSS_REPORT")
                         && serviceSource.contains("PROCESS_INSPECTION")
                         && serviceSource.contains("PARAMETER_RECORD"),

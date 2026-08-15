@@ -282,6 +282,7 @@ for (const token of [
   'ERP采购订单',
   'ERP销售订单',
   'MES生产工单',
+  'ERP生产领料单列表',
   'ERP生产用料清单',
   'ERP产品BOM'
 ]) {
@@ -376,6 +377,25 @@ assert.doesNotMatch(
   component,
   /kingdeeTableAutoSync|ErpKingdeeTableAutoSyncApi|kingdee-table-auto-sync/,
   'Profile ERP 表格自动同步不得再调用旧 kingdee-table-auto-sync 接口。'
+)
+
+for (const token of [
+  "syncType: 'PRODUCTION_PICK_LIST'",
+  "erpTableName: '生产领料单列表'",
+  "localTabName: 'ERP生产领料单列表'",
+  "handlerName: 'kingdeeProductionPickListSyncJob'"
+]) {
+  assert.match(
+    component,
+    new RegExp(token.replace(/[.*+?^$()|[\]\\]/g, '\\$&')),
+    'ERP 表格自动同步列表必须新增独立生产领料单列表：' + token
+  )
+}
+
+assert.match(
+  component,
+  /PRODUCTION_PICK_LIST[\s\S]*PRODUCTION_MATERIAL_LIST/,
+  '生产领料单列表必须作为独立同步类型展示，且不能覆盖生产用料清单。'
 )
 
 assert.doesNotMatch(

@@ -35,7 +35,7 @@ export interface ProcessPoolProductionReportCorrectionLossDetailReqVO {
 export interface ProcessPoolProductionReportCorrectionParameterReqVO {
   deviceId: number
   parameterCode: string
-  value: number
+  value?: number
 }
 
 export interface ProcessPoolProductionReportCorrectionReqVO {

@@ -68,14 +68,13 @@ assertIncludes(
 )
 
 const actionsSlot = extractSlot(routeProductList, 'actions')
-for (const label of ['关联产品', '补齐产品', '保存']) {
+for (const label of ['关联产品', '保存']) {
   assertIncludes(actionsSlot, label, `工具栏必须显示 ${label} 按钮`)
   assert.ok(label.length <= 4, `${label} 文案不得超过 4 个字`)
 }
 assertIncludes(actionsSlot, "openForm('create')", '关联产品按钮必须保持原新增逻辑')
-assertIncludes(actionsSlot, 'handleBindFromWorkOrders', '补齐产品按钮必须保持原补齐逻辑')
 assertIncludes(actionsSlot, 'request-submit', '保存按钮必须请求父级执行现有保存逻辑')
-assertNotIncludes(actionsSlot, '从生产订单补齐产品', '补齐按钮文案必须缩短到 4 字以内')
+assertNotIncludes(actionsSlot, '补齐产品', '工具栏不得保留按路线名称自动补齐产品入口')
 assertNotIncludes(routeProductList, 'class="mt-12px"', '补齐按钮不得继续放在列表下方')
 
 const tableSlot = extractSlot(routeProductList, 'table')
@@ -109,8 +108,8 @@ assertIncludes(
 
 assertIncludes(
   routeFormContent,
-  '@request-submit="submitForm"',
-  '关联产品工具栏保存必须复用父级 submitForm'
+  '@request-submit="handleSubmitRequest"',
+  '关联产品工具栏保存必须复用父级统一提交入口'
 )
 assertIncludes(
   routeFormContent,
@@ -134,7 +133,7 @@ assertIncludes(
 )
 assertIncludes(
   routeEditPage,
-  "activeRouteTab !== 'product'",
+  "!['flow', 'basic', 'product', 'dcc'].includes(activeRouteTab)",
   '编辑页底部旧保存按钮必须在关联产品页签隐藏'
 )
 assertIncludes(

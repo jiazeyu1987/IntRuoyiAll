@@ -1294,7 +1294,7 @@ def test_release_package_embeds_runtime_env_for_all_targets() -> None:
     assert "New-ReleaseRuntimeEnvContent -TargetEnvironment $targetEnvironment -TargetServerHost $targetServerHost" in text
     assert "Apply-ReleaseRuntimeEnvPackage -TargetEnvironment $Environment" in text
     assert '-HardcodedValue "http://${TargetServerHost}:$OnlyOfficeHostPort"' in text
-    assert '-HardcodedValue "http://backend:48081"' in text
+    assert '$script:DccOnlyOfficePublicFileBaseUrl = "http://backend:48081"' in text
     assert "DCC_ONLYOFFICE_BASE_URL=$resolvedDccOnlyOfficeBaseUrl" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL=$resolvedDccOnlyOfficePublicFileBaseUrl" in text
     assert "DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY=$resolvedDccDownloadEncryptionBase64Key" in text
@@ -1303,8 +1303,18 @@ def test_release_package_embeds_runtime_env_for_all_targets() -> None:
 def test_onlyoffice_public_file_base_url_uses_compose_backend_service() -> None:
     text = read_publish_script()
 
-    assert '-HardcodedValue "http://backend:48081"' in text
+    assert '$script:DccOnlyOfficePublicFileBaseUrl = "http://backend:48081"' in text
     assert '-HardcodedValue "http://host.docker.internal:$BackendPort"' not in text
+
+
+def test_remote_backend_deploy_replaces_stale_onlyoffice_public_file_url() -> None:
+    text = read_publish_script()
+    defaults_function = _extract_powershell_function(text, "Set-PublishRuntimeDefaultsForTarget")
+
+    assert '$script:DccOnlyOfficePublicFileBaseUrl = "http://backend:48081"' in defaults_function
+    assert "-CurrentValue $script:DccOnlyOfficePublicFileBaseUrl" not in defaults_function
+    assert '$effectiveDccOnlyOfficePublicFileBaseUrl = "http://backend:48081"' in text
+    assert "elseif ($existingRemoteEnv.ContainsKey('DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL'))" not in text
 
 
 def test_release_runtime_env_onlyoffice_public_file_url_uses_backend_service() -> None:
@@ -1325,11 +1335,62 @@ def test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url() -> 
         text, "Assert-RemoteOnlyOfficePublicFileBaseUrlReachable"
     )
     assert "/actuator/health" in text
-    readiness_start = text.index('if ($IncludeOnlyOffice) {\n    Wait-RemoteHttpOk -Url "http://127.0.0.1:$OnlyOfficeHostPort/healthcheck"')
-    readiness_block = text[readiness_start:text.index("if ($publishWebsite)", readiness_start)]
-    assert readiness_block.index('Wait-RemoteHttpOk -Url "http://127.0.0.1:$OnlyOfficeHostPort/healthcheck"') < readiness_block.index(
-        "Assert-RemoteOnlyOfficePublicFileBaseUrlReachable"
-    )
+    assert "if ($publishBackend) { Assert-RemoteOnlyOfficePublicFileBaseUrlReachable }" in text
+
+
+def test_deploy_requires_real_docx_xlsx_pptx_onlyoffice_preview_before_success_lock() -> None:
+    text = read_publish_script()
+    runner_function = _extract_powershell_function(text, "Invoke-RemoteOnlyOfficeReleasePreviewGate")
+
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_TENANT" in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_USERNAME" in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD" in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_DOCX_FILE_ID" in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_XLSX_FILE_ID" in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_PPTX_FILE_ID" in text
+    assert "dcc-onlyoffice-release-preview-real.e2e.js" in runner_function
+    assert "Invoke-SshCapture" in runner_function
+    assert "Invoke-ReleaseOperationLockRelease -Status 'FAILED'" in runner_function
+
+    gate_call = text.rindex("Invoke-RemoteOnlyOfficeReleasePreviewGate")
+    success_lock = text.rindex("Invoke-ReleaseOperationLockRelease -Status 'APPLIED'")
+    completed = text.rindex('Write-Host "Publish completed for $PublishTargetName."')
+    assert gate_call < success_lock < completed
+
+
+def test_deploy_onlyoffice_release_gate_scans_only_new_preview_log_lines() -> None:
+    text = read_publish_script()
+    gate_function = _extract_powershell_function(text, "Invoke-RemoteOnlyOfficeReleasePreviewGate")
+
+    assert "wc -l" in gate_function
+    assert "tail -n" in gate_function
+    assert "converter/out.log" in gate_function
+    assert "docservice/out.log" in gate_function
+    assert "\\[ERROR\\]" in gate_function
+    for marker in ["dnsLookup", "ENOTFOUND", "checkIpFilter", "download", "convert"]:
+        assert marker in gate_function
+    assert "ONLYOFFICE_RELEASE_LOG_GATE_FAILED" in gate_function
+
+
+def test_release_smoke_package_contains_onlyoffice_real_preview_runner() -> None:
+    text = read_publish_script()
+    package_function = _extract_powershell_function(text, "New-SchedulerSmokeRunnerPackage")
+    copy_function = _extract_powershell_function(text, "Copy-SchedulerSmokeRunnerToServer")
+
+    assert "dcc-onlyoffice-release-preview-real.e2e.js" in package_function
+    assert '"e2e:dcc:onlyoffice-release-preview"' in package_function
+    assert "dcc-onlyoffice-release-preview-real.e2e.js" in copy_function
+
+
+def test_release_package_does_not_persist_onlyoffice_e2e_login_secret() -> None:
+    text = read_publish_script()
+    runtime_env_function = _extract_powershell_function(text, "New-ReleaseRuntimeEnvContent")
+
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD" not in runtime_env_function
+    assert '$onlyOfficeReleasePreviewEnvFile = "$RemoteAppDir/onlyoffice-release-preview.env"' in text
+    assert "DCC_ONLYOFFICE_RELEASE_E2E_PASSWORD=$effectiveDccOnlyOfficeReleaseE2ePassword" in text
+    assert "chmod 600 '$onlyOfficeReleasePreviewEnvFile'" in text
+    assert "Remove-Item -LiteralPath $onlyOfficeReleasePreviewEnvLocal -Force" in text
 
 
 def test_publish_onlyoffice_runtime_uses_real_image_and_health_gates() -> None:
@@ -1881,6 +1942,17 @@ def test_restart_bat_wrappers_target_test_and_production() -> None:
     assert 'set "PS1=%SCRIPT_DIR%restart-int-ruoyi-remote.ps1"' in prod_text
     assert 'set "SERVER_HOST=172.30.30.57"' in prod_text
     assert 'if /i "%~1"=="cancel"' in prod_text
+
+
+def test_remote_restart_checks_onlyoffice_public_file_url_from_document_server_container() -> None:
+    restart_text = (DEPLOY_ROOT / "restart-int-ruoyi-remote.ps1").read_text(encoding="utf-8")
+
+    assert "function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable" in restart_text
+    assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL must not use host.docker.internal" in restart_text
+    assert "docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5" in restart_text
+    restart_call = restart_text.index("    Assert-RemoteOnlyOfficePublicFileBaseUrlReachable")
+    restart_command = restart_text.index('Invoke-SshCommand "cd \'$RemoteAppDir\' && docker compose restart $serviceNames"')
+    assert restart_call < restart_command
 
 
 def test_status_bat_wrappers_target_test_and_production() -> None:

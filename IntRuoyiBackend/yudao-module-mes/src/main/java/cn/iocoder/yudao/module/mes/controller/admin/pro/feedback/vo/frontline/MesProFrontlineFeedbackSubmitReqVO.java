@@ -32,6 +32,14 @@ public class MesProFrontlineFeedbackSubmitReqVO {
     @NotBlank(message = "工序池主提交幂等键不能为空")
     private String processPoolSubmissionIdempotencyKey;
 
+    @Schema(description = "一线生产最大化会话快照编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "一线生产最大化会话快照编号不能为空")
+    private String frontlineSessionSnapshotId;
+
+    @Schema(description = "一线生产最大化会话快照哈希", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "一线生产最大化会话快照哈希不能为空")
+    private String frontlineSessionSnapshotHash;
+
     @Schema(description = "实际操作员工编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "3001")
     @NotNull(message = "实际操作员工不能为空")
     private Long actualEmployeeId;

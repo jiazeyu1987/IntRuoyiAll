@@ -11,18 +11,22 @@ public record MesProDccProjectGovernanceStatus(
         String routeStatus,
         Long routeCount,
         List<String> routeCodes,
+        List<String> routeVersionNos,
         String mainBatchRecordStatus,
         Long mainBatchRecordCount,
         List<String> mainBatchRecordVersionNos,
         String lossReportStatus,
         Long lossReportCount,
         List<String> lossReportCodes,
+        List<String> lossReportVersionNos,
         String processInspectionStatus,
         Long processInspectionCount,
         List<String> processInspectionCodes,
+        List<String> processInspectionVersionNos,
         String parameterRecordStatus,
         Long parameterRecordCount,
         List<String> parameterRecordCodes,
+        List<String> parameterRecordVersionNos,
         List<String> blockerMessages
 ) {
 }

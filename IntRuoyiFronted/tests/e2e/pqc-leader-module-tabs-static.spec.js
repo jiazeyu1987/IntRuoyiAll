@@ -22,8 +22,8 @@ assert.doesNotMatch(
 
 assert.match(
   teamLeaderWorkbench,
-  /data-pqc-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="PQC管理"\s+name="management"[\s\S]*<el-tab-pane\s+label="详情"\s+name="detail"[\s\S]*<el-tab-pane\s+label="看板"\s+name="dashboard"/,
-  'Shared workbench must render PQC personnel, management, detail, and dashboard module tabs.'
+  /data-pqc-leader-module-tabs[\s\S]*<el-tab-pane\s+label="人员管理"\s+name="personnel"[\s\S]*<el-tab-pane\s+label="PQC管理"\s+name="management"[\s\S]*<el-tab-pane\s+label="详情"\s+name="detail"[\s\S]*<el-tab-pane\s+label="历史表单"\s+name="history"/,
+  'Shared workbench must render the retained PQC module tabs.'
 )
 assert.match(
   teamLeaderWorkbench,
@@ -57,7 +57,7 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'dashboard'\s*\|\s*'detail'\s*\|\s*'history'>\('management'\)/,
+  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'detail'\s*\|\s*'history'>\('management'\)/,
   'PQC leader module tabs must default to PQC管理.'
 )
 assert.match(
@@ -70,10 +70,10 @@ assert.match(
   /const\s+showPqcManagementModule\s*=\s*computed\([\s\S]*activePqcModuleTab[\s\S]*'management'/,
   'PQC management tab must gate the management workbench content.'
 )
-assert.match(
+assert.doesNotMatch(
   teamLeaderWorkbench,
-  /const\s+showPqcDashboardModule\s*=\s*computed\([\s\S]*activePqcModuleTab[\s\S]*'dashboard'/,
-  'PQC dashboard tab must gate the dashboard content.'
+  /showPqcDashboardModule|activePqcModuleTab\.value\s*===\s*'dashboard'/,
+  'Removed PQC dashboard state must not remain reachable.'
 )
 assert.match(
   teamLeaderWorkbench,
@@ -87,8 +87,8 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /<ContentWrap\s+v-if="showPqcDashboardModule"[\s\S]*data-role-matrix-daily-close/,
-  '看板 tab must own the daily close dashboard.'
+  /<ContentWrap\s+v-if="showLegacyDailyCloseDashboardModule"[\s\S]*data-role-matrix-daily-close/,
+  'The legacy daily close dashboard must remain outside PQC module tabs.'
 )
 assert.match(
   teamLeaderWorkbench,

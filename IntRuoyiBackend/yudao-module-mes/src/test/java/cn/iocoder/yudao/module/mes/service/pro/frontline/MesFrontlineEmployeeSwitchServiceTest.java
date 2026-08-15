@@ -203,7 +203,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
                         List.of(new MesFrontlineTeamEmployeeOption(employeeProfileId, systemUserId,
                                 systemUserId == null ? "TMP-001" : "E1001", employeeName, employeeName,
                                 employeeType)),
-                        List.of(), List.of(), null));
+                        List.of(), List.of(), null, List.of(), "snapshot-001", "hash-001"));
     }
 
     private static MesProcessPoolTeamEmployeeProfileDO employeeProfile(Long id, Long systemUserId,

@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.Accessors;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @TableName("mes_pro_process_pool_event")
@@ -27,6 +28,16 @@ public class MesProProcessPoolEventDO extends TenantBaseDO {
 
     public static final String EVENT_TYPE_PRODUCTION_SUBMIT = "PRODUCTION_SUBMIT";
     public static final String EVENT_TYPE_PQC_INSPECTION = "PQC_INSPECTION";
+    public static final String REPORT_MANAGEMENT_STATUS_NOT_APPLICABLE = "NOT_APPLICABLE";
+    public static final String REPORT_MANAGEMENT_STATUS_UNALLOCATED = "UNALLOCATED";
+    public static final String REPORT_MANAGEMENT_STATUS_PARTIALLY_ALLOCATED = "PARTIALLY_ALLOCATED";
+    public static final String REPORT_MANAGEMENT_STATUS_PENDING_RELEASE = "PENDING_RELEASE";
+    public static final String REPORT_MANAGEMENT_STATUS_ARCHIVED = "ARCHIVED";
+    public static final String REPORT_RELEASE_STATUS_NOT_APPLICABLE = "NOT_APPLICABLE";
+    public static final String REPORT_RELEASE_STATUS_NOT_ALLOCATED = "NOT_ALLOCATED";
+    public static final String REPORT_RELEASE_STATUS_NOT_RELEASED = "NOT_RELEASED";
+    public static final String REPORT_RELEASE_STATUS_PARTIALLY_RELEASED = "PARTIALLY_RELEASED";
+    public static final String REPORT_RELEASE_STATUS_RELEASED = "RELEASED";
 
     @TableId
     private Long id;
@@ -54,4 +65,9 @@ public class MesProProcessPoolEventDO extends TenantBaseDO {
     private Long signatureId;
     private Long signatureUserId;
     private String signatureSnapshot;
+    private String reportManagementStatus;
+    private BigDecimal reportOutputQuantity;
+    private BigDecimal reportAllocatedQuantity;
+    private BigDecimal reportUnallocatedQuantity;
+    private String reportReleaseStatus;
 }

@@ -104,13 +104,11 @@ assert.match(
   /deviceMeteringValidity: buildProductionDeviceMeteringValidityPayload\(\)/,
   'structured raw payload must preserve per-device metering validity without adding a backend top-level field.'
 )
-if (panel.includes('FRONTLINE_PRODUCTION_CLEARANCE_CONFIRMATIONS')) {
-  assert.match(
-    panel,
-    /type ProductionClearanceConfirmationKey = 'workplace' \| 'validity' \| 'material' \| 'cleaning'[\s\S]*key: 'validity'[\s\S]*label: '效期'/,
-    'the bottom global validity confirmation must remain intact when the clearance block exists.'
-  )
-}
+assert.doesNotMatch(
+  panel,
+  /type ProductionClearanceConfirmationKey = 'workplace' \| 'validity' \| 'material' \| 'cleaning'[\s\S]*key: 'validity'[\s\S]*label: '效期'/,
+  'the bottom global validity confirmation must be removed while the device-card metering checkbox remains.'
+)
 
 const tabsStyleBlock = extractCssBlock(panel, '.frontline-production-device-tabs')
 assert.match(
@@ -132,5 +130,16 @@ for (const token of [
 ]) {
   assert.ok(cardStyleBlock.includes(token), 'device card style must include ' + token)
 }
+const activeCardStyleBlock = extractCssBlock(cardStyleBlock, '&.active')
+assert.match(
+  activeCardStyleBlock,
+  /border-color:\s*#15815f;/,
+  'selected device card border must use the same green selection color as other frontline selected states.'
+)
+assert.doesNotMatch(
+  activeCardStyleBlock,
+  /border-color:\s*var\(--frontline-dark\)/,
+  'selected device card border must not keep the dark header color.'
+)
 
 console.log('PASS: frontline production device cards expose metering validity checkboxes')

@@ -17,22 +17,22 @@ const routeCandidateEntry = read('src/views/mes/pro/route/routeCandidateEntry.ts
 
 assert.match(
   routeApi,
-  /export interface RouteVersionEditContext[\s\S]*routeVersionId:\s*number[\s\S]*versionNo:\s*string[\s\S]*lifecycleStatus:\s*ProRouteVersionLifecycleStatus/,
+  /export interface RouteVersionEditContext[\s\S]*routeVersionId:\s*MesRouteId[\s\S]*versionNo:\s*string[\s\S]*lifecycleStatus:\s*ProRouteVersionLifecycleStatus/,
   '前端必须提供统一 RouteVersionEditContext，显式承载候选 routeVersionId、versionNo 和生命周期。'
 )
 assert.match(
   routeApi,
-  /export interface RouteFlowGraphSaveReqVO[\s\S]*routeVersionId\?:\s*number/,
+  /export interface RouteFlowGraphSaveReqVO[\s\S]*routeVersionId\?:\s*MesRouteId/,
   '流转关系图保存契约必须支持 routeVersionId，用于写候选版本快照。'
 )
 assert.match(
   routeProductApi,
-  /export interface ProRouteProductVO[\s\S]*routeVersionId\?:\s*number/,
+  /export interface ProRouteProductVO[\s\S]*routeVersionId\?:\s*MesRouteId/,
   '产品绑定保存契约必须支持 routeVersionId，用于写候选版本快照。'
 )
 assert.match(
   routeFlowConfigApi,
-  /getProcessConfigList:\s*async\s*\(\s*routeId:\s*number,\s*useType:\s*ProRouteFlowConfigType,\s*routeVersionId\?:\s*number/,
+  /getProcessConfigList:\s*async\s*\(\s*routeId:\s*number,\s*useType:\s*ProRouteFlowConfigType,\s*routeVersionId\?:\s*MesRouteId/,
   '流转/批记录配置读取契约必须支持候选 routeVersionId，用于编辑已有草稿时读取候选快照。'
 )
 assert.match(
@@ -108,38 +108,18 @@ assert.match(
 )
 assert.match(
   routeIndex,
-  /OPEN_CANDIDATE_CONFLICT_NOTICE[\s\S]*多个打开中的候选版本[\s\S]*最高版本保留一个/,
-  '打开候选冲突提示必须明确说明按最高版本保留一个，其余关闭。'
+  /OPEN_CANDIDATE_CONFLICT_NOTICE[\s\S]*多个打开中的候选版本[\s\S]*处理打开候选/,
+  '打开候选冲突提示必须明确引导用户处理多个打开候选。'
 )
 assert.match(
   routeIndex,
   /routeVersionNoticeMessage[\s\S]*type="warning"/,
   '候选版本工作区必须用 warning 提示冲突候选状态。'
 )
-assert.match(
-  routeIndex,
-  /OPEN_CANDIDATE_CONFLICT_NOTICE[\s\S]*关闭其余版本/,
-  '候选版本工作区必须用 warning 提示用户关闭冲突候选并在保留版本内继续流程。'
-)
 assert.doesNotMatch(
   routeIndex,
   /requireSingleDraftRouteVersionForProductionConfig/,
-  '列表操作列“产品”不能只要求已有唯一草稿，必须复用统一候选版本入口创建或复用草稿。'
-)
-assert.match(
-  routeIndex,
-  /const handleBindRouteProducts[\s\S]*ensureSameSourceDraftCandidateForProductionConfig\(\{[\s\S]*actionName:\s*'产品补齐'/,
-  '列表操作列“产品”必须复用统一候选版本 helper，不能在 active 版本上直接补齐产品。'
-)
-assert.match(
-  routeIndex,
-  /const handleBindRouteProducts[\s\S]*const routeVersionId = candidateResult\.candidate\.id[\s\S]*previewBindFromWorkOrders\(\{\s*routeId:\s*row\.id,\s*routeVersionId\s*\}\)/,
-  '列表操作列“产品”预览必须使用创建或复用后的 DRAFT routeVersionId。'
-)
-assert.match(
-  routeIndex,
-  /const handleBindRouteProducts[\s\S]*isRouteMultipleDraftCandidateError\(error\)[\s\S]*openRouteVersionWorkspace\(row,\s*OPEN_CANDIDATE_CONFLICT_NOTICE\)/,
-  '列表操作列“产品”遇到打开候选冲突时必须打开候选版本工作区让用户关闭其余版本。'
+  '工艺路线列表不得保留只要求已有唯一草稿的旧生产配置入口。'
 )
 
 assert.match(
@@ -245,7 +225,7 @@ assert.match(
 )
 assert.match(
   productList,
-  /routeVersionId:\s*requireCandidateRouteVersionId\('产品绑定保存'\)/,
+  /buildRouteProductSavePayload\([\s\S]*requireCandidateRouteVersionId\('产品绑定保存'\)/,
   'RouteProductList 产品绑定保存必须携带候选 routeVersionId。'
 )
 

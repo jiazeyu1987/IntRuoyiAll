@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineReportAllocationReadDO;
@@ -137,6 +138,11 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setSourceFeedbackId(event.getSourceFeedbackId())
                 .setSourceRecordbookEntryId(event.getSourceRecordbookEntryId())
                 .setSourceRecordbookEventId(event.getSourceRecordbookEventId())
+                .setOutputQuantity(event.getReportOutputQuantity())
+                .setReportAllocatedQuantity(event.getReportAllocatedQuantity())
+                .setReportUnallocatedQuantity(event.getReportUnallocatedQuantity())
+                .setReportManagementStatus(event.getReportManagementStatus())
+                .setReportReleaseStatus(event.getReportReleaseStatus())
                 .setSubmittedSummary(event.getSubmittedSummary())
                 .setOriginalPayloadJson(event.getOriginalPayloadJson())
                 .setPqcResult(event.getPqcResult())
@@ -163,8 +169,10 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
         if (payload == null || payload.isEmpty()) {
             return;
         }
-        respVO.setOutputQuantity(toBigDecimal(payload.get("outputQuantity")))
-                .setLossQuantity(toBigDecimal(payload.get("lossQuantity")))
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            respVO.setOutputQuantity(toBigDecimal(payload.get("outputQuantity")));
+        }
+        respVO.setLossQuantity(toBigDecimal(payload.get("lossQuantity")))
                 .setLossDetails(convertValue(payload.get("lossDetails"), LOSS_DETAIL_TYPE))
                 .setSelectedDevice(convertValue(payload.get("selectedDevice"),
                         ProcessPoolTimelineEventRespVO.SelectedDeviceRespVO.class))
@@ -189,9 +197,6 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
         for (ProcessPoolTimelineEventRespVO event : events) {
             List<ProcessPoolTimelineReportAllocationReadDO> allocations =
                     allocationsByEvent.getOrDefault(event.getId(), List.of());
-            BigDecimal allocated = allocations.stream()
-                    .map(ProcessPoolTimelineReportAllocationReadDO::getAllocatedQuantity)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
             List<ProcessPoolTimelineEventRespVO.ReportAllocationRespVO> lines = allocations.stream()
                     .map(line -> new ProcessPoolTimelineEventRespVO.ReportAllocationRespVO()
                             .setAllocationId(line.getAllocationId())
@@ -199,13 +204,21 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                             .setWorkOrderId(line.getWorkOrderId())
                             .setWorkOrderCode(line.getWorkOrderCode())
                             .setAllocatedQuantity(line.getAllocatedQuantity())
+                            .setOverageQuantity(requireAllocationOverage(line))
+                            .setNeedsAdjustment(Boolean.TRUE.equals(line.getNeedsAdjustment()))
                             .setReleased(Boolean.TRUE.equals(line.getReleased()))
                             .setEditable(!Boolean.TRUE.equals(line.getReleased())))
                     .toList();
-            event.setReportAllocations(lines).setReportAllocatedQuantity(allocated)
-                    .setReportUnallocatedQuantity(event.getOutputQuantity() == null
-                            ? null : event.getOutputQuantity().subtract(allocated));
+            event.setReportAllocations(lines);
         }
+    }
+
+    private static BigDecimal requireAllocationOverage(ProcessPoolTimelineReportAllocationReadDO line) {
+        if (line.getOverageQuantity() == null || line.getNeedsAdjustment() == null) {
+            throw new IllegalStateException("Missing formal order-process overage for report allocation "
+                    + line.getAllocationId());
+        }
+        return line.getOverageQuantity();
     }
 
     private static BigDecimal toBigDecimal(Object value) {

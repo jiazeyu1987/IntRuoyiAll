@@ -235,6 +235,12 @@ const syncTypes: ProfileErpSyncType[] = [
     handlerName: 'kingdeeProductionOrderSyncJob'
   },
   {
+    syncType: 'PRODUCTION_PICK_LIST',
+    erpTableName: '生产领料单列表',
+    localTabName: 'ERP生产领料单列表',
+    handlerName: 'kingdeeProductionPickListSyncJob'
+  },
+  {
     syncType: 'PRODUCTION_MATERIAL_LIST',
     erpTableName: '生产用料清单',
     localTabName: 'ERP生产用料清单',

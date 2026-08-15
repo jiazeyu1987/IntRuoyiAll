@@ -11,6 +11,7 @@
 - [x] M3 完成正式数据链路和页面交互的最小实现。
 - [x] M4 运行前端、后端与真实路径验证并形成证据。
 - [ ] M5 清理任务产物并融合到 `int_main`。
+- [x] M6 修复 `int_main` 运行态仍加载旧 Jar、生产活跃订单接口未注册的问题。
 
 ## Expected Verification
 
@@ -21,9 +22,9 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
-实现、自动化测试、编译和只读真实页面验证已通过；写入型真实 E2E 因未提供可写测试租户及任务专用订单、设备、员工、签名等前置而按规则阻塞，未使用 admin 基线数据执行写入。待完成分支提交、融合和 worktree 清理。
+功能代码已融合进 `int_main`，用户复现的“请求地址不存在：`/admin-api/mes/pro/feedback/frontline/device-account/active-orders`”已按运行态旧 Jar 回归修复。当前 `48081` 运行 `backend-runtime-control-20260813-103152.jar`，Jar 内嵌 MES 控制器已包含 `getProductionActiveOrders`，未登录请求返回“账号未登录”，`芋道源码/admin` 登录态请求 HTTP 200、业务码 0、返回 3 条活跃订单候选；真实页面点击一线生产活跃订单卡片也触发同一接口并通过，不再出现“请求地址不存在”。任务整体仍因写入型真实 E2E 缺少任务专用可写租户和业务夹具而保持 blocked，M5 清理/最终完成暂不执行。
 
 ## Applicable Experience Gates
 

@@ -91,17 +91,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     private static final String CATEGORY_MATCH_TYPE_SUFFIX = "SUFFIX";
     private static final String CATEGORY_MATCH_TYPE_EXTENSION = "EXTENSION";
     private static final String ASSIGNMENT_EXECUTE_PERMISSION = "dcc:project-code-assignment:execute";
-    private static final String[] FULL_PROJECT_CODE_SCOPE_PERMISSIONS = {
-            "dcc:project-code:create",
-            "dcc:project-code:update",
-            "dcc:project-code:delete",
-            "dcc:project-code:import",
-            "dcc:project-code:export",
-            "dcc:project-code-assignment:assign",
-            "dcc:project-code-assignment:query",
-            "dcc:project-code-assignment:revoke",
-            "dcc:project-code-assignment:audit:query"
-    };
+    private static final String FULL_PROJECT_CODE_SCOPE_PERMISSION = "dcc:project-code:scope:all";
     private static final Map<String, List<String>> CATEGORY_MATCH_ALIASES = Map.ofEntries(
             Map.entry("临床注册路径分析", List.of("注册临床路径")),
             Map.entry("项目立项书", List.of("项目立项申请书", "项目建议书")),
@@ -220,9 +210,19 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     }
 
     @Override
+    public DccProjectCodeDO getProjectCode(Long userId, Long id) {
+        DccProjectCodeDO projectCode = getProjectCode(id);
+        List<Long> scopedProjectCodeIds = resolveAssignedProjectCodeScope(userId);
+        if (scopedProjectCodeIds != null && !scopedProjectCodeIds.contains(id)) {
+            throw exception(PROJECT_CODE_NOT_EXISTS);
+        }
+        return projectCode;
+    }
+
+    @Override
     public PageResult<DccControlledFileRespVO> getControlledFilePage(Long userId, Long id,
                                                                       DccProjectCodeControlledFilePageReqVO reqVO) {
-        getProjectCode(id);
+        getProjectCode(userId, id);
         DccControlledFilePageReqVO controlledFilePageReqVO = new DccControlledFilePageReqVO();
         controlledFilePageReqVO.setPageNo(reqVO.getPageNo());
         controlledFilePageReqVO.setPageSize(reqVO.getPageSize());
@@ -234,7 +234,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     @Override
     public List<DccProjectCodeAssociatedFileAiCategoryRespVO> getAssociatedFileAiCategoryCandidates(Long userId, Long id) {
-        getProjectCode(id);
+        getProjectCode(userId, id);
         List<Long> visibleFileIds = listVisibleAssociatedControlledFileIds(userId, id);
         if (visibleFileIds.isEmpty()) {
             return List.of();
@@ -255,7 +255,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DccProjectCodeAssociatedFileAiCategoryRespVO classifyAssociatedFileByName(Long userId, Long id, Long fileId) {
-        getProjectCode(id);
+        getProjectCode(userId, id);
         DccControlledFileDO controlledFile = controlledFileMapper.selectById(fileId);
         if (controlledFile == null || !listVisibleAssociatedControlledFileIds(userId, id).contains(fileId)) {
             throw exception(PROJECT_CODE_ASSOCIATED_FILE_NOT_EXISTS);
@@ -351,8 +351,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     }
 
     private boolean hasFullProjectCodeScope(Long userId) {
-        return permissionApi.hasAnyRolesOrSuperAdmin(userId, DccControlledFileMetadataUpdateService.DOC_CONTROL_ROLE_CODE)
-                || permissionApi.hasAnyPermissions(userId, FULL_PROJECT_CODE_SCOPE_PERMISSIONS);
+        return permissionApi.hasAnyPermissions(userId, FULL_PROJECT_CODE_SCOPE_PERMISSION);
     }
 
     private boolean hasAssignmentExecuteScope(Long userId) {

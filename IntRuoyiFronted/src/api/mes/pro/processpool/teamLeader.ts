@@ -261,6 +261,41 @@ export type TeamLeaderActiveOrderReleaseApplicationStatus =
   | 'BLOCKED'
   | 'PENDING_RELEASE_APPROVAL'
 
+export interface TeamLeaderActiveOrderProcessRemainingQuantity {
+  routeProcessId?: number
+  processId?: number
+  plannedQuantity?: number | string
+  allocatedQuantity?: number | string
+  remainingQuantity?: number | string
+}
+
+export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
+  eventId: number
+  submittedQuantity: number | string
+  submitterName: string
+  reviewerName?: string
+  submittedAt: string | number
+}
+
+export interface TeamLeaderActiveOrderProcessDetailRespVO {
+  routeProcessId: number
+  processId: number
+  processCode?: string
+  processName: string
+  requiredQuantity: number | string
+  submittedQuantity: number | string
+  submissionCount: number
+  submissions: TeamLeaderActiveOrderSubmissionDetailRespVO[]
+}
+
+export interface TeamLeaderActiveOrderDetailRespVO {
+  activeOrderId: number
+  workOrderId: number
+  workOrderCode: string
+  routeName: string
+  processes: TeamLeaderActiveOrderProcessDetailRespVO[]
+}
+
 export interface TeamLeaderActiveOrderRespVO {
   id: number
   workOrderId: number
@@ -273,6 +308,7 @@ export interface TeamLeaderActiveOrderRespVO {
   routeVersionId: number
   routeVersionNo: string
   erpFixedQuantitySnapshot?: number | string
+  processRemainingQuantities?: TeamLeaderActiveOrderProcessRemainingQuantity[]
   productionCoefficient?: number | string
   productionProgressPercent: number | string
   inspectionProgressPercent: number | string
@@ -371,7 +407,9 @@ export interface TeamLeaderReportAllocationLine {
   routeProcessId?: number
   processId?: number
   allocatedQuantity: number | string
-  allocationMode?: 'FIFO' | 'MANUAL'
+  overageQuantity?: number | string
+  needsAdjustment?: boolean
+  allocationMode?: 'FRONTLINE_SELECTED' | 'FIFO' | 'MANUAL'
   remainingQuantityBeforeAllocation?: number | string
   released?: boolean
   editable?: boolean
@@ -511,6 +549,13 @@ export const getTeamLeaderActiveOrderList = async (
   return await request.get<TeamLeaderActiveOrderRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/active-order/list',
     ignoreErrorMessage: options.ignoreErrorMessage
+  })
+}
+
+export const getTeamLeaderActiveOrderDetail = async (activeOrderId: number) => {
+  return await request.get<TeamLeaderActiveOrderDetailRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/detail',
+    params: { activeOrderId }
   })
 }
 

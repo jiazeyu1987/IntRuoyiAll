@@ -36,3 +36,5 @@
 - STASH AUDIT: stash@{0}（premerge dcc-project-code-assignment-scope overlap）除 DCC 重叠文件外还包含共享主工作区其它 staged 索引快照；其它 staged 文件仍保留，因此未 pop/drop 该 stash，避免改动并行任务。
 - EXPERIENCE: project-experience-consolidation 已执行；将 pathspec stash 的共享索引快照风险合并到现有 docs/powershell-memory.md。docs/experience-index.md 存在其它并行未暂存修改，本任务未写入该文件，避免混入无关内容；未新建长期经验文档。
 - FINAL CLEANUP PREVIEW: task_closeout.py --mode preview --worktree-closeout off -> PASS，保留 task.md、execution-log.md、verification-report.md；delete none，blocked none；仅提示已在前序 cleanup 删除的临时 evidence 不存在。
+- INDEPENDENT VERIFY: int_main HEAD d6ab49da7139d872bb5392e801413612d27ace10；implementation/closeout ancestor checks PASS，目标 DCC 文件自 994f781b6 后无改写，branch-runtime-port-guard PASS，focused Maven regression PASS（38 tests，0 failures/errors/skips，BUILD SUCCESS）。
+- INDEPENDENT VERIFY FINAL HEAD: 并行任务将 int_main 前进到 9c32e265c0fe1f3519839e0a2855ed3ebd97c041；implementation ancestor 仍成立，目标九个 DCC 源码/测试文件相对 994f781b6 仍无差异。project-experience-consolidation 复核无新增通用经验，不修改长期经验文档。

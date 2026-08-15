@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.dcc.service.projectcode.assignment;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCreateReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCandidatePageReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentCandidateRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentFilePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentFileRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.assignment.DccProjectCodeAssignmentPageReqVO;
@@ -18,6 +20,9 @@ public interface DccProjectCodeAssignmentService {
 
     PageResult<DccProjectCodeAssignmentRespVO> getMyAssignmentPage(Long userId,
                                                                    DccProjectCodeAssignmentPageReqVO reqVO);
+
+    PageResult<DccProjectCodeAssignmentCandidateRespVO> getAssignmentCandidatePage(Long userId, Long projectCodeId,
+                                                                                    DccProjectCodeAssignmentCandidatePageReqVO reqVO);
 
     PageResult<DccProjectCodeAssignmentFileRespVO> getAssignmentFilePage(Long userId, Long assignmentId,
                                                                          DccProjectCodeAssignmentFilePageReqVO reqVO);

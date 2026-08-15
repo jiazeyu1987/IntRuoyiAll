@@ -1286,7 +1286,6 @@ import {
   syncEdhrBatchExecutionStatus,
   type EdhrBatchExecutionReviewFormViewModel,
   type EdhrBatchExecutionReviewExecutionRespVO,
-  type EdhrBatchExecutionReviewSignatureRecord,
   type EdhrBatchExecutionTaskPreviewRespVO,
   type EdhrBatchReviewTimelineRespVO,
   type EdhrBatchWorkbenchRespVO,
@@ -1300,8 +1299,7 @@ import {
   precheckEdhrRelease,
   rejectEdhrRelease,
   submitEdhrRelease,
-  type EdhrReleaseCheckItemVO,
-  type EdhrReleaseEventRespVO
+  type EdhrReleaseCheckItemVO
 } from '@/api/mes/pro/edhr/release'
 import dayjs from 'dayjs'
 import { requestReopenBatch } from '@/api/mes/pro/edhr/change'
@@ -1324,9 +1322,7 @@ import {
   resolveReleaseCheckSourceObjectTypeLabel
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
 import {
-  isOptionalRouteFormTask,
-  isRequiredBatchRecordTask,
-  resolveBatchRequiredProgressText
+  isOptionalRouteFormTask
 } from './progress'
 import { buildSignatureTimePayload, createSignatureTimeForm, type EdhrSignatureTimeForm } from '../edhr/signatureTime'
 import { type BusinessActionContextVO } from '@/api/form-center/businessAction'
@@ -1336,7 +1332,6 @@ import {
 } from '@/api/form-center/actionProjection'
 import { submitTransferIntervention } from '@/api/mes/pro/edhr/flowIntervention'
 import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
-import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { generateUUID } from '@/utils'
 import { stringifyEdhrExecutionPageQuery } from '@/utils/edhrWorkTaskNavigation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
@@ -2360,12 +2355,6 @@ type ReleaseStageViewModel = {
   nextStepText: string
 }
 
-type BatchCurrentPositionDiagnosis = {
-  blockerLabel: string
-  blockerReason: string
-  nextActionText: string
-}
-
 
 type ReleaseStageActionItem = {
   key: string
@@ -2505,9 +2494,6 @@ const resolveReleaseStageViewModel = (stageKey: ReleaseStageKey): ReleaseStageVi
   }
 }
 
-const releaseStageViewModel = computed<ReleaseStageViewModel>(() =>
-  resolveReleaseStageViewModel(actualReleaseStageKey.value)
-)
 const viewedReleaseStageViewModel = computed<ReleaseStageViewModel>(() =>
   resolveReleaseStageViewModel(viewedReleaseStageKey.value || actualReleaseStageKey.value)
 )
@@ -2558,222 +2544,6 @@ const ensureViewedReleaseStageWritable = (targetText = '当前动作') => {
   releaseSignatureError.value = errorText
   message.error(errorText)
   return false
-}
-
-const normalizePositionText = (value: unknown) => (value == null ? '' : String(value).trim())
-
-const resolveNameWithCode = (name: unknown, code: unknown) => {
-  const normalizedName = normalizePositionText(name)
-  const normalizedCode = normalizePositionText(code)
-  if (normalizedName && normalizedCode && normalizedName !== normalizedCode) {
-    return `${normalizedName}（${normalizedCode}）`
-  }
-  return normalizedName || normalizedCode
-}
-
-const resolveCurrentProcessStepLabel = () => {
-  const currentProcessLabel = resolveNameWithCode(detail.value?.currentProcessName, detail.value?.currentProcessCode)
-  if (currentProcessLabel) return currentProcessLabel
-
-  const selectedTask = selectedTaskForEvidence.value
-  if (selectedTask) {
-    const selectedTaskProcessLabel = resolveNameWithCode(selectedTask.processName, selectedTask.processCode)
-    if (selectedTaskProcessLabel) return selectedTaskProcessLabel
-    const selectedTaskTitle = resolvePendingTaskTitle(selectedTask)
-    if (selectedTaskTitle && selectedTaskTitle !== '--') return selectedTaskTitle
-  }
-
-  return releaseStageViewModel.value.stageLabel || '--'
-}
-
-const resolveCurrentPositionTaskLabel = () => {
-  const selectedTask = selectedTaskForEvidence.value
-  if (selectedTask) {
-    const selectedTaskName = resolveTaskDisplayName(selectedTask)
-    if (selectedTaskName && selectedTaskName !== '--') return selectedTaskName
-  }
-
-  const selectedExecutionName = normalizePositionText(
-    selectedExecution.value?.batchRecordReportName ||
-      selectedExecution.value?.batchRecordReportCode ||
-      selectedExecution.value?.batchRecordReportId
-  )
-  if (selectedExecutionName) return selectedExecutionName
-
-  if (isReleaseProcessSelected.value) return RELEASE_VIRTUAL_PROCESS.label
-  return '--'
-}
-
-const resolveCurrentProcessOwnerGroupsText = () => {
-  const groups = [
-    ['生产', detail.value?.currentProcessProductionFillers],
-    ['设备', detail.value?.currentProcessEquipmentFillers],
-    ['质量', detail.value?.currentProcessQualityFillers]
-  ]
-    .map(([label, fillers]) => {
-      const names = resolveFillerNames(fillers as EdhrBatchExecutionRespVO['currentProcessProductionFillers'])
-      return names ? `${label}：${names}` : ''
-    })
-    .filter(Boolean)
-  return groups.join('；')
-}
-
-const resolveCurrentPositionOwnerLabel = () => {
-  const processOwnerLabel = resolveCurrentProcessOwnerGroupsText()
-  return (
-    releaseStageViewModel.value.nextOwnerLabel ||
-    processOwnerLabel ||
-    resolveReleaseOwnerRoleLabel(workbench.value?.stageOwnerRole || detail.value?.stageOwnerRole) ||
-    '当前阶段责任人'
-  )
-}
-
-const compactPositionText = (items: unknown[]) => {
-  const normalized = items
-    .flatMap((item) => (Array.isArray(item) ? item : [item]))
-    .map((item) => normalizePositionText(item))
-    .filter(Boolean)
-  return Array.from(new Set(normalized))
-}
-
-const resolveCurrentPositionBlockers = () =>
-  compactPositionText([
-    detail.value?.closeBlockers,
-    detail.value?.stageBlockers,
-    workbench.value?.stageBlockers
-  ])
-
-const hasCurrentPositionBlockers = () => resolveCurrentPositionBlockers().length > 0
-
-const resolveCurrentPositionBlockerReason = (fallbackReason: string) => {
-  const blockers = resolveCurrentPositionBlockers()
-  if (!blockers.length) return fallbackReason
-  const visibleBlockers = blockers.slice(0, 2).join('；')
-  return blockers.length > 2 ? `${visibleBlockers}；另有 ${blockers.length - 2} 项阻塞` : visibleBlockers
-}
-
-const closeBlockerStatePattern = /未完成|未提交|未签名|未处理|待处理|缺失|不完整|阻塞|失败|异常|PENDING|BLOCKED/i
-
-const normalizeCurrentBlockingStepCandidate = (rawText: string) => {
-  let candidate = normalizePositionText(rawText)
-  if (!candidate) return ''
-
-  const statusIndex = candidate.search(closeBlockerStatePattern)
-  if (statusIndex > 0) candidate = candidate.slice(0, statusIndex)
-  candidate = normalizePositionText(candidate.replace(/[：:].*$/, ''))
-  candidate = normalizePositionText(candidate.replace(/(卷宗项|检查项|工序|待办|任务|表单)$/g, ''))
-
-  if (!candidate || candidate.length > 20 || /批次|存在|证据|关闭/.test(candidate)) return ''
-  return candidate
-}
-
-const resolveCurrentBlockingStepFromText = (blocker: string) => {
-  const blockerText = normalizePositionText(blocker)
-  if (!blockerText) return ''
-
-  const segments = blockerText
-    .split(/[；;，,。]/)
-    .map((segment) => normalizePositionText(segment))
-    .filter(Boolean)
-  const matchedSegments = segments.filter((segment) => closeBlockerStatePattern.test(segment))
-  const sourceSegment = matchedSegments.length
-    ? matchedSegments[matchedSegments.length - 1]
-    : segments[segments.length - 1] || blockerText
-  const detailSegment = sourceSegment.includes('：')
-    ? sourceSegment.slice(sourceSegment.lastIndexOf('：') + 1)
-    : sourceSegment
-
-  return normalizeCurrentBlockingStepCandidate(detailSegment)
-}
-
-const resolveCurrentBlockingStepLabel = () => {
-  // 示例：成品检卷宗项未完成: PENDING -> 成品检。
-  for (const blocker of resolveCurrentPositionBlockers()) {
-    const stepLabel = resolveCurrentBlockingStepFromText(blocker)
-    if (stepLabel) return stepLabel
-  }
-  return '预检前检查'
-}
-
-const resolveCurrentPositionDiagnosis = (currentStepLabel: string): BatchCurrentPositionDiagnosis => {
-  const stageKey = releaseStageViewModel.value.key
-  const currentStepSuffix =
-    currentStepLabel && currentStepLabel !== '--' && currentStepLabel !== releaseStageViewModel.value.stageLabel
-      ? `：${currentStepLabel}`
-      : ''
-
-  if (stageKey === 'quality-terminal') {
-    return {
-      blockerLabel: '质量已拒收',
-      blockerReason: '质量已拒收，不能继续普通放行审批。',
-      nextActionText: '联系质量负责人确认拒收结论；如属误拒收，按重开流程处理。'
-    }
-  }
-
-  if (stageKey === 'archived') {
-    return {
-      blockerLabel: '流程已完成',
-      blockerReason: '批次已归档，普通放行链路已结束。',
-      nextActionText: '如需核对证据，请查看右侧追溯记录或归档文件。'
-    }
-  }
-
-  if (stageKey === 'release-approval') {
-    return {
-      blockerLabel: '等待放行',
-      blockerReason: '预检已通过，当前可执行拒收或电子签名放行。',
-      nextActionText: '确认预检列表后，在右侧点击“拒收”或“放行”。'
-    }
-  }
-
-  if (stageKey === 'archive') {
-    return {
-      blockerLabel: '等待归档打印',
-      blockerReason: '放行已完成，最终归档还未生成或封存。',
-      nextActionText: '联系归档员在右侧“归档打印”中生成、打印或下载归档。'
-    }
-  }
-
-  if (stageKey === 'precheck') {
-    if (batchStatus.value === EDHR_BATCH_STATUS_READY_TO_CLOSE && hasCurrentPositionBlockers()) {
-      return {
-        blockerLabel: resolveCurrentBlockingStepLabel(),
-        blockerReason: resolveCurrentPositionBlockerReason('批次还有预检前置项未完成，暂时不能进入正式放行。'),
-        nextActionText: '先处理上述阻塞项；处理完成后点击“同步状态”，再执行主区域“预检”并按结果放行。'
-      }
-    }
-
-    if (batchStatus.value === EDHR_BATCH_STATUS_REWORK_REQUIRED) {
-      return {
-        blockerLabel: `返工收尾未完成${currentStepSuffix}`,
-        blockerReason: resolveCurrentPositionBlockerReason('批次存在返工或需修订任务，尚未满足预检条件。'),
-        nextActionText: '先处理返工/修订任务；完成后点击“同步状态”，满足条件后执行预检/放行。'
-      }
-    }
-
-    if (
-      batchStatus.value === EDHR_BATCH_STATUS_IN_PROGRESS ||
-      batchStatus.value === EDHR_BATCH_STATUS_CREATED
-    ) {
-      return {
-        blockerLabel: `工序收尾未完成${currentStepSuffix}`,
-        blockerReason: resolveCurrentPositionBlockerReason('当前工序或必填表单还未全部收尾，批次尚未满足预检条件。'),
-        nextActionText: '先完成当前工序/表单；完成后点击“同步状态”，满足条件后执行预检/放行。'
-      }
-    }
-
-    return {
-      blockerLabel: '等待放行预检',
-      blockerReason: resolveCurrentPositionBlockerReason(resolveReleasePrecheckSummary() || '尚未通过放行预检。'),
-      nextActionText: '点击主区域“预检”，处理失败项后重新执行预检；通过后在右侧放行。'
-    }
-  }
-
-  return {
-    blockerLabel: '状态待确认',
-    blockerReason: '当前批次状态未被放行阶段识别，需要先核对后端状态和工作台摘要。',
-    nextActionText: '联系当前阶段责任人或系统管理员核对状态数据后再推进。'
-  }
 }
 
 const qualityTerminalReleaseActionItems = (): ReleaseStageActionItem[] => [
@@ -2887,14 +2657,6 @@ type ProcessEvidenceGroup = {
   items: ProcessEvidenceItem[]
 }
 
-type SignoffSummaryRecord = {
-  key: string
-  actorName: string
-  actionType: string
-  signedAtText: string
-  signedAtSort: number
-}
-
 
 type TraceRecordFieldResponsibilityEntry = {
   key: string
@@ -2916,8 +2678,6 @@ type FillCarrier = 'FORM' | 'RECORDBOOK' | 'UNCONFIGURED'
 const RECORDBOOK_UNRESTRICTED_FILL_MODE = 'RECORDBOOK_UNRESTRICTED'
 const selectedFillCarrier = ref<Exclude<FillCarrier, 'UNCONFIGURED'>>()
 
-const FILL_SIGNOFF_ACTION_TYPES = ['FIELD_CHANGE', 'SUBMIT']
-const SUBMIT_SIGNOFF_ACTION_TYPES = ['SUBMIT']
 
 const appendDefinedQuery = (query: Record<string, string>, key: string, value: unknown) => {
   if (value == null || value === '') return
@@ -3239,42 +2999,6 @@ const selectedProcessEvidenceItems = computed<ProcessEvidenceItem[]>(() => {
   ]
 })
 
-const resolveSignoffDisplayTime = (record: EdhrBatchExecutionReviewSignatureRecord) =>
-  record.signatureDisplayAt || record.selectedSignedAt || record.signedAt
-
-const normalizeSignoffRecord = (
-  record: EdhrBatchExecutionReviewSignatureRecord
-): SignoffSummaryRecord => {
-  const displayTime = resolveSignoffDisplayTime(record)
-  const parsedTime = displayTime ? dayjs(displayTime) : undefined
-  return {
-    key: String(record.id || `${record.actionType || 'SIGN'}-${record.actorId || record.actorName || 'UNKNOWN'}-${displayTime || 'NO_TIME'}`),
-    actorName: record.actorName || '未知人员',
-    actionType: record.actionType || '',
-    signedAtText: formatReviewTime(displayTime),
-    signedAtSort: parsedTime?.isValid() ? parsedTime.valueOf() : Number.MAX_SAFE_INTEGER
-  }
-}
-
-const compareSignoffRecords = (left: SignoffSummaryRecord, right: SignoffSummaryRecord) =>
-  left.signedAtSort - right.signedAtSort || left.key.localeCompare(right.key)
-
-const fillSignoffRecords = computed<SignoffSummaryRecord[]>(() => {
-  const records = selectedExecution.value?.signatureRecords || []
-  return records
-    .filter((record) => FILL_SIGNOFF_ACTION_TYPES.includes(record.actionType || ''))
-    .map(normalizeSignoffRecord)
-    .sort(compareSignoffRecords)
-})
-
-const submitSignoffRecords = computed<SignoffSummaryRecord[]>(() => {
-  const records = selectedExecution.value?.signatureRecords || []
-  return records
-    .filter((record) => SUBMIT_SIGNOFF_ACTION_TYPES.includes(record.actionType || ''))
-    .map(normalizeSignoffRecord)
-    .sort(compareSignoffRecords)
-})
-
 const selectedProcessEvidenceGroups = computed<ProcessEvidenceGroup[]>(() => {
   const evidenceItems = selectedProcessEvidenceItems.value
   const resolveItems = (itemKeys: string[]) =>
@@ -3552,9 +3276,12 @@ const resolvePendingTaskFillableUsersText = (row: EdhrBatchExecutionTaskRespVO) 
 }
 
 const resolveTaskCardFillersText = (row: EdhrBatchExecutionTaskRespVO) => {
-  const names = compactPositionText(
-    (row.fillableUsers || []).map((user) =>
-      user.displayName || (user.userId == null ? '' : String(user.userId))
+  const names = Array.from(
+    new Set(
+      (row.fillableUsers || [])
+        .map((user) => user.displayName || (user.userId == null ? '' : String(user.userId)))
+        .map((name) => name.trim())
+        .filter(Boolean)
     )
   )
   return names.length ? names.join('、') : '未配置'
@@ -3974,8 +3701,6 @@ const formatReviewTime = (value?: string | number | null) => {
   return candidate.isValid() ? candidate.format('YYYY-MM-DD HH:mm:ss') : String(value)
 }
 
-const resolveReleasePrecheckSummary = () => workbench.value?.releaseSummary?.precheckSummary || '尚未执行放行预检。'
-
 const resolveReleaseStatusSummary = () => workbench.value?.releaseSummary?.releaseStatusLabel || '尚未进入放行审批。'
 
 const resolveStageAwareReleaseStatusSummary = (stageKey: ReleaseStageKey = resolveReleaseStageKey()) => {
@@ -4274,10 +3999,6 @@ const loadDetail = async () => {
       loading.value = false
     }
   }
-}
-
-const backToList = async () => {
-  await router.push({ path: '/mes/pro/feedback/edhr-batch-execution' })
 }
 
 const handleSync = async () => {

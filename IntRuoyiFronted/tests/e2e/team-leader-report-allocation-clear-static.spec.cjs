@@ -16,7 +16,7 @@ assert.match(
 
 assert.match(
   page,
-  /const\s+clearAllocationQuantity\s*=\s*\(line:\s*TeamLeaderReportAllocationDraftLine\)\s*=>\s*\{[\s\S]*line\.editable === false[\s\S]*return[\s\S]*line\.allocatedQuantity\s*=\s*0[\s\S]*markManualAllocation\(\)/,
+  /const\s+clearAllocationQuantity\s*=\s*\(line:\s*TeamLeaderReportAllocationDraftLine\)\s*=>\s*\{[\s\S]*line\.editable === false[\s\S]*return[\s\S]*line\.allocatedQuantity\s*=\s*0[\s\S]*markManualAllocation\(line\)/,
   'clear handler must set only the clicked editable row allocatedQuantity to 0 and mark manual allocation.'
 )
 

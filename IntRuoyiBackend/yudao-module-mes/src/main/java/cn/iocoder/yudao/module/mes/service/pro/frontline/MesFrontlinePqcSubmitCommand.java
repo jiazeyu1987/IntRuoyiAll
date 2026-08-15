@@ -28,6 +28,7 @@ public class MesFrontlinePqcSubmitCommand {
     private Integer roundNo;
     private Integer actualInspectionQuantity;
     private Long actualEmployeeId;
+    private Long productionSubmitEventId;
     private Long deviceAccountId;
     private Long deviceId;
     private Long workstationId;

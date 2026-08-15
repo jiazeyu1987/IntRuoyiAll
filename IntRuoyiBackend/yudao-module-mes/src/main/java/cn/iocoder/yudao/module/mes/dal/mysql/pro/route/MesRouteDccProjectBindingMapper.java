@@ -8,6 +8,8 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.List;
+
 @Mapper
 public interface MesRouteDccProjectBindingMapper extends BaseMapperX<MesRouteDccProjectBindingDO> {
 
@@ -20,6 +22,12 @@ public interface MesRouteDccProjectBindingMapper extends BaseMapperX<MesRouteDcc
         return selectOne(new LambdaQueryWrapperX<MesRouteDccProjectBindingDO>()
                 .eq(MesRouteDccProjectBindingDO::getRouteId, routeId)
                 .last("FOR UPDATE"));
+    }
+
+    default List<MesRouteDccProjectBindingDO> selectCurrentListByDccProjectCodeId(Long dccProjectCodeId) {
+        return selectList(new LambdaQueryWrapperX<MesRouteDccProjectBindingDO>()
+                .eq(MesRouteDccProjectBindingDO::getDccProjectCodeId, dccProjectCodeId)
+                .orderByAsc(MesRouteDccProjectBindingDO::getRouteId));
     }
 
     @Select("SELECT COALESCE(MAX(version), 0) FROM mes_pro_route_dcc_project_binding "

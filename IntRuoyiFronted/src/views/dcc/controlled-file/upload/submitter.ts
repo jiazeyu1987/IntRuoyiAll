@@ -17,7 +17,7 @@ export interface UploadFormDraft {
   fileTypeTaxonomyId: number | null
   revisionTargetControlledFileId: number | null
   needTraining: boolean
-  selectedSignoffUserIds?: number[]
+  selectedSignoffUserIds: number[]
   processType: 'CONTROLLED_FILE' | 'EXTERNAL_REVIEW'
   changeType: ControlledFileChangeType
   versionNo: string

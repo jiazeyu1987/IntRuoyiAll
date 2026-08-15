@@ -8,7 +8,8 @@ const readUtf8 = (relativePath) => fs.readFileSync(path.join(repoRoot, relativeP
 const page = readUtf8('src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
 const api = readUtf8('src/api/mes/pro/processpool/teamLeader.ts')
 
-const reviewDialogStart = page.indexOf('<el-dialog v-model="reviewVisible"')
+const reviewDialogMatch = page.match(/<el-dialog\s+[\s\S]*?v-model="reviewVisible"/)
+const reviewDialogStart = reviewDialogMatch?.index ?? -1
 assert(reviewDialogStart >= 0, '组长复核/分配弹窗必须存在。')
 const correctionDialogStart = page.indexOf('data-production-report-correction-dialog', reviewDialogStart)
 assert(correctionDialogStart > reviewDialogStart, '必须能定位到分配弹窗结束边界。')

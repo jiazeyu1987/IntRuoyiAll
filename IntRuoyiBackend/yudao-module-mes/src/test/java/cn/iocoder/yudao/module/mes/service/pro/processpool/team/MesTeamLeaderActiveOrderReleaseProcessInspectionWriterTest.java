@@ -197,7 +197,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     @Test
-    void choiceAggregateKeepsItsFormalMeasuredValueDuringSideEffectFreePlan() {
+    void booleanAggregateKeepsItsFormalMeasuredValueDuringSideEffectFreePlan() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
         MesPqcProcessInspectionAggregateDetailDO detail = source.getAggregateDetails().get(0);
@@ -205,7 +205,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         detail.setStandardUpperLimit(null);
         detail.setStandardUnit(null);
         detail.setStandardPrecision(null);
-        detail.setResultType("CHOICE");
+        detail.setResultType("BOOLEAN");
         detail.setItemResult("合格");
         detail.setMeasuredValue("合格");
         MesQaInspectionRegulationItemDO item = source.getRegulationItems().get(0);
@@ -213,7 +213,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         item.setStandardUpperLimit(null);
         item.setStandardUnit(null);
         item.setStandardPrecision(null);
-        item.setResultType("CHOICE");
+        item.setResultType("BOOLEAN");
         when(reader.read(command)).thenReturn(bundle(source));
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any())).thenReturn(List.of(binding()));
         List<MesProBatchRecordCellLinkRuleDO> choiceRules = new ArrayList<>(rules());
@@ -467,7 +467,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .selectedEquipmentId(10001L).selectedEquipmentCode("EQ-P").selectedEquipmentName("压力表")
                 .selectedEquipmentNumber("EQ-P-01").standardLowerLimit(new BigDecimal("10.0"))
                 .standardUpperLimit(new BigDecimal("11.0")).standardUnit("MPa").standardPrecision(1)
-                .resultType("NUMBER").itemResult("10.5").measuredValue("10.5")
+                .resultType("NUMERIC").itemResult("10.5").measuredValue("10.5")
                 .judgement(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
                 .aggregatedAt(LocalDateTime.of(2026, 8, 9, 10, 12, 13)).build();
         detail.setTenantId(TENANT_ID);
@@ -496,7 +496,8 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .reviewSignatureSnapshotJson("pqc-review-signature-evidence").build();
         review.setTenantId(TENANT_ID);
         MesQaInspectionRegulationDO regulation = MesQaInspectionRegulationDO.builder()
-                .id(REGULATION_ID).productId(PRODUCT_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                .id(REGULATION_ID).dccProjectCodeId(705L)
+                .productId(PRODUCT_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                 .routeProcessId(ROUTE_PROCESS_ID).processId(PROCESS_ID)
                 .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
                 .lifecycleStatus("PUBLISHED").currentVersionId(REGULATION_VERSION_ID).build();
@@ -511,7 +512,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .itemCode("PRESSURE").itemName("压力").inspectionMethod("压力表测量")
                 .standardText("10.0-11.0 MPa").standardLowerLimit(new BigDecimal("10.0"))
                 .standardUpperLimit(new BigDecimal("11.0")).standardUnit("MPa").standardPrecision(1)
-                .equipmentRequired(true).resultType("NUMBER").build();
+                .equipmentRequired(true).resultType("NUMERIC").build();
         item.setTenantId(TENANT_ID);
         MesQaInspectionRegulationItemEquipmentDO equipment = MesQaInspectionRegulationItemEquipmentDO.builder()
                 .id(704L).regulationVersionId(REGULATION_VERSION_ID).inspectionType("PQC")

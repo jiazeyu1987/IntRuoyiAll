@@ -98,8 +98,8 @@ assert.match(optionFormatter, /order\.quantity|order\.erpFixedQuantitySnapshot/,
 const allocationSelect = sliceAllocationSelect()
 assert.match(
   allocationSelect,
-  /v-for="order in allocatableActiveOrderOptions"[\s\S]*data-team-leader-active-order-option/,
-  '手动分配活跃订单下拉必须渲染可测试的业务信息选项。'
+  /v-for="order in getAvailableAllocationOrderOptions\(row\)"[\s\S]*data-team-leader-active-order-option/,
+  '手动分配活跃订单下拉必须渲染当前行仍可选择的业务信息选项。'
 )
 assert.match(
   allocationSelect,

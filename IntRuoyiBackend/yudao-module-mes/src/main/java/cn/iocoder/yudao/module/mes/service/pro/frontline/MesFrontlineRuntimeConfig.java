@@ -8,5 +8,8 @@ public record MesFrontlineRuntimeConfig(Long routeId,
                                         List<MesFrontlineTeamEmployeeOption> employees,
                                         List<MesFrontlineTeamDeviceOption> devices,
                                         List<MesFrontlineDefectReasonOption> defectReasons,
-                                        MesFrontlineProductionSubmitContext productionSubmitContext) {
+                                        MesFrontlineProductionSubmitContext productionSubmitContext,
+                                        List<MesFrontlineEmployeeSwitchResult> employeeSwitchSnapshots,
+                                        String frontlineSessionSnapshotId,
+                                        String frontlineSessionSnapshotHash) {
 }

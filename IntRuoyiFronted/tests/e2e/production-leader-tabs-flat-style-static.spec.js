@@ -24,7 +24,7 @@ const assertProductionTabs = (block, label) => {
     /class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"[\s\S]*data-production-leader-module-tabs/,
     `${label} must render production module tabs with the shared flat underline style.`
   )
-  for (const tabLabel of ['人员管理', '报工管理', '活跃订单池', '看板', '工序配置']) {
+  for (const tabLabel of ['人员管理', '报工管理', '报工历史', '活跃订单池', '工序配置']) {
     assert.match(block, new RegExp(`label="${tabLabel}"`), `${label} must keep ${tabLabel} tab visible.`)
   }
 }
@@ -81,14 +81,13 @@ assert.ok(
 const dashboardBlock = sliceContentWrapByMarker('data-role-matrix-daily-close')
 assert.match(
   dashboardBlock,
-  /'team-leader-workbench__production-module-card':\s*showProductionModuleTabs/,
-  '看板 content card must use compact production module card padding.'
+  /v-if="showLegacyDailyCloseDashboardModule"/,
+  '日结看板必须只通过旧班组长页面的正式门禁显示。'
 )
-assertProductionTabs(dashboardBlock, '看板')
-assert.ok(
-  dashboardBlock.indexOf('data-production-leader-module-tabs') <
-    dashboardBlock.indexOf('team-leader-workbench__daily-close-grid'),
-  '看板 module tabs must appear before the dashboard list area.'
+assert.doesNotMatch(
+  dashboardBlock,
+  /data-production-leader-module-tab-dashboard|data-pqc-leader-module-tab-dashboard/,
+  '日结看板内容块不得再提供生产组长或 PQC 的看板页签。'
 )
 
 assert.doesNotMatch(source, /data-production-leader-module-tab-exception|showProductionExceptionModule/,

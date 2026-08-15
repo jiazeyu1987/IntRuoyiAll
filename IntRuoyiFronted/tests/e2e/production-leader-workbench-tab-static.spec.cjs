@@ -24,38 +24,71 @@ const productionTabStripCount = (teamLeaderWorkbench.match(/data-production-lead
 const workbenchTabCount = (
   teamLeaderWorkbench.match(/data-production-leader-module-tab-workbench(?=[\s/>])/g) || []
 ).length
+const dashboardTabCount = (
+  teamLeaderWorkbench.match(/data-production-leader-module-tab-dashboard(?=[\s/>])/g) || []
+).length
+const expectedProductionTabs = [
+  ['人员管理', 'personnel', 'personnel'],
+  ['报工管理', 'report', 'report'],
+  ['报工历史', 'reportHistory', 'report-history'],
+  ['活跃订单池', 'activeOrder', 'active-order'],
+  ['工序配置', 'processConfig', 'process-config']
+]
 
 assert.ok(productionTabStripCount > 0, '生产组长模块 tabs 必须存在。')
 assert.equal(
   workbenchTabCount,
-  productionTabStripCount,
-  '生产组长工作台 tab 必须同步出现在所有生产组长模块 tab 条中，不能只改当前可见块。'
+  0,
+  '所有生产组长模块 tab 条都必须移除“生产组长工作台”。'
+)
+assert.equal(
+  dashboardTabCount,
+  0,
+  '所有生产组长模块 tab 条都必须移除“看板”。'
 )
 
-assert.match(
+for (const [label, name, selectorSuffix] of expectedProductionTabs) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const tabCount = (
+    teamLeaderWorkbench.match(
+      new RegExp(
+        `<el-tab-pane\\s+label="${escapedLabel}"\\s+name="${escapedName}"\\s+data-production-leader-module-tab-${selectorSuffix}\\s*\\/>`,
+        'g'
+      )
+    ) || []
+  ).length
+  assert.equal(tabCount, productionTabStripCount, `${label}必须保留在全部生产组长模块 tab 条中。`)
+}
+
+assert.doesNotMatch(
   teamLeaderWorkbench,
-  /<el-tab-pane\s+label="生产组长工作台"\s+name="workbench"\s+data-production-leader-module-tab-workbench\s*\/>/,
-  '生产组长模块 tabs 必须提供“生产组长工作台”tab。'
+  /生产组长工作台|showProductionWorkbenchModule|showProductionDashboardModule|tab\s*===\s*'workbench'/
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*'workbench'[\s\S]*>\('report'\)/,
-  'activeProductionModuleTab 类型必须包含 workbench，默认进入报工管理。'
+  /const\s+activeProductionModuleTab\s*=\s*ref<[\s\S]*'processConfig'[\s\S]*>\('report'\)/,
+  'activeProductionModuleTab 必须保留剩余模块类型，并默认进入报工管理。'
+)
+assert.doesNotMatch(
+  teamLeaderWorkbench,
+  /data-pqc-leader-module-tab-dashboard|activePqcModuleTab\.value\s*===\s*'dashboard'|showPqcDashboardModule/,
+  'PQC 组长看板页签和专属状态必须移除。'
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+showProductionWorkbenchModule\s*=\s*computed\([\s\S]*isProductionLeader\.value[\s\S]*activeProductionModuleTab\.value\s*===\s*'workbench'[\s\S]*\)/,
-  '生产组长工作台内容必须由独立 workbench gate 控制。'
+  /const\s+showLegacyDailyCloseDashboardModule\s*=\s*computed\(\s*\(\)\s*=>\s*isProductionLeader\.value\s*&&\s*!showProductionModuleTabs\.value\s*\)/,
+  '旧班组长日结看板必须继续保留，生产组长和 PQC 内部页签模式不得进入该看板。'
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+showPqcManagementModule\s*=\s*computed\([\s\S]*showProductionWorkbenchModule\.value[\s\S]*showProductionReportModule\.value[\s\S]*activePqcModuleTab\.value\s*===\s*'management'/,
-  '生产组长工作台 tab 必须复用现有报工工作台内容，但不能破坏 PQC 管理 gate。'
+  /const\s+showPqcManagementModule\s*=\s*computed\([\s\S]*showProductionReportModule\.value[\s\S]*showProductionReportHistoryModule\.value[\s\S]*activePqcModuleTab\.value\s*===\s*'management'/,
+  '移除重复工作台页签后，报工管理与 PQC 管理 gate 必须保持完整。'
 )
 assert.match(
   teamLeaderWorkbench,
-  /watch\(activeProductionModuleTab,\s*async\s*\(tab\)\s*=>\s*\{[\s\S]*tab\s*===\s*'workbench'[\s\S]*tab\s*===\s*'report'[\s\S]*activeLeaderTab\.value\s*===\s*'PRODUCTION'[\s\S]*queryParams\.leaderType\s*=\s*'PRODUCTION'[\s\S]*await\s+getSubmissionList\(\)[\s\S]*\}\)/,
-  '切换到生产组长工作台 tab 时必须按生产组长上下文加载正式报工工作台列表。'
+  /watch\(activeProductionModuleTab,\s*async\s*\(tab\)\s*=>\s*\{[\s\S]*tab\s*===\s*'report'[\s\S]*tab\s*===\s*'reportHistory'[\s\S]*activeLeaderTab\.value\s*===\s*'PRODUCTION'[\s\S]*queryParams\.leaderType\s*=\s*'PRODUCTION'[\s\S]*await\s+getSubmissionList\(\)[\s\S]*\}\)/,
+  '切换报工管理或报工历史时必须继续按生产组长上下文加载正式列表。'
 )
 
-console.log('PASS: production leader workbench tab static contract')
+console.log('PASS: production leader workbench tab removal static contract')

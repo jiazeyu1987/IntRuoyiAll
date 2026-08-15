@@ -39,11 +39,11 @@
 ### 隔离验证 Worktree 编译基线差异门禁
 
 - Trigger: 隔离验证 worktree 应用当前任务 diff 后，Maven 在目标 Surefire 前被非当前任务源码或测试编译错误阻塞；常见于主工作区已有并行 compile baseline 但新 worktree 基于较旧 HEAD。
-- Preflight check: 先用目标 Maven 失败日志定位阻塞文件，再从主工作区读取该文件的精确 diff；只允许同步已存在于主工作区、且为到达当前任务目标测试所必需的最小编译基线，并在任务日志中标注为 verification unblocker。
-- Blocker: 编译阻塞需要业务语义判断、主工作区没有对应已验证 diff、基线 diff 会改变当前任务目标行为、或无法区分当前任务 deliverable 与验证环境补丁时必须停止；不得继续扩大同步范围。
-- Verification: 记录每个 baseline patch 的来源文件、`git apply --check` 结果、首次失败摘要、补齐后的目标 Maven PASS 摘要，以及验证 worktree `git status --short --branch` 中这些差异仍被标注为非当前 deliverable。
-- Forbidden action: 禁止把无关 compile baseline 混入当前任务实现结论、禁止用整仓 patch 或 `git add -A` 复制并行改动、禁止把未到达 Surefire 的编译通过写成目标测试通过、禁止在最终提交时不区分当前任务和 verification unblocker。
-- Evidence: `doc/tasks/20260805-ac-m19-deterministic-backfill/verification-report.md`，AC-M19 新 worktree 验证中先后同步主工作区 QA/PQC 最小编译基线，解除非 AC-M19 编译阻塞后目标 Maven 两组 JUnit 均 PASS；`doc/tasks/20260805-ac-m18-progress-repair/verification-report.md`，AC-M18 隔离 worktree 先补主工作区 QA/PQC 编译前置，再到达并通过目标 AC-M18 Surefire。
+- Preflight check: 先用目标 Maven 失败日志定位阻塞文件，再从主工作区读取该文件的精确 diff；只允许同步已存在于主工作区、且为到达当前任务目标测试所必需的最小编译基线，并在任务日志中标注为 verification unblocker。隔离源码范围还必须包含后端根级构建配置，例如 `lombok.config`；缺少该文件会让正式的链式 setter 在隔离编译中变成 `void`，产生大面积伪编译错误。若必须临时覆盖 dirty 基线，应用前必须生成逐文件清单，至少记录相对路径、原文件是否存在、原始 SHA-256 和覆盖 SHA-256；运行验证后按清单精确恢复原有文件、删除覆盖新增文件，并再次逐项验证原始哈希或不存在状态。
+- Blocker: 编译阻塞需要业务语义判断、主工作区没有对应已验证 diff、基线 diff 会改变当前任务目标行为、无法区分当前任务 deliverable 与验证环境补丁，或隔离目录缺少根级构建配置时必须停止；不得继续扩大同步范围或把隔离前置缺失写成源码失败。
+- Verification: 记录每个 baseline patch 的来源文件、`git apply --check` 结果、根级构建配置清单、首次失败摘要、补齐后的目标 Maven PASS 摘要，以及验证 worktree `git status --short --branch` 中这些差异仍被标注为非当前 deliverable。使用覆盖清单时还必须记录总项数、恢复原有文件数、删除覆盖新增文件数、哈希/存在性错误数和最终端口/进程状态。
+- Forbidden action: 禁止把无关 compile baseline 混入当前任务实现结论、禁止用整仓 patch 或 `git add -A` 复制并行改动、禁止把未到达 Surefire 的编译通过写成目标测试通过、禁止在最终提交时不区分当前任务和 verification unblocker；禁止依赖人工记忆恢复、整目录覆盖或在未通过清单核验时提交/清理 worktree。
+- Evidence: `doc/tasks/20260805-ac-m19-deterministic-backfill/verification-report.md`，AC-M19 新 worktree 验证中先后同步主工作区 QA/PQC 最小编译基线，解除非 AC-M19 编译阻塞后目标 Maven 两组 JUnit 均 PASS；`doc/tasks/20260805-ac-m18-progress-repair/verification-report.md`，AC-M18 隔离 worktree 先补主工作区 QA/PQC 编译前置，再到达并通过目标 AC-M18 Surefire；`doc/tasks/20260813-concurrent-regression-repair-reverify/verification-report.md`，隔离源码首次漏掉根级 `lombok.config` 时产生大面积链式 setter 伪错误，补齐正式配置后 2654 个主源码编译和 26 项定向测试全部通过；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md`，临时运行覆盖 36 项在真实 E2E 后恢复 13 个原有文件并删除 23 个覆盖新增文件，逐项核验错误数为 0。
 
 ## 多 Worktree 批量融合门禁
 
@@ -73,6 +73,15 @@
 - Forbidden action: 禁止删除 untracked 文件来绕过 merge 保护；禁止用整文件 `ours/theirs` 覆盖任务日志；禁止把溢出内容混入后续实现提交。
 - Evidence: `doc/tasks/20260730-production-line-process-pool-implementation/execution-log.md`，F2 子任务溢出文件先独立提交为 `028e2904`，随后再合并 F1/F2 分支并运行目标测试。
 
+### 并行子 Agent 控制权隔离门禁
+
+- Trigger: 多个子 Agent 并行执行实现、修复、独立验证或收尾，尤其是 reviewer/tester/finisher 同时存在；出现同级 Agent 误中断、误恢复、误调度其它任务，或把其它 Agent 的无输出误判为当前任务阻塞。
+- Preflight check: 子 Agent 只能汇报本任务状态、运行本任务命令、读写本任务 worktree 和任务文档；需要中断、恢复、重新派发或等待其它 Agent 时必须交给 root/supervisor 统一执行。root/supervisor 在恢复长任务前先用 `list_agents` 核对所有 Agent 状态，用 `wait_agent` 等待结果；不得用 exec 嵌套协作工具或用普通命令轮询替代协作状态。
+- Blocker: 子 Agent 已经中断或调度了非本任务 Agent、无法确认其它 Agent 是否还有长跑命令、或同一 worktree 出现两个写入 owner 时，必须停止该子 Agent 的调度动作并由 root/supervisor 重新建立唯一 owner。
+- Verification: supervisor 记录每个 Agent 的最终状态、最后真实命令结果和是否存在长跑 session；被误中断的任务必须重新触发独立验证并取得 PASS/FAIL 报告后才能继续合并或收尾。
+- Forbidden action: 禁止 reviewer/tester/worker 主动 interrupt、followup 或重派同级 Agent；禁止把其它 Agent 的 interrupted 状态当作任务失败或成功；禁止在未确认唯一 owner 前继续写同一 worktree。
+- Evidence: `doc/tasks/20260812-frontline-pqc-dcc-qa-delivery-supervision/execution-log.md`，DF10/DF11 round-4 复审中 DF11 独立验证误中断 DF10；supervisor 重新恢复 DF10 并等待两条独立验证都 PASS 后才进入合并决策。
+
 ## 并行主工作区远端快进融合门禁
 
 - Trigger: 主工作区持续被并行任务写入，任务分支已在干净 worktree 中完成实现、验证和推送，但本地 `int_main` 无法保持 clean 以接收 `task_closeout.py` 的 ff-only merge。
@@ -90,6 +99,14 @@
 - Verification: `git merge-base --is-ancestor <old-int-main> <task-head>` 与融合后 `git merge-base --is-ancestor <task-head> int_main` 均通过；路径级 stash apply 后检查冲突标记、原交集路径、`git diff --check` 和目标回归。只有确认并行改动已恢复且未被暂存/提交后才允许删除 stash。
 - Forbidden action: 禁止全工作区 stash、整文件 `ours/theirs`、提交并行改动、直接 `update-ref` 移动已检出的脏 `int_main`、先删除重叠文件再 merge、或在未验证恢复结果前 drop stash。
 - Evidence: `doc/tasks/20260810-pqc-leader-form-edit-release-flow/execution-log.md`，PQC 分支与本地 `int_main` 的 4 个并行脏文件重叠，取得用户授权后按路径保存、语义融合并恢复并行改动。
+
+### 无独有提交的镜像 Worktree 收尾门禁
+
+- Trigger: 额外 worktree 基于较旧的 clean HEAD 开发，但目标文件在脏 `int_main` 中已有并行演进；最终实现以 `int_main` 当前文件为基线完成语义融合，并把融合后文件同步回 worktree 做隔离验证，因此 worktree dirty diff 已不再是纯任务补丁。
+- Preflight check: 必须先取得用户对语义融合策略的明确授权；逐项列出 worktree 的全部 tracked/untracked dirty 文件，确认每个文件在主工作区均存在且 SHA-256 完全一致；确认 `git rev-list --count int_main..HEAD = 0`、主工作区目标回归通过、目标端口无监听且没有进程引用 worktree 路径。
+- Blocker: 任一 dirty 文件在主工作区缺失或哈希不同、分支存在独有提交、无法证明主工作区已通过目标验证、存在运行进程/端口监听、或 dirty 文件包含无法归属内容时必须停止；不得把“不想提交”解释为“可以丢弃”。
+- Verification: 记录逐文件哈希相等结果、独有提交数、目标验证、端口和进程检查；移除后确认 Git 注册与物理目录均不存在，并在目录删除后再持登记表 mutex 将对应 slot 标记为 inactive。
+- Forbidden action: 禁止把包含主工作区并行改动的整文件 diff 提交成任务分支；禁止只比较一个组件就忽略 worktree 的其它 untracked 文件；禁止目录删除前释放 slot，或用强制删除掩盖尚未融合的独有内容。
 
 ## D-Main 本地主线滞后远端融合门禁
 

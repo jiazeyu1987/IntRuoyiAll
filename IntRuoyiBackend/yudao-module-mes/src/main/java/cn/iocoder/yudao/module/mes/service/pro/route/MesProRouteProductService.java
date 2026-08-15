@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductSaveReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductBindFromWorkOrdersRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductCopyReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import jakarta.validation.Valid;
@@ -26,14 +25,9 @@ public interface MesProRouteProductService {
     Long copyRouteProduct(@Valid MesProRouteProductCopyReqVO copyReqVO);
 
     /**
-     * 从生产订单预览补齐工艺路线产品
+     * 按候选快照中的正式产品身份复制产品
      */
-    MesProRouteProductBindFromWorkOrdersRespVO previewBindFromWorkOrders(Long routeId, Long routeVersionId);
-
-    /**
-     * 从生产订单补齐工艺路线产品
-     */
-    MesProRouteProductBindFromWorkOrdersRespVO bindFromWorkOrders(Long routeId, Long routeVersionId);
+    Long copyCandidateRouteProduct(Long routeId, Long routeVersionId, Long sourceItemId, Long targetItemId);
 
     /**
      * 更新工艺路线产品
@@ -44,6 +38,11 @@ public interface MesProRouteProductService {
      * 删除工艺路线产品
      */
     void deleteRouteProduct(Long id, Long routeVersionId);
+
+    /**
+     * 按候选快照中的正式产品身份删除产品
+     */
+    void deleteCandidateRouteProduct(Long routeId, Long itemId, Long routeVersionId);
 
     /**
      * 获得工艺路线产品
@@ -80,6 +79,11 @@ public interface MesProRouteProductService {
      * 按工艺路线获得产品列表
      */
     List<MesProRouteProductDO> getRouteProductListByRouteId(Long routeId);
+
+    /**
+     * 按工艺路线及指定版本获得产品列表；版本为空时读取正式关系
+     */
+    List<MesProRouteProductDO> getRouteProductListByRouteId(Long routeId, Long routeVersionId);
 
     /**
      * 按工艺路线删除产品（级联删除使用）

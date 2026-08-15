@@ -230,11 +230,11 @@ const normalizeEmbeddedRecognizedFields = (value: unknown): FormRecognizedFieldV
     }
     const field = item as Record<string, unknown>
     const fieldCode = normalizeNonBlankString(field.fieldCode)
-    const label = normalizeNonBlankString(field.label) || fieldCode
     const fieldType = normalizeNonBlankString(field.fieldType)
     if (!fieldCode || !fieldType) {
       throw new Error('动态表单模板识别字段快照缺少字段编码或类型。')
     }
+    const label = normalizeNonBlankString(field.label) || fieldCode
     return {
       fieldCode,
       label,

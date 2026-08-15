@@ -45,6 +45,7 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
@@ -162,6 +163,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrCandidateResolver candidateResolver;
     @Resource
     private MesOrderReleaseCompletenessService releaseCompletenessService;
+    @Resource
+    private MesProductionReportManagementSummaryService reportManagementSummaryService;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -352,6 +355,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setApprovedAt(occurredAt)
                 .setApprovalSignoffEvidenceHash(signatureEvidence.aggregateHash())
                 .setApprovalOpinion(reason));
+        reportManagementSummaryService.refreshByReleaseTransactionId(transaction.getId());
         transaction = releaseTransactionMapper.selectById(transaction.getId());
         recordTransactionEvent(transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_RELEASED,
                 actorUserId, reason, null, idempotencyKey, signatureEvidence.aggregateHash(), occurredAt);
@@ -391,6 +395,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setApprovedAt(occurredAt)
                 .setApprovalSignoffEvidenceHash(signoffEvidenceHash)
                 .setApprovalOpinion(opinion));
+        reportManagementSummaryService.refreshByReleaseTransactionId(transaction.getId());
         transaction = releaseTransactionMapper.selectById(transaction.getId());
         workTaskService.completeReleaseApprovalTask(approvalTask.getId(), transaction.getId(), "APPROVE", opinion);
         recordTransactionEvent(transaction, EVENT_TYPE_APPROVE, fromStatus, STATUS_RELEASED,
@@ -413,6 +418,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(reqVO.getReleaseTransactionId());
         }
 
+        reportManagementSummaryService.lockProductionEventsByReleaseTransactionId(reqVO.getReleaseTransactionId());
         MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
         String fromStatus = transaction.getReleaseStatus();
@@ -457,6 +463,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(reqVO.getReleaseTransactionId());
         }
 
+        reportManagementSummaryService.lockProductionEventsByReleaseTransactionId(reqVO.getReleaseTransactionId());
         MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
         requirePendingApproval(transaction);
         String fromStatus = transaction.getReleaseStatus();

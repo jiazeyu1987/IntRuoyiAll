@@ -253,7 +253,7 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
-    void getLockedVersionProcessesForOrder_returnsRetiredQaProcessesWithoutEnabledDccCheck() {
+    void getLockedVersionForOrder_returnsRetiredQaAggregateWithoutEnabledDccCheck() {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(
                 DccProjectCodeDO.builder().id(DCC_PROJECT_ID).status("DISABLE").build());
         when(regulationMapper.selectById(REGULATION_ID)).thenReturn(publishedRegulation());
@@ -266,53 +266,61 @@ class MesQaInspectionRegulationServiceTest {
                 .setProcessName("精洗")
                 .setSort(2);
         when(processMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(first, second));
+        when(itemMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
+                item("FIRST", 5, null), item("PATROL", null, new BigDecimal("0.400000")),
+                item("FINAL", 3, null), item("PATROL", null, new BigDecimal("0.400000"))
+                        .setId(82L).setQaProcessId(64L).setItemCode("ID-002")));
+        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of());
 
-        List<MesQaInspectionRegulationProcessDO> result =
-                service.getLockedVersionProcessesForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID);
+        MesQaInspectionRegulationPublishedVersionRespVO result =
+                service.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID);
 
-        assertEquals(List.of(QA_PROCESS_ID, 64L), result.stream()
-                .map(MesQaInspectionRegulationProcessDO::getId).toList());
-        assertEquals(List.of("清洗", "精洗"), result.stream()
-                .map(MesQaInspectionRegulationProcessDO::getProcessName).toList());
-        verifyNoInteractions(itemMapper, itemEquipmentMapper);
+        assertEquals(VERSION_ID, result.getPublishedVersionId());
+        assertEquals("RETIRED", result.getLifecycleStatus());
+        assertEquals(List.of(QA_PROCESS_ID, 64L), result.getProcesses().stream()
+                .map(MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess::getQaProcessId).toList());
+        assertEquals(List.of("清洗", "精洗"), result.getProcesses().stream()
+                .map(MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess::getProcessName).toList());
+        assertEquals(List.of("FIRST", "PATROL", "FINAL"), result.getProcesses().get(0)
+                .getItems().get(0).getApplicableInspectionTypes());
     }
 
     @Test
-    void getLockedVersionProcessesForOrder_rejectsRegulationOutsideDccProject() {
+    void getLockedVersionForOrder_rejectsRegulationOutsideDccProject() {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
         when(regulationMapper.selectById(REGULATION_ID)).thenReturn(publishedRegulation()
                 .setDccProjectCodeId(999L));
 
         ServiceException ex = assertThrows(ServiceException.class, () ->
-                service.getLockedVersionProcessesForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID));
+                service.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID));
 
         assertEquals(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID.getCode(), ex.getCode());
         verifyNoInteractions(versionMapper, processMapper, itemMapper, itemEquipmentMapper);
     }
 
     @Test
-    void getLockedVersionProcessesForOrder_rejectsVersionOutsideRegulation() {
+    void getLockedVersionForOrder_rejectsVersionOutsideRegulation() {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
         when(regulationMapper.selectById(REGULATION_ID)).thenReturn(publishedRegulation());
         when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion()
                 .setRegulationId(999L));
 
         ServiceException ex = assertThrows(ServiceException.class, () ->
-                service.getLockedVersionProcessesForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID));
+                service.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID));
 
         assertEquals(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS.getCode(), ex.getCode());
         verifyNoInteractions(processMapper, itemMapper, itemEquipmentMapper);
     }
 
     @Test
-    void getLockedVersionProcessesForOrder_rejectsDraftVersion() {
+    void getLockedVersionForOrder_rejectsDraftVersion() {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
         when(regulationMapper.selectById(REGULATION_ID)).thenReturn(publishedRegulation());
         when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion()
                 .setLifecycleStatus("DRAFT"));
 
         ServiceException ex = assertThrows(ServiceException.class, () ->
-                service.getLockedVersionProcessesForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID));
+                service.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID));
 
         assertEquals(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED.getCode(), ex.getCode());
         verifyNoInteractions(processMapper, itemMapper, itemEquipmentMapper);

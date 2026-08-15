@@ -7,6 +7,7 @@ export interface BatchRecordCellLinkFormVO {
   formSlotType?: string
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
+  routeProcessId?: number
   sourceTableIndex?: number
   tableTitle?: string
   reportId: string
@@ -63,6 +64,68 @@ export interface BatchRecordCellLinkRuleVO {
   remark?: string
 }
 
+
+export interface BatchRecordRepeatRowGroupRecordVO {
+  recordSequence: number
+  startRowIndex: number
+  endRowIndex: number
+  recordKey?: string
+}
+
+export interface BatchRecordRepeatRowGroupMappingVO {
+  sourceType: string
+  sourceFieldCode: string
+  sourceFieldName?: string
+  sourceValueType?: string
+  templateTargetRowIndex: number
+  templateTargetColumnIndex: number
+  templateTargetCellKey?: string
+  targetValueType?: string
+  projectionTargetCellKey?: string
+}
+
+export interface BatchRecordRepeatRowGroupVO {
+  id?: number
+  scopeType?: string
+  scopeId?: number
+  routeId?: number
+  batchRecordDefinitionId?: number
+  batchRecordVersionId?: number
+  routeProcessId: number
+  targetReportId: string
+  targetReportName?: string
+  templateStartRowIndex: number
+  templateEndRowIndex: number
+  repeatAreaStartRowIndex: number
+  repeatAreaEndRowIndex: number
+  sourceType?: string
+  records: BatchRecordRepeatRowGroupRecordVO[]
+  mappings: BatchRecordRepeatRowGroupMappingVO[]
+  configVersion?: number
+  templateSnapshotHash?: string
+  enabled?: boolean
+  remark?: string
+}
+
+export interface BatchRecordRepeatRowGroupSaveReqVO {
+  scopeType?: string
+  scopeId?: number
+  routeId?: number
+  batchRecordDefinitionId?: number
+  batchRecordVersionId?: number
+  routeProcessId: number
+  targetReportId: string
+  templateStartRowIndex: number
+  templateEndRowIndex: number
+  repeatAreaStartRowIndex: number
+  repeatAreaEndRowIndex: number
+  records: BatchRecordRepeatRowGroupRecordVO[]
+  mappings: BatchRecordRepeatRowGroupMappingVO[]
+  enabled?: boolean
+  remark?: string
+}
+
+export type BatchRecordRepeatRowGroupSaveRespVO = BatchRecordRepeatRowGroupVO
 export interface BatchRecordCellLinkWorkbenchContextVO {
   scopeType: string
   scopeId: number
@@ -74,6 +137,7 @@ export interface BatchRecordCellLinkWorkbenchContextVO {
   defaultSourceReportId?: string
   defaultTargetReportId?: string
   rules: BatchRecordCellLinkRuleVO[]
+  repeatRowGroups?: BatchRecordRepeatRowGroupVO[]
 }
 
 export interface BatchRecordCellLinkSourceFieldVO {
@@ -81,6 +145,7 @@ export interface BatchRecordCellLinkSourceFieldVO {
   fieldCode: string
   fieldName: string
   valueType?: string
+  routeProcessId?: number
 }
 
 export interface BatchRecordCellLinkFormCellsVO {
@@ -100,12 +165,14 @@ export interface BatchRecordCellLinkRulesSaveReqVO {
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
   rules: BatchRecordCellLinkRuleVO[]
+  repeatRowGroups?: BatchRecordRepeatRowGroupVO[]
 }
 
 export interface BatchRecordCellLinkRulesSaveRespVO {
   savedCount: number
   ruleVersion: number
   rules: BatchRecordCellLinkRuleVO[]
+  repeatRowGroups?: BatchRecordRepeatRowGroupVO[]
 }
 
 export interface BatchRecordCellLinkPrefillItemVO {
@@ -158,6 +225,13 @@ export const BatchRecordCellLinkApi = {
   saveRules: async (data: BatchRecordCellLinkRulesSaveReqVO) => {
     return await request.post<BatchRecordCellLinkRulesSaveRespVO>({
       url: '/mes/pro/batch-record-cell-link/rules/save',
+      data
+    })
+  },
+
+  saveRepeatRowGroup: async (data: BatchRecordRepeatRowGroupSaveReqVO) => {
+    return await request.post<BatchRecordRepeatRowGroupSaveRespVO>({
+      url: '/mes/pro/batch-record-cell-link/repeat-row-group/save',
       data
     })
   },

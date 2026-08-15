@@ -8,9 +8,9 @@
   "blocking_prereqs": [],
   "iteration_counts": {
     "planner_revisions": 0,
-    "plan_revisions": 1,
-    "executor_loops": 0,
-    "test_loops": 0
+    "plan_revisions": 2,
+    "executor_loops": 2,
+    "test_loops": 3
   },
   "tasks": [
     {
@@ -235,7 +235,7 @@
     {
       "task_id": "DF09",
       "title": "PQC task and production event overlay",
-      "status": "ready",
+      "status": "completed",
       "dependency_ids": [
         "DF08"
       ],
@@ -253,13 +253,13 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "",
-      "last_outcome": "Ready after DF08 fast-forward merge and closeout."
+      "owner_agent": "/root",
+      "last_outcome": "DF09 PASS/CLOSED: supervisor independent review added missing stable sorting RED, target Maven 6 tests PASS, git diff/checks/backend-api validator PASS, commit a386dc0da fast-forward merged into int_main; worktree removed and slot 18 released."
     },
     {
       "task_id": "DF10",
       "title": "Backend process page projection",
-      "status": "pending",
+      "status": "completed",
       "dependency_ids": [
         "DF02",
         "DF07",
@@ -282,12 +282,12 @@
         "AC-13"
       ],
       "owner_agent": "",
-      "last_outcome": "Waiting for prerequisite tasks."
+      "last_outcome": "Round-4 independent verification PASS; integrated with DF11 and fast-forwarded to int_main at 817687224. Conflicting old main-workspace changes were preserved in the protected patch and not reapplied."
     },
     {
       "task_id": "DF11",
       "title": "Frontend item and task projection",
-      "status": "pending",
+      "status": "completed",
       "dependency_ids": [
         "DF08",
         "DF09"
@@ -307,12 +307,12 @@
         "AC-13"
       ],
       "owner_agent": "",
-      "last_outcome": "Waiting for prerequisite tasks."
+      "last_outcome": "Round-4 independent verification PASS; integrated with DF10 and fast-forwarded to int_main at 817687224. Four non-conflicting local edits were restored; conflicting old edits remain patch-only."
     },
     {
       "task_id": "INT12",
       "title": "Final frontline PQC integration",
-      "status": "pending",
+      "status": "in_progress",
       "dependency_ids": [
         "DF01",
         "DF02",
@@ -342,8 +342,8 @@
         "AC-12",
         "AC-13"
       ],
-      "owner_agent": "",
-      "last_outcome": "Waiting for prerequisite tasks."
+      "owner_agent": "/root/int12_worker",
+      "last_outcome": "RED captured: runtime static fails because switch still used workOrderId/routeId; formal-submit static fails because submit lacked formal QA/task identity. Existing Maven baseline passed 33 tests but three frozen INT12 test classes are missing, so not accepted as GREEN. Executor is implementing formal identity, task lock/hash/event pointer, resultType convergence, and missing tests."
     },
     {
       "task_id": "VAL13",
@@ -375,5 +375,5 @@
       "last_outcome": "Waiting for prerequisite tasks."
     }
   ],
-  "updated_at": "2026-08-13T06:07:00+08:00"
+  "updated_at": "2026-08-14T05:15:00+08:00"
 }

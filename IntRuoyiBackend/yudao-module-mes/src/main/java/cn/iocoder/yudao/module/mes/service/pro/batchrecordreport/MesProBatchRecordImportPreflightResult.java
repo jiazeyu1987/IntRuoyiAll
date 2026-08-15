@@ -22,6 +22,8 @@ public record MesProBatchRecordImportPreflightResult(
         Long currentRouteId,
         String currentRouteCode,
         String currentRouteName,
+        Integer currentRouteStatus,
+        Boolean routeRestoreRequired,
         Long currentRouteVersionId,
         String currentRouteVersionNo,
         Boolean currentRouteVersionActive,

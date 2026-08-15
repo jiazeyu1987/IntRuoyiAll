@@ -103,7 +103,7 @@ for (const field of ['directory', 'productName', 'category', 'versionSummary', '
 
 assert.match(
   browserSource,
-  /const DCC_BROWSER_COLUMN_TABLE_KEY = 'dcc\.controlledFile\.browser\.adminStyle'/,
+  /const DCC_BROWSER_COLUMN_TABLE_KEY = 'dcc\.controlledFile\.browser\.compactActionsV2'/,
   '文件查阅列配置必须使用管理员样式表格 key，避免旧个人列配置污染默认视图。'
 )
 

@@ -18,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -105,6 +106,28 @@ class DccControlledFileTaskActionApiTest extends BaseMockitoUnitTest {
             assertEquals(900L, result.getData().getControlledFileId());
             verify(queryService).getControlledFile(99L, 900L);
             verify(signatureManagementService).getSignatureExportSummary(900L);
+        }
+    }
+
+    @Test
+    void migrateSignatureBinding_delegatesWithAuditedRequestId() {
+        DccControlledFileSignatureExportSummaryRespVO summary = new DccControlledFileSignatureExportSummaryRespVO();
+        summary.setControlledFileId(900L);
+        when(signatureManagementService.migratePublishedCopyBindings(900L, 99L, "REQ-MIGRATE-1"))
+                .thenReturn(summary);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(DccControlledFileController.REQUEST_ID_HEADER, "REQ-MIGRATE-1");
+        request.addHeader("User-Agent", "dcc-contract-test");
+        request.setRemoteAddr("127.0.0.1");
+
+        try (MockedStatic<SecurityFrameworkUtils> securityFrameworkUtilsMock = mockStatic(SecurityFrameworkUtils.class)) {
+            securityFrameworkUtilsMock.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+
+            CommonResult<DccControlledFileSignatureExportSummaryRespVO> result =
+                    controller.migrateSignatureBinding(900L, request);
+
+            assertEquals(900L, result.getData().getControlledFileId());
+            verify(signatureManagementService).migratePublishedCopyBindings(900L, 99L, "REQ-MIGRATE-1");
         }
     }
 

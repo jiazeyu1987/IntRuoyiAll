@@ -131,7 +131,7 @@ const message = useMessage()
 const loading = ref(false)
 const total = ref(0)
 const list = ref<FormEffectExecutionVO[]>([])
-const queryParams = reactive<FormEffectPendingPageReqVO>({
+const queryParams = reactive<FormEffectPendingPageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
   pageSize: 10,
   instanceId: undefined

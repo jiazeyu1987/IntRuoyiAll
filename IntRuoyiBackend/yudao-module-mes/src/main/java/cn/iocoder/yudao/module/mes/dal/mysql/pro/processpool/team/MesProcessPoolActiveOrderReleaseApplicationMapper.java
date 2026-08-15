@@ -69,4 +69,15 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                 .orderByAsc(MesProcessPoolActiveOrderReleaseApplicationDO::getId)
                 .last("FOR UPDATE"));
     }
+
+    default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectListByReleaseTransactionId(
+            Long releaseTransactionId) {
+        if (releaseTransactionId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getReleaseTransactionId, releaseTransactionId)
+                .orderByAsc(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId)
+                .orderByAsc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
+    }
 }

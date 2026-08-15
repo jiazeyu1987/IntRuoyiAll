@@ -24,7 +24,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_FIFO_LOCK_STATUS_UNKNOWN;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_PRODUCTION_REPORT_APPROVED_LOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_REJECTED_REVIEW_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_SIGNATURE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_SIGNATURE_REUSED;
@@ -128,12 +127,6 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
     private void validateProductionReportCorrection(MesProProcessPoolEventDO event) {
         if (!MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionSubmitEvent");
-        }
-        MesProcessPoolSubmissionReviewDO latestReview =
-                submissionReviewMapper.selectLatestByEventIdForUpdate(event.getId());
-        if (latestReview != null
-                && MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(latestReview.getReviewStatus())) {
-            throw exception(PRO_PROCESS_POOL_REVISION_PRODUCTION_REPORT_APPROVED_LOCKED, event.getId());
         }
     }
 

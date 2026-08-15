@@ -118,10 +118,10 @@ assert.doesNotMatch(
   /label="路线ID"|label="路线版本ID"|label="状态"\s+width="100"/,
   'The active-order list must not expose route IDs, route-version IDs, or the active status column.'
 )
-assert.match(
+assert.doesNotMatch(
   activeOrderBlock,
-  /data-team-leader-active-order-transfer-trace/,
-  'Moving active-order maintenance into its own tab must retain the transfer trace table.'
+  /data-team-leader-active-order-transfer-trace|调拨库存追溯/,
+  'The active-order tab must not render the removed transfer-trace panel.'
 )
 
 const activeOrderAddDialog = sliceDialogByMarker('data-team-leader-active-order-add-dialog')
@@ -178,8 +178,8 @@ assert.match(
 )
 assert.match(
   activeOrderBlock,
-  /data-team-leader-remove-active-order[\s\S]*>\s*移除\s*<\/el-button>[\s\S]*data-team-leader-report-active-order-abnormal[\s\S]*>\s*报异常\s*<\/el-button>/,
-  'Each active-order row must expose 移除 and 报异常 actions.'
+  /data-team-leader-remove-active-order[\s\S]*@click="submitRemoveActiveOrder\(row\)"[\s\S]*>\s*移除\s*<\/el-button>[\s\S]*data-team-leader-report-active-order-abnormal[\s\S]*@click="openAbnormalDialog\(row\)"[\s\S]*>\s*异常\s*<\/el-button>[\s\S]*data-team-leader-active-order-release-apply[\s\S]*@click="submitActiveOrderReleaseApplication\(row\)"[\s\S]*>\s*完工\s*<\/el-button>/,
+  'Each active-order row must expose 移除, 异常, and 完工 labels while retaining the formal actions.'
 )
 assert.match(
   activeOrderBlock,
@@ -190,7 +190,7 @@ assert.match(
 const configBlock = sliceContentWrapByMarker('data-team-leader-config-center')
 assert.doesNotMatch(
   configBlock,
-  /data-team-leader-active-order-config|activeOrderForm|activeOrderRemoveForm|data-team-leader-active-order-transfer-trace/,
+  /data-team-leader-active-order-config|activeOrderForm|activeOrderRemoveForm/,
   '班组配置 must not duplicate active-order maintenance after the dedicated tab is introduced.'
 )
 

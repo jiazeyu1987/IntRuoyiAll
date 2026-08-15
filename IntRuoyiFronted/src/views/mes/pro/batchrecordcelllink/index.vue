@@ -8,6 +8,14 @@
         </div>
         <div class="batch-record-cell-link__controls">
           <el-select
+            v-model="linkMode"
+            data-batch-record-repeat-row-group-mode
+            class="batch-record-cell-link__mode-select"
+          >
+            <el-option label="单元格链接" :value="LINK_MODE_CELL_LINK" />
+            <el-option label="重复行组" :value="LINK_MODE_REPEAT_ROW_GROUP" />
+          </el-select>
+          <el-select
             v-model="sourceReportId"
             filterable
             placeholder="选择来源"
@@ -61,6 +69,7 @@
             {{ sourceLinkCountText }}
           </el-button>
           <el-button
+            v-if="linkMode === LINK_MODE_CELL_LINK"
             class="batch-record-cell-link__create-button"
             type="success"
             :loading="saving"
@@ -69,6 +78,10 @@
           >
             建立链接
           </el-button>
+          <el-button v-if="linkMode === LINK_MODE_REPEAT_ROW_GROUP" :disabled="!selectedTargetCell" @click="setRepeatTemplateFromSelectedTarget">选择模板记录</el-button>
+          <el-button v-if="linkMode === LINK_MODE_REPEAT_ROW_GROUP" :disabled="!selectedTargetCell" @click="includeSelectedTargetRowInRepeatArea">加入重复区域</el-button>
+          <el-button v-if="linkMode === LINK_MODE_REPEAT_ROW_GROUP" :disabled="!canCreateRepeatRowMapping" @click="createRepeatRowMapping">建立模板链接</el-button>
+          <el-button v-if="linkMode === LINK_MODE_REPEAT_ROW_GROUP" type="success" :loading="saving" :disabled="!canSaveRepeatRowGroup || saving" @click="saveRepeatRowGroup">保存重复行组</el-button>
           <el-button @click="goBack">返回</el-button>
         </div>
       </header>
@@ -106,6 +119,26 @@
           </div>
         </section>
       </main>
+
+      <section v-if="linkMode === LINK_MODE_REPEAT_ROW_GROUP" class="batch-record-cell-link__repeat-panel" data-repeat-row-group-candidate-list>
+        <div>
+          <strong>重复行组</strong>
+          <span>模板行：{{ repeatTemplateRowText }}；重复区域：{{ repeatAreaText }}</span>
+        </div>
+        <el-table :data="repeatRowGroupCandidateRecords" size="small" border max-height="180">
+          <el-table-column prop="recordSequence" label="序号" width="80" />
+          <el-table-column label="记录行" width="140">
+            <template #default="{ row }">第 {{ row.startRowIndex + 1 }} 行</template>
+          </el-table-column>
+          <el-table-column label="投影预览" min-width="260">
+            <template #default="{ row }">
+              <span v-for="mapping in repeatRowGroupMappings" :key="mapping.sourceFieldCode" class="batch-record-cell-link__projection">
+                {{ mapping.sourceFieldName || mapping.sourceFieldCode }} -> {{ projectionTargetCellKey(row, mapping) }}
+              </span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </section>
 
       <el-dialog
         v-model="relationDetailDialogVisible"
@@ -169,7 +202,10 @@ import {
   type BatchRecordCellLinkFormVO,
   type BatchRecordCellLinkRuleVO,
   type BatchRecordCellLinkSourceFieldVO,
-  type BatchRecordCellLinkWorkbenchContextVO
+  type BatchRecordCellLinkWorkbenchContextVO,
+  type BatchRecordRepeatRowGroupMappingVO,
+  type BatchRecordRepeatRowGroupRecordVO,
+  type BatchRecordRepeatRowGroupVO
 } from '@/api/mes/pro/batchrecordcelllink'
 import {
   normalizeTemplateCellMerge,
@@ -236,6 +272,8 @@ const EMPTY_FILLABLE_PLACEHOLDER = '?'
 const SOURCE_TYPE_BATCH_RECORD_CELL = 'BATCH_RECORD_CELL'
 const SOURCE_TYPE_PRODUCTION_WORK_ORDER = 'PRODUCTION_WORK_ORDER'
 const SOURCE_TYPE_PROCESS_POOL_REPORT = 'PROCESS_POOL_REPORT'
+const LINK_MODE_CELL_LINK = 'CELL_LINK'
+const LINK_MODE_REPEAT_ROW_GROUP = 'REPEAT_ROW_GROUP'
 const PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID = 'PRODUCTION_WORK_ORDER'
 const PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME = '生产工单'
 const PROCESS_POOL_REPORT_SOURCE_REPORT_ID = 'PROCESS_POOL_REPORT'
@@ -336,6 +374,63 @@ const targetCells = ref<BatchRecordCellLinkFormCellsVO>()
 const selectedSourceCell = ref<BatchRecordCellLinkCellVO>()
 const selectedTargetCell = ref<BatchRecordCellLinkCellVO>()
 const relationDetailDialogVisible = ref(false)
+const linkMode = ref(LINK_MODE_CELL_LINK)
+const repeatRowGroups = ref<BatchRecordRepeatRowGroupVO[]>([])
+const repeatTemplateStartRowIndex = ref<number>()
+const repeatTemplateEndRowIndex = ref<number>()
+const repeatAreaStartRowIndex = ref<number>()
+const repeatAreaEndRowIndex = ref<number>()
+const repeatRowGroupMappings = ref<BatchRecordRepeatRowGroupMappingVO[]>([])
+const repeatRowGroupCandidateRecords = computed<BatchRecordRepeatRowGroupRecordVO[]>(() => {
+  if (repeatAreaStartRowIndex.value === undefined || repeatAreaEndRowIndex.value === undefined) {
+    return []
+  }
+  const startRowIndex = Math.min(repeatAreaStartRowIndex.value, repeatAreaEndRowIndex.value)
+  const endRowIndex = Math.max(repeatAreaStartRowIndex.value, repeatAreaEndRowIndex.value)
+  return Array.from({ length: endRowIndex - startRowIndex + 1 }, (_, index) => {
+    const rowIndex = startRowIndex + index
+    return {
+      recordSequence: index + 1,
+      startRowIndex: rowIndex,
+      endRowIndex: rowIndex,
+      recordKey: `R${index + 1}:${rowIndex}`
+    }
+  })
+})
+const repeatTemplateRowText = computed(() =>
+  repeatTemplateStartRowIndex.value === undefined
+    ? '未选择'
+    : repeatTemplateStartRowIndex.value === repeatTemplateEndRowIndex.value
+      ? `第 ${repeatTemplateStartRowIndex.value + 1} 行`
+      : `第 ${repeatTemplateStartRowIndex.value + 1}-${(repeatTemplateEndRowIndex.value || repeatTemplateStartRowIndex.value) + 1} 行`
+)
+const repeatAreaText = computed(() => {
+  if (repeatAreaStartRowIndex.value === undefined || repeatAreaEndRowIndex.value === undefined) {
+    return '未选择'
+  }
+  const startRowIndex = Math.min(repeatAreaStartRowIndex.value, repeatAreaEndRowIndex.value)
+  const endRowIndex = Math.max(repeatAreaStartRowIndex.value, repeatAreaEndRowIndex.value)
+  return startRowIndex === endRowIndex
+    ? `第 ${startRowIndex + 1} 行`
+    : `第 ${startRowIndex + 1}-${endRowIndex + 1} 行`
+})
+const canCreateRepeatRowMapping = computed(() => Boolean(
+  sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT &&
+  selectedSourceCell.value &&
+  selectedTargetCell.value &&
+  repeatTemplateStartRowIndex.value !== undefined &&
+  repeatTemplateEndRowIndex.value !== undefined
+))
+const canSaveRepeatRowGroup = computed(() => Boolean(
+  targetForm.value?.routeProcessId &&
+  targetReportId.value &&
+  repeatTemplateStartRowIndex.value !== undefined &&
+  repeatTemplateEndRowIndex.value !== undefined &&
+  repeatAreaStartRowIndex.value !== undefined &&
+  repeatAreaEndRowIndex.value !== undefined &&
+  repeatRowGroupCandidateRecords.value.length > 0 &&
+  repeatRowGroupMappings.value.length > 0
+))
 
 const isProductionWorkOrderSelected = computed(() => sourceReportId.value === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID)
 const isProcessPoolReportSelected = computed(() => sourceReportId.value === PROCESS_POOL_REPORT_SOURCE_REPORT_ID)
@@ -348,6 +443,13 @@ const sourceForm = computed(() =>
     : forms.value.find((form) => form.reportId === sourceReportId.value)
 )
 const targetForm = computed(() => forms.value.find((form) => form.reportId === targetReportId.value))
+const filteredProcessPoolReportSourceFields = computed(() =>
+  processPoolReportSourceFields.value.filter(
+    (field) => field.routeProcessId === undefined ||
+      field.routeProcessId === null ||
+      field.routeProcessId === targetForm.value?.routeProcessId
+  )
+)
 const targetForms = computed(() => {
   if (isStructuredSourceSelected.value) {
     return forms.value
@@ -466,8 +568,8 @@ async function loadWorkbenchContext() {
       : defaultSourceReportId === PROCESS_POOL_REPORT_SOURCE_REPORT_ID
         ? SOURCE_TYPE_PROCESS_POOL_REPORT
         : SOURCE_TYPE_BATCH_RECORD_CELL
-    sourceFieldCode.value = productionWorkOrderSourceFields.value[0]?.fieldCode || ''
     targetReportId.value = data.defaultTargetReportId || targetForms.value[0]?.reportId || ''
+    sourceFieldCode.value = currentStructuredSourceFields()[0]?.fieldCode || ''
     await Promise.all([loadSourceCells(), loadTargetCells()])
   } catch (error) {
     message.error(resolveErrorMessage(error, '批记录单元格链接工作台加载失败。'))
@@ -486,10 +588,7 @@ const handleSourceSelectionChange = async () => {
       : SOURCE_TYPE_BATCH_RECORD_CELL
   aggregationStrategy.value = ''
   if (isStructuredSourceSelected.value) {
-    const sourceFields = sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
-      ? productionWorkOrderSourceFields.value
-      : processPoolReportSourceFields.value
-    sourceFieldCode.value = sourceFields[0]?.fieldCode || ''
+    sourceFieldCode.value = currentStructuredSourceFields()[0]?.fieldCode || ''
   }
   if (!targetForms.value.some((form) => form.reportId === targetReportId.value)) {
     targetReportId.value = targetForms.value[0]?.reportId || ''
@@ -499,6 +598,12 @@ const handleSourceSelectionChange = async () => {
 
 const handleTargetReportChange = async () => {
   selectedTargetCell.value = undefined
+  if (sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT) {
+    selectedSourceCell.value = undefined
+    sourceFieldCode.value = currentStructuredSourceFields()[0]?.fieldCode || ''
+    await Promise.all([loadSourceCells(), loadTargetCells()])
+    return
+  }
   await loadTargetCells()
 }
 
@@ -509,7 +614,7 @@ const loadSourceCells = async () => {
     return
   }
   if (sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT) {
-    sourceCells.value = buildSourceFieldCells(processPoolReportSourceFields.value, PROCESS_POOL_REPORT_SOURCE_REPORT_ID,
+    sourceCells.value = buildSourceFieldCells(filteredProcessPoolReportSourceFields.value, PROCESS_POOL_REPORT_SOURCE_REPORT_ID,
       PROCESS_POOL_REPORT_SOURCE_REPORT_NAME, SOURCE_TYPE_PROCESS_POOL_REPORT)
     selectedSourceCell.value = sourceCells.value.cells.find((cell) => cell.sourceFieldCode === sourceFieldCode.value)
     return
@@ -554,6 +659,86 @@ const selectTargetCell = (cell?: BatchRecordCellLinkCellVO) => {
     return
   }
   selectedTargetCell.value = cell
+}
+
+const setRepeatTemplateFromSelectedTarget = () => {
+  if (!selectedTargetCell.value) return
+  repeatTemplateStartRowIndex.value = selectedTargetCell.value.rowIndex
+  repeatTemplateEndRowIndex.value = selectedTargetCell.value.rowIndex
+  includeSelectedTargetRowInRepeatArea()
+}
+
+const includeSelectedTargetRowInRepeatArea = () => {
+  if (!selectedTargetCell.value) return
+  const rowIndex = selectedTargetCell.value.rowIndex
+  repeatAreaStartRowIndex.value = repeatAreaStartRowIndex.value === undefined ? rowIndex : Math.min(repeatAreaStartRowIndex.value, rowIndex)
+  repeatAreaEndRowIndex.value = repeatAreaEndRowIndex.value === undefined ? rowIndex : Math.max(repeatAreaEndRowIndex.value, rowIndex)
+}
+
+const createRepeatRowMapping = () => {
+  if (!selectedSourceCell.value || !selectedTargetCell.value || repeatTemplateStartRowIndex.value === undefined) return
+  const templateTargetCellKey = selectedTargetCell.value.cellKey
+  const duplicate = repeatRowGroupMappings.value.some((mapping) =>
+    mapping.templateTargetCellKey === templateTargetCellKey || mapping.sourceFieldCode === selectedSourceCell.value?.sourceFieldCode
+  )
+  if (duplicate) {
+    message.warning('重复行组模板链接已存在。')
+    return
+  }
+  const previewMapping = {
+    templateTargetRowIndex: selectedTargetCell.value.rowIndex,
+    templateTargetColumnIndex: selectedTargetCell.value.columnIndex
+  } as BatchRecordRepeatRowGroupMappingVO
+  repeatRowGroupMappings.value = [...repeatRowGroupMappings.value, {
+    sourceType: SOURCE_TYPE_PROCESS_POOL_REPORT,
+    sourceFieldCode: selectedSourceCell.value.sourceFieldCode || selectedSourceCell.value.cellKey,
+    sourceFieldName: selectedSourceCell.value.sourceFieldName || selectedSourceCell.value.label,
+    sourceValueType: selectedSourceCell.value.valueType,
+    templateTargetRowIndex: selectedTargetCell.value.rowIndex,
+    templateTargetColumnIndex: selectedTargetCell.value.columnIndex,
+    templateTargetCellKey,
+    targetValueType: selectedTargetCell.value.valueType,
+    projectionTargetCellKey: projectionTargetCellKey(repeatRowGroupCandidateRecords.value[0], previewMapping)
+  }]
+}
+
+const projectionTargetCellKey = (record: BatchRecordRepeatRowGroupRecordVO | undefined, mapping: BatchRecordRepeatRowGroupMappingVO) => {
+  if (!record || repeatTemplateStartRowIndex.value === undefined) return '-'
+  const rowOffset = mapping.templateTargetRowIndex - repeatTemplateStartRowIndex.value
+  return String(record.startRowIndex + rowOffset) + ':' + String(mapping.templateTargetColumnIndex)
+}
+
+const saveRepeatRowGroup = async () => {
+  if (!targetForm.value?.routeProcessId || repeatTemplateStartRowIndex.value === undefined || repeatTemplateEndRowIndex.value === undefined ||
+    repeatAreaStartRowIndex.value === undefined || repeatAreaEndRowIndex.value === undefined || saving.value) {
+    message.warning('请先选择当前工序的模板记录、重复区域和模板链接。')
+    return
+  }
+  saving.value = true
+  try {
+    const result = await BatchRecordCellLinkApi.saveRepeatRowGroup({
+      scopeType: context.value?.scopeType,
+      scopeId: context.value?.scopeId,
+      routeId: context.value?.routeId,
+      batchRecordDefinitionId: context.value?.batchRecordDefinitionId,
+      batchRecordVersionId: context.value?.batchRecordVersionId,
+      routeProcessId: targetForm.value?.routeProcessId,
+      targetReportId: targetReportId.value,
+      templateStartRowIndex: repeatTemplateStartRowIndex.value,
+      templateEndRowIndex: repeatTemplateEndRowIndex.value,
+      repeatAreaStartRowIndex: repeatAreaStartRowIndex.value,
+      repeatAreaEndRowIndex: repeatAreaEndRowIndex.value,
+      records: repeatRowGroupCandidateRecords.value,
+      mappings: repeatRowGroupMappings.value,
+      enabled: true
+    })
+    repeatRowGroups.value = [result, ...repeatRowGroups.value.filter((group) => group.targetReportId !== result.targetReportId)]
+    message.success('重复行组对应关系已保存。')
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '重复行组保存失败。'))
+  } finally {
+    saving.value = false
+  }
 }
 
 const createRule = async () => {
@@ -639,6 +824,16 @@ function buildProductionWorkOrderFieldCells(
 ): BatchRecordCellLinkFormCellsVO {
   return buildSourceFieldCells(fields, PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID,
     PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME, SOURCE_TYPE_PRODUCTION_WORK_ORDER)
+}
+
+function currentStructuredSourceFields() {
+  if (sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER) {
+    return productionWorkOrderSourceFields.value
+  }
+  if (sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT) {
+    return filteredProcessPoolReportSourceFields.value
+  }
+  return []
 }
 
 function buildSourceFieldCells(
@@ -870,7 +1065,7 @@ function resolveErrorMessage(error: unknown, fallback: string) {
 .batch-record-cell-link {
   min-height: calc(100vh - 112px);
   display: grid;
-  grid-template-rows: 76px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   background: #f4f7fb;
   color: #172033;
 }
@@ -910,6 +1105,10 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   min-width: 0;
 }
 
+.batch-record-cell-link__mode-select {
+  width: 136px;
+}
+
 .batch-record-cell-link__select {
   min-width: 0;
   width: 260px;
@@ -928,6 +1127,30 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   color: #1677ff;
   border-color: #b9d7ff;
   background: #f4f9ff;
+}
+
+.batch-record-cell-link__repeat-panel {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid #dbe3ef;
+  background: #ffffff;
+}
+
+.batch-record-cell-link__repeat-panel > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.batch-record-cell-link__repeat-panel span {
+  color: #6b7280;
+}
+
+.batch-record-cell-link__projection {
+  display: inline-block;
+  margin-right: 10px;
+  color: #0f766e;
 }
 
 .batch-record-cell-link__detail-summary {

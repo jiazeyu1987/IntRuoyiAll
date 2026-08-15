@@ -34,6 +34,13 @@ public class MesFrontlinePqcSubmitReqVO {
     @Schema(description = "QA 工序编号")
     private Long qaProcessId;
 
+    @Schema(description = "实际填写员工编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "实际填写员工不能为空")
+    private Long actualEmployeeId;
+
+    @Schema(description = "生产提交事件编号")
+    private Long productionSubmitEventId;
+
     @Schema(description = "检验类型")
     private String inspectionType;
 

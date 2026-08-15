@@ -137,11 +137,8 @@ public class MesFrontlineDeviceAccountController {
     @Operation(summary = "获得 PQC 活跃订单所属 DCC 项目的 QA 工序")
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
     public CommonResult<List<MesFrontlinePqcProcessRespVO>> getPqcActiveOrderProcesses(
-            @RequestParam("workOrderId") @NotNull Long workOrderId,
-            @RequestParam("routeId") @NotNull Long routeId) {
-        return success(pqcContextService.listProcessesByActiveOrder(workOrderId, routeId).stream()
-                .map(MesFrontlineDeviceAccountController::toPqcProcessRespVO)
-                .toList());
+            @RequestParam("activeOrderId") @NotNull Long activeOrderId) {
+        return success(pqcContextService.listProcessesByActiveOrder(activeOrderId));
     }
 
     @GetMapping("/pqc/personnel")
@@ -159,8 +156,8 @@ public class MesFrontlineDeviceAccountController {
     public CommonResult<MesFrontlinePqcSwitchEmployeeRespVO> switchPqcActualEmployee(
             @Valid @RequestBody MesFrontlinePqcSwitchEmployeeReqVO reqVO) {
         MesFrontlinePqcEmployeeSwitchResult result = pqcContextService.switchPqcActualEmployee(getLoginUserId(),
-                reqVO.getWorkOrderId(), reqVO.getRouteId(), reqVO.getRegulationVersionId(),
-                reqVO.getQaProcessId(), reqVO.getActualEmployeeId());
+                reqVO.getActiveOrderId(), reqVO.getRegulationVersionId(), reqVO.getQaProcessId(),
+                reqVO.getPqcTaskId(), reqVO.getActualEmployeeId());
         return success(toPqcSwitchEmployeeRespVO(result));
     }
 
@@ -193,8 +190,8 @@ public class MesFrontlineDeviceAccountController {
                         .shiftCode(reqVO.getShiftCode())
                         .roundNo(reqVO.getRoundNo())
                         .actualInspectionQuantity(reqVO.getActualInspectionQuantity())
-                        .actualEmployeeId(loginUserId)
-                        .pqcSubmissionIdempotencyKey("pqc-task-" + reqVO.getPqcTaskId())
+                        .actualEmployeeId(reqVO.getActualEmployeeId())
+                        .productionSubmitEventId(reqVO.getProductionSubmitEventId())
                         .signaturePassword(reqVO.getSignaturePassword())
                         .templateType(FrontlineTemplateCodes.PQC_SIMPLIFIED)
                         .scrapQuantity(reqVO.getScrapQuantity())
@@ -217,6 +214,7 @@ public class MesFrontlineDeviceAccountController {
         respVO.setProductId(candidate.productId());
         respVO.setProductCode(candidate.productCode());
         respVO.setProductName(candidate.productName());
+        respVO.setBatchCode(candidate.batchCode());
         respVO.setQuantity(candidate.quantity());
         respVO.setRouteId(candidate.routeId());
         respVO.setRouteCode(candidate.routeCode());
@@ -234,6 +232,7 @@ public class MesFrontlineDeviceAccountController {
                 .setProductId(activeOrder.getProductId())
                 .setProductCode(activeOrder.getProductCode())
                 .setProductName(activeOrder.getProductName())
+                .setBatchCode(activeOrder.getBatchCode())
                 .setQuantity(activeOrder.getErpFixedQuantitySnapshot() == null
                         ? activeOrder.getQuantity() : activeOrder.getErpFixedQuantitySnapshot())
                 .setRouteId(activeOrder.getRouteId())
@@ -334,8 +333,6 @@ public class MesFrontlineDeviceAccountController {
         respVO.setItemName(item.itemName());
         respVO.setInspectionMethod(item.inspectionMethod());
         respVO.setStandardText(item.standardText());
-        respVO.setAcceptanceStandard(item.standardText());
-        respVO.setProcessInspectionMethod(item.inspectionMethod());
         respVO.setInspectionTool(item.inspectionTool());
         respVO.setSamplingPlanText(item.samplingPlanText());
         respVO.setStandardLowerLimit(item.standardLowerLimit());
@@ -504,6 +501,11 @@ public class MesFrontlineDeviceAccountController {
             return item;
         }).toList());
         respVO.setProductionSubmitContext(toProductionSubmitContextRespVO(config.productionSubmitContext()));
+        respVO.setEmployeeSwitchSnapshots(config.employeeSwitchSnapshots().stream()
+                .map(MesFrontlineDeviceAccountController::toSwitchEmployeeRespVO)
+                .toList());
+        respVO.setFrontlineSessionSnapshotId(config.frontlineSessionSnapshotId());
+        respVO.setFrontlineSessionSnapshotHash(config.frontlineSessionSnapshotHash());
         return respVO;
     }
 

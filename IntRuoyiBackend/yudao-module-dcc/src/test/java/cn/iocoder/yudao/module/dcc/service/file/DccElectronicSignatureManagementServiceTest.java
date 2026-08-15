@@ -56,6 +56,7 @@ import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServic
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_AUTH_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EXPORT_BLOCKED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -164,6 +165,29 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         assertEquals("A.1", result.getList().get(0).getSourceVersionId());
         assertEquals("dcc/controlled-copy/DCC-001-A.1.pdf", result.getList().get(0).getControlledCopyObjectKey());
         assertEquals("A.1", result.getList().get(0).getControlledCopyVersionId());
+    }
+
+    @Test
+    void getSignaturePage_marksPublishedUnboundEvidenceInvalid() throws Exception {
+        DccElectronicSignaturePageReqVO reqVO = new DccElectronicSignaturePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        DccControlledFileDO file = signedFile();
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(hmacSha256Hex("secret", canonicalPayload(file)));
+        when(signatureMapper.selectPage(any(DccElectronicSignaturePageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(signature), 1L));
+        when(controlledFileMapper.selectBatchIds(Set.of(900L))).thenReturn(List.of(file));
+        when(adminUserService.getUserList(Set.of(101L))).thenReturn(List.of(
+                AdminUserDO.builder().id(101L).username("auditor").nickname("审核员").build()));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.invalid("CONTROLLED_COPY_BINDING_MISSING"));
+
+        PageResult<DccElectronicSignatureRespVO> result = service.getSignaturePage(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("INVALID", result.getList().get(0).getEvidenceStatus());
+        assertEquals("INVALID", result.getList().get(0).getControlledCopyHashStatus());
     }
 
     @Test
@@ -517,6 +541,7 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void verifySignatureEvidence_detectsSourceFileContentMismatch() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
         DccControlledFileDO file = signedFile();
         DccControlledFileSignatureDO signature = completeSignature(
                 hmacSha256Hex("secret", canonicalPayload(file)));
@@ -980,6 +1005,127 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
         assertTrue(pdfText.contains("校验状态: VALID"));
         assertFalse(pdfText.contains("DocuSign"));
         assertFalse(pdfText.contains("外部 CA"));
+    }
+
+    @Test
+    void migratePublishedCopyBindings_bindsOnlyAfterOriginalEvidenceVerification() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        when(signatureEvidenceProperties.getKeyVersion()).thenReturn("kv1");
+        DccControlledFileDO file = signedFile();
+        file.setStatus("ACTIVE");
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(
+                hmacSha256Hex("secret", canonicalPayload(file)));
+        DccControlledFileSignatureBindingDO binding = DccControlledFileSignatureBindingDO.builder()
+                .signatureId(1001L)
+                .controlledFileId(900L)
+                .originalEvidenceHash(signature.getEvidenceHash())
+                .controlledCopyFileId(800L)
+                .controlledCopyObjectKey("dcc/controlled-copy/DCC-SOP-001-A.1.pdf")
+                .controlledCopySha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .bindingEventKey("historical:900:REQ-1")
+                .boundAt(LocalDateTime.of(2026, 8, 13, 16, 0))
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.bound(binding));
+
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileSignatureExportSummaryRespVO result;
+        try {
+            result = service.migratePublishedCopyBindings(900L, 9L, "REQ-1");
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertTrue(result.getAllRequiredEvidenceValid());
+        assertEquals("dcc/controlled-copy/DCC-SOP-001-A.1.pdf",
+                result.getSignatures().get(0).getControlledCopyObjectKey());
+        verify(signatureBindingService).bindPublishedCopy(file, 800L, 9L, "historical:900:REQ-1");
+    }
+
+    @Test
+    void migratePublishedCopyBindings_rejectsUnconfiguredHistoricalKeyWithoutBinding() throws Exception {
+        when(signatureEvidenceProperties.getKeyVersion()).thenReturn("kv2");
+        when(signatureEvidenceProperties.getVerificationKeys()).thenReturn(Map.of());
+        DccControlledFileDO file = signedFile();
+        file.setStatus("ACTIVE");
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(
+                hmacSha256Hex("secret", canonicalPayload(file)));
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+
+        assertServiceException(() -> service.migratePublishedCopyBindings(900L, 9L, "REQ-2"),
+                CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
+                "签名 1001 原始证据校验失败：EVIDENCE_KEY_VERSION_NOT_CONFIGURED");
+        verify(signatureBindingService, never()).bindPublishedCopy(
+                any(DccControlledFileDO.class), any(Long.class), any(Long.class), any(String.class));
+    }
+
+    @Test
+    void migratePublishedCopyBindings_usesExplicitHistoricalVerificationKey() throws Exception {
+        when(signatureEvidenceProperties.getKeyVersion()).thenReturn("kv2");
+        when(signatureEvidenceProperties.getVerificationKeys()).thenReturn(Map.of("kv1", "historical-secret"));
+        DccControlledFileDO file = signedFile();
+        file.setStatus("ACTIVE");
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(
+                hmacSha256Hex("historical-secret", canonicalPayload(file)));
+        DccControlledFileSignatureBindingDO binding = DccControlledFileSignatureBindingDO.builder()
+                .signatureId(1001L).controlledFileId(900L).controlledCopyFileId(800L)
+                .controlledCopyObjectKey("dcc/controlled-copy/DCC-SOP-001-A.1.pdf")
+                .controlledCopySha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .bindingEventKey("historical:900:REQ-3").boundAt(LocalDateTime.of(2026, 8, 13, 16, 0)).build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.bound(binding));
+
+        TenantContextHolder.setTenantId(1L);
+        try {
+            assertTrue(service.migratePublishedCopyBindings(900L, 9L, "REQ-3").getAllRequiredEvidenceValid());
+        } finally {
+            TenantContextHolder.clear();
+        }
+        verify(signatureBindingService).bindPublishedCopy(file, 800L, 9L, "historical:900:REQ-3");
+    }
+
+    @Test
+    void exportSignatureEvidence_publishedCopyBindingValidExportsWithBoundProjection() throws Exception {
+        when(signatureEvidenceProperties.getHmacSecret()).thenReturn("secret");
+        DccControlledFileDO file = signedFile();
+        file.setPublishedFileId(800L);
+        DccControlledFileSignatureDO signature = completeSignature(hmacSha256Hex("secret", canonicalPayload(file)));
+        DccControlledFileSignatureBindingDO binding = DccControlledFileSignatureBindingDO.builder()
+                .signatureId(1001L)
+                .controlledFileId(900L)
+                .originalEvidenceHash(signature.getEvidenceHash())
+                .controlledCopyFileId(800L)
+                .controlledCopySha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .bindingEventKey("dcc-finalization:900")
+                .boundAt(LocalDateTime.of(2026, 5, 26, 15, 0))
+                .build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signature));
+        when(signatureBindingService.verifyPublishedCopyBinding(signature, file))
+                .thenReturn(DccControlledFileSignatureBindingVerification.bound(binding));
+
+        TenantContextHolder.setTenantId(1L);
+        DccControlledFileSignatureExportSummaryRespVO summary;
+        DccSignatureEvidenceExportArtifact artifact;
+        try {
+            summary = service.getSignatureExportSummary(900L);
+            artifact = service.exportSignatureEvidence(900L);
+        } finally {
+            TenantContextHolder.clear();
+        }
+
+        assertTrue(summary.getAllRequiredEvidenceValid());
+        assertEquals("BOUND", summary.getSignatures().get(0).getControlledCopyHashStatus());
+        assertEquals(800L, summary.getSignatures().get(0).getControlledCopyFileId());
+        assertEquals("application/pdf", artifact.contentType());
     }
 
     @Test

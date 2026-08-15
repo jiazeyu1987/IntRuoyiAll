@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.B
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkWorkbenchContextRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupSaveRespVO;
 
 import java.util.Map;
 
@@ -17,6 +19,8 @@ public interface MesProBatchRecordCellLinkService {
     BatchRecordCellLinkFormCellsRespVO getFormCells(String reportId, Long versionId);
 
     BatchRecordCellLinkRulesSaveRespVO saveRules(BatchRecordCellLinkRulesSaveReqVO reqVO);
+
+    BatchRecordRepeatRowGroupSaveRespVO saveRepeatRowGroup(BatchRecordRepeatRowGroupSaveReqVO reqVO);
 
     BatchRecordCellLinkPrefillRespVO getPrefill(Long targetExecutionId, Long workTaskId);
 

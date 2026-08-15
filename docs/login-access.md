@@ -45,11 +45,12 @@
 ## ERP 金蝶账套登录连通性门禁
 
 - Trigger: 更换金蝶账套、验证 `acctId`、复用当前 ERP `baseUrl`、调用 `ValidateUser`、判断金蝶 WebAPI 是否连接成功。
-- Preflight check: 从当前生效配置读取基础地址、集成用户、密码和 `lcid`，但不得输出敏感值；通过 MySQL CLI、PowerShell 或其它中间工具读取中文用户名时必须显式使用 UTF-8/`utf8mb4`，并在请求前验证用户名未变成问号或乱码；登录 URL 必须与生产客户端使用同一归一化规则，基础地址未以 `/K3Cloud` 结尾时先补齐；先以当前已配置账套做控制组，再以目标账套做目标组，且两组只能改变 `acctId`。
+- Preflight check: 从当前生效配置读取基础地址、集成用户、密码和 `lcid`，但不得输出敏感值；当前生效配置必须按 `ErpKingdeeConfigService.getEffectiveProperties()` 的正式解析顺序确定，先读取 `yudao.erp.kingdee.connection.active`，再读取对应的测试或正式账套保存配置。环境变量为空不等于当前运行配置缺失，只有正式解析入口也缺少必需字段时才可判定 blocker；不得跳过已保存配置直接用环境变量存在性下结论。通过 MySQL CLI、PowerShell 或其它中间工具读取中文用户名时必须显式使用 UTF-8/`utf8mb4`，并在请求前验证用户名未变成问号或乱码；登录 URL 必须与生产客户端使用同一归一化规则，基础地址未以 `/K3Cloud` 结尾时先补齐；先以当前已配置账套做控制组，再以目标账套做目标组，且两组只能改变 `acctId`。
 - Blocker: HTTP 非 200、响应无法解析、`LoginResultType` 不为 `1` 且 `IsSuccessByAPI` 不为 `true`、或缺会话 Cookie 时必须判定登录失败；控制组也失败时，当前凭据或认证基线无效，不能把失败归因于目标账套；目标组单独失败时，阻塞于目标账套账号、密码、授权或登录方式。
 - Verification: 仅调用 `AuthService.ValidateUser.common.kdsvc`，记录脱敏的接口来源、路径、HTTP 状态、业务登录状态、Cookie 是否存在和安全错误摘要；登录成功必须同时满足 HTTP、金蝶业务状态和会话 Cookie 条件。若用户名包含中文，验证探针还必须证明 UTF-8 编码链路完整，乱码请求的失败结果不得归因于密码或账套。
 - Read permission check: 登录成功只证明会话可建立，不证明具体业务对象可读；验证生产订单、采购订单等对象时，必须在同一会话中调用目标表单的正式只读接口，并限制到最小字段和少量行。`ExecuteBillQuery` 返回合法数组才可判定读取权限通过；HTTP 200、Cookie、错误对象或含错误信息的数组都不能代替业务对象读取成功。
+- Field contract check: 金蝶不同账套、补丁版本或业务表单的字段标识可能不同；新增同步对象时必须先在目标账套逐步探测正式字段合同，并把不可读字段视为阻塞或从正式模型中移除，不得按页面列名猜字段、用旧表单字段替代或把错误数组当作数据数组。日期格式也必须以目标账套真实返回为准并纳入解析测试。
 - Connection switch: 多账套切换必须把各账套连接配置与当前连接类型分别保存在后端；查询接口只返回类型、名称和固定选项，不得返回连接凭据。前端选择态只能标记“待保存”，不得直接改变实际连接；保存时必须先校验目标连接配置完整有效，再持久化当前类型，失败时保持原连接。所有 ERP 同步服务必须从同一后端有效配置解析入口读取当前连接，不得各自缓存、推断或回退。
 - Switch verification: 真实页面验证必须覆盖“仅选择不生效、保存后生效、刷新后保持”，并按 `docs/e2e-rules.md#全局开关类-e2e-恢复门禁` 回切和复验原始账套；数据库/API 核对只记录类型、字段存在性和脱敏结果，不记录密码、Cookie 或完整连接 JSON。
 - Forbidden action: 禁止把收到 Cookie 当作登录成功；禁止用 HTML5/Silverlight 单点登录测试链接、临时时间戳签名或 `appID` 静默替代当前用户名密码认证；禁止为了验证登录调用 `ExecuteBillQuery`、保存目标配置、输出密码/Cookie/签名或记录完整响应。
-- Evidence: `doc/tasks/20260807-kingdee-target-acct-connectivity-check/verification-report.md`、`doc/tasks/20260807-kingdee-production-order-read-check/verification-report.md`。
+- Evidence: `doc/tasks/20260807-kingdee-target-acct-connectivity-check/verification-report.md`、`doc/tasks/20260807-kingdee-production-order-read-check/verification-report.md`、`doc/tasks/20260813-erp-production-pick-list-sync/verification-report.md`。

@@ -1,0 +1,568 @@
+{
+  "schema_version": 2,
+  "task_id": "20260814-frontline-active-order-submit-allocation-docs",
+  "mode": "full",
+  "status": "completed",
+  "current_phase": null,
+  "phase_statuses": [
+    {
+      "phase_id": "P1",
+      "title": "后端合同 RED",
+      "objective": "先用可执行失败测试锁定 activeOrderId、提交事务内初始分配和超量不截断三个后端合同。",
+      "owned_paths": [
+        "IntRuoyiBackend/yudao-module-mes/src/test/java",
+        "IntRuoyiBackend/yudao-module-mes/src/test/js"
+      ],
+      "dependencies": [],
+      "deliverables": [
+        "后端 RED 测试及预期失败证据。",
+        "新增/更新单元测试，断言一线提交上下文必须包含 `activeOrderId`。",
+        "新增测试，断言一线提交后创建初始分配且数量等于提交数量。",
+        "新增测试，断言提交数量超过订单剩余量仍成功并生成超量状态。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P1-AC1",
+          "text": "实现当前里程碑目标：先用可执行失败测试锁定 activeOrderId、提交事务内初始分配和超量不截断三个后端合同。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p1-backend-red",
+            "test-report.md#p1"
+          ]
+        },
+        {
+          "ac_id": "P1-AC2",
+          "text": "交付物已落地：后端 RED 测试及预期失败证据。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p1-backend-red",
+            "test-report.md#p1"
+          ]
+        },
+        {
+          "ac_id": "P1-AC3",
+          "text": "交付物已落地：新增/更新单元测试，断言一线提交上下文必须包含 `activeOrderId`。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p1-backend-red",
+            "test-report.md#p1"
+          ]
+        },
+        {
+          "ac_id": "P1-AC4",
+          "text": "交付物已落地：新增测试，断言一线提交后创建初始分配且数量等于提交数量。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p1-backend-red",
+            "test-report.md#p1"
+          ]
+        },
+        {
+          "ac_id": "P1-AC5",
+          "text": "交付物已落地：新增测试，断言提交数量超过订单剩余量仍成功并生成超量状态。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p1-backend-red",
+            "test-report.md#p1"
+          ]
+        },
+        {
+          "ac_id": "P1-AC6",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p1-backend-red",
+            "test-report.md#p1"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#p1-backend-red",
+        "test-report.md#p1"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": "2026-08-14T09:38:59+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P2",
+      "title": "后端实现 GREEN",
+      "objective": "在一线正式提交事务内保存精确活跃订单身份和全量初始分配，并让组长调整不再静默截断。",
+      "owned_paths": [
+        "IntRuoyiBackend/yudao-module-mes/src/main/java",
+        "IntRuoyiBackend/yudao-module-mes/src/main/resources",
+        "IntRuoyiBackend/yudao-module-mes/src/test/java",
+        "IntRuoyiBackend/sql/mysql"
+      ],
+      "dependencies": [
+        "P1"
+      ],
+      "deliverables": [
+        "后端接口、事务、分配服务和读模型实现。",
+        "后端 GREEN 与相邻回归证据。",
+        "扩展 VO、BO、事件创建和读模型。",
+        "在一线提交事务内调用初始分配保存能力。",
+        "修改分配服务，避免超量路径被静默截断；必要时拆分初始分配与普通快捷分配的规则。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P2-AC1",
+          "text": "实现当前里程碑目标：在一线正式提交事务内保存精确活跃订单身份和全量初始分配，并让组长调整不再静默截断。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p2-后端实现-green2026-08-14",
+            "test-report.md#p2-第二次独立复核最终"
+          ]
+        },
+        {
+          "ac_id": "P2-AC2",
+          "text": "交付物已落地：后端接口、事务、分配服务和读模型实现。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p2-后端实现-green2026-08-14",
+            "test-report.md#p2-第二次独立复核最终"
+          ]
+        },
+        {
+          "ac_id": "P2-AC3",
+          "text": "交付物已落地：后端 GREEN 与相邻回归证据。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p2-后端实现-green2026-08-14",
+            "test-report.md#p2-第二次独立复核最终"
+          ]
+        },
+        {
+          "ac_id": "P2-AC4",
+          "text": "交付物已落地：扩展 VO、BO、事件创建和读模型。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p2-后端实现-green2026-08-14",
+            "test-report.md#p2-第二次独立复核最终"
+          ]
+        },
+        {
+          "ac_id": "P2-AC5",
+          "text": "交付物已落地：在一线提交事务内调用初始分配保存能力。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p2-后端实现-green2026-08-14",
+            "test-report.md#p2-第二次独立复核最终"
+          ]
+        },
+        {
+          "ac_id": "P2-AC6",
+          "text": "交付物已落地：修改分配服务，避免超量路径被静默截断；必要时拆分初始分配与普通快捷分配的规则。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p2-后端实现-green2026-08-14",
+            "test-report.md#p2-第二次独立复核最终"
+          ]
+        },
+        {
+          "ac_id": "P2-AC7",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p2-后端实现-green2026-08-14",
+            "test-report.md#p2-第二次独立复核最终"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#p2-后端实现-green2026-08-14",
+        "test-report.md#p2-第二次独立复核最终"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "最终以 Node 6/6、Maven 50/50 和第二次独立复核 PASS 为准"
+      ],
+      "last_reviewed_at": "2026-08-14T12:50:29+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P3",
+      "title": "前端合同 RED",
+      "objective": "先用前端静态合同锁定提交 activeOrderId、订单级红色超量标识和正式当前分配读取。",
+      "owned_paths": [
+        "IntRuoyiFronted/tests/e2e"
+      ],
+      "dependencies": [
+        "P2"
+      ],
+      "deliverables": [
+        "前端 RED 静态合同及预期失败证据。",
+        "静态合同断言一线提交 payload 包含 `activeOrderId`。",
+        "静态合同断言组长列表红色标识基于订单超量，而不是仅基于未分配数量。",
+        "静态合同断言分配弹窗读取后端当前分配，不用前端预填冒充已保存。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P3-AC1",
+          "text": "实现当前里程碑目标：先用前端静态合同锁定提交 activeOrderId、订单级红色超量标识和正式当前分配读取。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p3-前端合同-red2026-08-14",
+            "test-report.md#p3",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P3-AC2",
+          "text": "交付物已落地：前端 RED 静态合同及预期失败证据。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p3-前端合同-red2026-08-14",
+            "test-report.md#p3",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P3-AC3",
+          "text": "交付物已落地：静态合同断言一线提交 payload 包含 `activeOrderId`。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p3-前端合同-red2026-08-14",
+            "test-report.md#p3",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P3-AC4",
+          "text": "交付物已落地：静态合同断言组长列表红色标识基于订单超量，而不是仅基于未分配数量。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p3-前端合同-red2026-08-14",
+            "test-report.md#p3",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P3-AC5",
+          "text": "交付物已落地：静态合同断言分配弹窗读取后端当前分配，不用前端预填冒充已保存。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p3-前端合同-red2026-08-14",
+            "test-report.md#p3",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P3-AC6",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p3-前端合同-red2026-08-14",
+            "test-report.md#p3",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#p3-前端合同-red2026-08-14",
+        "test-report.md#p3",
+        "execution-log.md#p4-独立复核修订2026-08-14",
+        "test-report.md#p4-第二次独立复核2026-08-14"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "两个聚焦静态合同均在生产代码修改前取得预期业务 RED",
+        "独立复核要求新增正式分配数组缺失时禁止 fallback 的负向合同",
+        "补充禁止正式分配数组 fallback 的负向合同后，第二次独立复核通过"
+      ],
+      "last_reviewed_at": "2026-08-14T13:27:19+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P4",
+      "title": "前端实现 GREEN",
+      "objective": "让一线提交和生产组长报工管理页面完整消费新的活跃订单与初始分配合同。",
+      "owned_paths": [
+        "IntRuoyiFronted/src/api/mes/pro",
+        "IntRuoyiFronted/src/views/mes/pro",
+        "IntRuoyiFronted/tests/e2e"
+      ],
+      "dependencies": [
+        "P3"
+      ],
+      "deliverables": [
+        "一线提交 payload、组长列表红色标识和分配弹窗实现。",
+        "前端 GREEN、类型检查和相邻回归证据。",
+        "一线提交 payload 加入 `activeOrderId`。",
+        "组长列表展示初始选中订单、当前分配和订单级超量标签。",
+        "组长调整后刷新分配快照和超量状态。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P4-AC1",
+          "text": "实现当前里程碑目标：让一线提交和生产组长报工管理页面完整消费新的活跃订单与初始分配合同。",
+          "status": "completed",
+          "evidence": [
+            "test-report.md#p3p4-独立复核",
+            "execution-log.md#p4-前端实现-green2026-08-14",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P4-AC2",
+          "text": "交付物已落地：一线提交 payload、组长列表红色标识和分配弹窗实现。",
+          "status": "completed",
+          "evidence": [
+            "test-report.md#p3p4-独立复核",
+            "execution-log.md#p4-前端实现-green2026-08-14",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P4-AC3",
+          "text": "交付物已落地：前端 GREEN、类型检查和相邻回归证据。",
+          "status": "completed",
+          "evidence": [
+            "test-report.md#p3p4-独立复核",
+            "execution-log.md#p4-前端实现-green2026-08-14",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P4-AC4",
+          "text": "交付物已落地：一线提交 payload 加入 `activeOrderId`。",
+          "status": "completed",
+          "evidence": [
+            "test-report.md#p3p4-独立复核",
+            "execution-log.md#p4-前端实现-green2026-08-14",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P4-AC5",
+          "text": "交付物已落地：组长列表展示初始选中订单、当前分配和订单级超量标签。",
+          "status": "completed",
+          "evidence": [
+            "test-report.md#p3p4-独立复核",
+            "execution-log.md#p4-前端实现-green2026-08-14",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P4-AC6",
+          "text": "交付物已落地：组长调整后刷新分配快照和超量状态。",
+          "status": "completed",
+          "evidence": [
+            "test-report.md#p3p4-独立复核",
+            "execution-log.md#p4-前端实现-green2026-08-14",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        },
+        {
+          "ac_id": "P4-AC7",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "test-report.md#p3p4-独立复核",
+            "execution-log.md#p4-前端实现-green2026-08-14",
+            "execution-log.md#p4-独立复核修订2026-08-14",
+            "test-report.md#p4-第二次独立复核2026-08-14"
+          ]
+        }
+      ],
+      "evidence": [
+        "test-report.md#p3p4-独立复核",
+        "execution-log.md#p4-前端实现-green2026-08-14",
+        "execution-log.md#p4-独立复核修订2026-08-14",
+        "test-report.md#p4-第二次独立复核2026-08-14"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "正式分配数组缺失时仍使用空数组 fallback，红色状态会静默消失",
+        "7 项前端静态合同、TypeScript 类型检查和第二次独立复核全部通过"
+      ],
+      "last_reviewed_at": "2026-08-14T13:27:32+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P5",
+      "title": "真实 E2E",
+      "objective": "通过真实一线提交和生产组长调整路径证明目标业务闭环，并完成回归、清理和融合前验证。",
+      "owned_paths": [
+        "IntRuoyiFronted/tests/e2e",
+        "doc/tasks/20260814-frontline-active-order-submit-allocation-docs"
+      ],
+      "dependencies": [
+        "P4"
+      ],
+      "deliverables": [
+        "真实 Playwright E2E 证据。",
+        "定向回归、清理和融合 int_main 证据。",
+        "构造任务自有活跃订单 O1、O2，其中 O1 当前工序可承接数量小于提交数量。",
+        "一线账号选择 O1 提交 Q。",
+        "生产组长账号查看报工管理列表，确认 O1 红色标识。",
+        "生产组长把部分数量调整到 O2，确认当前分配、审计和红色标识变化。"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P5-AC1",
+          "text": "实现当前里程碑目标：通过真实一线提交和生产组长调整路径证明目标业务闭环，并完成回归、清理和融合前验证。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
+            "test-report.md#p5",
+            "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
+          ]
+        },
+        {
+          "ac_id": "P5-AC2",
+          "text": "交付物已落地：真实 Playwright E2E 证据。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
+            "test-report.md#p5",
+            "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
+          ]
+        },
+        {
+          "ac_id": "P5-AC3",
+          "text": "交付物已落地：定向回归、清理和融合 int_main 证据。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
+            "test-report.md#p5",
+            "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
+          ]
+        },
+        {
+          "ac_id": "P5-AC4",
+          "text": "交付物已落地：构造任务自有活跃订单 O1、O2，其中 O1 当前工序可承接数量小于提交数量。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
+            "test-report.md#p5",
+            "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
+          ]
+        },
+        {
+          "ac_id": "P5-AC5",
+          "text": "交付物已落地：一线账号选择 O1 提交 Q。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
+            "test-report.md#p5",
+            "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
+          ]
+        },
+        {
+          "ac_id": "P5-AC6",
+          "text": "交付物已落地：生产组长账号查看报工管理列表，确认 O1 红色标识。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
+            "test-report.md#p5",
+            "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
+          ]
+        },
+        {
+          "ac_id": "P5-AC7",
+          "text": "交付物已落地：生产组长把部分数量调整到 O2，确认当前分配、审计和红色标识变化。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
+            "test-report.md#p5",
+            "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
+          ]
+        },
+        {
+          "ac_id": "P5-AC8",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
+            "test-report.md#p5",
+            "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
+            "e2e-artifacts/evidence.md",
+            "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+            "test-report.md#p5-真实-e2e-独立复核2026-08-15"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#p5-真实-e2e-前置核对2026-08-14",
+        "test-report.md#p5",
+        "execution-log.md#p5-专用真实-e2e-执行合同2026-08-14",
+        "e2e-artifacts/evidence.md",
+        "execution-log.md#p5-融合-int_main-与融合后验证2026-08-15",
+        "test-report.md#p5-真实-e2e-独立复核2026-08-15"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "禁止用芋道源码/admin、mock、API-only、静态合同或直接 SQL 替代真实用户路径；P5 通过前不得融合 int_main",
+        "专用真实 E2E 脚本及静态合同已补齐；当前只剩已确认测试租户、独立账号、任务自有 O1/O2 和清理方案前置",
+        "P5 独立复核失败：修复访问令牌、实际清理、BLOCKED 分类、worktree 端口和租户归属、Long ID 精度及静态合同强度后再执行真实 E2E",
+        "真实 E2E、独立复核、零残留清理、融合 int_main、50 项后端测试、9 项前端合同、类型检查与全量 Maven 构建均通过。"
+      ],
+      "last_reviewed_at": "2026-08-14T23:54:42+00:00",
+      "status": "completed"
+    }
+  ],
+  "planner_review_status": "approved",
+  "test_status": "passed",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "executor_loops": 2,
+    "test_loops": 2
+  },
+  "created_at": "2026-08-14T07:51:40+00:00",
+  "updated_at": "2026-08-14T23:55:04+00:00",
+  "branch": "codex/20260814-frontline-active-order-submit-allocation",
+  "baseline_revision": "33302985228b16faae2695458b03268098a433af",
+  "workspace_root": "E:\\IntRuoyi",
+  "tasks_root": "E:\\IntRuoyi\\doc\\tasks",
+  "task_dir": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs",
+  "goal": "PRD - 一线报工活跃订单自动分配",
+  "artifacts": {
+    "prd": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\prd.md",
+    "test_plan": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\test-plan.md",
+    "task_state": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\task-state.json",
+    "execution_log": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\execution-log.md",
+    "test_report": "E:\\IntRuoyi\\doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\test-report.md"
+  }
+}

@@ -24,6 +24,12 @@ public class MesFrontlineRuntimeConfigRespVO {
     private List<DefectReason> defectReasons;
     @Schema(description = "服务端解析的一线生产正式提交上下文")
     private ProductionSubmitContext productionSubmitContext;
+    @Schema(description = "服务端全部可选实际填写员工切换快照")
+    private List<MesFrontlineSwitchEmployeeRespVO> employeeSwitchSnapshots;
+    @Schema(description = "服务端签发的一线运行快照编号")
+    private String frontlineSessionSnapshotId;
+    @Schema(description = "服务端签发的一线运行快照校验值")
+    private String frontlineSessionSnapshotHash;
 
     @Data
     public static class Employee {
