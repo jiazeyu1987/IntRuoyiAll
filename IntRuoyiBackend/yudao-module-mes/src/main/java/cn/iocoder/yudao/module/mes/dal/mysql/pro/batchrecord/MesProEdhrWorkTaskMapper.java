@@ -69,6 +69,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                 .eq(MesProEdhrWorkTaskDO::getTaskType, "REVIEW")
                 .eq(MesProEdhrWorkTaskDO::getStatus, status)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
+                .eqIfPresent(MesProEdhrWorkTaskDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getBatchCode, reqVO.getBatchCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getProcessName, reqVO.getProcessName()));
@@ -167,6 +168,11 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
     }
 
+    default MesProEdhrWorkTaskDO selectByPqcReleaseApplicationScopeId(Long applicationId) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                .eq(MesProEdhrWorkTaskDO::getPqcReleaseApplicationScopeId, applicationId));
+    }
+
     default List<MesProEdhrWorkTaskDO> selectActiveListByBatchExecutionId(Long batchExecutionId) {
         return selectList(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
                 .eq(MesProEdhrWorkTaskDO::getBatchExecutionId, batchExecutionId)
@@ -233,6 +239,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                                                     boolean includeProcessFormCandidates) {
         return applyMyTaskVisibility(new LambdaQueryWrapperX<>(), assigneeUserId, includeProcessFormCandidates)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
+                .eqIfPresent(MesProEdhrWorkTaskDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getBatchCode, reqVO.getBatchCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getProcessName, reqVO.getProcessName());
@@ -261,6 +268,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                 .eqIfPresent(MesProEdhrWorkTaskDO::getAssigneeUserId, assigneeUserId)
                 .in(MesProEdhrWorkTaskDO::getTaskType, APPROVAL_CENTER_TASK_TYPES)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
+                .eqIfPresent(MesProEdhrWorkTaskDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getBatchCode, reqVO.getBatchCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getProcessName, reqVO.getProcessName());

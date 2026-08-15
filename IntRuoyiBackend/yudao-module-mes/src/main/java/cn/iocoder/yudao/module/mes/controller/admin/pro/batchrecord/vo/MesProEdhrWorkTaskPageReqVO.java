@@ -5,6 +5,8 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
+import java.util.List;
+
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
@@ -19,4 +21,8 @@ public class MesProEdhrWorkTaskPageReqVO extends PageParam {
     private String batchCode;
 
     private String processName;
+
+    private List<String> nodeTypes;
+
+    private Long batchExecutionId;
 }

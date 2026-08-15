@@ -4,6 +4,9 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -12,6 +15,29 @@ import java.util.List;
 @Mapper
 public interface MesProcessPoolActiveOrderReleaseApplicationMapper
         extends BaseMapperX<MesProcessPoolActiveOrderReleaseApplicationDO> {
+
+    @Select("""
+            SELECT *
+            FROM mes_pro_process_pool_active_order_release_application
+            WHERE id = #{id}
+              AND deleted = b'0'
+            FOR UPDATE
+            """)
+    MesProcessPoolActiveOrderReleaseApplicationDO selectByIdForUpdate(@Param("id") Long id);
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order_release_application
+            SET application_status = #{targetStatus},
+                version = version + 1
+            WHERE id = #{id}
+              AND deleted = b'0'
+              AND version = #{expectedVersion}
+              AND application_status = #{expectedStatus}
+            """)
+    int compareAndSetStatus(@Param("id") Long id,
+                            @Param("expectedVersion") Integer expectedVersion,
+                            @Param("expectedStatus") String expectedStatus,
+                            @Param("targetStatus") String targetStatus);
 
     default MesProcessPoolActiveOrderReleaseApplicationDO selectByRequestIdempotencyKey(
             Long activeOrderId, String requestIdempotencyKey) {
