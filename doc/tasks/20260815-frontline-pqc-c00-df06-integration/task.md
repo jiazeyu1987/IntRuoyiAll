@@ -17,7 +17,7 @@
 - [x] M3：恢复 DF06 活跃订单 QA 锁定与任务生成。
 - [x] M4：通过 C00、DF06、INT12 后端与前端回归。
 - [x] M5：通过独立验证和 VAL13。
-- [ ] M6：快进合并 `int_main`，保留 worktree。
+- [x] M6：快进合并 `int_main`，保留 worktree。
 
 ## Expected Verification
 
@@ -46,9 +46,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现、定向回归、VAL13 后端聚合、前端静态合同、TypeScript、evidence validators、UTF-8、冲突标记、`git diff --check` 和分支端口门禁均已通过。真实写入 Playwright 路径按用户 2026-08-15 明确指令豁免，不记为 PASS。剩余：独立验收记录、提交和快进合并；保留 worktree。
+实现、定向回归、VAL13 后端聚合、前端静态合同、TypeScript、evidence validators、UTF-8、冲突标记、`git diff --check` 和分支端口门禁均已通过。实现提交 `ec86297a5` 已快进合并到 `int_main`，worktree 按用户要求保留。真实写入 Playwright 路径按用户 2026-08-15 明确指令豁免，不记为 PASS。主工作区 9 个重叠旧改动已保留 patch 备份，未自动套回。
 
 ## Cleanup Keep
 

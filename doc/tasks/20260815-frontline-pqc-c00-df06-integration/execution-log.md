@@ -51,3 +51,11 @@
 - GREEN: `/root/val13_final_independent` independent verification -> PASS；后端 17 类 127 tests、6 个前端静态合同、`pnpm ts:check`、database/backend/frontend validators、branch runtime guard、`git diff --check`、冲突标记和 C00 禁止项扫描均通过。
 - Verification: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260815-frontline-pqc-c00-df06-integration --mode preview` -> BLOCKED；自动脚本会处理 linked worktree 删除，且主工作区仍有并行脏改动。按用户“保留 worktree”要求，不执行 cleanup apply；已人工删除本任务临时 evidence/fixture 文件，并保留独立验证报告。
 - Merge preflight: 主工作区与本次合并有 9 个 tracked overlap，需先生成 patch 备份并只处理这些重叠文件；其它主工作区脏改动不属于本任务，不暂存、不回滚、不删除。
+
+## 2026-08-16 Merge / Closeout
+
+- Commit: `git commit -m "fix(mes): restore frontline PQC C00 DF06 contract"` -> `ec86297a5`；提交后集成 worktree 干净。
+- Merge safety: 9 个主工作区重叠旧改动已备份到 `D:\IntRuoyiWorktree\patch-backups\20260815-frontline-pqc-c00-df06-integration\main-overlap-before-ff-merge-20260816.patch`。路径限定 stash 未创建成功；随后仅对这 9 个重叠文件执行 `git restore --source=HEAD -- <paths>`，其它主工作区脏改动未触碰。
+- Merge: `git merge --ff-only task/20260815-frontline-pqc-c00-df06-integration` -> `int_main` 已移动到 `ec86297a5`；合并命令超时后继续自然完成，无 `MERGE_HEAD`，无 `index.lock`。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` on `E:\IntRuoyi` -> PASS，frontend 8081 / backend 48081。
+- Closeout: 用户要求保留 worktree；不运行会删除 linked worktree 的 cleanup apply。

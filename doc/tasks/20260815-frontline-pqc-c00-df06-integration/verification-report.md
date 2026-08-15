@@ -2,7 +2,7 @@
 
 ## Current Result
 
-READY_FOR_CLOSEOUT
+COMPLETED
 
 ## Completed Evidence
 
@@ -18,8 +18,7 @@ READY_FOR_CLOSEOUT
 
 ## Pending Gates
 
-- 独立验收记录。
-- Git 提交与快进合并。
+- 无剩余开发门禁。
 - 用户要求保留 worktree，因此不执行 worktree 删除。
 
 ## Verification Commands
@@ -42,4 +41,6 @@ READY_FOR_CLOSEOUT
 
 ## Final Status
 
-ready_for_closeout
+completed
+
+实现提交 `ec86297a5` 已快进合并到 `int_main`。主工作区合并前 9 个重叠旧改动已备份到 `D:\IntRuoyiWorktree\patch-backups\20260815-frontline-pqc-c00-df06-integration\main-overlap-before-ff-merge-20260816.patch`，未自动套回；其它主工作区并行脏改动未触碰。
