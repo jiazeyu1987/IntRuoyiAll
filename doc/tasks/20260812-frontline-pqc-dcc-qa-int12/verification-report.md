@@ -2,7 +2,7 @@
 
 ## Result
 
-blocked
+completed
 
 ## Passed Checks
 
@@ -37,6 +37,14 @@ blocked
 - Conflicting old patches are not applied automatically; any prior old changes must stay as patch backup only until explicitly reviewed against the formal contract.
 - No fallback, current-QA inference, product/material inference, route-process existence validation, or compatibility submit path was intentionally introduced.
 
-## Remaining Blocker
+## Verification Exception
 
-- Real Playwright write-path E2E is blocked until local runtime, test tenant/account, permissions, and traceable active-order/PQC task data are confirmed. API-only or mock verification was not used as a substitute.
+- The user explicitly instructed `不用测试，继续推进` on 2026-08-15. Real Playwright write-path E2E was not run and is not marked PASS.
+- Residual risk: signed submission, tenant permissions, active-order/PQC task data, and separate AM/PM behavior have not been exercised through a confirmed real browser write path in this closeout.
+- No API-only, mock, fallback, or default-success result was used as a substitute.
+
+## Final Closeout
+
+- Cleanup preview/apply: PASS, zero paths deleted; task records, formal evidence, formal tests, production code, and prerequisite overlap backup retained.
+- Local integration: PASS, prerequisite `254bb6181` and response-contract implementation `389c7bf9e` are on `int_main`.
+- Final result: completed with the explicitly recorded user waiver for real Playwright write-path verification; no new test was run after that instruction.

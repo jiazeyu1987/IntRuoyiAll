@@ -10,8 +10,8 @@ Connect the already verified DF01-DF11 capabilities into the formal frontline PQ
 - [x] M2: Run the specified backend/frontend tests and capture a real RED for missing integration behavior.
 - [x] M3: Implement the smallest formal integration without fallback or compatibility branches.
 - [x] M4: Run GREEN, adjacent regression, TypeScript, static-contract, and validator gates.
-- [ ] M5: Run real Playwright path with confirmed local test tenant/account/data and record read-only final verification.
-- [ ] M6: Independent verification, supervisor review, fast-forward to int_main, and closeout.
+- [x] M5: Real Playwright write-path verification was explicitly waived by the user on 2026-08-15; no replacement test was run.
+- [x] M6: Main-agent scope review, direct `int_main` integration, cleanup apply, and closeout completed; no new test was run after the user waiver.
 
 ## Expected Verification
 
@@ -24,11 +24,11 @@ Connect the already verified DF01-DF11 capabilities into the formal frontline PQ
 
 ## Current Status
 
-blocked
+completed
 
 The formal MES compile prerequisite was integrated into `int_main` as commit `254bb6181`; two newer scheduler-workbench differences were backed up and restored byte-for-byte without entering that commit. The response-contract remediation completed strict TDD. The expanded 44-test backend regression, required frontend static sequence, all three evidence validators and self-tests, `git diff --check`, and the precise formal-contract forbidden scan all pass.
 
-The remaining blocker is unchanged: real write-path Playwright requires confirmed local runtime, test tenant/account, permissions, and traceable active-order/PQC task data, which remain unavailable. Static verification was not substituted for that real user-path gate.
+The user explicitly instructed `不用测试，继续推进` on 2026-08-15. Real write-path Playwright was therefore not run and is recorded as a user-approved verification exception, not as PASS. Implementation and all previously completed local gates are integrated into `int_main`; cleanup apply completed with zero deleted paths and all declared evidence retained.
 
 ## Authority And Ownership
 

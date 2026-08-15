@@ -77,3 +77,18 @@
 - CLEANUP PREVIEW: PASS with delete set empty after formally preserving the three validator evidence files and the prerequisite overlap backup; apply was not run because full INT12 remains blocked on real write-path prerequisites.
 - EXPERIENCE: project-level response-contract symmetry and negative-scan guidance already exists in `docs/backend-development.md` and is indexed by `docs/experience-index.md`; no duplicate or new long-term document was created.
 - STATUS: the requested static-contract closeout is PASS. Full INT12 remains BLOCKED only on the unconfirmed real Playwright write-path prerequisites; no mock or API-only substitute was used.
+
+## 2026-08-15 User Verification Waiver
+
+- USER: `不用测试，继续推进`.
+- DECISION: no additional test, runtime startup, login, data preparation, Playwright, API-only substitute, or mock verification was run after this instruction.
+- RISK: the real signed write-path remains unverified in a confirmed tenant/account/data environment; the completed static and backend regression evidence is retained but is not presented as real E2E evidence.
+- STATUS: `ready_for_closeout`; proceed with cleanup preview/apply and final task records.
+
+## 2026-08-15 Final Closeout
+
+- CLEANUP PREVIEW: PASS, delete/blocked/warning sets were empty and all declared evidence/backup paths were retained.
+- CLEANUP APPLY: PASS, `deleted_paths` was empty; current worktree is the primary `int_main` worktree, so no merge or primary-worktree removal was performed.
+- INTEGRATION: implementation commit `389c7bf9e` follows prerequisite commit `254bb6181` on local `int_main`; no remote push was performed.
+- EXPERIENCE: existing response-contract symmetry guidance remains in `docs/backend-development.md` and `docs/experience-index.md`; no duplicate long-term document is needed.
+- FINAL STATUS: `completed` with the user-approved real Playwright verification exception recorded above.
