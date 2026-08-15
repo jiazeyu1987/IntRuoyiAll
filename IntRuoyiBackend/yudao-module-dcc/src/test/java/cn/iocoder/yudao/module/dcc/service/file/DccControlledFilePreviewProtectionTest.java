@@ -27,6 +27,10 @@ import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +42,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -102,14 +107,23 @@ class DccControlledFilePreviewProtectionTest extends BaseMockitoUnitTest {
     private DccControlledFileAccessEventMapper accessEventMapper;
     @Mock
     private DccControlledFileWatermarkTraceMapper watermarkTraceMapper;
+    @Mock
+    private BusinessFileAccessService businessFileAccessService;
+    @Mock
+    private PermissionApi permissionApi;
 
     @InjectMocks
     private DccControlledFileQueryServiceImpl queryService;
 
     @BeforeEach
     void setUpViewMatrixAccessDefault() {
+        TenantContextHolder.setTenantId(TENANT_ID);
         lenient().when(viewMatrixAccessService.canAccessCurrentViewMatrix(any(), any(DccControlledFileDO.class)))
                 .thenReturn(true);
+        lenient().when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenReturn(Optional.of(new BusinessFileAccessReference(
+                        "dcc", "DCC_CONTROLLED_FILE", FILE_ID, "1.0", TENANT_ID, null)));
+        lenient().when(permissionApi.hasAnyPermissions(eq(USER_ID), any(String[].class))).thenReturn(true);
     }
 
     @AfterEach

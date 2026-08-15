@@ -15,6 +15,11 @@ import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +36,7 @@ import java.util.UUID;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertList;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRINT_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRINT_REQUIRED_FIELD_MISSING;
 
@@ -55,6 +61,8 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
     private DccControlledFileCategoryPermissionSupport permissionSupport;
     @Resource
     private AdminUserApi adminUserApi;
+    @Resource
+    private BusinessFileAccessService businessFileAccessService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -107,6 +115,7 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
+        requirePrintBusinessAccess(userId, file);
         if (!DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) {
             throw exception(CONTROLLED_FILE_PRINT_NOT_ALLOWED);
         }
@@ -120,6 +129,31 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
             throw exception(CONTROLLED_FILE_PRINT_NOT_ALLOWED);
         }
         return file;
+    }
+
+    private void requirePrintBusinessAccess(Long userId, DccControlledFileDO file) {
+        Long infraFileId = firstPresent(file.getPublishedFileId(), file.getSourceFileId(), file.getOriginalFileId());
+        if (infraFileId == null) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+        try {
+            businessFileAccessService.assertAllowed(new BusinessFileAccessRequest(
+                            BusinessFileAccessOperation.PRINT, infraFileId,
+                            TenantContextHolder.getRequiredTenantId(), userId, null,
+                            "DCC-PRINT-" + UUID.randomUUID(), null, null, null))
+                    .orElseThrow(() -> exception(CONTROLLED_FILE_ACCESS_DENIED));
+        } catch (BusinessFileAccessDeniedException ex) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+    }
+
+    private Long firstPresent(Long... values) {
+        for (Long value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private void requirePrintFields(DccControlledFilePrintCreateReqVO reqVO) {

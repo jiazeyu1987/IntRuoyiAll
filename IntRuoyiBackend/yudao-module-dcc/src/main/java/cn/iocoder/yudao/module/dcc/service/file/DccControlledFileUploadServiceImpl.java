@@ -20,6 +20,12 @@ import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +34,7 @@ import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CATEGORY_DISABLED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ONLYOFFICE_PREVIEW_CONFIG_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID;
@@ -64,6 +71,8 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     private DccControlledFileAccessAuditService accessAuditService;
     @Resource
     private DccFileCategoryMapper categoryMapper;
+    @Resource
+    private BusinessFileAccessService businessFileAccessService;
 
     @Override
     public DccControlledFileUploadRespVO uploadPreviewFile(Long userId, DccControlledFileUploadPreviewReqVO reqVO,
@@ -118,14 +127,27 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     @Override
     public DccControlledFileBinary readUploadPreviewOnlyOfficeFile(Long fileId, String token) throws Exception {
         requireOnlyOfficeConfigured();
-        onlyOfficePreviewTokenService.verify(token,
-                DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW, fileId);
-        FileDO storedFile = fileMapper.selectById(fileId);
-        if (storedFile == null) {
-            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload =
+                onlyOfficePreviewTokenService.verifyBusinessFileToken(token,
+                        DccOnlyOfficePreviewTokenService.AUDIENCE_UPLOAD_PREVIEW, fileId);
+        Long oldTenantId = TenantContextHolder.getTenantId();
+        boolean oldIgnore = TenantContextHolder.isIgnore();
+        if (!oldIgnore && oldTenantId != null && !Objects.equals(oldTenantId, payload.getTenantId())) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
-        byte[] content = fileService.getFileContent(storedFile.getConfigId(), storedFile.getPath());
-        return new DccControlledFileBinary(storedFile.getName(), storedFile.getType(), content, null);
+        try {
+            TenantContextHolder.setTenantId(payload.getTenantId());
+            TenantContextHolder.setIgnore(false);
+            assertUploadPreviewBusinessAccess(payload);
+            FileDO storedFile = fileMapper.selectById(fileId);
+            if (storedFile == null) {
+                throw exception(CONTROLLED_FILE_NOT_EXISTS);
+            }
+            byte[] content = fileService.getFileContent(storedFile.getConfigId(), storedFile.getPath());
+            return new DccControlledFileBinary(storedFile.getName(), storedFile.getType(), content, null);
+        } finally {
+            restoreTenantContext(oldTenantId, oldIgnore);
+        }
     }
 
     private MultipartFile validatePreviewFile(DccControlledFileUploadPreviewReqVO reqVO) {
@@ -208,13 +230,13 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
         DccControlledFilePreviewKindEnum previewKind =
                 DccControlledFilePreviewKindEnum.resolve(storedFile.getName(), storedFile.getType());
         respVO.setPreviewKind(previewKind.getCode());
-        applyOfficePreview(storedFile, previewKind, respVO);
+        applyOfficePreview(userId, requestId, storedFile, previewKind, respVO);
         respVO.setFileSize(uploadTicket.fileSize());
         respVO.setWatermark(watermarkService.build(userId, "preview", storedFile.getName()));
         return respVO;
     }
 
-    private void applyOfficePreview(FileDO storedFile,
+    private void applyOfficePreview(Long userId, String requestId, FileDO storedFile,
                                     DccControlledFilePreviewKindEnum previewKind,
                                     DccControlledFileUploadRespVO respVO) {
         if (previewKind != DccControlledFilePreviewKindEnum.OFFICE) {
@@ -225,11 +247,55 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             return;
         }
         respVO.setOnlyofficeBaseUrl(trimTrailingSlash(onlyOfficePreviewProperties.getBaseUrl()));
-        String token = onlyOfficePreviewTokenService.issue(DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW,
-                storedFile.getId());
+        BusinessFileAccessReference reference = requireUploadPreviewBusinessReference(
+                userId, requestId, storedFile.getId());
+        DccOnlyOfficePreviewTokenService.IssuedPreviewToken issuedToken =
+                onlyOfficePreviewTokenService.issueBusinessFile(
+                        DccOnlyOfficePreviewTokenService.AUDIENCE_UPLOAD_PREVIEW,
+                        BusinessFileAccessOperation.ONLYOFFICE_PREVIEW,
+                        storedFile.getId(), TenantContextHolder.getRequiredTenantId(), userId, null,
+                        reference, onlyOfficePreviewProperties.getTokenExpireSeconds().longValue());
         respVO.setOnlyofficeDocumentUrl(trimTrailingSlash(onlyOfficePreviewProperties.getPublicFileBaseUrl())
                 + "/admin-api/dcc/controlled-files/upload-preview/" + storedFile.getId()
-                + "/onlyoffice-file?token=" + token);
+                + "/onlyoffice-file?token=" + issuedToken.token());
+    }
+
+    private void assertUploadPreviewBusinessAccess(
+            DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload) {
+        try {
+            BusinessFileAccessOperation operation = BusinessFileAccessOperation.valueOf(payload.getOperation());
+            if (operation != BusinessFileAccessOperation.ONLYOFFICE_PREVIEW
+                    && operation != BusinessFileAccessOperation.CONVERT) {
+                throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+            }
+            businessFileAccessService.assertAllowed(BusinessFileAccessRequest.tokenCallback(
+                    operation, payload.getInfraFileId(), payload.getTenantId(), payload.getUserId(),
+                    payload.getServiceIdentity(), payload.getTokenId(), payload.toBusinessFileReference(),
+                    null, null));
+        } catch (BusinessFileAccessDeniedException ex) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+    }
+
+    private BusinessFileAccessReference requireUploadPreviewBusinessReference(Long userId, String requestId,
+                                                                                Long infraFileId) {
+        try {
+            return businessFileAccessService.assertAllowed(new BusinessFileAccessRequest(
+                            BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, infraFileId,
+                            TenantContextHolder.getRequiredTenantId(), userId, null, requestId,
+                            null, null, null))
+                    .orElseThrow(() -> exception(CONTROLLED_FILE_ACCESS_DENIED));
+        } catch (BusinessFileAccessDeniedException ex) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+    }
+
+    private void restoreTenantContext(Long tenantId, boolean ignore) {
+        TenantContextHolder.clear();
+        if (tenantId != null) {
+            TenantContextHolder.setTenantId(tenantId);
+        }
+        TenantContextHolder.setIgnore(ignore);
     }
 
     private void validatePreviewSession(String sessionId) {

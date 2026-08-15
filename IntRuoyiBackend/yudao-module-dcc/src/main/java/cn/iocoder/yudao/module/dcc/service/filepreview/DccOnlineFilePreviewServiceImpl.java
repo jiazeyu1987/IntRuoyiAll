@@ -10,7 +10,6 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileAccessE
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileWatermarkTraceMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFilePreviewKindEnum;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBinary;
-import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
 import cn.iocoder.yudao.module.dcc.service.file.DccOnlyOfficePreviewProperties;
 import cn.iocoder.yudao.module.dcc.service.file.DccOnlyOfficePreviewTokenService;
 import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
@@ -23,12 +22,18 @@ import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
@@ -64,13 +69,14 @@ public class DccOnlineFilePreviewServiceImpl implements DccOnlineFilePreviewServ
     @Resource
     private DccOnlyOfficePreviewTokenService onlyOfficePreviewTokenService;
     @Resource
-    private DccControlledFileQueryService controlledFileQueryService;
+    private BusinessFileAccessService businessFileAccessService;
 
     @Override
     public DccControlledFilePreviewMetadataRespVO getPreviewMetadata(Long userId, Long fileId,
                                                                      DccRequestAuditContext auditContext) {
         DccRequestAuditContext requiredAuditContext = requireAuditContext(auditContext);
-        FileDO file = requirePreviewableInfraFile(fileId);
+        AuthorizedInfraFile authorizedFile = requireBusinessPreviewableInfraFile(userId, fileId, requiredAuditContext);
+        FileDO file = authorizedFile.file();
         DccControlledFilePreviewKindEnum previewKind =
                 DccControlledFilePreviewKindEnum.resolve(displayFileName(file), file.getType());
         DccPreviewAccessResult accessResult = previewAccessService.prepareAccess(new DccPreviewAccessRequest(
@@ -104,7 +110,7 @@ public class DccOnlineFilePreviewServiceImpl implements DccOnlineFilePreviewServ
         respVO.setWatermarkTraceCode(accessResult.watermarkTraceCode());
         respVO.setWatermark(watermarkService.build(userId, "preview", displayFileName(file)));
         if (previewKind == DccControlledFilePreviewKindEnum.OFFICE) {
-            applyOnlyOfficePreview(respVO, file);
+            applyOnlyOfficePreview(respVO, file, userId, authorizedFile.reference());
         }
         return respVO;
     }
@@ -117,7 +123,7 @@ public class DccOnlineFilePreviewServiceImpl implements DccOnlineFilePreviewServ
         requirePreviewContext(viewerToken, accessEventCode, watermarkTraceCode, viewerTokenId, viewerTokenNonce);
         DccRequestAuditContext requiredAuditContext = requireAuditContext(auditContext)
                 .withRequestId(auditContext.requestIdOr(accessEventCode));
-        FileDO file = requirePreviewableInfraFile(fileId);
+        FileDO file = requireBusinessPreviewableInfraFile(userId, fileId, requiredAuditContext).file();
         DccControlledFileAccessEventDO accessEvent = selectAccessEvent(accessEventCode);
         DccControlledFileWatermarkTraceDO watermarkTrace = selectWatermarkTrace(watermarkTraceCode);
         requireMatchingPreviewEvidence(userId, file, accessEvent, watermarkTrace);
@@ -147,20 +153,33 @@ public class DccOnlineFilePreviewServiceImpl implements DccOnlineFilePreviewServ
     public DccControlledFileBinary readOnlyOfficePreviewFile(Long fileId, String token,
                                                             DccRequestAuditContext auditContext) throws Exception {
         requireOnlyOfficeConfigured();
-        onlyOfficePreviewTokenService.verify(token, RESOURCE_ONLINE_FILE_PREVIEW, fileId);
-        FileDO file = requirePreviewableInfraFile(fileId);
-        byte[] content = fileService.getFileContent(file.getConfigId(), file.getPath());
-        return new DccControlledFileBinary(displayFileName(file),
-                StrUtil.blankToDefault(file.getType(), "application/octet-stream"), content, null);
+        DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload =
+                onlyOfficePreviewTokenService.verifyBusinessFile(token,
+                        DccOnlyOfficePreviewTokenService.AUDIENCE_ONLINE_FILE_PREVIEW,
+                        BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, fileId);
+        DccRequestAuditContext requiredAuditContext = requireAuditContext(auditContext)
+                .withRequestId(auditContext.requestIdOr(payload.getTokenId()));
+        Long oldTenantId = TenantContextHolder.getTenantId();
+        boolean oldIgnore = TenantContextHolder.isIgnore();
+        if (!oldIgnore && oldTenantId != null && !Objects.equals(oldTenantId, payload.getTenantId())) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+        try {
+            TenantContextHolder.setTenantId(payload.getTenantId());
+            TenantContextHolder.setIgnore(false);
+            assertBusinessFileTokenAllowed(payload, requiredAuditContext);
+            FileDO file = requireInfraFile(fileId);
+            byte[] content = fileService.getFileContent(file.getConfigId(), file.getPath());
+            return new DccControlledFileBinary(displayFileName(file),
+                    StrUtil.blankToDefault(file.getType(), "application/octet-stream"), content, null);
+        } finally {
+            restoreTenantContext(oldTenantId, oldIgnore);
+        }
     }
 
-    private FileDO requirePreviewableInfraFile(Long fileId) {
+    private FileDO requireInfraFile(Long fileId) {
         if (fileId == null || fileId <= 0) {
             throw exception(FILE_NOT_EXISTS);
-        }
-        var controlledFileScope = controlledFileQueryService.identifyControlledFileScope(fileId);
-        if (controlledFileScope == null || controlledFileScope.controlled()) {
-            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
         FileDO file = fileMapper.selectById(fileId);
         if (file == null || file.getConfigId() == null || StrUtil.isBlank(file.getPath())) {
@@ -169,15 +188,69 @@ public class DccOnlineFilePreviewServiceImpl implements DccOnlineFilePreviewServ
         return file;
     }
 
-    private void applyOnlyOfficePreview(DccControlledFilePreviewMetadataRespVO respVO, FileDO file) {
+    private AuthorizedInfraFile requireBusinessPreviewableInfraFile(Long userId, Long fileId,
+                                                                    DccRequestAuditContext auditContext) {
+        if (fileId == null || fileId <= 0) {
+            throw exception(FILE_NOT_EXISTS);
+        }
+        try {
+            Optional<BusinessFileAccessReference> reference = businessFileAccessService.assertAllowed(
+                    new BusinessFileAccessRequest(
+                    BusinessFileAccessOperation.PREVIEW,
+                    fileId,
+                    TenantContextHolder.getRequiredTenantId(),
+                    userId,
+                    null,
+                    auditContext.requireRequestId("online file preview"),
+                    null,
+                    auditContext.sourceIp(),
+                    auditContext.userAgent()));
+            return new AuthorizedInfraFile(requireInfraFile(fileId), reference.orElse(null));
+        } catch (BusinessFileAccessDeniedException ex) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+    }
+
+    private void applyOnlyOfficePreview(DccControlledFilePreviewMetadataRespVO respVO, FileDO file,
+                                        Long userId, BusinessFileAccessReference reference) {
         if (!onlyOfficePreviewProperties.isConfigured()) {
             respVO.setPreviewUnavailableReason(buildOnlyOfficeMissingReason());
             return;
         }
         respVO.setOnlyofficeBaseUrl(trimTrailingSlash(onlyOfficePreviewProperties.getBaseUrl()));
-        String token = onlyOfficePreviewTokenService.issue(RESOURCE_ONLINE_FILE_PREVIEW, file.getId());
+        DccOnlyOfficePreviewTokenService.IssuedPreviewToken issuedToken =
+                onlyOfficePreviewTokenService.issueBusinessFile(
+                        DccOnlyOfficePreviewTokenService.AUDIENCE_ONLINE_FILE_PREVIEW,
+                        BusinessFileAccessOperation.ONLYOFFICE_PREVIEW,
+                        file.getId(), TenantContextHolder.getRequiredTenantId(), userId, null,
+                        reference, onlyOfficePreviewProperties.getTokenExpireSeconds().longValue());
         respVO.setOnlyofficeDocumentUrl(trimTrailingSlash(onlyOfficePreviewProperties.getPublicFileBaseUrl())
-                + "/admin-api/dcc/file-preview/files/" + file.getId() + "/onlyoffice-file?token=" + token);
+                + "/admin-api/dcc/file-preview/files/" + file.getId() + "/onlyoffice-file?token="
+                + issuedToken.token());
+    }
+
+    private void assertBusinessFileTokenAllowed(DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload,
+                                                DccRequestAuditContext auditContext) {
+        try {
+            businessFileAccessService.assertAllowed(BusinessFileAccessRequest.tokenCallback(
+                    BusinessFileAccessOperation.valueOf(payload.getOperation()), payload.getInfraFileId(),
+                    payload.getTenantId(), payload.getUserId(), payload.getServiceIdentity(),
+                    auditContext.requireRequestId("online OnlyOffice preview"),
+                    payload.toBusinessFileReference(), auditContext.sourceIp(), auditContext.userAgent()));
+        } catch (BusinessFileAccessDeniedException ex) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+    }
+
+    private void restoreTenantContext(Long tenantId, boolean ignore) {
+        TenantContextHolder.clear();
+        if (tenantId != null) {
+            TenantContextHolder.setTenantId(tenantId);
+        }
+        TenantContextHolder.setIgnore(ignore);
+    }
+
+    private record AuthorizedInfraFile(FileDO file, BusinessFileAccessReference reference) {
     }
 
     private void requireOnlyOfficeConfigured() {

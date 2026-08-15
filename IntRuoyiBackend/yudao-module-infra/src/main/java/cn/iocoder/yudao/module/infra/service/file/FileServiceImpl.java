@@ -21,7 +21,9 @@ import cn.iocoder.yudao.module.infra.framework.file.core.client.StorageRetention
 import cn.iocoder.yudao.module.infra.framework.file.core.client.s3.S3FileClient;
 import cn.iocoder.yudao.module.infra.framework.file.core.utils.FileTypeUtils;
 import cn.iocoder.yudao.module.infra.service.file.access.FileDirectLinkAccessContext;
-import cn.iocoder.yudao.module.infra.service.file.access.FileDirectLinkAccessGuard;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
 import lombok.AllArgsConstructor;
@@ -45,7 +47,7 @@ import java.util.Objects;
 
 import static cn.hutool.core.date.DatePattern.PURE_DATE_PATTERN;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_DIRECT_LINK_BLOCKED_BY_DCC;
+import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_BUSINESS_DIRECT_LINK_BLOCKED;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_PROTECTED_SHOWROOM_MEDIA;
 
@@ -87,7 +89,7 @@ public class FileServiceImpl implements FileService {
     @Resource
     private FileMapper fileMapper;
     @Resource
-    private List<FileDirectLinkAccessGuard> fileDirectLinkAccessGuards;
+    private BusinessFileAccessService businessFileAccessService;
 
     @Override
     public PageResult<FileDO> getFilePage(FilePageReqVO pageReqVO) {
@@ -498,12 +500,12 @@ public class FileServiceImpl implements FileService {
                 .eq(FileDO::getConfigId, configId)
                 .eq(FileDO::getPath, path));
         for (FileDO file : files) {
-            for (FileDirectLinkAccessGuard guard : fileDirectLinkAccessGuards) {
-                try {
-                    guard.assertAllowed(file, context);
-                } catch (FileDirectLinkAccessGuard.ControlledFileDirectLinkBlockedException ex) {
-                    throw exception(FILE_DIRECT_LINK_BLOCKED_BY_DCC, ex.getFileId());
-                }
+            try {
+                businessFileAccessService.assertAllowed(
+                        BusinessFileAccessRequest.publicDirectLink(file.getId(), context.requestId(),
+                                context.sourceIp(), context.userAgent()));
+            } catch (BusinessFileAccessDeniedException ex) {
+                throw exception(FILE_BUSINESS_DIRECT_LINK_BLOCKED, ex.getFileId());
             }
         }
     }

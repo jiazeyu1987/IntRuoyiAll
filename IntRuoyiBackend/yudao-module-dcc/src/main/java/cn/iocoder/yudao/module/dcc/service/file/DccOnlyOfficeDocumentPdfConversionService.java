@@ -3,6 +3,12 @@ package cn.iocoder.yudao.module.dcc.service.file;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -10,9 +16,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.UUID;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PDF_CONVERSION_CONFIG_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PDF_CONVERSION_FAILED;
 
@@ -25,13 +33,16 @@ public class DccOnlyOfficeDocumentPdfConversionService implements DccDocumentPdf
     private DccOnlyOfficePreviewTokenService onlyOfficePreviewTokenService;
     @Resource
     private DccOnlyOfficeConversionClient onlyOfficeConversionClient;
+    @Resource
+    private BusinessFileAccessService businessFileAccessService;
 
     @Override
     public DccConvertedPdf convertToPdf(FileDO sourceFile) {
         requireSourceFile(sourceFile);
         requireConfigured();
         String fileType = resolveFileType(sourceFile.getName());
-        String documentUrl = buildDocumentUrl(sourceFile.getId());
+        BusinessFileAccessReference reference = requireConversionAccess(sourceFile.getId());
+        String documentUrl = buildDocumentUrl(sourceFile.getId(), reference);
         DccOnlyOfficeConversionCommand command = new DccOnlyOfficeConversionCommand(
                 buildConverterUrl(sourceFile),
                 onlyOfficePreviewProperties.getJwtSecret(),
@@ -65,12 +76,30 @@ public class DccOnlyOfficeDocumentPdfConversionService implements DccDocumentPdf
         return extension;
     }
 
-    private String buildDocumentUrl(Long sourceFileId) {
-        String token = onlyOfficePreviewTokenService.issue(DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW,
-                sourceFileId);
+    private String buildDocumentUrl(Long sourceFileId, BusinessFileAccessReference reference) {
+        DccOnlyOfficePreviewTokenService.IssuedPreviewToken issuedToken =
+                onlyOfficePreviewTokenService.issueBusinessFile(
+                        DccOnlyOfficePreviewTokenService.AUDIENCE_UPLOAD_PREVIEW,
+                        BusinessFileAccessOperation.CONVERT, sourceFileId,
+                        TenantContextHolder.getRequiredTenantId(), null,
+                        DccOnlyOfficePreviewTokenService.SERVICE_DCC_PDF_CONVERSION,
+                        reference, onlyOfficePreviewProperties.getTokenExpireSeconds().longValue());
         return trimTrailingSlash(onlyOfficePreviewProperties.getPublicFileBaseUrl())
                 + "/admin-api/dcc/controlled-files/upload-preview/" + sourceFileId
-                + "/onlyoffice-file?token=" + token;
+                + "/onlyoffice-file?token=" + issuedToken.token();
+    }
+
+    private BusinessFileAccessReference requireConversionAccess(Long sourceFileId) {
+        try {
+            return businessFileAccessService.assertAllowed(new BusinessFileAccessRequest(
+                            BusinessFileAccessOperation.CONVERT, sourceFileId,
+                            TenantContextHolder.getRequiredTenantId(), null,
+                            DccOnlyOfficePreviewTokenService.SERVICE_DCC_PDF_CONVERSION,
+                            "DCC-CONVERT-" + UUID.randomUUID(), null, null, null))
+                    .orElseThrow(() -> exception(CONTROLLED_FILE_ACCESS_DENIED));
+        } catch (BusinessFileAccessDeniedException ex) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
     }
 
     private String buildConverterUrl(FileDO sourceFile) {

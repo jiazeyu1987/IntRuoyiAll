@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUpl
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadNameOptionRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.service.download.DccDownloadFileBinary;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
 
 import java.util.List;
 
@@ -43,4 +44,7 @@ public interface DccControlledFileQueryService {
                                                       DccRequestAuditContext auditContext) throws Exception;
 
     DccControlledFileScope identifyControlledFileScope(Long infraFileId);
+
+    void assertBusinessFileAccess(Long userId, Long controlledFileId, BusinessFileAccessOperation operation,
+                                  DccRequestAuditContext auditContext);
 }

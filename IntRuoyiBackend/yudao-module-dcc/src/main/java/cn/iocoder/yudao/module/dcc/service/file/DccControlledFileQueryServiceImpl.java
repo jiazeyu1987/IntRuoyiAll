@@ -81,6 +81,11 @@ import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import jakarta.annotation.Resource;
@@ -234,6 +239,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Resource
     private PermissionApi permissionApi;
+    @Resource
+    private BusinessFileAccessService businessFileAccessService;
     @Override
     public PageResult<DccControlledFileRespVO> getControlledFilePage(Long userId, DccControlledFilePageReqVO reqVO) {
         Set<Long> requestedDirectoryIds = resolveRequestedDirectoryIds(reqVO);
@@ -493,6 +500,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
+        Long binaryFileId = resolveBinaryFileId(file, DccAccessTypeEnum.PREVIEW);
+        BusinessFileAccessReference businessReference = requireBusinessFileAccess(
+                BusinessFileAccessOperation.PREVIEW, userId, binaryFileId,
+                TenantContextHolder.getRequiredTenantId(), null, requiredAuditContext, null);
         if (!canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW)) {
             throw exception(CONTROLLED_FILE_ACCESS_DENIED);
         }
@@ -536,7 +547,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setAccessEventCode(accessResult.accessEventCode());
         respVO.setWatermarkTraceCode(accessResult.watermarkTraceCode());
         if (previewKind == DccControlledFilePreviewKindEnum.OFFICE) {
-            applyOnlyOfficePreview(respVO, userId, file, accessResult);
+            applyOnlyOfficePreview(respVO, userId, file, binaryFile, businessReference, accessResult);
         }
         return respVO;
     }
@@ -588,6 +599,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             throws Exception {
         DccRequestAuditContext officeAuditContext = auditContext.withRequestId(
                 auditContext.requestIdOr(tokenPayload.getTokenId()));
+        requireBusinessFileTokenAccess(BusinessFileAccessOperation.ONLYOFFICE_PREVIEW,
+                tokenPayload.getUserId(), tokenPayload.getInfraFileId(), tokenPayload.getTenantId(),
+                tokenPayload.getServiceIdentity(), officeAuditContext,
+                tokenPayload.toBusinessFileReference());
         DccControlledFileDO file = controlledFileMapper.selectById(id);
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
@@ -658,6 +673,35 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         return new DccControlledFileScope(infraFileId, references);
     }
 
+    @Override
+    public void assertBusinessFileAccess(Long userId, Long controlledFileId,
+                                         BusinessFileAccessOperation operation,
+                                         DccRequestAuditContext auditContext) {
+        if (operation == null) {
+            throw new IllegalArgumentException("business file access operation is required");
+        }
+        DccRequestAuditContext requiredAuditContext = requireAuditContext(auditContext);
+        DccControlledFileDO file = controlledFileMapper.selectById(controlledFileId);
+        if (file == null) {
+            throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        }
+        DccAccessTypeEnum accessType = operation == BusinessFileAccessOperation.DOWNLOAD
+                ? DccAccessTypeEnum.DOWNLOAD : DccAccessTypeEnum.PREVIEW;
+        boolean allowed = switch (operation) {
+            case PREVIEW, ONLYOFFICE_PREVIEW ->
+                    canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW);
+            case PRINT -> canPrintControlledFile(userId, file);
+            case CONVERT -> false;
+            case DOWNLOAD -> decideDownloadBinary(userId, file).allowed();
+            case DIRECT_LINK -> false;
+        };
+        if (!allowed) {
+            recordAccess(file.getId(), userId, accessType, false,
+                    "BUSINESS_FILE_GATE_DENIED:" + operation.name(), requiredAuditContext);
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+    }
+
     private void appendArtifactReference(List<DccControlledFileArtifactReference> references, Long infraFileId,
                                          Long controlledFileId, Long tenantId, Long artifactFileId,
                                          DccControlledFileArtifactRole role) {
@@ -675,6 +719,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
+        Long binaryFileId = resolveBinaryFileId(file, DccAccessTypeEnum.PREVIEW);
+        requireBusinessFileAccess(BusinessFileAccessOperation.PREVIEW, userId, binaryFileId,
+                TenantContextHolder.getRequiredTenantId(), null,
+                auditContext.withRequestId(auditContext.requestIdOr(accessEventCode)), null);
         if (!canReadBinary(userId, file, DccAccessTypeEnum.PREVIEW)) {
             recordAccess(file.getId(), userId, DccAccessTypeEnum.PREVIEW, false, "ACCESS_DENIED",
                     auditContext.withRequestId(auditContext.requestIdOr(accessEventCode)));
@@ -728,6 +776,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     "WARNING_UNCONFIRMED", auditContext);
             throw exception(CONTROLLED_FILE_DOWNLOAD_WARNING_UNCONFIRMED);
         }
+        Long sourceFileId = resolveBinaryFileId(file, DccAccessTypeEnum.DOWNLOAD);
+        requireBusinessFileAccess(BusinessFileAccessOperation.DOWNLOAD, userId, sourceFileId,
+                TenantContextHolder.getRequiredTenantId(), null, auditContext, null);
         DccDownloadPolicyDecision policyDecision = decideDownloadBinary(userId, file);
         if (!policyDecision.allowed()) {
             recordAccess(file.getId(), userId, DccAccessTypeEnum.DOWNLOAD, false,
@@ -2138,7 +2189,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     private void applyOnlyOfficePreview(DccControlledFilePreviewMetadataRespVO respVO, Long userId,
-                                        DccControlledFileDO file, DccPreviewAccessResult accessResult) {
+                                        DccControlledFileDO file, FileDO binaryFile,
+                                        BusinessFileAccessReference businessReference,
+                                        DccPreviewAccessResult accessResult) {
         if (!onlyOfficePreviewProperties.isConfigured()) {
             respVO.setPreviewUnavailableReason(buildOnlyOfficeMissingReason());
             return;
@@ -2148,9 +2201,52 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 onlyOfficePreviewTokenService.issueControlledFile(TenantContextHolder.getRequiredTenantId(),
                         userId, file.getId(), file.getVersionNo(), accessResult.accessEventId(),
                         DccOnlyOfficePreviewTokenService.PURPOSE_CONTROLLED_PREVIEW,
-                        PREVIEW_VIEWER_TOKEN_TTL_SECONDS);
+                        PREVIEW_VIEWER_TOKEN_TTL_SECONDS, binaryFile.getId(), businessReference);
         respVO.setOnlyofficeDocumentUrl(trimTrailingSlash(onlyOfficePreviewProperties.getPublicFileBaseUrl())
                 + "/admin-api/dcc/controlled-files/" + file.getId() + "/onlyoffice-file?token=" + issuedToken.token());
+    }
+
+    private BusinessFileAccessReference requireBusinessFileAccess(BusinessFileAccessOperation operation,
+                                                                  Long userId, FileDO binaryFile,
+                                                                  DccRequestAuditContext auditContext,
+                                                                  BusinessFileAccessReference claim) {
+        if (binaryFile == null || binaryFile.getId() == null) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+        return requireBusinessFileAccess(operation, userId, binaryFile.getId(),
+                TenantContextHolder.getRequiredTenantId(), null, auditContext, claim);
+    }
+
+    private BusinessFileAccessReference requireBusinessFileAccess(BusinessFileAccessOperation operation,
+                                                                  Long userId, Long infraFileId, Long tenantId,
+                                                                  String serviceIdentity,
+                                                                  DccRequestAuditContext auditContext,
+                                                                  BusinessFileAccessReference claim) {
+        try {
+            return businessFileAccessService.assertAllowed(new BusinessFileAccessRequest(
+                            operation, infraFileId, tenantId, userId, serviceIdentity,
+                            auditContext.requireRequestId("controlled file business access"), claim,
+                            auditContext.sourceIp(), auditContext.userAgent()))
+                    .orElseThrow(() -> exception(CONTROLLED_FILE_ACCESS_DENIED));
+        } catch (BusinessFileAccessDeniedException ex) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
+    }
+
+    private BusinessFileAccessReference requireBusinessFileTokenAccess(BusinessFileAccessOperation operation,
+                                                                        Long userId, Long infraFileId, Long tenantId,
+                                                                        String serviceIdentity,
+                                                                        DccRequestAuditContext auditContext,
+                                                                        BusinessFileAccessReference claim) {
+        try {
+            return businessFileAccessService.assertAllowed(BusinessFileAccessRequest.tokenCallback(
+                            operation, infraFileId, tenantId, userId, serviceIdentity,
+                            auditContext.requireRequestId("controlled file business token access"), claim,
+                            auditContext.sourceIp(), auditContext.userAgent()))
+                    .orElseThrow(() -> exception(CONTROLLED_FILE_ACCESS_DENIED));
+        } catch (BusinessFileAccessDeniedException ex) {
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        }
     }
 
     private void requireOnlyOfficeConfigured() {

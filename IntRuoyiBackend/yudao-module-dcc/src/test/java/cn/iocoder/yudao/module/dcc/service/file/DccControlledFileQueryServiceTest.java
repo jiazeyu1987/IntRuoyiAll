@@ -66,6 +66,11 @@ import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
@@ -210,6 +215,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Mock
     private PermissionApi permissionApi;
+    @Mock
+    private BusinessFileAccessService businessFileAccessService;
     @Spy
     private DccDownloadPolicyService downloadPolicyService = new DccDownloadPolicyService();
 
@@ -236,6 +243,9 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         lenient().when(downloadRecordMapper.update(isNull(), any(UpdateWrapper.class))).thenReturn(1);
         lenient().when(accessLogMapper.insert(any(DccControlledFileAccessLogDO.class))).thenReturn(1);
         lenient().when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        lenient().when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenReturn(java.util.Optional.of(new BusinessFileAccessReference(
+                        "dcc", "DCC_CONTROLLED_FILE", 900L, "1.0", 31L, null)));
         lenient().when(viewerTokenService.verify(eq(VIEWER_TOKEN), any(DccViewerTokenExpectedContext.class)))
                 .thenReturn(DccViewerTokenPayload.builder()
                         .tokenId(VIEWER_TOKEN_ID)
@@ -398,8 +408,12 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 new DccOnlyOfficePreviewTokenService.PreviewTokenPayload();
         officeTokenPayload.setTokenId("OT-20260528-0001");
         officeTokenPayload.setNonce("ON-20260528-0001");
+        BusinessFileAccessReference officeReference = new BusinessFileAccessReference(
+                "dcc", "DCC_CONTROLLED_FILE", 990L, "1.0", 31L, null);
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenReturn(java.util.Optional.of(officeReference));
         when(onlyOfficePreviewTokenService.issueControlledFile(eq(31L), eq(99L), eq(990L), eq("1.0"),
-                eq(88001L), eq("CONTROLLED_PREVIEW"), eq(900L)))
+                eq(88001L), eq("CONTROLLED_PREVIEW"), eq(900L), eq(7001L), eq(officeReference)))
                 .thenReturn(new DccOnlyOfficePreviewTokenService.IssuedPreviewToken("office-token", officeTokenPayload));
         when(watermarkService.build(99L, "preview", "Spec.docx"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder()
@@ -540,7 +554,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertNull(result.getOnlyofficeDocumentUrl());
         verify(previewAccessService, never()).prepareAccess(any(DccPreviewAccessRequest.class));
         verify(onlyOfficePreviewTokenService, never()).issueControlledFile(anyLong(), anyLong(), anyLong(),
-                anyString(), anyLong(), anyString(), anyLong());
+                anyString(), anyLong(), anyString(), anyLong(), anyLong(), any(BusinessFileAccessReference.class));
     }
 
     @Test
@@ -900,6 +914,48 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 CONTROLLED_FILE_ACCESS_DENIED);
 
         verify(accessLogMapper).insert(org.mockito.ArgumentMatchers.any(DccControlledFileAccessLogDO.class));
+    }
+
+    @Test
+    void getPreviewMetadata_missingPublishedArtifactStillAuthorizesBeforeProjection() {
+        when(controlledFileMapper.selectById(996L)).thenReturn(DccControlledFileDO.builder()
+                .id(996L)
+                .categoryId(10L)
+                .directoryId(20L)
+                .publishedFileId(7006L)
+                .fileName("restricted.docx")
+                .versionNo("V1.0")
+                .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                .build());
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenThrow(new BusinessFileAccessDeniedException("denied",
+                        BusinessFileAccessOperation.PREVIEW, 7006L, "dcc"));
+
+        assertServiceException(() -> queryService.getPreviewMetadata(99L, 996L,
+                        auditContext(PREVIEW_REQUEST_ID)),
+                CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(fileMapper, never()).selectById(any());
+        verify(watermarkService, never()).build(any(), any(), any());
+        verify(previewAccessService, never()).prepareAccess(any());
+        verify(onlyOfficePreviewTokenService, never()).issueControlledFile(anyLong(), anyLong(), anyLong(),
+                anyString(), anyLong(), anyString(), anyLong(), anyLong(), any(BusinessFileAccessReference.class));
+    }
+
+    @Test
+    void readDownloadFile_businessGateDenialStopsBeforeAccessEventRecordAndBytes() throws Exception {
+        stubActiveDownloadFile(919L, 520L, "gate-denied.pdf");
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenThrow(new BusinessFileAccessDeniedException("denied",
+                        BusinessFileAccessOperation.DOWNLOAD, 520L, "dcc"));
+
+        assertServiceException(() -> queryService.readDownloadFile(99L, 919L, true, DOWNLOAD_REQUEST_ID,
+                        auditContext(DOWNLOAD_REQUEST_ID)),
+                CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(accessEventMapper, never()).insert(any(DccControlledFileAccessEventDO.class));
+        verify(downloadRecordMapper, never()).insert(any(DccControlledFileDownloadRecordDO.class));
+        verify(fileService, never()).getFileContent(any(), any());
     }
 
     @Test

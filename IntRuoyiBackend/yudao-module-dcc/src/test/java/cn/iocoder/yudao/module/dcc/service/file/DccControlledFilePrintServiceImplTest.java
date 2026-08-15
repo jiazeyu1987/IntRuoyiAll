@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePrintCreateReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePrintRecordRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
@@ -11,8 +12,15 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFilePrintRecordMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -20,10 +28,12 @@ import org.mockito.Mock;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRINT_NOT_ALLOWED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
@@ -32,6 +42,9 @@ class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
     private static final Long CONTROLLED_FILE_ID = 800L;
     private static final Long MASTER_ID = 700L;
     private static final Long CATEGORY_ID = 10L;
+    private static final Long SOURCE_FILE_ID = 601L;
+    private static final BusinessFileAccessReference DCC_REFERENCE = new BusinessFileAccessReference(
+            "dcc", "DCC_CONTROLLED_FILE", CONTROLLED_FILE_ID, "A.1", 31L, null);
 
     @Mock
     private DccControlledFileMapper controlledFileMapper;
@@ -43,9 +56,23 @@ class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
     private DccControlledFileCategoryPermissionSupport permissionSupport;
     @Mock
     private AdminUserApi adminUserApi;
+    @Mock
+    private BusinessFileAccessService businessFileAccessService;
 
     @InjectMocks
     private DccControlledFilePrintServiceImpl printService;
+
+    @BeforeEach
+    void allowBusinessFileGate() {
+        TenantContextHolder.setTenantId(31L);
+        org.mockito.Mockito.lenient().when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenReturn(java.util.Optional.of(DCC_REFERENCE));
+    }
+
+    @AfterEach
+    void clearTenantContext() {
+        TenantContextHolder.clear();
+    }
 
     @Test
     void createPrintRecord_allowsCurrentActiveControlledFileWithoutGeneratedArtifact() {
@@ -90,11 +117,39 @@ class DccControlledFilePrintServiceImplTest extends BaseMockitoUnitTest {
                 CONTROLLED_FILE_PRINT_NOT_ALLOWED);
     }
 
+    @Test
+    void createPrintRecord_businessGateDenialStopsBeforePrintRecordAndUserLookup() {
+        when(controlledFileMapper.selectById(CONTROLLED_FILE_ID)).thenReturn(currentActiveFile());
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenThrow(new BusinessFileAccessDeniedException("denied",
+                        BusinessFileAccessOperation.PRINT, SOURCE_FILE_ID, "dcc"));
+
+        assertServiceException(() -> printService.createPrintRecord(USER_ID, CONTROLLED_FILE_ID, printReq()),
+                CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(printRecordMapper, never()).insert(any(DccControlledFilePrintRecordDO.class));
+        verify(adminUserApi, never()).getUser(any());
+    }
+
+    @Test
+    void getPrintHtml_businessGateDenialStopsBeforeRecordLookup() {
+        when(controlledFileMapper.selectById(CONTROLLED_FILE_ID)).thenReturn(currentActiveFile());
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenThrow(new BusinessFileAccessDeniedException("denied",
+                        BusinessFileAccessOperation.PRINT, SOURCE_FILE_ID, "dcc"));
+
+        assertServiceException(() -> printService.getPrintHtml(USER_ID, CONTROLLED_FILE_ID, 1200L),
+                CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(printRecordMapper, never()).selectByIdAndControlledFileId(any(), any());
+    }
+
     private DccControlledFileDO currentActiveFile() {
         return DccControlledFileDO.builder()
                 .id(CONTROLLED_FILE_ID)
                 .masterId(MASTER_ID)
                 .categoryId(CATEGORY_ID)
+                .sourceFileId(SOURCE_FILE_ID)
                 .fileNumber("DCC-PRINT-001")
                 .versionNo("A.1")
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
