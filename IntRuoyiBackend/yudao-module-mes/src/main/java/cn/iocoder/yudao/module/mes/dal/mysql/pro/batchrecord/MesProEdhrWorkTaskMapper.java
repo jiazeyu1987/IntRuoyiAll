@@ -173,6 +173,20 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                 .eq(MesProEdhrWorkTaskDO::getPqcReleaseApplicationScopeId, applicationId));
     }
 
+    default int completePqcDecisionTask(Long id, LocalDateTime completedAt, String decision) {
+        return update(new MesProEdhrWorkTaskDO()
+                        .setStatus(MesProEdhrWorkTaskStatus.DONE)
+                        .setCompletedAt(completedAt)
+                        .setReason(decision),
+                new LambdaUpdateWrapper<MesProEdhrWorkTaskDO>()
+                        .eq(MesProEdhrWorkTaskDO::getId, id)
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .in(MesProEdhrWorkTaskDO::getStatus,
+                                MesProEdhrWorkTaskStatus.TODO,
+                                MesProEdhrWorkTaskStatus.DOING,
+                                MesProEdhrWorkTaskStatus.OVERDUE));
+    }
+
     default List<MesProEdhrWorkTaskDO> selectActiveListByBatchExecutionId(Long batchExecutionId) {
         return selectList(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
                 .eq(MesProEdhrWorkTaskDO::getBatchExecutionId, batchExecutionId)

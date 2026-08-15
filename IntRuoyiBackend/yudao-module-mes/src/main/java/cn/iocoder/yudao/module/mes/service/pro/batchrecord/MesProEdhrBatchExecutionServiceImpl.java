@@ -754,6 +754,84 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long openOrCreateFromProductionRelease(MesProEdhrProductionReleaseBatchCommand command) {
+        if (command == null || command.getApplicationId() == null || command.getApplicationId() <= 0
+                || command.getWorkOrderId() == null || command.getRouteId() == null
+                || command.getRouteVersionId() == null || StrUtil.isBlank(command.getBatchCode())
+                || StrUtil.isBlank(command.getActiveContextKey())) {
+            throw exception(BAD_REQUEST);
+        }
+        MesProEdhrBatchExecutionDO existing = batchExecutionMapper.selectByActiveContextKey(
+                command.getActiveContextKey());
+        if (existing != null) {
+            if (!Objects.equals(command.getWorkOrderId(), existing.getWorkOrderId())
+                    || !Objects.equals(command.getRouteId(), existing.getRouteId())
+                    || !Objects.equals(command.getRouteVersionId(), existing.getRouteVersionId())
+                    || !Objects.equals(StrUtil.trim(command.getBatchCode()), existing.getBatchCode())) {
+                throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+            }
+            return existing.getId();
+        }
+        MesProWorkOrderDO workOrder = validateSelectableWorkOrder(command.getWorkOrderId());
+        MesProRouteDO route = routeMapper.selectById(command.getRouteId());
+        if (route == null || !CommonStatusEnum.isEnable(route.getStatus())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_NOT_EXISTS);
+        }
+        MesProRouteVersionDO frozenRouteVersion = routeVersionMapper.selectById(command.getRouteVersionId());
+        if (frozenRouteVersion == null || !Objects.equals(route.getId(), frozenRouteVersion.getRouteId())
+                || StrUtil.isBlank(frozenRouteVersion.getVersionNo())
+                || StrUtil.isBlank(frozenRouteVersion.getRouteSnapshotJson())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED, route.getId());
+        }
+
+        String batchCode = StrUtil.trim(command.getBatchCode());
+        MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
+                .setBatchExecutionCode("EDHRB-" + System.currentTimeMillis())
+                .setWorkOrderId(workOrder.getId())
+                .setWorkOrderCode(workOrder.getCode())
+                .setBatchCode(batchCode)
+                .setActiveContextKey(command.getActiveContextKey())
+                .setAttemptNo(1)
+                .setProductId(workOrder.getProductId())
+                .setProductCode(String.valueOf(workOrder.getProductId()))
+                .setProductName(workOrder.getName())
+                .setRouteId(route.getId())
+                .setRouteVersionId(frozenRouteVersion.getId())
+                .setRouteVersionNo(frozenRouteVersion.getVersionNo())
+                .setRouteSnapshotJson(frozenRouteVersion.getRouteSnapshotJson())
+                .setRouteCode(route.getCode())
+                .setRouteName(route.getName())
+                .setStatus(BATCH_STATUS_CREATED)
+                .setTaskApprovedCount(0)
+                .setBlockedCount(0)
+                .setRemark(command.getRemark());
+        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(route.getId());
+        List<BatchTaskConfig> taskConfigs = buildBatchTaskConfigs(route, routeProcesses, frozenRouteVersion);
+        batch.setTaskTotal(taskConfigs.size());
+        batchExecutionMapper.insert(batch);
+        createDefaultDossierItems(batch);
+
+        List<MesProEdhrBatchExecutionTaskDO> insertedTasks = new ArrayList<>();
+        for (BatchTaskConfig taskConfig : taskConfigs) {
+            MesProEdhrBatchExecutionTaskDO task = toTaskDO(batch.getId(), taskConfig);
+            batchTaskMapper.insert(task);
+            insertedTasks.add(task);
+        }
+        createFormCenterInstancesForInsertedTasks(batch, insertedTasks);
+        freezeBatchSharedExecutions(batch, insertedTasks);
+        batchExecutionMapper.updateById(batch);
+        MesProEdhrBatchExecutionDO latest = batchExecutionMapper.selectById(batch.getId());
+        workTaskService.createInitialFillTask(latest);
+        recordOperationAudit("PRODUCTION_RELEASE_APPLICATION", String.valueOf(command.getApplicationId()),
+                "BATCH_EXECUTION_CREATED_FROM_RELEASE", "PQC 批准后创建申请唯一批次", latest.getId(),
+                null, null, latest.getRouteId(), null, null, null,
+                "mes:pro-production-release:pqc-approve", "ALLOW", "SUCCESS",
+                null, null, null);
+        return latest.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public EdhrBatchExecutionRespVO reexecuteRejectedBatch(EdhrBatchExecutionReexecuteReqVO reqVO) {
         if (reqVO.getSourceRejectedBatchExecutionId() == null || StrUtil.isBlank(reqVO.getReason())) {
             throw exception(BAD_REQUEST);

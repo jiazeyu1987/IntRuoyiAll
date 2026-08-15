@@ -23,6 +23,15 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
     @Update("UPDATE mes_pro_edhr_batch_execution SET active_context_key = NULL WHERE id = #{id}")
     void clearActiveContextKey(@Param("id") Long id);
 
+    default MesProEdhrBatchExecutionDO selectByActiveContextKey(String activeContextKey) {
+        if (activeContextKey == null || activeContextKey.isBlank()) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .eq(MesProEdhrBatchExecutionDO::getActiveContextKey, activeContextKey)
+                .notIn(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_VOIDED));
+    }
+
     default MesProEdhrBatchExecutionDO selectByContext(Long workOrderId, String batchCode, Long routeId) {
         return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
                 .eq(MesProEdhrBatchExecutionDO::getWorkOrderId, workOrderId)

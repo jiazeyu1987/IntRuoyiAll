@@ -1,0 +1,104 @@
+package cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease;
+
+import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseApproveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseDecisionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseRejectReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesProductionReleaseReportUploadTaskRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseApproveCommand;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseDecisionResult;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseRejectCommand;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+
+@Tag(name = "管理后台 - MES 生产放行")
+@RestController
+@RequestMapping("/mes/pro/production-release")
+@Validated
+public class MesProductionReleaseController {
+
+    private final MesPqcProductionReleaseService pqcProductionReleaseService;
+
+    public MesProductionReleaseController(MesPqcProductionReleaseService pqcProductionReleaseService) {
+        this.pqcProductionReleaseService = pqcProductionReleaseService;
+    }
+
+    @PostMapping("/pqc/approve")
+    @Operation(summary = "PQC 批准生产放行申请")
+    @PreAuthorize("@ss.hasPermission('mes:pro-production-release:pqc-approve')")
+    public CommonResult<MesPqcProductionReleaseDecisionRespVO> approve(
+            @Valid @RequestBody MesPqcProductionReleaseApproveReqVO reqVO) {
+        return success(toResp(pqcProductionReleaseService.approve(SecurityFrameworkUtils.getLoginUserId(),
+                new MesPqcProductionReleaseApproveCommand()
+                        .setApplicationId(reqVO.getApplicationId())
+                        .setPqcReleaseWorkTaskId(reqVO.getPqcReleaseWorkTaskId())
+                        .setExpectedVersion(reqVO.getExpectedVersion())
+                        .setIdempotencyKey(reqVO.getIdempotencyKey())
+                        .setApprovalOpinion(reqVO.getApprovalOpinion()))));
+    }
+
+    @PostMapping("/pqc/reject")
+    @Operation(summary = "PQC 拒绝生产放行申请")
+    @PreAuthorize("@ss.hasPermission('mes:pro-production-release:pqc-approve')")
+    public CommonResult<MesPqcProductionReleaseDecisionRespVO> reject(
+            @Valid @RequestBody MesPqcProductionReleaseRejectReqVO reqVO) {
+        return success(toResp(pqcProductionReleaseService.reject(SecurityFrameworkUtils.getLoginUserId(),
+                new MesPqcProductionReleaseRejectCommand()
+                        .setApplicationId(reqVO.getApplicationId())
+                        .setPqcReleaseWorkTaskId(reqVO.getPqcReleaseWorkTaskId())
+                        .setExpectedVersion(reqVO.getExpectedVersion())
+                        .setIdempotencyKey(reqVO.getIdempotencyKey())
+                        .setRejectReason(reqVO.getRejectReason()))));
+    }
+
+    @GetMapping("/get")
+    @Operation(summary = "取得生产放行申请权威回执")
+    @Parameter(name = "applicationId", required = true)
+    @PreAuthorize("@ss.hasPermission('mes:pro-production-release:query')")
+    public CommonResult<MesPqcProductionReleaseDecisionRespVO> get(
+            @RequestParam("applicationId") @NotNull Long applicationId) {
+        return success(toResp(pqcProductionReleaseService.get(
+                SecurityFrameworkUtils.getLoginUserId(), applicationId)));
+    }
+
+    private MesPqcProductionReleaseDecisionRespVO toResp(MesPqcProductionReleaseDecisionResult result) {
+        return new MesPqcProductionReleaseDecisionRespVO()
+                .setApplicationId(result.getApplicationId())
+                .setPqcReleaseWorkTaskId(result.getPqcReleaseWorkTaskId())
+                .setDecision(result.getDecision())
+                .setStatus(result.getStatus())
+                .setRejectReason(result.getRejectReason())
+                .setBatchExecutionId(result.getBatchExecutionId())
+                .setBatchRecordEvidenceIds(result.getBatchRecordEvidenceIds())
+                .setProcessInspectionEvidenceIds(result.getProcessInspectionEvidenceIds())
+                .setLossReportEvidenceIds(result.getLossReportEvidenceIds())
+                .setReportUploadTasks(result.getReportUploadTasks().stream()
+                        .map(item -> new MesProductionReleaseReportUploadTaskRespVO()
+                                .setNodeType(item.getNodeType())
+                                .setBatchTaskId(item.getBatchTaskId())
+                                .setWorkTaskId(item.getWorkTaskId())
+                                .setCandidateUserIds(item.getCandidateUserIds())
+                                .setStatus(item.getStatus()))
+                        .toList())
+                .setSourceSnapshotHash(result.getSourceSnapshotHash())
+                .setReportSnapshotHash(result.getReportSnapshotHash())
+                .setVersion(result.getVersion())
+                .setDecidedBy(result.getDecidedBy())
+                .setDecidedAt(result.getDecidedAt());
+    }
+}

@@ -28,6 +28,8 @@ public interface MesProEdhrBatchExecutionService {
 
     EdhrBatchExecutionRespVO openOrCreate(EdhrBatchExecutionOpenOrCreateReqVO reqVO);
 
+    Long openOrCreateFromProductionRelease(MesProEdhrProductionReleaseBatchCommand command);
+
     EdhrBatchExecutionRespVO reexecuteRejectedBatch(EdhrBatchExecutionReexecuteReqVO reqVO);
 
     EdhrBatchExecutionGoldenFingerBulkVoidRespVO goldenFingerBulkVoid(

@@ -14,7 +14,8 @@ import java.util.Map;
 public class MesTeamLeaderActiveOrderReleaseAuditRecorder implements MesReleaseFlowAuditRecorder {
 
     private static final String OBJECT_TYPE = "PRODUCTION_RELEASE_APPLICATION";
-    private static final String PERMISSION_CODE = "mes:pro-process-pool-team-leader:release-apply";
+    private static final String APPLY_PERMISSION_CODE = "mes:pro-process-pool-team-leader:release-apply";
+    private static final String PQC_PERMISSION_CODE = "mes:pro-production-release:pqc-approve";
 
     private final MesProEdhrOperationAuditService auditService;
 
@@ -40,12 +41,16 @@ public class MesTeamLeaderActiveOrderReleaseAuditRecorder implements MesReleaseF
                 .setOperationType(command.getEventType())
                 .setActionName(command.getStage())
                 .setActorUserId(command.getActorUserId())
-                .setPermissionCode(PERMISSION_CODE)
+                .setPermissionCode(permissionCode(command))
                 .setPermissionDecision("ALLOW")
                 .setResultStatus(command.getResultStatus())
                 .setBeforeSummaryHash(command.getFromStatus())
                 .setAfterSummaryHash(command.getSourceSnapshotHash())
                 .setMetadataJson(JsonUtils.toJsonString(metadata))
                 .setOccurredAt(command.getOccurredAt()));
+    }
+
+    private String permissionCode(MesReleaseFlowAuditCommand command) {
+        return "SP_2".equals(command.getStage()) ? PQC_PERMISSION_CODE : APPLY_PERMISSION_CODE;
     }
 }

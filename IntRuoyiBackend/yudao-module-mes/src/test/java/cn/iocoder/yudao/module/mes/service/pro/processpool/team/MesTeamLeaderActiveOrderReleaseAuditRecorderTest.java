@@ -54,7 +54,29 @@ class MesTeamLeaderActiveOrderReleaseAuditRecorderTest {
                 () -> assertEquals(8001L, captor.getValue().getWorkTaskId()),
                 () -> assertEquals(MesReleaseFlowAuditEventType.PQC_PRODUCTION_RELEASE_APPLIED,
                         captor.getValue().getOperationType()),
+                () -> assertEquals("mes:pro-process-pool-team-leader:release-apply",
+                        captor.getValue().getPermissionCode()),
                 () -> assertEquals("SUCCESS", captor.getValue().getResultStatus()));
+    }
+
+    @Test
+    void pqcDecisionUsesPqcApprovalPermissionCode() {
+        MesProEdhrOperationAuditService auditService = mock(MesProEdhrOperationAuditService.class);
+        MesTeamLeaderActiveOrderReleaseAuditRecorder recorder =
+                new MesTeamLeaderActiveOrderReleaseAuditRecorder(auditService);
+        recorder.record(new MesReleaseFlowAuditCommand()
+                .setEventType(MesReleaseFlowAuditEventType.PQC_PRODUCTION_RELEASE_APPROVED)
+                .setStage("SP_2")
+                .setApplicationId(7001L)
+                .setWorkTaskId(8001L)
+                .setActorUserId(7101L)
+                .setOccurredAt(LocalDateTime.of(2026, 8, 15, 12, 0))
+                .setResultStatus("SUCCESS"));
+
+        ArgumentCaptor<MesProEdhrOperationAuditCommand> captor =
+                ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(auditService).recordInCallerTransaction(captor.capture());
+        assertEquals("mes:pro-production-release:pqc-approve", captor.getValue().getPermissionCode());
     }
 
     @Test
