@@ -51,6 +51,7 @@
 - 临时集成 worktree `D:\IntRuoyiWorktree\pqc-production-release-flow-integration` 已从 Git 登记和磁盘删除；slot 24 登记已标记 `active=false`，未影响其它 worktree。
 - T11 当前规格和独立复核：未完成进度零写入、交叉反向权限、字符串 ID/附件哈希、禁止绕过端点、最终只读核验和 cleanup handoff 合同均通过；Playwright `--list`、SP-1 至 SP-4、`pnpm ts:check`、Prettier 和差异检查均 PASS。真实 E2E 没有执行。
 - T11 规格提交：`8ca580be3`，仅包含 `sp0-sp4-production-release-real-flow.spec.ts`；在并发任务推进后的 `fe117216c` 上重新执行 Prettier、Playwright `--list`、SP-1 至 SP-4 和 `pnpm ts:check`，全部 PASS。
+- 任务文档提交：`4caafea49`，精确包含本任务目录 15 个文件；完成门禁仍因 P11、P11-AC1、P11-AC2、测试状态和三个真实前置 blocker 未完成而按预期 FAIL。
 
 ## Open Blockers
 

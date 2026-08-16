@@ -501,3 +501,11 @@
 - GREEN: 本任务 15 个文档文件和规格文件 whitespace check -> PASS；风险词复核命中仅为正式环境密码字段、TODO 状态和禁止 fallback/mock/default-success 的需求或证据文本，秘密模式扫描无命中。
 - staged boundary：暂存区精确为 `IntRuoyiFronted/tests/e2e/sp0-sp4-production-release-real-flow.spec.ts` 一个文件；`git diff --cached --check` 和 branch runtime guard 均 PASS。
 - git commit：`8ca580be3`，message `test: strengthen production release acceptance gate`；230 insertions，27 deletions。未 push，未使用 8081/48081 运行态，未登录或写业务数据。
+
+## Pass 35 - P11 Completion Gate Audit
+
+- task package commit：`4caafea49`，message `docs: record production release validation status`；精确提交本任务目录 15 个文件，未包含其它任务或并发工作区改动。
+- completion gate：`check_plan_completion.py` -> FAIL（预期阻断）；明确缺口为 `blocking_prereqs is not empty`、`test_status is not passed`、`P11 is not completed`、`P11-AC1 is not completed`、`P11-AC2 is not completed`。
+- authoritative status：P1 至 P10 completed；P11 blocked；总任务 blocked。运行态来源门禁稳定引用生产放行融合提交 `ecb05caa6`，不随纯测试或文档提交漂移。
+- git boundary：规格提交 `8ca580be3` 和任务包提交 `4caafea49` 已在 `int_main`；暂存区为空。未 push，主工作区其它并发改动保持原状。
+- next evidence：用户完成 `test-plan.md#用户手动验收执行单待执行` 后，必须由独立 tester 核对真实页面结果、只读最终状态和清理证据，才能重新运行完成门禁。

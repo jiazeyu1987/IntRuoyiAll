@@ -410,7 +410,8 @@
             "test-report.md#p11-verdict",
             "execution-log.md#pass-32-t11-real-e2e-specification-audit-and-preflight-refresh",
             "execution-log.md#pass-33-t11-manual-acceptance-handoff-and-independent-reverification",
-            "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main"
+            "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main",
+            "execution-log.md#pass-35-p11-completion-gate-audit"
           ]
         },
         {
@@ -429,7 +430,8 @@
             "test-report.md#p11-verdict",
             "execution-log.md#pass-32-t11-real-e2e-specification-audit-and-preflight-refresh",
             "execution-log.md#pass-33-t11-manual-acceptance-handoff-and-independent-reverification",
-            "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main"
+            "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main",
+            "execution-log.md#pass-35-p11-completion-gate-audit"
           ]
         }
       ],
@@ -445,15 +447,17 @@
         "test-report.md#p11-verdict",
         "execution-log.md#pass-32-t11-real-e2e-specification-audit-and-preflight-refresh",
         "execution-log.md#pass-33-t11-manual-acceptance-handoff-and-independent-reverification",
-        "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main"
+        "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main",
+        "execution-log.md#pass-35-p11-completion-gate-audit"
       ],
       "notes": [
         "Mapped test topics require main-agent review.",
         "T11 实现级回归和 runtime v4 guard 已通过；融合提交 ecb05caa6 已快进到 int_main，临时集成 worktree 已删除且 slot 24 已释放。用户授权先融合并后续手动测试，真实页面验收证据仍待补充。",
         "T11 spec and independent static verification were refreshed on int_main; manual acceptance remains required.",
-        "T11 strengthened acceptance spec committed on int_main as 8ca580be3 after latest-head regression verification."
+        "T11 strengthened acceptance spec committed on int_main as 8ca580be3 after latest-head regression verification.",
+        "Completion gate audited after commits 8ca580be3 and 4caafea49; P11 remains blocked pending real-page evidence."
       ],
-      "last_reviewed_at": "2026-08-16T09:40:27+00:00",
+      "last_reviewed_at": "2026-08-16T09:43:52+00:00",
       "status": "blocked"
     }
   ],
@@ -461,7 +465,7 @@
   "test_status": "failed",
   "blocking_prereqs": [
     "30 EDHR_FULL_E2E variables remain missing, so the planned automated seven-account E2E cannot be executed",
-    "current listeners on 8081/48081 have not been proven to run int_main commit 8ca580be3",
+    "current listeners on 8081/48081 have not been proven to include production release integration commit ecb05caa6",
     "user authorized integration into int_main before T11 acceptance and will perform manual validation later; no real-path manual acceptance evidence has been recorded"
   ],
   "iteration_counts": {
@@ -471,7 +475,7 @@
     "test_loops": 2
   },
   "created_at": "2026-08-14T21:12:50+08:00",
-  "updated_at": "2026-08-16T09:40:50+00:00",
+  "updated_at": "2026-08-16T09:43:52+00:00",
   "branch": "int_main",
   "baseline_revision": "3048b84e828203b6aea83bbf07a2c6caeab5f77e",
   "workspace_root": "E:\\IntRuoyi",
