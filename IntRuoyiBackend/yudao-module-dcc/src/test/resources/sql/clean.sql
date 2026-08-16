@@ -1,3 +1,9 @@
+DELETE FROM `dcc_registration_certificate_audit`;
+DELETE FROM `dcc_registration_certificate_file`;
+DELETE FROM `dcc_registration_certificate_snapshot_entrusted`;
+DELETE FROM `dcc_registration_certificate_snapshot`;
+DELETE FROM `dcc_registration_certificate_version`;
+DELETE FROM `dcc_registration_certificate`;
 DELETE FROM `dcc_nas_acl_restore_log`;
 DELETE FROM `dcc_nas_acl_restore_plan_item`;
 DELETE FROM `dcc_nas_acl_restore_plan`;

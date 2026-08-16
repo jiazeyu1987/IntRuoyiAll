@@ -310,5 +310,29 @@ public interface ErrorCodeConstants {
             "正式源文件历史迁移发生并发变更：controlledFileId={}");
     ErrorCode CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED = new ErrorCode(1_080_000_207,
             "历史签名受控副本绑定迁移被阻止：{}");
+    ErrorCode REGISTRATION_CERTIFICATE_NOT_EXISTS = new ErrorCode(1_080_000_208,
+            "Registration certificate does not exist");
+    ErrorCode REGISTRATION_CERTIFICATE_DRAFT_NOT_EXISTS = new ErrorCode(1_080_000_209,
+            "Registration certificate draft does not exist");
+    ErrorCode REGISTRATION_CERTIFICATE_STATUS_INVALID = new ErrorCode(1_080_000_210,
+            "Registration certificate status is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_VERSION_CONFLICT = new ErrorCode(1_080_000_211,
+            "Registration certificate version already exists");
+    ErrorCode REGISTRATION_CERTIFICATE_CURRENT_CONFLICT = new ErrorCode(1_080_000_212,
+            "Registration certificate already has a current version");
+    ErrorCode REGISTRATION_CERTIFICATE_PENDING_CONFLICT = new ErrorCode(1_080_000_213,
+            "Registration certificate already has a pending version");
+    ErrorCode REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID = new ErrorCode(1_080_000_214,
+            "Registration certificate production relation is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_PROJECTION_MISMATCH = new ErrorCode(1_080_000_215,
+            "Registration certificate entrusted projection does not match authoritative facts");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_CONFLICT = new ErrorCode(1_080_000_216,
+            "Registration certificate file is already bound");
+    ErrorCode REGISTRATION_CERTIFICATE_FORMAL_FACT_IMMUTABLE = new ErrorCode(1_080_000_217,
+            "Formal registration certificate facts are immutable");
+    ErrorCode REGISTRATION_CERTIFICATE_AUDIT_EVENT_KEY_REQUIRED = new ErrorCode(1_080_000_218,
+            "Registration certificate audit event key is required");
+    ErrorCode REGISTRATION_CERTIFICATE_AUDIT_EVENT_CONFLICT = new ErrorCode(1_080_000_219,
+            "Registration certificate audit event already exists");
 
 }

@@ -1737,3 +1737,154 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_migration` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_source_migration_file` (`tenant_id`, `controlled_file_id`)
 );
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `owner_company_id` BIGINT NOT NULL,
+  `product_master_id` BIGINT NOT NULL,
+  `project_code_id` BIGINT NULL,
+  `first_obtained_date` DATE NULL,
+  `current_version_id` BIGINT NULL,
+  `pending_version_id` BIGINT NULL,
+  `current_snapshot_id` BIGINT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `row_version` INT NOT NULL DEFAULT 0,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_master_status` CHECK (`status` IN
+    ('DRAFT', 'PENDING_FIRST_EFFECTIVE', 'ACTIVE', 'EXPIRED_UNRENEWED', 'VOIDED')),
+  KEY `idx_dcc_reg_cert_owner_product` (`tenant_id`, `owner_company_id`, `product_master_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_version` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `certificate_id` BIGINT NOT NULL,
+  `version_no` INT NOT NULL,
+  `version_type` VARCHAR(32) NOT NULL,
+  `certificate_no` VARCHAR(128) NULL,
+  `approval_date` DATE NULL,
+  `effective_date` DATE NULL,
+  `expiry_date` DATE NULL,
+  `classification` VARCHAR(64) NULL,
+  `category_changed` TINYINT NOT NULL DEFAULT 0,
+  `base_snapshot_id` BIGINT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `current_unique_flag` TINYINT NULL,
+  `pending_unique_flag` TINYINT NULL,
+  `formalized_at` DATETIME NULL,
+  `formalized_by` BIGINT NULL,
+  `voided_at` DATETIME NULL,
+  `voided_by` BIGINT NULL,
+  `void_reason` VARCHAR(1024) NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_version_type` CHECK
+    (`version_type` IN ('INITIAL_CERTIFICATE', 'RENEWAL_CERTIFICATE')),
+  CONSTRAINT `chk_dcc_reg_cert_version_status` CHECK
+    (`status` IN ('DRAFT', 'PENDING_EFFECTIVE', 'CURRENT', 'OLD', 'VOIDED')),
+  UNIQUE KEY `uk_dcc_reg_cert_version_no` (`tenant_id`, `certificate_id`, `version_no`),
+  UNIQUE KEY `uk_dcc_reg_cert_current` (`tenant_id`, `certificate_id`, `current_unique_flag`),
+  UNIQUE KEY `uk_dcc_reg_cert_pending` (`tenant_id`, `certificate_id`, `pending_unique_flag`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_snapshot` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `version_id` BIGINT NOT NULL,
+  `revision_no` INT NOT NULL,
+  `source_change_id` BIGINT NULL,
+  `product_name` VARCHAR(255) NOT NULL,
+  `registrant_name` VARCHAR(255) NOT NULL,
+  `model_specification` VARCHAR(2000) NULL,
+  `structure_composition` VARCHAR(4000) NULL,
+  `intended_use` VARCHAR(4000) NULL,
+  `technical_requirements` VARCHAR(4000) NULL,
+  `residence_address` VARCHAR(1000) NULL,
+  `production_address` VARCHAR(1000) NULL,
+  `entrusted_production` TINYINT NOT NULL,
+  `self_production` TINYINT NOT NULL,
+  `entrusted_enterprises_json` VARCHAR(8000) NOT NULL,
+  `entrusted_enterprise_count` INT NULL,
+  `effective_at` DATETIME NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_production_mode` CHECK
+    (`entrusted_production` = 1 OR `self_production` = 1),
+  UNIQUE KEY `uk_dcc_reg_cert_snapshot_revision` (`tenant_id`, `version_id`, `revision_no`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_snapshot_entrusted` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `snapshot_id` BIGINT NOT NULL,
+  `enterprise_id` BIGINT NOT NULL,
+  `enterprise_name_snapshot` VARCHAR(255) NOT NULL,
+  `sort_order` INT NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_entrusted` (`tenant_id`, `snapshot_id`, `enterprise_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `owner_type` VARCHAR(32) NOT NULL,
+  `owner_id` BIGINT NOT NULL,
+  `file_kind` VARCHAR(64) NOT NULL,
+  `infra_file_id` BIGINT NOT NULL,
+  `original_name` VARCHAR(512) NOT NULL,
+  `mime_type` VARCHAR(128) NOT NULL,
+  `file_size` BIGINT NOT NULL,
+  `sha256` CHAR(64) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `bound_file_unique_flag` BIGINT NULL,
+  `bound_at` DATETIME NULL,
+  `bound_by` BIGINT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_file_owner_type` CHECK
+    (`owner_type` IN ('VERSION', 'CHANGE', 'SUPPORTING_DOCUMENT')),
+  CONSTRAINT `chk_dcc_reg_cert_file_kind` CHECK (`file_kind` IN
+    ('REGISTRATION_CERTIFICATE', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
+  UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `certificate_id` BIGINT NOT NULL,
+  `version_id` BIGINT NULL,
+  `snapshot_id` BIGINT NULL,
+  `event_key` VARCHAR(256) NOT NULL,
+  `event_type` VARCHAR(64) NOT NULL,
+  `actor_id` BIGINT NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `occurred_at` DATETIME NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_audit_event_key` CHECK (TRIM(`event_key`) <> ''),
+  UNIQUE KEY `uk_dcc_reg_cert_audit_event` (`tenant_id`, `event_key`)
+);
