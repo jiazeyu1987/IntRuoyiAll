@@ -12,22 +12,31 @@ const feedbackPayloadFile = resolve(
   process.cwd(),
   '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/vo/frontline/MesProFrontlineFeedbackPayloadReqVO.java'
 )
+const routeFlowDesignerFile = resolve(process.cwd(), 'src/views/mes/pro/route/RouteFlowGraphDesigner.vue')
+const batchRecordFormListFile = resolve(process.cwd(), 'src/views/mes/pro/batchrecordformlist/index.vue')
 
 const page = readFileSync(pageFile, 'utf-8')
 const api = readFileSync(apiFile, 'utf-8')
 const backendService = readFileSync(backendServiceFile, 'utf-8')
+const backendPickListSourceService = readFileSync(resolve(
+  process.cwd(),
+  '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordcelllink/MesProductionPickListSourceServiceImpl.java'
+), 'utf-8')
 const feedbackPayload = readFileSync(feedbackPayloadFile, 'utf-8')
+const routeFlowDesigner = readFileSync(routeFlowDesignerFile, 'utf-8')
+const batchRecordFormList = readFileSync(batchRecordFormListFile, 'utf-8')
 
 for (const token of [
   "const SOURCE_TYPE_PROCESS_POOL_REPORT = 'PROCESS_POOL_REPORT'",
   "const PROCESS_POOL_REPORT_SOURCE_REPORT_ID = 'PROCESS_POOL_REPORT'",
   "const PROCESS_POOL_REPORT_SOURCE_REPORT_NAME = '报工数据'",
-  '<el-option label="报工数据" :value="PROCESS_POOL_REPORT_SOURCE_REPORT_ID" />',
+  'label="报工数据"',
+  ':value="PROCESS_POOL_REPORT_SOURCE_REPORT_ID"',
   'processPoolReportSourceFields.value = (data.sourceFields || []).filter',
   'const isProcessPoolReportSelected = computed(() => sourceReportId.value === PROCESS_POOL_REPORT_SOURCE_REPORT_ID)',
   'sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT',
   'filteredProcessPoolReportSourceFields.value',
-  'field.routeProcessId === targetForm.value?.routeProcessId',
+  'field.routeProcessId === targetRouteProcessId',
   'buildSourceFieldCells(filteredProcessPoolReportSourceFields.value, PROCESS_POOL_REPORT_SOURCE_REPORT_ID',
   'PROCESS_POOL_REPORT_AGGREGATION_OPTIONS',
   "type ProcessPoolSourceValueType = 'NUMBER' | 'STRING' | 'BOOLEAN'",
@@ -36,6 +45,19 @@ for (const token of [
   'aggregationStrategy: isProcessPoolReportSource ? aggregationStrategy.value : undefined'
 ]) {
   assert.ok(page.includes(token), `page misses process-pool report mapping token: ${token}`)
+}
+
+for (const token of [
+  'data-process-pool-report-source-fields',
+  'data-process-pool-report-field-count',
+  'const currentProcessPoolReportSourceTitle = computed',
+  "`${targetForm.value?.reportName || '当前工序'}的一线生产字段`",
+  'const targetRouteProcessId = targetForm.value?.routeProcessId',
+  'return processPoolReportSourceFields.value.filter((field) =>',
+  'buildSourceFieldCells(filteredProcessPoolReportSourceFields.value, PROCESS_POOL_REPORT_SOURCE_REPORT_ID,',
+  'currentProcessPoolReportSourceTitle.value'
+]) {
+  assert.ok(page.includes(token), `process-pool report source panel must refresh by selected target process: ${token}`)
 }
 
 assert.ok(api.includes('aggregationStrategy?: string'), 'API rule type must carry aggregationStrategy')
@@ -56,5 +78,55 @@ for (const sourceField of [
 assert.ok(feedbackPayload.includes('private String textValue'),
   'frontline production selected/text parameter readings must preserve textValue for process-pool mapping')
 assert.ok(!page.includes('报工数据字段手工输入'), 'source fields must come from backend formal field catalog, not manual input')
+
+for (const token of [
+  'routeId: String(props.routeId)',
+  'routeProcessId: String(selectedRouteProcessId.value)'
+]) {
+  assert.ok(routeFlowDesigner.includes(token), `route process entry must preserve formal route context: ${token}`)
+}
+
+for (const token of [
+  'const cellLinkRouteId = normalizeRouteQueryText(route.query.routeId)',
+  'const cellLinkRouteProcessId = normalizeRouteQueryText(route.query.routeProcessId)',
+  'routeId: cellLinkRouteId || undefined',
+  'routeProcessId: cellLinkRouteProcessId || undefined',
+  'targetReportId: cellLinkRouteProcessId ? row.reportId : undefined'
+]) {
+  assert.ok(batchRecordFormList.includes(token), `batch record form entry must forward formal process context: ${token}`)
+}
+
+for (const token of [
+  'const requestedTargetRouteProcessId = parseNumber(route.query.routeProcessId)',
+  "const requestedTargetReportId = String(route.query.targetReportId || '')",
+  ':disabled="!hasFormalRouteProcessContext"',
+  'form.routeProcessId === requestedTargetRouteProcessId',
+  'form.reportId === requestedTargetReportId'
+]) {
+  assert.ok(page.includes(token), `cell-link page must select the requested formal process target: ${token}`)
+}
+
+for (const token of [
+  "const SOURCE_TYPE_PRODUCTION_PICK_LIST = 'PRODUCTION_PICK_LIST'",
+  "const PRODUCTION_PICK_LIST_SOURCE_REPORT_NAME = '领料单数据'",
+  'label="领料单数据"',
+  ':value="PRODUCTION_PICK_LIST_SOURCE_REPORT_ID"',
+  'productionPickListSourceFields.value = (data.sourceFields || []).filter',
+  'filteredProductionPickListSourceFields.value',
+  'buildSourceFieldCells(filteredProductionPickListSourceFields.value, PRODUCTION_PICK_LIST_SOURCE_REPORT_ID'
+]) {
+  assert.ok(page.includes(token), `page misses production pick-list mapping token: ${token}`)
+}
+
+for (const token of [
+  'SOURCE_TYPE_PRODUCTION_PICK_LIST',
+  'material.',
+  'lotNumber',
+  'selectListByProductionOrderNo',
+  'sourceEntryId'
+]) {
+  assert.ok(backendService.includes(token) || backendPickListSourceService.includes(token),
+    `backend misses production pick-list source contract: ${token}`)
+}
 
 console.log('batch-record-cell-link process-pool-report static contract passed')

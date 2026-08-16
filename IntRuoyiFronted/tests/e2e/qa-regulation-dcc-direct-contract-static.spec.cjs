@@ -35,8 +35,14 @@ assert.doesNotMatch(
 )
 
 assert.ok(
-  compactApi.includes("resultType:'BOOLEAN'|'NUMERIC'|'TEXT'"),
-  'QA item resultType must be restricted to BOOLEAN/NUMERIC/TEXT at the API type boundary.'
+  compactApi.includes(
+    "exporttypeQaInspectionRegulationResultType='BOOLEAN'|'NUMERIC'|'TEXT'"
+  ),
+  'QA result type alias must be restricted to BOOLEAN/NUMERIC/TEXT.'
+)
+assert.ok(
+  compactApi.includes('resultType:QaInspectionRegulationResultType'),
+  'QA item resultType must use the formal result type alias at the API boundary.'
 )
 assert.ok(
   compactApi.includes('exportinterfaceQaInspectionRegulationSaveRespVO{dccProjectCodeId:number'),

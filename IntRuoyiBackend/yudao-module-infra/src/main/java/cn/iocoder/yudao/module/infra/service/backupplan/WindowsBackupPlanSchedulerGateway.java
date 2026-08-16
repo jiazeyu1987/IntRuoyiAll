@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.RUNTIME_CONTROL_COMMAND_FAILED;
@@ -20,6 +21,22 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
 
     private static final String TASK_NAME = "IntRuoyi Backup Scheduled";
     private static final DateTimeFormatter SCHTASKS_DATE_TIME = DateTimeFormatter.ofPattern("yyyy/M/d H:mm:ss");
+    private final CommandRunner commandRunner;
+    private final BooleanSupplier windowsSupplier;
+
+    public WindowsBackupPlanSchedulerGateway() {
+        this(WindowsBackupPlanSchedulerGateway::runProcessCommand,
+                () -> System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win"));
+    }
+
+    WindowsBackupPlanSchedulerGateway(CommandRunner commandRunner) {
+        this(commandRunner, () -> true);
+    }
+
+    WindowsBackupPlanSchedulerGateway(CommandRunner commandRunner, BooleanSupplier windowsSupplier) {
+        this.commandRunner = commandRunner;
+        this.windowsSupplier = windowsSupplier;
+    }
 
     @Override
     public BackupPlanSchedulerStatus getStatus() {
@@ -28,6 +45,7 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
         String output = commandResult.output();
         BackupPlanSchedulerStatus status = new BackupPlanSchedulerStatus();
         status.setRawStatus(output);
+        status.setQueryExitCode(commandResult.exitCode());
         if (commandResult.exitCode() != 0) {
             status.setEnabled(false);
             status.setBlockedReason(StrUtil.blankToDefault(output, "计划任务查询失败"));
@@ -44,6 +62,15 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
         status.setLastRunTime(parseDateTime(valueOf(output, "Last Run Time")));
         status.setLastResultCode(parseInteger(valueOf(output, "Last Result")));
         String taskToRun = valueOf(output, "Task To Run");
+        status.setTaskToRun(taskToRun);
+        if (!Boolean.TRUE.equals(status.getEnabled())) {
+            status.setBlockedReason("计划任务已禁用");
+            return status;
+        }
+        if (status.getNextRunTime() == null) {
+            status.setBlockedReason("下次运行时间缺失");
+            return status;
+        }
         if (StrUtil.isNotBlank(taskToRun) && !taskToRun.contains("backup-ops.ps1")) {
             status.setBlockedReason("计划任务脚本路径异常");
         }
@@ -62,6 +89,8 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
         command.add(schedule.getRegisterScriptPath().toString());
         command.add("-ConfigPath");
         command.add(schedule.getConfigPath().toString());
+        command.add("-RepositoryEnvironment");
+        command.add(schedule.getRepositoryEnvironment());
         runCommand(command, true);
     }
 
@@ -78,7 +107,7 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
     }
 
     private void assertWindows() {
-        if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
+        if (!windowsSupplier.getAsBoolean()) {
             throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "当前服务器不支持 Windows 计划任务控制，请先实现 Linux 调度器");
         }
     }
@@ -92,6 +121,10 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
     }
 
     private CommandResult runCommandResult(List<String> command) {
+        return commandRunner.run(command);
+    }
+
+    private static CommandResult runProcessCommand(List<String> command) {
         ProcessBuilder processBuilder = new ProcessBuilder(command);
         processBuilder.redirectErrorStream(true);
         try {
@@ -151,6 +184,11 @@ public class WindowsBackupPlanSchedulerGateway implements BackupPlanSchedulerGat
         }
     }
 
-    private record CommandResult(int exitCode, String output) {
+    @FunctionalInterface
+    interface CommandRunner {
+        CommandResult run(List<String> command);
+    }
+
+    record CommandResult(int exitCode, String output) {
     }
 }

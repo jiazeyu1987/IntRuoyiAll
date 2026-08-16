@@ -25,6 +25,8 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand {
 
     private Long routeVersionId;
 
+    private Long dccProjectCodeId;
+
     private Long productId;
 
     private String batchCode;

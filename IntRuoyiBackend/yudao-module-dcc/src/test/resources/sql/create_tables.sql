@@ -1672,6 +1672,32 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_signature_binding` (
   KEY `idx_dcc_signature_binding_copy` (`tenant_id`, `controlled_copy_file_id`)
 );
 
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_signature_reissue_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` bigint NOT NULL,
+  `signature_id` bigint NOT NULL,
+  `before_evidence_hash` varchar(128) NOT NULL,
+  `before_evidence_key_version` varchar(128) NOT NULL,
+  `before_evidence_status` varchar(32) NOT NULL,
+  `after_evidence_hash` varchar(128) NOT NULL,
+  `after_evidence_key_version` varchar(128) NOT NULL,
+  `after_evidence_status` varchar(32) NOT NULL,
+  `reissued_by` bigint NOT NULL,
+  `reissued_at` datetime NOT NULL,
+  `request_id` varchar(128) NOT NULL,
+  `reason` varchar(1024) NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_dcc_signature_reissue_file` (`tenant_id`, `controlled_file_id`, `deleted`),
+  KEY `idx_dcc_signature_reissue_signature` (`tenant_id`, `signature_id`, `deleted`),
+  UNIQUE KEY `uk_dcc_signature_reissue_request` (`tenant_id`, `signature_id`, `request_id`, `deleted`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_ownership` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `controlled_file_id` BIGINT NOT NULL,

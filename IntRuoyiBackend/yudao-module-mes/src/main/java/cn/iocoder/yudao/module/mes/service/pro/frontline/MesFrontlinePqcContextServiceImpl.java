@@ -281,9 +281,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 activeOrder, qaSource.getPublishedVersionId(), qaSource.getFinalInspectionApplicable(),
                 qaProcess.getQaProcessId(), inspectionItems, tasksForProcess,
                 inspectionTypeRuleByKey);
-        MesFrontlinePqcProcessRespVO.PqcTaskOption currentTask = taskOptions.stream()
-                .filter(option -> MesFrontlinePqcTaskOverlay.STATUS_PENDING.equals(option.getTaskStatus()))
-                .findFirst().orElse(null);
         MesFrontlinePqcProcessRespVO.PqcTaskSummary taskSummary = buildTaskSummary(tasksForProcess);
 
         MesFrontlinePqcProcessRespVO respVO = new MesFrontlinePqcProcessRespVO();
@@ -298,16 +295,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         respVO.setQaProcessName(qaProcess.getProcessName());
         respVO.setQaProcessSort(qaProcess.getSort());
         respVO.setActiveOrderId(activeOrder.getId());
-        respVO.setPqcTaskId(currentTask == null ? null : currentTask.getPqcTaskId());
-        respVO.setInspectionRuleKey(currentTask == null ? null : currentTask.getInspectionRuleKey());
-        respVO.setTaskStatus(currentTask == null ? null : currentTask.getTaskStatus());
         respVO.setFinalInspectionApplicable(qaSource.getFinalInspectionApplicable());
         respVO.setInspectionTypeRules(inspectionTypeRules);
-        respVO.setInspectionType(currentTask == null ? null : currentTask.getInspectionType());
-        respVO.setBusinessDate(currentTask == null ? null : currentTask.getBusinessDate());
-        respVO.setShiftCode(currentTask == null ? null : currentTask.getShiftCode());
-        respVO.setRoundNo(currentTask == null ? null : currentTask.getRoundNo());
-        respVO.setPlannedInspectionQuantity(currentTask == null ? null : currentTask.getPlannedInspectionQuantity());
         respVO.setInspectionItems(inspectionItems);
         respVO.setTaskSummary(taskSummary);
         respVO.setPqcTaskOptions(taskOptions);

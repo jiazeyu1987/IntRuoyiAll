@@ -39,13 +39,13 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -54,6 +54,20 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class MesFrontlinePqcContextServiceTest {
+
+    @Test
+    void processResponseKeepsTaskIdentityOnlyInTaskOptions() {
+        Set<String> forbiddenProcessFields = Set.of(
+                "pqcTaskId", "inspectionRuleKey", "taskStatus", "inspectionType",
+                "businessDate", "shiftCode", "roundNo", "plannedInspectionQuantity");
+
+        List<String> duplicatedTaskFields = Arrays.stream(MesFrontlinePqcProcessRespVO.class.getDeclaredFields())
+                .map(java.lang.reflect.Field::getName)
+                .filter(forbiddenProcessFields::contains)
+                .toList();
+
+        assertEquals(List.of(), duplicatedTaskFields);
+    }
 
     private static final long WORK_ORDER_ID = 1001L;
     private static final long ROUTE_ID = 2001L;
@@ -241,9 +255,15 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals("原始项目", item.getSourceOriginalItem());
         assertEquals("原始摘录", item.getSourceOriginalExcerpt());
         assertEquals("原始方法", item.getSourceOriginalMethod());
-        assertEquals(9102L, result.get(0).getPqcTaskId());
-        assertEquals("FIRST", result.get(0).getInspectionRuleKey());
-        assertEquals("PENDING", result.get(0).getTaskStatus());
+        MesFrontlinePqcProcessRespVO.PqcTaskOption pendingTask = result.get(0).getPqcTaskOptions().get(0);
+        assertEquals(9102L, pendingTask.getPqcTaskId());
+        assertEquals("FIRST", pendingTask.getInspectionRuleKey());
+        assertEquals("PENDING", pendingTask.getTaskStatus());
+        assertEquals("FIRST", pendingTask.getInspectionType());
+        assertEquals(LocalDate.of(2026, 8, 12), pendingTask.getBusinessDate());
+        assertEquals("FIRST", pendingTask.getShiftCode());
+        assertEquals(1, pendingTask.getRoundNo());
+        assertEquals(5, pendingTask.getPlannedInspectionQuantity());
         assertEquals("MIXED", result.get(0).getTaskSummary().getState());
         assertEquals(4, result.get(0).getTaskSummary().getTotalCount());
         assertEquals(1, result.get(0).getTaskSummary().getPendingCount());
@@ -253,7 +273,6 @@ class MesFrontlinePqcContextServiceTest {
         assertEquals(List.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL"),
                 result.get(0).getPqcTaskOptions().stream()
                         .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getInspectionRuleKey).toList());
-        assertEquals("FIRST", result.get(0).getPqcTaskOptions().get(0).getInspectionRuleKey());
         assertEquals(List.of("PENDING", "SUBMITTED", "CONFIRMED", "CANCELLED"),
                 result.get(0).getPqcTaskOptions().stream()
                         .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getTaskStatus).toList());
@@ -265,8 +284,6 @@ class MesFrontlinePqcContextServiceTest {
                 result.get(0).getPqcTaskOptions().get(1).getInspectionTypeRule().getLabel());
         assertEquals(List.of("FIRST", "PATROL", "FINAL"), result.get(0).getPqcTaskOptions().get(1)
                 .getInspectionItems().get(0).getApplicableInspectionTypes());
-        assertNull(result.get(1).getTaskStatus());
-        assertNull(result.get(1).getInspectionRuleKey());
         assertEquals("NOT_CREATED", result.get(1).getTaskSummary().getState());
         assertEquals(0, result.get(1).getTaskSummary().getTotalCount());
         assertEquals(0, result.get(1).getTaskSummary().getPendingCount());

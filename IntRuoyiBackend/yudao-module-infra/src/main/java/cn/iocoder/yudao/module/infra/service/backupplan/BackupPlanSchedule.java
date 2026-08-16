@@ -10,6 +10,8 @@ public class BackupPlanSchedule {
     private String frequency;
     private String time;
     private String weekday;
+    private String repositoryEnvironment;
+    private Integer maxFreshnessHours;
     private Path repoRoot;
     private Path configPath;
     private Path backupScriptPath;

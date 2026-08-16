@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260812_mes_pqc_dcc_qa_c00_schema; type=postflight; riskLevel=high
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260812_mes_pqc_dcc_qa_c00_schema; type=schema; riskLevel=high
 -- C00 postflight verifies zero blockers before NOT NULL tightening and final unique-key reliance.
 
 DROP TEMPORARY TABLE IF EXISTS c00_postflight_blocker_report;

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.schedule;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoScheduleApplyRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoScheduleReplanPreviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoScheduleReplanReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedule.vo.MesProAutoScheduleSummaryRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
@@ -52,6 +53,9 @@ class MesProNightlyReplanServiceImplTest {
         summary.setBlockingIssueCount(1);
         summary.setShortageCount(1);
         applyRespVO.setSummary(summary);
+        MesProAutoScheduleReplanPreviewRespVO previewRespVO = new MesProAutoScheduleReplanPreviewRespVO();
+        previewRespVO.setCalendarContextToken("nightly-calendar-token");
+        when(autoScheduleService.replanPreview(org.mockito.ArgumentMatchers.any())).thenReturn(previewRespVO);
         when(autoScheduleService.replanApplyForNightly(org.mockito.ArgumentMatchers.any())).thenReturn(applyRespVO);
 
         MesProNightlyReplanResult result = nightlyReplanService.executeNightlyReplan(LocalDateTime.of(2026, 6, 10, 2, 0));
@@ -70,6 +74,11 @@ class MesProNightlyReplanServiceImplTest {
         assertEquals(LocalDateTime.of(2026, 6, 10, 2, 0), reqVO.getStartTime());
         assertEquals("PLANNED", reqVO.getRuntimeCapacityBasis());
         assertTrue(reqVO.getPreserveManualLockedTasks());
+        assertEquals("nightly-calendar-token", reqVO.getCalendarContextToken());
+        verify(autoScheduleService).replanPreview(captor.capture());
+        MesProAutoScheduleReplanReqVO previewReqVO = captor.getValue();
+        assertEquals(reqVO.getScheduleOrderIds(), previewReqVO.getScheduleOrderIds());
+        assertEquals(reqVO.getStartTime(), previewReqVO.getStartTime());
     }
 
     @Test
@@ -80,6 +89,7 @@ class MesProNightlyReplanServiceImplTest {
 
         assertEquals(0, result.getScheduleOrderCount());
         assertEquals("夜间重排完成：没有待重排排产工单", result.toJobMessage());
+        verify(autoScheduleService, never()).replanPreview(org.mockito.ArgumentMatchers.any());
         verify(autoScheduleService, never()).replanApplyForNightly(org.mockito.ArgumentMatchers.any());
     }
 

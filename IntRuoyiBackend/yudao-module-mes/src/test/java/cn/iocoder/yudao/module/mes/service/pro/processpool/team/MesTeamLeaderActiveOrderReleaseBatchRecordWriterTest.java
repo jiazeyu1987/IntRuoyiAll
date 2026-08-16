@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderD
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,13 +56,15 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Mock
     private MesTeamLeaderBatchRecordBackfillService backfillService;
+    @Mock
+    private MesProductionPickListSourceService productionPickListSourceService;
 
     private MesTeamLeaderActiveOrderReleaseBatchRecordWriter writer;
 
     @BeforeEach
     void setUp() {
         writer = new MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(
-                bindingMapper, ruleMapper, batchTaskMapper, backfillService);
+                bindingMapper, ruleMapper, batchTaskMapper, backfillService, productionPickListSourceService);
     }
 
     @Test
@@ -200,6 +203,24 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
                 captor.getAllValues().get(1).getIdempotencyKey());
     }
 
+    @Test
+    void shouldPreflightProductionPickListMappingsBeforeAnyBatchRecordWrite() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(rule(1L, "outputQuantity"), pickRule(2L, "material.3201.lotNumber")));
+        when(productionPickListSourceService.resolveValue(any()))
+                .thenReturn(new MesProductionPickListSourceService.ResolvedValue(
+                        9001L, 9101L, "LOT-FIRST", "pick-evidence"));
+
+        MesTeamLeaderActiveOrderReleaseBatchRecordPlan plan = writer.plan(command());
+
+        assertTrue(plan.getBlockers().isEmpty());
+        assertTrue(plan.getSourceObjectIds().containsAll(List.of(9001L, 9101L)));
+        assertTrue(plan.getSourceValueHashes().contains("pick-evidence"));
+        verify(backfillService, never()).backfillCompletedProcess(any());
+    }
+
     private void mockFormalPlanSources() {
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
                 .thenReturn(List.of(binding()));
@@ -214,6 +235,7 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
                 .setWorkOrderId(WORK_ORDER_ID)
                 .setRouteId(ROUTE_ID)
                 .setRouteVersionId(ROUTE_VERSION_ID)
+                .setDccProjectCodeId(8001L)
                 .setProductId(3101L)
                 .setBatchCode("BATCH-9001")
                 .setApplicantUserId(4101L)
@@ -346,6 +368,13 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
         rule.setTargetCellKey("R" + (id + 4) + "C2");
         rule.setTargetValueType("NUMBER");
         rule.setEnabled(true);
+        return rule;
+    }
+
+    private static MesProBatchRecordCellLinkRuleDO pickRule(Long id, String sourceFieldCode) {
+        MesProBatchRecordCellLinkRuleDO rule = rule(id, sourceFieldCode);
+        rule.setSourceType("PRODUCTION_PICK_LIST");
+        rule.setTargetValueType("STRING");
         return rule;
     }
 

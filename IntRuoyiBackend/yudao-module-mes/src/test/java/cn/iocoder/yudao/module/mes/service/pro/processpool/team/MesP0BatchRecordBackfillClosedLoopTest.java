@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditValueType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,13 +49,15 @@ class MesP0BatchRecordBackfillClosedLoopTest {
     private MesProBatchRecordCellLinkRuleMapper ruleMapper;
     @Mock
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;
+    @Mock
+    private MesProductionPickListSourceService productionPickListSourceService;
 
     private MesTeamLeaderBatchRecordBackfillService service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderBatchRecordBackfillServiceImpl(bindingMapper, executionService, executionMapper,
-                ruleMapper, fieldAuditService);
+                ruleMapper, fieldAuditService, productionPickListSourceService);
     }
 
     @Test
@@ -125,7 +128,8 @@ class MesP0BatchRecordBackfillClosedLoopTest {
                 .setAllocation(allocation())
                 .setSourceEvents(List.of(eventWithStructuredProductionPayload()))
                 .setAllocations(List.of(allocation()))
-                .setWorkOrder(workOrder()));
+                .setWorkOrder(workOrder())
+                .setDccProjectCodeId(8001L));
 
         ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
@@ -144,7 +148,8 @@ class MesP0BatchRecordBackfillClosedLoopTest {
                 .setAllocation(allocation())
                 .setSourceEvents(List.of(event()))
                 .setAllocations(List.of(allocation()))
-                .setWorkOrder(workOrder());
+                .setWorkOrder(workOrder())
+                .setDccProjectCodeId(8001L);
     }
 
     private static MesProProcessPoolEventDO event() {

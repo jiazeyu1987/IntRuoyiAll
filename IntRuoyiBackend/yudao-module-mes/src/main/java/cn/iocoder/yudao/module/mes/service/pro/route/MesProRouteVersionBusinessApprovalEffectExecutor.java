@@ -84,12 +84,12 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
         update.setSubmittedBy(applicantUserId);
         update.setSubmittedTime(LocalDateTime.now());
         update.setApprovalProcessInstanceId(processInstanceId);
+        platformAdapter.recordSubmitted(candidate, applicantUserId, processInstanceId);
         requireUpdated(routeVersionMapper.updateById(update), "mark pending route version");
         candidate.setLifecycleStatus(update.getLifecycleStatus());
         candidate.setSubmittedBy(update.getSubmittedBy());
         candidate.setSubmittedTime(update.getSubmittedTime());
         candidate.setApprovalProcessInstanceId(update.getApprovalProcessInstanceId());
-        platformAdapter.recordSubmitted(candidate, applicantUserId, processInstanceId);
         return BusinessApprovalEffectResult.pending(MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL);
     }
 

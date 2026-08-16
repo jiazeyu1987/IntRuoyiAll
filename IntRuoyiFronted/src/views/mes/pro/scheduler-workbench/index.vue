@@ -274,10 +274,7 @@
           </el-form-item>
           <div class="scheduler-workbench__policy-runtime-status">
             <el-alert
-              :title="
-                policySettingsForm.workerCapacityApplicabilityText ||
-                '人效h仅影响资源计算模式且产能来源为人工的工序；设备产能、手工覆盖和无限公式不受影响。'
-              "
+              :title="policySettingsForm.workerCapacityApplicabilityText"
               type="info"
               :closable="false"
               show-icon
@@ -318,10 +315,14 @@
               <el-tag :type="autoScheduleJobTagType" effect="light">
                 {{ autoScheduleJobStatus?.enabled ? '已启用' : '未启用' }}
               </el-tag>
-              <small class="scheduler-workbench__runtime-detail">
+              <small
+                class="scheduler-workbench__runtime-detail"
+                :class="{ 'is-danger': isAutoScheduleLatestFailure(autoScheduleJobStatus) }"
+              >
                 处理器 mesProNightlyReplanJob；下次触发
                 {{ formatDateTimeValue(autoScheduleJobStatus?.nextTriggerTime, '未计算') }}；最近日志
-                {{ formatAutoScheduleLatestLogText(autoScheduleJobStatus) }}
+                {{ formatAutoScheduleLatestLogText(autoScheduleJobStatus) }}；执行结果
+                {{ formatAutoScheduleLatestResultText(autoScheduleJobStatus) }}
               </small>
             </div>
           </div>
@@ -1659,6 +1660,8 @@ const formatAutoScheduleLatestLogText = (status?: AutoScheduleJobStatusVO | null
   const statusText =
     status.latestStatus === 'SUCCESS'
       ? '成功'
+      : status.latestStatus === 'PARTIAL_FAILURE'
+        ? '部分失败'
       : status.latestStatus === 'FAILURE'
         ? '失败'
         : status.latestStatus === 'RUNNING'
@@ -1666,6 +1669,14 @@ const formatAutoScheduleLatestLogText = (status?: AutoScheduleJobStatusVO | null
           : status.latestStatus || '未知'
   return `${formatDateTimeValue(status.latestBeginTime, '未知时间')} ${statusText}`
 }
+
+const formatAutoScheduleLatestResultText = (status?: AutoScheduleJobStatusVO | null) => {
+  if (!status?.latestBeginTime) return '暂无执行结果'
+  return status.latestResultSummary || '执行结果缺失'
+}
+
+const isAutoScheduleLatestFailure = (status?: AutoScheduleJobStatusVO | null) =>
+  status?.latestStatus === 'FAILURE' || status?.latestStatus === 'PARTIAL_FAILURE'
 
 const loadSummary = async (requestSerial?: number) => {
   loading.value = true

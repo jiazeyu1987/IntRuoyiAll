@@ -71,12 +71,13 @@ Assert-Contains -RelativePath 'docs\branch-runtime-ports.md' -Needles @(
     'E:\IntRuoyiBranch\QMS\IntRuoyiAll',
     '`8061`',
     '`48061`',
-    '`1..19`',
+    '`1..30`',
+    '`20..30`',
     'reserve-worktree-slot.ps1'
 )
 
 Assert-Contains -RelativePath 'docs\local-runtime.md' -Needles @(
-    'PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3',
+    'PORT_CONTRACT_VERSION: 2026-08-15-branch-runtime-v4',
     '`int_main_d`',
     '`8101`',
     '`48101`',
@@ -92,34 +93,37 @@ Assert-Contains -RelativePath 'docs\local-runtime.md' -Needles @(
     '`int_qms`',
     '`8061`',
     '`48061`',
-    '`1..19`',
+    '`1..30`',
+    '`20..30`',
     'reserve-worktree-slot.ps1'
 )
 
 Assert-Contains -RelativePath 'docs\worktree-restrictions.md' -Needles @(
-    'PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3',
+    'PORT_CONTRACT_VERSION: 2026-08-15-branch-runtime-v4',
     '`int_main_d` profile',
     '`int_main` profile',
     '`int_batch` profile',
     '`int_shedule` profile',
     '`int_qms` profile',
     'profile',
-    'slot = 1..19',
+    'slot = 1..30',
+    '20..30',
     'reserve-worktree-slot.ps1'
 )
 
 Assert-Contains -RelativePath 'docs\codex-branch-runtime-handoff.md' -Needles @(
-    'PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3',
+    'PORT_CONTRACT_VERSION: 2026-08-15-branch-runtime-v4',
     'reserve-worktree-slot.ps1',
     '`int_main_d`',
-    '`1..19`'
+    '`1..30`',
+    '`20..30`'
 )
 
 Assert-Contains -RelativePath 'AGENTS.md' -Needles @(
     'Branch runtime port matrix',
     'docs\branch-runtime-ports.md',
     'int_main_d=8101/48101',
-    'slot in `1..19`',
+    'slot in `1..30`',
     'reserve-worktree-slot.ps1'
 )
 

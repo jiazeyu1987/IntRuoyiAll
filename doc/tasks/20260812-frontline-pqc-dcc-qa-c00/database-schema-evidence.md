@@ -3,7 +3,7 @@
 ## Data
 
 - Route-DCC data source: approved routeId to dccProjectCodeId manifest consumed by C00 backfill, not product, route label, current QA, or DCC string matching.
-- Active-order snapshots: dccProjectCodeId, qaRegulationId, and qaRegulationVersionId are backfilled from locked task regulationVersionId plus approved route-DCC cross-checks.
+- Active-order snapshots: dccProjectCodeId, qaRegulationId, and qaRegulationVersionId are backfilled only from the approved activeOrderId to QA snapshot manifest; locked task versions may be audited separately but must not become the active-order snapshot source.
 - PQC task submission data: inspectionRuleKey is mapped only from FIRST, FINAL, PATROL AM, and PATROL PM evidence; CanonicalPqcSubmissionV1 hash requires one formal PQC event.
 
 ## Migration
@@ -34,7 +34,7 @@
 ## BDD:
 
 - BDD: 最小增量 schema -> Given 已执行 20260811 QA-DCC migration, When 执行后继 migration, Then 只补路线关系和活跃订单快照且可重复执行。
-- BDD: 历史版本证据回填 -> Given 历史 activeOrder 的 task 只有一个锁定 version, When 运行 backfill, Then 按 version 所属 regulation/DCC 回填并与路线关系交叉验证；零 task 或多 version 进入阻塞清单。
+- BDD: 批准清单回填活跃订单快照 -> Given 历史 activeOrder 已有业务批准的 activeOrderId 到 DCC/QA/发布版本清单, When 运行 backfill, Then 只按批准清单回填三快照；零 task、多 task 或唯一 task version 都不得替代批准清单。
 - BDD: task规则身份可迁移 -> Given 历史 task 含 FIRST、AM巡检、PM巡检和旧合并 PATROL, When 回填 inspectionRuleKey, Then 前三者唯一映射且旧合并 PATROL 进入阻塞清单。
 
 ## RED:
@@ -44,7 +44,7 @@
 
 ## GREEN:
 
-- GREEN: mvn -pl yudao-module-mes -am "-DskipITs" "-Dtest=MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 7 tests run.
+- GREEN: mvn -pl yudao-module-mes -am "-DskipITs" "-Dtest=MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 7 tests run. Latest contract also asserts c00_backfill_approved_active_order_snapshot and forbids UNIQUE_TASK_VERSION-derived active-order snapshots.
 - Regression: mvn -pl yudao-module-mes -am "-DskipITs" "-Dtest=MesQaInspectionRegulationServiceTest,MesQaPqcSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 14 tests run.
 
 ## Verification

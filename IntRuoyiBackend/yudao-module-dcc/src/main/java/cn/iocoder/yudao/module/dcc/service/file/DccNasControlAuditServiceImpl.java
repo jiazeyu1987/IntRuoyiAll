@@ -80,6 +80,7 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
     public static final String STATUS_FAILED = "FAILED";
     public static final String SOURCE_TYPE_NAS_TRANSFER = "NAS_TRANSFER";
     public static final String SOURCE_TYPE_LEGACY_NAS_TRANSFER = "LEGACY_NAS_TRANSFER";
+    public static final String SOURCE_TYPE_LEGACY_LOCAL_FOLDER_IMPORT = "LEGACY_LOCAL_FOLDER_IMPORT";
     public static final String SOURCE_CONFIDENCE_EXACT = "EXACT";
     public static final String SOURCE_CONFIDENCE_LEGACY_EXACT = "LEGACY_EXACT";
     public static final String SOURCE_CONFIDENCE_PENDING_CONFIRMATION = "PENDING_CONFIRMATION";
@@ -282,9 +283,10 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
                 throw new IllegalStateException("NAS share changed after audit task creation: taskShare="
                         + task.getNasShareName() + ", currentShare=" + config.share());
             }
-            migrateLegacyNasTransferSources(config.share());
+            Map<Long, ExpectedLegacyNasSource> expectedLegacySources = migrateLegacyNasSources(config.share());
             List<DccControlledFileNasSourceMapper.ActiveNasSourceRow> sources =
                     nasSourceMapper.selectCurrentActiveSources(TenantContextHolder.getRequiredTenantId(), config.share());
+            verifyLegacyNasSourceBaseline(expectedLegacySources, sources);
             Map<String, List<DccControlledFileNasSourceMapper.ActiveNasSourceRow>> sourcesByHash = sources.stream()
                     .collect(Collectors.groupingBy(
                             DccControlledFileNasSourceMapper.ActiveNasSourceRow::getPathHash,
@@ -826,54 +828,118 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
                 || SOURCE_CONFIDENCE_LEGACY_EXACT.equals(source.getSourceConfidence());
     }
 
-    private void migrateLegacyNasTransferSources(String nasShareName) {
+    private Map<Long, ExpectedLegacyNasSource> migrateLegacyNasSources(String nasShareName) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
-        List<DccControlledFileNasSourceMapper.LegacyNasTransferSourceCandidate> candidates =
-                nasSourceMapper.selectLegacyNasTransferCandidates(tenantId);
-        Map<String, List<DccControlledFileNasSourceMapper.LegacyNasTransferSourceCandidate>> byHash = new HashMap<>();
-        for (DccControlledFileNasSourceMapper.LegacyNasTransferSourceCandidate candidate : candidates) {
-            String path = parseLegacyNasTransferPath(candidate.getRemark());
-            if (StrUtil.isBlank(path)) {
+        List<DccControlledFileNasSourceMapper.LegacyNasSourceCandidate> candidates =
+                nasSourceMapper.selectLegacyNasSourceCandidates(tenantId, nasShareName);
+        Map<String, List<LegacyNasSourceMigration>> byHash = new HashMap<>();
+        for (DccControlledFileNasSourceMapper.LegacyNasSourceCandidate candidate : candidates) {
+            LegacyNasSourceEvidence evidence = parseLegacyNasSourceEvidence(candidate.getRemark());
+            if (evidence == null) {
                 continue;
             }
-            String normalizedPath = DccNasPathUtils.normalizeRelativePath(path);
-            String pathHash = DccNasPathUtils.pathHash(nasShareName, normalizedPath);
-            byHash.computeIfAbsent(pathHash, ignored -> new ArrayList<>()).add(candidate);
+            String pathHash = DccNasPathUtils.pathHash(nasShareName, evidence.normalizedPath());
+            byHash.computeIfAbsent(pathHash, ignored -> new ArrayList<>())
+                    .add(new LegacyNasSourceMigration(candidate, evidence));
         }
+        Map<Long, ExpectedLegacyNasSource> expectedSources = new LinkedHashMap<>();
         tx().executeWithoutResult(status -> {
-            for (Map.Entry<String, List<DccControlledFileNasSourceMapper.LegacyNasTransferSourceCandidate>> entry
+            for (Map.Entry<String, List<LegacyNasSourceMigration>> entry
                     : byHash.entrySet()) {
                 boolean unique = entry.getValue().size() == 1;
-                for (DccControlledFileNasSourceMapper.LegacyNasTransferSourceCandidate candidate : entry.getValue()) {
-                    if (nasSourceMapper.selectByControlledFileIdAndSourceType(
-                            candidate.getControlledFileId(), SOURCE_TYPE_LEGACY_NAS_TRANSFER) != null) {
+                String confidence = unique
+                        ? SOURCE_CONFIDENCE_LEGACY_EXACT
+                        : SOURCE_CONFIDENCE_PENDING_CONFIRMATION;
+                for (LegacyNasSourceMigration migration : entry.getValue()) {
+                    DccControlledFileNasSourceMapper.LegacyNasSourceCandidate candidate = migration.candidate();
+                    String sourceType = migration.evidence().sourceType();
+                    expectedSources.put(candidate.getControlledFileId(),
+                            new ExpectedLegacyNasSource(entry.getKey(), sourceType, confidence));
+                    if (nasSourceMapper.selectByControlledFileIdAndShareAndSourceType(
+                            candidate.getControlledFileId(), nasShareName, sourceType) != null) {
                         continue;
                     }
-                    String normalizedPath = DccNasPathUtils.normalizeRelativePath(
-                            parseLegacyNasTransferPath(candidate.getRemark()));
                     nasSourceMapper.insert(DccControlledFileNasSourceDO.builder()
                             .controlledFileId(candidate.getControlledFileId())
                             .nasShareName(nasShareName)
-                            .normalizedRelativePath(normalizedPath)
+                            .normalizedRelativePath(migration.evidence().normalizedPath())
                             .pathHash(entry.getKey())
-                            .sourceType(SOURCE_TYPE_LEGACY_NAS_TRANSFER)
-                            .sourceConfidence(unique
-                                    ? SOURCE_CONFIDENCE_LEGACY_EXACT
-                                    : SOURCE_CONFIDENCE_PENDING_CONFIRMATION)
+                            .sourceType(sourceType)
+                            .sourceConfidence(confidence)
                             .tenantId(tenantId)
                             .build());
                 }
             }
         });
+        return expectedSources;
     }
 
-    private String parseLegacyNasTransferPath(String remark) {
-        String prefix = "NAS transfer source: ";
-        if (!StrUtil.startWith(remark, prefix)) {
+    private LegacyNasSourceEvidence parseLegacyNasSourceEvidence(String remark) {
+        String sourceType;
+        String prefix;
+        if (StrUtil.startWith(remark, "NAS transfer source: ")) {
+            sourceType = SOURCE_TYPE_LEGACY_NAS_TRANSFER;
+            prefix = "NAS transfer source: ";
+        } else if (StrUtil.startWith(remark, "Local folder import source: ")) {
+            sourceType = SOURCE_TYPE_LEGACY_LOCAL_FOLDER_IMPORT;
+            prefix = "Local folder import source: ";
+        } else {
             return null;
         }
         String path = remark.substring(prefix.length()).trim();
-        return StrUtil.isBlank(path) ? null : path;
+        if (StrUtil.isBlank(path)) {
+            return null;
+        }
+        String normalizedPath = DccNasPathUtils.normalizeRelativePath(path);
+        if (!isUnderFixedScanRoot(normalizedPath)) {
+            return null;
+        }
+        return new LegacyNasSourceEvidence(normalizedPath, sourceType);
+    }
+
+    private boolean isUnderFixedScanRoot(String normalizedPath) {
+        return FIXED_SCAN_ROOTS.stream().anyMatch(root -> normalizedPath.equalsIgnoreCase(root)
+                || normalizedPath.regionMatches(true, 0, root + "/", 0, root.length() + 1));
+    }
+
+    private void verifyLegacyNasSourceBaseline(
+            Map<Long, ExpectedLegacyNasSource> expectedSources,
+            List<DccControlledFileNasSourceMapper.ActiveNasSourceRow> activeSources) {
+        if (expectedSources.isEmpty()) {
+            return;
+        }
+        Map<Long, List<DccControlledFileNasSourceMapper.ActiveNasSourceRow>> sourcesByControlledFileId =
+                activeSources.stream().collect(Collectors.groupingBy(
+                        DccControlledFileNasSourceMapper.ActiveNasSourceRow::getControlledFileId));
+        List<Long> missingControlledFileIds = expectedSources.entrySet().stream()
+                .filter(entry -> sourcesByControlledFileId.getOrDefault(entry.getKey(), List.of()).stream()
+                        .noneMatch(source -> entry.getValue().matches(source)))
+                .map(Map.Entry::getKey)
+                .sorted()
+                .toList();
+        if (!missingControlledFileIds.isEmpty()) {
+            List<Long> sampleIds = missingControlledFileIds.stream().limit(10).toList();
+            throw new IllegalStateException("NAS 受控来源基线不完整：应迁移 " + expectedSources.size()
+                    + " 条，迁移后缺少 " + missingControlledFileIds.size()
+                    + " 条，受控文件ID示例=" + sampleIds);
+        }
+    }
+
+    private record LegacyNasSourceEvidence(String normalizedPath, String sourceType) {
+    }
+
+    private record LegacyNasSourceMigration(
+            DccControlledFileNasSourceMapper.LegacyNasSourceCandidate candidate,
+            LegacyNasSourceEvidence evidence) {
+    }
+
+    private record ExpectedLegacyNasSource(String pathHash, String sourceType, String sourceConfidence) {
+
+        private boolean matches(DccControlledFileNasSourceMapper.ActiveNasSourceRow source) {
+            return Objects.equals(pathHash, source.getPathHash())
+                    && Objects.equals(sourceType, source.getSourceType())
+                    && Objects.equals(sourceConfidence, source.getSourceConfidence());
+        }
     }
 
     private DccNasControlAuditTaskDO requireTask(Long taskId) {

@@ -42,6 +42,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessCon
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProCapacityActualMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProCapacityPlanMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProReplanExplanationSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleCalendarRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleIssueMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProTaskDependencyMapper;
@@ -156,6 +157,7 @@ class MesProAutoScheduleAlgorithmContractTest {
     @Mock private MesProScheduleCalendarRuleMapper scheduleCalendarRuleMapper;
     @Mock private MesProCapacityPlanMapper capacityPlanMapper;
     @Mock private MesProCapacityActualMapper capacityActualMapper;
+    @Mock private MesProReplanExplanationSnapshotMapper replanExplanationSnapshotMapper;
     @Mock private MesProTaskScheduleExtMapper taskScheduleExtMapper;
     @Mock private MesProTaskDependencyMapper taskDependencyMapper;
     @Mock private MesProScheduleIssueMapper scheduleIssueMapper;
@@ -467,6 +469,40 @@ class MesProAutoScheduleAlgorithmContractTest {
         MesProAutoScheduleApplyRespVO response = autoScheduleService.apply(reqVO);
 
         assertTrue(response.getApplied());
+    }
+
+    @Test
+    void nightlyReplan_shouldPreviewAndApplySameScopeWithRealCalendarGuard() {
+        when(scheduleOrderMapper.selectListForNightlyReplan()).thenReturn(List.of(urgentOrder));
+        lenient().when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(urgentOrder));
+        lenient().when(workOrderService.getWorkOrderList(any())).thenReturn(List.of(urgentWorkOrder));
+        MesProNightlyReplanService nightlyService =
+                new MesProNightlyReplanServiceImpl(scheduleOrderMapper, autoScheduleService);
+
+        MesProNightlyReplanResult result = nightlyService.executeNightlyReplan(
+                LocalDateTime.of(2026, 5, 13, 8, 0));
+
+        assertEquals(1, result.getScheduleOrderCount());
+        assertTrue(result.getGeneratedTaskCount() > 0);
+        verify(taskMapper, atLeastOnce()).insert(any(MesProTaskDO.class));
+    }
+
+    @Test
+    void nightlyReplan_shouldStopAtErpConfirmationAfterRealPreviewWithoutTaskWrites() {
+        when(scheduleOrderMapper.selectListForNightlyReplan()).thenReturn(List.of(urgentOrder));
+        lenient().when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(urgentOrder));
+        lenient().when(workOrderService.getWorkOrderList(any())).thenReturn(List.of(urgentWorkOrder));
+        when(scheduleOrderService.preflight(any())).thenReturn(erpSourceWarningPreflightResp());
+        MesProNightlyReplanService nightlyService =
+                new MesProNightlyReplanServiceImpl(scheduleOrderMapper, autoScheduleService);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> nightlyService.executeNightlyReplan(
+                LocalDateTime.of(2026, 5, 13, 8, 0)));
+
+        assertEquals(PRO_AUTO_SCHEDULE_ERP_SOURCE_CONFIRMATION_REQUIRED.getCode(), ex.getCode());
+        verify(taskMapper, never()).insert(any(MesProTaskDO.class));
+        verify(taskScheduleExtMapper, never()).insert(any(MesProTaskScheduleExtDO.class));
+        verify(scheduleOrderMapper, never()).updateById(any(MesProScheduleOrderDO.class));
     }
 
     @Test

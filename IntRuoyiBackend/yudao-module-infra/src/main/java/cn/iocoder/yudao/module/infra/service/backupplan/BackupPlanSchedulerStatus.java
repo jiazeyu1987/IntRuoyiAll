@@ -11,6 +11,8 @@ public class BackupPlanSchedulerStatus {
     private LocalDateTime nextRunTime;
     private LocalDateTime lastRunTime;
     private Integer lastResultCode;
+    private Integer queryExitCode;
+    private String taskToRun;
     private String rawStatus;
     private String blockedReason;
 }

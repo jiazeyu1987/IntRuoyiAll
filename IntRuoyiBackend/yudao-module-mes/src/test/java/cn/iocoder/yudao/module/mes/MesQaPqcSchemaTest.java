@@ -294,10 +294,20 @@ class MesQaPqcSchemaTest {
         String fullSql = schemaSql + preflightSql + backfillSql + postflightSql + rollbackSql;
 
         assertTrue(preflightSql.contains("dependsOn=20260811_mes_qa_dcc_project_scope"));
+        assertTrue(preflightSql.contains("type=data"));
+        assertTrue(backfillSql.contains("type=data"));
+        assertTrue(postflightSql.contains("type=schema"));
+        assertTrue(rollbackSql.contains("type=data"));
+        assertFalse(fullSql.contains("type=preflight"));
+        assertFalse(fullSql.contains("type=backfill"));
+        assertFalse(fullSql.contains("type=postflight"));
+        assertFalse(fullSql.contains("type=rollback-dry-run"));
         assertFalse(preflightSql.contains("dependsOn=20260812_mes_pqc_dcc_qa_c00_schema"));
         assertTrue(preflightSql.contains("information_schema.tables"));
         assertTrue(preflightSql.contains("@c00_route_dcc_binding_ready"));
         assertTrue(preflightSql.contains("PREPARE stmt FROM @sql"));
+        assertFalse(preflightSql.contains("task.task_status <> 'PENDING'"));
+        assertTrue(preflightSql.contains("task.task_status IN ('SUBMITTED', 'CONFIRMED')"));
 
         assertTrue(schemaSql.contains("dependsOn=20260811_mes_qa_dcc_project_scope"));
         assertTrue(schemaSql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_route_dcc_project_binding`"));
@@ -334,6 +344,29 @@ class MesQaPqcSchemaTest {
 
         assertTrue(preflightSql.contains("c00_preflight_release_metadata"));
         assertTrue(backfillSql.contains("c00_backfill_approved_route_dcc_binding"));
+        assertTrue(backfillSql.contains("c00_backfill_approved_active_order_snapshot"));
+        assertTrue(backfillSql.contains("c00_backfill_approved_task_submission"));
+        assertTrue(backfillSql.contains("'APPROVED_MANIFEST'"));
+        assertTrue(backfillSql.contains("active_order_manifest_task_version_ambiguous"));
+        assertTrue(backfillSql.contains("active_order_manifest_missing"));
+        assertFalse(backfillSql.contains("UNIQUE_TASK_VERSION"));
+        assertFalse(backfillSql.contains("unique-task-version:"));
+        assertFalse(backfillSql.contains("tmp_c00_active_order_unique_task_version"));
+        assertFalse(backfillSql.contains("task_status <> 'PENDING'"));
+        assertTrue(backfillSql.contains("task_status IN ('SUBMITTED', 'CONFIRMED')"));
+        assertTrue(backfillSql.contains("START TRANSACTION"));
+        assertTrue(backfillSql.contains("INSERT INTO `mes_pro_route_dcc_project_binding`"));
+        assertTrue(backfillSql.contains("UPDATE `mes_pro_process_pool_active_order`"));
+        assertTrue(backfillSql.contains("UPDATE `mes_pqc_inspection_task`"));
+        assertTrue(backfillSql.contains("ROW_COUNT()"));
+        assertTrue(backfillSql.contains("SIGNAL SQLSTATE '45000'"));
+        assertTrue(backfillSql.contains("canonical_payload_json"));
+        assertTrue(backfillSql.contains("SHA2(manifest.canonical_payload_json, 256)"));
+        assertTrue(backfillSql.contains("JSON_TABLE(manifest.canonical_payload_json"));
+        assertTrue(backfillSql.contains("canonical_payload_field_mismatch"));
+        assertTrue(backfillSql.contains("canonical_payload_item_mismatch"));
+        assertFalse(backfillSql.contains(
+                "C00 backfill apply mode must be executed from the controlled maintenance runbook"));
         assertTrue(postflightSql.contains("c00_postflight_blocker_report"));
         assertTrue(rollbackSql.contains("C00 rollback requires active-order and PQC submit writes stopped"));
         assertTrue(fullSql.contains("CanonicalPqcSubmissionV1"));
@@ -347,14 +380,19 @@ class MesQaPqcSchemaTest {
     }
 
     @Test
-    void activeOrderAdmissionMustKeepQaSnapshotColumnsNullable() throws Exception {
-        String sql = readBackendSql("sql/mysql/20260813_mes_active_order_qa_decoupling.sql");
+    void activeOrderQaSnapshotColumnsMustBecomeRequiredAfterBackfill() throws Exception {
+        String schemaSql = readBackendSql("sql/mysql/20260812_mes_pqc_dcc_qa_c00_schema.sql");
+        String postflightSql = readBackendSql("sql/mysql/20260812_mes_pqc_dcc_qa_c00_postflight.sql");
 
-        assertTrue(sql.contains("dependsOn=20260812_mes_pqc_dcc_qa_c00_schema"));
-        assertTrue(sql.contains("MODIFY COLUMN `dcc_project_code_id` bigint DEFAULT NULL"));
-        assertTrue(sql.contains("MODIFY COLUMN `qa_regulation_id` bigint DEFAULT NULL"));
-        assertTrue(sql.contains("MODIFY COLUMN `qa_regulation_version_id` bigint DEFAULT NULL"));
-        assertTrue(sql.contains("Rollback precondition"));
+        assertTrue(schemaSql.contains("`dcc_project_code_id` bigint DEFAULT NULL COMMENT '订单锁定DCC项目代码ID'"));
+        assertTrue(schemaSql.contains("`qa_regulation_id` bigint DEFAULT NULL COMMENT '订单锁定QA规程ID'"));
+        assertTrue(schemaSql.contains("`qa_regulation_version_id` bigint DEFAULT NULL COMMENT '订单锁定QA规程发布版本ID'"));
+        assertTrue(postflightSql.contains("WHERE dcc_project_code_id IS NULL"));
+        assertTrue(postflightSql.contains("OR qa_regulation_id IS NULL"));
+        assertTrue(postflightSql.contains("OR qa_regulation_version_id IS NULL"));
+        assertTrue(postflightSql.contains("MODIFY COLUMN `dcc_project_code_id` bigint NOT NULL"));
+        assertTrue(postflightSql.contains("MODIFY COLUMN `qa_regulation_id` bigint NOT NULL"));
+        assertTrue(postflightSql.contains("MODIFY COLUMN `qa_regulation_version_id` bigint NOT NULL"));
     }
 
     private static String tableName(Class<?> clazz) {

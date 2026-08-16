@@ -11,10 +11,45 @@ const DATA_PREFIX = 'FAS-20260814-'
 const FRONTLINE_ROUTE = '/mes/pro/feedback/edhr-batch-production-fill'
 const LEADER_ROUTE = '/mes/pro/process-pool/production-leader'
 const WORKSPACE_ROOT = path.resolve(__dirname, '../../..')
-const ARTIFACT_DIR = path.join(WORKSPACE_ROOT, 'doc', 'tasks', TASK_ID, 'e2e-artifacts')
+const REQUESTED_RUNTIME_MODE = (String(process.env.FAS_RUNTIME_MODE || '').trim() || 'WORKTREE').toUpperCase()
+const REQUESTED_EVIDENCE_RUN_ID = String(process.env.FAS_EVIDENCE_RUN_ID || '').trim()
+const ARTIFACT_VARIANTS = Object.freeze({
+  WORKTREE: 'worktree',
+  POST_MERGE_INT_MAIN: 'post-merge-int-main',
+  ADMIN_TENANT1_INT_MAIN: 'admin-tenant1-int-main'
+})
+const ARTIFACT_VARIANT = ARTIFACT_VARIANTS[REQUESTED_RUNTIME_MODE] || 'unsupported-runtime-mode'
+
+function artifactDirFor(runtimeMode, evidenceRunId = '') {
+  const mode = String(runtimeMode || '').trim().toUpperCase()
+  const variant = ARTIFACT_VARIANTS[mode] || 'unsupported-runtime-mode'
+  const baseDir = path.join(WORKSPACE_ROOT, 'doc', 'tasks', TASK_ID, 'e2e-artifacts', variant)
+  if (mode !== 'ADMIN_TENANT1_INT_MAIN') return baseDir
+  const runId = String(evidenceRunId || '').trim()
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(runId)) {
+    throw new Error('FAS_EVIDENCE_RUN_ID 必须是 1-64 位字母、数字、点、下划线或连字符，且不能包含路径片段')
+  }
+  return path.join(baseDir, runId)
+}
+
+let ARTIFACT_DIR
+try {
+  ARTIFACT_DIR = artifactDirFor(REQUESTED_RUNTIME_MODE, REQUESTED_EVIDENCE_RUN_ID)
+} catch {
+  ARTIFACT_DIR = path.join(
+    WORKSPACE_ROOT,
+    'doc',
+    'tasks',
+    TASK_ID,
+    'e2e-artifacts',
+    ARTIFACT_VARIANT,
+    `invalid-evidence-run-id-${process.pid}`
+  )
+}
 const SCENARIO_STATE_FILE = path.join(ARTIFACT_DIR, 'scenario-state.json')
 const WORKTREE_ROOT = 'D:\\IntRuoyiWorktree\\20260814-frontline-active-order-submit-allocation'
-const FIXED_TEST_TENANT = Object.freeze({ id: '122', name: '测试租户' })
+const FIXED_TEST_TENANT = Object.freeze({ id: '122', name: '测试租户', fixtureMode: 'STANDARD_TENANT122' })
+const ADMIN_SUPPLEMENT_TENANT = Object.freeze({ id: '1', name: '芋道源码', fixtureMode: 'ADMIN_TENANT1' })
 const SENSITIVE_KEY_PATTERN = /password|passphrase|secret|token|credential|authorization|cookie|private[_-]?key|api[_-]?key|access[_-]?key|hash/i
 
 const BLOCKED_CATEGORIES = Object.freeze({
@@ -33,6 +68,26 @@ const WORKTREE_RUNTIME = Object.freeze({
   backendUrl: 'http://127.0.0.1:48099',
   frontendPort: 8099,
   backendPort: 48099
+})
+
+const POST_MERGE_INT_MAIN_RUNTIME = Object.freeze({
+  workspaceRoot: WORKSPACE_ROOT,
+  frontendUrls: ['http://127.0.0.1:8081', 'http://localhost:8081'],
+  backendUrl: 'http://127.0.0.1:48081',
+  frontendPort: 8081,
+  backendPort: 48081
+})
+
+const RUNTIME_PROFILES = Object.freeze({
+  WORKTREE: WORKTREE_RUNTIME,
+  POST_MERGE_INT_MAIN: POST_MERGE_INT_MAIN_RUNTIME,
+  ADMIN_TENANT1_INT_MAIN: POST_MERGE_INT_MAIN_RUNTIME
+})
+
+const TENANT_PROFILES = Object.freeze({
+  WORKTREE: FIXED_TEST_TENANT,
+  POST_MERGE_INT_MAIN: FIXED_TEST_TENANT,
+  ADMIN_TENANT1_INT_MAIN: ADMIN_SUPPLEMENT_TENANT
 })
 
 const REQUIRED_ENV = [
@@ -241,6 +296,7 @@ function loadFixtureManifest(filePath) {
     ['schemaVersion', manifest.schemaVersion],
     ['taskId', manifest.taskId],
     ['runId', manifest.runId],
+    ['fixtureMode', manifest.fixtureMode],
     ['tenant.id', manifest.tenant?.id],
     ['tenant.name', manifest.tenant?.name],
     ['accounts.frontlineUsername', manifest.accounts?.frontlineUsername],
@@ -320,6 +376,7 @@ function collectConfig() {
     frontendUrl: normalizeUrl(envValue('FAS_FRONTEND_URL')),
     backendUrl: normalizeUrl(envValue('FAS_BACKEND_URL')),
     runtimeMode,
+    evidenceRunId: envValue('FAS_EVIDENCE_RUN_ID'),
     runtimeEvidenceFile: envValue('FAS_RUNTIME_EVIDENCE_FILE'),
     fixtureManifestPath,
     orchestratorExecutable: envValue('FAS_ORCHESTRATOR_EXECUTABLE'),
@@ -328,6 +385,7 @@ function collectConfig() {
     allowedTestTenantNames: parseExactList(envValue('FAS_ALLOWED_TEST_TENANT_NAMES')),
     tenantId: fixture ? positiveLong(fixture.tenant.id, 'fixture tenant.id') : undefined,
     tenant: String(fixture?.tenant?.name || '').trim(),
+    fixtureMode: String(fixture?.fixtureMode || '').trim(),
     runId: String(fixture?.runId || '').trim(),
     frontlineUsername: envValue('FAS_FRONTLINE_USERNAME'),
     frontlinePassword: envValue('FAS_FRONTLINE_PASSWORD'),
@@ -355,14 +413,37 @@ function collectConfig() {
   return { ...config, fixture, missing }
 }
 
+function observeWait(promise) {
+  const observed = promise.then(
+    (value) => ({ value }),
+    (error) => ({ error })
+  )
+  return async () => {
+    const outcome = await observed
+    if (outcome.error) throw outcome.error
+    return outcome.value
+  }
+}
+
+function runtimeForMode(runtimeMode) {
+  return RUNTIME_PROFILES[String(runtimeMode || '').toUpperCase()]
+}
+
+function tenantForMode(runtimeMode) {
+  return TENANT_PROFILES[String(runtimeMode || '').toUpperCase()]
+}
+
 function validateConfig(config, fixture, missing) {
-  if (config.runtimeMode !== 'WORKTREE') {
-    missing.push('当前 P5 worktree 验证的 FAS_RUNTIME_MODE 只能是 WORKTREE')
+  const runtime = runtimeForMode(config.runtimeMode)
+  const tenantProfile = tenantForMode(config.runtimeMode)
+  if (!runtime || !tenantProfile) {
+    missing.push('FAS_RUNTIME_MODE 只能是 WORKTREE、POST_MERGE_INT_MAIN 或 ADMIN_TENANT1_INT_MAIN')
   }
   if ((config.frontendUrl || config.backendUrl)
-      && (!WORKTREE_RUNTIME.frontendUrls.includes(config.frontendUrl)
-        || config.backendUrl !== WORKTREE_RUNTIME.backendUrl)) {
-    missing.push(`WORKTREE 只允许 ${WORKTREE_RUNTIME.frontendUrls.join(' / ')} 与 ${WORKTREE_RUNTIME.backendUrl}`)
+      && runtime
+      && (!runtime.frontendUrls.includes(config.frontendUrl)
+        || config.backendUrl !== runtime.backendUrl)) {
+    missing.push(`${config.runtimeMode} 只允许 ${runtime.frontendUrls.join(' / ')} 与 ${runtime.backendUrl}`)
   }
   if (!fixture) {
     missing.push('FAS_FIXTURE_MANIFEST 必须指向已存在的外部 fixture manifest')
@@ -373,19 +454,22 @@ function validateConfig(config, fixture, missing) {
   if (config.tenant && !config.allowedTestTenantNames.includes(config.tenant)) {
     missing.push('fixture tenant.name 未命中 FAS_ALLOWED_TEST_TENANT_NAMES 显式白名单')
   }
-  if (config.allowedTestTenantIds.length !== 1
-      || !samePrerequisiteLongId(config.allowedTestTenantIds[0], FIXED_TEST_TENANT.id)) {
-    missing.push(`FAS_ALLOWED_TEST_TENANT_IDS 必须且只能是固定本机测试租户 ${FIXED_TEST_TENANT.id}`)
+  if (tenantProfile && (config.allowedTestTenantIds.length !== 1
+      || !samePrerequisiteLongId(config.allowedTestTenantIds[0], tenantProfile.id))) {
+    missing.push(`FAS_ALLOWED_TEST_TENANT_IDS 必须且只能是当前模式租户 ${tenantProfile.id}`)
   }
-  if (config.allowedTestTenantNames.length !== 1
-      || config.allowedTestTenantNames[0] !== FIXED_TEST_TENANT.name) {
-    missing.push(`FAS_ALLOWED_TEST_TENANT_NAMES 必须且只能是固定本机测试租户 ${FIXED_TEST_TENANT.name}`)
+  if (tenantProfile && (config.allowedTestTenantNames.length !== 1
+      || config.allowedTestTenantNames[0] !== tenantProfile.name)) {
+    missing.push(`FAS_ALLOWED_TEST_TENANT_NAMES 必须且只能是当前模式租户 ${tenantProfile.name}`)
   }
-  if (config.tenantId && !samePrerequisiteLongId(config.tenantId, FIXED_TEST_TENANT.id)) {
-    missing.push(`fixture tenant.id 必须是固定本机测试租户 ${FIXED_TEST_TENANT.id}`)
+  if (tenantProfile && config.tenantId && !samePrerequisiteLongId(config.tenantId, tenantProfile.id)) {
+    missing.push(`fixture tenant.id 必须是当前模式租户 ${tenantProfile.id}`)
   }
-  if (config.tenant && config.tenant !== FIXED_TEST_TENANT.name) {
-    missing.push(`fixture tenant.name 必须是固定本机测试租户 ${FIXED_TEST_TENANT.name}`)
+  if (tenantProfile && config.tenant && config.tenant !== tenantProfile.name) {
+    missing.push(`fixture tenant.name 必须是当前模式租户 ${tenantProfile.name}`)
+  }
+  if (tenantProfile && config.fixtureMode !== tenantProfile.fixtureMode) {
+    missing.push(`fixture.fixtureMode 必须是 ${tenantProfile.fixtureMode}`)
   }
   if (fixture && fixture.accounts.frontlineUsername !== config.frontlineUsername) {
     missing.push('一线登录账号与 fixture manifest 不一致')
@@ -393,16 +477,32 @@ function validateConfig(config, fixture, missing) {
   if (fixture && fixture.accounts.leaderUsername !== config.leaderUsername) {
     missing.push('生产组长登录账号与 fixture manifest 不一致')
   }
-  for (const [key, username] of [
-    ['FAS_FRONTLINE_USERNAME', config.frontlineUsername],
-    ['FAS_LEADER_USERNAME', config.leaderUsername]
-  ]) {
-    if (username && (!/^[A-Za-z0-9]+$/.test(username) || username.toLowerCase() === 'admin')) {
-      missing.push(`${key} 必须是非 admin 的数字字母测试账号`)
+  const adminSupplementMode = config.runtimeMode === 'ADMIN_TENANT1_INT_MAIN'
+  if (adminSupplementMode) {
+    try {
+      if (!config.evidenceRunId) throw new Error('missing')
+      if (artifactDirFor(config.runtimeMode, config.evidenceRunId) !== ARTIFACT_DIR) throw new Error('mismatch')
+    } catch {
+      missing.push('ADMIN_TENANT1_INT_MAIN 必须提供合法的 FAS_EVIDENCE_RUN_ID 并使用本轮独立证据目录')
     }
-  }
-  if (config.frontlineUsername && config.frontlineUsername === config.leaderUsername) {
-    missing.push('一线账号与生产组长账号必须独立')
+    if (config.frontlineUsername !== 'admin' || config.leaderUsername !== 'admin') {
+      missing.push('ADMIN_TENANT1_INT_MAIN 的一线与组长登录账号必须且只能是 admin')
+    }
+    if (!fixture?.protectedBaseline?.fingerprint) {
+      missing.push('ADMIN_TENANT1_INT_MAIN fixture 必须携带不泄密的 admin 受保护基线指纹')
+    }
+  } else {
+    for (const [key, username] of [
+      ['FAS_FRONTLINE_USERNAME', config.frontlineUsername],
+      ['FAS_LEADER_USERNAME', config.leaderUsername]
+    ]) {
+      if (username && (!/^[A-Za-z0-9]+$/.test(username) || username.toLowerCase() === 'admin')) {
+        missing.push(`${key} 必须是非 admin 的数字字母测试账号`)
+      }
+    }
+    if (config.frontlineUsername && config.frontlineUsername === config.leaderUsername) {
+      missing.push('一线账号与生产组长账号必须独立')
+    }
   }
   if (config.o1ActiveOrderId && samePrerequisiteLongId(config.o1ActiveOrderId, config.o2ActiveOrderId)) {
     missing.push('O1 与 O2 的 activeOrderId 必须不同')
@@ -518,8 +618,8 @@ function sha256File(filePath) {
 
 function validateRuntimeEvidence(config) {
   const category = BLOCKED_CATEGORIES.RUNTIME_EVIDENCE_PREREQUISITE
-  const runtime = WORKTREE_RUNTIME
-  if (config.runtimeMode !== 'WORKTREE') throw blocked(category, `不支持的运行模式：${config.runtimeMode}`)
+  const runtime = runtimeForMode(config.runtimeMode)
+  if (!runtime) throw blocked(category, `不支持的运行模式：${config.runtimeMode}`)
   const evidence = loadJsonFile(config.runtimeEvidenceFile, '运行态证据', category)
   const required = [
     ['schemaVersion', evidence.schemaVersion],
@@ -539,7 +639,9 @@ function validateRuntimeEvidence(config) {
   if (evidence.schemaVersion !== 'fas-runtime-evidence-v1') {
     throw blocked(category, `运行态证据版本不受支持：${evidence.schemaVersion}`)
   }
-  if (evidence.mode !== 'WORKTREE') throw blocked(category, '运行态证据 mode 必须是 WORKTREE')
+  if (evidence.mode !== config.runtimeMode) {
+    throw blocked(category, `运行态证据 mode 必须是 ${config.runtimeMode}`)
+  }
   if (normalizeWindowsPath(evidence.workspaceRoot) !== normalizeWindowsPath(runtime.workspaceRoot)) {
     throw blocked(category, `运行态证据 workspaceRoot 不属于 ${runtime.workspaceRoot}`)
   }
@@ -626,6 +728,9 @@ function verifyExternalFixture(config) {
     'fixture-verification.json',
     BLOCKED_CATEGORIES.TASK_DATA_PREREQUISITE
   )
+  const protectedBaselineReady = config.runtimeMode !== 'ADMIN_TENANT1_INT_MAIN'
+    || (result.protectedBaselineVerified === true
+      && result.protectedBaselineFingerprint === config.fixture.protectedBaseline.fingerprint)
   if (result.status !== 'READY'
       || result.fixtureVerified !== true
       || result.permissionsVerified !== true
@@ -633,7 +738,8 @@ function verifyExternalFixture(config) {
       || result.cleanupReady !== true
       || result.taskId !== TASK_ID
       || result.runId !== config.runId
-      || !samePrerequisiteLongId(result.tenantId, config.tenantId)) {
+      || !samePrerequisiteLongId(result.tenantId, config.tenantId)
+      || !protectedBaselineReady) {
     throw blocked(BLOCKED_CATEGORIES.TASK_DATA_PREREQUISITE, '外部 fixture 验证未证明账号、权限、任务数据和清理前置全部 READY')
   }
   return result
@@ -647,6 +753,10 @@ function runExternalCleanup(config) {
     BLOCKED_CATEGORIES.CLEANUP_PREREQUISITE
   )
   const remainingTaskDataCount = Number(result.remainingTaskDataCount)
+  const protectedBaselineClean = config.runtimeMode !== 'ADMIN_TENANT1_INT_MAIN'
+    || (result.protectedBaselineVerified === true
+      && result.protectedBaselineFingerprintBefore === config.fixture.protectedBaseline.fingerprint
+      && result.protectedBaselineFingerprintAfter === config.fixture.protectedBaseline.fingerprint)
   if (!(result.status === 'CLEAN')
       || result.cleanupPerformed !== true
       || result.cleanupVerified !== true
@@ -654,7 +764,8 @@ function runExternalCleanup(config) {
       || remainingTaskDataCount !== 0
       || result.taskId !== TASK_ID
       || result.runId !== config.runId
-      || !samePrerequisiteLongId(result.tenantId, config.tenantId)) {
+      || !samePrerequisiteLongId(result.tenantId, config.tenantId)
+      || !protectedBaselineClean) {
     throw blocked(BLOCKED_CATEGORIES.CLEANUP_PREREQUISITE, '外部清理未证明 cleanupVerified=true 且 remainingTaskDataCount=0')
   }
   return { ...result, remainingTaskDataCount }
@@ -831,8 +942,13 @@ async function selectLoginTenant(page, tenant) {
   await option.click()
 }
 
+async function waitForLoginFormShell(page) {
+  await page.locator('.login-form').first().waitFor({ state: 'visible', timeout: 60000 })
+}
+
 async function login(page, frontendUrl, tenant, username, password) {
-  await page.goto(`${frontendUrl}/login?redirect=/index`, { waitUntil: 'networkidle' })
+  await page.goto(`${frontendUrl}/login?redirect=/index`, { waitUntil: 'domcontentloaded' })
+  await waitForLoginFormShell(page)
   await selectLoginTenant(page, tenant)
   await fillFirst(page, [
     'input[placeholder*="账号"]',
@@ -844,9 +960,22 @@ async function login(page, frontendUrl, tenant, username, password) {
     'input[type="password"]',
     'input[name="password"]'
   ], password)
+  const loginResponseWait = observeWait(page.waitForResponse((response) =>
+    response.url().includes('/admin-api/system/auth/login')
+      && response.request().method() === 'POST'
+  , { timeout: 30000 }))
   await clickFirst(page, ['button:has-text("登录")', '.login-form button[type="submit"]'])
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 20000 })
-  await page.waitForLoadState('networkidle')
+  const loginResponse = await loginResponseWait()
+  assert.equal(loginResponse.ok(), true, `登录 HTTP 失败：${loginResponse.status()}`)
+  const loginBody = await readPlaywrightJson(loginResponse, '登录响应')
+  assert.equal(loginBody.code, 0, `登录业务失败：${loginBody.msg || loginBody.message || 'unknown'}`)
+  if (new URL(page.url()).pathname.includes('/login')) {
+    await page.waitForURL((url) => !url.pathname.includes('/login'), {
+      timeout: 30000,
+      waitUntil: 'commit'
+    })
+  }
+  assert.equal(new URL(page.url()).pathname.includes('/login'), false, '登录成功后页面必须离开登录路由')
 }
 
 async function loginWithPrerequisiteClassification(page, frontendUrl, tenant, username, password, actor) {
@@ -875,8 +1004,17 @@ function attachDiagnostics(page, diagnostics) {
     }
   })
   page.on('response', (response) => {
-    if (response.url().includes('/admin-api/mes/pro/') && response.status() >= 400) {
-      diagnostics.targetResponseErrors.push(`${response.request().method()} ${response.url()} -> ${response.status()}`)
+    if (response.status() >= 400) {
+      const responseError = {
+        method: response.request().method(),
+        url: response.url(),
+        status: response.status(),
+        statusText: response.statusText()
+      }
+      diagnostics.responseErrors.push(responseError)
+      if (response.url().includes('/admin-api/mes/pro/')) {
+        diagnostics.targetResponseErrors.push(`${responseError.method} ${responseError.url} -> ${responseError.status}`)
+      }
     }
   })
   page.on('request', (request) => {
@@ -1021,17 +1159,17 @@ async function reallocateToSecondOrder(page, dialog, eventId, config, steps) {
   await selectAllocationOrder(page, rows.nth(1), config.o2WorkOrderCode)
   await fillAllocationQuantity(rows.nth(1), o2Quantity)
 
-  const requestPromise = page.waitForRequest((request) =>
+  const requestWait = observeWait(page.waitForRequest((request) =>
     request.url().includes('/submission/allocation/confirm') && request.method() === 'POST'
-  , { timeout: 30000 })
-  const responsePromise = page.waitForResponse((response) =>
+  , { timeout: 30000 }))
+  const responseWait = observeWait(page.waitForResponse((response) =>
     response.url().includes('/submission/allocation/confirm') && response.request().method() === 'POST'
-  , { timeout: 30000 })
-  const postSavePageResponsePromise = page.waitForResponse((response) =>
+  , { timeout: 30000 }))
+  const postSavePageResponseWait = observeWait(page.waitForResponse((response) =>
     response.url().includes('/submission/page') && response.request().method() === 'GET'
-  , { timeout: 30000 })
+  , { timeout: 30000 }))
   await dialog.getByRole('button', { name: '确认分配', exact: true }).click()
-  const [request, response] = await Promise.all([requestPromise, responsePromise])
+  const [request, response] = await Promise.all([requestWait(), responseWait()])
   const payload = parseJsonPreservingLongIds(request.postData() || '{}', '组长改配请求')
   assert.equal(exactLongId(payload.eventId, '组长改配 eventId'), eventId)
   assert.equal(payload.allocationMode, 'MANUAL')
@@ -1048,7 +1186,7 @@ async function reallocateToSecondOrder(page, dialog, eventId, config, steps) {
   assert.equal(Number(body.data.version), 2, '组长第一次改配后版本必须为 2')
   assertSnapshotLine(body.data, config.o1ActiveOrderId, config.o1PlannedQuantity, 0, false)
   assertSnapshotLine(body.data, config.o2ActiveOrderId, o2Quantity, 0, false)
-  const postSavePageResponse = await postSavePageResponsePromise
+  const postSavePageResponse = await postSavePageResponseWait()
   assert.equal(postSavePageResponse.ok(), true, `改配后报工管理列表 HTTP 失败：${postSavePageResponse.status()}`)
   const postSavePageBody = await readPlaywrightJson(postSavePageResponse, '改配后报工管理列表响应')
   assert.equal(postSavePageBody.code, 0, `改配后报工管理列表业务失败：${postSavePageBody.msg || postSavePageBody.message || 'unknown'}`)
@@ -1143,8 +1281,8 @@ async function assertAdjustedList(page, eventId, config, listData, steps) {
   steps.push('组长列表刷新后显示 O1/O2 当前分配，红色待调整标识已消失')
 }
 
-function classifyConsoleErrors(consoleErrors, requestFailures) {
-  const externalFailureMessages = new Set(requestFailures.flatMap((failure) => {
+function classifyConsoleErrors(consoleErrors, requestFailures, responseErrors = []) {
+  const externalFailureMessages = requestFailures.flatMap((failure) => {
     try {
       const url = new URL(failure.url)
       if (!['http:', 'https:'].includes(url.protocol)
@@ -1155,12 +1293,32 @@ function classifyConsoleErrors(consoleErrors, requestFailures) {
     } catch {
       return []
     }
-  }))
+  })
+  for (const failure of responseErrors) {
+    try {
+      const url = new URL(failure.url)
+      if (!['http:', 'https:'].includes(url.protocol)
+          || ['127.0.0.1', 'localhost'].includes(url.hostname)) {
+        continue
+      }
+      externalFailureMessages.push(
+        `Failed to load resource: the server responded with a status of ${failure.status} (${failure.statusText})`
+      )
+    } catch {
+      // An unparseable response URL cannot prove that a console error is external.
+    }
+  }
+  const externalMessageCounts = new Map()
+  for (const message of externalFailureMessages) {
+    externalMessageCounts.set(message, (externalMessageCounts.get(message) || 0) + 1)
+  }
   const targetConsoleErrors = []
   const externalResourceConsoleErrors = []
   for (const message of consoleErrors) {
-    if (externalFailureMessages.has(message)) {
+    const available = externalMessageCounts.get(message) || 0
+    if (available > 0) {
       externalResourceConsoleErrors.push(message)
+      externalMessageCounts.set(message, available - 1)
     } else {
       targetConsoleErrors.push(message)
     }
@@ -1171,7 +1329,8 @@ function classifyConsoleErrors(consoleErrors, requestFailures) {
 function assertNoTargetErrors(diagnostics) {
   const classifiedConsoleErrors = classifyConsoleErrors(
     diagnostics.consoleErrors,
-    diagnostics.requestFailures
+    diagnostics.requestFailures,
+    diagnostics.responseErrors
   )
   diagnostics.targetConsoleErrors = classifiedConsoleErrors.targetConsoleErrors
   diagnostics.externalResourceConsoleErrors = classifiedConsoleErrors.externalResourceConsoleErrors
@@ -1193,6 +1352,7 @@ async function runScenario(config) {
     pageErrors: [],
     consoleErrors: [],
     requestFailures: [],
+    responseErrors: [],
     targetRequestFailures: [],
     targetResponseErrors: [],
     writeRequests: []
@@ -1261,6 +1421,15 @@ async function runScenario(config) {
       auditCount: audits.length
     }
   } catch (error) {
+    try {
+      ensureArtifactDir()
+      const activePage = browser.contexts().find((context) => context.pages().length)?.pages()[0]
+      if (activePage) {
+        await activePage.screenshot({ path: path.join(ARTIFACT_DIR, 'failure-state.png'), fullPage: true })
+      }
+    } catch {
+      // The original scenario failure remains authoritative.
+    }
     error.scenarioEvidence = { eventId, steps: [...steps], diagnostics }
     throw error
   } finally {
@@ -1438,6 +1607,9 @@ if (require.main === module) {
     assertManifestContainsNoSecrets,
     redactEvidence,
     isVerifiedCleanCleanup,
-    classifyConsoleErrors
+    classifyConsoleErrors,
+    runtimeForMode,
+    tenantForMode,
+    artifactDirFor
   }
 }

@@ -357,6 +357,67 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
+    void getProcessWipStatistics_shouldReturnResolvableRowsWhenHistoricalRouteProcessIsMissing() {
+        MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
+                .id(900332L)
+                .routeId(500332L)
+                .routeVersionId(600332L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .frozen(Boolean.FALSE)
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderProcessDO validProcess = MesProScheduleOrderProcessDO.builder()
+                .id(800332L)
+                .scheduleOrderId(900332L)
+                .routeVersionId(600332L)
+                .routeProcessId(710332L)
+                .processId(700332L)
+                .processCode("VALID-332")
+                .processName("有效工序")
+                .sort(1)
+                .enabled(Boolean.TRUE)
+                .progressPercent(BigDecimal.ZERO)
+                .remainingQuantity(BigDecimal.TEN)
+                .build();
+        MesProScheduleOrderProcessDO orphanProcess = MesProScheduleOrderProcessDO.builder()
+                .id(800333L)
+                .scheduleOrderId(900332L)
+                .routeVersionId(600332L)
+                .routeProcessId(710333L)
+                .processId(700333L)
+                .processCode("ORPHAN-333")
+                .processName("历史孤儿工序")
+                .sort(2)
+                .enabled(Boolean.TRUE)
+                .progressPercent(BigDecimal.ZERO)
+                .remainingQuantity(BigDecimal.TEN)
+                .build();
+        MesProRouteProcessDO validRouteProcess = MesProRouteProcessDO.builder()
+                .id(710332L)
+                .routeId(500332L)
+                .processId(700332L)
+                .sort(1)
+                .build();
+
+        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900332L)))
+                .thenReturn(List.of(validProcess, orphanProcess));
+        when(routeProcessMapper.selectBatchIds(Set.of(710332L, 710333L)))
+                .thenReturn(List.of(validRouteProcess));
+        when(processMapper.selectBatchIds(Set.of(700332L))).thenReturn(List.of(
+                MesProProcessDO.builder().id(700332L).code("VALID-332").name("有效工序").build()));
+        when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600332L, 710332L))
+                .thenReturn(routeConfig(750332L, 600332L, 710332L, false));
+
+        List<MesProScheduleOrderProcessWipRespVO> result = scheduleOrderService.getProcessWipStatistics();
+
+        assertEquals(1, result.size());
+        assertEquals(710332L, result.get(0).getRouteProcessId());
+        assertEquals("VALID-332", result.get(0).getProcessCode());
+        verify(routeProcessService, never()).resolveFrozenRouteProcess(710333L, 500332L, 700333L);
+    }
+
+    @Test
     void getScheduleOrderPage_shouldMatchWorkbenchWipProcessFilterByAnyUnfinishedProcess() {
         MesProScheduleOrderPageReqVO pageReqVO = new MesProScheduleOrderPageReqVO();
         pageReqVO.setPageNo(1);

@@ -34,6 +34,18 @@ class DccSignatureBindingSchemaTest {
         assertTrue(migration.contains("modify column `controlled_copy_object_key` varchar(1024) not null"));
     }
 
+    @Test
+    void reissueMigrationDefinesAuditableEvidenceHashReplacementLog() throws Exception {
+        Path projectDir = findProjectDir();
+        String migration = Files.readString(projectDir.resolve(
+                "sql/mysql/20260814_dcc_signature_evidence_reissue_log.sql")).toLowerCase(Locale.ROOT);
+        String testSchema = Files.readString(projectDir.resolve(
+                "yudao-module-dcc/src/test/resources/sql/create_tables.sql")).toLowerCase(Locale.ROOT);
+
+        assertReissueSchema(migration);
+        assertReissueSchema(testSchema);
+    }
+
     private void assertBindingSchema(String schema) {
         assertTrue(schema.contains("`dcc_controlled_file_signature_binding`"));
         assertTrue(schema.contains("`original_evidence_hash`"));
@@ -43,6 +55,17 @@ class DccSignatureBindingSchemaTest {
         assertTrue(schema.contains("`binding_event_key`"));
         assertTrue(schema.contains("`binding_hash`"));
         assertTrue(schema.contains("`uk_dcc_signature_binding_signature` (`tenant_id`, `signature_id`, `deleted`)"));
+    }
+
+    private void assertReissueSchema(String schema) {
+        assertTrue(schema.contains("`dcc_controlled_file_signature_reissue_log`"));
+        assertTrue(schema.contains("`before_evidence_hash`"));
+        assertTrue(schema.contains("`before_evidence_key_version`"));
+        assertTrue(schema.contains("`after_evidence_hash`"));
+        assertTrue(schema.contains("`after_evidence_key_version`"));
+        assertTrue(schema.contains("`request_id`"));
+        assertTrue(schema.contains("`reason`"));
+        assertTrue(schema.contains("`uk_dcc_signature_reissue_request`"));
     }
 
     private Path findProjectDir() {

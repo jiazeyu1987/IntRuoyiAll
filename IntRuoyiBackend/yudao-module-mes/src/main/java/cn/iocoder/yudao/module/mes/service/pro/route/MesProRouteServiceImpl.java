@@ -87,6 +87,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
     private static final String SCHEDULE_USE_CONFIGS_KEY = "scheduleUseConfigs";
     private static final String BATCH_RECORD_ATTACHMENT_OWNERS_KEY = "batchRecordAttachmentOwners";
+    private static final String ROUTE_START_PRODUCTION_LEADERS_KEY = "routeStartProductionLeaders";
     public static final String DEFAULT_SCHEDULE_CONFIG_VERSION = "AUTO-DEFAULT";
     public static final String DEFAULT_SCHEDULE_REMARK = "[AUTO_DEFAULT_SCHEDULE_CONFIG]";
     private static final String DEFAULT_SCHEDULE_USE_CONFIG_VERSION = "AUTO-SCHEDULE";
@@ -826,6 +827,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         if (batchRecordAttachmentOwners != null) {
             configSnapshots.put(BATCH_RECORD_ATTACHMENT_OWNERS_KEY, batchRecordAttachmentOwners);
         }
+        Object routeStartProductionLeaders =
+                resolveExistingConfigSnapshot(routeVersionId, ROUTE_START_PRODUCTION_LEADERS_KEY);
+        if (routeStartProductionLeaders != null) {
+            configSnapshots.put(ROUTE_START_PRODUCTION_LEADERS_KEY, routeStartProductionLeaders);
+        }
         return configSnapshots;
     }
 
@@ -849,7 +855,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         }
         Object configSnapshot = configSnapshots.get(configKey);
         if (configSnapshot == null
-                || (BATCH_RECORD_ATTACHMENT_OWNERS_KEY.equals(configKey)
+                || ((BATCH_RECORD_ATTACHMENT_OWNERS_KEY.equals(configKey)
+                || ROUTE_START_PRODUCTION_LEADERS_KEY.equals(configKey))
                 && !(configSnapshot instanceof JSONArray))) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
         }

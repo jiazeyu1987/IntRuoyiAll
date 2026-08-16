@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditValueType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
@@ -55,23 +56,27 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
     static final String FORM_SLOT_TYPE_LOSS_REPORT = "LOSS_REPORT";
     static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     static final String SOURCE_TYPE_PROCESS_POOL_REPORT = "PROCESS_POOL_REPORT";
+    static final String SOURCE_TYPE_PRODUCTION_PICK_LIST = MesProductionPickListSourceService.SOURCE_TYPE;
 
     private final MesProRouteFlowProcessBatchRecordMapper bindingMapper;
     private final MesProBatchRecordExecutionService executionService;
     private final MesProBatchRecordExecutionMapper executionMapper;
     private final MesProBatchRecordCellLinkRuleMapper ruleMapper;
     private final MesProBatchRecordExecutionFieldAuditService fieldAuditService;
+    private final MesProductionPickListSourceService productionPickListSourceService;
 
     public MesTeamLeaderBatchRecordBackfillServiceImpl(MesProRouteFlowProcessBatchRecordMapper bindingMapper,
                                                        MesProBatchRecordExecutionService executionService,
                                                        MesProBatchRecordExecutionMapper executionMapper,
                                                        MesProBatchRecordCellLinkRuleMapper ruleMapper,
-                                                       MesProBatchRecordExecutionFieldAuditService fieldAuditService) {
+                                                       MesProBatchRecordExecutionFieldAuditService fieldAuditService,
+                                                       MesProductionPickListSourceService productionPickListSourceService) {
         this.bindingMapper = bindingMapper;
         this.executionService = executionService;
         this.executionMapper = executionMapper;
         this.ruleMapper = ruleMapper;
         this.fieldAuditService = fieldAuditService;
+        this.productionPickListSourceService = productionPickListSourceService;
     }
 
     @Override
@@ -85,10 +90,18 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         List<MesProProcessPoolEventDO> sourceEvents = sourceEvents(command);
         List<MesProcessPoolReportAllocationDO> allocations = allocations(command);
         validateSources(event, allocation, sourceEvents, allocations);
-        String aggregateHash = aggregateHash(command, sourceEvents, allocations);
-        String idempotencyKey = idempotencyKey(command, event, allocation, aggregateHash);
-
         MesProRouteFlowProcessBatchRecordDO binding = requireFormalBinding(allocation.getRouteProcessId());
+        List<MesProBatchRecordCellLinkRuleDO> rules = ruleMapper.selectEnabledListByScopeAndTargetReport(
+                SCOPE_TYPE_ROUTE_VERSION, binding.getBatchRecordVersionId(), binding.getBatchRecordReportId());
+        if (rules.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
+                    allocation.getRouteProcessId(), binding.getBatchRecordReportId(), "*");
+        }
+        Map<String, MesProductionPickListSourceService.ResolvedValue> pickListValues =
+                resolvePickListValues(command, workOrder, binding, rules);
+        String aggregateHash = aggregateHash(command, sourceEvents, allocations);
+        String idempotencyKey = idempotencyKey(command, event, allocation, aggregateHash, pickListValues);
+
         MesProBatchRecordExecutionOpenOrCreateByContextRespVO opened =
                 executionService.openOrCreateByContext(toOpenReq(command, workOrder, binding));
         if (opened == null || opened.getId() == null) {
@@ -99,19 +112,13 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_EXECUTION_REQUIRED, binding.getBatchRecordReportId());
         }
         validateExecutionContext(command, workOrder, binding, execution);
-        List<MesProBatchRecordCellLinkRuleDO> rules = ruleMapper.selectEnabledListByScopeAndTargetReport(
-                SCOPE_TYPE_ROUTE_VERSION, binding.getBatchRecordVersionId(), binding.getBatchRecordReportId());
-        if (rules.isEmpty()) {
-            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
-                    allocation.getRouteProcessId(), binding.getBatchRecordReportId(), "*");
-        }
         Map<String, SnapshotField> fields = snapshotFields(execution.getExecutionSnapshotJson());
         Map<String, JsonNode> currentValues = currentValues(execution.getCellValuesJson());
         Map<Long, MesProProcessPoolEventDO> sourceEventMap = sourceEventMap(sourceEvents);
         Map<Long, JsonNode> payloadCache = new LinkedHashMap<>();
         List<MesProBatchRecordExecutionFieldAuditChange> changes = rules.stream()
                 .map(rule -> toChange(event, allocations, binding, rule, fields, currentValues, sourceEventMap,
-                        payloadCache))
+                        payloadCache, pickListValues))
                 .toList();
         MesProBatchRecordExecutionFieldAuditSaveResult saveResult = fieldAuditService.saveSystemCellLinkChanges(
                 new MesProBatchRecordExecutionFieldAuditSaveChangesCommand()
@@ -141,6 +148,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                 || command.getAllocation().getRouteProcessId() == null
                 || command.getAllocation().getProcessId() == null
                 || command.getWorkOrder().getId() == null
+                || command.getDccProjectCodeId() == null
                 || (command.getBatchExecutionId() == null) != (command.getBatchExecutionTaskId() == null)
                 || command.getBatchExecutionId() != null && command.getBatchExecutionId() <= 0
                 || command.getBatchExecutionTaskId() != null && command.getBatchExecutionTaskId() <= 0) {
@@ -252,9 +260,10 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             Map<String, SnapshotField> fields,
             Map<String, JsonNode> currentValues,
             Map<Long, MesProProcessPoolEventDO> sourceEventMap,
-            Map<Long, JsonNode> payloadCache) {
-        if (!SOURCE_TYPE_PROCESS_POOL_REPORT.equals(StrUtil.trim(rule.getSourceType()))
-                || StrUtil.isBlank(rule.getSourceFieldCode())) {
+            Map<Long, JsonNode> payloadCache,
+            Map<String, MesProductionPickListSourceService.ResolvedValue> pickListValues) {
+        String sourceType = StrUtil.trim(rule.getSourceType());
+        if (StrUtil.isBlank(rule.getSourceFieldCode())) {
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
                     binding.getRouteProcessId(), binding.getBatchRecordReportId(), rule.getSourceFieldCode());
         }
@@ -263,11 +272,24 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
                     binding.getRouteProcessId(), binding.getBatchRecordReportId(), rule.getTargetCellKey());
         }
-        List<Object> values = allocations.stream()
-                .map(sourceAllocation -> sourceValue(sourceAllocation, rule.getSourceFieldCode(), sourceEventMap,
-                        payloadCache))
-                .toList();
-        Object value = aggregateValue(event, binding, rule, values);
+        Object value;
+        if (SOURCE_TYPE_PRODUCTION_PICK_LIST.equals(sourceType)) {
+            MesProductionPickListSourceService.ResolvedValue resolved = pickListValues.get(rule.getSourceFieldCode());
+            if (resolved == null) {
+                throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
+                        event.getId(), rule.getSourceFieldCode());
+            }
+            value = resolved.value();
+        } else if (SOURCE_TYPE_PROCESS_POOL_REPORT.equals(sourceType)) {
+            List<Object> values = allocations.stream()
+                    .map(sourceAllocation -> sourceValue(sourceAllocation, rule.getSourceFieldCode(), sourceEventMap,
+                            payloadCache))
+                    .toList();
+            value = aggregateValue(event, binding, rule, values);
+        } else {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED,
+                    binding.getRouteProcessId(), binding.getBatchRecordReportId(), rule.getSourceFieldCode());
+        }
         MesProBatchRecordExecutionFieldAuditValueType valueType = valueType(rule, field);
         Object normalized = normalizeValue(valueType, value);
         String cellKey = cellKey(rule.getTargetRowIndex(), rule.getTargetColumnIndex());
@@ -307,6 +329,24 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED, sourceEvent.getId(), sourceFieldCode);
         }
         return jsonNodeValue(node);
+    }
+
+    private Map<String, MesProductionPickListSourceService.ResolvedValue> resolvePickListValues(
+            MesTeamLeaderBatchRecordBackfillCommand command,
+            MesProWorkOrderDO workOrder,
+            MesProRouteFlowProcessBatchRecordDO binding,
+            List<MesProBatchRecordCellLinkRuleDO> rules) {
+        Map<String, MesProductionPickListSourceService.ResolvedValue> result = new LinkedHashMap<>();
+        for (MesProBatchRecordCellLinkRuleDO rule : rules) {
+            if (!SOURCE_TYPE_PRODUCTION_PICK_LIST.equals(StrUtil.trim(rule.getSourceType()))) {
+                continue;
+            }
+            result.computeIfAbsent(rule.getSourceFieldCode(), fieldCode -> productionPickListSourceService.resolveValue(
+                    new MesProductionPickListSourceService.ResolveCommand(binding.getRouteId(),
+                            binding.getRouteProcessId(), workOrder.getProductId(), command.getDccProjectCodeId(),
+                            workOrder.getCode(), fieldCode)));
+        }
+        return Map.copyOf(result);
     }
 
     private Object eventContextSourceValue(MesProProcessPoolEventDO sourceEvent, String sourceFieldCode) {
@@ -718,14 +758,23 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
     private String idempotencyKey(MesTeamLeaderBatchRecordBackfillCommand command,
                                   MesProProcessPoolEventDO event,
                                   MesProcessPoolReportAllocationDO allocation,
-                                  String aggregateHash) {
-        if (StrUtil.isNotBlank(command.getIdempotencyKey())) {
-            return StrUtil.trim(command.getIdempotencyKey());
-        }
-        return "PROCESS_POOL_REPORT_BACKFILL_AGG:" + allocation.getWorkOrderId()
+                                  String aggregateHash,
+                                  Map<String, MesProductionPickListSourceService.ResolvedValue> pickListValues) {
+        String base = StrUtil.isNotBlank(command.getIdempotencyKey())
+                ? StrUtil.trim(command.getIdempotencyKey())
+                : "PROCESS_POOL_REPORT_BACKFILL_AGG:" + allocation.getWorkOrderId()
                 + ":" + allocation.getRouteProcessId()
                 + ":" + allocation.getProcessId()
                 + ":" + aggregateHash;
+        if (pickListValues.isEmpty()) {
+            return base;
+        }
+        String pickEvidence = pickListValues.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> entry.getKey() + "=" + entry.getValue().evidenceHash())
+                .reduce((left, right) -> left + "|" + right)
+                .orElseThrow();
+        return base + ":PICK:" + sha256(pickEvidence);
     }
 
     private String sha256(String value) {

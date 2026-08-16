@@ -307,3 +307,17 @@
 - Contract authority: DF10/DF11 formal contract
 - Conflict handling: protected patch retained; conflicting old edits were not reapplied
 - Verification: integrated backend 18 tests PASS; frontend static contract and ts:check PASS; all evidence validators PASS; int_main diff check and runtime-port guard PASS
+
+## VAL13 Final Independent Acceptance - 2026-08-16
+
+- Result: PASS.
+- Scope: C00/DF06/INT12/VAL13 final integration in `D:\IntRuoyiWorktree\20260815-frontline-pqc-c00-df06-integration`.
+- C00 contract: PASS. The backfill SQL requires approved active-order QA snapshot manifest rows, writes candidates only from `APPROVED_MANIFEST`, blocks missing manifests, and contains no `UNIQUE_TASK_VERSION` or `tmp_c00_active_order_unique_task_version`.
+- DF06 contract: PASS. New active orders lock DCC/QA three-snapshot identity and generate `FIRST`, `PATROL_AM`, `PATROL_PM`, and `FINAL` PQC tasks; missing DCC, disabled DCC, and missing QA fail fast; removed reactivation preserves historical snapshots and task identities.
+- QA boundary: PASS. QA regulations are keyed to DCC project code, with frontend/API contracts forbidding product, material, work order, route, route process, or MES process identity in QA save payloads.
+- Backend verification: VAL13 aggregate Maven command rerun; 17 classes, 127 tests, 0 failures, 0 errors, 0 skipped.
+- Frontend verification: 6 static contracts rerun and PASS; `pnpm ts:check` PASS.
+- Guard verification: `scripts\preflight\branch-runtime-port-guard.ps1` PASS for current slot 21 / frontend 8155 / backend 48155 under v4 contract.
+- Static gates: database evidence validator PASS; backend-api validator self-test PASS; frontend-feature validator self-test PASS; `git diff --check` PASS with line-ending warnings only; anchored conflict marker scan PASS.
+- Exception: real write Playwright path was explicitly waived by the user on 2026-08-15. It is recorded as an exception only, not PASS and not FAIL.
+- Report: `doc/tasks/20260815-frontline-pqc-c00-df06-integration/independent-test-report.md`.

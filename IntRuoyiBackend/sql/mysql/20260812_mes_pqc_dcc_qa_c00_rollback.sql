@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260812_mes_pqc_dcc_qa_c00_schema; type=rollback-dry-run; riskLevel=high
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260812_mes_pqc_dcc_qa_c00_schema; type=data; riskLevel=high
 -- C00 rollback requires active-order and PQC submit writes stopped before any schema reversal.
 
 DROP TEMPORARY TABLE IF EXISTS c00_rollback_plan_report;

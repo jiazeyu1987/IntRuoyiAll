@@ -17,6 +17,7 @@ export interface BackupPlanBackupPointVO {
   rehearsalReportPath?: string
   snapshotPath?: string
   lastVerifiedAt?: string
+  completedAt?: string
   imageTag?: string
   backupMode?: string
   retentionKeepLast?: number
@@ -40,6 +41,8 @@ export interface BackupPlanStatusVO {
   frequency: BackupPlanFrequency
   time: string
   weekday?: BackupPlanWeekday
+  repositoryEnvironment?: 'test' | 'backup' | string
+  maxFreshnessHours?: number
   nextRunTime?: string
   lastRunTime?: string
   lastResultCode?: number

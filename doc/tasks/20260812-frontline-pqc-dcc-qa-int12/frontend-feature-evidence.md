@@ -14,11 +14,16 @@ Wire the frontline PQC page to the formal activeOrderId projection and formal su
 - GREEN: node tests/e2e/frontline-pqc-formal-submit-static.spec.js -> PASS, frontline PQC formal submit static contract.
 - GREEN: pnpm ts:check -> PASS, exit 0 at 2026-08-14T12:04+08:00.
 - GREEN: post-restart runtime/static submit contracts and `pnpm ts:check` -> PASS at 2026-08-14T16:43+08:00.
+- GREEN: 2026-08-15 closeout recheck ran `pnpm install --frozen-lockfile` first and received exit 0, then `pnpm ts:check`, runtime static contract, and formal submit static contract all received exit 0.
+- GREEN: after backend response-contract remediation, dependency state was reconfirmed and `pnpm ts:check`, runtime static contract, and formal submit static contract again exited 0 in the required order.
 
 ## Verification
 
 - Page selection, cache key, stale response guard, submit eligibility, and receipt state use activeOrderId plus formal PQC task identity.
 - No compatibility path was added for old workOrderId+routeId selection.
+- The 2026-08-15 dependency refresh did not change the lockfile and the requested frontend static-contract sequence passed from `E:\IntRuoyi\IntRuoyiFronted`.
+- The frontend-feature evidence validator and its self-test passed. The frontend portion of the precise forbidden scan found no legacy helper, legacy endpoint, process-level task compatibility field/read, `formBindings`, or `workOrderId + routeId` selection identity.
+- The final precise response-contract scan again passed with 0 violations after backend remediation; the frontend process response remains strict and consumes task identity only through `pqcTaskOptions`.
 
 ## Blockers
 

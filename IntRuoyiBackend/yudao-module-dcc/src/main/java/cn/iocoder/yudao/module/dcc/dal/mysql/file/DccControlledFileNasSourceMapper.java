@@ -13,10 +13,12 @@ import java.util.List;
 @Mapper
 public interface DccControlledFileNasSourceMapper extends BaseMapperX<DccControlledFileNasSourceDO> {
 
-    default DccControlledFileNasSourceDO selectByControlledFileIdAndSourceType(Long controlledFileId,
-                                                                              String sourceType) {
+    default DccControlledFileNasSourceDO selectByControlledFileIdAndShareAndSourceType(Long controlledFileId,
+                                                                                      String nasShareName,
+                                                                                      String sourceType) {
         return selectOne(new LambdaQueryWrapperX<DccControlledFileNasSourceDO>()
                 .eq(DccControlledFileNasSourceDO::getControlledFileId, controlledFileId)
+                .eq(DccControlledFileNasSourceDO::getNasShareName, nasShareName)
                 .eq(DccControlledFileNasSourceDO::getSourceType, sourceType)
                 .last("LIMIT 1"));
     }
@@ -64,15 +66,18 @@ public interface DccControlledFileNasSourceMapper extends BaseMapperX<DccControl
               ON source.controlled_file_id = file.id
              AND source.deleted = b'0'
              AND source.tenant_id = #{tenantId}
-             AND source.source_type IN ('NAS_TRANSFER', 'LEGACY_NAS_TRANSFER')
+             AND source.nas_share_name = #{nasShareName}
+             AND source.source_type IN ('NAS_TRANSFER', 'LEGACY_NAS_TRANSFER', 'LEGACY_LOCAL_FOLDER_IMPORT')
             WHERE file.deleted = b'0'
               AND file.tenant_id = #{tenantId}
               AND file.status = 'ACTIVE'
-              AND file.remark LIKE 'NAS transfer source: %'
+              AND (file.remark LIKE 'NAS transfer source: %'
+                   OR file.remark LIKE 'Local folder import source: %')
               AND source.id IS NULL
             ORDER BY file.id
             """)
-    List<LegacyNasTransferSourceCandidate> selectLegacyNasTransferCandidates(@Param("tenantId") Long tenantId);
+    List<LegacyNasSourceCandidate> selectLegacyNasSourceCandidates(@Param("tenantId") Long tenantId,
+                                                                   @Param("nasShareName") String nasShareName);
 
     default List<DccControlledFileNasSourceDO> selectListByControlledFileIds(Collection<Long> controlledFileIds) {
         return selectList(new LambdaQueryWrapperX<DccControlledFileNasSourceDO>()
@@ -155,7 +160,7 @@ public interface DccControlledFileNasSourceMapper extends BaseMapperX<DccControl
         }
     }
 
-    class LegacyNasTransferSourceCandidate {
+    class LegacyNasSourceCandidate {
         private Long controlledFileId;
         private String fileName;
         private String versionNo;

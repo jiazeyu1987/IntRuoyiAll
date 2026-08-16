@@ -47,6 +47,8 @@ class BackupPlanServiceImplTest {
                     "frequency": "DAILY",
                     "schedule": "01:30",
                     "weekday": "MON",
+                    "repositoryEnvironment": "backup",
+                    "maxFreshnessHours": 48,
                     "keepDaysRemote": 30,
                     "keepDaysLocal": 3
                   }
@@ -64,6 +66,7 @@ class BackupPlanServiceImplTest {
         RuntimeControlBackupPointRespVO point = new RuntimeControlBackupPointRespVO();
         point.setBackupId("20260725-013000");
         point.setRecoverabilityStatus("RECOVERABLE");
+        point.setCompletedAt(LocalDateTime.now().minusHours(1));
         backupDrillService.backupPoints.add(point);
         schedulerGateway.status.setEnabled(true);
         schedulerGateway.status.setNextRunTime(LocalDateTime.of(2026, 7, 26, 1, 30));
@@ -74,6 +77,8 @@ class BackupPlanServiceImplTest {
 
         assertEquals("DAILY", status.getFrequency());
         assertEquals("01:30", status.getTime());
+        assertEquals("backup", status.getRepositoryEnvironment());
+        assertEquals(48, status.getMaxFreshnessHours());
         assertEquals("已开启", status.getPlanStatus());
         assertEquals("正常", status.getHealthStatus());
         assertEquals(LocalDateTime.of(2026, 7, 26, 1, 30), status.getNextRunTime());
@@ -94,6 +99,7 @@ class BackupPlanServiceImplTest {
         assertTrue(config.contains("\"schedule\" : \"02:15\""));
         assertEquals("DAILY", schedulerGateway.registeredSchedule.getFrequency());
         assertEquals("02:15", schedulerGateway.registeredSchedule.getTime());
+        assertEquals("backup", schedulerGateway.registeredSchedule.getRepositoryEnvironment());
         assertEquals("02:15", status.getTime());
     }
 
@@ -111,6 +117,185 @@ class BackupPlanServiceImplTest {
         assertTrue(config.contains("\"weekday\" : \"SUN\""));
         assertEquals("WEEKLY", schedulerGateway.registeredSchedule.getFrequency());
         assertEquals("SUN", schedulerGateway.registeredSchedule.getWeekday());
+        assertEquals("backup", schedulerGateway.registeredSchedule.getRepositoryEnvironment());
+    }
+
+    @Test
+    void enableShouldFailFastWhenRepositoryEnvironmentIsMissing() throws Exception {
+        writeBackupConfig("""
+                {
+                  "backup": {
+                    "frequency": "DAILY",
+                    "schedule": "01:30",
+                    "weekday": "MON",
+                    "maxFreshnessHours": 48
+                  }
+                }
+                """);
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> service.enable());
+
+        assertTrue(exception.getMessage().contains("backup.repositoryEnvironment"));
+    }
+
+    @Test
+    void getStatusShouldExposeConfigAbnormalWhenRepositoryEnvironmentIsMissing() throws Exception {
+        writeBackupConfig("""
+                {
+                  "backup": {
+                    "frequency": "DAILY",
+                    "schedule": "01:30",
+                    "weekday": "MON",
+                    "maxFreshnessHours": 48
+                  }
+                }
+                """);
+        schedulerGateway.status.setEnabled(true);
+        schedulerGateway.status.setNextRunTime(LocalDateTime.of(2026, 7, 26, 1, 30));
+        schedulerGateway.status.setLastResultCode(0);
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("配置异常", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("backup.repositoryEnvironment"));
+    }
+
+    @Test
+    void getStatusShouldExposeConfigAbnormalWhenFreshnessThresholdIsMissing() throws Exception {
+        writeBackupConfig("""
+                {
+                  "backup": {
+                    "frequency": "DAILY",
+                    "schedule": "01:30",
+                    "weekday": "MON",
+                    "repositoryEnvironment": "backup"
+                  }
+                }
+                """);
+        schedulerGateway.status.setEnabled(true);
+        schedulerGateway.status.setNextRunTime(LocalDateTime.of(2026, 7, 26, 1, 30));
+        schedulerGateway.status.setLastResultCode(0);
+        RuntimeControlBackupPointRespVO point = backupPoint("20260725-020000");
+        point.setCompletedAt(LocalDateTime.now().minusHours(1));
+        backupDrillService.backupPoints.add(point);
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("配置异常", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("backup.maxFreshnessHours"));
+    }
+
+    @Test
+    void getStatusShouldUseCompletedAtInsteadOfLastVerifiedAtForFreshness() {
+        schedulerGateway.status.setEnabled(true);
+        schedulerGateway.status.setNextRunTime(LocalDateTime.of(2026, 7, 26, 1, 30));
+        schedulerGateway.status.setLastResultCode(0);
+        RuntimeControlBackupPointRespVO point = backupPoint("20260725-020000");
+        point.setCompletedAt(null);
+        point.setLastVerifiedAt(LocalDateTime.now());
+        backupDrillService.backupPoints.add(point);
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("配置异常", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("completedAt"));
+    }
+
+    @Test
+    void getStatusShouldBlockWhenLatestBackupPointExceedsFreshnessThreshold() {
+        schedulerGateway.status.setEnabled(true);
+        schedulerGateway.status.setNextRunTime(LocalDateTime.of(2026, 7, 26, 1, 30));
+        schedulerGateway.status.setLastResultCode(0);
+        RuntimeControlBackupPointRespVO point = backupPoint("20260725-020000");
+        point.setCompletedAt(LocalDateTime.now().minusHours(49));
+        backupDrillService.backupPoints.add(point);
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("配置异常", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("超过"));
+    }
+
+    @Test
+    void getStatusShouldBlockWhenLatestBackupPointIsMissing() {
+        schedulerGateway.status.setEnabled(true);
+        schedulerGateway.status.setNextRunTime(LocalDateTime.of(2026, 7, 26, 1, 30));
+        schedulerGateway.status.setLastResultCode(0);
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("配置异常", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("最近成功备份点缺失"));
+    }
+
+    @Test
+    void getStatusShouldBlockWhenTaskCommandPathDrifts() {
+        RuntimeControlBackupPointRespVO point = backupPoint("20260725-020000");
+        point.setCompletedAt(LocalDateTime.now().minusHours(1));
+        backupDrillService.backupPoints.add(point);
+        schedulerGateway.status.setEnabled(true);
+        schedulerGateway.status.setNextRunTime(LocalDateTime.of(2026, 7, 26, 1, 30));
+        schedulerGateway.status.setLastResultCode(0);
+        schedulerGateway.status.setTaskToRun("powershell.exe -File D:\\legacy\\backup-ops.ps1");
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("配置异常", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("脚本路径异常"));
+    }
+
+    @Test
+    void getStatusShouldExposeConfigAbnormalWhenSchedulerQueryFails() {
+        backupDrillService.backupPoints.add(backupPoint("20260725-020000"));
+        schedulerGateway.status.setEnabled(false);
+        schedulerGateway.status.setQueryExitCode(1);
+        schedulerGateway.status.setBlockedReason("计划任务查询失败");
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("配置异常", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("计划任务查询失败"));
+    }
+
+    @Test
+    void getStatusShouldExposeClosedWhenSchedulerTaskIsDisabled() {
+        backupDrillService.backupPoints.add(backupPoint("20260725-020000"));
+        schedulerGateway.status.setEnabled(false);
+        schedulerGateway.status.setQueryExitCode(0);
+        schedulerGateway.status.setBlockedReason("计划任务已禁用");
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("已关闭", status.getPlanStatus());
+        assertEquals("已关闭", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("计划任务已禁用"));
+    }
+
+    @Test
+    void getStatusShouldBlockWhenEnabledTaskMissingNextRunTime() {
+        backupDrillService.backupPoints.add(backupPoint("20260725-020000"));
+        schedulerGateway.status.setEnabled(true);
+        schedulerGateway.status.setQueryExitCode(0);
+        schedulerGateway.status.setLastResultCode(0);
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("配置异常", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("下次运行时间缺失"));
+    }
+
+    @Test
+    void getStatusShouldExposeLastFailureWhenSchedulerLastResultIsNonZero() {
+        backupDrillService.backupPoints.add(backupPoint("20260725-020000"));
+        schedulerGateway.status.setEnabled(true);
+        schedulerGateway.status.setQueryExitCode(0);
+        schedulerGateway.status.setNextRunTime(LocalDateTime.of(2026, 7, 26, 1, 30));
+        schedulerGateway.status.setLastResultCode(1);
+
+        BackupPlanStatusRespVO status = service.getStatus();
+
+        assertEquals("上次失败", status.getHealthStatus());
+        assertTrue(status.getBlockedReason().contains("上次运行失败"));
     }
 
     @Test
@@ -160,6 +345,7 @@ class BackupPlanServiceImplTest {
         RuntimeControlBackupPointRespVO point = new RuntimeControlBackupPointRespVO();
         point.setBackupId(backupId);
         point.setRecoverabilityStatus("RECOVERABLE");
+        point.setCompletedAt(LocalDateTime.now().minusHours(1));
         return point;
     }
 

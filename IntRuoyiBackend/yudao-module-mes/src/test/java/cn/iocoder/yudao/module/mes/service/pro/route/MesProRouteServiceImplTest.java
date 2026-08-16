@@ -631,7 +631,7 @@ class MesProRouteServiceImplTest {
     }
 
     @Test
-    void buildCurrentRouteSnapshotJson_shouldPreserveExistingBatchRecordAttachmentOwners() {
+    void buildCurrentRouteSnapshotJson_shouldPreserveExistingStartConfigurations() {
         Long routeId = 922119L;
         Long routeVersionId = 34126020001L;
         MesProRouteDO route = MesProRouteDO.builder()
@@ -643,7 +643,7 @@ class MesProRouteServiceImplTest {
                 .id(routeVersionId)
                 .routeId(routeId)
                 .routeSnapshotJson("""
-                        {"routeId":922119,"configSnapshots":{"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
+                        {"routeId":922119,"configSnapshots":{"routeStartProductionLeaders":[{"productionLineId":71,"candidateSourceType":"USERS","candidateSourceIds":[912397],"candidateSourceNames":["王五"],"sort":1}],"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
                         """)
                 .build();
         MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
@@ -666,6 +666,12 @@ class MesProRouteServiceImplTest {
         assertEquals(4, owners.size());
         assertEquals("INCOMING_INSPECTION_REPORT", owners.getJSONObject(0).getString("attachmentCode"));
         assertEquals(List.of(912398), owners.getJSONObject(0)
+                .getJSONArray("candidateSourceIds").toJavaList(Integer.class));
+        JSONArray productionLeaders = snapshot.getJSONObject("configSnapshots")
+                .getJSONArray("routeStartProductionLeaders");
+        assertEquals(1, productionLeaders.size());
+        assertEquals(71L, productionLeaders.getJSONObject(0).getLong("productionLineId"));
+        assertEquals(List.of(912397), productionLeaders.getJSONObject(0)
                 .getJSONArray("candidateSourceIds").toJavaList(Integer.class));
     }
 

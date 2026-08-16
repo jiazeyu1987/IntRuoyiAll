@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -22,6 +23,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -113,9 +115,14 @@ class MesProRouteVersionBusinessApprovalEffectExecutorTest {
     }
 
     @Test
-    void markPendingPersistsDomainPendingStateWithoutPublishing() {
+    void markPendingRegistersControlledContentWhileCandidateIsStillDraftBeforePersistingPendingState() {
         when(routeVersionMapper.selectById(1001L)).thenReturn(draftVersion());
         when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        doAnswer(invocation -> {
+            MesProRouteVersionDO submitted = invocation.getArgument(0);
+            assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT, submitted.getLifecycleStatus());
+            return null;
+        }).when(platformAdapter).recordSubmitted(any(MesProRouteVersionDO.class), eq(501L), eq("bpm-2001"));
 
         BusinessApprovalEffectResult result = executor.markPending(context(), requestWithProcessInstance());
 
@@ -127,10 +134,11 @@ class MesProRouteVersionBusinessApprovalEffectExecutorTest {
                 updateCaptor.getValue().getLifecycleStatus());
         assertEquals(501L, updateCaptor.getValue().getSubmittedBy());
         assertEquals("bpm-2001", updateCaptor.getValue().getApprovalProcessInstanceId());
-        ArgumentCaptor<MesProRouteVersionDO> submittedCaptor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
-        verify(platformAdapter).recordSubmitted(submittedCaptor.capture(), eq(501L), eq("bpm-2001"));
-        assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL,
-                submittedCaptor.getValue().getLifecycleStatus());
+        verify(platformAdapter).recordSubmitted(any(MesProRouteVersionDO.class), eq(501L), eq("bpm-2001"));
+        InOrder submissionOrder = inOrder(platformAdapter, routeVersionMapper);
+        submissionOrder.verify(platformAdapter).recordSubmitted(any(MesProRouteVersionDO.class),
+                eq(501L), eq("bpm-2001"));
+        submissionOrder.verify(routeVersionMapper).updateById(any(MesProRouteVersionDO.class));
         verify(lifecycleService, never()).publishCandidate(1001L, 501L);
     }
 

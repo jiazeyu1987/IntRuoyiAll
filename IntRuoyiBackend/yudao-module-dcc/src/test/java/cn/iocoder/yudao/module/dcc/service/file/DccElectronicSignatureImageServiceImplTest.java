@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureImageDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureImageMapper;
@@ -8,10 +9,14 @@ import cn.iocoder.yudao.module.infra.service.file.FileService;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDateTime;
 
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,5 +66,18 @@ class DccElectronicSignatureImageServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(LocalDateTime.of(2026, 7, 15, 8, 48, 32), result.getUploadedAt());
         assertEquals(LocalDateTime.of(2026, 7, 15, 8, 49, 1), result.getEnabledAt());
         verify(fileService).getFile(6001L);
+    }
+
+    @Test
+    void uploadMySignatureImage_rejectsUndecodableImageContent() {
+        byte[] corruptPng = new byte[] {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0};
+        MockMultipartFile file = new MockMultipartFile("file", "corrupt.png", "image/png", corruptPng);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.uploadMySignatureImage(100L, file, 100L, "上传电子签名图片"));
+
+        assertEquals(CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID.getCode(), exception.getCode());
+        assertEquals("签名图片内容无效，请上传可正常打开的 PNG/JPEG 图片", exception.getMessage());
+        verifyNoInteractions(fileService, signatureImageMapper);
     }
 }

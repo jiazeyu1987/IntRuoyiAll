@@ -29,6 +29,9 @@ public class RuntimeControlBackupPointRespVO {
     @Schema(description = "最近验证时间")
     private LocalDateTime lastVerifiedAt;
 
+    @Schema(description = "manifest 完成时间")
+    private LocalDateTime completedAt;
+
     @Schema(description = "备份点程序镜像标签")
     private String imageTag;
 
