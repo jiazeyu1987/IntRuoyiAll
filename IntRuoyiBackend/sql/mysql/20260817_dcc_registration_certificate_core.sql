@@ -26,45 +26,183 @@ BEGIN
   END IF;
 
   IF present_table_count = 6 THEN
+    DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_expected_column;
+    CREATE TEMPORARY TABLE tmp_dcc_reg_cert_expected_column (
+      table_name varchar(128) NOT NULL,
+      column_name varchar(128) NOT NULL,
+      column_type varchar(64) NOT NULL,
+      is_nullable char(3) NOT NULL,
+      generated_column boolean NOT NULL,
+      PRIMARY KEY (table_name, column_name)
+    );
+    INSERT INTO tmp_dcc_reg_cert_expected_column
+      (table_name, column_name, column_type, is_nullable, generated_column)
+    VALUES
+      ('dcc_registration_certificate', 'id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate', 'owner_company_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate', 'product_master_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate', 'project_code_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate', 'first_obtained_date', 'date', 'YES', FALSE),
+      ('dcc_registration_certificate', 'current_version_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate', 'pending_version_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate', 'current_snapshot_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate', 'status', 'varchar(32)', 'NO', FALSE),
+      ('dcc_registration_certificate', 'row_version', 'int', 'NO', FALSE),
+      ('dcc_registration_certificate', 'creator', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate', 'create_time', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate', 'updater', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate', 'update_time', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate', 'deleted', 'bit(1)', 'NO', FALSE),
+      ('dcc_registration_certificate', 'tenant_id', 'bigint', 'NO', FALSE),
+
+      ('dcc_registration_certificate_version', 'id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_version', 'certificate_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_version', 'version_no', 'int', 'NO', FALSE),
+      ('dcc_registration_certificate_version', 'version_type', 'varchar(32)', 'NO', FALSE),
+      ('dcc_registration_certificate_version', 'certificate_no', 'varchar(128)', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'approval_date', 'date', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'effective_date', 'date', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'expiry_date', 'date', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'classification', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'category_changed', 'bit(1)', 'NO', FALSE),
+      ('dcc_registration_certificate_version', 'base_snapshot_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'status', 'varchar(32)', 'NO', FALSE),
+      ('dcc_registration_certificate_version', 'formalized_at', 'datetime', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'formalized_by', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'voided_at', 'datetime', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'voided_by', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'void_reason', 'varchar(1024)', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'creator', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'create_time', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate_version', 'updater', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'update_time', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate_version', 'deleted', 'bit(1)', 'NO', FALSE),
+      ('dcc_registration_certificate_version', 'tenant_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_version', 'current_unique_flag', 'tinyint', 'YES', TRUE),
+      ('dcc_registration_certificate_version', 'pending_unique_flag', 'tinyint', 'YES', TRUE),
+
+      ('dcc_registration_certificate_snapshot', 'id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'version_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'revision_no', 'int', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'source_change_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot', 'product_name', 'varchar(255)', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'registrant_name', 'varchar(255)', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'model_specification', 'text', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot', 'structure_composition', 'text', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot', 'intended_use', 'text', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot', 'technical_requirements', 'text', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot', 'residence_address', 'text', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot', 'production_address', 'text', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot', 'entrusted_production', 'bit(1)', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'self_production', 'bit(1)', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'entrusted_enterprises_json', 'json', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'entrusted_enterprise_count', 'int', 'YES', TRUE),
+      ('dcc_registration_certificate_snapshot', 'effective_at', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'creator', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot', 'create_time', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'updater', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot', 'update_time', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'deleted', 'bit(1)', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'tenant_id', 'bigint', 'NO', FALSE),
+
+      ('dcc_registration_certificate_snapshot_entrusted', 'id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot_entrusted', 'snapshot_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot_entrusted', 'enterprise_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot_entrusted', 'enterprise_name_snapshot', 'varchar(255)', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot_entrusted', 'sort_order', 'int', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot_entrusted', 'creator', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot_entrusted', 'create_time', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot_entrusted', 'updater', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_snapshot_entrusted', 'update_time', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot_entrusted', 'deleted', 'bit(1)', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot_entrusted', 'tenant_id', 'bigint', 'NO', FALSE),
+
+      ('dcc_registration_certificate_file', 'id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'owner_type', 'varchar(32)', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'owner_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'file_kind', 'varchar(64)', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'infra_file_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'original_name', 'varchar(512)', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'mime_type', 'varchar(128)', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'file_size', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'sha256', 'char(64)', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'status', 'varchar(32)', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'bound_at', 'datetime', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'bound_by', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'creator', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'create_time', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'updater', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_file', 'update_time', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'deleted', 'bit(1)', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'tenant_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_file', 'bound_file_unique_flag', 'bigint', 'YES', TRUE),
+
+      ('dcc_registration_certificate_audit', 'id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'tenant_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'owner_company_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'certificate_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'version_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_audit', 'snapshot_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_audit', 'business_file_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_audit', 'event_key', 'varchar(256)', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'event_type', 'varchar(64)', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'actor_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_audit', 'result', 'varchar(32)', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'result_code', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_audit', 'request_trace_id', 'varchar(128)', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'detail_json', 'json', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'occurred_at', 'datetime', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'creator', 'varchar(64)', 'YES', FALSE),
+      ('dcc_registration_certificate_audit', 'create_time', 'datetime', 'NO', FALSE);
+
     IF EXISTS (
       SELECT 1
-        FROM (
-          SELECT 'dcc_registration_certificate' AS table_name, 'tenant_id' AS column_name,
-                 'bigint' AS data_type, 'NO' AS is_nullable, FALSE AS generated_column
-          UNION ALL SELECT 'dcc_registration_certificate', 'status', 'varchar', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate', 'row_version', 'int', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_version', 'tenant_id', 'bigint', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_version', 'current_unique_flag', 'tinyint', 'YES', TRUE
-          UNION ALL SELECT 'dcc_registration_certificate_version', 'pending_unique_flag', 'tinyint', 'YES', TRUE
-          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'tenant_id', 'bigint', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'entrusted_enterprises_json', 'json', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'entrusted_enterprise_count', 'int', 'YES', TRUE
-          UNION ALL SELECT 'dcc_registration_certificate_snapshot_entrusted', 'tenant_id', 'bigint', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'tenant_id', 'bigint', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'bound_file_unique_flag', 'bigint', 'YES', TRUE
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'tenant_id', 'bigint', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'owner_company_id', 'bigint', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'business_file_id', 'bigint', 'YES', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'event_key', 'varchar', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'result', 'varchar', 'NO', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'result_code', 'varchar', 'YES', FALSE
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'request_trace_id', 'varchar', 'NO', FALSE
-        ) AS expected_column
+        FROM tmp_dcc_reg_cert_expected_column AS expected_column
         LEFT JOIN information_schema.COLUMNS AS actual_column
           ON actual_column.TABLE_SCHEMA = DATABASE()
          AND actual_column.TABLE_NAME = expected_column.table_name
          AND actual_column.COLUMN_NAME = expected_column.column_name
        WHERE actual_column.COLUMN_NAME IS NULL
-          OR actual_column.DATA_TYPE <> expected_column.data_type
+          OR LOWER(actual_column.COLUMN_TYPE) <> expected_column.column_type
           OR actual_column.IS_NULLABLE <> expected_column.is_nullable
           OR (expected_column.generated_column
               AND actual_column.EXTRA NOT LIKE '%STORED GENERATED%')
           OR (NOT expected_column.generated_column
-              AND actual_column.EXTRA LIKE '%GENERATED%')
+              AND (actual_column.EXTRA LIKE '%STORED GENERATED%'
+                OR actual_column.EXTRA LIKE '%VIRTUAL GENERATED%'))
     ) THEN
       SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'DCC registration certificate core column contract mismatch';
     END IF;
+
+    IF EXISTS (
+      SELECT 1
+        FROM (
+          SELECT table_name, COUNT(*) AS column_count
+            FROM tmp_dcc_reg_cert_expected_column
+           GROUP BY table_name
+        ) AS expected_table
+        LEFT JOIN (
+          SELECT TABLE_NAME AS table_name, COUNT(*) AS column_count
+            FROM information_schema.COLUMNS
+           WHERE TABLE_SCHEMA = DATABASE()
+             AND TABLE_NAME IN (
+               'dcc_registration_certificate',
+               'dcc_registration_certificate_version',
+               'dcc_registration_certificate_snapshot',
+               'dcc_registration_certificate_snapshot_entrusted',
+               'dcc_registration_certificate_file',
+               'dcc_registration_certificate_audit'
+             )
+           GROUP BY TABLE_NAME
+        ) AS actual_table ON actual_table.table_name = expected_table.table_name
+       WHERE actual_table.column_count <> expected_table.column_count
+    ) THEN
+      SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'DCC registration certificate core column contract mismatch';
+    END IF;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_expected_column;
 
     IF EXISTS (
       SELECT 1
@@ -151,6 +289,7 @@ BEGIN
           UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type'
           UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind'
           UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_size'
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key'
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result'
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace'
@@ -164,6 +303,79 @@ BEGIN
     ) THEN
       SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'DCC registration certificate core CHECK contract mismatch';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+        FROM (
+          SELECT 'dcc_registration_certificate' AS table_name,
+                 'chk_dcc_reg_cert_master_status' AS constraint_name,
+                 'draft' AS required_fragment
+          UNION ALL SELECT 'dcc_registration_certificate', 'chk_dcc_reg_cert_master_status',
+                           'pending_first_effective'
+          UNION ALL SELECT 'dcc_registration_certificate', 'chk_dcc_reg_cert_master_status', 'active'
+          UNION ALL SELECT 'dcc_registration_certificate', 'chk_dcc_reg_cert_master_status',
+                           'expired_unrenewed'
+          UNION ALL SELECT 'dcc_registration_certificate', 'chk_dcc_reg_cert_master_status', 'voided'
+          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_type',
+                           'initial_certificate'
+          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_type',
+                           'renewal_certificate'
+          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status', 'draft'
+          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status',
+                           'pending_effective'
+          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status', 'current'
+          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status', 'old'
+          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status', 'voided'
+          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_snapshot_json_array',
+                           'json_type'
+          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_snapshot_json_array',
+                           'entrusted_enterprises_json'
+          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_snapshot_json_array',
+                           'array'
+          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation',
+                           'entrusted_production'
+          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation',
+                           'self_production'
+          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation',
+                           'entrusted_enterprise_count'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type', 'version'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type', 'change'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type',
+                           'supporting_document'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind',
+                           'registration_certificate'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind', 'change_approval'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind',
+                           'renewal_acceptance_receipt'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind',
+                           'renewal_supplement_notice'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status', 'staged'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status', 'bound'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status',
+                           'cleanup_required'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status', 'voided'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_size', 'file_size'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_size', '>='
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key', 'trim'
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key', 'event_key'
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key', '<>'
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result', 'success'
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result', 'failure'
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace', 'trim'
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace',
+                           'request_trace_id'
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace', '<>'
+        ) AS expected_check_expression
+        LEFT JOIN information_schema.CHECK_CONSTRAINTS AS actual_check_expression
+          ON actual_check_expression.CONSTRAINT_SCHEMA = DATABASE()
+         AND actual_check_expression.CONSTRAINT_NAME = expected_check_expression.constraint_name
+       WHERE actual_check_expression.CONSTRAINT_NAME IS NULL
+          OR LOWER(actual_check_expression.CHECK_CLAUSE) NOT LIKE
+             CONCAT('%', expected_check_expression.required_fragment, '%')
+    ) THEN
+      SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'DCC registration certificate core CHECK expression mismatch';
     END IF;
 
     IF EXISTS (
@@ -414,6 +626,14 @@ CREATE TRIGGER `trg_dcc_reg_cert_master_immutable_bu`
 BEFORE UPDATE ON `dcc_registration_certificate`
 FOR EACH ROW
 BEGIN
+  IF OLD.`status` <> 'DRAFT' AND NEW.`status` = 'DRAFT' THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Formal registration certificate master cannot return to DRAFT';
+  END IF;
+  IF OLD.`status` = 'VOIDED' AND NEW.`status` <> 'VOIDED' THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'VOIDED registration certificate master status is terminal';
+  END IF;
   IF OLD.`status` <> 'DRAFT' AND (
     NOT (OLD.`id` <=> NEW.`id`)
     OR NOT (OLD.`tenant_id` <=> NEW.`tenant_id`)
@@ -442,6 +662,15 @@ CREATE TRIGGER `trg_dcc_reg_cert_version_immutable_bu`
 BEFORE UPDATE ON `dcc_registration_certificate_version`
 FOR EACH ROW
 BEGIN
+  IF OLD.`status` <> NEW.`status` AND NOT (
+    (OLD.`status` = 'DRAFT' AND NEW.`status` IN ('CURRENT', 'PENDING_EFFECTIVE'))
+    OR (OLD.`status` = 'PENDING_EFFECTIVE' AND NEW.`status` IN ('CURRENT', 'VOIDED'))
+    OR (OLD.`status` = 'CURRENT' AND NEW.`status` IN ('OLD', 'VOIDED'))
+    OR (OLD.`status` = 'OLD' AND NEW.`status` = 'VOIDED')
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Invalid registration certificate version status transition';
+  END IF;
   IF OLD.`status` <> 'DRAFT' AND (
     NOT (OLD.`id` <=> NEW.`id`)
     OR NOT (OLD.`tenant_id` <=> NEW.`tenant_id`)

@@ -102,11 +102,52 @@ function Assert-Equal {
     Write-Output "PASS: $Label"
 }
 
+function New-OwnedSchema {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Schema,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[string]]$Registry
+    )
+
+    [void](Invoke-SqlSuccess -Label "create isolated schema $Schema" `
+        -Sql "CREATE DATABASE ``$Schema`` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+    $Registry.Add($Schema)
+}
+
+function Remove-OwnedSchemas {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[string]]$Schemas
+    )
+
+    $cleanupErrors = [System.Collections.Generic.List[string]]::new()
+    foreach ($ownedSchema in $Schemas) {
+        if ($ownedSchema -notmatch '^codex_regcert_t04a_[a-f0-9]{16}(_partial|_incompatible)?$') {
+            $cleanupErrors.Add("Refusing to drop non-task schema '$ownedSchema'")
+            continue
+        }
+        try {
+            [void](Invoke-SqlSuccess -Label "drop isolated schema $ownedSchema" `
+                -Sql "DROP DATABASE IF EXISTS ``$ownedSchema``;")
+        }
+        catch {
+            $cleanupErrors.Add($_.Exception.Message)
+        }
+    }
+    if ($cleanupErrors.Count -gt 0) {
+        throw "Cleanup failed after all owned schemas were attempted: $($cleanupErrors -join ' | ')"
+    }
+}
+
 $migrationPath = (Resolve-Path -LiteralPath $Migration).Path
 $migrationSql = [System.IO.File]::ReadAllText($migrationPath, [System.Text.Encoding]::UTF8)
 $suffix = [Guid]::NewGuid().ToString('N').Substring(0, 16)
 $schema = "codex_regcert_t04a_$suffix"
 $partialSchema = "${schema}_partial"
+$incompatibleSchema = "${schema}_incompatible"
 $createdSchemas = [System.Collections.Generic.List[string]]::new()
 
 try {
@@ -115,12 +156,9 @@ try {
         throw "Approved MySQL container '$Container' is not running"
     }
 
-    [void](Invoke-SqlSuccess -Label 'create isolated schemas' -Sql @"
-CREATE DATABASE ``$schema`` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE DATABASE ``$partialSchema`` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-"@)
-    $createdSchemas.Add($schema)
-    $createdSchemas.Add($partialSchema)
+    New-OwnedSchema -Schema $schema -Registry $createdSchemas
+    New-OwnedSchema -Schema $partialSchema -Registry $createdSchemas
+    New-OwnedSchema -Schema $incompatibleSchema -Registry $createdSchemas
 
     [void](Invoke-SqlSuccess -Schema $schema -Sql $migrationSql -Label 'first migration apply')
     Write-Output 'PASS: first migration apply'
@@ -214,7 +252,7 @@ SELECT CONCAT(tc.TABLE_NAME, '|', tc.CONSTRAINT_NAME, '|', LOWER(cc.CHECK_CLAUSE
     [void](Invoke-SqlSuccess -Schema $schema -Label 'seed uniqueness fixtures' -Sql @'
 INSERT INTO dcc_registration_certificate
   (id, owner_company_id, product_master_id, status, tenant_id)
-VALUES (1, 10, 20, 'ACTIVE', 1), (2, 10, 21, 'DRAFT', 1);
+VALUES (1, 10, 20, 'ACTIVE', 1), (2, 10, 21, 'DRAFT', 1), (3, 10, 22, 'VOIDED', 1);
 INSERT INTO dcc_registration_certificate_version
   (id, certificate_id, version_no, version_type, status, tenant_id)
 VALUES
@@ -245,6 +283,29 @@ UPDATE dcc_registration_certificate_version
  WHERE id = 11;
 '@)
     Write-Output 'PASS: allowed formal version lifecycle update'
+    Assert-SqlFails -Schema $schema -Label 'formal version DRAFT rollback overwrite bypass' -Sql @'
+UPDATE dcc_registration_certificate_version SET status = 'DRAFT' WHERE id = 13;
+UPDATE dcc_registration_certificate_version SET certificate_no = 'OVERWRITE' WHERE id = 13;
+'@
+    Assert-SqlFails -Schema $schema -Label 'OLD version return to CURRENT' -Sql @'
+UPDATE dcc_registration_certificate_version SET status = 'CURRENT' WHERE id = 13;
+'@
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'allowed OLD version void transition' -Sql @'
+UPDATE dcc_registration_certificate_version
+   SET status = 'VOIDED', voided_at = NOW(), voided_by = 99, void_reason = 'void transition fixture'
+ WHERE id = 14;
+'@)
+    Write-Output 'PASS: allowed OLD version void transition'
+    Assert-SqlFails -Schema $schema -Label 'VOIDED version return to CURRENT' -Sql @'
+UPDATE dcc_registration_certificate_version SET status = 'CURRENT' WHERE id = 14;
+'@
+    Assert-SqlFails -Schema $schema -Label 'formal master DRAFT rollback overwrite bypass' -Sql @'
+UPDATE dcc_registration_certificate SET status = 'DRAFT' WHERE id = 1;
+UPDATE dcc_registration_certificate SET owner_company_id = 999 WHERE id = 1;
+'@
+    Assert-SqlFails -Schema $schema -Label 'VOIDED master leaves terminal status' -Sql @'
+UPDATE dcc_registration_certificate SET status = 'ACTIVE' WHERE id = 3;
+'@
     Assert-SqlFails -Schema $schema -Label 'formal master fact overwrite' -Sql @'
 UPDATE dcc_registration_certificate
    SET owner_company_id = 999
@@ -496,14 +557,42 @@ DELETE FROM dcc_registration_certificate_audit
  WHERE tenant_id = 1 AND event_key = 'cert:1:formalized';
 '@
 
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Sql $migrationSql `
+        -Label 'incompatible six-table baseline migration')
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'break ordinary column contract' -Sql @'
+ALTER TABLE dcc_registration_certificate_snapshot
+  MODIFY COLUMN registrant_name bigint NOT NULL;
+'@)
+    Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
+        -Label 'incompatible six-table ordinary column type' `
+        -ExpectedMessage 'DCC registration certificate core column contract mismatch'
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'restore ordinary column contract' -Sql @'
+ALTER TABLE dcc_registration_certificate_snapshot
+  MODIFY COLUMN registrant_name varchar(255) NOT NULL COMMENT 'Registrant name snapshot';
+'@)
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'break ordinary column nullability' -Sql @'
+ALTER TABLE dcc_registration_certificate_snapshot
+  MODIFY COLUMN registrant_name varchar(255) NULL;
+'@)
+    Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
+        -Label 'incompatible six-table ordinary column nullability' `
+        -ExpectedMessage 'DCC registration certificate core column contract mismatch'
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'restore ordinary column nullability' -Sql @'
+ALTER TABLE dcc_registration_certificate_snapshot
+  MODIFY COLUMN registrant_name varchar(255) NOT NULL COMMENT 'Registrant name snapshot';
+'@)
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'break named CHECK expression' -Sql @'
+ALTER TABLE dcc_registration_certificate_file
+  DROP CHECK chk_dcc_reg_cert_file_status,
+  ADD CONSTRAINT chk_dcc_reg_cert_file_status CHECK (1 = 1);
+'@)
+    Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
+        -Label 'incompatible six-table named CHECK expression' `
+        -ExpectedMessage 'DCC registration certificate core CHECK expression mismatch'
+
     Write-Output 'PASS: runtime MySQL generated columns, CHECKs, and conditional uniqueness'
 }
 finally {
-    foreach ($ownedSchema in $createdSchemas) {
-        if ($ownedSchema -notmatch '^codex_regcert_t04a_[a-f0-9]{16}(_partial)?$') {
-            throw "Refusing to drop non-task schema '$ownedSchema'"
-        }
-        [void](Invoke-SqlSuccess -Label "drop isolated schema $ownedSchema" -Sql "DROP DATABASE IF EXISTS ``$ownedSchema``;")
-    }
+    Remove-OwnedSchemas -Schemas $createdSchemas
     Write-Output 'PASS: isolated MySQL schemas removed'
 }

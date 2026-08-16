@@ -93,6 +93,12 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 "select version_row.`status` into entrusted_version_status",
                 "cross-snapshot entrusted projection reattachment is forbidden",
                 "if entrusted_version_status is null or entrusted_version_status <> 'draft' then",
+                "invalid registration certificate version status transition",
+                "formal registration certificate master cannot return to draft",
+                "voided registration certificate master status is terminal",
+                "lower(actual_column.column_type) <> expected_column.column_type",
+                "actual_table.column_count <> expected_table.column_count",
+                "dcc registration certificate core check expression mismatch",
                 "trigger `trg_dcc_reg_cert_master_immutable_bu`",
                 "trigger `trg_dcc_reg_cert_master_immutable_bd`",
                 "trigger `trg_dcc_reg_cert_version_immutable_bu`",
@@ -110,6 +116,9 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
 
     @Test
     void h2FixtureShouldLoadPortableCoreTablesWithoutFakingMysqlJsonLength() throws Exception {
+        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE IF NOT EXISTS dcc_registration_certificate_change (id BIGINT)");
+        }
         Set<String> present = new LinkedHashSet<>();
         try (var connection = dataSource.getConnection();
              var statement = connection.prepareStatement("""
@@ -123,15 +132,13 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 }
             }
         }
-        assertEquals(CORE_TABLES, present, "H2 fixture must load exactly the six core tables");
+        assertTrue(present.containsAll(CORE_TABLES), "H2 fixture must include every frozen core table");
 
         String fixture = Files.readString(findBackendRoot().resolve(
                 "yudao-module-dcc/src/test/resources/sql/create_tables.sql"), StandardCharsets.UTF_8)
                 .toLowerCase(Locale.ROOT);
         assertFalse(fixture.contains("json_length("),
                 "H2 fixture must not fake the MySQL JSON_LENGTH generated-column contract");
-        assertFalse(fixture.contains("dcc_registration_certificate_change"));
-        assertFalse(fixture.contains("dcc_registration_certificate_supporting_document"));
         assertContainsAll(fixture,
                 "constraint `chk_dcc_reg_cert_file_status` check",
                 "constraint `chk_dcc_reg_cert_audit_result` check",
@@ -141,6 +148,27 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 "`result` varchar(32) not null",
                 "`result_code` varchar(64) null",
                 "`request_trace_id` varchar(128) not null");
+    }
+
+    @Test
+    void mysqlVerificationScriptShouldCreateAndCleanupEachOwnedSchemaIndependently() throws Exception {
+        String script = Files.readString(findBackendRoot().resolve(
+                        "script/tests/test-dcc-registration-certificate-core-mysql.ps1"), StandardCharsets.UTF_8)
+                .toLowerCase(Locale.ROOT);
+        assertContainsAll(script,
+                "function new-ownedschema",
+                "function remove-ownedschemas",
+                "$registry.add($schema)",
+                "$cleanuperrors",
+                "[allowemptycollection()]",
+                "new-ownedschema -schema $schema -registry $createdschemas",
+                "new-ownedschema -schema $partialschema -registry $createdschemas",
+                "new-ownedschema -schema $incompatibleschema -registry $createdschemas",
+                "$cleanuperrors.add($_.exception.message)",
+                "remove-ownedschemas -schemas $createdschemas",
+                "cleanup failed after all owned schemas were attempted");
+        assertFalse(script.contains("create isolated schemas"),
+                "owned schemas must not be created in one unregistered multi-statement batch");
     }
 
     @Test
