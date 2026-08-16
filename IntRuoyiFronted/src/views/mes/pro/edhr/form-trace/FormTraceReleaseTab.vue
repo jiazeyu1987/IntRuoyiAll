@@ -345,7 +345,7 @@ const EDHR_RELEASE_TRACE_EXCLUDED_BATCH_STATUSES = [EDHR_BATCH_STATUS_REJECTED] 
 const loading = ref(false)
 const checkItemLoading = ref(false)
 const eventLoading = ref(false)
-const printLoadingBatchExecutionId = ref<number>()
+const printLoadingBatchExecutionId = ref<string>()
 const loadError = ref('')
 const actionError = ref('')
 const list = ref<EdhrReleaseRowVO[]>([])
@@ -373,7 +373,7 @@ const queryParams = reactive<EdhrReleasePageReqVO & { pageNo: number; pageSize: 
 const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
   pageNo: 1,
   pageSize: 10,
-  releaseTransactionId: 0,
+  releaseTransactionId: '',
   itemStatus: 'OPEN' as const,
   checkResult: ''
 })
@@ -381,7 +381,7 @@ const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
 const eventQuery = reactive<EdhrReleaseEventPageReqVO>({
   pageNo: 1,
   pageSize: 10,
-  releaseTransactionId: 0,
+  releaseTransactionId: '',
   eventType: ''
 })
 
@@ -454,7 +454,8 @@ const buildQuery = (): EdhrReleasePageReqVO => ({
   productCode: queryParams.productCode?.trim() || undefined,
   batchExecutionStatuses: isRejectTrace ? [...EDHR_REJECT_TRACE_BATCH_STATUSES] : undefined,
   excludeBatchExecutionStatuses: isRejectTrace ? undefined : [...EDHR_RELEASE_TRACE_EXCLUDED_BATCH_STATUSES],
-  completedTraceOnly: true
+  completedTraceOnly: true,
+  releaseStatus: 'RELEASED'
 })
 
 async function getList() {

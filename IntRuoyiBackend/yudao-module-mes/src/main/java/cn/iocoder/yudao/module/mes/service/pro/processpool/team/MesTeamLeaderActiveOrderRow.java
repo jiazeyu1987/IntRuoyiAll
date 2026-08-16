@@ -39,9 +39,11 @@ public class MesTeamLeaderActiveOrderRow {
     private Boolean abnormal;
     private String abnormalReason;
     private LocalDateTime abnormalReportedAt;
+    private Long releaseApplicationId;
+    private Long pqcReleaseWorkTaskId;
     private String releaseApplicationStatus;
-    private String releaseApplicationBlockerSummary;
-    private Long releaseApprovalWorkTaskId;
+    private String releaseSourceSnapshotHash;
+    private Integer releaseApplicationVersion;
 
     @Data
     @Accessors(chain = true)

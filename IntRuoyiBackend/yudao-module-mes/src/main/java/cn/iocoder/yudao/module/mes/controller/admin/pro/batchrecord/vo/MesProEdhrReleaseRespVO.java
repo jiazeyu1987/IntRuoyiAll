@@ -92,4 +92,6 @@ public class MesProEdhrReleaseRespVO {
     private String withdrawReason;
 
     private Long releaseApprovalWorkTaskId;
+
+    private Integer version;
 }

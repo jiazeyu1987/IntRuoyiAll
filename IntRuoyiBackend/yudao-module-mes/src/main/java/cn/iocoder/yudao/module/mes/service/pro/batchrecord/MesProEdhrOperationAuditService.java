@@ -8,6 +8,8 @@ public interface MesProEdhrOperationAuditService {
 
     MesProEdhrOperationAuditRespVO record(MesProEdhrOperationAuditCommand command);
 
+    MesProEdhrOperationAuditRespVO recordInCallerTransaction(MesProEdhrOperationAuditCommand command);
+
     PageResult<MesProEdhrOperationAuditRespVO> getPage(MesProEdhrOperationAuditPageReqVO reqVO);
 
     MesProEdhrOperationAuditRespVO get(Long id);

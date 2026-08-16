@@ -1196,9 +1196,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .setAbnormal(abnormal != null)
                 .setAbnormalReason(abnormal == null ? null : abnormal.getAbnormalDescription())
                 .setAbnormalReportedAt(abnormal == null ? null : abnormal.getReportedAt())
+                .setReleaseApplicationId(releaseApplication == null ? null : releaseApplication.getId())
+                .setPqcReleaseWorkTaskId(releaseApplication == null ? null : releaseApplication.getPqcReleaseWorkTaskId())
                 .setReleaseApplicationStatus(releaseApplication == null ? null : releaseApplication.getApplicationStatus())
-                .setReleaseApplicationBlockerSummary(releaseApplication == null ? null : releaseApplication.getBlockerSnapshotJson())
-                .setReleaseApprovalWorkTaskId(releaseApplication == null ? null : releaseApplication.getReleaseApprovalWorkTaskId());
+                .setReleaseSourceSnapshotHash(releaseApplication == null ? null : releaseApplication.getSourceSnapshotHash())
+                .setReleaseApplicationVersion(releaseApplication == null ? null : releaseApplication.getVersion());
     }
 
     private ActiveOrderRouteSource requireProductionRouteSourceForAdd(MesProWorkOrderDO workOrder) {

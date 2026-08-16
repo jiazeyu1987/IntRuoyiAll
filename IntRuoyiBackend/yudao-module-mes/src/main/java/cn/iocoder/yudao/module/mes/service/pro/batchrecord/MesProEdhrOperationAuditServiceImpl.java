@@ -35,6 +35,16 @@ public class MesProEdhrOperationAuditServiceImpl implements MesProEdhrOperationA
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public MesProEdhrOperationAuditRespVO record(MesProEdhrOperationAuditCommand command) {
+        return doRecord(command);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrOperationAuditRespVO recordInCallerTransaction(MesProEdhrOperationAuditCommand command) {
+        return doRecord(command);
+    }
+
+    private MesProEdhrOperationAuditRespVO doRecord(MesProEdhrOperationAuditCommand command) {
         validateCommand(command);
         LocalDateTime occurredAt = command.getOccurredAt() == null
                 ? LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)

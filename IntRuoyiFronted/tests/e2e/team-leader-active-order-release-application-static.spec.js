@@ -50,25 +50,27 @@ for (const field of [
 ]) {
   assert.match(blockerResponse, new RegExp(`\\b${field}\\??\\s*:`), `blocker must type ${field}.`)
 }
-assert.match(blockerResponse, /routeProcessId\?:\s*number/)
-assert.match(blockerResponse, /processId\?:\s*number/)
+assert.match(blockerResponse, /routeProcessId\?:\s*string/)
+assert.match(blockerResponse, /processId\?:\s*string/)
 assert.match(blockerResponse, /fieldCode\?:\s*string/)
 assert.match(blockerResponse, /cellKey\?:\s*string/)
 
 assert.match(
   api,
-  /export type TeamLeaderActiveOrderReleaseApplicationStatus\s*=\s*\|?\s*'BLOCKED'\s*\|\s*'PENDING_RELEASE_APPROVAL'/,
-  'release application status must be the two-state M0 union.'
+  /export type TeamLeaderActiveOrderReleaseApplicationStatus\s*=\s*\|?\s*'PQC_RELEASE_PENDING'[\s\S]*'PQC_RELEASE_REJECTED'[\s\S]*'REPORT_UPLOAD_PENDING'[\s\S]*'MANAGER_RELEASE_PENDING'[\s\S]*'RELEASED'/,
+  'release application status must expose the five persistent workflow states.'
 )
 const applyResponse = extractInterface(api, 'TeamLeaderActiveOrderReleaseApplyRespVO')
 for (const field of [
   'applicationId',
   'activeOrderId',
   'workOrderId',
+  'routeId',
+  'routeVersionId',
+  'pqcReleaseWorkTaskId',
   'status',
-  'statusName',
-  'dossierSummary',
-  'blockers',
+  'sourceSnapshotHash',
+  'version',
   'appliedAt'
 ]) {
   assert.match(applyResponse, new RegExp(`^\\s*${field}\\s*:`, 'm'), `${field} must be a required receipt field.`)
@@ -85,7 +87,7 @@ assert.doesNotMatch(
   extractBlock(
     page,
     '<el-alert\n        v-if="releaseApplicationBlockers.length"',
-    '<el-divider>\u8c03\u62e8\u5e93\u5b58\u8ffd\u6eaf</el-divider>'
+    '<el-dialog\n        v-model="activeOrderDetailVisible"'
   ),
   /blocker\.reason\s*\|\|\s*blocker\.blockerType/,
   'required blocker reason must not silently fall back to blockerType.'
@@ -125,12 +127,12 @@ assert.doesNotMatch(
 
 assert.match(
   releaseFlow,
-  /const confirmActiveOrderReleaseApplicationReceipt[\s\S]*await getTeamLeaderActiveOrderList\([^)]*\)[\s\S]*candidate\.id === row\.id/,
+  /const confirmActiveOrderReleaseApplicationReceipt[\s\S]*await getTeamLeaderActiveOrderRelease\(row\.id\)/,
   'an uncertain apply response must use the formal read-only active-order receipt keyed by activeOrderId.'
 )
 assert.match(
   releaseFlow,
-  /catch \(writeError\) \{[\s\S]*recoverUncertainActiveOrderReleaseApplication\(row, previousReceipt, writeError\)/,
+  /catch \(writeError\) \{[\s\S]*resolveActiveOrderReleaseFailure\(writeError\)[\s\S]*recoverUncertainActiveOrderReleaseApplication\(row, writeError\)/,
   'the write-error branch must confirm the formal receipt before allowing a retry.'
 )
 assert.match(
@@ -153,12 +155,12 @@ assert.match(
 )
 assert.match(
   releaseFlow,
-  /const refreshedReceipt = activeOrderOptions\.value\.find\([\s\S]*refreshedReceipt\?\.releaseApplicationStatus === result\.status[\s\S]*releaseApplicationLocks\.delete\(row\.id\)[\s\S]*releaseApplicationLocks\.set\(row\.id, 'CONFIRMED_NOT_PROJECTED'\)/,
+  /const refreshedReceipt = activeOrderOptions\.value\.find\([\s\S]*refreshedReceipt\?\.releaseApplicationId === result\.applicationId[\s\S]*refreshedReceipt\.releaseApplicationStatus === result\.status[\s\S]*releaseApplicationLocks\.delete\(row\.id\)[\s\S]*releaseApplicationLocks\.set\(row\.id, 'CONFIRMED_NOT_PROJECTED'\)/,
   'a successful list request must not unlock duplicate submission until it projects the formal write status.'
 )
 assert.match(
   releaseFlow,
-  /assertActiveOrderReleaseApplicationReceipt\(result, row\.id\)/,
+  /assertActiveOrderReleaseApplicationReceipt\(result, row\.id, true\)/,
   'the UI must consume a formal backend receipt rather than fabricate success state.'
 )
 

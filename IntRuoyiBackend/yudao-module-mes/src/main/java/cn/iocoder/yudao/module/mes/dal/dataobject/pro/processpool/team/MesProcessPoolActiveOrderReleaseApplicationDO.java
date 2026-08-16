@@ -38,8 +38,15 @@ public class MesProcessPoolActiveOrderReleaseApplicationDO extends TenantBaseDO 
     private Long batchExecutionId;
     private Long releaseTransactionId;
     private Long releaseApprovalWorkTaskId;
+    private Long pqcReleaseWorkTaskId;
+    private String pqcDecision;
+    private Long pqcDecidedBy;
+    private LocalDateTime pqcDecidedAt;
+    private String pqcRejectReason;
     private String applicationStatus;
     private String sourceSnapshotHash;
+    private String reportSnapshotHash;
+    private Integer version;
     private String requestIdempotencyKey;
     private String businessIdempotencyKey;
     private String blockerSnapshotJson;

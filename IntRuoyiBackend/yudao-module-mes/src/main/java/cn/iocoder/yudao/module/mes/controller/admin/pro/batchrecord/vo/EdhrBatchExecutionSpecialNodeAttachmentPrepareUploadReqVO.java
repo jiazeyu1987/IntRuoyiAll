@@ -10,4 +10,8 @@ public class EdhrBatchExecutionSpecialNodeAttachmentPrepareUploadReqVO {
 
     @NotNull(message = "任务 ID 不能为空")
     private Long taskId;
+
+    private Integer expectedVersion;
+
+    private String idempotencyKey;
 }

@@ -18,4 +18,6 @@ public class EdhrBatchExecutionSpecialNodeAttachmentPrepareUploadRespVO {
     private String sha256;
     private String storageRetentionJson;
     private String storageRetentionHash;
+
+    private Integer version;
 }
