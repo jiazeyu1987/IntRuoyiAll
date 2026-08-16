@@ -1,0 +1,488 @@
+{
+  "schema_version": 2,
+  "task_id": "20260814-production-release-flow-implementation",
+  "mode": "full",
+  "status": "blocked",
+  "current_phase": "P11",
+  "phase_statuses": [
+    {
+      "phase_id": "P1",
+      "title": "T1 SP-0 角色、权限迁移与严格候选解析",
+      "objective": "新增两个最小权限角色，按目标租户幂等绑定首版用户，并提供只按租户、角色码、启用状态解析候选人的正式服务。",
+      "owned_paths": [],
+      "dependencies": [],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P1-AC1",
+          "text": "实现当前里程碑目标：新增两个最小权限角色，按目标租户幂等绑定首版用户，并提供只按租户、角色码、启用状态解析候选人的正式服务。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-6-t1t2-green-and-migration-policy-review"
+          ]
+        },
+        {
+          "ac_id": "P1-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-6-t1t2-green-and-migration-policy-review"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-6-t1t2-green-and-migration-policy-review"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "原 task-state.json 迁移前记录 T1 completed，提交 ac44d020e。"
+      ],
+      "last_reviewed_at": "2026-08-16T05:40:56+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P2",
+      "title": "T2 MIG-RF-1、生命周期/CAS、结构化错误与共享任务合同",
+      "objective": "交付申请聚合和工作任务唯一的共享结构迁移，并建立后续阶段统一使用的状态、版本、审计、幂等和 blocker 合同。",
+      "owned_paths": [],
+      "dependencies": [
+        "P1"
+      ],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P2-AC1",
+          "text": "实现当前里程碑目标：交付申请聚合和工作任务唯一的共享结构迁移，并建立后续阶段统一使用的状态、版本、审计、幂等和 blocker 合同。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-13-prerequisite-integration-and-t1t2-regression"
+          ]
+        },
+        {
+          "ac_id": "P2-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-13-prerequisite-integration-and-t1t2-regression"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-13-prerequisite-integration-and-t1t2-regression"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "原 task-state.json 迁移前记录 T2 completed，提交 d7f5d0122。"
+      ],
+      "last_reviewed_at": "2026-08-16T05:40:59+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P3",
+      "title": "T3 SP-1 生产组长完工到 PQC 待办后端",
+      "objective": "将组长提交事务改为只创建申请和一个 PQC 待办，并提供按 activeOrderId 的权威回执。",
+      "owned_paths": [],
+      "dependencies": [
+        "P2"
+      ],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P3-AC1",
+          "text": "实现当前里程碑目标：将组长提交事务改为只创建申请和一个 PQC 待办，并提供按 activeOrderId 的权威回执。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-8-t3-sp-1-green-and-commit"
+          ]
+        },
+        {
+          "ac_id": "P3-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-8-t3-sp-1-green-and-commit"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-8-t3-sp-1-green-and-commit"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "原 task-state.json 迁移前记录 T3 completed，提交 a229312e9。"
+      ],
+      "last_reviewed_at": "2026-08-16T05:40:59+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P4",
+      "title": "T4 SP-1 生产组长前端合同与页面",
+      "objective": "让真实组长页面按双 100% 提交新申请，展示五个持久状态和结构化 blocker，并正确处理成功、刷新失败与响应不确定。",
+      "owned_paths": [],
+      "dependencies": [
+        "P3"
+      ],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P4-AC1",
+          "text": "实现当前里程碑目标：让真实组长页面按双 100% 提交新申请，展示五个持久状态和结构化 blocker，并正确处理成功、刷新失败与响应不确定。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-10-t4-sp-1-frontend-green"
+          ]
+        },
+        {
+          "ac_id": "P4-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-10-t4-sp-1-frontend-green"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-10-t4-sp-1-frontend-green"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "原 task-state.json 迁移前记录 T4 completed，提交 f9186fa35。"
+      ],
+      "last_reviewed_at": "2026-08-16T05:41:00+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P5",
+      "title": "T5 SP-2 PQC 决策、申请唯一批次与三类正式映射后端",
+      "objective": "新增 PQC 查询/通过/拒绝接口；通过时在同一事务使用冻结路线创建申请唯一批次、写三类正式映射并初始化四报告阶段。",
+      "owned_paths": [],
+      "dependencies": [
+        "P4"
+      ],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P5-AC1",
+          "text": "实现当前里程碑目标：新增 PQC 查询/通过/拒绝接口；通过时在同一事务使用冻结路线创建申请唯一批次、写三类正式映射并初始化四报告阶段。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-12-t5-sp-2-backend-green-and-verification"
+          ]
+        },
+        {
+          "ac_id": "P5-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-12-t5-sp-2-backend-green-and-verification"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-12-t5-sp-2-backend-green-and-verification"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "原 task-state.json 迁移前记录 T5 completed，提交 3048b84e8。"
+      ],
+      "last_reviewed_at": "2026-08-16T05:41:00+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P6",
+      "title": "T6 SP-2 PQC 工作台前端",
+      "objective": "在候选待办真实页面提供 PQC 详情、通过和拒绝操作，严格按任务候选、版本和回执处理状态。",
+      "owned_paths": [],
+      "dependencies": [
+        "P5"
+      ],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P6-AC1",
+          "text": "实现当前里程碑目标：在候选待办真实页面提供 PQC 详情、通过和拒绝操作，严格按任务候选、版本和回执处理状态。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-15-t6-sp-2-frontend-green-and-commit-blocker"
+          ]
+        },
+        {
+          "ac_id": "P6-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-15-t6-sp-2-frontend-green-and-commit-blocker"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-15-t6-sp-2-frontend-green-and-commit-blocker"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "原 task-state.json 迁移前记录 T6 completed；实现已验证，Git 提交受共享 guard 阻塞。"
+      ],
+      "last_reviewed_at": "2026-08-16T05:41:01+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P7",
+      "title": "T7 SP-3 四报告任务、附件、版本门禁与最终阶段初始化后端",
+      "objective": "PQC 通过后精确创建四个并行必填 FILL 待办；完成前三份保持上传阶段，第四份原子创建管理者放行事务和待办。",
+      "owned_paths": [],
+      "dependencies": [
+        "P6"
+      ],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P7-AC1",
+          "text": "实现当前里程碑目标：PQC 通过后精确创建四个并行必填 FILL 待办；完成前三份保持上传阶段，第四份原子创建管理者放行事务和待办。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-17-t7-sp-3-backend-green-and-verification"
+          ]
+        },
+        {
+          "ac_id": "P7-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-17-t7-sp-3-backend-green-and-verification"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-17-t7-sp-3-backend-green-and-verification"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "原 task-state.json 迁移前记录 T7 completed；实现已验证，Git 提交受共享 guard 阻塞。"
+      ],
+      "last_reviewed_at": "2026-08-16T05:41:01+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P8",
+      "title": "T8 SP-3 四报告上传前端",
+      "objective": "在 WorkTaskBoard 和批次详情提供三类负责人完成四份资料的真实上传路径，移除目标节点 skip/暂存/覆盖入口。",
+      "owned_paths": [],
+      "dependencies": [
+        "P7"
+      ],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P8-AC1",
+          "text": "实现当前里程碑目标：在 WorkTaskBoard 和批次详情提供三类负责人完成四份资料的真实上传路径，移除目标节点 skip/暂存/覆盖入口。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-19-t8-sp-3-frontend-green-and-verification"
+          ]
+        },
+        {
+          "ac_id": "P8-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-19-t8-sp-3-frontend-green-and-verification"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-19-t8-sp-3-frontend-green-and-verification"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "原 task-state.json 迁移前记录 T8 completed；实现已验证，Git 提交受共享 guard 阻塞。"
+      ],
+      "last_reviewed_at": "2026-08-16T05:41:02+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P9",
+      "title": "T9 SP-4 管理者代表放行、报告快照与可追溯后端",
+      "objective": "实现管理者角色最终待办 provider 和 approve 扩展；复核四报告快照，原子写 RELEASED，并强制 trace 只返回 RELEASED。",
+      "owned_paths": [],
+      "dependencies": [
+        "P8"
+      ],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P9-AC1",
+          "text": "实现当前里程碑目标：实现管理者角色最终待办 provider 和 approve 扩展；复核四报告快照，原子写 RELEASED，并强制 trace 只返回 RELEASED。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-21-t9-sp-4-backend-green-and-verification"
+          ]
+        },
+        {
+          "ac_id": "P9-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-21-t9-sp-4-backend-green-and-verification"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-21-t9-sp-4-backend-green-and-verification"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "原 task-state.json 迁移前记录 T9 completed；实现已验证，Git 提交受共享 guard 阻塞。"
+      ],
+      "last_reviewed_at": "2026-08-16T05:41:02+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P10",
+      "title": "T10 SP-4 管理者审批和可追溯前端",
+      "objective": "管理者代表通过真实页面完成最终放行，并在双条件固定的可追溯列表即时查看批次。",
+      "owned_paths": [],
+      "dependencies": [
+        "P9"
+      ],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P10-AC1",
+          "text": "实现当前里程碑目标：管理者代表通过真实页面完成最终放行，并在双条件固定的可追溯列表即时查看批次。",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-23-t10-sp-4-frontend-green-and-verification"
+          ]
+        },
+        {
+          "ac_id": "P10-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": [
+            "execution-log.md#pass-23-t10-sp-4-frontend-green-and-verification"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-23-t10-sp-4-frontend-green-and-verification"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "原 task-state.json 迁移前记录 T10 completed；实现已验证，Git 提交受共享 guard 阻塞。"
+      ],
+      "last_reviewed_at": "2026-08-16T05:41:03+00:00",
+      "status": "completed"
+    },
+    {
+      "phase_id": "P11",
+      "title": "T11 全链路集成、回归、真实 E2E 与独立验收",
+      "objective": "用真实运行态、真实页面、多账号和任务自有数据证明 AC-01 至 AC-34，并验证无回归、无 fallback、无任务残留。",
+      "owned_paths": [],
+      "dependencies": [
+        "P10"
+      ],
+      "deliverables": [],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P11-AC1",
+          "text": "实现当前里程碑目标：用真实运行态、真实页面、多账号和任务自有数据证明 AC-01 至 AC-34，并验证无回归、无 fallback、无任务残留。",
+          "status": "in_progress",
+          "evidence": [
+            "execution-log.md#pass-24-t11-regression-and-e2e-preflight",
+            "execution-log.md#pass-24-t11-real-multi-account-e2e-specification-and-environment-gate",
+            "execution-log.md#pass-25-t11-adjacent-static-regression-closure",
+            "execution-log.md#pass-27-t11-runtime-v4-guard-resolution",
+            "execution-log.md#pass-28-t6-t11-verified-commit-boundary",
+            "execution-log.md#pass-29-t11-incremental-independent-reverification",
+            "execution-log.md#pass-30-int-main-integration-pending-manual-acceptance",
+            "execution-log.md#pass-31-temporary-integration-worktree-cleanup",
+            "test-report.md#p11-verdict",
+            "execution-log.md#pass-32-t11-real-e2e-specification-audit-and-preflight-refresh",
+            "execution-log.md#pass-33-t11-manual-acceptance-handoff-and-independent-reverification",
+            "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main"
+          ]
+        },
+        {
+          "ac_id": "P11-AC2",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "in_progress",
+          "evidence": [
+            "execution-log.md#pass-24-t11-regression-and-e2e-preflight",
+            "execution-log.md#pass-24-t11-real-multi-account-e2e-specification-and-environment-gate",
+            "execution-log.md#pass-25-t11-adjacent-static-regression-closure",
+            "execution-log.md#pass-27-t11-runtime-v4-guard-resolution",
+            "execution-log.md#pass-28-t6-t11-verified-commit-boundary",
+            "execution-log.md#pass-29-t11-incremental-independent-reverification",
+            "execution-log.md#pass-30-int-main-integration-pending-manual-acceptance",
+            "execution-log.md#pass-31-temporary-integration-worktree-cleanup",
+            "test-report.md#p11-verdict",
+            "execution-log.md#pass-32-t11-real-e2e-specification-audit-and-preflight-refresh",
+            "execution-log.md#pass-33-t11-manual-acceptance-handoff-and-independent-reverification",
+            "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main"
+          ]
+        }
+      ],
+      "evidence": [
+        "execution-log.md#pass-24-t11-regression-and-e2e-preflight",
+        "execution-log.md#pass-24-t11-real-multi-account-e2e-specification-and-environment-gate",
+        "execution-log.md#pass-25-t11-adjacent-static-regression-closure",
+        "execution-log.md#pass-27-t11-runtime-v4-guard-resolution",
+        "execution-log.md#pass-28-t6-t11-verified-commit-boundary",
+        "execution-log.md#pass-29-t11-incremental-independent-reverification",
+        "execution-log.md#pass-30-int-main-integration-pending-manual-acceptance",
+        "execution-log.md#pass-31-temporary-integration-worktree-cleanup",
+        "test-report.md#p11-verdict",
+        "execution-log.md#pass-32-t11-real-e2e-specification-audit-and-preflight-refresh",
+        "execution-log.md#pass-33-t11-manual-acceptance-handoff-and-independent-reverification",
+        "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main"
+      ],
+      "notes": [
+        "Mapped test topics require main-agent review.",
+        "T11 实现级回归和 runtime v4 guard 已通过；融合提交 ecb05caa6 已快进到 int_main，临时集成 worktree 已删除且 slot 24 已释放。用户授权先融合并后续手动测试，真实页面验收证据仍待补充。",
+        "T11 spec and independent static verification were refreshed on int_main; manual acceptance remains required.",
+        "T11 strengthened acceptance spec committed on int_main as 8ca580be3 after latest-head regression verification."
+      ],
+      "last_reviewed_at": "2026-08-16T09:40:27+00:00",
+      "status": "blocked"
+    }
+  ],
+  "planner_review_status": "approved",
+  "test_status": "failed",
+  "blocking_prereqs": [
+    "30 EDHR_FULL_E2E variables remain missing, so the planned automated seven-account E2E cannot be executed",
+    "current listeners on 8081/48081 have not been proven to run int_main commit 8ca580be3",
+    "user authorized integration into int_main before T11 acceptance and will perform manual validation later; no real-path manual acceptance evidence has been recorded"
+  ],
+  "iteration_counts": {
+    "planner_revisions": 2,
+    "plan_revisions": 0,
+    "executor_loops": 1,
+    "test_loops": 2
+  },
+  "created_at": "2026-08-14T21:12:50+08:00",
+  "updated_at": "2026-08-16T09:40:50+00:00",
+  "branch": "int_main",
+  "baseline_revision": "3048b84e828203b6aea83bbf07a2c6caeab5f77e",
+  "workspace_root": "E:\\IntRuoyi",
+  "tasks_root": "E:\\IntRuoyi\\doc\\tasks",
+  "task_dir": "E:\\IntRuoyi\\doc\\tasks\\20260814-production-release-flow-implementation",
+  "goal": "完成生产组长完工到可追溯入列的生产放行全流程开发与独立验证",
+  "artifacts": {
+    "prd": "E:\\IntRuoyi\\doc\\tasks\\20260814-production-release-flow-implementation\\prd.md",
+    "test_plan": "E:\\IntRuoyi\\doc\\tasks\\20260814-production-release-flow-implementation\\test-plan.md",
+    "task_state": "E:\\IntRuoyi\\doc\\tasks\\20260814-production-release-flow-implementation\\task-state.json",
+    "execution_log": "E:\\IntRuoyi\\doc\\tasks\\20260814-production-release-flow-implementation\\execution-log.md",
+    "test_report": "E:\\IntRuoyi\\doc\\tasks\\20260814-production-release-flow-implementation\\test-report.md"
+  }
+}
