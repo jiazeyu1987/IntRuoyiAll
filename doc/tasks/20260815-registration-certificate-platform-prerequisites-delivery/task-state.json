@@ -1,0 +1,114 @@
+{
+  "task_id": "20260815-registration-certificate-platform-prerequisites-delivery",
+  "goal": "Parallel-deliver three registration-certificate platform prerequisites in isolated worktrees, independently verify them, integrate them, and fast-forward verified work into int_main.",
+  "status": "completed",
+  "current_stage": "completed",
+  "planner_review_status": "approved",
+  "plan_review_status": "approved",
+  "blocking_prereqs": [],
+  "frozen_base": "90fb1af111e577431522a43f0d505ddfb7d8250d",
+  "worktrees": {
+    "integration": {
+      "path": "D:\\IntRuoyiWorktree\\reg-cert-platform-integration",
+      "branch": "codex/20260815-reg-cert-platform-integration-v2",
+      "slot": 14
+    },
+    "T-SP01": {
+      "path": "D:\\IntRuoyiWorktree\\reg-cert-platform-sp01",
+      "branch": "codex/20260815-reg-cert-platform-sp01",
+      "slot": null
+    },
+    "T-SP02": {
+      "path": "D:\\IntRuoyiWorktree\\reg-cert-platform-sp02",
+      "branch": "codex/20260815-reg-cert-platform-sp02",
+      "slot": 18
+    },
+    "T-SP03": {
+      "path": "D:\\IntRuoyiWorktree\\reg-cert-platform-sp03-v4",
+      "branch": "codex/20260815-reg-cert-platform-sp03-v4",
+      "slot": 22
+    },
+    "T-SP03-source": {
+      "path": "D:\\IntRuoyiWorktree\\reg-cert-platform-sp03",
+      "branch": "codex/20260815-reg-cert-platform-sp03",
+      "slot": null
+    },
+    "T-TC18-INFRA": {
+      "path": "D:\\IntRuoyiWorktree\\reg-cert-platform-tc18-infra-fix",
+      "branch": "codex/20260815-reg-cert-platform-tc18-infra-timeout-fix",
+      "slot": 23
+    }
+  },
+  "iteration_counts": {
+    "planner_revisions": 1,
+    "plan_revisions": 2,
+    "executor_loops": 1,
+    "test_loops": 6
+  },
+  "tasks": [
+    {
+      "task_id": "T-SP01",
+      "title": "System registration controlled-content projection contract",
+      "status": "integrated",
+      "dependency_ids": [],
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-04"],
+      "owner_agent": "/root",
+      "last_outcome": "Independent verification and integration replay passed; worktree removed, ports had zero listeners, and slot 18 was atomically released for SP-02."
+    },
+    {
+      "task_id": "T-SP02",
+      "title": "Infra/DCC operation-aware business-file access gate",
+      "status": "integrated",
+      "dependency_ids": [],
+      "acceptance_ids": ["AC-05", "AC-06", "AC-07", "AC-08", "AC-09"],
+      "owner_agent": "/root",
+      "last_outcome": "Verified commit 3a8caab09e95e8c02287fde8efbce1ce7652302c was merged without conflicts into integration commit 4542fa3da4569e50ae93c5eddc3f4d67d940646b after exact 33-path, diff and v4 guard checks."
+    },
+    {
+      "task_id": "T-SP03",
+      "title": "System notify tenant business-key idempotency and explicit failure",
+      "status": "integrated",
+      "dependency_ids": [],
+      "acceptance_ids": ["AC-10", "AC-11", "AC-12", "AC-13", "AC-14", "AC-15"],
+      "owner_agent": "/root/sp03_final_independent_tester",
+      "last_outcome": "Non-writer final replay passed exact candidate 5b22aa052. It was merged without conflicts into integration commit 9888417f704f1ac8b9af82bb22d51e1db511d374 with the exact 21-path staged set; root and independent combined regressions both passed."
+    },
+    {
+      "task_id": "T-TC18-INFRA",
+      "title": "Infra timed-out process termination and Windows handle release",
+      "dependency_ids": [],
+      "acceptance_ids": ["TC-18"],
+      "status": "integrated",
+      "owner_agent": "/root/tc18_independent_tester",
+      "last_outcome": "Independent focused 7/7 and adjacent 72/72 passed. The reconciled integration replay repeated focused 7/7 and adjacent 72/72 with zero failures/errors/skips; its broad diagnostic retained only the exact four registered unrelated Infra baselines."
+    },
+    {
+      "task_id": "T-VERIFY",
+      "title": "Independent branch verification",
+      "status": "completed",
+      "dependency_ids": ["T-SP01", "T-SP02", "T-SP03"],
+      "acceptance_ids": ["AC-01..AC-15"],
+      "owner_agent": "/root/sp03_final_independent_tester",
+      "last_outcome": "Final non-writer replay completed: all scoped tests and contracts passed, broad diagnostic reproduced only the four registered unrelated Infra baselines, and the exact 21-path candidate remained clean with passing runtime guard."
+    },
+    {
+      "task_id": "T-INTEGRATE",
+      "title": "Verified commit integration and combined regression",
+      "status": "completed",
+      "dependency_ids": ["T-VERIFY"],
+      "acceptance_ids": ["AC-01..AC-15"],
+      "owner_agent": "/root",
+      "last_outcome": "Root replay and a non-writer replay both passed reconciled integration 68578ad1c. Independent evidence covered SP-01 27, SP-02 60/26/164, SP-03 35/44 plus migration 6/policy 4 and BPM/DCC/Infra callers 1/2/6, TC-18 7, static gates and broad 526/3/1/10 with only four registered unrelated baselines."
+    },
+    {
+      "task_id": "T-FUSE",
+      "title": "Fast-forward integration into int_main and closeout",
+      "status": "completed",
+      "dependency_ids": ["T-INTEGRATE"],
+      "acceptance_ids": ["AC-01..AC-15"],
+      "owner_agent": "/root",
+      "last_outcome": "TC-20 fast-forward PASS followed by closeout: main remains at 68578ad1c; cleanup removed only the temporary slot-release helper; five task worktrees were removed and active slots 14/18/22/23 were atomically released."
+    }
+  ],
+  "updated_at": "2026-08-16T17:17:00+08:00"
+}
