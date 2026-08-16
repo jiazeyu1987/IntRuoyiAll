@@ -138,6 +138,62 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
+    FROM (
+      SELECT 'mdm_enterprise' AS table_name, 'PRIMARY' AS index_name,
+             1 AS column_count, 'id' AS column_names
+      UNION ALL SELECT 'mdm_user_company_scope', 'PRIMARY', 1, 'id'
+      UNION ALL SELECT 'mdm_role_company_scope', 'PRIMARY', 1, 'id'
+    ) AS expected_primary
+    JOIN information_schema.TABLES AS present_table
+      ON present_table.TABLE_SCHEMA = DATABASE()
+     AND present_table.TABLE_NAME = expected_primary.table_name
+    LEFT JOIN (
+      SELECT TABLE_NAME, INDEX_NAME, MAX(NON_UNIQUE) AS NON_UNIQUE, COUNT(*) AS column_count,
+             GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') AS column_names,
+             SUM(SUB_PART IS NOT NULL) AS prefix_column_count
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND INDEX_NAME = 'PRIMARY'
+      GROUP BY TABLE_NAME, INDEX_NAME
+    ) AS actual_primary
+      ON actual_primary.TABLE_NAME = expected_primary.table_name
+     AND actual_primary.INDEX_NAME = expected_primary.index_name
+    WHERE actual_primary.INDEX_NAME IS NULL
+       OR actual_primary.NON_UNIQUE <> 0
+       OR actual_primary.column_count <> expected_primary.column_count
+       OR actual_primary.column_names <> expected_primary.column_names
+       OR actual_primary.prefix_column_count <> 0
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'MDM enterprise/company scope primary key contract mismatch';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM (
+      SELECT TABLE_NAME, INDEX_NAME
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME IN ('mdm_enterprise', 'mdm_user_company_scope', 'mdm_role_company_scope')
+        AND NON_UNIQUE = 0
+      GROUP BY TABLE_NAME, INDEX_NAME
+    ) AS actual_unique_index
+    WHERE NOT (
+      actual_unique_index.INDEX_NAME = 'PRIMARY'
+      OR (actual_unique_index.TABLE_NAME = 'mdm_enterprise'
+          AND actual_unique_index.INDEX_NAME = 'uk_mdm_enterprise_tenant_code')
+      OR (actual_unique_index.TABLE_NAME = 'mdm_user_company_scope'
+          AND actual_unique_index.INDEX_NAME = 'uk_mdm_user_company_scope_tenant_user_company')
+      OR (actual_unique_index.TABLE_NAME = 'mdm_role_company_scope'
+          AND actual_unique_index.INDEX_NAME = 'uk_mdm_role_company_scope_tenant_role_company')
+    )
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'MDM enterprise/company scope unexpected unique index contract mismatch';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
     FROM information_schema.TABLES AS enterprise_table
     WHERE enterprise_table.TABLE_SCHEMA = DATABASE()
       AND enterprise_table.TABLE_NAME = 'mdm_enterprise'

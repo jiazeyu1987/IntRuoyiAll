@@ -93,6 +93,11 @@ class MdmEnterpriseSchemaContractTest {
                 && normalizedSql.contains("tenant_id,user_id,company_id"));
         assertTrue(normalizedSql.contains("uk_mdm_role_company_scope_tenant_role_company")
                 && normalizedSql.contains("tenant_id,role_id,company_id"));
+        assertTrue(normalizedSql.contains("'PRIMARY' AS index_name")
+                        && normalizedSql.contains("'id' AS column_names"),
+                "all three tables must require an exact single-column id primary key");
+        assertTrue(normalizedSql.contains("MDM enterprise/company scope unexpected unique index contract mismatch"),
+                "unapproved unique indexes must fail because they can narrow tenant-scoped business keys");
         int preflightCall = normalizedSql.indexOf("CALL assert_mdm_enterprise_company_scope_contract(FALSE)");
         int firstCreate = normalizedSql.indexOf("CREATE TABLE IF NOT EXISTS `mdm_enterprise`");
         int postflightCall = normalizedSql.indexOf("CALL assert_mdm_enterprise_company_scope_contract(TRUE)");
