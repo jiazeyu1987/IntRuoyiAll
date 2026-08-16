@@ -1868,23 +1868,32 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
     (`owner_type` IN ('VERSION', 'CHANGE', 'SUPPORTING_DOCUMENT')),
   CONSTRAINT `chk_dcc_reg_cert_file_kind` CHECK (`file_kind` IN
     ('REGISTRATION_CERTIFICATE', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
+  CONSTRAINT `chk_dcc_reg_cert_file_status` CHECK
+    (`status` IN ('STAGED', 'BOUND', 'CLEANUP_REQUIRED', 'VOIDED')),
   UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`)
 );
 
 CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `owner_company_id` BIGINT NOT NULL,
   `certificate_id` BIGINT NOT NULL,
   `version_id` BIGINT NULL,
   `snapshot_id` BIGINT NULL,
+  `business_file_id` BIGINT NULL,
   `event_key` VARCHAR(256) NOT NULL,
   `event_type` VARCHAR(64) NOT NULL,
   `actor_id` BIGINT NULL,
+  `result` VARCHAR(32) NOT NULL,
+  `result_code` VARCHAR(64) NULL,
+  `request_trace_id` VARCHAR(128) NOT NULL,
   `detail_json` VARCHAR(8000) NOT NULL,
   `occurred_at` DATETIME NOT NULL,
   `creator` VARCHAR(64) DEFAULT '',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   CONSTRAINT `chk_dcc_reg_cert_audit_event_key` CHECK (TRIM(`event_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_audit_result` CHECK (`result` IN ('SUCCESS', 'FAILURE')),
+  CONSTRAINT `chk_dcc_reg_cert_audit_trace` CHECK (TRIM(`request_trace_id`) <> ''),
   UNIQUE KEY `uk_dcc_reg_cert_audit_event` (`tenant_id`, `event_key`)
 );

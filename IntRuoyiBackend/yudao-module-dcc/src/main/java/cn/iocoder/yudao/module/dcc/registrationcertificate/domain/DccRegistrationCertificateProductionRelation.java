@@ -34,12 +34,10 @@ public final class DccRegistrationCertificateProductionRelation {
         return entrustedEnterprises;
     }
 
-    public void assertProjectionMatches(List<Long> projectedEnterpriseIds) {
-        Objects.requireNonNull(projectedEnterpriseIds, "projected enterprise ids must not be null");
-        List<Long> authoritativeIds = entrustedEnterprises.stream()
-                .map(DccRegistrationCertificateEntrustedEnterprise::enterpriseId)
-                .toList();
-        if (!authoritativeIds.equals(projectedEnterpriseIds)) {
+    public void assertProjectionMatches(
+            List<DccRegistrationCertificateEntrustedEnterprise> projectedEnterprises) {
+        Objects.requireNonNull(projectedEnterprises, "projected enterprises must not be null");
+        if (!entrustedEnterprises.equals(projectedEnterprises)) {
             throw new IllegalArgumentException("Entrusted enterprise projection does not match authoritative facts");
         }
     }

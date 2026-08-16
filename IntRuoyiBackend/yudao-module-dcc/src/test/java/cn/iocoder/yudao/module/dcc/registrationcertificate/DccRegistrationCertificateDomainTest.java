@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -36,6 +37,10 @@ class DccRegistrationCertificateDomainTest {
         assertEnum("DccRegistrationCertificateFileKind",
                 Set.of("REGISTRATION_CERTIFICATE", "CHANGE_APPROVAL", "RENEWAL_ACCEPTANCE_RECEIPT",
                         "RENEWAL_SUPPLEMENT_NOTICE"));
+        assertEnum("DccRegistrationCertificateFileStatus",
+                Set.of("STAGED", "BOUND", "CLEANUP_REQUIRED", "VOIDED"));
+        assertEnum("DccRegistrationCertificateAuditResult",
+                Set.of("SUCCESS", "FAILURE"));
 
         Class<?> masterStatus = requiredClass(ENUMS + "DccRegistrationCertificateMasterStatus");
         Object draft = invokeStatic(masterStatus, "fromCode", new Class<?>[]{String.class}, "DRAFT");
@@ -67,11 +72,21 @@ class DccRegistrationCertificateDomainTest {
         assertConstructionFails(true, false, List.of(entrusted(11L, " ")));
 
         Object delegated = relation(true, false, List.of(enterpriseA));
-        invoke(delegated, "assertProjectionMatches", new Class<?>[]{List.class}, List.of(10L));
+        assertDoesNotThrow(() -> invoke(delegated, "assertProjectionMatches",
+                new Class<?>[]{List.class}, List.of(enterpriseA)));
         assertThrows(IllegalArgumentException.class,
                 () -> invoke(delegated, "assertProjectionMatches", new Class<?>[]{List.class}, List.of()));
         assertThrows(IllegalArgumentException.class,
-                () -> invoke(delegated, "assertProjectionMatches", new Class<?>[]{List.class}, List.of(10L, 12L)));
+                () -> invoke(delegated, "assertProjectionMatches", new Class<?>[]{List.class},
+                        List.of(entrusted(10L, "Renamed Factory"))));
+
+        Object enterpriseB = entrusted(12L, "Factory B");
+        Object ordered = relation(true, false, List.of(enterpriseA, enterpriseB));
+        assertDoesNotThrow(() -> invoke(ordered, "assertProjectionMatches",
+                new Class<?>[]{List.class}, List.of(enterpriseA, enterpriseB)));
+        assertThrows(IllegalArgumentException.class,
+                () -> invoke(ordered, "assertProjectionMatches", new Class<?>[]{List.class},
+                        List.of(enterpriseB, enterpriseA)));
 
         relation(false, true, List.of());
         relation(true, true, List.of(enterpriseA));

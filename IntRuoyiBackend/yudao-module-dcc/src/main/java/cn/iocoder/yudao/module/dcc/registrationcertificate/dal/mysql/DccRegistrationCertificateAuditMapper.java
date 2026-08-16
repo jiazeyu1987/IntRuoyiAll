@@ -14,11 +14,13 @@ public interface DccRegistrationCertificateAuditMapper {
 
     @Insert("""
             INSERT INTO dcc_registration_certificate_audit
-              (tenant_id, certificate_id, version_id, snapshot_id, event_key, event_type,
-               actor_id, detail_json, occurred_at, creator)
+              (tenant_id, owner_company_id, certificate_id, version_id, snapshot_id, business_file_id,
+               event_key, event_type, actor_id, result, result_code, request_trace_id,
+               detail_json, occurred_at, creator)
             VALUES
-              (#{tenantId}, #{certificateId}, #{versionId}, #{snapshotId}, #{eventKey}, #{eventType},
-               #{actorId}, #{detailJson}, #{occurredAt}, #{creator})
+              (#{tenantId}, #{ownerCompanyId}, #{certificateId}, #{versionId}, #{snapshotId},
+               #{businessFileId}, #{eventKey}, #{eventType}, #{actorId}, #{result}, #{resultCode},
+               #{requestTraceId}, #{detailJson}, #{occurredAt}, #{creator})
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(DccRegistrationCertificateAuditDO audit);

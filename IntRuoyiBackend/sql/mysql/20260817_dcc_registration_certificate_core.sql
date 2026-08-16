@@ -43,7 +43,12 @@ BEGIN
           UNION ALL SELECT 'dcc_registration_certificate_file', 'tenant_id', 'bigint', 'NO', FALSE
           UNION ALL SELECT 'dcc_registration_certificate_file', 'bound_file_unique_flag', 'bigint', 'YES', TRUE
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'tenant_id', 'bigint', 'NO', FALSE
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'owner_company_id', 'bigint', 'NO', FALSE
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'business_file_id', 'bigint', 'YES', FALSE
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'event_key', 'varchar', 'NO', FALSE
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'result', 'varchar', 'NO', FALSE
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'result_code', 'varchar', 'YES', FALSE
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'request_trace_id', 'varchar', 'NO', FALSE
         ) AS expected_column
         LEFT JOIN information_schema.COLUMNS AS actual_column
           ON actual_column.TABLE_SCHEMA = DATABASE()
@@ -145,7 +150,10 @@ BEGIN
           UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation'
           UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type'
           UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status'
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key'
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result'
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace'
         ) AS expected_check
         LEFT JOIN information_schema.TABLE_CONSTRAINTS AS actual_check
           ON actual_check.CONSTRAINT_SCHEMA = DATABASE()
@@ -350,6 +358,8 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
     (`owner_type` IN ('VERSION', 'CHANGE', 'SUPPORTING_DOCUMENT')),
   CONSTRAINT `chk_dcc_reg_cert_file_kind` CHECK (`file_kind` IN
     ('REGISTRATION_CERTIFICATE', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
+  CONSTRAINT `chk_dcc_reg_cert_file_status` CHECK
+    (`status` IN ('STAGED', 'BOUND', 'CLEANUP_REQUIRED', 'VOIDED')),
   CONSTRAINT `chk_dcc_reg_cert_file_size` CHECK (`file_size` >= 0),
   UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`),
   KEY `idx_dcc_reg_cert_file_owner` (`tenant_id`, `owner_type`, `owner_id`, `file_kind`),
@@ -360,19 +370,27 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
 CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Certificate audit id',
   `tenant_id` bigint NOT NULL COMMENT 'Tenant id',
+  `owner_company_id` bigint NOT NULL COMMENT 'Owning company enterprise id',
   `certificate_id` bigint NOT NULL COMMENT 'Registration certificate aggregate id',
   `version_id` bigint DEFAULT NULL COMMENT 'Certificate version id',
   `snapshot_id` bigint DEFAULT NULL COMMENT 'Certificate snapshot id',
+  `business_file_id` bigint DEFAULT NULL COMMENT 'Registration certificate business file id',
   `event_key` varchar(256) NOT NULL COMMENT 'Tenant-scoped idempotent event key',
   `event_type` varchar(64) NOT NULL COMMENT 'Stable audit event type',
   `actor_id` bigint DEFAULT NULL COMMENT 'Actor user id',
+  `result` varchar(32) NOT NULL COMMENT 'Success or failure result',
+  `result_code` varchar(64) DEFAULT NULL COMMENT 'Stable operation result code',
+  `request_trace_id` varchar(128) NOT NULL COMMENT 'Request trace id',
   `detail_json` json NOT NULL COMMENT 'Immutable event detail',
   `occurred_at` datetime NOT NULL COMMENT 'Business occurrence time',
   `creator` varchar(64) DEFAULT '' COMMENT 'Creator',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation time',
   PRIMARY KEY (`id`),
   CONSTRAINT `chk_dcc_reg_cert_audit_event_key` CHECK (TRIM(`event_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_audit_result` CHECK (`result` IN ('SUCCESS', 'FAILURE')),
+  CONSTRAINT `chk_dcc_reg_cert_audit_trace` CHECK (TRIM(`request_trace_id`) <> ''),
   UNIQUE KEY `uk_dcc_reg_cert_audit_event` (`tenant_id`, `event_key`),
+  KEY `idx_dcc_reg_cert_audit_company` (`tenant_id`, `owner_company_id`, `occurred_at`),
   KEY `idx_dcc_reg_cert_audit_certificate` (`tenant_id`, `certificate_id`, `occurred_at`),
   KEY `idx_dcc_reg_cert_audit_version` (`tenant_id`, `version_id`, `occurred_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -460,32 +478,82 @@ CREATE TRIGGER `trg_dcc_reg_cert_snapshot_immutable_bu`
 BEFORE UPDATE ON `dcc_registration_certificate_snapshot`
 FOR EACH ROW
 BEGIN
-  SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'Formal registration certificate snapshot is append-only';
+  DECLARE linked_version_status varchar(32);
+  IF NOT (OLD.`id` <=> NEW.`id`)
+     OR NOT (OLD.`version_id` <=> NEW.`version_id`)
+     OR NOT (OLD.`tenant_id` <=> NEW.`tenant_id`) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Cross-version snapshot reattachment is forbidden';
+  END IF;
+  SELECT `status` INTO linked_version_status
+    FROM `dcc_registration_certificate_version`
+   WHERE `id` = OLD.`version_id`
+     AND `tenant_id` = OLD.`tenant_id`
+     AND `deleted` = b'0';
+  IF linked_version_status IS NULL OR linked_version_status <> 'DRAFT' THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Formal registration certificate snapshot is append-only';
+  END IF;
 END$$
 
 CREATE TRIGGER `trg_dcc_reg_cert_snapshot_immutable_bd`
 BEFORE DELETE ON `dcc_registration_certificate_snapshot`
 FOR EACH ROW
 BEGIN
-  SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'Formal registration certificate snapshot cannot be deleted';
+  DECLARE linked_version_status varchar(32);
+  SELECT `status` INTO linked_version_status
+    FROM `dcc_registration_certificate_version`
+   WHERE `id` = OLD.`version_id`
+     AND `tenant_id` = OLD.`tenant_id`
+     AND `deleted` = b'0';
+  IF linked_version_status IS NULL OR linked_version_status <> 'DRAFT' THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Formal registration certificate snapshot cannot be deleted';
+  END IF;
 END$$
 
 CREATE TRIGGER `trg_dcc_reg_cert_entrusted_immutable_bu`
 BEFORE UPDATE ON `dcc_registration_certificate_snapshot_entrusted`
 FOR EACH ROW
 BEGIN
-  SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'Registration certificate entrusted projection is append-only';
+  DECLARE entrusted_version_status varchar(32);
+  IF NOT (OLD.`id` <=> NEW.`id`)
+     OR NOT (OLD.`snapshot_id` <=> NEW.`snapshot_id`)
+     OR NOT (OLD.`tenant_id` <=> NEW.`tenant_id`) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Cross-snapshot entrusted projection reattachment is forbidden';
+  END IF;
+  SELECT version_row.`status` INTO entrusted_version_status
+    FROM `dcc_registration_certificate_snapshot` AS snapshot_row
+    JOIN `dcc_registration_certificate_version` AS version_row
+      ON version_row.`id` = snapshot_row.`version_id`
+     AND version_row.`tenant_id` = snapshot_row.`tenant_id`
+     AND version_row.`deleted` = b'0'
+   WHERE snapshot_row.`id` = OLD.`snapshot_id`
+     AND snapshot_row.`tenant_id` = OLD.`tenant_id`;
+  IF entrusted_version_status IS NULL OR entrusted_version_status <> 'DRAFT' THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Registration certificate entrusted projection is append-only';
+  END IF;
 END$$
 
 CREATE TRIGGER `trg_dcc_reg_cert_entrusted_immutable_bd`
 BEFORE DELETE ON `dcc_registration_certificate_snapshot_entrusted`
 FOR EACH ROW
 BEGIN
-  SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'Registration certificate entrusted projection cannot be deleted';
+  DECLARE entrusted_version_status varchar(32);
+  SELECT version_row.`status` INTO entrusted_version_status
+    FROM `dcc_registration_certificate_snapshot` AS snapshot_row
+    JOIN `dcc_registration_certificate_version` AS version_row
+      ON version_row.`id` = snapshot_row.`version_id`
+     AND version_row.`tenant_id` = snapshot_row.`tenant_id`
+     AND version_row.`deleted` = b'0'
+   WHERE snapshot_row.`id` = OLD.`snapshot_id`
+     AND snapshot_row.`tenant_id` = OLD.`tenant_id`;
+  IF entrusted_version_status IS NULL OR entrusted_version_status <> 'DRAFT' THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Registration certificate entrusted projection cannot be deleted';
+  END IF;
 END$$
 
 CREATE TRIGGER `trg_dcc_reg_cert_file_immutable_bu`

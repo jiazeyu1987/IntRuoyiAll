@@ -305,6 +305,134 @@ UPDATE dcc_registration_certificate_snapshot_entrusted
  WHERE snapshot_id = 102 AND enterprise_id = 30;
 '@
 
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'draft snapshot and projection fixture' -Sql @'
+INSERT INTO dcc_registration_certificate_snapshot
+  (id, version_id, revision_no, product_name, registrant_name,
+   entrusted_production, self_production, entrusted_enterprises_json, effective_at, tenant_id)
+VALUES (201, 21, 1, 'Draft Product', 'Draft Registrant', b'1', b'0',
+        JSON_ARRAY(JSON_OBJECT('enterpriseId', 31, 'enterpriseName', 'Draft Factory')), NOW(), 1);
+INSERT INTO dcc_registration_certificate_snapshot_entrusted
+  (id, snapshot_id, enterprise_id, enterprise_name_snapshot, sort_order, tenant_id)
+VALUES (2001, 201, 31, 'Draft Factory', 1, 1);
+'@)
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'draft snapshot update' -Sql @'
+UPDATE dcc_registration_certificate_snapshot
+   SET product_name = 'Edited Draft Product'
+ WHERE id = 201;
+'@)
+    Write-Output 'PASS: draft snapshot update'
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'draft entrusted projection update' -Sql @'
+UPDATE dcc_registration_certificate_snapshot_entrusted
+   SET enterprise_name_snapshot = 'Edited Draft Factory'
+ WHERE id = 2001;
+'@)
+    Write-Output 'PASS: draft entrusted projection update'
+    Assert-SqlFails -Schema $schema -Label 'cross-version snapshot reattachment' -Sql @'
+UPDATE dcc_registration_certificate_snapshot
+   SET version_id = 11
+ WHERE id = 201;
+'@
+    Assert-SqlFails -Schema $schema -Label 'cross-snapshot projection reattachment' -Sql @'
+UPDATE dcc_registration_certificate_snapshot_entrusted
+   SET snapshot_id = 101
+ WHERE id = 2001;
+'@
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'draft projection delete' -Sql @'
+DELETE FROM dcc_registration_certificate_snapshot_entrusted WHERE id = 2001;
+'@)
+    Write-Output 'PASS: draft entrusted projection delete'
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'draft snapshot delete' -Sql @'
+DELETE FROM dcc_registration_certificate_snapshot WHERE id = 201;
+'@)
+    Write-Output 'PASS: draft snapshot delete'
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'recreate draft snapshot and projection' -Sql @'
+INSERT INTO dcc_registration_certificate_snapshot
+  (id, version_id, revision_no, product_name, registrant_name,
+   entrusted_production, self_production, entrusted_enterprises_json, effective_at, tenant_id)
+VALUES (201, 21, 1, 'Draft Product', 'Draft Registrant', b'1', b'0',
+        JSON_ARRAY(JSON_OBJECT('enterpriseId', 31, 'enterpriseName', 'Draft Factory')), NOW(), 1);
+INSERT INTO dcc_registration_certificate_snapshot_entrusted
+  (id, snapshot_id, enterprise_id, enterprise_name_snapshot, sort_order, tenant_id)
+VALUES (2001, 201, 31, 'Draft Factory', 1, 1);
+UPDATE dcc_registration_certificate_version
+   SET status = 'CURRENT', formalized_at = NOW(), formalized_by = 99
+ WHERE id = 21;
+'@)
+    Assert-SqlFails -Schema $schema -Label 'formalized draft snapshot overwrite' -Sql @'
+UPDATE dcc_registration_certificate_snapshot SET product_name = 'OVERWRITE' WHERE id = 201;
+'@
+    Assert-SqlFails -Schema $schema -Label 'formalized draft snapshot delete' -Sql @'
+DELETE FROM dcc_registration_certificate_snapshot WHERE id = 201;
+'@
+    Assert-SqlFails -Schema $schema -Label 'formalized draft projection overwrite' -Sql @'
+UPDATE dcc_registration_certificate_snapshot_entrusted
+   SET enterprise_name_snapshot = 'OVERWRITE' WHERE id = 2001;
+'@
+    Assert-SqlFails -Schema $schema -Label 'formalized draft projection delete' -Sql @'
+DELETE FROM dcc_registration_certificate_snapshot_entrusted WHERE id = 2001;
+'@
+
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'orphan snapshot fail-closed fixture' -Sql @'
+INSERT INTO dcc_registration_certificate_snapshot
+  (id, version_id, revision_no, product_name, registrant_name,
+   entrusted_production, self_production, entrusted_enterprises_json, effective_at, tenant_id)
+VALUES (301, 999, 1, 'Orphan Product', 'Orphan Registrant', b'1', b'0',
+        JSON_ARRAY(JSON_OBJECT('enterpriseId', 32, 'enterpriseName', 'Orphan Factory')), NOW(), 1);
+INSERT INTO dcc_registration_certificate_snapshot_entrusted
+  (id, snapshot_id, enterprise_id, enterprise_name_snapshot, sort_order, tenant_id)
+VALUES (3001, 301, 32, 'Orphan Factory', 1, 1);
+'@)
+    Assert-SqlFails -Schema $schema -Label 'orphan snapshot update' -Sql @'
+UPDATE dcc_registration_certificate_snapshot SET product_name = 'OVERWRITE' WHERE id = 301;
+'@
+    Assert-SqlFails -Schema $schema -Label 'orphan snapshot delete' -Sql @'
+DELETE FROM dcc_registration_certificate_snapshot WHERE id = 301;
+'@
+    Assert-SqlFails -Schema $schema -Label 'orphan projection update' -Sql @'
+UPDATE dcc_registration_certificate_snapshot_entrusted
+   SET enterprise_name_snapshot = 'OVERWRITE' WHERE id = 3001;
+'@
+    Assert-SqlFails -Schema $schema -Label 'orphan projection delete' -Sql @'
+DELETE FROM dcc_registration_certificate_snapshot_entrusted WHERE id = 3001;
+'@
+
+    $auditColumns = Invoke-SqlSuccess -Schema $schema -Label 'audit field metadata' -Sql @"
+SELECT CONCAT(COLUMN_NAME, '|', DATA_TYPE, '|', IS_NULLABLE)
+  FROM information_schema.COLUMNS
+ WHERE TABLE_SCHEMA = '$schema'
+   AND TABLE_NAME = 'dcc_registration_certificate_audit'
+   AND COLUMN_NAME IN ('owner_company_id', 'business_file_id', 'result', 'result_code', 'request_trace_id')
+ ORDER BY COLUMN_NAME;
+"@
+    Assert-Equal -Expected (@(
+        'business_file_id|bigint|YES',
+        'owner_company_id|bigint|NO',
+        'request_trace_id|varchar|NO',
+        'result|varchar|NO',
+        'result_code|varchar|YES'
+    ) -join "`n") -Actual $auditColumns -Label 'complete audit field metadata'
+
+    $newChecks = Invoke-SqlSuccess -Schema $schema -Label 'file and audit CHECK metadata' -Sql @"
+SELECT tc.CONSTRAINT_NAME
+  FROM information_schema.TABLE_CONSTRAINTS tc
+ WHERE tc.CONSTRAINT_SCHEMA = '$schema'
+   AND tc.CONSTRAINT_NAME IN ('chk_dcc_reg_cert_file_status', 'chk_dcc_reg_cert_audit_result',
+                              'chk_dcc_reg_cert_audit_trace')
+ ORDER BY tc.CONSTRAINT_NAME;
+"@
+    Assert-Equal -Expected (@(
+        'chk_dcc_reg_cert_audit_result',
+        'chk_dcc_reg_cert_audit_trace',
+        'chk_dcc_reg_cert_file_status'
+    ) -join "`n") -Actual $newChecks -Label 'file status and audit CHECK contracts'
+
+    Assert-SqlFails -Schema $schema -Label 'unknown file status' -Sql @'
+INSERT INTO dcc_registration_certificate_file
+  (owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
+   file_size, sha256, status, tenant_id)
+VALUES ('VERSION', 11, 'REGISTRATION_CERTIFICATE', 499, 'unknown.pdf', 'application/pdf',
+        10, REPEAT('f', 64), 'UNKNOWN', 1);
+'@
     [void](Invoke-SqlSuccess -Schema $schema -Label 'bound file fixture' -Sql @'
 INSERT INTO dcc_registration_certificate_file
   (owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
@@ -327,18 +455,36 @@ UPDATE dcc_registration_certificate_file
 
     Assert-SqlFails -Schema $schema -Label 'blank audit event key' -Sql @'
 INSERT INTO dcc_registration_certificate_audit
-  (tenant_id, certificate_id, event_key, event_type, detail_json, occurred_at)
-VALUES (1, 1, '   ', 'FORMALIZED', JSON_OBJECT(), NOW());
+  (tenant_id, owner_company_id, certificate_id, event_key, event_type, result,
+   request_trace_id, detail_json, occurred_at)
+VALUES (1, 10, 1, '   ', 'FORMALIZED', 'SUCCESS', 'trace-blank-event', JSON_OBJECT(), NOW());
+'@
+    Assert-SqlFails -Schema $schema -Label 'unknown audit result' -Sql @'
+INSERT INTO dcc_registration_certificate_audit
+  (tenant_id, owner_company_id, certificate_id, event_key, event_type, result,
+   request_trace_id, detail_json, occurred_at)
+VALUES (1, 10, 1, 'cert:1:bad-result', 'FORMALIZED', 'UNKNOWN', 'trace-bad-result',
+        JSON_OBJECT(), NOW());
+'@
+    Assert-SqlFails -Schema $schema -Label 'blank audit request trace' -Sql @'
+INSERT INTO dcc_registration_certificate_audit
+  (tenant_id, owner_company_id, certificate_id, event_key, event_type, result,
+   request_trace_id, detail_json, occurred_at)
+VALUES (1, 10, 1, 'cert:1:blank-trace', 'FORMALIZED', 'FAILURE', '   ', JSON_OBJECT(), NOW());
 '@
     [void](Invoke-SqlSuccess -Schema $schema -Label 'audit event fixture' -Sql @'
 INSERT INTO dcc_registration_certificate_audit
-  (tenant_id, certificate_id, event_key, event_type, detail_json, occurred_at)
-VALUES (1, 1, 'cert:1:formalized', 'FORMALIZED', JSON_OBJECT(), NOW());
+  (tenant_id, owner_company_id, certificate_id, business_file_id, event_key, event_type,
+   result, result_code, request_trace_id, detail_json, occurred_at)
+VALUES (1, 10, 1, 500, 'cert:1:formalized', 'FORMALIZED', 'SUCCESS', 'OK',
+        'trace-formalized-1', JSON_OBJECT(), NOW());
 '@)
     Assert-SqlFails -Schema $schema -Label 'duplicate tenant audit event key' -Sql @'
 INSERT INTO dcc_registration_certificate_audit
-  (tenant_id, certificate_id, event_key, event_type, detail_json, occurred_at)
-VALUES (1, 1, 'cert:1:formalized', 'FORMALIZED', JSON_OBJECT(), NOW());
+  (tenant_id, owner_company_id, certificate_id, event_key, event_type, result,
+   request_trace_id, detail_json, occurred_at)
+VALUES (1, 10, 1, 'cert:1:formalized', 'FORMALIZED', 'SUCCESS', 'trace-duplicate',
+        JSON_OBJECT(), NOW());
 '@
     Assert-SqlFails -Schema $schema -Label 'audit overwrite' -Sql @'
 UPDATE dcc_registration_certificate_audit

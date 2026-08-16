@@ -20,12 +20,17 @@ public class DccRegistrationCertificateAuditDO implements Serializable {
     @TableId
     private Long id;
     private Long tenantId;
+    private Long ownerCompanyId;
     private Long certificateId;
     private Long versionId;
     private Long snapshotId;
+    private Long businessFileId;
     private String eventKey;
     private String eventType;
     private Long actorId;
+    private String result;
+    private String resultCode;
+    private String requestTraceId;
     private String detailJson;
     private LocalDateTime occurredAt;
     private String creator;

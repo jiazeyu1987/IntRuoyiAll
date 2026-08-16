@@ -78,7 +78,21 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 "unique key `uk_dcc_reg_cert_audit_event` (`tenant_id`, `event_key`)",
                 "json_length(`entrusted_enterprises_json`)",
                 "constraint `chk_dcc_reg_cert_production_relation` check",
+                "constraint `chk_dcc_reg_cert_file_status` check",
                 "constraint `chk_dcc_reg_cert_audit_event_key` check",
+                "constraint `chk_dcc_reg_cert_audit_result` check",
+                "constraint `chk_dcc_reg_cert_audit_trace` check",
+                "`owner_company_id` bigint not null comment 'owning company enterprise id'",
+                "`business_file_id` bigint default null comment 'registration certificate business file id'",
+                "`result` varchar(32) not null comment 'success or failure result'",
+                "`result_code` varchar(64) default null comment 'stable operation result code'",
+                "`request_trace_id` varchar(128) not null comment 'request trace id'",
+                "select `status` into linked_version_status",
+                "cross-version snapshot reattachment is forbidden",
+                "if linked_version_status is null or linked_version_status <> 'draft' then",
+                "select version_row.`status` into entrusted_version_status",
+                "cross-snapshot entrusted projection reattachment is forbidden",
+                "if entrusted_version_status is null or entrusted_version_status <> 'draft' then",
                 "trigger `trg_dcc_reg_cert_master_immutable_bu`",
                 "trigger `trg_dcc_reg_cert_master_immutable_bd`",
                 "trigger `trg_dcc_reg_cert_version_immutable_bu`",
@@ -118,6 +132,15 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 "H2 fixture must not fake the MySQL JSON_LENGTH generated-column contract");
         assertFalse(fixture.contains("dcc_registration_certificate_change"));
         assertFalse(fixture.contains("dcc_registration_certificate_supporting_document"));
+        assertContainsAll(fixture,
+                "constraint `chk_dcc_reg_cert_file_status` check",
+                "constraint `chk_dcc_reg_cert_audit_result` check",
+                "constraint `chk_dcc_reg_cert_audit_trace` check",
+                "`owner_company_id` bigint not null",
+                "`business_file_id` bigint null",
+                "`result` varchar(32) not null",
+                "`result_code` varchar(64) null",
+                "`request_trace_id` varchar(128) not null");
     }
 
     @Test
@@ -156,6 +179,21 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
             assertFalse(baseMapper.isAssignableFrom(mapper),
                     appendOnlyMapper + " must not expose generic update or delete operations");
         }
+
+        Class<?> auditDataObject = Class.forName(
+                "cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject."
+                        + "DccRegistrationCertificateAuditDO");
+        for (String field : List.of("ownerCompanyId", "businessFileId", "result", "resultCode",
+                "requestTraceId")) {
+            assertTrue(hasDeclaredField(auditDataObject, field),
+                    "audit persistence model must expose " + field);
+        }
+        String auditMapper = Files.readString(findBackendRoot().resolve(
+                        "yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/"
+                                + "dal/mysql/DccRegistrationCertificateAuditMapper.java"),
+                StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        assertContainsAll(auditMapper, "owner_company_id", "business_file_id", "result", "result_code",
+                "request_trace_id");
 
         String errorCodes = Files.readString(findBackendRoot().resolve(
                 "yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/ErrorCodeConstants.java"),
@@ -207,6 +245,11 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 .occurredAt(LocalDateTime.of(2026, 8, 17, 8, 1))
                 .creator("1")
                 .build();
+        setRequiredField(audit, "ownerCompanyId", 10L);
+        setRequiredField(audit, "businessFileId", 500L);
+        setRequiredField(audit, "result", "SUCCESS");
+        setRequiredField(audit, "resultCode", "OK");
+        setRequiredField(audit, "requestTraceId", "trace-t04a-h2-1");
         assertEquals(1, auditMapper.insert(audit));
         assertEquals(List.of("certificate:1:formalized"),
                 auditMapper.selectListByCertificateId(1L).stream()
@@ -237,6 +280,25 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
             return true;
         } catch (ClassNotFoundException ignored) {
             return false;
+        }
+    }
+
+    private static boolean hasDeclaredField(Class<?> type, String fieldName) {
+        try {
+            type.getDeclaredField(fieldName);
+            return true;
+        } catch (NoSuchFieldException ignored) {
+            return false;
+        }
+    }
+
+    private static void setRequiredField(Object target, String fieldName, Object value) {
+        try {
+            var field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError("required persistence field is absent: " + fieldName, exception);
         }
     }
 
