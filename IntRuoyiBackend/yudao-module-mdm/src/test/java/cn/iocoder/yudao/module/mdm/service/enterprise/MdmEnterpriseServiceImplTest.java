@@ -23,6 +23,7 @@ import java.util.Set;
 
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_BATCH_DUPLICATE;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_BATCH_EMPTY;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_BATCH_RESULT_INVALID;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_CODE_DUPLICATE;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_DELETED;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_DISABLED;
@@ -31,12 +32,14 @@ import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRIS
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TYPE_MISMATCH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -170,6 +173,79 @@ class MdmEnterpriseServiceImplTest {
     }
 
     @Test
+    void getEnabledEnterprisesRequiresTenantBeforeRawClassificationQuery() {
+        TenantContextHolder.clear();
+
+        assertThrows(NullPointerException.class, () -> enterpriseService.getEnabledEnterprises(List.of(101L),
+                Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType())));
+
+        verifyNoInteractions(enterpriseMapper);
+    }
+
+    @Test
+    void getEnabledEnterprisesRejectsIncompleteRawEvidenceWithoutReturningAnyRows() {
+        List<MdmEnterpriseDO> invalidRows = List.of(
+                enterprise(null, TENANT_ID, "COMP-001", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(0L, TENANT_ID, "COMP-001", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(101L, null, "COMP-001", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(101L, TENANT_ID, null, "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(101L, TENANT_ID, " ", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(101L, TENANT_ID, "COMP-001", null, MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(101L, TENANT_ID, "COMP-001", " ", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company", null,
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company", " ",
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company", "UNKNOWN_TYPE",
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        null, 1, false),
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        " ", 1, false),
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        "UNKNOWN_STATUS", 1, false),
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), null, false),
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 0, false),
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), -1, false),
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, null));
+
+        for (MdmEnterpriseDO invalidRow : invalidRows) {
+            reset(enterpriseMapper);
+            when(enterpriseMapper.selectClassificationByIds(any())).thenReturn(List.of(invalidRow));
+
+            assertServiceException(() -> enterpriseService.getEnabledEnterprises(List.of(101L),
+                    Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType())), MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+            assertEquals(List.of("selectClassificationByIds"), mapperInvocationNames());
+        }
+    }
+
+    @Test
+    void getEnabledEnterprisesRejectsMapperRowsOutsideRequestedIdSet() {
+        when(enterpriseMapper.selectClassificationByIds(any())).thenReturn(List.of(
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company",
+                        MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(202L, TENANT_ID, "COMP-002", "Other company",
+                        MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false)));
+
+        assertServiceException(() -> enterpriseService.getEnabledEnterprises(List.of(101L),
+                Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType())), MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        assertEquals(List.of("selectClassificationByIds"), mapperInvocationNames());
+    }
+
+    @Test
     void getEnabledEnterprisesValidatesWholeRawBatchBeforeReturningAnyRows() {
         when(enterpriseMapper.selectClassificationByIds(any())).thenReturn(List.of(
                 enterprise(101L, TENANT_ID, "COMP-001", "Owned company",
@@ -211,13 +287,14 @@ class MdmEnterpriseServiceImplTest {
     }
 
     @Test
-    void createEnterpriseMapsConcurrentTenantCodeDuplicateToBusinessConflict() {
+    void createEnterpriseMapsOnlyNamedTenantCodeDuplicateCauseToBusinessConflict() {
         MdmEnterpriseSaveReqVO request = new MdmEnterpriseSaveReqVO();
         request.setEnterpriseCode("COMP-001");
         request.setName("Owned company");
         request.setType(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType());
         request.setStatus(MdmEnterpriseStatusEnum.ENABLE.getStatus());
-        doThrow(new DuplicateKeyException("uk_mdm_enterprise_tenant_code"))
+        doThrow(new DuplicateKeyException("outer duplicate", new IllegalStateException(
+                "Duplicate entry for key 'UK_MDM_ENTERPRISE_TENANT_CODE'")))
                 .when(enterpriseMapper).insert(any(MdmEnterpriseDO.class));
 
         assertServiceException(() -> enterpriseService.createEnterprise(request), MDM_ENTERPRISE_CODE_DUPLICATE);
@@ -226,8 +303,45 @@ class MdmEnterpriseServiceImplTest {
         verify(enterpriseMapper, never()).updateById(any(MdmEnterpriseDO.class));
     }
 
+    @Test
+    void createEnterpriseRethrowsSameUnrelatedDuplicateKeyException() {
+        MdmEnterpriseSaveReqVO request = validCreateRequest();
+        DuplicateKeyException unrelated = new DuplicateKeyException("Duplicate entry for key 'uk_other_table'");
+        doThrow(unrelated).when(enterpriseMapper).insert(any(MdmEnterpriseDO.class));
+
+        DuplicateKeyException thrown = assertThrows(DuplicateKeyException.class,
+                () -> enterpriseService.createEnterprise(request));
+
+        assertSame(unrelated, thrown);
+    }
+
+    @Test
+    void createEnterpriseRejectsNonExactInsertCountAndInvalidGeneratedId() {
+        List<Integer> invalidCounts = List.of(0, 2, -1);
+        for (Integer invalidCount : invalidCounts) {
+            reset(enterpriseMapper);
+            doAnswer(invocation -> {
+                invocation.<MdmEnterpriseDO>getArgument(0).setId(301L);
+                return invalidCount;
+            }).when(enterpriseMapper).insert(any(MdmEnterpriseDO.class));
+            assertServiceException(() -> enterpriseService.createEnterprise(validCreateRequest()),
+                    MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+            assertEquals(List.of("insert"), mapperInvocationNames());
+        }
+        for (Long invalidId : java.util.Arrays.asList(null, 0L, -1L)) {
+            reset(enterpriseMapper);
+            doAnswer(invocation -> {
+                invocation.<MdmEnterpriseDO>getArgument(0).setId(invalidId);
+                return 1;
+            }).when(enterpriseMapper).insert(any(MdmEnterpriseDO.class));
+            assertServiceException(() -> enterpriseService.createEnterprise(validCreateRequest()),
+                    MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+            assertEquals(List.of("insert"), mapperInvocationNames());
+        }
+    }
+
     private MdmEnterpriseDO enterprise(Long id, Long tenantId, String enterpriseCode, String name, String type,
-                                       String status, Integer revision, boolean deleted) {
+                                       String status, Integer revision, Boolean deleted) {
         MdmEnterpriseDO enterprise = MdmEnterpriseDO.builder()
                 .id(id)
                 .enterpriseCode(enterpriseCode)
@@ -244,6 +358,15 @@ class MdmEnterpriseServiceImplTest {
     private void assertServiceException(Runnable invocation, ErrorCode expected) {
         ServiceException exception = assertThrows(ServiceException.class, invocation::run);
         assertEquals(expected.getCode(), exception.getCode());
+    }
+
+    private MdmEnterpriseSaveReqVO validCreateRequest() {
+        MdmEnterpriseSaveReqVO request = new MdmEnterpriseSaveReqVO();
+        request.setEnterpriseCode("COMP-001");
+        request.setName("Owned company");
+        request.setType(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType());
+        request.setStatus(MdmEnterpriseStatusEnum.ENABLE.getStatus());
+        return request;
     }
 
     private List<String> mapperInvocationNames() {

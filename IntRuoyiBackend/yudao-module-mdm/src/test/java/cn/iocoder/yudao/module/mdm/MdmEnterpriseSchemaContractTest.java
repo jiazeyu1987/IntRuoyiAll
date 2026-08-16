@@ -64,6 +64,43 @@ class MdmEnterpriseSchemaContractTest {
         assertTrue(migrationSql.contains("-- Recovery: MySQL DDL auto-commits"));
         assertTrue(migrationSql.contains("-- Rollback before business use:"));
         assertTrue(migrationSql.contains("-- Rollback after business use:"));
+        assertTrue(migrationSql.contains("-- Unique-key policy: business keys remain permanently reserved after soft deletion"));
+    }
+
+    @Test
+    void mysqlMigrationMustFailFastOnExistingSchemaMismatchBeforeCreatingMissingTables() throws Exception {
+        String migrationSql = Files.readString(resolveBackendRoot()
+                .resolve("sql/mysql/20260816_mdm_enterprise_company_scope.sql"), StandardCharsets.UTF_8);
+        String normalizedSql = migrationSql.replaceAll("\\s+", " ");
+        String procedure = "CREATE PROCEDURE assert_mdm_enterprise_company_scope_contract(IN require_complete BOOLEAN)";
+        assertTrue(normalizedSql.contains(procedure));
+        assertTrue(normalizedSql.contains("information_schema.TABLES"));
+        assertTrue(normalizedSql.contains("information_schema.COLUMNS"));
+        assertTrue(normalizedSql.contains("information_schema.STATISTICS"));
+        assertTrue(normalizedSql.contains("SIGNAL SQLSTATE '45000'"));
+        assertTrue(normalizedSql.contains("COLUMN_TYPE"));
+        assertTrue(normalizedSql.contains("IS_NULLABLE"));
+        assertTrue(normalizedSql.contains("COLUMN_DEFAULT"));
+        assertTrue(normalizedSql.contains("ORDINAL_POSITION"));
+        assertTrue(normalizedSql.contains("NON_UNIQUE"));
+        assertTrue(normalizedSql.contains("SEQ_IN_INDEX"));
+        assertTrue(normalizedSql.contains("GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',')"));
+        assertTrue(normalizedSql.contains("REPLACE(check_constraint.CHECK_CLAUSE, CHAR(92), '')"),
+                "MySQL 8 escapes CHECK string literals with backslashes in information_schema");
+        assertTrue(normalizedSql.contains("uk_mdm_enterprise_tenant_code")
+                && normalizedSql.contains("tenant_id,enterprise_code"));
+        assertTrue(normalizedSql.contains("uk_mdm_user_company_scope_tenant_user_company")
+                && normalizedSql.contains("tenant_id,user_id,company_id"));
+        assertTrue(normalizedSql.contains("uk_mdm_role_company_scope_tenant_role_company")
+                && normalizedSql.contains("tenant_id,role_id,company_id"));
+        int preflightCall = normalizedSql.indexOf("CALL assert_mdm_enterprise_company_scope_contract(FALSE)");
+        int firstCreate = normalizedSql.indexOf("CREATE TABLE IF NOT EXISTS `mdm_enterprise`");
+        int postflightCall = normalizedSql.indexOf("CALL assert_mdm_enterprise_company_scope_contract(TRUE)");
+        int lastCreate = normalizedSql.indexOf("CREATE TABLE IF NOT EXISTS `mdm_role_company_scope`");
+        assertTrue(preflightCall > 0 && preflightCall < firstCreate,
+                "existing tables must be validated before any missing table is created");
+        assertTrue(postflightCall > lastCreate,
+                "complete schema must be validated after all missing tables are created");
     }
 
     @Test
@@ -141,6 +178,30 @@ class MdmEnterpriseSchemaContractTest {
             assertEquals(3, countRows(jdbcUrl, "mdm_enterprise"));
             assertEquals(2, countRows(jdbcUrl, "mdm_user_company_scope"));
             assertEquals(2, countRows(jdbcUrl, "mdm_role_company_scope"));
+            assertSoftDeletedBusinessKeyRemainsReserved(jdbcUrl,
+                    "UPDATE \"mdm_enterprise\" SET \"deleted\" = TRUE WHERE \"tenant_id\" = 11 "
+                            + "AND \"enterprise_code\" = 'COMP-CONCURRENT'",
+                    """
+                    INSERT INTO "mdm_enterprise"
+                        ("enterprise_code", "name", "type", "status", "revision", "tenant_id")
+                    VALUES ('COMP-CONCURRENT', 'Replacement company', 'OWNED_COMPANY', 'ENABLE', 1, 11)
+                    """);
+            assertSoftDeletedBusinessKeyRemainsReserved(jdbcUrl,
+                    "UPDATE \"mdm_user_company_scope\" SET \"deleted\" = TRUE WHERE \"tenant_id\" = 11 "
+                            + "AND \"user_id\" = 701 AND \"company_id\" = 101",
+                    """
+                    INSERT INTO "mdm_user_company_scope"
+                        ("user_id", "company_id", "status", "revision", "tenant_id")
+                    VALUES (701, 101, 'ENABLE', 1, 11)
+                    """);
+            assertSoftDeletedBusinessKeyRemainsReserved(jdbcUrl,
+                    "UPDATE \"mdm_role_company_scope\" SET \"deleted\" = TRUE WHERE \"tenant_id\" = 11 "
+                            + "AND \"role_id\" = 801 AND \"company_id\" = 101",
+                    """
+                    INSERT INTO "mdm_role_company_scope"
+                        ("role_id", "company_id", "status", "revision", "tenant_id")
+                    VALUES (801, 101, 'ENABLE', 1, 11)
+                    """);
             try (Connection connection = DriverManager.getConnection(jdbcUrl, "sa", "")) {
                 RunScript.execute(connection, Files.newBufferedReader(cleanFixture, StandardCharsets.UTF_8));
             }
@@ -155,10 +216,10 @@ class MdmEnterpriseSchemaContractTest {
         }
     }
 
-    private void executeUpdate(String jdbcUrl, String sql) throws Exception {
+    private int executeUpdate(String jdbcUrl, String sql) throws Exception {
         try (Connection connection = DriverManager.getConnection(jdbcUrl, "sa", "");
              PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.executeUpdate();
+            return statement.executeUpdate();
         }
     }
 
@@ -197,6 +258,13 @@ class MdmEnterpriseSchemaContractTest {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    private void assertSoftDeletedBusinessKeyRemainsReserved(String jdbcUrl, String softDeleteSql,
+                                                               String duplicateInsertSql) throws Exception {
+        assertEquals(1, executeUpdate(jdbcUrl, softDeleteSql));
+        SQLException duplicate = assertThrows(SQLException.class, () -> executeUpdate(jdbcUrl, duplicateInsertSql));
+        assertEquals("23505", duplicate.getSQLState());
     }
 
     private void assertCompleteSchema(String sql, String quote, String uniqueKeyword) {

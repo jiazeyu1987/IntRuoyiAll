@@ -18,6 +18,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -40,6 +41,8 @@ import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRIS
 @Validated
 public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
 
+    private static final String ENTERPRISE_CODE_UNIQUE_CONSTRAINT = "uk_mdm_enterprise_tenant_code";
+
     @Resource
     private MdmEnterpriseMapper enterpriseMapper;
 
@@ -60,10 +63,17 @@ public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
                 .status(status)
                 .revision(1)
                 .build();
+        int affectedRows;
         try {
-            enterpriseMapper.insert(enterprise);
-        } catch (DuplicateKeyException exception) {
+            affectedRows = enterpriseMapper.insert(enterprise);
+        } catch (DuplicateKeyException duplicateKeyException) {
+            if (!isEnterpriseCodeUniqueConflict(duplicateKeyException)) {
+                throw duplicateKeyException;
+            }
             throw exception(MDM_ENTERPRISE_CODE_DUPLICATE);
+        }
+        if (affectedRows != 1 || enterprise.getId() == null || enterprise.getId() <= 0) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
         }
         return enterprise.getId();
     }
@@ -73,9 +83,9 @@ public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
                                                        Collection<String> allowedTypes) {
         List<Long> requestedIds = validateEnterpriseIds(enterpriseIds);
         Set<String> requiredTypes = validateAllowedTypes(allowedTypes);
-        List<MdmEnterpriseDO> enterprises = enterpriseMapper.selectClassificationByIds(requestedIds);
-        Map<Long, MdmEnterpriseDO> enterprisesById = indexResults(enterprises);
         Long tenantId = TenantContextHolder.getRequiredTenantId();
+        List<MdmEnterpriseDO> enterprises = enterpriseMapper.selectClassificationByIds(requestedIds);
+        Map<Long, MdmEnterpriseDO> enterprisesById = indexResults(enterprises, new LinkedHashSet<>(requestedIds));
         for (Long enterpriseId : requestedIds) {
             MdmEnterpriseDO enterprise = enterprisesById.get(enterpriseId);
             if (enterprise == null) {
@@ -117,13 +127,14 @@ public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
         return validatedTypes;
     }
 
-    private Map<Long, MdmEnterpriseDO> indexResults(List<MdmEnterpriseDO> enterprises) {
+    private Map<Long, MdmEnterpriseDO> indexResults(List<MdmEnterpriseDO> enterprises, Set<Long> requestedIds) {
         if (enterprises == null) {
             throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
         }
         Map<Long, MdmEnterpriseDO> result = new LinkedHashMap<>();
         for (MdmEnterpriseDO enterprise : enterprises) {
             if (enterprise == null || enterprise.getId() == null
+                    || enterprise.getId() <= 0 || !requestedIds.contains(enterprise.getId())
                     || result.putIfAbsent(enterprise.getId(), enterprise) != null) {
                 throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
             }
@@ -132,6 +143,13 @@ public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
     }
 
     private void validateFormalEnterprise(MdmEnterpriseDO enterprise, Long tenantId, Set<String> allowedTypes) {
+        if (enterprise.getTenantId() == null || enterprise.getDeleted() == null
+                || enterprise.getRevision() == null || enterprise.getRevision() <= 0
+                || StrUtil.isBlank(enterprise.getEnterpriseCode()) || StrUtil.isBlank(enterprise.getName())
+                || !MdmEnterpriseTypeEnum.isValid(enterprise.getType())
+                || !MdmEnterpriseStatusEnum.isValid(enterprise.getStatus())) {
+            throw exception(MDM_ENTERPRISE_BATCH_RESULT_INVALID);
+        }
         if (!Objects.equals(tenantId, enterprise.getTenantId())) {
             throw exception(MDM_ENTERPRISE_TENANT_MISMATCH, enterprise.getId());
         }
@@ -168,6 +186,19 @@ public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
             throw exception(MDM_ENTERPRISE_STATUS_INVALID, value);
         }
         return normalized;
+    }
+
+    private boolean isEnterpriseCodeUniqueConflict(DuplicateKeyException exception) {
+        Throwable current = exception;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null
+                    && message.toLowerCase(Locale.ROOT).contains(ENTERPRISE_CODE_UNIQUE_CONSTRAINT)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
 }
