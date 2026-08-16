@@ -45,9 +45,12 @@ type FullFlowConfig = {
   mainWorkOrderCode: string
   rejectActiveOrderId: string
   rejectWorkOrderCode: string
+  incompleteActiveOrderId: string
+  incompleteWorkOrderCode: string
   reportFiles: Record<ReportNodeType, string>
   sterilizationBatchNo: string
   managerSignoffEvidenceHash: string
+  cleanupPlanReference: string
 }
 
 type FlowEvidence = {
@@ -56,12 +59,17 @@ type FlowEvidence = {
   consoleErrors: Array<{ actor: string; text: string }>
   pageErrors: Array<{ actor: string; text: string }>
   requestFailures: Array<{ actor: string; method: string; path: string; failure: string }>
+  cleanup: {
+    planReference: string
+    status: 'PENDING_EXTERNAL_REAL_PAGE_CLEANUP'
+  }
 }
 
 type RoleSession = {
   context: BrowserContext
   page: Page
   permissions: string[]
+  readOnlyHeaders: Record<string, string>
 }
 
 const env = (name: string) => String(process.env[name] || '').trim()
@@ -95,6 +103,8 @@ const loadConfig = (): FullFlowConfig => {
     mainWorkOrderCode: requiredEnv('EDHR_FULL_E2E_MAIN_WORK_ORDER_CODE', missing),
     rejectActiveOrderId: requiredEnv('EDHR_FULL_E2E_REJECT_ACTIVE_ORDER_ID', missing),
     rejectWorkOrderCode: requiredEnv('EDHR_FULL_E2E_REJECT_WORK_ORDER_CODE', missing),
+    incompleteActiveOrderId: requiredEnv('EDHR_FULL_E2E_INCOMPLETE_ACTIVE_ORDER_ID', missing),
+    incompleteWorkOrderCode: requiredEnv('EDHR_FULL_E2E_INCOMPLETE_WORK_ORDER_CODE', missing),
     reportFiles: {
       INCOMING_INSPECTION_REPORT: resolve(
         requiredEnv('EDHR_FULL_E2E_INCOMING_REPORT_PATH', missing)
@@ -110,7 +120,8 @@ const loadConfig = (): FullFlowConfig => {
       )
     },
     sterilizationBatchNo: requiredEnv('EDHR_FULL_E2E_STERILIZATION_BATCH_NO', missing),
-    managerSignoffEvidenceHash: requiredEnv('EDHR_FULL_E2E_MANAGER_SIGNOFF_EVIDENCE_HASH', missing)
+    managerSignoffEvidenceHash: requiredEnv('EDHR_FULL_E2E_MANAGER_SIGNOFF_EVIDENCE_HASH', missing),
+    cleanupPlanReference: requiredEnv('EDHR_FULL_E2E_CLEANUP_PLAN_REFERENCE', missing)
   }
 
   if (missing.length) {
@@ -140,14 +151,27 @@ const loadConfig = (): FullFlowConfig => {
   if (new Set(usernames).size !== usernames.length) {
     throw new Error('T11_BLOCKED_ACCOUNTS_MUST_BE_DISTINCT')
   }
+  const activeOrderIds = [
+    config.mainActiveOrderId,
+    config.rejectActiveOrderId,
+    config.incompleteActiveOrderId
+  ]
+  const workOrderCodes = [
+    config.mainWorkOrderCode,
+    config.rejectWorkOrderCode,
+    config.incompleteWorkOrderCode
+  ]
   if (
-    config.mainActiveOrderId === config.rejectActiveOrderId ||
-    config.mainWorkOrderCode === config.rejectWorkOrderCode
+    new Set(activeOrderIds).size !== activeOrderIds.length ||
+    new Set(workOrderCodes).size !== workOrderCodes.length
   ) {
-    throw new Error('T11_BLOCKED_MAIN_AND_REJECT_FIXTURES_MUST_BE_DISTINCT')
+    throw new Error('T11_BLOCKED_RELEASE_FIXTURES_MUST_BE_DISTINCT')
   }
   if (!/^[a-fA-F0-9]{64}$/.test(config.managerSignoffEvidenceHash)) {
     throw new Error('T11_BLOCKED_MANAGER_SIGNOFF_MUST_BE_SHA256')
+  }
+  if (/[\r\n]/.test(config.cleanupPlanReference)) {
+    throw new Error('T11_BLOCKED_CLEANUP_PLAN_REFERENCE_INVALID')
   }
   for (const [nodeType, filePath] of Object.entries(config.reportFiles)) {
     if (!existsSync(filePath))
@@ -158,6 +182,12 @@ const loadConfig = (): FullFlowConfig => {
 
 const isSuccessPayload = (payload: any) => payload && (payload.code === 0 || payload.code === 200)
 
+const expectStringId = (value: unknown, label: string) => {
+  expect(typeof value, `${label}必须保持字符串 ID`).toBe('string')
+  expect((value as string).trim(), `${label}不得为空`).not.toBe('')
+  return value as string
+}
+
 const responseData = async (response: any, action: string) => {
   expect(response.status(), `${action} HTTP status`).toBe(200)
   const payload = await response.json().catch(() => null)
@@ -167,15 +197,27 @@ const responseData = async (response: any, action: string) => {
   return payload.data
 }
 
+const TARGET_WRITE_PATHS = [
+  '/mes/pro/process-pool/team-leader/active-order/release/apply',
+  '/mes/pro/production-release/pqc/approve',
+  '/mes/pro/production-release/pqc/reject',
+  '/mes/pro/edhr-batch-execution/task/special-node/attachment/prepare-upload',
+  '/mes/pro/edhr-batch-execution/task/special-node/complete',
+  '/mes/pro/edhr-release/approve'
+] as const
+
+const FORBIDDEN_TARGET_WRITE_PATHS = [
+  '/mes/pro/edhr-batch-execution/task/special-node/skip',
+  '/mes/pro/edhr-batch-execution/task/special-node/attachment/delete-pending',
+  '/mes/pro/edhr-batch-execution/task/special-node/attachment/save-pending',
+  '/mes/pro/edhr-release/reject',
+  '/mes/pro/edhr-release/withdraw'
+] as const
+
 const isTargetWritePath = (path: string) =>
-  [
-    '/mes/pro/process-pool/team-leader/active-order/release/apply',
-    '/mes/pro/production-release/pqc/approve',
-    '/mes/pro/production-release/pqc/reject',
-    '/mes/pro/edhr-batch-execution/task/special-node/attachment/prepare-upload',
-    '/mes/pro/edhr-batch-execution/task/special-node/complete',
-    '/mes/pro/edhr-release/approve'
-  ].some((fragment) => path.includes(fragment))
+  [...TARGET_WRITE_PATHS, ...FORBIDDEN_TARGET_WRITE_PATHS].some((fragment) =>
+    path.includes(fragment)
+  )
 
 const observePage = (page: Page, actor: string, evidence: FlowEvidence) => {
   page.on('request', (request) => {
@@ -260,7 +302,8 @@ const login = async (
   )
   await form.getByRole('button', { name: '登录' }).click()
   await responseData(await loginResponsePromise, `${account.label}登录`)
-  const permissionPayload = await (await permissionResponsePromise).json()
+  const permissionResponse = await permissionResponsePromise
+  const permissionPayload = await permissionResponse.json()
   expect(isSuccessPayload(permissionPayload), `${account.label}权限响应`).toBe(true)
   const permissions = Array.isArray(permissionPayload.data?.permissions)
     ? permissionPayload.data.permissions
@@ -273,7 +316,14 @@ const login = async (
     waitUntil: 'domcontentloaded',
     timeout: 60_000
   })
-  return { context, page, permissions }
+  const permissionRequestHeaders = permissionResponse.request().headers()
+  const authorization = permissionRequestHeaders.authorization
+  if (!authorization) throw new Error(`${account.label}缺少只读核验授权上下文`)
+  const tenantId = permissionRequestHeaders['tenant-id']
+  const readOnlyHeaders = tenantId
+    ? { Authorization: authorization, 'tenant-id': tenantId }
+    : { Authorization: authorization }
+  return { context, page, permissions, readOnlyHeaders }
 }
 
 const apiResponse = (
@@ -288,6 +338,22 @@ const apiResponse = (
     { timeout: 90_000 }
   )
   return trigger().then(async () => responseData(await pending, action))
+}
+
+const readOnlyApiData = async (
+  session: RoleSession,
+  config: FullFlowConfig,
+  path: string,
+  action: string
+) => {
+  const response = await session.page.request.get(`${config.baseUrl}/admin-api${path}`, {
+    headers: session.readOnlyHeaders,
+    failOnStatusCode: false
+  })
+  expect(response.status(), `${action} HTTP status`).toBe(200)
+  const payload = await response.json().catch(() => null)
+  expect(isSuccessPayload(payload), `${action} business response`).toBe(true)
+  return payload.data
 }
 
 const formInput = (form: Locator, label: string) =>
@@ -340,8 +406,8 @@ const applyReleaseFromTeamLeaderPage = async (
     }
   )
   expect(result.status).toBe('PQC_RELEASE_PENDING')
-  expect(typeof result.applicationId).toBe('string')
-  expect(typeof result.pqcReleaseWorkTaskId).toBe('string')
+  expectStringId(result.applicationId, 'SP-1 applicationId')
+  expectStringId(result.pqcReleaseWorkTaskId, 'SP-1 PQC workTaskId')
   expect(result.batchExecutionId).toBeUndefined()
   expect(result.releaseTransactionId).toBeUndefined()
   expect(result.sourceSnapshotHash).toMatch(/^[a-fA-F0-9]{64}$/)
@@ -353,6 +419,42 @@ const applyReleaseFromTeamLeaderPage = async (
     status: result.status
   })
   return result
+}
+
+const assertIncompleteOrderCannotApplyRelease = async (
+  page: Page,
+  activeOrderId: string,
+  workOrderCode: string,
+  evidence: FlowEvidence
+) => {
+  await openActiveOrderPool(page)
+  const idCell = page.locator(`[data-team-leader-active-order-id="${activeOrderId}"]`)
+  await idCell.waitFor({ state: 'visible', timeout: 60_000 })
+  const row = page.locator('.el-table__body-wrapper tbody tr').filter({ has: idCell }).first()
+  await expect(row.locator('[data-team-leader-active-order-work-order-code]')).toHaveText(
+    workOrderCode
+  )
+  const productionProgress = await row
+    .locator('[data-team-leader-active-order-production-progress]')
+    .innerText()
+  const inspectionProgress = await row
+    .locator('[data-team-leader-active-order-inspection-progress]')
+    .innerText()
+  expect(productionProgress === '100%' && inspectionProgress === '100%').toBe(false)
+  const applyButton = row.locator('[data-team-leader-active-order-release-apply]')
+  if (await applyButton.count()) await expect(applyButton).toBeDisabled()
+  else await expect(applyButton).toHaveCount(0)
+  expect(
+    evidence.targetWrites.filter((item) => item.path.endsWith('/active-order/release/apply')),
+    '进度未完成时不得产生 SP-1 写请求'
+  ).toHaveLength(0)
+  evidence.responses.push({
+    stage: 'SP-0_PROGRESS_GATE',
+    workOrderCode,
+    productionProgress,
+    inspectionProgress,
+    applyActionAvailable: (await applyButton.count()) > 0
+  })
 }
 
 const filterCandidateWorkTasks = async (page: Page, workOrderCode: string) => {
@@ -399,8 +501,8 @@ const submitPqcDecision = async (
         .click()
     }
   )
-  expect(typeof result.applicationId).toBe('string')
-  expect(typeof result.pqcReleaseWorkTaskId).toBe('string')
+  expectStringId(result.applicationId, 'SP-2 applicationId')
+  expectStringId(result.pqcReleaseWorkTaskId, 'SP-2 PQC workTaskId')
   if (action === 'REJECT') {
     expect(result.decision).toBe('REJECT')
     expect(result.status).toBe('PQC_RELEASE_REJECTED')
@@ -410,7 +512,7 @@ const submitPqcDecision = async (
   } else {
     expect(result.decision).toBe('APPROVE')
     expect(result.status).toBe('REPORT_UPLOAD_PENDING')
-    expect(typeof result.batchExecutionId).toBe('string')
+    expectStringId(result.batchExecutionId, 'SP-2 batchExecutionId')
     expect(result.batchRecordEvidenceIds.length).toBeGreaterThan(0)
     expect(result.processInspectionEvidenceIds.length).toBeGreaterThan(0)
     expect(result.lossReportEvidenceIds.length).toBeGreaterThan(0)
@@ -419,8 +521,13 @@ const submitPqcDecision = async (
       [...REPORT_NODE_TYPES].sort()
     )
     for (const task of result.reportUploadTasks) {
-      expect(typeof task.batchTaskId).toBe('string')
-      expect(typeof task.workTaskId).toBe('string')
+      expectStringId(task.batchTaskId, `${task.nodeType} batchTaskId`)
+      expectStringId(task.workTaskId, `${task.nodeType} workTaskId`)
+      expect(Array.isArray(task.candidateUserIds), `${task.nodeType}候选人 ID 数组`).toBe(true)
+      expect(task.candidateUserIds.length, `${task.nodeType}候选人不得为空`).toBeGreaterThan(0)
+      task.candidateUserIds.forEach((candidateUserId: unknown) =>
+        expectStringId(candidateUserId, `${task.nodeType}候选人 ID`)
+      )
       expect(task.status).toBe('TODO')
     }
   }
@@ -530,12 +637,20 @@ const completeReportNode = async (
   expect(completed.nodeStatus).toBe('COMPLETED')
   expect(completed.attachmentIds.length).toBeGreaterThan(0)
   expect(completed.attachmentHashes).toContain(prepared.sha256)
-  expect(typeof completed.workTaskId).toBe('string')
+  completed.attachmentIds.forEach((attachmentId: unknown) =>
+    expectStringId(attachmentId, `${nodeType} attachmentId`)
+  )
+  completed.attachmentHashes.forEach((attachmentHash: unknown) =>
+    expect(String(attachmentHash), `${nodeType} attachmentHash`).toMatch(/^[a-fA-F0-9]{64}$/)
+  )
+  expectStringId(completed.workTaskId, `${nodeType} workTaskId`)
   evidence.responses.push({
     stage: 'SP-3',
     nodeType,
     batchTaskId,
     workTaskId: completed.workTaskId,
+    attachmentIds: completed.attachmentIds,
+    attachmentHashes: completed.attachmentHashes,
     reportUploadStatus: completed.reportUploadStatus,
     releaseTransactionId: completed.releaseTransactionId,
     managerReleaseWorkTaskId: completed.managerReleaseWorkTaskId
@@ -556,6 +671,7 @@ const submitManagerRelease = async (
   await button.click()
   const dialog = page.locator('.el-dialog:visible').filter({ hasText: '管理者代表最终放行' }).last()
   await dialog.waitFor({ state: 'visible', timeout: 60_000 })
+  await expect(dialog.getByRole('button', { name: /拒绝|退回|撤回/ })).toHaveCount(0)
   await dialog.locator('input[placeholder="请输入正式电子签名证据哈希"]').fill(signoffEvidenceHash)
   await dialog.locator('textarea').fill(`T11管理者代表最终放行-${workOrderCode}`)
   const released = await apiResponse(
@@ -569,8 +685,8 @@ const submitManagerRelease = async (
   )
   expect(released.releaseStatus).toBe('RELEASED')
   expect(released.approvalSignoffEvidenceHash).toBe(signoffEvidenceHash)
-  expect(typeof released.releaseTransactionId).toBe('string')
-  expect(typeof released.batchExecutionId).toBe('string')
+  expectStringId(released.releaseTransactionId, 'SP-4 releaseTransactionId')
+  expectStringId(released.batchExecutionId, 'SP-4 batchExecutionId')
   evidence.responses.push({
     stage: 'SP-4',
     workOrderCode,
@@ -579,6 +695,41 @@ const submitManagerRelease = async (
     releaseStatus: released.releaseStatus
   })
   return released
+}
+
+const verifyFinalReadOnlyState = async (
+  manager: RoleSession,
+  config: FullFlowConfig,
+  mainApplication: any,
+  pqcApproved: any,
+  finalReportCompleted: any,
+  released: any,
+  evidence: FlowEvidence
+) => {
+  const finalRelease = await readOnlyApiData(
+    manager,
+    config,
+    `/mes/pro/edhr-release/get?id=${encodeURIComponent(released.releaseTransactionId)}`,
+    '最终放行只读核验'
+  )
+  expect(finalRelease.releaseStatus).toBe('RELEASED')
+  expectStringId(finalRelease.releaseTransactionId, '最终放行只读 releaseTransactionId')
+  expectStringId(finalRelease.batchExecutionId, '最终放行只读 batchExecutionId')
+  expect(finalRelease.releaseTransactionId).toBe(released.releaseTransactionId)
+  expect(finalRelease.batchExecutionId).toBe(pqcApproved.batchExecutionId)
+  expect(finalRelease.approvalSignoffEvidenceHash).toBe(config.managerSignoffEvidenceHash)
+  expect(finalRelease.releaseApprovalWorkTaskId).toBe(finalReportCompleted.managerReleaseWorkTaskId)
+  expectStringId(mainApplication.applicationId, '申请 applicationId')
+  expectStringId(pqcApproved.applicationId, 'PQC applicationId')
+  expect(mainApplication.applicationId).toBe(pqcApproved.applicationId)
+  evidence.responses.push({
+    stage: 'READ_ONLY_FINAL_RELEASE',
+    applicationId: mainApplication.applicationId,
+    batchExecutionId: finalRelease.batchExecutionId,
+    releaseTransactionId: finalRelease.releaseTransactionId,
+    releaseStatus: finalRelease.releaseStatus,
+    managerReleaseWorkTaskId: finalRelease.releaseApprovalWorkTaskId
+  })
 }
 
 const verifyReleasedTrace = async (
@@ -643,13 +794,23 @@ test('SP-0 through SP-4 real multi-account production release flow', async ({
     responses: [],
     consoleErrors: [],
     pageErrors: [],
-    requestFailures: []
+    requestFailures: [],
+    cleanup: {
+      planReference: config.cleanupPlanReference,
+      status: 'PENDING_EXTERNAL_REAL_PAGE_CLEANUP'
+    }
   }
 
   const leader = await login(browser, config, config.teamLeader, TEAM_LEADER_PATH, evidence, [
     'mes:pro-process-pool-team-leader:query',
     'mes:pro-process-pool-team-leader:release-apply'
   ])
+  await assertIncompleteOrderCannotApplyRelease(
+    leader.page,
+    config.incompleteActiveOrderId,
+    config.incompleteWorkOrderCode,
+    evidence
+  )
   const mainApplication = await applyReleaseFromTeamLeaderPage(
     leader.page,
     config.mainActiveOrderId,
@@ -663,6 +824,17 @@ test('SP-0 through SP-4 real multi-account production release flow', async ({
     evidence
   )
   await leader.context.close()
+
+  const managerBeforePqc = await login(browser, config, config.manager, WORK_TASK_PATH, evidence, [
+    'mes:pro-edhr-work-task:query'
+  ])
+  await assertNoCandidateAction(
+    managerBeforePqc.page,
+    config.mainWorkOrderCode,
+    '[data-pqc-release-approve], [data-pqc-release-reject]',
+    '管理者代表不能处理PQC决定'
+  )
+  await managerBeforePqc.context.close()
 
   const outsiderBeforePqc = await login(
     browser,
@@ -775,8 +947,8 @@ test('SP-0 through SP-4 real multi-account production release flow', async ({
     evidence
   )
   expect(finalReportCompleted.reportUploadStatus).toBe('MANAGER_RELEASE_PENDING')
-  expect(typeof finalReportCompleted.releaseTransactionId).toBe('string')
-  expect(typeof finalReportCompleted.managerReleaseWorkTaskId).toBe('string')
+  expectStringId(finalReportCompleted.releaseTransactionId, '第四份报告 releaseTransactionId')
+  expectStringId(finalReportCompleted.managerReleaseWorkTaskId, '第四份报告管理者 workTaskId')
   await assertNoCandidateAction(
     finished.page,
     config.mainWorkOrderCode,
@@ -784,6 +956,17 @@ test('SP-0 through SP-4 real multi-account production release flow', async ({
     '成品负责人完成两份报告后无残留待办'
   )
   await finished.context.close()
+
+  const pqcBeforeManager = await login(browser, config, config.pqc, WORK_TASK_PATH, evidence, [
+    'mes:pro-edhr-work-task:query'
+  ])
+  await assertNoCandidateAction(
+    pqcBeforeManager.page,
+    config.mainWorkOrderCode,
+    '[data-manager-release-approve]',
+    'PQC不能处理管理者代表最终放行'
+  )
+  await pqcBeforeManager.context.close()
 
   const outsiderBeforeManager = await login(
     browser,
@@ -819,6 +1002,15 @@ test('SP-0 through SP-4 real multi-account production release flow', async ({
     '[data-manager-release-approve]',
     '最终放行后无残留管理者待办'
   )
+  await verifyFinalReadOnlyState(
+    manager,
+    config,
+    mainApplication,
+    pqcApproved,
+    finalReportCompleted,
+    released,
+    evidence
+  )
   await verifyReleasedTrace(manager.page, config, released, evidence, testInfo)
 
   expect(evidence.requestFailures).toEqual([])
@@ -838,6 +1030,17 @@ test('SP-0 through SP-4 real multi-account production release flow', async ({
   expect(
     evidence.targetWrites.filter((item) => item.path.endsWith('/edhr-release/approve'))
   ).toHaveLength(1)
+  for (const forbiddenPath of FORBIDDEN_TARGET_WRITE_PATHS) {
+    expect(
+      evidence.targetWrites.filter((item) => item.path.endsWith(forbiddenPath)),
+      `生产放行主链不得调用 ${forbiddenPath}`
+    ).toHaveLength(0)
+  }
+  evidence.responses.push({
+    stage: 'CLEANUP_HANDOFF',
+    planReference: config.cleanupPlanReference,
+    status: evidence.cleanup.status
+  })
   await testInfo.attach('t11-production-release-evidence.json', {
     body: Buffer.from(JSON.stringify(evidence, null, 2), 'utf8'),
     contentType: 'application/json'
