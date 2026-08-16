@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS "mdm_enterprise" (
     "deleted" bit NOT NULL DEFAULT FALSE,
     "tenant_id" bigint NOT NULL,
     PRIMARY KEY ("id"),
+    CONSTRAINT "chk_mdm_enterprise_type" CHECK ("type" IN ('OWNED_COMPANY', 'ENTRUSTED_PARTY')),
     CONSTRAINT "uk_mdm_enterprise_tenant_code" UNIQUE ("tenant_id", "enterprise_code")
 );
 

@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.mdm.service.enterprise;
 
 import cn.hutool.core.util.StrUtil;
-import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mdm.controller.admin.enterprise.vo.MdmEnterpriseSaveReqVO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.enterprise.MdmEnterpriseDO;
@@ -74,19 +73,18 @@ public class MdmEnterpriseServiceImpl implements MdmEnterpriseService {
                                                        Collection<String> allowedTypes) {
         List<Long> requestedIds = validateEnterpriseIds(enterpriseIds);
         Set<String> requiredTypes = validateAllowedTypes(allowedTypes);
-        List<MdmEnterpriseDO> enterprises = enterpriseMapper.selectList(
-                new LambdaQueryWrapperX<MdmEnterpriseDO>().in(MdmEnterpriseDO::getId, requestedIds));
+        List<MdmEnterpriseDO> enterprises = enterpriseMapper.selectClassificationByIds(requestedIds);
         Map<Long, MdmEnterpriseDO> enterprisesById = indexResults(enterprises);
         Long tenantId = TenantContextHolder.getRequiredTenantId();
-        List<MdmEnterpriseDO> orderedResult = new ArrayList<>(requestedIds.size());
         for (Long enterpriseId : requestedIds) {
             MdmEnterpriseDO enterprise = enterprisesById.get(enterpriseId);
             if (enterprise == null) {
                 throw exception(MDM_ENTERPRISE_NOT_FOUND, enterpriseId);
             }
             validateFormalEnterprise(enterprise, tenantId, requiredTypes);
-            orderedResult.add(enterprise);
         }
+        List<MdmEnterpriseDO> orderedResult = new ArrayList<>(requestedIds.size());
+        requestedIds.forEach(enterpriseId -> orderedResult.add(enterprisesById.get(enterpriseId)));
         return orderedResult;
     }
 

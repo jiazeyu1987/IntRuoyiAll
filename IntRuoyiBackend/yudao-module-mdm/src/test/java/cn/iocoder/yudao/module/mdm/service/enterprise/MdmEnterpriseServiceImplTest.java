@@ -30,10 +30,12 @@ import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRIS
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TENANT_MISMATCH;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TYPE_MISMATCH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -43,6 +45,7 @@ import static org.mockito.Mockito.when;
 class MdmEnterpriseServiceImplTest {
 
     private static final Long TENANT_ID = 11L;
+    private static final String ENTRUSTED_PARTY = "ENTRUSTED_PARTY";
 
     @Mock
     private MdmEnterpriseMapper enterpriseMapper;
@@ -65,14 +68,13 @@ class MdmEnterpriseServiceImplTest {
     void getEnabledEnterprisesReturnsCompleteEvidenceInRequestedOrder() {
         MdmEnterpriseDO ownedCompany = enterprise(101L, TENANT_ID, "COMP-001", "Owned company",
                 MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(), MdmEnterpriseStatusEnum.ENABLE.getStatus(), 3, false);
-        MdmEnterpriseDO externalEnterprise = enterprise(202L, TENANT_ID, "EXT-002", "External enterprise",
-                MdmEnterpriseTypeEnum.EXTERNAL_ENTERPRISE.getType(), MdmEnterpriseStatusEnum.ENABLE.getStatus(), 7,
+        MdmEnterpriseDO entrustedParty = enterprise(202L, TENANT_ID, "TRUST-002", "Entrusted party",
+                ENTRUSTED_PARTY, MdmEnterpriseStatusEnum.ENABLE.getStatus(), 7,
                 false);
-        when(enterpriseMapper.selectList(any())).thenReturn(List.of(externalEnterprise, ownedCompany));
+        when(enterpriseMapper.selectClassificationByIds(any())).thenReturn(List.of(entrustedParty, ownedCompany));
 
-        List<MdmEnterpriseDO> result = enterpriseService.getEnabledEnterprises(List.of(101L, 202L),
-                Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
-                        MdmEnterpriseTypeEnum.EXTERNAL_ENTERPRISE.getType()));
+        List<MdmEnterpriseDO> result = assertDoesNotThrow(() -> enterpriseService.getEnabledEnterprises(
+                List.of(101L, 202L), Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(), ENTRUSTED_PARTY)));
 
         assertEquals(List.of(101L, 202L), result.stream().map(MdmEnterpriseDO::getId).toList());
         assertEquals(TENANT_ID, result.get(0).getTenantId());
@@ -81,6 +83,7 @@ class MdmEnterpriseServiceImplTest {
         assertEquals(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(), result.get(0).getType());
         assertEquals(MdmEnterpriseStatusEnum.ENABLE.getStatus(), result.get(0).getStatus());
         assertEquals(3, result.get(0).getRevision());
+        assertEquals(List.of("selectClassificationByIds"), mapperInvocationNames());
     }
 
     @Test
@@ -100,8 +103,21 @@ class MdmEnterpriseServiceImplTest {
     }
 
     @Test
+    void getEnabledEnterprisesRejectsNullEmptyAndIllegalAllowedTypesBeforeQuery() {
+        assertServiceException(() -> enterpriseService.getEnabledEnterprises(List.of(101L), null),
+                MDM_ENTERPRISE_TYPE_MISMATCH);
+        assertServiceException(() -> enterpriseService.getEnabledEnterprises(List.of(101L), Set.of()),
+                MDM_ENTERPRISE_TYPE_MISMATCH);
+        assertServiceException(() -> enterpriseService.getEnabledEnterprises(List.of(101L),
+                Set.of("EXTERNAL_ENTERPRISE")), MDM_ENTERPRISE_TYPE_MISMATCH);
+
+        verifyNoInteractions(enterpriseMapper);
+    }
+
+    @Test
     void getEnabledEnterprisesRejectsMissingRowWithoutReturningPartialData() {
-        when(enterpriseMapper.selectList(any())).thenReturn(List.of(enterprise(101L, TENANT_ID, "COMP-001",
+        when(enterpriseMapper.selectClassificationByIds(any())).thenReturn(List.of(enterprise(101L, TENANT_ID,
+                "COMP-001",
                 "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
                 MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false)));
 
@@ -111,7 +127,8 @@ class MdmEnterpriseServiceImplTest {
 
     @Test
     void getEnabledEnterprisesRejectsDisabledRowWithoutReturningPartialData() {
-        when(enterpriseMapper.selectList(any())).thenReturn(List.of(enterprise(101L, TENANT_ID, "COMP-001",
+        when(enterpriseMapper.selectClassificationByIds(any())).thenReturn(List.of(enterprise(101L, TENANT_ID,
+                "COMP-001",
                 "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
                 MdmEnterpriseStatusEnum.DISABLE.getStatus(), 1, false)));
 
@@ -121,7 +138,8 @@ class MdmEnterpriseServiceImplTest {
 
     @Test
     void getEnabledEnterprisesRejectsDeletedRowWithoutReturningPartialData() {
-        when(enterpriseMapper.selectList(any())).thenReturn(List.of(enterprise(101L, TENANT_ID, "COMP-001",
+        when(enterpriseMapper.selectClassificationByIds(any())).thenReturn(List.of(enterprise(101L, TENANT_ID,
+                "COMP-001",
                 "Owned company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
                 MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, true)));
 
@@ -131,8 +149,9 @@ class MdmEnterpriseServiceImplTest {
 
     @Test
     void getEnabledEnterprisesRejectsWrongTypeWithoutReturningPartialData() {
-        when(enterpriseMapper.selectList(any())).thenReturn(List.of(enterprise(202L, TENANT_ID, "EXT-002",
-                "External enterprise", MdmEnterpriseTypeEnum.EXTERNAL_ENTERPRISE.getType(),
+        when(enterpriseMapper.selectClassificationByIds(any())).thenReturn(List.of(enterprise(202L, TENANT_ID,
+                "TRUST-002",
+                "Entrusted party", ENTRUSTED_PARTY,
                 MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false)));
 
         assertServiceException(() -> enterpriseService.getEnabledEnterprises(List.of(202L),
@@ -141,12 +160,29 @@ class MdmEnterpriseServiceImplTest {
 
     @Test
     void getEnabledEnterprisesRejectsCrossTenantRowWithoutReturningPartialData() {
-        when(enterpriseMapper.selectList(any())).thenReturn(List.of(enterprise(101L, 99L, "COMP-001",
+        when(enterpriseMapper.selectClassificationByIds(any())).thenReturn(List.of(enterprise(101L, 99L,
+                "COMP-001",
                 "Foreign company", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
                 MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false)));
 
         assertServiceException(() -> enterpriseService.getEnabledEnterprises(List.of(101L),
                 Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType())), MDM_ENTERPRISE_TENANT_MISMATCH);
+    }
+
+    @Test
+    void getEnabledEnterprisesValidatesWholeRawBatchBeforeReturningAnyRows() {
+        when(enterpriseMapper.selectClassificationByIds(any())).thenReturn(List.of(
+                enterprise(101L, TENANT_ID, "COMP-001", "Owned company",
+                        MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false),
+                enterprise(202L, TENANT_ID, "TRUST-002", "Entrusted party",
+                        ENTRUSTED_PARTY,
+                        MdmEnterpriseStatusEnum.DISABLE.getStatus(), 1, false)));
+
+        assertServiceException(() -> enterpriseService.getEnabledEnterprises(List.of(101L, 202L),
+                Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                        ENTRUSTED_PARTY)), MDM_ENTERPRISE_DISABLED);
+        assertEquals(List.of("selectClassificationByIds"), mapperInvocationNames());
     }
 
     @Test
@@ -208,6 +244,12 @@ class MdmEnterpriseServiceImplTest {
     private void assertServiceException(Runnable invocation, ErrorCode expected) {
         ServiceException exception = assertThrows(ServiceException.class, invocation::run);
         assertEquals(expected.getCode(), exception.getCode());
+    }
+
+    private List<String> mapperInvocationNames() {
+        return mockingDetails(enterpriseMapper).getInvocations().stream()
+                .map(invocation -> invocation.getMethod().getName())
+                .toList();
     }
 
 }

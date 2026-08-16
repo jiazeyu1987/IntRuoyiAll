@@ -1,4 +1,7 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260607_product_master_data; type=schema; riskLevel=medium
+-- Recovery: MySQL DDL auto-commits; on failure retain the pre-migration backup, inspect every named table and constraint, reconcile the partial schema, then rerun this idempotent migration.
+-- Rollback before business use: drop mdm_role_company_scope, mdm_user_company_scope, then mdm_enterprise after verifying that no downstream object references them.
+-- Rollback after business use: destructive table removal is forbidden; restore the pre-migration backup or deliver an approved forward migration.
 SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `mdm_enterprise` (
@@ -15,6 +18,7 @@ CREATE TABLE IF NOT EXISTS `mdm_enterprise` (
   `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT 'Logical deletion flag',
   `tenant_id` bigint NOT NULL COMMENT 'Tenant ID',
   PRIMARY KEY (`id`),
+  CONSTRAINT `chk_mdm_enterprise_type` CHECK (`type` IN ('OWNED_COMPANY', 'ENTRUSTED_PARTY')),
   UNIQUE KEY `uk_mdm_enterprise_tenant_code` (`tenant_id`, `enterprise_code`),
   KEY `idx_mdm_enterprise_tenant_type_status` (`tenant_id`, `type`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='MDM enterprise master';

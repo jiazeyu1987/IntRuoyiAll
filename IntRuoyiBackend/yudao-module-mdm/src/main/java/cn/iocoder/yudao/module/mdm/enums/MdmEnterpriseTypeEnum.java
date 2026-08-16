@@ -8,7 +8,7 @@ import java.util.Arrays;
 public enum MdmEnterpriseTypeEnum {
 
     OWNED_COMPANY("OWNED_COMPANY"),
-    EXTERNAL_ENTERPRISE("EXTERNAL_ENTERPRISE");
+    ENTRUSTED_PARTY("ENTRUSTED_PARTY");
 
     private final String type;
 

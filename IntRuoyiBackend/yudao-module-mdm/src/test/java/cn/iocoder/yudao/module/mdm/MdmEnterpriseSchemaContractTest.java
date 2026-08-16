@@ -1,8 +1,13 @@
 package cn.iocoder.yudao.module.mdm;
 
+import cn.iocoder.yudao.module.mdm.dal.mysql.enterprise.MdmEnterpriseMapper;
+import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseTypeEnum;
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
+import org.apache.ibatis.annotations.Select;
 import org.junit.jupiter.api.Test;
 import org.h2.tools.RunScript;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,7 +17,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -22,7 +29,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MdmEnterpriseSchemaContractTest {
@@ -50,6 +60,30 @@ class MdmEnterpriseSchemaContractTest {
         assertTrue(cleanSql.contains("DELETE FROM \"mdm_enterprise\""));
         assertFalse(migrationSql.contains("dept_id"));
         assertFalse(migrationSql.contains("department"));
+        assertApprovedEnterpriseTypeContract(migrationSql, fixtureSql);
+        assertTrue(migrationSql.contains("-- Recovery: MySQL DDL auto-commits"));
+        assertTrue(migrationSql.contains("-- Rollback before business use:"));
+        assertTrue(migrationSql.contains("-- Rollback after business use:"));
+    }
+
+    @Test
+    void enterpriseClassificationMapperMustInspectRequestedIdsAcrossTenantAndLogicalDeleteBoundaries()
+            throws Exception {
+        Method method = assertDoesNotThrow(
+                () -> MdmEnterpriseMapper.class.getMethod("selectClassificationByIds", java.util.Collection.class),
+                "mapper must expose the raw classification query");
+        assertEquals(1, method.getParameterCount(), "raw classification query must accept IDs only");
+        InterceptorIgnore interceptorIgnore = method.getAnnotation(InterceptorIgnore.class);
+        assertNotNull(interceptorIgnore, "classification query must explicitly document tenant interception bypass");
+        assertEquals("true", interceptorIgnore.tenantLine());
+        Select select = method.getAnnotation(Select.class);
+        assertNotNull(select, "classification query must be explicit annotation SQL");
+        String sql = String.join(" ", select.value()).replaceAll("\\s+", " ").toLowerCase();
+        assertTrue(sql.contains("select id, tenant_id"));
+        assertTrue(sql.contains("deleted"));
+        assertTrue(sql.contains("where id in"));
+        assertFalse(sql.contains("tenant_id ="), "caller tenant must not shape raw classification rows");
+        assertFalse(sql.contains("deleted ="), "deleted rows must remain visible for explicit classification");
     }
 
     @Test
@@ -84,6 +118,17 @@ class MdmEnterpriseSchemaContractTest {
                 VALUES ('COMP-CONCURRENT', 'Other tenant company', 'OWNED_COMPANY', 'ENABLE', 1, 12)
                 """);
             executeUpdate(jdbcUrl, """
+                INSERT INTO "mdm_enterprise"
+                    ("enterprise_code", "name", "type", "status", "revision", "tenant_id")
+                VALUES ('TRUST-ALLOWED', 'Entrusted party', 'ENTRUSTED_PARTY', 'ENABLE', 1, 11)
+                """);
+            SQLException invalidType = assertThrows(SQLException.class, () -> executeUpdate(jdbcUrl, """
+                INSERT INTO "mdm_enterprise"
+                    ("enterprise_code", "name", "type", "status", "revision", "tenant_id")
+                VALUES ('OLD-TYPE', 'Old type', 'EXTERNAL_ENTERPRISE', 'ENABLE', 1, 11)
+                """));
+            assertEquals("23513", invalidType.getSQLState());
+            executeUpdate(jdbcUrl, """
                 INSERT INTO "mdm_user_company_scope"
                     ("user_id", "company_id", "status", "revision", "tenant_id")
                 VALUES (701, 101, 'ENABLE', 1, 12)
@@ -93,7 +138,7 @@ class MdmEnterpriseSchemaContractTest {
                     ("role_id", "company_id", "status", "revision", "tenant_id")
                 VALUES (801, 101, 'ENABLE', 1, 12)
                 """);
-            assertEquals(2, countRows(jdbcUrl, "mdm_enterprise"));
+            assertEquals(3, countRows(jdbcUrl, "mdm_enterprise"));
             assertEquals(2, countRows(jdbcUrl, "mdm_user_company_scope"));
             assertEquals(2, countRows(jdbcUrl, "mdm_role_company_scope"));
             try (Connection connection = DriverManager.getConnection(jdbcUrl, "sa", "")) {
@@ -172,6 +217,19 @@ class MdmEnterpriseSchemaContractTest {
                 + "uk_mdm_role_company_scope_tenant_role_company" + quote));
         assertTrue(sql.contains(quote + "tenant_id" + quote + ", " + quote + "role_id" + quote
                 + ", " + quote + "company_id" + quote));
+    }
+
+    private void assertApprovedEnterpriseTypeContract(String migrationSql, String fixtureSql) {
+        assertEquals(Set.of("OWNED_COMPANY", "ENTRUSTED_PARTY"),
+                Arrays.stream(MdmEnterpriseTypeEnum.values()).map(MdmEnterpriseTypeEnum::getType)
+                        .collect(java.util.stream.Collectors.toSet()));
+        assertTrue(MdmEnterpriseTypeEnum.isValid("OWNED_COMPANY"));
+        assertTrue(MdmEnterpriseTypeEnum.isValid("ENTRUSTED_PARTY"));
+        assertFalse(MdmEnterpriseTypeEnum.isValid("EXTERNAL_ENTERPRISE"));
+        assertTrue(migrationSql.contains("CHECK (`type` IN ('OWNED_COMPANY', 'ENTRUSTED_PARTY'))"));
+        assertTrue(fixtureSql.contains("CHECK (\"type\" IN ('OWNED_COMPANY', 'ENTRUSTED_PARTY'))"));
+        assertFalse(migrationSql.contains("EXTERNAL_ENTERPRISE"));
+        assertFalse(fixtureSql.contains("EXTERNAL_ENTERPRISE"));
     }
 
     private Path resolveBackendRoot() {
