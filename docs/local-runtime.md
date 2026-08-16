@@ -8,7 +8,7 @@
 
 ## 固定端口
 
-PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
+PORT_CONTRACT_VERSION: 2026-08-15-branch-runtime-v4
 
 - `int_main` 前端专属端口：`8081`。
 - int_main 后端专属端口：48081。
@@ -48,7 +48,7 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - 如果端口被同一 runtime profile 的旧进程占用，可记录进程 ID、命令行和归属依据后停止对应旧进程，再启动。
 - 如果端口被未知进程、非 IntRuoyi 进程或其他 runtime profile 占用，必须 fail fast，不得强杀或换端口。
 - worktree 必须按 `docs/worktree-restrictions.md` 的 profile + slot 规则使用独立端口。
-- 附加 worktree 的 `slot` 只允许 `1..19`，必须由 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配；`slot >= 20` 或命中任一基准端口时必须 fail fast。
+- 附加 worktree 的 `slot` 只允许 `1..30`，必须由 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配；`slot >= 31` 或命中任一基准端口时必须 fail fast。槽位 `1..19` 保持原端口，`20..30` 使用 `docs\branch-runtime-ports.md` 的独立扩展段。
 
 ## 2026-07-24 本地重启脚本路径门禁
 
@@ -239,7 +239,7 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 
 - 禁止把 `int_main` 改到随机端口启动。
 - 禁止非 `int_main` 使用 `8081/48081`。
-- 禁止任何附加 worktree 使用 `slot >= 20` 或其他 profile 的基准端口。
+- 禁止任何附加 worktree 使用 `slot >= 31` 或其他 profile 的基准端口。
 - 禁止把 `int_batch`、`int_shedule` 或 `int_qms` 的分支端口写入 `int_main` 默认配置。
 - 禁止通过修改共享 `.env` 或 `application-local.yaml` 来实现分支端口。
 - 禁止端口占用时静默换端口、静默跳过服务或宣称启动成功。

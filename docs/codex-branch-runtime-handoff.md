@@ -1,6 +1,6 @@
 # Codex Branch Runtime Handoff
 
-PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
+PORT_CONTRACT_VERSION: 2026-08-15-branch-runtime-v4
 
 ## What This Protects
 
@@ -32,11 +32,11 @@ All future Codex tasks must preserve these files and rules during merge, commit,
 ## Worktree Rule
 
 - Base workspace uses `slot = 0`.
-- Additional worktree uses a stable slot in `1..19`.
-- Frontend port = profile frontend base port + slot.
-- Backend port = profile backend base port + slot.
+- Additional worktree uses a stable slot in `1..30`.
+- Slots `1..19` keep the existing `profile base port + slot` mapping.
+- Slots `20..30` use the dedicated extension ranges defined in `docs\branch-runtime-ports.md`.
 - Examples: `int_main slot=1 -> 8082/48082`, `int_batch slot=1 -> 8042/48042`, `int_shedule slot=1 -> 8022/48022`, `int_qms slot=1 -> 8062/48062`.
-- `slot >= 20`, base-port collisions, duplicate active profile slots, and duplicate active ports must fail fast.
+- `slot >= 31`, base-port collisions, duplicate active profile slots, and duplicate active ports must fail fast.
 - After creating the worktree directory and before starting either service, reserve the slot with the registry script:
 
 ```powershell

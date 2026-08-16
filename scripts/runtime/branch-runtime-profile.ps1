@@ -1,10 +1,11 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PortContractVersion = '2026-07-26-branch-runtime-v3'
+$script:PortContractVersion = '2026-08-15-branch-runtime-v4'
 $script:DefaultWorktreePortRegistryPath = 'D:\IntRuoyiWorktree\.ports\worktree-ports.json'
 $script:MinimumWorktreeSlot = 1
-$script:MaximumWorktreeSlot = 19
+$script:LegacyMaximumWorktreeSlot = 19
+$script:MaximumWorktreeSlot = 30
 
 function Get-BranchRuntimeProfiles {
     @(
@@ -14,6 +15,8 @@ function Get-BranchRuntimeProfiles {
             PathMarkers = @('\ProjectPackage\IntRuoyi\IntRuoyiAll', '\ProjectPackage\IntRuoyi\IntRuoyiAll\')
             FrontendBasePort = 8101
             BackendBasePort = 48101
+            ExtendedFrontendStartPort = 8165
+            ExtendedBackendStartPort = 48165
             FrontendMode = 'branch-main-d'
             EnvFile = 'IntRuoyiFronted\.env.branch-main-d'
         },
@@ -23,6 +26,8 @@ function Get-BranchRuntimeProfiles {
             PathMarkers = @('\IntRuoyi\')
             FrontendBasePort = 8081
             BackendBasePort = 48081
+            ExtendedFrontendStartPort = 8154
+            ExtendedBackendStartPort = 48154
             FrontendMode = 'env.local'
             EnvFile = $null
         },
@@ -32,6 +37,8 @@ function Get-BranchRuntimeProfiles {
             PathMarkers = @('\IntRuoyiBranch\BatchRecord\')
             FrontendBasePort = 8041
             BackendBasePort = 48041
+            ExtendedFrontendStartPort = 8132
+            ExtendedBackendStartPort = 48132
             FrontendMode = 'branch-batch'
             EnvFile = 'IntRuoyiFronted\.env.branch-batch'
         },
@@ -41,6 +48,8 @@ function Get-BranchRuntimeProfiles {
             PathMarkers = @('\IntRuoyiBranch\Shedule\', '\IntRuoyiBranch\Schedule\')
             FrontendBasePort = 8021
             BackendBasePort = 48021
+            ExtendedFrontendStartPort = 8121
+            ExtendedBackendStartPort = 48121
             FrontendMode = 'branch-shedule'
             EnvFile = 'IntRuoyiFronted\.env.branch-shedule'
         },
@@ -50,6 +59,8 @@ function Get-BranchRuntimeProfiles {
             PathMarkers = @('\IntRuoyiBranch\QMS\')
             FrontendBasePort = 8061
             BackendBasePort = 48061
+            ExtendedFrontendStartPort = 8143
+            ExtendedBackendStartPort = 48143
             FrontendMode = 'branch-qms'
             EnvFile = 'IntRuoyiFronted\.env.branch-qms'
         }
@@ -207,8 +218,9 @@ function Assert-BranchRuntimePortRegistryEntries {
         $profile = $profileMatches[0]
         $frontendPort = [int](Get-RequiredRegistryValue -Entry $entry -PropertyName 'frontendPort' -RepoRoot $entryPath)
         $backendPort = [int](Get-RequiredRegistryValue -Entry $entry -PropertyName 'backendPort' -RepoRoot $entryPath)
-        $expectedFrontendPort = $profile.FrontendBasePort + $slot
-        $expectedBackendPort = $profile.BackendBasePort + $slot
+        $expectedPorts = Get-BranchRuntimePorts -Profile $profile -Slot $slot
+        $expectedFrontendPort = $expectedPorts.FrontendPort
+        $expectedBackendPort = $expectedPorts.BackendPort
         if ($frontendPort -ne $expectedFrontendPort -or $backendPort -ne $expectedBackendPort) {
             throw "Registered worktree ports for '$entryPath' does not match profile '$profileName' slot ${slot}: expected frontend $expectedFrontendPort backend $expectedBackendPort, got frontend $frontendPort backend $backendPort."
         }
@@ -295,8 +307,9 @@ function Get-RegisteredBranchRuntimeContext {
     $profile = $profileMatches[0]
     $frontendPort = [int](Get-RequiredRegistryValue -Entry $entry -PropertyName 'frontendPort' -RepoRoot $fullRoot)
     $backendPort = [int](Get-RequiredRegistryValue -Entry $entry -PropertyName 'backendPort' -RepoRoot $fullRoot)
-    $expectedFrontendPort = $profile.FrontendBasePort + $slot
-    $expectedBackendPort = $profile.BackendBasePort + $slot
+    $expectedPorts = Get-BranchRuntimePorts -Profile $profile -Slot $slot
+    $expectedFrontendPort = $expectedPorts.FrontendPort
+    $expectedBackendPort = $expectedPorts.BackendPort
     if ($frontendPort -ne $expectedFrontendPort -or $backendPort -ne $expectedBackendPort) {
         throw "Registered worktree ports for '$fullRoot' does not match profile '$profileName' slot ${slot}: expected frontend $expectedFrontendPort backend $expectedBackendPort, got frontend $frontendPort backend $backendPort."
     }
@@ -373,14 +386,23 @@ function Get-BranchRuntimePorts {
         throw "Runtime slot must be between 0 and $($script:MaximumWorktreeSlot), got $Slot."
     }
 
+    if ($Slot -le $script:LegacyMaximumWorktreeSlot) {
+        $frontendPort = $Profile.FrontendBasePort + $Slot
+        $backendPort = $Profile.BackendBasePort + $Slot
+    } else {
+        $extendedOffset = $Slot - ($script:LegacyMaximumWorktreeSlot + 1)
+        $frontendPort = $Profile.ExtendedFrontendStartPort + $extendedOffset
+        $backendPort = $Profile.ExtendedBackendStartPort + $extendedOffset
+    }
+
     [pscustomobject]@{
         Profile = $Profile.Name
         Slot = $Slot
-        FrontendPort = $Profile.FrontendBasePort + $Slot
-        BackendPort = $Profile.BackendBasePort + $Slot
+        FrontendPort = $frontendPort
+        BackendPort = $backendPort
         FrontendMode = $Profile.FrontendMode
-        FrontendUrl = "http://127.0.0.1:$($Profile.FrontendBasePort + $Slot)"
-        BackendHealthUrl = "http://127.0.0.1:$($Profile.BackendBasePort + $Slot)/actuator/health"
+        FrontendUrl = "http://127.0.0.1:$frontendPort"
+        BackendHealthUrl = "http://127.0.0.1:$backendPort/actuator/health"
     }
 }
 
