@@ -9,16 +9,29 @@ import cn.iocoder.yudao.module.infra.service.file.access.FileDirectLinkAccessGua
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DccFileDirectLinkAccessGuardTest extends BaseMockitoUnitTest {
+
+    @Test
+    void onlyUnifiedBusinessProviderIsRegisteredAtRuntime() {
+        Class<?> providerClass = assertDoesNotThrow(() -> Class.forName(
+                "cn.iocoder.yudao.module.dcc.service.file.access.DccBusinessFileAccessProvider"));
+
+        assertNotNull(providerClass.getAnnotation(Service.class));
+        assertNull(DccFileDirectLinkAccessGuard.class.getAnnotation(Service.class));
+    }
 
     @Mock
     private DccControlledFileQueryService controlledFileQueryService;

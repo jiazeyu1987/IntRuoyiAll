@@ -21,6 +21,12 @@ import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenExpectedContext;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,6 +80,8 @@ class DccOnlyOfficeControlledPreviewTest extends BaseMockitoUnitTest {
     private static final String SOURCE_IP = "10.8.0.41";
     private static final String USER_AGENT = "OnlyOffice-Test-Agent/1.0";
     private static final String OFFICE_REQUEST_ID = "REQ-ONLYOFFICE-20260528-0001";
+    private static final BusinessFileAccessReference DCC_REFERENCE = new BusinessFileAccessReference(
+            "dcc", "DCC_CONTROLLED_FILE", FILE_ID, VERSION_NO, TENANT_ID, null);
 
     @Mock
     private DccControlledFileMapper controlledFileMapper;
@@ -95,6 +103,10 @@ class DccOnlyOfficeControlledPreviewTest extends BaseMockitoUnitTest {
     private DccControlledFileAccessEventMapper accessEventMapper;
     @Mock
     private DccControlledFileWatermarkTraceMapper watermarkTraceMapper;
+    @Mock
+    private BusinessFileAccessService businessFileAccessService;
+    @Mock
+    private PermissionApi permissionApi;
 
     @InjectMocks
     private DccControlledFileQueryServiceImpl queryService;
@@ -113,6 +125,8 @@ class DccOnlyOfficeControlledPreviewTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(queryService, "onlyOfficePreviewTokenService", tokenService);
         lenient().when(viewMatrixAccessService.canAccessCurrentViewMatrix(any(), any(DccControlledFileDO.class)))
                 .thenReturn(true);
+        lenient().when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenReturn(java.util.Optional.of(DCC_REFERENCE));
     }
 
     @AfterEach
@@ -122,7 +136,7 @@ class DccOnlyOfficeControlledPreviewTest extends BaseMockitoUnitTest {
 
     @Test
     void readOnlyOfficePreviewFile_rejectsLegacyResourceIdOnlyTokenBeforeStorageRead() throws Exception {
-        String legacyToken = tokenService.issue(DccOnlyOfficePreviewTokenService.RESOURCE_CONTROLLED_FILE, FILE_ID);
+        String legacyToken = legacyResourceToken();
 
         assertServiceException(() -> queryService.readOnlyOfficePreviewFile(FILE_ID, legacyToken, auditContext()),
                 CONTROLLED_FILE_VIEWER_TOKEN_INVALID);
@@ -192,7 +206,8 @@ class DccOnlyOfficeControlledPreviewTest extends BaseMockitoUnitTest {
     @Test
     void onlyOfficeContextTokenVerifierRejectsEveryBoundContextMismatch() {
         DccOnlyOfficePreviewTokenService.IssuedPreviewToken issued = tokenService.issueControlledFile(
-                TENANT_ID, USER_ID, FILE_ID, VERSION_NO, ACCESS_EVENT_ID, PURPOSE, 900L);
+                TENANT_ID, USER_ID, FILE_ID, VERSION_NO, ACCESS_EVENT_ID, PURPOSE, 900L,
+                PUBLISHED_FILE_ID, DCC_REFERENCE);
         DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload = issued.payload();
 
         tokenService.verifyControlledFile(issued.token(), new DccViewerTokenExpectedContext(
@@ -226,6 +241,29 @@ class DccOnlyOfficeControlledPreviewTest extends BaseMockitoUnitTest {
         assertContextMismatch(issued.token(), new DccViewerTokenExpectedContext(
                 TENANT_ID, USER_ID, FILE_ID, VERSION_NO, ACCESS_EVENT_ID, PURPOSE, 900L,
                 payload.getNonce(), "VT-OTHER"));
+    }
+
+    @Test
+    void readOnlyOfficePreviewFile_rechecksBusinessGateBeforeControlledFileAndStorageRead() throws Exception {
+        String token = contextToken(TENANT_ID, USER_ID, FILE_ID, VERSION_NO, ACCESS_EVENT_ID, PURPOSE,
+                900L, "VT-20260528-0001", "VN-20260528-0001", 60L);
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenThrow(new BusinessFileAccessDeniedException("revoked",
+                        BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, PUBLISHED_FILE_ID, "dcc"));
+
+        assertServiceException(() -> queryService.readOnlyOfficePreviewFile(FILE_ID, token, auditContext()),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED);
+
+        verify(controlledFileMapper, never()).selectById(any());
+        verify(fileMapper, never()).selectById(any());
+        verify(fileService, never()).getFileContent(any(), any());
+        verify(businessFileAccessService).assertAllowed(org.mockito.ArgumentMatchers.argThat(request ->
+                request.operation() == BusinessFileAccessOperation.ONLYOFFICE_PREVIEW
+                        && PUBLISHED_FILE_ID.equals(request.fileId())
+                         && TENANT_ID.equals(request.tenantId())
+                         && USER_ID.equals(request.userId())
+                         && request.tokenClaimRequired()
+                         && DCC_REFERENCE.equals(request.claim())));
     }
 
     @Test
@@ -380,17 +418,35 @@ class DccOnlyOfficeControlledPreviewTest extends BaseMockitoUnitTest {
         long issuedAt = expiresInSeconds < 0 ? expiresAt - ttlSeconds : now;
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("resourceType", DccOnlyOfficePreviewTokenService.RESOURCE_CONTROLLED_FILE);
+        payload.put("audience", DccOnlyOfficePreviewTokenService.AUDIENCE_CONTROLLED_FILE_PREVIEW);
         payload.put("tokenId", tokenId);
         payload.put("nonce", nonce);
         payload.put("tenantId", tenantId);
         payload.put("userId", userId);
         payload.put("fileId", fileId);
+        payload.put("infraFileId", PUBLISHED_FILE_ID);
+        payload.put("operation", BusinessFileAccessOperation.ONLYOFFICE_PREVIEW.name());
+        payload.put("providerId", DCC_REFERENCE.providerId());
+        payload.put("businessType", DCC_REFERENCE.businessType());
+        payload.put("businessId", fileId);
+        payload.put("versionKey", versionNo);
         payload.put("versionId", versionNo);
         payload.put("accessEventId", accessEventId);
         payload.put("purpose", purpose);
         payload.put("ttlSeconds", ttlSeconds);
         payload.put("issuedAtEpochSecond", issuedAt);
         payload.put("expiresAtEpochSecond", expiresAt);
+        String encodedPayload = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(JsonUtils.toJsonString(payload).getBytes(StandardCharsets.UTF_8));
+        return encodedPayload + "." + sign(encodedPayload);
+    }
+
+    private String legacyResourceToken() {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("resourceType", "CONTROLLED_FILE");
+        payload.put("resourceId", FILE_ID);
+        payload.put("tenantId", TENANT_ID);
+        payload.put("expiresAt", Instant.now().plusSeconds(60).getEpochSecond());
         String encodedPayload = Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(JsonUtils.toJsonString(payload).getBytes(StandardCharsets.UTF_8));
         return encodedPayload + "." + sign(encodedPayload);

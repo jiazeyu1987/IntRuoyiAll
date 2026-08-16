@@ -47,7 +47,8 @@ public interface ErrorCodeConstants {
     ErrorCode FILE_NAS_READ_FAILED = new ErrorCode(1_001_003_014, "NAS 读取失败：{}");
     ErrorCode FILE_NAS_CONFIG_MISSING = new ErrorCode(1_001_003_015, "NAS 配置未完成，请先保存服务器、共享名、用户名和密码");
     ErrorCode FILE_NAS_ACL_READ_FAILED = new ErrorCode(1_001_003_016, "NAS 权限读取失败：{}");
-    ErrorCode FILE_DIRECT_LINK_BLOCKED_BY_DCC = new ErrorCode(1_001_003_017, "DCC 受控文件禁止通过通用文件直链访问：fileId={}");
+    ErrorCode FILE_BUSINESS_DIRECT_LINK_BLOCKED = new ErrorCode(1_001_003_017,
+            "业务文件禁止通过通用文件直链访问：fileId={}");
     ErrorCode FILE_PROTECTED_SHOWROOM_MEDIA = new ErrorCode(1_001_003_018, "展厅受保护媒体禁止通过基础设施文件管理删除：fileId={}");
     ErrorCode FILE_NAS_WRITE_FAILED = new ErrorCode(1_001_003_019, "NAS 写入失败：{}");
     ErrorCode FILE_UPLOAD_EXECUTABLE_BLOCKED = new ErrorCode(1_001_003_020, "禁止上传可执行文件：{}");

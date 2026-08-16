@@ -6,9 +6,7 @@ import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.access.FileDirectLinkAccessContext;
 import cn.iocoder.yudao.module.infra.service.file.access.FileDirectLinkAccessGuard;
 import jakarta.annotation.Resource;
-import org.springframework.stereotype.Service;
 
-@Service
 public class DccFileDirectLinkAccessGuard implements FileDirectLinkAccessGuard {
 
     private static final String ACTION_DIRECT_LINK = "DIRECT_LINK";

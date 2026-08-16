@@ -29,7 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_DIRECT_LINK_BLOCKED_BY_DCC;
+import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_BUSINESS_DIRECT_LINK_BLOCKED;
 import static cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.FILE_UPLOAD_EXECUTABLE_BLOCKED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -228,7 +228,7 @@ class FileControllerTest extends BaseMockitoUnitTest {
         request.addHeader("User-Agent", "Playwright-E2E");
         request.addHeader("X-DCC-Request-Id", "REQ-DIRECT-001");
         MockHttpServletResponse response = new MockHttpServletResponse();
-        doThrow(exception(FILE_DIRECT_LINK_BLOCKED_BY_DCC, 700L))
+        doThrow(exception(FILE_BUSINESS_DIRECT_LINK_BLOCKED, 700L))
                 .when(fileService).validateDirectLinkAllowed(eq(10L), eq("quality/spec.pdf"),
                         argThat(context -> "Playwright-E2E".equals(context.userAgent())
                                 && "REQ-DIRECT-001".equals(context.requestId())));
@@ -236,7 +236,7 @@ class FileControllerTest extends BaseMockitoUnitTest {
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> fileController.getFileContent(request, response, 10L));
 
-        assertEquals(FILE_DIRECT_LINK_BLOCKED_BY_DCC.getCode(), ex.getCode());
+        assertEquals(FILE_BUSINESS_DIRECT_LINK_BLOCKED.getCode(), ex.getCode());
         verify(fileService).validateDirectLinkAllowed(eq(10L), eq("quality/spec.pdf"),
                 any(FileDirectLinkAccessContext.class));
         verify(fileService, never()).getFileContent(any(), any());

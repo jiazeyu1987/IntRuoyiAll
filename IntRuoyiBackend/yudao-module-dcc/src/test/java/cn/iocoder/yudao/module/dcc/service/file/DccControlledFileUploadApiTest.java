@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileApproveTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTrainingRecordReqVO;
@@ -24,10 +25,16 @@ import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessDeniedException;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOperation;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest;
+import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import io.swagger.v3.oas.annotations.media.Schema;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -74,6 +81,9 @@ import static org.mockito.Mockito.when;
 
 class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
 
+    private static final BusinessFileAccessReference TEMP_REFERENCE = new BusinessFileAccessReference(
+            "dcc", "DCC_TEMPORARY_UPLOAD", 501L, "TEMP-501", 31L, null);
+
     @Mock
     private FileService fileService;
     @Mock
@@ -92,17 +102,25 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     private DccControlledFileCategoryPermissionSupport permissionSupport;
     @Mock
     private DccFileCategoryMapper categoryMapper;
+    @Mock
+    private BusinessFileAccessService businessFileAccessService;
 
     @InjectMocks
     private DccControlledFileUploadServiceImpl uploadService;
 
     @BeforeEach
     void setUpCategory() {
+        TenantContextHolder.setTenantId(31L);
         lenient().when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L)
                 .active(true)
                 .lifecycleStage(DccFileCategoryLifecycleStageEnum.PLAN.getCode())
                 .build());
+    }
+
+    @AfterEach
+    void clearTenantContext() {
+        TenantContextHolder.clear();
     }
 
     @Test
@@ -298,8 +316,14 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                 "UT-20260803-0001", "session-1", "SOURCE", "AVAILABLE",
                 LocalDateTime.of(2026, 8, 3, 12, 30), 104L, "report.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 4L));
-        when(onlyOfficePreviewTokenService.issue(DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW, 104L))
-                .thenReturn("signed-upload-preview-token");
+        when(onlyOfficePreviewTokenService.issueBusinessFile(
+                DccOnlyOfficePreviewTokenService.AUDIENCE_UPLOAD_PREVIEW,
+                BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, 104L, 31L, 99L, null, TEMP_REFERENCE, 300L))
+                .thenReturn(new DccOnlyOfficePreviewTokenService.IssuedPreviewToken(
+                        "signed-upload-preview-token",
+                        new DccOnlyOfficePreviewTokenService.PreviewTokenPayload()));
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenReturn(java.util.Optional.of(TEMP_REFERENCE));
 
         DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
                 auditContext("REQ-XLSX-ONLYOFFICE"));
@@ -310,7 +334,71 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                         + "/onlyoffice-file?token=signed-upload-preview-token",
                 readBeanProperty(respVO, "onlyofficeDocumentUrl"));
         assertNull(respVO.getPreviewUnavailableReason());
-        verify(onlyOfficePreviewTokenService).issue(DccOnlyOfficePreviewTokenService.RESOURCE_UPLOAD_PREVIEW, 104L);
+        verify(onlyOfficePreviewTokenService).issueBusinessFile(
+                DccOnlyOfficePreviewTokenService.AUDIENCE_UPLOAD_PREVIEW,
+                BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, 104L, 31L, 99L, null, TEMP_REFERENCE, 300L);
+    }
+
+    @Test
+    void readUploadPreviewOnlyOfficeFile_rechecksConvertTokenBeforeFileLookupAndRead() throws Exception {
+        ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", configuredOnlyOfficeProperties());
+        DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload =
+                new DccOnlyOfficePreviewTokenService.PreviewTokenPayload();
+        payload.setTokenId("OT-CONVERT-1");
+        payload.setTenantId(31L);
+        payload.setServiceIdentity(DccOnlyOfficePreviewTokenService.SERVICE_DCC_PDF_CONVERSION);
+        payload.setOperation(BusinessFileAccessOperation.CONVERT.name());
+        payload.setInfraFileId(104L);
+        when(onlyOfficePreviewTokenService.verifyBusinessFileToken("convert-token",
+                DccOnlyOfficePreviewTokenService.AUDIENCE_UPLOAD_PREVIEW, 104L))
+                .thenReturn(payload);
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenThrow(new BusinessFileAccessDeniedException("revoked",
+                        BusinessFileAccessOperation.CONVERT, 104L, "dcc"));
+
+        assertThrows(RuntimeException.class,
+                () -> uploadService.readUploadPreviewOnlyOfficeFile(104L, "convert-token"));
+
+        verify(fileMapper, never()).selectById(any());
+        verify(fileService, never()).getFileContent(any(), any());
+    }
+
+    @Test
+    void readUploadPreviewOnlyOfficeFile_runsInTokenTenantAndRestoresIgnoredCallerContext() throws Exception {
+        TenantContextHolder.setTenantId(88L);
+        TenantContextHolder.setIgnore(true);
+        ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", configuredOnlyOfficeProperties());
+        DccOnlyOfficePreviewTokenService.PreviewTokenPayload payload =
+                new DccOnlyOfficePreviewTokenService.PreviewTokenPayload();
+        payload.setTokenId("OT-UPLOAD-1");
+        payload.setTenantId(31L);
+        payload.setUserId(99L);
+        payload.setOperation(BusinessFileAccessOperation.ONLYOFFICE_PREVIEW.name());
+        payload.setInfraFileId(104L);
+        payload.setProviderId(TEMP_REFERENCE.providerId());
+        payload.setBusinessType(TEMP_REFERENCE.businessType());
+        payload.setBusinessId(TEMP_REFERENCE.businessId());
+        payload.setVersionKey(TEMP_REFERENCE.versionKey());
+        when(onlyOfficePreviewTokenService.verifyBusinessFileToken("upload-token",
+                DccOnlyOfficePreviewTokenService.AUDIENCE_UPLOAD_PREVIEW, 104L)).thenReturn(payload);
+        when(businessFileAccessService.assertAllowed(any(BusinessFileAccessRequest.class)))
+                .thenAnswer(invocation -> {
+                    assertEquals(31L, TenantContextHolder.getRequiredTenantId());
+                    assertTrue(!TenantContextHolder.isIgnore());
+                    BusinessFileAccessRequest request = invocation.getArgument(0);
+                    assertTrue(request.tokenClaimRequired());
+                    assertEquals(TEMP_REFERENCE, request.claim());
+                    return java.util.Optional.of(TEMP_REFERENCE);
+                });
+        when(fileMapper.selectById(104L)).thenReturn(FileDO.builder()
+                .id(104L).configId(1L).path("dcc/original/report.docx")
+                .name("report.docx").type("application/docx").build());
+        when(fileService.getFileContent(1L, "dcc/original/report.docx")).thenReturn("office".getBytes());
+
+        uploadService.readUploadPreviewOnlyOfficeFile(104L, "upload-token");
+
+        assertEquals(88L, TenantContextHolder.getRequiredTenantId());
+        assertTrue(TenantContextHolder.isIgnore());
     }
 
     @Test
