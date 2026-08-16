@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,6 +17,11 @@ import java.util.List;
 public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTaskDO> {
 
     List<String> APPROVAL_CENTER_TASK_TYPES = List.of("REVIEW", "APPROVE", "RELEASE_APPROVE");
+    List<String> PRODUCTION_RELEASE_REPORT_NODE_TYPES = List.of(
+            "INCOMING_INSPECTION_REPORT",
+            "STERILIZATION_REPORT",
+            "FINISHED_PRODUCT_INSPECTION_REPORT",
+            "FINISHED_PRODUCT_INSPECTION_RECORD");
     String TERMINAL_BATCH_STATUS_SQL = "30, 40, 50, 60";
     default PageResult<MesProEdhrWorkTaskDO> selectMyPage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                           Long assigneeUserId,
@@ -66,13 +73,13 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                                                      String status) {
         LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = excludeTerminalBatchWrapper(
                 new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
-                .eq(MesProEdhrWorkTaskDO::getTaskType, "REVIEW")
                 .eq(MesProEdhrWorkTaskDO::getStatus, status)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
                 .eqIfPresent(MesProEdhrWorkTaskDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getBatchCode, reqVO.getBatchCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getProcessName, reqVO.getProcessName()));
+        applyProductionReleaseNodeTypeFilter(wrapper, reqVO.getNodeTypes());
         if (candidateUserId != null) {
             String candidateToken = "," + candidateUserId + ",";
             wrapper.apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}", "%" + candidateToken + "%");
@@ -171,6 +178,54 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     default MesProEdhrWorkTaskDO selectByPqcReleaseApplicationScopeId(Long applicationId) {
         return selectOne(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
                 .eq(MesProEdhrWorkTaskDO::getPqcReleaseApplicationScopeId, applicationId));
+    }
+
+    default MesProEdhrWorkTaskDO selectReleaseReportByBatchTaskId(Long batchTaskId) {
+        if (batchTaskId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                .eq(MesProEdhrWorkTaskDO::getBatchTaskId, batchTaskId)
+                .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_REPORT_NODE")
+                .eq(MesProEdhrWorkTaskDO::getBusinessScopeId, batchTaskId)
+                .eq(MesProEdhrWorkTaskDO::getTaskType, "FILL")
+                .orderByDesc(MesProEdhrWorkTaskDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    @Select("SELECT * FROM mes_pro_edhr_work_task WHERE id = #{id} FOR UPDATE")
+    MesProEdhrWorkTaskDO selectByIdForUpdate(@Param("id") Long id);
+
+    default int completeReleaseReportTask(Long id, LocalDateTime completedAt) {
+        return update(new MesProEdhrWorkTaskDO()
+                        .setStatus(MesProEdhrWorkTaskStatus.DONE)
+                        .setCompletedAt(completedAt)
+                        .setReason("REPORT_COMPLETED")
+                        .setRemark("production release report completed"),
+                new LambdaUpdateWrapper<MesProEdhrWorkTaskDO>()
+                        .eq(MesProEdhrWorkTaskDO::getId, id)
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "FILL")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_REPORT_NODE")
+                        .in(MesProEdhrWorkTaskDO::getStatus,
+                                MesProEdhrWorkTaskStatus.TODO,
+                                MesProEdhrWorkTaskStatus.DOING,
+                                MesProEdhrWorkTaskStatus.OVERDUE));
+    }
+
+    default int completeManagerReleaseTask(Long id, LocalDateTime completedAt, String opinion) {
+        return update(new MesProEdhrWorkTaskDO()
+                        .setStatus(MesProEdhrWorkTaskStatus.DONE)
+                        .setCompletedAt(completedAt)
+                        .setReason("APPROVE")
+                        .setRemark(opinion),
+                new LambdaUpdateWrapper<MesProEdhrWorkTaskDO>()
+                        .eq(MesProEdhrWorkTaskDO::getId, id)
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "RELEASE_APPROVE")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_TRANSACTION")
+                        .in(MesProEdhrWorkTaskDO::getStatus,
+                                MesProEdhrWorkTaskStatus.TODO,
+                                MesProEdhrWorkTaskStatus.DOING,
+                                MesProEdhrWorkTaskStatus.OVERDUE));
     }
 
     default int completePqcDecisionTask(Long id, LocalDateTime completedAt, String decision) {
@@ -290,9 +345,29 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> excludeTerminalBatchWrapper(
             LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper) {
-        wrapper.notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
-                "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
-                        + TERMINAL_BATCH_STATUS_SQL + ")");
+        wrapper.and(query -> query
+                .isNull(MesProEdhrWorkTaskDO::getBatchExecutionId)
+                .or()
+                .notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
+                        "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
+                                + TERMINAL_BATCH_STATUS_SQL + ")"));
         return wrapper;
+    }
+
+    private void applyProductionReleaseNodeTypeFilter(
+            LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper, List<String> nodeTypes) {
+        if (nodeTypes == null || nodeTypes.isEmpty()) {
+            return;
+        }
+        List<String> requested = nodeTypes.stream().distinct().toList();
+        if (requested.stream().anyMatch(nodeType -> !PRODUCTION_RELEASE_REPORT_NODE_TYPES.contains(nodeType))) {
+            wrapper.apply("1 = 0");
+            return;
+        }
+        String quotedNodeTypes = requested.stream()
+                .map(nodeType -> "'" + nodeType + "'")
+                .collect(java.util.stream.Collectors.joining(","));
+        wrapper.inSql(MesProEdhrWorkTaskDO::getBatchTaskId,
+                "SELECT id FROM mes_pro_edhr_batch_execution_task WHERE node_type IN (" + quotedNodeTypes + ")");
     }
 }

@@ -268,7 +268,7 @@ const queryParams = reactive({
 const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
   pageNo: 1,
   pageSize: 10,
-  releaseTransactionId: 0,
+  releaseTransactionId: '',
   itemStatus: 'OPEN' as const,
   checkResult: ''
 })
@@ -276,7 +276,7 @@ const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
 const eventQuery = reactive<EdhrReleaseEventPageReqVO>({
   pageNo: 1,
   pageSize: 10,
-  releaseTransactionId: 0,
+  releaseTransactionId: '',
   eventType: ''
 })
 

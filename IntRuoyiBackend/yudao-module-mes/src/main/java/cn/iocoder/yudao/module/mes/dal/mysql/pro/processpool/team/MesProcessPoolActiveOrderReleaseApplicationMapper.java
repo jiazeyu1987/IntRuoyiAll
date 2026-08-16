@@ -26,6 +26,26 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             """)
     MesProcessPoolActiveOrderReleaseApplicationDO selectByIdForUpdate(@Param("id") Long id);
 
+    @Select("""
+            SELECT *
+            FROM mes_pro_process_pool_active_order_release_application
+            WHERE batch_execution_id = #{batchExecutionId}
+              AND deleted = b'0'
+            FOR UPDATE
+            """)
+    MesProcessPoolActiveOrderReleaseApplicationDO selectByBatchExecutionIdForUpdate(
+            @Param("batchExecutionId") Long batchExecutionId);
+
+    @Select("""
+            SELECT *
+            FROM mes_pro_process_pool_active_order_release_application
+            WHERE release_transaction_id = #{releaseTransactionId}
+              AND deleted = b'0'
+            FOR UPDATE
+            """)
+    MesProcessPoolActiveOrderReleaseApplicationDO selectByReleaseTransactionIdForUpdate(
+            @Param("releaseTransactionId") Long releaseTransactionId);
+
     @Update("""
             UPDATE mes_pro_process_pool_active_order_release_application
             SET application_status = #{targetStatus},
@@ -39,6 +59,57 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                             @Param("expectedVersion") Integer expectedVersion,
                             @Param("expectedStatus") String expectedStatus,
                             @Param("targetStatus") String targetStatus);
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order_release_application
+            SET version = version + 1
+            WHERE id = #{id}
+              AND deleted = b'0'
+              AND version = #{expectedVersion}
+              AND application_status = 'REPORT_UPLOAD_PENDING'
+            """)
+    int advanceReportVersion(@Param("id") Long id,
+                             @Param("expectedVersion") Integer expectedVersion);
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order_release_application
+            SET application_status = 'MANAGER_RELEASE_PENDING',
+                report_snapshot_hash = #{reportSnapshotHash},
+                release_transaction_id = #{releaseTransactionId},
+                release_approval_work_task_id = #{managerReleaseWorkTaskId},
+                dossier_summary_json = JSON_SET(
+                    COALESCE(dossier_summary_json, JSON_OBJECT()),
+                    '$.managerCandidateSnapshotHash', #{managerCandidateSnapshotHash}),
+                version = version + 1
+            WHERE id = #{id}
+              AND deleted = b'0'
+              AND version = #{expectedVersion}
+              AND application_status = 'REPORT_UPLOAD_PENDING'
+            """)
+    int handoffReportsToManager(@Param("id") Long id,
+                                @Param("expectedVersion") Integer expectedVersion,
+                                @Param("reportSnapshotHash") String reportSnapshotHash,
+                                @Param("releaseTransactionId") Long releaseTransactionId,
+                                @Param("managerReleaseWorkTaskId") Long managerReleaseWorkTaskId,
+                                @Param("managerCandidateSnapshotHash") String managerCandidateSnapshotHash);
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order_release_application
+            SET application_status = 'RELEASED',
+                version = version + 1
+            WHERE id = #{id}
+              AND deleted = b'0'
+              AND version = #{expectedVersion}
+              AND application_status = 'MANAGER_RELEASE_PENDING'
+              AND report_snapshot_hash = #{reportSnapshotHash}
+              AND release_transaction_id = #{releaseTransactionId}
+              AND release_approval_work_task_id = #{managerReleaseWorkTaskId}
+            """)
+    int releaseFromManager(@Param("id") Long id,
+                           @Param("expectedVersion") Integer expectedVersion,
+                           @Param("reportSnapshotHash") String reportSnapshotHash,
+                           @Param("releaseTransactionId") Long releaseTransactionId,
+                           @Param("managerReleaseWorkTaskId") Long managerReleaseWorkTaskId);
 
     @Update("""
             UPDATE mes_pro_process_pool_active_order_release_application
@@ -161,5 +232,15 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                 .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getReleaseTransactionId, releaseTransactionId)
                 .orderByAsc(MesProcessPoolActiveOrderReleaseApplicationDO::getActiveOrderId)
                 .orderByAsc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
+    }
+
+    default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectListByBatchExecutionIds(
+            Collection<Long> batchExecutionIds) {
+        if (batchExecutionIds == null || batchExecutionIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .in(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, batchExecutionIds)
+                .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
     }
 }

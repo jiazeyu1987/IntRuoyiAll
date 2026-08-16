@@ -111,6 +111,14 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProEdhrDossierConstants;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlocker;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureRespVO;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempotency;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStage;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportNodeEvidence;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistResult;
@@ -1196,6 +1204,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     public EdhrBatchExecutionRespVO skipSpecialNode(Long taskId, String reason, String password,
                                                     List<MesProEdhrSpecialNodeAttachment> attachments) {
         MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAction(taskId);
+        rejectProductionReleaseReportMutation(task, "skip");
         boolean specialNodeSkip = SKIPPABLE_SPECIAL_NODE_TYPES.contains(resolveNodeType(task));
         boolean optionalRouteFormSkip = isOptionalRouteFormTask(task);
         if (!specialNodeSkip && !optionalRouteFormSkip) {
@@ -1280,6 +1289,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                         List<MesProEdhrSpecialNodeAttachment> attachments) {
         // 灭菌报告选择填写完成时，灭菌批次必填。
         MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAction(taskId);
+        rejectProductionReleaseReportMutation(task, "legacy complete");
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
         Long actorId = currentUserId();
         validateCurrentUserIsSpecialNodeFiller(task, batch, actorId);
@@ -1317,17 +1327,140 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesProductionReleaseReportNodeEvidence completeProductionReleaseReportNode(
+            Long taskId, Long actorUserId, String sterilizationBatchNo,
+            List<MesProEdhrSpecialNodeAttachment> attachments) {
+        MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAction(taskId);
+        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectReleaseReportByBatchTaskId(taskId);
+        if (workTask == null || !Objects.equals(actorUserId, currentUserId())
+                || !isAssignedOrCandidate(workTask, actorUserId)) {
+            throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE,
+                    "current user is not a frozen candidate for this release report task");
+        }
+        String nodeType = resolveNodeType(task);
+        if (!SKIPPABLE_SPECIAL_NODE_TYPES.contains(nodeType)) {
+            throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.REPORT_NODE_NOT_PROCESSABLE,
+                    "release report node type is invalid");
+        }
+        if (attachments == null || attachments.isEmpty()) {
+            throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.REPORT_ATTACHMENT_REQUIRED,
+                    "release report completion requires at least one attachment");
+        }
+        if (NODE_TYPE_STERILIZATION_REPORT.equals(nodeType) && StrUtil.isBlank(sterilizationBatchNo)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STERILIZATION_BATCH_REQUIRED);
+        }
+        LocalDateTime operatedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        List<MesProBatchRecordExecutionAttachmentDO> persistedAttachments =
+                persistSpecialNodeAttachments(task, attachments, operatedAt);
+        MesProductionReleaseReportNodeEvidence evidence = new MesProductionReleaseReportNodeEvidence()
+                .setBatchExecutionId(task.getBatchExecutionId())
+                .setBatchTaskId(task.getId())
+                .setNodeType(nodeType)
+                .setSterilizationBatchNo(NODE_TYPE_STERILIZATION_REPORT.equals(nodeType)
+                        ? StrUtil.trim(sterilizationBatchNo) : null)
+                .setActiveAttachmentVersion(1)
+                .setAttachmentIds(persistedAttachments.stream()
+                        .map(MesProBatchRecordExecutionAttachmentDO::getId).toList())
+                .setAttachmentHashes(persistedAttachments.stream()
+                        .map(MesProBatchRecordExecutionAttachmentDO::getSha256).toList());
+        JSONObject payload = JSON.parseObject(evidence.toPayloadJson());
+        payload.put("completedBy", actorUserId);
+        payload.put("completedAt", operatedAt.toString());
+        if (NODE_TYPE_STERILIZATION_REPORT.equals(nodeType)) {
+            payload.put("sterilizationBatchNo", StrUtil.trim(sterilizationBatchNo));
+        }
+        task.setStatus(TASK_STATUS_APPROVED)
+                .setApprovedAt(operatedAt)
+                .setSpecialPayloadJson(payload.toJSONString());
+        if (batchTaskMapper.updateById(task) != 1) {
+            throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.REPORT_NODE_NOT_PROCESSABLE,
+                    "release report node was completed concurrently");
+        }
+        recordOperationAudit("BATCH_EXECUTION_TASK", String.valueOf(task.getId()), "COMPLETE_RELEASE_REPORT",
+                "完成生产放行报告节点", task.getBatchExecutionId(), task.getExecutionId(), task.getId(),
+                null, task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
+                "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS", null, null,
+                payload.toJSONString());
+        return evidence;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesProEdhrSpecialNodeAttachmentPrepareUploadResult prepareSpecialNodeAttachmentUpload(
             MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command) {
+        return prepareSpecialNodeAttachmentUpload(command, null, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrSpecialNodeAttachmentPrepareUploadResult prepareProductionReleaseReportAttachmentUpload(
+            MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command, Long actorUserId) {
+        return prepareSpecialNodeAttachmentUpload(command, actorUserId, true);
+    }
+
+    private MesProEdhrSpecialNodeAttachmentPrepareUploadResult prepareSpecialNodeAttachmentUpload(
+            MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command,
+            Long actorUserId,
+            boolean productionReleaseReport) {
         requireSpecialNodeAttachmentPrepareUploadCommand(command);
         MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAttachmentUpload(command.getTaskId());
-        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
-        validateCurrentUserIsSpecialNodeFiller(task, batch, currentUserId());
+        if (productionReleaseReport) {
+            MesProEdhrWorkTaskDO workTask = workTaskMapper.selectReleaseReportByBatchTaskId(task.getId());
+            if (workTask == null || !Objects.equals(actorUserId, currentUserId())
+                    || !isAssignedOrCandidate(workTask, actorUserId)) {
+                throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE,
+                        "current user is not a frozen candidate for this release report task");
+            }
+        } else {
+            rejectProductionReleaseReportMutation(task, "legacy prepare upload");
+            MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
+            validateCurrentUserIsSpecialNodeFiller(task, batch, currentUserId());
+        }
         if (!SKIPPABLE_SPECIAL_NODE_TYPES.contains(resolveNodeType(task))) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID);
         }
         String directory = "edhr/special-nodes/" + task.getBatchExecutionId() + "/" + task.getId() + "/attachments";
         String sha256 = DigestUtil.sha256Hex(command.getContent());
+        String preparePayloadHash = null;
+        if (productionReleaseReport) {
+            String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
+            preparePayloadHash = MesReleaseFlowIdempotency.payloadHash(
+                    String.valueOf(task.getId()), normalizeSpecialNodeAttachmentFileName(command.getFileName()),
+                    StrUtil.trim(command.getContentType()), sha256);
+            String normalizedFileName = normalizeSpecialNodeAttachmentFileName(command.getFileName());
+            List<MesProBatchRecordExecutionAttachmentDO> pendingAttachments =
+                    resolvePendingSpecialNodeAttachmentRecords(task.getId());
+            String idempotencyPrefix = "RELEASE_REPORT_PREPARE:" + idempotencyKey + ":";
+            MesProBatchRecordExecutionAttachmentDO sameKey = pendingAttachments.stream()
+                    .filter(attachment -> attachment.getReasonText() != null
+                            && attachment.getReasonText().startsWith(idempotencyPrefix))
+                    .findFirst()
+                    .orElse(null);
+            if (sameKey != null && !Objects.equals(idempotencyPrefix + preparePayloadHash,
+                    sameKey.getReasonText())) {
+                throw productionReleaseReportBlocker(task,
+                        MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT,
+                        "prepare upload idempotency key was used with different file evidence");
+            }
+            if (sameKey != null) {
+                return toPrepareUploadResult(task, sameKey);
+            }
+            MesProBatchRecordExecutionAttachmentDO replay = pendingAttachments.stream()
+                    .filter(attachment -> Objects.equals(normalizedFileName,
+                            normalizeSpecialNodeAttachmentFileName(attachment.getFileName())))
+                    .filter(attachment -> Objects.equals(sha256, attachment.getSha256()))
+                    .findFirst()
+                    .orElse(null);
+            if (replay != null) {
+                throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.REPORT_ATTACHMENT_LOCKED,
+                        "the same pending release report attachment is already bound to another request key");
+            }
+            if (pendingAttachments.stream().anyMatch(attachment -> Objects.equals(normalizedFileName,
+                    normalizeSpecialNodeAttachmentFileName(attachment.getFileName())))) {
+                throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.REPORT_ATTACHMENT_LOCKED,
+                        "a pending release report attachment cannot be overwritten by file name");
+            }
+        }
         Long fileId = fileService.createFileAndReturnId(command.getContent(), StrUtil.trim(command.getFileName()),
                 directory, StrUtil.trim(command.getContentType()));
         FileDO file = fileService.getFile(fileId);
@@ -1353,11 +1486,42 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         .storageRetentionJson(storageRetentionJson)
                         .storageRetentionHash(storageRetentionHash)
                         .build();
-        MesProBatchRecordExecutionAttachmentDO pendingAttachment =
-                upsertPendingSpecialNodeAttachment(task, toSpecialNodeAttachment(result),
-                        LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS));
+        MesProBatchRecordExecutionAttachmentDO pendingAttachment = productionReleaseReport
+                ? insertSpecialNodeAttachment(task, toSpecialNodeAttachment(result),
+                LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS), SPECIAL_NODE_ATTACHMENT_ACTION_PENDING,
+                "SPECIAL_NODE_PENDING:" + result.getFileId())
+                : upsertPendingSpecialNodeAttachment(task, toSpecialNodeAttachment(result),
+                LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS));
+        if (productionReleaseReport) {
+            pendingAttachment.setReasonText("RELEASE_REPORT_PREPARE:" + command.getIdempotencyKey()
+                    + ":" + preparePayloadHash);
+            if (attachmentMapper.updateById(pendingAttachment) != 1) {
+                throw productionReleaseReportBlocker(task,
+                        MesReleaseFlowBlockerType.REPORT_ATTACHMENT_REQUIRED,
+                        "prepared release report attachment idempotency evidence could not be stored");
+            }
+        }
         recordAttachmentPrepareUploadAudit(task, pendingAttachment, result);
         return result;
+    }
+
+    private MesProEdhrSpecialNodeAttachmentPrepareUploadResult toPrepareUploadResult(
+            MesProEdhrBatchExecutionTaskDO task,
+            MesProBatchRecordExecutionAttachmentDO attachment) {
+        return MesProEdhrSpecialNodeAttachmentPrepareUploadResult.builder()
+                .uploadToken(SPECIAL_NODE_ATTACHMENT_UPLOAD_PREFIX + ":" + task.getId()
+                        + ":" + attachment.getFileId() + ":" + attachment.getSha256())
+                .fileId(attachment.getFileId())
+                .fileUrl(attachment.getFileUrl())
+                .storageConfigId(attachment.getStorageConfigId())
+                .storagePath(attachment.getStoragePath())
+                .fileName(attachment.getFileName())
+                .contentType(attachment.getContentType())
+                .fileSize(attachment.getFileSize())
+                .sha256(attachment.getSha256())
+                .storageRetentionJson(attachment.getStorageRetentionJson())
+                .storageRetentionHash(attachment.getStorageRetentionHash())
+                .build();
     }
 
     @Override
@@ -1365,6 +1529,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     public void deletePendingSpecialNodeAttachment(Long taskId, MesProEdhrSpecialNodeAttachment attachment,
                                                    String reason) {
         MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAttachmentUpload(taskId);
+        rejectProductionReleaseReportMutation(task, "delete pending attachment");
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
         validateCurrentUserIsSpecialNodeFiller(task, batch, currentUserId());
         validateSpecialNodeAttachment(task, attachment);
@@ -1380,6 +1545,16 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Transactional(rollbackFor = Exception.class)
     public EdhrBatchExecutionRespVO savePendingSpecialNodeAttachments(Long batchExecutionId, String reason) {
         MesProEdhrBatchExecutionDO batch = validateBatchForSpecialAttachmentSave(batchExecutionId);
+        MesProEdhrBatchExecutionTaskDO releaseReportTask = batchTaskMapper.selectListByBatchExecutionId(batch.getId())
+                .stream()
+                .filter(task -> workTaskMapper.selectReleaseReportByBatchTaskId(task.getId()) != null)
+                .findFirst()
+                .orElse(null);
+        if (releaseReportTask != null) {
+            throw productionReleaseReportBlocker(releaseReportTask,
+                    MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION,
+                    "save pending is not supported for production release report attachments");
+        }
         Long actorId = currentUserId();
         String auditReason = requireSpecialNodeAttachmentAuditReason(reason);
         LocalDateTime operatedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
@@ -6329,6 +6504,30 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     private boolean isAssignedOrCandidate(MesProEdhrWorkTaskDO workTask, Long currentUserId) {
         return MesProEdhrWorkTaskAuthorization.isAssignedOrCandidate(workTask, currentUserId);
+    }
+
+    private void rejectProductionReleaseReportMutation(
+            MesProEdhrBatchExecutionTaskDO task, String action) {
+        if (task == null || workTaskMapper.selectReleaseReportByBatchTaskId(task.getId()) == null) {
+            return;
+        }
+        throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION,
+                action + " is not supported for a locked production release report node");
+    }
+
+    private MesReleaseFlowBlockerException productionReleaseReportBlocker(
+            MesProEdhrBatchExecutionTaskDO task,
+            MesReleaseFlowBlockerType blockerType,
+            String reason) {
+        return new MesReleaseFlowBlockerException(reason, new MesReleaseFlowFailureRespVO()
+                .setStage(MesReleaseFlowStage.SP_3)
+                .setCurrentStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
+                .setBlockers(List.of(new MesReleaseFlowBlocker()
+                        .setBlockerType(blockerType)
+                        .setObjectType("RELEASE_REPORT_NODE")
+                        .setObjectId(task == null ? null : String.valueOf(task.getId()))
+                        .setReason(reason)
+                        .setSuggestion("use the versioned production release report upload and complete commands"))));
     }
 
     private String roleForTaskType(String taskType) {

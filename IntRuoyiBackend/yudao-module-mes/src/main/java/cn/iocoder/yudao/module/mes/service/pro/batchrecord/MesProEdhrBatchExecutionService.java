@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskOpenReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskOpenRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskPreviewRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportNodeEvidence;
 
 import java.util.List;
 
@@ -53,8 +54,15 @@ public interface MesProEdhrBatchExecutionService {
     EdhrBatchExecutionRespVO completeSpecialNode(Long taskId, String sterilizationBatchNo,
                                                  List<MesProEdhrSpecialNodeAttachment> attachments);
 
+    MesProductionReleaseReportNodeEvidence completeProductionReleaseReportNode(
+            Long taskId, Long actorUserId, String sterilizationBatchNo,
+            List<MesProEdhrSpecialNodeAttachment> attachments);
+
     MesProEdhrSpecialNodeAttachmentPrepareUploadResult prepareSpecialNodeAttachmentUpload(
             MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command);
+
+    MesProEdhrSpecialNodeAttachmentPrepareUploadResult prepareProductionReleaseReportAttachmentUpload(
+            MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command, Long actorUserId);
 
     void deletePendingSpecialNodeAttachment(Long taskId, MesProEdhrSpecialNodeAttachment attachment, String reason);
 

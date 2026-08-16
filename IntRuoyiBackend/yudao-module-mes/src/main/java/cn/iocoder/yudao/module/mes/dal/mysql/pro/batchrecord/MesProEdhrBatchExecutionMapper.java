@@ -84,10 +84,7 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                     + "AND rt.release_status = 'RELEASED'");
         }
         if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
-            queryWrapper.and(wrapper -> wrapper
-                    .in(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_ARCHIVED, BATCH_STATUS_REJECTED)
-                    .or()
-                    .exists(releasedTransactionExistsSql()));
+            queryWrapper.exists(releasedTransactionExistsSql());
         }
         queryWrapper.notIn(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_VOIDED);
         QuickFilterUtils.filter(queryWrapper, reqVO.getQuickFilter(), Map.of(

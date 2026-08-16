@@ -143,6 +143,8 @@ export interface EdhrBatchExecutionSpecialNodeSkipReqVO {
 
 export interface EdhrBatchExecutionSpecialNodeCompleteReqVO {
   taskId: number
+  expectedVersion?: number
+  idempotencyKey?: string
   sterilizationBatchNo?: string
   attachments?: EdhrBatchSpecialNodeAttachment[]
 }
@@ -160,9 +162,9 @@ export interface EdhrBatchExecutionSpecialNodeAttachmentSavePendingReqVO {
 
 export interface EdhrBatchSpecialNodeAttachment {
   uploadToken: string
-  fileId: number
+  fileId: EdhrRouteId
   fileUrl: string
-  storageConfigId: number
+  storageConfigId: EdhrRouteId
   storagePath: string
   fileName: string
   contentType: string
@@ -175,6 +177,42 @@ export interface EdhrBatchSpecialNodeAttachment {
 export interface EdhrBatchSpecialNodeAttachmentPrepareUploadReqVO {
   taskId: number
   file: File | Blob
+}
+
+export interface EdhrProductionReleaseReportAttachmentPrepareUploadReqVO {
+  taskId: string
+  expectedVersion: number
+  idempotencyKey: string
+  file: File | Blob
+}
+
+export interface EdhrProductionReleaseReportAttachmentPrepareRespVO
+  extends EdhrBatchSpecialNodeAttachment {
+  version: number
+}
+
+export interface MesProductionReleaseReportNodeCompleteRespVO {
+  batchExecutionId: string
+  batchTaskId: string
+  workTaskId: string
+  nodeType: string
+  nodeStatus: string
+  activeAttachmentVersion: number
+  attachmentIds: string[]
+  attachmentHashes: string[]
+  reportUploadStatus: string
+  reportSnapshotHash?: string
+  releaseTransactionId?: string
+  managerReleaseWorkTaskId?: string
+  version: number
+}
+
+export interface EdhrProductionReleaseReportNodeCompleteReqVO {
+  taskId: string
+  expectedVersion: number
+  idempotencyKey: string
+  sterilizationBatchNo?: string
+  attachments: EdhrBatchSpecialNodeAttachment[]
 }
 
 export interface EdhrBatchExecutionTaskOpenRespVO {
@@ -427,7 +465,7 @@ export interface EdhrBatchWorkbenchRespVO {
     blockedCount?: number
   }
   releaseSummary?: {
-    releaseTransactionId?: number
+    releaseTransactionId?: string
     releaseStatus?: string
     releaseStatusLabel?: string
     blockingCheckCount?: number
@@ -834,6 +872,39 @@ export const prepareEdhrBatchSpecialNodeAttachmentUpload = async (
     throw new Error('特殊节点附件预登记响应缺少 data，不能写入批次归档。')
   }
   return response.data
+}
+
+interface EdhrProductionReleaseReportAttachmentPrepareUploadApiResp {
+  data: EdhrProductionReleaseReportAttachmentPrepareRespVO
+}
+
+export const prepareEdhrProductionReleaseReportAttachmentUpload = async (
+  data: EdhrProductionReleaseReportAttachmentPrepareUploadReqVO,
+  onUploadProgress?: Function
+) => {
+  const formData = new FormData()
+  formData.append('taskId', String(data.taskId))
+  formData.append('expectedVersion', String(data.expectedVersion))
+  formData.append('idempotencyKey', data.idempotencyKey)
+  formData.append('file', data.file)
+  const response = await request.upload<EdhrProductionReleaseReportAttachmentPrepareUploadApiResp>({
+    url: `${BATCH_EXECUTION_BASE_URL}/task/special-node/attachment/prepare-upload`,
+    data: formData,
+    onUploadProgress
+  })
+  if (!response.data) {
+    throw new Error('生产放行报告附件预登记响应缺少 data，不能继续完成报告。')
+  }
+  return response.data
+}
+
+export const completeEdhrProductionReleaseReportNode = async (
+  data: EdhrProductionReleaseReportNodeCompleteReqVO
+) => {
+  return await request.post<MesProductionReleaseReportNodeCompleteRespVO>({
+    url: `${BATCH_EXECUTION_BASE_URL}/task/special-node/complete`,
+    data
+  })
 }
 
 export const deleteEdhrBatchSpecialNodePendingAttachment = async (

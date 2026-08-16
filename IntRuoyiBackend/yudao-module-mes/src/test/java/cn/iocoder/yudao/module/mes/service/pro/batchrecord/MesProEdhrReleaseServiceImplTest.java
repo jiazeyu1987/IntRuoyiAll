@@ -49,6 +49,7 @@ import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalService;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -117,6 +118,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesOrderReleaseCompletenessService releaseCompletenessService;
     @MockitoBean
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
+    @MockitoBean
+    private MesProductionReleaseManagerApprovalService managerApprovalService;
 
     @BeforeEach
     void setUpDossierRequirementDefaults() {
@@ -491,7 +494,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, released.getReleaseStatus());
 
         String releaseServiceSource = Files.readString(Path.of(
-                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
+                "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
                         + "MesProEdhrReleaseServiceImpl.java"));
         assertTrue(releaseServiceSource.contains("selectByIdForUpdate"),
                 "release terminal transitions must reread the release transaction with selectByIdForUpdate");
@@ -863,7 +866,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void pageCompletedTraceIncludesReleasedClosedBatchAndTerminalStatusesBeforePagination() {
+    void pageCompletedTraceIncludesOnlyReleasedTransactionsBeforePagination() {
         MesProEdhrBatchExecutionDO releasedClosedBatch = insertClosedBatch(930000L, "BATCH-TRACE-RELEASED-CLOSED");
         releaseTransactionMapper.insert(MesProEdhrReleaseTransactionDO.builder()
                 .id(931000L)
@@ -915,10 +918,10 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .map(MesProEdhrReleaseRespVO::getBatchExecutionId)
                 .toList();
 
-        assertEquals(3L, page.getTotal());
+        assertEquals(1L, page.getTotal());
         assertTrue(batchIds.contains(releasedClosedBatch.getId()));
-        assertTrue(batchIds.contains(archivedBatch.getId()));
-        assertTrue(batchIds.contains(rejectedBatch.getId()));
+        assertFalse(batchIds.contains(archivedBatch.getId()));
+        assertFalse(batchIds.contains(rejectedBatch.getId()));
     }
 
     private MesProEdhrBatchExecutionDO insertClosedBatch(String batchCode) {
