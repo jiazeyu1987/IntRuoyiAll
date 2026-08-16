@@ -3247,6 +3247,7 @@ CREATE TABLE `system_notify_message`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '用户ID',
   `user_id` bigint NOT NULL COMMENT '用户id',
   `user_type` tinyint NOT NULL COMMENT '用户类型',
+  `business_key` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '租户内稳定业务键',
   `template_id` bigint NOT NULL COMMENT '模版编号',
   `template_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模板编码',
   `template_nickname` varchar(63) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模版发送人名称',
@@ -3262,6 +3263,7 @@ CREATE TABLE `system_notify_message`  (
   `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
   `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
   PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_system_notify_message_tenant_business_key` (`tenant_id`, `business_key`),
   INDEX `idx_user_id_user_type_read_status`(`user_id` ASC, `user_type` ASC, `read_status` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '站内信消息表';
 

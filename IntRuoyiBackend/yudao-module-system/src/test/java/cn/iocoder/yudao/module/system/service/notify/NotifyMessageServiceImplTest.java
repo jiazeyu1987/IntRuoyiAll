@@ -78,6 +78,7 @@ public class NotifyMessageServiceImplTest extends BaseDbUnitTest {
            o.setTemplateType(10);
            o.setCreateTime(buildTime(2022, 1, 2));
            o.setTemplateParams(randomTemplateParams());
+           o.setBusinessKey(null);
        });
        notifyMessageMapper.insert(dbNotifyMessage);
        // 测试 userId 不匹配
@@ -110,7 +111,10 @@ public class NotifyMessageServiceImplTest extends BaseDbUnitTest {
     public void testGetNotifyMessage() {
         // mock 数据
         NotifyMessageDO dbNotifyMessage = randomPojo(NotifyMessageDO.class,
-                o -> o.setTemplateParams(randomTemplateParams()));
+                o -> {
+                    o.setTemplateParams(randomTemplateParams());
+                    o.setBusinessKey(null);
+                });
         notifyMessageMapper.insert(dbNotifyMessage);
         // 准备参数
         Long id = dbNotifyMessage.getId();
@@ -129,6 +133,7 @@ public class NotifyMessageServiceImplTest extends BaseDbUnitTest {
             o.setReadStatus(true);
             o.setCreateTime(buildTime(2022, 1, 2));
             o.setTemplateParams(randomTemplateParams());
+            o.setBusinessKey(null);
         });
         notifyMessageMapper.insert(dbNotifyMessage);
         // 测试 userId 不匹配
@@ -163,6 +168,7 @@ public class NotifyMessageServiceImplTest extends BaseDbUnitTest {
             o.setReadStatus(false);
             o.setCreateTime(buildTime(2022, 1, 2));
             o.setTemplateParams(randomTemplateParams());
+            o.setBusinessKey(null);
         });
         notifyMessageMapper.insert(unreadOld);
         NotifyMessageDO readNew = cloneIgnoreId(unreadOld, o -> {
@@ -198,6 +204,7 @@ public class NotifyMessageServiceImplTest extends BaseDbUnitTest {
             o.setUserType(UserTypeEnum.ADMIN.getValue());
             o.setReadStatus(false);
             o.setTemplateParams(randomTemplateParams());
+            o.setBusinessKey(null);
         });
         notifyMessageMapper.insert(dbNotifyMessage);
         // 测试 userId 不匹配
@@ -226,6 +233,7 @@ public class NotifyMessageServiceImplTest extends BaseDbUnitTest {
             o.setUserType(UserTypeEnum.ADMIN.getValue());
             o.setReadStatus(false);
             o.setTemplateParams(randomTemplateParams());
+            o.setBusinessKey(null);
         });
         notifyMessageMapper.insert(dbNotifyMessage);
         // 测试 userId 不匹配
@@ -251,6 +259,7 @@ public class NotifyMessageServiceImplTest extends BaseDbUnitTest {
             o.setReadStatus(false);
             o.setReadTime(null);
             o.setTemplateParams(randomTemplateParams());
+            o.setBusinessKey(null);
         });
         notifyMessageMapper.insert(dbNotifyMessage);
         // 测试 userId 不匹配
@@ -283,6 +292,7 @@ public class NotifyMessageServiceImplTest extends BaseDbUnitTest {
             o.setReadStatus(false);
             o.setReadTime(null);
             o.setTemplateParams(randomTemplateParams());
+            o.setBusinessKey(null);
         });
         notifyMessageMapper.insert(dbNotifyMessage);
         // 测试 userId 不匹配
