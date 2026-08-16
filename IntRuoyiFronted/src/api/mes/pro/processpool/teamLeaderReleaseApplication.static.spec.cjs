@@ -13,22 +13,23 @@ assert(
     apiSource.includes('TeamLeaderActiveOrderReleaseApplyRespVO') &&
     apiSource.includes('TeamLeaderActiveOrderReleaseBlockerRespVO') &&
     apiSource.includes('applyTeamLeaderActiveOrderRelease') &&
+    apiSource.includes('getTeamLeaderActiveOrderRelease') &&
     apiSource.includes('/mes/pro/process-pool/team-leader/active-order/release/apply'),
   'Team leader API must define and call the active-order release application contract.'
 )
 
 assert(
-  apiSource.includes('releaseApplicationStatus?: string') &&
-    apiSource.includes('releaseApplicationBlockerSummary?: string') &&
-    apiSource.includes('releaseApprovalWorkTaskId?: number'),
+  apiSource.includes('releaseApplicationId?: string') &&
+    apiSource.includes('releaseApplicationStatus?: TeamLeaderActiveOrderReleaseApplicationStatus') &&
+    apiSource.includes('pqcReleaseWorkTaskId?: string'),
   'Active-order response type must expose release application status and work-task linkage.'
 )
 
 assert(
-  pageSource.includes('data-team-leader-active-order-release-apply') &&
+    pageSource.includes('data-team-leader-active-order-release-apply') &&
     pageSource.includes('申请放行') &&
-    pageSource.includes('申请生成放行资料') &&
-    pageSource.includes('不会直接放行') &&
+    pageSource.includes('提交生产放行申请') &&
+    pageSource.includes('不会创建批次、报告上传任务或最终放行事务') &&
     pageSource.includes('applyTeamLeaderActiveOrderRelease'),
   'Team leader workbench must render a release-application button, confirmation copy, and API call.'
 )

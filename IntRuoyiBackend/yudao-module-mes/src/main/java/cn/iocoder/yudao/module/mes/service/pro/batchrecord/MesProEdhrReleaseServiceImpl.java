@@ -46,6 +46,8 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalResult;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
@@ -165,9 +167,14 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesOrderReleaseCompletenessService releaseCompletenessService;
     @Resource
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
+    @Resource
+    private MesProductionReleaseManagerApprovalService managerApprovalService;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
+        if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
+            reqVO.setReleaseStatus(STATUS_RELEASED);
+        }
         if (hasReleaseTransactionFilter(reqVO)) {
             return getTransactionFilteredPage(reqVO);
         }
@@ -368,6 +375,12 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrReleaseRespVO approve(MesProEdhrReleaseApproveReqVO reqVO) {
+        if (managerApprovalService.isManagedReleaseTransaction(reqVO.getReleaseTransactionId())) {
+            MesProductionReleaseManagerApprovalResult result = managerApprovalService.approve(
+                    SecurityFrameworkUtils.getLoginUserId(), reqVO);
+            reportManagementSummaryService.refreshByReleaseTransactionId(reqVO.getReleaseTransactionId());
+            return toResp(result.getBatchExecution(), result.getReleaseTransaction());
+        }
         String idempotencyKey = requireIdempotencyKey(reqVO.getIdempotencyKey());
         String signoffEvidenceHash = requireSignoffEvidence(reqVO.getSignoffEvidenceHash());
         MesProEdhrReleaseTransactionEventDO existingEvent =
@@ -409,6 +422,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrReleaseRespVO reject(MesProEdhrReleaseRejectReqVO reqVO) {
+        managerApprovalService.assertActionSupported(reqVO.getReleaseTransactionId(), EVENT_TYPE_REJECT);
         String idempotencyKey = requireIdempotencyKey(reqVO.getIdempotencyKey());
         String reason = requireReason(reqVO.getRejectReason());
         MesProEdhrReleaseTransactionEventDO existingEvent =
@@ -454,6 +468,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrReleaseRespVO withdraw(MesProEdhrReleaseWithdrawReqVO reqVO) {
+        managerApprovalService.assertActionSupported(reqVO.getReleaseTransactionId(), EVENT_TYPE_WITHDRAW);
         String idempotencyKey = requireIdempotencyKey(reqVO.getIdempotencyKey());
         String reason = requireReason(reqVO.getWithdrawReason());
         MesProEdhrReleaseTransactionEventDO existingEvent =
@@ -528,11 +543,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return false;
         }
         if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
-            return STATUS_RELEASED.equals(item.getReleaseStatus())
-                    || Objects.equals(item.getBatchExecutionStatus(),
-                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED)
-                    || Objects.equals(item.getBatchExecutionStatus(),
-                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED);
+            return STATUS_RELEASED.equals(item.getReleaseStatus());
         }
         return true;
     }
@@ -1527,7 +1538,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setRejectReason(transaction == null ? null : transaction.getRejectReason())
                 .setWithdrawnBy(transaction == null ? null : transaction.getWithdrawnBy())
                 .setWithdrawnAt(transaction == null ? null : transaction.getWithdrawnAt())
-                .setWithdrawReason(transaction == null ? null : transaction.getWithdrawReason());
+                .setWithdrawReason(transaction == null ? null : transaction.getWithdrawReason())
+                .setVersion(transaction == null ? null : transaction.getVersion());
     }
 
     private String resolvePrecheckSummary(String releaseStatus, MesProEdhrReleaseTransactionDO transaction) {

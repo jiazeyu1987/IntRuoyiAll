@@ -12,6 +12,10 @@ public class MesProEdhrReleaseApproveReqVO {
     @NotNull(message = "放行事务不能为空")
     private Long releaseTransactionId;
 
+    private Long workTaskId;
+
+    private Integer expectedVersion;
+
     @NotBlank(message = "批准幂等键不能为空")
     private String idempotencyKey;
 

@@ -205,12 +205,12 @@ const releaseEventQuickFilter = useTableQuickFilter(
   getList
 )
 
-const parsePositiveNumber = (value: unknown) => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+const parsePositiveJsonLong = (value: unknown) => {
+  const normalized = typeof value === 'string' ? value.trim() : String(value || '').trim()
+  return /^[1-9]\d*$/.test(normalized) ? normalized : undefined
 }
 
-const currentReleaseTransactionId = computed(() => parsePositiveNumber(props.releaseTransactionId))
+const currentReleaseTransactionId = computed(() => parsePositiveJsonLong(props.releaseTransactionId))
 
 const formatDateTime = (value?: string | number) => {
   return formatEdhrDateTime(value)

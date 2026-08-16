@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionCloseReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidRespVO;
@@ -34,6 +35,10 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrRehearsalRe
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachment;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachmentPrepareUploadCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachmentPrepareUploadResult;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportAttachmentPrepareCommand;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportAttachmentPrepareResult;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportNodeCompleteCommand;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseReportService;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -65,6 +70,8 @@ public class MesProEdhrBatchExecutionController {
     private MesProEdhrRehearsalReadinessService rehearsalReadinessService;
     @Resource
     private MesProEdhrLocalStateSampleService localStateSampleService;
+    @Resource
+    private MesProductionReleaseReportService productionReleaseReportService;
 
     @GetMapping("/page")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
@@ -142,17 +149,40 @@ public class MesProEdhrBatchExecutionController {
 
     @PostMapping("/task/special-node/complete")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:update')")
-    public CommonResult<EdhrBatchExecutionRespVO> completeSpecialNode(
+    public CommonResult<?> completeSpecialNode(
             @Valid @RequestBody EdhrBatchExecutionSpecialNodeCompleteReqVO reqVO) {
+        if (reqVO.getExpectedVersion() != null || reqVO.getIdempotencyKey() != null) {
+            return success(productionReleaseReportService.complete(
+                    SecurityFrameworkUtils.getLoginUserId(),
+                    new MesProductionReleaseReportNodeCompleteCommand()
+                            .setBatchTaskId(reqVO.getTaskId())
+                            .setExpectedVersion(reqVO.getExpectedVersion())
+                            .setIdempotencyKey(reqVO.getIdempotencyKey())
+                            .setSterilizationBatchNo(reqVO.getSterilizationBatchNo())
+                            .setAttachments(toServiceAttachments(reqVO.getAttachments()))));
+        }
         return success(batchExecutionService.completeSpecialNode(reqVO.getTaskId(), reqVO.getSterilizationBatchNo(),
                 toServiceAttachments(reqVO.getAttachments())));
     }
 
     @PostMapping("/task/special-node/attachment/prepare-upload")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:update')")
-    public CommonResult<EdhrBatchExecutionSpecialNodeAttachmentPrepareUploadRespVO> prepareSpecialNodeAttachmentUpload(
+    public CommonResult<?> prepareSpecialNodeAttachmentUpload(
             @Valid EdhrBatchExecutionSpecialNodeAttachmentPrepareUploadReqVO reqVO,
             @RequestPart("file") MultipartFile file) throws IOException {
+        if (reqVO.getExpectedVersion() != null || reqVO.getIdempotencyKey() != null) {
+            MesProductionReleaseReportAttachmentPrepareResult result =
+                    productionReleaseReportService.prepareAttachment(
+                            SecurityFrameworkUtils.getLoginUserId(),
+                            new MesProductionReleaseReportAttachmentPrepareCommand()
+                                    .setBatchTaskId(reqVO.getTaskId())
+                                    .setExpectedVersion(reqVO.getExpectedVersion())
+                                    .setIdempotencyKey(reqVO.getIdempotencyKey())
+                                    .setFileName(file.getOriginalFilename())
+                                    .setContentType(file.getContentType())
+                                    .setContent(file.getBytes()));
+            return success(result);
+        }
         MesProEdhrSpecialNodeAttachmentPrepareUploadResult result =
                 batchExecutionService.prepareSpecialNodeAttachmentUpload(
                         new MesProEdhrSpecialNodeAttachmentPrepareUploadCommand()
@@ -258,4 +288,5 @@ public class MesProEdhrBatchExecutionController {
                 .setStorageRetentionJson(result.getStorageRetentionJson())
                 .setStorageRetentionHash(result.getStorageRetentionHash());
     }
+
 }

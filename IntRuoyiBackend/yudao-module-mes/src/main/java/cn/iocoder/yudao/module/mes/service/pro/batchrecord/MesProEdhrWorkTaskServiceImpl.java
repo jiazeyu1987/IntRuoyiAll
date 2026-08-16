@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
@@ -31,6 +32,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFo
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
@@ -91,6 +93,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private static final String BUSINESS_SCOPE_TYPE_BATCH_TASK = "BATCH_TASK";
     private static final String BUSINESS_SCOPE_TYPE_BATCH_ARCHIVE = "BATCH_ARCHIVE";
     private static final String BUSINESS_SCOPE_TYPE_RELEASE_TRANSACTION = "RELEASE_TRANSACTION";
+    private static final String BUSINESS_SCOPE_TYPE_RELEASE_APPLICATION = "RELEASE_APPLICATION";
+    private static final String BUSINESS_SCOPE_TYPE_RELEASE_REPORT_NODE = "RELEASE_REPORT_NODE";
     private static final String RULE_SCOPE_TYPE_ROUTE = "ROUTE";
     private static final String CANDIDATE_SOURCE_TYPE_USER = MesProEdhrCandidateResolver.CANDIDATE_SOURCE_TYPE_USER;
     private static final String CANDIDATE_SOURCE_TYPE_ROLE_GROUP = "ROLE_GROUP";
@@ -108,6 +112,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
 
     @Resource
     private MesProEdhrWorkTaskMapper workTaskMapper;
+    @Resource
+    private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Resource
@@ -536,8 +542,33 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         Map<Long, AdminUserRespDTO> userMap = userIds.isEmpty() ? Map.of() : adminUserApi.getUserMap(userIds);
         Map<Long, String> roleNameMap = buildRoleNameMap(roleIds);
         Map<Long, DeptRespDTO> deptMap = deptIds.isEmpty() ? Map.of() : deptApi.getDeptMap(deptIds);
+        Set<Long> batchTaskIds = list.stream().map(MesProEdhrWorkTaskDO::getBatchTaskId)
+                .filter(Objects::nonNull).collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, MesProEdhrBatchExecutionTaskDO> batchTaskMap = batchTaskIds.isEmpty() ? Map.of()
+                : batchTaskMapper.selectByIds(batchTaskIds).stream()
+                .collect(Collectors.toMap(MesProEdhrBatchExecutionTaskDO::getId,
+                        task -> task, (left, right) -> left, LinkedHashMap::new));
+        Set<Long> applicationIds = list.stream()
+                .filter(task -> Objects.equals(BUSINESS_SCOPE_TYPE_RELEASE_APPLICATION, task.getBusinessScopeType()))
+                .map(MesProEdhrWorkTaskDO::getBusinessScopeId)
+                .filter(Objects::nonNull).collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> applicationById = applicationIds.isEmpty()
+                ? Map.of() : releaseApplicationMapper.selectByIds(applicationIds).stream()
+                .collect(Collectors.toMap(MesProcessPoolActiveOrderReleaseApplicationDO::getId,
+                        application -> application, (left, right) -> left, LinkedHashMap::new));
+        Set<Long> releaseBatchExecutionIds = list.stream()
+                .filter(task -> Objects.equals(BUSINESS_SCOPE_TYPE_RELEASE_REPORT_NODE, task.getBusinessScopeType()))
+                .map(MesProEdhrWorkTaskDO::getBatchExecutionId)
+                .filter(Objects::nonNull).collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> applicationByBatchExecutionId =
+                releaseBatchExecutionIds.isEmpty() ? Map.of()
+                        : releaseApplicationMapper.selectListByBatchExecutionIds(releaseBatchExecutionIds).stream()
+                        .collect(Collectors.toMap(
+                                MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId,
+                                application -> application, (left, right) -> left, LinkedHashMap::new));
         List<MesProEdhrWorkTaskRespVO> rows = list.stream()
-                .map(task -> toWorkTaskResp(task, currentUserId, userMap, roleNameMap, deptMap))
+                .map(task -> toWorkTaskResp(task, currentUserId, userMap, roleNameMap, deptMap,
+                        batchTaskMap, applicationById, applicationByBatchExecutionId))
                 .toList();
         return new PageResult<>(rows, page.getTotal());
     }
@@ -546,7 +577,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                                                     Long currentUserId,
                                                     Map<Long, AdminUserRespDTO> userMap,
                                                     Map<Long, String> roleNameMap,
-                                                    Map<Long, DeptRespDTO> deptMap) {
+                                                    Map<Long, DeptRespDTO> deptMap,
+                                                    Map<Long, MesProEdhrBatchExecutionTaskDO> batchTaskMap,
+                                                    Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> applicationById,
+                                                    Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> applicationByBatchExecutionId) {
         MesProEdhrWorkTaskRespVO respVO = BeanUtils.toBean(task, MesProEdhrWorkTaskRespVO.class);
         respVO.setAssigneeUserName(resolveUserName(userMap, task.getAssigneeUserId()));
         respVO.setSourceUserName(resolveUserName(userMap, task.getSourceUserId()));
@@ -554,6 +588,19 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         respVO.setCandidateSnapshotDisplay(resolveCandidateSnapshotDisplay(task, userMap));
         respVO.setResponsibilitySource(resolveResponsibilitySource(task));
         respVO.setInactionReason(resolveInactionReason(task, currentUserId));
+        MesProEdhrBatchExecutionTaskDO batchTask = task.getBatchTaskId() == null
+                ? null : batchTaskMap.get(task.getBatchTaskId());
+        if (batchTask != null) {
+            respVO.setNodeType(batchTask.getNodeType());
+            respVO.setNodeName(StrUtil.blankToDefault(batchTask.getProcessName(), batchTask.getNodeType()));
+        }
+        MesProcessPoolActiveOrderReleaseApplicationDO application =
+                Objects.equals(BUSINESS_SCOPE_TYPE_RELEASE_APPLICATION, task.getBusinessScopeType())
+                        ? applicationById.get(task.getBusinessScopeId())
+                        : applicationByBatchExecutionId.get(task.getBatchExecutionId());
+        if (application != null) {
+            respVO.setVersion(application.getVersion());
+        }
         return respVO;
     }
 

@@ -26,17 +26,17 @@ export interface EdhrReleasePageReqVO extends PageParam {
 }
 
 export interface EdhrReleaseRowVO {
-  releaseTransactionId?: number
+  releaseTransactionId?: string
   releaseCode?: string
-  batchExecutionId: number
+  batchExecutionId: string
   batchExecutionCode: string
-  workOrderId?: number
+  workOrderId?: string
   workOrderCode?: string
   batchCode: string
-  productId?: number
+  productId?: string
   productCode?: string
   productName?: string
-  routeId?: number
+  routeId?: string
   routeCode?: string
   routeName?: string
   batchExecutionStatus?: number
@@ -54,28 +54,30 @@ export interface EdhrReleaseRowVO {
   precheckSummary?: string
   precheckSnapshotJson?: string
   submitIdempotencyKey?: string
-  submittedBy?: number
+  submittedBy?: string
   submittedAt?: string | number
   approvalIdempotencyKey?: string
-  approvedBy?: number
+  approvedBy?: string
   approvedAt?: string | number
   approvalSignoffEvidenceHash?: string
   approvalOpinion?: string
-  rejectedBy?: number
+  rejectedBy?: string
   rejectedAt?: string | number
   rejectReason?: string
-  withdrawnBy?: number
+  withdrawnBy?: string
   withdrawnAt?: string | number
   withdrawReason?: string
+  releaseApprovalWorkTaskId?: string
+  version: number
 }
 
 export interface EdhrReleasePrecheckReqVO {
-  releaseTransactionId?: number
-  batchExecutionId?: number
+  releaseTransactionId?: string
+  batchExecutionId?: string | number
 }
 
 export interface EdhrReleaseCheckItemPageReqVO extends PageParam {
-  releaseTransactionId: number
+  releaseTransactionId: string
   checkCategory?: string
   checkResult?: EdhrReleaseCheckResult | ''
   itemStatus?: EdhrReleaseCheckItemStatus | ''
@@ -83,8 +85,8 @@ export interface EdhrReleaseCheckItemPageReqVO extends PageParam {
 }
 
 export interface EdhrReleaseCheckItemVO {
-  id: number
-  releaseTransactionId: number
+  id: string
+  releaseTransactionId: string
   checkCode: string
   checkCategory: string
   checkName: string
@@ -104,43 +106,45 @@ export interface EdhrReleaseCheckItemVO {
 }
 
 export interface EdhrReleaseSubmitReqVO {
-  releaseTransactionId: number
+  releaseTransactionId: string
   idempotencyKey: string
   password: string
   submitReason?: string
 }
 
 export interface EdhrReleaseApproveReqVO {
-  releaseTransactionId: number
+  releaseTransactionId: string
+  workTaskId: string
+  expectedVersion: number
   idempotencyKey: string
   signoffEvidenceHash: string
   approvalOpinion?: string
 }
 
 export interface EdhrReleaseRejectReqVO {
-  releaseTransactionId: number
+  releaseTransactionId: string
   idempotencyKey: string
   rejectReason: string
 }
 
 export interface EdhrReleaseWithdrawReqVO {
-  releaseTransactionId: number
+  releaseTransactionId: string
   idempotencyKey: string
   withdrawReason: string
 }
 
 export interface EdhrReleaseEventPageReqVO extends PageParam {
-  releaseTransactionId: number
+  releaseTransactionId: string
   eventType?: EdhrReleaseEventType | ''
 }
 
 export interface EdhrReleaseEventRespVO {
-  id: number
-  releaseTransactionId: number
+  id: string
+  releaseTransactionId: string
   eventType: EdhrReleaseEventType
   fromStatus: EdhrReleaseStatus
   toStatus: EdhrReleaseStatus
-  actorUserId?: number
+  actorUserId?: string
   reason?: string
   opinion?: string
   idempotencyKey: string
@@ -157,7 +161,7 @@ export const getEdhrReleasePage = async (params: EdhrReleasePageReqVO) => {
   })
 }
 
-export const getEdhrRelease = async (id: number) => {
+export const getEdhrRelease = async (id: string) => {
   return await request.get<EdhrReleaseRowVO>({
     url: '/mes/pro/edhr-release/get',
     params: { id }

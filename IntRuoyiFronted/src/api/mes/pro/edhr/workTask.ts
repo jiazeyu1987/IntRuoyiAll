@@ -6,11 +6,18 @@ export const EDHR_WORK_TASK_TYPE_APPROVE = 'APPROVE'
 export const EDHR_WORK_TASK_TYPE_REWORK = 'REWORK'
 export const EDHR_WORK_TASK_TYPE_ARCHIVE = 'ARCHIVE'
 export const EDHR_WORK_TASK_TYPE_RELEASE_APPROVE = 'RELEASE_APPROVE'
+export const EDHR_WORK_TASK_TYPE_PQC_PRODUCTION_RELEASE = 'PQC_PRODUCTION_RELEASE'
 export const EDHR_WORK_TASK_STATUS_TODO = 'TODO'
 export const EDHR_WORK_TASK_STATUS_DOING = 'DOING'
 export const EDHR_WORK_TASK_STATUS_DONE = 'DONE'
 export const EDHR_WORK_TASK_STATUS_CANCELED = 'CANCELED'
 export const EDHR_WORK_TASK_STATUS_OVERDUE = 'OVERDUE'
+export const EDHR_PRODUCTION_RELEASE_REPORT_NODE_TYPES = [
+  'INCOMING_INSPECTION_REPORT',
+  'STERILIZATION_REPORT',
+  'FINISHED_PRODUCT_INSPECTION_REPORT',
+  'FINISHED_PRODUCT_INSPECTION_RECORD'
+] as const
 
 export interface EdhrWorkTaskPageReqVO extends PageParam {
   taskType?: string
@@ -18,32 +25,34 @@ export interface EdhrWorkTaskPageReqVO extends PageParam {
   workOrderCode?: string
   batchCode?: string
   processName?: string
+  nodeTypes?: string[]
+  batchExecutionId?: string
 }
 
 export interface EdhrWorkTaskRespVO {
-  id: number
+  id: string
   taskCode?: string
   taskType: string
   status: string
-  batchExecutionId: number
-  batchTaskId?: number
+  batchExecutionId: string
+  batchTaskId?: string
   businessScopeType?: string
-  businessScopeId?: number
-  executionId?: number
-  sourceExecutionId?: number
-  workOrderId?: number
+  businessScopeId?: string
+  executionId?: string
+  sourceExecutionId?: string
+  workOrderId?: string
   workOrderCode?: string
   batchCode?: string
-  routeProcessId?: number
+  routeProcessId?: string
   processName?: string
-  assigneeUserId?: number
+  assigneeUserId?: string
   assigneeUserName?: string
   candidateSourceType?: 'USER' | 'USER_GROUP' | 'ROLE_GROUP' | 'DEPT_GROUP'
-  candidateSourceId?: number
+  candidateSourceId?: string
   candidatePoolName?: string
   candidateUserSnapshot?: string
   candidateSnapshotDisplay?: string
-  sourceUserId?: number
+  sourceUserId?: string
   sourceUserName?: string
   responsibilitySource?: string
   inactionReason?: string
@@ -51,10 +60,13 @@ export interface EdhrWorkTaskRespVO {
   signatureRowIndex?: number
   signatureColumnIndex?: number
   reviewSourceType?: 'POST' | 'ROLE' | 'USER' | 'DEPT' | 'ROLES' | 'USERS' | 'DEPTS'
-  reviewSourceId?: number
-  reviewSourceIds?: number[]
+  reviewSourceId?: string
+  reviewSourceIds?: string[]
   reviewSourceName?: string
   bpmTaskId?: string
+  nodeType?: string
+  nodeName?: string
+  version?: number
   actionUrl: string
   reason?: string
   remark?: string
@@ -189,7 +201,10 @@ export const saveEdhrRouteReleaseApprovalRule = async (
   })
 }
 
-export const completeEdhrCandidateSignatureTask = async (workTaskId: number, executionId: number) => {
+export const completeEdhrCandidateSignatureTask = async (
+  workTaskId: string,
+  executionId: string
+) => {
   return await request.post<boolean>({
     url: '/mes/pro/edhr-work-task/candidate-signature/complete',
     params: { workTaskId, executionId }

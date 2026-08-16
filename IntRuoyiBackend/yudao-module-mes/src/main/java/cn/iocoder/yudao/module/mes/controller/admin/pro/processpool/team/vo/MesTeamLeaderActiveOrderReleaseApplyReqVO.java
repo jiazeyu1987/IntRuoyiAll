@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -18,8 +20,11 @@ public class MesTeamLeaderActiveOrderReleaseApplyReqVO {
     @Schema(description = "请求幂等键", requiredMode = Schema.RequiredMode.REQUIRED,
             example = "active-order-release-8101-20260808120000")
     @NotBlank
+    @Size(max = 128)
+    @Pattern(regexp = "[\\x21-\\x7E]+")
     private String idempotencyKey;
 
     @Schema(description = "申请说明", example = "生产与检验均已完成，申请负责人放行")
+    @Size(max = 500)
     private String applyRemark;
 }

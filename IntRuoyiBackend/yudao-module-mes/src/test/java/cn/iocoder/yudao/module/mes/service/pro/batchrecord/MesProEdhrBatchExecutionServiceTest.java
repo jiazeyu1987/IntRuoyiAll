@@ -105,6 +105,8 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRe
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
@@ -2058,6 +2060,121 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO persisted = batchTaskMapper.selectById(requiredTask.getId());
         assertEquals(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING, persisted.getStatus());
         assertEquals(Boolean.TRUE, persisted.getRequiredFlag());
+    }
+
+    @Test
+    void productionReleaseReportNodesRejectLegacySkipCompleteDeleteAndSavePendingActions() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(
+                new EdhrBatchExecutionOpenOrCreateReqVO()
+                        .setWorkOrderId(fixture.workOrderId())
+                        .setBatchCode("BATCH-RELEASE-REPORT-LOCKED")
+                        .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO reportTask = batch.getTasks().stream()
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT
+                        .equals(task.getNodeType()))
+                .findFirst()
+                .orElseThrow();
+        workTaskMapper.insert(new MesProEdhrWorkTaskDO()
+                .setTaskCode("PRR-7001-" + reportTask.getId())
+                .setTaskType("FILL")
+                .setBatchExecutionId(batch.getId())
+                .setBatchTaskId(reportTask.getId())
+                .setBusinessScopeType("RELEASE_REPORT_NODE")
+                .setBusinessScopeId(reportTask.getId())
+                .setAssigneeUserId(188L)
+                .setCandidateUserSnapshot("188")
+                .setActionUrl("/mes/production-release/report?applicationId=7001")
+                .setStatus(MesProEdhrWorkTaskStatus.TODO));
+
+        List<MesReleaseFlowBlockerException> failures = List.of(
+                assertThrows(MesReleaseFlowBlockerException.class,
+                        () -> batchExecutionService.skipSpecialNode(
+                                reportTask.getId(), "not allowed", "test-signature-value", List.of())),
+                assertThrows(MesReleaseFlowBlockerException.class,
+                        () -> batchExecutionService.completeSpecialNode(reportTask.getId(), null, List.of())),
+                assertThrows(MesReleaseFlowBlockerException.class,
+                        () -> batchExecutionService.deletePendingSpecialNodeAttachment(
+                                reportTask.getId(), new MesProEdhrSpecialNodeAttachment(), "not allowed")),
+                assertThrows(MesReleaseFlowBlockerException.class,
+                        () -> batchExecutionService.savePendingSpecialNodeAttachments(
+                                batch.getId(), "not allowed")));
+
+        assertTrue(failures.stream().allMatch(failure ->
+                failure.getFailure().getBlockers().get(0).getBlockerType()
+                        == MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION));
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING,
+                batchTaskMapper.selectById(reportTask.getId()).getStatus());
+    }
+
+    @Test
+    void productionReleaseReportPrepareUploadReplaysSameKeyAndRejectsChangedPayload() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(
+                new EdhrBatchExecutionOpenOrCreateReqVO()
+                        .setWorkOrderId(fixture.workOrderId())
+                        .setBatchCode("BATCH-RELEASE-REPORT-PREPARE")
+                        .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO reportTask = batch.getTasks().stream()
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT
+                        .equals(task.getNodeType()))
+                .findFirst()
+                .orElseThrow();
+        workTaskMapper.insert(new MesProEdhrWorkTaskDO()
+                .setTaskCode("PRR-7002-" + reportTask.getId())
+                .setTaskType("FILL")
+                .setBatchExecutionId(batch.getId())
+                .setBatchTaskId(reportTask.getId())
+                .setBusinessScopeType("RELEASE_REPORT_NODE")
+                .setBusinessScopeId(reportTask.getId())
+                .setAssigneeUserId(188L)
+                .setCandidateUserSnapshot("188")
+                .setActionUrl("/mes/production-release/report?applicationId=7002")
+                .setStatus(MesProEdhrWorkTaskStatus.TODO));
+        byte[] content = "release report attachment".getBytes(StandardCharsets.UTF_8);
+        String directory = "edhr/special-nodes/" + batch.getId() + "/" + reportTask.getId() + "/attachments";
+        when(fileService.createFileAndReturnId(content, "incoming.pdf", directory, "application/pdf"))
+                .thenReturn(9501L);
+        when(fileService.getFile(9501L)).thenReturn(FileDO.builder()
+                .id(9501L)
+                .configId(28L)
+                .name("incoming.pdf")
+                .path(directory + "/incoming.pdf")
+                .url("http://127.0.0.1:9000/yudao/" + directory + "/incoming.pdf")
+                .type("application/pdf")
+                .size((long) content.length)
+                .build());
+        MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command =
+                new MesProEdhrSpecialNodeAttachmentPrepareUploadCommand()
+                        .setTaskId(reportTask.getId())
+                        .setIdempotencyKey("report-prepare-9501")
+                        .setFileName("incoming.pdf")
+                        .setContentType("application/pdf")
+                        .setContent(content);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+            MesProEdhrSpecialNodeAttachmentPrepareUploadResult first =
+                    batchExecutionService.prepareProductionReleaseReportAttachmentUpload(command, 188L);
+            MesProEdhrSpecialNodeAttachmentPrepareUploadResult replay =
+                    batchExecutionService.prepareProductionReleaseReportAttachmentUpload(command, 188L);
+            assertEquals(first.getFileId(), replay.getFileId());
+
+            MesReleaseFlowBlockerException conflict = assertThrows(
+                    MesReleaseFlowBlockerException.class,
+                    () -> batchExecutionService.prepareProductionReleaseReportAttachmentUpload(
+                            new MesProEdhrSpecialNodeAttachmentPrepareUploadCommand()
+                                    .setTaskId(reportTask.getId())
+                                    .setIdempotencyKey("report-prepare-9501")
+                                    .setFileName("incoming-v2.pdf")
+                                    .setContentType("application/pdf")
+                                    .setContent("changed".getBytes(StandardCharsets.UTF_8)),
+                            188L));
+            assertEquals(MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT,
+                    conflict.getFailure().getBlockers().get(0).getBlockerType());
+        }
+        verify(fileService, times(1))
+                .createFileAndReturnId(content, "incoming.pdf", directory, "application/pdf");
     }
 
     @Test

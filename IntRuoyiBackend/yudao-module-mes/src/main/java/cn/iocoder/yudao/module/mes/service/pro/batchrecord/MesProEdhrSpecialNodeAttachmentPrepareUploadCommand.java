@@ -8,6 +8,7 @@ import lombok.experimental.Accessors;
 public class MesProEdhrSpecialNodeAttachmentPrepareUploadCommand {
 
     private Long taskId;
+    private String idempotencyKey;
     private String fileName;
     private String contentType;
     private byte[] content;
