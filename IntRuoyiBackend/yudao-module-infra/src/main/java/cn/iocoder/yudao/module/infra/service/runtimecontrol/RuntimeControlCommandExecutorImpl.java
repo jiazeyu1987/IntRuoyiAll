@@ -15,6 +15,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -27,6 +28,9 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
     private static final Duration RESTART_COMMAND_TIMEOUT = Duration.ofMinutes(5);
     private static final Duration OPERATION_COMMAND_TIMEOUT = Duration.ofHours(2);
     private static final Duration DETACHED_OPERATION_START_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration PROCESS_TERMINATION_TIMEOUT = Duration.ofSeconds(10);
+    private static final boolean WINDOWS = System.getProperty("os.name")
+            .toLowerCase(Locale.ROOT).contains("win");
 
     @Resource
     private RuntimeControlProperties properties;
@@ -104,9 +108,16 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
         }
         try {
             Process process = processBuilder.start();
-            boolean finished = process.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+            boolean finished;
+            try {
+                finished = process.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                terminateCommandProcess(process);
+                throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "Command interrupted");
+            }
             if (!finished) {
-                process.destroyForcibly();
+                terminateCommandProcess(process);
                 throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "Command timed out");
             }
             String output = logPath == null
@@ -119,9 +130,6 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
             return captureOutput ? output : "";
         } catch (IOException ex) {
             throw exception(RUNTIME_CONTROL_COMMAND_FAILED, ex.getMessage());
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "Command interrupted");
         }
     }
 
@@ -235,9 +243,16 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
         processBuilder.redirectErrorStream(true);
         try {
             Process process = processBuilder.start();
-            boolean finished = process.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+            boolean finished;
+            try {
+                finished = process.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                terminateCommandProcess(process);
+                throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "Command interrupted");
+            }
             if (!finished) {
-                process.destroyForcibly();
+                terminateCommandProcess(process);
                 throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "Command timed out");
             }
             String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
@@ -247,9 +262,177 @@ public class RuntimeControlCommandExecutorImpl implements RuntimeControlCommandE
             return output;
         } catch (IOException ex) {
             throw exception(RUNTIME_CONTROL_COMMAND_FAILED, ex.getMessage());
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw exception(RUNTIME_CONTROL_COMMAND_FAILED, "Command interrupted");
+        }
+    }
+
+    private void terminateCommandProcess(Process process) {
+        InterruptionTracker interruption = new InterruptionTracker(Thread.interrupted());
+        long deadlineNanos = System.nanoTime() + PROCESS_TERMINATION_TIMEOUT.toNanos();
+        RuntimeException failure = null;
+        try {
+            boolean terminated = WINDOWS
+                    ? terminateWindowsProcessTree(process, deadlineNanos, interruption)
+                    : terminateSingleProcess(process, deadlineNanos, interruption);
+            if (!terminated) {
+                failure = exception(RUNTIME_CONTROL_COMMAND_FAILED,
+                        "Command cleanup failed: process did not terminate within " + PROCESS_TERMINATION_TIMEOUT);
+            }
+        } catch (RuntimeException ex) {
+            failure = ex;
+        } finally {
+            try {
+                closeProcessStreams(process);
+            } catch (RuntimeException closeFailure) {
+                if (failure == null) {
+                    failure = closeFailure;
+                } else {
+                    failure.addSuppressed(closeFailure);
+                }
+            } finally {
+                interruption.restore();
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private boolean terminateWindowsProcessTree(Process process, long deadlineNanos,
+                                                InterruptionTracker interruption) {
+        Process taskkill = null;
+        RuntimeException taskkillFailure = null;
+        List<ProcessHandle> descendants = new ArrayList<>(process.toHandle().descendants().toList());
+        try {
+            taskkill = new ProcessBuilder("taskkill.exe", "/PID", Long.toString(process.pid()), "/T", "/F")
+                    .redirectErrorStream(true)
+                    .start();
+            boolean taskkillTerminated = awaitProcessExit(taskkill, deadlineNanos, interruption);
+            String output = taskkillTerminated
+                    ? new String(taskkill.getInputStream().readAllBytes(), StandardCharsets.UTF_8)
+                    : "";
+            if (!taskkillTerminated) {
+                taskkill.destroyForcibly();
+                awaitProcessExit(taskkill, System.nanoTime() + Duration.ofSeconds(1).toNanos(), interruption);
+                taskkillFailure = exception(RUNTIME_CONTROL_COMMAND_FAILED,
+                        "Command cleanup failed: taskkill did not finish within " + PROCESS_TERMINATION_TIMEOUT);
+            } else if (taskkill.exitValue() != 0) {
+                taskkillFailure = exception(RUNTIME_CONTROL_COMMAND_FAILED,
+                        "Command cleanup failed: taskkill exitCode=" + taskkill.exitValue() + ", output=" + output);
+            }
+        } catch (IOException ex) {
+            taskkillFailure = exception(RUNTIME_CONTROL_COMMAND_FAILED,
+                    "Command cleanup failed: " + ex.getMessage());
+        } finally {
+            if (taskkill != null) {
+                try {
+                    closeProcessStreams(taskkill);
+                } catch (RuntimeException closeFailure) {
+                    if (taskkillFailure == null) {
+                        taskkillFailure = closeFailure;
+                    } else {
+                        taskkillFailure.addSuppressed(closeFailure);
+                    }
+                }
+            }
+        }
+
+        if (process.isAlive()) {
+            descendants.addAll(process.toHandle().descendants()
+                    .filter(candidate -> descendants.stream().noneMatch(known -> known.pid() == candidate.pid()))
+                    .toList());
+        }
+        long forcedTerminationDeadline = Math.max(deadlineNanos,
+                System.nanoTime() + Duration.ofSeconds(1).toNanos());
+        process.destroyForcibly();
+        for (int i = descendants.size() - 1; i >= 0; i--) {
+            ProcessHandle descendant = descendants.get(i);
+            if (descendant.isAlive()) {
+                descendant.destroyForcibly();
+            }
+        }
+        boolean terminated = awaitProcessExit(process, forcedTerminationDeadline, interruption);
+        for (ProcessHandle descendant : descendants) {
+            terminated = awaitProcessExit(descendant, forcedTerminationDeadline, interruption) && terminated;
+        }
+        if (taskkillFailure != null) {
+            if (!terminated) {
+                taskkillFailure.addSuppressed(exception(RUNTIME_CONTROL_COMMAND_FAILED,
+                        "Command cleanup failed: observed Windows process tree did not terminate"));
+            }
+            throw taskkillFailure;
+        }
+        return terminated;
+    }
+
+    private boolean terminateSingleProcess(Process process, long deadlineNanos,
+                                           InterruptionTracker interruption) {
+        process.destroyForcibly();
+        return awaitProcessExit(process, deadlineNanos, interruption);
+    }
+
+    private boolean awaitProcessExit(Process process, long deadlineNanos, InterruptionTracker interruption) {
+        while (process.isAlive()) {
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0) {
+                return false;
+            }
+            try {
+                return process.waitFor(remainingNanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+            } catch (InterruptedException ex) {
+                interruption.markInterrupted();
+            }
+        }
+        return true;
+    }
+
+    private void closeProcessStreams(Process process) {
+        try (var standardOutput = process.getInputStream();
+             var standardError = process.getErrorStream();
+             var standardInput = process.getOutputStream()) {
+            // Closing all process pipes after exit releases their native Windows handles before returning.
+        } catch (IOException ex) {
+            throw exception(RUNTIME_CONTROL_COMMAND_FAILED,
+                    "Command cleanup failed: unable to close process streams: " + ex.getMessage());
+        }
+    }
+
+    private boolean awaitProcessExit(ProcessHandle process, long deadlineNanos,
+                                     InterruptionTracker interruption) {
+        while (process.isAlive()) {
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0) {
+                return false;
+            }
+            try {
+                process.onExit().get(remainingNanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+            } catch (InterruptedException ex) {
+                interruption.markInterrupted();
+            } catch (java.util.concurrent.TimeoutException ex) {
+                return false;
+            } catch (java.util.concurrent.ExecutionException ex) {
+                throw exception(RUNTIME_CONTROL_COMMAND_FAILED,
+                        "Command cleanup failed: unable to observe process exit: " + ex.getCause().getMessage());
+            }
+        }
+        return true;
+    }
+
+    private static final class InterruptionTracker {
+
+        private boolean interrupted;
+
+        private InterruptionTracker(boolean interrupted) {
+            this.interrupted = interrupted;
+        }
+
+        private void markInterrupted() {
+            interrupted = true;
+        }
+
+        private void restore() {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
