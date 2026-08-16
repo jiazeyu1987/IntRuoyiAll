@@ -22,6 +22,18 @@ public interface NotifySendService {
      */
     Long sendSingleNotifyToAdmin(Long userId,
                                  String templateCode, Map<String, Object> templateParams);
+
+    /**
+     * Idempotently sends one station message to an Admin user.
+     *
+     * @param userId user ID
+     * @param templateCode template code
+     * @param templateParams template parameters
+     * @param businessKey stable tenant business key
+     * @return the created or previously committed message ID
+     */
+    Long sendSingleNotifyToAdminIdempotently(Long userId, String templateCode,
+                                              Map<String, Object> templateParams, String businessKey);
     /**
      * 发送单条站内信给用户 APP 的用户
      *

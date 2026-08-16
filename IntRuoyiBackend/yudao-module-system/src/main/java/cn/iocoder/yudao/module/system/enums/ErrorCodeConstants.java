@@ -215,5 +215,10 @@ public interface ErrorCodeConstants {
 
     // ========== 站内信发送 1-002-028-000 ==========
     ErrorCode NOTIFY_SEND_TEMPLATE_PARAM_MISS = new ErrorCode(1_002_028_000, "模板参数({})缺失");
+    ErrorCode NOTIFY_SEND_TEMPLATE_DISABLED = new ErrorCode(1_002_028_001, "站内信模板已禁用");
+    ErrorCode NOTIFY_SEND_BUSINESS_KEY_INVALID = new ErrorCode(1_002_028_002, "站内信业务键不能为空且长度不能超过 255");
+    ErrorCode NOTIFY_SEND_BUSINESS_KEY_CONFLICT = new ErrorCode(1_002_028_003, "站内信业务键({})已绑定不同发送内容");
+    ErrorCode NOTIFY_SEND_MESSAGE_ID_EMPTY = new ErrorCode(1_002_028_004, "站内信创建后未返回消息编号");
+    ErrorCode NOTIFY_SEND_TEMPLATE_PARAMS_REQUIRED = new ErrorCode(1_002_028_005, "站内信模板参数不能为空");
 
 }

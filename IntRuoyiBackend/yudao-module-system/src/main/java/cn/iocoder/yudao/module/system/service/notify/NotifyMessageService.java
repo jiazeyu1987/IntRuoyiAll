@@ -31,6 +31,22 @@ public interface NotifyMessageService {
                              NotifyTemplateDO template, String templateContent, Map<String, Object> templateParams);
 
     /**
+     * Creates a station message bound to a tenant business key.
+     */
+    Long createNotifyMessage(Long userId, Integer userType, NotifyTemplateDO template,
+                             String templateContent, Map<String, Object> templateParams, String businessKey);
+
+    /**
+     * Returns the current tenant's message for the business key.
+     */
+    NotifyMessageDO getNotifyMessageByBusinessKey(String businessKey);
+
+    /**
+     * Returns and locks the current tenant's message for the business key.
+     */
+    NotifyMessageDO getNotifyMessageByBusinessKeyForUpdate(String businessKey);
+
+    /**
      * 获得站内信分页
      *
      * @param pageReqVO 分页查询
