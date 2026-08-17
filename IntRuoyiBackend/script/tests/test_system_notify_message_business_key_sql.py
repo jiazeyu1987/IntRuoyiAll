@@ -1,6 +1,8 @@
 from pathlib import Path
 import re
 
+from script.release.release_preflight_plan import build_preflight_plan
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATION_SQL = REPO_ROOT / "sql/mysql/20260815_system_notify_message_business_key.sql"
@@ -33,7 +35,7 @@ def test_migration_declares_release_metadata_and_non_destructive_scope() -> None
 
     assert sql.startswith(
         "-- release-migration: allowedEnvironments=test,backup,prod; "
-        "dependsOn=20260715_showroom_notify_template_garbled_repair; "
+        "dependsOn=; "
         "type=schema; riskLevel=medium"
     )
     upper_sql = sql.upper()
@@ -43,27 +45,36 @@ def test_migration_declares_release_metadata_and_non_destructive_scope() -> None
     assert "UPDATE `SYSTEM_NOTIFY_MESSAGE`" not in upper_sql
 
 
-def test_migration_depends_on_every_prior_notify_message_dag_leaf() -> None:
-    prior_migrations: dict[str, set[str]] = {}
-    for path in sorted((REPO_ROOT / "sql/mysql").glob("20*.sql")):
-        if path == MIGRATION_SQL:
-            continue
-        sql = _read(path)
-        if "system_notify_message" not in sql.lower():
-            continue
-        prior_migrations[path.stem] = _release_dependencies(sql)
-
-    assert prior_migrations, "at least one prior system_notify_message migration is required"
-    referenced_prior_ids = {
-        dependency
-        for dependencies in prior_migrations.values()
-        for dependency in dependencies
-        if dependency in prior_migrations
+def test_code_only_plan_does_not_require_prior_notify_data_repair() -> None:
+    schema_migration = {
+        "migrationId": MIGRATION_SQL.stem,
+        "file": f"sql/mysql/{MIGRATION_SQL.name}",
+        "sha256": "b" * 64,
+        "type": "schema",
+        "allowedEnvironments": ["test", "backup", "prod"],
+        "dependsOn": sorted(_release_dependencies(_read(MIGRATION_SQL))),
     }
-    prior_dag_leaves = set(prior_migrations) - referenced_prior_ids
+    prior_data_repair = {
+        "migrationId": "20260715_showroom_notify_template_garbled_repair",
+        "file": "sql/mysql/20260715_showroom_notify_template_garbled_repair.sql",
+        "sha256": "a" * 64,
+        "type": "data",
+        "allowedEnvironments": ["test", "backup", "prod"],
+        "dependsOn": [],
+    }
 
-    assert prior_dag_leaves
-    assert prior_dag_leaves.issubset(_release_dependencies(_read(MIGRATION_SQL)))
+    plan = build_preflight_plan(
+        [prior_data_repair, schema_migration],
+        {},
+        target_environment="test",
+        publish_scope="code-only",
+    )
+
+    assert plan["status"] == "passed"
+    assert [item["action"] for item in plan["items"]] == [
+        "SKIP_SCOPE_EXCLUDED",
+        "APPLY",
+    ]
 
 
 def test_migration_fails_fast_on_missing_or_conflicting_schema() -> None:
