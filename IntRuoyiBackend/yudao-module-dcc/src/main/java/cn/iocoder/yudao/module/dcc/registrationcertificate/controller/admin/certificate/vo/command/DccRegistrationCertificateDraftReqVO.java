@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.D
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -23,6 +24,7 @@ public class DccRegistrationCertificateDraftReqVO {
     @NotNull
     private LocalDate firstObtainedDate;
     @NotBlank
+    @Size(max = 128)
     private String certificateNo;
     @NotNull
     private LocalDate approvalDate;
@@ -31,8 +33,10 @@ public class DccRegistrationCertificateDraftReqVO {
     @NotNull
     private LocalDate expiryDate;
     @NotBlank
+    @Size(max = 64)
     private String classification;
     @NotBlank
+    @Size(max = 255)
     private String registrantName;
     @NotBlank
     private String modelSpecification;

@@ -4,15 +4,20 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateFileDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotEntrustedDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateVersionDO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateFileMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotEntrustedMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateEntrustedEnterprise;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProductionRelation;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.enums.DccRegistrationCertificateFileKind;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.enums.DccRegistrationCertificateFileOwnerType;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.enums.DccRegistrationCertificateFileStatus;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.springframework.stereotype.Component;
@@ -20,6 +25,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DRAFT_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECTION_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REVISION_CONFLICT;
@@ -32,16 +38,19 @@ public class DccRegistrationCertificateDraftRepository {
     private final DccRegistrationCertificateVersionMapper versionMapper;
     private final DccRegistrationCertificateSnapshotMapper snapshotMapper;
     private final DccRegistrationCertificateSnapshotEntrustedMapper entrustedMapper;
+    private final DccRegistrationCertificateFileMapper fileMapper;
 
     public DccRegistrationCertificateDraftRepository(
             DccRegistrationCertificateMapper certificateMapper,
             DccRegistrationCertificateVersionMapper versionMapper,
             DccRegistrationCertificateSnapshotMapper snapshotMapper,
-            DccRegistrationCertificateSnapshotEntrustedMapper entrustedMapper) {
+            DccRegistrationCertificateSnapshotEntrustedMapper entrustedMapper,
+            DccRegistrationCertificateFileMapper fileMapper) {
         this.certificateMapper = require(certificateMapper, "certificateMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
         this.snapshotMapper = require(snapshotMapper, "snapshotMapper");
         this.entrustedMapper = require(entrustedMapper, "entrustedMapper");
+        this.fileMapper = require(fileMapper, "fileMapper");
     }
 
     public DccRegistrationCertificateDraftState load(
@@ -125,6 +134,7 @@ public class DccRegistrationCertificateDraftRepository {
 
     public void deleteDraft(DccRegistrationCertificateDraftState state, Long tenantId,
                             Integer expectedRowVersion, Integer expectedSnapshotRevision) {
+        transitionStagedFilesToCleanupRequired(state, tenantId);
         deleteProjection(state, tenantId, expectedSnapshotRevision);
         requireSingle(snapshotMapper.deleteDraftByIdAndRevision(
                 state.snapshot().getId(), tenantId, expectedSnapshotRevision),
@@ -141,6 +151,50 @@ public class DccRegistrationCertificateDraftRepository {
                         .eq(DccRegistrationCertificateDO::getStatus, "DRAFT")
                         .eq(DccRegistrationCertificateDO::getRowVersion, expectedRowVersion)),
                 REGISTRATION_CERTIFICATE_REVISION_CONFLICT);
+    }
+
+    private void transitionStagedFilesToCleanupRequired(
+            DccRegistrationCertificateDraftState state, Long tenantId) {
+        List<DccRegistrationCertificateFileDO> files = fileMapper.selectList(
+                new LambdaQueryWrapperX<DccRegistrationCertificateFileDO>()
+                        .eq(DccRegistrationCertificateFileDO::getTenantId, tenantId)
+                        .eq(DccRegistrationCertificateFileDO::getOwnerType,
+                                DccRegistrationCertificateFileOwnerType.VERSION.name())
+                        .eq(DccRegistrationCertificateFileDO::getOwnerId, state.version().getId())
+                        .eq(DccRegistrationCertificateFileDO::getFileKind,
+                                DccRegistrationCertificateFileKind.REGISTRATION_CERTIFICATE.name()));
+        List<Long> stagedFileIds = files.stream().map(file -> {
+            DccRegistrationCertificateFileStatus status;
+            try {
+                status = DccRegistrationCertificateFileStatus.fromCode(file.getStatus());
+            } catch (IllegalArgumentException exception) {
+                ServiceException mapped = new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+                mapped.initCause(exception);
+                throw mapped;
+            }
+            if (status == DccRegistrationCertificateFileStatus.BOUND) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            }
+            return status == DccRegistrationCertificateFileStatus.STAGED ? file.getId() : null;
+        }).filter(java.util.Objects::nonNull).toList();
+        if (stagedFileIds.isEmpty()) {
+            return;
+        }
+        int affected = fileMapper.update(null, new LambdaUpdateWrapper<DccRegistrationCertificateFileDO>()
+                .in(DccRegistrationCertificateFileDO::getId, stagedFileIds)
+                .eq(DccRegistrationCertificateFileDO::getTenantId, tenantId)
+                .eq(DccRegistrationCertificateFileDO::getOwnerType,
+                        DccRegistrationCertificateFileOwnerType.VERSION.name())
+                .eq(DccRegistrationCertificateFileDO::getOwnerId, state.version().getId())
+                .eq(DccRegistrationCertificateFileDO::getFileKind,
+                        DccRegistrationCertificateFileKind.REGISTRATION_CERTIFICATE.name())
+                .eq(DccRegistrationCertificateFileDO::getStatus,
+                        DccRegistrationCertificateFileStatus.STAGED.name())
+                .set(DccRegistrationCertificateFileDO::getStatus,
+                        DccRegistrationCertificateFileStatus.CLEANUP_REQUIRED.name()));
+        if (affected != stagedFileIds.size()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+        }
     }
 
     private void deleteProjection(DccRegistrationCertificateDraftState state, Long tenantId,

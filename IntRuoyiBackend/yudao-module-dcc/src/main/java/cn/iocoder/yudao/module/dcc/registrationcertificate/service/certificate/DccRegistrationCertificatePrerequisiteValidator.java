@@ -39,6 +39,9 @@ public class DccRegistrationCertificatePrerequisiteValidator {
     private static final Set<String> OWNED_COMPANY = Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType());
     private static final Set<String> ENTRUSTED_TYPES = Set.of(
             MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(), MdmEnterpriseTypeEnum.ENTRUSTED_PARTY.getType());
+    private static final int CERTIFICATE_NO_MAX_LENGTH = 128;
+    private static final int CLASSIFICATION_MAX_LENGTH = 64;
+    private static final int REGISTRANT_NAME_MAX_LENGTH = 255;
 
     private final MdmCompanyScopeApi companyScopeApi;
     private final MdmEnterpriseApi enterpriseApi;
@@ -68,11 +71,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         validateRequiredText(draft);
         validateDates(draft);
 
-        try {
-            companyScopeApi.validateUserCompanyAccess(actorId, draft.ownerCompanyId());
-        } catch (RuntimeException exception) {
-            throw dependencyFailure(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED, exception);
-        }
+        validateCompanyScope(actorId, draft.ownerCompanyId());
         List<MdmEnterpriseRespDTO> owners;
         try {
             owners = enterpriseApi.getEnabledEnterprises(List.of(draft.ownerCompanyId()), OWNED_COMPANY);
@@ -119,6 +118,16 @@ public class DccRegistrationCertificatePrerequisiteValidator {
                             Boolean.TRUE.equals(draft.selfProduction()), entrusted));
         } catch (IllegalArgumentException exception) {
             throw mapped(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID, exception);
+        }
+    }
+
+    public void validateCompanyScope(Long actorId, Long ownerCompanyId) {
+        requirePositive(actorId, REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
+        requirePositive(ownerCompanyId, REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
+        try {
+            companyScopeApi.validateUserCompanyAccess(actorId, ownerCompanyId);
+        } catch (RuntimeException exception) {
+            throw dependencyFailure(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED, exception);
         }
     }
 
@@ -170,9 +179,16 @@ public class DccRegistrationCertificatePrerequisiteValidator {
                 || isBlank(draft.modelSpecification()) || isBlank(draft.structureComposition())
                 || isBlank(draft.intendedUse()) || isBlank(draft.technicalRequirements())
                 || isBlank(draft.residenceAddress()) || isBlank(draft.productionAddress())
+                || normalizedLengthExceeds(draft.certificateNo(), CERTIFICATE_NO_MAX_LENGTH)
+                || normalizedLengthExceeds(draft.classification(), CLASSIFICATION_MAX_LENGTH)
+                || normalizedLengthExceeds(draft.registrantName(), REGISTRANT_NAME_MAX_LENGTH)
                 || draft.entrustedProduction() == null || draft.selfProduction() == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
         }
+    }
+
+    private static boolean normalizedLengthExceeds(String value, int maxLength) {
+        return value != null && value.trim().length() > maxLength;
     }
 
     private static void requireExactEnterprises(List<MdmEnterpriseRespDTO> actual, List<Long> expectedIds,

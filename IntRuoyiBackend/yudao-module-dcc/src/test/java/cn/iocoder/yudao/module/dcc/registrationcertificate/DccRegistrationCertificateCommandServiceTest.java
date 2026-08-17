@@ -68,9 +68,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DRAFT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FIRST_OBTAINED_DATE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID;
@@ -501,6 +504,184 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void updateRejectsAnActorWithoutAccessToTheExistingTrustedCompanyBeforeMutation() {
+        configureDbValidDependencies();
+        DraftFixture fixture = seedDraft(LocalDate.of(2026, 9, 1));
+        lenient().when(dbEnterpriseApi.getEnabledEnterprises(eq(List.of(11L)), any())).thenReturn(
+                List.of(MdmEnterpriseRespDTO.builder()
+                        .id(11L).tenantId(1L).name("Owner Company B").build()));
+        doThrow(new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED))
+                .when(dbCompanyScopeApi).validateUserCompanyAccess(99L, 10L);
+        DccRegistrationCertificateDraftData reassigned = draftWithText(
+                copyDraft(validDraft(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1),
+                        LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1), null,
+                        "CERT-REASSIGNED", true, false, List.of(30L), 11L),
+                "CERT-REASSIGNED", "II", "Registrant");
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> dbCommandService.updateDraft(1L, 99L, "update-old-scope", "trace-update-old-scope",
+                        fixture.certificateId(), 1, 1, reassigned));
+
+        assertEquals(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED.getCode(), error.getCode());
+        assertDraftBusinessFacts(fixture);
+        assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(
+                1L, "update-old-scope").getResult());
+    }
+
+    @Test
+    void deleteRejectsAnActorWithoutAccessToTheExistingTrustedCompanyBeforeMutation() {
+        configureDbValidDependencies();
+        DraftFixture fixture = seedDraft(LocalDate.of(2026, 9, 1));
+        doThrow(new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED))
+                .when(dbCompanyScopeApi).validateUserCompanyAccess(99L, 10L);
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> dbCommandService.deleteDraft(1L, 99L, "delete-old-scope", "trace-delete-old-scope",
+                        fixture.certificateId(), 1, 1));
+
+        assertEquals(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED.getCode(), error.getCode());
+        assertDraftBusinessFacts(fixture);
+        assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(
+                1L, "delete-old-scope").getResult());
+    }
+
+    @Test
+    void deleteTransitionsEveryStagedFileToCleanupRequiredAndReplaysOnce() {
+        configureDbValidDependencies();
+        DraftFixture fixture = seedDraft(LocalDate.of(2026, 9, 1));
+
+        Long result = dbCommandService.deleteDraft(1L, 99L, "delete-success", "trace-delete-success",
+                fixture.certificateId(), 1, 1);
+        Long replay = dbCommandService.deleteDraft(1L, 99L, "delete-success", "trace-delete-replay",
+                fixture.certificateId(), 1, 1);
+
+        assertEquals(fixture.certificateId(), result);
+        assertEquals(result, replay);
+        assertNull(dbCertificateMapper.selectById(fixture.certificateId()));
+        assertNull(dbVersionMapper.selectById(fixture.versionId()));
+        assertNull(dbSnapshotMapper.selectById(fixture.snapshotId()));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_snapshot_entrusted "
+                + "WHERE tenant_id = 1 AND snapshot_id = ?", fixture.snapshotId()));
+        DccRegistrationCertificateFileDO file = dbFileMapper.selectById(fixture.fileId());
+        assertNotNull(file);
+        assertEquals("CLEANUP_REQUIRED", file.getStatus());
+        assertNull(file.getBoundAt());
+        assertNull(file.getBoundBy());
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_audit "
+                + "WHERE tenant_id = 1 AND event_key = ? AND result = 'SUCCESS'", "delete-success"));
+    }
+
+    @Test
+    void deleteRejectsAnUnexpectedBoundFileAndRollsBackEveryDraftMutation() {
+        configureDbValidDependencies();
+        DraftFixture fixture = seedDraft(LocalDate.of(2026, 9, 1));
+        assertEquals(1, jdbcTemplate.update("UPDATE dcc_registration_certificate_file "
+                + "SET status = 'BOUND', bound_at = CURRENT_TIMESTAMP, bound_by = 99 WHERE id = ?",
+                fixture.fileId()));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> dbCommandService.deleteDraft(1L, 99L, "delete-bound", "trace-delete-bound",
+                        fixture.certificateId(), 1, 1));
+
+        assertEquals(REGISTRATION_CERTIFICATE_FILE_CONFLICT.getCode(), error.getCode());
+        assertNotNull(dbCertificateMapper.selectById(fixture.certificateId()));
+        assertNotNull(dbVersionMapper.selectById(fixture.versionId()));
+        assertNotNull(dbSnapshotMapper.selectById(fixture.snapshotId()));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_snapshot_entrusted "
+                + "WHERE tenant_id = 1 AND snapshot_id = ?", fixture.snapshotId()));
+        assertEquals("BOUND", dbFileMapper.selectById(fixture.fileId()).getStatus());
+        assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(
+                1L, "delete-bound").getResult());
+    }
+
+    @Test
+    void boundedTextFailsWithAnAuditedBusinessErrorBeforeAnyBusinessWrite() {
+        configureDbValidDependencies();
+        DccRegistrationCertificateDraftData base = validDraft();
+        List<DccRegistrationCertificateDraftData> invalid = List.of(
+                draftWithText(base, "C".repeat(129), base.classification(), base.registrantName()),
+                draftWithText(base, base.certificateNo(), "I".repeat(65), base.registrantName()),
+                draftWithText(base, base.certificateNo(), base.classification(), "R".repeat(256)));
+
+        for (int index = 0; index < invalid.size(); index++) {
+            String key = "oversized-" + index;
+            DccRegistrationCertificateDraftData request = invalid.get(index);
+            ServiceException error = assertThrows(ServiceException.class,
+                    () -> dbCommandService.createDraft(1L, 99L, key, "trace-" + key, request));
+            assertEquals(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT.getCode(), error.getCode());
+            assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate WHERE tenant_id = 1"));
+            assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(1L, key).getResult());
+        }
+    }
+
+    @Test
+    void successfulUpdateUsesTheRealTransactionAndPersistsOneCompleteOutcome() {
+        configureDbValidDependencies();
+        DraftFixture fixture = seedDraft(LocalDate.of(2026, 9, 1));
+        DccRegistrationCertificateDraftData updated = draftWithText(
+                validDraft(), "CERT-UPDATED", "III", "Registrant Updated");
+
+        Long result = dbCommandService.updateDraft(1L, 99L, "update-success", "trace-update-success",
+                fixture.certificateId(), 1, 1, updated);
+
+        assertEquals(fixture.certificateId(), result);
+        assertEquals(2, dbCertificateMapper.selectById(fixture.certificateId()).getRowVersion());
+        assertEquals("CERT-UPDATED", dbVersionMapper.selectById(fixture.versionId()).getCertificateNo());
+        DccRegistrationCertificateSnapshotDO snapshot = dbSnapshotMapper.selectById(fixture.snapshotId());
+        assertEquals(2, snapshot.getRevisionNo());
+        assertEquals("Registrant Updated", snapshot.getRegistrantName());
+        assertEquals("STAGED", dbFileMapper.selectById(fixture.fileId()).getStatus());
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_audit "
+                + "WHERE tenant_id = 1 AND event_key = ? AND result = 'SUCCESS'", "update-success"));
+    }
+
+    @Test
+    void immediateAndFutureFormalizationPersistCompleteRealTransactionOutcomes() {
+        configureDbValidDependencies();
+        DraftFixture immediate = seedDraft(LocalDate.of(2026, 8, 1));
+
+        Long immediateResult = dbCommandService.formalize(1L, 99L, "formalize-immediate",
+                "trace-formalize-immediate", immediate.certificateId(), 1, 1, immediate.fileId());
+
+        assertEquals(immediate.certificateId(), immediateResult);
+        DccRegistrationCertificateDO immediateMaster = dbCertificateMapper.selectById(immediate.certificateId());
+        assertEquals("ACTIVE", immediateMaster.getStatus());
+        assertEquals(immediate.versionId(), immediateMaster.getCurrentVersionId());
+        assertNull(immediateMaster.getPendingVersionId());
+        assertEquals(immediate.snapshotId(), immediateMaster.getCurrentSnapshotId());
+        assertEquals(2, immediateMaster.getRowVersion());
+        assertEquals("CURRENT", dbVersionMapper.selectById(immediate.versionId()).getStatus());
+        DccRegistrationCertificateFileDO immediateFile = dbFileMapper.selectById(immediate.fileId());
+        assertEquals("BOUND", immediateFile.getStatus());
+        assertEquals(99L, immediateFile.getBoundBy());
+        assertNotNull(immediateFile.getBoundAt());
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_audit "
+                + "WHERE tenant_id = 1 AND event_key = ? AND result = 'SUCCESS'", "formalize-immediate"));
+        verify(dbProjectionService).registerActive(
+                any(), any(), any(), eq(immediate.certificateId()), eq(immediate.versionId()),
+                eq("1"), eq("CURRENT"), eq(99L), any());
+
+        DraftFixture future = seedDraft(LocalDate.of(2026, 9, 1));
+        Long futureResult = dbCommandService.formalize(1L, 99L, "formalize-future",
+                "trace-formalize-future", future.certificateId(), 1, 1, future.fileId());
+
+        assertEquals(future.certificateId(), futureResult);
+        DccRegistrationCertificateDO futureMaster = dbCertificateMapper.selectById(future.certificateId());
+        assertEquals("PENDING_FIRST_EFFECTIVE", futureMaster.getStatus());
+        assertNull(futureMaster.getCurrentVersionId());
+        assertEquals(future.versionId(), futureMaster.getPendingVersionId());
+        assertNull(futureMaster.getCurrentSnapshotId());
+        assertEquals(2, futureMaster.getRowVersion());
+        assertEquals("PENDING_EFFECTIVE", dbVersionMapper.selectById(future.versionId()).getStatus());
+        assertEquals("BOUND", dbFileMapper.selectById(future.fileId()).getStatus());
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_audit "
+                + "WHERE tenant_id = 1 AND event_key = ? AND result = 'SUCCESS'", "formalize-future"));
+        verify(dbProjectionService).registerReadyCandidate(
+                any(), any(), any(), eq(future.certificateId()), eq(future.versionId()),
+                eq("1"), eq("PENDING_EFFECTIVE"), eq(99L), any());
+    }
+
+    @Test
     void transactionWorkerDeclaresRequiredRollbackBoundaryForEveryWriteCommand() {
         for (String method : List.of("createDraft", "updateDraft", "deleteDraft", "formalize")) {
             Transactional annotation = java.util.Arrays.stream(
@@ -562,7 +743,8 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         DccRegistrationCertificateSnapshotEntrustedMapper entrustedMapper =
                 mock(DccRegistrationCertificateSnapshotEntrustedMapper.class);
         DccRegistrationCertificateDraftRepository repository = new DccRegistrationCertificateDraftRepository(
-                certificateMapper, versionMapper, snapshotMapper, entrustedMapper);
+                certificateMapper, versionMapper, snapshotMapper, entrustedMapper,
+                mock(DccRegistrationCertificateFileMapper.class));
         DccRegistrationCertificateDO formal = draftState(10L, "ACTIVE").certificate();
         when(certificateMapper.selectById(1001L)).thenReturn(formal);
         DccRegistrationCertificateCommandContext context =
@@ -920,5 +1102,17 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 source.registrantName(), source.modelSpecification(), source.structureComposition(),
                 source.intendedUse(), source.technicalRequirements(), source.residenceAddress(),
                 source.productionAddress(), entrustedProduction, selfProduction, entrustedEnterpriseIds);
+    }
+
+    private static DccRegistrationCertificateDraftData draftWithText(
+            DccRegistrationCertificateDraftData source,
+            String certificateNo, String classification, String registrantName) {
+        return new DccRegistrationCertificateDraftData(
+                source.ownerCompanyId(), source.productMasterId(), source.projectCodeId(),
+                source.firstObtainedDate(), certificateNo, source.approvalDate(), source.effectiveDate(),
+                source.expiryDate(), classification, registrantName, source.modelSpecification(),
+                source.structureComposition(), source.intendedUse(), source.technicalRequirements(),
+                source.residenceAddress(), source.productionAddress(), source.entrustedProduction(),
+                source.selfProduction(), source.entrustedEnterpriseIds());
     }
 }

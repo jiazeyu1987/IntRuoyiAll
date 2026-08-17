@@ -111,6 +111,8 @@ public class DccRegistrationCertificateCommandTransactionService {
                             DccRegistrationCertificateDraftData draft) {
         DccRegistrationCertificateDraftState state = draftRepository.load(
                 metadata.tenantId(), certificateId, expectedRowVersion, expectedSnapshotRevision, context);
+        prerequisiteValidator.validateCompanyScope(
+                metadata.actorId(), state.certificate().getOwnerCompanyId());
         DccRegistrationCertificateResolvedDraft resolved = prerequisiteValidator.validate(
                 metadata.tenantId(), metadata.actorId(), draft);
         draftRepository.replaceDraft(state, draft, resolved, metadata.tenantId(),
@@ -126,6 +128,8 @@ public class DccRegistrationCertificateCommandTransactionService {
                             Long certificateId, Integer expectedRowVersion, Integer expectedSnapshotRevision) {
         DccRegistrationCertificateDraftState state = draftRepository.load(
                 metadata.tenantId(), certificateId, expectedRowVersion, expectedSnapshotRevision, context);
+        prerequisiteValidator.validateCompanyScope(
+                metadata.actorId(), state.certificate().getOwnerCompanyId());
         draftRepository.deleteDraft(state, metadata.tenantId(), expectedRowVersion, expectedSnapshotRevision);
         auditService.recordSuccess(metadata, context, state.version().getId(), state.snapshot().getId(), null);
         return certificateId;

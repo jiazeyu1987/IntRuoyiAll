@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.cert
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.certificate.vo.command.DccRegistrationCertificateDraftReqVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.certificate.vo.command.DccRegistrationCertificateFormalizeReqVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.certificate.vo.command.DccRegistrationCertificateUpdateDraftReqVO;
+import jakarta.validation.constraints.Size;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -49,6 +51,19 @@ class DccRegistrationCertificateCommandControllerTest {
         assertEquals("/{id}/formalize", formalize.getAnnotation(PostMapping.class).value()[0]);
         assertPermission(formalize, "dcc:registration-certificate:formalize");
         assertIdempotencyHeader(formalize, 1);
+    }
+
+    @Test
+    void draftRequest_declaresTheAcceptedSchemaTextLengths() throws Exception {
+        for (Map.Entry<String, Integer> expected : Map.of(
+                "certificateNo", 128,
+                "classification", 64,
+                "registrantName", 255).entrySet()) {
+            Size size = DccRegistrationCertificateDraftReqVO.class
+                    .getDeclaredField(expected.getKey()).getAnnotation(Size.class);
+            assertNotNull(size, expected.getKey() + " must declare an HTTP length boundary");
+            assertEquals(expected.getValue(), size.max(), expected.getKey());
+        }
     }
 
     private static void assertPermission(Method method, String permission) {
