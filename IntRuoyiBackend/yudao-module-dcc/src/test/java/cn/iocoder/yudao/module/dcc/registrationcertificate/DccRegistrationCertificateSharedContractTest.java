@@ -84,7 +84,8 @@ class DccRegistrationCertificateSharedContractTest extends BaseDbUnitTest {
     @Test
     void draftSnapshotUpdateShouldRequireTenantRevisionAndLinkedDraft() {
         DccRegistrationCertificateVersionDO version = insertVersion(1L, "DRAFT", 1);
-        DccRegistrationCertificateSnapshotDO snapshot = insertSnapshot(1L, version.getId(), 1, "Before");
+        DccRegistrationCertificateSnapshotDO snapshot = insertSnapshot(
+                1L, version.getId(), 1, "Before", 30L);
         Method update = requiredMethod(DccRegistrationCertificateSnapshotMapper.class,
                 "updateDraftByIdAndRevision", DccRegistrationCertificateSnapshotDO.class,
                 Long.class, Integer.class);
@@ -115,6 +116,24 @@ class DccRegistrationCertificateSharedContractTest extends BaseDbUnitTest {
     }
 
     @Test
+    void crossTenantEntrustedProjectionShouldBlockSnapshotMutation() {
+        DccRegistrationCertificateVersionDO version = insertVersion(1L, "DRAFT", 4);
+        DccRegistrationCertificateSnapshotDO snapshot = insertSnapshot(
+                1L, version.getId(), 1, "Cross tenant", 40L);
+        insertEntrusted(2L, snapshot.getId(), 40L);
+        Method update = requiredMethod(DccRegistrationCertificateSnapshotMapper.class,
+                "updateDraftByIdAndRevision", DccRegistrationCertificateSnapshotDO.class,
+                Long.class, Integer.class);
+        Method deleteSnapshot = requiredMethod(DccRegistrationCertificateSnapshotMapper.class,
+                "deleteDraftByIdAndRevision", Long.class, Long.class, Integer.class);
+
+        assertEquals(0, invokeInt(update, snapshotMapper,
+                snapshotChange(snapshot.getId(), "Forbidden"), 1L, 1));
+        assertEquals(0, invokeInt(deleteSnapshot, snapshotMapper, snapshot.getId(), 1L, 1));
+        assertEquals("Cross tenant", snapshotMapper.selectById(snapshot.getId()).getProductName());
+    }
+
+    @Test
     void draftSnapshotAndProjectionDeleteShouldRejectFormalOrDriftedRows() {
         Method deleteProjection = requiredMethod(DccRegistrationCertificateSnapshotEntrustedMapper.class,
                 "deleteDraftBySnapshotIdAndRevision", Long.class, Long.class, Integer.class);
@@ -123,7 +142,7 @@ class DccRegistrationCertificateSharedContractTest extends BaseDbUnitTest {
 
         DccRegistrationCertificateVersionDO formalVersion = insertVersion(1L, "CURRENT", 1);
         DccRegistrationCertificateSnapshotDO formalSnapshot = insertSnapshot(
-                1L, formalVersion.getId(), 1, "Formal");
+                1L, formalVersion.getId(), 1, "Formal", 10L);
         insertEntrusted(1L, formalSnapshot.getId(), 10L);
         assertEquals(0, invokeInt(deleteProjection, entrustedMapper, formalSnapshot.getId(), 1L, 1));
         assertEquals(0, invokeInt(deleteSnapshot, snapshotMapper, formalSnapshot.getId(), 1L, 1));
@@ -132,7 +151,7 @@ class DccRegistrationCertificateSharedContractTest extends BaseDbUnitTest {
 
         DccRegistrationCertificateVersionDO draftVersion = insertVersion(1L, "DRAFT", 2);
         DccRegistrationCertificateSnapshotDO draftSnapshot = insertSnapshot(
-                1L, draftVersion.getId(), 3, "Draft");
+                1L, draftVersion.getId(), 3, "Draft", 20L);
         insertEntrusted(1L, draftSnapshot.getId(), 20L);
         assertEquals(0, invokeInt(deleteProjection, entrustedMapper, draftSnapshot.getId(), 2L, 3));
         assertEquals(0, invokeInt(deleteProjection, entrustedMapper, draftSnapshot.getId(), 1L, 2));
@@ -172,7 +191,7 @@ class DccRegistrationCertificateSharedContractTest extends BaseDbUnitTest {
     }
 
     private DccRegistrationCertificateSnapshotDO insertSnapshot(
-            Long tenantId, Long versionId, int revisionNo, String productName) {
+            Long tenantId, Long versionId, int revisionNo, String productName, Long enterpriseId) {
         DccRegistrationCertificateSnapshotDO snapshot = DccRegistrationCertificateSnapshotDO.builder()
                 .versionId(versionId)
                 .revisionNo(revisionNo)
@@ -180,7 +199,8 @@ class DccRegistrationCertificateSharedContractTest extends BaseDbUnitTest {
                 .registrantName("Registrant")
                 .entrustedProduction(true)
                 .selfProduction(false)
-                .entrustedEnterprisesJson("[]")
+                .entrustedEnterprisesJson("[{\"enterpriseId\":" + enterpriseId
+                        + ",\"enterpriseName\":\"Enterprise " + enterpriseId + "\"}]")
                 .effectiveAt(LocalDateTime.of(2026, 8, 17, 9, 0))
                 .build();
         snapshot.setTenantId(tenantId);
@@ -232,7 +252,8 @@ class DccRegistrationCertificateSharedContractTest extends BaseDbUnitTest {
                 .productionAddress("Production")
                 .entrustedProduction(true)
                 .selfProduction(false)
-                .entrustedEnterprisesJson("[]")
+                .entrustedEnterprisesJson("[{\"enterpriseId\":30,"
+                        + "\"enterpriseName\":\"Enterprise 30\"}]")
                 .effectiveAt(LocalDateTime.of(2026, 8, 18, 9, 0))
                 .build();
     }

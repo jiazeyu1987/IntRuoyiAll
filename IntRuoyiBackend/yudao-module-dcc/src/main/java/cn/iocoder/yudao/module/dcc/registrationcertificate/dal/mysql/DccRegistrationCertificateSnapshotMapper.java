@@ -70,9 +70,8 @@ public interface DccRegistrationCertificateSnapshotMapper {
                )
                AND NOT EXISTS (
                    SELECT 1
-                     FROM dcc_registration_certificate_snapshot_entrusted e
+                    FROM dcc_registration_certificate_snapshot_entrusted e
                     WHERE e.snapshot_id = dcc_registration_certificate_snapshot.id
-                      AND e.tenant_id = #{tenantId}
                       AND e.deleted = 0
                )
             """)
@@ -97,9 +96,8 @@ public interface DccRegistrationCertificateSnapshotMapper {
                )
                AND NOT EXISTS (
                    SELECT 1
-                     FROM dcc_registration_certificate_snapshot_entrusted e
+                    FROM dcc_registration_certificate_snapshot_entrusted e
                     WHERE e.snapshot_id = dcc_registration_certificate_snapshot.id
-                      AND e.tenant_id = #{tenantId}
                       AND e.deleted = 0
                )
             """)
