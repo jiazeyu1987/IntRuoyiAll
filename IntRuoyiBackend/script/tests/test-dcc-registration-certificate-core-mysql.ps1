@@ -462,13 +462,18 @@ SELECT CONCAT(COLUMN_NAME, '|', DATA_TYPE, '|', IS_NULLABLE)
   FROM information_schema.COLUMNS
  WHERE TABLE_SCHEMA = '$schema'
    AND TABLE_NAME = 'dcc_registration_certificate_audit'
-   AND COLUMN_NAME IN ('owner_company_id', 'business_file_id', 'result', 'result_code', 'request_trace_id')
+   AND COLUMN_NAME IN ('owner_company_id', 'certificate_id',
+                       'requested_owner_company_id', 'requested_certificate_id',
+                       'business_file_id', 'result', 'result_code', 'request_trace_id')
  ORDER BY COLUMN_NAME;
 "@
     Assert-Equal -Expected (@(
         'business_file_id|bigint|YES',
-        'owner_company_id|bigint|NO',
+        'certificate_id|bigint|YES',
+        'owner_company_id|bigint|YES',
         'request_trace_id|varchar|NO',
+        'requested_certificate_id|bigint|YES',
+        'requested_owner_company_id|bigint|YES',
         'result|varchar|NO',
         'result_code|varchar|YES'
     ) -join "`n") -Actual $auditColumns -Label 'complete audit field metadata'
@@ -478,12 +483,14 @@ SELECT tc.CONSTRAINT_NAME
   FROM information_schema.TABLE_CONSTRAINTS tc
  WHERE tc.CONSTRAINT_SCHEMA = '$schema'
    AND tc.CONSTRAINT_NAME IN ('chk_dcc_reg_cert_file_status', 'chk_dcc_reg_cert_audit_result',
-                              'chk_dcc_reg_cert_audit_trace')
+                              'chk_dcc_reg_cert_audit_trace',
+                              'chk_dcc_reg_cert_audit_trusted_identity')
  ORDER BY tc.CONSTRAINT_NAME;
 "@
     Assert-Equal -Expected (@(
         'chk_dcc_reg_cert_audit_result',
         'chk_dcc_reg_cert_audit_trace',
+        'chk_dcc_reg_cert_audit_trusted_identity',
         'chk_dcc_reg_cert_file_status'
     ) -join "`n") -Actual $newChecks -Label 'file status and audit CHECK contracts'
 
@@ -615,17 +622,69 @@ VALUES (1, 10, 1, 'cert:1:bad-result', 'FORMALIZED', 'UNKNOWN', 'trace-bad-resul
 '@
     Assert-SqlFails -Schema $schema -Label 'blank audit request trace' -Sql @'
 INSERT INTO dcc_registration_certificate_audit
-  (tenant_id, owner_company_id, certificate_id, event_key, event_type, result,
+  (tenant_id, requested_owner_company_id, requested_certificate_id, event_key, event_type, result,
    request_trace_id, detail_json, occurred_at)
 VALUES (1, 10, 1, 'cert:1:blank-trace', 'FORMALIZED', 'FAILURE', '   ', JSON_OBJECT(), NOW());
 '@
-    [void](Invoke-SqlSuccess -Schema $schema -Label 'audit event fixture' -Sql @'
+    Assert-SqlFails -Schema $schema -Label 'success audit without trusted identity' -Sql @'
+INSERT INTO dcc_registration_certificate_audit
+  (tenant_id, requested_owner_company_id, requested_certificate_id, event_key, event_type, result,
+   request_trace_id, detail_json, occurred_at)
+VALUES (1, 10, 1, 'cert:success-without-trusted', 'FORMALIZED', 'SUCCESS',
+        'trace-success-without-trusted', JSON_OBJECT(), NOW());
+'@
+    Assert-SqlFails -Schema $schema -Label 'success audit with zero trusted identity' -Sql @'
+INSERT INTO dcc_registration_certificate_audit
+  (tenant_id, owner_company_id, certificate_id, event_key, event_type, result,
+   request_trace_id, detail_json, occurred_at)
+VALUES (1, 0, 1, 'cert:success-zero-trusted', 'FORMALIZED', 'SUCCESS',
+        'trace-success-zero-trusted', JSON_OBJECT(), NOW());
+'@
+    Assert-SqlFails -Schema $schema -Label 'failure audit with trusted identity' -Sql @'
+INSERT INTO dcc_registration_certificate_audit
+  (tenant_id, owner_company_id, certificate_id, requested_owner_company_id,
+   requested_certificate_id, event_key, event_type, result,
+   request_trace_id, detail_json, occurred_at)
+VALUES (1, 10, 1, 10, 1, 'cert:failure-with-trusted', 'FORMALIZE_FAILED', 'FAILURE',
+        'trace-failure-with-trusted', JSON_OBJECT(), NOW());
+'@
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'trusted success audit fixture' -Sql @'
 INSERT INTO dcc_registration_certificate_audit
   (tenant_id, owner_company_id, certificate_id, business_file_id, event_key, event_type,
    result, result_code, request_trace_id, detail_json, occurred_at)
 VALUES (1, 10, 1, 500, 'cert:1:formalized', 'FORMALIZED', 'SUCCESS', 'OK',
         'trace-formalized-1', JSON_OBJECT(), NOW());
 '@)
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'failure audit with requested identity fixture' -Sql @'
+INSERT INTO dcc_registration_certificate_audit
+  (tenant_id, requested_owner_company_id, requested_certificate_id, event_key, event_type,
+   result, result_code, request_trace_id, detail_json, occurred_at)
+VALUES (1, 10, 1, 'cert:requested:formalize-failed', 'FORMALIZE_FAILED', 'FAILURE',
+        'PREREQUISITE_MISSING', 'trace-requested-failure-1', JSON_OBJECT(), NOW());
+'@)
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'failure audit without requested identity fixture' -Sql @'
+INSERT INTO dcc_registration_certificate_audit
+  (tenant_id, event_key, event_type, result, result_code, request_trace_id,
+   detail_json, occurred_at)
+VALUES (1, 'cert:unknown:create-failed', 'CREATE_FAILED', 'FAILURE', 'OWNER_UNKNOWN',
+        'trace-unknown-failure-1', JSON_OBJECT(), NOW());
+'@)
+    $terminalAuditRows = Invoke-SqlSuccess -Schema $schema -Label 'terminal audit outcome readback' -Sql @'
+SELECT CONCAT(event_key, '|', result, '|',
+              IFNULL(CAST(owner_company_id AS CHAR), 'NULL'), '|',
+              IFNULL(CAST(certificate_id AS CHAR), 'NULL'), '|',
+              IFNULL(CAST(requested_owner_company_id AS CHAR), 'NULL'), '|',
+              IFNULL(CAST(requested_certificate_id AS CHAR), 'NULL'))
+  FROM dcc_registration_certificate_audit
+ WHERE event_key IN ('cert:1:formalized', 'cert:requested:formalize-failed',
+                     'cert:unknown:create-failed')
+ ORDER BY event_key;
+'@
+    Assert-Equal -Expected (@(
+        'cert:1:formalized|SUCCESS|10|1|NULL|NULL',
+        'cert:requested:formalize-failed|FAILURE|NULL|NULL|10|1',
+        'cert:unknown:create-failed|FAILURE|NULL|NULL|NULL|NULL'
+    ) -join "`n") -Actual $terminalAuditRows -Label 'terminal audit outcome readback'
     Assert-SqlFails -Schema $schema -Label 'duplicate tenant audit event key' -Sql @'
 INSERT INTO dcc_registration_certificate_audit
   (tenant_id, owner_company_id, certificate_id, event_key, event_type, result,
@@ -688,6 +747,46 @@ ALTER TABLE dcc_registration_certificate_file
 '@)
     Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
         -Label 'incompatible six-table named CHECK expression' `
+        -ExpectedMessage 'DCC registration certificate core exact CHECK expression mismatch'
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'restore file status CHECK expression' -Sql @'
+ALTER TABLE dcc_registration_certificate_file
+  DROP CHECK chk_dcc_reg_cert_file_status,
+  ADD CONSTRAINT chk_dcc_reg_cert_file_status CHECK
+    (status IN ('STAGED', 'BOUND', 'CLEANUP_REQUIRED', 'VOIDED'));
+'@)
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'break audit column nullability' -Sql @'
+ALTER TABLE dcc_registration_certificate_audit
+  MODIFY COLUMN owner_company_id bigint NOT NULL COMMENT 'Trusted owning company enterprise id';
+'@)
+    Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
+        -Label 'incompatible audit column nullability' `
+        -ExpectedMessage 'DCC registration certificate core column contract mismatch'
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'restore audit column nullability' -Sql @'
+ALTER TABLE dcc_registration_certificate_audit
+  MODIFY COLUMN owner_company_id bigint NULL COMMENT 'Trusted owning company enterprise id';
+'@)
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'remove requested identity column' -Sql @'
+ALTER TABLE dcc_registration_certificate_audit DROP COLUMN requested_certificate_id;
+'@)
+    Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
+        -Label 'incompatible requested identity column' `
+        -ExpectedMessage 'DCC registration certificate core column contract mismatch'
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'restore requested identity column' -Sql @'
+ALTER TABLE dcc_registration_certificate_audit
+  ADD COLUMN requested_certificate_id bigint NULL COMMENT 'Caller-requested certificate id'
+  AFTER requested_owner_company_id;
+'@)
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema `
+        -Label 'break audit trusted identity CHECK expression' -Sql @'
+ALTER TABLE dcc_registration_certificate_audit
+  DROP CHECK chk_dcc_reg_cert_audit_trusted_identity,
+  ADD CONSTRAINT chk_dcc_reg_cert_audit_trusted_identity CHECK (
+    (result = 'SUCCESS' AND owner_company_id IS NOT NULL AND certificate_id IS NOT NULL)
+    OR result = 'FAILURE'
+  );
+'@)
+    Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
+        -Label 'incompatible audit trusted identity CHECK expression' `
         -ExpectedMessage 'DCC registration certificate core exact CHECK expression mismatch'
 
     Write-Output 'PASS: runtime MySQL generated columns, CHECKs, and conditional uniqueness'

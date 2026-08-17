@@ -22,6 +22,8 @@ public class DccRegistrationCertificateAuditDO implements Serializable {
     private Long tenantId;
     private Long ownerCompanyId;
     private Long certificateId;
+    private Long requestedOwnerCompanyId;
+    private Long requestedCertificateId;
     private Long versionId;
     private Long snapshotId;
     private Long businessFileId;

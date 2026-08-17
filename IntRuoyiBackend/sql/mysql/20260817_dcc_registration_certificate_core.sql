@@ -139,8 +139,10 @@ BEGIN
 
       ('dcc_registration_certificate_audit', 'id', 'bigint', 'NO', FALSE),
       ('dcc_registration_certificate_audit', 'tenant_id', 'bigint', 'NO', FALSE),
-      ('dcc_registration_certificate_audit', 'owner_company_id', 'bigint', 'NO', FALSE),
-      ('dcc_registration_certificate_audit', 'certificate_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate_audit', 'owner_company_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_audit', 'certificate_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_audit', 'requested_owner_company_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_audit', 'requested_certificate_id', 'bigint', 'YES', FALSE),
       ('dcc_registration_certificate_audit', 'version_id', 'bigint', 'YES', FALSE),
       ('dcc_registration_certificate_audit', 'snapshot_id', 'bigint', 'YES', FALSE),
       ('dcc_registration_certificate_audit', 'business_file_id', 'bigint', 'YES', FALSE),
@@ -296,6 +298,7 @@ BEGIN
           UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_size'
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key'
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result'
+          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trusted_identity'
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace'
         ) AS expected_check
         LEFT JOIN information_schema.TABLE_CONSTRAINTS AS actual_check
@@ -343,6 +346,8 @@ BEGIN
        '(trim(event_key)<>'''')'),
       ('dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result',
        '(resultin(''success'',''failure''))'),
+      ('dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trusted_identity',
+       '(((result=''success'')and(owner_company_idisnotnull)and(owner_company_id>0)and(certificate_idisnotnull)and(certificate_id>0))or((result=''failure'')and(owner_company_idisnull)and(certificate_idisnull)))'),
       ('dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace',
        '(trim(request_trace_id)<>'''')');
 
@@ -577,8 +582,10 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
 CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Certificate audit id',
   `tenant_id` bigint NOT NULL COMMENT 'Tenant id',
-  `owner_company_id` bigint NOT NULL COMMENT 'Owning company enterprise id',
-  `certificate_id` bigint NOT NULL COMMENT 'Registration certificate aggregate id',
+  `owner_company_id` bigint DEFAULT NULL COMMENT 'Trusted owning company enterprise id',
+  `certificate_id` bigint DEFAULT NULL COMMENT 'Trusted registration certificate aggregate id',
+  `requested_owner_company_id` bigint DEFAULT NULL COMMENT 'Caller-requested owning company id',
+  `requested_certificate_id` bigint DEFAULT NULL COMMENT 'Caller-requested certificate id',
   `version_id` bigint DEFAULT NULL COMMENT 'Certificate version id',
   `snapshot_id` bigint DEFAULT NULL COMMENT 'Certificate snapshot id',
   `business_file_id` bigint DEFAULT NULL COMMENT 'Registration certificate business file id',
@@ -595,6 +602,13 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
   PRIMARY KEY (`id`),
   CONSTRAINT `chk_dcc_reg_cert_audit_event_key` CHECK (TRIM(`event_key`) <> ''),
   CONSTRAINT `chk_dcc_reg_cert_audit_result` CHECK (`result` IN ('SUCCESS', 'FAILURE')),
+  CONSTRAINT `chk_dcc_reg_cert_audit_trusted_identity` CHECK (
+    (`result` = 'SUCCESS'
+      AND `owner_company_id` IS NOT NULL AND `owner_company_id` > 0
+      AND `certificate_id` IS NOT NULL AND `certificate_id` > 0)
+    OR (`result` = 'FAILURE'
+      AND `owner_company_id` IS NULL AND `certificate_id` IS NULL)
+  ),
   CONSTRAINT `chk_dcc_reg_cert_audit_trace` CHECK (TRIM(`request_trace_id`) <> ''),
   UNIQUE KEY `uk_dcc_reg_cert_audit_event` (`tenant_id`, `event_key`),
   KEY `idx_dcc_reg_cert_audit_company` (`tenant_id`, `owner_company_id`, `occurred_at`),

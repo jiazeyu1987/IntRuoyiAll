@@ -82,8 +82,12 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 "constraint `chk_dcc_reg_cert_file_binding` check",
                 "constraint `chk_dcc_reg_cert_audit_event_key` check",
                 "constraint `chk_dcc_reg_cert_audit_result` check",
+                "constraint `chk_dcc_reg_cert_audit_trusted_identity` check",
                 "constraint `chk_dcc_reg_cert_audit_trace` check",
-                "`owner_company_id` bigint not null comment 'owning company enterprise id'",
+                "`owner_company_id` bigint default null comment 'trusted owning company enterprise id'",
+                "`certificate_id` bigint default null comment 'trusted registration certificate aggregate id'",
+                "`requested_owner_company_id` bigint default null comment 'caller-requested owning company id'",
+                "`requested_certificate_id` bigint default null comment 'caller-requested certificate id'",
                 "`business_file_id` bigint default null comment 'registration certificate business file id'",
                 "`result` varchar(32) not null comment 'success or failure result'",
                 "`result_code` varchar(64) default null comment 'stable operation result code'",
@@ -145,8 +149,12 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
         assertContainsAll(fixture,
                 "constraint `chk_dcc_reg_cert_file_status` check",
                 "constraint `chk_dcc_reg_cert_audit_result` check",
+                "constraint `chk_dcc_reg_cert_audit_trusted_identity` check",
                 "constraint `chk_dcc_reg_cert_audit_trace` check",
-                "`owner_company_id` bigint not null",
+                "`owner_company_id` bigint null",
+                "`certificate_id` bigint null",
+                "`requested_owner_company_id` bigint null",
+                "`requested_certificate_id` bigint null",
                 "`business_file_id` bigint null",
                 "`result` varchar(32) not null",
                 "`result_code` varchar(64) null",
@@ -214,8 +222,8 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
         Class<?> auditDataObject = Class.forName(
                 "cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject."
                         + "DccRegistrationCertificateAuditDO");
-        for (String field : List.of("ownerCompanyId", "businessFileId", "result", "resultCode",
-                "requestTraceId")) {
+        for (String field : List.of("ownerCompanyId", "certificateId", "requestedOwnerCompanyId",
+                "requestedCertificateId", "businessFileId", "result", "resultCode", "requestTraceId")) {
             assertTrue(hasDeclaredField(auditDataObject, field),
                     "audit persistence model must expose " + field);
         }
@@ -223,8 +231,8 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                         "yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/"
                                 + "dal/mysql/DccRegistrationCertificateAuditMapper.java"),
                 StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
-        assertContainsAll(auditMapper, "owner_company_id", "business_file_id", "result", "result_code",
-                "request_trace_id");
+        assertContainsAll(auditMapper, "owner_company_id", "certificate_id", "requested_owner_company_id",
+                "requested_certificate_id", "business_file_id", "result", "result_code", "request_trace_id");
 
         String errorCodes = Files.readString(findBackendRoot().resolve(
                 "yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/ErrorCodeConstants.java"),

@@ -1876,8 +1876,10 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
 CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
-  `owner_company_id` BIGINT NOT NULL,
-  `certificate_id` BIGINT NOT NULL,
+  `owner_company_id` BIGINT NULL,
+  `certificate_id` BIGINT NULL,
+  `requested_owner_company_id` BIGINT NULL,
+  `requested_certificate_id` BIGINT NULL,
   `version_id` BIGINT NULL,
   `snapshot_id` BIGINT NULL,
   `business_file_id` BIGINT NULL,
@@ -1894,6 +1896,13 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
   PRIMARY KEY (`id`),
   CONSTRAINT `chk_dcc_reg_cert_audit_event_key` CHECK (TRIM(`event_key`) <> ''),
   CONSTRAINT `chk_dcc_reg_cert_audit_result` CHECK (`result` IN ('SUCCESS', 'FAILURE')),
+  CONSTRAINT `chk_dcc_reg_cert_audit_trusted_identity` CHECK (
+    (`result` = 'SUCCESS'
+      AND `owner_company_id` IS NOT NULL AND `owner_company_id` > 0
+      AND `certificate_id` IS NOT NULL AND `certificate_id` > 0)
+    OR (`result` = 'FAILURE'
+      AND `owner_company_id` IS NULL AND `certificate_id` IS NULL)
+  ),
   CONSTRAINT `chk_dcc_reg_cert_audit_trace` CHECK (TRIM(`request_trace_id`) <> ''),
   UNIQUE KEY `uk_dcc_reg_cert_audit_event` (`tenant_id`, `event_key`)
 );

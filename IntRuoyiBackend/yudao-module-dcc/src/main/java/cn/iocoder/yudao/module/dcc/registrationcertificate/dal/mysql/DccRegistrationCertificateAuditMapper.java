@@ -14,11 +14,14 @@ public interface DccRegistrationCertificateAuditMapper {
 
     @Insert("""
             INSERT INTO dcc_registration_certificate_audit
-              (tenant_id, owner_company_id, certificate_id, version_id, snapshot_id, business_file_id,
+              (tenant_id, owner_company_id, certificate_id,
+               requested_owner_company_id, requested_certificate_id,
+               version_id, snapshot_id, business_file_id,
                event_key, event_type, actor_id, result, result_code, request_trace_id,
                detail_json, occurred_at, creator)
             VALUES
-              (#{tenantId}, #{ownerCompanyId}, #{certificateId}, #{versionId}, #{snapshotId},
+              (#{tenantId}, #{ownerCompanyId}, #{certificateId},
+               #{requestedOwnerCompanyId}, #{requestedCertificateId}, #{versionId}, #{snapshotId},
                #{businessFileId}, #{eventKey}, #{eventType}, #{actorId}, #{result}, #{resultCode},
                #{requestTraceId}, #{detailJson}, #{occurredAt}, #{creator})
             """)
