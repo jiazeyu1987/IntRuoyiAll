@@ -1,0 +1,91 @@
+package cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.List;
+
+final class DccRegistrationCertificateCommandFingerprint {
+
+    private DccRegistrationCertificateCommandFingerprint() {
+    }
+
+    static String draft(String kind, Long certificateId, Integer rowRevision, Integer snapshotRevision,
+                        DccRegistrationCertificateDraftData draft) {
+        StringBuilder canonical = new StringBuilder();
+        add(canonical, kind);
+        add(canonical, certificateId);
+        add(canonical, rowRevision);
+        add(canonical, snapshotRevision);
+        add(canonical, draft.ownerCompanyId());
+        add(canonical, draft.productMasterId());
+        add(canonical, draft.projectCodeId());
+        add(canonical, draft.firstObtainedDate());
+        add(canonical, draft.certificateNo());
+        add(canonical, draft.approvalDate());
+        add(canonical, draft.effectiveDate());
+        add(canonical, draft.expiryDate());
+        add(canonical, draft.classification());
+        add(canonical, draft.registrantName());
+        add(canonical, draft.modelSpecification());
+        add(canonical, draft.structureComposition());
+        add(canonical, draft.intendedUse());
+        add(canonical, draft.technicalRequirements());
+        add(canonical, draft.residenceAddress());
+        add(canonical, draft.productionAddress());
+        add(canonical, draft.entrustedProduction());
+        add(canonical, draft.selfProduction());
+        addList(canonical, draft.entrustedEnterpriseIds());
+        return sha256(canonical.toString());
+    }
+
+    static String delete(Long certificateId, Integer rowRevision, Integer snapshotRevision) {
+        StringBuilder canonical = new StringBuilder();
+        add(canonical, "DRAFT_DELETE");
+        add(canonical, certificateId);
+        add(canonical, rowRevision);
+        add(canonical, snapshotRevision);
+        return sha256(canonical.toString());
+    }
+
+    static String formalize(Long certificateId, Integer rowRevision, Integer snapshotRevision, Long fileId) {
+        StringBuilder canonical = new StringBuilder();
+        add(canonical, "FORMALIZE");
+        add(canonical, certificateId);
+        add(canonical, rowRevision);
+        add(canonical, snapshotRevision);
+        add(canonical, fileId);
+        return sha256(canonical.toString());
+    }
+
+    private static void addList(StringBuilder target, List<Long> values) {
+        if (values == null) {
+            add(target, null);
+            return;
+        }
+        add(target, values.size());
+        for (Long value : values) {
+            add(target, value);
+        }
+    }
+
+    private static void add(StringBuilder target, Object value) {
+        String text = value == null ? null : value.toString();
+        if (text == null) {
+            target.append("-1:");
+        } else {
+            target.append(text.length()).append(':').append(text);
+        }
+        target.append('|');
+    }
+
+    private static String sha256(String value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+}
