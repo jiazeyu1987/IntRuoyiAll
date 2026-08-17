@@ -99,6 +99,9 @@ public class ControlledContentRegistrationProjectionService {
 
         PlatformProjection actualBefore = readPlatformProjection(key);
         validateExpectedProjection("platformBefore", platformBefore, actualBefore.snapshot());
+        if (platformBefore.isEmpty() && actualBefore.refCount() != 0) {
+            throw drift(key, "initial ready candidate requires a genuinely empty platform ref history");
+        }
         ControlledContentVersionRefDO activeRef = actualBefore.activeRef();
 
         LocalDateTime transitionTime = LocalDateTime.now();
@@ -140,6 +143,9 @@ public class ControlledContentRegistrationProjectionService {
         validateExpectedProjection("platformBefore", platformBefore, actualBefore.snapshot());
         ControlledContentVersionRefDO activeRef = actualBefore.activeRef();
         ControlledContentVersionRefDO candidateRef = actualBefore.candidateRef();
+        if (activeRef == null) {
+            validateFirstPublicationCandidate(key, actualBefore);
+        }
         ControlledContentCanonicalStatus activeFrom = activeRef == null ? null : parseStatus(activeRef);
         ControlledContentCanonicalStatus candidateFrom = parseStatus(candidateRef);
         if (activeRef != null) {
@@ -215,7 +221,16 @@ public class ControlledContentRegistrationProjectionService {
         ControlledContentVersionRefDO candidateRef = candidateRefs.isEmpty() ? null : candidateRefs.get(0);
         return new PlatformProjection(ControlledContentProjectionSnapshot.of(key,
                 activeRef == null ? null : activeRef.getNativeVersionId(),
-                candidateRef == null ? null : candidateRef.getNativeVersionId()), activeRef, candidateRef);
+                candidateRef == null ? null : candidateRef.getNativeVersionId()), activeRef, candidateRef, refs.size());
+    }
+
+    private void validateFirstPublicationCandidate(ControlledContentKey key, PlatformProjection projection) {
+        ControlledContentVersionRefDO candidateRef = projection.candidateRef();
+        if (projection.refCount() != 1 || candidateRef == null
+                || candidateRef.getSourceVersionRefId() != null
+                || candidateRef.getSourceNativeVersionId() != null) {
+            throw drift(key, "first publication requires exactly one candidate ref without a source predecessor");
+        }
     }
 
     private void validateRefAndAudit(ControlledContentKey key, ControlledContentVersionRefDO ref) {
@@ -413,7 +428,8 @@ public class ControlledContentRegistrationProjectionService {
 
     private record PlatformProjection(ControlledContentProjectionSnapshot snapshot,
                                       ControlledContentVersionRefDO activeRef,
-                                      ControlledContentVersionRefDO candidateRef) {
+                                      ControlledContentVersionRefDO candidateRef,
+                                      int refCount) {
     }
 
 }

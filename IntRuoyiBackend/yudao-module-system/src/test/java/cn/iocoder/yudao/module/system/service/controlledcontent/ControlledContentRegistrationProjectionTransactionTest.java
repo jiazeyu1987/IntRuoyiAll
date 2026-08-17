@@ -9,6 +9,9 @@ import cn.iocoder.yudao.module.system.dal.mysql.controlledcontent.ControlledCont
 import jakarta.annotation.Resource;
 import org.h2.api.Trigger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.jdbc.Sql;
@@ -17,9 +20,11 @@ import org.springframework.test.context.jdbc.SqlMergeMode;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentCanonicalStatus.ACTIVE;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentCanonicalStatus.READY_TO_PUBLISH;
+import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentCanonicalStatus.SUPERSEDED;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.DCC_REGISTRATION_CERTIFICATE;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -65,6 +70,21 @@ class ControlledContentRegistrationProjectionTransactionTest extends BaseDbUnitT
     }
 
     @Test
+    void registerReadyCandidate_whenEmptySnapshotHidesHistoricalRef_rejectsWithoutWrites() {
+        seedHistoricalProjection();
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> service.registerReadyCandidate(KEY, snapshot(null, null), snapshot(null, 200L),
+                        9001L, 200L, "V1", "READY_TO_PUBLISH", 501L, "FUTURE_INITIAL"));
+
+        assertTrue(exception.getMessage().contains("genuinely empty"));
+        assertNull(versionRefMapper.selectByNativeVersion(
+                1L, DCC_REGISTRATION_CERTIFICATE.name(), "REG-TX-1", 200L));
+        assertEquals(1L, transitionAuditMapper.countTransitions(
+                1L, DCC_REGISTRATION_CERTIFICATE.name(), "REG-TX-1"));
+    }
+
+    @Test
     void publish_whenOnlyCandidateExists_commitsFirstActiveWithoutSupersedeAudit() {
         seedCandidateOnlyProjection();
 
@@ -78,6 +98,43 @@ class ControlledContentRegistrationProjectionTransactionTest extends BaseDbUnitT
         assertEquals(2, audits.size());
         assertEquals(List.of("REGISTER_READY_CANDIDATE", "PUBLISH"), audits.stream()
                 .map(ControlledContentTransitionAuditDO::getAction).toList());
+    }
+
+    @Test
+    void publish_whenCandidateSnapshotHidesHistoricalRef_rejectsWithoutWrites() {
+        seedCandidateWithHistoricalProjection();
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> service.publish(KEY, snapshot(null, 200L), snapshot(200L, null),
+                        null, "ACTIVE", 501L, "FIRST_PUBLICATION"));
+
+        assertTrue(exception.getMessage().contains("first publication"));
+        assertEquals(READY_TO_PUBLISH.name(), versionRefMapper.selectByNativeVersion(
+                1L, DCC_REGISTRATION_CERTIFICATE.name(), "REG-TX-1", 200L).getCanonicalStatus());
+        assertEquals(2L, transitionAuditMapper.countTransitions(
+                1L, DCC_REGISTRATION_CERTIFICATE.name(), "REG-TX-1"));
+    }
+
+    @ParameterizedTest(name = "sourceVersionRefId={0}, sourceNativeVersionId={1}")
+    @MethodSource("candidateOnlySourceFields")
+    void publish_whenCandidateOnlyHasAnySourcePredecessor_rejectsWithoutWrites(
+            Long sourceVersionRefId, Long sourceNativeVersionId) {
+        ControlledContentVersionRefDO candidate = ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1);
+        candidate.setSourceVersionRefId(sourceVersionRefId);
+        candidate.setSourceNativeVersionId(sourceNativeVersionId);
+        versionRefMapper.insert(candidate);
+        transitionAuditMapper.insert(audit(22L, 12L, READY_TO_PUBLISH.name(),
+                "REGISTER_READY_CANDIDATE", "SEED"));
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> service.publish(KEY, snapshot(null, 200L), snapshot(200L, null),
+                        null, "ACTIVE", 501L, "FIRST_PUBLICATION"));
+
+        assertTrue(exception.getMessage().contains("first publication"));
+        assertEquals(READY_TO_PUBLISH.name(), versionRefMapper.selectByNativeVersion(
+                1L, DCC_REGISTRATION_CERTIFICATE.name(), "REG-TX-1", 200L).getCanonicalStatus());
+        assertEquals(1L, transitionAuditMapper.countTransitions(
+                1L, DCC_REGISTRATION_CERTIFICATE.name(), "REG-TX-1"));
     }
 
     @Test
@@ -167,6 +224,18 @@ class ControlledContentRegistrationProjectionTransactionTest extends BaseDbUnitT
                 "REGISTER_READY_CANDIDATE", "SEED"));
     }
 
+    private void seedHistoricalProjection() {
+        versionRefMapper.insert(ref(11L, 100L, SUPERSEDED.name(), null, null));
+        transitionAuditMapper.insert(audit(21L, 11L, SUPERSEDED.name(), "SUPERSEDE_ACTIVE", "SEED"));
+    }
+
+    private void seedCandidateWithHistoricalProjection() {
+        seedHistoricalProjection();
+        versionRefMapper.insert(ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1));
+        transitionAuditMapper.insert(audit(22L, 12L, READY_TO_PUBLISH.name(),
+                "REGISTER_READY_CANDIDATE", "SEED"));
+    }
+
     private void seedCandidateOnlyProjection() {
         versionRefMapper.insert(ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1));
         transitionAuditMapper.insert(audit(22L, 12L, READY_TO_PUBLISH.name(),
@@ -179,6 +248,12 @@ class ControlledContentRegistrationProjectionTransactionTest extends BaseDbUnitT
                 .eq(ControlledContentTransitionAuditDO::getContentType, DCC_REGISTRATION_CERTIFICATE.name())
                 .eq(ControlledContentTransitionAuditDO::getContentKey, "REG-TX-1")
                 .orderByAsc(ControlledContentTransitionAuditDO::getId));
+    }
+
+    private static Stream<Arguments> candidateOnlySourceFields() {
+        return Stream.of(
+                Arguments.of(11L, null),
+                Arguments.of(null, 100L));
     }
 
     private ControlledContentProjectionSnapshot snapshot(Long activeNativeVersionId, Long candidateNativeVersionId) {

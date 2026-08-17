@@ -303,6 +303,29 @@ class ControlledContentRegistrationProjectionContractTest {
     }
 
     @Test
+    void registerReadyCandidate_whenEmptySnapshotHidesHistoricalRef_rejectsBeforeFirstWrite() {
+        ControlledContentVersionRefDO historical = ref(11L, 100L, SUPERSEDED.name(), null, null);
+        ControlledContentVersionRefDO candidate = ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1);
+        when(versionRefMapper.selectList(any())).thenReturn(
+                List.of(historical), List.of(historical, candidate));
+        stubLatestAudits(historical, historical, candidate);
+        doAnswer(invocation -> {
+            ControlledContentVersionRefDO inserted = invocation.getArgument(0);
+            inserted.setId(12L);
+            return 1;
+        }).when(versionRefMapper).insert(any(ControlledContentVersionRefDO.class));
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> service.registerReadyCandidate(KEY, snapshot(null, null), snapshot(null, 200L),
+                        9001L, 200L, "V1", "READY_TO_PUBLISH", 501L, "future initial registered"));
+
+        assertTrue(exception.getMessage().contains("genuinely empty"));
+        verify(versionRefMapper, never()).insert(any(ControlledContentVersionRefDO.class));
+        verify(versionRefMapper, never()).update(any(), any());
+        verify(transitionAuditMapper, never()).insert(any(ControlledContentTransitionAuditDO.class));
+    }
+
+    @Test
     void publish_whenDeltaMatches_supersedesActiveAndActivatesCandidate() {
         ControlledContentVersionRefDO active = ref(11L, 100L, ACTIVE.name(), 1, null);
         ControlledContentVersionRefDO candidate = ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1);
@@ -343,6 +366,48 @@ class ControlledContentRegistrationProjectionContractTest {
     }
 
     @Test
+    void publish_whenCandidateSnapshotHidesHistoricalRef_rejectsBeforeFirstWrite() {
+        ControlledContentVersionRefDO historical = ref(11L, 100L, SUPERSEDED.name(), null, null);
+        ControlledContentVersionRefDO candidate = ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1);
+        ControlledContentVersionRefDO activeAfter = ref(12L, 200L, ACTIVE.name(), 1, null);
+        when(versionRefMapper.selectList(any())).thenReturn(
+                List.of(historical, candidate), List.of(historical, activeAfter));
+        stubLatestAudits(historical, candidate, historical, activeAfter);
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> service.publish(KEY, snapshot(null, 200L), snapshot(200L, null),
+                        null, "ACTIVE", 501L, "first effective-date publication"));
+
+        assertTrue(exception.getMessage().contains("first publication"));
+        verify(versionRefMapper, never()).insert(any(ControlledContentVersionRefDO.class));
+        verify(versionRefMapper, never()).update(any(), any());
+        verify(transitionAuditMapper, never()).insert(any(ControlledContentTransitionAuditDO.class));
+    }
+
+    @ParameterizedTest(name = "sourceVersionRefId={0}, sourceNativeVersionId={1}")
+    @MethodSource("candidateOnlySourceFields")
+    void publish_whenCandidateOnlyHasAnySourcePredecessor_rejectsBeforeFirstWrite(
+            Long sourceVersionRefId, Long sourceNativeVersionId) {
+        ControlledContentVersionRefDO candidate = ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1);
+        candidate.setSourceVersionRefId(sourceVersionRefId);
+        candidate.setSourceNativeVersionId(sourceNativeVersionId);
+        ControlledContentVersionRefDO activeAfter = ref(12L, 200L, ACTIVE.name(), 1, null);
+        activeAfter.setSourceVersionRefId(sourceVersionRefId);
+        activeAfter.setSourceNativeVersionId(sourceNativeVersionId);
+        when(versionRefMapper.selectList(any())).thenReturn(List.of(candidate), List.of(activeAfter));
+        stubLatestAudits(candidate, activeAfter);
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> service.publish(KEY, snapshot(null, 200L), snapshot(200L, null),
+                        null, "ACTIVE", 501L, "first effective-date publication"));
+
+        assertTrue(exception.getMessage().contains("first publication"));
+        verify(versionRefMapper, never()).insert(any(ControlledContentVersionRefDO.class));
+        verify(versionRefMapper, never()).update(any(), any());
+        verify(transitionAuditMapper, never()).insert(any(ControlledContentTransitionAuditDO.class));
+    }
+
+    @Test
     void genericLifecycleMutation_whenRegistrationTypeUsed_rejectsMissingProjectionContract() {
         ControlledContentLifecycleCoreService genericService = new ControlledContentLifecycleCoreService(
                 versionRefMapper, transitionAuditMapper, new ControlledContentStateMachine());
@@ -368,6 +433,12 @@ class ControlledContentRegistrationProjectionContractTest {
                         KEY.getTenantId(), DCC_CONTROLLED_FILE, KEY.getContentKey(), null, null), "contentType"),
                 Arguments.of("key mismatch", new ControlledContentProjectionSnapshot(
                         KEY.getTenantId(), KEY.getContentType(), "REG-OTHER", null, null), "contentKey"));
+    }
+
+    private static Stream<Arguments> candidateOnlySourceFields() {
+        return Stream.of(
+                Arguments.of(11L, null),
+                Arguments.of(null, 100L));
     }
 
     private ControlledContentVersionRefDO ref(Long id, Long nativeVersionId, String status,
