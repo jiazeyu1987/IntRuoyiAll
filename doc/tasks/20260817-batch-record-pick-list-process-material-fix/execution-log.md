@@ -22,3 +22,6 @@
 - CLEANUP-APPLY: task-closeout-cleanup -> applied；删除只读审计辅助类、陈旧临时 evidence 和 E2E 截图，保留 task/execution/verification 三份正式记录。
 - WORKTREE-CLEANUP: 停止本任务 48162/8162 隔离运行态，删除 `D:\IntRuoyiWorktree\20260817-batch-record-pick-list-process-material-fix-runtime`，端口登记 slot=28 已设为 active=false；未操作其它 worktree 或端口。
 - GIT-PREFLIGHT: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS，int_main 基准端口仍为 8081/48081；暂存区在本任务暂存前为空。
+- IMPLEMENTATION-COMMIT: `969cf6d75`，仅包含本任务 8 个文件：后端来源服务、Mapper、单测、前端只读 E2E、任务三份正式记录和既有后端开发规范。
+- IMPLEMENTATION-PUSH: `git push origin int_main` -> PASS，远端从 `9a594a66a` 前进到 `969cf6d75`；推送后 `int_main...origin/int_main` 无 ahead。
+- CLOSEOUT: M1-M5 全部完成，任务状态更新为 completed；最终收尾记录单独提交并推送。
