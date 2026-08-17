@@ -32,4 +32,14 @@ public interface DccRegistrationCertificateAuditMapper {
             """)
     List<DccRegistrationCertificateAuditDO> selectListByCertificateId(
             @Param("certificateId") Long certificateId);
+
+    @Select("""
+            SELECT * FROM dcc_registration_certificate_audit
+             WHERE tenant_id = #{tenantId}
+               AND event_key = #{eventKey}
+             LIMIT 1
+            """)
+    DccRegistrationCertificateAuditDO selectByTenantIdAndEventKey(
+            @Param("tenantId") Long tenantId,
+            @Param("eventKey") String eventKey);
 }
