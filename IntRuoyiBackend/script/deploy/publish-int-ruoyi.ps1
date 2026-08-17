@@ -802,7 +802,7 @@ function Resolve-BackendRuntimeBaseConfig {
     }
 }
 
-function Assert-BackendRuntimeBaseImageAvailable {
+function Assert-BackendRuntimeBaseTarIntegrity {
     param(
         [Parameter(Mandatory = $true)]
         [System.Collections.IDictionary]$Config
@@ -812,6 +812,13 @@ function Assert-BackendRuntimeBaseImageAvailable {
     if ($actualTarSha256 -ne $config.TarSha256) {
         Fail "Backend runtime base tar sha256 mismatch: expected $($config.TarSha256), got $actualTarSha256 ($($config.TarPath))"
     }
+}
+
+function Assert-BackendRuntimeBaseImageAvailable {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Config
+    )
 
     Info "Loading backend runtime base image: $($config.TarPath)"
     Invoke-CheckedCommand -FilePath 'docker' -ArgumentList @('load', '-i', $config.TarPath)
@@ -5147,7 +5154,7 @@ if ($requiresRemoteMinioCredentials -and (
 Info 'Checking local Docker daemon'
 Invoke-CheckedCommand -FilePath 'docker' -ArgumentList @('info')
 if ($null -ne $backendRuntimeBaseConfig) {
-    Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig
+    Assert-BackendRuntimeBaseTarIntegrity -Config $backendRuntimeBaseConfig
 }
 
 if ($Mode -ne 'build-release') {
@@ -5244,6 +5251,7 @@ if ($publishBackend -or $publishFrontend) {
 }
 
 if ($publishBackend) {
+Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig
 Info 'Building backend image'
 Invoke-CheckedCommand -FilePath 'docker' -ArgumentList @(
     'build',

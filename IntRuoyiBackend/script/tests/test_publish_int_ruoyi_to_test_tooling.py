@@ -1626,6 +1626,13 @@ def test_publish_dockerfiles_point_at_current_workspace_artifacts() -> None:
 
 def test_publish_script_loads_and_verifies_internal_backend_runtime_base_image() -> None:
     text = read_publish_script()
+    docker_context_index = text.index("New-ReleaseDockerBuildContext `")
+    runtime_base_integrity_call_index = text.index(
+        "Assert-BackendRuntimeBaseTarIntegrity -Config $backendRuntimeBaseConfig"
+    )
+    runtime_base_image_call_index = text.index(
+        "Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig"
+    )
     backend_build_info_index = text.index("Info 'Building backend image'")
     backend_build_block_start = text.rindex("if ($publishBackend) {", 0, backend_build_info_index)
     build_block = text[
@@ -1641,6 +1648,7 @@ def test_publish_script_loads_and_verifies_internal_backend_runtime_base_image()
     assert "[string]$BackendRuntimeBaseDigest = $env:INTRUOYI_BACKEND_RUNTIME_BASE_DIGEST" in text
     assert "[string]$BackendRuntimeBaseVersion = $env:INTRUOYI_BACKEND_RUNTIME_BASE_VERSION" in text
     assert "function Resolve-BackendRuntimeBaseConfig" in text
+    assert "function Assert-BackendRuntimeBaseTarIntegrity" in text
     assert "function Assert-BackendRuntimeBaseImageAvailable" in text
     assert "Missing BackendRuntimeBaseMode" in text
     assert "Missing BackendRuntimeBaseTarPath" in text
@@ -1658,9 +1666,12 @@ def test_publish_script_loads_and_verifies_internal_backend_runtime_base_image()
     assert "RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_DIGEST=$BackendRuntimeBaseDigest" in text
     assert "RUNTIME_CONTROL_BACKEND_RUNTIME_BASE_VERSION=$BackendRuntimeBaseVersion" in text
     assert "'--build-arg', \"BACKEND_RUNTIME_BASE_IMAGE=$($backendRuntimeBaseConfig.Image)\"" in build_block
-    assert text.index("Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig") < text.index(
+    assert text.count("Assert-BackendRuntimeBaseTarIntegrity -Config $backendRuntimeBaseConfig") == 1
+    assert text.count("Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig") == 1
+    assert runtime_base_integrity_call_index < text.index(
         "Invoke-CheckedCommand -FilePath 'mvn'"
     )
+    assert docker_context_index < runtime_base_image_call_index < backend_build_info_index
 
 
 def test_publish_script_fails_fast_when_backend_target_jar_is_locked_before_maven_clean() -> None:
