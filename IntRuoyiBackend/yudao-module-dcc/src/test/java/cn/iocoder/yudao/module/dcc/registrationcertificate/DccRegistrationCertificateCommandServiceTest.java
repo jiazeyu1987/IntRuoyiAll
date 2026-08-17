@@ -2,12 +2,17 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAuditDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateFileDO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotEntrustedDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateVersionDO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateAuditMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateFileMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotEntrustedMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
@@ -33,12 +38,20 @@ import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
 import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
 import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
+import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionService;
+import jakarta.annotation.Resource;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -47,6 +60,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -54,7 +68,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DRAFT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FIRST_OBTAINED_DATE_INVALID;
@@ -82,7 +95,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class DccRegistrationCertificateCommandServiceTest {
+@Import({
+        DccRegistrationCertificateCommandService.class,
+        DccRegistrationCertificateCommandTransactionService.class,
+        DccRegistrationCertificateDraftRepository.class,
+        DccRegistrationCertificatePrerequisiteValidator.class,
+        DccRegistrationCertificateTerminalAuditService.class,
+        DccRegistrationCertificateFailureAuditService.class,
+        DccRegistrationCertificateFormalizationService.class,
+        DccRegistrationCertificateCommandMutex.class,
+        DccRegistrationCertificateCommandServiceTest.DbTestConfiguration.class
+})
+class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
 
     @Mock
     private DccRegistrationCertificateCommandTransactionService transactionService;
@@ -99,10 +123,45 @@ class DccRegistrationCertificateCommandServiceTest {
     @Mock
     private DccProjectCodeService projectCodeService;
 
+    @Resource
+    private DccRegistrationCertificateCommandService dbCommandService;
+    @Resource
+    private DccRegistrationCertificateCommandTransactionService dbTransactionService;
+    @Resource
+    private DccRegistrationCertificateFailureAuditService dbFailureAuditService;
+    @Resource
+    private DccRegistrationCertificateTerminalAuditService dbTerminalAuditService;
+    @Resource
+    private DccRegistrationCertificateMapper dbCertificateMapper;
+    @Resource
+    private DccRegistrationCertificateVersionMapper dbVersionMapper;
+    @Resource
+    private DccRegistrationCertificateSnapshotMapper dbSnapshotMapper;
+    @Resource
+    private DccRegistrationCertificateSnapshotEntrustedMapper dbEntrustedMapper;
+    @Resource
+    private DccRegistrationCertificateFileMapper dbFileMapper;
+    @Resource
+    private DccRegistrationCertificateAuditMapper dbAuditMapper;
+    @Resource
+    private JdbcTemplate jdbcTemplate;
+
+    @MockitoBean
+    private MdmCompanyScopeApi dbCompanyScopeApi;
+    @MockitoBean
+    private MdmEnterpriseApi dbEnterpriseApi;
+    @MockitoBean
+    private MdmProductApi dbProductApi;
+    @MockitoBean
+    private DccProjectCodeService dbProjectCodeService;
+    @MockitoBean
+    private ControlledContentRegistrationProjectionService dbProjectionService;
+
     private DccRegistrationCertificateCommandService service;
 
     @BeforeEach
     void setUp() {
+        reset(dbCompanyScopeApi, dbEnterpriseApi, dbProductApi, dbProjectCodeService, dbProjectionService);
         service = new DccRegistrationCertificateCommandService(
                 transactionService, failureAuditService, terminalAuditService,
                 new DccRegistrationCertificateCommandMutex());
@@ -229,6 +288,187 @@ class DccRegistrationCertificateCommandServiceTest {
         assertSame(auditFailure, actual);
         assertEquals(1, actual.getSuppressed().length);
         assertTrue(actual.getSuppressed()[0] instanceof ServiceException);
+    }
+
+    @Test
+    void sameKeySamePayloadFailureReplayDoesNotInvokeDependenciesAgain() {
+        DccRegistrationCertificateDraftData draft = validDraft();
+        DccRegistrationCertificateCommandMetadata first = captureMetadata(draft);
+        reset(transactionService);
+        DccRegistrationCertificateAuditDO failure = DccRegistrationCertificateAuditDO.builder()
+                .tenantId(1L)
+                .eventKey(first.idempotencyKey())
+                .eventType("DRAFT_CREATE_FAILED")
+                .actorId(first.actorId())
+                .result("FAILURE")
+                .resultCode(String.valueOf(REGISTRATION_CERTIFICATE_PRODUCT_INVALID.getCode()))
+                .detailJson(JsonUtils.toJsonString(new DccRegistrationCertificateAuditDetail(
+                        first.commandKind(), first.actorId(), first.payloadHash(), null,
+                        REGISTRATION_CERTIFICATE_PRODUCT_INVALID.getCode(),
+                        REGISTRATION_CERTIFICATE_PRODUCT_INVALID.getMsg())))
+                .build();
+        when(terminalAuditService.find(1L, "create-1")).thenReturn(failure);
+
+        ServiceException replay = assertThrows(ServiceException.class,
+                () -> service.createDraft(1L, 99L, "create-1", "trace-replay", draft));
+
+        assertEquals(REGISTRATION_CERTIFICATE_PRODUCT_INVALID.getCode(), replay.getCode());
+        verify(transactionService, never()).createDraft(any(), any(), any());
+        verify(failureAuditService, never()).recordFailure(any(), any(), any(), any());
+    }
+
+    @Test
+    void formalizeProjectionFailureRollsBackAllSuccessFactsAndPersistsRequiresNewFailureAudit() {
+        configureDbValidDependencies();
+        DraftFixture fixture = seedDraft(LocalDate.of(2026, 8, 1));
+        IllegalStateException projectionFailure = new IllegalStateException("projection drift");
+        when(dbProjectionService.registerActive(
+                any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(projectionFailure);
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> dbCommandService.formalize(1L, 99L, "formalize-rollback", "trace-formalize",
+                        fixture.certificateId(), 1, 1, fixture.fileId()));
+
+        assertSame(projectionFailure, error.getCause());
+        assertDraftBusinessFacts(fixture);
+        DccRegistrationCertificateAuditDO audit =
+                dbAuditMapper.selectByTenantIdAndEventKey(1L, "formalize-rollback");
+        assertNotNull(audit);
+        assertEquals("FAILURE", audit.getResult());
+        assertEquals(fixture.certificateId(), audit.getCertificateId());
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_audit "
+                + "WHERE tenant_id = 1 AND event_key = ? AND result = 'SUCCESS'", "formalize-rollback"));
+    }
+
+    @Test
+    void independentServicesUseDatabaseUniqueKeyToReplaySamePayloadWinner() throws Exception {
+        configureDbValidDependenciesWithProductBarrier();
+        DccRegistrationCertificateCommandService first = independentDbCommandService();
+        DccRegistrationCertificateCommandService second = independentDbCommandService();
+        DccRegistrationCertificateDraftData draft = validDraft();
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Long> firstResult = executor.submit(
+                    () -> first.createDraft(1L, 99L, "db-race-same", "trace-a", draft));
+            Future<Long> secondResult = executor.submit(
+                    () -> second.createDraft(1L, 99L, "db-race-same", "trace-b", draft));
+
+            assertEquals(firstResult.get(10, TimeUnit.SECONDS), secondResult.get(10, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate WHERE tenant_id = 1"));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_audit "
+                + "WHERE tenant_id = 1 AND event_key = ? AND result = 'SUCCESS'", "db-race-same"));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_audit "
+                + "WHERE tenant_id = 1 AND event_key = ? AND result = 'FAILURE'", "db-race-same"));
+    }
+
+    @Test
+    void independentServicesUseDatabaseUniqueKeyToRejectDifferentPayloadWithoutFailureAudit() throws Exception {
+        configureDbValidDependenciesWithProductBarrier();
+        DccRegistrationCertificateCommandService first = independentDbCommandService();
+        DccRegistrationCertificateCommandService second = independentDbCommandService();
+        DccRegistrationCertificateDraftData firstDraft = validDraft();
+        DccRegistrationCertificateDraftData secondDraft = copyDraft(
+                firstDraft, firstDraft.firstObtainedDate(), firstDraft.approvalDate(),
+                firstDraft.effectiveDate(), firstDraft.expiryDate(), null, "CERT-002",
+                true, false, List.of(30L));
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        Object firstResult;
+        Object secondResult;
+        try {
+            Future<Long> firstFuture = executor.submit(
+                    () -> first.createDraft(1L, 99L, "db-race-different", "trace-a", firstDraft));
+            Future<Long> secondFuture = executor.submit(
+                    () -> second.createDraft(1L, 99L, "db-race-different", "trace-b", secondDraft));
+            firstResult = futureOutcome(firstFuture);
+            secondResult = futureOutcome(secondFuture);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertTrue(firstResult instanceof Long || secondResult instanceof Long);
+        Object loser = firstResult instanceof Long ? secondResult : firstResult;
+        assertTrue(loser instanceof ServiceException);
+        assertEquals(REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT.getCode(),
+                ((ServiceException) loser).getCode());
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate WHERE tenant_id = 1"));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_audit "
+                + "WHERE tenant_id = 1 AND event_key = ? AND result = 'SUCCESS'", "db-race-different"));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_audit "
+                + "WHERE tenant_id = 1 AND event_key = ? AND result = 'FAILURE'", "db-race-different"));
+    }
+
+    @Test
+    void infrastructureFailuresFromAllFormalPrerequisitesRemainVisible() {
+        for (String dependency : List.of("company", "owner", "product", "project")) {
+            reset(dbCompanyScopeApi, dbEnterpriseApi, dbProductApi, dbProjectCodeService);
+            configureDbValidDependencies();
+            IllegalStateException outage = new IllegalStateException(dependency + " unavailable");
+            DccRegistrationCertificateDraftData draft = validDraft();
+            if ("company".equals(dependency)) {
+                doThrow(outage).when(dbCompanyScopeApi).validateUserCompanyAccess(99L, 10L);
+            } else if ("owner".equals(dependency)) {
+                when(dbEnterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any())).thenThrow(outage);
+            } else if ("product".equals(dependency)) {
+                when(dbProductApi.getEnabledDccProduct(20L)).thenThrow(outage);
+            } else {
+                draft = copyDraft(draft, draft.firstObtainedDate(), draft.approvalDate(), draft.effectiveDate(),
+                        draft.expiryDate(), 40L, draft.certificateNo(), true, false, List.of(30L));
+                when(dbProjectCodeService.getProjectCode(99L, 40L)).thenThrow(outage);
+            }
+            DccRegistrationCertificateDraftData request = draft;
+
+            IllegalStateException visible = assertThrows(IllegalStateException.class,
+                    () -> dbCommandService.createDraft(1L, 99L, "infra-" + dependency,
+                            "trace-" + dependency, request));
+
+            assertSame(outage, visible);
+            assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate WHERE tenant_id = 1"));
+            assertNull(dbAuditMapper.selectByTenantIdAndEventKey(1L, "infra-" + dependency));
+        }
+    }
+
+    @Test
+    void createUpdateAndDeleteFailuresLeaveRealDatabaseBusinessFactsUnchanged() {
+        configureDbValidDependencies();
+        when(dbProductApi.getEnabledDccProduct(20L)).thenReturn(null);
+        ServiceException createFailure = assertThrows(ServiceException.class,
+                () -> dbCommandService.createDraft(1L, 99L, "create-no-partial", "trace-create", validDraft()));
+        assertEquals(REGISTRATION_CERTIFICATE_PRODUCT_INVALID.getCode(), createFailure.getCode());
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate WHERE tenant_id = 1"));
+        assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(
+                1L, "create-no-partial").getResult());
+
+        reset(dbProductApi);
+        configureDbValidDependencies();
+        DraftFixture fixture = seedDraft(LocalDate.of(2026, 9, 1));
+        DccRegistrationCertificateDraftData update = copyDraft(
+                validDraft(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1),
+                LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1), 40L,
+                "CERT-CHANGED", true, false, List.of(30L));
+        when(dbProjectCodeService.getProjectCode(99L, 40L))
+                .thenReturn(projectCode(1L, 20L, DccProjectCodeStatusConstants.DISABLE));
+        ServiceException updateFailure = assertThrows(ServiceException.class,
+                () -> dbCommandService.updateDraft(1L, 99L, "update-no-partial", "trace-update",
+                        fixture.certificateId(), 1, 1, update));
+        assertEquals(REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED.getCode(), updateFailure.getCode());
+        assertDraftBusinessFacts(fixture);
+        assertEquals("CERT-001", dbVersionMapper.selectById(fixture.versionId()).getCertificateNo());
+        assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(
+                1L, "update-no-partial").getResult());
+
+        ServiceException deleteFailure = assertThrows(ServiceException.class,
+                () -> dbCommandService.deleteDraft(1L, 99L, "delete-no-partial", "trace-delete",
+                        fixture.certificateId(), 2, 1));
+        assertNotNull(deleteFailure);
+        assertDraftBusinessFacts(fixture);
+        assertEquals("FAILURE", dbAuditMapper.selectByTenantIdAndEventKey(
+                1L, "delete-no-partial").getResult());
     }
 
     @Test
@@ -377,14 +617,15 @@ class DccRegistrationCertificateCommandServiceTest {
     }
 
     @Test
-    void validatorFailsClosedForCompanyScopeAndInvalidProductionRelation() {
+    void validatorKeepsCompanyInfrastructureFailureVisibleAndRejectsInvalidProductionRelation() {
         DccRegistrationCertificatePrerequisiteValidator validator = validValidator();
-        doThrow(new IllegalStateException("company denied"))
+        IllegalStateException companyOutage = new IllegalStateException("company scope unavailable");
+        doThrow(companyOutage)
                 .when(companyScopeApi).validateUserCompanyAccess(99L, 10L);
 
-        ServiceException companyDenied = assertThrows(ServiceException.class,
+        IllegalStateException visible = assertThrows(IllegalStateException.class,
                 () -> validator.validate(1L, 99L, validDraft()));
-        assertEquals(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED.getCode(), companyDenied.getCode());
+        assertSame(companyOutage, visible);
 
         reset(companyScopeApi);
         DccRegistrationCertificateDraftData neitherProductionMode = copyDraft(
@@ -394,6 +635,162 @@ class DccRegistrationCertificateCommandServiceTest {
         ServiceException invalidRelation = assertThrows(ServiceException.class,
                 () -> validator.validate(1L, 99L, neitherProductionMode));
         assertEquals(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID.getCode(), invalidRelation.getCode());
+    }
+
+    private DccRegistrationCertificateCommandService independentDbCommandService() {
+        return new DccRegistrationCertificateCommandService(
+                dbTransactionService, dbFailureAuditService, dbTerminalAuditService,
+                new DccRegistrationCertificateCommandMutex());
+    }
+
+    private void configureDbValidDependencies() {
+        when(dbEnterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(MdmEnterpriseRespDTO.builder()
+                        .id(10L).tenantId(1L).name("Owner Company").build()));
+        when(dbEnterpriseApi.getEnabledEnterprises(eq(List.of(30L)), any()))
+                .thenReturn(List.of(MdmEnterpriseRespDTO.builder()
+                        .id(30L).tenantId(1L).name("Factory A").build()));
+        when(dbProductApi.getEnabledDccProduct(20L)).thenReturn(
+                MdmProductRespDTO.builder().id(20L).nameCn("Product A").build());
+    }
+
+    private void configureDbValidDependenciesWithProductBarrier() {
+        configureDbValidDependencies();
+        CountDownLatch productCalls = new CountDownLatch(2);
+        when(dbProductApi.getEnabledDccProduct(20L)).thenAnswer(invocation -> {
+            productCalls.countDown();
+            if (!productCalls.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("both command instances did not enter validation");
+            }
+            return MdmProductRespDTO.builder().id(20L).nameCn("Product A").build();
+        });
+    }
+
+    private DraftFixture seedDraft(LocalDate effectiveDate) {
+        DccRegistrationCertificateDO certificate = DccRegistrationCertificateDO.builder()
+                .ownerCompanyId(10L)
+                .productMasterId(20L)
+                .firstObtainedDate(LocalDate.of(2026, 1, 1))
+                .status("DRAFT")
+                .rowVersion(1)
+                .build();
+        certificate.setTenantId(1L);
+        assertEquals(1, dbCertificateMapper.insert(certificate));
+
+        DccRegistrationCertificateVersionDO version = DccRegistrationCertificateVersionDO.builder()
+                .certificateId(certificate.getId())
+                .versionNo(1)
+                .versionType("INITIAL_CERTIFICATE")
+                .certificateNo("CERT-001")
+                .approvalDate(LocalDate.of(2026, 2, 1))
+                .effectiveDate(effectiveDate)
+                .expiryDate(LocalDate.of(2031, 9, 1))
+                .classification("II")
+                .categoryChanged(false)
+                .status("DRAFT")
+                .build();
+        version.setTenantId(1L);
+        assertEquals(1, dbVersionMapper.insert(version));
+
+        DccRegistrationCertificateSnapshotDO snapshot = DccRegistrationCertificateSnapshotDO.builder()
+                .versionId(version.getId())
+                .revisionNo(1)
+                .productName("Product A")
+                .registrantName("Registrant")
+                .modelSpecification("Model")
+                .structureComposition("Structure")
+                .intendedUse("Use")
+                .technicalRequirements("Requirements")
+                .residenceAddress("Residence")
+                .productionAddress("Production")
+                .entrustedProduction(true)
+                .selfProduction(false)
+                .entrustedEnterprisesJson("[{\"enterpriseId\":30,\"enterpriseName\":\"Factory A\"}]")
+                .effectiveAt(effectiveDate.atStartOfDay())
+                .build();
+        snapshot.setTenantId(1L);
+        assertEquals(1, dbSnapshotMapper.insert(snapshot));
+
+        DccRegistrationCertificateSnapshotEntrustedDO entrusted =
+                DccRegistrationCertificateSnapshotEntrustedDO.builder()
+                        .snapshotId(snapshot.getId())
+                        .enterpriseId(30L)
+                        .enterpriseNameSnapshot("Factory A")
+                        .sortOrder(1)
+                        .build();
+        entrusted.setTenantId(1L);
+        assertEquals(1, dbEntrustedMapper.insert(entrusted));
+
+        DccRegistrationCertificateFileDO file = DccRegistrationCertificateFileDO.builder()
+                .ownerType("VERSION")
+                .ownerId(version.getId())
+                .fileKind("REGISTRATION_CERTIFICATE")
+                .infraFileId(7001L)
+                .originalName("certificate.pdf")
+                .mimeType("application/pdf")
+                .fileSize(128L)
+                .sha256("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .status("STAGED")
+                .build();
+        file.setTenantId(1L);
+        assertEquals(1, dbFileMapper.insert(file));
+        return new DraftFixture(certificate.getId(), version.getId(), snapshot.getId(), file.getId());
+    }
+
+    private void assertDraftBusinessFacts(DraftFixture fixture) {
+        DccRegistrationCertificateDO certificate = dbCertificateMapper.selectById(fixture.certificateId());
+        assertNotNull(certificate);
+        assertEquals("DRAFT", certificate.getStatus());
+        assertEquals(1, certificate.getRowVersion());
+        assertNull(certificate.getCurrentVersionId());
+        assertNull(certificate.getPendingVersionId());
+        assertNull(certificate.getCurrentSnapshotId());
+
+        DccRegistrationCertificateVersionDO version = dbVersionMapper.selectById(fixture.versionId());
+        assertNotNull(version);
+        assertEquals("DRAFT", version.getStatus());
+        assertNull(version.getFormalizedAt());
+        assertNull(version.getFormalizedBy());
+        assertNotNull(dbSnapshotMapper.selectById(fixture.snapshotId()));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_snapshot_entrusted "
+                + "WHERE tenant_id = 1 AND snapshot_id = ?", fixture.snapshotId()));
+
+        DccRegistrationCertificateFileDO file = dbFileMapper.selectById(fixture.fileId());
+        assertNotNull(file);
+        assertEquals("STAGED", file.getStatus());
+        assertNull(file.getBoundAt());
+        assertNull(file.getBoundBy());
+    }
+
+    private int count(String sql, Object... args) {
+        Integer value = jdbcTemplate.queryForObject(sql, Integer.class, args);
+        return value == null ? 0 : value;
+    }
+
+    private static Object futureOutcome(Future<Long> future) throws Exception {
+        try {
+            return future.get(10, TimeUnit.SECONDS);
+        } catch (ExecutionException exception) {
+            return exception.getCause();
+        }
+    }
+
+    private record DraftFixture(Long certificateId, Long versionId, Long snapshotId, Long fileId) {
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class DbTestConfiguration {
+
+        @Bean
+        DccRegistrationCertificateBusinessClock registrationCertificateBusinessClock() {
+            return new DccRegistrationCertificateBusinessClock(
+                    Clock.fixed(Instant.parse("2026-08-17T01:00:00Z"), ZoneId.of("Asia/Shanghai")));
+        }
+
+        @Bean
+        JdbcTemplate jdbcTemplate(DataSource dataSource) {
+            return new JdbcTemplate(dataSource);
+        }
     }
 
     private DccRegistrationCertificateCommandMetadata captureMetadata(DccRegistrationCertificateDraftData draft) {

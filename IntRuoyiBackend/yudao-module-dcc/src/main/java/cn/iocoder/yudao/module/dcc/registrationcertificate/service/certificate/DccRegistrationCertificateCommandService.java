@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAuditDO;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
@@ -95,17 +96,35 @@ public class DccRegistrationCertificateCommandService {
             try {
                 return operation.get();
             } catch (RuntimeException original) {
-                ServiceException stable = stabilize(original);
+                if (isDuplicateKey(original)) {
+                    return replayCommittedWinner(metadata, original);
+                }
+                if (!(original instanceof ServiceException stable)) {
+                    throw original;
+                }
                 try {
                     failureAuditService.recordFailure(
                             metadata, context, stable.getCode(), stable.getMessage());
                 } catch (RuntimeException auditFailure) {
+                    if (isDuplicateKey(auditFailure)) {
+                        return replayCommittedWinner(metadata, auditFailure);
+                    }
                     auditFailure.addSuppressed(stable);
                     throw auditFailure;
                 }
                 throw stable;
             }
         });
+    }
+
+    private Long replayCommittedWinner(DccRegistrationCertificateCommandMetadata metadata,
+                                       RuntimeException duplicateKey) {
+        DccRegistrationCertificateAuditDO winner = terminalAuditService.find(
+                metadata.tenantId(), metadata.idempotencyKey());
+        if (winner == null) {
+            throw duplicateKey;
+        }
+        return replay(metadata, winner);
     }
 
     private Long replay(DccRegistrationCertificateCommandMetadata metadata,
@@ -152,13 +171,15 @@ public class DccRegistrationCertificateCommandService {
                 tenantId, actorId, idempotencyKey.trim(), requestTraceId.trim(), kind, payloadHash);
     }
 
-    private static ServiceException stabilize(RuntimeException exception) {
-        if (exception instanceof ServiceException serviceException) {
-            return serviceException;
+    private static boolean isDuplicateKey(RuntimeException exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof DuplicateKeyException) {
+                return true;
+            }
+            current = current.getCause();
         }
-        ServiceException stable = new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
-        stable.initCause(exception);
-        return stable;
+        return false;
     }
 
     private static <T> T require(T value, String name) {

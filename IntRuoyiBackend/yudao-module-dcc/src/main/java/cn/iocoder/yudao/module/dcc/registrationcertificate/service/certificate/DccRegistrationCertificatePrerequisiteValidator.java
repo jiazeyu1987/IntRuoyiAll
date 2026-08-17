@@ -71,13 +71,13 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         try {
             companyScopeApi.validateUserCompanyAccess(actorId, draft.ownerCompanyId());
         } catch (RuntimeException exception) {
-            throw mapped(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED, exception);
+            throw dependencyFailure(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED, exception);
         }
         List<MdmEnterpriseRespDTO> owners;
         try {
             owners = enterpriseApi.getEnabledEnterprises(List.of(draft.ownerCompanyId()), OWNED_COMPANY);
         } catch (RuntimeException exception) {
-            throw mapped(REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED, exception);
+            throw dependencyFailure(REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED, exception);
         }
         requireExactEnterprises(owners, List.of(draft.ownerCompanyId()), tenantId,
                 REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
@@ -86,7 +86,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         try {
             product = productApi.getEnabledDccProduct(draft.productMasterId());
         } catch (RuntimeException exception) {
-            throw mapped(REGISTRATION_CERTIFICATE_PRODUCT_INVALID, exception);
+            throw dependencyFailure(REGISTRATION_CERTIFICATE_PRODUCT_INVALID, exception);
         }
         if (product == null || !draft.productMasterId().equals(product.getId())
                 || product.getNameCn() == null || product.getNameCn().isBlank()) {
@@ -104,7 +104,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
             try {
                 enterprises = enterpriseApi.getEnabledEnterprises(entrustedIds, ENTRUSTED_TYPES);
             } catch (RuntimeException exception) {
-                throw mapped(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID, exception);
+                throw dependencyFailure(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID, exception);
             }
             requireExactEnterprises(enterprises, entrustedIds, tenantId,
                     REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
@@ -131,7 +131,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         try {
             projectCode = projectCodeService.getProjectCode(actorId, projectCodeId);
         } catch (RuntimeException exception) {
-            throw mapped(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID, exception);
+            throw dependencyFailure(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID, exception);
         }
         if (projectCode == null || !projectCodeId.equals(projectCode.getId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
@@ -212,5 +212,13 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         ServiceException exception = new ServiceException(errorCode);
         exception.initCause(cause);
         return exception;
+    }
+
+    private static RuntimeException dependencyFailure(
+            cn.iocoder.yudao.framework.common.exception.ErrorCode errorCode, RuntimeException cause) {
+        if (!(cause instanceof ServiceException)) {
+            return cause;
+        }
+        return mapped(errorCode, cause);
     }
 }
