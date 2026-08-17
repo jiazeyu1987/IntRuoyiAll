@@ -22,18 +22,18 @@ final class DccRegistrationCertificateCommandFingerprint {
         add(canonical, draft.productMasterId());
         add(canonical, draft.projectCodeId());
         add(canonical, draft.firstObtainedDate());
-        add(canonical, draft.certificateNo());
+        add(canonical, normalizeText(draft.certificateNo()));
         add(canonical, draft.approvalDate());
         add(canonical, draft.effectiveDate());
         add(canonical, draft.expiryDate());
-        add(canonical, draft.classification());
-        add(canonical, draft.registrantName());
-        add(canonical, draft.modelSpecification());
-        add(canonical, draft.structureComposition());
-        add(canonical, draft.intendedUse());
-        add(canonical, draft.technicalRequirements());
-        add(canonical, draft.residenceAddress());
-        add(canonical, draft.productionAddress());
+        add(canonical, normalizeText(draft.classification()));
+        add(canonical, normalizeText(draft.registrantName()));
+        add(canonical, normalizeText(draft.modelSpecification()));
+        add(canonical, normalizeText(draft.structureComposition()));
+        add(canonical, normalizeText(draft.intendedUse()));
+        add(canonical, normalizeText(draft.technicalRequirements()));
+        add(canonical, normalizeText(draft.residenceAddress()));
+        add(canonical, normalizeText(draft.productionAddress()));
         add(canonical, draft.entrustedProduction());
         add(canonical, draft.selfProduction());
         addList(canonical, draft.entrustedEnterpriseIds());
@@ -78,6 +78,10 @@ final class DccRegistrationCertificateCommandFingerprint {
             target.append(text.length()).append(':').append(text);
         }
         target.append('|');
+    }
+
+    private static String normalizeText(String value) {
+        return value == null ? null : value.trim();
     }
 
     private static String sha256(String value) {

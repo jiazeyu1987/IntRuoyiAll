@@ -77,6 +77,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_TENANT_MISMATCH;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -182,6 +183,34 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         when(terminalAuditService.find(1L, "create-1")).thenReturn(successAudit(metadata.getValue(), 1001L));
         assertEquals(1001L, service.createDraft(1L, 99L, "create-1", "trace-2", draft));
         verify(transactionService, never()).createDraft(any(), any(), any());
+    }
+
+    @Test
+    void createDraft_sameKeyAndWhitespaceEquivalentPayloadReplaysTheSameCertificate() {
+        DccRegistrationCertificateDraftData draft = validDraft();
+        DccRegistrationCertificateCommandMetadata first = captureMetadata(draft);
+        reset(transactionService);
+        when(terminalAuditService.find(1L, "create-1")).thenReturn(successAudit(first, 1001L));
+
+        DccRegistrationCertificateDraftData padded = new DccRegistrationCertificateDraftData(
+                draft.ownerCompanyId(), draft.productMasterId(), draft.projectCodeId(),
+                draft.firstObtainedDate(), "  " + draft.certificateNo() + "  ",
+                draft.approvalDate(), draft.effectiveDate(), draft.expiryDate(),
+                "  " + draft.classification() + "  ",
+                "  " + draft.registrantName() + "  ",
+                "  " + draft.modelSpecification() + "  ",
+                "  " + draft.structureComposition() + "  ",
+                "  " + draft.intendedUse() + "  ",
+                "  " + draft.technicalRequirements() + "  ",
+                "  " + draft.residenceAddress() + "  ",
+                "  " + draft.productionAddress() + "  ",
+                draft.entrustedProduction(), draft.selfProduction(), draft.entrustedEnterpriseIds());
+
+        Long replayed = assertDoesNotThrow(
+                () -> service.createDraft(1L, 99L, "create-1", "trace-2", padded));
+        assertEquals(1001L, replayed);
+        verify(transactionService, never()).createDraft(any(), any(), any());
+        verify(failureAuditService, never()).recordFailure(any(), any(), any(), any());
     }
 
     @Test
