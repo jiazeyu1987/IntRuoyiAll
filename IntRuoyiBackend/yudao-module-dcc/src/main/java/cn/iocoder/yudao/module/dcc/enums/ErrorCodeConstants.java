@@ -334,5 +334,45 @@ public interface ErrorCodeConstants {
             "Registration certificate audit event key is required");
     ErrorCode REGISTRATION_CERTIFICATE_AUDIT_EVENT_CONFLICT = new ErrorCode(1_080_000_219,
             "Registration certificate audit event already exists");
+    ErrorCode REGISTRATION_CERTIFICATE_REVISION_CONFLICT = new ErrorCode(1_080_000_220,
+            "Registration certificate revision conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_IDEMPOTENCY_KEY_REQUIRED = new ErrorCode(1_080_000_221,
+            "Registration certificate idempotency key is required");
+    ErrorCode REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT = new ErrorCode(1_080_000_222,
+            "Registration certificate idempotency key is bound to different input");
+    ErrorCode REGISTRATION_CERTIFICATE_TENANT_MISMATCH = new ErrorCode(1_080_000_223,
+            "Registration certificate tenant mismatch");
+    ErrorCode REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED = new ErrorCode(1_080_000_224,
+            "Registration certificate owner company is required");
+    ErrorCode REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED = new ErrorCode(1_080_000_225,
+            "Registration certificate company scope denied");
+    ErrorCode REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED = new ErrorCode(1_080_000_226,
+            "Registration certificate product is required");
+    ErrorCode REGISTRATION_CERTIFICATE_PRODUCT_INVALID = new ErrorCode(1_080_000_227,
+            "Registration certificate product is missing or disabled");
+    ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID = new ErrorCode(1_080_000_228,
+            "Registration certificate project code is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED = new ErrorCode(1_080_000_229,
+            "Registration certificate project code is disabled");
+    ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_TENANT_MISMATCH = new ErrorCode(1_080_000_230,
+            "Registration certificate project code tenant mismatch");
+    ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH = new ErrorCode(1_080_000_231,
+            "Registration certificate project code product mismatch");
+    ErrorCode REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID = new ErrorCode(1_080_000_232,
+            "Registration certificate date order is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_FIRST_OBTAINED_DATE_INVALID = new ErrorCode(1_080_000_233,
+            "Registration certificate first obtained date is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID = new ErrorCode(1_080_000_234,
+            "Registration certificate approval date is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_REQUIRED = new ErrorCode(1_080_000_235,
+            "Registration certificate business file is required");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_NOT_STAGED = new ErrorCode(1_080_000_236,
+            "Registration certificate business file is not staged");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_TENANT_MISMATCH = new ErrorCode(1_080_000_237,
+            "Registration certificate business file tenant mismatch");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT = new ErrorCode(1_080_000_238,
+            "Registration certificate business file owner conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT = new ErrorCode(1_080_000_239,
+            "Registration certificate formalization conflict");
 
 }
