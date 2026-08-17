@@ -494,19 +494,105 @@ INSERT INTO dcc_registration_certificate_file
 VALUES ('VERSION', 11, 'REGISTRATION_CERTIFICATE', 499, 'unknown.pdf', 'application/pdf',
         10, REPEAT('f', 64), 'UNKNOWN', 1);
 '@
-    [void](Invoke-SqlSuccess -Schema $schema -Label 'bound file fixture' -Sql @'
+    Assert-SqlFails -Schema $schema -Label 'direct BOUND file missing binding evidence' -Sql @'
+INSERT INTO dcc_registration_certificate_file
+  (owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
+   file_size, sha256, status, tenant_id)
+VALUES ('VERSION', 11, 'REGISTRATION_CERTIFICATE', 498, 'missing-binding.pdf', 'application/pdf',
+        10, REPEAT('e', 64), 'BOUND', 1);
+'@
+    Assert-SqlFails -Schema $schema -Label 'direct VOIDED file missing binding actor' -Sql @'
 INSERT INTO dcc_registration_certificate_file
   (owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
    file_size, sha256, status, bound_at, tenant_id)
+VALUES ('VERSION', 11, 'REGISTRATION_CERTIFICATE', 497, 'missing-actor.pdf', 'application/pdf',
+        10, REPEAT('d', 64), 'VOIDED', NOW(), 1);
+'@
+    Assert-SqlFails -Schema $schema -Label 'STAGED file carries binding evidence' -Sql @'
+INSERT INTO dcc_registration_certificate_file
+  (owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
+   file_size, sha256, status, bound_at, bound_by, tenant_id)
+VALUES ('VERSION', 11, 'REGISTRATION_CERTIFICATE', 496, 'staged-bound.pdf', 'application/pdf',
+        10, REPEAT('c', 64), 'STAGED', NOW(), 99, 1);
+'@
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'file lifecycle fixtures' -Sql @'
+INSERT INTO dcc_registration_certificate_file
+  (id, owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
+   file_size, sha256, status, bound_at, bound_by, tenant_id)
+VALUES
+  (4001, 'VERSION', 11, 'REGISTRATION_CERTIFICATE', 501, 'staged-bind.pdf', 'application/pdf',
+   10, REPEAT('1', 64), 'STAGED', NULL, NULL, 1),
+  (4002, 'VERSION', 11, 'REGISTRATION_CERTIFICATE', 502, 'staged-cleanup.pdf', 'application/pdf',
+   10, REPEAT('2', 64), 'STAGED', NULL, NULL, 1),
+  (4003, 'VERSION', 11, 'REGISTRATION_CERTIFICATE', 503, 'terminal-cleanup.pdf', 'application/pdf',
+   10, REPEAT('3', 64), 'CLEANUP_REQUIRED', NULL, NULL, 1),
+  (4004, 'VERSION', 11, 'REGISTRATION_CERTIFICATE', 504, 'terminal-void.pdf', 'application/pdf',
+   10, REPEAT('4', 64), 'VOIDED', NOW(), 99, 1),
+  (4005, 'VERSION', 11, 'REGISTRATION_CERTIFICATE', 505, 'illegal-staged-void.pdf', 'application/pdf',
+   10, REPEAT('5', 64), 'STAGED', NULL, NULL, 1);
+'@)
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'allowed staged file transitions' -Sql @'
+UPDATE dcc_registration_certificate_file
+   SET status = 'BOUND', bound_at = NOW(), bound_by = 99
+ WHERE id = 4001;
+UPDATE dcc_registration_certificate_file
+   SET status = 'CLEANUP_REQUIRED'
+ WHERE id = 4002;
+'@)
+    Write-Output 'PASS: allowed STAGED file transitions'
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'allowed file status idempotency' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'BOUND' WHERE id = 4001;
+UPDATE dcc_registration_certificate_file SET status = 'CLEANUP_REQUIRED' WHERE id = 4002;
+'@)
+    Write-Output 'PASS: allowed file status idempotency'
+    Assert-SqlFails -Schema $schema -Label 'BOUND file returns to STAGED' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'STAGED' WHERE id = 4001;
+'@
+    Assert-SqlFails -Schema $schema -Label 'BOUND file changes to CLEANUP_REQUIRED' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'CLEANUP_REQUIRED' WHERE id = 4001;
+'@
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'allowed bound to void transition' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'VOIDED' WHERE id = 4001;
+UPDATE dcc_registration_certificate_file SET status = 'VOIDED' WHERE id = 4001;
+'@)
+    Write-Output 'PASS: allowed BOUND to VOIDED and terminal idempotency'
+    Assert-SqlFails -Schema $schema -Label 'CLEANUP_REQUIRED file returns to STAGED' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'STAGED' WHERE id = 4003;
+'@
+    Assert-SqlFails -Schema $schema -Label 'CLEANUP_REQUIRED file changes to BOUND' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'BOUND' WHERE id = 4003;
+'@
+    Assert-SqlFails -Schema $schema -Label 'CLEANUP_REQUIRED file changes to VOIDED' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'VOIDED' WHERE id = 4003;
+'@
+    Assert-SqlFails -Schema $schema -Label 'VOIDED file returns to BOUND' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'BOUND' WHERE id = 4004;
+'@
+    Assert-SqlFails -Schema $schema -Label 'VOIDED file returns to STAGED' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'STAGED' WHERE id = 4004;
+'@
+    Assert-SqlFails -Schema $schema -Label 'VOIDED file changes to CLEANUP_REQUIRED' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'CLEANUP_REQUIRED' WHERE id = 4004;
+'@
+    Assert-SqlFails -Schema $schema -Label 'STAGED file skips directly to VOIDED' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'VOIDED' WHERE id = 4005;
+'@
+    Assert-SqlFails -Schema $schema -Label 'STAGED file becomes BOUND without evidence' -Sql @'
+UPDATE dcc_registration_certificate_file SET status = 'BOUND' WHERE id = 4005;
+'@
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'bound file fixture' -Sql @'
+INSERT INTO dcc_registration_certificate_file
+  (owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
+   file_size, sha256, status, bound_at, bound_by, tenant_id)
 VALUES ('VERSION', 11, 'REGISTRATION_CERTIFICATE', 500, 'a.pdf', 'application/pdf',
-        10, REPEAT('a', 64), 'BOUND', NOW(), 1);
+        10, REPEAT('a', 64), 'BOUND', NOW(), 99, 1);
 '@)
     Assert-SqlFails -Schema $schema -Label 'duplicate tenant bound infra file' -Sql @'
 INSERT INTO dcc_registration_certificate_file
   (owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
-   file_size, sha256, status, bound_at, tenant_id)
+   file_size, sha256, status, bound_at, bound_by, tenant_id)
 VALUES ('VERSION', 12, 'REGISTRATION_CERTIFICATE', 500, 'b.pdf', 'application/pdf',
-        10, REPEAT('b', 64), 'BOUND', NOW(), 1);
+        10, REPEAT('b', 64), 'BOUND', NOW(), 99, 1);
 '@
     Assert-SqlFails -Schema $schema -Label 'bound file metadata overwrite' -Sql @'
 UPDATE dcc_registration_certificate_file
@@ -581,14 +667,28 @@ ALTER TABLE dcc_registration_certificate_snapshot
 ALTER TABLE dcc_registration_certificate_snapshot
   MODIFY COLUMN registrant_name varchar(255) NOT NULL COMMENT 'Registrant name snapshot';
 '@)
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'weaken generated expression with tautology' -Sql @'
+ALTER TABLE dcc_registration_certificate_version
+  MODIFY COLUMN current_unique_flag tinyint GENERATED ALWAYS AS
+    (CASE WHEN ((deleted = b'0' AND status = 'CURRENT') OR 1 = 1) THEN 1 ELSE NULL END) STORED;
+'@)
+    Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
+        -Label 'incompatible six-table weakened generated expression' `
+        -ExpectedMessage 'DCC registration certificate core exact generated expression mismatch'
+    [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'restore generated expression' -Sql @'
+ALTER TABLE dcc_registration_certificate_version
+  MODIFY COLUMN current_unique_flag tinyint GENERATED ALWAYS AS
+    (CASE WHEN (deleted = b'0' AND status = 'CURRENT') THEN 1 ELSE NULL END) STORED;
+'@)
     [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'break named CHECK expression' -Sql @'
 ALTER TABLE dcc_registration_certificate_file
   DROP CHECK chk_dcc_reg_cert_file_status,
-  ADD CONSTRAINT chk_dcc_reg_cert_file_status CHECK (1 = 1);
+  ADD CONSTRAINT chk_dcc_reg_cert_file_status CHECK
+    (status IN ('STAGED', 'BOUND', 'CLEANUP_REQUIRED', 'VOIDED') OR 1 = 1);
 '@)
     Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
         -Label 'incompatible six-table named CHECK expression' `
-        -ExpectedMessage 'DCC registration certificate core CHECK expression mismatch'
+        -ExpectedMessage 'DCC registration certificate core exact CHECK expression mismatch'
 
     Write-Output 'PASS: runtime MySQL generated columns, CHECKs, and conditional uniqueness'
 }

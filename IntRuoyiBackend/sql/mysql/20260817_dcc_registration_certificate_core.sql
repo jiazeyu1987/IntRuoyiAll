@@ -204,40 +204,43 @@ BEGIN
 
     DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_expected_column;
 
+    DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_expected_generation;
+    CREATE TEMPORARY TABLE tmp_dcc_reg_cert_expected_generation (
+      table_name varchar(128) NOT NULL,
+      column_name varchar(128) NOT NULL,
+      normalized_expression varchar(1024) NOT NULL,
+      PRIMARY KEY (table_name, column_name)
+    );
+    INSERT INTO tmp_dcc_reg_cert_expected_generation
+      (table_name, column_name, normalized_expression)
+    VALUES
+      ('dcc_registration_certificate_version', 'current_unique_flag',
+       '(casewhen((deleted=0x00)and(status=''current''))then1elsenullend)'),
+      ('dcc_registration_certificate_version', 'pending_unique_flag',
+       '(casewhen((deleted=0x00)and(status=''pending_effective''))then1elsenullend)'),
+      ('dcc_registration_certificate_snapshot', 'entrusted_enterprise_count',
+       'json_length(entrusted_enterprises_json)'),
+      ('dcc_registration_certificate_file', 'bound_file_unique_flag',
+       '(casewhen((deleted=0x00)and(bound_atisnotnull))theninfra_file_idelsenullend)');
+
     IF EXISTS (
       SELECT 1
-        FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE()
-         AND TABLE_NAME = 'dcc_registration_certificate_version'
-         AND COLUMN_NAME IN ('current_unique_flag', 'pending_unique_flag')
-         AND (
-           LOWER(GENERATION_EXPRESSION) NOT LIKE '%deleted%'
-           OR LOWER(GENERATION_EXPRESSION) NOT LIKE '%status%'
-           OR (COLUMN_NAME = 'current_unique_flag' AND LOWER(GENERATION_EXPRESSION) NOT LIKE '%current%')
-           OR (COLUMN_NAME = 'pending_unique_flag' AND LOWER(GENERATION_EXPRESSION) NOT LIKE '%pending_effective%')
-         )
-    ) OR EXISTS (
-      SELECT 1
-        FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE()
-         AND TABLE_NAME = 'dcc_registration_certificate_snapshot'
-         AND COLUMN_NAME = 'entrusted_enterprise_count'
-         AND LOWER(GENERATION_EXPRESSION) NOT LIKE '%json_length%entrusted_enterprises_json%'
-    ) OR EXISTS (
-      SELECT 1
-        FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE()
-         AND TABLE_NAME = 'dcc_registration_certificate_file'
-         AND COLUMN_NAME = 'bound_file_unique_flag'
-         AND (
-           LOWER(GENERATION_EXPRESSION) NOT LIKE '%infra_file_id%'
-           OR LOWER(GENERATION_EXPRESSION) NOT LIKE '%bound_at%'
-           OR LOWER(GENERATION_EXPRESSION) NOT LIKE '%deleted%'
-         )
+        FROM tmp_dcc_reg_cert_expected_generation AS expected_generation
+        LEFT JOIN information_schema.COLUMNS AS actual_generation
+          ON actual_generation.TABLE_SCHEMA = DATABASE()
+         AND actual_generation.TABLE_NAME = expected_generation.table_name
+         AND actual_generation.COLUMN_NAME = expected_generation.column_name
+       WHERE actual_generation.COLUMN_NAME IS NULL
+          OR REGEXP_REPLACE(
+               REPLACE(REPLACE(REPLACE(LOWER(actual_generation.GENERATION_EXPRESSION), '`', ''),
+                 '_utf8mb4', ''), CHAR(92), ''),
+               '[[:space:]]+', '') <> expected_generation.normalized_expression
     ) THEN
       SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'DCC registration certificate core generated column mismatch';
+        SET MESSAGE_TEXT = 'DCC registration certificate core exact generated expression mismatch';
     END IF;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_expected_generation;
 
     IF EXISTS (
       SELECT 1
@@ -289,6 +292,7 @@ BEGIN
           UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type'
           UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind'
           UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status'
+          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_binding'
           UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_size'
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key'
           UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result'
@@ -305,78 +309,65 @@ BEGIN
         SET MESSAGE_TEXT = 'DCC registration certificate core CHECK contract mismatch';
     END IF;
 
+    DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_expected_check;
+    CREATE TEMPORARY TABLE tmp_dcc_reg_cert_expected_check (
+      table_name varchar(128) NOT NULL,
+      constraint_name varchar(128) NOT NULL,
+      normalized_expression text NOT NULL,
+      PRIMARY KEY (table_name, constraint_name)
+    );
+    INSERT INTO tmp_dcc_reg_cert_expected_check
+      (table_name, constraint_name, normalized_expression)
+    VALUES
+      ('dcc_registration_certificate', 'chk_dcc_reg_cert_master_status',
+       '(statusin(''draft'',''pending_first_effective'',''active'',''expired_unrenewed'',''voided''))'),
+      ('dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_type',
+       '(version_typein(''initial_certificate'',''renewal_certificate''))'),
+      ('dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status',
+       '(statusin(''draft'',''pending_effective'',''current'',''old'',''voided''))'),
+      ('dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_snapshot_json_array',
+       '(json_type(entrusted_enterprises_json)=''array'')'),
+      ('dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation',
+       '(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0))))'),
+      ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type',
+       '(owner_typein(''version'',''change'',''supporting_document''))'),
+      ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind',
+       '(file_kindin(''registration_certificate'',''change_approval'',''renewal_acceptance_receipt'',''renewal_supplement_notice''))'),
+      ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status',
+       '(statusin(''staged'',''bound'',''cleanup_required'',''voided''))'),
+      ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_binding',
+       '(((statusin(''bound'',''voided''))and(bound_atisnotnull)and(bound_byisnotnull))or((statusin(''staged'',''cleanup_required''))and(bound_atisnull)and(bound_byisnull)))'),
+      ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_size',
+       '(file_size>=0)'),
+      ('dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key',
+       '(trim(event_key)<>'''')'),
+      ('dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result',
+       '(resultin(''success'',''failure''))'),
+      ('dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace',
+       '(trim(request_trace_id)<>'''')');
+
     IF EXISTS (
       SELECT 1
-        FROM (
-          SELECT 'dcc_registration_certificate' AS table_name,
-                 'chk_dcc_reg_cert_master_status' AS constraint_name,
-                 'draft' AS required_fragment
-          UNION ALL SELECT 'dcc_registration_certificate', 'chk_dcc_reg_cert_master_status',
-                           'pending_first_effective'
-          UNION ALL SELECT 'dcc_registration_certificate', 'chk_dcc_reg_cert_master_status', 'active'
-          UNION ALL SELECT 'dcc_registration_certificate', 'chk_dcc_reg_cert_master_status',
-                           'expired_unrenewed'
-          UNION ALL SELECT 'dcc_registration_certificate', 'chk_dcc_reg_cert_master_status', 'voided'
-          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_type',
-                           'initial_certificate'
-          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_type',
-                           'renewal_certificate'
-          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status', 'draft'
-          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status',
-                           'pending_effective'
-          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status', 'current'
-          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status', 'old'
-          UNION ALL SELECT 'dcc_registration_certificate_version', 'chk_dcc_reg_cert_version_status', 'voided'
-          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_snapshot_json_array',
-                           'json_type'
-          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_snapshot_json_array',
-                           'entrusted_enterprises_json'
-          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_snapshot_json_array',
-                           'array'
-          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation',
-                           'entrusted_production'
-          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation',
-                           'self_production'
-          UNION ALL SELECT 'dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation',
-                           'entrusted_enterprise_count'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type', 'version'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type', 'change'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type',
-                           'supporting_document'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind',
-                           'registration_certificate'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind', 'change_approval'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind',
-                           'renewal_acceptance_receipt'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind',
-                           'renewal_supplement_notice'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status', 'staged'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status', 'bound'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status',
-                           'cleanup_required'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_status', 'voided'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_size', 'file_size'
-          UNION ALL SELECT 'dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_size', '>='
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key', 'trim'
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key', 'event_key'
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_event_key', '<>'
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result', 'success'
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result', 'failure'
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace', 'trim'
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace',
-                           'request_trace_id'
-          UNION ALL SELECT 'dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace', '<>'
-        ) AS expected_check_expression
+        FROM tmp_dcc_reg_cert_expected_check AS expected_check_expression
+        LEFT JOIN information_schema.TABLE_CONSTRAINTS AS actual_check
+          ON actual_check.CONSTRAINT_SCHEMA = DATABASE()
+         AND actual_check.TABLE_NAME = expected_check_expression.table_name
+         AND actual_check.CONSTRAINT_NAME = expected_check_expression.constraint_name
+         AND actual_check.CONSTRAINT_TYPE = 'CHECK'
         LEFT JOIN information_schema.CHECK_CONSTRAINTS AS actual_check_expression
-          ON actual_check_expression.CONSTRAINT_SCHEMA = DATABASE()
-         AND actual_check_expression.CONSTRAINT_NAME = expected_check_expression.constraint_name
+          ON actual_check_expression.CONSTRAINT_SCHEMA = actual_check.CONSTRAINT_SCHEMA
+         AND actual_check_expression.CONSTRAINT_NAME = actual_check.CONSTRAINT_NAME
        WHERE actual_check_expression.CONSTRAINT_NAME IS NULL
-          OR LOWER(actual_check_expression.CHECK_CLAUSE) NOT LIKE
-             CONCAT('%', expected_check_expression.required_fragment, '%')
+          OR REGEXP_REPLACE(
+               REPLACE(REPLACE(REPLACE(LOWER(actual_check_expression.CHECK_CLAUSE), '`', ''),
+                 '_utf8mb4', ''), CHAR(92), ''),
+               '[[:space:]]+', '') <> expected_check_expression.normalized_expression
     ) THEN
       SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'DCC registration certificate core CHECK expression mismatch';
+        SET MESSAGE_TEXT = 'DCC registration certificate core exact CHECK expression mismatch';
     END IF;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_expected_check;
 
     IF EXISTS (
       SELECT 1
@@ -572,6 +563,10 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_file` (
     ('REGISTRATION_CERTIFICATE', 'CHANGE_APPROVAL', 'RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
   CONSTRAINT `chk_dcc_reg_cert_file_status` CHECK
     (`status` IN ('STAGED', 'BOUND', 'CLEANUP_REQUIRED', 'VOIDED')),
+  CONSTRAINT `chk_dcc_reg_cert_file_binding` CHECK (
+    (`status` IN ('BOUND', 'VOIDED') AND `bound_at` IS NOT NULL AND `bound_by` IS NOT NULL)
+    OR (`status` IN ('STAGED', 'CLEANUP_REQUIRED') AND `bound_at` IS NULL AND `bound_by` IS NULL)
+  ),
   CONSTRAINT `chk_dcc_reg_cert_file_size` CHECK (`file_size` >= 0),
   UNIQUE KEY `uk_dcc_reg_cert_bound_file` (`tenant_id`, `bound_file_unique_flag`),
   KEY `idx_dcc_reg_cert_file_owner` (`tenant_id`, `owner_type`, `owner_id`, `file_kind`),
@@ -789,6 +784,13 @@ CREATE TRIGGER `trg_dcc_reg_cert_file_immutable_bu`
 BEFORE UPDATE ON `dcc_registration_certificate_file`
 FOR EACH ROW
 BEGIN
+  IF OLD.`status` <> NEW.`status` AND NOT (
+    (OLD.`status` = 'STAGED' AND NEW.`status` IN ('BOUND', 'CLEANUP_REQUIRED'))
+    OR (OLD.`status` = 'BOUND' AND NEW.`status` = 'VOIDED')
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Invalid registration certificate file status transition';
+  END IF;
   IF OLD.`bound_at` IS NOT NULL AND (
     NOT (OLD.`id` <=> NEW.`id`)
     OR NOT (OLD.`tenant_id` <=> NEW.`tenant_id`)
