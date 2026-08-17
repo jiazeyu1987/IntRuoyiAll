@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260729_dcc_product_catalog_remove_subsidiary_source; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260512_mes_base_schema; type=schema; riskLevel=medium
 -- F1: MES process pool foundation. This creates dedicated process-pool tables and does not reuse mes_pro_feedback_surplus_pool.
 
 CREATE TABLE IF NOT EXISTS `mes_pro_process_pool` (

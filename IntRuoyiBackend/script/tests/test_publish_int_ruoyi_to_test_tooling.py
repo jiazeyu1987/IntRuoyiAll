@@ -1084,11 +1084,12 @@ def test_deploy_release_executes_only_preflight_apply_migrations() -> None:
     assert "preflight-plan.json status must be passed before deploy-release" in text
     assert "preflight-plan.json contains blocked migration" in text
     assert "SKIP_ENV_NOT_ALLOWED" in text
-    assert "function Get-ReleasePreflightApplyItems" in text
+    assert "SKIP_SCOPE_EXCLUDED" in text
+    assert "function Get-ReleasePreflightApplyItems" not in text
     assert "function Invoke-ReleaseMigrationStateUpdate" in text
     assert "INSERT INTO infra_release_migration" in text
     assert "SKIPPED_ALREADY_APPLIED" in invoke_block
-    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)" in invoke_block
+    assert "$preflightApplyItems = @($preflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })" in invoke_block
     assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment" in invoke_block
     assert "Get-RequiredDatabaseSqlEntriesForEnvironment -TargetEnvironment $Environment" not in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'RUNNING'" in invoke_block
@@ -1133,7 +1134,7 @@ def test_deploy_release_executes_dcc_view_matrix_test_tenant_prereq_before_seed_
     assert "function Sort-RequiredDatabaseSqlApplyItems" in text
     assert "'20260624_dcc_view_matrix_test_tenant_prereq' = 10" in helper_block
     assert "'20260624_dcc_view_matrix_independent_seed' = 20" in helper_block
-    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)" in invoke_block
+    assert "$preflightApplyItems = @($preflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })" in invoke_block
     assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment" in invoke_block
 
 
@@ -1143,8 +1144,8 @@ def test_deploy_release_handles_empty_code_only_apply_queue_before_sorting() -> 
     invoke_end = text.index("if ($Mode -eq 'mark-tested')", invoke_start)
     invoke_block = text[invoke_start:invoke_end]
 
-    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems" in invoke_block
-    assert "-Items (Get-ReleasePreflightApplyItems" not in invoke_block
+    assert "$preflightApplyItems = @($preflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })" in invoke_block
+    assert "Get-ReleasePreflightApplyItems" not in invoke_block
     assert "[AllowEmptyCollection()]" in _extract_powershell_function(text, "Sort-RequiredDatabaseSqlApplyItems")
 
 
@@ -1168,6 +1169,7 @@ def test_deploy_release_generates_target_bound_preflight_plan_before_required_sq
     assert "function Write-ReleasePreflightPlan" in text
     assert "preflight-target-state-$Environment.json" in text
     assert "--target-environment', $Environment" in text
+    assert "--publish-scope', $releasePublishScope" in text
     assert "JSON_OBJECTAGG(" in text
     assert "script\\release\\release_preflight_plan.py" in text
 
@@ -1176,6 +1178,18 @@ def test_deploy_release_generates_target_bound_preflight_plan_before_required_sq
     migration_idx = text.rindex("Invoke-RequiredDatabaseSqlScripts")
 
     assert acquire_idx < write_plan_idx < migration_idx
+
+
+def test_deploy_release_uses_scope_aware_plan_without_post_plan_filtering() -> None:
+    text = read_publish_script()
+    invoke_start = text.index("function Invoke-RequiredDatabaseSqlScripts")
+    invoke_end = text.index("if ($Mode -eq 'mark-tested')", invoke_start)
+    invoke_block = text[invoke_start:invoke_end]
+
+    assert "function Get-ReleasePreflightApplyItems" not in text
+    assert "SKIP_SCOPE_EXCLUDED" in text
+    assert "$preflightApplyItems = @($preflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })" in invoke_block
+    assert "code-only scope filtering" not in invoke_block
 
 
 def test_deploy_release_acquires_release_operation_lock_before_migrations() -> None:
