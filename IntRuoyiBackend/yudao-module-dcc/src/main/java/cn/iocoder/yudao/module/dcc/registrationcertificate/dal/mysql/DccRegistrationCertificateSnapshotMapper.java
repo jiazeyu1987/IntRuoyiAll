@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql;
 
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
@@ -39,6 +40,7 @@ public interface DccRegistrationCertificateSnapshotMapper {
             """)
     List<DccRegistrationCertificateSnapshotDO> selectListByVersionId(@Param("versionId") Long versionId);
 
+    @TenantIgnore
     @Update("""
             UPDATE dcc_registration_certificate_snapshot
                SET source_change_id = #{snapshot.sourceChangeId},
@@ -80,6 +82,7 @@ public interface DccRegistrationCertificateSnapshotMapper {
             @Param("tenantId") Long tenantId,
             @Param("expectedRevisionNo") Integer expectedRevisionNo);
 
+    @TenantIgnore
     @Delete("""
             DELETE FROM dcc_registration_certificate_snapshot
              WHERE id = #{id}

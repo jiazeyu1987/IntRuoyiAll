@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAuditDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotEntrustedDO;
@@ -61,10 +62,15 @@ class DccRegistrationCertificateSharedContractTest extends BaseDbUnitTest {
 
     @Test
     void sharedMapperSurfaceAndCommandErrorsShouldBeExplicit() throws Exception {
-        requiredMethod(DccRegistrationCertificateSnapshotMapper.class, "updateDraftByIdAndRevision",
-                DccRegistrationCertificateSnapshotDO.class, Long.class, Integer.class);
-        requiredMethod(DccRegistrationCertificateSnapshotMapper.class, "deleteDraftByIdAndRevision",
-                Long.class, Long.class, Integer.class);
+        Method updateSnapshot = requiredMethod(DccRegistrationCertificateSnapshotMapper.class,
+                "updateDraftByIdAndRevision", DccRegistrationCertificateSnapshotDO.class,
+                Long.class, Integer.class);
+        Method deleteSnapshot = requiredMethod(DccRegistrationCertificateSnapshotMapper.class,
+                "deleteDraftByIdAndRevision", Long.class, Long.class, Integer.class);
+        assertNotNull(updateSnapshot.getAnnotation(TenantIgnore.class),
+                "snapshot update must prevent tenant interception from hiding corrupt child refs");
+        assertNotNull(deleteSnapshot.getAnnotation(TenantIgnore.class),
+                "snapshot delete must prevent tenant interception from hiding corrupt child refs");
         requiredMethod(DccRegistrationCertificateSnapshotEntrustedMapper.class,
                 "deleteDraftBySnapshotIdAndRevision", Long.class, Long.class, Integer.class);
         requiredMethod(DccRegistrationCertificateAuditMapper.class, "selectByTenantIdAndEventKey",
