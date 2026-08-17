@@ -11,19 +11,24 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductBomDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductBomMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -36,6 +41,7 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
 
     private static final String APPROVED_DOCUMENT_STATUS = "C";
     private static final String FIELD_PREFIX = "material.";
+    private static final String MATERIAL_CODE_FIELD_PREFIX = "materialCode.";
     private static final List<MaterialProperty> MATERIAL_PROPERTIES = List.of(
             new MaterialProperty("materialNumber", "物料编码", "STRING", ErpKingdeeProductionPickListItemDO::getMaterialNumber),
             new MaterialProperty("materialName", "物料名称", "STRING", ErpKingdeeProductionPickListItemDO::getMaterialName),
@@ -51,6 +57,7 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
     private final MesProRouteProductBomMapper routeProductBomMapper;
     private final MesProRouteProcessMapper routeProcessMapper;
     private final MesMdItemMapper itemMapper;
+    private final MesKingdeeProductionMaterialListMapper productionMaterialListMapper;
     private final ErpKingdeeProductionPickListMapper pickListMapper;
     private final ErpKingdeeProductionPickListItemMapper pickListItemMapper;
 
@@ -60,6 +67,7 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
             MesProRouteProductBomMapper routeProductBomMapper,
             MesProRouteProcessMapper routeProcessMapper,
             MesMdItemMapper itemMapper,
+            MesKingdeeProductionMaterialListMapper productionMaterialListMapper,
             ErpKingdeeProductionPickListMapper pickListMapper,
             ErpKingdeeProductionPickListItemMapper pickListItemMapper) {
         this.routeDccProjectBindingMapper = routeDccProjectBindingMapper;
@@ -67,6 +75,7 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
         this.routeProductBomMapper = routeProductBomMapper;
         this.routeProcessMapper = routeProcessMapper;
         this.itemMapper = itemMapper;
+        this.productionMaterialListMapper = productionMaterialListMapper;
         this.pickListMapper = pickListMapper;
         this.pickListItemMapper = pickListItemMapper;
     }
@@ -99,7 +108,7 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
             }
         }
         if (bomRows.isEmpty()) {
-            throw contextRequired("routeId=" + routeId + " 未配置工序物料清单");
+            return listErpMaterialCatalogFields(routeId, routeProducts, routeProcesses);
         }
         LinkedHashSet<Long> itemIds = new LinkedHashSet<>();
         for (MesProRouteProductBomDO bom : bomRows) {
@@ -158,25 +167,16 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
             throw contextRequired("当前工序不属于 DCC 项目对应的工艺路线，routeProcessId=" + command.routeProcessId());
         }
         ParsedField parsedField = parseField(command.sourceFieldCode());
-        boolean materialBelongsToProcess = routeProductBomMapper
-                .selectList(command.routeId(), routeProcess.getProcessId(), command.productId()).stream()
-                .anyMatch(bom -> Objects.equals(parsedField.itemId(), bom.getItemId()));
-        if (!materialBelongsToProcess) {
-            throw contextRequired("来源物料不属于当前产品和工序，itemId=" + parsedField.itemId());
-        }
-        MesMdItemDO material = itemMapper.selectById(parsedField.itemId());
-        if (material == null || StrUtil.isBlank(material.getCode())) {
-            throw contextRequired("来源物料不存在或缺少物料编码，itemId=" + parsedField.itemId());
-        }
+        String materialCode = resolveFormalMaterialCode(command, routeProcess, parsedField);
         List<ErpKingdeeProductionPickListItemDO> orderItems = pickListItemMapper
                 .selectListByProductionOrderNo(StrUtil.trim(command.productionOrderNo()));
         List<ErpKingdeeProductionPickListItemDO> materialItems = orderItems == null ? List.of() : orderItems.stream()
                 .filter(Objects::nonNull)
                 .filter(item -> StrUtil.equalsIgnoreCase(StrUtil.trim(item.getMaterialNumber()),
-                        StrUtil.trim(material.getCode())))
+                        materialCode))
                 .toList();
         if (materialItems.isEmpty()) {
-            throw sourceRequired("生产订单 " + command.productionOrderNo() + " 的领料单没有物料 " + material.getCode());
+            throw sourceRequired("生产订单 " + command.productionOrderNo() + " 的领料单没有物料 " + materialCode);
         }
         List<Long> pickListIds = materialItems.stream().map(ErpKingdeeProductionPickListItemDO::getProductionPickListId)
                 .filter(Objects::nonNull).distinct().toList();
@@ -230,26 +230,155 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
         return binding;
     }
 
+    private List<SourceField> listErpMaterialCatalogFields(Long routeId,
+                                                           List<MesProRouteProductDO> routeProducts,
+                                                           List<MesProRouteProcessDO> routeProcesses) {
+        LinkedHashSet<Long> productIds = new LinkedHashSet<>();
+        routeProducts.forEach(product -> productIds.add(product.getItemId()));
+        Map<Long, MesMdItemDO> products = new LinkedHashMap<>();
+        for (MesMdItemDO product : itemMapper.selectListByIds(List.copyOf(productIds))) {
+            if (product != null && product.getId() != null) {
+                products.put(product.getId(), product);
+            }
+        }
+        if (products.size() != productIds.size()) {
+            throw contextRequired("routeId=" + routeId + " 的正式关联产品不存在");
+        }
+        Map<String, CatalogMaterial> materials = new LinkedHashMap<>();
+        for (MesProRouteProductDO routeProduct : routeProducts) {
+            MesMdItemDO product = products.get(routeProduct.getItemId());
+            if (StrUtil.isBlank(product.getCode())) {
+                throw contextRequired("productId=" + product.getId() + " 缺少正式产品编码");
+            }
+            List<MesKingdeeProductionMaterialListDO> rows = productionMaterialListMapper
+                    .selectListByProductCode(StrUtil.trim(product.getCode()));
+            if (rows == null) {
+                throw contextRequired("productId=" + product.getId() + " 的 ERP 生产用料目录查询结果缺失");
+            }
+            for (MesKingdeeProductionMaterialListDO row : rows) {
+                CatalogMaterial material = toCatalogMaterial(routeId, product.getCode(), row);
+                CatalogMaterial existing = materials.putIfAbsent(normalizeMaterialCode(material.code()), material);
+                if (existing != null && !StrUtil.equals(StrUtil.trim(existing.name()), StrUtil.trim(material.name()))) {
+                    throw contextRequired("routeId=" + routeId + " 的 ERP 生产用料编码 " + material.code()
+                            + " 对应多个物料名称");
+                }
+            }
+        }
+        if (materials.isEmpty()) {
+            throw contextRequired("routeId=" + routeId + " 未配置工序物料清单，且路线产品未同步 ERP 生产用料清单");
+        }
+        Map<String, SourceField> result = new LinkedHashMap<>();
+        for (MesProRouteProcessDO process : routeProcesses) {
+            for (CatalogMaterial material : materials.values()) {
+                for (MaterialProperty property : MATERIAL_PROPERTIES) {
+                    SourceField field = new SourceField(fieldCode(material.code(), property.code()),
+                            material.name() + "（" + material.code() + "）- " + property.name(),
+                            property.valueType(), process.getId());
+                    result.put(process.getId() + ":" + field.fieldCode(), field);
+                }
+            }
+        }
+        return result.values().stream()
+                .sorted(Comparator.comparing(SourceField::routeProcessId)
+                        .thenComparing(SourceField::fieldCode))
+                .toList();
+    }
+
+    private CatalogMaterial toCatalogMaterial(Long routeId, String productCode,
+                                               MesKingdeeProductionMaterialListDO row) {
+        if (row == null || StrUtil.isBlank(row.getProductCode())
+                || !StrUtil.equalsIgnoreCase(StrUtil.trim(productCode), StrUtil.trim(row.getProductCode()))
+                || StrUtil.isBlank(row.getChildMaterialCode()) || StrUtil.isBlank(row.getChildMaterialName())) {
+            throw contextRequired("routeId=" + routeId + " 的 ERP 生产用料清单缺少正式产品或物料标识");
+        }
+        return new CatalogMaterial(StrUtil.trim(row.getChildMaterialCode()), StrUtil.trim(row.getChildMaterialName()));
+    }
+
+    private String resolveFormalMaterialCode(ResolveCommand command, MesProRouteProcessDO routeProcess,
+                                             ParsedField parsedField) {
+        if (parsedField.itemId() != null) {
+            List<MesProRouteProductBomDO> processBomRows = routeProductBomMapper
+                    .selectList(command.routeId(), routeProcess.getProcessId(), command.productId());
+            boolean materialBelongsToProcess = processBomRows != null && processBomRows.stream()
+                    .anyMatch(bom -> Objects.equals(parsedField.itemId(), bom.getItemId()));
+            if (!materialBelongsToProcess) {
+                throw contextRequired("来源物料不属于当前产品和工序，itemId=" + parsedField.itemId());
+            }
+            MesMdItemDO material = itemMapper.selectById(parsedField.itemId());
+            if (material == null || StrUtil.isBlank(material.getCode())) {
+                throw contextRequired("来源物料不存在或缺少物料编码，itemId=" + parsedField.itemId());
+            }
+            return StrUtil.trim(material.getCode());
+        }
+        List<MesProRouteProductBomDO> productBomRows = routeProductBomMapper
+                .selectListByRouteIdAndProductId(command.routeId(), command.productId());
+        if (productBomRows != null && !productBomRows.isEmpty()) {
+            LinkedHashSet<Long> processMaterialIds = new LinkedHashSet<>();
+            productBomRows.stream()
+                    .filter(bom -> Objects.equals(routeProcess.getProcessId(), bom.getProcessId()))
+                    .map(MesProRouteProductBomDO::getItemId)
+                    .filter(Objects::nonNull)
+                    .forEach(processMaterialIds::add);
+            List<MesMdItemDO> processMaterials = processMaterialIds.isEmpty()
+                    ? List.of() : itemMapper.selectListByIds(List.copyOf(processMaterialIds));
+            boolean matched = processMaterials.stream().filter(Objects::nonNull)
+                    .anyMatch(material -> StrUtil.equalsIgnoreCase(StrUtil.trim(material.getCode()),
+                            parsedField.materialCode()));
+            if (!matched) {
+                throw contextRequired("来源物料不属于当前产品和工序，materialCode="
+                        + parsedField.materialCode());
+            }
+            return parsedField.materialCode();
+        }
+        MesMdItemDO product = itemMapper.selectById(command.productId());
+        if (product == null || StrUtil.isBlank(product.getCode())) {
+            throw contextRequired("当前路线产品不存在或缺少产品编码，productId=" + command.productId());
+        }
+        List<MesKingdeeProductionMaterialListDO> materialRows = productionMaterialListMapper
+                .selectListByProductCode(StrUtil.trim(product.getCode()));
+        boolean matched = materialRows != null && materialRows.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(row -> StrUtil.equalsIgnoreCase(StrUtil.trim(row.getProductCode()),
+                        StrUtil.trim(product.getCode()))
+                        && StrUtil.equalsIgnoreCase(StrUtil.trim(row.getChildMaterialCode()),
+                        parsedField.materialCode()));
+        if (!matched) {
+            throw contextRequired("来源物料不属于当前 DCC 路线产品，materialCode="
+                    + parsedField.materialCode());
+        }
+        return parsedField.materialCode();
+    }
+
     private ParsedField parseField(String fieldCode) {
         String normalized = StrUtil.trim(fieldCode);
-        if (!normalized.startsWith(FIELD_PREFIX)) {
-            throw sourceRequired("不支持的领料单来源字段 " + fieldCode);
-        }
         String[] parts = normalized.split("\\.");
         if (parts.length != 3) {
             throw sourceRequired("不支持的领料单来源字段 " + fieldCode);
-        }
-        Long itemId;
-        try {
-            itemId = Long.valueOf(parts[1]);
-        } catch (NumberFormatException ex) {
-            throw sourceRequired("领料单来源字段缺少稳定物料编号 " + fieldCode);
         }
         MaterialProperty property = MATERIAL_PROPERTIES.stream()
                 .filter(candidate -> candidate.code().equals(parts[2]))
                 .findFirst()
                 .orElseThrow(() -> sourceRequired("不支持的领料单来源字段 " + fieldCode));
-        return new ParsedField(itemId, property);
+        if (normalized.startsWith(FIELD_PREFIX)) {
+            try {
+                return new ParsedField(Long.valueOf(parts[1]), null, property);
+            } catch (NumberFormatException ex) {
+                throw sourceRequired("领料单来源字段缺少稳定物料编号 " + fieldCode);
+            }
+        }
+        if (normalized.startsWith(MATERIAL_CODE_FIELD_PREFIX)) {
+            try {
+                String materialCode = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+                if (StrUtil.isBlank(materialCode)
+                        || !parts[1].equals(encodeMaterialCode(StrUtil.trim(materialCode)))) {
+                    throw new IllegalArgumentException("non-canonical material code");
+                }
+                return new ParsedField(null, StrUtil.trim(materialCode), property);
+            } catch (IllegalArgumentException ex) {
+                throw sourceRequired("领料单来源字段缺少稳定物料编码 " + fieldCode);
+            }
+        }
+        throw sourceRequired("不支持的领料单来源字段 " + fieldCode);
     }
 
     private Long parsePositiveEntryId(String sourceEntryId) {
@@ -290,6 +419,19 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
         return FIELD_PREFIX + itemId + "." + property;
     }
 
+    private String fieldCode(String materialCode, String property) {
+        return MATERIAL_CODE_FIELD_PREFIX + encodeMaterialCode(materialCode) + "." + property;
+    }
+
+    private String encodeMaterialCode(String materialCode) {
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(StrUtil.trim(materialCode).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String normalizeMaterialCode(String materialCode) {
+        return StrUtil.trim(materialCode).toUpperCase(Locale.ROOT);
+    }
+
     private RuntimeException contextRequired(String reason) {
         return exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_PICK_LIST_CONTEXT_REQUIRED,
                 reason);
@@ -304,7 +446,10 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
                                     Function<ErpKingdeeProductionPickListItemDO, Object> extractor) {
     }
 
-    private record ParsedField(Long itemId, MaterialProperty property) {
+    private record ParsedField(Long itemId, String materialCode, MaterialProperty property) {
+    }
+
+    private record CatalogMaterial(String code, String name) {
     }
 
     private record OrderedItem(Long entryId, ErpKingdeeProductionPickListItemDO item) {
