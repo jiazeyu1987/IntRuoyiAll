@@ -640,13 +640,29 @@ INSERT INTO dcc_registration_certificate_audit
 VALUES (1, 0, 1, 'cert:success-zero-trusted', 'FORMALIZED', 'SUCCESS',
         'trace-success-zero-trusted', JSON_OBJECT(), NOW());
 '@
-    Assert-SqlFails -Schema $schema -Label 'failure audit with trusted identity' -Sql @'
+    [void](Invoke-SqlSuccess -Schema $schema -Label 'failure audit with trusted identity fixture' -Sql @'
 INSERT INTO dcc_registration_certificate_audit
   (tenant_id, owner_company_id, certificate_id, requested_owner_company_id,
    requested_certificate_id, event_key, event_type, result,
    request_trace_id, detail_json, occurred_at)
 VALUES (1, 10, 1, 10, 1, 'cert:failure-with-trusted', 'FORMALIZE_FAILED', 'FAILURE',
         'trace-failure-with-trusted', JSON_OBJECT(), NOW());
+'@)
+    Assert-SqlFails -Schema $schema -Label 'failure audit with partial trusted identity' -Sql @'
+INSERT INTO dcc_registration_certificate_audit
+  (tenant_id, owner_company_id, requested_owner_company_id,
+   requested_certificate_id, event_key, event_type, result,
+   request_trace_id, detail_json, occurred_at)
+VALUES (1, 10, 10, 1, 'cert:failure-partial-trusted', 'FORMALIZE_FAILED', 'FAILURE',
+        'trace-failure-partial-trusted', JSON_OBJECT(), NOW());
+'@
+    Assert-SqlFails -Schema $schema -Label 'failure audit with zero trusted identity' -Sql @'
+INSERT INTO dcc_registration_certificate_audit
+  (tenant_id, owner_company_id, certificate_id, requested_owner_company_id,
+   requested_certificate_id, event_key, event_type, result,
+   request_trace_id, detail_json, occurred_at)
+VALUES (1, 0, 1, 10, 1, 'cert:failure-zero-trusted', 'FORMALIZE_FAILED', 'FAILURE',
+        'trace-failure-zero-trusted', JSON_OBJECT(), NOW());
 '@
     [void](Invoke-SqlSuccess -Schema $schema -Label 'trusted success audit fixture' -Sql @'
 INSERT INTO dcc_registration_certificate_audit
@@ -676,12 +692,14 @@ SELECT CONCAT(event_key, '|', result, '|',
               IFNULL(CAST(requested_owner_company_id AS CHAR), 'NULL'), '|',
               IFNULL(CAST(requested_certificate_id AS CHAR), 'NULL'))
   FROM dcc_registration_certificate_audit
- WHERE event_key IN ('cert:1:formalized', 'cert:requested:formalize-failed',
+ WHERE event_key IN ('cert:1:formalized', 'cert:failure-with-trusted',
+                     'cert:requested:formalize-failed',
                      'cert:unknown:create-failed')
  ORDER BY event_key;
 '@
     Assert-Equal -Expected (@(
         'cert:1:formalized|SUCCESS|10|1|NULL|NULL',
+        'cert:failure-with-trusted|FAILURE|10|1|10|1',
         'cert:requested:formalize-failed|FAILURE|NULL|NULL|10|1',
         'cert:unknown:create-failed|FAILURE|NULL|NULL|NULL|NULL'
     ) -join "`n") -Actual $terminalAuditRows -Label 'terminal audit outcome readback'

@@ -56,13 +56,16 @@ class DccRegistrationCertificateAuditIdempotencySchemaTest extends BaseDbUnitTes
         assertDoesNotThrow(() -> insertAudit("success-1", "SUCCESS", 10L, 20L, null, null));
         assertDoesNotThrow(() -> insertAudit("failure-1", "FAILURE", null, null, 30L, 40L));
         assertDoesNotThrow(() -> insertAudit("failure-no-request-id", "FAILURE", null, null, null, null));
+        assertDoesNotThrow(() -> insertAudit("failure-with-trusted-id", "FAILURE", 10L, 20L, 10L, 20L));
 
         assertThrows(SQLException.class,
                 () -> insertAudit("success-without-trusted-id", "SUCCESS", null, null, 30L, 40L));
         assertThrows(SQLException.class,
                 () -> insertAudit("success-with-zero-trusted-id", "SUCCESS", 0L, 20L, null, null));
         assertThrows(SQLException.class,
-                () -> insertAudit("failure-with-trusted-id", "FAILURE", 10L, 20L, 10L, 20L));
+                () -> insertAudit("failure-with-partial-trusted-id", "FAILURE", 10L, null, 10L, 20L));
+        assertThrows(SQLException.class,
+                () -> insertAudit("failure-with-zero-trusted-id", "FAILURE", 0L, 20L, 10L, 20L));
         assertThrows(SQLException.class,
                 () -> insertAudit("success-1", "SUCCESS", 10L, 20L, null, null),
                 "one tenant-scoped event key must have one terminal outcome");
@@ -114,9 +117,11 @@ class DccRegistrationCertificateAuditIdempotencySchemaTest extends BaseDbUnitTes
                 "trusted success audit fixture",
                 "failure audit with requested identity fixture",
                 "failure audit without requested identity fixture",
+                "failure audit with trusted identity fixture",
                 "success audit without trusted identity",
                 "success audit with zero trusted identity",
-                "failure audit with trusted identity",
+                "failure audit with partial trusted identity",
+                "failure audit with zero trusted identity",
                 "terminal audit outcome readback",
                 "break audit trusted identity check expression",
                 "incompatible audit column nullability",

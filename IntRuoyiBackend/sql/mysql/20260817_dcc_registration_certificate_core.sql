@@ -347,7 +347,7 @@ BEGIN
       ('dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_result',
        '(resultin(''success'',''failure''))'),
       ('dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trusted_identity',
-       '(((result=''success'')and(owner_company_idisnotnull)and(owner_company_id>0)and(certificate_idisnotnull)and(certificate_id>0))or((result=''failure'')and(owner_company_idisnull)and(certificate_idisnull)))'),
+       '(((result=''success'')and(owner_company_idisnotnull)and(owner_company_id>0)and(certificate_idisnotnull)and(certificate_id>0))or((result=''failure'')and(((owner_company_idisnull)and(certificate_idisnull))or((owner_company_idisnotnull)and(owner_company_id>0)and(certificate_idisnotnull)and(certificate_id>0)))))'),
       ('dcc_registration_certificate_audit', 'chk_dcc_reg_cert_audit_trace',
        '(trim(request_trace_id)<>'''')');
 
@@ -607,7 +607,9 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
       AND `owner_company_id` IS NOT NULL AND `owner_company_id` > 0
       AND `certificate_id` IS NOT NULL AND `certificate_id` > 0)
     OR (`result` = 'FAILURE'
-      AND `owner_company_id` IS NULL AND `certificate_id` IS NULL)
+      AND ((`owner_company_id` IS NULL AND `certificate_id` IS NULL)
+        OR (`owner_company_id` IS NOT NULL AND `owner_company_id` > 0
+          AND `certificate_id` IS NOT NULL AND `certificate_id` > 0)))
   ),
   CONSTRAINT `chk_dcc_reg_cert_audit_trace` CHECK (TRIM(`request_trace_id`) <> ''),
   UNIQUE KEY `uk_dcc_reg_cert_audit_event` (`tenant_id`, `event_key`),

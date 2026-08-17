@@ -1901,7 +1901,9 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
       AND `owner_company_id` IS NOT NULL AND `owner_company_id` > 0
       AND `certificate_id` IS NOT NULL AND `certificate_id` > 0)
     OR (`result` = 'FAILURE'
-      AND `owner_company_id` IS NULL AND `certificate_id` IS NULL)
+      AND ((`owner_company_id` IS NULL AND `certificate_id` IS NULL)
+        OR (`owner_company_id` IS NOT NULL AND `owner_company_id` > 0
+          AND `certificate_id` IS NOT NULL AND `certificate_id` > 0)))
   ),
   CONSTRAINT `chk_dcc_reg_cert_audit_trace` CHECK (TRIM(`request_trace_id`) <> ''),
   UNIQUE KEY `uk_dcc_reg_cert_audit_event` (`tenant_id`, `event_key`)
