@@ -111,8 +111,8 @@ public class ControlledContentRegistrationProjectionService {
                 .versionNo(versionNo.trim())
                 .canonicalStatus(READY_TO_PUBLISH.name())
                 .domainStatus(domainStatus)
-                .sourceVersionRefId(activeRef.getId())
-                .sourceNativeVersionId(activeRef.getNativeVersionId())
+                .sourceVersionRefId(activeRef == null ? null : activeRef.getId())
+                .sourceNativeVersionId(activeRef == null ? null : activeRef.getNativeVersionId())
                 .activeUniqueFlag(null)
                 .openCandidateUniqueFlag(1)
                 .lastTransitionTime(transitionTime)
@@ -140,24 +140,28 @@ public class ControlledContentRegistrationProjectionService {
         validateExpectedProjection("platformBefore", platformBefore, actualBefore.snapshot());
         ControlledContentVersionRefDO activeRef = actualBefore.activeRef();
         ControlledContentVersionRefDO candidateRef = actualBefore.candidateRef();
-        ControlledContentCanonicalStatus activeFrom = parseStatus(activeRef);
+        ControlledContentCanonicalStatus activeFrom = activeRef == null ? null : parseStatus(activeRef);
         ControlledContentCanonicalStatus candidateFrom = parseStatus(candidateRef);
-        stateMachine.validateTransition(activeFrom, SUPERSEDED, SUPERSEDE_ACTIVE);
+        if (activeRef != null) {
+            stateMachine.validateTransition(activeFrom, SUPERSEDED, SUPERSEDE_ACTIVE);
+        }
         stateMachine.validateTransition(candidateFrom, ACTIVE, PUBLISH);
 
         LocalDateTime transitionTime = LocalDateTime.now();
-        requireSingleWrite("supersede registration active ref", versionRefMapper.update(null,
-                new UpdateWrapper<ControlledContentVersionRefDO>()
-                        .eq("id", activeRef.getId())
-                        .set("canonical_status", SUPERSEDED.name())
-                        .set("domain_status", activeDomainToStatus)
-                        .set("successor_version_ref_id", candidateRef.getId())
-                        .set("successor_native_version_id", candidateRef.getNativeVersionId())
-                        .set("active_unique_flag", null)
-                        .set("open_candidate_unique_flag", null)
-                        .set("last_transition_time", transitionTime)));
-        insertAudit(key, activeRef.getId(), activeFrom, SUPERSEDED, activeRef.getDomainStatus(),
-                activeDomainToStatus, SUPERSEDE_ACTIVE, actorId, reason, transitionTime);
+        if (activeRef != null) {
+            requireSingleWrite("supersede registration active ref", versionRefMapper.update(null,
+                    new UpdateWrapper<ControlledContentVersionRefDO>()
+                            .eq("id", activeRef.getId())
+                            .set("canonical_status", SUPERSEDED.name())
+                            .set("domain_status", activeDomainToStatus)
+                            .set("successor_version_ref_id", candidateRef.getId())
+                            .set("successor_native_version_id", candidateRef.getNativeVersionId())
+                            .set("active_unique_flag", null)
+                            .set("open_candidate_unique_flag", null)
+                            .set("last_transition_time", transitionTime)));
+            insertAudit(key, activeRef.getId(), activeFrom, SUPERSEDED, activeRef.getDomainStatus(),
+                    activeDomainToStatus, SUPERSEDE_ACTIVE, actorId, reason, transitionTime);
+        }
 
         requireSingleWrite("activate registration candidate ref", versionRefMapper.update(null,
                 new UpdateWrapper<ControlledContentVersionRefDO>()
@@ -312,23 +316,23 @@ public class ControlledContentRegistrationProjectionService {
     private void validateReadyCandidateDelta(ControlledContentProjectionSnapshot before,
                                              ControlledContentProjectionSnapshot after,
                                              Long nativeVersionId) {
-        if (before.activeNativeVersionId() == null || before.openCandidateNativeVersionId() != null
+        if (before.openCandidateNativeVersionId() != null
                 || !Objects.equals(after.activeNativeVersionId(), before.activeNativeVersionId())
                 || !Objects.equals(after.openCandidateNativeVersionId(), nativeVersionId)
                 || Objects.equals(nativeVersionId, before.activeNativeVersionId())) {
             throw new IllegalArgumentException(
-                    "invalid REGISTER_READY_CANDIDATE delta: expected active -> same active + ready candidate");
+                    "invalid REGISTER_READY_CANDIDATE delta: expected empty or active -> same active + ready candidate");
         }
     }
 
     private void validatePublishDelta(ControlledContentProjectionSnapshot before,
                                       ControlledContentProjectionSnapshot after) {
-        if (before.activeNativeVersionId() == null || before.openCandidateNativeVersionId() == null
+        if (before.openCandidateNativeVersionId() == null
                 || Objects.equals(before.activeNativeVersionId(), before.openCandidateNativeVersionId())
                 || !Objects.equals(after.activeNativeVersionId(), before.openCandidateNativeVersionId())
                 || after.openCandidateNativeVersionId() != null) {
             throw new IllegalArgumentException(
-                    "invalid PUBLISH delta: expected active + ready candidate -> candidate active");
+                    "invalid PUBLISH delta: expected ready candidate with optional active predecessor -> candidate active");
         }
     }
 

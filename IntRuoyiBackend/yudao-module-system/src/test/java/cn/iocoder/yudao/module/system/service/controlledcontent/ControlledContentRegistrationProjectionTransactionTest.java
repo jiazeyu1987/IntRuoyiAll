@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.system.service.controlledcontent;
 
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.system.dal.dataobject.controlledcontent.ControlledContentTransitionAuditDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.controlledcontent.ControlledContentVersionRefDO;
@@ -15,12 +16,14 @@ import org.springframework.test.context.jdbc.SqlMergeMode;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentCanonicalStatus.ACTIVE;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentCanonicalStatus.READY_TO_PUBLISH;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.DCC_REGISTRATION_CERTIFICATE;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,6 +44,41 @@ class ControlledContentRegistrationProjectionTransactionTest extends BaseDbUnitT
     private ControlledContentVersionRefMapper versionRefMapper;
     @Resource
     private ControlledContentTransitionAuditMapper transitionAuditMapper;
+
+    @Test
+    void registerReadyCandidate_whenProjectionIsEmpty_commitsCandidateOnlyWithExactAudit() {
+        ControlledContentVersionRefDO result = assertDoesNotThrow(() -> service.registerReadyCandidate(
+                KEY, snapshot(null, null), snapshot(null, 200L),
+                9001L, 200L, "V1", "READY_TO_PUBLISH", 501L, "FUTURE_INITIAL"));
+
+        ControlledContentVersionRefDO persisted = versionRefMapper.selectByNativeVersion(
+                1L, DCC_REGISTRATION_CERTIFICATE.name(), "REG-TX-1", 200L);
+        assertEquals(READY_TO_PUBLISH.name(), persisted.getCanonicalStatus());
+        assertNull(persisted.getSourceVersionRefId());
+        assertNull(persisted.getSourceNativeVersionId());
+        List<ControlledContentTransitionAuditDO> audits = selectTransitions();
+        assertEquals(1, audits.size());
+        assertEquals(result.getId(), audits.get(0).getVersionRefId());
+        assertNull(audits.get(0).getFromStatus());
+        assertEquals(READY_TO_PUBLISH.name(), audits.get(0).getToStatus());
+        assertEquals("REGISTER_READY_CANDIDATE", audits.get(0).getAction());
+    }
+
+    @Test
+    void publish_whenOnlyCandidateExists_commitsFirstActiveWithoutSupersedeAudit() {
+        seedCandidateOnlyProjection();
+
+        assertDoesNotThrow(() -> service.publish(KEY, snapshot(null, 200L), snapshot(200L, null),
+                null, "ACTIVE", 501L, "FIRST_PUBLICATION"));
+
+        ControlledContentVersionRefDO persisted = versionRefMapper.selectByNativeVersion(
+                1L, DCC_REGISTRATION_CERTIFICATE.name(), "REG-TX-1", 200L);
+        assertEquals(ACTIVE.name(), persisted.getCanonicalStatus());
+        List<ControlledContentTransitionAuditDO> audits = selectTransitions();
+        assertEquals(2, audits.size());
+        assertEquals(List.of("REGISTER_READY_CANDIDATE", "PUBLISH"), audits.stream()
+                .map(ControlledContentTransitionAuditDO::getAction).toList());
+    }
 
     @Test
     void publish_whenAllWritesSucceed_commitsCompleteSwitchAndTwoAudits() {
@@ -127,6 +165,20 @@ class ControlledContentRegistrationProjectionTransactionTest extends BaseDbUnitT
         transitionAuditMapper.insert(audit(21L, 11L, ACTIVE.name(), "REGISTER_ACTIVE", "SEED"));
         transitionAuditMapper.insert(audit(22L, 12L, READY_TO_PUBLISH.name(),
                 "REGISTER_READY_CANDIDATE", "SEED"));
+    }
+
+    private void seedCandidateOnlyProjection() {
+        versionRefMapper.insert(ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1));
+        transitionAuditMapper.insert(audit(22L, 12L, READY_TO_PUBLISH.name(),
+                "REGISTER_READY_CANDIDATE", "SEED"));
+    }
+
+    private List<ControlledContentTransitionAuditDO> selectTransitions() {
+        return transitionAuditMapper.selectList(new LambdaQueryWrapperX<ControlledContentTransitionAuditDO>()
+                .eq(ControlledContentTransitionAuditDO::getTenantId, 1L)
+                .eq(ControlledContentTransitionAuditDO::getContentType, DCC_REGISTRATION_CERTIFICATE.name())
+                .eq(ControlledContentTransitionAuditDO::getContentKey, "REG-TX-1")
+                .orderByAsc(ControlledContentTransitionAuditDO::getId));
     }
 
     private ControlledContentProjectionSnapshot snapshot(Long activeNativeVersionId, Long candidateNativeVersionId) {

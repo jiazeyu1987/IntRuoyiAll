@@ -26,6 +26,7 @@ import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledC
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.DCC_CONTROLLED_FILE;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -275,6 +276,33 @@ class ControlledContentRegistrationProjectionContractTest {
     }
 
     @Test
+    void registerReadyCandidate_whenProjectionIsEmpty_createsCandidateWithoutSourcePredecessor() {
+        ControlledContentVersionRefDO candidate = ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1);
+        when(versionRefMapper.selectList(any())).thenReturn(List.of(), List.of(candidate));
+        when(transitionAuditMapper.selectCount(any())).thenReturn(0L);
+        stubLatestAudits(candidate);
+        doAnswer(invocation -> {
+            ControlledContentVersionRefDO inserted = invocation.getArgument(0);
+            inserted.setId(12L);
+            return 1;
+        }).when(versionRefMapper).insert(any(ControlledContentVersionRefDO.class));
+
+        ControlledContentVersionRefDO result = assertDoesNotThrow(() -> service.registerReadyCandidate(
+                KEY, snapshot(null, null), snapshot(null, 200L),
+                9001L, 200L, "V1", "READY_TO_PUBLISH", 501L, "future initial registered"));
+
+        assertEquals(READY_TO_PUBLISH.name(), result.getCanonicalStatus());
+        assertNull(result.getSourceVersionRefId());
+        assertNull(result.getSourceNativeVersionId());
+        ArgumentCaptor<ControlledContentTransitionAuditDO> auditCaptor =
+                ArgumentCaptor.forClass(ControlledContentTransitionAuditDO.class);
+        verify(transitionAuditMapper).insert(auditCaptor.capture());
+        assertNull(auditCaptor.getValue().getFromStatus());
+        assertEquals(READY_TO_PUBLISH.name(), auditCaptor.getValue().getToStatus());
+        assertEquals("REGISTER_READY_CANDIDATE", auditCaptor.getValue().getAction());
+    }
+
+    @Test
     void publish_whenDeltaMatches_supersedesActiveAndActivatesCandidate() {
         ControlledContentVersionRefDO active = ref(11L, 100L, ACTIVE.name(), 1, null);
         ControlledContentVersionRefDO candidate = ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1);
@@ -293,6 +321,25 @@ class ControlledContentRegistrationProjectionContractTest {
         verify(transitionAuditMapper, times(2)).insert(auditCaptor.capture());
         assertEquals(List.of("SUPERSEDE_ACTIVE", "PUBLISH"), auditCaptor.getAllValues().stream()
                 .map(ControlledContentTransitionAuditDO::getAction).toList());
+    }
+
+    @Test
+    void publish_whenOnlyCandidateExists_activatesFirstActiveWithoutFabricatedPredecessor() {
+        ControlledContentVersionRefDO candidate = ref(12L, 200L, READY_TO_PUBLISH.name(), null, 1);
+        ControlledContentVersionRefDO activeAfter = ref(12L, 200L, ACTIVE.name(), 1, null);
+        when(versionRefMapper.selectList(any())).thenReturn(List.of(candidate), List.of(activeAfter));
+        stubLatestAudits(candidate, activeAfter);
+
+        assertDoesNotThrow(() -> service.publish(KEY, snapshot(null, 200L), snapshot(200L, null),
+                null, "ACTIVE", 501L, "first effective-date publication"));
+
+        verify(versionRefMapper).update(any(), any());
+        ArgumentCaptor<ControlledContentTransitionAuditDO> auditCaptor =
+                ArgumentCaptor.forClass(ControlledContentTransitionAuditDO.class);
+        verify(transitionAuditMapper).insert(auditCaptor.capture());
+        assertEquals(READY_TO_PUBLISH.name(), auditCaptor.getValue().getFromStatus());
+        assertEquals(ACTIVE.name(), auditCaptor.getValue().getToStatus());
+        assertEquals("PUBLISH", auditCaptor.getValue().getAction());
     }
 
     @Test
