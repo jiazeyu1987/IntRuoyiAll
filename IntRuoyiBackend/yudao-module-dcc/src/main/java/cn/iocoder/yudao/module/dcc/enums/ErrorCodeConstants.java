@@ -414,5 +414,45 @@ public interface ErrorCodeConstants {
             "Registration certificate void reason is required");
     ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_SCHEMA_CONFLICT = new ErrorCode(1_080_000_259,
             "Registration certificate lifecycle schema conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_CONFIG_REVISION_CONFLICT = new ErrorCode(1_080_000_260,
+            "Registration certificate reminder config revision conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_CONFIG_TIME_INVALID = new ErrorCode(1_080_000_261,
+            "Registration certificate reminder config time is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_DAILY_RUN_CONFLICT = new ErrorCode(1_080_000_262,
+            "Registration certificate reminder daily run conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_DAILY_RUN_FAILED = new ErrorCode(1_080_000_263,
+            "Registration certificate reminder daily run failed");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_OCCURRENCE_CONFLICT = new ErrorCode(1_080_000_264,
+            "Registration certificate reminder occurrence conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_OCCURRENCE_STATUS_INVALID = new ErrorCode(1_080_000_265,
+            "Registration certificate reminder occurrence status is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_CONFLICT = new ErrorCode(1_080_000_266,
+            "Registration certificate reminder delivery conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_STATUS_INVALID = new ErrorCode(1_080_000_267,
+            "Registration certificate reminder delivery status is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_DELIVERY_MESSAGE_ID_REQUIRED = new ErrorCode(1_080_000_268,
+            "Registration certificate reminder delivery message id is required");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_REQUIRED = new ErrorCode(1_080_000_269,
+            "Registration certificate reminder recipient is required");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_THRESHOLD_INVALID = new ErrorCode(1_080_000_270,
+            "Registration certificate reminder threshold is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_RECIPIENT_RESOLUTION_FAILED = new ErrorCode(1_080_000_271,
+            "Registration certificate reminder recipient resolution failed");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_INVALID = new ErrorCode(1_080_000_272,
+            "Registration certificate reminder notify template is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_TEMPLATE_PARAM_MISSING = new ErrorCode(1_080_000_273,
+            "Registration certificate reminder notify template parameter is missing");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_NOTIFY_SEND_FAILED = new ErrorCode(1_080_000_274,
+            "Registration certificate reminder notify send failed");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_JOB_NOT_CONFIGURED = new ErrorCode(1_080_000_275,
+            "Registration certificate reminder job is not configured");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_RUN_RETRY_CONFLICT = new ErrorCode(1_080_000_276,
+            "Registration certificate reminder run retry conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_SUPPRESSION_CONFLICT = new ErrorCode(1_080_000_277,
+            "Registration certificate reminder suppression conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_EVENT_NOTIFICATION_SCOPE_UNAPPROVED = new ErrorCode(1_080_000_278,
+            "Registration certificate event notification scope is not approved");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_SCHEMA_CONFLICT = new ErrorCode(1_080_000_279,
+            "Registration certificate reminder schema conflict");
 
 }

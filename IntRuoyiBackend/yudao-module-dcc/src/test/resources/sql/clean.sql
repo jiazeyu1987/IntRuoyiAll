@@ -1,3 +1,7 @@
+DELETE FROM `dcc_registration_certificate_reminder_delivery`;
+DELETE FROM `dcc_registration_certificate_reminder_occurrence`;
+DELETE FROM `dcc_registration_certificate_daily_run`;
+DELETE FROM `dcc_registration_certificate_reminder_config`;
 DELETE FROM `dcc_registration_certificate_change_item`;
 DELETE FROM `dcc_registration_certificate_change`;
 DELETE FROM `dcc_registration_certificate_supporting_document`;

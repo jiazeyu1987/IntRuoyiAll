@@ -2044,3 +2044,127 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change_item` (
   CONSTRAINT `chk_dcc_reg_cert_change_item_value` CHECK (`sort_order` > 0),
   UNIQUE KEY `uk_dcc_reg_cert_change_item_type` (`tenant_id`, `change_id`, `item_type`)
 );
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_reminder_config` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `active_unique_flag` BIGINT NULL,
+  `enabled` BOOLEAN NOT NULL DEFAULT TRUE,
+  `daily_run_time` VARCHAR(5) NOT NULL DEFAULT '09:00',
+  `timezone` VARCHAR(64) NOT NULL DEFAULT 'Asia/Shanghai',
+  `threshold_days_json` VARCHAR(8000) NOT NULL,
+  `row_version` INT NOT NULL DEFAULT 1,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_config_time` CHECK
+    (REGEXP_LIKE(`daily_run_time`, '^[0-2][0-9]:[0-5][0-9]$') AND `daily_run_time` <= '23:59'),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_config_timezone` CHECK (`timezone` = 'Asia/Shanghai'),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_config_revision` CHECK (`row_version` > 0),
+  UNIQUE KEY `uk_dcc_reg_cert_reminder_config_active` (`tenant_id`, `active_unique_flag`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_daily_run` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `business_date` DATE NOT NULL,
+  `run_key` VARCHAR(128) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `retry_count` INT NOT NULL DEFAULT 0,
+  `failure_reason` VARCHAR(1024) NULL,
+  `started_at` DATETIME NOT NULL,
+  `finished_at` DATETIME NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_daily_run_key` CHECK (TRIM(`run_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_daily_run_status` CHECK (`status` IN ('RUNNING', 'SUCCESS', 'FAILED')),
+  CONSTRAINT `chk_dcc_reg_cert_daily_run_failure` CHECK (
+    `status` <> 'FAILED' OR (`failure_reason` IS NOT NULL AND TRIM(`failure_reason`) <> '')
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_daily_run_success` CHECK (`status` <> 'SUCCESS' OR `finished_at` IS NOT NULL),
+  CONSTRAINT `chk_dcc_reg_cert_daily_run_retry` CHECK (`retry_count` >= 0),
+  UNIQUE KEY `uk_dcc_reg_cert_daily_run_date` (`tenant_id`, `business_date`),
+  UNIQUE KEY `uk_dcc_reg_cert_daily_run_key` (`tenant_id`, `run_key`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_reminder_occurrence` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `run_id` BIGINT NOT NULL,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `version_id` BIGINT NOT NULL,
+  `supporting_document_id` BIGINT NULL,
+  `reminder_type` VARCHAR(64) NOT NULL,
+  `threshold_level` VARCHAR(16) NOT NULL,
+  `business_date` DATE NOT NULL,
+  `due_date` DATE NOT NULL,
+  `event_key` VARCHAR(256) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `suppressed_by_occurrence_id` BIGINT NULL,
+  `suppress_reason` VARCHAR(512) NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_key` CHECK (TRIM(`event_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_type` CHECK (`reminder_type` IN
+    ('CERTIFICATE_EXPIRY', 'RENEWAL_UPLOAD', 'SUPPORTING_DOCUMENT')),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_threshold` CHECK (`threshold_level` IN
+    ('T_30', 'T_8', 'T_2', 'T_1')),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_status` CHECK (`status` IN
+    ('PENDING_DELIVERY', 'SUPPRESSED', 'DELIVERED', 'CLEARED', 'FAILED')),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_occurrence_suppression` CHECK (
+    `status` <> 'SUPPRESSED'
+    OR (`suppressed_by_occurrence_id` IS NOT NULL
+      AND `suppress_reason` IS NOT NULL
+      AND TRIM(`suppress_reason`) <> '')
+  ),
+  UNIQUE KEY `uk_dcc_reg_cert_reminder_occurrence_key` (`tenant_id`, `event_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_reminder_occurrence_run` (`tenant_id`, `run_id`, `certificate_id`, `reminder_type`, `threshold_level`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_reminder_delivery` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `occurrence_id` BIGINT NOT NULL,
+  `recipient_user_id` BIGINT NOT NULL,
+  `recipient_company_id` BIGINT NULL,
+  `delivery_key` VARCHAR(256) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `notify_message_id` BIGINT NULL,
+  `attempt_count` INT NOT NULL DEFAULT 0,
+  `last_failure_code` VARCHAR(64) NULL,
+  `last_failure_reason` VARCHAR(1024) NULL,
+  `sent_at` DATETIME NULL,
+  `next_retry_at` DATETIME NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_key` CHECK (TRIM(`delivery_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_recipient` CHECK (`recipient_user_id` > 0),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_status` CHECK (`status` IN
+    ('PENDING', 'SENDING', 'SENT', 'FAILED')),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_message` CHECK (
+    `status` <> 'SENT' OR (`notify_message_id` IS NOT NULL AND `notify_message_id` > 0 AND `sent_at` IS NOT NULL)
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_failure` CHECK (
+    `status` <> 'FAILED'
+    OR (`last_failure_reason` IS NOT NULL AND TRIM(`last_failure_reason`) <> '')
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_reminder_delivery_attempt` CHECK (`attempt_count` >= 0),
+  UNIQUE KEY `uk_dcc_reg_cert_reminder_delivery_key` (`tenant_id`, `delivery_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_reminder_delivery_recipient` (`tenant_id`, `occurrence_id`, `recipient_user_id`)
+);
