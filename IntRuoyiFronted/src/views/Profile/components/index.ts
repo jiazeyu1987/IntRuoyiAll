@@ -4,6 +4,7 @@ import EdhrRecordbookGlobalSetting from './EdhrRecordbookGlobalSetting.vue'
 import ProfileWorkbench from './ProfileWorkbench.vue'
 import ProfileErpTableAutoSyncSetting from './ProfileErpTableAutoSyncSetting.vue'
 import ProfileUser from './ProfileUser.vue'
+import RegistrationCertificateConfig from './RegistrationCertificateConfig.vue'
 import ResetPwd from './ResetPwd.vue'
 import UserAvatarVue from './UserAvatar.vue'
 import UserSocial from './UserSocial.vue'
@@ -15,6 +16,7 @@ export {
   ProfileUser,
   ProfileWorkbench,
   ProfileErpTableAutoSyncSetting,
+  RegistrationCertificateConfig,
   ResetPwd,
   UserAvatarVue,
   UserSocial

@@ -39,17 +39,26 @@
         <el-tab-pane :label="t('profile.info.resetPwd')" name="resetPwd">
           <ResetPwd />
         </el-tab-pane>
-        <el-tab-pane label="配置" name="config" v-if="hasGoldenFingerPermission">
+        <el-tab-pane label="配置" name="config" v-if="hasAnyProfileConfigPermission">
           <div class="profile-config-pane">
             <el-tabs v-model="activeConfigName" class="profile-config-tabs">
-              <el-tab-pane label="eDHR记录本" name="recordbook">
+              <el-tab-pane v-if="hasGoldenFingerPermission" label="eDHR记录本" name="recordbook">
                 <EdhrRecordbookGlobalSetting />
               </el-tab-pane>
-              <el-tab-pane label="放行资料要求" name="releaseDossier">
+              <el-tab-pane v-if="hasGoldenFingerPermission" label="放行资料要求" name="releaseDossier">
                 <EdhrReleaseDossierRequirementSetting />
               </el-tab-pane>
-              <el-tab-pane label="ERP表格自动同步" name="erpTableSync">
+              <el-tab-pane v-if="hasGoldenFingerPermission" label="ERP表格自动同步" name="erpTableSync">
                 <ProfileErpTableAutoSyncSetting />
+              </el-tab-pane>
+              <el-tab-pane
+                label="注册证配置"
+                name="registrationCertificate"
+                v-if="hasRegistrationCertificateConfigPermission"
+              >
+                <RegistrationCertificateConfig
+                  :can-update="hasRegistrationCertificateConfigUpdatePermission"
+                />
               </el-tab-pane>
             </el-tabs>
           </div>
@@ -72,6 +81,7 @@ import {
   EdhrRecordbookGlobalSetting,
   ProfileErpTableAutoSyncSetting,
   ProfileWorkbench,
+  RegistrationCertificateConfig,
   ResetPwd,
   UserSocial
 } from './components'
@@ -84,7 +94,20 @@ defineOptions({ name: 'Profile' })
 
 const isAdminUser = computed(() => userStore.getRoles.includes('super_admin'))
 const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'
+const REGISTRATION_CERTIFICATE_CONFIG_QUERY_PERMISSION =
+  'dcc:registration-certificate:config:query'
+const REGISTRATION_CERTIFICATE_CONFIG_UPDATE_PERMISSION =
+  'dcc:registration-certificate:config:update'
 const hasGoldenFingerPermission = computed(() => userStore.permissions.has(GOLDEN_FINGER_PERMISSION))
+const hasRegistrationCertificateConfigPermission = computed(() =>
+  userStore.permissions.has(REGISTRATION_CERTIFICATE_CONFIG_QUERY_PERMISSION)
+)
+const hasRegistrationCertificateConfigUpdatePermission = computed(() =>
+  userStore.permissions.has(REGISTRATION_CERTIFICATE_CONFIG_UPDATE_PERMISSION)
+)
+const hasAnyProfileConfigPermission = computed(
+  () => hasGoldenFingerPermission.value || hasRegistrationCertificateConfigPermission.value
+)
 
 const isSocialBindingCallback = () =>
   typeof route.query.code === 'string' ||
@@ -102,7 +125,12 @@ const resolveProfileActiveTab = () => {
 }
 
 const activeName = ref(resolveProfileActiveTab())
-const activeConfigName = ref('recordbook')
+const resolveFirstConfigName = () => {
+  if (hasGoldenFingerPermission.value) return 'recordbook'
+  if (hasRegistrationCertificateConfigPermission.value) return 'registrationCertificate'
+  return ''
+}
+const activeConfigName = ref(resolveFirstConfigName())
 const unreadNotifyMessageCount = ref(0)
 const hasUnreadNotifyMessage = computed(() => unreadNotifyMessageCount.value > 0)
 
@@ -125,12 +153,32 @@ const ensureSocialTabVisible = () => {
     activeName.value = 'workbench'
   }
   if (!hasGoldenFingerPermission.value && activeName.value === 'config') {
+    if (hasAnyProfileConfigPermission.value) {
+      return
+    }
     activeName.value = 'workbench'
+  }
+  const visibleConfigNames = new Set<string>()
+  if (hasGoldenFingerPermission.value) {
+    visibleConfigNames.add('recordbook')
+    visibleConfigNames.add('releaseDossier')
+    visibleConfigNames.add('erpTableSync')
+  }
+  if (hasRegistrationCertificateConfigPermission.value) {
+    visibleConfigNames.add('registrationCertificate')
+  }
+  if (activeName.value === 'config' && !visibleConfigNames.has(activeConfigName.value)) {
+    activeConfigName.value = resolveFirstConfigName()
   }
 }
 
 watch(
-  [() => route.fullPath, isAdminUser],
+  [
+    () => route.fullPath,
+    isAdminUser,
+    hasGoldenFingerPermission,
+    hasRegistrationCertificateConfigPermission
+  ],
   () => {
     activeName.value = resolveProfileActiveTab()
     ensureSocialTabVisible()

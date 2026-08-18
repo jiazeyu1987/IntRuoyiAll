@@ -190,7 +190,7 @@ const handleReset = () => {
 }
 
 const openDetail = (certificateId: number | string) => {
-  router.push(`/dcc/registration-certificate/detail/${certificateId}`)
+  router.push(`/mdm/registration-certificate/detail/${certificateId}`)
 }
 
 onMounted(() => {
