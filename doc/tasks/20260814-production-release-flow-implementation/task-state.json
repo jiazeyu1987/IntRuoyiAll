@@ -411,7 +411,14 @@
             "execution-log.md#pass-32-t11-real-e2e-specification-audit-and-preflight-refresh",
             "execution-log.md#pass-33-t11-manual-acceptance-handoff-and-independent-reverification",
             "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main",
-            "execution-log.md#pass-35-p11-completion-gate-audit"
+            "execution-log.md#pass-35-p11-completion-gate-audit",
+            "execution-log.md#pass-49-p11-registered-worktree-runtime-and-fixed-account-login-recovery",
+            "execution-log.md#pass-50-p11-zero-write-prerequisite-inventory-and-second-tenant-blocker",
+            "execution-log.md#pass-51-p11-second-tenant-real-menu-diagnosis",
+            "execution-log.md#pass-52-test-tenant-scope-correction",
+            "execution-log.md#pass-53-agent-test-tenant-verification-attempt",
+            "execution-log.md#pass-54-agent-test-tenant-preflight-continuation",
+            "execution-log.md#pass-55-int-main-team-leader-release-receipt-integration"
           ]
         },
         {
@@ -431,7 +438,14 @@
             "execution-log.md#pass-32-t11-real-e2e-specification-audit-and-preflight-refresh",
             "execution-log.md#pass-33-t11-manual-acceptance-handoff-and-independent-reverification",
             "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main",
-            "execution-log.md#pass-35-p11-completion-gate-audit"
+            "execution-log.md#pass-35-p11-completion-gate-audit",
+            "execution-log.md#pass-49-p11-registered-worktree-runtime-and-fixed-account-login-recovery",
+            "execution-log.md#pass-50-p11-zero-write-prerequisite-inventory-and-second-tenant-blocker",
+            "execution-log.md#pass-51-p11-second-tenant-real-menu-diagnosis",
+            "execution-log.md#pass-52-test-tenant-scope-correction",
+            "execution-log.md#pass-53-agent-test-tenant-verification-attempt",
+            "execution-log.md#pass-54-agent-test-tenant-preflight-continuation",
+            "execution-log.md#pass-55-int-main-team-leader-release-receipt-integration"
           ]
         }
       ],
@@ -448,34 +462,45 @@
         "execution-log.md#pass-32-t11-real-e2e-specification-audit-and-preflight-refresh",
         "execution-log.md#pass-33-t11-manual-acceptance-handoff-and-independent-reverification",
         "execution-log.md#pass-34-t11-spec-commit-on-latest-int-main",
-        "execution-log.md#pass-35-p11-completion-gate-audit"
+        "execution-log.md#pass-35-p11-completion-gate-audit",
+        "execution-log.md#pass-49-p11-registered-worktree-runtime-and-fixed-account-login-recovery",
+        "execution-log.md#pass-50-p11-zero-write-prerequisite-inventory-and-second-tenant-blocker",
+        "execution-log.md#pass-51-p11-second-tenant-real-menu-diagnosis",
+        "execution-log.md#pass-52-test-tenant-scope-correction",
+        "execution-log.md#pass-53-agent-test-tenant-verification-attempt",
+        "execution-log.md#pass-54-agent-test-tenant-preflight-continuation",
+        "execution-log.md#pass-55-int-main-team-leader-release-receipt-integration"
       ],
       "notes": [
         "Mapped test topics require main-agent review.",
         "T11 实现级回归和 runtime v4 guard 已通过；融合提交 ecb05caa6 已快进到 int_main，临时集成 worktree 已删除且 slot 24 已释放。用户授权先融合并后续手动测试，真实页面验收证据仍待补充。",
         "T11 spec and independent static verification were refreshed on int_main; manual acceptance remains required.",
         "T11 strengthened acceptance spec committed on int_main as 8ca580be3 after latest-head regression verification.",
-        "Completion gate audited after commits 8ca580be3 and 4caafea49; P11 remains blocked pending real-page evidence."
+        "Completion gate audited after commits 8ca580be3 and 4caafea49; P11 remains blocked pending real-page evidence.",
+        "Compiled worktree runtime 8082/48082 was healthy and both fixed release-role accounts passed real-page login after the authorized password resets; user clarified on 2026-08-18 that logging into the test tenant is sufficient for current tenant-scoped manual validation, so tenant-management menu visibility is no longer a blocker. Business fixtures remain at zero and P11 waits for manual real-page evidence.",
+        "Agent verification attempt on 2026-08-18 found the total release coverage gate failing at e2e:edhr:batch-version-phase1:check, the real SP0-SP4 Playwright flow blocked before writes by 30 missing EDHR_FULL_E2E prerequisites, and the test tenant missing MES_PQC_RELEASE_OWNER / MES_MANAGEMENT_REPRESENTATIVE role bindings for zhulijiang/xujianhai.",
+        "Pass 54 resolved the stale static and role blockers: test-tenant zhulijiang/xujianhai business-only login and permissions passed, and pnpm e2e:edhr:release:check passed. P11 remains blocked because tenant 122 has no safe formal production-release fixture base: ACTIVE route versions lack flowGraph.nodes, route/DCC/QA current-published regulation coverage is incomplete, and candidate work orders are either canceled, unbound, or missing current process target snapshots.",
+        "Pass 55 integrated the team-leader release receipt frontend increment into int_main as e5ba7869a after r260819b verification. TeamLeader static contract, SP-1 contract, release coverage check, Prettier, pnpm ts:check, diff check, and branch runtime guard passed. P11 remains blocked on the same formal fixture base and real multi-account page evidence."
       ],
-      "last_reviewed_at": "2026-08-16T09:43:52+00:00",
+      "last_reviewed_at": "2026-08-19T04:43:00+08:00",
       "status": "blocked"
     }
   ],
   "planner_review_status": "approved",
   "test_status": "failed",
   "blocking_prereqs": [
-    "30 EDHR_FULL_E2E variables remain missing, so the planned automated seven-account E2E cannot be executed",
-    "current listeners on 8081/48081 have not been proven to include production release integration commit ecb05caa6",
-    "user authorized integration into int_main before T11 acceptance and will perform manual validation later; no real-path manual acceptance evidence has been recorded"
+    "Test-tenant P11 prerequisites are incomplete: tenant 122 lacks a safe formal production-release fixture base. Current ACTIVE route versions lack flowGraph.nodes, route/DCC/QA current-published regulation coverage is incomplete, and candidate work orders are canceled, missing product route binding, or missing current process target snapshots.",
+    "30 EDHR_FULL_E2E inputs are still not materialized because no valid main/reject/incomplete active-order fixtures, four report attachments, signoff hash, or cleanup plan can be produced safely before the formal route base exists.",
+    "User or Agent real-page evidence for the test-tenant business chain, attachments, traceability, and cleanup has not been recorded yet."
   ],
   "iteration_counts": {
     "planner_revisions": 2,
     "plan_revisions": 0,
-    "executor_loops": 1,
+    "executor_loops": 2,
     "test_loops": 2
   },
   "created_at": "2026-08-14T21:12:50+08:00",
-  "updated_at": "2026-08-16T09:43:52+00:00",
+  "updated_at": "2026-08-18T20:43:00+00:00",
   "branch": "int_main",
   "baseline_revision": "3048b84e828203b6aea83bbf07a2c6caeab5f77e",
   "workspace_root": "E:\\IntRuoyi",
