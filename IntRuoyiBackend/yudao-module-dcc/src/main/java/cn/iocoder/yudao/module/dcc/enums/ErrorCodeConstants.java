@@ -374,5 +374,45 @@ public interface ErrorCodeConstants {
             "Registration certificate business file owner conflict");
     ErrorCode REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT = new ErrorCode(1_080_000_239,
             "Registration certificate formalization conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN = new ErrorCode(1_080_000_240,
+            "Registration certificate renewal field is forbidden");
+    ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED = new ErrorCode(1_080_000_241,
+            "Registration certificate renewal category change fields are required");
+    ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT = new ErrorCode(1_080_000_242,
+            "Registration certificate renewal pending conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT = new ErrorCode(1_080_000_243,
+            "Registration certificate renewal base conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_ACTIVATION_BASE_CONFLICT = new ErrorCode(1_080_000_244,
+            "Registration certificate activation base conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_ACTIVATION_REPLAY_INCOMPLETE = new ErrorCode(1_080_000_245,
+            "Registration certificate activation replay is incomplete");
+    ErrorCode REGISTRATION_CERTIFICATE_ACTIVATION_EVENT_CONFLICT = new ErrorCode(1_080_000_246,
+            "Registration certificate activation event conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED = new ErrorCode(1_080_000_247,
+            "Registration certificate supporting document is required");
+    ErrorCode REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_STATUS_INVALID = new ErrorCode(1_080_000_248,
+            "Registration certificate supporting document status is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REJECT_REASON_REQUIRED = new ErrorCode(1_080_000_249,
+            "Registration certificate supporting document reject reason is required");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID = new ErrorCode(1_080_000_250,
+            "Registration certificate change type is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED = new ErrorCode(1_080_000_251,
+            "Registration certificate change value is required");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_VALUE_FORBIDDEN = new ErrorCode(1_080_000_252,
+            "Registration certificate change value is forbidden");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED = new ErrorCode(1_080_000_253,
+            "Registration certificate change production relation is required");
+    ErrorCode REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT = new ErrorCode(1_080_000_254,
+            "Registration certificate change history conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_CONFLICT = new ErrorCode(1_080_000_255,
+            "Registration certificate lifecycle event conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_SEQUENCE_CONFLICT = new ErrorCode(1_080_000_256,
+            "Registration certificate lifecycle event sequence conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_CANDIDATE_VOID_REASON_REQUIRED = new ErrorCode(1_080_000_257,
+            "Registration certificate candidate void reason is required");
+    ErrorCode REGISTRATION_CERTIFICATE_TOP_LEVEL_VOID_REASON_REQUIRED = new ErrorCode(1_080_000_258,
+            "Registration certificate void reason is required");
+    ErrorCode REGISTRATION_CERTIFICATE_LIFECYCLE_SCHEMA_CONFLICT = new ErrorCode(1_080_000_259,
+            "Registration certificate lifecycle schema conflict");
 
 }

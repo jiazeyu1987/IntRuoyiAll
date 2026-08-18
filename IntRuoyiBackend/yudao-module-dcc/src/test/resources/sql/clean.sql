@@ -1,3 +1,8 @@
+DELETE FROM `dcc_registration_certificate_change_item`;
+DELETE FROM `dcc_registration_certificate_change`;
+DELETE FROM `dcc_registration_certificate_supporting_document`;
+DELETE FROM `dcc_registration_certificate_activation_replay`;
+DELETE FROM `dcc_registration_certificate_lifecycle_event`;
 DELETE FROM `dcc_registration_certificate_audit`;
 DELETE FROM `dcc_registration_certificate_file`;
 DELETE FROM `dcc_registration_certificate_snapshot_entrusted`;

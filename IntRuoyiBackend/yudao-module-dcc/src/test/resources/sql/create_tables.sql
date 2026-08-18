@@ -1908,3 +1908,139 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_audit` (
   CONSTRAINT `chk_dcc_reg_cert_audit_trace` CHECK (TRIM(`request_trace_id`) <> ''),
   UNIQUE KEY `uk_dcc_reg_cert_audit_event` (`tenant_id`, `event_key`)
 );
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_lifecycle_event` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `source_version_id` BIGINT NULL,
+  `target_version_id` BIGINT NULL,
+  `source_snapshot_id` BIGINT NULL,
+  `target_snapshot_id` BIGINT NULL,
+  `event_key` VARCHAR(256) NOT NULL,
+  `event_type` VARCHAR(64) NOT NULL,
+  `event_sequence` INT NOT NULL,
+  `baseline_row_version` INT NULL,
+  `baseline_snapshot_revision` INT NULL,
+  `actor_id` BIGINT NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `occurred_at` DATETIME NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_lifecycle_event_key` CHECK (TRIM(`event_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_lifecycle_event_type` CHECK (`event_type` IN
+    ('RENEWAL_UPLOADED', 'ACTIVATION_APPLIED', 'SUPPORTING_DOCUMENT_UPLOADED',
+     'SUPPORTING_DOCUMENT_CONFIRMED', 'SUPPORTING_DOCUMENT_REJECTED',
+     'CHANGE_APPLIED', 'CANDIDATE_VOIDED', 'CERTIFICATE_VOIDED')),
+  CONSTRAINT `chk_dcc_reg_cert_lifecycle_sequence` CHECK (`event_sequence` > 0),
+  UNIQUE KEY `uk_dcc_reg_cert_lifecycle_event_key` (`tenant_id`, `event_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_lifecycle_sequence` (`tenant_id`, `certificate_id`, `event_sequence`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_activation_replay` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `activation_event_id` BIGINT NOT NULL,
+  `source_event_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `source_sequence` INT NOT NULL,
+  `applied_sequence` INT NOT NULL,
+  `replay_result` VARCHAR(32) NOT NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_activation_replay_order` CHECK
+    (`source_sequence` > 0 AND `applied_sequence` > 0),
+  CONSTRAINT `chk_dcc_reg_cert_activation_replay_result` CHECK
+    (`replay_result` IN ('APPLIED', 'SKIPPED')),
+  UNIQUE KEY `uk_dcc_reg_cert_activation_source` (`tenant_id`, `activation_event_id`, `source_event_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_supporting_document` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `version_id` BIGINT NOT NULL,
+  `business_file_id` BIGINT NULL,
+  `document_type` VARCHAR(64) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `open_unique_flag` BIGINT NULL,
+  `row_version` INT NOT NULL DEFAULT 1,
+  `uploaded_at` DATETIME NOT NULL,
+  `uploaded_by` BIGINT NOT NULL,
+  `confirmed_at` DATETIME NULL,
+  `confirmed_by` BIGINT NULL,
+  `rejected_at` DATETIME NULL,
+  `rejected_by` BIGINT NULL,
+  `reject_reason` VARCHAR(1024) NULL,
+  `voided_at` DATETIME NULL,
+  `voided_by` BIGINT NULL,
+  `void_reason` VARCHAR(1024) NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_support_type` CHECK (`document_type` IN
+    ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
+  CONSTRAINT `chk_dcc_reg_cert_support_status` CHECK (`status` IN
+    ('PENDING_CONFIRMATION', 'CONFIRMED', 'REJECTED', 'VOIDED')),
+  CONSTRAINT `chk_dcc_reg_cert_support_reject_reason` CHECK (
+    `status` <> 'REJECTED' OR (`reject_reason` IS NOT NULL AND TRIM(`reject_reason`) <> '')
+  ),
+  UNIQUE KEY `uk_dcc_reg_cert_support_open` (`tenant_id`, `certificate_id`, `document_type`, `open_unique_flag`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `source_version_id` BIGINT NOT NULL,
+  `source_snapshot_id` BIGINT NOT NULL,
+  `resulting_snapshot_id` BIGINT NULL,
+  `event_id` BIGINT NOT NULL,
+  `approval_date` DATE NOT NULL,
+  `selected_change_types_json` VARCHAR(8000) NOT NULL,
+  `selected_item_count` INT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `row_version` INT NOT NULL DEFAULT 1,
+  `actor_id` BIGINT NOT NULL,
+  `applied_at` DATETIME NOT NULL,
+  `voided_at` DATETIME NULL,
+  `voided_by` BIGINT NULL,
+  `void_reason` VARCHAR(1024) NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_change_status` CHECK (`status` IN ('APPLIED', 'VOIDED')),
+  CONSTRAINT `chk_dcc_reg_cert_change_selected_count` CHECK (`selected_item_count` > 0),
+  UNIQUE KEY `uk_dcc_reg_cert_change_event` (`tenant_id`, `event_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_change_item` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `change_id` BIGINT NOT NULL,
+  `item_type` VARCHAR(64) NOT NULL,
+  `before_value_json` VARCHAR(8000) NOT NULL,
+  `after_value_json` VARCHAR(8000) NOT NULL,
+  `sort_order` INT NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `chk_dcc_reg_cert_change_item_type` CHECK (`item_type` IN
+    ('PRODUCT_NAME', 'REGISTRANT_NAME', 'MODEL_SPECIFICATION', 'STRUCTURE_COMPOSITION',
+     'INTENDED_USE', 'TECHNICAL_REQUIREMENTS', 'RESIDENCE_ADDRESS', 'PRODUCTION_ADDRESS',
+     'OTHER_CONTENT')),
+  CONSTRAINT `chk_dcc_reg_cert_change_item_value` CHECK (`sort_order` > 0),
+  UNIQUE KEY `uk_dcc_reg_cert_change_item_type` (`tenant_id`, `change_id`, `item_type`)
+);
