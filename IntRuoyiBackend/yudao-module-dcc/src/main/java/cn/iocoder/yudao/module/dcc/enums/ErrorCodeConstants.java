@@ -454,5 +454,45 @@ public interface ErrorCodeConstants {
             "Registration certificate event notification scope is not approved");
     ErrorCode REGISTRATION_CERTIFICATE_REMINDER_SCHEMA_CONFLICT = new ErrorCode(1_080_000_279,
             "Registration certificate reminder schema conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_KEY_REQUIRED = new ErrorCode(1_080_000_280,
+            "Registration certificate access request idempotency key is required");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT = new ErrorCode(1_080_000_281,
+            "Registration certificate access request conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_TYPE_INVALID = new ErrorCode(1_080_000_282,
+            "Registration certificate access request type is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_REQUEST_STATUS_INVALID = new ErrorCode(1_080_000_283,
+            "Registration certificate access request status is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED = new ErrorCode(1_080_000_284,
+            "Registration certificate access download requires a valid project code");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT = new ErrorCode(1_080_000_285,
+            "Registration certificate access BPM binding conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_BPM_CANDIDATE_EMPTY = new ErrorCode(1_080_000_286,
+            "Registration certificate access BPM candidate list is empty");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_APPROVAL_REJECT_REASON_REQUIRED = new ErrorCode(1_080_000_287,
+            "Registration certificate access approval reject reason is required");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_WITHDRAW_CONFLICT = new ErrorCode(1_080_000_288,
+            "Registration certificate access withdraw conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_CONFLICT = new ErrorCode(1_080_000_289,
+            "Registration certificate access grant conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_STATUS_INVALID = new ErrorCode(1_080_000_290,
+            "Registration certificate access grant status is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED = new ErrorCode(1_080_000_291,
+            "Registration certificate access grant is expired");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED = new ErrorCode(1_080_000_292,
+            "Registration certificate access grant is revoked");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID = new ErrorCode(1_080_000_293,
+            "Registration certificate access grant scope is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_DOWNLOAD_CONSUMPTION_CONFLICT = new ErrorCode(1_080_000_294,
+            "Registration certificate download consumption conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_DOWNLOAD_ALREADY_CONSUMED = new ErrorCode(1_080_000_295,
+            "Registration certificate download has already been consumed");
+    ErrorCode REGISTRATION_CERTIFICATE_DOWNLOAD_PROJECT_CODE_INVALID = new ErrorCode(1_080_000_296,
+            "Registration certificate download project code is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_FILE_DELIVERY_AUDIT_CONFLICT = new ErrorCode(1_080_000_297,
+            "Registration certificate file delivery audit conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_AUDIT_CONFLICT = new ErrorCode(1_080_000_298,
+            "Registration certificate access audit conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_ACCESS_SCHEMA_CONFLICT = new ErrorCode(1_080_000_299,
+            "Registration certificate access schema conflict");
 
 }

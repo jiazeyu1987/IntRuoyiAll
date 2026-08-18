@@ -2168,3 +2168,186 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_reminder_delivery` (
   UNIQUE KEY `uk_dcc_reg_cert_reminder_delivery_key` (`tenant_id`, `delivery_key`),
   UNIQUE KEY `uk_dcc_reg_cert_reminder_delivery_recipient` (`tenant_id`, `occurrence_id`, `recipient_user_id`)
 );
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_request` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `requester_user_id` BIGINT NOT NULL,
+  `request_type` VARCHAR(32) NOT NULL,
+  `request_key` VARCHAR(256) NOT NULL,
+  `bpm_process_instance_id` VARCHAR(128) NULL,
+  `purpose` VARCHAR(512) NOT NULL,
+  `project_code_id` BIGINT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `requested_at` DATETIME NOT NULL,
+  `completed_at` DATETIME NULL,
+  `withdrawn_at` DATETIME NULL,
+  `withdraw_reason` VARCHAR(512) NULL,
+  `reject_reason` VARCHAR(512) NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` BIT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_access_request_key` (`tenant_id`, `request_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_access_request_bpm` (`tenant_id`, `bpm_process_instance_id`),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_type` CHECK (`request_type` IN
+    ('VIEW_OLD_CERTIFICATE', 'DOWNLOAD_FILE')),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_status` CHECK (`status` IN
+    ('SUBMITTED', 'BPM_BOUND', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'REVOKED')),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_key` CHECK (TRIM(`request_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_purpose` CHECK (TRIM(`purpose`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_project` CHECK (
+    `request_type` <> 'DOWNLOAD_FILE' OR `project_code_id` IS NOT NULL
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_reject` CHECK (
+    `status` <> 'REJECTED' OR (`reject_reason` IS NOT NULL AND TRIM(`reject_reason`) <> '')
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_access_request_withdraw` CHECK (
+    `status` <> 'WITHDRAWN' OR `withdrawn_at` IS NOT NULL
+  )
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_request_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `request_id` BIGINT NOT NULL,
+  `business_file_id` BIGINT NOT NULL,
+  `file_kind` VARCHAR(64) NOT NULL,
+  `download_requested` BOOLEAN NOT NULL DEFAULT FALSE,
+  `status` VARCHAR(32) NOT NULL,
+  `detail_json` VARCHAR(8000) NOT NULL DEFAULT '{}',
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` BIT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_request_file_scope` (`tenant_id`, `request_id`, `business_file_id`),
+  CONSTRAINT `chk_dcc_reg_cert_request_file_kind` CHECK (TRIM(`file_kind`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_request_file_download` CHECK (
+    (`download_requested` = TRUE AND `status` IN ('REQUESTED', 'APPROVED', 'REJECTED', 'GRANTED'))
+    OR (`download_requested` = FALSE AND `status` IN ('REQUESTED', 'APPROVED', 'REJECTED'))
+  )
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_bpm_binding` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `request_id` BIGINT NOT NULL,
+  `business_key` VARCHAR(256) NOT NULL,
+  `bpm_process_instance_id` VARCHAR(128) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  `completed_at` DATETIME NULL,
+  `detail_json` VARCHAR(8000) NOT NULL DEFAULT '{}',
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_bpm_binding_business` (`tenant_id`, `business_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_bpm_binding_process` (`tenant_id`, `bpm_process_instance_id`),
+  CONSTRAINT `chk_dcc_reg_cert_bpm_binding_key` CHECK (TRIM(`business_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_bpm_binding_instance` CHECK (TRIM(`bpm_process_instance_id`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_bpm_binding_status` CHECK (`status` IN
+    ('RUNNING', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'CANCELLED'))
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_grant` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `request_id` BIGINT NOT NULL,
+  `request_file_id` BIGINT NULL,
+  `owner_company_id` BIGINT NOT NULL,
+  `certificate_id` BIGINT NOT NULL,
+  `business_file_id` BIGINT NULL,
+  `grantee_user_id` BIGINT NOT NULL,
+  `grant_type` VARCHAR(32) NOT NULL,
+  `grant_key` VARCHAR(256) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `granted_at` DATETIME NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `revoked_at` DATETIME NULL,
+  `revoked_by` BIGINT NULL,
+  `revoke_reason` VARCHAR(512) NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` BIT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_grant_key` (`tenant_id`, `grant_key`),
+  UNIQUE KEY `uk_dcc_reg_cert_grant_request_file` (`tenant_id`, `request_file_id`, `grant_type`),
+  CONSTRAINT `chk_dcc_reg_cert_grant_key` CHECK (TRIM(`grant_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_grant_type` CHECK (`grant_type` IN
+    ('VIEW_OLD_CERTIFICATE', 'DOWNLOAD')),
+  CONSTRAINT `chk_dcc_reg_cert_grant_status` CHECK (`status` IN
+    ('ACTIVE', 'EXPIRED', 'REVOKED', 'CONSUMED')),
+  CONSTRAINT `chk_dcc_reg_cert_grant_file_scope` CHECK (
+    (`grant_type` = 'DOWNLOAD' AND `request_file_id` IS NOT NULL AND `business_file_id` IS NOT NULL)
+    OR (`grant_type` = 'VIEW_OLD_CERTIFICATE' AND `request_file_id` IS NULL)
+  ),
+  CONSTRAINT `chk_dcc_reg_cert_grant_window` CHECK (`expires_at` > `granted_at`),
+  CONSTRAINT `chk_dcc_reg_cert_grant_revoke` CHECK (
+    `status` <> 'REVOKED'
+    OR (`revoked_at` IS NOT NULL AND `revoked_by` IS NOT NULL
+      AND `revoke_reason` IS NOT NULL AND TRIM(`revoke_reason`) <> '')
+  )
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_download_consumption` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `grant_id` BIGINT NOT NULL,
+  `business_file_id` BIGINT NOT NULL,
+  `attempt_key` VARCHAR(256) NOT NULL,
+  `result` VARCHAR(32) NOT NULL,
+  `success_unique_flag` BIGINT NULL,
+  `started_at` DATETIME NOT NULL,
+  `completed_at` DATETIME NULL,
+  `failure_reason` VARCHAR(1024) NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_download_once` (`tenant_id`, `grant_id`, `business_file_id`, `success_unique_flag`),
+  UNIQUE KEY `uk_dcc_reg_cert_download_attempt` (`tenant_id`, `attempt_key`),
+  CONSTRAINT `chk_dcc_reg_cert_download_key` CHECK (TRIM(`attempt_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_download_result` CHECK (`result` IN
+    ('SUCCESS', 'FAILED_BEFORE_START', 'FAILED_AFTER_START')),
+  CONSTRAINT `chk_dcc_reg_cert_download_success` CHECK (
+    (`result` = 'SUCCESS' AND `success_unique_flag` = 1)
+    OR (`result` <> 'SUCCESS' AND `success_unique_flag` IS NULL)
+  )
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `request_id` BIGINT NULL,
+  `grant_id` BIGINT NULL,
+  `business_file_id` BIGINT NULL,
+  `actor_user_id` BIGINT NOT NULL,
+  `event_type` VARCHAR(64) NOT NULL,
+  `event_key` VARCHAR(256) NOT NULL,
+  `result` VARCHAR(32) NOT NULL,
+  `occurred_at` DATETIME NOT NULL,
+  `detail_json` VARCHAR(8000) NOT NULL,
+  `creator` VARCHAR(64) DEFAULT '',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` VARCHAR(64) DEFAULT '',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_reg_cert_access_audit_key` (`tenant_id`, `event_key`),
+  CONSTRAINT `chk_dcc_reg_cert_access_audit_key` CHECK (TRIM(`event_key`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_access_audit_type` CHECK (TRIM(`event_type`) <> ''),
+  CONSTRAINT `chk_dcc_reg_cert_access_audit_result` CHECK (`result` IN ('SUCCESS', 'FAILURE'))
+);

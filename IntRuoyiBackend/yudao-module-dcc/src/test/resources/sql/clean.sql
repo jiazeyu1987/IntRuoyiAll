@@ -1,3 +1,9 @@
+DELETE FROM `dcc_registration_certificate_access_audit`;
+DELETE FROM `dcc_registration_certificate_download_consumption`;
+DELETE FROM `dcc_registration_certificate_grant`;
+DELETE FROM `dcc_registration_certificate_bpm_binding`;
+DELETE FROM `dcc_registration_certificate_access_request_file`;
+DELETE FROM `dcc_registration_certificate_access_request`;
 DELETE FROM `dcc_registration_certificate_reminder_delivery`;
 DELETE FROM `dcc_registration_certificate_reminder_occurrence`;
 DELETE FROM `dcc_registration_certificate_daily_run`;
