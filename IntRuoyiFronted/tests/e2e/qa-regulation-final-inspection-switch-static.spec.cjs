@@ -25,9 +25,10 @@ assert.deepEqual(
   panes,
   [
     { label: '总览', name: 'overview' },
-    { label: '检验项目', name: 'items' }
+    { label: '检验项目', name: 'items' },
+    { label: '任务预览', name: 'verification' }
   ],
-  'QA navigation must remove the standalone inspection-rules tab.'
+  'QA navigation must expose overview, item configuration and formal task preview tabs.'
 )
 
 assert.doesNotMatch(

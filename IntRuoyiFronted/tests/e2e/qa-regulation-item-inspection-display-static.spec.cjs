@@ -106,6 +106,11 @@ assert.match(
 )
 assert.match(
   pageSource,
+  /<el-tab-pane[^>]*label="任务预览"[^>]*name="verification"/,
+  'QA page must expose the task preview tab so formal task empty state is visible.'
+)
+assert.match(
+  pageSource,
   /const qaConfigurationStatusText = computed[\s\S]*未配置/,
   'A DCC project without backend QA data must display 未配置.'
 )

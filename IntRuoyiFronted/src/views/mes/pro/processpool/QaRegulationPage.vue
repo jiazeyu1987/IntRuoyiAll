@@ -254,6 +254,7 @@
         >
           <el-tab-pane label="总览" name="overview" />
           <el-tab-pane label="检验项目" name="items" />
+          <el-tab-pane label="任务预览" name="verification" />
         </el-tabs>
       </ContentWrap>
 
@@ -1595,109 +1596,6 @@ const retryLoadDccProjectCodes = async () => {
   }
 }
 
-const resetQaWordImportDialog = () => {
-  if (qaWordImportSubmitting.value) {
-    return
-  }
-  qaWordImportFile.value = undefined
-  qaWordImportFileList.value = []
-  qaWordImportDccProjectCodeId.value = undefined
-}
-
-const openQaWordImportDialog = () => {
-  qaWordImportFile.value = undefined
-  qaWordImportFileList.value = []
-  qaWordImportDccProjectCodeId.value = qaRegulationDraft.dccProjectCodeId
-  qaWordImportDialogVisible.value = true
-  if (dccProjectCodeOptions.value.length === 0) {
-    void loadDccProjectCodeOptions().catch((error) => {
-      ElMessage.error('DCC 项目代码加载失败：' + resolveDccProjectCodeErrorMessage(error))
-    })
-  }
-}
-
-const handleQaWordImportFileChange = (uploadFile: UploadFile) => {
-  const rawFile = uploadFile.raw
-  if (!rawFile || !uploadFile.name.toLowerCase().endsWith('.docx')) {
-    qaWordImportFile.value = undefined
-    qaWordImportFileList.value = []
-    ElMessage.error('仅支持 .docx QA 模板文件')
-    return
-  }
-  qaWordImportFile.value = rawFile
-}
-
-const handleQaWordImportFileRemove = () => {
-  qaWordImportFile.value = undefined
-}
-
-const handleQaWordImportFileExceed = () => {
-  ElMessage.warning('每次只能解析一个 QA 模板文件')
-}
-
-const handleQaWordImportProjectVisibleChange = (visible: boolean) => {
-  if (visible && dccProjectCodeOptions.value.length === 0) {
-    void loadDccProjectCodeOptions().catch((error) => {
-      ElMessage.error('DCC 项目代码加载失败：' + resolveDccProjectCodeErrorMessage(error))
-    })
-  }
-}
-
-const submitQaWordImport = async () => {
-  let savedResult: QaInspectionRegulationImportRespVO | undefined
-  try {
-    if (!qaWordImportFile.value) {
-      throw new Error('请选择需要解析的 .docx QA 模板文件')
-    }
-    const dccProjectCodeId = resolvePositiveId(qaWordImportDccProjectCodeId.value, '绑定项目')
-    const formData = new FormData()
-    formData.append('file', qaWordImportFile.value)
-    formData.append('dccProjectCodeId', String(dccProjectCodeId))
-
-    qaWordImportSubmitting.value = true
-    savedResult = await QcTemplateApi.importQaRegulationWordDraft(formData)
-    const project =
-      dccProjectCodeOptions.value.find((option) => Number(option.id) === dccProjectCodeId) ||
-      (await getProjectCode(dccProjectCodeId))
-    if (!project || project.status !== DCC_PROJECT_CODE_STATUS_ENABLE) {
-      throw new Error('导入已保存，但绑定的 DCC 项目已停用或不存在')
-    }
-    dccProjectCodeOptions.value = mergeDccProjectCodeOptions([
-      project,
-      ...dccProjectCodeOptions.value
-    ])
-    const statusMap = new Map(qaRegulationProjectStatusByDccId.value)
-    const currentStatus = statusMap.get(dccProjectCodeId)
-    statusMap.set(dccProjectCodeId, {
-      dccProjectCodeId,
-      configured: true,
-      regulationCount: currentStatus?.regulationCount || 1,
-      regulationId: savedResult.regulationId,
-      currentVersionId: currentStatus?.currentVersionId,
-      regulationCode: savedResult.regulationCode,
-      regulationName: savedResult.regulationName,
-      lifecycleStatus: currentStatus?.currentVersionId ? 'PUBLISHED' : 'DRAFT'
-    })
-    qaRegulationProjectStatusByDccId.value = statusMap
-    await selectDccProjectCode(project)
-    qaActiveTab.value = 'items'
-    qaWordImportDialogVisible.value = false
-    const routeText = savedResult.route === 'CREATE' ? '新建' : '升版'
-    ElMessage.success(
-      `QA 模板解析完成，${routeText}草稿 ${savedResult.versionNo} 已保存：` +
-        `${savedResult.processCount} 个工序、${savedResult.itemCount} 个检验项目`
-    )
-  } catch (error) {
-    const prefix = savedResult ? 'QA 草稿已保存，但页面刷新失败：' : 'QA 模板解析失败：'
-    ElMessage.error(prefix + resolveDccProjectCodeErrorMessage(error))
-    if (savedResult) {
-      qaWordImportDialogVisible.value = false
-    }
-  } finally {
-    qaWordImportSubmitting.value = false
-  }
-}
-
 const resolveInitialDccProjectCodeId = () => {
   const queryValue = Array.isArray(route.query.dccProjectCodeId)
     ? route.query.dccProjectCodeId[0]
@@ -2287,23 +2185,6 @@ const runQaPublishPrecheck = async () => {
 
 .qa-regulation-page__version-publish :deep(.el-tag) {
   flex-shrink: 0;
-}
-
-.qa-regulation-page__word-import-form {
-  display: grid;
-  gap: 4px;
-}
-
-.qa-regulation-page__word-import-upload,
-.qa-regulation-page__word-import-upload :deep(.el-upload),
-.qa-regulation-page__word-import-upload :deep(.el-upload-dragger) {
-  width: 100%;
-}
-
-.qa-regulation-page__word-import-upload-icon {
-  width: 36px;
-  height: 36px;
-  color: #00a896;
 }
 
 .qa-regulation-page__tabs-wrap :deep(.el-card__body) {
