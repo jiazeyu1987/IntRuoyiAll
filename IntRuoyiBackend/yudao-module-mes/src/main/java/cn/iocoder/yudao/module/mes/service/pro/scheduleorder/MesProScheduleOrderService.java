@@ -141,6 +141,11 @@ public interface MesProScheduleOrderService {
     void saveProcessWipSettings(@Valid MesProScheduleOrderProcessWipSettingsReqVO reqVO);
 
     /**
+     * 统一班次小时变化后，刷新当前在制工序里已保存的工作台产能快照。
+     */
+    void refreshProcessWipCapacitySnapshotsForShiftHours(BigDecimal shiftHours);
+
+    /**
      * 获得排产工单操作追溯。
      */
     List<MesProScheduleOrderOperationLogDO> getOperationLogList(Long scheduleOrderId);

@@ -130,11 +130,25 @@ export interface TeamLeaderActiveOrderAddReqVO {
   workOrderId: number
 }
 
+export type TeamLeaderActiveOrderCandidateState =
+  | 'ADDABLE'
+  | 'REUSABLE'
+  | 'RECOVERABLE'
+  | 'BLOCKED'
+
 export interface TeamLeaderActiveOrderCandidateRespVO {
   workOrderId: number
   workOrderCode: string
+  candidateState: TeamLeaderActiveOrderCandidateState
   eligible: boolean
   ineligibleReason?: string
+}
+
+export type TeamLeaderActiveOrderCommitAction = 'ADD' | 'REUSE' | 'RECOVER'
+
+export interface TeamLeaderActiveOrderAddRespVO {
+  activeOrderId: number
+  action: TeamLeaderActiveOrderCommitAction
 }
 
 export interface TeamLeaderActiveOrderRemoveReqVO {
@@ -258,11 +272,8 @@ export interface TeamProcessDeviceBindingSaveReqVO {
 export interface TeamProcessDefectReasonSaveReqVO extends TeamDefectReasonSaveReqVO {}
 
 export type TeamLeaderActiveOrderReleaseApplicationStatus =
-  | 'PQC_RELEASE_PENDING'
-  | 'PQC_RELEASE_REJECTED'
-  | 'REPORT_UPLOAD_PENDING'
-  | 'MANAGER_RELEASE_PENDING'
-  | 'RELEASED'
+  | 'BLOCKED'
+  | 'PENDING_RELEASE_APPROVAL'
 
 export interface TeamLeaderActiveOrderProcessRemainingQuantity {
   routeProcessId?: number
@@ -323,40 +334,9 @@ export interface TeamLeaderActiveOrderRespVO {
   abnormal: boolean
   abnormalReason?: string
   abnormalReportedAt?: number
-  releaseApplicationId?: string
-  pqcReleaseWorkTaskId?: string
   releaseApplicationStatus?: TeamLeaderActiveOrderReleaseApplicationStatus
-  releaseSourceSnapshotHash?: string
-  releaseApplicationVersion?: number
-}
-
-export interface PqcLeaderActiveTaskRespVO {
-  pqcTaskId: string
-  taskStatus: 'PENDING' | 'SUBMITTED'
-  activeOrderId: string
-  workOrderId: string
-  workOrderCode: string
-  workOrderName?: string
-  qaRegulationId: string
-  qaRegulationCode: string
-  qaRegulationName: string
-  qaVersionId: string
-  qaVersionNo: string
-  qaProcessId: string
-  qaProcessCode?: string
-  qaProcessName: string
-  routeId: string
-  routeCode?: string
-  routeName: string
-  routeVersionId: string
-  routeVersionNo: string
-  inspectionRuleKey: 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
-  inspectionType: 'FIRST' | 'PATROL' | 'FINAL'
-  businessDate: string
-  shiftCode: string
-  roundNo: number
-  plannedInspectionQuantity: number
-  actualInspectionQuantity?: number
+  releaseApplicationBlockerSummary?: string
+  releaseApprovalWorkTaskId?: number
 }
 
 export interface TeamLeaderActiveOrderReleaseApplyReqVO {
@@ -368,34 +348,36 @@ export interface TeamLeaderActiveOrderReleaseApplyReqVO {
 export interface TeamLeaderActiveOrderReleaseBlockerRespVO {
   blockerType: string
   objectType: string
-  objectId?: string
-  objectCode?: string
+  objectId: string
+  objectCode: string
   reason: string
   suggestion: string
-  routeProcessId?: string
-  processId?: string
+  routeProcessId?: number
+  processId?: number
   fieldCode?: string
   cellKey?: string
 }
 
-export interface TeamLeaderActiveOrderReleaseFailureRespVO {
-  stage?: string
-  currentStatus?: TeamLeaderActiveOrderReleaseApplicationStatus
-  blockers: TeamLeaderActiveOrderReleaseBlockerRespVO[]
+export interface TeamLeaderActiveOrderReleaseDossierSummaryRespVO {
+  batchRecordCount: number
+  processInspectionFormCount: number
+  lossReportFormCount: number
+  signatureEvidenceCount: number
+  sourceSnapshotHash: string
 }
 
 export interface TeamLeaderActiveOrderReleaseApplyRespVO {
-  applicationId: string
-  activeOrderId: string
-  workOrderId: string
-  workOrderCode?: string | null
-  batchCode?: string | null
-  routeId: string
-  routeVersionId: string
-  pqcReleaseWorkTaskId: string
+  applicationId: number
+  activeOrderId: number
+  workOrderId: number
+  workOrderCode: string | null
+  batchExecutionId: number | null
+  releaseTransactionId: number | null
+  releaseApprovalWorkTaskId: number | null
   status: TeamLeaderActiveOrderReleaseApplicationStatus
-  sourceSnapshotHash: string
-  version: number
+  statusName: string
+  dossierSummary: TeamLeaderActiveOrderReleaseDossierSummaryRespVO
+  blockers: TeamLeaderActiveOrderReleaseBlockerRespVO[]
   appliedAt: string | number
 }
 
@@ -439,9 +421,7 @@ export interface TeamLeaderReportAllocationLine {
   routeProcessId?: number
   processId?: number
   allocatedQuantity: number | string
-  overageQuantity?: number | string
-  needsAdjustment?: boolean
-  allocationMode?: 'FRONTLINE_SELECTED' | 'FIFO' | 'MANUAL'
+  allocationMode?: 'FIFO' | 'MANUAL'
   remainingQuantityBeforeAllocation?: number | string
   released?: boolean
   editable?: boolean
@@ -584,12 +564,6 @@ export const getTeamLeaderActiveOrderList = async (
   })
 }
 
-export const getPqcLeaderActiveTaskList = async () => {
-  return await request.get<PqcLeaderActiveTaskRespVO[]>({
-    url: '/mes/pro/process-pool/team-leader/pqc-task/active-list'
-  })
-}
-
 export const getTeamLeaderActiveOrderDetail = async (activeOrderId: number) => {
   return await request.get<TeamLeaderActiveOrderDetailRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/detail',
@@ -603,14 +577,6 @@ export const applyTeamLeaderActiveOrderRelease = async (
   return await request.post<TeamLeaderActiveOrderReleaseApplyRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/release/apply',
     data,
-    ignoreErrorMessage: true
-  })
-}
-
-export const getTeamLeaderActiveOrderRelease = async (activeOrderId: number | string) => {
-  return await request.get<TeamLeaderActiveOrderReleaseApplyRespVO>({
-    url: '/mes/pro/process-pool/team-leader/active-order/release/get',
-    params: { activeOrderId },
     ignoreErrorMessage: true
   })
 }
@@ -630,7 +596,7 @@ export const searchTeamLeaderActiveOrderCandidates = async (keyword: string) => 
 }
 
 export const addTeamLeaderActiveOrder = async (data: TeamLeaderActiveOrderAddReqVO) => {
-  return await request.post<number>({
+  return await request.post<TeamLeaderActiveOrderAddRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/add',
     data
   })

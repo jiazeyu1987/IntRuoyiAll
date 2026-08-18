@@ -6,6 +6,8 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
+import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemImportExcelVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemImportRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemPageReqVO;
@@ -63,6 +65,8 @@ public class MesMdItemServiceImpl implements MesMdItemService {
     private MesWmBarcodeService barcodeService;
     @Resource
     private MesMdAutoCodeRecordService autoCodeRecordService;
+    @Resource
+    private MdmProductApi mdmProductApi;
 
     @Override
     public Long createItem(MesMdItemSaveReqVO createReqVO) {
@@ -103,6 +107,8 @@ public class MesMdItemServiceImpl implements MesMdItemService {
         validateItemTypeExists(reqVO.getItemTypeId());
         // 校验计量单位存在
         validateUnitMeasureExists(reqVO.getUnitMeasureId());
+        // 校验可选的 MDM 产品主档关系
+        validateProductMasterExists(reqVO.getProductMasterId());
     }
 
     @Override
@@ -319,8 +325,10 @@ public class MesMdItemServiceImpl implements MesMdItemService {
                 return;
             }
             // 2.2 校验分类是否存在
+            Long productMasterId;
             try {
                 validateItemTypeExists(importItem.getItemTypeId());
+                productMasterId = resolveProductMasterId(importItem.getProductMasterCode());
             } catch (ServiceException ex) {
                 respVO.getFailureCodes().put(key, ex.getMessage());
                 return;
@@ -338,6 +346,7 @@ public class MesMdItemServiceImpl implements MesMdItemService {
                 }
                 MesMdItemDO item = BeanUtils.toBean(importItem, MesMdItemDO.class);
                 item.setUnitMeasureId(unitMeasure.getId());
+                item.setProductMasterId(productMasterId);
                 item.setStatus(CommonStatusEnum.DISABLE.getStatus()); // 默认禁用。信息完成后，再启用
                 clearStockIfNotSafe(item);
                 itemMapper.insert(item);
@@ -356,6 +365,7 @@ public class MesMdItemServiceImpl implements MesMdItemService {
                 MesMdItemDO updateObj = BeanUtils.toBean(importItem, MesMdItemDO.class);
                 updateObj.setId(existItem.getId());
                 updateObj.setUnitMeasureId(unitMeasure.getId());
+                updateObj.setProductMasterId(productMasterId);
                 clearStockIfNotSafe(updateObj);
                 itemMapper.updateById(updateObj);
                 respVO.getUpdateCodes().add(importItem.getCode());
@@ -365,6 +375,30 @@ public class MesMdItemServiceImpl implements MesMdItemService {
             }
         });
         return respVO;
+    }
+
+    private void validateProductMasterExists(Long productMasterId) {
+        if (productMasterId == null) {
+            return;
+        }
+        if (mdmProductApi.getProduct(productMasterId) == null) {
+            throw exception(MD_ITEM_PRODUCT_MASTER_NOT_EXISTS, productMasterId);
+        }
+    }
+
+    private Long resolveProductMasterId(String productMasterCode) {
+        String normalizedCode = StrUtil.trimToNull(productMasterCode);
+        if (normalizedCode == null) {
+            return null;
+        }
+        List<MdmProductRespDTO> exactMatches = mdmProductApi
+                .listSimpleProducts(null, null, normalizedCode).stream()
+                .filter(product -> Objects.equals(product.getProductCode(), normalizedCode))
+                .toList();
+        if (exactMatches.size() != 1 || exactMatches.get(0).getId() == null) {
+            throw exception(MD_ITEM_PRODUCT_MASTER_NOT_EXISTS, normalizedCode);
+        }
+        return exactMatches.get(0).getId();
     }
 
 }

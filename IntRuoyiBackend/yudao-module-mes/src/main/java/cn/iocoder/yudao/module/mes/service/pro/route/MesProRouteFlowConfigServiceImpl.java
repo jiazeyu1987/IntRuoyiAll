@@ -92,10 +92,10 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLO
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_FILLER_SOURCE_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_PUBLISHED_VERSION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_SLOT_TYPE_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_SLOT_TYPE_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_RECORD_CATEGORY_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_REQUIRED_POLICY_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID;
@@ -755,7 +755,6 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         }
         return new MesProRouteFlowFormBindingSaveReqVO()
                 .setFormBindingKey(binding.getString("formBindingKey"))
-                .setGlobalSyncKey(binding.getString("globalSyncKey"))
                 .setFormTemplateId(templateId)
                 .setFormTemplateName(StrUtil.blankToDefault(binding.getString("formTemplateName"),
                         binding.getString("formTemplateNameSnapshot")))
@@ -788,7 +787,6 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .map(binding -> {
                     MesProRouteFlowFormBindingRespVO vo = new MesProRouteFlowFormBindingRespVO();
                     vo.setFormBindingKey(StrUtil.trim(binding.getFormBindingKey()));
-                    vo.setGlobalSyncKey(StrUtil.blankToDefault(StrUtil.trim(binding.getGlobalSyncKey()), null));
                     vo.setFormTemplateId(binding.getFormTemplateId());
                     vo.setFormTemplateName(StrUtil.trim(binding.getFormTemplateName()));
                     String formSlotType = resolveConfiguredFormSlotType(binding);
@@ -1292,14 +1290,14 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         for (MesProRouteFlowProcessConfigSaveReqVO saveConfig : saveMap.values()) {
             validateBatchProcessConfig(flowConfigType, saveConfig);
         }
+        if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH) {
+            validateGlobalFormBindingGroups(new ArrayList<>(saveMap.values()), validRouteProcessIds);
+        }
         String configKey = flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH
                 ? BATCH_USE_CONFIGS_KEY : SCHEDULE_USE_CONFIGS_KEY;
-        List<MesProRouteFlowProcessConfigSaveReqVO> candidateSnapshot = buildCandidateUseConfigSnapshot(
-                routeVersion, configKey, flowConfigType, saveReqVO, validRouteProcessIds);
-        if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH) {
-            validateGlobalFormBindingGroups(candidateSnapshot, validRouteProcessIds);
-        }
-        routeCandidateConfigService.saveConfigSnapshot(routeVersion.getId(), configKey, candidateSnapshot);
+        routeCandidateConfigService.saveConfigSnapshot(routeVersion.getId(), configKey,
+                buildCandidateUseConfigSnapshot(routeVersion, configKey, flowConfigType,
+                        saveReqVO, validRouteProcessIds));
     }
 
     private Set<Long> resolveCandidateSaveRouteProcessIds(
@@ -1425,69 +1423,6 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .map(processConfig -> normalizeCandidateUseConfigSnapshot(
                         routeVersion.getRouteId(), flowConfigType, processConfig))
                 .toList();
-    }
-
-    void validateGlobalFormBindingGroups(
-            List<MesProRouteFlowProcessConfigSaveReqVO> candidateSnapshot,
-            Set<Long> validRouteProcessIds) {
-        Map<String, Map<Long, MesProRouteFlowFormBindingSaveReqVO>> groups = new LinkedHashMap<>();
-        for (MesProRouteFlowProcessConfigSaveReqVO processConfig : candidateSnapshot) {
-            Long routeProcessId = processConfig.getRouteProcessId();
-            for (MesProRouteFlowFormBindingSaveReqVO binding : normalizeFormBindings(processConfig)) {
-                String globalSyncKey = StrUtil.trim(binding.getGlobalSyncKey());
-                if (StrUtil.isBlank(globalSyncKey)) {
-                    continue;
-                }
-                Map<Long, MesProRouteFlowFormBindingSaveReqVO> members = groups.computeIfAbsent(
-                        globalSyncKey, ignored -> new LinkedHashMap<>());
-                if (members.putIfAbsent(routeProcessId, binding) != null) {
-                    throw exception(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_DUPLICATE,
-                            globalSyncKey, routeProcessId);
-                }
-            }
-        }
-        groups.forEach((globalSyncKey, members) -> {
-            Set<Long> missingRouteProcessIds = new LinkedHashSet<>(validRouteProcessIds);
-            missingRouteProcessIds.removeAll(members.keySet());
-            if (!missingRouteProcessIds.isEmpty() || members.size() != validRouteProcessIds.size()) {
-                throw exception(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE,
-                        globalSyncKey, missingRouteProcessIds);
-            }
-            String expectedConfig = null;
-            for (Map.Entry<Long, MesProRouteFlowFormBindingSaveReqVO> member : members.entrySet()) {
-                String actualConfig = JSON.toJSONString(buildGlobalFormBindingComparableConfig(member.getValue()));
-                if (expectedConfig == null) {
-                    expectedConfig = actualConfig;
-                } else if (!Objects.equals(expectedConfig, actualConfig)) {
-                    throw exception(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT,
-                            globalSyncKey, member.getKey());
-                }
-            }
-        });
-    }
-
-    private Map<String, Object> buildGlobalFormBindingComparableConfig(
-            MesProRouteFlowFormBindingSaveReqVO binding) {
-        Map<String, Object> config = new LinkedHashMap<>();
-        config.put("formTemplateId", binding.getFormTemplateId());
-        config.put("formSlotType", binding.getFormSlotType());
-        config.put("instanceScope", binding.getInstanceScope());
-        config.put("sharedFormKey", binding.getSharedFormKey());
-        config.put("fillableScopeJson", binding.getFillableScopeJson());
-        config.put("recordCategory", binding.getRecordCategory());
-        config.put("validationProfile", binding.getValidationProfile());
-        config.put("recordbookEnabled", binding.getRecordbookEnabled());
-        config.put("permissionScopeId", binding.getPermissionScopeId());
-        config.put("requiredPolicy", binding.getRequiredPolicy());
-        config.put("requiredConditionJson", binding.getRequiredConditionJson());
-        config.put("ownerRoleKey", binding.getOwnerRoleKey());
-        config.put("archiveVisibility", binding.getArchiveVisibility());
-        config.put("candidateSourceType", binding.getCandidateSourceType());
-        config.put("candidateSourceIds", binding.getCandidateSourceIds());
-        config.put("candidateSourceNames", binding.getCandidateSourceNames());
-        config.put("reportSort", binding.getReportSort());
-        config.put("remark", binding.getRemark());
-        return config;
     }
 
     private MesProRouteFlowProcessConfigSaveReqVO normalizeCandidateUseConfigSnapshot(
@@ -1934,6 +1869,109 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         resolveExecutionMode(flowConfigType, saveConfig.getExecutionMode());
     }
 
+    void validateGlobalFormBindingGroups(List<MesProRouteFlowProcessConfigSaveReqVO> processConfigs,
+                                         Set<Long> validRouteProcessIds) {
+        if (CollUtil.isEmpty(processConfigs) || CollUtil.isEmpty(validRouteProcessIds)) {
+            return;
+        }
+        Map<String, Map<Long, MesProRouteFlowFormBindingSaveReqVO>> groupMembers = new LinkedHashMap<>();
+        for (MesProRouteFlowProcessConfigSaveReqVO processConfig : processConfigs) {
+            if (processConfig == null || processConfig.getRouteProcessId() == null
+                    || CollUtil.isEmpty(processConfig.getFormBindings())) {
+                continue;
+            }
+            for (MesProRouteFlowFormBindingSaveReqVO binding : processConfig.getFormBindings()) {
+                if (binding == null || StrUtil.isBlank(binding.getGlobalSyncKey())) {
+                    continue;
+                }
+                String groupKey = StrUtil.trim(binding.getGlobalSyncKey());
+                Map<Long, MesProRouteFlowFormBindingSaveReqVO> members =
+                        groupMembers.computeIfAbsent(groupKey, key -> new LinkedHashMap<>());
+                if (members.putIfAbsent(processConfig.getRouteProcessId(), binding) != null) {
+                    throw exception(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_DUPLICATE, groupKey);
+                }
+            }
+        }
+        for (Map.Entry<String, Map<Long, MesProRouteFlowFormBindingSaveReqVO>> entry : groupMembers.entrySet()) {
+            String groupKey = entry.getKey();
+            Map<Long, MesProRouteFlowFormBindingSaveReqVO> members = entry.getValue();
+            if (!members.keySet().containsAll(validRouteProcessIds) || members.size() != validRouteProcessIds.size()) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE, groupKey);
+            }
+            MesProRouteFlowFormBindingSaveReqVO standard = null;
+            for (Long routeProcessId : validRouteProcessIds) {
+                MesProRouteFlowFormBindingSaveReqVO binding = members.get(routeProcessId);
+                if (binding == null) {
+                    throw exception(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE, groupKey);
+                }
+                if (standard == null) {
+                    standard = binding;
+                    continue;
+                }
+                if (!isSameGlobalFormBindingEditableConfig(standard, binding)) {
+                    throw exception(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT, groupKey);
+                }
+            }
+        }
+    }
+
+    private boolean isSameGlobalFormBindingEditableConfig(MesProRouteFlowFormBindingSaveReqVO left,
+                                                          MesProRouteFlowFormBindingSaveReqVO right) {
+        return Objects.equals(left.getFormTemplateId(), right.getFormTemplateId())
+                && Objects.equals(normalizeString(left.getFormTemplateName()), normalizeString(right.getFormTemplateName()))
+                && Objects.equals(resolveComparableFormSlotType(left), resolveComparableFormSlotType(right))
+                && Objects.equals(resolveComparableInstanceScope(left), resolveComparableInstanceScope(right))
+                && Objects.equals(normalizeString(left.getSharedFormKey()), normalizeString(right.getSharedFormKey()))
+                && Objects.equals(normalizeString(left.getFillableScopeJson()), normalizeString(right.getFillableScopeJson()))
+                && Objects.equals(resolveComparableRecordCategory(left), resolveComparableRecordCategory(right))
+                && Objects.equals(resolveComparableValidationProfile(left), resolveComparableValidationProfile(right))
+                && Objects.equals(left.getRecordbookEnabled(), right.getRecordbookEnabled())
+                && Objects.equals(left.getPermissionScopeId(), right.getPermissionScopeId())
+                && Objects.equals(resolveComparableRequiredPolicy(left), resolveComparableRequiredPolicy(right))
+                && Objects.equals(normalizeString(left.getRequiredConditionJson()), normalizeString(right.getRequiredConditionJson()))
+                && Objects.equals(resolveComparableOwnerRoleKey(left), resolveComparableOwnerRoleKey(right))
+                && Objects.equals(resolveComparableArchiveVisibility(left), resolveComparableArchiveVisibility(right))
+                && Objects.equals(normalizeString(left.getCandidateSourceType()), normalizeString(right.getCandidateSourceType()))
+                && Objects.equals(left.getCandidateSourceIds(), right.getCandidateSourceIds())
+                && Objects.equals(left.getCandidateSourceNames(), right.getCandidateSourceNames())
+                && Objects.equals(normalizeString(left.getRemark()), normalizeString(right.getRemark()));
+    }
+
+    private String resolveComparableFormSlotType(MesProRouteFlowFormBindingSaveReqVO binding) {
+        return StrUtil.blankToDefault(StrUtil.trim(binding.getFormSlotType()), SLOT_TYPE_MAIN);
+    }
+
+    private String resolveComparableInstanceScope(MesProRouteFlowFormBindingSaveReqVO binding) {
+        return StrUtil.blankToDefault(StrUtil.trim(binding.getInstanceScope()), "PROCESS");
+    }
+
+    private String resolveComparableRecordCategory(MesProRouteFlowFormBindingSaveReqVO binding) {
+        return StrUtil.blankToDefault(StrUtil.trim(binding.getRecordCategory()), RECORD_CATEGORY_BATCH);
+    }
+
+    private String resolveComparableValidationProfile(MesProRouteFlowFormBindingSaveReqVO binding) {
+        String recordCategory = resolveComparableRecordCategory(binding);
+        String defaultProfile = RECORD_CATEGORY_INTERNAL.equals(recordCategory)
+                ? VALIDATION_PROFILE_INTERNAL : VALIDATION_PROFILE_BATCH;
+        return StrUtil.blankToDefault(StrUtil.trim(binding.getValidationProfile()), defaultProfile);
+    }
+
+    private String resolveComparableRequiredPolicy(MesProRouteFlowFormBindingSaveReqVO binding) {
+        return StrUtil.blankToDefault(StrUtil.trim(binding.getRequiredPolicy()), REQUIRED_POLICY_REQUIRED);
+    }
+
+    private String resolveComparableOwnerRoleKey(MesProRouteFlowFormBindingSaveReqVO binding) {
+        return StrUtil.blankToDefault(StrUtil.trim(binding.getOwnerRoleKey()), OWNER_ROLE_PRODUCTION);
+    }
+
+    private String resolveComparableArchiveVisibility(MesProRouteFlowFormBindingSaveReqVO binding) {
+        return StrUtil.blankToDefault(StrUtil.trim(binding.getArchiveVisibility()), ARCHIVE_VISIBILITY_FINAL_DHR);
+    }
+
+    private String normalizeString(String value) {
+        return StrUtil.blankToDefault(StrUtil.trim(value), null);
+    }
+
     private String resolveExecutionMode(MesProRouteFlowConfigTypeEnum flowConfigType, String executionMode) {
         String normalized = StrUtil.blankToDefault(StrUtil.trim(executionMode), EXECUTION_MODE_SEQUENTIAL);
         if (EXECUTION_MODE_SEQUENTIAL.equals(normalized) || EXECUTION_MODE_PARALLEL.equals(normalized)) {
@@ -1982,6 +2020,10 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             Long permissionScopeId = resolvePermissionScopeId(report, existingPermissionScopeIds);
             String batchRecordReportId = StrUtil.trim(report.getBatchRecordReportId());
             MesProBatchRecordReportDO metadata = reportMap.get(batchRecordReportId);
+            if (metadata == null || metadata.getBatchRecordDefinitionId() == null
+                    || metadata.getBatchRecordVersionId() == null) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_REPORT_NOT_EXISTS);
+            }
             String formSlotType = resolveConfiguredFormSlotType(report, metadata);
             String instanceScope = resolveInstanceScope(report.getInstanceScope());
             validateSharedFormBinding(instanceScope, report);
@@ -2000,6 +2042,8 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .routeProcessId(processConfig.getRouteProcessId())
                     .useType(flowConfigType.getType())
                     .batchRecordReportId(batchRecordReportId)
+                    .batchRecordDefinitionId(metadata.getBatchRecordDefinitionId())
+                    .batchRecordVersionId(metadata.getBatchRecordVersionId())
                     .formSlotType(formSlotType)
                     .instanceScope(instanceScope)
                     .sharedFormKey(StrUtil.blankToDefault(StrUtil.trim(report.getSharedFormKey()), null))
@@ -2047,7 +2091,6 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .batchRecordVersionId(null)
                     .formSlotType(formSlotType)
                     .formBindingKey(resolveFormBindingKey(processConfig.getRouteProcessId(), binding, index + 1))
-                    .globalSyncKey(StrUtil.blankToDefault(StrUtil.trim(binding.getGlobalSyncKey()), null))
                     .formTemplateId(binding.getFormTemplateId())
                     .formTemplateNameSnapshot(StrUtil.trim(binding.getFormTemplateName()))
                     .lastPublishedTemplateVersionId(binding.getLastPublishedTemplateVersionId())
@@ -2238,7 +2281,6 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             String archiveVisibility = resolveArchiveVisibility(binding.getArchiveVisibility());
             MesProRouteFlowFormBindingSaveReqVO normalizedBinding = new MesProRouteFlowFormBindingSaveReqVO()
                     .setFormBindingKey(resolveFormBindingKey(saveConfig.getRouteProcessId(), binding, index + 1))
-                    .setGlobalSyncKey(StrUtil.blankToDefault(StrUtil.trim(binding.getGlobalSyncKey()), null))
                     .setFormTemplateId(binding.getFormTemplateId())
                     .setFormTemplateName(StrUtil.trim(publishedVersion.getTemplateName()))
                     .setFormSlotType(formSlotType)
@@ -2464,7 +2506,6 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .map(record -> {
                     MesProRouteFlowFormBindingRespVO vo = new MesProRouteFlowFormBindingRespVO();
                     vo.setFormBindingKey(record.getFormBindingKey());
-                    vo.setGlobalSyncKey(record.getGlobalSyncKey());
                     String formSlotType = resolveFormSlotType(record, null);
                     vo.setFormSlotType(formSlotType);
                     vo.setFormTemplateId(record.getFormTemplateId());

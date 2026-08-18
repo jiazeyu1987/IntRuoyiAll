@@ -1045,6 +1045,60 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
+    void getProcessWipStatistics_shouldExposeWorkbenchManualCapacityOverrideFromSnapshots() {
+        MesProScheduleOrderDO order = MesProScheduleOrderDO.builder()
+                .id(900512L)
+                .routeId(500512L)
+                .routeVersionId(600512L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderProcessDO process = MesProScheduleOrderProcessDO.builder()
+                .id(800512L)
+                .scheduleOrderId(900512L)
+                .routeVersionId(600512L)
+                .routeProcessId(710512L)
+                .processId(700512L)
+                .processCode("P-512")
+                .processName("工作台覆盖产能工序")
+                .enabled(Boolean.TRUE)
+                .progressPercent(new BigDecimal("20"))
+                .remainingQuantity(new BigDecimal("2400.000000"))
+                .capacitySource("MANUAL_OVERRIDE")
+                .capacityMode(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode())
+                .hourlyCapacityTotal(new BigDecimal("120.000000"))
+                .shiftHours(new BigDecimal("10.000000"))
+                .shiftCapacityTotal(new BigDecimal("1200.000000"))
+                .build();
+        MesProRouteScheduleConfigDO routeConfig = MesProRouteScheduleConfigDO.builder()
+                .id(750512L)
+                .routeVersionId(600512L)
+                .routeProcessId(710512L)
+                .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
+                .hourlyCapacity(null)
+                .nightShiftEnabled(Boolean.FALSE)
+                .build();
+
+        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(order));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900512L)))
+                .thenReturn(List.of(process));
+        stubCurrentRouteProcessDefinitions(process);
+        when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600512L, 710512L))
+                .thenReturn(routeConfig);
+        when(feedbackMapper.selectFinishedListByScheduleOrderProcessIdsToday(
+                Set.of(800512L), LocalDate.now())).thenReturn(List.of());
+
+        List<MesProScheduleOrderProcessWipRespVO> result = scheduleOrderService.getProcessWipStatistics();
+
+        assertEquals(1, result.size());
+        MesProScheduleOrderProcessWipRespVO row = result.get(0);
+        assertEquals(new BigDecimal("1200.000000"), row.getShiftCapacityTotal());
+        assertEquals(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode(), row.getCapacityMode());
+        assertEquals("MANUAL_OVERRIDE", row.getCapacitySource());
+        assertEquals(LocalDate.now().atStartOfDay().plusDays(2), row.getEstimatedCompletionTime());
+    }
+
+    @Test
     void getProcessWipStatistics_shouldExposeCapacityModeAndSourceForNavigation() {
         MesProScheduleOrderDO manualOrder = MesProScheduleOrderDO.builder()
                 .id(900521L)
@@ -1604,6 +1658,123 @@ class MesProScheduleOrderServiceImplTest {
                 .allMatch(log -> log.getAfterSnapshotJson().contains("7")));
         assertTrue(logCaptor.getAllValues().stream()
                 .allMatch(log -> log.getAfterSnapshotJson().contains("15")));
+    }
+
+    @Test
+    void saveProcessWipSettings_shouldPersistManualShiftCapacityAsHourlyOverrideAndSyncWipSnapshots() {
+        MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
+                .id(900704L)
+                .code("SCH-704")
+                .routeId(500704L)
+                .routeVersionId(600704L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderProcessDO process = MesProScheduleOrderProcessDO.builder()
+                .id(800704L)
+                .scheduleOrderId(900704L)
+                .routeVersionId(600704L)
+                .routeProcessId(710704L)
+                .processId(700704L)
+                .enabled(Boolean.TRUE)
+                .progressPercent(new BigDecimal("30"))
+                .shiftHours(new BigDecimal("10.000000"))
+                .shiftCapacityTotal(new BigDecimal("1000.000000"))
+                .nightShiftEnabled(Boolean.FALSE)
+                .build();
+        MesProRouteScheduleConfigDO routeConfig = MesProRouteScheduleConfigDO.builder()
+                .id(750704L)
+                .routeVersionId(600704L)
+                .routeProcessId(710704L)
+                .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
+                .hourlyCapacity(null)
+                .nightShiftEnabled(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderProcessWipSettingsReqVO reqVO = new MesProScheduleOrderProcessWipSettingsReqVO();
+        reqVO.setRouteVersionId(600704L);
+        reqVO.setRouteProcessId(710704L);
+        reqVO.setShiftCapacityTotal(new BigDecimal("1200.000000"));
+        reqVO.setReason("工作台调整班次产能");
+
+        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900704L)))
+                .thenReturn(List.of(process));
+        when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600704L, 710704L))
+                .thenReturn(routeConfig);
+
+        scheduleOrderService.saveProcessWipSettings(reqVO);
+
+        verify(routeScheduleConfigMapper, never()).updateById(any(MesProRouteScheduleConfigDO.class));
+
+        ArgumentCaptor<MesProScheduleOrderProcessDO> processCaptor =
+                ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
+        verify(scheduleOrderProcessMapper).updateById(processCaptor.capture());
+        MesProScheduleOrderProcessDO updateObj = processCaptor.getValue();
+        assertEquals(800704L, updateObj.getId());
+        assertEquals(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode(), updateObj.getCapacityMode());
+        assertEquals("MANUAL_OVERRIDE", updateObj.getCapacitySource());
+        assertEquals(new BigDecimal("120.000000"), updateObj.getHourlyCapacityTotal());
+        assertEquals(new BigDecimal("1200.000000000000"), updateObj.getShiftCapacityTotal());
+
+        ArgumentCaptor<MesProScheduleOrderOperationLogDO> logCaptor =
+                ArgumentCaptor.forClass(MesProScheduleOrderOperationLogDO.class);
+        verify(scheduleOrderOperationLogMapper).insert(logCaptor.capture());
+        assertTrue(logCaptor.getValue().getAfterSnapshotJson().contains("\"shiftCapacityTotal\""));
+        assertTrue(logCaptor.getValue().getAfterSnapshotJson().contains("1200"));
+    }
+
+    @Test
+    void refreshProcessWipCapacitySnapshotsForShiftHours_shouldRescaleManualOverrideWipSnapshots() {
+        MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
+                .id(900705L)
+                .code("SCH-705")
+                .routeId(500705L)
+                .routeVersionId(600705L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderProcessDO process = MesProScheduleOrderProcessDO.builder()
+                .id(800705L)
+                .scheduleOrderId(900705L)
+                .routeVersionId(600705L)
+                .routeProcessId(710705L)
+                .processId(700705L)
+                .enabled(Boolean.TRUE)
+                .progressPercent(new BigDecimal("30"))
+                .capacityMode(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode())
+                .capacitySource("MANUAL_OVERRIDE")
+                .hourlyCapacityTotal(new BigDecimal("120.000000"))
+                .shiftHours(new BigDecimal("10.000000"))
+                .shiftCapacityTotal(new BigDecimal("1200.000000"))
+                .nightShiftEnabled(Boolean.FALSE)
+                .build();
+        MesProRouteScheduleConfigDO routeConfig = MesProRouteScheduleConfigDO.builder()
+                .id(750705L)
+                .routeVersionId(600705L)
+                .routeProcessId(710705L)
+                .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
+                .hourlyCapacity(null)
+                .nightShiftEnabled(Boolean.FALSE)
+                .build();
+
+        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900705L)))
+                .thenReturn(List.of(process));
+        when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600705L, 710705L))
+                .thenReturn(routeConfig);
+
+        scheduleOrderService.refreshProcessWipCapacitySnapshotsForShiftHours(new BigDecimal("9.000000"));
+
+        ArgumentCaptor<MesProScheduleOrderProcessDO> processCaptor =
+                ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
+        verify(scheduleOrderProcessMapper).updateById(processCaptor.capture());
+        MesProScheduleOrderProcessDO updateObj = processCaptor.getValue();
+        assertEquals(800705L, updateObj.getId());
+        assertEquals(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode(), updateObj.getCapacityMode());
+        assertEquals("MANUAL_OVERRIDE", updateObj.getCapacitySource());
+        assertEquals(new BigDecimal("120.000000"), updateObj.getHourlyCapacityTotal());
+        assertEquals(new BigDecimal("9.000000"), updateObj.getShiftHours());
+        assertEquals(new BigDecimal("1080.000000000000"), updateObj.getShiftCapacityTotal());
     }
 
     @Test
@@ -2277,6 +2448,7 @@ class MesProScheduleOrderServiceImplTest {
                 .id(900L)
                 .code("SCH-900")
                 .promiseDate(LocalDate.of(2026, 6, 30))
+                .plannedStartTime(LocalDateTime.of(2026, 7, 1, 8, 0))
                 .priorityNo(10)
                 .remark("before")
                 .frozen(Boolean.FALSE)
@@ -2284,6 +2456,7 @@ class MesProScheduleOrderServiceImplTest {
         MesProScheduleOrderUpdateReqVO reqVO = new MesProScheduleOrderUpdateReqVO();
         reqVO.setId(900L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 5));
+        reqVO.setPlannedStartTime(LocalDateTime.of(2026, 7, 2, 9, 30));
         reqVO.setPriorityNo(3);
         reqVO.setRemark("after");
         reqVO.setReason("计划调整");
@@ -2296,6 +2469,7 @@ class MesProScheduleOrderServiceImplTest {
         MesProScheduleOrderDO update = orderCaptor.getValue();
         assertEquals(900L, update.getId());
         assertEquals(LocalDate.of(2026, 7, 5), update.getPromiseDate());
+        assertEquals(LocalDateTime.of(2026, 7, 2, 9, 30), update.getPlannedStartTime());
         assertEquals(3, update.getPriorityNo());
         assertEquals("after", update.getRemark());
 
@@ -2309,6 +2483,7 @@ class MesProScheduleOrderServiceImplTest {
         assertEquals("计划调整", log.getReason());
         assertTrue(log.getBeforeSnapshotJson().contains("before"));
         assertTrue(log.getAfterSnapshotJson().contains("after"));
+        assertTrue(log.getAfterSnapshotJson().contains("2026-07-02T09:30"));
     }
 
     @Test

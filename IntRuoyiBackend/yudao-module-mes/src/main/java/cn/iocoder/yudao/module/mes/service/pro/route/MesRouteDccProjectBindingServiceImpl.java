@@ -5,16 +5,25 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.dcc.MesRouteDccProjectBindingRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.dcc.MesRouteDccProjectBindingSaveReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_DCC_BINDING_VERSION_CONFLICT;
@@ -31,6 +40,10 @@ public class MesRouteDccProjectBindingServiceImpl implements MesRouteDccProjectB
     private MesProRouteMapper routeMapper;
     @Resource
     private DccProjectCodeMapper dccProjectCodeMapper;
+    @Resource
+    private MesProRouteProductMapper routeProductMapper;
+    @Resource
+    private MesMdItemMapper itemMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,7 +62,8 @@ public class MesRouteDccProjectBindingServiceImpl implements MesRouteDccProjectB
                 bindingMapper.selectCurrentByRouteIdForUpdate(reqVO.getRouteId());
         Long currentVersion = current != null ? current.getVersion() : currentVersion(reqVO.getRouteId());
         requireExpectedVersion(reqVO.getRouteId(), reqVO.getExpectedVersion(), currentVersion);
-        requireEnabledDccProjectCode(reqVO.getDccProjectCodeId());
+        DccProjectCodeDO projectCode = requireEnabledDccProjectCode(reqVO.getDccProjectCodeId());
+        requireMatchingProductMaster(reqVO.getRouteId(), projectCode);
         if (current != null && Objects.equals(current.getDccProjectCodeId(), reqVO.getDccProjectCodeId())) {
             return toResp(reqVO.getRouteId(), current, currentVersion);
         }
@@ -109,6 +123,20 @@ public class MesRouteDccProjectBindingServiceImpl implements MesRouteDccProjectB
             throw exception(PRO_ROUTE_DCC_PROJECT_INVALID, dccProjectCodeId);
         }
         return projectCode;
+    }
+
+    private void requireMatchingProductMaster(Long routeId, DccProjectCodeDO projectCode) {
+        List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByRouteId(routeId);
+        List<Long> itemIds = routeProducts == null ? List.of() : routeProducts.stream()
+                .map(MesProRouteProductDO::getItemId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, MesMdItemDO> itemsById = itemIds.isEmpty() ? Map.of() : itemMapper.selectListByIds(itemIds).stream()
+                .filter(item -> item.getId() != null)
+                .collect(Collectors.toMap(MesMdItemDO::getId, Function.identity(),
+                        (left, right) -> left, LinkedHashMap::new));
+        MesRouteDccProductMasterInvariant.requireMatching(routeId, routeProducts, itemsById, projectCode);
     }
 
     private Long currentVersion(Long routeId) {

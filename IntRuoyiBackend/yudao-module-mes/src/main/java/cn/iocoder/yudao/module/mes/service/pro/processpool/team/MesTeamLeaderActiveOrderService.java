@@ -6,7 +6,7 @@ public interface MesTeamLeaderActiveOrderService {
 
     List<MesTeamLeaderActiveOrderCandidateBO> searchActiveOrderCandidates(String keyword);
 
-    Long addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO);
+    MesTeamLeaderActiveOrderAddResult addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO);
 
     void removeActiveOrder(MesTeamLeaderActiveOrderRemoveReqBO reqBO);
 

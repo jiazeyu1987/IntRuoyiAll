@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.frontline;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
@@ -32,14 +34,17 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesProRouteVersionMapper routeVersionMapper;
+    private final MesProProcessMapper processMapper;
 
     public MesFrontlineActiveOrderProcessServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
-            MesProRouteVersionMapper routeVersionMapper) {
+            MesProRouteVersionMapper routeVersionMapper,
+            MesProProcessMapper processMapper) {
         this.activeOrderMapper = activeOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.routeVersionMapper = routeVersionMapper;
+        this.processMapper = processMapper;
     }
 
     @Override
@@ -158,8 +163,9 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
         if (node == null) {
             throw snapshotInvalid(activeOrder.getId(), "逐工序目标快照不属于锁定工艺版本");
         }
-        String processCode = normalize(node.getString("processCode"));
-        String processName = normalize(node.getString("processName"));
+        FrozenProcessLabel processLabel = resolveProcessLabel(activeOrder.getId(), snapshot.getProcessId(), node);
+        String processCode = processLabel.processCode();
+        String processName = processLabel.processName();
         if (processCode == null || processName == null) {
             throw snapshotInvalid(activeOrder.getId(), "流程工序缺少冻结编码或名称");
         }
@@ -179,6 +185,25 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
         return exception(PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID, activeOrderId, detail);
     }
 
+    private FrozenProcessLabel resolveProcessLabel(Long activeOrderId, Long processId, JSONObject node) {
+        String processCode = normalize(node.getString("processCode"));
+        String processName = normalize(node.getString("processName"));
+        if (processCode != null && processName != null) {
+            return new FrozenProcessLabel(processCode, processName);
+        }
+        MesProProcessDO process = processMapper.selectById(processId);
+        if (process == null) {
+            throw snapshotInvalid(activeOrderId, "冻结工序主数据不存在");
+        }
+        if (processCode == null) {
+            processCode = normalize(process.getCode());
+        }
+        if (processName == null) {
+            processName = normalize(process.getName());
+        }
+        return new FrozenProcessLabel(processCode, processName);
+    }
+
     private static String normalize(String value) {
         if (value == null) {
             return null;
@@ -188,5 +213,8 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
     }
 
     private record ProcessIdentity(Long routeProcessId, Long processId) {
+    }
+
+    private record FrozenProcessLabel(String processCode, String processName) {
     }
 }

@@ -68,6 +68,7 @@ DELETE FROM "mes_pro_route_process_flow_layout";
 DELETE FROM "mes_pro_route_process_flow_boundary_edge";
 DELETE FROM "mes_pro_route_process_flow_edge";
 DELETE FROM "mes_pro_route_process";
+DELETE FROM "mes_qa_inspection_regulation";
 DELETE FROM "mes_pro_route_dcc_project_binding";
 DELETE FROM "mes_pro_route";
 DELETE FROM "mes_pro_process";

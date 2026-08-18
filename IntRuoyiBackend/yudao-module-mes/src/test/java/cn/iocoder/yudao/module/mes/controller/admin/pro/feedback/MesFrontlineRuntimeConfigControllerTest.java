@@ -71,15 +71,15 @@ class MesFrontlineRuntimeConfigControllerTest {
                                 new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 10002L)))
                 , "snapshot-001", "hash-001"
         );
-        when(runtimeConfigService.getRuntimeConfig(9001L, 48L, 101L, 1001L, 201L)).thenReturn(runtimeConfig);
+        when(runtimeConfigService.getRuntimeConfig(9001L, 8101L, 101L, 1001L, 201L)).thenReturn(runtimeConfig);
 
         CommonResult<MesFrontlineRuntimeConfigRespVO> response;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            response = controller.getRuntimeConfig(48L, 101L, 1001L, 201L);
+            response = controller.getRuntimeConfig(8101L, 101L, 1001L, 201L);
         }
 
-        verify(runtimeConfigService).getRuntimeConfig(9001L, 48L, 101L, 1001L, 201L);
+        verify(runtimeConfigService).getRuntimeConfig(9001L, 8101L, 101L, 1001L, 201L);
         MesFrontlineRuntimeConfigRespVO data = response.getData();
         assertEquals(101L, data.getRouteId());
         assertEquals(1001L, data.getRouteProcessId());

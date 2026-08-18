@@ -1232,7 +1232,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
 
     private static boolean isItemScopedTask(MesPqcInspectionTaskDO task) {
         return task != null && (Objects.equals("FIRST", task.getInspectionType())
-                || Objects.equals("PATROL", task.getInspectionType()));
+                || Objects.equals("PATROL", task.getInspectionType())
+                || Objects.equals("FINAL", task.getInspectionType()));
     }
 
     private static boolean taskItemScopeMatches(MesPqcInspectionTaskDO task) {

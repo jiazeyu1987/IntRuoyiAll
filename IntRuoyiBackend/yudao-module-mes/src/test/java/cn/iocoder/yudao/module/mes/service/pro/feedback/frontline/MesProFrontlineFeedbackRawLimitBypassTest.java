@@ -42,6 +42,8 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
     @Mock
     private MesFrontlineDeviceParameterValidator deviceParameterValidator;
     @Mock
+    private MesFrontlineParameterAuditService parameterAuditService;
+    @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @Mock
     private MesProBatchRecordExecutionSignatureService signatureService;
@@ -57,10 +59,13 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
                 submitAuthorizationService,
                 lossReasonValidator,
                 deviceParameterValidator,
+                parameterAuditService,
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
+        org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
+                .thenReturn(MesFrontlineParameterAuditResult.empty());
         org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
                 .thenReturn(4001L);
     }

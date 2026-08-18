@@ -18,8 +18,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesP
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelLinkReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelStatusUpdateReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderActiveTaskRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderMoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO;
@@ -64,13 +64,12 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPers
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelLinkReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderPersonnelStatusUpdateReqBO;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderActiveTaskRow;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcLeaderActiveTaskService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeDisplayNameUpdateReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeStatusUpdateReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalEmployeeLinkReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamFormalUserCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderMoveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
@@ -146,7 +145,6 @@ public class MesProcessPoolTeamLeaderController {
     private final MesReportAllocationCommandService reportAllocationService;
     private final MesTeamLeaderRuntimeConfigService runtimeConfigService;
     private final MesPqcLeaderPersonnelService pqcPersonnelService;
-    private final MesPqcLeaderActiveTaskService pqcActiveTaskService;
     private final MesTeamLeaderLossReasonService lossReasonService;
     private final MesTeamLeaderTraceService traceService;
     private final MesActiveOrderTransferTraceService activeOrderTransferTraceService;
@@ -162,7 +160,6 @@ public class MesProcessPoolTeamLeaderController {
                                               MesReportAllocationCommandService reportAllocationService,
                                               MesTeamLeaderRuntimeConfigService runtimeConfigService,
                                               MesPqcLeaderPersonnelService pqcPersonnelService,
-                                              MesPqcLeaderActiveTaskService pqcActiveTaskService,
                                               MesTeamLeaderLossReasonService lossReasonService,
                                               MesTeamLeaderTraceService traceService,
                                               MesActiveOrderTransferTraceService activeOrderTransferTraceService,
@@ -177,7 +174,6 @@ public class MesProcessPoolTeamLeaderController {
         this.reportAllocationService = reportAllocationService;
         this.runtimeConfigService = runtimeConfigService;
         this.pqcPersonnelService = pqcPersonnelService;
-        this.pqcActiveTaskService = pqcActiveTaskService;
         this.lossReasonService = lossReasonService;
         this.traceService = traceService;
         this.activeOrderTransferTraceService = activeOrderTransferTraceService;
@@ -298,11 +294,16 @@ public class MesProcessPoolTeamLeaderController {
     @PostMapping("/active-order/add")
     @Operation(summary = "加入生产组长活跃订单")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
-    public CommonResult<Long> addActiveOrder(@Valid @RequestBody MesTeamLeaderActiveOrderAddReqVO reqVO) {
-        return success(activeOrderService.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+    public CommonResult<MesTeamLeaderActiveOrderAddRespVO> addActiveOrder(
+            @Valid @RequestBody MesTeamLeaderActiveOrderAddReqVO reqVO) {
+        MesTeamLeaderActiveOrderAddResult result = activeOrderService.addActiveOrder(
+                MesTeamLeaderActiveOrderAddReqBO.builder()
                 .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
                 .workOrderId(reqVO.getWorkOrderId())
-                .build()));
+                .build());
+        return success(new MesTeamLeaderActiveOrderAddRespVO()
+                .setActiveOrderId(result.getActiveOrderId())
+                .setAction(result.getAction()));
     }
 
     @PutMapping("/active-order/remove")
@@ -334,15 +335,6 @@ public class MesProcessPoolTeamLeaderController {
     public CommonResult<List<MesTeamLeaderActiveOrderRespVO>> getActiveOrderList() {
         return success(activeOrderService.listActiveOrders(SecurityFrameworkUtils.getLoginUserId()).stream()
                 .map(MesProcessPoolTeamLeaderController::toActiveOrderRespVO)
-                .toList());
-    }
-
-    @GetMapping("/pqc-task/active-list")
-    @Operation(summary = "查询PQC组长当前活跃任务")
-    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
-    public CommonResult<List<MesPqcLeaderActiveTaskRespVO>> getPqcActiveTaskList() {
-        return success(pqcActiveTaskService.listActiveTasks().stream()
-                .map(MesProcessPoolTeamLeaderController::toPqcActiveTaskRespVO)
                 .toList());
     }
 
@@ -841,36 +833,6 @@ public class MesProcessPoolTeamLeaderController {
                 .setEnabled(personnel.getEnabled());
     }
 
-    private static MesPqcLeaderActiveTaskRespVO toPqcActiveTaskRespVO(MesPqcLeaderActiveTaskRow task) {
-        return new MesPqcLeaderActiveTaskRespVO()
-                .setPqcTaskId(task.getPqcTaskId())
-                .setTaskStatus(task.getTaskStatus())
-                .setActiveOrderId(task.getActiveOrderId())
-                .setWorkOrderId(task.getWorkOrderId())
-                .setWorkOrderCode(task.getWorkOrderCode())
-                .setWorkOrderName(task.getWorkOrderName())
-                .setQaRegulationId(task.getQaRegulationId())
-                .setQaRegulationCode(task.getQaRegulationCode())
-                .setQaRegulationName(task.getQaRegulationName())
-                .setQaVersionId(task.getQaVersionId())
-                .setQaVersionNo(task.getQaVersionNo())
-                .setQaProcessId(task.getQaProcessId())
-                .setQaProcessCode(task.getQaProcessCode())
-                .setQaProcessName(task.getQaProcessName())
-                .setRouteId(task.getRouteId())
-                .setRouteCode(task.getRouteCode())
-                .setRouteName(task.getRouteName())
-                .setRouteVersionId(task.getRouteVersionId())
-                .setRouteVersionNo(task.getRouteVersionNo())
-                .setInspectionRuleKey(task.getInspectionRuleKey())
-                .setInspectionType(task.getInspectionType())
-                .setBusinessDate(task.getBusinessDate())
-                .setShiftCode(task.getShiftCode())
-                .setRoundNo(task.getRoundNo())
-                .setPlannedInspectionQuantity(task.getPlannedInspectionQuantity())
-                .setActualInspectionQuantity(task.getActualInspectionQuantity());
-    }
-
     private static MesTeamFormalUserCandidateRespVO toFormalUserCandidateRespVO(MesTeamFormalUserCandidateBO candidate) {
         return new MesTeamFormalUserCandidateRespVO()
                 .setSystemUserId(candidate.getSystemUserId())
@@ -998,6 +960,7 @@ public class MesProcessPoolTeamLeaderController {
         return new MesTeamLeaderActiveOrderCandidateRespVO()
                 .setWorkOrderId(candidate.getWorkOrderId())
                 .setWorkOrderCode(candidate.getWorkOrderCode())
+                .setCandidateState(candidate.getCandidateState())
                 .setEligible(candidate.isEligible())
                 .setIneligibleReason(candidate.getIneligibleReason());
     }

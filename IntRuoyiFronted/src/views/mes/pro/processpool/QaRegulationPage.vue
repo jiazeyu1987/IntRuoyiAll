@@ -122,7 +122,10 @@
             data-qa-regulation-header-save
             :loading="qaRegulationSaving"
             :disabled="
-              !selectedDccProjectCode || qaCurrentConfigurationLoading || qaRegulationPublishing
+              !selectedDccProjectCode ||
+              qaCurrentConfigurationLoading ||
+              qaRegulationPublishing ||
+              qaRegulationResetting
             "
             @click="previewQaRegulationDraft"
           >
@@ -132,7 +135,10 @@
             type="primary"
             :loading="qaRegulationPublishing"
             :disabled="
-              !selectedDccProjectCode || qaCurrentConfigurationLoading || qaRegulationSaving
+              !selectedDccProjectCode ||
+              qaCurrentConfigurationLoading ||
+              qaRegulationSaving ||
+              qaRegulationResetting
             "
             @click="runQaPublishPrecheck"
           >
@@ -142,11 +148,28 @@
             plain
             data-qa-regulation-word-import
             :loading="qaWordImportSubmitting"
-            :disabled="qaRegulationSaving || qaRegulationPublishing"
+            :disabled="qaRegulationSaving || qaRegulationPublishing || qaRegulationResetting"
             @click="openQaWordImportDialog"
           >
             <Icon icon="ep:document" class="mr-4px" />
             解析
+          </el-button>
+          <el-button
+            type="danger"
+            plain
+            data-qa-regulation-test-reset
+            v-hasPermi="['mes:qc-template:update']"
+            :loading="qaRegulationResetting"
+            :disabled="
+              !selectedDccProjectCode ||
+              qaCurrentConfigurationLoading ||
+              qaRegulationSaving ||
+              qaRegulationPublishing ||
+              qaWordImportSubmitting
+            "
+            @click="resetQaRegulationForTesting"
+          >
+            测试重置
           </el-button>
         </div>
       </div>
@@ -909,7 +932,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadFile, UploadUserFile } from 'element-plus'
 import { useClipboard } from '@vueuse/core'
 import { useRoute } from 'vue-router'
@@ -947,7 +970,7 @@ import {
   resolveQaItemInspectionPayload,
   type QaItemDisplayInspectionType,
   type QaItemInspectionState
-} from './qaRegulationItemInspection'
+  } from './qaRegulationItemInspection'
 
 defineOptions({ name: 'MesProProcessPoolQaRegulation' })
 
@@ -1182,6 +1205,7 @@ const qaWordImportSubmitting = ref(false)
 const qaWordImportDccProjectCodeId = ref<number>()
 const qaWordImportFile = ref<File>()
 const qaWordImportFileList = ref<UploadUserFile[]>([])
+const qaRegulationResetting = ref(false)
 
 const dccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const dccProjectCodeOptionsLoading = ref(false)
@@ -1593,6 +1617,159 @@ const retryLoadDccProjectCodes = async () => {
     await loadDccProjectCodeOptions()
   } catch (error) {
     ElMessage.error(resolveDccProjectCodeErrorMessage(error))
+  }
+}
+
+const resetQaWordImportDialog = () => {
+  if (qaWordImportSubmitting.value) {
+    return
+  }
+  qaWordImportFile.value = undefined
+  qaWordImportFileList.value = []
+  qaWordImportDccProjectCodeId.value = undefined
+}
+
+const openQaWordImportDialog = () => {
+  qaWordImportFile.value = undefined
+  qaWordImportFileList.value = []
+  qaWordImportDccProjectCodeId.value = qaRegulationDraft.dccProjectCodeId
+  qaWordImportDialogVisible.value = true
+  if (dccProjectCodeOptions.value.length === 0) {
+    void loadDccProjectCodeOptions().catch((error) => {
+      ElMessage.error('DCC 项目代码加载失败：' + resolveDccProjectCodeErrorMessage(error))
+    })
+  }
+}
+
+const handleQaWordImportFileChange = (uploadFile: UploadFile) => {
+  const rawFile = uploadFile.raw
+  if (!rawFile || !uploadFile.name.toLowerCase().endsWith('.docx')) {
+    qaWordImportFile.value = undefined
+    qaWordImportFileList.value = []
+    ElMessage.error('仅支持 .docx QA 模板文件')
+    return
+  }
+  qaWordImportFile.value = rawFile
+}
+
+const handleQaWordImportFileRemove = () => {
+  qaWordImportFile.value = undefined
+}
+
+const handleQaWordImportFileExceed = () => {
+  ElMessage.warning('每次只能解析一个 QA 模板文件')
+}
+
+const handleQaWordImportProjectVisibleChange = (visible: boolean) => {
+  if (visible && dccProjectCodeOptions.value.length === 0) {
+    void loadDccProjectCodeOptions().catch((error) => {
+      ElMessage.error('DCC 项目代码加载失败：' + resolveDccProjectCodeErrorMessage(error))
+    })
+  }
+}
+
+const submitQaWordImport = async () => {
+  let savedResult: QaInspectionRegulationImportRespVO | undefined
+  try {
+    if (!qaWordImportFile.value) {
+      throw new Error('请选择需要解析的 .docx QA 模板文件')
+    }
+    const dccProjectCodeId = resolvePositiveId(qaWordImportDccProjectCodeId.value, '绑定项目')
+    const formData = new FormData()
+    formData.append('file', qaWordImportFile.value)
+    formData.append('dccProjectCodeId', String(dccProjectCodeId))
+
+    qaWordImportSubmitting.value = true
+    savedResult = await QcTemplateApi.importQaRegulationWordDraft(formData)
+    const project =
+      dccProjectCodeOptions.value.find((option) => Number(option.id) === dccProjectCodeId) ||
+      (await getProjectCode(dccProjectCodeId))
+    if (!project || project.status !== DCC_PROJECT_CODE_STATUS_ENABLE) {
+      throw new Error('导入已保存，但绑定的 DCC 项目已停用或不存在')
+    }
+    dccProjectCodeOptions.value = mergeDccProjectCodeOptions([
+      project,
+      ...dccProjectCodeOptions.value
+    ])
+    const statusMap = new Map(qaRegulationProjectStatusByDccId.value)
+    const currentStatus = statusMap.get(dccProjectCodeId)
+    statusMap.set(dccProjectCodeId, {
+      dccProjectCodeId,
+      configured: true,
+      regulationCount: currentStatus?.regulationCount || 1,
+      regulationId: savedResult.regulationId,
+      currentVersionId: currentStatus?.currentVersionId,
+      regulationCode: savedResult.regulationCode,
+      regulationName: savedResult.regulationName,
+      lifecycleStatus: currentStatus?.currentVersionId ? 'PUBLISHED' : 'DRAFT'
+    })
+    qaRegulationProjectStatusByDccId.value = statusMap
+    await selectDccProjectCode(project)
+    qaActiveTab.value = 'items'
+    qaWordImportDialogVisible.value = false
+    const routeText = savedResult.route === 'CREATE' ? '新建' : '升版'
+    ElMessage.success(
+      `QA 模板解析完成，${routeText}草稿 ${savedResult.versionNo} 已保存：` +
+        `${savedResult.processCount} 个工序、${savedResult.itemCount} 个检验项目`
+    )
+  } catch (error) {
+    const prefix = savedResult ? 'QA 草稿已保存，但页面刷新失败：' : 'QA 模板解析失败：'
+    ElMessage.error(prefix + resolveDccProjectCodeErrorMessage(error))
+    if (savedResult) {
+      qaWordImportDialogVisible.value = false
+    }
+  } finally {
+    qaWordImportSubmitting.value = false
+  }
+}
+
+const resetQaRegulationForTesting = async () => {
+  let resetCompleted = false
+  try {
+    const dccProjectCodeId = resolvePositiveId(qaRegulationDraft.dccProjectCodeId, 'DCC 项目代码 ID')
+    const projectLabel = selectedDccProjectCodeLabel.value || String(dccProjectCodeId)
+    await ElMessageBox.confirm(
+      `将清空“${projectLabel}”当前 QA 规程草稿和已发布版本，仅用于测试阶段重新导入同版本模板。` +
+        '如果该规程已被活跃订单或 PQC 检验任务引用，后端会拒绝重置。',
+      '重置 QA 规程',
+      {
+        confirmButtonText: '确认重置',
+        cancelButtonText: '取消',
+        type: 'warning',
+        distinguishCancelAndClose: true
+      }
+    )
+    qaRegulationResetting.value = true
+    const result = await QcTemplateApi.resetQaRegulationForTesting(dccProjectCodeId)
+    resetCompleted = true
+    resetQaRegulationConfiguration(dccProjectCodeId)
+    qaCurrentPublishedVersion.value = undefined
+    qaCurrentPublishedVersionLoadError.value = ''
+    qaCurrentPublishedVersionLoading.value = false
+    qaActiveTab.value = 'overview'
+    const statusMap = new Map(qaRegulationProjectStatusByDccId.value)
+    statusMap.set(dccProjectCodeId, {
+      dccProjectCodeId,
+      configured: false,
+      regulationCount: 0,
+      lifecycleStatus: undefined
+    })
+    qaRegulationProjectStatusByDccId.value = statusMap
+    if (selectedDccProjectCode.value) {
+      await selectDccProjectCode(selectedDccProjectCode.value)
+    }
+    ElMessage.success(
+      `测试重置完成：已清理 ${result.versionCount} 个版本、` +
+        `${result.processCount} 个工序、${result.itemCount} 条检验项目`
+    )
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') {
+      return
+    }
+    const prefix = resetCompleted ? 'QA 规程已重置，但页面刷新失败：' : 'QA 规程重置失败：'
+    ElMessage.error(prefix + resolveDccProjectCodeErrorMessage(error))
+  } finally {
+    qaRegulationResetting.value = false
   }
 }
 
@@ -2014,6 +2191,7 @@ const runQaPublishPrecheck = async () => {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 0;
 }
@@ -2150,15 +2328,26 @@ const runQaPublishPrecheck = async () => {
 
 .qa-regulation-page__version-publish {
   display: flex;
-  flex-shrink: 0;
+  flex: 1 1 620px;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
   margin-left: auto;
+  min-width: 0;
+}
+
+.qa-regulation-page__version-publish :deep([data-qa-regulation-word-import]) {
+  flex-shrink: 0;
+}
+
+.qa-regulation-page__version-publish :deep([data-qa-regulation-test-reset]) {
+  flex-shrink: 0;
 }
 
 .qa-regulation-page__header :deep(.el-tag) {
   flex-shrink: 0;
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .qa-regulation-page__header-field {
@@ -2185,6 +2374,7 @@ const runQaPublishPrecheck = async () => {
 
 .qa-regulation-page__version-publish :deep(.el-tag) {
   flex-shrink: 0;
+  margin-left: 0;
 }
 
 .qa-regulation-page__tabs-wrap :deep(.el-card__body) {

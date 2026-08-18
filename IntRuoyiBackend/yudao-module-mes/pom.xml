@@ -39,6 +39,11 @@
         </dependency>
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-module-mdm</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
             <artifactId>yudao-module-bpm</artifactId>
             <version>${revision}</version>
         </dependency>
@@ -94,38 +99,6 @@
     </dependencies>
 
     <profiles>
-        <profile>
-            <id>mes-workstation-targeted-tests</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-compiler-plugin</artifactId>
-                        <configuration>
-                            <testIncludes>
-                                <testInclude>**/MesMdWorkstationServiceImplTest.java</testInclude>
-                                <testInclude>**/BalloonProcessDeviceMappingImportServiceImplTest.java</testInclude>
-                                <testInclude>**/MesProRouteScheduleConfigServiceImplTest.java</testInclude>
-                            </testIncludes>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
-                                <include>**/MesMdWorkstationServiceImplTest.java</include>
-                                <include>**/BalloonProcessDeviceMappingImportServiceImplTest.java</include>
-                                <include>**/MesProRouteScheduleConfigServiceImplTest.java</include>
-                            </includes>
-                            <systemPropertyVariables>
-                                <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
-                            </systemPropertyVariables>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
         <profile>
             <id>mes-schedule-targeted-tests</id>
             <build>
@@ -249,7 +222,6 @@
                             <testIncludes>
                                 <testInclude>**/MesTeamLeaderActiveOrderManualSortTest.java</testInclude>
                                 <testInclude>**/MesTeamLeaderActiveOrderServiceTest.java</testInclude>
-                                <testInclude>**/MesTeamLeaderActiveOrderErpPlannedStartTest.java</testInclude>
                                 <testInclude>**/MesProcessPoolTeamLeaderControllerTest.java</testInclude>
                                 <testInclude>**/MesActiveOrderTransferTraceServiceTest.java</testInclude>
                                 <testInclude>**/MesActiveOrderTransferTraceSchemaTest.java</testInclude>
@@ -263,7 +235,6 @@
                             <includes>
                                 <include>**/MesTeamLeaderActiveOrderManualSortTest.java</include>
                                 <include>**/MesTeamLeaderActiveOrderServiceTest.java</include>
-                                <include>**/MesTeamLeaderActiveOrderErpPlannedStartTest.java</include>
                                 <include>**/MesProcessPoolTeamLeaderControllerTest.java</include>
                                 <include>**/MesActiveOrderTransferTraceServiceTest.java</include>
                                 <include>**/MesActiveOrderTransferTraceSchemaTest.java</include>
@@ -355,7 +326,6 @@
                             <testIncludes>
                                 <testInclude>**/MesQaPqcSchemaTest.java</testInclude>
                                 <testInclude>**/MesFrontlinePqcContextServiceTest.java</testInclude>
-                                <testInclude>**/MesFrontlinePqcTaskOverlayTest.java</testInclude>
                                 <testInclude>**/MesProcessPoolPqcEventTest.java</testInclude>
                             </testIncludes>
                         </configuration>
@@ -367,7 +337,6 @@
                             <includes>
                                 <include>**/MesQaPqcSchemaTest.java</include>
                                 <include>**/MesFrontlinePqcContextServiceTest.java</include>
-                                <include>**/MesFrontlinePqcTaskOverlayTest.java</include>
                                 <include>**/MesProcessPoolPqcEventTest.java</include>
                             </includes>
                             <systemPropertyVariables>

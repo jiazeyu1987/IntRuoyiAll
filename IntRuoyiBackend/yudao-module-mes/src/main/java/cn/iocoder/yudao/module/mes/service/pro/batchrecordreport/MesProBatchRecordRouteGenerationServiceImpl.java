@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProce
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionSnapshotIdentityWriter;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
@@ -39,7 +40,6 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionR
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeDetailResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeSaveCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeService;
-import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledContentAdapter;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
 import jakarta.annotation.Resource;
@@ -133,8 +133,6 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     private MesProEdhrPermissionScopeService permissionScopeService;
     @Resource
     private MesProRouteService routeService;
-    @Resource
-    private MesProRouteControlledContentAdapter routeControlledContentAdapter;
 
     @Override
     public void validateUploadedWordRoute(List<MesProBatchRecordParsedTable> parsedTables) {
@@ -373,23 +371,25 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .active(false)
                     .lifecycleStatus(STATUS_DRAFT)
                     .sourceRouteVersionId(activeVersion.getId())
-                    .routeSnapshotJson(snapshot.toJSONString())
                     .changeSummaryJson(JSON.toJSONString(Map.of(
                             "source", "EDHR_WORD_IMPORT",
                             "changeType", "BATCH_RECORD_BINDING_CANDIDATE")))
                     .remark("eDHR Word导入更新逐工序批记录表单绑定，待发布后生效")
                     .build();
+            MesProRouteVersionSnapshotIdentityWriter.apply(candidate, snapshot.toJSONString());
             routeVersionMapper.insert(candidate);
         } else {
             MesProRouteVersionDO update = new MesProRouteVersionDO();
             update.setId(candidate.getId());
-            update.setRouteSnapshotJson(snapshot.toJSONString());
+            MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshot.toJSONString());
             update.setChangeSummaryJson(JSON.toJSONString(Map.of(
                     "source", "EDHR_WORD_IMPORT",
                     "changeType", "BATCH_RECORD_BINDING_CANDIDATE")));
             update.setRemark("eDHR Word导入更新逐工序批记录表单绑定，待发布后生效");
             routeVersionMapper.updateById(update);
             candidate.setRouteSnapshotJson(update.getRouteSnapshotJson());
+            candidate.setRouteSnapshotSha256(update.getRouteSnapshotSha256());
+            candidate.setRouteSnapshotFormatVersion(update.getRouteSnapshotFormatVersion());
         }
         return MesProBatchRecordRouteGenerationResult.builder()
                 .routeId(route.getId())
@@ -975,12 +975,10 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 .active(true)
                 .lifecycleStatus(STATUS_ACTIVE)
                 .sourceRouteVersionId(sourceVersion == null ? null : sourceVersion.getId())
-                .routeSnapshotJson(snapshot.toJSONString())
                 .remark(sourceVersion == null ? "eDHR Word导入自动生成路线版本" : "eDHR Word导入升版路线版本")
                 .build();
+        MesProRouteVersionSnapshotIdentityWriter.apply(routeVersion, snapshot.toJSONString());
         routeVersionMapper.insert(routeVersion);
-        routeControlledContentAdapter.recordActiveRegistered(routeVersion, SecurityFrameworkUtils.getLoginUserId(),
-                "eDHR Word导入登记生效路线版本");
         return routeVersion;
     }
 
@@ -1034,9 +1032,6 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                                                                      Long expectedRouteCandidateVersionId) {
         MesProRouteVersionDO candidateVersion = lockAndValidateRouteCandidate(
                 route, sourceVersion, expectedRouteCandidateVersionId);
-        Long actorId = SecurityFrameworkUtils.getLoginUserId();
-        routeControlledContentAdapter.recordActiveRegisteredIfMissing(sourceVersion, actorId,
-                "eDHR Word导入补登记来源生效路线版本");
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("routeId", route.getId());
         snapshot.put("routeCode", route.getCode());
@@ -1106,24 +1101,24 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .active(false)
                     .lifecycleStatus(STATUS_DRAFT)
                     .sourceRouteVersionId(sourceVersion == null ? null : sourceVersion.getId())
-                    .routeSnapshotJson(snapshotJson)
                     .changeSummaryJson(changeSummaryJson)
                     .remark(remark)
                     .build();
+            MesProRouteVersionSnapshotIdentityWriter.apply(candidateVersion, snapshotJson);
             routeVersionMapper.insert(candidateVersion);
-        } else {
-            MesProRouteVersionDO update = new MesProRouteVersionDO();
-            update.setId(candidateVersion.getId());
-            update.setRouteSnapshotJson(snapshotJson);
-            update.setChangeSummaryJson(changeSummaryJson);
-            update.setRemark(remark);
-            routeVersionMapper.updateById(update);
-            candidateVersion.setRouteSnapshotJson(snapshotJson);
-            candidateVersion.setChangeSummaryJson(changeSummaryJson);
-            candidateVersion.setRemark(remark);
+            return candidateVersion;
         }
-        routeControlledContentAdapter.recordDraftCandidateRegisteredIfMissing(sourceVersion, candidateVersion,
-                actorId, "eDHR Word导入登记路线候选版本");
+        MesProRouteVersionDO update = new MesProRouteVersionDO();
+        update.setId(candidateVersion.getId());
+        MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshotJson);
+        update.setChangeSummaryJson(changeSummaryJson);
+        update.setRemark(remark);
+        routeVersionMapper.updateById(update);
+        candidateVersion.setRouteSnapshotJson(snapshotJson);
+        candidateVersion.setRouteSnapshotSha256(update.getRouteSnapshotSha256());
+        candidateVersion.setRouteSnapshotFormatVersion(update.getRouteSnapshotFormatVersion());
+        candidateVersion.setChangeSummaryJson(changeSummaryJson);
+        candidateVersion.setRemark(remark);
         return candidateVersion;
     }
 
@@ -1377,9 +1372,11 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     private void updateRouteVersionSnapshot(MesProRouteVersionDO routeVersion, JSONObject snapshot) {
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(routeVersion.getId());
-        update.setRouteSnapshotJson(snapshot.toJSONString());
+        MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshot.toJSONString());
         routeVersionMapper.updateById(update);
         routeVersion.setRouteSnapshotJson(update.getRouteSnapshotJson());
+        routeVersion.setRouteSnapshotSha256(update.getRouteSnapshotSha256());
+        routeVersion.setRouteSnapshotFormatVersion(update.getRouteSnapshotFormatVersion());
     }
 
     private JSONObject buildGeneratedRouteSnapshot(MesProRouteDO route,

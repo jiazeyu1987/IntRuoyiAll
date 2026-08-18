@@ -36,6 +36,7 @@ public interface ErrorCodeConstants {
     ErrorCode MD_ITEM_IMPORT_LIST_IS_EMPTY = new ErrorCode(1_040_102_003, "导入物料数据不能为空");
     ErrorCode MD_ITEM_BATCH_REQUIRED = new ErrorCode(1_040_102_004, "当前物料启用了批次管理，请选择批次");
     ErrorCode MD_ITEM_IS_DISABLE = new ErrorCode(1_040_102_005, "物料已禁用");
+    ErrorCode MD_ITEM_PRODUCT_MASTER_NOT_EXISTS = new ErrorCode(1_040_102_006, "MDM 产品主档不存在：{}");
 
     // ========== MES 基础数据-物料批次属性配置（1-040-102-100） ==========
     ErrorCode MD_ITEM_BATCH_CONFIG_NOT_EXISTS = new ErrorCode(1_040_102_100, "物料批次属性配置不存在");
@@ -281,9 +282,9 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ENABLED_USER_NOT_ENOUGH = new ErrorCode(1_040_271_049, "当前租户启用用户少于 2 人，无法初始化批记录附件上传角色");
     ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID = new ErrorCode(1_040_271_050, "批记录附件负责人配置无效：{}");
     ErrorCode PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID = new ErrorCode(1_040_271_051, "工序开始生产组长配置无效：{}");
-    ErrorCode PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE = new ErrorCode(1_040_271_052, "全局附加表单组未覆盖全部普通工序，globalSyncKey={}，缺失工序={}");
-    ErrorCode PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_DUPLICATE = new ErrorCode(1_040_271_053, "同一工序存在重复的全局附加表单组成员，globalSyncKey={}，routeProcessId={}");
-    ErrorCode PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT = new ErrorCode(1_040_271_054, "全局附加表单组配置不一致，globalSyncKey={}，routeProcessId={}");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE = new ErrorCode(1_040_271_052, "工艺流程动态表单全局联动组不完整：{}");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_DUPLICATE = new ErrorCode(1_040_271_053, "工艺流程动态表单全局联动组同一工序重复配置：{}");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT = new ErrorCode(1_040_271_054, "工艺流程动态表单全局联动组配置不一致：{}");
     ErrorCode PRO_ROUTE_VERSION_STALE = new ErrorCode(1_040_271_029, "工艺路线版本已变更，请刷新后再操作，routeId={}，expectedRouteVersionId={}，activeRouteVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_NOT_EXISTS = new ErrorCode(1_040_271_030, "工艺路线版本不存在，routeVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS = new ErrorCode(1_040_271_031, "工艺路线缺少当前生效版本，routeId={}");
@@ -399,6 +400,8 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_ENABLE_PRODUCT_NO_BOM = new ErrorCode(1_040_501_004, "产品 {} 未配置工序的 BOM 消耗");
     ErrorCode PRO_ROUTE_IS_ENABLE = new ErrorCode(1_040_501_005, "工艺路线已启用，不允许操作");
     ErrorCode PRO_ROUTE_NAME_DUPLICATE = new ErrorCode(1_040_501_006, "工艺路线名称已存在");
+    ErrorCode MES_ROUTE_ACTIVE_VERSION_DISPOSITION_REQUIRED = new ErrorCode(1_040_501_007,
+            "工艺路线存在生效版本，删除所需的版本处置流程尚未配置，routeId={}，activeVersionId={}，activeRefId={}，versionSummary={}");
     // ========== MES 生产管理-工艺路线工序（1-040-501-100） ==========
     ErrorCode PRO_ROUTE_PROCESS_NOT_EXISTS = new ErrorCode(1_040_501_100, "工艺路线工序不存在");
     ErrorCode PRO_ROUTE_PROCESS_SORT_DUPLICATE = new ErrorCode(1_040_501_101, "序号已存在");
@@ -429,6 +432,18 @@ public interface ErrorCodeConstants {
             "工艺路线 DCC 项目代码关系已变化，请刷新后重试，routeId={}，expectedVersion={}，currentVersion={}");
     ErrorCode PRO_ROUTE_DCC_PROJECT_INVALID = new ErrorCode(1_040_501_501,
             "DCC 项目代码不存在或已停用：{}");
+    ErrorCode PRO_ROUTE_DCC_ROUTE_PRODUCT_REQUIRED = new ErrorCode(1_040_501_502,
+            "工艺路线缺少正式产品：routeId={}");
+    ErrorCode PRO_ROUTE_DCC_ROUTE_ITEM_INVALID = new ErrorCode(1_040_501_503,
+            "工艺路线产品指向不存在的 MES 物料：routeId={}，itemIds={}");
+    ErrorCode PRO_ROUTE_DCC_ITEM_PRODUCT_MASTER_REQUIRED = new ErrorCode(1_040_501_504,
+            "工艺路线产品缺少 MDM 产品主档关系：routeId={}，itemId={}");
+    ErrorCode PRO_ROUTE_DCC_PRODUCT_MASTER_AMBIGUOUS = new ErrorCode(1_040_501_505,
+            "工艺路线产品对应多个 MDM 产品主档：routeId={}，productMasterIds={}");
+    ErrorCode PRO_ROUTE_DCC_PROJECT_PRODUCT_MASTER_REQUIRED = new ErrorCode(1_040_501_506,
+            "DCC 项目代码缺少 MDM 产品主档关系：dccProjectCodeId={}");
+    ErrorCode PRO_ROUTE_DCC_PRODUCT_MASTER_MISMATCH = new ErrorCode(1_040_501_507,
+            "工艺路线与 DCC 项目代码的 MDM 产品主档不一致：routeId={}，routeProductMasterId={}，dccProductMasterId={}");
     ErrorCode PRO_ROUTE_IMPORT_PROCESS_CONFLICT = new ErrorCode(1_040_501_407, "工序编码 {} 的名称不一致，本地：{}，导入：{}");
     ErrorCode PRO_ROUTE_IMPORT_PROCESS_NAME_EXISTS = new ErrorCode(1_040_501_408, "工序名称 {} 已存在但编码不一致");
     ErrorCode PRO_ROUTE_IMPORT_CHECK_PROCESS_INVALID = new ErrorCode(1_040_501_409, "检验工序映射无效：{}");
@@ -611,8 +626,12 @@ public interface ErrorCodeConstants {
             new ErrorCode(1_040_600_308, "QA 检验规程末检适用性配置无效：{}");
     ErrorCode QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID =
             new ErrorCode(1_040_600_309, "QA 检验规程 DCC 项目代码无效：{}");
+    ErrorCode QA_INSPECTION_REGULATION_DCC_PROJECT_DUPLICATE =
+            new ErrorCode(1_040_600_310, "DCC 项目代码已存在未删除的 QA 检验规程：{}");
     ErrorCode QA_INSPECTION_REGULATION_WORD_IMPORT_INVALID =
-            new ErrorCode(1_040_600_310, "QA 模板解析失败：{}");
+            new ErrorCode(1_040_600_311, "QA 检验规程 Word 导入失败：{}");
+    ErrorCode QA_INSPECTION_REGULATION_RESET_REFERENCED =
+            new ErrorCode(1_040_600_312, "QA 检验规程已被生产或 PQC 数据引用，不能执行测试重置：{}");
 
     // ========== MES 质量管理-质检指标（1-040-601-000） ==========
     ErrorCode QC_INDICATOR_NOT_EXISTS = new ErrorCode(1_040_601_000, "质检指标不存在");
@@ -1102,10 +1121,6 @@ public interface ErrorCodeConstants {
             "一线运行快照不存在或已过期，请退出最大化后重新进入，snapshotId={}");
     ErrorCode PRO_FRONTLINE_SESSION_SNAPSHOT_INVALID = new ErrorCode(1_040_760_123,
             "一线运行快照校验失败：{}");
-    ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID = new ErrorCode(1_040_760_124,
-            "活跃订单冻结工序快照不完整，activeOrderId={}，{}");
-    ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH = new ErrorCode(1_040_760_125,
-            "所选工序不属于该活跃订单锁定的工艺版本，activeOrderId={}，routeProcessId={}，processId={}");
 
     // ========== MES 工序池审核副本（1-040-760-200） ==========
     ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_200,
@@ -1234,6 +1249,12 @@ public interface ErrorCodeConstants {
             "报工分配版本已变化，请刷新后重试：eventId={}，expectedVersion={}，currentVersion={}");
     ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED = new ErrorCode(1_040_760_358,
             "订单分配已经放行，禁止调整：activeOrderId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_HISTORY_AMBIGUOUS = new ErrorCode(1_040_760_359,
+            "生产工单存在多条历史记录，无法确定应复用的冻结订单：workOrderId={}，activeOrderIds={}");
+    ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID = new ErrorCode(1_040_760_360,
+            "一线生产活跃订单工序快照无效：{}");
+    ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH = new ErrorCode(1_040_760_361,
+            "一线生产活跃订单工序不匹配：activeOrderId={}，processId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

@@ -258,7 +258,7 @@ class MesFrontlinePqcContextServiceTest {
                 MesPqcInspectionTaskDO.builder().id(9104L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
-                        .qaItemCode("")
+                        .qaItemCode("ID-001")
                         .inspectionRuleKey("FINAL").inspectionType("FINAL")
                         .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FINAL").roundNo(1)
                         .plannedInspectionQuantity(3).taskStatus("CANCELLED").build()));

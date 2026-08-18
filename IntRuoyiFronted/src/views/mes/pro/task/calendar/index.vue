@@ -411,7 +411,9 @@
                   </div>
                   <el-empty v-else description="暂无工序产能数据" :image-size="56" />
                 </div>
-                <p class="shift-rule-hint">白班夜班由排产员控制条决定</p>
+                <p class="shift-rule-hint">
+                  白班由排产员控制条决定，夜班由工艺流程排产配置的工序配置决定
+                </p>
               </div>
             </section>
           </el-tab-pane>
@@ -585,9 +587,19 @@
           {{ buildMaterialNameLabel(row) }}
         </template>
       </el-table-column>
+      <el-table-column label="订单总需求" width="120" align="center">
+        <template #default="{ row }">
+          {{ buildQuantityLabel(row.requiredQty) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="库存数量" width="120" align="center">
+        <template #default="{ row }">
+          {{ buildQuantityLabel(row.availableQty) }}
+        </template>
+      </el-table-column>
       <el-table-column label="缺口" width="120" align="center">
         <template #default="{ row }">
-          {{ row.shortageQty ?? row.requiredQty ?? '-' }}
+          {{ buildQuantityLabel(row.shortageQty) }}
         </template>
       </el-table-column>
       <el-table-column

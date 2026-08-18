@@ -92,8 +92,13 @@ assert.match(
 
 assert.match(
   source,
-  /const pqcInspectionItems = computed<PqcInspectionItem\[\]>\(\(\) =>\s*\(activePqcTaskOption\.value\?\.inspectionItems \|\| \[\]\)\.map/,
-  'PQC inspection item definitions must come from the active formal PQC task snapshot.'
+  /const pqcInspectionItems = computed<PqcInspectionItem\[\]>[\s\S]*deviceState\.selectedProcess\.inspectionItems\.map\(mapPqcInspectionItem\)/,
+  'PQC method tab definitions must come from the selected process formal QA/PQC item snapshot.'
+)
+assert.match(
+  source,
+  /const pqcTaskInspectionItems = computed<PqcInspectionItem\[\]>\(\(\) =>\s*\(activePqcTaskOption\.value\?\.inspectionItems \|\| \[\]\)\.map\(mapPqcInspectionItem\)/,
+  'PQC submission item definitions must still come from the active formal PQC task snapshot.'
 )
 assert.match(
   source,
@@ -102,17 +107,17 @@ assert.match(
 )
 assert.match(
   source,
-  /inspectionMethod: item\.inspectionMethod \|\| ''[\s\S]*standardText: item\.standardText \|\| ''[\s\S]*acceptanceStandard: item\.acceptanceStandard \|\| ''[\s\S]*processInspectionMethod: item\.processInspectionMethod \|\| ''[\s\S]*resultType: item\.resultType \|\| ''/,
+  /inspectionMethod: item\.inspectionMethod \|\| ''[\s\S]*standardText: item\.standardText \|\| ''[\s\S]*acceptanceStandard: item\.acceptanceStandard \|\| item\.standardText \|\| ''[\s\S]*processInspectionMethod: item\.processInspectionMethod \|\| item\.inspectionMethod \|\| ''[\s\S]*resultType: item\.resultType/,
   'PQC item metadata must preserve legacy method/standard and the QA process method/standard aliases.'
 )
 assert.match(
   source,
-  /hasPqcTaskSnapshot[\s\S]*process\?\.inspectionItems\?\.length/,
+  /hasPqcTaskSnapshot[\s\S]*getSelectedPqcTaskOption\(process\)/,
   'PQC mode must fail fast when the formal inspection item snapshot is missing.'
 )
 assert.match(
   source,
-  /getPqcPieceStateKey[\s\S]*inspectionType[\s\S]*patrolRound[\s\S]*itemKey/,
+  /getPqcPieceStateKey[\s\S]*pqcTaskId[\s\S]*inspectionType[\s\S]*roundNo[\s\S]*itemKey/,
   'PQC piece values must be isolated by inspection context and item.'
 )
 assert.match(

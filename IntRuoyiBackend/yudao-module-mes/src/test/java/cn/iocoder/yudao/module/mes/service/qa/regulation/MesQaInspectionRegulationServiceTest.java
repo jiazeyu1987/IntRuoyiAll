@@ -11,6 +11,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
@@ -22,7 +24,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,6 +34,7 @@ import java.util.List;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_ITEM_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_RESET_REFERENCED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_IMMUTABLE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED;
@@ -38,6 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -62,13 +69,18 @@ class MesQaInspectionRegulationServiceTest {
     private MesQaInspectionRegulationItemMapper itemMapper;
     @Mock
     private MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper;
+    @Mock
+    private MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock
+    private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
 
     private MesQaInspectionRegulationServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new MesQaInspectionRegulationServiceImpl(dccProjectCodeMapper, regulationMapper,
-                versionMapper, processMapper, itemMapper, itemEquipmentMapper);
+                versionMapper, processMapper, itemMapper, itemEquipmentMapper,
+                activeOrderMapper, pqcInspectionTaskMapper);
     }
 
     @Test
@@ -199,6 +211,19 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
+    void saveDraft_mapsConcurrentActiveDccDuplicateToStableBusinessError() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(null);
+        when(regulationMapper.insert(any(MesQaInspectionRegulationDO.class)))
+                .thenThrow(new DuplicateKeyException(
+                        "Duplicate entry for key 'uk_mes_qa_regulation_active_dcc'"));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveDraft(validRequest()));
+
+        assertEquals(1_040_600_310, ex.getCode());
+    }
+
+    @Test
     void publish_rejectsPublishedVersionMutation() {
         MesQaInspectionRegulationSaveReqVO reqVO = validRequest();
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
@@ -250,6 +275,107 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals(false, result.get(0).getConfigured());
         assertEquals(200L, result.get(1).getDccProjectCodeId());
         assertEquals(true, result.get(1).getConfigured());
+    }
+
+    @Test
+    void getProjectStatuses_separatesLatestDraftEditTargetFromPublishedProductionTarget() {
+        MesQaInspectionRegulationDO configured = publishedRegulation();
+        MesQaInspectionRegulationVersionDO draft = MesQaInspectionRegulationVersionDO.builder()
+                .id(64L).regulationId(REGULATION_ID).versionNo("G/1").lifecycleStatus("DRAFT").build();
+        lenient().when(regulationMapper.selectListByDccProjectCodeIds(List.of(DCC_PROJECT_ID)))
+                .thenReturn(List.of(configured));
+        lenient().when(versionMapper.selectLatestDraftByRegulationId(REGULATION_ID)).thenReturn(draft);
+        lenient().when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion());
+
+        MesQaInspectionRegulationProjectStatusRespVO status =
+                service.getProjectStatuses(List.of(DCC_PROJECT_ID)).get(0);
+
+        assertEquals(REGULATION_ID, longProperty(status, "getEditRegulationId"));
+        assertEquals(64L, longProperty(status, "getEditVersionId"));
+        assertEquals(REGULATION_ID, longProperty(status, "getPublishedRegulationId"));
+        assertEquals(VERSION_ID, longProperty(status, "getPublishedVersionId"));
+        assertEquals(true, booleanProperty(status, "getProductionReady"));
+    }
+
+    @Test
+    void resetForTesting_deletesOnlySelectedDccRegulationTreeWhenNoProductionReferences() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectListByRegulationId(REGULATION_ID)).thenReturn(List.of(
+                publishedVersion(),
+                publishedVersion().setId(72L).setVersionNo("G/1").setLifecycleStatus("DRAFT")));
+        when(activeOrderMapper.selectCountByQaRegulationOrVersionIds(REGULATION_ID, List.of(VERSION_ID, 72L)))
+                .thenReturn(0L);
+        when(pqcInspectionTaskMapper.selectCountByRegulationVersionIds(List.of(VERSION_ID, 72L)))
+                .thenReturn(0L);
+        when(processMapper.selectCountByVersionIds(List.of(VERSION_ID, 72L))).thenReturn(3L);
+        when(itemMapper.selectCountByVersionIds(List.of(VERSION_ID, 72L))).thenReturn(18L);
+        when(itemEquipmentMapper.selectCountByVersionIds(List.of(VERSION_ID, 72L))).thenReturn(4L);
+
+        var result = service.resetForTesting(DCC_PROJECT_ID);
+
+        assertEquals(DCC_PROJECT_ID, result.getDccProjectCodeId());
+        assertEquals(REGULATION_ID, result.getRegulationId());
+        assertEquals(2, result.getVersionCount());
+        assertEquals(3, result.getProcessCount());
+        assertEquals(18, result.getItemCount());
+        assertEquals(4, result.getItemEquipmentCount());
+        verify(itemEquipmentMapper).deleteByVersionIds(List.of(VERSION_ID, 72L));
+        verify(itemMapper).deleteByVersionIds(List.of(VERSION_ID, 72L));
+        verify(processMapper).deleteByVersionIds(List.of(VERSION_ID, 72L));
+        verify(versionMapper).deleteByRegulationId(REGULATION_ID);
+        verify(regulationMapper).deleteById(REGULATION_ID);
+    }
+
+    @Test
+    void resetForTesting_rejectsReferencedRegulationWithoutDeletingAnything() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectListByRegulationId(REGULATION_ID)).thenReturn(List.of(publishedVersion()));
+        when(activeOrderMapper.selectCountByQaRegulationOrVersionIds(REGULATION_ID, List.of(VERSION_ID)))
+                .thenReturn(1L);
+        when(pqcInspectionTaskMapper.selectCountByRegulationVersionIds(List.of(VERSION_ID)))
+                .thenReturn(2L);
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.resetForTesting(DCC_PROJECT_ID));
+
+        assertEquals(QA_INSPECTION_REGULATION_RESET_REFERENCED.getCode(), ex.getCode());
+        verify(itemEquipmentMapper, never()).deleteByVersionIds(any());
+        verify(itemMapper, never()).deleteByVersionIds(any());
+        verify(processMapper, never()).deleteByVersionIds(any());
+        verify(versionMapper, never()).deleteByRegulationId(any());
+        verify(regulationMapper, never()).deleteById(any());
+    }
+
+    @Test
+    void getPublishedVersion_rejectsRetiredCurrentVersionForProduction() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion().setLifecycleStatus("RETIRED"));
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.getPublishedVersion(DCC_PROJECT_ID, null));
+
+        assertEquals(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED.getCode(), ex.getCode());
+    }
+
+    @Test
+    void getPublishedVersion_allowsExplicitRetiredFrozenVersion() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion().setLifecycleStatus("RETIRED"));
+        when(processMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(qaProcess()));
+        when(itemMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
+                item("FIRST", 5, null), item("PATROL", null, new BigDecimal("0.400000")),
+                item("FINAL", 3, null)));
+        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of());
+
+        MesQaInspectionRegulationPublishedVersionRespVO result =
+                service.getPublishedVersion(DCC_PROJECT_ID, VERSION_ID);
+
+        assertEquals(VERSION_ID, result.getPublishedVersionId());
+        assertEquals("RETIRED", result.getLifecycleStatus());
     }
 
     @Test
@@ -362,6 +488,23 @@ class MesQaInspectionRegulationServiceTest {
                 .snapshotJson("{\"regulationCode\":\"PQC-ID-001\"," +
                         "\"regulationName\":\"（椎体）球囊扩张压力泵组装过程检验规程\"}")
                 .build();
+    }
+
+    private static Long longProperty(Object target, String getter) {
+        return (Long) property(target, getter);
+    }
+
+    private static Boolean booleanProperty(Object target, String getter) {
+        return (Boolean) property(target, getter);
+    }
+
+    private static Object property(Object target, String getter) {
+        try {
+            Method method = target.getClass().getMethod(getter);
+            return method.invoke(target);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError(target.getClass().getSimpleName() + "." + getter + " is required", ex);
+        }
     }
 
     private static MesQaInspectionRegulationProcessDO qaProcess() {

@@ -55,6 +55,7 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
                 .eqIfPresent(MesProWorkOrderDO::getClientId, reqVO.getClientId())
                 .eqIfPresent(MesProWorkOrderDO::getStatus, reqVO.getStatus())
                 .eqIfPresent(MesProWorkOrderDO::getTemporaryFrozen, reqVO.getTemporaryFrozen())
+                .betweenIfPresent(MesProWorkOrderDO::getQuantity, reqVO.getQuantity())
                 .betweenIfPresent(MesProWorkOrderDO::getRequestDate, reqVO.getRequestDate());
         QuickFilterUtils.filter(queryWrapper, reqVO.getQuickFilter(), Map.of(
                 "code", QuickFilterUtils.QuickFilterField.text(MesProWorkOrderDO::getCode),

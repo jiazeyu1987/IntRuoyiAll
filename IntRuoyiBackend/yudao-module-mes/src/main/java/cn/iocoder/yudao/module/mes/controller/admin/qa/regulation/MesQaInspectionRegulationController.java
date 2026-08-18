@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationProjectStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationImportRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationResetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveRespVO;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
@@ -54,6 +55,14 @@ public class MesQaInspectionRegulationController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
         return success(wordImportService.importWordDraft(file, dccProjectCodeId));
+    }
+
+    @PostMapping("/test-reset")
+    @Operation(summary = "测试阶段重置指定 DCC 项目的 QA 检验规程")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<MesQaInspectionRegulationResetRespVO> resetForTesting(
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
+        return success(regulationService.resetForTesting(dccProjectCodeId));
     }
 
     @PostMapping("/publish")

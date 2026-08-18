@@ -1490,6 +1490,25 @@ def test_frontend_nginx_allows_large_showroom_product_import_requests() -> None:
     assert nginx.index("client_max_body_size 0;") < nginx.index("location /admin-api/")
 
 
+def test_publish_script_accepts_release_migration_metadata_types_used_by_policy_gate() -> None:
+    text = read_publish_script()
+    type_parser_block = _extract_powershell_function(text, "Read-ReleaseMigrationMetadata")
+
+    for migration_type in [
+        "schema",
+        "data",
+        "menu",
+        "config",
+        "permission",
+        "seed",
+        "preflight",
+        "backfill",
+        "postflight",
+        "rollback-dry-run",
+    ]:
+        assert f"'{migration_type}'" in type_parser_block
+
+
 def test_publish_script_uses_release_repo_server_and_share_overrides() -> None:
     text = read_publish_script()
 

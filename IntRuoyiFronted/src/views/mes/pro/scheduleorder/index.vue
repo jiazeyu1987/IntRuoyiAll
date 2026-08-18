@@ -727,7 +727,7 @@
       </Dialog>
     </ContentWrap>
 
-    <Dialog v-model="priorityDialogVisible" title="调整优先级" width="420px">
+    <Dialog v-model="priorityDialogVisible" title="调整排产工单" width="500px">
       <el-form label-width="88px">
         <el-form-item label="排产工单号">
           <span>{{ priorityTarget?.code || '-' }}</span>
@@ -737,6 +737,12 @@
         </el-form-item>
         <el-form-item label="当前优先级">
           <span>{{ priorityTarget?.priorityNo || 1 }}</span>
+        </el-form-item>
+        <el-form-item label="当前交期">
+          <span>{{ priorityTarget?.promiseDate || '-' }}</span>
+        </el-form-item>
+        <el-form-item label="当前开工">
+          <span>{{ formatDateTime(priorityTarget?.plannedStartTime) }}</span>
         </el-form-item>
         <el-form-item label="新优先级">
           <el-input-number
@@ -748,6 +754,25 @@
             controls-position="right"
             class="!w-180px"
           />
+        </el-form-item>
+        <el-form-item label="承诺交期">
+          <el-date-picker
+            v-model="priorityForm.promiseDate"
+            value-format="YYYY-MM-DD"
+            type="date"
+            class="!w-220px"
+          />
+        </el-form-item>
+        <el-form-item label="计划开工">
+          <el-date-picker
+            v-model="priorityForm.plannedStartTime"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            type="datetime"
+            class="!w-220px"
+          />
+        </el-form-item>
+        <el-form-item label="修改原因">
+          <el-input v-model="priorityForm.reason" type="textarea" :rows="2" maxlength="500" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -2000,9 +2025,9 @@ const ScheduleOrderMainList = BaseScheduleOrderMainList as typeof BaseScheduleOr
 const SCHEDULE_ORDER_STATUS_FINISHED = 3
 const SCHEDULE_ORDER_STATUS_CANCELED = 4
 const MISSING_MATERIAL_LIST_HINT =
-  '未查询到生产用料清单。仍可调整优先级、设置承诺交期和冻结/解冻；入池与手动重排以正式排产检查结果为准。'
+  '未查询到生产用料清单。仍可调整优先级、承诺交期、计划开工和冻结/解冻；入池与手动重排以正式排产检查结果为准。'
 const MISSING_CURRENT_PROCESS_HINT =
-  '当前列表未解析出可显示的未完成工序，该展示值不作为统一禁用判据。仍可调整优先级、设置承诺交期和冻结/解冻；入池与手动重排以正式排产检查结果为准。'
+  '当前列表未解析出可显示的未完成工序，该展示值不作为统一禁用判据。仍可调整优先级、承诺交期、计划开工和冻结/解冻；入池与手动重排以正式排产检查结果为准。'
 const { emitter } = useEmitt()
 
 const scheduleOrderTableHeight = '100%'
@@ -2282,7 +2307,11 @@ const prioritySaving = ref(false)
 const priorityTarget = ref<MesProScheduleOrderVO>()
 const priorityForm = reactive({
   id: undefined as number | undefined,
-  priorityNo: 1
+  priorityNo: 1,
+  promiseDate: '',
+  plannedStartTime: '',
+  remark: '',
+  reason: ''
 })
 const promiseDateDialogVisible = ref(false)
 const promiseDateSaving = ref(false)
@@ -2324,7 +2353,12 @@ const workOrderAdmissionQueryParams = reactive({
   pageSize: 10,
   workOrderCode: undefined as string | undefined,
   productCode: undefined as string | undefined,
+  productName: undefined as string | undefined,
+  productSpecification: undefined as string | undefined,
+  quantity: undefined as number[] | undefined,
   admissionStatus: undefined as string | undefined,
+  reasonCode: undefined as string | undefined,
+  ownerRole: undefined as string | undefined,
   requestDate: undefined as string[] | undefined
 })
 const workOrderAdmissionMultiFilterDefinitions: ListMultiFilterDefinition[] = [
@@ -2343,6 +2377,26 @@ const workOrderAdmissionMultiFilterDefinitions: ListMultiFilterDefinition[] = [
     placeholder: '请输入产品编号'
   },
   {
+    key: 'productName',
+    label: '产品名称',
+    type: 'text',
+    queryParamKey: 'productName',
+    placeholder: '请输入产品名称'
+  },
+  {
+    key: 'productSpecification',
+    label: '规格型号',
+    type: 'text',
+    queryParamKey: 'productSpecification',
+    placeholder: '请输入规格型号'
+  },
+  {
+    key: 'quantity',
+    label: '总数量',
+    type: 'numberRange',
+    queryParamKey: 'quantity'
+  },
+  {
     key: 'admissionStatus',
     label: '入池状态',
     type: 'select',
@@ -2351,6 +2405,41 @@ const workOrderAdmissionMultiFilterDefinitions: ListMultiFilterDefinition[] = [
       { label: '可入池', value: 'READY_TO_ADMIT' },
       { label: '已入池', value: 'ALREADY_ADMITTED' },
       { label: '阻断', value: 'BLOCKED' }
+    ]
+  },
+  {
+    key: 'reasonCode',
+    label: '不可排原因',
+    type: 'select',
+    queryParamKey: 'reasonCode',
+    options: [
+      { label: '可入池', value: 'READY_TO_ADMIT' },
+      { label: '已入池', value: 'ALREADY_ADMITTED' },
+      { label: '生产工单冻结', value: 'BLOCKED_WORK_ORDER_FROZEN' },
+      { label: '工单状态异常', value: 'BLOCKED_WORK_ORDER_STATUS' },
+      { label: 'ERP同步缺失', value: 'BLOCKED_ERP_SYNC_RECORD_MISSING' },
+      { label: '缺路线', value: 'BLOCKED_MISSING_ROUTE' },
+      { label: '路线多重绑定', value: 'BLOCKED_ROUTE_PRODUCT_AMBIGUOUS' },
+      { label: '路线未启用', value: 'BLOCKED_ROUTE_DISABLED' },
+      { label: '缺路线版本', value: 'BLOCKED_ROUTE_VERSION_MISSING' },
+      { label: '缺路线工序', value: 'BLOCKED_ROUTE_PROCESS_MISSING' },
+      { label: '缺智能排产配置', value: 'BLOCKED_ROUTE_PROCESS_SCHEDULE_USE_MISSING' },
+      { label: '工序排产关闭', value: 'BLOCKED_ROUTE_PROCESS_DISABLED_FOR_SCHEDULE' },
+      { label: '缺排产策略', value: 'BLOCKED_ROUTE_SCHEDULE_CONFIG_MISSING' },
+      { label: '默认排产策略', value: 'WARN_DEFAULT_ROUTE_SCHEDULE_CONFIG' },
+      { label: '缺人员数量', value: 'BLOCKED_WORKER_QUANTITY_REQUIRED' },
+      { label: '缺资源产能', value: 'BLOCKED_RESOURCE_CAPACITY_MISSING' }
+    ]
+  },
+  {
+    key: 'ownerRole',
+    label: '建议处理',
+    type: 'select',
+    queryParamKey: 'ownerRole',
+    options: [
+      { label: '排产员', value: '排产员' },
+      { label: '工艺维护', value: '工艺维护' },
+      { label: '生产计划', value: '生产计划' }
     ]
   },
   {
@@ -3167,12 +3256,16 @@ const openProcessDialog = async (row: MesProScheduleOrderVO) => {
 
 const openPriorityDialog = (row: MesProScheduleOrderVO) => {
   if (row.frozen) {
-    message.warning('排产工单已冻结，不能调整优先级')
+    message.warning('排产工单已冻结，不能调整排产工单')
     return
   }
   priorityTarget.value = row
   priorityForm.id = row.id
   priorityForm.priorityNo = Number(row.priorityNo || 1)
+  priorityForm.promiseDate = row.promiseDate || ''
+  priorityForm.plannedStartTime = row.plannedStartTime || ''
+  priorityForm.remark = row.remark || ''
+  priorityForm.reason = ''
   priorityDialogVisible.value = true
 }
 
@@ -3185,13 +3278,29 @@ const submitPriorityAdjust = async () => {
     message.warning('优先级必须大于等于 1')
     return
   }
+  if (!priorityForm.promiseDate) {
+    message.warning('承诺交期不能为空')
+    return
+  }
+  if (!priorityForm.plannedStartTime) {
+    message.warning('计划开工时间不能为空')
+    return
+  }
+  if (!priorityForm.reason?.trim()) {
+    message.warning('修改原因不能为空')
+    return
+  }
   prioritySaving.value = true
   try {
-    await MesProScheduleOrderApi.updatePriority({
+    await MesProScheduleOrderApi.updateScheduleOrder({
       id: priorityForm.id,
-      priorityNo: priorityForm.priorityNo
+      promiseDate: priorityForm.promiseDate,
+      plannedStartTime: priorityForm.plannedStartTime,
+      priorityNo: priorityForm.priorityNo,
+      remark: priorityForm.remark,
+      reason: priorityForm.reason
     })
-    message.success('优先级已调整')
+    message.success('排产工单已调整')
     priorityDialogVisible.value = false
     await getScheduleOrderList()
   } finally {

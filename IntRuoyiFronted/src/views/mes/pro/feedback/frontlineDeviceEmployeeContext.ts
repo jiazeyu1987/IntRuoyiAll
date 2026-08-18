@@ -14,7 +14,7 @@ import type {
   FrontlineTemplateVO
 } from '@/api/mes/pro/feedback'
 
-export const FRONTLINE_PQC_NO_PENDING_ORDER_TEXT = '当前暂无活跃订单'
+export const FRONTLINE_PQC_NO_PENDING_ORDER_TEXT = '当前暂无待执行 PQC 检验任务'
 
 export class FrontlinePqcStaleActiveOrderSelectionError extends Error {
   constructor() {
@@ -94,21 +94,20 @@ export const createFrontlineDeviceEmployeeState = (): FrontlineDeviceEmployeeSta
 })
 
 export const buildFrontlineEmployeeSwitchPayload = (
-  activeOrder: FrontlineActiveOrderVO | undefined,
   process: FrontlineDeviceRouteProcessVO | undefined,
   actualEmployeeId: number | undefined
 ): FrontlineSwitchActualEmployeeReqVO => {
-  if (!activeOrder) {
-    throw new Error('当前活跃订单不能为空')
-  }
   if (!process) {
     throw new Error('当前工序不能为空')
   }
   if (!actualEmployeeId) {
     throw new Error('实际填写员工不能为空')
   }
+  if (!process.activeOrderId) {
+    throw new Error('当前工序缺少活跃订单身份，无法切换员工')
+  }
   return {
-    activeOrderId: activeOrder.activeOrderId,
+    activeOrderId: process.activeOrderId,
     routeId: process.routeId,
     routeProcessId: process.routeProcessId,
     processId: process.processId,
@@ -136,8 +135,8 @@ export const buildFrontlinePqcEmployeeSwitchPayload = (
   }
   return {
     activeOrderId: activeOrder.activeOrderId,
-    regulationVersionId: process.regulationVersionId,
-    qaProcessId: process.qaProcessId,
+    regulationVersionId: taskOption.regulationVersionId,
+    qaProcessId: taskOption.qaProcessId,
     pqcTaskId: taskOption.pqcTaskId,
     actualEmployeeId
   }
@@ -158,17 +157,11 @@ export const loadFrontlineDeviceProcesses = async (state: FrontlineDeviceEmploye
   state.loadingProcesses = true
   state.lastError = undefined
   try {
-    const activeOrder = state.selectedActiveOrder
-    if (!activeOrder) {
-      state.productionProcessOptions = []
-      state.processOptions = []
-      return []
-    }
-    const processes = await ProFeedbackApi.getFrontlineProductionActiveOrderProcesses(
-      activeOrder.activeOrderId
-    )
+    const processes = await ProFeedbackApi.getFrontlineDeviceAccountProcesses()
     state.productionProcessOptions = processes
-    state.processOptions = processes
+    state.processOptions = state.selectedActiveOrder
+      ? processes.filter((process) => process.routeId === state.selectedActiveOrder?.routeId)
+      : []
     retainFrontlineRuntimeCacheForProcesses(state, processes)
     return processes
   } catch (error) {
@@ -359,11 +352,15 @@ export const selectFrontlineProductionActiveOrder = async (
     }
     state.productionProcessOptions = processes
     retainFrontlineRuntimeCacheForProcesses(state, processes)
-    if (processes.length === 0) {
+    const routeProcesses = processes
+    if (routeProcesses.some((process) => process.activeOrderId !== activeOrder.activeOrderId)) {
+      throw new Error('生产工单 ' + orderLabel + ' 的冻结工序身份与所选活跃订单不一致。')
+    }
+    if (routeProcesses.length === 0) {
       throw new Error('生产工单 ' + orderLabel + ' 的正式工艺路线没有可用工序。')
     }
-    state.processOptions = processes
-    return processes
+    state.processOptions = routeProcesses
+    return routeProcesses
   } catch (error) {
     if (state.productionActiveOrderSelectionRequestToken !== requestToken) {
       throw new FrontlineProductionStaleActiveOrderSelectionError()
@@ -506,11 +503,7 @@ export const switchFrontlineActualEmployee = async (
   if (!selectedProcess || !('routeProcessId' in selectedProcess)) {
     throw new Error('当前生产工序不能为空')
   }
-  const payload = buildFrontlineEmployeeSwitchPayload(
-    state.selectedActiveOrder,
-    selectedProcess,
-    actualEmployeeId
-  )
+  const payload = buildFrontlineEmployeeSwitchPayload(selectedProcess, actualEmployeeId)
   const requestToken = ++state.employeeSwitchRequestToken
   const cachedSwitch = readFrontlineEmployeeSwitchCache(state, payload)
   if (cachedSwitch) {
@@ -583,9 +576,13 @@ const resolveFrontlineErrorMessage = (error: unknown): string => {
   return String(error)
 }
 
+const createFrontlineBaseProcessKey = (
+  process: Pick<FrontlineDeviceRouteProcessVO, 'routeId' | 'routeProcessId' | 'processId'>
+) => `${process.routeId}:${process.routeProcessId}:${process.processId}`
+
 const createFrontlineProcessRuntimeCacheKey = (
   process: Pick<FrontlineDeviceRouteProcessVO, 'activeOrderId' | 'routeId' | 'routeProcessId' | 'processId'>
-) => `${process.activeOrderId}:${process.routeId}:${process.routeProcessId}:${process.processId}`
+) => `${process.activeOrderId}:${createFrontlineBaseProcessKey(process)}`
 
 const createFrontlineEmployeeSwitchCacheKey = (payload: FrontlineSwitchActualEmployeeReqVO) =>
   `${payload.activeOrderId}:${payload.routeId}:${payload.routeProcessId}:${payload.processId}:${payload.actualEmployeeId}`
@@ -593,14 +590,18 @@ const createFrontlineEmployeeSwitchCacheKey = (payload: FrontlineSwitchActualEmp
 const readFrontlineRuntimeConfigCache = (
   state: FrontlineDeviceEmployeeState,
   process: FrontlineDeviceRouteProcessVO
-) => state.productionRuntimeCache.runtimeConfigByProcessKey[createFrontlineProcessRuntimeCacheKey(process)]
+) => state.productionRuntimeCache.runtimeConfigByProcessKey[
+  createFrontlineProcessRuntimeCacheKey(process)
+]
 
 const cacheFrontlineRuntimeConfig = (
   state: FrontlineDeviceEmployeeState,
   process: FrontlineDeviceRouteProcessVO,
   runtimeConfig: FrontlineRuntimeConfigVO
 ) => {
-  state.productionRuntimeCache.runtimeConfigByProcessKey[createFrontlineProcessRuntimeCacheKey(process)] = {
+  state.productionRuntimeCache.runtimeConfigByProcessKey[
+    createFrontlineProcessRuntimeCacheKey(process)
+  ] = {
     runtimeConfig,
     employeeOptions: runtimeConfig.employees.map(toEmployeeCandidate)
   }
@@ -654,9 +655,14 @@ const retainFrontlineRuntimeCacheForProcesses = (
   state: FrontlineDeviceEmployeeState,
   processes: FrontlineDeviceRouteProcessVO[]
 ) => {
-  const allowedProcessKeys = new Set(processes.map(createFrontlineProcessRuntimeCacheKey))
+  const allowedRuntimeKeys = new Set(processes.map((process) =>
+    createFrontlineProcessRuntimeCacheKey(process)
+  ))
+  const allowedProcessKeys = new Set(processes.map((process) =>
+    `${process.activeOrderId}:${createFrontlineBaseProcessKey(process)}`
+  ))
   for (const key of Object.keys(state.productionRuntimeCache.runtimeConfigByProcessKey)) {
-    if (!allowedProcessKeys.has(key)) {
+    if (!allowedRuntimeKeys.has(key)) {
       delete state.productionRuntimeCache.runtimeConfigByProcessKey[key]
     }
   }
@@ -676,7 +682,7 @@ export const preloadFrontlineProductionRuntimeCache = async (
 ) => {
   const uniqueProcesses = processes.filter((process, index, items) =>
     items.findIndex((item) =>
-      createFrontlineProcessRuntimeCacheKey(item) === createFrontlineProcessRuntimeCacheKey(process)
+      createFrontlineBaseProcessKey(item) === createFrontlineBaseProcessKey(process)
     ) === index
   )
   const uncachedProcesses = uniqueProcesses.filter((process) =>

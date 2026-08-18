@@ -3,10 +3,13 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const pagePath = path.resolve(process.cwd(), 'src/views/mes/pro/scheduleorder/index.vue')
+const apiPath = path.resolve(process.cwd(), 'src/api/mes/pro/scheduleorder/index.ts')
 
 assert.equal(fs.existsSync(pagePath), true, '排产工单页面必须存在。')
+assert.equal(fs.existsSync(apiPath), true, '排产工单 API 类型必须存在。')
 
 const source = fs.readFileSync(pagePath, 'utf8')
+const apiSource = fs.readFileSync(apiPath, 'utf8')
 
 assert.match(source, /<el-tabs[\s\S]*v-model="scheduleOrderActiveTab"/, '排产工单页面必须使用页签承载同步工单。')
 assert.match(source, /<el-tab-pane[\s\S]*label="排产工单"[\s\S]*name="scheduleOrders"/, '主列表必须保留为排产工单页签。')
@@ -70,19 +73,49 @@ const admissionDefinitionsStart = source.indexOf(
 const admissionDefinitionsEnd = source.indexOf('const replanDrawerVisible', admissionDefinitionsStart)
 assert.ok(admissionDefinitionsStart >= 0 && admissionDefinitionsEnd > admissionDefinitionsStart, '同步工单必须声明多维筛选定义。')
 const admissionDefinitions = source.slice(admissionDefinitionsStart, admissionDefinitionsEnd)
-for (const [key, queryParamKey] of [
-  ['workOrderCode', 'workOrderCode'],
-  ['productCode', 'productCode'],
-  ['admissionStatus', 'admissionStatus'],
-  ['requestDate', 'requestDate']
+for (const [key, label, queryParamKey] of [
+  ['workOrderCode', '工单编码', 'workOrderCode'],
+  ['productCode', '产品编号', 'productCode'],
+  ['productName', '产品名称', 'productName'],
+  ['productSpecification', '规格型号', 'productSpecification'],
+  ['quantity', '总数量', 'quantity'],
+  ['requestDate', '需求日期', 'requestDate'],
+  ['admissionStatus', '入池状态', 'admissionStatus'],
+  ['reasonCode', '不可排原因', 'reasonCode'],
+  ['ownerRole', '建议处理', 'ownerRole']
 ]) {
   assert.match(
     admissionDefinitions,
-    new RegExp(`key: '${key}'[\\s\\S]*?queryParamKey: '${queryParamKey}'`),
-    `同步工单 ${key} 必须映射后端正式查询参数。`
+    new RegExp(`key: '${key}'[\\s\\S]*?label: '${label}'[\\s\\S]*?queryParamKey: '${queryParamKey}'`),
+    `同步工单 ${key} 必须以“${label}”映射后端正式查询参数 ${queryParamKey}。`
   )
 }
-assert.doesNotMatch(admissionDefinitions, /key: 'productName'|key: 'productSpecification'/, '不能把缺少交集参数契约的旧快捷字段放入多维筛选。')
+assert.match(
+  admissionDefinitions,
+  /key: 'quantity'[\s\S]*?type: 'numberRange'[\s\S]*?queryParamKey: 'quantity'/,
+  '同步工单总数量必须使用数字范围筛选并映射正式 quantity 参数。'
+)
+assert.match(
+  admissionDefinitions,
+  /key: 'reasonCode'[\s\S]*?type: 'select'[\s\S]*?label: '缺路线'[\s\S]*?value: 'BLOCKED_MISSING_ROUTE'/,
+  '同步工单不可排原因必须提供中文原因选项并映射正式 reasonCode。'
+)
+for (const field of ['productName', 'productSpecification', 'quantity', 'reasonCode', 'ownerRole']) {
+  assert.match(
+    source,
+    new RegExp(`const workOrderAdmissionQueryParams = reactive\\([\\s\\S]*?${field}:\\s*undefined`),
+    `同步工单查询参数必须声明新增字段：${field}`
+  )
+}
+for (const token of [
+  'productName?: string',
+  'productSpecification?: string',
+  'quantity?:',
+  'reasonCode?: string',
+  'ownerRole?: string'
+]) {
+  assert.ok(apiSource.includes(token), `同步工单 API 请求类型必须声明正式字段：${token}`)
+}
 assert.match(
   source,
   /const workOrderAdmissionMultiFilter = useTableMultiFilter\([\s\S]*?'mes\.pro\.scheduleOrder\.admissionDiff'[\s\S]*?workOrderAdmissionMultiFilterDefinitions[\s\S]*?workOrderAdmissionQueryParams[\s\S]*?getWorkOrderAdmissionList[\s\S]*?\)/,

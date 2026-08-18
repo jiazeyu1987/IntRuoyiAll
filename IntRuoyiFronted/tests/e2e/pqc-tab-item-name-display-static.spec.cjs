@@ -25,8 +25,8 @@ assert.doesNotMatch(
   'PQC bottom tab title must not render the legacy label that can fall back to itemCode.'
 )
 
-const itemMapStart = panelSource.indexOf('const pqcInspectionItems = computed<PqcInspectionItem[]>')
-const itemMapEnd = panelSource.indexOf('const pqcInspectionItemMap', itemMapStart)
+const itemMapStart = panelSource.indexOf('const mapPqcInspectionItem = (item: FrontlinePqcInspectionItemVO)')
+const itemMapEnd = panelSource.indexOf('const normalizePqcTaskOptionItemKey', itemMapStart)
 assert.ok(itemMapStart >= 0 && itemMapEnd > itemMapStart, 'PQC inspection item mapping block must exist.')
 const itemMappingBlock = panelSource.slice(itemMapStart, itemMapEnd)
 

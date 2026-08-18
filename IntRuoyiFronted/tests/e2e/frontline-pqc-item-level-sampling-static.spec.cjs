@@ -14,18 +14,23 @@ const pageSource = fs.readFileSync(
 
 assert.match(
   apiSource,
-  /export interface FrontlinePqcTaskOptionVO \{[\s\S]*qaItemCode: string/,
+  /export interface FrontlinePqcTaskOptionVO \{[\s\S]*qaItemCode\?: string \| null/,
   'PQC task option must expose the QA inspection item identity.'
 )
 assert.match(
   pageSource,
-  /activePqcTaskOption\.value\?\.qaItemCode[\s\S]*option\.qaItemCode === activeQaItemCode/,
-  'Switching FIRST/PATROL must keep the currently selected QA inspection item.'
+  /getPqcTaskOptionsForInspectionItem\(process, itemKey\)[\s\S]*applyPqcTaskOptionToSelectedProcess\(option\)[\s\S]*selectedPqcInspectionKey\.value = itemKey/,
+  'Switching method tabs must keep FIRST/PATROL/FINAL inside the selected QA inspection item.'
 )
 assert.match(
   pageSource,
-  /formatPqcTaskOptionLabel[\s\S]*inspectionItems\?\.\[0\]\?\.itemName/,
-  'Item-level task buttons must display the inspection item name.'
+  /const pqcInspectionItems = computed<PqcInspectionItem\[\]>[\s\S]*deviceState\.selectedProcess\.inspectionItems\.map\(mapPqcInspectionItem\)/,
+  'The red-box method tabs must display the process-level inspection methods.'
+)
+assert.match(
+  pageSource,
+  /formatPqcInspectionItemTabLabel\(item\)/,
+  'Method tab buttons must display the inspection item name through the formal tab label helper.'
 )
 assert.doesNotMatch(
   pageSource,

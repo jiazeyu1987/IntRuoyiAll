@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
@@ -54,6 +55,7 @@ class MesTeamLeaderActiveOrderManualSortTest {
     @Mock private MesProRouteVersionMapper routeVersionMapper;
     @Mock private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
     @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Mock private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     @Mock private MesProcessPoolReportAllocationMapper reportAllocationMapper;
     @Mock private MesQaInspectionRegulationMapper inspectionRegulationMapper;
     @Mock private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
@@ -71,7 +73,8 @@ class MesTeamLeaderActiveOrderManualSortTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
-                routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, reportAllocationMapper,
+                routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, parameterRuleMapper,
+                reportAllocationMapper,
                 inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper,

@@ -527,8 +527,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
                 .active(active)
                 .lifecycleStatus(lifecycleStatus)
                 .sourceRouteVersionId(sourceRouteVersionId)
-                .routeSnapshotJson(buildRouteSnapshotJson(route, configSnapshots))
                 .build();
+        MesProRouteVersionSnapshotIdentityWriter.apply(version,
+                buildRouteSnapshotJson(route, configSnapshots));
         routeVersionMapper.insert(version);
         return version;
     }
@@ -799,7 +800,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(routeVersionId);
-        update.setRouteSnapshotJson(buildRouteSnapshotJson(route, configSnapshots));
+        MesProRouteVersionSnapshotIdentityWriter.apply(update,
+                buildRouteSnapshotJson(route, configSnapshots));
         routeVersionMapper.updateById(update);
     }
 

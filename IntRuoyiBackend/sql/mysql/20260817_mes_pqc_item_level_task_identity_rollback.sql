@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260817_mes_pqc_item_level_task_identity; type=schema; riskLevel=high
 -- Rollback requires all item-scoped task data to be removed by an approved data rollback first.
 
 DROP PROCEDURE IF EXISTS rollback_mes_pqc_item_level_task_identity;

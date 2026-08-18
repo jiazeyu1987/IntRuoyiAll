@@ -10,7 +10,7 @@ const viewPath = path.join(
 const source = fs.readFileSync(viewPath, 'utf8').replace(/\r\n/g, '\n')
 
 const typeTabsStart = source.indexOf('class="frontline-pqc-type-tabs"')
-const typeTabsEnd = source.indexOf('\n          <div\n            class="frontline-pqc-round-tabs"', typeTabsStart)
+const typeTabsEnd = source.indexOf('class="frontline-pqc-round-tabs"', typeTabsStart)
 assert.ok(typeTabsStart >= 0 && typeTabsEnd > typeTabsStart, 'PQC inspection type tab block must exist.')
 
 const typeTabsBlock = source.slice(typeTabsStart, typeTabsEnd)
@@ -63,8 +63,8 @@ assert.match(
 )
 assert.match(
   source,
-  /const pqcInspectionTypeTabs = computed<\{ type: InspectionType; label: string \}\[\]>\(\(\) => \{[\s\S]*getPqcTaskOptions\(deviceState\.selectedProcess\)[\s\S]*seenTypes\.has\(option\.inspectionType\)[\s\S]*PQC_INSPECTION_TYPE_LABELS\[option\.inspectionType\]/,
-  'PQC visible type cards must be deduplicated from the current process formal pqcTaskOptions.'
+  /const pqcInspectionTypeTabs = computed<\{ type: InspectionType; label: string \}\[\]>\(\(\) => \{[\s\S]*getPqcTaskOptionsForInspectionItem\(process, activePqcTabKey\.value\)[\s\S]*seenTypes\.has\(option\.inspectionType\)[\s\S]*PQC_INSPECTION_TYPE_LABELS\[option\.inspectionType\]/,
+  'PQC visible type cards must be deduplicated from the selected method formal pqcTaskOptions.'
 )
 assert.doesNotMatch(
   source,

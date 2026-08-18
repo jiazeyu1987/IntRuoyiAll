@@ -3603,7 +3603,7 @@ function Read-ReleaseMigrationMetadata {
                 $metadata.dependsOn = @($values)
             }
             'type' {
-                if ($values.Count -ne 1 -or $values[0] -notin @('schema', 'data', 'menu', 'config', 'permission', 'seed')) {
+                if ($values.Count -ne 1 -or $values[0] -notin @('schema', 'data', 'menu', 'config', 'permission', 'seed', 'preflight', 'backfill', 'postflight', 'rollback-dry-run')) {
                     Fail "Invalid type in release migration metadata: $SqlPath"
                 }
                 $metadata.type = [string]$values[0]

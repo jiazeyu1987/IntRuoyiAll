@@ -759,6 +759,100 @@ class MesProAutoScheduleServiceImplTest {
     }
 
     @Test
+    void refreshScheduleOrderProcessesFromRouteConfig_shouldRecalculateManualOverrideCapacityWithCurrentShiftHours() {
+        routeProcess.setWorkstationId(30L);
+        workstation.setShiftHours(new BigDecimal("9"));
+        scheduleOrderProcess.setEnabled(Boolean.TRUE);
+        scheduleOrderProcess.setCapacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode());
+        scheduleOrderProcess.setHourlyCapacityTotal(new BigDecimal("100"));
+        scheduleOrderProcess.setShiftHours(new BigDecimal("10"));
+        scheduleOrderProcess.setShiftCapacityTotal(new BigDecimal("1000"));
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(700L)).thenReturn(List.of(
+                MesProRouteScheduleConfigDO.builder()
+                        .id(9003L)
+                        .routeVersionId(700L)
+                        .routeProcessId(3L)
+                        .capacityMode(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode())
+                        .hourlyCapacity(new BigDecimal("120"))
+                        .nightShiftEnabled(Boolean.FALSE)
+                        .build()));
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                20L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(List.of(
+                MesProRouteFlowProcessConfigDO.builder()
+                        .routeFlowConfigId(90000L)
+                        .routeId(20L)
+                        .routeProcessId(3L)
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                        .productionQuantityFactor(BigDecimal.ONE)
+                        .build()));
+        when(workstationMapper.selectByIds(any())).thenReturn(List.of(workstation));
+
+        @SuppressWarnings("unchecked")
+        List<MesProScheduleOrderProcessDO> result = ReflectionTestUtils.invokeMethod(autoScheduleService,
+                "refreshScheduleOrderProcessesFromRouteConfig", scheduleOrder,
+                List.of(scheduleOrderProcess), false);
+
+        assertNotNull(result);
+        assertEquals(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode(), scheduleOrderProcess.getCapacityMode());
+        assertEquals(0, new BigDecimal("120").compareTo(scheduleOrderProcess.getHourlyCapacityTotal()));
+        assertEquals(0, new BigDecimal("9").compareTo(scheduleOrderProcess.getShiftHours()));
+        assertEquals(0, new BigDecimal("1080").compareTo(scheduleOrderProcess.getShiftCapacityTotal()));
+        assertEquals("ROUTE_PROCESS", scheduleOrderProcess.getCapacitySource());
+        Map<?, ?> resourceSnapshot = JsonUtils.parseObject(
+                scheduleOrderProcess.getResourceSnapshotJson(), Map.class);
+        assertEquals(0, new BigDecimal("1080").compareTo(
+                new BigDecimal(String.valueOf(resourceSnapshot.get("shiftCapacityTotal")))));
+    }
+
+    @Test
+    void refreshScheduleOrderProcessesFromRouteConfig_shouldPreserveWorkbenchManualCapacityOverride() {
+        routeProcess.setWorkstationId(30L);
+        workstation.setSingleStandardHourlyCapacity(new BigDecimal("60"));
+        workstation.setShiftHours(new BigDecimal("9"));
+        scheduleOrderProcess.setEnabled(Boolean.TRUE);
+        scheduleOrderProcess.setCapacitySource("MANUAL_OVERRIDE");
+        scheduleOrderProcess.setCapacityMode(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode());
+        scheduleOrderProcess.setHourlyCapacityTotal(new BigDecimal("120"));
+        scheduleOrderProcess.setShiftHours(new BigDecimal("10"));
+        scheduleOrderProcess.setShiftCapacityTotal(new BigDecimal("1200"));
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(700L)).thenReturn(List.of(
+                MesProRouteScheduleConfigDO.builder()
+                        .id(9004L)
+                        .routeVersionId(700L)
+                        .routeProcessId(3L)
+                        .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
+                        .nightShiftEnabled(Boolean.FALSE)
+                        .build()));
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                20L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(List.of(
+                MesProRouteFlowProcessConfigDO.builder()
+                        .routeFlowConfigId(90000L)
+                        .routeId(20L)
+                        .routeProcessId(3L)
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                        .productionQuantityFactor(BigDecimal.ONE)
+                        .build()));
+
+        @SuppressWarnings("unchecked")
+        List<MesProScheduleOrderProcessDO> result = ReflectionTestUtils.invokeMethod(autoScheduleService,
+                "refreshScheduleOrderProcessesFromRouteConfig", scheduleOrder,
+                List.of(scheduleOrderProcess), false);
+
+        assertNotNull(result);
+        assertEquals(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode(), scheduleOrderProcess.getCapacityMode());
+        assertEquals("MANUAL_OVERRIDE", scheduleOrderProcess.getCapacitySource());
+        assertEquals(0, new BigDecimal("120").compareTo(scheduleOrderProcess.getHourlyCapacityTotal()));
+        assertEquals(0, new BigDecimal("10").compareTo(scheduleOrderProcess.getShiftHours()));
+        assertEquals(0, new BigDecimal("1200").compareTo(scheduleOrderProcess.getShiftCapacityTotal()));
+        Map<?, ?> resourceSnapshot = JsonUtils.parseObject(
+                scheduleOrderProcess.getResourceSnapshotJson(), Map.class);
+        assertEquals("MANUAL_OVERRIDE", resourceSnapshot.get("capacitySource"));
+        assertEquals(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode(), resourceSnapshot.get("capacityMode"));
+        assertEquals(0, new BigDecimal("1200").compareTo(
+                new BigDecimal(String.valueOf(resourceSnapshot.get("shiftCapacityTotal")))));
+    }
+
+    @Test
     void replanPreview_shouldRefreshDailyCapacityLimitFromLatestPublishedRouteConfigWhenSnapshotCapacityIsStale() {
         workOrder.setQuantity(new BigDecimal("120"));
         routeProduct.setQuantity(120);

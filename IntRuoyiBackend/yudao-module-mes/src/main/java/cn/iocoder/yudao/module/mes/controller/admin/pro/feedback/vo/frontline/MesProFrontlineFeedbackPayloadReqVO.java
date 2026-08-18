@@ -39,6 +39,9 @@ public class MesProFrontlineFeedbackPayloadReqVO {
     @Schema(description = "生产任务编号；一线生产不匹配任务时为空", example = "51")
     private Long taskId;
 
+    @Schema(description = "活跃订单逐工序参数快照编号；遗留订单可为空", example = "5101")
+    private Long activeOrderProcessSnapshotId;
+
     @Schema(description = "排产工单编号", example = "81")
     private Long scheduleOrderId;
 
@@ -116,8 +119,7 @@ public class MesProFrontlineFeedbackPayloadReqVO {
     @Accessors(chain = true)
     public static class SelectedDeviceReqVO {
 
-        @Schema(description = "设备编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "501")
-        @NotNull(message = "选用设备不能为空")
+        @Schema(description = "设备编号；缺失时由参数审计标记为未解析", example = "501")
         private Long deviceId;
 
         @Schema(description = "设备编码", example = "PT-A-03")
@@ -131,8 +133,7 @@ public class MesProFrontlineFeedbackPayloadReqVO {
     @Accessors(chain = true)
     public static class DeviceParameterReadingReqVO {
 
-        @Schema(description = "设备编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "501")
-        @NotNull(message = "设备参数所属设备不能为空")
+        @Schema(description = "设备编号；缺失时由参数审计标记为未解析", example = "501")
         private Long deviceId;
 
         @Schema(description = "设备编码", example = "PT-A-03")
@@ -141,8 +142,7 @@ public class MesProFrontlineFeedbackPayloadReqVO {
         @Schema(description = "设备名称", example = "压力泵")
         private String deviceName;
 
-        @Schema(description = "参数编码", requiredMode = Schema.RequiredMode.REQUIRED, example = "pressure")
-        @NotNull(message = "设备参数编码不能为空")
+        @Schema(description = "参数编码；缺失时由参数审计标记为未解析", example = "pressure")
         private String parameterCode;
 
         @Schema(description = "参数名称", example = "压力")

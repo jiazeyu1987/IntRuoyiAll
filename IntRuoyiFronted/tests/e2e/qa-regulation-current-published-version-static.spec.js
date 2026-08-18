@@ -14,7 +14,7 @@ const apiSource = fs.readFileSync(
 
 assert.match(
   apiSource,
-  /getPublishedQaRegulationVersion:\s*async\s*\(\s*versionId\?: number\s*\):\s*Promise<QaInspectionRegulationPublishedVersionVO>/,
+  /getPublishedQaRegulationVersion:\s*async\s*\(\s*dccProjectCodeId: number,\s*versionId\?: number\s*\):\s*Promise<QaInspectionRegulationPublishedVersionVO>/,
   'The published QA regulation reader must expose its formal response type.'
 )
 
@@ -69,27 +69,27 @@ assert.doesNotMatch(
 
 assert.match(
   pageSource,
-  /const loadCurrentPublishedQaRegulationVersion = async \(project\?: DccProjectCodeRespVO\)/,
+  /const loadCurrentPublishedQaRegulationVersion = async \(\s*project\?: DccProjectCodeRespVO\s*\)/,
   'Project selection must have a dedicated published-version loader.'
 )
 assert.match(
   pageSource,
-  /publishedStatus\?\.currentVersionId[\s\S]*getPublishedQaRegulationVersion\(currentVersionId\)/,
-  'The loader must resolve the product currentVersionId and query that exact immutable version.'
+  /status\?\.lifecycleStatus !== 'PUBLISHED' \|\| !status\.currentVersionId[\s\S]*getPublishedQaRegulationVersion\(\s*dccProjectCodeId,\s*status\.currentVersionId\s*\)/,
+  'The loader must resolve the DCC current PUBLISHED version and query that exact immutable version.'
 )
 assert.match(
   pageSource,
-  /publishedVersion\.publishedVersionId !== currentVersionId[\s\S]*publishedVersion\.productId !== productId/,
-  'The loader must fail fast when the published-version response does not match the selected product state.'
+  /publishedVersion\.dccProjectCodeId !== dccProjectCodeId[\s\S]*publishedVersion\.publishedVersionId !== status\.currentVersionId/,
+  'The loader must fail fast when the published-version response does not match the selected DCC state.'
 )
 assert.match(
   pageSource,
-  /applyDccProjectToQaDraft[\s\S]*void loadCurrentPublishedQaRegulationVersion\(project\)/,
+  /const selectDccProjectCode = async[\s\S]*loadCurrentQaRegulation\(dccProjectCodeId\),[\s\S]*loadCurrentPublishedQaRegulationVersion\(project\)/,
   'Changing the DCC project must refresh the current published version.'
 )
 assert.match(
   pageSource,
-  /const publishedVersion = await QcTemplateApi\.publishQaRegulation\(payload\)[\s\S]*latestPublishedVersion = publishedVersion[\s\S]*qaCurrentPublishedVersion\.value = latestPublishedVersion/,
+  /const publishedVersion = await QcTemplateApi\.publishQaRegulation\(payload\)[\s\S]*applyQaRegulationConfiguration\(publishedVersion\)[\s\S]*qaCurrentPublishedVersion\.value = publishedVersion/,
   'A successful publish must update the current published version without a stale header.'
 )
 assert.match(

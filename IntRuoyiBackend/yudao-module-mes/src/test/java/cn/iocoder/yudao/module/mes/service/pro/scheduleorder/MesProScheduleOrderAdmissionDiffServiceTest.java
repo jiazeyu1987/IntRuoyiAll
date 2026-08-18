@@ -59,6 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -315,6 +316,72 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
         assertEquals(1L, result.getTotal());
         assertEquals("MO-ADMITTED-FILTER", result.getList().get(0).getWorkOrderCode());
         assertEquals("ALREADY_ADMITTED", result.getList().get(0).getAdmissionStatus());
+    }
+
+    @Test
+    void getAdmissionDiff_shouldApplyFormalSyncTabProductSpecificationAndQuantityFilters() {
+        MesProWorkOrderDO pump = buildWorkOrder(111L, "MO-PUMP-FORMAL", 21L, Boolean.FALSE,
+                MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+        when(itemMapper.selectListByCodeLike("YXN.037")).thenReturn(List.of(MesMdItemDO.builder()
+                .id(21L)
+                .code("YXN.037.011.1002")
+                .build()));
+        when(itemMapper.selectListByNameLike("球囊")).thenReturn(List.of(MesMdItemDO.builder()
+                .id(21L)
+                .name("球囊扩张管")
+                .build()));
+        when(itemMapper.selectListBySpecificationLike("S012010-4")).thenReturn(List.of(
+                MesMdItemDO.builder().id(21L).specification("S012010-4").build(),
+                MesMdItemDO.builder().id(22L).specification("S012010-4").build()));
+        when(workOrderMapper.selectPageByProductIds(
+                argThat(req -> req != null
+                        && req.getQuantity() != null
+                        && req.getQuantity().length == 2
+                        && new BigDecimal("1").compareTo(req.getQuantity()[0]) == 0
+                        && new BigDecimal("200").compareTo(req.getQuantity()[1]) == 0),
+                eq(List.of(21L))))
+                .thenReturn(new PageResult<>(List.of(pump), 1L));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(111L))).thenReturn(List.of());
+        mockReadyRoute(21L, 221L, 321L, 421L, 521L);
+
+        MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setProductCode("YXN.037");
+        reqVO.setProductName("球囊");
+        reqVO.setProductSpecification("S012010-4");
+        reqVO.setQuantity(new BigDecimal[]{new BigDecimal("1"), new BigDecimal("200")});
+
+        MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("MO-PUMP-FORMAL", result.getList().get(0).getWorkOrderCode());
+        assertEquals("READY_TO_ADMIT", result.getList().get(0).getAdmissionStatus());
+    }
+
+    @Test
+    void getAdmissionDiff_shouldFilterComputedMessageAndOwnerRoleBeforePagination() {
+        MesProWorkOrderDO ready = buildWorkOrder(112L, "MO-READY-OWNER", 31L, Boolean.FALSE,
+                MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+        MesProWorkOrderDO missingRoute = buildWorkOrder(113L, "MO-MISSING-OWNER", 32L, Boolean.FALSE,
+                MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+        when(workOrderMapper.selectPage(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PageResult<>(List.of(ready, missingRoute), 2L));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(112L, 113L))).thenReturn(List.of());
+        mockReadyRoute(31L, 231L, 331L, 431L, 531L);
+
+        MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setMessage("产品未绑定");
+        reqVO.setOwnerRole("工艺维护");
+
+        MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("MO-MISSING-OWNER", result.getList().get(0).getWorkOrderCode());
+        assertEquals("BLOCKED_MISSING_ROUTE", result.getList().get(0).getReasonCode());
+        assertEquals(1, result.getSummary().getBlockedCount());
     }
 
     @Test

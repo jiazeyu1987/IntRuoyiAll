@@ -10,7 +10,18 @@ class MigrationManifestError(RuntimeError):
 
 
 ALLOWED_ENVIRONMENTS = {"test", "backup", "prod"}
-ALLOWED_TYPES = {"schema", "data", "menu", "config", "permission", "seed"}
+ALLOWED_TYPES = {
+    "schema",
+    "data",
+    "menu",
+    "config",
+    "permission",
+    "seed",
+    "preflight",
+    "backfill",
+    "postflight",
+    "rollback-dry-run",
+}
 ALLOWED_RISK_LEVELS = {"low", "medium", "high"}
 DEFAULT_ALLOWED_ENVIRONMENTS = ["test", "backup", "prod"]
 DEFAULT_TYPE = "schema"

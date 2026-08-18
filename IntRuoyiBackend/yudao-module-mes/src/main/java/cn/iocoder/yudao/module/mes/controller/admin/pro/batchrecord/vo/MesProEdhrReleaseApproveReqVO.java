@@ -23,4 +23,34 @@ public class MesProEdhrReleaseApproveReqVO {
     private String signoffEvidenceHash;
 
     private String approvalOpinion;
+
+    public MesProEdhrReleaseApproveReqVO setReleaseTransactionId(Long releaseTransactionId) {
+        this.releaseTransactionId = releaseTransactionId;
+        return this;
+    }
+
+    public MesProEdhrReleaseApproveReqVO setWorkTaskId(Long workTaskId) {
+        this.workTaskId = workTaskId;
+        return this;
+    }
+
+    public MesProEdhrReleaseApproveReqVO setExpectedVersion(Integer expectedVersion) {
+        this.expectedVersion = expectedVersion;
+        return this;
+    }
+
+    public MesProEdhrReleaseApproveReqVO setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
+        return this;
+    }
+
+    public MesProEdhrReleaseApproveReqVO setSignoffEvidenceHash(String signoffEvidenceHash) {
+        this.signoffEvidenceHash = signoffEvidenceHash;
+        return this;
+    }
+
+    public MesProEdhrReleaseApproveReqVO setApprovalOpinion(String approvalOpinion) {
+        this.approvalOpinion = approvalOpinion;
+        return this;
+    }
 }

@@ -87,6 +87,14 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
+    default Long selectCountByRegulationVersionIds(Collection<Long> regulationVersionIds) {
+        if (regulationVersionIds == null || regulationVersionIds.isEmpty()) {
+            return 0L;
+        }
+        return selectCount(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .in(MesPqcInspectionTaskDO::getRegulationVersionId, regulationVersionIds));
+    }
+
     default MesPqcInspectionTaskDO selectByIdentity(Long activeOrderId, Long routeProcessId,
                                                     String inspectionType, LocalDate businessDate,
                                                     String shiftCode, Integer roundNo) {

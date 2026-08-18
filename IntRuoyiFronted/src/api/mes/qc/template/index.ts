@@ -135,6 +135,15 @@ export interface QaInspectionRegulationImportRespVO {
   createdItemCount: number
 }
 
+export interface QaInspectionRegulationResetRespVO {
+  dccProjectCodeId: number
+  regulationId?: number
+  versionCount: number
+  processCount: number
+  itemCount: number
+  itemEquipmentCount: number
+}
+
 // MES 质检方案 API
 export const QcTemplateApi = {
   // 保存正式 QA 检验规程草稿
@@ -152,6 +161,17 @@ export const QcTemplateApi = {
       url: `/mes/qa/inspection-regulation/import-word-draft`,
       data,
       headersType: 'multipart/form-data',
+      ignoreErrorMessage: true
+    })
+  },
+
+  // 测试阶段重置指定 DCC 项目的正式 QA 检验规程
+  resetQaRegulationForTesting: async (
+    dccProjectCodeId: number
+  ): Promise<QaInspectionRegulationResetRespVO> => {
+    return await request.post({
+      url: `/mes/qa/inspection-regulation/test-reset`,
+      params: { dccProjectCodeId },
       ignoreErrorMessage: true
     })
   },

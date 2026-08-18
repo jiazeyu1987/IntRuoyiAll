@@ -105,20 +105,19 @@ export type FrontlinePqcTaskSummaryState =
   | 'CANCELLED'
   | 'MIXED'
 export type FrontlinePqcInspectionType = 'FIRST' | 'PATROL' | 'FINAL'
-export type FrontlinePqcBusinessDateResponse = string | [number, number, number]
 
 export interface ProFrontlineDeviceParameterReadingReqVO {
-  deviceId: number
+  deviceId?: number
   deviceCode?: string
   deviceName?: string
-  parameterCode: string
+  parameterCode?: string
   parameterName?: string
   unit?: string
   value?: number
   textValue?: string
   lowerLimit?: number | string
   upperLimit?: number | string
-  parameterStatus: ProFrontlineParameterStatus
+  parameterStatus?: ProFrontlineParameterStatus
 }
 
 export interface ProFrontlineFeedbackPayloadReqVO {
@@ -129,6 +128,7 @@ export interface ProFrontlineFeedbackPayloadReqVO {
   processId: number
   workOrderId?: number
   taskId?: number
+  activeOrderProcessSnapshotId?: number
   scheduleOrderId?: number
   scheduleOrderProcessId?: number
   itemId?: number
@@ -189,12 +189,32 @@ export interface ProFrontlineFeedbackSubmitRespVO {
   recordbookEntryId?: number
   recordbookEventId?: number
   processPoolEventId: number
+  parameterAuditStatus: 'RESOLVED' | 'UNRESOLVED'
+  parameterAuditTotalCount: number
+  parameterAuditResolvedCount: number
+  parameterAuditUnresolvedCount: number
+  auditItems: ProFrontlineParameterAuditItemVO[]
+}
+
+export interface ProFrontlineParameterAuditItemVO {
+  readingIndex: number
+  deviceId?: number
+  parameterCode?: string
+  parameterName?: string
+  unit?: string
+  value?: number
+  textValue?: string
+  lowerLimit?: number
+  upperLimit?: number
+  parameterStatus?: ProFrontlineParameterStatus
+  resolutionStatus: 'RESOLVED' | 'UNRESOLVED'
+  reasonCode?: string
+  snapshotSource: 'FROZEN' | 'MISSING_LEGACY' | 'CURRENT_ROUTE_PROCESS_AT_SUBMIT'
 }
 
 export interface FrontlineDeviceRouteProcessVO {
-  activeOrderId: number
+  activeOrderId?: number
   routeId: number
-  routeVersionId: number
   routeCode?: string
   routeName?: string
   routeProcessId: number
@@ -208,8 +228,6 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationId?: number | null
   workstationCode?: string
   workstationName?: string
-  productionQuantityFactor: number
-  targetQuantity: number
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
 }
 
@@ -258,7 +276,7 @@ export interface FrontlinePqcTaskOptionVO {
   pqcTaskId: number
   regulationVersionId: number
   qaProcessId: number
-  qaItemCode: string
+  qaItemCode?: string | null
   inspectionRuleKey: FrontlinePqcInspectionRuleKey
   taskStatus: FrontlinePqcTaskStatus
   finalInspectionApplicable?: boolean
@@ -270,16 +288,6 @@ export interface FrontlinePqcTaskOptionVO {
   ruleSort: number
   inspectionTypeRule: FrontlinePqcInspectionTypeRuleVO
   inspectionItems: FrontlinePqcInspectionItemVO[]
-}
-
-export interface FrontlinePqcTaskOptionResponseVO
-  extends Omit<FrontlinePqcTaskOptionVO, 'businessDate'> {
-  businessDate: FrontlinePqcBusinessDateResponse
-}
-
-export interface FrontlinePqcProcessResponseVO
-  extends Omit<FrontlinePqcProcessVO, 'pqcTaskOptions'> {
-  pqcTaskOptions: FrontlinePqcTaskOptionResponseVO[]
 }
 
 export interface FrontlinePqcProductionSubmitCandidateVO {
@@ -305,6 +313,8 @@ export interface FrontlinePqcInspectionItemVO {
   itemName: string
   inspectionMethod: string
   standardText: string
+  acceptanceStandard?: string
+  processInspectionMethod?: string
   inspectionTool: string | null
   samplingPlanText: string | null
   resultType: FrontlinePqcResultType
@@ -339,8 +349,6 @@ export interface FrontlineActiveOrderVO {
   routeId: number
   routeCode?: string
   routeName?: string
-  routeVersionId?: number
-  routeVersionNo?: string
   latestSubmitTime?: string
 }
 
@@ -500,6 +508,9 @@ export interface FrontlineProductionSubmitContextVO {
   scheduleOrderProcessId?: number
   scheduledQuantity?: number
   expireDate?: string | number | Date
+  activeOrderProcessSnapshotId?: number
+  parameterSnapshotSha256?: string
+  parameterSnapshotState: 'FROZEN' | 'MISSING_LEGACY' | 'CURRENT_ROUTE_PROCESS_AT_SUBMIT'
 }
 
 export interface FrontlineRuntimeConfigVO {
@@ -1189,7 +1200,7 @@ export const ProFeedbackApi = {
   },
   // 获取 PQC 活跃订单对应 QA 规程工序
   getPqcProcesses: async (activeOrderId: number) => {
-    const processes = await request.get<FrontlinePqcProcessResponseVO[]>({
+    const processes = await request.get<FrontlinePqcProcessVO[]>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/active-order/processes`,
       params: { activeOrderId },
       ignoreErrorMessage: true
@@ -1210,7 +1221,7 @@ export const ProFeedbackApi = {
   },
   // 获取生产组长维护的员工填报运行态配置
   getFrontlineRuntimeConfig: async (params: {
-    activeOrderId: number
+    activeOrderId?: number
     routeId: number
     routeProcessId: number
     processId: number

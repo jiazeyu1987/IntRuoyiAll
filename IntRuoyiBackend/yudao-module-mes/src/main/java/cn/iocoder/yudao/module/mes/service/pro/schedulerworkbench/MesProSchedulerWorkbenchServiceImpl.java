@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationMachineService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteScheduleConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.MesProScheduleCalendarService;
+import cn.iocoder.yudao.module.mes.service.pro.scheduleorder.MesProScheduleOrderService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
@@ -73,6 +74,8 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     private MesProRouteScheduleConfigService routeScheduleConfigService;
     @Resource
     private MesProSchedulerWorkbenchRuntimeStatusService runtimeStatusService;
+    @Resource
+    private MesProScheduleOrderService scheduleOrderService;
     @Value("${mes.schedule.default-route-capacity-mode:RESOURCE_CALCULATED}")
     private String defaultRouteCapacityMode = MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode();
     @Value("${mes.schedule.capacity-audit-enabled:true}")
@@ -125,6 +128,7 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     public MesProSchedulerWorkbenchShiftHoursRespVO saveShiftHoursSetting(BigDecimal shiftHours) {
         int updatedCount = workstationMapper.updateAllShiftHours(shiftHours);
         scheduleCalendarService.refreshPlanCapacityForShiftHours(shiftHours);
+        scheduleOrderService.refreshProcessWipCapacitySnapshotsForShiftHours(shiftHours);
         return buildShiftHoursSetting(workstationMapper.selectListForShiftHours(), updatedCount);
     }
 

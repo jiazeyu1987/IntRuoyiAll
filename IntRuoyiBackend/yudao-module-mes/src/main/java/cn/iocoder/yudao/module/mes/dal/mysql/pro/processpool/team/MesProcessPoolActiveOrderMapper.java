@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 @Mapper
@@ -82,11 +83,53 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .last("FOR UPDATE"));
     }
 
+    default List<MesProcessPoolActiveOrderDO> selectHistoryByWorkOrderIdForUpdate(Long workOrderId) {
+        if (workOrderId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderId)
+                .in(MesProcessPoolActiveOrderDO::getActiveStatus, List.of("ACTIVE", "REMOVED"))
+                .orderByAsc(MesProcessPoolActiveOrderDO::getId)
+                .last("FOR UPDATE"));
+    }
+
+    default List<MesProcessPoolActiveOrderDO> selectHistoryByWorkOrderIds(Collection<Long> workOrderIds) {
+        if (workOrderIds == null || workOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .in(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderIds)
+                .in(MesProcessPoolActiveOrderDO::getActiveStatus, List.of("ACTIVE", "REMOVED"))
+                .orderByAsc(MesProcessPoolActiveOrderDO::getWorkOrderId)
+                .orderByAsc(MesProcessPoolActiveOrderDO::getId));
+    }
+
     default List<MesProcessPoolActiveOrderDO> selectActiveList() {
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
                 .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE")
                 .orderByDesc(MesProcessPoolActiveOrderDO::getJoinedAt)
                 .orderByAsc(MesProcessPoolActiveOrderDO::getId));
+    }
+
+    default Long selectCountByQaRegulationOrVersionIds(Long qaRegulationId,
+                                                       Collection<Long> qaRegulationVersionIds) {
+        if (qaRegulationId == null && (qaRegulationVersionIds == null || qaRegulationVersionIds.isEmpty())) {
+            return 0L;
+        }
+        LambdaQueryWrapperX<MesProcessPoolActiveOrderDO> query = new LambdaQueryWrapperX<>();
+        query.and(wrapper -> {
+            if (qaRegulationId != null) {
+                wrapper.eq(MesProcessPoolActiveOrderDO::getQaRegulationId, qaRegulationId);
+            }
+            if (qaRegulationVersionIds != null && !qaRegulationVersionIds.isEmpty()) {
+                if (qaRegulationId != null) {
+                    wrapper.or();
+                }
+                wrapper.in(MesProcessPoolActiveOrderDO::getQaRegulationVersionId, qaRegulationVersionIds);
+            }
+        });
+        return selectCount(query);
     }
 
     default MesProcessPoolActiveOrderDO selectActiveByWorkOrderAndRoute(Long workOrderId, Long routeId) {
@@ -116,18 +159,6 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .eq(MesProcessPoolActiveOrderDO::getRouteId, routeId)
                 .eq(MesProcessPoolActiveOrderDO::getRouteVersionId, routeVersionId)
                 .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE"));
-    }
-
-    default MesProcessPoolActiveOrderDO selectRemovedByWorkOrderRouteVersion(Long workOrderId, Long routeId,
-                                                                            Long routeVersionId) {
-        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
-                .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderId)
-                .eq(MesProcessPoolActiveOrderDO::getRouteId, routeId)
-                .eq(MesProcessPoolActiveOrderDO::getRouteVersionId, routeVersionId)
-                .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "REMOVED")
-                .orderByDesc(MesProcessPoolActiveOrderDO::getRemovedAt)
-                .orderByDesc(MesProcessPoolActiveOrderDO::getId)
-                .last("LIMIT 1"));
     }
 
     default int reactivateRemovedActiveOrder(Long activeOrderId, Long leaderUserId, Integer version,

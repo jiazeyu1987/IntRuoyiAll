@@ -1,10 +1,17 @@
 import type {
-  FrontlinePqcBusinessDateResponse,
-  FrontlinePqcProcessResponseVO,
   FrontlinePqcProcessVO,
-  FrontlinePqcTaskOptionResponseVO,
   FrontlinePqcTaskOptionVO
 } from './index'
+
+type FrontlinePqcBusinessDateResponse = string | [number, number, number] | number[]
+
+type FrontlinePqcTaskOptionResponseVO = Omit<FrontlinePqcTaskOptionVO, 'businessDate'> & {
+  businessDate: FrontlinePqcBusinessDateResponse
+}
+
+type FrontlinePqcProcessResponseVO = Omit<FrontlinePqcProcessVO, 'pqcTaskOptions'> & {
+  pqcTaskOptions: FrontlinePqcTaskOptionResponseVO[]
+}
 
 const BUSINESS_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 

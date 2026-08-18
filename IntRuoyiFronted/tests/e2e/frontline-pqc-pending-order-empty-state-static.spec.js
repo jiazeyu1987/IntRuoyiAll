@@ -10,6 +10,21 @@ const panelSource = fs
   .readFileSync(path.join(root, 'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue'), 'utf8')
   .replace(/\r\n/g, '\n')
 
+const sliceBetween = (source, startNeedle, endNeedle, label) => {
+  const start = source.indexOf(startNeedle)
+  assert.ok(start >= 0, `${label} missing start marker`)
+  const end = source.indexOf(endNeedle, start + startNeedle.length)
+  assert.ok(end > start, `${label} missing end marker`)
+  return source.slice(start, end)
+}
+
+const activeOrderPickerEmptyTextBlock = sliceBetween(
+  panelSource,
+  'const activeOrderPickerEmptyText = computed',
+  'const pickerOptions',
+  'active-order picker empty text'
+)
+
 assert.match(
   contextSource,
   /export const FRONTLINE_PQC_NO_PENDING_ORDER_TEXT\s*=\s*['"]当前暂无待执行 PQC 检验任务['"]/,
@@ -41,8 +56,8 @@ assert.match(
   'PQC status text must explain that there are no executable inspection tasks when the order list is empty.'
 )
 assert.doesNotMatch(
-  panelSource,
-  /未找到匹配的活跃订单/,
+  activeOrderPickerEmptyTextBlock,
+  /isPqcMode\.value \? '未找到匹配的活跃订单'/,
   'PQC empty state must not use the old active-order wording.'
 )
 

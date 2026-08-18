@@ -1,5 +1,5 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260812_mes_pqc_dcc_qa_c00_postflight; type=schema; riskLevel=medium
--- PQC FIRST/PATROL task identity is scoped by the published QA inspection item.
+-- PQC task identity is scoped by the published QA inspection item.
 
 DROP PROCEDURE IF EXISTS migrate_mes_pqc_item_level_task_identity;
 DELIMITER $$
@@ -17,7 +17,7 @@ BEGIN
   IF v_count = 0 THEN
     ALTER TABLE `mes_pqc_inspection_task`
       ADD COLUMN `qa_item_code` varchar(64) NOT NULL DEFAULT ''
-        COMMENT 'QA inspection item code; empty only for process-scoped FINAL tasks'
+        COMMENT 'QA inspection item code used by the formal task identity'
         AFTER `qa_process_id`;
   END IF;
 
@@ -27,7 +27,7 @@ BEGIN
 
   ALTER TABLE `mes_pqc_inspection_task`
     MODIFY COLUMN `qa_item_code` varchar(64) NOT NULL DEFAULT ''
-      COMMENT 'QA inspection item code; empty only for process-scoped FINAL tasks';
+      COMMENT 'QA inspection item code used by the formal task identity';
 
   SELECT COUNT(*) INTO v_duplicate_count
     FROM (

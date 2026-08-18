@@ -11,6 +11,7 @@ public class MesTeamLeaderActiveOrderCandidateBO {
 
     private Long workOrderId;
     private String workOrderCode;
+    private String candidateState;
     private boolean eligible;
     private String ineligibleReason;
 }

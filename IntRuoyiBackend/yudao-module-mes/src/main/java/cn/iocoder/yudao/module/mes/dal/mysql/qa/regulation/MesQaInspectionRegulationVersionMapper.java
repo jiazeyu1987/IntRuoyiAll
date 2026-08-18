@@ -27,11 +27,28 @@ public interface MesQaInspectionRegulationVersionMapper
                 .last("LIMIT 1"));
     }
 
+    default List<MesQaInspectionRegulationVersionDO> selectListByRegulationId(Long regulationId) {
+        if (regulationId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
+                .eq(MesQaInspectionRegulationVersionDO::getRegulationId, regulationId)
+                .orderByAsc(MesQaInspectionRegulationVersionDO::getId));
+    }
+
     default List<MesQaInspectionRegulationVersionDO> selectListDraftByRegulationId(Long regulationId) {
         return selectList(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
                 .eq(MesQaInspectionRegulationVersionDO::getRegulationId, regulationId)
                 .eq(MesQaInspectionRegulationVersionDO::getLifecycleStatus, "DRAFT")
                 .orderByDesc(MesQaInspectionRegulationVersionDO::getId));
+    }
+
+    default int deleteByRegulationId(Long regulationId) {
+        if (regulationId == null) {
+            return 0;
+        }
+        return delete(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
+                .eq(MesQaInspectionRegulationVersionDO::getRegulationId, regulationId));
     }
 
 }

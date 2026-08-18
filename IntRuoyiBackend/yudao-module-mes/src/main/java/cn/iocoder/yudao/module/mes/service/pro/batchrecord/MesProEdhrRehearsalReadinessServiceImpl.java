@@ -13,7 +13,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessConfigDO;
@@ -21,7 +20,6 @@ import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrPermissionScopeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
@@ -55,7 +53,6 @@ public class MesProEdhrRehearsalReadinessServiceImpl implements MesProEdhrRehear
     private static final String BPM_PROCESS_KEY = "mes-edhr-approval-v1";
     private static final Long EDHR_PARENT_MENU_ID = 900220L;
     private static final String RULE_SCOPE_TYPE_ROUTE = "ROUTE";
-    private static final String FORM_SLOT_MAIN = "MAIN";
     private static final List<String> PERMISSIONS_EXECUTOR = List.of(
             "mes:pro-work-order:query",
             "mes:pro-edhr-batch-execution:query",
@@ -111,8 +108,6 @@ public class MesProEdhrRehearsalReadinessServiceImpl implements MesProEdhrRehear
     private MesProEdhrPermissionScopeService permissionScopeService;
     @Resource
     private MesProBatchRecordReportMapper reportMapper;
-    @Resource
-    private MesProBatchRecordVersionMapper batchRecordVersionMapper;
     @Resource
     private MesProBatchRecordJimuReportGateway jimuReportGateway;
     @Resource
@@ -460,57 +455,23 @@ public class MesProEdhrRehearsalReadinessServiceImpl implements MesProEdhrRehear
                     "先完成报表生成或恢复报表元数据。");
             return null;
         }
-        Long definitionId = record.getBatchRecordDefinitionId() != null
-                ? record.getBatchRecordDefinitionId()
-                : report.getBatchRecordDefinitionId();
-        Long versionId = record.getBatchRecordVersionId() != null
-                ? record.getBatchRecordVersionId()
-                : report.getBatchRecordVersionId();
-        if (definitionId == null) {
+        Long definitionId = record.getBatchRecordDefinitionId();
+        Long versionId = record.getBatchRecordVersionId();
+        if (definitionId == null || versionId == null) {
             addBlocker(result, "TEMPLATE_STABLE_IDENTITY_MISSING", "template", record.getId(),
-                    "工艺路线批记录绑定缺少稳定批记录定义身份，无法自动解析最新已发布版本：boundReportId=" + reportId + "。",
-                    "重新绑定该表单到批记录定义的最新已发布版本，或修复报表元数据中的 batchRecordDefinitionId 后再预检。");
+                    "工艺路线批记录绑定缺少冻结的批记录定义或版本身份：boundReportId=" + reportId + "。",
+                    "重新绑定该表单到已发布批记录版本后再预检。");
             return null;
         }
-        MesProBatchRecordVersionDO latestVersion =
-                batchRecordVersionMapper.selectLatestApprovedByDefinitionId(definitionId);
-        if (latestVersion == null || latestVersion.getId() == null) {
-            addBlocker(result, "TEMPLATE_LATEST_APPROVED_VERSION_MISSING", "template", record.getId(),
-                    "批记录定义没有最新已发布版本：definitionId=" + definitionId
-                            + "，boundReportId=" + reportId + "。",
-                    "先完成该批记录定义的版本发布，再运行演练预检。");
+        if (!Objects.equals(definitionId, report.getBatchRecordDefinitionId())
+                || !Objects.equals(versionId, report.getBatchRecordVersionId())) {
+            addBlocker(result, "TEMPLATE_STABLE_IDENTITY_MISMATCH", "template", record.getId(),
+                    "工艺路线冻结身份与报表元数据不一致：boundReportId=" + reportId
+                            + "，definitionId=" + definitionId + "，versionId=" + versionId + "。",
+                    "恢复与路线冻结身份一致的报表元数据后再预检。");
             return null;
         }
-        if (report.getSourceTableIndex() == null) {
-            addBlocker(result, "TEMPLATE_LATEST_REPORT_MISSING", "template", record.getId(),
-                    "旧绑定报表缺少 sourceTableIndex，无法映射最新已发布版本成员表：boundReportId=" + reportId + "。",
-                    "修复报表元数据后再运行演练预检。");
-            return null;
-        }
-        String expectedFormSlotType = normalizeFormSlotType(StrUtil.blankToDefault(
-                record.getFormSlotType(), report.getFormSlotType()));
-        List<MesProBatchRecordReportDO> matches = reportMapper
-                .selectListByDefinitionIdAndVersionId(definitionId, latestVersion.getId()).stream()
-                .filter(candidate -> Objects.equals(report.getSourceTableIndex(), candidate.getSourceTableIndex()))
-                .filter(candidate -> Objects.equals(expectedFormSlotType,
-                        normalizeFormSlotType(candidate.getFormSlotType())))
-                .toList();
-        if (matches.size() != 1) {
-            addBlocker(result, "TEMPLATE_LATEST_REPORT_MISSING", "template", record.getId(),
-                    "无法在最新已发布版本中唯一定位成员报表：definitionId=" + definitionId
-                            + "，latestVersionId=" + latestVersion.getId()
-                            + "，sourceTableIndex=" + report.getSourceTableIndex()
-                            + "，formSlotType=" + expectedFormSlotType
-                            + "，matches=" + matches.size() + "。",
-                    "修复最新版本报表成员元数据后再运行演练预检。");
-            return null;
-        }
-        MesProBatchRecordReportDO latestReport = matches.get(0);
-        return new ReadinessFormBinding(latestReport.getReportId(), latestVersion.getId(), latestReport);
-    }
-
-    private String normalizeFormSlotType(String formSlotType) {
-        return StrUtil.blankToDefault(formSlotType, FORM_SLOT_MAIN);
+        return new ReadinessFormBinding(reportId, versionId, report);
     }
 
     private boolean checkTemplateReadiness(MesProEdhrRehearsalReadinessResult result,

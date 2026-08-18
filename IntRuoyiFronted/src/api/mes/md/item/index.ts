@@ -11,6 +11,8 @@ export interface MdItemVO {
   itemTypeId: number // 物料分类编号
   itemTypeName?: string // 物料分类名称
   itemOrProduct?: string // 物料/产品标识
+  productMasterId?: number | null // MDM 产品主档编号
+  productMasterCode?: string | null // MDM 产品编码
   status: number // 状态
   safeStockFlag: boolean // 是否启用安全库存
   minStock: number // 最低库存量
@@ -18,6 +20,14 @@ export interface MdItemVO {
   highValue: boolean // 是否高值物料
   batchFlag: boolean // 是否启用批次管理
   remark: string // 备注
+}
+
+export interface MdItemProductMasterOptionVO {
+  productMasterId: number
+  productCode: string
+  dccProductCode?: string | null
+  nameCn: string
+  status: string
 }
 
 export interface KingdeeItemSyncRespVO {
@@ -42,6 +52,11 @@ export const MdItemApi = {
   // 按产品编号查询物料产品
   getItemByCode: async (code: string) => {
     return await request.get({ url: `/mes/md/item/get-by-code`, params: { code } })
+  },
+
+  // 查询物料维护可选的 MDM 产品主数据
+  getMdmProductOptions: async (): Promise<MdItemProductMasterOptionVO[]> => {
+    return await request.get({ url: `/mes/md/item/mdm-product-options` })
   },
 
   // 新增物料产品

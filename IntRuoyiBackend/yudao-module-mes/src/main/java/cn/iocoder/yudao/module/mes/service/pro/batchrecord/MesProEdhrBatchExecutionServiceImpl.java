@@ -4098,11 +4098,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private List<BatchTaskConfig> buildBatchTaskConfigs(MesProRouteDO route,
                                                         List<MesProRouteProcessDO> routeProcesses,
                                                         MesProRouteVersionDO activeRouteVersion) {
-        boolean hasCurrentBatchProcessConfig = !routeFlowProcessConfigMapper
-                .selectListByRouteIdAndUseType(route.getId(), MesProRouteFlowConfigTypeEnum.BATCH.getType())
-                .isEmpty();
-        if (!hasCurrentBatchProcessConfig
-                && activeRouteVersion != null
+        if (activeRouteVersion != null
                 && hasFrozenBatchTaskConfigSnapshot(activeRouteVersion.getRouteSnapshotJson())) {
             MesProEdhrBatchExecutionDO frozenContext = new MesProEdhrBatchExecutionDO()
                     .setRouteId(route.getId())
@@ -4266,52 +4262,25 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             return new ResolvedRouteFormBinding(record, null);
         }
         validateRouteFormBinding(record);
-        return resolveLatestApprovedRouteFormBinding(record, reportMap);
+        return resolveFrozenRouteFormBinding(record, reportMap);
     }
 
-    private ResolvedRouteFormBinding resolveLatestApprovedRouteFormBinding(
+    private ResolvedRouteFormBinding resolveFrozenRouteFormBinding(
             MesProRouteFlowProcessBatchRecordDO record,
             Map<String, MesProBatchRecordReportDO> boundReportMap) {
         MesProBatchRecordReportDO boundReport = boundReportMap.get(record.getBatchRecordReportId());
         if (boundReport == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
-        Long definitionId = record.getBatchRecordDefinitionId() != null
-                ? record.getBatchRecordDefinitionId()
-                : boundReport.getBatchRecordDefinitionId();
-        if (definitionId == null) {
+        Long definitionId = record.getBatchRecordDefinitionId();
+        Long versionId = record.getBatchRecordVersionId();
+        if (definitionId == null || versionId == null
+                || !Objects.equals(definitionId, boundReport.getBatchRecordDefinitionId())
+                || !Objects.equals(versionId, boundReport.getBatchRecordVersionId())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
-        MesProBatchRecordVersionDO latestVersion =
-                batchRecordVersionMapper.selectLatestApprovedByDefinitionId(definitionId);
-        if (latestVersion == null || latestVersion.getId() == null) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
-        }
-        MesProBatchRecordReportDO latestReport = resolveLatestApprovedMemberReport(
-                definitionId, latestVersion.getId(), record.getFormSlotType(), boundReport);
-        return new ResolvedRouteFormBinding(copyRouteBindingWithResolvedReport(record, latestReport, latestVersion),
-                latestReport);
-    }
-
-    private MesProBatchRecordReportDO resolveLatestApprovedMemberReport(
-            Long definitionId,
-            Long latestVersionId,
-            String formSlotType,
-            MesProBatchRecordReportDO boundReport) {
-        if (boundReport.getSourceTableIndex() == null) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
-        }
-        String expectedFormSlotType = normalizeFormSlotType(StrUtil.blankToDefault(
-                formSlotType, boundReport.getFormSlotType()));
-        List<MesProBatchRecordReportDO> matches = reportMapper
-                .selectListByDefinitionIdAndVersionId(definitionId, latestVersionId).stream()
-                .filter(report -> Objects.equals(boundReport.getSourceTableIndex(), report.getSourceTableIndex()))
-                .filter(report -> Objects.equals(expectedFormSlotType, normalizeFormSlotType(report.getFormSlotType())))
-                .toList();
-        if (matches.size() != 1) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
-        }
-        return matches.get(0);
+        return new ResolvedRouteFormBinding(copyRouteBindingWithResolvedReport(record, boundReport,
+                MesProBatchRecordVersionDO.builder().id(versionId).build()), boundReport);
     }
 
     private String normalizeFormSlotType(String formSlotType) {
@@ -4723,7 +4692,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                     predecessorMap.get(routeProcessId), null, null, null);
         }
         validateRouteFormBinding(batchRecord);
-        ResolvedRouteFormBinding resolvedBinding = resolveLatestApprovedRouteFormBinding(batchRecord, reportMap);
+        ResolvedRouteFormBinding resolvedBinding = resolveFrozenRouteFormBinding(batchRecord, reportMap);
         return new BatchTaskConfig(routeProcess, process, resolvedBinding.record(), resolvedBinding.report(),
                 resolveBatchExecutionMode(processConfig.getString("executionMode")),
                 predecessorMap.get(routeProcessId), null, null, null);
@@ -5009,42 +4978,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (boundReport == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
-        Long definitionId = resolveTaskValue(batchRecord.getBatchRecordDefinitionId(),
-                boundReport.getBatchRecordDefinitionId());
-        if (definitionId == null) {
+        Long definitionId = batchRecord.getBatchRecordDefinitionId();
+        Long versionId = batchRecord.getBatchRecordVersionId();
+        if (definitionId == null || versionId == null
+                || !Objects.equals(definitionId, boundReport.getBatchRecordDefinitionId())
+                || !Objects.equals(versionId, boundReport.getBatchRecordVersionId())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
-        MesProBatchRecordVersionDO latestVersion =
-                batchRecordVersionMapper.selectLatestApprovedByDefinitionId(definitionId);
-        if (latestVersion == null || latestVersion.getId() == null) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
-        }
-        MesProBatchRecordReportDO latestReport = resolveLatestApprovedMemberReport(
-                definitionId, latestVersion.getId(), batchRecord, boundReport);
-        return new ResolvedBatchRecordReport(latestReport, latestReport.getReportId(),
-                definitionId, latestVersion.getId());
-    }
-
-    private MesProBatchRecordReportDO resolveLatestApprovedMemberReport(
-            Long definitionId,
-            Long latestVersionId,
-            MesProRouteFlowProcessBatchRecordDO batchRecord,
-            MesProBatchRecordReportDO boundReport) {
-        if (boundReport.getSourceTableIndex() == null) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
-        }
-        String expectedFormSlotType = resolveRouteFormSlotType(StrUtil.blankToDefault(
-                batchRecord.getFormSlotType(), boundReport.getFormSlotType()));
-        List<MesProBatchRecordReportDO> matches = reportMapper
-                .selectListByDefinitionIdAndVersionId(definitionId, latestVersionId).stream()
-                .filter(candidate -> Objects.equals(boundReport.getSourceTableIndex(), candidate.getSourceTableIndex()))
-                .filter(candidate -> Objects.equals(expectedFormSlotType,
-                        resolveRouteFormSlotType(candidate.getFormSlotType())))
-                .toList();
-        if (matches.size() != 1) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
-        }
-        return matches.get(0);
+        return new ResolvedBatchRecordReport(boundReport, boundReport.getReportId(), definitionId, versionId);
     }
 
     private String resolveTaskBatchRecordReportName(MesProRouteFlowProcessBatchRecordDO batchRecord,

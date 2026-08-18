@@ -52,6 +52,14 @@ public enum MesProFeedbackStatusEnum implements ArrayValuable<Integer> {
      */
     private final String name;
 
+    public Integer getStatus() {
+        return status;
+    }
+
+    public String getName() {
+        return name;
+    }
+
     @Override
     public Integer[] array() {
         return ARRAYS;

@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -32,6 +34,11 @@ public interface MesProRouteVersionMapper extends BaseMapperX<MesProRouteVersion
             + "LIMIT 1 FOR UPDATE")
     MesProRouteVersionDO selectActiveByRouteIdForUpdate(Long routeId);
 
+    @Select("SELECT * FROM mes_pro_route_version "
+            + "WHERE deleted = 0 AND route_id = #{routeId} "
+            + "ORDER BY id FOR UPDATE")
+    List<MesProRouteVersionDO> selectListByRouteIdForUpdate(Long routeId);
+
     @Select("SELECT v.* FROM mes_pro_route_version v "
             + "INNER JOIN mes_pro_route r ON r.id = v.route_id AND r.deleted = b'0' "
             + "WHERE v.deleted = b'0' AND v.active = b'1' AND v.lifecycle_status = 'ACTIVE'")
@@ -39,6 +46,24 @@ public interface MesProRouteVersionMapper extends BaseMapperX<MesProRouteVersion
 
     @Select("SELECT * FROM mes_pro_route_version WHERE deleted = b'0' AND id = #{id} FOR UPDATE")
     MesProRouteVersionDO selectByIdForUpdate(Long id);
+
+    @Select("SELECT CASE WHEN COUNT(*) = 2 "
+            + "AND SUM(CASE WHEN IS_NULLABLE = 'NO' THEN 1 ELSE 0 END) = 2 "
+            + "THEN 1 ELSE 0 END FROM information_schema.COLUMNS "
+            + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mes_pro_route_version' "
+            + "AND COLUMN_NAME IN ('route_snapshot_sha256', 'route_snapshot_format_version')")
+    Integer selectSnapshotIdentityEnforcementReady();
+
+    @Select("SELECT * FROM mes_pro_route_version ORDER BY id")
+    @InterceptorIgnore(tenantLine = "true")
+    List<MesProRouteVersionDO> selectAllPhysicalRows();
+
+    @Update("UPDATE mes_pro_route_version "
+            + "SET route_snapshot_sha256 = #{routeSnapshotSha256}, "
+            + "route_snapshot_format_version = #{routeSnapshotFormatVersion}, update_time = CURRENT_TIMESTAMP "
+            + "WHERE id = #{id}")
+    @InterceptorIgnore(tenantLine = "true")
+    int updateSnapshotIdentityPhysical(MesProRouteVersionDO update);
 
     default MesProRouteVersionDO selectByRouteIdAndVersionNo(Long routeId, String versionNo) {
         return selectOne(new LambdaQueryWrapperX<MesProRouteVersionDO>()

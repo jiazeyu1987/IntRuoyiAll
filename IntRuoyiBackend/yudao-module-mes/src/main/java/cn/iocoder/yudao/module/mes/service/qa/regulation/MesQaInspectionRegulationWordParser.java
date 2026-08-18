@@ -38,6 +38,9 @@ public class MesQaInspectionRegulationWordParser {
     private static final Pattern AQL_PATTERN = Pattern.compile(
             "(?i)AQL\\s*[=＝:]\\s*(\\d+(?:\\.\\d+)?)");
     private static final Pattern SERIAL_PATTERN = Pattern.compile("\\d+");
+    private static final Pattern PROCESS_NAME_SEPARATOR_PATTERN = Pattern.compile("[/／]+|\\s+");
+    private static final Pattern ADJACENT_ROMAN_NUMBERED_PROCESS_PATTERN = Pattern.compile(
+            "[\\p{IsHan}A-Za-z0-9（）()\\-]+?(?:[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]+|[IVX]+)(?=\\p{IsHan}|$)");
     private static final int EXPECTED_INSPECTION_COLUMNS = 8;
 
     public ParsedRegulation parse(byte[] content, String fileName) {
@@ -201,6 +204,7 @@ public class MesQaInspectionRegulationWordParser {
 
             InspectionColumns columns = inspectionTable.columns();
             String processName = valueAt(row, columns.processColumn());
+            List<String> processNames = splitProcessNames(processName);
             List<String> itemPath = new ArrayList<>();
             for (int itemColumn = columns.processColumn() + 1;
                  itemColumn < columns.standardColumn(); itemColumn++) {
@@ -215,19 +219,60 @@ public class MesQaInspectionRegulationWordParser {
             String inspectionMethod = valueAt(row, columns.methodColumn());
             String inspectionTool = valueAt(row, columns.toolColumn());
             String samplingPlanText = valueAt(row, columns.samplingColumn());
-            if (processName.isEmpty() || itemName.isEmpty() || standardText.isEmpty()
+            if (processNames.isEmpty() || itemName.isEmpty() || standardText.isEmpty()
                     || inspectionMethod.isEmpty() || inspectionTool.isEmpty() || samplingPlanText.isEmpty()) {
                 throw invalid("检验内容表第 " + (rowIndex + 1) + " 行字段不完整");
             }
             SamplingRule samplingRule = parseSamplingRule(samplingPlanText, rowIdentity);
-            items.add(new ParsedItem(processName, itemName, standardText, inspectionMethod,
-                    inspectionTool, samplingPlanText, samplingRule.firstInspectionQuantity(),
-                    samplingRule.patrolInspectionRatio()));
+            for (String resolvedProcessName : processNames) {
+                items.add(new ParsedItem(resolvedProcessName, itemName, standardText, inspectionMethod,
+                        inspectionTool, samplingPlanText, samplingRule.firstInspectionQuantity(),
+                        samplingRule.patrolInspectionRatio()));
+            }
         }
         if (items.isEmpty()) {
             throw invalid("检验内容表格没有有效检验项目");
         }
         return List.copyOf(items);
+    }
+
+    private static List<String> splitProcessNames(String processName) {
+        String normalized = normalizeText(processName);
+        if (normalized.isEmpty()) {
+            return List.of();
+        }
+        Set<String> processNames = new LinkedHashSet<>();
+        for (String segment : PROCESS_NAME_SEPARATOR_PATTERN.split(normalized)) {
+            String resolved = normalizeText(segment);
+            if (resolved.isEmpty()) {
+                continue;
+            }
+            List<String> adjacentRomanNumberedProcesses =
+                    splitAdjacentRomanNumberedProcesses(resolved);
+            if (adjacentRomanNumberedProcesses.isEmpty()) {
+                processNames.add(resolved);
+            } else {
+                processNames.addAll(adjacentRomanNumberedProcesses);
+            }
+        }
+        return List.copyOf(processNames);
+    }
+
+    private static List<String> splitAdjacentRomanNumberedProcesses(String segment) {
+        Matcher matcher = ADJACENT_ROMAN_NUMBERED_PROCESS_PATTERN.matcher(segment);
+        List<String> processes = new ArrayList<>();
+        int cursor = 0;
+        while (matcher.find()) {
+            if (matcher.start() != cursor) {
+                return List.of();
+            }
+            processes.add(matcher.group());
+            cursor = matcher.end();
+        }
+        if (cursor == segment.length() && processes.size() > 1) {
+            return List.copyOf(processes);
+        }
+        return List.of();
     }
 
     private static SamplingRule parseSamplingRule(String samplingPlanText, String serial) {

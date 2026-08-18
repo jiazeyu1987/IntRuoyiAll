@@ -1577,9 +1577,9 @@ const resolveWordImportUpgradeVersionMessage = (
   const latestVersion = formatWordImportLatestBatchRecordVersion(preflight)
   const nextVersion = preflight.nextVersionNo || '下一版本'
   if (latestVersion !== currentVersion) {
-    return `批记录「${batchRecordName}」最新批记录版本为 ${latestVersion}，当前生效源版本为 ${currentVersion}，确认后将生成 ${nextVersion}。`
+    return `批记录「${batchRecordName}」已存在同名批记录。是否升版本：最新批记录版本为 ${latestVersion}，当前生效源版本为 ${currentVersion}，确认后将生成 ${nextVersion}。`
   }
-  return `批记录「${batchRecordName}」当前版本为 ${currentVersion}，确认后将生成 ${nextVersion}。`
+  return `批记录「${batchRecordName}」已存在同名批记录。是否升版本：当前版本为 ${currentVersion}，确认后将生成 ${nextVersion}。`
 }
 
 const isWordImportRouteDuplicateBlocked = (preflight?: BatchRecordReportImportPreflightVO) =>

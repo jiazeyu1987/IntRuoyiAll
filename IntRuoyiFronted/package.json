@@ -88,6 +88,7 @@
     "e2e:mes:schedule-route-shared-config:static": "node tests/e2e/mes-schedule-route-shared-config-static.spec.js",
     "e2e:mes:scheduler-workbench-import-timeout:static": "node tests/e2e/mes-scheduler-workbench-import-timeout-static.spec.js",
     "e2e:mes:scheduler-workbench-process-wip-sort:static": "node tests/e2e/scheduler-workbench-process-wip-sort-static.spec.js",
+    "e2e:mes:scheduler-workbench-process-capacity-edit:static": "node tests/e2e/scheduler-workbench-process-capacity-edit-static.spec.js",
     "e2e:mes:scheduler-workbench-policy-refresh:static": "node tests/e2e/scheduler-workbench-policy-refresh-static.spec.js",
     "e2e:mes:schedule-calendar-visible-months:static": "node tests/e2e/mes-schedule-calendar-visible-months-static.spec.js",
     "e2e:mes:md-item-route-selection:static": "node tests/e2e/mes-md-item-route-selection-static.spec.js",

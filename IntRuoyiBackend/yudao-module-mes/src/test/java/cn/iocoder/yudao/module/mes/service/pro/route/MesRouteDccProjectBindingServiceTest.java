@@ -6,9 +6,13 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.dcc.MesRouteDccProjectBindingRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.dcc.MesRouteDccProjectBindingSaveReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +20,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.lang.reflect.Field;
+import java.util.List;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_DCC_PROJECT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_DCC_BINDING_VERSION_CONFLICT;
@@ -42,6 +49,10 @@ class MesRouteDccProjectBindingServiceTest {
     private MesProRouteMapper routeMapper;
     @Mock
     private DccProjectCodeMapper dccProjectCodeMapper;
+    @Mock
+    private MesProRouteProductMapper routeProductMapper;
+    @Mock
+    private MesMdItemMapper itemMapper;
 
     @Test
     void bindInitialRoute_createsVersionOneFromExpectedZero() {
@@ -49,6 +60,7 @@ class MesRouteDccProjectBindingServiceTest {
         when(bindingMapper.selectCurrentByRouteIdForUpdate(100L)).thenReturn(null);
         when(bindingMapper.selectMaxVersionByRouteIdIncludeDeleted(100L)).thenReturn(null);
         when(dccProjectCodeMapper.selectById(200L)).thenReturn(dccProjectCode(200L, DccProjectCodeStatusConstants.ENABLE));
+        stubMatchingProductIdentity(100L, 200L);
 
         MesRouteDccProjectBindingRespVO result = service.saveBinding(new MesRouteDccProjectBindingSaveReqVO()
                 .setRouteId(100L)
@@ -90,6 +102,7 @@ class MesRouteDccProjectBindingServiceTest {
         when(routeMapper.selectByIdForUpdate(100L)).thenReturn(route(100L));
         when(bindingMapper.selectCurrentByRouteIdForUpdate(100L)).thenReturn(current);
         when(dccProjectCodeMapper.selectById(201L)).thenReturn(dccProjectCode(201L, DccProjectCodeStatusConstants.ENABLE));
+        stubMatchingProductIdentity(100L, 201L);
 
         MesRouteDccProjectBindingRespVO result = service.saveBinding(new MesRouteDccProjectBindingSaveReqVO()
                 .setRouteId(100L)
@@ -121,6 +134,87 @@ class MesRouteDccProjectBindingServiceTest {
                         .setExpectedVersion(0L)));
 
         assertEquals(PRO_ROUTE_DCC_PROJECT_INVALID.getCode(), ex.getCode());
+        verify(bindingMapper, never()).insert(any(MesRouteDccProjectBindingDO.class));
+    }
+
+    @Test
+    void bind_rejectsRouteWithoutProductsBeforeAnyWrite() {
+        stubInitialBindingContext(dccProjectCode(200L, DccProjectCodeStatusConstants.ENABLE)
+                .setProductMasterId(11L));
+        when(routeProductMapper.selectListByRouteId(100L)).thenReturn(List.of());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveBinding(initialRequest()));
+
+        assertEquals(1_040_501_502, ex.getCode());
+        verify(bindingMapper, never()).insert(any(MesRouteDccProjectBindingDO.class));
+    }
+
+    @Test
+    void bind_rejectsMissingRouteItemBeforeAnyWrite() {
+        stubInitialBindingContext(dccProjectCode(200L, DccProjectCodeStatusConstants.ENABLE)
+                .setProductMasterId(11L));
+        when(routeProductMapper.selectListByRouteId(100L)).thenReturn(List.of(routeProduct(1001L)));
+        when(itemMapper.selectListByIds(List.of(1001L))).thenReturn(List.of());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveBinding(initialRequest()));
+
+        assertEquals(1_040_501_503, ex.getCode());
+        verify(bindingMapper, never()).insert(any(MesRouteDccProjectBindingDO.class));
+    }
+
+    @Test
+    void bind_rejectsItemWithoutProductMasterBeforeAnyWrite() {
+        stubInitialBindingContext(dccProjectCode(200L, DccProjectCodeStatusConstants.ENABLE)
+                .setProductMasterId(11L));
+        when(routeProductMapper.selectListByRouteId(100L)).thenReturn(List.of(routeProduct(1001L)));
+        when(itemMapper.selectListByIds(List.of(1001L))).thenReturn(List.of(item(1001L, null)));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveBinding(initialRequest()));
+
+        assertEquals(1_040_501_504, ex.getCode());
+        verify(bindingMapper, never()).insert(any(MesRouteDccProjectBindingDO.class));
+    }
+
+    @Test
+    void bind_rejectsAmbiguousRouteProductMastersBeforeAnyWrite() {
+        stubInitialBindingContext(dccProjectCode(200L, DccProjectCodeStatusConstants.ENABLE)
+                .setProductMasterId(11L));
+        when(routeProductMapper.selectListByRouteId(100L)).thenReturn(List.of(routeProduct(1001L), routeProduct(1002L)));
+        MesMdItemDO first = item(1001L, 11L);
+        MesMdItemDO second = item(1002L, 12L);
+        when(itemMapper.selectListByIds(List.of(1001L, 1002L)))
+                .thenReturn(List.of(first, second));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveBinding(initialRequest()));
+
+        assertEquals(1_040_501_505, ex.getCode());
+        verify(bindingMapper, never()).insert(any(MesRouteDccProjectBindingDO.class));
+    }
+
+    @Test
+    void bind_rejectsDccWithoutProductMasterBeforeAnyWrite() {
+        stubInitialBindingContext(dccProjectCode(200L, DccProjectCodeStatusConstants.ENABLE));
+        when(routeProductMapper.selectListByRouteId(100L)).thenReturn(List.of(routeProduct(1001L)));
+        MesMdItemDO routeItem = item(1001L, 11L);
+        when(itemMapper.selectListByIds(List.of(1001L))).thenReturn(List.of(routeItem));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveBinding(initialRequest()));
+
+        assertEquals(1_040_501_506, ex.getCode());
+        verify(bindingMapper, never()).insert(any(MesRouteDccProjectBindingDO.class));
+    }
+
+    @Test
+    void bind_rejectsProductMasterMismatchBeforeAnyWrite() {
+        stubInitialBindingContext(dccProjectCode(200L, DccProjectCodeStatusConstants.ENABLE)
+                .setProductMasterId(12L));
+        when(routeProductMapper.selectListByRouteId(100L)).thenReturn(List.of(routeProduct(1001L)));
+        MesMdItemDO routeItem = item(1001L, 11L);
+        when(itemMapper.selectListByIds(List.of(1001L))).thenReturn(List.of(routeItem));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveBinding(initialRequest()));
+
+        assertEquals(1_040_501_507, ex.getCode());
         verify(bindingMapper, never()).insert(any(MesRouteDccProjectBindingDO.class));
     }
 
@@ -190,5 +284,46 @@ class MesRouteDccProjectBindingServiceTest {
                 .projectName("project-" + id)
                 .status(status)
                 .build();
+    }
+
+    private void stubInitialBindingContext(DccProjectCodeDO dccProjectCode) {
+        when(routeMapper.selectByIdForUpdate(100L)).thenReturn(route(100L));
+        when(bindingMapper.selectCurrentByRouteIdForUpdate(100L)).thenReturn(null);
+        when(bindingMapper.selectMaxVersionByRouteIdIncludeDeleted(100L)).thenReturn(null);
+        when(dccProjectCodeMapper.selectById(200L)).thenReturn(dccProjectCode);
+    }
+
+    private void stubMatchingProductIdentity(Long routeId, Long dccProjectCodeId) {
+        DccProjectCodeDO dccProjectCode = dccProjectCodeMapper.selectById(dccProjectCodeId);
+        dccProjectCode.setProductMasterId(11L);
+        when(routeProductMapper.selectListByRouteId(routeId)).thenReturn(List.of(routeProduct(1001L)));
+        MesMdItemDO routeItem = item(1001L, 11L);
+        when(itemMapper.selectListByIds(List.of(1001L))).thenReturn(List.of(routeItem));
+    }
+
+    private MesRouteDccProjectBindingSaveReqVO initialRequest() {
+        return new MesRouteDccProjectBindingSaveReqVO()
+                .setRouteId(100L)
+                .setDccProjectCodeId(200L)
+                .setExpectedVersion(0L);
+    }
+
+    private MesProRouteProductDO routeProduct(Long itemId) {
+        return MesProRouteProductDO.builder().routeId(100L).itemId(itemId).build();
+    }
+
+    private MesMdItemDO item(Long itemId, Long productMasterId) {
+        MesMdItemDO item = MesMdItemDO.builder().id(itemId).code("ITEM-" + itemId).build();
+        if (productMasterId == null) {
+            return item;
+        }
+        try {
+            Field field = MesMdItemDO.class.getDeclaredField("productMasterId");
+            field.setAccessible(true);
+            field.set(item, productMasterId);
+            return item;
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("MesMdItemDO.productMasterId is required", ex);
+        }
     }
 }

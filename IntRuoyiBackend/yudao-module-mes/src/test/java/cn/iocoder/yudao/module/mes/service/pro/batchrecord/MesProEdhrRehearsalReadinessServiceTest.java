@@ -203,10 +203,10 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
     void preflight_acceptsMultipleAssistRowFillRulesForSameReportVersion() {
         seedHappyPathMenusAndSignatures();
         insertArchiveAssignmentRule(ARCHIVER_ID);
-        insertRouteRecord(8011L, 1011L);
+        MesProBatchRecordReportDO report = insertReport("RPT-1");
+        insertRouteRecord(8011L, 1011L, report.getReportId(),
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(), report.getFormSlotType());
         insertPermissionScope(1011L);
-        insertReport("RPT-1");
-        MesProBatchRecordReportDO report = reportMapper.selectByReportId("RPT-1");
         insertProcessFormFillRule(9911L, 0L, "RPT-1",
                 report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(),
                 "AR_001", String.valueOf(EXECUTOR_ID));
@@ -377,9 +377,10 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
     @Test
     void preflight_reportsUnreviewedTemplateCellRulesWithoutWritingReportJson() {
         seedHappyPathMenusAndSignatures();
-        insertRouteRecord(8001L, 1001L);
+        MesProBatchRecordReportDO report = insertReport("RPT-1");
+        insertRouteRecord(8001L, 1001L, report.getReportId(),
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(), report.getFormSlotType());
         insertPermissionScope(1001L);
-        insertReport("RPT-1");
         when(jimuReportGateway.getReportJson("RPT-1")).thenReturn(unreviewedReportJson());
         ProcessDefinition definition = Mockito.mock(ProcessDefinition.class);
         when(definition.getId()).thenReturn("mes-edhr-approval-v1:1:definition");
@@ -405,9 +406,10 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
     @Test
     void preflight_reportsMissingProcessFormFillRuleBeforeCreatingFillTask() {
         seedHappyPathMenusAndSignatures();
-        insertRouteRecord(8001L, 1001L);
+        MesProBatchRecordReportDO report = insertReport("RPT-1");
+        insertRouteRecord(8001L, 1001L, report.getReportId(),
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(), report.getFormSlotType());
         insertPermissionScope(1001L);
-        insertReport("RPT-1");
         when(jimuReportGateway.getReportJson("RPT-1")).thenReturn(reviewedReportJson());
         insertArchiveAssignmentRule(ARCHIVER_ID);
         seedBpmStartAllowed();
@@ -423,7 +425,7 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void preflight_resolvesLatestApprovedReportVersionWhenRouteBindingStillPointsToOldVersion() {
+    void preflight_usesFrozenReportVersionWhenNewVersionIsApproved() {
         seedHappyPathMenusAndSignatures();
         MesProBatchRecordVersionDO oldVersion = insertBatchRecordVersion(76001L, "V1.0", "APPROVED");
         MesProBatchRecordVersionDO latestVersion = insertBatchRecordVersion(76001L, "V2.0", "APPROVED");
@@ -431,9 +433,9 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
         insertPermissionScope(1002L);
         insertVersionedReport(9002L, "RPT-OLD", 76001L, oldVersion.getId(), 1, "MAIN");
         insertVersionedReport(9003L, "RPT-LATEST", 76001L, latestVersion.getId(), 1, "MAIN");
-        insertProcessFormFillRule(9903L, 9001L, "RPT-LATEST", 76001L, latestVersion.getId(),
+        insertProcessFormFillRule(9903L, 9001L, "RPT-OLD", 76001L, oldVersion.getId(),
                 String.valueOf(EXECUTOR_ID));
-        when(jimuReportGateway.getReportJson("RPT-LATEST")).thenReturn(reviewedReportJson());
+        when(jimuReportGateway.getReportJson("RPT-OLD")).thenReturn(reviewedReportJson());
         insertArchiveAssignmentRule(ARCHIVER_ID);
         seedBpmStartAllowed();
 

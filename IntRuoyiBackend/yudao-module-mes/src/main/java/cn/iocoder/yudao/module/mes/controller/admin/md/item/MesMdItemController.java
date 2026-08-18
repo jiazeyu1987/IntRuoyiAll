@@ -8,11 +8,14 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.collection.MapUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
+import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemImportExcelVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemImportRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesKingdeeItemCodeSyncReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesKingdeeItemSyncRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemPageReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemProductMasterOptionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.md.item.vo.MesMdItemSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
@@ -38,8 +41,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum.EXPORT;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
@@ -59,6 +66,8 @@ public class MesMdItemController {
     private MesMdUnitMeasureService unitMeasureService;
     @Resource
     private MesKingdeeItemSyncService kingdeeItemSyncService;
+    @Resource
+    private MdmProductApi mdmProductApi;
 
     @PostMapping("/create")
     @Operation(summary = "创建物料产品")
@@ -124,6 +133,23 @@ public class MesMdItemController {
         return success(new PageResult<>(buildItemVOList(pageResult.getList()), pageResult.getTotal()));
     }
 
+    @GetMapping("/mdm-product-options")
+    @Operation(summary = "获得 MES 物料可选 MDM 产品")
+    @PreAuthorize("@ss.hasPermission('mes:md-item:query')")
+    public CommonResult<List<MesMdItemProductMasterOptionRespVO>> getMdmProductOptions() {
+        List<MesMdItemProductMasterOptionRespVO> options = mdmProductApi
+                .listSimpleProducts(null, null, null).stream()
+                .map(product -> MesMdItemProductMasterOptionRespVO.builder()
+                        .productMasterId(product.getId())
+                        .productCode(product.getProductCode())
+                        .dccProductCode(product.getDccProductCode())
+                        .nameCn(product.getNameCn())
+                        .status(product.getStatus())
+                        .build())
+                .toList();
+        return success(options);
+    }
+
     @PostMapping("/sync-kingdee")
     @Operation(summary = "同步金蝶物料产品")
     @PreAuthorize("@ss.hasPermission('mes:md-item:create')")
@@ -168,7 +194,8 @@ public class MesMdItemController {
     public void importTemplate(HttpServletResponse response) throws IOException {
         // 手动创建导出 demo
         List<MesMdItemImportExcelVO> list = Collections.singletonList(
-                MesMdItemImportExcelVO.builder().code("ITEM001").name("螺丝").specification("M6*20")
+                MesMdItemImportExcelVO.builder().code("ITEM001").name("螺丝")
+                        .productMasterCode("MDM-PRODUCT-001").specification("M6*20")
                         .unitMeasureCode("PCS").itemTypeId(1L).status(0).build()
         );
         // 输出
@@ -199,6 +226,16 @@ public class MesMdItemController {
                 convertSet(list, MesMdItemDO::getItemTypeId));
         Map<Long, MesMdUnitMeasureDO> unitMeasureMap = unitMeasureService.getUnitMeasureMap(
                 convertSet(list, MesMdItemDO::getUnitMeasureId));
+        Set<Long> productMasterIds = list.stream()
+                .map(MesMdItemDO::getProductMasterId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, MdmProductRespDTO> productMasterMap = productMasterIds.isEmpty()
+                ? Collections.emptyMap()
+                : mdmProductApi.listSimpleProducts(null, null, null).stream()
+                .filter(product -> product.getId() != null && productMasterIds.contains(product.getId()))
+                .collect(Collectors.toMap(MdmProductRespDTO::getId, Function.identity(),
+                        (left, right) -> left, LinkedHashMap::new));
         return BeanUtils.toBean(list, MesMdItemRespVO.class, item -> {
             MapUtils.findAndThen(itemTypeMap, item.getItemTypeId(),
                     itemType -> {
@@ -207,6 +244,8 @@ public class MesMdItemController {
                     });
             MapUtils.findAndThen(unitMeasureMap, item.getUnitMeasureId(),
                     unitMeasure -> item.setUnitMeasureName(unitMeasure.getName()));
+            MapUtils.findAndThen(productMasterMap, item.getProductMasterId(),
+                    productMaster -> item.setProductMasterCode(productMaster.getProductCode()));
         });
     }
 

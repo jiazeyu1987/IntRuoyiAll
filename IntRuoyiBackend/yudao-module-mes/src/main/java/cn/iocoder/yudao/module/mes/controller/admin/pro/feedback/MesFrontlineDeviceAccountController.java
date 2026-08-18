@@ -121,7 +121,7 @@ public class MesFrontlineDeviceAccountController {
     @Operation(summary = "获得员工填报运行态配置")
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
     public CommonResult<MesFrontlineRuntimeConfigRespVO> getRuntimeConfig(
-            @RequestParam("activeOrderId") @NotNull Long activeOrderId,
+            @RequestParam(value = "activeOrderId", required = false) Long activeOrderId,
             @RequestParam("routeId") @NotNull Long routeId,
             @RequestParam("routeProcessId") @NotNull Long routeProcessId,
             @RequestParam("processId") @NotNull Long processId) {
@@ -135,9 +135,8 @@ public class MesFrontlineDeviceAccountController {
     public CommonResult<MesFrontlineSwitchEmployeeRespVO> switchActualEmployee(
             @Valid @RequestBody MesFrontlineSwitchEmployeeReqVO reqVO) {
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
-                new MesFrontlineEmployeeSwitchCommand(getLoginUserId(), reqVO.getActiveOrderId(),
-                        reqVO.getRouteId(), reqVO.getRouteProcessId(), reqVO.getProcessId(),
-                        reqVO.getActualEmployeeId()));
+                new MesFrontlineEmployeeSwitchCommand(getLoginUserId(), reqVO.getActiveOrderId(), reqVO.getRouteId(),
+                        reqVO.getRouteProcessId(), reqVO.getProcessId(), reqVO.getActualEmployeeId()));
         return success(toSwitchEmployeeRespVO(result));
     }
 
@@ -254,8 +253,6 @@ public class MesFrontlineDeviceAccountController {
                         ? activeOrder.getQuantity() : activeOrder.getErpFixedQuantitySnapshot())
                 .setRouteId(activeOrder.getRouteId())
                 .setRouteName(activeOrder.getRouteName())
-                .setRouteVersionId(activeOrder.getRouteVersionId())
-                .setRouteVersionNo(activeOrder.getRouteVersionNo())
                 .setLatestSubmitTime(activeOrder.getJoinedAt());
     }
 
@@ -486,6 +483,9 @@ public class MesFrontlineDeviceAccountController {
         item.setRecordbookId(context.recordbookId());
         item.setScheduledQuantity(context.scheduledQuantity());
         item.setExpireDate(context.expireDate());
+        item.setActiveOrderProcessSnapshotId(context.activeOrderProcessSnapshotId());
+        item.setParameterSnapshotSha256(context.parameterSnapshotSha256());
+        item.setParameterSnapshotState(context.parameterSnapshotState());
         return item;
     }
 

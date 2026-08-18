@@ -26,6 +26,9 @@ public class MesMdItemImportExcelVO {
     @ExcelProperty("物料名称")
     private String name;
 
+    @ExcelProperty("MDM 产品编码")
+    private String productMasterCode;
+
     @ExcelProperty("规格型号")
     private String specification;
 

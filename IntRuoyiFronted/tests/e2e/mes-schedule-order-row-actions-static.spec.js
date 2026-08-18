@@ -41,7 +41,7 @@ assert(
   /<el-button[\s\S]*?@click="openPriorityDialog\(row\)"[\s\S]*?>[\s\S]*?调整[\s\S]*?<\/el-button>/.test(
     activeRowActionsSource
   ),
-  '排产工单行操作必须保留只调整优先级的调整按钮。'
+  '排产工单行操作必须保留可调整承诺交期、计划开工时间和优先级的调整按钮。'
 )
 
 assert(

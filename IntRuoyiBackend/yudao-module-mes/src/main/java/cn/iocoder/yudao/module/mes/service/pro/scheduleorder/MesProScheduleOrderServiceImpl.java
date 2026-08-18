@@ -359,12 +359,18 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         updateObj.setId(reqVO.getId());
         updateObj.setPromiseDate(reqVO.getPromiseDate());
         updateObj.setPriorityNo(reqVO.getPriorityNo());
+        if (reqVO.getPlannedStartTime() != null) {
+            updateObj.setPlannedStartTime(reqVO.getPlannedStartTime());
+        }
         updateObj.setRemark(reqVO.getRemark());
         scheduleOrderMapper.updateById(updateObj);
 
         MesProScheduleOrderDO after = copyForSnapshot(scheduleOrder);
         after.setPromiseDate(reqVO.getPromiseDate());
         after.setPriorityNo(reqVO.getPriorityNo());
+        if (reqVO.getPlannedStartTime() != null) {
+            after.setPlannedStartTime(reqVO.getPlannedStartTime());
+        }
         after.setRemark(reqVO.getRemark());
         insertOperationLog(scheduleOrder, after, "UPDATE", reqVO.getReason());
     }
@@ -640,21 +646,15 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     public MesProScheduleOrderAdmissionDiffPageRespVO getAdmissionDiff(
             MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO) {
         MesProWorkOrderPageReqVO workOrderPageReqVO = buildWorkOrderPageReqVO(pageReqVO);
-        List<Long> quickFilterProductIds = applyAdmissionDiffQuickFilter(pageReqVO, workOrderPageReqVO);
+        List<Long> admissionProductIds = resolveAdmissionDiffProductIds(pageReqVO,
+                applyAdmissionDiffQuickFilter(pageReqVO, workOrderPageReqVO));
         boolean computedFilter = hasComputedAdmissionFilter(pageReqVO);
-        if (CollUtil.isEmpty(quickFilterProductIds) && StrUtil.isNotBlank(pageReqVO.getProductCode())) {
-            MesMdItemDO item = itemMapper.selectByCode(pageReqVO.getProductCode());
-            if (item == null) {
-                return emptyAdmissionDiffResult();
-            }
-            workOrderPageReqVO.setProductId(item.getId());
-        }
         if (computedFilter) {
-            return getAdmissionDiffWithComputedFilter(pageReqVO, workOrderPageReqVO, quickFilterProductIds);
+            return getAdmissionDiffWithComputedFilter(pageReqVO, workOrderPageReqVO, admissionProductIds);
         }
 
         PageResult<MesProWorkOrderDO> workOrderPage =
-                selectAdmissionWorkOrderPage(workOrderPageReqVO, quickFilterProductIds);
+                selectAdmissionWorkOrderPage(workOrderPageReqVO, admissionProductIds);
         List<MesProWorkOrderDO> workOrders = workOrderPage.getList();
         if (CollUtil.isEmpty(workOrders)) {
             return emptyAdmissionDiffResult();
@@ -770,6 +770,32 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             }
             default -> throw new IllegalArgumentException("非法待同步差异快速过滤字段：" + fieldKey);
         };
+    }
+
+    private List<Long> resolveAdmissionDiffProductIds(MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO,
+                                                      List<Long> quickFilterProductIds) {
+        List<List<Long>> productIdFilters = new ArrayList<>();
+        if (CollUtil.isNotEmpty(quickFilterProductIds)) {
+            productIdFilters.add(quickFilterProductIds);
+        }
+        if (StrUtil.isNotBlank(pageReqVO.getProductCode())) {
+            productIdFilters.add(toProductIds(itemMapper.selectListByCodeLike(pageReqVO.getProductCode())));
+        }
+        if (StrUtil.isNotBlank(pageReqVO.getProductName())) {
+            productIdFilters.add(toProductIds(itemMapper.selectListByNameLike(pageReqVO.getProductName())));
+        }
+        if (StrUtil.isNotBlank(pageReqVO.getProductSpecification())) {
+            productIdFilters.add(toProductIds(itemMapper.selectListBySpecificationLike(pageReqVO.getProductSpecification())));
+        }
+        if (CollUtil.isEmpty(productIdFilters)) {
+            return Collections.emptyList();
+        }
+
+        Set<Long> resolvedProductIds = new LinkedHashSet<>(productIdFilters.get(0));
+        for (int i = 1; i < productIdFilters.size(); i++) {
+            resolvedProductIds.retainAll(productIdFilters.get(i));
+        }
+        return resolvedProductIds.isEmpty() ? List.of(-1L) : new ArrayList<>(resolvedProductIds);
     }
 
     private PageResult<MesProWorkOrderDO> selectAdmissionWorkOrderPage(MesProWorkOrderPageReqVO workOrderPageReqVO,
@@ -891,6 +917,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         workOrderPageReqVO.setCode(pageReqVO.getWorkOrderCode());
         workOrderPageReqVO.setStatus(pageReqVO.getStatus() == null
                 ? MesProWorkOrderStatusEnum.CONFIRMED.getStatus() : pageReqVO.getStatus());
+        workOrderPageReqVO.setQuantity(pageReqVO.getQuantity());
         workOrderPageReqVO.setRequestDate(pageReqVO.getRequestDate());
         return workOrderPageReqVO;
     }
@@ -1101,11 +1128,39 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                 && !pageReqVO.getAdmissionStatus().equals(row.getAdmissionStatus())) {
             return false;
         }
-        return StrUtil.isBlank(pageReqVO.getReasonCode()) || pageReqVO.getReasonCode().equals(row.getReasonCode());
+        if (StrUtil.isNotBlank(pageReqVO.getReasonCode())
+                && !pageReqVO.getReasonCode().equals(row.getReasonCode())) {
+            return false;
+        }
+        if (StrUtil.isNotBlank(pageReqVO.getMessage())
+                && !StrUtil.contains(StrUtil.nullToEmpty(row.getMessage()), pageReqVO.getMessage())) {
+            return false;
+        }
+        if (StrUtil.isNotBlank(pageReqVO.getOwnerRole())
+                && !pageReqVO.getOwnerRole().equals(row.getOwnerRole())) {
+            return false;
+        }
+        return matchesAdmissionQuantity(row.getQuantity(), pageReqVO.getQuantity());
     }
 
     private boolean hasComputedAdmissionFilter(MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO) {
-        return StrUtil.isNotBlank(pageReqVO.getAdmissionStatus()) || StrUtil.isNotBlank(pageReqVO.getReasonCode());
+        return StrUtil.isNotBlank(pageReqVO.getAdmissionStatus())
+                || StrUtil.isNotBlank(pageReqVO.getReasonCode())
+                || StrUtil.isNotBlank(pageReqVO.getMessage())
+                || StrUtil.isNotBlank(pageReqVO.getOwnerRole());
+    }
+
+    private boolean matchesAdmissionQuantity(BigDecimal quantity, BigDecimal[] range) {
+        if (range == null || range.length == 0) {
+            return true;
+        }
+        if (quantity == null) {
+            return false;
+        }
+        BigDecimal min = range.length > 0 ? range[0] : null;
+        BigDecimal max = range.length > 1 ? range[1] : null;
+        return (min == null || quantity.compareTo(min) >= 0)
+                && (max == null || quantity.compareTo(max) <= 0);
     }
 
     private List<MesProScheduleOrderAdmissionDiffRespVO> paginateAdmissionDiffRows(
@@ -1556,10 +1611,12 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                     }
                     ResourceSnapshot capacitySnapshot = resolveCurrentRouteProcessCapacitySnapshot(routeConfig,
                             currentRouteProcess, currentResourceContext, false);
+                    capacitySnapshot = resolveWorkbenchManualCapacitySnapshot(processRows, routeConfig, capacitySnapshot);
                     BigDecimal shiftCapacityTotal = normalizeQuantity(capacitySnapshot.shiftCapacityTotal());
                     BigDecimal estimateShiftCapacity = resolveProcessWipEstimateCapacity(shiftCapacityTotal,
                             currentResourceContext.maxShiftCapacityByProcessId().get(currentProcess.getId()));
                     String capacitySource = resolveCurrentRouteProcessCapacitySource(routeConfig, capacitySnapshot);
+                    String capacityMode = resolveCurrentRouteProcessCapacityMode(routeConfig, capacitySnapshot);
                     BigDecimal unfinishedDemandQuantity = sumProcessQuantity(processRows,
                             MesProScheduleOrderProcessDO::getRemainingQuantity);
                     LocalDateTime estimatedStartTime = estimateStartTime(processRows);
@@ -1583,7 +1640,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                             .processName(currentProcess.getName())
                             .wipOrderCount((long) scheduleOrderIds.size())
                             .shiftCapacityTotal(shiftCapacityTotal)
-                            .capacityMode(routeConfig.getCapacityMode())
+                            .capacityMode(capacityMode)
                             .capacitySource(capacitySource)
                             .resourceStatus(resolveCurrentRouteProcessResourceStatus(routeConfig, capacitySnapshot))
                             .resourceStatusReason(resolveCurrentRouteProcessResourceStatusReason(routeConfig, capacitySnapshot))
@@ -1635,15 +1692,20 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         }
         MesProRouteScheduleConfigDO routeConfig = requireRouteScheduleConfig(reqVO.getRouteVersionId(),
                 reqVO.getRouteProcessId(), targetProcesses.get(0).getProcessId());
+        BigDecimal requestedHourlyCapacityOverride = resolveRequestedHourlyCapacityOverride(reqVO, targetProcesses);
         Long calendarRuleId = resolveRequestedCalendarRuleId(reqVO, routeConfig);
         if (Boolean.TRUE.equals(reqVO.getNightShiftEnabled())) {
             routeScheduleConfigService.validateNightShiftResources(
                     reqVO.getRouteProcessId(), routeConfig.getCapacityMode());
         }
-        updateRouteProcessNightShiftConfig(reqVO, routeConfig, calendarRuleId);
+        updateRouteProcessWipConfig(reqVO, routeConfig, calendarRuleId);
         LocalDateTime plannedStartTime = reqVO.getPlannedStartDate() == null
                 ? null : reqVO.getPlannedStartDate().atStartOfDay();
         for (MesProScheduleOrderProcessDO process : targetProcesses) {
+            BigDecimal preservedHourlyCapacityOverride = requestedHourlyCapacityOverride != null
+                    ? requestedHourlyCapacityOverride
+                    : resolveExistingWorkbenchHourlyCapacityOverride(process);
+            BigDecimal preservedShiftHours = normalizeQuantity(process.getShiftHours());
             applyCurrentRouteScheduleConfig(process, routeConfig);
             MesProScheduleOrderProcessDO updateObj = new MesProScheduleOrderProcessDO();
             updateObj.setId(process.getId());
@@ -1653,7 +1715,16 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             updateObj.setCapacityMode(routeConfig.getCapacityMode());
             updateObj.setInfiniteDurationQuantityFactor(routeConfig.getInfiniteDurationQuantityFactor());
             updateObj.setInfiniteDurationBaseMinutes(routeConfig.getInfiniteDurationBaseMinutes());
-            if (MesProScheduleCapacityModeEnum.isManualOverrideLike(routeConfig.getCapacityMode())) {
+            if (preservedHourlyCapacityOverride != null) {
+                updateObj.setCapacityMode(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode());
+                updateObj.setCapacitySource(CAPACITY_SOURCE_MANUAL_OVERRIDE);
+                updateObj.setHourlyCapacityTotal(preservedHourlyCapacityOverride);
+                if (preservedShiftHours.compareTo(BigDecimal.ZERO) > 0) {
+                    updateObj.setShiftHours(preservedShiftHours);
+                    updateObj.setShiftCapacityTotal(preservedHourlyCapacityOverride.multiply(preservedShiftHours));
+                }
+            } else if (MesProScheduleCapacityModeEnum.isManualOverrideLike(routeConfig.getCapacityMode())) {
+                updateObj.setCapacitySource(CAPACITY_SOURCE_MANUAL_OVERRIDE);
                 updateObj.setHourlyCapacityTotal(routeConfig.getHourlyCapacity());
                 if (routeConfig.getHourlyCapacity() != null && process.getShiftHours() != null) {
                     updateObj.setShiftCapacityTotal(routeConfig.getHourlyCapacity().multiply(process.getShiftHours()));
@@ -1679,6 +1750,77 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                         "PROCESS_WIP_SETTINGS", reqVO.getReason());
             }
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void refreshProcessWipCapacitySnapshotsForShiftHours(BigDecimal shiftHours) {
+        BigDecimal normalizedShiftHours = normalizePositiveShiftHours(shiftHours);
+        List<MesProScheduleOrderDO> scheduleOrders = scheduleOrderMapper.selectListForProcessWip().stream()
+                .filter(order -> !Boolean.TRUE.equals(order.getFrozen()))
+                .filter(order -> !Boolean.TRUE.equals(order.getManualFinished()))
+                .toList();
+        if (CollUtil.isEmpty(scheduleOrders)) {
+            return;
+        }
+        Map<Long, MesProScheduleOrderDO> scheduleOrderMap = scheduleOrders.stream()
+                .collect(Collectors.toMap(MesProScheduleOrderDO::getId, item -> item, (left, right) -> left,
+                        LinkedHashMap::new));
+        List<MesProScheduleOrderProcessDO> wipProcesses = scheduleOrderProcessMapper
+                .selectListByScheduleOrderIds(scheduleOrderMap.keySet()).stream()
+                .filter(this::isProcessWip)
+                .toList();
+        for (MesProScheduleOrderProcessDO process : wipProcesses) {
+            Long routeVersionId = resolveRouteVersionId(process,
+                    scheduleOrderMap.get(process.getScheduleOrderId()));
+            if (routeVersionId == null || process.getRouteProcessId() == null) {
+                throw exception(PRO_SCHEDULE_ORDER_ROUTE_PROCESS_REQUIRED);
+            }
+            MesProRouteScheduleConfigDO routeConfig = requireRouteScheduleConfig(
+                    routeVersionId, process.getRouteProcessId(), process.getProcessId());
+            BigDecimal hourlyCapacity = resolveExistingWorkbenchHourlyCapacityOverride(process);
+            if (hourlyCapacity == null) {
+                if (!MesProScheduleCapacityModeEnum.isManualOverrideLike(routeConfig.getCapacityMode())) {
+                    continue;
+                }
+                hourlyCapacity = requirePositiveHourlyCapacity(
+                        routeConfig.getHourlyCapacity(), process.getRouteProcessId());
+            }
+            MesProScheduleOrderProcessDO updateObj = new MesProScheduleOrderProcessDO();
+            updateObj.setId(process.getId());
+            updateObj.setRouteScheduleConfigId(routeConfig.getId());
+            updateObj.setCapacityMode(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode());
+            updateObj.setCapacitySource(CAPACITY_SOURCE_MANUAL_OVERRIDE);
+            updateObj.setHourlyCapacityTotal(hourlyCapacity);
+            updateObj.setShiftHours(normalizedShiftHours);
+            updateObj.setShiftCapacityTotal(hourlyCapacity.multiply(normalizedShiftHours));
+            scheduleOrderProcessMapper.updateById(updateObj);
+        }
+    }
+
+    private BigDecimal normalizePositiveShiftHours(BigDecimal shiftHours) {
+        BigDecimal normalized = normalizeQuantity(shiftHours);
+        if (normalized.compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED, null);
+        }
+        return normalized;
+    }
+
+    private BigDecimal requirePositiveHourlyCapacity(BigDecimal hourlyCapacity, Long routeProcessId) {
+        BigDecimal normalized = normalizeQuantity(hourlyCapacity);
+        if (normalized.compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED, routeProcessId);
+        }
+        return normalized;
+    }
+
+    private BigDecimal resolveExistingWorkbenchHourlyCapacityOverride(MesProScheduleOrderProcessDO process) {
+        if (process == null
+                || !CAPACITY_SOURCE_MANUAL_OVERRIDE.equals(process.getCapacitySource())
+                || !MesProScheduleCapacityModeEnum.isManualOverrideLike(process.getCapacityMode())) {
+            return null;
+        }
+        return requirePositiveHourlyCapacity(process.getHourlyCapacityTotal(), process.getRouteProcessId());
     }
 
     private boolean matchesAndNormalizeCurrentRouteProcess(MesProScheduleOrderProcessDO process,
@@ -1798,9 +1940,47 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         return tenantRule.getId();
     }
 
-    private void updateRouteProcessNightShiftConfig(MesProScheduleOrderProcessWipSettingsReqVO reqVO,
-                                                    MesProRouteScheduleConfigDO routeConfig,
-                                                    Long calendarRuleId) {
+    private BigDecimal resolveRequestedHourlyCapacityOverride(MesProScheduleOrderProcessWipSettingsReqVO reqVO,
+                                                              List<MesProScheduleOrderProcessDO> targetProcesses) {
+        if (reqVO.getShiftCapacityTotal() == null) {
+            return null;
+        }
+        BigDecimal shiftHours = resolveConsistentShiftHours(targetProcesses, reqVO.getRouteProcessId());
+        BigDecimal shiftCapacityTotal = requirePositiveShiftCapacity(reqVO.getShiftCapacityTotal(),
+                reqVO.getRouteProcessId());
+        return shiftCapacityTotal.divide(shiftHours, 6, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolveConsistentShiftHours(List<MesProScheduleOrderProcessDO> targetProcesses,
+                                                   Long routeProcessId) {
+        BigDecimal shiftHours = null;
+        for (MesProScheduleOrderProcessDO process : targetProcesses) {
+            BigDecimal current = normalizeQuantity(process.getShiftHours());
+            if (current.compareTo(BigDecimal.ZERO) <= 0) {
+                throw exception(PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED, routeProcessId);
+            }
+            if (shiftHours != null && shiftHours.compareTo(current) != 0) {
+                throw exception(PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED, routeProcessId);
+            }
+            shiftHours = current;
+        }
+        if (shiftHours == null || shiftHours.compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED, routeProcessId);
+        }
+        return shiftHours;
+    }
+
+    private BigDecimal requirePositiveShiftCapacity(BigDecimal shiftCapacityTotal, Long routeProcessId) {
+        BigDecimal normalized = normalizeQuantity(shiftCapacityTotal);
+        if (normalized.compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED, routeProcessId);
+        }
+        return normalized;
+    }
+
+    private void updateRouteProcessWipConfig(MesProScheduleOrderProcessWipSettingsReqVO reqVO,
+                                             MesProRouteScheduleConfigDO routeConfig,
+                                             Long calendarRuleId) {
         if (reqVO.getNightShiftEnabled() == null) {
             return;
         }
@@ -1875,6 +2055,9 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     private String resolveCurrentRouteProcessCapacitySource(MesProRouteScheduleConfigDO routeConfig,
                                                            ResourceSnapshot capacitySnapshot) {
+        if (CAPACITY_SOURCE_MANUAL_OVERRIDE.equals(capacitySnapshot.capacitySource())) {
+            return CAPACITY_SOURCE_MANUAL_OVERRIDE;
+        }
         if (MesProScheduleCapacityModeEnum.isManualOverrideLike(routeConfig.getCapacityMode())) {
             return CAPACITY_SOURCE_MANUAL_OVERRIDE;
         }
@@ -1884,8 +2067,20 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         return capacitySnapshot.capacitySource();
     }
 
+    private String resolveCurrentRouteProcessCapacityMode(MesProRouteScheduleConfigDO routeConfig,
+                                                          ResourceSnapshot capacitySnapshot) {
+        Object mode = capacitySnapshot.payload().get("capacityMode");
+        if (mode instanceof String modeText && StrUtil.isNotBlank(modeText)) {
+            return modeText;
+        }
+        return routeConfig.getCapacityMode();
+    }
+
     private String resolveCurrentRouteProcessResourceStatus(MesProRouteScheduleConfigDO routeConfig,
                                                             ResourceSnapshot capacitySnapshot) {
+        if (CAPACITY_SOURCE_MANUAL_OVERRIDE.equals(capacitySnapshot.capacitySource())) {
+            return RESOURCE_STATUS_NORMAL;
+        }
         if (!isResourceCalculated(routeConfig)) {
             return RESOURCE_STATUS_NORMAL;
         }
@@ -1894,10 +2089,60 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     private String resolveCurrentRouteProcessResourceStatusReason(MesProRouteScheduleConfigDO routeConfig,
                                                                   ResourceSnapshot capacitySnapshot) {
+        if (CAPACITY_SOURCE_MANUAL_OVERRIDE.equals(capacitySnapshot.capacitySource())) {
+            return RESOURCE_REASON_NORMAL;
+        }
         if (!isResourceCalculated(routeConfig)) {
             return RESOURCE_REASON_NORMAL;
         }
         return capacitySnapshot.resourceStatusReason();
+    }
+
+    private ResourceSnapshot resolveWorkbenchManualCapacitySnapshot(List<MesProScheduleOrderProcessDO> processRows,
+                                                                    MesProRouteScheduleConfigDO routeConfig,
+                                                                    ResourceSnapshot routeCapacitySnapshot) {
+        if (CollUtil.isEmpty(processRows)) {
+            return routeCapacitySnapshot;
+        }
+        BigDecimal hourlyCapacity = null;
+        BigDecimal shiftHours = null;
+        BigDecimal shiftCapacity = null;
+        for (MesProScheduleOrderProcessDO process : processRows) {
+            if (!CAPACITY_SOURCE_MANUAL_OVERRIDE.equals(process.getCapacitySource())
+                    || !MesProScheduleCapacityModeEnum.isManualOverrideLike(process.getCapacityMode())) {
+                return routeCapacitySnapshot;
+            }
+            BigDecimal currentHourlyCapacity = requirePositiveHourlyCapacity(
+                    process.getHourlyCapacityTotal(), process.getRouteProcessId());
+            BigDecimal currentShiftHours = normalizePositiveShiftHours(process.getShiftHours());
+            BigDecimal currentShiftCapacity = requirePositiveShiftCapacity(
+                    process.getShiftCapacityTotal(), process.getRouteProcessId());
+            if (hourlyCapacity != null && hourlyCapacity.compareTo(currentHourlyCapacity) != 0) {
+                return routeCapacitySnapshot;
+            }
+            if (shiftHours != null && shiftHours.compareTo(currentShiftHours) != 0) {
+                return routeCapacitySnapshot;
+            }
+            if (shiftCapacity != null && shiftCapacity.compareTo(currentShiftCapacity) != 0) {
+                return routeCapacitySnapshot;
+            }
+            hourlyCapacity = currentHourlyCapacity;
+            shiftHours = currentShiftHours;
+            shiftCapacity = currentShiftCapacity;
+        }
+        if (hourlyCapacity == null || shiftHours == null || shiftCapacity == null) {
+            return routeCapacitySnapshot;
+        }
+        Map<String, Object> payload = new LinkedHashMap<>(routeCapacitySnapshot.payload());
+        payload.put("capacityMode", MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode());
+        payload.put("capacitySource", CAPACITY_SOURCE_MANUAL_OVERRIDE);
+        payload.put("hourlyCapacityTotal", hourlyCapacity);
+        payload.put("shiftHours", shiftHours);
+        payload.put("shiftCapacityTotal", shiftCapacity);
+        payload.put("resourceStatus", RESOURCE_STATUS_NORMAL);
+        payload.put("resourceStatusReason", RESOURCE_REASON_NORMAL);
+        return new ResourceSnapshot(CAPACITY_SOURCE_MANUAL_OVERRIDE, hourlyCapacity, shiftHours, shiftCapacity,
+                RESOURCE_STATUS_NORMAL, RESOURCE_REASON_NORMAL, payload);
     }
 
     private BigDecimal sumProcessQuantity(List<MesProScheduleOrderProcessDO> processes,
@@ -1948,6 +2193,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         snapshot.put("processId", process.getProcessId());
         snapshot.put("nightShiftEnabled", Boolean.TRUE.equals(reqVO.getNightShiftEnabled()));
         snapshot.put("plannedStartDate", reqVO.getPlannedStartDate());
+        snapshot.put("shiftCapacityTotal", reqVO.getShiftCapacityTotal());
         return snapshot;
     }
 
