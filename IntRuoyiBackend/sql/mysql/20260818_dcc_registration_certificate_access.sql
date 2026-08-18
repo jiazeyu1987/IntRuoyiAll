@@ -144,6 +144,7 @@ BEGIN
       ('dcc_registration_certificate_download_consumption', 'create_time', 'datetime', 'NO'),
       ('dcc_registration_certificate_download_consumption', 'updater', 'varchar(64)', 'YES'),
       ('dcc_registration_certificate_download_consumption', 'update_time', 'datetime', 'NO'),
+      ('dcc_registration_certificate_download_consumption', 'deleted', 'bit(1)', 'NO'),
 
       ('dcc_registration_certificate_access_audit', 'id', 'bigint', 'NO'),
       ('dcc_registration_certificate_access_audit', 'tenant_id', 'bigint', 'NO'),
@@ -159,7 +160,8 @@ BEGIN
       ('dcc_registration_certificate_access_audit', 'creator', 'varchar(64)', 'YES'),
       ('dcc_registration_certificate_access_audit', 'create_time', 'datetime', 'NO'),
       ('dcc_registration_certificate_access_audit', 'updater', 'varchar(64)', 'YES'),
-      ('dcc_registration_certificate_access_audit', 'update_time', 'datetime', 'NO');
+      ('dcc_registration_certificate_access_audit', 'update_time', 'datetime', 'NO'),
+      ('dcc_registration_certificate_access_audit', 'deleted', 'bit(1)', 'NO');
 
     IF EXISTS (
       SELECT 1
@@ -349,6 +351,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_bpm_binding` (
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
   `updater` varchar(64) DEFAULT '' COMMENT 'Updater',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update time',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT 'Deleted flag',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_reg_cert_bpm_binding_business` (`tenant_id`, `business_key`),
   UNIQUE KEY `uk_dcc_reg_cert_bpm_binding_process` (`tenant_id`, `bpm_process_instance_id`),
@@ -421,6 +424,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_download_consumption` (
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
   `updater` varchar(64) DEFAULT '' COMMENT 'Updater',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update time',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT 'Deleted flag',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_reg_cert_download_once` (`tenant_id`, `grant_id`, `business_file_id`, `success_unique_flag`),
   UNIQUE KEY `uk_dcc_reg_cert_download_attempt` (`tenant_id`, `attempt_key`),

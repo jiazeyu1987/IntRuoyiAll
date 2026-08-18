@@ -197,19 +197,17 @@ class DccRegistrationCertificateAccessSchemaTest extends BaseDbUnitTest {
             try (var statement = connection.prepareStatement("""
                     INSERT INTO dcc_registration_certificate_download_consumption
                       (id, tenant_id, grant_id, business_file_id, attempt_key, result,
-                       success_unique_flag, started_at, detail_json)
-                    VALUES (?, 1, 30, 5001, ?, ?, ?, ?, '{}')
+                       started_at, detail_json)
+                    VALUES (?, 1, 30, 5001, ?, ?, ?, '{}')
                     """)) {
                 statement.setLong(1, 40L);
                 statement.setString(2, "attempt:pre-start-failure");
                 statement.setString(3, "FAILED_BEFORE_START");
-                statement.setObject(4, null);
-                statement.setTimestamp(5, Timestamp.valueOf(LocalDateTime.of(2026, 8, 18, 10, 5)));
+                statement.setTimestamp(4, Timestamp.valueOf(LocalDateTime.of(2026, 8, 18, 10, 5)));
                 assertEquals(1, statement.executeUpdate());
                 statement.setLong(1, 41L);
                 statement.setString(2, "attempt:success");
                 statement.setString(3, "SUCCESS");
-                statement.setInt(4, 1);
                 assertEquals(1, statement.executeUpdate());
                 statement.setLong(1, 42L);
                 statement.setString(2, "attempt:second-success");

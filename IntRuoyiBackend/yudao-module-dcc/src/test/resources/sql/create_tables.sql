@@ -2308,7 +2308,9 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_download_consumption` (
   `business_file_id` BIGINT NOT NULL,
   `attempt_key` VARCHAR(256) NOT NULL,
   `result` VARCHAR(32) NOT NULL,
-  `success_unique_flag` BIGINT NULL,
+  `success_unique_flag` BIGINT GENERATED ALWAYS AS (
+    CASE WHEN `result` = 'SUCCESS' THEN 1 ELSE NULL END
+  ),
   `started_at` DATETIME NOT NULL,
   `completed_at` DATETIME NULL,
   `failure_reason` VARCHAR(1024) NULL,
@@ -2317,6 +2319,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_download_consumption` (
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updater` VARCHAR(64) DEFAULT '',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` BIT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_reg_cert_download_once` (`tenant_id`, `grant_id`, `business_file_id`, `success_unique_flag`),
   UNIQUE KEY `uk_dcc_reg_cert_download_attempt` (`tenant_id`, `attempt_key`),
@@ -2345,6 +2348,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_audit` (
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updater` VARCHAR(64) DEFAULT '',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted` BIT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_reg_cert_access_audit_key` (`tenant_id`, `event_key`),
   CONSTRAINT `chk_dcc_reg_cert_access_audit_key` CHECK (TRIM(`event_key`) <> ''),

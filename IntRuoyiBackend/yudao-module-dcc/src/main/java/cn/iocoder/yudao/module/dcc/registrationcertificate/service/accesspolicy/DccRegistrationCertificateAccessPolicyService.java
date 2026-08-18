@@ -73,6 +73,11 @@ public class DccRegistrationCertificateAccessPolicyService {
     }
 
     public void assertDownloadAllowed(Long tenantId, Long actorId, Long businessFileId, LocalDateTime at) {
+        requireDownloadGrant(tenantId, actorId, businessFileId, at);
+    }
+
+    public DccRegistrationCertificateGrantDO requireDownloadGrant(Long tenantId, Long actorId, Long businessFileId,
+                                                                  LocalDateTime at) {
         List<DccRegistrationCertificateGrantDO> grants = grantMapper.selectByBusinessFile(
                 tenantId, actorId, businessFileId, GRANT_TYPE_DOWNLOAD);
         DccRegistrationCertificateGrantDO grant = selectValidGrant(grants, at);
@@ -90,6 +95,7 @@ public class DccRegistrationCertificateAccessPolicyService {
         }
         DccRegistrationCertificateDO certificate = requireLiveCertificate(tenantId, grant.getCertificateId());
         assertCompanyScope(actorId, certificate.getOwnerCompanyId());
+        return grant;
     }
 
     private DccRegistrationCertificateGrantDO selectValidGrant(
