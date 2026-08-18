@@ -1,0 +1,240 @@
+package cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql;
+
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificatePageQuery;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificateQueryRecord;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.SelectProvider;
+
+import java.util.List;
+
+@Mapper
+public interface DccRegistrationCertificateQueryMapper {
+
+    @SelectProvider(type = SqlProvider.class, method = "countPage")
+    long countPage(@Param("tenantId") Long tenantId,
+                   @Param("companyIds") List<Long> companyIds,
+                   @Param("query") DccRegistrationCertificatePageQuery query);
+
+    @SelectProvider(type = SqlProvider.class, method = "selectPage")
+    List<DccRegistrationCertificateQueryRecord> selectPage(
+            @Param("tenantId") Long tenantId,
+            @Param("companyIds") List<Long> companyIds,
+            @Param("query") DccRegistrationCertificatePageQuery query,
+            @Param("limit") int limit,
+            @Param("offset") int offset);
+
+    @SelectProvider(type = SqlProvider.class, method = "selectDetail")
+    DccRegistrationCertificateQueryRecord selectDetail(
+            @Param("tenantId") Long tenantId,
+            @Param("companyIds") List<Long> companyIds,
+            @Param("certificateId") Long certificateId);
+
+    @SelectProvider(type = SqlProvider.class, method = "countOldIndex")
+    long countOldIndex(@Param("tenantId") Long tenantId,
+                       @Param("companyIds") List<Long> companyIds,
+                       @Param("query") DccRegistrationCertificatePageQuery query);
+
+    @SelectProvider(type = SqlProvider.class, method = "selectOldIndexPage")
+    List<DccRegistrationCertificateQueryRecord> selectOldIndexPage(
+            @Param("tenantId") Long tenantId,
+            @Param("companyIds") List<Long> companyIds,
+            @Param("query") DccRegistrationCertificatePageQuery query,
+            @Param("limit") int limit,
+            @Param("offset") int offset);
+
+    final class SqlProvider {
+
+        private SqlProvider() {
+        }
+
+        public static String countPage() {
+            return script("SELECT COUNT(*) " + from(), commonWhere() + filters(), "");
+        }
+
+        public static String selectPage() {
+            return script(select(), commonWhere() + filters(),
+                    " ORDER BY c.owner_company_id ASC, v.expiry_date ASC, c.id ASC, v.version_no ASC"
+                            + " LIMIT #{limit} OFFSET #{offset}");
+        }
+
+        public static String selectDetail() {
+            return script(select(), commonWhere() + " AND c.id = #{certificateId}",
+                    " ORDER BY CASE v.status"
+                            + " WHEN 'CURRENT' THEN 1"
+                            + " WHEN 'PENDING_EFFECTIVE' THEN 2"
+                            + " WHEN 'OLD' THEN 3"
+                            + " ELSE 4 END, v.version_no DESC LIMIT 1");
+        }
+
+        public static String countOldIndex() {
+            return script("SELECT COUNT(*) " + from(),
+                    commonWhere() + " AND v.status = 'OLD'" + oldIndexFilters(), "");
+        }
+
+        public static String selectOldIndexPage() {
+            return script(select(), commonWhere() + " AND v.status = 'OLD'" + oldIndexFilters(),
+                    " ORDER BY v.expiry_date DESC, c.id ASC, v.version_no DESC"
+                            + " LIMIT #{limit} OFFSET #{offset}");
+        }
+
+        private static String script(String select, String where, String suffix) {
+            return "<script>" + select + where + suffix + "</script>";
+        }
+
+        private static String select() {
+            return """
+                    SELECT c.id AS certificate_id,
+                           v.id AS version_id,
+                           s.id AS snapshot_id,
+                           c.owner_company_id,
+                           c.product_master_id,
+                           c.project_code_id,
+                           c.first_obtained_date,
+                           s.product_name,
+                           v.certificate_no,
+                           v.version_no,
+                           v.status,
+                           v.approval_date,
+                           v.effective_date,
+                           v.expiry_date,
+                           v.classification,
+                           s.registrant_name,
+                           s.model_specification,
+                           s.structure_composition,
+                           s.intended_use,
+                           s.technical_requirements,
+                           s.residence_address,
+                           s.production_address,
+                           s.entrusted_production,
+                           s.self_production,
+                           s.entrusted_enterprises_json,
+                           (SELECT MIN(f.id)
+                              FROM dcc_registration_certificate_file f
+                             WHERE f.tenant_id = c.tenant_id
+                               AND f.owner_type = 'VERSION'
+                               AND f.owner_id = v.id
+                               AND f.file_kind = 'REGISTRATION_CERTIFICATE'
+                               AND f.status = 'BOUND'
+                               AND f.deleted = 0) AS registration_file_id
+                    """ + from();
+        }
+
+        private static String from() {
+            return """
+                      FROM dcc_registration_certificate c
+                      JOIN dcc_registration_certificate_version v
+                        ON v.tenant_id = c.tenant_id
+                       AND v.certificate_id = c.id
+                       AND v.deleted = 0
+                       AND v.status != 'DRAFT'
+                      JOIN dcc_registration_certificate_snapshot s
+                        ON s.tenant_id = c.tenant_id
+                       AND s.version_id = v.id
+                       AND s.deleted = 0
+                    """;
+        }
+
+        private static String commonWhere() {
+            return """
+                     WHERE c.tenant_id = #{tenantId}
+                       AND c.deleted = 0
+                       AND c.owner_company_id IN
+                       <foreach collection="companyIds" item="companyId" open="(" separator="," close=")">
+                         #{companyId}
+                       </foreach>
+                    """;
+        }
+
+        private static String filters() {
+            return """
+                    <if test="query != null">
+                      <if test="query.ownerCompanyId != null">
+                        AND c.owner_company_id = #{query.ownerCompanyId}
+                      </if>
+                      <if test="query.productMasterId != null">
+                        AND c.product_master_id = #{query.productMasterId}
+                      </if>
+                      <if test="query.status != null and query.status != ''">
+                        AND v.status = #{query.status}
+                      </if>
+                      <if test="query.certificateNo != null and query.certificateNo != ''">
+                        AND v.certificate_no LIKE CONCAT('%', #{query.certificateNo}, '%')
+                      </if>
+                      <if test="query.missingProjectCode != null and query.missingProjectCode">
+                        AND c.project_code_id IS NULL
+                      </if>
+                      <if test="query.missingProjectCode != null and !query.missingProjectCode">
+                        AND c.project_code_id IS NOT NULL
+                      </if>
+                      <if test="query.missingFile != null and query.missingFile">
+                        AND NOT EXISTS (
+                          SELECT 1 FROM dcc_registration_certificate_file f
+                           WHERE f.tenant_id = c.tenant_id
+                             AND f.owner_type = 'VERSION'
+                             AND f.owner_id = v.id
+                             AND f.file_kind = 'REGISTRATION_CERTIFICATE'
+                             AND f.status = 'BOUND'
+                             AND f.deleted = 0)
+                      </if>
+                      <if test="query.missingFile != null and !query.missingFile">
+                        AND EXISTS (
+                          SELECT 1 FROM dcc_registration_certificate_file f
+                           WHERE f.tenant_id = c.tenant_id
+                             AND f.owner_type = 'VERSION'
+                             AND f.owner_id = v.id
+                             AND f.file_kind = 'REGISTRATION_CERTIFICATE'
+                             AND f.status = 'BOUND'
+                             AND f.deleted = 0)
+                      </if>
+                      <if test="query.firstObtainedStart != null">
+                        AND c.first_obtained_date &gt;= #{query.firstObtainedStart}
+                      </if>
+                      <if test="query.firstObtainedEnd != null">
+                        AND c.first_obtained_date &lt;= #{query.firstObtainedEnd}
+                      </if>
+                      <if test="query.approvalStart != null">
+                        AND v.approval_date &gt;= #{query.approvalStart}
+                      </if>
+                      <if test="query.approvalEnd != null">
+                        AND v.approval_date &lt;= #{query.approvalEnd}
+                      </if>
+                      <if test="query.effectiveStart != null">
+                        AND v.effective_date &gt;= #{query.effectiveStart}
+                      </if>
+                      <if test="query.effectiveEnd != null">
+                        AND v.effective_date &lt;= #{query.effectiveEnd}
+                      </if>
+                      <if test="query.expiryStart != null">
+                        AND v.expiry_date &gt;= #{query.expiryStart}
+                      </if>
+                      <if test="query.expiryEnd != null">
+                        AND v.expiry_date &lt;= #{query.expiryEnd}
+                      </if>
+                    </if>
+                    """;
+        }
+
+        private static String oldIndexFilters() {
+            return """
+                    <if test="query != null">
+                      <if test="query.ownerCompanyId != null">
+                        AND c.owner_company_id = #{query.ownerCompanyId}
+                      </if>
+                      <if test="query.productMasterId != null">
+                        AND c.product_master_id = #{query.productMasterId}
+                      </if>
+                      <if test="query.certificateNo != null and query.certificateNo != ''">
+                        AND v.certificate_no LIKE CONCAT('%', #{query.certificateNo}, '%')
+                      </if>
+                      <if test="query.expiryStart != null">
+                        AND v.expiry_date &gt;= #{query.expiryStart}
+                      </if>
+                      <if test="query.expiryEnd != null">
+                        AND v.expiry_date &lt;= #{query.expiryEnd}
+                      </if>
+                    </if>
+                    """;
+        }
+    }
+}
