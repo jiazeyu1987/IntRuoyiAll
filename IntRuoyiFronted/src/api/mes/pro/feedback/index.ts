@@ -105,6 +105,7 @@ export type FrontlinePqcTaskSummaryState =
   | 'CANCELLED'
   | 'MIXED'
 export type FrontlinePqcInspectionType = 'FIRST' | 'PATROL' | 'FINAL'
+export type FrontlinePqcBusinessDateResponse = string | [number, number, number]
 
 export interface ProFrontlineDeviceParameterReadingReqVO {
   deviceId: number
@@ -191,7 +192,9 @@ export interface ProFrontlineFeedbackSubmitRespVO {
 }
 
 export interface FrontlineDeviceRouteProcessVO {
+  activeOrderId: number
   routeId: number
+  routeVersionId: number
   routeCode?: string
   routeName?: string
   routeProcessId: number
@@ -205,6 +208,8 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationId?: number | null
   workstationCode?: string
   workstationName?: string
+  productionQuantityFactor: number
+  targetQuantity: number
   productionSubmitCandidates?: FrontlinePqcProductionSubmitCandidateVO[]
 }
 
@@ -253,6 +258,7 @@ export interface FrontlinePqcTaskOptionVO {
   pqcTaskId: number
   regulationVersionId: number
   qaProcessId: number
+  qaItemCode: string
   inspectionRuleKey: FrontlinePqcInspectionRuleKey
   taskStatus: FrontlinePqcTaskStatus
   finalInspectionApplicable?: boolean
@@ -264,6 +270,16 @@ export interface FrontlinePqcTaskOptionVO {
   ruleSort: number
   inspectionTypeRule: FrontlinePqcInspectionTypeRuleVO
   inspectionItems: FrontlinePqcInspectionItemVO[]
+}
+
+export interface FrontlinePqcTaskOptionResponseVO
+  extends Omit<FrontlinePqcTaskOptionVO, 'businessDate'> {
+  businessDate: FrontlinePqcBusinessDateResponse
+}
+
+export interface FrontlinePqcProcessResponseVO
+  extends Omit<FrontlinePqcProcessVO, 'pqcTaskOptions'> {
+  pqcTaskOptions: FrontlinePqcTaskOptionResponseVO[]
 }
 
 export interface FrontlinePqcProductionSubmitCandidateVO {
@@ -323,6 +339,8 @@ export interface FrontlineActiveOrderVO {
   routeId: number
   routeCode?: string
   routeName?: string
+  routeVersionId?: number
+  routeVersionNo?: string
   latestSubmitTime?: string
 }
 
@@ -354,6 +372,7 @@ export interface FrontlinePqcTemplateVO {
 }
 
 export interface FrontlineSwitchActualEmployeeReqVO {
+  activeOrderId: number
   routeId: number
   routeProcessId: number
   processId: number
@@ -1061,7 +1080,8 @@ export const ProFeedbackApi = {
   frontlineSubmit: async (data: ProFrontlineFeedbackSubmitReqVO) => {
     return await request.post<ProFrontlineFeedbackSubmitRespVO>({
       url: `/mes/pro/feedback/frontline/submit`,
-      data
+      data,
+      ignoreErrorMessage: true
     })
   },
   // 淇敼鐢熶骇鎶ュ伐
@@ -1141,26 +1161,38 @@ export const ProFeedbackApi = {
   // 获取设备账号可切换工序
   getFrontlineDeviceAccountProcesses: async () => {
     return await request.get<FrontlineDeviceRouteProcessVO[]>({
-      url: `/mes/pro/feedback/frontline/device-account/processes`
+      url: `/mes/pro/feedback/frontline/device-account/processes`,
+      ignoreErrorMessage: true
     })
   },
   // 获取当前生产组长维护的一线生产活跃订单
   getFrontlineProductionActiveOrders: async () => {
     return await request.get<FrontlineActiveOrderVO[]>({
-      url: `/mes/pro/feedback/frontline/device-account/active-orders`
+      url: `/mes/pro/feedback/frontline/device-account/active-orders`,
+      ignoreErrorMessage: true
+    })
+  },
+  // 获取一线生产活跃订单冻结工序
+  getFrontlineProductionActiveOrderProcesses: async (activeOrderId: number) => {
+    return await request.get<FrontlineDeviceRouteProcessVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/active-order/processes`,
+      params: { activeOrderId },
+      ignoreErrorMessage: true
     })
   },
   // 获取 PQC 当前活跃订单
   getFrontlinePqcActiveOrders: async () => {
     return await request.get<FrontlineActiveOrderVO[]>({
-      url: `/mes/pro/feedback/frontline/device-account/pqc/active-orders`
+      url: `/mes/pro/feedback/frontline/device-account/pqc/active-orders`,
+      ignoreErrorMessage: true
     })
   },
   // 获取 PQC 活跃订单对应 QA 规程工序
   getPqcProcesses: async (activeOrderId: number) => {
-    const processes = await request.get<FrontlinePqcProcessVO[]>({
+    const processes = await request.get<FrontlinePqcProcessResponseVO[]>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/active-order/processes`,
-      params: { activeOrderId }
+      params: { activeOrderId },
+      ignoreErrorMessage: true
     })
     return projectFrontlinePqcProcesses(processes)
   },
@@ -1172,52 +1204,60 @@ export const ProFeedbackApi = {
   }) => {
     return await request.get<FrontlineEmployeeCandidateVO[]>({
       url: `/mes/pro/feedback/frontline/device-account/employee-candidates`,
-      params
+      params,
+      ignoreErrorMessage: true
     })
   },
   // 获取生产组长维护的员工填报运行态配置
   getFrontlineRuntimeConfig: async (params: {
+    activeOrderId: number
     routeId: number
     routeProcessId: number
     processId: number
   }) => {
     return await request.get<FrontlineRuntimeConfigVO>({
       url: `/mes/pro/feedback/frontline/device-account/runtime-config`,
-      params
+      params,
+      ignoreErrorMessage: true
     })
   },
   // 获取 PQC 员工 + PQC 组长
   getFrontlinePqcEmployeeCandidates: async () => {
     return await request.get<FrontlineEmployeeCandidateVO[]>({
-      url: `/mes/pro/feedback/frontline/device-account/pqc/personnel`
+      url: `/mes/pro/feedback/frontline/device-account/pqc/personnel`,
+      ignoreErrorMessage: true
     })
   },
   // 切换实际填写员工并重新加载当前模板
   switchFrontlineActualEmployee: async (data: FrontlineSwitchActualEmployeeReqVO) => {
     return await request.post<FrontlineSwitchActualEmployeeRespVO>({
       url: `/mes/pro/feedback/frontline/device-account/switch-employee`,
-      data
+      data,
+      ignoreErrorMessage: true
     })
   },
   // PQC 切换实际填写员工并重新加载当前模板
   switchFrontlinePqcActualEmployee: async (data: FrontlinePqcSwitchActualEmployeeReqVO) => {
     return await request.post<FrontlinePqcSwitchActualEmployeeRespVO>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/switch-employee`,
-      data
+      data,
+      ignoreErrorMessage: true
     })
   },
   // PQC 检验提交到工序池
   submitFrontlinePqcInspection: async (data: FrontlinePqcInspectionSubmitReqVO) => {
     return await request.post<FrontlinePqcInspectionSubmitRespVO>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/submit`,
-      data
+      data,
+      ignoreErrorMessage: true
     })
   },
   // 只读确认 PQC 正式提交回执
   getFrontlinePqcSubmitReceipt: async (params: { pqcTaskId: number }) => {
     return await request.get<FrontlinePqcInspectionSubmitRespVO | null>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/submit-receipt`,
-      params
+      params,
+      ignoreErrorMessage: true
     })
   },
   // 瀵煎叆绗笁鏂圭敓浜ф姤宸?Excel

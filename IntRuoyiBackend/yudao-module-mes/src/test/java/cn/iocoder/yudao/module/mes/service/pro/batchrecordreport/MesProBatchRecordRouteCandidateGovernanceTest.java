@@ -44,4 +44,18 @@ class MesProBatchRecordRouteCandidateGovernanceTest {
         assertTrue(source.contains("\"batchUseConfigs\""),
                 "Word 重建候选版本必须包含 batchUseConfigs 快照。");
     }
+
+    @Test
+    void uploadedWordRouteVersionsMustRegisterControlledContentRefsBeforePublish() throws Exception {
+        String source = Files.readString(ROUTE_GENERATION_SERVICE, StandardCharsets.UTF_8);
+
+        assertTrue(source.contains("MesProRouteControlledContentAdapter"),
+                "Word 路线生成必须接入统一受控内容生命周期适配器。");
+        assertTrue(source.contains("recordActiveRegistered(routeVersion"),
+                "Word 首次创建 ACTIVE V1 后必须立即登记生效引用。");
+        assertTrue(source.contains("recordActiveRegisteredIfMissing(sourceVersion"),
+                "Word 升版必须确认来源 ACTIVE 引用；历史缺失时在导入事务内补登记。");
+        assertTrue(source.contains("recordDraftCandidateRegisteredIfMissing(sourceVersion, candidateVersion"),
+                "Word 新建或更新 DRAFT 候选后必须确认候选引用存在。");
+    }
 }

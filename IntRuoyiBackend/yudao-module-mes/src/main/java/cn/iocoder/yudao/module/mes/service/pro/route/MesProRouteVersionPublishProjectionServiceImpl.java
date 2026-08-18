@@ -608,6 +608,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     .batchRecordVersionId(null)
                     .formSlotType(formSlotType)
                     .formBindingKey(formBindingKey)
+                    .globalSyncKey(StrUtil.blankToDefault(StrUtil.trim(binding.getString("globalSyncKey")), null))
                     .formTemplateId(formTemplateId)
                     .formTemplateNameSnapshot(requireText(binding, "formTemplateName"))
                     .lastPublishedTemplateVersionId(binding.getLong("lastPublishedTemplateVersionId"))

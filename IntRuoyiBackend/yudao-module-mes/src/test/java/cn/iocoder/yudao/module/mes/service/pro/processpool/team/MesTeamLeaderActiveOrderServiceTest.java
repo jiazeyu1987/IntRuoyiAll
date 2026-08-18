@@ -142,7 +142,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         lenient().when(inspectionRegulationVersionMapper.selectById(9902L))
                 .thenReturn(publishedRegulationVersion(true, null));
         lenient().when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(defaultPqcItems());
-        lenient().when(pqcInspectionTaskMapper.selectByQaIdentity(any(), any(), any(), any(), any()))
+        lenient().when(pqcInspectionTaskMapper.selectByQaIdentity(any(), any(), any(), any(), any(), any()))
                 .thenReturn(null);
         lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
         lenient().when(abnormalStateService.findLatestOpenByWorkOrderIds(any())).thenReturn(Map.of());
@@ -447,6 +447,57 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertSnapshot(snapshots.get(9), 8101L, 9001L, 922119L, 448L, 928610L, 6010L,
                 "10", "1.000000", "10.000000");
         verify(pqcInspectionTaskMapper, times(4)).insert(any(MesPqcInspectionTaskDO.class));
+    }
+
+    @Test
+    void shouldCreateIndependentFirstAndPatrolTasksForItemsInSameQaProcess() {
+        stubWorkOrderExists(confirmedWorkOrder());
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(List.of(
+                pqcItem("APPEARANCE", "外观", "FIRST", 13, null),
+                pqcItem("PRESSURE_RELEASE", "撤压", "FIRST", 5, null),
+                pqcItem("APPEARANCE", "外观", "PATROL", null, new BigDecimal("0.400000")),
+                pqcItem("PRESSURE_RELEASE", "撤压", "PATROL", null, new BigDecimal("1.000000")),
+                pqcItem("APPEARANCE", "外观", "FINAL", 3, null),
+                pqcItem("PRESSURE_RELEASE", "撤压", "FINAL", 3, null)));
+        stubSuccessfulActiveOrderInsert();
+
+        service.addActiveOrder(activeOrderReq());
+
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(7)).insert(taskCaptor.capture());
+        List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
+        assertEquals(List.of(5, 13), tasks.stream()
+                .filter(task -> "FIRST".equals(task.getInspectionRuleKey()))
+                .map(MesPqcInspectionTaskDO::getPlannedInspectionQuantity)
+                .sorted()
+                .toList());
+        assertEquals(List.of("APPEARANCE:13", "PRESSURE_RELEASE:5"), tasks.stream()
+                .filter(task -> "FIRST".equals(task.getInspectionRuleKey()))
+                .map(task -> task.getQaItemCode() + ":" + task.getPlannedInspectionQuantity())
+                .sorted()
+                .toList());
+        assertEquals(List.of(1, 1, 2, 2), tasks.stream()
+                .filter(task -> task.getInspectionRuleKey().startsWith("PATROL_"))
+                .map(MesPqcInspectionTaskDO::getPlannedInspectionQuantity)
+                .sorted()
+                .toList());
+        assertEquals(List.of("APPEARANCE:1", "APPEARANCE:1",
+                        "PRESSURE_RELEASE:2", "PRESSURE_RELEASE:2"), tasks.stream()
+                .filter(task -> task.getInspectionRuleKey().startsWith("PATROL_"))
+                .map(task -> task.getQaItemCode() + ":" + task.getPlannedInspectionQuantity())
+                .sorted()
+                .toList());
+        assertEquals(1L, tasks.stream()
+                .filter(task -> "FINAL".equals(task.getInspectionRuleKey()))
+                .count());
+        assertEquals("", tasks.stream()
+                .filter(task -> "FINAL".equals(task.getInspectionRuleKey()))
+                .findFirst()
+                .orElseThrow()
+                .getQaItemCode());
     }
 
     @Test
@@ -1402,6 +1453,23 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .build();
     }
 
+    private static MesQaInspectionRegulationItemDO pqcItem(String itemCode, String itemName,
+                                                           String inspectionType, Integer fixedQuantity,
+                                                           BigDecimal patrolRatio) {
+        return MesQaInspectionRegulationItemDO.builder()
+                .regulationVersionId(9902L)
+                .qaProcessId(19902L)
+                .inspectionType(inspectionType)
+                .itemCode(itemCode)
+                .itemName(itemName)
+                .inspectionMethod("目视")
+                .standardText("符合规程")
+                .resultType("BOOLEAN")
+                .firstInspectionQuantity(fixedQuantity)
+                .patrolInspectionRatio(patrolRatio)
+                .build();
+    }
+
     private static void assertPqcTask(MesPqcInspectionTaskDO task, String inspectionType, String inspectionRuleKey,
                                       String shiftCode, Integer plannedInspectionQuantity, LocalDate businessDate) {
         assertEquals(8101L, task.getActiveOrderId());
@@ -1411,6 +1479,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(null, task.getRouteProcessId());
         assertEquals(null, task.getProcessId());
         assertEquals(19902L, task.getQaProcessId());
+        assertEquals("FINAL".equals(inspectionType) ? "" : inspectionType + "-001", task.getQaItemCode());
         assertEquals(9902L, task.getRegulationVersionId());
         assertEquals(inspectionType, task.getInspectionType());
         assertEquals(inspectionRuleKey, task.getInspectionRuleKey());

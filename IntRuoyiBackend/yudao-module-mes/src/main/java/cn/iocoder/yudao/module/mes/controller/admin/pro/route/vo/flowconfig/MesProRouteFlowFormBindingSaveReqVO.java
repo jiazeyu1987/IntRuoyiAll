@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -14,6 +15,10 @@ public class MesProRouteFlowFormBindingSaveReqVO {
 
     @Schema(description = "动态表单绑定稳定 Key，由后端生成或前端回传", example = "FB_100_1")
     private String formBindingKey;
+
+    @Schema(description = "全局联动组 Key；为空表示仅当前工序", example = "GFB_1723860000000_1")
+    @Size(max = 128, message = "全局联动组 Key 长度不能超过 128")
+    private String globalSyncKey;
 
     @Schema(description = "表单中心模板稳定 ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "10001")
     @NotNull(message = "表单中心模板不能为空")

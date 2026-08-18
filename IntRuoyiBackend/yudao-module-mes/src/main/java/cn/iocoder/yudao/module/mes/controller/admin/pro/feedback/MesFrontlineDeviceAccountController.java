@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineActiveOrderRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineActiveOrderProcessRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineEmployeeCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcSubmitRespVO;
@@ -14,6 +15,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.Me
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineSwitchEmployeeRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineTemplateRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderCandidate;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcess;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineActiveOrderProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceAccountContextService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeCandidate;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchCommand;
@@ -69,6 +72,8 @@ public class MesFrontlineDeviceAccountController {
     private MesFrontlineRuntimeConfigService runtimeConfigService;
     @Resource
     private MesTeamLeaderActiveOrderService activeOrderService;
+    @Resource
+    private MesFrontlineActiveOrderProcessService activeOrderProcessService;
 
     @GetMapping("/processes")
     @Operation(summary = "获得设备账号可切换工序")
@@ -89,6 +94,17 @@ public class MesFrontlineDeviceAccountController {
                 .toList());
     }
 
+    @GetMapping("/active-order/processes")
+    @Operation(summary = "获得一线生产活跃订单冻结工序")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    public CommonResult<List<MesFrontlineActiveOrderProcessRespVO>> getProductionActiveOrderProcesses(
+            @RequestParam("activeOrderId") @NotNull Long activeOrderId) {
+        Long leaderUserId = contextService.resolveResponsibleLeaderUserId(getLoginUserId());
+        return success(activeOrderProcessService.listProcesses(leaderUserId, activeOrderId).stream()
+                .map(MesFrontlineDeviceAccountController::toProductionActiveOrderProcessRespVO)
+                .toList());
+    }
+
     @GetMapping("/employee-candidates")
     @Operation(summary = "获得当前工序可切换员工")
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
@@ -105,11 +121,12 @@ public class MesFrontlineDeviceAccountController {
     @Operation(summary = "获得员工填报运行态配置")
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
     public CommonResult<MesFrontlineRuntimeConfigRespVO> getRuntimeConfig(
+            @RequestParam("activeOrderId") @NotNull Long activeOrderId,
             @RequestParam("routeId") @NotNull Long routeId,
             @RequestParam("routeProcessId") @NotNull Long routeProcessId,
             @RequestParam("processId") @NotNull Long processId) {
         return success(toRuntimeConfigRespVO(runtimeConfigService.getRuntimeConfig(getLoginUserId(),
-                routeId, routeProcessId, processId)));
+                activeOrderId, routeId, routeProcessId, processId)));
     }
 
     @PostMapping("/switch-employee")
@@ -118,8 +135,9 @@ public class MesFrontlineDeviceAccountController {
     public CommonResult<MesFrontlineSwitchEmployeeRespVO> switchActualEmployee(
             @Valid @RequestBody MesFrontlineSwitchEmployeeReqVO reqVO) {
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
-                new MesFrontlineEmployeeSwitchCommand(getLoginUserId(), reqVO.getRouteId(),
-                        reqVO.getRouteProcessId(), reqVO.getProcessId(), reqVO.getActualEmployeeId()));
+                new MesFrontlineEmployeeSwitchCommand(getLoginUserId(), reqVO.getActiveOrderId(),
+                        reqVO.getRouteId(), reqVO.getRouteProcessId(), reqVO.getProcessId(),
+                        reqVO.getActualEmployeeId()));
         return success(toSwitchEmployeeRespVO(result));
     }
 
@@ -236,7 +254,30 @@ public class MesFrontlineDeviceAccountController {
                         ? activeOrder.getQuantity() : activeOrder.getErpFixedQuantitySnapshot())
                 .setRouteId(activeOrder.getRouteId())
                 .setRouteName(activeOrder.getRouteName())
+                .setRouteVersionId(activeOrder.getRouteVersionId())
+                .setRouteVersionNo(activeOrder.getRouteVersionNo())
                 .setLatestSubmitTime(activeOrder.getJoinedAt());
+    }
+
+    private static MesFrontlineActiveOrderProcessRespVO toProductionActiveOrderProcessRespVO(
+            MesFrontlineActiveOrderProcess process) {
+        MesFrontlineActiveOrderProcessRespVO respVO = new MesFrontlineActiveOrderProcessRespVO();
+        respVO.setActiveOrderId(process.activeOrderId());
+        respVO.setRouteId(process.routeId());
+        respVO.setRouteVersionId(process.routeVersionId());
+        respVO.setRouteCode(process.routeCode());
+        respVO.setRouteName(process.routeName());
+        respVO.setRouteProcessId(process.routeProcessId());
+        respVO.setProcessId(process.processId());
+        respVO.setProcessCode(process.processCode());
+        respVO.setProcessName(process.processName());
+        respVO.setSort(process.sort());
+        respVO.setWorkstationId(process.workstationId());
+        respVO.setWorkstationCode(process.workstationCode());
+        respVO.setWorkstationName(process.workstationName());
+        respVO.setProductionQuantityFactor(process.productionQuantityFactor());
+        respVO.setTargetQuantity(process.targetQuantity());
+        return respVO;
     }
 
     private static MesFrontlineRouteProcessRespVO toRouteProcessRespVO(MesFrontlineRouteProcessCandidate candidate) {

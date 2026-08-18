@@ -1174,9 +1174,23 @@
                           class="route-flow-graph-designer__record-binding-item"
                           :data-form-binding-key="binding.formBindingKey"
                         >
-                          <span class="route-flow-graph-designer__record-binding-label">
-                            表单 {{ bindingIndex + 1 }}
-                          </span>
+                          <div class="route-flow-graph-designer__record-binding-header">
+                            <span class="route-flow-graph-designer__record-binding-label">
+                              表单 {{ bindingIndex + 1 }}
+                            </span>
+                            <div class="route-flow-graph-designer__record-binding-global">
+                              <span>全局</span>
+                              <el-switch
+                                :model-value="isRecordBindingGlobalSynced(binding)"
+                                data-route-process-setting-field="global-form-binding-switch"
+                                :disabled="recordBindingEditorDisabled || !binding.formTemplateId"
+                                inline-prompt
+                                active-text="开"
+                                inactive-text="关"
+                                @change="(value) => handleRecordBindingGlobalSyncChange(binding, Boolean(value))"
+                              />
+                            </div>
+                          </div>
                           <el-select
                             :model-value="binding.formTemplateId"
                             clearable
@@ -2751,6 +2765,7 @@ const resolveNextAdditionalRecordBindingSlotType = (): ProRouteFlowFormSlotType 
 
 const createEmptyRecordBinding = (): RouteFlowRecordBinding => ({
   formBindingKey: createLocalFormBindingKey(),
+  globalSyncKey: null,
   formSlotType: resolveNextAdditionalRecordBindingSlotType(),
   formTemplateId: null,
   formTemplateName: null,
@@ -2779,6 +2794,7 @@ const normalizeFormBinding = (
   return {
     ...report,
     formBindingKey,
+    globalSyncKey: normalizeNullableText(report.globalSyncKey),
     formSlotType,
     formTemplateId,
     formTemplateName: report.formTemplateName || report.formTemplateNameSnapshot || null,
@@ -2914,9 +2930,12 @@ const isBatchSharedBinding = (binding?: RouteFlowRecordBinding) =>
 const isRecordBindingProcessIndependent = (binding?: RouteFlowRecordBinding) =>
   normalizeRecordBindingInstanceScope(binding?.instanceScope) === 'PROCESS'
 
-const syncSelectedRecordBindingsToDraft = () => {
+const syncSelectedRecordBindingsToDraft = (syncGlobalGroups = true) => {
   const { draft } = ensureSelectedProcessAttributeDraft()
   draft.recordBindings = resequenceRecordBindings(selectedRecordBindings.value)
+  if (syncGlobalGroups) {
+    syncGlobalRecordBindingGroupsFromCurrentProcess(draft)
+  }
   markGraphDraftChanged()
 }
 
@@ -3202,57 +3221,315 @@ const applyRecordBindingInstanceScope = (
   binding.requiredPolicy = 'REQUIRED'
 }
 
-const resolveRouteWideRecordBindingInstanceScope = (
-  formTemplateId?: number | string | null
-): RouteFlowRecordInstanceScope => {
-  const templateId = Number(formTemplateId || 0)
-  if (!Number.isFinite(templateId) || templateId <= 0) return 'BATCH_SHARED'
-  for (const node of routeNodes.value) {
-    const matchedBinding = getRouteNodeBatchRecordBindings(node).find(
-      (binding) => Number(binding.formTemplateId || 0) === templateId
-    )
-    if (matchedBinding) {
-      return normalizeRecordBindingInstanceScope(matchedBinding.instanceScope)
-    }
+let localGlobalFormBindingSequence = 1
+
+const createGlobalFormBindingSyncKey = () =>
+  `GFB_${Date.now()}_${localGlobalFormBindingSequence++}`
+
+const normalizeGlobalFormBindingSyncKey = (value?: string | null) =>
+  normalizeNullableText(value)
+
+const isRecordBindingGlobalSynced = (binding?: RouteFlowRecordBinding) =>
+  Boolean(normalizeGlobalFormBindingSyncKey(binding?.globalSyncKey))
+
+const getCurrentRouteProcessId = () =>
+  Number(selectedProcessAttributes.routeProcessId || selectedRouteProcessId.value || 0)
+
+const getAllRouteProcessAttributeDrafts = () =>
+  routeNodes.value.map((node) => ({
+    node,
+    draft: getOrCreateRouteProcessAttributeDraft(node.routeProcessId)
+  }))
+
+const cloneGlobalRecordBindingForProcess = (
+  sourceBinding: RouteFlowRecordBinding,
+  globalSyncKey: string,
+  formBindingKey = createLocalFormBindingKey()
+): RouteFlowRecordBinding => {
+  const [clonedBinding] = cloneRecordBindings([sourceBinding])
+  return {
+    ...clonedBinding,
+    formBindingKey,
+    globalSyncKey
   }
-  return 'BATCH_SHARED'
 }
 
-const applyRecordBindingProcessIndependentByTemplate = (
-  bindings: RouteFlowRecordBinding[],
-  formTemplateId: number,
-  processIndependent: boolean
+const syncGlobalRecordBindingGroupsFromCurrentProcess = (
+  currentDraft: SelectedProcessAttributesDraft
 ) => {
-  const instanceScope: RouteFlowRecordInstanceScope = processIndependent
-    ? 'PROCESS'
-    : 'BATCH_SHARED'
-  let changed = false
-  bindings.forEach((binding) => {
-    if (Number(binding.formTemplateId || 0) === formTemplateId) {
-      applyRecordBindingInstanceScope(binding, instanceScope)
-      changed = true
-    }
-  })
-  return changed
-}
-
-const syncRouteWideRecordBindingProcessIndependent = (
-  formTemplateId: number,
-  processIndependent: boolean
-) => {
-  let changed = false
-  routeNodes.value.forEach((node) => {
-    const draft = getOrCreateRouteProcessAttributeDraft(node.routeProcessId)
-    if (applyRecordBindingProcessIndependentByTemplate(draft.recordBindings, formTemplateId, processIndependent)) {
-      changed = true
-      if (Number(selectedProcessAttributes.routeProcessId) === Number(node.routeProcessId)) {
-        selectedRecordBindings.value = cloneRecordBindings(draft.recordBindings)
+  const globalBindings = currentDraft.recordBindings.filter(isRecordBindingGlobalSynced)
+  if (globalBindings.length === 0) return
+  const currentRouteProcessId = Number(currentDraft.routeProcessId)
+  const processDrafts = getAllRouteProcessAttributeDrafts()
+  globalBindings.forEach((sourceBinding) => {
+    const globalSyncKey = normalizeGlobalFormBindingSyncKey(sourceBinding.globalSyncKey)
+    if (!globalSyncKey) return
+    processDrafts.forEach(({ node, draft }) => {
+      if (Number(node.routeProcessId) === currentRouteProcessId) return
+      const memberIndex = draft.recordBindings.findIndex(
+        (binding) => normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) === globalSyncKey
+      )
+      if (memberIndex < 0) {
+        throw new Error(`全局附加表单组缺少工序副本：${nodeLabel(node)}`)
       }
+      const targetBindingKey = draft.recordBindings[memberIndex].formBindingKey
+      draft.recordBindings[memberIndex] = cloneGlobalRecordBindingForProcess(
+        sourceBinding,
+        globalSyncKey,
+        targetBindingKey
+      )
+    })
+  })
+}
+
+const getGlobalFormTemplateConflictProcessNames = (
+  sourceBinding: RouteFlowRecordBinding,
+  formTemplateId: number
+) => {
+  const globalSyncKey = normalizeGlobalFormBindingSyncKey(sourceBinding.globalSyncKey)
+  if (!globalSyncKey || !formTemplateId) return []
+  return getAllRouteProcessAttributeDrafts()
+    .filter(({ draft }) =>
+      draft.recordBindings.some(
+        (binding) =>
+          normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) !== globalSyncKey &&
+          Number(binding.formTemplateId || 0) === formTemplateId
+      )
+    )
+    .map(({ node }) => nodeLabel(node))
+}
+
+const syncGlobalRecordBindingGroupFromSource = (sourceBinding: RouteFlowRecordBinding) => {
+  const globalSyncKey = normalizeGlobalFormBindingSyncKey(sourceBinding.globalSyncKey)
+  if (!globalSyncKey) {
+    syncSelectedRecordBindingsToDraft()
+    return false
+  }
+  const currentRouteProcessId = getCurrentRouteProcessId()
+  syncSelectedRecordBindingsToDraft(false)
+  getAllRouteProcessAttributeDrafts().forEach(({ node, draft }) => {
+    if (Number(node.routeProcessId) === currentRouteProcessId) return
+    const memberIndex = draft.recordBindings.findIndex(
+      (binding) => normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) === globalSyncKey
+    )
+    if (memberIndex < 0) {
+      throw new Error(`全局附加表单组缺少工序副本：${nodeLabel(node)}`)
+    }
+    const targetBindingKey = draft.recordBindings[memberIndex].formBindingKey
+    draft.recordBindings[memberIndex] = cloneGlobalRecordBindingForProcess(
+      sourceBinding,
+      globalSyncKey,
+      targetBindingKey
+    )
+  })
+  markGraphDraftChanged()
+  return true
+}
+
+const isConfirmCanceled = (error: unknown) => error === 'cancel' || error === 'close'
+
+const confirmEnableGlobalRecordBinding = async (
+  targetProcessCount: number,
+  addedCount: number,
+  replacedCount: number
+) => {
+  try {
+    await message.confirm(
+      `确认开启全局联动吗？目标工序 ${targetProcessCount} 道，新增 ${addedCount} 份，同槽位替换 ${replacedCount} 份。`,
+      '开启全局附加表单'
+    )
+    return true
+  } catch (error) {
+    if (isConfirmCanceled(error)) return false
+    throw error
+  }
+}
+
+const confirmDisableGlobalRecordBinding = async (removedCount: number) => {
+  try {
+    await message.confirm(
+      `确认关闭全局联动吗？当前工序会保留该表单，其他工序的 ${removedCount} 份副本会被删除。`,
+      '关闭全局附加表单'
+    )
+    return true
+  } catch (error) {
+    if (isConfirmCanceled(error)) return false
+    throw error
+  }
+}
+
+const enableGlobalRecordBinding = async (sourceBinding: RouteFlowRecordBinding) => {
+  const currentRouteProcessId = getCurrentRouteProcessId()
+  const formTemplateId = Number(sourceBinding.formTemplateId || 0)
+  if (!currentRouteProcessId || !formTemplateId) {
+    message.error('请先选择表单后再开启全局联动。')
+    return
+  }
+  const sourceSlotType = requireRecordBindingSlotType(sourceBinding)
+  const processDrafts = getAllRouteProcessAttributeDrafts()
+  const conflictProcessNames: string[] = []
+  let addedCount = 0
+  let replacedCount = 0
+  processDrafts.forEach(({ node, draft }) => {
+    const bindings = Number(node.routeProcessId) === currentRouteProcessId
+      ? selectedRecordBindings.value
+      : draft.recordBindings
+    const hasTemplateInOtherSlot = bindings.some(
+      (binding) => {
+        const isCurrentSourceBinding =
+          Number(node.routeProcessId) === currentRouteProcessId &&
+          binding.formBindingKey === sourceBinding.formBindingKey
+        return (
+          !isCurrentSourceBinding &&
+          Number(binding.formTemplateId || 0) === formTemplateId &&
+          requireRecordBindingSlotType(binding) !== sourceSlotType
+        )
+      }
+    )
+    if (hasTemplateInOtherSlot) {
+      conflictProcessNames.push(nodeLabel(node))
+      return
+    }
+    if (Number(node.routeProcessId) === currentRouteProcessId) return
+    if (bindings.some((binding) => requireRecordBindingSlotType(binding) === sourceSlotType)) {
+      replacedCount += 1
+    } else {
+      addedCount += 1
     }
   })
-  if (changed) {
-    markGraphDraftChanged()
+  if (conflictProcessNames.length > 0) {
+    message.error(`开启失败：以下工序已在其他槽位使用同一模板：${conflictProcessNames.join('、')}`)
+    return
   }
+  if (!(await confirmEnableGlobalRecordBinding(routeNodes.value.length, addedCount, replacedCount))) {
+    return
+  }
+  const globalSyncKey = createGlobalFormBindingSyncKey()
+  sourceBinding.globalSyncKey = globalSyncKey
+  syncSelectedRecordBindingsToDraft(false)
+  const currentDraft = getOrCreateRouteProcessAttributeDraft(currentRouteProcessId)
+  const synchronizedSourceBinding = currentDraft.recordBindings.find(
+    (binding) => binding.formBindingKey === sourceBinding.formBindingKey
+  )
+  if (!synchronizedSourceBinding) {
+    throw new Error('开启全局联动失败：当前工序附加表单草稿不存在。')
+  }
+  processDrafts.forEach(({ node, draft }) => {
+    if (Number(node.routeProcessId) === currentRouteProcessId) return
+    const sameSlotBinding = draft.recordBindings.find(
+      (binding) => requireRecordBindingSlotType(binding) === sourceSlotType
+    )
+    const nextBindings = draft.recordBindings.filter(
+      (binding) =>
+        requireRecordBindingSlotType(binding) !== sourceSlotType &&
+        normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) !== globalSyncKey
+    )
+    const insertIndex = Math.min(
+      Math.max(Number(synchronizedSourceBinding.reportSort || 1) - 1, 0),
+      nextBindings.length
+    )
+    nextBindings.splice(
+      insertIndex,
+      0,
+      cloneGlobalRecordBindingForProcess(
+        synchronizedSourceBinding,
+        globalSyncKey,
+        sameSlotBinding?.formBindingKey || createLocalFormBindingKey()
+      )
+    )
+    draft.recordBindings = nextBindings
+  })
+  markGraphDraftChanged()
+}
+
+const disableGlobalRecordBinding = async (sourceBinding: RouteFlowRecordBinding) => {
+  const globalSyncKey = normalizeGlobalFormBindingSyncKey(sourceBinding.globalSyncKey)
+  if (!globalSyncKey) return
+  const currentRouteProcessId = getCurrentRouteProcessId()
+  const processDrafts = getAllRouteProcessAttributeDrafts()
+  const removedCount = processDrafts.filter(
+    ({ node, draft }) =>
+      Number(node.routeProcessId) !== currentRouteProcessId &&
+      draft.recordBindings.some(
+        (binding) => normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) === globalSyncKey
+      )
+  ).length
+  if (!(await confirmDisableGlobalRecordBinding(removedCount))) return
+  processDrafts.forEach(({ node, draft }) => {
+    if (Number(node.routeProcessId) === currentRouteProcessId) return
+    draft.recordBindings = draft.recordBindings.filter(
+      (binding) => normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) !== globalSyncKey
+    )
+  })
+  sourceBinding.globalSyncKey = null
+  syncSelectedRecordBindingsToDraft()
+}
+
+const removeGlobalRecordBindingGroup = async (sourceBinding: RouteFlowRecordBinding) => {
+  const globalSyncKey = normalizeGlobalFormBindingSyncKey(sourceBinding.globalSyncKey)
+  if (!globalSyncKey) return false
+  try {
+    await message.confirm(
+      '确认删除该全局附加表单吗？全部普通工序中的同组表单都会同步删除。',
+      '删除全局附加表单'
+    )
+  } catch (error) {
+    if (isConfirmCanceled(error)) return true
+    throw error
+  }
+  getAllRouteProcessAttributeDrafts().forEach(({ draft }) => {
+    draft.recordBindings = draft.recordBindings.filter(
+      (binding) => normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) !== globalSyncKey
+    )
+  })
+  selectedRecordBindings.value = selectedRecordBindings.value.filter(
+    (binding) => normalizeGlobalFormBindingSyncKey(binding.globalSyncKey) !== globalSyncKey
+  )
+  markGraphDraftChanged()
+  return true
+}
+
+const handleRecordBindingGlobalSyncChange = async (
+  binding: RouteFlowRecordBinding,
+  globalEnabled: boolean
+) => {
+  if (!binding || recordBindingEditorDisabled.value) return
+  if (globalEnabled === isRecordBindingGlobalSynced(binding)) return
+  if (globalEnabled) {
+    await enableGlobalRecordBinding(binding)
+  } else {
+    await disableGlobalRecordBinding(binding)
+  }
+}
+
+const inheritGlobalRecordBindingsForRouteProcess = (routeProcessId: number) => {
+  const targetDraft = getOrCreateRouteProcessAttributeDraft(routeProcessId)
+  const sourceByGlobalSyncKey = new Map<string, RouteFlowRecordBinding>()
+  routeNodes.value
+    .filter((node) => Number(node.routeProcessId) !== Number(routeProcessId))
+    .forEach((node) => {
+      getOrCreateRouteProcessAttributeDraft(node.routeProcessId).recordBindings.forEach((binding) => {
+        const globalSyncKey = normalizeGlobalFormBindingSyncKey(binding.globalSyncKey)
+        if (globalSyncKey && !sourceByGlobalSyncKey.has(globalSyncKey)) {
+          sourceByGlobalSyncKey.set(globalSyncKey, binding)
+        }
+      })
+    })
+  const inheritedBindings = Array.from(sourceByGlobalSyncKey.entries())
+    .sort(([, first], [, second]) => Number(first.reportSort || 0) - Number(second.reportSort || 0))
+    .map(([globalSyncKey, sourceBinding]) =>
+      cloneGlobalRecordBindingForProcess(sourceBinding, globalSyncKey)
+    )
+  const inheritedSlotTypes = new Set<ProRouteFlowFormSlotType>()
+  inheritedBindings.forEach((binding) => {
+    const slotType = requireRecordBindingSlotType(binding)
+    if (inheritedSlotTypes.has(slotType)) {
+      throw new Error(`新增工序继承失败：全局附加表单槽位重复 ${slotType}`)
+    }
+    inheritedSlotTypes.add(slotType)
+  })
+  targetDraft.recordBindings = inheritedBindings
+  markGraphDraftChanged()
 }
 
 const applyRecordBindingFillerOverride = (
@@ -3262,55 +3539,6 @@ const applyRecordBindingFillerOverride = (
   binding.candidateSourceType = normalizeRecordBindingCandidateSourceType(filler.candidateSourceType)
   binding.candidateSourceIds = normalizeRecordBindingCandidateIds(filler.candidateSourceIds)
   binding.candidateSourceNames = normalizeRecordBindingCandidateNames(filler.candidateSourceNames)
-}
-
-const buildRecordBindingFillerOverride = (
-  binding: RouteFlowRecordBinding
-): RouteFlowRecordBindingFillerOverride => ({
-  candidateSourceType: normalizeRecordBindingCandidateSourceType(binding.candidateSourceType),
-  candidateSourceIds: normalizeRecordBindingCandidateIds(binding.candidateSourceIds),
-  candidateSourceNames: normalizeRecordBindingCandidateNames(binding.candidateSourceNames)
-})
-
-const serializeRecordBindingFillerOverride = (binding: RouteFlowRecordBinding) =>
-  JSON.stringify(buildRecordBindingFillerOverride(binding))
-
-const applyRouteWideRecordBindingFillerByTemplate = (
-  bindings: RouteFlowRecordBinding[],
-  formTemplateId: number,
-  filler: RouteFlowRecordBindingFillerOverride
-) => {
-  let changed = false
-  bindings.forEach((binding) => {
-    if (Number(binding.formTemplateId || 0) === formTemplateId && isBatchSharedBinding(binding)) {
-      const before = serializeRecordBindingFillerOverride(binding)
-      applyRecordBindingFillerOverride(binding, filler)
-      changed = changed || before !== serializeRecordBindingFillerOverride(binding)
-    }
-  })
-  return changed
-}
-
-const syncRouteWideRecordBindingFillerByTemplate = (sourceBinding: RouteFlowRecordBinding) => {
-  const formTemplateId = Number(sourceBinding.formTemplateId || 0)
-  if (!Number.isFinite(formTemplateId) || formTemplateId <= 0 || !isBatchSharedBinding(sourceBinding)) {
-    return false
-  }
-  const filler = buildRecordBindingFillerOverride(sourceBinding)
-  let changed = false
-  routeNodes.value.forEach((node) => {
-    const draft = getOrCreateRouteProcessAttributeDraft(node.routeProcessId)
-    if (applyRouteWideRecordBindingFillerByTemplate(draft.recordBindings, formTemplateId, filler)) {
-      changed = true
-      if (Number(selectedProcessAttributes.routeProcessId) === Number(node.routeProcessId)) {
-        selectedRecordBindings.value = cloneRecordBindings(draft.recordBindings)
-      }
-    }
-  })
-  if (changed) {
-    markGraphDraftChanged()
-  }
-  return changed
 }
 
 const updateRecordBindingTemplate = (
@@ -3335,18 +3563,31 @@ const updateRecordBindingTemplate = (
     binding.candidateSourceIds = []
     binding.candidateSourceNames = []
   } else {
-    applyRecordBindingInstanceScope(binding, resolveRouteWideRecordBindingInstanceScope(templateId))
+    applyRecordBindingInstanceScope(
+      binding,
+      normalizeRecordBindingInstanceScope(binding.instanceScope)
+    )
   }
   return true
 }
 
-const handleSelectedRecordBindingTemplateChange = (
+const handleSelectedRecordBindingTemplateChange = async (
   binding: RouteFlowRecordBinding,
   formTemplateId?: number | string | null
 ) => {
   if (!binding || recordBindingEditorDisabled.value) return
+  const templateId = Number(formTemplateId || 0)
+  if (!templateId && isRecordBindingGlobalSynced(binding)) {
+    await removeGlobalRecordBindingGroup(binding)
+    return
+  }
+  const conflictProcessNames = getGlobalFormTemplateConflictProcessNames(binding, templateId)
+  if (conflictProcessNames.length > 0) {
+    message.error(`修改失败：以下工序已在其他槽位使用该模板：${conflictProcessNames.join('、')}`)
+    return
+  }
   if (!updateRecordBindingTemplate(binding, formTemplateId)) return
-  syncSelectedRecordBindingsToDraft()
+  syncGlobalRecordBindingGroupFromSource(binding)
 }
 
 const handleRecordBindingProcessIndependentChange = (
@@ -3354,12 +3595,12 @@ const handleRecordBindingProcessIndependentChange = (
   processIndependent: boolean
 ) => {
   if (!binding || recordBindingEditorDisabled.value) return
-  const formTemplateId = Number(binding.formTemplateId || 0)
-  if (!Number.isFinite(formTemplateId) || formTemplateId <= 0) {
+  if (!Number.isFinite(Number(binding.formTemplateId || 0)) || Number(binding.formTemplateId || 0) <= 0) {
     message.error('请先选择表单后再设置工序独立。')
     return
   }
-  syncRouteWideRecordBindingProcessIndependent(formTemplateId, processIndependent)
+  applyRecordBindingInstanceScope(binding, processIndependent ? 'PROCESS' : 'BATCH_SHARED')
+  syncGlobalRecordBindingGroupFromSource(binding)
 }
 
 const addSelectedRecordBinding = async () => {
@@ -3371,8 +3612,9 @@ const addSelectedRecordBinding = async () => {
   }
 }
 
-const removeSelectedRecordBinding = (binding: RouteFlowRecordBinding) => {
+const removeSelectedRecordBinding = async (binding: RouteFlowRecordBinding) => {
   if (recordBindingEditorDisabled.value) return
+  if (await removeGlobalRecordBindingGroup(binding)) return
   selectedRecordBindings.value = selectedRecordBindings.value.filter(
     (item) => item.formBindingKey !== binding.formBindingKey
   )
@@ -3389,9 +3631,7 @@ const handleSelectedRecordBindingCandidateSourceTypeChange = (
     candidateSourceIds: [],
     candidateSourceNames: []
   })
-  if (!syncRouteWideRecordBindingFillerByTemplate(binding)) {
-    syncSelectedRecordBindingsToDraft()
-  }
+  syncGlobalRecordBindingGroupFromSource(binding)
   if (!binding.candidateSourceType) return
   void loadRecordBindingCandidateOptions(binding)
 }
@@ -3408,9 +3648,7 @@ const handleSelectedRecordBindingCandidateIdChange = (
       candidateSourceIds: [],
       candidateSourceNames: []
     })
-    if (!syncRouteWideRecordBindingFillerByTemplate(binding)) {
-      syncSelectedRecordBindingsToDraft()
-    }
+    syncGlobalRecordBindingGroupFromSource(binding)
     return
   }
   const option = buildRecordBindingCandidateOptions(binding).find(
@@ -3421,9 +3659,7 @@ const handleSelectedRecordBindingCandidateIdChange = (
     candidateSourceIds: [id],
     candidateSourceNames: option?.label ? [option.label] : []
   })
-  if (!syncRouteWideRecordBindingFillerByTemplate(binding)) {
-    syncSelectedRecordBindingsToDraft()
-  }
+  syncGlobalRecordBindingGroupFromSource(binding)
 }
 
 const clearSelectedRecordBindingFillerOverride = (binding: RouteFlowRecordBinding) => {
@@ -3433,9 +3669,7 @@ const clearSelectedRecordBindingFillerOverride = (binding: RouteFlowRecordBindin
     candidateSourceIds: [],
     candidateSourceNames: []
   })
-  if (!syncRouteWideRecordBindingFillerByTemplate(binding)) {
-    syncSelectedRecordBindingsToDraft()
-  }
+  syncGlobalRecordBindingGroupFromSource(binding)
 }
 
 const validateBatchSharedRecordBinding = (binding: RouteFlowRecordBinding) => {
@@ -3517,8 +3751,12 @@ const copySelectedProcessFormBindingsFromSource = () => {
     message.error('请选择要复制的来源工序。')
     return
   }
-  const sourceBindings = sourceOption.bindings
-  selectedRecordBindings.value = sourceBindings.map(copyRecordBindingForSelectedProcess)
+  const currentGlobalBindings = selectedRecordBindings.value.filter(isRecordBindingGlobalSynced)
+  const copiedLocalBindings = sourceOption.bindings
+    .filter((binding) => !isRecordBindingGlobalSynced(binding))
+    .map(copyRecordBindingForSelectedProcess)
+  selectedRecordBindings.value = [...currentGlobalBindings, ...copiedLocalBindings]
+    .sort((first, second) => Number(first.reportSort || 0) - Number(second.reportSort || 0))
   processFormBindingCopySourceRouteProcessId.value = null
   processFormBindingCopyPopoverVisible.value = false
   syncSelectedRecordBindingsToDraft()
@@ -3537,6 +3775,7 @@ const copyRecordBindingForSelectedProcess = (
   const instanceScope = normalizeRecordBindingInstanceScope(sourceBinding.instanceScope)
   return {
     formBindingKey,
+    globalSyncKey: null,
     formSlotType,
     formTemplateId: normalizedFormTemplateId,
     formTemplateName: sourceBinding.formTemplateName || sourceBinding.formTemplateNameSnapshot || null,
@@ -4391,11 +4630,12 @@ const buildSelectedProcessAttributesDraftSnapshot = (draft: SelectedProcessAttri
       reportSort: report.reportSort || null,
       remark: report.remark || null
     })),
-  recordBindings: resequenceRecordBindings(draft.recordBindings)
-    .map((binding) => {
+  recordBindings: cloneRecordBindings(draft.recordBindings)
+    .map((binding, index) => {
       const instanceScope = normalizeRecordBindingInstanceScope(binding.instanceScope)
       return {
         formBindingKey: binding.formBindingKey || createLocalFormBindingKey(),
+        globalSyncKey: binding.globalSyncKey || null,
         formSlotType: requireRecordBindingSlotType(binding),
         formTemplateId: binding.formTemplateId || null,
         formTemplateName: binding.formTemplateName || null,
@@ -4409,7 +4649,9 @@ const buildSelectedProcessAttributesDraftSnapshot = (draft: SelectedProcessAttri
         candidateSourceType: binding.candidateSourceType || null,
         candidateSourceIds: normalizeRecordBindingCandidateIds(binding.candidateSourceIds),
         candidateSourceNames: normalizeRecordBindingCandidateNames(binding.candidateSourceNames),
-        reportSort: binding.reportSort || null,
+        reportSort: isRecordBindingGlobalSynced(binding)
+          ? binding.reportSort || index + 1
+          : index + 1,
         remark: binding.remark || null
       }
     })
@@ -4654,7 +4896,7 @@ const loadSelectedProcessAttributes = async (node: RouteFlowNodeVO, requestId: n
 const buildFormBindingSaveRows = (
   bindings: RouteFlowRecordBinding[]
 ): ProRouteFlowFormBindingSaveVO[] => {
-  const rows = resequenceRecordBindings(bindings)
+  const rows = cloneRecordBindings(bindings)
     .filter((binding) => Boolean(binding.formTemplateId))
     .map((binding, index): ProRouteFlowFormBindingSaveVO => {
       validateBatchSharedRecordBinding(binding)
@@ -4662,6 +4904,7 @@ const buildFormBindingSaveRows = (
       const instanceScope = normalizeRecordBindingInstanceScope(binding.instanceScope)
       return {
         formBindingKey: binding.formBindingKey || createLocalFormBindingKey(),
+        globalSyncKey: binding.globalSyncKey || null,
         formSlotType: requireRecordBindingSlotType(binding),
         formTemplateId: Number(binding.formTemplateId),
         formTemplateName: binding.formTemplateName || null,
@@ -4675,7 +4918,9 @@ const buildFormBindingSaveRows = (
         candidateSourceType: binding.candidateSourceType,
         candidateSourceIds: binding.candidateSourceIds,
         candidateSourceNames: binding.candidateSourceNames,
-        reportSort: index + 1,
+        reportSort: isRecordBindingGlobalSynced(binding)
+          ? binding.reportSort || index + 1
+          : index + 1,
         remark: binding.remark || null
       }
     })
@@ -6646,6 +6891,7 @@ const handleRouteProcessAdd = async () => {
       checkFlag: false
     }
   ]
+  inheritGlobalRecordBindingsForRouteProcess(routeProcessId)
   routeProcessDialogVisible.value = false
   selectedRouteProcessId.value = routeProcessId
   selectedEdgeKey.value = ''
@@ -9500,6 +9746,20 @@ defineExpose({
   color: #172033;
   font-size: 13px;
   font-weight: 700;
+}
+
+.route-flow-graph-designer__record-binding-header,
+.route-flow-graph-designer__record-binding-global {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.route-flow-graph-designer__record-binding-global {
+  justify-content: flex-end;
+  color: #4b5563;
+  font-size: 12px;
 }
 
 .route-flow-graph-designer__shared-form-binding {

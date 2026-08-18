@@ -47,7 +47,7 @@ assert.match(
 )
 assert.match(
   page,
-  /const activePqcModuleTab = ref<'personnel' \| 'management' \| 'detail' \| 'history'>\('management'\)/,
+  /const activePqcModuleTab = ref<'personnel' \| 'management' \| 'task' \| 'detail' \| 'history'>\('management'\)/,
   'activePqcModuleTab 类型必须包含 history。'
 )
 assert.match(

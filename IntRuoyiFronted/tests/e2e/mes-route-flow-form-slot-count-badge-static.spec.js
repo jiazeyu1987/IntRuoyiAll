@@ -33,7 +33,7 @@ assertMatch(
   '数量徽标必须提供已绑定表单个数的悬停说明'
 )
 assertMatch(
-  /const getRouteNodeAdditionalFormCount = \(node: RouteFlowNodeVO\) =>[\s\S]*getRouteNodeBatchRecordBindings\(node\)[\s\S]*filter\(\s*\(binding\) =>[\s\S]*normalizeRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\) !== 'MAIN'[\s\S]*\.length/,
+  /const getRouteNodeAdditionalFormCount = \(node: RouteFlowNodeVO\) =>[\s\S]*getRouteNodeBatchRecordBindings\(node\)[\s\S]*filter\(\(binding\) =>[\s\S]*resolveRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\)[\s\S]*formSlotType !== 'MAIN'[\s\S]*\.length/,
   '节点表单数量必须按动态 formBindings 中非 MAIN 槽位行计数'
 )
 assert.doesNotMatch(
@@ -46,7 +46,7 @@ assertMatch(
   '新增动态表单的候选槽位必须显式排除 MAIN，避免新增后仍被批记录口径排除'
 )
 assertMatch(
-  /const resolveNextAdditionalRecordBindingSlotType = \(\): ProRouteFlowFormSlotType => \{[\s\S]*selectedRecordBindings\.value[\s\S]*normalizeRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\)[\s\S]*ADDITIONAL_RECORD_BINDING_SLOT_TYPES\.find\(\(slot\) => !usedSlotTypes\.has\(slot\)\)[\s\S]*ADDITIONAL_RECORD_BINDING_SLOT_TYPES\[ADDITIONAL_RECORD_BINDING_SLOT_TYPES\.length - 1\]/,
+  /const resolveNextAdditionalRecordBindingSlotType = \(\): ProRouteFlowFormSlotType => \{[\s\S]*selectedRecordBindings\.value[\s\S]*resolveRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\)[\s\S]*ADDITIONAL_RECORD_BINDING_SLOT_TYPES\.find\(\(slot\) => !usedSlotTypes\.has\(slot\)\)[\s\S]*ADDITIONAL_RECORD_BINDING_SLOT_TYPES\[ADDITIONAL_RECORD_BINDING_SLOT_TYPES\.length - 1\]/,
   '新增动态表单必须选择下一个非 MAIN 槽位，已有 1 个动态表单时第二个新增项应计入节点数字 2'
 )
 assertMatch(

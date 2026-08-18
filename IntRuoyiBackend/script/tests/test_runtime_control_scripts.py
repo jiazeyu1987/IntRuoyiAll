@@ -83,6 +83,23 @@ def test_local_restart_script_is_component_scoped_and_fail_fast():
     assert "`$env:DCC_SIGNATURE_EVIDENCE_KEY_VERSION = '$DccSignatureEvidenceKeyVersion'" in script
 
 
+def test_local_restart_applies_profile_page_schema_dependencies_before_backend_start():
+    script = read_script("restart-int-ruoyi-local.ps1")
+
+    assert "20260814_mes_production_release_flow.sql" in script
+    assert "pqc_release_application_scope_id" in script
+    assert "uk_mes_edhr_work_task_release_application" in script
+    assert "20260815_system_notify_message_business_key.sql" in script
+    assert "system_notify_message" in script
+    assert "business_key" in script
+    assert "uk_system_notify_message_tenant_business_key" in script
+
+    backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
+    assert backend_block.index("Ensure-RequiredLocalMySqlSchema") < backend_block.index(
+        "Stop-MatchingProcesses 'backend' $RuntimeDir"
+    )
+
+
 def test_local_restart_script_defaults_to_int_main_without_global_worktree_pair_sync():
     script = read_script("restart-int-ruoyi-local.ps1")
 

@@ -8,7 +8,10 @@ const source = fs.readFileSync(viewPath, 'utf8').replace(/\r\n/g, '\n')
 
 const columnsStart = source.indexOf('const qaItemsDefaultColumns')
 const columnsEnd = source.indexOf('const qaChecksDefaultColumns', columnsStart)
-assert.ok(columnsStart >= 0 && columnsEnd > columnsStart, 'QA item default column block must exist.')
+assert.ok(
+  columnsStart >= 0 && columnsEnd > columnsStart,
+  'QA item default column block must exist.'
+)
 const columnsBlock = source.slice(columnsStart, columnsEnd)
 
 assert.match(
@@ -21,8 +24,18 @@ assert.doesNotMatch(
   /key: 'applicableTypes'[^\n]*visible:\s*false/,
   'Applicable inspection types must not remain hidden by default.'
 )
+assert.match(
+  columnsBlock,
+  /\{ key: 'firstInspection', label: '首检', minWidth: 220, sortable: false \}/,
+  'Item-owned first-inspection controls must be visible by default.'
+)
+assert.match(
+  columnsBlock,
+  /\{ key: 'patrolInspection', label: '巡检', minWidth: 240, sortable: false \}/,
+  'Item-owned patrol controls must be visible by default.'
+)
 
-const nextTableKey = 'mes.qa.regulation.items.processMethods.v2'
+const nextTableKey = 'mes.qa.regulation.items.processMethods.v3'
 assert.match(
   source,
   new RegExp(`table-key="${nextTableKey.replaceAll('.', '\\.')}"`),
@@ -35,7 +48,9 @@ assert.match(
 )
 assert.match(
   source,
-  new RegExp(`useUserTableColumns\\('${nextTableKey.replaceAll('.', '\\.')}', qaItemsDefaultColumns\\)`),
+  new RegExp(
+    `useUserTableColumns\\('${nextTableKey.replaceAll('.', '\\.')}', qaItemsDefaultColumns\\)`
+  ),
   'Saved user column settings must use the same upgraded QA item table key.'
 )
 
@@ -48,6 +63,16 @@ assert.doesNotMatch(
   source,
   /v-model="row\.applicableTypes"/,
   'The derived applicable inspection types must not remain independently editable.'
+)
+assert.match(
+  source,
+  /data-qa-regulation-first-inspection[\s\S]*v-model="row\.firstInspectionEnabled"[\s\S]*v-model="row\.firstInspectionQuantity"/,
+  'First inspection must expose item-owned structured controls.'
+)
+assert.match(
+  source,
+  /data-qa-regulation-patrol-inspection[\s\S]*v-model="row\.patrolInspectionEnabled"[\s\S]*v-model="row\.patrolInspectionRatio"/,
+  'Patrol inspection must expose item-owned structured controls.'
 )
 
 console.log('PASS: QA regulation applicable inspection types are visible by default')

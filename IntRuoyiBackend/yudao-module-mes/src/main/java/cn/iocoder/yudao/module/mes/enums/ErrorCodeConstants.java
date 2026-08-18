@@ -281,6 +281,9 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ENABLED_USER_NOT_ENOUGH = new ErrorCode(1_040_271_049, "当前租户启用用户少于 2 人，无法初始化批记录附件上传角色");
     ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID = new ErrorCode(1_040_271_050, "批记录附件负责人配置无效：{}");
     ErrorCode PRO_ROUTE_FLOW_CONFIG_START_PRODUCTION_LEADER_INVALID = new ErrorCode(1_040_271_051, "工序开始生产组长配置无效：{}");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE = new ErrorCode(1_040_271_052, "全局附加表单组未覆盖全部普通工序，globalSyncKey={}，缺失工序={}");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_DUPLICATE = new ErrorCode(1_040_271_053, "同一工序存在重复的全局附加表单组成员，globalSyncKey={}，routeProcessId={}");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT = new ErrorCode(1_040_271_054, "全局附加表单组配置不一致，globalSyncKey={}，routeProcessId={}");
     ErrorCode PRO_ROUTE_VERSION_STALE = new ErrorCode(1_040_271_029, "工艺路线版本已变更，请刷新后再操作，routeId={}，expectedRouteVersionId={}，activeRouteVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_NOT_EXISTS = new ErrorCode(1_040_271_030, "工艺路线版本不存在，routeVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS = new ErrorCode(1_040_271_031, "工艺路线缺少当前生效版本，routeId={}");
@@ -608,6 +611,8 @@ public interface ErrorCodeConstants {
             new ErrorCode(1_040_600_308, "QA 检验规程末检适用性配置无效：{}");
     ErrorCode QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID =
             new ErrorCode(1_040_600_309, "QA 检验规程 DCC 项目代码无效：{}");
+    ErrorCode QA_INSPECTION_REGULATION_WORD_IMPORT_INVALID =
+            new ErrorCode(1_040_600_310, "QA 模板解析失败：{}");
 
     // ========== MES 质量管理-质检指标（1-040-601-000） ==========
     ErrorCode QC_INDICATOR_NOT_EXISTS = new ErrorCode(1_040_601_000, "质检指标不存在");
@@ -1097,6 +1102,10 @@ public interface ErrorCodeConstants {
             "一线运行快照不存在或已过期，请退出最大化后重新进入，snapshotId={}");
     ErrorCode PRO_FRONTLINE_SESSION_SNAPSHOT_INVALID = new ErrorCode(1_040_760_123,
             "一线运行快照校验失败：{}");
+    ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID = new ErrorCode(1_040_760_124,
+            "活跃订单冻结工序快照不完整，activeOrderId={}，{}");
+    ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH = new ErrorCode(1_040_760_125,
+            "所选工序不属于该活跃订单锁定的工艺版本，activeOrderId={}，routeProcessId={}，processId={}");
 
     // ========== MES 工序池审核副本（1-040-760-200） ==========
     ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_200,

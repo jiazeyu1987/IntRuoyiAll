@@ -12,6 +12,9 @@ public class MesProRouteFlowFormBindingRespVO {
     @Schema(description = "动态表单绑定稳定 Key", example = "FB_100_1")
     private String formBindingKey;
 
+    @Schema(description = "全局联动组 Key；为空表示仅当前工序", example = "GFB_1723860000000_1")
+    private String globalSyncKey;
+
     @Schema(description = "表单中心模板稳定 ID", example = "10001")
     private Long formTemplateId;
 

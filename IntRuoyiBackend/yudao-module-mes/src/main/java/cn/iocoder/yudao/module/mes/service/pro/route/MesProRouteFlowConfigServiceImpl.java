@@ -92,6 +92,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLO
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_FILLER_SOURCE_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_PUBLISHED_VERSION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_DUPLICATE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_SLOT_TYPE_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_RECORD_CATEGORY_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_REQUIRED_POLICY_INVALID;
@@ -752,6 +755,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         }
         return new MesProRouteFlowFormBindingSaveReqVO()
                 .setFormBindingKey(binding.getString("formBindingKey"))
+                .setGlobalSyncKey(binding.getString("globalSyncKey"))
                 .setFormTemplateId(templateId)
                 .setFormTemplateName(StrUtil.blankToDefault(binding.getString("formTemplateName"),
                         binding.getString("formTemplateNameSnapshot")))
@@ -784,6 +788,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .map(binding -> {
                     MesProRouteFlowFormBindingRespVO vo = new MesProRouteFlowFormBindingRespVO();
                     vo.setFormBindingKey(StrUtil.trim(binding.getFormBindingKey()));
+                    vo.setGlobalSyncKey(StrUtil.blankToDefault(StrUtil.trim(binding.getGlobalSyncKey()), null));
                     vo.setFormTemplateId(binding.getFormTemplateId());
                     vo.setFormTemplateName(StrUtil.trim(binding.getFormTemplateName()));
                     String formSlotType = resolveConfiguredFormSlotType(binding);
@@ -1289,9 +1294,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         }
         String configKey = flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH
                 ? BATCH_USE_CONFIGS_KEY : SCHEDULE_USE_CONFIGS_KEY;
-        routeCandidateConfigService.saveConfigSnapshot(routeVersion.getId(), configKey,
-                buildCandidateUseConfigSnapshot(routeVersion, configKey, flowConfigType,
-                        saveReqVO, validRouteProcessIds));
+        List<MesProRouteFlowProcessConfigSaveReqVO> candidateSnapshot = buildCandidateUseConfigSnapshot(
+                routeVersion, configKey, flowConfigType, saveReqVO, validRouteProcessIds);
+        if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH) {
+            validateGlobalFormBindingGroups(candidateSnapshot, validRouteProcessIds);
+        }
+        routeCandidateConfigService.saveConfigSnapshot(routeVersion.getId(), configKey, candidateSnapshot);
     }
 
     private Set<Long> resolveCandidateSaveRouteProcessIds(
@@ -1417,6 +1425,69 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .map(processConfig -> normalizeCandidateUseConfigSnapshot(
                         routeVersion.getRouteId(), flowConfigType, processConfig))
                 .toList();
+    }
+
+    void validateGlobalFormBindingGroups(
+            List<MesProRouteFlowProcessConfigSaveReqVO> candidateSnapshot,
+            Set<Long> validRouteProcessIds) {
+        Map<String, Map<Long, MesProRouteFlowFormBindingSaveReqVO>> groups = new LinkedHashMap<>();
+        for (MesProRouteFlowProcessConfigSaveReqVO processConfig : candidateSnapshot) {
+            Long routeProcessId = processConfig.getRouteProcessId();
+            for (MesProRouteFlowFormBindingSaveReqVO binding : normalizeFormBindings(processConfig)) {
+                String globalSyncKey = StrUtil.trim(binding.getGlobalSyncKey());
+                if (StrUtil.isBlank(globalSyncKey)) {
+                    continue;
+                }
+                Map<Long, MesProRouteFlowFormBindingSaveReqVO> members = groups.computeIfAbsent(
+                        globalSyncKey, ignored -> new LinkedHashMap<>());
+                if (members.putIfAbsent(routeProcessId, binding) != null) {
+                    throw exception(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_DUPLICATE,
+                            globalSyncKey, routeProcessId);
+                }
+            }
+        }
+        groups.forEach((globalSyncKey, members) -> {
+            Set<Long> missingRouteProcessIds = new LinkedHashSet<>(validRouteProcessIds);
+            missingRouteProcessIds.removeAll(members.keySet());
+            if (!missingRouteProcessIds.isEmpty() || members.size() != validRouteProcessIds.size()) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE,
+                        globalSyncKey, missingRouteProcessIds);
+            }
+            String expectedConfig = null;
+            for (Map.Entry<Long, MesProRouteFlowFormBindingSaveReqVO> member : members.entrySet()) {
+                String actualConfig = JSON.toJSONString(buildGlobalFormBindingComparableConfig(member.getValue()));
+                if (expectedConfig == null) {
+                    expectedConfig = actualConfig;
+                } else if (!Objects.equals(expectedConfig, actualConfig)) {
+                    throw exception(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT,
+                            globalSyncKey, member.getKey());
+                }
+            }
+        });
+    }
+
+    private Map<String, Object> buildGlobalFormBindingComparableConfig(
+            MesProRouteFlowFormBindingSaveReqVO binding) {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("formTemplateId", binding.getFormTemplateId());
+        config.put("formSlotType", binding.getFormSlotType());
+        config.put("instanceScope", binding.getInstanceScope());
+        config.put("sharedFormKey", binding.getSharedFormKey());
+        config.put("fillableScopeJson", binding.getFillableScopeJson());
+        config.put("recordCategory", binding.getRecordCategory());
+        config.put("validationProfile", binding.getValidationProfile());
+        config.put("recordbookEnabled", binding.getRecordbookEnabled());
+        config.put("permissionScopeId", binding.getPermissionScopeId());
+        config.put("requiredPolicy", binding.getRequiredPolicy());
+        config.put("requiredConditionJson", binding.getRequiredConditionJson());
+        config.put("ownerRoleKey", binding.getOwnerRoleKey());
+        config.put("archiveVisibility", binding.getArchiveVisibility());
+        config.put("candidateSourceType", binding.getCandidateSourceType());
+        config.put("candidateSourceIds", binding.getCandidateSourceIds());
+        config.put("candidateSourceNames", binding.getCandidateSourceNames());
+        config.put("reportSort", binding.getReportSort());
+        config.put("remark", binding.getRemark());
+        return config;
     }
 
     private MesProRouteFlowProcessConfigSaveReqVO normalizeCandidateUseConfigSnapshot(
@@ -1976,6 +2047,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .batchRecordVersionId(null)
                     .formSlotType(formSlotType)
                     .formBindingKey(resolveFormBindingKey(processConfig.getRouteProcessId(), binding, index + 1))
+                    .globalSyncKey(StrUtil.blankToDefault(StrUtil.trim(binding.getGlobalSyncKey()), null))
                     .formTemplateId(binding.getFormTemplateId())
                     .formTemplateNameSnapshot(StrUtil.trim(binding.getFormTemplateName()))
                     .lastPublishedTemplateVersionId(binding.getLastPublishedTemplateVersionId())
@@ -2166,6 +2238,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             String archiveVisibility = resolveArchiveVisibility(binding.getArchiveVisibility());
             MesProRouteFlowFormBindingSaveReqVO normalizedBinding = new MesProRouteFlowFormBindingSaveReqVO()
                     .setFormBindingKey(resolveFormBindingKey(saveConfig.getRouteProcessId(), binding, index + 1))
+                    .setGlobalSyncKey(StrUtil.blankToDefault(StrUtil.trim(binding.getGlobalSyncKey()), null))
                     .setFormTemplateId(binding.getFormTemplateId())
                     .setFormTemplateName(StrUtil.trim(publishedVersion.getTemplateName()))
                     .setFormSlotType(formSlotType)
@@ -2391,6 +2464,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .map(record -> {
                     MesProRouteFlowFormBindingRespVO vo = new MesProRouteFlowFormBindingRespVO();
                     vo.setFormBindingKey(record.getFormBindingKey());
+                    vo.setGlobalSyncKey(record.getGlobalSyncKey());
                     String formSlotType = resolveFormSlotType(record, null);
                     vo.setFormSlotType(formSlotType);
                     vo.setFormTemplateId(record.getFormTemplateId());

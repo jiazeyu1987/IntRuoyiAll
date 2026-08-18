@@ -330,6 +330,35 @@ export interface TeamLeaderActiveOrderRespVO {
   releaseApplicationVersion?: number
 }
 
+export interface PqcLeaderActiveTaskRespVO {
+  pqcTaskId: string
+  taskStatus: 'PENDING' | 'SUBMITTED'
+  activeOrderId: string
+  workOrderId: string
+  workOrderCode: string
+  workOrderName?: string
+  qaRegulationId: string
+  qaRegulationCode: string
+  qaRegulationName: string
+  qaVersionId: string
+  qaVersionNo: string
+  qaProcessId: string
+  qaProcessCode?: string
+  qaProcessName: string
+  routeId: string
+  routeCode?: string
+  routeName: string
+  routeVersionId: string
+  routeVersionNo: string
+  inspectionRuleKey: 'FIRST' | 'PATROL_AM' | 'PATROL_PM' | 'FINAL'
+  inspectionType: 'FIRST' | 'PATROL' | 'FINAL'
+  businessDate: string
+  shiftCode: string
+  roundNo: number
+  plannedInspectionQuantity: number
+  actualInspectionQuantity?: number
+}
+
 export interface TeamLeaderActiveOrderReleaseApplyReqVO {
   activeOrderId: number
   idempotencyKey: string
@@ -552,6 +581,12 @@ export const getTeamLeaderActiveOrderList = async (
   return await request.get<TeamLeaderActiveOrderRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/active-order/list',
     ignoreErrorMessage: options.ignoreErrorMessage
+  })
+}
+
+export const getPqcLeaderActiveTaskList = async () => {
+  return await request.get<PqcLeaderActiveTaskRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/pqc-task/active-list'
   })
 }
 

@@ -3,10 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const frontendRoot = path.resolve(__dirname, '../..')
-const qaPagePath = path.join(
-  frontendRoot,
-  'src/views/mes/pro/processpool/QaRegulationPage.vue'
-)
+const qaPagePath = path.join(frontendRoot, 'src/views/mes/pro/processpool/QaRegulationPage.vue')
 
 const qaSource = fs.readFileSync(qaPagePath, 'utf8')
 
@@ -41,7 +38,17 @@ assert.doesNotMatch(
 assert.doesNotMatch(
   qaSource,
   /<el-switch\s+v-model="row\.required"/,
-  'First inspection and patrol inspection applicability must not remain row-editable.'
+  'The removed global inspection-rule rows must not return.'
+)
+assert.match(
+  qaSource,
+  /data-qa-regulation-first-inspection[\s\S]*v-model="row\.firstInspectionEnabled"/,
+  'First-inspection applicability must be editable on each inspection item.'
+)
+assert.match(
+  qaSource,
+  /data-qa-regulation-patrol-inspection[\s\S]*v-model="row\.patrolInspectionEnabled"/,
+  'Patrol applicability must be editable on each inspection item.'
 )
 
 const itemsTitleIndex = qaSource.indexOf('<span>工序检验方法与抽样方案</span>')
@@ -52,7 +59,10 @@ assert.ok(
   itemsHeaderStartIndex >= 0 && itemsHeaderEndIndex > itemsHeaderStartIndex,
   'Inspection item header must be complete.'
 )
-const itemsHeaderSource = qaSource.slice(itemsHeaderStartIndex, itemsHeaderEndIndex + '</template>'.length)
+const itemsHeaderSource = qaSource.slice(
+  itemsHeaderStartIndex,
+  itemsHeaderEndIndex + '</template>'.length
+)
 
 assert.match(
   itemsHeaderSource,
@@ -87,8 +97,8 @@ assert.match(
 )
 assert.match(
   qaSource,
-  /const normalizeQaInspectionTypeRules = \(rules: QaInspectionTypeRule\[\]\): QaInspectionTypeRule\[\] =>[\s\S]*rule\.key === 'FINAL'[\s\S]*\{\s*\.\.\.rule,\s*required: true\s*\}/,
-  'First inspection and patrol inspection rules must be normalized to fixed required=true.'
+  /const replaceQaInspectionTypeRules = \([\s\S]*rule\.key === 'FINAL' \? Boolean\(rule\.required\) : true/,
+  'Global rule metadata must keep final project-owned while item applicability owns first and patrol.'
 )
 
 console.log('PASS qa-regulation-final-inspection-switch-static')

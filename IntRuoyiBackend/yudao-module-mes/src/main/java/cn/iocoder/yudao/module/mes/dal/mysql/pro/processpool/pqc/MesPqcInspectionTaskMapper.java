@@ -59,6 +59,21 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .orderByAsc(MesPqcInspectionTaskDO::getId));
     }
 
+    default List<MesPqcInspectionTaskDO> selectListByActiveOrderIdsAndStatuses(
+            Collection<Long> activeOrderIds, Collection<String> taskStatuses) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()
+                || taskStatuses == null || taskStatuses.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .in(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderIds)
+                .in(MesPqcInspectionTaskDO::getTaskStatus, taskStatuses)
+                .orderByAsc(MesPqcInspectionTaskDO::getBusinessDate)
+                .orderByAsc(MesPqcInspectionTaskDO::getInspectionType)
+                .orderByAsc(MesPqcInspectionTaskDO::getRoundNo)
+                .orderByAsc(MesPqcInspectionTaskDO::getId));
+    }
+
     default Set<Long> selectActiveOrderIdsByTaskStatus(Collection<Long> activeOrderIds, String taskStatus) {
         if (activeOrderIds == null || activeOrderIds.isEmpty()) {
             return Set.of();
@@ -85,12 +100,14 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
     }
 
     default MesPqcInspectionTaskDO selectByQaIdentity(Long activeOrderId, Long regulationVersionId,
-                                                      Long qaProcessId, String inspectionRuleKey,
+                                                      Long qaProcessId, String qaItemCode,
+                                                      String inspectionRuleKey,
                                                       LocalDate businessDate) {
         return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
                 .eq(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderId)
                 .eq(MesPqcInspectionTaskDO::getRegulationVersionId, regulationVersionId)
                 .eq(MesPqcInspectionTaskDO::getQaProcessId, qaProcessId)
+                .eq(MesPqcInspectionTaskDO::getQaItemCode, qaItemCode)
                 .eq(MesPqcInspectionTaskDO::getInspectionRuleKey, inspectionRuleKey)
                 .eq(MesPqcInspectionTaskDO::getBusinessDate, businessDate));
     }

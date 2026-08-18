@@ -2,9 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,16 +19,13 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
 
     private final MesFrontlineDeviceAccountContextService contextService;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
-    private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesFrontlineSessionSnapshotService sessionSnapshotService;
 
     public MesFrontlineSubmitAuthorizationServiceImpl(MesFrontlineDeviceAccountContextService contextService,
                                                       MesProcessPoolActiveOrderMapper activeOrderMapper,
-                                                      MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
                                                       MesFrontlineSessionSnapshotService sessionSnapshotService) {
         this.contextService = contextService;
         this.activeOrderMapper = activeOrderMapper;
-        this.processSnapshotMapper = processSnapshotMapper;
         this.sessionSnapshotService = sessionSnapshotService;
     }
 
@@ -49,13 +44,6 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
                 || !Objects.equals(workOrderId, activeOrder.getWorkOrderId())
                 || !Objects.equals(routeId, activeOrder.getRouteId())) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrder");
-        }
-        MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot = processSnapshotMapper
-                .selectByActiveOrderAndProcess(activeOrder.getId(), routeProcessId, processId);
-        if (processSnapshot == null
-                || !Objects.equals(workOrderId, processSnapshot.getWorkOrderId())
-                || !Objects.equals(routeId, processSnapshot.getRouteId())) {
-            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrderProcess");
         }
     }
 

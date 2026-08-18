@@ -177,6 +177,45 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
+    void lockedQaProjectionIgnoresCancelledLegacyTaskOutsideCurrentQaSnapshot() {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
+                LocalDateTime.of(2026, 8, 12, 8, 0));
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder);
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route());
+        when(regulationService.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, REGULATION_VERSION_ID))
+                .thenReturn(lockedQaAggregate("PUBLISHED",
+                        qaPublishedProcess(QA_PROCESS_ID, "ID-QA-001", "清洗", 1,
+                                qaPublishedItem("ID-001", List.of("FIRST")))));
+        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                MesPqcInspectionTaskDO.builder().id(9001L).activeOrderId(ACTIVE_ORDER_ID)
+                        .regulationVersionId(39L).qaProcessId(null)
+                        .inspectionType("FINAL").businessDate(LocalDate.of(2026, 8, 8))
+                        .shiftCode("FINAL").roundNo(1).plannedInspectionQuantity(3)
+                        .taskStatus("CANCELLED").build(),
+                MesPqcInspectionTaskDO.builder().id(9101L).activeOrderId(ACTIVE_ORDER_ID)
+                        .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                        .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                        .qaItemCode("ID-001")
+                        .inspectionRuleKey("FIRST").inspectionType("FIRST")
+                        .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FIRST").roundNo(1)
+                        .plannedInspectionQuantity(5).taskStatus("PENDING").build()));
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                processSnapshot(30001L, 40001L)));
+        when(processPoolEventMapper.selectProductionSubmitsByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(List.of());
+
+        List<MesFrontlinePqcProcessRespVO> result = service.listProcessesByActiveOrder(ACTIVE_ORDER_ID);
+
+        assertEquals(1, result.size());
+        assertEquals(List.of(9101L), result.get(0).getPqcTaskOptions().stream()
+                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getPqcTaskId).toList());
+        assertEquals("ID-001", result.get(0).getPqcTaskOptions().get(0).getQaItemCode());
+        assertEquals(1, result.get(0).getTaskSummary().getTotalCount());
+        assertEquals(0, result.get(0).getTaskSummary().getCancelledCount());
+    }
+
+    @Test
     void listProcessesByActiveOrderIdUsesLockedQaSnapshotAndDedicatedProjection() {
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
                 LocalDateTime.of(2026, 8, 12, 8, 0));
@@ -198,24 +237,28 @@ class MesFrontlinePqcContextServiceTest {
                 MesPqcInspectionTaskDO.builder().id(9101L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                        .qaItemCode("ID-001")
                         .inspectionRuleKey("PATROL_PM").inspectionType("PATROL")
                         .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("PM").roundNo(1)
                         .plannedInspectionQuantity(5).taskStatus("CONFIRMED").build(),
                 MesPqcInspectionTaskDO.builder().id(9102L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                        .qaItemCode("ID-001")
                         .inspectionRuleKey("FIRST").inspectionType("FIRST")
                         .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FIRST").roundNo(1)
                         .plannedInspectionQuantity(5).taskStatus("PENDING").build(),
                 MesPqcInspectionTaskDO.builder().id(9103L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                        .qaItemCode("ID-001")
                         .inspectionRuleKey("PATROL_AM").inspectionType("PATROL")
                         .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("AM").roundNo(1)
                         .plannedInspectionQuantity(5).taskStatus("SUBMITTED").build(),
                 MesPqcInspectionTaskDO.builder().id(9104L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                        .qaItemCode("")
                         .inspectionRuleKey("FINAL").inspectionType("FINAL")
                         .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FINAL").roundNo(1)
                         .plannedInspectionQuantity(3).taskStatus("CANCELLED").build()));

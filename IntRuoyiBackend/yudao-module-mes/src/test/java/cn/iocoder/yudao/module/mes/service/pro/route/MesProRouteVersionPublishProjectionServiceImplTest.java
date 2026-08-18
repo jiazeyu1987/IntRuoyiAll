@@ -215,6 +215,7 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
                                 "formBindings": [
                                   {
                                     "formBindingKey": "FB-IPQC",
+                                    "globalSyncKey": "GFB-IPQC",
                                     "formTemplateId": 2001,
                                     "formTemplateName": "过程检验表",
                                     "lastPublishedTemplateVersionId": 3001,
@@ -254,6 +255,7 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
         MesProRouteFlowProcessBatchRecordDO inserted = batchRecordCaptor.getValue();
         assertEquals(null, inserted.getBatchRecordReportId());
         assertEquals("FB-IPQC", inserted.getFormBindingKey());
+        assertEquals("GFB-IPQC", inserted.getGlobalSyncKey());
         assertEquals(2001L, inserted.getFormTemplateId());
         assertEquals("BATCH_SHARED", inserted.getInstanceScope());
         assertEquals("INTERNAL_RECORD", inserted.getRecordCategory());

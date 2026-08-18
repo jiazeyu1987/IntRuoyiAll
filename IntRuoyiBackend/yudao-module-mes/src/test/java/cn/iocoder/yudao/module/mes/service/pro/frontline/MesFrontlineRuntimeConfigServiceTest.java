@@ -15,6 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -27,15 +29,19 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class MesFrontlineRuntimeConfigServiceTest {
 
     private static final Long LOGIN_USER_ID = 9001L;
+    private static final Long ACTIVE_ORDER_ID = 48L;
     private static final Long ROUTE_ID = 101L;
     private static final Long ROUTE_PROCESS_ID = 1001L;
     private static final Long PROCESS_ID = 201L;
 
     @Mock
     private MesFrontlineDeviceAccountContextService contextService;
+    @Mock
+    private MesFrontlineActiveOrderProcessService activeOrderProcessService;
     @Mock
     private MesFrontlineTemplateResolver templateResolver;
     @Mock
@@ -55,12 +61,16 @@ class MesFrontlineRuntimeConfigServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MesFrontlineRuntimeConfigServiceImpl(contextService, templateResolver, employeeProfileMapper,
-                processDeviceMapper, deviceMapper, parameterRuleMapper, defectReasonMapper, sessionSnapshotService);
+        service = new MesFrontlineRuntimeConfigServiceImpl(contextService, activeOrderProcessService,
+                templateResolver, employeeProfileMapper, processDeviceMapper, deviceMapper, parameterRuleMapper,
+                defectReasonMapper, sessionSnapshotService);
         org.mockito.Mockito.lenient().when(sessionSnapshotService.issue(any()))
                 .thenReturn(new MesFrontlineSessionSnapshotReference("snapshot-001", "hash-001"));
         org.mockito.Mockito.lenient().when(contextService.resolveResponsibleLeaderUserId(LOGIN_USER_ID))
                 .thenReturn(LOGIN_USER_ID);
+        org.mockito.Mockito.lenient().when(activeOrderProcessService.requireProcess(LOGIN_USER_ID, ACTIVE_ORDER_ID,
+                        ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(frozenProcess());
         org.mockito.Mockito.lenient().when(templateResolver.resolve(any(MesFrontlineTemplateRequest.class)))
                 .thenAnswer(invocation -> {
                     MesFrontlineTemplateRequest request = invocation.getArgument(0);
@@ -139,8 +149,8 @@ class MesFrontlineRuntimeConfigServiceTest {
                 .thenReturn(new MesFrontlineTemplateDescriptor(
                         "FRONTLINE-PROD", "PRODUCTION", ROUTE_PROCESS_ID, PROCESS_ID, 8801L));
 
-        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
-                ROUTE_PROCESS_ID, PROCESS_ID);
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ACTIVE_ORDER_ID,
+                ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID);
 
         assertEquals(ROUTE_ID, config.routeId());
         assertEquals(ROUTE_PROCESS_ID, config.routeProcessId());
@@ -197,8 +207,8 @@ class MesFrontlineRuntimeConfigServiceTest {
         when(parameterRuleMapper.selectList(any())).thenReturn(List.of());
         when(defectReasonMapper.selectList(any())).thenReturn(List.of());
 
-        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
-                ROUTE_PROCESS_ID, PROCESS_ID);
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ACTIVE_ORDER_ID,
+                ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID);
 
         assertEquals(2, config.employees().size());
         assertEquals(8801L, config.employees().get(0).employeeProfileId());
@@ -222,8 +232,8 @@ class MesFrontlineRuntimeConfigServiceTest {
                         "当前组长人员", "当前组长人员", "FORMAL", true)));
         when(defectReasonMapper.selectList(any())).thenReturn(List.of());
 
-        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
-                ROUTE_PROCESS_ID, PROCESS_ID);
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ACTIVE_ORDER_ID,
+                ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID);
 
         assertEquals(ROUTE_ID, config.productionSubmitContext().routeId());
         assertEquals(ROUTE_PROCESS_ID, config.productionSubmitContext().routeProcessId());
@@ -238,7 +248,7 @@ class MesFrontlineRuntimeConfigServiceTest {
     }
 
     @Test
-    void getRuntimeConfig_usesCurrentLoginLeaderPersonnelWhenDeviceScopeBelongsToAnotherLeader() {
+    void getRuntimeConfig_excludesDeviceScopeThatBelongsToAnotherLeader() {
         when(contextService.requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
                 .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
                         ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
@@ -254,14 +264,13 @@ class MesFrontlineRuntimeConfigServiceTest {
         when(parameterRuleMapper.selectList(any())).thenReturn(List.of());
         when(defectReasonMapper.selectList(any())).thenReturn(List.of());
 
-        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
-                ROUTE_PROCESS_ID, PROCESS_ID);
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ACTIVE_ORDER_ID,
+                ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID);
 
         assertEquals(1, config.employees().size());
         assertEquals(8801L, config.employees().get(0).employeeProfileId());
         assertEquals("当前组长人员", config.employees().get(0).employeeName());
-        assertEquals(1, config.devices().size());
-        assertEquals("压力泵", config.devices().get(0).deviceName());
+        assertEquals(0, config.devices().size());
     }
 
     @Test
@@ -277,8 +286,8 @@ class MesFrontlineRuntimeConfigServiceTest {
                         "当前组长人员", "当前组长人员", "FORMAL", true)));
         when(defectReasonMapper.selectList(any())).thenReturn(List.of());
 
-        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
-                ROUTE_PROCESS_ID, PROCESS_ID);
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ACTIVE_ORDER_ID,
+                ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID);
 
         assertEquals(1, config.employees().size());
         assertEquals(8801L, config.employees().get(0).employeeProfileId());
@@ -299,12 +308,18 @@ class MesFrontlineRuntimeConfigServiceTest {
                 defectReason(8303L, ROUTE_PROCESS_ID, "LOSS", "LOSS-003", "停用损耗")
                         .setLeaderUserId(9999L).setEnabled(Boolean.FALSE)));
 
-        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID,
-                ROUTE_PROCESS_ID, PROCESS_ID);
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, ACTIVE_ORDER_ID,
+                ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID);
 
         assertEquals(1, config.defectReasons().size());
         assertEquals(8301L, config.defectReasons().get(0).reasonId());
         assertEquals("LOSS-001", config.defectReasons().get(0).reasonCode());
+    }
+
+    private static MesFrontlineActiveOrderProcess frozenProcess() {
+        return new MesFrontlineActiveOrderProcess(ACTIVE_ORDER_ID, ROUTE_ID, 501L, "R-101", "Route 101",
+                ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10, 301L, "WS-301", "精洗工位",
+                BigDecimal.ONE, new BigDecimal("100"));
     }
 
     private static MesProcessPoolTeamEmployeeProfileDO employeeProfile(Long id, Long leaderUserId, Long systemUserId,

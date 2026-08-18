@@ -932,6 +932,8 @@ class MesProcessPoolTeamLeaderControllerTest {
                 new String[]{"/employee-profile/create"}, "mes:pro-process-pool-team-leader:maintain");
         assertEndpoint("getPqcPersonnelList", new Class[]{Boolean.class}, GetMapping.class,
                 new String[]{"/pqc-personnel/list"}, "mes:pro-process-pool-team-leader:query");
+        assertEndpoint("getPqcActiveTaskList", new Class[]{}, GetMapping.class,
+                new String[]{"/pqc-task/active-list"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("searchPqcFormalEmployeeCandidates", new Class[]{String.class}, GetMapping.class,
                 new String[]{"/pqc-personnel/formal-candidates"},
                 "mes:pro-process-pool-team-leader:maintain");

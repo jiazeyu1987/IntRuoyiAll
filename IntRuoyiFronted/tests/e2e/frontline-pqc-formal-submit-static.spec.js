@@ -70,8 +70,8 @@ const pqcValidateHandler = panelSource.slice(
 )
 assert.match(
   pqcValidateHandler,
-  /try \{\n\s+assertPqcFormalSubmissionReady\(\)[\s\S]*catch \(error\) \{\n\s+message\.error\(resolveErrorMessage\(error\)\)\n\s+return/,
-  'PQC click validation failures must be surfaced to the operator without escaping the native event handler.'
+  /try \{\n\s+assertPqcFormalSubmissionReady\(\)[\s\S]*catch \(error\) \{\n\s+showFrontlineError\(error\)\n\s+return/,
+  'PQC click validation failures must use the fullscreen-visible error boundary without escaping the native event handler.'
 )
 const pqcOrderSelectionHandler = panelSource.slice(
   panelSource.indexOf('const handleSelectActiveOrder = async'),
@@ -79,8 +79,8 @@ const pqcOrderSelectionHandler = panelSource.slice(
 )
 assert.match(
   pqcOrderSelectionHandler,
-  /try \{\n\s+processes = await selectFrontlinePqcActiveOrder[\s\S]*catch \(error\) \{[\s\S]*message\.error\(resolveErrorMessage\(error\)\)[\s\S]*\n\s+return/,
-  'PQC order initialization failures must remain visible without breaking the mounted page.'
+  /try \{\n\s+processes = await selectFrontlinePqcActiveOrder[\s\S]*catch \(error\) \{[\s\S]*showFrontlineError\(error\)[\s\S]*\n\s+return/,
+  'PQC order initialization failures must remain visible in the inline error zone without breaking the mounted page.'
 )
 
 console.log('PASS: frontline PQC formal submit static contract')

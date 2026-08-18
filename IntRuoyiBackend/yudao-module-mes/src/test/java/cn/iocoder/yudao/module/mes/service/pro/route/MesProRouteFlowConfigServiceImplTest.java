@@ -56,6 +56,9 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLO
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_FILLER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_PUBLISHED_VERSION_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_DUPLICATE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1774,6 +1777,85 @@ class MesProRouteFlowConfigServiceImplTest {
                 .setReportSort(reportSort);
     }
 
+    @Test
+    void validateGlobalFormBindingGroups_shouldAcceptCompleteConsistentGroupAndIgnoreServerFields() {
+        MesProRouteFlowFormBindingSaveReqVO first = globalFormBinding("FB-100", "GFB-1", 2001L);
+        first.setLastPublishedTemplateVersionId(3001L).setSlotConfigSnapshotHash("HASH-A");
+        MesProRouteFlowFormBindingSaveReqVO second = globalFormBinding("FB-200", "GFB-1", 2001L);
+        second.setLastPublishedTemplateVersionId(3002L).setSlotConfigSnapshotHash("HASH-B");
+
+        service.validateGlobalFormBindingGroups(
+                List.of(processConfig(100L, first), processConfig(200L, second)),
+                Set.of(100L, 200L));
+    }
+
+    @Test
+    void validateGlobalFormBindingGroups_shouldRejectIncompleteGroup() {
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.validateGlobalFormBindingGroups(
+                        List.of(processConfig(100L, globalFormBinding("FB-100", "GFB-1", 2001L))),
+                        Set.of(100L, 200L)));
+
+        assertEquals(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE.getCode(), exception.getCode());
+    }
+
+    @Test
+    void validateGlobalFormBindingGroups_shouldRejectDuplicateMember() {
+        MesProRouteFlowProcessConfigSaveReqVO processConfig = new MesProRouteFlowProcessConfigSaveReqVO()
+                .setRouteProcessId(100L)
+                .setFormBindings(List.of(
+                        globalFormBinding("FB-100-A", "GFB-1", 2001L),
+                        globalFormBinding("FB-100-B", "GFB-1", 2001L)));
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.validateGlobalFormBindingGroups(List.of(processConfig), Set.of(100L)));
+
+        assertEquals(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_DUPLICATE.getCode(), exception.getCode());
+    }
+
+    @Test
+    void validateGlobalFormBindingGroups_shouldRejectEditableConfigMismatch() {
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.validateGlobalFormBindingGroups(
+                        List.of(
+                                processConfig(100L, globalFormBinding("FB-100", "GFB-1", 2001L)),
+                                processConfig(200L, globalFormBinding("FB-200", "GFB-1", 2002L))),
+                        Set.of(100L, 200L)));
+
+        assertEquals(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT.getCode(), exception.getCode());
+    }
+
+    private MesProRouteFlowProcessConfigSaveReqVO processConfig(
+            Long routeProcessId,
+            MesProRouteFlowFormBindingSaveReqVO... bindings) {
+        return new MesProRouteFlowProcessConfigSaveReqVO()
+                .setRouteProcessId(routeProcessId)
+                .setFormBindings(List.of(bindings));
+    }
+
+    private MesProRouteFlowFormBindingSaveReqVO globalFormBinding(
+            String formBindingKey,
+            String globalSyncKey,
+            Long templateId) {
+        return new MesProRouteFlowFormBindingSaveReqVO()
+                .setFormBindingKey(formBindingKey)
+                .setGlobalSyncKey(globalSyncKey)
+                .setFormTemplateId(templateId)
+                .setFormSlotType("PROCESS_INSPECTION")
+                .setInstanceScope("PROCESS")
+                .setRecordCategory("INTERNAL_RECORD")
+                .setValidationProfile("INTERNAL_TRACE")
+                .setRecordbookEnabled(Boolean.FALSE)
+                .setRequiredPolicy("REQUIRED")
+                .setOwnerRoleKey("QUALITY")
+                .setArchiveVisibility("FINAL_DHR")
+                .setCandidateSourceType("ROLE")
+                .setCandidateSourceIds(List.of(8001L))
+                .setCandidateSourceNames(List.of("质量角色"))
+                .setReportSort(1)
+                .setRemark("全局配置");
+    }
+
     private void stubTenantAndTemplate(Long templateId, Long versionId, String templateName) {
         TenantContextHolder.setTenantId(122L);
         when(formTemplateVersionMapper.selectLatestPublishedByTemplateId(122L, templateId))
@@ -1980,6 +2062,91 @@ class MesProRouteFlowConfigServiceImplTest {
                         && snapshot.toString().contains("candidateSourceIds=[8001]")));
         verify(adminUserApi).validateUserList(List.of(9001L));
         verify(roleApi).validRoleList(List.of(8001L));
+    }
+
+    @Test
+    void saveRouteFlowConfig_shouldRejectPartialGlobalGroupTamperingWithoutSavingSnapshot() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        stubTenantAndTemplate(2001L, 3001L, "全局过程检验表");
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(1002L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(1002L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 10,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": 100, "processId": 1000, "sort": 1, "keyFlag": false, "checkFlag": false},
+                                {"routeProcessId": 101, "processId": 1001, "sort": 2, "keyFlag": false, "checkFlag": false}
+                              ]
+                            },
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 100,
+                                "enabled": true,
+                                "formBindings": [{
+                                  "formBindingKey": "FB-100",
+                                  "globalSyncKey": "GFB-1",
+                                  "formTemplateId": 2001,
+                                  "formSlotType": "PROCESS_INSPECTION",
+                                  "instanceScope": "PROCESS",
+                                  "recordCategory": "INTERNAL_RECORD",
+                                  "validationProfile": "INTERNAL_TRACE",
+                                  "recordbookEnabled": false,
+                                  "requiredPolicy": "REQUIRED",
+                                  "ownerRoleKey": "QUALITY",
+                                  "archiveVisibility": "FINAL_DHR",
+                                  "candidateSourceType": "ROLE",
+                                  "candidateSourceIds": [8001],
+                                  "candidateSourceNames": ["质量角色"],
+                                  "reportSort": 1,
+                                  "remark": "全局配置"
+                                }]
+                              },
+                              {
+                                "routeProcessId": 101,
+                                "enabled": true,
+                                "formBindings": [{
+                                  "formBindingKey": "FB-101",
+                                  "globalSyncKey": "GFB-1",
+                                  "formTemplateId": 2001,
+                                  "formSlotType": "PROCESS_INSPECTION",
+                                  "instanceScope": "PROCESS",
+                                  "recordCategory": "INTERNAL_RECORD",
+                                  "validationProfile": "INTERNAL_TRACE",
+                                  "recordbookEnabled": false,
+                                  "requiredPolicy": "REQUIRED",
+                                  "ownerRoleKey": "QUALITY",
+                                  "archiveVisibility": "FINAL_DHR",
+                                  "candidateSourceType": "ROLE",
+                                  "candidateSourceIds": [8001],
+                                  "candidateSourceNames": ["质量角色"],
+                                  "reportSort": 1,
+                                  "remark": "全局配置"
+                                }]
+                              }
+                            ]
+                          }
+                        }
+                        """)
+                .build());
+
+        MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO()
+                .setRouteId(10L)
+                .setRouteVersionId(1002L)
+                .setUseType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .setProcessConfigs(List.of(processConfig(101L,
+                        globalFormBinding("FB-101", "GFB-1", 2001L).setRemark("局部篡改"))));
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.saveRouteFlowConfig(reqVO));
+
+        assertEquals(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT.getCode(), exception.getCode());
+        verify(routeCandidateConfigService, never()).saveConfigSnapshot(any(), any(), any());
     }
 
     @Test

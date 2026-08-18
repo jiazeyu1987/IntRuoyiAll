@@ -10,10 +10,10 @@ const component = fs.readFileSync(
 
 for (const expected of [
   'applyRecordBindingFillerOverride',
-  'applyRouteWideRecordBindingFillerByTemplate',
-  'syncRouteWideRecordBindingFillerByTemplate'
+  'normalizeGlobalFormBindingSyncKey',
+  'syncGlobalRecordBindingGroupFromSource'
 ]) {
-  assert.ok(component.includes(expected), `共享表单填写人必须具备路线内联动 helper: ${expected}`)
+  assert.ok(component.includes(expected), `全局表单填写人必须具备显式联动组 helper: ${expected}`)
 }
 
 assert.match(
@@ -24,32 +24,38 @@ assert.match(
 
 assert.match(
   component,
-  /const applyRouteWideRecordBindingFillerByTemplate[\s\S]*Number\(binding\.formTemplateId \|\| 0\) === formTemplateId[\s\S]*isBatchSharedBinding\(binding\)[\s\S]*applyRecordBindingFillerOverride\(binding, filler\)/,
-  '路线内填写人同步必须只覆盖同 formTemplateId 且仍为批次共享的表单绑定。'
+  /const syncGlobalRecordBindingGroupFromSource[\s\S]*normalizeGlobalFormBindingSyncKey\(sourceBinding\.globalSyncKey\)[\s\S]*normalizeGlobalFormBindingSyncKey\(binding\.globalSyncKey\) === globalSyncKey/,
+  '路线内填写人同步必须只覆盖相同 globalSyncKey，不得按模板隐式联动。'
 )
 
 assert.match(
   component,
-  /const syncRouteWideRecordBindingFillerByTemplate[\s\S]*routeNodes\.value\.forEach[\s\S]*getOrCreateRouteProcessAttributeDraft\(node\.routeProcessId\)[\s\S]*applyRouteWideRecordBindingFillerByTemplate\(draft\.recordBindings, formTemplateId, filler\)/,
-  '共享填写人联动必须覆盖尚未打开过详情的所有工序草稿。'
+  /const getAllRouteProcessAttributeDrafts[\s\S]*routeNodes\.value\.map[\s\S]*getOrCreateRouteProcessAttributeDraft\(node\.routeProcessId\)/,
+  '全局填写人联动必须覆盖尚未打开过详情的所有普通工序草稿。'
 )
 
 assert.match(
   component,
-  /handleSelectedRecordBindingCandidateSourceTypeChange[\s\S]*applyRecordBindingFillerOverride\(binding,[\s\S]*syncRouteWideRecordBindingFillerByTemplate\(binding\)/,
-  '更换填写人来源时必须同步同路线同表单的共享绑定。'
+  /handleSelectedRecordBindingCandidateSourceTypeChange[\s\S]*applyRecordBindingFillerOverride\(binding,[\s\S]*syncGlobalRecordBindingGroupFromSource\(binding\)/,
+  '更换填写人来源时必须同步显式全局组。'
 )
 
 assert.match(
   component,
-  /handleSelectedRecordBindingCandidateIdChange[\s\S]*applyRecordBindingFillerOverride\(binding,[\s\S]*syncRouteWideRecordBindingFillerByTemplate\(binding\)/,
-  '更换填写人时必须同步同路线同表单的共享绑定。'
+  /handleSelectedRecordBindingCandidateIdChange[\s\S]*applyRecordBindingFillerOverride\(binding,[\s\S]*syncGlobalRecordBindingGroupFromSource\(binding\)/,
+  '更换填写人时必须同步显式全局组。'
 )
 
 assert.match(
   component,
-  /clearSelectedRecordBindingFillerOverride[\s\S]*applyRecordBindingFillerOverride\(binding,[\s\S]*syncRouteWideRecordBindingFillerByTemplate\(binding\)/,
-  '恢复默认填写人时必须同步同路线同表单的共享绑定。'
+  /clearSelectedRecordBindingFillerOverride[\s\S]*applyRecordBindingFillerOverride\(binding,[\s\S]*syncGlobalRecordBindingGroupFromSource\(binding\)/,
+  '恢复默认填写人时必须同步显式全局组。'
+)
+
+assert.doesNotMatch(
+  component,
+  /syncRouteWideRecordBindingFillerByTemplate|applyRouteWideRecordBindingFillerByTemplate/,
+  '未开启全局的同模板表单不得再自动同步填写人。'
 )
 
 console.log('mes-route-flow-shared-form-filler-sync-static PASS')

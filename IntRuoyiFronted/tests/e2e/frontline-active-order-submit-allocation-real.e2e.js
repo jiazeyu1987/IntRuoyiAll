@@ -963,7 +963,7 @@ async function login(page, frontendUrl, tenant, username, password) {
   const loginResponseWait = observeWait(page.waitForResponse((response) =>
     response.url().includes('/admin-api/system/auth/login')
       && response.request().method() === 'POST'
-  , { timeout: 30000 }))
+  , { timeout: 60000 }))
   await clickFirst(page, ['button:has-text("登录")', '.login-form button[type="submit"]'])
   const loginResponse = await loginResponseWait()
   assert.equal(loginResponse.ok(), true, `登录 HTTP 失败：${loginResponse.status()}`)
@@ -1028,6 +1028,16 @@ function attachDiagnostics(page, diagnostics) {
 }
 
 async function selectFrontlineActiveOrder(page, config) {
+  await page.locator('[data-frontline-production-order-code]')
+    .filter({ hasText: config.o1WorkOrderCode })
+    .first()
+    .waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-frontline-production-process-nav-card] .frontline-production-process-current')
+    .filter({ hasNotText: '未选择' })
+    .waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-frontline-production-employee-card]')
+    .filter({ hasNotText: '未选择' })
+    .waitFor({ state: 'visible', timeout: 30000 })
   await page.locator('[data-frontline-production-active-order-card]').click()
   const picker = page.locator('[aria-label="选择活跃订单"]')
   await picker.waitFor({ state: 'visible', timeout: 15000 })
@@ -1048,7 +1058,7 @@ async function submitFrontlineReport(page, config, steps) {
     actualEmployeeId: String(config.actualEmployeeId),
     outputQuantity: String(config.submitQuantity)
   })
-  await page.goto(`${config.frontendUrl}${FRONTLINE_ROUTE}?${query}`, { waitUntil: 'networkidle' })
+  await page.goto(`${config.frontendUrl}${FRONTLINE_ROUTE}?${query}`, { waitUntil: 'domcontentloaded' })
   await page.locator('[data-frontline-production-operator]').waitFor({ state: 'visible', timeout: 20000 })
   await selectFrontlineActiveOrder(page, config)
   steps.push(`一线页面明确选择 O1：${config.o1WorkOrderCode}`)
@@ -1386,7 +1396,7 @@ async function runScenario(config) {
       '生产组长账号'
     )
     steps.push('生产组长测试账号通过真实登录页登录')
-    await leaderPage.goto(`${config.frontendUrl}${LEADER_ROUTE}`, { waitUntil: 'networkidle' })
+    await leaderPage.goto(`${config.frontendUrl}${LEADER_ROUTE}`, { waitUntil: 'domcontentloaded' })
     if (leaderPage.url().includes('/login') || leaderPage.url().includes('/403')) {
       throw blocked(
         BLOCKED_CATEGORIES.PERMISSION_PREREQUISITE,

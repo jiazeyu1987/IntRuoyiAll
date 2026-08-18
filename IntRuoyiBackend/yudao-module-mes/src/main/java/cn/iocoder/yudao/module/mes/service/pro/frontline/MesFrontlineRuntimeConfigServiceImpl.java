@@ -37,6 +37,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     private static final String PRODUCTION_CONTEXT_PREFIX = "productionSubmitContext.";
 
     private final MesFrontlineDeviceAccountContextService contextService;
+    private final MesFrontlineActiveOrderProcessService activeOrderProcessService;
     private final MesFrontlineTemplateResolver templateResolver;
     private final MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
     private final MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
@@ -47,6 +48,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
 
     public MesFrontlineRuntimeConfigServiceImpl(
             MesFrontlineDeviceAccountContextService contextService,
+            MesFrontlineActiveOrderProcessService activeOrderProcessService,
             MesFrontlineTemplateResolver templateResolver,
             MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper,
             MesProcessPoolTeamProcessDeviceMapper processDeviceMapper,
@@ -55,6 +57,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
             MesProcessPoolDefectReasonMapper defectReasonMapper,
             MesFrontlineSessionSnapshotService sessionSnapshotService) {
         this.contextService = contextService;
+        this.activeOrderProcessService = activeOrderProcessService;
         this.templateResolver = templateResolver;
         this.employeeProfileMapper = employeeProfileMapper;
         this.processDeviceMapper = processDeviceMapper;
@@ -65,11 +68,12 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     }
 
     @Override
-    public MesFrontlineRuntimeConfig getRuntimeConfig(Long loginUserId, Long routeId, Long routeProcessId,
-                                                      Long processId) {
-        MesFrontlineRouteProcessCandidate process = contextService.requireAuthorizedProcess(loginUserId,
-                routeId, routeProcessId, processId);
+    public MesFrontlineRuntimeConfig getRuntimeConfig(Long loginUserId, Long activeOrderId, Long routeId,
+                                                      Long routeProcessId, Long processId) {
         Long responsibleLeaderUserId = contextService.resolveResponsibleLeaderUserId(loginUserId);
+        MesFrontlineRouteProcessCandidate process = activeOrderProcessService.requireProcess(
+                responsibleLeaderUserId, activeOrderId, routeId, routeProcessId, processId)
+                .toRouteProcessCandidate();
         List<MesProcessPoolTeamProcessDeviceDO> processDeviceBindings = listProcessDeviceBindings(process.processId());
         Set<Long> leaderUserIds = resolveLeaderUserIds(process, processDeviceBindings, responsibleLeaderUserId);
         processDeviceBindings = filterProcessDeviceBindingsByLeader(processDeviceBindings, leaderUserIds);

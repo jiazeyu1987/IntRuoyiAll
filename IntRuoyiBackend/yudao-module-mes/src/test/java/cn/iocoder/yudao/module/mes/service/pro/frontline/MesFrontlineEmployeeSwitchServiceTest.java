@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.beans.factory.ObjectProvider;
 
 import java.lang.reflect.Field;
@@ -40,9 +42,11 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class MesFrontlineEmployeeSwitchServiceTest {
 
     private static final Long LOGIN_USER_ID = 9001L;
+    private static final Long ACTIVE_ORDER_ID = 48L;
     private static final Long ROUTE_ID = 101L;
     private static final Long ROUTE_PROCESS_ID = 1001L;
     private static final Long PROCESS_ID = 201L;
@@ -90,8 +94,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
                 routeVersionMapper, processService, workstationWorkerService, adminUserApi, permissionApi, routeService,
                 workstationService, workstationMachineService, machineryService, employeeProfileMapper);
         MesFrontlineTemplateResolverImpl templateResolver = new MesFrontlineTemplateResolverImpl(templateBindingSourceProvider);
-        employeeSwitchService = new MesFrontlineEmployeeSwitchServiceImpl(contextService, templateResolver,
-                runtimeConfigService);
+        employeeSwitchService = new MesFrontlineEmployeeSwitchServiceImpl(templateResolver, runtimeConfigService);
     }
 
     @Test
@@ -122,8 +125,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
                         ROUTE_PROCESS_ID, PROCESS_ID, 10001L));
 
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
-                new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID,
-                        PROCESS_ID, 10001L));
+                new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ACTIVE_ORDER_ID, ROUTE_ID,
+                        ROUTE_PROCESS_ID, PROCESS_ID, 10001L));
 
         assertEquals(LOGIN_USER_ID, result.loginUserId());
         assertEquals(10001L, result.actualEmployeeId());
@@ -148,8 +151,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
                         ROUTE_PROCESS_ID, PROCESS_ID, 8801L));
 
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
-                new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID,
-                        PROCESS_ID, 8801L));
+                new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ACTIVE_ORDER_ID, ROUTE_ID,
+                        ROUTE_PROCESS_ID, PROCESS_ID, 8801L));
 
         assertEquals(LOGIN_USER_ID, result.loginUserId());
         assertEquals(8801L, result.actualEmployeeId());
@@ -163,8 +166,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
         givenRuntimeConfigEmployee(8801L, 10001L, "Alice", "FORMAL");
 
         assertThrows(ServiceException.class, () -> employeeSwitchService.switchActualEmployee(
-                new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID,
-                        PROCESS_ID, 20001L)));
+                new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ACTIVE_ORDER_ID, ROUTE_ID,
+                        ROUTE_PROCESS_ID, PROCESS_ID, 20001L)));
     }
 
     private void givenBoundProcess() {
@@ -198,7 +201,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
 
     private void givenRuntimeConfigEmployee(Long employeeProfileId, Long systemUserId, String employeeName,
                                             String employeeType) {
-        when(runtimeConfigService.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+        when(runtimeConfigService.getRuntimeConfig(LOGIN_USER_ID, ACTIVE_ORDER_ID, ROUTE_ID,
+                ROUTE_PROCESS_ID, PROCESS_ID))
                 .thenReturn(new MesFrontlineRuntimeConfig(ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID,
                         List.of(new MesFrontlineTeamEmployeeOption(employeeProfileId, systemUserId,
                                 systemUserId == null ? "TMP-001" : "E1001", employeeName, employeeName,

@@ -42,7 +42,7 @@ for (const [label, name, selectorSuffix] of expectedPqcTabs) {
 
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'detail'\s*\|\s*'history'>\('management'\)/,
+  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'task'\s*\|\s*'detail'\s*\|\s*'history'>\('management'\)/,
   'PQC 组长页签状态必须只包含剩余模块，并默认进入PQC管理。'
 )
 assert.doesNotMatch(

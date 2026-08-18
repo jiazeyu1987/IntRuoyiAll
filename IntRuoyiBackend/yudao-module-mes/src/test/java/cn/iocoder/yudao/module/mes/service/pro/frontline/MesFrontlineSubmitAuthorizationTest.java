@@ -2,9 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,8 +23,6 @@ class MesFrontlineSubmitAuthorizationTest {
     @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
-    private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
-    @Mock
     private MesFrontlineSessionSnapshotService sessionSnapshotService;
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
@@ -34,7 +30,7 @@ class MesFrontlineSubmitAuthorizationTest {
     @BeforeEach
     void setUp() {
         submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
-                contextService, activeOrderMapper, processSnapshotMapper, sessionSnapshotService);
+                contextService, activeOrderMapper, sessionSnapshotService);
     }
 
     @Test
@@ -100,15 +96,11 @@ class MesFrontlineSubmitAuthorizationTest {
     }
 
     @Test
-    void shouldAuthorizeSelectedActiveOrderForResponsibleLeaderAndProcessSnapshot() {
+    void shouldAuthorizeValidActiveOrderWithoutProcessSnapshot() {
         when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
         when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
                 MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
                         .routeId(21L).activeStatus("ACTIVE").build());
-        when(processSnapshotMapper.selectByActiveOrderAndProcess(81L, 71L, 31L)).thenReturn(
-                MesProcessPoolActiveOrderProcessSnapshotDO.builder()
-                        .activeOrderId(81L).workOrderId(41L).routeId(21L)
-                        .routeProcessId(71L).processId(31L).build());
 
         assertDoesNotThrow(() -> submitAuthorizationService.authorizeActiveOrder(
                 9001L, 81L, 41L, 21L, 71L, 31L));
@@ -132,6 +124,25 @@ class MesFrontlineSubmitAuthorizationTest {
 
         assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
                 9001L, 82L, 41L, 21L, 71L, 31L));
+    }
+
+    @Test
+    void shouldRejectActiveOrderWhenLeaderWorkOrderOrRouteDoesNotMatch() {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        when(activeOrderMapper.selectByIdForUpdate(81L))
+                .thenReturn(MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3002L).workOrderId(41L)
+                        .routeId(21L).activeStatus("ACTIVE").build())
+                .thenReturn(MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(42L)
+                        .routeId(21L).activeStatus("ACTIVE").build())
+                .thenReturn(MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
+                        .routeId(22L).activeStatus("ACTIVE").build());
+
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 81L, 41L, 21L, 71L, 31L));
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 81L, 41L, 21L, 71L, 31L));
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 81L, 41L, 21L, 71L, 31L));
     }
 
     private void givenSnapshot(List<MesFrontlineEmployeeSwitchResult> employees,

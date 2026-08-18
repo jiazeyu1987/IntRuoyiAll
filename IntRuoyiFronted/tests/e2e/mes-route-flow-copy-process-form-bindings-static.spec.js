@@ -31,8 +31,8 @@ assert.match(
 
 assert.match(
   component,
-  /copySelectedProcessFormBindingsFromSource[\s\S]*selectedRecordBindings\.value\s*=\s*sourceBindings[\s\S]*copyRecordBindingForSelectedProcess[\s\S]*createLocalFormBindingKey/,
-  '整组复制必须替换当前工序列表，并为当前工序生成新的本地绑定 key，不能复用来源工序 key。'
+  /copySelectedProcessFormBindingsFromSource[\s\S]*currentGlobalBindings[\s\S]*copiedLocalBindings[\s\S]*copyRecordBindingForSelectedProcess[\s\S]*createLocalFormBindingKey/,
+  '整组复制必须保留当前工序的全局绑定，只替换非全局绑定并生成新的本地绑定 key。'
 )
 
 assert.match(

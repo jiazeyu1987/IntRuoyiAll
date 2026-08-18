@@ -341,6 +341,7 @@
     >
       <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
       <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+      <el-tab-pane label="PQC任务" name="task" data-pqc-leader-module-tab-task />
       <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
       <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
     </el-tabs>
@@ -477,6 +478,101 @@
   </ContentWrap>
 
   <ContentWrap
+    v-if="showPqcTaskModule"
+    class="team-leader-workbench__pqc-module-card"
+    data-pqc-leader-active-task-list
+  >
+    <div class="team-leader-workbench__embedded-header">
+      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
+      <div class="team-leader-workbench__subtitle">{{ pageSubtitle }}</div>
+    </div>
+    <el-tabs
+      v-model="activePqcModuleTab"
+      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-pqc-leader-module-tabs
+    >
+      <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
+      <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+      <el-tab-pane label="PQC任务" name="task" data-pqc-leader-module-tab-task />
+      <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
+      <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
+    </el-tabs>
+    <div class="team-leader-workbench__pqc-task-toolbar">
+      <span class="team-leader-workbench__hint">当前活跃订单中的待执行、待复核 PQC 任务</span>
+      <el-button :loading="pqcActiveTaskLoading" @click="loadPqcActiveTasks">
+        <Icon icon="ep:refresh" />
+        刷新
+      </el-button>
+    </div>
+    <el-alert
+      v-if="pqcActiveTaskError"
+      :title="pqcActiveTaskError"
+      type="error"
+      :closable="false"
+      show-icon
+      class="mb-12px"
+      data-pqc-leader-active-task-error
+    />
+    <el-table
+      v-loading="pqcActiveTaskLoading"
+      :data="pqcActiveTaskList"
+      border
+      stripe
+      empty-text="暂无当前活跃 PQC 任务"
+      data-pqc-leader-active-task-table
+    >
+      <el-table-column label="任务状态" width="100" fixed="left">
+        <template #default="{ row }">
+          <el-tag :type="resolvePqcTaskStatusTagType(row.taskStatus)" effect="plain">
+            {{ resolvePqcTaskStatusText(row.taskStatus) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="当前订单" min-width="180">
+        <template #default="{ row }">
+          <div class="team-leader-workbench__pqc-task-primary">{{ row.workOrderCode }}</div>
+          <div v-if="row.workOrderName" class="team-leader-workbench__pqc-task-secondary">
+            {{ row.workOrderName }}
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="QA版本" min-width="180">
+        <template #default="{ row }">
+          <div class="team-leader-workbench__pqc-task-primary">{{ row.qaVersionNo }}</div>
+          <div class="team-leader-workbench__pqc-task-secondary">
+            {{ row.qaRegulationCode }} · {{ row.qaRegulationName }}
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="工艺路线版本" min-width="180">
+        <template #default="{ row }">
+          <div class="team-leader-workbench__pqc-task-primary">{{ row.routeVersionNo }}</div>
+          <div class="team-leader-workbench__pqc-task-secondary">{{ row.routeName }}</div>
+        </template>
+      </el-table-column>
+      <el-table-column label="QA工序" min-width="150">
+        <template #default="{ row }">
+          <div class="team-leader-workbench__pqc-task-primary">{{ row.qaProcessName }}</div>
+          <div v-if="row.qaProcessCode" class="team-leader-workbench__pqc-task-secondary">
+            {{ row.qaProcessCode }}
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="检验类型" min-width="120">
+        <template #default="{ row }">
+          {{ resolvePqcTaskInspectionTypeText(row.inspectionRuleKey) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="businessDate" label="业务日期" width="120" />
+      <el-table-column label="计划/完成数量" width="140" align="right">
+        <template #default="{ row }">
+          {{ row.plannedInspectionQuantity }} / {{ row.actualInspectionQuantity ?? 0 }}
+        </template>
+      </el-table-column>
+    </el-table>
+  </ContentWrap>
+
+  <ContentWrap
     v-if="showPqcManagementModule"
     :class="{
       'team-leader-workbench__pqc-module-card': showPqcModuleTabs,
@@ -533,6 +629,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
         <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+        <el-tab-pane label="PQC任务" name="task" data-pqc-leader-module-tab-task />
         <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
         <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
       </el-tabs>
@@ -1071,6 +1168,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
         <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+        <el-tab-pane label="PQC任务" name="task" data-pqc-leader-module-tab-task />
         <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
         <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
       </el-tabs>
@@ -1675,6 +1773,7 @@
       >
         <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
         <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+        <el-tab-pane label="PQC任务" name="task" data-pqc-leader-module-tab-task />
         <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
         <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
       </el-tabs>
@@ -2810,7 +2909,7 @@
     <el-dialog
       v-model="reviewVisible"
       :title="reviewDialogTitle"
-      width="min(1120px, calc(100vw - 32px))"
+      width="min(1480px, calc(100vw - 24px))"
       class="team-leader-workbench__review-dialog"
     >
       <el-form v-if="reviewDialogMode === 'REVIEW'" :model="reviewForm" label-width="92px">
@@ -2864,7 +2963,7 @@
           table-layout="fixed"
           empty-text="请点击 FIFO 自动分配或手动新增分配行"
         >
-          <el-table-column label="活跃订单" min-width="360">
+          <el-table-column label="生产订单号" min-width="145">
             <template #default="{ row }">
               <el-select
                 v-model="row.activeOrderId"
@@ -2875,8 +2974,10 @@
                 placeholder="请选择活跃订单"
                 @change="markManualAllocation(row)"
               >
-                <template #label="{ label }">
-                  <span class="team-leader-workbench__allocation-order-label">{{ label }}</span>
+                <template #label>
+                  <span class="team-leader-workbench__allocation-order-value">
+                    {{ formatAllocationOrderCode(row) }}
+                  </span>
                 </template>
                 <el-option
                   v-for="order in getAvailableAllocationOrderOptions(row)"
@@ -2894,7 +2995,11 @@
                     </div>
                     <div>
                       <span>产品</span>
-                      <strong>{{ formatActiveOrderProduct(order) }}</strong>
+                      <strong>{{ formatActiveOrderProductName(order) }}</strong>
+                    </div>
+                    <div>
+                      <span>产品编码</span>
+                      <strong>{{ formatActiveOrderProductCode(order) }}</strong>
                     </div>
                     <div>
                       <span>数量</span>
@@ -2905,17 +3010,36 @@
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="要生产数量" width="110" align="right">
+          <el-table-column label="产品名称" min-width="150">
+            <template #default="{ row }">
+              <span class="team-leader-workbench__allocation-order-value">
+                {{ formatAllocationOrderProductName(row) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="产品编码" min-width="140">
+            <template #default="{ row }">
+              <span class="team-leader-workbench__allocation-order-value">
+                {{ formatAllocationOrderProductCode(row) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="订单数量" width="90" align="right">
+            <template #default="{ row }">
+              {{ formatAllocationOrderQuantity(row) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="要生产数量" width="100" align="right">
             <template #default="{ row }">
               {{ formatAllocationOrderProductionQuantity(row) }}
             </template>
           </el-table-column>
-          <el-table-column label="生产系数" width="90" align="right">
+          <el-table-column label="生产系数" width="80" align="right">
             <template #default="{ row }">
               {{ formatAllocationOrderProductionCoefficient(row) }}
             </template>
           </el-table-column>
-          <el-table-column label="分配数量" min-width="340">
+          <el-table-column label="分配数量" min-width="270">
             <template #default="{ row }">
               <div class="team-leader-workbench__allocation-quantity-cell">
                 <el-input-number
@@ -2965,13 +3089,13 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="88" align="center">
+          <el-table-column label="状态" width="80" align="center">
             <template #default="{ row }">
               <el-tag v-if="row.released" type="success" effect="light">已放行</el-tag>
               <el-tag v-else type="warning" effect="plain">未放行</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="72" align="center">
+          <el-table-column label="操作" width="64" align="center">
             <template #default="{ row, $index }">
               <el-button
                 link
@@ -3251,6 +3375,7 @@ import {
   createTeamDevice,
   createTeamLeaderLossReason,
   deleteTeamLeaderLossReason,
+  getPqcLeaderActiveTaskList,
   getPqcPersonnelList,
   getTeamDeviceList,
   getTeamLeaderProcessConfigList,
@@ -3289,6 +3414,7 @@ import {
   type TeamLeaderActiveOrderReleaseBlockerRespVO,
   type TeamLeaderActiveOrderReleaseFailureRespVO,
   type TeamLeaderActiveOrderRespVO,
+  type PqcLeaderActiveTaskRespVO,
   type TeamLeaderLossReasonVO,
   type TeamDeviceParameterRuleSaveReqVO,
   type TeamLeaderProcessConfigDeviceVO,
@@ -3530,7 +3656,7 @@ const props = withDefaults(
 
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
-const activePqcModuleTab = ref<'personnel' | 'management' | 'detail' | 'history'>('management')
+const activePqcModuleTab = ref<'personnel' | 'management' | 'task' | 'detail' | 'history'>('management')
 const activeProductionModuleTab = ref<
   | 'personnel'
   | 'report'
@@ -3667,6 +3793,9 @@ const pqcPersonnelSubmitting = ref(false)
 const pqcCandidateLoading = ref(false)
 const pqcPersonnelRows = ref<TeamPqcPersonnelRespVO[]>([])
 const pqcCandidateOptions = ref<TeamFormalEmployeeCandidateRespVO[]>([])
+const pqcActiveTaskList = ref<PqcLeaderActiveTaskRespVO[]>([])
+const pqcActiveTaskLoading = ref(false)
+const pqcActiveTaskError = ref('')
 
 const productionPersonnelQuery = reactive({
   pageNo: 1,
@@ -3884,6 +4013,9 @@ const showPqcPersonnelModule = computed(
 )
 const showPqcFormHistoryModule = computed(
   () => activeLeaderTab.value === 'PQC' && showPqcModuleTabs.value && activePqcModuleTab.value === 'history'
+)
+const showPqcTaskModule = computed(
+  () => activeLeaderTab.value === 'PQC' && showPqcModuleTabs.value && activePqcModuleTab.value === 'task'
 )
 const showPqcManagementModule = computed(
   () =>
@@ -4466,12 +4598,11 @@ const normalizeAllocationSubmitQuantity = (value: unknown, message: string) => {
 const formatActiveOrderCode = (order: TeamLeaderActiveOrderRespVO) =>
   order.workOrderCode?.trim() || '未返回订单编号'
 
-const formatActiveOrderProduct = (order: TeamLeaderActiveOrderRespVO) => {
-  const productParts = [order.productName, order.productCode]
-    .map((value) => String(value || '').trim())
-    .filter(Boolean)
-  return productParts.length > 0 ? productParts.join(' / ') : '未返回产品'
-}
+const formatActiveOrderProductName = (order: TeamLeaderActiveOrderRespVO) =>
+  order.productName?.trim() || '未返回产品名称'
+
+const formatActiveOrderProductCode = (order: TeamLeaderActiveOrderRespVO) =>
+  order.productCode?.trim() || '未返回产品编码'
 
 const formatActiveOrderQuantity = (order: TeamLeaderActiveOrderRespVO) => {
   const value = order.quantity
@@ -4484,7 +4615,7 @@ const formatActiveOrderQuantity = (order: TeamLeaderActiveOrderRespVO) => {
 }
 
 const formatActiveOrderOption = (order: TeamLeaderActiveOrderRespVO) => {
-  return `编码 ${formatActiveOrderCode(order)} / 产品 ${formatActiveOrderProduct(order)} / 数量 ${formatActiveOrderQuantity(order)}`
+  return `编码 ${formatActiveOrderCode(order)} / 产品 ${formatActiveOrderProductName(order)} / 产品编码 ${formatActiveOrderProductCode(order)} / 数量 ${formatActiveOrderQuantity(order)}`
 }
 
 const formatActiveOrderProgressPercent = (value: number | string | undefined) => {
@@ -5854,6 +5985,40 @@ const findAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) =>
   return allocatableActiveOrderOptions.value.find((item) => Number(item.id) === activeOrderId)
 }
 
+const loadPqcActiveTasks = async () => {
+  pqcActiveTaskLoading.value = true
+  pqcActiveTaskError.value = ''
+  try {
+    pqcActiveTaskList.value = await getPqcLeaderActiveTaskList()
+  } catch (error) {
+    pqcActiveTaskList.value = []
+    pqcActiveTaskError.value = resolveErrorMessage(error, 'PQC任务加载失败')
+    ElMessage.error(pqcActiveTaskError.value)
+  } finally {
+    pqcActiveTaskLoading.value = false
+  }
+}
+
+const formatAllocationOrderCode = (line: TeamLeaderReportAllocationDraftLine) => {
+  const order = findAllocationActiveOrder(line)
+  return order ? formatActiveOrderCode(order) : '--'
+}
+
+const formatAllocationOrderProductName = (line: TeamLeaderReportAllocationDraftLine) => {
+  const order = findAllocationActiveOrder(line)
+  return order ? formatActiveOrderProductName(order) : '--'
+}
+
+const formatAllocationOrderProductCode = (line: TeamLeaderReportAllocationDraftLine) => {
+  const order = findAllocationActiveOrder(line)
+  return order ? formatActiveOrderProductCode(order) : '--'
+}
+
+const formatAllocationOrderQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
+  const order = findAllocationActiveOrder(line)
+  return order ? formatActiveOrderQuantity(order) : '--'
+}
+
 const resolveAllocationOverageQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
   if (line.needsAdjustment === undefined || line.overageQuantity === undefined) {
     throw new Error(`报工分配 ${line.allocationId} 缺少正式订单超量状态`)
@@ -6767,6 +6932,10 @@ const resetSubmissionMultiFilter = async () => {
 }
 
 watch(activePqcModuleTab, async (tab) => {
+  if (tab === 'task' && activeLeaderTab.value === 'PQC') {
+    await loadPqcActiveTasks()
+    return
+  }
   if ((tab === 'management' || tab === 'history') && activeLeaderTab.value === 'PQC') {
     queryParams.leaderType = 'PQC'
     queryParams.pageNo = 1
@@ -7747,6 +7916,21 @@ const resolvePqcTagType = (pqcResult?: string) => {
   return 'info'
 }
 
+const resolvePqcTaskStatusText = (status: PqcLeaderActiveTaskRespVO['taskStatus']) =>
+  status === 'SUBMITTED' ? '待复核' : '待执行'
+
+const resolvePqcTaskStatusTagType = (status: PqcLeaderActiveTaskRespVO['taskStatus']) =>
+  status === 'SUBMITTED' ? 'warning' : 'primary'
+
+const resolvePqcTaskInspectionTypeText = (
+  ruleKey: PqcLeaderActiveTaskRespVO['inspectionRuleKey']
+) => {
+  if (ruleKey === 'FIRST') return '首检'
+  if (ruleKey === 'PATROL_AM') return '上午巡检'
+  if (ruleKey === 'PATROL_PM') return '下午巡检'
+  return '末检'
+}
+
 onBeforeUnmount(clearProductionPersonnelDialogError)
 
 onMounted(() => {
@@ -7806,6 +7990,25 @@ onMounted(() => {
 .team-leader-workbench__production-module-card :deep(.el-card__body) {
   position: relative;
   padding-top: 12px;
+}
+
+.team-leader-workbench__pqc-task-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.team-leader-workbench__pqc-task-primary {
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+}
+
+.team-leader-workbench__pqc-task-secondary {
+  margin-top: 2px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .team-leader-workbench__personnel-tabs--embedded :deep(.el-tabs__header) {
@@ -8343,7 +8546,7 @@ onMounted(() => {
   padding-bottom: 5px;
 }
 
-.team-leader-workbench__allocation-order-label {
+.team-leader-workbench__allocation-order-value {
   display: block;
   width: 100%;
   color: var(--el-text-color-regular);
@@ -8355,7 +8558,7 @@ onMounted(() => {
 .team-leader-workbench__allocation-quantity-cell {
   display: grid;
   align-items: center;
-  grid-template-columns: minmax(100px, 1fr) repeat(3, max-content);
+  grid-template-columns: minmax(88px, 1fr) repeat(3, max-content);
   gap: 6px;
 }
 

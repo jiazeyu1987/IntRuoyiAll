@@ -487,14 +487,54 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private String validateRuleInspectionQuantity(BigDecimal plannedQuantity,
                                                   List<MesQaInspectionRegulationItemDO> items,
                                                   PqcInspectionRule rule) {
-        if (Objects.equals(INSPECTION_TYPE_PATROL, rule.inspectionType())) {
-            return validatePatrolInspectionQuantity(plannedQuantity, items);
-        }
         if (Objects.equals(INSPECTION_TYPE_FIRST, rule.inspectionType())
-                || Objects.equals(INSPECTION_TYPE_FINAL, rule.inspectionType())) {
+                || Objects.equals(INSPECTION_TYPE_PATROL, rule.inspectionType())) {
+            return validateItemLevelInspectionQuantity(plannedQuantity, items, rule.inspectionType());
+        }
+        if (Objects.equals(INSPECTION_TYPE_FINAL, rule.inspectionType())) {
             return validateFixedInspectionQuantity(items, rule.inspectionType());
         }
         return "QA检验类型无效";
+    }
+
+    private String validateItemLevelInspectionQuantity(BigDecimal plannedQuantity,
+                                                        List<MesQaInspectionRegulationItemDO> items,
+                                                        String inspectionType) {
+        Set<String> itemCodes = new LinkedHashSet<>();
+        boolean found = false;
+        for (MesQaInspectionRegulationItemDO item : items) {
+            if (!Objects.equals(inspectionType, normalizeInspectionType(item.getInspectionType()))) {
+                continue;
+            }
+            found = true;
+            if (item.getItemCode() == null || item.getItemCode().isBlank()
+                    || !itemCodes.add(item.getItemCode().trim())) {
+                return "检验项目身份无效";
+            }
+            Integer fixedQuantity = item.getFirstInspectionQuantity();
+            if (Objects.equals(INSPECTION_TYPE_FIRST, inspectionType)) {
+                if (fixedQuantity == null || fixedQuantity <= 0) {
+                    return "固定检验数量无效";
+                }
+                continue;
+            }
+            boolean hasRatio = positive(item.getPatrolInspectionRatio());
+            boolean hasFixedQuantity = fixedQuantity != null && fixedQuantity > 0;
+            if (hasRatio == hasFixedQuantity) {
+                return "巡检数量规则无效";
+            }
+            if (hasRatio) {
+                if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) < 0) {
+                    return "订单计划数量无效";
+                }
+                try {
+                    calculatePatrolInspectionQuantity(plannedQuantity, item.getPatrolInspectionRatio());
+                } catch (ArithmeticException ex) {
+                    return "巡检计划数量超出整数范围";
+                }
+            }
+        }
+        return found ? null : "缺少检验类型规则";
     }
 
     private String validateFixedInspectionQuantity(List<MesQaInspectionRegulationItemDO> items,
@@ -514,50 +554,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             quantity = itemQuantity;
         }
         return quantity == null ? "缺少检验类型规则" : null;
-    }
-
-    private String validatePatrolInspectionQuantity(BigDecimal plannedQuantity,
-                                                     List<MesQaInspectionRegulationItemDO> items) {
-        BigDecimal ratio = null;
-        Integer fixedQuantity = null;
-        for (MesQaInspectionRegulationItemDO item : items) {
-            if (!Objects.equals(INSPECTION_TYPE_PATROL, normalizeInspectionType(item.getInspectionType()))) {
-                continue;
-            }
-            if (positive(item.getPatrolInspectionRatio())) {
-                if (fixedQuantity != null) {
-                    return "巡检规则同时存在固定数量和比例";
-                }
-                if (ratio != null && ratio.compareTo(item.getPatrolInspectionRatio()) != 0) {
-                    return "同一巡检规则存在不同比例";
-                }
-                ratio = item.getPatrolInspectionRatio();
-                continue;
-            }
-            Integer itemQuantity = item.getFirstInspectionQuantity();
-            if (itemQuantity == null || itemQuantity <= 0) {
-                return "巡检数量规则无效";
-            }
-            if (ratio != null) {
-                return "巡检规则同时存在固定数量和比例";
-            }
-            if (fixedQuantity != null && !Objects.equals(fixedQuantity, itemQuantity)) {
-                return "同一巡检规则存在不同固定数量";
-            }
-            fixedQuantity = itemQuantity;
-        }
-        if (ratio != null) {
-            if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) < 0) {
-                return "订单计划数量无效";
-            }
-            try {
-                calculatePatrolInspectionQuantity(plannedQuantity, ratio);
-            } catch (ArithmeticException ex) {
-                return "巡检计划数量超出整数范围";
-            }
-            return null;
-        }
-        return fixedQuantity == null ? "缺少巡检规则" : null;
     }
 
     private CandidateEligibility blockedCandidate(String reason) {
@@ -1316,13 +1312,33 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                 + "，qaProcessId=" + qaProcess.getId());
             }
             for (PqcInspectionRule rule : rules) {
-                if (!rule.required() || processItems.stream()
-                        .noneMatch(item -> Objects.equals(rule.inspectionType(),
-                                normalizeInspectionType(item.getInspectionType())))) {
+                if (!rule.required()) {
                     continue;
                 }
-                Integer plannedQuantity = resolveInspectionQuantity(activeOrder, processItems, rule.inspectionType());
-                tasks.add(buildPqcTask(activeOrder, qaProcess, version, rule.inspectionType(), rule.ruleKey(),
+                List<MesQaInspectionRegulationItemDO> ruleItems = processItems.stream()
+                        .filter(item -> Objects.equals(rule.inspectionType(),
+                                normalizeInspectionType(item.getInspectionType())))
+                        .sorted(Comparator
+                                .comparing((MesQaInspectionRegulationItemDO item) ->
+                                        item.getItemSort() == null ? Integer.MAX_VALUE : item.getItemSort())
+                                .thenComparing(MesQaInspectionRegulationItemDO::getItemCode))
+                        .toList();
+                if (ruleItems.isEmpty()) {
+                    continue;
+                }
+                if (isItemScopedInspectionType(rule.inspectionType())) {
+                    for (MesQaInspectionRegulationItemDO item : ruleItems) {
+                        Integer plannedQuantity = resolveItemInspectionQuantity(activeOrder, item,
+                                rule.inspectionType());
+                        tasks.add(buildPqcTask(activeOrder, qaProcess, version, item.getItemCode().trim(),
+                                rule.inspectionType(), rule.ruleKey(), businessDate, rule.shiftCode(),
+                                plannedQuantity));
+                    }
+                    continue;
+                }
+                Integer plannedQuantity = resolveFixedInspectionQuantity(ruleItems, rule.inspectionType(),
+                        activeOrder.getId());
+                tasks.add(buildPqcTask(activeOrder, qaProcess, version, "", rule.inspectionType(), rule.ruleKey(),
                         businessDate, rule.shiftCode(), plannedQuantity));
             }
         }
@@ -1354,6 +1370,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private MesPqcInspectionTaskDO buildPqcTask(MesProcessPoolActiveOrderDO activeOrder,
                                                 MesQaInspectionRegulationProcessDO qaProcess,
                                                 MesQaInspectionRegulationVersionDO version,
+                                                String qaItemCode,
                                                 String inspectionType,
                                                 String inspectionRuleKey,
                                                 LocalDate businessDate,
@@ -1365,6 +1382,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .routeId(activeOrder.getRouteId())
                 .routeVersionId(activeOrder.getRouteVersionId())
                 .qaProcessId(qaProcess.getId())
+                .qaItemCode(qaItemCode)
                 .regulationVersionId(version.getId())
                 .inspectionType(inspectionType)
                 .inspectionRuleKey(inspectionRuleKey)
@@ -1379,7 +1397,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private void insertPqcInspectionTask(MesPqcInspectionTaskDO task) {
         MesPqcInspectionTaskDO existing = pqcInspectionTaskMapper.selectByQaIdentity(task.getActiveOrderId(),
-                task.getRegulationVersionId(), task.getQaProcessId(), task.getInspectionRuleKey(),
+                task.getRegulationVersionId(), task.getQaProcessId(), task.getQaItemCode(), task.getInspectionRuleKey(),
                 task.getBusinessDate());
         if (existing != null) {
             throw exception(PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT, identityText(task));
@@ -1394,15 +1412,35 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
     }
 
-    private Integer resolveInspectionQuantity(MesProcessPoolActiveOrderDO activeOrder,
-                                              List<MesQaInspectionRegulationItemDO> items,
-                                              String inspectionType) {
-        if (Objects.equals(INSPECTION_TYPE_PATROL, inspectionType)) {
-            return resolvePatrolInspectionQuantity(activeOrder.getErpFixedQuantitySnapshot(), items,
-                    activeOrder.getId());
+    private Integer resolveItemInspectionQuantity(MesProcessPoolActiveOrderDO activeOrder,
+                                                  MesQaInspectionRegulationItemDO item,
+                                                  String inspectionType) {
+        if (item == null || item.getItemCode() == null || item.getItemCode().isBlank()) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                    "检验项目身份无效，activeOrderId=" + activeOrder.getId());
         }
-        if (Objects.equals(INSPECTION_TYPE_FIRST, inspectionType) || Objects.equals("FINAL", inspectionType)) {
-            return resolveFixedInspectionQuantity(items, inspectionType, activeOrder.getId());
+        if (Objects.equals(INSPECTION_TYPE_FIRST, inspectionType)) {
+            Integer quantity = item.getFirstInspectionQuantity();
+            if (quantity == null || quantity <= 0) {
+                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                        "固定检验数量无效，activeOrderId=" + activeOrder.getId()
+                                + "，itemCode=" + item.getItemCode());
+            }
+            return quantity;
+        }
+        if (Objects.equals(INSPECTION_TYPE_PATROL, inspectionType)) {
+            boolean hasRatio = positive(item.getPatrolInspectionRatio());
+            Integer fixedQuantity = item.getFirstInspectionQuantity();
+            boolean hasFixedQuantity = fixedQuantity != null && fixedQuantity > 0;
+            if (hasRatio == hasFixedQuantity) {
+                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                        "巡检数量规则无效，activeOrderId=" + activeOrder.getId()
+                                + "，itemCode=" + item.getItemCode());
+            }
+            return hasRatio
+                    ? ceilPatrolInspectionQuantity(activeOrder.getErpFixedQuantitySnapshot(),
+                    item.getPatrolInspectionRatio(), activeOrder.getId())
+                    : fixedQuantity;
         }
         throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                 "QA检验类型无效，activeOrderId=" + activeOrder.getId() + "，inspectionType=" + inspectionType);
@@ -1437,52 +1475,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return quantity;
     }
 
-    private Integer resolvePatrolInspectionQuantity(BigDecimal plannedQuantity,
-                                                    List<MesQaInspectionRegulationItemDO> items,
-                                                    Long activeOrderId) {
-        BigDecimal ratio = null;
-        Integer fixedQuantity = null;
-        for (MesQaInspectionRegulationItemDO item : items) {
-            if (!Objects.equals(INSPECTION_TYPE_PATROL, normalizeInspectionType(item.getInspectionType()))) {
-                continue;
-            }
-            if (positive(item.getPatrolInspectionRatio())) {
-                if (fixedQuantity != null) {
-                    throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                            "巡检规则同时存在固定数量和比例，activeOrderId=" + activeOrderId);
-                }
-                if (ratio != null && ratio.compareTo(item.getPatrolInspectionRatio()) != 0) {
-                    throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                            "同一巡检规则存在不同比例，activeOrderId=" + activeOrderId);
-                }
-                ratio = item.getPatrolInspectionRatio();
-                continue;
-            }
-            Integer itemQuantity = item.getFirstInspectionQuantity();
-            if (itemQuantity == null || itemQuantity <= 0) {
-                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                        "巡检数量规则无效，activeOrderId=" + activeOrderId);
-            }
-            if (ratio != null) {
-                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                        "巡检规则同时存在固定数量和比例，activeOrderId=" + activeOrderId);
-            }
-            if (fixedQuantity != null && !Objects.equals(fixedQuantity, itemQuantity)) {
-                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                        "同一巡检规则存在不同固定数量，activeOrderId=" + activeOrderId);
-            }
-            fixedQuantity = itemQuantity;
-        }
-        if (ratio != null) {
-            return ceilPatrolInspectionQuantity(plannedQuantity, ratio, activeOrderId);
-        }
-        if (fixedQuantity != null) {
-            return fixedQuantity;
-        }
-        throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                "缺少巡检规则，activeOrderId=" + activeOrderId);
-    }
-
     private Integer ceilPatrolInspectionQuantity(BigDecimal plannedQuantity, BigDecimal ratio, Long activeOrderId) {
         if (plannedQuantity == null || plannedQuantity.compareTo(BigDecimal.ZERO) < 0) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
@@ -1504,6 +1496,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private static boolean positive(BigDecimal value) {
         return value != null && value.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    private static boolean isItemScopedInspectionType(String inspectionType) {
+        return Objects.equals(INSPECTION_TYPE_FIRST, inspectionType)
+                || Objects.equals(INSPECTION_TYPE_PATROL, inspectionType);
     }
 
     private static String normalizeInspectionType(String inspectionType) {
@@ -1584,6 +1581,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return "activeOrderId=" + task.getActiveOrderId()
                 + "，regulationVersionId=" + task.getRegulationVersionId()
                 + "，qaProcessId=" + task.getQaProcessId()
+                + "，qaItemCode=" + task.getQaItemCode()
                 + "，inspectionRuleKey=" + task.getInspectionRuleKey()
                 + "，inspectionType=" + task.getInspectionType()
                 + "，businessDate=" + task.getBusinessDate()

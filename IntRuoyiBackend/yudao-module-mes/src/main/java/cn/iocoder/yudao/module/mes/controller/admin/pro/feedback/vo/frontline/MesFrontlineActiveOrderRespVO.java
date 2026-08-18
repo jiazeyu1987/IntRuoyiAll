@@ -34,6 +34,10 @@ public class MesFrontlineActiveOrderRespVO {
     private String routeCode;
     @Schema(description = "工艺路线名称")
     private String routeName;
+    @Schema(description = "锁定工艺路线版本编号")
+    private Long routeVersionId;
+    @Schema(description = "锁定工艺路线版本号")
+    private String routeVersionNo;
     @Schema(description = "最近提交时间")
     private LocalDateTime latestSubmitTime;
 }
