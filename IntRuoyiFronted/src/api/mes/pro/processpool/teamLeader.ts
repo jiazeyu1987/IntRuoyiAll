@@ -7,7 +7,12 @@ import type {
 
 export type TeamLeaderType = 'PRODUCTION' | 'PQC'
 export type SubmissionReviewStatus = 'APPROVED' | 'REJECTED'
-export type DeviceParameterValueType = 'INTEGER' | 'DECIMAL' | 'TEXT_STANDARD' | 'SELECT' | 'BOOLEAN'
+export type DeviceParameterValueType =
+  | 'INTEGER'
+  | 'DECIMAL'
+  | 'TEXT_STANDARD'
+  | 'SELECT'
+  | 'BOOLEAN'
 
 export interface TeamLeaderSubmissionPageReqVO extends ProcessPoolTimelinePageReqVO {
   leaderType: TeamLeaderType
@@ -130,11 +135,7 @@ export interface TeamLeaderActiveOrderAddReqVO {
   workOrderId: number
 }
 
-export type TeamLeaderActiveOrderCandidateState =
-  | 'ADDABLE'
-  | 'REUSABLE'
-  | 'RECOVERABLE'
-  | 'BLOCKED'
+export type TeamLeaderActiveOrderCandidateState = 'ADDABLE' | 'REUSABLE' | 'RECOVERABLE' | 'BLOCKED'
 
 export interface TeamLeaderActiveOrderCandidateRespVO {
   workOrderId: number
@@ -272,8 +273,11 @@ export interface TeamProcessDeviceBindingSaveReqVO {
 export interface TeamProcessDefectReasonSaveReqVO extends TeamDefectReasonSaveReqVO {}
 
 export type TeamLeaderActiveOrderReleaseApplicationStatus =
-  | 'BLOCKED'
-  | 'PENDING_RELEASE_APPROVAL'
+  | 'PQC_RELEASE_PENDING'
+  | 'PQC_RELEASE_REJECTED'
+  | 'REPORT_UPLOAD_PENDING'
+  | 'MANAGER_RELEASE_PENDING'
+  | 'RELEASED'
 
 export interface TeamLeaderActiveOrderProcessRemainingQuantity {
   routeProcessId?: number
@@ -334,9 +338,11 @@ export interface TeamLeaderActiveOrderRespVO {
   abnormal: boolean
   abnormalReason?: string
   abnormalReportedAt?: number
+  releaseApplicationId?: string
+  pqcReleaseWorkTaskId?: string
   releaseApplicationStatus?: TeamLeaderActiveOrderReleaseApplicationStatus
-  releaseApplicationBlockerSummary?: string
-  releaseApprovalWorkTaskId?: number
+  releaseSourceSnapshotHash?: string
+  releaseApplicationVersion?: number
 }
 
 export interface TeamLeaderActiveOrderReleaseApplyReqVO {
@@ -348,36 +354,34 @@ export interface TeamLeaderActiveOrderReleaseApplyReqVO {
 export interface TeamLeaderActiveOrderReleaseBlockerRespVO {
   blockerType: string
   objectType: string
-  objectId: string
-  objectCode: string
+  objectId?: string
+  objectCode?: string
   reason: string
   suggestion: string
-  routeProcessId?: number
-  processId?: number
+  routeProcessId?: string
+  processId?: string
   fieldCode?: string
   cellKey?: string
 }
 
-export interface TeamLeaderActiveOrderReleaseDossierSummaryRespVO {
-  batchRecordCount: number
-  processInspectionFormCount: number
-  lossReportFormCount: number
-  signatureEvidenceCount: number
-  sourceSnapshotHash: string
+export interface TeamLeaderActiveOrderReleaseFailureRespVO {
+  stage?: string
+  currentStatus?: TeamLeaderActiveOrderReleaseApplicationStatus
+  blockers: TeamLeaderActiveOrderReleaseBlockerRespVO[]
 }
 
 export interface TeamLeaderActiveOrderReleaseApplyRespVO {
-  applicationId: number
-  activeOrderId: number
-  workOrderId: number
-  workOrderCode: string | null
-  batchExecutionId: number | null
-  releaseTransactionId: number | null
-  releaseApprovalWorkTaskId: number | null
+  applicationId: string
+  activeOrderId: string
+  workOrderId: string
+  workOrderCode?: string | null
+  batchCode?: string | null
+  routeId: string
+  routeVersionId: string
+  pqcReleaseWorkTaskId: string
   status: TeamLeaderActiveOrderReleaseApplicationStatus
-  statusName: string
-  dossierSummary: TeamLeaderActiveOrderReleaseDossierSummaryRespVO
-  blockers: TeamLeaderActiveOrderReleaseBlockerRespVO[]
+  sourceSnapshotHash: string
+  version: number
   appliedAt: string | number
 }
 
@@ -542,7 +546,9 @@ export const deleteTeamLeaderLossReason = async (id: number) => {
   })
 }
 
-export const getTeamLeaderProcessConfigList = async (params: TeamLeaderProcessConfigListReqVO = {}) => {
+export const getTeamLeaderProcessConfigList = async (
+  params: TeamLeaderProcessConfigListReqVO = {}
+) => {
   return await request.get<TeamLeaderProcessConfigRowRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/process-config/list',
     params
@@ -577,6 +583,14 @@ export const applyTeamLeaderActiveOrderRelease = async (
   return await request.post<TeamLeaderActiveOrderReleaseApplyRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/release/apply',
     data,
+    ignoreErrorMessage: true
+  })
+}
+
+export const getTeamLeaderActiveOrderRelease = async (activeOrderId: number | string) => {
+  return await request.get<TeamLeaderActiveOrderReleaseApplyRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/release/get',
+    params: { activeOrderId },
     ignoreErrorMessage: true
   })
 }
@@ -672,9 +686,7 @@ export const linkFormalTeamEmployee = async (data: TeamFormalEmployeeLinkReqVO) 
   })
 }
 
-export const updateTeamEmployeeDisplayName = async (
-  data: TeamEmployeeDisplayNameUpdateReqVO
-) => {
+export const updateTeamEmployeeDisplayName = async (data: TeamEmployeeDisplayNameUpdateReqVO) => {
   return await request.put<boolean>({
     url: '/mes/pro/process-pool/team-leader/employee-profile/display-name/update',
     data
@@ -732,14 +744,18 @@ export const updateTeamDeviceStatus = async (data: TeamDeviceStatusUpdateReqVO) 
   })
 }
 
-export const saveTeamProcessConfigDeviceBinding = async (data: TeamProcessDeviceBindingSaveReqVO) => {
+export const saveTeamProcessConfigDeviceBinding = async (
+  data: TeamProcessDeviceBindingSaveReqVO
+) => {
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/process-config/device-binding/save',
     data
   })
 }
 
-export const saveTeamProcessConfigDeviceParameterRule = async (data: TeamDeviceParameterRuleSaveReqVO) => {
+export const saveTeamProcessConfigDeviceParameterRule = async (
+  data: TeamDeviceParameterRuleSaveReqVO
+) => {
   return await request.post<number>({
     url: '/mes/pro/process-pool/team-leader/process-config/device-parameter-rule/save',
     data
