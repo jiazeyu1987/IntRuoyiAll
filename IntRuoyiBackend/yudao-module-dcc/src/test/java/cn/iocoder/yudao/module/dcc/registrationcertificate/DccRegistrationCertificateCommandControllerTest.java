@@ -66,6 +66,84 @@ class DccRegistrationCertificateCommandControllerTest {
         }
     }
 
+    @Test
+    void lifecycleActionControllers_exposeApprovedRoutesPermissionsAndIdempotencyHeaders() throws Exception {
+        Class<?> renewalController = assertControllerPresent(
+                "cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.renewal"
+                        + ".DccRegistrationCertificateRenewalController");
+        assertRoot(renewalController, "/dcc/registration-certificates/{certificateId}/renewals");
+        assertRoute(renewalController, "uploadCandidate", PostMapping.class, "",
+                "dcc:registration-certificate:renewal:upload", 1);
+        assertRoute(renewalController, "voidPendingCandidate", PostMapping.class, "/{pendingVersionId}/void",
+                "dcc:registration-certificate:renewal:void", 1);
+
+        Class<?> changeController = assertControllerPresent(
+                "cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.change"
+                        + ".DccRegistrationCertificateChangeController");
+        assertRoot(changeController, "/dcc/registration-certificates/{certificateId}/changes");
+        assertRoute(changeController, "applyChange", PostMapping.class, "",
+                "dcc:registration-certificate:change:submit", 1);
+        assertRoute(changeController, "voidCertificate", PostMapping.class, "/void",
+                "dcc:registration-certificate:void", 1);
+
+        Class<?> supportingController = assertControllerPresent(
+                "cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.supportingdocument"
+                        + ".DccRegistrationCertificateSupportingDocumentController");
+        assertRoot(supportingController, "/dcc/registration-certificates/{certificateId}/supporting-documents");
+        assertRoute(supportingController, "upload", PostMapping.class, "",
+                "dcc:registration-certificate:supporting-document:upload", 1);
+        assertRoute(supportingController, "confirm", PostMapping.class, "/{supportingDocumentId}/confirm",
+                "dcc:registration-certificate:supporting-document:confirm", 1);
+        assertRoute(supportingController, "reject", PostMapping.class, "/{supportingDocumentId}/reject",
+                "dcc:registration-certificate:supporting-document:confirm", 1);
+    }
+
+    private static Class<?> assertControllerPresent(String className) throws Exception {
+        try {
+            return Class.forName(className);
+        } catch (ClassNotFoundException ex) {
+            throw new AssertionError(className + " must exist as a real admin API controller", ex);
+        }
+    }
+
+    private static void assertRoot(Class<?> controller, String expectedRoot) {
+        RequestMapping root = controller.getAnnotation(RequestMapping.class);
+        assertNotNull(root, controller.getSimpleName() + " must declare RequestMapping");
+        assertEquals(expectedRoot, root.value()[0]);
+    }
+
+    private static void assertRoute(Class<?> controller, String methodName,
+                                    Class<? extends Annotation> mappingAnnotation,
+                                    String expectedPath, String permission,
+                                    int idempotencyParameterIndex) {
+        Method method = null;
+        for (Method candidate : controller.getDeclaredMethods()) {
+            if (candidate.getName().equals(methodName)) {
+                method = candidate;
+                break;
+            }
+        }
+        assertNotNull(method, controller.getSimpleName() + "." + methodName + " must exist");
+        Annotation mapping = method.getAnnotation(mappingAnnotation);
+        assertNotNull(mapping, methodName + " must declare " + mappingAnnotation.getSimpleName());
+        assertEquals(expectedPath, firstMappingValue(mapping), methodName + " route");
+        assertPermission(method, permission);
+        assertIdempotencyHeader(method, idempotencyParameterIndex);
+    }
+
+    private static String firstMappingValue(Annotation mapping) {
+        if (mapping instanceof PostMapping postMapping) {
+            return postMapping.value().length == 0 ? "" : postMapping.value()[0];
+        }
+        if (mapping instanceof PutMapping putMapping) {
+            return putMapping.value().length == 0 ? "" : putMapping.value()[0];
+        }
+        if (mapping instanceof DeleteMapping deleteMapping) {
+            return deleteMapping.value().length == 0 ? "" : deleteMapping.value()[0];
+        }
+        throw new AssertionError("Unsupported mapping annotation " + mapping.annotationType());
+    }
+
     private static void assertPermission(Method method, String permission) {
         PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
         assertNotNull(preAuthorize, method.getName() + " must declare a permission");

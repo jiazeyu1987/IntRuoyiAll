@@ -178,7 +178,13 @@ VALUES
   (990236, '注册证正式化', 'dcc:registration-certificate:formalize', 40),
   (990237, '注册证访问申请', 'dcc:registration-certificate:access-request:create', 50),
   (990238, '注册证配置查询', 'dcc:registration-certificate:config:query', 60),
-  (990239, '注册证配置修改', 'dcc:registration-certificate:config:update', 70);
+  (990239, '注册证配置修改', 'dcc:registration-certificate:config:update', 70),
+  (990240, '注册证延续上传', 'dcc:registration-certificate:renewal:upload', 80),
+  (990241, '注册证延续作废', 'dcc:registration-certificate:renewal:void', 90),
+  (990242, '注册证变更提交', 'dcc:registration-certificate:change:submit', 100),
+  (990243, '注册证作废', 'dcc:registration-certificate:void', 110),
+  (990244, '注册证支持文件上传', 'dcc:registration-certificate:supporting-document:upload', 120),
+  (990245, '注册证支持文件确认', 'dcc:registration-certificate:supporting-document:confirm', 130);
 
 INSERT INTO `system_menu`
 (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`,

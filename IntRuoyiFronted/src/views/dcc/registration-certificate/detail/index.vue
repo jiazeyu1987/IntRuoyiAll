@@ -44,6 +44,12 @@
         <pre class="detail-json">{{ detail.entrustedEnterprisesJson || '[]' }}</pre>
       </el-card>
 
+      <RegistrationCertificateActionPanel
+        :certificate-id="detail.certificateId"
+        :version-id="detail.versionId"
+        :business-file-id="undefined"
+      />
+
       <el-card class="detail-card" shadow="never">
         <template #header>历史记录</template>
         <el-table :data="history" row-key="eventType">
@@ -68,6 +74,7 @@ import {
   type DccRegistrationCertificateHistoryItemVO
 } from '@/api/dcc/registrationCertificate'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
 import {
   displayText,
   formatMissingMarker,

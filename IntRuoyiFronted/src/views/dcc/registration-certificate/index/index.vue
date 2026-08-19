@@ -29,9 +29,12 @@
       <el-form-item>
         <el-button type="primary" @click="handleSearch">查询</el-button>
         <el-button @click="handleReset">重置</el-button>
+        <el-button type="success" @click="openCreateDraft">新增注册证</el-button>
       </el-form-item>
     </el-form>
   </ContentWrap>
+
+  <RegistrationCertificateActionPanel v-if="showCreateDraft" />
 
   <ContentWrap>
     <el-table v-loading="loading" :data="list" row-key="certificateId">
@@ -119,6 +122,7 @@ import {
   type DccRegistrationCertificateOldIndexItemVO,
   type DccRegistrationCertificatePageReqVO
 } from '@/api/dcc/registrationCertificate'
+import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
 import {
   REGISTRATION_CERTIFICATE_STATUS_OPTIONS,
   formatMissingMarker,
@@ -136,6 +140,7 @@ const list = ref<DccRegistrationCertificatePageItemVO[]>([])
 const oldList = ref<DccRegistrationCertificateOldIndexItemVO[]>([])
 const total = ref(0)
 const oldTotal = ref(0)
+const showCreateDraft = ref(false)
 
 const queryParams = reactive<DccRegistrationCertificatePageReqVO>({
   pageNo: 1,
@@ -191,6 +196,10 @@ const handleReset = () => {
 
 const openDetail = (certificateId: number | string) => {
   router.push(`/mdm/registration-certificate/detail/${certificateId}`)
+}
+
+const openCreateDraft = () => {
+  showCreateDraft.value = true
 }
 
 onMounted(() => {
