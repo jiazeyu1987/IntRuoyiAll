@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_postflight; type=data; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_schema; type=data; riskLevel=medium
 -- Converges the AW.107.02.01.1009 pressure-pump material into the formal RT000028 route-product set.
 
 SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;

@@ -1,5 +1,5 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_backfill; type=schema; riskLevel=high
--- C015 converges current-main schema only after preflight and explicit zero-repair backfill.
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_bootstrap; type=schema; riskLevel=high
+-- C015 converges current-main schema after structural bootstrap; evidence-only preflight/backfill/postflight remain independent release gates.
 
 DROP PROCEDURE IF EXISTS migrate_mes_c015_route_dcc_qa_reconciliation_schema;
 DELIMITER $$

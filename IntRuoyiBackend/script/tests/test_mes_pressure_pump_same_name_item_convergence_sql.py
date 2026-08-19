@@ -20,7 +20,7 @@ def test_pressure_pump_convergence_is_release_managed_and_transactional() -> Non
 
     assert sql.startswith(
         "-- release-migration: allowedEnvironments=test,backup,prod; "
-        "dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_postflight; "
+        "dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_schema; "
         "type=data; riskLevel=medium\n"
     )
     assert "START TRANSACTION" in normalized
