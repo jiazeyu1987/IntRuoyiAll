@@ -41,18 +41,27 @@ assert(
 const handleValidateStart = panel.indexOf('const handleValidate = async () => {')
 const handleValidateEnd = panel.indexOf('const closePqcSignatureDialog', handleValidateStart)
 const handleValidateBlock = panel.slice(handleValidateStart, handleValidateEnd)
-const validateIndex = handleValidateBlock.indexOf('FrontlineTemplateApi.validatePayload')
+const formalReadyIndex = handleValidateBlock.indexOf('assertPqcFormalSubmissionReady()')
+const quantityReadyIndex = handleValidateBlock.indexOf('assertPqcSignatureAndQuantityReady()')
+const displayFieldsReadyIndex = handleValidateBlock.indexOf('assertPqcInspectionDisplayFieldsReady()')
 const signatureDialogIndex = handleValidateBlock.indexOf('pqcSignatureDialogVisible.value = true')
 const confirmStart = panel.indexOf('const handleConfirmPqcSubmit = async () => {')
 const confirmEnd = panel.indexOf('const assertFormalPayloadContext', confirmStart)
 const confirmBlock = panel.slice(confirmStart, confirmEnd)
 const pqcSubmitIndex = confirmBlock.indexOf('ProFeedbackApi.submitFrontlinePqcInspection')
+const resetIndex = confirmBlock.indexOf('resetPqcSubmissionDraft(submitPayload.pqcTaskId)')
 const successIndex = confirmBlock.indexOf('message.success(`PQC正式提交成功')
 const recoverIndex = confirmBlock.indexOf('recoverPqcSubmitReceiptAfterUncertainError')
 assert(
-  validateIndex >= 0 && signatureDialogIndex > validateIndex && pqcSubmitIndex >= 0 &&
-    successIndex > pqcSubmitIndex && recoverIndex > pqcSubmitIndex,
-  'PQC 检验员提交必须先校验模板 payload，再完成本次电子签名，调用正式接口；提交异常后必须先尝试只读恢复确认。'
+  formalReadyIndex >= 0 &&
+    quantityReadyIndex > formalReadyIndex &&
+    displayFieldsReadyIndex > quantityReadyIndex &&
+    signatureDialogIndex > displayFieldsReadyIndex &&
+    pqcSubmitIndex >= 0 &&
+    resetIndex > pqcSubmitIndex &&
+    successIndex > resetIndex &&
+    recoverIndex > pqcSubmitIndex,
+  'PQC 检验员提交必须先完成本地正式校验，再电子签名、调用正式接口；明确成功后复位本次草稿，提交异常后先尝试只读恢复确认。'
 )
 
 const submitCallPattern =
