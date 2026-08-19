@@ -341,6 +341,8 @@ class MesQaPqcSchemaTest {
         assertTrue(postflightSql.contains("ADD UNIQUE KEY `uk_mes_pqc_task_submitted_event` (`tenant_id`, `submitted_event_id`, `deleted`)"));
         assertTrue(postflightSql.contains("ADD UNIQUE KEY `uk_mes_pro_process_pool_event_pqc_task` (`tenant_id`, `pqc_submission_task_id`)"));
         assertTrue(postflightSql.contains("MODIFY COLUMN `inspection_rule_key` varchar(32) NOT NULL COMMENT ''正式检验规则身份''"));
+        assertTrue(postflightSql.contains("COALESCE(SHA2(GROUP_CONCAT(CONCAT(id, ':', dcc_project_code_id, ':', qa_regulation_version_id) ORDER BY id SEPARATOR '|'), 256), SHA2('empty-active-order-snapshot', 256))"));
+        assertTrue(postflightSql.contains("COALESCE(SHA2(GROUP_CONCAT(CONCAT(id, ':', inspection_rule_key, ':', COALESCE(submitted_content_hash, ''), ':', COALESCE(submitted_event_id, 0)) ORDER BY id SEPARATOR '|'), 256), SHA2('empty-task-rule-and-submission', 256))"));
 
         assertTrue(preflightSql.contains("c00_preflight_release_metadata"));
         assertTrue(backfillSql.contains("c00_backfill_approved_route_dcc_binding"));

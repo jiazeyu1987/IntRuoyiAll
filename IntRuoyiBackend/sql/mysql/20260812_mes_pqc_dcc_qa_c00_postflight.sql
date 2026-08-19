@@ -78,11 +78,15 @@ CREATE TEMPORARY TABLE c00_postflight_hash_report (
 );
 
 INSERT INTO c00_postflight_hash_report
-SELECT 'active_order_snapshot', SHA2(GROUP_CONCAT(CONCAT(id, ':', dcc_project_code_id, ':', qa_regulation_version_id) ORDER BY id SEPARATOR '|'), 256), COUNT(1), NULL
+SELECT 'active_order_snapshot',
+       COALESCE(SHA2(GROUP_CONCAT(CONCAT(id, ':', dcc_project_code_id, ':', qa_regulation_version_id) ORDER BY id SEPARATOR '|'), 256), SHA2('empty-active-order-snapshot', 256)),
+       COUNT(1), NULL
   FROM mes_pro_process_pool_active_order;
 
 INSERT INTO c00_postflight_hash_report
-SELECT 'task_rule_and_submission', SHA2(GROUP_CONCAT(CONCAT(id, ':', inspection_rule_key, ':', COALESCE(submitted_content_hash, ''), ':', COALESCE(submitted_event_id, 0)) ORDER BY id SEPARATOR '|'), 256), COUNT(1), NULL
+SELECT 'task_rule_and_submission',
+       COALESCE(SHA2(GROUP_CONCAT(CONCAT(id, ':', inspection_rule_key, ':', COALESCE(submitted_content_hash, ''), ':', COALESCE(submitted_event_id, 0)) ORDER BY id SEPARATOR '|'), 256), SHA2('empty-task-rule-and-submission', 256)),
+       COUNT(1), NULL
   FROM mes_pqc_inspection_task;
 
 SELECT * FROM c00_postflight_blocker_report ORDER BY blocker_scope, source_id;
