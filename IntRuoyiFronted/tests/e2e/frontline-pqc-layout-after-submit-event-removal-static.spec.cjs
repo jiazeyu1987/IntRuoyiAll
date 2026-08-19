@@ -45,7 +45,7 @@ assert.match(
   'The PQC submit bar must belong to the same main grid as the left content and right fill panel.'
 )
 
-const mainStyle = extractBraceBlock(style, '.frontline-operator-main')
+const mainStyle = extractBraceBlock(style, '\n.frontline-operator-main {')
 assert.match(
   mainStyle,
   /&\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(620px,\s*1\.28fr\)\s+minmax\(500px,\s*0\.92fr\)/,
@@ -58,8 +58,8 @@ assert.match(
 )
 
 const contentStyle = extractBraceBlock(style, '.frontline-pqc-content-panel')
-const fillStyle = extractBraceBlock(style, '.frontline-pqc-fill-panel')
-const submitStyle = extractBraceBlock(style, '.frontline-pqc-submit-bar')
+const fillStyle = extractBraceBlock(style, '\n.frontline-pqc-fill-panel {')
+const submitStyle = extractBraceBlock(style, '\n.frontline-pqc-submit-bar {')
 const listStyle = extractBraceBlock(style, '.frontline-pqc-inspection-list')
 
 assert.match(contentStyle, /grid-column:\s*1/, 'PQC content panel must stay in the left column.')

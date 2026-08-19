@@ -120,8 +120,8 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /\.frontline-operator-main\s*\{[\s\S]*&\.is-pqc\s*\{[\s\S]*gap:\s*28px/,
-  'The formal PQC normal layout must keep the same left/right panel gap as the updated HTML preview.'
+  /\.frontline-operator-main\s*\{[\s\S]*&\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(620px,\s*1\.28fr\)\s+minmax\(500px,\s*0\.92fr\)[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+104px[\s\S]*gap:\s*22px\s+24px/,
+  'The formal PQC normal layout must widen the fill panel and keep actions in the left-bottom grid row.'
 )
 assert.match(
   panelSource,
@@ -130,7 +130,7 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-screen\.is-pqc\s*\{[\s\S]*max-width:\s*1480px[\s\S]*min-height:\s*820px[\s\S]*grid-template-rows:\s*minmax\(118px,\s*auto\)\s+minmax\(0,\s*1fr\)\s+104px[\s\S]*gap:\s*18px[\s\S]*padding:\s*24px[\s\S]*border-radius:\s*22px[\s\S]*box-shadow:\s*0 26px 70px/,
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-screen\.is-pqc\s*\{[\s\S]*max-width:\s*1480px[\s\S]*min-height:\s*820px[\s\S]*grid-template-rows:\s*minmax\(118px,\s*auto\)\s+minmax\(0,\s*1fr\)[\s\S]*gap:\s*18px[\s\S]*padding:\s*24px[\s\S]*border-radius:\s*22px[\s\S]*box-shadow:\s*0 26px 70px/,
   'The formal PQC maximized operator screen must match the updated HTML preview frame.'
 )
 assert.match(

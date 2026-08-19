@@ -7526,6 +7526,17 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 
+  .frontline-operator-main.is-pqc {
+    grid-template-rows: auto auto 104px;
+  }
+
+  .frontline-pqc-content-panel,
+  .frontline-pqc-fill-panel,
+  .frontline-pqc-submit-bar {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
   .frontline-pqc-choice-actions,
   .frontline-pqc-type-tabs,
   .frontline-pqc-round-tabs,

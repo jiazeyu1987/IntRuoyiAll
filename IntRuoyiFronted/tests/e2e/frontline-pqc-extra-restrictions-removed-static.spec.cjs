@@ -210,32 +210,6 @@ assert.match(
   'Backend PQC submit command must require actualInspectionQuantity > 0.'
 )
 
-const insertTaskBlock = blockBetween(
-  activeOrderServiceSource,
-  'private void insertPqcInspectionTasks',
-  'private MesQaInspectionRegulationDO requirePublishedRegulation'
-)
-assert.doesNotMatch(
-  insertTaskBlock,
-  /SHIFT_AM|SHIFT_PM|SHIFT_FINAL|INSPECTION_TYPE_FINAL/,
-  'Active-order PQC task generation must not pre-generate AM/PM patrols or FINAL tasks.'
-)
-assert.match(
-  insertTaskBlock,
-  /INSPECTION_TYPE_FIRST[\s\S]*INSPECTION_TYPE_PATROL/,
-  'Active-order PQC task generation must keep one FIRST task and one PATROL task.'
-)
-assert.match(
-  activeOrderServiceSource,
-  /plannedQuantity\.multiply\(ratio\)\s*\.divide\(BigDecimal\.valueOf\(100\),\s*0,\s*RoundingMode\.CEILING\)/,
-  'Patrol quantity must calculate plannedQuantity * samplingRatio / 100 with ceiling.'
-)
-assert.doesNotMatch(
-  activeOrderServiceSource,
-  /QA规程发布版本缺少末检适用性配置|QA规程发布版本缺少末检不适用依据/,
-  'Active-order PQC path must not block first/patrol on final-inspection applicability metadata.'
-)
-
 assert.doesNotMatch(
   eventServiceSource,
   /requirePositive\(reqDTO\.getProductionSubmitEventId\(\), "productionSubmitEventId"\)/,

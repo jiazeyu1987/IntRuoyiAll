@@ -79,8 +79,9 @@ for (const token of ['pqcDraft', 'pqcPieceValues', 'rawPayload']) {
 }
 
 assert(
-  leaderPage.includes('resolvePqcSubmissionContentItems') &&
-    leaderPage.includes('resolvePqcItemSnapshotDetails') &&
+  leaderPage.includes('resolvePqcItemSnapshotDetails') &&
+    leaderPage.includes('resolvePqcDetailStructuredItems') &&
+    leaderPage.includes('data-pqc-leader-item-snapshot-table') &&
     /pqcItemDetails|itemResults/.test(leaderPage),
   'PQC 组长列表必须按检验员正式项目级明细解析展示，不能只展示汇总。'
 )
