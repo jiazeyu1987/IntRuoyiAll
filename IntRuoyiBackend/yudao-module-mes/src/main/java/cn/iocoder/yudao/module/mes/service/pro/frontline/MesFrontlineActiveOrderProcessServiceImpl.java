@@ -3,8 +3,6 @@ package cn.iocoder.yudao.module.mes.service.pro.frontline;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
@@ -16,9 +14,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH;
@@ -34,17 +34,14 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesProRouteVersionMapper routeVersionMapper;
-    private final MesProProcessMapper processMapper;
 
     public MesFrontlineActiveOrderProcessServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
-            MesProRouteVersionMapper routeVersionMapper,
-            MesProProcessMapper processMapper) {
+            MesProRouteVersionMapper routeVersionMapper) {
         this.activeOrderMapper = activeOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.routeVersionMapper = routeVersionMapper;
-        this.processMapper = processMapper;
     }
 
     @Override
@@ -60,6 +57,17 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
         }
         if (processSnapshots.size() != nodes.size()) {
             throw snapshotInvalid(activeOrderId, "冻结流程工序与逐工序目标快照数量不一致");
+        }
+        Set<ProcessIdentity> snapshotIdentities = new LinkedHashSet<>();
+        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : processSnapshots) {
+            if (snapshot == null || snapshot.getRouteProcessId() == null || snapshot.getProcessId() == null
+                    || !snapshotIdentities.add(new ProcessIdentity(snapshot.getRouteProcessId(),
+                    snapshot.getProcessId()))) {
+                throw snapshotInvalid(activeOrderId, "逐工序目标快照身份缺失或重复");
+            }
+        }
+        if (!snapshotIdentities.equals(nodes.keySet())) {
+            throw snapshotInvalid(activeOrderId, "逐工序目标快照与锁定工艺版本工序不一致");
         }
         String routeCode = normalize(routeSnapshot.getString("routeCode"));
         String routeName = normalize(routeSnapshot.getString("routeName"));
@@ -163,7 +171,7 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
         if (node == null) {
             throw snapshotInvalid(activeOrder.getId(), "逐工序目标快照不属于锁定工艺版本");
         }
-        FrozenProcessLabel processLabel = resolveProcessLabel(activeOrder.getId(), snapshot.getProcessId(), node);
+        FrozenProcessLabel processLabel = resolveProcessLabel(activeOrder.getId(), snapshot, node);
         String processCode = processLabel.processCode();
         String processName = processLabel.processName();
         if (processCode == null || processName == null) {
@@ -178,29 +186,31 @@ public class MesFrontlineActiveOrderProcessServiceImpl implements MesFrontlineAc
                 routeCode, routeName, snapshot.getRouteProcessId(), snapshot.getProcessId(), processCode, processName,
                 node.getInteger("sort"), workstationId, normalize(node.getString("workstationCode")),
                 normalize(node.getString("workstationName")), snapshot.getProductionQuantityFactorSnapshot(),
-                snapshot.getPlannedQuantitySnapshot());
+                snapshot.getPlannedQuantitySnapshot(), Boolean.TRUE.equals(node.getBoolean("checkFlag")));
     }
 
     private static ServiceException snapshotInvalid(Long activeOrderId, String detail) {
         return exception(PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID, activeOrderId, detail);
     }
 
-    private FrozenProcessLabel resolveProcessLabel(Long activeOrderId, Long processId, JSONObject node) {
-        String processCode = normalize(node.getString("processCode"));
-        String processName = normalize(node.getString("processName"));
-        if (processCode != null && processName != null) {
-            return new FrozenProcessLabel(processCode, processName);
+    private FrozenProcessLabel resolveProcessLabel(
+            Long activeOrderId,
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+            JSONObject node) {
+        String snapshotCode = normalize(snapshot.getProcessCodeSnapshot());
+        String snapshotName = normalize(snapshot.getProcessNameSnapshot());
+        String routeSnapshotCode = normalize(node.getString("processCode"));
+        String routeSnapshotName = normalize(node.getString("processName"));
+        if (snapshotCode != null && routeSnapshotCode != null
+                && !Objects.equals(snapshotCode, routeSnapshotCode)) {
+            throw snapshotInvalid(activeOrderId, "冻结工序编码与路线版本快照不一致");
         }
-        MesProProcessDO process = processMapper.selectById(processId);
-        if (process == null) {
-            throw snapshotInvalid(activeOrderId, "冻结工序主数据不存在");
+        if (snapshotName != null && routeSnapshotName != null
+                && !Objects.equals(snapshotName, routeSnapshotName)) {
+            throw snapshotInvalid(activeOrderId, "冻结工序名称与路线版本快照不一致");
         }
-        if (processCode == null) {
-            processCode = normalize(process.getCode());
-        }
-        if (processName == null) {
-            processName = normalize(process.getName());
-        }
+        String processCode = snapshotCode == null ? routeSnapshotCode : snapshotCode;
+        String processName = snapshotName == null ? routeSnapshotName : snapshotName;
         return new FrozenProcessLabel(processCode, processName);
     }
 

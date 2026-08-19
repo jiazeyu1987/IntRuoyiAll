@@ -3,8 +3,6 @@ package cn.iocoder.yudao.module.mes.service.pro.frontline;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
@@ -39,15 +37,13 @@ class MesFrontlineActiveOrderProcessServiceTest {
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
     private MesProRouteVersionMapper routeVersionMapper;
-    @Mock
-    private MesProProcessMapper processMapper;
 
     private MesFrontlineActiveOrderProcessService service;
 
     @BeforeEach
     void setUp() {
         service = new MesFrontlineActiveOrderProcessServiceImpl(activeOrderMapper, processSnapshotMapper,
-                routeVersionMapper, processMapper);
+                routeVersionMapper);
     }
 
     @Test
@@ -72,6 +68,7 @@ class MesFrontlineActiveOrderProcessServiceTest {
         assertEquals("WS-OLD", process.workstationCode());
         assertEquals(new BigDecimal("1.500000"), process.productionQuantityFactor());
         assertEquals(new BigDecimal("150.000000"), process.targetQuantity());
+        assertEquals(Boolean.FALSE, process.checkFlag());
     }
 
     @Test
@@ -86,12 +83,11 @@ class MesFrontlineActiveOrderProcessServiceTest {
     }
 
     @Test
-    void listProcesses_resolvesProcessLabelFromMasterDataWhenFrozenNodeOnlyHasIdentity() {
+    void listProcesses_usesFrozenProcessSnapshotWhenRouteNodeLabelsAreMissing() {
         when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
         when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersionWithoutProcessLabels());
         when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
-                processSnapshot()));
-        when(processMapper.selectById(PROCESS_ID)).thenReturn(processMaster("ER0C9BD936FFAE", "粗洗工序"));
+                processSnapshotWithLabels()));
 
         List<MesFrontlineActiveOrderProcess> processes = service.listProcesses(LOGIN_LEADER_ID, ACTIVE_ORDER_ID);
 
@@ -101,17 +97,31 @@ class MesFrontlineActiveOrderProcessServiceTest {
     }
 
     @Test
-    void listProcesses_rejectsFrozenNodeWithoutLabelsWhenMasterDataIsMissing() {
+    void listProcesses_keepsFrozenRouteProcessCheckFlagFromLockedVersionSnapshot() {
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+        when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersionWithCheckProcess());
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                processSnapshot()));
+
+        List<MesFrontlineActiveOrderProcess> processes = service.listProcesses(LOGIN_LEADER_ID, ACTIVE_ORDER_ID);
+
+        assertEquals(1, processes.size());
+        assertEquals(Boolean.TRUE, processes.get(0).checkFlag());
+        assertEquals(Boolean.TRUE, processes.get(0).toRouteProcessCandidate().checkFlag());
+        assertEquals(FROZEN_ROUTE_PROCESS_ID, processes.get(0).toRouteProcessCandidate().routeProcessId());
+    }
+
+    @Test
+    void listProcesses_rejectsFrozenNodeAndProcessSnapshotWithoutLabels() {
         when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
         when(routeVersionMapper.selectById(ROUTE_VERSION_ID)).thenReturn(routeVersionWithoutProcessLabels());
         when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 processSnapshot()));
-        when(processMapper.selectById(PROCESS_ID)).thenReturn(null);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> service.listProcesses(LOGIN_LEADER_ID, ACTIVE_ORDER_ID));
         assertTrue(exception.getMessage().contains("activeOrderId=" + ACTIVE_ORDER_ID));
-        assertTrue(exception.getMessage().contains("冻结工序主数据不存在"));
+        assertTrue(exception.getMessage().contains("冻结编码或名称"));
     }
 
     private static MesProcessPoolActiveOrderDO activeOrder() {
@@ -140,6 +150,22 @@ class MesFrontlineActiveOrderProcessServiceTest {
                 .build();
     }
 
+    private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshotWithLabels() {
+        return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                .id(7001L)
+                .activeOrderId(ACTIVE_ORDER_ID)
+                .workOrderId(1001L)
+                .routeId(ROUTE_ID)
+                .routeVersionId(ROUTE_VERSION_ID)
+                .routeProcessId(FROZEN_ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .processCodeSnapshot("ER0C9BD936FFAE")
+                .processNameSnapshot("粗洗工序")
+                .productionQuantityFactorSnapshot(new BigDecimal("1.500000"))
+                .plannedQuantitySnapshot(new BigDecimal("150.000000"))
+                .build();
+    }
+
     private static MesProRouteVersionDO routeVersion() {
         return MesProRouteVersionDO.builder()
                 .id(ROUTE_VERSION_ID)
@@ -163,7 +189,42 @@ class MesFrontlineActiveOrderProcessServiceTest {
                                   "sort": 10,
                                   "routeProcessWorkstationId": 301,
                                   "workstationCode": "WS-OLD",
-                                  "workstationName": "旧版精洗工位"
+                                  "workstationName": "旧版精洗工位",
+                                  "checkFlag": false
+                                }
+                              ]
+                            }
+                          }
+                        }
+                        """)
+                .build();
+    }
+
+    private static MesProRouteVersionDO routeVersionWithCheckProcess() {
+        return MesProRouteVersionDO.builder()
+                .id(ROUTE_VERSION_ID)
+                .routeId(ROUTE_ID)
+                .versionNo("V1")
+                .active(Boolean.FALSE)
+                .lifecycleStatus("SUPERSEDED")
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 101,
+                          "routeCode": "R-OLD",
+                          "routeName": "旧版路线",
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {
+                                  "routeProcessId": 980645,
+                                  "processId": 201,
+                                  "processCode": "P-OLD",
+                                  "processName": "旧版精洗",
+                                  "sort": 10,
+                                  "routeProcessWorkstationId": 301,
+                                  "workstationCode": "WS-OLD",
+                                  "workstationName": "旧版精洗工位",
+                                  "checkFlag": true
                                 }
                               ]
                             }
@@ -204,11 +265,4 @@ class MesFrontlineActiveOrderProcessServiceTest {
                 .build();
     }
 
-    private static MesProProcessDO processMaster(String code, String name) {
-        return MesProProcessDO.builder()
-                .id(PROCESS_ID)
-                .code(code)
-                .name(name)
-                .build();
-    }
 }

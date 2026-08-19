@@ -8,8 +8,8 @@ const BROWSER_EXECUTABLE =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const OUTPUT_DIR = path.resolve(
-  process.cwd(),
-  'output/playwright/20260731-frontline-pqc-html-alignment'
+  process.env.EDHR_FRONTLINE_PQC_HTML_ALIGNMENT_OUTPUT_DIR ||
+    path.join(process.cwd(), 'output/playwright/20260731-frontline-pqc-html-alignment')
 )
 
 function readDefaultLogin() {
@@ -214,12 +214,33 @@ async function run() {
     })
     await appearanceGroup.getByRole('button', { name: '逐件选择' }).click()
     await modal.waitFor({ state: 'visible', timeout: 30000 })
+    const pieceSwitches = modal.locator('[data-pqc-piece-choice-switch]')
     assert.equal(
-      await modal.locator('.frontline-pqc-piece-choice .pass.active').count(),
+      await pieceSwitches.count(),
       30,
-      'Bulk pass must populate all 30 piece choices.'
+      'Bulk pass must render one switch for each of the 30 piece choices.'
     )
-    await modal.getByRole('button', { name: '第 1 件外观不合格' }).click()
+    assert.equal(
+      await modal.locator('.frontline-pqc-piece-switch.is-checked').count(),
+      30,
+      'Bulk pass must mark all 30 piece switches as checked.'
+    )
+    const firstPieceSwitch = pieceSwitches.first()
+    await firstPieceSwitch.click()
+    assert.equal(
+      await firstPieceSwitch.getAttribute('aria-checked'),
+      'false',
+      'Switching the first piece off must set it to the inactive state.'
+    )
+    assert.match(
+      (await firstPieceSwitch.getAttribute('aria-label')) || '',
+      /不合格$/,
+      'The inactive switch must expose the formal 不合格 label.'
+    )
+    await page.screenshot({
+      path: path.join(OUTPUT_DIR, 'pqc-choice-grid-1920.png'),
+      fullPage: true
+    })
     await modal.getByRole('button', { name: '完成' }).click()
     assert.ok(
       await appearanceGroup.getByRole('button', { name: '逐件选择' }).evaluate((element) =>

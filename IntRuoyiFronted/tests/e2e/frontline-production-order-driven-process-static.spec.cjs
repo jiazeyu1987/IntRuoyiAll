@@ -48,8 +48,18 @@ assert.match(
 )
 assert.match(
   selectOrder,
-  /await ProFeedbackApi\.getFrontlineDeviceAccountProcesses\(\)[\s\S]*processes\.filter\([\s\S]*process\.routeId\s*===\s*activeOrder\.routeId/,
-  'process options must be refreshed and derived only from the selected work order route.'
+  /await ProFeedbackApi\.getFrontlineProductionActiveOrderProcesses\(\s*activeOrder\.activeOrderId\s*\)/,
+  'process options must be refreshed from the selected active order frozen process API.'
+)
+assert.doesNotMatch(
+  selectOrder,
+  /getFrontlineDeviceAccountProcesses\(\)/,
+  'production active-order switching must not reuse the old device-account route process list.'
+)
+assert.match(
+  selectOrder,
+  /routeProcesses\.some\(\(process\) => process\.activeOrderId !== activeOrder\.activeOrderId\)/,
+  'the refreshed process response must be tied to the selected activeOrderId.'
 )
 assert.match(
   selectOrder,
@@ -70,7 +80,7 @@ assert.match(
 )
 assert.match(
   handleOrder,
-  /findInitialProcess\(processes,\s*requestedProcessIdentity\)[\s\S]*try\s*\{[\s\S]*await handleSelectProcess\(initialProcess\)[\s\S]*\}\s*catch\s*\(error\)\s*\{[\s\S]*message\.error\(resolveErrorMessage\(error\)\)/,
+  /findInitialProcess\(processes,\s*requestedProcessIdentity\)[\s\S]*try\s*\{[\s\S]*await handleSelectProcess\(initialProcess\)[\s\S]*\}\s*catch\s*\(error\)\s*\{[\s\S]*showFrontlineError\(error\)/,
   'production order clicks must select the first process from the new route.'
 )
 assert.doesNotMatch(

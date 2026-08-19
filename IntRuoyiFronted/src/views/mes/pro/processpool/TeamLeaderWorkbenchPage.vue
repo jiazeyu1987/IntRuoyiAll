@@ -1333,6 +1333,7 @@
           stripe
           :show-overflow-tooltip="true"
           data-team-leader-active-order-list
+          data-user-table-key="mes.pro.processPool.teamLeader.activeOrders"
         >
           <el-table-column label="活跃池ID" prop="id" width="110">
             <template #default="{ row }">
@@ -1385,7 +1386,7 @@
           <el-table-column label="加入时间" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="350" fixed="right">
+          <el-table-column label="操作" width="420" fixed="right">
             <template #default="{ row }">
               <el-tooltip content="上移" placement="top">
                 <el-button
@@ -1431,8 +1432,9 @@
                 link
                 type="danger"
                 :loading="maintenanceSubmitting"
+                :disabled="activeOrderRebuildSubmittingId !== undefined"
                 data-team-leader-remove-active-order
-                @click="submitRemoveActiveOrder(row)"
+                @click="handleRemoveActiveOrder(row)"
               >
                 移除
               </el-button>
@@ -1461,6 +1463,16 @@
                 @click="submitActiveOrderReleaseApplication(row)"
               >
                 完工
+              </el-button>
+              <el-button
+                link
+                type="success"
+                :loading="activeOrderRebuildSubmittingId === row.id"
+                :disabled="maintenanceSubmitting || activeOrderRebuildSubmittingId !== undefined"
+                data-team-leader-rebuild-active-order
+                @click="handleRebuildActiveOrder(row)"
+              >
+                重建
               </el-button>
             </template>
           </el-table-column>
@@ -3461,6 +3473,8 @@ import {
   markAndReportWorkOrderAbnormal,
   moveTeamLeaderActiveOrder,
   previewTeamLeaderReportFifoAllocation,
+  previewTeamLeaderActiveOrderRebuild,
+  rebuildTeamLeaderActiveOrder,
   removeTeamLeaderActiveOrder,
   resetTemporaryTeamEmployeeSignaturePassword,
   reviewTeamLeaderSubmission,
@@ -3745,6 +3759,7 @@ const maintenanceSubmitting = ref(false)
 const activeOrderLoading = ref(false)
 const activeOrderMoveSubmittingId = ref<number>()
 const activeOrderMoveDirection = ref<'UP' | 'DOWN'>()
+const activeOrderRebuildSubmittingId = ref<number>()
 const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
@@ -7977,7 +7992,44 @@ const submitMoveActiveOrder = async (
   }
 }
 
-const submitRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
+  activeOrderRebuildSubmittingId.value = row.id
+  let writeCompleted = false
+  try {
+    const preview = await previewTeamLeaderActiveOrderRebuild(
+      requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+    )
+    const confirmMessage = preview.hasHistoricalRuntimeData
+      ? `当前活跃订单已有 ${preview.productionReportCount} 条报工记录、${preview.productionProgressCount} 条生产进度、${preview.pqcInspectionResultCount} 条 PQC 检验结果。确认后会先删除这些历史业务结果，并删除生产快照、PQC 快照，再按当前最新数据重建。${preview.releaseApplicationCount > 0 ? ` 另外将删除 ${preview.releaseApplicationCount} 条放行申请历史。` : ''}`
+      : '确认重建当前活跃订单的生产快照和 PQC 快照？系统会删除旧生产快照、PQC 快照，并按当前最新数据重新生成。'
+    await ElMessageBox.confirm(confirmMessage, '重建活跃订单', {
+      type: preview.hasHistoricalRuntimeData ? 'warning' : 'info',
+      confirmButtonText: '确认重建',
+      cancelButtonText: '取消'
+    })
+    const result = await rebuildTeamLeaderActiveOrder({
+      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
+      confirmDeleteHistoricalRuntimeData: preview.hasHistoricalRuntimeData
+    })
+    writeCompleted = true
+    ElMessage.success(
+      `活跃订单已重建：生产快照 ${result.rebuiltProcessSnapshotCount} 条，PQC 快照 ${result.rebuiltPqcTaskCount} 条`
+    )
+    await loadActiveOrders()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(
+      resolveErrorMessage(
+        error,
+        writeCompleted ? '活跃订单已重建，但列表刷新失败' : '活跃订单重建失败'
+      )
+    )
+  } finally {
+    activeOrderRebuildSubmittingId.value = undefined
+  }
+}
+
+const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
   maintenanceSubmitting.value = true
   let writeCompleted = false
   try {

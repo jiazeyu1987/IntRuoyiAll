@@ -109,10 +109,12 @@ public class MesFrontlineDeviceAccountController {
     @Operation(summary = "获得当前工序可切换员工")
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
     public CommonResult<List<MesFrontlineEmployeeCandidateRespVO>> getEmployeeCandidates(
+            @RequestParam(value = "activeOrderId", required = false) Long activeOrderId,
             @RequestParam("routeId") @NotNull Long routeId,
             @RequestParam("routeProcessId") @NotNull Long routeProcessId,
             @RequestParam("processId") @NotNull Long processId) {
-        return success(contextService.listEmployeeCandidates(getLoginUserId(), routeId, routeProcessId, processId).stream()
+        return success(contextService.listEmployeeCandidates(getLoginUserId(), activeOrderId,
+                        routeId, routeProcessId, processId).stream()
                 .map(MesFrontlineDeviceAccountController::toEmployeeCandidateRespVO)
                 .toList());
     }

@@ -54,6 +54,8 @@ class MesFrontlineUniqueLeaderAssignmentTest {
     private MesDvMachineryService machineryService;
     @Mock
     private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
+    @Mock
+    private MesFrontlineActiveOrderProcessService activeOrderProcessService;
 
     private MesFrontlineDeviceAccountContextServiceImpl contextService;
 
@@ -61,7 +63,8 @@ class MesFrontlineUniqueLeaderAssignmentTest {
     void setUp() {
         contextService = new MesFrontlineDeviceAccountContextServiceImpl(routeBindingSourceProvider, routeProcessMapper,
                 routeVersionMapper, processService, workstationWorkerService, adminUserApi, permissionApi,
-                routeService, workstationService, workstationMachineService, machineryService, employeeProfileMapper);
+                routeService, workstationService, workstationMachineService, machineryService, employeeProfileMapper,
+                activeOrderProcessService);
     }
 
     @Test

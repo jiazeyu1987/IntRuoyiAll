@@ -417,6 +417,11 @@ export const selectFrontlineProcess = async (
   state: FrontlineDeviceEmployeeState,
   process: FrontlineDeviceRouteProcessVO
 ) => {
+  if (!process.activeOrderId) {
+    const error = new Error('当前工序缺少活跃订单身份，无法加载运行配置')
+    state.lastError = error.message
+    throw error
+  }
   const requestToken = ++state.processSelectionRequestToken
   state.selectedProcess = process
   state.selectedEmployee = undefined
@@ -682,9 +687,14 @@ export const preloadFrontlineProductionRuntimeCache = async (
 ) => {
   const uniqueProcesses = processes.filter((process, index, items) =>
     items.findIndex((item) =>
-      createFrontlineBaseProcessKey(item) === createFrontlineBaseProcessKey(process)
+      createFrontlineProcessRuntimeCacheKey(item) === createFrontlineProcessRuntimeCacheKey(process)
     ) === index
   )
+  if (uniqueProcesses.some((process) => !process.activeOrderId)) {
+    const error = new Error('当前工序缺少活跃订单身份，无法预加载运行配置')
+    state.lastError = error.message
+    throw error
+  }
   const uncachedProcesses = uniqueProcesses.filter((process) =>
     !readFrontlineRuntimeConfigCache(state, process)
   )

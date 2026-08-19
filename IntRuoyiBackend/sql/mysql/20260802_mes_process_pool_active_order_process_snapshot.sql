@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_active_order_process_snapshot` 
     `route_version_id` bigint NOT NULL COMMENT '正式工艺路线版本ID',
     `route_process_id` bigint NOT NULL COMMENT '工艺路线工序ID',
     `process_id` bigint NOT NULL COMMENT '工序ID',
+    `process_code_snapshot` varchar(64) NOT NULL COMMENT '工序编码快照',
+    `process_name_snapshot` varchar(255) NOT NULL COMMENT '工序名称快照',
     `erp_fixed_quantity_snapshot` decimal(24,6) NOT NULL COMMENT 'ERP固定生产数量快照',
     `production_quantity_factor_snapshot` decimal(24,6) NOT NULL COMMENT '生产数量系数快照',
     `planned_quantity_snapshot` decimal(24,6) NOT NULL COMMENT '工序目标数量快照',

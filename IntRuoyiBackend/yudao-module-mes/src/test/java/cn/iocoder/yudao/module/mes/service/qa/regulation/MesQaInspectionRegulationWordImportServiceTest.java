@@ -186,6 +186,74 @@ class MesQaInspectionRegulationWordImportServiceTest {
     }
 
     @Test
+    void importWordDraft_upgradesByFullSourceOriginalItemWhenTerminalItemNamesRepeat() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsedWithItem("B/1",
+                "大包装工序", "外箱 / 外观"));
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
+        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, PUBLISHED_VERSION_ID))
+                .thenReturn(existingPackagingTerminalNameConfiguration());
+        when(regulationService.saveDraft(any())).thenReturn(savedDraft(REGULATION_ID, 73L, "B/1"));
+
+        MesQaInspectionRegulationImportRespVO response = importService.importWordDraft(file(), DCC_PROJECT_ID);
+
+        ArgumentCaptor<MesQaInspectionRegulationSaveReqVO> requestCaptor =
+                ArgumentCaptor.forClass(MesQaInspectionRegulationSaveReqVO.class);
+        verify(regulationService).saveDraft(requestCaptor.capture());
+        MesQaInspectionRegulationSaveReqVO.InspectionItem item =
+                requestCaptor.getValue().getProcesses().get(0).getItems().get(0);
+        assertEquals("UPGRADE", response.getRoute());
+        assertEquals(1, response.getInheritedItemCount());
+        assertEquals("LEGACY-PACK-BOX", item.getItemCode());
+        assertEquals("NUMERIC", item.getResultType());
+        assertEquals("新标准", item.getStandardText());
+        assertEquals("大包装工序 / 外箱 / 外观", item.getSourceOriginalItem());
+    }
+
+    @Test
+    void importWordDraft_ignoresAmbiguousLegacyTerminalNameWhenNewItemHasFullPath() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsedWithItem("B/1",
+                "大包装工序", "外箱 / 外观"));
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
+        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, PUBLISHED_VERSION_ID))
+                .thenReturn(existingAmbiguousTerminalNameConfiguration());
+        when(regulationService.saveDraft(any())).thenReturn(savedDraft(REGULATION_ID, 73L, "B/1"));
+
+        MesQaInspectionRegulationImportRespVO response = importService.importWordDraft(file(), DCC_PROJECT_ID);
+
+        ArgumentCaptor<MesQaInspectionRegulationSaveReqVO> requestCaptor =
+                ArgumentCaptor.forClass(MesQaInspectionRegulationSaveReqVO.class);
+        verify(regulationService).saveDraft(requestCaptor.capture());
+        MesQaInspectionRegulationSaveReqVO.InspectionItem item =
+                requestCaptor.getValue().getProcesses().get(0).getItems().get(0);
+        assertEquals("UPGRADE", response.getRoute());
+        assertEquals(0, response.getInheritedItemCount());
+        assertTrue(item.getItemCode().startsWith("PQC-TEST-001-I"));
+        assertEquals("BOOLEAN", item.getResultType());
+        assertEquals("大包装工序 / 外箱 / 外观", item.getSourceOriginalItem());
+    }
+
+    @Test
+    void importWordDraft_rejectsAmbiguousLegacyTerminalNameWhenNewItemNeedsThatKey() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsedWithItem("B/1",
+                "大包装工序", "外观"));
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
+        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, PUBLISHED_VERSION_ID))
+                .thenReturn(existingAmbiguousTerminalNameConfiguration());
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> importService.importWordDraft(file(), DCC_PROJECT_ID));
+
+        assertTrue(exception.getMessage().contains("同名检验项目不唯一：大包装工序 / 外观"));
+        verify(regulationService, never()).saveDraft(any());
+    }
+
+    @Test
     void importWordDraft_rejectsInvalidDccProjectWithoutParsingOrSaving() throws Exception {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(null);
 
@@ -227,6 +295,17 @@ class MesQaInspectionRegulationWordImportServiceTest {
                 LocalDate.of(2026, 8, 17), List.of(
                 new MesQaInspectionRegulationWordParser.ParsedItem(
                         "清洗", "外观", "表面清洁，无异物", "目视检查", "目测",
+                        "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, new BigDecimal("0.4"))),
+                "测试QA模板.docx");
+    }
+
+    private static MesQaInspectionRegulationWordParser.ParsedRegulation parsedWithItem(
+            String versionNo, String processName, String itemName) {
+        return new MesQaInspectionRegulationWordParser.ParsedRegulation(
+                "PQC-TEST-001", "测试产品组装过程检验规程", versionNo,
+                LocalDate.of(2026, 8, 17), List.of(
+                new MesQaInspectionRegulationWordParser.ParsedItem(
+                        processName, itemName, "新标准", "目视检查", "目测",
                         "首件：5件；GB/T 2828.1，I，AQL=0.4", 5, new BigDecimal("0.4"))),
                 "测试QA模板.docx");
     }
@@ -299,6 +378,96 @@ class MesQaInspectionRegulationWordImportServiceTest {
                         rule("PATROL_PM", "PATROL", null),
                         rule("FINAL", "FINAL", 3)))
                 .processes(List.of(process))
+                .build();
+    }
+
+    private static MesQaInspectionRegulationPublishedVersionRespVO existingPackagingTerminalNameConfiguration() {
+        MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem labelAppearance =
+                legacyItem("LEGACY-PACK-LABEL", "外观", "大包装工序 / 标签 / 外观");
+        MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem boxAppearance =
+                legacyItem("LEGACY-PACK-BOX", "外观", "大包装工序 / 外箱 / 外观");
+        MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess process =
+                MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess.builder()
+                        .qaProcessId(82L)
+                        .processCode("LEGACY-PACK")
+                        .processName("大包装工序")
+                        .sort(1)
+                        .items(List.of(labelAppearance, boxAppearance))
+                        .build();
+        return MesQaInspectionRegulationPublishedVersionRespVO.builder()
+                .dccProjectCodeId(DCC_PROJECT_ID)
+                .regulationId(REGULATION_ID)
+                .publishedVersionId(PUBLISHED_VERSION_ID)
+                .versionNo("B/0")
+                .effectiveDate(LocalDate.of(2026, 1, 4))
+                .lifecycleStatus("PUBLISHED")
+                .regulationCode("PQC-TEST-001")
+                .regulationName("测试产品组装过程检验规程")
+                .finalInspectionApplicable(false)
+                .finalInspectionNotApplicableReason("原版本不适用末检")
+                .inspectionTypeRules(List.of(
+                        rule("FIRST", "FIRST", null),
+                        rule("PATROL_AM", "PATROL", null),
+                        rule("PATROL_PM", "PATROL", null)))
+                .processes(List.of(process))
+                .build();
+    }
+
+    private static MesQaInspectionRegulationPublishedVersionRespVO existingAmbiguousTerminalNameConfiguration() {
+        MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem labelAppearance =
+                legacyItem("LEGACY-PACK-LABEL", "外观", "大包装工序 / 外观");
+        MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem boxAppearance =
+                legacyItem("LEGACY-PACK-BOX", "外观", "大包装工序 / 外观");
+        MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess process =
+                MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess.builder()
+                        .qaProcessId(82L)
+                        .processCode("LEGACY-PACK")
+                        .processName("大包装工序")
+                        .sort(1)
+                        .items(List.of(labelAppearance, boxAppearance))
+                        .build();
+        return MesQaInspectionRegulationPublishedVersionRespVO.builder()
+                .dccProjectCodeId(DCC_PROJECT_ID)
+                .regulationId(REGULATION_ID)
+                .publishedVersionId(PUBLISHED_VERSION_ID)
+                .versionNo("B/0")
+                .effectiveDate(LocalDate.of(2026, 1, 4))
+                .lifecycleStatus("PUBLISHED")
+                .regulationCode("PQC-TEST-001")
+                .regulationName("测试产品组装过程检验规程")
+                .finalInspectionApplicable(false)
+                .finalInspectionNotApplicableReason("原版本不适用末检")
+                .inspectionTypeRules(List.of(
+                        rule("FIRST", "FIRST", null),
+                        rule("PATROL_AM", "PATROL", null),
+                        rule("PATROL_PM", "PATROL", null)))
+                .processes(List.of(process))
+                .build();
+    }
+
+    private static MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem legacyItem(
+            String itemCode, String itemName, String sourceOriginalItem) {
+        return MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem.builder()
+                .itemSort(1)
+                .itemCode(itemCode)
+                .itemName(itemName)
+                .inspectionMethod("旧方法")
+                .inspectionTool("旧器具")
+                .samplingPlanText("AQL=1.0")
+                .standardText("旧标准")
+                .standardLowerLimit(new BigDecimal("1.2"))
+                .standardUpperLimit(new BigDecimal("2.4"))
+                .standardUnit("MPa")
+                .standardPrecision(2)
+                .equipmentRequired(false)
+                .equipmentOptions(List.of())
+                .resultType("NUMERIC")
+                .applicableInspectionTypes(List.of("FIRST", "PATROL"))
+                .firstInspectionQuantity(3)
+                .patrolInspectionRatio(new BigDecimal("1.0"))
+                .critical(true)
+                .failureRule("原失败规则")
+                .sourceOriginalItem(sourceOriginalItem)
                 .build();
     }
 

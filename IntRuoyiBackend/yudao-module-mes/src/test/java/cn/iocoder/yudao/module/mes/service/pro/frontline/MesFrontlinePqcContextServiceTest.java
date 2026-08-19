@@ -161,8 +161,11 @@ class MesFrontlinePqcContextServiceTest {
                 .thenReturn(lockedQaAggregate("PUBLISHED",
                         qaPublishedProcess(QA_PROCESS_ID, "ID-QA-001", "清洗", 1,
                                 qaPublishedItem("ID-001", List.of("FIRST")))));
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                processSnapshot(30001L, 40001L)));
         when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 MesPqcInspectionTaskDO.builder().id(9101L).activeOrderId(ACTIVE_ORDER_ID)
+                        .routeProcessId(30001L).processId(40001L)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(9999L)
                         .inspectionRuleKey("FIRST").inspectionType("FIRST")
                         .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FIRST").roundNo(1)
@@ -195,6 +198,7 @@ class MesFrontlinePqcContextServiceTest {
                         .taskStatus("CANCELLED").build(),
                 MesPqcInspectionTaskDO.builder().id(9101L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                        .routeProcessId(30001L).processId(40001L)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
                         .qaItemCode("ID-001")
                         .inspectionRuleKey("FIRST").inspectionType("FIRST")
@@ -236,6 +240,7 @@ class MesFrontlinePqcContextServiceTest {
         when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
                 MesPqcInspectionTaskDO.builder().id(9101L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                        .routeProcessId(30001L).processId(40001L)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
                         .qaItemCode("ID-001")
                         .inspectionRuleKey("PATROL_PM").inspectionType("PATROL")
@@ -243,6 +248,7 @@ class MesFrontlinePqcContextServiceTest {
                         .plannedInspectionQuantity(5).taskStatus("CONFIRMED").build(),
                 MesPqcInspectionTaskDO.builder().id(9102L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                        .routeProcessId(30001L).processId(40001L)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
                         .qaItemCode("ID-001")
                         .inspectionRuleKey("FIRST").inspectionType("FIRST")
@@ -250,6 +256,7 @@ class MesFrontlinePqcContextServiceTest {
                         .plannedInspectionQuantity(5).taskStatus("PENDING").build(),
                 MesPqcInspectionTaskDO.builder().id(9103L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                        .routeProcessId(30001L).processId(40001L)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
                         .qaItemCode("ID-001")
                         .inspectionRuleKey("PATROL_AM").inspectionType("PATROL")
@@ -257,6 +264,7 @@ class MesFrontlinePqcContextServiceTest {
                         .plannedInspectionQuantity(5).taskStatus("SUBMITTED").build(),
                 MesPqcInspectionTaskDO.builder().id(9104L).activeOrderId(ACTIVE_ORDER_ID)
                         .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                        .routeProcessId(30003L).processId(40003L)
                         .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
                         .qaItemCode("ID-001")
                         .inspectionRuleKey("FINAL").inspectionType("FINAL")
@@ -367,7 +375,37 @@ class MesFrontlinePqcContextServiceTest {
                                 qaPublishedItem("ID-001", List.of("FIRST")))));
         List<MesPqcInspectionTaskDO> invalidTasks = new java.util.ArrayList<>();
         invalidTasks.add(null);
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                processSnapshot(30001L, 40001L)));
         when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(invalidTasks);
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.listProcessesByActiveOrder(ACTIVE_ORDER_ID));
+
+        assertEquals(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH.getCode(), error.getCode());
+    }
+
+    @Test
+    void lockedQaProjectionRejectsTaskFromCurrentRouteNodeNotFrozenByOrder() {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
+                LocalDateTime.of(2026, 8, 12, 8, 0));
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder);
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route());
+        when(regulationService.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, REGULATION_VERSION_ID))
+                .thenReturn(lockedQaAggregate("PUBLISHED",
+                        qaPublishedProcess(QA_PROCESS_ID, "ID-QA-001", "清洗", 1,
+                                qaPublishedItem("ID-001", List.of("FIRST")))));
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                processSnapshot(980645L, 922985L)));
+        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                MesPqcInspectionTaskDO.builder().id(9105L).activeOrderId(ACTIVE_ORDER_ID)
+                        .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                        .routeProcessId(9908090160L).processId(922985L)
+                        .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                        .qaItemCode("ID-001").inspectionRuleKey("FIRST").inspectionType("FIRST")
+                        .businessDate(LocalDate.of(2026, 8, 12)).shiftCode("FIRST").roundNo(1)
+                        .plannedInspectionQuantity(5).taskStatus("PENDING").build()));
 
         ServiceException error = assertThrows(ServiceException.class,
                 () -> service.listProcessesByActiveOrder(ACTIVE_ORDER_ID));

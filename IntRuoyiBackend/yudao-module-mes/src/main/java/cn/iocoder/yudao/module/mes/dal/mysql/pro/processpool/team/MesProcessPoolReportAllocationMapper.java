@@ -4,7 +4,9 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -32,6 +34,16 @@ public interface MesProcessPoolReportAllocationMapper extends BaseMapperX<MesPro
                 .eq(MesProcessPoolReportAllocationDO::getEventId, eventId)
                 .eq(MesProcessPoolReportAllocationDO::getLifecycleStatus,
                         MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
+                .orderByAsc(MesProcessPoolReportAllocationDO::getId)
+                .last("FOR UPDATE"));
+    }
+
+    default List<MesProcessPoolReportAllocationDO> selectAllListByEventIdForUpdate(Long eventId) {
+        if (eventId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolReportAllocationDO>()
+                .eq(MesProcessPoolReportAllocationDO::getEventId, eventId)
                 .orderByAsc(MesProcessPoolReportAllocationDO::getId)
                 .last("FOR UPDATE"));
     }
@@ -92,6 +104,16 @@ public interface MesProcessPoolReportAllocationMapper extends BaseMapperX<MesPro
                 .last("FOR UPDATE"));
     }
 
+    default List<MesProcessPoolReportAllocationDO> selectAllListByActiveOrderIdForUpdate(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolReportAllocationDO>()
+                .eq(MesProcessPoolReportAllocationDO::getActiveOrderId, activeOrderId)
+                .orderByAsc(MesProcessPoolReportAllocationDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProcessPoolReportAllocationDO> selectListByActiveOrderIds(Collection<Long> activeOrderIds) {
         if (activeOrderIds == null || activeOrderIds.isEmpty()) {
             return Collections.emptyList();
@@ -132,4 +154,11 @@ public interface MesProcessPoolReportAllocationMapper extends BaseMapperX<MesPro
                         MesProcessPoolReportAllocationDO.LIFECYCLE_SUPERSEDED)
                 .set(MesProcessPoolReportAllocationDO::getSupersededVersion, supersededVersion));
     }
+
+    default int deleteAllByActiveOrderId(Long activeOrderId) {
+        return activeOrderId == null ? 0 : physicalDeleteAllByActiveOrderId(activeOrderId);
+    }
+
+    @Delete("DELETE FROM mes_pro_process_pool_report_allocation WHERE active_order_id = #{activeOrderId}")
+    int physicalDeleteAllByActiveOrderId(@Param("activeOrderId") Long activeOrderId);
 }

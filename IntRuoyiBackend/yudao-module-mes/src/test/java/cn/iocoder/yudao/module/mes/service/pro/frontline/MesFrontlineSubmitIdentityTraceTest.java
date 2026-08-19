@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +22,8 @@ class MesFrontlineSubmitIdentityTraceTest {
     @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
+    private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Mock
     private MesFrontlineSessionSnapshotService sessionSnapshotService;
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
@@ -28,7 +31,7 @@ class MesFrontlineSubmitIdentityTraceTest {
     @BeforeEach
     void setUp() {
         submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
-                contextService, activeOrderMapper, sessionSnapshotService);
+                contextService, activeOrderMapper, processSnapshotMapper, sessionSnapshotService);
     }
 
     @Test

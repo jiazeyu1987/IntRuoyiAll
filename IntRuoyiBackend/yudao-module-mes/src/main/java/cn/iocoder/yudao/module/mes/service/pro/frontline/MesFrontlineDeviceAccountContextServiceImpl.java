@@ -74,6 +74,7 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
     private final MesMdWorkstationMachineService workstationMachineService;
     private final MesDvMachineryService machineryService;
     private final MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
+    private final MesFrontlineActiveOrderProcessService activeOrderProcessService;
 
     public MesFrontlineDeviceAccountContextServiceImpl(
             ObjectProvider<MesFrontlineDeviceAccountRouteBindingSource> routeBindingSourceProvider,
@@ -87,7 +88,8 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
             MesMdWorkstationService workstationService,
             MesMdWorkstationMachineService workstationMachineService,
             MesDvMachineryService machineryService,
-            MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper) {
+            MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper,
+            MesFrontlineActiveOrderProcessService activeOrderProcessService) {
         this.routeBindingSourceProvider = routeBindingSourceProvider;
         this.routeProcessMapper = routeProcessMapper;
         this.routeVersionMapper = routeVersionMapper;
@@ -100,6 +102,7 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         this.workstationMachineService = workstationMachineService;
         this.machineryService = machineryService;
         this.employeeProfileMapper = employeeProfileMapper;
+        this.activeOrderProcessService = activeOrderProcessService;
     }
 
     @Override
@@ -210,7 +213,7 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
             return List.of();
         }
         Set<Long> authorizedRouteIds =
-                resolveRouteStartProductionLeaderAuthorizedRouteIds(loginUserId, routeMap.keySet());
+                resolveRouteStartProductionLeaderAuthorizedRouteIds(loginUserId, routeMap);
         if (authorizedRouteIds.isEmpty()) {
             return List.of();
         }
@@ -298,11 +301,14 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
     }
 
     @Override
-    public List<MesFrontlineEmployeeCandidate> listEmployeeCandidates(Long loginUserId, Long routeId,
-                                                                      Long routeProcessId, Long processId) {
-        MesFrontlineRouteProcessCandidate processCandidate = requireAuthorizedProcess(loginUserId, routeId,
-                routeProcessId, processId);
+    public List<MesFrontlineEmployeeCandidate> listEmployeeCandidates(Long loginUserId, Long activeOrderId,
+                                                                      Long routeId, Long routeProcessId,
+                                                                      Long processId) {
         Long leaderUserId = resolveResponsibleLeaderUserId(loginUserId);
+        MesFrontlineRouteProcessCandidate processCandidate = activeOrderId == null
+                ? requireAuthorizedProcess(loginUserId, routeId, routeProcessId, processId)
+                : activeOrderProcessService.requireProcess(leaderUserId, activeOrderId, routeId,
+                        routeProcessId, processId).toRouteProcessCandidate();
         List<MesFrontlineEmployeeCandidate> candidates = employeeProfileMapper.selectList(
                         new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
                                 .eq(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId, leaderUserId)
@@ -355,7 +361,7 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                                                              Long processId, Long actualEmployeeId) {
         requireValue(actualEmployeeId, "actualEmployeeId");
         requireUniqueResponsibleLeaderUserId(actualEmployeeId);
-        return listEmployeeCandidates(loginUserId, routeId, routeProcessId, processId).stream()
+        return listEmployeeCandidates(loginUserId, null, routeId, routeProcessId, processId).stream()
                 .filter(candidate -> Objects.equals(candidate.userId(), actualEmployeeId))
                 .findFirst()
                 .orElseThrow(() -> exception(PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_IN_TEAM,
@@ -430,8 +436,8 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
     }
 
     private Set<Long> resolveRouteStartProductionLeaderAuthorizedRouteIds(
-            Long loginUserId, Set<Long> routeIds) {
-        List<MesProRouteVersionDO> routeVersions = routeVersionMapper.selectListByRouteIds(routeIds);
+            Long loginUserId, Map<Long, MesProRouteDO> routeMap) {
+        List<MesProRouteVersionDO> routeVersions = routeVersionMapper.selectListByRouteIds(routeMap.keySet());
         if (CollUtil.isEmpty(routeVersions)) {
             return Set.of();
         }
@@ -449,11 +455,19 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         if (activeVersionByRouteId.isEmpty()) {
             return Set.of();
         }
+        boolean allProcessPermissionGranted = permissionApi.hasAnyPermissions(loginUserId,
+                PRESSURE_PUMP_ALL_PROCESS_PERMISSION);
         Set<Long> userRoleIds = null;
         Set<Long> authorizedRouteIds = new LinkedHashSet<>();
         for (MesProRouteVersionDO routeVersion : activeVersionByRouteId.values()) {
             List<RouteStartProductionLeaderSnapshot> snapshots =
                     parseRouteStartProductionLeaderSnapshots(routeVersion);
+            if (allProcessPermissionGranted
+                    && isPressurePumpRoute(routeMap.get(routeVersion.getRouteId()))
+                    && !snapshots.isEmpty()) {
+                authorizedRouteIds.add(routeVersion.getRouteId());
+                continue;
+            }
             for (RouteStartProductionLeaderSnapshot snapshot : snapshots) {
                 if (CANDIDATE_SOURCE_TYPE_USERS.equals(snapshot.candidateSourceType())
                         && snapshot.candidateSourceIds().contains(loginUserId)) {
@@ -462,7 +476,8 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                 }
                 if (CANDIDATE_SOURCE_TYPE_ROLE.equals(snapshot.candidateSourceType())) {
                     if (userRoleIds == null) {
-                        userRoleIds = permissionApi.getUserRoleIdListByUserId(loginUserId);
+                        Set<Long> roleIds = permissionApi.getUserRoleIdListByUserId(loginUserId);
+                        userRoleIds = roleIds == null ? Set.of() : new LinkedHashSet<>(roleIds);
                     }
                     boolean roleMatched = snapshot.candidateSourceIds().stream().anyMatch(userRoleIds::contains);
                     if (roleMatched) {
@@ -472,6 +487,12 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
             }
         }
         return authorizedRouteIds;
+    }
+
+    private boolean isPressurePumpRoute(MesProRouteDO route) {
+        return route != null
+                && route.getName() != null
+                && route.getName().contains("压力泵");
     }
 
     private List<RouteStartProductionLeaderSnapshot> parseRouteStartProductionLeaderSnapshots(
@@ -663,7 +684,7 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                 routeBinding.deviceId(), routeBinding.deviceCode(), routeBinding.deviceName(),
                 routeProcess.getWorkstationId(),
                 routeBinding.workstationCode(), routeBinding.workstationName(),
-                MesFrontlineRouteProcessCandidate.CONTEXT_SOURCE_POST_BINDING);
+                MesFrontlineRouteProcessCandidate.CONTEXT_SOURCE_POST_BINDING, routeProcess.getCheckFlag());
     }
 
     private static MesFrontlineRouteProcessCandidate toCandidate(MesProRouteDO route,
@@ -678,7 +699,8 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                 machinery == null ? null : machinery.getCode(),
                 machinery == null ? null : machinery.getName(),
                 workstation.getId(), workstation.getCode(), workstation.getName(),
-                MesFrontlineRouteProcessCandidate.CONTEXT_SOURCE_ROUTE_START_PRODUCTION_LEADER);
+                MesFrontlineRouteProcessCandidate.CONTEXT_SOURCE_ROUTE_START_PRODUCTION_LEADER,
+                routeProcess.getCheckFlag());
     }
 
     private static RouteWorkstationKey routeWorkstationKey(MesProRouteProcessDO routeProcess) {

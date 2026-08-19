@@ -161,6 +161,35 @@ export interface TeamLeaderActiveOrderMoveReqVO {
   direction: 'UP' | 'DOWN'
 }
 
+export interface TeamLeaderActiveOrderRebuildReqVO {
+  activeOrderId: number
+  confirmDeleteHistoricalRuntimeData?: boolean
+}
+
+export interface TeamLeaderActiveOrderRebuildPreviewRespVO {
+  activeOrderId: number
+  hasHistoricalRuntimeData: boolean
+  productionReportCount: number
+  productionProgressCount: number
+  pqcInspectionResultCount: number
+  processSnapshotCount: number
+  pqcTaskCount: number
+  releaseApplicationCount: number
+  eventCount: number
+}
+
+export interface TeamLeaderActiveOrderRebuildResultRespVO {
+  activeOrderId: number
+  historicalRuntimeDataDeleted: boolean
+  deletedProductionReportCount: number
+  deletedProductionProgressCount: number
+  deletedPqcInspectionResultCount: number
+  deletedProcessSnapshotCount: number
+  deletedPqcTaskCount: number
+  rebuiltProcessSnapshotCount: number
+  rebuiltPqcTaskCount: number
+}
+
 export interface TeamLeaderActiveOrderListRequestOptions {
   ignoreErrorMessage?: boolean
 }
@@ -627,6 +656,24 @@ export const removeTeamLeaderActiveOrder = async (data: TeamLeaderActiveOrderRem
   return await request.put<boolean>({
     url: '/mes/pro/process-pool/team-leader/active-order/remove',
     data
+  })
+}
+
+export const previewTeamLeaderActiveOrderRebuild = async (activeOrderId: number) => {
+  return await request.get<TeamLeaderActiveOrderRebuildPreviewRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/rebuild/preview',
+    params: { activeOrderId },
+    ignoreErrorMessage: true
+  })
+}
+
+export const rebuildTeamLeaderActiveOrder = async (
+  data: TeamLeaderActiveOrderRebuildReqVO
+) => {
+  return await request.post<TeamLeaderActiveOrderRebuildResultRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/rebuild',
+    data,
+    ignoreErrorMessage: true
   })
 }
 

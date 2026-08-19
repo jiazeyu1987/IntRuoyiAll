@@ -2,7 +2,9 @@ package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +25,8 @@ class MesFrontlineSubmitAuthorizationTest {
     @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
+    private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Mock
     private MesFrontlineSessionSnapshotService sessionSnapshotService;
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
@@ -30,7 +34,7 @@ class MesFrontlineSubmitAuthorizationTest {
     @BeforeEach
     void setUp() {
         submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
-                contextService, activeOrderMapper, sessionSnapshotService);
+                contextService, activeOrderMapper, processSnapshotMapper, sessionSnapshotService);
     }
 
     @Test
@@ -96,14 +100,27 @@ class MesFrontlineSubmitAuthorizationTest {
     }
 
     @Test
-    void shouldAuthorizeValidActiveOrderWithoutProcessSnapshot() {
+    void shouldAuthorizeValidActiveOrderWithFrozenProcessSnapshot() {
         when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
         when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
                 MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
-                        .routeId(21L).activeStatus("ACTIVE").build());
+                        .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE").build());
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(81L, 71L, 31L)).thenReturn(
+                activeOrderProcessSnapshot(81L, 41L, 21L, 61L, 71L, 31L));
 
         assertDoesNotThrow(() -> submitAuthorizationService.authorizeActiveOrder(
                 9001L, 81L, 41L, 21L, 71L, 31L));
+    }
+
+    @Test
+    void shouldRejectSelectedActiveOrderProcessThatIsNotFrozenByOrder() {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
+                        .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE").build());
+
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 81L, 41L, 21L, 9908090160L, 31L));
     }
 
     @Test
@@ -170,6 +187,20 @@ class MesFrontlineSubmitAuthorizationTest {
     private static MesFrontlineTeamDeviceOption device(Long deviceId) {
         return new MesFrontlineTeamDeviceOption(deviceId, "D-" + deviceId, "Device " + deviceId,
                 "ENABLED", List.of());
+    }
+
+    private static MesProcessPoolActiveOrderProcessSnapshotDO activeOrderProcessSnapshot(
+            Long activeOrderId, Long workOrderId, Long routeId, Long routeVersionId,
+            Long routeProcessId, Long processId) {
+        return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                .id(7001L)
+                .activeOrderId(activeOrderId)
+                .workOrderId(workOrderId)
+                .routeId(routeId)
+                .routeVersionId(routeVersionId)
+                .routeProcessId(routeProcessId)
+                .processId(processId)
+                .build();
     }
 
 }

@@ -1252,9 +1252,13 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_HISTORY_AMBIGUOUS = new ErrorCode(1_040_760_359,
             "生产工单存在多条历史记录，无法确定应复用的冻结订单：workOrderId={}，activeOrderIds={}");
     ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID = new ErrorCode(1_040_760_360,
-            "一线生产活跃订单工序快照无效：{}");
+            "一线生产活跃订单工序快照无效：activeOrderId={}，{}");
     ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH = new ErrorCode(1_040_760_361,
             "一线生产活跃订单工序不匹配：activeOrderId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_CONFIRM_REQUIRED = new ErrorCode(1_040_760_362,
+            "重建活跃订单会删除已有报工记录、生产进度和 PQC 检验结果，请确认后重试：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_SHARED_REPORT = new ErrorCode(1_040_760_363,
+            "活跃订单存在已分配给其它订单的共享报工记录，不能直接重建：activeOrderId={}，eventId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

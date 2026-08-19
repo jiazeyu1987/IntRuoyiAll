@@ -566,7 +566,9 @@ class MesProRouteProcessFlowServiceImplTest {
                 List.of(edge(21L, -1L)),
                 List.of(layout(21L, 10, 20), layout(-1L, 220, 20)));
         reqVO.setRouteVersionId(candidateRouteVersionId);
-        reqVO.setRouteProcessCreates(List.of(draftCreate(-1L, routeId, 202L, 2)));
+        MesProRouteProcessSaveReqVO createdProcess = draftCreate(-1L, routeId, 202L, 2);
+        createdProcess.setWorkstationId(81401L);
+        reqVO.setRouteProcessCreates(List.of(createdProcess));
 
         MesProRouteProcessFlowValidationRespVO result = flowService.saveGraph(reqVO);
 
@@ -580,6 +582,8 @@ class MesProRouteProcessFlowServiceImplTest {
                         && snapshot.toString().contains("\"capacityMode\":\"RESOURCE_CALCULATED\"")
                         && snapshot.toString().contains("\"nightShiftEnabled\":false")));
         verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("flowGraph"), any());
+        verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("flowGraph"),
+                argThat(snapshot -> candidateNodeHasWorkstation(snapshot, -1L, 81401L)));
         verify(routeProcessService, never()).createRouteProcess(any(MesProRouteProcessSaveReqVO.class));
     }
 
@@ -765,7 +769,9 @@ class MesProRouteProcessFlowServiceImplTest {
         MesProRouteProcessFlowSaveReqVO reqVO = saveReq(routeId, 5L,
                 List.of(edge(71L, -1L)),
                 List.of(layout(71L, 10, 20), layout(-1L, 220, 20)));
-        reqVO.setRouteProcessCreates(List.of(draftCreate(-1L, routeId, 703L, 2)));
+        MesProRouteProcessSaveReqVO createdProcess = draftCreate(-1L, routeId, 703L, 2);
+        createdProcess.setWorkstationId(81703L);
+        reqVO.setRouteProcessCreates(List.of(createdProcess));
         reqVO.setRouteProcessDeletes(List.of(72L));
 
         MesProRouteProcessFlowValidationRespVO result = flowService.saveGraph(reqVO);
@@ -774,7 +780,8 @@ class MesProRouteProcessFlowServiceImplTest {
         assertEquals("VALID", result.getValidationStatus());
         assertEquals(6L, result.getGraphVersion());
         verify(routeProcessService).deleteRouteProcess(72L);
-        verify(routeProcessService).createRouteProcess(any(MesProRouteProcessSaveReqVO.class));
+        verify(routeProcessService).createRouteProcess(argThat(req ->
+                req.getWorkstationId().equals(81703L)));
         verify(flowEdgeMapper).insert(argThat((MesProRouteProcessFlowEdgeDO edge) ->
                 edge.getSourceRouteProcessId().equals(71L)
                         && edge.getTargetRouteProcessId().equals(7001L)

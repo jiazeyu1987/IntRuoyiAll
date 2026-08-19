@@ -226,10 +226,11 @@ class MesFrontlineRuntimeConfigServiceTest {
 
     @Test
     void getRuntimeConfig_usesFrozenActiveOrderParameterStandardAfterCurrentRuleChanges() {
-        when(contextService.requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
-                .thenReturn(new MesFrontlineRouteProcessCandidate(ROUTE_ID, "R-101", "Route 101",
+        when(activeOrderProcessService.requireProcess(LOGIN_USER_ID, 8101L, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineActiveOrderProcess(8101L, ROUTE_ID, 627L, "R-101", "Route 101",
                         ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
-                        7001L, "D-001", "压力泵", 301L, "WS-301", "精洗工位"));
+                        301L, "WS-301", "精洗工位",
+                        new BigDecimal("1.000000"), new BigDecimal("100.000000"), Boolean.FALSE));
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
                 employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
                         "当前组长人员", "当前组长人员", "FORMAL", true)));
@@ -282,7 +283,10 @@ class MesFrontlineRuntimeConfigServiceTest {
                 frozenRouteProcessId, PROCESS_ID)).thenReturn(new MesFrontlineActiveOrderProcess(activeOrderId,
                 ROUTE_ID, 627L, "RT000028", "球囊扩张压力泵", frozenRouteProcessId, PROCESS_ID,
                 "ER0C9BD936FFAE", "粗洗工序", 1, 980010L, "WS-CX", "粗洗工位",
-                new BigDecimal("1.000000"), new BigDecimal("100.000000")));
+                new BigDecimal("1.000000"), new BigDecimal("100.000000"), Boolean.FALSE));
+        when(templateResolver.resolve(new MesFrontlineTemplateRequest(LOGIN_USER_ID, 10001L, ROUTE_ID,
+                frozenRouteProcessId, PROCESS_ID, Boolean.FALSE))).thenReturn(new MesFrontlineTemplateDescriptor(
+                "PRODUCTION_SIMPLIFIED", "PRODUCTION", frozenRouteProcessId, PROCESS_ID, 10001L));
         when(processDeviceMapper.selectList(any())).thenReturn(List.of());
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
                 employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
@@ -301,6 +305,7 @@ class MesFrontlineRuntimeConfigServiceTest {
                 LOGIN_USER_ID, activeOrderId, ROUTE_ID, frozenRouteProcessId, PROCESS_ID));
 
         assertEquals(frozenRouteProcessId, config.routeProcessId());
+        assertEquals("PRODUCTION_SIMPLIFIED", config.employeeSwitchSnapshots().get(0).template().templateNo());
         assertEquals(5101L, config.productionSubmitContext().activeOrderProcessSnapshotId());
         verify(contextService, never()).requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID,
                 frozenRouteProcessId, PROCESS_ID);

@@ -23,6 +23,9 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderMoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildPreviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildResultRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyRespVO;
@@ -72,6 +75,9 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderMoveReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRebuildPreview;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRebuildReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRebuildResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailService;
@@ -327,6 +333,29 @@ public class MesProcessPoolTeamLeaderController {
                 .direction(reqVO.getDirection())
                 .build());
         return success(Boolean.TRUE);
+    }
+
+    @GetMapping("/active-order/rebuild/preview")
+    @Operation(summary = "预检生产组长活跃订单重建影响")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesTeamLeaderActiveOrderRebuildPreviewRespVO> previewRebuildActiveOrder(
+            @RequestParam("activeOrderId") Long activeOrderId) {
+        return success(toActiveOrderRebuildPreviewRespVO(activeOrderService.previewRebuildActiveOrder(
+                SecurityFrameworkUtils.getLoginUserId(), activeOrderId)));
+    }
+
+    @PostMapping("/active-order/rebuild")
+    @Operation(summary = "重建生产组长活跃订单生产和 PQC 快照")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesTeamLeaderActiveOrderRebuildResultRespVO> rebuildActiveOrder(
+            @Valid @RequestBody MesTeamLeaderActiveOrderRebuildReqVO reqVO) {
+        MesTeamLeaderActiveOrderRebuildResult result = activeOrderService.rebuildActiveOrder(
+                MesTeamLeaderActiveOrderRebuildReqBO.builder()
+                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .activeOrderId(reqVO.getActiveOrderId())
+                        .confirmDeleteHistoricalRuntimeData(reqVO.getConfirmDeleteHistoricalRuntimeData())
+                        .build());
+        return success(toActiveOrderRebuildResultRespVO(result));
     }
 
     @GetMapping("/active-order/list")
@@ -953,6 +982,34 @@ public class MesProcessPoolTeamLeaderController {
                 .setSourceSnapshotHash(result.getSourceSnapshotHash())
                 .setVersion(result.getVersion())
                 .setAppliedAt(result.getAppliedAt());
+    }
+
+    private static MesTeamLeaderActiveOrderRebuildPreviewRespVO toActiveOrderRebuildPreviewRespVO(
+            MesTeamLeaderActiveOrderRebuildPreview preview) {
+        return new MesTeamLeaderActiveOrderRebuildPreviewRespVO()
+                .setActiveOrderId(preview.getActiveOrderId())
+                .setHasHistoricalRuntimeData(preview.isHasHistoricalRuntimeData())
+                .setProductionReportCount(preview.getProductionReportCount())
+                .setProductionProgressCount(preview.getProductionProgressCount())
+                .setPqcInspectionResultCount(preview.getPqcInspectionResultCount())
+                .setProcessSnapshotCount(preview.getProcessSnapshotCount())
+                .setPqcTaskCount(preview.getPqcTaskCount())
+                .setReleaseApplicationCount(preview.getReleaseApplicationCount())
+                .setEventCount(preview.getEventCount());
+    }
+
+    private static MesTeamLeaderActiveOrderRebuildResultRespVO toActiveOrderRebuildResultRespVO(
+            MesTeamLeaderActiveOrderRebuildResult result) {
+        return new MesTeamLeaderActiveOrderRebuildResultRespVO()
+                .setActiveOrderId(result.getActiveOrderId())
+                .setHistoricalRuntimeDataDeleted(result.isHistoricalRuntimeDataDeleted())
+                .setDeletedProductionReportCount(result.getDeletedProductionReportCount())
+                .setDeletedProductionProgressCount(result.getDeletedProductionProgressCount())
+                .setDeletedPqcInspectionResultCount(result.getDeletedPqcInspectionResultCount())
+                .setDeletedProcessSnapshotCount(result.getDeletedProcessSnapshotCount())
+                .setDeletedPqcTaskCount(result.getDeletedPqcTaskCount())
+                .setRebuiltProcessSnapshotCount(result.getRebuiltProcessSnapshotCount())
+                .setRebuiltPqcTaskCount(result.getRebuiltPqcTaskCount());
     }
 
     private static MesTeamLeaderActiveOrderCandidateRespVO toActiveOrderCandidateRespVO(

@@ -115,24 +115,16 @@
                 <span>{{ activePqcInspectionItem.unit }}</span>
               </div>
               <div v-else class="frontline-pqc-piece-choice">
-                <button
-                  type="button"
-                  class="pass"
-                  :class="{ active: pqcPieceDraftValues[pieceIndex - 1] === '合格' }"
-                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}合格`"
-                  @click="pqcPieceDraftValues[pieceIndex - 1] = '合格'"
-                >
-                  合格
-                </button>
-                <button
-                  type="button"
-                  class="fail"
-                  :class="{ active: pqcPieceDraftValues[pieceIndex - 1] === '不合格' }"
-                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}不合格`"
-                  @click="pqcPieceDraftValues[pieceIndex - 1] = '不合格'"
-                >
-                  不合格
-                </button>
+                <el-switch
+                  class="frontline-pqc-piece-switch"
+                  data-pqc-piece-choice-switch
+                  inline-prompt
+                  active-text="合格"
+                  inactive-text="不合格"
+                  :model-value="pqcPieceDraftValues[pieceIndex - 1] === '合格'"
+                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}${pqcPieceDraftValues[pieceIndex - 1] || '合格'}`"
+                  @update:model-value="updatePqcPieceChoice(pieceIndex - 1, $event)"
+                />
               </div>
             </article>
           </div>
@@ -1691,9 +1683,9 @@ const currentLoginEmployeeCandidate = computed<FrontlineEmployeeCandidateVO | un
   if (!userId) {
     return undefined
   }
-  const nickname = userStore.getUser?.nickname?.trim()
   const username = userStore.getUser?.username?.trim()
-  const displayName = nickname || username || String(userId)
+  const nickname = userStore.getUser?.nickname?.trim()
+  const displayName = username || nickname || String(userId)
   return {
     userId: currentLoginUserId.value,
     username,
@@ -1744,11 +1736,9 @@ const selectedOrderQuantityLabel = computed(() =>
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
 
 const selectedEmployeeLabel = computed(() =>
-  formatEmployeeLabel(
-    isPqcMode.value
-      ? deviceState.selectedEmployee || currentLoginEmployeeCandidate.value
-      : deviceState.selectedEmployee
-  )
+  isPqcMode.value
+    ? formatPqcLoginEmployeeLabel(deviceState.selectedEmployee || currentLoginEmployeeCandidate.value)
+    : formatEmployeeLabel(deviceState.selectedEmployee)
 )
 const productionSubmitSuccessText = computed(() => `${selectedEmployeeLabel.value}提交成功`)
 
@@ -1811,9 +1801,11 @@ const mapPqcInspectionItem = (item: FrontlinePqcInspectionItemVO): PqcInspection
     equipmentRequired: item.equipmentRequired === true,
     equipmentOptions: item.equipmentOptions || [],
     unit: item.standardUnit || '',
-    defaultValue: item.standardLowerLimit === undefined || item.standardLowerLimit === null
-      ? ''
-      : String(item.standardLowerLimit),
+    defaultValue: isPqcNumericResultType(item.resultType)
+      ? (item.standardLowerLimit === undefined || item.standardLowerLimit === null
+        ? ''
+        : String(item.standardLowerLimit))
+      : '合格',
     step: resolvePqcNumericStep(item.standardPrecision, item.resultType)
 })
 
@@ -2281,7 +2273,7 @@ const switchableProcessOptions = computed(() => {
   return deviceState.processOptions.filter((process) => {
     const key = isFrontlinePqcProcess(process)
       ? `QA-${process.regulationVersionId}-${process.qaProcessId}`
-      : `MES-${process.routeId}-${process.routeProcessId}-${process.processId}`
+      : `MES-${process.activeOrderId}-${process.routeId}-${process.routeProcessId}-${process.processId}`
     if (seen.has(key)) {
       return false
     }
@@ -2329,10 +2321,10 @@ const pickerOptions = computed<FrontlinePickerOption[]>(() => {
     return switchableProcessOptions.value.map((process) => ({
       key: isFrontlinePqcProcess(process)
         ? `QA-${process.regulationVersionId}-${process.qaProcessId}`
-        : `MES-${process.routeId}-${process.routeProcessId}-${process.processId}`,
+        : `MES-${process.activeOrderId}-${process.routeId}-${process.routeProcessId}-${process.processId}`,
       label: formatProcessLabel(process),
       active: isSameProcess(process, deviceState.selectedProcess),
-      onClick: () => handleSelectProcess(process)
+      onClick: () => handlePickerProcessClick(process)
     }))
   }
   if (activePicker.value === 'employee') {
@@ -2951,6 +2943,13 @@ const getPqcStoredPieceValues = (itemKey: PqcInspectionItemKey) => {
   while (values.length < quantity) {
     values.push(item.defaultValue)
   }
+  if (item.type === 'choice') {
+    for (let index = 0; index < quantity; index += 1) {
+      if (!String(values[index] ?? '').trim()) {
+        values[index] = item.defaultValue
+      }
+    }
+  }
   pqcPieceValues[stateKey] = values
   return values
 }
@@ -3196,6 +3195,18 @@ const applyPqcBulkChoice = (
   for (let index = 0; index < pqcInspectionQuantity.value; index += 1) {
     values[index] = result
   }
+}
+
+const updatePqcPieceChoice = (index: number, value: boolean | string | number) => {
+  if (value === true) {
+    pqcPieceDraftValues.value[index] = '合格'
+    return
+  }
+  if (value === false) {
+    pqcPieceDraftValues.value[index] = '不合格'
+    return
+  }
+  showFrontlineError(`逐件检验结果无效：${String(value)}`)
 }
 
 const stepPqcPieceValue = (index: number, delta: number) => {
@@ -3608,7 +3619,11 @@ const handleSelectActiveOrder = async (
   payloadPreview.value = undefined
   const initialProcess = findInitialProcess(processes)
   if (initialProcess) {
-    await handleSelectProcess(initialProcess)
+    try {
+      await handleSelectProcess(initialProcess)
+    } catch (error) {
+      showFrontlineError(error)
+    }
   } else {
     closePicker()
   }
@@ -3634,16 +3649,11 @@ const handleSelectProcess = async (
     closePicker()
   }
 
-  try {
-    if (isFrontlinePqcProcess(selectedProcess)) {
-      clearPqcExecutionSelection()
-      await selectFrontlinePqcProcess(deviceState, selectedProcess)
-    } else {
-      await selectFrontlineProcess(deviceState, selectedProcess)
-    }
-  } catch (error) {
-    showFrontlineError(error)
-    return
+  if (isFrontlinePqcProcess(selectedProcess)) {
+    clearPqcExecutionSelection()
+    await selectFrontlinePqcProcess(deviceState, selectedProcess)
+  } else {
+    await selectFrontlineProcess(deviceState, selectedProcess)
   }
   if (selectionRequestId !== processSelectionRequestId) {
     return
@@ -3669,6 +3679,16 @@ const handleSelectProcess = async (
   } else if (isPqcMode.value) {
     showFrontlineError('当前登录账号未返回PQC人员候选，无法进入PQC填写。')
     return
+  }
+}
+
+const handlePickerProcessClick = async (
+  process: FrontlineDeviceRouteProcessVO | FrontlinePqcProcessVO
+) => {
+  try {
+    await handleSelectProcess(process)
+  } catch (error) {
+    showFrontlineError(error)
   }
 }
 
@@ -4600,7 +4620,8 @@ const isSameProcess = (
       left.qaProcessId === right.qaProcessId
   }
   if (isFrontlineProductionProcess(left) && isFrontlineProductionProcess(right)) {
-    return left.routeId === right.routeId &&
+    return left.activeOrderId === right.activeOrderId &&
+      left.routeId === right.routeId &&
       left.routeProcessId === right.routeProcessId &&
       left.processId === right.processId
   }
@@ -4674,6 +4695,20 @@ const formatEmployeeLabel = (employee?: FrontlineEmployeeCandidateVO) => {
     return '未选择'
   }
   return employee.nickname || employee.username || String(employee.userId)
+}
+
+const formatPqcLoginEmployeeLabel = (employee?: FrontlineEmployeeCandidateVO) => {
+  if (!employee) {
+    return '未选择'
+  }
+  if (isCurrentLoginEmployee(employee)) {
+    const username = userStore.getUser?.username?.trim()
+    if (username) {
+      return username
+    }
+    return '未选择'
+  }
+  return formatEmployeeLabel(employee)
 }
 
 const formatTemplateName = (templateCode?: FrontlineTemplateCode) => {
@@ -6920,7 +6955,7 @@ onUnmounted(() => {
 .frontline-pqc-piece-list {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  grid-auto-rows: minmax(100px, 1fr);
+  grid-auto-rows: max-content;
   gap: 10px;
   align-content: start;
   min-height: 0;
@@ -6930,15 +6965,17 @@ onUnmounted(() => {
 
 .frontline-pqc-piece-row {
   display: grid;
-  grid-template-rows: 24px 52px;
-  gap: 4px;
-  align-items: center;
+  grid-template-rows: auto auto;
+  gap: 8px;
+  align-items: start;
+  align-self: start;
+  height: fit-content;
   min-width: 0;
-  min-height: 100px;
-  padding: 6px 10px;
+  min-height: 0;
+  padding: 10px 12px;
+  background: #f8faf8;
   border: 3px solid var(--frontline-line);
   border-radius: 16px;
-  background: #f8faf8;
 
   > strong {
     font-size: 24px;
@@ -6980,32 +7017,52 @@ onUnmounted(() => {
 }
 
 .frontline-pqc-piece-choice {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: flex;
+  align-items: center;
   min-width: 0;
+  min-height: 56px;
+}
 
-  button {
+.frontline-pqc-piece-switch {
+  --el-switch-on-color: #15815f;
+  --el-switch-off-color: #b9382f;
+
+  width: 100%;
+  height: 56px;
+
+  :deep(.el-switch__core) {
+    width: 100% !important;
     height: 56px;
+    min-width: 0;
     border: 3px solid var(--frontline-line);
-    border-radius: 12px;
-    background: #ffffff;
-    color: var(--frontline-ink);
+    border-radius: 14px;
+  }
+
+  :deep(.el-switch__action) {
+    left: 3px;
+    width: 44px;
+    height: 44px;
+  }
+
+  :deep(.el-switch__inner) {
+    height: 50px;
+    padding: 0 8px 0 52px;
+  }
+
+  :deep(.el-switch__inner .is-text) {
+    max-width: none;
     font-size: 24px;
     font-weight: 900;
-    cursor: pointer;
+    line-height: 1;
+    color: #fff;
+  }
 
-    &.pass.active {
-      border-color: #86c8ad;
-      background: #dff2ea;
-      color: #15815f;
-    }
+  &.is-checked :deep(.el-switch__action) {
+    left: calc(100% - 47px);
+  }
 
-    &.fail.active {
-      border-color: #dfa8a2;
-      background: #f8dfdc;
-      color: #b9382f;
-    }
+  &.is-checked :deep(.el-switch__inner) {
+    padding: 0 52px 0 8px;
   }
 }
 

@@ -8,6 +8,10 @@ public interface MesTeamLeaderActiveOrderService {
 
     MesTeamLeaderActiveOrderAddResult addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO);
 
+    MesTeamLeaderActiveOrderRebuildPreview previewRebuildActiveOrder(Long leaderUserId, Long activeOrderId);
+
+    MesTeamLeaderActiveOrderRebuildResult rebuildActiveOrder(MesTeamLeaderActiveOrderRebuildReqBO reqBO);
+
     void removeActiveOrder(MesTeamLeaderActiveOrderRemoveReqBO reqBO);
 
     void moveActiveOrder(MesTeamLeaderActiveOrderMoveReqBO reqBO);

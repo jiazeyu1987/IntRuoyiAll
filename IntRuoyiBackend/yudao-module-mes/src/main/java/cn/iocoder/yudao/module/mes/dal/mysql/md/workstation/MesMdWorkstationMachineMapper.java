@@ -24,6 +24,13 @@ public interface MesMdWorkstationMachineMapper extends BaseMapperX<MesMdWorkstat
         return selectList(MesMdWorkstationMachineDO::getWorkstationId, workstationIds);
     }
 
+    default List<MesMdWorkstationMachineDO> selectListByMachineryIds(Collection<Long> machineryIds) {
+        if (machineryIds == null || machineryIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(MesMdWorkstationMachineDO::getMachineryId, machineryIds);
+    }
+
     default MesMdWorkstationMachineDO selectByMachineryId(Long machineryId) {
         return selectOne(MesMdWorkstationMachineDO::getMachineryId, machineryId);
     }

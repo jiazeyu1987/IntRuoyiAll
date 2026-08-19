@@ -82,6 +82,7 @@
     "e2e:mes:route-tabs-no-reload:static": "node tests/e2e/mes-route-tabs-no-reload-static.spec.js",
     "e2e:mes:route-tabs-no-reload:real": "node tests/e2e/mes-route-tabs-no-reload-real.e2e.js",
     "e2e:mes:route-process-settings-column-sync:static": "node tests/e2e/mes-route-process-settings-column-sync-static.spec.js",
+    "e2e:mes:route-process-template:static": "node tests/e2e/mes-route-process-template-static.spec.cjs",
     "e2e:mes:route-process-workstation-resource-summary:static": "node tests/e2e/mes-route-process-workstation-resource-summary-static.spec.js",
     "e2e:mes:route-process-settings-column-sync:real": "node tests/e2e/mes-route-process-settings-column-sync-real.e2e.js",
     "e2e:mes:schedule-route-production-factor:static": "node tests/e2e/mes-schedule-route-production-factor-static.spec.js",

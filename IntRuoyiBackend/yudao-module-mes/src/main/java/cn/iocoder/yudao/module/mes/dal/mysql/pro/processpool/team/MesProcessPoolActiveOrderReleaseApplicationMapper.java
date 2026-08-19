@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -243,4 +244,11 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                 .in(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, batchExecutionIds)
                 .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
     }
+
+    default int deleteByActiveOrderId(Long activeOrderId) {
+        return activeOrderId == null ? 0 : physicalDeleteByActiveOrderId(activeOrderId);
+    }
+
+    @Delete("DELETE FROM mes_pro_process_pool_active_order_release_application WHERE active_order_id = #{activeOrderId}")
+    int physicalDeleteByActiveOrderId(@Param("activeOrderId") Long activeOrderId);
 }

@@ -25,9 +25,9 @@ Module._load = function load(request, parent, isMain) {
   if (request === '@/api/mes/pro/feedback') {
     return {
       ProFeedbackApi: {
-        getFrontlineDeviceAccountProcesses: async () => {
+        getFrontlineProductionActiveOrderProcesses: async (activeOrderId) => {
           processRequestCount += 1
-          return await processRequest()
+          return await processRequest(activeOrderId)
         }
       }
     }
@@ -47,6 +47,7 @@ const {
 } = testModule.exports
 
 const routeOneProcess = {
+  activeOrderId: 401,
   routeId: 101,
   routeProcessId: 1001,
   processId: 11,
@@ -54,6 +55,7 @@ const routeOneProcess = {
   sort: 1
 }
 const routeTwoProcess = {
+  activeOrderId: 402,
   routeId: 202,
   routeProcessId: 2001,
   processId: 21,
@@ -99,11 +101,12 @@ const run = async () => {
   state.runtimeConfig = { devices: [] }
   state.template = { templateNo: 'OLD' }
 
-  processRequest = async () => [routeOneProcess, routeTwoProcess]
+  processRequest = async (activeOrderId) =>
+    activeOrderId === pushOrder.activeOrderId ? [routeTwoProcess] : [routeOneProcess]
   const pushProcesses = await selectFrontlineProductionActiveOrder(state, pushOrder)
   assert.equal(processRequestCount, 1, 'switching an order must issue a new process request')
   assert.deepEqual(pushProcesses, [routeTwoProcess])
-  assert.deepEqual(state.productionProcessOptions, [routeOneProcess, routeTwoProcess])
+  assert.deepEqual(state.productionProcessOptions, [routeTwoProcess])
   assert.equal(state.selectedActiveOrder, pushOrder)
   assert.equal(state.selectedProcess, undefined)
   assert.equal(state.selectedEmployee, undefined)
@@ -131,7 +134,7 @@ const run = async () => {
   }
   const firstSwitch = selectFrontlineProductionActiveOrder(state, balloonOrder)
   const secondSwitch = selectFrontlineProductionActiveOrder(state, pushOrder)
-  secondRequest.resolve([routeOneProcess, routeTwoProcess])
+  secondRequest.resolve([routeTwoProcess])
   assert.deepEqual(await secondSwitch, [routeTwoProcess])
   firstRequest.resolve([routeOneProcess])
   await assert.rejects(

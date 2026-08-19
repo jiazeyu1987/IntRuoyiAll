@@ -39,6 +39,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -84,6 +86,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
     private MesDvMachineryService machineryService;
     @Mock
     private MesProcessPoolTeamEmployeeProfileMapper employeeProfileMapper;
+    @Mock
+    private MesFrontlineActiveOrderProcessService activeOrderProcessService;
 
     private MesFrontlineDeviceAccountContextServiceImpl contextService;
     private MesFrontlineEmployeeSwitchServiceImpl employeeSwitchService;
@@ -92,7 +96,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
     void setUp() {
         contextService = new MesFrontlineDeviceAccountContextServiceImpl(routeBindingSourceProvider, routeProcessMapper,
                 routeVersionMapper, processService, workstationWorkerService, adminUserApi, permissionApi, routeService,
-                workstationService, workstationMachineService, machineryService, employeeProfileMapper);
+                workstationService, workstationMachineService, machineryService, employeeProfileMapper,
+                activeOrderProcessService);
         MesFrontlineTemplateResolverImpl templateResolver = new MesFrontlineTemplateResolverImpl(templateBindingSourceProvider);
         employeeSwitchService = new MesFrontlineEmployeeSwitchServiceImpl(templateResolver, runtimeConfigService);
     }
@@ -119,10 +124,6 @@ class MesFrontlineEmployeeSwitchServiceTest {
     void shouldSwitchActualEmployeeWithoutChangingLoginAccountOrAddingSecondVerification() {
         givenBoundProcess();
         givenRuntimeConfigEmployee(8801L, 10001L, "Alice", "FORMAL");
-        when(templateBindingSourceProvider.getIfAvailable()).thenReturn(templateBindingSource);
-        when(templateBindingSource.findTemplate(any(MesFrontlineTemplateRequest.class))).thenReturn(
-                new MesFrontlineTemplateDescriptor("TPL-201-E1001", "BATCH_RECORD",
-                        ROUTE_PROCESS_ID, PROCESS_ID, 10001L));
 
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
                 new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ACTIVE_ORDER_ID, ROUTE_ID,
@@ -132,6 +133,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
         assertEquals(10001L, result.actualEmployeeId());
         assertFalse(result.extraVerificationRequired());
         assertEquals("TPL-201-E1001", result.template().templateNo());
+        verify(templateBindingSourceProvider, never()).getIfAvailable();
         assertTrue(Arrays.stream(MesFrontlineEmployeeSwitchCommand.class.getDeclaredFields())
                 .map(Field::getName)
                 .noneMatch(name -> name.contains("password")
@@ -145,10 +147,6 @@ class MesFrontlineEmployeeSwitchServiceTest {
     void shouldSwitchTemporaryEmployeeFromRuntimeConfigWithoutSystemUser() {
         givenBoundProcess();
         givenRuntimeConfigEmployee(8801L, null, "临时工甲", "TEMPORARY");
-        when(templateBindingSourceProvider.getIfAvailable()).thenReturn(templateBindingSource);
-        when(templateBindingSource.findTemplate(any(MesFrontlineTemplateRequest.class))).thenReturn(
-                new MesFrontlineTemplateDescriptor("TPL-201-TMP", "BATCH_RECORD",
-                        ROUTE_PROCESS_ID, PROCESS_ID, 8801L));
 
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
                 new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ACTIVE_ORDER_ID, ROUTE_ID,
@@ -207,7 +205,15 @@ class MesFrontlineEmployeeSwitchServiceTest {
                         List.of(new MesFrontlineTeamEmployeeOption(employeeProfileId, systemUserId,
                                 systemUserId == null ? "TMP-001" : "E1001", employeeName, employeeName,
                                 employeeType)),
-                        List.of(), List.of(), null, List.of(), "snapshot-001", "hash-001"));
+                        List.of(), List.of(), null,
+                        List.of(new MesFrontlineEmployeeSwitchResult(LOGIN_USER_ID,
+                                systemUserId == null ? employeeProfileId : systemUserId,
+                                ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID, false,
+                                new MesFrontlineTemplateDescriptor(
+                                        systemUserId == null ? "TPL-201-TMP" : "TPL-201-E1001",
+                                        "BATCH_RECORD", ROUTE_PROCESS_ID, PROCESS_ID,
+                                        systemUserId == null ? employeeProfileId : systemUserId))),
+                        "snapshot-001", "hash-001"));
     }
 
     private static MesProcessPoolTeamEmployeeProfileDO employeeProfile(Long id, Long systemUserId,

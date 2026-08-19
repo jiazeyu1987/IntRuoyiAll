@@ -1209,6 +1209,7 @@ export const ProFeedbackApi = {
   },
   // 获取当前工序可切换员工
   getFrontlineEmployeeCandidates: async (params: {
+    activeOrderId?: number
     routeId: number
     routeProcessId: number
     processId: number
@@ -1221,11 +1222,14 @@ export const ProFeedbackApi = {
   },
   // 获取生产组长维护的员工填报运行态配置
   getFrontlineRuntimeConfig: async (params: {
-    activeOrderId?: number
+    activeOrderId: number
     routeId: number
     routeProcessId: number
     processId: number
   }) => {
+    if (!params.activeOrderId) {
+      throw new Error('当前工序缺少活跃订单身份，无法加载运行配置')
+    }
     return await request.get<FrontlineRuntimeConfigVO>({
       url: `/mes/pro/feedback/frontline/device-account/runtime-config`,
       params,

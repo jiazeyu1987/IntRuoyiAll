@@ -19,6 +19,8 @@ import cn.iocoder.yudao.module.mes.service.pro.route.importer.IntGyRouteMarkdown
 import cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookExportService;
 import cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookImportResult;
 import cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookImportService;
+import cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteProcessTemplateImportResult;
+import cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteProcessTemplateService;
 import cn.iocoder.yudao.module.mes.service.pro.route.importer.Sheet1RouteExcelImportResult;
 import cn.iocoder.yudao.module.mes.service.pro.route.importer.Sheet1RouteExcelImportService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -57,6 +59,8 @@ public class MesProRouteController {
     private MesProRouteWorkbookExportService routeWorkbookExportService;
     @Resource
     private MesProRouteWorkbookImportService routeWorkbookImportService;
+    @Resource
+    private MesProRouteProcessTemplateService routeProcessTemplateService;
 
     @PostMapping("/create")
     @Operation(summary = "创建工艺路线")
@@ -197,6 +201,35 @@ public class MesProRouteController {
                 "attachment;filename=" + HttpUtils.encodeUtf8("工艺路线导入导出.xlsx"));
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8");
         response.getOutputStream().write(data);
+    }
+
+    @GetMapping("/export-process-template-xlsx")
+    @Operation(summary = "导出员工工序模板 Excel")
+    @Parameters({
+            @Parameter(name = "routeId", description = "工艺路线编号", required = true)
+    })
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:export')")
+    @ApiAccessLog(operateType = EXPORT)
+    public void exportRouteProcessTemplateXlsx(@RequestParam("routeId") Long routeId,
+                                               HttpServletResponse response) throws IOException {
+        byte[] data = routeProcessTemplateService.exportTemplate(routeId);
+        response.addHeader("Content-Disposition",
+                "attachment;filename=" + HttpUtils.encodeUtf8("工艺路线工序模板.xlsx"));
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8");
+        response.getOutputStream().write(data);
+    }
+
+    @PostMapping("/import-process-template-xlsx")
+    @Operation(summary = "导入员工工序模板 Excel")
+    @Parameters({
+            @Parameter(name = "file", description = "员工工序模板 Excel 文件", required = true),
+            @Parameter(name = "importMode", description = "导入模式：REBUILD 或 UPGRADE", required = true)
+    })
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:update')")
+    public CommonResult<MesProRouteProcessTemplateImportResult> importRouteProcessTemplateXlsx(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("importMode") String importMode) {
+        return success(routeProcessTemplateService.importTemplate(file, importMode));
     }
 
 }

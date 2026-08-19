@@ -4,10 +4,14 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
@@ -23,12 +27,26 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQuantityFragmentMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyFieldMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
@@ -112,6 +130,34 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Mock
     private MesProcessPoolReportAllocationMapper reportAllocationMapper;
     @Mock
+    private MesProcessPoolReportAllocationStateMapper reportAllocationStateMapper;
+    @Mock
+    private MesProcessPoolReportAllocationAdjustmentAuditMapper reportAllocationAdjustmentAuditMapper;
+    @Mock
+    private MesProcessPoolOrderProcessCompletionMapper orderProcessCompletionMapper;
+    @Mock
+    private MesProProcessPoolEventMapper processPoolEventMapper;
+    @Mock
+    private MesProFeedbackMapper feedbackMapper;
+    @Mock
+    private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
+    @Mock
+    private MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
+    @Mock
+    private MesProcessPoolReviewCopyFieldMapper reviewCopyFieldMapper;
+    @Mock
+    private MesProcessPoolReviewCopyMapper reviewCopyMapper;
+    @Mock
+    private MesProProcessPoolEventRevisionDiffMapper eventRevisionDiffMapper;
+    @Mock
+    private MesProProcessPoolEventRevisionMapper eventRevisionMapper;
+    @Mock
+    private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
+    @Mock
+    private MesPqcProcessInspectionAggregateDetailMapper pqcAggregateDetailMapper;
+    @Mock
+    private MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
+    @Mock
     private MesQaInspectionRegulationMapper inspectionRegulationMapper;
     @Mock
     private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
@@ -137,7 +183,11 @@ class MesTeamLeaderActiveOrderServiceTest {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
                 routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, parameterRuleMapper,
-                reportAllocationMapper,
+                reportAllocationMapper, reportAllocationStateMapper, reportAllocationAdjustmentAuditMapper,
+                orderProcessCompletionMapper, processPoolEventMapper, feedbackMapper, pqcRecordMapper,
+                submissionReviewMapper,
+                reviewCopyFieldMapper, reviewCopyMapper, eventRevisionDiffMapper, eventRevisionMapper,
+                quantityFragmentMapper, pqcAggregateDetailMapper, pqcPieceDetailMapper,
                 inspectionRegulationMapper, inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper, abnormalStateService,
                 releaseApplicationMapper, dccProjectCodeMapper, reportAllocationOrderChangeService);
@@ -866,6 +916,102 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(Set.of("FIRST", "PATROL_AM", "PATROL_PM", "FINAL"),
                 tasks.stream().map(MesPqcInspectionTaskDO::getInspectionRuleKey)
                         .collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
+    void rebuildPreviewShouldExposeExistingSnapshotsWithoutTreatingPendingPqcTasksAsResults() {
+        when(activeOrderMapper.selectByIdForUpdate(8101L))
+                .thenReturn(existingActiveOrder(8101L, "ACTIVE", 7));
+        when(reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(frozenPqcTasks());
+        when(orderProcessCompletionMapper.selectListByWorkOrderIdsForUpdate(List.of(9001L))).thenReturn(List.of());
+        when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8101L))
+                .thenReturn(List.of(frozenProcessSnapshot()));
+        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(8101L))).thenReturn(List.of());
+        when(processPoolEventMapper.selectListPqcByTaskId(any(), any())).thenReturn(List.of());
+        when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of());
+
+        MesTeamLeaderActiveOrderRebuildPreview preview = service.previewRebuildActiveOrder(3001L, 8101L);
+
+        assertFalse(preview.isHasHistoricalRuntimeData());
+        assertEquals(0, preview.getProductionReportCount());
+        assertEquals(0, preview.getProductionProgressCount());
+        assertEquals(0, preview.getPqcInspectionResultCount());
+        assertEquals(1, preview.getProcessSnapshotCount());
+        assertEquals(4, preview.getPqcTaskCount());
+    }
+
+    @Test
+    void rebuildActiveOrderShouldRequireConfirmationBeforeDeletingHistoricalRuntimeData() {
+        stubRebuildHistoricalRuntimePreview();
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.rebuildActiveOrder(
+                MesTeamLeaderActiveOrderRebuildReqBO.builder()
+                        .leaderUserId(3001L)
+                        .activeOrderId(8101L)
+                        .confirmDeleteHistoricalRuntimeData(false)
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_CONFIRM_REQUIRED.getCode(),
+                ex.getCode());
+        verify(processSnapshotMapper, never()).deleteByActiveOrderId(any());
+        verify(pqcInspectionTaskMapper, never()).deleteByActiveOrderId(any());
+        verify(reportAllocationMapper, never()).deleteAllByActiveOrderId(any());
+        verify(activeOrderMapper, never()).updateById(any(MesProcessPoolActiveOrderDO.class));
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void rebuildActiveOrderShouldDeleteRuntimeHistoryThenRebuildSnapshotsFromCurrentSources() {
+        stubRebuildHistoricalRuntimePreview();
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        when(activeOrderMapper.updateById(any(MesProcessPoolActiveOrderDO.class))).thenReturn(1);
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+
+        MesTeamLeaderActiveOrderRebuildResult result = service.rebuildActiveOrder(
+                MesTeamLeaderActiveOrderRebuildReqBO.builder()
+                        .leaderUserId(3001L)
+                        .activeOrderId(8101L)
+                        .confirmDeleteHistoricalRuntimeData(true)
+                        .build());
+
+        assertTrue(result.isHistoricalRuntimeDataDeleted());
+        assertEquals(1, result.getDeletedProductionReportCount());
+        assertEquals(1, result.getDeletedProductionProgressCount());
+        assertEquals(3, result.getDeletedPqcInspectionResultCount());
+        assertEquals(1, result.getDeletedProcessSnapshotCount());
+        assertEquals(1, result.getDeletedPqcTaskCount());
+        assertEquals(2, result.getRebuiltProcessSnapshotCount());
+        assertEquals(4, result.getRebuiltPqcTaskCount());
+        verify(pqcAggregateDetailMapper).deleteByActiveOrderId(8101L);
+        verify(pqcPieceDetailMapper).deleteByTaskIds(List.of(8305L));
+        verify(pqcRecordMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
+        verify(submissionReviewMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
+        verify(reviewCopyFieldMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
+        verify(reviewCopyMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
+        verify(eventRevisionDiffMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
+        verify(eventRevisionMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
+        verify(quantityFragmentMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
+        verify(reportAllocationStateMapper).deleteByEventIds(Set.of(8801L, 8802L, 8803L));
+        verify(reportAllocationAdjustmentAuditMapper).deleteByActiveOrderId(8101L);
+        verify(reportAllocationMapper).deleteAllByActiveOrderId(8101L);
+        verify(orderProcessCompletionMapper).deleteByWorkOrderId(9001L);
+        verify(pqcInspectionTaskMapper).deleteByActiveOrderId(8101L);
+        verify(processSnapshotMapper).deleteByActiveOrderId(8101L);
+        verify(releaseApplicationMapper).deleteByActiveOrderId(8101L);
+        verify(processPoolEventMapper).deleteByIds(Set.of(8801L, 8802L, 8803L));
+        verify(feedbackMapper).deleteByIds(List.of(5501L));
+        verify(activeOrderMapper).updateById(argThat((MesProcessPoolActiveOrderDO update) ->
+                Objects.equals(8101L, update.getId())
+                        && Objects.equals(922119L, update.getRouteId())
+                        && Objects.equals(448L, update.getRouteVersionId())
+                        && Objects.equals(9902L, update.getQaRegulationVersionId())
+                        && Objects.equals("ACTIVE", update.getActiveStatus())));
+        verify(processSnapshotMapper).insertBatch(any());
+        verify(pqcInspectionTaskMapper, times(4)).insert(any(MesPqcInspectionTaskDO.class));
+        verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
     @Test
@@ -1621,7 +1767,8 @@ class MesTeamLeaderActiveOrderServiceTest {
                   "configSnapshots": {
                     "flowGraph": {
                       "nodes": [
-                        {"routeProcessId": 928609, "processId": 6001, "sort": 10}
+                        {"routeProcessId": 928609, "processId": 6001, "processCode": "PROC-6001",
+                         "processName": "工序6001", "sort": 10}
                       ]
                     },
                     "scheduleUseConfigs": [
@@ -1644,7 +1791,8 @@ class MesTeamLeaderActiveOrderServiceTest {
                   "configSnapshots": {
                     "flowGraph": {
                       "nodes": [
-                        {"routeProcessId": 928609, "processId": 6001, "sort": 10}
+                        {"routeProcessId": 928609, "processId": 6001, "processCode": "PROC-6001",
+                         "processName": "工序6001", "sort": 10}
                       ]
                     },
                     "scheduleUseConfigs": [
@@ -1689,6 +1837,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .qaRegulationVersionId(9902L)
                 .erpFixedQuantitySnapshot(new BigDecimal("200.000000"))
                 .version(version)
+                .joinedAt(LocalDateTime.of(2026, 8, 4, 8, 30))
                 .removedAt("REMOVED".equals(status) ? LocalDateTime.of(2026, 8, 4, 10, 30) : null)
                 .build();
     }
@@ -1740,6 +1889,74 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .actualInspectionQuantity(0)
                 .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_PENDING)
                 .build();
+    }
+
+    private void stubRebuildHistoricalRuntimePreview() {
+        MesPqcInspectionTaskDO submittedTask = frozenPqcTask(8305L, "FIRST", "FIRST", 5)
+                .setTaskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED)
+                .setSubmittedEventId(8802L);
+        when(activeOrderMapper.selectByIdForUpdate(8101L))
+                .thenReturn(existingActiveOrder(8101L, "ACTIVE", 7));
+        when(reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of(
+                MesProcessPoolReportAllocationDO.builder()
+                        .id(8401L)
+                        .activeOrderId(8101L)
+                        .eventId(8801L)
+                        .workOrderId(9001L)
+                        .build()));
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of(submittedTask));
+        when(orderProcessCompletionMapper.selectListByWorkOrderIdsForUpdate(List.of(9001L))).thenReturn(List.of(
+                MesProcessPoolOrderProcessCompletionDO.builder()
+                        .id(8501L)
+                        .workOrderId(9001L)
+                        .routeProcessId(928601L)
+                        .processId(6001L)
+                        .build()));
+        when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(8101L))
+                .thenReturn(List.of(frozenProcessSnapshot()));
+        when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(8101L))).thenReturn(List.of(
+                MesProcessPoolActiveOrderReleaseApplicationDO.builder()
+                        .id(8601L)
+                        .activeOrderId(8101L)
+                        .workOrderId(9001L)
+                        .build()));
+        when(processPoolEventMapper.selectListPqcByTaskId(any(), eq(8305L))).thenReturn(List.of(
+                MesProProcessPoolEventDO.builder()
+                        .id(8803L)
+                        .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                        .feedbackSourceId(8305L)
+                        .build()));
+        when(processPoolEventMapper.selectByIdForUpdate(8801L)).thenReturn(
+                MesProProcessPoolEventDO.builder()
+                        .id(8801L)
+                        .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                        .feedbackSourceId(5501L)
+                        .build());
+        when(processPoolEventMapper.selectByIdForUpdate(8802L)).thenReturn(
+                MesProProcessPoolEventDO.builder()
+                        .id(8802L)
+                        .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                        .feedbackSourceId(8305L)
+                        .build());
+        when(processPoolEventMapper.selectByIdForUpdate(8803L)).thenReturn(
+                MesProProcessPoolEventDO.builder()
+                        .id(8803L)
+                        .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                        .feedbackSourceId(8305L)
+                        .build());
+        lenient().when(reportAllocationMapper.selectAllListByEventIdForUpdate(8801L)).thenReturn(List.of(
+                MesProcessPoolReportAllocationDO.builder()
+                        .id(8401L)
+                        .activeOrderId(8101L)
+                        .eventId(8801L)
+                        .build()));
+        when(pqcAggregateDetailMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(
+                MesPqcProcessInspectionAggregateDetailDO.builder()
+                        .id(8701L)
+                        .activeOrderId(8101L)
+                        .pqcTaskId(8305L)
+                        .eventId(8803L)
+                        .build()));
     }
 
     private void verifyNoActiveOrderWrites() {
@@ -1935,7 +2152,10 @@ class MesTeamLeaderActiveOrderServiceTest {
                 ? List.of(publishedRegulation(9902L)) : regulations;
         String nodes = source.stream()
                 .map(regulation -> "{\"routeProcessId\":" + regulation.getRouteProcessId()
-                        + ",\"processId\":" + regulation.getProcessId() + ",\"sort\":10}")
+                        + ",\"processId\":" + regulation.getProcessId()
+                        + ",\"processCode\":\"" + processCode(regulation.getProcessId()) + "\""
+                        + ",\"processName\":\"" + processName(regulation.getProcessId()) + "\""
+                        + ",\"sort\":10}")
                 .collect(java.util.stream.Collectors.joining(","));
         String configs = source.stream()
                 .map(regulation -> "{\"routeId\":922119,\"routeProcessId\":" + regulation.getRouteProcessId()
@@ -1956,7 +2176,10 @@ class MesTeamLeaderActiveOrderServiceTest {
     private static String activeRouteSnapshotJson(int processCount) {
         String nodes = java.util.stream.IntStream.rangeClosed(1, processCount)
                 .mapToObj(index -> "{\"routeProcessId\":" + (928600L + index)
-                        + ",\"processId\":" + (6000L + index) + ",\"sort\":" + (index * 10) + "}")
+                        + ",\"processId\":" + (6000L + index)
+                        + ",\"processCode\":\"" + processCode(6000L + index) + "\""
+                        + ",\"processName\":\"" + processName(6000L + index) + "\""
+                        + ",\"sort\":" + (index * 10) + "}")
                 .collect(java.util.stream.Collectors.joining(","));
         String configs = java.util.stream.IntStream.rangeClosed(1, processCount)
                 .mapToObj(index -> "{\"routeId\":922119,\"routeProcessId\":" + (928600L + index)
@@ -2059,6 +2282,8 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(routeVersionId, snapshot.getRouteVersionId());
         assertEquals(routeProcessId, snapshot.getRouteProcessId());
         assertEquals(processId, snapshot.getProcessId());
+        assertEquals(processCode(processId), snapshot.getProcessCodeSnapshot());
+        assertEquals(processName(processId), snapshot.getProcessNameSnapshot());
         assertAmount(erpQuantity, snapshot.getErpFixedQuantitySnapshot());
         assertAmount(factor, snapshot.getProductionQuantityFactorSnapshot());
         assertAmount(plannedQuantity, snapshot.getPlannedQuantitySnapshot());
@@ -2069,6 +2294,14 @@ class MesTeamLeaderActiveOrderServiceTest {
 
     private static void assertAmount(String expected, BigDecimal actual) {
         assertEquals(0, new BigDecimal(expected).compareTo(actual));
+    }
+
+    private static String processCode(Long processId) {
+        return "PROC-" + processId;
+    }
+
+    private static String processName(Long processId) {
+        return "工序" + processId;
     }
 
     private static MesProcessPoolDeviceParameterRuleDO parameterRule(

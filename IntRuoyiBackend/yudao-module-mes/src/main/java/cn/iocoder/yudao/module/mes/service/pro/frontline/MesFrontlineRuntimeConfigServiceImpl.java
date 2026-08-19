@@ -118,7 +118,8 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         return employees.stream().map(employee -> {
             Long actualEmployeeId = resolveActualEmployeeId(employee);
             MesFrontlineTemplateDescriptor template = templateResolver.resolve(new MesFrontlineTemplateRequest(
-                    loginUserId, actualEmployeeId, process.routeId(), process.routeProcessId(), process.processId()));
+                    loginUserId, actualEmployeeId, process.routeId(), process.routeProcessId(), process.processId(),
+                    process.checkFlag()));
             return new MesFrontlineEmployeeSwitchResult(loginUserId, actualEmployeeId,
                     process.routeId(), process.routeProcessId(), process.processId(), false, template);
         }).toList();

@@ -163,8 +163,12 @@ public class MesQaInspectionRegulationWordImportService {
             String processKey = normalizedName(parsedItem.processName());
             ProcessGroup processGroup = processGroups.computeIfAbsent(processKey,
                     ignored -> new ProcessGroup(parsedItem.processName(), new ArrayList<>()));
-            ExistingItem existing = baselineIndex.itemByName().get(
-                    itemKey(parsedItem.processName(), parsedItem.itemName()));
+            String parsedItemKey = itemKey(parsedItem.processName(), parsedItem.itemName());
+            ExistingItem existing = baselineIndex.itemByName().get(parsedItemKey);
+            if (existing == null && baselineIndex.ambiguousItemKeys().contains(parsedItemKey)) {
+                throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID,
+                        "同名检验项目不唯一：" + parsedItem.processName() + " / " + parsedItem.itemName());
+            }
             String itemCode = existing == null
                     ? generatedCode(parsed.regulationCode(), "I", globalItemIndex)
                     : existing.item().getItemCode();
@@ -267,13 +271,14 @@ public class MesQaInspectionRegulationWordImportService {
     private static BaselineIndex createBaselineIndex(
             MesQaInspectionRegulationPublishedVersionRespVO baseline) {
         if (baseline == null) {
-            return new BaselineIndex(Map.of(), Map.of());
+            return new BaselineIndex(Map.of(), Map.of(), Set.of());
         }
         if (CollUtil.isEmpty(baseline.getInspectionTypeRules()) || CollUtil.isEmpty(baseline.getProcesses())) {
             throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, baseline.getPublishedVersionId());
         }
         Map<String, String> processCodeByName = new LinkedHashMap<>();
         Map<String, ExistingItem> itemByName = new LinkedHashMap<>();
+        Set<String> ambiguousItemKeys = new LinkedHashSet<>();
         for (MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess process
                 : baseline.getProcesses()) {
             String processKey = normalizedName(process.getProcessName());
@@ -284,15 +289,19 @@ public class MesQaInspectionRegulationWordImportService {
             }
             for (MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem item
                     : CollUtil.emptyIfNull(process.getItems())) {
-                String key = itemKey(process.getProcessName(), item.getItemName());
+                String baselineItemName = baselineItemName(process, item);
+                String key = itemKey(process.getProcessName(), baselineItemName);
+                if (ambiguousItemKeys.contains(key)) {
+                    continue;
+                }
                 ExistingItem previous = itemByName.putIfAbsent(key, new ExistingItem(process, item));
                 if (previous != null) {
-                    throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID,
-                            "同名检验项目不唯一：" + process.getProcessName() + " / " + item.getItemName());
+                    itemByName.remove(key);
+                    ambiguousItemKeys.add(key);
                 }
             }
         }
-        return new BaselineIndex(processCodeByName, itemByName);
+        return new BaselineIndex(processCodeByName, itemByName, ambiguousItemKeys);
     }
 
     private static List<MesQaInspectionRegulationSaveReqVO.EquipmentOption> copyEquipmentOptions(
@@ -403,6 +412,38 @@ public class MesQaInspectionRegulationWordImportService {
         return normalizedName(processName) + "\u0000" + normalizedName(itemName);
     }
 
+    private static String baselineItemName(
+            MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess process,
+            MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem item) {
+        String sourceOriginalItem = normalizedName(item.getSourceOriginalItem());
+        if (!sourceOriginalItem.isEmpty()) {
+            String processName = normalizedName(process.getProcessName());
+            String itemPath = removeProcessPrefix(sourceOriginalItem, processName);
+            if (!itemPath.isEmpty()) {
+                return itemPath;
+            }
+        }
+        return normalizedName(item.getItemName());
+    }
+
+    private static String removeProcessPrefix(String sourceOriginalItem, String processName) {
+        if (processName.isEmpty()) {
+            return sourceOriginalItem;
+        }
+        if (Objects.equals(sourceOriginalItem, processName)) {
+            return "";
+        }
+        String slashPrefix = processName + " / ";
+        if (sourceOriginalItem.startsWith(slashPrefix)) {
+            return normalizedName(sourceOriginalItem.substring(slashPrefix.length()));
+        }
+        String compactSlashPrefix = processName + "/";
+        if (sourceOriginalItem.startsWith(compactSlashPrefix)) {
+            return normalizedName(sourceOriginalItem.substring(compactSlashPrefix.length()));
+        }
+        return sourceOriginalItem;
+    }
+
     private static String normalizedName(String value) {
         return MesQaInspectionRegulationWordParser.normalizeText(value);
     }
@@ -425,7 +466,8 @@ public class MesQaInspectionRegulationWordImportService {
     }
 
     private record BaselineIndex(Map<String, String> processCodeByName,
-                                 Map<String, ExistingItem> itemByName) {
+                                 Map<String, ExistingItem> itemByName,
+                                 Set<String> ambiguousItemKeys) {
     }
 
     private record BuildResult(MesQaInspectionRegulationSaveReqVO request,
