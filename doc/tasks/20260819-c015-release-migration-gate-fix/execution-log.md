@@ -18,6 +18,7 @@
 - GREEN: maintenance-actual-ops-gate -> PASS, `D:\ProjectPackage\Int\IntRuoyiWorktrees\r260819b\m\ops\release\run-release-migration-policy-gate.py --sql-root E:\IntRuoyi\IntRuoyiBackend\sql\mysql --output E:\IntRuoyi\doc\tasks\20260819-c015-release-migration-gate-fix\maintenance-ops-migration-policy-gate.json`，status=passed, migrationCount=505。
 - GREEN: evidence-validators -> PASS, bug regression/database schema/CI-CD evidence validators all passed。
 - GREEN: git-diff-check -> PASS, `git diff --check -- <task files>` returned 0；仅有 Git CRLF warning，无 whitespace error。
+- GREEN: implementation-commit -> PASS, `git commit -m "任务: 修复C015发布迁移门禁"` created `e0c488267dabf77ce566acd0013cc400fdf88bfe`; branch runtime port guard passed for `int_main/int_main` frontend 8081 backend 48081。
 
 ## Issue Log
 
@@ -83,4 +84,4 @@
 
 ## Progress Review
 
-- 2026-08-19：已完成修复授权确认、项目规则读取、业务 RED 测试、app gate 规则补齐、C015 schema 元数据调整、压力泵 data 迁移依赖修正、聚焦测试和双 gate GREEN；下一步校验 diff/staged 边界并提交新的已提交 HEAD。
+- 2026-08-19：已完成修复授权确认、项目规则读取、业务 RED 测试、app gate 规则补齐、C015 schema 元数据调整、压力泵 data 迁移依赖修正、聚焦测试、双 gate GREEN 和实现提交；下一步由发布任务基于最终提交 HEAD 重新冻结。

@@ -34,9 +34,10 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## Notes
 
 - 本修复由测试服发布流程阻塞触发，用户已授权正式源码修复和提交新的已提交 HEAD。
 - 当前主程序主工作区 dirty 很多，本任务不清理、不回滚、不提交无关改动。
+- 实现提交：`e0c488267dabf77ce566acd0013cc400fdf88bfe`，提交信息 `任务: 修复C015发布迁移门禁`。
