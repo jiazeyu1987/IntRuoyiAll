@@ -231,8 +231,6 @@ class MesFrontlinePqcContextServiceTest {
                 .id(DCC_PROJECT_ID).build());
         when(regulationItemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(publishedItem()));
         when(equipmentMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of());
-        when(pqcTaskMapper.updateSubmittedIfPending(pqcTaskId, 1, null, "PENDING", "SUBMITTED"))
-                .thenReturn(1);
         when(pqcTaskMapper.updateSubmittedIfPending(anyLong(), any(), anyString(), anyString(), anyString()))
                 .thenReturn(1);
         when(signatureService.recordPqcSubmitSignature(actualEmployeeId, "sign-123", "PQC任务" + pqcTaskId + "正式提交"))
@@ -635,6 +633,66 @@ class MesFrontlinePqcContextServiceTest {
                   {"key":"FINAL","inspectionType":"FINAL","label":"末检","roundLabel":"末检第1轮","required":true,"fixedQuantity":3,"taskRule":"ON_COMPLETE","releaseGate":"REQUIRED"}
                 ]
                 """;
+    }
+
+    private static MesPqcInspectionTaskDO pendingTask(long taskId) {
+        return MesPqcInspectionTaskDO.builder()
+                .id(taskId)
+                .activeOrderId(ACTIVE_ORDER_ID)
+                .workOrderId(WORK_ORDER_ID)
+                .routeId(ROUTE_ID)
+                .routeVersionId(ROUTE_VERSION_ID)
+                .routeProcessId(30001L)
+                .processId(40001L)
+                .qaProcessId(QA_PROCESS_ID)
+                .qaItemCode("ID-001")
+                .regulationVersionId(REGULATION_VERSION_ID)
+                .inspectionType("FIRST")
+                .inspectionRuleKey("FIRST")
+                .businessDate(LocalDate.of(2026, 8, 19))
+                .shiftCode("FIRST")
+                .roundNo(1)
+                .plannedInspectionQuantity(1)
+                .taskStatus("PENDING")
+                .build();
+    }
+
+    private static MesQaInspectionRegulationItemDO publishedItem() {
+        return MesQaInspectionRegulationItemDO.builder()
+                .id(8101L)
+                .regulationVersionId(REGULATION_VERSION_ID)
+                .qaProcessId(QA_PROCESS_ID)
+                .inspectionType("FIRST")
+                .itemSort(1)
+                .itemCode("ID-001")
+                .itemName("外观")
+                .inspectionMethod("目测")
+                .inspectionTool("目测")
+                .standardText("应合格")
+                .samplingPlanText("全检")
+                .equipmentRequired(false)
+                .resultType("BOOLEAN")
+                .firstInspectionQuantity(1)
+                .build();
+    }
+
+    private static MesProcessPoolTeamLeaderScopeDO pqcEmployeeScope(long loginUserId, long actualEmployeeId) {
+        return MesProcessPoolTeamLeaderScopeDO.builder()
+                .leaderUserId(loginUserId)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
+                .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EMPLOYEE)
+                .employeeUserId(actualEmployeeId)
+                .enabled(true)
+                .build();
+    }
+
+    private static AdminUserRespDTO enabledUser(long userId) {
+        AdminUserRespDTO user = new AdminUserRespDTO();
+        user.setId(userId);
+        user.setUsername("user-" + userId);
+        user.setNickname("员工" + userId);
+        user.setStatus(0);
+        return user;
     }
 
     private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot(long routeProcessId, long processId) {
