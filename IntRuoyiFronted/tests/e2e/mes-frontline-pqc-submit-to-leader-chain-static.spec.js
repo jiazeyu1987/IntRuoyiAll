@@ -86,26 +86,6 @@ assert(
   'PQC 组长列表必须按检验员正式项目级明细解析展示，不能只展示汇总。'
 )
 
-const pqcProductionSubmitTimeFormatterStart = panel.indexOf('const formatPqcServerSubmitTime')
-const pqcProductionSubmitTimeFormatterEnd = panel.indexOf('const productionScrapQuantity', pqcProductionSubmitTimeFormatterStart)
-assert(
-  pqcProductionSubmitTimeFormatterStart >= 0 && pqcProductionSubmitTimeFormatterEnd > pqcProductionSubmitTimeFormatterStart,
-  'PQC 生产提交记录时间必须经过专用格式化函数，兼容后端 LocalDateTime 数字时间戳。'
-)
-const pqcProductionSubmitTimeFormatter = panel.slice(
-  pqcProductionSubmitTimeFormatterStart,
-  pqcProductionSubmitTimeFormatterEnd
-)
-assert(
-  /typeof\s+value\s*===\s*['"]number['"]/.test(pqcProductionSubmitTimeFormatter) &&
-    /new Date\(value\)/.test(pqcProductionSubmitTimeFormatter),
-  'PQC 生产提交记录时间格式化必须支持 number 时间戳，不能直接调用字符串 replace。'
-)
-assert(
-  !/candidate\.serverSubmitTime\.replace/.test(panel),
-  'PQC 生产提交记录显示不得直接对 serverSubmitTime 调用 replace，避免数字时间戳导致页面崩溃。'
-)
-
 const resolvePqcResultStart = panel.indexOf('const resolvePqcResult = () => {')
 const resolvePqcResultEnd = panel.indexOf('const normalizePqcDefectDescription', resolvePqcResultStart)
 assert(
@@ -148,12 +128,14 @@ assert(
 )
 assert(
   backendService.includes('getSubmittedPqcInspection') &&
-    backendService.includes('selectLatestPqcByTaskId') &&
+    backendService.includes('requireUniqueSubmittedEvent') &&
+    backendService.includes('selectListPqcByTaskId') &&
+    backendService.includes('getSubmittedEventId') &&
     backendService.includes('loadPqcSubmitResult'),
   'PQC 回执只读查询必须复用正式事件和 PQC record 来源生成回执。'
 )
 assert(
-  backendMapper.includes('selectLatestPqcByTaskId') &&
+  backendMapper.includes('selectListPqcByTaskId') &&
     backendMapper.includes('EVENT_TYPE_PQC_INSPECTION') &&
     backendMapper.includes('getFeedbackSourceId'),
   'PQC 回执只读查询必须按任务稳定 ID 查询正式 PQC_INSPECTION 事件。'

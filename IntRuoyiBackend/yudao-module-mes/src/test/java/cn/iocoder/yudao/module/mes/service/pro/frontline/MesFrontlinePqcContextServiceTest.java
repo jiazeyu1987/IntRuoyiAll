@@ -282,8 +282,8 @@ class MesFrontlinePqcContextServiceTest {
         MesProcessPoolCreatePqcInspectionReqDTO request = requestCaptor.getValue();
         assertEquals(productionSubmitEventId, request.getProductionSubmitEventId());
         assertNotNull(request.getRawPayload());
-        assertEquals(productionSubmitEventId,
-                JsonUtils.parseObject(request.getRawPayload(), Map.class).get("productionSubmitEventId"));
+        assertEquals(productionSubmitEventId, ((Number) JsonUtils.parseObject(request.getRawPayload(), Map.class)
+                .get("productionSubmitEventId")).longValue());
     }
 
     @Test
