@@ -25,6 +25,7 @@ import java.util.List;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_STATUS_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Import(DccRegistrationCertificateGrantService.class)
@@ -82,6 +83,24 @@ class DccRegistrationCertificateGrantServiceTest extends BaseDbUnitTest {
         assertEquals(requestFileId, grant.getRequestFileId());
         assertEquals(fixture.fileId(), grant.getBusinessFileId());
         assertEquals(approvedAt.plusHours(24), grant.getExpiresAt());
+        assertEquals("GRANTED", requestFileMapper.selectById(requestFileId).getStatus());
+    }
+
+    @Test
+    void approvedDownloadRequestPromotesRequestedFilesFromNativeApprovalToGranted() {
+        FormalFixture fixture = seedFormal("ACTIVE", "CURRENT", "BOUND");
+        Long requestId = seedRequest(fixture.certificateId(), "DOWNLOAD_FILE", "APPROVED", 40L);
+        Long requestFileId = seedRequestFile(requestId, fixture.fileId(), true, "REQUESTED");
+        LocalDateTime approvedAt = LocalDateTime.of(2026, 8, 19, 9, 0);
+
+        List<DccRegistrationCertificateGrantDO> grants = assertDoesNotThrow(() ->
+                grantService.createGrantsForApprovedRequest(
+                        1L, 77L, requestId, "approval-download-requested-file", approvedAt));
+
+        assertEquals(1, grants.size());
+        DccRegistrationCertificateGrantDO grant = grants.get(0);
+        assertEquals(requestFileId, grant.getRequestFileId());
+        assertEquals(fixture.fileId(), grant.getBusinessFileId());
         assertEquals("GRANTED", requestFileMapper.selectById(requestFileId).getStatus());
     }
 

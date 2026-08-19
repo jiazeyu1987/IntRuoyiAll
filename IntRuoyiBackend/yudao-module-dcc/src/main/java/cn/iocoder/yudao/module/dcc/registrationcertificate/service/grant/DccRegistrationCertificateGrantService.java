@@ -25,6 +25,7 @@ public class DccRegistrationCertificateGrantService {
     private static final String REQUEST_STATUS_APPROVED = "APPROVED";
     private static final String REQUEST_TYPE_VIEW_OLD_CERTIFICATE = "VIEW_OLD_CERTIFICATE";
     private static final String REQUEST_TYPE_DOWNLOAD_FILE = "DOWNLOAD_FILE";
+    private static final String REQUEST_FILE_STATUS_REQUESTED = "REQUESTED";
     private static final String REQUEST_FILE_STATUS_APPROVED = "APPROVED";
     private static final String REQUEST_FILE_STATUS_GRANTED = "GRANTED";
     private static final String GRANT_TYPE_VIEW_OLD_CERTIFICATE = "VIEW_OLD_CERTIFICATE";
@@ -66,7 +67,7 @@ public class DccRegistrationCertificateGrantService {
                 requestFileMapper.selectByRequestId(tenantId, requestId);
         if (requestFiles.isEmpty() || requestFiles.stream()
                 .anyMatch(file -> !Boolean.TRUE.equals(file.getDownloadRequested())
-                        || !REQUEST_FILE_STATUS_APPROVED.equals(file.getStatus()))) {
+                        || !isDownloadGrantable(file.getStatus()))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_STATUS_INVALID);
         }
         return requestFiles.stream()
@@ -78,6 +79,10 @@ public class DccRegistrationCertificateGrantService {
                     return grant;
                 })
                 .toList();
+    }
+
+    private static boolean isDownloadGrantable(String status) {
+        return REQUEST_FILE_STATUS_REQUESTED.equals(status) || REQUEST_FILE_STATUS_APPROVED.equals(status);
     }
 
     private DccRegistrationCertificateGrantDO createGrant(
