@@ -4,8 +4,10 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateQueryMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
@@ -31,16 +33,22 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
     private final MdmCompanyScopeApi companyScopeApi;
     private final MdmEnterpriseApi enterpriseApi;
     private final DccRegistrationCertificateReadAuditService readAuditService;
+    private final DccRegistrationCertificateAccessPolicyService accessPolicyService;
+    private final DccRegistrationCertificateBusinessClock businessClock;
 
     public DccRegistrationCertificateQueryServiceImpl(
             DccRegistrationCertificateQueryMapper queryMapper,
             MdmCompanyScopeApi companyScopeApi,
             MdmEnterpriseApi enterpriseApi,
-            DccRegistrationCertificateReadAuditService readAuditService) {
+            DccRegistrationCertificateReadAuditService readAuditService,
+            DccRegistrationCertificateAccessPolicyService accessPolicyService,
+            DccRegistrationCertificateBusinessClock businessClock) {
         this.queryMapper = require(queryMapper, "queryMapper");
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.enterpriseApi = require(enterpriseApi, "enterpriseApi");
         this.readAuditService = require(readAuditService, "readAuditService");
+        this.accessPolicyService = require(accessPolicyService, "accessPolicyService");
+        this.businessClock = require(businessClock, "businessClock");
     }
 
     @Override
@@ -68,17 +76,18 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         DccRegistrationCertificateQueryRecord row = queryMapper.selectDetail(
                 tenantId, scopedCompanyIds, certificateId);
         if (row == null) {
-            readAuditService.record(DccRegistrationCertificateReadAuditCommand.builder()
-                    .tenantId(tenantId)
-                    .requestedCertificateId(certificateId)
-                    .operation("DETAIL")
-                    .actorId(actorId)
-                    .result("FAILURE")
-                    .resultCode(String.valueOf(REGISTRATION_CERTIFICATE_NOT_EXISTS.getCode()))
-                    .requestTraceId(auditContext.requireRequestId("registration certificate detail"))
-                    .detailJson(JsonUtils.toJsonString(Map.of("reason", "not_found_or_out_of_scope")))
-                    .build());
+            recordDetailFailure(tenantId, actorId, certificateId, auditContext,
+                    String.valueOf(REGISTRATION_CERTIFICATE_NOT_EXISTS.getCode()), "not_found_or_out_of_scope");
             throw new ServiceException(REGISTRATION_CERTIFICATE_NOT_EXISTS);
+        }
+        if ("OLD".equals(row.getStatus())) {
+            try {
+                accessPolicyService.assertOldViewAllowed(tenantId, actorId, certificateId, businessClock.now());
+            } catch (ServiceException exception) {
+                recordDetailFailure(tenantId, actorId, certificateId, auditContext,
+                        String.valueOf(exception.getCode()), "old_view_grant_denied");
+                throw exception;
+            }
         }
         Map<Long, String> companyNames = companyNames(tenantId, List.of(row));
         readAuditService.record(successAudit(tenantId, actorId, row, "DETAIL", auditContext, "detail"));
@@ -157,6 +166,21 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .requestTraceId(auditContext.requireRequestId("registration certificate " + source))
                 .detailJson(JsonUtils.toJsonString(Map.of("source", source)))
                 .build();
+    }
+
+    private void recordDetailFailure(
+            Long tenantId, Long actorId, Long certificateId, DccRequestAuditContext auditContext,
+            String resultCode, String reason) {
+        readAuditService.record(DccRegistrationCertificateReadAuditCommand.builder()
+                .tenantId(tenantId)
+                .requestedCertificateId(certificateId)
+                .operation("DETAIL")
+                .actorId(actorId)
+                .result("FAILURE")
+                .resultCode(resultCode)
+                .requestTraceId(auditContext.requireRequestId("registration certificate detail"))
+                .detailJson(JsonUtils.toJsonString(Map.of("reason", reason)))
+                .build());
     }
 
     private static DccRegistrationCertificatePageItem pageItem(

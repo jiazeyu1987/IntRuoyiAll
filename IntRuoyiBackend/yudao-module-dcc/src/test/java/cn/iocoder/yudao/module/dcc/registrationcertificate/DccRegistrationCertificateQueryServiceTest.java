@@ -6,14 +6,17 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAuditDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateFileDO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateGrantDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateVersionDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateAuditMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateFileMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateGrantMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateQueryMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificateDetail;
@@ -35,12 +38,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.lang.reflect.Modifier;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,6 +61,7 @@ import static org.mockito.Mockito.when;
 @Import({
         DccRegistrationCertificateQueryServiceImpl.class,
         DccRegistrationCertificateReadAuditService.class,
+        DccRegistrationCertificateAccessPolicyService.class,
         DccRegistrationCertificateBusinessClock.class
 })
 class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
@@ -70,6 +76,8 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     private DccRegistrationCertificateSnapshotMapper snapshotMapper;
     @Resource
     private DccRegistrationCertificateFileMapper dbFileMapper;
+    @Resource
+    private DccRegistrationCertificateGrantMapper grantMapper;
     @Resource
     private DccRegistrationCertificateAuditMapper auditMapper;
     @Resource
@@ -195,6 +203,54 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void currentPageNeverReturnsOldVersionFacts() {
+        FormalFixture current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-CURRENT", true, 20L);
+        seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-OLD", true, null);
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
+                1L, 99L, DccRegistrationCertificatePageQuery.builder().pageNo(1).pageSize(10).build(),
+                context("REQ-CURRENT-PAGE-NO-OLD"));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(List.of(current.certificateId()), page.getList().stream()
+                .map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+    }
+
+    @Test
+    void oldDetailRequiresAStillValidOldViewGrant() {
+        FormalFixture old = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-OLD-DETAIL", true, null);
+        seedOldViewGrant(old.certificateId(), LocalDateTime.of(2026, 8, 17, 9, 0),
+                LocalDateTime.of(2026, 8, 18, 9, 0));
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> queryService.getDetail(1L, 99L, old.certificateId(), context("REQ-OLD-EXPIRED")));
+
+        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED.getCode(), error.getCode());
+    }
+
+    @Test
+    void oldDetailReturnsAfterValidOldViewGrant() {
+        FormalFixture old = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-OLD-GRANTED", true, null);
+        seedOldViewGrant(old.certificateId(), LocalDateTime.of(2026, 8, 19, 8, 0),
+                LocalDateTime.of(2100, 1, 1, 0, 0));
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        DccRegistrationCertificateDetail detail = queryService.getDetail(
+                1L, 99L, old.certificateId(), context("REQ-OLD-GRANTED"));
+
+        assertEquals(old.certificateId(), detail.getCertificateId());
+        assertEquals("OLD", detail.getStatus());
+    }
+
+    @Test
     void missingEnabledCompanyFactFailsWithoutIdOrSnapshotNameFallback() {
         seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-VISIBLE", true, 20L);
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
@@ -295,6 +351,23 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         certificate.setCurrentSnapshotId("CURRENT".equals(versionStatus) ? snapshot.getId() : null);
         assertEquals(1, certificateMapper.updateById(certificate));
         return new FormalFixture(certificate.getId(), version.getId(), snapshot.getId());
+    }
+
+    private void seedOldViewGrant(Long certificateId, LocalDateTime grantedAt, LocalDateTime expiresAt) {
+        DccRegistrationCertificateGrantDO grant = DccRegistrationCertificateGrantDO.builder()
+                .requestId(9000L + certificateId)
+                .ownerCompanyId(10L)
+                .certificateId(certificateId)
+                .granteeUserId(99L)
+                .grantType("VIEW_OLD_CERTIFICATE")
+                .grantKey("query-old:" + certificateId)
+                .status("ACTIVE")
+                .grantedAt(grantedAt)
+                .expiresAt(expiresAt)
+                .detailJson("{}")
+                .build();
+        grant.setTenantId(1L);
+        assertEquals(1, grantMapper.insert(grant));
     }
 
     private static MdmEnterpriseRespDTO owner(Long id, String name) {

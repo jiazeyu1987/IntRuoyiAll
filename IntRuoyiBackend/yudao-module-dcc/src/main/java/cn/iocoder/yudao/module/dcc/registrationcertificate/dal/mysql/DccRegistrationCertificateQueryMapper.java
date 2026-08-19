@@ -49,11 +49,11 @@ public interface DccRegistrationCertificateQueryMapper {
         }
 
         public static String countPage() {
-            return script("SELECT COUNT(*) " + from(), commonWhere() + filters(), "");
+            return script("SELECT COUNT(*) " + from(), currentWhere() + filters(), "");
         }
 
         public static String selectPage() {
-            return script(select(), commonWhere() + filters(),
+            return script(select(), currentWhere() + filters(),
                     " ORDER BY c.owner_company_id ASC, v.expiry_date ASC, c.id ASC, v.version_no ASC"
                             + " LIMIT #{limit} OFFSET #{offset}");
         }
@@ -144,6 +144,10 @@ public interface DccRegistrationCertificateQueryMapper {
                          #{companyId}
                        </foreach>
                     """;
+        }
+
+        private static String currentWhere() {
+            return commonWhere() + " AND v.status != 'OLD'";
         }
 
         private static String filters() {
