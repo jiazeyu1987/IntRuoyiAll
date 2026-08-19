@@ -6,7 +6,9 @@ import cn.iocoder.yudao.framework.common.util.servlet.ServletUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledPreviewWatermarkRespVO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFileDeliveryService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFilePreviewService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.file.DccRegistrationCertificateFileDownloadResult;
 import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,11 +43,16 @@ import static cn.iocoder.yudao.module.dcc.controller.admin.filepreview.DccOnline
 @Validated
 public class DccRegistrationCertificateFilePreviewController {
 
+    public static final String DOWNLOAD_ATTEMPT_KEY_HEADER = "X-DCC-Download-Attempt-Key";
+
     private final DccRegistrationCertificateFilePreviewService previewService;
+    private final DccRegistrationCertificateFileDeliveryService deliveryService;
 
     public DccRegistrationCertificateFilePreviewController(
-            DccRegistrationCertificateFilePreviewService previewService) {
+            DccRegistrationCertificateFilePreviewService previewService,
+            DccRegistrationCertificateFileDeliveryService deliveryService) {
         this.previewService = previewService;
+        this.deliveryService = deliveryService;
     }
 
     @GetMapping("/{businessFileId}/preview-metadata")
@@ -81,6 +88,23 @@ public class DccRegistrationCertificateFilePreviewController {
                 .body(binary.bytes());
     }
 
+    @GetMapping("/{businessFileId}/download")
+    @Operation(summary = "Download one registration certificate file")
+    @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:access-request:create')")
+    public ResponseEntity<byte[]> downloadFile(
+            @PathVariable("businessFileId") Long businessFileId,
+            @RequestHeader(DOWNLOAD_ATTEMPT_KEY_HEADER) String attemptKey,
+            HttpServletRequest request) {
+        DccRegistrationCertificateFileDownloadResult binary = deliveryService.download(
+                TenantContextHolder.getRequiredTenantId(), getLoginUserId(), businessFileId, attemptKey,
+                DccRequestAuditContext.from(request, attemptKey));
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(binary.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDispositionAttachment(binary.fileName()))
+                .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION)
+                .body(binary.bytes());
+    }
+
     private DccRequestAuditContext auditContext(HttpServletRequest request) {
         String requestId = request.getHeader(DccRequestAuditContext.REQUEST_ID_HEADER);
         if (requestId == null || requestId.isBlank()) {
@@ -100,6 +124,13 @@ public class DccRegistrationCertificateFilePreviewController {
 
     private String contentDispositionInline(String fileName) {
         return ContentDisposition.inline()
+                .filename(fileName, StandardCharsets.UTF_8)
+                .build()
+                .toString();
+    }
+
+    private String contentDispositionAttachment(String fileName) {
+        return ContentDisposition.attachment()
                 .filename(fileName, StandardCharsets.UTF_8)
                 .build()
                 .toString();
