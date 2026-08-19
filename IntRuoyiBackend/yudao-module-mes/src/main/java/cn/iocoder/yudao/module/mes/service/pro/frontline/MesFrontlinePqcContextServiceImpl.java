@@ -909,6 +909,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         payload.put("workOrderId", command.getWorkOrderId());
         payload.put("routeId", command.getRouteId());
         payload.put("qaProcessId", command.getQaProcessId());
+        payload.put("productionSubmitEventId", command.getProductionSubmitEventId());
         payload.put("inspectionType", command.getInspectionType());
         payload.put("businessDate", command.getBusinessDate());
         payload.put("shiftCode", command.getShiftCode());
@@ -1061,7 +1062,9 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (!hasTaskItems) {
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
         }
-        validateProductionSubmitEvent(activeOrder, command.getProductionSubmitEventId());
+        MesFrontlineProductionSubmitCandidate productionSubmit =
+                resolveUniqueProductionSubmitEvent(activeOrder, task);
+        command.setProductionSubmitEventId(productionSubmit.eventId());
     }
 
     private List<MesFrontlinePqcInspectionItem> resolveSubmittedInspectionItems(
@@ -1102,17 +1105,20 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .toList();
     }
 
-    private void validateProductionSubmitEvent(MesProcessPoolActiveOrderDO activeOrder, Long eventId) {
-        if (eventId == null) {
-            return;
-        }
-        long matches = resolveProductionSubmitCandidates(activeOrder).stream()
-                .filter(candidate -> Objects.equals(eventId, candidate.eventId()))
-                .count();
-        if (matches != 1) {
+    private MesFrontlineProductionSubmitCandidate resolveUniqueProductionSubmitEvent(
+            MesProcessPoolActiveOrderDO activeOrder,
+            MesPqcInspectionTaskDO task) {
+        List<MesFrontlineProductionSubmitCandidate> matches = resolveProductionSubmitCandidates(activeOrder).stream()
+                .filter(candidate -> Objects.equals(task.getRouteProcessId(), candidate.routeProcessId())
+                        && Objects.equals(task.getProcessId(), candidate.processId()))
+                .toList();
+        if (matches.size() != 1) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
-                    "productionSubmitEventId=" + eventId + " activeOrderId=" + activeOrder.getId());
+                    "productionSubmitEvent activeOrderId=" + activeOrder.getId()
+                            + "，routeProcessId=" + task.getRouteProcessId()
+                            + "，processId=" + task.getProcessId());
         }
+        return matches.get(0);
     }
 
     private Map<ProductionProcessIdentity, MesProcessPoolActiveOrderProcessSnapshotDO> requireFrozenProcessSnapshots(

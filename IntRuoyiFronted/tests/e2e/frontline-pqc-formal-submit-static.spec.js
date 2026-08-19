@@ -20,8 +20,8 @@ assert.match(
 )
 assert.match(
   apiSource,
-  /export interface FrontlinePqcInspectionSubmitReqVO[\s\S]*activeOrderId: number[\s\S]*pqcTaskId: number[\s\S]*regulationVersionId: number[\s\S]*qaProcessId: number[\s\S]*actualEmployeeId: number[\s\S]*productionSubmitEventId\?: number[\s\S]*scrapQuantity: number[\s\S]*signaturePassword: string/,
-  'Formal PQC submit must send an explicit production event, structured scrap quantity, and one-time signature password.'
+  /export interface FrontlinePqcInspectionSubmitReqVO[\s\S]*activeOrderId: number[\s\S]*pqcTaskId: number[\s\S]*regulationVersionId: number[\s\S]*qaProcessId: number[\s\S]*actualEmployeeId: number[\s\S]*scrapQuantity: number[\s\S]*signaturePassword: string/,
+  'Formal PQC submit must send structured scrap quantity and one-time signature password.'
 )
 const submitContract = apiSource.slice(
   apiSource.indexOf('export interface FrontlinePqcInspectionSubmitReqVO'),
@@ -41,7 +41,7 @@ assert.ok(
     !panelSource.includes("pqcSignatureId.value = firstRouteQueryNumber(['signatureId'])"),
   'PQC formal context must not come from route query parameters.'
 )
-assert.ok(panelSource.includes('data-pqc-production-submit-select'), 'PQC page must expose production-submit selection.')
+assert.ok(!panelSource.includes('data-pqc-production-submit-select'), 'PQC page must not expose production-submit selection.')
 assert.ok(panelSource.includes('data-pqc-signature-dialog'), 'PQC submit must open an electronic-signature dialog.')
 assert.ok(panelSource.includes('data-pqc-submit-receipt'), 'PQC page must render the formal submit receipt.')
 assert.match(

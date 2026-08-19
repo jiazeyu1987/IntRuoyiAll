@@ -44,8 +44,13 @@ const createTablesSource = read(path.join(
 
 assert.match(
   feedbackApiSource,
-  /productionSubmitEventId\?: number/,
-  'Frontend PQC submit payload must not require a production submit event id.'
+  /export interface FrontlinePqcInspectionSubmitReqVO[\s\S]*scrapQuantity: number[\s\S]*signaturePassword: string/,
+  'Frontend PQC submit payload must keep formal quantity and signature fields.'
+)
+assert.doesNotMatch(
+  feedbackApiSource,
+  /interface\s+FrontlinePqcInspectionSubmitReqVO[\s\S]*productionSubmitEventId/,
+  'Frontend PQC submit payload must not expose manual production submit event binding.'
 )
 assert.doesNotMatch(
   submitReqSource,

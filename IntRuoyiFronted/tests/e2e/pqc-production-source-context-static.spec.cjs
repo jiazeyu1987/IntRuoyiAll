@@ -45,7 +45,11 @@ for (const clientSourceField of ['deviceAccountId', 'deviceId', 'workstationId']
 const payloadBuilder = panel.match(
   /const buildPqcInspectionSubmitPayload = \([\s\S]*?\n\}\n\n/
 )?.[0] || ''
-assert.match(payloadBuilder, /productionSubmitEventId/)
+assert.doesNotMatch(
+  payloadBuilder,
+  /productionSubmitEventId\s*:/,
+  'PQC payload builder must not let employees manually bind a production submit event.'
+)
 for (const clientInference of [
   /userStore\.getUser/,
   /activeProductionDevice/,
@@ -72,15 +76,13 @@ for (const serverOwnedField of ['deviceAccountId', 'deviceId', 'workstationId'])
 
 assert.match(
   service,
-  /processPoolEventMapper\.selectByIdForUpdate\(command\.getProductionSubmitEventId\(\)\)/
+  /resolveUniqueProductionSubmitEvent\(activeOrder,\s*task\)/
 )
 assert.match(
   service,
   /MesProProcessPoolEventDO\.EVENT_TYPE_PRODUCTION_SUBMIT/
 )
-assert.match(service, /\.deviceAccountId\(sourceEvent\.getDeviceAccountId\(\)\)/)
-assert.match(service, /\.deviceId\(sourceEvent\.getDeviceId\(\)\)/)
-assert.match(service, /\.workstationId\(sourceEvent\.getWorkstationId\(\)\)/)
+assert.match(service, /command\.setProductionSubmitEventId\(productionSubmit\.eventId\(\)\)/)
 
 assert.match(
   realFlow,

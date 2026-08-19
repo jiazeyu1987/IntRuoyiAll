@@ -398,19 +398,6 @@
         </section>
 
         <section class="frontline-work-panel frontline-pqc-fill-panel">
-          <label v-if="pqcProductionSubmitCandidates.length" class="frontline-pqc-production-submit">
-            <span>生产提交事件</span>
-            <select v-model="selectedPqcProductionSubmitEventId" data-pqc-production-submit-select>
-              <option :value="undefined">请选择</option>
-              <option
-                v-for="candidate in pqcProductionSubmitCandidates"
-                :key="candidate.eventId"
-                :value="candidate.eventId"
-              >
-                {{ candidate.eventId }} / {{ candidate.serverSubmitTime }}
-              </option>
-            </select>
-          </label>
           <div class="frontline-pqc-type-tabs">
             <button
               v-for="tab in pqcInspectionTypeTabs"
@@ -535,14 +522,6 @@
         </section>
       </div>
 
-      <section v-if="pqcSubmitReceipt" class="frontline-pqc-submit-receipt" data-pqc-submit-receipt>
-        <strong>正式提交成功</strong>
-        <span>事件 {{ pqcSubmitReceipt.pqcEventId }}</span>
-        <span>记录 {{ pqcSubmitReceipt.pqcRecordId }}</span>
-        <span>签名 {{ pqcSubmitReceipt.signatureId }}</span>
-        <span>{{ pqcSubmitReceipt.inspectionResult === 'SUCCESS' ? '合格' : '不合格' }}</span>
-        <time>{{ pqcSubmitReceipt.serverSubmitTime }}</time>
-      </section>
       <section
         v-if="pqcSubmitResultUncertain"
         class="frontline-pqc-submit-uncertain"
@@ -555,7 +534,7 @@
         <button
           class="frontline-pqc-reset-button"
           type="button"
-          :disabled="Boolean(pqcSubmitReceipt) || pqcSubmitResultUncertain"
+          :disabled="payloadLoading || Boolean(pqcSubmitReceipt) || pqcSubmitResultUncertain"
           @click="handleResetPqc"
         >
           重填
@@ -1349,6 +1328,7 @@ import {
   type FrontlinePqcInspectionSubmitRespVO,
   type FrontlinePqcInspectionSubmitReqVO,
   type FrontlinePqcResultType,
+  type FrontlinePqcTaskStatus,
   type FrontlinePqcTaskOptionVO,
   type FrontlineRuntimeDeviceVO,
   type FrontlineRuntimeDeviceParameterVO,
@@ -1656,7 +1636,6 @@ const pqcSignatureDialogVisible = ref(false)
 const pqcSignaturePassword = ref('')
 const pqcSubmitReceipt = ref<FrontlinePqcInspectionSubmitRespVO>()
 const pqcSubmitResultUncertain = ref(false)
-const selectedPqcProductionSubmitEventId = ref<number>()
 
 const isPqcMode = computed(() => props.mode === 'pqc')
 const PRODUCTION_CANVAS_WIDTH = 1920
@@ -1920,12 +1899,6 @@ const withPqcTaskOption = (
     )
   }
 }
-
-const pqcProductionSubmitCandidates = computed(() =>
-  isFrontlinePqcProcess(deviceState.selectedProcess)
-    ? deviceState.selectedProcess.productionSubmitCandidates || []
-    : []
-)
 
 const pqcInspectionItems = computed<PqcInspectionItem[]>(() =>
   isFrontlinePqcProcess(deviceState.selectedProcess)
@@ -2741,7 +2714,6 @@ const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
   pqcSignaturePassword.value = ''
   pqcSubmitReceipt.value = undefined
   pqcSubmitResultUncertain.value = false
-  selectedPqcProductionSubmitEventId.value = undefined
   clearPqcPieceValues()
 }
 
@@ -2756,7 +2728,6 @@ const clearPqcTaskOptionDraft = () => {
   pqcSignaturePassword.value = ''
   pqcSubmitReceipt.value = undefined
   pqcSubmitResultUncertain.value = false
-  selectedPqcProductionSubmitEventId.value = undefined
   clearPqcPieceValues()
 }
 
@@ -3286,19 +3257,50 @@ const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
   }
 }
 
+const markPqcTaskSubmittedAndSelectNext = (submittedPqcTaskId: number) => {
+  const process = deviceState.selectedProcess
+  if (!isFrontlinePqcProcess(process)) {
+    return
+  }
+  const submittedStatus: FrontlinePqcTaskStatus = 'SUBMITTED'
+  const updatedProcess: FrontlinePqcProcessVO = {
+    ...process,
+    pqcTaskOptions: process.pqcTaskOptions.map((taskOption) =>
+      taskOption.pqcTaskId === submittedPqcTaskId
+        ? { ...taskOption, taskStatus: submittedStatus }
+        : taskOption
+    )
+  }
+  const nextOption = getDefaultPqcTaskOption(updatedProcess)
+  deviceState.selectedProcess = nextOption
+    ? withPqcTaskOption(updatedProcess, nextOption)
+    : updatedProcess
+  if (nextOption) {
+    applyPqcTaskOptionToDraft(nextOption)
+  } else {
+    clearPqcTaskOptionDraft()
+  }
+}
+
+const resetPqcSubmissionDraft = (submittedPqcTaskId?: number) => {
+  clearPqcPieceValues()
+  pqcDraft.scrapQuantity = undefined
+  pqcDraft.defectDescription = undefined
+  selectedPqcProductionSubmitEventId.value = undefined
+  payloadPreview.value = undefined
+  pqcSignatureDialogVisible.value = false
+  pqcSignaturePassword.value = ''
+  pqcSubmitReceipt.value = undefined
+  if (submittedPqcTaskId !== undefined) {
+    markPqcTaskSubmittedAndSelectNext(submittedPqcTaskId)
+  }
+}
+
 const handleResetPqc = () => {
   if (pqcSubmitReceipt.value || pqcSubmitResultUncertain.value) {
     return
   }
-  for (const itemKey of pqcInspectionItemKeys.value) {
-    const stateKey = getPqcPieceStateKey(itemKey)
-    if (stateKey) {
-      delete pqcPieceValues[stateKey]
-    }
-  }
-  activePqcInspectionKey.value = undefined
-  pqcPieceDraftValues.value = []
-  pqcDraft.defectDescription = undefined
+  resetPqcSubmissionDraft()
 }
 
 const openPicker = (picker: PickerType) => {
@@ -4018,11 +4020,11 @@ const handleConfirmPqcSubmit = async () => {
   }
   payloadLoading.value = true
   try {
-    pqcSubmitReceipt.value = await ProFeedbackApi.submitFrontlinePqcInspection(
+    const submitReceipt = await ProFeedbackApi.submitFrontlinePqcInspection(
       submitPayload
     )
-    pqcSignatureDialogVisible.value = false
-    message.success(`PQC正式提交成功，事件编号 ${pqcSubmitReceipt.value.pqcEventId}`)
+    resetPqcSubmissionDraft(submitPayload.pqcTaskId)
+    message.success(`PQC正式提交成功，事件编号 ${submitReceipt.pqcEventId}`)
   } catch (error) {
     const recovered = await recoverPqcSubmitReceiptAfterUncertainError(error)
     if (!recovered) {
@@ -4463,7 +4465,6 @@ const buildPqcInspectionSubmitPayload = (): FrontlinePqcInspectionSubmitReqVO =>
     regulationVersionId: taskOption.regulationVersionId,
     qaProcessId: taskOption.qaProcessId,
     actualEmployeeId: employee.userId,
-    productionSubmitEventId: selectedPqcProductionSubmitEventId.value,
     workOrderId: activeOrder?.workOrderId,
     routeId: process.routeId,
     inspectionType: taskOption.inspectionType,

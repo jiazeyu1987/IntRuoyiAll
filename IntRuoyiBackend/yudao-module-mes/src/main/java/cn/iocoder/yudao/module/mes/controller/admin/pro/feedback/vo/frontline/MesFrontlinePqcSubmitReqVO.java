@@ -38,9 +38,6 @@ public class MesFrontlinePqcSubmitReqVO {
     @NotNull(message = "实际填写员工不能为空")
     private Long actualEmployeeId;
 
-    @Schema(description = "生产提交事件编号")
-    private Long productionSubmitEventId;
-
     @Schema(description = "检验类型")
     private String inspectionType;
 

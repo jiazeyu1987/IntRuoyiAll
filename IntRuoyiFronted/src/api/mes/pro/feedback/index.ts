@@ -408,7 +408,6 @@ export interface FrontlinePqcInspectionSubmitReqVO {
   regulationVersionId: number
   qaProcessId: number
   actualEmployeeId: number
-  productionSubmitEventId?: number
   workOrderId?: number
   routeId?: number
   inspectionType?: string

@@ -209,7 +209,6 @@ public class MesFrontlineDeviceAccountController {
                         .roundNo(reqVO.getRoundNo())
                         .actualInspectionQuantity(reqVO.getActualInspectionQuantity())
                         .actualEmployeeId(reqVO.getActualEmployeeId())
-                        .productionSubmitEventId(reqVO.getProductionSubmitEventId())
                         .signaturePassword(reqVO.getSignaturePassword())
                         .templateType(FrontlineTemplateCodes.PQC_SIMPLIFIED)
                         .scrapQuantity(reqVO.getScrapQuantity())
