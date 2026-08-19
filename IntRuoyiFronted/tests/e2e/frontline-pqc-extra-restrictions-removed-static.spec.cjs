@@ -82,12 +82,12 @@ const handleValidateBlock = blockBetween(
 assert.match(
   handleValidateBlock,
   /assertPqcSignatureAndQuantityReady\(\)/,
-  'Frontend PQC submit preflight must only require an electronic signature path and positive inspection quantity.'
+  'Frontend PQC submit preflight must require an electronic signature path and positive inspection quantity.'
 )
 assert.doesNotMatch(
   handleValidateBlock,
-  /assertPqcFormalSubmissionReady\(\)|assertFormalPayloadContext\(\)|FrontlineTemplateApi\.validatePayload|assertPqcSubmissionSampleQuantities\(\)/,
-  'Frontend PQC submit preflight must not block on formal context, template validation, or exact sample quantities.'
+  /productionSubmitCandidates|selectedPqcProductionSubmitEventId|assertFormalPayloadContext\(\)|FrontlineTemplateApi\.validatePayload|assertPqcSubmissionSampleQuantities\(\)/,
+  'Frontend PQC submit preflight must not block on manual production-submit binding, template validation, or exact sample quantities.'
 )
 
 assert.doesNotMatch(
@@ -133,10 +133,10 @@ assert.doesNotMatch(
   /requirePositive\(command\.getProductionSubmitEventId\(\), "productionSubmitEventId"\)/,
   'Backend PQC submit command validation must not require productionSubmitEventId.'
 )
-assert.doesNotMatch(
+assert.match(
   pqcContextSource,
-  /requireProductionSubmitEvent\(command\)/,
-  'Backend PQC submit flow must not require a formal production submit event.'
+  /resolveUniqueProductionSubmitEvent\(activeOrder,\s*task\)[\s\S]*command\.setProductionSubmitEventId\(productionSubmit\.eventId\(\)\)/,
+  'Backend PQC submit flow must auto-bind the unique same active-order and same-process production submit event.'
 )
 assert.doesNotMatch(
   pqcContextSource,

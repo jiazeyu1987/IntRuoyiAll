@@ -48,7 +48,6 @@ for (const required of [
   'clearPqcPieceValues()',
   'pqcDraft.scrapQuantity = undefined',
   'pqcDraft.defectDescription = undefined',
-  'selectedPqcProductionSubmitEventId.value = undefined',
   'payloadPreview.value = undefined'
 ]) {
   assert.ok(resetHandler.includes(required), `PQC 成功后复位必须覆盖：${required}`)

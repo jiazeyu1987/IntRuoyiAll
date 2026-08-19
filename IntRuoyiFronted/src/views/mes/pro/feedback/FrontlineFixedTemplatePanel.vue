@@ -3286,7 +3286,6 @@ const resetPqcSubmissionDraft = (submittedPqcTaskId?: number) => {
   clearPqcPieceValues()
   pqcDraft.scrapQuantity = undefined
   pqcDraft.defectDescription = undefined
-  selectedPqcProductionSubmitEventId.value = undefined
   payloadPreview.value = undefined
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''

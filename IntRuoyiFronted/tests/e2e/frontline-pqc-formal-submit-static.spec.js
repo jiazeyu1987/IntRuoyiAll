@@ -43,7 +43,7 @@ assert.ok(
 )
 assert.ok(!panelSource.includes('data-pqc-production-submit-select'), 'PQC page must not expose production-submit selection.')
 assert.ok(panelSource.includes('data-pqc-signature-dialog'), 'PQC submit must open an electronic-signature dialog.')
-assert.ok(panelSource.includes('data-pqc-submit-receipt'), 'PQC page must render the formal submit receipt.')
+assert.ok(!panelSource.includes('data-pqc-submit-receipt'), 'PQC page must not render a manual production-submit binding or receipt block.')
 assert.match(
   panelSource,
   /signaturePassword:\s*pqcSignaturePassword\.value/,
@@ -62,7 +62,12 @@ assert.match(
 assert.match(
   panelSource,
   /:disabled="payloadLoading \|\| Boolean\(pqcSubmitReceipt\) \|\| pqcSubmitResultUncertain"/,
-  'PQC submit must remain clickable for explicit validation and lock only while loading, after a formal submit, or during an uncertain submit state.'
+  'PQC submit must remain clickable for explicit validation and lock only while loading, after recovered receipt lock, or during an uncertain submit state.'
+)
+assert.match(
+  panelSource,
+  /const submitReceipt = await ProFeedbackApi\.submitFrontlinePqcInspection[\s\S]*resetPqcSubmissionDraft\(submitPayload\.pqcTaskId\)[\s\S]*PQC正式提交成功，事件编号 \$\{submitReceipt\.pqcEventId\}/,
+  'PQC explicit success must reset the current draft and continue with a new session instead of rendering a receipt block.'
 )
 const pqcValidateHandler = panelSource.slice(
   panelSource.indexOf('const handleValidate = async () => {'),
