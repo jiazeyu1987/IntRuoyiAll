@@ -62,6 +62,6 @@ public interface DccRegistrationCertificateGrantMapper extends BaseMapperX<DccRe
                 .eq(DccRegistrationCertificateGrantDO::getGranteeUserId, granteeUserId)
                 .eq(DccRegistrationCertificateGrantDO::getBusinessFileId, businessFileId)
                 .eq(DccRegistrationCertificateGrantDO::getGrantType, grantType)
-                .orderByAsc(DccRegistrationCertificateGrantDO::getId));
+                .orderByDesc(DccRegistrationCertificateGrantDO::getId));
     }
 }

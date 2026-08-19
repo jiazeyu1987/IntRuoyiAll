@@ -99,6 +99,21 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
     }
 
     @Test
+    void newestActiveDownloadGrantIsSelectedBeforeOlderGrant() {
+        FormalFixture fixture = seedFormal("ACTIVE", "CURRENT", "BOUND");
+        LocalDateTime firstGrantedAt = LocalDateTime.of(2026, 8, 19, 9, 0);
+        seedGrant(fixture, fixture.fileId(), "DOWNLOAD", "ACTIVE", firstGrantedAt, firstGrantedAt.plusHours(24));
+        DccRegistrationCertificateGrantDO newestGrant = seedGrant(
+                fixture, fixture.fileId(), "DOWNLOAD", "ACTIVE", firstGrantedAt.plusHours(1),
+                firstGrantedAt.plusHours(25));
+
+        DccRegistrationCertificateGrantDO selected = accessPolicyService.requireDownloadGrant(
+                1L, 99L, fixture.fileId(), firstGrantedAt.plusHours(2));
+
+        assertEquals(newestGrant.getId(), selected.getId());
+    }
+
+    @Test
     void revokedOrVoidedFactsInvalidateGrantImmediately() {
         FormalFixture revokedFixture = seedFormal("ACTIVE", "CURRENT", "BOUND");
         LocalDateTime grantedAt = LocalDateTime.of(2026, 8, 19, 9, 0);
@@ -142,10 +157,13 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
         return new FormalFixture(certificate.getId(), version.getId(), file.getId());
     }
 
-    private void seedGrant(FormalFixture fixture, Long businessFileId, String type, String status,
-                           LocalDateTime grantedAt, LocalDateTime expiresAt) {
+    private DccRegistrationCertificateGrantDO seedGrant(FormalFixture fixture, Long businessFileId, String type,
+                                                        String status, LocalDateTime grantedAt,
+                                                        LocalDateTime expiresAt) {
+        long requestId = 9001L + Math.abs(System.nanoTime() % 1_000_000L);
+        Long requestFileId = businessFileId == null ? null : requestId;
         DccRegistrationCertificateGrantDO grant = DccRegistrationCertificateGrantDO.builder()
-                .requestId(9001L).requestFileId(businessFileId == null ? null : businessFileId)
+                .requestId(requestId).requestFileId(requestFileId)
                 .ownerCompanyId(10L).certificateId(fixture.certificateId()).businessFileId(businessFileId)
                 .granteeUserId(99L).grantType(type).grantKey(type + "-" + fixture.certificateId() + "-" + System.nanoTime())
                 .status(status).grantedAt(grantedAt).expiresAt(expiresAt)
@@ -155,6 +173,7 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
                 .detailJson("{}").build();
         grant.setTenantId(1L);
         assertEquals(1, grantMapper.insert(grant));
+        return grant;
     }
 
     private record FormalFixture(Long certificateId, Long versionId, Long fileId) {
