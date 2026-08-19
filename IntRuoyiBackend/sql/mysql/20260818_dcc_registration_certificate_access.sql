@@ -105,6 +105,7 @@ BEGIN
       ('dcc_registration_certificate_bpm_binding', 'create_time', 'datetime', 'NO'),
       ('dcc_registration_certificate_bpm_binding', 'updater', 'varchar(64)', 'YES'),
       ('dcc_registration_certificate_bpm_binding', 'update_time', 'datetime', 'NO'),
+      ('dcc_registration_certificate_bpm_binding', 'deleted', 'bit(1)', 'NO'),
 
       ('dcc_registration_certificate_grant', 'id', 'bigint', 'NO'),
       ('dcc_registration_certificate_grant', 'tenant_id', 'bigint', 'NO'),
@@ -458,6 +459,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_audit` (
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
   `updater` varchar(64) DEFAULT '' COMMENT 'Updater',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update time',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT 'Deleted flag',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_dcc_reg_cert_access_audit_key` (`tenant_id`, `event_key`),
   CONSTRAINT `chk_dcc_reg_cert_access_audit_key` CHECK (TRIM(`event_key`) <> ''),

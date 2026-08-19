@@ -65,6 +65,7 @@ class DccRegistrationCertificateAccessSchemaTest extends BaseDbUnitTest {
                 "unique key `uk_dcc_reg_cert_access_request_bpm` (`tenant_id`, `bpm_process_instance_id`)",
                 "unique key `uk_dcc_reg_cert_request_file_scope` (`tenant_id`, `request_id`, `business_file_id`)",
                 "unique key `uk_dcc_reg_cert_bpm_binding_business` (`tenant_id`, `business_key`)",
+                "('dcc_registration_certificate_bpm_binding', 'deleted', 'bit(1)', 'no')",
                 "unique key `uk_dcc_reg_cert_grant_key` (`tenant_id`, `grant_key`)",
                 "unique key `uk_dcc_reg_cert_grant_request_file` (`tenant_id`, `request_file_id`, `grant_type`)",
                 "unique key `uk_dcc_reg_cert_download_once` (`tenant_id`, `grant_id`, `business_file_id`, `success_unique_flag`)",
@@ -79,6 +80,9 @@ class DccRegistrationCertificateAccessSchemaTest extends BaseDbUnitTest {
                 "constraint `chk_dcc_reg_cert_grant_window` check",
                 "constraint `chk_dcc_reg_cert_download_result` check",
                 "constraint `chk_dcc_reg_cert_access_audit_result` check");
+        assertTrue(Pattern.compile("(?is)create\\s+table\\s+if\\s+not\\s+exists\\s+`dcc_registration_certificate_access_audit`.*`deleted`\\s+bit\\(1\\)\\s+not\\s+null")
+                        .matcher(sql).find(),
+                "access audit table extends TenantBaseDO and must persist the deleted column in MySQL DDL");
         assertFalse(normalized.contains("'other'"), "SP-06 persisted code sets must not define OTHER");
     }
 
