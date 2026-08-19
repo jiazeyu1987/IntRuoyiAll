@@ -24,52 +24,54 @@ const submitButton = template.match(
   /<button\s+class="frontline-pqc-submit-button"[\s\S]*?<\/button>/
 )?.[0]
 assert.ok(submitButton, 'PQC 提交按钮必须保留。')
-assert.doesNotMatch(
-  submitButton,
-  /pqcSubmitReceipt|提交成功/,
-  'PQC 明确成功后不能用成功回执永久禁用提交按钮。'
-)
 assert.match(
   submitButton,
-  /:disabled="payloadLoading \|\| pqcSubmitResultUncertain"/,
-  'PQC 提交按钮只应在提交中或结果不确定时锁定。'
+  /:disabled="payloadLoading \|\| Boolean\(pqcSubmitReceipt\) \|\| pqcSubmitResultUncertain"/,
+  'PQC 提交按钮只应在提交中、恢复回执锁定或结果不确定时锁定。'
 )
 
 const resetButton = template.match(
   /<button\s+class="frontline-pqc-reset-button"[\s\S]*?<\/button>/
 )?.[0]
 assert.ok(resetButton, 'PQC 重填按钮必须保留。')
-assert.doesNotMatch(
+assert.match(
   resetButton,
-  /pqcSubmitReceipt/,
-  'PQC 明确成功后不能用成功回执永久禁用重填按钮。'
+  /:disabled="payloadLoading \|\| Boolean\(pqcSubmitReceipt\) \|\| pqcSubmitResultUncertain"/,
+  'PQC 重填按钮应与提交按钮使用同一锁定边界。'
 )
 
 const resetHandler = panel.match(
-  /const resetPqcSubmissionDraft\s*=\s*\(\)\s*=>\s*\{[\s\S]*?(?=\nconst handleResetPqc)/
+  /const resetPqcSubmissionDraft\s*=\s*\(submittedPqcTaskId\?: number\)\s*=>\s*\{[\s\S]*?(?=\nconst handleResetPqc)/
 )?.[0]
 assert.ok(resetHandler, 'PQC 成功提交后必须有独立的单次提交草稿复位函数。')
 for (const required of [
-  'delete pqcPieceValues[stateKey]',
-  'pqcPieceDraftValues.value = []',
+  'clearPqcPieceValues()',
   'pqcDraft.scrapQuantity = undefined',
   'pqcDraft.defectDescription = undefined',
+  'selectedPqcProductionSubmitEventId.value = undefined',
   'payloadPreview.value = undefined'
 ]) {
   assert.ok(resetHandler.includes(required), `PQC 成功后复位必须覆盖：${required}`)
 }
+
+const taskRotationHandler = panel.match(
+  /const markPqcTaskSubmittedAndSelectNext\s*=\s*\(submittedPqcTaskId: number\)\s*=>\s*\{[\s\S]*?(?=\nconst resetPqcSubmissionDraft)/
+)?.[0]
+assert.ok(taskRotationHandler, 'PQC 成功后必须更新当前任务状态并选择下一条待执行任务。')
+assert.match(taskRotationHandler, /taskStatus: submittedStatus/, '已提交任务必须从待执行选项中移除。')
+assert.match(taskRotationHandler, /getDefaultPqcTaskOption\(updatedProcess\)/, '成功后必须尝试选择下一条待执行任务。')
 
 const confirmStart = panel.indexOf('const handleConfirmPqcSubmit = async () => {')
 const confirmEnd = panel.indexOf('const assertFormalPayloadContext', confirmStart)
 const confirmBlock = panel.slice(confirmStart, confirmEnd)
 assert.ok(confirmStart >= 0 && confirmEnd > confirmStart, 'PQC 确认提交函数必须存在。')
 assert.doesNotMatch(
-  confirmBlock.split('\n').slice(0, 8).join('\n'),
-  /pqcSubmitReceipt\.value/,
-  'PQC 明确成功回执不能阻止用户再次点击提交。'
+  confirmBlock,
+  /pqcSubmitReceipt\.value = await ProFeedbackApi\.submitFrontlinePqcInspection/,
+  'PQC 明确成功响应不能写入恢复回执锁。'
 )
 const submitIndex = confirmBlock.indexOf('await ProFeedbackApi.submitFrontlinePqcInspection')
-const resetIndex = confirmBlock.indexOf('resetPqcSubmissionDraft()')
+const resetIndex = confirmBlock.indexOf('resetPqcSubmissionDraft(submitPayload.pqcTaskId)')
 assert.ok(submitIndex >= 0, 'PQC 确认提交必须继续调用正式提交接口。')
 assert.ok(
   resetIndex > submitIndex,

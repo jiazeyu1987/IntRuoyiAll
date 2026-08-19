@@ -6875,27 +6875,6 @@ onUnmounted(() => {
   }
 }
 
-.frontline-pqc-submit-receipt {
-  position: absolute;
-  right: 32px;
-  bottom: 128px;
-  z-index: 45;
-  display: grid;
-  grid-template-columns: repeat(3, auto);
-  gap: 8px 18px;
-  max-width: calc(100% - 64px);
-  padding: 18px 22px;
-  border: 3px solid #15815f;
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--frontline-ink);
-  font-size: 18px;
-
-  strong {
-    color: #126d51;
-  }
-}
-
 .frontline-pqc-reset-button,
 .frontline-pqc-submit-button {
   border: 0;
