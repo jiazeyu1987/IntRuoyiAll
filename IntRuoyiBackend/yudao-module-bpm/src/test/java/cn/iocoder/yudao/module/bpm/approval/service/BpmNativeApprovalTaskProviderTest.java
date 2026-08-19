@@ -87,6 +87,33 @@ class BpmNativeApprovalTaskProviderTest {
     }
 
     @Test
+    void pageTodoFindsAssignedTaskWhenKeywordIsProcessInstanceId() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-access");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-access");
+        when(task.getAssignee()).thenReturn("149");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(taskService.getTaskTodoPage(eq(149L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(PageResult.empty());
+        when(taskService.getRunningTaskListByProcessInstanceId("pi-regcert-access", true, null))
+                .thenReturn(List.of(task));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(149L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "pi-regcert-access", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_TASK_TODO:task-regcert-access", summary.getId());
+        assertEquals("task-regcert-access", summary.getSourceTaskId());
+        assertEquals("pi-regcert-access", summary.getBusinessKey());
+        assertEquals("pi-regcert-access", summary.getProcessInstanceId());
+        assertEquals(149L, summary.getAssigneeUserId());
+        assertTrue(summary.getAvailableActions().contains("APPROVE"));
+    }
+
+    @Test
     void pageTodoUsesBatchRecordVersionVariablesForBusinessTitle() {
         Task task = mock(Task.class);
         when(task.getId()).thenReturn("task-batch-version");

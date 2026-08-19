@@ -157,7 +157,22 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         List<ApprovalTaskSummary> summaries = page.getList().stream()
                 .map(this::toTodoSummary)
                 .toList();
+        if (page.getTotal() == 0 && hasText(context.getKeyword())) {
+            return pageTodoByProcessInstanceId(context);
+        }
         return new PageResult<>(summaries, page.getTotal());
+    }
+
+    private PageResult<ApprovalTaskSummary> pageTodoByProcessInstanceId(ApprovalTaskQueryContext context) {
+        List<ApprovalTaskSummary> summaries = taskService
+                .getRunningTaskListByProcessInstanceId(context.getKeyword().trim(), true, null)
+                .stream()
+                .filter(task -> context.isGlobalView()
+                        || Objects.equals(String.valueOf(context.getLoginUserId()), task.getAssignee()))
+                .filter(BpmNativeApprovalTaskProvider::isCurrentTenantTask)
+                .map(this::toTodoSummary)
+                .toList();
+        return pageSummaries(summaries, context.getPageNo(), context.getPageSize());
     }
 
     private PageResult<ApprovalTaskSummary> pageDone(ApprovalTaskQueryContext context) {
@@ -346,6 +361,24 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         reqVO.setPageSize(context.getPageSize() == null ? 10 : context.getPageSize());
         reqVO.setName(context.getKeyword());
         return reqVO;
+    }
+
+    private static PageResult<ApprovalTaskSummary> pageSummaries(List<ApprovalTaskSummary> rows,
+                                                                 Integer pageNo, Integer pageSize) {
+        int safePageNo = pageNo == null || pageNo < 1 ? 1 : pageNo;
+        int safePageSize = pageSize == null || pageSize < 1 ? 10 : pageSize;
+        int fromIndex = Math.min((safePageNo - 1) * safePageSize, rows.size());
+        int toIndex = Math.min(fromIndex + safePageSize, rows.size());
+        return new PageResult<>(rows.subList(fromIndex, toIndex), (long) rows.size());
+    }
+
+    private static boolean isCurrentTenantTask(Task task) {
+        String currentTenantId = FlowableUtils.getTenantId();
+        String taskTenantId = task.getTenantId();
+        if (!hasText(currentTenantId)) {
+            return !hasText(taskTenantId);
+        }
+        return Objects.equals(currentTenantId, taskTenantId);
     }
 
     private static String resolveBusinessTitle(String fallback, Map<String, Object> variables) {
