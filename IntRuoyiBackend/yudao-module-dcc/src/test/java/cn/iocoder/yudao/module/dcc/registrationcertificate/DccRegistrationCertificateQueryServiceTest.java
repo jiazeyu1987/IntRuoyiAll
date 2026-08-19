@@ -94,6 +94,26 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void detailContractExposesFormalRegistrationBusinessFileId() {
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("registrationFileId"),
+                "detail response must expose the formal registration business-file id");
+    }
+
+    @Test
+    void detailReturnsFormalRegistrationBusinessFileId() {
+        FormalFixture visible = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-FILE-ID", true, 20L);
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        DccRegistrationCertificateDetail detail = queryService.getDetail(
+                1L, 99L, visible.certificateId(), context("REQ-DETAIL-FILE-ID"));
+
+        assertEquals(visible.registrationFileId(), detail.getRegistrationFileId(),
+                "detail must return the formal business-file id selected by the query mapper");
+    }
+
+    @Test
     void pageAppliesCompanyScopeBeforeCountAndListAndAuditsReturnedObjects() {
         FormalFixture visible = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-VISIBLE", true, 20L);
         FormalFixture hidden = seedFormal(1L, 11L, "ACTIVE", "CURRENT", "CERT-HIDDEN", true, 21L);
@@ -328,6 +348,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         snapshot.setTenantId(tenantId);
         assertEquals(1, snapshotMapper.insert(snapshot));
 
+        Long registrationFileId = null;
         if (hasFile) {
             DccRegistrationCertificateFileDO file = DccRegistrationCertificateFileDO.builder()
                     .ownerType("VERSION")
@@ -344,13 +365,14 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                     .build();
             file.setTenantId(tenantId);
             assertEquals(1, dbFileMapper.insert(file));
+            registrationFileId = file.getId();
         }
 
         certificate.setCurrentVersionId("CURRENT".equals(versionStatus) ? version.getId() : null);
         certificate.setPendingVersionId("PENDING_EFFECTIVE".equals(versionStatus) ? version.getId() : null);
         certificate.setCurrentSnapshotId("CURRENT".equals(versionStatus) ? snapshot.getId() : null);
         assertEquals(1, certificateMapper.updateById(certificate));
-        return new FormalFixture(certificate.getId(), version.getId(), snapshot.getId());
+        return new FormalFixture(certificate.getId(), version.getId(), snapshot.getId(), registrationFileId);
     }
 
     private void seedOldViewGrant(Long certificateId, LocalDateTime grantedAt, LocalDateTime expiresAt) {
@@ -384,6 +406,6 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         return new DccRequestAuditContext("10.0.0.1", "JUnit", requestId);
     }
 
-    private record FormalFixture(Long certificateId, Long versionId, Long snapshotId) {
+    private record FormalFixture(Long certificateId, Long versionId, Long snapshotId, Long registrationFileId) {
     }
 }

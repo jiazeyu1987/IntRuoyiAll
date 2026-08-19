@@ -295,6 +295,9 @@ public class DccRegistrationCertificateApprovalService {
                 || !"ACTIVE".equals(grant.getStatus())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_STATUS_INVALID);
         }
+        if (!isReviewer(grant.getOwnerCompanyId(), actorId)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_STATUS_INVALID);
+        }
         grant.setStatus("REVOKED");
         grant.setRevokedAt(businessClock.now());
         grant.setRevokedBy(actorId);
@@ -302,6 +305,33 @@ public class DccRegistrationCertificateApprovalService {
         if (grantMapper.updateById(grant) != 1) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_STATUS_INVALID);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public DccRegistrationCertificateAccessRequestStatus getStatus(
+            Long tenantId, Long actorId, Long requestId) {
+        if (tenantId == null || actorId == null || requestId == null || requestId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        }
+        DccRegistrationCertificateAccessRequestDO request = requestMapper.selectById(requestId);
+        requireRequestTenant(request, tenantId);
+        if (!Objects.equals(actorId, request.getRequesterUserId())
+                && !isReviewer(request.getOwnerCompanyId(), actorId)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT);
+        }
+        DccRegistrationCertificateBpmBindingDO binding = bindingMapper.selectByRequestId(tenantId, requestId);
+        List<DccRegistrationCertificateGrantStatus> grants = grantMapper.selectByRequest(tenantId, requestId).stream()
+                .map(grant -> new DccRegistrationCertificateGrantStatus(
+                        grant.getId(), grant.getRequestFileId(), grant.getBusinessFileId(), grant.getGrantType(),
+                        grant.getStatus(), grant.getGrantedAt(), grant.getExpiresAt(), grant.getRevokedAt(),
+                        grant.getRevokeReason()))
+                .toList();
+        return new DccRegistrationCertificateAccessRequestStatus(
+                request.getId(), request.getCertificateId(), request.getOwnerCompanyId(),
+                request.getRequesterUserId(), request.getRequestType(), request.getPurpose(),
+                request.getProjectCodeId(), request.getStatus(), request.getBpmProcessInstanceId(),
+                binding == null ? null : binding.getStatus(), request.getRequestedAt(), request.getCompletedAt(),
+                request.getWithdrawnAt(), request.getWithdrawReason(), request.getRejectReason(), grants);
     }
 
     private DccRegistrationCertificateBpmBindingDO requireBinding(
@@ -355,6 +385,21 @@ public class DccRegistrationCertificateApprovalService {
     private List<Long> grantIds(Long tenantId, Long requestId) {
         return grantMapper.selectByRequest(tenantId, requestId).stream()
                 .map(DccRegistrationCertificateGrantDO::getId).toList();
+    }
+
+    private boolean isReviewer(Long ownerCompanyId, Long actorId) {
+        if (ownerCompanyId == null || actorId == null) {
+            return false;
+        }
+        RoleRespDTO approverRole = roleApi.getRoleByCode(APPROVER_ROLE_CODE);
+        if (approverRole == null || approverRole.getId() == null || approverRole.getId() <= 0
+                || !APPROVER_ROLE_CODE.equals(approverRole.getCode())
+                || !CommonStatusEnum.isEnable(approverRole.getStatus())) {
+            return false;
+        }
+        Set<Long> candidates = companyScopeApi.resolveRecipientUserIds(
+                ownerCompanyId, List.of(approverRole.getId()), APPROVAL_PERMISSION);
+        return candidates != null && candidates.contains(actorId);
     }
 
     private void cancelCreatedProcess(Long actorId, String processInstanceId, String reason, RuntimeException original) {

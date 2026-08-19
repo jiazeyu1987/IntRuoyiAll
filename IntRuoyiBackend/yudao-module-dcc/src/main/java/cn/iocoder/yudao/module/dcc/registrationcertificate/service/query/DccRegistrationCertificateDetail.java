@@ -39,5 +39,6 @@ public class DccRegistrationCertificateDetail {
     private Boolean entrustedProduction;
     private Boolean selfProduction;
     private String entrustedEnterprisesJson;
+    private Long registrationFileId;
     private Boolean hasRegistrationFile;
 }

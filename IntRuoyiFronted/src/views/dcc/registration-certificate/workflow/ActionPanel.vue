@@ -59,6 +59,22 @@
       </el-tab-pane>
       <el-tab-pane label="访问申请" name="access">
         <div data-testid="registration-certificate-access-request-action" class="registration-certificate-workflow__panel">
+          <el-radio-group v-model="accessRequestType" aria-label="访问申请类型">
+            <el-radio-button value="VIEW_OLD_CERTIFICATE">查看旧证</el-radio-button>
+            <el-radio-button value="DOWNLOAD_FILE">下载文件</el-radio-button>
+          </el-radio-group>
+          <el-input
+            v-if="accessRequestType === 'DOWNLOAD_FILE'"
+            v-model="accessProjectCodeId"
+            data-field="accessProjectCodeId"
+            aria-label="下载项目代码 ID"
+          />
+          <el-input
+            v-if="accessRequestType === 'DOWNLOAD_FILE'"
+            :model-value="String(props.businessFileId || '')"
+            aria-label="注册证业务文件 ID"
+            readonly
+          />
           <el-input v-model="accessIdempotencyKey" data-field="idempotencyKey" aria-label="访问申请幂等键" />
           <el-button type="primary" :loading="submitting" @click="handleSubmitAccessRequest">提交访问申请</el-button>
         </div>
@@ -66,6 +82,46 @@
       <el-tab-pane label="审批结果" name="approvalResult">
         <div data-testid="registration-certificate-approval-result-action" class="registration-certificate-workflow__panel">
           <el-alert type="info" :closable="false" title="审批结果由 BPM Native 待办处理，页面只展示后端返回结果，不本地伪造通过。" />
+          <el-input v-model="accessRequestId" data-field="accessRequestId" aria-label="访问申请 ID" />
+          <el-input v-model="accessReason" data-field="accessReason" aria-label="撤回或撤销原因" />
+          <el-input v-model="downloadAttemptKey" data-field="downloadAttemptKey" aria-label="下载尝试键" />
+          <el-button :loading="submitting" @click="handleRefreshAccessStatus">刷新申请状态</el-button>
+          <el-button
+            v-if="accessStatus && ['SUBMITTED', 'BPM_BOUND'].includes(accessStatus.requestStatus)"
+            type="warning"
+            plain
+            :loading="submitting"
+            @click="handleWithdrawAccessRequest"
+          >撤回申请</el-button>
+          <el-descriptions v-if="accessStatus" :column="2" border class="registration-certificate-workflow__status">
+            <el-descriptions-item label="申请状态">{{ accessStatus.requestStatus }}</el-descriptions-item>
+            <el-descriptions-item label="BPM 实例">{{ accessStatus.bpmProcessInstanceId || '未创建' }}</el-descriptions-item>
+            <el-descriptions-item label="BPM 状态">{{ accessStatus.bpmBindingStatus || '未绑定' }}</el-descriptions-item>
+            <el-descriptions-item label="申请用途">{{ accessStatus.purpose }}</el-descriptions-item>
+          </el-descriptions>
+          <el-table v-if="accessStatus" :data="accessStatus.grants" row-key="grantId" class="registration-certificate-workflow__grants">
+            <el-table-column label="授权 ID" prop="grantId" width="120" />
+            <el-table-column label="文件 ID" prop="businessFileId" width="120" />
+            <el-table-column label="授权状态" prop="status" width="120" />
+            <el-table-column label="操作" width="260">
+              <template #default="scope">
+                <el-button
+                  v-if="scope.row.status === 'ACTIVE' && scope.row.businessFileId"
+                  link
+                  type="primary"
+                  :loading="submitting"
+                  @click="handleDownloadGrant(scope.row.businessFileId)"
+                >下载</el-button>
+                <el-button
+                  v-if="scope.row.status === 'ACTIVE'"
+                  link
+                  type="danger"
+                  :loading="submitting"
+                  @click="handleRevokeGrant(scope.row.grantId)"
+                >撤销授权</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -87,8 +143,14 @@ import {
   confirmRegistrationCertificateSupportingDocument,
   rejectRegistrationCertificateSupportingDocument,
   submitRegistrationCertificateAccessRequest,
+  getRegistrationCertificateAccessRequestStatus,
+  withdrawRegistrationCertificateAccessRequest,
+  revokeRegistrationCertificateGrant,
+  downloadRegistrationCertificateFile,
+  type DccRegistrationCertificateAccessRequestStatusVO,
   type DccRegistrationCertificateDraftReqVO
 } from '@/api/dcc/registrationCertificate'
+import { downloadByData } from '@/utils/filt'
 
 const props = defineProps<{
   certificateId?: number | string
@@ -108,7 +170,13 @@ const formalizeIdempotencyKey = ref('')
 const renewalIdempotencyKey = ref('')
 const changeIdempotencyKey = ref('')
 const supportingIdempotencyKey = ref('')
+const accessRequestType = ref<'VIEW_OLD_CERTIFICATE' | 'DOWNLOAD_FILE'>('VIEW_OLD_CERTIFICATE')
+const accessProjectCodeId = ref<number | string>('')
 const accessIdempotencyKey = ref('')
+const accessRequestId = ref<number | string>('')
+const accessReason = ref('')
+const downloadAttemptKey = ref('')
+const accessStatus = ref<DccRegistrationCertificateAccessRequestStatusVO>()
 
 const draftForm = reactive<DccRegistrationCertificateDraftReqVO>({
   ownerCompanyId: '',
@@ -164,6 +232,28 @@ const requireSupportingDocumentId = () => {
     throw new Error('缺少注册证支持文件 ID，无法执行该操作。')
   }
   return props.supportingDocumentId
+}
+
+const requireAccessRequestId = () => {
+  if (!accessRequestId.value) {
+    throw new Error('缺少访问申请 ID，无法读取审批状态。')
+  }
+  return accessRequestId.value
+}
+
+const requireAccessReason = () => {
+  if (!accessReason.value.trim()) {
+    throw new Error('请填写撤回或撤销原因。')
+  }
+  return accessReason.value.trim()
+}
+
+const requireAccessProjectCodeId = () => {
+  const value = String(accessProjectCodeId.value || '').trim()
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error('下载申请必须填写有效的项目代码 ID。')
+  }
+  return value
 }
 
 const requireRowVersion = () => {
@@ -275,12 +365,59 @@ const handleRejectSupportingDocument = () => runAction('驳回支持文件', () 
     rejectReason: '页面提交的支持文件驳回原因'
   }, requireIdempotencyKey(supportingIdempotencyKey.value)))
 
-const handleSubmitAccessRequest = () => runAction('提交访问申请', () =>
-  submitRegistrationCertificateAccessRequest({
-    certificateId: requireCertificateId(),
-    requestType: 'VIEW_OLD_CERTIFICATE',
-    purpose: '页面提交的注册证访问申请'
-  }, requireIdempotencyKey(accessIdempotencyKey.value)))
+const handleSubmitAccessRequest = () => runAction('提交访问申请', async () => {
+  const requestType = accessRequestType.value
+  const payload = requestType === 'DOWNLOAD_FILE'
+    ? {
+        certificateId: requireCertificateId(),
+        requestType,
+        purpose: '页面提交的注册证文件下载申请',
+        projectCodeId: requireAccessProjectCodeId(),
+        businessFileIds: [requireBusinessFileId()]
+      }
+    : {
+        certificateId: requireCertificateId(),
+        requestType,
+        purpose: '页面提交的旧注册证查看申请'
+      }
+  const requestId = await submitRegistrationCertificateAccessRequest(
+    payload,
+    requireIdempotencyKey(accessIdempotencyKey.value)
+  )
+  accessRequestId.value = requestId
+  await handleRefreshAccessStatus()
+  return requestId
+})
+
+const handleRefreshAccessStatus = () => runAction('刷新申请状态', async () => {
+  const status = await getRegistrationCertificateAccessRequestStatus(requireAccessRequestId())
+  accessStatus.value = status
+  return status.requestStatus
+})
+
+const handleWithdrawAccessRequest = () => runAction('撤回访问申请', async () => {
+  const result = await withdrawRegistrationCertificateAccessRequest(
+    requireAccessRequestId(),
+    { reason: requireAccessReason() }
+  )
+  await handleRefreshAccessStatus()
+  return result.status
+})
+
+const handleRevokeGrant = (grantId: number | string) => runAction('撤销访问授权', async () => {
+  const result = await revokeRegistrationCertificateGrant(grantId, { reason: requireAccessReason() })
+  await handleRefreshAccessStatus()
+  return result
+})
+
+const handleDownloadGrant = (businessFileId: number | string) => runAction('下载注册证文件', async () => {
+  const result = await downloadRegistrationCertificateFile(
+    businessFileId,
+    requireIdempotencyKey(downloadAttemptKey.value)
+  )
+  downloadByData(result.blob, result.fileName, result.blob.type || 'application/octet-stream')
+  return result.fileName
+})
 </script>
 
 <style scoped>
@@ -297,5 +434,10 @@ const handleSubmitAccessRequest = () => runAction('提交访问申请', () =>
 
 .registration-certificate-workflow__panel :deep(.el-input) {
   max-width: 320px;
+}
+
+.registration-certificate-workflow__status,
+.registration-certificate-workflow__grants {
+  width: 100%;
 }
 </style>

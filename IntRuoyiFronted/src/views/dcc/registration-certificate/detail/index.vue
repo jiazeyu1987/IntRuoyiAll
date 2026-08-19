@@ -47,7 +47,7 @@
       <RegistrationCertificateActionPanel
         :certificate-id="detail.certificateId"
         :version-id="detail.versionId"
-        :business-file-id="undefined"
+        :business-file-id="detail.registrationFileId"
       />
 
       <el-card class="detail-card" shadow="never">

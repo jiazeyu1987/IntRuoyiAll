@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessRequestDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateBpmBindingDO;
@@ -15,6 +16,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.D
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.grant.DccRegistrationCertificateGrantService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +30,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_STATUS_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_WITHDRAW_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVER_ROLE_CODE;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVAL_PERMISSION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -136,9 +140,16 @@ class DccRegistrationCertificateApprovalRuntimeTest {
         assertEquals(REGISTRATION_CERTIFICATE_ACCESS_WITHDRAW_CONFLICT.getCode(), error.getCode());
 
         DccRegistrationCertificateGrantDO grant = DccRegistrationCertificateGrantDO.builder()
-                .id(7001L).status("ACTIVE").build();
+                .id(7001L).ownerCompanyId(10L).status("ACTIVE").build();
         grant.setTenantId(TENANT_ID);
         when(grantMapper.selectById(7001L)).thenReturn(grant);
+        RoleRespDTO role = new RoleRespDTO();
+        role.setId(8L);
+        role.setCode(APPROVER_ROLE_CODE);
+        role.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        when(roleApi.getRoleByCode(APPROVER_ROLE_CODE)).thenReturn(role);
+        when(companyScopeApi.resolveRecipientUserIds(10L, List.of(8L), APPROVAL_PERMISSION))
+                .thenReturn(java.util.Set.of(200L));
         service.revokeGrant(TENANT_ID, 200L, 7001L, "范围失效");
         assertEquals("REVOKED", grant.getStatus());
         assertEquals(200L, grant.getRevokedBy());

@@ -2,7 +2,7 @@
   <div class="profile-page">
     <el-card class="profile-page__card" shadow="never">
       <el-tabs v-model="activeName" class="profile-tabs" tab-position="top">
-        <el-tab-pane name="workbench">
+        <el-tab-pane name="workbench" lazy>
           <template #label>
             <span class="profile-workbench-tab">
               <span>个人工作台</span>
@@ -118,6 +118,9 @@ const resolveProfileActiveTab = () => {
   if (isAdminUser.value && isSocialBindingCallback()) {
     return 'userSocial'
   }
+  if (route.query.tab === 'config' && hasAnyProfileConfigPermission.value) {
+    return 'config'
+  }
   if (route.query.tab === 'notifyMessage') {
     return 'notifyMessage'
   }
@@ -130,7 +133,16 @@ const resolveFirstConfigName = () => {
   if (hasRegistrationCertificateConfigPermission.value) return 'registrationCertificate'
   return ''
 }
-const activeConfigName = ref(resolveFirstConfigName())
+const resolveConfigActiveTab = () => {
+  if (
+    route.query.config === 'registrationCertificate' &&
+    hasRegistrationCertificateConfigPermission.value
+  ) {
+    return 'registrationCertificate'
+  }
+  return resolveFirstConfigName()
+}
+const activeConfigName = ref(resolveConfigActiveTab())
 const unreadNotifyMessageCount = ref(0)
 const hasUnreadNotifyMessage = computed(() => unreadNotifyMessageCount.value > 0)
 
@@ -146,6 +158,12 @@ const refreshProfileWorkbenchTodoBadge = () => {
   void profileWorkbenchTodoBadgeStore
     .ensureTodoTotalLoaded()
     .catch(reportProfileWorkbenchTodoBadgeError)
+}
+
+const refreshProfileWorkbenchTodoBadgeWhenVisible = () => {
+  if (activeName.value === 'workbench') {
+    refreshProfileWorkbenchTodoBadge()
+  }
 }
 
 const ensureSocialTabVisible = () => {
@@ -168,7 +186,7 @@ const ensureSocialTabVisible = () => {
     visibleConfigNames.add('registrationCertificate')
   }
   if (activeName.value === 'config' && !visibleConfigNames.has(activeConfigName.value)) {
-    activeConfigName.value = resolveFirstConfigName()
+    activeConfigName.value = resolveConfigActiveTab()
   }
 }
 
@@ -181,15 +199,19 @@ watch(
   ],
   () => {
     activeName.value = resolveProfileActiveTab()
+    activeConfigName.value = resolveConfigActiveTab()
     ensureSocialTabVisible()
   }
 )
 
-watch(activeName, ensureSocialTabVisible)
+watch(activeName, () => {
+  ensureSocialTabVisible()
+  refreshProfileWorkbenchTodoBadgeWhenVisible()
+})
 
 onMounted(() => {
   refreshUnreadNotifyMessageCount()
-  refreshProfileWorkbenchTodoBadge()
+  refreshProfileWorkbenchTodoBadgeWhenVisible()
 })
 </script>
 <style scoped>

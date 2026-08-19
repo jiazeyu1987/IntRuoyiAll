@@ -19,6 +19,7 @@ for (const file of [apiPath, workflowPath, detailPath, listPath, menuSqlPath, ba
 }
 
 const api = read(apiPath)
+assert.match(api, /registrationFileId\??:\s*number\s*\|\s*string/, 'detail API must expose the formal registration business-file id')
 for (const endpoint of [
   '/dcc/registration-certificates/drafts',
   '/dcc/registration-certificates/${id}/formalize',
@@ -30,7 +31,11 @@ for (const endpoint of [
   '/dcc/registration-certificates/${certificateId}/supporting-documents/${supportingDocumentId}/confirm',
   '/dcc/registration-certificates/${certificateId}/supporting-documents/${supportingDocumentId}/reject',
   '/dcc/registration-certificates/access-requests',
-  '/dcc/registration-certificates/files/${businessFileId}/preview-metadata'
+  '/dcc/registration-certificates/access-requests/${requestId}',
+  '/dcc/registration-certificates/access-requests/${requestId}/withdraw',
+  '/dcc/registration-certificates/grants/${grantId}/revoke',
+  '/dcc/registration-certificates/files/${businessFileId}/preview-metadata',
+  '/dcc/registration-certificates/files/${businessFileId}/download'
 ]) {
   assert.match(api, new RegExp(endpoint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `API endpoint ${endpoint} is frozen`)
 }
@@ -47,6 +52,10 @@ for (const exported of [
   'confirmRegistrationCertificateSupportingDocument',
   'rejectRegistrationCertificateSupportingDocument',
   'submitRegistrationCertificateAccessRequest',
+  'getRegistrationCertificateAccessRequestStatus',
+  'withdrawRegistrationCertificateAccessRequest',
+  'revokeRegistrationCertificateGrant',
+  'downloadRegistrationCertificateFile',
   'getRegistrationCertificateFilePreviewMetadata'
 ]) {
   assert.match(api, new RegExp(`export\\s+const\\s+${exported}\\b`), `${exported} must be exported`)
@@ -72,9 +81,23 @@ for (const token of [
   'uploadRegistrationCertificateRenewalCandidate',
   'submitRegistrationCertificateChange',
   'uploadRegistrationCertificateSupportingDocument',
-  'submitRegistrationCertificateAccessRequest'
+  'submitRegistrationCertificateAccessRequest',
+  'getRegistrationCertificateAccessRequestStatus',
+  'withdrawRegistrationCertificateAccessRequest',
+  'revokeRegistrationCertificateGrant',
+  'downloadRegistrationCertificateFile'
 ]) {
   assert.match(workflow, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `workflow component must contain ${token}`)
+}
+for (const token of [
+  'accessRequestType',
+  'accessProjectCodeId',
+  'VIEW_OLD_CERTIFICATE',
+  'DOWNLOAD_FILE',
+  'businessFileIds: [requireBusinessFileId()]',
+  'projectCodeId: requireAccessProjectCodeId()'
+]) {
+  assert.match(workflow, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `workflow download request must contain ${token}`)
 }
 assert.match(workflow, /catch\s*\(\s*error\s*\)[\s\S]{0,220}lastActionError\.value/, 'workflow failures must remain visibly failed')
 assert.doesNotMatch(workflow, /catch\s*\(\s*\)\s*\{\s*\}|Date\.now|Math\.random|randomUUID|localStorage|sessionStorage|mock|placeholder|defaultSuccess|rawUrl|fileUrl|window\.open/, 'workflow must not swallow errors, invent keys, persist fake state or expose raw URLs')
@@ -82,6 +105,11 @@ assert.doesNotMatch(workflow, /catch\s*\(\s*\)\s*\{\s*\}|Date\.now|Math\.random|
 const detail = read(detailPath)
 assert.match(detail, /RegistrationCertificateActionPanel/, 'detail page must mount the workflow action panel')
 assert.match(detail, /data-testid="registration-certificate-detail-page"/, 'detail page anchor remains stable')
+assert.match(
+  detail,
+  /:business-file-id="detail\.registrationFileId"/,
+  'detail page must pass the server-resolved formal business-file id into the workflow'
+)
 
 const list = read(listPath)
 assert.match(list, /openCreateDraft|注册证新增|新增注册证/, 'list page must expose a maintenance entry')

@@ -233,6 +233,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .entrustedProduction(row.getEntrustedProduction())
                 .selfProduction(row.getSelfProduction())
                 .entrustedEnterprisesJson(row.getEntrustedEnterprisesJson())
+                .registrationFileId(row.getRegistrationFileId())
                 .hasRegistrationFile(row.getRegistrationFileId() != null)
                 .build();
     }

@@ -81,6 +81,7 @@ export interface DccRegistrationCertificateDetailVO {
   entrustedProduction: boolean
   selfProduction: boolean
   entrustedEnterprisesJson?: string
+  registrationFileId?: number | string
   hasRegistrationFile: boolean
 }
 
@@ -177,6 +178,49 @@ export interface DccRegistrationCertificateAccessRequestSubmitReqVO {
   purpose: string
   projectCodeId?: number | string
   businessFileIds?: Array<number | string>
+}
+
+export interface DccRegistrationCertificateAccessReasonReqVO {
+  reason: string
+}
+
+export interface DccRegistrationCertificateGrantStatusVO {
+  grantId: number | string
+  requestFileId?: number | string
+  businessFileId?: number | string
+  grantType: string
+  status: string
+  grantedAt?: string
+  expiresAt?: string
+  revokedAt?: string
+  revokeReason?: string
+}
+
+export interface DccRegistrationCertificateAccessRequestStatusVO {
+  requestId: number | string
+  certificateId: number | string
+  ownerCompanyId: number | string
+  requesterUserId: number | string
+  requestType: string
+  purpose: string
+  projectCodeId?: number | string
+  requestStatus: string
+  bpmProcessInstanceId?: string
+  bpmBindingStatus?: string
+  requestedAt?: string
+  completedAt?: string
+  withdrawnAt?: string
+  withdrawReason?: string
+  rejectReason?: string
+  grants: DccRegistrationCertificateGrantStatusVO[]
+}
+
+export interface DccRegistrationCertificateApprovalResultVO {
+  requestId: number | string
+  businessKey: string
+  processInstanceId?: string
+  status: string
+  grantIds: Array<number | string>
 }
 
 export interface DccRegistrationCertificatePreviewMetadataVO {
@@ -364,6 +408,58 @@ export const submitRegistrationCertificateAccessRequest = async (
     data,
     headers: { 'Idempotency-Key': idempotencyKey }
   })
+}
+
+export const getRegistrationCertificateAccessRequestStatus = async (
+  requestId: number | string
+) => {
+  return await request.get<DccRegistrationCertificateAccessRequestStatusVO>({
+    url: `/dcc/registration-certificates/access-requests/${requestId}`
+  })
+}
+
+export const withdrawRegistrationCertificateAccessRequest = async (
+  requestId: number | string,
+  data: DccRegistrationCertificateAccessReasonReqVO
+) => {
+  return await request.post<DccRegistrationCertificateApprovalResultVO>({
+    url: `/dcc/registration-certificates/access-requests/${requestId}/withdraw`,
+    data
+  })
+}
+
+export const revokeRegistrationCertificateGrant = async (
+  grantId: number | string,
+  data: DccRegistrationCertificateAccessReasonReqVO
+) => {
+  return await request.post<boolean>({
+    url: `/dcc/registration-certificates/grants/${grantId}/revoke`,
+    data
+  })
+}
+
+export const downloadRegistrationCertificateFile = async (
+  businessFileId: number | string,
+  attemptKey: string
+): Promise<{ blob: Blob; fileName: string }> => {
+  if (!attemptKey || !attemptKey.trim()) {
+    throw new Error('请填写稳定下载尝试键后再下载。')
+  }
+  const response = await request.downloadOriginal<any>({
+    url: `/dcc/registration-certificates/files/${businessFileId}/download`,
+    headers: { 'X-DCC-Download-Attempt-Key': attemptKey.trim() }
+  })
+  const disposition = response.headers?.['content-disposition'] || response.headers?.['Content-Disposition']
+  if (!disposition) {
+    throw new Error('下载响应缺少服务端文件名，已拒绝保存文件。')
+  }
+  const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1]
+  const plainName = /filename="?([^";]+)"?/i.exec(disposition)?.[1]
+  const fileName = encodedName ? decodeURIComponent(encodedName) : plainName
+  if (!fileName || !fileName.trim()) {
+    throw new Error('下载响应文件名无效，已拒绝保存文件。')
+  }
+  return { blob: response.data, fileName: fileName.trim() }
 }
 
 export const getRegistrationCertificateFilePreviewMetadata = async (

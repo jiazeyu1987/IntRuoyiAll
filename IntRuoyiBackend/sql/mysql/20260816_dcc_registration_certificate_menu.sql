@@ -162,8 +162,8 @@ UPDATE `system_menu`
 DROP TEMPORARY TABLE IF EXISTS `tmp_dcc_registration_certificate_permission_menu`;
 CREATE TEMPORARY TABLE `tmp_dcc_registration_certificate_permission_menu` (
   `id` bigint NOT NULL,
-  `name` varchar(64) NOT NULL,
-  `permission` varchar(128) NOT NULL,
+  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `permission` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `sort` int NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_tmp_dcc_registration_certificate_permission` (`permission`)
@@ -177,6 +177,7 @@ VALUES
   (990235, '删除注册证草稿', 'dcc:registration-certificate:delete-draft', 30),
   (990236, '注册证正式化', 'dcc:registration-certificate:formalize', 40),
   (990237, '注册证访问申请', 'dcc:registration-certificate:access-request:create', 50),
+  (990246, '注册证访问审批', 'dcc:registration-certificate:access-request:approve', 55),
   (990238, '注册证配置查询', 'dcc:registration-certificate:config:query', 60),
   (990239, '注册证配置修改', 'dcc:registration-certificate:config:update', 70),
   (990240, '注册证延续上传', 'dcc:registration-certificate:renewal:upload', 80),

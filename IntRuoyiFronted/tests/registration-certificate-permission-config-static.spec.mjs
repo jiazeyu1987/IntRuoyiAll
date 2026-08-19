@@ -49,11 +49,17 @@ for (const token of [
   'dcc:registration-certificate:delete-draft',
   'dcc:registration-certificate:formalize',
   'dcc:registration-certificate:access-request:create',
+  'dcc:registration-certificate:access-request:approve',
   'dcc:registration-certificate:config:query',
   'dcc:registration-certificate:config:update'
 ]) {
   assert.match(sql, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `menu SQL must contain ${token}`)
 }
+assert.match(
+  sql,
+  /`permission`\s+varchar\(128\)\s+CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci\s+NOT NULL/,
+  'temporary permission menu must use the same collation as system_menu.permission'
+)
 assert.doesNotMatch(sql, /golden-finger|mes:pro-batch-record-execution:golden-finger/, 'registration certificate menu must not reuse golden-finger permission')
 assert.match(sql, /visible`\s*=\s*b'0'|b'0'\s+AS `visible`|,\s*b'0'\s*,\s*b'1'/, 'detail/history route rows must be hidden dynamic routes')
 
@@ -79,6 +85,26 @@ assert.match(
   profileIndex,
   /<el-tab-pane[\s\S]{0,180}label="注册证配置"[\s\S]{0,160}v-if="hasRegistrationCertificateConfigPermission"/,
   'registration certificate config pane must mount only with its own query permission'
+)
+assert.match(
+  profileIndex,
+  /route\.query\.tab\s*===\s*'config'[\s\S]{0,260}hasAnyProfileConfigPermission/,
+  'Profile must allow direct navigation to the config tab when an approved config permission exists'
+)
+assert.match(
+  profileIndex,
+  /route\.query\.config\s*===\s*'registrationCertificate'[\s\S]{0,260}hasRegistrationCertificateConfigPermission/,
+  'Profile must allow direct navigation to the registration-certificate config sub-tab'
+)
+assert.match(
+  profileIndex,
+  /<el-tab-pane\s+name="workbench"\s+lazy>/,
+  'Profile workbench tab must be lazy so direct registration-certificate config navigation does not preload unrelated workbench requests'
+)
+assert.match(
+  profileIndex,
+  /activeName\.value\s*===\s*'workbench'[\s\S]{0,180}refreshProfileWorkbenchTodoBadge\(\)/,
+  'Profile must request workbench badge data only while the workbench tab is active'
 )
 
 const componentIndex = read(componentIndexPath)
