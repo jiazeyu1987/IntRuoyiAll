@@ -138,10 +138,10 @@ assert.match(
   /resolveUniqueProductionSubmitEvent\(activeOrder,\s*task\)[\s\S]*command\.setProductionSubmitEventId\(productionSubmit\.eventId\(\)\)/,
   'Backend PQC submit flow must auto-bind the unique same active-order and same-process production submit event.'
 )
-assert.doesNotMatch(
+assert.match(
   pqcContextSource,
-  /requirePqcEmployee\(loginUserId,\s*command\.getActualEmployeeId\(\)\)|requirePqcTaskIdentity\(|requirePqcTaskOption\(/,
-  'Backend PQC submit flow must not block on employee binding, strict task identity, or task option snapshots.'
+  /requirePqcEmployee\(loginUserId,\s*command\.getActualEmployeeId\(\)\)/,
+  'Backend PQC submit flow must keep formal employee binding while removing manual production-submit binding.'
 )
 assert.doesNotMatch(
   pqcContextSource,
@@ -157,7 +157,7 @@ assert.doesNotMatch(
 const resolveSelectedEquipmentBlock = blockBetween(
   pqcContextSource,
   'private MesFrontlinePqcInspectionItem.EquipmentOption resolveSelectedEquipment(',
-  'private String resolvePieceJudgement'
+  'private MesProWorkOrderDO requireWorkOrder'
 )
 assert.match(
   resolveSelectedEquipmentBlock,
@@ -168,11 +168,24 @@ assert.match(
 const requirePqcSubmitCommandBlock = blockBetween(
   pqcContextSource,
   'private void requirePqcSubmitCommand(MesFrontlinePqcSubmitCommand command) {',
-  'private String resolvePqcInspectionResult'
+  'private void applyPqcTaskContext'
 )
-for (const forbiddenRequiredField of [
+for (const requiredField of [
+  'pqcTaskId',
   'activeOrderId',
   'regulationVersionId',
+  'qaProcessId',
+  'actualEmployeeId',
+  'actualInspectionQuantity',
+  'signaturePassword'
+]) {
+  assert.match(
+    requirePqcSubmitCommandBlock,
+    new RegExp(`"${requiredField}"`),
+    `Backend PQC submit command must keep required formal field ${requiredField}.`
+  )
+}
+for (const forbiddenRequiredField of [
   'workOrderId',
   'productionSubmitEventId',
   'routeId',
@@ -182,9 +195,7 @@ for (const forbiddenRequiredField of [
   'businessDate',
   'shiftCode',
   'roundNo',
-  'actualEmployeeId',
   'templateType',
-  'scrapQuantity',
   'rawPayload'
 ]) {
   assert.doesNotMatch(

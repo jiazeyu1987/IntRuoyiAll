@@ -490,6 +490,24 @@
             </div>
           </div>
         </section>
+        <footer class="frontline-pqc-submit-bar">
+          <button
+            class="frontline-pqc-reset-button"
+            type="button"
+            :disabled="payloadLoading || Boolean(pqcSubmitReceipt) || pqcSubmitResultUncertain"
+            @click="handleResetPqc"
+          >
+            重填
+          </button>
+          <button
+            class="frontline-pqc-submit-button"
+            type="button"
+            :disabled="payloadLoading || Boolean(pqcSubmitReceipt) || pqcSubmitResultUncertain"
+            @click="handleValidate"
+          >
+            {{ payloadLoading ? '提交中' : '提交' }}
+          </button>
+        </footer>
       </main>
 
       <div
@@ -530,24 +548,6 @@
         PQC正式提交结果不确定，状态确认失败。请刷新页面或联系组长核对后再操作，当前页面已锁定重复提交。
       </section>
 
-      <footer class="frontline-pqc-submit-bar">
-        <button
-          class="frontline-pqc-reset-button"
-          type="button"
-          :disabled="payloadLoading || Boolean(pqcSubmitReceipt) || pqcSubmitResultUncertain"
-          @click="handleResetPqc"
-        >
-          重填
-        </button>
-        <button
-          class="frontline-pqc-submit-button"
-          type="button"
-          :disabled="payloadLoading || Boolean(pqcSubmitReceipt) || pqcSubmitResultUncertain"
-          @click="handleValidate"
-        >
-          {{ payloadLoading ? '提交中' : '提交' }}
-        </button>
-      </footer>
     </div>
 
     <div
@@ -4871,7 +4871,7 @@ onUnmounted(() => {
     position: relative;
     width: auto;
     height: auto;
-    grid-template-rows: minmax(118px, auto) minmax(0, 1fr) 104px;
+    grid-template-rows: minmax(118px, auto) minmax(0, 1fr);
     min-height: 820px;
   }
 }
@@ -4929,7 +4929,7 @@ onUnmounted(() => {
   height: auto;
   min-height: 820px;
   margin: 0 auto;
-  grid-template-rows: minmax(118px, auto) minmax(0, 1fr) 104px;
+  grid-template-rows: minmax(118px, auto) minmax(0, 1fr);
   gap: 18px;
   padding: 24px;
   border-radius: 22px;
@@ -4944,8 +4944,9 @@ onUnmounted(() => {
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-main.is-pqc,
 .frontline-operator-panel:fullscreen .frontline-operator-main.is-pqc {
-  grid-template-columns: minmax(760px, 1.72fr) minmax(390px, 0.78fr);
-  gap: 28px;
+  grid-template-columns: minmax(620px, 1.28fr) minmax(500px, 0.92fr);
+  grid-template-rows: minmax(0, 1fr) 104px;
+  gap: 22px 24px;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc .frontline-top-card,
@@ -5241,8 +5242,9 @@ onUnmounted(() => {
   min-height: 0;
 
   &.is-pqc {
-    grid-template-columns: minmax(700px, 1.55fr) minmax(430px, 0.95fr);
-    gap: 28px;
+    grid-template-columns: minmax(620px, 1.28fr) minmax(500px, 0.92fr);
+    grid-template-rows: minmax(0, 1fr) 104px;
+    gap: 22px 24px;
   }
 }
 
@@ -6159,12 +6161,14 @@ onUnmounted(() => {
 
 .frontline-pqc-inspection-list {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
-  gap: 0;
+  grid-template-rows: auto minmax(88px, auto) minmax(0, 1fr);
+  gap: 16px;
   min-height: 100%;
 }
 
 .frontline-pqc-content-panel {
+  grid-column: 1;
+  grid-row: 1;
   align-content: stretch;
   gap: 0;
 }
@@ -6172,9 +6176,9 @@ onUnmounted(() => {
 .frontline-pqc-content-item {
   display: grid;
   align-content: start;
-  gap: 10px;
+  gap: 14px;
   min-width: 0;
-  padding-bottom: 16px;
+  padding-bottom: 0;
   overflow: visible;
   border: 0;
   border-radius: 0;
@@ -6570,7 +6574,7 @@ onUnmounted(() => {
   grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
   gap: 8px;
   align-items: start;
-  min-height: 150px;
+  min-height: 104px;
   padding: 0 10px 8px;
   border-top: 3px solid #8cb9a1;
   background: transparent;
@@ -6647,12 +6651,14 @@ onUnmounted(() => {
 }
 
 .frontline-pqc-fill-panel {
+  grid-column: 2;
+  grid-row: 1 / 3;
   grid-template-rows: auto auto minmax(min-content, 1fr);
-  align-content: start;
-  gap: 14px;
+  align-content: stretch;
+  gap: 16px;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 18px;
+  padding: 22px;
 }
 
 .frontline-pqc-type-tabs,
@@ -6704,8 +6710,10 @@ onUnmounted(() => {
 .frontline-pqc-form-area {
   display: grid;
   align-content: start;
+  align-self: stretch;
   gap: 12px;
   min-width: 0;
+  min-height: 0;
   padding: 14px 12px;
   border: 3px solid var(--frontline-line);
   border-radius: 24px;
@@ -6809,8 +6817,11 @@ onUnmounted(() => {
 
 .frontline-pqc-submit-bar {
   display: grid;
+  grid-column: 1;
+  grid-row: 2;
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 24px;
+  min-height: 0;
 }
 
 .frontline-pqc-signature-modal {

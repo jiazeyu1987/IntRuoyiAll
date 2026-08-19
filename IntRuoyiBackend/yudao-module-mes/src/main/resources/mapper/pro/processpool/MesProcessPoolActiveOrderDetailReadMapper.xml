@@ -16,7 +16,7 @@
                process_snapshot.planned_quantity_snapshot AS requiredQuantity,
                allocation.event_id AS eventId,
                allocation.allocated_quantity AS submittedQuantity,
-               submitter.nickname AS submitterName,
+               COALESCE(submitter.nickname, submitter_profile.display_name) AS submitterName,
                reviewer.nickname AS reviewerName,
                pool_event.server_submit_time AS submittedAt
         FROM mes_pro_process_pool_active_order_process_snapshot process_snapshot
@@ -50,6 +50,10 @@
           ON submitter.id = pool_event.actual_employee_id
          AND submitter.tenant_id = pool_event.tenant_id
          AND submitter.deleted = 0
+        LEFT JOIN mes_pro_process_pool_team_employee_profile submitter_profile
+          ON submitter_profile.id = pool_event.actual_employee_id
+         AND submitter_profile.tenant_id = pool_event.tenant_id
+         AND submitter_profile.deleted = 0
         LEFT JOIN (
             SELECT tenant_id, event_id, leader_user_id
             FROM (
