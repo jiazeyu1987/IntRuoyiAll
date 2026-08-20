@@ -91,6 +91,8 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     private DccRegistrationCertificateDownloadConsumptionMapper consumptionMapper;
     @Resource
     private DccRegistrationCertificateAccessAuditMapper accessAuditMapper;
+    @Resource
+    private DccRegistrationCertificateBusinessClock businessClock;
 
     @MockitoBean
     private MdmCompanyScopeApi companyScopeApi;
@@ -191,7 +193,7 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "registration.pdf");
         DccRegistrationCertificateGrantDO grant = grantMapper.selectById(fixture.grantId());
         grant.setStatus("REVOKED");
-        grant.setRevokedAt(LocalDateTime.of(2026, 8, 19, 9, 30));
+        grant.setRevokedAt(businessClock.now().minusMinutes(10));
         grant.setRevokedBy(101L);
         grant.setRevokeReason("scope revoked");
         assertEquals(1, grantMapper.updateById(grant));
@@ -377,8 +379,8 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
                 .purpose("approved file delivery")
                 .projectCodeId(40L)
                 .status("APPROVED")
-                .requestedAt(LocalDateTime.of(2026, 8, 19, 8, 0))
-                .completedAt(LocalDateTime.of(2026, 8, 19, 8, 30))
+                .requestedAt(businessClock.now().minusHours(2))
+                .completedAt(businessClock.now().minusHours(1))
                 .detailJson("{}")
                 .build();
         request.setTenantId(1L);
@@ -406,8 +408,8 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
                 .grantType("DOWNLOAD")
                 .grantKey("grant-download-" + System.nanoTime())
                 .status("ACTIVE")
-                .grantedAt(LocalDateTime.of(2026, 8, 19, 9, 0))
-                .expiresAt(LocalDateTime.of(2026, 8, 20, 9, 0))
+                .grantedAt(businessClock.now().minusMinutes(30))
+                .expiresAt(businessClock.now().plusHours(24))
                 .detailJson("{}")
                 .build();
         grant.setTenantId(1L);
