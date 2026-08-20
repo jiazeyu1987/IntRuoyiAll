@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -75,5 +76,24 @@ class MesProRouteVersionSnapshotMigrationCommandTest {
 
         assertThrows(IllegalStateException.class,
                 () -> runner.run(new DefaultApplicationArguments(new String[0])));
+    }
+
+    @Test
+    void runner_shouldExitJvmAfterSuccessfulCommandResult() throws Exception {
+        MesProRouteVersionSnapshotMigrationCommand command =
+                mock(MesProRouteVersionSnapshotMigrationCommand.class);
+        when(command.run(MesProRouteVersionSnapshotMigrationCommand.MODE_BACKFILL,
+                tempDir.resolve("ready.json"))).thenReturn(MesProRouteVersionSnapshotMigrationCommand.EXIT_READY);
+        AtomicInteger capturedExitCode = new AtomicInteger(-1);
+        MesProRouteVersionSnapshotMigrationRunner runner = new MesProRouteVersionSnapshotMigrationRunner(
+                command,
+                mock(ConfigurableApplicationContext.class),
+                MesProRouteVersionSnapshotMigrationCommand.MODE_BACKFILL,
+                tempDir.resolve("ready.json").toString(),
+                capturedExitCode::set);
+
+        runner.run(new DefaultApplicationArguments(new String[0]));
+
+        assertEquals(MesProRouteVersionSnapshotMigrationCommand.EXIT_READY, capturedExitCode.get());
     }
 }
