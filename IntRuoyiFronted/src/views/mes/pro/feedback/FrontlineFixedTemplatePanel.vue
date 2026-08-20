@@ -43,10 +43,41 @@
             </strong>
           </div>
         </button>
-        <button class="frontline-top-card" type="button" @click="openPicker('process')">
-          <span>工序</span>
-          <strong>{{ selectedProcessLabel }}</strong>
-        </button>
+        <div
+          class="frontline-top-card frontline-production-process-nav-card frontline-pqc-process-nav-card"
+          data-pqc-process-nav-card
+        >
+          <button
+            class="frontline-production-process-nav-button"
+            type="button"
+            data-pqc-process-previous
+            aria-label="前一个工序"
+            :disabled="isPqcProcessPreviousDisabled"
+            @click.stop="handleNavigatePqcProcess(-1)"
+          >
+            <span class="frontline-production-process-nav-icon is-previous" aria-hidden="true"></span>
+          </button>
+          <button
+            class="frontline-production-process-current"
+            type="button"
+            data-pqc-process-current
+            :disabled="isPqcProcessNavigationBlocked"
+            @click="openPicker('process')"
+          >
+            <span>工序</span>
+            <strong>{{ selectedProcessLabel }}</strong>
+          </button>
+          <button
+            class="frontline-production-process-nav-button"
+            type="button"
+            data-pqc-process-next
+            aria-label="后一个工序"
+            :disabled="isPqcProcessNextDisabled"
+            @click.stop="handleNavigatePqcProcess(1)"
+          >
+            <span class="frontline-production-process-nav-icon is-next" aria-hidden="true"></span>
+          </button>
+        </div>
         <button
           class="frontline-top-card is-login-employee"
           type="button"
@@ -2252,6 +2283,10 @@ const switchableProcessOptions = computed(() => {
     return true
   })
 })
+
+const switchablePqcProcessOptions = computed(() =>
+  switchableProcessOptions.value.filter(isFrontlinePqcProcess)
+)
 
 const normalizeActiveOrderKeyword = (value?: string) => (value || '').trim().toLocaleUpperCase()
 
@@ -4662,6 +4697,47 @@ const isProductionProcessNextDisabled = computed(() =>
   isProductionProcessNavigationBlocked.value || !nextProductionProcess.value
 )
 
+const selectedPqcProcessIndex = computed(() => {
+  if (!isPqcMode.value || !isFrontlinePqcProcess(deviceState.selectedProcess)) {
+    return -1
+  }
+  return switchablePqcProcessOptions.value.findIndex((process) =>
+    isSameProcess(process, deviceState.selectedProcess)
+  )
+})
+
+const previousPqcProcess = computed(() => {
+  const selectedIndex = selectedPqcProcessIndex.value
+  return selectedIndex > 0
+    ? switchablePqcProcessOptions.value[selectedIndex - 1]
+    : undefined
+})
+
+const nextPqcProcess = computed(() => {
+  const selectedIndex = selectedPqcProcessIndex.value
+  return selectedIndex >= 0 && selectedIndex < switchablePqcProcessOptions.value.length - 1
+    ? switchablePqcProcessOptions.value[selectedIndex + 1]
+    : undefined
+})
+
+const isPqcProcessNavigationBlocked = computed(() =>
+  !isPqcMode.value ||
+  payloadLoading.value ||
+  pqcSignatureDialogVisible.value ||
+  pqcSubmitResultUncertain.value ||
+  deviceState.loadingProcesses ||
+  deviceState.loadingEmployees ||
+  deviceState.loadingTemplate
+)
+
+const isPqcProcessPreviousDisabled = computed(() =>
+  isPqcProcessNavigationBlocked.value || !previousPqcProcess.value
+)
+
+const isPqcProcessNextDisabled = computed(() =>
+  isPqcProcessNavigationBlocked.value || !nextPqcProcess.value
+)
+
 const formatActiveOrderLabel = (activeOrder?: FrontlineActiveOrderVO) => {
   if (!activeOrder) {
     return '未选择'
@@ -4894,7 +4970,7 @@ onUnmounted(() => {
   width: 100vw;
   height: 100vh;
   margin: 0;
-  padding: 26px;
+  padding: 12px 16px;
   box-sizing: border-box;
   overflow: hidden;
   background:
@@ -4917,16 +4993,16 @@ onUnmounted(() => {
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc,
 .frontline-operator-panel:fullscreen .frontline-operator-screen.is-pqc {
-  width: auto;
-  max-width: 1480px;
-  height: auto;
-  min-height: 820px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
   grid-template-rows: minmax(118px, auto) minmax(0, 1fr);
-  gap: 18px;
-  padding: 24px;
-  border-radius: 22px;
-  box-shadow: 0 26px 70px rgba(36, 50, 43, 0.14);
+  gap: 16px;
+  padding: 16px;
+  border-radius: 18px;
+  box-shadow: 0 18px 46px rgba(36, 50, 43, 0.12);
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-top.is-pqc,
@@ -4937,9 +5013,9 @@ onUnmounted(() => {
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-main.is-pqc,
 .frontline-operator-panel:fullscreen .frontline-operator-main.is-pqc {
-  grid-template-columns: minmax(620px, 1.28fr) minmax(500px, 0.92fr);
-  grid-template-rows: minmax(0, 1fr) 104px;
-  gap: 22px 24px;
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 0.92fr);
+  grid-template-rows: minmax(0, 1fr) 112px;
+  gap: 18px 22px;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-screen.is-pqc .frontline-top-card,
