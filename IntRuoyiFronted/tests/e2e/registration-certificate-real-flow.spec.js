@@ -344,6 +344,25 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
         return statusPayload.data
       }
 
+      const revokeGrantFromCurrentPage = async (requestId, grantId) => {
+        await page.locator('[data-testid="registration-certificate-approval-result-action"]')
+          .getByRole('textbox', { name: '撤回或撤销原因' }).fill(`REGCERT-E2E-${config.runKey}-REVOKE`)
+        const revokeResponsePromise = page.waitForResponse(
+          (response) => response.url().includes(`/admin-api/dcc/registration-certificates/grants/${grantId}/revoke`) && response.request().method() === 'POST',
+          { timeout: 60000 }
+        )
+        await page.locator('[data-testid="registration-certificate-approval-result-action"]')
+          .getByRole('button', { name: '撤销授权' }).click()
+        const revokePayload = await readJsonResponse(await revokeResponsePromise)
+        expect(isBusinessOk(revokePayload), `revoke grant code ${revokePayload.code}, message=${revokePayload.msg || ''}`).toBe(true)
+        evidence.revocation = {
+          actor: config.username,
+          grantId,
+          requestId,
+          code: revokePayload.code
+        }
+      }
+
       if (config.requireWriteFixture) {
         const oldRequest = await submitAccessRequest('VIEW_OLD_CERTIFICATE', `REGCERT-E2E-${config.runKey}-OLD-${selected.certificateId}`)
         evidence.accessRequests = [oldRequest]
@@ -357,6 +376,12 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
           expect(oldStatus.requestStatus).toBe('APPROVED')
           expect(oldStatus.grants.some((grant) => grant.grantType === 'VIEW_OLD_CERTIFICATE' && grant.status === 'ACTIVE'))
             .toBe(true)
+          const oldViewGrant = oldStatus.grants.find((grant) => grant.grantType === 'VIEW_OLD_CERTIFICATE' && grant.status === 'ACTIVE')
+          expect(oldViewGrant, 'old certificate view approval must create an active grant that can be revoked').toBeTruthy()
+          await revokeGrantFromCurrentPage(oldRequest.requestId, oldViewGrant.grantId)
+          const revokedOldStatus = await readAccessStatus(oldRequest.requestId)
+          evidence.revokedGrantStatus = revokedOldStatus.grants.find((grant) => String(grant.grantId) === String(oldViewGrant.grantId))
+          expect(evidence.revokedGrantStatus?.status).toBe('REVOKED')
         }
         const downloadRequest = await submitAccessRequest('DOWNLOAD_FILE', `REGCERT-E2E-${config.runKey}-DOWNLOAD-${selected.certificateId}`)
         evidence.accessRequests.push(downloadRequest)
@@ -383,26 +408,18 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
           await page.locator('[data-testid="registration-certificate-approval-result-action"]')
             .getByRole('button', { name: '下载' }).click()
           const downloadResponse = await downloadResponsePromise
+          const downloadHeaders = await downloadResponse.allHeaders()
+          const downloadContentDisposition = downloadHeaders['content-disposition']
+          if (!downloadContentDisposition) {
+            const bodyText = (await downloadResponse.body()).toString('utf8')
+            throw new Error(`download response was not an attachment: HTTP ${downloadResponse.status()}, content-type=${downloadHeaders['content-type'] || ''}, body=${bodyText}`)
+          }
           expect(downloadResponse.status(), `download HTTP status ${downloadResponse.status()}`).toBe(200)
-          expect(downloadResponse.headers()['content-disposition'], 'download must return an attachment disposition').toMatch(/attachment/i)
+          expect(downloadContentDisposition, 'download must return an attachment disposition').toMatch(/attachment/i)
           evidence.download = {
             status: downloadResponse.status(),
-            contentDisposition: downloadResponse.headers()['content-disposition']
+            contentDisposition: downloadContentDisposition
           }
-
-          await page.locator('[data-testid="registration-certificate-approval-result-action"]')
-            .getByRole('textbox', { name: '撤回或撤销原因' }).fill(`REGCERT-E2E-${config.runKey}-REVOKE`)
-          const revokeResponsePromise = page.waitForResponse(
-            (response) => response.url().includes(`/admin-api/dcc/registration-certificates/grants/${downloadGrant.grantId}/revoke`) && response.request().method() === 'POST',
-            { timeout: 60000 }
-          )
-          await page.locator('[data-testid="registration-certificate-approval-result-action"]')
-            .getByRole('button', { name: '撤销授权' }).click()
-          const revokePayload = await readJsonResponse(await revokeResponsePromise)
-          expect(isBusinessOk(revokePayload), `revoke grant code ${revokePayload.code}, message=${revokePayload.msg || ''}`).toBe(true)
-          const revokedStatus = await readAccessStatus(downloadRequest.requestId)
-          evidence.revokedGrantStatus = revokedStatus.grants.find((grant) => String(grant.grantId) === String(downloadGrant.grantId))
-          expect(evidence.revokedGrantStatus?.status).toBe('REVOKED')
         }
       }
       await page.getByRole('tab', { name: '审批结果' }).click()
@@ -435,8 +452,21 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
         expect(evidence.writeRequests, 'read/config diagnostic path must not send registration-certificate write requests').toEqual([])
       }
 
+      const avatarFailures = evidence.failedResponses.filter((failure) =>
+        failure.method === 'GET' &&
+        failure.status === 502 &&
+        /^\/user\/avatar\//.test(failure.path)
+      )
+      const unexpectedFailedResponses = evidence.failedResponses.filter((failure) => !avatarFailures.includes(failure))
+      const unexplainedConsoleErrors = evidence.consoleErrors.filter((message) =>
+        !(message === 'Failed to load resource: the server responded with a status of 502 (Bad Gateway)' && avatarFailures.length > 0)
+      )
+      evidence.ignoredAssetFailures = avatarFailures
+      evidence.unexpectedFailedResponses = unexpectedFailedResponses
+      evidence.unexplainedConsoleErrors = unexplainedConsoleErrors
       expect(evidence.pageErrors, 'real page must not emit page errors').toEqual([])
-      expect(evidence.consoleErrors, 'real page must not emit console errors').toEqual([])
+      expect(unexpectedFailedResponses, 'registration flow must not emit unexpected failed responses').toEqual([])
+      expect(unexplainedConsoleErrors, 'real page must not emit unexplained console errors').toEqual([])
 
       evidence.status = 'PASS'
       writeResult(evidence)

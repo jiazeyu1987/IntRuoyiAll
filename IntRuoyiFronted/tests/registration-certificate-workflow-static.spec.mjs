@@ -7,6 +7,8 @@ const read = (relativePath) => readFileSync(join(root, relativePath), 'utf8')
 const exists = (relativePath) => existsSync(join(root, relativePath))
 
 const apiPath = 'src/api/dcc/registrationCertificate/index.ts'
+const axiosIndexPath = 'src/config/axios/index.ts'
+const axiosServicePath = 'src/config/axios/service.ts'
 const workflowPath = 'src/views/dcc/registration-certificate/workflow/ActionPanel.vue'
 const detailPath = 'src/views/dcc/registration-certificate/detail/index.vue'
 const listPath = 'src/views/dcc/registration-certificate/index/index.vue'
@@ -14,7 +16,7 @@ const menuSqlPath = '../IntRuoyiBackend/sql/mysql/20260816_dcc_registration_cert
 const backendControllerTest =
   '../IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/registrationcertificate/DccRegistrationCertificateCommandControllerTest.java'
 
-for (const file of [apiPath, workflowPath, detailPath, listPath, menuSqlPath, backendControllerTest]) {
+for (const file of [apiPath, axiosIndexPath, axiosServicePath, workflowPath, detailPath, listPath, menuSqlPath, backendControllerTest]) {
   assert.equal(exists(file), true, `${file} must exist`)
 }
 
@@ -61,7 +63,26 @@ for (const exported of [
   assert.match(api, new RegExp(`export\\s+const\\s+${exported}\\b`), `${exported} must be exported`)
 }
 assert.match(api, /headers:\s*\{[\s\S]{0,80}['"]Idempotency-Key['"]/, 'write APIs must send the explicit Idempotency-Key header')
+assert.match(api, /downloadOriginal[\s\S]{0,320}response\.headers\?\.\['content-disposition'\]/, 'registration certificate download must read the server Content-Disposition header from the original response')
 assert.doesNotMatch(api, /Date\.now|Math\.random|randomUUID|localStorage|sessionStorage|mock|placeholder|defaultSuccess|rawUrl|fileUrl/, 'API must not generate unstable keys, persist fake state, mock success or expose raw URLs')
+
+const axiosIndex = read(axiosIndexPath)
+const axiosService = read(axiosServicePath)
+assert.match(
+  axiosIndex,
+  /downloadOriginal:[\s\S]{0,360}returnOriginalResponse:\s*true/,
+  'downloadOriginal must opt in to preserving response headers for audited file downloads'
+)
+assert.match(
+  axiosService,
+  /returnOriginalResponse\?:\s*boolean/,
+  'axios custom config must type the explicit original-response contract'
+)
+assert.match(
+  axiosService,
+  /responseType === 'blob'[\s\S]{0,420}returnOriginalResponse[\s\S]{0,120}return response/,
+  'blob response interceptor must preserve headers when downloadOriginal explicitly requests the original response'
+)
 
 const workflow = read(workflowPath)
 for (const token of [

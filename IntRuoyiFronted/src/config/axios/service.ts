@@ -42,6 +42,7 @@ type RequestCustomHeaders = InternalAxiosRequestConfig['headers'] & {
 
 type RequestCustomConfig = InternalAxiosRequestConfig & {
   ignoreErrorMessage?: boolean
+  returnOriginalResponse?: boolean
 }
 
 const isBinaryAttachmentResponse = (response: AxiosResponse<any>) => {
@@ -177,6 +178,9 @@ service.interceptors.response.use(
     if (responseType === 'blob' || responseType === 'arraybuffer') {
       // 注意：如果导出的响应为 json，说明可能失败了，不直接返回进行下载
       if (response.data.type !== 'application/json' || isBinaryAttachmentResponse(response)) {
+        if (config.returnOriginalResponse) {
+          return response
+        }
         return response.data
       }
       data = await new Response(response.data).json()
