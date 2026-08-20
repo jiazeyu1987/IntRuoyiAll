@@ -1479,21 +1479,18 @@ const loadCurrentPublishedQaRegulationVersion = async (project?: DccProjectCodeR
   }
   const dccProjectCodeId = resolvePositiveId(project.id, 'DCC 项目代码 ID')
   const status = qaRegulationProjectStatusByDccId.value.get(dccProjectCodeId)
-  if (status?.lifecycleStatus !== 'PUBLISHED' || !status.currentVersionId) {
+  if (status?.lifecycleStatus !== 'PUBLISHED') {
     return
   }
   qaCurrentPublishedVersionLoading.value = true
   try {
-    const publishedVersion = await QcTemplateApi.getPublishedQaRegulationVersion(
-      dccProjectCodeId,
-      status.currentVersionId
-    )
+    const publishedVersion = await QcTemplateApi.getPublishedQaRegulationVersion(dccProjectCodeId)
     if (loadSerial !== qaCurrentPublishedVersionLoadSerial) {
       return
     }
     if (
       publishedVersion.dccProjectCodeId !== dccProjectCodeId ||
-      publishedVersion.publishedVersionId !== status.currentVersionId
+      publishedVersion.lifecycleStatus !== 'PUBLISHED'
     ) {
       throw new Error('已发布 QA 规程版本与当前 DCC 项目状态不一致')
     }

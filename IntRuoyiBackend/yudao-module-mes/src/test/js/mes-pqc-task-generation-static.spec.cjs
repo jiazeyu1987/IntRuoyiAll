@@ -62,20 +62,28 @@ const insertPqcInspectionTask = sliceBetween(
 assert.match(service, /MesQaInspectionRegulationMapper/, 'PQC 任务生成必须读取正式 QA 规程。')
 assert.match(service, /MesQaInspectionRegulationItemMapper/, 'PQC 任务生成必须读取发布规程项目。')
 assert.match(service, /MesPqcInspectionTaskMapper/, 'PQC 任务生成必须写入正式 PQC task 表。')
-assert.match(service, /selectPublishedByRouteProcess\(productId,[\s\S]*process\.getRouteProcessId\(\),[\s\S]*process\.getProcessId\(\)\)/,
-  '生成任务必须按产品 + 路线版本 + 工序查已发布 QA 规程。')
-assert.match(service, /inspectionRegulationItemMapper\.selectListByVersionId\(regulation\.getCurrentVersionId\(\)\)/,
-  '生成任务必须按发布版本读取规程项目。')
-assert.match(service, /SHIFT_AM\s*=\s*"AM"/, '上午巡检必须有独立 AM 班次身份。')
-assert.match(service, /SHIFT_PM\s*=\s*"PM"/, '下午巡检必须有独立 PM 班次身份。')
-assert.match(service, /buildPqcTask\([\s\S]*INSPECTION_TYPE_PATROL[\s\S]*SHIFT_AM[\s\S]*resolvePatrolInspectionQuantity/,
+assert.match(service, /requireLatestQaSource\(routeId,[\s\S]*reqBO\.getWorkOrderId\(\)\)/,
+  '新增活跃订单必须按执行时刻实时解析最新 QA 来源。')
+assert.match(service, /requireLatestQaSource\(routeSource\.routeId\(\),\s*activeOrder\.getWorkOrderId\(\)\)/,
+  '重建活跃订单必须重新解析执行时刻最新 QA 来源。')
+assert.match(service, /selectLatestPublishedByRegulationId\(regulation\.getId\(\)\)/,
+  '生成任务必须实时查询最新 PUBLISHED QA 规程版本，不能固定版本或读取旧指针。')
+assert.match(service, /inspectionRegulationItemMapper\s*\r?\n\s*\.selectListByVersionId\(version\.getId\(\)\)/,
+  '生成任务必须按实时查询到的发布版本读取规程项目。')
+assert.doesNotMatch(service, /inspectionRegulationItemMapper\.selectListByVersionId\(regulation\.getCurrentVersionId\(\)\)/,
+  '生成任务不得按 currentVersionId 读取规程项目。')
+assert.match(service, /SHIFT_PATROL_AM\s*=\s*"AM"/, '上午巡检必须有独立 AM 班次身份。')
+assert.match(service, /SHIFT_PATROL_PM\s*=\s*"PM"/, '下午巡检必须有独立 PM 班次身份。')
+assert.match(service, /Objects\.equals\(RULE_KEY_PATROL_AM,\s*ruleKey\)[\s\S]{0,120}return SHIFT_PATROL_AM/,
   '生成器必须创建上午巡检任务。')
-assert.match(service, /buildPqcTask\([\s\S]*INSPECTION_TYPE_PATROL[\s\S]*SHIFT_PM[\s\S]*resolvePatrolInspectionQuantity/,
+assert.match(service, /Objects\.equals\(RULE_KEY_PATROL_PM,\s*ruleKey\)[\s\S]{0,120}return SHIFT_PATROL_PM/,
   '生成器必须创建下午巡检任务，不能复用上午任务。')
-assert.match(service, /setScale\(0,\s*RoundingMode\.CEILING\)/,
+assert.match(service, /resolveInspectionQuantity\([\s\S]*INSPECTION_TYPE_PATROL[\s\S]*resolvePatrolInspectionQuantity/,
+  '巡检任务数量必须继续走巡检比例计算。')
+assert.match(service, /divide\(BigDecimal\.valueOf\(100\),\s*0,\s*RoundingMode\.CEILING\)/,
   '巡检比例数量必须向上取整，例如 301×5% = 16。')
-assert.match(insertPqcInspectionTask, /selectByIdentity\(task\.getActiveOrderId\(\),[\s\S]*task\.getRoundNo\(\)\)/,
-  '写任务前必须按完整身份检查重复任务。')
+assert.match(insertPqcInspectionTask, /selectByQaIdentity\(task\.getActiveOrderId\(\),[\s\S]*task\.getRegulationVersionId\(\),[\s\S]*task\.getQaProcessId\(\),[\s\S]*task\.getQaItemCode\(\),[\s\S]*task\.getInspectionRuleKey\(\),[\s\S]*task\.getBusinessDate\(\)\)/,
+  '写任务前必须按 QA 项目级完整身份检查重复任务。')
 assert.match(insertPqcInspectionTask, /catch\s*\(DuplicateKeyException ex\)[\s\S]*PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT/,
   '数据库唯一键冲突必须转为明确重复任务错误。')
 assert.doesNotMatch(insertPqcInspectionTask, /catch\s*\(DuplicateKeyException ex\)[\s\S]*return\s*;/,
@@ -109,8 +117,8 @@ assert.match(regulationService, /Boolean\.TRUE\.equals\(reqVO\.getFinalInspectio
 assert.match(regulationService, /Boolean\.FALSE\.equals\(reqVO\.getFinalInspectionApplicable\(\)\)[\s\S]*actualTypes\.contains\("FINAL"\)/,
   '末检不适用时不能同时保存 FINAL 检验项目造成矛盾。')
 assert.match(service, /MesQaInspectionRegulationVersionMapper/, 'PQC 任务生成必须读取发布版本末检适用性证据。')
-assert.match(service, /requireRegulationVersion\([^)]*regulation/,
-  'PQC 任务生成必须按 currentVersionId 读取正式发布版本。')
+assert.match(service, /selectLatestPublishedByRegulationId\(regulation\.getId\(\)\)/,
+  'PQC 任务生成必须按执行时刻最新 PUBLISHED 版本读取正式发布版本。')
 assert.match(service, /Boolean\.TRUE\.equals\(version\.getFinalInspectionApplicable\(\)\)[\s\S]*INSPECTION_TYPE_FINAL/,
   '末检适用时生成器必须生成 FINAL 任务。')
 assert.match(service, /Boolean\.FALSE\.equals\(version\.getFinalInspectionApplicable\(\)\)[\s\S]*getFinalInspectionNotApplicableReason/,
@@ -126,13 +134,13 @@ assert.match(releaseCompletenessService, /Boolean\.FALSE\.equals\(version\.getFi
 assert.match(releaseCompletenessService, /if\s*\(isFinalInspectionApplicableForSnapshot\(tasks,\s*snapshot,\s*missing\)\)\s*\{[\s\S]*requirePqcTaskIdentity\(tasks,\s*snapshot,\s*"FINAL",\s*"FINAL"/,
   '末检适用时放行完整性必须继续要求 FINAL 任务。')
 
-assert.match(test, /shouldGenerateFormalPqcTasksFromPublishedRegulationWhenAddingActiveOrder/,
+assert.match(test, /shouldSnapshotAllRouteProcessesAndCreateQaOwnedPqcTasks/,
   'JUnit 必须覆盖发布规程生成正式任务。')
-assert.match(test, /assertPqcTask\(tasks\.get\(1\),\s*"PATROL",\s*"AM",\s*16\)/,
+assert.match(test, /assertPqcTask\(tasks\.get\(1\),\s*"PATROL",\s*"PATROL_AM",\s*"AM",\s*16,\s*expectedBusinessDate\)/,
   'JUnit 必须证明 301×5% 上午巡检向上取整为 16。')
-assert.match(test, /assertPqcTask\(tasks\.get\(2\),\s*"PATROL",\s*"PM",\s*16\)/,
+assert.match(test, /assertPqcTask\(tasks\.get\(2\),\s*"PATROL",\s*"PATROL_PM",\s*"PM",\s*16,\s*expectedBusinessDate\)/,
   'JUnit 必须证明下午巡检与上午任务身份分离。')
-assert.match(test, /shouldRejectActiveOrderWhenPublishedPqcRegulationMissing/,
+assert.match(test, /shouldRejectNewActiveOrderWhenPublishedQaIsMissingWithoutAnyWrite/,
   'JUnit 必须覆盖缺少已发布规程时阻塞。')
 assert.match(test, /shouldRejectActiveOrderWhenPqcTaskIdentityAlreadyExists/,
   'JUnit 必须覆盖重复任务身份时阻塞。')
@@ -154,7 +162,7 @@ assert.match(releaseCompletenessTest, /evaluateInspectionResultPassesWhenConfirm
   'JUnit 必须覆盖 FIRST/PATROL AM/PATROL PM/FINAL 全部确认才通过。')
 assert.match(regulationServiceTest, /publish_allowsMissingFinalOnlyWhenExplicitlyNotApplicable/,
   'JUnit 必须覆盖末检明确不适用且有依据时允许缺少 FINAL 项目。')
-assert.match(test, /shouldSkipFinalPqcTaskWhenPublishedRegulationMarksFinalInspectionNotApplicable/,
+assert.match(test, /shouldKeepFirstAndPatrolQuantitiesPerQaProcessWhenProjectFinalInspectionIsDisabled/,
   'JUnit 必须覆盖发布版本明确末检不适用时不生成 FINAL 任务。')
 assert.match(releaseCompletenessTest, /evaluateInspectionResultPassesWithoutFinalWhenRegulationMarksFinalNotApplicable/,
   'JUnit 必须覆盖有明确末检不适用依据时放行不要求 FINAL。')

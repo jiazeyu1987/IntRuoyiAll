@@ -44,6 +44,10 @@ public class MesTeamLeaderActiveOrderRow {
     private String releaseApplicationStatus;
     private String releaseSourceSnapshotHash;
     private Integer releaseApplicationVersion;
+    private Boolean quantityConflict;
+    private Boolean hasQuantityConflict;
+    private Integer quantityConflictProcessCount;
+    private BigDecimal overageQuantity;
 
     @Data
     @Accessors(chain = true)
@@ -54,5 +58,7 @@ public class MesTeamLeaderActiveOrderRow {
         private BigDecimal plannedQuantity;
         private BigDecimal allocatedQuantity;
         private BigDecimal remainingQuantity;
+        private Boolean quantityConflict;
+        private BigDecimal overageQuantity;
     }
 }

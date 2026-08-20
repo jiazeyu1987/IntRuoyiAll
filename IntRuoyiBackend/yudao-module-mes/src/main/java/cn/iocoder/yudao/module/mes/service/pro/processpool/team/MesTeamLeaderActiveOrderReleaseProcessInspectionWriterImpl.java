@@ -1153,10 +1153,10 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
     }
 
     private String hashRegulation(MesQaInspectionRegulationDO regulation) {
-        return sha256(join("QA_REGULATION_V1", regulation.getTenantId(), regulation.getId(),
+        return sha256(join("QA_REGULATION_V2", regulation.getTenantId(), regulation.getId(),
                 regulation.getProductId(), regulation.getRouteId(), regulation.getRouteVersionId(),
                 regulation.getRouteProcessId(), regulation.getProcessId(), regulation.getOwnerModule(),
-                regulation.getRegulationCode(), regulation.getRegulationName(), regulation.getCurrentVersionId()));
+                regulation.getRegulationCode(), regulation.getRegulationName()));
     }
 
     private String hashRegulationVersion(MesQaInspectionRegulationVersionDO version) {

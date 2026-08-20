@@ -198,6 +198,8 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .thenReturn(publishedRegulation(9902L));
         lenient().when(inspectionRegulationVersionMapper.selectById(9902L))
                 .thenReturn(publishedRegulationVersion(true, null));
+        lenient().when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
+                .thenReturn(publishedRegulationVersion(9902L, true, null));
         lenient().when(routeMapper.selectById(922119L)).thenReturn(MesProRouteDO.builder()
                 .id(922119L).code("ROUTE-001").name("冻结工艺路线").build());
         lenient().when(routeVersionMapper.selectById(448L)).thenReturn(MesProRouteVersionDO.builder()
@@ -290,23 +292,21 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldReturnRecoverableCandidateFromValidRemovedHistoryWhenCurrentRouteIsUnavailable() {
+    void shouldBlockRecoverableCandidateWhenCurrentRouteIsUnavailable() {
         when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
                 .thenReturn(List.of(confirmedWorkOrder()));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(dccProjectCodeMapper.selectById(147L)).thenReturn(DccProjectCodeDO.builder()
-                .id(147L).productMasterId(11L).projectCode("ID").status("DISABLE").build());
+        when(routeProductMapper.selectListByItemIds(List.of(1001L))).thenReturn(List.of());
 
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 
         assertEquals(1, candidates.size());
-        assertTrue(candidates.get(0).isEligible());
-        assertEquals("RECOVERABLE", candidates.get(0).getCandidateState());
-        assertEquals(null, candidates.get(0).getIneligibleReason());
-        verify(routeProductMapper, never()).selectListByItemIds(any());
+        assertFalse(candidates.get(0).isEligible());
+        assertEquals("BLOCKED", candidates.get(0).getCandidateState());
+        assertTrue(candidates.get(0).getIneligibleReason().contains("缺少产品工艺路线绑定"));
+        verify(routeProductMapper).selectListByItemIds(List.of(1001L));
         verify(routeVersionMapper, never()).selectListByRouteIds(any());
-        verify(inspectionRegulationMapper, never()).selectListByDccProjectCodeIds(any());
     }
 
     @Test
@@ -332,6 +332,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     void shouldBlockCandidateWithExactInvalidFrozenIdentityReasonBeforeResolvingCurrentRoute() {
         when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
                 .thenReturn(List.of(confirmedWorkOrder()));
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         MesProcessPoolActiveOrderDO removed = existingActiveOrder(8101L, "REMOVED", 7);
         removed.setQaRegulationVersionId(null);
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L))).thenReturn(List.of(removed));
@@ -339,29 +340,25 @@ class MesTeamLeaderActiveOrderServiceTest {
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 
         assertEquals(1, candidates.size());
-        assertFalse(candidates.get(0).isEligible());
-        assertEquals("BLOCKED", candidates.get(0).getCandidateState());
-        assertEquals("PQC 检验任务生成前置条件不满足：removed活跃订单缺少QA锁定快照，activeOrderId=8101",
-                candidates.get(0).getIneligibleReason());
-        verify(routeProductMapper, never()).selectListByItemIds(any());
-        verify(routeVersionMapper, never()).selectListByRouteIds(any());
+        assertTrue(candidates.get(0).isEligible());
+        assertEquals("RECOVERABLE", candidates.get(0).getCandidateState());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
     }
 
     @Test
     void shouldBlockRemovedCandidateWhenFrozenRouteVersionDoesNotBelongToFrozenRoute() {
         when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
                 .thenReturn(List.of(confirmedWorkOrder()));
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(routeVersionMapper.selectById(448L)).thenReturn(MesProRouteVersionDO.builder()
-                .id(448L).routeId(999999L).versionNo("V1").lifecycleStatus("SUPERSEDED").build());
 
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 
         assertEquals(1, candidates.size());
-        assertFalse(candidates.get(0).isEligible());
-        assertEquals("BLOCKED", candidates.get(0).getCandidateState());
-        assertTrue(candidates.get(0).getIneligibleReason().contains("冻结路线版本归属无效"));
+        assertTrue(candidates.get(0).isEligible());
+        assertEquals("RECOVERABLE", candidates.get(0).getCandidateState());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
         verify(activeOrderMapper, never()).reactivateRemovedActiveOrder(any(), any(), any(), any(), any());
     }
 
@@ -369,16 +366,16 @@ class MesTeamLeaderActiveOrderServiceTest {
     void shouldBlockRemovedCandidateWhenFrozenProcessSnapshotsAreMissing() {
         when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
                 .thenReturn(List.of(confirmedWorkOrder()));
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(processSnapshotMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of());
 
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 
         assertEquals(1, candidates.size());
-        assertFalse(candidates.get(0).isEligible());
-        assertEquals("BLOCKED", candidates.get(0).getCandidateState());
-        assertTrue(candidates.get(0).getIneligibleReason().contains("缺少冻结工序快照"));
+        assertTrue(candidates.get(0).isEligible());
+        assertEquals("RECOVERABLE", candidates.get(0).getCandidateState());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
         verify(activeOrderMapper, never()).reactivateRemovedActiveOrder(any(), any(), any(), any(), any());
     }
 
@@ -386,18 +383,16 @@ class MesTeamLeaderActiveOrderServiceTest {
     void shouldBlockRemovedCandidateWhenFrozenProcessSnapshotsDoNotCoverFrozenRouteVersion() {
         when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
                 .thenReturn(List.of(confirmedWorkOrder()));
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(routeVersionMapper.selectById(448L)).thenReturn(MesProRouteVersionDO.builder()
-                .id(448L).routeId(922119L).versionNo("V1").lifecycleStatus("SUPERSEDED")
-                .routeSnapshotJson(activeRouteSnapshotJson(2)).build());
 
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 
         assertEquals(1, candidates.size());
-        assertFalse(candidates.get(0).isEligible());
-        assertEquals("BLOCKED", candidates.get(0).getCandidateState());
-        assertTrue(candidates.get(0).getIneligibleReason().contains("冻结工序快照不完整"));
+        assertTrue(candidates.get(0).isEligible());
+        assertEquals("RECOVERABLE", candidates.get(0).getCandidateState());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
         verify(activeOrderMapper, never()).reactivateRemovedActiveOrder(any(), any(), any(), any(), any());
     }
 
@@ -405,20 +400,16 @@ class MesTeamLeaderActiveOrderServiceTest {
     void shouldBlockRemovedCandidateWhenFrozenPqcTaskIdentityIsMismatched() {
         when(workOrderMapper.selectCandidatesByKeyword("WO-9", List.of()))
                 .thenReturn(List.of(confirmedWorkOrder()));
+        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIds(List.of(9001L)))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(dccProjectCodeMapper.selectById(147L)).thenReturn(DccProjectCodeDO.builder()
-                .id(147L).productMasterId(11L).projectCode("ID").status("DISABLE").build());
-        List<MesPqcInspectionTaskDO> mismatchedTasks = new ArrayList<>(frozenPqcTasks());
-        mismatchedTasks.get(0).setRegulationVersionId(999999L);
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(mismatchedTasks);
 
         List<MesTeamLeaderActiveOrderCandidateBO> candidates = service.searchActiveOrderCandidates("WO-9");
 
         assertEquals(1, candidates.size());
-        assertFalse(candidates.get(0).isEligible());
-        assertEquals("BLOCKED", candidates.get(0).getCandidateState());
-        assertTrue(candidates.get(0).getIneligibleReason().contains("冻结PQC任务身份无效"));
+        assertTrue(candidates.get(0).isEligible());
+        assertEquals("RECOVERABLE", candidates.get(0).getCandidateState());
+        assertEquals(null, candidates.get(0).getIneligibleReason());
         verify(activeOrderMapper, never()).reactivateRemovedActiveOrder(any(), any(), any(), any(), any());
     }
 
@@ -620,7 +611,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldBatchLoadQaIdentityWithoutLoadingQaItemsForRemoteDropdown() {
+    void shouldLoadQaIdentityWithoutLoadingQaItemsForRemoteDropdown() {
         when(workOrderMapper.selectCandidatesByKeyword("88", List.of())).thenReturn(List.of(
                 confirmedWorkOrder(9001L, "881MO093613", new BigDecimal("200"), 1001L),
                 confirmedWorkOrder(9002L, "881MO093615", new BigDecimal("200"), 1001L)));
@@ -636,7 +627,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(scheduleOrderProcessMapper, never()).selectListByScheduleOrderIds(any());
         verify(scheduleOrderProcessMapper, never()).selectListByScheduleOrderId(any());
         verify(inspectionRegulationMapper).selectListByDccProjectCodeIds(List.of(147L));
-        verify(inspectionRegulationVersionMapper).selectBatchIds(List.of(9902L));
+        verify(inspectionRegulationVersionMapper).selectLatestPublishedByRegulationId(9901L);
         verify(inspectionRegulationVersionMapper, never()).selectById(any());
         verify(inspectionRegulationItemMapper, never()).selectListByVersionIds(any());
         verify(inspectionRegulationItemMapper, never()).selectListByVersionId(any());
@@ -724,7 +715,9 @@ class MesTeamLeaderActiveOrderServiceTest {
                         .collect(java.util.stream.Collectors.toSet()));
         assertTrue(taskCaptor.getAllValues().stream()
                 .allMatch(task -> Objects.equals(19902L, task.getQaProcessId())
-                        && Objects.equals(9902L, task.getRegulationVersionId())));
+                        && Objects.equals(9902L, task.getRegulationVersionId())
+                        && Objects.equals(928601L, task.getRouteProcessId())
+                        && Objects.equals(6001L, task.getProcessId())));
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
@@ -781,7 +774,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     void shouldSnapshotAllRouteProcessesAndCreateQaOwnedPqcTasks() {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("10")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(10),
-                publishedRegulation(9902L, 928601L, 6001L));
+                publishedRegulation(9902L, null, null));
         stubSuccessfulActiveOrderInsert();
 
         MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(activeOrderReq());
@@ -798,7 +791,33 @@ class MesTeamLeaderActiveOrderServiceTest {
                 "10", "1.000000", "10.000000");
         assertSnapshot(snapshots.get(9), 8101L, 9001L, 922119L, 448L, 928610L, 6010L,
                 "10", "1.000000", "10.000000");
-        verify(pqcInspectionTaskMapper, times(4)).insert(any(MesPqcInspectionTaskDO.class));
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
+        LocalDate expectedBusinessDate = LocalDate.now();
+        assertPqcTask(tasks.get(0), "FIRST", "FIRST", "FIRST", 5, expectedBusinessDate);
+        assertPqcTask(tasks.get(1), "PATROL", "PATROL_AM", "AM", 1, expectedBusinessDate);
+        assertPqcTask(tasks.get(2), "PATROL", "PATROL_PM", "PM", 1, expectedBusinessDate);
+        assertPqcTask(tasks.get(3), "FINAL", "FINAL", "FINAL", 3, expectedBusinessDate);
+    }
+
+    @Test
+    void shouldRoundPatrolRatioUpForAmAndPmTasks() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("301")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        stubSuccessfulActiveOrderInsert();
+
+        service.addActiveOrder(activeOrderReq());
+
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        List<MesPqcInspectionTaskDO> tasks = taskCaptor.getAllValues();
+        LocalDate expectedBusinessDate = LocalDate.now();
+        assertPqcTask(tasks.get(1), "PATROL", "PATROL_AM", "AM", 16, expectedBusinessDate);
+        assertPqcTask(tasks.get(2), "PATROL", "PATROL_PM", "PM", 16, expectedBusinessDate);
     }
 
     @Test
@@ -806,7 +825,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
-        when(inspectionRegulationVersionMapper.selectById(9902L))
+        when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
                 .thenReturn(publishedRegulationVersion(false, "项目不适用末检"));
         when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9902L))).thenReturn(List.of(
                 qaProcess(9902L, 19902L, "QA-P1", "清洗", 1),
@@ -840,7 +859,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
-        when(inspectionRegulationVersionMapper.selectById(9902L))
+        when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
                 .thenReturn(publishedRegulationVersion(false, "项目不适用末检"));
         when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9902L))).thenReturn(List.of(
                 qaProcess(9902L, 19902L, "QA-P1", "清洗", 1)));
@@ -886,7 +905,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
-        when(inspectionRegulationVersionMapper.selectById(9902L))
+        when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
                 .thenReturn(publishedRegulationVersion(true, null));
         when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9902L))).thenReturn(List.of(
                 qaProcess(9902L, 19902L, "QA-P1", "清洗", 1)));
@@ -957,7 +976,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(processSnapshotMapper, never()).deleteByActiveOrderId(any());
         verify(pqcInspectionTaskMapper, never()).deleteByActiveOrderId(any());
         verify(reportAllocationMapper, never()).deleteAllByActiveOrderId(any());
-        verify(activeOrderMapper, never()).updateById(any(MesProcessPoolActiveOrderDO.class));
+        verify(activeOrderMapper, never()).refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class));
         verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
@@ -967,7 +986,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
                 publishedRegulation(9902L, 928609L, 6001L));
-        when(activeOrderMapper.updateById(any(MesProcessPoolActiveOrderDO.class))).thenReturn(1);
+        when(activeOrderMapper.refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class))).thenReturn(1);
         when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
 
         MesTeamLeaderActiveOrderRebuildResult result = service.rebuildActiveOrder(
@@ -1003,15 +1022,48 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(releaseApplicationMapper).deleteByActiveOrderId(8101L);
         verify(processPoolEventMapper).deleteByIds(Set.of(8801L, 8802L, 8803L));
         verify(feedbackMapper).deleteByIds(List.of(5501L));
-        verify(activeOrderMapper).updateById(argThat((MesProcessPoolActiveOrderDO update) ->
+        verify(activeOrderMapper).refreshActiveOrderSnapshot(argThat((MesProcessPoolActiveOrderDO update) ->
                 Objects.equals(8101L, update.getId())
+                        && Objects.equals(3001L, update.getLeaderUserId())
                         && Objects.equals(922119L, update.getRouteId())
                         && Objects.equals(448L, update.getRouteVersionId())
                         && Objects.equals(9902L, update.getQaRegulationVersionId())
+                        && Objects.equals(7, update.getVersion())
                         && Objects.equals("ACTIVE", update.getActiveStatus())));
         verify(processSnapshotMapper).insertBatch(any());
         verify(pqcInspectionTaskMapper, times(4)).insert(any(MesPqcInspectionTaskDO.class));
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void rebuildActiveOrderShouldResolveLatestPublishedQaVersionInsteadOfRegulationPointer() {
+        stubRebuildHistoricalRuntimePreview();
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
+                .thenReturn(publishedRegulationVersion(9903L, true, null));
+        when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9903L)))
+                .thenReturn(List.of(qaProcess(9903L)));
+        when(inspectionRegulationItemMapper.selectListByVersionId(9903L))
+                .thenReturn(defaultPqcItems(9903L));
+        when(activeOrderMapper.refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class))).thenReturn(1);
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+
+        service.rebuildActiveOrder(MesTeamLeaderActiveOrderRebuildReqBO.builder()
+                .leaderUserId(3001L)
+                .activeOrderId(8101L)
+                .confirmDeleteHistoricalRuntimeData(true)
+                .build());
+
+        verify(activeOrderMapper).refreshActiveOrderSnapshot(argThat((MesProcessPoolActiveOrderDO update) ->
+                Objects.equals(9903L, update.getQaRegulationVersionId())));
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        assertTrue(taskCaptor.getAllValues().stream().allMatch(task ->
+                Objects.equals(9903L, task.getRegulationVersionId())
+                        && Objects.equals(928601L, task.getRouteProcessId())
+                        && Objects.equals(6001L, task.getProcessId())));
     }
 
     @Test
@@ -1075,6 +1127,21 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void shouldRejectActiveOrderWhenPqcTaskIdentityAlreadyExists() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("10")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        stubSuccessfulActiveOrderInsert();
+        when(pqcInspectionTaskMapper.selectByQaIdentity(eq(8101L), eq(9902L), eq(19902L),
+                eq("FIRST-001"), eq("FIRST"), any(LocalDate.class)))
+                .thenReturn(MesPqcInspectionTaskDO.builder().id(990001L).build());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PQC_INSPECTION_TASK_IDENTITY_CONFLICT.getCode(), ex.getCode());
+    }
+
+    @Test
     void shouldReturnExistingActiveOrderWhenSameWorkOrderRouteVersionAlreadyActive() {
         stubWorkOrderExists(confirmedWorkOrder());
         when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
@@ -1113,7 +1180,11 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
+        when(reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
         when(activeOrderMapper.reactivateRemovedActiveOrder(any(), any(), any(), any(), any())).thenReturn(1);
+        when(activeOrderMapper.refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class))).thenReturn(1);
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
 
         MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(activeOrderReq());
 
@@ -1122,7 +1193,11 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(activeOrderMapper).reactivateRemovedActiveOrder(
                 eq(8101L), eq(3001L), eq(7), any(LocalDateTime.class), eq(1L));
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
-        verify(processSnapshotMapper, never()).insertBatch(any());
+        verify(activeOrderMapper).refreshActiveOrderSnapshot(argThat((MesProcessPoolActiveOrderDO update) ->
+                Objects.equals(8101L, update.getId())
+                        && Objects.equals(9902L, update.getQaRegulationVersionId())));
+        verify(processSnapshotMapper).insertBatch(any());
+        verify(pqcInspectionTaskMapper, times(4)).insert(any(MesPqcInspectionTaskDO.class));
         verify(inspectionRegulationMapper, never()).selectByDccProjectCodeId(any());
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
@@ -1133,7 +1208,11 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubFormalRouteQaContext(1001L, 627L, publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
+        when(reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
         when(activeOrderMapper.reactivateRemovedActiveOrder(any(), any(), any(), any(), any())).thenReturn(1);
+        when(activeOrderMapper.refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class))).thenReturn(1);
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
 
         MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(activeOrderReq());
         assertEquals(8101L, result.getActiveOrderId());
@@ -1141,11 +1220,12 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         verify(activeOrderMapper).reactivateRemovedActiveOrder(
                 eq(8101L), eq(3001L), eq(7), any(LocalDateTime.class), eq(1L));
-        verify(routeProductMapper, never()).selectListByItemIds(any());
-        verify(routeVersionMapper, never()).selectListByRouteIds(any());
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
-        verify(processSnapshotMapper, never()).insertBatch(any());
-        verify(pqcInspectionTaskMapper, never()).insert(any(MesPqcInspectionTaskDO.class));
+        verify(activeOrderMapper).refreshActiveOrderSnapshot(argThat((MesProcessPoolActiveOrderDO update) ->
+                Objects.equals(627L, update.getRouteVersionId())
+                        && Objects.equals(9902L, update.getQaRegulationVersionId())));
+        verify(processSnapshotMapper).insertBatch(any());
+        verify(pqcInspectionTaskMapper, times(4)).insert(any(MesPqcInspectionTaskDO.class));
     }
 
     @Test
@@ -1153,19 +1233,88 @@ class MesTeamLeaderActiveOrderServiceTest {
         stubWorkOrderExists(confirmedWorkOrder());
         when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(dccProjectCodeMapper.selectById(147L)).thenReturn(DccProjectCodeDO.builder()
-                .id(147L).productMasterId(11L).projectCode("ID").status("ENABLE").build());
-        when(activeOrderMapper.reactivateRemovedActiveOrder(any(), any(), any(), any(), any())).thenReturn(1);
 
-        MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(activeOrderReq());
-        assertEquals(8101L, result.getActiveOrderId());
-        assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_RECOVER, result.getAction());
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.addActiveOrder(activeOrderReq()));
 
-        verify(routeProductMapper, never()).selectListByItemIds(any());
-        verify(routeVersionMapper, never()).selectListByRouteIds(any());
+        assertTrue(exception.getMessage().contains("缺少产品工艺路线绑定"));
+        verify(activeOrderMapper, never()).reactivateRemovedActiveOrder(any(), any(), any(), any(), any());
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
         verify(processSnapshotMapper, never()).insertBatch(any());
         verify(pqcInspectionTaskMapper, never()).insert(any(MesPqcInspectionTaskDO.class));
+    }
+
+    @Test
+    void shouldReactivateRemovedOrderByRebuildingLatestPublishedQaVersion() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
+                .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
+        when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
+                .thenReturn(publishedRegulationVersion(9903L, true, null));
+        when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9903L)))
+                .thenReturn(List.of(qaProcess(9903L)));
+        when(inspectionRegulationItemMapper.selectListByVersionId(9903L))
+                .thenReturn(defaultPqcItems(9903L));
+        when(reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(frozenPqcTasks());
+        when(processPoolEventMapper.selectListPqcByTaskId(any(), any())).thenReturn(List.of());
+        when(activeOrderMapper.reactivateRemovedActiveOrder(any(), any(), any(), any(), any())).thenReturn(1);
+        when(activeOrderMapper.refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class))).thenReturn(1);
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+
+        MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(activeOrderReq());
+
+        assertEquals(8101L, result.getActiveOrderId());
+        assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_RECOVER, result.getAction());
+        verify(pqcInspectionTaskMapper).deleteByActiveOrderId(8101L);
+        verify(processSnapshotMapper).deleteByActiveOrderId(8101L);
+        verify(activeOrderMapper).refreshActiveOrderSnapshot(argThat((MesProcessPoolActiveOrderDO update) ->
+                Objects.equals(8101L, update.getId())
+                        && Objects.equals(9903L, update.getQaRegulationVersionId())));
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        assertTrue(taskCaptor.getAllValues().stream()
+                .allMatch(task -> Objects.equals(9903L, task.getRegulationVersionId())
+                        && Objects.equals(19903L, task.getQaProcessId())));
+    }
+
+    @Test
+    void shouldRecoverRemovedOrderWithBrokenHistoricalQaLockByRebuildingLatestPublishedQaVersion() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        MesProcessPoolActiveOrderDO removed = existingActiveOrder(8101L, "REMOVED", 7);
+        removed.setQaRegulationVersionId(null);
+        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L)).thenReturn(List.of(removed));
+        when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
+                .thenReturn(publishedRegulationVersion(9903L, true, null));
+        when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9903L)))
+                .thenReturn(List.of(qaProcess(9903L)));
+        when(inspectionRegulationItemMapper.selectListByVersionId(9903L))
+                .thenReturn(defaultPqcItems(9903L));
+        when(reportAllocationMapper.selectAllListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of());
+        when(activeOrderMapper.reactivateRemovedActiveOrder(any(), any(), any(), any(), any())).thenReturn(1);
+        when(activeOrderMapper.refreshActiveOrderSnapshot(any(MesProcessPoolActiveOrderDO.class))).thenReturn(1);
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+
+        MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(activeOrderReq());
+
+        assertEquals(8101L, result.getActiveOrderId());
+        assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_RECOVER, result.getAction());
+        verify(inspectionRegulationVersionMapper, never()).selectById(null);
+        verify(activeOrderMapper).refreshActiveOrderSnapshot(argThat((MesProcessPoolActiveOrderDO update) ->
+                Objects.equals(8101L, update.getId())
+                        && Objects.equals(9903L, update.getQaRegulationVersionId())));
+        ArgumentCaptor<MesPqcInspectionTaskDO> taskCaptor =
+                ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(4)).insert(taskCaptor.capture());
+        assertTrue(taskCaptor.getAllValues().stream()
+                .allMatch(task -> Objects.equals(9903L, task.getRegulationVersionId())
+                        && Objects.equals(19903L, task.getQaProcessId())));
     }
 
     @Test
@@ -1185,124 +1334,18 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldRejectRemovedOrderWithoutCompleteFrozenQaIdentityBeforeReactivation() {
-        stubWorkOrderExists(confirmedWorkOrder());
-        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
-        MesProcessPoolActiveOrderDO removed = existingActiveOrder(8101L, "REMOVED", 7);
-        removed.setQaRegulationVersionId(null);
-        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L)).thenReturn(List.of(removed));
-
-        assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
-
-        verifyNoActiveOrderWrites();
-    }
-
-    @Test
-    void shouldRejectRemovedOrderWhenFrozenProcessSnapshotIdentityIsMismatchedBeforeAnyWrite() {
-        stubWorkOrderExists(confirmedWorkOrder());
-        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
-        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
-                .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        MesProcessPoolActiveOrderProcessSnapshotDO mismatched = frozenProcessSnapshot();
-        mismatched.setRouteVersionId(999999L);
-        when(processSnapshotMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(mismatched));
-
-        ServiceException exception = assertThrows(ServiceException.class,
-                () -> service.addActiveOrder(activeOrderReq()));
-
-        assertTrue(exception.getMessage().contains("冻结工序快照身份无效"));
-        verifyNoActiveOrderWrites();
-    }
-
-    @Test
-    void shouldRejectRemovedOrderWithoutQaOwnedPqcTasksBeforeAnyWrite() {
-        stubWorkOrderExists(confirmedWorkOrder());
-        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
-        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
-                .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(pqcInspectionTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of());
-
-        ServiceException exception = assertThrows(ServiceException.class,
-                () -> service.addActiveOrder(activeOrderReq()));
-
-        assertTrue(exception.getMessage().contains("缺少冻结PQC任务"));
-        verifyNoActiveOrderWrites();
-    }
-
-    @Test
-    void shouldRejectRemovedOrderWhenFrozenQaRootDoesNotOwnFrozenDcc() {
-        stubWorkOrderExists(confirmedWorkOrder());
-        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
-        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
-                .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(inspectionRegulationMapper.selectById(9901L)).thenReturn(MesQaInspectionRegulationDO.builder()
-                .id(9901L).dccProjectCodeId(999L).ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA).build());
-
-        assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
-
-        verifyNoActiveOrderWrites();
-    }
-
-    @Test
-    void shouldRejectRemovedOrderWhenFrozenVersionBelongsToDifferentQaRoot() {
-        stubWorkOrderExists(confirmedWorkOrder());
-        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
-        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
-                .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(inspectionRegulationVersionMapper.selectById(9902L)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
-                .id(9902L).regulationId(999L).lifecycleStatus("PUBLISHED").build());
-
-        assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
-
-        verifyNoActiveOrderWrites();
-    }
-
-    @Test
-    void shouldRejectRemovedOrderWhenFrozenVersionIsDraft() {
-        stubWorkOrderExists(confirmedWorkOrder());
-        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
-        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
-                .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(inspectionRegulationVersionMapper.selectById(9902L)).thenReturn(MesQaInspectionRegulationVersionDO.builder()
-                .id(9902L).regulationId(9901L).lifecycleStatus("DRAFT").build());
-
-        assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
-
-        verifyNoActiveOrderWrites();
-    }
-
-    @Test
-    void shouldRejectRemovedOrderWhenFrozenVersionWasDeleted() {
-        stubWorkOrderExists(confirmedWorkOrder());
-        stubCandidatePqcPrerequisites(publishedRegulation(9902L));
-        when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
-                .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
-        when(inspectionRegulationVersionMapper.selectById(9902L)).thenReturn(null);
-
-        assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
-
-        verifyNoActiveOrderWrites();
-    }
-
-    @Test
-    void shouldReactivateRemovedOrderWithRetiredVersionAfterDccWasDisabled() {
+    void shouldRejectRemovedOrderWhenCurrentDccProjectIsDisabled() {
         stubWorkOrderExists(confirmedWorkOrder());
         stubCandidatePqcPrerequisites(publishedRegulation(9902L));
         when(activeOrderMapper.selectHistoryByWorkOrderIdForUpdate(9001L))
                 .thenReturn(List.of(existingActiveOrder(8101L, "REMOVED", 7)));
         when(dccProjectCodeMapper.selectById(147L)).thenReturn(DccProjectCodeDO.builder()
                 .id(147L).productMasterId(11L).projectCode("ID").status("DISABLE").build());
-        MesQaInspectionRegulationVersionDO retiredVersion = publishedRegulationVersion(true, null);
-        retiredVersion.setLifecycleStatus("RETIRED");
-        lenient().when(inspectionRegulationVersionMapper.selectById(9902L)).thenReturn(retiredVersion);
-        when(activeOrderMapper.reactivateRemovedActiveOrder(any(), any(), any(), any(), any())).thenReturn(1);
 
-        MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(activeOrderReq());
-        assertEquals(8101L, result.getActiveOrderId());
-        assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_RECOVER, result.getAction());
+        ServiceException exception = assertThrows(ServiceException.class, () -> service.addActiveOrder(activeOrderReq()));
 
-        verify(activeOrderMapper).reactivateRemovedActiveOrder(
-                eq(8101L), eq(3001L), eq(7), any(LocalDateTime.class), eq(1L));
+        assertTrue(exception.getMessage().contains("DCC 项目代码不存在或已停用"));
+        verify(activeOrderMapper, never()).reactivateRemovedActiveOrder(any(), any(), any(), any(), any());
         verify(inspectionRegulationMapper, never()).selectListByDccProjectCodeIds(any());
     }
 
@@ -1437,7 +1480,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldListActiveOrdersWithPerProcessRemainingQuantitiesAfterCurrentAllocations() {
+    void shouldListActiveOrdersWithPerProcessRemainingAndQuantityConflictAfterOverage() {
         List<MesProcessPoolActiveOrderDO> activeOrderRows = List.of(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
                 .leaderUserId(3001L)
@@ -1468,7 +1511,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 processSnapshot(8101L, 9001L, 5002L, 6002L, "100.000000")));
         when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of(
                 allocation(8101L, 9001L, 5001L, 6001L, "70"),
-                allocation(8101L, 9001L, 5002L, 6002L, "100")));
+                allocation(8101L, 9001L, 5002L, 6002L, "130")));
         when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
 
         List<MesTeamLeaderActiveOrderRow> activeOrders = service.listActiveOrders(3001L);
@@ -1485,6 +1528,14 @@ class MesTeamLeaderActiveOrderServiceTest {
                 activeOrders.get(0).getProcessRemainingQuantities().get(0).getRemainingQuantity());
         assertEquals(new BigDecimal("0.000000"),
                 activeOrders.get(0).getProcessRemainingQuantities().get(1).getRemainingQuantity());
+        assertFalse(activeOrders.get(0).getProcessRemainingQuantities().get(0).getQuantityConflict());
+        assertTrue(activeOrders.get(0).getProcessRemainingQuantities().get(1).getQuantityConflict());
+        assertEquals(new BigDecimal("30.000000"),
+                activeOrders.get(0).getProcessRemainingQuantities().get(1).getOverageQuantity());
+        assertTrue(activeOrders.get(0).getHasQuantityConflict());
+        assertTrue(activeOrders.get(0).getQuantityConflict());
+        assertEquals(1, activeOrders.get(0).getQuantityConflictProcessCount());
+        assertEquals(new BigDecimal("30.000000"), activeOrders.get(0).getOverageQuantity());
     }
 
     @Test
@@ -1873,6 +1924,8 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .workOrderId(9001L)
                 .routeId(922119L)
                 .routeVersionId(448L)
+                .routeProcessId(928601L)
+                .processId(6001L)
                 .qaProcessId(19902L)
                 .qaItemCode(inspectionType + "-001")
                 .regulationVersionId(9902L)
@@ -2259,8 +2312,8 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(9001L, task.getWorkOrderId());
         assertEquals(922119L, task.getRouteId());
         assertEquals(448L, task.getRouteVersionId());
-        assertEquals(null, task.getRouteProcessId());
-        assertEquals(null, task.getProcessId());
+        assertEquals(928601L, task.getRouteProcessId());
+        assertEquals(6001L, task.getProcessId());
         assertEquals(19902L, task.getQaProcessId());
         assertEquals(9902L, task.getRegulationVersionId());
         assertEquals(inspectionType, task.getInspectionType());

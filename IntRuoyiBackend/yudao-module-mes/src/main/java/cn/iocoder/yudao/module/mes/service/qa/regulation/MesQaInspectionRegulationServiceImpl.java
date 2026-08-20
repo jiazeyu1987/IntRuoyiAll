@@ -168,15 +168,14 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         DraftContext context = saveDraftInternal(reqVO, dccProjectCode);
         LocalDateTime publishedAt = LocalDateTime.now();
 
-        Long currentVersionId = context.regulation().getCurrentVersionId();
-        if (currentVersionId != null && !Objects.equals(currentVersionId, context.version().getId())) {
-            MesQaInspectionRegulationVersionDO currentPublished = versionMapper.selectById(currentVersionId);
-            if (currentPublished == null
-                    || !Objects.equals(currentPublished.getRegulationId(), context.regulation().getId())) {
-                throw exception(QA_INSPECTION_REGULATION_VERSION_CONFLICT, currentVersionId);
-            }
+        List<MesQaInspectionRegulationVersionDO> publishedVersions = versionMapper
+                .selectListByRegulationId(context.regulation().getId()).stream()
+                .filter(version -> version != null && version.getId() != null
+                        && Objects.equals(STATUS_PUBLISHED, version.getLifecycleStatus()))
+                .toList();
+        for (MesQaInspectionRegulationVersionDO currentPublished : publishedVersions) {
             versionMapper.updateById(new MesQaInspectionRegulationVersionDO()
-                    .setId(currentVersionId)
+                    .setId(currentPublished.getId())
                     .setLifecycleStatus(STATUS_RETIRED)
                     .setRetiredAt(publishedAt));
         }
@@ -207,13 +206,11 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             Long dccProjectCodeId, Long versionId) {
         requireEnabledDccProjectCode(dccProjectCodeId);
         MesQaInspectionRegulationDO regulation = requireRegulation(dccProjectCodeId);
-        Long resolvedVersionId = versionId == null ? regulation.getCurrentVersionId() : versionId;
-        if (resolvedVersionId == null) {
-            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS, null);
-        }
-        MesQaInspectionRegulationVersionDO version = versionMapper.selectById(resolvedVersionId);
+        MesQaInspectionRegulationVersionDO version = versionId == null
+                ? versionMapper.selectLatestPublishedByRegulationId(regulation.getId())
+                : versionMapper.selectById(versionId);
         if (version == null || !Objects.equals(version.getRegulationId(), regulation.getId())) {
-            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS, resolvedVersionId);
+            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS, versionId);
         }
         boolean productionCurrent = versionId == null;
         boolean allowed = productionCurrent
@@ -236,9 +233,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 versionMapper.selectLatestDraftByRegulationId(regulation.getId());
         MesQaInspectionRegulationVersionDO version = latestDraft != null
                 ? latestDraft
-                : regulation.getCurrentVersionId() == null
-                        ? null
-                        : versionMapper.selectById(regulation.getCurrentVersionId());
+                : versionMapper.selectLatestPublishedByRegulationId(regulation.getId());
         if (version == null) {
             return null;
         }
@@ -280,8 +275,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     MesQaInspectionRegulationVersionDO latestDraft = regulation == null ? null
                             : versionMapper.selectLatestDraftByRegulationId(regulation.getId());
                     MesQaInspectionRegulationVersionDO published = regulation == null
-                            || regulation.getCurrentVersionId() == null ? null
-                            : versionMapper.selectById(regulation.getCurrentVersionId());
+                            ? null : versionMapper.selectLatestPublishedByRegulationId(regulation.getId());
                     return buildProjectStatus(dccProjectCodeId, regulation, latestDraft, published);
                 })
                 .toList();
@@ -631,14 +625,51 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         if (reqVO.getFinalInspectionApplicable() == null) {
             throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, "末检适用性未显式配置");
         }
+        Set<String> actualTypes = actualInspectionTypes(reqVO);
+        String requiredType = CollUtil.emptyIfNull(reqVO.getInspectionTypeRules()).stream()
+                .filter(Objects::nonNull)
+                .filter(rule -> Boolean.TRUE.equals(rule.getRequired()))
+                .map(MesQaInspectionRegulationSaveReqVO.InspectionTypeRule::getInspectionType)
+                .map(MesQaInspectionRegulationServiceImpl::normalizeInspectionType)
+                .filter(type -> Objects.equals(type, "FINAL"))
+                .findFirst()
+                .orElse(null);
+        if (Boolean.TRUE.equals(reqVO.getFinalInspectionApplicable())
+                && (!actualTypes.contains("FINAL") || !Objects.equals(requiredType, "FINAL"))) {
+            throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID,
+                    "末检适用时必须配置 FINAL 检验规则和检验项目");
+        }
         if (Boolean.FALSE.equals(reqVO.getFinalInspectionApplicable())
                 && StrUtil.isBlank(reqVO.getFinalInspectionNotApplicableReason())) {
             throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, "末检不适用依据不能为空");
+        }
+        if (Boolean.FALSE.equals(reqVO.getFinalInspectionApplicable())
+                && (actualTypes.contains("FINAL") || Objects.equals(requiredType, "FINAL"))) {
+            throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID,
+                    "末检不适用时不得配置 FINAL 检验项目");
         }
         if (Boolean.TRUE.equals(reqVO.getFinalInspectionApplicable())
                 && StrUtil.isNotBlank(reqVO.getFinalInspectionNotApplicableReason())) {
             throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, "末检适用时不得填写不适用依据");
         }
+    }
+
+    private static Set<String> actualInspectionTypes(MesQaInspectionRegulationSaveReqVO reqVO) {
+        if (reqVO == null || CollUtil.isEmpty(reqVO.getProcesses())) {
+            return Set.of();
+        }
+        LinkedHashSet<String> actualTypes = new LinkedHashSet<>();
+        for (MesQaInspectionRegulationSaveReqVO.InspectionProcess process : reqVO.getProcesses()) {
+            if (process == null || CollUtil.isEmpty(process.getItems())) {
+                continue;
+            }
+            for (MesQaInspectionRegulationSaveReqVO.InspectionItem item : process.getItems()) {
+                if (item != null) {
+                    actualTypes.addAll(normalizedInspectionTypes(item.getApplicableInspectionTypes()));
+                }
+            }
+        }
+        return actualTypes;
     }
 
     private static void validateInspectionTypeRules(
@@ -832,7 +863,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         status.setConfigured(true);
         status.setRegulationCount(1);
         status.setRegulationId(regulation.getId());
-        status.setCurrentVersionId(regulation.getCurrentVersionId());
+        status.setCurrentVersionId(published == null ? null : published.getId());
         status.setRegulationCode(regulation.getRegulationCode());
         status.setRegulationName(regulation.getRegulationName());
         MesQaInspectionRegulationVersionDO editVersion = latestDraft != null ? latestDraft : published;
@@ -841,7 +872,6 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         status.setEditRegulationId(regulation.getId());
         status.setEditVersionId(editVersion == null ? null : editVersion.getId());
         boolean productionReady = published != null
-                && Objects.equals(published.getId(), regulation.getCurrentVersionId())
                 && Objects.equals(published.getRegulationId(), regulation.getId())
                 && Objects.equals(published.getLifecycleStatus(), STATUS_PUBLISHED);
         status.setProductionReady(productionReady);

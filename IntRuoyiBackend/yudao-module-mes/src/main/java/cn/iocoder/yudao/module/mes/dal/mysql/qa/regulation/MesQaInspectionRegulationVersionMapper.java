@@ -27,6 +27,18 @@ public interface MesQaInspectionRegulationVersionMapper
                 .last("LIMIT 1"));
     }
 
+    default MesQaInspectionRegulationVersionDO selectLatestPublishedByRegulationId(Long regulationId) {
+        if (regulationId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesQaInspectionRegulationVersionDO>()
+                .eq(MesQaInspectionRegulationVersionDO::getRegulationId, regulationId)
+                .eq(MesQaInspectionRegulationVersionDO::getLifecycleStatus, "PUBLISHED")
+                .orderByDesc(MesQaInspectionRegulationVersionDO::getPublishedAt)
+                .orderByDesc(MesQaInspectionRegulationVersionDO::getId)
+                .last("LIMIT 1"));
+    }
+
     default List<MesQaInspectionRegulationVersionDO> selectListByRegulationId(Long regulationId) {
         if (regulationId == null) {
             return List.of();

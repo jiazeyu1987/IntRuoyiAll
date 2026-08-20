@@ -26,8 +26,8 @@ const submitButton = template.match(
 assert.ok(submitButton, 'PQC 提交按钮必须保留。')
 assert.match(
   submitButton,
-  /:disabled="payloadLoading \|\| Boolean\(pqcSubmitReceipt\) \|\| pqcSubmitResultUncertain"/,
-  'PQC 提交按钮只应在提交中、恢复回执锁定或结果不确定时锁定。'
+  /:disabled="payloadLoading \|\| pqcSubmitResultUncertain"/,
+  'PQC 提交按钮只应在提交中或结果不确定时锁定，成功/失败后必须恢复连续提交。'
 )
 
 const resetButton = template.match(
@@ -36,8 +36,14 @@ const resetButton = template.match(
 assert.ok(resetButton, 'PQC 重填按钮必须保留。')
 assert.match(
   resetButton,
-  /:disabled="payloadLoading \|\| Boolean\(pqcSubmitReceipt\) \|\| pqcSubmitResultUncertain"/,
-  'PQC 重填按钮应与提交按钮使用同一锁定边界。'
+  /:disabled="payloadLoading \|\| pqcSubmitResultUncertain"/,
+  'PQC 重填按钮应与提交按钮使用同一连续提交锁定边界。'
+)
+
+assert.doesNotMatch(
+  panel,
+  /pqcSubmitReceipt/,
+  'PQC 页面不能保留回执状态变量，否则成功回执仍可能锁死下一次提交。'
 )
 
 const resetHandler = panel.match(
@@ -79,7 +85,7 @@ assert.ok(
 const finallyBlock = confirmBlock.match(/finally\s*\{[\s\S]*?\}/)?.[0] || ''
 assert.doesNotMatch(
   finallyBlock,
-  /resetPqcSubmissionDraft|pqcSubmitReceipt/,
+  /resetPqcSubmissionDraft/,
   'PQC 失败或响应不确定时不得在 finally 清空草稿或伪造成功状态。'
 )
 
@@ -88,8 +94,8 @@ const recoverEnd = panel.indexOf('const handleConfirmPqcSubmit', recoverStart)
 const recoverBlock = panel.slice(recoverStart, recoverEnd)
 assert.match(
   recoverBlock,
-  /pqcSubmitReceipt\.value = recoveredReceipt/,
-  '响应不确定但只读确认已提交时，仍要保留正式回执锁定同一任务。'
+  /resetPqcSubmissionDraft\(recoveredReceipt\.pqcTaskId\)/,
+  '响应不确定但只读确认已提交时，应按成功提交处理并进入下一次独立提交。'
 )
 assert.match(
   recoverBlock,

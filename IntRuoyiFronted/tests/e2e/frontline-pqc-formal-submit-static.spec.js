@@ -61,13 +61,18 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /:disabled="payloadLoading \|\| Boolean\(pqcSubmitReceipt\) \|\| pqcSubmitResultUncertain"/,
-  'PQC submit must remain clickable for explicit validation and lock only while loading, after recovered receipt lock, or during an uncertain submit state.'
+  /:disabled="payloadLoading \|\| pqcSubmitResultUncertain"/,
+  'PQC submit must remain clickable after success or explicit failure, locking only while loading or during an uncertain submit state.'
 )
 assert.match(
   panelSource,
   /const submitReceipt = await ProFeedbackApi\.submitFrontlinePqcInspection[\s\S]*resetPqcSubmissionDraft\(submitPayload\.pqcTaskId\)[\s\S]*PQC正式提交成功，事件编号 \$\{submitReceipt\.pqcEventId\}/,
   'PQC explicit success must reset the current draft and continue with a new session instead of rendering a receipt block.'
+)
+assert.doesNotMatch(
+  panelSource,
+  /pqcSubmitReceipt/,
+  'PQC formal submit must not keep an internal receipt lock after the visible receipt block is removed.'
 )
 const pqcValidateHandler = panelSource.slice(
   panelSource.indexOf('const handleValidate = async () => {'),

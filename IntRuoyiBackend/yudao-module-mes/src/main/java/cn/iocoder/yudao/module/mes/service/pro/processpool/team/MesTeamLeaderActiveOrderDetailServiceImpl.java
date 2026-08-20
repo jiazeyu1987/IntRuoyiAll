@@ -115,9 +115,17 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
 
         private MesTeamLeaderActiveOrderDetail.ProcessDetail toDetail() {
+            BigDecimal overageQuantity = submittedQuantity.subtract(process.getRequiredQuantity());
+            if (overageQuantity.compareTo(BigDecimal.ZERO) < 0) {
+                overageQuantity = BigDecimal.ZERO;
+            }
+            boolean quantityConflict = overageQuantity.compareTo(BigDecimal.ZERO) > 0;
+            submissions.forEach(submission -> submission.setQuantityConflict(quantityConflict));
             return process
                     .setSubmittedQuantity(submittedQuantity)
                     .setSubmissionCount(submissions.size())
+                    .setQuantityConflict(quantityConflict)
+                    .setOverageQuantity(overageQuantity)
                     .setSubmissions(List.copyOf(submissions));
         }
     }

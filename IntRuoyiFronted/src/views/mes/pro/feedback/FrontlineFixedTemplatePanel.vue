@@ -494,7 +494,7 @@
           <button
             class="frontline-pqc-reset-button"
             type="button"
-            :disabled="payloadLoading || Boolean(pqcSubmitReceipt) || pqcSubmitResultUncertain"
+            :disabled="payloadLoading || pqcSubmitResultUncertain"
             @click="handleResetPqc"
           >
             重填
@@ -502,7 +502,7 @@
           <button
             class="frontline-pqc-submit-button"
             type="button"
-            :disabled="payloadLoading || Boolean(pqcSubmitReceipt) || pqcSubmitResultUncertain"
+            :disabled="payloadLoading || pqcSubmitResultUncertain"
             @click="handleValidate"
           >
             {{ payloadLoading ? '提交中' : '提交' }}
@@ -1325,7 +1325,6 @@ import {
   type FrontlinePqcInspectionItemVO,
   type FrontlinePqcProcessVO,
   type FrontlinePqcItemResultSubmitReqVO,
-  type FrontlinePqcInspectionSubmitRespVO,
   type FrontlinePqcInspectionSubmitReqVO,
   type FrontlinePqcResultType,
   type FrontlinePqcTaskStatus,
@@ -1634,7 +1633,6 @@ const pqcPieceValues = reactive<Record<string, string[]>>({})
 const pqcItemSelections = reactive<Record<PqcInspectionItemKey, PqcItemSelection>>({})
 const pqcSignatureDialogVisible = ref(false)
 const pqcSignaturePassword = ref('')
-const pqcSubmitReceipt = ref<FrontlinePqcInspectionSubmitRespVO>()
 const pqcSubmitResultUncertain = ref(false)
 
 const isPqcMode = computed(() => props.mode === 'pqc')
@@ -2712,7 +2710,6 @@ const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
   pqcDraft.defectDescription = undefined
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
-  pqcSubmitReceipt.value = undefined
   pqcSubmitResultUncertain.value = false
   clearPqcPieceValues()
 }
@@ -2726,7 +2723,6 @@ const clearPqcTaskOptionDraft = () => {
   pqcDraft.defectDescription = undefined
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
-  pqcSubmitReceipt.value = undefined
   pqcSubmitResultUncertain.value = false
   clearPqcPieceValues()
 }
@@ -3289,14 +3285,13 @@ const resetPqcSubmissionDraft = (submittedPqcTaskId?: number) => {
   payloadPreview.value = undefined
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
-  pqcSubmitReceipt.value = undefined
   if (submittedPqcTaskId !== undefined) {
     markPqcTaskSubmittedAndSelectNext(submittedPqcTaskId)
   }
 }
 
 const handleResetPqc = () => {
-  if (pqcSubmitReceipt.value || pqcSubmitResultUncertain.value) {
+  if (pqcSubmitResultUncertain.value) {
     return
   }
   resetPqcSubmissionDraft()
@@ -3594,7 +3589,6 @@ const handleSelectActiveOrder = async (
     }
     return
   }
-  pqcSubmitReceipt.value = undefined
   pqcSubmitResultUncertain.value = false
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
@@ -3981,8 +3975,7 @@ const recoverPqcSubmitReceiptAfterUncertainError = async (submitError: unknown) 
     if (!recoveredReceipt) {
       return false
     }
-    pqcSubmitReceipt.value = recoveredReceipt
-    pqcSignatureDialogVisible.value = false
+    resetPqcSubmissionDraft(recoveredReceipt.pqcTaskId)
     message.success(`PQC正式提交已完成，已恢复事件编号 ${recoveredReceipt.pqcEventId}`)
     return true
   } catch (confirmationError) {
@@ -3997,7 +3990,7 @@ const recoverPqcSubmitReceiptAfterUncertainError = async (submitError: unknown) 
 }
 
 const handleConfirmPqcSubmit = async () => {
-  if (payloadLoading.value || pqcSubmitReceipt.value || pqcSubmitResultUncertain.value) {
+  if (payloadLoading.value || pqcSubmitResultUncertain.value) {
     return
   }
   if (!pqcSignaturePassword.value.trim()) {

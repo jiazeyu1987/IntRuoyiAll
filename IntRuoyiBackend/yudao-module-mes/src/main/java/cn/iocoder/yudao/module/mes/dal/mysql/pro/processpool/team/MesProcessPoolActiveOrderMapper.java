@@ -11,6 +11,7 @@ import org.apache.ibatis.annotations.Update;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 @Mapper
 public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessPoolActiveOrderDO> {
@@ -159,6 +160,30 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .eq(MesProcessPoolActiveOrderDO::getRouteId, routeId)
                 .eq(MesProcessPoolActiveOrderDO::getRouteVersionId, routeVersionId)
                 .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE"));
+    }
+
+    default int refreshActiveOrderSnapshot(MesProcessPoolActiveOrderDO snapshot) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        Objects.requireNonNull(snapshot.getId(), "snapshot.id");
+        Objects.requireNonNull(snapshot.getLeaderUserId(), "snapshot.leaderUserId");
+        Objects.requireNonNull(snapshot.getVersion(), "snapshot.version");
+        return update(null, new LambdaUpdateWrapper<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getId, snapshot.getId())
+                .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE")
+                .eq(MesProcessPoolActiveOrderDO::getVersion, snapshot.getVersion())
+                .set(MesProcessPoolActiveOrderDO::getRouteId, snapshot.getRouteId())
+                .set(MesProcessPoolActiveOrderDO::getRouteVersionId, snapshot.getRouteVersionId())
+                .set(MesProcessPoolActiveOrderDO::getDccProjectCodeId, snapshot.getDccProjectCodeId())
+                .set(MesProcessPoolActiveOrderDO::getQaRegulationId, snapshot.getQaRegulationId())
+                .set(MesProcessPoolActiveOrderDO::getQaRegulationVersionId, snapshot.getQaRegulationVersionId())
+                .set(MesProcessPoolActiveOrderDO::getErpFixedQuantitySnapshot,
+                        snapshot.getErpFixedQuantitySnapshot())
+                .set(MesProcessPoolActiveOrderDO::getActiveStatus, snapshot.getActiveStatus())
+                .set(MesProcessPoolActiveOrderDO::getBusinessStatus, snapshot.getBusinessStatus())
+                .set(MesProcessPoolActiveOrderDO::getRemovedAt, snapshot.getRemovedAt())
+                .set(MesProcessPoolActiveOrderDO::getUpdateTime, LocalDateTime.now())
+                .set(MesProcessPoolActiveOrderDO::getUpdater, snapshot.getLeaderUserId().toString())
+                .setSql("version = version + 1"));
     }
 
     default int reactivateRemovedActiveOrder(Long activeOrderId, Long leaderUserId, Integer version,

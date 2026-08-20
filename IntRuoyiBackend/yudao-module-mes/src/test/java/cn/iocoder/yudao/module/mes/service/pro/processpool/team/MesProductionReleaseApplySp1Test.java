@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
@@ -18,6 +19,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditCommand;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditEventType;
@@ -78,6 +80,7 @@ class MesProductionReleaseApplySp1Test {
     @Mock private MesPqcProcessInspectionAggregateDetailMapper aggregateDetailMapper;
     @Mock private MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     @Mock private MesProEdhrWorkTaskMapper workTaskMapper;
+    @Mock private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock private MesProductionReleaseRequiredCandidateResolver candidateResolver;
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
 
@@ -91,8 +94,8 @@ class MesProductionReleaseApplySp1Test {
                         applicationMapper, workTaskMapper, auditRecorder);
         generationService = new MesTeamLeaderActiveOrderReleaseGenerationService(
                 activeOrderMapper, workOrderMapper, processSnapshotMapper, completionMapper,
-                pqcTaskMapper, aggregateDetailMapper, applicationMapper, workTaskMapper, persistenceService,
-                candidateResolver, new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher());
+                pqcTaskMapper, aggregateDetailMapper, allocationMapper, applicationMapper, workTaskMapper,
+                persistenceService, candidateResolver, new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher());
 
         lenient().when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
         lenient().when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID)).thenReturn(workOrder());
@@ -104,6 +107,8 @@ class MesProductionReleaseApplySp1Test {
                 .thenReturn(List.of(pqcTask()));
         lenient().when(aggregateDetailMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID))
                 .thenReturn(List.of(aggregateDetail()));
+        lenient().when(allocationMapper.selectListByActiveOrderIds(List.of(ACTIVE_ORDER_ID)))
+                .thenReturn(List.of(allocation(BigDecimal.TEN)));
         lenient().when(candidateResolver.resolveRequiredCandidates(
                         TENANT_ID, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER))
                 .thenReturn(candidates());
@@ -183,6 +188,20 @@ class MesProductionReleaseApplySp1Test {
                 () -> generationService.generate(LEADER_USER_ID, command("release-request-progress")));
 
         assertBlocker(failure, MesReleaseFlowBlockerType.PRODUCTION_PROGRESS_NOT_COMPLETED);
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
+        verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
+        verify(auditRecorder, never()).record(any());
+    }
+
+    @Test
+    void quantityConflictBlocksReleaseBeforeAnyWrite() {
+        when(allocationMapper.selectListByActiveOrderIds(List.of(ACTIVE_ORDER_ID)))
+                .thenReturn(List.of(allocation(BigDecimal.valueOf(15))));
+
+        MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> generationService.generate(LEADER_USER_ID, command("release-request-quantity-conflict")));
+
+        assertBlocker(failure, MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT);
         verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
         verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
         verify(auditRecorder, never()).record(any());
@@ -340,11 +359,12 @@ class MesProductionReleaseApplySp1Test {
                 .routeVersionId(ROUTE_VERSION_ID)
                 .routeProcessId(ROUTE_PROCESS_ID)
                 .processId(PROCESS_ID)
+                .plannedQuantitySnapshot(BigDecimal.TEN)
                 .build();
     }
 
     private static MesProcessPoolOrderProcessCompletionDO completion(BigDecimal confirmedQuantity,
-                                                                      String aggregateHash) {
+                                                                       String aggregateHash) {
         return MesProcessPoolOrderProcessCompletionDO.builder()
                 .id(5101L)
                 .workOrderId(WORK_ORDER_ID)
@@ -362,6 +382,18 @@ class MesProductionReleaseApplySp1Test {
                 .sourceAllocationIdsJson("[5501]")
                 .aggregateHash(aggregateHash)
                 .backfillIdempotencyKey("production-backfill-key")
+                .build();
+    }
+
+    private static MesProcessPoolReportAllocationDO allocation(BigDecimal allocatedQuantity) {
+        return MesProcessPoolReportAllocationDO.builder()
+                .id(5501L)
+                .activeOrderId(ACTIVE_ORDER_ID)
+                .workOrderId(WORK_ORDER_ID)
+                .routeProcessId(ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .allocatedQuantity(allocatedQuantity)
+                .lifecycleStatus(MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
                 .build();
     }
 

@@ -914,7 +914,11 @@ public class MesProcessPoolTeamLeaderController {
                 .setPqcReleaseWorkTaskId(activeOrder.getPqcReleaseWorkTaskId())
                 .setReleaseApplicationStatus(activeOrder.getReleaseApplicationStatus())
                 .setReleaseSourceSnapshotHash(activeOrder.getReleaseSourceSnapshotHash())
-                .setReleaseApplicationVersion(activeOrder.getReleaseApplicationVersion());
+                .setReleaseApplicationVersion(activeOrder.getReleaseApplicationVersion())
+                .setQuantityConflict(activeOrder.getQuantityConflict())
+                .setHasQuantityConflict(activeOrder.getHasQuantityConflict())
+                .setQuantityConflictProcessCount(activeOrder.getQuantityConflictProcessCount())
+                .setOverageQuantity(activeOrder.getOverageQuantity());
     }
 
     private static List<MesTeamLeaderActiveOrderRespVO.ProcessRemainingQuantity>
@@ -926,7 +930,9 @@ public class MesProcessPoolTeamLeaderController {
                         .setProcessId(item.getProcessId())
                         .setPlannedQuantity(item.getPlannedQuantity())
                         .setAllocatedQuantity(item.getAllocatedQuantity())
-                        .setRemainingQuantity(item.getRemainingQuantity()))
+                        .setRemainingQuantity(item.getRemainingQuantity())
+                        .setQuantityConflict(item.getQuantityConflict())
+                        .setOverageQuantity(item.getOverageQuantity()))
                 .toList();
     }
 
@@ -952,6 +958,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setRequiredQuantity(process.getRequiredQuantity())
                 .setSubmittedQuantity(process.getSubmittedQuantity())
                 .setSubmissionCount(process.getSubmissionCount())
+                .setQuantityConflict(process.getQuantityConflict())
+                .setOverageQuantity(process.getOverageQuantity())
                 .setSubmissions(process.getSubmissions().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderSubmissionDetailRespVO)
                         .toList());
@@ -964,7 +972,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setSubmittedQuantity(submission.getSubmittedQuantity())
                 .setSubmitterName(submission.getSubmitterName())
                 .setReviewerName(submission.getReviewerName())
-                .setSubmittedAt(submission.getSubmittedAt());
+                .setSubmittedAt(submission.getSubmittedAt())
+                .setQuantityConflict(submission.getQuantityConflict());
     }
 
     private static MesTeamLeaderActiveOrderReleaseApplyRespVO toActiveOrderReleaseApplyRespVO(

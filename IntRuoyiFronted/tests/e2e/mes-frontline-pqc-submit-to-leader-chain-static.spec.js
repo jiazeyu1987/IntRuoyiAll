@@ -111,13 +111,13 @@ assert(
 const recoverBlock = panel.slice(recoverStart, recoverEnd)
 assert(
   recoverBlock.includes('ProFeedbackApi.getFrontlinePqcSubmitReceipt') &&
-    recoverBlock.includes('pqcSubmitReceipt.value = recoveredReceipt') &&
+    recoverBlock.includes('resetPqcSubmissionDraft(recoveredReceipt.pqcTaskId)') &&
     recoverBlock.includes('pqcSubmitResultUncertain.value = true'),
-  'PQC 提交异常后必须按 pqcTaskId 查询正式回执；已提交则回填锁定，确认失败则进入不确定锁定态。'
+  'PQC 提交异常后必须按 pqcTaskId 查询正式回执；已提交则按成功提交复位并进入下一次提交，确认失败才进入不确定锁定态。'
 )
 assert(
-  /:disabled="payloadLoading \|\| Boolean\(pqcSubmitReceipt\) \|\| pqcSubmitResultUncertain"/.test(panel),
-  'PQC 提交按钮必须在回执已恢复或提交状态不确定时锁定，禁止盲目重复点击。'
+  /:disabled="payloadLoading \|\| pqcSubmitResultUncertain"/.test(panel),
+  'PQC 提交按钮只在提交中或结果不确定时锁定，明确成功或明确失败后必须可继续提交。'
 )
 
 assert(

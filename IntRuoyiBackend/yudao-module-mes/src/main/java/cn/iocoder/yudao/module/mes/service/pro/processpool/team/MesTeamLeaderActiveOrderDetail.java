@@ -27,6 +27,8 @@ public class MesTeamLeaderActiveOrderDetail {
         private BigDecimal requiredQuantity;
         private BigDecimal submittedQuantity;
         private Integer submissionCount;
+        private Boolean quantityConflict;
+        private BigDecimal overageQuantity;
         private List<SubmissionDetail> submissions = List.of();
     }
 
@@ -38,5 +40,6 @@ public class MesTeamLeaderActiveOrderDetail {
         private String submitterName;
         private String reviewerName;
         private LocalDateTime submittedAt;
+        private Boolean quantityConflict;
     }
 }

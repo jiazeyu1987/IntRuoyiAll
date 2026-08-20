@@ -66,6 +66,20 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImplTest {
         assertEquals("DCC_QA_PROJECT_RELATION", result.getProvenanceType());
     }
 
+    @Test
+    void provenanceHashDoesNotChangeWhenCurrentVersionPointerChanges() {
+        DccProjectCodeDO project = project("ID");
+        MesQaInspectionRegulationDO regulation = regulation(11L, "PQC-ID-001");
+        MesQaInspectionRegulationVersionDO version = version();
+
+        String initialHash = port.verify(project, regulation, version).getProvenanceSnapshotHash();
+        regulation.setCurrentVersionId(32L);
+
+        String updatedHash = port.verify(project, regulation, version).getProvenanceSnapshotHash();
+
+        assertEquals(initialHash, updatedHash);
+    }
+
     private DccProjectCodeDO project(String projectCode) {
         DccProjectCodeDO project = DccProjectCodeDO.builder().id(11L).productMasterId(11L)
                 .projectCode(projectCode).projectName("球囊扩张压力泵").status("ENABLE").build();

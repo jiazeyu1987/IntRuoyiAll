@@ -128,11 +128,9 @@ public class MesQaInspectionRegulationWordImportService {
         MesQaInspectionRegulationPublishedVersionRespVO baseline;
         if (draft != null) {
             baseline = regulationService.getCurrent(regulation.getDccProjectCodeId());
-        } else if (regulation.getCurrentVersionId() != null) {
-            baseline = regulationService.getPublishedVersion(
-                    regulation.getDccProjectCodeId(), regulation.getCurrentVersionId());
         } else {
-            throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, regulation.getId());
+            baseline = regulationService.getPublishedVersion(
+                    regulation.getDccProjectCodeId(), null);
         }
         if (baseline == null || !Objects.equals(baseline.getRegulationId(), regulation.getId())) {
             throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, regulation.getId());

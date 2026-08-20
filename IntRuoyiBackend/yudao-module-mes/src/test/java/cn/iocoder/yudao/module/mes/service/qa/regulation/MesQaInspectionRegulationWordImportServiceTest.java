@@ -94,7 +94,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(regulation);
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
-        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, PUBLISHED_VERSION_ID))
+        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, null))
                 .thenReturn(existingConfiguration());
         when(regulationService.saveDraft(any())).thenReturn(savedDraft(REGULATION_ID, 73L, "B/1"));
 
@@ -139,6 +139,27 @@ class MesQaInspectionRegulationWordImportServiceTest {
 
         assertTrue(exception.getMessage().contains("已发布"));
         verify(regulationService, never()).saveDraft(any());
+    }
+
+    @Test
+    void importWordDraft_usesLatestPublishedVersionWhenRegulationPointerIsStale() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/1"));
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
+        MesQaInspectionRegulationPublishedVersionRespVO latest = existingConfiguration();
+        latest.setPublishedVersionId(66L);
+        latest.getProcesses().get(0).getItems().get(0).setItemCode("LATEST-I01");
+        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, null)).thenReturn(latest);
+        when(regulationService.saveDraft(any())).thenReturn(savedDraft(REGULATION_ID, 73L, "B/1"));
+
+        importService.importWordDraft(file(), DCC_PROJECT_ID);
+
+        ArgumentCaptor<MesQaInspectionRegulationSaveReqVO> requestCaptor =
+                ArgumentCaptor.forClass(MesQaInspectionRegulationSaveReqVO.class);
+        verify(regulationService).getPublishedVersion(DCC_PROJECT_ID, null);
+        verify(regulationService).saveDraft(requestCaptor.capture());
+        assertEquals("LATEST-I01", requestCaptor.getValue().getProcesses().get(0).getItems().get(0).getItemCode());
     }
 
     @Test
@@ -192,7 +213,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
-        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, PUBLISHED_VERSION_ID))
+        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, null))
                 .thenReturn(existingPackagingTerminalNameConfiguration());
         when(regulationService.saveDraft(any())).thenReturn(savedDraft(REGULATION_ID, 73L, "B/1"));
 
@@ -218,7 +239,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
-        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, PUBLISHED_VERSION_ID))
+        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, null))
                 .thenReturn(existingAmbiguousTerminalNameConfiguration());
         when(regulationService.saveDraft(any())).thenReturn(savedDraft(REGULATION_ID, 73L, "B/1"));
 
@@ -243,7 +264,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
-        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, PUBLISHED_VERSION_ID))
+        when(regulationService.getPublishedVersion(DCC_PROJECT_ID, null))
                 .thenReturn(existingAmbiguousTerminalNameConfiguration());
 
         ServiceException exception = assertThrows(ServiceException.class,

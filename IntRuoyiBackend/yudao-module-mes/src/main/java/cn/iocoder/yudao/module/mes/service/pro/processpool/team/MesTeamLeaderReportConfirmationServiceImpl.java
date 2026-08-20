@@ -53,7 +53,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_BINDING_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_QUANTITY_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_QUALITY_NOT_ALLOCATABLE;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_ROOT_EVENT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
@@ -280,7 +279,6 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                                 BigDecimal::add)));
 
         BigDecimal total = BigDecimal.ZERO;
-        Map<Long, BigDecimal> requestedByWorkOrder = new LinkedHashMap<>();
         List<PreparedAllocationLine> prepared = new ArrayList<>();
         for (RequestedActiveLine requestedActiveLine : requestedActiveLines) {
             MesTeamLeaderReportAllocationLineReqBO line = requestedActiveLine.line();
@@ -290,12 +288,6 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                     event.getProcessId());
             BigDecimal alreadyAllocated = existingAllocated.getOrDefault(activeOrder.getWorkOrderId(),
                     BigDecimal.ZERO);
-            BigDecimal remaining = target.plannedQuantity().subtract(alreadyAllocated);
-            BigDecimal requestedForOrder = requestedByWorkOrder.merge(activeOrder.getWorkOrderId(),
-                    line.getAllocatedQuantity(), BigDecimal::add);
-            if (requestedForOrder.compareTo(remaining) > 0) {
-                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH, activeOrder.getWorkOrderId());
-            }
             total = total.add(line.getAllocatedQuantity());
             prepared.add(new PreparedAllocationLine(activeOrder, workOrder, target, alreadyAllocated,
                     line.getAllocatedQuantity()));

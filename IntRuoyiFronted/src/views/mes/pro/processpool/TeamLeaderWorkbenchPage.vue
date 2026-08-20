@@ -1331,6 +1331,7 @@
           :data="pagedActiveOrderRows"
           border
           stripe
+          :row-class-name="resolveActiveOrderRowClassName"
           :show-overflow-tooltip="true"
           data-team-leader-active-order-list
           data-user-table-key="mes.pro.processPool.teamLeader.activeOrders"
@@ -1342,13 +1343,23 @@
           </el-table-column>
           <el-table-column label="生产订单号" prop="workOrderCode" min-width="200">
             <template #default="{ row }">
-              <span
-                data-team-leader-active-order-work-order-code
-                :class="{ 'team-leader-workbench__abnormal-work-order-id': row.abnormal }"
-                :title="row.abnormal ? row.abnormalReason : undefined"
-              >
-                {{ row.workOrderCode }}
-              </span>
+              <div class="team-leader-workbench__active-order-code-cell">
+                <span
+                  data-team-leader-active-order-work-order-code
+                  :class="{ 'team-leader-workbench__abnormal-work-order-id': row.abnormal }"
+                  :title="row.abnormal ? row.abnormalReason : undefined"
+                >
+                  {{ row.workOrderCode }}
+                </span>
+                <el-tag
+                  v-if="row.hasQuantityConflict || row.quantityConflict"
+                  type="danger"
+                  effect="plain"
+                  data-team-leader-active-order-quantity-conflict
+                >
+                  数量冲突{{ row.overageQuantity ? ` +${formatTraceQuantity(row.overageQuantity)}` : '' }}
+                </el-tag>
+              </div>
             </template>
           </el-table-column>
           <el-table-column label="路线名称" prop="routeName" min-width="200" />
@@ -1562,6 +1573,7 @@
             v-for="process in activeOrderSubmissionDetail.processes"
             :key="`${process.routeProcessId}-${process.processId}`"
             class="team-leader-workbench__active-order-process-detail"
+            :class="{ 'is-quantity-conflict': process.quantityConflict }"
           >
             <div class="team-leader-workbench__active-order-process-header">
               <div class="team-leader-workbench__active-order-process-title">
@@ -1581,6 +1593,12 @@
                   <span>提交记录</span>
                   <strong>{{ process.submissionCount }}</strong>
                 </div>
+                <div v-if="process.quantityConflict">
+                  <span>超出数量</span>
+                  <strong class="team-leader-workbench__quantity-conflict-text">
+                    {{ formatTraceQuantity(process.overageQuantity) }}
+                  </strong>
+                </div>
               </div>
             </div>
 
@@ -1589,6 +1607,7 @@
               :data="process.submissions"
               size="small"
               border
+              :row-class-name="resolveActiveOrderSubmissionRowClassName"
               class="team-leader-workbench__active-order-submission-table"
             >
               <el-table-column label="提交数量" min-width="120">
@@ -3115,7 +3134,7 @@
                 step-strictly
                 :controls="false"
                 class="team-leader-workbench__allocation-quantity-input"
-                @change="markManualAllocation"
+                @change="markManualAllocation(row)"
               />
               <el-button
                 size="small"
@@ -4801,8 +4820,21 @@ const resolveActiveOrderReleaseBlockerLocator = (
 const isActiveOrderReleaseApplicationLocked = (activeOrderId: number) =>
   releaseApplicationLocks.has(activeOrderId)
 
+const resolveActiveOrderRowClassName = ({ row }: { row: TeamLeaderActiveOrderRespVO }) =>
+  row.hasQuantityConflict || row.quantityConflict
+    ? 'team-leader-workbench__active-order-row--quantity-conflict'
+    : ''
+
+const resolveActiveOrderSubmissionRowClassName = ({
+  row
+}: {
+  row: { quantityConflict?: boolean }
+}) =>
+  row.quantityConflict ? 'team-leader-workbench__active-order-submission-row--quantity-conflict' : ''
+
 const canApplyActiveOrderRelease = (row: TeamLeaderActiveOrderRespVO) => {
   if (row.abnormal) return false
+  if (row.hasQuantityConflict || row.quantityConflict) return false
   if (row.releaseApplicationStatus) return false
   return (
     isActiveOrderProgressComplete(row.productionProgressPercent) &&
@@ -4815,6 +4847,7 @@ const resolveActiveOrderReleaseApplyDisabledReason = (row: TeamLeaderActiveOrder
     return '申请结果未确认，请人工核对后刷新页面'
   }
   if (releaseApplicationLocks.has(row.id)) return '本次申请已提交，请先刷新列表'
+  if (row.hasQuantityConflict || row.quantityConflict) return '生产数量冲突未解决，需先由组长纠错'
   if (row.abnormal) return row.abnormalReason || '异常订单不能申请放行'
   if (row.releaseApplicationStatus) {
     return `已进入${formatActiveOrderReleaseStatus(row.releaseApplicationStatus)}`
@@ -6032,7 +6065,7 @@ const submitProcessConfigParameterRule = async () => {
   }
 }
 
-const markManualAllocation = () => {
+const markManualAllocation = (_row?: TeamLeaderReportAllocationDraftLine) => {
   reviewForm.allocationMode = 'MANUAL'
 }
 
@@ -6091,6 +6124,8 @@ const findAllocationActiveOrder = (line: TeamLeaderReportAllocationDraftLine) =>
 
 const resolveAllocationOverageQuantity = (line: TeamLeaderReportAllocationDraftLine) => {
   if (line.editable === false) return 0
+  const persistedOverageQuantity = normalizeAllocationInteger(line.overageQuantity)
+  if (line.needsAdjustment && persistedOverageQuantity > 0) return persistedOverageQuantity
   const allocatedQuantity = normalizeAllocationInteger(line.allocatedQuantity)
   if (allocatedQuantity === 0) return 0
   const orderQuantity = resolveActiveOrderFormalQuantity(findAllocationActiveOrder(line))
@@ -6269,17 +6304,13 @@ const buildAllocationSubmitLines = (): TeamLeaderReportAllocationLine[] => {
   return allocationRows.value
     .filter((line) => line.editable !== false)
     .flatMap((line) => {
-      const allocatedQuantity = normalizeAllocationSubmitQuantity(
-        line.allocatedQuantity,
-        '分配数量必须为0或正整数'
-      )
-      if (allocatedQuantity === 0) {
-        if (line.activeOrderId === undefined) return []
-        return []
-      }
+      const allocatedQuantity = normalizeAllocationSubmitQuantity(line.allocatedQuantity, '分配数量必须为0或正整数')
+      const activeOrderId = normalizePositiveNumber(line.activeOrderId)
+      if (allocatedQuantity === 0 && activeOrderId === undefined) return []
+      if (allocatedQuantity === 0) return []
       return [
         {
-          activeOrderId: requirePositiveNumber(line.activeOrderId, '活跃订单不能为空'),
+          activeOrderId: requirePositiveNumber(activeOrderId, '活跃订单不能为空'),
           allocatedQuantity
         }
       ]
@@ -8953,6 +8984,33 @@ onMounted(() => {
   border-radius: 6px;
 }
 
+:deep(.team-leader-workbench__active-order-row--quantity-conflict > td) {
+  background: var(--el-color-danger-light-9) !important;
+}
+
+.team-leader-workbench__active-order-code-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.team-leader-workbench__active-order-code-cell > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__active-order-process-detail.is-quantity-conflict {
+  border-color: var(--el-color-danger-light-5);
+  background: var(--el-color-danger-light-9);
+}
+
+.team-leader-workbench__quantity-conflict-text {
+  color: var(--el-color-danger);
+}
+
 .team-leader-workbench__active-order-process-header {
   display: flex;
   align-items: stretch;
@@ -9004,6 +9062,11 @@ onMounted(() => {
 
 .team-leader-workbench__active-order-submission-table {
   width: 100%;
+}
+
+:deep(.team-leader-workbench__active-order-submission-row--quantity-conflict > td) {
+  background: var(--el-color-danger-light-9) !important;
+  color: var(--el-color-danger);
 }
 
 .team-leader-workbench__active-order-submission-table .is-pending {

@@ -314,6 +314,8 @@ export interface TeamLeaderActiveOrderProcessRemainingQuantity {
   plannedQuantity?: number | string
   allocatedQuantity?: number | string
   remainingQuantity?: number | string
+  quantityConflict?: boolean
+  overageQuantity?: number | string
 }
 
 export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
@@ -322,6 +324,7 @@ export interface TeamLeaderActiveOrderSubmissionDetailRespVO {
   submitterName: string
   reviewerName?: string
   submittedAt: string | number
+  quantityConflict?: boolean
 }
 
 export interface TeamLeaderActiveOrderProcessDetailRespVO {
@@ -333,6 +336,8 @@ export interface TeamLeaderActiveOrderProcessDetailRespVO {
   submittedQuantity: number | string
   submissionCount: number
   submissions: TeamLeaderActiveOrderSubmissionDetailRespVO[]
+  quantityConflict?: boolean
+  overageQuantity?: number | string
 }
 
 export interface TeamLeaderActiveOrderDetailRespVO {
@@ -372,6 +377,10 @@ export interface TeamLeaderActiveOrderRespVO {
   releaseApplicationStatus?: TeamLeaderActiveOrderReleaseApplicationStatus
   releaseSourceSnapshotHash?: string
   releaseApplicationVersion?: number
+  quantityConflict?: boolean
+  hasQuantityConflict?: boolean
+  quantityConflictProcessCount?: number
+  overageQuantity?: number | string
 }
 
 export interface TeamLeaderActiveOrderReleaseApplyReqVO {
@@ -456,6 +465,8 @@ export interface TeamLeaderReportAllocationLine {
   allocatedQuantity: number | string
   allocationMode?: 'FIFO' | 'MANUAL'
   remainingQuantityBeforeAllocation?: number | string
+  overageQuantity?: number | string
+  needsAdjustment?: boolean
   released?: boolean
   editable?: boolean
 }

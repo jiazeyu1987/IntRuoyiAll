@@ -117,6 +117,27 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
     }
 
     @Test
+    void shouldBackfillProcessPoolReportWithoutDccProjectContext() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(execution());
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(
+                        rule(1L, "outputQuantity", 5, 2, MesProBatchRecordExecutionFieldAuditValueType.NUMBER)));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult().setChangedFieldCount(1));
+
+        MesTeamLeaderBatchRecordBackfillResult result = service.backfillCompletedProcess(
+                command().setDccProjectCodeId(null));
+
+        assertEquals(8801L, result.getExecutionId());
+        assertEquals(1, result.getAppliedFieldCount());
+        verify(productionPickListSourceService, never()).resolveValue(any());
+    }
+
+    @Test
     void shouldBackfillTargetOrderProcessWhenSourceEventRouteProcessDiffers() {
         MesProcessPoolReportAllocationDO targetAllocation = allocation().setRouteProcessId(5101L);
         MesTeamLeaderBatchRecordBackfillCommand targetCommand = command()
@@ -349,6 +370,25 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         verify(fieldAuditService).saveSystemCellLinkChanges(captor.capture());
         assertEquals("LOT-FIRST", captor.getValue().getChanges().get(0).getNewValueJson());
         assertEquals(true, captor.getValue().getIdempotencyKey().contains(":PICK:"));
+    }
+
+    @Test
+    void shouldRequireDccProjectContextWhenProductionPickListRuleIsConfigured() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        MesProBatchRecordCellLinkRuleDO pickRule = ruleWithoutAggregationStrategy(3L,
+                "material.3201.lotNumber", 7, 2, MesProBatchRecordExecutionFieldAuditValueType.STRING);
+        pickRule.setSourceType("PRODUCTION_PICK_LIST");
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(pickRule));
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.backfillCompletedProcess(command().setDccProjectCodeId(null)));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+        verify(ruleMapper).selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A");
+        verify(productionPickListSourceService, never()).resolveValue(any());
+        verify(executionService, never()).openOrCreateByContext(any());
     }
 
     private static MesTeamLeaderBatchRecordBackfillCommand command() {

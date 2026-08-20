@@ -74,13 +74,18 @@ assert.match(
 )
 assert.match(
   pageSource,
-  /status\?\.lifecycleStatus !== 'PUBLISHED' \|\| !status\.currentVersionId[\s\S]*getPublishedQaRegulationVersion\(\s*dccProjectCodeId,\s*status\.currentVersionId\s*\)/,
-  'The loader must resolve the DCC current PUBLISHED version and query that exact immutable version.'
+  /status\?\.lifecycleStatus !== 'PUBLISHED'[\s\S]*getPublishedQaRegulationVersion\(\s*dccProjectCodeId\s*\)/,
+  'The loader must query the latest PUBLISHED version at request time without pinning a status snapshot version ID.'
 )
 assert.match(
   pageSource,
-  /publishedVersion\.dccProjectCodeId !== dccProjectCodeId[\s\S]*publishedVersion\.publishedVersionId !== status\.currentVersionId/,
-  'The loader must fail fast when the published-version response does not match the selected DCC state.'
+  /publishedVersion\.dccProjectCodeId !== dccProjectCodeId[\s\S]*publishedVersion\.lifecycleStatus !== 'PUBLISHED'/,
+  'The loader must fail fast when the latest published-version response does not match the selected DCC state.'
+)
+assert.doesNotMatch(
+  pageSource,
+  /getPublishedQaRegulationVersion\(\s*dccProjectCodeId\s*,\s*status\.currentVersionId\s*\)/,
+  'The current published-version loader must not pin the request to a possibly stale status version ID.'
 )
 assert.match(
   pageSource,

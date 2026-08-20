@@ -98,6 +98,18 @@ public class MesTeamLeaderActiveOrderRespVO {
     @Schema(description = "生产放行申请版本", example = "1")
     private Integer releaseApplicationVersion;
 
+    @Schema(description = "是否存在生产数量冲突", example = "true")
+    private Boolean quantityConflict;
+
+    @Schema(description = "是否存在生产数量冲突", example = "true")
+    private Boolean hasQuantityConflict;
+
+    @Schema(description = "存在数量冲突的工序数", example = "1")
+    private Integer quantityConflictProcessCount;
+
+    @Schema(description = "累计超出工序目标数量", example = "1500")
+    private BigDecimal overageQuantity;
+
     @Schema(description = "管理后台 - MES 班组长活跃订单工序剩余量 Response VO")
     @Data
     @Accessors(chain = true)
@@ -117,5 +129,11 @@ public class MesTeamLeaderActiveOrderRespVO {
 
         @Schema(description = "当前工序剩余可分配生产数量", example = "30")
         private BigDecimal remainingQuantity;
+
+        @Schema(description = "当前工序是否存在生产数量冲突", example = "true")
+        private Boolean quantityConflict;
+
+        @Schema(description = "当前工序超出目标数量", example = "1500")
+        private BigDecimal overageQuantity;
     }
 }
