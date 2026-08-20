@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-提交当前 `IntRuoyiBackend` 与 `IntRuoyiFronted` 下的前后端代码、测试和相关配置变更；不混入根目录规则、历史任务产物、资源文件、迁移包或其它非前后端代码文件。本次仅执行本地提交，不执行推送。
+提交当前 `IntRuoyiBackend` 与 `IntRuoyiFronted` 下的前后端代码、测试和相关配置变更；不混入根目录规则、历史任务产物、资源文件、迁移包或其它非前后端代码文件。已根据用户追加要求推送当前 `int_main` 到 `origin`。
 
 ## Milestones
 
@@ -12,6 +12,7 @@
 - [x] 精确暂存前后端代码范围并复核 staged 清单。
 - [x] 完成本地 Git commit 并复扫残余改动。
 - [x] 完成 cleanup preview/apply 和最终记录。
+- [x] 推送当前 `int_main` 到 `origin` 并复核不再领先。
 
 ## Expected Verification
 
@@ -28,7 +29,7 @@
 
 completed
 
-已完成 cleanup、可归属前后端代码提交、提交后补充验证和复扫；本次不执行 push。提交后出现的两个前端测试残余自检失败，未纳入本次提交并已在执行日志记录。
+已完成 cleanup、可归属前后端代码提交、提交后补充验证、复扫和远端推送。提交后出现的前端测试残余自检失败，未纳入本次提交并已在执行日志记录。
 
 ## Applicable Experience Gates
 

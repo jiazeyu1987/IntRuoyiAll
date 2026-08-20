@@ -4,6 +4,7 @@
 
 - 2026-08-20：用户要求“提交前后端代码”。
 - 解释边界：执行本地 Git commit；不执行 push；仅提交 `IntRuoyiBackend` 与 `IntRuoyiFronted` 范围。
+- 2026-08-20：用户追加要求“推送代码”；解释边界：推送当前 `int_main` 已完成的本任务提交，不提交仍在工作区且自检失败的并行/残余文件。
 
 ## Milestone Updates
 
@@ -19,6 +20,10 @@
 - 2026-08-20：提交后补跑新增合同 `frontline-pqc-fullscreen-layout.spec.cjs` 首次失败，发现 `FrontlineFixedTemplatePanel.vue` 仍有未提交布局修正；复跑通过后追加提交 `a1e24fd7e fix: 收窄PQC全屏布局留白`。
 - 2026-08-20：提交后复扫发现 `IntRuoyiFronted/tests/e2e/dcc-project-route-governance-static.spec.js` 修改和 `IntRuoyiFronted/tests/e2e/frontline-pqc-process-navigation-buttons-static.spec.cjs` 未跟踪残余；两者自检均失败，按并行/残余门禁未纳入本次提交。
 - 2026-08-20：已按 `project-experience-consolidation` 技能检查长期经验归属；本次 Git 锁和残余复扫均已有 `docs/powershell-memory.md` 与 `docs/experience-index.md` 覆盖，不新增长期经验文档。
+- 2026-08-20：推送前复核当前分支 `int_main`、远端 `origin`、暂存区为空；`origin/int_main...HEAD` 为 `0 3`，本地领先 3 个提交。
+- 2026-08-20：推送前 `git ls-remote origin refs/heads/int_main` 返回 `b124fa0405f4d48026a332e1f8a61d954f38bb9f`，与本地跟踪分支一致；`origin/int_main..HEAD` 大文件扫描通过。
+- 2026-08-20：`git push origin int_main` 成功，远端从 `b124fa040` 更新到 `042d98b6d`。
+- 2026-08-20：追加本推送证据记录，准备作为单独任务记录提交并再次推送。
 
 ## Verification Evidence
 
@@ -38,6 +43,8 @@
 - GREEN: `git diff --cached --check` -> PASS for code commit `3805912ea` and fix commit `a1e24fd7e`。
 - COMMIT: `3805912ea chore: 提交前后端代码`。
 - COMMIT: `a1e24fd7e fix: 收窄PQC全屏布局留白`。
+- COMMIT: `042d98b6d docs: 完成前后端代码提交记录`。
+- PUSH: `git push origin int_main` -> PASS，`b124fa040..042d98b6d  int_main -> int_main`。
 - RESIDUAL BLOCKED OUT-OF-SCOPE: `node tests/e2e/dcc-project-route-governance-static.spec.js` -> FAIL，仍展示 `损耗单` 状态列；未提交。
 - RESIDUAL BLOCKED OUT-OF-SCOPE: `node tests/e2e/frontline-pqc-process-navigation-buttons-static.spec.cjs` -> FAIL，缺少 `handleNavigatePqcProcess`；未提交。
 

@@ -4,7 +4,7 @@
 
 - 本次仅验证并准备提交 `IntRuoyiBackend` 与 `IntRuoyiFronted` 下的前后端源码、测试和配置变更。
 - 根目录规则、历史任务产物、资源文件、迁移包和其它非前后端代码文件不纳入本次暂存范围。
-- 本次执行本地 commit，不执行 push。
+- 本次先执行本地 commit；用户追加要求后，已推送当前 `int_main` 到 `origin`。
 
 ## Verification Results
 
@@ -25,11 +25,16 @@
 - PASS: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue`。
 - PASS: `git diff --cached --check` for code commit `3805912ea` and fix commit `a1e24fd7e`。
 - PASS: `task-closeout-cleanup` preview/apply -> kept `task.md`、`execution-log.md`、`verification-report.md`; deleted temporary `bug-regression-evidence.md`。
+- PASS: `git ls-remote origin refs/heads/int_main` -> 推送前远端为 `b124fa0405f4d48026a332e1f8a61d954f38bb9f`。
+- PASS: `git rev-list --left-right --count origin/int_main...HEAD` -> 推送前 `0 3`，本地领先 3 个提交。
+- PASS: GitHub 大文件扫描 `origin/int_main..HEAD` -> 未发现超过 100 MB 的 blob。
+- PASS: `git push origin int_main` -> `b124fa040..042d98b6d  int_main -> int_main`。
 
 ## Commits
 
 - `3805912ea chore: 提交前后端代码`
 - `a1e24fd7e fix: 收窄PQC全屏布局留白`
+- `042d98b6d docs: 完成前后端代码提交记录`
 
 ## Residual Not Submitted
 
