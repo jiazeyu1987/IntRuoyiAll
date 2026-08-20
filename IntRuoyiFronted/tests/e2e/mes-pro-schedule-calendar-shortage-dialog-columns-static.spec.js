@@ -30,7 +30,13 @@ for (const hiddenToken of [
   assert.ok(!dialogSource.includes(hiddenToken), `Shortage dialog must hide ${hiddenToken}.`)
 }
 
-for (const keptColumn of ['label="物料编码"', 'label="物料名称"', 'label="缺口"']) {
+for (const keptColumn of [
+  'label="物料编码"',
+  'label="物料名称"',
+  'label="订单总需求"',
+  'label="库存数量"',
+  'label="缺口"'
+]) {
   assert.ok(dialogSource.includes(keptColumn), `Shortage dialog must keep ${keptColumn}.`)
 }
 
@@ -38,10 +44,26 @@ for (const keptToken of [
   'issueDialogVisibleRows',
   'buildMaterialCodeLabel',
   'buildMaterialNameLabel',
-  'shortageQty ?? row.requiredQty'
+  'buildQuantityLabel(row.requiredQty)',
+  'buildQuantityLabel(row.availableQty)',
+  'buildQuantityLabel(row.shortageQty)'
 ]) {
   assert.ok(dialogSource.includes(keptToken), `Shortage dialog must preserve ${keptToken}.`)
 }
+
+assert.ok(
+  dialogSource.indexOf('label="订单总需求"') < dialogSource.indexOf('label="库存数量"'),
+  'Shortage dialog must show total order demand before actual stock.'
+)
+assert.ok(
+  dialogSource.indexOf('label="库存数量"') < dialogSource.indexOf('label="缺口"'),
+  'Shortage dialog must show actual stock before shortage quantity.'
+)
+
+assert.ok(
+  !dialogSource.includes('shortageQty ?? row.requiredQty'),
+  'Shortage quantity must be rendered from shortageQty without requiredQty fallback.'
+)
 
 for (const removedHelper of [
   'issueDialogActiveTab',

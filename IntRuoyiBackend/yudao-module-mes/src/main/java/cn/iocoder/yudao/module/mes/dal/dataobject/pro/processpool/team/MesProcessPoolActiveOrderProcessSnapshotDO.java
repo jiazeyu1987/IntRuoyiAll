@@ -34,7 +34,12 @@ public class MesProcessPoolActiveOrderProcessSnapshotDO extends TenantBaseDO {
     private Long routeVersionId;
     private Long routeProcessId;
     private Long processId;
+    private String processCodeSnapshot;
+    private String processNameSnapshot;
     private BigDecimal erpFixedQuantitySnapshot;
     private BigDecimal productionQuantityFactorSnapshot;
     private BigDecimal plannedQuantitySnapshot;
+    private String parameterSnapshotJson;
+    private String parameterSnapshotSha256;
+    private String parameterSnapshotState;
 }

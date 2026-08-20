@@ -169,6 +169,19 @@ export interface ProRouteWorkbookImportResultVO {
   routeCodes: string[]
 }
 
+export type ProRouteProcessTemplateImportMode = 'REBUILD' | 'UPGRADE'
+
+export interface ProRouteProcessTemplateImportResultVO {
+  routeId: MesRouteId
+  routeCode: string
+  routeName: string
+  importMode: ProRouteProcessTemplateImportMode
+  routeVersionId?: MesRouteId
+  routeVersionNo?: string
+  routeProcessCount: number
+  processNames: string[]
+}
+
 export interface RouteFlowNodeVO {
   routeProcessId: number
   processId: number
@@ -278,6 +291,8 @@ export interface RouteFlowRouteProcessUpdateReqVO {
 export const PRO_ROUTE_IMPORT_INTGY_MD_URL = '/mes/pro/route/import-intgy-md'
 export const PRO_ROUTE_IMPORT_SHEET1_XLSX_URL = '/mes/pro/route/import-sheet1-xlsx'
 export const PRO_ROUTE_IMPORT_WORKBOOK_XLSX_URL = '/mes/pro/route/import-workbook-xlsx'
+export const PRO_ROUTE_EXPORT_PROCESS_TEMPLATE_XLSX_URL = '/mes/pro/route/export-process-template-xlsx'
+export const PRO_ROUTE_IMPORT_PROCESS_TEMPLATE_XLSX_URL = '/mes/pro/route/import-process-template-xlsx'
 export const PRO_ROUTE_VERSION_BASE_URL = '/mes/pro/route-version'
 
 // MES 工艺路线 API
@@ -361,6 +376,14 @@ export const ProRouteApi = {
     return await request.download({ url: `/mes/pro/route/export-import-xlsx`, params })
   },
 
+  // 导出员工工序模板
+  exportRouteProcessTemplate: async (routeId: MesRouteId) => {
+    return await request.download({
+      url: PRO_ROUTE_EXPORT_PROCESS_TEMPLATE_XLSX_URL,
+      params: { routeId }
+    })
+  },
+
   // 导入 IntGY Markdown 工艺路线
   importIntGyMarkdown: async (data: FormData) => {
     const result = await request.upload<{ data: ProRouteImportResultVO }>({
@@ -383,6 +406,15 @@ export const ProRouteApi = {
   importRouteWorkbookExcel: async (data: FormData) => {
     const result = await request.upload<{ data: ProRouteWorkbookImportResultVO }>({
       url: PRO_ROUTE_IMPORT_WORKBOOK_XLSX_URL,
+      data
+    })
+    return result.data
+  },
+
+  // 导入员工工序模板
+  importRouteProcessTemplate: async (data: FormData) => {
+    const result = await request.upload<{ data: ProRouteProcessTemplateImportResultVO }>({
+      url: PRO_ROUTE_IMPORT_PROCESS_TEMPLATE_XLSX_URL,
       data
     })
     return result.data

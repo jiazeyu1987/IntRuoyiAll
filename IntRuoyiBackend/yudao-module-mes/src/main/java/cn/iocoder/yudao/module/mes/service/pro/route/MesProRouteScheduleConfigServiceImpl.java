@@ -83,6 +83,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VER
 public class MesProRouteScheduleConfigServiceImpl implements MesProRouteScheduleConfigService {
 
     private static final String SNAPSHOT_CONFIGS_KEY = "configSnapshots";
+    private static final String FLOW_GRAPH_KEY = "flowGraph";
     private static final String SCHEDULE_CONFIGS_KEY = "scheduleConfigs";
     private static final String NIGHT_SHIFT_MARK = "DAY_AND_NIGHT";
     private static final String CAPACITY_SOURCE_MACHINE = "MACHINE";
@@ -339,7 +340,7 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
             throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
         }
         if (isReadableCandidateSnapshotVersion(routeVersion)) {
-            return normalizeConfigRouteProcessIds(routeVersion, getCandidateScheduleConfigList(routeVersion));
+            return getCandidateScheduleConfigList(routeVersion);
         }
         return normalizeConfigRouteProcessIds(routeVersion,
                 routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId));
@@ -352,7 +353,7 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
             throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
         }
         List<MesProRouteScheduleConfigDO> configs = isReadableCandidateSnapshotVersion(routeVersion)
-                ? normalizeConfigRouteProcessIds(routeVersion, getCandidateScheduleConfigList(routeVersion))
+                ? getCandidateScheduleConfigList(routeVersion)
                 : normalizeConfigRouteProcessIds(routeVersion,
                         routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId));
         Map<Long, BigDecimal> shiftHoursMap = loadShiftHoursMap(routeVersion.getRouteId());
@@ -736,6 +737,7 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
 
     private JSONObject resolveCandidateScheduleConfigMap(MesProRouteVersionDO routeVersion) {
         Object snapshot = resolveCandidateConfigSnapshot(routeVersion, SCHEDULE_CONFIGS_KEY);
+        Set<Long> candidateRouteProcessIds = resolveCandidateRouteProcessIds(routeVersion);
         JSONObject result = new JSONObject(true);
         if (snapshot instanceof JSONObject configsByRouteProcessId) {
             for (Map.Entry<String, Object> entry : configsByRouteProcessId.entrySet()) {
@@ -743,22 +745,57 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
                 if (config.getLong("routeProcessId") == null) {
                     config.put("routeProcessId", parseRouteProcessIdKey(entry.getKey(), routeVersion));
                 }
-                Long currentRouteProcessId = resolveCurrentRouteProcessId(routeVersion, config.getLong("routeProcessId"));
-                config.put("routeProcessId", currentRouteProcessId);
-                result.put(String.valueOf(currentRouteProcessId), config);
+                Long candidateRouteProcessId = requireCandidateRouteProcessId(
+                        routeVersion, candidateRouteProcessIds, config.getLong("routeProcessId"));
+                config.put("routeProcessId", candidateRouteProcessId);
+                result.put(String.valueOf(candidateRouteProcessId), config);
             }
             return result;
         }
         if (snapshot instanceof JSONArray configs) {
             for (Object value : configs) {
                 JSONObject config = toScheduleConfigJson(value, routeVersion);
-                Long currentRouteProcessId = resolveCurrentRouteProcessId(routeVersion, config.getLong("routeProcessId"));
-                config.put("routeProcessId", currentRouteProcessId);
-                result.put(String.valueOf(currentRouteProcessId), config);
+                Long candidateRouteProcessId = requireCandidateRouteProcessId(
+                        routeVersion, candidateRouteProcessIds, config.getLong("routeProcessId"));
+                config.put("routeProcessId", candidateRouteProcessId);
+                result.put(String.valueOf(candidateRouteProcessId), config);
             }
             return result;
         }
         throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+    }
+
+    private Set<Long> resolveCandidateRouteProcessIds(MesProRouteVersionDO routeVersion) {
+        Object flowGraphSnapshot = resolveCandidateConfigSnapshot(routeVersion, FLOW_GRAPH_KEY);
+        JSONObject flowGraph = toScheduleConfigJson(flowGraphSnapshot, routeVersion);
+        JSONArray nodes = flowGraph.getJSONArray("nodes");
+        if (nodes == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+        }
+        Set<Long> routeProcessIds = new java.util.LinkedHashSet<>();
+        for (Object value : nodes) {
+            JSONObject node = toScheduleConfigJson(value, routeVersion);
+            Long routeProcessId = node.getLong("routeProcessId");
+            if (routeProcessId == null) {
+                routeProcessId = node.getLong("clientRouteProcessId");
+            }
+            Long processId = node.getLong("processId");
+            Integer sort = node.getInteger("sort");
+            if (routeProcessId == null || processId == null || processId <= 0 || sort == null
+                    || !routeProcessIds.add(routeProcessId)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+            }
+        }
+        return routeProcessIds;
+    }
+
+    private Long requireCandidateRouteProcessId(MesProRouteVersionDO routeVersion,
+                                                Set<Long> candidateRouteProcessIds,
+                                                Long routeProcessId) {
+        if (routeProcessId == null || !candidateRouteProcessIds.contains(routeProcessId)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+        }
+        return routeProcessId;
     }
 
     private Long resolveCurrentRouteProcessId(MesProRouteVersionDO routeVersion, Long routeProcessId) {

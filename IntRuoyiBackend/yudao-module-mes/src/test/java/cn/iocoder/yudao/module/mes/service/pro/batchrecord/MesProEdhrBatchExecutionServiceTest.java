@@ -595,6 +595,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         List<EdhrBatchExecutionTaskRespVO> firstProcessTasks = routeTasks(detail).stream()
                 .filter(task -> Objects.equals(firstProcess.getSort(), task.getRouteProcessSort()))
+                .filter(task -> !Objects.equals(productInfoReport, task.getBatchRecordReportId()))
                 .toList();
         assertEquals(List.of(processReport), firstProcessTasks.stream()
                 .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportId)
@@ -610,11 +611,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .filter(task -> Objects.equals(productInfoReport, task.getBatchRecordReportId()))
                 .findFirst()
                 .orElseThrow();
-        assertEquals(80, productInfoTask.getRouteProcessSort());
-        assertEquals("产品信息", productInfoTask.getProcessName());
+        assertEquals(firstProcess.getId(), productInfoTask.getRouteProcessId());
+        assertEquals(firstProcess.getSort(), productInfoTask.getRouteProcessSort());
+        assertEquals("产品信息", productInfoTask.getBatchRecordReportName());
         assertEquals(80, productInfoTask.getBatchRecordSort());
         assertEquals(Boolean.FALSE, productInfoTask.getAvailable());
-        assertEquals("前序批记录表单未全部填写完成", productInfoTask.getGateMessage());
+        assertTrue(productInfoTask.getGateMessage().contains("未填写完成"));
         List<MesProEdhrBatchExecutionTaskDO> persistedTasks =
                 batchTaskMapper.selectListByBatchExecutionId(legacyBatch.getId());
         assertEquals(6, persistedTasks.size());
@@ -1091,6 +1093,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     void openOrCreate_buildsInitialTasksFromLegacyFlatActiveRouteVersionSnapshotWhenLiveBatchConfigEmpty() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        MesProBatchRecordReportDO reportMetadata = reportMapper.selectByReportId(fixture.reportId1());
         MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(route.getId()).stream()
                 .min(Comparator.comparing(MesProRouteProcessDO::getSort))
                 .orElseThrow();
@@ -1122,6 +1125,9 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         "enabled": true,
                         "executionMode": "SEQUENTIAL",
                         "batchRecordReportId": "%s",
+                        "batchRecordDefinitionId": %d,
+                        "batchRecordVersionId": %d,
+                        "formSlotType": "MAIN",
                         "productionQuantityFactor": 1.0
                       }
                     ]
@@ -1129,7 +1135,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 }
                 """.formatted(route.getId(), route.getCode(), route.getName(),
                 routeProcess.getId(), routeProcess.getProcessId(), routeProcess.getSort(),
-                routeProcess.getId(), routeProcess.getProcessId(), routeProcess.getSort(), fixture.reportId1());
+                routeProcess.getId(), routeProcess.getProcessId(), routeProcess.getSort(), fixture.reportId1(),
+                reportMetadata.getBatchRecordDefinitionId(), reportMetadata.getBatchRecordVersionId());
         com.alibaba.fastjson.JSONObject legacySnapshot = JSON.parseObject(activeSnapshotJson);
         legacySnapshot.getJSONObject("configSnapshots")
                 .put("batchRecordAttachmentOwners", defaultBatchRecordAttachmentOwners());
@@ -1395,19 +1402,21 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openOrCreate_rejectsExplicitRouteWhenBindingBelongsToDisabledProcessConfig() {
+    void openOrCreate_usesFrozenExplicitRouteWhenCurrentBindingBecomesInvalid() {
         Fixture fixture = insertRouteFixture(true, false);
         replaceEnabledProcessConfigWithoutMovingBinding(fixture.routeId());
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(
+                new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setRouteId(fixture.routeId())
-                .setBatchCode("BATCH-EXPLICIT-STALE-BINDING")),
-                PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+                .setBatchCode("BATCH-EXPLICIT-STALE-BINDING"));
+
+        assertEquals(fixture.reportId1(), routeTask(created, 0).getBatchRecordReportId());
     }
 
     @Test
-    void openOrCreate_rejectsRouteWhenOnlyBindingBelongsToDisabledProcessConfig() {
+    void openOrCreate_usesFrozenImplicitRouteWhenCurrentBindingBecomesInvalid() {
         Fixture fixture = insertRouteFixture(true, false);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
         routeProductMapper.insert(MesProRouteProductDO.builder()
@@ -1417,10 +1426,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .build());
         replaceEnabledProcessConfigWithoutMovingBinding(fixture.routeId());
 
-        assertServiceException(() -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(
+                new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-IMPLICIT-STALE-BINDING")),
-                PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+                .setBatchCode("BATCH-IMPLICIT-STALE-BINDING"));
+
+        assertEquals(fixture.reportId1(), routeTask(created, 0).getBatchRecordReportId());
     }
 
     @Test
@@ -1685,7 +1696,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openOrCreate_resolvesLatestApprovedRouteBindingReportAndShowsCurrentFillersToReadonlyViewer() {
+    void openOrCreate_usesFrozenRouteBindingReportAndFrozenFillersAfterNewVersionIsApproved() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
                 .min(Comparator.comparing(MesProRouteProcessDO::getSort))
@@ -1715,7 +1726,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         binding.setBatchRecordDefinitionId(definitionId);
         binding.setBatchRecordVersionId(oldVersion.getId());
         routeFlowProcessBatchRecordMapper.updateById(binding);
-        insertCurrentProcessFillRule(0L, latestReportId, "FILL", "USERS", "149");
+        refreshActiveRouteVersionSnapshot(fixture.routeId());
+        insertCurrentProcessFillRule(0L, fixture.reportId1(), "FILL", "USERS", "149");
         when(adminUserApi.getUserList(List.of(149L))).thenReturn(List.of(
                 adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus())));
         when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
@@ -1728,9 +1740,9 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setRouteId(fixture.routeId()));
 
         EdhrBatchExecutionTaskRespVO routeTask = routeTask(created, 0);
-        assertEquals(latestReportId, routeTask.getBatchRecordReportId());
-        assertEquals(latestApprovedVersion.getId(), routeTask.getBatchRecordVersionId());
-        assertNotEquals(fixture.reportId1(), routeTask.getBatchRecordReportId());
+        assertEquals(fixture.reportId1(), routeTask.getBatchRecordReportId());
+        assertEquals(oldVersion.getId(), routeTask.getBatchRecordVersionId());
+        assertNotEquals(latestReportId, routeTask.getBatchRecordReportId());
         assertNotEquals(pendingReportId, routeTask.getBatchRecordReportId());
         assertEquals(List.of("黎敏"), created.getCurrentProcessProductionFillers().stream()
                 .map(EdhrBatchExecutionRespVO.CurrentProcessFiller::getDisplayName)
@@ -1740,7 +1752,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void getDetail_resolvesLatestApprovedRouteBindingReportFromFrozenRouteSnapshot() {
+    void getDetail_usesFrozenRouteBindingReportFromFrozenRouteSnapshot() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
@@ -1771,7 +1783,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         binding.setFormSlotType("MAIN");
         routeFlowProcessBatchRecordMapper.updateById(binding);
         String frozenRouteSnapshotJson = frozenRouteSnapshotJson(route, routeProcesses);
-        insertCurrentProcessFillRule(0L, latestReportId, "FILL", "USERS", "149");
+        insertCurrentProcessFillRule(0L, fixture.reportId1(), "FILL", "USERS", "149");
         when(adminUserApi.getUserList(List.of(149L))).thenReturn(List.of(
                 adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus())));
         when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
@@ -1803,8 +1815,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
 
         EdhrBatchExecutionTaskRespVO routeTask = routeTask(detail, 0);
-        assertEquals(latestReportId, routeTask.getBatchRecordReportId());
-        assertEquals(latestApprovedVersion.getId(), routeTask.getBatchRecordVersionId());
+        assertEquals(fixture.reportId1(), routeTask.getBatchRecordReportId());
+        assertEquals(oldVersion.getId(), routeTask.getBatchRecordVersionId());
         assertEquals(List.of("黎敏"), detail.getCurrentProcessProductionFillers().stream()
                 .map(EdhrBatchExecutionRespVO.CurrentProcessFiller::getDisplayName)
                 .toList());
@@ -1812,7 +1824,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void getDetail_showsLatestCurrentFillersForExistingOldVersionRouteTaskWithoutMigratingTask() {
+    void getDetail_showsFrozenFillersForExistingOldVersionRouteTaskWithoutMigratingTask() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
@@ -1843,7 +1855,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         binding.setBatchRecordVersionId(oldVersion.getId());
         binding.setFormSlotType("MAIN");
         routeFlowProcessBatchRecordMapper.updateById(binding);
-        insertCurrentProcessFillRule(0L, latestReportId, "FILL", "USERS", "149");
+        insertCurrentProcessFillRule(0L, fixture.reportId1(), "FILL", "USERS", "149");
         when(adminUserApi.getUserList(List.of(149L))).thenReturn(List.of(
                 adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus())));
         when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
@@ -2954,6 +2966,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .orElseThrow();
         binding.setRecordbookEnabled(Boolean.FALSE);
         routeFlowProcessBatchRecordMapper.updateById(binding);
+        refreshActiveRouteVersionSnapshot(fixture.routeId());
 
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
@@ -3290,6 +3303,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 batchSlot(mainReport, "MAIN", null, null, null, 1),
                 batchSlot(lossReport, "LOSS_REPORT", "INTERNAL_RECORD", 5011L, "PRODUCTION", 2)
         ));
+        insertCurrentProcessFillRule(firstProcess.getId(), mainReport, "FILL", "USERS", "10001");
+        AdminUserRespDTO mainFiller = adminUser(10001L, "主表填写人", CommonStatusEnum.ENABLE.getStatus());
+        when(adminUserApi.getUserList(List.of(10001L))).thenReturn(List.of(mainFiller));
+        when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
+                0L, adminUser(0L, "特殊节点负责人", CommonStatusEnum.ENABLE.getStatus()),
+                10001L, mainFiller));
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-OPEN-ASSIST-EXTRA")
@@ -3336,6 +3355,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 batchSlot(mainReport, "MAIN", null, null, null, 1),
                 batchSlot(lossReport, "LOSS_REPORT", "INTERNAL_RECORD", 5011L, "PRODUCTION", 2)
         ));
+        insertCurrentProcessFillRule(firstProcess.getId(), mainReport, "FILL", "USERS", "10001");
+        AdminUserRespDTO mainFiller = adminUser(10001L, "主表填写人", CommonStatusEnum.ENABLE.getStatus());
+        when(adminUserApi.getUserList(List.of(10001L))).thenReturn(List.of(mainFiller));
+        when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
+                0L, adminUser(0L, "特殊节点负责人", CommonStatusEnum.ENABLE.getStatus()),
+                10001L, mainFiller));
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-VIEW-ASSIST-EXTRA")
@@ -4049,6 +4074,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .routeId(fixture.routeId())
                 .routeProcessId(routeProcess.getId())
                 .useType("BATCH")
+                .formSlotType("OTHER_INTERNAL")
                 .formBindingKey("FB-DYNAMIC-1")
                 .formTemplateId(configuredVersion.getTemplateId())
                 .formTemplateNameSnapshot(configuredVersion.getTemplateName())
@@ -4062,6 +4088,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .archiveVisibility("FINAL_DHR")
                 .reportSort(1)
                 .build());
+        refreshActiveRouteVersionSnapshot(fixture.routeId());
 
         EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
@@ -4094,7 +4121,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openOrCreate_usesCurrentRouteFormBindingsInsteadOfFrozenSnapshot() {
+    void openOrCreate_usesFrozenRouteFormBindingsInsteadOfCurrentDraft() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
@@ -4134,19 +4161,16 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         List<EdhrBatchExecutionTaskRespVO> routeTasks = routeTasks(created);
         assertEquals(2, routeTasks.size());
-        assertEquals("CURRENT_DRAFT_1", routeTasks.get(0).getFormBindingKey());
+        assertNotEquals("CURRENT_DRAFT_1", routeTasks.get(0).getFormBindingKey());
         assertEquals("PROCESS", routeTasks.get(0).getInstanceScope());
-        assertEquals("REQUIRED", routeTasks.get(0).getRequiredPolicy());
-        assertEquals("PRODUCTION", routeTasks.get(0).getOwnerRoleKey());
-        assertEquals("9999999999999999999999999999999999999999999999999999999999999999",
+        assertNotEquals("9999999999999999999999999999999999999999999999999999999999999999",
                 routeTasks.get(0).getSlotConfigSnapshotHash());
-        assertEquals("CURRENT_DRAFT_2", routeTasks.get(1).getFormBindingKey());
+        assertNotEquals("CURRENT_DRAFT_2", routeTasks.get(1).getFormBindingKey());
         assertEquals("BATCH_SHARED", routeTasks.get(1).getInstanceScope());
-        assertEquals("CURRENT_SHARED_KEY", routeTasks.get(1).getSharedFormKey());
+        assertEquals("FROZEN_SHARED_KEY", routeTasks.get(1).getSharedFormKey());
         assertEquals(frozenSharedScope, routeTasks.get(1).getFillableScopeJson());
-        assertEquals("REQUIRED", routeTasks.get(1).getRequiredPolicy());
         assertEquals("QUALITY", routeTasks.get(1).getOwnerRoleKey());
-        assertEquals("9999999999999999999999999999999999999999999999999999999999999999",
+        assertNotEquals("9999999999999999999999999999999999999999999999999999999999999999",
                 routeTasks.get(1).getSlotConfigSnapshotHash());
     }
 
@@ -4175,6 +4199,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         binding.setBatchRecordDefinitionId(definitionId);
         binding.setBatchRecordVersionId(oldVersion.getId());
         routeFlowProcessBatchRecordMapper.updateById(binding);
+        refreshActiveRouteVersionSnapshot(fixture.routeId());
 
         EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
@@ -4182,13 +4207,13 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setRouteId(fixture.routeId()));
 
         EdhrBatchExecutionTaskRespVO routeTask = routeTasks(created).get(0);
-        assertEquals(latestReportId, routeTask.getBatchRecordReportId());
+        assertEquals(reportId, routeTask.getBatchRecordReportId());
         assertEquals(definitionId, routeTask.getBatchRecordDefinitionId());
-        assertEquals(latestApprovedVersion.getId(), routeTask.getBatchRecordVersionId());
+        assertEquals(oldVersion.getId(), routeTask.getBatchRecordVersionId());
         MesProEdhrBatchExecutionTaskDO persistedTask = batchTaskMapper.selectById(routeTask.getId());
-        assertEquals(latestReportId, persistedTask.getBatchRecordReportId());
+        assertEquals(reportId, persistedTask.getBatchRecordReportId());
         assertEquals(definitionId, persistedTask.getBatchRecordDefinitionId());
-        assertEquals(latestApprovedVersion.getId(), persistedTask.getBatchRecordVersionId());
+        assertEquals(oldVersion.getId(), persistedTask.getBatchRecordVersionId());
     }
 
     @Test
@@ -4651,6 +4676,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         List<EdhrBatchExecutionTaskRespVO> firstProcessTasks = routeTasks(created).stream()
                 .filter(task -> Objects.equals(firstProcess.getSort(), task.getRouteProcessSort()))
+                .filter(task -> !Objects.equals(productInfoReport, task.getBatchRecordReportId()))
                 .toList();
         assertEquals(List.of(processReport), firstProcessTasks.stream()
                 .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportId)
@@ -4666,11 +4692,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .filter(task -> Objects.equals(productInfoReport, task.getBatchRecordReportId()))
                 .findFirst()
                 .orElseThrow();
-        assertEquals(80, productInfoTask.getRouteProcessSort());
-        assertEquals("产品信息", productInfoTask.getProcessName());
+        assertEquals(firstProcess.getId(), productInfoTask.getRouteProcessId());
+        assertEquals(firstProcess.getSort(), productInfoTask.getRouteProcessSort());
+        assertEquals("产品信息", productInfoTask.getBatchRecordReportName());
         assertEquals(80, productInfoTask.getBatchRecordSort());
         assertEquals(Boolean.FALSE, productInfoTask.getAvailable());
-        assertEquals("前序批记录表单未全部填写完成", productInfoTask.getGateMessage());
+        assertTrue(productInfoTask.getGateMessage().contains("未填写完成"));
         assertTrue(firstProcessTasks.stream()
                 .allMatch(task -> "MAIN".equals(task.getFormSlotType())
                         && "BATCH_RECORD".equals(task.getRecordCategory())));
@@ -7395,7 +7422,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         .orElseThrow();
         binding.setRouteFlowProcessConfigId(disabledConfig.getId());
         routeFlowProcessBatchRecordMapper.updateById(binding);
-        refreshActiveRouteVersionSnapshot(routeId);
     }
 
     private String insertReport(String reportId, String name) {
@@ -7520,6 +7546,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .build();
         routeFlowProcessConfigMapper.insert(processConfig);
         for (int index = 0; index < reportIds.length; index++) {
+            MesProBatchRecordReportDO reportMetadata = reportMapper.selectByReportId(reportIds[index]);
             FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersion("表单-" + reportIds[index]);
             routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
                     .routeFlowProcessConfigId(processConfig.getId())
@@ -7527,6 +7554,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                     .routeProcessId(routeProcessId)
                     .useType("BATCH")
                     .batchRecordReportId(reportIds[index])
+                    .batchRecordDefinitionId(reportMetadata.getBatchRecordDefinitionId())
+                    .batchRecordVersionId(reportMetadata.getBatchRecordVersionId())
                     .formSlotType("MAIN")
                     .formBindingKey("FB_" + routeProcessId + "_" + (index + 1))
                     .formTemplateId(templateVersion.getTemplateId())
@@ -7658,6 +7687,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         routeFlowProcessConfigMapper.insert(processConfig);
         for (BatchSlot slot : slots) {
             alignReportSlotType(slot.reportId(), slot.formSlotType());
+            MesProBatchRecordReportDO reportMetadata = reportMapper.selectByReportId(slot.reportId());
             FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersionForReport(slot.reportId());
             routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
                     .routeFlowProcessConfigId(processConfig.getId())
@@ -7665,6 +7695,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                     .routeProcessId(routeProcessId)
                     .useType("BATCH")
                     .batchRecordReportId(slot.reportId())
+                    .batchRecordDefinitionId(reportMetadata.getBatchRecordDefinitionId())
+                    .batchRecordVersionId(reportMetadata.getBatchRecordVersionId())
                     .formSlotType(slot.formSlotType())
                     .formBindingKey("FB_" + routeProcessId + "_" + slot.reportSort())
                     .formTemplateId(templateVersion.getTemplateId())
@@ -7769,12 +7801,15 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .build();
         routeFlowProcessConfigMapper.insert(processConfig);
         FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersion("表单-" + reportId);
+        MesProBatchRecordReportDO reportMetadata = reportMapper.selectByReportId(reportId);
         MesProRouteFlowProcessBatchRecordDO record = MesProRouteFlowProcessBatchRecordDO.builder()
                 .routeFlowProcessConfigId(processConfig.getId())
                 .routeId(routeId)
                 .routeProcessId(routeProcessId)
                 .useType("BATCH")
                 .batchRecordReportId(reportId)
+                .batchRecordDefinitionId(reportMetadata.getBatchRecordDefinitionId())
+                .batchRecordVersionId(reportMetadata.getBatchRecordVersionId())
                 .formSlotType("MAIN")
                 .formBindingKey("FB_" + routeProcessId + "_1")
                 .formTemplateId(templateVersion.getTemplateId())

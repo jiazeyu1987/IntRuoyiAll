@@ -10,11 +10,13 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductBomDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductBomMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +39,7 @@ class MesProductionPickListSourceServiceImplTest {
     @Mock private MesProRouteProductBomMapper routeProductBomMapper;
     @Mock private MesProRouteProcessMapper routeProcessMapper;
     @Mock private MesMdItemMapper itemMapper;
+    @Mock private MesKingdeeProductionMaterialListMapper productionMaterialListMapper;
     @Mock private ErpKingdeeProductionPickListMapper pickListMapper;
     @Mock private ErpKingdeeProductionPickListItemMapper pickListItemMapper;
 
@@ -45,7 +48,8 @@ class MesProductionPickListSourceServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new MesProductionPickListSourceServiceImpl(routeDccProjectBindingMapper, routeProductMapper,
-                routeProductBomMapper, routeProcessMapper, itemMapper, pickListMapper, pickListItemMapper);
+                routeProductBomMapper, routeProcessMapper, itemMapper, productionMaterialListMapper,
+                pickListMapper, pickListItemMapper);
     }
 
     @Test
@@ -68,6 +72,55 @@ class MesProductionPickListSourceServiceImplTest {
         assertEquals(1, fields.stream().filter(field -> "material.3201.lotNumber".equals(field.fieldCode())
                 && "手柄（MAT-001）- 物料批次号".equals(field.fieldName())
                 && Long.valueOf(5001L).equals(field.routeProcessId())).count());
+    }
+
+    @Test
+    void listSourceFields_usesFormalErpMaterialCatalogWhenRouteHasNoProcessBom() {
+        when(routeDccProjectBindingMapper.selectCurrentByRouteId(922119L))
+                .thenReturn(MesRouteDccProjectBindingDO.builder().routeId(922119L).dccProjectCodeId(147L).build());
+        when(routeProductMapper.selectListByRouteId(922119L))
+                .thenReturn(List.of(
+                        MesProRouteProductDO.builder().routeId(922119L).itemId(902149L).build(),
+                        MesProRouteProductDO.builder().routeId(922119L).itemId(901965L).build()));
+        when(routeProcessMapper.selectListByRouteId(922119L))
+                .thenReturn(List.of(MesProRouteProcessDO.builder()
+                        .id(9908090160L).routeId(922119L).processId(922985L).build()));
+        when(routeProductBomMapper.selectListByRouteIdAndProductId(922119L, 902149L)).thenReturn(List.of());
+        when(routeProductBomMapper.selectListByRouteIdAndProductId(922119L, 901965L)).thenReturn(List.of());
+        when(itemMapper.selectListByIds(List.of(902149L, 901965L))).thenReturn(List.of(
+                MesMdItemDO.builder().id(902149L).code("AW.107.02.01.2010")
+                        .name("按压式球囊扩张压力泵").build(),
+                MesMdItemDO.builder().id(901965L).code("AW.107.02.01.2036")
+                        .name("球囊扩张压力泵").build()));
+        when(productionMaterialListMapper.selectListByProductCode("AW.107.02.01.2010")).thenReturn(List.of());
+        when(productionMaterialListMapper.selectListByProductCode("AW.107.02.01.2036"))
+                .thenReturn(List.of(erpMaterial("AW.107.02.01.2036", "MAT-001", "手柄")));
+
+        List<MesProductionPickListSourceService.SourceField> fields = service.listSourceFields(922119L);
+
+        assertEquals(8, fields.size());
+        assertEquals(1, fields.stream()
+                .filter(field -> "materialCode.TUFULTAwMQ.lotNumber".equals(field.fieldCode())
+                        && "手柄（MAT-001）- 物料批次号".equals(field.fieldName())
+                        && Long.valueOf(9908090160L).equals(field.routeProcessId()))
+                .count());
+    }
+
+    @Test
+    void listSourceFields_rejectsWhenNeitherProcessBomNorErpMaterialCatalogExists() {
+        when(routeDccProjectBindingMapper.selectCurrentByRouteId(922119L))
+                .thenReturn(MesRouteDccProjectBindingDO.builder().routeId(922119L).dccProjectCodeId(147L).build());
+        when(routeProductMapper.selectListByRouteId(922119L))
+                .thenReturn(List.of(MesProRouteProductDO.builder().routeId(922119L).itemId(902149L).build()));
+        when(routeProcessMapper.selectListByRouteId(922119L))
+                .thenReturn(List.of(MesProRouteProcessDO.builder()
+                        .id(9908090160L).routeId(922119L).processId(922985L).build()));
+        when(routeProductBomMapper.selectListByRouteIdAndProductId(922119L, 902149L)).thenReturn(List.of());
+        when(itemMapper.selectListByIds(List.of(902149L))).thenReturn(List.of(MesMdItemDO.builder()
+                .id(902149L).code("AW.107.02.01.2010").name("按压式球囊扩张压力泵").build()));
+        when(productionMaterialListMapper.selectListByProductCode("AW.107.02.01.2010")).thenReturn(List.of());
+
+        assertThrows(ServiceException.class, () -> service.listSourceFields(922119L));
     }
 
     @Test
@@ -101,6 +154,30 @@ class MesProductionPickListSourceServiceImplTest {
                         "MO-9001", "material.3201.lotNumber")));
     }
 
+    @Test
+    void resolveValue_acceptsMaterialCodeFromFormalErpProductCatalog() {
+        when(routeDccProjectBindingMapper.selectCurrentByRouteId(7001L))
+                .thenReturn(MesRouteDccProjectBindingDO.builder().routeId(7001L).dccProjectCodeId(8001L).build());
+        when(routeProductMapper.selectByRouteIdAndItemId(7001L, 3101L))
+                .thenReturn(MesProRouteProductDO.builder().routeId(7001L).itemId(3101L).build());
+        when(routeProcessMapper.selectById(5001L))
+                .thenReturn(MesProRouteProcessDO.builder().id(5001L).routeId(7001L).processId(6001L).build());
+        when(routeProductBomMapper.selectListByRouteIdAndProductId(7001L, 3101L)).thenReturn(List.of());
+        when(itemMapper.selectById(3101L))
+                .thenReturn(MesMdItemDO.builder().id(3101L).code("AW.107.02.01.2010").name("压力泵").build());
+        when(productionMaterialListMapper.selectListByProductCode("AW.107.02.01.2010"))
+                .thenReturn(List.of(erpMaterial("AW.107.02.01.2010", "MAT-001", "手柄")));
+        when(pickListItemMapper.selectListByProductionOrderNo("MO-9001")).thenReturn(List.of(
+                pickItem(9102L, "20", "LOT-SECOND"), pickItem(9101L, "10", "LOT-FIRST")));
+        when(pickListMapper.selectBatchIds(List.of(9001L))).thenReturn(List.of(pickList(9001L, "C")));
+
+        MesProductionPickListSourceService.ResolvedValue result = service.resolveValue(
+                new MesProductionPickListSourceService.ResolveCommand(7001L, 5001L, 3101L, 8001L,
+                        "MO-9001", "materialCode.TUFULTAwMQ.lotNumber"));
+
+        assertEquals("LOT-FIRST", result.value());
+    }
+
     private void mockReleaseIdentity() {
         when(routeDccProjectBindingMapper.selectCurrentByRouteId(7001L))
                 .thenReturn(MesRouteDccProjectBindingDO.builder().routeId(7001L).dccProjectCodeId(8001L).build());
@@ -120,6 +197,15 @@ class MesProductionPickListSourceServiceImplTest {
                 .id(id).sourceFormId("PRD_PickMtrl").sourceFid(String.valueOf(id))
                 .sourceBillNo("PICK-" + id).documentStatus(status)
                 .billDate(LocalDateTime.of(2026, 8, 15, 8, 0)).build();
+    }
+
+    private MesKingdeeProductionMaterialListDO erpMaterial(String productCode, String materialCode,
+                                                            String materialName) {
+        return MesKingdeeProductionMaterialListDO.builder()
+                .id(9301L).sourceBillNo("PPBOM-001").sourceEntryId("10")
+                .productCode(productCode).productionOrderNo("MO-9001")
+                .productionOrderLineNo(1).childMaterialCode(materialCode)
+                .childMaterialName(materialName).childUnitName("个").build();
     }
 
     private ErpKingdeeProductionPickListItemDO pickItem(Long id, String entryId, String lotNumber) {

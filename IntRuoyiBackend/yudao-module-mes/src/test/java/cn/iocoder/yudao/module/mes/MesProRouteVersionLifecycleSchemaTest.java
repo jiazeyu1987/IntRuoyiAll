@@ -26,6 +26,10 @@ class MesProRouteVersionLifecycleSchemaTest {
     private static final String LIFECYCLE_MIGRATION_FILE = "sql/mysql/20260715_mes_route_version_lifecycle.sql";
     private static final String APPROVAL_PROCESS_ID_STRING_MIGRATION_FILE =
             "sql/mysql/20260717_mes_route_version_approval_instance_id_string.sql";
+    private static final String SNAPSHOT_IDENTITY_MIGRATION_FILE =
+            "sql/mysql/20260812_mes_route_version_snapshot_identity.sql";
+    private static final String SNAPSHOT_IDENTITY_ENFORCE_MIGRATION_FILE =
+            "sql/mysql/20260812_mes_route_version_snapshot_identity_enforce.sql";
     private static final String TEST_SCHEMA_FILE = "yudao-module-mes/src/test/resources/sql/create_tables.sql";
 
     @Test
@@ -56,6 +60,25 @@ class MesProRouteVersionLifecycleSchemaTest {
                 "runtime schema must store BPM process instance IDs as varchar");
         assertTrue(schemaColumnUsesStringType(testSchema, "mes_pro_route_version", "approval_process_instance_id"),
                 "test schema must store BPM process instance IDs as varchar");
+    }
+
+    @Test
+    void routeVersionSchemaRequiresPhasedCanonicalSnapshotIdentity() throws Exception {
+        Path projectDir = findProjectDir();
+        String runtimeSchema = read(projectDir, SNAPSHOT_IDENTITY_MIGRATION_FILE)
+                + "\n" + read(projectDir, SNAPSHOT_IDENTITY_ENFORCE_MIGRATION_FILE);
+        String testSchema = read(projectDir, TEST_SCHEMA_FILE);
+
+        for (String schema : new String[] { runtimeSchema, testSchema }) {
+            assertSchemaContainsColumns(schema, "mes_pro_route_version",
+                    "route_snapshot_sha256", "route_snapshot_format_version");
+        }
+        assertTrue(runtimeSchema.contains("route snapshot identity blockers must be zero before enforcement"),
+                "enforcement must fail until readiness blockers are zero");
+        assertTrue(runtimeSchema.contains("MES_ROUTE_SNAPSHOT_CANONICAL_V1"),
+                "schema must pin the canonical snapshot format version");
+        assertHasFields(MesProRouteVersionDO.class,
+                "routeSnapshotSha256", "routeSnapshotFormatVersion");
     }
 
     @Test

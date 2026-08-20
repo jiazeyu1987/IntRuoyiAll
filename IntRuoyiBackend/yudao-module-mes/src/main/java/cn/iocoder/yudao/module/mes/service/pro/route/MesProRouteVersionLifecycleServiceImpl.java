@@ -4,11 +4,15 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -36,6 +40,8 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private MesProRouteVersionPublishProjectionServiceImpl publishProjectionService;
+    @Resource
+    private MesProRouteSnapshotCanonicalizer routeSnapshotCanonicalizer;
     @Resource
     private MesProRouteControlledContentAdapter platformAdapter;
 
@@ -74,13 +80,15 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
                     candidate.getRouteId(), candidate.getSourceRouteVersionId(), active.getId());
         }
 
-        publishProjectionService.projectCandidate(candidate);
+        MesProRouteVersionPublishProjectionServiceImpl.ProjectionResult projection =
+                publishProjectionService.projectCandidate(candidate);
+        persistAndVerifyProjectedSnapshot(candidate, projection);
 
         MesProRouteVersionDO superseded = new MesProRouteVersionDO();
         superseded.setId(active.getId());
         superseded.setActive(Boolean.FALSE);
         superseded.setLifecycleStatus(STATUS_SUPERSEDED);
-        routeVersionMapper.updateById(superseded);
+        requireAffectedRows("supersede", active.getId(), routeVersionMapper.updateById(superseded));
 
         LocalDateTime publishedTime = LocalDateTime.now();
         MesProRouteVersionDO published = new MesProRouteVersionDO();
@@ -89,7 +97,7 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
         published.setLifecycleStatus(STATUS_ACTIVE);
         published.setPublishedBy(publisherId);
         published.setPublishedTime(publishedTime);
-        routeVersionMapper.updateById(published);
+        requireAffectedRows("activate", candidate.getId(), routeVersionMapper.updateById(published));
 
         platformAdapter.recordPublished(active, candidate, publisherId);
 
@@ -98,6 +106,72 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
         candidate.setPublishedBy(publisherId);
         candidate.setPublishedTime(publishedTime);
         return candidate;
+    }
+
+    private void persistAndVerifyProjectedSnapshot(
+            MesProRouteVersionDO candidate,
+            MesProRouteVersionPublishProjectionServiceImpl.ProjectionResult projection) {
+        if (projection == null || StrUtil.isBlank(projection.rewrittenSnapshotJson())
+                || projection.projectedRouteProcessIds() == null
+                || projection.projectedRouteProcessIds().isEmpty()) {
+            throw new IllegalStateException("route projection result is required");
+        }
+        MesProRouteSnapshotCanonicalizer.Validation validation =
+                routeSnapshotCanonicalizer.validate(candidate.getRouteId(), projection.rewrittenSnapshotJson());
+        if (!validation.ready()) {
+            throw new IllegalStateException("rewritten route snapshot is invalid: " + validation.blockers());
+        }
+        Set<Long> snapshotRouteProcessIds = readSnapshotRouteProcessIds(projection.rewrittenSnapshotJson());
+        if (!snapshotRouteProcessIds.equals(projection.projectedRouteProcessIds())) {
+            throw new IllegalStateException("rewritten route snapshot IDs do not match projected IDs: snapshot="
+                    + snapshotRouteProcessIds + ", projection=" + projection.projectedRouteProcessIds());
+        }
+
+        String canonicalSnapshot = routeSnapshotCanonicalizer.canonicalize(projection.rewrittenSnapshotJson());
+        MesProRouteVersionSnapshotIdentityWriter.apply(candidate, canonicalSnapshot);
+        MesProRouteVersionDO snapshotUpdate = new MesProRouteVersionDO();
+        snapshotUpdate.setId(candidate.getId());
+        MesProRouteVersionSnapshotIdentityWriter.apply(snapshotUpdate, canonicalSnapshot);
+        requireAffectedRows("snapshot", candidate.getId(), routeVersionMapper.updateById(snapshotUpdate));
+
+        MesProRouteVersionDO persisted = routeVersionMapper.selectById(candidate.getId());
+        if (persisted == null
+                || !canonicalSnapshot.equals(persisted.getRouteSnapshotJson())
+                || !candidate.getRouteSnapshotSha256().equals(persisted.getRouteSnapshotSha256())
+                || !MesProRouteSnapshotCanonicalizer.FORMAT_VERSION.equals(
+                persisted.getRouteSnapshotFormatVersion())
+                || !candidate.getRouteSnapshotSha256().equals(
+                routeSnapshotCanonicalizer.sha256(persisted.getRouteSnapshotJson()))
+                || !snapshotRouteProcessIds.equals(readSnapshotRouteProcessIds(
+                persisted.getRouteSnapshotJson()))) {
+            throw new IllegalStateException("persisted route snapshot identity verification failed: "
+                    + candidate.getId());
+        }
+    }
+
+    private Set<Long> readSnapshotRouteProcessIds(String routeSnapshotJson) {
+        JSONObject snapshot = JSON.parseObject(routeSnapshotJson);
+        JSONObject configSnapshots = snapshot == null ? null : snapshot.getJSONObject("configSnapshots");
+        JSONObject flowGraph = configSnapshots == null ? null : configSnapshots.getJSONObject("flowGraph");
+        JSONArray nodes = flowGraph == null ? null : flowGraph.getJSONArray("nodes");
+        if (nodes == null || nodes.isEmpty()) {
+            throw new IllegalStateException("route snapshot flow nodes are required");
+        }
+        Set<Long> routeProcessIds = new LinkedHashSet<>();
+        for (Object value : nodes) {
+            Long routeProcessId = ((JSONObject) value).getLong("routeProcessId");
+            if (routeProcessId == null || routeProcessId <= 0 || !routeProcessIds.add(routeProcessId)) {
+                throw new IllegalStateException("route snapshot process identity must be unique and positive");
+            }
+        }
+        return Set.copyOf(routeProcessIds);
+    }
+
+    private void requireAffectedRows(String phase, Long routeVersionId, int affectedRows) {
+        if (affectedRows != 1) {
+            throw new IllegalStateException("route version " + phase + " update affected rows="
+                    + affectedRows + ", routeVersionId=" + routeVersionId);
+        }
     }
 
     private Long requireLoginUserId() {

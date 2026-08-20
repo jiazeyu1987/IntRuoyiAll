@@ -163,7 +163,9 @@ class MesFrontlinePqcEmployeeSwitchServiceTest {
     private static MesPqcInspectionTaskDO task() {
         return MesPqcInspectionTaskDO.builder().id(PQC_TASK_ID).activeOrderId(ACTIVE_ORDER_ID)
                 .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                .routeProcessId(30001L).processId(40001L)
                 .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                .qaItemCode("QA-001")
                 .inspectionRuleKey("FIRST").inspectionType("FIRST")
                 .businessDate(LocalDate.of(2026, 8, 14)).shiftCode("FIRST").roundNo(1)
                 .plannedInspectionQuantity(1).taskStatus("PENDING").build();

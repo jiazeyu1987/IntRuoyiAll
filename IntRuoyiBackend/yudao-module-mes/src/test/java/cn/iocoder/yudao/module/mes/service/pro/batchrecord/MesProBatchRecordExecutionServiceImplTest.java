@@ -145,6 +145,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -3796,6 +3797,89 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         assertEquals(report.getBatchRecordDefinitionId(), resp.getBatchRecordDefinitionId());
         assertEquals(report.getBatchRecordVersionId(), resp.getBatchRecordVersionId());
         assertEquals(routeProcess.getRouteId(), resp.getRouteId());
+    }
+
+    @Test
+    void openOrCreateByContext_usesFrozenTaskVersionAfterNewVersionIsApproved() {
+        MesProWorkOrderDO workOrder = insertWorkOrder();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .routeId(1001L).processId(2002L).sort(1).build();
+        routeProcessMapper.insert(routeProcess);
+        MesProBatchRecordReportDO frozenReport = report("report-frozen-v1");
+        reportMapper.insert(frozenReport);
+        MesProBatchRecordDefinitionDO definition = definitionMapper.selectById(
+                frozenReport.getBatchRecordDefinitionId());
+        MesProBatchRecordVersionDO v2 = batchRecordVersion(definition.getId(), "V2.0", "APPROVED",
+                frozenReport.getBatchRecordVersionId());
+        versionMapper.insert(v2);
+        definitionMapper.updateById(new MesProBatchRecordDefinitionDO()
+                .setId(definition.getId()).setCurrentVersionId(v2.getId()));
+        MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
+                .setBatchExecutionCode("EDHR-FROZEN-V1")
+                .setWorkOrderId(workOrder.getId()).setWorkOrderCode(workOrder.getCode())
+                .setBatchCode("BATCH-FROZEN-V1").setRouteId(routeProcess.getRouteId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
+                .setTaskTotal(1).setTaskApprovedCount(0).setBlockedCount(0);
+        edhrBatchExecutionMapper.insert(batch);
+        MesProEdhrBatchExecutionTaskDO task = new MesProEdhrBatchExecutionTaskDO()
+                .setBatchExecutionId(batch.getId())
+                .setNodeType(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM)
+                .setRouteProcessId(routeProcess.getId()).setRouteProcessSort(1).setProcessId(2002L)
+                .setBatchRecordReportId(frozenReport.getReportId())
+                .setBatchRecordDefinitionId(frozenReport.getBatchRecordDefinitionId())
+                .setBatchRecordVersionId(frozenReport.getBatchRecordVersionId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_DRAFT)
+                .setRequiredFlag(Boolean.TRUE);
+        edhrBatchExecutionTaskMapper.insert(task);
+        when(jimuReportGateway.getReportJson(frozenReport.getReportId())).thenReturn(sampleEditableReportJson());
+
+        MesProBatchRecordExecutionOpenOrCreateByContextRespVO resp = assertDoesNotThrow(
+                () -> executionService.openOrCreateByContext(
+                        new MesProBatchRecordExecutionOpenOrCreateByContextReqVO()
+                                .setWorkOrderId(workOrder.getId())
+                                .setRouteId(routeProcess.getRouteId())
+                                .setBatchExecutionId(batch.getId())
+                                .setRouteProcessId(routeProcess.getId())
+                                .setProcessId(2002L)
+                                .setTaskId(task.getId())
+                                .setBatchRecordReportId(frozenReport.getReportId())
+                                .setBatchCode(batch.getBatchCode())));
+
+        assertEquals(frozenReport.getBatchRecordDefinitionId(), resp.getBatchRecordDefinitionId());
+        assertEquals(frozenReport.getBatchRecordVersionId(), resp.getBatchRecordVersionId());
+        assertNotEquals(v2.getId(), resp.getBatchRecordVersionId());
+    }
+
+    @Test
+    void openOrCreateByContext_rejectsTaskFromAnotherBatchWithoutCreatingExecution() {
+        MesProWorkOrderDO workOrder = insertWorkOrder();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .routeId(1001L).processId(2002L).sort(1).build();
+        routeProcessMapper.insert(routeProcess);
+        MesProBatchRecordReportDO frozenReport = report("report-cross-batch-task");
+        reportMapper.insert(frozenReport);
+        MesProEdhrBatchExecutionTaskDO task = new MesProEdhrBatchExecutionTaskDO()
+                .setBatchExecutionId(999001L)
+                .setRouteProcessId(routeProcess.getId()).setRouteProcessSort(1).setProcessId(2002L)
+                .setBatchRecordReportId(frozenReport.getReportId())
+                .setBatchRecordDefinitionId(frozenReport.getBatchRecordDefinitionId())
+                .setBatchRecordVersionId(frozenReport.getBatchRecordVersionId());
+        edhrBatchExecutionTaskMapper.insert(task);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> executionService.openOrCreateByContext(
+                        new MesProBatchRecordExecutionOpenOrCreateByContextReqVO()
+                                .setWorkOrderId(workOrder.getId())
+                                .setRouteId(routeProcess.getRouteId())
+                                .setBatchExecutionId(999002L)
+                                .setRouteProcessId(routeProcess.getId())
+                                .setProcessId(2002L)
+                                .setTaskId(task.getId())
+                                .setBatchRecordReportId(frozenReport.getReportId())
+                                .setBatchCode("BATCH-CROSS-CONTEXT")));
+
+        assertEquals(1_040_750_265, exception.getCode());
+        assertEquals(0L, executionMapper.selectCount());
     }
 
     @Test

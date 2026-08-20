@@ -50,12 +50,25 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
                 || !Objects.equals(routeId, activeOrder.getRouteId())) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrder");
         }
-        MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot = processSnapshotMapper
-                .selectByActiveOrderAndProcess(activeOrder.getId(), routeProcessId, processId);
-        if (processSnapshot == null
-                || !Objects.equals(workOrderId, processSnapshot.getWorkOrderId())
-                || !Objects.equals(routeId, processSnapshot.getRouteId())) {
-            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrderProcess");
+        requireFrozenActiveOrderProcess(activeOrder, routeProcessId, processId);
+    }
+
+    private void requireFrozenActiveOrderProcess(MesProcessPoolActiveOrderDO activeOrder,
+                                                 Long routeProcessId,
+                                                 Long processId) {
+        if (activeOrder.getRouteVersionId() == null) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrder.routeVersionId");
+        }
+        MesProcessPoolActiveOrderProcessSnapshotDO snapshot =
+                processSnapshotMapper.selectByActiveOrderAndProcess(activeOrder.getId(), routeProcessId, processId);
+        if (snapshot == null
+                || !Objects.equals(activeOrder.getId(), snapshot.getActiveOrderId())
+                || !Objects.equals(activeOrder.getWorkOrderId(), snapshot.getWorkOrderId())
+                || !Objects.equals(activeOrder.getRouteId(), snapshot.getRouteId())
+                || !Objects.equals(activeOrder.getRouteVersionId(), snapshot.getRouteVersionId())
+                || !Objects.equals(routeProcessId, snapshot.getRouteProcessId())
+                || !Objects.equals(processId, snapshot.getProcessId())) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrderProcessSnapshot");
         }
     }
 

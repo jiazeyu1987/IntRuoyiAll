@@ -849,6 +849,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
                     .id(clientRouteProcessId)
                     .routeId(reqVO.getRouteId())
                     .processId(createReqVO.getProcessId())
+                    .workstationId(createReqVO.getWorkstationId())
                     .sort(createReqVO.getSort())
                     .keyFlag(createReqVO.getKeyFlag())
                     .checkFlag(createReqVO.getCheckFlag())
@@ -900,6 +901,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
             MesProRouteProcessSaveReqVO persistedReqVO = new MesProRouteProcessSaveReqVO();
             persistedReqVO.setRouteId(reqVO.getRouteId());
             persistedReqVO.setProcessId(createReqVO.getProcessId());
+            persistedReqVO.setWorkstationId(createReqVO.getWorkstationId());
             persistedReqVO.setSort(createReqVO.getSort());
             persistedReqVO.setLinkType(createReqVO.getLinkType());
             persistedReqVO.setPrepareTime(createReqVO.getPrepareTime());

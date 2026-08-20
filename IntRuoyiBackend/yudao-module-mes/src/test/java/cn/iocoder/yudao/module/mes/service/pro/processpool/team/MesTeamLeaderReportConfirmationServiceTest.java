@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
+import com.alibaba.fastjson.JSON;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -333,6 +334,47 @@ class MesTeamLeaderReportConfirmationServiceTest {
         verify(allocationMapper).insertBatch(anyCollection());
     }
 
+    @Test
+    void shouldPersistManualAllocationBeyondRemainingQuantityForLeaderCorrection() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event("{\"outputQuantity\":80}"));
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
+        givenSuccessPqcBinding(80);
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L, "2026-07-31T08:00:00");
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(activeOrder));
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(
+                workOrder(9001L, "WO-9001", "100")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(allocation(9001L, "90")));
+        when(orderProcessTargetService.requireTarget(activeOrder, 5001L, 6001L)).thenReturn(target("100"));
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7003L);
+            return 1;
+        });
+        when(allocationMapper.insertBatch(anyCollection())).thenReturn(Boolean.TRUE);
+
+        Long reviewId = service.confirmSubmission(MesTeamLeaderReportConfirmationReqBO.builder()
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
+                .reviewRemark("允许提交，交由组长后续纠错")
+                .reviewSignatureId(9101L)
+                .reviewSignatureUserId(3001L)
+                .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                .allocations(List.of(line(8101L, "80")))
+                .build());
+
+        assertEquals(7003L, reviewId);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Collection<MesProcessPoolReportAllocationDO>> allocationCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(allocationMapper).insertBatch(allocationCaptor.capture());
+        MesProcessPoolReportAllocationDO savedLine = allocationCaptor.getValue().iterator().next();
+        assertSavedLine(savedLine, 7003L, 8101L, 9001L, "80", MesProcessPoolReportAllocationDO.MODE_MANUAL);
+        verify(orderProcessCompletionService).applyConfirmedAllocations(any(MesProProcessPoolEventDO.class),
+                anyCollection());
+    }
+
     private static MesTeamLeaderReportAllocationLineReqBO line(Long activeOrderId, String quantity) {
         return MesTeamLeaderReportAllocationLineReqBO.builder()
                 .activeOrderId(activeOrderId)
@@ -351,6 +393,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .processId(6001L)
                 .actualEmployeeId(2001L)
                 .rawPayload(rawPayload)
+                .reportOutputQuantity(JSON.parseObject(rawPayload).getBigDecimal("outputQuantity"))
                 .serverSubmitTime(LocalDateTime.of(2026, 7, 31, 8, 30))
                 .build();
     }

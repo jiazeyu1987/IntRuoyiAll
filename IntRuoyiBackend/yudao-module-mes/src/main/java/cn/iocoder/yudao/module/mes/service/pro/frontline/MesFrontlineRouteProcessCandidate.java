@@ -29,7 +29,8 @@ public record MesFrontlineRouteProcessCandidate(Long routeId,
                                                 List<MesFrontlinePqcInspectionItem> inspectionItems,
                                                 List<MesFrontlinePqcTaskOption> pqcTaskOptions,
                                                 List<MesFrontlineProductionSubmitCandidate> productionSubmitCandidates,
-                                                String contextSource) {
+                                                String contextSource,
+                                                Boolean checkFlag) {
 
     public static final String CONTEXT_SOURCE_POST_BINDING = "POST_BINDING";
     public static final String CONTEXT_SOURCE_ROUTE_START_PRODUCTION_LEADER =
@@ -52,7 +53,7 @@ public record MesFrontlineRouteProcessCandidate(Long routeId,
                                              String workstationName) {
         this(routeId, routeCode, routeName, routeProcessId, processId, processCode, processName, sort,
                 deviceId, deviceCode, deviceName, workstationId, workstationCode, workstationName,
-                null, null, null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null);
+                null, null, null, null, null, null, null, null, null, List.of(), List.of(), List.of(), null, null);
     }
 
     public MesFrontlineRouteProcessCandidate(Long routeId,
@@ -71,7 +72,28 @@ public record MesFrontlineRouteProcessCandidate(Long routeId,
                                              String workstationName,
                                              String contextSource) {
         this(routeId, routeCode, routeName, routeProcessId, processId, processCode, processName, sort,
+                deviceId, deviceCode, deviceName, workstationId, workstationCode, workstationName, contextSource, null);
+    }
+
+    public MesFrontlineRouteProcessCandidate(Long routeId,
+                                             String routeCode,
+                                             String routeName,
+                                             Long routeProcessId,
+                                             Long processId,
+                                             String processCode,
+                                             String processName,
+                                             Integer sort,
+                                             Long deviceId,
+                                             String deviceCode,
+                                             String deviceName,
+                                             Long workstationId,
+                                             String workstationCode,
+                                             String workstationName,
+                                             String contextSource,
+                                             Boolean checkFlag) {
+        this(routeId, routeCode, routeName, routeProcessId, processId, processCode, processName, sort,
                 deviceId, deviceCode, deviceName, workstationId, workstationCode, workstationName,
-                null, null, null, null, null, null, null, null, null, List.of(), List.of(), List.of(), contextSource);
+                null, null, null, null, null, null, null, null, null, List.of(), List.of(), List.of(), contextSource,
+                checkFlag);
     }
 }

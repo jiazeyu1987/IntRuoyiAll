@@ -1,15 +1,15 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
-import cn.iocoder.yudao.framework.common.exception.ServiceException;
-import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
@@ -27,7 +27,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -38,6 +37,8 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
 
     @Mock
     private MesProcessPoolReportAllocationMapper allocationMapper;
+    @Mock
+    private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
     private MesProProcessPoolEventMapper eventMapper;
     @Mock
@@ -57,9 +58,9 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MesTeamLeaderOrderProcessCompletionService(allocationMapper, eventMapper, workOrderMapper,
-                completionMapper, orderProcessTargetService, scheduleOrderMapper, scheduleOrderProcessMapper,
-                backfillService);
+        service = new MesTeamLeaderOrderProcessCompletionService(allocationMapper, activeOrderMapper, eventMapper,
+                workOrderMapper, completionMapper, orderProcessTargetService, scheduleOrderMapper,
+                scheduleOrderProcessMapper, backfillService);
     }
 
     @Test
@@ -76,6 +77,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
                 .thenReturn(List.of(event(1000L, "{\"pressure\":15}",
                                 LocalDateTime.of(2026, 8, 1, 8, 30)),
                         event));
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder(8101L, 9201L));
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
         stubFormalSchedule("200", "200");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
@@ -115,6 +117,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         assertEquals("[7100,7101]", saved.getSourceAllocationIdsJson());
         assertEquals(command.getAggregateHash(), saved.getAggregateHash());
         assertEquals(command.getIdempotencyKey(), saved.getBackfillIdempotencyKey());
+        assertEquals(9201L, command.getDccProjectCodeId());
     }
 
     @Test
@@ -249,22 +252,127 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     @Test
-    void shouldPreventOverTargetProgressWhenConcurrentAllocationAlreadyConsumedRemainingQuantity() {
+    void shouldPreserveConfirmedOverageAndCapFormalScheduleProgressAtTarget() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "20");
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "190"), confirmedLine));
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubFormalSchedule("200", "200");
+        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
 
-        ServiceException ex = assertThrows(ServiceException.class,
-                () -> service.applyConfirmedAllocations(event, List.of(confirmedLine)));
+        service.applyConfirmedAllocations(event, List.of(confirmedLine));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH.getCode(),
-                ex.getCode());
-        verify(completionMapper, never()).insert(any(MesProcessPoolOrderProcessCompletionDO.class));
+        ArgumentCaptor<MesProcessPoolOrderProcessCompletionDO> completionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).insert(completionCaptor.capture());
+        MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
+        assertAmount("200", saved.getTargetQuantity());
+        assertAmount("210", saved.getConfirmedQuantity());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED, saved.getCompletionStatus());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED,
+                saved.getBackfillStatus());
+        verify(scheduleOrderProcessMapper).updateProgress(8801L, new BigDecimal("200.000000"),
+                new BigDecimal("0.000000"), new BigDecimal("100.000000"));
+        verify(scheduleOrderMapper).updateProgressSummary(7701L, new BigDecimal("200.000000"),
+                new BigDecimal("200.000000"), new BigDecimal("0.000000"), new BigDecimal("100.000000"),
+                MesProScheduleOrderStatusEnum.FINISHED.getStatus());
         verify(completionMapper, never()).updateById(any(MesProcessPoolOrderProcessCompletionDO.class));
         verify(backfillService, never()).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
+    }
+
+    @Test
+    void shouldBackfillAfterLeaderCorrectionResolvesConfirmedOverageAtTarget() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO supersededOverage = allocation(9001L, "210", 7201L, 1001L, 7001L,
+                LocalDateTime.of(2026, 8, 1, 9, 30));
+        MesProcessPoolReportAllocationDO correctedLine = allocation(9001L, "200", 7301L, 1001L, 7002L,
+                LocalDateTime.of(2026, 8, 1, 10, 0));
+        MesProcessPoolOrderProcessCompletionDO existingCompletion = new MesProcessPoolOrderProcessCompletionDO()
+                .setId(7701L)
+                .setWorkOrderId(9001L)
+                .setRouteProcessId(5001L)
+                .setProcessId(6001L)
+                .setTargetQuantity(new BigDecimal("200"))
+                .setConfirmedQuantity(new BigDecimal("210"))
+                .setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED)
+                .setCompletedAt(LocalDateTime.of(2026, 8, 1, 9, 30))
+                .setBackfillStatus(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_NOT_REQUIRED)
+                .setLastEventId(1001L)
+                .setLastReviewId(7001L);
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(correctedLine));
+        when(eventMapper.selectBatchIds(List.of(1001L))).thenReturn(List.of(event));
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder(8101L, 9201L));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubFormalSchedule("200", "200");
+        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
+                .thenReturn(existingCompletion);
+        when(backfillService.backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class)))
+                .thenReturn(new MesTeamLeaderBatchRecordBackfillResult()
+                        .setExecutionId(8802L)
+                        .setAppliedFieldCount(2));
+
+        service.reconcileAffectedAllocations(event, List.of(supersededOverage, correctedLine));
+
+        ArgumentCaptor<MesProcessPoolOrderProcessCompletionDO> completionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).updateById(completionCaptor.capture());
+        MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
+        assertAmount("200", saved.getConfirmedQuantity());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS, saved.getBackfillStatus());
+        assertEquals(8802L, saved.getBackfillExecutionId());
+        assertEquals(7002L, saved.getLastReviewId());
+        verify(backfillService).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
+    }
+
+    @Test
+    void shouldRebuildBackfillWhenCorrectionResolvesOverageAfterPriorCompletion() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO supersededOverage = allocation(9001L, "210", 7201L, 1001L, 7001L,
+                LocalDateTime.of(2026, 8, 1, 9, 30));
+        MesProcessPoolReportAllocationDO correctedLine = allocation(9001L, "200", 7301L, 1001L, 7002L,
+                LocalDateTime.of(2026, 8, 1, 10, 0));
+        MesProcessPoolOrderProcessCompletionDO existingCompletion = new MesProcessPoolOrderProcessCompletionDO()
+                .setId(7701L)
+                .setWorkOrderId(9001L)
+                .setRouteProcessId(5001L)
+                .setProcessId(6001L)
+                .setTargetQuantity(new BigDecimal("200"))
+                .setConfirmedQuantity(new BigDecimal("210"))
+                .setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED)
+                .setCompletedAt(LocalDateTime.of(2026, 8, 1, 9, 0))
+                .setBackfillStatus(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS)
+                .setBackfillExecutionId(8801L)
+                .setLastEventId(1001L)
+                .setLastReviewId(7001L);
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("200")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(correctedLine));
+        when(eventMapper.selectBatchIds(List.of(1001L))).thenReturn(List.of(event));
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder(8101L, 9201L));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("200"));
+        stubFormalSchedule("200", "200");
+        when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L))
+                .thenReturn(existingCompletion);
+        when(backfillService.backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class)))
+                .thenReturn(new MesTeamLeaderBatchRecordBackfillResult()
+                        .setExecutionId(8802L)
+                        .setAppliedFieldCount(2));
+
+        service.reconcileAffectedAllocations(event, List.of(supersededOverage, correctedLine));
+
+        ArgumentCaptor<MesProcessPoolOrderProcessCompletionDO> completionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolOrderProcessCompletionDO.class);
+        verify(completionMapper).updateById(completionCaptor.capture());
+        MesProcessPoolOrderProcessCompletionDO saved = completionCaptor.getValue();
+        assertAmount("200", saved.getConfirmedQuantity());
+        assertEquals(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS, saved.getBackfillStatus());
+        assertEquals(8802L, saved.getBackfillExecutionId());
+        assertEquals(7002L, saved.getLastReviewId());
+        verify(backfillService).backfillCompletedProcess(any(MesTeamLeaderBatchRecordBackfillCommand.class));
     }
 
     @Test
@@ -306,6 +414,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
                 .thenReturn(List.of(allocation(9001L, "300"), allocation(9001L, "300"), confirmedLine));
         when(eventMapper.selectBatchIds(List.of(1001L))).thenReturn(List.of(event));
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder(8101L, 9201L));
         when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
         stubFormalSchedule("300", "900");
         when(completionMapper.selectByWorkOrderAndProcessForUpdate(9001L, 5001L, 6001L)).thenReturn(null);
@@ -408,12 +517,24 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     }
 
     private static MesProcessPoolReportAllocationDO allocation(Long activeOrderId, Long workOrderId,
-                                                               Long routeProcessId, String quantity, Long id) {
+                                                                Long routeProcessId, String quantity, Long id) {
         return MesProcessPoolReportAllocationDO.builder().id(id).eventId(1001L).reviewId(7001L)
                 .leaderUserId(3001L).activeOrderId(activeOrderId).workOrderId(workOrderId)
                 .routeProcessId(routeProcessId).processId(6001L).allocatedQuantity(new BigDecimal(quantity))
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
                 .confirmedAt(LocalDateTime.of(2026, 8, 1, 9, 1)).build();
+    }
+
+    private static MesProcessPoolActiveOrderDO activeOrder(Long id, Long dccProjectCodeId) {
+        return MesProcessPoolActiveOrderDO.builder()
+                .id(id)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(7001L)
+                .routeVersionId(7101L)
+                .dccProjectCodeId(dccProjectCodeId)
+                .activeStatus("ACTIVE")
+                .build();
     }
 
     private static MesProWorkOrderDO workOrder(String quantity) {

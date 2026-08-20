@@ -12,6 +12,7 @@ import java.util.Objects;
 public record MesFrontlinePqcTaskOverlay(Long activeOrderId,
                                          Long regulationVersionId,
                                          Long qaProcessId,
+                                         String qaItemCode,
                                          String inspectionRuleKey,
                                          String inspectionType,
                                          String status,
@@ -26,22 +27,26 @@ public record MesFrontlinePqcTaskOverlay(Long activeOrderId,
         List<MesPqcInspectionTaskDO> matches = selectMatchingPendingTasks(expectedTask, tasks);
         if (matches.isEmpty()) {
             return new MesFrontlinePqcTaskOverlay(expectedTask.activeOrderId(), expectedTask.regulationVersionId(),
-                    expectedTask.qaProcessId(), expectedTask.inspectionRuleKey(), expectedTask.inspectionType(),
+                    expectedTask.qaProcessId(), expectedTask.qaItemCode(), expectedTask.inspectionRuleKey(),
+                    expectedTask.inspectionType(),
                     STATUS_NOT_CREATED, null);
         }
         if (matches.size() > 1) {
             throw new IllegalStateException("duplicate PQC task overlay identity: activeOrderId="
                     + expectedTask.activeOrderId() + ", regulationVersionId=" + expectedTask.regulationVersionId()
                     + ", qaProcessId=" + expectedTask.qaProcessId()
+                    + ", qaItemCode=" + expectedTask.qaItemCode()
                     + ", inspectionRuleKey=" + expectedTask.inspectionRuleKey());
         }
         MesPqcInspectionTaskDO task = matches.get(0);
         MesFrontlinePqcTaskOption option = new MesFrontlinePqcTaskOption(task.getId(),
-                task.getRegulationVersionId(), task.getQaProcessId(), expectedTask.finalInspectionApplicable(),
+                task.getRegulationVersionId(), task.getQaProcessId(), task.getQaItemCode(),
+                expectedTask.finalInspectionApplicable(),
                 task.getInspectionType(), task.getBusinessDate(), task.getShiftCode(), task.getRoundNo(),
                 task.getPlannedInspectionQuantity(), List.copyOf(expectedTask.inspectionItems()));
         return new MesFrontlinePqcTaskOverlay(expectedTask.activeOrderId(), expectedTask.regulationVersionId(),
-                expectedTask.qaProcessId(), expectedTask.inspectionRuleKey(), expectedTask.inspectionType(),
+                expectedTask.qaProcessId(), expectedTask.qaItemCode(), expectedTask.inspectionRuleKey(),
+                expectedTask.inspectionType(),
                 STATUS_PENDING, option);
     }
 
@@ -74,6 +79,7 @@ public record MesFrontlinePqcTaskOverlay(Long activeOrderId,
                 .filter(task -> Objects.equals(expectedTask.activeOrderId(), task.getActiveOrderId()))
                 .filter(task -> Objects.equals(expectedTask.regulationVersionId(), task.getRegulationVersionId()))
                 .filter(task -> Objects.equals(expectedTask.qaProcessId(), task.getQaProcessId()))
+                .filter(task -> Objects.equals(expectedTask.qaItemCode(), task.getQaItemCode()))
                 .filter(task -> Objects.equals(expectedTask.inspectionRuleKey(), task.getInspectionRuleKey()))
                 .filter(task -> Objects.equals(expectedTask.inspectionType(), task.getInspectionType()))
                 .toList();
@@ -115,6 +121,7 @@ public record MesFrontlinePqcTaskOverlay(Long activeOrderId,
     public record ExpectedTaskIdentity(Long activeOrderId,
                                        Long regulationVersionId,
                                        Long qaProcessId,
+                                       String qaItemCode,
                                        String inspectionRuleKey,
                                        String inspectionType,
                                        LocalDate businessDate,

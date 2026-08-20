@@ -324,6 +324,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     (rs, rowNum) -> MesPqcInspectionTaskDO.builder().id(TASK_ID)
                             .activeOrderId(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID)
                             .routeVersionId(ROUTE_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                            .qaItemCode("QA-001")
                             .regulationVersionId(REGULATION_VERSION_ID).inspectionType("FIRST")
                             .inspectionRuleKey("FIRST").businessDate(BUSINESS_DATE).shiftCode("FIRST").roundNo(1)
                             .plannedInspectionQuantity(1).actualInspectionQuantity((Integer) rs.getObject(2))

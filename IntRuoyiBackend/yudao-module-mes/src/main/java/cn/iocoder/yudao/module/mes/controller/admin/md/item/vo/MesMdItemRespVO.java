@@ -28,6 +28,13 @@ public class MesMdItemRespVO {
     @ExcelProperty("物料名称")
     private String name;
 
+    @Schema(description = "MDM 产品主档编号", example = "1024")
+    private Long productMasterId;
+
+    @Schema(description = "MDM 产品编码", example = "MDM-PRODUCT-001")
+    @ExcelProperty("MDM 产品编码")
+    private String productMasterCode;
+
     @Schema(description = "规格型号", example = "M6*20")
     @ExcelProperty("规格型号")
     private String specification;

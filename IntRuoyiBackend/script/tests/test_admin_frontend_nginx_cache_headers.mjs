@@ -39,8 +39,21 @@ const assertNoStoreEntryHeaders = (locationPattern) => {
   assert.match(block, /try_files\s+\/index\.html\s+=404;/)
 }
 
+const assertNoStoreSpaFallbackHeaders = (locationPattern) => {
+  const block = extractLocationBlock(locationPattern)
+  assert.match(
+    block,
+    /add_header\s+Cache-Control\s+"no-store,\s*no-cache,\s*must-revalidate,\s*max-age=0"\s+always;/,
+    `${locationPattern} must force revalidation for routed app entry URLs such as /index`
+  )
+  assert.match(block, /add_header\s+Pragma\s+"no-cache"\s+always;/)
+  assert.match(block, /add_header\s+Expires\s+"0"\s+always;/)
+  assert.match(block, /try_files\s+\$uri\s+\$uri\/\s+\/index\.html;/)
+}
+
 assertNoStoreEntryHeaders('location = / ')
 assertNoStoreEntryHeaders('location = /index.html ')
+assertNoStoreEntryHeaders('location = /index ')
 
 const assetsBlock = extractLocationBlock('location ^~ /assets/ ')
 assert.match(
@@ -58,5 +71,7 @@ assert(
   adminApiIndex < spaFallbackIndex,
   'admin API proxy must be declared before SPA fallback to avoid serving index.html for API calls'
 )
+
+assertNoStoreSpaFallbackHeaders('location / ')
 
 console.log('admin frontend nginx cache headers contract passed')

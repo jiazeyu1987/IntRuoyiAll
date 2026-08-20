@@ -18,6 +18,20 @@ const tableEnd = source.indexOf('</el-table>', tableStart)
 assert.ok(tableStart > reportStart && tableEnd > tableStart, 'submission table block must be locatable.')
 const tableBlock = source.slice(tableStart, tableEnd)
 
+const extractConstArrayBlock = (name) => {
+  const marker = `const ${name}`
+  const start = source.indexOf(marker)
+  assert.ok(start >= 0, `${name} must be declared.`)
+  const nextConst = source.indexOf('\nconst ', start + marker.length)
+  assert.ok(nextConst > start, `${name} block must have a clear end marker.`)
+  return source.slice(start, nextConst)
+}
+
+const submissionDefaultColumnsBlock = [
+  extractConstArrayBlock('productionSubmissionDefaultColumns'),
+  extractConstArrayBlock('pqcSubmissionDefaultColumns')
+].join('\n')
+
 for (const label of ['PQC', '提交内容']) {
   assert.doesNotMatch(
     tableBlock,
@@ -32,7 +46,7 @@ assert.match(
 )
 for (const removedKey of ['workOrderCode', 'pqcResult', 'submissionContent']) {
   assert.doesNotMatch(
-    source,
+    submissionDefaultColumnsBlock,
     new RegExp(`\\{ key: '${removedKey}'`),
     `submission default columns must not keep removed key ${removedKey}.`
   )
@@ -101,7 +115,7 @@ assert.doesNotMatch(
 
 assert.match(
   frontlinePanel,
-  /buildProductionLossReasonDetailsPayload[\s\S]*lossReasonDetails/,
+  /buildProductionLossDetailsPayload[\s\S]*lossReasonDetails/,
   'production submit raw payload must snapshot per-reason loss quantities for the leader list.'
 )
 assert.match(
@@ -111,8 +125,13 @@ assert.match(
 )
 assert.match(
   frontlinePanel,
-  /rawPayload:\s*buildProductionStructuredRawPayload\(rawPayload\)/,
-  'production submit must persist the structured raw payload snapshot without changing the formal submit endpoint.'
+  /rawPayload:\s*buildProductionStructuredRawPayload\(rawPayload,\s*formalContext\)/,
+  'production submit must persist the structured raw payload snapshot with the formal submit context.'
+)
+assert.match(
+  frontlinePanel,
+  /activeOrderProcess:[\s\S]*activeOrderProcessSnapshotId:\s*formalContext\.activeOrderProcessSnapshotId/,
+  'production structured raw payload must preserve the active-order process snapshot identity.'
 )
 
 console.log('PASS: PQC submission structured columns static contract')

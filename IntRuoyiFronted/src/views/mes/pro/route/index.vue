@@ -212,7 +212,7 @@
             label="操作"
             align="center"
             prop="actions"
-            :width="getRouteColumnWidthString('actions', 220)"
+            :width="getRouteColumnWidthString('actions', 280)"
             fixed="right"
           >
             <template #default="scope">
@@ -244,6 +244,14 @@
               </el-button>
               <el-button
                 link
+                type="primary"
+                @click="openRouteProcessTemplateDialog(scope.row)"
+                v-hasPermi="['mes:pro-route:update']"
+              >
+                工序模板
+              </el-button>
+              <el-button
+                link
                 type="danger"
                 @click="handleDelete(scope.row.id)"
                 v-hasPermi="['mes:pro-route:delete']"
@@ -265,6 +273,8 @@
   />
   <!-- 多 Sheet 路线 Excel 导入对话框 -->
   <RouteWorkbookExcelImportForm ref="routeWorkbookExcelImportFormRef" @success="getList" />
+  <!-- 员工工序模板导入对话框 -->
+  <RouteProcessTemplateImportForm ref="routeProcessTemplateImportFormRef" @success="getList" />
   <Dialog v-model="copyDialogVisible" title="复制工艺路线" width="520px">
     <el-form label-width="96px">
       <el-form-item label="源路线">
@@ -489,6 +499,9 @@ defineOptions({ name: 'MesProRoute' })
 
 const RouteForm = defineAsyncComponent(() => import('./RouteForm.vue'))
 const RouteWorkbookExcelImportForm = defineAsyncComponent(() => import('./RouteWorkbookExcelImportForm.vue'))
+const RouteProcessTemplateImportForm = defineAsyncComponent(
+  () => import('./RouteProcessTemplateImportForm.vue')
+)
 
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
@@ -617,7 +630,7 @@ const routeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'pendingRouteVersionNo', label: '待发布版本', minWidth: 160 },
   { key: 'productCodes', label: '关联产品', minWidth: 220 },
   { key: 'createTime', label: '创建时间', width: 180 },
-  { key: 'actions', label: '操作', width: 220, hideable: false, business: false }
+  { key: 'actions', label: '操作', width: 280, hideable: false, business: false }
 ]
 const {
   saving: routeColumnSaving,
@@ -643,6 +656,7 @@ const copyForm = reactive({
 })
 const formRef = ref() // 表单弹窗
 const routeWorkbookExcelImportFormRef = ref()
+const routeProcessTemplateImportFormRef = ref()
 
 const routeQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
@@ -1211,6 +1225,11 @@ const isDuplicateRouteNameError = (error: unknown) => {
 /** 多 Sheet 路线 Excel 导入 */
 const handleRouteWorkbookExcelImport = () => {
   routeWorkbookExcelImportFormRef.value.open()
+}
+
+/** 员工工序模板 */
+const openRouteProcessTemplateDialog = (row: ProRouteVO) => {
+  routeProcessTemplateImportFormRef.value.open(row)
 }
 
 /** 删除按钮操作 */

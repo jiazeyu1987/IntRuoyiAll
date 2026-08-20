@@ -59,6 +59,14 @@ public interface MesKingdeeProductionMaterialListMapper extends BaseMapperX<MesK
                 .orderByAsc(MesKingdeeProductionMaterialListDO::getId));
     }
 
+    default List<MesKingdeeProductionMaterialListDO> selectListByProductCode(String productCode) {
+        return selectList(new LambdaQueryWrapperX<MesKingdeeProductionMaterialListDO>()
+                .eq(MesKingdeeProductionMaterialListDO::getProductCode, productCode)
+                .orderByAsc(MesKingdeeProductionMaterialListDO::getProductionOrderNo)
+                .orderByAsc(MesKingdeeProductionMaterialListDO::getProductionOrderLineNo)
+                .orderByAsc(MesKingdeeProductionMaterialListDO::getId));
+    }
+
     default List<MesKingdeeProductionMaterialListDO> selectListByWorkOrderId(Long workOrderId) {
         return selectList(new LambdaQueryWrapperX<MesKingdeeProductionMaterialListDO>()
                 .eq(MesKingdeeProductionMaterialListDO::getWorkOrderId, workOrderId)

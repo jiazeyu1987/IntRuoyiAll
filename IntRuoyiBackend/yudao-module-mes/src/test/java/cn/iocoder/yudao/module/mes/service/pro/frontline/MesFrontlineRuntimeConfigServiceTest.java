@@ -1,15 +1,20 @@
 package cn.iocoder.yudao.module.mes.service.pro.frontline;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDefectReasonMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotCodec;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDeviceParameterSnapshotRule;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,11 +24,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,16 +56,21 @@ class MesFrontlineRuntimeConfigServiceTest {
     @Mock
     private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     @Mock
+    private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Mock
     private MesProcessPoolDefectReasonMapper defectReasonMapper;
     @Mock
     private MesFrontlineSessionSnapshotService sessionSnapshotService;
+    @Mock
+    private MesFrontlineActiveOrderProcessService activeOrderProcessService;
 
     private MesFrontlineRuntimeConfigServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new MesFrontlineRuntimeConfigServiceImpl(contextService, templateResolver, employeeProfileMapper,
-                processDeviceMapper, deviceMapper, parameterRuleMapper, defectReasonMapper, sessionSnapshotService);
+                processDeviceMapper, deviceMapper, parameterRuleMapper, processSnapshotMapper,
+                defectReasonMapper, sessionSnapshotService, activeOrderProcessService);
         org.mockito.Mockito.lenient().when(sessionSnapshotService.issue(any()))
                 .thenReturn(new MesFrontlineSessionSnapshotReference("snapshot-001", "hash-001"));
         org.mockito.Mockito.lenient().when(contextService.resolveResponsibleLeaderUserId(LOGIN_USER_ID))
@@ -208,6 +222,93 @@ class MesFrontlineRuntimeConfigServiceTest {
         assertEquals(8801L, config.employeeSwitchSnapshots().get(0).actualEmployeeId());
         assertEquals(10003L, config.employeeSwitchSnapshots().get(1).actualEmployeeId());
         assertEquals(10003L, config.employeeSwitchSnapshots().get(1).template().actualEmployeeId());
+    }
+
+    @Test
+    void getRuntimeConfig_usesFrozenActiveOrderParameterStandardAfterCurrentRuleChanges() {
+        when(activeOrderProcessService.requireProcess(LOGIN_USER_ID, 8101L, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineActiveOrderProcess(8101L, ROUTE_ID, 627L, "R-101", "Route 101",
+                        ROUTE_PROCESS_ID, PROCESS_ID, "P-201", "精洗", 10,
+                        301L, "WS-301", "精洗工位",
+                        new BigDecimal("1.000000"), new BigDecimal("100.000000"), Boolean.FALSE));
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
+                        "当前组长人员", "当前组长人员", "FORMAL", true)));
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(processDevice(LOGIN_USER_ID, 7001L)));
+        when(deviceMapper.selectBatchIds(anyCollection())).thenReturn(List.of(
+                teamDevice(7001L, LOGIN_USER_ID, "D-001", "压力泵", "ENABLED", true)));
+        lenient().when(parameterRuleMapper.selectList(any())).thenReturn(List.of(
+                parameterRule(7001L, ROUTE_PROCESS_ID, "pressure", "压力", "MPa",
+                        "0", "12", "6", "DECIMAL")));
+        when(defectReasonMapper.selectList(any())).thenReturn(List.of());
+        String frozenJson = JsonUtils.toJsonString(List.of(MesDeviceParameterSnapshotRule.builder()
+                .routeProcessId(ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .deviceId(7001L)
+                .parameterCode("pressure")
+                .parameterName("压力")
+                .unit("MPa")
+                .lowerLimit(BigDecimal.ZERO)
+                .upperLimit(new BigDecimal("10"))
+                .defaultValue(new BigDecimal("5"))
+                .valueType("DECIMAL")
+                .standardText("0-10MPa，目标5MPa")
+                .build()));
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(8101L, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesProcessPoolActiveOrderProcessSnapshotDO()
+                        .setId(5101L)
+                        .setActiveOrderId(8101L)
+                        .setRouteId(ROUTE_ID)
+                        .setRouteProcessId(ROUTE_PROCESS_ID)
+                        .setProcessId(PROCESS_ID)
+                        .setParameterSnapshotJson(frozenJson)
+                        .setParameterSnapshotSha256(MesDeviceParameterSnapshotCodec.sha256(frozenJson))
+                        .setParameterSnapshotState(MesDeviceParameterSnapshotCodec.STATE_FROZEN));
+
+        MesFrontlineRuntimeConfig config = service.getRuntimeConfig(LOGIN_USER_ID, 8101L, ROUTE_ID,
+                ROUTE_PROCESS_ID, PROCESS_ID);
+
+        assertEquals(new BigDecimal("10"), config.devices().get(0).parameters().get(0).upperLimit());
+        assertEquals(5101L, config.productionSubmitContext().activeOrderProcessSnapshotId());
+        assertEquals(MesDeviceParameterSnapshotCodec.STATE_FROZEN,
+                config.productionSubmitContext().parameterSnapshotState());
+        verify(parameterRuleMapper, never()).selectList(any());
+    }
+
+    @Test
+    void getRuntimeConfig_usesFrozenActiveOrderProcessInsteadOfCurrentRouteAuthorization() {
+        Long activeOrderId = 8101L;
+        Long frozenRouteProcessId = 980645L;
+        when(activeOrderProcessService.requireProcess(LOGIN_USER_ID, activeOrderId, ROUTE_ID,
+                frozenRouteProcessId, PROCESS_ID)).thenReturn(new MesFrontlineActiveOrderProcess(activeOrderId,
+                ROUTE_ID, 627L, "RT000028", "球囊扩张压力泵", frozenRouteProcessId, PROCESS_ID,
+                "ER0C9BD936FFAE", "粗洗工序", 1, 980010L, "WS-CX", "粗洗工位",
+                new BigDecimal("1.000000"), new BigDecimal("100.000000"), Boolean.FALSE));
+        when(templateResolver.resolve(new MesFrontlineTemplateRequest(LOGIN_USER_ID, 10001L, ROUTE_ID,
+                frozenRouteProcessId, PROCESS_ID, Boolean.FALSE))).thenReturn(new MesFrontlineTemplateDescriptor(
+                "PRODUCTION_SIMPLIFIED", "PRODUCTION", frozenRouteProcessId, PROCESS_ID, 10001L));
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(employeeProfileMapper.selectList(any())).thenReturn(List.of(
+                employeeProfile(8801L, LOGIN_USER_ID, 10001L, "LOGIN-001",
+                        "当前组长人员", "当前组长人员", "FORMAL", true)));
+        when(defectReasonMapper.selectList(any())).thenReturn(List.of());
+        when(processSnapshotMapper.selectByActiveOrderAndProcess(activeOrderId, frozenRouteProcessId, PROCESS_ID))
+                .thenReturn(new MesProcessPoolActiveOrderProcessSnapshotDO()
+                        .setId(5101L)
+                        .setActiveOrderId(activeOrderId)
+                        .setRouteId(ROUTE_ID)
+                        .setRouteVersionId(627L)
+                        .setRouteProcessId(frozenRouteProcessId)
+                        .setProcessId(PROCESS_ID));
+
+        MesFrontlineRuntimeConfig config = assertDoesNotThrow(() -> service.getRuntimeConfig(
+                LOGIN_USER_ID, activeOrderId, ROUTE_ID, frozenRouteProcessId, PROCESS_ID));
+
+        assertEquals(frozenRouteProcessId, config.routeProcessId());
+        assertEquals("PRODUCTION_SIMPLIFIED", config.employeeSwitchSnapshots().get(0).template().templateNo());
+        assertEquals(5101L, config.productionSubmitContext().activeOrderProcessSnapshotId());
+        verify(contextService, never()).requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID,
+                frozenRouteProcessId, PROCESS_ID);
     }
 
     @Test

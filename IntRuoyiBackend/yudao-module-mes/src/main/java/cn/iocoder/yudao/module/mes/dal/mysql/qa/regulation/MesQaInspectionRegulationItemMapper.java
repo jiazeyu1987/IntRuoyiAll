@@ -37,8 +37,24 @@ public interface MesQaInspectionRegulationItemMapper
                 .orderByAsc(MesQaInspectionRegulationItemDO::getId));
     }
 
+    default Long selectCountByVersionIds(Collection<Long> regulationVersionIds) {
+        if (regulationVersionIds == null || regulationVersionIds.isEmpty()) {
+            return 0L;
+        }
+        return selectCount(new LambdaQueryWrapperX<MesQaInspectionRegulationItemDO>()
+                .in(MesQaInspectionRegulationItemDO::getRegulationVersionId, regulationVersionIds));
+    }
+
     default int deleteByVersionId(Long regulationVersionId) {
         return delete(new LambdaQueryWrapperX<MesQaInspectionRegulationItemDO>()
                 .eq(MesQaInspectionRegulationItemDO::getRegulationVersionId, regulationVersionId));
+    }
+
+    default int deleteByVersionIds(Collection<Long> regulationVersionIds) {
+        if (regulationVersionIds == null || regulationVersionIds.isEmpty()) {
+            return 0;
+        }
+        return delete(new LambdaQueryWrapperX<MesQaInspectionRegulationItemDO>()
+                .in(MesQaInspectionRegulationItemDO::getRegulationVersionId, regulationVersionIds));
     }
 }

@@ -25,60 +25,55 @@ const extractFunctionBlock = (name) => {
   assert.fail(`unterminated function body: ${name}`)
 }
 
-const productionStageIndex = source.indexOf('data-frontline-production-stage')
-const failureDialogIndex = source.indexOf('data-production-submit-password-failure-dialog')
-const pqcPickerIndex = source.indexOf('data-pqc-process-picker')
-
-assert.ok(productionStageIndex >= 0, 'production fullscreen stage must exist.')
-assert.ok(failureDialogIndex >= 0, 'password failure dialog must exist.')
+const productionPanelStart = source.indexOf(
+  'class="frontline-work-panel panel quantity-panel frontline-production-quantity-panel"'
+)
+const devicePanelStart = source.indexOf(
+  'class="frontline-work-panel panel device-panel frontline-production-device-panel"'
+)
 assert.ok(
-  failureDialogIndex > productionStageIndex && failureDialogIndex < pqcPickerIndex,
-  'password failure dialog must render inside the fullscreen root so it remains visible after requestFullscreen().'
+  productionPanelStart >= 0 && devicePanelStart > productionPanelStart,
+  'production left quantity panel must exist.'
 )
+const productionPanel = source.slice(productionPanelStart, devicePanelStart)
+
 assert.match(
-  source,
-  /class="frontline-production-submit-success-modal"[\s\S]*data-production-submit-password-failure-dialog[\s\S]*role="dialog"[\s\S]*aria-modal="true"/,
-  'password failure must use the same in-component modal shell as the submit-success dialog.'
+  productionPanel,
+  /data-frontline-error-slot[\s\S]*data-frontline-error-message[\s\S]*frontlineErrorMessage/,
+  'password failure must render in the production left-panel inline error zone.'
 )
-assert.match(
+assert.doesNotMatch(
   source,
-  /data-production-submit-password-failure-dialog[\s\S]*<section class="frontline-production-submit-success-dialog"/,
-  'password failure must reuse the submit-success dialog panel size and spacing.'
-)
-assert.match(
-  source,
-  /data-production-submit-password-failure-message[\s\S]*\{\{\s*productionSubmitFailureText\s*\}\}/,
-  'password failure dialog must show the formal backend error text.'
-)
-assert.match(
-  source,
-  /data-production-submit-password-failure-close[\s\S]*@click="closeProductionSubmitFailureDialog"/,
-  'password failure dialog must expose an explicit close action.'
+  /data-production-submit-password-failure-dialog|productionSubmitFailureOpen|productionSubmitFailureText/,
+  'password failure must not open a separate result dialog.'
 )
 
 const submitHandler = extractFunctionBlock('handleProductionFormalSubmit')
 assert.match(
   submitHandler,
-  /catch \(error\) \{[\s\S]*isProductionPasswordValidationFailure\(error\)[\s\S]*openProductionSubmitFailureDialog\(resolveErrorMessage\(error\)\)[\s\S]*return[\s\S]*throw error[\s\S]*\} finally/,
-  'formal submit must convert only password validation failure into the fullscreen-root dialog and rethrow other failures.'
+  /try \{[\s\S]*ProFeedbackApi\.frontlineSubmit\(formalPayload\)[\s\S]*\} finally \{[\s\S]*payloadLoading\.value = false/,
+  'formal submit must release loading and propagate failures to the shared command boundary.'
 )
 assert.doesNotMatch(
   submitHandler,
-  /catch \(error\) \{[\s\S]*message\.error/,
-  'formal submit must not downgrade password validation failure to a body-level toast.'
+  /isProductionPasswordValidationFailure|openProductionSubmitFailureDialog|catch \(error\)/,
+  'formal submit must not divert password failures into a dedicated dialog branch.'
 )
 
-const isPasswordFailure = extractFunctionBlock('isProductionPasswordValidationFailure')
+const validateHandler = extractFunctionBlock('handleValidate')
 assert.match(
-  isPasswordFailure,
-  /当前密码校验失败|密码校验失败|电子签名密码/,
-  'password-failure classifier must be explicit and limited to password/signature validation errors.'
+  validateHandler,
+  /await handleProductionFormalSubmit\(\)[\s\S]*catch \(error\) \{[\s\S]*showFrontlineError\(error\)/,
+  'the production command boundary must show backend password text in the inline error zone.'
 )
 
+const passwordConfirmHandler = extractFunctionBlock(
+  'confirmProductionFormalSubmitConfirmation'
+)
 assert.match(
-  source,
-  /const isSubmitBlocked = computed\(\(\) =>[\s\S]*productionSubmitFailureOpen\.value/,
-  'submit controls must remain blocked while the password-failure dialog covers the page.'
+  passwordConfirmHandler,
+  /!productionSignaturePassword\.value\.trim\(\)[\s\S]*showFrontlineError\('请输入所选员工的电子签名密码。'\)[\s\S]*return/,
+  'missing production signature password must use the same inline error zone.'
 )
 
-console.log('PASS: frontline production password failure uses fullscreen-root result dialog')
+console.log('PASS: frontline production password failure uses the fixed inline error zone')

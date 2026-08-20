@@ -15,6 +15,10 @@ public class MesTeamLeaderActiveOrderCandidateRespVO {
     @Schema(description = "生产工单号", requiredMode = Schema.RequiredMode.REQUIRED, example = "WO-9001")
     private String workOrderCode;
 
+    @Schema(description = "候选动作状态", requiredMode = Schema.RequiredMode.REQUIRED,
+            allowableValues = {"ADDABLE", "REUSABLE", "RECOVERABLE", "BLOCKED"}, example = "RECOVERABLE")
+    private String candidateState;
+
     @Schema(description = "是否满足加入活跃订单池前置条件", requiredMode = Schema.RequiredMode.REQUIRED, example = "true")
     private Boolean eligible;
 

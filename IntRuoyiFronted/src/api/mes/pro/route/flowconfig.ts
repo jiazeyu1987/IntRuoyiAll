@@ -94,6 +94,7 @@ export interface ProRouteStartProductionLeaderProductionLineVO {
 
 export interface ProRouteFlowFormBindingVO {
   formBindingKey?: string | null
+  globalSyncKey?: string | null
   formSlotType?: ProRouteFlowFormSlotType | null
   formTemplateId: number
   formTemplateName?: string | null
@@ -145,6 +146,7 @@ export interface ProRouteFlowBatchRecordVO {
 
 export interface ProRouteFlowFormBindingSaveVO {
   formBindingKey?: string | null
+  globalSyncKey?: string | null
   formSlotType?: ProRouteFlowFormSlotType | null
   formTemplateId: number
   formTemplateName?: string | null

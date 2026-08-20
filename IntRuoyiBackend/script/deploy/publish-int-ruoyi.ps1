@@ -802,7 +802,7 @@ function Resolve-BackendRuntimeBaseConfig {
     }
 }
 
-function Assert-BackendRuntimeBaseImageAvailable {
+function Assert-BackendRuntimeBaseTarIntegrity {
     param(
         [Parameter(Mandatory = $true)]
         [System.Collections.IDictionary]$Config
@@ -812,6 +812,13 @@ function Assert-BackendRuntimeBaseImageAvailable {
     if ($actualTarSha256 -ne $config.TarSha256) {
         Fail "Backend runtime base tar sha256 mismatch: expected $($config.TarSha256), got $actualTarSha256 ($($config.TarPath))"
     }
+}
+
+function Assert-BackendRuntimeBaseImageAvailable {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Config
+    )
 
     Info "Loading backend runtime base image: $($config.TarPath)"
     Invoke-CheckedCommand -FilePath 'docker' -ArgumentList @('load', '-i', $config.TarPath)
@@ -3596,7 +3603,7 @@ function Read-ReleaseMigrationMetadata {
                 $metadata.dependsOn = @($values)
             }
             'type' {
-                if ($values.Count -ne 1 -or $values[0] -notin @('schema', 'data', 'menu', 'config', 'permission', 'seed')) {
+                if ($values.Count -ne 1 -or $values[0] -notin @('schema', 'data', 'menu', 'config', 'permission', 'seed', 'preflight', 'backfill', 'postflight', 'rollback-dry-run')) {
                     Fail "Invalid type in release migration metadata: $SqlPath"
                 }
                 $metadata.type = [string]$values[0]
@@ -4621,6 +4628,9 @@ function Read-ReleasePreflightPlan {
     } catch {
         Fail "preflight-plan.json parse failed: $($_.Exception.Message)"
     }
+    if ([string]$plan.publishScope -ne $releasePublishScope) {
+        Fail "preflight-plan.json publishScope does not match release package: $($plan.publishScope) != $releasePublishScope"
+    }
     if ([string]$plan.status -ne 'passed') {
         Fail "preflight-plan.json status must be passed before deploy-release: $($plan.status)"
     }
@@ -4629,7 +4639,7 @@ function Read-ReleasePreflightPlan {
         if ($action.StartsWith('BLOCKED_')) {
             Fail "preflight-plan.json contains blocked migration: $($item.migrationId) -> $action"
         }
-        if ($action -notin @('APPLY', 'SKIP_ALREADY_APPLIED', 'SKIP_ENV_NOT_ALLOWED')) {
+        if ($action -notin @('APPLY', 'SKIP_ALREADY_APPLIED', 'SKIP_ENV_NOT_ALLOWED', 'SKIP_SCOPE_EXCLUDED')) {
             Fail "preflight-plan.json contains unsupported migration action: $($item.migrationId) -> $action"
         }
     }
@@ -4679,6 +4689,7 @@ SQL"
         '--manifest', $manifestPath,
         '--target-state', $targetStatePath,
         '--target-environment', $Environment,
+        '--publish-scope', $releasePublishScope,
         '--output', $preflightPlanPath
     )
 }
@@ -4713,95 +4724,6 @@ function Assert-ProdDryRunEvidence {
     if ($null -eq $evidence.writeActions -or @($evidence.writeActions).Count -gt 0) {
         Fail 'Production dry-run evidence must be read-only and include empty writeActions.'
     }
-}
-
-function Get-ReleasePreflightApplyItems {
-    param(
-        [Parameter(Mandatory = $true)]
-        $PreflightPlan,
-
-        [Parameter(Mandatory = $true)]
-        [string]$PublishScope
-    )
-
-    $applyItems = @($PreflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })
-    if ($PublishScope -ne 'code-only') {
-        return $applyItems
-    }
-
-    $requiredSqlTypeByMigrationId = @{}
-    $requiredSqlDependencyIdsByMigrationId = @{}
-    foreach ($entry in @($requiredDatabaseSqlScripts)) {
-        $migrationId = [string]$entry.MigrationId
-        if ([string]::IsNullOrWhiteSpace($migrationId)) {
-            $migrationId = [System.IO.Path]::GetFileNameWithoutExtension([string]$entry.Path)
-        }
-        if ([string]::IsNullOrWhiteSpace($migrationId)) {
-            Fail "Required SQL entry missing migrationId for code-only scope filtering: $($entry.Path)"
-        }
-        $sqlType = [string]$entry.Type
-        if ([string]::IsNullOrWhiteSpace($sqlType)) {
-            Fail "Required SQL entry missing type for code-only scope filtering: $migrationId"
-        }
-        if ($requiredSqlTypeByMigrationId.ContainsKey($migrationId)) {
-            Fail "Duplicate required SQL migrationId for code-only scope filtering: $migrationId"
-        }
-        $requiredSqlTypeByMigrationId[$migrationId] = $sqlType
-        $requiredSqlDependencyIdsByMigrationId[$migrationId] = @($entry.DependsOn | ForEach-Object {
-            [string]$_
-        } | Where-Object {
-            -not [string]::IsNullOrWhiteSpace($_)
-        })
-    }
-
-    $dataDependencyRootByMigrationId = @{}
-    foreach ($migrationId in @($requiredSqlTypeByMigrationId.Keys)) {
-        if ([string]$requiredSqlTypeByMigrationId[$migrationId] -eq 'data') {
-            $dataDependencyRootByMigrationId[$migrationId] = $migrationId
-        }
-    }
-
-    $dependencyClosureChanged = $true
-    while ($dependencyClosureChanged) {
-        $dependencyClosureChanged = $false
-        foreach ($migrationId in @($requiredSqlTypeByMigrationId.Keys)) {
-            if ($dataDependencyRootByMigrationId.ContainsKey($migrationId)) {
-                continue
-            }
-            foreach ($dependencyId in @($requiredSqlDependencyIdsByMigrationId[$migrationId])) {
-                if (-not $requiredSqlTypeByMigrationId.ContainsKey($dependencyId)) {
-                    Fail "Required SQL dependency missing from manifest requiredSql for code-only scope filtering: $migrationId -> $dependencyId"
-                }
-                if ($dataDependencyRootByMigrationId.ContainsKey($dependencyId)) {
-                    $dataDependencyRootByMigrationId[$migrationId] = [string]$dataDependencyRootByMigrationId[$dependencyId]
-                    $dependencyClosureChanged = $true
-                    break
-                }
-            }
-        }
-    }
-
-    $codeOnlyApplyItems = @()
-    foreach ($item in $applyItems) {
-        $migrationId = [string]$item.migrationId
-        if ([string]::IsNullOrWhiteSpace($migrationId)) {
-            Fail "preflight-plan.json APPLY item missing migrationId for code-only scope filtering"
-        }
-        if (-not $requiredSqlTypeByMigrationId.ContainsKey($migrationId)) {
-            Fail "preflight-plan.json APPLY item missing from manifest requiredSql for code-only scope filtering: $migrationId"
-        }
-        if ($dataDependencyRootByMigrationId.ContainsKey($migrationId)) {
-            $dataDependencyRoot = [string]$dataDependencyRootByMigrationId[$migrationId]
-            if ($migrationId -eq $dataDependencyRoot) {
-                Info "Skipping data required database SQL for code-only release: $migrationId"
-            } else {
-                Info "Skipping required database SQL with data dependency for code-only release: $migrationId -> $dataDependencyRoot"
-            }
-            continue
-        }
-        $codeOnlyApplyItems += $item
-    }
-    return $codeOnlyApplyItems
 }
 
 function Invoke-ReleaseMigrationStateUpdate {
@@ -5048,7 +4970,10 @@ function Invoke-RequiredDatabaseSqlScripts {
     foreach ($item in @($preflightPlan.items | Where-Object { [string]$_.action -eq 'SKIP_ENV_NOT_ALLOWED' })) {
         Info "Skipping required database SQL outside target environment: $($item.migrationId)"
     }
-    $preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)
+    foreach ($item in @($preflightPlan.items | Where-Object { [string]$_.action -eq 'SKIP_SCOPE_EXCLUDED' })) {
+        Info "Skipping required database SQL excluded by publish scope ${releasePublishScope}: $($item.migrationId)"
+    }
+    $preflightApplyItems = @($preflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })
     $applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment
     foreach ($item in $applyItems) {
         $fileName = Get-RequiredDatabaseSqlFileName -RelativePath ([string]$item.file)
@@ -5229,7 +5154,7 @@ if ($requiresRemoteMinioCredentials -and (
 Info 'Checking local Docker daemon'
 Invoke-CheckedCommand -FilePath 'docker' -ArgumentList @('info')
 if ($null -ne $backendRuntimeBaseConfig) {
-    Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig
+    Assert-BackendRuntimeBaseTarIntegrity -Config $backendRuntimeBaseConfig
 }
 
 if ($Mode -ne 'build-release') {
@@ -5326,6 +5251,7 @@ if ($publishBackend -or $publishFrontend) {
 }
 
 if ($publishBackend) {
+Assert-BackendRuntimeBaseImageAvailable -Config $backendRuntimeBaseConfig
 Info 'Building backend image'
 Invoke-CheckedCommand -FilePath 'docker' -ArgumentList @(
     'build',

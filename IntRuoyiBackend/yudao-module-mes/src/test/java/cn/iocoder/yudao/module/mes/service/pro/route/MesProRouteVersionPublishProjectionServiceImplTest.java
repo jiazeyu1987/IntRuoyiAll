@@ -30,6 +30,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionS
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeSaveCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeService;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.JSON;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -56,6 +58,72 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionPublishProjectionServiceImplTest {
+
+    @Test
+    void projectCandidate_shouldReturnRewrittenSnapshotIdentityResult() throws Exception {
+        assertFalse(Void.TYPE.equals(MesProRouteVersionPublishProjectionServiceImpl.class
+                .getMethod("projectCandidate", MesProRouteVersionDO.class).getReturnType()),
+                "发布投影必须返回重写后的快照和新正式工序 ID，供激活前持久化校验");
+    }
+
+    @Test
+    void projectCandidate_shouldRewriteAllFormalRouteProcessReferencesToGeneratedIds() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(9202L)
+                .routeId(9002L)
+                .versionNo("V2")
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9002,
+                          "routeCode": "RT-PUBLISH-IDENTITY",
+                          "routeName": "发布重写正式工序身份",
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": 101, "processId": 201, "sort": 1},
+                                {"routeProcessId": 102, "processId": 202, "sort": 2}
+                              ],
+                              "edges": [{"sourceRouteProcessId": 101, "targetRouteProcessId": 102,
+                                "relationType": "SEQUENTIAL"}],
+                              "boundaryEdges": [],
+                              "layouts": []
+                            },
+                            "products": [],
+                            "productBoms": [],
+                            "scheduleConfigs": {
+                              "101": {"routeProcessId": 101, "capacityMode": "FIXED"}
+                            },
+                            "batchUseConfigs": [],
+                            "scheduleUseConfigs": [],
+                            "nestedFormalRef": {"reviewRouteProcessId": 102}
+                          }
+                        }
+                        """)
+                .build();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            MesProRouteProcessDO routeProcess = invocation.getArgument(0);
+            routeProcess.setId(routeProcess.getSort() == 1 ? 2011L : 2012L);
+            return 1;
+        }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
+
+        MesProRouteVersionPublishProjectionServiceImpl.ProjectionResult result =
+                service.projectCandidate(candidate);
+
+        JSONObject rewritten = JSON.parseObject(result.rewrittenSnapshotJson());
+        JSONObject flowGraph = rewritten.getJSONObject("configSnapshots").getJSONObject("flowGraph");
+        assertEquals(2011L, flowGraph.getJSONArray("nodes").getJSONObject(0).getLongValue("routeProcessId"));
+        assertEquals(2012L, flowGraph.getJSONArray("nodes").getJSONObject(1).getLongValue("routeProcessId"));
+        assertEquals(2011L, flowGraph.getJSONArray("edges").getJSONObject(0)
+                .getLongValue("sourceRouteProcessId"));
+        assertEquals(2012L, flowGraph.getJSONArray("edges").getJSONObject(0)
+                .getLongValue("targetRouteProcessId"));
+        JSONObject scheduleConfigs = rewritten.getJSONObject("configSnapshots").getJSONObject("scheduleConfigs");
+        assertTrue(scheduleConfigs.containsKey("2011"));
+        assertEquals(2011L, scheduleConfigs.getJSONObject("2011").getLongValue("routeProcessId"));
+        assertEquals(2012L, rewritten.getJSONObject("configSnapshots").getJSONObject("nestedFormalRef")
+                .getLongValue("reviewRouteProcessId"));
+        assertEquals(Set.of(2011L, 2012L), result.projectedRouteProcessIds());
+    }
 
     @InjectMocks
     private MesProRouteVersionPublishProjectionServiceImpl service;

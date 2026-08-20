@@ -157,6 +157,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_SNAPSHOT_SOURCE_UNAVAILABLE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_TASK_CONTEXT_INVALID;
 
 @Service
 public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordExecutionService {
@@ -440,6 +441,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
         String batchRecordReportId = requireRequestedBatchRecordReportId(reqVO.getBatchRecordReportId());
         MesProBatchRecordReportDO report = requireBatchRecordReport(batchRecordReportId);
         String batchCode = resolveBatchCode(reqVO.getBatchCode(), workOrder);
+        boolean frozenTaskContext = validateFrozenTaskContext(reqVO, workOrder, routeProcess, report, batchCode);
         MesProBatchRecordExecutionDO existing = INSTANCE_SCOPE_BATCH_SHARED.equals(instanceScope)
                 ? executionMapper.selectActiveByBatchShared(reqVO.getBatchExecutionId(), sharedFormKey, batchCode,
                         ACTIVE_EXECUTION_STATUSES)
@@ -455,7 +457,9 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                             .setTrigger("EXECUTION_OPEN_OR_CREATE_EXISTING"));
             return buildOpenOrCreateResp(existing, false).setCellLinkAutoPersist(autoPersist);
         }
-        validateLatestPublishedBatchRecordReport(report);
+        if (!frozenTaskContext) {
+            validateLatestPublishedBatchRecordReport(report);
+        }
         RuntimeSnapshot runtimeSnapshot = buildRuntimeSnapshotFromReport(report);
         Long routeId = routeProcess == null ? reqVO.getRouteId() : routeProcess.getRouteId();
         String activeContextKey = INSTANCE_SCOPE_BATCH_SHARED.equals(instanceScope)
@@ -3049,6 +3053,40 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 || !Objects.equals(BATCH_RECORD_VERSION_STATUS_APPROVED, version.getStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_LATEST_PUBLISHED_VERSION_REQUIRED);
         }
+    }
+
+    private boolean validateFrozenTaskContext(MesProBatchRecordExecutionOpenOrCreateByContextReqVO reqVO,
+                                              MesProWorkOrderDO workOrder,
+                                              MesProRouteProcessDO routeProcess,
+                                              MesProBatchRecordReportDO report,
+                                              String batchCode) {
+        if (reqVO.getBatchExecutionId() == null || reqVO.getTaskId() == null) {
+            return false;
+        }
+        MesProEdhrBatchExecutionTaskDO task = batchExecutionTaskMapper.selectByIdForUpdate(reqVO.getTaskId());
+        MesProEdhrBatchExecutionDO batch = edhrBatchExecutionMapper.selectById(reqVO.getBatchExecutionId());
+        if (task == null || batch == null
+                || !Objects.equals(task.getBatchExecutionId(), reqVO.getBatchExecutionId())
+                || !Objects.equals(batch.getWorkOrderId(), workOrder.getId())
+                || !Objects.equals(batch.getRouteId(), routeProcess.getRouteId())
+                || !Objects.equals(batch.getBatchCode(), batchCode)
+                || !Objects.equals(task.getRouteProcessId(), routeProcess.getId())
+                || !Objects.equals(task.getProcessId(), routeProcess.getProcessId())
+                || !Objects.equals(task.getBatchRecordReportId(), report.getReportId())
+                || task.getBatchRecordDefinitionId() == null
+                || task.getBatchRecordVersionId() == null
+                || !Objects.equals(task.getBatchRecordDefinitionId(), report.getBatchRecordDefinitionId())
+                || !Objects.equals(task.getBatchRecordVersionId(), report.getBatchRecordVersionId())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_TASK_CONTEXT_INVALID);
+        }
+        MesProBatchRecordDefinitionDO definition = definitionMapper.selectById(task.getBatchRecordDefinitionId());
+        MesProBatchRecordVersionDO version = versionMapper.selectById(task.getBatchRecordVersionId());
+        if (definition == null || version == null
+                || !Objects.equals(definition.getId(), version.getDefinitionId())
+                || !Objects.equals(BATCH_RECORD_VERSION_STATUS_APPROVED, version.getStatus())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_TASK_CONTEXT_INVALID);
+        }
+        return true;
     }
 
     private String resolveBatchCode(String batchCode, MesProWorkOrderDO workOrder) {

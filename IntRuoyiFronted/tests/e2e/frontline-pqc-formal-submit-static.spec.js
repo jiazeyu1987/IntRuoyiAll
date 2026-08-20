@@ -20,8 +20,8 @@ assert.match(
 )
 assert.match(
   apiSource,
-  /export interface FrontlinePqcInspectionSubmitReqVO[\s\S]*activeOrderId: number[\s\S]*pqcTaskId: number[\s\S]*regulationVersionId: number[\s\S]*qaProcessId: number[\s\S]*actualEmployeeId: number[\s\S]*productionSubmitEventId\?: number[\s\S]*scrapQuantity: number[\s\S]*signaturePassword: string/,
-  'Formal PQC submit must send an explicit production event, structured scrap quantity, and one-time signature password.'
+  /export interface FrontlinePqcInspectionSubmitReqVO[\s\S]*activeOrderId: number[\s\S]*pqcTaskId: number[\s\S]*regulationVersionId: number[\s\S]*qaProcessId: number[\s\S]*actualEmployeeId: number[\s\S]*scrapQuantity: number[\s\S]*signaturePassword: string/,
+  'Formal PQC submit must send structured scrap quantity and one-time signature password.'
 )
 const submitContract = apiSource.slice(
   apiSource.indexOf('export interface FrontlinePqcInspectionSubmitReqVO'),
@@ -41,9 +41,9 @@ assert.ok(
     !panelSource.includes("pqcSignatureId.value = firstRouteQueryNumber(['signatureId'])"),
   'PQC formal context must not come from route query parameters.'
 )
-assert.ok(panelSource.includes('data-pqc-production-submit-select'), 'PQC page must expose production-submit selection.')
+assert.ok(!panelSource.includes('data-pqc-production-submit-select'), 'PQC page must not expose production-submit selection.')
 assert.ok(panelSource.includes('data-pqc-signature-dialog'), 'PQC submit must open an electronic-signature dialog.')
-assert.ok(panelSource.includes('data-pqc-submit-receipt'), 'PQC page must render the formal submit receipt.')
+assert.ok(!panelSource.includes('data-pqc-submit-receipt'), 'PQC page must not render a manual production-submit binding or receipt block.')
 assert.match(
   panelSource,
   /signaturePassword:\s*pqcSignaturePassword\.value/,
@@ -61,8 +61,18 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /:disabled="payloadLoading \|\| Boolean\(pqcSubmitReceipt\) \|\| pqcSubmitResultUncertain"/,
-  'PQC submit must remain clickable for explicit validation and lock only while loading, after a formal submit, or during an uncertain submit state.'
+  /:disabled="payloadLoading \|\| pqcSubmitResultUncertain"/,
+  'PQC submit must remain clickable after success or explicit failure, locking only while loading or during an uncertain submit state.'
+)
+assert.match(
+  panelSource,
+  /const submitReceipt = await ProFeedbackApi\.submitFrontlinePqcInspection[\s\S]*resetPqcSubmissionDraft\(submitPayload\.pqcTaskId\)[\s\S]*PQC正式提交成功，事件编号 \$\{submitReceipt\.pqcEventId\}/,
+  'PQC explicit success must reset the current draft and continue with a new session instead of rendering a receipt block.'
+)
+assert.doesNotMatch(
+  panelSource,
+  /pqcSubmitReceipt/,
+  'PQC formal submit must not keep an internal receipt lock after the visible receipt block is removed.'
 )
 const pqcValidateHandler = panelSource.slice(
   panelSource.indexOf('const handleValidate = async () => {'),
@@ -70,8 +80,8 @@ const pqcValidateHandler = panelSource.slice(
 )
 assert.match(
   pqcValidateHandler,
-  /try \{\n\s+assertPqcFormalSubmissionReady\(\)[\s\S]*catch \(error\) \{\n\s+message\.error\(resolveErrorMessage\(error\)\)\n\s+return/,
-  'PQC click validation failures must be surfaced to the operator without escaping the native event handler.'
+  /try \{\n\s+assertPqcFormalSubmissionReady\(\)[\s\S]*catch \(error\) \{\n\s+showFrontlineError\(error\)\n\s+return/,
+  'PQC click validation failures must use the fullscreen-visible error boundary without escaping the native event handler.'
 )
 const pqcOrderSelectionHandler = panelSource.slice(
   panelSource.indexOf('const handleSelectActiveOrder = async'),
@@ -79,8 +89,8 @@ const pqcOrderSelectionHandler = panelSource.slice(
 )
 assert.match(
   pqcOrderSelectionHandler,
-  /try \{\n\s+processes = await selectFrontlinePqcActiveOrder[\s\S]*catch \(error\) \{[\s\S]*message\.error\(resolveErrorMessage\(error\)\)[\s\S]*\n\s+return/,
-  'PQC order initialization failures must remain visible without breaking the mounted page.'
+  /try \{\n\s+processes = await selectFrontlinePqcActiveOrder[\s\S]*catch \(error\) \{[\s\S]*showFrontlineError\(error\)[\s\S]*\n\s+return/,
+  'PQC order initialization failures must remain visible in the inline error zone without breaking the mounted page.'
 )
 
 console.log('PASS: frontline PQC formal submit static contract')

@@ -10,7 +10,7 @@ for (const token of [
   'MISSING_CURRENT_PROCESS_HINT',
   '未查询到生产用料清单',
   '当前列表未解析出可显示的未完成工序',
-  '仍可调整优先级、设置承诺交期和冻结/解冻',
+  '仍可调整承诺交期、计划开工时间、优先级和冻结/解冻',
   '入池与手动重排以正式排产检查结果为准',
   '该展示值不作为统一禁用判据',
   'schedule-order-pool__missing-value-hint',

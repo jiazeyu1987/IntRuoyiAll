@@ -18,9 +18,13 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelLinkReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesPqcLeaderPersonnelStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildPreviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildResultRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderTransferTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
@@ -55,6 +59,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderPro
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderProcessConfigRow;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderProcessConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCandidateBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailService;
@@ -267,7 +272,11 @@ class MesProcessPoolTeamLeaderControllerTest {
 
     @Test
     void activeOrderRequestsInjectCurrentLeaderUserAndExposeOnlyActivePool() {
-        when(activeOrderService.addActiveOrder(org.mockito.ArgumentMatchers.any())).thenReturn(8101L);
+        when(activeOrderService.addActiveOrder(org.mockito.ArgumentMatchers.any())).thenReturn(
+                MesTeamLeaderActiveOrderAddResult.builder()
+                        .activeOrderId(8101L)
+                        .action(MesTeamLeaderActiveOrderAddResult.ACTION_RECOVER)
+                        .build());
         when(activeOrderService.listActiveOrders(3001L)).thenReturn(List.of(new MesTeamLeaderActiveOrderRow()
                 .setId(8101L)
                 .setLeaderUserId(3001L)
@@ -297,8 +306,10 @@ class MesProcessPoolTeamLeaderControllerTest {
         CommonResult<List<MesTeamLeaderActiveOrderRespVO>> listResponse;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
-            assertEquals(8101L, controller.addActiveOrder(new MesTeamLeaderActiveOrderAddReqVO()
-                    .setWorkOrderId(9001L)).getData());
+            MesTeamLeaderActiveOrderAddRespVO addReceipt = controller.addActiveOrder(new MesTeamLeaderActiveOrderAddReqVO()
+                    .setWorkOrderId(9001L)).getData();
+            assertEquals(8101L, addReceipt.getActiveOrderId());
+            assertEquals("RECOVER", addReceipt.getAction());
             controller.removeActiveOrder(new MesTeamLeaderActiveOrderRemoveReqVO().setActiveOrderId(8101L));
             listResponse = controller.getActiveOrderList();
         }
@@ -983,6 +994,11 @@ class MesProcessPoolTeamLeaderControllerTest {
                 new String[]{"/active-order/transfer-trace"}, "mes:pro-process-pool-team-leader:query");
         assertEndpoint("getActiveOrderDetail", new Class[]{Long.class}, GetMapping.class,
                 new String[]{"/active-order/detail"}, "mes:pro-process-pool-team-leader:query");
+        assertEndpoint("previewRebuildActiveOrder", new Class[]{Long.class}, GetMapping.class,
+                new String[]{"/active-order/rebuild/preview"}, "mes:pro-process-pool-team-leader:maintain");
+        assertEndpoint("rebuildActiveOrder", new Class[]{MesTeamLeaderActiveOrderRebuildReqVO.class},
+                PostMapping.class, new String[]{"/active-order/rebuild"},
+                "mes:pro-process-pool-team-leader:maintain");
 
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionPageReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderSubmissionReviewReqVO.class);
@@ -991,6 +1007,7 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertNoClientLeaderUserField(MesTeamDeviceParameterRuleSaveReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderActiveOrderAddReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderActiveOrderRemoveReqVO.class);
+        assertNoClientLeaderUserField(MesTeamLeaderActiveOrderRebuildReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderReportAllocationPreviewReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderReportAllocationConfirmReqVO.class);
         assertNoClientLeaderUserField(MesTeamLeaderReportAllocationLineReqVO.class);
@@ -1006,6 +1023,10 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertNoClientLeaderUserField(MesTeamProcessDefectReasonSaveReqVO.class);
 
         requireGetter(ProcessPoolTimelineDetailRespVO.class, "getOriginalPayloadJson");
+        requireGetter(MesTeamLeaderActiveOrderRebuildPreviewRespVO.class, "getProductionReportCount");
+        requireGetter(MesTeamLeaderActiveOrderRebuildPreviewRespVO.class, "getPqcInspectionResultCount");
+        requireGetter(MesTeamLeaderActiveOrderRebuildResultRespVO.class, "getRebuiltProcessSnapshotCount");
+        requireGetter(MesTeamLeaderActiveOrderRebuildResultRespVO.class, "getRebuiltPqcTaskCount");
     }
 
     private void assertEndpoint(String methodName, Class<?>[] parameterTypes,

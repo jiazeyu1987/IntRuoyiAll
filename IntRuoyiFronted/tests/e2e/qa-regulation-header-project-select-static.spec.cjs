@@ -58,7 +58,11 @@ assert.match(
 assert.match(projectFormCss, /margin:\s*0/, 'QA project selector form must not add outer spacing.')
 
 const statusCss = readCssBlock('.qa-regulation-page__header :deep(.el-tag)')
-assert.match(statusCss, /margin-left:\s*auto/, 'QA lifecycle status must stay at the right edge.')
+assert.match(
+  statusCss,
+  /margin-left:\s*0/,
+  'QA lifecycle status must not push save, publish, import, or test reset buttons out of view.'
+)
 assert.match(statusCss, /flex-shrink:\s*0/, 'QA lifecycle status must not be compressed.')
 
 assert.match(

@@ -24,6 +24,7 @@ public final class CanonicalPqcSubmissionV1 {
         canonical.put("activeOrderId", task.getActiveOrderId());
         canonical.put("regulationVersionId", task.getRegulationVersionId());
         canonical.put("qaProcessId", task.getQaProcessId());
+        canonical.put("qaItemCode", task.getQaItemCode());
         canonical.put("pqcTaskId", task.getId());
         canonical.put("inspectionRuleKey", task.getInspectionRuleKey());
         canonical.put("actualEmployeeId", command.getActualEmployeeId());

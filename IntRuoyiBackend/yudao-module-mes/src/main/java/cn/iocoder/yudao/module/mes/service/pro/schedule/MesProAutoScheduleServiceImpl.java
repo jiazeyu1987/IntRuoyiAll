@@ -168,6 +168,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private static final String CAPACITY_SOURCE_MACHINE = "MACHINE";
     private static final String CAPACITY_SOURCE_WORKER = "WORKER";
     private static final String CAPACITY_SOURCE_ROUTE_PROCESS = "ROUTE_PROCESS";
+    private static final String CAPACITY_SOURCE_MANUAL_OVERRIDE = "MANUAL_OVERRIDE";
     private static final String OPERATION_AUTO_APPLY = "AUTO_APPLY";
     private static final String OPERATION_REPLAN_APPLY = "REPLAN_APPLY";
     private static final String REPLAN_TRIGGER_MANUAL = "MANUAL";
@@ -1131,12 +1132,18 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             BigDecimal productionQuantityFactor = resolveProductionQuantityFactor(latestRouteProcess,
                     scheduleRouteFlowConfigByRouteProcessId.get(process.getRouteProcessId()));
             BigDecimal plannedQuantity = calculateLatestPlannedQuantity(scheduleOrder, productionQuantityFactor);
-            boolean changed = isRouteScheduleSnapshotChanged(process, config)
+            boolean preserveWorkbenchCapacityOverride = hasWorkbenchManualCapacityOverride(process);
+            if (preserveWorkbenchCapacityOverride) {
+                capacitySnapshot = buildWorkbenchManualCapacitySnapshot(process, capacitySnapshot);
+            }
+            boolean changed = isRouteScheduleSnapshotChanged(process, config, preserveWorkbenchCapacityOverride)
                     || isRouteScheduleCapacitySnapshotChanged(process, capacitySnapshot)
                     || isRouteScheduleQuantitySnapshotChanged(process, productionQuantityFactor, plannedQuantity);
             process.setRouteVersionId(routeVersionId);
             process.setRouteScheduleConfigId(config.getId());
-            process.setCapacityMode(config.getCapacityMode());
+            process.setCapacityMode(preserveWorkbenchCapacityOverride
+                    ? MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode()
+                    : config.getCapacityMode());
             process.setInfiniteDurationQuantityFactor(config.getInfiniteDurationQuantityFactor());
             process.setInfiniteDurationBaseMinutes(config.getInfiniteDurationBaseMinutes());
             process.setNightShiftEnabled(Boolean.TRUE.equals(config.getNightShiftEnabled()));
@@ -1537,6 +1544,43 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         process.setResourceSnapshotJson(capacitySnapshot.resourceSnapshotJson);
     }
 
+    private boolean hasWorkbenchManualCapacityOverride(MesProScheduleOrderProcessDO process) {
+        return process != null
+                && CAPACITY_SOURCE_MANUAL_OVERRIDE.equals(process.getCapacitySource())
+                && MesProScheduleCapacityModeEnum.isManualOverrideLike(process.getCapacityMode());
+    }
+
+    private LatestPublishedCapacitySnapshot buildWorkbenchManualCapacitySnapshot(
+            MesProScheduleOrderProcessDO process,
+            LatestPublishedCapacitySnapshot latestPublishedSnapshot) {
+        BigDecimal hourlyCapacity = requirePositiveWorkbenchCapacity(process.getHourlyCapacityTotal());
+        BigDecimal shiftHours = requirePositiveWorkbenchCapacity(process.getShiftHours());
+        BigDecimal shiftCapacity = hourlyCapacity.multiply(shiftHours);
+        Map<String, Object> payload = parseCapacitySnapshotPayload(latestPublishedSnapshot);
+        payload.put("capacityMode", MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode());
+        payload.put("capacitySource", CAPACITY_SOURCE_MANUAL_OVERRIDE);
+        payload.put("hourlyCapacityTotal", hourlyCapacity);
+        payload.put("shiftHours", shiftHours);
+        payload.put("shiftCapacityTotal", shiftCapacity);
+        return new LatestPublishedCapacitySnapshot(CAPACITY_SOURCE_MANUAL_OVERRIDE, hourlyCapacity,
+                shiftHours, shiftCapacity, JsonUtils.toJsonString(payload));
+    }
+
+    private BigDecimal requirePositiveWorkbenchCapacity(BigDecimal value) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
+            throw exception(PRO_AUTO_SCHEDULE_CAPACITY_REQUIRED);
+        }
+        return value;
+    }
+
+    private Map<String, Object> parseCapacitySnapshotPayload(LatestPublishedCapacitySnapshot latestPublishedSnapshot) {
+        if (latestPublishedSnapshot == null || StrUtil.isBlank(latestPublishedSnapshot.resourceSnapshotJson)) {
+            return new LinkedHashMap<>();
+        }
+        Map<String, Object> parsed = JsonUtils.parseObject(latestPublishedSnapshot.resourceSnapshotJson, Map.class);
+        return parsed == null ? new LinkedHashMap<>() : new LinkedHashMap<>(parsed);
+    }
+
     private static final class LatestPublishedCapacitySnapshot {
         private final String capacitySource;
         private final BigDecimal hourlyCapacityTotal;
@@ -1687,11 +1731,14 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     }
 
     private boolean isRouteScheduleSnapshotChanged(MesProScheduleOrderProcessDO process,
-                                                   MesProRouteScheduleConfigDO config) {
+                                                   MesProRouteScheduleConfigDO config,
+                                                   boolean preserveWorkbenchCapacityOverride) {
+        boolean capacityConfigChanged = !preserveWorkbenchCapacityOverride
+                && (!Objects.equals(process.getCapacityMode(), config.getCapacityMode())
+                || !Objects.equals(process.getHourlyCapacityTotal(), config.getHourlyCapacity()));
         return !Objects.equals(process.getRouteScheduleConfigId(), config.getId())
                 || !Objects.equals(process.getRouteVersionId(), config.getRouteVersionId())
-                || !Objects.equals(process.getCapacityMode(), config.getCapacityMode())
-                || !Objects.equals(process.getHourlyCapacityTotal(), config.getHourlyCapacity())
+                || capacityConfigChanged
                 || !Objects.equals(process.getInfiniteDurationQuantityFactor(), config.getInfiniteDurationQuantityFactor())
                 || !Objects.equals(process.getInfiniteDurationBaseMinutes(), config.getInfiniteDurationBaseMinutes())
                 || !Objects.equals(process.getNightShiftEnabled(), Boolean.TRUE.equals(config.getNightShiftEnabled()))

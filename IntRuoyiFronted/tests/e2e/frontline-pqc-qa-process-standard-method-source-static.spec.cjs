@@ -41,17 +41,17 @@ assert.match(
 
 const itemMapping = blockBetween(
   panelSource,
-  'const pqcInspectionItems = computed<PqcInspectionItem[]>',
-  'const pqcInspectionItemMap = computed'
+  'const mapPqcInspectionItem = (item: FrontlinePqcInspectionItemVO)',
+  'const normalizePqcTaskOptionItemKey'
 )
 assert.match(
   itemMapping,
-  /acceptanceStandard:\s*item\.acceptanceStandard \|\| ''/,
+  /acceptanceStandard:\s*item\.acceptanceStandard \|\| item\.standardText \|\| ''/,
   'PQC view model must map acceptanceStandard directly from the backend QA process column alias.'
 )
 assert.match(
   itemMapping,
-  /processInspectionMethod:\s*item\.processInspectionMethod \|\| ''/,
+  /processInspectionMethod:\s*item\.processInspectionMethod \|\| item\.inspectionMethod \|\| ''/,
   'PQC view model must map processInspectionMethod directly from the backend QA process column alias.'
 )
 

@@ -13,6 +13,7 @@ const LEADER_ROUTE = '/mes/pro/process-pool/production-leader'
 const WORKSPACE_ROOT = path.resolve(__dirname, '../../..')
 const REQUESTED_RUNTIME_MODE = (String(process.env.FAS_RUNTIME_MODE || '').trim() || 'WORKTREE').toUpperCase()
 const REQUESTED_EVIDENCE_RUN_ID = String(process.env.FAS_EVIDENCE_RUN_ID || '').trim()
+const REQUESTED_ARTIFACT_DIR = String(process.env.FAS_ARTIFACT_DIR || '').trim()
 const ARTIFACT_VARIANTS = Object.freeze({
   WORKTREE: 'worktree',
   POST_MERGE_INT_MAIN: 'post-merge-int-main',
@@ -21,6 +22,12 @@ const ARTIFACT_VARIANTS = Object.freeze({
 const ARTIFACT_VARIANT = ARTIFACT_VARIANTS[REQUESTED_RUNTIME_MODE] || 'unsupported-runtime-mode'
 
 function artifactDirFor(runtimeMode, evidenceRunId = '') {
+  if (REQUESTED_ARTIFACT_DIR) {
+    if (!path.isAbsolute(REQUESTED_ARTIFACT_DIR)) {
+      throw new Error('FAS_ARTIFACT_DIR 必须是绝对路径')
+    }
+    return path.resolve(REQUESTED_ARTIFACT_DIR)
+  }
   const mode = String(runtimeMode || '').trim().toUpperCase()
   const variant = ARTIFACT_VARIANTS[mode] || 'unsupported-runtime-mode'
   const baseDir = path.join(WORKSPACE_ROOT, 'doc', 'tasks', TASK_ID, 'e2e-artifacts', variant)
@@ -963,7 +970,7 @@ async function login(page, frontendUrl, tenant, username, password) {
   const loginResponseWait = observeWait(page.waitForResponse((response) =>
     response.url().includes('/admin-api/system/auth/login')
       && response.request().method() === 'POST'
-  , { timeout: 30000 }))
+  , { timeout: 60000 }))
   await clickFirst(page, ['button:has-text("登录")', '.login-form button[type="submit"]'])
   const loginResponse = await loginResponseWait()
   assert.equal(loginResponse.ok(), true, `登录 HTTP 失败：${loginResponse.status()}`)
@@ -1027,16 +1034,70 @@ function attachDiagnostics(page, diagnostics) {
   })
 }
 
+async function waitForVisible(locator, timeout = 1000) {
+  try {
+    await locator.waitFor({ state: 'visible', timeout })
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function ensureFrontlineProductionProcessSelected(page) {
+  const selectedProcess = page.locator('[data-frontline-production-process-nav-card] .frontline-production-process-current')
+    .filter({ hasNotText: '未选择' })
+  if (await waitForVisible(selectedProcess, 30000)) {
+    return
+  }
+
+  await page.locator('[data-frontline-production-process-nav-card]').click()
+  const picker = page.locator('[aria-label="选择工序"]')
+  await picker.waitFor({ state: 'visible', timeout: 15000 })
+  const processOption = picker.getByRole('button').filter({ hasText: 'FAS E2E工序' }).first()
+  await processOption.waitFor({ state: 'visible', timeout: 30000 })
+  await processOption.click()
+  await selectedProcess.waitFor({ state: 'visible', timeout: 30000 })
+}
+
+async function ensureFrontlineProductionEmployeeSelected(page) {
+  const selectedEmployee = page.locator('[data-frontline-production-employee-card]')
+    .filter({ hasNotText: '未选择' })
+  if (await waitForVisible(selectedEmployee, 30000)) {
+    return
+  }
+
+  await page.locator('[data-frontline-production-employee-card]').click()
+  const picker = page.locator('[aria-label="选择员工"]')
+  await picker.waitFor({ state: 'visible', timeout: 15000 })
+  const employeeOption = picker.getByRole('button').filter({ hasText: 'FAS E2E一线员工' }).first()
+  await employeeOption.waitFor({ state: 'visible', timeout: 30000 })
+  await employeeOption.click()
+  await selectedEmployee.waitFor({ state: 'visible', timeout: 30000 })
+}
+
 async function selectFrontlineActiveOrder(page, config) {
-  await page.locator('[data-frontline-production-active-order-card]').click()
+  const selectedOrder = page.locator('[data-frontline-production-order-code]')
+    .filter({ hasText: config.o1WorkOrderCode })
+    .first()
+  await selectedOrder.waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-frontline-production-process-nav-card] .frontline-production-process-current')
+    .filter({ hasNotText: '未选择' })
+    .waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('[data-frontline-production-employee-card]')
+    .filter({ hasNotText: '未选择' })
+    .waitFor({ state: 'visible', timeout: 30000 })
+  const activeOrderCard = page.locator('[data-frontline-production-active-order-card]')
+  await activeOrderCard.waitFor({ state: 'visible', timeout: 30000 })
+  await activeOrderCard.click()
   const picker = page.locator('[aria-label="选择活跃订单"]')
   await picker.waitFor({ state: 'visible', timeout: 15000 })
   await picker.locator('[data-frontline-production-order-search-input]').fill(config.o1WorkOrderCode)
   const option = picker.getByRole('button').filter({ hasText: config.o1WorkOrderCode }).first()
   await option.waitFor({ state: 'visible', timeout: 15000 })
   await option.click()
-  await page.locator('[data-frontline-production-order-code]').filter({ hasText: config.o1WorkOrderCode })
-    .waitFor({ state: 'visible', timeout: 15000 })
+  await selectedOrder.waitFor({ state: 'visible', timeout: 15000 })
+  await ensureFrontlineProductionProcessSelected(page)
+  await ensureFrontlineProductionEmployeeSelected(page)
 }
 
 async function submitFrontlineReport(page, config, steps) {
@@ -1048,7 +1109,7 @@ async function submitFrontlineReport(page, config, steps) {
     actualEmployeeId: String(config.actualEmployeeId),
     outputQuantity: String(config.submitQuantity)
   })
-  await page.goto(`${config.frontendUrl}${FRONTLINE_ROUTE}?${query}`, { waitUntil: 'networkidle' })
+  await page.goto(`${config.frontendUrl}${FRONTLINE_ROUTE}?${query}`, { waitUntil: 'domcontentloaded' })
   await page.locator('[data-frontline-production-operator]').waitFor({ state: 'visible', timeout: 20000 })
   await selectFrontlineActiveOrder(page, config)
   steps.push(`一线页面明确选择 O1：${config.o1WorkOrderCode}`)
@@ -1106,12 +1167,91 @@ async function assertInitialAllocation(row, snapshot, config, steps) {
   await allocationTag.waitFor({ state: 'visible', timeout: 15000 })
   const text = await allocationTag.innerText()
   assert.match(text, new RegExp(`${config.submitQuantity}`), '组长列表必须显示 O1 全量初始分配')
-  assert.match(text, new RegExp(`超量\\s*${expectedOverage}`), '组长列表必须显示 O1 正式超量数量')
-  assert.match(await allocationTag.getAttribute('class'), /el-tag--danger/, '超量 O1 标签必须为红色 danger')
-  const overage = row.locator('[data-team-leader-report-overage]')
-  await overage.waitFor({ state: 'visible', timeout: 15000 })
-  assert.match(await overage.innerText(), new RegExp(`待调整\\s*${expectedOverage}`))
-  steps.push(`组长列表确认 O1=${config.submitQuantity}，红色待调整 ${expectedOverage}`)
+  assert.match(await allocationTag.getAttribute('class'), /el-tag--warning/, 'O1 初始分配标签必须表示未放行 warning')
+  const allocationOverage = row.page().locator('[data-team-leader-allocation-overage]')
+  await allocationOverage.waitFor({ state: 'visible', timeout: 15000 })
+  assert.match(await allocationOverage.innerText(), new RegExp(`待调整\\s*${expectedOverage}`))
+  assert.match(await allocationOverage.getAttribute('class'), /el-tag--danger/, '分配弹窗必须用红色标识正式超量待调整')
+  steps.push(`组长分配弹窗确认 O1=${config.submitQuantity}，红色待调整 ${expectedOverage}`)
+}
+
+async function assertActiveOrderQuantityConflict(page, config, steps) {
+  const activeOrderTab = page.getByRole('tab', { name: '活跃订单池', exact: true }).first()
+  await activeOrderTab.waitFor({ state: 'visible', timeout: 15000 })
+  await activeOrderTab.click()
+
+  const list = page.locator('[data-team-leader-active-order-list]')
+  await list.waitFor({ state: 'visible', timeout: 30000 })
+  const row = list.locator('tbody tr').filter({ hasText: config.o1WorkOrderCode }).first()
+  await row.waitFor({ state: 'visible', timeout: 30000 })
+
+  const conflictTag = row.locator('[data-team-leader-active-order-quantity-conflict]')
+  await conflictTag.waitFor({ state: 'visible', timeout: 30000 })
+  assert.match(await conflictTag.innerText(), /数量冲突/)
+  assert.match(
+    await conflictTag.innerText(),
+    new RegExp(String(config.submitQuantity - config.o1PlannedQuantity))
+  )
+  assert.match(
+    await row.getAttribute('class'),
+    /team-leader-workbench__active-order-row--quantity-conflict/,
+    '数量冲突时活跃订单整行必须标红'
+  )
+
+  await row.locator('[data-team-leader-active-order-detail]').click()
+  const detail = page.locator('[data-team-leader-active-order-detail-dialog]')
+  await detail.waitFor({ state: 'visible', timeout: 30000 })
+  const process = detail.locator('section.is-quantity-conflict').filter({ hasText: 'FAS E2E工序' }).first()
+  await process.waitFor({ state: 'visible', timeout: 30000 })
+  assert.match(await process.innerText(), /超出数量/)
+  const submissionRows = process.locator('.team-leader-workbench__active-order-submission-table tbody tr')
+  const submissionCount = await submissionRows.count()
+  assert.ok(submissionCount > 0, '数量冲突工序必须展示相关提交明细')
+  for (let index = 0; index < submissionCount; index += 1) {
+    assert.match(
+      await submissionRows.nth(index).getAttribute('class'),
+      /team-leader-workbench__active-order-submission-row--quantity-conflict/,
+      '数量冲突工序的全部提交明细必须标红'
+    )
+  }
+
+  const releaseButton = row.locator('[data-team-leader-active-order-release-apply]').first()
+  assert.equal(await releaseButton.isDisabled(), true, '数量冲突时完工按钮必须禁用')
+  assert.match(await releaseButton.getAttribute('title'), /生产数量冲突未解决/)
+  await detail.locator('.el-dialog__headerbtn').click()
+  await detail.waitFor({ state: 'hidden', timeout: 15000 })
+  steps.push('活跃订单池确认整行、冲突工序、全部提交明细均已标红，完工按钮已被数量冲突禁用')
+}
+
+async function assertActiveOrderQuantityConflictResolved(page, config, steps) {
+  const activeOrderTab = page.getByRole('tab', { name: '活跃订单池', exact: true }).first()
+  await activeOrderTab.click()
+  const list = page.locator('[data-team-leader-active-order-list]')
+  await list.waitFor({ state: 'visible', timeout: 30000 })
+  await page.waitForFunction((workOrderCode) => {
+    const rows = [...document.querySelectorAll('[data-team-leader-active-order-list] tbody tr')]
+    const row = rows.find((candidate) => candidate.textContent?.includes(workOrderCode))
+    return Boolean(
+      row
+        && !row.querySelector('[data-team-leader-active-order-quantity-conflict]')
+        && !row.className.includes('team-leader-workbench__active-order-row--quantity-conflict')
+    )
+  }, config.o1WorkOrderCode, { timeout: 30000 })
+
+  const row = list.locator('tbody tr').filter({ hasText: config.o1WorkOrderCode }).first()
+  await row.locator('[data-team-leader-active-order-detail]').click()
+  const detail = page.locator('[data-team-leader-active-order-detail-dialog]')
+  await detail.waitFor({ state: 'visible', timeout: 30000 })
+  const process = detail.locator('section').filter({ hasText: 'FAS E2E工序' }).first()
+  await process.waitFor({ state: 'visible', timeout: 30000 })
+  assert.doesNotMatch(
+    await process.getAttribute('class') || '',
+    /is-quantity-conflict/,
+    '组长改配到目标数量后工序冲突标识必须消失'
+  )
+  await detail.locator('.el-dialog__headerbtn').click()
+  await detail.waitFor({ state: 'hidden', timeout: 15000 })
+  steps.push('组长改配后活跃订单池已刷新，O1 数量冲突标识和工序冲突样式均已消失')
 }
 
 async function openInitialAllocation(page, eventId) {
@@ -1386,7 +1526,7 @@ async function runScenario(config) {
       '生产组长账号'
     )
     steps.push('生产组长测试账号通过真实登录页登录')
-    await leaderPage.goto(`${config.frontendUrl}${LEADER_ROUTE}`, { waitUntil: 'networkidle' })
+    await leaderPage.goto(`${config.frontendUrl}${LEADER_ROUTE}`, { waitUntil: 'domcontentloaded' })
     if (leaderPage.url().includes('/login') || leaderPage.url().includes('/403')) {
       throw blocked(
         BLOCKED_CATEGORIES.PERMISSION_PREREQUISITE,
@@ -1395,6 +1535,8 @@ async function runScenario(config) {
     }
     const reportTab = leaderPage.getByRole('tab', { name: '报工管理', exact: true }).first()
     await reportTab.waitFor({ state: 'visible', timeout: 15000 })
+    await reportTab.click()
+    await assertActiveOrderQuantityConflict(leaderPage, config, steps)
     await reportTab.click()
     const opened = await openInitialAllocation(leaderPage, eventId)
     await assertInitialAllocation(opened.row, opened.snapshot, config, steps)
@@ -1408,6 +1550,7 @@ async function runScenario(config) {
       steps
     )
     await assertAdjustedList(leaderPage, eventId, config, adjusted.listData, steps)
+    await assertActiveOrderQuantityConflictResolved(leaderPage, config, steps)
     const audits = await assertAuditTrail(leaderPage, eventId, config, steps)
     assertNoTargetErrors(diagnostics)
     await leaderPage.screenshot({ path: path.join(ARTIFACT_DIR, 'after-manual-reallocation.png'), fullPage: true })

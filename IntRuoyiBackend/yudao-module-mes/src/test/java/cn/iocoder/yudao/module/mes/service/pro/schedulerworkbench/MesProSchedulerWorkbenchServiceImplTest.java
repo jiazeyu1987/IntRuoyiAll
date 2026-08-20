@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedulerworkbench.MesProSchedu
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationMachineService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteScheduleConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.MesProScheduleCalendarService;
+import cn.iocoder.yudao.module.mes.service.pro.scheduleorder.MesProScheduleOrderService;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -71,6 +72,8 @@ class MesProSchedulerWorkbenchServiceImplTest {
     private MesProRouteScheduleConfigService routeScheduleConfigService;
     @Mock
     private MesProSchedulerWorkbenchRuntimeStatusService runtimeStatusService;
+    @Mock
+    private MesProScheduleOrderService scheduleOrderService;
 
     @Test
     void getSummary_shouldAggregateTodayStatsAndFixedSchedulerSteps() {
@@ -206,6 +209,7 @@ class MesProSchedulerWorkbenchServiceImplTest {
         assertEquals(21, setting.getUpdatedWorkstationCount());
         verify(workstationMapper).updateAllShiftHours(shiftHours);
         verify(scheduleCalendarService).refreshPlanCapacityForShiftHours(shiftHours);
+        verify(scheduleOrderService).refreshProcessWipCapacitySnapshotsForShiftHours(shiftHours);
     }
 
     @Test

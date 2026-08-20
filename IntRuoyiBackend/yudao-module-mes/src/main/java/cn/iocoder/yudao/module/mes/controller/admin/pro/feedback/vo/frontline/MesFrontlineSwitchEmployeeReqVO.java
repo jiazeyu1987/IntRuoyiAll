@@ -8,6 +8,9 @@ import lombok.Data;
 @Data
 public class MesFrontlineSwitchEmployeeReqVO {
 
+    @Schema(description = "活跃订单编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "活跃订单编号不能为空")
+    private Long activeOrderId;
     @Schema(description = "工艺路线编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "工艺路线编号不能为空")
     private Long routeId;

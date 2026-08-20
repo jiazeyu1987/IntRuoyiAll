@@ -39,13 +39,13 @@ assert.match(
 )
 assert.match(
   selectOrder,
-  /state\.selectedActiveOrder\s*=\s*activeOrder[\s\S]*state\.processOptions\s*=\s*\[\][\s\S]*await ProFeedbackApi\.getFrontlineDeviceAccountProcesses\(\)/,
-  'switching orders must clear the old downstream context before re-reading formal processes.'
+  /state\.selectedActiveOrder\s*=\s*activeOrder[\s\S]*state\.processOptions\s*=\s*\[\][\s\S]*await ProFeedbackApi\.getFrontlineProductionActiveOrderProcesses\(\s*activeOrder\.activeOrderId\s*\)/,
+  'switching orders must clear the old downstream context before reading frozen processes for the selected active order.'
 )
 assert.match(
   selectOrder,
-  /state\.productionProcessOptions\s*=\s*processes[\s\S]*process\.routeId\s*===\s*activeOrder\.routeId/,
-  'the refreshed process response must replace the old source and be filtered by the new order route.'
+  /state\.productionProcessOptions\s*=\s*processes[\s\S]*routeProcesses\.some\(\(process\) => process\.activeOrderId !== activeOrder\.activeOrderId\)/,
+  'the refreshed process response must replace the old source and be bound to the selected activeOrderId.'
 )
 assert.match(
   selectOrder,

@@ -37,10 +37,10 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImp
                     .setRegulationVersionId(versionId)
                     .setProvenanceType("DCC_QA_PROJECT_RELATION")
                     .setProvenanceId(dccProject.getId() + ":" + regulation.getId())
-                    .setProvenanceSnapshotHash(hash("DCC_QA_PROJECT_RELATION_V1",
+                    .setProvenanceSnapshotHash(hash("DCC_QA_PROJECT_RELATION_V2",
                             dccProject.getTenantId(), dccProject.getId(), projectCode,
                             regulation.getTenantId(), regulation.getId(), regulation.getDccProjectCodeId(),
-                            regulationCode, regulation.getCurrentVersionId(),
+                            regulationCode,
                             version.getTenantId(), versionId, version.getRegulationId(), version.getVersionNo(),
                             version.getLifecycleStatus(), version.getPublishedAt(), version.getSnapshotJson()));
         }

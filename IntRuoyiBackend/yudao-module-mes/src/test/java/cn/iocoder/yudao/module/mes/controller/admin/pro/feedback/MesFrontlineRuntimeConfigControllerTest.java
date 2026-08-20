@@ -71,15 +71,15 @@ class MesFrontlineRuntimeConfigControllerTest {
                                 new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 10002L)))
                 , "snapshot-001", "hash-001"
         );
-        when(runtimeConfigService.getRuntimeConfig(9001L, 101L, 1001L, 201L)).thenReturn(runtimeConfig);
+        when(runtimeConfigService.getRuntimeConfig(9001L, 8101L, 101L, 1001L, 201L)).thenReturn(runtimeConfig);
 
         CommonResult<MesFrontlineRuntimeConfigRespVO> response;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            response = controller.getRuntimeConfig(101L, 1001L, 201L);
+            response = controller.getRuntimeConfig(8101L, 101L, 1001L, 201L);
         }
 
-        verify(runtimeConfigService).getRuntimeConfig(9001L, 101L, 1001L, 201L);
+        verify(runtimeConfigService).getRuntimeConfig(9001L, 8101L, 101L, 1001L, 201L);
         MesFrontlineRuntimeConfigRespVO data = response.getData();
         assertEquals(101L, data.getRouteId());
         assertEquals(1001L, data.getRouteProcessId());
@@ -117,7 +117,7 @@ class MesFrontlineRuntimeConfigControllerTest {
     @Test
     void runtimeConfigEndpoint_isReadOnlyAndDoesNotAcceptClientLeaderUserId() throws Exception {
         Method method = MesFrontlineDeviceAccountController.class.getDeclaredMethod(
-                "getRuntimeConfig", Long.class, Long.class, Long.class);
+                "getRuntimeConfig", Long.class, Long.class, Long.class, Long.class);
         GetMapping getMapping = method.getAnnotation(GetMapping.class);
         assertNotNull(getMapping);
         assertArrayEquals(new String[]{"/runtime-config"}, getMapping.value());

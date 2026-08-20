@@ -57,7 +57,8 @@ export interface FrontlineTemplatePayloadVO extends Required<FrontlineTemplatePa
 export const FrontlineTemplateApi = {
   getCatalog: async () => {
     return await request.get<FrontlineTemplateDefinitionVO[]>({
-      url: '/mes/pro/feedback/frontline-template/catalog'
+      url: '/mes/pro/feedback/frontline-template/catalog',
+      ignoreErrorMessage: true
     })
   },
   resolveTemplate: async (params: FrontlineTemplateResolveReqVO) => {

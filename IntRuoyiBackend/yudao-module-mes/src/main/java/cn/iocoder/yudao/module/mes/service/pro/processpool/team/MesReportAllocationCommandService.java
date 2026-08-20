@@ -172,8 +172,8 @@ public class MesReportAllocationCommandService {
                 || !Objects.equals(event.getWorkOrderId(), activeOrder.getWorkOrderId())) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED, activeOrderId);
         }
-        MesTeamLeaderOrderProcessTarget target = targetService.requireTarget(activeOrder,
-                event.getRouteProcessId(), event.getProcessId());
+        MesTeamLeaderOrderProcessTarget target = targetService.requireUniqueTargetForProcess(
+                activeOrder, event.getProcessId());
         MesProcessPoolReportAllocationStateDO state = requireStateForUpdate(event, event.getDeviceAccountId());
         List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventIdForUpdate(eventId);
         if (!current.isEmpty() || state.getCurrentVersion() == null || state.getCurrentVersion() != 0) {

@@ -15,49 +15,155 @@ const requirePageMarker = (marker, message) => {
 
 const requireApiEndpoint = (functionName, endpoint, message) => {
   assert.match(api, new RegExp(`${functionName}\\s*=\\s*async`), `${message}: missing function`)
-  assert.match(api, new RegExp(endpoint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${message}: missing endpoint`)
+  assert.match(
+    api,
+    new RegExp(endpoint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `${message}: missing endpoint`
+  )
 }
 
-requirePageMarker('data-team-leader-report-workbench', 'page must expose a report confirmation workbench area')
-requirePageMarker('data-team-leader-config-center', 'page must expose a team configuration center area')
+requirePageMarker(
+  'data-team-leader-report-workbench',
+  'page must expose a report confirmation workbench area'
+)
+requirePageMarker(
+  'data-team-leader-config-center',
+  'page must expose a team configuration center area'
+)
 requirePageMarker('报工确认工作台', 'page must use the business label 报工确认工作台')
 requirePageMarker('班组配置中心', 'page must use the business label 班组配置中心')
-requirePageMarker('data-team-leader-active-order-config', 'config center must include active order maintenance')
-requirePageMarker('data-team-leader-active-order-work-order-code', 'active order maintenance must collect the formal production work order through a remote order/product dropdown.')
-requirePageMarker('placeholder="请输入订单号、产品编码或产品名称"', 'active order maintenance must tell users they can search by order number, product code, or product name.')
-requirePageMarker(':remote-method="searchActiveOrderCandidates"', 'active order maintenance must search formal work order candidates instead of hand-entering route ids.')
-requirePageMarker('team-leader-workbench__active-order-candidate', 'active order maintenance must render candidate dropdown options with eligibility status.')
-requirePageMarker('符合要求', 'active order maintenance must visibly mark eligible order-number candidates.')
-assert.doesNotMatch(page, /data-team-leader-employee-config|生产人员工序绑定|绑定工序员工/, '生产人员不得再维护工序绑定')
-requirePageMarker('data-team-leader-device-config', 'config center must include equipment maintenance')
-requirePageMarker('data-team-leader-process-config-tab', 'page must expose the unified process config tab')
-requirePageMarker('data-team-leader-process-config-table', 'unified process config tab must include the process config table')
-requirePageMarker('data-production-leader-responsible-routes', 'production leader module tabs must display responsible route names in the right-side header area')
+requirePageMarker(
+  'data-team-leader-active-order-config',
+  'config center must include active order maintenance'
+)
+requirePageMarker(
+  'data-team-leader-active-order-work-order-code',
+  'active order maintenance must collect the formal production work order through a remote order/product dropdown.'
+)
+requirePageMarker(
+  'placeholder="请输入订单号、产品编码或产品名称"',
+  'active order maintenance must tell users they can search by order number, product code, or product name.'
+)
+requirePageMarker(
+  ':remote-method="searchActiveOrderCandidates"',
+  'active order maintenance must search formal work order candidates instead of hand-entering route ids.'
+)
+requirePageMarker(
+  'team-leader-workbench__active-order-candidate',
+  'active order maintenance must render candidate dropdown options with eligibility status.'
+)
+requirePageMarker(
+  ':teleported="false"',
+  'active order candidates must remain inside the dialog focus tree so keyboard users can reach blocked reasons.'
+)
+requirePageMarker(
+  '可加入',
+  'active order maintenance must visibly mark candidates that create a new active order.'
+)
+requirePageMarker(
+  '可复用',
+  'active order maintenance must visibly mark an existing ACTIVE frozen order.'
+)
+requirePageMarker(
+  '可恢复',
+  'active order maintenance must visibly mark a valid REMOVED frozen order.'
+)
+assert.doesNotMatch(
+  page,
+  /data-team-leader-employee-config|生产人员工序绑定|绑定工序员工/,
+  '生产人员不得再维护工序绑定'
+)
+requirePageMarker(
+  'data-team-leader-device-config',
+  'config center must include equipment maintenance'
+)
+requirePageMarker(
+  'data-team-leader-process-config-tab',
+  'page must expose the unified process config tab'
+)
+requirePageMarker(
+  'data-team-leader-process-config-table',
+  'unified process config tab must include the process config table'
+)
+requirePageMarker(
+  'data-production-leader-responsible-routes',
+  'production leader module tabs must display responsible route names in the right-side header area'
+)
 assert.match(
   page,
   /const\s+productionResponsibleRouteNames\s*=\s*computed\([\s\S]*responsibleRouteRows\.value[\s\S]*row\.routeName[\s\S]*seen\.add\(routeName\)[\s\S]*return routeNames/,
   'production leader route header must use formal responsibility routeName rows.'
 )
 assert.doesNotMatch(
-  page.match(/const\s+productionResponsibleRouteNames\s*=\s*computed\(\(\)\s*=>\s*\{[\s\S]*?\n\}\)/)?.[0] || '',
+  page.match(
+    /const\s+productionResponsibleRouteNames\s*=\s*computed\(\(\)\s*=>\s*\{[\s\S]*?\n\}\)/
+  )?.[0] || '',
   /processConfigRows\.value/,
   'production leader route header must not present process-config maintenance scope as formal responsibility.'
 )
-requirePageMarker('data-team-leader-process-relation-config', 'config center must include process exception relations')
-requirePageMarker('data-team-leader-report-active-order-abnormal', 'active order rows must expose abnormal reporting')
-requirePageMarker('data-team-leader-abnormal-report-dialog', 'abnormal reporting must use the selected active-order row')
-requirePageMarker('team-leader-workbench__abnormal-work-order-id', 'abnormal work-order ids must use the error color')
-requirePageMarker('allocatableActiveOrderOptions', 'manual allocation must exclude abnormal active orders')
-requirePageMarker('data-team-leader-structured-detail', 'submission detail must show structured report content')
-requirePageMarker('data-team-leader-fifo-allocation', 'report workbench must keep FIFO allocation action')
-requirePageMarker('data-team-leader-allocation-table', 'report workbench must keep manual allocation table')
+requirePageMarker(
+  'data-team-leader-process-relation-config',
+  'config center must include process exception relations'
+)
+requirePageMarker(
+  'data-team-leader-report-active-order-abnormal',
+  'active order rows must expose abnormal reporting'
+)
+requirePageMarker(
+  'data-team-leader-abnormal-report-dialog',
+  'abnormal reporting must use the selected active-order row'
+)
+requirePageMarker(
+  'team-leader-workbench__abnormal-work-order-id',
+  'abnormal work-order ids must use the error color'
+)
+requirePageMarker(
+  'allocatableActiveOrderOptions',
+  'manual allocation must exclude abnormal active orders'
+)
+requirePageMarker(
+  'data-team-leader-structured-detail',
+  'submission detail must show structured report content'
+)
+requirePageMarker(
+  'data-team-leader-fifo-allocation',
+  'report workbench must keep FIFO allocation action'
+)
+requirePageMarker(
+  'data-team-leader-allocation-table',
+  'report workbench must keep manual allocation table'
+)
 
-assert.doesNotMatch(page, /label="提交看板"/, 'old top-level 提交看板 tab must be replaced by report workbench')
-assert.doesNotMatch(page, /label="班组维护"/, 'old top-level 班组维护 tab must be replaced by config center')
-assert.doesNotMatch(page, /label="生产工单ID"/, 'abnormal report must not be a primary hand-entered work order id form')
-assert.doesNotMatch(page, /label="来源提交ID"/, 'abnormal report must not require hand-entered source submission id')
-assert.doesNotMatch(page, /<template #header>员工工序绑定<\/template>/, 'old employee binding card must be replaced by employee profile and relation config')
-assert.doesNotMatch(page, /<template #header>设备参数上下限<\/template>/, 'old parameter-only card must be replaced by full device and parameter config')
+assert.doesNotMatch(
+  page,
+  /label="提交看板"/,
+  'old top-level 提交看板 tab must be replaced by report workbench'
+)
+assert.doesNotMatch(
+  page,
+  /label="班组维护"/,
+  'old top-level 班组维护 tab must be replaced by config center'
+)
+assert.doesNotMatch(
+  page,
+  /label="生产工单ID"/,
+  'abnormal report must not be a primary hand-entered work order id form'
+)
+assert.doesNotMatch(
+  page,
+  /label="来源提交ID"/,
+  'abnormal report must not require hand-entered source submission id'
+)
+assert.doesNotMatch(
+  page,
+  /<template #header>员工工序绑定<\/template>/,
+  'old employee binding card must be replaced by employee profile and relation config'
+)
+assert.doesNotMatch(
+  page,
+  /<template #header>设备参数上下限<\/template>/,
+  'old parameter-only card must be replaced by full device and parameter config'
+)
 assert.doesNotMatch(
   page,
   /\n\s*<template>\s*\n\s*<ContentWrap v-if="loadError"/,
@@ -65,7 +171,11 @@ assert.doesNotMatch(
 )
 
 requireApiEndpoint('addTeamLeaderActiveOrder', '/active-order/add', 'active order add API')
-requireApiEndpoint('searchTeamLeaderActiveOrderCandidates', '/active-order/candidates', 'active order candidate search API')
+requireApiEndpoint(
+  'searchTeamLeaderActiveOrderCandidates',
+  '/active-order/candidates',
+  'active order candidate search API'
+)
 assert.match(
   api,
   /interface TeamLeaderActiveOrderAddReqVO\s*\{\s*workOrderId:\s*number\s*\}/,
@@ -73,17 +183,22 @@ assert.match(
 )
 assert.match(
   api,
-  /interface TeamLeaderActiveOrderCandidateRespVO\s*\{[\s\S]*workOrderId:\s*number[\s\S]*workOrderCode:\s*string[\s\S]*eligible:\s*boolean[\s\S]*ineligibleReason\?:\s*string[\s\S]*\}/,
-  'active order candidate API response must expose eligibility metadata for sorting and green status display.'
+  /type TeamLeaderActiveOrderCandidateState\s*=\s*\|?\s*'ADDABLE'\s*\|\s*'REUSABLE'\s*\|\s*'RECOVERABLE'\s*\|\s*'BLOCKED'[\s\S]*interface TeamLeaderActiveOrderCandidateRespVO\s*\{[\s\S]*workOrderId:\s*number[\s\S]*workOrderCode:\s*string[\s\S]*candidateState:\s*TeamLeaderActiveOrderCandidateState[\s\S]*eligible:\s*boolean[\s\S]*ineligibleReason\?:\s*string[\s\S]*\}/,
+  'active order candidate API response must expose add, reuse, recovery, and blocked states.'
+)
+assert.match(
+  api,
+  /type TeamLeaderActiveOrderCommitAction\s*=\s*'ADD'\s*\|\s*'REUSE'\s*\|\s*'RECOVER'[\s\S]*interface TeamLeaderActiveOrderAddRespVO\s*\{[\s\S]*activeOrderId:\s*number[\s\S]*action:\s*TeamLeaderActiveOrderCommitAction[\s\S]*\}[\s\S]*request\.post<TeamLeaderActiveOrderAddRespVO>/,
+  'active order add API must expose the server-committed action together with the active-order ID.'
 )
 assert.match(
   page,
-  /<el-option[\s\S]*v-for="candidate in activeOrderCandidateOptions"[\s\S]*team-leader-workbench__active-order-candidate[\s\S]*'is-eligible': candidate\.eligible[\s\S]*符合要求/,
-  'active order dropdown must show eligible candidates with a green 符合要求 marker.'
+  /<el-option[\s\S]*v-for="candidate in activeOrderCandidateOptions"[\s\S]*:disabled="!candidate\.eligible"[\s\S]*candidate\.candidateState === 'REUSABLE'[\s\S]*可复用[\s\S]*candidate\.candidateState === 'RECOVERABLE'[\s\S]*可恢复[\s\S]*可加入/,
+  'active order dropdown must label history-first states and disable exact blocked candidates.'
 )
 assert.match(
   page,
-  /addTeamLeaderActiveOrder\(\{\s*workOrderId:\s*await\s+requireSelectedActiveOrderCandidateWorkOrderId\(\)\s*\}\)/,
+  /const\s+workOrderId\s*=\s*await\s+requireSelectedActiveOrderCandidateWorkOrderId\(\)[\s\S]*addTeamLeaderActiveOrder\(\{\s*workOrderId\s*\}\)/,
   'active order UI submit must send only a candidate-verified workOrderId and reject free-text/null selection before the API call.'
 )
 assert.match(
@@ -93,8 +208,45 @@ assert.match(
 )
 assert.match(
   page,
-  /const\s+resolveActiveOrderCandidateByKeyword\s*=\s*async\s*\(\)\s*=>[\s\S]*activeOrderCandidateKeyword\.value[\s\S]*searchTeamLeaderActiveOrderCandidates\(keyword\)[\s\S]*return findActiveOrderCandidateByCode\(keyword\)[\s\S]*const\s+requireSelectedActiveOrderCandidateWorkOrderId\s*=\s*async\s*\(\)\s*=>[\s\S]*await resolveActiveOrderCandidateByKeyword\(\)[\s\S]*throw new Error\('请选择订单号\/产品候选'\)[\s\S]*return requirePositiveNumber\(selectedCandidate\.workOrderId,\s*'请选择订单号\/产品候选'\)/,
-  'active order submit guard must resolve exact typed order/product text to a real candidate and still block unmatched free text.'
+  /const\s+resolveActiveOrderCandidateByKeyword\s*=\s*async\s*\(\)\s*=>[\s\S]*activeOrderCandidateKeyword\.value[\s\S]*searchTeamLeaderActiveOrderCandidates\(keyword\)[\s\S]*return findActiveOrderCandidateByCode\(keyword\)[\s\S]*const\s+requireSelectedActiveOrderCandidateWorkOrderId\s*=\s*async\s*\(\)\s*=>[\s\S]*await resolveActiveOrderCandidateByKeyword\(\)[\s\S]*throw new Error\('请选择订单号\/产品候选'\)[\s\S]*!selectedCandidate\.eligible[\s\S]*selectedCandidate\.ineligibleReason[\s\S]*return requirePositiveNumber\(selectedCandidate\.workOrderId,\s*'请选择订单号\/产品候选'\)/,
+  'active order submit guard must resolve an exact candidate and prevent blocked candidates from reaching add.'
+)
+assert.match(
+  page,
+  /const\s+activeOrderSubmitLabel\s*=\s*computed[\s\S]*REUSABLE[\s\S]*确认复用[\s\S]*RECOVERABLE[\s\S]*恢复活跃订单[\s\S]*加入活跃订单/,
+  'active order submit command must tell the operator whether it will add, reuse, or restore.'
+)
+assert.match(
+  page,
+  /const\s+workOrderId\s*=\s*await\s+requireSelectedActiveOrderCandidateWorkOrderId\(\)[\s\S]*const\s+receipt\s*=\s*await\s+addTeamLeaderActiveOrder\(\{\s*workOrderId\s*\}\)[\s\S]*activeOrderCommitSuccessMessage\(receipt\.action\)[\s\S]*ElMessage\.success/,
+  'active order success feedback must use the server-committed action instead of the preview candidate state.'
+)
+assert.doesNotMatch(
+  page,
+  /activeOrderSubmitSuccessMessage/,
+  'preview candidate state must not remain a success-message authority.'
+)
+assert.match(
+  page,
+  /popper-class="team-leader-workbench__active-order-candidate-popper"[\s\S]*<el-tooltip[\s\S]*:content="candidate\.ineligibleReason\s*\|\|\s*'暂不符合'"[\s\S]*tabindex="0"[\s\S]*:aria-label="candidate\.ineligibleReason\s*\|\|\s*'暂不符合'"[\s\S]*data-team-leader-active-order-blocked-reason/,
+  'blocked candidates must expose their full reason to hover, keyboard focus, and assistive technology.'
+)
+const blockedReasonStyle =
+  page.match(/\.team-leader-workbench__active-order-candidate-reason\s*\{[\s\S]*?\}/)?.[0] || ''
+assert.match(
+  blockedReasonStyle,
+  /white-space:\s*normal/,
+  'blocked reasons must wrap at the real dropdown width.'
+)
+assert.match(
+  blockedReasonStyle,
+  /overflow-wrap:\s*anywhere/,
+  'long Chinese blocker text must remain fully readable.'
+)
+assert.doesNotMatch(
+  blockedReasonStyle,
+  /text-overflow:\s*ellipsis|white-space:\s*nowrap/,
+  'blocked reasons must not be truncated to one line.'
 )
 assert.doesNotMatch(
   page,
@@ -103,13 +255,33 @@ assert.doesNotMatch(
 )
 requireApiEndpoint('removeTeamLeaderActiveOrder', '/active-order/remove', 'active order remove API')
 requireApiEndpoint('createTeamEmployeeProfile', '/employee-profile/create', 'employee profile API')
-assert.doesNotMatch(api, /saveTeamProcessEmployeeBinding|process-employee-binding\/save/, '前端不得保留工序员工绑定 API')
+assert.doesNotMatch(
+  api,
+  /saveTeamProcessEmployeeBinding|process-employee-binding\/save/,
+  '前端不得保留工序员工绑定 API'
+)
 requireApiEndpoint('createTeamDevice', '/team-device/create', 'team device create API')
 requireApiEndpoint('updateTeamDeviceStatus', '/team-device/status/update', 'team device status API')
-requireApiEndpoint('getTeamLeaderProcessConfigList', '/process-config/list', 'unified process config read API')
-requireApiEndpoint('saveTeamProcessConfigDeviceBinding', '/process-config/device-binding/save', 'route process device binding API')
-requireApiEndpoint('saveTeamProcessConfigDeviceParameterRule', '/process-config/device-parameter-rule/save', 'route process parameter API')
-requireApiEndpoint('saveTeamProcessDefectReason', '/process-defect-reason/save', 'process defect reason API')
+requireApiEndpoint(
+  'getTeamLeaderProcessConfigList',
+  '/process-config/list',
+  'unified process config read API'
+)
+requireApiEndpoint(
+  'saveTeamProcessConfigDeviceBinding',
+  '/process-config/device-binding/save',
+  'route process device binding API'
+)
+requireApiEndpoint(
+  'saveTeamProcessConfigDeviceParameterRule',
+  '/process-config/device-parameter-rule/save',
+  'route process parameter API'
+)
+requireApiEndpoint(
+  'saveTeamProcessDefectReason',
+  '/process-defect-reason/save',
+  'process defect reason API'
+)
 
 assert.doesNotMatch(
   page,

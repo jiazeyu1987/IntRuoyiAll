@@ -39,7 +39,7 @@ def test_process_pool_sql_creates_dedicated_tables():
 
     assert sql.startswith(
         "-- release-migration: allowedEnvironments=test,backup,prod; "
-        "dependsOn=20260729_dcc_product_catalog_remove_subsidiary_source; type=schema; riskLevel=medium\n"
+        "dependsOn=20260512_mes_base_schema; type=schema; riskLevel=medium\n"
     )
     assert "CREATE TABLE IF NOT EXISTS `mes_pro_process_pool`" in sql
     assert "CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_event`" in sql

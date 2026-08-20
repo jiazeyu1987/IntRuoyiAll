@@ -8,7 +8,12 @@ public interface MesFrontlineDeviceAccountContextService {
 
     List<MesFrontlineRouteProcessCandidate> listSwitchableProcesses(Long loginUserId);
 
-    List<MesFrontlineEmployeeCandidate> listEmployeeCandidates(Long loginUserId, Long routeId,
+    default List<MesFrontlineEmployeeCandidate> listEmployeeCandidates(Long loginUserId, Long routeId,
+                                                                       Long routeProcessId, Long processId) {
+        return listEmployeeCandidates(loginUserId, null, routeId, routeProcessId, processId);
+    }
+
+    List<MesFrontlineEmployeeCandidate> listEmployeeCandidates(Long loginUserId, Long activeOrderId, Long routeId,
                                                                Long routeProcessId, Long processId);
 
     MesFrontlineRouteProcessCandidate requireAuthorizedProcess(Long loginUserId, Long routeId,

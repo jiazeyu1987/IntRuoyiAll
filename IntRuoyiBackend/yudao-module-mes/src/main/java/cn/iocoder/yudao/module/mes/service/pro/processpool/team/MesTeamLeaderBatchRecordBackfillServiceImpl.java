@@ -148,7 +148,6 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                 || command.getAllocation().getRouteProcessId() == null
                 || command.getAllocation().getProcessId() == null
                 || command.getWorkOrder().getId() == null
-                || command.getDccProjectCodeId() == null
                 || (command.getBatchExecutionId() == null) != (command.getBatchExecutionTaskId() == null)
                 || command.getBatchExecutionId() != null && command.getBatchExecutionId() <= 0
                 || command.getBatchExecutionTaskId() != null && command.getBatchExecutionTaskId() <= 0) {
@@ -341,12 +340,20 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             if (!SOURCE_TYPE_PRODUCTION_PICK_LIST.equals(StrUtil.trim(rule.getSourceType()))) {
                 continue;
             }
+            Long dccProjectCodeId = requireDccProjectCodeId(command);
             result.computeIfAbsent(rule.getSourceFieldCode(), fieldCode -> productionPickListSourceService.resolveValue(
                     new MesProductionPickListSourceService.ResolveCommand(binding.getRouteId(),
-                            binding.getRouteProcessId(), workOrder.getProductId(), command.getDccProjectCodeId(),
+                            binding.getRouteProcessId(), workOrder.getProductId(), dccProjectCodeId,
                             workOrder.getCode(), fieldCode)));
         }
         return Map.copyOf(result);
+    }
+
+    private Long requireDccProjectCodeId(MesTeamLeaderBatchRecordBackfillCommand command) {
+        if (command.getDccProjectCodeId() == null || command.getDccProjectCodeId() <= 0) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfill.dccProjectCodeId");
+        }
+        return command.getDccProjectCodeId();
     }
 
     private Object eventContextSourceValue(MesProProcessPoolEventDO sourceEvent, String sourceFieldCode) {

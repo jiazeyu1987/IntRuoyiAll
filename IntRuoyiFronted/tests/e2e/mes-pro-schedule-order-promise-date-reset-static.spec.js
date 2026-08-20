@@ -9,10 +9,10 @@ assert(fs.existsSync(pagePath), '排产工单页面必须存在。')
 const pageSource = fs.readFileSync(pagePath, 'utf8')
 
 assert(
-  /<el-button[\s\S]*v-hasPermi="\['mes:pro-schedule-order:update'\]"[\s\S]*:disabled="row\.frozen"[\s\S]*@click="openPromiseDateDialog\(row\)"[\s\S]*>\s*设置交期\s*<\/el-button>/.test(
+  /<el-button[\s\S]*v-hasPermi="\['mes:pro-schedule-order:update'\]"[\s\S]*@click="openPromiseDateDialog\(row\)"[\s\S]*>\s*交期\s*<\/el-button>/.test(
     pageSource
   ),
-  '排产工单行操作必须提供受 update 权限保护且冻结时不可用的“设置交期”入口。'
+  '排产工单行操作必须保留受 update 权限保护的两字“交期”入口。'
 )
 assert(
   pageSource.includes('<Dialog v-model="promiseDateDialogVisible" title="设置承诺交期"'),

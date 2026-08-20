@@ -39,6 +39,7 @@ public class MesPqcInspectionTaskDO extends TenantBaseDO {
     private Long routeProcessId;
     private Long processId;
     private Long qaProcessId;
+    private String qaItemCode;
     private Long regulationVersionId;
     private String inspectionType;
     private String inspectionRuleKey;

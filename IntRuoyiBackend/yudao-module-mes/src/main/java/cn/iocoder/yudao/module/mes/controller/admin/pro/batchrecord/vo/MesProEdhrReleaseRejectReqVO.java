@@ -17,4 +17,19 @@ public class MesProEdhrReleaseRejectReqVO {
 
     @NotBlank(message = "驳回原因不能为空")
     private String rejectReason;
+
+    public MesProEdhrReleaseRejectReqVO setReleaseTransactionId(Long releaseTransactionId) {
+        this.releaseTransactionId = releaseTransactionId;
+        return this;
+    }
+
+    public MesProEdhrReleaseRejectReqVO setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
+        return this;
+    }
+
+    public MesProEdhrReleaseRejectReqVO setRejectReason(String rejectReason) {
+        this.rejectReason = rejectReason;
+        return this;
+    }
 }

@@ -70,6 +70,7 @@ final class MesProFrontlineFeedbackSubmitTestData {
                         .setProcessId(31L)
                         .setWorkOrderId(41L)
                         .setTaskId(51L)
+                        .setActiveOrderProcessSnapshotId(5101L)
                         .setScheduleOrderId(81L)
                         .setScheduleOrderProcessId(82L)
                         .setItemId(61L)

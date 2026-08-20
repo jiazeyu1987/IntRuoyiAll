@@ -100,18 +100,27 @@ class MesFrontlineSubmitAuthorizationTest {
     }
 
     @Test
-    void shouldAuthorizeSelectedActiveOrderForResponsibleLeaderAndProcessSnapshot() {
+    void shouldAuthorizeValidActiveOrderWithFrozenProcessSnapshot() {
         when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
         when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
                 MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
-                        .routeId(21L).activeStatus("ACTIVE").build());
+                        .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE").build());
         when(processSnapshotMapper.selectByActiveOrderAndProcess(81L, 71L, 31L)).thenReturn(
-                MesProcessPoolActiveOrderProcessSnapshotDO.builder()
-                        .activeOrderId(81L).workOrderId(41L).routeId(21L)
-                        .routeProcessId(71L).processId(31L).build());
+                activeOrderProcessSnapshot(81L, 41L, 21L, 61L, 71L, 31L));
 
         assertDoesNotThrow(() -> submitAuthorizationService.authorizeActiveOrder(
                 9001L, 81L, 41L, 21L, 71L, 31L));
+    }
+
+    @Test
+    void shouldRejectSelectedActiveOrderProcessThatIsNotFrozenByOrder() {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(
+                MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
+                        .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE").build());
+
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 81L, 41L, 21L, 9908090160L, 31L));
     }
 
     @Test
@@ -132,6 +141,25 @@ class MesFrontlineSubmitAuthorizationTest {
 
         assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
                 9001L, 82L, 41L, 21L, 71L, 31L));
+    }
+
+    @Test
+    void shouldRejectActiveOrderWhenLeaderWorkOrderOrRouteDoesNotMatch() {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        when(activeOrderMapper.selectByIdForUpdate(81L))
+                .thenReturn(MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3002L).workOrderId(41L)
+                        .routeId(21L).activeStatus("ACTIVE").build())
+                .thenReturn(MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(42L)
+                        .routeId(21L).activeStatus("ACTIVE").build())
+                .thenReturn(MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
+                        .routeId(22L).activeStatus("ACTIVE").build());
+
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 81L, 41L, 21L, 71L, 31L));
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 81L, 41L, 21L, 71L, 31L));
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
+                9001L, 81L, 41L, 21L, 71L, 31L));
     }
 
     private void givenSnapshot(List<MesFrontlineEmployeeSwitchResult> employees,
@@ -159,6 +187,20 @@ class MesFrontlineSubmitAuthorizationTest {
     private static MesFrontlineTeamDeviceOption device(Long deviceId) {
         return new MesFrontlineTeamDeviceOption(deviceId, "D-" + deviceId, "Device " + deviceId,
                 "ENABLED", List.of());
+    }
+
+    private static MesProcessPoolActiveOrderProcessSnapshotDO activeOrderProcessSnapshot(
+            Long activeOrderId, Long workOrderId, Long routeId, Long routeVersionId,
+            Long routeProcessId, Long processId) {
+        return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                .id(7001L)
+                .activeOrderId(activeOrderId)
+                .workOrderId(workOrderId)
+                .routeId(routeId)
+                .routeVersionId(routeVersionId)
+                .routeProcessId(routeProcessId)
+                .processId(processId)
+                .build();
     }
 
 }

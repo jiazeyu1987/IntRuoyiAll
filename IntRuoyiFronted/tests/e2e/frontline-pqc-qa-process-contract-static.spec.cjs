@@ -123,6 +123,21 @@ const taskOptionInterface = blockBetween(
   'export interface FrontlinePqcTaskOptionVO {',
   'export interface FrontlinePqcProductionSubmitCandidateVO {'
 )
+assert.match(
+  apiSource,
+  /export type FrontlinePqcBusinessDateResponse = string \| \[number, number, number\]/,
+  'The PQC response contract must expose both the ISO date and Jackson LocalDate tuple shapes.'
+)
+assert.match(
+  apiSource,
+  /export interface FrontlinePqcTaskOptionResponseVO\s+extends Omit<FrontlinePqcTaskOptionVO, 'businessDate'>/,
+  'The raw PQC task response must stay separate from the normalized page task contract.'
+)
+assert.match(
+  apiSource,
+  /request\.get<FrontlinePqcProcessResponseVO\[\]>/,
+  'The PQC process request must use the raw response DTO before projection.'
+)
 for (const [field, type] of [
   ['inspectionRuleKey', 'FrontlinePqcInspectionRuleKey'],
   ['inspectionType', 'FrontlinePqcInspectionType'],
@@ -352,10 +367,10 @@ const task = (pqcTaskId, inspectionRuleKey, ruleSort, businessDate, taskStatus) 
   inspectionItems: []
 })
 const reverseOrderedTasks = [
-  task(404, 'FINAL', 40, '2026-08-14', 'CANCELLED'),
-  task(303, 'PATROL_PM', 30, '2026-08-13', 'CONFIRMED'),
-  task(202, 'PATROL_AM', 20, '2026-08-13', 'SUBMITTED'),
-  task(101, 'FIRST', 10, '2026-08-13', 'PENDING')
+  task(404, 'FINAL', 40, [2026, 8, 14], 'CANCELLED'),
+  task(303, 'PATROL_PM', 30, [2026, 8, 13], 'CONFIRMED'),
+  task(202, 'PATROL_AM', 20, [2026, 8, 13], 'SUBMITTED'),
+  task(101, 'FIRST', 10, [2026, 8, 13], 'PENDING')
 ]
 const processFixture = {
   activeOrderId: 1,
@@ -393,6 +408,31 @@ assert.deepEqual(
     ['CANCELLED', 404, 404]
   ],
   'Stable projection must preserve each rule task status, quantity, and task identity.'
+)
+assert.deepEqual(
+  projectedProcess.pqcTaskOptions.map(({ businessDate }) => businessDate),
+  ['2026-08-13', '2026-08-13', '2026-08-13', '2026-08-14'],
+  'Jackson LocalDate tuples must normalize to the formal YYYY-MM-DD page contract before sorting.'
+)
+const [stringDateProcess] = projectFrontlinePqcProcesses([{
+  ...processFixture,
+  pqcTaskOptions: [task(505, 'FINAL', 40, '2026-08-15', 'PENDING')]
+}])
+assert.equal(
+  stringDateProcess.pqcTaskOptions[0].businessDate,
+  '2026-08-15',
+  'A valid ISO business date must preserve the normalized page contract.'
+)
+assert.throws(
+  () =>
+    projectFrontlinePqcProcesses([
+      {
+        ...processFixture,
+        pqcTaskOptions: [task(999, 'FIRST', 10, [2026, 2, 30], 'PENDING')]
+      }
+    ]),
+  /PQC任务业务日期无效.*pqcTaskId=999/,
+  'An invalid business date must fail explicitly with the task identity.'
 )
 
 const verifyRealConsumerIdentityAndStaleIsolation = async () => {

@@ -9,7 +9,9 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 @Mapper
 public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessPoolActiveOrderDO> {
@@ -82,11 +84,53 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .last("FOR UPDATE"));
     }
 
+    default List<MesProcessPoolActiveOrderDO> selectHistoryByWorkOrderIdForUpdate(Long workOrderId) {
+        if (workOrderId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderId)
+                .in(MesProcessPoolActiveOrderDO::getActiveStatus, List.of("ACTIVE", "REMOVED"))
+                .orderByAsc(MesProcessPoolActiveOrderDO::getId)
+                .last("FOR UPDATE"));
+    }
+
+    default List<MesProcessPoolActiveOrderDO> selectHistoryByWorkOrderIds(Collection<Long> workOrderIds) {
+        if (workOrderIds == null || workOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
+                .in(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderIds)
+                .in(MesProcessPoolActiveOrderDO::getActiveStatus, List.of("ACTIVE", "REMOVED"))
+                .orderByAsc(MesProcessPoolActiveOrderDO::getWorkOrderId)
+                .orderByAsc(MesProcessPoolActiveOrderDO::getId));
+    }
+
     default List<MesProcessPoolActiveOrderDO> selectActiveList() {
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
                 .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE")
                 .orderByDesc(MesProcessPoolActiveOrderDO::getJoinedAt)
                 .orderByAsc(MesProcessPoolActiveOrderDO::getId));
+    }
+
+    default Long selectCountByQaRegulationOrVersionIds(Long qaRegulationId,
+                                                       Collection<Long> qaRegulationVersionIds) {
+        if (qaRegulationId == null && (qaRegulationVersionIds == null || qaRegulationVersionIds.isEmpty())) {
+            return 0L;
+        }
+        LambdaQueryWrapperX<MesProcessPoolActiveOrderDO> query = new LambdaQueryWrapperX<>();
+        query.and(wrapper -> {
+            if (qaRegulationId != null) {
+                wrapper.eq(MesProcessPoolActiveOrderDO::getQaRegulationId, qaRegulationId);
+            }
+            if (qaRegulationVersionIds != null && !qaRegulationVersionIds.isEmpty()) {
+                if (qaRegulationId != null) {
+                    wrapper.or();
+                }
+                wrapper.in(MesProcessPoolActiveOrderDO::getQaRegulationVersionId, qaRegulationVersionIds);
+            }
+        });
+        return selectCount(query);
     }
 
     default MesProcessPoolActiveOrderDO selectActiveByWorkOrderAndRoute(Long workOrderId, Long routeId) {
@@ -118,16 +162,28 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE"));
     }
 
-    default MesProcessPoolActiveOrderDO selectRemovedByWorkOrderRouteVersion(Long workOrderId, Long routeId,
-                                                                            Long routeVersionId) {
-        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()
-                .eq(MesProcessPoolActiveOrderDO::getWorkOrderId, workOrderId)
-                .eq(MesProcessPoolActiveOrderDO::getRouteId, routeId)
-                .eq(MesProcessPoolActiveOrderDO::getRouteVersionId, routeVersionId)
-                .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "REMOVED")
-                .orderByDesc(MesProcessPoolActiveOrderDO::getRemovedAt)
-                .orderByDesc(MesProcessPoolActiveOrderDO::getId)
-                .last("LIMIT 1"));
+    default int refreshActiveOrderSnapshot(MesProcessPoolActiveOrderDO snapshot) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        Objects.requireNonNull(snapshot.getId(), "snapshot.id");
+        Objects.requireNonNull(snapshot.getLeaderUserId(), "snapshot.leaderUserId");
+        Objects.requireNonNull(snapshot.getVersion(), "snapshot.version");
+        return update(null, new LambdaUpdateWrapper<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getId, snapshot.getId())
+                .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE")
+                .eq(MesProcessPoolActiveOrderDO::getVersion, snapshot.getVersion())
+                .set(MesProcessPoolActiveOrderDO::getRouteId, snapshot.getRouteId())
+                .set(MesProcessPoolActiveOrderDO::getRouteVersionId, snapshot.getRouteVersionId())
+                .set(MesProcessPoolActiveOrderDO::getDccProjectCodeId, snapshot.getDccProjectCodeId())
+                .set(MesProcessPoolActiveOrderDO::getQaRegulationId, snapshot.getQaRegulationId())
+                .set(MesProcessPoolActiveOrderDO::getQaRegulationVersionId, snapshot.getQaRegulationVersionId())
+                .set(MesProcessPoolActiveOrderDO::getErpFixedQuantitySnapshot,
+                        snapshot.getErpFixedQuantitySnapshot())
+                .set(MesProcessPoolActiveOrderDO::getActiveStatus, snapshot.getActiveStatus())
+                .set(MesProcessPoolActiveOrderDO::getBusinessStatus, snapshot.getBusinessStatus())
+                .set(MesProcessPoolActiveOrderDO::getRemovedAt, snapshot.getRemovedAt())
+                .set(MesProcessPoolActiveOrderDO::getUpdateTime, LocalDateTime.now())
+                .set(MesProcessPoolActiveOrderDO::getUpdater, snapshot.getLeaderUserId().toString())
+                .setSql("version = version + 1"));
     }
 
     default int reactivateRemovedActiveOrder(Long activeOrderId, Long leaderUserId, Integer version,

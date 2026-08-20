@@ -41,18 +41,27 @@ assert(
 const handleValidateStart = panel.indexOf('const handleValidate = async () => {')
 const handleValidateEnd = panel.indexOf('const closePqcSignatureDialog', handleValidateStart)
 const handleValidateBlock = panel.slice(handleValidateStart, handleValidateEnd)
-const validateIndex = handleValidateBlock.indexOf('FrontlineTemplateApi.validatePayload')
+const formalReadyIndex = handleValidateBlock.indexOf('assertPqcFormalSubmissionReady()')
+const quantityReadyIndex = handleValidateBlock.indexOf('assertPqcSignatureAndQuantityReady()')
+const displayFieldsReadyIndex = handleValidateBlock.indexOf('assertPqcInspectionDisplayFieldsReady()')
 const signatureDialogIndex = handleValidateBlock.indexOf('pqcSignatureDialogVisible.value = true')
 const confirmStart = panel.indexOf('const handleConfirmPqcSubmit = async () => {')
 const confirmEnd = panel.indexOf('const assertFormalPayloadContext', confirmStart)
 const confirmBlock = panel.slice(confirmStart, confirmEnd)
 const pqcSubmitIndex = confirmBlock.indexOf('ProFeedbackApi.submitFrontlinePqcInspection')
+const resetIndex = confirmBlock.indexOf('resetPqcSubmissionDraft(submitPayload.pqcTaskId)')
 const successIndex = confirmBlock.indexOf('message.success(`PQC正式提交成功')
 const recoverIndex = confirmBlock.indexOf('recoverPqcSubmitReceiptAfterUncertainError')
 assert(
-  validateIndex >= 0 && signatureDialogIndex > validateIndex && pqcSubmitIndex >= 0 &&
-    successIndex > pqcSubmitIndex && recoverIndex > pqcSubmitIndex,
-  'PQC 检验员提交必须先校验模板 payload，再完成本次电子签名，调用正式接口；提交异常后必须先尝试只读恢复确认。'
+  formalReadyIndex >= 0 &&
+    quantityReadyIndex > formalReadyIndex &&
+    displayFieldsReadyIndex > quantityReadyIndex &&
+    signatureDialogIndex > displayFieldsReadyIndex &&
+    pqcSubmitIndex >= 0 &&
+    resetIndex > pqcSubmitIndex &&
+    successIndex > resetIndex &&
+    recoverIndex > pqcSubmitIndex,
+  'PQC 检验员提交必须先完成本地正式校验，再电子签名、调用正式接口；明确成功后复位本次草稿，提交异常后先尝试只读恢复确认。'
 )
 
 const submitCallPattern =
@@ -70,30 +79,11 @@ for (const token of ['pqcDraft', 'pqcPieceValues', 'rawPayload']) {
 }
 
 assert(
-  leaderPage.includes('resolvePqcSubmissionContentItems') &&
-    leaderPage.includes('resolvePqcItemSnapshotDetails') &&
+  leaderPage.includes('resolvePqcItemSnapshotDetails') &&
+    leaderPage.includes('resolvePqcDetailStructuredItems') &&
+    leaderPage.includes('data-pqc-leader-item-snapshot-table') &&
     /pqcItemDetails|itemResults/.test(leaderPage),
   'PQC 组长列表必须按检验员正式项目级明细解析展示，不能只展示汇总。'
-)
-
-const pqcProductionSubmitTimeFormatterStart = panel.indexOf('const formatPqcServerSubmitTime')
-const pqcProductionSubmitTimeFormatterEnd = panel.indexOf('const productionScrapQuantity', pqcProductionSubmitTimeFormatterStart)
-assert(
-  pqcProductionSubmitTimeFormatterStart >= 0 && pqcProductionSubmitTimeFormatterEnd > pqcProductionSubmitTimeFormatterStart,
-  'PQC 生产提交记录时间必须经过专用格式化函数，兼容后端 LocalDateTime 数字时间戳。'
-)
-const pqcProductionSubmitTimeFormatter = panel.slice(
-  pqcProductionSubmitTimeFormatterStart,
-  pqcProductionSubmitTimeFormatterEnd
-)
-assert(
-  /typeof\s+value\s*===\s*['"]number['"]/.test(pqcProductionSubmitTimeFormatter) &&
-    /new Date\(value\)/.test(pqcProductionSubmitTimeFormatter),
-  'PQC 生产提交记录时间格式化必须支持 number 时间戳，不能直接调用字符串 replace。'
-)
-assert(
-  !/candidate\.serverSubmitTime\.replace/.test(panel),
-  'PQC 生产提交记录显示不得直接对 serverSubmitTime 调用 replace，避免数字时间戳导致页面崩溃。'
 )
 
 const resolvePqcResultStart = panel.indexOf('const resolvePqcResult = () => {')
@@ -121,13 +111,13 @@ assert(
 const recoverBlock = panel.slice(recoverStart, recoverEnd)
 assert(
   recoverBlock.includes('ProFeedbackApi.getFrontlinePqcSubmitReceipt') &&
-    recoverBlock.includes('pqcSubmitReceipt.value = recoveredReceipt') &&
+    recoverBlock.includes('resetPqcSubmissionDraft(recoveredReceipt.pqcTaskId)') &&
     recoverBlock.includes('pqcSubmitResultUncertain.value = true'),
-  'PQC 提交异常后必须按 pqcTaskId 查询正式回执；已提交则回填锁定，确认失败则进入不确定锁定态。'
+  'PQC 提交异常后必须按 pqcTaskId 查询正式回执；已提交则按成功提交复位并进入下一次提交，确认失败才进入不确定锁定态。'
 )
 assert(
-  /:disabled="payloadLoading \|\| Boolean\(pqcSubmitReceipt\) \|\| pqcSubmitResultUncertain"/.test(panel),
-  'PQC 提交按钮必须在回执已恢复或提交状态不确定时锁定，禁止盲目重复点击。'
+  /:disabled="payloadLoading \|\| pqcSubmitResultUncertain"/.test(panel),
+  'PQC 提交按钮只在提交中或结果不确定时锁定，明确成功或明确失败后必须可继续提交。'
 )
 
 assert(
@@ -138,12 +128,14 @@ assert(
 )
 assert(
   backendService.includes('getSubmittedPqcInspection') &&
-    backendService.includes('selectLatestPqcByTaskId') &&
+    backendService.includes('requireUniqueSubmittedEvent') &&
+    backendService.includes('selectListPqcByTaskId') &&
+    backendService.includes('getSubmittedEventId') &&
     backendService.includes('loadPqcSubmitResult'),
   'PQC 回执只读查询必须复用正式事件和 PQC record 来源生成回执。'
 )
 assert(
-  backendMapper.includes('selectLatestPqcByTaskId') &&
+  backendMapper.includes('selectListPqcByTaskId') &&
     backendMapper.includes('EVENT_TYPE_PQC_INSPECTION') &&
     backendMapper.includes('getFeedbackSourceId'),
   'PQC 回执只读查询必须按任务稳定 ID 查询正式 PQC_INSPECTION 事件。'

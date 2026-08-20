@@ -16,6 +16,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,6 +52,42 @@ class MesProRouteControlledContentAdapterTest {
     }
 
     @Test
+    void recordActiveRegisteredIfMissing_shouldRegisterImportedActiveAndKeepMatchingExistingRef() {
+        MesProRouteVersionDO active = activeVersion();
+        ControlledContentKey key = routeKey(active.getRouteId());
+        when(lifecycleCoreService.getActiveRef(key))
+                .thenReturn(null)
+                .thenReturn(ControlledContentVersionRefDO.builder()
+                        .id(7001L)
+                        .nativeVersionId(active.getId())
+                        .build());
+
+        adapter.recordActiveRegisteredIfMissing(active, 501L, "Word import active registered");
+        adapter.recordActiveRegisteredIfMissing(active, 501L, "Word import active registered");
+
+        verify(lifecycleCoreService).registerActiveRef(key, active.getRouteId(), active.getId(),
+                active.getVersionNo(), MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE,
+                501L, "Word import active registered");
+    }
+
+    @Test
+    void recordActiveRegisteredIfMissing_shouldRejectActiveIdentityDrift() {
+        MesProRouteVersionDO active = activeVersion();
+        ControlledContentKey key = routeKey(active.getRouteId());
+        when(lifecycleCoreService.getActiveRef(key)).thenReturn(ControlledContentVersionRefDO.builder()
+                .id(7001L)
+                .nativeVersionId(9999L)
+                .build());
+
+        assertThrows(IllegalStateException.class,
+                () -> adapter.recordActiveRegisteredIfMissing(active, 501L, "Word import active registered"));
+
+        verify(lifecycleCoreService, never()).registerActiveRef(key, active.getRouteId(), active.getId(),
+                active.getVersionNo(), MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE,
+                501L, "Word import active registered");
+    }
+
+    @Test
     void recordCandidateCreated_shouldUseRouteAsPlatformContentKeyAndLinkActiveRef() {
         MesProRouteVersionDO active = activeVersion();
         MesProRouteVersionDO candidate = draftCandidate(active);
@@ -63,6 +101,29 @@ class MesProRouteControlledContentAdapterTest {
         verify(lifecycleCoreService).createCandidateRef(key, active.getRouteId(), candidate.getId(),
                 candidate.getVersionNo(), MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
                 7001L, active.getId(), 501L, "平台状态机接入");
+    }
+
+    @Test
+    void recordDraftCandidateRegisteredIfMissing_shouldRegisterImportedCandidateOnlyOnce() {
+        MesProRouteVersionDO active = activeVersion();
+        MesProRouteVersionDO candidate = draftCandidate(active);
+        ControlledContentKey key = routeKey(active.getRouteId());
+        when(lifecycleCoreService.getVersionRef(key, candidate.getId()))
+                .thenReturn(null)
+                .thenReturn(ControlledContentVersionRefDO.builder().id(7002L).build());
+        when(lifecycleCoreService.getActiveRef(key)).thenReturn(ControlledContentVersionRefDO.builder()
+                .id(7001L)
+                .nativeVersionId(active.getId())
+                .build());
+
+        adapter.recordDraftCandidateRegisteredIfMissing(active, candidate, 501L,
+                "Word import candidate registered");
+        adapter.recordDraftCandidateRegisteredIfMissing(active, candidate, 501L,
+                "Word import candidate registered");
+
+        verify(lifecycleCoreService).createCandidateRef(key, active.getRouteId(), candidate.getId(),
+                candidate.getVersionNo(), MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
+                7001L, active.getId(), 501L, "Word import candidate registered");
     }
 
     @Test

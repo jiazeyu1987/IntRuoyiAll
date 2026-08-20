@@ -75,6 +75,29 @@ class MesProcessPoolTeamLeaderSchemaTest {
     }
 
     @Test
+    void activeOrderProcessSnapshotSchemaMustFreezeCanonicalParameterStandards() throws Exception {
+        Class<?> snapshotClass = Class.forName(
+                "cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO");
+        java.util.Set<String> fieldNames = java.util.Arrays.stream(snapshotClass.getDeclaredFields())
+                .map(java.lang.reflect.Field::getName)
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(fieldNames.contains("parameterSnapshotJson"),
+                "active-order process snapshot must persist canonical parameter JSON");
+        assertTrue(fieldNames.contains("parameterSnapshotSha256"),
+                "active-order process snapshot must persist the parameter JSON hash");
+        assertTrue(fieldNames.contains("parameterSnapshotState"),
+                "active-order process snapshot must distinguish FROZEN and MISSING_LEGACY");
+
+        java.nio.file.Path migration = resolveBackendPath(
+                "sql/mysql/20260812_mes_active_order_parameter_snapshot.sql");
+        assertTrue(Files.exists(migration), "C010 parameter snapshot migration must exist");
+        String sql = Files.readString(migration, StandardCharsets.UTF_8);
+        assertTrue(sql.contains("`parameter_snapshot_json` LONGTEXT NULL"));
+        assertTrue(sql.contains("`parameter_snapshot_sha256` CHAR(64) NULL"));
+        assertTrue(sql.contains("`parameter_snapshot_state` VARCHAR(32) NOT NULL"));
+    }
+
+    @Test
     void shouldCreateTeamLeaderWorkbenchAndMaintenanceTables() throws Exception {
         assertEquals("mes_pro_process_pool_team_leader_scope", tableName(MesProcessPoolTeamLeaderScopeDO.class));
         assertEquals("mes_pro_process_pool_submission_review", tableName(MesProcessPoolSubmissionReviewDO.class));

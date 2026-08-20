@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -65,6 +66,30 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     }
 
     @Test
+    void shouldMarkAllSubmissionsOfOverrunProcessAsQuantityConflict() throws Exception {
+        when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .activeStatus("ACTIVE")
+                .build());
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "1500.000000", 7001L, "1000", "张三", "生产组长甲",
+                        "2026-08-19T16:52:08"),
+                row(9101L, 5001L, 6001L, "粗洗", "1500.000000", 7002L, "2000", "李四", "生产组长甲",
+                        "2026-08-19T16:53:03")));
+
+        MesTeamLeaderActiveOrderDetail detail = service.getDetail(3001L, 8101L);
+
+        MesTeamLeaderActiveOrderDetail.ProcessDetail process = detail.getProcesses().get(0);
+        assertEquals(Boolean.TRUE, invokeBoolean(process, "getQuantityConflict"));
+        assertEquals(0, new BigDecimal("1500").compareTo(invokeBigDecimal(process, "getOverageQuantity")));
+        for (MesTeamLeaderActiveOrderDetail.SubmissionDetail submission : process.getSubmissions()) {
+            assertEquals(Boolean.TRUE, invokeBoolean(submission, "getQuantityConflict"));
+        }
+    }
+
+    @Test
     void shouldRejectActiveOrderOutsideCurrentLeaderOrRemovedOrder() {
         when(activeOrderMapper.selectById(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
@@ -92,8 +117,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     }
 
     private static MesTeamLeaderActiveOrderDetailReadDO row(Long snapshotId,
-                                                             Long routeProcessId,
-                                                             Long processId,
+                                                              Long routeProcessId,
+                                                              Long processId,
                                                              String processName,
                                                              String requiredQuantity,
                                                              Long eventId,
@@ -117,5 +142,15 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 .setSubmitterName(submitterName)
                 .setReviewerName(reviewerName)
                 .setSubmittedAt(submittedAt == null ? null : LocalDateTime.parse(submittedAt));
+    }
+
+    private static Boolean invokeBoolean(Object target, String methodName) throws Exception {
+        Method method = target.getClass().getMethod(methodName);
+        return (Boolean) method.invoke(target);
+    }
+
+    private static BigDecimal invokeBigDecimal(Object target, String methodName) throws Exception {
+        Method method = target.getClass().getMethod(methodName);
+        return (BigDecimal) method.invoke(target);
     }
 }

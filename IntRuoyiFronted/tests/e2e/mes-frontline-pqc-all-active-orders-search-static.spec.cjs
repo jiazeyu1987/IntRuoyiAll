@@ -85,10 +85,16 @@ for (const token of [
   'aria-label="输入订单号筛选活跃订单"',
   '@keydown.enter="handleActiveOrderSearchEnter"',
   'v-if="activePicker === \'order\' && pickerOptions.length === 0"',
-  '未找到匹配的活跃订单'
+  '{{ activeOrderPickerEmptyText }}'
 ]) {
   assert.ok(picker.includes(token), `PQC order picker must include: ${token}`)
 }
+
+assert.match(
+  panel,
+  /const activeOrderPickerEmptyText = computed\([\s\S]*FRONTLINE_PQC_NO_PENDING_ORDER_TEXT[\s\S]*'未找到匹配的待检工单'/,
+  'PQC order picker must distinguish no active orders from a search with no matching active order.'
+)
 
 assert.match(
   panel,

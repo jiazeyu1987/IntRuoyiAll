@@ -54,6 +54,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionS
 import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccProjectGovernanceService;
 import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccProjectGovernanceServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccProjectGovernanceStatus;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledContentAdapter;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
 import com.alibaba.fastjson.JSONObject;
@@ -193,6 +194,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     private MesProEdhrPermissionScopeService permissionScopeService;
     @MockitoBean
     private MesProRouteService routeService;
+    @MockitoBean
+    private MesProRouteControlledContentAdapter routeControlledContentAdapter;
 
     @AfterEach
     void tearDown() {

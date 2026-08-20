@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260715_showroom_notify_template_garbled_repair; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
 -- Add tenant-scoped station-message business-key idempotency without backfilling historical rows.
 
 SET NAMES utf8mb4;

@@ -119,6 +119,31 @@ export interface QaInspectionRegulationSaveRespVO {
   immutable: boolean
 }
 
+export interface QaInspectionRegulationImportRespVO {
+  dccProjectCodeId: number
+  regulationId: number
+  draftVersionId: number
+  regulationCode: string
+  regulationName: string
+  versionNo: string
+  effectiveDate: string
+  lifecycleStatus: string
+  route: 'CREATE' | 'UPGRADE'
+  processCount: number
+  itemCount: number
+  inheritedItemCount: number
+  createdItemCount: number
+}
+
+export interface QaInspectionRegulationResetRespVO {
+  dccProjectCodeId: number
+  regulationId?: number
+  versionCount: number
+  processCount: number
+  itemCount: number
+  itemEquipmentCount: number
+}
+
 // MES 质检方案 API
 export const QcTemplateApi = {
   // 保存正式 QA 检验规程草稿
@@ -126,6 +151,29 @@ export const QcTemplateApi = {
     data: QaInspectionRegulationSaveReqVO
   ): Promise<QaInspectionRegulationSaveRespVO> => {
     return await request.post({ url: `/mes/qa/inspection-regulation/draft`, data })
+  },
+
+  // 解析 QA Word 模板并保存正式规程草稿
+  importQaRegulationWordDraft: async (
+    data: FormData
+  ): Promise<QaInspectionRegulationImportRespVO> => {
+    return await request.upload({
+      url: `/mes/qa/inspection-regulation/import-word-draft`,
+      data,
+      headersType: 'multipart/form-data',
+      ignoreErrorMessage: true
+    })
+  },
+
+  // 测试阶段重置指定 DCC 项目的正式 QA 检验规程
+  resetQaRegulationForTesting: async (
+    dccProjectCodeId: number
+  ): Promise<QaInspectionRegulationResetRespVO> => {
+    return await request.post({
+      url: `/mes/qa/inspection-regulation/test-reset`,
+      params: { dccProjectCodeId },
+      ignoreErrorMessage: true
+    })
   },
 
   // 发布正式 QA 检验规程并生成不可变版本

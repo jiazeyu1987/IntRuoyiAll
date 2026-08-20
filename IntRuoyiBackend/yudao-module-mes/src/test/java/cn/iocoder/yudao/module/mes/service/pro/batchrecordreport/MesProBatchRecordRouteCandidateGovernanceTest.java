@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,6 +15,13 @@ class MesProBatchRecordRouteCandidateGovernanceTest {
     private static final Path ROUTE_GENERATION_SERVICE = Path.of(
             "src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport/"
                     + "MesProBatchRecordRouteGenerationServiceImpl.java");
+    private static final List<Path> RUNTIME_BATCH_RECORD_SERVICES = List.of(
+            Path.of("src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
+                    + "MesProEdhrBatchExecutionServiceImpl.java"),
+            Path.of("src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
+                    + "MesProEdhrBatchExecutionVisibilityService.java"),
+            Path.of("src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
+                    + "MesProEdhrRehearsalReadinessServiceImpl.java"));
 
     @Test
     void uploadedWordExistingRouteCreatesCandidateAndDoesNotMutateActiveRoute() throws Exception {
@@ -43,5 +51,14 @@ class MesProBatchRecordRouteCandidateGovernanceTest {
                 "Word 重建候选版本必须包含 scheduleConfigs 快照。");
         assertTrue(source.contains("\"batchUseConfigs\""),
                 "Word 重建候选版本必须包含 batchUseConfigs 快照。");
+    }
+
+    @Test
+    void runtimeBatchRecordConsumersMustNotResolveLatestApprovedVersion() throws Exception {
+        for (Path service : RUNTIME_BATCH_RECORD_SERVICES) {
+            String source = Files.readString(service, StandardCharsets.UTF_8);
+            assertFalse(source.contains("selectLatestApprovedByDefinitionId"),
+                    () -> service + " must use the frozen report, definition and version identity");
+        }
     }
 }

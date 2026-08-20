@@ -2,8 +2,11 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackPayloadReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackSubmitService;
 import jakarta.annotation.Resource;
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +20,7 @@ import java.lang.reflect.ParameterizedType;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProFrontlineFeedbackSubmitControllerTest {
@@ -43,5 +47,31 @@ class MesProFrontlineFeedbackSubmitControllerTest {
         Field serviceField = MesProFeedbackController.class.getDeclaredField("frontlineFeedbackSubmitService");
         assertEquals(MesProFrontlineFeedbackSubmitService.class, serviceField.getType());
         assertNotNull(serviceField.getAnnotation(Resource.class));
+    }
+
+    @Test
+    void parameterIdentityAnomaliesMustReachNonBlockingAuditAndResponseContract() throws Exception {
+        Field readingDeviceId = MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO.class
+                .getDeclaredField("deviceId");
+        Field parameterCode = MesProFrontlineFeedbackPayloadReqVO.DeviceParameterReadingReqVO.class
+                .getDeclaredField("parameterCode");
+        Field selectedDeviceId = MesProFrontlineFeedbackPayloadReqVO.SelectedDeviceReqVO.class
+                .getDeclaredField("deviceId");
+        assertNull(readingDeviceId.getAnnotation(NotNull.class),
+                "missing device identity is an UNRESOLVED audit reason, not a Bean Validation blocker");
+        assertNull(parameterCode.getAnnotation(NotNull.class),
+                "missing parameter code is an UNRESOLVED audit reason, not a Bean Validation blocker");
+        assertNull(selectedDeviceId.getAnnotation(NotNull.class),
+                "missing selected-device identity is an UNRESOLVED audit reason, not a Bean Validation blocker");
+
+        java.util.Set<String> responseFields = java.util.Arrays.stream(
+                        MesProFrontlineFeedbackSubmitRespVO.class.getDeclaredFields())
+                .map(Field::getName)
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(responseFields.contains("parameterAuditStatus"));
+        assertTrue(responseFields.contains("parameterAuditTotalCount"));
+        assertTrue(responseFields.contains("parameterAuditResolvedCount"));
+        assertTrue(responseFields.contains("parameterAuditUnresolvedCount"));
+        assertTrue(responseFields.contains("auditItems"));
     }
 }

@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationProjectStatusRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationResetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
@@ -14,6 +15,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionR
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
@@ -22,6 +25,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
@@ -41,9 +45,11 @@ import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_DCC_PROJECT_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_ITEM_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_RESET_REFERENCED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_SNAPSHOT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_CONFLICT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_IMMUTABLE;
@@ -69,6 +75,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     private final MesQaInspectionRegulationProcessMapper processMapper;
     private final MesQaInspectionRegulationItemMapper itemMapper;
     private final MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper;
+    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
+    private final MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
 
     public MesQaInspectionRegulationServiceImpl(
             DccProjectCodeMapper dccProjectCodeMapper,
@@ -76,13 +84,17 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             MesQaInspectionRegulationVersionMapper versionMapper,
             MesQaInspectionRegulationProcessMapper processMapper,
             MesQaInspectionRegulationItemMapper itemMapper,
-            MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper) {
+            MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper,
+            MesProcessPoolActiveOrderMapper activeOrderMapper,
+            MesPqcInspectionTaskMapper pqcInspectionTaskMapper) {
         this.dccProjectCodeMapper = dccProjectCodeMapper;
         this.regulationMapper = regulationMapper;
         this.versionMapper = versionMapper;
         this.processMapper = processMapper;
         this.itemMapper = itemMapper;
         this.itemEquipmentMapper = itemEquipmentMapper;
+        this.activeOrderMapper = activeOrderMapper;
+        this.pqcInspectionTaskMapper = pqcInspectionTaskMapper;
     }
 
     @Override
@@ -102,20 +114,68 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesQaInspectionRegulationResetRespVO resetForTesting(Long dccProjectCodeId) {
+        DccProjectCodeDO dccProjectCode = requireEnabledDccProjectCode(dccProjectCodeId);
+        MesQaInspectionRegulationDO regulation =
+                regulationMapper.selectByDccProjectCodeId(dccProjectCode.getId());
+        if (regulation == null) {
+            return MesQaInspectionRegulationResetRespVO.builder()
+                    .dccProjectCodeId(dccProjectCode.getId())
+                    .versionCount(0)
+                    .processCount(0)
+                    .itemCount(0)
+                    .itemEquipmentCount(0)
+                    .build();
+        }
+
+        List<Long> versionIds = versionMapper.selectListByRegulationId(regulation.getId()).stream()
+                .map(MesQaInspectionRegulationVersionDO::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        Long activeOrderReferenceCount =
+                activeOrderMapper.selectCountByQaRegulationOrVersionIds(regulation.getId(), versionIds);
+        Long pqcTaskReferenceCount =
+                pqcInspectionTaskMapper.selectCountByRegulationVersionIds(versionIds);
+        if (positiveCount(activeOrderReferenceCount) || positiveCount(pqcTaskReferenceCount)) {
+            throw exception(QA_INSPECTION_REGULATION_RESET_REFERENCED,
+                    "activeOrder=" + activeOrderReferenceCount + ", pqcTask=" + pqcTaskReferenceCount);
+        }
+
+        int versionCount = versionIds.size();
+        int processCount = toIntCount(processMapper.selectCountByVersionIds(versionIds));
+        int itemCount = toIntCount(itemMapper.selectCountByVersionIds(versionIds));
+        int itemEquipmentCount = toIntCount(itemEquipmentMapper.selectCountByVersionIds(versionIds));
+        itemEquipmentMapper.deleteByVersionIds(versionIds);
+        itemMapper.deleteByVersionIds(versionIds);
+        processMapper.deleteByVersionIds(versionIds);
+        versionMapper.deleteByRegulationId(regulation.getId());
+        regulationMapper.deleteById(regulation.getId());
+
+        return MesQaInspectionRegulationResetRespVO.builder()
+                .dccProjectCodeId(dccProjectCode.getId())
+                .regulationId(regulation.getId())
+                .versionCount(versionCount)
+                .processCount(processCount)
+                .itemCount(itemCount)
+                .itemEquipmentCount(itemEquipmentCount)
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesQaInspectionRegulationPublishedVersionRespVO publish(MesQaInspectionRegulationSaveReqVO reqVO) {
         DccProjectCodeDO dccProjectCode = validateRequest(reqVO);
         DraftContext context = saveDraftInternal(reqVO, dccProjectCode);
         LocalDateTime publishedAt = LocalDateTime.now();
 
-        Long currentVersionId = context.regulation().getCurrentVersionId();
-        if (currentVersionId != null && !Objects.equals(currentVersionId, context.version().getId())) {
-            MesQaInspectionRegulationVersionDO currentPublished = versionMapper.selectById(currentVersionId);
-            if (currentPublished == null
-                    || !Objects.equals(currentPublished.getRegulationId(), context.regulation().getId())) {
-                throw exception(QA_INSPECTION_REGULATION_VERSION_CONFLICT, currentVersionId);
-            }
+        List<MesQaInspectionRegulationVersionDO> publishedVersions = versionMapper
+                .selectListByRegulationId(context.regulation().getId()).stream()
+                .filter(version -> version != null && version.getId() != null
+                        && Objects.equals(STATUS_PUBLISHED, version.getLifecycleStatus()))
+                .toList();
+        for (MesQaInspectionRegulationVersionDO currentPublished : publishedVersions) {
             versionMapper.updateById(new MesQaInspectionRegulationVersionDO()
-                    .setId(currentVersionId)
+                    .setId(currentPublished.getId())
                     .setLifecycleStatus(STATUS_RETIRED)
                     .setRetiredAt(publishedAt));
         }
@@ -146,15 +206,17 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             Long dccProjectCodeId, Long versionId) {
         requireEnabledDccProjectCode(dccProjectCodeId);
         MesQaInspectionRegulationDO regulation = requireRegulation(dccProjectCodeId);
-        Long resolvedVersionId = versionId == null ? regulation.getCurrentVersionId() : versionId;
-        if (resolvedVersionId == null) {
-            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS, null);
+        MesQaInspectionRegulationVersionDO version = versionId == null
+                ? versionMapper.selectLatestPublishedByRegulationId(regulation.getId())
+                : versionMapper.selectById(versionId);
+        if (version == null || !Objects.equals(version.getRegulationId(), regulation.getId())) {
+            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS, versionId);
         }
-        MesQaInspectionRegulationVersionDO version = versionMapper.selectById(resolvedVersionId);
-        if (!Objects.equals(version.getRegulationId(), regulation.getId())) {
-            throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS, resolvedVersionId);
-        }
-        if (!Set.of(STATUS_PUBLISHED, STATUS_RETIRED).contains(version.getLifecycleStatus())) {
+        boolean productionCurrent = versionId == null;
+        boolean allowed = productionCurrent
+                ? Objects.equals(STATUS_PUBLISHED, version.getLifecycleStatus())
+                : Set.of(STATUS_PUBLISHED, STATUS_RETIRED).contains(version.getLifecycleStatus());
+        if (!allowed) {
             throw exception(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED, version.getId());
         }
         return buildVersionResp(regulation, version);
@@ -171,9 +233,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 versionMapper.selectLatestDraftByRegulationId(regulation.getId());
         MesQaInspectionRegulationVersionDO version = latestDraft != null
                 ? latestDraft
-                : regulation.getCurrentVersionId() == null
-                        ? null
-                        : versionMapper.selectById(regulation.getCurrentVersionId());
+                : versionMapper.selectLatestPublishedByRegulationId(regulation.getId());
         if (version == null) {
             return null;
         }
@@ -210,8 +270,14 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .collect(Collectors.toMap(MesQaInspectionRegulationDO::getDccProjectCodeId,
                         Function.identity(), (left, right) -> left, LinkedHashMap::new));
         return requestedIds.stream()
-                .map(dccProjectCodeId -> buildProjectStatus(
-                        dccProjectCodeId, regulationByDccProject.get(dccProjectCodeId)))
+                .map(dccProjectCodeId -> {
+                    MesQaInspectionRegulationDO regulation = regulationByDccProject.get(dccProjectCodeId);
+                    MesQaInspectionRegulationVersionDO latestDraft = regulation == null ? null
+                            : versionMapper.selectLatestDraftByRegulationId(regulation.getId());
+                    MesQaInspectionRegulationVersionDO published = regulation == null
+                            ? null : versionMapper.selectLatestPublishedByRegulationId(regulation.getId());
+                    return buildProjectStatus(dccProjectCodeId, regulation, latestDraft, published);
+                })
                 .toList();
     }
 
@@ -315,7 +381,14 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .regulationName(StrUtil.trim(reqVO.getRegulationName()))
                 .lifecycleStatus(STATUS_DRAFT)
                 .build();
-        regulationMapper.insert(regulation);
+        try {
+            regulationMapper.insert(regulation);
+        } catch (DuplicateKeyException ex) {
+            if (hasConstraint(ex, "uk_mes_qa_regulation_active_dcc")) {
+                throw exception(QA_INSPECTION_REGULATION_DCC_PROJECT_DUPLICATE, dccProjectCode.getId());
+            }
+            throw ex;
+        }
         return regulation;
     }
 
@@ -552,14 +625,51 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         if (reqVO.getFinalInspectionApplicable() == null) {
             throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, "末检适用性未显式配置");
         }
+        Set<String> actualTypes = actualInspectionTypes(reqVO);
+        String requiredType = CollUtil.emptyIfNull(reqVO.getInspectionTypeRules()).stream()
+                .filter(Objects::nonNull)
+                .filter(rule -> Boolean.TRUE.equals(rule.getRequired()))
+                .map(MesQaInspectionRegulationSaveReqVO.InspectionTypeRule::getInspectionType)
+                .map(MesQaInspectionRegulationServiceImpl::normalizeInspectionType)
+                .filter(type -> Objects.equals(type, "FINAL"))
+                .findFirst()
+                .orElse(null);
+        if (Boolean.TRUE.equals(reqVO.getFinalInspectionApplicable())
+                && (!actualTypes.contains("FINAL") || !Objects.equals(requiredType, "FINAL"))) {
+            throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID,
+                    "末检适用时必须配置 FINAL 检验规则和检验项目");
+        }
         if (Boolean.FALSE.equals(reqVO.getFinalInspectionApplicable())
                 && StrUtil.isBlank(reqVO.getFinalInspectionNotApplicableReason())) {
             throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, "末检不适用依据不能为空");
+        }
+        if (Boolean.FALSE.equals(reqVO.getFinalInspectionApplicable())
+                && (actualTypes.contains("FINAL") || Objects.equals(requiredType, "FINAL"))) {
+            throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID,
+                    "末检不适用时不得配置 FINAL 检验项目");
         }
         if (Boolean.TRUE.equals(reqVO.getFinalInspectionApplicable())
                 && StrUtil.isNotBlank(reqVO.getFinalInspectionNotApplicableReason())) {
             throw exception(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID, "末检适用时不得填写不适用依据");
         }
+    }
+
+    private static Set<String> actualInspectionTypes(MesQaInspectionRegulationSaveReqVO reqVO) {
+        if (reqVO == null || CollUtil.isEmpty(reqVO.getProcesses())) {
+            return Set.of();
+        }
+        LinkedHashSet<String> actualTypes = new LinkedHashSet<>();
+        for (MesQaInspectionRegulationSaveReqVO.InspectionProcess process : reqVO.getProcesses()) {
+            if (process == null || CollUtil.isEmpty(process.getItems())) {
+                continue;
+            }
+            for (MesQaInspectionRegulationSaveReqVO.InspectionItem item : process.getItems()) {
+                if (item != null) {
+                    actualTypes.addAll(normalizedInspectionTypes(item.getApplicableInspectionTypes()));
+                }
+            }
+        }
+        return actualTypes;
     }
 
     private static void validateInspectionTypeRules(
@@ -739,22 +849,44 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     }
 
     private static MesQaInspectionRegulationProjectStatusRespVO buildProjectStatus(
-            Long dccProjectCodeId, MesQaInspectionRegulationDO regulation) {
+            Long dccProjectCodeId, MesQaInspectionRegulationDO regulation,
+            MesQaInspectionRegulationVersionDO latestDraft,
+            MesQaInspectionRegulationVersionDO published) {
         MesQaInspectionRegulationProjectStatusRespVO status = new MesQaInspectionRegulationProjectStatusRespVO();
         status.setDccProjectCodeId(dccProjectCodeId);
         if (regulation == null) {
             status.setConfigured(false);
             status.setRegulationCount(0);
+            status.setProductionReady(false);
             return status;
         }
         status.setConfigured(true);
         status.setRegulationCount(1);
         status.setRegulationId(regulation.getId());
-        status.setCurrentVersionId(regulation.getCurrentVersionId());
+        status.setCurrentVersionId(published == null ? null : published.getId());
         status.setRegulationCode(regulation.getRegulationCode());
         status.setRegulationName(regulation.getRegulationName());
-        status.setLifecycleStatus(regulation.getLifecycleStatus());
+        MesQaInspectionRegulationVersionDO editVersion = latestDraft != null ? latestDraft : published;
+        status.setLifecycleStatus(editVersion == null ? regulation.getLifecycleStatus()
+                : editVersion.getLifecycleStatus());
+        status.setEditRegulationId(regulation.getId());
+        status.setEditVersionId(editVersion == null ? null : editVersion.getId());
+        boolean productionReady = published != null
+                && Objects.equals(published.getRegulationId(), regulation.getId())
+                && Objects.equals(published.getLifecycleStatus(), STATUS_PUBLISHED);
+        status.setProductionReady(productionReady);
+        status.setPublishedRegulationId(productionReady ? regulation.getId() : null);
+        status.setPublishedVersionId(productionReady ? published.getId() : null);
         return status;
+    }
+
+    private static boolean hasConstraint(Throwable throwable, String constraintName) {
+        for (Throwable current = throwable; current != null; current = current.getCause()) {
+            if (current.getMessage() != null && current.getMessage().contains(constraintName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static JSONObject parseSnapshot(MesQaInspectionRegulationVersionDO version) {
@@ -779,6 +911,14 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
 
     private static boolean positive(BigDecimal value) {
         return value != null && value.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    private static boolean positiveCount(Long value) {
+        return value != null && value > 0;
+    }
+
+    private static int toIntCount(Long value) {
+        return Math.toIntExact(value == null ? 0L : value);
     }
 
     private record DraftContext(MesQaInspectionRegulationDO regulation,

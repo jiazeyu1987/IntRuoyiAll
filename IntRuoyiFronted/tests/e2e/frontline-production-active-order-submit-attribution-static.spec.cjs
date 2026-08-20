@@ -43,6 +43,16 @@ assert.match(
   /processPoolContext:[\s\S]*activeOrderId:\s*formalContext\.activeOrderId/,
   '工序池提交上下文必须携带精确 activeOrderId'
 )
+assert.match(
+  panel,
+  /rawPayload:\s*buildProductionStructuredRawPayload\(rawPayload,\s*formalContext\)/,
+  '生产正式提交 rawPayload 必须使用同一个正式上下文生成活跃订单工序快照'
+)
+assert.match(
+  panel,
+  /activeOrderProcess:[\s\S]*activeOrderId:\s*formalContext\.activeOrderId[\s\S]*activeOrderProcessSnapshotId:\s*formalContext\.activeOrderProcessSnapshotId[\s\S]*routeProcessId:\s*formalContext\.routeProcessId[\s\S]*processId:\s*formalContext\.processId/,
+  '生产正式提交 rawPayload 必须携带 activeOrderProcess，避免签名后后端缺少冻结工序身份'
+)
 assert.doesNotMatch(
   panel,
   /outputQuantity\s*>\s*selectedActiveOrder\.quantity|selectedActiveOrder\.quantity\s*<\s*productionDraft\.outputQuantity/,

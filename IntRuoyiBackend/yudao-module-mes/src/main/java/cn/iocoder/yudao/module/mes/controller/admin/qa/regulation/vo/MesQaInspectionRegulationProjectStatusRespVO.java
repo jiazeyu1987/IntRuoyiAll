@@ -36,4 +36,19 @@ public class MesQaInspectionRegulationProjectStatusRespVO {
 
     @Schema(description = "规程生命周期状态")
     private String lifecycleStatus;
+
+    @Schema(description = "编辑入口 QA 规程 ID")
+    private Long editRegulationId;
+
+    @Schema(description = "编辑入口版本 ID，优先最新草稿")
+    private Long editVersionId;
+
+    @Schema(description = "生产入口 QA 规程 ID")
+    private Long publishedRegulationId;
+
+    @Schema(description = "生产入口当前发布版本 ID")
+    private Long publishedVersionId;
+
+    @Schema(description = "当前是否有可用于生产的正式发布版本")
+    private Boolean productionReady;
 }

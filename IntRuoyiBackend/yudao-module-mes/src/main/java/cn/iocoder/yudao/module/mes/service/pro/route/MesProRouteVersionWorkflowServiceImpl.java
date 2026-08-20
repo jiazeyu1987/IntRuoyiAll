@@ -92,10 +92,10 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
                 .active(Boolean.FALSE)
                 .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
                 .sourceRouteVersionId(active.getId())
-                .routeSnapshotJson(routeSnapshotJson)
                 .changeSummaryJson(buildChangeSummary(reqVO.getChangeReason()))
                 .remark("工艺路线候选版本，发布后生效")
                 .build();
+        MesProRouteVersionSnapshotIdentityWriter.apply(candidate, routeSnapshotJson);
         routeVersionMapper.insert(candidate);
         platformAdapter.recordCandidateCreated(active, candidate, SecurityFrameworkUtils.getLoginUserId(),
                 reqVO.getChangeReason());

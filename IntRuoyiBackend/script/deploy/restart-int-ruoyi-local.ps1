@@ -567,6 +567,85 @@ SELECT CASE WHEN (
 ) = 11 THEN 1 ELSE 0 END;
 '@
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260722_mes_route_form_center_runtime_columns.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'MES production release flow schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_process_pool_active_order_release_application'
+      AND COLUMN_NAME IN (
+        'pqc_release_work_task_id',
+        'pqc_decision',
+        'pqc_decided_by',
+        'pqc_decided_at',
+        'pqc_reject_reason',
+        'report_snapshot_hash',
+        'version'
+      )
+  ) = 7
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_work_task'
+      AND COLUMN_NAME = 'batch_execution_id'
+      AND DATA_TYPE = 'bigint'
+      AND IS_NULLABLE = 'YES'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_work_task'
+      AND COLUMN_NAME = 'pqc_release_application_scope_id'
+      AND DATA_TYPE = 'bigint'
+      AND EXTRA LIKE '%STORED GENERATED%'
+  )
+  AND (
+    SELECT COUNT(DISTINCT INDEX_NAME)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND (
+        (TABLE_NAME = 'mes_pro_process_pool_active_order_release_application'
+          AND INDEX_NAME IN ('uk_mes_pp_release_pqc_task', 'uk_mes_pp_release_batch_execution'))
+        OR (TABLE_NAME = 'mes_pro_edhr_work_task'
+          AND INDEX_NAME = 'uk_mes_edhr_work_task_release_application')
+      )
+      AND NON_UNIQUE = 0
+  ) = 3
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260814_mes_production_release_flow.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'System notify message business key schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'system_notify_message'
+      AND COLUMN_NAME = 'business_key'
+      AND DATA_TYPE = 'varchar'
+      AND CHARACTER_MAXIMUM_LENGTH = 255
+      AND IS_NULLABLE = 'YES'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'system_notify_message'
+      AND INDEX_NAME = 'uk_system_notify_message_tenant_business_key'
+      AND NON_UNIQUE = 0
+  )
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260815_system_notify_message_business_key.sql'
     }
 )
 $RequiredDccDownloadEncryptionEnv = @(

@@ -140,6 +140,7 @@ export interface MesProScheduleOrderProcessWipSettingsReqVO {
   routeProcessId: number
   nightShiftEnabled?: boolean
   plannedStartDate?: string
+  shiftCapacityTotal?: number
   reason: string
 }
 
@@ -197,6 +198,22 @@ export interface MesProScheduleOrderAdmissionDiffPageRespVO {
   total: number
   list: MesProScheduleOrderAdmissionDiffRowVO[]
   summary: MesProScheduleOrderAdmissionDiffSummaryVO
+}
+
+export interface MesProScheduleOrderAdmissionDiffPageReqVO {
+  pageNo?: number
+  pageSize?: number
+  workOrderCode?: string
+  productCode?: string
+  productName?: string
+  productSpecification?: string
+  quantity?: number[]
+  admissionStatus?: string
+  reasonCode?: string
+  message?: string
+  ownerRole?: string
+  requestDate?: string[]
+  quickFilter?: TableQuickFilterValue
 }
 
 export interface MesProScheduleOrderPreflightReqVO {
@@ -264,6 +281,7 @@ export interface MesProScheduleOrderUpdatePriorityReqVO {
 export interface MesProScheduleOrderUpdateReqVO {
   id: number
   promiseDate: string
+  plannedStartTime?: string
   priorityNo: number
   remark?: string
   reason: string
@@ -446,7 +464,7 @@ export const MesProScheduleOrderApi = {
     return await request.post({ url: '/mes/pro/schedule-order/create-from-work-orders', data })
   },
 
-  getAdmissionDiff: async (params: any) => {
+  getAdmissionDiff: async (params: MesProScheduleOrderAdmissionDiffPageReqVO) => {
     const data = await request.get<MesProScheduleOrderAdmissionDiffPageRespVO>({
       url: '/mes/pro/schedule-order/admission-diff',
       params

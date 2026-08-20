@@ -30,6 +30,10 @@ public class MesMdItemDO extends BaseDO {
     @TableId
     private Long id;
     /**
+     * MDM 产品主档编号
+     */
+    private Long productMasterId;
+    /**
      * 物料编码
      */
     private String code;

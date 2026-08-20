@@ -45,6 +45,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
     private final MesFrontlineSubmitAuthorizationService submitAuthorizationService;
     private final MesFrontlineLossReasonValidator lossReasonValidator;
     private final MesFrontlineDeviceParameterValidator deviceParameterValidator;
+    private final MesFrontlineParameterAuditService parameterAuditService;
     private final MesProFrontlineFeedbackPayloadSplitter payloadSplitter;
     private final MesMdAutoCodeRecordService autoCodeRecordService;
     private final MesProBatchRecordExecutionSignatureService signatureService;
@@ -55,6 +56,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                                                     MesFrontlineSubmitAuthorizationService submitAuthorizationService,
                                                     MesFrontlineLossReasonValidator lossReasonValidator,
                                                     MesFrontlineDeviceParameterValidator deviceParameterValidator,
+                                                    MesFrontlineParameterAuditService parameterAuditService,
                                                     MesProFrontlineFeedbackPayloadSplitter payloadSplitter,
                                                     MesMdAutoCodeRecordService autoCodeRecordService,
                                                     MesProBatchRecordExecutionSignatureService signatureService) {
@@ -64,6 +66,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         this.submitAuthorizationService = submitAuthorizationService;
         this.lossReasonValidator = lossReasonValidator;
         this.deviceParameterValidator = deviceParameterValidator;
+        this.parameterAuditService = parameterAuditService;
         this.payloadSplitter = payloadSplitter;
         this.autoCodeRecordService = autoCodeRecordService;
         this.signatureService = signatureService;
@@ -88,10 +91,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 identityTrace.sessionSnapshot().content().defectReasons(),
                 reqVO.getFeedbackPayload().getLossDetails(),
                 reqVO.getFeedbackPayload().getLossQuantity());
-        deviceParameterValidator.validateSnapshotDeviceAndParameters(
-                identityTrace.sessionSnapshot().content().devices(),
-                reqVO.getFeedbackPayload().getSelectedDevice(),
-                reqVO.getFeedbackPayload().getDeviceParameterReadings());
         MesFrontlineLossReasonSnapshot lossReasonSnapshot = lossReasonSnapshots == null || lossReasonSnapshots.isEmpty()
                 ? null : lossReasonSnapshots.get(0);
 
@@ -105,6 +104,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         }
 
         authorizeSelectedActiveOrder(reqVO, loginUserId);
+        MesFrontlineParameterAuditResult parameterAuditResult = parameterAuditService.resolveAndApply(reqVO);
+        attachParameterAudit(reqVO, parameterAuditResult);
         applyServerResolvedFeedbackIdentity(reqVO);
         Long signatureId = signatureService.recordProductionSubmitSignature(reqVO.getSignatureEmployeeId(),
                 reqVO.getSignaturePassword(), "一线生产报工提交");
@@ -130,11 +131,12 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         processPoolSubmitEventService.createInitialAllocation(processPoolEventId,
                 context.getActiveOrderId(), reqVO.getFeedbackPayload().getOutputQuantity());
 
-        return new MesProFrontlineFeedbackSubmitRespVO()
+        MesProFrontlineFeedbackSubmitRespVO response = new MesProFrontlineFeedbackSubmitRespVO()
                 .setFeedbackId(feedbackId)
                 .setRecordbookEntryId(recordbookResult == null ? null : recordbookResult.getRecordbookEntryId())
                 .setRecordbookEventId(recordbookResult == null ? null : recordbookResult.getRecordbookEventId())
                 .setProcessPoolEventId(processPoolEventId);
+        return applyParameterAudit(response, parameterAuditResult);
     }
 
     private void validateSelectedActiveOrderContext(MesProFrontlineFeedbackSubmitReqVO reqVO) {
@@ -159,11 +161,52 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
 
     private MesProFrontlineFeedbackSubmitRespVO toSubmitResp(
             cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult result) {
-        return new MesProFrontlineFeedbackSubmitRespVO()
+        if (result.getParameterAuditResult() == null) {
+            throw new IllegalStateException("Existing production submit event is missing parameter audit payload");
+        }
+        MesProFrontlineFeedbackSubmitRespVO response = new MesProFrontlineFeedbackSubmitRespVO()
                 .setFeedbackId(result.getFeedbackId())
                 .setRecordbookEntryId(result.getRecordbookEntryId())
                 .setRecordbookEventId(result.getRecordbookEventId())
                 .setProcessPoolEventId(result.getProcessPoolEventId());
+        return applyParameterAudit(response, result.getParameterAuditResult());
+    }
+
+    private void attachParameterAudit(MesProFrontlineFeedbackSubmitReqVO reqVO,
+                                      MesFrontlineParameterAuditResult parameterAuditResult) {
+        Map<String, Object> rawPayload = new java.util.LinkedHashMap<>(reqVO.getRawPayload());
+        rawPayload.put("parameterAudit", parameterAuditResult);
+        reqVO.setRawPayload(rawPayload);
+    }
+
+    private MesProFrontlineFeedbackSubmitRespVO applyParameterAudit(
+            MesProFrontlineFeedbackSubmitRespVO response, MesFrontlineParameterAuditResult auditResult) {
+        return response
+                .setParameterAuditStatus(auditResult.getParameterAuditStatus())
+                .setParameterAuditTotalCount(auditResult.getTotalCount())
+                .setParameterAuditResolvedCount(auditResult.getResolvedCount())
+                .setParameterAuditUnresolvedCount(auditResult.getUnresolvedCount())
+                .setAuditItems(auditResult.getAuditItems().stream()
+                        .map(this::toAuditItemResp)
+                        .toList());
+    }
+
+    private MesProFrontlineFeedbackSubmitRespVO.ParameterAuditItemRespVO toAuditItemResp(
+            MesFrontlineParameterAuditItem item) {
+        return new MesProFrontlineFeedbackSubmitRespVO.ParameterAuditItemRespVO()
+                .setReadingIndex(item.getReadingIndex())
+                .setDeviceId(item.getDeviceId())
+                .setParameterCode(item.getParameterCode())
+                .setParameterName(item.getParameterName())
+                .setUnit(item.getUnit())
+                .setValue(item.getValue())
+                .setTextValue(item.getTextValue())
+                .setLowerLimit(item.getLowerLimit())
+                .setUpperLimit(item.getUpperLimit())
+                .setParameterStatus(item.getParameterStatus())
+                .setResolutionStatus(item.getResolutionStatus())
+                .setReasonCode(item.getReasonCode())
+                .setSnapshotSource(item.getSnapshotSource());
     }
 
     private void validateSubmitContext(MesProFrontlineFeedbackSubmitReqVO reqVO) {

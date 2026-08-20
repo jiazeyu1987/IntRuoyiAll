@@ -52,6 +52,7 @@ public class MesFrontlinePqcProcessRespVO {
         private Long pqcTaskId;
         private Long regulationVersionId;
         private Long qaProcessId;
+        private String qaItemCode;
         private String inspectionRuleKey;
         private String taskStatus;
         private Integer ruleSort;

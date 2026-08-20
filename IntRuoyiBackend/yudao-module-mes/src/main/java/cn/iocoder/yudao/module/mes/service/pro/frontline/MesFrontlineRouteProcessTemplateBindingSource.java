@@ -29,17 +29,29 @@ public class MesFrontlineRouteProcessTemplateBindingSource implements MesFrontli
         if (request == null || request.routeProcessId() == null) {
             return null;
         }
-        MesProRouteProcessDO routeProcess = routeProcessMapper.selectById(request.routeProcessId());
+        if (request.routeProcessCheckFlag() != null) {
+            return toTemplateDescriptor(request.routeProcessId(), request.processId(),
+                    request.actualEmployeeId(), request.routeProcessCheckFlag());
+        }
+        MesProRouteProcessDO routeProcess = routeProcessMapper.selectByIdIgnoreDeleted(request.routeProcessId());
         if (routeProcess == null || !matchesRequest(routeProcess, request)) {
             return null;
         }
-        boolean pqcProcess = Boolean.TRUE.equals(routeProcess.getCheckFlag());
+        return toTemplateDescriptor(routeProcess.getId(), routeProcess.getProcessId(),
+                request.actualEmployeeId(), routeProcess.getCheckFlag());
+    }
+
+    private static MesFrontlineTemplateDescriptor toTemplateDescriptor(Long routeProcessId,
+                                                                       Long processId,
+                                                                       Long actualEmployeeId,
+                                                                       Boolean checkFlag) {
+        boolean pqcProcess = Boolean.TRUE.equals(checkFlag);
         return new MesFrontlineTemplateDescriptor(
                 pqcProcess ? FrontlineTemplateCodes.PQC_SIMPLIFIED : FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED,
                 pqcProcess ? FrontlineTemplateTypes.PQC : FrontlineTemplateTypes.PRODUCTION,
-                routeProcess.getId(),
-                routeProcess.getProcessId(),
-                request.actualEmployeeId());
+                routeProcessId,
+                processId,
+                actualEmployeeId);
     }
 
     private static boolean matchesRequest(MesProRouteProcessDO routeProcess, MesFrontlineTemplateRequest request) {

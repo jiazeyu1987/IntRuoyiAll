@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.productionrelease.core;
 
 public enum MesReleaseFlowBlockerType {
     PRODUCTION_PROGRESS_NOT_COMPLETED,
+    PRODUCTION_QUANTITY_CONFLICT,
     INSPECTION_PROGRESS_NOT_COMPLETED,
     ACTIVE_ORDER_LEADER_FORBIDDEN,
     PQC_RELEASE_ROLE_REQUIRED,

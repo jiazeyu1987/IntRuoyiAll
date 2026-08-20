@@ -67,6 +67,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -161,7 +162,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private MesProEdhrPermissionScopeService permissionScopeService;
 
     @Transactional(rollbackFor = Exception.class)
-    public void projectCandidate(MesProRouteVersionDO candidate) {
+    public ProjectionResult projectCandidate(MesProRouteVersionDO candidate) {
         JSONObject snapshot = parseSnapshot(candidate);
         Long routeId = requireRouteId(candidate);
         JSONObject configSnapshots = requireObject(snapshot, SNAPSHOT_CONFIGS_KEY);
@@ -182,6 +183,122 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         projectUseConfigs(candidate.getId(), routeId, SCHEDULE_USE_TYPE,
                 configSnapshots.getJSONArray(SCHEDULE_USE_CONFIGS_KEY), routeProcesses);
         inheritTeamLeaderProcessPoolConfigs(routeProcesses);
+        rewriteRouteProcessKeyedConfigMap(configSnapshots.get(SCHEDULE_CONFIGS_KEY),
+                routeProcesses.byRouteProcessReferenceId());
+        rewriteProjectedRouteProcessIds(snapshot, routeProcesses.byRouteProcessReferenceId());
+        ensureProjectedNodeIdentities(nodes, routeProcesses);
+        Set<Long> projectedRouteProcessIds = routeProcesses.bySort().values().stream()
+                .map(MesProRouteProcessDO::getId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (projectedRouteProcessIds.size() != nodes.size()) {
+            throw new IllegalStateException("projected route process IDs must be unique and complete");
+        }
+        verifyRewrittenRouteProcessReferences(snapshot, projectedRouteProcessIds);
+        candidate.setRouteSnapshotJson(snapshot.toJSONString());
+        return new ProjectionResult(candidate.getRouteSnapshotJson(), Set.copyOf(projectedRouteProcessIds));
+    }
+
+    private void rewriteProjectedRouteProcessIds(Object value,
+                                                 Map<Long, MesProRouteProcessDO> projectedByReferenceId) {
+        if (value instanceof JSONObject object) {
+            for (Map.Entry<String, Object> entry : object.entrySet()) {
+                Object child = entry.getValue();
+                if (isRouteProcessReferenceKey(entry.getKey())) {
+                    if (!(child instanceof Number number)) {
+                        throw new IllegalArgumentException("route-process reference must be numeric: "
+                                + entry.getKey());
+                    }
+                    MesProRouteProcessDO projected = projectedByReferenceId.get(number.longValue());
+                    if (projected == null || projected.getId() == null) {
+                        throw new IllegalArgumentException("route-process reference cannot be mapped: "
+                                + entry.getKey() + "=" + child);
+                    }
+                    entry.setValue(projected.getId());
+                } else {
+                    rewriteProjectedRouteProcessIds(child, projectedByReferenceId);
+                }
+            }
+        } else if (value instanceof JSONArray array) {
+            for (Object child : array) {
+                rewriteProjectedRouteProcessIds(child, projectedByReferenceId);
+            }
+        }
+    }
+
+    private void rewriteRouteProcessKeyedConfigMap(Object value,
+                                                   Map<Long, MesProRouteProcessDO> projectedByReferenceId) {
+        if (!(value instanceof JSONObject object)) {
+            return;
+        }
+        Map<String, Object> rewritten = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : object.entrySet()) {
+            Long sourceRouteProcessId;
+            try {
+                sourceRouteProcessId = Long.valueOf(entry.getKey());
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException(
+                        "route-process keyed config contains a non-numeric key: " + entry.getKey(), ex);
+            }
+            MesProRouteProcessDO projected = projectedByReferenceId.get(sourceRouteProcessId);
+            if (projected == null || projected.getId() == null) {
+                throw new IllegalArgumentException(
+                        "route-process keyed config cannot resolve source ID: " + entry.getKey());
+            }
+            String projectedKey = String.valueOf(projected.getId());
+            if (rewritten.put(projectedKey, entry.getValue()) != null) {
+                throw new IllegalArgumentException(
+                        "route-process keyed config contains a projected ID collision: " + projectedKey);
+            }
+        }
+        object.clear();
+        object.putAll(rewritten);
+    }
+
+    private void ensureProjectedNodeIdentities(JSONArray nodes, RouteProcessProjection routeProcesses) {
+        for (Object value : nodes) {
+            JSONObject node = (JSONObject) value;
+            if (node.getLong("routeProcessId") != null) {
+                continue;
+            }
+            Long clientRouteProcessId = node.getLong("clientRouteProcessId");
+            MesProRouteProcessDO projected = clientRouteProcessId == null
+                    ? null : routeProcesses.byRouteProcessReferenceId().get(clientRouteProcessId);
+            if (projected == null) {
+                Integer sort = node.getInteger("sort");
+                projected = sort == null ? null : routeProcesses.bySort().get(sort);
+            }
+            if (projected == null || projected.getId() == null) {
+                throw new IllegalArgumentException("route snapshot node has no publishable route process identity");
+            }
+            node.put("routeProcessId", projected.getId());
+        }
+    }
+
+    private boolean isRouteProcessReferenceKey(String key) {
+        return "routeProcessId".equals(key)
+                || (key != null && key.endsWith("RouteProcessId")
+                && !"clientRouteProcessId".equals(key));
+    }
+
+    private void verifyRewrittenRouteProcessReferences(Object value, Set<Long> projectedRouteProcessIds) {
+        if (value instanceof JSONObject object) {
+            for (Map.Entry<String, Object> entry : object.entrySet()) {
+                if (isRouteProcessReferenceKey(entry.getKey())) {
+                    if (!(entry.getValue() instanceof Number number)
+                            || !projectedRouteProcessIds.contains(number.longValue())) {
+                        throw new IllegalStateException("rewritten route-process reference is not projected: "
+                                + entry.getKey() + "=" + entry.getValue());
+                    }
+                } else {
+                    verifyRewrittenRouteProcessReferences(entry.getValue(), projectedRouteProcessIds);
+                }
+            }
+        } else if (value instanceof JSONArray array) {
+            for (Object child : array) {
+                verifyRewrittenRouteProcessReferences(child, projectedRouteProcessIds);
+            }
+        }
     }
 
     private JSONObject parseSnapshot(MesProRouteVersionDO candidate) {
@@ -1231,6 +1348,9 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     && byRouteProcessReferenceId.containsKey(routeProcessReferenceId)
                     && !byFrozenOfficialRouteProcessId.containsKey(routeProcessReferenceId);
         }
+    }
+
+    public record ProjectionResult(String rewrittenSnapshotJson, Set<Long> projectedRouteProcessIds) {
     }
 
     private record PublishedBatchRecordPermission(Long permissionScopeId,

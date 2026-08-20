@@ -44,8 +44,13 @@ const createTablesSource = read(path.join(
 
 assert.match(
   feedbackApiSource,
-  /productionSubmitEventId\?: number/,
-  'Frontend PQC submit payload must not require a production submit event id.'
+  /export interface FrontlinePqcInspectionSubmitReqVO[\s\S]*scrapQuantity: number[\s\S]*signaturePassword: string/,
+  'Frontend PQC submit payload must keep formal quantity and signature fields.'
+)
+assert.doesNotMatch(
+  feedbackApiSource,
+  /interface\s+FrontlinePqcInspectionSubmitReqVO[\s\S]*productionSubmitEventId/,
+  'Frontend PQC submit payload must not expose manual production submit event binding.'
 )
 assert.doesNotMatch(
   submitReqSource,
@@ -77,12 +82,12 @@ const handleValidateBlock = blockBetween(
 assert.match(
   handleValidateBlock,
   /assertPqcSignatureAndQuantityReady\(\)/,
-  'Frontend PQC submit preflight must only require an electronic signature path and positive inspection quantity.'
+  'Frontend PQC submit preflight must require an electronic signature path and positive inspection quantity.'
 )
 assert.doesNotMatch(
   handleValidateBlock,
-  /assertPqcFormalSubmissionReady\(\)|assertFormalPayloadContext\(\)|FrontlineTemplateApi\.validatePayload|assertPqcSubmissionSampleQuantities\(\)/,
-  'Frontend PQC submit preflight must not block on formal context, template validation, or exact sample quantities.'
+  /productionSubmitCandidates|selectedPqcProductionSubmitEventId|assertFormalPayloadContext\(\)|FrontlineTemplateApi\.validatePayload|assertPqcSubmissionSampleQuantities\(\)/,
+  'Frontend PQC submit preflight must not block on manual production-submit binding, template validation, or exact sample quantities.'
 )
 
 assert.doesNotMatch(
@@ -128,15 +133,15 @@ assert.doesNotMatch(
   /requirePositive\(command\.getProductionSubmitEventId\(\), "productionSubmitEventId"\)/,
   'Backend PQC submit command validation must not require productionSubmitEventId.'
 )
-assert.doesNotMatch(
+assert.match(
   pqcContextSource,
-  /requireProductionSubmitEvent\(command\)/,
-  'Backend PQC submit flow must not require a formal production submit event.'
+  /resolveUniqueProductionSubmitEvent\(activeOrder,\s*task\)[\s\S]*command\.setProductionSubmitEventId\(productionSubmit\.eventId\(\)\)/,
+  'Backend PQC submit flow must auto-bind the unique same active-order and same-process production submit event.'
 )
-assert.doesNotMatch(
+assert.match(
   pqcContextSource,
-  /requirePqcEmployee\(loginUserId,\s*command\.getActualEmployeeId\(\)\)|requirePqcTaskIdentity\(|requirePqcTaskOption\(/,
-  'Backend PQC submit flow must not block on employee binding, strict task identity, or task option snapshots.'
+  /requirePqcEmployee\(loginUserId,\s*command\.getActualEmployeeId\(\)\)/,
+  'Backend PQC submit flow must keep formal employee binding while removing manual production-submit binding.'
 )
 assert.doesNotMatch(
   pqcContextSource,
@@ -152,7 +157,7 @@ assert.doesNotMatch(
 const resolveSelectedEquipmentBlock = blockBetween(
   pqcContextSource,
   'private MesFrontlinePqcInspectionItem.EquipmentOption resolveSelectedEquipment(',
-  'private String resolvePieceJudgement'
+  'private MesProWorkOrderDO requireWorkOrder'
 )
 assert.match(
   resolveSelectedEquipmentBlock,
@@ -163,11 +168,24 @@ assert.match(
 const requirePqcSubmitCommandBlock = blockBetween(
   pqcContextSource,
   'private void requirePqcSubmitCommand(MesFrontlinePqcSubmitCommand command) {',
-  'private String resolvePqcInspectionResult'
+  'private void applyPqcTaskContext'
 )
-for (const forbiddenRequiredField of [
+for (const requiredField of [
+  'pqcTaskId',
   'activeOrderId',
   'regulationVersionId',
+  'qaProcessId',
+  'actualEmployeeId',
+  'actualInspectionQuantity',
+  'signaturePassword'
+]) {
+  assert.match(
+    requirePqcSubmitCommandBlock,
+    new RegExp(`"${requiredField}"`),
+    `Backend PQC submit command must keep required formal field ${requiredField}.`
+  )
+}
+for (const forbiddenRequiredField of [
   'workOrderId',
   'productionSubmitEventId',
   'routeId',
@@ -177,9 +195,7 @@ for (const forbiddenRequiredField of [
   'businessDate',
   'shiftCode',
   'roundNo',
-  'actualEmployeeId',
   'templateType',
-  'scrapQuantity',
   'rawPayload'
 ]) {
   assert.doesNotMatch(
@@ -192,32 +208,6 @@ assert.match(
   requirePqcSubmitCommandBlock,
   /getActualInspectionQuantity\(\)[\s\S]*<=\s*0|requirePositive\(command\.getActualInspectionQuantity\(\), "actualInspectionQuantity"\)/,
   'Backend PQC submit command must require actualInspectionQuantity > 0.'
-)
-
-const insertTaskBlock = blockBetween(
-  activeOrderServiceSource,
-  'private void insertPqcInspectionTasks',
-  'private MesQaInspectionRegulationDO requirePublishedRegulation'
-)
-assert.doesNotMatch(
-  insertTaskBlock,
-  /SHIFT_AM|SHIFT_PM|SHIFT_FINAL|INSPECTION_TYPE_FINAL/,
-  'Active-order PQC task generation must not pre-generate AM/PM patrols or FINAL tasks.'
-)
-assert.match(
-  insertTaskBlock,
-  /INSPECTION_TYPE_FIRST[\s\S]*INSPECTION_TYPE_PATROL/,
-  'Active-order PQC task generation must keep one FIRST task and one PATROL task.'
-)
-assert.match(
-  activeOrderServiceSource,
-  /plannedQuantity\.multiply\(ratio\)\s*\.divide\(BigDecimal\.valueOf\(100\),\s*0,\s*RoundingMode\.CEILING\)/,
-  'Patrol quantity must calculate plannedQuantity * samplingRatio / 100 with ceiling.'
-)
-assert.doesNotMatch(
-  activeOrderServiceSource,
-  /QA规程发布版本缺少末检适用性配置|QA规程发布版本缺少末检不适用依据/,
-  'Active-order PQC path must not block first/patrol on final-inspection applicability metadata.'
 )
 
 assert.doesNotMatch(

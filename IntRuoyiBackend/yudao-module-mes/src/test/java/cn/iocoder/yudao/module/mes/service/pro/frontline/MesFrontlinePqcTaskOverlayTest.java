@@ -101,7 +101,7 @@ class MesFrontlinePqcTaskOverlayTest {
                                                                             LocalDate businessDate,
                                                                             int roundNo) {
         return new MesFrontlinePqcTaskOverlay.ExpectedTaskIdentity(ACTIVE_ORDER_ID, REGULATION_VERSION_ID,
-                qaProcessId, inspectionRuleKey, inspectionType, businessDate, "DAY", roundNo,
+                qaProcessId, itemCode(inspectionType), inspectionRuleKey, inspectionType, businessDate, "DAY", roundNo,
                 true, 5, List.of());
     }
 
@@ -122,6 +122,7 @@ class MesFrontlinePqcTaskOverlayTest {
                 .activeOrderId(activeOrderId)
                 .regulationVersionId(regulationVersionId)
                 .qaProcessId(qaProcessId)
+                .qaItemCode(itemCode(inspectionType))
                 .inspectionType(inspectionType)
                 .inspectionRuleKey(inspectionRuleKey)
                 .businessDate(businessDate)
@@ -130,5 +131,9 @@ class MesFrontlinePqcTaskOverlayTest {
                 .plannedInspectionQuantity(5)
                 .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_PENDING)
                 .build();
+    }
+
+    private static String itemCode(String inspectionType) {
+        return "FINAL".equals(inspectionType) ? "" : "ITEM-001";
     }
 }

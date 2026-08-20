@@ -27,7 +27,7 @@ Module._load = function load(request, parent, isMain) {
   if (request === '@/api/mes/pro/feedback') {
     return {
       ProFeedbackApi: {
-        getFrontlineDeviceAccountProcesses: async () => processResponse
+        getFrontlineProductionActiveOrderProcesses: async () => processResponse
       }
     }
   }
@@ -45,6 +45,7 @@ const {
 } = testModule.exports
 
 const routeOneFirst = {
+  activeOrderId: 401,
   routeId: 101,
   routeProcessId: 1001,
   processId: 11,
@@ -52,6 +53,7 @@ const routeOneFirst = {
   sort: 1
 }
 const routeOneSecond = {
+  activeOrderId: 401,
   routeId: 101,
   routeProcessId: 1002,
   processId: 12,
@@ -59,6 +61,7 @@ const routeOneSecond = {
   sort: 2
 }
 const routeTwoFirst = {
+  activeOrderId: 402,
   routeId: 202,
   routeProcessId: 2001,
   processId: 21,
@@ -66,6 +69,7 @@ const routeTwoFirst = {
   sort: 1
 }
 const routeTwoSecond = {
+  activeOrderId: 402,
   routeId: 202,
   routeProcessId: 2002,
   processId: 22,
@@ -73,6 +77,7 @@ const routeTwoSecond = {
   sort: 2
 }
 const balloonOrder = {
+  activeOrderId: 401,
   workOrderId: 501,
   workOrderCode: 'WO-BALLOON',
   productId: 1,
@@ -81,6 +86,7 @@ const balloonOrder = {
   routeId: 101
 }
 const pushOrder = {
+  activeOrderId: 402,
   workOrderId: 502,
   workOrderCode: 'WO-PUSH',
   productId: 2,
@@ -91,7 +97,7 @@ const pushOrder = {
 
 const run = async () => {
   const state = createFrontlineDeviceEmployeeState()
-  processResponse = [routeOneFirst, routeOneSecond, routeTwoFirst, routeTwoSecond]
+  processResponse = [routeOneFirst, routeOneSecond]
 
   const balloonProcesses = await selectFrontlineProductionActiveOrder(state, balloonOrder)
   assert.deepEqual(balloonProcesses, [routeOneFirst, routeOneSecond])
@@ -103,6 +109,7 @@ const run = async () => {
   state.runtimeConfig = { devices: [] }
   state.template = { templateNo: 'OLD', routeProcessId: 1002, processId: 12, actualEmployeeId: 99 }
 
+  processResponse = [routeTwoFirst, routeTwoSecond]
   const processTokenBeforeSwitch = state.processSelectionRequestToken
   const employeeTokenBeforeSwitch = state.employeeSwitchRequestToken
   const pushProcesses = await selectFrontlineProductionActiveOrder(state, pushOrder)
@@ -116,9 +123,11 @@ const run = async () => {
   assert.equal(state.processSelectionRequestToken, processTokenBeforeSwitch + 1)
   assert.equal(state.employeeSwitchRequestToken, employeeTokenBeforeSwitch + 1)
 
+  processResponse = []
   await assert.rejects(
     selectFrontlineProductionActiveOrder(state, {
       ...pushOrder,
+      activeOrderId: 403,
       workOrderId: 503,
       workOrderCode: 'WO-MISSING-ROUTE-PROCESSES',
       routeId: 303

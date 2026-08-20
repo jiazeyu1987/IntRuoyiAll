@@ -65,7 +65,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
         update.setId(candidate.getId());
         update.setActive(Boolean.FALSE);
         update.setLifecycleStatus(candidate.getLifecycleStatus());
-        update.setRouteSnapshotJson(snapshot.toJSONString());
+        MesProRouteVersionSnapshotIdentityWriter.apply(update, snapshot.toJSONString());
         routeVersionMapper.updateById(update);
     }
 

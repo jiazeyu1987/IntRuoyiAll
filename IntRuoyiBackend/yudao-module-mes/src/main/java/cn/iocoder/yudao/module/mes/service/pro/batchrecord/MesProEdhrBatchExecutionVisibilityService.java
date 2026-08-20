@@ -7,11 +7,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMapper;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -45,8 +43,6 @@ public class MesProEdhrBatchExecutionVisibilityService {
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
     @Resource
     private MesProBatchRecordReportMapper reportMapper;
-    @Resource
-    private MesProBatchRecordVersionMapper batchRecordVersionMapper;
     @Resource
     private MesProEdhrCandidateResolver candidateResolver;
 
@@ -109,13 +105,22 @@ public class MesProEdhrBatchExecutionVisibilityService {
         if (routeTasks.isEmpty()) {
             return null;
         }
-        return routeTasks.stream()
+        MesProEdhrBatchExecutionTaskDO currentTask = routeTasks.stream()
                 .filter(task -> !isTaskApproved(task))
                 .filter(task -> !Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING))
                 .findFirst()
                 .or(() -> routeTasks.stream().filter(task -> !isTaskApproved(task)).findFirst())
                 .or(() -> routeTasks.stream().reduce((previous, current) -> current))
                 .orElse(null);
+        if (currentTask == null || FORM_SLOT_MAIN.equals(currentTask.getFormSlotType())) {
+            return currentTask;
+        }
+        return routeTasks.stream()
+                .filter(task -> Objects.equals(task.getRouteProcessId(), currentTask.getRouteProcessId()))
+                .filter(task -> FORM_SLOT_MAIN.equals(task.getFormSlotType()))
+                .min(java.util.Comparator.comparing(MesProEdhrBatchExecutionTaskDO::getBatchRecordSort,
+                        java.util.Comparator.nullsLast(Integer::compareTo)))
+                .orElse(currentTask);
     }
 
     public Map<String, List<EdhrBatchExecutionRespVO.CurrentProcessFiller>> resolveCurrentProcessFillerMap(
@@ -144,7 +149,7 @@ public class MesProEdhrBatchExecutionVisibilityService {
                 || StrUtil.isBlank(currentProcessTask.getBatchRecordReportId())) {
             return Map.of();
         }
-        ResolvedTaskFormBinding resolvedBinding = resolveLatestApprovedTaskFormBinding(currentProcessTask);
+        ResolvedTaskFormBinding resolvedBinding = resolveFrozenTaskFormBinding(currentProcessTask);
         List<MesProEdhrProcessFormPermissionRuleDO> rules =
                 processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
                         currentProcessTask.getRouteProcessId(), resolvedBinding.reportId(),
@@ -168,50 +173,19 @@ public class MesProEdhrBatchExecutionVisibilityService {
         return ruleUserIdMap;
     }
 
-    private ResolvedTaskFormBinding resolveLatestApprovedTaskFormBinding(MesProEdhrBatchExecutionTaskDO task) {
+    private ResolvedTaskFormBinding resolveFrozenTaskFormBinding(MesProEdhrBatchExecutionTaskDO task) {
         MesProBatchRecordReportDO boundReport = reportMapper.selectByReportId(task.getBatchRecordReportId());
         if (boundReport == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
-        Long definitionId = task.getBatchRecordDefinitionId() != null
-                ? task.getBatchRecordDefinitionId()
-                : boundReport.getBatchRecordDefinitionId();
-        if (definitionId == null) {
+        Long definitionId = task.getBatchRecordDefinitionId();
+        Long versionId = task.getBatchRecordVersionId();
+        if (definitionId == null || versionId == null
+                || !Objects.equals(definitionId, boundReport.getBatchRecordDefinitionId())
+                || !Objects.equals(versionId, boundReport.getBatchRecordVersionId())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
-        MesProBatchRecordVersionDO latestVersion =
-                batchRecordVersionMapper.selectLatestApprovedByDefinitionId(definitionId);
-        if (latestVersion == null || latestVersion.getId() == null) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
-        }
-        MesProBatchRecordReportDO latestReport = resolveLatestApprovedMemberReport(
-                definitionId, latestVersion.getId(), task.getFormSlotType(), boundReport);
-        return new ResolvedTaskFormBinding(latestReport.getReportId(), latestVersion.getId());
-    }
-
-    private MesProBatchRecordReportDO resolveLatestApprovedMemberReport(
-            Long definitionId,
-            Long latestVersionId,
-            String formSlotType,
-            MesProBatchRecordReportDO boundReport) {
-        if (boundReport.getSourceTableIndex() == null) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
-        }
-        String expectedFormSlotType = normalizeFormSlotType(StrUtil.blankToDefault(
-                formSlotType, boundReport.getFormSlotType()));
-        List<MesProBatchRecordReportDO> matches = reportMapper
-                .selectListByDefinitionIdAndVersionId(definitionId, latestVersionId).stream()
-                .filter(report -> Objects.equals(boundReport.getSourceTableIndex(), report.getSourceTableIndex()))
-                .filter(report -> Objects.equals(expectedFormSlotType, normalizeFormSlotType(report.getFormSlotType())))
-                .toList();
-        if (matches.size() != 1) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
-        }
-        return matches.get(0);
-    }
-
-    private String normalizeFormSlotType(String formSlotType) {
-        return StrUtil.blankToDefault(formSlotType, FORM_SLOT_MAIN);
+        return new ResolvedTaskFormBinding(boundReport.getReportId(), versionId);
     }
 
     private List<Long> parseCommaSeparatedIds(String rawIds, String errorPrefix) {

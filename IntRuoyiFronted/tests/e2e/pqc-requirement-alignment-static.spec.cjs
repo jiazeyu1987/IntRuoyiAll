@@ -18,12 +18,12 @@ const blockBetween = (source, startToken, endToken) => {
 
 assert.match(
   apiSource,
-  /export interface FrontlinePqcTaskOptionVO \{[\s\S]*pqcTaskId: number[\s\S]*inspectionType: string[\s\S]*plannedInspectionQuantity: number[\s\S]*inspectionItems\?: FrontlinePqcInspectionItemVO\[\]/,
+  /export interface FrontlinePqcTaskOptionVO \{[\s\S]*pqcTaskId: number[\s\S]*qaItemCode\?: string \| null[\s\S]*inspectionType: FrontlinePqcInspectionType[\s\S]*plannedInspectionQuantity: number[\s\S]*inspectionItems: FrontlinePqcInspectionItemVO\[\]/,
   'PQC process response must expose selectable FIRST/PATROL task snapshots.'
 )
 assert.match(
   apiSource,
-  /pqcTaskOptions\?: FrontlinePqcTaskOptionVO\[\]/,
+  /pqcTaskOptions: FrontlinePqcTaskOptionVO\[\]/,
   'PQC process response must keep task options on the process card without duplicating process cards.'
 )
 
@@ -43,21 +43,32 @@ assert.doesNotMatch(
   'PQC inspection item tab title must not display method summary or internal item identity.'
 )
 
-const itemMappingBlock = blockBetween(
+const processItemMappingBlock = blockBetween(
   panelSource,
   'const pqcInspectionItems = computed<PqcInspectionItem[]>',
+  'const pqcTaskInspectionItems = computed<PqcInspectionItem[]>'
+)
+assert.match(
+  processItemMappingBlock,
+  /deviceState\.selectedProcess\.inspectionItems\.map\(mapPqcInspectionItem\)/,
+  'PQC method tabs must come from the selected process inspection item list.'
+)
+
+const taskItemMappingBlock = blockBetween(
+  panelSource,
+  'const pqcTaskInspectionItems = computed<PqcInspectionItem[]>',
   'const pqcInspectionItemMap'
 )
 assert.match(
-  itemMappingBlock,
+  taskItemMappingBlock,
   /activePqcTaskOption\.value\?\.inspectionItems \|\| \[\]/,
-  'PQC inspection items must come from the selected FIRST/PATROL task option, not only the process default.'
+  'PQC submit item scope must come from the selected FIRST/PATROL task option.'
 )
 
 const typeTabsBlock = blockBetween(
   panelSource,
   '<div class="frontline-pqc-type-tabs">',
-  '<div\n            class="frontline-pqc-round-tabs"'
+  '<div class="frontline-pqc-round-tabs">'
 )
 assert.match(
   typeTabsBlock,
@@ -88,7 +99,7 @@ assert.doesNotMatch(
 
 const roundTabsBlock = blockBetween(
   panelSource,
-  '<div\n            class="frontline-pqc-round-tabs"',
+  '<div class="frontline-pqc-round-tabs"',
   '<div class="frontline-pqc-form-area">'
 )
 assert.match(

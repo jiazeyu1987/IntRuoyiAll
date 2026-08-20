@@ -61,7 +61,17 @@ assert.match(fixtureSource, /ADMIN_TENANT1/, 'fixture 编排器必须提供独�
 assert.match(source, /validateRuntimeEvidence\(config\)[\s\S]{0,500}verifyExternalFixture\(config\)[\s\S]{0,500}runScenario\(config\)/, '真实写入前必须依次完成运行态、fixture 与权限数据前置核验。')
 assert.doesNotMatch(source, /FORBIDDEN_TENANTS/, '租户归属不得只靠生产/admin 黑名单证明。')
 assert.match(source, /selectFrontlineActiveOrder/, '真实 E2E 必须通过页面明确选择 O1。')
+assert.match(
+  source,
+  /selectFrontlineActiveOrder[\s\S]{0,500}data-frontline-production-order-code[\s\S]{0,240}config\.o1WorkOrderCode[\s\S]{0,240}waitFor[\s\S]{0,300}data-frontline-production-process-nav-card[\s\S]{0,240}hasNotText:\s*['"]未选择['"][\s\S]{0,300}data-frontline-production-employee-card[\s\S]{0,240}hasNotText:\s*['"]未选择['"][\s\S]{0,300}data-frontline-production-active-order-card/,
+  '打开订单选择器前必须等待 O1、工序和员工初始化全部完成，避免后续初始化回写关闭真实选择器。'
+)
 assert.match(source, /loginResponseWait[\s\S]*auth\/login/, '真实登录必须等待并核验正式登录响应，不得只等 URL。')
+assert.match(
+  source,
+  /loginResponseWait[\s\S]{0,260}timeout:\s*60000/,
+  '共享 int_main 运行态的正式登录响应门禁必须允许 60 秒，但仍须核验正式响应。'
+)
 assert.match(source, /waitForLoginFormShell[\s\S]*login-form[\s\S]*state:\s*['"]visible['"][\s\S]*selectLoginTenant/, '登录页必须先等待真实表单壳层可见，再读取租户下拉框，避免首屏 loading 竞争。')
 assert.match(
   source,
@@ -69,6 +79,16 @@ assert.match(
   '登录页必须等待 DOM 就绪，不得被持续轮询或外部资源阻塞在 networkidle。'
 )
 assert.match(source, /waitForURL\([\s\S]{0,240}waitUntil:\s*['"]commit['"]/, '登录成功后的 URL 门禁必须使用 commit，避免主应用长资源误报 load 超时。')
+assert.match(
+  source,
+  /page\.goto\(`\$\{config\.frontendUrl\}\$\{FRONTLINE_ROUTE\}\?\$\{query\}`[\s\S]{0,120}waitUntil:\s*['"]domcontentloaded['"]/,
+  '一线业务页必须等待 DOM 就绪，再以真实业务控件判定可用，不得等待 networkidle。'
+)
+assert.match(
+  source,
+  /leaderPage\.goto\(`\$\{config\.frontendUrl\}\$\{LEADER_ROUTE\}`[\s\S]{0,120}waitUntil:\s*['"]domcontentloaded['"]/,
+  '组长业务页必须等待 DOM 就绪，再以报工管理页签判定可用，不得等待 networkidle。'
+)
 assert.match(
   source,
   /const LEADER_ROUTE = ['"]\/mes\/pro\/process-pool\/production-leader['"]/,

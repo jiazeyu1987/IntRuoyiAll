@@ -96,19 +96,23 @@ assert.match(
 
 assert.match(
   frontlineApi,
-  /interface\s+FrontlinePqcInspectionSubmitReqVO[\s\S]*productionSubmitEventId:\s*number[\s\S]*scrapQuantity:\s*number[\s\S]*signaturePassword:\s*string/,
-  'PQC submit request must carry the productionSubmitEventId trace root, scrap quantity, and one-time signature password.'
+  /interface\s+FrontlinePqcInspectionSubmitReqVO[\s\S]*scrapQuantity:\s*number[\s\S]*signaturePassword:\s*string/,
+  'PQC submit request must carry structured scrap quantity and one-time signature password.'
 )
-assertPqcPayloadField('productionSubmitEventId')
+assert.doesNotMatch(
+  frontlineApi,
+  /interface\s+FrontlinePqcInspectionSubmitReqVO[\s\S]*productionSubmitEventId/,
+  'PQC frontend request contract must not expose manual production submit event binding.'
+)
+assert.doesNotMatch(
+  pqcPayloadBuilder,
+  /productionSubmitEventId\s*:/,
+  'PQC payload builder must let backend auto-bind the production submit event.'
+)
 assert.match(pqcPayloadBuilder, /scrapQuantity:\s*normalizePqcQuantity/)
 assert.match(pqcPayloadBuilder, /signaturePassword:\s*pqcSignaturePassword\.value/)
 assert.doesNotMatch(pqcPayloadBuilder, /pqcSubmissionIdempotencyKey/,
   'PQC idempotency key must be derived by the backend from the formal task identity.')
-assert.match(
-  pqcPayloadBuilder,
-  /缺少PQC正式提交上下文[\s\S]*productionSubmitEventId/,
-  'PQC payload builder must fail fast when the formal production submit root is missing.'
-)
 for (const serverOwnedField of ['deviceAccountId', 'deviceId', 'workstationId']) {
   assert.doesNotMatch(
     pqcPayloadBuilder,

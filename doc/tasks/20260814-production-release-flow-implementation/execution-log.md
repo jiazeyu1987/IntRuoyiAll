@@ -509,3 +509,212 @@
 - authoritative status：P1 至 P10 completed；P11 blocked；总任务 blocked。运行态来源门禁稳定引用生产放行融合提交 `ecb05caa6`，不随纯测试或文档提交漂移。
 - git boundary：规格提交 `8ca580be3` 和任务包提交 `4caafea49` 已在 `int_main`；暂存区为空。未 push，主工作区其它并发改动保持原状。
 - next evidence：用户完成 `test-plan.md#用户手动验收执行单待执行` 后，必须由独立 tester 核对真实页面结果、只读最终状态和清理证据，才能重新运行完成门禁。
+
+## Pass 36 - P11 Read-Only Runtime Provenance Audit
+
+- scope：本轮只读核对 `int_main`、8081/48081 进程、前后端来源和 30 项 E2E 环境变量；仅追加本执行日志。未修改 `task-state.json`、`test-report.md` 或产品代码，未 stage、commit、push，未登录，未发送 HTTP/业务请求，未启动、停止或重启服务，也未写业务数据。
+- git baseline：当前 `int_main` HEAD 为 `3a523c3306b750b5a9aa0ccc7ebd896d75d5fd52`（`docs: record production release completion gate`，2026-08-16 17:44:39 +08:00），`ecb05caa615c384b3833dd9d7b9b9594df3ad30e` 是其祖先；生产放行关键前后端路径从 `ecb05caa6` 到当前 HEAD 无内容变化。暂存区为空；其它并发工作区改动未触碰。
+- frontend process：8081 由 PID `35448` 的 `node.exe` 监听，启动时间 `2026-08-15T20:40:38.4053609+08:00`；脱敏命令为 `node E:\IntRuoyi\IntRuoyiFronted\node_modules\...\vite\bin\vite.js --mode env.local --strictPort`，父进程链为本机 `pnpm dev`。Vite 脚本明确来自 `E:\IntRuoyi\IntRuoyiFronted`；融合提交带入的 13 个前端产品路径在当前工作树均无未提交差异，PQC/管理者页面动作和 trace 双条件源码标识存在。
+- frontend limitation：该 Vite 进程早于 `5227b8c2e` 和 `ecb05caa6` 启动；Windows 进程元数据没有给出可独立复核的当前工作目录/构建提交，且本轮按约束没有发起页面或 HTTP 请求。因此只能确认 Vite 命令来源和当前磁盘源码，不能把监听端口或静态源码存在写成“8081 已运行合入版本”的确定证明。
+- backend process：48081 由 PID `21556` 的 `java.exe` 监听，启动时间 `2026-08-15T20:40:34.2076850+08:00`，`user.dir` 为 `E:\IntRuoyi\IntRuoyiBackend`。脱敏命令身份为 `java -jar E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260815-203449-scheduler-seven-issues-jaruf0.jar --server.port=48081 --spring.profiles.active=local ...`；完整命令含数据库凭据，未写入任务日志。
+- backend artifact：运行 Jar 长度 `503040870` bytes，修改时间 `2026-08-15T20:37:16.1266955+08:00`，SHA-256 `3F4AE0ABB15F04CFBC256948DA5DDC0B71E372216F0EAC26961A91438DDFD7D1`。其内嵌 `BOOT-INF/lib/yudao-module-mes-2026.04-SNAPSHOT.jar` 长度 `9450450` bytes、时间 `2026-08-15T20:37:08+08:00`、SHA-256 `F15035A72FCF28A46A1EBBF83DBF7F16B56DD6A6240476164B57F08A3CCA33DF`，且没有 `git.properties`/build identity 条目。
+- BLOCKED: 后端 Jar 和进程均早于生产放行实现提交 `5227b8c2e`（2026-08-16 15:09:47 +08:00）及融合提交 `ecb05caa6`（2026-08-16 16:31:04 +08:00）。内嵌 MES Jar 中 `productionrelease|MesReleaseFlow` 相关 entry 计数为 `0`；`MesProductionReleaseController`、`MesReleaseFlowLifecycleServiceImpl`、PQC service、报告 service、管理者放行 service 和候选角色 resolver 等核心类均不存在。该 48081 后端确定不包含本任务已合入生产放行实现，不能用于 P11/T11 验收。
+- environment：仅按变量名统计 30 个 `EDHR_FULL_E2E_*` 前置，结果 `present=0`、`missing=30`；没有读取或输出任何变量值。七个账号凭据、三组订单 fixture、四附件、签核和清理计划仍未提供。
+- verdict：P11/T11 继续 `BLOCKED`。即使 8081/48081 正在监听，也不能以端口、静态类检查或现有旧 Jar 冒充真实 E2E；解除运行态 blocker 至少需要经授权启动并证明使用当前合入内容的成对前后端运行态，同时补齐 30 项正式前置，再执行真实页面多账号流程、只读核验、清理和独立验收。
+
+## Pass 37 - Development Completion And Manual Validation Handoff
+
+- user intent：用户明确要求先完成剩余开发任务，验证由用户手动执行。该范围变更已记录于 `docs/changes/20260816-production-release-manual-validation-handoff.md`，决策为 `ACCEPT_AND_SPLIT`；产品范围和 AC-01 至 AC-34 不变。
+- change validation：`validate_change_request.py --evidence docs/changes/20260816-production-release-manual-validation-handoff.md` -> PASS；validator `--self-test` -> PASS。
+- development graph audit：`task-state.json` 中 P1-P10 全部 `completed`，每个阶段都有 evidence，映射 acceptance status 均为 `completed`；P11 的 objective、write_scope、validation_steps 和 done_definition 只包含集成回归、Playwright/真实页面和验收，不包含新业务代码交付。
+- commit ancestry audit：`ac44d020e`、`d7f5d0122`、`a229312e9`、`f9186fa35`、`3048b84e8`、`5227b8c2e`、`ecb05caa6`和验收规格 `8ca580be3` 全部是当前 `int_main` HEAD 的祖先。
+- product path audit：从上述开发/融合提交归集 138 个前后端产品路径；当前未提交产品路径交集为 0，`ecb05caa6..HEAD` 产品路径交集为 0。融合后唯一任务范围变化是已提交的 T11 Playwright 规格增强，不是剩余业务开发。
+- development verdict：`COMPLETE`。未发现剩余业务代码、迁移、页面、接口或自动化资产开发项；本轮不修改产品代码，不增加临时补丁或 fallback。
+- validation handoff：P11 保持 `blocked/pending_manual`，仅表示用户手工真实页面证据尚未回填。30 项自动 E2E 变量、Agent 执行 TC-13 Playwright 和另一轮独立 tester 已移出 Agent 开发交付门禁；未伪造或降级为 PASS。
+
+## Pass 38 - Yudao Source Read-Only Validation
+
+- user intent：用户于 2026-08-17 要求“在芋道源码里进行验证”，该变更已记录到 `docs/changes/20260817-production-release-yudao-source-validation.md`，决策为 `SPLIT`：接受 `芋道源码/admin` 只读验证，完整写入型 P11 等待合规测试租户和正式 fixture。
+- change validation：`validate_change_request.py --evidence docs/changes/20260817-production-release-yudao-source-validation.md` -> PASS；validator `--self-test` -> PASS。
+- BDD: admin 基线只读验证不产生业务写入 -> Given 当前仅确认本机 `芋道源码/admin` 且项目规则禁止 admin-only 多账号写入验收 / When 通过官方登录前置打开生产组长、eDHR 工作任务和表单追溯页面 / Then 三个入口可见且不提交申请、PQC 决策、附件、签核或任何其它目标业务写请求；完整 TC-13 在正式测试租户前置缺失时保持 `BLOCKED`。
+- git/runtime baseline：`int_main` HEAD `9a594a66a04fa1a4b7eaea10cbef267cbd4e5f17`，融合提交 `ecb05caa6` 是其祖先。8081 由 PID `41112` 的 `E:\IntRuoyi\IntRuoyiFronted` Vite 监听，48081 由 PID `38644` 运行 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260817-082151.jar`；两入口均返回 HTTP 200。
+- runtime archive：后端 Jar 长度 `503274858` bytes、SHA-256 `64C6933D692C3FBCA55050219D4FD1A50A3A16FFEB833B3D78CE186DB15E4716`，内嵌 MES Jar 长度 `9563895` bytes。按名称匹配 `productionrelease|MesReleaseFlow` 共 `73` 个唯一 ZIP entry，其中 `64` 个文件 entry、`9` 个目录 entry；Controller、生命周期、PQC、报告、管理者放行和角色候选解析六个核心类全部存在，Pass 36 的旧 Jar blocker 已解除。
+- GREEN: 官方 `scripts/preflight/login-preflight.mjs` 使用本机默认身份来源登录 `芋道源码/admin`，打开 `/mes/pro/process-pool/production-leader` 并看到“生产组长” -> PASS；密码未写入命令记录或证据。
+- GREEN: 同一官方登录前置打开 `/mes/pro/feedback/edhr-work-task` 并看到“候选审核” -> PASS。
+- RETRY: 连续执行第三个登录时，`waitForResponse` 等待登录响应 90 秒超时；当时前后端 HTTP 仍为 200。随后独立重跑同一目标，不更换租户、账号、端口或运行态。
+- GREEN: 独立重跑打开 `/mes/pro/feedback/edhr-form-trace?tab=release` 并看到“放行状态” -> PASS。
+- environment：30 个 `EDHR_FULL_E2E_*` 正式变量 `present=0`、`missing=30`；未读取或输出值。当前缺七个独立业务账号、第二测试租户账号、三组订单 fixture、四附件、灭菌批号、签核证据和清理计划。
+- safety boundary：`docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁` 明确要求仅授权 `芋道源码/admin` 时，写入型、多用户、签名、放行、发布和需清理数据的 E2E 必须 `BLOCKED`。本轮未点击提交/审批/上传，未调用目标写接口，未写数据库，未启停服务，未 stage、commit 或 push。
+- independent tester：不同于主 Agent 的 tester 独立复核同一运行 Jar、六个核心类、8081/48081、官方登录和三个只读入口，全部 PASS；30 项正式前置仍为 `present=0`、`missing=30`，未发生 MES 业务写入。内嵌 Jar 统计统一为 `73` 个唯一匹配 entry（64 个文件、9 个目录），完整证据见 `test-report.md#pass-38-independent-yudao-source-read-only-review`。
+- verdict：运行态来源 blocker 已解除，三个真实页面只读入口 PASS；这只能形成 P11 部分证据。TC-13、P11-AC1、P11-AC2 和 AC-01 至 AC-34 的完整真实系统验收继续 `BLOCKED`，不得用 admin 只读入口、HTTP 200 或运行包类检查替代。
+
+## Pass 39 - Yudao Source Business Account And Virtual Fixture Authorization
+
+- user intent：用户明确授权从“芋道源码”用户列表选择合适业务账号，并允许自行创建订单等虚拟数据；用户提供的统一测试密码仅作临时登录输入，未记录明文。
+- change decision：新增 `docs/changes/20260817-production-release-yudao-write-fixture-authorization.md`，决策 `ACCEPT`；允许范围仅为现有业务账号和带 `PRFLOW-T11-20260817` 标识、可追踪、可清理的任务自有虚拟数据，不允许修改现有用户、角色、租户基线或无关业务记录。
+- change validation：`validate_change_request.py --evidence docs/changes/20260817-production-release-yudao-write-fixture-authorization.md` -> PASS；validator self-test -> PASS。
+- state：主 Agent 使用计划交付状态脚本将 P11 从 `blocked` 恢复为 `in_progress`，总任务为 `executing`、测试状态为 `running`，只继续当前 P11；原 admin-only blocker 已由用户的业务账号与虚拟数据授权取代。
+- BDD: 正式前置不足时零写入 -> Given 用户允许使用现有业务账号和创建任务自有数据 / When 账号角色、第二租户、三类正式来源、生产基础数据、文件存储或页面清理能力任一尚未只读确认 / Then 不创建订单、不调用目标写接口，并把准确缺口记录为 blocker。
+- next gate：先通过真实页面与只读数据库证据盘点账号角色、第二租户、三类正式来源、可创建订单的基础数据、文件存储和清理入口；全部通过后才生成 30 项进程级输入并运行 TC-13。
+- safety：本轮未启停服务、未登录、未执行业务请求、未写数据、未运行用户保留的手工验收，也未 stage、commit 或 push。
+
+## Pass 40 - P11 Zero-Write Runtime And Input Gate
+
+- scope：作为 P11/T11 单一 executor，仅执行真实写入型 E2E 前的零写入门禁；已读取并遵守项目、E2E、登录、数据库、本地运行、worktree、PowerShell 编码和任务收尾规则。本轮仅追加本执行日志，未修改 `task-state.json`、`test-report.md`、产品源码、测试规格、计划或报告，未 stage、commit、push，也未启停服务或访问远程环境。
+- git baseline：当前 `int_main` HEAD 为 `9a594a66a04fa1a4b7eaea10cbef267cbd4e5f17`（`docs: record frontend backend code push`，2026-08-17 07:42:51 +08:00），生产放行融合提交 `ecb05caa615c384b3833dd9d7b9b9594df3ad30e` 是其祖先；暂存区为空。任务目录已有并发未提交记录，本轮只在本日志末尾追加，不触碰其它改动。
+- runtime gate：8081 由 PID `41112` 的 `node.exe` 监听，进程启动时间为 `2026-08-17 08:22:17`，命令来源包含 `E:\IntRuoyi\IntRuoyiFronted`；48081 当前没有监听进程。由于真实生产放行页面链必须依赖当前 `int_main` 的成对前后端运行态，后端入口缺失即为正式阻塞，不能继续登录、账号/角色盘点、三类正式来源核对、生产基础数据核对、文件存储核对、页面清理入口核对或 fixture 创建。
+- environment gate：仅按变量名检查 30 个 `EDHR_FULL_E2E_*` 进程级输入，结果 `present=0`、`missing=30`；没有读取、输出或落盘任何密码、token 或其它秘密值。七个业务角色账号、非候选/非归属账号、第二租户隔离账号、三组订单 fixture、四附件、灭菌批号、签核证据和清理计划均不能在当前进程中形成可执行输入。
+- fail-fast result：按“任一前置无法安全满足即停止”规则，本轮在首次业务登录和任何数据创建前停止。未用 admin 旧证据、静态类、HTTP 200、API-only、SQL 或旧数据冒充真实 E2E，也未运行 `sp0-sp4-production-release-real-flow.spec.ts`。
+- write accounting：本轮登录次数 `0`，浏览器业务页面访问次数 `0`，HTTP/API/数据库业务请求数 `0`，目标写请求数 `0`，业务数据写入数 `0`；本轮新建任务自有 fixture 数 `0`，本轮新增残留数 `0`，无需执行页面清理。
+- verdict：P11/T11 继续 `BLOCKED`。解除条件是经授权恢复并证明 48081 为当前 `int_main` 生产放行实现的后端运行态，并以仅进程级、不回显不落盘方式补齐真实 E2E 所需输入；随后仍必须从零写入账号、租户、正式来源、基础数据、存储、四附件和页面清理入口盘点重新开始，全部通过后才允许创建 `PRFLOW-T11-20260817` 任务自有数据并运行真实多账号 Playwright。
+
+## Pass 41 - P11 Yudao Source Role Baseline Gate
+
+- runtime recovery：48081 随并发的当前源码标准启动流程恢复监听，8081/48081 均返回 HTTP 200；运行 Jar 为 `backend-active-order-process-e2e-20260817-1024.jar`，SHA-256 `09FF52950821A3A021B4C808ADE3A29F97C77C441CA5EB867EEBB1F4D93D1647`。内嵌 MES Jar 对 `productionrelease|MesReleaseFlow` 匹配 73 个条目，生产放行 Controller、生命周期、PQC、报告、管理者放行和角色候选解析六个核心类 6/6 存在；融合提交 `ecb05caa6` 是当前 HEAD `9a594a66a` 的祖先。
+- BDD: 正式角色缺失时不得创建虚拟订单 -> Given 用户授权从“芋道源码”用户列表选业务账号并创建任务自有虚拟数据，但未授权修改现有用户和角色 / When 通过真实用户管理和权限角色页面只读核对正式候选角色 / Then 任一必需角色不存在即停止，登录后的业务写请求、订单、附件和其它 fixture 均为 0。
+- account inventory：任务自有 Playwright 脚本通过真实 `/system/user` 页面逐页读取前 2000 行，命中朱利江 `zhulijiang` 和徐建海 `xujianhai`；两行的角色均只显示“审批中心入口”，未显示本流程专用角色。页面还检出多名既有 PQC/生产相关账号，但后端合同要求首版正式候选分别是固定账号与固定角色，不能改用相似角色或其它人员替代。
+- role inventory：同一脚本通过真实 `/system/role` 页面按角色标识精确搜索；`MES_PQC_RELEASE_OWNER` 返回 `total=0`，`MES_MANAGEMENT_REPRESENTATIVE` 返回 `total=0`。登录后的写请求计数为 0；未点击新增、编辑、分配角色、状态开关或其它写控件。
+- fail-fast result：因两个正式角色均不存在，未继续第二租户、三类正式来源、生产基础数据、文件存储、附件和清理入口盘点，未创建 `PRFLOW-T11-20260817` 数据，未运行写入型 TC-13。不得用管理员、其它 PQC 角色、SQL/API 或默认候选绕过该角色基线。
+- blocker：P11/T11 保持 `BLOCKED`。解除条件是用户另行授权通过正式页面创建并分配两个角色，或由环境所有者完成同等正式角色基线；完成后必须从零重跑账号及其余前置盘点。
+- experience consolidation：按项目收尾规则将“现有账号授权不等于角色基线修改授权，必须先按精确角色标识做真实页面零写入核对”的通用门禁合并到既有 `docs/login-access.md`，未新建长期经验文档。
+
+## Pass 42 - P11 Role Baseline Authorization Accepted
+
+- user intent：用户对主 Agent 提出的精确阻塞解除方案回复“授权”，允许在本机“芋道源码”通过正式权限页面创建两个生产放行专用角色、配置正式最小权限，并分别绑定朱利江和徐建海。
+- change decision：新增 `docs/changes/20260817-production-release-yudao-role-baseline-authorization.md`，决策 `ACCEPT`；角色、账号和权限集合以已合入的 `20260814_mes_production_release_roles.sql` 正式定义为准，不改变产品范围。
+- change validation：`validate_change_request.py --evidence docs/changes/20260817-production-release-yudao-role-baseline-authorization.md` -> PASS；validator self-test -> PASS。
+- BDD: 只补齐已授权角色基线 -> Given 两个正式角色缺失且用户仅授权精确角色基线变更 / When 管理员通过真实权限页面创建角色、配置最小权限并绑定固定用户 / Then 只出现两个目标角色、七个目标权限和两个目标绑定，其它用户、角色、租户及业务数据不变；任一精确前置不足即停止。
+- state：P11 恢复为 `in_progress`；下一步先只读确认七个权限菜单和角色分类存在，再执行页面写入。角色重新登录核验通过前，订单、附件和其它 fixture 写入保持为 0。
+
+## Pass 43 - P11 Required Permission Menu Gate
+
+- scope：使用任务自有 Playwright 脚本通过真实登录页、系统菜单页和权限角色新增弹窗做零写入前置核对；只记录权限标识、菜单名称、类型、状态和分类选项，不记录密码、token、Cookie 或授权头。
+- RETRY: 第一次、第二次权限盘点在等待真实登录响应 90 秒后超时，8081/48081 同时保持 HTTP 200；诊断版第三次已登录并进入角色页，但无障碍 dialog 名称定位超时。修正为可见 `.el-dialog` 定位后，第四次完成同一只读路径；未更换租户、账号、端口或数据源。
+- menu evidence：`mes:pro-edhr-work-task:query` 当前有一个启用页面节点和一个启用按钮节点；`mes:pro-edhr-release:query` 有两个启用按钮节点，`mes:pro-edhr-release:approve` 有一个启用按钮节点。正式角色所需的 `mes:pro-production-release:query`、`mes:pro-production-release:pqc-approve`、`mes:pro-production-release:pqc-reject` 三个按钮权限均为 0。
+- fail-fast result：三个缺失权限必须先成为 eDHR 工作任务页面下的正式按钮菜单，角色页才能配置已批准的最小权限。创建全局菜单权限不属于用户本轮仅针对两个角色和固定绑定的授权范围，因此在首次角色、菜单或绑定写入前停止。
+- write accounting：角色创建 0、菜单创建 0、菜单修改 0、用户角色绑定 0、订单 0、附件 0、其它 fixture 0；成功盘点运行的登录后写请求数为 0。
+- blocker：P11/T11 转回 `BLOCKED`。解除条件是用户明确授权通过正式菜单页面只创建上述三个按钮权限；随后才能继续已批准的角色创建、最小权限配置和固定用户绑定。
+- experience consolidation：将“角色、用户绑定和菜单权限属于不同授权边界，写入前必须按精确权限标识做真实菜单页面核对”的通用门禁合并到既有 `docs/login-access.md`；未新建长期经验文档。
+
+## Pass 44 - P11 Permission Menu Authorization Accepted
+
+- user intent：用户对三个缺失的全局生产放行按钮权限再次回复“授权”，允许在本机“芋道源码”通过正式菜单页面创建它们，并继续已批准的两个角色、最小权限和固定用户绑定。
+- change decision：更新 `docs/changes/20260817-production-release-yudao-role-baseline-authorization.md`；授权范围精确为现有 eDHR 工作任务父级下的三个按钮、两个专用角色、七项角色权限分配和两个固定用户绑定，不包含其它菜单、角色、用户或租户。
+- change validation：更新后的 change evidence 验证 PASS，validator self-test PASS。
+- BDD: 精确菜单和角色基线落地 -> Given 三个按钮权限、两个角色和两个固定绑定均缺失且用户已逐层授权 / When 管理员通过真实菜单、角色和用户页面依次创建并配置 / Then 只新增授权对象，最终精确权限和固定用户绑定通过，任何额外写请求或部分失败立即停止。
+- state：P11 恢复为 `in_progress`；角色基线核验前订单、附件和业务 fixture 仍保持 0。
+
+## Pass 45 - P11 Yudao Role Baseline Applied And Login Gate
+
+- scope：按 Pass 42/44 的用户授权，仅通过“芋道源码”真实菜单、权限角色和用户页面补齐三个生产放行按钮、两个专用角色、两套最小角色权限和两个固定用户绑定；未修改其它菜单、角色、用户或租户，未创建订单、附件或其它业务 fixture，未启停服务、stage、commit 或 push。
+- BDD: 精确菜单和角色基线落地 -> Given 三个按钮、两个角色和两个固定绑定缺失且用户已逐层授权 / When 管理员通过真实页面创建、配置并回读 / Then 最终对象和权限 ID 精确匹配正式定义，其它业务数据写入为 0；业务账号重新登录受环境阻塞时不得冒充通过。
+- menu result：创建 `生产放行查询`、`PQC生产放行通过`、`PQC生产放行驳回` 三个启用按钮，父级均为现有 `eDHR工作任务` 页面；权限标识分别为 `mes:pro-production-release:query`、`mes:pro-production-release:pqc-approve`、`mes:pro-production-release:pqc-reject`，页面回读均唯一且名称、类型、状态、排序和父级一致。
+- role result：创建 `MES_PQC_RELEASE_OWNER`（PQC负责人）和 `MES_MANAGEMENT_REPRESENTATIVE`（管理者代表）两个启用菜单角色；角色 ID 分别为 `910494`、`910495`，未创建其它角色。
+- exact menu result：PQC 角色最终菜单 ID 为 `5100,900220,900230,900231,605071316,605071317,605071318`；管理者代表角色最终菜单 ID 为 `5100,900025,900220,900230,900231,900260,900261,900264`。两组均在角色权限弹窗提交后重新打开逐 ID 回读通过；管理者集合包含正式权限标识对应的两个既有 `eDHR放行查询` 按钮。
+- correction evidence：首次 PQC 权限选择因父子联动状态与树重绘下标产生错误集合，脚本立即停止；随后在真实页面清空客户端选择、关闭父子联动、按实时精确名称重选并提交，最终错误集合已被上述精确集合完整替换。该过程没有影响其它角色或用户，但使角色菜单写请求比理想路径多 1 次，未隐藏该事实。
+- user binding result：`zhulijiang` 最终角色 ID 为 `910295,910494`，`xujianhai` 最终角色 ID 为 `910295,910495`；两个用户均保留既有“审批中心入口”角色，并只新增各自一个专用角色。每次绑定后重新打开用户角色弹窗回读通过，后续幂等续跑均识别为已绑定且不重复提交。
+- write accounting：累计授权写请求 10 次：菜单创建 3、角色创建 2、角色菜单分配 3（含一次错误集合后的纠正）、用户角色分配 2。订单、附件、生产放行申请和其它业务 fixture 写请求均为 0；没有 API-only、SQL、默认成功或 mock 替代页面写入。
+- GREEN: `node --check output/playwright/p11-role-baseline-setup.mjs` -> PASS；脚本具备授权路径白名单、写请求计数、部分状态回读和幂等续跑门禁，密码仅从本机配置或临时进程变量读取，不落盘、不写日志。
+- BLOCKED: 使用正确业务账号密码执行仅登录核验时，`zhulijiang` 登录页在提交前显示“租户识别失败：请检查租户名称、本机后端服务和租户配置”，90 秒内没有发出登录请求；因此 `zhulijiang`/`xujianhai` 的重新登录权限信息和候选页面核验未完成，不能写为 GREEN。
+- fixture boundary：因角色重新登录门禁未通过，本轮没有继续第二租户、正式来源、基础数据、存储、清理入口或订单 fixture 创建，也未运行 TC-13。
+- experience consolidation：将权限树实时节点选择、多选下拉显式收起、父子联动状态和精确 ID 回读门禁合并到 `docs/e2e-rules.md`，将租户识别失败分层诊断合并到 `docs/login-access.md`，并更新 `docs/experience-index.md`；未新建长期经验文档。
+- verdict：授权的角色基线变更已完成并回读；P11/T11 转为 `BLOCKED`，当前精确解除条件是恢复“芋道源码”租户识别后，以两个业务账号重新登录确认权限和候选页面，再由用户按既定手工验收执行单继续真实业务验证。
+
+## Pass 46 - P11 Business Login Retry And Password-Expiry Gate
+
+- resume：按 `development-plan-supervisor` 从现有 `task-state.json` 恢复，P1-P10 均保持 `completed`，只继续当前 P11；状态脚本确认原 blocker 为业务账号登录前的租户识别。
+- runtime：8081 与 48081 均处于监听状态，前端入口 HTTP 200，后端 `/actuator/health` 返回 `UP`；未启停服务、未切换端口、租户、账号或运行态。
+- BDD: 固定业务账号密码过期时停止业务数据创建 -> Given 三个按钮、两个角色、最小权限和固定用户绑定已经通过真实页面完成，且写入夹具授权明确排除修改现有账号密码 / When 使用同一“芋道源码”租户和固定 `zhulijiang` 账号从真实登录页重试 / Then 登录请求必须由页面正常发出；若后端返回密码过期，立即停止，不重置密码、不替换账号、不创建订单或附件。
+- retry result：租户下拉可正常识别“芋道源码”，登录页已发出 `/admin-api/system/auth/login` 请求，原“租户识别失败” blocker 解除；后端业务码 `1002000009` 明确返回“密码已过期，请修改密码后再登录”。
+- scope gate：`docs/changes/20260817-production-release-yudao-write-fixture-authorization.md` 明确把“修改现有账号密码”列为 excluded scope，角色基线授权也只覆盖两个固定账号的角色绑定。因此未通过管理员重置、首次登录改密、切换用户、SQL/API 或默认成功绕过。
+- write accounting：业务订单、附件、生产放行申请及其它 fixture 写入均为 0；未 stage、commit、push，密码未回显、落盘或写入证据。
+- verdict：P11/T11 保持 `BLOCKED`。当前精确解除条件是环境所有者恢复 `zhulijiang` 和 `xujianhai` 固定业务账号的可登录状态，或用户另行明确授权修改这两个账号密码；解除前不得继续业务 fixture 和真实多账号主链。
+
+## Pass 47 - P11 Fixed Business Account Password Reset Authorization
+
+- user intent：用户对 Pass 46 的精确阻塞回复“授权”，允许只重置 `zhulijiang`、`xujianhai` 两个固定业务账号密码；不扩展到其它账号、角色、租户或业务数据。
+- change decision：更新 `docs/changes/20260817-production-release-yudao-write-fixture-authorization.md`，把两账号密码重置从 excluded scope 移入 accepted scope；变更证据校验和 validator self-test 均 PASS。
+- BDD: 只重置两个固定业务账号密码 -> Given 两账号因密码过期无法登录且用户已精确授权 / When 管理员通过真实用户页面逐个执行“重置密码” / Then 只允许两个 `/system/user/update-password` 页面请求，两个账号随后以真实登录页取得权限信息；任何其它写请求、账号或响应失败立即停止。
+- RED: `node --check output/playwright/p11-business-account-reset.mjs` -> FAIL，预期原因是受控真实页面重置脚本尚不存在。
+- page preflight：真实用户页 `重置密码` 操作在提交前执行统一密码强度校验；当前合同要求至少 8 位且同时包含英文和数字。用户此前提供的统一测试密码不满足该合同，页面会在任何 `/system/user/update-password` 请求发出前拒绝。
+- fail-fast：未创建或运行重置脚本，未修改两个账号密码，密码重置写请求 0；未通过 API、SQL、修改前端校验或其它账号绕过真实页面门禁。
+- blocker：本次“重置为现有统一测试密码”的授权无法按正式页面执行。继续条件是用户提供一个符合当前强度合同的测试密码，或明确授权由 Agent 生成符合合同的临时密码并确认后续手工测试的凭据交接方式。
+
+## Pass 48 - P11 Compliant Password Received And Restart Runtime Gate
+
+- credential gate：用户提供了满足“至少 8 位且包含英文和数字”的新测试密码；该值仅以进程变量构造并在执行结束后清除，未回显、未落盘、未写入任务证据。
+- automation GREEN: `node --check output/playwright/p11-business-account-reset.mjs` -> PASS；Prettier check -> PASS。脚本固定只允许 `zhulijiang`、`xujianhai` 和两次 `/system/user/update-password`，请求体仅在进程内断言，不输出密码。
+- retry evidence：第一次执行在 Chromium 启动阶段超时，写请求 0；切换为本机已安装 Chrome 后，管理员登录曾成功收到登录响应，但脚本等待未出现的权限信息请求而停止，写请求 0；移除该冗余等待后，同一租户、账号和页面路径出现登录请求未发出的间歇性现象，三次有界重试均超时，写请求仍为 0。
+- user restart：用户随后说明已重启并要求继续。重启后连续两次只读复核确认 8081、48081 均无监听，前端入口与后端健康检查均为连接拒绝；当前没有可执行真实页面密码重置的本机运行态。
+- fail-fast：未自行启动、停止或切换共享服务，未修改两个业务账号密码，业务数据写入 0，未 stage、commit 或 push。
+- verdict：P11/T11 保持 `BLOCKED`。解除条件是用户完成本机 `int_main` 8081/48081 启动，或明确授权 Agent 按标准本地流程启动；入口恢复后从两个固定账号页面重置重新开始。
+
+## Pass 49 - P11 Registered Worktree Runtime And Fixed Account Login Recovery
+
+- scope：按用户“编译已完成，在新的 worktree 里面继续”的要求，只继续 P11/T11 当前阶段；目标固定为 `D:\IntRuoyiWorktree\r260817i\a`。本轮未修改产品源码、`task-state.json` 或 `test-report.md`，未重新编译、stage、commit、push、启停无关运行态或访问远程环境。
+- runtime source：目标 worktree 为 detached HEAD `937c464913f86477d2238138cd85c481b8de8f90`，生产放行融合提交 `ecb05caa6` 是其祖先，启动前工作树 clean。已编译 Jar 为 `D:\IntRuoyiWorktree\r260817i\a\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`，SHA-256 `BF97B7C3C80FA314921119131051FD4B262F4E595F1E04FC9618E6FEB5374661`；前端使用同一 worktree 的现有 `node_modules`，未重建产品。
+- runtime registration：通过 `scripts\runtime\reserve-worktree-slot.ps1` 原子登记 `int_main slot=1`，专属前端 `8082`、后端 `48082`；启动前两端口监听数均为 0，未使用保留给主工作区的 `8081/48081`。MySQL `127.0.0.2:23306`、Redis `127.0.0.2:26379`、MinIO `127.0.0.2:9000` 均可达。
+- GREEN: `http://127.0.0.1:48082/actuator/health` -> `UP`，监听 PID `8736`，命令来源匹配上述 worktree Jar；`http://127.0.0.1:8082/` -> HTTP 200，监听 PID `22600`，命令来源匹配上述 worktree 前端。运行态保留供后续 P11 复验，本轮未停止。
+- BDD: 只重置两个固定业务账号密码 -> Given 用户已精确授权两账号密码重置且合规密码只允许进程内使用 / When 管理员通过真实 `/system/user` 页面逐个提交重置 / Then 只允许两个 `/system/user/update-password` 请求，随后两个账号必须从真实登录页重新登录并取得正式权限。
+- GREEN: `p11-business-account-reset.mjs` 在 `P11_REPO_ROOT`/`P11_BASE_URL` 指向新 worktree 运行态时 PASS；管理员一次登录成功，只重置 `zhulijiang`（用户 ID `1300`）和 `xujianhai`（用户 ID `1524`），授权写请求精确为 2 次 `PUT /admin-api/system/user/update-password`，业务 fixture 写入 0。
+- GREEN: `p11-role-baseline-setup.mjs --business-only` -> PASS；`zhulijiang` 真实重新登录并取得 `mes:pro-edhr-work-task:query`、`mes:pro-production-release:query`、`mes:pro-production-release:pqc-approve`、`mes:pro-production-release:pqc-reject`；`xujianhai` 真实重新登录并取得 `mes:pro-edhr-work-task:query`、`mes:pro-edhr-release:query`、`mes:pro-edhr-release:approve`。两账号均进入 eDHR 工作任务候选审核页面，登录核验业务写入 0。
+- credential safety：合规密码只通过 `P11_BUSINESS_PASSWORD` 临时进程变量构造，命令结束后清除；复核 `PasswordEnvPresent=false`，三个任务自有脚本 `node --check` PASS，密码字面值未出现在脚本、输出或本日志。
+
+## Pass 50 - P11 Zero-Write Prerequisite Inventory And Second-Tenant Blocker
+
+- BDD: 正式前置不足时零业务 fixture 写入 -> Given 固定 PQC 和管理者账号登录门禁已通过 / When 继续只读盘点候选账号、第二租户、三类正式来源、基础数据、存储和页面清理能力 / Then 任一正式前置不能由真实页面确认即停止，不创建订单、附件或生产放行申请。
+- GREEN: `p11-zero-write-account-inventory.mjs` 通过真实 `/system/user` 页面分页读取 2000 个用户，筛出 39 个生产/PQC/质量相关候选；`zhulijiang` 页面角色为“PQC负责人、审批中心入口”，`xujianhai` 为“管理者代表、审批中心入口”，登录后写请求 0。该盘点只证明当前“芋道源码”租户账号列表，不把相似角色账号替代正式候选。
+- BLOCKED: 同一脚本从真实 `/system/tenant` 页面盘点第二租户时，页面 shell 与“租户管理”标题可见，但 30 秒内没有发出正式 `/admin-api/system/tenant/page` 查询；观察到的租户相关流量只有页面 `GET /system/tenant`，因此无法从真实页面取得第二测试租户清单，更无法确认该租户的隔离账号和可登录凭据。不得使用 API-only、SQL、猜测租户或当前租户账号冒充跨租户前置。
+- fail-fast boundary：在第二租户门禁首次失败处停止；未继续三类正式来源、生产基础数据、文件存储、页面清理入口、四附件或三条订单的写入型盘点，未生成 30 项 `EDHR_FULL_E2E_*` 输入，未运行 TC-13。
+- write accounting：本轮唯一数据写入为用户已授权的两次固定账号密码重置；角色/权限重新登录写入 0，账号只读盘点写入 0，租户只读盘点写入 0，订单 0，附件 0，生产放行申请 0，其它业务 fixture 0。没有 API-only、SQL、mock、fallback 或 default-success。
+- verdict：P11-AC1、P11-AC2 仍未达到独立验收条件。精确解除条件是通过真实页面提供或恢复一个可读的第二测试租户及其隔离账号；解除后仍需依次确认三类正式来源、生产基础数据、文件存储和页面清理入口，全部通过后才允许创建可追踪 `PRFLOW-T11-20260817` fixture 并运行真实多账号 Playwright。
+
+## Pass 51 - P11 Second-Tenant Real-Menu Diagnosis
+
+- review correction：主 Agent 复核 Pass 50 后确认，`page.goto('/system/tenant')` 只能让地址栏、面包屑和布局框架显示“租户管理”，不能证明当前账号拥有该动态菜单或目标组件已加载；因此不再把“页面未发出租户列表请求”直接归因为租户页面运行故障。
+- real-path evidence：改为枚举当前管理员真实可见的 `.el-menu-item` 并从菜单进入目标页。可见系统菜单为个人中心、用户管理、菜单管理、部门管理、字典管理、NAS 管理、地区管理、配置包中心、测试管理、测试记录和备份计划；不存在“租户管理”，所以没有可点击的正式租户入口，`GET /admin-api/system/tenant/page` 请求数为 0。
+- noise isolation：直达地址诊断捕获的唯一 HTTP 502 是头像资源 `/user/avatar/20251220/blob_1766215463801.jpg`；`pageErrors=[]`，该静态资源错误与租户列表无关，不能作为租户接口失败证据。
+- login-page check：当前登录页的租户下拉只读取本机登录历史，并在提交登录时按已输入租户名调用 `get-id-by-name`；不会提供全租户清单。尝试等待未声明的登录页 `simple-list` 请求按预期超时，该一次性诊断脚本已删除，未作为通过证据保留。
+- safety：本轮只修改任务自有只读盘点脚本的诊断与真实菜单导航逻辑；`node --check`、Prettier PASS。登录后目标写请求 0，未登录其它租户、未猜测账号、未新增权限、未调用 API/SQL 读取租户、未创建订单或附件。
+- experience consolidation：将“动态路由直达只能显示面包屑时，必须从真实可点击菜单和目标列表请求证明入口；不得把空框架当作空数据”的通用门禁合并到既有 `docs/e2e-rules.md`，未新建长期经验文档。
+- blocker：P11/T11 保持 `BLOCKED`。继续需要一个已授权且真实页面可见“租户管理”的账号，或由环境所有者提供第二测试租户及其可登录隔离账号；在此之前不得用直达 URL、API-only、SQL 或猜测账号绕过。
+
+## Pass 52 - Test Tenant Scope Correction
+
+- user correction：用户明确指出“从测试租户下登录，操作肯定都是在测试租户下”，并要求继续。主 Agent 复核后确认，当前把“必须能看到租户管理菜单”列为 P11 当前前置是不合理的；租户管理菜单属于环境管理权限，不是证明当前业务会话租户归属的必要条件。
+- change decision：新增 `docs/changes/20260818-production-release-test-tenant-scope-correction.md`，决策为 `ACCEPT_AND_SPLIT`。当前测试租户手工验收以登录页选择或输入的测试租户作为租户边界；AC-30 跨租户自动负向验证保留为后续独立补充项，若执行再另行提供第二测试租户账号或环境授权。
+- documentation update：同步更新 `task.md`、`test-plan.md`、`verification-report.md` 和 `task-state.json`，删除“可见租户管理菜单账号/第二租户菜单”为当前开发交付或手工验收解除条件的表述；P11 仍保持 `blocked`，原因调整为用户手工真实业务主链、附件、追溯和清理证据尚未回填。
+- safety：本轮只修改任务文档和变更单；未修改产品源码、测试规格或运行脚本，未 stage、commit、push，未启动/停止服务，未登录页面，未创建订单、附件或其它业务数据。只读检查显示新 worktree 8082/48082 当前无监听。
+- validation boundary：T1-T10 产品开发交付保持完成；`zhulijiang`、`xujianhai` 的角色基线和真实登录权限核验记录保持有效。Playwright `--list`、静态合同、Maven 和角色页面回读仍不能替代用户测试租户真实主链验收。
+
+## Pass 53 - Agent Test Tenant Verification Attempt
+
+- user intent：用户询问是否可由 Agent 协助验证；本轮按 `independent-verification-gate` 与真实 Playwright 路径继续 P11/T11，不重新规划 P1-P10，不提交、不推送、不修改业务状态。
+- runtime source：当前 `E:\IntRuoyi` 的 8081/48081 运行态健康，前端来源为 `E:\IntRuoyi\IntRuoyiFronted` Vite，后端来源为 `E:\IntRuoyi\output\runtime\int_main` 运行归档；为避免秘密泄露，未记录完整 Java 命令行、数据库口令或 token。目标 worktree `D:\IntRuoyiWorktree\pqc-production-release-flow` 工作树 clean，暂存区为空。
+- static gate：`pnpm e2e:edhr:release:check` 在当前根目录和 clean `pqc-production-release-flow` worktree 均 FAIL；直接子失败为 `e2e:edhr:batch-version-phase1:check`，断言 `duplicate-name import confirmation must explain version upgrade semantics`，期望页面含“是否升版本”。因此生产放行总覆盖门禁当前不能判 GREEN。
+- real E2E gate：`pnpm exec playwright test tests/e2e/sp0-sp4-production-release-real-flow.spec.ts --reporter=line --workers=1` 在任何业务写入前 FAIL/BLOCKED，错误为 `T11_BLOCKED_MISSING_FORMAL_PREREQUISITES`；30 项 `EDHR_FULL_E2E_*` 正式输入仍缺失，包括七账号、三组 activeOrder/workOrder fixture、四附件、灭菌批号、管理者 SHA-256 签核证据和 cleanup plan reference。
+- test-tenant inventory：只读数据库盘点确认测试租户 `测试租户` 存在且启用；已有生产组长候选 `acd04lead1/acd04lead2`，三类附件负责人可从 `limin/baiyanping/pengyunfeng` 等用户中选择。但测试租户缺少 `MES_PQC_RELEASE_OWNER` 与 `MES_MANAGEMENT_REPRESENTATIVE` 两个生产放行正式角色；测试租户下 `zhulijiang`、`xujianhai` 当前均无角色绑定，不能作为 PQC 和管理者代表通过真实验收。
+- write accounting：本轮业务订单、附件、生产放行申请、角色、用户、菜单、SQL 写入均为 0；未 stage、commit、push，未启停服务，未使用 API-only 或 SQL 推业务状态。
+- verdict：P11/T11 仍为 `BLOCKED`。继续自动验证的精确前置是：先处理失败的 batch-version 静态子门禁；再由用户明确授权在测试租户通过真实页面补齐/绑定 PQC 与管理者代表角色，或提供已有可登录且具备这些角色的测试租户账号；随后才能创建 `PRFLOW-T11-20260817` 三组任务自有订单、四附件和 cleanup plan，并运行 TC-13。
+
+## Pass 54 - Agent Test Tenant Preflight Continuation
+
+- user intent：用户回复“继续”；本轮继续由主 Agent 协助 P11/T11 验证，范围仍限定为本机芋道真实页面、测试租户、任务自有数据，不提交、不推送、不启停服务。
+- GREEN: `p11-role-baseline-setup.mjs --business-only` 在 `测试租户` 下通过；`zhulijiang` 可真实登录并取得 `mes:pro-edhr-work-task:query`、`mes:pro-production-release:query`、`mes:pro-production-release:pqc-approve`、`mes:pro-production-release:pqc-reject`，`xujianhai` 可真实登录并取得 `mes:pro-edhr-work-task:query`、`mes:pro-edhr-release:query`、`mes:pro-edhr-release:approve`；两账号均进入 eDHR 工作任务候选审核页面，业务 fixture 写入 0。
+- GREEN: `pnpm e2e:edhr:batch-version-phase1:check` -> PASS；`pnpm e2e:edhr:release:check` -> PASS。Pass 53 记录的 batch-version 静态子门禁失败已不再复现，生产放行总覆盖静态门禁当前可判绿。
+- read-only candidate probe：生产组长账号 `acd04lead1` 在 `测试租户` 下通过正式登录上下文调用页面同源候选接口；`ACD04` 工单返回 2 条候选但均不可加入，原因均为“缺少产品工艺路线绑定”；`SCHED7-NIGHT-20260815040909`、`YXN.037.011.1002`、`AW.106.03.08.1007` 等候选触发正式 blocker `活跃订单缺少当前工序生产系数和目标数量快照`；取消工单返回“生产工单已取消”。
+- read-only formal-source inventory：只读数据库盘点确认 `测试租户` 下 6 条 ACTIVE 路线版本的 `route_snapshot_json` 均缺 `configSnapshots.flowGraph.nodes` 正式工序节点；现有未取消工单虽有部分产品路线绑定，但其路线版本节点数为 NULL；同时路线未绑定 DCC 项目代码，QA 当前发布规程无法形成生产放行候选底座。
+- blocker update：PQC/管理者角色绑定与静态总门禁已解除；P11/T11 当前不能创建 `PRFLOW-T11-20260817` 三组任务订单的根因是测试租户缺正式可用路线版本快照、DCC 项目绑定和 QA 当前发布规程底座。按项目规则，不能用 SQL/API 直接造业务状态、不能复用坏历史活跃订单，也不能把无节点路线或取消工单作为真实 E2E 成功证据。
+- write accounting：本轮目标业务写请求 0，订单 0，附件 0，生产放行申请 0，批次执行 0，放行事务 0；只做真实登录、页面同源只读接口和只读 SQL 诊断。未 stage、commit、push，未修改产品源码，未启停服务，未输出账号密码或数据库口令。
+- verdict：P11/T11 继续 `BLOCKED`。下一步若继续由 Agent 自动验证，需要先通过真实页面在测试租户创建或修复一套正式路线底座：有工序节点的 ACTIVE 路线版本、产品路线绑定、DCC 项目代码绑定、当前发布 QA 规程，以及与四报告/损耗/批记录正式来源匹配的配置；之后再创建三组 `PRFLOW-T11-20260817` 任务自有工单、四附件、签核和 cleanup plan，并运行真实多账号 TC-13。
+
+## Pass 55 - Int Main Team Leader Release Receipt Integration
+
+- resume context：用户重启后要求继续，并说明编译已完成、在新 worktree 继续。复核发现 `D:\IntRuoyiWorktree\r260819b\a` 是唯一带本轮生产组长放行回执前端增量改动的新 worktree；`pqc-production-release-flow` 另有不属于本轮融合的 `batchrecordformlist/index.vue` 未提交改动，未触碰。
+- scoped files：仅处理 `IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts`、`IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue`、`IntRuoyiFronted/tests/e2e/team-leader-workbench-static.spec.cjs` 三个文件。`git diff --check` PASS；风险词扫描仅命中既有密码字段、通用错误文案 fallback 参数和列宽 fallback 参数，未发现 secret/token 或临时 mock/default-success。
+- RED/repair：`pnpm e2e:team-leader-workbench:static` 首次 FAIL，原因为静态合同要求 `TeamLeaderActiveOrderCandidateState` union 必须以多行 `|` 开头，和当前 Prettier 单行格式不兼容；修正合同为兼容单行/多行格式，未放宽字段或业务断言。
+- GREEN in `r260819b`：`pnpm e2e:team-leader-workbench:static` -> PASS；`pnpm exec prettier --check src/api/mes/pro/processpool/teamLeader.ts src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue tests/e2e/team-leader-workbench-static.spec.cjs` -> PASS；`pnpm exec node tests/e2e/sp1-production-release-contract.spec.cjs` -> PASS；`pnpm e2e:edhr:release:check` -> PASS；`pnpm ts:check` -> PASS。
+- git boundary：首次尝试在自建分支 `codex/p11-team-leader-release-receipt-20260819` 提交被 worktree 登记分支不匹配钩子阻止；未改登记表，改为创建并切换到登记分支 `detached-037e55c2-production-release-validation` 后提交。worktree 提交 `18adce671 fix: align team leader release receipt flow` 精确包含上述三文件。
+- int_main integration：在 `E:\IntRuoyi` 确认同三路径无未提交改动且暂存区为空后，`git cherry-pick 18adce671` -> `e5ba7869a fix: align team leader release receipt flow`；精确包含上述三文件。`scripts\preflight\branch-runtime-port-guard.ps1` -> PASS；未 push，未合入其它文件。
+- GREEN on `int_main`：`pnpm e2e:team-leader-workbench:static`、Prettier check、SP-1 合同、`pnpm e2e:edhr:release:check`、`pnpm ts:check`、三文件 `git diff --check` -> 全部 PASS。
+- safety：未创建订单、附件、生产放行申请、批次执行、放行事务或清理数据；未启停服务，未读取或输出密码/数据库口令/token。P11/T11 仍 `BLOCKED`，剩余 blocker 仍是测试租户正式路线/DCC/QA/工单 fixture 底座和真实多账号业务链证据。

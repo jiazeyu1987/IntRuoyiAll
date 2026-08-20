@@ -4,7 +4,9 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -59,6 +61,31 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .orderByAsc(MesPqcInspectionTaskDO::getId));
     }
 
+    default List<MesPqcInspectionTaskDO> selectListByActiveOrderIdForUpdate(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .eq(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderId)
+                .orderByAsc(MesPqcInspectionTaskDO::getId)
+                .last("FOR UPDATE"));
+    }
+
+    default List<MesPqcInspectionTaskDO> selectListByActiveOrderIdsAndStatuses(
+            Collection<Long> activeOrderIds, Collection<String> taskStatuses) {
+        if (activeOrderIds == null || activeOrderIds.isEmpty()
+                || taskStatuses == null || taskStatuses.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .in(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderIds)
+                .in(MesPqcInspectionTaskDO::getTaskStatus, taskStatuses)
+                .orderByAsc(MesPqcInspectionTaskDO::getBusinessDate)
+                .orderByAsc(MesPqcInspectionTaskDO::getInspectionType)
+                .orderByAsc(MesPqcInspectionTaskDO::getRoundNo)
+                .orderByAsc(MesPqcInspectionTaskDO::getId));
+    }
+
     default Set<Long> selectActiveOrderIdsByTaskStatus(Collection<Long> activeOrderIds, String taskStatus) {
         if (activeOrderIds == null || activeOrderIds.isEmpty()) {
             return Set.of();
@@ -70,6 +97,14 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .map(MesPqcInspectionTaskDO::getActiveOrderId)
                 .filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    default Long selectCountByRegulationVersionIds(Collection<Long> regulationVersionIds) {
+        if (regulationVersionIds == null || regulationVersionIds.isEmpty()) {
+            return 0L;
+        }
+        return selectCount(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .in(MesPqcInspectionTaskDO::getRegulationVersionId, regulationVersionIds));
     }
 
     default MesPqcInspectionTaskDO selectByIdentity(Long activeOrderId, Long routeProcessId,
@@ -85,12 +120,14 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
     }
 
     default MesPqcInspectionTaskDO selectByQaIdentity(Long activeOrderId, Long regulationVersionId,
-                                                      Long qaProcessId, String inspectionRuleKey,
+                                                      Long qaProcessId, String qaItemCode,
+                                                      String inspectionRuleKey,
                                                       LocalDate businessDate) {
         return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
                 .eq(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderId)
                 .eq(MesPqcInspectionTaskDO::getRegulationVersionId, regulationVersionId)
                 .eq(MesPqcInspectionTaskDO::getQaProcessId, qaProcessId)
+                .eq(MesPqcInspectionTaskDO::getQaItemCode, qaItemCode)
                 .eq(MesPqcInspectionTaskDO::getInspectionRuleKey, inspectionRuleKey)
                 .eq(MesPqcInspectionTaskDO::getBusinessDate, businessDate));
     }
@@ -136,4 +173,11 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .eq(MesPqcInspectionTaskDO::getId, id)
                 .eq(MesPqcInspectionTaskDO::getTaskStatus, submittedStatus));
     }
+
+    default int deleteByActiveOrderId(Long activeOrderId) {
+        return activeOrderId == null ? 0 : physicalDeleteByActiveOrderId(activeOrderId);
+    }
+
+    @Delete("DELETE FROM mes_pqc_inspection_task WHERE active_order_id = #{activeOrderId}")
+    int physicalDeleteByActiveOrderId(@Param("activeOrderId") Long activeOrderId);
 }

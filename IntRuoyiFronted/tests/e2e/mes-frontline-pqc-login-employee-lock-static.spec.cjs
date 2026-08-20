@@ -5,7 +5,7 @@ const assert = require('assert')
 const root = path.resolve(__dirname, '../..')
 const panelPath = path.join(root, 'src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
 
-const panel = fs.readFileSync(panelPath, 'utf8')
+const panel = fs.readFileSync(panelPath, 'utf8').replace(/\r\n/g, '\n')
 
 function includes(source, token, message) {
   assert.ok(source.includes(token), message)

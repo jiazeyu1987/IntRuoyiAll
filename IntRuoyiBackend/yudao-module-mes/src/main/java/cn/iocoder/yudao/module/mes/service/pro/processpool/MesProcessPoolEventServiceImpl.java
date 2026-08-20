@@ -11,6 +11,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolMa
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQuantityFragmentMapper;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
+import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesFrontlineParameterAuditResult;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolQuantityFragmentCreateDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
@@ -23,6 +25,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Map;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
@@ -98,7 +101,6 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .eventIdempotencyKey(reqDTO.getPqcSubmissionIdempotencyKey())
                 .workOrderId(reqDTO.getWorkOrderId())
                 .routeId(reqDTO.getRouteId())
-                .qaProcessId(reqDTO.getQaProcessId())
                 .qaProcessId(reqDTO.getQaProcessId())
                 .actualEmployeeId(reqDTO.getActualEmployeeId())
                 .deviceAccountId(reqDTO.getDeviceAccountId())
@@ -306,7 +308,18 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .setFeedbackId(event.getFeedbackSourceId())
                 .setRecordbookEntryId(event.getRecordbookEntryId())
                 .setRecordbookEventId(event.getRecordbookSourceId())
-                .setProcessPoolEventId(event.getId());
+                .setProcessPoolEventId(event.getId())
+                .setParameterAuditResult(readParameterAudit(event.getRawPayload()));
+    }
+
+    private MesFrontlineParameterAuditResult readParameterAudit(String rawPayload) {
+        if (StrUtil.isBlank(rawPayload)) {
+            return null;
+        }
+        Map<?, ?> payload = JsonUtils.parseObject(rawPayload, Map.class);
+        Object parameterAudit = payload == null ? null : payload.get("parameterAudit");
+        return parameterAudit == null ? null : JsonUtils.parseObject(
+                JsonUtils.toJsonString(parameterAudit), MesFrontlineParameterAuditResult.class);
     }
 
     private void requireSubmitLookupContext(MesProcessPoolCreateEventReqDTO reqDTO) {

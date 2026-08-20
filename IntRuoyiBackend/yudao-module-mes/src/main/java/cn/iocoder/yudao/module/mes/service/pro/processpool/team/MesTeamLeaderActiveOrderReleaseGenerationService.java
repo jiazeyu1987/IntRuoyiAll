@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
@@ -18,6 +19,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlocker;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
@@ -35,8 +37,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -53,6 +57,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesProcessPoolOrderProcessCompletionMapper completionMapper;
+    private final MesProcessPoolReportAllocationMapper allocationMapper;
     private final MesPqcInspectionTaskMapper pqcTaskMapper;
     private final MesPqcProcessInspectionAggregateDetailMapper aggregateDetailMapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
@@ -68,6 +73,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
             MesProcessPoolOrderProcessCompletionMapper completionMapper,
             MesPqcInspectionTaskMapper pqcTaskMapper,
             MesPqcProcessInspectionAggregateDetailMapper aggregateDetailMapper,
+            MesProcessPoolReportAllocationMapper allocationMapper,
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService,
@@ -77,6 +83,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         this.workOrderMapper = workOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.completionMapper = completionMapper;
+        this.allocationMapper = allocationMapper;
         this.pqcTaskMapper = pqcTaskMapper;
         this.aggregateDetailMapper = aggregateDetailMapper;
         this.applicationMapper = applicationMapper;
@@ -95,6 +102,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
         String batchCode = requireBatchCode(workOrder);
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = requireSnapshots(activeOrder);
+        requireNoProductionQuantityConflict(activeOrder, snapshots);
         List<MesProcessPoolOrderProcessCompletionDO> completions =
                 requireFormalProductionCompletions(activeOrder, snapshots);
         InspectionEvidence inspectionEvidence = requireFormalInspectionCompletions(activeOrder, snapshots);
@@ -280,6 +288,63 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                 && StrUtil.isNotBlank(completion.getSourceAllocationIdsJson())
                 && StrUtil.isNotBlank(completion.getAggregateHash())
                 && StrUtil.isNotBlank(completion.getBackfillIdempotencyKey());
+    }
+
+    private void requireNoProductionQuantityConflict(
+            MesProcessPoolActiveOrderDO activeOrder,
+            List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots) {
+        Map<ProcessIdentity, BigDecimal> targetQuantityByProcess = new LinkedHashMap<>();
+        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
+            targetQuantityByProcess.put(new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId()),
+                    snapshot.getPlannedQuantitySnapshot());
+        }
+
+        Map<ProcessIdentity, BigDecimal> allocatedQuantityByProcess = new LinkedHashMap<>();
+        for (MesProcessPoolReportAllocationDO allocation
+                : list(allocationMapper.selectListByActiveOrderIds(List.of(activeOrder.getId())))) {
+            if (allocation == null || !Objects.equals(activeOrder.getId(), allocation.getActiveOrderId())
+                    || !Objects.equals(activeOrder.getWorkOrderId(), allocation.getWorkOrderId())) {
+                throw blocker(MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT, null,
+                        "REPORT_ALLOCATION", allocation == null || allocation.getId() == null
+                                ? null : String.valueOf(allocation.getId()), null,
+                        "formal production allocation is outside the active-order identity",
+                        "由组长纠正该工单工序的报工分配后重新申请放行");
+            }
+            if (allocation.getRouteProcessId() == null || allocation.getProcessId() == null
+                    || allocation.getAllocatedQuantity() == null) {
+                throw blocker(MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT, null,
+                        "REPORT_ALLOCATION", allocation.getId() == null ? null : String.valueOf(allocation.getId()),
+                        null, "formal production allocation is incomplete",
+                        "由组长补齐或纠正该工单工序的报工分配后重新申请放行");
+            }
+            ProcessIdentity identity = new ProcessIdentity(allocation.getRouteProcessId(), allocation.getProcessId());
+            if (!targetQuantityByProcess.containsKey(identity)) {
+                throw blocker(MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT, null,
+                        "REPORT_ALLOCATION", allocation.getId() == null ? null : String.valueOf(allocation.getId()),
+                        null, "formal production allocation points to an unknown frozen process",
+                        "由组长纠正该工单工序的报工分配后重新申请放行");
+            }
+            allocatedQuantityByProcess.merge(identity, allocation.getAllocatedQuantity(), BigDecimal::add);
+        }
+
+        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
+            ProcessIdentity identity = new ProcessIdentity(snapshot.getRouteProcessId(), snapshot.getProcessId());
+            BigDecimal targetQuantity = targetQuantityByProcess.get(identity);
+            BigDecimal allocatedQuantity = allocatedQuantityByProcess.getOrDefault(identity, BigDecimal.ZERO);
+            if (!positive(targetQuantity)) {
+                throw progressBlocker(MesReleaseFlowBlockerType.PRODUCTION_PROGRESS_NOT_COMPLETED,
+                        activeOrder, snapshot, "formal production target is missing",
+                        "补齐该冻结工序的正式生产目标后重新申请放行");
+            }
+            if (allocatedQuantity.compareTo(targetQuantity) > 0) {
+                BigDecimal overageQuantity = allocatedQuantity.subtract(targetQuantity);
+                throw progressBlocker(MesReleaseFlowBlockerType.PRODUCTION_QUANTITY_CONFLICT,
+                        activeOrder, snapshot,
+                        "formal production quantity exceeds the work-order process target by "
+                                + quantityText(overageQuantity),
+                        "由组长纠正该工单工序的报工数量后重新申请放行");
+            }
+        }
     }
 
     private InspectionEvidence requireFormalInspectionCompletions(
@@ -468,6 +533,10 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
 
     private boolean positive(BigDecimal value) {
         return value != null && value.signum() > 0;
+    }
+
+    private String quantityText(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
     }
 
     private <T> List<T> list(List<T> values) {

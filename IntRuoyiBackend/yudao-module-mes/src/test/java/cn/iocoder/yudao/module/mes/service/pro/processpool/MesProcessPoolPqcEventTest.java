@@ -55,8 +55,9 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
         assertEquals(req.getProductionSubmitEventId(), pqcRecord.getProductionSubmitEventId());
         assertEquals(req.getWorkOrderId(), pqcRecord.getWorkOrderId());
         assertEquals(req.getRouteId(), pqcRecord.getRouteId());
-        assertEquals(req.getRouteProcessId(), pqcRecord.getRouteProcessId());
-        assertEquals(req.getProcessId(), pqcRecord.getProcessId());
+        assertNull(pqcRecord.getRouteProcessId());
+        assertNull(pqcRecord.getProcessId());
+        assertEquals(req.getQaProcessId(), pqcRecord.getQaProcessId());
         assertEquals(req.getInspectionResult(), pqcRecord.getInspectionResult());
         assertEquals(req.getActualEmployeeId(), pqcRecord.getActualEmployeeId());
         assertEquals(req.getSignatureId(), pqcRecord.getSignatureId());
@@ -146,8 +147,7 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
                 .productionSubmitEventId(randomLongId())
                 .pqcSubmissionIdempotencyKey("P0-PQC-" + randomLongId())
                 .routeId(randomLongId())
-                .routeProcessId(randomLongId())
-                .processId(randomLongId())
+                .qaProcessId(randomLongId())
                 .actualEmployeeId(actualEmployeeId)
                 .deviceAccountId(randomLongId())
                 .deviceId(randomLongId())

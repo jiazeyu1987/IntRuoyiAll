@@ -68,7 +68,7 @@ assert.match(
 )
 assert.match(
   source,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc[\s\S]*grid-template-rows:\s*minmax\(118px, auto\) minmax\(0, 1fr\) 104px/,
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc[\s\S]*grid-template-rows:\s*minmax\(118px, auto\) minmax\(0, 1fr\)/,
   'PQC fullscreen operator screen must allow the compact header row to grow for wrapped summary text.'
 )
 assert.match(
@@ -78,8 +78,8 @@ assert.match(
 )
 assert.match(
   source,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-main\.is-pqc[\s\S]*grid-template-columns:\s*minmax\(760px, 1\.72fr\) minmax\(390px, 0\.78fr\)/,
-  'PQC fullscreen main layout must match the screenshot left/right panel proportions.'
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-main\.is-pqc[\s\S]*grid-template-columns:\s*minmax\(620px, 1\.28fr\) minmax\(500px, 0\.92fr\)[\s\S]*grid-template-rows:\s*minmax\(0, 1fr\) 104px/,
+  'PQC fullscreen main layout must keep the right fill panel wider and spanning the action row.'
 )
 
 console.log('PASS: eDHR frontline PQC fullscreen toggle static contract')

@@ -49,6 +49,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     @Mock
     private MesFrontlineDeviceParameterValidator deviceParameterValidator;
     @Mock
+    private MesFrontlineParameterAuditService parameterAuditService;
+    @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @Mock
     private MesProBatchRecordExecutionSignatureService signatureService;
@@ -64,10 +66,13 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 submitAuthorizationService,
                 lossReasonValidator,
                 deviceParameterValidator,
+                parameterAuditService,
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
                 signatureService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
+        org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
+                .thenReturn(MesFrontlineParameterAuditResult.empty());
     }
 
     @Test
@@ -183,6 +188,11 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertEquals(4001L, payload.getSignatureId());
             assertEquals(8301L, payload.getRawPayload().get("lossReasonId"));
             assertEquals("正常损耗", payload.getRawPayload().get("lossReasonNameSnapshot"));
+            Object activeOrderProcess = payload.getRawPayload().get("activeOrderProcess");
+            assertEquals(81L, ((java.util.Map<?, ?>) activeOrderProcess).get("activeOrderId"));
+            assertEquals(5101L, ((java.util.Map<?, ?>) activeOrderProcess).get("activeOrderProcessSnapshotId"));
+            assertEquals(71L, ((java.util.Map<?, ?>) activeOrderProcess).get("routeProcessId"));
+            assertEquals(31L, ((java.util.Map<?, ?>) activeOrderProcess).get("processId"));
             return true;
         }));
     }
@@ -236,7 +246,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                         .setFeedbackId(501L)
                         .setRecordbookEntryId(701L)
                         .setRecordbookEventId(702L)
-                        .setProcessPoolEventId(801L)));
+                        .setProcessPoolEventId(801L)
+                        .setParameterAuditResult(MesFrontlineParameterAuditResult.empty())));
         stubValidLossReason();
 
         MesProFrontlineFeedbackSubmitRespVO respVO;
@@ -370,7 +381,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         assertEquals(801L, respVO.getProcessPoolEventId());
         verify(submitAuthorizationService).authorize(any());
-        verify(deviceParameterValidator).validateSnapshotDeviceAndParameters(any(), any(), any());
+        verify(parameterAuditService).resolveAndApply(reqVO);
+        verifyNoInteractions(deviceParameterValidator);
     }
 
     @Test

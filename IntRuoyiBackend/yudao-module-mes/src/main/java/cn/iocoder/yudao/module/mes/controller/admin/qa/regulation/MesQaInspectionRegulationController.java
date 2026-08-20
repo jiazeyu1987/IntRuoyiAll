@@ -2,10 +2,13 @@ package cn.iocoder.yudao.module.mes.controller.admin.qa.regulation;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationProjectStatusRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationImportRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationResetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveRespVO;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
+import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationWordImportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -33,12 +37,32 @@ public class MesQaInspectionRegulationController {
     @Resource
     private MesQaInspectionRegulationService regulationService;
 
+    @Resource
+    private MesQaInspectionRegulationWordImportService wordImportService;
+
     @PostMapping("/draft")
     @Operation(summary = "保存 QA 检验规程草稿")
     @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
     public CommonResult<MesQaInspectionRegulationSaveRespVO> saveDraft(
             @Valid @RequestBody MesQaInspectionRegulationSaveReqVO reqVO) {
         return success(regulationService.saveDraft(reqVO));
+    }
+
+    @PostMapping("/import-word-draft")
+    @Operation(summary = "解析 QA Word 模板并保存规程草稿")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<MesQaInspectionRegulationImportRespVO> importWordDraft(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
+        return success(wordImportService.importWordDraft(file, dccProjectCodeId));
+    }
+
+    @PostMapping("/test-reset")
+    @Operation(summary = "测试阶段重置指定 DCC 项目的 QA 检验规程")
+    @PreAuthorize("@ss.hasPermission('mes:qc-template:update')")
+    public CommonResult<MesQaInspectionRegulationResetRespVO> resetForTesting(
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId) {
+        return success(regulationService.resetForTesting(dccProjectCodeId));
     }
 
     @PostMapping("/publish")

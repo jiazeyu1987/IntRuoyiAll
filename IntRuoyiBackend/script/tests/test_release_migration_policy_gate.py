@@ -68,6 +68,26 @@ def test_policy_gate_rejects_dependency_environment_superset(tmp_path: Path) -> 
         run_migration_policy_gate(sql_root)
 
 
+def test_policy_gate_rejects_executable_dependency_on_evidence_only(tmp_path: Path) -> None:
+    sql_root = tmp_path / "sql" / "mysql"
+    sql_root.mkdir(parents=True)
+    write_sql(
+        sql_root,
+        "20260613_preflight.sql",
+        "-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=preflight; riskLevel=medium\n"
+        "SELECT 1;\n",
+    )
+    write_sql(
+        sql_root,
+        "20260613_schema.sql",
+        "-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260613_preflight; type=schema; riskLevel=medium\n"
+        "CREATE TABLE IF NOT EXISTS child_table (id bigint);\n",
+    )
+
+    with pytest.raises(MigrationPolicyError, match="executable migration cannot depend on evidence-only migration"):
+        run_migration_policy_gate(sql_root)
+
+
 def test_policy_gate_rejects_frozen_checksum_change(tmp_path: Path) -> None:
     sql_root = tmp_path / "sql" / "mysql"
     sql_root.mkdir(parents=True)

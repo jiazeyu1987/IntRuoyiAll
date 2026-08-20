@@ -5,11 +5,26 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionDiffMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQuantityFragmentMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyFieldMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
@@ -54,7 +69,22 @@ class MesTeamLeaderActiveOrderManualSortTest {
     @Mock private MesProRouteVersionMapper routeVersionMapper;
     @Mock private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
     @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Mock private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     @Mock private MesProcessPoolReportAllocationMapper reportAllocationMapper;
+    @Mock private MesProcessPoolReportAllocationStateMapper reportAllocationStateMapper;
+    @Mock private MesProcessPoolReportAllocationAdjustmentAuditMapper reportAllocationAdjustmentAuditMapper;
+    @Mock private MesProcessPoolOrderProcessCompletionMapper orderProcessCompletionMapper;
+    @Mock private MesProProcessPoolEventMapper processPoolEventMapper;
+    @Mock private MesProFeedbackMapper feedbackMapper;
+    @Mock private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
+    @Mock private MesProcessPoolSubmissionReviewMapper submissionReviewMapper;
+    @Mock private MesProcessPoolReviewCopyFieldMapper reviewCopyFieldMapper;
+    @Mock private MesProcessPoolReviewCopyMapper reviewCopyMapper;
+    @Mock private MesProProcessPoolEventRevisionDiffMapper eventRevisionDiffMapper;
+    @Mock private MesProProcessPoolEventRevisionMapper eventRevisionMapper;
+    @Mock private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
+    @Mock private MesPqcProcessInspectionAggregateDetailMapper pqcAggregateDetailMapper;
+    @Mock private MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
     @Mock private MesQaInspectionRegulationMapper inspectionRegulationMapper;
     @Mock private MesQaInspectionRegulationVersionMapper inspectionRegulationVersionMapper;
     @Mock private MesQaInspectionRegulationProcessMapper inspectionRegulationProcessMapper;
@@ -71,7 +101,12 @@ class MesTeamLeaderActiveOrderManualSortTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderServiceImpl(activeOrderMapper, workOrderService, workOrderMapper,
                 itemMapper, auditMapper, scheduleOrderMapper, scheduleOrderProcessMapper, routeProductMapper, routeMapper,
-                routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, reportAllocationMapper,
+                routeVersionMapper, routeDccProjectBindingMapper, processSnapshotMapper, parameterRuleMapper,
+                reportAllocationMapper, reportAllocationStateMapper, reportAllocationAdjustmentAuditMapper,
+                orderProcessCompletionMapper, processPoolEventMapper, feedbackMapper, pqcRecordMapper,
+                submissionReviewMapper,
+                reviewCopyFieldMapper, reviewCopyMapper, eventRevisionDiffMapper, eventRevisionMapper,
+                quantityFragmentMapper, pqcAggregateDetailMapper, pqcPieceDetailMapper,
                 inspectionRegulationMapper,
                 inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper,

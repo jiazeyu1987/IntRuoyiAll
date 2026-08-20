@@ -29,6 +29,8 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private BigDecimal requiredQuantity;
         private BigDecimal submittedQuantity;
         private Integer submissionCount;
+        private Boolean quantityConflict;
+        private BigDecimal overageQuantity;
         private List<SubmissionDetail> submissions;
     }
 
@@ -40,5 +42,6 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String submitterName;
         private String reviewerName;
         private LocalDateTime submittedAt;
+        private Boolean quantityConflict;
     }
 }

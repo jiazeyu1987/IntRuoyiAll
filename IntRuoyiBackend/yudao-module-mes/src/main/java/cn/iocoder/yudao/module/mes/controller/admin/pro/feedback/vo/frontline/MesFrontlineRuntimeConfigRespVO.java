@@ -88,5 +88,8 @@ public class MesFrontlineRuntimeConfigRespVO {
         private Long recordbookId;
         private BigDecimal scheduledQuantity;
         private java.time.LocalDateTime expireDate;
+        private Long activeOrderProcessSnapshotId;
+        private String parameterSnapshotSha256;
+        private String parameterSnapshotState;
     }
 }

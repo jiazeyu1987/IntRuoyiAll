@@ -488,20 +488,32 @@
                     v-if="isProcessWipColumnVisible('shiftCapacityTotal')"
                     label="班次产能"
                     prop="shiftCapacityTotal"
-                    :width="getProcessWipColumnLayoutWidthString('shiftCapacityTotal', 116)"
-                    :min-width="getProcessWipColumnMinWidthString('shiftCapacityTotal', 104)"
+                    :width="getProcessWipColumnLayoutWidthString('shiftCapacityTotal', 160)"
+                    :min-width="getProcessWipColumnMinWidthString('shiftCapacityTotal', 148)"
                     align="right"
                     v-bind="sortColumnAttrs('shiftCapacityTotal')"
                   >
                     <template #default="{ row }">
                       <div class="scheduler-workbench__shift-capacity">
+                        <div class="scheduler-workbench__inline-control" @click.stop>
+                          <el-input-number
+                            v-model="processWipShiftCapacityDrafts[getProcessWipRowKey(row)]"
+                            :min="1"
+                            :precision="0"
+                            :controls="false"
+                            :title="formatProcessWipShiftCapacity(row.shiftCapacityTotal)"
+                            :disabled="processWipSettingsSavingId === getProcessWipRowKey(row)"
+                            class="scheduler-workbench__shift-capacity-input"
+                            @change="handleProcessWipShiftCapacityChange(row, $event)"
+                          />
+                        </div>
                         <button
                           type="button"
                           class="scheduler-workbench__capacity-source-link"
                           :title="getProcessWipCapacitySourceTooltip(row)"
                           @click.stop="openProcessWipCapacitySource(row)"
                         >
-                          {{ formatProcessWipShiftCapacity(row.shiftCapacityTotal) }}
+                          来源
                         </button>
                         <el-tag
                           v-if="isProcessWipDoubleShift(row)"
@@ -1182,6 +1194,7 @@ import {
 } from '@/api/mes/pro/scheduleCalendar'
 import {
   MesProScheduleOrderApi,
+  type MesProScheduleOrderProcessWipSettingsReqVO,
   type MesProScheduleOrderProcessWipVO
 } from '@/api/mes/pro/scheduleorder'
 import {
@@ -1239,6 +1252,7 @@ const policySettingsFormRef = ref()
 const fullConfigInputRef = ref<HTMLInputElement>()
 const processWipStatistics = ref<MesProScheduleOrderProcessWipVO[]>([])
 const processWipPlannedStartDateDrafts = reactive<Record<string, string | undefined>>({})
+const processWipShiftCapacityDrafts = reactive<Record<string, number | undefined>>({})
 const processWipSettingsSavingId = ref<string>()
 const activeWipTab = ref('process-list')
 const replanExplanationLoading = ref(false)
@@ -1280,7 +1294,7 @@ const schedulerWorkbenchProcessWipDefaultColumns: UserTableColumnDefinition[] = 
   { key: 'processCode', label: '工序编号', width: 130, minWidth: 120 },
   { key: 'processName', label: '工序名称', width: 160, minWidth: 140 },
   { key: 'wipOrderCount', label: '在制单数', width: 148, minWidth: 132 },
-  { key: 'shiftCapacityTotal', label: '班次产能', width: 116, minWidth: 104 },
+  { key: 'shiftCapacityTotal', label: '班次产能', width: 160, minWidth: 148 },
   { key: 'shiftStatus', label: '班次状态', width: 104, minWidth: 96 },
   { key: 'nightShiftEnabled', label: '夜班', width: 116, minWidth: 108 },
   { key: 'plannedStartDate', label: '开排日期', width: 164, minWidth: 150 },
@@ -1705,6 +1719,21 @@ const syncProcessWipPlannedStartDateDrafts = (rows: MesProScheduleOrderProcessWi
   })
 }
 
+const syncProcessWipShiftCapacityDrafts = (rows: MesProScheduleOrderProcessWipVO[]) => {
+  const activeRowKeys = new Set<string>()
+  rows.forEach((row) => {
+    const rowKey = getProcessWipRowKey(row)
+    activeRowKeys.add(rowKey)
+    const capacity = Number(row.shiftCapacityTotal)
+    processWipShiftCapacityDrafts[rowKey] = Number.isFinite(capacity) ? capacity : undefined
+  })
+  Object.keys(processWipShiftCapacityDrafts).forEach((rowKey) => {
+    if (!activeRowKeys.has(rowKey)) {
+      delete processWipShiftCapacityDrafts[rowKey]
+    }
+  })
+}
+
 const getProcessWipRowKey = (row: MesProScheduleOrderProcessWipVO) => {
   if (row.routeVersionId == null || row.routeProcessId == null) {
     throw new Error(`工序在制数据缺少路线工序标识，processId=${row.processId ?? '未知'}`)
@@ -1721,6 +1750,7 @@ const loadProcessWipStatistics = async (requestSerial?: number) => {
     rows.forEach(getProcessWipRowKey)
     if (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial)) return
     syncProcessWipPlannedStartDateDrafts(rows)
+    syncProcessWipShiftCapacityDrafts(rows)
     processWipStatistics.value = rows
   } catch (error) {
     if (requestSerial !== undefined && isStaleSchedulerWorkbenchRequest(requestSerial)) return
@@ -1937,6 +1967,7 @@ const saveShiftHoursSetting = async () => {
       shiftHours: shiftHoursSetting.value.shiftHours ?? DEFAULT_SHIFT_HOURS
     }
     shiftHoursForm.shiftHours = shiftHoursSetting.value.shiftHours ?? DEFAULT_SHIFT_HOURS
+    await Promise.all([loadSummary(), loadProcessWipStatistics()])
     ElMessage.success('班次小时已统一保存')
   } finally {
     shiftHoursSaving.value = false
@@ -2151,22 +2182,31 @@ const openProcessWipCapacitySource = (item: MesProScheduleOrderProcessWipVO) => 
   })
 }
 
+const hasProcessWipSettingOverride = <K extends keyof MesProScheduleOrderProcessWipVO>(
+  overrides: Partial<MesProScheduleOrderProcessWipVO>,
+  key: K
+) => Object.prototype.hasOwnProperty.call(overrides, key)
+
 const buildProcessWipSettingsPayload = (
   row: MesProScheduleOrderProcessWipVO,
   overrides: Partial<MesProScheduleOrderProcessWipVO>
-) => ({
-  routeVersionId: row.routeVersionId,
-  routeProcessId: row.routeProcessId,
-  nightShiftEnabled:
-    overrides.nightShiftEnabled === undefined
-      ? Boolean(row.nightShiftEnabled)
-      : Boolean(overrides.nightShiftEnabled),
-  plannedStartDate:
-    overrides.plannedStartDate === undefined
-      ? row.plannedStartDate
-      : overrides.plannedStartDate || undefined,
-  reason: '排产员工作台工序在制列表维护'
-})
+) => {
+  const payload = {
+    routeVersionId: row.routeVersionId,
+    routeProcessId: row.routeProcessId,
+    reason: '排产员工作台工序在制列表维护'
+  } as MesProScheduleOrderProcessWipSettingsReqVO
+  if (hasProcessWipSettingOverride(overrides, 'nightShiftEnabled')) {
+    payload.nightShiftEnabled = Boolean(overrides.nightShiftEnabled)
+  }
+  if (hasProcessWipSettingOverride(overrides, 'plannedStartDate')) {
+    payload.plannedStartDate = overrides.plannedStartDate || undefined
+  }
+  if (overrides.shiftCapacityTotal !== undefined) {
+    payload.shiftCapacityTotal = overrides.shiftCapacityTotal
+  }
+  return payload
+}
 
 const saveProcessWipSettings = async (
   row: MesProScheduleOrderProcessWipVO,
@@ -2196,6 +2236,18 @@ const handleProcessWipPlannedStartDateChange = async (
   plannedStartDate: string | undefined
 ) => {
   await saveProcessWipSettings(row, { plannedStartDate })
+}
+
+const handleProcessWipShiftCapacityChange = async (
+  row: MesProScheduleOrderProcessWipVO,
+  shiftCapacityTotal: number | undefined
+) => {
+  if (!Number.isFinite(Number(shiftCapacityTotal)) || Number(shiftCapacityTotal) <= 0) {
+    processWipShiftCapacityDrafts[getProcessWipRowKey(row)] = row.shiftCapacityTotal
+    ElMessage.error('班次产能必须大于 0')
+    return
+  }
+  await saveProcessWipSettings(row, { shiftCapacityTotal: Number(shiftCapacityTotal) })
 }
 
 const routeActiveProductsText = (item: SchedulerWorkbenchRouteActiveOrderVO) => {
@@ -2707,6 +2759,14 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
   line-height: 1.3;
   padding: 0;
+}
+
+.scheduler-workbench__shift-capacity-input {
+  width: 76px;
+}
+
+.scheduler-workbench__shift-capacity-input :deep(.el-input__inner) {
+  text-align: right;
 }
 
 .scheduler-workbench__capacity-source-link:hover {
