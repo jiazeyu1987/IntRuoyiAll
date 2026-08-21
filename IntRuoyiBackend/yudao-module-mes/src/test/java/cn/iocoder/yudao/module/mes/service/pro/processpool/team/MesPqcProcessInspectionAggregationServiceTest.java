@@ -91,6 +91,8 @@ class MesPqcProcessInspectionAggregationServiceTest {
         assertEquals(2001L, pressure.getWorkOrderId());
         assertEquals(3001L, pressure.getRouteId());
         assertEquals(3101L, pressure.getRouteVersionId());
+        assertEquals(4001L, pressure.getRouteProcessId());
+        assertEquals(4002L, pressure.getProcessId());
         assertEquals(6001L, pressure.getRegulationVersionId());
         assertEquals("PATROL", pressure.getInspectionType());
         assertEquals(1, pressure.getRoundNo());
@@ -221,8 +223,7 @@ class MesPqcProcessInspectionAggregationServiceTest {
                 .productionSubmitEventId(5001L)
                 .workOrderId(2001L)
                 .routeId(3001L)
-                .routeProcessId(4001L)
-                .processId(4002L)
+                .qaProcessId(6101L)
                 .processInspectionAggregationStatus(
                         MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING)
                 .build(), 100L);
@@ -245,8 +246,7 @@ class MesPqcProcessInspectionAggregationServiceTest {
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
                 .workOrderId(2001L)
                 .routeId(3001L)
-                .routeProcessId(4001L)
-                .processId(4002L)
+                .qaProcessId(6101L)
                 .feedbackSourceType("MES_PQC_INSPECTION_TASK")
                 .feedbackSourceId(8001L)
                 .recordbookSourceType("MES_PQC_INSPECTION_TASK")
@@ -263,6 +263,7 @@ class MesPqcProcessInspectionAggregationServiceTest {
                 .routeVersionId(3101L)
                 .routeProcessId(4001L)
                 .processId(4002L)
+                .qaProcessId(6101L)
                 .regulationVersionId(6001L)
                 .inspectionType("PATROL")
                 .businessDate(LocalDate.of(2026, 8, 5))

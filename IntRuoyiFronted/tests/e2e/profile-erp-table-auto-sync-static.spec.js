@@ -49,7 +49,9 @@ assert.match(
 for (const token of [
   '/erp/kingdee-sync/run/page',
   '/erp/kingdee-sync/watermark/list',
+  '/erp/kingdee-sync/full-sync',
   'runIncrementalSyncJob',
+  'runFullSync',
   'JobApi.getJobPage',
   'JobApi.runJob'
 ]) {
@@ -163,7 +165,8 @@ for (const token of [
   '同步成功/失败',
   '失败原因',
   '操作',
-  '手动同步',
+  '增量同步',
+  '全量同步',
   '立即执行一次',
   'ElMessage.error',
   'ERP 商品',
@@ -260,19 +263,25 @@ assert.match(
 )
 
 for (const token of [
-  'manualSyncingType',
-  'handleRunSingle',
+  'incrementalSyncingType',
+  'fullSyncingType',
+  'handleRunIncremental(row',
+  'handleRunFull(row',
   'ErpKingdeeSyncApi.runIncrementalSyncJob(row.handlerName)',
+  'ErpKingdeeSyncApi.runFullSync(row.syncType)',
   'row.erpTableName',
-  'manualSyncingType === row.syncType',
+  'incrementalSyncingType === row.syncType',
+  'fullSyncingType === row.syncType',
   '单表 ERP 增量同步任务',
-  '手动同步失败',
+  '单表 ERP 全量同步任务',
+  '增量同步失败',
+  '全量同步失败',
   'loadLatestRuns(), loadRunningSyncRuns()'
 ]) {
   assert.match(
     component,
     new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `每行手动同步按钮必须触发正式单表增量同步并刷新结果：${token}`
+    `每行操作按钮必须触发正式单表增量或全量同步并刷新结果：${token}`
   )
 }
 

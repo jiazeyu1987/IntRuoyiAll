@@ -18,16 +18,32 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordRepeatRowGroupDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordRepeatRowGroupMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportService;
 import org.junit.jupiter.api.Test;
@@ -73,11 +89,27 @@ class MesProBatchRecordCellLinkServiceImplTest {
     @Mock
     private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Mock
+    private MesProRouteVersionMapper routeVersionMapper;
+    @Mock
     private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
     @Mock
     private MesProBatchRecordRepeatRowGroupMapper repeatRowGroupMapper;
     @Mock
     private MesProductionPickListSourceService productionPickListSourceService;
+    @Mock
+    private MesQaInspectionRegulationMapper qaRegulationMapper;
+    @Mock
+    private MesQaInspectionRegulationVersionMapper qaRegulationVersionMapper;
+    @Mock
+    private MesQaInspectionRegulationItemMapper qaRegulationItemMapper;
+    @Mock
+    private MesProRouteProcessMapper routeProcessMapper;
+    @Mock
+    private MesProProcessMapper processMapper;
+    @Mock
+    private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
+    @Mock
+    private MesQaInspectionRegulationProcessMapper qaRegulationProcessMapper;
 
     @InjectMocks
     private MesProBatchRecordCellLinkServiceImpl service;
@@ -99,13 +131,100 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         "material.3201.lotNumber", "手柄（MAT-001）- 物料批次号", "STRING", 5001L)));
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null);
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null);
 
         assertEquals(1, result.getSourceFields().stream()
                 .filter(field -> "PRODUCTION_PICK_LIST".equals(field.getSourceType()))
                 .filter(field -> "material.3201.lotNumber".equals(field.getFieldCode()))
                 .filter(field -> Long.valueOf(5001L).equals(field.getRouteProcessId()))
                 .count());
+    }
+
+    @Test
+    void getWorkbenchContext_exposesPqcAggregateFieldsForRequestedSharedProcessInspectionForm() {
+        MesProBatchRecordReportDO sharedProcessInspectionReport =
+                report("process-inspection-report", "球囊扩张压力泵过程检验记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L))
+                .thenReturn(List.of(sharedProcessInspectionReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        stubPublishedQaForRouteProcess(5001L, 8001L, "FIRST", "LEAK", "泄漏测试");
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, 2001L, 3001L,
+                        null, null, null, 5001L);
+
+        assertPqcSourceField(result, "FIRST|LEAK|1|measuredValue",
+                "首检 / 泄漏测试 / 第1件 / 实测值", "STRING", 5001L);
+        assertPqcSourceField(result, "FIRST|LEAK|1|selectedEquipmentName",
+                "首检 / 泄漏测试 / 第1件 / 检验设备名称", "STRING", 5001L);
+        assertPqcSourceField(result, "FIRST|DCC|dccProjectCode",
+                "首检 / DCC项目代码", "STRING", 5001L);
+    }
+
+    @Test
+    void getWorkbenchContext_acceptsPqcAggregateDetailAsVirtualSourceReportId() {
+        MesProBatchRecordReportDO sharedProcessInspectionReport =
+                report("process-inspection-report", "球囊扩张压力泵过程检验记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L))
+                .thenReturn(List.of(sharedProcessInspectionReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        stubPublishedQaForRouteProcess(5001L, 8001L, "FIRST", "LEAK", "泄漏测试");
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, 2001L, 3001L,
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L);
+
+        assertEquals("PQC_AGGREGATE_DETAIL", result.getDefaultSourceReportId());
+        assertEquals("process-inspection-report", result.getDefaultTargetReportId());
+        assertPqcSourceField(result, "FIRST|LEAK|1|measuredValue",
+                "首检 / 泄漏测试 / 第1件 / 实测值", "STRING", 5001L);
+    }
+
+    @Test
+    void getWorkbenchContext_resolvesPqcAggregateDetailFromRouteOnlyVirtualSource() {
+        MesProBatchRecordReportDO sharedProcessInspectionReport =
+                report("process-inspection-report", "球囊扩张压力泵过程检验记录", 2001L, 3001L);
+        MesProRouteFlowProcessBatchRecordDO routeBinding =
+                routeBinding(5001L, 3001L, "process-inspection-report")
+                        .setBatchRecordDefinitionId(null)
+                        .setBatchRecordVersionId(null);
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(9001L, "BATCH"))
+                .thenReturn(List.of(routeBinding));
+        when(reportMapper.selectListByReportIds(any())).thenReturn(List.of(sharedProcessInspectionReport));
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L))
+                .thenReturn(List.of(sharedProcessInspectionReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        stubPublishedQaForRouteProcess(5001L, 8001L, "FIRST", "LEAK", "泄漏测试");
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, null, null,
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L);
+
+        assertEquals("ROUTE_VERSION", result.getScopeType());
+        assertEquals(3001L, result.getScopeId());
+        assertEquals("PQC_AGGREGATE_DETAIL", result.getDefaultSourceReportId());
+        assertEquals("process-inspection-report", result.getDefaultTargetReportId());
+        assertPqcSourceField(result, "FIRST|LEAK|1|measuredValue",
+                "首检 / 泄漏测试 / 第1件 / 实测值", "STRING", 5001L);
+    }
+
+    @Test
+    void getWorkbenchContext_usesActiveRouteVersionForPqcInsteadOfBatchRecordVersion() {
+        MesProBatchRecordReportDO sharedProcessInspectionReport =
+                report("process-inspection-report", "球囊扩张压力泵过程检验记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L))
+                .thenReturn(List.of(sharedProcessInspectionReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        stubPublishedQaForRouteProcess(5001L, 9101L, 8001L, "FIRST", "LEAK", "泄漏测试");
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, 2001L, 3001L,
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L);
+
+        assertEquals("ROUTE_VERSION", result.getScopeType());
+        assertEquals(3001L, result.getScopeId());
+        assertPqcSourceField(result, "FIRST|LEAK|1|selectedEquipmentNumber",
+                "首检 / 泄漏测试 / 第1件 / 设备编号", "STRING", 5001L);
     }
 
     @Test
@@ -123,7 +242,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER)));
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null);
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null);
 
         assertProcessPoolSourceField(result, "allocatedQuantity", "放行分配数量", "NUMBER", null);
         assertProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工", "NUMBER", null);
@@ -174,7 +293,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER)));
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null);
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null);
 
         assertEquals(5001L, result.getForms().get(0).getRouteProcessId());
         assertProcessPoolSourceField(result, "outputQuantity", "本次报工产出数量", "NUMBER", null);
@@ -212,6 +331,70 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals("扩张压力实际值", row.getSourceFieldName());
         assertEquals("SUM", row.getAggregationStrategy());
         assertEquals("1:2", row.getTargetCellKey());
+    }
+
+    @Test
+    void saveRules_acceptsPqcAggregateFieldForSharedProcessInspectionTargetRouteProcess() {
+        stubSharedProcessInspectionSaveContext();
+        stubPublishedQaForRouteProcess(5001L, 8001L, "FIRST", "LEAK", "泄漏测试");
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+
+        service.saveRules(new BatchRecordCellLinkRulesSaveReqVO()
+                .setScopeType("ROUTE_VERSION")
+                .setScopeId(3001L)
+                .setRouteId(9001L)
+                .setRouteProcessId(5001L)
+                .setBatchRecordDefinitionId(2001L)
+                .setBatchRecordVersionId(3001L)
+                .setRules(List.of(new BatchRecordCellLinkRuleSaveItemReqVO()
+                        .setSourceType("PQC_AGGREGATE_DETAIL")
+                        .setSourceReportId("PQC_AGGREGATE_DETAIL")
+                        .setSourceRowIndex(-1)
+                        .setSourceColumnIndex(-1)
+                        .setSourceFieldCode("FIRST|LEAK|1|measuredValue")
+                        .setTargetReportId("process-inspection-report")
+                        .setTargetRowIndex(1)
+                        .setTargetColumnIndex(2))));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        MesProBatchRecordCellLinkRuleDO row = captor.getValue().get(0);
+        assertEquals(5001L, row.getRouteProcessId());
+        assertEquals("PQC_AGGREGATE_DETAIL", row.getSourceType());
+        assertEquals("PQC_AGGREGATE_DETAIL", row.getSourceReportId());
+        assertEquals("FIRST|LEAK|1|measuredValue", row.getSourceFieldCode());
+        assertEquals("首检 / 泄漏测试 / 第1件 / 实测值", row.getSourceFieldName());
+        assertEquals("process-inspection-report", row.getTargetReportId());
+        assertEquals("1:2", row.getTargetCellKey());
+    }
+
+    @Test
+    void saveRules_rejectsPqcAggregateFieldFromAnotherRouteProcess() {
+        stubSharedProcessInspectionSaveContext();
+        stubPublishedQaForRouteProcess(5001L, 8001L, "FIRST", "LEAK", "泄漏测试");
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.saveRules(
+                new BatchRecordCellLinkRulesSaveReqVO()
+                        .setScopeType("ROUTE_VERSION")
+                        .setScopeId(3001L)
+                        .setRouteId(9001L)
+                        .setRouteProcessId(5002L)
+                        .setBatchRecordDefinitionId(2001L)
+                        .setBatchRecordVersionId(3001L)
+                        .setRules(List.of(new BatchRecordCellLinkRuleSaveItemReqVO()
+                                .setSourceType("PQC_AGGREGATE_DETAIL")
+                                .setSourceReportId("PQC_AGGREGATE_DETAIL")
+                                .setSourceRowIndex(-1)
+                                .setSourceColumnIndex(-1)
+                                .setSourceFieldCode("FIRST|LEAK|1|measuredValue")
+                                .setTargetReportId("process-inspection-report")
+                                .setTargetRowIndex(1)
+                                .setTargetColumnIndex(2)))));
+
+        assertEquals(
+                MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED.getCode(),
+                error.getCode());
+        verify(ruleMapper, never()).deleteByScope("ROUTE_VERSION", 3001L);
     }
 
     @Test
@@ -295,6 +478,20 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .count());
     }
 
+    private static void assertPqcSourceField(BatchRecordCellLinkWorkbenchContextRespVO result,
+                                             String fieldCode,
+                                             String fieldName,
+                                             String valueType,
+                                             Long routeProcessId) {
+        assertEquals(1, result.getSourceFields().stream()
+                .filter(field -> "PQC_AGGREGATE_DETAIL".equals(field.getSourceType()))
+                .filter(field -> fieldCode.equals(field.getFieldCode()))
+                .filter(field -> fieldName.equals(field.getFieldName()))
+                .filter(field -> valueType.equals(field.getValueType()))
+                .filter(field -> Objects.equals(routeProcessId, field.getRouteProcessId()))
+                .count());
+    }
+
     @Test
     void getWorkbenchContext_resolvesFormTemplateVersionScope() {
         FormTemplateVersionDO templateVersion = formTemplateVersion();
@@ -302,7 +499,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
         when(ruleMapper.selectListByScope("FORM_TEMPLATE_VERSION", 7001L)).thenReturn(List.of());
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(null, null, null, null, 1001L, "V3.0");
+                service.getWorkbenchContext(null, null, null, null, 1001L, "V3.0", null);
 
         assertEquals("FORM_TEMPLATE_VERSION", result.getScopeType());
         assertEquals(7001L, result.getScopeId());
@@ -310,6 +507,58 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals("FORMTPL:7001", result.getDefaultTargetReportId());
         assertEquals("FORMTPL:7001", result.getForms().get(0).getReportId());
         assertEquals("过程检验记录 V3.0", result.getForms().get(0).getReportName());
+    }
+
+    @Test
+    void getWorkbenchContext_acceptsPqcAggregateSourceForFormTemplateRouteProcess() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion();
+        when(templateVersionMapper.selectByTemplateIdAndVersionNo(1001L, "V3.0")).thenReturn(templateVersion);
+        when(ruleMapper.selectListByScope("FORM_TEMPLATE_VERSION", 7001L)).thenReturn(List.of());
+        stubPublishedQaForRouteProcess(5001L, 8001L, "FIRST", "LEAK", "泄漏测试");
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, null, null,
+                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5001L);
+
+        assertEquals("FORM_TEMPLATE_VERSION", result.getScopeType());
+        assertEquals("PQC_AGGREGATE_DETAIL", result.getDefaultSourceReportId());
+        assertEquals("FORMTPL:7001", result.getDefaultTargetReportId());
+        assertPqcSourceField(result, "FIRST|LEAK|1|measuredValue",
+                "首检 / 泄漏测试 / 第1件 / 实测值", "STRING", 5001L);
+    }
+
+    @Test
+    void getWorkbenchContext_resolvesDccPqcFieldsWhenRouteProcessNameHasProcessSuffix() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion();
+        when(templateVersionMapper.selectByTemplateIdAndVersionNo(1001L, "V3.0")).thenReturn(templateVersion);
+        when(ruleMapper.selectListByScope("FORM_TEMPLATE_VERSION", 7001L)).thenReturn(List.of());
+        stubDccPublishedQaForRouteProcess(5002L, "ROUTE-P002", "精洗工序",
+                8102L, "ID-QA-002", "精洗", 8001L,
+                "FIRST", "FINE-CLEAN", "精洗外观");
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, null, null,
+                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5002L);
+
+        assertPqcSourceField(result, "FIRST|FINE-CLEAN|1|measuredValue",
+                "首检 / 精洗外观 / 第1件 / 实测值", "STRING", 5002L);
+    }
+
+    @Test
+    void getWorkbenchContext_resolvesDccPqcFieldsWhenRomanNumeralStyleDiffers() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion();
+        when(templateVersionMapper.selectByTemplateIdAndVersionNo(1001L, "V3.0")).thenReturn(templateVersion);
+        when(ruleMapper.selectListByScope("FORM_TEMPLATE_VERSION", 7001L)).thenReturn(List.of());
+        stubDccPublishedQaForRouteProcess(5006L, "ROUTE-P006", "光固Ⅰ工序",
+                8106L, "PQC-ID-001-P005", "光固I", 8001L,
+                "FIRST", "LIGHT-CURE", "光固强度");
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, null, null,
+                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5006L);
+
+        assertPqcSourceField(result, "FIRST|LIGHT-CURE|1|measuredValue",
+                "首检 / 光固强度 / 第1件 / 实测值", "STRING", 5006L);
     }
 
     @Test
@@ -427,21 +676,23 @@ class MesProBatchRecordCellLinkServiceImplTest {
     }
 
     @Test
-    void saveRules_acceptsFormalDynamicSourceForFormTemplateVersionScope() {
+    void saveRules_acceptsPqcAggregateSourceForFormTemplateVersionRouteProcess() {
         FormTemplateVersionDO templateVersion = formTemplateVersion().setId(32L);
         when(templateVersionMapper.selectById(32L)).thenReturn(templateVersion);
         when(ruleMapper.selectListByScope("FORM_TEMPLATE_VERSION", 32L)).thenReturn(List.of());
+        stubPublishedQaForRouteProcess(5001L, 8001L, "FIRST", "LEAK", "泄漏测试");
 
         service.saveRules(new BatchRecordCellLinkRulesSaveReqVO()
                 .setScopeType("FORM_TEMPLATE_VERSION")
                 .setScopeId(32L)
+                .setRouteId(9001L)
+                .setRouteProcessId(5001L)
                 .setRules(List.of(new BatchRecordCellLinkRuleSaveItemReqVO()
                         .setSourceType("PQC_AGGREGATE_DETAIL")
                         .setSourceReportId("PQC_AGGREGATE_DETAIL")
                         .setSourceRowIndex(-1)
                         .setSourceColumnIndex(-1)
-                        .setSourceFieldCode("inspectionSummary")
-                        .setSourceFieldName("过程检验汇总")
+                        .setSourceFieldCode("FIRST|LEAK|1|measuredValue")
                         .setTargetReportId("FORMTPL:32")
                         .setTargetRowIndex(3)
                         .setTargetColumnIndex(1))));
@@ -451,11 +702,13 @@ class MesProBatchRecordCellLinkServiceImplTest {
         MesProBatchRecordCellLinkRuleDO row = captor.getValue().get(0);
         assertEquals("FORM_TEMPLATE_VERSION", row.getScopeType());
         assertEquals(32L, row.getScopeId());
+        assertEquals(9001L, row.getRouteId());
+        assertEquals(5001L, row.getRouteProcessId());
         assertEquals("PQC_AGGREGATE_DETAIL", row.getSourceType());
         assertEquals("PQC_AGGREGATE_DETAIL", row.getSourceReportId());
-        assertEquals("SUMMARY|inspectionSummary", row.getSourceCellKey());
-        assertEquals("inspectionSummary", row.getSourceFieldCode());
-        assertEquals("过程检验汇总", row.getSourceFieldName());
+        assertEquals("FIRST|LEAK|1|measuredValue", row.getSourceCellKey());
+        assertEquals("FIRST|LEAK|1|measuredValue", row.getSourceFieldCode());
+        assertEquals("首检 / 泄漏测试 / 第1件 / 实测值", row.getSourceFieldName());
         assertEquals("FORMTPL:32", row.getTargetReportId());
         assertEquals("3:1", row.getTargetCellKey());
     }
@@ -869,6 +1122,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .setRecordCategory("BATCH_RECORD")
                 .setFormSlotType("MAIN")
                 .setBatchRecordVersionId(versionId)
+                .setBatchRecordDefinitionId(2001L)
                 .setBatchRecordReportId(reportId)
                 .setUseType("BATCH");
     }
@@ -884,6 +1138,118 @@ class MesProBatchRecordCellLinkServiceImplTest {
         lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
                 parameterRule(11L, 5001L, "pressure", "扩张压力",
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL)));
+    }
+
+    private void stubSharedProcessInspectionSaveContext() {
+        MesProBatchRecordReportDO targetReport =
+                report("process-inspection-report", "球囊扩张压力泵过程检验记录", 2001L, 3001L);
+        lenient().when(reportMapper.selectByReportId("process-inspection-report")).thenReturn(targetReport);
+        lenient().when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L))
+                .thenReturn(List.of(targetReport));
+        lenient().when(reportService.getCellRules("process-inspection-report")).thenReturn(targetCellRules());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any()))
+                .thenReturn(List.of());
+    }
+
+    private void stubPublishedQaForRouteProcess(Long routeProcessId, Long versionId,
+                                                String inspectionType, String itemCode, String itemName) {
+        stubPublishedQaForRouteProcess(routeProcessId, 3001L, versionId, inspectionType, itemCode, itemName);
+    }
+
+    private void stubPublishedQaForRouteProcess(Long routeProcessId, Long routeVersionId, Long versionId,
+                                                String inspectionType, String itemCode, String itemName) {
+        lenient().when(routeVersionMapper.selectActiveByRouteId(9001L)).thenReturn(
+                MesProRouteVersionDO.builder()
+                        .id(routeVersionId)
+                        .routeId(9001L)
+                        .active(true)
+                        .lifecycleStatus("ACTIVE")
+                        .build());
+        lenient().when(qaRegulationMapper.selectList(any())).thenReturn(List.of(
+                MesQaInspectionRegulationDO.builder()
+                        .id(7001L)
+                        .routeId(9001L)
+                        .routeVersionId(routeVersionId)
+                        .routeProcessId(routeProcessId)
+                        .lifecycleStatus("PUBLISHED")
+                        .currentVersionId(versionId)
+                        .build()));
+        lenient().when(qaRegulationVersionMapper.selectById(versionId)).thenReturn(
+                MesQaInspectionRegulationVersionDO.builder()
+                        .id(versionId)
+                        .regulationId(7001L)
+                        .versionNo("V1")
+                        .lifecycleStatus("PUBLISHED")
+                        .build());
+        lenient().when(qaRegulationItemMapper.selectListByVersionId(versionId)).thenReturn(List.of(
+                MesQaInspectionRegulationItemDO.builder()
+                        .id(9001L)
+                        .regulationVersionId(versionId)
+                        .inspectionType(inspectionType)
+                        .itemCode(itemCode)
+                        .itemName(itemName)
+                        .inspectionMethod("目视")
+                        .standardText("符合要求")
+                        .resultType("TEXT")
+                        .firstInspectionQuantity(1)
+                        .build()));
+    }
+
+    private void stubDccPublishedQaForRouteProcess(Long routeProcessId, String routeProcessCode, String routeProcessName,
+                                                   Long qaProcessId, String qaProcessCode, String qaProcessName,
+                                                   Long versionId, String inspectionType, String itemCode, String itemName) {
+        Long processId = routeProcessId + 10000L;
+        lenient().when(routeDccProjectBindingMapper.selectCurrentByRouteId(9001L)).thenReturn(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
+                        .routeId(9001L)
+                        .dccProjectCodeId(147L)
+                        .build());
+        lenient().when(qaRegulationMapper.selectByDccProjectCodeId(147L)).thenReturn(
+                MesQaInspectionRegulationDO.builder()
+                        .id(7001L)
+                        .currentVersionId(versionId)
+                        .lifecycleStatus("PUBLISHED")
+                        .build());
+        lenient().when(qaRegulationVersionMapper.selectById(versionId)).thenReturn(
+                MesQaInspectionRegulationVersionDO.builder()
+                        .id(versionId)
+                        .regulationId(7001L)
+                        .versionNo("B/1")
+                        .lifecycleStatus("PUBLISHED")
+                        .build());
+        lenient().when(routeProcessMapper.selectByIdIgnoreDeleted(routeProcessId)).thenReturn(
+                MesProRouteProcessDO.builder()
+                        .id(routeProcessId)
+                        .routeId(9001L)
+                        .processId(processId)
+                        .build());
+        lenient().when(processMapper.selectByIdIgnoreDeleted(processId)).thenReturn(
+                MesProProcessDO.builder()
+                        .id(processId)
+                        .code(routeProcessCode)
+                        .name(routeProcessName)
+                        .build());
+        lenient().when(qaRegulationProcessMapper.selectListByVersionId(versionId)).thenReturn(List.of(
+                MesQaInspectionRegulationProcessDO.builder()
+                        .id(qaProcessId)
+                        .regulationVersionId(versionId)
+                        .processCode(qaProcessCode)
+                        .processName(qaProcessName)
+                        .build()));
+        lenient().when(qaRegulationItemMapper.selectListByVersionId(versionId)).thenReturn(List.of(
+                MesQaInspectionRegulationItemDO.builder()
+                        .id(9001L)
+                        .regulationVersionId(versionId)
+                        .qaProcessId(qaProcessId)
+                        .inspectionType(inspectionType)
+                        .itemCode(itemCode)
+                        .itemName(itemName)
+                        .inspectionMethod("目视")
+                        .standardText("符合要求")
+                        .resultType("TEXT")
+                        .firstInspectionQuantity(1)
+                        .build()));
     }
 
     private MesProcessPoolDeviceParameterRuleDO parameterRule(Long id, Long routeProcessId,

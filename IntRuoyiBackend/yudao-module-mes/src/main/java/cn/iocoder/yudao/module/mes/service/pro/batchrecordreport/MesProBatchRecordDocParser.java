@@ -32,6 +32,8 @@ import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,6 +44,14 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 public class MesProBatchRecordDocParser {
 
     private static final Pattern LAST_INTEGER_PATTERN = Pattern.compile("\\d+");
+
+    public List<MesProBatchRecordParsedTable> parseWord(byte[] bytes, String sourceFileName) {
+        return isDocxSource(bytes, sourceFileName) ? parseDocx(bytes) : parse(bytes);
+    }
+
+    public MesProBatchRecordDocumentFrame extractWordDocumentFrame(byte[] bytes, String sourceFileName) {
+        return isDocxSource(bytes, sourceFileName) ? extractDocxDocumentFrame(bytes) : extractDocumentFrame(bytes);
+    }
 
     public List<MesProBatchRecordParsedTable> parse(byte[] bytes) {
         try (HWPFDocument document = new HWPFDocument(new ByteArrayInputStream(bytes))) {
@@ -102,6 +112,26 @@ public class MesProBatchRecordDocParser {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
                     ex.getMessage());
         }
+    }
+
+    private boolean isDocxSource(byte[] bytes, String sourceFileName) {
+        String lowerFileName = Objects.toString(sourceFileName, "").trim().toLowerCase(Locale.ROOT);
+        if (lowerFileName.endsWith(".docx")) {
+            return true;
+        }
+        if (lowerFileName.endsWith(".doc")) {
+            return false;
+        }
+        return hasZipPackageHeader(bytes);
+    }
+
+    private boolean hasZipPackageHeader(byte[] bytes) {
+        return bytes != null
+                && bytes.length >= 4
+                && bytes[0] == 0x50
+                && bytes[1] == 0x4B
+                && bytes[2] == 0x03
+                && bytes[3] == 0x04;
     }
 
     public MesProBatchRecordDocumentFrame extractDocxDocumentFrame(byte[] bytes) {

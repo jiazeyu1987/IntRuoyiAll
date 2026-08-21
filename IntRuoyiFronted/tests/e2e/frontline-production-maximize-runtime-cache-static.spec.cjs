@@ -72,7 +72,7 @@ assert.doesNotMatch(
 )
 assert.match(
   preloadBlock,
-  /ProFeedbackApi\.getFrontlineRuntimeConfig\(\{[\s\S]*routeId:\s*process\.routeId[\s\S]*routeProcessId:\s*process\.routeProcessId[\s\S]*processId:\s*process\.processId[\s\S]*\}\)/,
+  /requireFrontlineProcessActiveOrderId\(process\)[\s\S]*ProFeedbackApi\.getFrontlineRuntimeConfig\(\{[\s\S]*activeOrderId[\s\S]*routeId:\s*process\.routeId[\s\S]*routeProcessId:\s*process\.routeProcessId[\s\S]*processId:\s*process\.processId[\s\S]*\}\)/,
   'preload must use the formal runtime-config API for each route process.'
 )
 assert.doesNotMatch(
@@ -89,7 +89,7 @@ assert.match(
 const cacheRuntimeBlock = extractFunctionBlock(context, 'cacheFrontlineRuntimeConfig')
 assert.match(
   cacheRuntimeBlock,
-  /runtimeConfig\.employeeSwitchSnapshots\.forEach[\s\S]*cacheFrontlineEmployeeSwitchResult\(/,
+  /requireFrontlineProcessActiveOrderId\(process\)[\s\S]*runtimeConfig\.employeeSwitchSnapshots\.forEach[\s\S]*cacheFrontlineEmployeeSwitchResult\(/,
   'runtime-config caching must cache every formal employee switch snapshot.'
 )
 assert.match(

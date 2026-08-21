@@ -110,8 +110,8 @@ assert.doesNotMatch(
 
 assert.match(
   panelSource,
-  /\.frontline-operator-top[\s\S]*&\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(480px,\s*1\.55fr\)\s+minmax\(220px,\s*0\.85fr\)\s+minmax\(200px,\s*1fr\)\s+150px/,
-  'The formal PQC top cards must match the current order-summary proportions.'
+  /\.frontline-operator-top[\s\S]*&\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(480px,\s*1\.45fr\)\s+minmax\(360px,\s*1\.2fr\)\s+minmax\(140px,\s*0\.45fr\)\s+150px/,
+  'The formal PQC top cards must widen the process card and keep the employee card compact.'
 )
 assert.match(
   panelSource,
@@ -125,18 +125,18 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /\.frontline-operator-panel\.is-pqc-fullscreen,\s*\n\.frontline-operator-panel:fullscreen\s*\{[\s\S]*padding:\s*26px[\s\S]*radial-gradient\(circle at 12% 10%/,
-  'The formal PQC maximized canvas must use the same outer spacing and background as the updated HTML preview.'
+  /\.frontline-operator-panel\.is-pqc-fullscreen,\s*\n\.frontline-operator-panel:fullscreen\s*\{[\s\S]*padding:\s*12px\s+16px[\s\S]*radial-gradient\(circle at 12% 10%/,
+  'The formal PQC maximized canvas must keep the current compact outer spacing and background.'
 )
 assert.match(
   panelSource,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-screen\.is-pqc\s*\{[\s\S]*max-width:\s*1480px[\s\S]*min-height:\s*820px[\s\S]*grid-template-rows:\s*minmax\(118px,\s*auto\)\s+minmax\(0,\s*1fr\)[\s\S]*gap:\s*18px[\s\S]*padding:\s*24px[\s\S]*border-radius:\s*22px[\s\S]*box-shadow:\s*0 26px 70px/,
-  'The formal PQC maximized operator screen must match the updated HTML preview frame.'
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-screen\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-screen\.is-pqc\s*\{[\s\S]*max-width:\s*none[\s\S]*min-height:\s*0[\s\S]*grid-template-rows:\s*minmax\(118px,\s*auto\)\s+minmax\(0,\s*1fr\)[\s\S]*gap:\s*16px[\s\S]*padding:\s*16px[\s\S]*border-radius:\s*18px[\s\S]*box-shadow:\s*0 18px 46px/,
+  'The formal PQC maximized operator screen must keep the current fullscreen frame.'
 )
 assert.match(
   panelSource,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-top\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-top\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(480px,\s*1\.55fr\)\s+minmax\(220px,\s*0\.85fr\)\s+minmax\(200px,\s*1fr\)\s+150px[\s\S]*gap:\s*12px/,
-  'The formal PQC maximized top cards must match the current order-summary proportions.'
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-top\.is-pqc,[\s\S]*?\.frontline-operator-panel:fullscreen \.frontline-operator-top\.is-pqc\s*\{[\s\S]*grid-template-columns:\s*minmax\(480px,\s*1\.45fr\)\s+minmax\(360px,\s*1\.2fr\)\s+minmax\(140px,\s*0\.45fr\)\s+150px[\s\S]*gap:\s*12px/,
+  'The formal PQC maximized top cards must widen the process card and keep the employee card compact.'
 )
 assert.match(
   panelSource,

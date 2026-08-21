@@ -9,6 +9,7 @@ public class BatchRecordCellLinkSourceFieldVO {
 
     private String sourceType;
     private String fieldCode;
+    private String sourceCellKey;
     private String fieldName;
     private String valueType;
     private Long routeProcessId;

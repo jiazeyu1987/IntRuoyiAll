@@ -16,13 +16,13 @@ const blockBetween = (startToken, endToken) => {
 
 assert.match(
   source,
-  /const isPqcInspectionQuantityLocked = computed\(\(\) =>[\s\S]*isPqcMode\.value[\s\S]*hasPqcTaskSnapshot\(deviceState\.selectedProcess\)/,
+  /const isPqcInspectionQuantityLocked = computed\(\(\) =>[\s\S]*isPqcMode\.value[\s\S]*Boolean\(activePqcTaskOption\.value\)/,
   'PQC task snapshot must lock inspection quantity to the planned task quantity.'
 )
 
 const quantityFieldBlock = blockBetween(
-  '<label for="frontlinePqcInspectionQuantity">检验数量</label>',
-  '<label for="frontlinePqcScrapQuantity">损耗数量</label>'
+  '<label for="frontlinePqcInspectionQuantity">检验</label>',
+  '<label for="frontlinePqcScrapQuantity">损耗</label>'
 )
 assert.ok(
   (quantityFieldBlock.match(/:disabled="isPqcInspectionQuantityLocked"/g) || []).length >= 3,
@@ -31,7 +31,7 @@ assert.ok(
 
 const updateQuantityBlock = blockBetween(
   'const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {',
-  'const updatePqcSignatureId = (event: Event) => {'
+  'const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {'
 )
 assert.match(
   updateQuantityBlock,
@@ -51,7 +51,7 @@ assert.match(
 
 assert.match(
   source,
-  /const getPqcExactPieceValuesForSubmit = \(itemKey: PqcInspectionItemKey\) =>[\s\S]*values\.length !== pqcInspectionQuantity\.value[\s\S]*throw new Error\(/,
+  /const getPqcExactPieceValuesForTask = \(\s*itemKey: PqcInspectionItemKey,\s*taskOption: PqcTaskOptionSnapshot \| undefined[\s\S]*const quantity = getPqcInspectionQuantityForTask\(taskOption\)[\s\S]*values\.length !== quantity[\s\S]*throw new Error\(/,
   'PQC submit must fail fast when stored piece value count differs from planned task quantity.'
 )
 assert.match(
@@ -63,19 +63,40 @@ assert.match(
 const handleValidateBlock = blockBetween('const handleValidate = async () => {', 'const assertFormalPayloadContext = () => {')
 assert.match(
   handleValidateBlock,
-  /if \(isPqcMode\.value\) \{[\s\S]*assertPqcSubmissionSampleQuantities\(\)[\s\S]*\}[\s\S]*Object\.assign\(/,
+  /assertPqcFormalSubmissionReady\(\)[\s\S]*assertPqcSignatureAndQuantityReady\(\)[\s\S]*assertPqcCurrentProcessAllMethodSubmissionReady\(\)[\s\S]*assertPqcInspectionDisplayFieldsReady\(\)[\s\S]*Object\.assign\(/,
   'PQC sample quantity validation must run before template validation and formal submit.'
 )
 
-for (const [name, start, end] of [
-  ['item results payload', 'const buildPqcItemResultsPayload = () =>', 'const buildPqcItemDetailsPayload = () =>'],
-  ['item details payload', 'const buildPqcItemDetailsPayload = () =>', 'const getPqcCurrentChoiceValues ='],
-  ['raw piece values payload', 'const buildPqcPieceValuesPayload = () =>', 'const buildPqcInspectionSubmitPayload =']
+for (const [name, start, end, expectedPattern] of [
+  [
+    'item results payload',
+    'const buildPqcItemResultsPayload = (',
+    'const buildPqcItemDetailsPayload = (',
+    /getPqcExactPieceValuesForTask\(item\.key, taskOption\)/
+  ],
+  [
+    'item details payload',
+    'const buildPqcItemDetailsPayload = (',
+    'const assertPqcCurrentProcessAllMethodSubmissionReady = () => {',
+    /getPqcExactPieceValuesForTask\(item\.key, taskOption\)/
+  ],
+  [
+    'task raw piece values payload',
+    'const buildPqcPieceValuesPayloadForTask = (taskOption: PqcTaskOptionSnapshot) => {',
+    'const buildPqcPieceValuesPayload = () =>',
+    /getPqcExactPieceValuesForTask\(item\.key, taskOption\)/
+  ],
+  [
+    'active raw piece values payload',
+    'const buildPqcPieceValuesPayload = () =>',
+    'const buildPqcInspectionSubmitPayloadForTask = (',
+    /getPqcExactPieceValuesForSubmit\(item\.key\)/
+  ]
 ]) {
   const block = blockBetween(start, end)
   assert.match(
     block,
-    /getPqcExactPieceValuesForSubmit\(item\.key\)|getPqcExactPieceValuesForSubmit\(itemKey\)/,
+    expectedPattern,
     `PQC ${name} must use exact piece values for submit.`
   )
   assert.doesNotMatch(

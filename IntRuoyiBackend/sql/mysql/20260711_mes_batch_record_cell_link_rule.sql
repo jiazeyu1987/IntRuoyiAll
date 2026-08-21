@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS `mes_pro_batch_record_cell_link_rule` (
   `scope_type` varchar(32) NOT NULL COMMENT '作用范围类型',
   `scope_id` bigint NOT NULL COMMENT '作用范围ID',
   `route_id` bigint DEFAULT NULL COMMENT '工艺路线ID',
+  `route_process_id` bigint DEFAULT NULL COMMENT '工艺路线工序ID',
   `batch_record_definition_id` bigint DEFAULT NULL COMMENT '批记录定义ID',
   `batch_record_version_id` bigint DEFAULT NULL COMMENT '批记录版本ID',
   `source_type` varchar(32) NOT NULL DEFAULT 'BATCH_RECORD_CELL' COMMENT '来源类型',
@@ -72,6 +73,27 @@ DELIMITER ;
 CALL ensure_mes_batch_record_cell_link_rule_aggregation_strategy();
 
 DROP PROCEDURE IF EXISTS ensure_mes_batch_record_cell_link_rule_aggregation_strategy;
+
+DROP PROCEDURE IF EXISTS ensure_mes_batch_record_cell_link_rule_route_process_id;
+DELIMITER $$
+CREATE PROCEDURE ensure_mes_batch_record_cell_link_rule_route_process_id()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_batch_record_cell_link_rule'
+      AND COLUMN_NAME = 'route_process_id'
+  ) THEN
+    ALTER TABLE `mes_pro_batch_record_cell_link_rule`
+      ADD COLUMN `route_process_id` bigint DEFAULT NULL COMMENT '工艺路线工序ID' AFTER `route_id`;
+  END IF;
+END$$
+DELIMITER ;
+
+CALL ensure_mes_batch_record_cell_link_rule_route_process_id();
+
+DROP PROCEDURE IF EXISTS ensure_mes_batch_record_cell_link_rule_route_process_id;
 
 INSERT INTO `system_menu`
 (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)

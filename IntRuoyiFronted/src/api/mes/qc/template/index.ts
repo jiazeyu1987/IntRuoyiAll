@@ -25,15 +25,6 @@ export interface QaInspectionRegulationInspectionTypeRuleVO {
   releaseGate: string
 }
 
-export interface QaInspectionRegulationEquipmentOptionVO {
-  equipmentId: number
-  equipmentCode: string
-  equipmentName: string
-  equipmentNumber: string
-  defaultFlag?: boolean
-  sort?: number
-}
-
 export interface QaInspectionRegulationItemVO {
   itemSort: number
   itemCode: string
@@ -46,8 +37,6 @@ export interface QaInspectionRegulationItemVO {
   standardUpperLimit?: number
   standardUnit?: string
   standardPrecision?: number
-  equipmentRequired?: boolean
-  equipmentOptions?: QaInspectionRegulationEquipmentOptionVO[]
   resultType: QaInspectionRegulationResultType
   applicableInspectionTypes: Array<'FIRST' | 'PATROL' | 'FINAL'>
   firstInspectionQuantity?: number
@@ -89,12 +78,14 @@ export interface QaInspectionRegulationPublishedVersionVO {
 export interface QaInspectionRegulationProjectStatusVO {
   dccProjectCodeId: number
   configured: boolean
+  productionReady?: boolean
   regulationCount: number
   regulationId?: number
   currentVersionId?: number
   regulationCode?: string
   regulationName?: string
   lifecycleStatus?: string
+  publishedVersionNo?: string
 }
 
 export interface QaInspectionRegulationSaveReqVO {

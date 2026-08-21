@@ -61,7 +61,7 @@ public class MesProBatchRecordRouteERecognizer implements MesProBatchRecordRoute
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
                     "route_e_word_bytes_empty");
         }
-        List<MesProBatchRecordParsedTable> sourceTables = docParser.parse(sourceBytes);
+        List<MesProBatchRecordParsedTable> sourceTables = parseSourceWordTables(sourcePath, sourceBytes, originalFileName);
         if (sourceTables.isEmpty()) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
                     "route_e_source_tables_empty");
@@ -111,22 +111,53 @@ public class MesProBatchRecordRouteERecognizer implements MesProBatchRecordRoute
         return recognizedTables;
     }
 
+    private List<MesProBatchRecordParsedTable> parseSourceWordTables(Path sourcePath,
+                                                                     byte[] sourceBytes,
+                                                                     String originalFileName) {
+        return docParser.parseWord(sourceBytes, resolveSourceName(sourcePath, originalFileName));
+    }
+
+    private String resolveSourceName(Path sourcePath, String originalFileName) {
+        String normalized = Objects.toString(originalFileName, "").trim();
+        if (!normalized.isBlank()) {
+            return normalized;
+        }
+        return sourcePath == null || sourcePath.getFileName() == null
+                ? ""
+                : sourcePath.getFileName().toString();
+    }
+
     private List<MesProBatchRecordParsedTable> recognizeProfileSourceWordTables(
             List<MesProBatchRecordParsedTable> sourceTables) {
         MesProBatchRecordFormProfile profile = formProfileRegistry.findSourceProfile(sourceTables).orElse(null);
         if (profile == null) {
             return List.of();
         }
-        List<MesProBatchRecordParsedTable> recognizedTables = new ArrayList<>();
-        for (int index = 0; index < sourceTables.size(); index++) {
-            MesProBatchRecordParsedTable sourceTable = sourceTables.get(index);
-            int templateIndex = index + 1;
-            MesProBatchRecordParsedTable recognizedTable =
-                    profile.normalizeSourceTable(templateIndex, sourceTable);
-            validateRecognizedStructure(sourceTable, recognizedTable, templateIndex);
-            recognizedTables.add(recognizedTable);
+        List<MesProBatchRecordParsedTable> recognizedTables = profile.normalizeSourceTables(sourceTables);
+        for (int index = 0; index < recognizedTables.size(); index++) {
+            MesProBatchRecordParsedTable recognizedTable = recognizedTables.get(index);
+            int templateIndex = recognizedTable.getSourceTableIndex() == null
+                    ? index + 1
+                    : recognizedTable.getSourceTableIndex();
+            MesProBatchRecordParsedTable sourceTable = findSourceTableByIndex(sourceTables, templateIndex);
+            validateRecognizedStructure(sourceTable == null ? recognizedTable : sourceTable,
+                    recognizedTable, templateIndex);
         }
         return recognizedTables;
+    }
+
+    private MesProBatchRecordParsedTable findSourceTableByIndex(List<MesProBatchRecordParsedTable> sourceTables,
+                                                                int sourceTableIndex) {
+        if (sourceTables == null || sourceTables.isEmpty()) {
+            return null;
+        }
+        for (MesProBatchRecordParsedTable sourceTable : sourceTables) {
+            if (sourceTable != null && sourceTable.getSourceTableIndex() != null
+                    && sourceTable.getSourceTableIndex() == sourceTableIndex) {
+                return sourceTable;
+            }
+        }
+        return null;
     }
 
     protected byte[] renderTemplatePng(MesProBatchRecordParsedTable sourceTable, int templateIndex) {

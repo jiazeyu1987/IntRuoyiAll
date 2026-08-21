@@ -96,7 +96,7 @@ class MesProWorkOrderControllerTest {
         assertEquals(0, response.getCode()); assertNotNull(response.getData());
     }
 
-    @Test void syncKingdeeWorkOrders_usesRuntimeWatermarkWindow() {
+    @Test void syncKingdeeWorkOrders_forcesInitialWindowForManualFullSync() {
         MesKingdeeProductionOrderSyncResult syncResult = new MesKingdeeProductionOrderSyncResult(); syncResult.addCreated(501L);
         when(kingdeeProductionOrderSyncService.syncWorkOrders(any(ErpKingdeeSyncContext.class))).thenReturn(syncResult);
         when(kingdeeSyncRuntimeService.executeSync(any(ErpKingdeeSyncCommand.class), any(ErpKingdeeSyncTask.class))).thenAnswer(invocation -> {
@@ -110,6 +110,7 @@ class MesProWorkOrderControllerTest {
         verify(kingdeeSyncRuntimeService).executeSync(commandCaptor.capture(), any(ErpKingdeeSyncTask.class));
         assertEquals(ErpKingdeeSyncTypeEnum.PRODUCTION_ORDER, commandCaptor.getValue().getSyncType());
         assertEquals(ErpKingdeeSyncTriggerTypeEnum.MANUAL, commandCaptor.getValue().getTriggerType());
+        assertTrue(commandCaptor.getValue().isForceInitialWindowStart());
         assertNotNull(commandCaptor.getValue().getInitialWindowStart());
         assertNotNull(commandCaptor.getValue().getWindowEnd());
     }

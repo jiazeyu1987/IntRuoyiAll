@@ -11,6 +11,10 @@ public interface MesFrontlinePqcContextService {
 
     List<MesFrontlinePqcProcessRespVO> listProcessesByActiveOrder(Long activeOrderId);
 
+    List<MesFrontlinePqcProcessRespVO> listProcessesByActiveOrder(Long activeOrderId,
+                                                                   Long loginUserId,
+                                                                   Long actualEmployeeId);
+
     List<MesFrontlineEmployeeCandidate> listPqcEmployeeCandidates(Long loginUserId);
 
     MesFrontlineEmployeeCandidate requirePqcEmployee(Long loginUserId, Long actualEmployeeId);

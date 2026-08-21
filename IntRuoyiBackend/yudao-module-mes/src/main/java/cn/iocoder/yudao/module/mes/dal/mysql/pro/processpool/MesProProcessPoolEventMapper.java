@@ -3,8 +3,11 @@ package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -78,6 +81,18 @@ public interface MesProProcessPoolEventMapper extends BaseMapperX<MesProProcessP
                 .eq(MesProProcessPoolEventDO::getId, id)
                 .last("FOR UPDATE"));
     }
+
+    default int deleteActiveOrderRuntimeEventsByIds(Collection<Long> eventIds) {
+        return eventIds == null || eventIds.isEmpty() ? 0 : physicalDeleteActiveOrderRuntimeEventsByIds(eventIds);
+    }
+
+    @Delete({
+            "<script>",
+            "DELETE FROM mes_pro_process_pool_event WHERE id IN",
+            "<foreach collection='eventIds' item='eventId' open='(' separator=',' close=')'>#{eventId}</foreach>",
+            "</script>"
+    })
+    int physicalDeleteActiveOrderRuntimeEventsByIds(@Param("eventIds") Collection<Long> eventIds);
 
     default MesProProcessPoolEventDO selectBySignatureId(Long signatureId) {
         return selectOne(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()

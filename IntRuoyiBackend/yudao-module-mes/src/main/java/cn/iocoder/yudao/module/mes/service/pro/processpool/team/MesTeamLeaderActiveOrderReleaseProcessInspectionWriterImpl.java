@@ -16,7 +16,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
@@ -64,7 +63,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
     private static final String RECORD_CATEGORY = "INTERNAL_RECORD";
     private static final String VALIDATION_PROFILE = "INTERNAL_TRACE";
     private static final String OWNER_ROLE = "QUALITY";
-    private static final Long PROCESS_INSPECTION_FORM_TEMPLATE_ID = 28L;
     private static final String SOURCE_TYPE = "PQC_AGGREGATE_DETAIL";
     private static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     private static final String PQC_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
@@ -409,7 +407,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                     .filter(item -> Objects.equals(mismatchItem, item.getItemCode())).findFirst()
                     .orElse(source.getAggregateDetails().get(0));
             blockers.add(blocker("PQC_QA_ITEM_MISMATCH", "PQC_AGGREGATE_DETAIL", detail.getId(),
-                    mismatchItem, "PQC 汇集项目、方法、标准、上下限、设备、实测值或判定与发布 QA 不一致",
+                    mismatchItem, "PQC 汇集项目、方法、标准、上下限、实测值或判定与发布 QA 不一致",
                     "请按当前发布 QA 项目重新完成 PQC 提交与汇集"));
             return false;
         }
@@ -471,12 +469,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         if (itemByCode.isEmpty() || !itemByCode.keySet().equals(aggregateItemCodes)) {
             return aggregateItemCodes.stream().findFirst().orElse("*");
         }
-        Map<String, List<MesQaInspectionRegulationItemEquipmentDO>> equipmentByItem =
-                source.getRegulationItemEquipment() == null ? Map.of()
-                        : source.getRegulationItemEquipment().stream()
-                        .filter(Objects::nonNull)
-                        .filter(item -> Objects.equals(task.getInspectionType(), item.getInspectionType()))
-                        .collect(Collectors.groupingBy(MesQaInspectionRegulationItemEquipmentDO::getItemCode));
         for (Map.Entry<String, MesQaInspectionRegulationItemDO> entry : itemByCode.entrySet()) {
             List<MesPqcProcessInspectionAggregateDetailDO> details = source.getAggregateDetails().stream()
                     .filter(detail -> Objects.equals(entry.getKey(), detail.getItemCode()))
@@ -486,10 +478,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 return entry.getKey();
             }
             for (MesPqcProcessInspectionAggregateDetailDO detail : details) {
-                if (!matchesQaItem(entry.getValue(), detail)
-                        || !matchesQaEquipment(entry.getValue(), detail,
-                        equipmentByItem.getOrDefault(entry.getKey(), List.of()))
-                        || !matchesResult(entry.getValue(), detail)) {
+                if (!matchesQaItem(entry.getValue(), detail) || !matchesResult(entry.getValue(), detail)) {
                     return entry.getKey();
                 }
             }
@@ -525,23 +514,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 && Objects.equals(item.getStandardUnit(), detail.getStandardUnit())
                 && Objects.equals(item.getStandardPrecision(), detail.getStandardPrecision())
                 && Objects.equals(item.getResultType(), detail.getResultType());
-    }
-
-    private boolean matchesQaEquipment(MesQaInspectionRegulationItemDO item,
-                                       MesPqcProcessInspectionAggregateDetailDO detail,
-                                       List<MesQaInspectionRegulationItemEquipmentDO> equipment) {
-        boolean selected = detail.getSelectedEquipmentId() != null
-                || StrUtil.isNotBlank(detail.getSelectedEquipmentNumber());
-        if (Boolean.TRUE.equals(item.getEquipmentRequired()) && !selected) {
-            return false;
-        }
-        if (!selected) {
-            return true;
-        }
-        return equipment.stream().anyMatch(option -> Objects.equals(option.getEquipmentId(), detail.getSelectedEquipmentId())
-                && Objects.equals(option.getEquipmentCode(), detail.getSelectedEquipmentCode())
-                && Objects.equals(option.getEquipmentName(), detail.getSelectedEquipmentName())
-                && Objects.equals(option.getEquipmentNumber(), detail.getSelectedEquipmentNumber()));
     }
 
     private boolean matchesResult(MesQaInspectionRegulationItemDO item,
@@ -593,7 +565,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                         && RECORD_CATEGORY.equals(binding.getRecordCategory())
                         && VALIDATION_PROFILE.equals(binding.getValidationProfile())
                         && OWNER_ROLE.equals(binding.getOwnerRoleKey())
-                        && PROCESS_INSPECTION_FORM_TEMPLATE_ID.equals(binding.getFormTemplateId())
+                        && binding.getFormTemplateId() != null
                         && StrUtil.isNotBlank(binding.getFormBindingKey())
                         && binding.getLastPublishedTemplateVersionId() != null
                         && StrUtil.isNotBlank(binding.getLastPublishedTemplateVersionNo())
@@ -605,7 +577,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                     task.getRouteProcessId(), null,
                     "工序必须存在唯一有效 PROCESS_INSPECTION 目标绑定，传统数量=" + matches.size()
                             + "，动态数量=" + dynamicMatches.size(),
-                    "请维护唯一的传统报表绑定或 template 28 已发布动态表单绑定"));
+                    "请维护唯一的传统报表绑定或已发布动态表单绑定"));
             return null;
         }
         return matches.isEmpty() ? dynamicMatches.get(0) : matches.get(0);
@@ -680,7 +652,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                         ? "过程检验动态模板目标解析失败" : dynamicTarget.getBlockerMessage();
                 blockers.add(blocker(blockerType, "ROUTE_PROCESS_FORM_BINDING", binding.getId(),
                         binding.getFormBindingKey(), message,
-                        "请配置精确的 PUBLISHED template 28 版本和稳定 fieldCode 映射"));
+                        "请配置当前路线绑定模板的精确 PUBLISHED 版本和稳定 fieldCode 映射"));
                 return null;
             }
         }
@@ -819,8 +791,9 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
             if (detail.getStandardPrecision() != null) {
                 required.add(itemSourceKey(detail, "standardPrecision"));
             }
-            MesQaInspectionRegulationItemDO item = itemByCode.get(detail.getItemCode());
-            if (item != null && Boolean.TRUE.equals(item.getEquipmentRequired())) {
+            boolean hasEquipmentSnapshot = detail.getSelectedEquipmentId() != null
+                    || StrUtil.isNotBlank(detail.getSelectedEquipmentNumber());
+            if (hasEquipmentSnapshot) {
                 required.add(itemSourceKey(detail, "selectedEquipmentId"));
                 required.add(itemSourceKey(detail, "selectedEquipmentNumber"));
             }
@@ -907,12 +880,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 .filter(item -> Objects.equals(task.getInspectionType(), item.getInspectionType()))
                 .sorted(Comparator.comparing(MesQaInspectionRegulationItemDO::getItemCode)).toList()) {
             addEvidence(sourceObjectIds, hashes, item.getId(), hashQaItem(item));
-        }
-        for (MesQaInspectionRegulationItemEquipmentDO equipment : source.getRegulationItemEquipment().stream()
-                .filter(item -> Objects.equals(task.getInspectionType(), item.getInspectionType()))
-                .sorted(Comparator.comparing(MesQaInspectionRegulationItemEquipmentDO::getItemCode)
-                        .thenComparing(MesQaInspectionRegulationItemEquipmentDO::getEquipmentId)).toList()) {
-            addEvidence(sourceObjectIds, hashes, equipment.getId(), hashEquipment(equipment));
         }
         addEvidence(sourceObjectIds, hashes, binding.getId(), hashBinding(binding));
         for (MesProBatchRecordCellLinkRuleDO rule : rules) {
@@ -1172,13 +1139,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 item.getResultType(), item.getFirstInspectionQuantity(), item.getPatrolInspectionRatio()));
     }
 
-    private String hashEquipment(MesQaInspectionRegulationItemEquipmentDO equipment) {
-        return sha256(join("QA_ITEM_EQUIPMENT_V1", equipment.getTenantId(), equipment.getId(),
-                equipment.getRegulationVersionId(), equipment.getInspectionType(), equipment.getItemCode(),
-                equipment.getEquipmentId(), equipment.getEquipmentCode(), equipment.getEquipmentName(),
-                equipment.getEquipmentNumber(), equipment.getDefaultFlag(), equipment.getSort()));
-    }
-
     private String hashBinding(MesProRouteFlowProcessBatchRecordDO binding) {
         return sha256(join("PROCESS_INSPECTION_BINDING_V1", binding.getId(), binding.getRouteId(),
                 binding.getRouteProcessId(), binding.getUseType(), binding.getBatchRecordReportId(),
@@ -1249,7 +1209,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
 
     private boolean isDynamicBinding(MesProRouteFlowProcessBatchRecordDO binding) {
         return binding != null && StrUtil.isBlank(binding.getBatchRecordReportId())
-                && PROCESS_INSPECTION_FORM_TEMPLATE_ID.equals(binding.getFormTemplateId())
+                && binding.getFormTemplateId() != null
                 && StrUtil.isNotBlank(binding.getFormBindingKey())
                 && binding.getLastPublishedTemplateVersionId() != null;
     }

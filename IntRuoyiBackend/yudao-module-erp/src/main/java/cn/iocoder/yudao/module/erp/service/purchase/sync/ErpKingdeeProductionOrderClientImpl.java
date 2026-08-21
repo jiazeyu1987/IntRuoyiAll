@@ -81,7 +81,6 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
             "FSrcBillNo",
             "FStatus");
     private static final String INCREMENTAL_FIELD_KEYS = FIELD_KEYS + ",FModifyDate";
-    private static final String KINGDEE_FINISHED_STATUS = "5";
     private static final int INDEX_FID = 0;
     private static final int INDEX_BILL_NO = 1;
     private static final int INDEX_DOCUMENT_STATUS = 2;
@@ -125,17 +124,17 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
 
     @Override
     public List<ErpKingdeeProductionOrder> fetchProductionOrders(ErpKingdeeProperties properties) {
-        return fetchProductionOrders(properties, null, null, false);
+        return fetchProductionOrders(properties, null, null);
     }
 
     @Override
-    public List<ErpKingdeeProductionOrder> fetchUnfinishedProductionOrders(ErpKingdeeProperties properties,
-                                                                           LocalDate fromDate,
-                                                                           LocalDate toDate) {
+    public List<ErpKingdeeProductionOrder> fetchProductionOrdersByBillDateRange(ErpKingdeeProperties properties,
+                                                                            LocalDate fromDate,
+                                                                            LocalDate toDate) {
         if (fromDate == null || toDate == null || fromDate.isAfter(toDate)) {
             throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_MO sync date range is invalid");
         }
-        return fetchProductionOrders(properties, fromDate, toDate, true);
+        return fetchProductionOrders(properties, fromDate, toDate);
     }
 
     @Override
@@ -147,7 +146,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         ErpKingdeeIncrementalQuerySpec querySpec = ErpKingdeeIncrementalQuerySpec.builder()
                 .formId(ErpKingdeeProductionOrder.FORM_ID)
                 .fieldKeys(INCREMENTAL_FIELD_KEYS)
-                .baseFilter(buildFilterString(null, null, false))
+                .baseFilter(buildFilterString(null, null))
                 .startRow(0)
                 .limit(properties.getProductionOrder().getQueryLimit())
                 .build();
@@ -240,8 +239,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
 
     private List<ErpKingdeeProductionOrder> fetchProductionOrders(ErpKingdeeProperties properties,
                                                                   LocalDate fromDate,
-                                                                  LocalDate toDate,
-                                                                  boolean unfinishedOnly) {
+                                                                  LocalDate toDate) {
         properties.validateProductionOrderSyncConfig();
         String cookieHeader = login(properties);
         int startRow = 0;
@@ -250,7 +248,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         while (remaining > 0) {
             int pageLimit = Math.min(PAGE_LIMIT, remaining);
             JsonNode rows = executeBillQuery(properties, cookieHeader,
-                    buildFilterString(fromDate, toDate, unfinishedOnly), startRow, pageLimit);
+                    buildFilterString(fromDate, toDate), startRow, pageLimit);
             if (!rows.isArray()) {
                 throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_MO response is not an array");
             }
@@ -472,7 +470,7 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         return parseJson(response.getBody(), label);
     }
 
-    private String buildFilterString(LocalDate fromDate, LocalDate toDate, boolean unfinishedOnly) {
+    private String buildFilterString(LocalDate fromDate, LocalDate toDate) {
         List<String> filters = new ArrayList<>();
         filters.add("(FBillNo <> '')");
         filters.add("(FMaterialId.FNumber <> '')");
@@ -482,9 +480,6 @@ public class ErpKingdeeProductionOrderClientImpl implements ErpKingdeeProduction
         }
         if (toDate != null) {
             filters.add("(FDate <= '" + toDate + "')");
-        }
-        if (unfinishedOnly) {
-            filters.add("(FStatus <> '" + KINGDEE_FINISHED_STATUS + "')");
         }
         return String.join(" and ", filters);
     }

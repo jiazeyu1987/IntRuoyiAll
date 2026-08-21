@@ -155,8 +155,10 @@ public class MesFrontlineDeviceAccountController {
     @Operation(summary = "获得 PQC 活跃订单所属 DCC 项目的 QA 工序")
     @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
     public CommonResult<List<MesFrontlinePqcProcessRespVO>> getPqcActiveOrderProcesses(
-            @RequestParam("activeOrderId") @NotNull Long activeOrderId) {
-        return success(pqcContextService.listProcessesByActiveOrder(activeOrderId));
+            @RequestParam("activeOrderId") @NotNull Long activeOrderId,
+            @RequestParam(value = "actualEmployeeId", required = false) Long actualEmployeeId) {
+        return success(pqcContextService.listProcessesByActiveOrder(activeOrderId, getLoginUserId(),
+                actualEmployeeId));
     }
 
     @GetMapping("/pqc/personnel")

@@ -37,6 +37,7 @@ export interface BatchRecordCellLinkRuleVO {
   scopeType?: string
   scopeId?: number
   routeId?: number
+  routeProcessId?: number
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
   sourceType?: string
@@ -89,6 +90,7 @@ export interface BatchRecordRepeatRowGroupVO {
   scopeType?: string
   scopeId?: number
   routeId?: number
+  routeProcessId?: number
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
   routeProcessId: number
@@ -208,6 +210,7 @@ export const BatchRecordCellLinkApi = {
     sourceReportId?: string
     templateId?: number
     versionNo?: string
+    routeProcessId?: number
   }) => {
     return await request.get<BatchRecordCellLinkWorkbenchContextVO>({
       url: '/mes/pro/batch-record-cell-link/workbench-context',

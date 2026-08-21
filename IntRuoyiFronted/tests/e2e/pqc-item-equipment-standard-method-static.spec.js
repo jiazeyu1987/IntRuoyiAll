@@ -27,12 +27,12 @@ const blockBetween = (source, startToken, endToken) => {
 assert.match(
   apiSource,
   /export interface FrontlinePqcEquipmentOptionVO/,
-  'PQC API contract must expose item-level equipment options from the regulation snapshot.'
+  'PQC API contract must expose item-level equipment options from the tenant item equipment config.'
 )
 assert.match(
   apiSource,
   /equipmentOptions\?: FrontlinePqcEquipmentOptionVO\[\]/,
-  'PQC inspection items must carry equipment options instead of one page-level device.'
+  'PQC inspection items must carry tenant equipment options instead of one page-level device.'
 )
 for (const field of [
   'equipmentRequired?: boolean',
@@ -118,47 +118,47 @@ assert.match(
 assert.match(
   panelSource,
   /equipmentRequired:\s*item\.equipmentRequired === true,/,
-  'PQC fill page must preserve the backend QA equipmentRequired flag without defaulting missing equipment metadata to required.'
+  'PQC fill page must preserve the backend tenant equipmentRequired flag without defaulting missing equipment metadata to required.'
 )
-assert.doesNotMatch(
+const equipmentSelectionBlock = blockBetween(
   panelSource,
-  /assertPqcSubmissionItemEquipmentSelections\(\)/,
-  'PQC formal submit must not force equipment selection before opening the signature dialog.'
-)
-const requireSelectionBlock = blockBetween(
-  panelSource,
-  'const requirePqcItemSelection = (item: PqcInspectionItem) => {',
+  'function assertPqcItemEquipmentSelection(item: PqcInspectionItem) {',
   'const getPqcExactPieceValuesForSubmit = (itemKey: PqcInspectionItemKey) => {'
 )
 assert.match(
-  requireSelectionBlock,
-  /if \(!hasSelectedEquipment\) \{[\s\S]*selectedOption: undefined/,
-  'PQC items must pass equipment selection resolution when the operator leaves equipment blank.'
+  equipmentSelectionBlock,
+  /if \(!hasPqcEquipmentOptions\(item\)\) \{[\s\S]*selectedOption: undefined/,
+  'PQC items without tenant equipment config must submit without equipment selection.'
 )
 assert.match(
-  requireSelectionBlock,
+  equipmentSelectionBlock,
+  /if \(selection\.selectedEquipmentId \|\| selection\.selectedEquipmentNumber\) \{[\s\S]*throw new Error/,
+  'PQC items without tenant equipment config must reject stale equipment selections.'
+)
+assert.match(
+  equipmentSelectionBlock,
   /if \(!selection\.selectedEquipmentId\) \{[\s\S]*throw new Error/,
-  'PQC partial equipment selection must still fail fast when selectedEquipmentId is missing.'
+  'PQC items with tenant equipment config must fail fast when selectedEquipmentId is missing.'
 )
 assert.match(
-  requireSelectionBlock,
+  equipmentSelectionBlock,
   /if \(!selection\.selectedEquipmentNumber\) \{[\s\S]*throw new Error/,
-  'PQC partial equipment selection must still fail fast when selectedEquipmentNumber is missing.'
+  'PQC items with tenant equipment config must fail fast when selectedEquipmentNumber is missing.'
 )
 assert.match(
-  requireSelectionBlock,
-  /if \(!item\.equipmentOptions\.length\)/,
-  'PQC selected equipment must still be checked against formal QA equipment options.'
+  equipmentSelectionBlock,
+  /item\.equipmentOptions\.find\(\(option\) =>[\s\S]*option\.equipmentId === selection\.selectedEquipmentId[\s\S]*option\.equipmentNumber === selection\.selectedEquipmentNumber/,
+  'PQC selected equipment must be checked against the current tenant item equipment config.'
 )
 const handleValidateBlock = blockBetween(
   panelSource,
   'const handleValidate = async () => {',
   'const closePqcSignatureDialog = () => {'
 )
-assert.doesNotMatch(
+assert.match(
   handleValidateBlock,
-  /assertPqcSubmissionItemEquipmentSelections\(\)/,
-  'PQC equipment identity validation must not run before the signature dialog opens.'
+  /assertPqcCurrentProcessAllMethodSubmissionReady\(\)/,
+  'PQC equipment identity validation must run before the signature dialog opens through the formal submit readiness check.'
 )
 assert.doesNotMatch(
   panelSource,
@@ -166,75 +166,30 @@ assert.doesNotMatch(
   'PQC item cards must use explicit standard/method actions instead of only compressing the facts into meta text.'
 )
 
-assert.match(
-  qaApiSource,
-  /export interface QaInspectionRegulationSaveEquipmentOptionVO[\s\S]*equipmentId: number[\s\S]*equipmentCode: string[\s\S]*equipmentName: string[\s\S]*equipmentNumber: string/,
-  'QA regulation save API must carry formal item-level equipment options, not only equipmentRequired.'
-)
-assert.match(
-  qaApiSource,
-  /equipmentOptions\?: QaInspectionRegulationSaveEquipmentOptionVO\[\]/,
-  'Each QA regulation item payload must include equipmentOptions from the QA inspection item.'
-)
-assert.match(
-  qaPageSource,
-  /const equipmentOptions = buildQaRegulationItemEquipmentOptions\(item\)/,
-  'QA regulation page must build formal item equipment options before serializing inspection items.'
-)
-assert.match(
-  qaPageSource,
-  /equipmentOptions,\s*\r?\n\s*resultType:/,
-  'QA regulation page must serialize each inspection item equipment option into the save payload.'
-)
-const qaBuildEquipmentOptionsBlock = blockBetween(
-  qaPageSource,
-  'const buildQaRegulationItemEquipmentOptions = (',
-  'const buildQaRegulationSaveItems = ('
-)
 assert.doesNotMatch(
-  qaBuildEquipmentOptionsBlock,
-  /inspectionTool\.trim\(\)[\s\S]*options\.length === 0[\s\S]*throw new Error/,
-  'QA regulation publish must not require formal equipment ledger options only because the tool/equipment description is filled.'
-)
-assert.match(
-  qaPageSource,
-  /equipmentRequired:\s*equipmentOptions\.length > 0,/,
-  'QA regulation page must derive equipmentRequired from formal equipment options, not from the text tool/equipment description.'
+  qaApiSource,
+  /QaInspectionRegulationSaveEquipmentOptionVO|QaInspectionRegulationEquipmentOptionVO|equipmentOptions\\?:\\s*QaInspectionRegulationSaveEquipmentOptionVO\\[\\]|equipmentRequired\\?:\\s*boolean/,
+  'QA regulation API must not expose item-level equipment config; PQC equipment config lives in the tenant-level PQC leader tab.'
 )
 assert.doesNotMatch(
   qaPageSource,
-  /equipmentRequired:\s*Boolean\(item\.inspectionTool\.trim\(\)\),/,
-  'QA regulation page must not downgrade the equipment column to a boolean-only save contract.'
+  /data-qa-regulation-equipment-option|data-qa-regulation-equipment-option-add|buildQaRegulationEquipmentOptions|getQaRegulationItemEquipmentOptions|addQaRegulationEquipmentOption|equipmentOptions|equipmentRequired:/,
+  'QA regulation page must not render or serialize inspection equipment config.'
 )
-assert.match(
+assert.doesNotMatch(
   qaSaveReqSource,
-  /private List<EquipmentOption> equipmentOptions;/,
-  'Backend QA save VO must accept item-level equipment options.'
+  /equipmentRequired|EquipmentOption|equipmentOptions/,
+  'Backend QA save VO must not accept item-level equipment config.'
 )
-assert.match(
-  qaSaveReqSource,
-  /public static class EquipmentOption[\s\S]*private Long equipmentId;[\s\S]*private String equipmentCode;[\s\S]*private String equipmentName;[\s\S]*private String equipmentNumber;/,
-  'Backend QA save VO equipment options must include formal equipment identity and number.'
-)
-assert.match(
+assert.doesNotMatch(
   qaServiceSource,
-  /MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper/,
-  'QA regulation service must own writes to the item equipment mapper.'
+  /for \(MesQaInspectionRegulationSaveReqVO\.EquipmentOption option :|toItemEquipmentDO|equipmentRequired != hasEquipmentOptions|buildEquipmentResponses/,
+  'QA regulation service must not persist or validate QA-version-bound equipment options.'
 )
-assert.match(
+assert.doesNotMatch(
   qaServiceSource,
-  /itemEquipmentMapper\.deleteByVersionId\(version\.getId\(\)\)/,
-  'Saving an existing QA draft must replace stale item equipment rows with the new formal options.'
-)
-assert.match(
-  qaServiceSource,
-  /itemEquipmentMapper\.insert\(toItemEquipmentDO\(version\.getId\(\), itemReqVO, equipmentOption\)\)/,
-  'QA regulation service must persist each item equipment option for the published PQC snapshot.'
-)
-assert.match(
-  qaServiceSource,
-  /equipmentRequired != hasEquipmentOptions/,
-  'QA regulation service must fail fast when equipmentRequired and formal equipment options disagree.'
+  /itemEquipmentMapper|MesQaInspectionRegulationItemEquipmentMapper/,
+  'QA regulation service must not depend on the legacy QA-version equipment mapper; tenant PQC item equipment config is the only equipment source.'
 )
 
 console.log('PASS: PQC item equipment, standard, and method static contract')

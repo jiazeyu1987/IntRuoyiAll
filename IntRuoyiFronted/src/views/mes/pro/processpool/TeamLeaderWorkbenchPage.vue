@@ -357,6 +357,13 @@
     >
       <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
       <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+      <el-tab-pane
+        v-if="showPqcEquipmentTab"
+        label="检验设备"
+        name="equipment"
+        data-pqc-leader-module-tab-equipment
+        data-production-leader-module-tab-equipment
+      />
       <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
       <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
     </el-tabs>
@@ -494,6 +501,37 @@
   </ContentWrap>
 
   <ContentWrap
+    v-if="showPqcEquipmentModule"
+    class="team-leader-workbench__pqc-module-card"
+    data-pqc-leader-equipment-tab
+  >
+    <div class="team-leader-workbench__embedded-header">
+      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
+      <div class="team-leader-workbench__subtitle">
+        {{ pageSubtitle }}
+      </div>
+    </div>
+    <el-tabs
+      v-model="activePqcModuleTab"
+      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
+      data-pqc-leader-module-tabs
+    >
+      <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
+      <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+      <el-tab-pane
+        v-if="showPqcEquipmentTab"
+        label="检验设备"
+        name="equipment"
+        data-pqc-leader-module-tab-equipment
+        data-production-leader-module-tab-equipment
+      />
+      <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
+      <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
+    </el-tabs>
+    <PqcItemEquipmentConfigPanel />
+  </ContentWrap>
+
+  <ContentWrap
     v-if="showPqcManagementModule"
     :class="{
       'team-leader-workbench__pqc-module-card': showPqcModuleTabs,
@@ -562,6 +600,13 @@
     >
       <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
       <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
+      <el-tab-pane
+        v-if="showPqcEquipmentTab"
+        label="检验设备"
+        name="equipment"
+        data-pqc-leader-module-tab-equipment
+        data-production-leader-module-tab-equipment
+      />
       <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
       <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
     </el-tabs>
@@ -1355,7 +1400,14 @@
                   v-if="row.hasQuantityConflict || row.quantityConflict"
                   type="danger"
                   effect="plain"
+                  class="team-leader-workbench__active-order-conflict-tag"
                   data-team-leader-active-order-quantity-conflict
+                  role="button"
+                  tabindex="0"
+                  title="点击处理数量冲突"
+                  @click.stop="openActiveOrderConflictDrawer(row)"
+                  @keydown.enter.prevent.stop="openActiveOrderConflictDrawer(row)"
+                  @keydown.space.prevent.stop="openActiveOrderConflictDrawer(row)"
                 >
                   数量冲突{{ row.overageQuantity ? ` +${formatTraceQuantity(row.overageQuantity)}` : '' }}
                 </el-tag>
@@ -1397,7 +1449,7 @@
           <el-table-column label="加入时间" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="420" fixed="right">
+          <el-table-column label="操作" width="560" fixed="right">
             <template #default="{ row }">
               <el-tooltip content="上移" placement="top">
                 <el-button
@@ -1405,7 +1457,11 @@
                   type="primary"
                   aria-label="上移"
                   title="上移"
-                  :disabled="isFirstActiveOrder(row) || activeOrderMoveSubmittingId !== undefined"
+                  :disabled="
+                    isFirstActiveOrder(row) ||
+                    activeOrderMoveSubmittingId !== undefined ||
+                    activeOrderSimulationSubmittingId !== undefined
+                  "
                   :loading="
                     activeOrderMoveSubmittingId === row.id && activeOrderMoveDirection === 'UP'
                   "
@@ -1421,7 +1477,11 @@
                   type="primary"
                   aria-label="下移"
                   title="下移"
-                  :disabled="isLastActiveOrder(row) || activeOrderMoveSubmittingId !== undefined"
+                  :disabled="
+                    isLastActiveOrder(row) ||
+                    activeOrderMoveSubmittingId !== undefined ||
+                    activeOrderSimulationSubmittingId !== undefined
+                  "
                   :loading="
                     activeOrderMoveSubmittingId === row.id && activeOrderMoveDirection === 'DOWN'
                   "
@@ -1443,7 +1503,10 @@
                 link
                 type="danger"
                 :loading="maintenanceSubmitting"
-                :disabled="activeOrderRebuildSubmittingId !== undefined"
+                :disabled="
+                  activeOrderRebuildSubmittingId !== undefined ||
+                  activeOrderSimulationSubmittingId !== undefined
+                "
                 data-team-leader-remove-active-order
                 @click="handleRemoveActiveOrder(row)"
               >
@@ -1452,7 +1515,7 @@
               <el-button
                 link
                 type="warning"
-                :disabled="row.abnormal"
+                :disabled="row.abnormal || activeOrderSimulationSubmittingId !== undefined"
                 :loading="abnormalSubmitting && abnormalForm.workOrderId === row.workOrderId"
                 :title="
                   row.abnormal ? row.abnormalReason || '该订单已报异常' : '针对该活跃订单报异常'
@@ -1467,6 +1530,7 @@
                 type="primary"
                 :disabled="
                   !canApplyActiveOrderRelease(row) || isActiveOrderReleaseApplicationLocked(row.id)
+                    || activeOrderSimulationSubmittingId !== undefined
                 "
                 :loading="releaseApplicationSubmittingId === row.id"
                 :title="resolveActiveOrderReleaseApplyDisabledReason(row)"
@@ -1479,11 +1543,30 @@
                 link
                 type="success"
                 :loading="activeOrderRebuildSubmittingId === row.id"
-                :disabled="maintenanceSubmitting || activeOrderRebuildSubmittingId !== undefined"
+                :disabled="
+                  maintenanceSubmitting ||
+                  activeOrderRebuildSubmittingId !== undefined ||
+                  activeOrderSimulationSubmittingId !== undefined
+                "
                 data-team-leader-rebuild-active-order
                 @click="handleRebuildActiveOrder(row)"
               >
                 重建
+              </el-button>
+              <el-button
+                link
+                type="primary"
+                :loading="activeOrderSimulationSubmittingId === row.id"
+                :disabled="
+                  maintenanceSubmitting ||
+                  activeOrderRebuildSubmittingId !== undefined ||
+                  activeOrderSimulationSubmittingId !== undefined
+                "
+                data-team-leader-simulate-active-order-completion
+                @click="handleSimulateActiveOrderCompletion(row)"
+              >
+                <Icon icon="ep:magic-stick" />
+                模拟完成
               </el-button>
             </template>
           </el-table-column>
@@ -1527,6 +1610,119 @@
       show-icon
       data-team-leader-active-order-release-uncertain
     />
+
+    <el-drawer
+      v-model="activeOrderConflictDrawerVisible"
+      data-team-leader-active-order-conflict-drawer
+      :title="
+        activeOrderConflictDetail
+          ? `订单 ${activeOrderConflictDetail.workOrderCode} · 数量冲突处理`
+          : '数量冲突处理'
+      "
+      size="min(760px, calc(100vw - 24px))"
+      destroy-on-close
+    >
+      <div
+        v-loading="activeOrderConflictLoading"
+        class="team-leader-workbench__active-order-conflict-drawer"
+      >
+        <el-alert
+          v-if="activeOrderConflictError"
+          :title="activeOrderConflictError"
+          type="error"
+          :closable="false"
+          show-icon
+        >
+          <template #default>
+            <el-button link type="primary" @click="retryActiveOrderConflictDetail">
+              重新加载
+            </el-button>
+          </template>
+        </el-alert>
+
+        <template v-else-if="activeOrderConflictDetail">
+          <div
+            class="team-leader-workbench__active-order-conflict-summary"
+            data-team-leader-active-order-conflict-summary
+          >
+            <div>
+              <span>生产订单</span>
+              <strong>{{ activeOrderConflictDetail.workOrderCode }}</strong>
+            </div>
+            <div>
+              <span>工艺路线</span>
+              <strong>{{ activeOrderConflictDetail.routeName }}</strong>
+            </div>
+            <div>
+              <span>冲突工序</span>
+              <strong class="team-leader-workbench__quantity-conflict-text">
+                {{ resolveActiveOrderConflictCount(activeOrderConflictDetail) }}
+              </strong>
+            </div>
+            <div>
+              <span>正常工序</span>
+              <strong>{{ resolveActiveOrderNormalProcessCount(activeOrderConflictDetail) }}</strong>
+            </div>
+          </div>
+
+          <div class="team-leader-workbench__active-order-conflict-actions">
+            <el-button
+              type="primary"
+              :loading="activeOrderConflictSubmitting"
+              :disabled="resolveActiveOrderConflictCount(activeOrderConflictDetail) === 0"
+              data-team-leader-active-order-conflict-recommended-action
+              @click="handleRecommendedActiveOrderConflictResolution"
+            >
+              按推荐方案修复
+            </el-button>
+          </div>
+
+          <div class="team-leader-workbench__active-order-conflict-process-list">
+            <section
+              v-for="process in resolveActiveOrderConflictProcesses(activeOrderConflictDetail)"
+              :key="`${process.routeProcessId}-${process.processId}`"
+              class="team-leader-workbench__active-order-conflict-process"
+              :class="{ 'is-quantity-conflict': process.quantityConflict }"
+              data-team-leader-active-order-conflict-process
+            >
+              <div class="team-leader-workbench__active-order-conflict-process-header">
+                <div class="team-leader-workbench__active-order-process-title">
+                  <strong>{{ process.processName }}</strong>
+                  <span v-if="process.processCode">{{ process.processCode }}</span>
+                </div>
+                <el-tag
+                  :type="process.quantityConflict ? 'danger' : 'success'"
+                  effect="plain"
+                  size="small"
+                >
+                  {{ process.quantityConflict ? '冲突工序' : '无冲突' }}
+                </el-tag>
+              </div>
+              <div class="team-leader-workbench__active-order-conflict-process-metrics">
+                <div>
+                  <span>应提数量</span>
+                  <strong>{{ formatTraceQuantity(process.requiredQuantity) }}</strong>
+                </div>
+                <div>
+                  <span>已提交</span>
+                  <strong>{{ formatTraceQuantity(process.submittedQuantity) }}</strong>
+                </div>
+                <div>
+                  <span>超出数量</span>
+                  <strong :class="{ 'team-leader-workbench__quantity-conflict-text': process.quantityConflict }">
+                    {{ process.quantityConflict ? formatTraceQuantity(process.overageQuantity) : '-' }}
+                  </strong>
+                </div>
+                <div>
+                  <span>提交记录</span>
+                  <strong>{{ process.submissionCount }}</strong>
+                </div>
+              </div>
+            </section>
+          </div>
+        </template>
+      </div>
+    </el-drawer>
 
     <el-dialog
       v-model="activeOrderDetailVisible"
@@ -3459,6 +3655,7 @@ import { watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import PqcItemEquipmentConfigPanel from '@/views/mes/pro/processpool/PqcItemEquipmentConfigPanel.vue'
 import {
   useTableMultiFilter,
   type ListMultiFilterDefinition
@@ -3494,6 +3691,7 @@ import {
   previewTeamLeaderReportFifoAllocation,
   previewTeamLeaderActiveOrderRebuild,
   rebuildTeamLeaderActiveOrder,
+  simulateTeamLeaderActiveOrderCompletion,
   removeTeamLeaderActiveOrder,
   resetTemporaryTeamEmployeeSignaturePassword,
   reviewTeamLeaderSubmission,
@@ -3746,6 +3944,7 @@ const props = withDefaults(
     leaderType?: TeamLeaderType
     showLeaderTypeTabs?: boolean
     showPqcModuleTabs?: boolean
+    showPqcEquipmentTab?: boolean
     showProductionModuleTabs?: boolean
     title?: string
     subtitle?: string
@@ -3754,6 +3953,7 @@ const props = withDefaults(
     leaderType: 'PRODUCTION',
     showLeaderTypeTabs: false,
     showPqcModuleTabs: false,
+    showPqcEquipmentTab: false,
     showProductionModuleTabs: false,
     title: '工序池班组长工作台',
     subtitle: '负责生产报工确认、活跃订单分配、异常上报和班组配置中心维护'
@@ -3762,7 +3962,9 @@ const props = withDefaults(
 
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
-const activePqcModuleTab = ref<'personnel' | 'management' | 'detail' | 'history'>('management')
+const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detail' | 'history'>(
+  'management'
+)
 const activeProductionModuleTab = ref<
   'personnel' | 'report' | 'reportHistory' | 'activeOrder' | 'processConfig'
 >('report')
@@ -3776,15 +3978,18 @@ const allocationPreviewLoading = ref(false)
 const abnormalSubmitting = ref(false)
 const maintenanceSubmitting = ref(false)
 const activeOrderLoading = ref(false)
+const activeOrderConflictSubmitting = ref(false)
 const activeOrderMoveSubmittingId = ref<number>()
 const activeOrderMoveDirection = ref<'UP' | 'DOWN'>()
 const activeOrderRebuildSubmittingId = ref<number>()
+const activeOrderSimulationSubmittingId = ref<number>()
 const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
 const correctionVisible = ref(false)
 const activeOrderAddDialogVisible = ref(false)
 const activeOrderDetailVisible = ref(false)
+const activeOrderConflictDrawerVisible = ref(false)
 const abnormalDialogVisible = ref(false)
 const loadError = ref('')
 const submissionTotal = ref(0)
@@ -3797,6 +4002,11 @@ const activeOrderSubmissionDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const activeOrderDetailLoading = ref(false)
 const activeOrderDetailError = ref('')
 const activeOrderDetailActiveOrderId = ref<number>()
+const activeOrderConflictSelectedOrder = ref<TeamLeaderActiveOrderRespVO>()
+const activeOrderConflictDetail = ref<TeamLeaderActiveOrderDetailRespVO>()
+const activeOrderConflictLoading = ref(false)
+const activeOrderConflictError = ref('')
+const activeOrderConflictActiveOrderId = ref<number>()
 const activeOrderCandidateOptions = ref<TeamLeaderActiveOrderCandidateRespVO[]>([])
 const activeOrderSelectedCandidate = ref<TeamLeaderActiveOrderCandidateRespVO>()
 const activeOrderCandidateKeyword = ref('')
@@ -4063,6 +4273,7 @@ const resetSubmissionColumnConfig = async () => {
 
 const showLeaderTypeTabs = computed(() => props.showLeaderTypeTabs)
 const showPqcModuleTabs = computed(() => props.showPqcModuleTabs && activeLeaderTab.value === 'PQC')
+const showPqcEquipmentTab = computed(() => showPqcModuleTabs.value && props.showPqcEquipmentTab)
 const showPqcDetailAsTab = computed(
   () => activeLeaderTab.value === 'PQC' && showPqcModuleTabs.value
 )
@@ -4123,6 +4334,12 @@ const showPqcFormHistoryModule = computed(
     activeLeaderTab.value === 'PQC' &&
     showPqcModuleTabs.value &&
     activePqcModuleTab.value === 'history'
+)
+const showPqcEquipmentModule = computed(
+  () =>
+    activeLeaderTab.value === 'PQC' &&
+    showPqcEquipmentTab.value &&
+    activePqcModuleTab.value === 'equipment'
 )
 const showPqcManagementModule = computed(
   () =>
@@ -4894,6 +5111,54 @@ const retryActiveOrderSubmissionDetail = async () => {
     '活跃订单记录ID不能为空'
   )
   await loadActiveOrderSubmissionDetail(activeOrderId)
+}
+
+const resolveActiveOrderConflictProcesses = (
+  detailResult?: TeamLeaderActiveOrderDetailRespVO
+) =>
+  [...(detailResult?.processes ?? [])].sort(
+    (left, right) => Number(Boolean(right.quantityConflict)) - Number(Boolean(left.quantityConflict))
+  )
+
+const resolveActiveOrderConflictCount = (detailResult?: TeamLeaderActiveOrderDetailRespVO) =>
+  (detailResult?.processes ?? []).filter((process) => process.quantityConflict).length
+
+const resolveActiveOrderNormalProcessCount = (
+  detailResult?: TeamLeaderActiveOrderDetailRespVO
+) => (detailResult?.processes ?? []).filter((process) => !process.quantityConflict).length
+
+const loadActiveOrderConflictDetail = async (activeOrderId: number) => {
+  activeOrderConflictLoading.value = true
+  activeOrderConflictError.value = ''
+  activeOrderConflictDetail.value = undefined
+  try {
+    const detailResult = await getTeamLeaderActiveOrderDetail(activeOrderId)
+    if (!detailResult.processes?.length) {
+      throw new Error('活跃订单缺少正式工序目标，无法处理数量冲突')
+    }
+    activeOrderConflictDetail.value = detailResult
+  } catch (error) {
+    activeOrderConflictError.value = resolveErrorMessage(error, '数量冲突详情加载失败')
+    ElMessage.error(activeOrderConflictError.value)
+  } finally {
+    activeOrderConflictLoading.value = false
+  }
+}
+
+const openActiveOrderConflictDrawer = async (row: TeamLeaderActiveOrderRespVO) => {
+  const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  activeOrderConflictSelectedOrder.value = row
+  activeOrderConflictActiveOrderId.value = activeOrderId
+  activeOrderConflictDrawerVisible.value = true
+  await loadActiveOrderConflictDetail(activeOrderId)
+}
+
+const retryActiveOrderConflictDetail = async () => {
+  const activeOrderId = requirePositiveNumber(
+    activeOrderConflictActiveOrderId.value,
+    '活跃订单记录ID不能为空'
+  )
+  await loadActiveOrderConflictDetail(activeOrderId)
 }
 
 const formatEmployeeType = (employeeType?: string) => {
@@ -8060,6 +8325,95 @@ const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
   }
 }
 
+const handleSimulateActiveOrderCompletion = async (row: TeamLeaderActiveOrderRespVO) => {
+  activeOrderSimulationSubmittingId.value = row.id
+  let writeCompleted = false
+  try {
+    await ElMessageBox.confirm(
+      '确认使用模拟数据完成当前活跃订单？系统会模拟一线生产提交、生产组长复核、一线 PQC 提交和 PQC 组长复核，并按正式规则重新计算进度。',
+      '模拟完成活跃订单',
+      {
+        type: 'warning',
+        confirmButtonText: '确认模拟',
+        cancelButtonText: '取消'
+      }
+    )
+    const result = await simulateTeamLeaderActiveOrderCompletion({
+      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+    })
+    writeCompleted = true
+    ElMessage.success(
+      `活跃订单已模拟完成：生产提交 ${result.productionSubmitCount} 条，生产复核 ${result.productionReviewCount} 条，PQC 提交 ${result.pqcSubmitCount} 条，PQC 复核 ${result.pqcReviewCount} 条，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}`
+    )
+    await loadActiveOrders()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(
+      resolveErrorMessage(
+        error,
+        writeCompleted ? '活跃订单已模拟完成，但列表刷新失败' : '活跃订单模拟完成失败'
+      )
+    )
+  } finally {
+    activeOrderSimulationSubmittingId.value = undefined
+  }
+}
+
+const handleRecommendedActiveOrderConflictResolution = async () => {
+  const row = activeOrderConflictSelectedOrder.value
+  if (!row) {
+    ElMessage.error('请选择需要处理的活跃订单')
+    return
+  }
+
+  const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
+  activeOrderConflictSubmitting.value = true
+  activeOrderRebuildSubmittingId.value = row.id
+  let writeCompletedPhase: 'NONE' | 'REBUILT' | 'SIMULATED' = 'NONE'
+  try {
+    const preview = await previewTeamLeaderActiveOrderRebuild(activeOrderId)
+    const confirmMessage = preview.hasHistoricalRuntimeData
+      ? `当前活跃订单已有 ${preview.productionReportCount} 条报工记录、${preview.productionProgressCount} 条生产进度、${preview.pqcInspectionResultCount} 条 PQC 检验结果。推荐方案会先删除这些历史业务结果和旧快照，按当前最新数据重建，再使用模拟数据完成生产与 PQC 复核。${preview.releaseApplicationCount > 0 ? ` 另外将删除 ${preview.releaseApplicationCount} 条放行申请历史。` : ''}`
+      : '推荐方案会先按当前最新数据重建生产快照和 PQC 快照，再使用模拟数据完成生产与 PQC 复核。'
+    await ElMessageBox.confirm(confirmMessage, '按推荐方案修复数量冲突', {
+      type: 'warning',
+      confirmButtonText: '按推荐方案修复',
+      cancelButtonText: '取消'
+    })
+
+    await rebuildTeamLeaderActiveOrder({
+      activeOrderId,
+      confirmDeleteHistoricalRuntimeData: preview.hasHistoricalRuntimeData
+    })
+    writeCompletedPhase = 'REBUILT'
+    activeOrderRebuildSubmittingId.value = undefined
+    activeOrderSimulationSubmittingId.value = row.id
+
+    const result = await simulateTeamLeaderActiveOrderCompletion({ activeOrderId })
+    writeCompletedPhase = 'SIMULATED'
+    ElMessage.success(
+      `推荐修复已完成：生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}`
+    )
+    await loadActiveOrders()
+    activeOrderConflictDrawerVisible.value = false
+    activeOrderConflictDetail.value = undefined
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    const phaseMessage =
+      writeCompletedPhase === 'REBUILT'
+        ? '重建已完成，但模拟完成失败'
+        : writeCompletedPhase === 'SIMULATED'
+          ? '写入已完成，但列表刷新失败'
+          : '推荐修复失败'
+    const errorDetail = resolveErrorMessage(error, phaseMessage)
+    ElMessage.error(errorDetail === phaseMessage ? phaseMessage : `${phaseMessage}：${errorDetail}`)
+  } finally {
+    activeOrderConflictSubmitting.value = false
+    activeOrderRebuildSubmittingId.value = undefined
+    activeOrderSimulationSubmittingId.value = undefined
+  }
+}
+
 const handleRemoveActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
   maintenanceSubmitting.value = true
   let writeCompleted = false
@@ -8938,6 +9292,106 @@ onMounted(() => {
   line-height: 1.5;
 }
 
+.team-leader-workbench__active-order-conflict-tag {
+  flex: 0 0 auto;
+  cursor: pointer;
+  user-select: none;
+}
+
+.team-leader-workbench__active-order-conflict-tag:focus-visible {
+  outline: 2px solid var(--el-color-danger);
+  outline-offset: 2px;
+}
+
+.team-leader-workbench__active-order-conflict-drawer {
+  display: grid;
+  gap: 14px;
+  min-height: 180px;
+}
+
+.team-leader-workbench__active-order-conflict-summary {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(190px, 1.4fr) 88px 88px;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  background: var(--el-border-color-light);
+}
+
+.team-leader-workbench__active-order-conflict-summary > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 12px;
+  background: var(--el-bg-color);
+}
+
+.team-leader-workbench__active-order-conflict-summary span,
+.team-leader-workbench__active-order-conflict-process-metrics span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.team-leader-workbench__active-order-conflict-summary strong {
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-leader-workbench__active-order-conflict-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.team-leader-workbench__active-order-conflict-process-list {
+  display: grid;
+  gap: 10px;
+}
+
+.team-leader-workbench__active-order-conflict-process {
+  overflow: hidden;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  background: var(--el-bg-color);
+}
+
+.team-leader-workbench__active-order-conflict-process.is-quantity-conflict {
+  border-color: var(--el-color-danger-light-5);
+  background: var(--el-color-danger-light-9);
+}
+
+.team-leader-workbench__active-order-conflict-process-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--el-border-color-light);
+  background: var(--el-fill-color-lighter);
+}
+
+.team-leader-workbench__active-order-conflict-process-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(80px, 1fr));
+  gap: 1px;
+  background: var(--el-border-color-lighter);
+}
+
+.team-leader-workbench__active-order-conflict-process-metrics > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--el-bg-color);
+}
+
+.team-leader-workbench__active-order-conflict-process-metrics strong {
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+}
+
 .team-leader-workbench__active-order-detail {
   display: grid;
   gap: 16px;
@@ -9074,6 +9528,15 @@ onMounted(() => {
 }
 
 @media (max-width: 760px) {
+  .team-leader-workbench__active-order-conflict-summary,
+  .team-leader-workbench__active-order-conflict-process-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .team-leader-workbench__active-order-conflict-process-header {
+    align-items: flex-start;
+  }
+
   .team-leader-workbench__active-order-detail-summary {
     grid-template-columns: 1fr;
   }

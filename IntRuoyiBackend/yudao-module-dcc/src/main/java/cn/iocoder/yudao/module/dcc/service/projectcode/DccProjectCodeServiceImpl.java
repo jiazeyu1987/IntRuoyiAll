@@ -15,6 +15,9 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeUpdateReqVO;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationQuery;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatus;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatusApi;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
@@ -153,6 +156,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Resource
     private PermissionApi permissionApi;
+    @Resource
+    private DccProjectCodeConfigurationStatusApi configurationStatusApi;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -338,9 +343,44 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
             Set<Long> scope = new LinkedHashSet<>(scopedProjectCodeIds);
             records.removeIf(record -> !scope.contains(record.getId()));
         }
+        records = applyConfigurationFilters(records, reqVO);
         populateAssociatedFileCounts(records);
         records.sort(projectCodeDisplayOrder(reqVO));
         return records;
+    }
+
+    private List<DccProjectCodeDO> applyConfigurationFilters(List<DccProjectCodeDO> records,
+                                                              DccProjectCodePageReqVO reqVO) {
+        if (records.isEmpty()
+                || (reqVO.getRouteConfigured() == null
+                && reqVO.getMainBatchRecordConfigured() == null
+                && reqVO.getQaRegulationConfigured() == null)) {
+            return records;
+        }
+        Map<Long, DccProjectCodeConfigurationStatus> statusByProjectCodeId = configurationStatusApi.getStatus(
+                records.stream()
+                        .map(record -> new DccProjectCodeConfigurationQuery(record.getId(), record.getProjectName(),
+                                reqVO.getRouteConfigured() != null,
+                                reqVO.getMainBatchRecordConfigured() != null,
+                                reqVO.getQaRegulationConfigured() != null))
+                        .toList());
+        return records.stream()
+                .filter(record -> matchesConfigurationFilter(reqVO.getRouteConfigured(),
+                        statusByProjectCodeId.get(record.getId()),
+                        DccProjectCodeConfigurationStatus::routeConfigured))
+                .filter(record -> matchesConfigurationFilter(reqVO.getMainBatchRecordConfigured(),
+                        statusByProjectCodeId.get(record.getId()),
+                        DccProjectCodeConfigurationStatus::mainBatchRecordConfigured))
+                .filter(record -> matchesConfigurationFilter(reqVO.getQaRegulationConfigured(),
+                        statusByProjectCodeId.get(record.getId()),
+                        DccProjectCodeConfigurationStatus::qaRegulationConfigured))
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private boolean matchesConfigurationFilter(Boolean expected,
+                                               DccProjectCodeConfigurationStatus status,
+                                               Function<DccProjectCodeConfigurationStatus, Boolean> valueReader) {
+        return expected == null || (status != null && Objects.equals(expected, valueReader.apply(status)));
     }
 
     private List<Long> resolveAssignedProjectCodeScope(Long userId) {

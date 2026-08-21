@@ -57,6 +57,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
     static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     static final String SOURCE_TYPE_PROCESS_POOL_REPORT = "PROCESS_POOL_REPORT";
     static final String SOURCE_TYPE_PRODUCTION_PICK_LIST = MesProductionPickListSourceService.SOURCE_TYPE;
+    private static final int FIELD_AUDIT_IDEMPOTENCY_KEY_LENGTH = 64;
 
     private final MesProRouteFlowProcessBatchRecordMapper bindingMapper;
     private final MesProBatchRecordExecutionService executionService;
@@ -773,15 +774,16 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                 + ":" + allocation.getRouteProcessId()
                 + ":" + allocation.getProcessId()
                 + ":" + aggregateHash;
-        if (pickListValues.isEmpty()) {
-            return base;
-        }
-        String pickEvidence = pickListValues.entrySet().stream()
+        String canonical = base;
+        if (!pickListValues.isEmpty()) {
+            String pickEvidence = pickListValues.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> entry.getKey() + "=" + entry.getValue().evidenceHash())
                 .reduce((left, right) -> left + "|" + right)
                 .orElseThrow();
-        return base + ":PICK:" + sha256(pickEvidence);
+            canonical = base + ":PICK:" + sha256(pickEvidence);
+        }
+        return isSha256Hex(canonical) ? canonical : sha256(canonical);
     }
 
     private String sha256(String value) {
@@ -796,6 +798,10 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         } catch (Exception ex) {
             throw new IllegalStateException("SHA-256 digest is unavailable", ex);
         }
+    }
+
+    private boolean isSha256Hex(String value) {
+        return value != null && value.length() == FIELD_AUDIT_IDEMPOTENCY_KEY_LENGTH && value.matches("[0-9a-f]{64}");
     }
 
     private static String cellKey(Integer rowIndex, Integer columnIndex) {

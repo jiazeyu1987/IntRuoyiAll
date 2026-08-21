@@ -63,6 +63,19 @@ class MesProDccProjectGovernanceServiceImplTest {
     }
 
     @Test
+    void getStatus_routeOnlyDoesNotTouchBatchRecordLookups() {
+        String projectName = "只查工艺路线";
+        when(dccProjectCodeMapper.selectEnabledListByProjectName(projectName)).thenReturn(List.of());
+
+        MesProDccProjectGovernanceStatus status = service.getStatus(List.of(projectName),
+                true, false, false).get(0);
+
+        assertEquals(MesProDccProjectGovernanceServiceImpl.STATUS_MISSING, status.routeStatus());
+        assertEquals(0L, status.routeCount());
+        verifyNoInteractions(definitionMapper, versionMapper, reportMapper);
+    }
+
+    @Test
     void getStatus_projectCodeToItemBinding_resolvesRouteRegardlessOfRouteName() {
         String projectName = "DCC 项目名称";
         DccProjectCodeDO projectCode = DccProjectCodeDO.builder()

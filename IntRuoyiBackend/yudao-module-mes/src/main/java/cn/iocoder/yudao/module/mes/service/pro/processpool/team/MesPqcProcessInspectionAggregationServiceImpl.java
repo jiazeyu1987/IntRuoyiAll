@@ -112,8 +112,7 @@ public class MesPqcProcessInspectionAggregationServiceImpl
                 || !MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())
                 || !Objects.equals(record.getWorkOrderId(), event.getWorkOrderId())
                 || !Objects.equals(record.getRouteId(), event.getRouteId())
-                || !Objects.equals(record.getRouteProcessId(), event.getRouteProcessId())
-                || !Objects.equals(record.getProcessId(), event.getProcessId())
+                || !Objects.equals(record.getQaProcessId(), event.getQaProcessId())
                 || !PQC_INSPECTION_TASK_SOURCE_TYPE.equals(event.getFeedbackSourceType())
                 || !PQC_INSPECTION_TASK_SOURCE_TYPE.equals(event.getRecordbookSourceType())
                 || event.getFeedbackSourceId() == null
@@ -129,9 +128,11 @@ public class MesPqcProcessInspectionAggregationServiceImpl
                 || !Objects.equals(event.getFeedbackSourceId(), task.getId())
                 || !Objects.equals(record.getWorkOrderId(), task.getWorkOrderId())
                 || !Objects.equals(record.getRouteId(), task.getRouteId())
-                || !Objects.equals(record.getRouteProcessId(), task.getRouteProcessId())
-                || !Objects.equals(record.getProcessId(), task.getProcessId())
+                || !Objects.equals(record.getQaProcessId(), task.getQaProcessId())
+                || !Objects.equals(event.getQaProcessId(), task.getQaProcessId())
                 || task.getRouteVersionId() == null
+                || task.getRouteProcessId() == null
+                || task.getProcessId() == null
                 || task.getRegulationVersionId() == null
                 || StrUtil.isBlank(task.getInspectionType())
                 || task.getBusinessDate() == null

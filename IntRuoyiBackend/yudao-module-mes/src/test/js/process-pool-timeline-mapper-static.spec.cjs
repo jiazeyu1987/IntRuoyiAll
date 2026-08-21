@@ -24,7 +24,7 @@ for (const required of [
   'pool_event.raw_payload',
   'pool_event.device_account_id AS loginUserId',
   'pool_event.actual_employee_id AS actualEmployeeUserId',
-  'actual_employee.nickname AS actualEmployeeUserName',
+  "COALESCE(NULLIF(actual_employee.nickname, ''), NULLIF(actual_employee_profile_by_user.display_name, ''), NULLIF(actual_employee_profile_by_user.employee_name, ''), NULLIF(actual_employee_profile_by_id.display_name, ''), NULLIF(actual_employee_profile_by_id.employee_name, ''), NULLIF(actual_employee.username, '')) AS actualEmployeeUserName",
   'pool_event.signature_user_id AS signatureEmployeeUserId',
   'pool_event.signature_id AS electronicSignatureId',
   'pool_event.feedback_source_id AS sourceFeedbackId',
@@ -57,7 +57,17 @@ assert.doesNotMatch(
 assert.match(
   source,
   /LEFT JOIN\s+system_users\s+actual_employee[\s\S]{0,240}actual_employee\.id\s*=\s*pool_event\.actual_employee_id[\s\S]{0,240}actual_employee\.tenant_id\s*=\s*pool_event\.tenant_id[\s\S]{0,240}actual_employee\.deleted\s*=\s*0/,
-  '时间轴 mapper 必须按租户和删除标记关联 system_users actual_employee，使用 nickname 作为实际填写员工姓名。'
+  '时间轴 mapper 必须按租户和删除标记关联 system_users actual_employee，解析正式员工身份。'
+)
+assert.match(
+  source,
+  /LEFT JOIN\s+mes_pro_process_pool_team_employee_profile\s+actual_employee_profile_by_id[\s\S]{0,260}actual_employee_profile_by_id\.id\s*=\s*pool_event\.actual_employee_id[\s\S]{0,260}actual_employee_profile_by_id\.tenant_id\s*=\s*pool_event\.tenant_id[\s\S]{0,260}actual_employee_profile_by_id\.deleted\s*=\s*0/,
+  '时间轴 mapper 必须按档案 ID 关联临时员工档案，读取档案显示名。'
+)
+assert.match(
+  source,
+  /LEFT JOIN\s*\(\s*SELECT[\s\S]{0,500}ROW_NUMBER\(\)\s+OVER\s*\([\s\S]{0,260}PARTITION BY\s+profile\.tenant_id,\s*profile\.system_user_id[\s\S]{0,500}actual_employee_profile_by_user[\s\S]{0,260}actual_employee_profile_by_user\.system_user_id\s*=\s*pool_event\.actual_employee_id/,
+  '时间轴 mapper 必须以不产生重复事件的方式按系统用户 ID 关联正式员工档案。'
 )
 assert.match(
   source,

@@ -190,6 +190,20 @@ export interface TeamLeaderActiveOrderRebuildResultRespVO {
   rebuiltPqcTaskCount: number
 }
 
+export interface TeamLeaderActiveOrderSimulationReqVO {
+  activeOrderId: number
+}
+
+export interface TeamLeaderActiveOrderSimulationRespVO {
+  activeOrderId: number
+  productionSubmitCount: number
+  productionReviewCount: number
+  pqcSubmitCount: number
+  pqcReviewCount: number
+  productionProgressPercent: number | string
+  inspectionProgressPercent: number | string
+}
+
 export interface TeamLeaderActiveOrderListRequestOptions {
   ignoreErrorMessage?: boolean
 }
@@ -429,6 +443,44 @@ export interface TeamDeviceRespVO {
   deviceName: string
   deviceStatus: 'ENABLED' | 'REPAIRING' | 'DISABLED'
   enabled: boolean
+}
+
+export interface PqcItemEquipmentItemVO {
+  itemCode: string
+  itemName?: string
+  inspectionMethod?: string
+  standardText?: string
+  samplingPlanText?: string
+}
+
+export interface PqcItemEquipmentNumberConfigVO {
+  id?: number
+  equipmentNumber: string
+  enabled?: boolean
+  sort?: number
+}
+
+export interface PqcItemEquipmentGroupConfigVO {
+  id?: number
+  equipmentId: number
+  equipmentCode?: string
+  equipmentName?: string
+  enabled?: boolean
+  defaultFlag?: boolean
+  sort?: number
+  equipmentNumbers: PqcItemEquipmentNumberConfigVO[]
+}
+
+export interface PqcItemEquipmentConfigVO {
+  itemCode: string
+  itemName?: string
+  equipmentGroups: PqcItemEquipmentGroupConfigVO[]
+}
+
+export interface PqcItemEquipmentConfigSaveReqVO {
+  itemCode: string
+  itemNameSnapshot?: string
+  equipmentGroups: PqcItemEquipmentGroupConfigVO[]
 }
 
 export interface TeamLeaderActiveOrderTransferTraceRespVO {
@@ -688,6 +740,16 @@ export const rebuildTeamLeaderActiveOrder = async (
   })
 }
 
+export const simulateTeamLeaderActiveOrderCompletion = async (
+  data: TeamLeaderActiveOrderSimulationReqVO
+) => {
+  return await request.post<TeamLeaderActiveOrderSimulationRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulate-completion',
+    data,
+    ignoreErrorMessage: true
+  })
+}
+
 export const getProductionPersonnelList = async (params?: TeamProductionPersonnelListReqVO) => {
   return await request.get<TeamProductionEmployeeRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/employee-profile/list',
@@ -792,6 +854,26 @@ export const getTeamDeviceList = async (enabled?: boolean) => {
   return await request.get<TeamDeviceRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/team-device/list',
     params: { enabled }
+  })
+}
+
+export const getPqcItemEquipmentItems = async () => {
+  return await request.get<PqcItemEquipmentItemVO[]>({
+    url: '/mes/pqc/item-equipment/items'
+  })
+}
+
+export const getPqcItemEquipmentConfig = async (itemCode: string) => {
+  return await request.get<PqcItemEquipmentConfigVO>({
+    url: '/mes/pqc/item-equipment/config',
+    params: { itemCode }
+  })
+}
+
+export const savePqcItemEquipmentConfig = async (data: PqcItemEquipmentConfigSaveReqVO) => {
+  return await request.post<PqcItemEquipmentConfigVO>({
+    url: '/mes/pqc/item-equipment/config',
+    data
   })
 }
 

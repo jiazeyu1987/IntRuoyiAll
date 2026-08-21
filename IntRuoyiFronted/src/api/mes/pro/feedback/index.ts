@@ -322,8 +322,8 @@ export interface FrontlinePqcInspectionItemVO {
   standardUpperLimit?: number | string
   standardUnit?: string
   standardPrecision?: number
-  equipmentRequired: boolean
-  equipmentOptions: FrontlinePqcEquipmentOptionVO[]
+  equipmentRequired?: boolean
+  equipmentOptions?: FrontlinePqcEquipmentOptionVO[]
   applicableInspectionTypes: FrontlinePqcInspectionType[]
   firstInspectionQuantity?: number
   patrolInspectionRatio?: number | string
@@ -334,6 +334,8 @@ export interface FrontlinePqcInspectionItemVO {
   sourceOriginalItem?: string
   sourceOriginalExcerpt?: string
   sourceOriginalMethod?: string
+  lastSelectedEquipmentId?: number
+  lastSelectedEquipmentNumber?: string
 }
 
 export interface FrontlineActiveOrderVO {
@@ -1198,10 +1200,10 @@ export const ProFeedbackApi = {
     })
   },
   // 获取 PQC 活跃订单对应 QA 规程工序
-  getPqcProcesses: async (activeOrderId: number) => {
+  getPqcProcesses: async (activeOrderId: number, actualEmployeeId?: number) => {
     const processes = await request.get<FrontlinePqcProcessVO[]>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/active-order/processes`,
-      params: { activeOrderId },
+      params: { activeOrderId, actualEmployeeId },
       ignoreErrorMessage: true
     })
     return projectFrontlinePqcProcesses(processes)

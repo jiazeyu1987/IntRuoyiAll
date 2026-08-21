@@ -28,8 +28,14 @@ public class MesProDccProjectGovernanceController {
     @GetMapping("/mes/pro/dcc-project-governance/status")
     @Operation(summary = "按 DCC 项目名称查询 MES 工艺路线与批记录治理状态")
     public CommonResult<List<MesProDccProjectGovernanceStatusRespVO>> getStatus(
-            @NotEmpty(message = "DCC 项目名称不能为空") @RequestParam("projectNames") List<String> projectNames) {
-        return success(BeanUtils.toBean(dccProjectGovernanceService.getStatus(projectNames),
+            @NotEmpty(message = "DCC 项目名称不能为空") @RequestParam("projectNames") List<String> projectNames,
+            @RequestParam(value = "routeStatusRequired", defaultValue = "true") Boolean routeStatusRequired,
+            @RequestParam(value = "mainBatchRecordStatusRequired", defaultValue = "true") Boolean mainBatchRecordStatusRequired,
+            @RequestParam(value = "formSlotStatusRequired", defaultValue = "true") Boolean formSlotStatusRequired) {
+        return success(BeanUtils.toBean(dccProjectGovernanceService.getStatus(projectNames,
+                        Boolean.TRUE.equals(routeStatusRequired),
+                        Boolean.TRUE.equals(mainBatchRecordStatusRequired),
+                        Boolean.TRUE.equals(formSlotStatusRequired)),
                 MesProDccProjectGovernanceStatusRespVO.class));
     }
 }

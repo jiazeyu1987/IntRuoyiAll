@@ -971,7 +971,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         processSnapshotMapper.deleteByActiveOrderId(activeOrder.getId());
         releaseApplicationMapper.deleteByActiveOrderId(activeOrder.getId());
         if (!eventIds.isEmpty()) {
-            processPoolEventMapper.deleteByIds(eventIds);
+            processPoolEventMapper.deleteActiveOrderRuntimeEventsByIds(eventIds);
         }
         if (!feedbackIds.isEmpty()) {
             feedbackMapper.deleteByIds(feedbackIds);
@@ -1442,13 +1442,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                         allocation.getProcessId()),
                                 LinkedHashMap::new,
                                 Collectors.reducing(BigDecimal.ZERO, this::requireAllocationQuantity, BigDecimal::add)));
-        Set<ActiveOrderProcessIdentity> inspectedProcesses =
+        Map<Long, List<MesPqcInspectionTaskDO>> pqcTasksByActiveOrderId =
                 pqcInspectionTaskMapper.selectListByActiveOrderIds(activeOrderIds).stream()
-                        .filter(MesTeamLeaderActiveOrderServiceImpl::isInspectionProgressCompleted)
-                        .map(task -> new ActiveOrderProcessIdentity(task.getActiveOrderId(),
-                                task.getRouteProcessId(), task.getProcessId()))
-                        .filter(ActiveOrderProcessIdentity::complete)
-                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                        .filter(task -> task.getActiveOrderId() != null)
+                        .collect(Collectors.groupingBy(MesPqcInspectionTaskDO::getActiveOrderId,
+                                LinkedHashMap::new, Collectors.toList()));
         Map<Long, ActiveOrderProgress> progressByActiveOrderId = new LinkedHashMap<>();
         activeOrders.forEach(activeOrder -> {
             List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots =
@@ -1472,13 +1470,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     .filter(process -> isProductionProcessFullyAllocated(activeOrder, process,
                             targetQuantityByProcess, allocatedQuantityByProcess))
                     .count();
-            long inspectedProcessCount = processIdentities.stream()
-                    .filter(process -> inspectedProcesses.contains(new ActiveOrderProcessIdentity(
-                            activeOrder.getId(), process.routeProcessId(), process.processId())))
-                    .count();
+            List<MesPqcInspectionTaskDO> pqcTasks = pqcTasksByActiveOrderId.getOrDefault(activeOrder.getId(),
+                    List.of());
             progressByActiveOrderId.put(activeOrder.getId(), new ActiveOrderProgress(
                     toProgressPercent(completedProcessCount, totalProcessCount),
-                    toProgressPercent(inspectedProcessCount, totalProcessCount),
+                    calculateInspectionProgressPercent(pqcTasks),
                     processRemainingQuantities,
                     quantityConflictProcessCount > 0,
                     quantityConflictProcessCount,
@@ -1636,6 +1632,16 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private static boolean isInspectionProgressCompleted(MesPqcInspectionTaskDO task) {
         return MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus());
+    }
+
+    private static BigDecimal calculateInspectionProgressPercent(List<MesPqcInspectionTaskDO> pqcTasks) {
+        if (pqcTasks == null || pqcTasks.isEmpty()) {
+            return BigDecimal.ZERO.setScale(PROGRESS_PERCENT_SCALE, RoundingMode.UNNECESSARY);
+        }
+        long confirmedTaskCount = pqcTasks.stream()
+                .filter(MesTeamLeaderActiveOrderServiceImpl::isInspectionProgressCompleted)
+                .count();
+        return toProgressPercent(confirmedTaskCount, pqcTasks.size());
     }
 
     private static BigDecimal toProgressPercent(long completedProcessCount, int totalProcessCount) {

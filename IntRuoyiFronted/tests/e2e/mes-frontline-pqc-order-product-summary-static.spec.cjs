@@ -105,7 +105,7 @@ for (const token of [
 
 for (const token of [
   'grid-template-rows: minmax(118px, auto) minmax(0, 1fr);',
-  'grid-template-columns: minmax(480px, 1.55fr) minmax(220px, 0.85fr) minmax(200px, 1fr) 150px;'
+  'grid-template-columns: minmax(480px, 1.45fr) minmax(360px, 1.2fr) minmax(140px, 0.45fr) 150px;'
 ]) {
   assert.ok(panel.includes(token), `PQC responsive layout must include: ${token}`)
 }

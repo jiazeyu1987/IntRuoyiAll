@@ -10,14 +10,12 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
@@ -43,7 +41,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
     private final MesQaInspectionRegulationMapper regulationMapper;
     private final MesQaInspectionRegulationVersionMapper regulationVersionMapper;
     private final MesQaInspectionRegulationItemMapper regulationItemMapper;
-    private final MesQaInspectionRegulationItemEquipmentMapper regulationItemEquipmentMapper;
     private final ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
     private final DccProjectCodeMapper dccProjectCodeMapper;
     private final MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort qaProvenancePort;
@@ -57,7 +54,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
             MesQaInspectionRegulationMapper regulationMapper,
             MesQaInspectionRegulationVersionMapper regulationVersionMapper,
             MesQaInspectionRegulationItemMapper regulationItemMapper,
-            MesQaInspectionRegulationItemEquipmentMapper regulationItemEquipmentMapper,
             ActiveOrderSnapshotResolver activeOrderSnapshotResolver,
             DccProjectCodeMapper dccProjectCodeMapper,
             MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePort qaProvenancePort) {
@@ -69,7 +65,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
         this.regulationMapper = regulationMapper;
         this.regulationVersionMapper = regulationVersionMapper;
         this.regulationItemMapper = regulationItemMapper;
-        this.regulationItemEquipmentMapper = regulationItemEquipmentMapper;
         this.activeOrderSnapshotResolver = activeOrderSnapshotResolver;
         this.dccProjectCodeMapper = dccProjectCodeMapper;
         this.qaProvenancePort = qaProvenancePort;
@@ -108,8 +103,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
         MesQaInspectionRegulationVersionDO version = publishedQa.version();
         List<MesQaInspectionRegulationItemDO> items = version == null ? List.of()
                 : regulationItemMapper.selectListByVersionId(version.getId());
-        List<MesQaInspectionRegulationItemEquipmentDO> equipment = version == null ? List.of()
-                : regulationItemEquipmentMapper.selectListByVersionId(version.getId());
         return new InspectionSource()
                 .setTask(task)
                 .setAggregateDetails(List.copyOf(details))
@@ -119,7 +112,6 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionReaderImpl
                 .setRegulation(regulation)
                 .setRegulationVersion(version)
                 .setRegulationItems(items == null ? List.of() : List.copyOf(items))
-                .setRegulationItemEquipment(equipment == null ? List.of() : List.copyOf(equipment))
                 .setDccProject(dccProject)
                 .setRouteProjectCode(lockedDccQa.projectCode())
                 .setQaDccProvenance(publishedQa.provenance());

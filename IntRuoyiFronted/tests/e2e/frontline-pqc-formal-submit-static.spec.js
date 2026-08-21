@@ -56,18 +56,18 @@ assert.match(
 )
 assert.match(
   panelSource,
-  /scrapQuantity:\s*normalizePqcQuantity\(pqcDraft\.scrapQuantity\)/,
-  'PQC submit request must carry structured scrap quantity.'
+  /scrapQuantity:\s*normalizePqcQuantity\(taskDraft\.scrapQuantity\)/,
+  'PQC submit request must carry each inspection-method task structured scrap quantity.'
 )
 assert.match(
   panelSource,
-  /:disabled="payloadLoading \|\| pqcSubmitResultUncertain"/,
-  'PQC submit must remain clickable after success or explicit failure, locking only while loading or during an uncertain submit state.'
+  /const isPqcSubmitBlocked = computed\(\(\) =>[\s\S]*payloadLoading\.value[\s\S]*pqcSubmitResultUncertain\.value/,
+  'PQC submit must remain clickable after success or explicit failure, locking while loading or during an uncertain submit state.'
 )
 assert.match(
   panelSource,
-  /const submitReceipt = await ProFeedbackApi\.submitFrontlinePqcInspection[\s\S]*resetPqcSubmissionDraft\(submitPayload\.pqcTaskId\)[\s\S]*PQC正式提交成功，事件编号 \$\{submitReceipt\.pqcEventId\}/,
-  'PQC explicit success must reset the current draft and continue with a new session instead of rendering a receipt block.'
+  /let submitPayloads: FrontlinePqcInspectionSubmitReqVO\[\][\s\S]*submitPayloads = buildPqcInspectionSubmitPayloads\(\)[\s\S]*for \(const submitPayload of submitPayloads\)[\s\S]*ProFeedbackApi\.submitFrontlinePqcInspection[\s\S]*resetPqcSubmissionDrafts\(submitPayloads\.map\(\(payload\) => payload\.pqcTaskId\)\)/,
+  'PQC explicit success must submit all current-process inspection methods and reset every submitted task draft.'
 )
 assert.doesNotMatch(
   panelSource,

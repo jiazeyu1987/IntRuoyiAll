@@ -113,7 +113,6 @@ class MesQaInspectionRegulationWordImportServiceTest {
         assertEquals("NUMERIC", item.getResultType());
         assertEquals(new BigDecimal("1.2"), item.getStandardLowerLimit());
         assertEquals(new BigDecimal("2.4"), item.getStandardUpperLimit());
-        assertEquals(1, item.getEquipmentOptions().size());
         assertTrue(item.getCritical());
         assertEquals("原失败规则", item.getFailureRule());
         assertEquals("表面清洁，无异物", item.getStandardText());
@@ -344,45 +343,6 @@ class MesQaInspectionRegulationWordImportServiceTest {
     }
 
     private static MesQaInspectionRegulationPublishedVersionRespVO existingConfiguration() {
-        MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption equipment =
-                MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption.builder()
-                        .equipmentId(11L)
-                        .equipmentCode("EQ-11")
-                        .equipmentName("压力表")
-                        .equipmentNumber("NO-11")
-                        .defaultFlag(true)
-                        .sort(1)
-                        .build();
-        MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem item =
-                MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem.builder()
-                        .itemSort(1)
-                        .itemCode("LEGACY-I01")
-                        .itemName("外观")
-                        .inspectionMethod("旧方法")
-                        .inspectionTool("旧器具")
-                        .samplingPlanText("AQL=1.0")
-                        .standardText("旧标准")
-                        .standardLowerLimit(new BigDecimal("1.2"))
-                        .standardUpperLimit(new BigDecimal("2.4"))
-                        .standardUnit("MPa")
-                        .standardPrecision(2)
-                        .equipmentRequired(true)
-                        .equipmentOptions(List.of(equipment))
-                        .resultType("NUMERIC")
-                        .applicableInspectionTypes(List.of("FIRST", "PATROL", "FINAL"))
-                        .firstInspectionQuantity(3)
-                        .patrolInspectionRatio(new BigDecimal("1.0"))
-                        .critical(true)
-                        .failureRule("原失败规则")
-                        .build();
-        MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess process =
-                MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess.builder()
-                        .qaProcessId(81L)
-                        .processCode("LEGACY-P01")
-                        .processName("清洗")
-                        .sort(1)
-                        .items(List.of(item))
-                        .build();
         return MesQaInspectionRegulationPublishedVersionRespVO.builder()
                 .dccProjectCodeId(DCC_PROJECT_ID)
                 .regulationId(REGULATION_ID)
@@ -480,8 +440,6 @@ class MesQaInspectionRegulationWordImportServiceTest {
                 .standardUpperLimit(new BigDecimal("2.4"))
                 .standardUnit("MPa")
                 .standardPrecision(2)
-                .equipmentRequired(false)
-                .equipmentOptions(List.of())
                 .resultType("NUMERIC")
                 .applicableInspectionTypes(List.of("FIRST", "PATROL"))
                 .firstInspectionQuantity(3)

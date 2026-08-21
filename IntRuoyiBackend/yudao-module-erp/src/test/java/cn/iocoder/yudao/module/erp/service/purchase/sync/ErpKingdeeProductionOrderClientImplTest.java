@@ -52,12 +52,12 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FDocumentStatus+%3C%3E+%27Z%27")))
                 .andExpect(content().string(containsString("FDate+%3E%3D+%272025-06-10%27")))
                 .andExpect(content().string(containsString("FDate+%3C%3D+%272026-06-10%27")))
-                .andExpect(content().string(containsString("FStatus+%3C%3E+%275%27")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FStatus+%3C%3E+%275%27"))))
                 .andRespond(withSuccess("""
                         [[310119,"881MO091049","A","2026-03-25T00:00:00","A001.01.053.001","ABS","TR558A",1.0,"2026-03-25T00:00:00","2026-03-25T00:00:00"," ","1","kg","千克","BATCH-001","组装车间","BOM-2026-01"]]
                         """, MediaType.APPLICATION_JSON));
 
-        List<ErpKingdeeProductionOrder> orders = client.fetchUnfinishedProductionOrders(
+        List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersByBillDateRange(
                 properties, LocalDate.of(2025, 6, 10), LocalDate.of(2026, 6, 10));
 
         assertEquals(1, orders.size());
@@ -78,7 +78,7 @@ class ErpKingdeeProductionOrderClientImplTest {
     }
 
     @Test
-    void fetchUnfinishedProductionOrders_usesBillDateWindowAndParsesBillDate() {
+    void fetchProductionOrdersByBillDateRange_usesBillDateWindowAndParsesBillDate() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
         ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
@@ -93,13 +93,39 @@ class ErpKingdeeProductionOrderClientImplTest {
                         [[310121,"123123123","C","2026-03-19T00:00:00","A001.01.053.001","ABS","TR558A-MNP-1",12.0,"","","","2","Pcs","Pcs","","","","","","","",""]]
                         """, MediaType.APPLICATION_JSON));
 
-        List<ErpKingdeeProductionOrder> orders = client.fetchUnfinishedProductionOrders(
+        List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersByBillDateRange(
                 properties, LocalDate.of(2025, 6, 10), LocalDate.of(2026, 6, 10));
 
         assertEquals(1, orders.size());
         assertEquals("123123123", orders.get(0).getBillNo());
         assertEquals(LocalDateTime.of(2026, 3, 19, 0, 0), orders.get(0).getBillDate());
         assertEquals("2", orders.get(0).getStatus());
+        server.verify();
+    }
+
+    @Test
+    void fetchProductionOrdersByBillDateRange_doesNotFilterFinishedStatusVisibleInErpList() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
+        ErpKingdeeProperties properties = buildProperties("https://k3.example.com");
+
+        expectLogin(server);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(content().string(containsString("FDate+%3E%3D+%272025-06-10%27")))
+                .andExpect(content().string(containsString("FDate+%3C%3D+%272026-06-10%27")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FStatus+%3C%3E+%275%27"))))
+                .andRespond(withSuccess("""
+                        [[310121,"881MO101245","C","2026-08-20T00:00:00","A011.002.1085","1.5-2.7F管胚","0.80*1.18*1000mm",100.0,"","","","5","支","支","","中试车间1","BOM-2026-08"]]
+                        """, MediaType.APPLICATION_JSON));
+
+        List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersByBillDateRange(
+                properties, LocalDate.of(2025, 6, 10), LocalDate.of(2026, 6, 10));
+
+        assertEquals(1, orders.size());
+        assertEquals("881MO101245", orders.get(0).getBillNo());
+        assertEquals("5", orders.get(0).getStatus());
         server.verify();
     }
 

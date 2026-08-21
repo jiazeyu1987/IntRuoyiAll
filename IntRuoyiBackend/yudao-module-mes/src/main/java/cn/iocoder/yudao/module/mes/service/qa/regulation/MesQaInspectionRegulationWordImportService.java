@@ -241,10 +241,6 @@ public class MesQaInspectionRegulationWordImportService {
         item.setStandardUpperLimit(inherited == null ? null : inherited.getStandardUpperLimit());
         item.setStandardUnit(inherited == null ? null : inherited.getStandardUnit());
         item.setStandardPrecision(inherited == null ? null : inherited.getStandardPrecision());
-        item.setEquipmentRequired(inherited != null && Boolean.TRUE.equals(inherited.getEquipmentRequired()));
-        item.setEquipmentOptions(inherited == null
-                ? List.of()
-                : copyEquipmentOptions(inherited.getEquipmentOptions()));
         item.setResultType(inherited == null ? "BOOLEAN" : inherited.getResultType());
         List<String> applicableTypes = new ArrayList<>();
         if (parsed.firstInspectionQuantity() != null) {
@@ -300,21 +296,6 @@ public class MesQaInspectionRegulationWordImportService {
             }
         }
         return new BaselineIndex(processCodeByName, itemByName, ambiguousItemKeys);
-    }
-
-    private static List<MesQaInspectionRegulationSaveReqVO.EquipmentOption> copyEquipmentOptions(
-            List<MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption> source) {
-        return CollUtil.emptyIfNull(source).stream().map(option -> {
-            MesQaInspectionRegulationSaveReqVO.EquipmentOption target =
-                    new MesQaInspectionRegulationSaveReqVO.EquipmentOption();
-            target.setEquipmentId(option.getEquipmentId());
-            target.setEquipmentCode(option.getEquipmentCode());
-            target.setEquipmentName(option.getEquipmentName());
-            target.setEquipmentNumber(option.getEquipmentNumber());
-            target.setDefaultFlag(option.getDefaultFlag());
-            target.setSort(option.getSort());
-            return target;
-        }).toList();
     }
 
     private static List<MesQaInspectionRegulationSaveReqVO.InspectionTypeRule> copyInspectionTypeRules(

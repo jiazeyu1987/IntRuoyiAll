@@ -15,6 +15,7 @@
       :columns="productCatalogColumns"
       :column-saving="productCatalogColumnSaving"
       :total="total"
+      single-line-toolbar
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
       v-model:sort-state="productCatalogSortState"
@@ -420,6 +421,13 @@ const productCatalogQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     type: 'select',
     queryParamKey: 'dataSource',
     options: dataSourceOptions
+  },
+  {
+    key: 'projectCodeNotBlank',
+    label: '项目代码',
+    type: 'select',
+    queryParamKey: 'projectCodeNotBlank',
+    options: [{ label: '不为空', value: true }]
   }
 ]
 
@@ -477,6 +485,7 @@ const queryParams = reactive<DccProductCatalogPageQuery>({
   categoryLevel2: undefined,
   productStatus: undefined,
   dataSource: undefined,
+  projectCodeNotBlank: undefined,
   sortField: undefined,
   sortOrder: undefined
 })
@@ -674,6 +683,25 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+@media (min-width: 1181px) {
+  .dcc-product-catalog-list-template.unified-list-template--single-line-toolbar
+    :deep(.unified-list-template__query-form) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .dcc-product-catalog-list-template.unified-list-template--single-line-toolbar
+    :deep(.unified-list-template__multi-filter) {
+    min-width: 0;
+  }
+
+  .dcc-product-catalog-list-template.unified-list-template--single-line-toolbar
+    :deep(.table-multi-filter),
+  .dcc-product-catalog-list-template.unified-list-template--single-line-toolbar
+    :deep(.table-multi-filter__tabs-empty) {
+    min-width: 0;
+  }
+}
+
 :deep(.dcc-product-catalog-resizable-table .el-table__header-wrapper th.el-table__cell) {
   position: relative;
 }

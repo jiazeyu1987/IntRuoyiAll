@@ -42,7 +42,7 @@ const qaProvenance = read(
   'yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseProcessInspectionQaProvenancePortImpl.java'
 )
 
-assert.doesNotMatch(contextService, /selectActiveOrderIdsByTaskStatus/)
+assert.match(contextService, /selectActiveOrderIdsByTaskStatus\([\s\S]{0,160}PQC_TASK_STATUS_PENDING/, 'PQC active-order list must expose only orders with pending PQC tasks.')
 assert.match(contextService, /MesQaInspectionRegulationProcessMapper/)
 assert.match(contextService, /selectByDccProjectCodeId/)
 assert.match(contextService, /selectListByVersionId/)

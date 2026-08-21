@@ -59,6 +59,7 @@ ErrorCode PURCHASE_ORDER_ITEM_RETURN_FAIL_IN_EXCEED = new ErrorCode(1_030_101_00
     ErrorCode KINGDEE_CONNECTION_TYPE_UNSUPPORTED = new ErrorCode(1_030_101_047, "不支持的 ERP 连接类型：{}");
     ErrorCode KINGDEE_CONNECTION_CONFIG_MISSING = new ErrorCode(1_030_101_048, "ERP {}连接配置缺失");
     ErrorCode KINGDEE_CONNECTION_CONFIG_INVALID = new ErrorCode(1_030_101_049, "ERP {}连接配置无效：{}");
+    ErrorCode KINGDEE_ACTIVE_CONNECTION_CONFIG_MISSING = new ErrorCode(1_030_101_050, "ERP当前连接选择配置缺失");
     ErrorCode KINGDEE_EXTERNAL_WRITE_DISABLED = new ErrorCode(1_030_101_022, "ERP写权限已关闭，禁止写入外部 ERP");
 
     // ========== ERP Kingdee 事件回调（1-030-901-000） ==========

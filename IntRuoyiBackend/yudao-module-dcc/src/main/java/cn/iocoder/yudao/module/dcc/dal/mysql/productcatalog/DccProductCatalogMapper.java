@@ -41,6 +41,7 @@ public interface DccProductCatalogMapper extends BaseMapperX<DccProductCatalogDO
                 .eqIfPresent(COLUMN_CATEGORY_LEVEL2, reqVO.getCategoryLevel2())
                 .eqIfPresent(COLUMN_PRODUCT_STATUS, reqVO.getProductStatus())
                 .eqIfPresent(COLUMN_DATA_SOURCE, reqVO.getDataSource());
+        applyProjectCodeNotBlankFilter(wrapper, reqVO);
         String keyword = StrUtil.trimToNull(reqVO.getKeyword());
         if (keyword != null) {
             wrapper.and(item -> item.like(COLUMN_PRODUCT, keyword)
@@ -51,6 +52,15 @@ public interface DccProductCatalogMapper extends BaseMapperX<DccProductCatalogDO
         }
         applyPageSort(wrapper, reqVO);
         return selectPage(reqVO, wrapper);
+    }
+
+    private void applyProjectCodeNotBlankFilter(QueryWrapperX<DccProductCatalogDO> wrapper,
+            DccProductCatalogPageReqVO reqVO) {
+        if (!Boolean.TRUE.equals(reqVO.getProjectCodeNotBlank())) {
+            return;
+        }
+        wrapper.isNotNull(PROJECT_CODE_COLUMN)
+                .apply("TRIM(" + PROJECT_CODE_COLUMN + ") <> ''");
     }
 
     private void applyPageSort(QueryWrapperX<DccProductCatalogDO> wrapper,

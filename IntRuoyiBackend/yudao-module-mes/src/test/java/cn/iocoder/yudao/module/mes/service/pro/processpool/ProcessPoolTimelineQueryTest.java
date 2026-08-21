@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelinePageReqVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -55,5 +56,22 @@ class ProcessPoolTimelineQueryTest {
         assertEquals(7003L, page.getList().get(0).getProcessInspectionReviewId());
         assertEquals(LocalDateTime.parse("2026-07-30T09:45:00"),
                 page.getList().get(0).getProcessInspectionAggregatedAt());
+    }
+
+    @Test
+    void shouldDisplayPqcQaProcessWhenRouteProcessIsMissing() {
+        ProcessPoolTimelineTestSupport.InMemoryTimelineReadMapper mapper = mapper(
+                event(3001L, "2026-07-30T10:30:00", 2001L, null, 9001L, "PQC_SIMPLIFIED", 30001L)
+                        .setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                        .setProcessCode(null)
+                        .setProcessName(null)
+                        .setQaProcessId(6101L)
+                        .setQaProcessCode("QA-P01")
+                        .setQaProcessName("清洗"));
+
+        PageResult<ProcessPoolTimelineEventRespVO> page = service(mapper).getTimelinePage(pageReq());
+
+        assertEquals("QA-P01", page.getList().get(0).getProcessCode());
+        assertEquals("清洗", page.getList().get(0).getProcessName());
     }
 }

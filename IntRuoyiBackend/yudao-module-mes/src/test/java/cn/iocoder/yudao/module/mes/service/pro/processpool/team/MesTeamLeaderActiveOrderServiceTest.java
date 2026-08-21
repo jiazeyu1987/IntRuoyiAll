@@ -1020,7 +1020,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(pqcInspectionTaskMapper).deleteByActiveOrderId(8101L);
         verify(processSnapshotMapper).deleteByActiveOrderId(8101L);
         verify(releaseApplicationMapper).deleteByActiveOrderId(8101L);
-        verify(processPoolEventMapper).deleteByIds(Set.of(8801L, 8802L, 8803L));
+        verify(processPoolEventMapper).deleteActiveOrderRuntimeEventsByIds(Set.of(8801L, 8802L, 8803L));
         verify(feedbackMapper).deleteByIds(List.of(5501L));
         verify(activeOrderMapper).refreshActiveOrderSnapshot(argThat((MesProcessPoolActiveOrderDO update) ->
                 Objects.equals(8101L, update.getId())
@@ -1432,7 +1432,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldListActiveOrdersWithProductionAndInspectionProgressByFormalProcessCount() {
+    void shouldListActiveOrdersWithProductionProgressByFormalProcessAndInspectionProgressByFixedPqcTasks() {
         List<MesProcessPoolActiveOrderDO> activeOrderRows = List.of(MesProcessPoolActiveOrderDO.builder()
                 .id(8101L)
                 .leaderUserId(3001L)
@@ -1473,7 +1473,7 @@ class MesTeamLeaderActiveOrderServiceTest {
 
         assertEquals(1, activeOrders.size());
         assertEquals(new BigDecimal("10.000000"), activeOrders.get(0).getProductionProgressPercent());
-        assertEquals(new BigDecimal("10.000000"), activeOrders.get(0).getInspectionProgressPercent());
+        assertEquals(new BigDecimal("33.333333"), activeOrders.get(0).getInspectionProgressPercent());
         verify(processSnapshotMapper).selectListByActiveOrderIds(List.of(8101L));
         verify(reportAllocationMapper).selectListByActiveOrderIds(List.of(8101L));
         verify(pqcInspectionTaskMapper).selectListByActiveOrderIds(List.of(8101L));

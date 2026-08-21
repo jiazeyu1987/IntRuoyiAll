@@ -48,11 +48,27 @@ for (const token of [
 }
 
 for (const token of [
+  "const SOURCE_TYPE_PQC_AGGREGATE_DETAIL = 'PQC_AGGREGATE_DETAIL'",
+  "const PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID = 'PQC_AGGREGATE_DETAIL'",
+  "const PQC_AGGREGATE_DETAIL_SOURCE_REPORT_NAME = '一线PQC数据'",
+  'label="一线PQC数据"',
+  ':value="PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID"',
+  'pqcAggregateSourceFields.value = (data.sourceFields || []).filter',
+  'const isPqcAggregateSelected = computed(() => sourceReportId.value === PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID)',
+  'sourceType.value === SOURCE_TYPE_PQC_AGGREGATE_DETAIL',
+  'filteredPqcAggregateSourceFields.value',
+  'buildSourceFieldCells(filteredPqcAggregateSourceFields.value, PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID',
+  'routeProcessId: requestedTargetRouteProcessId'
+]) {
+  assert.ok(page.includes(token), `page misses PQC aggregate mapping token: ${token}`)
+}
+
+for (const token of [
   'data-process-pool-report-source-fields',
   'data-process-pool-report-field-count',
   'const currentProcessPoolReportSourceTitle = computed',
   "`${targetForm.value?.reportName || '当前工序'}的一线生产字段`",
-  'const targetRouteProcessId = targetForm.value?.routeProcessId',
+  'const targetRouteProcessId = activeTargetRouteProcessId.value',
   'return processPoolReportSourceFields.value.filter((field) =>',
   'buildSourceFieldCells(filteredProcessPoolReportSourceFields.value, PROCESS_POOL_REPORT_SOURCE_REPORT_ID,',
   'currentProcessPoolReportSourceTitle.value'
@@ -60,8 +76,21 @@ for (const token of [
   assert.ok(page.includes(token), `process-pool report source panel must refresh by selected target process: ${token}`)
 }
 
+for (const token of [
+  'data-pqc-aggregate-source-fields',
+  'data-pqc-aggregate-field-count',
+  'const currentPqcAggregateSourceTitle = computed',
+  "`${targetForm.value?.reportName || '当前工序'}的一线PQC字段`",
+  'return pqcAggregateSourceFields.value.filter((field) =>',
+  'field.routeProcessId === targetRouteProcessId',
+  'currentPqcAggregateSourceTitle.value'
+]) {
+  assert.ok(page.includes(token), `PQC aggregate source panel must refresh by selected target process: ${token}`)
+}
+
 assert.ok(api.includes('aggregationStrategy?: string'), 'API rule type must carry aggregationStrategy')
 assert.ok(api.includes('routeProcessId?: number'), 'API form/source field types must carry routeProcessId for target-process filtering')
+assert.ok(api.includes('routeProcessId?: number'), 'API context/save params must carry routeProcessId for shared process inspection forms')
 for (const sourceField of [
   'actualEmployeeId',
   'serverSubmitTime',
@@ -127,6 +156,20 @@ for (const token of [
 ]) {
   assert.ok(backendService.includes(token) || backendPickListSourceService.includes(token),
     `backend misses production pick-list source contract: ${token}`)
+}
+
+for (const token of [
+  'SOURCE_TYPE_PQC_AGGREGATE_DETAIL',
+  'PQC_AGGREGATE_DETAIL_SOURCE_REPORT_NAME',
+  'pqcAggregateSourceFields(scope, routeId, requestedRouteProcessId)',
+  'requirePqcAggregateSourceField(scope, reqVO.getRouteId()',
+  'Objects.equals(targetRouteProcessId, field.routeProcessId())',
+  'selectedEquipmentNumber',
+  'dccProjectCode',
+  'inspectedAt',
+  'reviewerUserId'
+]) {
+  assert.ok(backendService.includes(token), `backend misses PQC aggregate source contract: ${token}`)
 }
 
 console.log('batch-record-cell-link process-pool-report static contract passed')

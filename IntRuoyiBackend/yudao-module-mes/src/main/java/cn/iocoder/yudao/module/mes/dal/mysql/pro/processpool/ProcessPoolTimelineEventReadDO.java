@@ -34,6 +34,9 @@ public class ProcessPoolTimelineEventReadDO {
     private Long processId;
     private String processCode;
     private String processName;
+    private Long qaProcessId;
+    private String qaProcessCode;
+    private String qaProcessName;
     private String templateType;
     private String templateTypeName;
     private Long workOrderId;

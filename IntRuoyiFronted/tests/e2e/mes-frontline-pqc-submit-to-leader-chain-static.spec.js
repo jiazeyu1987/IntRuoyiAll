@@ -43,19 +43,21 @@ const handleValidateEnd = panel.indexOf('const closePqcSignatureDialog', handleV
 const handleValidateBlock = panel.slice(handleValidateStart, handleValidateEnd)
 const formalReadyIndex = handleValidateBlock.indexOf('assertPqcFormalSubmissionReady()')
 const quantityReadyIndex = handleValidateBlock.indexOf('assertPqcSignatureAndQuantityReady()')
+const allMethodReadyIndex = handleValidateBlock.indexOf('assertPqcCurrentProcessAllMethodSubmissionReady()')
 const displayFieldsReadyIndex = handleValidateBlock.indexOf('assertPqcInspectionDisplayFieldsReady()')
 const signatureDialogIndex = handleValidateBlock.indexOf('pqcSignatureDialogVisible.value = true')
 const confirmStart = panel.indexOf('const handleConfirmPqcSubmit = async () => {')
 const confirmEnd = panel.indexOf('const assertFormalPayloadContext', confirmStart)
 const confirmBlock = panel.slice(confirmStart, confirmEnd)
 const pqcSubmitIndex = confirmBlock.indexOf('ProFeedbackApi.submitFrontlinePqcInspection')
-const resetIndex = confirmBlock.indexOf('resetPqcSubmissionDraft(submitPayload.pqcTaskId)')
-const successIndex = confirmBlock.indexOf('message.success(`PQC正式提交成功')
+const resetIndex = confirmBlock.indexOf('resetPqcSubmissionDrafts(submitPayloads.map((payload) => payload.pqcTaskId))')
+const successIndex = confirmBlock.indexOf('message.success(')
 const recoverIndex = confirmBlock.indexOf('recoverPqcSubmitReceiptAfterUncertainError')
 assert(
   formalReadyIndex >= 0 &&
     quantityReadyIndex > formalReadyIndex &&
-    displayFieldsReadyIndex > quantityReadyIndex &&
+    allMethodReadyIndex > quantityReadyIndex &&
+    displayFieldsReadyIndex > allMethodReadyIndex &&
     signatureDialogIndex > displayFieldsReadyIndex &&
     pqcSubmitIndex >= 0 &&
     resetIndex > pqcSubmitIndex &&
@@ -98,7 +100,8 @@ assert(
   'PQC 草稿检测结果计算不能调用提交专用逐件数量强断言，避免批量合格填写过程中抛未处理异常。'
 )
 assert(
-  resolvePqcResultBlock.includes('getPqcCurrentChoiceValues'),
+  resolvePqcResultBlock.includes('resolvePqcResultForTask') ||
+    resolvePqcResultBlock.includes('getPqcCurrentChoiceValues'),
   'PQC 草稿检测结果计算应使用当前逐件草稿值，提交前强校验由 assertPqcSubmissionSampleQuantities 负责。'
 )
 
@@ -116,7 +119,7 @@ assert(
   'PQC 提交异常后必须按 pqcTaskId 查询正式回执；已提交则按成功提交复位并进入下一次提交，确认失败才进入不确定锁定态。'
 )
 assert(
-  /:disabled="payloadLoading \|\| pqcSubmitResultUncertain"/.test(panel),
+  /const isPqcSubmitBlocked = computed\(\(\) =>[\s\S]*payloadLoading\.value[\s\S]*pqcSubmitResultUncertain\.value/.test(panel),
   'PQC 提交按钮只在提交中或结果不确定时锁定，明确成功或明确失败后必须可继续提交。'
 )
 

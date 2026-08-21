@@ -693,6 +693,35 @@ class MesProBatchRecordReportJsonBuilderTest {
     }
 
     @Test
+    void build_shouldSplitEquipmentPromptWithColonUnderlineIntoLabelAndInput() {
+        MesProBatchRecordParsedTable source = MesProBatchRecordParsedTable.builder()
+                .sourceTableIndex(19)
+                .tableTitle("过程检验记录")
+                .rowCount(2)
+                .columnCount(1)
+                .rows(List.of(
+                        List.of(sourceBackedCell("检测结果", 1, 1, 120, 28, false, false, true)),
+                        List.of(sourceBackedCell("气密性检测工装：______", 1, 1, 120, 36, false, false, false))
+                ))
+                .build();
+
+        JSONObject root = JSON.parseObject(builder.build(source, REPORT_CODE));
+        int bodyRowIndex = findRenderedRowIndexes(root, row -> renderedRowText(row).contains("气密性检测工装"))
+                .stream()
+                .findFirst()
+                .orElseThrow();
+        JSONObject bodyCells = root.getJSONObject("rows")
+                .getJSONObject(String.valueOf(bodyRowIndex))
+                .getJSONObject("cells");
+
+        JSONObject labelCell = findCellByText(bodyCells, "气密性检测工装：");
+        assertTrue(labelCell.getJSONObject("fillForm") == null,
+                "the prompt label must stay static and not absorb the text input");
+        assertEquals(1, countInputTextFillForms(bodyCells));
+        assertTrue(hasInputTextFillFormWithBlankPlaceholder(bodyCells));
+    }
+
+    @Test
     void build_shouldRenderNarrativePromptBlankAreaAsTextarea() {
         MesProBatchRecordParsedTable source = MesProBatchRecordParsedTable.builder()
                 .sourceTableIndex(18)

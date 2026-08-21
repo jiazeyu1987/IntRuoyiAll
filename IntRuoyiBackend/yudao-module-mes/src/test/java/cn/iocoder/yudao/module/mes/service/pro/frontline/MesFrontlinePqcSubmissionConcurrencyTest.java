@@ -24,7 +24,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
@@ -33,6 +32,7 @@ import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -176,8 +176,8 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     mock(MesQaInspectionRegulationVersionMapper.class);
             MesQaInspectionRegulationMapper regulationMapper = mock(MesQaInspectionRegulationMapper.class);
             MesQaInspectionRegulationItemMapper itemMapper = mock(MesQaInspectionRegulationItemMapper.class);
-            MesQaInspectionRegulationItemEquipmentMapper equipmentMapper =
-                    mock(MesQaInspectionRegulationItemEquipmentMapper.class);
+            MesPqcItemEquipmentConfigService pqcItemEquipmentConfigService =
+                    mock(MesPqcItemEquipmentConfigService.class);
             DccProjectCodeMapper dccMapper = mock(DccProjectCodeMapper.class);
             MesProBatchRecordExecutionSignatureService signatureService =
                     mock(MesProBatchRecordExecutionSignatureService.class);
@@ -229,13 +229,13 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
             when(dccMapper.selectById(DCC_PROJECT_ID)).thenReturn(
                     DccProjectCodeDO.builder().id(DCC_PROJECT_ID).build());
             when(itemMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of(publishedItem()));
-            when(equipmentMapper.selectListByVersionId(REGULATION_VERSION_ID)).thenReturn(List.of());
+            when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByItemCodes(any())).thenReturn(Map.of());
 
             service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, eventMapper,
                     mock(MesProcessPoolActiveOrderProcessSnapshotMapper.class),
                     mock(MesProWorkOrderMapper.class), mock(MesProRouteMapper.class),
                     mock(MesProRouteVersionMapper.class), dccMapper, regulationMapper, versionMapper,
-                    processMapper, itemMapper, equipmentMapper, mock(MesQaInspectionRegulationService.class),
+                    processMapper, itemMapper, pqcItemEquipmentConfigService, mock(MesQaInspectionRegulationService.class),
                     taskMapper, pieceDetailMapper, mock(MesMdItemService.class), scopeMapper, adminUserApi,
                     eventService, recordMapper, signatureService);
         }

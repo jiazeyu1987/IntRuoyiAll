@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool;
 
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
@@ -118,8 +119,8 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setRouteCode(event.getRouteCode())
                 .setRouteProcessId(event.getRouteProcessId())
                 .setProcessId(event.getProcessId())
-                .setProcessCode(event.getProcessCode())
-                .setProcessName(event.getProcessName())
+                .setProcessCode(resolveDisplayProcessCode(event))
+                .setProcessName(resolveDisplayProcessName(event))
                 .setTemplateType(event.getTemplateType())
                 .setTemplateTypeName(event.getTemplateTypeName())
                 .setWorkOrderId(event.getWorkOrderId())
@@ -240,6 +241,32 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
 
     private static <T> T convertValue(Object value, TypeReference<T> typeReference) {
         return value == null ? null : JsonUtils.getObjectMapper().convertValue(value, typeReference);
+    }
+
+    private static String resolveDisplayProcessCode(ProcessPoolTimelineEventReadDO event) {
+        if (event == null) {
+            return null;
+        }
+        if (StrUtil.isNotBlank(event.getProcessCode())) {
+            return event.getProcessCode();
+        }
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            return event.getQaProcessCode();
+        }
+        return event.getProcessCode();
+    }
+
+    private static String resolveDisplayProcessName(ProcessPoolTimelineEventReadDO event) {
+        if (event == null) {
+            return null;
+        }
+        if (StrUtil.isNotBlank(event.getProcessName())) {
+            return event.getProcessName();
+        }
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            return event.getQaProcessName();
+        }
+        return event.getProcessName();
     }
 
 }

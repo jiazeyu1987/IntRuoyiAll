@@ -1,5 +1,9 @@
 package cn.iocoder.yudao.module.dcc;
 
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import org.junit.jupiter.api.Test;
 import org.xml.sax.InputSource;
 
@@ -36,6 +40,22 @@ class DccMapperXmlValidityTest {
                 builder.parse(new InputSource(reader));
             } catch (Exception ex) {
                 fail("MyBatis mapper XML must be well-formed: " + mapperFile, ex);
+            }
+        }
+    }
+
+    @Test
+    void mapperAnnotationSqlIsParsableDuringMyBatisStartup() {
+        List<Class<?>> mapperTypes = List.of(
+                DccProjectCodeMapper.class,
+                DccProjectCodeAssignmentFileMapper.class,
+                DccControlledFileMapper.class);
+
+        for (Class<?> mapperType : mapperTypes) {
+            try {
+                new MybatisConfiguration().addMapper(mapperType);
+            } catch (RuntimeException ex) {
+                fail("MyBatis mapper annotation SQL must be parseable during startup: " + mapperType.getName(), ex);
             }
         }
     }

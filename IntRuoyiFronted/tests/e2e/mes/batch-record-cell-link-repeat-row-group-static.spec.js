@@ -20,7 +20,7 @@ for (const token of [
   'repeatAreaStartRowIndex',
   'recordSequence',
   'projectionTargetCellKey',
-  'routeProcessId: targetForm.value?.routeProcessId'
+  'routeProcessId: activeTargetRouteProcessId.value'
 ]) {
   assert.ok(page.includes(token) || api.includes(token), 'repeat-row group contract missing token: ' + token)
 }

@@ -57,9 +57,18 @@ public class MesProDccProjectGovernanceServiceImpl implements MesProDccProjectGo
 
     @Override
     public List<MesProDccProjectGovernanceStatus> getStatus(List<String> projectNames) {
+        return getStatus(projectNames, true, true, true);
+    }
+
+    @Override
+    public List<MesProDccProjectGovernanceStatus> getStatus(List<String> projectNames,
+                                                            boolean routeStatusRequired,
+                                                            boolean mainBatchRecordStatusRequired,
+                                                            boolean formSlotStatusRequired) {
         List<String> normalizedProjectNames = normalizeProjectNames(projectNames);
         return normalizedProjectNames.stream()
-                .map(this::buildStatus)
+                .map(projectName -> buildStatus(projectName, routeStatusRequired, mainBatchRecordStatusRequired,
+                        formSlotStatusRequired))
                 .toList();
     }
 
@@ -74,23 +83,38 @@ public class MesProDccProjectGovernanceServiceImpl implements MesProDccProjectGo
                 .toList();
     }
 
-    private MesProDccProjectGovernanceStatus buildStatus(String projectName) {
+    private MesProDccProjectGovernanceStatus buildStatus(String projectName,
+                                                         boolean routeStatusRequired,
+                                                         boolean mainBatchRecordStatusRequired,
+                                                         boolean formSlotStatusRequired) {
         List<String> blockers = new ArrayList<>();
-        List<DccProjectCodeDO> projectCodes = dccProjectCodeMapper.selectEnabledListByProjectName(projectName);
-        List<MesProRouteDO> routes = resolveRoutes(projectCodes);
-        List<MesProBatchRecordDefinitionDO> definitions = definitionMapper.selectListByBatchRecordName(projectName);
-        SlotStatus mainBatchRecord = resolveMainBatchRecordStatus(definitions);
-        SlotStatus lossReport = resolveFormSlotStatus(projectName, MesProBatchRecordFormSlotType.LOSS_REPORT);
-        SlotStatus processInspection = resolveFormSlotStatus(projectName, MesProBatchRecordFormSlotType.PROCESS_INSPECTION);
-        SlotStatus parameterRecord = resolveFormSlotStatus(projectName, MesProBatchRecordFormSlotType.PARAMETER_RECORD);
+        List<DccProjectCodeDO> projectCodes = routeStatusRequired
+                ? dccProjectCodeMapper.selectEnabledListByProjectName(projectName) : List.of();
+        List<MesProRouteDO> routes = routeStatusRequired ? resolveRoutes(projectCodes) : List.of();
+        List<MesProBatchRecordDefinitionDO> definitions = mainBatchRecordStatusRequired
+                ? definitionMapper.selectListByBatchRecordName(projectName) : List.of();
+        SlotStatus mainBatchRecord = mainBatchRecordStatusRequired
+                ? resolveMainBatchRecordStatus(definitions) : emptySlotStatus();
+        SlotStatus lossReport = formSlotStatusRequired
+                ? resolveFormSlotStatus(projectName, MesProBatchRecordFormSlotType.LOSS_REPORT) : emptySlotStatus();
+        SlotStatus processInspection = formSlotStatusRequired
+                ? resolveFormSlotStatus(projectName, MesProBatchRecordFormSlotType.PROCESS_INSPECTION) : emptySlotStatus();
+        SlotStatus parameterRecord = formSlotStatusRequired
+                ? resolveFormSlotStatus(projectName, MesProBatchRecordFormSlotType.PARAMETER_RECORD) : emptySlotStatus();
 
         String routeStatus = statusByCount(routes.size());
         List<String> routeVersionNos = resolveRouteVersionNos(routes);
-        appendBlocker(blockers, "工艺路线", routeStatus, routes.size(), routes.stream().map(this::formatRouteCode).toList());
-        appendBlocker(blockers, "主批记录", mainBatchRecord.status(), mainBatchRecord.count(), mainBatchRecord.identifiers());
-        appendBlocker(blockers, "损耗单", lossReport.status(), lossReport.count(), lossReport.identifiers());
-        appendBlocker(blockers, "过程检验单", processInspection.status(), processInspection.count(), processInspection.identifiers());
-        appendBlocker(blockers, "参数记录表", parameterRecord.status(), parameterRecord.count(), parameterRecord.identifiers());
+        if (routeStatusRequired) {
+            appendBlocker(blockers, "工艺路线", routeStatus, routes.size(), routes.stream().map(this::formatRouteCode).toList());
+        }
+        if (mainBatchRecordStatusRequired) {
+            appendBlocker(blockers, "主批记录", mainBatchRecord.status(), mainBatchRecord.count(), mainBatchRecord.identifiers());
+        }
+        if (formSlotStatusRequired) {
+            appendBlocker(blockers, "损耗单", lossReport.status(), lossReport.count(), lossReport.identifiers());
+            appendBlocker(blockers, "过程检验单", processInspection.status(), processInspection.count(), processInspection.identifiers());
+            appendBlocker(blockers, "参数记录表", parameterRecord.status(), parameterRecord.count(), parameterRecord.identifiers());
+        }
 
         return MesProDccProjectGovernanceStatus.builder()
                 .projectName(projectName)
@@ -116,6 +140,10 @@ public class MesProDccProjectGovernanceServiceImpl implements MesProDccProjectGo
                 .parameterRecordVersionNos(parameterRecord.versionNos())
                 .blockerMessages(blockers)
                 .build();
+    }
+
+    private SlotStatus emptySlotStatus() {
+        return new SlotStatus(STATUS_MISSING, 0L, List.of(), List.of());
     }
 
     private List<MesProRouteDO> resolveRoutes(List<DccProjectCodeDO> projectCodes) {

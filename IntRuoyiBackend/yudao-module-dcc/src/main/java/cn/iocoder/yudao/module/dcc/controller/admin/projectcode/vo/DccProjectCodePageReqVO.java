@@ -30,6 +30,15 @@ public class DccProjectCodePageReqVO extends PageParam {
     @Schema(description = "状态")
     private String status;
 
+    @Schema(description = "工艺路线是否已配置")
+    private Boolean routeConfigured;
+
+    @Schema(description = "主批记录是否已配置")
+    private Boolean mainBatchRecordConfigured;
+
+    @Schema(description = "QA 规程是否已配置")
+    private Boolean qaRegulationConfigured;
+
     @Schema(description = "关联文件数排序，asc 或 desc")
     private String fileCountSort;
 }

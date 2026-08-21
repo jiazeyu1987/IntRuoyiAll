@@ -24,6 +24,8 @@ public class MesProBatchRecordCellLinkRuleDO extends BaseDO {
 
     private Long routeId;
 
+    private Long routeProcessId;
+
     private Long batchRecordDefinitionId;
 
     private Long batchRecordVersionId;

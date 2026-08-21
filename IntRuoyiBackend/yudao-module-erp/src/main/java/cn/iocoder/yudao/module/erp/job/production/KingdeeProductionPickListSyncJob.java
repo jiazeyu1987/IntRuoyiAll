@@ -31,6 +31,7 @@ public class KingdeeProductionPickListSyncJob implements JobHandler {
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
                 .syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_PICK_LIST)
                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.AUTO)
+                .initialWindowStart(windowEnd.toLocalDate().minusMonths(6).atStartOfDay())
                 .windowEnd(windowEnd)
                 .build(), context -> {
             ErpKingdeeProductionPickListSyncResult result =

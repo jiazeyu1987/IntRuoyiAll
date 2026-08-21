@@ -61,7 +61,7 @@ public interface DccProjectCodeAssignmentFileMapper extends BaseMapperX<DccProje
               AND assignment.deleted = 0
               AND assignment.assignee_user_id = #{assigneeUserId}
               AND assignment.status = 'ACTIVE'
-              AND (assignment.expire_time IS NULL OR assignment.expire_time > #{now})
+              AND (assignment.expire_time IS NULL OR assignment.expire_time &gt; #{now})
               AND assignment_file.master_id IS NOT NULL
             ORDER BY latest_file.id
             """)
@@ -89,7 +89,7 @@ public interface DccProjectCodeAssignmentFileMapper extends BaseMapperX<DccProje
               AND assignment.deleted = 0
               AND assignment.assignee_user_id = #{assigneeUserId}
               AND assignment.status = 'ACTIVE'
-              AND (assignment.expire_time IS NULL OR assignment.expire_time > #{now})
+              AND (assignment.expire_time IS NULL OR assignment.expire_time &gt; #{now})
               AND latest_file.directory_id IS NOT NULL
             ORDER BY latest_file.directory_id
             """)

@@ -190,6 +190,17 @@ assert.match(
   '产品目录查询必须通过标准列表快速过滤重置页码并刷新列表'
 )
 
+assert.match(
+  productCatalogPanelSource,
+  /<UnifiedListTemplate[\s\S]*class="dcc-product-catalog-list-template"[\s\S]*single-line-toolbar/,
+  '产品目录顶部筛选条件区和右侧操作按钮必须启用统一列表单行工具栏'
+)
+assert.match(
+  productCatalogPanelSource,
+  /dcc-product-catalog-list-template\.unified-list-template--single-line-toolbar[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto[\s\S]*dcc-product-catalog-list-template\.unified-list-template--single-line-toolbar[\s\S]*\.unified-list-template__multi-filter[\s\S]*min-width:\s*0/,
+  '产品目录单行工具栏必须把筛选主列设置为可收缩，避免右侧按钮换行或被裁切'
+)
+
 for (const removedToken of [
   'handleCompareRegistrationExpiry',
   'compareRegistrationExpiry',

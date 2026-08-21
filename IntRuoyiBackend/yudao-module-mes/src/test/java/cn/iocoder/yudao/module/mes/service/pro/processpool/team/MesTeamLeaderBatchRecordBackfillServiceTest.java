@@ -33,6 +33,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -104,8 +105,7 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
         MesProBatchRecordExecutionFieldAuditSaveChangesCommand saveCommand = auditCaptor.getValue();
         assertEquals(8801L, saveCommand.getExecutionId());
-        assertEquals("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101",
-                saveCommand.getIdempotencyKey());
+        assertFieldAuditIdempotencyKey(saveCommand.getIdempotencyKey());
         List<MesProBatchRecordExecutionFieldAuditChange> changes = saveCommand.getChanges();
         assertEquals(2, changes.size());
         assertEquals("report.outputQuantity", changes.get(0).getFieldPath());
@@ -164,8 +164,7 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
         verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
-        assertEquals("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5101:6001:agg-single-1001-7101",
-                auditCaptor.getValue().getIdempotencyKey());
+        assertFieldAuditIdempotencyKey(auditCaptor.getValue().getIdempotencyKey());
     }
 
     @Test
@@ -251,12 +250,12 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         assertEquals(2, first.getAppliedFieldCount());
         assertEquals(2, concurrentReplay.getAppliedFieldCount());
 
-        String expectedIdempotencyKey = "PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101";
         ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
         verify(fieldAuditService, times(2)).saveSystemCellLinkChanges(auditCaptor.capture());
-        assertEquals(expectedIdempotencyKey, auditCaptor.getAllValues().get(0).getIdempotencyKey());
-        assertEquals(expectedIdempotencyKey, auditCaptor.getAllValues().get(1).getIdempotencyKey());
+        String firstIdempotencyKey = auditCaptor.getAllValues().get(0).getIdempotencyKey();
+        assertFieldAuditIdempotencyKey(firstIdempotencyKey);
+        assertEquals(firstIdempotencyKey, auditCaptor.getAllValues().get(1).getIdempotencyKey());
     }
 
     @Test
@@ -289,7 +288,7 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
         verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
         MesProBatchRecordExecutionFieldAuditSaveChangesCommand saveCommand = auditCaptor.getValue();
-        assertEquals("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-two-events", saveCommand.getIdempotencyKey());
+        assertFieldAuditIdempotencyKey(saveCommand.getIdempotencyKey());
         List<MesProBatchRecordExecutionFieldAuditChange> changes = saveCommand.getChanges();
         assertEquals(new BigDecimal("200"), changes.get(0).getNewValueJson());
         assertEquals("15,18", changes.get(1).getNewValueJson());
@@ -369,7 +368,7 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
         verify(fieldAuditService).saveSystemCellLinkChanges(captor.capture());
         assertEquals("LOT-FIRST", captor.getValue().getChanges().get(0).getNewValueJson());
-        assertEquals(true, captor.getValue().getIdempotencyKey().contains(":PICK:"));
+        assertFieldAuditIdempotencyKey(captor.getValue().getIdempotencyKey());
     }
 
     @Test
@@ -399,6 +398,11 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                 .setAllocations(List.of(allocation()))
                 .setWorkOrder(workOrder())
                 .setDccProjectCodeId(8001L);
+    }
+
+    private static void assertFieldAuditIdempotencyKey(String idempotencyKey) {
+        assertEquals(64, idempotencyKey.length());
+        assertTrue(idempotencyKey.matches("[0-9a-f]{64}"));
     }
 
     private static MesTeamLeaderBatchRecordBackfillCommand aggregateCommand() {

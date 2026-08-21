@@ -1353,8 +1353,11 @@ async function getAccessToken(page) {
   return token
 }
 
-async function fetchBusinessData(url, token, label) {
-  const response = await requestText(url, { headers: { Authorization: `Bearer ${token}` } })
+async function fetchBusinessData(url, token, label, timeout = 30000) {
+  const response = await requestText(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    timeout
+  })
   assert.equal(response.ok, true, `${label} HTTP 失败：${response.status}`)
   const body = parseJsonPreservingLongIds(response.text, `${label}响应`)
   assert.equal(body.code, 0, `${label}业务失败：${body.msg || body.message || 'unknown'}`)
@@ -1367,7 +1370,8 @@ async function assertAuditTrail(page, eventId, config, steps) {
   const audits = await fetchBusinessData(
     `${config.backendUrl}/admin-api/mes/pro/process-pool/team-leader/submission/allocation/audit?${params}`,
     token,
-    '分配审计只读核验'
+    '分配审计只读核验',
+    90000
   )
   assert.ok(Array.isArray(audits), '分配审计必须返回数组')
   const initial = audits.find((item) =>

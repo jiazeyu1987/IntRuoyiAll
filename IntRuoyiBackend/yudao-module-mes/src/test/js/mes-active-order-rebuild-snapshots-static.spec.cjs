@@ -8,6 +8,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8')
 const service = read('src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderServiceImpl.java')
 const serviceApi = read('src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderService.java')
 const controller = read('src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/team/MesProcessPoolTeamLeaderController.java')
+const processPoolEventMapper = read('src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/MesProProcessPoolEventMapper.java')
 
 assert.match(serviceApi, /previewRebuildActiveOrder\s*\(/, 'service API must expose rebuild preview')
 assert.match(serviceApi, /rebuildActiveOrder\s*\(/, 'service API must expose confirmed rebuild')
@@ -49,11 +50,17 @@ for (const required of [
   'pqcInspectionTaskMapper.deleteByActiveOrderId',
   'processSnapshotMapper.deleteByActiveOrderId',
   'releaseApplicationMapper.deleteByActiveOrderId',
-  'processPoolEventMapper.deleteByIds',
+  'processPoolEventMapper.deleteActiveOrderRuntimeEventsByIds',
   'feedbackMapper.deleteByIds'
 ]) {
   assert.match(cleanup, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${required} must be part of active-order rebuild cleanup`)
 }
+assert.doesNotMatch(cleanup, /processPoolEventMapper\.deleteByIds/,
+  'active-order rebuild must not soft-delete events because the idempotency unique key includes deleted=1')
+assert.match(processPoolEventMapper, /deleteActiveOrderRuntimeEventsByIds/,
+  'event mapper must expose a rebuild-specific physical delete for already-owned runtime events')
+assert.match(processPoolEventMapper, /DELETE FROM mes_pro_process_pool_event WHERE id IN/,
+  'event mapper physical delete must target only explicit event ids')
 
 const eventResolution = service.slice(
   service.indexOf('private Set<Long> resolveActiveOrderRuntimeEventIds'),

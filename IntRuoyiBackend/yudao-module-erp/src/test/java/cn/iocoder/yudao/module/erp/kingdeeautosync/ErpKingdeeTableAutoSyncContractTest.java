@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,6 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ErpKingdeeTableAutoSyncContractTest {
 
     private static final Path ERP_MAIN = Path.of("src/main/java/cn/iocoder/yudao/module/erp");
+    private static final Path MES_MAIN = Path.of("../yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes");
+    private static final Pattern DIRECT_PROPERTIES_FIELD = Pattern.compile(
+            "private\\s+(?:final\\s+)?ErpKingdeeProperties\\s+\\w+\\s*;");
 
     @Test
     void controller_mustExposeProfileConfigPermissionBoundApis() throws IOException {
@@ -45,7 +50,8 @@ class ErpKingdeeTableAutoSyncContractTest {
                 "runOnce()",
                 "getRunPage(",
                 "getWatermarks()",
-                "executeAutoForCurrentTenant()"
+                "executeAutoForCurrentTenant()",
+                "runFullSync("
         }) {
             assertContains(service, token);
         }
@@ -104,6 +110,30 @@ class ErpKingdeeTableAutoSyncContractTest {
     }
 
     @Test
+    void officialSyncEntrypoints_mustResolveCurrentActiveConnection() throws IOException {
+        for (Path sourcePath : officialSyncServiceEntrypoints()) {
+            String source = read(sourcePath);
+            assertContains(source, "ErpKingdeeConfigService");
+            assertContains(source, "getEffectiveProperties()");
+        }
+
+        String configSource = read(ERP_MAIN.resolve("service/config/ErpKingdeeConfigServiceImpl.java"));
+        assertContains(configSource, "resolveActiveConnectionType()");
+        assertContains(configSource, "KINGDEE_ACTIVE_CONNECTION_CONFIG_MISSING");
+    }
+
+    @Test
+    void businessSyncServices_mustNotHoldDefaultKingdeePropertiesDirectly() throws IOException {
+        for (Path sourcePath : officialSyncServiceEntrypoints()) {
+            String source = read(sourcePath);
+            assertFalse(DIRECT_PROPERTIES_FIELD.matcher(source).find(),
+                    sourcePath + " must use ErpKingdeeConfigService.getEffectiveProperties(), not a direct properties field.");
+            assertFalse(source.contains("defaultKingdeeProperties"),
+                    sourcePath + " must not own the default Kingdee properties bean.");
+        }
+    }
+
+    @Test
     void jobHandler_mustExecuteCurrentTenantPlanUnderTenantJob() throws IOException {
         String source = read(ERP_MAIN.resolve("job/kingdeeautosync/ErpKingdeeTableAutoSyncJob.java"));
 
@@ -111,7 +141,27 @@ class ErpKingdeeTableAutoSyncContractTest {
         assertContains(source, "implements JobHandler");
         assertContains(source, "@TenantJob");
         assertContains(source, "execute(String param)");
-        assertContains(source, "executeAutoForCurrentTenant()");
+        assertContains(source, "executeAutoForCurrentTenant()",
+                "runFullSync(");
+    }
+
+    private static List<Path> officialSyncServiceEntrypoints() {
+        return List.of(
+                ERP_MAIN.resolve("service/product/sync/ErpKingdeeProductSyncServiceImpl.java"),
+                ERP_MAIN.resolve("service/purchase/sync/ErpKingdeePurchaseOrderSyncServiceImpl.java"),
+                ERP_MAIN.resolve("service/sale/sync/ErpKingdeeSaleOrderSyncServiceImpl.java"),
+                ERP_MAIN.resolve("service/stock/sync/ErpKingdeeStockSyncServiceImpl.java"),
+                ERP_MAIN.resolve("service/stock/kingdee/ErpKingdeeInventoryListServiceImpl.java"),
+                ERP_MAIN.resolve("service/stock/kingdee/ErpKingdeeStockMoveListServiceImpl.java"),
+                ERP_MAIN.resolve("service/production/kingdee/ErpKingdeeProductionPickListServiceImpl.java"),
+                ERP_MAIN.resolve("service/sync/admin/ErpKingdeeProductionOrderCreateServiceImpl.java"),
+                MES_MAIN.resolve("service/md/item/sync/MesKingdeeProductBomSyncServiceImpl.java"),
+                MES_MAIN.resolve("service/md/item/kingdee/MesKingdeeBomListServiceImpl.java"),
+                MES_MAIN.resolve("service/pro/workorder/sync/MesKingdeeProductionOrderSyncServiceImpl.java"),
+                MES_MAIN.resolve("service/pro/workorder/sync/MesKingdeeProductionMaterialListSyncServiceImpl.java"),
+                MES_MAIN.resolve("service/pro/workorder/sync/MesKingdeeWorkOrderBomSyncServiceImpl.java"),
+                MES_MAIN.resolve("service/pro/workorder/sync/MesKingdeeProductionOrderCreateServiceImpl.java")
+        );
     }
 
     private static String read(Path path) throws IOException {

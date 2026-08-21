@@ -6,6 +6,7 @@ export interface DccProductCatalogPageReqVO extends PageParam {
   categoryLevel2?: string
   productStatus?: string
   dataSource?: string
+  projectCodeNotBlank?: boolean
   sortField?: string
   sortOrder?: 'asc' | 'desc'
 }

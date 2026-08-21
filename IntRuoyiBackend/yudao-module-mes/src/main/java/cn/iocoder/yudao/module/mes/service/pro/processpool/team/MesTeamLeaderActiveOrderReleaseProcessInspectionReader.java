@@ -7,7 +7,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import lombok.Data;
@@ -45,8 +44,6 @@ public interface MesTeamLeaderActiveOrderReleaseProcessInspectionReader {
         private MesQaInspectionRegulationVersionDO regulationVersion;
 
         private List<MesQaInspectionRegulationItemDO> regulationItems;
-
-        private List<MesQaInspectionRegulationItemEquipmentDO> regulationItemEquipment;
 
         private DccProjectCodeDO dccProject;
 

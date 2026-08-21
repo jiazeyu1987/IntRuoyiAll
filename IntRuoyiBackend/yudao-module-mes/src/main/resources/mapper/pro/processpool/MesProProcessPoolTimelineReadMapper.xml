@@ -10,7 +10,7 @@
         pool_event.device_account_id AS loginUserId,
         NULL AS loginUserName,
         pool_event.actual_employee_id AS actualEmployeeUserId,
-        actual_employee.nickname AS actualEmployeeUserName,
+        COALESCE(NULLIF(actual_employee.nickname, ''), NULLIF(actual_employee_profile_by_user.display_name, ''), NULLIF(actual_employee_profile_by_user.employee_name, ''), NULLIF(actual_employee_profile_by_id.display_name, ''), NULLIF(actual_employee_profile_by_id.employee_name, ''), NULLIF(actual_employee.username, '')) AS actualEmployeeUserName,
         pool_event.signature_user_id AS signatureEmployeeUserId,
         NULL AS signatureEmployeeUserName,
         pool_event.signature_id AS electronicSignatureId,
@@ -26,6 +26,9 @@
         pool_event.process_id AS processId,
         process.code AS processCode,
         process.name AS processName,
+        pool_event.qa_process_id AS qaProcessId,
+        qa_process.process_code AS qaProcessCode,
+        qa_process.process_name AS qaProcessName,
         pool_event.template_type AS templateType,
         pool_event.template_type AS templateTypeName,
         pool_event.work_order_id AS workOrderId,
@@ -198,11 +201,37 @@
           ON actual_employee.id = pool_event.actual_employee_id
          AND actual_employee.tenant_id = pool_event.tenant_id
          AND actual_employee.deleted = 0
+        LEFT JOIN mes_pro_process_pool_team_employee_profile actual_employee_profile_by_id
+          ON actual_employee_profile_by_id.id = pool_event.actual_employee_id
+         AND actual_employee_profile_by_id.tenant_id = pool_event.tenant_id
+         AND actual_employee_profile_by_id.deleted = 0
+        LEFT JOIN (
+            SELECT tenant_id,
+                   system_user_id,
+                   display_name,
+                   employee_name
+            FROM (
+                SELECT profile.tenant_id,
+                       profile.system_user_id,
+                       profile.display_name,
+                       profile.employee_name,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY profile.tenant_id, profile.system_user_id
+                           ORDER BY profile.enabled DESC, profile.update_time DESC, profile.id DESC
+                       ) AS row_rank
+                FROM mes_pro_process_pool_team_employee_profile profile
+                WHERE profile.deleted = 0
+                  AND profile.system_user_id IS NOT NULL
+            ) ranked_profile
+            WHERE ranked_profile.row_rank = 1
+        ) actual_employee_profile_by_user
+          ON actual_employee_profile_by_user.tenant_id = pool_event.tenant_id
+         AND actual_employee_profile_by_user.system_user_id = pool_event.actual_employee_id
         LEFT JOIN mes_pqc_inspection_task pqc_task
           ON pqc_task.tenant_id = pool_event.tenant_id
          AND pqc_task.deleted = 0
          AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
-         AND pqc_task.id = pool_event.feedback_source_id
+         AND pqc_task.id = pool_event.pqc_task_id
     </sql>
 
     <sql id="LatestSubmissionReviewJoin">
@@ -258,7 +287,7 @@
               ON pqc_task.tenant_id = pool_event.tenant_id
              AND pqc_task.deleted = 0
              AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
-             AND pqc_task.id = pool_event.feedback_source_id
+             AND pqc_task.id = pool_event.pqc_task_id
         </if>
         <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView != null">
             <include refid="LatestSubmissionReviewJoin"/>
@@ -279,6 +308,10 @@
           ON process.id = pool_event.process_id
          AND process.tenant_id = pool_event.tenant_id
          AND process.deleted = 0
+        LEFT JOIN mes_qa_inspection_regulation_process qa_process
+          ON qa_process.id = pool_event.qa_process_id
+         AND qa_process.tenant_id = pool_event.tenant_id
+         AND qa_process.deleted = 0
         LEFT JOIN mes_md_workstation workstation
           ON workstation.id = pool_event.workstation_id
          AND workstation.tenant_id = pool_event.tenant_id
@@ -337,6 +370,10 @@
           ON process.id = pool_event.process_id
          AND process.tenant_id = pool_event.tenant_id
          AND process.deleted = 0
+        LEFT JOIN mes_qa_inspection_regulation_process qa_process
+          ON qa_process.id = pool_event.qa_process_id
+         AND qa_process.tenant_id = pool_event.tenant_id
+         AND qa_process.deleted = 0
         LEFT JOIN mes_md_workstation workstation
           ON workstation.id = pool_event.workstation_id
          AND workstation.tenant_id = pool_event.tenant_id

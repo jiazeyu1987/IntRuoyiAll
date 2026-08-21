@@ -19,11 +19,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -92,6 +94,29 @@ class ErpKingdeeProductionPickListServiceImplTest {
         assertEquals("MAT001", itemCaptor.getValue().getMaterialNumber());
         assertEquals(new BigDecimal("6"), itemCaptor.getValue().getActualQuantity());
         assertEquals(1L, itemCaptor.getValue().getTenantId());
+    }
+
+    @Test
+    void syncModifiedBetween_fetchesWindowRowsWithoutInitialFullFallback() {
+        ErpKingdeeProductionPickList pickList = buildPickList();
+        LocalDateTime windowStart = LocalDateTime.of(2026, 2, 21, 0, 0);
+        LocalDateTime windowEnd = LocalDateTime.of(2026, 8, 21, 10, 0);
+        when(kingdeeConfigService.getEffectiveProperties()).thenReturn(properties);
+        when(productionPickListClient.fetchProductionPickListsModifiedBetween(properties, windowStart, windowEnd))
+                .thenReturn(List.of(pickList));
+        when(productionPickListMapper.selectBySource("PRD_PickMtrl", "1001"))
+                .thenReturn(null);
+        doAnswer(invocation -> {
+            ErpKingdeeProductionPickListDO record = invocation.getArgument(0);
+            record.setId(502L);
+            return 1;
+        }).when(productionPickListMapper).insert(any(ErpKingdeeProductionPickListDO.class));
+
+        ErpKingdeeProductionPickListSyncResult result = service.syncModifiedBetween(windowStart, windowEnd);
+
+        assertEquals(1, result.getCreatedCount());
+        verify(productionPickListClient, never()).fetchProductionPickLists(properties);
+        verify(productionPickListClient).fetchProductionPickListsModifiedBetween(properties, windowStart, windowEnd);
     }
 
     private static ErpKingdeeProductionPickList buildPickList() {

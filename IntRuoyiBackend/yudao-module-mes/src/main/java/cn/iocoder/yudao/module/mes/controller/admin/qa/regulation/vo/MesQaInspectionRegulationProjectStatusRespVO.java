@@ -49,6 +49,9 @@ public class MesQaInspectionRegulationProjectStatusRespVO {
     @Schema(description = "生产入口当前发布版本 ID")
     private Long publishedVersionId;
 
+    @Schema(description = "生产入口当前发布版本号")
+    private String publishedVersionNo;
+
     @Schema(description = "当前是否有可用于生产的正式发布版本")
     private Boolean productionReady;
 }

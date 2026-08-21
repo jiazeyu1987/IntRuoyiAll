@@ -27,6 +27,9 @@ public class DccProductCatalogPageReqVO extends PageParam {
     @Schema(description = "数据来源")
     private String dataSource;
 
+    @Schema(description = "项目代码不为空")
+    private Boolean projectCodeNotBlank;
+
     @Schema(description = "排序字段，仅支持 projectName / projectCode")
     private String sortField;
 

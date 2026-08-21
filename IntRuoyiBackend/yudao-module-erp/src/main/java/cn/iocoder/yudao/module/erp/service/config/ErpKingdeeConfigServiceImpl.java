@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_ACTIVE_CONNECTION_CONFIG_MISSING;
 import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_CONNECTION_CONFIG_INVALID;
 import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_CONNECTION_CONFIG_MISSING;
 import static cn.iocoder.yudao.module.erp.enums.ErrorCodeConstants.KINGDEE_EXTERNAL_WRITE_DISABLED;
@@ -130,8 +131,7 @@ public class ErpKingdeeConfigServiceImpl implements ErpKingdeeConfigService {
     private ErpKingdeeConnectionTypeEnum resolveActiveConnectionType() {
         ConfigDO config = configService.getConfigByKey(ACTIVE_CONNECTION_CONFIG_KEY);
         if (config == null || StrUtil.isBlank(config.getValue())) {
-            // Existing installations used only the test connection, so the unsaved migration state is explicitly TEST.
-            return ErpKingdeeConnectionTypeEnum.TEST;
+            throw exception(KINGDEE_ACTIVE_CONNECTION_CONFIG_MISSING);
         }
         return ErpKingdeeConnectionTypeEnum.requiredOf(StrUtil.trim(config.getValue()));
     }

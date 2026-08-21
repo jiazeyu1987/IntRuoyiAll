@@ -63,7 +63,8 @@ class ErpKingdeeConfigServiceImplTest {
     @Test
     void getConfig_returnsRuntimeDefaultsWhenNoSavedConfigExists() {
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
-                .thenReturn(null);
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
+                        ErpKingdeeConnectionTypeEnum.TEST.getType()));
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
 
         ErpKingdeeConfigRespVO config = kingdeeConfigService.getConfig();
@@ -80,7 +81,8 @@ class ErpKingdeeConfigServiceImplTest {
     @Test
     void getConfig_preservesChineseUsername() {
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
-                .thenReturn(null);
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
+                        ErpKingdeeConnectionTypeEnum.TEST.getType()));
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
 
         ErpKingdeeConfigRespVO config = kingdeeConfigService.getConfig();
@@ -91,7 +93,8 @@ class ErpKingdeeConfigServiceImplTest {
     @Test
     void saveConfig_createsDedicatedInfraConfigWhenMissing() {
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
-                .thenReturn(null);
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
+                        ErpKingdeeConnectionTypeEnum.TEST.getType()));
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(null);
         ErpKingdeeConfigSaveReqVO saveReqVO = buildSaveReqVO();
 
@@ -112,7 +115,8 @@ class ErpKingdeeConfigServiceImplTest {
         configDO.setConfigKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY);
         configDO.setValue("{\"baseUrl\":\"http://custom/K3Cloud\",\"acctId\":\"acct-new\",\"username\":\"sync-user\",\"password\":\"sync-pass\",\"lcid\":2052,\"product\":{\"queryLimit\":9000},\"bom\":{\"queryLimit\":800},\"productionOrder\":{\"queryLimit\":1500},\"purchaseOrder\":{\"purchaseOrgNumber\":\"990\",\"queryDays\":30,\"queryLimit\":1500},\"saleOrder\":{\"queryDays\":45,\"queryLimit\":1800}}");
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
-                .thenReturn(null);
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY,
+                        ErpKingdeeConnectionTypeEnum.TEST.getType()));
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.CONFIG_KEY)).thenReturn(configDO);
 
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
@@ -128,16 +132,25 @@ class ErpKingdeeConfigServiceImplTest {
     }
 
     @Test
-    void getActiveConnection_defaultsToTestWhenSelectionHasNeverBeenSaved() {
+    void getActiveConnection_failsFastWhenSelectionHasNeverBeenSaved() {
         when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
                 .thenReturn(null);
 
-        ErpKingdeeActiveConnectionRespVO response = kingdeeConfigService.getActiveConnection();
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> kingdeeConfigService.getActiveConnection());
 
-        assertEquals(ErpKingdeeConnectionTypeEnum.TEST.getType(), response.getActiveConnectionType());
-        assertEquals("测试账套", response.getActiveConnectionName());
-        assertEquals(2, response.getOptions().size());
-        assertEquals("正式账套", response.getOptions().get(1).getConnectionName());
+        assertTrue(exception.getMessage().contains("当前连接选择配置缺失"));
+    }
+
+    @Test
+    void getEffectiveProperties_failsFastWhenSelectionIsBlank() {
+        when(configService.getConfigByKey(ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY))
+                .thenReturn(config(2L, ErpKingdeeConfigServiceImpl.ACTIVE_CONNECTION_CONFIG_KEY, "  "));
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> kingdeeConfigService.getEffectiveProperties());
+
+        assertTrue(exception.getMessage().contains("当前连接选择配置缺失"));
     }
 
     @Test

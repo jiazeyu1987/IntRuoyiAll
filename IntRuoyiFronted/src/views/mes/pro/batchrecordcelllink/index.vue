@@ -34,6 +34,11 @@
               :disabled="!hasFormalRouteProcessContext"
             />
             <el-option
+              label="一线PQC数据"
+              :value="PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID"
+              :disabled="!hasFormalRouteProcessContext"
+            />
+            <el-option
               v-for="form in forms"
               :key="form.reportId"
               :label="form.reportName"
@@ -103,6 +108,8 @@
           :data-process-pool-report-field-count="sourceType === SOURCE_TYPE_PROCESS_POOL_REPORT ? filteredProcessPoolReportSourceFields.length : undefined"
           :data-production-pick-list-source-fields="sourceType === SOURCE_TYPE_PRODUCTION_PICK_LIST ? 'true' : undefined"
           :data-production-pick-list-field-count="sourceType === SOURCE_TYPE_PRODUCTION_PICK_LIST ? filteredProductionPickListSourceFields.length : undefined"
+          :data-pqc-aggregate-source-fields="sourceType === SOURCE_TYPE_PQC_AGGREGATE_DETAIL ? 'true' : undefined"
+          :data-pqc-aggregate-field-count="sourceType === SOURCE_TYPE_PQC_AGGREGATE_DETAIL ? filteredPqcAggregateSourceFields.length : undefined"
         >
           <div class="batch-record-cell-link__pane-title">
             <span>{{ isStructuredSourceSelected ? '源字段' : '源表单' }}</span>
@@ -286,6 +293,7 @@ const SOURCE_TYPE_BATCH_RECORD_CELL = 'BATCH_RECORD_CELL'
 const SOURCE_TYPE_PRODUCTION_WORK_ORDER = 'PRODUCTION_WORK_ORDER'
 const SOURCE_TYPE_PROCESS_POOL_REPORT = 'PROCESS_POOL_REPORT'
 const SOURCE_TYPE_PRODUCTION_PICK_LIST = 'PRODUCTION_PICK_LIST'
+const SOURCE_TYPE_PQC_AGGREGATE_DETAIL = 'PQC_AGGREGATE_DETAIL'
 const LINK_MODE_CELL_LINK = 'CELL_LINK'
 const LINK_MODE_REPEAT_ROW_GROUP = 'REPEAT_ROW_GROUP'
 const PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID = 'PRODUCTION_WORK_ORDER'
@@ -294,6 +302,8 @@ const PROCESS_POOL_REPORT_SOURCE_REPORT_ID = 'PROCESS_POOL_REPORT'
 const PROCESS_POOL_REPORT_SOURCE_REPORT_NAME = '报工数据'
 const PRODUCTION_PICK_LIST_SOURCE_REPORT_ID = 'PRODUCTION_PICK_LIST'
 const PRODUCTION_PICK_LIST_SOURCE_REPORT_NAME = '领料单数据'
+const PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID = 'PQC_AGGREGATE_DETAIL'
+const PQC_AGGREGATE_DETAIL_SOURCE_REPORT_NAME = '一线PQC数据'
 const PROCESS_POOL_REPORT_AGGREGATION_OPTIONS: readonly ProcessPoolReportAggregationOption[] = [
   { value: 'SUM', label: '求和', sourceValueTypes: ['NUMBER'] },
   { value: 'LIST', label: '按顺序合并', sourceValueTypes: ['STRING', 'BOOLEAN'] },
@@ -382,6 +392,7 @@ const forms = ref<BatchRecordCellLinkFormVO[]>([])
 const productionWorkOrderSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
 const processPoolReportSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
 const productionPickListSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
+const pqcAggregateSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
 const rules = ref<BatchRecordCellLinkRuleVO[]>([])
 const sourceType = ref(SOURCE_TYPE_BATCH_RECORD_CELL)
 const sourceReportId = ref('')
@@ -441,7 +452,7 @@ const canCreateRepeatRowMapping = computed(() => Boolean(
   repeatTemplateEndRowIndex.value !== undefined
 ))
 const canSaveRepeatRowGroup = computed(() => Boolean(
-  targetForm.value?.routeProcessId &&
+  activeTargetRouteProcessId.value !== undefined &&
   targetReportId.value &&
   repeatTemplateStartRowIndex.value !== undefined &&
   repeatTemplateEndRowIndex.value !== undefined &&
@@ -454,8 +465,12 @@ const canSaveRepeatRowGroup = computed(() => Boolean(
 const isProductionWorkOrderSelected = computed(() => sourceReportId.value === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID)
 const isProcessPoolReportSelected = computed(() => sourceReportId.value === PROCESS_POOL_REPORT_SOURCE_REPORT_ID)
 const isProductionPickListSelected = computed(() => sourceReportId.value === PRODUCTION_PICK_LIST_SOURCE_REPORT_ID)
+const isPqcAggregateSelected = computed(() => sourceReportId.value === PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID)
 const isStructuredSourceSelected = computed(
-  () => isProductionWorkOrderSelected.value || isProcessPoolReportSelected.value || isProductionPickListSelected.value
+  () => isProductionWorkOrderSelected.value ||
+    isProcessPoolReportSelected.value ||
+    isProductionPickListSelected.value ||
+    isPqcAggregateSelected.value
 )
 const sourceForm = computed(() =>
   isStructuredSourceSelected.value
@@ -463,11 +478,15 @@ const sourceForm = computed(() =>
     : forms.value.find((form) => form.reportId === sourceReportId.value)
 )
 const targetForm = computed(() => forms.value.find((form) => form.reportId === targetReportId.value))
+const activeTargetRouteProcessId = computed(() => targetForm.value?.routeProcessId ?? requestedTargetRouteProcessId)
 const hasFormalRouteProcessContext = computed(() => Boolean(
-  context.value?.routeId && forms.value.some((form) => form.routeProcessId !== undefined && form.routeProcessId !== null)
+  context.value?.routeId && (
+    activeTargetRouteProcessId.value !== undefined ||
+    forms.value.some((form) => form.routeProcessId !== undefined && form.routeProcessId !== null)
+  )
 ))
 const filteredProcessPoolReportSourceFields = computed(() => {
-  const targetRouteProcessId = targetForm.value?.routeProcessId
+  const targetRouteProcessId = activeTargetRouteProcessId.value
   return processPoolReportSourceFields.value.filter((field) =>
     field.routeProcessId === undefined ||
     field.routeProcessId === null ||
@@ -475,8 +494,12 @@ const filteredProcessPoolReportSourceFields = computed(() => {
   )
 })
 const filteredProductionPickListSourceFields = computed(() => {
-  const targetRouteProcessId = targetForm.value?.routeProcessId
+  const targetRouteProcessId = activeTargetRouteProcessId.value
   return productionPickListSourceFields.value.filter((field) => field.routeProcessId === targetRouteProcessId)
+})
+const filteredPqcAggregateSourceFields = computed(() => {
+  const targetRouteProcessId = activeTargetRouteProcessId.value
+  return pqcAggregateSourceFields.value.filter((field) => field.routeProcessId === targetRouteProcessId)
 })
 const targetForms = computed(() => {
   if (isStructuredSourceSelected.value) {
@@ -489,6 +512,7 @@ const canCreateRule = computed(() => Boolean(
   selectedSourceCell.value &&
   selectedTargetCell.value &&
   targetReportId.value &&
+  (!isStructuredSourceSelected.value || activeTargetRouteProcessId.value !== undefined) &&
   (sourceType.value !== SOURCE_TYPE_PROCESS_POOL_REPORT || aggregationStrategy.value)
 ))
 const availableAggregationOptions = computed(() => {
@@ -515,6 +539,9 @@ const sourceLinkCountText = computed(() => `${sourceLinkedRules.value.length} �
 const currentProcessPoolReportSourceTitle = computed(() =>
   `${targetForm.value?.reportName || '当前工序'}的一线生产字段`
 )
+const currentPqcAggregateSourceTitle = computed(() =>
+  `${targetForm.value?.reportName || '当前工序'}的一线PQC字段`
+)
 const sourcePanelTitle = computed(() =>
   sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
     ? PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME
@@ -522,6 +549,8 @@ const sourcePanelTitle = computed(() =>
       ? currentProcessPoolReportSourceTitle.value
       : sourceType.value === SOURCE_TYPE_PRODUCTION_PICK_LIST
         ? PRODUCTION_PICK_LIST_SOURCE_REPORT_NAME
+        : sourceType.value === SOURCE_TYPE_PQC_AGGREGATE_DETAIL
+          ? currentPqcAggregateSourceTitle.value
       : sourceForm.value?.reportName || '未选择'
 )
 
@@ -583,7 +612,8 @@ async function loadWorkbenchContext() {
       versionId: parseNumber(route.query.versionId),
       sourceReportId: String(route.query.sourceReportId || ''),
       templateId: parseNumber(route.query.templateId),
-      versionNo: String(route.query.versionNo || '')
+      versionNo: String(route.query.versionNo || ''),
+      routeProcessId: requestedTargetRouteProcessId
     })
     context.value = data
     forms.value = data.forms || []
@@ -596,6 +626,9 @@ async function loadWorkbenchContext() {
     productionPickListSourceFields.value = (data.sourceFields || []).filter(
       (field) => field.sourceType === SOURCE_TYPE_PRODUCTION_PICK_LIST
     )
+    pqcAggregateSourceFields.value = (data.sourceFields || []).filter(
+      (field) => field.sourceType === SOURCE_TYPE_PQC_AGGREGATE_DETAIL
+    )
     rules.value = data.rules || []
     const defaultSourceReportId = data.defaultSourceReportId || forms.value[0]?.reportId || ''
     sourceReportId.value = defaultSourceReportId
@@ -605,10 +638,13 @@ async function loadWorkbenchContext() {
         ? SOURCE_TYPE_PROCESS_POOL_REPORT
         : defaultSourceReportId === PRODUCTION_PICK_LIST_SOURCE_REPORT_ID
           ? SOURCE_TYPE_PRODUCTION_PICK_LIST
+          : defaultSourceReportId === PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID
+            ? SOURCE_TYPE_PQC_AGGREGATE_DETAIL
         : SOURCE_TYPE_BATCH_RECORD_CELL
     const requestedTargetForm = forms.value.find((form) =>
       (!requestedTargetReportId || form.reportId === requestedTargetReportId) &&
-      (requestedTargetRouteProcessId === undefined || form.routeProcessId === requestedTargetRouteProcessId)
+      (requestedTargetRouteProcessId === undefined || form.routeProcessId === undefined ||
+        form.routeProcessId === null || form.routeProcessId === requestedTargetRouteProcessId)
     )
     if ((requestedTargetReportId || requestedTargetRouteProcessId !== undefined) && !requestedTargetForm) {
       throw new Error(
@@ -632,8 +668,10 @@ const handleSourceSelectionChange = async () => {
     ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
     : isProcessPoolReportSelected.value
       ? SOURCE_TYPE_PROCESS_POOL_REPORT
-      : isProductionPickListSelected.value
-        ? SOURCE_TYPE_PRODUCTION_PICK_LIST
+    : isProductionPickListSelected.value
+      ? SOURCE_TYPE_PRODUCTION_PICK_LIST
+      : isPqcAggregateSelected.value
+        ? SOURCE_TYPE_PQC_AGGREGATE_DETAIL
         : SOURCE_TYPE_BATCH_RECORD_CELL
   aggregationStrategy.value = ''
   if (isStructuredSourceSelected.value) {
@@ -641,7 +679,8 @@ const handleSourceSelectionChange = async () => {
   }
   const requestedTargetForm = targetForms.value.find((form) =>
     (!requestedTargetReportId || form.reportId === requestedTargetReportId) &&
-    (requestedTargetRouteProcessId === undefined || form.routeProcessId === requestedTargetRouteProcessId)
+    (requestedTargetRouteProcessId === undefined || form.routeProcessId === undefined ||
+      form.routeProcessId === null || form.routeProcessId === requestedTargetRouteProcessId)
   )
   if (requestedTargetForm) {
     targetReportId.value = requestedTargetForm.reportId
@@ -654,7 +693,9 @@ const handleSourceSelectionChange = async () => {
 
 const handleTargetReportChange = async () => {
   selectedTargetCell.value = undefined
-  if (sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT || sourceType.value === SOURCE_TYPE_PRODUCTION_PICK_LIST) {
+  if (sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT ||
+    sourceType.value === SOURCE_TYPE_PRODUCTION_PICK_LIST ||
+    sourceType.value === SOURCE_TYPE_PQC_AGGREGATE_DETAIL) {
     selectedSourceCell.value = undefined
     sourceFieldCode.value = currentStructuredSourceFields()[0]?.fieldCode || ''
     await Promise.all([loadSourceCells(), loadTargetCells()])
@@ -679,6 +720,13 @@ const loadSourceCells = async () => {
     sourceCells.value = buildSourceFieldCells(filteredProductionPickListSourceFields.value, PRODUCTION_PICK_LIST_SOURCE_REPORT_ID,
       PRODUCTION_PICK_LIST_SOURCE_REPORT_NAME,
       SOURCE_TYPE_PRODUCTION_PICK_LIST)
+    selectedSourceCell.value = sourceCells.value.cells.find((cell) => cell.sourceFieldCode === sourceFieldCode.value)
+    return
+  }
+  if (sourceType.value === SOURCE_TYPE_PQC_AGGREGATE_DETAIL) {
+    sourceCells.value = buildSourceFieldCells(filteredPqcAggregateSourceFields.value, PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID,
+      currentPqcAggregateSourceTitle.value,
+      SOURCE_TYPE_PQC_AGGREGATE_DETAIL)
     selectedSourceCell.value = sourceCells.value.cells.find((cell) => cell.sourceFieldCode === sourceFieldCode.value)
     return
   }
@@ -772,7 +820,7 @@ const projectionTargetCellKey = (record: BatchRecordRepeatRowGroupRecordVO | und
 }
 
 const saveRepeatRowGroup = async () => {
-  if (!targetForm.value?.routeProcessId || repeatTemplateStartRowIndex.value === undefined || repeatTemplateEndRowIndex.value === undefined ||
+  if (activeTargetRouteProcessId.value === undefined || repeatTemplateStartRowIndex.value === undefined || repeatTemplateEndRowIndex.value === undefined ||
     repeatAreaStartRowIndex.value === undefined || repeatAreaEndRowIndex.value === undefined || saving.value) {
     message.warning('请先选择当前工序的模板记录、重复区域和模板链接。')
     return
@@ -785,7 +833,7 @@ const saveRepeatRowGroup = async () => {
       routeId: context.value?.routeId,
       batchRecordDefinitionId: context.value?.batchRecordDefinitionId,
       batchRecordVersionId: context.value?.batchRecordVersionId,
-      routeProcessId: targetForm.value?.routeProcessId,
+      routeProcessId: activeTargetRouteProcessId.value,
       targetReportId: targetReportId.value,
       templateStartRowIndex: repeatTemplateStartRowIndex.value,
       templateEndRowIndex: repeatTemplateEndRowIndex.value,
@@ -809,8 +857,14 @@ const createRule = async () => {
   const isProductionWorkOrderSource = sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
   const isProcessPoolReportSource = sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT
   const isProductionPickListSource = sourceType.value === SOURCE_TYPE_PRODUCTION_PICK_LIST
-  const isStructuredSource = isProductionWorkOrderSource || isProcessPoolReportSource || isProductionPickListSource
+  const isPqcAggregateSource = sourceType.value === SOURCE_TYPE_PQC_AGGREGATE_DETAIL
+  const isStructuredSource = isProductionWorkOrderSource || isProcessPoolReportSource ||
+    isProductionPickListSource || isPqcAggregateSource
   if (!isStructuredSource && !sourceForm.value) return
+  if (isStructuredSource && activeTargetRouteProcessId.value === undefined) {
+    message.warning('请从具体工序进入批记录链接页后再配置该来源。')
+    return
+  }
   if (isProcessPoolReportSource && !aggregationStrategy.value) {
     message.warning('请选择多笔报工的汇总方式。')
     return
@@ -822,6 +876,8 @@ const createRule = async () => {
       ? PROCESS_POOL_REPORT_SOURCE_REPORT_ID
       : isProductionPickListSource
         ? PRODUCTION_PICK_LIST_SOURCE_REPORT_ID
+        : isPqcAggregateSource
+          ? PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID
         : sourceReportId.value
   const sourceReportNameForPayload = isProductionWorkOrderSource
     ? PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME
@@ -829,6 +885,8 @@ const createRule = async () => {
       ? PROCESS_POOL_REPORT_SOURCE_REPORT_NAME
       : isProductionPickListSource
         ? PRODUCTION_PICK_LIST_SOURCE_REPORT_NAME
+        : isPqcAggregateSource
+          ? PQC_AGGREGATE_DETAIL_SOURCE_REPORT_NAME
         : sourceForm.value?.reportName
   const targetKey = selectedTargetCell.value.cellKey
   const duplicatePair = rules.value.some(
@@ -854,6 +912,7 @@ const createRule = async () => {
     scopeType: context.value?.scopeType,
     scopeId: context.value?.scopeId,
     routeId: context.value?.routeId,
+    routeProcessId: activeTargetRouteProcessId.value,
     batchRecordDefinitionId: context.value?.batchRecordDefinitionId,
     batchRecordVersionId: context.value?.batchRecordVersionId,
     sourceType: sourceType.value,
@@ -903,6 +962,9 @@ function currentStructuredSourceFields() {
   }
   if (sourceType.value === SOURCE_TYPE_PRODUCTION_PICK_LIST) {
     return filteredProductionPickListSourceFields.value
+  }
+  if (sourceType.value === SOURCE_TYPE_PQC_AGGREGATE_DETAIL) {
+    return filteredPqcAggregateSourceFields.value
   }
   return []
 }
@@ -957,6 +1019,7 @@ const persistRules = async (nextRules: BatchRecordCellLinkRuleVO[], successMessa
       scopeType: context.value.scopeType,
       scopeId: context.value.scopeId,
       routeId: context.value.routeId,
+      routeProcessId: activeTargetRouteProcessId.value,
       batchRecordDefinitionId: context.value.batchRecordDefinitionId,
       batchRecordVersionId: context.value.batchRecordVersionId,
       rules: nextRules

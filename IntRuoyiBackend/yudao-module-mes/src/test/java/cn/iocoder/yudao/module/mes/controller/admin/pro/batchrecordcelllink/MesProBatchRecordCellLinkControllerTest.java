@@ -49,13 +49,14 @@ class MesProBatchRecordCellLinkControllerTest {
         BatchRecordCellLinkWorkbenchContextRespVO expected = new BatchRecordCellLinkWorkbenchContextRespVO()
                 .setScopeType("FORM_TEMPLATE_VERSION")
                 .setScopeId(7001L);
-        when(cellLinkService.getWorkbenchContext(null, null, null, null, 1001L, "V3.0")).thenReturn(expected);
+        when(cellLinkService.getWorkbenchContext(null, null, null, null, 1001L, "V3.0", null))
+                .thenReturn(expected);
 
         CommonResult<BatchRecordCellLinkWorkbenchContextRespVO> response =
-                controller.getWorkbenchContext(null, null, null, null, 1001L, "V3.0");
+                controller.getWorkbenchContext(null, null, null, null, 1001L, "V3.0", null);
 
         assertSame(expected, response.getData());
-        verify(cellLinkService).getWorkbenchContext(null, null, null, null, 1001L, "V3.0");
+        verify(cellLinkService).getWorkbenchContext(null, null, null, null, 1001L, "V3.0", null);
     }
 
     @Test

@@ -557,10 +557,6 @@ function runReadOnlyDatabaseChecks(environment) {
     })
   }
 
-  const dynamicTemplateBySlot = Object.freeze({
-    PROCESS_INSPECTION: 28,
-    LOSS_REPORT: 25
-  })
   const dynamicBindingRows = runReadOnlyMysql(
     environment,
     `SELECT b.route_process_id, b.form_slot_type, COALESCE(b.form_binding_key, ''), b.form_template_id,
@@ -578,8 +574,7 @@ function runReadOnlyDatabaseChecks(environment) {
         AND b.route_id = ${environment.routeId}
         AND b.route_process_id IN (${processIdsSql})
         AND b.use_type = 'BATCH'
-        AND ((b.form_slot_type = 'PROCESS_INSPECTION' AND b.form_template_id = 28)
-          OR (b.form_slot_type = 'LOSS_REPORT' AND b.form_template_id = 25))
+        AND b.form_slot_type IN ('PROCESS_INSPECTION', 'LOSS_REPORT')
         AND b.deleted = 0
         AND NOT EXISTS (
           SELECT 1
@@ -597,19 +592,19 @@ function runReadOnlyDatabaseChecks(environment) {
     environment.routeProcessIds.length * 2,
     'DYNAMIC_FORM_BINDINGS',
     'DYNAMIC_FORM_BINDINGS_REQUIRED',
-    'every route process requires template 28 PROCESS_INSPECTION and template 25 LOSS_REPORT bindings',
+    'every route process requires formal PROCESS_INSPECTION and LOSS_REPORT dynamic form bindings',
     { routeProcessIds: environment.routeProcessIds }
   )
   const dynamicBindings = new Map()
   for (const row of dynamicBindingRows) {
     const routeProcessId = Number(row[0])
     const formSlotType = row[1]
-    const expectedTemplateId = dynamicTemplateBySlot[formSlotType]
     const key = `${routeProcessId}:${formSlotType}`
     if (
       dynamicBindings.has(key) ||
-      !expectedTemplateId ||
-      Number(row[3]) !== expectedTemplateId ||
+      !['PROCESS_INSPECTION', 'LOSS_REPORT'].includes(formSlotType) ||
+      !Number.isFinite(Number(row[3])) ||
+      Number(row[3]) <= 0 ||
       !String(row[2] || '').trim() ||
       !String(row[6] || '').trim() ||
       row[7] !== 'INTERNAL_RECORD' ||

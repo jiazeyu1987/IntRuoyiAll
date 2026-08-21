@@ -96,6 +96,26 @@ assert.match(
   'fixture verify 必须按正式 ENABLED 状态核验两个任务账号。'
 )
 assert.match(source, /review_signature_id/, 'cleanup 必须读取并清理组长复核签名精确 ID。')
+assert.match(source, /RETAINED_EDHR_AUDIT_EVIDENCE_TABLES/, 'cleanup 必须显式声明保留 eDHR 追加型审计证据链。')
+for (const table of [
+  'mes_pro_batch_record_execution',
+  'mes_pro_batch_record_execution_signature',
+  'mes_pro_batch_record_execution_field_audit_batch',
+  'mes_pro_batch_record_execution_field_audit_item'
+]) {
+  assert.match(source, new RegExp(table), `cleanup 必须识别 ${table} 为审计证据链的一部分。`)
+}
+assert.doesNotMatch(
+  source,
+  /DELETE FROM `mes_pro_batch_record_execution(?:_signature|_field_audit_(?:batch|item))?`/,
+  'cleanup 禁止删除 eDHR execution/signature/field audit 追加型证据链。'
+)
+assert.doesNotMatch(
+  source,
+  /delete_ids\(cur,\s*["']mes_pro_batch_record_execution_signature["']/,
+  'cleanup 禁止通过 ID 删除 eDHR 签名证据。'
+)
+assert.match(source, /retainedEdhrAuditEvidenceCount/, 'cleanup 必须单独报告保留的 eDHR 审计证据数量。')
 assert.match(source, /remainingTaskDataCount/, 'cleanup 必须返回机器可读残留数量。')
 assert.match(source, /cleanupVerified/, 'cleanup 必须返回机器可读核验状态。')
 assert.doesNotMatch(source, /["'](?:admin123|password|secret)["']/i, '编排器不得硬编码口令。')

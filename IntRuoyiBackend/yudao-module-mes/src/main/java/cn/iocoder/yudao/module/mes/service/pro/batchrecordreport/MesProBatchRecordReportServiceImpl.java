@@ -164,14 +164,15 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     public MesProBatchRecordImportResult importPilotDoc(MultipartFile file) {
         validateImportedDoc(file);
         byte[] bytes = getBytes(file);
+        String sourceFileName = normalizeFileName(file.getOriginalFilename());
         String sourceHash = sha256(bytes);
-        List<MesProBatchRecordParsedTable> parsedTables = docParser.parse(bytes);
-        attachDocumentFrame(parsedTables, docParser.extractDocumentFrame(bytes));
+        List<MesProBatchRecordParsedTable> parsedTables = parseWordByFileName(bytes, sourceFileName);
+        attachDocumentFrame(parsedTables, extractDocumentFrameByFileName(bytes, sourceFileName));
         if (parsedTables.isEmpty()) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_TABLE_COUNT_INVALID,
                     parsedTables.size());
         }
-        return saveGeneratedReports(parsedTables, normalizeFileName(file.getOriginalFilename()), sourceHash,
+        return saveGeneratedReports(parsedTables, sourceFileName, sourceHash,
                 scopeSampleKeyByTenant(MesProBatchRecordReportConstants.SAMPLE_KEY_PREFIX + sourceHash.substring(0, 16)),
                 MesProBatchRecordRecognitionRouteKeys.LEGACY, DEFAULT_BATCH_RECORD_NAME,
                 GeneratedReportSource.IMPORTED_DOC, false);
@@ -823,7 +824,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     normalizedRouteKey);
         }
         List<MesProBatchRecordParsedTable> parsedTables = recognizer.recognize(null, bytes, sourceFileName);
-        attachDocumentFrame(parsedTables, docParser.extractDocumentFrame(bytes));
+        attachDocumentFrame(parsedTables, extractDocumentFrameByFileName(bytes, sourceFileName));
         routeGenerationService.validateUploadedWordRoute(parsedTables);
 
         MesProBatchRecordVersionDO targetVersion = rebuildRecord ? createPrecheckVersion(
@@ -2873,11 +2874,11 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     }
 
     private List<MesProBatchRecordParsedTable> parseWordByFileName(byte[] bytes, String sourceFileName) {
-        String lowerFileName = normalizeFileName(sourceFileName).toLowerCase(Locale.ROOT);
-        if (lowerFileName.endsWith(".docx")) {
-            return docParser.parseDocx(bytes);
-        }
-        return docParser.parse(bytes);
+        return docParser.parseWord(bytes, normalizeFileName(sourceFileName));
+    }
+
+    private MesProBatchRecordDocumentFrame extractDocumentFrameByFileName(byte[] bytes, String sourceFileName) {
+        return docParser.extractWordDocumentFrame(bytes, normalizeFileName(sourceFileName));
     }
 
     private void attachDocumentFrame(List<MesProBatchRecordParsedTable> parsedTables,
@@ -2905,7 +2906,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_FILE_EMPTY);
         }
         String fileName = normalizeFileName(file.getOriginalFilename());
-        if (!fileName.toLowerCase(Locale.ROOT).endsWith(".doc")) {
+        String lowerFileName = fileName.toLowerCase(Locale.ROOT);
+        if (!(lowerFileName.endsWith(".doc") || lowerFileName.endsWith(".docx"))) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_FILE_EXTENSION_INVALID);
         }
     }

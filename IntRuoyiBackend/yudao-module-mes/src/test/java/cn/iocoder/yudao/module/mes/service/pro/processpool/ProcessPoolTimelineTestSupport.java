@@ -39,6 +39,7 @@ final class ProcessPoolTimelineTestSupport {
     static ProcessPoolTimelineEventReadDO event(Long id, String submittedAt, Long employeeId,
                                                 Long processId, Long deviceId, String templateType,
                                                 Long workOrderId) {
+        Long routeProcessId = processId == null ? null : 5000L + processId;
         return new ProcessPoolTimelineEventReadDO()
                 .setId(id)
                 .setProcessPoolId(10L)
@@ -58,10 +59,13 @@ final class ProcessPoolTimelineTestSupport {
                 .setWorkstationName("一线工作站")
                 .setRouteId(4001L)
                 .setRouteCode("ROUTE-A")
-                .setRouteProcessId(5000L + processId)
+                .setRouteProcessId(routeProcessId)
                 .setProcessId(processId)
-                .setProcessCode("P-" + processId)
-                .setProcessName(processId == 6001L ? "粗洗" : "精洗")
+                .setProcessCode(processId == null ? null : "P-" + processId)
+                .setProcessName(processId == null ? null : (processId == 6001L ? "粗洗" : "精洗"))
+                .setQaProcessId(null)
+                .setQaProcessCode(null)
+                .setQaProcessName(null)
                 .setTemplateType(templateType)
                 .setTemplateTypeName("PRODUCTION_SIMPLIFIED".equals(templateType) ? "生产简化模板" : "PQC 简化模板")
                 .setWorkOrderId(workOrderId)

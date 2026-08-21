@@ -340,87 +340,6 @@
             </template>
           </el-table-column>
           <el-table-column
-            v-if="isProjectCodeColumnVisible('lossReportStatus')"
-            label="损耗单"
-            prop="lossReportStatus"
-            :width="getProjectCodeColumnWidthString('lossReportStatus', 110)"
-            v-bind="sortColumnAttrs('lossReportStatus')"
-          >
-            <template #default="{ row }">
-              <div class="dcc-project-code-governance-cell">
-                <el-tag
-                  class="scheme-d-tag"
-                  effect="plain"
-                  :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.lossReportStatus)"
-                  :title="getDccProjectGovernance(row.projectName)?.lossReportCodes?.join('、') || ''"
-                >
-                  {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.lossReportStatus) }}
-                </el-tag>
-                <span
-                  v-if="formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.lossReportVersionNos)"
-                  class="dcc-project-code-governance-version"
-                  data-testid="dcc-project-code-governance-version-loss-report"
-                >
-                  版本 {{ formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.lossReportVersionNos) }}
-                </span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isProjectCodeColumnVisible('processInspectionStatus')"
-            label="过程检验单"
-            prop="processInspectionStatus"
-            :width="getProjectCodeColumnWidthString('processInspectionStatus', 130)"
-            v-bind="sortColumnAttrs('processInspectionStatus')"
-          >
-            <template #default="{ row }">
-              <div class="dcc-project-code-governance-cell">
-                <el-tag
-                  class="scheme-d-tag"
-                  effect="plain"
-                  :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.processInspectionStatus)"
-                  :title="getDccProjectGovernance(row.projectName)?.processInspectionCodes?.join('、') || ''"
-                >
-                  {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.processInspectionStatus) }}
-                </el-tag>
-                <span
-                  v-if="formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.processInspectionVersionNos)"
-                  class="dcc-project-code-governance-version"
-                  data-testid="dcc-project-code-governance-version-process-inspection"
-                >
-                  版本 {{ formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.processInspectionVersionNos) }}
-                </span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="isProjectCodeColumnVisible('parameterRecordStatus')"
-            label="参数记录表"
-            prop="parameterRecordStatus"
-            :width="getProjectCodeColumnWidthString('parameterRecordStatus', 130)"
-            v-bind="sortColumnAttrs('parameterRecordStatus')"
-          >
-            <template #default="{ row }">
-              <div class="dcc-project-code-governance-cell">
-                <el-tag
-                  class="scheme-d-tag"
-                  effect="plain"
-                  :type="resolveDccProjectGovernanceTagType(getDccProjectGovernance(row.projectName)?.parameterRecordStatus)"
-                  :title="getDccProjectGovernance(row.projectName)?.parameterRecordCodes?.join('、') || ''"
-                >
-                  {{ formatDccProjectGovernanceStatus(getDccProjectGovernance(row.projectName)?.parameterRecordStatus) }}
-                </el-tag>
-                <span
-                  v-if="formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.parameterRecordVersionNos)"
-                  class="dcc-project-code-governance-version"
-                  data-testid="dcc-project-code-governance-version-parameter-record"
-                >
-                  版本 {{ formatDccProjectGovernanceVersions(getDccProjectGovernance(row.projectName)?.parameterRecordVersionNos) }}
-                </span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column
             v-if="isProjectCodeColumnVisible('qaRegulationStatus')"
             label="QA规程"
             prop="qaRegulationStatus"
@@ -430,11 +349,27 @@
             <template #default="{ row }">
               <el-button
                 link
-                type="primary"
+                class="dcc-project-code-qa-regulation-link"
                 data-testid="dcc-project-code-qa-regulation-link"
                 @click="openQaRegulation(row)"
               >
-                {{ formatQaRegulationStatus(row.id) }}
+                <div class="dcc-project-code-governance-cell">
+                  <el-tag
+                    class="scheme-d-tag"
+                    effect="plain"
+                    :type="resolveQaRegulationStatusTagType(getQaRegulationProjectStatus(row.id))"
+                    :title="formatQaRegulationPublishedVersion(getQaRegulationProjectStatus(row.id))"
+                  >
+                    {{ formatQaRegulationStatus(getQaRegulationProjectStatus(row.id)) }}
+                  </el-tag>
+                  <span
+                    v-if="formatQaRegulationPublishedVersion(getQaRegulationProjectStatus(row.id))"
+                    class="dcc-project-code-governance-version"
+                    data-testid="dcc-project-code-governance-version-qa-regulation"
+                  >
+                    版本 {{ formatQaRegulationPublishedVersion(getQaRegulationProjectStatus(row.id)) }}
+                  </span>
+                </div>
               </el-button>
             </template>
           </el-table-column>
@@ -1265,6 +1200,10 @@ const DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE = 200
 const DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE = 100
 const DCC_PROJECT_CODE_UNCLASSIFIED_TYPE = '未分类文件类型'
 const BATCH_AI_CATEGORY_POLL_INTERVAL_MS = 1000
+const projectCodeConfigurationFilterOptions = [
+  { label: '已配置', value: true },
+  { label: '未配置', value: false }
+]
 
 const projectCodeQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
@@ -1306,6 +1245,33 @@ const projectCodeQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     queryParamKey: 'category',
     operators: ['eq'],
     placeholder: '请输入类别'
+  },
+  {
+    key: 'routeConfigured',
+    label: '工艺路线配置',
+    type: 'select',
+    queryParamKey: 'routeConfigured',
+    operators: ['eq'],
+    options: projectCodeConfigurationFilterOptions,
+    placeholder: '请选择工艺路线配置状态'
+  },
+  {
+    key: 'mainBatchRecordConfigured',
+    label: '主批记录配置',
+    type: 'select',
+    queryParamKey: 'mainBatchRecordConfigured',
+    operators: ['eq'],
+    options: projectCodeConfigurationFilterOptions,
+    placeholder: '请选择主批记录配置状态'
+  },
+  {
+    key: 'qaRegulationConfigured',
+    label: 'QA规程配置',
+    type: 'select',
+    queryParamKey: 'qaRegulationConfigured',
+    operators: ['eq'],
+    options: projectCodeConfigurationFilterOptions,
+    placeholder: '请选择QA规程配置状态'
   }
 ]
 
@@ -1318,9 +1284,6 @@ const projectCodeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'associatedFileCount', label: '关联文件数', width: 120 },
   { key: 'routeStatus', label: '工艺路线', width: 140 },
   { key: 'mainBatchRecordStatus', label: '主批记录', width: 150 },
-  { key: 'lossReportStatus', label: '损耗单', width: 130 },
-  { key: 'processInspectionStatus', label: '过程检验单', width: 150 },
-  { key: 'parameterRecordStatus', label: '参数记录表', width: 150 },
   { key: 'qaRegulationStatus', label: 'QA规程', width: 130 },
   { key: 'updateTime', label: '更新时间', width: 180 },
   { key: 'actions', label: '关联文档', width: 240, hideable: false, business: false }
@@ -1946,7 +1909,10 @@ const queryParams = reactive<DccProjectCodePageQuery>({
   projectCode: undefined,
   category: undefined,
   priority: undefined,
-  status: undefined
+  status: undefined,
+  routeConfigured: undefined,
+  mainBatchRecordConfigured: undefined,
+  qaRegulationConfigured: undefined
 })
 
 const resolveQueryProjectCodeId = () =>
@@ -1989,6 +1955,9 @@ const resetFormData = () => {
 const getDccProjectGovernance = (projectName?: string) =>
   projectName ? dccProjectGovernanceByProjectName.value[projectName] : undefined
 
+const getQaRegulationProjectStatus = (dccProjectCodeId?: number) =>
+  dccProjectCodeId ? qaRegulationStatusByDccProjectCodeId.value[dccProjectCodeId] : undefined
+
 const formatDccProjectGovernanceStatus = (status?: string) => {
   if (status === 'OK') {
     return '已配置'
@@ -2026,7 +1995,11 @@ const loadDccProjectGovernanceStatus = async (rows: DccProjectCodeRespVO[]) => {
     dccProjectGovernanceByProjectName.value = {}
     return
   }
-  const statuses = await getDccProjectGovernanceStatus(projectNames)
+  const statuses = await getDccProjectGovernanceStatus(projectNames, {
+    routeStatusRequired: true,
+    mainBatchRecordStatusRequired: true,
+    formSlotStatusRequired: false
+  })
   dccProjectGovernanceByProjectName.value = Object.fromEntries(
     statuses.map((item) => [item.projectName, item])
   )
@@ -2061,20 +2034,34 @@ const loadQaRegulationStatuses = async (rows: DccProjectCodeRespVO[]) => {
   )
 }
 
-const formatQaRegulationStatus = (dccProjectCodeId?: number) => {
+const formatQaRegulationStatus = (status?: QaInspectionRegulationProjectStatusVO) => {
   if (qaRegulationStatusPermissionDenied.value) {
     return '无查询权限'
   }
-  const status = dccProjectCodeId
-    ? qaRegulationStatusByDccProjectCodeId.value[dccProjectCodeId]
-    : undefined
-  if (status?.lifecycleStatus === 'PUBLISHED') {
+  if (status?.productionReady) {
     return '已发布'
   }
   if (status?.configured) {
     return '草稿'
   }
   return '未配置'
+}
+
+const resolveQaRegulationStatusTagType = (status?: QaInspectionRegulationProjectStatusVO) => {
+  if (status?.productionReady) {
+    return 'success'
+  }
+  if (status?.configured) {
+    return 'warning'
+  }
+  return 'info'
+}
+
+const formatQaRegulationPublishedVersion = (status?: QaInspectionRegulationProjectStatusVO) => {
+  if (!status?.productionReady) {
+    return ''
+  }
+  return String(status.publishedVersionNo || '').trim()
 }
 
 const openQaRegulation = (row: DccProjectCodeRespVO) => {
@@ -3127,6 +3114,14 @@ watch(
   color: var(--el-text-color-regular);
   font-size: 12px;
   white-space: normal;
+}
+
+.dcc-project-code-qa-regulation-link {
+  display: inline-flex;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  text-align: left;
 }
 
 .dcc-project-code-import-toolbar {

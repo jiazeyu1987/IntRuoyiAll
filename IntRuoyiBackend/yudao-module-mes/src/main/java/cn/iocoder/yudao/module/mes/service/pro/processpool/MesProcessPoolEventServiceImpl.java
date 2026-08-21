@@ -359,6 +359,7 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .routeId(reqDTO.getRouteId())
                 .routeProcessId(reqDTO.getRouteProcessId())
                 .processId(reqDTO.getProcessId())
+                .qaProcessId(reqDTO.getQaProcessId())
                 .actualEmployeeId(reqDTO.getActualEmployeeId())
                 .deviceAccountId(reqDTO.getDeviceAccountId())
                 .deviceId(reqDTO.getDeviceId())

@@ -90,7 +90,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         Set<String> processedSourceKeys = new LinkedHashSet<>();
         Set<String> processedWorkOrderCodes = new LinkedHashSet<>();
         for (ErpKingdeeProductionOrder productionOrder : productionOrders) {
-            if (isKingdeeVoided(productionOrder) || isKingdeeFinished(productionOrder)) {
+            if (isKingdeeVoided(productionOrder)) {
                 continue;
             }
             String sourceKey = buildSourceKey(productionOrder);
@@ -113,11 +113,15 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
                 updateWorkOrderStatus(workOrderId);
                 saveOrUpdateSyncRecord(syncRecord, productionOrder, workOrderId);
                 result.addCreated(workOrderId);
+                finishWorkOrderIfKingdeeFinished(productionOrder, new MesProWorkOrderDO()
+                        .setId(workOrderId)
+                        .setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus()), result);
                 continue;
             }
             syncExistingWorkOrder(existingWorkOrder, productionOrder, productId);
             saveOrUpdateSyncRecord(syncRecord, productionOrder, existingWorkOrder.getId());
             result.addUpdated(existingWorkOrder.getId());
+            finishWorkOrderIfKingdeeFinished(productionOrder, existingWorkOrder, result);
         }
         syncInactiveWorkOrders(kingdeeProperties, result, processedWorkOrderCodes);
         return result;
@@ -126,7 +130,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
     private List<ErpKingdeeProductionOrder> fetchProductionOrders(ErpKingdeeProperties kingdeeProperties,
                                                                   ErpKingdeeSyncContext context) {
         if (context.isInitialSync()) {
-            return productionOrderClient.fetchUnfinishedProductionOrders(kingdeeProperties,
+            return productionOrderClient.fetchProductionOrdersByBillDateRange(kingdeeProperties,
                     context.getWindowStart().toLocalDate(), context.getWindowEnd().toLocalDate());
         }
         return productionOrderClient.fetchProductionOrdersModifiedBetween(kingdeeProperties,
@@ -507,6 +511,14 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             return;
         }
         if (isKingdeeFinished(statusOrder)) {
+            finishSyncedWorkOrder(workOrder, result);
+        }
+    }
+
+    private void finishWorkOrderIfKingdeeFinished(ErpKingdeeProductionOrder productionOrder,
+                                                  MesProWorkOrderDO workOrder,
+                                                  MesKingdeeProductionOrderSyncResult result) {
+        if (isKingdeeFinished(productionOrder)) {
             finishSyncedWorkOrder(workOrder, result);
         }
     }

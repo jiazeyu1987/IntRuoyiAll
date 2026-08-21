@@ -48,6 +48,18 @@ assert.doesNotMatch(
   'PQC fullscreen screen must remove the old 1480px cap that created large left/right whitespace.'
 )
 
+const productionPanelRule = findRule('.frontline-operator-panel.is-production-fullscreen,')
+assert.match(
+  productionPanelRule,
+  /padding:\s*0;/,
+  'production fullscreen must keep its existing zero outer padding.'
+)
+assert.match(
+  productionPanelRule,
+  /place-items:\s*center;/,
+  'production fullscreen must keep its existing centered layout.'
+)
+
 const mainRule = findRule(
   '.frontline-operator-panel.is-pqc-fullscreen .frontline-operator-main.is-pqc,'
 )

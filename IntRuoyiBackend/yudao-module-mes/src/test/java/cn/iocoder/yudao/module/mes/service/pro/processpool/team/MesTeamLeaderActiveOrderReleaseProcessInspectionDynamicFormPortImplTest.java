@@ -133,6 +133,35 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImplTest {
     }
 
     @Test
+    void resolvesConfiguredTemplateIdentityFromBindingEvenWhenItIsNot28() {
+        MesProRouteFlowProcessBatchRecordDO binding = binding()
+                .setFormTemplateId(31L)
+                .setLastPublishedTemplateVersionId(3101L)
+                .setLastPublishedTemplateVersionNo("V2")
+                .setFormTemplateNameSnapshot("按压式压力泵过程检验记录");
+        List<MesProBatchRecordCellLinkRuleDO> rules = List.of(
+                rule(11L, "PQC|PRESSURE|1|measuredValue", "measuredValue", 3, 1, "NUMBER"),
+                rule(12L, "PQC|reviewedAt", "reviewedAt", 3, 3, "DATETIME"));
+        rules.forEach(item -> {
+            item.setScopeId(3101L);
+            item.setTargetReportId("FORMTPL:3101");
+            item.setTemplateSnapshotHash("template-snapshot-31");
+        });
+        FormTemplateVersionDO template = template()
+                .setId(3101L)
+                .setTemplateId(31L)
+                .setTemplateName("按压式压力泵过程检验记录")
+                .setVersionNo("V2");
+        when(templateVersionMapper.selectById(3101L)).thenReturn(template);
+
+        MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.TargetResolution target =
+                port.resolveTarget(binding, rules, "ID");
+
+        assertTrue(target.isValid());
+        assertEquals(Map.of(11L, "fieldMeasured", 12L, "fieldReviewedAt"), target.getTargetFieldCodes());
+    }
+
+    @Test
     void nonPublishedOrMismatchedTemplateReturnsBlockerWithoutInstanceWrite() {
         FormTemplateVersionDO template = template().setStatus("DRAFT");
         when(templateVersionMapper.selectById(2801L)).thenReturn(template);

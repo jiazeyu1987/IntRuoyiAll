@@ -11,6 +11,9 @@ export interface DccProjectCodePageReqVO extends PageParam {
   category?: string
   priority?: string
   status?: string
+  routeConfigured?: boolean
+  mainBatchRecordConfigured?: boolean
+  qaRegulationConfigured?: boolean
   fileCountSort?: 'asc' | 'desc'
 }
 

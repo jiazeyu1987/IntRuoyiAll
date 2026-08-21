@@ -10,6 +10,10 @@ const source = fs.readFileSync(
   ),
   'utf8'
 )
+const qaRegulationApiSource = fs.readFileSync(
+  path.join(frontendRoot, 'src/api/mes/qc/template/index.ts'),
+  'utf8'
+)
 const compact = (text) => text.replace(/\s+/g, '')
 
 assert.match(
@@ -29,6 +33,31 @@ assert.ok(
 assert.ok(
   compact(source).includes("query:{dccProjectCodeId:String(row.id)}"),
   'QA link must pass only the DCC project code ID.'
+)
+
+const qaColumnStart = source.indexOf('label="QA规程"')
+const qaColumnEnd = source.indexOf('</el-table-column>', qaColumnStart)
+assert.ok(qaColumnStart >= 0 && qaColumnEnd > qaColumnStart, 'QA status column template must exist.')
+const qaColumnSource = source.slice(qaColumnStart, qaColumnEnd)
+assert.match(
+  qaColumnSource,
+  /<el-tag[\s\S]*class="scheme-d-tag"[\s\S]*effect="plain"/,
+  'QA status must use the same plain status-tag presentation as the main batch record.'
+)
+assert.match(
+  qaColumnSource,
+  /resolveQaRegulationStatusTagType\(getQaRegulationProjectStatus\(row\.id\)\)/,
+  'QA status tag type must come from the formal QA project status.'
+)
+assert.match(
+  qaColumnSource,
+  /data-testid="dcc-project-code-governance-version-qa-regulation"/,
+  'Published QA status must expose a stable current-version element.'
+)
+assert.match(
+  qaColumnSource,
+  /formatQaRegulationPublishedVersion\(getQaRegulationProjectStatus\(row\.id\)\)/,
+  'QA version display must use the formal published version instead of a draft or inferred value.'
 )
 
 const loadStart = source.indexOf('const loadQaRegulationStatuses')
@@ -62,6 +91,11 @@ assert.match(
   source,
   /qaRegulationStatusPermissionDenied\.value[\s\S]*无查询权限/,
   'No QA query permission must render as no permission instead of unconfigured.'
+)
+assert.match(
+  qaRegulationApiSource,
+  /publishedVersionNo\?: string/,
+  'The frontend QA project-status contract must include the formal published version number.'
 )
 assert.doesNotMatch(
   loadSource,

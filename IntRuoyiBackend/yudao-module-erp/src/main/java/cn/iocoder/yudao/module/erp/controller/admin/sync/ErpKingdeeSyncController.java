@@ -2,13 +2,15 @@ package cn.iocoder.yudao.module.erp.controller.admin.sync;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeFullSyncReqVO;
+import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeFullSyncRespVO;
 import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeProductionOrderCreateReqVO;
 import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeProductionOrderCreateRespVO;
 import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeSyncRunPageReqVO;
 import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeSyncRunRespVO;
 import cn.iocoder.yudao.module.erp.controller.admin.sync.vo.ErpKingdeeSyncWatermarkRespVO;
-import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeSyncAdminService;
 import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeProductionOrderCreateService;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeSyncAdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -49,6 +51,14 @@ public class ErpKingdeeSyncController {
     @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
     public CommonResult<List<ErpKingdeeSyncWatermarkRespVO>> getWatermarkList() {
         return success(syncAdminService.getWatermarks());
+    }
+
+    @PostMapping("/full-sync")
+    @Operation(summary = "全量同步 ERP 金蝶表格")
+    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    public CommonResult<ErpKingdeeFullSyncRespVO> runFullSync(
+            @Valid @RequestBody ErpKingdeeFullSyncReqVO reqVO) {
+        return success(syncAdminService.runFullSync(reqVO.getSyncType()));
     }
 
     @PostMapping("/production-order/create")

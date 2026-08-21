@@ -8,7 +8,8 @@ import lombok.Getter;
 public enum ErpKingdeeSyncTriggerTypeEnum {
 
     AUTO("AUTO"),
-    MANUAL("MANUAL");
+    MANUAL("MANUAL"),
+    FULL("FULL");
 
     private final String triggerType;
 

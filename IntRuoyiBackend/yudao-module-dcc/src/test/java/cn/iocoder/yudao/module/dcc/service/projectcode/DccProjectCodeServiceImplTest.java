@@ -10,6 +10,9 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeImportRowRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeAssociatedFileAiCategoryRespVO;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationQuery;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatus;
+import cn.iocoder.yudao.module.dcc.api.projectcode.DccProjectCodeConfigurationStatusApi;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
@@ -47,20 +50,25 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import cn.idev.excel.annotation.ExcelProperty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.DccProjectCodeAssignmentConstants.STATUS_ACTIVE;
@@ -101,6 +109,8 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @MockitoBean
     private PermissionApi permissionApi;
+    @MockitoBean
+    private DccProjectCodeConfigurationStatusApi configurationStatusApi;
 
     @Test
     void createUpdateDeleteShouldPersistNormalizedFieldsAndAllowBlankProjectCode() {
@@ -258,6 +268,95 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
 
         assertEquals(1, pageResult.getList().size());
         assertEquals("项目A", pageResult.getList().get(0).getProjectName());
+    }
+
+    @Test
+    void pageShouldFilterRouteMainBatchRecordAndQaConfigurationIndependently() {
+        DccProjectCodeDO routeProject = insertProjectCode("1", "项目路线", "CODE-ROUTE");
+        DccProjectCodeDO batchRecordProject = insertProjectCode("2", "项目批记录", "CODE-BATCH");
+        DccProjectCodeDO qaProject = insertProjectCode("3", "项目QA", "CODE-QA");
+        DccProjectCodeDO allConfiguredProject = insertProjectCode("4", "项目全配置", "CODE-ALL");
+        when(configurationStatusApi.getStatus(any())).thenReturn(Map.of(
+                routeProject.getId(), new DccProjectCodeConfigurationStatus(
+                        routeProject.getId(), true, false, false),
+                batchRecordProject.getId(), new DccProjectCodeConfigurationStatus(
+                        batchRecordProject.getId(), false, true, false),
+                qaProject.getId(), new DccProjectCodeConfigurationStatus(
+                        qaProject.getId(), false, false, true),
+                allConfiguredProject.getId(), new DccProjectCodeConfigurationStatus(
+                        allConfiguredProject.getId(), true, true, true)));
+
+        DccProjectCodePageReqVO routeReqVO = configurationFilterReqVO();
+        routeReqVO.setRouteConfigured(true);
+        assertEquals(List.of(routeProject.getId(), allConfiguredProject.getId()),
+                projectCodeService.getProjectCodePage(routeReqVO).getList().stream()
+                        .map(DccProjectCodeDO::getId).toList());
+
+        DccProjectCodePageReqVO batchRecordReqVO = configurationFilterReqVO();
+        batchRecordReqVO.setMainBatchRecordConfigured(true);
+        assertEquals(List.of(batchRecordProject.getId(), allConfiguredProject.getId()),
+                projectCodeService.getProjectCodePage(batchRecordReqVO).getList().stream()
+                        .map(DccProjectCodeDO::getId).toList());
+
+        DccProjectCodePageReqVO qaReqVO = configurationFilterReqVO();
+        qaReqVO.setQaRegulationConfigured(true);
+        assertEquals(List.of(qaProject.getId(), allConfiguredProject.getId()),
+                projectCodeService.getProjectCodePage(qaReqVO).getList().stream()
+                        .map(DccProjectCodeDO::getId).toList());
+
+        DccProjectCodePageReqVO combinedReqVO = configurationFilterReqVO();
+        combinedReqVO.setRouteConfigured(true);
+        combinedReqVO.setMainBatchRecordConfigured(true);
+        assertEquals(List.of(allConfiguredProject.getId()),
+                projectCodeService.getProjectCodePage(combinedReqVO).getList().stream()
+                        .map(DccProjectCodeDO::getId).toList());
+    }
+
+    @Test
+    void routeConfigurationFilterShouldRequestOnlyRouteStatus() {
+        DccProjectCodeDO routeProject = insertProjectCode("1", "项目路线", "CODE-ROUTE");
+        when(configurationStatusApi.getStatus(any())).thenReturn(Map.of(
+                routeProject.getId(), new DccProjectCodeConfigurationStatus(
+                        routeProject.getId(), true, false, false)));
+
+        DccProjectCodePageReqVO routeReqVO = configurationFilterReqVO();
+        routeReqVO.setRouteConfigured(true);
+        projectCodeService.getProjectCodePage(routeReqVO);
+
+        ArgumentCaptor<Collection<DccProjectCodeConfigurationQuery>> queryCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(configurationStatusApi).getStatus(queryCaptor.capture());
+        DccProjectCodeConfigurationQuery query = queryCaptor.getValue().iterator().next();
+        assertTrue(query.routeStatusRequired());
+        assertFalse(query.mainBatchRecordStatusRequired());
+        assertFalse(query.qaRegulationStatusRequired());
+    }
+
+    @Test
+    void qaConfigurationFilterShouldRequestOnlyQaStatus() {
+        DccProjectCodeDO qaProject = insertProjectCode("1", "项目QA", "CODE-QA");
+        when(configurationStatusApi.getStatus(any())).thenReturn(Map.of(
+                qaProject.getId(), new DccProjectCodeConfigurationStatus(
+                        qaProject.getId(), false, false, true)));
+
+        DccProjectCodePageReqVO qaReqVO = configurationFilterReqVO();
+        qaReqVO.setQaRegulationConfigured(true);
+        projectCodeService.getProjectCodePage(qaReqVO);
+
+        ArgumentCaptor<Collection<DccProjectCodeConfigurationQuery>> queryCaptor =
+                ArgumentCaptor.forClass(Collection.class);
+        verify(configurationStatusApi).getStatus(queryCaptor.capture());
+        DccProjectCodeConfigurationQuery query = queryCaptor.getValue().iterator().next();
+        assertFalse(query.routeStatusRequired());
+        assertFalse(query.mainBatchRecordStatusRequired());
+        assertTrue(query.qaRegulationStatusRequired());
+    }
+
+    private DccProjectCodePageReqVO configurationFilterReqVO() {
+        DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+        return reqVO;
     }
 
     @Test

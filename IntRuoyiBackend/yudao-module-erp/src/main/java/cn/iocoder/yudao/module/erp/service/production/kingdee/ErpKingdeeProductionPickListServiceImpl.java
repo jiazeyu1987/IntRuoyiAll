@@ -92,9 +92,6 @@ public class ErpKingdeeProductionPickListServiceImpl
     @Transactional(rollbackFor = Exception.class)
     public ErpKingdeeProductionPickListSyncResult syncModifiedBetween(
             LocalDateTime windowStart, LocalDateTime windowEnd) {
-        if (productionPickListMapper.selectCount() == 0) {
-            return syncAll();
-        }
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
         return syncPickLists(productionPickListClient

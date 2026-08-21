@@ -7,13 +7,11 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
@@ -71,8 +69,6 @@ class MesQaInspectionRegulationServiceTest {
     @Mock
     private MesQaInspectionRegulationItemMapper itemMapper;
     @Mock
-    private MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper;
-    @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
@@ -82,7 +78,7 @@ class MesQaInspectionRegulationServiceTest {
     @BeforeEach
     void setUp() {
         service = new MesQaInspectionRegulationServiceImpl(dccProjectCodeMapper, regulationMapper,
-                versionMapper, processMapper, itemMapper, itemEquipmentMapper,
+                versionMapper, processMapper, itemMapper,
                 activeOrderMapper, pqcInspectionTaskMapper);
         lenient().when(versionMapper.selectLatestPublishedByRegulationId(REGULATION_ID))
                 .thenReturn(publishedVersion());
@@ -96,7 +92,6 @@ class MesQaInspectionRegulationServiceTest {
         when(itemMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
                 item("FIRST", 5, null), item("PATROL", null, new BigDecimal("0.400000")),
                 item("FINAL", 3, null)));
-        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of());
 
         MesQaInspectionRegulationPublishedVersionRespVO result = service.getCurrent(DCC_PROJECT_ID);
 
@@ -126,12 +121,6 @@ class MesQaInspectionRegulationServiceTest {
                 item("PATROL_AM", null, new BigDecimal("0.400000")),
                 item("PATROL_PM", null, new BigDecimal("0.400000")),
                 item("FINAL", 3, null)));
-        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
-                equipment("FIRST", 91L, "EQ-FIRST", 1),
-                equipment("PATROL_AM", 92L, "EQ-AM", 2),
-                equipment("PATROL_PM", 93L, "EQ-PM", 3),
-                equipment("FINAL", 94L, "EQ-FINAL", 4)));
-
         MesQaInspectionRegulationPublishedVersionRespVO result = service.getCurrent(DCC_PROJECT_ID);
 
         MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem businessItem =
@@ -140,10 +129,6 @@ class MesQaInspectionRegulationServiceTest {
                 businessItem.getApplicableInspectionTypes());
         assertEquals(new BigDecimal("0.400000"), businessItem.getPatrolInspectionRatio());
         assertEquals("BOOLEAN", businessItem.getResultType());
-        assertEquals(List.of("EQ-FIRST", "EQ-AM", "EQ-PM", "EQ-FINAL"),
-                businessItem.getEquipmentOptions().stream()
-                        .map(MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption::getEquipmentCode)
-                        .toList());
     }
 
     @Test
@@ -168,7 +153,6 @@ class MesQaInspectionRegulationServiceTest {
                 .setId(73L).setRegulationVersionId(72L).setProcessName("QA新增工序")));
         when(itemMapper.selectListByVersionId(72L)).thenReturn(List.of(item("PATROL", null,
                 new BigDecimal("0.400000")).setRegulationVersionId(72L).setQaProcessId(73L)));
-        when(itemEquipmentMapper.selectListByVersionId(72L)).thenReturn(List.of());
 
         MesQaInspectionRegulationPublishedVersionRespVO result = service.getCurrent(DCC_PROJECT_ID);
 
@@ -252,7 +236,7 @@ class MesQaInspectionRegulationServiceTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.publish(reqVO));
 
         assertEquals(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID.getCode(), ex.getCode());
-        verifyNoInteractions(regulationMapper, processMapper, itemMapper, itemEquipmentMapper);
+        verifyNoInteractions(regulationMapper, processMapper, itemMapper);
     }
 
     @Test
@@ -265,7 +249,7 @@ class MesQaInspectionRegulationServiceTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.publish(reqVO));
 
         assertEquals(QA_INSPECTION_REGULATION_FINAL_APPLICABILITY_INVALID.getCode(), ex.getCode());
-        verifyNoInteractions(regulationMapper, processMapper, itemMapper, itemEquipmentMapper);
+        verifyNoInteractions(regulationMapper, processMapper, itemMapper);
     }
 
     @Test
@@ -297,7 +281,6 @@ class MesQaInspectionRegulationServiceTest {
         when(processMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(qaProcess()));
         when(itemMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
                 item("FIRST", 5, null), item("PATROL", null, new BigDecimal("0.400000"))));
-        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of());
 
         MesQaInspectionRegulationPublishedVersionRespVO result = service.publish(reqVO);
 
@@ -326,7 +309,6 @@ class MesQaInspectionRegulationServiceTest {
                 item("PATROL", null, new BigDecimal("0.400000")).setRegulationVersionId(72L)
                         .setQaProcessId(73L),
                 item("FINAL", 3, null).setRegulationVersionId(72L).setQaProcessId(73L)));
-        when(itemEquipmentMapper.selectListByVersionId(72L)).thenReturn(List.of());
         when(versionMapper.selectListByRegulationId(REGULATION_ID)).thenReturn(List.of(
                 publishedVersion(),
                 publishedVersion().setId(66L).setPublishedAt(LocalDateTime.of(2026, 8, 12, 10, 0))));
@@ -408,6 +390,7 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals(REGULATION_ID, longProperty(status, "getPublishedRegulationId"));
         assertEquals(66L, longProperty(status, "getCurrentVersionId"));
         assertEquals(66L, longProperty(status, "getPublishedVersionId"));
+        assertEquals("G/2", status.getPublishedVersionNo());
         assertEquals(true, booleanProperty(status, "getProductionReady"));
     }
 
@@ -424,7 +407,6 @@ class MesQaInspectionRegulationServiceTest {
                 .thenReturn(0L);
         when(processMapper.selectCountByVersionIds(List.of(VERSION_ID, 72L))).thenReturn(3L);
         when(itemMapper.selectCountByVersionIds(List.of(VERSION_ID, 72L))).thenReturn(18L);
-        when(itemEquipmentMapper.selectCountByVersionIds(List.of(VERSION_ID, 72L))).thenReturn(4L);
 
         var result = service.resetForTesting(DCC_PROJECT_ID);
 
@@ -433,8 +415,7 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals(2, result.getVersionCount());
         assertEquals(3, result.getProcessCount());
         assertEquals(18, result.getItemCount());
-        assertEquals(4, result.getItemEquipmentCount());
-        verify(itemEquipmentMapper).deleteByVersionIds(List.of(VERSION_ID, 72L));
+        assertEquals(0, result.getItemEquipmentCount());
         verify(itemMapper).deleteByVersionIds(List.of(VERSION_ID, 72L));
         verify(processMapper).deleteByVersionIds(List.of(VERSION_ID, 72L));
         verify(versionMapper).deleteByRegulationId(REGULATION_ID);
@@ -455,7 +436,6 @@ class MesQaInspectionRegulationServiceTest {
                 () -> service.resetForTesting(DCC_PROJECT_ID));
 
         assertEquals(QA_INSPECTION_REGULATION_RESET_REFERENCED.getCode(), ex.getCode());
-        verify(itemEquipmentMapper, never()).deleteByVersionIds(any());
         verify(itemMapper, never()).deleteByVersionIds(any());
         verify(processMapper, never()).deleteByVersionIds(any());
         verify(versionMapper, never()).deleteByRegulationId(any());
@@ -489,7 +469,6 @@ class MesQaInspectionRegulationServiceTest {
                 item("FIRST", 5, null).setRegulationVersionId(66L),
                 item("PATROL", null, new BigDecimal("0.400000")).setRegulationVersionId(66L),
                 item("FINAL", 3, null).setRegulationVersionId(66L)));
-        when(itemEquipmentMapper.selectListByVersionId(66L)).thenReturn(List.of());
 
         MesQaInspectionRegulationPublishedVersionRespVO result =
                 service.getPublishedVersion(DCC_PROJECT_ID, null);
@@ -507,7 +486,6 @@ class MesQaInspectionRegulationServiceTest {
         when(itemMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
                 item("FIRST", 5, null), item("PATROL", null, new BigDecimal("0.400000")),
                 item("FINAL", 3, null)));
-        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of());
 
         MesQaInspectionRegulationPublishedVersionRespVO result =
                 service.getPublishedVersion(DCC_PROJECT_ID, VERSION_ID);
@@ -534,7 +512,6 @@ class MesQaInspectionRegulationServiceTest {
                 item("FIRST", 5, null), item("PATROL", null, new BigDecimal("0.400000")),
                 item("FINAL", 3, null), item("PATROL", null, new BigDecimal("0.400000"))
                         .setId(82L).setQaProcessId(64L).setItemCode("ID-002")));
-        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of());
 
         MesQaInspectionRegulationPublishedVersionRespVO result =
                 service.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID);
@@ -559,7 +536,7 @@ class MesQaInspectionRegulationServiceTest {
                 service.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID));
 
         assertEquals(QA_INSPECTION_REGULATION_DCC_PROJECT_INVALID.getCode(), ex.getCode());
-        verifyNoInteractions(versionMapper, processMapper, itemMapper, itemEquipmentMapper);
+        verifyNoInteractions(versionMapper, processMapper, itemMapper);
     }
 
     @Test
@@ -573,7 +550,7 @@ class MesQaInspectionRegulationServiceTest {
                 service.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID));
 
         assertEquals(QA_INSPECTION_REGULATION_VERSION_NOT_EXISTS.getCode(), ex.getCode());
-        verifyNoInteractions(processMapper, itemMapper, itemEquipmentMapper);
+        verifyNoInteractions(processMapper, itemMapper);
     }
 
     @Test
@@ -587,7 +564,7 @@ class MesQaInspectionRegulationServiceTest {
                 service.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, VERSION_ID));
 
         assertEquals(QA_INSPECTION_REGULATION_VERSION_NOT_PUBLISHED.getCode(), ex.getCode());
-        verifyNoInteractions(processMapper, itemMapper, itemEquipmentMapper);
+        verifyNoInteractions(processMapper, itemMapper);
     }
 
     private static DccProjectCodeDO enabledDccProject() {
@@ -669,27 +646,10 @@ class MesQaInspectionRegulationServiceTest {
                 .inspectionTool("目测")
                 .samplingPlanText("AQL=0.4")
                 .standardText("表面清洁")
-                .equipmentRequired(false)
                 .resultType("BOOLEAN")
                 .firstInspectionQuantity(quantity)
                 .patrolInspectionRatio(patrolRatio)
                 .critical(false)
-                .build();
-    }
-
-    private static MesQaInspectionRegulationItemEquipmentDO equipment(
-            String inspectionType, Long equipmentId, String equipmentCode, Integer sort) {
-        return MesQaInspectionRegulationItemEquipmentDO.builder()
-                .id(equipmentId)
-                .regulationVersionId(VERSION_ID)
-                .inspectionType(inspectionType)
-                .itemCode("ID-001-WASH-APP")
-                .equipmentId(equipmentId)
-                .equipmentCode(equipmentCode)
-                .equipmentName("压力表")
-                .equipmentNumber("NO-" + equipmentId)
-                .defaultFlag(false)
-                .sort(sort)
                 .build();
     }
 
@@ -716,7 +676,6 @@ class MesQaInspectionRegulationServiceTest {
         item.setSamplingPlanText("首件：5件；AQL=0.4");
         item.setStandardText("表面清洁");
         item.setEquipmentRequired(false);
-        item.setEquipmentOptions(List.of());
         item.setResultType("BOOLEAN");
         item.setApplicableInspectionTypes(List.of("FIRST", "PATROL", "FINAL"));
         item.setFirstInspectionQuantity(5);

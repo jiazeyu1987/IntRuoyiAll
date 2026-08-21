@@ -53,10 +53,10 @@ assert.match(
   /const replaceQaInspectionTypeRules = \(rules: QaInspectionTypeRule\[\]\) =>/,
   'Product switches must replace the shared reactive rule array deterministically.'
 )
-assert.match(
+assert.doesNotMatch(
   qaSource,
-  /const cloneQaRegulationItems = \(items: QaRegulationItem\[\]\) =>[\s\S]*equipmentOptions:\s*item\.equipmentOptions\?\.map\(\(option\) => \(\{ \.\.\.option \}\)\)/,
-  'Product snapshots must deep-clone nested equipment options after inspection types become derived.'
+  /equipmentOptions|QaRegulationEquipmentOptionDraft|getQaRegulationItemEquipmentOptions|addQaRegulationEquipmentOption/,
+  'QA product rule snapshots must not carry inspection equipment config; equipment is maintained in the PQC leader tenant tab.'
 )
 assert.match(
   qaSource,

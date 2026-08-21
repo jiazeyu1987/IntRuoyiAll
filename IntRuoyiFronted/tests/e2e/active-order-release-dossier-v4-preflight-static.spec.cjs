@@ -107,8 +107,11 @@ for (const token of [
   assert.ok(source.includes(token), `preflight source gate is missing ${token}`)
 }
 
-assert.match(source, /PROCESS_INSPECTION:\s*28/)
-assert.match(source, /LOSS_REPORT:\s*25/)
+assert.doesNotMatch(source, /PROCESS_INSPECTION:\s*28/)
+assert.doesNotMatch(source, /form_slot_type = 'PROCESS_INSPECTION' AND b\.form_template_id = 28/)
+assert.match(source, /b\.form_slot_type IN \('PROCESS_INSPECTION', 'LOSS_REPORT'\)/)
+assert.doesNotMatch(source, /LOSS_REPORT:\s*25/)
+assert.doesNotMatch(source, /form_slot_type = 'LOSS_REPORT' AND b\.form_template_id = 25/)
 assert.match(source, /DYNAMIC_FORM_BINDINGS_REQUIRED/)
 assert.match(source, /DYNAMIC_FORM_TEMPLATE_SNAPSHOT_INVALID/)
 assert.match(source, /LATEST_PUBLISHED_QA_BY_STABLE_PROCESS_REQUIRED/)

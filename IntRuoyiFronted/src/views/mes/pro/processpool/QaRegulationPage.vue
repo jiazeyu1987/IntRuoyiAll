@@ -584,41 +584,7 @@
                   v-bind="sortColumnAttrs('inspectionTool')"
                 >
                   <template #default="{ row }">
-                    <div class="qa-regulation-page__equipment-editor">
-                      <el-input v-model="row.inspectionTool" placeholder="检验器具及设备说明" />
-                      <div
-                        v-for="(option, optionIndex) in getQaRegulationItemEquipmentOptions(row)"
-                        :key="`${row.itemCode}-${optionIndex}`"
-                        class="qa-regulation-page__equipment-option"
-                        data-qa-regulation-equipment-option
-                      >
-                        <el-input-number
-                          v-model="option.equipmentId"
-                          :controls="false"
-                          :min="1"
-                          placeholder="设备ID"
-                          class="qa-regulation-page__equipment-id"
-                        />
-                        <el-input v-model="option.equipmentCode" placeholder="设备编码" />
-                        <el-input v-model="option.equipmentName" placeholder="设备名称" />
-                        <el-input v-model="option.equipmentNumber" placeholder="设备编号" />
-                        <el-switch v-model="option.defaultFlag" active-text="默认" />
-                        <el-button
-                          text
-                          type="danger"
-                          @click="removeQaRegulationEquipmentOption(row, optionIndex)"
-                        >
-                          删除
-                        </el-button>
-                      </div>
-                      <el-button
-                        size="small"
-                        data-qa-regulation-equipment-option-add
-                        @click="addQaRegulationEquipmentOption(row)"
-                      >
-                        添加正式设备
-                      </el-button>
-                    </div>
+                    <el-input v-model="row.inspectionTool" placeholder="检验器具及设备说明" />
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -954,7 +920,6 @@ import {
 } from '@/api/dcc/controlledFile/projectCodes'
 import {
   QcTemplateApi,
-  type QaInspectionRegulationEquipmentOptionVO,
   type QaInspectionRegulationImportRespVO,
   type QaInspectionRegulationInspectionTypeRuleVO,
   type QaInspectionRegulationItemVO,
@@ -990,15 +955,6 @@ interface QaInspectionTypeRule {
   releaseGate: string
 }
 
-interface QaRegulationEquipmentOptionDraft {
-  equipmentId?: number
-  equipmentCode: string
-  equipmentName: string
-  equipmentNumber: string
-  defaultFlag?: boolean
-  sort?: number
-}
-
 interface QaRegulationItem extends QaItemInspectionState {
   qaProcessId?: number
   processCode: string
@@ -1009,7 +965,6 @@ interface QaRegulationItem extends QaItemInspectionState {
   itemName: string
   inspectionMethod: string
   inspectionTool: string
-  equipmentOptions?: QaRegulationEquipmentOptionDraft[]
   samplingPlanText?: string
   resultType: QaInspectionResultType
   standardText: string
@@ -1338,7 +1293,6 @@ const flattenQaRegulationProcesses = (
           itemName: item.itemName,
           inspectionMethod: item.inspectionMethod,
           inspectionTool: item.inspectionTool,
-          equipmentOptions: item.equipmentOptions?.map((option) => ({ ...option })),
           samplingPlanText: item.samplingPlanText,
           resultType: item.resultType as QaInspectionResultType,
           standardText: item.standardText,
@@ -1798,28 +1752,6 @@ onMounted(() => {
 const formatQaItemSamplingPlan = (item: QaRegulationItem) =>
   item.samplingPlanText?.trim() || '未填写抽样方案'
 
-const getQaRegulationItemEquipmentOptions = (item: QaRegulationItem) => {
-  if (!item.equipmentOptions) {
-    item.equipmentOptions = []
-  }
-  return item.equipmentOptions
-}
-
-const addQaRegulationEquipmentOption = (item: QaRegulationItem) => {
-  getQaRegulationItemEquipmentOptions(item).push({
-    equipmentId: undefined,
-    equipmentCode: '',
-    equipmentName: '',
-    equipmentNumber: '',
-    defaultFlag: false,
-    sort: getQaRegulationItemEquipmentOptions(item).length + 1
-  })
-}
-
-const removeQaRegulationEquipmentOption = (item: QaRegulationItem, optionIndex: number) => {
-  getQaRegulationItemEquipmentOptions(item).splice(optionIndex, 1)
-}
-
 const handleQaFirstInspectionEnabledChange = (item: QaRegulationItem) => {
   if (!item.firstInspectionEnabled) {
     item.firstInspectionQuantity = undefined
@@ -1843,7 +1775,6 @@ const addQaRegulationItem = () => {
     itemName: '',
     inspectionMethod: '',
     inspectionTool: '',
-    equipmentOptions: [],
     samplingPlanText: '',
     firstInspectionEnabled: false,
     firstInspectionQuantity: undefined,
@@ -1866,27 +1797,6 @@ const removeQaRegulationItemByRow = (row: QaRegulationItem) => {
   }
 }
 
-const buildQaRegulationEquipmentOptions = (
-  item: QaRegulationItem,
-  settings: { publishing?: boolean } = {}
-): QaInspectionRegulationEquipmentOptionVO[] => {
-  const optionRows = getQaRegulationItemEquipmentOptions(item)
-  const publishing = Boolean(settings.publishing)
-  return optionRows
-    .map((option, index) => {
-      const context = item.itemName.trim() || item.itemCode.trim() || '检验项目'
-      return {
-        equipmentId: resolvePositiveId(option.equipmentId, context + '检验设备 ID'),
-        equipmentCode: resolveRequiredText(option.equipmentCode, context + '设备编码'),
-        equipmentName: resolveRequiredText(option.equipmentName, context + '设备名称'),
-        equipmentNumber: resolveRequiredText(option.equipmentNumber, context + '设备编号'),
-        defaultFlag: Boolean(option.defaultFlag),
-        sort: option.sort || index + 1
-      }
-    })
-    .filter((option) => publishing || option.equipmentId > 0)
-}
-
 const buildQaRegulationSaveItem = (
   item: QaRegulationItem,
   itemSort: number,
@@ -1898,7 +1808,6 @@ const buildQaRegulationSaveItem = (
     finalInspectionRequired.value,
     itemName
   )
-  const equipmentOptions = buildQaRegulationEquipmentOptions(item, settings)
   return {
     itemSort,
     itemCode: resolveRequiredText(item.itemCode, itemName + '编码'),
@@ -1911,8 +1820,6 @@ const buildQaRegulationSaveItem = (
     standardUpperLimit: item.resultType === 'NUMERIC' ? item.upperLimit : undefined,
     standardUnit: item.standardUnit,
     standardPrecision: item.standardPrecision,
-    equipmentRequired: equipmentOptions.length > 0,
-    equipmentOptions,
     resultType: item.resultType,
     applicableInspectionTypes: inspectionConfiguration.applicableInspectionTypes,
     firstInspectionQuantity: inspectionConfiguration.firstInspectionQuantity,
@@ -2529,27 +2436,6 @@ const runQaPublishPrecheck = async () => {
 .qa-regulation-page__process-name {
   color: #172033;
   font-weight: 700;
-}
-
-.qa-regulation-page__equipment-editor {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
-
-.qa-regulation-page__equipment-option {
-  display: grid;
-  grid-template-columns: 88px minmax(96px, 1fr);
-  gap: 6px;
-  align-items: center;
-  padding: 8px;
-  border: 1px solid #dbeafe;
-  border-radius: 8px;
-  background: #f8fbff;
-}
-
-.qa-regulation-page__equipment-id {
-  width: 100%;
 }
 
 .qa-regulation-page__applicable-types {

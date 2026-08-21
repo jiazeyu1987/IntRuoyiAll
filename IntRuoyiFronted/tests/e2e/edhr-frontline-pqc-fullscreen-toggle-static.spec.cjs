@@ -73,8 +73,8 @@ assert.match(
 )
 assert.match(
   source,
-  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-top\.is-pqc[\s\S]*grid-template-columns:\s*minmax\(480px, 1\.55fr\) minmax\(220px, 0\.85fr\) minmax\(200px, 1fr\) 150px/,
-  'PQC fullscreen header columns must reserve enough space for the complete order summary.'
+  /\.frontline-operator-panel\.is-pqc-fullscreen \.frontline-operator-top\.is-pqc[\s\S]*grid-template-columns:\s*minmax\(480px, 1\.45fr\) minmax\(360px, 1\.2fr\) minmax\(140px, 0\.45fr\) 150px/,
+  'PQC fullscreen header columns must widen the process card while keeping the employee card compact.'
 )
 assert.match(
   source,

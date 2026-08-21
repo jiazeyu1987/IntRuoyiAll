@@ -115,6 +115,8 @@ public class MesFrontlinePqcProcessRespVO {
         private String sourceOriginalExcerpt;
         private String sourceOriginalMethod;
         private List<PqcEquipmentOption> equipmentOptions;
+        private Long lastSelectedEquipmentId;
+        private String lastSelectedEquipmentNumber;
     }
 
     @Data

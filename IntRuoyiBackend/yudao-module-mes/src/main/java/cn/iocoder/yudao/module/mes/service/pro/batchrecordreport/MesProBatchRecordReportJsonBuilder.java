@@ -380,10 +380,8 @@ public class MesProBatchRecordReportJsonBuilder {
             return List.of(cell);
         }
         int originalColSpan = Math.max(cell.getColSpan(), 1);
-        if (originalColSpan < parts.size()) {
-            return List.of(cell);
-        }
-        int[] colSpans = distributeColSpans(originalColSpan, parts.size());
+        int splitColSpan = Math.max(originalColSpan, parts.size());
+        int[] colSpans = distributeColSpans(splitColSpan, parts.size());
         List<MesProBatchRecordParsedCell> expandedCells = new ArrayList<>();
         for (int index = 0; index < parts.size(); index++) {
             expandedCells.add(copyInlineCheckboxPart(cell, parts.get(index), colSpans[index], index == 0));

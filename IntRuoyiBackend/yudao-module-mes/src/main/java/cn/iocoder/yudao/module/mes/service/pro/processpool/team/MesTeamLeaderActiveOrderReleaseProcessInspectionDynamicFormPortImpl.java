@@ -42,7 +42,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 public class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImpl
         implements MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort {
 
-    private static final Long TEMPLATE_ID = 28L;
     private static final String TEMPLATE_STATUS_PUBLISHED = "PUBLISHED";
     private static final String INSTANCE_STATUS_DRAFT = "DRAFT";
     private static final String INSTANCE_STATUS_REWORKING = "REWORKING";
@@ -67,20 +66,21 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPortImpl
     public TargetResolution resolveTarget(MesProRouteFlowProcessBatchRecordDO binding,
                                           List<MesProBatchRecordCellLinkRuleDO> rules,
                                           String expectedDccProjectCode) {
-        if (binding == null || !TEMPLATE_ID.equals(binding.getFormTemplateId())
+        if (binding == null || binding.getFormTemplateId() == null
                 || binding.getLastPublishedTemplateVersionId() == null
                 || StrUtil.isBlank(binding.getLastPublishedTemplateVersionNo())) {
             return blocked("PROCESS_INSPECTION_DYNAMIC_FORM_TEMPLATE_REQUIRED",
-                    "过程检验动态绑定缺少 template 28 已发布版本身份");
+                    "过程检验动态绑定缺少已配置模板和已发布版本身份");
         }
         FormTemplateVersionDO template = templateVersionMapper.selectById(binding.getLastPublishedTemplateVersionId());
-        if (template == null || template.getId() == null || !TEMPLATE_ID.equals(template.getTemplateId())
+        if (template == null || template.getId() == null
+                || !Objects.equals(binding.getFormTemplateId(), template.getTemplateId())
                 || !Objects.equals(binding.getLastPublishedTemplateVersionId(), template.getId())
                 || !Objects.equals(binding.getLastPublishedTemplateVersionNo(), template.getVersionNo())
                 || !TEMPLATE_STATUS_PUBLISHED.equals(template.getStatus())
                 || StrUtil.isBlank(template.getRecognizedSchemaJson())) {
             return blocked("PROCESS_INSPECTION_DYNAMIC_FORM_TEMPLATE_REQUIRED",
-                    "过程检验动态绑定未命中精确 PUBLISHED template 28 版本");
+                    "过程检验动态绑定未命中精确 PUBLISHED 模板版本");
         }
         JSONArray recognizedFields;
         try {
