@@ -73,7 +73,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 3. 真实租户、角色、签名、正式工单/领料单、PQC 汇总和四份附件尚未准备或使用，真实 Playwright E2E 尚未执行。
 4. 生产历史批次/申请尚未执行授权后的真实只读 dry-run、人工复核和回滚演练；本线程已完成规范化 fixture dry-run。缺映射、缺 receipt 或已放行来源不完整必须分别进入 TRACE_MAPPING_BLOCKED、LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED、ALREADY_RELEASED_REVIEW_REQUIRED。
 5. 后端全模块编译被既有 `EquipmentOption` 符号错误阻断，需由对应流程线程修复后重新运行 Java RED/GREEN/REGRESSION。
-6. `int_main` 融合未完成：主工作树存在 114 个 tracked dirty 文件及大量 untracked 任务产物，且与本分支提交重叠 `AGENTS.md`、`docs/local-runtime.md`、`docs/worktree-memory.md`；`git merge --ff-only codex/20260822-flow-repair-11-design-development` 以退出码 128 因分支 diverged 中止。不得覆盖主工作树改动。
+6. `int_main` 融合未完成：主工作树当前 HEAD 为 `a73c1fded980f2bb7e6c49fe9ca6660ce4725a3e`，存在 114 个 tracked dirty 文件及大量 untracked 任务产物，且与本分支提交重叠 `AGENTS.md`、`docs/local-runtime.md`、`docs/worktree-memory.md`；`git merge --ff-only codex/20260822-flow-repair-11-design-development` 以退出码 128 因分支 diverged 中止。不得覆盖主工作树改动。
 
 以上 blocker 是实现、数据和验证前置，不是流程修复 04、05、07、10 文档缺失；当前四材料合同也不以旧三项历史数据作为兼容成功条件。
 
@@ -82,6 +82,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 已执行：`python IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS 12；`python -m py_compile ...` -> PASS；`python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q` -> PASS（12 passed）；规范化 fixture dry-run -> PASS，总数 8、唯一批次 ID 8，分类计数 1/1/4/1/1，`write_allowed=false`、`side_effects=[]`。
 - 已执行：`mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL，阻断于 `MesFrontlinePqcContextServiceImpl.java:736` 缺少 `EquipmentOption`；`branch-runtime-port-guard.ps1` -> PASS。
 - 已执行：`git merge --ff-only codex/20260822-flow-repair-11-design-development`（主工作树）-> FAIL，退出码 128，分支 diverged；主工作树 dirty 未改变。
+- 已执行：主线 `int_main` 不包含 `IntRuoyiBackend/script/run_flow_repair_11_contracts.py`（`git cat-file -e int_main:...` 退出码 128），主工作树也不存在该 runner；因此未伪造主线程 runner/回归 PASS。
 - 已执行：只读 rg --files、rg -n，核对五份文档、流程合同引用、四材料节点和 BDD/RED/GREEN/REGRESSION markers；自定义标记扫描确认独立入口、四个 BATCH_*、损耗三态和映射门禁均存在且旧凭证/待冻结措辞不存在。
 - 已执行：只读 git diff --check；对未跟踪 Markdown 另以 rg 扫描尾随空格。
 - 未执行：流程1-10生产代码测试、服务、生产数据库迁移、SQL、真实 Playwright E2E 和任何写入型 E2E；流程11无副作用合同 runner、pytest 和 fixture dry-run 已执行。
