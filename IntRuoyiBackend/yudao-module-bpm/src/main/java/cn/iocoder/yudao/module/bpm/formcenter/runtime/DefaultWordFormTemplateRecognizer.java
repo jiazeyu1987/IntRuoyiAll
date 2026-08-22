@@ -29,10 +29,10 @@ public class DefaultWordFormTemplateRecognizer implements FormTemplateRecognizer
     public FormTemplateRecognition recognize(FormTemplateImportCommand command) {
         String fileName = command.getSourceFileName().toLowerCase(Locale.ROOT);
         try {
-            List<String> labels = fileName.endsWith(".docx")
-                    ? extractDocxLabels(command.getSourceBytes())
-                    : extractDocLabels(command.getSourceBytes());
-            List<FormRecognizedField> fields = toFields(labels);
+            if (fileName.endsWith(".docx")) {
+                return recognizeDocx(command.getSourceBytes());
+            }
+            List<FormRecognizedField> fields = toFields(extractDocLabels(command.getSourceBytes()));
             if (fields.isEmpty()) {
                 return FormTemplateRecognition.failure("no recognizable text field labels");
             }
@@ -42,15 +42,27 @@ public class DefaultWordFormTemplateRecognizer implements FormTemplateRecognizer
         }
     }
 
-    private List<String> extractDocxLabels(byte[] bytes) throws Exception {
-        Set<String> labels = new LinkedHashSet<>();
+    private FormTemplateRecognition recognizeDocx(byte[] bytes) throws Exception {
         try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(bytes))) {
-            document.getParagraphs().forEach(paragraph -> addLabel(labels, paragraph.getText()));
-            for (XWPFTable table : document.getTables()) {
-                for (XWPFTableRow row : table.getRows()) {
-                    for (XWPFTableCell cell : row.getTableCells()) {
-                        addLabel(labels, cell.getText());
-                    }
+            List<FormRecognizedField> fields = toFields(extractDocxLabels(document));
+            if (fields.isEmpty()) {
+                return FormTemplateRecognition.failure("no recognizable text field labels");
+            }
+            if (document.getTables().isEmpty()) {
+                return FormTemplateRecognition.success(fields);
+            }
+            return FormTemplateRecognition.success(fields,
+                    WordTableVisualSchemaBuilder.build(document.getTables().get(0)));
+        }
+    }
+
+    private List<String> extractDocxLabels(XWPFDocument document) {
+        Set<String> labels = new LinkedHashSet<>();
+        document.getParagraphs().forEach(paragraph -> addLabel(labels, paragraph.getText()));
+        for (XWPFTable table : document.getTables()) {
+            for (XWPFTableRow row : table.getRows()) {
+                for (XWPFTableCell cell : row.getTableCells()) {
+                    addLabel(labels, cell.getText());
                 }
             }
         }

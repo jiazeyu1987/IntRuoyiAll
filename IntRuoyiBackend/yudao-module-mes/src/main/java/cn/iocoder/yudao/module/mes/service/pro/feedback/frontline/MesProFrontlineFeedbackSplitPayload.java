@@ -10,7 +10,7 @@ import lombok.experimental.Accessors;
 public class MesProFrontlineFeedbackSplitPayload {
 
     private MesProFeedbackSaveReqVO feedbackPayload;
-    private MesProFrontlineRecordbookEntryPayload recordbookEntryPayload;
+    private MesProFrontlineRecordbookSourceSnapshot recordbookSourceSnapshot;
     private MesProcessPoolSubmitEventCreateReqBO processPoolEventPayload;
 
 }

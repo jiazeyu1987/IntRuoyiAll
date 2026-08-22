@@ -64,7 +64,15 @@ public class ErpKingdeeStockMoveListServiceImpl implements ErpKingdeeStockMoveLi
     public ErpKingdeeStockMoveSyncResult syncAll() {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
-        return syncMoves(stockMoveClient.fetchStockMoves(properties));
+        return syncMoves(stockMoveClient.fetchStockMoves(properties), false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeStockMoveSyncResult syncAllSkipExisting() {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        return syncMoves(stockMoveClient.fetchStockMoves(properties), true);
     }
 
     @Override
@@ -75,16 +83,20 @@ public class ErpKingdeeStockMoveListServiceImpl implements ErpKingdeeStockMoveLi
         }
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
-        return syncMoves(stockMoveClient.fetchStockMovesModifiedBetween(properties, windowStart, windowEnd));
+        return syncMoves(stockMoveClient.fetchStockMovesModifiedBetween(properties, windowStart, windowEnd), false);
     }
 
-    private ErpKingdeeStockMoveSyncResult syncMoves(List<ErpKingdeeStockMove> stockMoves) {
+    private ErpKingdeeStockMoveSyncResult syncMoves(List<ErpKingdeeStockMove> stockMoves, boolean skipExisting) {
         LocalDateTime now = LocalDateTime.now();
         ErpKingdeeStockMoveSyncResult result = new ErpKingdeeStockMoveSyncResult();
         for (ErpKingdeeStockMove stockMove : stockMoves) {
             ErpKingdeeStockMoveListDO existing = stockMoveListMapper.selectBySource(
                     ErpKingdeeStockMove.FORM_ID, stockMove.getFid());
             ErpKingdeeStockMoveListDO record = buildRecord(stockMove, now);
+            if (skipExisting && existing != null) {
+                result.addSkipped();
+                continue;
+            }
             if (existing == null) {
                 stockMoveListMapper.insert(record);
                 result.addCreated();

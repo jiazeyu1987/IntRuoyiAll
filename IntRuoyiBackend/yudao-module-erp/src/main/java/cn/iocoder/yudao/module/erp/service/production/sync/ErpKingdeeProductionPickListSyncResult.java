@@ -7,6 +7,7 @@ public class ErpKingdeeProductionPickListSyncResult {
 
     private int createdCount;
     private int updatedCount;
+    private int skippedCount;
 
     public void addCreated() {
         createdCount++;
@@ -14,6 +15,10 @@ public class ErpKingdeeProductionPickListSyncResult {
 
     public void addUpdated() {
         updatedCount++;
+    }
+
+    public void addSkipped(String sourceFid) {
+        skippedCount++;
     }
 
 }

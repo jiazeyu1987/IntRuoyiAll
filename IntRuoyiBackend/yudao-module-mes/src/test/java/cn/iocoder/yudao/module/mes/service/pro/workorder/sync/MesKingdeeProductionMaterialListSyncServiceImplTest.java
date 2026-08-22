@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -123,6 +124,24 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
                 ArgumentCaptor.forClass(MesKingdeeProductionMaterialListDO.class);
         verify(materialListMapper).updateById(captor.capture());
         assertEquals(77L, captor.getValue().getId());
+    }
+
+    @Test
+    void syncAllSkipExisting_doesNotUpdateExistingLine() {
+        ErpKingdeeProductionMaterialList row = buildRow();
+        when(client.fetchProductionMaterialLists(properties)).thenReturn(List.of(row));
+        when(workOrderMapper.selectListByCodes(argThat((Collection<String> codes) ->
+                codes != null && codes.contains("CODXMO20260")))).thenReturn(List.of());
+        when(materialListMapper.selectBySourceLine("PPBOM0030888", "CODXMO20260", 1, "A001.02.014.300"))
+                .thenReturn(new MesKingdeeProductionMaterialListDO().setId(77L));
+
+        MesKingdeeProductionMaterialListSyncResult result = syncService.syncAllSkipExisting();
+
+        assertEquals(1, result.getSkippedCount());
+        assertEquals(0, result.getCreatedCount());
+        assertEquals(0, result.getUpdatedCount());
+        verify(materialListMapper, never()).insert(any(MesKingdeeProductionMaterialListDO.class));
+        verify(materialListMapper, never()).updateById(any(MesKingdeeProductionMaterialListDO.class));
     }
 
     @Test

@@ -63,12 +63,12 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         feedbackPayload.setRemark(feedback.getRemark());
 
         Map<String, Object> equipmentParameters = resolveEquipmentParameters(reqVO, recordbook);
-        MesProFrontlineRecordbookEntryPayload recordbookEntryPayload = null;
+        MesProFrontlineRecordbookSourceSnapshot recordbookSourceSnapshot = null;
         if (recordbook != null) {
             Map<String, Object> entryContent = new LinkedHashMap<>(recordbook.getEntryContent());
             entryContent.put("equipmentParameters", equipmentParameters);
             entryContent.put("rawPayload", reqVO.getRawPayload());
-            recordbookEntryPayload = new MesProFrontlineRecordbookEntryPayload()
+            recordbookSourceSnapshot = new MesProFrontlineRecordbookSourceSnapshot()
                     .setRecordbookId(recordbook.getRecordbookId())
                     .setEntryTitle(recordbook.getEntryTitle())
                     .setEntryContent(entryContent)
@@ -108,7 +108,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
 
         return new MesProFrontlineFeedbackSplitPayload()
                 .setFeedbackPayload(feedbackPayload)
-                .setRecordbookEntryPayload(recordbookEntryPayload)
+                .setRecordbookSourceSnapshot(recordbookSourceSnapshot)
                 .setProcessPoolEventPayload(eventPayload);
     }
 
@@ -116,11 +116,19 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                                                            MesProFrontlineFeedbackPayloadReqVO feedback,
                                                            Map<String, Object> equipmentParameters,
                                                            MesFrontlineLossReasonSnapshot lossReasonSnapshot) {
+        MesProFrontlineRecordbookPayloadReqVO recordbook = reqVO.getRecordbookPayload();
         Map<String, Object> payload = new LinkedHashMap<>();
         if (reqVO.getRawPayload() != null) {
             payload.putAll(reqVO.getRawPayload());
         }
         payload.put("activeOrderId", reqVO.getProcessPoolContext().getActiveOrderId());
+        Map<String, Object> activeOrderProcessSnapshot = new LinkedHashMap<>();
+        activeOrderProcessSnapshot.put("activeOrderId", reqVO.getProcessPoolContext().getActiveOrderId());
+        activeOrderProcessSnapshot.put("activeOrderProcessSnapshotId",
+                feedback.getActiveOrderProcessSnapshotId());
+        activeOrderProcessSnapshot.put("routeProcessId", reqVO.getProcessPoolContext().getRouteProcessId());
+        activeOrderProcessSnapshot.put("processId", reqVO.getProcessPoolContext().getProcessId());
+        payload.put("activeOrderProcess", activeOrderProcessSnapshot);
         payload.put("outputQuantity", feedback.getOutputQuantity());
         payload.put("lossQuantity", feedback.getLossQuantity());
         payload.put("lossDetails", feedback.getLossDetails());
@@ -130,6 +138,16 @@ public class MesProFrontlineFeedbackPayloadSplitter {
             payload.put("lossReasonId", lossReasonSnapshot.reasonId());
             payload.put("lossReasonCodeSnapshot", lossReasonSnapshot.reasonCode());
             payload.put("lossReasonNameSnapshot", lossReasonSnapshot.reasonName());
+        }
+        if (recordbook != null) {
+            Map<String, Object> recordbookSnapshot = new LinkedHashMap<>();
+            recordbookSnapshot.put("recordbookId", recordbook.getRecordbookId());
+            recordbookSnapshot.put("entryTitle", recordbook.getEntryTitle());
+            recordbookSnapshot.put("entryContent", recordbook.getEntryContent());
+            recordbookSnapshot.put("tagCodes", recordbook.getTagCodes());
+            recordbookSnapshot.put("idempotencyKey", recordbook.getIdempotencyKey());
+            recordbookSnapshot.put("remark", recordbook.getRemark());
+            payload.put("recordbookSourceSnapshot", recordbookSnapshot);
         }
         payload.put("equipmentParameters", equipmentParameters);
         if (equipmentParameters != null) {

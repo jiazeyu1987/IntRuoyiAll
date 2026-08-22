@@ -12,6 +12,8 @@ public interface ErpKingdeeInventoryListService {
 
     int syncAll();
 
+    ErpKingdeeInventoryListSyncResult syncAllSkipExisting();
+
     int syncModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd);
 
 }

@@ -675,7 +675,6 @@ class MesQaInspectionRegulationServiceTest {
         item.setInspectionTool("目测");
         item.setSamplingPlanText("首件：5件；AQL=0.4");
         item.setStandardText("表面清洁");
-        item.setEquipmentRequired(false);
         item.setResultType("BOOLEAN");
         item.setApplicableInspectionTypes(List.of("FIRST", "PATROL", "FINAL"));
         item.setFirstInspectionQuantity(5);

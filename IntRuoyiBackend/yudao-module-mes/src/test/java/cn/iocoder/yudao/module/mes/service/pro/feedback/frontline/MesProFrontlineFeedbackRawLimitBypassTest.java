@@ -32,8 +32,6 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
     @Mock
     private MesProFeedbackService feedbackService;
     @Mock
-    private MesProFrontlineRecordbookEntryService recordbookEntryService;
-    @Mock
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
     @Mock
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
@@ -54,7 +52,6 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
     void setUp() {
         submitService = new MesProFrontlineFeedbackSubmitServiceImpl(
                 feedbackService,
-                recordbookEntryService,
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
@@ -81,8 +78,6 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
 
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
-        when(recordbookEntryService.createOriginalEntry(any()))
-                .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -90,12 +85,6 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
             assertEquals(801L, submitService.submit(reqVO).getProcessPoolEventId());
         }
 
-        verify(recordbookEntryService).createOriginalEntry(argThat(payload -> {
-            Map<?, ?> equipment = (Map<?, ?>) payload.getEntryContent().get("equipmentParameters");
-            assertEquals(new BigDecimal("10"), equipment.get("temperature"));
-            assertEquals(new BigDecimal("50"), equipment.get("pressure"));
-            return true;
-        }));
         verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {
             assertEquals(new BigDecimal("10"), payload.getEquipmentParameters().get("temperature"));
             assertEquals(new BigDecimal("50"), payload.getEquipmentParameters().get("pressure"));

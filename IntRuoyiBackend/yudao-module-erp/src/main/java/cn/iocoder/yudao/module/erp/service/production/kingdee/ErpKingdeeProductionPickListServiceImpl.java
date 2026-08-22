@@ -85,7 +85,15 @@ public class ErpKingdeeProductionPickListServiceImpl
     public ErpKingdeeProductionPickListSyncResult syncAll() {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
-        return syncPickLists(productionPickListClient.fetchProductionPickLists(properties));
+        return syncPickLists(productionPickListClient.fetchProductionPickLists(properties), false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeProductionPickListSyncResult syncAllSkipExisting() {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        return syncPickLists(productionPickListClient.fetchProductionPickLists(properties), true);
     }
 
     @Override
@@ -95,11 +103,11 @@ public class ErpKingdeeProductionPickListServiceImpl
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
         return syncPickLists(productionPickListClient
-                .fetchProductionPickListsModifiedBetween(properties, windowStart, windowEnd));
+                .fetchProductionPickListsModifiedBetween(properties, windowStart, windowEnd), false);
     }
 
     private ErpKingdeeProductionPickListSyncResult syncPickLists(
-            List<ErpKingdeeProductionPickList> pickLists) {
+            List<ErpKingdeeProductionPickList> pickLists, boolean skipExisting) {
         LocalDateTime now = LocalDateTime.now();
         ErpKingdeeProductionPickListSyncResult result =
                 new ErpKingdeeProductionPickListSyncResult();
@@ -108,6 +116,10 @@ public class ErpKingdeeProductionPickListServiceImpl
                     productionPickListMapper.selectBySource(
                             ErpKingdeeProductionPickList.FORM_ID, pickList.getFid());
             ErpKingdeeProductionPickListDO record = buildRecord(pickList, now);
+            if (skipExisting && existing != null) {
+                result.addSkipped(pickList.getFid());
+                continue;
+            }
             if (existing == null) {
                 productionPickListMapper.insert(record);
                 result.addCreated();

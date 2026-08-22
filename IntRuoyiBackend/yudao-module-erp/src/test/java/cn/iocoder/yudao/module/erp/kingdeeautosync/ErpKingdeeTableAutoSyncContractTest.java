@@ -50,8 +50,7 @@ class ErpKingdeeTableAutoSyncContractTest {
                 "runOnce()",
                 "getRunPage(",
                 "getWatermarks()",
-                "executeAutoForCurrentTenant()",
-                "runFullSync("
+                "executeAutoForCurrentTenant()"
         }) {
             assertContains(service, token);
         }
@@ -85,6 +84,7 @@ class ErpKingdeeTableAutoSyncContractTest {
         for (String token : new String[]{
                 "PRODUCT",
                 "STOCK",
+                "STOCK_MOVE",
                 "PURCHASE_ORDER",
                 "SALE_ORDER",
                 "PRODUCTION_ORDER",
@@ -98,6 +98,7 @@ class ErpKingdeeTableAutoSyncContractTest {
         for (String handlerName : new String[]{
                 "kingdeeProductItemSyncJob",
                 "kingdeeStockSyncJob",
+                "kingdeeStockMoveSyncJob",
                 "kingdeePurchaseOrderSyncJob",
                 "kingdeeSaleOrderSyncJob",
                 "kingdeeProductionOrderSyncJob",
@@ -141,8 +142,52 @@ class ErpKingdeeTableAutoSyncContractTest {
         assertContains(source, "implements JobHandler");
         assertContains(source, "@TenantJob");
         assertContains(source, "execute(String param)");
-        assertContains(source, "executeAutoForCurrentTenant()",
-                "runFullSync(");
+        assertContains(source, "executeAutoForCurrentTenant()");
+    }
+
+    @Test
+    void allOfficialHandlers_mustExposeExplicitFullSyncMode() throws IOException {
+        for (Path sourcePath : fullSyncHandlerSources()) {
+            String source = read(sourcePath);
+            assertContains(source, "ErpKingdeeFullSyncHandler");
+            assertContains(source, "executeFullSync()");
+            assertContains(source, "ErpKingdeeSyncTriggerTypeEnum.FULL");
+            assertContains(source, "FULL_SYNC_JOB_PARAM");
+        }
+    }
+
+    @Test
+    void fullSyncSubmission_mustUseQuartzAndCommittedRuntimeTransactions() throws IOException {
+        String adminService = read(ERP_MAIN.resolve(
+                "service/sync/admin/ErpKingdeeSyncAdminServiceImpl.java"));
+        String runtimeService = read(ERP_MAIN.resolve(
+                "service/sync/runtime/ErpKingdeeSyncRuntimeServiceImpl.java"));
+        String transactionService = read(ERP_MAIN.resolve(
+                "service/sync/runtime/ErpKingdeeSyncRuntimeTransactionService.java"));
+
+        assertContains(adminService, "jobService.triggerJob(job.getId(), ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM)");
+        assertContains(adminService, "getJobPage");
+        assertFalse(adminService.contains("handler.executeFullSync()"),
+                "HTTP full-sync submission must not execute ERP work synchronously.");
+        assertFalse(runtimeService.contains("@Transactional"),
+                "The outer runtime call must not hold a transaction across the remote ERP request.");
+        assertContains(transactionService, "@Transactional");
+        assertContains(transactionService, "runMapper.insert(run)");
+        assertContains(transactionService, "ErpKingdeeSyncRunStatusEnum.RUNNING");
+    }
+
+    private static List<Path> fullSyncHandlerSources() {
+        return List.of(
+                ERP_MAIN.resolve("job/stock/KingdeeStockSyncJob.java"),
+                ERP_MAIN.resolve("job/stock/KingdeeStockMoveSyncJob.java"),
+                ERP_MAIN.resolve("job/purchase/KingdeePurchaseOrderSyncJob.java"),
+                ERP_MAIN.resolve("job/sale/KingdeeSaleOrderSyncJob.java"),
+                ERP_MAIN.resolve("job/production/KingdeeProductionPickListSyncJob.java"),
+                MES_MAIN.resolve("job/md/KingdeeProductItemSyncJob.java"),
+                MES_MAIN.resolve("job/md/KingdeeBomSyncJob.java"),
+                MES_MAIN.resolve("job/workorder/KingdeeProductionOrderSyncJob.java"),
+                MES_MAIN.resolve("job/workorder/KingdeeProductionMaterialListSyncJob.java")
+        );
     }
 
     private static List<Path> officialSyncServiceEntrypoints() {

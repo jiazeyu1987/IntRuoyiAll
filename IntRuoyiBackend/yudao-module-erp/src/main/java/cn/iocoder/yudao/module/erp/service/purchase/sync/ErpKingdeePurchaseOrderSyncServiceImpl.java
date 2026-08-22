@@ -59,7 +59,16 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validatePurchaseOrderSyncConfig();
         List<ErpKingdeePurchaseOrder> purchaseOrders = kingdeePurchaseOrderClient.fetchPurchaseOrders(kingdeeProperties);
-        return syncPurchaseOrders(kingdeeProperties, purchaseOrders);
+        return syncPurchaseOrders(kingdeeProperties, purchaseOrders, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeePurchaseOrderSyncResult syncPurchaseOrdersFullSkipExisting() {
+        ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
+        kingdeeProperties.validatePurchaseOrderSyncConfig();
+        List<ErpKingdeePurchaseOrder> purchaseOrders = kingdeePurchaseOrderClient.fetchPurchaseOrders(kingdeeProperties);
+        return syncPurchaseOrders(kingdeeProperties, purchaseOrders, true);
     }
 
     @Override
@@ -70,11 +79,12 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
         kingdeeProperties.validatePurchaseOrderSyncConfig();
         List<ErpKingdeePurchaseOrder> purchaseOrders = kingdeePurchaseOrderClient.fetchPurchaseOrdersModifiedBetween(
                 kingdeeProperties, windowStart, windowEnd);
-        return syncPurchaseOrders(kingdeeProperties, purchaseOrders);
+        return syncPurchaseOrders(kingdeeProperties, purchaseOrders, false);
     }
 
     private ErpKingdeePurchaseOrderSyncResult syncPurchaseOrders(ErpKingdeeProperties kingdeeProperties,
-                                                                 List<ErpKingdeePurchaseOrder> purchaseOrders) {
+                                                                 List<ErpKingdeePurchaseOrder> purchaseOrders,
+                                                                 boolean skipExisting) {
         Map<String, ErpKingdeeMaterialDetail> materialDetails = new HashMap<>();
 
         ErpKingdeePurchaseOrderSyncResult result = new ErpKingdeePurchaseOrderSyncResult();
@@ -82,6 +92,10 @@ public class ErpKingdeePurchaseOrderSyncServiceImpl implements ErpKingdeePurchas
             ErpKingdeePurchaseOrderSyncRecordDO syncRecord =
                     syncRecordMapper.selectBySourceKey(ErpKingdeePurchaseOrder.FORM_ID, purchaseOrder.getFid());
             if (syncRecord != null) {
+                if (skipExisting) {
+                    result.addSkipped(purchaseOrder.getFid());
+                    continue;
+                }
                 updateExistingPurchaseOrder(kingdeeProperties, purchaseOrder, syncRecord, materialDetails);
                 result.addUpdated(syncRecord.getPurchaseOrderId());
             } else {

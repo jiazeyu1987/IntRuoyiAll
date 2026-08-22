@@ -191,7 +191,7 @@ for (const token of [
   'resolveCreatedCount(row.latestRun',
   'formatLatestSyncStatus(row.latestRun',
   'resolveFailureReason(row.latestRun',
-  'handleRunSingle(row',
+  'handleRunIncremental(row',
   'syncSelectedRows'
 ]) {
   assert.match(
@@ -276,6 +276,9 @@ for (const token of [
   '单表 ERP 全量同步任务',
   '增量同步失败',
   '全量同步失败',
+  'waitForSubmittedRun',
+  'SUBMITTED_RUN_POLL_ATTEMPTS',
+  '运行记录尚未生成，请检查调度任务状态',
   'loadLatestRuns(), loadRunningSyncRuns()'
 ]) {
   assert.match(
@@ -307,6 +310,21 @@ assert.doesNotMatch(
   component,
   /profile-erp-table-sync__checks/,
   'ERP 表格选择区不得继续保留复选框组样式。'
+)
+assert.match(
+  component,
+  /toDateTimeValue/,
+  'ERP 同步轮询必须使用统一时间解析工具处理运行时日期值。'
+)
+assert.match(
+  component,
+  /resolveRunStartedTimestamp/,
+  'ERP 同步轮询必须通过显式时间解析函数判断新运行记录。'
+)
+assert.doesNotMatch(
+  component,
+  /latestRun\.startedAt\.replace/,
+  'ERP 同步轮询不得假设 startedAt 一定是字符串。'
 )
 assert.match(
   component,

@@ -6,6 +6,9 @@ import java.util.List;
 
 public interface ErpKingdeeProductionMaterialListClient {
 
+    List<ErpKingdeeProductionMaterialList> fetchProductionMaterialLists(
+            ErpKingdeeProperties properties);
+
     List<ErpKingdeeProductionMaterialList> fetchProductionMaterialListsModifiedBetween(
             ErpKingdeeProperties properties, LocalDateTime windowStart, LocalDateTime windowEnd);
 

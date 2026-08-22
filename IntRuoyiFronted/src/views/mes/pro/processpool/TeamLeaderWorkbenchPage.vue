@@ -1614,12 +1614,13 @@
     <el-drawer
       v-model="activeOrderConflictDrawerVisible"
       data-team-leader-active-order-conflict-drawer
+      class="team-leader-workbench__active-order-conflict-drawer-panel"
       :title="
         activeOrderConflictDetail
           ? `订单 ${activeOrderConflictDetail.workOrderCode} · 数量冲突处理`
           : '数量冲突处理'
       "
-      size="min(760px, calc(100vw - 24px))"
+      size="760px"
       destroy-on-close
     >
       <div
@@ -8372,15 +8373,6 @@ const handleRecommendedActiveOrderConflictResolution = async () => {
   let writeCompletedPhase: 'NONE' | 'REBUILT' | 'SIMULATED' = 'NONE'
   try {
     const preview = await previewTeamLeaderActiveOrderRebuild(activeOrderId)
-    const confirmMessage = preview.hasHistoricalRuntimeData
-      ? `当前活跃订单已有 ${preview.productionReportCount} 条报工记录、${preview.productionProgressCount} 条生产进度、${preview.pqcInspectionResultCount} 条 PQC 检验结果。推荐方案会先删除这些历史业务结果和旧快照，按当前最新数据重建，再使用模拟数据完成生产与 PQC 复核。${preview.releaseApplicationCount > 0 ? ` 另外将删除 ${preview.releaseApplicationCount} 条放行申请历史。` : ''}`
-      : '推荐方案会先按当前最新数据重建生产快照和 PQC 快照，再使用模拟数据完成生产与 PQC 复核。'
-    await ElMessageBox.confirm(confirmMessage, '按推荐方案修复数量冲突', {
-      type: 'warning',
-      confirmButtonText: '按推荐方案修复',
-      cancelButtonText: '取消'
-    })
-
     await rebuildTeamLeaderActiveOrder({
       activeOrderId,
       confirmDeleteHistoricalRuntimeData: preview.hasHistoricalRuntimeData
@@ -8398,7 +8390,6 @@ const handleRecommendedActiveOrderConflictResolution = async () => {
     activeOrderConflictDrawerVisible.value = false
     activeOrderConflictDetail.value = undefined
   } catch (error) {
-    if (error === 'cancel' || error === 'close') return
     const phaseMessage =
       writeCompletedPhase === 'REBUILT'
         ? '重建已完成，但模拟完成失败'
@@ -9307,6 +9298,10 @@ onMounted(() => {
   display: grid;
   gap: 14px;
   min-height: 180px;
+}
+
+.team-leader-workbench__active-order-conflict-drawer-panel {
+  max-width: calc(100vw - 24px);
 }
 
 .team-leader-workbench__active-order-conflict-summary {

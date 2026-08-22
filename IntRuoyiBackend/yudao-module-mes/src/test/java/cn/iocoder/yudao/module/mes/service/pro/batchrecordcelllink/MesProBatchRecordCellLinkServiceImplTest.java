@@ -528,6 +528,35 @@ class MesProBatchRecordCellLinkServiceImplTest {
     }
 
     @Test
+    void getWorkbenchContext_resolvesProcessInspectionTemplateFromNormalRouteEntry() {
+        MesProRouteFlowProcessBatchRecordDO processInspectionBinding = routeBinding(5001L, 3001L, null)
+                .setFormSlotType("PROCESS_INSPECTION")
+                .setRecordCategory("INTERNAL_RECORD")
+                .setBatchRecordDefinitionId(null)
+                .setBatchRecordVersionId(null)
+                .setFormTemplateId(1001L)
+                .setLastPublishedTemplateVersionId(7001L)
+                .setLastPublishedTemplateVersionNo("V3.0")
+                .setInstanceScope("BATCH_SHARED");
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(9001L, "BATCH"))
+                .thenReturn(List.of(processInspectionBinding));
+        when(templateVersionMapper.selectById(7001L)).thenReturn(formTemplateVersion().setStatus("PUBLISHED"));
+        when(ruleMapper.selectListByScope("FORM_TEMPLATE_VERSION", 7001L)).thenReturn(List.of());
+        stubPublishedQaForRouteProcess(5001L, 8001L, "FIRST", "LEAK", "泄漏测试");
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, null, null,
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L);
+
+        assertEquals("FORM_TEMPLATE_VERSION", result.getScopeType());
+        assertEquals(7001L, result.getScopeId());
+        assertEquals("FORMTPL:7001", result.getDefaultTargetReportId());
+        assertEquals("过程检验记录 V3.0", result.getForms().get(0).getReportName());
+        assertPqcSourceField(result, "FIRST|LEAK|1|measuredValue",
+                "首检 / 泄漏测试 / 第1件 / 实测值", "STRING", 5001L);
+    }
+
+    @Test
     void getWorkbenchContext_resolvesDccPqcFieldsWhenRouteProcessNameHasProcessSuffix() {
         FormTemplateVersionDO templateVersion = formTemplateVersion();
         when(templateVersionMapper.selectByTemplateIdAndVersionNo(1001L, "V3.0")).thenReturn(templateVersion);

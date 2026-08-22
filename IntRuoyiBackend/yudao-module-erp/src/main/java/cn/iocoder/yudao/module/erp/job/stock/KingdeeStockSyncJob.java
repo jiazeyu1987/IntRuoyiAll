@@ -7,9 +7,11 @@ import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum;
 import cn.iocoder.yudao.module.erp.service.stock.sync.ErpKingdeeStockSyncResult;
 import cn.iocoder.yudao.module.erp.service.stock.sync.ErpKingdeeStockSyncService;
 import cn.iocoder.yudao.module.erp.service.stock.kingdee.ErpKingdeeInventoryListService;
+import cn.iocoder.yudao.module.erp.service.stock.kingdee.ErpKingdeeInventoryListSyncResult;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Component("kingdeeStockSyncJob")
 @RequiredArgsConstructor
-public class KingdeeStockSyncJob implements JobHandler {
+public class KingdeeStockSyncJob implements JobHandler, ErpKingdeeFullSyncHandler {
 
     private final ErpKingdeeStockSyncService stockSyncService;
     private final ErpKingdeeInventoryListService inventoryListService;
@@ -27,6 +29,9 @@ public class KingdeeStockSyncJob implements JobHandler {
     @Override
     @TenantJob
     public String execute(String param) {
+        if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
+            return executeFullSync();
+        }
         LocalDateTime windowEnd = LocalDateTime.now();
         AtomicReference<ErpKingdeeStockSyncResult> stockResultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
@@ -44,6 +49,31 @@ public class KingdeeStockSyncJob implements JobHandler {
         });
         ErpKingdeeStockSyncResult stockResult = stockResultReference.get();
         return String.format("ERP stock sync: synced=%d", stockResult.getSyncedCount());
+    }
+
+    @Override
+    public String executeFullSync() {
+        LocalDateTime windowEnd = LocalDateTime.now();
+        AtomicReference<ErpKingdeeStockSyncResult> stockResultReference = new AtomicReference<>();
+        AtomicReference<ErpKingdeeInventoryListSyncResult> inventoryResultReference = new AtomicReference<>();
+        syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.STOCK)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .windowEnd(windowEnd)
+                .build(), context -> {
+            ErpKingdeeStockSyncResult stockResult = stockSyncService.syncStocksFullSkipExisting();
+            ErpKingdeeInventoryListSyncResult inventoryResult = inventoryListService.syncAllSkipExisting();
+            stockResultReference.set(stockResult);
+            inventoryResultReference.set(inventoryResult);
+            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
+                    stockResult.getSyncedCount() - stockResult.getSkippedCount() + inventoryResult.getCreatedCount(),
+                    0, stockResult.getSkippedCount() + inventoryResult.getSkippedCount(), 0);
+        });
+        ErpKingdeeStockSyncResult stockResult = stockResultReference.get();
+        ErpKingdeeInventoryListSyncResult inventoryResult = inventoryResultReference.get();
+        return String.format("ERP stock full sync: created=%d, skipped=%d",
+                stockResult.getSyncedCount() - stockResult.getSkippedCount() + inventoryResult.getCreatedCount(),
+                stockResult.getSkippedCount() + inventoryResult.getSkippedCount());
     }
 
 }

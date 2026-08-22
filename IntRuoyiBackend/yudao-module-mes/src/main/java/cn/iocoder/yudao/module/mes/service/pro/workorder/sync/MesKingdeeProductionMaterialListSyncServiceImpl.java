@@ -38,12 +38,21 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeProductionMaterialListSyncResult syncAllSkipExisting() {
+        ErpKingdeeProperties properties = configService.getEffectiveProperties();
+        properties.validateProductionOrderSyncConfig();
+        List<ErpKingdeeProductionMaterialList> rows = client.fetchProductionMaterialLists(properties);
+        return syncRows(rows, true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesKingdeeProductionMaterialListSyncResult syncModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties properties = configService.getEffectiveProperties();
         properties.validateProductionOrderSyncConfig();
         List<ErpKingdeeProductionMaterialList> rows =
                 client.fetchProductionMaterialListsModifiedBetween(properties, windowStart, windowEnd);
-        return syncRows(rows);
+        return syncRows(rows, false);
     }
 
     @Override
@@ -53,29 +62,35 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
         properties.validateProductionOrderSyncConfig();
         List<ErpKingdeeProductionMaterialList> rows =
                 client.fetchProductionMaterialListsByProductionOrderNos(properties, productionOrderNos);
-        return syncRows(rows);
+        return syncRows(rows, false);
     }
 
-    private MesKingdeeProductionMaterialListSyncResult syncRows(List<ErpKingdeeProductionMaterialList> rows) {
+    private MesKingdeeProductionMaterialListSyncResult syncRows(
+            List<ErpKingdeeProductionMaterialList> rows, boolean skipExisting) {
         MesKingdeeProductionMaterialListSyncResult result = new MesKingdeeProductionMaterialListSyncResult();
         for (ErpKingdeeProductionMaterialList row : rows) {
             List<MesProWorkOrderDO> workOrders = TenantUtils.executeIgnore(() ->
                     workOrderMapper.selectListByCodes(Collections.singleton(row.getProductionOrderNo())));
             if (workOrders.isEmpty()) {
-                upsertRow(row, null, result);
+                upsertRow(row, null, result, skipExisting);
                 continue;
             }
             for (MesProWorkOrderDO workOrder : workOrders) {
-                TenantUtils.execute(workOrder.getTenantId(), () -> upsertRow(row, workOrder, result));
+                TenantUtils.execute(workOrder.getTenantId(), () -> upsertRow(row, workOrder, result, skipExisting));
             }
         }
         return result;
     }
 
     private void upsertRow(ErpKingdeeProductionMaterialList row, MesProWorkOrderDO workOrder,
-                           MesKingdeeProductionMaterialListSyncResult result) {
+                           MesKingdeeProductionMaterialListSyncResult result, boolean skipExisting) {
         MesKingdeeProductionMaterialListDO existing = materialListMapper.selectBySourceLine(row.getBillNo(),
                 row.getProductionOrderNo(), row.getProductionOrderLineNo(), row.getChildMaterialCode());
+        if (skipExisting && existing != null) {
+            result.addSkipped(row.getBillNo() + "|" + row.getProductionOrderNo() + "|"
+                    + row.getProductionOrderLineNo() + "|" + row.getChildMaterialCode());
+            return;
+        }
         MesKingdeeProductionMaterialListDO mapped = buildRow(row, workOrder);
         if (existing == null) {
             materialListMapper.insert(mapped);

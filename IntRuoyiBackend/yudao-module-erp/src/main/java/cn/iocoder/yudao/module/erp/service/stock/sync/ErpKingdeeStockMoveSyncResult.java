@@ -7,6 +7,7 @@ public class ErpKingdeeStockMoveSyncResult {
 
     private int createdCount;
     private int updatedCount;
+    private int skippedCount;
 
     public void addCreated() {
         createdCount++;
@@ -14,6 +15,10 @@ public class ErpKingdeeStockMoveSyncResult {
 
     public void addUpdated() {
         updatedCount++;
+    }
+
+    public void addSkipped() {
+        skippedCount++;
     }
 
 }

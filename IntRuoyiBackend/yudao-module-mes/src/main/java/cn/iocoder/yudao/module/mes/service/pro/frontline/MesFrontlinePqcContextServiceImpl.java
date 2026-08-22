@@ -696,8 +696,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             }
             for (MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem item : process.getItems()) {
                 if (item == null || StrUtil.isBlank(item.getItemCode())
-                        || CollUtil.isEmpty(item.getApplicableInspectionTypes())
-                        || item.getEquipmentOptions() == null) {
+                        || CollUtil.isEmpty(item.getApplicableInspectionTypes())) {
                     throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
                             "lockedQaInspectionItems regulationVersionId=" + qaSource.getPublishedVersionId()
                                     + "，qaProcessId=" + process.getQaProcessId());
@@ -729,19 +728,6 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         respVO.setEquipmentNumber(option.equipmentNumber());
         respVO.setDefaultFlag(option.defaultFlag());
         respVO.setSort(option.sort());
-        return respVO;
-    }
-
-    private static MesFrontlinePqcProcessRespVO.PqcEquipmentOption toPqcEquipmentOptionRespVO(
-            MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption option) {
-        MesFrontlinePqcProcessRespVO.PqcEquipmentOption respVO =
-                new MesFrontlinePqcProcessRespVO.PqcEquipmentOption();
-        respVO.setEquipmentId(option.getEquipmentId());
-        respVO.setEquipmentCode(option.getEquipmentCode());
-        respVO.setEquipmentName(option.getEquipmentName());
-        respVO.setEquipmentNumber(option.getEquipmentNumber());
-        respVO.setDefaultFlag(option.getDefaultFlag());
-        respVO.setSort(option.getSort());
         return respVO;
     }
 

@@ -176,8 +176,7 @@ class MesFrontlinePqcEmployeeSwitchServiceTest {
                 MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem.builder()
                         .itemSort(1).itemCode("QA-001").itemName("外观").inspectionMethod("目测")
                         .inspectionTool("目测").samplingPlanText("全检").standardText("应合格")
-                        .equipmentRequired(false).resultType("BOOLEAN")
-                        .equipmentOptions(List.of()).applicableInspectionTypes(List.of("FIRST"))
+                        .resultType("BOOLEAN").applicableInspectionTypes(List.of("FIRST"))
                         .firstInspectionQuantity(1).build();
         MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess process =
                 MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess.builder()

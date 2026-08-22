@@ -343,13 +343,33 @@ class MesQaInspectionRegulationWordImportServiceTest {
     }
 
     private static MesQaInspectionRegulationPublishedVersionRespVO existingConfiguration() {
+        MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem item =
+                MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem.builder()
+                        .itemSort(1)
+                        .itemCode("LEGACY-I01")
+                        .itemName("外观")
+                        .inspectionMethod("旧方法")
+                        .inspectionTool("旧器具")
+                        .samplingPlanText("AQL=1.0")
+                        .standardText("旧标准")
+                        .standardLowerLimit(new BigDecimal("1.2"))
+                        .standardUpperLimit(new BigDecimal("2.4"))
+                        .standardUnit("MPa")
+                        .standardPrecision(2)
+                        .resultType("NUMERIC")
+                        .applicableInspectionTypes(List.of("FIRST", "PATROL", "FINAL"))
+                        .firstInspectionQuantity(3)
+                        .patrolInspectionRatio(new BigDecimal("1.0"))
+                        .critical(true)
+                        .failureRule("原失败规则")
+                        .build();
         MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess process =
                 MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess.builder()
                         .qaProcessId(81L)
-                        .processCode("QA-CLEAN")
+                        .processCode("LEGACY-P01")
                         .processName("清洗")
                         .sort(1)
-                        .items(List.of(legacyItem("LEGACY-I01", "外观", "清洗 / 外观")))
+                        .items(List.of(item))
                         .build();
         return MesQaInspectionRegulationPublishedVersionRespVO.builder()
                 .dccProjectCodeId(DCC_PROJECT_ID)

@@ -142,6 +142,28 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
     }
 
     @Test
+    void syncWorkOrdersFullSkipExisting_doesNotUpdateExistingWorkOrder() {
+        ErpKingdeeProductionOrder order = buildOrder();
+        MesProWorkOrderDO existing = MesProWorkOrderDO.builder()
+                .id(501L)
+                .code("881MO091049")
+                .productId(20L)
+                .build();
+        when(productionOrderClient.fetchProductionOrders(kingdeeProperties)).thenReturn(List.of(order));
+        when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
+        when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
+
+        MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrdersFullSkipExisting();
+
+        assertEquals(1, result.getSkippedCount());
+        assertEquals(0, result.getCreatedCount());
+        assertEquals(0, result.getUpdatedCount());
+        verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
+        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+    }
+
+    @Test
     void syncWorkOrders_updatesErpSnapshotFieldsAndKeepsLocalExtensions() {
         ErpKingdeeProductionOrder order = buildOrder();
         order.setWorkshopName("组装车间");

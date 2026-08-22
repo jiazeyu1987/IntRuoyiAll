@@ -210,9 +210,7 @@ class MesFrontlinePqcContextServiceTest {
                 LocalDateTime.of(2026, 8, 20, 8, 0));
         MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem equipmentItem =
                 qaPublishedItem("ID-001", List.of("FIRST"));
-        equipmentItem.setEquipmentRequired(true);
         equipmentItem.setInspectionTool("砝码");
-        equipmentItem.setEquipmentOptions(List.of(qaEquipmentOption(1101L, "FM-001")));
 
         when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder);
         when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
@@ -671,8 +669,6 @@ class MesFrontlinePqcContextServiceTest {
                 .inspectionTool("目测")
                 .samplingPlanText("按规程抽样")
                 .resultType("BOOLEAN")
-                .equipmentRequired(false)
-                .equipmentOptions(List.of())
                 .applicableInspectionTypes(applicableInspectionTypes)
                 .firstInspectionQuantity(applicableInspectionTypes.contains("FIRST") ? 5 : null)
                 .patrolInspectionRatio(applicableInspectionTypes.contains("PATROL") ? new BigDecimal("25.00") : null)
@@ -683,19 +679,6 @@ class MesFrontlinePqcContextServiceTest {
                 .sourceOriginalItem("原始项目")
                 .sourceOriginalExcerpt("原始摘录")
                 .sourceOriginalMethod("原始方法")
-                .build();
-    }
-
-    private static MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption qaEquipmentOption(
-            long equipmentId,
-            String equipmentNumber) {
-        return MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption.builder()
-                .equipmentId(equipmentId)
-                .equipmentCode("FM")
-                .equipmentName("砝码")
-                .equipmentNumber(equipmentNumber)
-                .defaultFlag(false)
-                .sort(1)
                 .build();
     }
 
@@ -745,7 +728,6 @@ class MesFrontlinePqcContextServiceTest {
                 .inspectionTool("目测")
                 .standardText("应合格")
                 .samplingPlanText("全检")
-                .equipmentRequired(false)
                 .resultType("BOOLEAN")
                 .firstInspectionQuantity(1)
                 .build();

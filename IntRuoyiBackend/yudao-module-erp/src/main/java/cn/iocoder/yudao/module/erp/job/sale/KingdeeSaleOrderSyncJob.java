@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.erp.service.sale.sync.ErpKingdeeSaleOrderSyncServ
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Component("kingdeeSaleOrderSyncJob")
 @RequiredArgsConstructor
-public class KingdeeSaleOrderSyncJob implements JobHandler {
+public class KingdeeSaleOrderSyncJob implements JobHandler, ErpKingdeeFullSyncHandler {
 
     private final ErpKingdeeSaleOrderSyncService saleOrderSyncService;
     private final ErpKingdeeSyncRuntimeService syncRuntimeService;
@@ -25,6 +26,9 @@ public class KingdeeSaleOrderSyncJob implements JobHandler {
     @Override
     @TenantJob
     public String execute(String param) {
+        if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
+            return executeFullSync();
+        }
         LocalDateTime windowEnd = LocalDateTime.now();
         AtomicReference<ErpKingdeeSaleOrderSyncResult> resultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
@@ -41,6 +45,25 @@ public class KingdeeSaleOrderSyncJob implements JobHandler {
         ErpKingdeeSaleOrderSyncResult result = resultReference.get();
         return String.format("ERP sale order sync: created=%d, updated=%d, skipped=%d",
                 result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount());
+    }
+
+    @Override
+    public String executeFullSync() {
+        LocalDateTime windowEnd = LocalDateTime.now();
+        AtomicReference<ErpKingdeeSaleOrderSyncResult> resultReference = new AtomicReference<>();
+        syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.SALE_ORDER)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .windowEnd(windowEnd)
+                .build(), context -> {
+            ErpKingdeeSaleOrderSyncResult result = saleOrderSyncService.syncSaleOrdersFullSkipExisting();
+            resultReference.set(result);
+            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
+                    result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0);
+        });
+        ErpKingdeeSaleOrderSyncResult result = resultReference.get();
+        return String.format("ERP sale order full sync: created=%d, skipped=%d",
+                result.getCreatedCount(), result.getSkippedCount());
     }
 
 }

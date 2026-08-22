@@ -5,7 +5,7 @@
         <div>
           <div class="profile-erp-table-sync__title">ERP表格自动同步</div>
           <div class="profile-erp-table-sync__subtitle">
-            统一配置每天自动拉取哪些 ERP 表格、几点开始；复用生产工单同款 Job 增量同步链路。
+            统一配置每天自动拉取哪些 ERP 表格、几点开始，并提供增量与全量同步操作。
           </div>
         </div>
         <el-tag type="success">infra/job</el-tag>
@@ -95,16 +95,25 @@
           <el-table-column label="失败原因" min-width="220" show-overflow-tooltip>
             <template #default="{ row }">{{ resolveFailureReason(row.latestRun) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column label="操作" width="190" fixed="right">
             <template #default="{ row }">
               <el-button
                 type="primary"
                 link
-                :loading="manualSyncingType === row.syncType"
-                :disabled="running || Boolean(manualSyncingType)"
-                @click="handleRunSingle(row)"
+                :loading="incrementalSyncingType === row.syncType"
+                :disabled="running || Boolean(incrementalSyncingType) || Boolean(fullSyncingType)"
+                @click="handleRunIncremental(row)"
               >
-                手动同步
+                增量同步
+              </el-button>
+              <el-button
+                type="warning"
+                link
+                :loading="fullSyncingType === row.syncType"
+                :disabled="running || Boolean(incrementalSyncingType) || Boolean(fullSyncingType)"
+                @click="handleRunFull(row)"
+              >
+                全量同步
               </el-button>
             </template>
           </el-table-column>
@@ -115,7 +124,11 @@
         <el-button
           type="success"
           :loading="running"
-          :disabled="selectedSyncTypes.length === 0 || Boolean(manualSyncingType)"
+          :disabled="
+            selectedSyncTypes.length === 0 ||
+            Boolean(incrementalSyncingType) ||
+            Boolean(fullSyncingType)
+          "
           @click="handleRunOnce"
         >
           立即执行一次
@@ -170,7 +183,7 @@ import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import type { ErpKingdeeSyncRunVO } from '@/api/erp/sync'
 import * as JobApi from '@/api/infra/job'
 import { InfraJobStatusEnum } from '@/utils/constants'
-import { formatDateTimeValue } from '@/utils/formatTime'
+import { formatDateTimeValue, toDateTimeValue } from '@/utils/formatTime'
 
 interface ProfileErpSyncType {
   syncType: string
@@ -193,6 +206,8 @@ defineOptions({ name: 'ProfileErpTableAutoSyncSetting' })
 const DEFAULT_DAILY_START_TIME = '02:00:00'
 const RUNNING_SYNC_STATUS = 10
 const RUNNING_SYNC_RUN_PAGE_SIZE = 20
+const SUBMITTED_RUN_POLL_INTERVAL_MS = 1000
+const SUBMITTED_RUN_POLL_ATTEMPTS = 10
 const REQUIRED_CONNECTION_OPTIONS: Record<ErpKingdeeConnectionType, string> = {
   TEST: '测试账套',
   PRODUCTION: '正式账套'
@@ -261,7 +276,8 @@ const connectionSaving = ref(false)
 const running = ref(false)
 const runLoading = ref(false)
 const runningJobLoading = ref(false)
-const manualSyncingType = ref('')
+const incrementalSyncingType = ref('')
+const fullSyncingType = ref('')
 const loadError = ref('')
 const latestRuns = ref<ErpKingdeeSyncRunVO[]>([])
 const runningSyncRuns = ref<ErpKingdeeSyncRunVO[]>([])
@@ -334,7 +350,11 @@ const syncTableRows = computed<ProfileErpSyncTableRow[]>(() =>
   }))
 )
 
-const isSyncRowSelectable = () => !loading.value && !saving.value && !manualSyncingType.value
+const isSyncRowSelectable = () =>
+  !loading.value &&
+  !saving.value &&
+  !incrementalSyncingType.value &&
+  !fullSyncingType.value
 
 const formatLatestSyncStatus = (latestRun?: ErpKingdeeSyncRunVO) => {
   if (!latestRun) return '未执行'
@@ -473,6 +493,17 @@ const loadRunningSyncRuns = async () => {
   }
 }
 
+const resolveRunStartedTimestamp = (value: unknown) => {
+  if (
+    typeof value !== 'string' &&
+    typeof value !== 'number' &&
+    !(value instanceof Date)
+  ) {
+    return undefined
+  }
+  return toDateTimeValue(value)?.getTime()
+}
+
 const applyActiveConnection = (data: ErpKingdeeActiveConnectionVO) => {
   const validActiveType = data?.activeConnectionType in REQUIRED_CONNECTION_OPTIONS
   const validOptions =
@@ -603,16 +634,55 @@ const handleRunOnce = async () => {
   }
 }
 
-const handleRunSingle = async (row: ProfileErpSyncTableRow) => {
-  manualSyncingType.value = row.syncType
+const handleRunIncremental = async (row: ProfileErpSyncTableRow) => {
+  incrementalSyncingType.value = row.syncType
   try {
     await ErpKingdeeSyncApi.runIncrementalSyncJob(row.handlerName)
     ElMessage.success(`已提交 ${row.erpTableName} 单表 ERP 增量同步任务`)
     await Promise.all([loadLatestRuns(), loadRunningSyncRuns()])
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '手动同步失败'))
+    ElMessage.error(resolveErrorMessage(error, '增量同步失败'))
   } finally {
-    manualSyncingType.value = ''
+    incrementalSyncingType.value = ''
+  }
+}
+
+const waitForSubmittedRun = async (
+  syncType: string,
+  previousRunId: number | undefined,
+  submittedAt: number
+) => {
+  for (let attempt = 0; attempt < SUBMITTED_RUN_POLL_ATTEMPTS; attempt++) {
+    await Promise.all([loadLatestRuns(), loadRunningSyncRuns()])
+    const latestRun = latestRuns.value.find((item) => item.syncType === syncType)
+    const latestRunStartedAt = resolveRunStartedTimestamp(latestRun?.startedAt)
+    const isNewRun = previousRunId !== undefined
+      ? latestRun?.id !== previousRunId
+      : typeof latestRunStartedAt === 'number' && latestRunStartedAt >= submittedAt
+    if (latestRun && isNewRun) return true
+    if (attempt < SUBMITTED_RUN_POLL_ATTEMPTS - 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, SUBMITTED_RUN_POLL_INTERVAL_MS))
+    }
+  }
+  return false
+}
+
+const handleRunFull = async (row: ProfileErpSyncTableRow) => {
+  fullSyncingType.value = row.syncType
+  try {
+    const previousRunId = latestRunBySyncType.value[row.syncType]?.id
+    const submittedAt = Date.now()
+    await ErpKingdeeSyncApi.runFullSync(row.syncType)
+    const runVisible = await waitForSubmittedRun(row.syncType, previousRunId, submittedAt)
+    if (runVisible) {
+      ElMessage.success(`已提交 ${row.erpTableName} 单表 ERP 全量同步任务`)
+    } else {
+      ElMessage.warning(`已提交 ${row.erpTableName} 全量同步，但运行记录尚未生成，请检查调度任务状态`)
+    }
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '全量同步失败'))
+  } finally {
+    fullSyncingType.value = ''
   }
 }
 

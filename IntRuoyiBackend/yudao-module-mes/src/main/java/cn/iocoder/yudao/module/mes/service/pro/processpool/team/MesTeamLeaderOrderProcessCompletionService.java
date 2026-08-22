@@ -2,14 +2,11 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
@@ -44,50 +41,40 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_
 public class MesTeamLeaderOrderProcessCompletionService {
 
     private final MesProcessPoolReportAllocationMapper allocationMapper;
-    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
-    private final MesProProcessPoolEventMapper eventMapper;
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProcessPoolOrderProcessCompletionMapper completionMapper;
     private final MesTeamLeaderOrderProcessTargetService orderProcessTargetService;
     private final MesProScheduleOrderMapper scheduleOrderMapper;
     private final MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
-    private final MesTeamLeaderBatchRecordBackfillService backfillService;
 
     public MesTeamLeaderOrderProcessCompletionService(MesProcessPoolReportAllocationMapper allocationMapper,
-                                                      MesProcessPoolActiveOrderMapper activeOrderMapper,
-                                                      MesProProcessPoolEventMapper eventMapper,
                                                       MesProWorkOrderMapper workOrderMapper,
                                                       MesProcessPoolOrderProcessCompletionMapper completionMapper,
                                                       MesTeamLeaderOrderProcessTargetService orderProcessTargetService,
                                                       MesProScheduleOrderMapper scheduleOrderMapper,
-                                                      MesProScheduleOrderProcessMapper scheduleOrderProcessMapper,
-                                                      MesTeamLeaderBatchRecordBackfillService backfillService) {
+                                                      MesProScheduleOrderProcessMapper scheduleOrderProcessMapper) {
         this.allocationMapper = allocationMapper;
-        this.activeOrderMapper = activeOrderMapper;
-        this.eventMapper = eventMapper;
         this.workOrderMapper = workOrderMapper;
         this.completionMapper = completionMapper;
         this.orderProcessTargetService = orderProcessTargetService;
         this.scheduleOrderMapper = scheduleOrderMapper;
         this.scheduleOrderProcessMapper = scheduleOrderProcessMapper;
-        this.backfillService = backfillService;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void applyConfirmedAllocations(MesProProcessPoolEventDO event,
                                           Collection<MesProcessPoolReportAllocationDO> confirmedAllocations) {
-        reconcileAffectedAllocations(event, confirmedAllocations, true, true);
+        reconcileAffectedAllocations(event, confirmedAllocations, true);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void reconcileAffectedAllocations(MesProProcessPoolEventDO event,
                                              Collection<MesProcessPoolReportAllocationDO> affectedAllocations) {
-        reconcileAffectedAllocations(event, affectedAllocations, false, true);
+        reconcileAffectedAllocations(event, affectedAllocations, true);
     }
 
     private void reconcileAffectedAllocations(MesProProcessPoolEventDO event,
                                               Collection<MesProcessPoolReportAllocationDO> affectedAllocations,
-                                              boolean backfillCompletedProcess,
                                               boolean allowAdjustableOverage) {
         if (event == null || event.getId() == null || event.getRouteProcessId() == null || event.getProcessId() == null
                 || affectedAllocations == null || affectedAllocations.isEmpty()
@@ -132,9 +119,6 @@ public class MesTeamLeaderOrderProcessCompletionService {
             MesProcessPoolOrderProcessCompletionDO completion =
                     completionMapper.selectByWorkOrderAndProcessForUpdate(workOrderId, key.routeProcessId(),
                             key.processId());
-            boolean resolvesConfirmedOverage = isConfirmedOverage(completion)
-                    && !quantityConflict
-                    && confirmedQuantity.compareTo(target.plannedQuantity()) >= 0;
             if (completion == null) {
                 completion = new MesProcessPoolOrderProcessCompletionDO();
             }
@@ -146,9 +130,9 @@ public class MesTeamLeaderOrderProcessCompletionService {
                     .setLastEventId(event.getId())
                     .setLastReviewId(currentRepresentative.getReviewId());
             if (confirmedQuantity.compareTo(target.plannedQuantity()) >= 0) {
-                if (isCompletedAndBackfilled(completion) && !resolvesConfirmedOverage) {
-                    completion.setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED);
-                } else if (quantityConflict || (!backfillCompletedProcess && !resolvesConfirmedOverage)) {
+                // Reaching a process target is only a progress projection. The active-order
+                // completion command owned by flow 4 is the sole caller allowed to backfill.
+                if (!isCompletedAndBackfilled(completion)) {
                     requireSourceAllocations(sourceAllocations);
                     applyPendingSourceTrace(key, completion, sourceAllocations);
                     completion.setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED)
@@ -157,9 +141,7 @@ public class MesTeamLeaderOrderProcessCompletionService {
                             .setBackfillExecutionId(null)
                             .setBackfillError(null);
                 } else {
-                    requireSourceAllocations(sourceAllocations);
-                    completeAndBackfill(event, key, currentRepresentative, sourceAllocations, workOrder,
-                            completion);
+                    completion.setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED);
                 }
             } else {
                 applyPendingSourceTrace(key, completion, sourceAllocations);
@@ -213,76 +195,6 @@ public class MesTeamLeaderOrderProcessCompletionService {
                 && MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED.equals(completion.getCompletionStatus())
                 && MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS.equals(completion.getBackfillStatus())
                 && completion.getBackfillExecutionId() != null;
-    }
-
-    private boolean isConfirmedOverage(MesProcessPoolOrderProcessCompletionDO completion) {
-        return completion != null
-                && completion.getId() != null
-                && MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED.equals(completion.getCompletionStatus())
-                && completion.getTargetQuantity() != null
-                && completion.getConfirmedQuantity() != null
-                && completion.getConfirmedQuantity().compareTo(completion.getTargetQuantity()) > 0;
-    }
-
-    private void completeAndBackfill(MesProProcessPoolEventDO event,
-                                     TargetKey targetKey,
-                                     MesProcessPoolReportAllocationDO allocation,
-                                     List<MesProcessPoolReportAllocationDO> sourceAllocations,
-                                     MesProWorkOrderDO workOrder,
-                                     MesProcessPoolOrderProcessCompletionDO completion) {
-        List<MesProProcessPoolEventDO> sourceEvents = loadSourceEvents(sourceAllocations);
-        String aggregateHash = aggregateHash(targetKey, sourceEvents, sourceAllocations);
-        String idempotencyKey = idempotencyKey(targetKey, aggregateHash);
-        MesTeamLeaderBatchRecordBackfillResult backfill = backfillService.backfillCompletedProcess(
-                new MesTeamLeaderBatchRecordBackfillCommand()
-                        .setEvent(event)
-                        .setAllocation(allocation)
-                        .setSourceEvents(sourceEvents)
-                        .setAllocations(sourceAllocations)
-                        .setAggregateHash(aggregateHash)
-                        .setIdempotencyKey(idempotencyKey)
-                        .setWorkOrder(workOrder)
-                        .setDccProjectCodeId(resolveDccProjectCodeId(allocation)));
-        completion.setCompletionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED)
-                .setCompletedAt(LocalDateTime.now())
-                .setBackfillStatus(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS)
-                .setBackfillExecutionId(backfill.getExecutionId())
-                .setBackfillError(null)
-                .setSourceEventIdsJson(toJsonIdArray(sourceEvents.stream()
-                        .map(MesProProcessPoolEventDO::getId).toList()))
-                .setSourceAllocationIdsJson(toJsonIdArray(sourceAllocations.stream()
-                        .map(MesProcessPoolReportAllocationDO::getId).toList()))
-                .setAggregateHash(aggregateHash)
-                .setBackfillIdempotencyKey(idempotencyKey);
-    }
-
-    private Long resolveDccProjectCodeId(MesProcessPoolReportAllocationDO allocation) {
-        if (allocation == null || allocation.getActiveOrderId() == null) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfill.activeOrderId");
-        }
-        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(allocation.getActiveOrderId());
-        if (activeOrder == null) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfill.dccProjectCodeId");
-        }
-        return activeOrder.getDccProjectCodeId() == null || activeOrder.getDccProjectCodeId() <= 0
-                ? null : activeOrder.getDccProjectCodeId();
-    }
-
-    private List<MesProProcessPoolEventDO> loadSourceEvents(
-            List<MesProcessPoolReportAllocationDO> sourceAllocations) {
-        List<Long> eventIds = sourceAllocations.stream()
-                .map(MesProcessPoolReportAllocationDO::getEventId)
-                .distinct()
-                .toList();
-        Map<Long, MesProProcessPoolEventDO> loaded = eventMapper.selectBatchIds(eventIds).stream()
-                .collect(Collectors.toMap(MesProProcessPoolEventDO::getId, Function.identity(), (a, b) -> a,
-                        LinkedHashMap::new));
-        for (Long eventId : eventIds) {
-            if (!loaded.containsKey(eventId)) {
-                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "orderProcessCompletionSourceEvent");
-            }
-        }
-        return eventIds.stream().map(loaded::get).toList();
     }
 
     private void applyPendingSourceTrace(TargetKey targetKey,
@@ -409,29 +321,6 @@ public class MesTeamLeaderOrderProcessCompletionService {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, workOrderId);
         }
         return workOrder;
-    }
-
-    private String aggregateHash(TargetKey targetKey,
-                                 List<MesProProcessPoolEventDO> sourceEvents,
-                                 List<MesProcessPoolReportAllocationDO> sourceAllocations) {
-        StringBuilder canonical = new StringBuilder();
-        canonical.append("workOrder:").append(targetKey.workOrderId()).append('\n')
-                .append("routeProcess:").append(targetKey.routeProcessId()).append('\n')
-                .append("process:").append(targetKey.processId()).append('\n');
-        for (MesProProcessPoolEventDO sourceEvent : sourceEvents) {
-            canonical.append("event:")
-                    .append(sourceEvent.getId()).append('|')
-                    .append(sourceEvent.getRawPayload()).append('|')
-                    .append(sourceEvent.getServerSubmitTime()).append('\n');
-        }
-        for (MesProcessPoolReportAllocationDO sourceAllocation : sourceAllocations) {
-            canonical.append("allocation:")
-                    .append(sourceAllocation.getId()).append('|')
-                    .append(sourceAllocation.getEventId()).append('|')
-                    .append(sourceAllocation.getAllocatedQuantity()).append('|')
-                    .append(sourceAllocation.getConfirmedAt()).append('\n');
-        }
-        return sha256(canonical.toString());
     }
 
     private String aggregateHashFromAllocations(TargetKey targetKey,

@@ -172,8 +172,6 @@ public class MesReportAllocationCommandService {
                 || !Objects.equals(event.getWorkOrderId(), activeOrder.getWorkOrderId())) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED, activeOrderId);
         }
-        MesTeamLeaderOrderProcessTarget target = targetService.requireUniqueTargetForProcess(
-                activeOrder, event.getProcessId());
         MesProcessPoolReportAllocationStateDO state = requireStateForUpdate(event, event.getDeviceAccountId());
         List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventIdForUpdate(eventId);
         if (!current.isEmpty() || state.getCurrentVersion() == null || state.getCurrentVersion() != 0) {
@@ -185,7 +183,7 @@ public class MesReportAllocationCommandService {
         MesProcessPoolReportAllocationDO allocation = MesProcessPoolReportAllocationDO.builder()
                 .eventId(eventId).reviewId(null).leaderUserId(activeOrder.getLeaderUserId())
                 .activeOrderId(activeOrderId).workOrderId(activeOrder.getWorkOrderId())
-                .routeProcessId(target.routeProcessId()).processId(target.processId())
+                .routeProcessId(event.getRouteProcessId()).processId(event.getProcessId())
                 .allocatedQuantity(outputQuantity)
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_FRONTLINE_SELECTED)
                 .lifecycleStatus(MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
@@ -197,7 +195,7 @@ public class MesReportAllocationCommandService {
                 MesProcessPoolReportAllocationAdjustmentAuditDO.builder()
                         .eventId(eventId).allocationVersion(1).sourceAllocationId(allocation.getId())
                         .activeOrderId(activeOrderId).workOrderId(activeOrder.getWorkOrderId())
-                        .routeProcessId(target.routeProcessId()).processId(target.processId())
+                        .routeProcessId(event.getRouteProcessId()).processId(event.getProcessId())
                         .beforeQuantity(BigDecimal.ZERO).afterQuantity(outputQuantity).deltaQuantity(outputQuantity)
                         .actorUserId(event.getDeviceAccountId())
                         .adjustmentReason("一线生产选择活跃订单后自动分配")
@@ -213,7 +211,6 @@ public class MesReportAllocationCommandService {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT, eventId, 0, 1);
         }
         quantityFragmentService.rebuildForVersion(event, 1, List.of(allocation));
-        completionService.reconcileAffectedAllocations(event, List.of(allocation));
         reportManagementSummaryService.refreshProductionEvent(event);
     }
 

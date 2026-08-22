@@ -90,7 +90,6 @@ export interface BatchRecordRepeatRowGroupVO {
   scopeType?: string
   scopeId?: number
   routeId?: number
-  routeProcessId?: number
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
   routeProcessId: number
@@ -164,6 +163,7 @@ export interface BatchRecordCellLinkRulesSaveReqVO {
   scopeType?: string
   scopeId?: number
   routeId?: number
+  routeProcessId?: number
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
   rules: BatchRecordCellLinkRuleVO[]

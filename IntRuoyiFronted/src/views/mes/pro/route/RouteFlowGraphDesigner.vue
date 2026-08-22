@@ -3832,6 +3832,41 @@ const buildBatchRecordFormLinks = (): ProcessDetailLinkItem[] =>
       onClick: () => openLegacyBatchRecordTargetLink(report)
     }))
 
+const openFormTemplateCellLink = async (binding: RouteFlowRecordBinding) => {
+  const routeProcessId = selectedRouteProcessId.value
+  const templateId = Number(binding.formTemplateId || 0)
+  if (!routeProcessId || !Number.isFinite(templateId) || templateId <= 0) {
+    throw new Error(`过程检验表单链接缺少正式模板身份: routeProcessId=${routeProcessId || '-'}`)
+  }
+  await persistRouteFlowReturnState()
+  const versionNo = normalizeNullableText(binding.lastPublishedTemplateVersionNo)
+  const query: Record<string, string | undefined> = {
+    routeId: String(props.routeId),
+    routeProcessId: String(routeProcessId),
+    sourceReportId: 'PQC_AGGREGATE_DETAIL'
+  }
+  if (versionNo) {
+    query.templateId = String(templateId)
+    query.versionNo = versionNo
+  }
+  await router.push({
+    path: '/mes/pro/batch-record-cell-link',
+    query
+  })
+}
+
+const buildFormSlotSummaryLinks = (): ProcessDetailLinkItem[] =>
+  selectedRecordBindings.value
+    .filter((binding) =>
+      resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) === 'PROCESS_INSPECTION'
+      && Number(binding.formTemplateId || 0) > 0
+    )
+    .map((binding, index) => ({
+      key: `process-inspection-form-link-${binding.formBindingKey || index}`,
+      label: `链接：${getFormBindingDisplayName(binding)}`,
+      onClick: () => openFormTemplateCellLink(binding)
+    }))
+
 const buildFormSlotSummaryValue = () => {
   const configuredSlots = selectedRecordBindings.value
     .filter((binding) => isRecordBindingConfigured(binding))
@@ -3851,8 +3886,6 @@ const buildFormSlotViewSummaryItems = () => {
     }))
   return summaryItems
 }
-
-const buildFormSlotSummaryLinks = (): ProcessDetailLinkItem[] => []
 
 const resolveRouteProcessPredecessors = (row?: ProRouteProcessVO) => {
   if (row?.predecessors?.length) return row.predecessors

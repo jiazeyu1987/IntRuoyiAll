@@ -46,7 +46,16 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateProductSyncConfig();
         List<ErpKingdeeMaterial> materials = materialClient.fetchMaterials(kingdeeProperties);
-        return syncMaterials(materials);
+        return syncMaterials(materials, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeProductSyncResult syncProductsFullSkipExisting() {
+        ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
+        kingdeeProperties.validateProductSyncConfig();
+        List<ErpKingdeeMaterial> materials = materialClient.fetchMaterials(kingdeeProperties);
+        return syncMaterials(materials, true);
     }
 
     @Override
@@ -56,7 +65,7 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
         kingdeeProperties.validateProductSyncConfig();
         List<ErpKingdeeMaterial> materials =
                 materialClient.fetchMaterialsModifiedBetween(kingdeeProperties, windowStart, windowEnd);
-        return syncMaterials(materials);
+        return syncMaterials(materials, false);
     }
 
     @Override
@@ -65,10 +74,11 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateProductSyncConfig();
         List<ErpKingdeeMaterial> materials = materialClient.fetchMaterialsByNumbers(kingdeeProperties, materialNumbers);
-        return syncMaterials(materials);
+        return syncMaterials(materials, false);
     }
 
-    private ErpKingdeeProductSyncResult syncMaterials(List<ErpKingdeeMaterial> materials) {
+    private ErpKingdeeProductSyncResult syncMaterials(List<ErpKingdeeMaterial> materials,
+                                                      boolean skipExisting) {
         Map<String, ErpKingdeeMaterial> materialsByNumber = new LinkedHashMap<>();
         for (ErpKingdeeMaterial material : materials) {
             materialsByNumber.putIfAbsent(material.getMaterialNumber(), material);
@@ -92,6 +102,10 @@ public class ErpKingdeeProductSyncServiceImpl implements ErpKingdeeProductSyncSe
             if (existingProduct == null) {
                 productsToCreate.add(buildCreateProduct(material, categoryId, unitId, status));
                 result.addCreated(material.getMaterialNumber());
+                continue;
+            }
+            if (skipExisting) {
+                result.addSkipped(material.getMaterialNumber());
                 continue;
             }
             ErpProductDO updateProduct = buildUpdateProduct(existingProduct, material, categoryId, unitId, status);
