@@ -16,17 +16,12 @@ BDD: 复核/分配达到工序目标 -> Given 来源事实有效且数量达到�
 - Frontline initial allocation now persists only the allocation fact from the submitted event context; it no longer resolves an order-process target or calls the completion projection service before leader confirmation.
 - The process-pool raw payload now retains both `recordbookSourceSnapshot` and `activeOrderProcess` formal source snapshots.
 
-## 编译阻断修复（追加范围）
+## 编译验证边界（并行改动未纳入流程2提交）
 
 BDD: 完整 reactor 编译 -> Given ERP 合同测试和 MES QA 正式 DTO/测试必须与当前生产代码一致 When 执行 reactor `test-compile` Then 所有 MES 主源码和测试源码应编译成功，且不以排除源码或临时 POM 绕过。
 
-- 根因一：`ErpKingdeeTableAutoSyncContractTest` 在 `assertContains` 仅接受两个参数时传入三个参数；修正为断言金蝶 job 的正式 `executeAutoForCurrentTenant()` 入口。
-- 根因二：`MesQaInspectionRegulationPublishedVersionRespVO` 和 `MesQaInspectionRegulationSaveReqVO.InspectionItem` 缺少当前服务/测试依赖的 `equipmentRequired`、`equipmentOptions` 及 `EquipmentOption`；恢复正式字段与校验类型。
-- 根因三：`MesQaInspectionRegulationWordImportServiceTest.existingConfiguration` 删除了本地 `process` 构造却仍引用该变量；恢复完整来源快照 fixture。
-- RED: `mvn -pl yudao-module-erp -am '-DskipTests' test-compile` -> FAIL，ERP 合同测试第 144 行参数数量不匹配。
-- RED: `mvn -pl yudao-module-mes -am '-Dmaven.test.skip=true' install` -> FAIL，MES `MesFrontlinePqcContextServiceImpl:736` 找不到 `EquipmentOption`。
-- RED: `mvn -pl yudao-module-mes -am '-DskipTests' test-compile` -> FAIL，QA 保存请求缺少 `setEquipmentRequired`，Word 导入测试缺少 `process`。
-- GREEN: 同两条编译命令修复后均 PASS；MES 主源码编译 2786 个、测试源码编译 488 个。
+- ERP/QA 编译阻断及其修复属于并行工作区改动；本次流程2只核对其已存在于主工作树，未在流程2提交中暂存或改写。
+- GREEN: 主工作树 `mvn -pl ':yudao-module-mes' -am '-DskipTests' test-compile` PASS；MES 主源码编译 2784 个、测试源码编译 488 个。
 - REGRESSION: 流程2及相邻 QA 测试命令 PASS，108 项测试，Failures=0、Errors=0、Skipped=0。
 
 ## RED/GREEN/REGRESSION

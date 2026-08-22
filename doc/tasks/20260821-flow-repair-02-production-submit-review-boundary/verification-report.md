@@ -15,7 +15,7 @@
 
 - 文档结构和后端证据：PASS。
 - 生产实现：IMPLEMENTED / TASK-SCOPE VERIFIED。
-- 生产 RED：历史编译阻断已复现并修复；当前 ERP test-compile、MES 2783 个主源码编译和 MES 488 个测试源码编译均 PASS。
+- 生产 RED：流程2自身历史阻断已复现并修复；ERP/QA 编译阻断修复属于并行改动，未纳入流程2 commit。主工作树 MES 2784 个主源码和 488 个测试源码编译 PASS。
 - 生产 GREEN：PASS（流程2及相邻 QA 目标测试 108 项，Failures=0、Errors=0、Skipped=0）。
 - 生产 REGRESSION：PASS（提交、复核、驳回、分配版本/幂等/并发/超量、进度投影，以及 QA 保存/Word 导入测试）。
 - 完整 reactor test：本轮未重跑；此前唯一失败为无关 infra 运行时测试，编译和任务范围回归均通过。
