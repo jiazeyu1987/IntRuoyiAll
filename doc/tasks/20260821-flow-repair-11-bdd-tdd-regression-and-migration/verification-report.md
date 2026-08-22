@@ -93,6 +93,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - RED: 修复前 bundled Maven `mvn -pl yudao-module-mes -am -DskipTests compile` 在 `MesFrontlinePqcContextServiceImpl.java:736` 报 `MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption` 缺失。
 - GREEN: 恢复 `equipmentRequired`、`equipmentOptions` 和 `EquipmentOption` 后同一命令 `BUILD SUCCESS`（24/24 modules）。
 - REGRESSION: `mvn -pl yudao-module-mes -Dtest=MesFrontlinePqcContextServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，9 tests run, 0 failures/errors/skipped。
+- COMMIT: `006a954d65c770a4454f41ed60a0ea312b3ad55a`，仅包含本次 QA DTO、测试 fixture 和流程11任务文档收尾；正常 hook 通过。
 
 ## 9. Go/No-Go
 

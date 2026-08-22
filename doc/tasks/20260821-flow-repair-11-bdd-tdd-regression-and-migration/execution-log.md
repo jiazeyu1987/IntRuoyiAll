@@ -133,3 +133,5 @@ GREEN: `mvn -pl yudao-module-mes -am -DskipTests compile`（2026-08-22） -> PAS
 REGRESSION: `mvn -pl yudao-module-mes -Dtest=MesFrontlinePqcContextServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，`Tests run: 9, Failures: 0, Errors: 0, Skipped: 0`；testCompile 和定向服务回归均通过。
 
 M14 修改范围：恢复发布版/保存版 QA DTO 的设备字段和 `EquipmentOption` 嵌套 DTO，并修正 Word 导入测试的 `process` fixture；未修改业务状态、数据库、服务进程或主工作树。
+
+M14 COMMIT: `006a954d65c770a4454f41ed60a0ea312b3ad55a`，由正常 branch-runtime hook 创建，未使用 `--no-verify`。
