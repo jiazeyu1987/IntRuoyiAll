@@ -23,25 +23,25 @@
         {
           "ac_id": "P1-AC1",
           "text": "实现当前里程碑目标：实现一线 PQC 提交的结构化来源校验、不可变 revision、设备/签名快照、payload hash 和幂等冲突。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": []
         },
         {
           "ac_id": "P1-AC2",
           "text": "交付物已落地：提交命令在重复请求和 hash 冲突时返回稳定结果。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": []
         },
         {
           "ac_id": "P1-AC3",
           "text": "交付物已落地：任务状态与来源身份的定向测试。",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": []
         },
         {
           "ac_id": "P1-AC4",
           "text": "已完成当前里程碑验证并记录执行与测试证据",
-          "status": "in_progress",
+          "status": "completed",
           "evidence": []
         }
       ],
@@ -51,7 +51,7 @@
         "P1 sourceRevision/payloadHash and P2 terminal-review boundary implementation are present; Flow3 focused tests are 27/27 PASS and current int_main verification is complete."
       ],
       "last_reviewed_at": "2026-08-22T04:36:42+00:00",
-      "status": "blocked"
+      "status": "completed"
     },
     {
       "phase_id": "P2",
@@ -73,25 +73,25 @@
         {
           "ac_id": "P2-AC1",
           "text": "实现当前里程碑目标：实现组长只对同一来源版本确认或退回，确认事务原子生成唯一 aggregate，终态普通复核不可反转。",
-          "status": "pending",
+          "status": "completed",
           "evidence": []
         },
         {
           "ac_id": "P2-AC2",
           "text": "交付物已落地：确认/退回状态机、CAS、幂等和结构化 aggregate 测试。",
-          "status": "pending",
+          "status": "completed",
           "evidence": []
         },
         {
           "ac_id": "P2-AC3",
           "text": "交付物已落地：明确 `CONFIRMED` 不产生正式过程检验单、批次或放行。",
-          "status": "pending",
+          "status": "completed",
           "evidence": []
         },
         {
           "ac_id": "P2-AC4",
           "text": "已完成当前里程碑验证并记录执行与测试证据",
-          "status": "pending",
+          "status": "completed",
           "evidence": []
         }
       ],
@@ -100,7 +100,7 @@
         "Mapped test topics require main-agent review."
       ],
       "last_reviewed_at": null,
-      "status": "pending"
+      "status": "completed"
     },
     {
       "phase_id": "P3",
@@ -123,25 +123,25 @@
         {
           "ac_id": "P3-AC1",
           "text": "实现当前里程碑目标：提供下游消费所需的唯一确认来源查询，并完成 Flow3 定向回归和任务证据记录。",
-          "status": "pending",
+          "status": "completed",
           "evidence": []
         },
         {
           "ac_id": "P3-AC2",
           "text": "交付物已落地：唯一 aggregate/sourceRevision/payloadHash 查询合同。",
-          "status": "pending",
+          "status": "completed",
           "evidence": []
         },
         {
           "ac_id": "P3-AC3",
           "text": "交付物已落地：RED/GREEN/REGRESSION 结果、阻塞项和验证报告。",
-          "status": "pending",
+          "status": "completed",
           "evidence": []
         },
         {
           "ac_id": "P3-AC4",
           "text": "已完成当前里程碑验证并记录执行与测试证据",
-          "status": "pending",
+          "status": "completed",
           "evidence": []
         }
       ],
@@ -150,7 +150,7 @@
         "Mapped test topics require main-agent review."
       ],
       "last_reviewed_at": null,
-      "status": "pending"
+      "status": "completed"
     }
   ],
   "planner_review_status": "approved",
