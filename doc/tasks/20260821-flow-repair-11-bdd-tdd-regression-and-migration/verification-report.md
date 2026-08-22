@@ -90,7 +90,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 
 ## 8.2 当前本地 int_main 融合与验证
 
-- 本地 `int_main` 已通过受保护集成 worktree 更新到 `abd37c4561f6b01f6c59cd8273c1df44bc75c752`，该提交第一父为当时本地 `int_main=96876543f`、第二父为流程11 `8fe9228b2`；祖先关系核验通过。主工作树既有修改未被覆盖。
+- 本地 `int_main` 已通过受保护集成 worktree 更新到最终 `46948a7dde70f495c08e2b24a4acbf982f855d11`，包含流程11 `8fe9228b2` 及最新并行主线提交；祖先关系核验通过。主工作树既有修改未被覆盖。
 - 流程11 runner 12 场景、pytest 12 passed、py_compile、v5 runtime guard、24/24 Maven compile 和 Node 静态检查均有实际 PASS。ERP runtime JUnit 6/6 PASS。BPM 定向 JUnit 45/46 PASS，剩余 1 项因未跟踪 DOCX fixture 缺失阻断，不能记为全量 PASS。
 - 该验证在干净的合并树执行；由于 `E:\IntRuoyi` 物理工作树包含用户 dirty/untracked 文件且流程11脚本路径尚未 checkout 到该物理树，未将合并树结果冒充物理 checkout 测试。仅 branch ref 已在 `E:\IntRuoyi` 核验。
 - Go/No-Go 仍为 No-Go：流程1-10生产闭环回归、BPM fixture 前置、真实 Playwright E2E、生产历史只读 dry-run、人工批准和回滚演练尚无完整证据。

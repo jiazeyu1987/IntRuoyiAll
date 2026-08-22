@@ -162,8 +162,8 @@ REGRESSION: `node --check` 两个受影响 E2E 静态脚本、Flow11 `branch-run
 
 ## M17 当前本地 int_main 受保护融合与主线验证
 
-- 集成 worktree 以当时本地 `int_main=96876543f` 为第一父、流程11 `8fe9228b2` 为第二父，正常 hook 生成融合提交 `abd37c4561f6b01f6c59cd8273c1df44bc75c752`；未使用 `--no-verify`。
-- 通过 `git update-ref refs/heads/int_main abd37c4561f6b01f6c59cd8273c1df44bc75c752 96876543f0765d433369018330bc9423b57df918` 更新本地分支引用；`E:\IntRuoyi` 物理工作树的既有 dirty/untracked 文件未被 checkout、覆盖、reset、stash 或 clean。`git merge-base --is-ancestor 8fe9228b2 refs/heads/int_main` -> PASS。
+- 集成 worktree 以当时本地主线为基线，正常 hook 生成融合提交 `abd37c4561f6b01f6c59cd8273c1df44bc75c752`；随后以最新并行主线为基线 cherry-pick 本段收尾记录，最终本地 `int_main` 为 `46948a7dde70f495c08e2b24a4acbf982f855d11`；未使用 `--no-verify`。
+- 通过受保护 compare-and-swap 更新本地分支引用；`E:\IntRuoyi` 物理工作树的既有 dirty/untracked 文件未被 checkout、覆盖、reset、stash 或 clean。`git merge-base --is-ancestor 8fe9228b2 refs/heads/int_main` -> PASS，收尾文档提交祖先核验 -> PASS。
 - `python -X utf8 IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS，12 场景；`python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q --basetemp D:\IntRuoyiWorktree\flow11-main-pytest-temp` -> PASS，12 passed；`python -X utf8 -m py_compile ...` -> PASS。
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1 -Profile int_main -WorktreePath D:\IntRuoyiWorktree\20260822-flow-repair-11-local-int-main-integration-v2` -> PASS，slot=25，8159/48159；slot 31 按 v5 合同合法，未修改其它登记。
 - bundled Maven `mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS，24/24 modules `BUILD SUCCESS`。ERP `ErpKingdeeSyncRuntimeServiceImplTest` -> PASS，6/6。BPM 定向 46 tests 中 45 通过，`DefaultWordFormTemplateRecognizerTest` 因 `resource/按压式球囊扩充压力泵IDI-001/过程检验记录.docx` 在干净集成树不存在而失败；该 fixture 仅存在于主工作树未跟踪文件，未复制、未提交或伪造，保持 blocker。
