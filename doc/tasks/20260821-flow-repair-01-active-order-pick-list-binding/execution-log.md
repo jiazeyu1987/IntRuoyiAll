@@ -100,7 +100,7 @@ REGRESSION: 真实 Playwright 写入路径 -> NOT RUN；缺少确认测试租户
 - Milestone 1-2: completed. Rules and current code facts recorded.
 - Milestone 3: completed. Target data, API, state、FR1-PICK-6/7/9主契约及8/10/11邻接契约已在 development-plan.md 校正。
 - Milestone 4: completed. BDD and strict TDD plan are in `test-plan.md`.
-- Milestone 5: completed. 流程1代码已实现、提交并融合当前 `int_main`；MES compile、100 个定向测试、前端静态、schema、diff 和 runtime guard 均有 PASS 证据。
+- Milestone 5: completed. 流程1代码已实现、提交并融合当前 `int_main`；最新主线 HEAD 为 `1bc0be23e8665485456265b4e92ef78a7154c1f2`。MES compile、100 个定向测试、前端静态、schema、diff 和 runtime guard 均有 PASS 证据。
 
 ## Blockers
 
