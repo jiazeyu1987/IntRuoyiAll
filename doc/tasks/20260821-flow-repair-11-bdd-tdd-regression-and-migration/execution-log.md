@@ -120,7 +120,7 @@ REGRESSION: node tests/e2e/edhr-special-nodes-real-flow.e2e.js -> PASS（计划�
 
 ## 收尾状态
 
-`in_progress`：流程11 task-owned 代码已提交，runner/pytest/py_compile/runtime guard、M14 Maven 生产源码编译和定向 JUnit 已取得实际通过；流程1-10生产回归、真实 E2E、生产历史迁移/回滚和 `int_main` 融合仍为 blocker。未使用 `--no-verify`，未修改主工作树或其它任务登记。
+`completed`（流程11专项范围）：流程11 task-owned 代码、runner/pytest/py_compile、全模块 Maven compile、定向 JUnit、Node/TS 静态检查、runtime guard、diff-check、主线融合和 staged 删除恢复均已取得实际证据。流程1-10生产回归、真实 E2E、生产历史迁移/回滚和人工批准仍为跨流程 No-Go blocker。未使用 `--no-verify`，未覆盖主工作树其它 dirty/untracked 文件或其它任务登记。
 
 ## M14 编译回归修复证据
 
@@ -175,3 +175,11 @@ REGRESSION: `node --check` 两个受影响 E2E 静态脚本、Flow11 `branch-run
 - 复核确认上述三个 Python 文件及 BPM/ERP task-owned 源和测试源的 staged 删除均由本线程此前受保护 ref 更新造成；按路径从当前 `int_main` 精确恢复，未触碰其它 dirty/untracked 文件。恢复后 runner -> PASS 12，pytest -> PASS 12 passed，py_compile -> PASS。
 - 物理主工作树前端 `pnpm run ts:check` -> PASS；两个 E2E 静态脚本 `node --check` -> PASS；主线 `branch-runtime-port-guard.ps1` -> PASS（8081/48081）；`git diff --check` -> exit 0（仅 CRLF 警告）。
 - 恢复后的物理主工作树 ERP 定向 JUnit -> PASS 6/6；BPM 定向 JUnit -> PASS 46/46。未执行服务、数据库、真实 Playwright 或写入型迁移。
+
+## M19 主线程最终收尾
+
+- `int_main` 已确认包含流程11提交 `8fe9228b2`（祖先核验 PASS）；本次未重复融合。
+- 主线程 Maven compile -> PASS，24/24 modules `BUILD SUCCESS`；流程11 Python runner -> PASS 12，pytest -> PASS 12 passed，py_compile -> PASS。
+- 主线程 ERP 定向 JUnit -> PASS 6/6，BPM 定向 JUnit -> PASS 46/46；前端 `pnpm run ts:check`、两个受影响 E2E `node --check`、v5 runtime guard（8081/48081）和 `git diff --check` -> PASS。
+- staged 删除复核为 0；此前确认的流程11自有误删已按当前 `int_main` 精确恢复。其它 dirty/untracked 文件（含并行 ERP 测试改动）保留未改。
+- 流程11专项标记完成；未启动服务、访问数据库、执行真实 Playwright、生产历史迁移、人工批准或回滚演练，全链路继续 No-Go。

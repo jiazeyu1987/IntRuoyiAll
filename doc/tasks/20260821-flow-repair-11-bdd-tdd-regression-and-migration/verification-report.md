@@ -90,10 +90,8 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 
 ## 8.2 当前本地 int_main 融合与验证
 
-- 本地 `int_main` 已通过受保护集成 worktree 更新到最终 `46948a7dde70f495c08e2b24a4acbf982f855d11`，包含流程11 `8fe9228b2` 及最新并行主线提交；祖先关系核验通过。主工作树既有修改未被覆盖。
-- 流程11 runner 12 场景、pytest 12 passed、py_compile、v5 runtime guard、24/24 Maven compile 和 Node 静态检查均有实际 PASS。ERP runtime JUnit 6/6 PASS。BPM 定向 JUnit 45/46 PASS，剩余 1 项因未跟踪 DOCX fixture 缺失阻断，不能记为全量 PASS。
-- 该验证在干净的合并树执行；由于 `E:\IntRuoyi` 物理工作树包含用户 dirty/untracked 文件且流程11脚本路径尚未 checkout 到该物理树，未将合并树结果冒充物理 checkout 测试。仅 branch ref 已在 `E:\IntRuoyi` 核验。
-- Go/No-Go 仍为 No-Go：流程1-10生产闭环回归、BPM fixture 前置、真实 Playwright E2E、生产历史只读 dry-run、人工批准和回滚演练尚无完整证据。
+- 本节记录较早的集成树快照；其中 45/46 BPM 结果和缺失脚本描述已由 8.3 物理主工作树复验 supersede，不作为最终证据。
+- 最终证据以 8.3 和 M19 为准：本地 `int_main` 已包含流程11 `8fe9228b2`，主工作树未覆盖其它 dirty/untracked 改动。
 
 ## 8.3 物理 E:\IntRuoyi 最终门禁
 
@@ -113,4 +111,4 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 
 流程11独立迁移切片已完成 runner 和 fixture dry-run 验证，但整体代码保持 No-Go。只有实现线程关闭旧顺序和直接放行路径，并取得四材料硬门禁、多入口幂等、完整追溯、生产历史迁移授权/回滚和真实 Playwright 证据后，才可重新评估 Go。
 
-本轮 task.md 保持 in_progress：流程11代码、Python 验证、完整 Maven 编译、远端融合和静态回归已完成，但流程1-10生产回归、真实 E2E、生产历史迁移/人工回滚仍阻断。流程 8 仅接受四节点当前有效 COMPLETED（有批准字段时 APPROVED，节点 version/file_hash/source_snapshot_hash 与 manifest 一致），历史迁移统一五类。五份正式文档和流程11迁移模块均保留。
+本轮 task.md 已标记 `completed`（流程11专项范围）：流程11代码、Python 验证、完整 Maven 编译、定向 JUnit、Node/TS 静态检查、主线融合和 staged 删除恢复均已取得实际证据。流程1-10生产回归、真实 E2E、生产历史迁移、人工批准和回滚仍阻断，因此全链路仍为 No-Go。流程 8 仅接受四节点当前有效 COMPLETED（有批准字段时 APPROVED，节点 version/file_hash/source_snapshot_hash 与 manifest 一致），历史迁移统一五类。五份正式文档和流程11迁移模块均保留。
