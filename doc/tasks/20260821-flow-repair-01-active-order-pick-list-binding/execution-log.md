@@ -118,4 +118,41 @@ REGRESSION: 后端既有活跃订单/来源服务测试 -> NOT RUN（缺少 Mave
 
 ## Closeout Evidence
 
-- task-owned closeout 尚未执行；在 Maven/主线融合完成前保持 `ready_for_closeout`。
+- task-owned closeout 尚未执行；在 Maven/主线融合完成前保持 `ready_for_closeout`。主线融合失败的原始证据已记录，不能标记 completed。
+
+## Latest-main Replay Evidence
+
+- 以最新本地已提交 `int_main` `5f0138e4c` 创建隔离 worktree：`D:\IntRuoyiWorktree\20260822-flow-repair-01-int-main-integration`，未修改 `E:\IntRuoyi` 的既有未提交改动。
+- `git cherry-pick 99bb6232a` 的真实冲突仅落在 `MesTeamLeaderOrderProcessCompletionService.java` 及其定向测试；已人工保留主线 flow4 逻辑并接入修复1 `pickListBindingId`、绑定 mapper、回填调用和测试夹具。未使用 reset、checkout、stash、clean 或 `--no-verify`。
+- `git diff --cached --check`：PASS；task-owned 暂存文件未包含 `AGENTS.md`、runtime 文档或 runtime 脚本。
+- `node IntRuoyiFronted/src/api/mes/pro/processpool/teamLeaderPickListBinding.static.spec.cjs`：PASS。
+- SQL 静态 schema 合同：PASS，检查绑定头/明细表、`pick_list_id`、`binding_id`、`source_snapshot_hash`、`binding_version` 及活跃订单/明细唯一键。
+- `pnpm run ts:check`：NOT PASS，隔离 worktree 未安装 `node_modules`，`cross-env` 不存在；未将其误报为流程1 GREEN。
+- Maven/JUnit：NOT RUN，未发现 `mvn` 或 `mvnw.cmd`。
+- `scripts/preflight/branch-runtime-port-guard.ps1`：FAIL，最新主线 `docs\\local-runtime.md` 缺少 `PORT_CONTRACT_VERSION: 2026-08-21-branch-runtime-v5`；该共享基线阻塞提交钩子，未修改共享 runtime 以绕过。
+- 因上述 guard blocker，`git cherry-pick --continue` 未能生成新的融合提交；主线未执行 merge 或主线程验证。
+
+### Current-main Replay Recheck
+
+- 主线在并行流程推进后再次变更；重新以当前已提交 `int_main` `aeb58c37d` 建立 `D:\IntRuoyiWorktree\20260822-flow-repair-01-int-main-integration-v2`，slot 17，未改动 `E:\IntRuoyi`。
+- `git cherry-pick 99bb6232a` 仍只在订单完成服务及其定向测试产生真实冲突；已人工合并活跃订单绑定 mapper、`pickListBindingId` 回填命令和测试断言。
+- v2 clean baseline 的 `docs\\local-runtime.md` 仍为 v4，而版本化 guard 要求 `PORT_CONTRACT_VERSION: 2026-08-21-branch-runtime-v5`；`git cherry-pick --continue` fail-fast，未使用 `--no-verify`，没有生成伪造 commit。
+
+### Final Current-main Replay
+
+- 主线最新已提交点随后为 `96931aa99`（流程3收尾文档）；在 `D:\IntRuoyiWorktree\20260822-flow-repair-01-int-main-integration-v3` 重放 `99bb6232a`，slot 19。
+- 订单完成服务及其定向测试冲突已人工解决，冲突文件 scoped scan、`git diff --check`、前端静态合同和 SQL schema 合同均通过；未改动主工作树或共享 runtime 文件。
+- v3 clean baseline 的 `docs\\local-runtime.md` 为 v4，提交 guard 要求 v5；`git cherry-pick --continue` 仍 fail-fast，未使用 `--no-verify`，因此没有新融合 commit。
+
+### Maven Recheck
+
+- `C:\\Users\\BJB110\\Documents\\Codex\\tools\\apache-maven-3.9.16\\bin\\mvn.cmd -pl yudao-module-mes -am -DskipTests compile`：RED/FAIL，Maven 已找到并正常运行；构建在流程1未修改的 `MesFrontlinePqcContextServiceImpl.java:736` 停止，原因是 `MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption` 不存在。
+- 该编译错误属于既有 frontline PQC/其它流程基线，不属于修复1 task-owned 文件；按范围未修改、未用旁路或默认成功掩盖。
+## 2026-08-22 Latest Implementation Verification
+
+- 用户提供 Maven：`C:\\Users\\BJB110\\Documents\\Codex\\tools\\apache-maven-3.9.16\\bin\\mvn.cmd`。
+- `-pl yudao-module-mes -DskipTests compile`：GREEN，BUILD SUCCESS；此前重放冲突遗漏的 `aggregateHash` helper 已由 `580a1cef9` 补回。
+- `-pl yudao-module-mes -Dtest=MesTeamLeaderActiveOrderServiceTest,MesProductionPickListSourceServiceImplTest,MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest test`：GREEN，96 tests, 0 failures/errors。
+- 活跃订单测试夹具现显式提供已审核领料单、生产工单号、幂等键和绑定快照 hash；来源服务旧 ERP 目录无效 stub 已移除。该修改属于流程1 task-owned 测试。
+- 完整 `-am` reactor 仍 NOT GREEN：流程1范围外 BPM/PQC 基线编译错误；不修改其它线程代码、不用旁路掩盖。
+- 当前状态仍 `ready_for_closeout`：待核对最新 `int_main`、受保护 fast-forward 融合及主线程验证。共享 runtime 临时一致性文件继续排除，不得提交。

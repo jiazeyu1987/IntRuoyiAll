@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
@@ -17,6 +19,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
@@ -85,6 +89,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -92,8 +97,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.inOrder;
@@ -205,6 +212,28 @@ class MesTeamLeaderActiveOrderServiceTest {
                 releaseApplicationMapper, dccProjectCodeMapper, reportAllocationOrderChangeService,
                 pickListMapper, pickListItemMapper, pickListBindingMapper, pickListBindingItemMapper);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
+        lenient().when(pickListMapper.selectById(9001L)).thenReturn(ErpKingdeeProductionPickListDO.builder()
+                .id(9001L).sourceFormId("PRD_PickMtrl").sourceFid("9001").sourceBillNo("PICK-9001")
+                .documentStatus("C").build());
+        lenient().when(pickListItemMapper.selectListByPickListIds(List.of(9001L))).thenReturn(List.of(
+                ErpKingdeeProductionPickListItemDO.builder().id(9101L).productionPickListId(9001L)
+                        .sourceEntryId("10").sourceLineKey("9001:10").materialNumber("MAT-001")
+                        .materialName("手柄").unitName("个").actualQuantity(new BigDecimal("5"))
+                        .requestedQuantity(new BigDecimal("6")).productionOrderNo("WO-9001")
+                        .build()));
+        lenient().when(pickListBindingMapper.selectByIdempotencyKey(anyString())).thenReturn(null);
+        lenient().when(pickListBindingMapper.selectByActiveOrderId(anyLong())).thenAnswer(invocation ->
+                MesProcessPoolActiveOrderPickListBindingDO.builder().id(8801L)
+                        .activeOrderId(invocation.getArgument(0, Long.class)).workOrderId(9001L)
+                        .pickListId(9001L).sourceSnapshotHash(defaultPickListSnapshotHash())
+                        .bindingStatus("BOUND").bindingVersion(1).build());
+        lenient().when(pickListBindingMapper.insert(any(MesProcessPoolActiveOrderPickListBindingDO.class)))
+                .thenAnswer(invocation -> {
+                    invocation.getArgument(0, MesProcessPoolActiveOrderPickListBindingDO.class).setId(8801L);
+                    return 1;
+                });
+        lenient().when(pickListBindingItemMapper.insert(any(MesProcessPoolActiveOrderPickListBindingItemDO.class)))
+                .thenReturn(1);
         lenient().when(inspectionRegulationMapper.selectListByDccProjectCodeIds(any()))
                 .thenReturn(List.of(publishedRegulation(9902L)));
         lenient().when(inspectionRegulationMapper.selectById(9901L))
@@ -1679,7 +1708,26 @@ class MesTeamLeaderActiveOrderServiceTest {
         return MesTeamLeaderActiveOrderAddReqBO.builder()
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
+                .pickListId(9001L)
+                .idempotencyKey("IDEMP-9001")
                 .build();
+    }
+
+    private static String defaultPickListSnapshotHash() {
+        try {
+            Method method = MesTeamLeaderActiveOrderServiceImpl.class.getDeclaredMethod("pickListSnapshotHash",
+                    ErpKingdeeProductionPickListDO.class, List.class);
+            method.setAccessible(true);
+            ErpKingdeeProductionPickListDO header = ErpKingdeeProductionPickListDO.builder()
+                    .id(9001L).sourceFid("9001").sourceBillNo("PICK-9001").documentStatus("C").build();
+            ErpKingdeeProductionPickListItemDO item = ErpKingdeeProductionPickListItemDO.builder()
+                    .id(9101L).sourceEntryId("10").sourceLineKey("9001:10").materialNumber("MAT-001")
+                    .materialName("手柄").unitName("个").actualQuantity(new BigDecimal("5"))
+                    .requestedQuantity(new BigDecimal("6")).productionOrderNo("WO-9001").build();
+            return (String) method.invoke(null, header, List.of(item));
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 
     private void stubWorkOrderExists(MesProWorkOrderDO workOrder) {

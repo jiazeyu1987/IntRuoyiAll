@@ -168,8 +168,6 @@ class MesProductionPickListSourceServiceImplTest {
         when(routeProductBomMapper.selectListByRouteIdAndProductId(7001L, 3101L)).thenReturn(List.of());
         when(itemMapper.selectById(3101L))
                 .thenReturn(MesMdItemDO.builder().id(3101L).code("AW.107.02.01.2010").name("压力泵").build());
-        when(productionMaterialListMapper.selectListByProductCode("AW.107.02.01.2010"))
-                .thenReturn(List.of(erpMaterial("AW.107.02.01.2010", "MAT-001", "手柄")));
         when(pickListBindingMapper.selectById(8801L)).thenReturn(binding());
         when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(
                 bindingItem(9102L, "20", "LOT-SECOND"), bindingItem(9101L, "10", "LOT-FIRST")));

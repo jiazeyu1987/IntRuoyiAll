@@ -6,7 +6,7 @@
 
 ## Result
 
-**实现主体完成；后端编译/单测和主线融合尚未完成，暂不放行。**
+**实现主体完成；最新主线隔离重放的流程1编译和定向测试已通过，提交测试夹具及文档、受保护融合和主线程复验仍待完成，暂不标记 completed。**
 
 已实现加入时的正式领料单选择、后端校验、绑定头/全部明细快照、hash/幂等/唯一约束，以及批记录 writer、完成后回填和 dossier 对绑定 ID 的传递。来源解析已改为只读绑定快照，不再按工单号临时反查。
 
@@ -46,7 +46,8 @@
 - `node .../teamLeaderPickListBinding.static.spec.cjs`：PASS。
 - `pnpm run ts:check`：FAIL，命中既有 `src/api/mes/pro/batchrecordcelllink/index.ts` 重复 `routeProcessId` 和 `src/views/mes/pro/batchrecordcelllink/index.vue` 请求字段错误；未命中本任务文件。
 - `git diff --check`：PASS（仅 LF/CRLF 转换警告）。
-- Maven 定向编译/测试：NOT RUN，`mvn` 和 `mvnw.cmd` 均不存在。
+- Maven 直接编译：PASS；`C:\\Users\\BJB110\\Documents\\Codex\\tools\\apache-maven-3.9.16\\bin\\mvn.cmd -pl yudao-module-mes -DskipTests compile` BUILD SUCCESS。完整 `-am` reactor 仍被流程1范围外 BPM/PQC 基线编译错误阻断。
+- Maven 定向 JUnit：PASS；`-Dtest=MesTeamLeaderActiveOrderServiceTest,MesProductionPickListSourceServiceImplTest,MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest test`，96 tests, 0 failures/errors。
 - 数据库迁移、服务、写入型 E2E：NOT RUN，符合当前安全范围。
 - Git commit/融合：待 task-owned 文件筛选后执行。
 
@@ -61,8 +62,8 @@
 
 ## Unresolved Blockers
 
-1. 验证 blocker：独立 worktree 缺少 Maven/Maven Wrapper，后端编译和定向 JUnit 未执行。
-2. 融合 blocker：尚未完成 task-owned commit；主工作树有其它未提交改动，必须 fast-forward-only 且不能覆盖。
+1. 完整 reactor blocker：`-am` 仍受流程1范围外 BPM/PQC 编译错误影响；流程1模块直接编译和定向 JUnit 已通过。
+2. 融合 blocker：测试夹具修复和本次文档证据需先形成 task-owned commit；随后必须基于当时最新 `int_main` 做受保护 fast-forward，主工作树重叠改动不得覆盖。
 3. 历史数据 blocker：已有活跃订单/批次缺绑定时只能正式重建或按批准迁移处理，禁止直接 SQL 回填或按工单认领。
 4. E2E blocker：没有确认测试租户、账号、已审核领料单和可清理数据，真实 E2E 未执行。
 
@@ -70,4 +71,4 @@
 
 ready_for_closeout
 
-代码实现和静态验证完成；待 Maven 验证、task-owned commit、fast-forward 融合及主线定向复验后再标记 completed。
+代码实现、隔离重放、直接编译和96项定向测试已留证；待测试夹具/文档提交、fast-forward 融合和主线程复验后再标记 completed。

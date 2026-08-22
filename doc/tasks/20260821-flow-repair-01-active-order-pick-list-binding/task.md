@@ -27,7 +27,8 @@
 3. [x] 形成目标态、根因、数据/接口/状态和跨线程合同。
 4. [x] 形成 BDD、严格 TDD 计划、迁移/回滚边界和阻塞清单。
 5. [x] 完成前后端、快照持久化和绑定来源消费实现。
-6. [ ] 完成 Maven 定向测试和主工作树融合；环境缺少 Maven 时记录阻塞。
+6. [x] 使用用户提供的 Maven 完成流程1后端编译和定向 JUnit；修复主线重放中发现的流程1聚合 hash 缺失。
+7. [ ] 受保护 fast-forward 融合到最新 int_main，并在主线程复验。
 
 ## Expected Verification
 
@@ -40,7 +41,7 @@
 
 ready_for_closeout
 
-代码已在独立 worktree 实现；Maven 后端验证和主线 fast-forward 融合尚未完成，见 `verification-report.md`。
+代码已在最新主线隔离 worktree 重放并提交；流程1修复提交为 `26251d36c`，聚合 hash 修复为 `580a1cef9`，测试夹具修复尚未提交。Maven 定向编译和流程1五类定向测试已通过，但尚未将最后测试夹具/文档提交，也尚未在 `E:\IntRuoyi` 执行 fast-forward 融合和主线程复验，故保持 `ready_for_closeout`。
 
 ## 设计约束检查
 
