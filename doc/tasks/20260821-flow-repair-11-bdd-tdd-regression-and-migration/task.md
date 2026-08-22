@@ -44,7 +44,7 @@
 
 ## Current Status
 
-in_progress：流程11迁移分类器、只读 dry-run、回滚计划、12 个 Python 合同场景、BPM/ERP 编译源修复和全模块 Maven 编译已通过；task-owned 集成 HEAD `ce1d69cb2` 已推送为远端 `origin/int_main`。本地 `E:\IntRuoyi` 仍保留用户未提交/未跟踪文件，未强行 checkout 或清理，因此本地工作树未做覆盖式更新。流程1-10生产闭环、数据库迁移、真实 E2E 和生产历史迁移仍为 No-Go/阻断。
+in_progress：流程11迁移分类器、只读 dry-run、回滚计划、12 个 Python 合同场景、BPM/ERP 编译源修复和全模块 Maven 编译已通过；task-owned 集成提交 `c22d4df23` 已推送到远端 `origin/int_main`。本地 `E:\IntRuoyi` 仍保留用户未提交/未跟踪文件，未强行 checkout 或清理，因此本地工作树未做覆盖式更新。流程1-10生产闭环、数据库迁移、真实 E2E 和生产历史迁移仍为 No-Go/阻断。
 
 ## 修改边界
 
