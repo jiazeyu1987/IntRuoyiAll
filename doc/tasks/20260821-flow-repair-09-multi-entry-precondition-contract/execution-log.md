@@ -14,7 +14,7 @@
 - M3 PASS：冻结双场景 receipt、entryType 分流、source relation、幂等和批次/放行边界。
 - M4 PASS：更新入口矩阵、放行矩阵、BDD、迁移/回滚和跨线程契约。
 - M5 PASS：流程9入口合同代码、task-owned 测试和五份文档结构核验完成。
-- M6 PASS：`477c97d41` 已 fast-forward 融合到 `int_main`；主线程目标编译 BUILD SUCCESS，目标测试 42/42 PASS。
+- M6 PASS：`477c97d41` 已 fast-forward 融合到 `int_main`；当前主线程 HEAD 为 `155c767d5`，目标编译 BUILD SUCCESS，目标测试 42/42 PASS。
 
 ## BDD/TDD 记录
 

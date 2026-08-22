@@ -20,7 +20,7 @@
 ## 主线程证据
 
 - Flow9 commit：`477c97d41 feat: enforce flow9 multi-entry batch preconditions`。
-- `int_main` 当前 HEAD：`e874249b782095477edd6c43d325c59fe7c68b93e`，包含上述 commit（fast-forward）。
+- `int_main` 当前 HEAD：`155c767d57d3b71c7aa61931d816a5f1e1d7cb97`，包含上述 commit（fast-forward）。
 - 编译：`mvn -o -pl yudao-module-mes -am -DskipTests compile` -> `BUILD SUCCESS`。
 - 目标测试：`ScheduleApplierTest, MesBatchExecutionEntryContractTest, MesPqcReleaseBatchExecutionServiceTest, MesProductionReleaseBatchExecutionPortTest` -> `Tests run: 42, Failures: 0, Errors: 0`。
 - `git diff --check` -> 通过；`branch-runtime-port-guard.ps1` -> 通过（int_main: 8081/48081）。
