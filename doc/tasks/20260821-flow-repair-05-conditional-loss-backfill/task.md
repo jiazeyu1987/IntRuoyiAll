@@ -98,6 +98,10 @@ completed
 ## Cleanup Keep
 
 - doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/task.md
+- doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/development-plan.md
+- doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/test-plan.md
+- doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/execution-log.md
+- doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/verification-report.md
 - doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/execution-log.md
 - doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/verification-report.md
 - doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/development-plan.md
