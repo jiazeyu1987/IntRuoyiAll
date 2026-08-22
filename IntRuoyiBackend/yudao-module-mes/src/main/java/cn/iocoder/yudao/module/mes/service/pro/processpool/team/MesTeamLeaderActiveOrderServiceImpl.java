@@ -105,6 +105,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_CONFIRM_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_SHARED_REPORT;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_VERSION_CONFLICT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_HISTORY_AMBIGUOUS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED;
@@ -1274,6 +1275,33 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 + ",adjacentId=" + adjacent.getId() + ",adjacentSortOrder=" + target.getSortOrder();
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "MOVE_ACTIVE_ORDER",
                 "ACTIVE_ORDER", target.getId(), beforeSnapshot, afterSnapshot);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void closeForRelease(Long activeOrderId, Integer expectedVersion,
+                                Long releaseDecisionId, Long actorUserId) {
+        if (activeOrderId == null || expectedVersion == null || releaseDecisionId == null || actorUserId == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "closeActiveOrderForRelease");
+        }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
+        if (activeOrder == null || !STATUS_ACTIVE.equals(activeOrder.getActiveStatus())) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
+        }
+        if (!Objects.equals(expectedVersion, activeOrder.getVersion())) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_VERSION_CONFLICT,
+                    activeOrderId, expectedVersion, activeOrder.getVersion());
+        }
+        LocalDateTime releasedAt = LocalDateTime.now();
+        if (activeOrderMapper.closeForRelease(activeOrderId, expectedVersion,
+                releaseDecisionId, actorUserId, releasedAt) != 1) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_VERSION_CONFLICT,
+                    activeOrderId, expectedVersion, activeOrder.getVersion());
+        }
+        String afterSnapshot = "activeStatus=CLOSED,businessStatus=RELEASED,releaseDecisionId="
+                + releaseDecisionId + ",releasedBy=" + actorUserId + ",releasedAt=" + releasedAt;
+        TeamMaintenanceAuditSupport.insertAudit(auditMapper, actorUserId, "CLOSE_ACTIVE_ORDER_BY_RELEASE",
+                "ACTIVE_ORDER", activeOrderId, activeOrder.toString(), afterSnapshot);
     }
 
     private MesProcessPoolActiveOrderDO selectExistingActiveOrder(Long workOrderId, Long routeId,

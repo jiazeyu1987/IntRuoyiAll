@@ -211,4 +211,25 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .set(MesProcessPoolActiveOrderDO::getRemovedAt, removedAt)
                 .setSql("version = version + 1"));
     }
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order
+            SET active_status = 'CLOSED',
+                business_status = 'RELEASED',
+                release_decision_id = #{releaseDecisionId},
+                released_by = #{actorUserId},
+                released_at = #{releasedAt},
+                version = version + 1,
+                updater = CAST(#{actorUserId} AS CHAR),
+                update_time = #{releasedAt}
+            WHERE id = #{activeOrderId}
+              AND deleted = 0
+              AND active_status = 'ACTIVE'
+              AND version = #{expectedVersion}
+            """)
+    int closeForRelease(@Param("activeOrderId") Long activeOrderId,
+                        @Param("expectedVersion") Integer expectedVersion,
+                        @Param("releaseDecisionId") Long releaseDecisionId,
+                        @Param("actorUserId") Long actorUserId,
+                        @Param("releasedAt") LocalDateTime releasedAt);
 }

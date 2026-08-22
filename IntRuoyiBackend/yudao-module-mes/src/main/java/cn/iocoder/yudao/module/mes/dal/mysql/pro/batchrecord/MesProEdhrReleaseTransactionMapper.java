@@ -67,7 +67,7 @@ public interface MesProEdhrReleaseTransactionMapper extends BaseMapperX<MesProEd
                 approval_opinion = #{approvalOpinion},
                 version = version + 1
             WHERE id = #{id}
-              AND deleted = b'0'
+              AND deleted = 0
               AND version = #{expectedVersion}
               AND release_status = 'PENDING_APPROVAL'
             """)
@@ -78,4 +78,5 @@ public interface MesProEdhrReleaseTransactionMapper extends BaseMapperX<MesProEd
                                  @Param("signoffEvidenceHash") String signoffEvidenceHash,
                                  @Param("approvalOpinion") String approvalOpinion,
                                  @Param("approvedAt") LocalDateTime approvedAt);
+
 }

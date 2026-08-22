@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseSubmitReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseWithdrawReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
@@ -26,6 +27,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseCheckItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseDecisionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
@@ -36,6 +38,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExec
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseCheckItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseDecisionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
@@ -50,6 +53,16 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseUpstreamStatePort;
+import cn.iocoder.yudao.module.mes.productionrelease.core.IndependentBatchPrerequisiteReceipt;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseAuthoritativeContextPort;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationCommand;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationEvidence;
+import cn.iocoder.yudao.module.mes.productionrelease.core.CompletionBackfillReceipt;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGateReceipt;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseOrigin;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -60,6 +73,7 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomLongId;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_PRECHECK_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_SIGNOFF_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_PASSWORD_FAILED;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -95,6 +109,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @Resource
     private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     @Resource
+    private MesProEdhrReleaseDecisionMapper releaseDecisionMapper;
+    @Resource
     private MesProEdhrBatchExecutionSignatureMapper batchSignatureMapper;
     @Resource
     private MesProEdhrWorkTaskAssignmentRuleMapper assignmentRuleMapper;
@@ -120,6 +136,10 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
     @MockitoBean
     private MesProductionReleaseManagerApprovalService managerApprovalService;
+    @MockitoBean
+    private MesReleaseUpstreamStatePort upstreamStatePort;
+    @MockitoBean
+    private MesReleaseAuthoritativeContextPort authoritativeContextPort;
 
     @BeforeEach
     void setUpDossierRequirementDefaults() {
@@ -128,6 +148,38 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         when(adminUserApi.getUser(any())).thenAnswer(invocation -> {
             Long userId = invocation.getArgument(0);
             return user(userId, "用户" + userId);
+        });
+        when(workTaskService.createReleaseApprovalTaskAfterSubmit(any(), any()))
+                .thenAnswer(invocation -> releaseApprovalTask(
+                        ((MesProEdhrReleaseTransactionDO) invocation.getArgument(0)).getId(), 9900L));
+        when(authoritativeContextPort.require(any())).thenAnswer(invocation -> {
+            MesReleaseFinalizationCommand command = invocation.getArgument(0);
+            return new MesReleaseFinalizationEvidence()
+                    .setIndependentPrerequisiteReceipt(command.getIndependentPrerequisiteReceipt())
+                    .setMaterialGateReceipt(command.getMaterialGateReceipt())
+                    .setCompletionBackfillReceipt(command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER
+                            ? new CompletionBackfillReceipt()
+                            .setReceiptId(command.getCompletionBackfillReceiptId())
+                            .setActiveOrderId(command.getActiveOrderId())
+                            .setWorkOrderId(command.getWorkOrderId())
+                            .setPickListBindingId(command.getPickListBindingId())
+                            .setPickListId(command.getPickListId())
+                            .setSourceSnapshotHash(command.getSourceSnapshotHash())
+                            .setBindingVersion(1)
+                            .setCompletionVersion(1)
+                            .setCompletionTransactionId("completion-tx")
+                            .setCompletionEventId(command.getCompletionEventId())
+                            .setBatchRecordId(1L)
+                            .setProcessInspectionId(2L)
+                            .setHasActualLoss(false)
+                            .setLossDecision("NO_LOSS")
+                            .setLossReportStatus("NOT_REQUIRED")
+                            .setReceiptHash("completion-receipt")
+                            .setIdempotencyKey("completion-idem")
+                            .setAuditEventId("completion-audit")
+                            .setStatus(CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
+                            .setIssuedAt(LocalDateTime.now())
+                            : null);
         });
     }
 
@@ -338,7 +390,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void submitReleasesDirectlyWhenOwnerSignsAndDhrPassesAndExternalSourcesAreNotYetIntegrated() {
+    void submitCreatesPendingApprovalWhenOwnerSignsAndDhrPasses() {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-DHR-PASS-SOURCE-NA");
         insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7301L);
@@ -365,22 +417,17 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                     .setSubmitReason("DHR 完整且外部来源未接入项按非阻塞信息项处理"));
         }
 
-        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, submitted.getReleaseStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL, submitted.getReleaseStatus());
         assertEquals(10001L, submitted.getSubmittedBy());
-        assertEquals(10001L, submitted.getApprovedBy());
+        assertEquals(null, submitted.getApprovedBy());
         assertNotNull(submitted.getSubmittedAt());
-        assertNotNull(submitted.getApprovedAt());
-        assertNotNull(submitted.getApprovalSignoffEvidenceHash());
+        assertEquals(null, submitted.getApprovedAt());
+        assertNotNull(submitted.getReleaseApprovalWorkTaskId());
         verify(adminUserApi).validatePassword(10001L, "owner-sign-secret");
-        verify(workTaskService, never()).createReleaseApprovalTaskAfterSubmit(any(), any());
+        verify(workTaskService).createReleaseApprovalTaskAfterSubmit(any(), any());
         List<MesProEdhrBatchExecutionSignatureDO> signatures =
                 batchSignatureMapper.selectListByBatchExecutionId(batch.getId());
-        assertEquals(1, signatures.size());
-        assertEquals("BATCH_RELEASE", signatures.get(0).getActionType());
-        assertEquals(10001L, signatures.get(0).getActorId());
-        assertEquals(Boolean.TRUE, signatures.get(0).getPasswordVerified());
-        assertFalse(signatures.get(0).getAggregateHash().isBlank());
-        assertEquals(signatures.get(0).getAggregateHash(), submitted.getApprovalSignoffEvidenceHash());
+        assertEquals(0, signatures.size());
     }
 
     @Test
@@ -414,18 +461,18 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals("mes:pro-edhr-release:submit", audit.getPermissionCode());
         assertEquals("ALLOW", audit.getPermissionDecision());
         assertEquals("SUCCESS", audit.getResultStatus());
-        assertTrue(audit.getMetadataJson().contains("\"toStatus\":\"RELEASED\""));
-        assertTrue(audit.getMetadataJson().contains("\"signoffEvidenceHash\""));
+        assertTrue(audit.getMetadataJson().contains("\"toStatus\":\"PENDING_APPROVAL\""));
     }
 
     @Test
-    void submitReleasesDirectlyBeforeBatchCloseWhenOwnerSignsAndDhrEvidenceIsComplete() {
+    void submitDoesNotCloseReadyBatchBeforeApproval() {
         MesProEdhrBatchExecutionDO batch = insertReadyToCloseBatch("BATCH-REL-PRE-CLOSE-DHR-PASS");
         insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7401L);
         insertCompletedExecution(task.getExecutionId(), true);
 
         MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
+        LocalDateTime closedAtBeforeSubmit = batchExecutionMapper.selectById(batch.getId()).getClosedAt();
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, precheck.getReleaseStatus());
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, precheck.getDhrStatus());
@@ -439,17 +486,16 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                     .setPassword("owner-sign-secret"));
         }
 
-        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, submitted.getReleaseStatus());
-        MesProEdhrBatchExecutionDO releasedBatch = batchExecutionMapper.selectById(batch.getId());
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, releasedBatch.getStatus());
-        assertNotNull(releasedBatch.getClosedAt());
-        assertEquals(10001L, releasedBatch.getClosedBy());
-        verify(workTaskService).createArchiveTaskAfterBatchClose(any());
-        verify(workTaskService, never()).createReleaseApprovalTaskAfterSubmit(any(), any());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL, submitted.getReleaseStatus());
+        MesProEdhrBatchExecutionDO pendingBatch = batchExecutionMapper.selectById(batch.getId());
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE, pendingBatch.getStatus());
+        assertEquals(closedAtBeforeSubmit, pendingBatch.getClosedAt());
+        verify(workTaskService, never()).createArchiveTaskAfterBatchClose(any());
+        verify(workTaskService).createReleaseApprovalTaskAfterSubmit(any(), any());
     }
 
     @Test
-    void submitReleasesDirectlyWhenRouteReleaseRoleMemberSigns() {
+    void submitCreatesPendingApprovalWhenRouteReleaseRoleMemberSigns() {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-ROLE-MEMBER");
         insertRouteReleaseOwnerRoleRule(batch.getRouteId(), 8802L);
         when(permissionApi.getUserRoleIdListByRoleIds(Set.of(8802L))).thenReturn(Set.of(10002L));
@@ -468,9 +514,9 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                     .setPassword("role-owner-sign-secret"));
         }
 
-        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, submitted.getReleaseStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL, submitted.getReleaseStatus());
         assertEquals(10002L, submitted.getSubmittedBy());
-        assertEquals(10002L, submitted.getApprovedBy());
+        assertEquals(null, submitted.getApprovedBy());
         verify(adminUserApi).validatePassword(10002L, "role-owner-sign-secret");
     }
 
@@ -491,9 +537,9 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                     .setIdempotencyKey("submit-ac-m23-primary")
                     .setPassword("owner-sign-secret"));
         }
-        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, released.getReleaseStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL, released.getReleaseStatus());
 
-        String releaseServiceSource = Files.readString(Path.of(
+        String releaseServiceSource = Files.readString(sourcePath(
                 "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
                         + "MesProEdhrReleaseServiceImpl.java"));
         assertTrue(releaseServiceSource.contains("selectByIdForUpdate"),
@@ -508,7 +554,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                             .setPassword("owner-sign-secret")));
             assertEquals(PRO_EDHR_RELEASE_PRECHECK_REQUIRED.getCode(), exception.getCode());
         }
-        assertEquals(1, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size());
+        assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size());
     }
 
     @Test
@@ -547,6 +593,41 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void terminalDecisionCannotBeAddedWhenReleaseTransactionAlreadyHasAnotherTerminalDecision() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-ONE-TERMINAL-DECISION");
+        insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
+        MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7453L);
+        insertCompletedExecution(task.getExecutionId(), true);
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
+        releaseDecisionMapper.insert(MesProEdhrReleaseDecisionDO.builder()
+                .releaseTransactionId(precheck.getReleaseTransactionId())
+                .batchExecutionId(batch.getId())
+                .decisionStatus(MesProEdhrReleaseServiceImpl.STATUS_RELEASED)
+                .idempotencyKey("released-before-reject")
+                .payloadHash("released-payload")
+                .actorUserId(10001L)
+                .auditSnapshotJson("{}")
+                .decidedAt(LocalDateTime.now())
+                .version(1)
+                .build());
+
+        MesReleaseFlowBlockerException exception;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            exception = assertThrows(MesReleaseFlowBlockerException.class, () ->
+                    releaseService.reject(new MesProEdhrReleaseRejectReqVO()
+                            .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                            .setIdempotencyKey("reject-after-release")
+                            .setRejectReason("重复终态")));
+        }
+
+        assertEquals(MesReleaseFlowBlockerType.RELEASE_DECISION_ALREADY_FINALIZED,
+                exception.getFailure().getBlockers().get(0).getBlockerType());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED,
+                releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
+    }
+
+    @Test
     void rejectPrecheckPassedReleaseRejectsNonOwner() {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-RETURN-NON-OWNER");
         insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
@@ -576,7 +657,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-APPROVE-FAKE-SIGNOFF");
         MesProEdhrReleaseRespVO precheck = insertPendingApprovalRelease(batch);
         MesProEdhrWorkTaskDO approvalTask = releaseApprovalTask(precheck.getReleaseTransactionId(), 7901L);
-        when(workTaskService.validateReleaseApprovalTask(null, precheck.getReleaseTransactionId()))
+        when(workTaskService.validateReleaseApprovalTask(any(), any()))
                 .thenReturn(approvalTask);
         when(approvalSignatureRecordMapper.selectList(any())).thenReturn(List.of());
         clearInvocations(operationAuditService);
@@ -584,11 +665,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
             ServiceException exception = assertThrows(ServiceException.class,
-                    () -> releaseService.approve(new MesProEdhrReleaseApproveReqVO()
-                            .setReleaseTransactionId(precheck.getReleaseTransactionId())
-                            .setIdempotencyKey("approve-fake-signoff")
-                            .setSignoffEvidenceHash("f".repeat(64))
-                            .setApprovalOpinion("伪造签名证据")));
+                    () -> releaseService.approve(approvalRequest(precheck, batch, approvalTask,
+                            "approve-fake-signoff", "f".repeat(64), "伪造签名证据")));
             assertEquals(1_040_750_433, exception.getCode());
         }
 
@@ -599,11 +677,53 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void withdrawPendingApprovalRoutesThroughUnifiedFinalizer() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-WITHDRAW-FINALIZER");
+        MesProEdhrReleaseRespVO precheck = insertPendingApprovalRelease(batch);
+        clearInvocations(operationAuditService, workTaskService);
+
+        MesProEdhrReleaseRespVO withdrawn;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            withdrawn = releaseService.withdraw(new MesProEdhrReleaseWithdrawReqVO()
+                    .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                    .setIdempotencyKey("withdraw-unified-finalizer")
+                    .setWithdrawReason("撤回待审批申请"));
+        }
+
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_WITHDRAWN, withdrawn.getReleaseStatus());
+        assertEquals(10001L, withdrawn.getWithdrawnBy());
+        assertEquals("撤回待审批申请", withdrawn.getWithdrawReason());
+        verify(workTaskService).cancelReleaseApprovalTask(precheck.getReleaseTransactionId(), "撤回待审批申请");
+        verify(operationAuditService).record(any());
+    }
+
+    @Test
+    void approveFailsWithSignoffBlockerWhenApprovalTaskAdapterReturnsNoTask() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-APPROVE-NO-TASK");
+        MesProEdhrReleaseRespVO precheck = insertPendingApprovalRelease(batch);
+        MesProEdhrWorkTaskDO requestedTask = releaseApprovalTask(precheck.getReleaseTransactionId(), 7903L);
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(null);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            ServiceException exception = assertThrows(ServiceException.class,
+                    () -> releaseService.approve(approvalRequest(precheck, batch, requestedTask,
+                            "approve-no-task", "a".repeat(64), "审批任务缺失")));
+            assertEquals(PRO_EDHR_RELEASE_SIGNOFF_REQUIRED.getCode(), exception.getCode());
+        }
+
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL,
+                releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
+        verify(workTaskService, never()).completeReleaseApprovalTask(any(), any(), any(), any());
+    }
+
+    @Test
     void approveRecordsTerminalAuditWhenApprovalCenterSignatureEvidenceMatches() {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-APPROVE-AUDIT");
         MesProEdhrReleaseRespVO precheck = insertPendingApprovalRelease(batch);
         MesProEdhrWorkTaskDO approvalTask = releaseApprovalTask(precheck.getReleaseTransactionId(), 7902L);
-        when(workTaskService.validateReleaseApprovalTask(null, precheck.getReleaseTransactionId()))
+        when(workTaskService.validateReleaseApprovalTask(any(), any()))
                 .thenReturn(approvalTask);
         String signatureUrl = "http://localhost/signature/edhr-release-7902.png";
         String signoffEvidenceHash = DigestUtil.sha256Hex(signatureUrl);
@@ -623,11 +743,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
             security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("审批放行人");
-            approved = releaseService.approve(new MesProEdhrReleaseApproveReqVO()
-                    .setReleaseTransactionId(precheck.getReleaseTransactionId())
-                    .setIdempotencyKey("approve-terminal-audit")
-                    .setSignoffEvidenceHash(signoffEvidenceHash)
-                    .setApprovalOpinion("审批中心签名放行"));
+            approved = releaseService.approve(approvalRequest(precheck, batch, approvalTask,
+                    "approve-terminal-audit", signoffEvidenceHash, "审批中心签名放行"));
         }
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, approved.getReleaseStatus());
@@ -643,6 +760,42 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals("mes:pro-edhr-release:approve", audit.getPermissionCode());
         assertTrue(audit.getMetadataJson().contains("\"signoffEvidenceHash\":\"" + signoffEvidenceHash + "\""));
         assertTrue(audit.getMetadataJson().contains("\"toStatus\":\"RELEASED\""));
+    }
+
+    @Test
+    void approveRejectsIdempotencyPayloadConflictOnReplay() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-APPROVE-IDEMPOTENCY-CONFLICT");
+        MesProEdhrReleaseRespVO precheck = insertPendingApprovalRelease(batch);
+        MesProEdhrWorkTaskDO approvalTask = releaseApprovalTask(precheck.getReleaseTransactionId(), 7904L);
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(approvalTask);
+        String signatureUrl = "http://localhost/signature/edhr-release-7904.png";
+        String signoffEvidenceHash = DigestUtil.sha256Hex(signatureUrl);
+        when(approvalSignatureRecordMapper.selectList(any())).thenReturn(List.of(
+                BpmApprovalSignatureRecordDO.builder()
+                        .moduleCode("EDHR")
+                        .sourceTaskType("EDHR_WORK_TASK")
+                        .sourceTaskId(String.valueOf(approvalTask.getId()))
+                        .signerUserId(10001L)
+                        .reviewResult("APPROVE")
+                        .passwordVerified(Boolean.TRUE)
+                        .signatureImageFileUrl(signatureUrl)
+                        .build()));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            releaseService.approve(approvalRequest(precheck, batch, approvalTask,
+                    "approve-idempotency-conflict", signoffEvidenceHash, "首次批准"));
+
+            MesProEdhrReleaseApproveReqVO changedPayload = approvalRequest(precheck, batch, approvalTask,
+                    "approve-idempotency-conflict", signoffEvidenceHash, "修改后的批准意见");
+            MesReleaseFlowBlockerException exception = assertThrows(MesReleaseFlowBlockerException.class,
+                    () -> releaseService.approve(changedPayload));
+            assertEquals(MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT,
+                    exception.getFailure().getBlockers().get(0).getBlockerType());
+        }
+
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED,
+                releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
     }
 
     @Test
@@ -949,12 +1102,95 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .setBusinessScopeId(releaseTransactionId);
     }
 
+    private MesProEdhrReleaseApproveReqVO approvalRequest(MesProEdhrReleaseRespVO precheck,
+                                                            MesProEdhrBatchExecutionDO batch,
+                                                            MesProEdhrWorkTaskDO approvalTask,
+                                                            String idempotencyKey,
+                                                            String signoffEvidenceHash,
+                                                            String opinion) {
+        String sourceRelation = "manual-source-" + batch.getId();
+        String sourceSnapshotHash = "snapshot-" + batch.getId();
+        LocalDateTime now = LocalDateTime.now();
+        return new MesProEdhrReleaseApproveReqVO()
+                .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                .setBatchExecutionId(batch.getId())
+                .setOrigin(MesReleaseOrigin.MANUAL)
+                .setEntryType("MANUAL")
+                .setSourceRelation(sourceRelation)
+                .setSourceSnapshotHash(sourceSnapshotHash)
+                .setWorkOrderId(70001L)
+                .setIndependentPrerequisiteReceiptId("independent-" + batch.getId())
+                .setMaterialGateReceiptId("gate-" + batch.getId())
+                .setMaterialGateManifestHash("gate-manifest-" + batch.getId())
+                .setMaterialGateSourceSnapshotHash(sourceSnapshotHash)
+                .setIndependentPrerequisiteReceipt(new IndependentBatchPrerequisiteReceipt()
+                        .setReceiptId("independent-" + batch.getId())
+                        .setTenantId(1L)
+                        .setEntryType("MANUAL")
+                        .setBatchExecutionId(batch.getId())
+                        .setWorkOrderId(70001L)
+                        .setWorkOrderCode("WO-70001")
+                        .setRouteId(80001L)
+                        .setRouteVersion("v1")
+                        .setBatchCode(batch.getBatchCode())
+                        .setSourceRelationId("source-id-" + batch.getId())
+                        .setSourceRelation(sourceRelation)
+                        .setSourceIds(List.of("source-id-" + batch.getId()))
+                        .setSourceSnapshotHash(sourceSnapshotHash)
+                        .setBusinessReason("manual release")
+                        .setIssuerSystem("MES")
+                        .setIssuerUserId(10001L)
+                        .setIssuerUserRole("MANAGEMENT_REPRESENTATIVE")
+                        .setReceiptHash("receipt-hash-" + batch.getId())
+                        .setIssuedBy(10001L)
+                        .setIssuedAt(now.minusDays(1))
+                        .setExpiresAt(now.plusDays(1))
+                        .setCredentialVersion(1)
+                        .setPayloadHash("payload-hash-" + batch.getId())
+                        .setSignature("signature-" + batch.getId())
+                        .setAuditEventId("audit-" + batch.getId())
+                        .setIdempotencyKey("independent-idem-" + batch.getId())
+                        .setVersion(1))
+                .setMaterialGateReceipt(new MesReleaseMaterialGateReceipt()
+                        .setReceiptId("gate-" + batch.getId())
+                        .setBatchExecutionId(batch.getId())
+                        .setGateStatus(MesReleaseMaterialGateReceipt.STATUS_MATERIALS_READY)
+                        .setMaterialTypeKeys(MesReleaseMaterialGateReceipt.REQUIRED_MATERIAL_TYPES)
+                        .setManifestHash("gate-manifest-" + batch.getId())
+                        .setSourceSnapshotHash(sourceSnapshotHash)
+                        .setMaterialVersionSetHash("version-set-" + batch.getId())
+                        .setReceiptHash("gate-receipt-" + batch.getId())
+                        .setIssuedBy(10001L)
+                        .setAuditEventId("gate-audit-" + batch.getId())
+                        .setVersion(1))
+                .setWorkTaskId(approvalTask.getId())
+                .setExpectedVersion(releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getVersion())
+                .setIdempotencyKey(idempotencyKey)
+                .setSignoffEvidenceHash(signoffEvidenceHash)
+                .setApprovalOpinion(opinion);
+    }
+
     private MesProEdhrReleaseRespVO precheckAsUser(Long actorUserId, Long batchExecutionId) {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(actorUserId);
             return releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
                     .setBatchExecutionId(batchExecutionId));
         }
+    }
+
+    private Path sourcePath(String relativePath) {
+        Path current = Path.of("").toAbsolutePath();
+        for (int i = 0; i < 8 && current != null; i++, current = current.getParent()) {
+            Path direct = current.resolve(relativePath);
+            Path backend = current.resolve("IntRuoyiBackend").resolve(relativePath);
+            if (Files.isRegularFile(direct)) {
+                return direct;
+            }
+            if (Files.isRegularFile(backend)) {
+                return backend;
+            }
+        }
+        throw new IllegalStateException("source file not found: " + relativePath);
     }
 
     private void mockDossierRequirementState(boolean incomingRequired,

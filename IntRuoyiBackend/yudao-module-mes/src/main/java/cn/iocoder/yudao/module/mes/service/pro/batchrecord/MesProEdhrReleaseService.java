@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseWithdrawReqVO;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationCommand;
 
 public interface MesProEdhrReleaseService {
 
@@ -24,6 +25,8 @@ public interface MesProEdhrReleaseService {
     MesProEdhrReleaseRespVO submit(MesProEdhrReleaseSubmitReqVO reqVO);
 
     MesProEdhrReleaseRespVO submitForApproval(MesProEdhrReleaseSubmitForApprovalCommand command);
+
+    MesProEdhrReleaseRespVO finalizeRelease(MesReleaseFinalizationCommand command);
 
     MesProEdhrReleaseRespVO approve(MesProEdhrReleaseApproveReqVO reqVO);
 

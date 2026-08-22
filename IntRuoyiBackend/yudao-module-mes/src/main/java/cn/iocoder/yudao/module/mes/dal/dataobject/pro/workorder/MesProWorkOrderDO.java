@@ -155,6 +155,9 @@ public class MesProWorkOrderDO extends TenantBaseDO {
      * 完成时间
      */
     private LocalDateTime finishDate;
+    private Long releaseDecisionId;
+    private Long releasedBy;
+    private LocalDateTime releasedAt;
     /**
      * 取消时间
      */

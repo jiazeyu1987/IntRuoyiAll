@@ -388,6 +388,40 @@ public class MesProWorkOrderServiceImpl implements MesProWorkOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void finishWorkOrderForRelease(Long id, Long releaseDecisionId, Long actorUserId) {
+        if (id == null || releaseDecisionId == null || actorUserId == null) {
+            throw exception(PRO_WORK_ORDER_NOT_EXISTS, id);
+        }
+        MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(id);
+        if (workOrder == null) {
+            throw exception(PRO_WORK_ORDER_NOT_EXISTS, id);
+        }
+        if (MesProWorkOrderStatusEnum.FINISHED.getStatus().equals(workOrder.getStatus())) {
+            if (workOrder.getReleaseDecisionId() != null
+                    && !releaseDecisionId.equals(workOrder.getReleaseDecisionId())) {
+                throw exception(PRO_WORK_ORDER_NOT_CONFIRMED);
+            }
+            workOrderMapper.updateById(new MesProWorkOrderDO().setId(id)
+                    .setReleaseDecisionId(releaseDecisionId)
+                    .setReleasedBy(actorUserId)
+                    .setReleasedAt(workOrder.getReleasedAt() == null ? LocalDateTime.now() : workOrder.getReleasedAt()));
+            return;
+        }
+        if (!MesProWorkOrderStatusEnum.CONFIRMED.getStatus().equals(workOrder.getStatus())) {
+            throw exception(PRO_WORK_ORDER_NOT_CONFIRMED);
+        }
+        taskService.finishTaskByOrderId(id);
+        LocalDateTime releasedAt = LocalDateTime.now();
+        workOrderMapper.updateById(new MesProWorkOrderDO().setId(id)
+                .setStatus(MesProWorkOrderStatusEnum.FINISHED.getStatus())
+                .setFinishDate(releasedAt)
+                .setReleaseDecisionId(releaseDecisionId)
+                .setReleasedBy(actorUserId)
+                .setReleasedAt(releasedAt));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void cancelWorkOrder(Long id) {
         // 1. 校验存在 + 只有已确认状态才能取消
         MesProWorkOrderDO workOrder = validateWorkOrderExists(id);

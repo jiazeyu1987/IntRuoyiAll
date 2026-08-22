@@ -28,6 +28,7 @@ DELETE FROM "mes_pro_batch_record_execution_archive_event";
 DELETE FROM "mes_pro_batch_record_execution_archive";
 DELETE FROM "mes_pro_batch_record_execution_signature";
 DELETE FROM "mes_pro_edhr_release_transaction";
+DELETE FROM "mes_pro_edhr_release_decision";
 DELETE FROM "mes_pro_edhr_work_task";
 DELETE FROM "mes_pro_edhr_batch_execution_archive";
 DELETE FROM "mes_pro_edhr_batch_dossier_item";

@@ -90,5 +90,4 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
         private String sourceOriginalMethod;
     }
 
-
 }

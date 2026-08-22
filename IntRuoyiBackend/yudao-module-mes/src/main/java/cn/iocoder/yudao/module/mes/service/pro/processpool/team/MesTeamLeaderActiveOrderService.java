@@ -19,4 +19,7 @@ public interface MesTeamLeaderActiveOrderService {
     void moveActiveOrder(MesTeamLeaderActiveOrderMoveReqBO reqBO);
 
     List<MesTeamLeaderActiveOrderRow> listActiveOrders(Long leaderUserId);
+
+    void closeForRelease(Long activeOrderId, Integer expectedVersion,
+                         Long releaseDecisionId, Long actorUserId);
 }

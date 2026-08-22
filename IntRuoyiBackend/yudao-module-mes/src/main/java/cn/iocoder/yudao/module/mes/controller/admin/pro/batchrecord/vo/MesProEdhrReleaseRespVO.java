@@ -51,6 +51,8 @@ public class MesProEdhrReleaseRespVO {
 
     private String releaseStatus;
 
+    private Long releaseDecisionId;
+
     private Integer requiredCheckCount;
 
     private Integer failedCheckCount;

@@ -128,7 +128,7 @@ public class MesProductionReleaseManagerApprovalServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public MesProductionReleaseManagerApprovalResult approve(
+    public MesProductionReleaseManagerApprovalResult prepareForFinalization(
             Long actorUserId, MesProEdhrReleaseApproveReqVO command) {
         requireCommand(actorUserId, command);
         String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
@@ -141,6 +141,12 @@ public class MesProductionReleaseManagerApprovalServiceImpl
             throw blocker(null, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                     "release transaction is not linked to a production release application",
                     "use the authoritative manager release work task");
+        }
+        if (command.getReleaseApplicationId() != null
+                && !Objects.equals(command.getReleaseApplicationId(), application.getId())) {
+            throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                    "release application id does not match the transaction's authoritative application",
+                    "retry with the release application id returned by the owner service");
         }
         MesProEdhrReleaseTransactionEventDO existingEvent =
                 releaseEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(
@@ -169,16 +175,43 @@ public class MesProductionReleaseManagerApprovalServiceImpl
         }
         requireSignoffEvidence(workTask, actorUserId, command.getSignoffEvidenceHash(), application);
 
-        LocalDateTime occurredAt = now();
-        String opinion = StrUtil.trim(command.getApprovalOpinion());
-        if (releaseTransactionMapper.approveProductionRelease(
-                transaction.getId(), command.getExpectedVersion(), actorUserId, idempotencyKey,
-                command.getSignoffEvidenceHash(), opinion, occurredAt) != 1) {
-            throw versionConflict(application);
+        return new MesProductionReleaseManagerApprovalResult()
+                .setBatchExecution(batch)
+                .setReleaseTransaction(transaction)
+                .setApplication(application)
+                .setWorkTask(workTask)
+                .setReportSnapshotHash(recomputedReportSnapshotHash)
+                .setApprovalPayloadHash(approvalPayloadHash(actorUserId, command, recomputedReportSnapshotHash))
+                .setOccurredAt(now())
+                .setApplicationStatus(application.getApplicationStatus())
+                .setApplicationVersion(application.getVersion())
+                .setReplayed(false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProductionReleaseManagerApprovalResult completeAfterFinalization(
+            Long actorUserId,
+            MesProEdhrReleaseApproveReqVO command,
+            MesProductionReleaseManagerApprovalResult prepared,
+            MesProEdhrReleaseTransactionDO released) {
+        requireCommand(actorUserId, command);
+        if (prepared == null || prepared.getApplication() == null || prepared.getWorkTask() == null
+                || released == null
+                || !Objects.equals(released.getReleaseStatus(), MesProEdhrReleaseServiceImpl.STATUS_RELEASED)) {
+            throw blocker(prepared == null ? null : prepared.getApplication(),
+                    MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                    "flow10 must release the transaction before manager side effects are completed",
+                    "retry through the flow10 finalization command");
         }
+        MesProcessPoolActiveOrderReleaseApplicationDO application = prepared.getApplication();
+        MesProEdhrWorkTaskDO workTask = prepared.getWorkTask();
+        String reportSnapshotHash = prepared.getReportSnapshotHash();
+        LocalDateTime occurredAt = prepared.getOccurredAt() == null ? now() : prepared.getOccurredAt();
+        String opinion = StrUtil.trim(command.getApprovalOpinion());
         if (applicationMapper.releaseFromManager(
-                application.getId(), application.getVersion(), recomputedReportSnapshotHash,
-                transaction.getId(), workTask.getId()) != 1) {
+                application.getId(), application.getVersion(), reportSnapshotHash,
+                released.getId(), workTask.getId()) != 1) {
             throw versionConflict(application);
         }
         if (workTaskMapper.completeManagerReleaseTask(workTask.getId(), occurredAt, opinion) != 1) {
@@ -186,36 +219,38 @@ public class MesProductionReleaseManagerApprovalServiceImpl
                     "manager release work task changed concurrently",
                     "refresh the manager release task before retrying");
         }
-        MesProEdhrReleaseTransactionDO released = releaseTransactionMapper.selectById(transaction.getId());
-        if (released == null
-                || !Objects.equals(released.getReleaseStatus(), MesProEdhrReleaseServiceImpl.STATUS_RELEASED)) {
-            throw new IllegalStateException("released transaction reload failed");
-        }
-        String payloadHash = approvalPayloadHash(actorUserId, command, recomputedReportSnapshotHash);
-        recordEvent(released, application, workTask, actorUserId, command, payloadHash, occurredAt);
+        recordEvent(released, application, workTask, actorUserId, command,
+                prepared.getApprovalPayloadHash(), occurredAt);
         auditRecorder.record(new MesReleaseFlowAuditCommand()
                 .setEventType(MesReleaseFlowAuditEventType.BATCH_RECORD_RELEASE_APPROVED)
                 .setStage(MesReleaseFlowStage.SP_4)
-                .setRequestId(idempotencyKey)
-                .setIdempotencyKey(idempotencyKey)
+                .setRequestId(command.getIdempotencyKey())
+                .setIdempotencyKey(command.getIdempotencyKey())
                 .setTenantId(TenantContextHolder.getTenantId())
                 .setApplicationId(application.getId())
                 .setWorkTaskId(workTask.getId())
                 .setBatchExecutionId(application.getBatchExecutionId())
-                .setReleaseTransactionId(transaction.getId())
+                .setReleaseTransactionId(released.getId())
                 .setFromStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING)
                 .setToStatus(MesReleaseFlowStatus.RELEASED)
                 .setVersion(application.getVersion() + 1)
                 .setActorUserId(actorUserId)
                 .setOccurredAt(occurredAt)
-                .setSourceSnapshotHash(recomputedReportSnapshotHash)
+                .setSourceSnapshotHash(reportSnapshotHash)
                 .setResultStatus("SUCCESS"));
-        return new MesProductionReleaseManagerApprovalResult()
-                .setBatchExecution(batch)
-                .setReleaseTransaction(released)
+        return prepared.setReleaseTransaction(released)
                 .setApplicationStatus(MesReleaseFlowStatus.RELEASED)
                 .setApplicationVersion(application.getVersion() + 1)
                 .setReplayed(false);
+    }
+
+    @Override
+    @Deprecated
+    public MesProductionReleaseManagerApprovalResult approve(
+            Long actorUserId, MesProEdhrReleaseApproveReqVO command) {
+        throw blocker(null, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                "manager approval must be finalized by flow10",
+                "call the unified release finalization command");
     }
 
     @Override

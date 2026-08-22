@@ -66,6 +66,10 @@ public class MesProEdhrReleaseTransactionDO extends BaseDO {
 
     private String releaseStatus;
 
+    private Long releaseDecisionId;
+
+    private String finalizationPayloadHash;
+
     private Integer requiredCheckCount;
 
     private Integer failedCheckCount;

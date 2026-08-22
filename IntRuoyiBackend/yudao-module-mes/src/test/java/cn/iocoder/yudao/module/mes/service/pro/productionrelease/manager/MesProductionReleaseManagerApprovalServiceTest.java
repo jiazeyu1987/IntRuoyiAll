@@ -86,22 +86,19 @@ class MesProductionReleaseManagerApprovalServiceTest {
     void approveRecomputesFrozenReportsAndAtomicallyReleasesApplicationAndTransaction() {
         Fixture fixture = fixture();
         stubApproval(fixture);
-        when(releaseTransactionMapper.approveProductionRelease(
-                1001L, 3, ACTOR_USER_ID, fixture.command().getIdempotencyKey(),
-                fixture.command().getSignoffEvidenceHash(), "approved", fixture.now())).thenReturn(1);
         when(applicationMapper.releaseFromManager(
                 701L, 5, fixture.reportSnapshotHash(), 1001L, 2001L)).thenReturn(1);
         when(workTaskMapper.completeManagerReleaseTask(2001L, fixture.now(), "approved")).thenReturn(1);
-        when(releaseTransactionMapper.selectById(1001L)).thenReturn(fixture.releasedTransaction());
-
-        MesProductionReleaseManagerApprovalResult result = service.approve(ACTOR_USER_ID, fixture.command());
+        MesProductionReleaseManagerApprovalResult prepared = service.prepareForFinalization(
+                ACTOR_USER_ID, fixture.command());
+        MesProductionReleaseManagerApprovalResult result = service.completeAfterFinalization(
+                ACTOR_USER_ID, fixture.command(), prepared, fixture.releasedTransaction());
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED,
                 result.getReleaseTransaction().getReleaseStatus());
         assertEquals(MesReleaseFlowStatus.RELEASED, result.getApplicationStatus());
-        verify(releaseTransactionMapper).approveProductionRelease(
-                1001L, 3, ACTOR_USER_ID, fixture.command().getIdempotencyKey(),
-                fixture.command().getSignoffEvidenceHash(), "approved", fixture.now());
+        verify(releaseTransactionMapper, never()).approveProductionRelease(
+                any(), any(), any(), any(), any(), any(), any());
         verify(applicationMapper).releaseFromManager(
                 701L, 5, fixture.reportSnapshotHash(), 1001L, 2001L);
         verify(workTaskMapper).completeManagerReleaseTask(2001L, fixture.now(), "approved");
@@ -117,7 +114,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
 
         MesReleaseFlowBlockerException failure = assertThrows(
                 MesReleaseFlowBlockerException.class,
-                () -> service.approve(ACTOR_USER_ID, fixture.command()));
+                () -> service.prepareForFinalization(ACTOR_USER_ID, fixture.command()));
 
         assertEquals(MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
                 failure.getFailure().getBlockers().get(0).getBlockerType());
@@ -135,7 +132,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
 
         MesReleaseFlowBlockerException failure = assertThrows(
                 MesReleaseFlowBlockerException.class,
-                () -> service.approve(ACTOR_USER_ID, fixture.command()));
+                () -> service.prepareForFinalization(ACTOR_USER_ID, fixture.command()));
 
         assertEquals(MesReleaseFlowBlockerType.STATE_VERSION_CONFLICT,
                 failure.getFailure().getBlockers().get(0).getBlockerType());
@@ -158,7 +155,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
 
         MesReleaseFlowBlockerException failure = assertThrows(
                 MesReleaseFlowBlockerException.class,
-                () -> service.approve(ACTOR_USER_ID, fixture.command()));
+                () -> service.prepareForFinalization(ACTOR_USER_ID, fixture.command()));
 
         assertEquals(MesReleaseFlowBlockerType.WORK_TASK_NOT_PROCESSABLE,
                 failure.getFailure().getBlockers().get(0).getBlockerType());
@@ -177,7 +174,8 @@ class MesProductionReleaseManagerApprovalServiceTest {
         when(releaseTransactionMapper.selectById(1001L)).thenReturn(fixture.releasedTransaction());
         when(batchExecutionMapper.selectById(901L)).thenReturn(fixture.batch());
 
-        MesProductionReleaseManagerApprovalResult result = service.approve(ACTOR_USER_ID, fixture.command());
+        MesProductionReleaseManagerApprovalResult result = service.prepareForFinalization(
+                ACTOR_USER_ID, fixture.command());
 
         org.junit.jupiter.api.Assertions.assertTrue(result.isReplayed());
         verify(releaseTransactionMapper, never()).approveProductionRelease(
@@ -197,7 +195,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
 
         MesReleaseFlowBlockerException failure = assertThrows(
                 MesReleaseFlowBlockerException.class,
-                () -> service.approve(ACTOR_USER_ID, fixture.command()));
+                () -> service.prepareForFinalization(ACTOR_USER_ID, fixture.command()));
 
         assertEquals(MesReleaseFlowBlockerType.IDEMPOTENCY_PAYLOAD_CONFLICT,
                 failure.getFailure().getBlockers().get(0).getBlockerType());

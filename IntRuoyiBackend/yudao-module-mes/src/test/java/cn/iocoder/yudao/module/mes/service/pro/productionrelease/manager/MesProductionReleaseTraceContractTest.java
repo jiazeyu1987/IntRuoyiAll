@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,7 +15,7 @@ class MesProductionReleaseTraceContractTest {
 
     @Test
     void completedTraceForcesReleasedTransactionInsteadOfArchivedOrRejectedBatchFallback() throws Exception {
-        String source = Files.readString(Path.of(
+        String source = Files.readString(sourcePath(
                 "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/"
                         + "MesProEdhrBatchExecutionMapper.java"), StandardCharsets.UTF_8);
         int start = source.indexOf("if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly()))");
@@ -24,7 +26,7 @@ class MesProductionReleaseTraceContractTest {
         assertFalse(traceFilter.contains("BATCH_STATUS_ARCHIVED"));
         assertFalse(traceFilter.contains("BATCH_STATUS_REJECTED"));
 
-        String releaseService = Files.readString(Path.of(
+        String releaseService = Files.readString(sourcePath(
                 "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
                         + "MesProEdhrReleaseServiceImpl.java"), StandardCharsets.UTF_8);
         assertTrue(releaseService.contains("reqVO.setReleaseStatus(STATUS_RELEASED)"));
@@ -34,5 +36,18 @@ class MesProductionReleaseTraceContractTest {
         assertTrue(statusFilter.contains("return STATUS_RELEASED.equals(item.getReleaseStatus())"));
         assertFalse(statusFilter.contains("BATCH_STATUS_ARCHIVED"));
         assertFalse(statusFilter.contains("BATCH_STATUS_REJECTED"));
+    }
+
+    private static Path sourcePath(String moduleRelativePath) {
+        List<Path> candidates = new ArrayList<>();
+        Path current = Path.of("").toAbsolutePath();
+        for (int i = 0; i < 8 && current != null; i++, current = current.getParent()) {
+            candidates.add(current.resolve(moduleRelativePath));
+            candidates.add(current.resolve("IntRuoyiBackend").resolve(moduleRelativePath));
+        }
+        return candidates.stream()
+                .filter(Files::isRegularFile)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("source path not found: " + moduleRelativePath));
     }
 }

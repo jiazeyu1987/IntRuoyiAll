@@ -43,6 +43,9 @@ public class MesProcessPoolActiveOrderDO extends TenantBaseDO {
     private LocalDateTime joinedAt;
     private Long sortOrder;
     private LocalDateTime removedAt;
+    private Long releaseDecisionId;
+    private Long releasedBy;
+    private LocalDateTime releasedAt;
     @Version
     private Integer version;
 }

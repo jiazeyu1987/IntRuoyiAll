@@ -1270,6 +1270,8 @@ public interface ErrorCodeConstants {
             "重建活跃订单会删除已有报工记录、生产进度和 PQC 检验结果，请确认后重试：{}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_SHARED_REPORT = new ErrorCode(1_040_760_363,
             "活跃订单存在已分配给其它订单的共享报工记录，不能直接重建：activeOrderId={}，eventId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_VERSION_CONFLICT = new ErrorCode(1_040_760_364,
+            "活跃订单放行关闭版本已变化，请刷新后重试：activeOrderId={}，expectedVersion={}，currentVersion={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");
