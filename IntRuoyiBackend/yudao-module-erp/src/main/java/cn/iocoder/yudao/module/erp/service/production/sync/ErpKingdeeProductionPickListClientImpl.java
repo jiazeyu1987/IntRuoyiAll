@@ -44,6 +44,7 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
     private static final String QUERY_SERVICE =
             "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
     private static final int FULL_QUERY_PAGE_LIMIT = 200;
+    private static final int FULL_QUERY_CHUNK_DAYS = 7;
     private static final int INCREMENTAL_QUERY_PAGE_LIMIT = 1000;
     private static final String MODIFY_TIME_FIELD = "FModifyDate";
     private static final String FIELD_KEYS = String.join(",",
@@ -95,22 +96,38 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
         properties.validateBaseConfig();
         validateWindow(windowStart, windowEnd);
         String cookieHeader = login(properties);
-        int startRow = 0;
+        LocalDate endDateExclusive = windowEnd.toLocalDate().plusDays(1);
         Map<String, ErpKingdeeProductionPickList> result = new LinkedHashMap<>();
+        LocalDate chunkStart = windowStart.toLocalDate();
+        while (chunkStart.isBefore(endDateExclusive)) {
+            LocalDate chunkEndExclusive = chunkStart.plusDays(FULL_QUERY_CHUNK_DAYS);
+            if (chunkEndExclusive.isAfter(endDateExclusive)) {
+                chunkEndExclusive = endDateExclusive;
+            }
+            fetchFullChunk(properties, cookieHeader, chunkStart, chunkEndExclusive, result);
+            chunkStart = chunkEndExclusive;
+        }
+        return new ArrayList<>(result.values());
+    }
+
+    private void fetchFullChunk(ErpKingdeeProperties properties, String cookieHeader,
+                                LocalDate chunkStart, LocalDate chunkEndExclusive,
+                                Map<String, ErpKingdeeProductionPickList> result) {
+        int startRow = 0;
         while (true) {
             JsonNode rows = executeBillQuery(
-                    properties, cookieHeader, windowStart, windowEnd, startRow, FULL_QUERY_PAGE_LIMIT);
+                    properties, cookieHeader, chunkStart, chunkEndExclusive,
+                    startRow, FULL_QUERY_PAGE_LIMIT);
             validateRows(rows);
             if (rows.isEmpty()) {
-                break;
+                return;
             }
             addRows(rows, result, false);
             if (rows.size() < FULL_QUERY_PAGE_LIMIT) {
-                break;
+                return;
             }
             startRow += rows.size();
         }
-        return new ArrayList<>(result.values());
     }
 
     @Override
@@ -160,10 +177,8 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
     }
 
     private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader,
-                                      LocalDateTime windowStart, LocalDateTime windowEnd,
+                                      LocalDate startDate, LocalDate endDateExclusive,
                                       int startRow, int limit) {
-        LocalDate startDate = windowStart.toLocalDate();
-        LocalDate endDateExclusive = windowEnd.toLocalDate().plusDays(1);
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("FormId", FORM_ID);
         query.put("FieldKeys", FIELD_KEYS);

@@ -22,6 +22,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.ExpectedCount.manyTimes;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class ErpKingdeeProductionPickListClientImplTest {
@@ -32,14 +33,9 @@ class ErpKingdeeProductionPickListClientImplTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
         ErpKingdeeProductionPickListClientImpl client =
                 new ErpKingdeeProductionPickListClientImpl(restTemplate);
-
         expectLogin(server);
-        server.expect(requestTo(queryUrl()))
+        server.expect(manyTimes(), requestTo(queryUrl()))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
-                .andExpect(content().string(containsString(
-                        "FDate+%3E%3D+%272025-08-22%27")))
-                .andExpect(content().string(containsString(
-                        "FDate+%3C+%272026-08-23%27")))
                 .andExpect(content().string(containsString("%22Limit%22%3A200")))
                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
 
@@ -47,6 +43,36 @@ class ErpKingdeeProductionPickListClientImplTest {
                 buildProperties(),
                 LocalDateTime.of(2025, 8, 22, 0, 0),
                 LocalDateTime.of(2026, 8, 22, 13, 0));
+
+        assertTrue(rows.isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void fetchProductionPickLists_splitsFullWindowIntoNonOverlappingDateRanges() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionPickListClientImpl client =
+                new ErpKingdeeProductionPickListClientImpl(restTemplate);
+
+        expectLogin(server);
+        server.expect(requestTo(queryUrl()))
+                .andExpect(content().string(containsString(
+                        "FDate+%3E%3D+%272026-08-01%27")))
+                .andExpect(content().string(containsString(
+                        "FDate+%3C+%272026-08-08%27")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(queryUrl()))
+                .andExpect(content().string(containsString(
+                        "FDate+%3E%3D+%272026-08-08%27")))
+                .andExpect(content().string(containsString(
+                        "FDate+%3C+%272026-08-15%27")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        List<ErpKingdeeProductionPickList> rows = client.fetchProductionPickLists(
+                buildProperties(),
+                LocalDateTime.of(2026, 8, 1, 0, 0),
+                LocalDateTime.of(2026, 8, 14, 13, 0));
 
         assertTrue(rows.isEmpty());
         server.verify();
