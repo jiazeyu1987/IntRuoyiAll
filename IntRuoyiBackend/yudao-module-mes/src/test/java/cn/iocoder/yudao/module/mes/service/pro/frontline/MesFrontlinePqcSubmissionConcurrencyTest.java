@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
@@ -81,10 +82,42 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
     private static final long WORK_ORDER_ID = 1001L;
     private static final long ROUTE_ID = 2001L;
     private static final long ROUTE_VERSION_ID = 3001L;
+    private static final long ROUTE_PROCESS_ID = 3101L;
+    private static final long PROCESS_ID = 3201L;
     private static final long DCC_PROJECT_ID = 6001L;
     private static final long REGULATION_ID = 7001L;
     private static final long REGULATION_VERSION_ID = 8001L;
     private static final long QA_PROCESS_ID = 9001L;
+    private static final String IDEMPOTENCY_KEY = "pqc-task-" + TASK_ID;
+
+    @Test
+    void sameContentReplayReturnsPersistedSourceRevisionAndPayloadHash() {
+        Fixture fixture = new Fixture();
+
+        Outcome first = fixture.submitSequential(fixture.command(EMPLOYEE_A, "合格"));
+        Outcome replay = fixture.submitSequential(fixture.command(EMPLOYEE_A, "合格"));
+
+        assertNull(first.error());
+        assertNull(replay.error());
+        assertEquals(first.result().pqcEventId(), first.result().sourceRevision());
+        assertEquals(first.result().sourceRevision(), replay.result().sourceRevision());
+        assertEquals(first.result().payloadHash(), replay.result().payloadHash());
+        assertNotNull(first.result().payloadHash());
+        fixture.assertExactlyOneFormalWriteSet();
+    }
+
+    @Test
+    void sameIdempotencyKeyWithDifferentContentRejectsReplay() {
+        Fixture fixture = new Fixture();
+
+        Outcome first = fixture.submitSequential(fixture.command(EMPLOYEE_A, "合格"));
+        Outcome conflict = fixture.submitSequential(fixture.command(EMPLOYEE_A, "不合格"));
+
+        assertNull(first.error());
+        assertNotNull(conflict.error());
+        assertEquals(PRO_FRONTLINE_PQC_SUBMISSION_CONTENT_CONFLICT.getCode(), conflict.error().getCode());
+        fixture.assertExactlyOneFormalWriteSet();
+    }
 
     @Test
     void sameContentConcurrentTransactionsReturnOneReceiptAndOneFormalWriteSet() throws Exception {
@@ -164,6 +197,8 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
             transactionTemplate.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
 
             MesProcessPoolActiveOrderMapper activeOrderMapper = mock(MesProcessPoolActiveOrderMapper.class);
+            MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper =
+                    mock(MesProcessPoolActiveOrderProcessSnapshotMapper.class);
             MesProProcessPoolEventMapper eventMapper = mock(MesProProcessPoolEventMapper.class);
             MesPqcInspectionTaskMapper taskMapper = mock(MesPqcInspectionTaskMapper.class);
             MesPqcInspectionPieceDetailMapper pieceDetailMapper = mock(MesPqcInspectionPieceDetailMapper.class);
@@ -213,6 +248,8 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     selectRecord(invocation.getArgument(0)));
 
             when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
+            when(processSnapshotMapper.selectByActiveOrderAndProcess(ACTIVE_ORDER_ID, ROUTE_PROCESS_ID,
+                    PROCESS_ID)).thenReturn(processSnapshot());
             when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
                     .thenReturn(List.of(employeeScope(EMPLOYEE_A), employeeScope(EMPLOYEE_B)));
             when(adminUserApi.getUserList(any())).thenReturn(List.of(
@@ -232,7 +269,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
             when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByItemCodes(any())).thenReturn(Map.of());
 
             service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, eventMapper,
-                    mock(MesProcessPoolActiveOrderProcessSnapshotMapper.class),
+                    processSnapshotMapper,
                     mock(MesProWorkOrderMapper.class), mock(MesProRouteMapper.class),
                     mock(MesProRouteVersionMapper.class), dccMapper, regulationMapper, versionMapper,
                     processMapper, itemMapper, pqcItemEquipmentConfigService, mock(MesQaInspectionRegulationService.class),
@@ -269,6 +306,15 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
             }
         }
 
+        private Outcome submitSequential(MesFrontlinePqcSubmitCommand command) {
+            try {
+                return new Outcome(transactionTemplate.execute(status ->
+                        service.submitPqcInspection(LOGIN_USER_ID, command)), null);
+            } catch (ServiceException ex) {
+                return new Outcome(null, ex);
+            }
+        }
+
         private void assertExactlyOneFormalWriteSet() {
             assertEquals(1, casSuccessCount.get(), "PENDING->SUBMITTED CAS must have one winner");
             assertEquals(1, count("pqc_signature"));
@@ -292,6 +338,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     .activeOrderId(ACTIVE_ORDER_ID).pqcTaskId(TASK_ID)
                     .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID)
                     .actualEmployeeId(actualEmployeeId).actualInspectionQuantity(1)
+                    .pqcSubmissionIdempotencyKey(IDEMPOTENCY_KEY)
                     .signaturePassword("valid-password").scrapQuantity(0)
                     .itemResults(List.of(MesFrontlinePqcSubmitCommand.ItemResult.builder()
                             .itemCode("QA-001").sampleValues(List.of(sampleValue)).build()))
@@ -323,7 +370,8 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                             "FROM pqc_task WHERE id = ? FOR UPDATE",
                     (rs, rowNum) -> MesPqcInspectionTaskDO.builder().id(TASK_ID)
                             .activeOrderId(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID)
-                            .routeVersionId(ROUTE_VERSION_ID).qaProcessId(QA_PROCESS_ID)
+                            .routeVersionId(ROUTE_VERSION_ID).routeProcessId(ROUTE_PROCESS_ID)
+                            .processId(PROCESS_ID).qaProcessId(QA_PROCESS_ID)
                             .qaItemCode("QA-001")
                             .regulationVersionId(REGULATION_VERSION_ID).inspectionType("FIRST")
                             .inspectionRuleKey("FIRST").businessDate(BUSINESS_DATE).shiftCode("FIRST").roundNo(1)
@@ -402,6 +450,13 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
         private static MesProcessPoolActiveOrderDO activeOrder() {
             return MesProcessPoolActiveOrderDO.builder().id(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID)
                     .routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID).activeStatus("ACTIVE").build();
+        }
+
+        private static MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot() {
+            return MesProcessPoolActiveOrderProcessSnapshotDO.builder().id(3301L)
+                    .activeOrderId(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID)
+                    .routeVersionId(ROUTE_VERSION_ID).routeProcessId(ROUTE_PROCESS_ID).processId(PROCESS_ID)
+                    .processCodeSnapshot("PROC-01").processNameSnapshot("清洗").build();
         }
 
         private static MesQaInspectionRegulationItemDO publishedItem() {

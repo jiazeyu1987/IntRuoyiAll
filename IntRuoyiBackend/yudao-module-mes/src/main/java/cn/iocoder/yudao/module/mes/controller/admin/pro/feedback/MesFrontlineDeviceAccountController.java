@@ -348,6 +348,8 @@ public class MesFrontlineDeviceAccountController {
         MesFrontlinePqcSubmitRespVO respVO = new MesFrontlinePqcSubmitRespVO();
         respVO.setPqcTaskId(result.pqcTaskId());
         respVO.setPqcEventId(result.pqcEventId());
+        respVO.setSourceRevision(result.sourceRevision());
+        respVO.setPayloadHash(result.payloadHash());
         respVO.setPqcRecordId(result.pqcRecordId());
         respVO.setSignatureId(result.signatureId());
         respVO.setInspectionResult(result.inspectionResult());

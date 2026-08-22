@@ -52,7 +52,7 @@ class MesFrontlinePqcSubmitReceiptControllerTest {
         LocalDateTime serverSubmitTime = LocalDateTime.of(2026, 8, 8, 9, 30);
         when(pqcContextService.getSubmittedPqcInspection(9001L, 6101L))
                 .thenReturn(Optional.of(new MesFrontlinePqcSubmitResult(
-                        6101L, 7101L, 8101L, 9101L, "QUALIFIED", serverSubmitTime)));
+                        6101L, 7101L, 7101L, "payload-hash", 8101L, 9101L, "QUALIFIED", serverSubmitTime)));
 
         CommonResult<MesFrontlinePqcSubmitRespVO> response;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -64,6 +64,8 @@ class MesFrontlinePqcSubmitReceiptControllerTest {
         MesFrontlinePqcSubmitRespVO data = response.getData();
         assertEquals(6101L, data.getPqcTaskId());
         assertEquals(7101L, data.getPqcEventId());
+        assertEquals(7101L, data.getSourceRevision());
+        assertEquals("payload-hash", data.getPayloadHash());
         assertEquals(8101L, data.getPqcRecordId());
         assertEquals(9101L, data.getSignatureId());
         assertEquals("QUALIFIED", data.getInspectionResult());

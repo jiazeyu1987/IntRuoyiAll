@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -150,19 +151,47 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     }
 
     @Test
-    void shouldAllowAdditionalPqcReviewWhenPreviousPqcReviewExists() {
+    void shouldRejectAdditionalPqcReviewWhenPreviousPqcReviewExists() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
-        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7004L);
-            return 1;
-        });
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS.getCode(), ex.getCode());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(anyLong(), anyLong());
+    }
+
+    @Test
+    void shouldReplaySameTerminalPqcReviewWithoutNewSignatureOrAggregate() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingApprovedReview());
 
         Long reviewId = service.reviewSubmission(reviewReq());
 
         assertEquals(7004L, reviewId);
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
+    }
+
+    @Test
+    void shouldPropagateAggregationFailureSoTransactionCanRollbackReviewAndSignature() {
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7005L);
+            return 1;
+        });
+        doThrow(exception(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                "pqcProcessInspectionAggregateDetail"))
+                .when(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7005L);
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.reviewSubmission(reviewReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
         verify(reviewMapper).insert(any(MesProcessPoolSubmissionReviewDO.class));
-        verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7004L);
+        verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7005L);
     }
 
     @Test
@@ -247,6 +276,18 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 .leaderUserId(3002L)
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
                 .reviewRemark("压力曲线异常，已退回")
+                .reviewedAt(LocalDateTime.of(2026, 8, 3, 10, 30))
+                .build();
+    }
+
+    private static MesProcessPoolSubmissionReviewDO existingApprovedReview() {
+        return MesProcessPoolSubmissionReviewDO.builder()
+                .id(7004L)
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC)
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
+                .reviewRemark("数据和签名一致")
                 .reviewedAt(LocalDateTime.of(2026, 8, 3, 10, 30))
                 .build();
     }

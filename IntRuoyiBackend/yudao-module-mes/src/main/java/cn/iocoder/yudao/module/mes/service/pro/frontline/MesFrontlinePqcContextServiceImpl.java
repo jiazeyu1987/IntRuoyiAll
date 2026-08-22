@@ -896,7 +896,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         }
         MesProProcessPoolEventDO event = requireUniqueSubmittedEvent(task);
         requirePqcEmployee(loginUserId, event.getActualEmployeeId());
-        return Optional.of(loadPqcSubmitResult(event.getId(), pqcTaskId));
+        return Optional.of(loadPqcSubmitResult(event.getId(), pqcTaskId, task.getSubmittedContentHash()));
     }
 
     @Override
@@ -919,7 +919,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 throw exception(PRO_FRONTLINE_PQC_SUBMISSION_CONTENT_CONFLICT, task.getId());
             }
             MesProProcessPoolEventDO event = requireUniqueSubmittedEvent(task);
-            return loadPqcSubmitResult(event.getId(), task.getId());
+            return loadPqcSubmitResult(event.getId(), task.getId(), task.getSubmittedContentHash());
         }
         String rawPayload = buildPqcInspectionEventRawPayload(command, pieceDetails,
                 inspectionResult, nonconformanceDescription);
@@ -968,7 +968,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
                     "pqcTask.submittedEventId taskId=" + task.getId());
         }
-        return loadPqcSubmitResult(eventId, task.getId());
+        return loadPqcSubmitResult(eventId, task.getId(), contentHash);
     }
 
     private String buildPqcInspectionEventRawPayload(MesFrontlinePqcSubmitCommand command,
@@ -1243,7 +1243,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         return MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS;
     }
 
-    private MesFrontlinePqcSubmitResult loadPqcSubmitResult(Long eventId, Long expectedTaskId) {
+    private MesFrontlinePqcSubmitResult loadPqcSubmitResult(Long eventId, Long expectedTaskId, String payloadHash) {
         requirePositive(eventId, "pqcEventId");
         MesProProcessPoolEventDO event = processPoolEventMapper.selectById(eventId);
         MesProProcessPoolPqcRecordDO record = pqcRecordMapper.selectByEventId(eventId);
@@ -1263,8 +1263,12 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         requirePositive(record.getId(), "pqcRecordId");
         requirePositive(record.getSignatureId(), "pqcSubmitReceipt.signatureId");
         requireValue(record.getServerSubmitTime(), "pqcSubmitReceipt.serverSubmitTime");
-        return new MesFrontlinePqcSubmitResult(expectedTaskId, eventId, record.getId(), record.getSignatureId(),
-                record.getInspectionResult(), record.getServerSubmitTime());
+        if (StrUtil.isBlank(payloadHash)) {
+            throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
+                    "pqcSubmitReceipt.payloadHash taskId=" + expectedTaskId);
+        }
+        return new MesFrontlinePqcSubmitResult(expectedTaskId, eventId, eventId, payloadHash, record.getId(),
+                record.getSignatureId(), record.getInspectionResult(), record.getServerSubmitTime());
     }
 
     private String normalizeNonconformanceDescription(String value) {

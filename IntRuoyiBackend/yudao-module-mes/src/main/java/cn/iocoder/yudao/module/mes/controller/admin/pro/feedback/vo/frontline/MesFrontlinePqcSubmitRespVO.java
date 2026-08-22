@@ -13,6 +13,10 @@ public class MesFrontlinePqcSubmitRespVO {
     private Long pqcTaskId;
     @Schema(description = "PQC 工序池事件编号")
     private Long pqcEventId;
+    @Schema(description = "不可变 PQC 来源修订号；当前由正式提交事件编号承载")
+    private Long sourceRevision;
+    @Schema(description = "CanonicalPqcSubmissionV1 内容哈希")
+    private String payloadHash;
     @Schema(description = "PQC 正式记录编号")
     private Long pqcRecordId;
     @Schema(description = "本次提交生成的电子签名编号")

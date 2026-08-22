@@ -16,6 +16,7 @@ import org.springframework.validation.annotation.Validated;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -70,8 +71,10 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 event.getActualEmployeeId());
         MesProcessPoolSubmissionReviewDO existingReview =
                 reviewMapper.selectLatestByEventIdForUpdate(reqBO.getEventId());
-        if (existingReview != null
-                && !MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+        if (existingReview != null) {
+            if (isIdempotentReplay(reqBO, existingReview)) {
+                return existingReview.getId();
+            }
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
                     reqBO.getEventId(), existingReview.getReviewStatus());
         }
@@ -97,6 +100,20 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
             processInspectionAggregationService.aggregateApprovedPqcSubmission(reqBO.getEventId(), review.getId());
         }
         return review.getId();
+    }
+
+    private boolean isIdempotentReplay(MesTeamLeaderSubmissionReviewReqBO reqBO,
+                                       MesProcessPoolSubmissionReviewDO existingReview) {
+        return existingReview.getId() != null
+                && Objects.equals(reqBO.getLeaderUserId(), existingReview.getLeaderUserId())
+                && Objects.equals(reqBO.getLeaderType(), existingReview.getLeaderType())
+                && Objects.equals(reqBO.getReviewStatus(), existingReview.getReviewStatus())
+                && Objects.equals(normalizeRemark(reqBO.getReviewRemark()),
+                normalizeRemark(existingReview.getReviewRemark()));
+    }
+
+    private String normalizeRemark(String remark) {
+        return StrUtil.isBlank(remark) ? null : StrUtil.trim(remark);
     }
 
     private void validateReq(MesTeamLeaderSubmissionReviewReqBO reqBO) {
