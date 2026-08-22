@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -91,7 +92,10 @@ class MesPqcReleaseBatchExecutionServiceTest {
         MesPqcReleaseDossierWriteResult dossierWrite = new MesPqcReleaseDossierWriteResult()
                 .setBatchRecordEvidenceIds(List.of(101L))
                 .setProcessInspectionEvidenceIds(List.of(201L))
-                .setLossReportEvidenceIds(List.of(301L));
+                .setLossReportEvidenceIds(List.of())
+                .setLossReportStatus("NOT_REQUIRED")
+                .setHasActualLoss(false)
+                .setLossQuantity(java.math.BigDecimal.ZERO);
         List<MesProductionReleaseReportUploadTaskReceipt> reportTasks = reportTasks();
         when(dossierPort.plan(any(), eq(PQC_USER_ID))).thenReturn(dossierPlan);
         when(batchExecutionPort.openOrCreate(any())).thenReturn(BATCH_EXECUTION_ID);
@@ -110,18 +114,31 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
                         .setExpectedVersion(VERSION)
                         .setIdempotencyKey("pqc-approve-7001")
-                        .setApprovalOpinion("正式来源核对通过"));
+                        .setApprovalOpinion("正式来源核对通过")
+                        .setEntryType("ACTIVE_ORDER_PQC")
+                        .setEntryBusinessId("release-application-7001")
+                        .setSourceCredentialType("CompletionBackfillReceipt")
+                        .setSourceCredentialId("completion-7001")
+                        .setSourceContextHash("source-context-7001")
+                        .setSourceSnapshotHash("source-hash")
+                        .setPayloadHash("payload-7001"));
 
         assertEquals("APPROVE", result.getDecision());
         assertEquals(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING, result.getStatus());
         assertEquals(BATCH_EXECUTION_ID, result.getBatchExecutionId());
         assertEquals(List.of(101L), result.getBatchRecordEvidenceIds());
         assertEquals(List.of(201L), result.getProcessInspectionEvidenceIds());
-        assertEquals(List.of(301L), result.getLossReportEvidenceIds());
+        assertEquals(List.of(), result.getLossReportEvidenceIds());
         assertEquals(4, result.getReportUploadTasks().size());
         assertTrue(result.getReportUploadTasks().stream().allMatch(
                 item -> MesProEdhrWorkTaskStatus.TODO.equals(item.getStatus())));
-        verify(batchExecutionPort).openOrCreate(any());
+        verify(batchExecutionPort).openOrCreate(argThat(item ->
+                "ACTIVE_ORDER_PQC".equals(item.getEntryType())
+                        && "release-application-7001".equals(item.getEntryBusinessId())
+                        && "completion-7001".equals(item.getSourceCredentialId())
+                        && "source-context-7001".equals(item.getSourceContextHash())
+                        && "source-hash".equals(item.getSourceSnapshotHash())
+                        && "payload-7001".equals(item.getPayloadHash())));
         verify(dossierPort).write(dossierPlan, BATCH_EXECUTION_ID);
         verify(reportStageInitializer).initializeRequiredReportStage(any());
     }
@@ -265,7 +282,10 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 new MesPqcReleaseDossierWriteResult()
                         .setBatchRecordEvidenceIds(List.of(101L))
                         .setProcessInspectionEvidenceIds(List.of(201L))
-                        .setLossReportEvidenceIds(List.of(301L)));
+                        .setLossReportEvidenceIds(List.of())
+                        .setLossReportStatus("NOT_REQUIRED")
+                        .setHasActualLoss(false)
+                        .setLossQuantity(java.math.BigDecimal.ZERO));
         when(reportStageInitializer.initializeRequiredReportStage(any())).thenThrow(blocker(
                 MesReleaseFlowBlockerType.REPORT_OWNER_REQUIRED, "one report owner is missing"));
 

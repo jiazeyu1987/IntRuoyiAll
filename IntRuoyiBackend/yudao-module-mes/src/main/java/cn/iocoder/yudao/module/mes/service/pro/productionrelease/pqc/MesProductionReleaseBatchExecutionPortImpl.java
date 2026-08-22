@@ -10,10 +10,16 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStage;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrProductionReleaseBatchCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionEntryContractService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionProvisionCommand;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
+
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST;
 
 @Component
 public class MesProductionReleaseBatchExecutionPortImpl implements MesProductionReleaseBatchExecutionPort {
@@ -22,16 +28,30 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
 
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrBatchExecutionService batchExecutionService;
+    private final MesBatchExecutionEntryContractService entryContractService;
+
+    @Autowired
+    public MesProductionReleaseBatchExecutionPortImpl(
+            MesProEdhrBatchExecutionMapper batchExecutionMapper,
+            MesProEdhrBatchExecutionService batchExecutionService,
+            MesBatchExecutionEntryContractService entryContractService) {
+        this.batchExecutionMapper = batchExecutionMapper;
+        this.batchExecutionService = batchExecutionService;
+        this.entryContractService = entryContractService;
+    }
 
     public MesProductionReleaseBatchExecutionPortImpl(
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrBatchExecutionService batchExecutionService) {
-        this.batchExecutionMapper = batchExecutionMapper;
-        this.batchExecutionService = batchExecutionService;
+        this(batchExecutionMapper, batchExecutionService, new MesBatchExecutionEntryContractService());
     }
 
     @Override
     public Long openOrCreate(MesProductionReleaseBatchExecutionCommand command) {
+        if (command == null) {
+            throw exception(BAD_REQUEST);
+        }
+        entryContractService.validate(toProvisionCommand(command));
         String activeContextKey = CONTEXT_PREFIX + command.getApplicationId();
         MesProEdhrBatchExecutionDO releaseBatch = batchExecutionMapper.selectByActiveContextKey(activeContextKey);
         if (releaseBatch != null) {
@@ -47,11 +67,78 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
                 new MesProEdhrProductionReleaseBatchCommand()
                         .setApplicationId(command.getApplicationId())
                         .setWorkOrderId(command.getWorkOrderId())
+                        .setWorkOrderCode(command.getWorkOrderCode())
                         .setBatchCode(command.getBatchCode())
                         .setRouteId(command.getRouteId())
                         .setRouteVersionId(command.getRouteVersionId())
+                        .setEntryType(command.getEntryType())
+                        .setEntryBusinessId(command.getEntryBusinessId())
+                        .setSourceCredentialType(command.getSourceCredentialType())
+                        .setSourceCredentialId(command.getSourceCredentialId())
+                        .setSourceRelationId(command.getSourceRelationId())
+                        .setSourceContextHash(command.getSourceContextHash())
+                        .setTenantId(command.getTenantId())
+                        .setActiveOrderId(command.getActiveOrderId())
+                        .setPickListBindingId(command.getPickListBindingId())
+                        .setPickListId(command.getPickListId())
+                        .setBindingVersion(command.getBindingVersion())
+                        .setBatchPickListRelationId(command.getBatchPickListRelationId())
+                        .setSourceSnapshotHash(command.getSourceSnapshotHash())
+                        .setIdempotencyKey(command.getIdempotencyKey())
+                        .setExpectedSourceVersion(command.getExpectedSourceVersion())
+                        .setCompletionTransactionId(command.getCompletionTransactionId())
+                        .setExpectedActiveOrderVersion(command.getExpectedActiveOrderVersion())
+                        .setCompletionVersion(command.getCompletionVersion())
+                        .setSourceVersion(command.getSourceVersion())
+                        .setSourceBundleHash(command.getSourceBundleHash())
+                        .setCompletionBackfillReceiptId(command.getCompletionBackfillReceiptId())
+                        .setCompletionBackfillReceiptHash(command.getCompletionBackfillReceiptHash())
+                        .setPickListHeaderSnapshotHash(command.getPickListHeaderSnapshotHash())
+                        .setPickListLineSnapshotHash(command.getPickListLineSnapshotHash())
+                        .setSourceEvidence(command.getSourceEvidence())
+                        .setPayloadHash(command.getPayloadHash())
+                        .setCompletionBackfillReceipt(command.getCompletionBackfillReceipt())
+                        .setIndependentReceipt(command.getIndependentReceipt())
                         .setActiveContextKey(activeContextKey)
                         .setRemark("PQC production release application " + command.getApplicationId()));
+    }
+
+    private MesBatchExecutionProvisionCommand toProvisionCommand(
+            MesProductionReleaseBatchExecutionCommand command) {
+        return new MesBatchExecutionProvisionCommand()
+                .setEntryType(command == null ? null : command.getEntryType())
+                .setEntryBusinessId(command == null ? null : command.getEntryBusinessId())
+                .setSourceCredentialType(command == null ? null : command.getSourceCredentialType())
+                .setSourceCredentialId(command == null ? null : command.getSourceCredentialId())
+                .setSourceRelationId(command == null ? null : command.getSourceRelationId())
+                .setSourceContextHash(command == null ? null : command.getSourceContextHash())
+                .setTenantId(command == null ? null : command.getTenantId())
+                .setActiveOrderId(command == null ? null : command.getActiveOrderId())
+                .setWorkOrderId(command == null ? null : command.getWorkOrderId())
+                .setWorkOrderCode(command == null ? null : command.getWorkOrderCode())
+                .setBatchCode(command == null ? null : command.getBatchCode())
+                .setRouteId(command == null ? null : command.getRouteId())
+                .setRouteVersionId(command == null ? null : command.getRouteVersionId())
+                .setPickListBindingId(command == null ? null : command.getPickListBindingId())
+                .setPickListId(command == null ? null : command.getPickListId())
+                .setBindingVersion(command == null ? null : command.getBindingVersion())
+                .setBatchPickListRelationId(command == null ? null : command.getBatchPickListRelationId())
+                .setSourceSnapshotHash(command == null ? null : command.getSourceSnapshotHash())
+                .setIdempotencyKey(command == null ? null : command.getIdempotencyKey())
+                .setExpectedSourceVersion(command == null ? null : command.getExpectedSourceVersion())
+                .setCompletionTransactionId(command == null ? null : command.getCompletionTransactionId())
+                .setExpectedActiveOrderVersion(command == null ? null : command.getExpectedActiveOrderVersion())
+                .setCompletionVersion(command == null ? null : command.getCompletionVersion())
+                .setSourceVersion(command == null ? null : command.getSourceVersion())
+                .setSourceBundleHash(command == null ? null : command.getSourceBundleHash())
+                .setCompletionBackfillReceiptId(command == null ? null : command.getCompletionBackfillReceiptId())
+                .setCompletionBackfillReceiptHash(command == null ? null : command.getCompletionBackfillReceiptHash())
+                .setPickListHeaderSnapshotHash(command == null ? null : command.getPickListHeaderSnapshotHash())
+                .setPickListLineSnapshotHash(command == null ? null : command.getPickListLineSnapshotHash())
+                .setSourceEvidence(command == null ? null : command.getSourceEvidence())
+                .setPayloadHash(command == null ? null : command.getPayloadHash())
+                .setCompletionBackfillReceipt(command == null ? null : command.getCompletionBackfillReceipt())
+                .setIndependentReceipt(command == null ? null : command.getIndependentReceipt());
     }
 
     private void requireSameFrozenContext(

@@ -5,6 +5,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExec
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,7 +31,13 @@ class MesProductionReleaseBatchExecutionPortTest {
 
     @BeforeEach
     void setUp() {
+        TenantContextHolder.setTenantId(1L);
         port = new MesProductionReleaseBatchExecutionPortImpl(batchExecutionMapper, batchExecutionService);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContextHolder.clear();
     }
 
     @Test
@@ -59,8 +68,81 @@ class MesProductionReleaseBatchExecutionPortTest {
         return new MesProductionReleaseBatchExecutionCommand()
                 .setApplicationId(701L)
                 .setWorkOrderId(301L)
+                .setWorkOrderCode("WO-301")
                 .setBatchCode("BATCH-001")
                 .setRouteId(401L)
-                .setRouteVersionId(402L);
+                .setRouteVersionId(402L)
+                .setEntryType("ACTIVE_ORDER_PQC")
+                .setEntryBusinessId("701")
+                .setSourceCredentialType("CompletionBackfillReceipt")
+                .setSourceCredentialId("completion-701")
+                .setSourceContextHash("source-701")
+                .setTenantId(1L)
+                .setActiveOrderId(701L)
+                .setPickListBindingId(501L)
+                .setPickListId(502L)
+                .setBindingVersion(1L)
+                .setBatchPickListRelationId(503L)
+                .setSourceSnapshotHash("source-701")
+                .setCompletionTransactionId("completion-tx-701")
+                .setExpectedActiveOrderVersion(4L)
+                .setCompletionVersion(1L)
+                .setExpectedSourceVersion("source-v1")
+                .setSourceVersion("source-v1")
+                .setSourceBundleHash("bundle-701")
+                .setCompletionBackfillReceiptId("completion-701")
+                .setCompletionBackfillReceiptHash("receipt-hash-701")
+                .setPickListHeaderSnapshotHash("pick-header-701")
+                .setPickListLineSnapshotHash("pick-line-701")
+                .setSourceEvidence(java.util.List.of(
+                        evidence("PRODUCTION", "p-701"), evidence("PQC", "q-701"), evidence("LOSS", "l-701")))
+                .setIdempotencyKey("idempotency-701")
+                .setPayloadHash("payload-701")
+                .setCompletionBackfillReceipt(new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesCompletionBackfillReceipt()
+                        .setReceiptId("completion-701")
+                        .setTenantId(1L)
+                        .setActiveOrderId(701L)
+                        .setWorkOrderId(301L)
+                        .setWorkOrderCode("WO-301")
+                        .setBatchCode("BATCH-001")
+                        .setRouteId(401L)
+                        .setRouteVersionId(402L)
+                        .setPickListBindingId(501L)
+                        .setPickListId(502L)
+                        .setBindingVersion(1L)
+                        .setBatchPickListRelationId(503L)
+                        .setSourceContextHash("source-701")
+                        .setSourceSnapshotHash("source-701")
+                        .setCompletionTransactionId("completion-tx-701")
+                        .setExpectedActiveOrderVersion(4L)
+                        .setSourceVersion("source-v1")
+                        .setSourceBundleHash("bundle-701")
+                        .setPickListHeaderSnapshotHash("pick-header-701")
+                        .setPickListLineSnapshotHash("pick-line-701")
+                        .setProductionProgress(100)
+                        .setInspectionProgress(100)
+                        .setCompletionVersion(1L)
+                        .setCompletionEventId("completion-event-701")
+                        .setBatchRecordId(601L)
+                        .setProcessInspectionId(602L)
+                        .setHasActualLoss(false)
+                        .setLossDecision("NO_LOSS")
+                        .setStatus("BACKFILL_SUCCEEDED")
+                        .setReceiptVersion("1")
+                        .setReceiptHash("receipt-hash-701")
+                        .setProductionBackfillStatus("BACKFILL_SUCCEEDED")
+                        .setInspectionBackfillStatus("BACKFILL_SUCCEEDED")
+                        .setLossBackfillStatus("NO_LOSS")
+                        .setPayloadHash("payload-701")
+                        .setAuditEventId("audit-701")
+                        .setIdempotencyKey("receipt-idempotency-701")
+                        .setSourceEvidence(java.util.List.of(
+                                evidence("PRODUCTION", "p-701"), evidence("PQC", "q-701"), evidence("LOSS", "l-701"))));
+    }
+
+    private MesBatchExecutionSourceEvidence evidence(String type, String id) {
+        return new MesBatchExecutionSourceEvidence().setSourceType(type).setSourceId(id)
+                .setSourceVersion("source-v1").setSourceSnapshotHash(type + "-snapshot")
+                .setPayloadHash(type + "-payload").setSignature(type + "-signature");
     }
 }

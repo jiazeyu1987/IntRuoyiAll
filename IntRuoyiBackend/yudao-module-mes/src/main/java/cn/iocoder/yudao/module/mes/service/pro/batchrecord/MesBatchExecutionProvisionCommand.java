@@ -1,30 +1,14 @@
-package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo;
+package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesCompletionBackfillReceipt;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.util.List;
 
+/** Flow 9 normalized command passed to the Flow 6 batch provisioner. */
 @Data
 @Accessors(chain = true)
-public class EdhrBatchExecutionOpenOrCreateReqVO {
-
-    @NotNull(message = "workOrderId 不能为空")
-    private Long workOrderId;
-    private String workOrderCode;
-    private Long tenantId;
-
-    @NotBlank(message = "batchCode 不能为空")
-    private String batchCode;
-
-    private Long routeId;
-
-    private String remark;
+public class MesBatchExecutionProvisionCommand {
 
     private String entryType;
     private String entryBusinessId;
@@ -32,7 +16,12 @@ public class EdhrBatchExecutionOpenOrCreateReqVO {
     private String sourceCredentialId;
     private String sourceRelationId;
     private String sourceContextHash;
+    private Long tenantId;
     private Long activeOrderId;
+    private Long workOrderId;
+    private String workOrderCode;
+    private String batchCode;
+    private Long routeId;
     private Long pickListBindingId;
     private Long pickListId;
     private Long bindingVersion;

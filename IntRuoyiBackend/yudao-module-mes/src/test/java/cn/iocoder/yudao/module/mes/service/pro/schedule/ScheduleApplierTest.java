@@ -31,6 +31,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.EdhrScheduleCompletionCreateCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.SchedulePlanner.ScheduleIssueDraft;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -39,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -358,21 +360,17 @@ class ScheduleApplierTest {
     }
 
     @Test
-    void createEdhrBatchExecutionsAfterScheduleCompletion_shouldReturnWarningAndSkipCreationWhenPrerequisiteMissing() {
+    void createEdhrBatchExecutionsAfterScheduleCompletion_shouldFailFastWhenPrerequisiteMissing() {
         EdhrScheduleCompletionCreateCommand command = buildEdhrCompletionCommand();
         when(edhrBatchExecutionService.getScheduleCompletionMissingItems(command))
                 .thenReturn(List.of("批次号", "批记录模板"));
 
-        List<ScheduleIssueDraft> issues =
-                scheduleApplier.createEdhrBatchExecutionsAfterScheduleCompletion(List.of(command));
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> scheduleApplier.createEdhrBatchExecutionsAfterScheduleCompletion(List.of(command)));
 
-        assertEquals(1, issues.size());
-        MesProScheduleIssueDO issue = issues.get(0).toDO(null);
-        assertEquals("EDHR_BATCH_CREATION", issue.getIssueType());
-        assertEquals("WARNING", issue.getSeverity());
-        assertEquals(100L, issue.getWorkOrderId());
-        assertTrue(issue.getMessage().contains("批次号"));
-        assertTrue(issue.getMessage().contains("批记录模板"));
+        assertEquals(PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING.getCode(), error.getCode());
+        assertTrue(error.getMessage().contains("批次号"));
+        assertTrue(error.getMessage().contains("批记录模板"));
         verify(edhrBatchExecutionService, never()).openOrCreateFromScheduleCompletion(command);
     }
 

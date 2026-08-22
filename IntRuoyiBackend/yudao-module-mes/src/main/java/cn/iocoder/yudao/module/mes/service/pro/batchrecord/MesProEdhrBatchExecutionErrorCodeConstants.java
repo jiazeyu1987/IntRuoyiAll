@@ -54,6 +54,30 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_423, "作废申请待处理，只能撤回作废申请");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_PRODUCT_ROUTE_BINDING_REQUIRED =
             new ErrorCode(1_040_750_424, "当前工单产品未绑定启用的工艺路线，请先完成产品与工艺路线绑定");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_TYPE_REQUIRED =
+            new ErrorCode(1_040_750_470, "批次入口缺少 entryType");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_BUSINESS_ID_REQUIRED =
+            new ErrorCode(1_040_750_471, "批次入口缺少 entryBusinessId");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_CREDENTIAL_REQUIRED =
+            new ErrorCode(1_040_750_472, "批次入口缺少正式前置凭证");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_SCENARIO_MISMATCH =
+            new ErrorCode(1_040_750_473, "批次入口场景与前置凭证类型不一致");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED =
+            new ErrorCode(1_040_750_474, "批次入口缺少正式来源关系");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_SOURCE_CONTEXT_REQUIRED =
+            new ErrorCode(1_040_750_475, "批次入口缺少 sourceContextHash");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_IDEMPOTENCY_REQUIRED =
+            new ErrorCode(1_040_750_476, "批次入口缺少幂等键");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_TENANT_REQUIRED =
+            new ErrorCode(1_040_750_481, "批次入口缺少安全租户上下文");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_BACKFILL_NOT_SUCCEEDED =
+            new ErrorCode(1_040_750_477, "活跃订单完成回填未成功，禁止创建批次");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_RECEIPT_EXPIRED =
+            new ErrorCode(1_040_750_478, "批次入口正式凭证已过期");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_RECEIPT_REVOKED =
+            new ErrorCode(1_040_750_479, "批次入口正式凭证已撤销");
+    ErrorCode PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID =
+            new ErrorCode(1_040_750_480, "批次入口正式凭证完整性校验失败");
     ErrorCode PRO_EDHR_RELEASE_PRECHECK_REQUIRED =
             new ErrorCode(1_040_750_430, "eDHR 放行前检查未通过，禁止提交放行");
     ErrorCode PRO_EDHR_RELEASE_STATUS_INVALID =
