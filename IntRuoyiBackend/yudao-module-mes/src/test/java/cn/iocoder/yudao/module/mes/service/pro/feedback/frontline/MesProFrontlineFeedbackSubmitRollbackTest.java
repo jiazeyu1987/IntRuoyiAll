@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,8 +31,6 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
 
     @Mock
     private MesProFeedbackService feedbackService;
-    @Mock
-    private MesProFrontlineRecordbookEntryService recordbookEntryService;
     @Mock
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
     @Mock
@@ -53,7 +52,6 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     void setUp() {
         submitService = new MesProFrontlineFeedbackSubmitServiceImpl(
                 feedbackService,
-                recordbookEntryService,
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
@@ -83,8 +81,6 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     void shouldPropagateProcessPoolFailureToTriggerTransactionRollback() {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
-        when(recordbookEntryService.createOriginalEntry(any()))
-                .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
         when(processPoolSubmitEventService.createSubmitEvent(any()))
                 .thenThrow(new IllegalStateException("F1 process pool event service missing"));
 
@@ -96,7 +92,6 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
 
         verify(feedbackService).createFrontlineFeedback(any());
         verify(feedbackService).submitFeedback(501L);
-        verify(recordbookEntryService).createOriginalEntry(any());
         verify(processPoolSubmitEventService).createSubmitEvent(any());
     }
 }

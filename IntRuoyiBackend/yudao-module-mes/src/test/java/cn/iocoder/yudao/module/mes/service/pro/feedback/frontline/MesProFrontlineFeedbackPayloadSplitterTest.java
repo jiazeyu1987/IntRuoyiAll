@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,7 +45,7 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals("frontline production", feedbackPayload.getRemark());
         assertFalse(feedbackPayload.getRemark().contains("pressure"));
 
-        MesProFrontlineRecordbookEntryPayload recordbookPayload = splitPayload.getRecordbookEntryPayload();
+        MesProFrontlineRecordbookSourceSnapshot recordbookPayload = splitPayload.getRecordbookSourceSnapshot();
         assertEquals(901L, recordbookPayload.getRecordbookId());
         Map<String, Object> content = recordbookPayload.getEntryContent();
         assertFalse(content.containsKey("previousProcessInputQuantity"));
@@ -78,6 +79,16 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals(8301L, eventRawPayload.get("lossReasonId"));
         assertEquals("LOSS-001", eventRawPayload.get("lossReasonCodeSnapshot"));
         assertEquals("正常损耗", eventRawPayload.get("lossReasonNameSnapshot"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> recordbookSourceSnapshot =
+                (Map<String, Object>) eventRawPayload.get("recordbookSourceSnapshot");
+        assertEquals(901L, recordbookSourceSnapshot.get("recordbookId"));
+        assertEquals("F2 production original", recordbookSourceSnapshot.get("entryTitle"));
+        assertEquals(reqVO.getRecordbookPayload().getEntryContent(),
+                recordbookSourceSnapshot.get("entryContent"));
+        assertEquals(List.of("F2-RAW"), recordbookSourceSnapshot.get("tagCodes"));
+        assertEquals("F2-20260730-001", recordbookSourceSnapshot.get("idempotencyKey"));
+        assertEquals("recordbook original", recordbookSourceSnapshot.get("remark"));
         assertFalse(eventRawPayload.containsKey("previousProcessInputQuantity"));
         assertEquals(new BigDecimal("50"), eventRawPayload.get("temperature"));
         assertEquals(new BigDecimal("10"), eventRawPayload.get("pressure"));

@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,8 +39,6 @@ class MesP0ProductionSubmitClosedLoopContractTest {
 
     @Mock
     private MesProFeedbackService feedbackService;
-    @Mock
-    private MesProFrontlineRecordbookEntryService recordbookEntryService;
     @Mock
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
     @Mock
@@ -61,7 +60,6 @@ class MesP0ProductionSubmitClosedLoopContractTest {
     void setUp() {
         submitService = new MesProFrontlineFeedbackSubmitServiceImpl(
                 feedbackService,
-                recordbookEntryService,
                 processPoolSubmitEventService,
                 submitAuthorizationService,
                 lossReasonValidator,
@@ -78,12 +76,10 @@ class MesP0ProductionSubmitClosedLoopContractTest {
     }
 
     @Test
-    void shouldCreateFeedbackRecordbookAndProcessPoolEventInOneTransaction() throws Exception {
+    void shouldCreateFeedbackSourceAndProcessPoolEventInOneTransaction() throws Exception {
         assertSubmitMethodHasRollbackBoundary();
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
-        when(recordbookEntryService.createOriginalEntry(any()))
-                .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
 
         MesProFrontlineFeedbackSubmitRespVO respVO;
@@ -93,12 +89,11 @@ class MesP0ProductionSubmitClosedLoopContractTest {
         }
 
         assertEquals(501L, respVO.getFeedbackId());
-        assertEquals(701L, respVO.getRecordbookEntryId());
-        assertEquals(702L, respVO.getRecordbookEventId());
+        assertEquals(null, respVO.getRecordbookEntryId());
+        assertEquals(null, respVO.getRecordbookEventId());
         assertEquals(801L, respVO.getProcessPoolEventId());
 
-        InOrder inOrder = inOrder(submitAuthorizationService, feedbackService, recordbookEntryService,
-                processPoolSubmitEventService);
+        InOrder inOrder = inOrder(submitAuthorizationService, feedbackService, processPoolSubmitEventService);
         inOrder.verify(submitAuthorizationService).authorize(argThat(command -> {
             assertEquals(9001L, command.loginUserId());
             assertEquals(9001L, command.actualEmployeeId());
@@ -124,36 +119,31 @@ class MesP0ProductionSubmitClosedLoopContractTest {
             return true;
         }));
         inOrder.verify(feedbackService).submitFeedback(501L);
-        inOrder.verify(recordbookEntryService).createOriginalEntry(argThat(payload -> {
-            assertEquals(501L, payload.getFeedbackId());
-            assertEquals(901L, payload.getRecordbookId());
-            return true;
-        }));
         inOrder.verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {
             assertEquals("P0-SUBMIT-F2-20260730-001", payload.getProcessPoolSubmissionIdempotencyKey());
             assertEquals(501L, payload.getFeedbackId());
-            assertEquals(701L, payload.getRecordbookEntryId());
-            assertEquals(702L, payload.getRecordbookEventId());
+            assertEquals(null, payload.getRecordbookEntryId());
+            assertEquals(null, payload.getRecordbookEventId());
+            assertEquals(901L, ((Map<?, ?>) payload.getRawPayload().get("recordbookSourceSnapshot")).get("recordbookId"));
             assertEquals(4001L, payload.getSignatureId());
             return true;
         }));
     }
 
     @Test
-    void shouldPropagateRecordbookFailureInsideSameSubmitTransaction() {
+    void shouldNotCallFormalRecordbookInsideSubmitTransaction() {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
-        when(recordbookEntryService.createOriginalEntry(any()))
-                .thenThrow(new IllegalStateException("recordbook write failed"));
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertThrows(IllegalStateException.class,
-                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+            assertEquals(801L, submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq())
+                    .getProcessPoolEventId());
         }
 
         verify(feedbackService).submitFeedback(501L);
-        verify(processPoolSubmitEventService, never()).createSubmitEvent(any());
+        verify(processPoolSubmitEventService).createSubmitEvent(any());
     }
 
     private static void assertSubmitMethodHasRollbackBoundary() throws Exception {

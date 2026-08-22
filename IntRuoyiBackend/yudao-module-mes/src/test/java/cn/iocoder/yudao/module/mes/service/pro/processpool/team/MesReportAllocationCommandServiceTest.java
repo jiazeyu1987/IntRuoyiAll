@@ -107,11 +107,9 @@ class MesReportAllocationCommandServiceTest {
     }
 
     @Test
-    void frontlineInitialAllocationMustResolveExistingTargetByProcessAcrossRouteUpgrade() {
+    void frontlineInitialAllocationMustUseSubmittedEventContextWithoutTargetProjection() {
         MesProProcessPoolEventDO event = event();
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(8101L, 9001L);
-        MesTeamLeaderOrderProcessTarget frozenTarget = new MesTeamLeaderOrderProcessTarget(
-                5101L, 6001L, new BigDecimal("300"), BigDecimal.ONE, new BigDecimal("300"));
         MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
                 .id(7201L).eventId(1001L).currentVersion(0).build();
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
@@ -122,19 +120,18 @@ class MesReportAllocationCommandServiceTest {
         when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
         when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
         when(stateMapper.updateById(state)).thenReturn(1);
-        when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L)).thenReturn(frozenTarget);
         service.createInitialAllocation(1001L, 8101L, new BigDecimal("300"));
 
         verify(targetService, never()).requireTarget(activeOrder, 5001L, 6001L);
-        verify(targetService).requireUniqueTargetForProcess(activeOrder, 6001L);
+        verify(targetService, never()).requireUniqueTargetForProcess(activeOrder, 6001L);
         ArgumentCaptor<Collection<MesProcessPoolReportAllocationDO>> allocationCaptor =
                 ArgumentCaptor.forClass(Collection.class);
         verify(allocationMapper).insertBatch(allocationCaptor.capture());
         MesProcessPoolReportAllocationDO allocation = allocationCaptor.getValue().iterator().next();
-        assertEquals(5101L, allocation.getRouteProcessId());
+        assertEquals(5001L, allocation.getRouteProcessId());
         assertEquals(6001L, allocation.getProcessId());
         assertAmount("300", allocation.getAllocatedQuantity());
-        verify(completionService).reconcileAffectedAllocations(event, List.of(allocation));
+        verify(completionService, never()).reconcileAffectedAllocations(any(), anyCollection());
         verify(reportManagementSummaryService).refreshProductionEvent(event);
     }
 
@@ -297,9 +294,6 @@ class MesReportAllocationCommandServiceTest {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
         when(poolQuantityService.requirePoolQuantity(event)).thenReturn(new BigDecimal("80"));
         when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder);
-        when(targetService.requireUniqueTargetForProcess(activeOrder, 6001L)).thenReturn(
-                new MesTeamLeaderOrderProcessTarget(5101L, 6001L, new BigDecimal("20"),
-                        BigDecimal.ZERO, new BigDecimal("20")));
         when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
         when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
@@ -327,7 +321,7 @@ class MesReportAllocationCommandServiceTest {
         assertAmount("80", audit.getAfterQuantity());
         assertEquals(null, state.getLastIdempotencyKey());
         verify(quantityFragmentService).rebuildForVersion(event, 1, List.of(allocation));
-        verify(completionService).reconcileAffectedAllocations(event, List.of(allocation));
+        verify(completionService, never()).reconcileAffectedAllocations(any(), anyCollection());
         verify(reportManagementSummaryService).refreshProductionEvent(event);
     }
 

@@ -40,7 +40,6 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontlineFeedbackSubmitService {
 
     private final MesProFeedbackService feedbackService;
-    private final MesProFrontlineRecordbookEntryService recordbookEntryService;
     private final MesProcessPoolSubmitEventService processPoolSubmitEventService;
     private final MesFrontlineSubmitAuthorizationService submitAuthorizationService;
     private final MesFrontlineLossReasonValidator lossReasonValidator;
@@ -51,7 +50,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
     private final MesProBatchRecordExecutionSignatureService signatureService;
 
     public MesProFrontlineFeedbackSubmitServiceImpl(MesProFeedbackService feedbackService,
-                                                    MesProFrontlineRecordbookEntryService recordbookEntryService,
                                                     MesProcessPoolSubmitEventService processPoolSubmitEventService,
                                                     MesFrontlineSubmitAuthorizationService submitAuthorizationService,
                                                     MesFrontlineLossReasonValidator lossReasonValidator,
@@ -61,7 +59,6 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                                                     MesMdAutoCodeRecordService autoCodeRecordService,
                                                     MesProBatchRecordExecutionSignatureService signatureService) {
         this.feedbackService = feedbackService;
-        this.recordbookEntryService = recordbookEntryService;
         this.processPoolSubmitEventService = processPoolSubmitEventService;
         this.submitAuthorizationService = submitAuthorizationService;
         this.lossReasonValidator = lossReasonValidator;
@@ -115,17 +112,12 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         Long feedbackId = feedbackService.createFrontlineFeedback(splitPayload.getFeedbackPayload());
         feedbackService.submitFeedback(feedbackId);
 
-        MesProFrontlineRecordbookEntryResult recordbookResult = null;
-        if (splitPayload.getRecordbookEntryPayload() != null) {
-            MesProFrontlineRecordbookEntryPayload recordbookEntryPayload = splitPayload.getRecordbookEntryPayload()
-                    .setFeedbackId(feedbackId);
-            recordbookResult = recordbookEntryService.createOriginalEntry(recordbookEntryPayload);
-        }
-
+        // The submit stage stores the recordbook payload only as a source snapshot.
+        // Flow 4 owns creation of the formal batch record at the explicit completion command.
         MesProcessPoolSubmitEventCreateReqBO eventPayload = splitPayload.getProcessPoolEventPayload()
                 .setFeedbackId(feedbackId)
-                .setRecordbookEntryId(recordbookResult == null ? null : recordbookResult.getRecordbookEntryId())
-                .setRecordbookEventId(recordbookResult == null ? null : recordbookResult.getRecordbookEventId());
+                .setRecordbookEntryId(null)
+                .setRecordbookEventId(null);
         Long processPoolEventId = processPoolSubmitEventService.createSubmitEvent(eventPayload);
         MesProFrontlineProcessPoolContextReqVO context = reqVO.getProcessPoolContext();
         processPoolSubmitEventService.createInitialAllocation(processPoolEventId,
@@ -133,8 +125,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
 
         MesProFrontlineFeedbackSubmitRespVO response = new MesProFrontlineFeedbackSubmitRespVO()
                 .setFeedbackId(feedbackId)
-                .setRecordbookEntryId(recordbookResult == null ? null : recordbookResult.getRecordbookEntryId())
-                .setRecordbookEventId(recordbookResult == null ? null : recordbookResult.getRecordbookEventId())
+                .setRecordbookEntryId(null)
+                .setRecordbookEventId(null)
                 .setProcessPoolEventId(processPoolEventId);
         return applyParameterAudit(response, parameterAuditResult);
     }
