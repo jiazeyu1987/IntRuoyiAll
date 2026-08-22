@@ -72,7 +72,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 2. 当前实现和旧测试仍存在先建批、资料后写及多入口直接放行路径，必须完成 RED/GREEN/REGRESSION。
 3. 真实租户、角色、签名、正式工单/领料单、PQC 汇总和四份附件尚未准备或使用，真实 Playwright E2E 尚未执行。
 4. 生产历史批次/申请尚未执行授权后的真实只读 dry-run、人工复核和回滚演练；本线程已完成规范化 fixture dry-run。缺映射、缺 receipt 或已放行来源不完整必须分别进入 TRACE_MAPPING_BLOCKED、LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED、ALREADY_RELEASED_REVIEW_REQUIRED。
-6. `int_main` 融合未完成：主工作树当前 HEAD 为 `a73c1fded980f2bb7e6c49fe9ca6660ce4725a3e`，存在 114 个 tracked dirty 文件及大量 untracked 任务产物，且与本分支提交重叠 `AGENTS.md`、`docs/local-runtime.md`、`docs/worktree-memory.md`；`git merge --ff-only codex/20260822-flow-repair-11-design-development` 以退出码 128 因分支 diverged 中止。不得覆盖主工作树改动。
+6. `int_main` 融合未完成：主工作树当前 HEAD 为 `d1553f2ad088d468b3b6ef05cc5ae7763a861044`，流程11分支 HEAD 为 `28a4709ef8e2f72b7f717cb695ed3778029aa7fe`，两者分叉；`git merge --ff-only codex/20260822-flow-repair-11-design-development` 退出码 1 并报告无法 fast-forward。主工作树存在大量其它未提交改动，且流程11任务目录未跟踪、Word 导入测试有未提交修改；不得覆盖、删除、stash 或将其纳入本任务。
 
 以上 blocker 是实现、数据和验证前置，不是流程修复 04、05、07、10 文档缺失；当前四材料合同也不以旧三项历史数据作为兼容成功条件。
 
@@ -81,7 +81,9 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 已执行：`python IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS 12；`python -m py_compile ...` -> PASS；`python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q` -> PASS（12 passed）；规范化 fixture dry-run -> PASS，总数 8、唯一批次 ID 8，分类计数 1/1/4/1/1，`write_allowed=false`、`side_effects=[]`。
 - 已执行（M13 历史结果）：`mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL，阻断于 `MesFrontlinePqcContextServiceImpl.java:736` 缺少 `EquipmentOption`。
 - 已执行（M14）：同一 bundled Maven compile 命令 -> PASS，MES reactor 24/24 modules `BUILD SUCCESS`；`branch-runtime-port-guard.ps1` -> PASS。
-- 已执行：`git merge --ff-only codex/20260822-flow-repair-11-design-development`（主工作树）-> FAIL，退出码 128，分支 diverged；主工作树 dirty 未改变。
+- 已执行：主工作树 branch-runtime guard -> PASS（8081/48081）。
+- 已执行：`git merge --ff-only codex/20260822-flow-repair-11-design-development`（主工作树）-> FAIL，退出码 1，`int_main` 与流程11分支 diverged；主工作树 dirty 未改变。
+- 已核对：`int_main` 不包含流程11 runner 或已跟踪任务文档；因此未执行主线程 runner/pytest/Maven/定向回归，未伪造融合后的验证证据。
 - 已执行：主线 `int_main` 不包含 `IntRuoyiBackend/script/run_flow_repair_11_contracts.py`（`git cat-file -e int_main:...` 退出码 128），主工作树也不存在该 runner；因此未伪造主线程 runner/回归 PASS。
 - 已执行：只读 rg --files、rg -n，核对五份文档、流程合同引用、四材料节点和 BDD/RED/GREEN/REGRESSION markers；自定义标记扫描确认独立入口、四个 BATCH_*、损耗三态和映射门禁均存在且旧凭证/待冻结措辞不存在。
 - 已执行：只读 git diff --check；对未跟踪 Markdown 另以 rg 扫描尾随空格。

@@ -135,3 +135,11 @@ REGRESSION: `mvn -pl yudao-module-mes -Dtest=MesFrontlinePqcContextServiceTest -
 M14 修改范围：恢复发布版/保存版 QA DTO 的设备字段和 `EquipmentOption` 嵌套 DTO，并修正 Word 导入测试的 `process` fixture；未修改业务状态、数据库、服务进程或主工作树。
 
 M14 COMMIT: `006a954d65c770a4454f41ed60a0ea312b3ad55a`，由正常 branch-runtime hook 创建，未使用 `--no-verify`。
+
+## M15 主线受保护融合复核
+
+- Task-owned 审计：流程11迁移脚本、合同测试、五份任务文档以及 M14 QA DTO/测试 fixture 属于本任务；`AGENTS.md`、运行时文档和守卫历史改动属于共享基础设施，不作为流程11业务交付追加。
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1`（`E:\IntRuoyi`） -> PASS，`int_main/int_main` 使用 8081/48081。
+- `git merge --ff-only codex/20260822-flow-repair-11-design-development`（`E:\IntRuoyi`） -> FAIL，退出码 1：`int_main` 为 `d1553f2ad088d468b3b6ef05cc5ae7763a861044`，与流程11分支 `28a4709ef8e2f72b7f717cb695ed3778029aa7fe` 分叉，无法 fast-forward。
+- 主工作树融合前后均未改变；主线当前没有 `IntRuoyiBackend/script/run_flow_repair_11_contracts.py` 或已跟踪的流程11任务文档。主线另有 Word 导入测试未提交修改和流程11任务目录未跟踪文件，不能覆盖、删除、stash 或提交为本任务内容。
+- 因未融合，不执行主线程 runner/pytest/Maven/定向回归，不将独立 worktree 结果冒充主线程证据。
