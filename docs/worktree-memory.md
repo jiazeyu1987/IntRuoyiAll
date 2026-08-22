@@ -2,16 +2,16 @@
 
 ## Worktree 端口段与原子槽位门禁
 
-- Trigger: 新建、登记、启动、提交或推送 `D:\IntRuoyiWorktree\` 下的 worktree；出现 `slot >= 20`、基准端口碰撞、重复活动槽位、重复活动端口、`No worktree port registry entry is registered`，或 `E:\IntRuoyi` 被识别为 `int_main_d`。
-- Preflight check: 附加 worktree 创建后，在首次启动、提交、推送或运行 `branch-runtime-port-guard.ps1` 前运行 `scripts\runtime\reserve-worktree-slot.ps1`，由脚本在跨进程互斥锁内读取登记表并分配所属 profile 的最低空闲 `slot 1..19`；随后运行 `show-branch-runtime.ps1` 或提交前钩子确认 profile、slot 和前后端端口。
-- Blocker: 槽位不在 `1..19`、计算端口命中任一 profile 基准端口、活动登记项复用 `profile/slot` 或前后端端口、基准工作区请求非零槽位、路径与 profile 无法唯一匹配、或提交钩子提示缺少当前 worktree registry active entry 时必须 fail fast。
+- Trigger: 新建、登记、启动、提交或推送 `D:\IntRuoyiWorktree\` 下的 worktree；出现 `slot >= 20` 扩展端口映射、基准端口碰撞、重复活动槽位、重复活动端口、`No worktree port registry entry is registered`，或 `E:\IntRuoyi` 被识别为 `int_main_d`。
+- Preflight check: 附加 worktree 创建后，在首次启动、提交、推送或运行 `branch-runtime-port-guard.ps1` 前运行 `scripts\runtime\reserve-worktree-slot.ps1`，由脚本在跨进程互斥锁内读取登记表并分配所属 profile 的最低空闲 `slot 1..40`；随后运行 `show-branch-runtime.ps1` 或提交前钩子确认 profile、slot 和前后端端口。
+- Blocker: 槽位不在 `1..40`、计算端口命中任一 profile 基准端口、活动登记项复用 `profile/slot` 或前后端端口、基准工作区请求非零槽位、路径与 profile 无法唯一匹配、或提交钩子提示缺少当前 worktree registry active entry 时必须 fail fast。
 - Verification: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py`、`pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1`、目标工作区 `show-branch-runtime.ps1` 输出，或 `reserve-worktree-slot.ps1 -AsJson` 返回当前路径、分支、profile、slot、frontendPort、backendPort 且后续 `git commit` 钩子通过。
-- Forbidden action: 禁止手工猜测槽位、并发直接改写登记表、使用 `slot >= 20`、基准工作区借用 worktree 槽位、冲突时随机换端口或按分支名猜测歧义 profile。
+- Forbidden action: 禁止手工猜测槽位、并发直接改写登记表、使用 `slot >= 41`、基准工作区借用 worktree 槽位、冲突时随机换端口或按分支名猜测歧义 profile。
 - Evidence: `doc/tasks/20260726-harden-worktree-port-slot-allocation/verification-report.md`；`doc/tasks/20260803-pqc-equipment-standard-method-design/execution-log.md`，PQC 文档 worktree 未启动服务但提交钩子仍要求 registry，补跑 `reserve-worktree-slot.ps1` 登记 slot 15 后解除阻塞。
 
 ## Worktree 旧无监听槽位释放门禁
 
-- Trigger: 用户明确要求清理 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中旧 active slot、无监听 slot、过期 runtime slot 或 slot 1..19 全占用但多数端口未监听。
+- Trigger: 用户明确要求清理 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中旧 active slot、无监听 slot、过期 runtime slot 或 slot 1..40 全占用但多数端口未监听。
 - Preflight check: 先读取 `docs\worktree-restrictions.md`、`docs\branch-runtime-ports.md` 和端口登记表；用 `Get-NetTCPConnection -State Listen` 复扫登记端口；释放前必须取得同 `reserve-worktree-slot.ps1` 一致的登记表 mutex；历史登记项可能缺少 `profile` 等字段，脚本必须显式可选读取字段并 fail fast。
 - Blocker: 未获得用户明确授权、端口仍有监听、创建时间不满足用户给定条件、登记表校验失败、active 项释放后出现重复 active slot/端口、或无法确认修改只影响用户指定范围时必须停止。
 - Verification: 重新读取登记表确认目标 active 项已变为 inactive；复扫 worktree 端口监听；运行 `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1`；在任务日志记录清理和保留清单。
