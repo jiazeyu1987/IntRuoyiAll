@@ -47,7 +47,7 @@ assert.match(
 )
 assert.match(
   page,
-  /const activePqcModuleTab = ref<'personnel' \| 'management' \| 'task' \| 'detail' \| 'history'>\('management'\)/,
+  /const activePqcModuleTab = ref<'personnel' \| 'management' \| 'equipment' \| 'detail' \| 'history'>\s*\(\s*'management'\s*\)/,
   'activePqcModuleTab 类型必须包含 history。'
 )
 assert.match(
@@ -79,12 +79,12 @@ assert.match(
 
 assert.match(
   page,
-  /const isPqcFormHistoryTab = computed\(\(\) =>\s*activeLeaderTab\.value === 'PQC' && activePqcModuleTab\.value === 'history'\s*\)/,
+  /const isPqcFormHistoryTab = computed\(\s*\(\)\s*=>\s*activeLeaderTab\.value === 'PQC' && activePqcModuleTab\.value === 'history'\s*\)/,
   '历史表单必须有稳定 computed 状态供查询与操作边界复用。'
 )
 assert.match(
   page,
-  /submissionReviewStatus:\s*\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)\s*\?\s*'APPROVED'\s*:\s*queryParams\.submissionReviewStatus \|\| undefined/,
+  /submissionReviewStatus:\s*isPqcFormHistoryTab\.value\s*\?\s*'APPROVED'\s*:\s*queryParams\.submissionReviewStatus \|\| undefined/,
   '历史表单查询必须强制提交 submissionReviewStatus=APPROVED。'
 )
 assert.match(
@@ -105,12 +105,12 @@ assert.match(
 )
 assert.match(
   page,
-  /const canReviewSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*row\.submissionReviewStatus === 'PENDING'/,
+  /const canReviewSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*!row\.released[\s\S]*Boolean\(row\.id\)/,
   '历史表单行不得出现复核入口。'
 )
 assert.match(
   page,
-  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*row\.submissionReviewStatus === 'REJECTED'/,
+  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*\(isProductionLeader\.value \|\| !row\.released\)[\s\S]*Boolean\(row\.id\)/,
   '历史表单行不得出现修改入口。'
 )
 

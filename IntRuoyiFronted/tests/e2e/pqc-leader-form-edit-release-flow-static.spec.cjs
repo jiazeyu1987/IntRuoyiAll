@@ -41,7 +41,7 @@ assert.match(
 )
 assert.match(
   page,
-  /const canReviewSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*&& !isProductionLeader\.value[\s\S]*&& !row\.released[\s\S]*Boolean\(row\.id\)/,
+  /const canReviewSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*!isProductionLeader\.value[\s\S]*!row\.released[\s\S]*Boolean\(row\.id\)/,
   'PQC current rows must keep the review button resident before release, regardless of latest review status.'
 )
 assert.doesNotMatch(
@@ -51,7 +51,7 @@ assert.doesNotMatch(
 )
 assert.match(
   page,
-  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*&& \(isProductionLeader\.value \|\| !row\.released\)[\s\S]*Boolean\(row\.id\)/,
+  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*!\(isProductionReportHistoryTab\.value \|\| isPqcFormHistoryTab\.value\)[\s\S]*\(isProductionLeader\.value \|\| !row\.released\)[\s\S]*Boolean\(row\.id\)/,
   'PQC current rows must keep the correction button resident before release.'
 )
 assert.doesNotMatch(

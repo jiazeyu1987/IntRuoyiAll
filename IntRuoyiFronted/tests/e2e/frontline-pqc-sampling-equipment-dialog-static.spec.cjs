@@ -46,7 +46,7 @@ const frontlineControllerSource = read(
 
 const qaSaveItem = blockBetween(
   qaApiSource,
-  'export interface QaInspectionRegulationSaveItemVO {',
+  'export interface QaInspectionRegulationItemVO {',
   'export interface QaInspectionRegulationSaveReqVO {'
 )
 for (const field of ['inspectionTool: string', 'samplingPlanText: string']) {
@@ -55,17 +55,17 @@ for (const field of ['inspectionTool: string', 'samplingPlanText: string']) {
 
 const qaSaveMapping = blockBetween(
   qaPageSource,
-  'const buildQaRegulationSaveItems = (',
-  'const resolveQaRegulationItemRouteProcesses = ('
+  'const buildQaRegulationSaveItem = (',
+  'const buildQaRegulationProcesses = ('
 )
 assert.match(
   qaSaveMapping,
-  /inspectionTool:\s*item\.inspectionTool,/,
+  /inspectionTool:\s*resolveRequiredText\(item\.inspectionTool,/,
   'QA save payload must persist the inspection-tool text from the current inspection item row.'
 )
 assert.match(
   qaSaveMapping,
-  /samplingPlanText:\s*item\.samplingPlanText,/,
+  /samplingPlanText:\s*resolveRequiredText\(item\.samplingPlanText,/,
   'QA save payload must persist the sampling-plan text from the current inspection item row.'
 )
 
@@ -75,12 +75,12 @@ for (const source of [qaSaveVoSource, qaItemDoSource, qaPublishedVoSource]) {
 }
 assert.match(
   qaServiceSource,
-  /\.inspectionTool\(item\.getInspectionTool\(\)\)[\s\S]*\.samplingPlanText\(item\.getSamplingPlanText\(\)\)/,
+  /\.inspectionTool\(StrUtil\.trim\(item\.getInspectionTool\(\)\)\)[\s\S]*\.samplingPlanText\(StrUtil\.trim\(item\.getSamplingPlanText\(\)\)\)/,
   'QA service must persist both display fields on each published inspection item.'
 )
 assert.match(
   qaServiceSource,
-  /\.inspectionTool\(item\.getInspectionTool\(\)\)[\s\S]*\.samplingPlanText\(item\.getSamplingPlanText\(\)\)[\s\S]*\.firstInspectionQuantity/,
+  /\.inspectionTool\(source\.getInspectionTool\(\)\)[\s\S]*\.samplingPlanText\(source\.getSamplingPlanText\(\)\)[\s\S]*\.firstInspectionQuantity/,
   'Published-version evidence must return both exact QA inspection-item display fields.'
 )
 assert.match(
@@ -124,8 +124,8 @@ for (const field of ['inspectionTool: string', 'samplingPlanText: string']) {
 }
 const itemMapping = blockBetween(
   panelSource,
-  'const pqcInspectionItems = computed<PqcInspectionItem[]>',
-  'const pqcInspectionItemMap = computed'
+  'const mapPqcInspectionItem = (item: FrontlinePqcInspectionItemVO)',
+  'const normalizePqcTaskOptionItemKey = ('
 )
 assert.match(itemMapping, /inspectionTool:\s*item\.inspectionTool,/)
 assert.match(itemMapping, /samplingPlanText:\s*item\.samplingPlanText,/)

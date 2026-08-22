@@ -57,7 +57,7 @@ assert.match(
 )
 assert.match(
   teamLeaderWorkbench,
-  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'task'\s*\|\s*'detail'\s*\|\s*'history'>\('management'\)/,
+  /const\s+activePqcModuleTab\s*=\s*ref<'personnel'\s*\|\s*'management'\s*\|\s*'equipment'\s*\|\s*'detail'\s*\|\s*'history'>\s*\(\s*'management'\s*\)/,
   'PQC leader module tabs must default to PQC管理.'
 )
 assert.match(

@@ -2752,7 +2752,13 @@ const getPqcTaskDraft = (taskOption: PqcTaskOptionSnapshot): PqcTaskDraftState =
 }
 
 const persistCurrentPqcTaskDraft = () => {
-  const taskOption = activePqcTaskOption.value
+  const process = deviceState.selectedProcess
+  const activeTaskId = activePqcTaskOptionId.value
+  if (!isFrontlinePqcProcess(process) || activeTaskId === undefined) {
+    return
+  }
+  const taskOption = getPqcTaskOptions(process)
+    .find((option) => option.pqcTaskId === activeTaskId)
   const key = getPqcTaskDraftKey(taskOption)
   if (!taskOption || !key) {
     return
@@ -3240,11 +3246,24 @@ const getPqcCurrentSubmitTaskOptions = () => {
     option.shiftCode === activeOption.shiftCode &&
     option.roundNo === activeOption.roundNo
   )
+  const completedScopeOptions = process.pqcTaskOptions
+    .filter((option) =>
+      option.taskStatus !== 'PENDING' &&
+      option.inspectionType === activeOption.inspectionType &&
+      option.businessDate === activeOption.businessDate &&
+      option.shiftCode === activeOption.shiftCode &&
+      option.roundNo === activeOption.roundNo
+    )
   const submitOptions: PqcTaskOptionSnapshot[] = []
   const submittedTaskIds = new Set<number>()
   for (const item of pqcInspectionItems.value) {
     const option = scopeOptions.find((option) => pqcTaskOptionIncludesItem(option, item.key))
     if (!option) {
+      if (completedScopeOptions.some((completedOption) =>
+        pqcTaskOptionIncludesItem(completedOption, item.key)
+      )) {
+        continue
+      }
       throw new Error(`${item.label}缺少${formatPqcTaskOptionLabel(activeOption)}PQC任务。`)
     }
     if (!submittedTaskIds.has(option.pqcTaskId)) {
