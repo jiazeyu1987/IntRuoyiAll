@@ -420,6 +420,29 @@ public class MesTeamLeaderOrderProcessCompletionService {
         return workOrder;
     }
 
+    private String aggregateHash(TargetKey targetKey,
+                                 List<MesProProcessPoolEventDO> sourceEvents,
+                                 List<MesProcessPoolReportAllocationDO> sourceAllocations) {
+        StringBuilder canonical = new StringBuilder();
+        canonical.append("workOrder:").append(targetKey.workOrderId()).append('\n')
+                .append("routeProcess:").append(targetKey.routeProcessId()).append('\n')
+                .append("process:").append(targetKey.processId()).append('\n');
+        for (MesProProcessPoolEventDO sourceEvent : sourceEvents) {
+            canonical.append("event:")
+                    .append(sourceEvent.getId()).append('|')
+                    .append(sourceEvent.getRawPayload()).append('|')
+                    .append(sourceEvent.getServerSubmitTime()).append('\n');
+        }
+        for (MesProcessPoolReportAllocationDO sourceAllocation : sourceAllocations) {
+            canonical.append("allocation:")
+                    .append(sourceAllocation.getId()).append('|')
+                    .append(sourceAllocation.getEventId()).append('|')
+                    .append(sourceAllocation.getAllocatedQuantity()).append('|')
+                    .append(sourceAllocation.getConfirmedAt()).append('\n');
+        }
+        return sha256(canonical.toString());
+    }
+
     private String aggregateHashFromAllocations(TargetKey targetKey,
                                                 List<MesProcessPoolReportAllocationDO> sourceAllocations) {
         StringBuilder canonical = new StringBuilder();
