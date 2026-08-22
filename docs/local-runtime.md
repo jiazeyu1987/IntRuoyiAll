@@ -8,7 +8,7 @@
 
 ## 固定端口
 
-PORT_CONTRACT_VERSION: 2026-08-15-branch-runtime-v4
+PORT_CONTRACT_VERSION: 2026-08-21-branch-runtime-v5
 
 - `int_main` 前端专属端口：`8081`。
 - int_main 后端专属端口：48081。
@@ -48,7 +48,9 @@ PORT_CONTRACT_VERSION: 2026-08-15-branch-runtime-v4
 - 如果端口被同一 runtime profile 的旧进程占用，可记录进程 ID、命令行和归属依据后停止对应旧进程，再启动。
 - 如果端口被未知进程、非 IntRuoyi 进程或其他 runtime profile 占用，必须 fail fast，不得强杀或换端口。
 - worktree 必须按 `docs/worktree-restrictions.md` 的 profile + slot 规则使用独立端口。
-- 附加 worktree 的 `slot` 只允许 `1..30`，必须由 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配；`slot >= 31` 或命中任一基准端口时必须 fail fast。槽位 `1..19` 保持原端口，`20..30` 使用 `docs\branch-runtime-ports.md` 的独立扩展段。
+- 附加 worktree 的 `slot` 只允许 `1..40`，必须由 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配；`slot >= 41` 或命中任一基准端口时必须 fail fast。槽位 `1..19` 保持原端口，`20..30` 和 `31..40` 分别使用 `docs\branch-runtime-ports.md` 的独立扩展段。
+
+- 槽位 31..40 使用第二独立扩展端口段：int_shedule 8176-8185/48176-48185、int_batch 8186-8195/48186-48195、int_qms 8196-8205/48196-48205、int_main 8206-8215/48206-48215、int_main_d 8216-8225/48216-48225。
 
 ## 2026-07-24 本地重启脚本路径门禁
 
