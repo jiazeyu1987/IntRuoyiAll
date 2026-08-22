@@ -86,9 +86,6 @@ public class MesQaInspectionRegulationSaveReqVO {
         private BigDecimal standardUpperLimit;
         private String standardUnit;
         private Integer standardPrecision;
-        private Boolean equipmentRequired;
-        @Valid
-        private List<EquipmentOption> equipmentOptions;
         private String resultType;
         private List<String> applicableInspectionTypes;
         private Integer firstInspectionQuantity;
@@ -102,18 +99,5 @@ public class MesQaInspectionRegulationSaveReqVO {
         private String sourceOriginalMethod;
     }
 
-    @Data
-    public static class EquipmentOption {
-        @NotNull(message = "检验设备不能为空")
-        private Long equipmentId;
-        @NotBlank(message = "设备编码不能为空")
-        private String equipmentCode;
-        @NotBlank(message = "设备名称不能为空")
-        private String equipmentName;
-        @NotBlank(message = "设备编号不能为空")
-        private String equipmentNumber;
-        private Boolean defaultFlag;
-        private Integer sort;
-    }
 
 }
