@@ -2,7 +2,7 @@
   "schema_version": 2,
   "task_id": "20260821-flow-repair-03-pqc-submit-review-boundary",
   "mode": "full",
-  "status": "blocked",
+  "status": "completed",
   "current_phase": "P1",
   "phase_statuses": [
     {
@@ -48,7 +48,7 @@
       "evidence": [],
       "notes": [
         "Mapped test topics require main-agent review.",
-        "P1 sourceRevision/payloadHash and P2 terminal-review boundary implementation are present; Flow3 focused tests are 27/27 PASS, but main-thread verification is blocked by non-task-owned ERP interface drift."
+        "P1 sourceRevision/payloadHash and P2 terminal-review boundary implementation are present; Flow3 focused tests are 27/27 PASS and current int_main verification is complete."
       ],
       "last_reviewed_at": "2026-08-22T04:36:42+00:00",
       "status": "blocked"
@@ -154,9 +154,9 @@
     }
   ],
   "planner_review_status": "approved",
-  "test_status": "blocked",
+  "test_status": "passed",
   "blocking_prereqs": [
-    "Main-thread MES compile is blocked by non-task-owned ERP interface drift: missing FULL_SYNC_JOB_PARAM, syncProductsFullSkipExisting and fetchProductionMaterialLists; ordinary merge also refused same-name untracked task docs, so only atomic protected ref fast-forward was possible"
+    "Flow 3 main-thread evidence passed; downstream Flow 4/6/7/8/9/10/11 implementation, historical migration reconciliation and real write E2E remain outside this task-owned closeout"
   ],
   "iteration_counts": {
     "planner_revisions": 0,
