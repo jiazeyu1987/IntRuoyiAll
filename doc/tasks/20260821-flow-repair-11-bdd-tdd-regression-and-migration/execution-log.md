@@ -142,7 +142,7 @@ M14 COMMIT: `006a954d65c770a4454f41ed60a0ea312b3ad55a`，由正常 branch-runtim
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1`（`E:\IntRuoyi`） -> PASS，`int_main/int_main` 使用 8081/48081。
 - `git merge --ff-only codex/20260822-flow-repair-11-design-development`（`E:\IntRuoyi`）仍不能直接更新本地主工作树：本地存在用户未提交/未跟踪的 `AGENTS.md`、运行时文档、任务文档和 Word fixture，快进会覆盖它们；未执行 reset/checkout/stash/clean，也未覆盖这些文件。
 - 在干净流程11集成 worktree 中已合入主线前后端 task-owned 提交 `5f0138e4c`，生成受保护融合提交 `378ce5719`；补齐被全局 ignore 排除的 BPM 编译源 `dabb52df0`、ERP 编译源 `dfb3fcea8` 和 10 个运行时合同测试 `9ba449c44`。
-- `git push origin HEAD:int_main` -> PASS；远端 `origin/int_main` 已指向 `9ba449c44`，`git merge-base --is-ancestor codex/20260822-flow-repair-11-design-development origin/int_main` -> PASS。
+- `git push origin HEAD:int_main` -> PASS；远端 `origin/int_main` 已指向 `ce1d69cb2`，`git merge-base --is-ancestor codex/20260822-flow-repair-11-design-development origin/int_main` -> PASS。
 - 主线前后端提交 `5f0138e4c` 仅包含已审计的 68 个后端/前端代码与测试文件，正常 hook 和 push 均通过；共享文档及其它任务登记未纳入。
 - 当前仍未启动服务、访问数据库、执行生产历史迁移、人工批准/回滚演练或真实 Playwright E2E；这些仍是跨流程 blocker。
 

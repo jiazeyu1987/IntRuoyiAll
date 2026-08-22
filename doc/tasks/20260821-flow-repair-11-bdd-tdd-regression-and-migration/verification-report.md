@@ -72,7 +72,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 2. 当前实现和旧测试仍存在先建批、资料后写及多入口直接放行路径，必须完成 RED/GREEN/REGRESSION。
 3. 真实租户、角色、签名、正式工单/领料单、PQC 汇总和四份附件尚未准备或使用，真实 Playwright E2E 尚未执行。
 4. 生产历史批次/申请尚未执行授权后的真实只读 dry-run、人工复核和回滚演练；本线程已完成规范化 fixture dry-run。缺映射、缺 receipt 或已放行来源不完整必须分别进入 TRACE_MAPPING_BLOCKED、LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED、ALREADY_RELEASED_REVIEW_REQUIRED。
-6. 远端融合已完成，但本地主工作树未做覆盖式快进：本地 `E:\IntRuoyi` 的 dirty/untracked `AGENTS.md`、运行时文档、任务文档和 Word fixture 会被快进覆盖，因此 `git merge --ff-only` 在本地被保护性拒绝；未执行 reset/checkout/stash/clean。干净流程11 worktree 已合入 `5f0138e4c`，并由 `git push origin HEAD:int_main` 推送 `origin/int_main=9ba449c44`，祖先关系核验通过。
+6. 远端融合已完成，但本地主工作树未做覆盖式快进：本地 `E:\IntRuoyi` 的 dirty/untracked `AGENTS.md`、运行时文档、任务文档和 Word fixture 会被快进覆盖，因此 `git merge --ff-only` 在本地被保护性拒绝；未执行 reset/checkout/stash/clean。干净流程11 worktree 已合入 `5f0138e4c`，并由 `git push origin HEAD:int_main` 推送 `origin/int_main=ce1d69cb2`，祖先关系核验通过。
 
 以上 blocker 是实现、数据和验证前置，不是流程修复 04、05、07、10 文档缺失；当前四材料合同也不以旧三项历史数据作为兼容成功条件。
 
@@ -83,7 +83,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 已执行（M14/M16）：恢复 QA DTO 后 MES reactor 24/24 `BUILD SUCCESS`；补齐被 `**/runtime/` 错误忽略的 BPM/ERP 源后，完整 `mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS；Flow11 runtime guard（8090/48090）-> PASS。
 - 已执行：Flow11 Python runner 12 场景、pytest `12 passed`、py_compile、两个受影响 E2E `node --check`、`git diff --check` -> PASS。
 - 已执行：`test_branch_runtime_profile.py -q --basetemp D:\IntRuoyiWorktree\flow11-pytest-temp` -> PASS，16 passed；slot=31 可用，slot=41 按当前上限拒绝，不再出现 `must be between 1 and 30`。
-- 已核对：`origin/int_main=9ba449c44` 包含流程11分支，`git merge-base --is-ancestor codex/20260822-flow-repair-11-design-development origin/int_main` -> PASS；本地主工作树未强行更新，未把独立 worktree 结果冒充本地 checkout 证据。
+- 已核对：`origin/int_main=ce1d69cb2` 包含流程11分支，`git merge-base --is-ancestor codex/20260822-flow-repair-11-design-development origin/int_main` -> PASS；本地主工作树未强行更新，未把独立 worktree 结果冒充本地 checkout 证据。
 - 已执行：只读 rg --files、rg -n，核对五份文档、流程合同引用、四材料节点和 BDD/RED/GREEN/REGRESSION markers；自定义标记扫描确认独立入口、四个 BATCH_*、损耗三态和映射门禁均存在且旧凭证/待冻结措辞不存在。
 - 已执行：只读 git diff --check；对未跟踪 Markdown 另以 rg 扫描尾随空格。
 - 未执行：流程1-10生产代码合同回归、服务、生产数据库迁移、SQL、人工批准/回滚演练、真实 Playwright E2E 和任何写入型 E2E；上述流程11无副作用验证不替代这些跨流程证据。
