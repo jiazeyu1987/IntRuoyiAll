@@ -54,14 +54,6 @@
 - Verification: 记录前置提交 hash、`git show --name-status --oneline -1`、目标 worktree `git status --short --branch`、完整 Maven 命令和本次退出输出；只接受本次命令进入 Surefire 且 `BUILD SUCCESS` 的结果。
 - Forbidden action: 禁止复制未提交文件绕过 Git，禁止使用旧 `target`/静态扫描/API-only 冒充 Maven GREEN，禁止用 `git add -A` 将其它任务文件带入前置提交，也禁止在并发 Maven 未释放时叠加复跑。
 
-### 全局 ignore 导致的编译源缺失
-
-- Trigger: 编译器报告生产类型缺失，但同名源文件存在于另一个 worktree、`target/classes` 曾经可以编译，或路径命中 `**/runtime/` 等全局 ignore 规则。
-- Preflight check: 先用 `rg --files`、`git check-ignore -v <path>` 和 `git ls-files <path>` 确认源文件是否被 Git 忽略；从 task-owned worktree 逐文件补齐正式源码和运行时合同测试，禁止用旧 target 或复制未提交文件掩盖缺失。
-- Blocker: 无法证明文件归属、补齐范围包含其它任务、编译仍依赖 stale target，或测试只在缓存 class 上通过时必须停止；记录首次缺类、ignore 规则、补齐提交和复编译退出码。
-- Verification: 重新运行完整 `mvn -pl ... -am -DskipTests compile`，确认目标 Reactor `BUILD SUCCESS`，并用 `git ls-tree -r --name-only <integrated-ref>` 核验源文件已经进入集成引用；随后运行对应合同测试。
-- Forbidden action: 禁止修改 ignore 规则来吞掉缺失、复制主工作区旧 jar/class、使用 `--no-verify` 或将未解释的 runtime 文件批量 `git add -A`。
-
 ## 多 Worktree 批量融合门禁
 
 - Trigger: 将 `D:\IntRuoyiWorktree\` 下多个功能分支批量合入 `int_main`，尤其是 worktree 存在 dirty 状态、多个分支修改同一服务/API/测试文件，或合并后需要立即删除 worktree。
