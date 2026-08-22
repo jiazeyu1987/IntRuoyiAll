@@ -58,6 +58,8 @@ completed
 
 收尾证据：先标记 `ready_for_closeout`，完成 cleanup preview/apply（无可删除附属产物）后标记 `completed`；流程9自身代码与 task-owned 合同测试已合并并验证，跨流程闭环仍未完成。
 
+最新主线收尾（2026-08-23）：`int_main` HEAD=`b2f8e8356e1c6e27161147bb0d0d3802da3e848f`，`477c97d41` 仍在祖先链；不重复融合旧 worktree。
+
 ## Cleanup Keep
 
 - doc/tasks/20260821-flow-repair-09-multi-entry-precondition-contract/development-plan.md

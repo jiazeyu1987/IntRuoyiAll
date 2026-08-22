@@ -15,6 +15,7 @@
 - M4 PASS：更新入口矩阵、放行矩阵、BDD、迁移/回滚和跨线程契约。
 - M5 PASS：流程9入口合同代码、task-owned 测试和五份文档结构核验完成。
 - M6 PASS：`477c97d41` 已 fast-forward 融合到 `int_main`；当前主线程 HEAD 为 `155c767d5`，目标编译 BUILD SUCCESS，目标测试 42/42 PASS。
+- M7 PASS（2026-08-23）：最新 `int_main` HEAD=`b2f8e8356e1c6e27161147bb0d0d3802da3e848f`；确认 `477c97d41` 在祖先链，无重复融合。
 
 ## BDD/TDD 记录
 
@@ -29,6 +30,7 @@
 - `RED: mvn -o -pl yudao-module-mes -Dtest=ScheduleApplierTest,MesBatchExecutionEntryContractTest,MesPqcReleaseBatchExecutionServiceTest,MesProductionReleaseBatchExecutionPortTest -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=0 test -> FAIL，先暴露独立/活跃凭证、损耗事实和入口映射夹具不一致。`
 - `GREEN: mvn -o -pl yudao-module-mes -am -DskipTests compile -> PASS；目标四类测试 -> PASS，Tests run: 42, Failures: 0, Errors: 0。`
 - `REGRESSION: NOT RUN ->` 流程11全链路、并发/迁移、四材料、最终放行和真实 E2E 仍未执行。
+- 最新主线程复核沿用已通过命令：MES compile `BUILD SUCCESS`；入口合同/PQC 联动/生产放行端口/排产 fail-fast 定向测试 `42/42 PASS`；`git diff --check` 和 `branch-runtime-port-guard.ps1` 通过。
 
 ## 代码审计事实
 
