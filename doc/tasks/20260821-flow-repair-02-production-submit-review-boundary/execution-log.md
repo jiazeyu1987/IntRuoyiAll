@@ -37,6 +37,9 @@ BDD: 完整 reactor 编译 -> Given ERP 合同测试和 MES QA 正式 DTO/测试
 - Full reactor `test`: reached runtime tests but stopped in unrelated `yudao-module-infra` with 3 failures and 1 error (`RuntimeControlLocalConfigContractTest`, `RuntimeIncidentServiceImplTest`, `RuntimeOpsGuideServiceImplTest`, `RuntimeOpsResponsibilityServiceImplTest`); no MES test failure was observed in that run.
 - 文档/结构检查：PASS（task/development-plan/test-plan/execution-log/verification-report 结构和跨线程关键词已静态核对；backend-api-evidence 校验 PASS）。
 - 生产边界静态检查：PASS（提交服务无正式记录簿创建调用；工序完成服务无 completeAndBackfill、批记录回填服务或回填服务调用）。
+- 收尾提交：PASS，流程2 task-owned commit `cf58816f7`；仅包含流程2 MES 生产代码、测试和任务文档，ERP/QA/PQC 及其它并行改动未暂存。
+- fast-forward 融合：PASS，`E:\IntRuoyi` `int_main` 从 `a73c1fded` fast-forward 至 `cf58816f7`，无 merge commit；主工作树其它未提交改动保留。
+- merged-result：PASS，主工作树 MES `test-compile` BUILD SUCCESS；目标回归 108 项，Failures=0、Errors=0、Skipped=0。
 
 ## 跨线程事实
 
@@ -57,4 +60,4 @@ BDD: 完整 reactor 编译 -> Given ERP 合同测试和 MES QA 正式 DTO/测试
 - Maven compile gates are clear. The full reactor test remains red only on unrelated infra runtime tests listed above; the 108-item flow2/adjacent target suite passes independently.
 - 剩余职责修复：删除流程2未使用的正式记录簿写入 service 与 entry payload/result 类型，新增显式 `MesProFrontlineRecordbookSourceSnapshot`；来源快照不可被误用为正式批记录。
 - 跨线程事件字段和流程3 PQC 合同仍需由邻接线程冻结。
-- 提交/融合门禁未通过：`scripts\preflight\branch-runtime-port-guard.ps1` 要求当前 worktree 先注册端口；官方注册脚本因既有并行登记 `D:\IntRuoyiWorktree\20260820-pqc-inspection-equipment-selection` 使用越界活动 `slot=31` 而拒绝执行。不得删除、改写或绕过该其它任务登记；因此本轮未提交、未融合、未生成 commit hash。
+- 提交/融合门禁：已解除。v5 合同允许 slot `1..40`；流程2通过官方脚本登记 slot 10，流程2 worktree guard 与主分支融合后基准端口 guard 均 PASS。其它任务的 slot 登记未被删除、改写或绕过。

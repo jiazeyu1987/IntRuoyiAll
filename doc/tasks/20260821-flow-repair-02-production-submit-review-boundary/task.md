@@ -33,9 +33,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-流程2边界实现与编译阻断修复已完成。流程2来源快照已与正式记录簿写入 service 解耦；ERP test-compile、MES 2783 个主源码编译、MES 488 个测试源码编译，以及流程2/相邻 QA 测试共 108 项均通过。服务、数据库和写入型 E2E 仍按范围未运行。task-closeout-cleanup preview/apply 已执行，删除项为 0；两个预置临时路径均不存在。提交/融合尚未执行：强制端口保护门禁因官方注册表存在其它任务的越界活动槽位 `slot=31` 而失败，禁止绕过或修改该并行任务登记。
+流程2边界实现与编译阻断修复已完成。task-owned commit 为 `cf58816f7`，已从流程2 worktree fast-forward-only 融合至 `E:\IntRuoyi` 的 `int_main`；主分支 HEAD 已核对为该提交。流程2 worktree 通过官方端口登记 slot 10（8091/48091）及 guard，主分支融合钩子通过基准端口 guard（8081/48081）。主工作树 MES reactor `test-compile` 与流程2/相邻目标回归均已实测通过。服务、数据库和写入型 E2E 仍按范围未运行。
 
 ## Cleanup Keep
 

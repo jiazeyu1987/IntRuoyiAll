@@ -20,7 +20,10 @@
 - 生产 REGRESSION：PASS（提交、复核、驳回、分配版本/幂等/并发/超量、进度投影，以及 QA 保存/Word 导入测试）。
 - 完整 reactor test：本轮未重跑；此前唯一失败为无关 infra 运行时测试，编译和任务范围回归均通过。
 - 服务、数据库、写入型 E2E：NOT RUN。
+- task-owned commit：PASS，`cf58816f7`。
+- fast-forward-only 融合：PASS，`int_main` HEAD 已核对为 `cf58816f7`。
+- merged-result：PASS，主工作树 MES `test-compile` BUILD SUCCESS；流程2及相邻目标回归 108 项，Failures=0、Errors=0、Skipped=0。
 
 ## Blockers
 
-跨线程正式事件字段与流程3 PQC 合同仍需邻接线程冻结，运行态未验证。提交/融合还受端口保护门禁阻断：官方注册表含其它任务的越界活动 `slot=31`，当前分支无法注册合法槽位，因此未生成 commit hash、未融合到 `int_main`。不得把 108 项目标测试冒充完整 reactor test 或运行态验证。
+跨线程正式事件字段与流程3 PQC 合同仍需邻接线程冻结，运行态未验证；完整 reactor test 仍有此前记录的无关 infra 运行时失败，未将其冒充流程2通过。服务、数据库和写入型 E2E 未运行。端口 slot=31 blocker 已由 v5 合同解除，未修改其它任务登记。
