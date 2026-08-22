@@ -1,11 +1,11 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PortContractVersion = '2026-08-15-branch-runtime-v4'
+$script:PortContractVersion = '2026-08-21-branch-runtime-v5'
 $script:DefaultWorktreePortRegistryPath = 'D:\IntRuoyiWorktree\.ports\worktree-ports.json'
 $script:MinimumWorktreeSlot = 1
 $script:LegacyMaximumWorktreeSlot = 19
-$script:MaximumWorktreeSlot = 30
+$script:MaximumWorktreeSlot = 40
 
 function Get-BranchRuntimeProfiles {
     @(
@@ -17,6 +17,8 @@ function Get-BranchRuntimeProfiles {
             BackendBasePort = 48101
             ExtendedFrontendStartPort = 8165
             ExtendedBackendStartPort = 48165
+            SecondExtendedFrontendStartPort = 8216
+            SecondExtendedBackendStartPort = 48216
             FrontendMode = 'branch-main-d'
             EnvFile = 'IntRuoyiFronted\.env.branch-main-d'
         },
@@ -28,6 +30,8 @@ function Get-BranchRuntimeProfiles {
             BackendBasePort = 48081
             ExtendedFrontendStartPort = 8154
             ExtendedBackendStartPort = 48154
+            SecondExtendedFrontendStartPort = 8206
+            SecondExtendedBackendStartPort = 48206
             FrontendMode = 'env.local'
             EnvFile = $null
         },
@@ -39,6 +43,8 @@ function Get-BranchRuntimeProfiles {
             BackendBasePort = 48041
             ExtendedFrontendStartPort = 8132
             ExtendedBackendStartPort = 48132
+            SecondExtendedFrontendStartPort = 8186
+            SecondExtendedBackendStartPort = 48186
             FrontendMode = 'branch-batch'
             EnvFile = 'IntRuoyiFronted\.env.branch-batch'
         },
@@ -50,6 +56,8 @@ function Get-BranchRuntimeProfiles {
             BackendBasePort = 48021
             ExtendedFrontendStartPort = 8121
             ExtendedBackendStartPort = 48121
+            SecondExtendedFrontendStartPort = 8176
+            SecondExtendedBackendStartPort = 48176
             FrontendMode = 'branch-shedule'
             EnvFile = 'IntRuoyiFronted\.env.branch-shedule'
         },
@@ -61,6 +69,8 @@ function Get-BranchRuntimeProfiles {
             BackendBasePort = 48061
             ExtendedFrontendStartPort = 8143
             ExtendedBackendStartPort = 48143
+            SecondExtendedFrontendStartPort = 8196
+            SecondExtendedBackendStartPort = 48196
             FrontendMode = 'branch-qms'
             EnvFile = 'IntRuoyiFronted\.env.branch-qms'
         }
@@ -389,10 +399,14 @@ function Get-BranchRuntimePorts {
     if ($Slot -le $script:LegacyMaximumWorktreeSlot) {
         $frontendPort = $Profile.FrontendBasePort + $Slot
         $backendPort = $Profile.BackendBasePort + $Slot
-    } else {
+    } elseif ($Slot -le 30) {
         $extendedOffset = $Slot - ($script:LegacyMaximumWorktreeSlot + 1)
         $frontendPort = $Profile.ExtendedFrontendStartPort + $extendedOffset
         $backendPort = $Profile.ExtendedBackendStartPort + $extendedOffset
+    } else {
+        $secondExtendedOffset = $Slot - 31
+        $frontendPort = $Profile.SecondExtendedFrontendStartPort + $secondExtendedOffset
+        $backendPort = $Profile.SecondExtendedBackendStartPort + $secondExtendedOffset
     }
 
     [pscustomobject]@{
