@@ -44,7 +44,7 @@
 
 ## Current Status
 
-completed（流程11专项范围）：流程11迁移分类器、只读 dry-run、12 个 Python 合同场景、BPM/ERP 编译源修复、全模块 Maven 编译、task-owned 文件恢复及本地受保护融合已完成并验证；本地 `int_main` 当前包含流程11 `8fe9228b2`。ERP 定向 JUnit 6/6、BPM 46/46、runner、pytest、py_compile 均通过。主工作树其它 dirty/untracked 文件未被覆盖。全链路仍为 No-Go：流程1-10生产闭环、真实 Playwright E2E、生产历史迁移、人工批准和回滚演练尚未完成。
+completed（流程11专项范围）：流程11迁移分类器、只读 dry-run、12 个 Python 合同场景、BPM/ERP 编译源修复、全模块 Maven 编译、task-owned 文件恢复及本地受保护融合已完成并验证；本地 `int_main` 当前为 `7e5f4c707`，包含流程11 `8fe9228b2`。ERP 定向 JUnit 6/6、BPM 46/46、runner、pytest、py_compile、前端 TS/Node 静态检查、runtime guard 和 diff-check 均通过。主工作树其它 dirty/untracked 文件未被覆盖。全链路仍为 No-Go：流程1-10生产闭环、真实 Playwright E2E、生产历史迁移、人工批准和回滚演练尚未完成。
 
 ## 修改边界
 
