@@ -11,7 +11,7 @@
 - 正数损耗路径已校验正式来源、签名、原因、明细和五字段绑定快照，输出 `REQUIRED`、`hasActualLoss=true`、`lossQuantity>0` 并创建正式损耗单。
 - 明确无损耗路径输出 `NO_LOSS`、`hasActualLoss=false`、`lossQuantity=0`、`lossReportStatus=NOT_REQUIRED`，不创建损耗单、零数量报告或 `lossRecordId`。
 - 缺失事实、绑定、签名或映射时输出阻塞，不生成成功 receipt；不能从缺少 `lossRecordId` 推断无损耗。
-- task-owned commit `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 已由主线集成提交 `16e47106e043ad93b4d43d699d269996703a47e1` 融合；当前 `int_main` HEAD 为 `404524836d6b6a2ad6d639f63aa5f9f3a4038be6`，已确认其祖先关系。
+- task-owned commit `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 已由主线集成提交 `16e47106e043ad93b4d43d699d269996703a47e1` 融合；并行主线随后前移，当前 `int_main` HEAD 为 `fd7566c3ef3c8fea3adcc0e73cb23d2c86d66cf8`，已确认其祖先关系。
 
 ## Document Structure Verification
 
@@ -23,8 +23,8 @@
 - 已核对五份文档均使用 `pickListBindingId`、`pickListId`、`sourceSnapshotHash`、`bindingVersion`、`batchPickListRelationId` 作为领料绑定合同，并声明流程 5 只读校验、不创建或猜测关系。
 - 已核对五份文档均冻结逐工序/订单级 `hasActualLoss`：正损耗工序决策为 REQUIRED，必须为 true 且 lossQuantity>0、建损耗单并使 receipt 的 `lossReportStatus=SUCCESS`；无损耗工序决策为 NO_LOSS，必须有正式零损耗确认快照、为 false 且 lossQuantity=0，receipt 的 `lossReportStatus=NOT_REQUIRED` 且不生成 lossRecordId；不能从缺少 lossRecordId 推断 false。
 - 已核对接口/错误码合同：绑定快照缺失或变化返回 `LOSS_SOURCE_PICK_LIST_BINDING_REQUIRED` / `LOSS_SOURCE_PICK_LIST_BINDING_SNAPSHOT_CHANGED`，`hasActualLoss` 缺失或矛盾返回 `LOSS_HAS_ACTUAL_LOSS_REQUIRED` / `LOSS_HAS_ACTUAL_LOSS_CONFLICT`，均 fail fast。
-- 主线 `mvn -pl yudao-module-mes -DskipTests compile` -> PASS。
-- 主线流程5核心 JUnit（splitter、dynamic-form、writer、source-reader）共21项 -> PASS。
+- 主线 `mvn -pl yudao-module-mes -DskipTests compile`（Maven 3.9.16，当前 HEAD）-> PASS。
+- 主线流程5核心 JUnit（splitter、dynamic-form、writer、source-reader）共21项（当前 HEAD）-> PASS。
 - 主线 `git diff --check` -> PASS；runtime v5 guard -> PASS（int_main 8081/48081）。
 - 组合测试中的 `MesFrontlineRuntimeConfigProcessScopeTest` 1项失败，属于前线运行时参数校验静态契约，不属于流程5条件损耗 owner；流程5核心21项不受影响。
 - UTF-8 文档写入使用 apply_patch；未使用 PowerShell 重定向写入中文文件。
@@ -52,4 +52,4 @@ REGRESSION: git diff --check -> PASS；branch-runtime-port-guard.ps1 -> PASS；�
 
 ## Closeout Evidence
 
-task-closeout-cleanup preview/apply 已通过；五份正式文档均保留，清理删除项为零。流程5代码/测试已融合并完成主线 compile、核心21项 JUnit、diff-check 和 runtime guard；数据库迁移、服务和写入型 E2E 仍 NOT_RUN，跨流程 blocker 仍按上文保留。
+task-closeout-cleanup preview/apply 已通过；五份正式文档均保留，清理删除项为零。流程5代码/测试已融合并在当前 `int_main` 完成 compile、核心21项 JUnit、diff-check 和 runtime guard；数据库迁移、服务和写入型 E2E 仍 NOT_RUN，跨流程 blocker 仍按上文保留。

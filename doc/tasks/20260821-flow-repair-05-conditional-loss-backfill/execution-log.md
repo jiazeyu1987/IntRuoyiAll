@@ -32,7 +32,7 @@ BDD: 原子回滚 -> Given 任一工序来源或损耗写入失败，When 流程
 BDD: 幂等与来源快照 -> Given 同一完成版本、五字段绑定快照和来源哈希重试，When 重复提交，Then 返回同一回执及 hasActualLoss；绑定字段、来源变化或同键载荷变化必须冲突。
 BDD: 缺失事实阻塞 -> Given 任一工序缺少正式零损耗事实、五字段绑定快照或签名，When 流程 4 统一回填，Then 返回 BLOCKED，不提交成功 receipt，流程 6 不得建批，不能把缺失推断为 false。
 
-根因：损耗单被当成无条件第三份资料；零损耗没有正式状态；文档已冻结但生产实现尚未贯通流程 1/6 五字段领料绑定快照和流程 4/6 的 hasActualLoss/lossReportStatus receipt 合同；提交/复核、完成回填和后继建批职责混杂；按工序条件和流程 4 的订单级回填事务尚未统一。
+历史根因基线：损耗单曾被当成无条件第三份资料，零损耗没有正式状态，流程 1/6 五字段领料绑定快照与流程 4/6 的 hasActualLoss/lossReportStatus receipt 合同曾未贯通，且提交/复核、完成回填和后继建批职责混杂。当前流程 5 条件实现已融合主线；流程 4/6 receipt 持久化和后继编排仍由对应线程验证。
 
 ## Milestone 3: Design Output
 
@@ -57,8 +57,8 @@ REGRESSION: git diff --check -> PASS；branch-runtime-port-guard.ps1 -> PASS；�
 
 ## Final Evidence
 
-- 流程5代码/测试已由 `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 提交，并以 `16e47106e043ad93b4d43d699d269996703a47e1` 融合当前 `int_main`；当前 `int_main` HEAD 为 `404524836d6b6a2ad6d639f63aa5f9f3a4038be6`，已确认包含该祖先。
-- 主线 `mvn -pl yudao-module-mes -DskipTests compile` PASS；流程5核心 writer/source/dynamic-form/splitter 测试共21项 PASS，覆盖正损耗、NO_LOSS、缺失事实 BLOCKED、动态映射阻塞和来源校验。
+- 流程5代码/测试已由 `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 提交，并以 `16e47106e043ad93b4d43d699d269996703a47e1` 融合当前 `int_main`；并行主线随后前移，当前 `int_main` HEAD 为 `fd7566c3ef3c8fea3adcc0e73cb23d2c86d66cf8`，已确认包含该祖先。
+- 在当前主线执行 `mvn -pl yudao-module-mes -DskipTests compile`（Maven 3.9.16）PASS；流程5核心 writer/source/dynamic-form/splitter 测试共21项 PASS，覆盖正损耗、NO_LOSS、缺失事实 BLOCKED、动态映射阻塞和来源校验。
 - `git diff --check` PASS；runtime v5 guard PASS（int_main 8081/48081）。
 - 未启动前后端服务，未运行数据库命令或写入型 E2E；五份任务文档保留，删除项为零。
 
@@ -71,3 +71,4 @@ REGRESSION: git diff --check -> PASS；branch-runtime-port-guard.ps1 -> PASS；�
 - 已补齐提交/复核不触发回填、缺失事实、部分工序、重复幂等、失败回滚和放行后追溯场景。
 - 已补齐流程 1/6 五字段领料绑定快照、逐工序/订单级 `hasActualLoss`、`lossQuantity=0` 的 NO_LOSS 合同，并明确不能从缺少 lossRecordId 推断 false。
 - 已完成本轮复核修订：五份文档的正式来源字段、接口表、BDD、状态/错误码、验证结论和未运行 blocker 已统一。
+- 主线程复验记录：`fd7566c3ef3c8fea3adcc0e73cb23d2c86d66cf8` 上 compile 与流程5核心21项 JUnit 均 PASS；非流程5的 `MesFrontlineRuntimeConfigProcessScopeTest` 仍因前线运行时参数校验静态契约失败，保持跨任务 blocker，未修改其 owner 代码。
