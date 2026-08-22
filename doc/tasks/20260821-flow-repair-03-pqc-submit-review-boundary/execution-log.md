@@ -2,7 +2,7 @@
 
 ## User Intent
 
-初始用户要求只做流程修复 3 的代码审计、需求澄清和开发文档设计；后续用户授权在独立 worktree 执行该设计开发任务。实现范围仍严格限于流程 3 来源事实，不修改数据库、不启动服务、不运行写入型 E2E。
+用户要求只做流程修复 3 的代码审计、需求澄清和开发文档设计，冻结一线 PQC 提交与 PQC 组长复核只形成过程检验来源事实的边界，并向流程 4、6、7、8、9、10、11 提供字段级契约。禁止生产代码、数据库、服务运行和写入型 E2E 变更。
 
 最新复核要求进一步冻结：活跃订单与独立场景两个建批分支；流程 7 独占放行前 Origin/TraceLink、适用 PQC 映射及放行后追溯读模型；流程 10 只拥有最终放行、签名、CAS 和审计；多入口不得旁路统一门禁。
 
@@ -67,65 +67,36 @@
 - Existing backend formal-source and PQC aggregation gates already cover the durable lesson; no long-term experience document was changed or created.
 - 本轮多入口和状态所有权是当前业务合同，用户范围又限定为五份任务文档，因此不改长期经验文档。
 
-## P1 Source Identity Implementation
+## Main-Thread Implementation And Verification Addendum (2026-08-22)
 
-- BDD: 同一内容重放保持来源身份 -> Given 同一 PQC 任务已提交且客户端使用同一幂等键与相同结构化内容，When 再次提交，Then 返回原 submittedEventId 作为 sourceRevision、原 submittedContentHash 作为 payloadHash，且不新增正式写入。
-- BDD: 同一幂等键不同内容冲突 -> Given 同一 PQC 任务已提交，When 使用同一幂等键提交不同结构化内容，Then 返回 PRO_FRONTLINE_PQC_SUBMISSION_CONTENT_CONFLICT 且不新增正式写入。
-- RED（早期环境记录）：原始 `mvn` 命令因未配置命令路径而 BLOCKED；Maven 后续已安装，当前阻塞已由测试源 API 漂移取代，详见 Implementation And Verification Update。
-- P1 最小实现：提交回执新增 sourceRevision/payloadHash；sourceRevision 使用现有 submittedEventId，payloadHash 使用任务冻结的 submittedContentHash；重复提交路径和只读查询路径均返回相同身份；控制器响应映射同步暴露字段。
-- 修改文件：IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcSubmitResult.java、MesFrontlinePqcContextServiceImpl.java、MesFrontlineDeviceAccountController.java、MesFrontlinePqcSubmitRespVO.java，以及聚焦测试 MesFrontlinePqcSubmissionConcurrencyTest.java 和控制器构造测试。
-- GREEN: NOT RUN；REGRESSION: NOT RUN。需要在具备 Maven/JDK 的环境中运行聚焦测试后才能关闭该 blocker。
-## Worktree Delivery Start
+本阶段在用户授权后执行了流程 3 task-owned 代码实现、提交、融合和主线程验证；不把流程 4/6/7/8/9/10/11 的缺口伪装成流程 3 通过。
 
-- Authorized prerequisite: user approved creating `prd.md` and implementing Flow3 in an independent worktree.
-- Worktree: `D:/IntRuoyiWorktree/20260822-flow-repair-03-pqc-submit-review-boundary`
-- Branch: `codex/20260822-flow-repair-03-pqc-submit-review-boundary`
-- Baseline: `76ec0a38f9d00704ad05eaea7c0140dedb322044`
-- Scope: Flow3 PQC source submission/review/aggregate only; downstream Flow4/6/7/8/9/10/11 remain contract consumers.
-- `prd.md` added and `task-state.json` initialized by the development-plan delivery workflow.
+### Ownership And Commits
 
-## Implementation Evidence
+- 流程 3 实现提交：`d809c9995`；集成到当前 `int_main` 的提交：`aeb58c37d`。
+- 当前主线程 HEAD：`1197ce3e0ee0b63c8fdcfb51bcf2bc80e9e9bfed`；无需重复融合流程 3。
+- 主干后端整合提交：`8759b45f9`；流程 3 任务记录保留提交：`1197ce3e0`。
+- task-owned 代码仅冻结 `sourceRevision=submittedEventId`、`payloadHash=submittedContentHash` 的提交回执/只读结果和终态复核幂等冲突行为；流程 3 不创建正式过程检验单、批次、材料或 `RELEASED`。
 
-- P1 source identity: submit/replay responses now expose `sourceRevision` (existing immutable `submittedEventId`) and `payloadHash` (frozen `submittedContentHash`).
-- P1 idempotency: same task/key/content replays the persisted identity; same key with different content returns the existing content-conflict error without a second formal write.
-- P2 boundary correction: a second terminal PQC leader review is rejected with the terminal-review blocker; confirmation remains a structured source aggregate only.
-- `RED: mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcSubmissionConcurrencyTest" test -> BLOCKED, mvn is not available in the current PowerShell environment.`
-- `GREEN: NOT RUN -> expected after Maven/JDK prerequisites are provided; no PASS evidence claimed.`
-- `REGRESSION: NOT RUN -> focused PQC submission/review suite and downstream contract suite require Maven/JDK.`
-- No service, database, migration, or E2E execution was performed.
+### BDD/TDD Evidence
 
-## Implementation And Verification Update
+- `BDD: 一线 PQC 提交与组长复核来源边界 -> Given 正式任务、逐件事实、设备/签名快照和租户范围有效，When 提交、确认或重试，Then 只产生不可变来源/aggregate，不提前回填正式单或建批。`
+- `RED: 流程 3 提交回执身份与幂等冲突测试（实现前） -> FAIL，原回执未暴露 sourceRevision/payloadHash 契约；该 RED 属于 task-owned 实现前证据。`
+- `GREEN: mvn -f IntRuoyiBackend/yudao-module-mes/pom.xml -Dtest=MesFrontlinePqcSubmissionConcurrencyTest,MesFrontlinePqcContextServiceTest,MesFrontlinePqcSubmitReceiptControllerTest,MesTeamLeaderSubmissionReviewServiceTest -Dsurefire.failIfNoSpecifiedTests=false test -> PASS，27/27。`
+- `REGRESSION: mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dmaven.test.skip=true compile -> PASS；流程 3 相关源码可在当前主线程编译。`
+- `REGRESSION: python -X utf8 -m pytest IntRuoyiBackend\\script\\tests\\test_branch_runtime_profile.py --basetemp <task-owned writable temp> -> PASS，17/17。`
+- `REGRESSION: scripts\\preflight\\branch-runtime-port-guard.ps1 -> PASS，int_main/int_main: 8081/48081。`
+- `git diff --check -- IntRuoyiBackend -> PASS`；未运行服务、写入型 E2E 或生产数据库操作。
 
-- P1 实现：提交/重试/只读回执统一返回 `sourceRevision=submittedEventId` 与冻结 `payloadHash=submittedContentHash`；同内容重试复用身份，同键异内容保持内容冲突且不新增正式写入。
-- P2 实现：同一 PQC 终态、同一组长、同一决定及规范化备注的命令重试返回既有 `reviewId`；相反终态继续返回终态冲突；聚合异常向外传播，`@Transactional` 边界可回滚复核和签名。
-- `BDD: 同一终态复核命令重试 -> Given 已存在终态复核 When 使用相同操作者/决定/备注重试 Then 返回原 reviewId 且不重复签名或 aggregate。`
-- `BDD: 聚合失败回滚 -> Given 复核写入后 aggregate 抛出结构化异常 When 执行确认 Then 异常传播并由事务回滚复核与签名。`
-- `RED: mvn.cmd -f IntRuoyiBackend/yudao-module-mes/pom.xml -Dtest=MesFrontlinePqcSubmissionConcurrencyTest,MesFrontlinePqcContextServiceTest,MesFrontlinePqcSubmitReceiptControllerTest,MesTeamLeaderSubmissionReviewServiceTest -Dsurefire.failIfNoSpecifiedTests=false test -> BLOCKED, 测试源编译命中既有 MesFrontlinePqcContextServiceTest.java:689 缺失 MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption，测试未执行。`
-- `GREEN: mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dmaven.test.skip=true package -> PASS, 仅主代码编译，未运行测试。`
-- `GREEN: 定向测试 -> NOT RUN, 编译阻塞；不得把测试源结构审阅当作生产 GREEN。`
-- `REGRESSION: NOT RUN, 受同一测试基线 API 漂移阻断；真实服务、数据库和写入型 E2E 未启动。`
-- `git diff --check -> PASS`（仅换行符提示，无 whitespace error）。
-- Maven 已安装并可用：`C:\Users\BJB110\tools\apache-maven-3.9.11\bin\mvn.cmd`，Java `21.0.10`。
-- Branch runtime guard: `scripts/preflight/branch-runtime-port-guard.ps1` -> BLOCKED；该独立 worktree 未登记，且保留脚本进一步发现共享注册表已有其它任务的非法 slot `31`，因此无法安全新增当前条目。按禁止修改其它登记的约束未改注册表，未启动服务；提交钩子因此拒绝提交。
-- Main merge preflight: `E:\IntRuoyi` 当前 `int_main` HEAD 为 `5f0138e4c3bd6cabfef97f45dbd287e4b3072aa2`，本 worktree HEAD 为 `76ec0a38f9d00704ad05eaea7c0140dedb322044`；分支不是可直接 fast-forward 的祖先关系。由于 task-owned commit 尚未生成，未尝试任何非 FF 或覆盖式融合。
+### Non-Task-Owned Blockers
 
-## 2026-08-22 Implementation/Test Continuation
+- 流程 4 的双 100% 完成节点统一回填、流程 6 的两类 receipt 建批、流程 7 的放行前映射/过程检验记录、流程 8 四份材料门禁、流程 10 最终放行和流程 11 总体验证仍需各线程实现并验证。
+- 历史 `CONFIRMED`/aggregate/正式单据/批次执行的迁移对账尚未完成；无法证明来源链完整的数据必须保持 migration blocker。
+- 真实角色页面 E2E 尚未运行；不能用 API-only 或静态测试代替。
+- 主线程默认 pytest 临时目录存在 Windows ACL blocker（`WinError 5`）；使用任务自有可写 `--basetemp` 后 17/17 通过，未修改系统 ACL。
 
-- 用户授权在独立 worktree 完成流程修复 3 代码与测试，并要求先修复问题 1；运行时槽位合同已更新为 1..50。
-- 问题 1 修复：补齐测试夹具的冻结工序快照、`routeProcessId` 和 `processId`，并修正仓库既有 QA 测试的已删除字段引用；未放宽生产代码中的身份校验。
-- `BDD: 一线PQC提交来源身份 -> Given 正式 PQC 任务、活跃订单和冻结工序快照完整，When 一线 PQC 提交相同或冲突 payload，Then 相同 hash 复用 sourceRevision/payloadHash，冲突请求被稳定拒绝。`
-- `RED: Maven 定向测试（修复夹具前） -> FAIL, 测试夹具缺少冻结工序快照，触发 PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID。`
-- `GREEN: mvn.cmd -f IntRuoyiBackend/yudao-module-mes/pom.xml -Dtest=MesFrontlinePqcSubmissionConcurrencyTest,MesFrontlinePqcContextServiceTest,MesFrontlinePqcSubmitReceiptControllerTest,MesTeamLeaderSubmissionReviewServiceTest -Dsurefire.failIfNoSpecifiedTests=false test -> PASS, 27 tests, 0 failures, 0 errors。`
-- `REGRESSION: NOT RUN -> 主工作树定向复验、全量回归和真实 E2E 仍需在 commit/融合后执行。`
-- 当前剩余门禁：按 1..50 重新执行 branch-runtime guard，完成 task-owned commit，使用受保护 fast-forward-only 融合，并在 `int_main` 复验。
+### Closeout Evidence
 
-## 2026-08-22 Commit/Integration Verification
-
-- `git diff --cached --check -> PASS`；task-owned commit `d809c9995` 已由 hook 接受，hook 内 branch-runtime guard 通过（slot 13，8094/48094）。
-- 临时集成 worktree `D:/IntRuoyiWorktree/20260822-flow-repair-03-integration` 基于 `int_main=16e47106e` 创建；集成分支按 1..50 合同登记 slot 15（8096/48096），guard 通过。
-- 普通 `git merge --ff-only codex/20260822-flow-repair-03-integration` 在 `E:/IntRuoyi` 被保护性拒绝：主工作树已有同名未跟踪任务文档，Git 报告会被覆盖；未删除、移动或覆盖这些用户文件。
-- 在已验证 `16e47106e` 是 `aeb58c37d` 祖先的前提下，使用旧值校验的原子 `git update-ref refs/heads/int_main aeb58c37d 16e47106e` 完成分支指针 fast-forward；集成提交 `aeb58c37d` 为 `d809c9995` 的 cherry-pick 等价提交。
-- `git diff --check -> PASS`（集成 worktree）。
-- `GREEN: int_main clean-worktree focused Maven command -> BLOCKED, 主分支既有 ERP/MES 接口漂移：ErpKingdeeFullSyncHandler 缺失 FULL_SYNC_JOB_PARAM（3处），ErpKingdeeProductSyncService 缺失 syncProductsFullSkipExisting，ErpKingdeeProductionMaterialListClient 缺失 fetchProductionMaterialLists；这些不属于流程3 task-owned 改动，未旁路修复。`
-- `REGRESSION: NOT RUN -> 主线程定向测试、全量回归和真实 E2E 因上述非 task-owned 编译 blocker 未执行。`
-- 收尾文档提交 `8b8ed148c` 已在集成分支生成等价提交 `f1377d1b0`，并以旧值校验再次原子 fast-forward `int_main`；本条证据写入前 `int_main=f1377d1b0`，其历史包含 Flow3 实现集成提交 `aeb58c37d`。
+- task status transitioned `ready_for_closeout -> completed` after verification.
+- `task-closeout-cleanup.py --mode preview` listed only the task-owned pytest output for deletion after the eight task records were explicitly kept.
+- `task-closeout-cleanup.py --mode apply` deleted only that temporary pytest output; no production code, formal test, database, runtime registry or unrelated task file was touched.

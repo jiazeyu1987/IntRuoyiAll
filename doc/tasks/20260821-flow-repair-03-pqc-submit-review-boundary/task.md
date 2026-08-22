@@ -12,11 +12,11 @@
 - 设计唯一状态所有者、不可变来源身份、版本冻结、幂等、并发、修订和追溯合同。
 - 定义与流程修复 4、6、7、8、9、10、11 的字段级输入输出契约。
 - 设计后续实施的 BDD、RED、GREEN、REGRESSION 和真实 E2E 验证计划。
-- 原设计阶段不修改生产代码、数据库或环境，不启动服务，不运行写入型 E2E；本轮获授权后仅在独立 worktree 实现流程 3 来源事实边界。流程修复 3 只负责 PQC 来源事实，不负责完成回填、批次执行、材料门禁或最终放行。
+- 设计阶段只写任务文档；后续获授权的 task-owned 实现仅覆盖流程 3 PQC 来源事实，不修改数据库或环境，不启动服务，不运行写入型 E2E。流程修复 3 不负责完成回填、批次执行、材料门禁或最终放行。
 
 ## Out Of Scope
 
-- 不实现接口、服务、页面、迁移或测试代码。
+- 设计阶段不实现接口、服务、页面、迁移或测试代码；后续实现阶段仅补充流程 3 task-owned 提交回执/复核边界及其测试。
 - 不改变现有数据，不修复历史 PQC 记录，不创建或删除批次执行。
 - 不决定流程修复 4、6、7、8、9、10、11 内部类名或 DTO/事件命名，只冻结其业务语义和所有权合同。流程 4 负责活跃订单双 100% 完成及三类适用回填；流程 6 按合法前置 receipt 创建/复用批次；流程 7 负责放行前 Origin/TraceLink、适用的 PQC 过程检验映射及放行后追溯读模型；流程 8 负责四份材料门禁；流程 9 负责非活跃订单入口前置凭证；流程 10 只负责最终放行状态、签名、CAS 与放行审计；流程 11 负责总体验证。
 - 不以 `formBindings`、工序开始配置、旧 IPQC 数据、当前 QA 配置或当前设备配置替代正式 PQC 来源。
@@ -33,14 +33,23 @@
 
 - 五个要求文档存在且为 UTF-8。
 - 文档包含目标态、当前代码事实、根因、修改边界、接口/数据/状态设计、BDD、RED/GREEN/REGRESSION 计划、失败 blocker、迁移/回滚边界和流程 4/6/7/8/9/10/11 契约；明确活跃订单与独立场景两个合法建批分支、`formalProcessInspectionDocumentId` 由流程 4 产生、`batchExecutionProcessInspectionRecordId` 由流程 7 产生，且流程 7 放行前映射是流程 8/10 的硬前置。
-- 所有未执行的生产测试和 E2E 明确标记为 `planned / NOT RUN`，不得宣称功能已经实现；四份材料统一为来料检报告、灭菌报告、成品检报告、成品检记录。
+- 设计阶段未执行的生产测试和 E2E 保留 `planned / NOT RUN` 历史标记；当前流程 3 实现证据只以 Main-Thread Implementation Verification 和 verification-report 为准，不宣称下游全链路完成；四份材料统一为来料检报告、灭菌报告、成品检报告、成品检记录。
 - 结构检查确认没有修改生产代码、数据库或运行环境。
 
 ## Current Status
 
-blocked
+completed
 
-独立 worktree 已完成 P1 来源回执身份与 P2 终态复核边界的最小实现及合同测试增补。旧测试接口漂移已修正，Flow3 定向测试 27/27 通过，task-owned commit 为 `d809c9995`，并已通过 1..50 分支运行时门禁。集成提交 `aeb58c37d` 已以受保护 fast-forward ref 更新到 `int_main`；但干净集成 worktree 的主线程定向验证被主分支既有 ERP/MES 接口漂移阻断，且原主工作树的普通 `git merge --ff-only` 被同名未跟踪任务文档保护性拒绝，因此不能宣称最终融合验证完成。
+流程 3 的 task-owned 提交/复核边界实现已融合到当前 `int_main`（`aeb58c37d`，主线程 HEAD 为 `1197ce3e0ee0b63c8fdcfb51bcf2bc80e9e9bfed`），主线程定向测试、MES 相关编译、runtime guard 和运行时脚本回归均已取得真实证据。任务仍不能宣称全链路完成：流程 4/6/7/8/9/10/11 的跨流程实现、历史迁移对账和真实读写 E2E 仍未完成或验证。
+
+## Main-Thread Implementation Verification
+
+- `MesFrontlinePqcSubmissionConcurrencyTest`、`MesFrontlinePqcContextServiceTest`、`MesFrontlinePqcSubmitReceiptControllerTest`、`MesTeamLeaderSubmissionReviewServiceTest`：27/27 PASS。
+- `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dmaven.test.skip=true compile`：PASS；ERP 依赖已先按当前源码 package/install。
+- `python -X utf8 -m pytest IntRuoyiBackend\\script\\tests\\test_branch_runtime_profile.py --basetemp <task-owned writable temp>`：17/17 PASS；默认系统临时目录运行因 Windows ACL 返回 `WinError 5`，不属于流程 3。
+- `scripts\\preflight\\branch-runtime-port-guard.ps1`：PASS，`int_main/int_main` 使用前端 `8081`、后端 `48081`。
+- `git diff --check -- IntRuoyiBackend` 与 `git diff --cached --check -- IntRuoyiBackend`：PASS；当前后端路径无未提交改动。
+- task-closeout cleanup preview/apply：PASS；仅删除本任务的临时 pytest 输出，保留八份任务记录文件。
 
 ## 设计约束检查
 
@@ -62,14 +71,21 @@ blocked
 - 符合：现有代码已把 PQC 任务、逐件检验值、检验项目、路线/规程版本、设备身份快照和复核后的结构化汇集持久化为正式来源事实。
 - 符合：未发现一线 PQC 提交或 PQC 组长复核直接创建正式过程检验单的证据；现有汇集明细只是后续映射来源。
 - 部分符合：组长批准后在同一事务将任务推进为 `CONFIRMED` 并写汇集明细，可作为“来源确认”；`CONFIRMED` 绝不表示正式过程检验单已回填、批次已创建、材料已齐套或已放行。
-- 不符合/未闭合（代码层）：文档已冻结终态后普通复核冲突、同命令幂等、受控修订另立命令及唯一有效版本规则，但现有生产代码尚未完整实现/验证；流程 4 精确消费确认版本和流程 7 独立批次映射也尚未完成生产验证。
+- 部分实现/未闭合（代码层）：流程 3 已实现提交回执身份、相同内容重试和相同幂等键冲突，并由主线程 27/27 定向测试覆盖；流程 4 精确消费确认版本、流程 6/7/8/9/10/11 跨流程合同和完整迁移/E2E 仍未完成生产验证。
 
 ## Unresolved Blockers
 
 - 业务语义、字段身份、状态 owner、终态复核/受控修订规则、四份材料及禁止替代规则已冻结；独立入口 canonical 凭证固定为 `IndependentBatchPrerequisiteReceipt`，跨线程 blocker 固定使用 `BACKFILL_RECEIPT_REQUIRED`、`SOURCE_SNAPSHOT_MISMATCH`、`ENTRY_PREREQUISITE_MISSING`、`ENTRY_SOURCE_INVALID`、`TRACE_MAPPING_BLOCKED`、`TRACE_SOURCE_CONFLICT`、`RELEASE_GATE_BLOCKED`、`RELEASE_SNAPSHOT_MISMATCH`。具体 DTO/事件载体可统一映射，但不得保留别名或改变语义。
-- 生产代码尚未实现并验证全部状态机、跨流程 receipt、两类建批入口、流程 7 放行前映射、流程 8/10 门禁和真实 E2E，因此不能据本文档宣称生产链路已通过。
+- 流程 3 task-owned 实现已融合并完成主线程定向验证；流程 4/6/7/8/9/10/11 的跨流程 receipt、两类建批入口、放行前映射、材料/放行门禁和真实 E2E 仍未完成，因此不能据本文档宣称生产全链路已通过。
 - 历史已 `CONFIRMED`/汇集/正式单据/批次数据仍缺迁移对账证据；无法证明来源版本、签名、逐件明细、设备快照和 hash 一致的数据必须列入迁移阻断清单。
 - 当前合同冻结四份材料为来料检报告、灭菌报告、成品检报告、成品检记录，且成品检报告与成品检记录不可互代；旧产品文档过时材料口径仅为待修订文档/历史兼容项，不构成本专项设计 blocker。
+
+## Implementation Evidence
+
+- 流程 3 提交回执暴露 `sourceRevision`（现有不可变 `submittedEventId`）和 `payloadHash`（冻结 `submittedContentHash`）；同内容重试复用原结果，内容冲突不重复写入。
+- PQC 组长复核保持来源事实边界：确认/退回及结构化 aggregate 不创建正式过程检验单、批次执行、材料或 `RELEASED`。
+- 主线程当前 `int_main` 已包含 `aeb58c37d`；后端整合提交为 `8759b45f9`，当前 HEAD 为 `1197ce3e0ee0b63c8fdcfb51bcf2bc80e9e9bfed`。
+- 定向测试 4 个 Flow3 测试类共 27/27 PASS；MES 相关 reactor compile、runtime guard 和运行时脚本回归均有真实记录。
 
 ## Deliverables
 
@@ -89,11 +105,3 @@ blocked
 - doc/tasks/20260821-flow-repair-03-pqc-submit-review-boundary/prd.md
 - doc/tasks/20260821-flow-repair-03-pqc-submit-review-boundary/task-state.json
 - doc/tasks/20260821-flow-repair-03-pqc-submit-review-boundary/test-report.md
-
-## Implementation Evidence
-
-- P1 提交回执暴露 `sourceRevision`（现有不可变 `submittedEventId`）和 `payloadHash`（冻结 `submittedContentHash`）；同内容重试复用原结果，内容冲突不重复写入。
-- P2 同一终态、同组长、同决定和规范化备注的复核重试返回原 `reviewId`，不会重复签名、复核或汇集；相反决定仍返回终态冲突。汇集异常向外传播，事务可回滚。
-- `mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dmaven.test.skip=true package`：PASS（主代码编译，跳过测试）。
-- 定向测试：PASS，4 个 Flow3 相关测试类共 27 tests，0 failures、0 errors；测试夹具补齐冻结工序快照，未放宽生产校验。
-- 分支运行时资料已同步到 1..50 槽位合同；commit hook、task-owned commit 和受保护 fast-forward ref 更新已有证据。主线程定向验证因非 task-owned 的 ERP 接口漂移阻断，原主工作树普通 merge 因同名未跟踪任务文档未执行。
