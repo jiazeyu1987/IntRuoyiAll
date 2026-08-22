@@ -100,3 +100,13 @@
 - task status transitioned `ready_for_closeout -> completed` after verification.
 - `task-closeout-cleanup.py --mode preview` listed only the task-owned pytest output for deletion after the eight task records were explicitly kept.
 - `task-closeout-cleanup.py --mode apply` deleted only that temporary pytest output; no production code, formal test, database, runtime registry or unrelated task file was touched.
+
+## Main-Thread Reverification (2026-08-22, HEAD `abd37c4561f6b01f6c59cd8273c1df44bc75c752`)
+
+- Ancestry check: `git merge-base --is-ancestor aeb58c37d HEAD -> PASS`; no additional Flow3 fusion was needed.
+- `GREEN: & 'C:\\Users\\BJB110\\tools\\apache-maven-3.9.11\\bin\\mvn.cmd' -f IntRuoyiBackend\\yudao-module-mes\\pom.xml -Dtest=MesFrontlinePqcSubmissionConcurrencyTest,MesFrontlinePqcContextServiceTest,MesFrontlinePqcSubmitReceiptControllerTest,MesTeamLeaderSubmissionReviewServiceTest -Dsurefire.failIfNoSpecifiedTests=false test -> PASS, 27/27, Failures 0, Errors 0.`
+- `REGRESSION: & 'C:\\Users\\BJB110\\tools\\apache-maven-3.9.11\\bin\\mvn.cmd' -f IntRuoyiBackend\\pom.xml -pl yudao-module-mes -am -Dmaven.test.skip=true compile -> PASS, reactor BUILD SUCCESS.`
+- `REGRESSION: scripts\\preflight\\branch-runtime-port-guard.ps1 -> PASS, int_main/int_main frontend 8081/backend 48081.`
+- `git diff --check -- IntRuoyiBackend` and `git diff --cached --check -- IntRuoyiBackend` -> PASS.
+- The current worktree has staged non-Flow3 changes: Flow11 migration/BPM/ERP deletions and two MES QA regulation VO modifications. They were not changed or included in this verification; no Flow3-specific failure was observed.
+- `E2E: NOT RUN`; no service start, database write, reset/checkout/clean, or additional merge was performed.

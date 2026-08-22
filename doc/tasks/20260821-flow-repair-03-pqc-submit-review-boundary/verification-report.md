@@ -15,7 +15,7 @@
 - `docs/e2e-rules.md`
 - 后端 PQC task、piece detail、leader review、aggregation、aggregate detail 与批记录来源映射代码
 - 既有相邻任务文档结构作为格式参考
-- `int_main` 提交历史：`aeb58c37d`、`8759b45f9`、`1197ce3e0`
+- `int_main` 提交历史：`aeb58c37d`、`8759b45f9`、当前 HEAD `abd37c4561f6b01f6c59cd8273c1df44bc75c752`
 - 主线程定向 Maven、MES reactor compile、runtime guard 和 Python 回归输出
 
 ## Documentation Verification
@@ -36,10 +36,11 @@
 | 禁止提前正式回填 | PASS | 目标态、状态机、接口和测试均锁定 |
 | 禁止 fallback/来源推断 | PASS | task 约束、blocker contract 和负向测试锁定 |
 | task-owned 提交回执身份 | PASS | `sourceRevision=submittedEventId`、`payloadHash=submittedContentHash`，并由 27 个定向测试覆盖回放/冲突 |
-| 主线程当前 HEAD 包含流程 3 | PASS | `int_main` HEAD `1197ce3e0ee0b63c8fdcfb51bcf2bc80e9e9bfed`，包含 `aeb58c37d` |
+| 主线程当前 HEAD 包含流程 3 | PASS | `int_main` HEAD `abd37c4561f6b01f6c59cd8273c1df44bc75c752`，包含 `aeb58c37d` |
 | 主线程流程 3 定向测试 | PASS | 4 个测试类共 27/27，Failures 0，Errors 0 |
 | 主线程 MES 相关编译 | PASS | `-pl yudao-module-mes -am -Dmaven.test.skip=true compile` BUILD SUCCESS |
 | runtime guard | PASS | `int_main/int_main: frontend 8081, backend 48081` |
+| 并行改动隔离 | PASS | 已暂存的流程11/BPM/ERP删除和 MES QA VO 改动未被流程3修改、提交或撤销 |
 
 ## Code Compliance Conclusion
 
@@ -70,4 +71,4 @@
 
 ## Final Result
 
-completed for the Flow 3 task-owned scope：代码已融合并在当前 `int_main` 完成 27/27 定向测试、MES 相关编译、runtime guard 和运行时脚本回归；全链路仍受流程 4/6/7/8/9/10/11 的跨流程实现、历史迁移对账和真实读写 E2E 阻断，这些不属于流程 3 可单方面关闭的范围。
+completed for the Flow 3 task-owned scope：在当前 `int_main` HEAD `abd37c4561f6b01f6c59cd8273c1df44bc75c752` 上完成 27/27 定向测试、MES 相关编译、runtime guard 和并行改动隔离复核；全链路仍受流程 4/6/7/8/9/10/11 的跨流程实现、历史迁移对账和真实读写 E2E 阻断，这些不属于流程 3 可单方面关闭的范围。

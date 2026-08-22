@@ -77,8 +77,6 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
         private BigDecimal standardUpperLimit;
         private String standardUnit;
         private Integer standardPrecision;
-        private Boolean equipmentRequired;
-        private List<EquipmentOption> equipmentOptions;
         private String resultType;
         private List<String> applicableInspectionTypes;
         private Integer firstInspectionQuantity;
@@ -92,17 +90,5 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
         private String sourceOriginalMethod;
     }
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class EquipmentOption {
-        private Long equipmentId;
-        private String equipmentCode;
-        private String equipmentName;
-        private String equipmentNumber;
-        private Boolean defaultFlag;
-        private Integer sort;
-    }
 
 }
