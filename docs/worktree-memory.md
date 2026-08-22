@@ -260,6 +260,14 @@
 - Verification: 记录 task-owned commit hash、fast-forward 后的 `int_main` HEAD、主线程测试摘要、目标路径 diff-check 结果；并明确未运行服务、数据库和写入型 E2E 的边界。
 - Forbidden action: 禁止用“任务文档 completed”替代代码融合证据，禁止清理或覆盖并行 dirty 改动，禁止把窄测通过升级为全链路 GREEN。
 
+## 主线程复验时的主线漂移与 PowerShell 参数门禁
+
+- Trigger: 定向 Maven 验证期间并行提交推进 `int_main`，或 PowerShell 将逗号分隔的 `-Dtest` 值拆成参数，导致命令尚未进入 Maven。
+- Preflight check: 在编译和测试前记录 `git rev-parse HEAD`；将逗号分隔的 Surefire 类名作为一个带引号的参数传给 Maven；每次验证阶段结束后重新读取 HEAD，并用 `git merge-base --is-ancestor <task-integration> HEAD` 确认切片仍在最新主线。
+- Blocker: 测试运行前后 HEAD 发生未解释变化、Maven 命令因未引用逗号而在 PowerShell 解析阶段失败、或无法区分并行任务失败与当前任务失败时，必须重跑或记录阻断，不得把旧 HEAD 的结果冒充最新主线证据。
+- Verification: 在最终 HEAD 重跑目标模块 compile 和定向 JUnit，记录 Surefire 测试数/失败数；随后运行 `git diff --check` 与 `branch-runtime-port-guard.ps1`，并保留主工作区其它 dirty/untracked 改动。
+- Forbidden action: 禁止为追赶主线漂移而 reset、checkout、stash、clean 或覆盖并行改动；禁止使用未加引号的逗号测试参数、随机更换登记端口或把 PowerShell ParserError 误报为业务测试失败。
+
 ## 删除操作顺序
 
 1. 阶段 1：目标确认
