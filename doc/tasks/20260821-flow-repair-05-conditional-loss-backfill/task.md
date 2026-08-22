@@ -33,7 +33,7 @@ BDD: 缺失或阻塞 -> Given 零损耗事实、绑定或签名缺失/矛盾，W
 - `MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl` 读取并校验正式签名反馈、五字段绑定快照、数量与 `hasActualLoss` 一致性；缺失正式零损耗事实返回阻塞，不把缺少 `lossRecordId` 推断为无损耗。
 - `MesTeamLeaderActiveOrderReleaseLossReportWriterImpl` 对正数损耗输出 `REQUIRED`、`hasActualLoss=true`、`lossQuantity>0` 并写入正式损耗单；对明确零损耗输出 `NO_LOSS`、`hasActualLoss=false`、`lossQuantity=0`、`lossReportStatus=NOT_REQUIRED`，不创建损耗单或零数量报告；阻塞分支不写成功 receipt。
 - `MesPqcReleaseDossierPortImpl`、PQC decision result 和前线 payload 已消费显式损耗状态及来源快照，条件门禁不再把损耗 evidence 当作所有工序的无条件成功条件。
-- 流程5 task-owned 代码/测试由 `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 完成，并以 `16e47106e043ad93b4d43d699d269996703a47e1` 融合到当前 `int_main`；当前主线已确认该提交为祖先。
+- 流程5 task-owned 代码/测试由 `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 完成，并以 `16e47106e043ad93b4d43d699d269996703a47e1` 融合到 `int_main`；当前 `int_main` HEAD 为 `404524836d6b6a2ad6d639f63aa5f9f3a4038be6`，已确认该集成为祖先。
 - 流程4订单级 receipt 持久化、流程6建批消费、流程7映射、流程8材料放行、流程10最终状态和流程11迁移总门禁不由本专项拥有，仍需各线程验证。
 
 ## Root Cause

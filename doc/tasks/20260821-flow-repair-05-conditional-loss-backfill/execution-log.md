@@ -57,7 +57,7 @@ REGRESSION: git diff --check -> PASS；branch-runtime-port-guard.ps1 -> PASS；�
 
 ## Final Evidence
 
-- 流程5代码/测试已由 `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 提交，并以 `16e47106e043ad93b4d43d699d269996703a47e1` 融合当前 `int_main`；当前 HEAD 已确认包含该祖先。
+- 流程5代码/测试已由 `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 提交，并以 `16e47106e043ad93b4d43d699d269996703a47e1` 融合当前 `int_main`；当前 `int_main` HEAD 为 `404524836d6b6a2ad6d639f63aa5f9f3a4038be6`，已确认包含该祖先。
 - 主线 `mvn -pl yudao-module-mes -DskipTests compile` PASS；流程5核心 writer/source/dynamic-form/splitter 测试共21项 PASS，覆盖正损耗、NO_LOSS、缺失事实 BLOCKED、动态映射阻塞和来源校验。
 - `git diff --check` PASS；runtime v5 guard PASS（int_main 8081/48081）。
 - 未启动前后端服务，未运行数据库命令或写入型 E2E；五份任务文档保留，删除项为零。
