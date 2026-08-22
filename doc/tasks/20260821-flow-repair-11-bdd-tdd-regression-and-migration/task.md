@@ -15,9 +15,10 @@
 - [x] M7：同步流程 04/05/06/07/09/10 最新合同，固定四材料、逐工序损耗、流程 7 Tx-C 映射、流程 6 四个 BATCH_* 状态、多入口凭证和合同已冻结/代码未落地的 Go/No-Go 口径。
 
 - [x] M12：在独立 worktree 以 BDD/TDD 交付五类历史迁移分类器和只读回滚计划生成器；不执行数据库迁移。
-- [x] M13：完成流程11 Python runner、`py_compile`、`pytest` 和 runtime guard 复验；记录 task-owned 提交及主线融合阻断。
+- [x] M13：完成流程11 Python runner、`py_compile`、`pytest` 和 runtime guard 复验；记录 task-owned 提交及主线融合证据。
 - [x] M14：恢复发布版/保存版 QA DTO 的设备选项类型契约，Maven 生产源码编译和 `MesFrontlinePqcContextServiceTest` 定向回归通过。
-- [x] M15：完成 task-owned 边界复核、主工作树 runtime guard 和受保护 fast-forward-only 融合尝试；因 `int_main` 分叉及主线 dirty/未跟踪重叠改动阻断，保留 No-Go。
+- [x] M15：完成 task-owned 边界复核、主工作树 runtime guard 和受保护 fast-forward-only 融合尝试。
+- [x] M16：在干净 Flow11 集成 worktree 合入已提交的 `int_main` 前后端代码，补齐被全局 ignore 错误排除的 BPM/ERP 编译源和运行时合同测试，完成全模块编译并推送远端 `int_main`。
 
 ## 预期验证
 
@@ -43,7 +44,7 @@
 
 ## Current Status
 
-in_progress：流程11迁移分类器、只读 dry-run、回滚计划和 12 个 Python 合同场景已提交并通过 runner/pytest；M14 已恢复 QA DTO 设备选项契约并通过 MES 生产源码编译和定向 JUnit。M15 已运行主线 guard，但 `int_main`（`d1553f2ad`）与本分支分叉，受保护 fast-forward-only 融合未完成；流程1-10生产闭环、数据库迁移和真实 E2E 仍为 No-Go/阻断。
+in_progress：流程11迁移分类器、只读 dry-run、回滚计划、12 个 Python 合同场景、BPM/ERP 编译源修复和全模块 Maven 编译已通过；task-owned 集成 HEAD `9ba449c44` 已推送为远端 `origin/int_main`。本地 `E:\IntRuoyi` 仍保留用户未提交/未跟踪文件，未强行 checkout 或清理，因此本地工作树未做覆盖式更新。流程1-10生产闭环、数据库迁移、真实 E2E 和生产历史迁移仍为 No-Go/阻断。
 
 ## 修改边界
 

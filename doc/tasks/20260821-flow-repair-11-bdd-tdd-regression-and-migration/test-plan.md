@@ -105,3 +105,11 @@ M12 实际证据：无第三方依赖的 `python IntRuoyiBackend/script/run_flow
 - RED: 修复前 `mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL，`MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption` 缺失。
 - GREEN: 修复发布版 QA DTO 后同一 bundled Maven 命令 -> PASS，MES reactor 24/24 modules `BUILD SUCCESS`。
 - REGRESSION: `mvn -pl yudao-module-mes -Dtest=MesFrontlinePqcContextServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS；`Tests run: 9, Failures: 0, Errors: 0, Skipped: 0`。
+
+## 9. M16 集成后实际结果
+
+- RED: 完整编译首次失败，分别缺少 `WordTableVisualSchemaBuilder` 和 `ErpKingdeeSyncRuntimeTransactionService`；原因是需要的 BPM/ERP 源被项目 `**/runtime/` 规则错误忽略。
+- GREEN: 补齐并 task-owned 追踪上述源文件后，`mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS，24/24 modules `BUILD SUCCESS`。
+- GREEN: `python -X utf8 IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS（12 场景）；`python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py` -> PASS（12 passed）；`py_compile` -> PASS。
+- REGRESSION: Flow11 runtime guard、两个受影响 E2E `node --check`、`git diff --check` 和远端祖先关系核验 -> PASS。
+- 未运行且不得标为 PASS：流程1-10后端合同回归、服务、生产数据库 dry-run/写入、人工批准/回滚演练、真实 Playwright E2E；这些仍是跨流程 blocker。

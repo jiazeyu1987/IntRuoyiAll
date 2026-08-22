@@ -140,6 +140,20 @@ M14 COMMIT: `006a954d65c770a4454f41ed60a0ea312b3ad55a`，由正常 branch-runtim
 
 - Task-owned 审计：流程11迁移脚本、合同测试、五份任务文档以及 M14 QA DTO/测试 fixture 属于本任务；`AGENTS.md`、运行时文档和守卫历史改动属于共享基础设施，不作为流程11业务交付追加。
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1`（`E:\IntRuoyi`） -> PASS，`int_main/int_main` 使用 8081/48081。
-- `git merge --ff-only codex/20260822-flow-repair-11-design-development`（`E:\IntRuoyi`） -> FAIL，退出码 1：`int_main` 为 `d1553f2ad088d468b3b6ef05cc5ae7763a861044`，与流程11分支 `28a4709ef8e2f72b7f717cb695ed3778029aa7fe` 分叉，无法 fast-forward。
-- 主工作树融合前后均未改变；主线当前没有 `IntRuoyiBackend/script/run_flow_repair_11_contracts.py` 或已跟踪的流程11任务文档。主线另有 Word 导入测试未提交修改和流程11任务目录未跟踪文件，不能覆盖、删除、stash 或提交为本任务内容。
-- 因未融合，不执行主线程 runner/pytest/Maven/定向回归，不将独立 worktree 结果冒充主线程证据。
+- `git merge --ff-only codex/20260822-flow-repair-11-design-development`（`E:\IntRuoyi`）仍不能直接更新本地主工作树：本地存在用户未提交/未跟踪的 `AGENTS.md`、运行时文档、任务文档和 Word fixture，快进会覆盖它们；未执行 reset/checkout/stash/clean，也未覆盖这些文件。
+- 在干净流程11集成 worktree 中已合入主线前后端 task-owned 提交 `5f0138e4c`，生成受保护融合提交 `378ce5719`；补齐被全局 ignore 排除的 BPM 编译源 `dabb52df0`、ERP 编译源 `dfb3fcea8` 和 10 个运行时合同测试 `9ba449c44`。
+- `git push origin HEAD:int_main` -> PASS；远端 `origin/int_main` 已指向 `9ba449c44`，`git merge-base --is-ancestor codex/20260822-flow-repair-11-design-development origin/int_main` -> PASS。
+- 主线前后端提交 `5f0138e4c` 仅包含已审计的 68 个后端/前端代码与测试文件，正常 hook 和 push 均通过；共享文档及其它任务登记未纳入。
+- 当前仍未启动服务、访问数据库、执行生产历史迁移、人工批准/回滚演练或真实 Playwright E2E；这些仍是跨流程 blocker。
+
+## M16 编译修复与集成后验证
+
+BDD: 被全局 ignore 排除的编译源和运行时合同测试 -> Given BPM/ERP 生产代码引用这些类型 / When 在干净集成 worktree 编译和执行合同测试 / Then 源文件与测试被 task-owned 追踪，且不通过旁路或默认成功掩盖缺失。
+
+RED: 完整 bundled Maven compile（修复前） -> FAIL，先后暴露 `DefaultWordFormTemplateRecognizer.java:55` 缺失 `WordTableVisualSchemaBuilder`，以及 `ErpKingdeeSyncRuntimeServiceImpl.java` 缺失 `ErpKingdeeSyncRuntimeTransactionService`；根因是项目 `**/runtime/` ignore 错误排除需要的源码。
+
+GREEN: `mvn -pl yudao-module-erp -am -DskipTests compile` -> PASS；完整 `mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS，24/24 modules `BUILD SUCCESS`。
+
+GREEN: `python -X utf8 IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS，12 场景；`python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py` -> PASS，12 passed；`python -X utf8 -m py_compile ...` -> PASS。
+
+REGRESSION: `node --check` 两个受影响 E2E 静态脚本、Flow11 `branch-runtime-port-guard.ps1` 和 `git diff --check` -> PASS；未将静态检查冒充真实 Playwright，也未运行写入型 E2E。

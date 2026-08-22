@@ -2,7 +2,7 @@
 
 ## 1. 验证范围
 
-本报告验证专项文档、流程11无副作用实现、合同引用和当前代码审计结论。未启动服务，未访问或修改数据库，未运行生产迁移、Node、Playwright 或写入型 E2E；流程11 Python runner/pytest、M14 Maven 生产源码 compile 和 `MesFrontlinePqcContextServiceTest` 定向 JUnit 已运行通过。
+本报告验证专项文档、流程11无副作用实现、合同引用和当前代码审计结论。未启动服务，未访问或修改数据库，未运行生产迁移或写入型 E2E；流程11 Python runner/pytest、BPM/ERP 编译源修复、全模块 Maven compile、受影响 Node 静态检查和 `MesFrontlinePqcContextServiceTest` 定向 JUnit 已运行通过。
 
 ## 2. 已核对正式来源
 
@@ -72,22 +72,20 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 2. 当前实现和旧测试仍存在先建批、资料后写及多入口直接放行路径，必须完成 RED/GREEN/REGRESSION。
 3. 真实租户、角色、签名、正式工单/领料单、PQC 汇总和四份附件尚未准备或使用，真实 Playwright E2E 尚未执行。
 4. 生产历史批次/申请尚未执行授权后的真实只读 dry-run、人工复核和回滚演练；本线程已完成规范化 fixture dry-run。缺映射、缺 receipt 或已放行来源不完整必须分别进入 TRACE_MAPPING_BLOCKED、LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED、ALREADY_RELEASED_REVIEW_REQUIRED。
-6. `int_main` 融合未完成：主工作树当前 HEAD 为 `d1553f2ad088d468b3b6ef05cc5ae7763a861044`，流程11分支 HEAD 为 `28a4709ef8e2f72b7f717cb695ed3778029aa7fe`，两者分叉；`git merge --ff-only codex/20260822-flow-repair-11-design-development` 退出码 1 并报告无法 fast-forward。主工作树存在大量其它未提交改动，且流程11任务目录未跟踪、Word 导入测试有未提交修改；不得覆盖、删除、stash 或将其纳入本任务。
+6. 远端融合已完成，但本地主工作树未做覆盖式快进：本地 `E:\IntRuoyi` 的 dirty/untracked `AGENTS.md`、运行时文档、任务文档和 Word fixture 会被快进覆盖，因此 `git merge --ff-only` 在本地被保护性拒绝；未执行 reset/checkout/stash/clean。干净流程11 worktree 已合入 `5f0138e4c`，并由 `git push origin HEAD:int_main` 推送 `origin/int_main=9ba449c44`，祖先关系核验通过。
 
 以上 blocker 是实现、数据和验证前置，不是流程修复 04、05、07、10 文档缺失；当前四材料合同也不以旧三项历史数据作为兼容成功条件。
 
 ## 8. 验证命令与结果
 
 - 已执行：`python IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS 12；`python -m py_compile ...` -> PASS；`python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q` -> PASS（12 passed）；规范化 fixture dry-run -> PASS，总数 8、唯一批次 ID 8，分类计数 1/1/4/1/1，`write_allowed=false`、`side_effects=[]`。
-- 已执行（M13 历史结果）：`mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL，阻断于 `MesFrontlinePqcContextServiceImpl.java:736` 缺少 `EquipmentOption`。
-- 已执行（M14）：同一 bundled Maven compile 命令 -> PASS，MES reactor 24/24 modules `BUILD SUCCESS`；`branch-runtime-port-guard.ps1` -> PASS。
-- 已执行：主工作树 branch-runtime guard -> PASS（8081/48081）。
-- 已执行：`git merge --ff-only codex/20260822-flow-repair-11-design-development`（主工作树）-> FAIL，退出码 1，`int_main` 与流程11分支 diverged；主工作树 dirty 未改变。
-- 已核对：`int_main` 不包含流程11 runner 或已跟踪任务文档；因此未执行主线程 runner/pytest/Maven/定向回归，未伪造融合后的验证证据。
-- 已执行：主线 `int_main` 不包含 `IntRuoyiBackend/script/run_flow_repair_11_contracts.py`（`git cat-file -e int_main:...` 退出码 128），主工作树也不存在该 runner；因此未伪造主线程 runner/回归 PASS。
+- 已执行（M13 历史结果）：初次 bundled Maven compile 因 `MesFrontlinePqcContextServiceImpl.java:736` 缺少 `EquipmentOption` 失败。
+- 已执行（M14/M16）：恢复 QA DTO 后 MES reactor 24/24 `BUILD SUCCESS`；补齐被 `**/runtime/` 错误忽略的 BPM/ERP 源后，完整 `mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS；Flow11 runtime guard（8090/48090）-> PASS。
+- 已执行：Flow11 Python runner 12 场景、pytest `12 passed`、py_compile、两个受影响 E2E `node --check`、`git diff --check` -> PASS。
+- 已核对：`origin/int_main=9ba449c44` 包含流程11分支，`git merge-base --is-ancestor codex/20260822-flow-repair-11-design-development origin/int_main` -> PASS；本地主工作树未强行更新，未把独立 worktree 结果冒充本地 checkout 证据。
 - 已执行：只读 rg --files、rg -n，核对五份文档、流程合同引用、四材料节点和 BDD/RED/GREEN/REGRESSION markers；自定义标记扫描确认独立入口、四个 BATCH_*、损耗三态和映射门禁均存在且旧凭证/待冻结措辞不存在。
 - 已执行：只读 git diff --check；对未跟踪 Markdown 另以 rg 扫描尾随空格。
-- 未执行：流程1-10生产代码测试、服务、生产数据库迁移、SQL、真实 Playwright E2E 和任何写入型 E2E；流程11无副作用合同 runner、pytest 和 fixture dry-run 已执行。
+- 未执行：流程1-10生产代码合同回归、服务、生产数据库迁移、SQL、人工批准/回滚演练、真实 Playwright E2E 和任何写入型 E2E；上述流程11无副作用验证不替代这些跨流程证据。
 
 ## 8.1 M14 编译修复验证
 
@@ -101,4 +99,4 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 
 流程11独立迁移切片已完成 runner 和 fixture dry-run 验证，但整体代码保持 No-Go。只有实现线程关闭旧顺序和直接放行路径，并取得四材料硬门禁、多入口幂等、完整追溯、生产历史迁移授权/回滚和真实 Playwright 证据后，才可重新评估 Go。
 
-本轮 task.md 保持 in_progress：流程11提交和 Python 验证、M14 Maven 生产源码编译及定向 JUnit 已完成，但流程1-10生产回归、真实 E2E、生产历史迁移/人工回滚以及主线融合仍阻断。流程 8 仅接受四节点当前有效 COMPLETED（有批准字段时 APPROVED，节点 version/file_hash/source_snapshot_hash 与 manifest 一致），历史迁移统一五类。五份正式文档和流程11迁移模块均保留。
+本轮 task.md 保持 in_progress：流程11代码、Python 验证、完整 Maven 编译、远端融合和静态回归已完成，但流程1-10生产回归、真实 E2E、生产历史迁移/人工回滚仍阻断。流程 8 仅接受四节点当前有效 COMPLETED（有批准字段时 APPROVED，节点 version/file_hash/source_snapshot_hash 与 manifest 一致），历史迁移统一五类。五份正式文档和流程11迁移模块均保留。
