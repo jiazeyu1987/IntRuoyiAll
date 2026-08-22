@@ -61,7 +61,7 @@ class ErpProductionPickListControllerTest {
         assertNotNull(response.getData());
         assertEquals(1, response.getData().getCreatedCount());
         assertEquals(0, response.getData().getUpdatedCount());
-        verify(productionPickListService, never()).syncAll();
+        verify(productionPickListService, never()).syncAll(any(LocalDateTime.class), any(LocalDateTime.class));
 
         ArgumentCaptor<ErpKingdeeSyncCommand> commandCaptor =
                 ArgumentCaptor.forClass(ErpKingdeeSyncCommand.class);

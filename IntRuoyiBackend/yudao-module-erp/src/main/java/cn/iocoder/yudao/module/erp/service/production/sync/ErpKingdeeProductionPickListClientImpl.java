@@ -43,8 +43,8 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
             "Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc";
     private static final String QUERY_SERVICE =
             "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
-    private static final int PAGE_LIMIT = 1000;
-    private static final int INITIAL_QUERY_DAYS = 365;
+    private static final int FULL_QUERY_PAGE_LIMIT = 200;
+    private static final int INCREMENTAL_QUERY_PAGE_LIMIT = 1000;
     private static final String MODIFY_TIME_FIELD = "FModifyDate";
     private static final String FIELD_KEYS = String.join(",",
             "FID",
@@ -90,19 +90,22 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
     private final RestTemplate restTemplate;
 
     @Override
-    public List<ErpKingdeeProductionPickList> fetchProductionPickLists(ErpKingdeeProperties properties) {
+    public List<ErpKingdeeProductionPickList> fetchProductionPickLists(
+            ErpKingdeeProperties properties, LocalDateTime windowStart, LocalDateTime windowEnd) {
         properties.validateBaseConfig();
+        validateWindow(windowStart, windowEnd);
         String cookieHeader = login(properties);
         int startRow = 0;
         Map<String, ErpKingdeeProductionPickList> result = new LinkedHashMap<>();
         while (true) {
-            JsonNode rows = executeBillQuery(properties, cookieHeader, startRow, PAGE_LIMIT);
+            JsonNode rows = executeBillQuery(
+                    properties, cookieHeader, windowStart, windowEnd, startRow, FULL_QUERY_PAGE_LIMIT);
             validateRows(rows);
             if (rows.isEmpty()) {
                 break;
             }
             addRows(rows, result, false);
-            if (rows.size() < PAGE_LIMIT) {
+            if (rows.size() < FULL_QUERY_PAGE_LIMIT) {
                 break;
             }
             startRow += rows.size();
@@ -125,7 +128,7 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
                 break;
             }
             addRows(rows, result, true);
-            if (rows.size() < PAGE_LIMIT) {
+            if (rows.size() < INCREMENTAL_QUERY_PAGE_LIMIT) {
                 break;
             }
             startRow += rows.size();
@@ -157,14 +160,15 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
     }
 
     private JsonNode executeBillQuery(ErpKingdeeProperties properties, String cookieHeader,
+                                      LocalDateTime windowStart, LocalDateTime windowEnd,
                                       int startRow, int limit) {
-        LocalDate startDate = LocalDate.now().minusDays(INITIAL_QUERY_DAYS);
-        LocalDate nextDay = LocalDate.now().plusDays(1);
+        LocalDate startDate = windowStart.toLocalDate();
+        LocalDate endDateExclusive = windowEnd.toLocalDate().plusDays(1);
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("FormId", FORM_ID);
         query.put("FieldKeys", FIELD_KEYS);
         query.put("FilterString",
-                "(FBillNo <> '') and (FDate >= '" + startDate + "' and FDate < '" + nextDay + "')");
+                "(FBillNo <> '') and (FDate >= '" + startDate + "' and FDate < '" + endDateExclusive + "')");
         query.put("OrderString", "FModifyDate DESC,FID DESC");
         query.put("StartRow", startRow);
         query.put("Limit", limit);
@@ -180,7 +184,7 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
                 .baseFilter("(FBillNo <> '')")
                 .modifyTimeField(MODIFY_TIME_FIELD)
                 .startRow(startRow)
-                .limit(PAGE_LIMIT)
+                .limit(INCREMENTAL_QUERY_PAGE_LIMIT)
                 .build();
         return postQuery(properties, cookieHeader, spec.toQuery(windowStart, windowEnd),
                 "PRD_PickMtrl incremental ExecuteBillQuery response");
@@ -198,6 +202,16 @@ public class ErpKingdeeProductionPickListClientImpl implements ErpKingdeeProduct
             throw exception(KINGDEE_PRODUCTION_PICK_LIST_REQUEST_FAIL, responseJson.toString());
         }
         return responseJson;
+    }
+
+    private void validateWindow(LocalDateTime windowStart, LocalDateTime windowEnd) {
+        if (windowStart == null) {
+            throw new IllegalArgumentException("ERP production pick list full sync windowStart is null");
+        }
+        if (windowEnd == null || !windowEnd.isAfter(windowStart)) {
+            throw new IllegalArgumentException(
+                    "ERP production pick list full sync windowEnd must be after windowStart");
+        }
     }
 
     private void validateRows(JsonNode rows) {

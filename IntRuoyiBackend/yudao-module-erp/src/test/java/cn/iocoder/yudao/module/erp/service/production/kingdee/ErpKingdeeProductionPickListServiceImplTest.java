@@ -66,7 +66,9 @@ class ErpKingdeeProductionPickListServiceImplTest {
     void syncAll_createsIndependentHeaderAndReplacesItsLines() {
         ErpKingdeeProductionPickList pickList = buildPickList();
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(properties);
-        when(productionPickListClient.fetchProductionPickLists(properties))
+        LocalDateTime windowStart = LocalDateTime.of(2025, 8, 22, 0, 0);
+        LocalDateTime windowEnd = LocalDateTime.of(2026, 8, 22, 13, 0);
+        when(productionPickListClient.fetchProductionPickLists(properties, windowStart, windowEnd))
                 .thenReturn(List.of(pickList));
         when(productionPickListMapper.selectBySource("PRD_PickMtrl", "1001"))
                 .thenReturn(null);
@@ -76,7 +78,7 @@ class ErpKingdeeProductionPickListServiceImplTest {
             return 1;
         }).when(productionPickListMapper).insert(any(ErpKingdeeProductionPickListDO.class));
 
-        ErpKingdeeProductionPickListSyncResult result = service.syncAll();
+        ErpKingdeeProductionPickListSyncResult result = service.syncAll(windowStart, windowEnd);
 
         assertEquals(1, result.getCreatedCount());
         assertEquals(0, result.getUpdatedCount());
@@ -115,7 +117,8 @@ class ErpKingdeeProductionPickListServiceImplTest {
         ErpKingdeeProductionPickListSyncResult result = service.syncModifiedBetween(windowStart, windowEnd);
 
         assertEquals(1, result.getCreatedCount());
-        verify(productionPickListClient, never()).fetchProductionPickLists(properties);
+        verify(productionPickListClient, never()).fetchProductionPickLists(
+                any(ErpKingdeeProperties.class), any(LocalDateTime.class), any(LocalDateTime.class));
         verify(productionPickListClient).fetchProductionPickListsModifiedBetween(properties, windowStart, windowEnd);
     }
 

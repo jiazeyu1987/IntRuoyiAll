@@ -12,9 +12,11 @@ public interface ErpKingdeeProductionPickListService {
     PageResult<ErpProductionPickListRespVO> getPage(
             ErpProductionPickListPageReqVO pageReqVO);
 
-    ErpKingdeeProductionPickListSyncResult syncAll();
+    ErpKingdeeProductionPickListSyncResult syncAll(
+            LocalDateTime windowStart, LocalDateTime windowEnd);
 
-    ErpKingdeeProductionPickListSyncResult syncAllSkipExisting();
+    ErpKingdeeProductionPickListSyncResult syncAllSkipExisting(
+            LocalDateTime windowStart, LocalDateTime windowEnd);
 
     ErpKingdeeProductionPickListSyncResult syncModifiedBetween(
             LocalDateTime windowStart, LocalDateTime windowEnd);

@@ -82,18 +82,22 @@ public class ErpKingdeeProductionPickListServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public ErpKingdeeProductionPickListSyncResult syncAll() {
+    public ErpKingdeeProductionPickListSyncResult syncAll(
+            LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
-        return syncPickLists(productionPickListClient.fetchProductionPickLists(properties), false);
+        return syncPickLists(productionPickListClient.fetchProductionPickLists(
+                properties, windowStart, windowEnd), false);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public ErpKingdeeProductionPickListSyncResult syncAllSkipExisting() {
+    public ErpKingdeeProductionPickListSyncResult syncAllSkipExisting(
+            LocalDateTime windowStart, LocalDateTime windowEnd) {
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
-        return syncPickLists(productionPickListClient.fetchProductionPickLists(properties), true);
+        return syncPickLists(productionPickListClient.fetchProductionPickLists(
+                properties, windowStart, windowEnd), true);
     }
 
     @Override

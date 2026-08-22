@@ -53,14 +53,18 @@ public class KingdeeProductionPickListSyncJob implements JobHandler, ErpKingdeeF
     @Override
     public String executeFullSync() {
         LocalDateTime windowEnd = LocalDateTime.now();
+        LocalDateTime windowStart = windowEnd.toLocalDate().minusDays(365).atStartOfDay();
         AtomicReference<ErpKingdeeProductionPickListSyncResult> resultReference =
                 new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
                 .syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_PICK_LIST)
                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .forceInitialWindowStart(true)
+                .initialWindowStart(windowStart)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            ErpKingdeeProductionPickListSyncResult result = productionPickListService.syncAllSkipExisting();
+            ErpKingdeeProductionPickListSyncResult result = productionPickListService.syncAllSkipExisting(
+                    context.getWindowStart(), context.getWindowEnd());
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
                     result.getCreatedCount(), result.getUpdatedCount(), result.getSkippedCount(), 0);

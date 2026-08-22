@@ -31,13 +31,15 @@ class KingdeeProductionPickListSyncJobTest {
                 new ErpKingdeeProductionPickListSyncResult();
         result.addCreated();
         result.addSkipped("FID-OLD");
-        when(pickListService.syncAllSkipExisting()).thenReturn(result);
+        when(pickListService.syncAllSkipExisting(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(result);
         when(runtimeService.executeSync(any(ErpKingdeeSyncCommand.class), any(ErpKingdeeSyncTask.class)))
                 .thenAnswer(invocation -> invocation.<ErpKingdeeSyncTask>getArgument(1).run(
                         ErpKingdeeSyncContext.builder()
                                 .syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_PICK_LIST)
                                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
-                                .windowEnd(LocalDateTime.of(2026, 6, 12, 9, 0))
+                                .windowStart(invocation.<ErpKingdeeSyncCommand>getArgument(0).getInitialWindowStart())
+                                .windowEnd(invocation.<ErpKingdeeSyncCommand>getArgument(0).getWindowEnd())
                                 .build()));
         KingdeeProductionPickListSyncJob job =
                 new KingdeeProductionPickListSyncJob(pickListService, runtimeService);
@@ -45,7 +47,15 @@ class KingdeeProductionPickListSyncJobTest {
         String output = job.execute(ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM);
 
         assertTrue(output.contains("full sync"));
-        verify(pickListService).syncAllSkipExisting();
+        verify(pickListService).syncAllSkipExisting(
+                any(LocalDateTime.class), any(LocalDateTime.class));
+        org.mockito.ArgumentCaptor<ErpKingdeeSyncCommand> commandCaptor =
+                org.mockito.ArgumentCaptor.forClass(ErpKingdeeSyncCommand.class);
+        verify(runtimeService).executeSync(commandCaptor.capture(), any(ErpKingdeeSyncTask.class));
+        assertTrue(commandCaptor.getValue().isForceInitialWindowStart());
+        assertTrue(commandCaptor.getValue().getInitialWindowStart()
+                .equals(commandCaptor.getValue().getWindowEnd().toLocalDate()
+                        .minusDays(365).atStartOfDay()));
         verify(pickListService, never()).syncModifiedBetween(any(), any());
     }
 

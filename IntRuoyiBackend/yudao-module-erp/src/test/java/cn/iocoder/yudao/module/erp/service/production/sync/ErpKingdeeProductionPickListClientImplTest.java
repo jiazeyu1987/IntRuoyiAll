@@ -27,6 +27,32 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class ErpKingdeeProductionPickListClientImplTest {
 
     @Test
+    void fetchProductionPickLists_usesExplicitOneYearWindowAndSmallerPageSize() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionPickListClientImpl client =
+                new ErpKingdeeProductionPickListClientImpl(restTemplate);
+
+        expectLogin(server);
+        server.expect(requestTo(queryUrl()))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andExpect(content().string(containsString(
+                        "FDate+%3E%3D+%272025-08-22%27")))
+                .andExpect(content().string(containsString(
+                        "FDate+%3C+%272026-08-23%27")))
+                .andExpect(content().string(containsString("%22Limit%22%3A200")))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        List<ErpKingdeeProductionPickList> rows = client.fetchProductionPickLists(
+                buildProperties(),
+                LocalDateTime.of(2025, 8, 22, 0, 0),
+                LocalDateTime.of(2026, 8, 22, 13, 0));
+
+        assertTrue(rows.isEmpty());
+        server.verify();
+    }
+
+    @Test
     void fetchProductionPickListsModifiedBetween_queriesPrdPickMtrlAndParsesHeaderAndLine() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
@@ -103,7 +129,10 @@ class ErpKingdeeProductionPickListClientImplTest {
 
         cn.iocoder.yudao.framework.common.exception.ServiceException exception =
                 assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
-                        () -> client.fetchProductionPickLists(buildProperties()));
+                        () -> client.fetchProductionPickLists(
+                                buildProperties(),
+                                LocalDateTime.of(2025, 8, 22, 0, 0),
+                                LocalDateTime.of(2026, 8, 22, 13, 0)));
         assertEquals(ErrorCodeConstants.KINGDEE_PRODUCTION_PICK_LIST_REQUEST_FAIL.getCode(),
                 exception.getCode());
         assertTrue(exception.getMessage().contains("没有生产领料单查看权限"));
@@ -126,7 +155,10 @@ class ErpKingdeeProductionPickListClientImplTest {
 
         cn.iocoder.yudao.framework.common.exception.ServiceException exception =
                 assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
-                        () -> client.fetchProductionPickLists(buildProperties()));
+                        () -> client.fetchProductionPickLists(
+                                buildProperties(),
+                                LocalDateTime.of(2025, 8, 22, 0, 0),
+                                LocalDateTime.of(2026, 8, 22, 13, 0)));
         assertEquals(ErrorCodeConstants.KINGDEE_PRODUCTION_PICK_LIST_REQUEST_FAIL.getCode(),
                 exception.getCode());
         assertTrue(exception.getMessage().contains("元数据中字段不存在"));

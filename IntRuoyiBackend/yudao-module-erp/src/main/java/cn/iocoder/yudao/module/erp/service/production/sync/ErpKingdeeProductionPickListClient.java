@@ -7,7 +7,8 @@ import java.util.List;
 
 public interface ErpKingdeeProductionPickListClient {
 
-    List<ErpKingdeeProductionPickList> fetchProductionPickLists(ErpKingdeeProperties properties);
+    List<ErpKingdeeProductionPickList> fetchProductionPickLists(
+            ErpKingdeeProperties properties, LocalDateTime windowStart, LocalDateTime windowEnd);
 
     List<ErpKingdeeProductionPickList> fetchProductionPickListsModifiedBetween(
             ErpKingdeeProperties properties, LocalDateTime windowStart, LocalDateTime windowEnd);
