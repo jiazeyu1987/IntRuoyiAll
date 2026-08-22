@@ -172,6 +172,6 @@ REGRESSION: `node --check` 两个受影响 E2E 静态脚本、Flow11 `branch-run
 ## M18 物理主工作树最终验证
 
 - 在 `E:\IntRuoyi\IntRuoyiBackend` 首先执行 bundled Maven `mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS，24/24 modules `BUILD SUCCESS`。
-- 在物理主工作树检查发现 `IntRuoyiBackend/script/flow_repair_11_migration.py`、`run_flow_repair_11_contracts.py`、`tests/test_flow_repair_11_migration.py` 均不存在；因此 runner、pytest、py_compile 均实际 FAIL（file not found）。这些文件存在于 `refs/heads/int_main`，但此前为保护主工作树 dirty/untracked 状态未 checkout；未复制、未覆盖、未使用隔离结果冒充主树通过。
+- 复核确认上述三个 Python 文件及 BPM/ERP task-owned 源和测试源的 staged 删除均由本线程此前受保护 ref 更新造成；按路径从当前 `int_main` 精确恢复，未触碰其它 dirty/untracked 文件。恢复后 runner -> PASS 12，pytest -> PASS 12 passed，py_compile -> PASS。
 - 物理主工作树前端 `pnpm run ts:check` -> PASS；两个 E2E 静态脚本 `node --check` -> PASS；主线 `branch-runtime-port-guard.ps1` -> PASS（8081/48081）；`git diff --check` -> exit 0（仅 CRLF 警告）。
-- 物理主工作树 ERP 定向 JUnit 命令返回 6/6，但对应 task-owned Java 源和测试源均不存在，结果来自既有 `target`，按规则不计为当前主树有效证据；BPM 同理不计。未执行服务、数据库、真实 Playwright 或写入型迁移。
+- 恢复后的物理主工作树 ERP 定向 JUnit -> PASS 6/6；BPM 定向 JUnit -> PASS 46/46。未执行服务、数据库、真实 Playwright 或写入型迁移。

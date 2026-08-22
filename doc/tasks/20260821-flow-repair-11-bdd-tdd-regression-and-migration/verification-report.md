@@ -98,9 +98,8 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 ## 8.3 物理 E:\IntRuoyi 最终门禁
 
 - Maven 主线 compile 已实际通过 24/24 modules；前端 `ts:check`、Node 静态检查、runtime guard 和 diff-check 已通过。
-- 流程11 Python runner/pytest/py_compile 在物理主树因三个 task-owned Python 文件缺失而 NOT RUN/FAIL（file not found）；文件只存在于本地 `int_main` Git 对象和隔离集成 worktree，不能将其结果升级为物理主树证据。
-- 定向 JUnit 的物理主树 source/test 文件缺失，虽旧 `target` 可返回 6/6，不计为有效主树 JUnit 证据。流程11自身没有需要修复的编译错误；缺失来自受保护 ref 更新后的物理 checkout 不一致，不覆盖主树 dirty/untracked 文件。
-- 流程11代码验证和本地融合完成，但本次主线程全链路仍 No-Go；需后续在不覆盖用户文件的前提下恢复 task-owned checkout 后重跑 Python/JUnit，另有流程1-10生产回归、真实 E2E、历史迁移和人工回滚 blocker。
+- 三个流程11 Python 文件及 BPM/ERP task-owned 源和测试源的 staged 删除已确认是本线程此前受保护 ref 更新造成的意外物理删除；已按路径恢复并复验，未覆盖其它 dirty/untracked 文件。runner、pytest、py_compile、ERP 6/6 JUnit 和 BPM 46/46 JUnit 均实际通过。
+- 流程11自身迁移工具、回归基线和编译源已完成并验证；本次主线程全链路仍 No-Go，剩余流程1-10生产回归、真实 Playwright E2E、历史迁移、人工批准和回滚 blocker。
 
 ## 8.1 M14 编译修复验证
 

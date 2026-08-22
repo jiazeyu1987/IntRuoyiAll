@@ -44,7 +44,7 @@
 
 ## Current Status
 
-in_progress：流程11迁移分类器、只读 dry-run、12 个 Python 合同场景、BPM/ERP 编译源修复、全模块 Maven 编译及本地受保护融合已完成；本地 `int_main` 当前为 `46948a7dde70f495c08e2b24a4acbf982f855d11`，包含流程11 `8fe9228b2`。ERP 定向 JUnit 通过，BPM 尚有未跟踪 DOCX fixture 缺失导致的单项失败。主工作树既有 dirty/untracked 文件未被覆盖。流程1-10生产闭环、真实 E2E、生产历史迁移/人工复核/回滚仍为 No-Go/阻断。
+in_progress：流程11迁移分类器、只读 dry-run、12 个 Python 合同场景、BPM/ERP 编译源修复、全模块 Maven 编译、task-owned 文件恢复及本地受保护融合已完成并验证；本地 `int_main` 当前包含流程11 `8fe9228b2`。ERP 定向 JUnit 6/6、BPM 46/46、runner、pytest、py_compile 均通过。主工作树其它 dirty/untracked 文件未被覆盖。流程1-10生产闭环、真实 E2E、生产历史迁移/人工复核/回滚仍为 No-Go/阻断。
 
 ## 修改边界
 
