@@ -118,3 +118,10 @@ dry-run 输出 migrationBatchId、batchExecutionId、completion/independent cred
 - 当前代码仍有提前申请/先建批次旧顺序，必须由实现线程通过 RED/GREEN/REGRESSION 关闭。
 
 在上述证据齐全前，流程 11 结论为 No-Go；流程 11 文档本身不宣称代码已合规。
+
+## 9.1 M14 编译合同修复
+
+- BDD: Given `MesFrontlinePqcContextService` consumes the published QA inspection DTO / When MES production sources compile / Then `InspectionItem.equipmentRequired`, `InspectionItem.equipmentOptions` and nested `EquipmentOption` are present and the compiler resolves the contract.
+- RED: 修复前 bundled `mvn -pl yudao-module-mes -am -DskipTests compile` 在 `MesFrontlinePqcContextServiceImpl.java:736` 找不到 `MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption`。
+- GREEN: 恢复 DTO 字段和嵌套类型后，同一命令通过，MES reactor 24/24 modules `BUILD SUCCESS`。
+- REGRESSION: `mvn -pl yudao-module-mes -Dtest=MesFrontlinePqcContextServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，9 tests run, 0 failures/errors/skipped。

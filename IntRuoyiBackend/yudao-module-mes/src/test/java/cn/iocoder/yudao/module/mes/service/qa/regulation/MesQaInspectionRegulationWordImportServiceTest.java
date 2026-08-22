@@ -343,6 +343,14 @@ class MesQaInspectionRegulationWordImportServiceTest {
     }
 
     private static MesQaInspectionRegulationPublishedVersionRespVO existingConfiguration() {
+        MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess process =
+                MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess.builder()
+                        .qaProcessId(81L)
+                        .processCode("QA-CLEAN")
+                        .processName("清洗")
+                        .sort(1)
+                        .items(List.of(legacyItem("LEGACY-I01", "外观", "清洗 / 外观")))
+                        .build();
         return MesQaInspectionRegulationPublishedVersionRespVO.builder()
                 .dccProjectCodeId(DCC_PROJECT_ID)
                 .regulationId(REGULATION_ID)

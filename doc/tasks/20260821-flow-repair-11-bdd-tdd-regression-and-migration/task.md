@@ -16,6 +16,7 @@
 
 - [x] M12：在独立 worktree 以 BDD/TDD 交付五类历史迁移分类器和只读回滚计划生成器；不执行数据库迁移。
 - [x] M13：完成流程11 Python runner、`py_compile`、`pytest` 和 runtime guard 复验；记录 task-owned 提交及主线融合阻断。
+- [x] M14：恢复发布版/保存版 QA DTO 的设备选项类型契约，Maven 生产源码编译和 `MesFrontlinePqcContextServiceTest` 定向回归通过。
 
 ## 预期验证
 
@@ -41,7 +42,7 @@
 
 ## Current Status
 
-in_progress：流程11迁移分类器、只读 dry-run、回滚计划和 12 个 Python 合同场景已提交并通过 runner/pytest；流程1-10生产闭环、数据库迁移、真实 E2E、Java 回归和主线融合仍为 No-Go/阻断。
+in_progress：流程11迁移分类器、只读 dry-run、回滚计划和 12 个 Python 合同场景已提交并通过 runner/pytest；M14 已恢复 QA DTO 设备选项契约并通过 MES 生产源码编译和定向 JUnit，但流程1-10生产闭环、数据库迁移、真实 E2E 和主线融合仍为 No-Go/阻断。
 
 ## 修改边界
 

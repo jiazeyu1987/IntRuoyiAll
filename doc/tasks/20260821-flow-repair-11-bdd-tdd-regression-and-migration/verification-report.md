@@ -2,7 +2,7 @@
 
 ## 1. 验证范围
 
-本报告验证专项文档、流程11无副作用实现、合同引用和当前代码审计结论。未启动服务，未访问或修改数据库，未运行生产迁移、Node、Playwright 或写入型 E2E；流程11 Python runner/pytest 已运行，Maven compile 已运行并在既有 MES 编译错误处失败；未修改生产 Java/业务测试。
+本报告验证专项文档、流程11无副作用实现、合同引用和当前代码审计结论。未启动服务，未访问或修改数据库，未运行生产迁移、Node、Playwright 或写入型 E2E；流程11 Python runner/pytest、M14 Maven 生产源码 compile 和 `MesFrontlinePqcContextServiceTest` 定向 JUnit 已运行通过。
 
 ## 2. 已核对正式来源
 
@@ -64,7 +64,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 已验证 12 个 BDD 合同场景：四材料逐节点持久化证据、旧三材料 `BLOCKED_LEGACY`、缺第四节点、hash/version 冲突、独立凭证未绑定、独立凭证加正式 source relation、缺正式 source relation、失败尝试无成功 receipt、来源不明、已放行复核、批准/未批准回滚计划、重复批次 ID 阻断。标准 Python runner 实际通过。
 - `build_rollback_plan` 仅在 `PROVABLE_UNBOUND + APPROVED` 时返回 `write_allowed=true`，回滚范围固定为 `NEW_ORIGIN_TRACE_LINKS_ONLY`；其它分类或未批准均阻断。
 - `build_dry_run_report` 返回逐节点 material evidence、分类计数、唯一 batchExecutionId、`write_allowed=false` 和 `side_effects=[]`；重复 ID 返回稳定错误，不生成写入操作。
-- `python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q` -> PASS，`12 passed in 0.16s`；Maven 全模块 compile 在既有 `MesFrontlinePqcContextServiceImpl.java:736` 因缺少 `EquipmentOption` 符号处失败，因此 Java 流程1-10合同测试和完整回归仍未取得证据。
+- `python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q` -> PASS，`12 passed in 0.16s`；M13 的 Maven 全模块 compile 曾在 `MesFrontlinePqcContextServiceImpl.java:736` 因缺少 `EquipmentOption` 符号处失败，M14 恢复 DTO 契约后已重新通过，因此 Java 流程1-10合同测试和完整回归仍未取得证据。
 
 ## 7. 未解决 blocker
 
@@ -72,7 +72,6 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 2. 当前实现和旧测试仍存在先建批、资料后写及多入口直接放行路径，必须完成 RED/GREEN/REGRESSION。
 3. 真实租户、角色、签名、正式工单/领料单、PQC 汇总和四份附件尚未准备或使用，真实 Playwright E2E 尚未执行。
 4. 生产历史批次/申请尚未执行授权后的真实只读 dry-run、人工复核和回滚演练；本线程已完成规范化 fixture dry-run。缺映射、缺 receipt 或已放行来源不完整必须分别进入 TRACE_MAPPING_BLOCKED、LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED、ALREADY_RELEASED_REVIEW_REQUIRED。
-5. 后端全模块编译被既有 `EquipmentOption` 符号错误阻断，需由对应流程线程修复后重新运行 Java RED/GREEN/REGRESSION。
 6. `int_main` 融合未完成：主工作树当前 HEAD 为 `a73c1fded980f2bb7e6c49fe9ca6660ce4725a3e`，存在 114 个 tracked dirty 文件及大量 untracked 任务产物，且与本分支提交重叠 `AGENTS.md`、`docs/local-runtime.md`、`docs/worktree-memory.md`；`git merge --ff-only codex/20260822-flow-repair-11-design-development` 以退出码 128 因分支 diverged 中止。不得覆盖主工作树改动。
 
 以上 blocker 是实现、数据和验证前置，不是流程修复 04、05、07、10 文档缺失；当前四材料合同也不以旧三项历史数据作为兼容成功条件。
@@ -80,15 +79,23 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 ## 8. 验证命令与结果
 
 - 已执行：`python IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS 12；`python -m py_compile ...` -> PASS；`python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q` -> PASS（12 passed）；规范化 fixture dry-run -> PASS，总数 8、唯一批次 ID 8，分类计数 1/1/4/1/1，`write_allowed=false`、`side_effects=[]`。
-- 已执行：`mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL，阻断于 `MesFrontlinePqcContextServiceImpl.java:736` 缺少 `EquipmentOption`；`branch-runtime-port-guard.ps1` -> PASS。
+- 已执行（M13 历史结果）：`mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL，阻断于 `MesFrontlinePqcContextServiceImpl.java:736` 缺少 `EquipmentOption`。
+- 已执行（M14）：同一 bundled Maven compile 命令 -> PASS，MES reactor 24/24 modules `BUILD SUCCESS`；`branch-runtime-port-guard.ps1` -> PASS。
 - 已执行：`git merge --ff-only codex/20260822-flow-repair-11-design-development`（主工作树）-> FAIL，退出码 128，分支 diverged；主工作树 dirty 未改变。
 - 已执行：主线 `int_main` 不包含 `IntRuoyiBackend/script/run_flow_repair_11_contracts.py`（`git cat-file -e int_main:...` 退出码 128），主工作树也不存在该 runner；因此未伪造主线程 runner/回归 PASS。
 - 已执行：只读 rg --files、rg -n，核对五份文档、流程合同引用、四材料节点和 BDD/RED/GREEN/REGRESSION markers；自定义标记扫描确认独立入口、四个 BATCH_*、损耗三态和映射门禁均存在且旧凭证/待冻结措辞不存在。
 - 已执行：只读 git diff --check；对未跟踪 Markdown 另以 rg 扫描尾随空格。
 - 未执行：流程1-10生产代码测试、服务、生产数据库迁移、SQL、真实 Playwright E2E 和任何写入型 E2E；流程11无副作用合同 runner、pytest 和 fixture dry-run 已执行。
 
+## 8.1 M14 编译修复验证
+
+- BDD: `MesFrontlinePqcContextService` 使用的发布版 QA DTO 必须提供设备选项字段和嵌套类型，避免源码与测试契约分裂。
+- RED: 修复前 bundled Maven `mvn -pl yudao-module-mes -am -DskipTests compile` 在 `MesFrontlinePqcContextServiceImpl.java:736` 报 `MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption` 缺失。
+- GREEN: 恢复 `equipmentRequired`、`equipmentOptions` 和 `EquipmentOption` 后同一命令 `BUILD SUCCESS`（24/24 modules）。
+- REGRESSION: `mvn -pl yudao-module-mes -Dtest=MesFrontlinePqcContextServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，9 tests run, 0 failures/errors/skipped。
+
 ## 9. Go/No-Go
 
 流程11独立迁移切片已完成 runner 和 fixture dry-run 验证，但整体代码保持 No-Go。只有实现线程关闭旧顺序和直接放行路径，并取得四材料硬门禁、多入口幂等、完整追溯、生产历史迁移授权/回滚和真实 Playwright 证据后，才可重新评估 Go。
 
-本轮 task.md 保持 in_progress：流程11提交和 Python 验证已完成，但 Maven 基线编译、流程1-10生产回归、真实 E2E、生产历史迁移/人工回滚以及主线融合仍阻断。流程 8 仅接受四节点当前有效 COMPLETED（有批准字段时 APPROVED，节点 version/file_hash/source_snapshot_hash 与 manifest 一致），历史迁移统一五类。五份正式文档和流程11迁移模块均保留。
+本轮 task.md 保持 in_progress：流程11提交和 Python 验证、M14 Maven 生产源码编译及定向 JUnit 已完成，但流程1-10生产回归、真实 E2E、生产历史迁移/人工回滚以及主线融合仍阻断。流程 8 仅接受四节点当前有效 COMPLETED（有批准字段时 APPROVED，节点 version/file_hash/source_snapshot_hash 与 manifest 一致），历史迁移统一五类。五份正式文档和流程11迁移模块均保留。

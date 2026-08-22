@@ -110,7 +110,7 @@ REGRESSION: node tests/e2e/edhr-special-nodes-real-flow.e2e.js -> PASS（计划�
 - Implementation: 新增 `IntRuoyiBackend/script/flow_repair_11_migration.py`、`IntRuoyiBackend/script/run_flow_repair_11_contracts.py` 和 `IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py`；纯函数无数据库、SQL、网络和文件写入副作用。
 - COMMIT: `6a6d2afac`（流程11迁移实现/合同和 runtime v5 同步）、`9e188f9d6`（本地 runtime 旧限制文档修正）、`d012479b2`（worktree 长期经验修正）均已由正常 hook 创建；未使用 `--no-verify`，未修改其它任务登记。
 - Runtime verification: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1` -> PASS；当前 worktree 登记为 `int_main slot=9`（8090/48090），共享 `slot=31` 可按 v5 映射，未启动服务。
-- Backend regression attempt: bundled Maven `mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL；MES 编译在 `MesFrontlinePqcContextServiceImpl.java:736` 因 `MesQaInspectionRegulationPublishedVersionRespVO` 缺少 `EquipmentOption` 符号阻断，未运行流程1-10 Java 合同测试。
+- Backend regression attempt (M13 historical result): bundled Maven `mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL；MES 编译在 `MesFrontlinePqcContextServiceImpl.java:736` 因 `MesQaInspectionRegulationPublishedVersionRespVO` 缺少 `EquipmentOption` 符号阻断，未运行流程1-10 Java 合同测试。该阻断已由 M14 修复并复验。
 
 ## M13 提交、融合和复验
 
@@ -120,4 +120,16 @@ REGRESSION: node tests/e2e/edhr-special-nodes-real-flow.e2e.js -> PASS（计划�
 
 ## 收尾状态
 
-`in_progress`：流程11 task-owned 代码已提交，runner/pytest/py_compile/runtime guard 已取得实际通过；Maven 基线、流程1-10生产回归、真实 E2E、生产历史迁移/回滚和 `int_main` 融合仍为 blocker。未使用 `--no-verify`，未修改主工作树或其它任务登记。
+`in_progress`：流程11 task-owned 代码已提交，runner/pytest/py_compile/runtime guard、M14 Maven 生产源码编译和定向 JUnit 已取得实际通过；流程1-10生产回归、真实 E2E、生产历史迁移/回滚和 `int_main` 融合仍为 blocker。未使用 `--no-verify`，未修改主工作树或其它任务登记。
+
+## M14 编译回归修复证据
+
+BDD: 发布版 QA 设备选项 DTO -> Given `MesFrontlinePqcContextService` 和现有测试需要 `equipmentRequired`、`equipmentOptions` 及嵌套 `EquipmentOption` / When 编译 MES 模块 / Then DTO 暴露完整类型契约且生产源码编译成功。
+
+RED: `mvn -pl yudao-module-mes -am -DskipTests compile`（修复前） -> FAIL，`MesFrontlinePqcContextServiceImpl.java:736` 找不到 `MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption`。
+
+GREEN: `mvn -pl yudao-module-mes -am -DskipTests compile`（2026-08-22） -> PASS，Reactor 24/24 模块 `BUILD SUCCESS`；仅保留既有 javac warning。
+
+REGRESSION: `mvn -pl yudao-module-mes -Dtest=MesFrontlinePqcContextServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，`Tests run: 9, Failures: 0, Errors: 0, Skipped: 0`；testCompile 和定向服务回归均通过。
+
+M14 修改范围：恢复发布版/保存版 QA DTO 的设备字段和 `EquipmentOption` 嵌套 DTO，并修正 Word 导入测试的 `process` fixture；未修改业务状态、数据库、服务进程或主工作树。

@@ -2,7 +2,7 @@
 
 ## 1. 范围和证据规则
 
-本文件是后续实现计划；本线程不运行服务、数据库、Node 或写入型 Playwright E2E。流程1-10 的 RED/GREEN/REGRESSION 合同命令均明确标记“计划，未运行”；M12 纯函数合同测试的 runner/pytest 已实际运行，Maven 仅执行基线 compile 以记录阻断，不能把其它命令中的 PASS 文本当作实际通过。
+本文件是后续实现计划；本线程不运行服务、数据库、Node 或写入型 Playwright E2E。流程1-10 的 RED/GREEN/REGRESSION 合同命令均明确标记“计划，未运行”；M12 纯函数合同测试的 runner/pytest、M14 生产源码 compile 和定向 JUnit 已实际运行，不能把其它命令中的 PASS 文本当作实际通过。
 
 写入型验证必须使用真实租户、真实角色/签名、正式工单和领料单、已确认 PQC 汇总、可追溯四份附件和任务自有数据。禁止 mock、API-only、直接 SQL、固定 ID、默认成功和按文件数量判断齐套。
 
@@ -98,4 +98,10 @@ REGRESSION: Tx-A 失败不提交 receipt -> PASS（计划，未运行；失败�
 
 当前 blocker 只保留：合同已在流程 1-10 文档及本任务冻结，但生产代码尚未落地流程 4/5/6/7/8/9/10 的状态 owner、Tx-A/Tx-B/Tx-C、逐工序损耗、四材料和唯一放行；RED/GREEN/REGRESSION、真实租户/角色/正式来源/四份附件、真实 Playwright E2E 和历史迁移/回滚证据均未运行或未完成。流程 4、5、7、10 文档已存在并纳入本总方案，不再列为缺失文档 blocker。
 
-M12 实际证据：无第三方依赖的 `python IntRuoyiBackend/script/run_flow_repair_11_contracts.py` 已执行 12 个场景并通过；`python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q` 已通过（12 passed in 0.16s），`py_compile` 已通过。另已执行规范化历史 fixture 的只读 dry-run，输出总数 8、唯一批次 ID 8，分类计数为 RECEIPT_BOUND_COMPLETE=1、PROVABLE_UNBOUND=1、INCOMPLETE_OR_AMBIGUOUS=4、BLOCKED_LEGACY=1、ALREADY_RELEASED_REVIEW_REQUIRED=1，`write_allowed=false` 且 `side_effects=[]`。这些证据不代表生产代码、数据库迁移或全链路回归通过；Maven 基线 compile 仍被 `EquipmentOption` 阻断。
+M12 实际证据：无第三方依赖的 `python IntRuoyiBackend/script/run_flow_repair_11_contracts.py` 已执行 12 个场景并通过；`python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q` 已通过（12 passed in 0.16s），`py_compile` 已通过。另已执行规范化历史 fixture 的只读 dry-run，输出总数 8、唯一批次 ID 8，分类计数为 RECEIPT_BOUND_COMPLETE=1、PROVABLE_UNBOUND=1、INCOMPLETE_OR_AMBIGUOUS=4、BLOCKED_LEGACY=1、ALREADY_RELEASED_REVIEW_REQUIRED=1，`write_allowed=false` 且 `side_effects=[]`。这些证据不代表生产代码、数据库迁移或全链路回归通过；M14 生产源码 compile 和定向 JUnit 均已通过。
+
+## 8. M14 编译回归实际结果
+
+- RED: 修复前 `mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL，`MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption` 缺失。
+- GREEN: 修复发布版 QA DTO 后同一 bundled Maven 命令 -> PASS，MES reactor 24/24 modules `BUILD SUCCESS`。
+- REGRESSION: `mvn -pl yudao-module-mes -Dtest=MesFrontlinePqcContextServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS；`Tests run: 9, Failures: 0, Errors: 0, Skipped: 0`。
