@@ -56,3 +56,4 @@ BDD: 完整 reactor 编译 -> Given ERP 合同测试和 MES QA 正式 DTO/测试
 - 剩余职责修复：删除流程2未使用的正式记录簿写入 service 与 entry payload/result 类型，新增显式 `MesProFrontlineRecordbookSourceSnapshot`；来源快照不可被误用为正式批记录。
 - 跨线程事件字段和流程3 PQC 合同仍需由邻接线程冻结。
 - 提交/融合门禁：已解除。v5 合同允许 slot `1..40`；流程2通过官方脚本登记 slot 10，流程2 worktree guard 与主分支融合后基准端口 guard 均 PASS。其它任务的 slot 登记未被删除、改写或绕过。
+- 主线程复验（2026-08-22）：`E:\IntRuoyi` `int_main` 执行 `mvn -pl ':yudao-module-mes' -am '-DskipTests' test-compile` -> BUILD SUCCESS；执行流程2及相邻目标测试 -> 108 tests, Failures=0, Errors=0, Skipped=0, BUILD SUCCESS。

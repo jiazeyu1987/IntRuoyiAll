@@ -23,6 +23,7 @@
 - task-owned commit：PASS，`cf58816f7`。
 - fast-forward-only 融合：PASS，`int_main` HEAD 已核对为 `cf58816f7`。
 - merged-result：PASS，主工作树 MES `test-compile` BUILD SUCCESS；流程2及相邻目标回归 108 项，Failures=0、Errors=0、Skipped=0。
+- 主线程复验：PASS，`E:\IntRuoyi` `int_main` 当前源码/测试编译 BUILD SUCCESS，定向与相邻回归 108 项全部通过。
 
 ## Blockers
 
