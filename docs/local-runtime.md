@@ -242,7 +242,7 @@ PORT_CONTRACT_VERSION: 2026-08-21-branch-runtime-v5
 
 - 禁止把 `int_main` 改到随机端口启动。
 - 禁止非 `int_main` 使用 `8081/48081`。
-- 禁止任何附加 worktree 使用 `slot >= 31` 或其他 profile 的基准端口。
+- 禁止任何附加 worktree 使用 `slot >= 41` 或其他 profile 的基准端口。
 - 禁止把 `int_batch`、`int_shedule` 或 `int_qms` 的分支端口写入 `int_main` 默认配置。
 - 禁止通过修改共享 `.env` 或 `application-local.yaml` 来实现分支端口。
 - 禁止端口占用时静默换端口、静默跳过服务或宣称启动成功。
