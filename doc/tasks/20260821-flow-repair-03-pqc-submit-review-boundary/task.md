@@ -40,7 +40,7 @@
 
 completed
 
-流程 3 的 task-owned 提交/复核边界实现已融合到当前 `int_main`（`aeb58c37d`，当前主线程 HEAD 为 `5591587c50063744bb0b4096c53fb7f17614af65`），本次主线程定向测试、MES 相关编译和 runtime guard 均已取得真实证据。任务仍不能宣称全链路完成：流程 4/6/7/8/9/10/11 的跨流程实现、历史迁移对账和真实读写 E2E 仍未完成或验证。
+流程 3 的 task-owned 提交/复核边界实现已融合到当前 `int_main`（`aeb58c37d`，本次源代码复核基线为 `5591587c50063744bb0b4096c53fb7f17614af65`，其后仅增加流程 3 收尾文档提交），主线程定向测试、MES 相关编译和 runtime guard 均已取得真实证据。任务仍不能宣称全链路完成：流程 4/6/7/8/9/10/11 的跨流程实现、历史迁移对账和真实读写 E2E 仍未完成或验证。
 
 ## Main-Thread Implementation Verification
 
@@ -85,7 +85,7 @@ completed
 
 - 流程 3 提交回执暴露 `sourceRevision`（现有不可变 `submittedEventId`）和 `payloadHash`（冻结 `submittedContentHash`）；同内容重试复用原结果，内容冲突不重复写入。
 - PQC 组长复核保持来源事实边界：确认/退回及结构化 aggregate 不创建正式过程检验单、批次执行、材料或 `RELEASED`。
-- 主线程当前 `int_main` 已包含 `aeb58c37d`；后端整合提交为 `8759b45f9`，本次复核最终 HEAD 为 `5591587c50063744bb0b4096c53fb7f17614af65`。
+- 主线程 `int_main` 已包含 `aeb58c37d`；后端整合提交为 `8759b45f9`，本次源代码复核基线为 `5591587c50063744bb0b4096c53fb7f17614af65`。
 - 定向测试 4 个 Flow3 测试类共 27/27 PASS；MES 相关 reactor compile、runtime guard 和运行时脚本回归均有真实记录。
 
 ## Deliverables
