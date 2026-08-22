@@ -11,6 +11,10 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductBomDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
@@ -60,6 +64,8 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
     private final MesKingdeeProductionMaterialListMapper productionMaterialListMapper;
     private final ErpKingdeeProductionPickListMapper pickListMapper;
     private final ErpKingdeeProductionPickListItemMapper pickListItemMapper;
+    private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    private final MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
 
     public MesProductionPickListSourceServiceImpl(
             MesRouteDccProjectBindingMapper routeDccProjectBindingMapper,
@@ -69,7 +75,9 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
             MesMdItemMapper itemMapper,
             MesKingdeeProductionMaterialListMapper productionMaterialListMapper,
             ErpKingdeeProductionPickListMapper pickListMapper,
-            ErpKingdeeProductionPickListItemMapper pickListItemMapper) {
+            ErpKingdeeProductionPickListItemMapper pickListItemMapper,
+            MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
+            MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper) {
         this.routeDccProjectBindingMapper = routeDccProjectBindingMapper;
         this.routeProductMapper = routeProductMapper;
         this.routeProductBomMapper = routeProductBomMapper;
@@ -78,6 +86,8 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
         this.productionMaterialListMapper = productionMaterialListMapper;
         this.pickListMapper = pickListMapper;
         this.pickListItemMapper = pickListItemMapper;
+        this.pickListBindingMapper = pickListBindingMapper;
+        this.pickListBindingItemMapper = pickListBindingItemMapper;
     }
 
     @Override
@@ -152,8 +162,9 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
     public ResolvedValue resolveValue(ResolveCommand command) {
         if (command == null || command.routeId() == null || command.routeProcessId() == null
                 || command.productId() == null || command.dccProjectCodeId() == null
+                || command.pickListBindingId() == null
                 || StrUtil.isBlank(command.productionOrderNo()) || StrUtil.isBlank(command.sourceFieldCode())) {
-            throw contextRequired("申请放行缺少路线、工序、产品、DCC 项目、生产订单号或来源字段");
+            throw contextRequired("申请放行缺少路线、工序、产品、DCC 项目、领料绑定、生产订单号或来源字段");
         }
         requireRouteDccBinding(command.routeId(), command.dccProjectCodeId());
         MesProRouteProductDO routeProduct = routeProductMapper.selectByRouteIdAndItemId(
@@ -167,54 +178,52 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
             throw contextRequired("当前工序不属于 DCC 项目对应的工艺路线，routeProcessId=" + command.routeProcessId());
         }
         ParsedField parsedField = parseField(command.sourceFieldCode());
-        String materialCode = resolveFormalMaterialCode(command, routeProcess, parsedField);
-        List<ErpKingdeeProductionPickListItemDO> orderItems = pickListItemMapper
-                .selectListByProductionOrderNo(StrUtil.trim(command.productionOrderNo()));
-        List<ErpKingdeeProductionPickListItemDO> materialItems = orderItems == null ? List.of() : orderItems.stream()
+        MesProcessPoolActiveOrderPickListBindingDO binding = pickListBindingMapper.selectById(command.pickListBindingId());
+        if (binding == null || !Objects.equals(binding.getId(), command.pickListBindingId())
+                || binding.getPickListId() == null || StrUtil.isBlank(binding.getSourceSnapshotHash())) {
+            throw sourceRequired("领料绑定不存在或缺少来源快照，pickListBindingId=" + command.pickListBindingId());
+        }
+        if (!StrUtil.equals("BOUND", StrUtil.trim(binding.getBindingStatus()))) {
+            throw sourceRequired("领料绑定不是已绑定状态，pickListBindingId=" + binding.getId());
+        }
+        List<MesProcessPoolActiveOrderPickListBindingItemDO> snapshotItems =
+                pickListBindingItemMapper.selectListByBindingId(binding.getId());
+        if (snapshotItems == null || snapshotItems.isEmpty()) {
+            throw sourceRequired("领料绑定缺少完整明细快照，pickListBindingId=" + binding.getId());
+        }
+        String materialCode = resolveFormalMaterialCode(command, routeProcess, parsedField, snapshotItems);
+        List<MesProcessPoolActiveOrderPickListBindingItemDO> materialItems = snapshotItems.stream()
                 .filter(Objects::nonNull)
-                .filter(item -> StrUtil.equalsIgnoreCase(StrUtil.trim(item.getMaterialNumber()),
-                        materialCode))
+                .filter(item -> StrUtil.equalsIgnoreCase(StrUtil.trim(item.getMaterialNumber()), materialCode))
                 .toList();
         if (materialItems.isEmpty()) {
-            throw sourceRequired("生产订单 " + command.productionOrderNo() + " 的领料单没有物料 " + materialCode);
+            throw sourceRequired("绑定领料单没有物料 " + materialCode + ", pickListBindingId=" + binding.getId());
         }
-        List<Long> pickListIds = materialItems.stream().map(ErpKingdeeProductionPickListItemDO::getProductionPickListId)
-                .filter(Objects::nonNull).distinct().toList();
-        Map<Long, ErpKingdeeProductionPickListDO> approvedHeaders = new LinkedHashMap<>();
-        for (ErpKingdeeProductionPickListDO header : pickListMapper.selectBatchIds(pickListIds)) {
-            if (header != null && header.getId() != null
-                    && APPROVED_DOCUMENT_STATUS.equalsIgnoreCase(StrUtil.trim(header.getDocumentStatus()))) {
-                approvedHeaders.put(header.getId(), header);
-            }
-        }
-        if (approvedHeaders.size() != 1) {
-            throw sourceRequired("生产订单 " + command.productionOrderNo()
-                    + " 必须关联唯一已审核领料单，当前数量=" + approvedHeaders.size());
-        }
-        ErpKingdeeProductionPickListDO header = approvedHeaders.values().iterator().next();
         List<OrderedItem> orderedItems = new ArrayList<>();
         Set<Long> entryIds = new LinkedHashSet<>();
-        for (ErpKingdeeProductionPickListItemDO item : materialItems) {
-            if (!Objects.equals(header.getId(), item.getProductionPickListId())) {
-                continue;
-            }
+        for (MesProcessPoolActiveOrderPickListBindingItemDO item : snapshotItems) {
             Long entryId = parsePositiveEntryId(item.getSourceEntryId());
-            if (item.getId() == null || StrUtil.isBlank(item.getSourceLineKey()) || !entryIds.add(entryId)) {
-                throw sourceRequired("领料单 " + header.getSourceBillNo() + " 的正式分录顺序缺失或重复");
+            if (item.getPickListItemId() == null || StrUtil.isBlank(item.getSourceLineKey()) || !entryIds.add(entryId)) {
+                throw sourceRequired("领料绑定的正式分录顺序缺失或重复，pickListBindingId=" + binding.getId());
             }
             orderedItems.add(new OrderedItem(entryId, item));
         }
         if (orderedItems.isEmpty()) {
-            throw sourceRequired("领料单 " + header.getSourceBillNo() + " 没有可用的正式物料分录");
+            throw sourceRequired("领料绑定没有可用的正式物料分录，pickListBindingId=" + binding.getId());
         }
         orderedItems.sort(Comparator.comparing(OrderedItem::entryId));
-        ErpKingdeeProductionPickListItemDO first = orderedItems.get(0).item();
-        Object value = parsedField.property().extractor().apply(first);
+        MesProcessPoolActiveOrderPickListBindingItemDO first = orderedItems.stream()
+                .map(OrderedItem::item)
+                .filter(item -> materialItems.contains(item))
+                .findFirst()
+                .orElseThrow(() -> sourceRequired("绑定领料单没有可解析的物料分录"));
+        Object value = extract(first, parsedField.property(), binding.getSourceBillNo());
         if (!hasValue(value)) {
-            throw sourceRequired("领料单 " + header.getSourceBillNo() + " 的第一条物料分录缺少字段 "
+            throw sourceRequired("绑定领料单的第一条物料分录缺少字段 "
                     + parsedField.property().name());
         }
-        return new ResolvedValue(header.getId(), first.getId(), value, evidenceHash(header, first));
+        return new ResolvedValue(binding.getPickListId(), first.getPickListItemId(), value,
+                evidenceHash(binding, snapshotItems));
     }
 
     private MesRouteDccProjectBindingDO requireRouteDccBinding(Long routeId, Long expectedDccProjectCodeId) {
@@ -295,7 +304,8 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
     }
 
     private String resolveFormalMaterialCode(ResolveCommand command, MesProRouteProcessDO routeProcess,
-                                             ParsedField parsedField) {
+                                             ParsedField parsedField,
+                                             List<MesProcessPoolActiveOrderPickListBindingItemDO> snapshotItems) {
         if (parsedField.itemId() != null) {
             List<MesProRouteProductBomDO> processBomRows = routeProductBomMapper
                     .selectList(command.routeId(), routeProcess.getProcessId(), command.productId());
@@ -334,14 +344,8 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
         if (product == null || StrUtil.isBlank(product.getCode())) {
             throw contextRequired("当前路线产品不存在或缺少产品编码，productId=" + command.productId());
         }
-        List<MesKingdeeProductionMaterialListDO> materialRows = productionMaterialListMapper
-                .selectListByProductCode(StrUtil.trim(product.getCode()));
-        boolean matched = materialRows != null && materialRows.stream()
-                .filter(Objects::nonNull)
-                .anyMatch(row -> StrUtil.equalsIgnoreCase(StrUtil.trim(row.getProductCode()),
-                        StrUtil.trim(product.getCode()))
-                        && StrUtil.equalsIgnoreCase(StrUtil.trim(row.getChildMaterialCode()),
-                        parsedField.materialCode()));
+        boolean matched = snapshotItems.stream().anyMatch(item ->
+                StrUtil.equalsIgnoreCase(StrUtil.trim(item.getMaterialNumber()), parsedField.materialCode()));
         if (!matched) {
             throw contextRequired("来源物料不属于当前 DCC 路线产品，materialCode="
                     + parsedField.materialCode());
@@ -397,14 +401,30 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
         return value != null && (!(value instanceof String text) || StrUtil.isNotBlank(text));
     }
 
-    private String evidenceHash(ErpKingdeeProductionPickListDO header,
-                                ErpKingdeeProductionPickListItemDO item) {
-        return DigestUtil.sha256Hex(String.join("|", "PRODUCTION_PICK_LIST_SOURCE_V1",
-                text(header.getId()), text(header.getSourceFormId()), text(header.getSourceFid()),
-                text(header.getSourceBillNo()), text(header.getDocumentStatus()), text(item.getId()),
+    private String evidenceHash(MesProcessPoolActiveOrderPickListBindingDO binding,
+                                List<MesProcessPoolActiveOrderPickListBindingItemDO> items) {
+        String payload = "PRODUCTION_PICK_LIST_BINDING_SOURCE_V1|" + text(binding.getId()) + "|"
+                + text(binding.getPickListId()) + "|" + text(binding.getSourceSnapshotHash()) + "|"
+                + items.stream().map(item -> String.join("|", text(item.getId()), text(item.getPickListItemId()),
                 text(item.getSourceEntryId()), text(item.getSourceLineKey()), text(item.getMaterialNumber()),
                 text(item.getLotNumber()), decimal(item.getActualQuantity()), decimal(item.getRequestedQuantity()),
-                text(item.getProductionOrderNo())));
+                text(item.getProductionOrderNo()))).sorted().reduce((a, b) -> a + "||" + b).orElse("");
+        return DigestUtil.sha256Hex(payload);
+    }
+
+    private Object extract(MesProcessPoolActiveOrderPickListBindingItemDO item, MaterialProperty property,
+                           String sourceBillNo) {
+        return switch (property.code()) {
+            case "materialNumber" -> item.getMaterialNumber();
+            case "materialName" -> item.getMaterialName();
+            case "materialSpecification" -> item.getMaterialSpecification();
+            case "unitName" -> item.getUnitName();
+            case "lotNumber" -> item.getLotNumber();
+            case "actualQuantity" -> item.getActualQuantity();
+            case "requestedQuantity" -> item.getRequestedQuantity();
+            case "sourceBillNo" -> sourceBillNo;
+            default -> throw sourceRequired("不支持的绑定快照字段 " + property.code());
+        };
     }
 
     private String text(Object value) {
@@ -452,6 +472,6 @@ public class MesProductionPickListSourceServiceImpl implements MesProductionPick
     private record CatalogMaterial(String code, String name) {
     }
 
-    private record OrderedItem(Long entryId, ErpKingdeeProductionPickListItemDO item) {
+    private record OrderedItem(Long entryId, MesProcessPoolActiveOrderPickListBindingItemDO item) {
     }
 }

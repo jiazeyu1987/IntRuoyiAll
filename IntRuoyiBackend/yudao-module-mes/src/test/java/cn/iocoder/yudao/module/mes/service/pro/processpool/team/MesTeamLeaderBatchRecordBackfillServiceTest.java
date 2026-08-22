@@ -392,6 +392,7 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
 
     private static MesTeamLeaderBatchRecordBackfillCommand command() {
         return new MesTeamLeaderBatchRecordBackfillCommand()
+                .setPickListBindingId(8801L)
                 .setEvent(event())
                 .setAllocation(allocation())
                 .setSourceEvents(List.of(event()))
@@ -413,6 +414,7 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                 "{\"pressure\":18,\"deviceCode\":\"DEV-B\"}",
                 LocalDateTime.of(2026, 8, 1, 9, 0));
         return new MesTeamLeaderBatchRecordBackfillCommand()
+                .setPickListBindingId(8801L)
                 .setEvent(second)
                 .setAllocation(allocation(7102L, 1002L, "80",
                         LocalDateTime.of(2026, 8, 1, 9, 1)))

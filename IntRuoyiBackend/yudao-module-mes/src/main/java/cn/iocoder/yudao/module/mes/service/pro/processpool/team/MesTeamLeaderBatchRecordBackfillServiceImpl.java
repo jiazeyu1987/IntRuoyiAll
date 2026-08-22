@@ -143,6 +143,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
 
     private void validate(MesTeamLeaderBatchRecordBackfillCommand command) {
         if (command == null || command.getEvent() == null || command.getAllocation() == null
+                || command.getPickListBindingId() == null
                 || command.getWorkOrder() == null || command.getEvent().getId() == null
                 || command.getEvent().getProcessId() == null
                 || command.getAllocation().getId() == null || command.getAllocation().getWorkOrderId() == null
@@ -336,6 +337,9 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             MesProWorkOrderDO workOrder,
             MesProRouteFlowProcessBatchRecordDO binding,
             List<MesProBatchRecordCellLinkRuleDO> rules) {
+        if (command.getPickListBindingId() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfill.pickListBindingId");
+        }
         Map<String, MesProductionPickListSourceService.ResolvedValue> result = new LinkedHashMap<>();
         for (MesProBatchRecordCellLinkRuleDO rule : rules) {
             if (!SOURCE_TYPE_PRODUCTION_PICK_LIST.equals(StrUtil.trim(rule.getSourceType()))) {
@@ -345,6 +349,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             result.computeIfAbsent(rule.getSourceFieldCode(), fieldCode -> productionPickListSourceService.resolveValue(
                     new MesProductionPickListSourceService.ResolveCommand(binding.getRouteId(),
                             binding.getRouteProcessId(), workOrder.getProductId(), dccProjectCodeId,
+                            command.getPickListBindingId(),
                             workOrder.getCode(), fieldCode)));
         }
         return Map.copyOf(result);

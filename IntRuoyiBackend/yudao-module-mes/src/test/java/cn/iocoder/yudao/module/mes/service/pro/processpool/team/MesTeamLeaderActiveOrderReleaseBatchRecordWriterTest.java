@@ -232,6 +232,7 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
         return new MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand()
                 .setTenantId(1L)
                 .setActiveOrderId(ACTIVE_ORDER_ID)
+                .setPickListBindingId(8801L)
                 .setWorkOrderId(WORK_ORDER_ID)
                 .setRouteId(ROUTE_ID)
                 .setRouteVersionId(ROUTE_VERSION_ID)

@@ -144,6 +144,7 @@ class MesP0BatchRecordBackfillClosedLoopTest {
 
     private static MesTeamLeaderBatchRecordBackfillCommand backfillCommand() {
         return new MesTeamLeaderBatchRecordBackfillCommand()
+                .setPickListBindingId(8801L)
                 .setEvent(event())
                 .setAllocation(allocation())
                 .setSourceEvents(List.of(event()))

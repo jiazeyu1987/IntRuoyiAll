@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
@@ -16,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEv
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
@@ -50,6 +52,7 @@ import java.util.Objects;
 public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
 
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
+    private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesProcessPoolOrderProcessCompletionMapper completionMapper;
@@ -65,6 +68,7 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
 
     public MesPqcReleaseDossierPortImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
+            MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
             MesProWorkOrderMapper workOrderMapper,
             MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
             MesProcessPoolOrderProcessCompletionMapper completionMapper,
@@ -78,6 +82,7 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
             MesTeamLeaderActiveOrderReleaseLossReportWriter lossReportWriter,
             MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher) {
         this.activeOrderMapper = activeOrderMapper;
+        this.pickListBindingMapper = pickListBindingMapper;
         this.workOrderMapper = workOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.completionMapper = completionMapper;
@@ -97,6 +102,12 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
             MesProcessPoolActiveOrderReleaseApplicationDO application, Long actorUserId) {
         Long tenantId = TenantContextHolder.getTenantId();
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(application.getActiveOrderId());
+        MesProcessPoolActiveOrderPickListBindingDO pickListBinding =
+                pickListBindingMapper.selectByActiveOrderId(application.getActiveOrderId());
+        if (pickListBinding == null || pickListBinding.getId() == null) {
+            throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, application, null,
+                    "active order lacks formal pick-list binding");
+        }
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(application.getWorkOrderId());
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = list(
                 processSnapshotMapper.selectListByActiveOrderIdForUpdate(application.getActiveOrderId()));
@@ -120,6 +131,7 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 new MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand()
                         .setTenantId(tenantId)
                         .setActiveOrderId(application.getActiveOrderId())
+                        .setPickListBindingId(pickListBinding.getId())
                         .setWorkOrderId(application.getWorkOrderId())
                         .setRouteId(application.getRouteId())
                         .setRouteVersionId(application.getRouteVersionId())

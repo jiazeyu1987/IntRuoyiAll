@@ -10,9 +10,14 @@ import lombok.experimental.Accessors;
 public class MesTeamLeaderActiveOrderAddRespVO {
 
     @Schema(description = "活跃订单编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "8101")
-    private Long activeOrderId;
+    private String activeOrderId;
 
     @Schema(description = "服务端最终提交动作", requiredMode = Schema.RequiredMode.REQUIRED,
             allowableValues = {"ADD", "REUSE", "RECOVER"}, example = "RECOVER")
     private String action;
+    private String workOrderId;
+    private String pickListBindingId;
+    private String pickListId;
+    private String sourceSnapshotHash;
+    private Integer bindingVersion;
 }

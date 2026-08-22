@@ -162,6 +162,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                             .setAggregateHash(completion.getAggregateHash())
                             .setIdempotencyKey(completion.getBackfillIdempotencyKey())
                             .setWorkOrder(plan.getCommand().getWorkOrder())
+                            .setPickListBindingId(plan.getCommand().getPickListBindingId())
                             .setDccProjectCodeId(plan.getCommand().getDccProjectCodeId())
                             .setBatchExecutionId(batchExecutionId)
                             .setBatchExecutionTaskId(task.getId()));
@@ -189,6 +190,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
 
     private void validateCommand(MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand command) {
         if (command == null || command.getTenantId() == null || command.getActiveOrderId() == null
+                || command.getPickListBindingId() == null
                 || command.getWorkOrderId() == null
                 || command.getRouteId() == null || command.getRouteVersionId() == null
                 || command.getDccProjectCodeId() == null
@@ -405,6 +407,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
             List<MesTeamLeaderActiveOrderReleaseBlocker> blockers,
             Set<Long> sourceObjectIds,
             Set<String> sourceValueHashes) {
+        sourceObjectIds.add(command.getPickListBindingId());
         for (MesProBatchRecordCellLinkRuleDO rule : rules) {
             if (!SOURCE_TYPE_PRODUCTION_PICK_LIST.equals(StrUtil.trim(rule.getSourceType()))) {
                 continue;
@@ -413,6 +416,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                 MesProductionPickListSourceService.ResolvedValue resolved = productionPickListSourceService.resolveValue(
                         new MesProductionPickListSourceService.ResolveCommand(command.getRouteId(),
                                 snapshot.getRouteProcessId(), command.getProductId(), command.getDccProjectCodeId(),
+                                command.getPickListBindingId(),
                                 command.getWorkOrder().getCode(), rule.getSourceFieldCode()));
                 sourceObjectIds.add(resolved.pickListId());
                 sourceObjectIds.add(resolved.pickListItemId());

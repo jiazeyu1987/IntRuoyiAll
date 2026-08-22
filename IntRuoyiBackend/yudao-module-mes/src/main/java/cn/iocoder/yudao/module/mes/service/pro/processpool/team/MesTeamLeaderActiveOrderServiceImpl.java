@@ -19,6 +19,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
@@ -51,6 +53,12 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBinding
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
@@ -85,6 +93,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.MD_ITEM_NOT_EXISTS;
@@ -101,6 +112,13 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_VERSION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PICK_LIST_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PICK_LIST_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PICK_LIST_NOT_APPROVED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PICK_LIST_WORK_ORDER_MISMATCH;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PICK_LIST_DETAIL_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_PICK_LIST_IDEMPOTENCY_CONFLICT;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_PICK_LIST_CONFLICT;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddResult.ACTION_ADD;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddResult.ACTION_RECOVER;
 import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddResult.ACTION_REUSE;
@@ -172,6 +190,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private final MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     private final DccProjectCodeMapper dccProjectCodeMapper;
     private final MesReportAllocationOrderChangeService reportAllocationOrderChangeService;
+    private final ErpKingdeeProductionPickListMapper pickListMapper;
+    private final ErpKingdeeProductionPickListItemMapper pickListItemMapper;
+    private final MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    private final MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
 
     public MesTeamLeaderActiveOrderServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
                                                MesProWorkOrderService workOrderService,
@@ -209,7 +231,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                MesWorkOrderAbnormalStateService abnormalStateService,
                                                MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper,
                                                DccProjectCodeMapper dccProjectCodeMapper,
-                                               MesReportAllocationOrderChangeService reportAllocationOrderChangeService) {
+                                               MesReportAllocationOrderChangeService reportAllocationOrderChangeService,
+                                               ErpKingdeeProductionPickListMapper pickListMapper,
+                                               ErpKingdeeProductionPickListItemMapper pickListItemMapper,
+                                               MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper,
+                                               MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderService = workOrderService;
         this.workOrderMapper = workOrderMapper;
@@ -247,6 +273,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         this.releaseApplicationMapper = releaseApplicationMapper;
         this.dccProjectCodeMapper = dccProjectCodeMapper;
         this.reportAllocationOrderChangeService = reportAllocationOrderChangeService;
+        this.pickListMapper = pickListMapper;
+        this.pickListItemMapper = pickListItemMapper;
+        this.pickListBindingMapper = pickListBindingMapper;
+        this.pickListBindingItemMapper = pickListBindingItemMapper;
     }
 
     @Override
@@ -277,6 +307,50 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .sorted((left, right) -> Boolean.compare(right.isEligible(), left.isEligible()))
                 .limit(ACTIVE_ORDER_CANDIDATE_LIMIT)
                 .toList();
+    }
+
+    @Override
+    public List<MesTeamLeaderPickListOptionBO> listPickListOptions(Long workOrderId) {
+        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExists(workOrderId);
+        List<ErpKingdeeProductionPickListItemDO> items = pickListItemMapper
+                .selectListByProductionOrderNo(workOrder.getCode());
+        if (items.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, List<ErpKingdeeProductionPickListItemDO>> itemsByPickList = items.stream()
+                .filter(item -> item.getProductionPickListId() != null)
+                .collect(Collectors.groupingBy(ErpKingdeeProductionPickListItemDO::getProductionPickListId,
+                        LinkedHashMap::new, Collectors.toList()));
+        return pickListMapper.selectBatchIds(itemsByPickList.keySet()).stream()
+                .sorted(Comparator.comparing(ErpKingdeeProductionPickListDO::getSourceBillNo,
+                        Comparator.nullsLast(String::compareTo)))
+                .map(header -> buildPickListOption(header, itemsByPickList.get(header.getId()), workOrder.getCode()))
+                .toList();
+    }
+
+    private MesTeamLeaderPickListOptionBO buildPickListOption(ErpKingdeeProductionPickListDO header,
+                                                               List<ErpKingdeeProductionPickListItemDO> items,
+                                                               String productionOrderNo) {
+        List<ErpKingdeeProductionPickListItemDO> snapshotItems = items == null ? List.of() : items;
+        String hash = pickListSnapshotHash(header, snapshotItems);
+        boolean detailsValid = snapshotItems.stream().allMatch(item ->
+                item.getId() != null && item.getSourceEntryId() != null
+                        && !item.getSourceEntryId().isBlank());
+        boolean selectable = "C".equalsIgnoreCase(header.getDocumentStatus()) && detailsValid;
+        return MesTeamLeaderPickListOptionBO.builder()
+                .pickListId(header.getId())
+                .sourceFid(header.getSourceFid())
+                .sourceBillNo(header.getSourceBillNo())
+                .documentStatus(header.getDocumentStatus())
+                .sourceModifyTime(header.getSourceModifyTime())
+                .productionOrderNo(productionOrderNo)
+                .detailCount(snapshotItems.size())
+                .detailIds(snapshotItems.stream().map(ErpKingdeeProductionPickListItemDO::getId).toList())
+                .candidateSnapshotHash(hash)
+                .selectable(selectable)
+                .blockerCode(selectable ? null : (!"C".equalsIgnoreCase(header.getDocumentStatus())
+                        ? "PICK_LIST_NOT_APPROVED" : "PICK_LIST_DETAIL_INVALID"))
+                .build();
     }
 
     private Map<Long, List<MesProcessPoolActiveOrderDO>> loadCandidateHistory(List<MesProWorkOrderDO> workOrders) {
@@ -817,11 +891,21 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderAddResult addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
-        if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getWorkOrderId() == null) {
+        if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getWorkOrderId() == null
+                || reqBO.getPickListId() == null || reqBO.getIdempotencyKey() == null
+                || reqBO.getIdempotencyKey().isBlank()) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder");
         }
         MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExists(reqBO.getWorkOrderId());
-        MesTeamLeaderActiveOrderAddResult historicalResult = resolveActiveOrderHistory(reqBO);
+        PickListSnapshot pickList = requirePickListSnapshot(reqBO, workOrder);
+        MesProcessPoolActiveOrderPickListBindingDO idempotent = pickListBindingMapper
+                .selectByIdempotencyKey(reqBO.getIdempotencyKey());
+        if (idempotent != null && (!Objects.equals(idempotent.getWorkOrderId(), reqBO.getWorkOrderId())
+                || !Objects.equals(idempotent.getPickListId(), reqBO.getPickListId())
+                || !Objects.equals(idempotent.getSourceSnapshotHash(), pickList.snapshotHash()))) {
+            throw exception(PRO_PROCESS_POOL_PICK_LIST_IDEMPOTENCY_CONFLICT);
+        }
+        MesTeamLeaderActiveOrderAddResult historicalResult = resolveActiveOrderHistory(reqBO, pickList);
         if (historicalResult != null) {
             return historicalResult;
         }
@@ -832,7 +916,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         MesProcessPoolActiveOrderDO existing = selectExistingActiveOrder(reqBO.getWorkOrderId(), routeId,
                 routeVersionId);
         if (existing != null) {
-            return addResult(existing.getId(), ACTION_REUSE);
+            MesProcessPoolActiveOrderPickListBindingDO binding = pickListBindingMapper.selectByActiveOrderId(existing.getId());
+            requireSameBinding(binding, pickList, reqBO.getPickListId());
+            return addResult(existing.getId(), ACTION_REUSE, reqBO.getWorkOrderId(), binding);
         }
         ActiveOrderQaSource qaSource = requireLatestQaSource(routeId, reqBO.getWorkOrderId());
         LocalDateTime joinedAt = LocalDateTime.now();
@@ -858,9 +944,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             MesProcessPoolActiveOrderDO concurrentlyAdded = selectExistingActiveOrder(reqBO.getWorkOrderId(), routeId,
                     routeVersionId);
             if (concurrentlyAdded != null) {
-                return addResult(concurrentlyAdded.getId(), ACTION_REUSE);
+                MesProcessPoolActiveOrderPickListBindingDO concurrentBinding = pickListBindingMapper
+                        .selectByActiveOrderId(concurrentlyAdded.getId());
+                return addResult(concurrentlyAdded.getId(), ACTION_REUSE, reqBO.getWorkOrderId(), concurrentBinding);
             }
-            MesTeamLeaderActiveOrderAddResult concurrentlyResolved = resolveActiveOrderHistory(reqBO);
+            MesTeamLeaderActiveOrderAddResult concurrentlyResolved = resolveActiveOrderHistory(reqBO, pickList);
             if (concurrentlyResolved != null) {
                 return concurrentlyResolved;
             }
@@ -868,9 +956,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         insertProcessSnapshots(activeOrder, erpFixedQuantity, routeSource.routeProcesses());
         insertPqcInspectionTasks(activeOrder, qaSource, pqcTaskPlan, routeSource.routeProcesses());
+        MesProcessPoolActiveOrderPickListBindingDO binding = persistPickListBinding(activeOrder, reqBO, pickList);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "ADD_ACTIVE_ORDER",
-                "ACTIVE_ORDER", activeOrder.getId(), null, activeOrder.toString());
-        return addResult(activeOrder.getId(), ACTION_ADD);
+                "ACTIVE_ORDER", activeOrder.getId(), null, activeOrder + ", pickListBindingId=" + binding.getId());
+        return addResult(activeOrder.getId(), ACTION_ADD, reqBO.getWorkOrderId(), binding);
     }
 
     @Override
@@ -1192,7 +1281,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return activeOrderMapper.selectActiveByWorkOrderRouteVersion(workOrderId, routeId, routeVersionId);
     }
 
-    private MesTeamLeaderActiveOrderAddResult resolveActiveOrderHistory(MesTeamLeaderActiveOrderAddReqBO reqBO) {
+    private MesTeamLeaderActiveOrderAddResult resolveActiveOrderHistory(MesTeamLeaderActiveOrderAddReqBO reqBO,
+                                                                         PickListSnapshot pickList) {
         List<MesProcessPoolActiveOrderDO> history = activeOrderMapper
                 .selectHistoryByWorkOrderIdForUpdate(reqBO.getWorkOrderId());
         if (history == null || history.isEmpty()) {
@@ -1203,18 +1293,22 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                     history.stream().map(MesProcessPoolActiveOrderDO::getId).toList());
         }
         MesProcessPoolActiveOrderDO historicalOrder = history.get(0);
+        MesProcessPoolActiveOrderPickListBindingDO binding = pickListBindingMapper
+                .selectByActiveOrderId(historicalOrder.getId());
+        requireSameBinding(binding, pickList, reqBO.getPickListId());
         if (STATUS_ACTIVE.equals(historicalOrder.getActiveStatus())) {
-            return addResult(historicalOrder.getId(), ACTION_REUSE);
+            return addResult(historicalOrder.getId(), ACTION_REUSE, reqBO.getWorkOrderId(), binding);
         }
         if (STATUS_REMOVED.equals(historicalOrder.getActiveStatus())) {
-            return reactivateRemovedActiveOrder(reqBO, historicalOrder);
+            return reactivateRemovedActiveOrder(reqBO, historicalOrder, binding);
         }
         throw new IllegalStateException("Unexpected active order history status: "
                 + historicalOrder.getActiveStatus() + ", activeOrderId=" + historicalOrder.getId());
     }
 
     private MesTeamLeaderActiveOrderAddResult reactivateRemovedActiveOrder(
-            MesTeamLeaderActiveOrderAddReqBO reqBO, MesProcessPoolActiveOrderDO removed) {
+            MesTeamLeaderActiveOrderAddReqBO reqBO, MesProcessPoolActiveOrderDO removed,
+            MesProcessPoolActiveOrderPickListBindingDO binding) {
         MesProcessPoolActiveOrderDO recoveryTarget = MesProcessPoolActiveOrderDO.builder()
                 .id(removed.getId())
                 .leaderUserId(reqBO.getLeaderUserId())
@@ -1247,12 +1341,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "REACTIVATE_ACTIVE_ORDER",
                     "ACTIVE_ORDER", removed.getId(), removed.toString(),
                     reactivated + ", latestQaRegulationVersionId=" + snapshotSource.qaSource().version().getId());
-            return addResult(removed.getId(), ACTION_RECOVER);
+            return addResult(removed.getId(), ACTION_RECOVER, reqBO.getWorkOrderId(), binding);
         }
         MesProcessPoolActiveOrderDO concurrentlyAdded = selectExistingActiveOrder(removed.getWorkOrderId(),
                 removed.getRouteId(), removed.getRouteVersionId());
         if (concurrentlyAdded != null) {
-            return addResult(concurrentlyAdded.getId(), ACTION_REUSE);
+            MesProcessPoolActiveOrderPickListBindingDO concurrentBinding = pickListBindingMapper
+                    .selectByActiveOrderId(concurrentlyAdded.getId());
+            return addResult(concurrentlyAdded.getId(), ACTION_REUSE, reqBO.getWorkOrderId(), concurrentBinding);
         }
         throw new IllegalStateException("Failed to reactivate removed active order: " + removed.getId());
     }
@@ -1272,10 +1368,140 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return snapshotSource;
     }
 
-    private static MesTeamLeaderActiveOrderAddResult addResult(Long activeOrderId, String action) {
+    private PickListSnapshot requirePickListSnapshot(MesTeamLeaderActiveOrderAddReqBO reqBO,
+                                                     MesProWorkOrderDO workOrder) {
+        ErpKingdeeProductionPickListDO header = pickListMapper.selectById(reqBO.getPickListId());
+        if (header == null) {
+            throw exception(PRO_PROCESS_POOL_PICK_LIST_NOT_EXISTS, reqBO.getPickListId());
+        }
+        if (!"C".equalsIgnoreCase(header.getDocumentStatus())) {
+            throw exception(PRO_PROCESS_POOL_PICK_LIST_NOT_APPROVED, reqBO.getPickListId());
+        }
+        List<ErpKingdeeProductionPickListItemDO> items = pickListItemMapper
+                .selectListByPickListIds(List.of(reqBO.getPickListId())).stream()
+                .sorted(Comparator.comparing(ErpKingdeeProductionPickListItemDO::getSourceEntryId,
+                        Comparator.nullsLast(String::compareTo)))
+                .toList();
+        if (items.isEmpty() || items.stream().anyMatch(item -> item.getId() == null
+                || item.getSourceEntryId() == null || item.getSourceEntryId().isBlank()
+                || !Objects.equals(item.getProductionOrderNo(), workOrder.getCode()))) {
+            throw exception(PRO_PROCESS_POOL_PICK_LIST_WORK_ORDER_MISMATCH);
+        }
+        if (items.stream().map(ErpKingdeeProductionPickListItemDO::getSourceEntryId)
+                .distinct().count() != items.size()) {
+            throw exception(PRO_PROCESS_POOL_PICK_LIST_DETAIL_INVALID);
+        }
+        String snapshotHash = pickListSnapshotHash(header, items);
+        if (reqBO.getPickListCandidateSnapshotHash() != null
+                && !Objects.equals(snapshotHash, reqBO.getPickListCandidateSnapshotHash())) {
+            throw exception(PRO_PROCESS_POOL_PICK_LIST_WORK_ORDER_MISMATCH);
+        }
+        return new PickListSnapshot(header, items, snapshotHash,
+                sha256(reqBO.getWorkOrderId() + "|" + reqBO.getPickListId() + "|" + snapshotHash));
+    }
+
+    private MesProcessPoolActiveOrderPickListBindingDO persistPickListBinding(
+            MesProcessPoolActiveOrderDO activeOrder, MesTeamLeaderActiveOrderAddReqBO reqBO,
+            PickListSnapshot pickList) {
+        MesProcessPoolActiveOrderPickListBindingDO binding = MesProcessPoolActiveOrderPickListBindingDO.builder()
+                .activeOrderId(activeOrder.getId())
+                .workOrderId(activeOrder.getWorkOrderId())
+                .pickListId(pickList.header().getId())
+                .sourceFid(pickList.header().getSourceFid())
+                .sourceBillNo(pickList.header().getSourceBillNo())
+                .sourceDocumentStatus(pickList.header().getDocumentStatus())
+                .sourceModifyTime(pickList.header().getSourceModifyTime())
+                .sourceSnapshotHash(pickList.snapshotHash())
+                .bindingStatus("BOUND")
+                .boundBy(reqBO.getLeaderUserId())
+                .boundAt(LocalDateTime.now())
+                .idempotencyKey(reqBO.getIdempotencyKey())
+                .requestPayloadHash(pickList.requestPayloadHash())
+                .bindingVersion(1)
+                .build();
+        pickListBindingMapper.insert(binding);
+        for (ErpKingdeeProductionPickListItemDO item : pickList.items()) {
+            pickListBindingItemMapper.insert(MesProcessPoolActiveOrderPickListBindingItemDO.builder()
+                    .bindingId(binding.getId())
+                    .pickListItemId(item.getId())
+                    .sourceEntryId(item.getSourceEntryId())
+                    .sourceLineKey(item.getSourceLineKey())
+                    .materialNumber(item.getMaterialNumber())
+                    .materialName(item.getMaterialName())
+                    .materialSpecification(item.getMaterialSpecification())
+                    .unitName(item.getUnitName())
+                    .requestedQuantity(item.getRequestedQuantity())
+                    .actualQuantity(item.getActualQuantity())
+                    .baseActualQuantity(item.getBaseActualQuantity())
+                    .lotNumber(item.getLotNumber())
+                    .productionOrderNo(item.getProductionOrderNo())
+                    .productionOrderLineNo(item.getProductionOrderLineNo())
+                    .sourceModifyTime(item.getSourceModifyTime())
+                    .itemSnapshotHash(sha256(itemSnapshot(item)))
+                    .build());
+        }
+        return binding;
+    }
+
+    private void requireSameBinding(MesProcessPoolActiveOrderPickListBindingDO binding,
+                                    PickListSnapshot pickList, Long pickListId) {
+        if (binding == null || !Objects.equals(binding.getPickListId(), pickListId)
+                || !Objects.equals(binding.getSourceSnapshotHash(), pickList.snapshotHash())) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_PICK_LIST_CONFLICT);
+        }
+    }
+
+    private static String pickListSnapshotHash(ErpKingdeeProductionPickListDO header,
+                                               List<ErpKingdeeProductionPickListItemDO> items) {
+        StringBuilder value = new StringBuilder()
+                .append(header.getId()).append('|').append(header.getSourceFid()).append('|')
+                .append(header.getSourceBillNo()).append('|').append(header.getDocumentStatus()).append('|')
+                .append(header.getSourceModifyTime());
+        items.stream().sorted(Comparator.comparing(ErpKingdeeProductionPickListItemDO::getSourceEntryId,
+                        Comparator.nullsLast(String::compareTo))).forEach(item -> value.append('|').append(itemSnapshot(item)));
+        return sha256(value.toString());
+    }
+
+    private static String itemSnapshot(ErpKingdeeProductionPickListItemDO item) {
+        return String.join("|", Objects.toString(item.getId(), ""), Objects.toString(item.getSourceEntryId(), ""),
+                Objects.toString(item.getSourceLineKey(), ""), Objects.toString(item.getMaterialNumber(), ""),
+                Objects.toString(item.getMaterialName(), ""), Objects.toString(item.getMaterialSpecification(), ""),
+                Objects.toString(item.getUnitName(), ""), Objects.toString(item.getRequestedQuantity(), ""),
+                Objects.toString(item.getActualQuantity(), ""), Objects.toString(item.getBaseActualQuantity(), ""),
+                Objects.toString(item.getLotNumber(), ""), Objects.toString(item.getProductionOrderNo(), ""),
+                Objects.toString(item.getProductionOrderLineNo(), ""), Objects.toString(item.getSourceModifyTime(), ""));
+    }
+
+    private static String sha256(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte byteValue : digest) {
+                hex.append(String.format("%02x", byteValue));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is required", ex);
+        }
+    }
+
+    private record PickListSnapshot(ErpKingdeeProductionPickListDO header,
+                                    List<ErpKingdeeProductionPickListItemDO> items,
+                                    String snapshotHash,
+                                    String requestPayloadHash) {
+    }
+
+    private static MesTeamLeaderActiveOrderAddResult addResult(Long activeOrderId, String action,
+                                                                Long workOrderId,
+                                                                MesProcessPoolActiveOrderPickListBindingDO binding) {
         return MesTeamLeaderActiveOrderAddResult.builder()
                 .activeOrderId(activeOrderId)
+                .workOrderId(workOrderId)
                 .action(action)
+                .pickListBindingId(binding == null ? null : binding.getId())
+                .pickListId(binding == null ? null : binding.getPickListId())
+                .sourceSnapshotHash(binding == null ? null : binding.getSourceSnapshotHash())
+                .bindingVersion(binding == null ? null : binding.getBindingVersion())
                 .build();
     }
 

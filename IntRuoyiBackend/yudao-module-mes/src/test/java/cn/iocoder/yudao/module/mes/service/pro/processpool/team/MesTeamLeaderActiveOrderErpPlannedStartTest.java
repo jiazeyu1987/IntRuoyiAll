@@ -5,6 +5,8 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
@@ -34,6 +36,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
@@ -147,6 +151,14 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
     private DccProjectCodeMapper dccProjectCodeMapper;
     @Mock
     private MesReportAllocationOrderChangeService reportAllocationOrderChangeService;
+    @Mock
+    private ErpKingdeeProductionPickListMapper pickListMapper;
+    @Mock
+    private ErpKingdeeProductionPickListItemMapper pickListItemMapper;
+    @Mock
+    private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    @Mock
+    private MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
 
     private MesTeamLeaderActiveOrderService service;
 
@@ -164,7 +176,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 inspectionRegulationVersionMapper, inspectionRegulationProcessMapper,
                 inspectionRegulationItemMapper, pqcInspectionTaskMapper,
                 abnormalStateService, releaseApplicationMapper, dccProjectCodeMapper,
-                reportAllocationOrderChangeService);
+                reportAllocationOrderChangeService, pickListMapper, pickListItemMapper,
+                pickListBindingMapper, pickListBindingItemMapper);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(reportAllocationMapper.selectListByActiveOrderIds(any())).thenReturn(List.of());
         lenient().when(routeDccProjectBindingMapper.selectCurrentByRouteId(922119L))

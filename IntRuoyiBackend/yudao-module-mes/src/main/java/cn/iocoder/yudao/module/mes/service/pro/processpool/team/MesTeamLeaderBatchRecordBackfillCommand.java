@@ -26,6 +26,8 @@ public class MesTeamLeaderBatchRecordBackfillCommand {
 
     private MesProWorkOrderDO workOrder;
 
+    private Long pickListBindingId;
+
     private Long dccProjectCodeId;
 
     /** Current eDHR batch context. Both fields are required for release dossier writes. */

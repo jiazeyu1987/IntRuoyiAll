@@ -10,6 +10,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductBomDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
@@ -17,6 +19,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductBomMapp
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +46,8 @@ class MesProductionPickListSourceServiceImplTest {
     @Mock private MesKingdeeProductionMaterialListMapper productionMaterialListMapper;
     @Mock private ErpKingdeeProductionPickListMapper pickListMapper;
     @Mock private ErpKingdeeProductionPickListItemMapper pickListItemMapper;
+    @Mock private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    @Mock private MesProcessPoolActiveOrderPickListBindingItemMapper pickListBindingItemMapper;
 
     private MesProductionPickListSourceService service;
 
@@ -49,7 +55,7 @@ class MesProductionPickListSourceServiceImplTest {
     void setUp() {
         service = new MesProductionPickListSourceServiceImpl(routeDccProjectBindingMapper, routeProductMapper,
                 routeProductBomMapper, routeProcessMapper, itemMapper, productionMaterialListMapper,
-                pickListMapper, pickListItemMapper);
+                pickListMapper, pickListItemMapper, pickListBindingMapper, pickListBindingItemMapper);
     }
 
     @Test
@@ -126,12 +132,12 @@ class MesProductionPickListSourceServiceImplTest {
     @Test
     void resolveValue_usesFirstFormalEntryOfUniqueApprovedPickList() {
         mockReleaseIdentity();
-        when(pickListItemMapper.selectListByProductionOrderNo("MO-9001")).thenReturn(List.of(
-                pickItem(9102L, "20", "LOT-SECOND"), pickItem(9101L, "10", "LOT-FIRST")));
-        when(pickListMapper.selectBatchIds(List.of(9001L))).thenReturn(List.of(pickList(9001L, "C")));
+        when(pickListBindingMapper.selectById(8801L)).thenReturn(binding());
+        when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(
+                bindingItem(9102L, "20", "LOT-SECOND"), bindingItem(9101L, "10", "LOT-FIRST")));
 
         MesProductionPickListSourceService.ResolvedValue result = service.resolveValue(
-                new MesProductionPickListSourceService.ResolveCommand(7001L, 5001L, 3101L, 8001L,
+                new MesProductionPickListSourceService.ResolveCommand(7001L, 5001L, 3101L, 8001L, 8801L,
                         "MO-9001", "material.3201.lotNumber"));
 
         assertEquals("LOT-FIRST", result.value());
@@ -140,17 +146,14 @@ class MesProductionPickListSourceServiceImplTest {
     }
 
     @Test
-    void resolveValue_rejectsMoreThanOneApprovedPickListBeforeChoosingMaterial() {
+    void resolveValue_rejectsDuplicateSnapshotEntryBeforeChoosingMaterial() {
         mockReleaseIdentity();
-        ErpKingdeeProductionPickListItemDO second = pickItem(9201L, "10", "LOT-B")
-                .setProductionPickListId(9002L).setSourceBillNo("PICK-002");
-        when(pickListItemMapper.selectListByProductionOrderNo("MO-9001"))
-                .thenReturn(List.of(pickItem(9101L, "10", "LOT-A"), second));
-        when(pickListMapper.selectBatchIds(List.of(9001L, 9002L)))
-                .thenReturn(List.of(pickList(9001L, "C"), pickList(9002L, "C")));
+        when(pickListBindingMapper.selectById(8801L)).thenReturn(binding());
+        when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(
+                bindingItem(9101L, "10", "LOT-A"), bindingItem(9201L, "10", "LOT-B")));
 
         assertThrows(ServiceException.class, () -> service.resolveValue(
-                new MesProductionPickListSourceService.ResolveCommand(7001L, 5001L, 3101L, 8001L,
+                new MesProductionPickListSourceService.ResolveCommand(7001L, 5001L, 3101L, 8001L, 8801L,
                         "MO-9001", "material.3201.lotNumber")));
     }
 
@@ -167,12 +170,12 @@ class MesProductionPickListSourceServiceImplTest {
                 .thenReturn(MesMdItemDO.builder().id(3101L).code("AW.107.02.01.2010").name("压力泵").build());
         when(productionMaterialListMapper.selectListByProductCode("AW.107.02.01.2010"))
                 .thenReturn(List.of(erpMaterial("AW.107.02.01.2010", "MAT-001", "手柄")));
-        when(pickListItemMapper.selectListByProductionOrderNo("MO-9001")).thenReturn(List.of(
-                pickItem(9102L, "20", "LOT-SECOND"), pickItem(9101L, "10", "LOT-FIRST")));
-        when(pickListMapper.selectBatchIds(List.of(9001L))).thenReturn(List.of(pickList(9001L, "C")));
+        when(pickListBindingMapper.selectById(8801L)).thenReturn(binding());
+        when(pickListBindingItemMapper.selectListByBindingId(8801L)).thenReturn(List.of(
+                bindingItem(9102L, "20", "LOT-SECOND"), bindingItem(9101L, "10", "LOT-FIRST")));
 
         MesProductionPickListSourceService.ResolvedValue result = service.resolveValue(
-                new MesProductionPickListSourceService.ResolveCommand(7001L, 5001L, 3101L, 8001L,
+                new MesProductionPickListSourceService.ResolveCommand(7001L, 5001L, 3101L, 8001L, 8801L,
                         "MO-9001", "materialCode.TUFULTAwMQ.lotNumber"));
 
         assertEquals("LOT-FIRST", result.value());
@@ -190,6 +193,20 @@ class MesProductionPickListSourceServiceImplTest {
                         .routeId(7001L).processId(6001L).productId(3101L).itemId(3201L).build()));
         when(itemMapper.selectById(3201L))
                 .thenReturn(MesMdItemDO.builder().id(3201L).code("MAT-001").name("手柄").build());
+    }
+
+    private MesProcessPoolActiveOrderPickListBindingDO binding() {
+        return MesProcessPoolActiveOrderPickListBindingDO.builder().id(8801L).pickListId(9001L)
+                .bindingStatus("BOUND")
+                .sourceBillNo("PICK-9001").sourceSnapshotHash("snapshot-hash").build();
+    }
+
+    private MesProcessPoolActiveOrderPickListBindingItemDO bindingItem(Long id, String entryId, String lotNumber) {
+        return MesProcessPoolActiveOrderPickListBindingItemDO.builder().id(id).bindingId(8801L)
+                .pickListItemId(id).sourceEntryId(entryId).sourceLineKey("9001:" + entryId)
+                .materialNumber("MAT-001").materialName("手柄").unitName("个")
+                .actualQuantity(new BigDecimal("5")).requestedQuantity(new BigDecimal("6"))
+                .lotNumber(lotNumber).productionOrderNo("MO-9001").build();
     }
 
     private ErpKingdeeProductionPickListDO pickList(Long id, String status) {

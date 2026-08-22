@@ -133,6 +133,9 @@ export interface TeamDeviceParameterRuleSaveReqVO {
 
 export interface TeamLeaderActiveOrderAddReqVO {
   workOrderId: number
+  pickListId: string
+  pickListCandidateSnapshotHash: string
+  idempotencyKey: string
 }
 
 export type TeamLeaderActiveOrderCandidateState = 'ADDABLE' | 'REUSABLE' | 'RECOVERABLE' | 'BLOCKED'
@@ -148,8 +151,27 @@ export interface TeamLeaderActiveOrderCandidateRespVO {
 export type TeamLeaderActiveOrderCommitAction = 'ADD' | 'REUSE' | 'RECOVER'
 
 export interface TeamLeaderActiveOrderAddRespVO {
-  activeOrderId: number
+  activeOrderId: string
   action: TeamLeaderActiveOrderCommitAction
+  workOrderId: string
+  pickListBindingId: string
+  pickListId: string
+  sourceSnapshotHash: string
+  bindingVersion: number
+}
+
+export interface TeamLeaderPickListOptionRespVO {
+  pickListId: string
+  sourceFid: string
+  sourceBillNo?: string
+  documentStatus: string
+  sourceModifyTime?: string
+  productionOrderNo: string
+  detailCount: number
+  detailIds: string[]
+  candidateSnapshotHash: string
+  selectable: boolean
+  blockerCode?: string
 }
 
 export interface TeamLeaderActiveOrderRemoveReqVO {
@@ -705,6 +727,13 @@ export const addTeamLeaderActiveOrder = async (data: TeamLeaderActiveOrderAddReq
   return await request.post<TeamLeaderActiveOrderAddRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/add',
     data
+  })
+}
+
+export const getTeamLeaderActiveOrderPickListOptions = async (workOrderId: number | string) => {
+  return await request.get<TeamLeaderPickListOptionRespVO[]>({
+    url: '/mes/pro/process-pool/team-leader/active-order/pick-list-options',
+    params: { workOrderId }
   })
 }
 

@@ -13,4 +13,16 @@ public class MesTeamLeaderActiveOrderAddReqVO {
     @Schema(description = "生产订单编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "9001")
     @NotNull
     private Long workOrderId;
+
+    @Schema(description = "正式领料单 ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull
+    private Long pickListId;
+
+    @Schema(description = "候选快照 hash", requiredMode = Schema.RequiredMode.REQUIRED)
+    @jakarta.validation.constraints.NotBlank
+    private String pickListCandidateSnapshotHash;
+
+    @Schema(description = "幂等键", requiredMode = Schema.RequiredMode.REQUIRED)
+    @jakarta.validation.constraints.NotBlank
+    private String idempotencyKey;
 }

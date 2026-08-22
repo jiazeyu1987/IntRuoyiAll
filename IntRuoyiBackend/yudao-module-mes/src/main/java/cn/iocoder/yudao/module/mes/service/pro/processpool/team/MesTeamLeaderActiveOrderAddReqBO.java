@@ -11,4 +11,7 @@ public class MesTeamLeaderActiveOrderAddReqBO {
 
     private Long leaderUserId;
     private Long workOrderId;
+    private Long pickListId;
+    private String pickListCandidateSnapshotHash;
+    private String idempotencyKey;
 }

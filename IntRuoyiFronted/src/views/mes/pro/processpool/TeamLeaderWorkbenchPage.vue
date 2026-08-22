@@ -1915,6 +1915,34 @@
             {{ activeOrderCandidateError }}
           </div>
         </el-form-item>
+        <el-form-item label="正式领料单" data-team-leader-active-order-pick-list>
+          <el-select
+            v-model="activeOrderForm.pickListId"
+            filterable
+            clearable
+            :disabled="!activeOrderForm.workOrderId || activeOrderPickListLoading"
+            :loading="activeOrderPickListLoading"
+            placeholder="请选择已审核领料单"
+            class="team-leader-workbench__full-control"
+            @change="handlePickListChange"
+          >
+            <el-option
+              v-for="option in activeOrderPickListOptions"
+              :key="option.pickListId"
+              :label="option.sourceBillNo || option.sourceFid"
+              :value="option.pickListId"
+              :disabled="!option.selectable"
+            >
+              <span>{{ option.sourceBillNo || option.sourceFid }}</span>
+              <span class="team-leader-workbench__active-order-candidate-reason">
+                {{ option.documentStatus === 'C' ? '明细 ' + option.detailCount + ' 条' : '未审核' }}
+              </span>
+            </el-option>
+          </el-select>
+          <div v-if="activeOrderPickListError" class="team-leader-workbench__form-error">
+            {{ activeOrderPickListError }}
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button :disabled="maintenanceSubmitting" @click="activeOrderAddDialogVisible = false">
@@ -3680,6 +3708,7 @@ import {
   getTeamLeaderResponsibleRouteList,
   getProductionPersonnelList,
   getTeamLeaderActiveOrderDetail,
+  getTeamLeaderActiveOrderPickListOptions,
   getTeamLeaderActiveOrderList,
   getTeamLeaderActiveOrderRelease,
   getCurrentTeamLeaderReportAllocation,
@@ -3709,6 +3738,7 @@ import {
   updatePqcPersonnelStatus,
   type TeamFormalEmployeeCandidateRespVO,
   type TeamLeaderActiveOrderCandidateRespVO,
+  type TeamLeaderPickListOptionRespVO,
   type TeamLeaderActiveOrderCommitAction,
   type TeamLeaderActiveOrderDetailRespVO,
   type TeamLeaderActiveOrderReleaseApplyRespVO,
@@ -4812,7 +4842,9 @@ const abnormalForm = reactive({
 })
 
 const activeOrderForm = reactive({
-  workOrderId: undefined as number | undefined
+  workOrderId: undefined as number | undefined,
+  pickListId: undefined as string | undefined,
+  pickListCandidateSnapshotHash: undefined as string | undefined
 })
 
 const formalEmployeeForm = reactive({
@@ -7902,6 +7934,10 @@ const submitAbnormal = async () => {
 
 const resetActiveOrderForm = () => {
   activeOrderForm.workOrderId = undefined
+  activeOrderForm.pickListId = undefined
+  activeOrderForm.pickListCandidateSnapshotHash = undefined
+  activeOrderPickListOptions.value = []
+  activeOrderPickListError.value = ''
   activeOrderSelectedCandidate.value = undefined
   activeOrderCandidateKeyword.value = ''
   activeOrderCandidateOptions.value = []
@@ -7932,6 +7968,10 @@ const activeOrderSubmitLabel = computed(() => {
 
 const handleActiveOrderCandidateClear = () => {
   activeOrderForm.workOrderId = undefined
+  activeOrderForm.pickListId = undefined
+  activeOrderForm.pickListCandidateSnapshotHash = undefined
+  activeOrderPickListOptions.value = []
+  activeOrderPickListError.value = ''
   activeOrderSelectedCandidate.value = undefined
   activeOrderCandidateKeyword.value = ''
   activeOrderCandidateError.value = ''
@@ -7951,9 +7991,42 @@ const handleActiveOrderCandidateChange = (value?: number | string) => {
     return
   }
   activeOrderForm.workOrderId = selectedCandidate.workOrderId
+  activeOrderForm.pickListId = undefined
+  activeOrderForm.pickListCandidateSnapshotHash = undefined
+  void loadActiveOrderPickListOptions(selectedCandidate.workOrderId)
   activeOrderSelectedCandidate.value = selectedCandidate
   activeOrderCandidateKeyword.value = selectedCandidate.workOrderCode
   activeOrderCandidateError.value = ''
+}
+
+const activeOrderPickListOptions = ref<TeamLeaderPickListOptionRespVO[]>([])
+const activeOrderPickListLoading = ref(false)
+const activeOrderPickListError = ref('')
+
+const loadActiveOrderPickListOptions = async (workOrderId: number) => {
+  activeOrderPickListLoading.value = true
+  activeOrderPickListError.value = ''
+  activeOrderForm.pickListId = undefined
+  activeOrderForm.pickListCandidateSnapshotHash = undefined
+  try {
+    activeOrderPickListOptions.value = await getTeamLeaderActiveOrderPickListOptions(workOrderId)
+    if (!activeOrderPickListOptions.value.some((item) => item.selectable)) {
+      activeOrderPickListError.value = '当前生产工单没有可绑定的已审核领料单'
+    }
+  } catch (error) {
+    activeOrderPickListOptions.value = []
+    activeOrderPickListError.value = resolveErrorMessage(error, '领料单候选加载失败')
+  } finally {
+    activeOrderPickListLoading.value = false
+  }
+}
+
+const handlePickListChange = (value?: string | number) => {
+  const selected = activeOrderPickListOptions.value.find(
+    (item) => String(item.pickListId) === String(value)
+  )
+  activeOrderForm.pickListId = selected?.pickListId
+  activeOrderForm.pickListCandidateSnapshotHash = selected?.candidateSnapshotHash
 }
 
 const searchActiveOrderCandidates = async (keyword: string) => {
@@ -8054,7 +8127,17 @@ const submitAddActiveOrder = async () => {
   let writeCompleted = false
   try {
     const workOrderId = await requireSelectedActiveOrderCandidateWorkOrderId()
-    const receipt = await addTeamLeaderActiveOrder({ workOrderId })
+    const pickListId = activeOrderForm.pickListId
+    const pickListCandidateSnapshotHash = activeOrderForm.pickListCandidateSnapshotHash
+    if (!pickListId || !pickListCandidateSnapshotHash) {
+      throw new Error('请选择正式领料单')
+    }
+    const receipt = await addTeamLeaderActiveOrder({
+      workOrderId,
+      pickListId,
+      pickListCandidateSnapshotHash,
+      idempotencyKey: 'active-order-pick-' + workOrderId + '-' + pickListId
+    })
     writeCompleted = true
     requirePositiveNumber(receipt.activeOrderId, '活跃订单提交回执缺少订单ID')
     const successMessage = activeOrderCommitSuccessMessage(receipt.action)

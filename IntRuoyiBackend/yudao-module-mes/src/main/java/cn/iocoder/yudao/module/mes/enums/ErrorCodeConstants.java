@@ -1149,6 +1149,17 @@ public interface ErrorCodeConstants {
             "设备参数上下限无效，下限不能大于上限：{}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS = new ErrorCode(1_040_760_306,
             "班组活跃订单不存在：{}");
+    ErrorCode PRO_PROCESS_POOL_PICK_LIST_REQUIRED = new ErrorCode(1_040_760_360, "正式领料单不能为空");
+    ErrorCode PRO_PROCESS_POOL_PICK_LIST_NOT_EXISTS = new ErrorCode(1_040_760_361, "正式领料单不存在：{}");
+    ErrorCode PRO_PROCESS_POOL_PICK_LIST_NOT_APPROVED = new ErrorCode(1_040_760_362, "领料单未审核：{}");
+    ErrorCode PRO_PROCESS_POOL_PICK_LIST_WORK_ORDER_MISMATCH = new ErrorCode(1_040_760_363,
+            "领料单生产工单号与当前工单不一致");
+    ErrorCode PRO_PROCESS_POOL_PICK_LIST_DETAIL_INVALID = new ErrorCode(1_040_760_364,
+            "领料单明细缺少稳定分录身份");
+    ErrorCode PRO_PROCESS_POOL_PICK_LIST_IDEMPOTENCY_CONFLICT = new ErrorCode(1_040_760_365,
+            "领料单绑定幂等键载荷冲突");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_PICK_LIST_CONFLICT = new ErrorCode(1_040_760_366,
+            "活跃订单已绑定其它领料单");
     ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS = new ErrorCode(1_040_760_307,
             "班组员工档案不存在或已禁用：{}");
     ErrorCode PRO_PROCESS_POOL_TEAM_DEVICE_NOT_EXISTS = new ErrorCode(1_040_760_308,

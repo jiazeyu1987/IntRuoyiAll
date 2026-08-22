@@ -19,6 +19,8 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordPlanCommand {
 
     private Long activeOrderId;
 
+    private Long pickListBindingId;
+
     private Long workOrderId;
 
     private Long routeId;

@@ -6,6 +6,8 @@ public interface MesTeamLeaderActiveOrderService {
 
     List<MesTeamLeaderActiveOrderCandidateBO> searchActiveOrderCandidates(String keyword);
 
+    List<MesTeamLeaderPickListOptionBO> listPickListOptions(Long workOrderId);
+
     MesTeamLeaderActiveOrderAddResult addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO);
 
     MesTeamLeaderActiveOrderRebuildPreview previewRebuildActiveOrder(Long leaderUserId, Long activeOrderId);

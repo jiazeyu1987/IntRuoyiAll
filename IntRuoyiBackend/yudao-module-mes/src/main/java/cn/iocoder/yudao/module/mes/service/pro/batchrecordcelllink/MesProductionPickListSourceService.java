@@ -16,7 +16,7 @@ public interface MesProductionPickListSourceService {
     }
 
     record ResolveCommand(Long routeId, Long routeProcessId, Long productId, Long dccProjectCodeId,
-                          String productionOrderNo, String sourceFieldCode) {
+                          Long pickListBindingId, String productionOrderNo, String sourceFieldCode) {
     }
 
     record ResolvedValue(Long pickListId, Long pickListItemId, Object value, String evidenceHash) {

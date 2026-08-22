@@ -13,4 +13,9 @@ public class MesTeamLeaderActiveOrderAddResult {
 
     private Long activeOrderId;
     private String action;
+    private Long workOrderId;
+    private Long pickListBindingId;
+    private Long pickListId;
+    private String sourceSnapshotHash;
+    private Integer bindingVersion;
 }
