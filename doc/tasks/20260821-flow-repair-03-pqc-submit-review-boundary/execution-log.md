@@ -128,3 +128,4 @@
 - `git diff --check -> PASS`（集成 worktree）。
 - `GREEN: int_main clean-worktree focused Maven command -> BLOCKED, 主分支既有 ERP/MES 接口漂移：ErpKingdeeFullSyncHandler 缺失 FULL_SYNC_JOB_PARAM（3处），ErpKingdeeProductSyncService 缺失 syncProductsFullSkipExisting，ErpKingdeeProductionMaterialListClient 缺失 fetchProductionMaterialLists；这些不属于流程3 task-owned 改动，未旁路修复。`
 - `REGRESSION: NOT RUN -> 主线程定向测试、全量回归和真实 E2E 因上述非 task-owned 编译 blocker 未执行。`
+- 收尾文档提交 `8b8ed148c` 已在集成分支生成等价提交 `f1377d1b0`，并以旧值校验再次原子 fast-forward `int_main`；本条证据写入前 `int_main=f1377d1b0`，其历史包含 Flow3 实现集成提交 `aeb58c37d`。

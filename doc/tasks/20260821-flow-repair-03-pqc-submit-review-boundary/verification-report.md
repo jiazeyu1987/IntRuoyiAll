@@ -52,7 +52,7 @@
 - Targeted Flow3 test command: `PASS`，27 tests，0 failures、0 errors；全量 reactor 和真实 E2E 未运行
 - Maven/Node production tests: Flow3 focused Maven tests `PASS`；全量 reactor、Node tests 和生产 E2E `NOT RUN`
 - Playwright/read-write E2E: `NOT RUN`（计划项，未执行）
-- Git commit/merge: task-owned commit `d809c9995`、集成提交 `aeb58c37d` 已完成；普通 merge 被同名未跟踪任务文档拒绝，随后以旧值校验的原子 fast-forward ref 更新完成分支指针融合。
+- Git commit/merge: task-owned commit `d809c9995`、集成提交 `aeb58c37d`、收尾文档提交 `8b8ed148c` 及其集成等价提交 `f1377d1b0` 已完成；普通 merge 被同名未跟踪任务文档拒绝，随后以旧值校验的原子 fast-forward ref 更新完成分支指针融合。本报告收尾证据写入前 `int_main=f1377d1b0`。
 
 ## Unresolved Blockers
 
