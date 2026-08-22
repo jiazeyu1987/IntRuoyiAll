@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -19,6 +20,10 @@ public class MesPqcProductionReleaseDecisionResult {
     private List<Long> batchRecordEvidenceIds;
     private List<Long> processInspectionEvidenceIds;
     private List<Long> lossReportEvidenceIds;
+    private String lossReportStatus;
+    private Boolean hasActualLoss;
+    private BigDecimal lossQuantity;
+    private String lossSourceSnapshotHash;
     private List<MesProductionReleaseReportUploadTaskReceipt> reportUploadTasks;
     private String sourceSnapshotHash;
     private String reportSnapshotHash;

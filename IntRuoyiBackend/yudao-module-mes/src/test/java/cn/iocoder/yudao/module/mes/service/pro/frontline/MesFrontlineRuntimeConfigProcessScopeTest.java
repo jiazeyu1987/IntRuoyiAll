@@ -16,6 +16,7 @@ class MesFrontlineRuntimeConfigProcessScopeTest {
         String lossValidator = readSource("service/pro/feedback/frontline/MesFrontlineLossReasonValidator.java");
         String deviceValidator = readSource("service/pro/feedback/frontline/MesFrontlineDeviceParameterValidatorImpl.java");
         String payload = readSource("controller/admin/pro/feedback/vo/frontline/MesProFrontlineFeedbackPayloadReqVO.java");
+        String splitter = readSource("service/pro/feedback/frontline/MesProFrontlineFeedbackPayloadSplitter.java");
 
         assertTrue(payload.contains("lossDetails"), "submit payload must carry all loss detail ids and quantities");
         assertTrue(payload.contains("selectedDevice"), "submit payload must carry selected device id/code/name snapshot");
@@ -31,6 +32,9 @@ class MesFrontlineRuntimeConfigProcessScopeTest {
                         && deviceValidator.contains("deviceId")
                         && deviceValidator.contains("parameterCode"),
                 "device parameter validation must be scoped by routeProcessId/deviceId/parameterCode");
+        assertTrue(splitter.contains("hasActualLoss") && splitter.contains("zeroLossConfirmed")
+                        && splitter.contains("lossDecision"),
+                "signed production event payload must freeze explicit loss facts");
     }
 
     private static String readSource(String relative) throws Exception {

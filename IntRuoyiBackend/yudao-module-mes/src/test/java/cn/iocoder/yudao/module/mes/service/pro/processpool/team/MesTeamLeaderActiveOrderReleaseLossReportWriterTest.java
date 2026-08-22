@@ -114,6 +114,9 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
         assertAll(
                 () -> assertTrue(plan.getBlockers().isEmpty()),
                 () -> assertEquals("LOSS_REPORT", first.getDocumentType()),
+                () -> assertEquals("SUCCESS", first.getLossReportStatus()),
+                () -> assertEquals(Boolean.TRUE, first.getHasActualLoss()),
+                () -> assertEquals(new BigDecimal("2.500"), first.getLossQuantity()),
                 () -> assertEquals(List.of(9901L), first.getBatchRecordExecutionIds()),
                 () -> assertEquals(List.of(9911L), first.getFieldAuditIds()),
                 () -> assertEquals(first.getBatchRecordExecutionIds(), replay.getBatchRecordExecutionIds()),
@@ -203,7 +206,7 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
     }
 
     @Test
-    void shouldBlockZeroLossWithoutExplicitFormalConfirmationMapping() {
+    void shouldReturnNoLossReceiptWithoutCreatingLossDocument() {
         MesTeamLeaderActiveOrderReleaseLossSourceReadResult sources = formalSources();
         MesProFeedbackDO feedback = sources.getProcessSources().get(0).getFeedback();
         feedback.setQualifiedQuantity(feedback.getFeedbackQuantity());
@@ -215,12 +218,51 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
         feedback.setLossReasonCodeSnapshot(null);
         feedback.setLossReasonNameSnapshot(null);
         sources.getProcessSources().get(0).setLossDetails(List.of());
+        sources.getProcessSources().get(0).setHasActualLoss(false)
+                .setZeroLossConfirmed(true)
+                .setLossDecision("NO_LOSS");
+        when(sourceReader.read(any())).thenReturn(sources);
+
+        MesTeamLeaderActiveOrderReleaseLossReportPlan plan = writer.plan(command());
+        MesTeamLeaderActiveOrderReleaseLossReportWriteResult result = writer.write(plan, BATCH_EXECUTION_ID);
+
+        assertTrue(plan.getBlockers().stream().anyMatch(blocker ->
+                "ZERO_LOSS_CONFIRMATION_UNSUPPORTED".equals(blocker.getBlockerType())) == false);
+        assertAll(
+                () -> assertTrue(plan.getPreparedReports().isEmpty()),
+                () -> assertEquals("NO_LOSS", plan.getLossDecision()),
+                () -> assertEquals(Boolean.FALSE, plan.getHasActualLoss()),
+                () -> assertEquals(BigDecimal.ZERO, plan.getLossQuantity()),
+                () -> assertEquals("NOT_REQUIRED", result.getLossReportStatus()),
+                () -> assertEquals(Boolean.FALSE, result.getHasActualLoss()),
+                () -> assertEquals(BigDecimal.ZERO, result.getLossQuantity()),
+                () -> assertTrue(result.getBatchRecordExecutionIds().isEmpty()),
+                () -> assertTrue(result.getDocumentEvidence().isEmpty()));
+        verify(executionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
+    void shouldBlockZeroLossWhenExplicitFormalFactIsMissing() {
+        MesTeamLeaderActiveOrderReleaseLossSourceReadResult sources = formalSources();
+        MesProFeedbackDO feedback = sources.getProcessSources().get(0).getFeedback();
+        feedback.setQualifiedQuantity(feedback.getFeedbackQuantity());
+        feedback.setUnqualifiedQuantity(BigDecimal.ZERO);
+        feedback.setLaborScrapQuantity(BigDecimal.ZERO);
+        feedback.setMaterialScrapQuantity(BigDecimal.ZERO);
+        feedback.setOtherScrapQuantity(BigDecimal.ZERO);
+        feedback.setLossReasonId(null);
+        feedback.setLossReasonCodeSnapshot(null);
+        feedback.setLossReasonNameSnapshot(null);
+        sources.getProcessSources().get(0).setLossDetails(List.of())
+                .setHasActualLoss(null)
+                .setZeroLossConfirmed(null)
+                .setLossDecision(null);
         when(sourceReader.read(any())).thenReturn(sources);
 
         MesTeamLeaderActiveOrderReleaseLossReportPlan plan = writer.plan(command());
 
         assertTrue(plan.getBlockers().stream().anyMatch(blocker ->
-                "ZERO_LOSS_CONFIRMATION_UNSUPPORTED".equals(blocker.getBlockerType())));
+                "LOSS_HAS_ACTUAL_LOSS_REQUIRED".equals(blocker.getBlockerType())));
         assertThrows(ServiceException.class, () -> writer.write(plan, BATCH_EXECUTION_ID));
         verify(executionService, never()).openOrCreateByContext(any());
     }
@@ -423,6 +465,9 @@ class MesTeamLeaderActiveOrderReleaseLossReportWriterTest {
                         .setEvent(event())
                         .setAllocation(allocation())
                         .setReview(review())
+                        .setHasActualLoss(true)
+                        .setZeroLossConfirmed(false)
+                        .setLossDecision("REQUIRED")
                         .setLossDetails(List.of(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.LossDetail()
                                 .setReasonId(8301L)
                                 .setReasonCode("LOSS-001")

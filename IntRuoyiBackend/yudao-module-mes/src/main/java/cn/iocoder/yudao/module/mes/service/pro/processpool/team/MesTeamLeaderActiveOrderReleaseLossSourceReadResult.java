@@ -28,6 +28,9 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReadResult {
         private MesProcessPoolReportAllocationDO allocation;
         private MesProcessPoolSubmissionReviewDO review;
         private List<LossDetail> lossDetails;
+        private Boolean hasActualLoss;
+        private Boolean zeroLossConfirmed;
+        private String lossDecision;
     }
 
     @Data

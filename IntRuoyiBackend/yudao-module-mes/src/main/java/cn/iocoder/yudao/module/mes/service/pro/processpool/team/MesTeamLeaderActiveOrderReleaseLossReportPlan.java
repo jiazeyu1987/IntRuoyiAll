@@ -7,6 +7,7 @@ import lombok.experimental.Accessors;
 
 import java.util.List;
 import java.util.Map;
+import java.math.BigDecimal;
 
 @Data
 @Accessors(chain = true)
@@ -18,6 +19,21 @@ public class MesTeamLeaderActiveOrderReleaseLossReportPlan {
     private List<String> sourceValueHashes;
     private List<MesTeamLeaderActiveOrderReleaseSignatureEvidence> signatureEvidence;
     private List<MesTeamLeaderActiveOrderReleaseBlocker> blockers;
+    private List<ProcessLossDecision> processDecisions;
+    private Boolean hasActualLoss;
+    private BigDecimal lossQuantity;
+    private String lossDecision;
+
+    @Data
+    @Accessors(chain = true)
+    public static class ProcessLossDecision {
+
+        private Long routeProcessId;
+        private Long processId;
+        private String decision;
+        private Boolean hasActualLoss;
+        private BigDecimal lossQuantity;
+    }
 
     @Data
     @Accessors(chain = true)

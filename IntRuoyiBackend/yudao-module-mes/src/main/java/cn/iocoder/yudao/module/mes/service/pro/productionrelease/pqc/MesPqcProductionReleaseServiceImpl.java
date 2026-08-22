@@ -145,6 +145,10 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setBatchRecordEvidenceIds(copy(dossierWrite.getBatchRecordEvidenceIds()))
                 .setProcessInspectionEvidenceIds(copy(dossierWrite.getProcessInspectionEvidenceIds()))
                 .setLossReportEvidenceIds(copy(dossierWrite.getLossReportEvidenceIds()))
+                .setLossReportStatus(dossierWrite.getLossReportStatus())
+                .setHasActualLoss(dossierWrite.getHasActualLoss())
+                .setLossQuantity(dossierWrite.getLossQuantity())
+                .setLossSourceSnapshotHash(dossierWrite.getSourceSnapshotHash())
                 .setReportUploadTasks(copy(reportStage.getReportUploadTasks()))
                 .setReportSnapshotHash(reportStage.getReportSnapshotHash())
                 .setVersion(command.getExpectedVersion() + 1)
@@ -342,8 +346,17 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
     private MesPqcReleaseDossierWriteResult requireDossierWrite(
             MesProcessPoolActiveOrderReleaseApplicationDO application,
             MesPqcReleaseDossierWriteResult result) {
+        boolean validLossReceipt = result != null
+                && (("SUCCESS".equals(result.getLossReportStatus())
+                && Boolean.TRUE.equals(result.getHasActualLoss())
+                && result.getLossQuantity() != null && result.getLossQuantity().signum() > 0
+                && !empty(result.getLossReportEvidenceIds()))
+                || ("NOT_REQUIRED".equals(result.getLossReportStatus())
+                && Boolean.FALSE.equals(result.getHasActualLoss())
+                && result.getLossQuantity() != null && result.getLossQuantity().signum() == 0
+                && empty(result.getLossReportEvidenceIds())));
         if (result == null || empty(result.getBatchRecordEvidenceIds())
-                || empty(result.getProcessInspectionEvidenceIds()) || empty(result.getLossReportEvidenceIds())) {
+                || empty(result.getProcessInspectionEvidenceIds()) || !validLossReceipt) {
             throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application,
                     "RELEASE_DOSSIER", String.valueOf(application.getId()),
                     "all three formal document mappings must return persistent evidence identifiers",

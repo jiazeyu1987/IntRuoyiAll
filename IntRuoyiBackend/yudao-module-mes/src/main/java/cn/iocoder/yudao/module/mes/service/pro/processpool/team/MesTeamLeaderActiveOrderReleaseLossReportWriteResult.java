@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 @Data
 @Accessors(chain = true)
@@ -19,4 +20,10 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriteResult {
     private List<MesTeamLeaderActiveOrderReleaseSignatureEvidence> signatureEvidence;
     private List<MesTeamLeaderActiveOrderReleaseDocumentEvidence> documentEvidence;
     private List<MesTeamLeaderActiveOrderReleaseBlocker> blockers;
+    private String lossReportStatus;
+    private Boolean hasActualLoss;
+    private BigDecimal lossQuantity;
+    private String lossDecision;
+    private List<MesTeamLeaderActiveOrderReleaseLossReportPlan.ProcessLossDecision> processDecisions;
+    private String sourceSnapshotHash;
 }

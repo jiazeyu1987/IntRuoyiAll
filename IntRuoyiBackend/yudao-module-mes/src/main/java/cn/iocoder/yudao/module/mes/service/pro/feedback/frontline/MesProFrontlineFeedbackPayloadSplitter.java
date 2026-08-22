@@ -131,6 +131,11 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         payload.put("activeOrderProcess", activeOrderProcessSnapshot);
         payload.put("outputQuantity", feedback.getOutputQuantity());
         payload.put("lossQuantity", feedback.getLossQuantity());
+        boolean hasActualLoss = feedback.getLossQuantity() != null
+                && feedback.getLossQuantity().signum() > 0;
+        payload.put("hasActualLoss", hasActualLoss);
+        payload.put("zeroLossConfirmed", !hasActualLoss);
+        payload.put("lossDecision", hasActualLoss ? "REQUIRED" : "NO_LOSS");
         payload.put("lossDetails", feedback.getLossDetails());
         payload.put("selectedDevice", feedback.getSelectedDevice());
         payload.put("deviceParameterReadings", feedback.getDeviceParameterReadings());

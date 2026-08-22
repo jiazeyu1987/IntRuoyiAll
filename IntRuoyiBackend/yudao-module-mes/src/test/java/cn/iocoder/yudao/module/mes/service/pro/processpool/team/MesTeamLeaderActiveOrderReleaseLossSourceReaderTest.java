@@ -55,7 +55,8 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     @Test
     void shouldReadOnlyCurrentActiveOrderAllocatedSignedFeedbackAndStructuredLossDetails() {
         MesProProcessPoolEventDO event = event(
-                "{\"lossQuantity\":999,\"lossDetails\":[{\"reasonId\":8301,"
+                "{\"hasActualLoss\":true,\"zeroLossConfirmed\":false,\"lossDecision\":\"REQUIRED\","
+                        + "\"lossQuantity\":999,\"lossDetails\":[{\"reasonId\":8301,"
                         + "\"reasonCode\":\"LOSS-001\",\"reasonName\":\"正常损耗\","
                         + "\"quantity\":2.500}]}"
         );
@@ -77,13 +78,17 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
                         .getLossDetails().stream().map(
                                 MesTeamLeaderActiveOrderReleaseLossSourceReadResult.LossDetail::getQuantity).toList()),
                 () -> assertEquals("LOSS-001", result.getProcessSources().get(0).getLossDetails().get(0)
-                        .getReasonCode()));
+                        .getReasonCode()),
+                () -> assertEquals(Boolean.TRUE, result.getProcessSources().get(0).getHasActualLoss()),
+                () -> assertEquals(Boolean.FALSE, result.getProcessSources().get(0).getZeroLossConfirmed()),
+                () -> assertEquals("REQUIRED", result.getProcessSources().get(0).getLossDecision()));
     }
 
     @Test
     void shouldRejectLegacyRawReasonAliasInsteadOfTreatingItAsFormalStructuredLossDetails() {
         MesProProcessPoolEventDO event = event(
-                "{\"lossReasonDetails\":[{\"reasonId\":8301,\"reasonCode\":\"LOSS-001\","
+                "{\"hasActualLoss\":true,\"zeroLossConfirmed\":false,\"lossDecision\":\"REQUIRED\","
+                        + "\"lossReasonDetails\":[{\"reasonId\":8301,\"reasonCode\":\"LOSS-001\","
                         + "\"reasonName\":\"正常损耗\",\"quantity\":2.500}]}"
         );
         when(eventMapper.selectProductionSubmitsByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
@@ -98,6 +103,62 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
                 "LOSS_SOURCE_REQUIRED".equals(blocker.getBlockerType())
                         && ROUTE_PROCESS_ID.equals(blocker.getRouteProcessId())
                         && "lossDetails".equals(blocker.getFieldCode())));
+        assertTrue(result.getProcessSources().isEmpty());
+    }
+
+    @Test
+    void shouldReadExplicitFormalZeroLossFactWithoutCreatingLossDetails() {
+        MesProProcessPoolEventDO event = event(
+                "{\"hasActualLoss\":false,\"zeroLossConfirmed\":true,\"lossDecision\":\"NO_LOSS\","
+                        + "\"lossQuantity\":0,\"lossDetails\":[]}");
+        MesProFeedbackDO feedback = feedback()
+                .setQualifiedQuantity(new BigDecimal("100.000"))
+                .setUnqualifiedQuantity(BigDecimal.ZERO)
+                .setLaborScrapQuantity(BigDecimal.ZERO)
+                .setMaterialScrapQuantity(BigDecimal.ZERO)
+                .setOtherScrapQuantity(BigDecimal.ZERO)
+                .setLossReasonId(null)
+                .setLossReasonCodeSnapshot(null)
+                .setLossReasonNameSnapshot(null);
+        when(eventMapper.selectProductionSubmitsByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(List.of(event));
+        when(allocationMapper.selectListByEventId(event.getId())).thenReturn(List.of(allocation()));
+        when(feedbackMapper.selectListByIds(List.of(5101L))).thenReturn(List.of(feedback));
+        when(reviewMapper.selectListByEventId(event.getId())).thenReturn(List.of(review()));
+
+        MesTeamLeaderActiveOrderReleaseLossSourceReadResult result = reader.read(command());
+
+        assertAll(
+                () -> assertTrue(result.getBlockers().isEmpty()),
+                () -> assertEquals(1, result.getProcessSources().size()),
+                () -> assertEquals(Boolean.FALSE, result.getProcessSources().get(0).getHasActualLoss()),
+                () -> assertEquals(Boolean.TRUE, result.getProcessSources().get(0).getZeroLossConfirmed()),
+                () -> assertEquals("NO_LOSS", result.getProcessSources().get(0).getLossDecision()),
+                () -> assertTrue(result.getProcessSources().get(0).getLossDetails().isEmpty()));
+    }
+
+    @Test
+    void shouldBlockZeroLossWhenSignedFormalFactIsMissing() {
+        MesProProcessPoolEventDO event = event("{\"lossQuantity\":0,\"lossDetails\":[]}");
+        MesProFeedbackDO feedback = feedback()
+                .setQualifiedQuantity(new BigDecimal("100.000"))
+                .setUnqualifiedQuantity(BigDecimal.ZERO)
+                .setLaborScrapQuantity(BigDecimal.ZERO)
+                .setMaterialScrapQuantity(BigDecimal.ZERO)
+                .setOtherScrapQuantity(BigDecimal.ZERO)
+                .setLossReasonId(null)
+                .setLossReasonCodeSnapshot(null)
+                .setLossReasonNameSnapshot(null);
+        when(eventMapper.selectProductionSubmitsByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(List.of(event));
+        when(allocationMapper.selectListByEventId(event.getId())).thenReturn(List.of(allocation()));
+        when(feedbackMapper.selectListByIds(List.of(5101L))).thenReturn(List.of(feedback));
+        when(reviewMapper.selectListByEventId(event.getId())).thenReturn(List.of(review()));
+
+        MesTeamLeaderActiveOrderReleaseLossSourceReadResult result = reader.read(command());
+
+        assertTrue(result.getBlockers().stream().anyMatch(blocker ->
+                "LOSS_HAS_ACTUAL_LOSS_REQUIRED".equals(blocker.getBlockerType())));
         assertTrue(result.getProcessSources().isEmpty());
     }
 

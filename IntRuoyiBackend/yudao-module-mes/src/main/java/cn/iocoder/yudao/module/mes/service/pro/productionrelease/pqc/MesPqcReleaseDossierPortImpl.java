@@ -170,7 +170,11 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         return new MesPqcReleaseDossierWriteResult()
                 .setBatchRecordEvidenceIds(List.copyOf(batchWrite.getBatchRecordExecutionIds()))
                 .setProcessInspectionEvidenceIds(List.copyOf(inspectionWrite.getBatchRecordExecutionIds()))
-                .setLossReportEvidenceIds(List.copyOf(lossWrite.getBatchRecordExecutionIds()));
+                .setLossReportEvidenceIds(List.copyOf(lossWrite.getBatchRecordExecutionIds()))
+                .setLossReportStatus(lossWrite.getLossReportStatus())
+                .setHasActualLoss(lossWrite.getHasActualLoss())
+                .setLossQuantity(lossWrite.getLossQuantity())
+                .setSourceSnapshotHash(lossWrite.getSourceSnapshotHash());
     }
 
     private void requireApplicationSources(
@@ -250,11 +254,23 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
             throw blocker(MesReleaseFlowBlockerType.PROCESS_INSPECTION_SOURCE_REQUIRED, application, null,
                     "formBindings cannot replace the formal process-inspection report binding");
         }
-        if (lossPlan == null || lossPlan.getPreparedReports() == null || lossPlan.getPreparedReports().isEmpty()) {
+        if (lossPlan == null || lossPlan.getPreparedReports() == null) {
             throw blocker(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED, application, null,
-                    "formal loss-report plan is missing, including the zero-loss report");
+                    "formal loss-report plan is missing");
         }
         requireNoBlockers(application, MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED, lossPlan.getBlockers());
+        boolean noLossPlan = lossPlan.getPreparedReports().isEmpty()
+                && "NO_LOSS".equals(lossPlan.getLossDecision())
+                && Boolean.FALSE.equals(lossPlan.getHasActualLoss())
+                && lossPlan.getLossQuantity() != null && lossPlan.getLossQuantity().signum() == 0
+                && lossPlan.getProcessDecisions() != null && !lossPlan.getProcessDecisions().isEmpty()
+                && lossPlan.getProcessDecisions().stream().allMatch(item ->
+                "NO_LOSS".equals(item.getDecision()) && Boolean.FALSE.equals(item.getHasActualLoss())
+                        && item.getLossQuantity() != null && item.getLossQuantity().signum() == 0);
+        if (!noLossPlan && lossPlan.getPreparedReports().isEmpty()) {
+            throw blocker(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED, application, null,
+                    "formal loss-report plan has no REQUIRED process and no explicit NO_LOSS receipt");
+        }
         if (lossPlan.getPreparedReports().stream().anyMatch(item -> item.getBinding() == null
                 || StrUtil.isBlank(item.getBinding().getBatchRecordReportId()))) {
             throw blocker(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED, application, null,
@@ -296,10 +312,21 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 inspectionWrite.getBlockers());
         requireNoWriteBlockers(batchExecutionId, MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED,
                 lossWrite.getBlockers());
-        if (empty(batchWrite.getBatchRecordExecutionIds()) || empty(inspectionWrite.getBatchRecordExecutionIds())
-                || empty(lossWrite.getBatchRecordExecutionIds())) {
+        if (empty(batchWrite.getBatchRecordExecutionIds()) || empty(inspectionWrite.getBatchRecordExecutionIds())) {
             throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, null, null,
-                    "writer did not return all three persistent mapping evidence sets");
+                    "writer did not return batch-record and process-inspection evidence sets");
+        }
+        boolean successLoss = "SUCCESS".equals(lossWrite.getLossReportStatus())
+                && Boolean.TRUE.equals(lossWrite.getHasActualLoss())
+                && lossWrite.getLossQuantity() != null && lossWrite.getLossQuantity().signum() > 0
+                && !empty(lossWrite.getBatchRecordExecutionIds());
+        boolean notRequiredLoss = "NOT_REQUIRED".equals(lossWrite.getLossReportStatus())
+                && Boolean.FALSE.equals(lossWrite.getHasActualLoss())
+                && lossWrite.getLossQuantity() != null && lossWrite.getLossQuantity().signum() == 0
+                && empty(lossWrite.getBatchRecordExecutionIds());
+        if (!successLoss && !notRequiredLoss) {
+            throw blocker(MesReleaseFlowBlockerType.LOSS_REPORT_SOURCE_REQUIRED, null, null,
+                    "loss writer receipt must explicitly be SUCCESS or NOT_REQUIRED with matching quantity and evidence");
         }
     }
 

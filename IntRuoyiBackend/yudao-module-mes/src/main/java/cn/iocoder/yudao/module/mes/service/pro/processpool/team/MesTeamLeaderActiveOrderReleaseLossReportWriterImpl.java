@@ -130,10 +130,12 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
         LinkedHashSet<Long> sourceObjectIds = new LinkedHashSet<>();
         LinkedHashSet<String> sourceValueHashes = new LinkedHashSet<>();
         List<MesTeamLeaderActiveOrderReleaseSignatureEvidence> signatures = new ArrayList<>();
+        List<MesTeamLeaderActiveOrderReleaseLossReportPlan.ProcessLossDecision> decisions = new ArrayList<>();
         if (readResult == null) {
             blockers.add(blocker("LOSS_SOURCE_REQUIRED", null, null, "ACTIVE_ORDER", command.getActiveOrderId(),
                     null, null, "正式损耗来源 reader 未返回结果", "请修复正式损耗来源链路"));
-            return planResult(command, prepared, sourceObjectIds, sourceValueHashes, signatures, blockers);
+            return planResult(command, prepared, sourceObjectIds, sourceValueHashes, signatures, blockers,
+                    decisions, null, null, null);
         }
         if (readResult.getBlockers() != null) {
             blockers.addAll(readResult.getBlockers());
@@ -148,7 +150,8 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                     null, null, "当前激活批次没有正式生产损耗来源", "请完成生产反馈和生产组长复核"));
         }
         if (!blockers.isEmpty()) {
-            return planResult(command, prepared, sourceObjectIds, sourceValueHashes, signatures, blockers);
+            return planResult(command, prepared, sourceObjectIds, sourceValueHashes, signatures, blockers,
+                    decisions, null, null, null);
         }
 
         Map<ProcessKey, List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource>> grouped =
@@ -163,6 +166,20 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                 validateFormalSource(command, source, blockers);
             }
             if (blockers.size() != blockerCount) {
+                continue;
+            }
+            BigDecimal processLossQuantity = entry.getValue().stream()
+                    .map(source -> source.getFeedback().getUnqualifiedQuantity())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            boolean processHasActualLoss = processLossQuantity.signum() > 0;
+            decisions.add(new MesTeamLeaderActiveOrderReleaseLossReportPlan.ProcessLossDecision()
+                    .setRouteProcessId(entry.getKey().routeProcessId())
+                    .setProcessId(entry.getKey().processId())
+                    .setDecision(processHasActualLoss ? "REQUIRED" : "NO_LOSS")
+                    .setHasActualLoss(processHasActualLoss)
+                    .setLossQuantity(processLossQuantity));
+            if (!processHasActualLoss) {
+                collectSourceEvidence(entry.getValue(), sourceObjectIds, sourceValueHashes, signatures);
                 continue;
             }
             MesProcessPoolActiveOrderProcessSnapshotDO snapshot = entry.getValue().get(0).getSnapshot();
@@ -199,7 +216,12 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                     .setEvidenceHash(sha256(String.join("|", evidenceHashes))));
         }
         prepared.sort(Comparator.comparing(item -> item.getSources().get(0).getSnapshot().getRouteProcessId()));
-        return planResult(command, prepared, sourceObjectIds, sourceValueHashes, signatures, blockers);
+        BigDecimal totalLoss = decisions.stream()
+                .map(MesTeamLeaderActiveOrderReleaseLossReportPlan.ProcessLossDecision::getLossQuantity)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        boolean hasActualLoss = totalLoss.signum() > 0;
+        return planResult(command, prepared, sourceObjectIds, sourceValueHashes, signatures, blockers,
+                decisions, hasActualLoss, totalLoss, hasActualLoss ? "REQUIRED" : "NO_LOSS");
     }
 
     @Override
@@ -207,6 +229,9 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
     public MesTeamLeaderActiveOrderReleaseLossReportWriteResult write(
             MesTeamLeaderActiveOrderReleaseLossReportPlan plan, Long batchExecutionId) {
         validateWriteInput(plan, batchExecutionId);
+        if (plan.getPreparedReports().isEmpty()) {
+            return noLossWriteResult(plan);
+        }
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(batchExecutionId);
         List<Long> executionIds = new ArrayList<>();
         List<Long> formCenterInstanceIds = new ArrayList<>();
@@ -306,6 +331,38 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                 .setSourceValueHashes(plan.getSourceValueHashes())
                 .setSignatureEvidence(plan.getSignatureEvidence())
                 .setDocumentEvidence(List.copyOf(documents))
+                .setLossReportStatus("SUCCESS")
+                .setHasActualLoss(Boolean.TRUE)
+                .setLossQuantity(plan.getLossQuantity())
+                .setLossDecision("REQUIRED")
+                .setProcessDecisions(plan.getProcessDecisions())
+                .setSourceSnapshotHash(plan.getCommand().getSourceSnapshotHash())
+                .setBlockers(List.of());
+    }
+
+    private MesTeamLeaderActiveOrderReleaseLossReportWriteResult noLossWriteResult(
+            MesTeamLeaderActiveOrderReleaseLossReportPlan plan) {
+        if (!Boolean.FALSE.equals(plan.getHasActualLoss()) || plan.getLossQuantity() == null
+                || plan.getLossQuantity().signum() != 0 || !"NO_LOSS".equals(plan.getLossDecision())) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
+                    "无损耗计划缺少显式 NO_LOSS/hasActualLoss=false/lossQuantity=0 事实");
+        }
+        return new MesTeamLeaderActiveOrderReleaseLossReportWriteResult()
+                .setDocumentType(FORM_SLOT_TYPE)
+                .setBatchRecordExecutionIds(List.of())
+                .setFormCenterInstanceIds(List.of())
+                .setFieldAuditIds(List.of())
+                .setFieldAuditHeadHashes(List.of())
+                .setSourceObjectIds(plan.getSourceObjectIds())
+                .setSourceValueHashes(plan.getSourceValueHashes())
+                .setSignatureEvidence(plan.getSignatureEvidence())
+                .setDocumentEvidence(List.of())
+                .setLossReportStatus("NOT_REQUIRED")
+                .setHasActualLoss(Boolean.FALSE)
+                .setLossQuantity(BigDecimal.ZERO)
+                .setLossDecision("NO_LOSS")
+                .setProcessDecisions(plan.getProcessDecisions())
+                .setSourceSnapshotHash(plan.getCommand().getSourceSnapshotHash())
                 .setBlockers(List.of());
     }
 
@@ -315,13 +372,21 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
             Set<Long> sourceObjectIds,
             Set<String> sourceValueHashes,
             List<MesTeamLeaderActiveOrderReleaseSignatureEvidence> signatures,
-            List<MesTeamLeaderActiveOrderReleaseBlocker> blockers) {
+            List<MesTeamLeaderActiveOrderReleaseBlocker> blockers,
+            List<MesTeamLeaderActiveOrderReleaseLossReportPlan.ProcessLossDecision> decisions,
+            Boolean hasActualLoss,
+            BigDecimal lossQuantity,
+            String lossDecision) {
         return new MesTeamLeaderActiveOrderReleaseLossReportPlan()
                 .setCommand(command)
                 .setPreparedReports(List.copyOf(prepared))
                 .setSourceObjectIds(List.copyOf(sourceObjectIds))
                 .setSourceValueHashes(List.copyOf(sourceValueHashes))
                 .setSignatureEvidence(List.copyOf(signatures))
+                .setProcessDecisions(List.copyOf(decisions))
+                .setHasActualLoss(hasActualLoss)
+                .setLossQuantity(lossQuantity)
+                .setLossDecision(lossDecision)
                 .setBlockers(List.copyOf(blockers));
     }
 
@@ -343,7 +408,16 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                 || plan.getBlockers() == null || batchExecutionId == null || batchExecutionId <= 0) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrderReleaseLossReportWrite");
         }
-        if (!plan.getBlockers().isEmpty() || plan.getPreparedReports().isEmpty()) {
+        boolean validNoLossPlan = plan.getPreparedReports().isEmpty()
+                && "NO_LOSS".equals(plan.getLossDecision())
+                && Boolean.FALSE.equals(plan.getHasActualLoss())
+                && plan.getLossQuantity() != null && plan.getLossQuantity().signum() == 0
+                && plan.getProcessDecisions() != null && !plan.getProcessDecisions().isEmpty()
+                && plan.getProcessDecisions().stream().allMatch(decision ->
+                "NO_LOSS".equals(decision.getDecision())
+                        && Boolean.FALSE.equals(decision.getHasActualLoss())
+                        && decision.getLossQuantity() != null && decision.getLossQuantity().signum() == 0);
+        if (!plan.getBlockers().isEmpty() || (plan.getPreparedReports().isEmpty() && !validNoLossPlan)) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
                     "损耗报告 writer plan 存在 blocker 或没有正式写入计划，禁止写入");
         }
@@ -390,11 +464,32 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                     "请修复人工、物料和其它损耗分类数量"));
             return;
         }
-        if (feedback.getUnqualifiedQuantity().signum() == 0) {
-            blockers.add(blocker("ZERO_LOSS_CONFIRMATION_UNSUPPORTED", snapshot, null,
-                    "PRODUCTION_FEEDBACK", feedback.getId(), "lossQuantity", null,
-                    "当前正式损耗模板没有可证明的零损耗确认字段",
-                    "请先补齐正式零损耗确认字段及映射"));
+        if (source.getHasActualLoss() == null || source.getZeroLossConfirmed() == null
+                || StrUtil.isBlank(source.getLossDecision())) {
+            blockers.add(blocker("LOSS_HAS_ACTUAL_LOSS_REQUIRED", snapshot, null, "PRODUCTION_EVENT",
+                    event.getId(), "hasActualLoss", null,
+                    "正式损耗来源缺少 hasActualLoss、zeroLossConfirmed 或 lossDecision",
+                    "请通过正式生产反馈重新提交损耗事实"));
+            return;
+        }
+        boolean quantityPositive = feedback.getUnqualifiedQuantity().signum() > 0;
+        if (!Objects.equals(quantityPositive, source.getHasActualLoss())
+                || (quantityPositive && (Boolean.TRUE.equals(source.getZeroLossConfirmed())
+                || !"REQUIRED".equals(source.getLossDecision())))
+                || (!quantityPositive && (!Boolean.TRUE.equals(source.getZeroLossConfirmed())
+                || !"NO_LOSS".equals(source.getLossDecision())))) {
+            blockers.add(blocker("LOSS_HAS_ACTUAL_LOSS_CONFLICT", snapshot, null, "PRODUCTION_EVENT",
+                    event.getId(), "hasActualLoss", null,
+                    "正式损耗来源布尔事实、决策状态和反馈数量不一致",
+                    "请修复签名生产提交中的损耗事实"));
+            return;
+        }
+        if (!quantityPositive) {
+            if (source.getLossDetails() != null && !source.getLossDetails().isEmpty()) {
+                blockers.add(blocker("LOSS_HAS_ACTUAL_LOSS_CONFLICT", snapshot, null, "PRODUCTION_EVENT",
+                        event.getId(), "lossDetails", null,
+                        "NO_LOSS 来源不能携带损耗明细", "请重新提交明确的空 lossDetails"));
+            }
             return;
         }
         List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.LossDetail> details = source.getLossDetails();
@@ -895,6 +990,34 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
             addEvidence(sourceObjectIds, sourceValueHashes, hashes, rule.getId(), hashRule(rule));
         }
         return hashes;
+    }
+
+    private void collectSourceEvidence(
+            List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource> sources,
+            Set<Long> sourceObjectIds,
+            Set<String> sourceValueHashes,
+            List<MesTeamLeaderActiveOrderReleaseSignatureEvidence> signatures) {
+        for (MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource source : sources) {
+            String feedbackHash = hashFeedback(source.getFeedback());
+            String detailsHash = sha256("LOSS_DETAILS_V1|" + canonicalLossDetails(List.of(source)));
+            String eventHash = hashEvent(source.getEvent(), detailsHash);
+            String allocationHash = hashAllocation(source.getAllocation());
+            String reviewHash = hashReview(source.getReview());
+            addEvidence(sourceObjectIds, sourceValueHashes, new ArrayList<>(), source.getFeedback().getId(), feedbackHash);
+            sourceValueHashes.add(detailsHash);
+            sourceValueHashes.add(eventHash);
+            sourceValueHashes.add(allocationHash);
+            sourceValueHashes.add(reviewHash);
+            signatures.add(signature("FILLER", "PRODUCTION_SUBMIT", source.getEvent().getId(),
+                    source.getEvent().getSignatureId(), source.getEvent().getSignatureUserId(),
+                    source.getEvent().getServerSubmitTime(), eventHash));
+            signatures.add(signature("REVIEWER", "PRODUCTION_REVIEW", source.getReview().getId(),
+                    source.getReview().getReviewSignatureId(), source.getReview().getReviewSignatureUserId(),
+                    source.getReview().getReviewedAt(), reviewHash));
+            sourceObjectIds.add(source.getEvent().getId());
+            sourceObjectIds.add(source.getAllocation().getId());
+            sourceObjectIds.add(source.getReview().getId());
+        }
     }
 
     private MesProEdhrBatchExecutionTaskDO requireCurrentBatchTask(
