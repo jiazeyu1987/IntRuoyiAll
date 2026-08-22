@@ -72,3 +72,14 @@
 ## Final Result
 
 completed for the Flow 3 task-owned scope：在 `int_main` 源代码复核基线 `5591587c50063744bb0b4096c53fb7f17614af65` 上完成 27/27 定向测试、MES 相关编译、runtime guard 和并行改动隔离复核；其后仅增加流程 3 收尾文档提交。全链路仍受流程 4/6/7/8/9/10/11 的跨流程实现、历史迁移对账和真实读写 E2E 阻断，这些不属于流程 3 可单方面关闭的范围。
+
+## Final Main-Thread Reverification (2026-08-22)
+
+- 当前 `int_main` HEAD：`477c97d410cc37d40f73382179e0eddd5c01f929`；`aeb58c37d` 祖先关系 PASS，无需重复融合。
+- 先执行 MES reactor compile：`mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dmaven.test.skip=true compile` -> PASS，`BUILD SUCCESS`。
+- 随后执行流程3定向测试：4 个测试类共 27/27 PASS，Failures 0，Errors 0。
+- 主线程运行时回归 `test_branch_runtime_profile.py --basetemp <task-owned writable temp>` -> 17/17 PASS；默认系统临时目录的 Windows ACL 问题未被绕过或修改。
+- `branch-runtime-port-guard.ps1` -> PASS（`int_main/int_main`，8081/48081）；工作树 staged/unstaged diff-check -> PASS。
+- 并行任务的 staged 删除和 MES QA VO 修改保持原状，未纳入流程3提交；未启动服务、未写数据库、未运行写入型 E2E、未执行 reset/checkout/clean。
+
+本次主线程验证支持“流程3 task-owned 代码已完成且当前主线可编译、定向测试通过”的结论；不扩大为流程4/6/7/8/9/10/11、历史迁移或真实 E2E 的全链路通过。

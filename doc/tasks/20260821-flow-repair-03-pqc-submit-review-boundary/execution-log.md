@@ -112,3 +112,13 @@
 - `E2E: NOT RUN`; no service start, database write, reset/checkout/clean, or additional merge was performed.
 - After the protected correction commit `5591587c5`, the same focused Maven command was rerun: `GREEN -> PASS, 27/27, Failures 0, Errors 0`.
 - Audit correction: intermediate commit `ff8d4e946` accidentally included the worktree's pre-existing staged Flow11/BPM/ERP/MES QA paths. `5591587c5` restored those paths to the pre-verification main tree, left their staged working-tree changes intact, and retained only the Flow3 documentation result; later documentation commits used `git commit --only`. No reset/checkout/clean was used.
+
+## Main-Thread Final Verification (2026-08-22, source tree HEAD `477c97d410cc37d40f73382179e0eddd5c01f929`)
+
+- Ancestry: `git merge-base --is-ancestor aeb58c37d HEAD` -> PASS; `aeb58c37d` is already in `int_main`, so no additional fusion was performed.
+- `GREEN: & 'C:\\Users\\BJB110\\tools\\apache-maven-3.9.11\\bin\\mvn.cmd' -f IntRuoyiBackend\\yudao-module-mes\\pom.xml -Dtest=MesFrontlinePqcSubmissionConcurrencyTest,MesFrontlinePqcContextServiceTest,MesFrontlinePqcSubmitReceiptControllerTest,MesTeamLeaderSubmissionReviewServiceTest -Dsurefire.failIfNoSpecifiedTests=false test -> PASS, 27/27 (0 failures, 0 errors).`
+- `REGRESSION: & 'C:\\Users\\BJB110\\tools\\apache-maven-3.9.11\\bin\\mvn.cmd' -f IntRuoyiBackend\\pom.xml -pl yudao-module-mes -am -Dmaven.test.skip=true compile -> PASS, reactor BUILD SUCCESS.` This compile was intentionally run before the focused tests.
+- `REGRESSION: python -X utf8 -m pytest IntRuoyiBackend\\script\\tests\\test_branch_runtime_profile.py --basetemp <task-owned writable temp> -> PASS, 17/17.`
+- `REGRESSION: scripts\\preflight\\branch-runtime-port-guard.ps1 -> PASS, int_main/int_main frontend 8081/backend 48081.`
+- `git diff --check -- IntRuoyiBackend`, `git diff --cached --check -- IntRuoyiBackend`, and the Flow3 task-doc diff check -> PASS.
+- Current staged deletions/MES QA VO edits are parallel task changes; they were left untouched and are not part of this Flow3 verification. The Flow3 task-owned implementation had no compile or test failure. `E2E: NOT RUN`; no service, database, reset, checkout, clean, or extra merge was performed.

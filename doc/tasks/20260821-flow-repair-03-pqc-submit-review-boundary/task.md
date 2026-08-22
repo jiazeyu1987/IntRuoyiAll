@@ -42,6 +42,8 @@ completed
 
 流程 3 的 task-owned 提交/复核边界实现已融合到当前 `int_main`（`aeb58c37d`，本次源代码复核基线为 `5591587c50063744bb0b4096c53fb7f17614af65`，其后仅增加流程 3 收尾文档提交），主线程定向测试、MES 相关编译和 runtime guard 均已取得真实证据。任务仍不能宣称全链路完成：流程 4/6/7/8/9/10/11 的跨流程实现、历史迁移对账和真实读写 E2E 仍未完成或验证。
 
+本次最终复核使用当前 `int_main` HEAD `477c97d410cc37d40f73382179e0eddd5c01f929`：先完成 MES reactor compile（BUILD SUCCESS），再完成流程3定向测试 27/27、运行时回归 17/17、runtime guard 和 diff-check；`aeb58c37d` 已是祖先，不重复融合。并行任务 staged 改动保持原状，未归入流程3。
+
 ## Main-Thread Implementation Verification
 
 - `MesFrontlinePqcSubmissionConcurrencyTest`、`MesFrontlinePqcContextServiceTest`、`MesFrontlinePqcSubmitReceiptControllerTest`、`MesTeamLeaderSubmissionReviewServiceTest`：27/27 PASS。
