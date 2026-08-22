@@ -82,6 +82,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 已执行（M13 历史结果）：初次 bundled Maven compile 因 `MesFrontlinePqcContextServiceImpl.java:736` 缺少 `EquipmentOption` 失败。
 - 已执行（M14/M16）：恢复 QA DTO 后 MES reactor 24/24 `BUILD SUCCESS`；补齐被 `**/runtime/` 错误忽略的 BPM/ERP 源后，完整 `mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS；Flow11 runtime guard（8090/48090）-> PASS。
 - 已执行：Flow11 Python runner 12 场景、pytest `12 passed`、py_compile、两个受影响 E2E `node --check`、`git diff --check` -> PASS。
+- 已执行：`test_branch_runtime_profile.py -q --basetemp D:\IntRuoyiWorktree\flow11-pytest-temp` -> PASS，16 passed；slot=31 可用，slot=41 按当前上限拒绝，不再出现 `must be between 1 and 30`。
 - 已核对：`origin/int_main=9ba449c44` 包含流程11分支，`git merge-base --is-ancestor codex/20260822-flow-repair-11-design-development origin/int_main` -> PASS；本地主工作树未强行更新，未把独立 worktree 结果冒充本地 checkout 证据。
 - 已执行：只读 rg --files、rg -n，核对五份文档、流程合同引用、四材料节点和 BDD/RED/GREEN/REGRESSION markers；自定义标记扫描确认独立入口、四个 BATCH_*、损耗三态和映射门禁均存在且旧凭证/待冻结措辞不存在。
 - 已执行：只读 git diff --check；对未跟踪 Markdown 另以 rg 扫描尾随空格。

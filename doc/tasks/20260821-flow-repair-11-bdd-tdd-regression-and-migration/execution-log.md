@@ -156,4 +156,6 @@ GREEN: `mvn -pl yudao-module-erp -am -DskipTests compile` -> PASS；完整 `mvn 
 
 GREEN: `python -X utf8 IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS，12 场景；`python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py` -> PASS，12 passed；`python -X utf8 -m py_compile ...` -> PASS。
 
+REGRESSION: `python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_branch_runtime_profile.py -q --basetemp D:\IntRuoyiWorktree\flow11-pytest-temp` -> PASS，16 passed；覆盖 slot=31 扩展槽可用和 slot=41 越界 fail-fast，确认不再受 `must be between 1 and 30` 限制。
+
 REGRESSION: `node --check` 两个受影响 E2E 静态脚本、Flow11 `branch-runtime-port-guard.ps1` 和 `git diff --check` -> PASS；未将静态检查冒充真实 Playwright，也未运行写入型 E2E。
