@@ -168,3 +168,10 @@ REGRESSION: `node --check` 两个受影响 E2E 静态脚本、Flow11 `branch-run
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1 -Profile int_main -WorktreePath D:\IntRuoyiWorktree\20260822-flow-repair-11-local-int-main-integration-v2` -> PASS，slot=25，8159/48159；slot 31 按 v5 合同合法，未修改其它登记。
 - bundled Maven `mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS，24/24 modules `BUILD SUCCESS`。ERP `ErpKingdeeSyncRuntimeServiceImplTest` -> PASS，6/6。BPM 定向 46 tests 中 45 通过，`DefaultWordFormTemplateRecognizerTest` 因 `resource/按压式球囊扩充压力泵IDI-001/过程检验记录.docx` 在干净集成树不存在而失败；该 fixture 仅存在于主工作树未跟踪文件，未复制、未提交或伪造，保持 blocker。
 - `node --check` 两个受影响 E2E 静态脚本及合并树 `git diff --check` -> PASS；`E:\IntRuoyi` 主工作树 `git diff --check --no-ext-diff HEAD -- AGENTS.md docs scripts IntRuoyiBackend IntRuoyiFronted` -> exit 0（仅 CRLF 警告）。未启动服务、访问数据库或运行 Playwright。
+
+## M18 物理主工作树最终验证
+
+- 在 `E:\IntRuoyi\IntRuoyiBackend` 首先执行 bundled Maven `mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS，24/24 modules `BUILD SUCCESS`。
+- 在物理主工作树检查发现 `IntRuoyiBackend/script/flow_repair_11_migration.py`、`run_flow_repair_11_contracts.py`、`tests/test_flow_repair_11_migration.py` 均不存在；因此 runner、pytest、py_compile 均实际 FAIL（file not found）。这些文件存在于 `refs/heads/int_main`，但此前为保护主工作树 dirty/untracked 状态未 checkout；未复制、未覆盖、未使用隔离结果冒充主树通过。
+- 物理主工作树前端 `pnpm run ts:check` -> PASS；两个 E2E 静态脚本 `node --check` -> PASS；主线 `branch-runtime-port-guard.ps1` -> PASS（8081/48081）；`git diff --check` -> exit 0（仅 CRLF 警告）。
+- 物理主工作树 ERP 定向 JUnit 命令返回 6/6，但对应 task-owned Java 源和测试源均不存在，结果来自既有 `target`，按规则不计为当前主树有效证据；BPM 同理不计。未执行服务、数据库、真实 Playwright 或写入型迁移。
