@@ -111,7 +111,7 @@
 
 ## 2026-08-22 Implementation/Test Continuation
 
-- 用户授权在独立 worktree 完成流程修复 3 代码与测试，并要求先修复问题 1；运行时槽位合同已由 1..30 更新为 1..50。
+- 用户授权在独立 worktree 完成流程修复 3 代码与测试，并要求先修复问题 1；运行时槽位合同已更新为 1..50。
 - 问题 1 修复：补齐测试夹具的冻结工序快照、`routeProcessId` 和 `processId`，并修正仓库既有 QA 测试的已删除字段引用；未放宽生产代码中的身份校验。
 - `BDD: 一线PQC提交来源身份 -> Given 正式 PQC 任务、活跃订单和冻结工序快照完整，When 一线 PQC 提交相同或冲突 payload，Then 相同 hash 复用 sourceRevision/payloadHash，冲突请求被稳定拒绝。`
 - `RED: Maven 定向测试（修复夹具前） -> FAIL, 测试夹具缺少冻结工序快照，触发 PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID。`
