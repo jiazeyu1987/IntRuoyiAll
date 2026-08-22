@@ -46,7 +46,7 @@ BDD: 缺失事实阻塞 -> Given 任一工序缺少正式零损耗事实、五�
 ## RED/GREEN/REGRESSION Status
 
 RED: 初始基线测试 -> FAIL，零损耗仍被旧合同阻塞；该失败作为实现前证据保留。
-GREEN: mvn -pl yudao-module-mes -DskipTests compile -> PASS；流程5核心定向 JUnit 21 项 -> PASS。
+GREEN: mvn -pl yudao-module-mes -DskipTests compile -> PASS；流程5定向 JUnit 27/27 -> PASS（writer 11、source reader 4、dynamic-form 3、dossier completeness 4、frontline feedback splitter 3、loss reason snapshot validator 2）。
 REGRESSION: git diff --check -> PASS；branch-runtime-port-guard.ps1 -> PASS；服务、数据库迁移和写入型 E2E 保持 NOT_RUN。
 
 ## Blockers
@@ -57,8 +57,10 @@ REGRESSION: git diff --check -> PASS；branch-runtime-port-guard.ps1 -> PASS；�
 
 ## Final Evidence
 
-- 流程5代码/测试已由 `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 提交，并以 `16e47106e043ad93b4d43d699d269996703a47e1` 融合当前 `int_main`；代码/测试验证基线为 `fd7566c3ef3c8fea3adcc0e73cb23d2c86d66cf8`，已确认包含该祖先；其后仅追加流程文档和复验经验收尾提交，未改变代码树。
-- 在当前主线执行 `mvn -pl yudao-module-mes -DskipTests compile`（Maven 3.9.16）PASS；流程5核心 writer/source/dynamic-form/splitter 测试共21项 PASS，覆盖正损耗、NO_LOSS、缺失事实 BLOCKED、动态映射阻塞和来源校验。
+- 流程5代码/测试已由 `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 提交，并以 `16e47106e043ad93b4d43d699d269996703a47e1` 融合当前 `int_main`；当前 `int_main` HEAD 为 `83f5d11a5a477463ef33444eb4ad52aa79cdd17a`，已确认 `16e47106e` 为其祖先；其后仅追加流程文档和复验经验收尾提交，未改变流程5代码。
+- 在当前主线执行 `mvn -pl yudao-module-mes -DskipTests compile`（Maven 3.9.16）PASS；流程5定向 JUnit 共27/27 PASS：LossReportWriter 11、LossSourceReader 4、LossReportDynamicFormPortImpl 3、DossierCompletenessChecker 4、FrontlineFeedbackPayloadSplitter 3、LossReasonSnapshotValidator 2，覆盖正损耗、NO_LOSS、缺失事实 BLOCKED、dossier 条件门禁、来源校验和流程6交接边界。
+- 首次定向测试命令因 PowerShell 未将逗号分隔的 `-Dtest` 值作为单个参数传给 Maven，触发 `Unknown lifecycle phase` 参数解析错误；改为整体引用 `-Dtest` 参数后重新执行，得到上述27/27 PASS，该错误不是代码或测试失败。
+- 早期代码验证基线曾记录 writer/source/dynamic-form/splitter 共21项 PASS；随后在当前主线补充 dossier completeness 与 loss reason snapshot validator，形成上述27/27最终证据。
 - `git diff --check` PASS；runtime v5 guard PASS（int_main 8081/48081）。
 - 未启动前后端服务，未运行数据库命令或写入型 E2E；五份任务文档保留，删除项为零。
 
@@ -71,4 +73,4 @@ REGRESSION: git diff --check -> PASS；branch-runtime-port-guard.ps1 -> PASS；�
 - 已补齐提交/复核不触发回填、缺失事实、部分工序、重复幂等、失败回滚和放行后追溯场景。
 - 已补齐流程 1/6 五字段领料绑定快照、逐工序/订单级 `hasActualLoss`、`lossQuantity=0` 的 NO_LOSS 合同，并明确不能从缺少 lossRecordId 推断 false。
 - 已完成本轮复核修订：五份文档的正式来源字段、接口表、BDD、状态/错误码、验证结论和未运行 blocker 已统一。
-- 主线程复验记录：在代码/测试验证基线 `fd7566c3ef3c8fea3adcc0e73cb23d2c86d66cf8` 上 compile 与流程5核心21项 JUnit 均 PASS；随后仅追加文档/经验收尾提交。非流程5的 `MesFrontlineRuntimeConfigProcessScopeTest` 仍因前线运行时参数校验静态契约失败，保持跨任务 blocker，未修改其 owner 代码。
+- 主线程复验记录：当前 `int_main` HEAD `83f5d11a5a477463ef33444eb4ad52aa79cdd17a` 上 compile 与流程5定向27/27 JUnit 均 PASS；非流程5的 `MesFrontlineRuntimeConfigProcessScopeTest` 仍因前线运行时参数校验静态契约失败，保持跨任务 blocker，未修改其 owner 代码。

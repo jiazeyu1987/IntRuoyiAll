@@ -24,9 +24,10 @@
 - 已核对五份文档均冻结逐工序/订单级 `hasActualLoss`：正损耗工序决策为 REQUIRED，必须为 true 且 lossQuantity>0、建损耗单并使 receipt 的 `lossReportStatus=SUCCESS`；无损耗工序决策为 NO_LOSS，必须有正式零损耗确认快照、为 false 且 lossQuantity=0，receipt 的 `lossReportStatus=NOT_REQUIRED` 且不生成 lossRecordId；不能从缺少 lossRecordId 推断 false。
 - 已核对接口/错误码合同：绑定快照缺失或变化返回 `LOSS_SOURCE_PICK_LIST_BINDING_REQUIRED` / `LOSS_SOURCE_PICK_LIST_BINDING_SNAPSHOT_CHANGED`，`hasActualLoss` 缺失或矛盾返回 `LOSS_HAS_ACTUAL_LOSS_REQUIRED` / `LOSS_HAS_ACTUAL_LOSS_CONFLICT`，均 fail fast。
 - 主线 `mvn -pl yudao-module-mes -DskipTests compile`（Maven 3.9.16，当前 HEAD）-> PASS。
-- 主线流程5核心 JUnit（splitter、dynamic-form、writer、source-reader）共21项（当前 HEAD）-> PASS。
+- 当前 `int_main` HEAD `83f5d11a5a477463ef33444eb4ad52aa79cdd17a` 已包含 `16e47106e043ad93b4d43d699d269996703a47e1` 祖先；流程5定向 JUnit 共27/27 -> PASS：LossReportWriter 11、LossSourceReader 4、LossReportDynamicFormPortImpl 3、DossierCompletenessChecker 4、FrontlineFeedbackPayloadSplitter 3、LossReasonSnapshotValidator 2。
 - 主线 `git diff --check` -> PASS；runtime v5 guard -> PASS（int_main 8081/48081）。
-- 组合测试中的 `MesFrontlineRuntimeConfigProcessScopeTest` 1项失败，属于前线运行时参数校验静态契约，不属于流程5条件损耗 owner；流程5核心21项不受影响。
+- 组合测试中的 `MesFrontlineRuntimeConfigProcessScopeTest` 1项失败，属于前线运行时参数校验静态契约，不属于流程5条件损耗 owner；流程5定向27/27不受影响。
+- 首次定向测试命令因 PowerShell 未将逗号分隔的 `-Dtest` 值作为单个参数传给 Maven，触发 `Unknown lifecycle phase` 参数解析错误；改为整体引用后重新执行并得到27/27 PASS，该错误不是代码或测试失败。
 - UTF-8 文档写入使用 apply_patch；未使用 PowerShell 重定向写入中文文件。
 
 ## BDD/TDD Evidence Status
@@ -37,7 +38,7 @@ BDD: 部分工序损耗 -> Given 工序间决策分别为 REQUIRED/NO_LOSS，且
 BDD: 原子失败 -> Given 任一工序阻塞或损耗写入失败，When 流程 4 完成节点执行，Then 三类回填和完成 receipt 整体回滚；流程 6 的建批失败不重跑流程 5。
 BDD: 阻塞不建批 -> Given 任一工序缺失正式事实或绑定快照，When 流程 4 统一回填，Then 输出 BLOCKED，不生成成功 receipt，流程 6 不得驱动批次执行。
 RED: 实现前零损耗旧合同测试 -> FAIL，返回 ZERO_LOSS_CONFIRMATION_UNSUPPORTED；作为基线根因证据保留。
-GREEN: mvn -pl yudao-module-mes -DskipTests compile -> PASS；流程5核心 JUnit 21 项 -> PASS。
+GREEN: mvn -pl yudao-module-mes -DskipTests compile -> PASS；流程5定向 JUnit 27/27 -> PASS。
 REGRESSION: git diff --check -> PASS；branch-runtime-port-guard.ps1 -> PASS；服务、数据库迁移和写入型 E2E 保持 NOT_RUN。
 
 ## Unresolved Blockers
@@ -52,4 +53,4 @@ REGRESSION: git diff --check -> PASS；branch-runtime-port-guard.ps1 -> PASS；�
 
 ## Closeout Evidence
 
-task-closeout-cleanup preview/apply 已通过；五份正式文档均保留，清理删除项为零。流程5代码/测试已融合并在当前 `int_main` 完成 compile、核心21项 JUnit、diff-check 和 runtime guard；数据库迁移、服务和写入型 E2E 仍 NOT_RUN，跨流程 blocker 仍按上文保留。
+task-closeout-cleanup preview/apply 已通过；五份正式文档均保留，清理删除项为零。流程5代码/测试已融合并在当前 `int_main` 完成 compile、定向27/27项 JUnit、diff-check 和 runtime guard；数据库迁移、服务和写入型 E2E 仍 NOT_RUN，跨流程 blocker 仍按上文保留。

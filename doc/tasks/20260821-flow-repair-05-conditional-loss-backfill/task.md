@@ -65,7 +65,7 @@ BDD: 缺失或阻塞 -> Given 零损耗事实、绑定或签名缺失/矛盾，W
 
 - 五份文档存在且章节覆盖目标态、当前事实、根因、边界、接口/数据/状态、BDD、RED/GREEN/REGRESSION、迁移/回滚、blocker 和流程修复 4/6/7/8/10/11 契约。
 - 代码符合性结论：流程5条件分支已实现并通过主线核心验证；流程4/6/7/8/10/11 的跨流程 receipt、建批、映射、材料和最终放行仍不属于本专项结论。
-- 主线验证证据：在 `fd7566c3ef3c8fea3adcc0e73cb23d2c86d66cf8` 上 MES compile PASS（Maven 3.9.16）；流程5核心21项 JUnit PASS；`git diff --check` PASS；runtime v5 guard PASS。
+- 主线验证证据：当前 `int_main` HEAD 为 `83f5d11a5a477463ef33444eb4ad52aa79cdd17a`，且集成提交 `16e47106e043ad93b4d43d699d269996703a47e1` 为其祖先；MES compile PASS（Maven 3.9.16）；流程5定向 JUnit 27/27 PASS（writer 11、source reader 4、dynamic-form 3、dossier completeness 4、frontline feedback splitter 3、loss reason snapshot validator 2）；`git diff --check` PASS；runtime v5 guard PASS。
 
 ## Verification Status
 
@@ -102,9 +102,9 @@ completed
 - doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/test-plan.md
 - doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/execution-log.md
 - doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/verification-report.md
-- doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/execution-log.md
-- doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/verification-report.md
-- doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/development-plan.md
-- doc/tasks/20260821-flow-repair-05-conditional-loss-backfill/test-plan.md
 
-已按复核意见修订职责、顺序、状态、错误码和 blocker；流程5代码与测试已融合并完成主线核心验证。数据库迁移、服务和写入型 E2E 未执行，跨流程 owner 证据仍按 Blockers 保留。
+## Closeout Evidence
+
+- 验证基线 `int_main` HEAD 为 `83f5d11a5a477463ef33444eb4ad52aa79cdd17a`，流程5集成提交 `16e47106e043ad93b4d43d699d269996703a47e1` 为其祖先。
+- MES compile PASS；流程5定向 JUnit 27/27 PASS（writer 11、source reader 4、dynamic-form 3、dossier completeness 4、frontline feedback splitter 3、loss reason snapshot validator 2）。
+- `git diff --check` 与 runtime guard PASS；数据库迁移、服务和写入型 E2E 未执行，跨流程 owner 证据仍按 Blockers 保留。
