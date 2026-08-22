@@ -48,7 +48,7 @@ completed
 - `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dmaven.test.skip=true compile`：PASS；ERP 依赖已先按当前源码 package/install。
 - `python -X utf8 -m pytest IntRuoyiBackend\\script\\tests\\test_branch_runtime_profile.py --basetemp <task-owned writable temp>`：17/17 PASS；默认系统临时目录运行因 Windows ACL 返回 `WinError 5`，不属于流程 3。
 - `scripts\\preflight\\branch-runtime-port-guard.ps1`：PASS，`int_main/int_main` 使用前端 `8081`、后端 `48081`。
-- `git diff --check -- IntRuoyiBackend` 与 `git diff --cached --check -- IntRuoyiBackend`：PASS；当前后端路径无未提交改动。
+- `git diff --check -- IntRuoyiBackend` 与 `git diff --cached --check -- IntRuoyiBackend`：PASS；流程 3 task-owned 路径无未提交改动，后端其余 staged 差异属于并行任务并保持原状。
 - task-closeout cleanup preview/apply：PASS；仅删除本任务的临时 pytest 输出，保留八份任务记录文件。
 - 复核时主工作树存在并行任务已暂存的 BPM/ERP 删除和 MES QA VO 改动；流程 3 未修改、未提交或撤销这些路径。
 
