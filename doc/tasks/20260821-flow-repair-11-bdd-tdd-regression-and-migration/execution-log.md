@@ -102,11 +102,22 @@ REGRESSION: node tests/e2e/edhr-special-nodes-real-flow.e2e.js -> PASS（计划�
 - BDD: 独立来源凭证 -> Given IndependentBatchPrerequisiteReceipt，When 缺正式 batchExecutionSourceRelation，Then 分类为 `INCOMPLETE_OR_AMBIGUOUS`，不得进入 `PROVABLE_UNBOUND`。
 - BDD: 可回滚计划 -> Given `PROVABLE_UNBOUND`，When 未获人工批准，Then 不允许写入；获 `APPROVED` 后只生成 `NEW_ORIGIN_TRACE_LINKS_ONLY` 计划。
 - RED: `python IntRuoyiBackend/script/run_flow_repair_11_contracts.py`（实现前） -> FAIL，`ImportError: cannot import name 'build_dry_run_report'`，证明 dry-run 合同先行失败。
-- RED: `python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q` -> FAIL，环境缺少 pytest（`No module named pytest`）；该失败记录为测试依赖 blocker，不作为业务 RED。
+- RED: `python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q`（首次环境检查） -> FAIL，环境缺少 pytest（`No module named pytest`）；该次失败仅记录为依赖前置，不作为业务 RED。
 - GREEN: `python IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS，12 个迁移分类、dry-run、回滚场景通过。
+- GREEN: `python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q` -> PASS，`12 passed in 0.16s`。
+- GREEN: `python -m py_compile IntRuoyiBackend/script/flow_repair_11_migration.py IntRuoyiBackend/script/run_flow_repair_11_contracts.py IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py` -> PASS。
 - REGRESSION: 规范化 fixture dry-run -> PASS，总数 8、唯一批次 ID 8，分类计数为 1/1/4/1/1，所有 entry `write_allowed=false`，报告 `side_effects=[]`。
 - Implementation: 新增 `IntRuoyiBackend/script/flow_repair_11_migration.py`、`IntRuoyiBackend/script/run_flow_repair_11_contracts.py` 和 `IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py`；纯函数无数据库、SQL、网络和文件写入副作用。
-- COMMIT: `git commit -m "feat(flow11): add migration dry-run contracts"` -> BLOCKER；提交 hook 使用当前基线 v4 守卫检查共享登记表时，发现其它任务 worktree `D:\IntRuoyiWorktree\20260820-pqc-inspection-equipment-selection` 已登记 slot=31，超出 v4 的 1..30 范围。未使用 `--no-verify`，未修改其它任务登记；task-owned 变更保持 staged，等待项目级 runtime guard 同步后再提交。
-- Backend regression attempt: bundled Maven 编译在既有 `MesFrontlinePqcContextServiceImpl.java:736` 因缺少 `EquipmentOption` 符号失败；未运行到流程11 Java 测试，记录为基线 blocker。
+- COMMIT: `6a6d2afac`（流程11迁移实现/合同和 runtime v5 同步）、`9e188f9d6`（本地 runtime 旧限制文档修正）、`d012479b2`（worktree 长期经验修正）均已由正常 hook 创建；未使用 `--no-verify`，未修改其它任务登记。
+- Runtime verification: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1` -> PASS；当前 worktree 登记为 `int_main slot=9`（8090/48090），共享 `slot=31` 可按 v5 映射，未启动服务。
+- Backend regression attempt: bundled Maven `mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL；MES 编译在 `MesFrontlinePqcContextServiceImpl.java:736` 因 `MesQaInspectionRegulationPublishedVersionRespVO` 缺少 `EquipmentOption` 符号阻断，未运行流程1-10 Java 合同测试。
+
+## M13 提交、融合和复验
+
+- Python 合同 runner、pytest、py_compile 和 runtime guard 已取得实际 PASS；流程11 worktree 当前 clean。
+- 主工作树 `E:\IntRuoyi` 仍有 114 个 tracked dirty 文件及大量 untracked 任务产物；其中与本分支提交重叠的 `AGENTS.md`、`docs/local-runtime.md`、`docs/worktree-memory.md` 不得覆盖。`int_main` 与流程11分支均未互为 ancestor，主线融合必须等待主工作树整理并进行语义合并。
+- 当前尚未启动服务、访问数据库、执行生产历史迁移、人工批准/回滚演练或真实 Playwright E2E；这些仍是跨流程 blocker。
 
 ## 收尾状态
+
+`in_progress`：流程11 task-owned 代码已提交，runner/pytest/py_compile/runtime guard 已取得实际通过；Maven 基线、流程1-10生产回归、真实 E2E、生产历史迁移/回滚和 `int_main` 融合仍为 blocker。未使用 `--no-verify`，未修改主工作树或其它任务登记。

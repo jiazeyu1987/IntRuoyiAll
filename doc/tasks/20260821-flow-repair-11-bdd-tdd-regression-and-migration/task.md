@@ -15,6 +15,7 @@
 - [x] M7：同步流程 04/05/06/07/09/10 最新合同，固定四材料、逐工序损耗、流程 7 Tx-C 映射、流程 6 四个 BATCH_* 状态、多入口凭证和合同已冻结/代码未落地的 Go/No-Go 口径。
 
 - [x] M12：在独立 worktree 以 BDD/TDD 交付五类历史迁移分类器和只读回滚计划生成器；不执行数据库迁移。
+- [x] M13：完成流程11 Python runner、`py_compile`、`pytest` 和 runtime guard 复验；记录 task-owned 提交及主线融合阻断。
 
 ## 预期验证
 
@@ -40,7 +41,7 @@
 
 ## Current Status
 
-in_progress：已在独立 worktree 交付流程11只读历史迁移分类器及合同测试；流程1-10生产代码、数据库迁移、真实 E2E 和完整回归仍为 No-Go。
+in_progress：流程11迁移分类器、只读 dry-run、回滚计划和 12 个 Python 合同场景已提交并通过 runner/pytest；流程1-10生产闭环、数据库迁移、真实 E2E、Java 回归和主线融合仍为 No-Go/阻断。
 
 ## 修改边界
 
