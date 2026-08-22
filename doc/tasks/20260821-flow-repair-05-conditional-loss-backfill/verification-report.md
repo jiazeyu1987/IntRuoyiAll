@@ -11,7 +11,7 @@
 - 正数损耗路径已校验正式来源、签名、原因、明细和五字段绑定快照，输出 `REQUIRED`、`hasActualLoss=true`、`lossQuantity>0` 并创建正式损耗单。
 - 明确无损耗路径输出 `NO_LOSS`、`hasActualLoss=false`、`lossQuantity=0`、`lossReportStatus=NOT_REQUIRED`，不创建损耗单、零数量报告或 `lossRecordId`。
 - 缺失事实、绑定、签名或映射时输出阻塞，不生成成功 receipt；不能从缺少 `lossRecordId` 推断无损耗。
-- task-owned commit `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 已由主线集成提交 `16e47106e043ad93b4d43d699d269996703a47e1` 融合；并行主线随后前移，当前 `int_main` HEAD 为 `fd7566c3ef3c8fea3adcc0e73cb23d2c86d66cf8`，已确认其祖先关系。
+- task-owned commit `24fdf7767ac02c4b6d4a3c4709194e195fea624a` 已由主线集成提交 `16e47106e043ad93b4d43d699d269996703a47e1` 融合；代码/测试验证基线为 `fd7566c3ef3c8fea3adcc0e73cb23d2c86d66cf8`，已确认其祖先关系；其后仅追加流程5文档和复验经验收尾提交，未改变代码验证结果。
 
 ## Document Structure Verification
 
