@@ -18,7 +18,7 @@
 
 | 事实 | 当前行为 | 结论 |
 | --- | --- | --- |
-| PQC 任务状态 | `PENDING / SUBMITTED / CONFIRMED`，保存活跃订单、工单、路线版本、工序、QA 工序、规程版本、类型、规则、班次、轮次、数量、内容哈希和事件 ID | 已有正式任务骨架；生产代码尚未实现/验证本文档冻结的显式 `RETURNED` 与受控修订合同 |
+| PQC 任务状态 | `PENDING / SUBMITTED / CONFIRMED`，保存活跃订单、工单、路线版本、工序、QA 工序、规程版本、类型、规则、班次、轮次、数量、内容哈希和事件 ID | 已有正式任务骨架；流程 3 task-owned 提交回执身份和终态复核幂等已实现并定向验证，显式 `RETURNED` 受控修订仍需后续完整状态机验证 |
 | 逐件明细 | 保存样本序号、检验项目、方法、标准、设备 ID/编码/名称/编号、限值、单位、精度、结果类型、实测值和判定 | 基本符合结构化正式来源 |
 | 组长复核 | 复核 PQC 事件时校验人员范围；批准即调用汇集服务 | 批准可以生成确认来源，但必须禁止解释为最终单据回填 |
 | 汇集事务 | 校验 record/event/task/piece details，CAS 更新记录和任务，再批量写 aggregate detail | 原子性和并发 fail-fast 基础符合要求 |
@@ -110,7 +110,7 @@
 | `CONFIRMED` | PQC task/source revision | completion consume | 保持 `CONFIRMED`，另写消费链接 | 不能被普通复核命令退回或重写；修订必须走单独受控命令 |
 | `CONSUMED`（派生状态） | completion link | query only | 无 | 不建议改写 PQC task 状态；由正式回填链接派生，避免双状态所有者 |
 
-关键裁定：现有 `CONFIRMED` 保留为“来源确认完成”。终态后普通复核只能同命令幂等或冲突，受控修订必须走独立命令、新 revision、原因和下游未消费校验；该合同已冻结，剩余问题是生产代码未实现/未验证。正式过程检验单状态与 `formalProcessInspectionDocumentId` 归流程 4；批次执行过程检验记录、Origin/TraceLink 与追溯读模型归流程 7；最终 `RELEASED`、签名、CAS 和放行审计归流程 10；不得在 PQC task 上增加这些下游含义。
+关键裁定：现有 `CONFIRMED` 保留为“来源确认完成”。终态后普通复核只能同命令幂等或冲突，受控修订必须走独立命令、新 revision、原因和下游未消费校验；流程 3 的提交回执身份/终态幂等已在当前 `int_main` 定向验证，完整 `RETURNED` 受控修订状态机仍需后续实现验证。正式过程检验单状态与 `formalProcessInspectionDocumentId` 归流程 4；批次执行过程检验记录、Origin/TraceLink 与追溯读模型归流程 7；最终 `RELEASED`、签名、CAS 和放行审计归流程 10；不得在 PQC task 上增加这些下游含义。
 
 ## 7. API And Command Contracts
 
@@ -229,40 +229,7 @@
 6. 流程 7 建立所有批次 Origin/TraceLink 和适用的 PQC 过程检验映射；流程 8/10 分别接入四材料门禁与最终放行，流程 11 执行总体验证、迁移和回滚门禁。
 7. 完成迁移审计、真实角色 E2E 和失败恢复验证后才允许发布。
 
-## 14. Executable Milestones
+## Main-Thread Evidence Boundary
 
-### 里程碑 1：PQC 提交来源版本
-目标：实现一线 PQC 提交的结构化来源校验、不可变 revision、设备/签名快照、payload hash 和幂等冲突。
-涉及文件：
-- `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool`
-- `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool`
-交付物：
-- 提交命令在重复请求和 hash 冲突时返回稳定结果。
-- 任务状态与来源身份的定向测试。
-
-### 里程碑 2：PQC 组长确认/退回与聚合
-目标：实现组长只对同一来源版本确认或退回，确认事务原子生成唯一 aggregate，终态普通复核不可反转。
-涉及文件：
-- `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team`
-- `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team`
-交付物：
-- 确认/退回状态机、CAS、幂等和结构化 aggregate 测试。
-- 明确 `CONFIRMED` 不产生正式过程检验单、批次或放行。
-
-### 里程碑 3：只读来源合同与回归验证
-目标：提供下游消费所需的唯一确认来源查询，并完成 Flow3 定向回归和任务证据记录。
-涉及文件：
-- `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool`
-- `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool`
-- `doc/tasks/20260821-flow-repair-03-pqc-submit-review-boundary`
-交付物：
-- 唯一 aggregate/sourceRevision/payloadHash 查询合同。
-- RED/GREEN/REGRESSION 结果、阻塞项和验证报告。
-
-## 15. Current Implementation Evidence
-
-- 已实现 P1 回执身份字段：`sourceRevision` 映射现有不可变 `submittedEventId`，`payloadHash` 映射任务冻结的 `submittedContentHash`；提交、重试和只读回执保持同一身份。
-- 已实现 P2 终态边界：同一终态复核的同命令重试返回原 `reviewId`，不重复签名或 aggregate；相反决定保持终态冲突；aggregate 异常继续传播到事务边界。
-- 主代码编译证据：`mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dmaven.test.skip=true package` -> PASS（测试跳过）。
-- 定向测试证据：`mvn.cmd -f IntRuoyiBackend/yudao-module-mes/pom.xml -Dtest=MesFrontlinePqcSubmissionConcurrencyTest,MesFrontlinePqcContextServiceTest,MesFrontlinePqcSubmitReceiptControllerTest,MesTeamLeaderSubmissionReviewServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，4 个测试类共 27 tests，0 failures、0 errors；为修复问题 1 补齐冻结工序快照夹具并清理已删除 QA 测试字段引用，未放宽生产校验。
-- 本专项没有数据库迁移、服务启动或写入型 E2E；P3 只读来源验证、独立验证、task-owned commit、受保护融合和主工作树复验仍待执行。
+- 当前 `int_main` 已包含流程 3 task-owned 实现提交 `aeb58c37d`；`sourceRevision=submittedEventId`、`payloadHash=submittedContentHash` 及相同内容重试/冲突行为由 27/27 定向测试覆盖。
+- 本设计不把流程 3 `CONFIRMED` 解释为正式过程检验单、批次执行、四份材料齐套或最终放行；流程 4/6/7/8/9/10/11 的实现和真实 E2E 仍按本计划执行。

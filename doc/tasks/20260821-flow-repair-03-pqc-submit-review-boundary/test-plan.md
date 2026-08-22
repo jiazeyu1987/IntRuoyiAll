@@ -4,7 +4,7 @@
 
 后续实施必须证明：一线 PQC 和 PQC 组长只生产确认后的结构化来源；正式过程检验单只由活跃订单完成节点生成；所有身份、逐件值、设备快照、版本、签名、幂等和追溯在提交到放行之间不漂移。
 
-本文件是计划，不是已执行证据。所有生产测试、数据库验证和真实 E2E 均为 `planned / NOT RUN`。
+本文件仍是合同测试计划，不是完整链路已执行证据。流程 3 task-owned 定向测试的实际结果记录在 `execution-log.md` 和 `verification-report.md`；流程 4/6/7/8/9/10/11、数据库验证和真实 E2E 仍为 `planned / NOT RUN`。
 
 ## 2. Acceptance Matrix
 
@@ -237,7 +237,7 @@ mvn -pl yudao-module-mes -am -Dtest=<target tests> test
 
 - 正式 PQC task 或路线/QA 版本身份缺失。
 - 逐件数量/项目与任务快照不一致。
-- 生产代码尚未实现/验证文档已冻结的复核终态、受控修订、revision 与唯一 aggregate version 合同。
+- 流程 3 task-owned 提交回执身份、相同内容重试和相同幂等键冲突已在当前 `int_main` 通过定向验证；文档冻结的完整复核终态、受控修订、revision 与唯一 aggregate version 合同仍需后续完整实现/验证。
 - 流程 4 无法在同一业务节点绑定精确 aggregate 并产生完整 `completionBackfillReceipt`；流程 6 若仅收到 `formalProcessInspectionDocumentId` 或直接读取流程 3 aggregate 必须阻断；流程 7 无法在批次执行中绑定流程 4 正式单并产生独立记录。
 - 四份材料、流程 7/8/10/11 状态 owner 和禁止替代合同已经冻结；剩余 blocker 是生产实现、自动化测试、真实 E2E 和迁移证据未完成。
 - 流程 6 两类 receipt 判别、流程 7 pre-release 映射或多入口统一 gate 未实现/未验证时，禁止进入生产 GREEN 或放行结论；跨线程失败必须断言 canonical 稳定码，不能按中文提示或内部细分码分支。
