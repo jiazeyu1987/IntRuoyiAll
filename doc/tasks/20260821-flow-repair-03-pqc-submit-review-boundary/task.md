@@ -38,9 +38,9 @@
 
 ## Current Status
 
-in_progress
+blocked
 
-独立 worktree 已完成 P1 来源回执身份与 P2 终态复核边界的最小实现及合同测试增补。旧测试接口漂移已修正，Flow3 定向测试 27/27 通过；主代码编译已通过。分支运行时门禁、task-owned commit、受保护融合、主工作树复验和 P3 只读来源验证仍待完成。
+独立 worktree 已完成 P1 来源回执身份与 P2 终态复核边界的最小实现及合同测试增补。旧测试接口漂移已修正，Flow3 定向测试 27/27 通过，task-owned commit 为 `d809c9995`，并已通过 1..50 分支运行时门禁。集成提交 `aeb58c37d` 已以受保护 fast-forward ref 更新到 `int_main`；但干净集成 worktree 的主线程定向验证被主分支既有 ERP/MES 接口漂移阻断，且原主工作树的普通 `git merge --ff-only` 被同名未跟踪任务文档保护性拒绝，因此不能宣称最终融合验证完成。
 
 ## 设计约束检查
 
@@ -96,4 +96,4 @@ in_progress
 - P2 同一终态、同组长、同决定和规范化备注的复核重试返回原 `reviewId`，不会重复签名、复核或汇集；相反决定仍返回终态冲突。汇集异常向外传播，事务可回滚。
 - `mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dmaven.test.skip=true package`：PASS（主代码编译，跳过测试）。
 - 定向测试：PASS，4 个 Flow3 相关测试类共 27 tests，0 failures、0 errors；测试夹具补齐冻结工序快照，未放宽生产校验。
-- 分支运行时资料已同步到 1..50 槽位合同；commit hook、task-owned commit、受保护融合和主工作树复验仍待执行。
+- 分支运行时资料已同步到 1..50 槽位合同；commit hook、task-owned commit 和受保护 fast-forward ref 更新已有证据。主线程定向验证因非 task-owned 的 ERP 接口漂移阻断，原主工作树普通 merge 因同名未跟踪任务文档未执行。

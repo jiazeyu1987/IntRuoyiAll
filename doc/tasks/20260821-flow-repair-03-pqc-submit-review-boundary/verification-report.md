@@ -2,7 +2,7 @@
 
 ## Scope
 
-本报告验证流程修复 3 独立 worktree 中的实现变更、设计文档和可执行验证边界。Maven 已可用，Flow3 定向测试已通过；主工作树融合和最终复验尚未完成。
+本报告验证流程修复 3 独立 worktree 中的实现变更、设计文档和可执行验证边界。Maven 已可用，Flow3 定向测试已通过；主分支指针已受保护快进到集成提交，但主线程等价复验被非 task-owned ERP 接口漂移阻断。
 
 ## Evidence Reviewed
 
@@ -45,14 +45,14 @@
 
 ## Explicitly Not Run
 
-- Production code changes: `DONE IN WORKTREE ONLY`；未合并主工作区
+- Production code changes: `DONE IN TASK-OWNED COMMIT`；`int_main` 已指向 cherry-pick 等价集成提交，原主工作树未被覆盖
 - Database/schema/data operations: `NOT DONE`
 - Service start/restart: `NOT DONE`
 - Main-code Maven compile: `PASS`；命令使用 `-Dmaven.test.skip=true`，不代表测试通过
 - Targeted Flow3 test command: `PASS`，27 tests，0 failures、0 errors；全量 reactor 和真实 E2E 未运行
 - Maven/Node production tests: Flow3 focused Maven tests `PASS`；全量 reactor、Node tests 和生产 E2E `NOT RUN`
 - Playwright/read-write E2E: `NOT RUN`（计划项，未执行）
-- Git commit/merge: `PENDING`；须在 task-owned diff 筛选后提交。主工作树重叠未提交改动可能阻断保护性快进融合。
+- Git commit/merge: task-owned commit `d809c9995`、集成提交 `aeb58c37d` 已完成；普通 merge 被同名未跟踪任务文档拒绝，随后以旧值校验的原子 fast-forward ref 更新完成分支指针融合。
 
 ## Unresolved Blockers
 
@@ -61,8 +61,8 @@
 3. 批次详情、PQC/生产申请、管理者代表批准、独立批次放行等入口尚未通过真实 E2E 证明只能适配统一 gate/finalization。
 4. 历史确认/汇集/正式单据/批次执行不能完整对账的记录仍缺迁移证据，必须作为 migration blocker，不得自动猜测或复用。
 5. 四份材料和状态 owner 已冻结；旧产品文档过时材料口径仅为待修订文档/历史兼容项。跨线程载体名可调整，但不得保留 canonical receipt 别名或弱化稳定错误码。
-6. branch-runtime guard 需按当前已更新的 1..50 槽位合同重新执行；task-owned commit 尚未生成，未绕过提交钩子。
+6. 主线程等价 Maven 复验被非 task-owned ERP/MES 接口漂移阻断；普通 merge 的工作树更新被同名未跟踪任务文档保护性拒绝，未覆盖用户文件。
 
 ## Final Result
 
-in_progress：文档结构和静态合同扫描通过，流程 3 P1/P2 最小代码与测试改动已写入独立 worktree，主代码编译 PASS，Flow3 定向测试 27/27 PASS；P3 独立验证、task-owned commit、受保护融合、主工作树复验、E2E 和迁移仍未完成。
+blocked：流程 3 P1/P2 最小代码与测试改动已提交（`d809c9995`），集成提交（`aeb58c37d`）已受保护快进到 `int_main`，Flow3 定向测试 27/27 PASS；主线程等价编译/回归因非 task-owned ERP 接口漂移阻断，真实 E2E 和迁移仍未完成。

@@ -27,4 +27,4 @@
 
 ## Final Verdict
 
-- Outcome: focused Flow3 tests PASS (27/27). Production E2E, migration evidence, P3 read-only source verification, commit, protected merge and main-worktree verification remain NOT RUN.
+- Outcome: focused Flow3 tests PASS (27/27) in the task worktree. The clean `int_main`-based integration worktree cannot compile the MES module because of unrelated ERP interface drift (`FULL_SYNC_JOB_PARAM`, `syncProductsFullSkipExisting`, `fetchProductionMaterialLists`); main-thread regression, production E2E and migration evidence remain NOT RUN.

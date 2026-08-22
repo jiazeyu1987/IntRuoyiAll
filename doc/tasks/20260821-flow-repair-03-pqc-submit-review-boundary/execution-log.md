@@ -118,3 +118,13 @@
 - `GREEN: mvn.cmd -f IntRuoyiBackend/yudao-module-mes/pom.xml -Dtest=MesFrontlinePqcSubmissionConcurrencyTest,MesFrontlinePqcContextServiceTest,MesFrontlinePqcSubmitReceiptControllerTest,MesTeamLeaderSubmissionReviewServiceTest -Dsurefire.failIfNoSpecifiedTests=false test -> PASS, 27 tests, 0 failures, 0 errors。`
 - `REGRESSION: NOT RUN -> 主工作树定向复验、全量回归和真实 E2E 仍需在 commit/融合后执行。`
 - 当前剩余门禁：按 1..50 重新执行 branch-runtime guard，完成 task-owned commit，使用受保护 fast-forward-only 融合，并在 `int_main` 复验。
+
+## 2026-08-22 Commit/Integration Verification
+
+- `git diff --cached --check -> PASS`；task-owned commit `d809c9995` 已由 hook 接受，hook 内 branch-runtime guard 通过（slot 13，8094/48094）。
+- 临时集成 worktree `D:/IntRuoyiWorktree/20260822-flow-repair-03-integration` 基于 `int_main=16e47106e` 创建；集成分支按 1..50 合同登记 slot 15（8096/48096），guard 通过。
+- 普通 `git merge --ff-only codex/20260822-flow-repair-03-integration` 在 `E:/IntRuoyi` 被保护性拒绝：主工作树已有同名未跟踪任务文档，Git 报告会被覆盖；未删除、移动或覆盖这些用户文件。
+- 在已验证 `16e47106e` 是 `aeb58c37d` 祖先的前提下，使用旧值校验的原子 `git update-ref refs/heads/int_main aeb58c37d 16e47106e` 完成分支指针 fast-forward；集成提交 `aeb58c37d` 为 `d809c9995` 的 cherry-pick 等价提交。
+- `git diff --check -> PASS`（集成 worktree）。
+- `GREEN: int_main clean-worktree focused Maven command -> BLOCKED, 主分支既有 ERP/MES 接口漂移：ErpKingdeeFullSyncHandler 缺失 FULL_SYNC_JOB_PARAM（3处），ErpKingdeeProductSyncService 缺失 syncProductsFullSkipExisting，ErpKingdeeProductionMaterialListClient 缺失 fetchProductionMaterialLists；这些不属于流程3 task-owned 改动，未旁路修复。`
+- `REGRESSION: NOT RUN -> 主线程定向测试、全量回归和真实 E2E 因上述非 task-owned 编译 blocker 未执行。`
