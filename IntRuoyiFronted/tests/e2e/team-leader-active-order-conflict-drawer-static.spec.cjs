@@ -94,8 +94,13 @@ const recommendedHandler = sliceFunction(
 )
 assert.match(
   recommendedHandler,
-  /previewTeamLeaderActiveOrderRebuild[\s\S]*ElMessageBox\.confirm[\s\S]*rebuildTeamLeaderActiveOrder[\s\S]*simulateTeamLeaderActiveOrderCompletion[\s\S]*await loadActiveOrders\(\)/,
-  '推荐修复必须先预检重建，再一次确认后串联正式重建和模拟完成，最后刷新列表。'
+  /previewTeamLeaderActiveOrderRebuild[\s\S]*rebuildTeamLeaderActiveOrder[\s\S]*simulateTeamLeaderActiveOrderCompletion[\s\S]*await loadActiveOrders\(\)/,
+  '自动分配必须点击后直接预检、重建、模拟完成并刷新列表。'
+)
+assert.doesNotMatch(
+  recommendedHandler,
+  /ElMessageBox\.confirm/,
+  '自动分配点击后不得再次弹出确认框。'
 )
 assert.match(
   recommendedHandler,

@@ -41,7 +41,25 @@ public class ErpKingdeeInventoryListServiceImpl implements ErpKingdeeInventoryLi
         ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
         properties.validateBaseConfig();
         List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRows(properties);
-        return syncRows(rows);
+        return syncRows(rows, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeInventoryListSyncResult syncAllSkipExisting() {
+        ErpKingdeeProperties properties = kingdeeConfigService.getEffectiveProperties();
+        properties.validateBaseConfig();
+        List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRows(properties);
+        ErpKingdeeInventoryListSyncResult result = new ErpKingdeeInventoryListSyncResult();
+        LocalDateTime now = LocalDateTime.now();
+        for (ErpKingdeeInventoryRow row : rows) {
+            if (upsert(row, now, true)) {
+                result.addCreated();
+            } else {
+                result.addSkipped();
+            }
+        }
+        return result;
     }
 
     @Override
@@ -54,18 +72,18 @@ public class ErpKingdeeInventoryListServiceImpl implements ErpKingdeeInventoryLi
         properties.validateBaseConfig();
         List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRowsModifiedBetween(
                 properties, windowStart, windowEnd);
-        return syncRows(rows);
+        return syncRows(rows, false);
     }
 
-    private int syncRows(List<ErpKingdeeInventoryRow> rows) {
+    private int syncRows(List<ErpKingdeeInventoryRow> rows, boolean skipExisting) {
         LocalDateTime now = LocalDateTime.now();
         for (ErpKingdeeInventoryRow row : rows) {
-            upsert(row, now);
+            upsert(row, now, skipExisting);
         }
         return rows.size();
     }
 
-    private void upsert(ErpKingdeeInventoryRow row, LocalDateTime now) {
+    private boolean upsert(ErpKingdeeInventoryRow row, LocalDateTime now, boolean skipExisting) {
         String sourceLineKey = row.getStockOrgNumber() + "|" + row.getWarehouseNumber() + "|"
                 + row.getMaterialNumber() + "|" + row.getLotNumber();
         ErpKingdeeInventoryListDO existing = inventoryListMapper.selectBySourceLine(sourceLineKey);
@@ -88,10 +106,14 @@ public class ErpKingdeeInventoryListServiceImpl implements ErpKingdeeInventoryLi
                 .build();
         if (existing == null) {
             inventoryListMapper.insert(record);
-            return;
+            return true;
+        }
+        if (skipExisting) {
+            return false;
         }
         record.setId(existing.getId());
         inventoryListMapper.updateById(record);
+        return true;
     }
 
 }

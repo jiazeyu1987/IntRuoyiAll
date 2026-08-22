@@ -52,6 +52,13 @@ export interface ErpKingdeeIncrementalSyncRespVO {
   jobId: number
 }
 
+export interface ErpKingdeeFullSyncRespVO {
+  syncType: string
+  handlerName: string
+  jobId: number
+  message: string
+}
+
 export const ErpKingdeeSyncApi = {
   getRunPage: async (params: PageParam) => {
     return await request.get({ url: '/erp/kingdee-sync/run/page', params })
@@ -79,5 +86,12 @@ export const ErpKingdeeSyncApi = {
     }
     await JobApi.runJob(job.id)
     return { handlerName, jobId: job.id }
+  },
+
+  runFullSync: async (syncType: string): Promise<ErpKingdeeFullSyncRespVO> => {
+    return await request.post({
+      url: '/erp/kingdee-sync/full-sync',
+      data: { syncType }
+    })
   }
 }

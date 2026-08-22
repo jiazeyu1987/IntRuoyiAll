@@ -5,6 +5,8 @@ import java.util.Collection;
 
 public interface MesKingdeeProductionMaterialListSyncService {
 
+    MesKingdeeProductionMaterialListSyncResult syncAllSkipExisting();
+
     MesKingdeeProductionMaterialListSyncResult syncModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd);
 
     MesKingdeeProductionMaterialListSyncResult syncByProductionOrderNos(Collection<String> productionOrderNos);

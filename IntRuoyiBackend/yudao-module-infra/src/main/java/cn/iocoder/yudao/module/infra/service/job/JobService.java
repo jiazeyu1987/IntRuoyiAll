@@ -47,6 +47,14 @@ public interface JobService {
     void triggerJob(Long id) throws SchedulerException;
 
     /**
+     * 使用指定参数立即触发定时任务。
+     *
+     * @param id            任务编号
+     * @param handlerParam 任务处理器参数
+     */
+    void triggerJob(Long id, String handlerParam) throws SchedulerException;
+
+    /**
      * 同步定时任务
      *
      * 目的：自己存储的 Job 信息，强制同步到 Quartz 中

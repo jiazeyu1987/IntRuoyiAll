@@ -1,20 +1,15 @@
-package cn.iocoder.yudao.module.erp.service.stock.sync;
+package cn.iocoder.yudao.module.mes.service.md.item.kingdee;
 
 import lombok.Getter;
 
 @Getter
-public class ErpKingdeeStockMoveSyncResult {
+public class MesKingdeeBomListSyncResult {
 
     private int createdCount;
-    private int updatedCount;
     private int skippedCount;
 
     public void addCreated() {
         createdCount++;
-    }
-
-    public void addUpdated() {
-        updatedCount++;
     }
 
     public void addSkipped() {

@@ -57,7 +57,16 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateBaseConfig();
         List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRows(kingdeeProperties);
-        return syncRows(rows);
+        return syncRows(rows, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeStockSyncResult syncStocksFullSkipExisting() {
+        ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
+        kingdeeProperties.validateBaseConfig();
+        List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRows(kingdeeProperties);
+        return syncRows(rows, true);
     }
 
     @Override
@@ -67,10 +76,10 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
         kingdeeProperties.validateBaseConfig();
         List<ErpKingdeeInventoryRow> rows = inventoryClient.fetchInventoryRowsModifiedBetween(
                 kingdeeProperties, windowStart, windowEnd);
-        return syncRows(rows);
+        return syncRows(rows, false);
     }
 
-    private ErpKingdeeStockSyncResult syncRows(List<ErpKingdeeInventoryRow> rows) {
+    private ErpKingdeeStockSyncResult syncRows(List<ErpKingdeeInventoryRow> rows, boolean skipExisting) {
         Map<String, Long> warehouseIds = new HashMap<>();
         Map<String, ErpKingdeeInventoryRow> rowsByMaterial = new LinkedHashMap<>();
         for (ErpKingdeeInventoryRow row : rows) {
@@ -92,18 +101,23 @@ public class ErpKingdeeStockSyncServiceImpl implements ErpKingdeeStockSyncServic
                     key -> new ErpStockDO().setProductId(productId).setWarehouseId(warehouseId).setCount(BigDecimal.ZERO));
             stock.setCount(stock.getCount().add(row.getQuantity()));
         }
-        upsertStocks(aggregated);
         ErpKingdeeStockSyncResult result = new ErpKingdeeStockSyncResult();
+        upsertStocks(aggregated, skipExisting, result);
         result.setSyncedCount(aggregated.size());
         return result;
     }
 
-    private void upsertStocks(Map<String, ErpStockDO> aggregated) {
+    private void upsertStocks(Map<String, ErpStockDO> aggregated, boolean skipExisting,
+                              ErpKingdeeStockSyncResult result) {
         List<ErpStockDO> stocksToCreate = new ArrayList<>();
         for (ErpStockDO stock : aggregated.values()) {
             ErpStockDO existing = stockMapper.selectByProductIdAndWarehouseId(stock.getProductId(), stock.getWarehouseId());
             if (existing == null) {
                 stocksToCreate.add(stock);
+                continue;
+            }
+            if (skipExisting) {
+                result.addSkipped();
                 continue;
             }
             stockMapper.updateById(new ErpStockDO()

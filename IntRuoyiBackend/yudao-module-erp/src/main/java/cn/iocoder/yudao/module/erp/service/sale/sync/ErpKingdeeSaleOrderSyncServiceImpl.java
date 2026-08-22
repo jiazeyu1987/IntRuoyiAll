@@ -65,7 +65,16 @@ public class ErpKingdeeSaleOrderSyncServiceImpl implements ErpKingdeeSaleOrderSy
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateBaseConfig();
         List<ErpKingdeeSaleOrder> saleOrders = saleOrderClient.fetchSaleOrders(kingdeeProperties);
-        return syncSaleOrders(kingdeeProperties, saleOrders);
+        return syncSaleOrders(kingdeeProperties, saleOrders, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ErpKingdeeSaleOrderSyncResult syncSaleOrdersFullSkipExisting() {
+        ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
+        kingdeeProperties.validateBaseConfig();
+        List<ErpKingdeeSaleOrder> saleOrders = saleOrderClient.fetchSaleOrders(kingdeeProperties);
+        return syncSaleOrders(kingdeeProperties, saleOrders, true);
     }
 
     @Override
@@ -76,17 +85,22 @@ public class ErpKingdeeSaleOrderSyncServiceImpl implements ErpKingdeeSaleOrderSy
         kingdeeProperties.validateBaseConfig();
         List<ErpKingdeeSaleOrder> saleOrders = saleOrderClient.fetchSaleOrdersModifiedBetween(
                 kingdeeProperties, windowStart, windowEnd);
-        return syncSaleOrders(kingdeeProperties, saleOrders);
+        return syncSaleOrders(kingdeeProperties, saleOrders, false);
     }
 
     private ErpKingdeeSaleOrderSyncResult syncSaleOrders(ErpKingdeeProperties kingdeeProperties,
-                                                         List<ErpKingdeeSaleOrder> saleOrders) {
+                                                         List<ErpKingdeeSaleOrder> saleOrders,
+                                                         boolean skipExisting) {
         Map<String, ErpKingdeeMaterialDetail> materialDetails = new HashMap<>();
             ErpKingdeeSaleOrderSyncResult result = new ErpKingdeeSaleOrderSyncResult();
         for (ErpKingdeeSaleOrder saleOrder : saleOrders) {
             ErpKingdeeSaleOrderSyncRecordDO syncRecord =
                     syncRecordMapper.selectBySourceKey(ErpKingdeeSaleOrder.FORM_ID, saleOrder.getFid());
             if (syncRecord != null) {
+                if (skipExisting) {
+                    result.addSkipped(saleOrder.getFid());
+                    continue;
+                }
                 updateExistingSaleOrder(kingdeeProperties, saleOrder, syncRecord, materialDetails);
                 result.addUpdated(syncRecord.getSaleOrderId());
             } else {

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.job.workorder;
 
 import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTriggerTypeEnum;
 import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncContext;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -66,5 +68,29 @@ class KingdeeProductionMaterialListSyncJobTest {
         Assertions.assertThrows(IllegalStateException.class, () -> job.execute(""));
     }
 
-}
+    @Test
+    void execute_shouldDispatchExplicitFullParameterToFullSync() {
+        MesKingdeeProductionMaterialListSyncService syncService =
+                mock(MesKingdeeProductionMaterialListSyncService.class);
+        ErpKingdeeSyncRuntimeService runtimeService = mock(ErpKingdeeSyncRuntimeService.class);
+        MesKingdeeProductionMaterialListSyncResult result = new MesKingdeeProductionMaterialListSyncResult();
+        result.addCreated(100L);
+        result.addSkipped("BILL-101");
+        when(syncService.syncAllSkipExisting()).thenReturn(result);
+        when(runtimeService.executeSync(any(ErpKingdeeSyncCommand.class), any(ErpKingdeeSyncTask.class)))
+                .thenAnswer(invocation -> invocation.<ErpKingdeeSyncTask>getArgument(1).run(
+                        ErpKingdeeSyncContext.builder()
+                                .syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_MATERIAL_LIST)
+                                .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                                .windowEnd(LocalDateTime.of(2026, 6, 12, 9, 0))
+                                .build()));
+        KingdeeProductionMaterialListSyncJob job = new KingdeeProductionMaterialListSyncJob(syncService, runtimeService);
 
+        String output = job.execute(ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM);
+
+        assertTrue(output.contains("full sync"));
+        verify(syncService).syncAllSkipExisting();
+        verify(syncService, never()).syncModifiedBetween(any(), any());
+    }
+
+}

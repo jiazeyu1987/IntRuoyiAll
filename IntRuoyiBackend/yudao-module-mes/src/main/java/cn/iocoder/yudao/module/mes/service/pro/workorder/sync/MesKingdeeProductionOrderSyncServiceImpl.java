@@ -82,10 +82,26 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesKingdeeProductionOrderSyncResult syncWorkOrdersFullSkipExisting() {
+        ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
+        kingdeeProperties.validateBaseConfig();
+        return syncProductionOrders(kingdeeProperties,
+                productionOrderClient.fetchProductionOrders(kingdeeProperties), true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesKingdeeProductionOrderSyncResult syncWorkOrders(ErpKingdeeSyncContext context) {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateBaseConfig();
         List<ErpKingdeeProductionOrder> productionOrders = fetchProductionOrders(kingdeeProperties, context);
+        return syncProductionOrders(kingdeeProperties, productionOrders, false);
+    }
+
+    private MesKingdeeProductionOrderSyncResult syncProductionOrders(
+            ErpKingdeeProperties kingdeeProperties,
+            List<ErpKingdeeProductionOrder> productionOrders,
+            boolean skipExisting) {
         MesKingdeeProductionOrderSyncResult result = new MesKingdeeProductionOrderSyncResult();
         Set<String> processedSourceKeys = new LinkedHashSet<>();
         Set<String> processedWorkOrderCodes = new LinkedHashSet<>();
@@ -106,6 +122,10 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             MesKingdeeProductionOrderSyncRecordDO syncRecord =
                     syncRecordMapper.selectBySourceKey(productionOrder.getFid(), productionOrder.getMaterialNumber());
             MesProWorkOrderDO existingWorkOrder = resolveExistingWorkOrder(syncRecord, sourceKey, workOrderCode);
+            if (skipExisting && existingWorkOrder != null) {
+                result.addSkipped(sourceKey);
+                continue;
+            }
             Long productId = ensureMesItem(productionOrder);
             if (existingWorkOrder == null) {
                 Long workOrderId = workOrderService.createWorkOrder(buildCreateReqVO(productionOrder, productId));
@@ -123,7 +143,9 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             result.addUpdated(existingWorkOrder.getId());
             finishWorkOrderIfKingdeeFinished(productionOrder, existingWorkOrder, result);
         }
-        syncInactiveWorkOrders(kingdeeProperties, result, processedWorkOrderCodes);
+        if (!skipExisting) {
+            syncInactiveWorkOrders(kingdeeProperties, result, processedWorkOrderCodes);
+        }
         return result;
     }
 

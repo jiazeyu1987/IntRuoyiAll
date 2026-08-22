@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.erp.service.stock.sync.ErpKingdeeStockMoveSyncRes
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Component("kingdeeStockMoveSyncJob")
 @RequiredArgsConstructor
-public class KingdeeStockMoveSyncJob implements JobHandler {
+public class KingdeeStockMoveSyncJob implements JobHandler, ErpKingdeeFullSyncHandler {
 
     private final ErpKingdeeStockMoveListService stockMoveListService;
     private final ErpKingdeeSyncRuntimeService syncRuntimeService;
@@ -25,6 +26,9 @@ public class KingdeeStockMoveSyncJob implements JobHandler {
     @Override
     @TenantJob
     public String execute(String param) {
+        if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
+            return executeFullSync();
+        }
         LocalDateTime windowEnd = LocalDateTime.now();
         AtomicReference<ErpKingdeeStockMoveSyncResult> resultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
@@ -41,6 +45,25 @@ public class KingdeeStockMoveSyncJob implements JobHandler {
         ErpKingdeeStockMoveSyncResult result = resultReference.get();
         return String.format("ERP Kingdee stock move sync: created=%d, updated=%d",
                 result.getCreatedCount(), result.getUpdatedCount());
+    }
+
+    @Override
+    public String executeFullSync() {
+        LocalDateTime windowEnd = LocalDateTime.now();
+        AtomicReference<ErpKingdeeStockMoveSyncResult> resultReference = new AtomicReference<>();
+        syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.STOCK_MOVE)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .windowEnd(windowEnd)
+                .build(), context -> {
+            ErpKingdeeStockMoveSyncResult result = stockMoveListService.syncAllSkipExisting();
+            resultReference.set(result);
+            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(),
+                    result.getCreatedCount(), 0, result.getSkippedCount(), 0);
+        });
+        ErpKingdeeStockMoveSyncResult result = resultReference.get();
+        return String.format("ERP Kingdee stock move full sync: created=%d, skipped=%d",
+                result.getCreatedCount(), result.getSkippedCount());
     }
 
 }

@@ -17,6 +17,9 @@ public class ErpKingdeeFullSyncRespVO {
     @Schema(description = "处理器名称", example = "kingdeeProductionOrderSyncJob")
     private String handlerName;
 
+    @Schema(description = "定时任务编号", example = "1024")
+    private Long jobId;
+
     @Schema(description = "执行结果")
     private String message;
 

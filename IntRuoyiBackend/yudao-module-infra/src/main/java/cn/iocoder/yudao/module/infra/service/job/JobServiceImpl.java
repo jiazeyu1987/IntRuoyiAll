@@ -138,6 +138,12 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    public void triggerJob(Long id, String handlerParam) throws SchedulerException {
+        JobDO job = validateJobExists(id);
+        schedulerManager.triggerJob(job.getId(), job.getHandlerName(), handlerParam);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void syncJob() throws SchedulerException {
         // 1. 查询 Job 配置

@@ -192,7 +192,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                                                                          Long versionId, String sourceReportId,
                                                                          Long templateId, String versionNo,
                                                                          Long routeProcessId) {
-        Scope scope = resolveQueryScope(routeId, definitionId, versionId, sourceReportId, templateId, versionNo);
+        Scope scope = resolveQueryScope(routeId, definitionId, versionId, sourceReportId, templateId, versionNo,
+                routeProcessId);
         List<BatchRecordCellLinkFormRespVO> forms = selectFormsInScope(scope, routeId);
         if (forms.isEmpty()) {
             throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_FORM_LIST_EMPTY);
@@ -699,7 +700,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     }
 
     private Scope resolveQueryScope(Long routeId, Long definitionId, Long versionId, String sourceReportId,
-                                    Long templateId, String versionNo) {
+                                    Long templateId, String versionNo, Long routeProcessId) {
         if (templateId != null || StrUtil.isNotBlank(versionNo)) {
             if (templateId == null || StrUtil.isBlank(versionNo)) {
                 throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SCOPE_REQUIRED);
@@ -715,6 +716,14 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         if (definitionId != null && versionId != null) {
             return Scope.routeVersion(definitionId, versionId);
         }
+        if (routeId != null && routeProcessId != null
+                && Objects.equals(sourceReportId, PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID)) {
+            Scope processInspectionTemplateScope = resolveProcessInspectionTemplateScopeFromRouteBinding(
+                    routeId, routeProcessId);
+            if (processInspectionTemplateScope != null) {
+                return processInspectionTemplateScope;
+            }
+        }
         if (routeId != null && isRouteVersionVirtualSourceReportId(sourceReportId)) {
             return resolveRouteVersionScopeFromRouteBindings(routeId);
         }
@@ -726,6 +735,43 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             return resolveReportSetScope(report);
         }
         throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SCOPE_REQUIRED);
+    }
+
+    private Scope resolveProcessInspectionTemplateScopeFromRouteBinding(Long routeId, Long routeProcessId) {
+        List<MesProRouteFlowProcessBatchRecordDO> bindings =
+                routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(routeId, "BATCH");
+        List<MesProRouteFlowProcessBatchRecordDO> candidates = bindings.stream()
+                .filter(binding -> binding != null
+                        && Objects.equals(routeProcessId, binding.getRouteProcessId())
+                        && Objects.equals(FORM_SLOT_TYPE_PROCESS_INSPECTION,
+                        StrUtil.trim(binding.getFormSlotType()))
+                        && binding.getFormTemplateId() != null)
+                .toList();
+        Set<Long> templateIds = candidates.stream()
+                .map(MesProRouteFlowProcessBatchRecordDO::getFormTemplateId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (templateIds.isEmpty()) {
+            return null;
+        }
+        if (templateIds.size() != 1) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SCOPE_REQUIRED);
+        }
+        MesProRouteFlowProcessBatchRecordDO binding = candidates.get(0);
+        FormTemplateVersionDO templateVersion = binding.getLastPublishedTemplateVersionId() == null
+                ? null
+                : templateVersionMapper.selectById(binding.getLastPublishedTemplateVersionId());
+        if (templateVersion == null && StrUtil.isNotBlank(binding.getLastPublishedTemplateVersionNo())) {
+            templateVersion = templateVersionMapper.selectByTemplateIdAndVersionNo(
+                    binding.getFormTemplateId(), StrUtil.trim(binding.getLastPublishedTemplateVersionNo()));
+        }
+        if (templateVersion == null
+                || !Objects.equals(binding.getFormTemplateId(), templateVersion.getTemplateId())
+                || !Objects.equals("PUBLISHED", StrUtil.trim(templateVersion.getStatus()))) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_REPORT_NOT_EXISTS,
+                    binding.getFormTemplateId() + "/"
+                            + StrUtil.blankToDefault(binding.getLastPublishedTemplateVersionNo(), "PUBLISHED"));
+        }
+        return Scope.formTemplateVersion(templateVersion);
     }
 
     private Scope resolveRouteVersionScopeFromRouteBindings(Long routeId) {

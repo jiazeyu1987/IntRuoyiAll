@@ -13,6 +13,8 @@ public interface ErpKingdeeStockMoveListService {
 
     ErpKingdeeStockMoveSyncResult syncAll();
 
+    ErpKingdeeStockMoveSyncResult syncAllSkipExisting();
+
     ErpKingdeeStockMoveSyncResult syncModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd);
 
 }

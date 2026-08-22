@@ -86,6 +86,33 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
     private final RestTemplate restTemplate;
 
     @Override
+    public List<ErpKingdeeProductionMaterialList> fetchProductionMaterialLists(
+            ErpKingdeeProperties properties) {
+        properties.validateProductionOrderSyncConfig();
+        String cookieHeader = login(properties);
+        List<ErpKingdeeProductionMaterialList> result = new ArrayList<>();
+        int startRow = 0;
+        while (true) {
+            int limit = Math.min(PAGE_LIMIT, properties.getProductionOrder().getQueryLimit());
+            JsonNode rows = executeBillQuery(properties, cookieHeader, buildFullFilterString(), startRow, limit);
+            if (!rows.isArray()) {
+                throw exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID, "PRD_PPBOM response is not an array");
+            }
+            if (rows.isEmpty()) {
+                break;
+            }
+            for (JsonNode row : rows) {
+                result.add(buildRow(row));
+            }
+            if (rows.size() < limit) {
+                break;
+            }
+            startRow += rows.size();
+        }
+        return result;
+    }
+
+    @Override
     public List<ErpKingdeeProductionMaterialList> fetchProductionMaterialListsModifiedBetween(
             ErpKingdeeProperties properties, LocalDateTime windowStart, LocalDateTime windowEnd) {
         properties.validateProductionOrderSyncConfig();
@@ -237,6 +264,11 @@ public class ErpKingdeeProductionMaterialListClientImpl implements ErpKingdeePro
         return "(FBillNo <> '') and (FMoBillNo in (" + productionOrderNos.stream()
                 .map(orderNo -> "'" + orderNo + "'")
                 .collect(Collectors.joining(",")) + "))";
+    }
+
+    private String buildFullFilterString() {
+        return "(FBillNo <> '') and (FMoBillNo <> '') and (FMaterialID.FNumber <> '')"
+                + " and (FMaterialID2.FNumber <> '')";
     }
 
     private String formatDateTime(LocalDateTime dateTime) {

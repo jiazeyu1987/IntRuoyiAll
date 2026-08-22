@@ -56,6 +56,7 @@ ErrorCode PURCHASE_ORDER_ITEM_RETURN_FAIL_IN_EXCEED = new ErrorCode(1_030_101_00
     ErrorCode KINGDEE_TABLE_AUTO_SYNC_JOB_HANDLER_MISSING = new ErrorCode(1_030_101_044, "ERP 表格自动同步任务处理器不存在：{}");
     ErrorCode KINGDEE_TABLE_AUTO_SYNC_JOB_HANDLER_INVALID = new ErrorCode(1_030_101_045, "ERP 表格自动同步任务处理器类型无效：{}");
     ErrorCode KINGDEE_TABLE_AUTO_SYNC_EXECUTE_FAILED = new ErrorCode(1_030_101_046, "ERP 表格自动同步执行失败：{}");
+    ErrorCode KINGDEE_TABLE_AUTO_SYNC_JOB_NOT_CONFIGURED = new ErrorCode(1_030_101_051, "ERP 表格自动同步调度任务未配置：{}");
     ErrorCode KINGDEE_CONNECTION_TYPE_UNSUPPORTED = new ErrorCode(1_030_101_047, "不支持的 ERP 连接类型：{}");
     ErrorCode KINGDEE_CONNECTION_CONFIG_MISSING = new ErrorCode(1_030_101_048, "ERP {}连接配置缺失");
     ErrorCode KINGDEE_CONNECTION_CONFIG_INVALID = new ErrorCode(1_030_101_049, "ERP {}连接配置无效：{}");

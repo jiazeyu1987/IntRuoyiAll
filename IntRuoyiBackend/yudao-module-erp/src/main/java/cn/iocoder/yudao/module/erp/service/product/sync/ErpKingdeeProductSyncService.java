@@ -7,6 +7,8 @@ public interface ErpKingdeeProductSyncService {
 
     ErpKingdeeProductSyncResult syncProducts();
 
+    ErpKingdeeProductSyncResult syncProductsFullSkipExisting();
+
     ErpKingdeeProductSyncResult syncProductsModifiedBetween(LocalDateTime windowStart, LocalDateTime windowEnd);
 
     ErpKingdeeProductSyncResult syncProductsByNumbers(Collection<String> materialNumbers);

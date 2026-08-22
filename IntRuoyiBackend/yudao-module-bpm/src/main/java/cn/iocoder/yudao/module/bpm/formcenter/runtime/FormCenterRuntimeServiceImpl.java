@@ -145,6 +145,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
                 .sourceFileName(command.getSourceFileName())
                 .sourceFileContent(Base64.getEncoder().encodeToString(sourceBytes))
                 .recognizedSchemaJson(JsonUtils.toJsonString(recognition.getFields()))
+                .jimuSchemaJson(recognition.getJimuSchemaJson())
                 .remark(reqVO.getRemark())
                 .build();
         templateVersionMapper.insert(insertObj);

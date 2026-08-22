@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.erp.enums.sync.ErpKingdeeSyncTypeEnum;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncCommand;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRunResult;
 import cn.iocoder.yudao.module.erp.service.sync.runtime.ErpKingdeeSyncRuntimeService;
+import cn.iocoder.yudao.module.erp.service.sync.admin.ErpKingdeeFullSyncHandler;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.sync.MesKingdeeProductionOrderSyncResult;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.sync.MesKingdeeProductionOrderSyncService;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Component("kingdeeProductionOrderSyncJob")
 @RequiredArgsConstructor
-public class KingdeeProductionOrderSyncJob implements JobHandler {
+public class KingdeeProductionOrderSyncJob implements JobHandler, ErpKingdeeFullSyncHandler {
 
     private final MesKingdeeProductionOrderSyncService syncService;
     private final ErpKingdeeSyncRuntimeService syncRuntimeService;
@@ -25,6 +26,9 @@ public class KingdeeProductionOrderSyncJob implements JobHandler {
     @Override
     @TenantJob
     public String execute(String param) {
+        if (ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM.equals(param)) {
+            return executeFullSync();
+        }
         LocalDateTime windowEnd = LocalDateTime.now();
         AtomicReference<MesKingdeeProductionOrderSyncResult> resultReference = new AtomicReference<>();
         syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
@@ -43,6 +47,25 @@ public class KingdeeProductionOrderSyncJob implements JobHandler {
         return String.format("ERP production order sync: created=%d, updated=%d, finished=%d, canceled=%d, skipped=%d",
                 result.getCreatedCount(), result.getUpdatedCount(), result.getFinishedCount(),
                 result.getCanceledCount(), result.getSkippedCount());
+    }
+
+    @Override
+    public String executeFullSync() {
+        LocalDateTime windowEnd = LocalDateTime.now();
+        AtomicReference<MesKingdeeProductionOrderSyncResult> resultReference = new AtomicReference<>();
+        syncRuntimeService.executeSync(ErpKingdeeSyncCommand.builder()
+                .syncType(ErpKingdeeSyncTypeEnum.PRODUCTION_ORDER)
+                .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
+                .windowEnd(windowEnd)
+                .build(), context -> {
+            MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrdersFullSkipExisting();
+            resultReference.set(result);
+            return ErpKingdeeSyncRunResult.success(context.getWindowEnd(), result.getCreatedCount(),
+                    0, result.getSkippedCount(), 0);
+        });
+        MesKingdeeProductionOrderSyncResult result = resultReference.get();
+        return String.format("ERP production order full sync: created=%d, skipped=%d",
+                result.getCreatedCount(), result.getSkippedCount());
     }
 
 }
