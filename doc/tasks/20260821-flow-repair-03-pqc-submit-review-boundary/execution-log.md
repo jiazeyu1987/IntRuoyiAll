@@ -110,3 +110,4 @@
 - `git diff --check -- IntRuoyiBackend` and `git diff --cached --check -- IntRuoyiBackend` -> PASS.
 - The current worktree has staged non-Flow3 changes: Flow11 migration/BPM/ERP deletions and two MES QA regulation VO modifications. They were not changed or included in this verification; no Flow3-specific failure was observed.
 - `E2E: NOT RUN`; no service start, database write, reset/checkout/clean, or additional merge was performed.
+- After the protected correction commit `5591587c5`, the same focused Maven command was rerun: `GREEN -> PASS, 27/27, Failures 0, Errors 0`.

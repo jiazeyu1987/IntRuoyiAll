@@ -156,7 +156,7 @@
   "planner_review_status": "approved",
   "test_status": "passed",
   "blocking_prereqs": [
-    "Flow 3 main-thread evidence passed at int_main abd37c4561f6b01f6c59cd8273c1df44bc75c752; staged Flow11/BPM/ERP and MES QA VO changes are parallel and untouched; downstream Flow 4/6/7/8/9/10/11 implementation, historical migration reconciliation and real write E2E remain outside this task-owned closeout"
+    "Flow 3 main-thread evidence passed at int_main 5591587c50063744bb0b4096c53fb7f17614af65; staged Flow11/BPM/ERP and MES QA VO changes are parallel and untouched; downstream Flow 4/6/7/8/9/10/11 implementation, historical migration reconciliation and real write E2E remain outside this task-owned closeout"
   ],
   "iteration_counts": {
     "planner_revisions": 0,
