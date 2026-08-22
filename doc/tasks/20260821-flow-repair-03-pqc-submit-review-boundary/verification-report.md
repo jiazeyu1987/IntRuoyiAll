@@ -40,7 +40,7 @@
 | 主线程流程 3 定向测试 | PASS | 4 个测试类共 27/27，Failures 0，Errors 0 |
 | 主线程 MES 相关编译 | PASS | `-pl yudao-module-mes -am -Dmaven.test.skip=true compile` BUILD SUCCESS |
 | runtime guard | PASS | `int_main/int_main: frontend 8081, backend 48081` |
-| 并行改动隔离 | PASS | 已暂存的流程11/BPM/ERP删除和 MES QA VO 改动未被流程3修改、提交或撤销 |
+| 并行改动隔离 | PASS after correction | 中间提交 `ff8d4e946` 误带入既有 staged 路径；`5591587c5` 已恢复复核前主干树并保留原 staged 状态，后续使用 path-only 文档提交 |
 
 ## Code Compliance Conclusion
 

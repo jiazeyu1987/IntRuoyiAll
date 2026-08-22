@@ -111,3 +111,4 @@
 - The current worktree has staged non-Flow3 changes: Flow11 migration/BPM/ERP deletions and two MES QA regulation VO modifications. They were not changed or included in this verification; no Flow3-specific failure was observed.
 - `E2E: NOT RUN`; no service start, database write, reset/checkout/clean, or additional merge was performed.
 - After the protected correction commit `5591587c5`, the same focused Maven command was rerun: `GREEN -> PASS, 27/27, Failures 0, Errors 0`.
+- Audit correction: intermediate commit `ff8d4e946` accidentally included the worktree's pre-existing staged Flow11/BPM/ERP/MES QA paths. `5591587c5` restored those paths to the pre-verification main tree, left their staged working-tree changes intact, and retained only the Flow3 documentation result; later documentation commits used `git commit --only`. No reset/checkout/clean was used.

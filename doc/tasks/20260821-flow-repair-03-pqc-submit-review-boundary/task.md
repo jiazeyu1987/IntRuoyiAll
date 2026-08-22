@@ -50,7 +50,7 @@ completed
 - `scripts\\preflight\\branch-runtime-port-guard.ps1`：PASS，`int_main/int_main` 使用前端 `8081`、后端 `48081`。
 - `git diff --check -- IntRuoyiBackend` 与 `git diff --cached --check -- IntRuoyiBackend`：PASS；流程 3 task-owned 路径无未提交改动，后端其余 staged 差异属于并行任务并保持原状。
 - task-closeout cleanup preview/apply：PASS；仅删除本任务的临时 pytest 输出，保留八份任务记录文件。
-- 复核时主工作树存在并行任务已暂存的 BPM/ERP 删除和 MES QA VO 改动；流程 3 未修改、未提交或撤销这些路径。
+- 复核时主工作树存在并行任务已暂存的 BPM/ERP 删除和 MES QA VO 改动；中间文档提交曾误带入这些已暂存路径，随后由 `5591587c5` 恢复到复核前主干树并保留原 staged 状态，后续流程 3 文档提交均使用 path-only 提交。
 
 ## 设计约束检查
 
