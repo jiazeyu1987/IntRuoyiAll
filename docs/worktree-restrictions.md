@@ -31,6 +31,7 @@ PORT_CONTRACT_VERSION: 2026-08-21-branch-runtime-v5
 - `int_qms` profile：基准前端 `8061`，基准后端 `48061`。
 - 槽位 `1..19` 的前后端端口继续按所属 profile 基准端口 + slot 计算。
 - 槽位 `20..30` 使用本文件定义的独立扩展端口段。
+- 槽位 `31..40` 使用第二独立扩展端口段：`int_shedule` 8176-8185/48176-48185，`int_batch` 8186-8195/48186-48195，`int_qms` 8196-8205/48196-48205，`int_main` 8206-8215/48206-48215，`int_main_d` 8216-8225/48216-48225。
 - `slot = 0` 只用于各 profile 的基准工作区；同一 profile 的附加 worktree 必须使用稳定槽位 `1..40`。
 - 跨 profile 不共享 slot 语义；例如 `int_batch slot=1` 是 `8042/48042`，`int_qms slot=1` 是 `8062/48062`。
 - 分支端口矩阵的权威说明见 `docs\branch-runtime-ports.md`，提交、合并、推送前必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`。
