@@ -219,3 +219,15 @@ GREEN（流程11工具门禁）: `python -X utf8 IntRuoyiBackend/script/run_flow
 REGRESSION: 最新314条矩阵写入 `flow8-mes-regression-current-20260823.md`，覆盖 32 个测试类且 314/314 可追溯。归属汇总为 `F4/F6=235（26F/209E）`、`F7/F10=3（3F/0E）`、`PAR=76（27F/49E）`、`F8-GATE=0`。批次 bean/回填/任务门禁影响流程6，追溯终态影响流程7/10，前线/排产/路线/H2/Mockito 为相邻或基础设施 owner；流程11不代改业务所有权代码。
 
 本轮没有启动服务、访问生产数据库、执行生产迁移、人工批准/回滚或真实 Playwright；全链路继续 No-Go。待流程2/3/4/5/6/7/8/10新提交融合后再重跑全 MES。
+
+## M23 Flow7/10 提交后定向复验
+
+BDD: Flow7/10 提交后的来源映射与终态追溯合同必须在当前主线重新验证 -> Given 旧 314 条矩阵生成于 `a6574c3631dfa3c5f8381596fcef5c91acd98db0`，其后已融合 Flow7 `7770f36fb` 和 Flow10 `af4c6d4d1` / When 在当前 `int_main` HEAD `af4c6d4d1f0febd987a0f652ccbd085f266ea490` 只运行受影响的两类定向测试 / Then 更新矩阵中的 Flow7/10 行，不把旧全量计数冒充当前结果。
+
+RED: 旧矩阵证据 -> 记录为历史 `MesProEdhrTraceTerminalPartitionContractTest` 2F、`MesProBatchRecordRouteIdentityContractTest` 1F；该结果不再代表当前提交后的行为。
+
+GREEN: `$env:MAVEN_OPTS='-Xms256m -Xmx1536m -XX:MaxMetaspaceSize=384m -XX:CICompilerCount=2'; mvn.cmd -o -pl yudao-module-mes '-Dtest=MesProEdhrTraceTerminalPartitionContractTest,MesProBatchRecordRouteIdentityContractTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> PASS，退出码 0；两类各 2 tests，合计 4 tests / 0 failures / 0 errors / 0 skipped。
+
+REGRESSION: `flow8-mes-regression-current-20260823.md` 已将 Flow7/10 标注为历史 3F 与当前定向 0F/0E；其余历史 311 条 F/E 未因本轮重复全 MES，`F8-GATE=0` 保持。未终止 PID 4176/12944 等其它任务 runtime/Flow10 进程，未修改流程7/10业务代码。
+
+本轮流程11门禁复验：`python -X utf8 IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS，12 场景；`python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q --basetemp D:\IntRuoyiWorktree\flow11-targeted-pytest-temp` -> PASS，12 passed；三文件 `py_compile` -> 退出码 0；`branch-runtime-port-guard.ps1 -Profile int_main -WorktreePath E:\IntRuoyi` -> 退出码 0（8081/48081）。

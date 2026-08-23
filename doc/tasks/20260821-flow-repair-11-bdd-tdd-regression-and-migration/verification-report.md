@@ -144,3 +144,11 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 分类汇总：`F4/F6=235（26F/209E）`、`F7/F10=3（3F/0E）`、`PAR=76（27F/49E）`、`F8-GATE=0`。流程8四材料 gate 没有直接失败证据，但流程4/6和流程7/10上游失败形成条件阻断；全链路仍 No-Go。
 - 流程11 runner：退出码 `0`，12 场景通过；pytest：退出码 `0`，12 passed；py_compile：退出码 `0`。ERP 定向 JUnit：退出码 `0`，6/6；BPM 定向 JUnit：退出码 `0`，1/1；前端 `pnpm run ts:check`：退出码 `0`；runtime v6 guard：退出码 `0`，slot=31 合法。
 - 未执行真实服务、生产数据库迁移、人工批准/回滚和 Playwright；不把当前分类结果写成流程8或全链路放行。
+
+## 10.3 Flow7/10 提交后定向复验
+
+- 旧 314 条矩阵明确归属 HEAD `a6574c3631dfa3c5f8381596fcef5c91acd98db0`；之后主线已包含 Flow7 `7770f36fb` 与 Flow10 `af4c6d4d1`，因此旧 `F7/F10=3` 不得冒充当前 HEAD 的完整结果。
+- 当前 `int_main` HEAD：`af4c6d4d1f0febd987a0f652ccbd085f266ea490`。仅定向重跑：`$env:MAVEN_OPTS='-Xms256m -Xmx1536m -XX:MaxMetaspaceSize=384m -XX:CICompilerCount=2'; mvn.cmd -o -pl yudao-module-mes '-Dtest=MesProEdhrTraceTerminalPartitionContractTest,MesProBatchRecordRouteIdentityContractTest' '-Dsurefire.failIfNoSpecifiedTests=false' test`。
+- 结果：退出码 `0`；两类各 2 tests，合计 `4 tests / 0 failures / 0 errors / 0 skipped`。矩阵已将两行更新为“历史 3F；当前定向 0F/0E”，其余历史 311 条 F/E 未在本轮重跑。
+- `F8-GATE=0` 保持。流程11 runner/pytest/py_compile 既有证据保持有效；流程1-10生产闭环、真实 Playwright、生产历史迁移、人工批准和回滚仍为 No-Go。未终止 PID 4176/12944 等其它任务进程，未修改流程7/10业务代码。
+- 本轮再次执行流程11门禁：runner 12 场景 PASS，pytest `12 passed`，三文件 `py_compile` 退出码 0，`branch-runtime-port-guard.ps1 -Profile int_main -WorktreePath E:\IntRuoyi` 退出码 0（8081/48081）。
