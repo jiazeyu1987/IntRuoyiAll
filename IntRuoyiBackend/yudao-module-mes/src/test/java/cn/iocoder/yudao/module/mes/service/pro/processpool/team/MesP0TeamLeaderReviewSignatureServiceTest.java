@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
@@ -36,9 +38,13 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,6 +57,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     private static final Long REVIEW_SIGNATURE_ID = 9101L;
     private static final Long REVIEW_SIGNATURE_USER_ID = 3001L;
     private static final String REVIEW_SIGNATURE_SNAPSHOT = "{\"signature\":\"team-leader-review\"}";
+    private static final String SIGNATURE_PASSWORD = "leader-password";
 
     @Mock
     private MesTeamLeaderScopeService scopeService;
@@ -84,6 +91,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     private MesWorkOrderAbnormalStateService abnormalStateService;
     @Mock
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesTeamLeaderSubmissionReviewService submissionReviewService;
     private MesTeamLeaderReportConfirmationService reportConfirmationService;
@@ -92,6 +101,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     void setUp() {
         submissionReviewService = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
                 processInspectionAggregationService);
+        ReflectionTestUtils.setField(submissionReviewService, "signatureService", signatureService);
         MesTeamLeaderFifoAllocationService fifoAllocationService =
                 new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper,
                         orderProcessTargetService, abnormalStateService);
@@ -100,6 +110,9 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 pqcRecordMapper, fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper,
                 pqcPieceDetailMapper, orderProcessTargetService, orderProcessCompletionService,
                 abnormalStateService, reportManagementSummaryService);
+        ReflectionTestUtils.setField(reportConfirmationService, "signatureService", signatureService);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any()))
+                .thenReturn(REVIEW_SIGNATURE_ID);
     }
 
     @Test
@@ -113,53 +126,60 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     }
 
     @Test
-    void reviewSubmissionShouldRejectSignatureUserDifferentFromLeader() {
+    void reviewSubmissionShouldUseLeaderIdentityForServerSignature() {
         MesTeamLeaderSubmissionReviewReqBO reqBO = signedReviewReq();
+        set(reqBO, "setLeaderType", String.class, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC);
         set(reqBO, "setReviewSignatureUserId", Long.class, 3999L);
+        when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(pqcReviewEvent());
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7001L);
+            return 1;
+        });
 
-        ServiceException ex = assertThrows(ServiceException.class,
-                () -> submissionReviewService.reviewSubmission(reqBO));
+        Long reviewId = submissionReviewService.reviewSubmission(reqBO);
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH.getCode(), ex.getCode());
-        verify(eventMapper, never()).selectByIdForUpdate(EVENT_ID);
-        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        assertEquals(7001L, reviewId);
+        verify(signatureService).recordTeamLeaderReviewSignature(eq(LEADER_USER_ID),
+                eq(SIGNATURE_PASSWORD), any());
     }
 
     @Test
-    void reviewSubmissionShouldRejectMissingReviewSignatureSnapshotBeforeLoadingEvent() {
+    void reviewSubmissionShouldIgnoreClientReviewSignatureSnapshotBeforeEventLookup() {
         MesTeamLeaderSubmissionReviewReqBO reqBO = signedReviewReq();
         set(reqBO, "setReviewSignatureSnapshotJson", String.class, "   ");
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> submissionReviewService.reviewSubmission(reqBO));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
-        verify(eventMapper, never()).selectByIdForUpdate(EVENT_ID);
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS.getCode(), ex.getCode());
+        verify(eventMapper).selectByIdForUpdate(EVENT_ID);
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
 
     @Test
-    void reviewSubmissionShouldRejectMalformedReviewSignatureSnapshotBeforeLoadingEvent() {
+    void reviewSubmissionShouldIgnoreMalformedClientReviewSignatureSnapshotBeforeEventLookup() {
         MesTeamLeaderSubmissionReviewReqBO reqBO = signedReviewReq();
         set(reqBO, "setReviewSignatureSnapshotJson", String.class, "not-json");
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> submissionReviewService.reviewSubmission(reqBO));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
-        verify(eventMapper, never()).selectByIdForUpdate(EVENT_ID);
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS.getCode(), ex.getCode());
+        verify(eventMapper).selectByIdForUpdate(EVENT_ID);
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
 
     @Test
     void reviewSubmissionShouldPersistStructuredReviewSignature() {
-        when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(event("{\"outputQuantity\":80}"));
+        MesTeamLeaderSubmissionReviewReqBO reqBO = signedReviewReq();
+        set(reqBO, "setLeaderType", String.class, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC);
+        when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(pqcReviewEvent());
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7001L);
             return 1;
         });
 
-        Long reviewId = submissionReviewService.reviewSubmission(signedReviewReq());
+        Long reviewId = submissionReviewService.reviewSubmission(reqBO);
 
         assertEquals(7001L, reviewId);
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> captor =
@@ -168,7 +188,9 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         MesProcessPoolSubmissionReviewDO review = captor.getValue();
         assertEquals(REVIEW_SIGNATURE_ID, review.getReviewSignatureId());
         assertEquals(REVIEW_SIGNATURE_USER_ID, review.getReviewSignatureUserId());
-        assertEquals(REVIEW_SIGNATURE_SNAPSHOT, review.getReviewSignatureSnapshotJson());
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"signatureId\":" + REVIEW_SIGNATURE_ID));
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actorId\":" + LEADER_USER_ID));
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actionType\":\"TEAM_LEADER_REVIEW\""));
     }
 
     @Test
@@ -183,43 +205,43 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     }
 
     @Test
-    void confirmSubmissionShouldRejectMissingReviewSignatureSnapshotBeforeReviewOrAllocationWrites() {
+    void confirmSubmissionShouldIgnoreClientReviewSignatureSnapshotBeforeEventLookup() {
         MesTeamLeaderReportConfirmationReqBO reqBO = signedConfirmReq();
         set(reqBO, "setReviewSignatureSnapshotJson", String.class, "   ");
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> reportConfirmationService.confirmSubmission(reqBO));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
-        verify(eventMapper, never()).selectByIdForUpdate(EVENT_ID);
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS.getCode(), ex.getCode());
+        verify(eventMapper).selectByIdForUpdate(EVENT_ID);
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(allocationMapper, never()).insertBatch(anyCollection());
     }
 
     @Test
-    void confirmSubmissionShouldRejectMalformedReviewSignatureSnapshotBeforeReviewOrAllocationWrites() {
+    void confirmSubmissionShouldIgnoreMalformedClientReviewSignatureSnapshotBeforeEventLookup() {
         MesTeamLeaderReportConfirmationReqBO reqBO = signedConfirmReq();
         set(reqBO, "setReviewSignatureSnapshotJson", String.class, "not-json");
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> reportConfirmationService.confirmSubmission(reqBO));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
-        verify(eventMapper, never()).selectByIdForUpdate(EVENT_ID);
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS.getCode(), ex.getCode());
+        verify(eventMapper).selectByIdForUpdate(EVENT_ID);
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(allocationMapper, never()).insertBatch(anyCollection());
     }
 
     @Test
-    void confirmSubmissionShouldRejectSignatureUserDifferentFromLeader() {
+    void confirmSubmissionShouldIgnoreClientReviewSignatureUserBeforeEventLookup() {
         MesTeamLeaderReportConfirmationReqBO reqBO = signedConfirmReq();
         set(reqBO, "setReviewSignatureUserId", Long.class, 3999L);
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> reportConfirmationService.confirmSubmission(reqBO));
 
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH.getCode(), ex.getCode());
-        verify(eventMapper, never()).selectByIdForUpdate(EVENT_ID);
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS.getCode(), ex.getCode());
+        verify(eventMapper).selectByIdForUpdate(EVENT_ID);
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(allocationMapper, never()).insertBatch(anyCollection());
     }
@@ -254,9 +276,11 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         MesProcessPoolSubmissionReviewDO review = reviewCaptor.getValue();
         assertEquals(REVIEW_SIGNATURE_ID, review.getReviewSignatureId());
         assertEquals(REVIEW_SIGNATURE_USER_ID, review.getReviewSignatureUserId());
-        assertEquals(REVIEW_SIGNATURE_SNAPSHOT, review.getReviewSignatureSnapshotJson());
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"signatureId\":" + REVIEW_SIGNATURE_ID));
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actorId\":" + LEADER_USER_ID));
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actionType\":\"TEAM_LEADER_REVIEW\""));
         verify(allocationMapper).insertBatch(anyCollection());
-        verify(orderProcessCompletionService).applyConfirmedAllocations(any(MesProProcessPoolEventDO.class),
+        verify(orderProcessCompletionService, never()).applyConfirmedAllocations(any(MesProProcessPoolEventDO.class),
                 anyCollection());
     }
 
@@ -272,6 +296,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
 
     private static MesTeamLeaderSubmissionReviewReqBO signedReviewReq() {
         MesTeamLeaderSubmissionReviewReqBO reqBO = unsignedReviewReq();
+        set(reqBO, "setSignaturePassword", String.class, SIGNATURE_PASSWORD);
         set(reqBO, "setReviewSignatureId", Long.class, REVIEW_SIGNATURE_ID);
         set(reqBO, "setReviewSignatureUserId", Long.class, REVIEW_SIGNATURE_USER_ID);
         set(reqBO, "setReviewSignatureSnapshotJson", String.class, REVIEW_SIGNATURE_SNAPSHOT);
@@ -294,6 +319,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
 
     private static MesTeamLeaderReportConfirmationReqBO signedConfirmReq() {
         MesTeamLeaderReportConfirmationReqBO reqBO = unsignedConfirmReq();
+        set(reqBO, "setSignaturePassword", String.class, SIGNATURE_PASSWORD);
         set(reqBO, "setReviewSignatureId", Long.class, REVIEW_SIGNATURE_ID);
         set(reqBO, "setReviewSignatureUserId", Long.class, REVIEW_SIGNATURE_USER_ID);
         set(reqBO, "setReviewSignatureSnapshotJson", String.class, REVIEW_SIGNATURE_SNAPSHOT);
@@ -310,8 +336,25 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 .routeProcessId(5001L)
                 .processId(6001L)
                 .actualEmployeeId(2001L)
+                .reportOutputQuantity(new BigDecimal("80"))
                 .rawPayload(rawPayload)
                 .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 9, 0))
+                .build();
+    }
+
+    private static MesProProcessPoolEventDO pqcReviewEvent() {
+        return MesProProcessPoolEventDO.builder()
+                .id(EVENT_ID)
+                .poolId(100L)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                .workOrderId(9001L)
+                .routeId(4001L)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .feedbackSourceId(5101L)
+                .actualEmployeeId(2001L)
+                .rawPayload("{\"inspectionResult\":\"SUCCESS\"}")
+                .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 9, 5))
                 .build();
     }
 

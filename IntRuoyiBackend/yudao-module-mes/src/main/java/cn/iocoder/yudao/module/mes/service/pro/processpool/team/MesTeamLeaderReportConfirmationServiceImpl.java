@@ -200,7 +200,6 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         if (!Boolean.TRUE.equals(allocationMapper.insertBatch(rows))) {
             throw new IllegalStateException("Failed to insert MES team leader report allocation lines");
         }
-        orderProcessCompletionService.applyConfirmedAllocations(event, rows);
         reportManagementSummaryService.refreshProductionEvent(event);
         return review.getId();
     }
@@ -395,6 +394,10 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         if (reqBO == null || reqBO.getEventId() == null || reqBO.getLeaderUserId() == null
                 || StrUtil.isBlank(reqBO.getLeaderType())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "reportConfirmation");
+        }
+        if (StrUtil.isBlank(reqBO.getSignaturePassword())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                    "reportConfirmation.signaturePassword");
         }
         if (!MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(reqBO.getLeaderType())) {
             throw exception(PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED,
