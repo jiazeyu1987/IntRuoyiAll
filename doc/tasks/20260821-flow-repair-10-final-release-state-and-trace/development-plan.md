@@ -95,3 +95,9 @@
 
 ### 主流程冻结核验
 流程10唯一拥有最终 RELEASED 和 release manifest/签名审计。独立批次无 activeOrderId 时必须返回 originType/凭证/来源快照/适用事实/四材料版本/hash/放行审计，并以 NOT_APPLICABLE+原因码表示不适用关系；应有关系缺失为 MISSING/BLOCKED。
+
+## 启动阻断修复证据（2026-08-23）
+
+运行时缺失 Bean 的根因是实现类依赖 @Service + @ConditionalOnMissingBean 的扫描时机，主应用启动时没有形成可注入的端口 Bean。MesReleaseAuthoritativeContextConfiguration 现在通过显式 @Configuration/@Bean 注册唯一 blocker 实现；真实流程4/6/8适配器接入后可由条件注册替换，当前缺失适配器仍抛结构化 blocker。
+
+MesReleaseAuthoritativeContextConfigurationTest 断言端口 Bean 恰好一个；实际定向 suite 46/46 PASS，yudao-server package BUILD SUCCESS，48081 实际监听且 /actuator/health 为 UP。运行时 JAR 中配置类和 blocker 类与当前构建产物 SHA-256 一致。

@@ -5,6 +5,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MesReleaseAuthoritativeContextConfigurationTest {
 
@@ -18,5 +19,16 @@ class MesReleaseAuthoritativeContextConfigurationTest {
             assertInstanceOf(MesReleaseAuthoritativeContextUnavailablePort.class,
                     context.getBean(MesReleaseAuthoritativeContextPort.class));
         }
+    }
+
+    @Test
+    void preservesStructuredBlockerUntilAuthoritativeAdaptersAreWired() {
+        MesReleaseAuthoritativeContextUnavailablePort port = new MesReleaseAuthoritativeContextUnavailablePort();
+
+        MesReleaseFlowBlockerException exception = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> port.require(new MesReleaseFinalizationCommand().setReleaseTransactionId(42L)));
+
+        assertEquals(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED,
+                exception.getFailure().getBlockers().get(0).getBlockerType());
     }
 }

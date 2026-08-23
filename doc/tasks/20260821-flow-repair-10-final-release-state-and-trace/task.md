@@ -37,6 +37,17 @@
 
 ready_for_closeout：流程10专项实现、融合和主线程验证已完成；跨流程权威适配器、迁移、outbox 和全链路 E2E 仍 No-Go。
 
+### 启动 Bean 注册修复（2026-08-23）
+
+流程10已在 `9b18ee093` 中将 `MesReleaseAuthoritativeContextPort` 改为主应用明确导入的 `@Configuration/@Bean` 注册；实现类不再依赖组件扫描时机。无流程4/6/8权威适配器时，唯一 Bean 仍为结构化 blocker 实现，不返回默认成功或放行。
+
+- 配置 smoke test：`MesReleaseAuthoritativeContextConfigurationTest`，1/1 PASS。
+- 流程10定向合同回归：46/46 PASS。
+- `yudao-server` Maven package：BUILD SUCCESS。
+- 实际启动：48081 监听，`/actuator/health` 返回 `{\"status\":\"UP\"}`。
+- 运行时 JAR 与当前构建产物中配置类、blocker 类 SHA-256 一致。
+- 启动日志无 `MesReleaseAuthoritativeContextPort` 缺失 Bean 或 `APPLICATION FAILED TO START`。
+
 ### 主流程统一冻结合同（2026-08-22）
 
 流程10拥有唯一最终放行状态和 release manifest/签名审计。活跃订单关系仅在适用时要求；独立批次不得因无 activeOrderId 被拒绝。独立追溯显示 originType、独立凭证、工单/路线/批号、来源快照、适用事实、三类回填、四材料版本/hash、放行决定和审计链；不适用关系返回 `NOT_APPLICABLE`+原因码，应有关系缺失返回 `MISSING/BLOCKED`。

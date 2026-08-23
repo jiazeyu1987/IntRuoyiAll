@@ -2,7 +2,7 @@
 
 ## 范围与前置条件
 
-本文件保留 BDD 和严格 TDD 设计；专项实现后的可运行验证证据记录在 execution-log.md。未启动服务、未运行数据库迁移或写入型 E2E；流程4/6/8权威适配器、迁移/outbox 和全链路样本仍需外部 owner 提供。
+本文件保留 BDD 和严格 TDD 设计；专项实现后的可运行验证证据记录在 execution-log.md。已启动本地 server 做只读健康验证，未运行数据库迁移、业务写入或写入型 E2E；流程4/6/8权威适配器、迁移/outbox 和全链路样本仍需外部 owner 提供。
 
 ## BDD 场景
 
@@ -33,3 +33,11 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 ## 当前 blocker
 
 流程4/6/8权威凭证适配器、审批中心权威上下文、生产迁移/历史回填、outbox 投递、全链路真实 E2E 尚未完成；流程11任务文档交付已完成。本文件不是全链路放行通过证明。
+
+## 启动 Bean 回归
+
+- BDD: Given 流程4/6/8权威适配器尚未接入；When Spring context 启动；Then MesReleaseAuthoritativeContextPort 恰好一个 Bean，放行请求仍返回结构化 blocker。
+- RED: MesReleaseAuthoritativeContextConfigurationTest 在修复前因无端口 Bean 启动失败（历史日志 MesReleaseAuthoritativeContextPort missing）。
+- GREEN: mvn -pl yudao-module-mes -Dtest=MesReleaseAuthoritativeContextConfigurationTest test -> PASS；该测试 1/1。
+- REGRESSION: mvn -pl yudao-module-mes -Dtest=MesReleaseFinalizationValidatorTest,MesProEdhrReleaseServiceImplTest,MesProductionReleaseManagerApprovalServiceTest,MesReleaseAuthoritativeContextConfigurationTest test -> PASS，46/46；mvn -pl yudao-server -am -DskipTests package -> BUILD SUCCESS。
+- Runtime smoke: 48081 LISTEN，GET /actuator/health -> status=UP；运行时 JAR 类 SHA-256 与构建产物一致。

@@ -44,7 +44,17 @@ development-plan.md 规定流程 6 负责三类回填成功后的批次执行创
 
 生产代码符合性：PASS（流程10专项范围）；全链路 No-Go，权威适配器、迁移/历史回填、outbox 和真实 E2E 未完成。
 
-任务限制遵守：PASS；未启动服务、未执行数据库迁移或写入型 E2E，未绕过权限/凭证门禁。
+任务限制遵守：PASS；未执行数据库迁移或写入型 E2E，未绕过权限/凭证门禁；仅为启动烟雾验证启动本地 server。
+
+## 启动 Bean 修复验证证据
+
+- 9b18ee093 已进入 int_main，新增 MesReleaseAuthoritativeContextConfiguration 显式 @Bean，移除实现类上的扫描条件注解。
+- MesReleaseAuthoritativeContextConfigurationTest：1/1 PASS；端口类型 Bean 恰好一个，实例为结构化 blocker 实现。
+- 流程10定向合同 suite：46/46 PASS。
+- mvn -pl yudao-server -am -DskipTests package：BUILD SUCCESS。
+- 实际启动 yudao-server-exec.jar：48081 LISTEN；GET http://127.0.0.1:48081/actuator/health 返回 status=UP。
+- 运行时 nested yudao-module-mes JAR 中配置类和 blocker 类 SHA-256 与当前构建产物一致；启动日志无缺失 Bean 或应用启动失败。
+- 流程4/6/8适配器未接入时仍保留 AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED 结构化阻断，不伪造放行成功。
 
 ## 复核修订项
 

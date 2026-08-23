@@ -9,7 +9,7 @@
 ## 命令意图与范围
 
 - 只读读取 AGENTS.md、任务收尾规则、经验索引、生产角色操作文档、后端正式来源章节、前端规则、E2E 规则、当前放行代码、测试和流程 7/8/9/11 文档。
-- 使用 apply_patch 仅修改本任务目录内的 Markdown；未执行 Git、Maven、Node、Playwright、SQL 或服务启停。
+- 使用 apply_patch 仅修改本任务目录内的 Markdown；初始审计阶段未执行 Git、Maven、Node、Playwright、SQL 或服务启停；后续启动阻断修复阶段仅执行 Maven 验证、server package 和本地只读健康检查。
 
 ## 里程碑记录
 
@@ -77,3 +77,12 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 ## 结论
 
 流程10专项实现、融合和主线程验证完成；流程4/6/8权威适配器、生产迁移/历史回填、outbox 投递和全链路真实 E2E 仍 No-Go。
+
+## M7：MesReleaseAuthoritativeContextPort 启动阻断修复（2026-08-23）
+
+- 状态：完成；任务仍 ready_for_closeout，不宣称全链路完成。
+- BDD: Given 流程4/6/8权威适配器未接入；When 主应用启动；Then 端口恰好一个 Bean，缺失权威上下文时放行仍返回结构化 blocker。
+- RED: 历史启动日志 yudao-server.log:17977 报端口 Bean 缺失，48081 未监听。
+- GREEN: MesReleaseAuthoritativeContextConfigurationTest 1/1 PASS；流程10定向 suite 46/46 PASS。
+- GREEN: mvn -pl yudao-server -am -DskipTests package -> BUILD SUCCESS；实际启动后 48081 LISTEN，/actuator/health 返回 status=UP。
+- REGRESSION: 构建产物与运行时 nested MES JAR 中配置类、结构化 blocker 类 SHA-256 一致；启动日志无 APPLICATION FAILED TO START。
