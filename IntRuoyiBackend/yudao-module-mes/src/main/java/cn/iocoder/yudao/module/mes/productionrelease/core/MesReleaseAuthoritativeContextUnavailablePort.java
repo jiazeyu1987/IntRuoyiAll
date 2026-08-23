@@ -1,16 +1,11 @@
 package cn.iocoder.yudao.module.mes.productionrelease.core;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 
 /**
  * Explicit integration blocker used until flow 4/6/8 publish their persistent context adapters.
  * It never accepts request payloads as a substitute for authoritative receipts.
  */
-@Service
-@ConditionalOnMissingBean(MesReleaseAuthoritativeContextPort.class)
 public class MesReleaseAuthoritativeContextUnavailablePort implements MesReleaseAuthoritativeContextPort {
 
     @Override

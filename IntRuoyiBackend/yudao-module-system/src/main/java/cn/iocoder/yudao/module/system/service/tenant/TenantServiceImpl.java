@@ -76,7 +76,7 @@ public class TenantServiceImpl implements TenantService {
 
     @Override
     public List<Long> getTenantIdList() {
-        List<TenantDO> tenants = tenantMapper.selectList();
+        List<TenantDO> tenants = tenantMapper.selectListByStatus(CommonStatusEnum.ENABLE.getStatus());
         return CollectionUtils.convertList(tenants, TenantDO::getId);
     }
 
