@@ -108,3 +108,4 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 - REGRESSION: mvn -pl yudao-server -am -DskipTests package -> PASS，BUILD SUCCESS；构建产物为 IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar。
 - Runtime smoke：既有 PID 4176（backend-runtime-control-20260823-191443.jar，19:14:48 启动）监听 48081；GET http://127.0.0.1:48081/actuator/health -> 退出码 0，{\"status\":\"UP\"}。日志含 Started YudaoServerApplication/项目启动成功，未出现最新启动段的 APPLICATION FAILED TO START 或 Bean 缺失。该进程不是本轮启动，按边界未停止。
 - 终态 owner 复核：finalizeRelease 统一进入流程10，finalizeApproval 的 release transaction RELEASED CAS 是唯一最终写入口；管理者审批只负责 prepare/complete，缺少流程4/6/8权威适配器时保留结构化 fail-fast。
+- 独立启动日志 E:/IntRuoyi/output/runtime/int_main/bean-fix-20260823-1551/logs/yudao-server.log：仅匹配 Started YudaoServerApplication 和“项目启动成功”，未匹配 APPLICATION FAILED、BeanCreationException 或 MesReleaseAuthoritativeContextPort 缺失。

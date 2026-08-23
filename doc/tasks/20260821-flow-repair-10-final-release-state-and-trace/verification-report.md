@@ -79,3 +79,4 @@ development-plan.md 规定流程 6 负责三类回填成功后的批次执行创
 - 48081：既有 runtime-control PID 4176 LISTEN；GET /actuator/health 返回 {"status":"UP"}；启动日志最新成功段包含 Started YudaoServerApplication 和“项目启动成功”，未见最新启动段的 APPLICATION FAILED TO START 或 MesReleaseAuthoritativeContextPort Bean 缺失。
 - 流程10仍是唯一 release transaction RELEASED owner；流程7继续拥有 Origin/TraceLink 来源映射；流程4/6/8适配器未接入时结构化 blocker 仍 fail-fast，无默认成功。
 - 本轮不停止 PID 4176：它是既有长期 runtime-control 服务，非本轮启动进程；无残留的本轮前台服务需要清理。
+- 独立启动日志 E:/IntRuoyi/output/runtime/int_main/bean-fix-20260823-1551/logs/yudao-server.log：只匹配 Started YudaoServerApplication 和“项目启动成功”，未匹配 APPLICATION FAILED、BeanCreationException 或 MesReleaseAuthoritativeContextPort 缺失。

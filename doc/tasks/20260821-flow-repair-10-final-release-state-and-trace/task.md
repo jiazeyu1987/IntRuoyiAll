@@ -46,6 +46,7 @@ ready_for_closeout：流程10专项实现、融合和主线程验证已完成；
 - yudao-server package：BUILD SUCCESS。
 - 48081 已由既有 runtime-control 服务监听，/actuator/health 返回 {"status":"UP"}；本轮未停止该非本轮启动的长期服务。
 - 本轮没有新增默认成功 Bean；流程4/6/8权威适配器缺失时仍由结构化 blocker fail-fast。
+- 独立启动日志：E:/IntRuoyi/output/runtime/int_main/bean-fix-20260823-1551/logs/yudao-server.log；只匹配 Started YudaoServerApplication 和“项目启动成功”，未匹配 APPLICATION FAILED、BeanCreationException 或 MesReleaseAuthoritativeContextPort 缺失。
 
 ### 启动 Bean 注册修复（2026-08-23）
 
