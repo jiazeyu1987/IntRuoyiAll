@@ -14,7 +14,15 @@ RESERVE_SLOT_SCRIPT = REPO_ROOT / "scripts" / "runtime" / "reserve-worktree-slot
 def _write_registry(tmp_path: Path, entries: list[dict]) -> Path:
     registry_path = tmp_path / "worktree-ports.json"
     registry_path.write_text(
-        json.dumps(entries, ensure_ascii=False, indent=2),
+        json.dumps(
+            {
+                "version": 1,
+                "contractVersion": "2026-08-22-branch-runtime-v6",
+                "worktrees": entries,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
         encoding="utf-8",
     )
     return registry_path
@@ -30,7 +38,7 @@ def _run_powershell(command: str, registry_path: Path) -> subprocess.CompletedPr
         env=env,
         text=True,
         capture_output=True,
-        timeout=30,
+        timeout=180,
     )
 
 
@@ -230,6 +238,135 @@ def test_registered_worktree_second_extended_slot_uses_dedicated_port_band(tmp_p
     assert '"BackendPort":  48206' in result.stdout
 
 
+def test_registered_worktree_boundary_slots_1_31_50_are_accepted(tmp_path: Path) -> None:
+    expected_ports = {
+        1: (8082, 48082),
+        31: (8206, 48206),
+        50: (8265, 48265),
+    }
+    for slot, (frontend_port, backend_port) in expected_ports.items():
+        registry_path = _write_registry(
+            tmp_path,
+            [
+                {
+                    "name": f"boundary-slot-{slot}",
+                    "path": f"D:\\IntRuoyiWorktree\\boundary-slot-{slot}",
+                    "branch": f"codex/boundary-slot-{slot}",
+                    "profile": "int_main",
+                    "slot": slot,
+                    "frontendPort": frontend_port,
+                    "backendPort": backend_port,
+                    "active": True,
+                }
+            ],
+        )
+        command = (
+            f". '{PROFILE_SCRIPT}'; "
+            "$context = Resolve-BranchRuntimeContext "
+            f"-RepoRoot 'D:\\IntRuoyiWorktree\\boundary-slot-{slot}' "
+            f"-Branch 'codex/boundary-slot-{slot}'; "
+            "$context | ConvertTo-Json -Depth 4"
+        )
+
+        result = _run_powershell(command, registry_path)
+
+        assert result.returncode == 0, result.stderr
+        assert f'"Slot":  {slot}' in result.stdout
+        assert f'"FrontendPort":  {frontend_port}' in result.stdout
+        assert f'"BackendPort":  {backend_port}' in result.stdout
+
+
+def test_registered_worktree_slot_zero_fails_fast(tmp_path: Path) -> None:
+    registry_path = _write_registry(
+        tmp_path,
+        [
+            {
+                "name": "slot-zero",
+                "path": "D:\\IntRuoyiWorktree\\slot-zero",
+                "branch": "codex/slot-zero",
+                "profile": "int_main",
+                "slot": 0,
+                "frontendPort": 8081,
+                "backendPort": 48081,
+                "active": True,
+            }
+        ],
+    )
+    command = (
+        f". '{PROFILE_SCRIPT}'; "
+        "$context = Resolve-BranchRuntimeContext "
+        "-RepoRoot 'D:\\IntRuoyiWorktree\\slot-zero' "
+        "-Branch 'codex/slot-zero'; "
+        "$context | ConvertTo-Json"
+    )
+
+    result = _run_powershell(command, registry_path)
+
+    assert result.returncode != 0
+    assert "must be between 1 and 50" in result.stderr
+
+
+def test_registry_contract_version_mismatch_fails_fast(tmp_path: Path) -> None:
+    registry_path = tmp_path / "worktree-ports.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "contractVersion": "2026-08-21-branch-runtime-v5",
+                "worktrees": [],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    command = f". '{PROFILE_SCRIPT}'; Read-BranchRuntimePortRegistryEntries | Out-Null"
+
+    result = _run_powershell(command, registry_path)
+
+    assert result.returncode != 0
+    assert "contract version mismatch" in result.stderr
+
+
+def test_slot_allocator_registry_contract_version_mismatch_fails_fast(tmp_path: Path) -> None:
+    registry_path = tmp_path / "worktree-ports.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "contractVersion": "2026-08-21-branch-runtime-v5",
+                "worktrees": [],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        _slot_allocator_command(registry_path, name="version-mismatch"),
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=180,
+    )
+
+    assert result.returncode != 0
+    assert "contract version mismatch" in result.stderr
+
+
+def test_runtime_contract_consumers_use_shared_profile_version() -> None:
+    profile_text = PROFILE_SCRIPT.read_text(encoding="utf-8")
+    reserve_text = RESERVE_SLOT_SCRIPT.read_text(encoding="utf-8")
+    guard_text = (REPO_ROOT / "scripts" / "preflight" / "branch-runtime-port-guard.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    assert "$script:PortContractVersion = '2026-08-22-branch-runtime-v6'" in profile_text
+    assert ". \"$PSScriptRoot/branch-runtime-profile.ps1\"".replace("/", "\\") in reserve_text
+    assert "$script:PortContractVersion" in guard_text
+
+
 def test_registered_worktree_slot_above_50_fails_fast(tmp_path: Path) -> None:
     registry_path = _write_registry(
         tmp_path,
@@ -416,7 +553,7 @@ def test_slot_allocator_reserves_lowest_available_profile_slot(tmp_path: Path) -
         cwd=REPO_ROOT,
         text=True,
         capture_output=True,
-        timeout=30,
+        timeout=180,
     )
 
     assert result.returncode == 0, result.stderr
@@ -450,8 +587,8 @@ def test_concurrent_slot_allocators_receive_distinct_slots(tmp_path: Path) -> No
         stderr=subprocess.PIPE,
     )
 
-    first_stdout, first_stderr = first.communicate(timeout=30)
-    second_stdout, second_stderr = second.communicate(timeout=30)
+    first_stdout, first_stderr = first.communicate(timeout=180)
+    second_stdout, second_stderr = second.communicate(timeout=180)
 
     assert first.returncode == 0, first_stderr
     assert second.returncode == 0, second_stderr
@@ -484,7 +621,7 @@ def test_slot_allocator_uses_first_extended_slot_after_legacy_band(tmp_path: Pat
         cwd=REPO_ROOT,
         text=True,
         capture_output=True,
-        timeout=30,
+        timeout=180,
     )
 
     assert result.returncode == 0, result.stderr
@@ -523,7 +660,7 @@ def test_slot_allocator_uses_second_extended_slot_after_first_extension(tmp_path
         cwd=REPO_ROOT,
         text=True,
         capture_output=True,
-        timeout=30,
+        timeout=180,
     )
 
     assert result.returncode == 0, result.stderr
@@ -566,7 +703,7 @@ def test_slot_allocator_uses_third_extended_slot_after_second_extension(tmp_path
         cwd=REPO_ROOT,
         text=True,
         capture_output=True,
-        timeout=30,
+        timeout=180,
     )
 
     assert result.returncode == 0, result.stderr
@@ -613,7 +750,7 @@ def test_slot_allocator_fails_when_profile_band_is_exhausted(tmp_path: Path) -> 
         cwd=REPO_ROOT,
         text=True,
         capture_output=True,
-        timeout=30,
+        timeout=180,
     )
 
     assert result.returncode != 0

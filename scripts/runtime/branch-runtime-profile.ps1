@@ -1,11 +1,11 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PortContractVersion = '2026-08-21-branch-runtime-v5'
+$script:PortContractVersion = '2026-08-22-branch-runtime-v6'
 $script:DefaultWorktreePortRegistryPath = 'D:\IntRuoyiWorktree\.ports\worktree-ports.json'
 $script:MinimumWorktreeSlot = 1
 $script:LegacyMaximumWorktreeSlot = 19
-$script:MaximumWorktreeSlot = 40
+$script:MaximumWorktreeSlot = 50
 
 function Get-BranchRuntimeProfiles {
     @(
@@ -19,6 +19,8 @@ function Get-BranchRuntimeProfiles {
             ExtendedBackendStartPort = 48165
             SecondExtendedFrontendStartPort = 8216
             SecondExtendedBackendStartPort = 48216
+            ThirdExtendedFrontendStartPort = 8266
+            ThirdExtendedBackendStartPort = 48266
             FrontendMode = 'branch-main-d'
             EnvFile = 'IntRuoyiFronted\.env.branch-main-d'
         },
@@ -32,6 +34,8 @@ function Get-BranchRuntimeProfiles {
             ExtendedBackendStartPort = 48154
             SecondExtendedFrontendStartPort = 8206
             SecondExtendedBackendStartPort = 48206
+            ThirdExtendedFrontendStartPort = 8256
+            ThirdExtendedBackendStartPort = 48256
             FrontendMode = 'env.local'
             EnvFile = $null
         },
@@ -45,6 +49,8 @@ function Get-BranchRuntimeProfiles {
             ExtendedBackendStartPort = 48132
             SecondExtendedFrontendStartPort = 8186
             SecondExtendedBackendStartPort = 48186
+            ThirdExtendedFrontendStartPort = 8236
+            ThirdExtendedBackendStartPort = 48236
             FrontendMode = 'branch-batch'
             EnvFile = 'IntRuoyiFronted\.env.branch-batch'
         },
@@ -58,6 +64,8 @@ function Get-BranchRuntimeProfiles {
             ExtendedBackendStartPort = 48121
             SecondExtendedFrontendStartPort = 8176
             SecondExtendedBackendStartPort = 48176
+            ThirdExtendedFrontendStartPort = 8226
+            ThirdExtendedBackendStartPort = 48226
             FrontendMode = 'branch-shedule'
             EnvFile = 'IntRuoyiFronted\.env.branch-shedule'
         },
@@ -71,6 +79,8 @@ function Get-BranchRuntimeProfiles {
             ExtendedBackendStartPort = 48143
             SecondExtendedFrontendStartPort = 8196
             SecondExtendedBackendStartPort = 48196
+            ThirdExtendedFrontendStartPort = 8246
+            ThirdExtendedBackendStartPort = 48246
             FrontendMode = 'branch-qms'
             EnvFile = 'IntRuoyiFronted\.env.branch-qms'
         }
@@ -123,6 +133,23 @@ function Get-BranchRuntimePortRegistryPath {
     $script:DefaultWorktreePortRegistryPath
 }
 
+function Assert-BranchRuntimePortRegistryContract {
+    param(
+        [Parameter(Mandatory = $true)]$Document,
+        [Parameter(Mandatory = $true)][string]$RegistryPath
+    )
+
+    $contractProperty = $Document.PSObject.Properties['contractVersion']
+    if ($null -eq $contractProperty -or [string]::IsNullOrWhiteSpace([string]$contractProperty.Value)) {
+        throw "Worktree port registry '$RegistryPath' is missing contractVersion; expected '$script:PortContractVersion'."
+    }
+
+    $registryContractVersion = [string]$contractProperty.Value
+    if ($registryContractVersion -ne $script:PortContractVersion) {
+        throw "Worktree port registry contract version mismatch for '$RegistryPath': expected '$script:PortContractVersion', got '$registryContractVersion'."
+    }
+}
+
 function Read-BranchRuntimePortRegistryEntries {
     param([string]$RegistryPath = (Get-BranchRuntimePortRegistryPath))
 
@@ -137,6 +164,10 @@ function Read-BranchRuntimePortRegistryEntries {
     }
 
     $json = $raw | ConvertFrom-Json
+    if ($json -is [System.Array]) {
+        throw "Worktree port registry '$registryPath' must be an object with contractVersion '$script:PortContractVersion'."
+    }
+    Assert-BranchRuntimePortRegistryContract -Document $json -RegistryPath $registryPath
     $entries = New-Object System.Collections.Generic.List[object]
 
     function Add-RegistryNode {
@@ -403,10 +434,14 @@ function Get-BranchRuntimePorts {
         $extendedOffset = $Slot - ($script:LegacyMaximumWorktreeSlot + 1)
         $frontendPort = $Profile.ExtendedFrontendStartPort + $extendedOffset
         $backendPort = $Profile.ExtendedBackendStartPort + $extendedOffset
-    } else {
+    } elseif ($Slot -le 40) {
         $secondExtendedOffset = $Slot - 31
         $frontendPort = $Profile.SecondExtendedFrontendStartPort + $secondExtendedOffset
         $backendPort = $Profile.SecondExtendedBackendStartPort + $secondExtendedOffset
+    } else {
+        $thirdExtendedOffset = $Slot - 41
+        $frontendPort = $Profile.ThirdExtendedFrontendStartPort + $thirdExtendedOffset
+        $backendPort = $Profile.ThirdExtendedBackendStartPort + $thirdExtendedOffset
     }
 
     [pscustomobject]@{

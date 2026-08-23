@@ -11,7 +11,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Worktree root: `D:\IntRuoyiWorktree\`.
 - Worktree restrictions: `docs\worktree-restrictions.md`.
 - Branch runtime port matrix: `docs\branch-runtime-ports.md`; `int_main_d=8101/48101` at `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`, `int_main=8081/48081` at `E:\IntRuoyi`, `int_batch=8041/48041`, `int_shedule=8021/48021`, `int_qms=8061/48061`.
-- Additional worktrees must use an atomically reserved profile slot in `1..40`; reserve it with `scripts\runtime\reserve-worktree-slot.ps1` before starting either service.
+- Additional worktrees must use an atomically reserved profile slot in `1..50`; reserve it with `scripts\runtime\reserve-worktree-slot.ps1` before starting either service.
 - Trigger-read rules live under `docs\*.md`; read the matching rule file before the triggering operation.
 - Coordination docs live under root `doc\` and `docs\`; backend and frontend also contain their own `doc\` and `docs\` folders.
 - Do not reuse paths or folder names from prior project instructions unless the user explicitly confirms they are relevant to the current task.
@@ -130,7 +130,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - All IntRuoyi task worktrees must be created under `D:\IntRuoyiWorktree\` only.
 - `D:\IntRuoyiWorktree\` 下的 worktree 不能占用 `48081`；`48081` 只保留给 `E:\IntRuoyi` 的 `int_main` 后端基准运行态。发现该端口被 `D:\IntRuoyiWorktree\` 下的 worktree 占用时必须 fail fast，不得强杀、不得随机换端口、不得冒充 `int_main` 成功启动。
 - Before creating a worktree, resolve the absolute target path and verify it is a child path of `D:\IntRuoyiWorktree\`. If it is outside that root, fail fast and do not create the worktree.
-- After creating an additional worktree and before starting frontend or backend, run `scripts\runtime\reserve-worktree-slot.ps1`; `slot >= 41`, base-port collisions, duplicate active profile slots, and duplicate active ports must fail fast.
+- After creating an additional worktree and before starting frontend or backend, run `scripts\runtime\reserve-worktree-slot.ps1`; `slot >= 51`, base-port collisions, duplicate active profile slots, and duplicate active ports must fail fast.
 - Do not create IntRuoyi worktrees under `E:\IntRuoyi`, `IntRuoyiBackend`, `IntRuoyiFronted`, `%TEMP%`, the user profile, or any prior-project directory.
 - If `D:\IntRuoyiWorktree\` is missing or not writable, stop and report the missing precondition and impact instead of choosing another directory.
 
