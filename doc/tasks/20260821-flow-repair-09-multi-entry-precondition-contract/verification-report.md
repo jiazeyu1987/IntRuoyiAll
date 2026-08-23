@@ -20,14 +20,14 @@
 
 ## 主线程证据
 
-- Flow9 commit：`477c97d41 feat: enforce flow9 multi-entry batch preconditions`。
-- `int_main` 当前 HEAD：`b2f8e8356e1c6e27161147bb0d0d3802da3e848f`，包含上述 commit（`477c97d41` 祖先链确认）；不重复融合旧 worktree。
+- Flow9 基础入口合同 commit：`477c97d41 feat: enforce flow9 multi-entry batch preconditions`。
+- Flow9 独立 receipt 生命周期 commit：`2cf830d7b feat(flow9): add controlled independent receipt lifecycle`，父节点为并行流程11提交 `ef217fe2c`；当前 `int_main` 已包含该提交，不重复融合旧 worktree。
 - 编译：`mvn -o -pl yudao-module-mes -am -DskipTests compile` -> `BUILD SUCCESS`。
 - 目标测试：`ScheduleApplierTest, MesBatchExecutionEntryContractTest, MesPqcReleaseBatchExecutionServiceTest, MesProductionReleaseBatchExecutionPortTest` -> `Tests run: 42, Failures: 0, Errors: 0`。
 - `git diff --check` -> 通过；`branch-runtime-port-guard.ps1` -> 通过（int_main: 8081/48081）。
 - 最新主线复核（2026-08-23）保持上述 compile、42 项定向测试、diff-check 和 runtime guard 结果；流程9专项完成，流程6/7/8/10/11 全链路仍不属于流程9交付范围。
 - 本轮新增验证：`mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' ... test` -> FAIL 于流程7缺失类型，未报告流程9新增类错误；新增 SQL/API evidence 已静态核对，真实迁移 NOT RUN。
-- 本轮主线 HEAD=`425028c3fe175838c4302056f146d56def7239aa`；未重复融合既有 `477c97d41`，也未覆盖主线其它 dirty/untracked 文件。
+- 本轮以 `int_main` 最新 HEAD=`ef217fe2ca8887e5b4242d0823f203179d6b059e` 为父节点创建 `2cf830d7b`；未覆盖主线其它 dirty/untracked 文件。提交后的主线程 compile/新增 receipt 测试仍受同一流程7缺失类型影响，未将其伪报为 GREEN。
 
 ## 已读取合同证据
 
@@ -43,4 +43,4 @@
 
 ## 状态
 
-流程9自身任务：`completed`（代码实现已提交；新增测试的主线编译受外部流程7缺失类型阻断）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。
+流程9自身任务：`completed`（入口合同与受控 receipt 生命周期已提交；新增测试的主线编译受外部流程7缺失类型阻断）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。

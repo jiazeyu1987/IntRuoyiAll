@@ -64,7 +64,7 @@ completed
 
 收尾证据：已标记 `ready_for_closeout`，完成 cleanup preview/apply（无可删除附属产物）后标记 `completed`；流程9自身代码已提交，新增合同测试受外部流程7编译 blocker 影响未运行，跨流程闭环仍未完成。
 
-最新主线收尾（2026-08-23）：`int_main` HEAD=`b2f8e8356e1c6e27161147bb0d0d3802da3e848f`，`477c97d41` 仍在祖先链；不重复融合旧 worktree。
+最新主线收尾（2026-08-23）：并行流程11先提交 `ef217fe2c`，流程9随后以其为父节点提交 `2cf830d7b`；`477c97d41` 和 `2cf830d7b` 均在 `int_main` 祖先链，不重复融合旧 worktree。
 
 ## Cleanup Keep
 

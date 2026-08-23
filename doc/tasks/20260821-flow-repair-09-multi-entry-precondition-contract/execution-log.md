@@ -17,7 +17,8 @@
 - M6 PASS：`477c97d41` 已 fast-forward 融合到 `int_main`；当前主线程 HEAD 为 `155c767d5`，目标编译 BUILD SUCCESS，目标测试 42/42 PASS。
 - M7 PASS（2026-08-23）：最新 `int_main` HEAD=`b2f8e8356e1c6e27161147bb0d0d3802da3e848f`；确认 `477c97d41` 在祖先链，无重复融合。
 - M8 IN PROGRESS（2026-08-23）：新增流程9受控 `IndependentBatchPrerequisiteReceipt` issue/verify/revoke 服务、REST 合同、持久化 DO/Mapper/SQL 迁移和 task-owned 合同测试；不修改流程6实现。
-- M8 CLOSEOUT（2026-08-23）：当前 `int_main` HEAD=`425028c3fe175838c4302056f146d56def7239aa`；保留主线 dirty/untracked，流程9 task-owned 文件单独收口。
+- M8 CLOSEOUT（2026-08-23）：保留主线 dirty/untracked，流程9 task-owned 文件单独收口。
+- M9 PASS（2026-08-23）：在并行流程11提交 `ef217fe2c` 之后，以最新 `int_main` 为父节点提交流程9受控 receipt 生命周期，commit=`2cf830d7b`；commit hook 的 `branch-runtime-port-guard.ps1` 通过（8081/48081）。
 
 ## BDD/TDD 记录
 
@@ -38,7 +39,7 @@
 - `RED: mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' ... test -> FAIL，先暴露主线未跟踪流程7缺失 MesProEdhrBatchTraceSourcePrecheckRespVO；该错误不在流程9改动路径。`
 - `GREEN: MesIndependentBatchPrerequisiteReceiptServiceTest -> NOT RUN（外部编译阻断）；静态 SQL/API 合同已写入 task-owned 证据，未把文档结构 PASS 冒充生产 GREEN。`
 - `REGRESSION: NOT RUN ->` 数据库迁移、流程11全链路、流程8四材料、流程10最终放行和真实写入型 E2E 未执行。
-- 最新主线程复核沿用已通过命令：MES compile `BUILD SUCCESS`；入口合同/PQC 联动/生产放行端口/排产 fail-fast 定向测试 `42/42 PASS`；`git diff --check` 和 `branch-runtime-port-guard.ps1` 通过。
+- 最新主线程复核沿用已通过命令：MES compile `BUILD SUCCESS`；入口合同/PQC 联动/生产放行端口/排产 fail-fast 定向测试 `42/42 PASS`；`git diff --check` 和 `branch-runtime-port-guard.ps1` 通过。新增 receipt 专项测试因主线既有流程7缺失类型未进入 Surefire，保持 NOT RUN。
 
 ## 代码审计事实
 
@@ -65,4 +66,4 @@
 
 ## 结论
 
-流程9自身入口合同实现完成并已在 `int_main` 验证；跨流程持久化、四材料 gate、最终放行和全链路迁移仍不能据此放行生产。
+流程9自身入口合同与独立 receipt issue/verify/revoke 实现已提交至 `int_main`（`2cf830d7b`）并通过提交门禁；跨流程持久化运行、四材料 gate、最终放行和全链路迁移仍不能据此放行生产。
