@@ -2,7 +2,9 @@
 
 ## Current Status
 
-### Latest Authoritative Status (2026-08-23 16:06:35+08:00)
+completed for Flow7 task-owned scope; full cross-flow target remains blocked.
+
+### Latest Authoritative Status (2026-08-23 17:32:14+08:00)
 
 `completed for the Flow7 task-owned scope; full cross-flow target remains blocked`. The delivered scope includes task-owned batch Origin/TraceLink/Manifest persistence, the formal Tx-C producer/outbox path, source-precheck resolver contract, and service contracts. Current `int_main` Maven 3.9.16 clean compile passed at `2026-08-23T16:05:23+08:00` (24 modules, MES 2858 main sources); the focused 29 tests passed at `2026-08-23T16:06:35+08:00` (validator 17 + service contract 12, zero failures/errors/skips, `BUILD SUCCESS`). The source-precheck contract also records `FLOW8_SOURCE_PRECHECK_STALE` after a post-precheck source mutation and `FLOW8_TRACE_LINK_ORIGIN_MISMATCH` for an inconsistent batch/origin relation; Tx-C uses `TRACE_MAPPING_BLOCKED` with `SOURCE_CHANGED_AFTER_PRECHECK`. The linked-worktree ACL failure is historical context only. Real upstream receipt adapters/owners, database migration/runtime/permissions, Flow8 four-material gate, Flow10 final `RELEASED`, full regression, service startup and write-enabled E2E remain `NOT RUN`/blocked and are not owned by Flow7.
 
@@ -72,3 +74,18 @@ partial / blocked
 
 - doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/development-plan.md
 - doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/test-plan.md
+- doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/backend-api-evidence.md
+- doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/database-schema-evidence.md
+- doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/prd.md
+- doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/task-state.json
+- doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/test-report.md
+
+## Cleanup Candidates
+
+- doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/tmp-flow7-verify
+
+## Latest Verification Evidence (2026-08-23 17:32:14+08:00)
+
+- Maven 3.9.16 compile passed at `2026-08-23T17:30:45+08:00` (24-module reactor, `BUILD SUCCESS`).
+- Flow7 focused tests passed at `2026-08-23T17:32:14+08:00`: 29/29 (17 validator + 12 service contract), zero failures/errors/skips, `BUILD SUCCESS`.
+- Formal source-precheck remains persisted-resolver only: `batchExecutionId`, `originLinkId`, `traceLinkHash`, `sourceSnapshotHash`; post-precheck mutation is blocked by `FLOW8_SOURCE_PRECHECK_STALE` and Tx-C emits `TRACE_MAPPING_BLOCKED`.

@@ -210,3 +210,10 @@ REGRESSION: 未运行（仅完成文档核验） -> 流程 2/3/4/5/6/7/8/9/10/11
 - `GREEN: Get-Content/rg 静态证据核验 -> PASS, 已记录上述文件/行号；既有 Flow7 25 项 focused validator/service contract tests 的 PASS 仅证明 task-owned slice，不证明跨流程闭环。`
 - `REGRESSION: full cross-flow, migration, permissions, startup and write-enabled E2E -> NOT RUN, blocker 清单保持 fail-fast，不使用默认值、旧申请号或 fallback 补链。`
 - P1 可供独立测试：**是（仅 P1 审计证据）**；独立测试者可按本节路径/行号复核。代码符合性/生产放行结论：**否**，需先关闭 Flow4 receipt persistence、Flow6 active-order provision owner/旧 applicationId 路径、Flow5 loss links、Flow8 shared gate、Flow10 upstream adapters/outbox 及 Flow11 全链路迁移/E2E blocker。
+
+## 2026-08-23 当前 int_main 收尾复核
+
+- `RED: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd --% -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests compile -> PASS`，24 模块 reactor，`BUILD SUCCESS`，完成于 `2026-08-23T17:30:45+08:00`。
+- `GREEN: ... -Dtest=MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest ... test -> PASS`，29/29（validator 17 + service contract 12），0 failures/errors/skips，`BUILD SUCCESS`，完成于 `2026-08-23T17:32:14+08:00`。
+- 来源变化证据保持有效：正式 resolver 首次预检后来源变更返回 `FLOW8_SOURCE_PRECHECK_STALE`；batch/origin 不一致返回 `FLOW8_TRACE_LINK_ORIGIN_MISMATCH`；Tx-C 失败持久化 `TRACE_MAPPING_BLOCKED` 与 `SOURCE_CHANGED_AFTER_PRECHECK`，不得推进 `BATCH_READY`。
+- Cleanup preview/apply 只允许删除 `doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/tmp-flow7-verify`，保留五份正式文档及 PRD、证据、状态和测试报告；未执行全链路回归、真实 DB/Mapper、服务启动或写入型 E2E。

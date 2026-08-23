@@ -1,6 +1,13 @@
 # 流程修复 7 文档验证报告
 
-## Latest Authoritative Verification (2026-08-23 16:06:35+08:00)
+## Latest Authoritative Verification (2026-08-23 17:32:14+08:00)
+
+## Latest Re-run Evidence (2026-08-23 17:32:14+08:00)
+
+- Compile: Maven 3.9.16 `-f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests compile` -> PASS, 24-module reactor, `BUILD SUCCESS`, finished `2026-08-23T17:30:45+08:00`.
+- Focused tests: `MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest` -> PASS, 29/29 (17 validator + 12 service contract), zero failures/errors/skips, `BUILD SUCCESS`, finished `2026-08-23T17:32:14+08:00`.
+- Resolver evidence: formal persisted read returns `batchExecutionId`, `originLinkId`, `traceLinkHash`, and `sourceSnapshotHash`; post-precheck source mutation fails with `FLOW8_SOURCE_PRECHECK_STALE`, relation mismatch fails with `FLOW8_TRACE_LINK_ORIGIN_MISMATCH`, and Tx-C records `TRACE_MAPPING_BLOCKED`/`SOURCE_CHANGED_AFTER_PRECHECK`.
+- Cleanup is limited to the task-owned `tmp-flow7-verify` directory; evidence, PRD, state, test plan, and test report are retained.
 
 Flow7 implementation slice: **PASS for the Flow7 task-owned scope (fresh current-int_main verification)**. Current `int_main` Maven 3.9.16 clean compile passed at `2026-08-23T16:05:23+08:00` across 24 reactor modules (MES 2858 main sources); 29 focused tests (17 validator + 12 service contract) passed at `2026-08-23T16:06:35+08:00` with zero failures/errors/skips (`BUILD SUCCESS`). Test resources were copied normally. The verified slice covers task-owned Origin/TraceLink/Manifest contracts, formal Tx-C producer/outbox handling, source-precheck resolver, explicit `originId`, persisted `RELEASE_DECISION` TraceLink resolution, canonical source identity mismatch blocking, loss-fact mapping, `FLOW8_SOURCE_PRECHECK_STALE` after a post-precheck source mutation, and `FLOW8_TRACE_LINK_ORIGIN_MISMATCH` for a batch/origin relation mismatch. Tx-C maps source mutation to stable `TRACE_MAPPING_BLOCKED` with `SOURCE_CHANGED_AFTER_PRECHECK`. The linked-worktree flatten/compiler ACL failures are historical context only.
 
