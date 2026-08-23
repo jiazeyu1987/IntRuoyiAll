@@ -50,7 +50,7 @@ development-plan.md 规定流程 6 负责三类回填成功后的批次执行创
 
 - 9b18ee093 已进入 int_main，新增 MesReleaseAuthoritativeContextConfiguration 显式 @Bean，移除实现类上的扫描条件注解。
 - MesReleaseAuthoritativeContextConfigurationTest：1/1 PASS；端口类型 Bean 恰好一个，实例为结构化 blocker 实现。
-- 流程10定向合同 suite：46/46 PASS。
+- 流程10定向合同 suite：47/47 PASS。
 - mvn -pl yudao-server -am -DskipTests package：BUILD SUCCESS。
 - 实际启动 yudao-server-exec.jar：48081 LISTEN；GET http://127.0.0.1:48081/actuator/health 返回 status=UP。
 - 运行时 nested yudao-module-mes JAR 中配置类和 blocker 类 SHA-256 与当前构建产物一致；启动日志无缺失 Bean 或应用启动失败。

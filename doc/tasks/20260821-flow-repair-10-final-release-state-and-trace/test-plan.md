@@ -39,5 +39,5 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 - BDD: Given 流程4/6/8权威适配器尚未接入；When Spring context 启动；Then MesReleaseAuthoritativeContextPort 恰好一个 Bean，放行请求仍返回结构化 blocker。
 - RED: MesReleaseAuthoritativeContextConfigurationTest 在修复前因无端口 Bean 启动失败（历史日志 MesReleaseAuthoritativeContextPort missing）。
 - GREEN: mvn -pl yudao-module-mes -Dtest=MesReleaseAuthoritativeContextConfigurationTest test -> PASS；该测试 1/1。
-- REGRESSION: mvn -pl yudao-module-mes -Dtest=MesReleaseFinalizationValidatorTest,MesProEdhrReleaseServiceImplTest,MesProductionReleaseManagerApprovalServiceTest,MesReleaseAuthoritativeContextConfigurationTest test -> PASS，46/46；mvn -pl yudao-server -am -DskipTests package -> BUILD SUCCESS。
+- REGRESSION: mvn -pl yudao-module-mes -Dtest=MesReleaseFinalizationValidatorTest,MesProEdhrReleaseServiceImplTest,MesProductionReleaseManagerApprovalServiceTest,MesReleaseAuthoritativeContextConfigurationTest test -> PASS，47/47；mvn -pl yudao-server -am -DskipTests package -> BUILD SUCCESS。
 - Runtime smoke: 48081 LISTEN，GET /actuator/health -> status=UP；运行时 JAR 类 SHA-256 与构建产物一致。

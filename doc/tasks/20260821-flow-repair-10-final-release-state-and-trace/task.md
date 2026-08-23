@@ -41,8 +41,8 @@ ready_for_closeout：流程10专项实现、融合和主线程验证已完成；
 
 流程10已在 `9b18ee093` 中将 `MesReleaseAuthoritativeContextPort` 改为主应用明确导入的 `@Configuration/@Bean` 注册；实现类不再依赖组件扫描时机。无流程4/6/8权威适配器时，唯一 Bean 仍为结构化 blocker 实现，不返回默认成功或放行。
 
-- 配置 smoke test：`MesReleaseAuthoritativeContextConfigurationTest`，1/1 PASS。
-- 流程10定向合同回归：46/46 PASS。
+- 配置 smoke test：`MesReleaseAuthoritativeContextConfigurationTest`，2/2 PASS（唯一 Bean 和结构化 blocker）。
+- 流程10定向合同回归：47/47 PASS。
 - `yudao-server` Maven package：BUILD SUCCESS。
 - 实际启动：48081 监听，`/actuator/health` 返回 `{\"status\":\"UP\"}`。
 - 运行时 JAR 与当前构建产物中配置类、blocker 类 SHA-256 一致。

@@ -100,4 +100,4 @@
 
 运行时缺失 Bean 的根因是实现类依赖 @Service + @ConditionalOnMissingBean 的扫描时机，主应用启动时没有形成可注入的端口 Bean。MesReleaseAuthoritativeContextConfiguration 现在通过显式 @Configuration/@Bean 注册唯一 blocker 实现；真实流程4/6/8适配器接入后可由条件注册替换，当前缺失适配器仍抛结构化 blocker。
 
-MesReleaseAuthoritativeContextConfigurationTest 断言端口 Bean 恰好一个；实际定向 suite 46/46 PASS，yudao-server package BUILD SUCCESS，48081 实际监听且 /actuator/health 为 UP。运行时 JAR 中配置类和 blocker 类与当前构建产物 SHA-256 一致。
+MesReleaseAuthoritativeContextConfigurationTest 的两个断言分别确认端口 Bean 恰好一个和缺失适配器时返回结构化 blocker；实际定向 suite 47/47 PASS，yudao-server package BUILD SUCCESS，48081 实际监听且 /actuator/health 为 UP。运行时 JAR 中配置类和 blocker 类与当前构建产物 SHA-256 一致。

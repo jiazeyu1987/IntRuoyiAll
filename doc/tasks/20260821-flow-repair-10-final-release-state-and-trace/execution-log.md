@@ -83,6 +83,6 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 - 状态：完成；任务仍 ready_for_closeout，不宣称全链路完成。
 - BDD: Given 流程4/6/8权威适配器未接入；When 主应用启动；Then 端口恰好一个 Bean，缺失权威上下文时放行仍返回结构化 blocker。
 - RED: 历史启动日志 yudao-server.log:17977 报端口 Bean 缺失，48081 未监听。
-- GREEN: MesReleaseAuthoritativeContextConfigurationTest 1/1 PASS；流程10定向 suite 46/46 PASS。
+- GREEN: MesReleaseAuthoritativeContextConfigurationTest 2/2 PASS；流程10定向 suite 47/47 PASS。
 - GREEN: mvn -pl yudao-server -am -DskipTests package -> BUILD SUCCESS；实际启动后 48081 LISTEN，/actuator/health 返回 status=UP。
 - REGRESSION: 构建产物与运行时 nested MES JAR 中配置类、结构化 blocker 类 SHA-256 一致；启动日志无 APPLICATION FAILED TO START。
