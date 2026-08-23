@@ -9,9 +9,9 @@
 | Milestone | 内容 | 状态 |
 | --- | --- | --- |
 | M1 | 读取主仓库规则并冻结 dirty 基线 | completed |
-| M2 | 按路径、任务目录和文件类型完成分类并核对归属 | in_progress |
-| M3 | 选择性提交明确归属内容并补充必要 ignore | pending |
-| M4 | 复核主线状态、剩余文件和提交清单 | pending |
+| M2 | 按路径、任务目录和文件类型完成分类并核对归属 | completed |
+| M3 | 选择性提交明确归属内容并补充必要 ignore | completed |
+| M4 | 复核主线状态、剩余文件和提交清单 | completed |
 
 ## Expected Verification
 
@@ -29,4 +29,4 @@
 
 ## Current Status
 
-in_progress
+completed
