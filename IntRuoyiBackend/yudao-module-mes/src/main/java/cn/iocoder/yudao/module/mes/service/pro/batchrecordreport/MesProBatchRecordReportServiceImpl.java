@@ -404,9 +404,56 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(selectedProjectCode.getId());
         List<MesProRouteDO> routes = !formalBindings.isEmpty()
                 ? resolveRoutesByDccProjectBinding(selectedProjectCode, formalBindings)
-                : resolveRoutesByDccProjectProductBinding(selectedProjectCode);
+                : resolveRoutesByDccProjectName(selectedProjectCode.getProjectName());
+        if (routes.isEmpty()) {
+            routes = resolveRoutesByDccProjectProductBinding(selectedProjectCode);
+        }
         requireRoutesHaveActiveVersions(routes);
         return routes;
+    }
+
+    /**
+     * Resolves the governed route through the formal DCC project-code -> item -> route-product relation.
+     * Project name is only the scope for selecting enabled formal DCC codes; it is never used to guess a route.
+     */
+    private List<MesProRouteDO> resolveRoutesByDccProjectName(String projectName) {
+        String normalizedProjectName = StrUtil.trimToNull(projectName);
+        if (normalizedProjectName == null) {
+            return List.of();
+        }
+        List<DccProjectCodeDO> projectCodes =
+                dccProjectCodeMapper.selectEnabledListByProjectName(projectName);
+        Set<String> formalProductCodes = projectCodes.stream()
+                .map(DccProjectCodeDO::getProjectCode)
+                .map(StrUtil::trimToNull)
+                .filter(Objects::nonNull)
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+        if (formalProductCodes.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> dccProductItemIds = itemMapper.selectListByCodes(formalProductCodes).stream()
+                .filter(item -> CommonStatusEnum.isEnable(item.getStatus())
+                        && Boolean.TRUE.equals(item.getBatchFlag()))
+                .map(MesMdItemDO::getId)
+                .filter(Objects::nonNull)
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+        if (dccProductItemIds.isEmpty()) {
+            return List.of();
+        }
+        List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByItemIds(dccProductItemIds);
+        List<Long> routeIds = routeProducts.stream()
+                .map(MesProRouteProductDO::getRouteId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (routeIds.isEmpty()) {
+            return List.of();
+        }
+        return routeMapper.selectBatchIds(routeIds).stream()
+                .filter(route -> route.getId() != null)
+                .collect(java.util.stream.Collectors.toMap(MesProRouteDO::getId, route -> route,
+                        (left, right) -> left, LinkedHashMap::new))
+                .values().stream().toList();
     }
 
     private void requireRoutesHaveActiveVersions(List<MesProRouteDO> routes) {

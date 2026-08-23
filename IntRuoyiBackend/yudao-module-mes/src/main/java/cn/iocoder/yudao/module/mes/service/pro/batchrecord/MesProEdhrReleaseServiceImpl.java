@@ -191,9 +191,6 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
-        if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
-            reqVO.setReleaseStatus(STATUS_RELEASED);
-        }
         if (hasReleaseTransactionFilter(reqVO)) {
             return getTransactionFilteredPage(reqVO);
         }
@@ -726,7 +723,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return false;
         }
         if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
-            return STATUS_RELEASED.equals(item.getReleaseStatus());
+            return STATUS_RELEASED.equals(item.getReleaseStatus())
+                    || Objects.equals(item.getBatchExecutionStatus(),
+                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED)
+                    || Objects.equals(item.getBatchExecutionStatus(),
+                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED);
         }
         return true;
     }

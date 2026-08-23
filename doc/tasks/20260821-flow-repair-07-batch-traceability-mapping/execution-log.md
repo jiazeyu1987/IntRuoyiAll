@@ -218,3 +218,23 @@ REGRESSION: 未运行（仅完成文档核验） -> 流程 2/3/4/5/6/7/8/9/10/11
 - 来源变化证据保持有效：正式 resolver 首次预检后来源变更返回 `FLOW8_SOURCE_PRECHECK_STALE`；batch/origin 不一致返回 `FLOW8_TRACE_LINK_ORIGIN_MISMATCH`；Tx-C 失败持久化 `TRACE_MAPPING_BLOCKED` 与 `SOURCE_CHANGED_AFTER_PRECHECK`，不得推进 `BATCH_READY`。
 - Cleanup preview/apply 只允许删除 `doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/tmp-flow7-verify`，保留五份正式文档及 PRD、证据、状态和测试报告；未执行全链路回归、真实 DB/Mapper、服务启动或写入型 E2E。
 - Cleanup apply 首次尝试因临时副本已被部分清理而遇到 `FileNotFoundError`；随后仅对同一已核验路径执行空目录镜像清理并删除该 `tmp-flow7-verify`，未触碰任务证据文件或其它工作树路径；再次执行 cleanup apply 退出码 0，`tmp-flow7-verify` 不存在。
+
+## 2026-08-23 第二轮主线回归修复与复核
+
+BDD: 追溯终端分区 -> Given 查询 `completedTraceOnly=true` When 批次列表执行正式状态/放行关系过滤 Then 仅返回已归档、已拒绝或存在 RELEASED 交易的批次，并保留租户与作废状态边界。
+
+BDD: DCC 路由正式身份 -> Given 启用的 DCC 项目代码及正式产品绑定 When Word 导入预检解析受治理路由 Then 只沿项目代码 -> 物料 -> routeProduct ID 关系解析，不按路由名称猜测。
+
+RED: `mvn.cmd --% -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dtest=MesProEdhrTraceTerminalPartitionContractTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false test` -> FAIL，2 tests/2 failures；缺少 completedTraceOnly 状态分支和终端放行分区合同。
+
+RED: `mvn.cmd --% -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dtest=MesProBatchRecordRouteIdentityContractTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false test` -> FAIL，2 tests/1 failure；Word 导入未通过正式 DCC 项目代码和 routeProduct ID 解析。
+
+GREEN: 同两条定向命令复跑 -> PASS；追溯终端类 2/2，路由身份类 2/2，0 failures/errors/skips。修复仅涉及 `MesProEdhrBatchExecutionMapper` 的正式状态分区和 `MesProBatchRecordReportServiceImpl` 的 DCC 项目代码 -> 物料 -> 路由产品关系。
+
+REGRESSION: `mvn.cmd --% -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dtest=MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false test` -> PASS，流程7 29/29（validator 17 + service contract 12），0 failures/errors/skips。
+
+REGRESSION: `mvn.cmd --% -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests compile` -> PASS，24 模块 reactor，`BUILD SUCCESS`，`2026-08-23T19:02:38+08:00`。`git diff --check` -> PASS（仅换行风格 warning，无 diff error）。
+
+来源变化与流程边界保持不变：流程7正式 resolver/持久化读取返回 `batchExecutionId`、`originLinkId`、`traceLinkHash`、`sourceSnapshotHash`；预检后来源变化阻断为 `FLOW8_SOURCE_PRECHECK_STALE`，batch/origin 不一致为 `FLOW8_TRACE_LINK_ORIGIN_MISMATCH`，Tx-C 映射缺失、版本/hash 变化为 `TRACE_MAPPING_BLOCKED`，不得推进流程6 `BATCH_READY`。流程10 的最终 `RELEASED` 仍不属于流程7。
+
+本轮未运行真实数据库迁移、服务启动、权限对象验证或写入型 E2E；主工作树仍包含其它任务 dirty/untracked，提交必须仅选择流程7两处代码和本任务日志。
