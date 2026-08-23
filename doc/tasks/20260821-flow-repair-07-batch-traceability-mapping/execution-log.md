@@ -217,3 +217,4 @@ REGRESSION: 未运行（仅完成文档核验） -> 流程 2/3/4/5/6/7/8/9/10/11
 - `GREEN: ... -Dtest=MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest ... test -> PASS`，29/29（validator 17 + service contract 12），0 failures/errors/skips，`BUILD SUCCESS`，完成于 `2026-08-23T17:32:14+08:00`。
 - 来源变化证据保持有效：正式 resolver 首次预检后来源变更返回 `FLOW8_SOURCE_PRECHECK_STALE`；batch/origin 不一致返回 `FLOW8_TRACE_LINK_ORIGIN_MISMATCH`；Tx-C 失败持久化 `TRACE_MAPPING_BLOCKED` 与 `SOURCE_CHANGED_AFTER_PRECHECK`，不得推进 `BATCH_READY`。
 - Cleanup preview/apply 只允许删除 `doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/tmp-flow7-verify`，保留五份正式文档及 PRD、证据、状态和测试报告；未执行全链路回归、真实 DB/Mapper、服务启动或写入型 E2E。
+- Cleanup apply 首次尝试因临时副本已被部分清理而遇到 `FileNotFoundError`；随后仅对同一已核验路径执行空目录镜像清理并删除该 `tmp-flow7-verify`，未触碰任务证据文件或其它工作树路径；再次执行 cleanup apply 退出码 0，`tmp-flow7-verify` 不存在。
