@@ -1,6 +1,13 @@
 # 执行记录
 
-## 2026-08-23 14:24:55 提交后标准复验（最新）
+## 2026-08-23 14:34:54 Clean 后标准复验（最新）
+
+- `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests clean compile -> PASS`；24 模块 reactor 执行 clean compile，MES 编译 2857 个主源码文件，`BUILD SUCCESS`，结束时间 `2026-08-23T14:33:27+08:00`。
+- `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dtest=MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false test -> PASS`；testResources 正常复制，流程7定向测试 29 项（validator 17 + service contract 12），0 failures、0 errors、0 skipped，`BUILD SUCCESS`，结束时间 `2026-08-23T14:34:54+08:00`。
+- 本次结果验证的是已提交的 Flow7 task-owned 切片（实现提交 `0767b1fa5`，证据提交 `e4df56ce3`），不改变流程6/8/10 状态 owner。
+- `REGRESSION: full cross-flow regression, real database migration/append-only trigger/Mapper/permissions/runtime, service startup, Flow6 consumer, Flow8 four-material gate, Flow10 final RELEASED, and write-enabled E2E -> NOT RUN`；上游正式 receipt/owner/fixture 和真实运行环境仍是 blocker。
+
+## 2026-08-23 14:24:55 提交后标准复验（历史，已被 14:34:54 clean 后复验取代）
 
 - `COMMIT: git commit -m "feat(mes): add batch traceability tx-c producer" -> PASS`；task-owned 提交 `0767b1fa5`，46 files changed，未暂存流程9或其它并行 dirty/untracked。
 - `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests compile -> PASS`；24 模块 reactor `BUILD SUCCESS`，结束时间 `2026-08-23T14:23:59+08:00`。

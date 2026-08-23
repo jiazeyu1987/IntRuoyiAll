@@ -137,7 +137,7 @@ Tx-C 在一个事务中写入不可变 Origin、TraceLink、Manifest 和 outbox 
 
 当前流程 6 审计 metadata 尚未持久化完整 `sourceEvidence`/receipt payload，故真实生产路径在该上游合同补齐前必须保持结构化 blocker；本节不把独立测试或静态 fixture 视为全链路完成。
 
-- Main-workspace Maven 3.9.16 compile, testCompile and the focused 29 tests (17 validator + 12 service contract) passed with 0 failures/errors/skips and `BUILD SUCCESS`; the post-commit invocation copied testResources normally.
+- Main-workspace Maven 3.9.16 clean compile passed at `2026-08-23T14:33:27+08:00` across 24 reactor modules (MES 2857 main sources); the focused 29 tests (17 validator + 12 service contract) passed at `2026-08-23T14:34:54+08:00` with 0 failures/errors/skips and `BUILD SUCCESS`; testResources copied normally.
 - The linked-worktree flatten/compiler ACL failures are historical context only and are superseded by the fresh main-workspace result.
 - The verified slice covers only Flow7 validator/service-contract behavior (including required `originId`, `RELEASE_DECISION` TraceLink lookup, canonical source identity, and loss-fact mapping); it does not prove the complete workflow, real database migration/Mapper/runtime permissions, service startup, the Flow8 four-material gate, the Flow10 `RELEASED` transition, or write-enabled E2E.
 - Full regression, real database migration/append-only trigger/permission/runtime verification, upstream formal-receipt adapters/owners/fixtures, Flow8/Flow10 cross-thread integration, and write-enabled E2E remain `NOT RUN` and are blockers.

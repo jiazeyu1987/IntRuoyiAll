@@ -2,7 +2,7 @@
 
 ## Latest Verification Boundary (2026-08-23)
 
-Main-workspace Maven 3.9.16 compile, testCompile and the focused 29 tests passed (17 validator plus 12 service-contract, zero failures/errors/skips, `BUILD SUCCESS`). The verified contract includes required `originId`, persisted `RELEASE_DECISION` TraceLink lookup, canonical `(linkType, sourceObjectId)` identity with snapshot-hash mismatch blocking, explicit loss-fact mapping, and Tx-C success/failure transaction boundaries. Full regression, real database/runtime/permission verification, Flow8/Flow10 integration, and write-enabled E2E remain `NOT RUN`; this evidence cannot be used as release approval.
+Main-workspace Maven 3.9.16 clean compile passed at `2026-08-23T14:33:27+08:00` across 24 reactor modules (MES compiled 2857 main sources); the focused 29 tests passed at `2026-08-23T14:34:54+08:00` (17 validator plus 12 service-contract, zero failures/errors/skips, `BUILD SUCCESS`). The verified contract includes required `originId`, persisted `RELEASE_DECISION` TraceLink lookup, canonical `(linkType, sourceObjectId)` identity with snapshot-hash mismatch blocking, explicit loss-fact mapping, and Tx-C success/failure transaction boundaries. Full regression, real database/runtime/permission verification, Flow8/Flow10 integration, and write-enabled E2E remain `NOT RUN`; this evidence cannot be used as release approval.
 
 ## Tx-C Producer and Event Test Boundary
 
