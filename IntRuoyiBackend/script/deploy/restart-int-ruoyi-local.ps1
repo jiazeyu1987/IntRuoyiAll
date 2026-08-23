@@ -646,6 +646,34 @@ SELECT CASE WHEN
 THEN 1 ELSE 0 END;
 '@
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260815_system_notify_message_business_key.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'MES eDHR release final state trace schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_work_order'
+      AND COLUMN_NAME IN ('release_decision_id', 'released_by', 'released_at')
+  ) = 3
+  AND (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_process_pool_active_order'
+      AND COLUMN_NAME IN ('release_decision_id', 'released_by', 'released_at')
+  ) = 3
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_edhr_release_decision'
+  )
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260822_mes_edhr_release_final_state_trace.sql'
     }
 )
 $RequiredDccDownloadEncryptionEnv = @(

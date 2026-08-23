@@ -100,6 +100,17 @@ def test_local_restart_applies_profile_page_schema_dependencies_before_backend_s
     )
 
 
+def test_local_restart_applies_profile_workbench_schedule_order_schema_dependency():
+    script = read_script("restart-int-ruoyi-local.ps1")
+
+    assert "20260822_mes_edhr_release_final_state_trace.sql" in script
+    assert "mes_pro_work_order" in script
+    assert "mes_pro_process_pool_active_order" in script
+    assert "release_decision_id" in script
+    assert "released_by" in script
+    assert "released_at" in script
+
+
 def test_local_restart_script_defaults_to_int_main_without_global_worktree_pair_sync():
     script = read_script("restart-int-ruoyi-local.ps1")
 
