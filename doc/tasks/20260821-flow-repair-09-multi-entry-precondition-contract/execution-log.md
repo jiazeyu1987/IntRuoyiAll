@@ -19,6 +19,7 @@
 - M8 IN PROGRESS（2026-08-23）：新增流程9受控 `IndependentBatchPrerequisiteReceipt` issue/verify/revoke 服务、REST 合同、持久化 DO/Mapper/SQL 迁移和 task-owned 合同测试；不修改流程6实现。
 - M8 CLOSEOUT（2026-08-23）：保留主线 dirty/untracked，流程9 task-owned 文件单独收口。
 - M9 PASS（2026-08-23）：在并行流程11提交 `ef217fe2c` 之后，以最新 `int_main` 为父节点提交流程9受控 receipt 生命周期，commit=`2cf830d7b`；commit hook 的 `branch-runtime-port-guard.ps1` 通过（8081/48081）。
+- M10 PASS（2026-08-23）：复核跨租户验真/撤销时原先被租户过滤误报为缺凭证的问题；新增无租户范围 receipt 查询，仅用于返回稳定 `TENANT_MISMATCH`，不泄露凭证内容；commit=`656e343df`。
 
 ## BDD/TDD 记录
 
@@ -36,10 +37,10 @@
 - `RED: mvn -o -pl yudao-module-mes -Dtest=ScheduleApplierTest,MesBatchExecutionEntryContractTest,MesPqcReleaseBatchExecutionServiceTest,MesProductionReleaseBatchExecutionPortTest -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=0 test -> FAIL，先暴露独立/活跃凭证、损耗事实和入口映射夹具不一致。`
 - `GREEN: mvn -o -pl yudao-module-mes -am -DskipTests compile -> PASS；目标四类测试 -> PASS，Tests run: 42, Failures: 0, Errors: 0。`
 - `REGRESSION: NOT RUN ->` 流程11全链路、并发/迁移、四材料、最终放行和真实 E2E 仍未执行。
-- `RED: mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' ... test -> FAIL，先暴露主线未跟踪流程7缺失 MesProEdhrBatchTraceSourcePrecheckRespVO；该错误不在流程9改动路径。`
-- `GREEN: MesIndependentBatchPrerequisiteReceiptServiceTest -> NOT RUN（外部编译阻断）；静态 SQL/API 合同已写入 task-owned 证据，未把文档结构 PASS 冒充生产 GREEN。`
+- `RED: mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' ... test -> FAIL（初次运行受主线流程7缺失类型阻断，非流程9错误）。`
+- `GREEN: mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-DforkCount=0' test -> PASS，Tests run: 4, Failures: 0, Errors: 0；覆盖签发、验真、篡改/来源变化、过期/撤销、跨租户和幂等边界。`
 - `REGRESSION: NOT RUN ->` 数据库迁移、流程11全链路、流程8四材料、流程10最终放行和真实写入型 E2E 未执行。
-- 最新主线程复核沿用已通过命令：MES compile `BUILD SUCCESS`；入口合同/PQC 联动/生产放行端口/排产 fail-fast 定向测试 `42/42 PASS`；`git diff --check` 和 `branch-runtime-port-guard.ps1` 通过。新增 receipt 专项测试因主线既有流程7缺失类型未进入 Surefire，保持 NOT RUN。
+- 最新主线程复核：MES compile `BUILD SUCCESS`；入口合同/PQC 联动/生产放行端口/排产 fail-fast 定向测试 `42/42 PASS`；receipt 专项测试 `4/4 PASS`；`git diff --check` 和 `branch-runtime-port-guard.ps1` 通过。
 
 ## 代码审计事实
 
@@ -61,9 +62,9 @@
 ## 未实现项
 
 - 流程9新增 receipt 服务代码已实现，但真实数据库迁移、配置密钥注入、流程6正式消费接线、流程8/10/11生产实现、历史盘点和真实 E2E 均未执行。
-- 当前编译 blocker 是主线已有流程7未跟踪文件缺少 `MesProEdhrBatchTraceSourcePrecheckRespVO`，不属于流程9，不能通过修改其它任务解决。
+- 初次 receipt 测试曾被主线已有流程7未跟踪文件缺少 `MesProEdhrBatchTraceSourcePrecheckRespVO` 阻断，后续主线依赖状态恢复后已通过；该类型仍不属于流程9改动路径。
 - 历史无正式凭证/source relation 只能保持 `BLOCKED_LEGACY`。
 
 ## 结论
 
-流程9自身入口合同与独立 receipt issue/verify/revoke 实现已提交至 `int_main`（`2cf830d7b`）并通过提交门禁；跨流程持久化运行、四材料 gate、最终放行和全链路迁移仍不能据此放行生产。
+流程9自身入口合同与独立 receipt issue/verify/revoke 实现已提交至 `int_main`（`2cf830d7b`、租户隔离修复 `656e343df`）并通过提交门禁；跨流程持久化运行、四材料 gate、最终放行和全链路迁移仍不能据此放行生产。

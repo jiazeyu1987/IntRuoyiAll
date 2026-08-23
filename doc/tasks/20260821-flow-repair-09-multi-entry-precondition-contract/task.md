@@ -62,9 +62,9 @@ completed
 
 独立凭证统一使用后端签发的 `IndependentBatchPrerequisiteReceipt`，至少包含 receiptId、tenantId、entryType、工单/路线/批号、正式来源关系及 source IDs、sourceSnapshotHash、业务理由、签发系统/用户/角色、issuedAt、expiresAt、撤销信息、credentialVersion、payloadHash、签名/审计事件和幂等键。PQC 关联活跃订单必须消费 `BACKFILL_SUCCEEDED` receipt；独立 PQC 仅凭有效独立凭证进入流程6统一建批服务。
 
-收尾证据：已标记 `ready_for_closeout`，完成 cleanup preview/apply（无可删除附属产物）后标记 `completed`；流程9自身代码已提交，新增合同测试受外部流程7编译 blocker 影响未运行，跨流程闭环仍未完成。
+收尾证据：已标记 `ready_for_closeout`，完成 cleanup preview/apply（无可删除附属产物）后标记 `completed`；流程9自身代码已提交，receipt 专项测试 `4/4 PASS`，跨流程闭环仍未完成。
 
-最新主线收尾（2026-08-23）：并行流程11先提交 `ef217fe2c`，流程9随后以其为父节点提交 `2cf830d7b`；`477c97d41` 和 `2cf830d7b` 均在 `int_main` 祖先链，不重复融合旧 worktree。
+最新主线收尾（2026-08-23）：并行流程11先提交 `ef217fe2c`，流程9随后提交 `2cf830d7b` 和租户隔离修复 `656e343df`；`477c97d41`、`2cf830d7b`、`656e343df` 均在 `int_main` 祖先链，不重复融合旧 worktree。
 
 ## Cleanup Keep
 

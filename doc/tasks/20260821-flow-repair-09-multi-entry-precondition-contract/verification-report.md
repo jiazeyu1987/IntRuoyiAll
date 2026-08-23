@@ -2,7 +2,7 @@
 
 ## 结论
 
-流程9自身代码符合性 `PARTIAL / IMPLEMENTED-BUT-COMPILE-BLOCKED`，跨流程全链路符合性 `PARTIAL`。本轮新增受控独立凭证 issue/verify/revoke、持久化结构和迁移；数据库、密钥配置、流程6消费接线、服务启动和写入型 E2E 未执行。
+流程9自身代码符合性 `IMPLEMENTED / VERIFIED`，跨流程全链路符合性 `PARTIAL`。本轮新增受控独立凭证 issue/verify/revoke、持久化结构和迁移；数据库、密钥配置、流程6消费接线、服务启动和写入型 E2E 未执行。
 
 ## 验收逐条关闭
 
@@ -16,18 +16,19 @@
 8. **签发与 blocker：已关闭（文档）**。独立 receipt 明确后端受控签发、签发系统/用户/角色、有效期、撤销、签名和审计字段；删除泛化的业务确认 blocker，仅保留未实现代码、迁移和历史数据审查 blocker。
 9. **BDD/迁移/回滚：已关闭（文档）**。新增独立三 entryType、无凭证、场景混用、生命周期失效、建批/放行分离、四材料、流程 10 最终放行、真实来源追溯和 `BLOCKED_LEGACY` 场景，迁移/回滚边界已同步。
 10. **RED/GREEN/REGRESSION：已关闭**。RED 记录了合同测试先失败的夹具问题，GREEN 记录目标编译和 42/42 测试通过，跨流程回归仍明确 `NOT RUN`。
-11. **独立凭证后端合同：代码已实现，验证受外部编译阻断**。`MesIndependentBatchPrerequisiteReceiptServiceImpl` 按固定 canonical 字段生成 SHA-256/HMAC-SHA256，重新读取持久化行验真并支持撤销；REST 入口只接受 receiptId 或事实字段，不接受完整可信凭证。新增服务测试未能进入测试编译，因为主线已有流程7未跟踪文件缺少 `MesProEdhrBatchTraceSourcePrecheckRespVO`。
+11. **独立凭证后端合同：已实现并验证**。`MesIndependentBatchPrerequisiteReceiptServiceImpl` 按固定 canonical 字段生成 SHA-256/HMAC-SHA256，重新读取持久化行验真并支持撤销；REST 入口只接受 receiptId 或事实字段，不接受完整可信凭证。新增服务测试 `4/4 PASS`，并覆盖跨租户稳定 `TENANT_MISMATCH`。
 
 ## 主线程证据
 
 - Flow9 基础入口合同 commit：`477c97d41 feat: enforce flow9 multi-entry batch preconditions`。
 - Flow9 独立 receipt 生命周期 commit：`2cf830d7b feat(flow9): add controlled independent receipt lifecycle`，父节点为并行流程11提交 `ef217fe2c`；当前 `int_main` 已包含该提交，不重复融合旧 worktree。
+- Flow9 租户隔离修复 commit：`656e343df fix(flow9): preserve tenant mismatch for receipt lifecycle`；当前 `int_main` 已包含该提交。
 - 编译：`mvn -o -pl yudao-module-mes -am -DskipTests compile` -> `BUILD SUCCESS`。
 - 目标测试：`ScheduleApplierTest, MesBatchExecutionEntryContractTest, MesPqcReleaseBatchExecutionServiceTest, MesProductionReleaseBatchExecutionPortTest` -> `Tests run: 42, Failures: 0, Errors: 0`。
 - `git diff --check` -> 通过；`branch-runtime-port-guard.ps1` -> 通过（int_main: 8081/48081）。
 - 最新主线复核（2026-08-23）保持上述 compile、42 项定向测试、diff-check 和 runtime guard 结果；流程9专项完成，流程6/7/8/10/11 全链路仍不属于流程9交付范围。
-- 本轮新增验证：`mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' ... test` -> FAIL 于流程7缺失类型，未报告流程9新增类错误；新增 SQL/API evidence 已静态核对，真实迁移 NOT RUN。
-- 本轮以 `int_main` 最新 HEAD=`ef217fe2ca8887e5b4242d0823f203179d6b059e` 为父节点创建 `2cf830d7b`；未覆盖主线其它 dirty/untracked 文件。提交后的主线程 compile/新增 receipt 测试仍受同一流程7缺失类型影响，未将其伪报为 GREEN。
+- 本轮新增验证：`mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-DforkCount=0' test` -> `BUILD SUCCESS`，`Tests run: 4, Failures: 0, Errors: 0`；新增 SQL/API evidence 已静态核对，真实迁移 NOT RUN。
+- 本轮以 `int_main` 最新 HEAD=`ef217fe2ca8887e5b4242d0823f203179d6b059e` 为父节点创建 `2cf830d7b`，随后创建 `656e343df` 修复跨租户错误码；未覆盖主线其它 dirty/untracked 文件。
 
 ## 已读取合同证据
 
@@ -43,4 +44,4 @@
 
 ## 状态
 
-流程9自身任务：`completed`（入口合同与受控 receipt 生命周期已提交；新增测试的主线编译受外部流程7缺失类型阻断）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。
+流程9自身任务：`completed`（入口合同与受控 receipt 生命周期已提交，42项入口回归与4项 receipt 专项测试通过）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。
