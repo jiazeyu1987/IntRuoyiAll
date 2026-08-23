@@ -14,7 +14,9 @@ Implement a server-side batch-execution gate that requires the current valid ver
 - [x] M2: Record BDD and obtain a business RED test.
 - [x] M3: Implement the minimal Flow8 gate and GREEN tests.
 - [x] M4: Run targeted regression, compile, contract checks, and git diff --check.
-- [x] M5: Commit only Flow8-owned code, tests, and task evidence (isolated commit pending handoff).
+- [x] M5: Commit only Flow8-owned code, tests, and task evidence (commit `609fcd5fc` / integrated as `4b764f835`).
+- [x] M6: Re-run Flow8 targeted tests, MES compile, diff check, and runtime guard on `int_main` after integration.
+- [ ] M7: Run real Playwright, migration verification, and formal Flow7 source integration evidence.
 
 ## Expected Verification
 
