@@ -38,7 +38,7 @@
 
 ## Current Status
 
-in_progress：M0/M1完成；Wave 0 C00 已合入 int_main，提交号 a1c032581。Wave 1 DF01、DF02、DF03、DF05 均已通过主管复核、验证并合入 int_main。Wave 2 DF04 已通过主管复核和独立验证，提交号 d781ca689；DF04 收尾记录提交 66b5607a8 已合入。Wave 3 DF06 已吸收最新 int_main、复验通过并 fast-forward 合入 int_main，提交 fd6e923a5；DF06 worktree 已删除，slot 18 已释放。Wave 4 DF07 已通过 RED/GREEN、backend-api validator、独立验证和主管 fast-forward 合并，提交 8e156fbf8 已合入 int_main；DF07 worktree 已删除，slot 18 已释放。Wave 5 DF08 已通过 RED/GREEN、backend-api validator、独立验证和主管 fast-forward 合并，提交 7d9f41e92 已合入 int_main；DF08 worktree 已删除，slot 18 已释放。Wave 6 DF09 已通过主管独立补测、RED/GREEN、backend-api validator、禁止项扫描和 fast-forward 合并，提交 a386dc0da 已合入 int_main。Wave 7 DF10/DF11 已完成 round-4 独立验证并均为 PASS，但尚未提交、合并或清理；当前阻塞在 `E:/IntRuoyi` 主工作区存在大量非 DF10/DF11 归属的未提交/未跟踪改动，需用户明确选择主线脏基线处理方式后才能继续 commit/merge/closeout。
+in_progress：用户已选择方案 A 并授权补 DTO。C00、DF01-DF11 的原始实现均已合入；DF10/DF11 正式合同集成提交为 `817687224`，INT12 修复提交 `3e0df78fe` 已补齐三类冻结测试并通过新增 10 项、INT12 回归 43 项。当前按顺序先用独立窄提交补齐 `333029852` 漏掉的两个 DCC DTO，再移除与 C00 正式 NOT NULL 契约冲突的孤立测试、恢复 DF06 加入时 DCC/QA 锁定和 PQC 任务生成，之后重跑 INT12 与独立 VAL13。
 
 ## Status Update 2026-08-13 07:55:00 +0800
 
@@ -112,3 +112,5 @@ Wave 6 DF09 已完成：主管独立复核发现原证据缺少稳定业务排�
 
 DF11 分支已通过 merge commit 817687224 合入 DF10 分支 fa520e027，形成 DF10+DF11 集成状态。集成验证 PASS：后端 Maven MesQaInspectionRegulationServiceTest + MesFrontlinePqcContextServiceTest 共 18 tests PASS；前端 frontline-pqc-qa-process-contract-static.spec.cjs PASS；pnpm ts:check exit 0；backend/frontend/bug evidence validators、git diff --check、branch runtime guard 和禁止项扫描均 PASS。主线 fast-forward 仍停止：E:/IntRuoyi 现有本地重叠 patch 中 MesFrontlinePqcContextServiceImpl.java 和 FrontlineFixedTemplatePanel.vue 会在 DF10+DF11 正式集成状态上产生三方冲突，不能安全自动套回。
 - 2026-08-14：经用户授权，以 DF10/DF11 正式合同为准完成快进；int_main 已到 817687224。冲突旧改动仅保留在保护 patch，未自动套回；4 个无冲突本地改动已恢复。INT12 已就绪。
+- 2026-08-14 21:25：VAL13 第一轮发现并退回三类缺失测试；INT12 已以提交 `3e0df78fe` 补齐并通过 10 项新增测试和 43 项回归。全量 17 类门禁仍有 C00/DF06 共 3 个错误，且干净验证被 DCC 既有提交遗漏的两个未跟踪 DTO 阻塞；等待明确授权后才能用独立窄提交修复该跨任务前置。
+- 2026-08-14 21:45：独立合同审计推翻“补 C00 nullable SQL + 删除 DF06 Mockito 桩”的表面修复。nullable SQL 会撤销 C00 postflight 的 NOT NULL 正式约束；两个桩只因 `333029852` 已删除 DCC/QA 读取而变成多余。任务 worktree 中的错误 SQL 副本和桩删除均已撤销，两个 worktree 恢复干净；主工作区原始未跟踪文件未修改。

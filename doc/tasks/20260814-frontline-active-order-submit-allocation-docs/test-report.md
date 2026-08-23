@@ -252,3 +252,67 @@
 
 - `initial-overage-red.png` 为本轮事件的初始分配弹窗，显示 O1 计划量 6、分配量 10、池总量/已分配均为 10。弹窗覆盖了后方列表标签，因此截图本身没有完整露出红色标签；红色状态由截图前同一真实 DOM 行上的订单标签文本、`el-tag--danger` class 和“待调整 4”三项直接断言证明。
 - `after-manual-reallocation.png` 显示组长报工管理页刷新成功及“分配已保存”；最终 O1/O2 数量、红色状态消失和版本审计由同轮页面 DOM 与只读后置核验共同证明。
+
+## P6 融合后 int_main 真实 E2E 独立复核（2026-08-15）
+
+- P6 Independent Test Outcome: **PASS**。复核对象是融合后新事件 `229` 及 `e2e-artifacts/post-merge-int-main/`，未使用旧 worktree 事件 227/228 作为本轮通过依据。
+- 运行边界：真实执行时模式为 `POST_MERGE_INT_MAIN`，前端 `http://127.0.0.1:8081`、后端 `http://127.0.0.1:48081`，运行态证据绑定 `E:\IntRuoyi`。当前独立复核时 8081 PID 37616 仍返回 HTTP 200，48081 PID 20372 仍为 `UP`，两者命令行均归属当前主工作区。
+- 融合边界：当前分支为 `int_main`；`dd446b06f`、`4ce3637a4`、`b35c4e29c`、`d67c40c26` 均为当前 HEAD 祖先。事件 229 的运行态源码 revision 为 `90fb1af111e5`；复核时主线因并行任务继续前进，但未改变该次运行证据的分支和端口归属。
+- 真实结果：一线真实登录并选择 O1；O1 计划 6、提交 10，版本 1 为 `FRONTLINE_SELECTED`、O1=10、红色待调整 4。组长真实登录并通过页面改配 O1=6、O2=4；版本 2 为 `MANUAL`、总量 10、未分配 0、红色消失，审计 3 条。
+- 目标链路：业务写请求恰好 2 个，只包含一线提交和组长确认。`pageErrors`、`targetRequestFailures`、`targetResponseErrors`、`targetConsoleErrors` 均为 0；原始诊断保留页面切换取消的非目标 GET，不将其静默当作目标成功。
+- 数据清理：E2E `finally` cleanup 为 `CLEAN`、`cleanupVerified=true`、`remainingTaskDataCount=0`；独立二次 cleanup 仍为 `CLEAN/0`。任务租户 122 本轮数据残留为 0。
+- 截图独立审查：`initial-overage-red.png` 为真实组长分配弹窗，显示 O1 要生产 6、分配 10 和红色“待调整 4”；`after-manual-reallocation.png` 显示保存成功并返回报工管理列表。两张图片均为非空 PNG。
+- 修复范围：仅新增真实 E2E 的显式主线运行 profile、证据目录隔离和配套静态合同；未修改生产业务代码，未知运行模式仍 fail fast，原业务断言和清理门禁未放宽。
+
+### P6 AC1-AC8
+
+- `P6-AC1` — **PASS**：当前主工作区 8081/48081 已完成新的真实页面业务闭环。
+- `P6-AC2` — **PASS**：分支、融合提交、端口、PID、工作区、源码 revision/指纹和运行产物哈希证据完整。
+- `P6-AC3` — **PASS**：租户 122 的任务自有 O1/O2、独立一线/组长账号、权限、路线、人员和签名通过 fixture verify 后才进入页面写入。
+- `P6-AC4` — **PASS**：一线选择 O1 提交 10，版本 1 `FRONTLINE_SELECTED`、O1=10、待调整 4。
+- `P6-AC5` — **PASS**：组长改配 O1=6/O2=4，版本 2 `MANUAL`、总量 10、未分配 0、红色消失、审计完整。
+- `P6-AC6` — **PASS**：目标业务写请求 2，四类目标错误均为 0。
+- `P6-AC7` — **PASS**：finally 与独立二次 cleanup 均为 `CLEAN/0`；共享 8081/48081 按所有权规则保留。
+- `P6-AC8` — **PASS**：执行日志、验证报告、结果 JSON、运行态/fixture/清理 JSON 和两张截图形成完整证据链。
+
+### P6 独立复核命令
+
+- `node --check tests\e2e\frontline-active-order-submit-allocation-real.e2e.js` — PASS。
+- `node tests\e2e\frontline-active-order-submit-allocation-real-static.spec.cjs` — PASS。
+- `python -X utf8 ...\fas_fixture_orchestrator.py --self-test` — PASS。
+- P6 结果机器断言 — PASS：事件 229、版本 2、O1/O2=`6/4`、总量 10、未分配 0、审计 3、写请求 2、四类目标错误 0、两次 `CLEAN/0`、两张非空 PNG。
+- UTF-8/JSON 读取 — PASS；`bug-regression-fix-loop` validator self-test 与本任务 evidence 校验均 PASS。
+
+## P7 独立复核：芋道源码/admin 补充真实 E2E（2026-08-15）
+
+- 独立复核范围：未修改 P7 实现或证据；只读检查最终轮次 `e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/`，并复跑语法、静态合同、fixture 自检、证据 JSON/PNG 和运行态检查。
+- `node --check tests\e2e\frontline-active-order-submit-allocation-real.e2e.js` — PASS。
+- `node tests\e2e\frontline-active-order-submit-allocation-real-static.spec.cjs` — PASS。
+- `python -X utf8 -m py_compile ...\fas_fixture_orchestrator.py` 与 `python -X utf8 ...\fas_fixture_orchestrator.py --self-test` — PASS。
+- 证据机器断言 — PASS：`status=PASS`、事件 `233`、租户 `1/芋道源码`、目标写请求 `2`；一线 O1 计划 6 提交 10，版本 1 `FRONTLINE_SELECTED` 且 O1=10/待调整 4；组长页面改配 O1=6/O2=4，版本 2 `MANUAL`、总量 10、未分配 0、审计 3 条、红色消失。
+- 错误计数 — PASS：page errors、target request failures、target HTTP errors、target console errors 均为 0；2 条头像资源 502 均有非本机响应 URL/status/statusText 逐条归因并保留在 `externalResourceConsoleErrors`，未被静默吞掉。
+- 清理与基线 — PASS：finally cleanup=`CLEAN/0`，独立二次 cleanup=`CLEAN/0`，`protectedBaselineVerified=true` 且前后 SHA-256 指纹一致；admin 用户、密码、角色、既有签名授权未被修改。
+- 运行态 — PASS：8081 PID 35448 归属 `E:\IntRuoyi\IntRuoyiFronted`、HTTP 200；48081 PID 21556 归属 `E:\IntRuoyi`、health=`UP`。两张真实页面 PNG 均为 1280x720 非空；UTF-8/JSON、`git diff --check` 均通过。
+- 独立结论：P7 通过，作为 admin 补充证据，不替代 P5/P6 的租户 122 独立账号角色隔离验收；无业务阻塞。
+
+## P7 芋道源码 admin 补充真实 E2E 验收复核（2026-08-15）
+
+- P7 Outcome: **PASS**。最终有效证据只取 `e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/`，事件 ID=`233`；此前并发覆盖、通用 502 未归因和登录 `networkidle` 超时轮次均保留为 RED/BLOCKED 历史，不冒充通过。
+- 运行与身份：显式模式 `ADMIN_TENANT1_INT_MAIN`，前端 8081、后端 48081，租户 `1/芋道源码`、账号 `admin`；fixture 只复用受保护身份，owned user/role/signature 集合为空。
+- 业务结果：一线真实登录并选择 O1；O1 计划 6、提交 10，版本 1 `FRONTLINE_SELECTED`、O1=10、红色待调整 4。生产组长真实页面改配 O1=6/O2=4；版本 2 `MANUAL`、总量 10、未分配 0、红色消失，审计完整。
+- 错误门禁：目标业务写请求恰好 2 次；`pageErrors`、`targetRequestFailures`、`targetResponseErrors`、`targetConsoleErrors` 均为 0。两条非本机头像资源 502 通过 response URL/status/statusText 与 console 文本逐条对应，保留为 `externalResourceConsoleErrors`，本机响应及未匹配错误仍会阻断。
+- 清理与基线：E2E `finally` 为 `CLEAN/0` 且 `protectedBaselineVerified=true`；独立二次 cleanup 仍为 `CLEAN/0`、基线一致。admin 用户、密码摘要输入、角色集合和既有签名授权前后未变化。
+- 并发隔离：admin 模式强制合法 `FAS_EVIDENCE_RUN_ID`，manifest、运行态、场景状态、截图、结果和清理文件按轮次进入独立子目录；路径穿越拒绝，原 P5/P6 目录合同保持不变。
+- 截图复核：`initial-overage-red.png` 显示 O1 要生产 6、分配 10 和红色“待调整 4”；`after-manual-reallocation.png` 显示“分配已保存”并返回报工管理。两张图均为 1280x720 非空 PNG；最终 O1/O2 数量与红色消失同时由同轮 DOM/JSON 证明。
+- 回归命令：E2E `node --check` PASS；真实 E2E 静态/行为合同 PASS；fixture `py_compile`、`--self-test` PASS；12 项正式证据（9 JSON、1 Markdown、2 PNG）机器断言 PASS；任务差异 `git diff --check` 无错误。
+- 范围结论：P7 仅补充证明 admin 在当前主运行态能走通同一业务闭环，不替代 P5/P6 租户 122 的独立一线/组长账号角色隔离验收；本轮未修改生产业务代码、未推送远端。
+
+### P7 AC1-AC7
+
+- `P7-AC1` — **PASS**：当前 `int_main` 8081/48081 使用芋道源码/admin 完成真实页面业务闭环。
+- `P7-AC2` — **PASS**：admin 模式显式绑定租户 1、账号 admin、主运行态和独立证据 ID，不存在静默 fallback。
+- `P7-AC3` — **PASS**：任务自有 O1/O2、路线、工序和人员绑定在写入前 verify READY，admin 受保护基线一致。
+- `P7-AC4` — **PASS**：一线选择 O1 提交 10，版本 1 O1=10、待调整 4。
+- `P7-AC5` — **PASS**：组长改配 O1=6/O2=4，版本 2、总量 10、未分配 0、红色消失、审计完整。
+- `P7-AC6` — **PASS**：两次目标写入，四类目标错误均为 0，外部资源错误逐条可归因。
+- `P7-AC7` — **PASS**：finally 与二次 cleanup 均 `CLEAN/0`，admin 基线不变，证据链完整。

@@ -197,6 +197,54 @@
 - 生产组长账号查看报工管理列表，确认 O1 红色标识。
 - 生产组长把部分数量调整到 O2，确认当前分配、审计和红色标识变化。
 
+### 里程碑 6：融合后 int_main 真实 E2E 纠偏验证
+
+目标：在 `E:\IntRuoyi` 当前 `int_main` 的固定运行态 `8081/48081` 上重新执行完整真实页面链路，补齐融合后运行证据；旧 worktree 的 `8099/48099` 事件 227/228 只保留为融合前证据。
+
+涉及文件：
+
+- IntRuoyiFronted/tests/e2e
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs
+
+交付物：
+
+- 当前 `int_main` 分支、融合提交和 `8081/48081` 运行态归属证据。
+- 使用任务自有 fixture 新建 O1/O2、独立一线/组长账号和正式权限后执行的真实 Playwright E2E 证据。
+- 一线选择 O1 提交 10、O1 计划 6、版本 1 `FRONTLINE_SELECTED`、O1=10、红色待调整 4 的融合后证据。
+- 组长改配 O1=6/O2=4、版本 2 `MANUAL`、总量 10、未分配 0、红色消失和审计完整的融合后证据。
+- 目标业务写请求仅包含一线提交与组长确认，页面错误、目标请求失败、目标 HTTP 错误、目标控制台错误均为 0。
+- finally cleanup 与独立二次 cleanup 均为 `CLEAN`、`remainingTaskDataCount=0`，并记录运行态按项目规则保留或停止。
+
+纠偏边界：
+
+- E2E 脚本必须支持显式 `POST_MERGE_INT_MAIN` 模式和 `8081/48081`，不得默认或硬编码旧 worktree 端口。
+- 不得放宽业务断言，不得用静态合同、API-only、直接 SQL、旧事件或旧截图代替本轮真实页面证据。
+- 若发现运行态或 E2E 验证链路缺陷，先记录 BDD 与 RED，再做最小正式修复并取得 GREEN。
+
+### 里程碑 7：芋道源码 admin 补充真实 E2E
+
+目标：按用户明确要求，在 `E:\IntRuoyi` 当前 `int_main` 的 8081/48081 运行态中，使用“芋道源码/admin”通过真实页面补跑同一业务闭环；该补充验证不替代 P5/P6 对独立一线与组长账号的角色隔离验收。
+
+涉及文件：
+
+- IntRuoyiFronted/tests/e2e
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs
+
+交付物：
+
+- 显式 admin 补充运行模式及其静态合同，原租户 122、独立账号和 `POST_MERGE_INT_MAIN` 合同保持不变。
+- “芋道源码”租户下只创建带任务标识、可追踪、可精确清理的 O1/O2、工序、路线和人员绑定；不得修改 admin 用户、密码、角色或既有业务基线。
+- admin 真实登录后选择 O1 提交 10，验证 O1 计划 6、版本 1 `FRONTLINE_SELECTED`、O1=10、红色待调整 4。
+- admin 通过生产组长真实页面改配 O1=6/O2=4，验证版本 2 `MANUAL`、总量 10、未分配 0、红色消失和审计完整。
+- 目标业务写请求、四类目标错误、admin 基线前后指纹、finally cleanup、独立二次 cleanup 与任务数据残留证据。
+
+补充边界：
+
+- admin 模式必须显式启用并绑定租户 `1/芋道源码`、账号 `admin` 和主运行态 8081/48081；禁止静默切换或把 admin 模式作为原独立账号模式的 fallback。
+- 不得新增、删除或修改 admin 用户、密码、角色、既有签名授权和正式业务数据；只允许创建并清理本轮任务自有业务 fixture。
+- 若 admin 缺少页面入口、签名或业务身份前置，必须在目标业务写入前 BLOCKED，不得修改基线配置制造通过条件。
+- 如需修复验证链路，必须先记录 BDD/RED，再做最小正式修复并保持 P5/P6 既有断言继续 GREEN。
+
 ## Open Questions
 
 - 已解决：初始分配模式使用 `FRONTLINE_SELECTED`，与现有 `FIFO/MANUAL/SYSTEM` 并列。

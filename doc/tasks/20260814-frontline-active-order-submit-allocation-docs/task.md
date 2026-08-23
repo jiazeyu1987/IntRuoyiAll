@@ -28,6 +28,8 @@
 - [x] P3：前端合同 RED。
 - [x] P4：前端实现 GREEN。
 - [x] P5：真实 E2E、回归与融合 int_main。
+- [x] P6：在融合后的 `int_main` 固定运行态 `8081/48081` 复跑真实页面 E2E，修复验证链路并形成新证据。
+- [x] P7：使用本机 `1/芋道源码` 的受保护 admin 身份补跑真实页面 E2E，并证明基线不变、双重清理和零业务残留。
 
 ## Expected Verification
 
@@ -74,6 +76,8 @@ completed
 
 ## Cleanup Keep
 
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p8-admin-20260817-1020
+
 - doc/tasks/20260814-frontline-active-order-submit-allocation-docs/task.md
 - doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md
 - doc/tasks/20260814-frontline-active-order-submit-allocation-docs/prd.md
@@ -88,6 +92,33 @@ completed
 - doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/evidence.md
 - doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/initial-overage-red.png
 - doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/after-manual-reallocation.png
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/result.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/evidence.md
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/runtime-evidence.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/fixture-manifest.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/prepare-result.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/scenario-state.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/fixture-verification.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/cleanup-result.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/secondary-cleanup-result.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/result.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/evidence.md
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/runtime-evidence.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/fixture-manifest.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/prepare-result.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/fixture-verification-preflight.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/fixture-verification.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/scenario-state.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/cleanup-result.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/secondary-cleanup-result.json
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/initial-overage-red.png
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/after-manual-reallocation.png
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/initial-overage-red.png
+- doc/tasks/20260814-frontline-active-order-submit-allocation-docs/e2e-artifacts/post-merge-int-main/after-manual-reallocation.png
+
+## Cleanup Candidates
+
+无。`bug-regression-evidence.md` 已在 closeout apply 中按预览结果删除，其核心结论保留在 `execution-log.md` 与 `verification-report.md`。
 
 ## Closeout Notes
 
@@ -99,3 +130,13 @@ completed
 - 任务变更已通过提交 `dd446b06f` 保存，当前 `int_main` 已快进到融合提交 `25d1654e5`；未执行推送。
 - 融合后在 `E:\IntRuoyi` 复跑后端 50 项定向测试、9 项前端静态合同、TypeScript 类型检查和 30 模块 Maven 全量构建，全部通过；全量构建生成 `yudao-server-exec.jar`。
 - P1 至 P5 全部完成，机器状态为 `completed`、测试状态为 `passed`，任务数据残留 0，任务运行服务已停止。
+- P6 在融合后的 `int_main` 主运行态 8081/48081 生成新事件 229；一线 O1 计划 6、提交 10，版本 1 `FRONTLINE_SELECTED`、O1=10、红色待调整 4；组长改配 O1=6/O2=4 后版本 2 `MANUAL`、总量 10、未分配 0、红色消失，审计 3 条。
+- P6 目标业务写请求仅一线提交和组长确认，共 2 次；page error、目标请求失败、目标 HTTP 错误和目标 console error 均为 0；finally cleanup 与独立二次 cleanup 均为 `CLEAN/0`。
+- 本轮仅修复 E2E 验证链路和配套静态合同，没有修改生产业务代码；共享 8081/48081 运行态归属 `E:\IntRuoyi`，按并发所有权规则保留，未执行远端推送。
+- task-closeout-cleanup preview 返回 `status=ready`、`blocked=[]`、`warnings=[]`，唯一删除项为本任务临时 `bug-regression-evidence.md`；apply 返回 `status=applied`，正式任务文档及融合后 11 个证据文件全部保留。任务现已完成，无剩余阻塞。
+- 用户追加要求在当前“芋道源码/admin”下执行真实页面 E2E，任务已重开 P7。P7 只作为 admin 补充运行验证，不替代 P5/P6 的独立一线/组长账号业务验收；完成、独立复核和清理前状态保持 `in_progress`。
+- P7 在任何目标写入前被 `docs/e2e-rules.md` 的 admin-only 门禁阻塞：第 293、302、304 行禁止仅授权“芋道源码/admin”时在基线租户创建写入型测试数据。当前 fixture 未 prepare、目标业务写请求 0、任务数据残留 0；等待用户明确覆盖该安全门禁的授权范围。
+- 用户已明确授权覆盖 admin-only 写入门禁：仅允许在本机租户 1 创建并清理本任务 O1/O2 等测试数据及一线提交、组长确认两次业务写入；仍禁止修改 admin 用户、密码、角色、既有签名和无关数据。P7 已恢复执行。
+- P7 最终事件 233 已通过：O1 计划 6、提交 10、版本 1 O1=10/待调整 4；组长改配 O1=6/O2=4 后版本 2、未分配 0、红色消失且审计完整。目标写请求 2，四类目标错误 0；两条外部头像资源 502 有逐条 URL/状态证据并保留在诊断中。
+- P7 `finally` 与独立二次 cleanup 均为 `CLEAN/0`、admin 受保护基线前后一致；最终有效证据按运行 ID 隔离在 `p7-main-20260815-2132`，并发覆盖的根因已在测试工具层修复。
+- P7 独立复核与 task-closeout-cleanup preview/apply 均通过；仅清理失败轮次、无效运行标识、孤儿证据和 Python 缓存，事件 233 的 12 项正式证据及核心任务文档完整保留。任务最终状态为 `completed`。

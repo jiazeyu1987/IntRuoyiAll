@@ -41,7 +41,7 @@
     {
       "task_id": "DF01",
       "title": "Active order selection identity",
-      "status": "in_progress",
+      "status": "completed",
       "dependency_ids": [
         "C00"
       ],
@@ -64,7 +64,7 @@
     {
       "task_id": "DF02",
       "title": "Active-order route snapshot resolver",
-      "status": "in_progress",
+      "status": "completed",
       "dependency_ids": [
         "C00"
       ],

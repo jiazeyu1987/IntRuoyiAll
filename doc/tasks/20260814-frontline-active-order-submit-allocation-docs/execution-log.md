@@ -262,3 +262,114 @@ BDD: 非活跃订单不可作为分配目标 -> Given O9 未加入当前组长�
 - RED: `check_plan_completion.py --cwd E:\IntRuoyi --task-dir E:\IntRuoyi\doc\tasks\20260814-frontline-active-order-submit-allocation-docs` -> FAIL，机器状态中的 artifact 路径仍指向已删除的任务 worktree，因此误报 `Missing artifact: execution_log/test_report`。
 - FIX: 将 `workspace_root`、`tasks_root`、`task_dir` 及全部 artifact 路径更新为融合后的 `E:\IntRuoyi` 正式位置；不改变业务实现、测试结果或原任务分支来源记录。
 - GREEN: 同一 `check_plan_completion.py` 命令复跑 -> PASS，退出码 0，返回 `complete=true`；融合后机器状态和正式任务文档位置一致。
+
+## P6 融合后 int_main 真实 E2E 纠偏启动（2026-08-15）
+
+- AUDIT-FAIL: `check_plan_completion.py` 虽返回 `complete=true`，但完成审计发现现有事件 227/228 均来自已删除 worktree 的 8099/48099；融合后记录只包含后端/前端静态与构建回归，没有在 `E:\IntRuoyi` 的 8081/48081 重跑真实页面 E2E，原“融合后真实 E2E 已完成”结论证据不足。
+- CORRECTIVE-PLAN: 按 `development-plan-supervisor` 完成审计规则新增 P6，只补齐融合后主线运行态真实页面验证，不重写已完成 P1-P5 历史。
+- BDD: 融合后主线真实页面闭环 -> Given 当前 `int_main` 已含功能提交且运行态固定为 8081/48081 When 本轮 fixture 创建任务自有 O1/O2，一线真实选择 O1 提交 10，组长查看红色待调整 4 并改配 O1=6/O2=4 Then 必须形成新的融合后事件、两个正式分配版本、完整审计、零目标错误和 CLEAN/0 清理证据。
+- BDD: 验证链路不复用旧工作树 -> Given 旧事件 227/228 来自 8099/48099 When 本轮验收 Then 旧端口、旧事件、旧截图和静态合同均不得替代 8081/48081 的真实页面证据。
+- STATUS: 任务重新置为 `in_progress`；P6 完成并经独立测试前不得恢复 `completed`。
+
+## P6 融合后 int_main 真实 E2E 执行（2026-08-15）
+
+- GREEN: experience-preflight -> PASS；已完整读取 `AGENTS.md`、任务收尾、本机运行态、E2E、登录、数据库、后端、前端、PowerShell 编码/内存、分支端口、worktree 规则及 `docs/experience-index.md` 命中的主工作区端口归属、真实写入型 E2E、任务自有数据和异常清理门禁。
+- GREEN: `git branch --show-current` 与 `git merge-base --is-ancestor <commit> HEAD` -> PASS；当前分支为 `int_main`，`dd446b06f`、`4ce3637a4`、`b35c4e29c`、`d67c40c26` 均为当前 `HEAD` 祖先。
+- GREEN: 端口、进程与健康检查 -> PASS；8081 由 `E:\IntRuoyi\IntRuoyiFronted` 的 Vite 进程监听，48081 由携带 `--yudao.runtime-control.repo-root=E:\IntRuoyi\IntRuoyiBackend` 的 Java 进程监听，后端健康状态 `UP`、前端入口 HTTP 200。
+- BDD: 融合后运行模式必须显式绑定主工作区 -> Given 当前真实 E2E 脚本仅允许 `WORKTREE` 及 8099/48099 When 以 P6 要求的 `POST_MERGE_INT_MAIN`、8081/48081 执行 Then 配置合同必须先 RED，随后最小修复应只允许该显式模式绑定 `E:\IntRuoyi`，并继续保留运行态归属、源码指纹、后端产物哈希、业务断言和清理门禁。
+- RED: `node -e \"const fs=require('node:fs');const s=fs.readFileSync('IntRuoyiFronted/tests/e2e/frontline-active-order-submit-allocation-real.e2e.js','utf8');if(!s.includes('POST_MERGE_INT_MAIN')||!s.includes('8081')||!s.includes('48081'))process.exit(1)\"` -> FAIL，符合预期：脚本仍把 `FAS_RUNTIME_MODE` 限制为 `WORKTREE`，且只接受旧 worktree 的 8099/48099，不能产生 P6 融合后证据。
+- FIX: 将真实 E2E 运行态改为显式 profile：保留 `WORKTREE` 的 8099/48099，同时新增 `POST_MERGE_INT_MAIN`，且只允许 `E:\IntRuoyi` 的 8081/48081；运行态证据 mode、工作区、监听 PID、源码指纹、后端产物路径和 SHA-256 继续按所选 profile 严格核验。融合后证据写入独立 `e2e-artifacts/post-merge-int-main/`，不覆盖旧事件 227/228 的历史文件。
+- GREEN: `node IntRuoyiFronted/tests/e2e/frontline-active-order-submit-allocation-real-static.spec.cjs` -> PASS；配套合同已覆盖融合后模式精确工作区/端口绑定、未知模式 fail fast，并保留原业务断言、Long ID、错误分类和清理门禁。
+- GREEN: `node -e \"const fs=require('node:fs');const s=fs.readFileSync('IntRuoyiFronted/tests/e2e/frontline-active-order-submit-allocation-real.e2e.js','utf8');if(!s.includes('POST_MERGE_INT_MAIN')||!s.includes('8081')||!s.includes('48081'))process.exit(1)\"` -> PASS。
+- RUNTIME-CHECK: 初检 48081 为 `E:\IntRuoyi` 的 PID 28436，但其运行 Jar 内嵌 MES 模块缺少 `createInitialAllocation`，不能作为本功能融合后证据；未把仅 health=`UP` 的旧运行态冒充验收通过。
+- RUNTIME-CONCURRENCY: 准备 fixture 后，48081 被同一主工作区并行任务切换为 PID 20372。按主工作区并发重启所有权门禁，本任务未停止或重启该并行任务运行态；只读核验确认新 PID 的 repo-root 仍为 `E:\IntRuoyi\IntRuoyiBackend`，运行 Jar 内嵌 MES 服务与分配命令类均包含 `createInitialAllocation/getActiveOrderId`，后端 health=`UP`。8081 保持 PID 37616，命令行归属 `E:\IntRuoyi\IntRuoyiFronted`，入口 HTTP 200。
+- FIXTURE: `python -X utf8 fas_fixture_orchestrator.py prepare --manifest <post-merge-int-main/fixture-manifest.json> --result <post-merge-int-main/prepare-result.json>` -> PREPARED；runId=`FAS-20260814-20260815043616-3384`，tenant=`122/测试租户`，O1 计划量 6、O2 计划量 20、提交量 10，账号、角色、菜单权限、路线、人员绑定和电子签名均为本轮任务自有数据。
+- RUNTIME-EVIDENCE: `POST_MERGE_INT_MAIN` 固定绑定 `E:\IntRuoyi`、8081/48081；E2E 写入前核验前端 PID 37616、后端 PID 20372、source revision=`90fb1af111e577431522a43f0d505ddfb7d8250d`、源码指纹 SHA-256=`39fedee445d1c8c77ab4d9df85dc59e1985f537e958f68c77e1232961aeb649c`、实际后端产物 SHA-256=`a9560d4a9b1bf109b7fe9e172f0a274055d71341c401a0928b1545a26cf7d702`。
+- GREEN: 在敏感登录/签名值仅从本机受控配置读取且不输出、不写入证据的前提下，`FAS_RUNTIME_MODE=POST_MERGE_INT_MAIN; FAS_FRONTEND_URL=http://127.0.0.1:8081; FAS_BACKEND_URL=http://127.0.0.1:48081; node tests/e2e/frontline-active-order-submit-allocation-real.e2e.js` -> PASS，退出码 0，新事件 ID=`229`。
+- E2E: 一线账号经真实登录页登录并在页面选择 O1；O1 计划 6、提交 10；提交成功后版本 1 为 `FRONTLINE_SELECTED`、O1=10、超量/待调整 4。生产组长经真实登录页进入报工管理，列表 O1 标签为红色并显示待调整 4；通过真实分配弹窗保存 O1=6、O2=4 后，正式列表刷新且红色消失。版本 2 为 `MANUAL`，池总量/已分配总量均为 10、未分配 0；审计 3 条完整覆盖版本 1 初始基线、版本 2 O1/O2 手工改配。
+- E2E-WRITES: 目标业务写请求共 2 次，且仅为一线提交 `/admin-api/mes/pro/feedback/frontline/submit` 与组长确认 `/admin-api/mes/pro/process-pool/team-leader/submission/allocation/confirm`。
+- E2E-ERRORS: page errors=`0`、target request failures=`0`、target HTTP errors=`0`、target console errors=`0`；非目标页面切换/关闭引发的普通 GET `ERR_ABORTED` 只保留在原始诊断中，不计入目标错误且没有被静默吞掉。
+- CLEANUP: E2E `finally` cleanup -> `CLEAN`、`cleanupVerified=true`、`remainingTaskDataCount=0`、删除 75 行本轮任务数据；独立命令 `python -X utf8 fas_fixture_orchestrator.py cleanup --manifest <fixture-manifest.json> --scenario-state <scenario-state.json> --result <secondary-cleanup-result.json>` -> 二次 `CLEAN/0`。
+- GREEN: P6 独立证据合同 -> PASS；事件 229、8081/48081、O1=6/O2=4、版本 2、总量 10、未分配 0、审计 3、写请求 2、四类目标错误 0/0/0/0、finally CLEAN/0、二次 CLEAN/0 和两张非空页面截图全部通过机器断言。
+- EVIDENCE: `e2e-artifacts/post-merge-int-main/result.json`、`evidence.md`、`runtime-evidence.json`、`fixture-manifest.json`、`prepare-result.json`、`scenario-state.json`、`fixture-verification.json`、`cleanup-result.json`、`secondary-cleanup-result.json`、`initial-overage-red.png`、`after-manual-reallocation.png`。旧根目录事件 227/228 证据未覆盖，仅保留为融合前历史。
+- RUNTIME-KEEP: 8081/48081 均为本任务开始前或执行中由同一主工作区并行任务持有的共享运行态；按所有权规则保留，未由本任务停止。最终复核时仍需确认 PID/health 未变化。
+- FINAL-CHECK: 8081 仍为 PID 37616、HTTP 200，48081 仍为 PID 20372、health=`UP`，两者归属 `E:\IntRuoyi`；P6 文档与 8 个 JSON 证据均通过 UTF-8/JSON 解析，页面截图为非空 PNG，任务相关差异 `git diff --check` 通过。
+- STATUS: P6 executor 验证完成，融合后真实页面 E2E 为 PASS，任务数据 `CLEAN/0`，无业务阻塞；等待独立 tester 与主 Agent 更新机器状态，当前执行器未改写 `task-state.json` 或 `test-report.md`。
+
+## P6 独立复核与收尾前门禁（2026-08-15）
+
+- INDEPENDENT-TEST: 主线程未参与 E2E 脚本实现，在 executor 完成后独立复跑 `node --check`、真实 E2E 静态合同、fixture self-test、P6 结果机器断言、UTF-8/JSON 读取、分支/融合祖先关系和当前端口归属检查，全部 PASS；逐项 P6-AC1 至 P6-AC8 证据已写入 `test-report.md`。
+- VISUAL: 独立查看两张页面截图；初始弹窗显示 O1 要生产 6、分配 10 和红色“待调整 4”，改配后页面显示“分配已保存”并返回报工管理列表。最终 O1/O2 数量、红色消失和版本审计同时由同轮 DOM 与结果 JSON 证明。
+- BUG-VALIDATOR: `validate_bug_regression.py --self-test` 与 `--evidence ...\bug-regression-evidence.md` 均退出 0；修复证据包含 Bug、Expected、Reproduction、Root Cause、RED/GREEN、Verification、风险范围和 Blockers。核心结论已归档到本日志与 `verification-report.md`，临时 evidence 文件列入 cleanup candidates。
+- EXPERIENCE: 按 `project-experience-consolidation` 将“融合后必须使用新事件、主端口、严格运行 profile 和独立证据目录，worktree 旧事件不能冒充融合后复跑；health UP 不能替代运行 Jar 关键能力核验”合并到既有 `docs/e2e-rules.md`，并更新 `docs/experience-index.md`；未新建长期经验文档。
+- STATE: `development-plan-supervisor` P6 已完成，P1-P6 全部为 `completed`、`test_status=passed`、无 blocking prerequisite；`task.md` 进入 `ready_for_closeout`，等待 task-closeout-cleanup preview/apply。
+
+## P6 任务收尾（2026-08-15）
+
+- CLOSEOUT-PREVIEW: `task_closeout.py --task-id 20260814-frontline-active-order-submit-allocation-docs --mode preview --workspace E:\IntRuoyi --worktree-closeout off --json` -> PASS，`status=ready`、`blocked=[]`、`warnings=[]`；25 项正式文档/证据保留，唯一删除项为本任务临时 `bug-regression-evidence.md`。
+- CLOSEOUT-APPLY: 同一命令使用 `--mode apply` -> PASS，`status=applied`；仅删除预览确认的临时回归记录，融合后 `post-merge-int-main` 目录 11 个正式证据文件及全部核心任务文档完整保留。
+- RUNTIME-KEEP: `int_main` 的 8081/48081 为共享主工作区运行态，按项目并发所有权规则保留；本任务未停止或重启，不使用旧 worktree 端口作为证据。
+- FINAL: 融合后真实页面 E2E 事件 229、业务改配、四类目标错误 0、两次 `CLEAN/0`、独立复核及收尾清理均已通过；任务状态更新为 `completed`，无阻塞，未推送远端。
+- FINAL-GATE: 完成态再次执行 closeout preview -> `delete=[]`、`blocked=[]`、`warnings=[]`；`check_plan_completion.py --apply` -> PASS，`complete=true`。E2E 语法/静态合同与 fixture self-test 复跑均 PASS。
+
+## P7 芋道源码 admin 补充真实 E2E 启动（2026-08-15）
+
+- USER-INTENT: 用户明确要求使用“芋道源码/admin”在当前芋道源码租户执行真实页面 E2E；本轮使用 `int_main` 主运行态 8081/48081，不访问远端环境。
+- PREFLIGHT: 当前分支为 `int_main`；8081 HTTP 200、48081 health=`UP`；`npx` 与 Node 可用。只读数据库核验确认租户 `1/芋道源码` 启用、admin 用户 ID 1 启用，且已有签名授权；凭据和密码指纹未输出。
+- BDD: admin 补充真实页面闭环 -> Given `int_main` 主运行态与“芋道源码/admin”真实登录 When admin 在任务自有 O1/O2 上完成一线超量提交和组长改配 Then 必须得到 O1 计划 6、提交 10、红色待调整 4、O1=6/O2=4、版本 2、未分配 0 和完整审计。
+- BDD: admin 基线不可修改 -> Given admin 是受保护基线账号 When 准备和清理任务 fixture Then admin 用户、密码指纹、角色集合和既有签名授权必须前后一致，不得新增、删除或修改基线配置。
+- BDD: admin 模式不得替代独立账号验收 -> Given P5/P6 已由独立非 admin 一线/组长账号通过 When 新增 admin 模式 Then 原固定租户、账号隔离、端口、业务断言和清理合同必须保持 GREEN，admin 结果仅作为补充运行证据。
+- BDD: admin 补充链路零目标错误和零业务残留 -> Given 页面只允许一线提交与组长确认两次目标业务写入 When 场景结束或失败 Then 四类目标错误为 0、finally 与二次 cleanup 均为 `CLEAN/0`、任务自有业务数据残留 0。
+- RED-EXPECTED: 现有真实 E2E 固定拒绝 admin、固定租户 `122/测试租户` 且要求一线/组长账号不同；现有 fixture 也固定创建并删除两个临时用户，不能安全用于租户 1 的受保护 admin。本轮必须先以可执行合同取得预期 RED，再实现显式、隔离且不触碰 admin 基线的补充模式。
+- STATUS: 任务重开为 `in_progress`；P7 完成真实 E2E、独立 tester、双重清理和基线不变核验前不得恢复 `completed`。
+- BLOCKER: `docs/e2e-rules.md:293` 明确规定仅授权“芋道源码/admin”时写入型、签名及需清理的 E2E 必须 BLOCKED，且不得在 admin 基线租户创造测试写入数据；第 302、304 行进一步禁止只能使用默认 admin 时把写入型 E2E 判为通过。当前用户要求包含一线提交与组长确认两次正式写入，因此需要用户明确覆盖此安全门禁后才能继续。
+- SAFE-STOP: 在识别门禁后已停止 P7 executor；未执行 fixture prepare，未产生一线提交或组长确认请求，未修改 admin 用户/密码/角色/签名授权，任务数据残留 0。
+- REQUIRED-AUTHORITY: 若继续，授权必须明确限定为本机租户 `1/芋道源码`，允许通过 admin 真实页面创建并清理带本任务标识的 O1/O2、工序、路线和人员绑定以及两次目标业务写入；仍禁止修改 admin 用户、密码、角色、既有签名授权和任何无关正式业务数据。
+- AUTHORIZATION: 用户已明确回复授权覆盖 admin-only 写入门禁，允许在本机租户 1 创建并清理本任务 O1/O2 等测试数据及两次业务写入；明确禁止修改 admin 用户、密码、角色、既有签名和无关数据。P7 仅按该最小边界解除阻塞。
+- RESUME: fixture prepare 前必须记录 admin 用户、密码指纹、角色集合和既有签名授权指纹；任何目标写入前若保护指纹或页面前置不满足则继续 fail fast。任务状态恢复为 `in_progress`。
+- RED: `node IntRuoyiFronted\\tests\\e2e\\frontline-active-order-submit-allocation-real-static.spec.cjs` -> FAIL，第一个预期断言明确报告尚无 `ADMIN_TENANT1_INT_MAIN` 独立运行模式；后续合同同时锁定租户 `1/芋道源码`、`ADMIN_TENANT1` fixture 声明、admin 受保护基线指纹前后一致，并保留 P6 租户 122 合同。
+- GREEN: 新增的 admin 模式静态合同、原 P6 合同、E2E Node 语法检查与 fixture `--self-test` 全部 PASS；admin 模式只允许 tenant `1/芋道源码`、同一 `admin` 账号和 8081/48081，原模式仍要求 tenant 122 及独立非 admin 账号。
+- RED: 首次 `ADMIN_TENANT1` prepare -> FAIL，MySQL `BIT(1)` 的 `deleted` 字段返回 `b'\\x00'`，基线指纹代码不能直接 `int()`；准备事务已回滚，未留下任务数据。
+- GREEN: 增加显式 BIT 值解析后 prepare/verify PASS；本轮 runId=`FAS-20260814-20260815122606-41624`，O1=6、O2=20、提交量=10，admin 用户/密码/角色/既有签名授权仅生成脱敏 SHA-256 基线指纹，fixture 所有的用户、角色、权限、签名授权 ID 均为空。
+- SAFE-BLOCKED: 首次运行态验证因并行源码指纹变化在启动浏览器和目标业务写入前 BLOCKED，`writeRequestCount=0`；finally cleanup 删除 14 行准备数据，独立二次 cleanup 再次证明 `CLEAN/0`，admin 受保护基线前后指纹一致。随后共享 8081/48081 被并行任务停止，本执行器未擅自启动或占用主运行态。
+- GREEN: `node --check tests/e2e/frontline-active-order-submit-allocation-real.e2e.js`、`node tests/e2e/frontline-active-order-submit-allocation-real-static.spec.cjs` -> PASS；新增显式 `ADMIN_TENANT1_INT_MAIN` 运行模式，精确绑定 `E:\IntRuoyi` 的 8081/48081 与租户 `1/芋道源码`，未知模式 fail fast，原 `POST_MERGE_INT_MAIN` 仍精确绑定租户 `122/测试租户`。
+- GREEN: `python -X utf8 -m py_compile doc\\tasks\\20260814-frontline-active-order-submit-allocation-docs\\fas_fixture_orchestrator.py`、`python -X utf8 ...\\fas_fixture_orchestrator.py --self-test` -> PASS；admin fixture 只复用现有 admin 身份，manifest 的 owned user/role/signature 列表为空，不创建或删除 admin 用户、角色与签名授权，并以用户/密码摘要输入、角色集合和既有签名授权集合生成不可逆保护指纹。
+- PREFLIGHT-RECHECK: 8081 仍由 PID 41700 的 `E:\IntRuoyi\IntRuoyiFronted` Vite 监听且 HTTP 200；48081 仍由 PID 46644 运行 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260815-122829-word-route-e2e-0e653c709.jar` 且 health=`UP`。共享运行态未停止、未重启。
+- FIXTURE-PREPARE: admin 补充 fixture 在租户 `1/芋道源码` 创建成功，runId=`FAS-20260814-20260815123450-30656`；O1 计划量 6、O2 计划量 20、提交量 10。`verify` 返回 `READY`、`protectedBaselineVerified=true`，manifest 中 owned user/role/signature 数均为 0。
+- E2E: 使用显式 `ADMIN_TENANT1_INT_MAIN` 和受控本机默认登录配置启动真实 Playwright -> `BLOCKED`，阻塞类别为 `RUNTIME_EVIDENCE_PREREQUISITE`；在浏览器和目标业务写入前核验 8081 监听时发现端口已消失，随后复核 8081、48081 均无监听且 HTTP/health 均不可达。此前核验通过的共享 PID 41700/46644 在本任务未停止、未重启的情况下被外部并发操作终止。
+- CLEANUP: 本轮目标业务写请求为 0、未生成事件；E2E finally cleanup -> `CLEAN`、`remainingTaskDataCount=0`、`deletedRowCount=14`、`protectedBaselineVerified=true`。独立二次 cleanup -> `CLEAN`、`remainingTaskDataCount=0`、`deletedRowCount=0`、`protectedBaselineVerified=true`。
+- BLOCKER: P7 真实业务闭环尚未执行，需由共享运行态所有者恢复并确认 `E:\IntRuoyi` 的 8081/48081 后才能重新 prepare 新 fixture 和复跑；按用户边界，本 executor 未自行启动或重启共享运行态，亦未复用本轮已清理 fixture 冒充成功。
+
+## P7 并发隔离修订与 admin 补充真实 E2E 完成（2026-08-15）
+
+- ROOT-CAUSE: P7 初次多轮 `prepare/verify` 的任务数据消失并非 fixture 业务逻辑错误，而是同一固定 admin artifact/manifest 被并发验证流程覆盖，且另一流程的 cleanup 精确删除了当轮 14 行 fixture，导致运行批次和数据库身份失配。所有受影响轮次均在业务写入前停止或由各自 `finally` 清理，最终残留 0、admin 受保护基线不变。
+- BDD: admin 每轮证据与 fixture 隔离 -> Given 同一任务可能存在并发验证流程 When 启动 `ADMIN_TENANT1_INT_MAIN` Then 必须要求合法 `FAS_EVIDENCE_RUN_ID`，并把 manifest、运行态、场景状态、截图、结果和清理证据写入该轮独立子目录；路径穿越和共享目录标识必须 fail fast。
+- RED: `node tests/e2e/frontline-active-order-submit-allocation-real-static.spec.cjs` -> FAIL，预期失败为脚本缺少 `FAS_EVIDENCE_RUN_ID` 和 `artifactDirFor`，admin 多轮仍共用固定证据目录。
+- GREEN: 新增 admin 运行证据 ID 校验和独立子目录；非法路径标识拒绝，WORKTREE/P6 原目录合同保持不变。`node --check` 与真实 E2E 静态合同 -> PASS。
+- E2E-DIAGNOSTIC: 独立目录 `p7-main-20260815-2115` 完成事件 `232` 的全部业务步骤和两次目标写入，但因两条通用 `502 Bad Gateway` console 文本缺少响应 URL 归因而按业务 FAIL；`finally` 为 `CLEAN/0`、admin 基线不变，没有把无法证明来源的错误静默忽略。
+- BDD: 外部 HTTP 错误必须逐条可归因 -> Given 浏览器 console 只提供通用 502 文本 When 非本机资源返回 HTTP 错误 Then 只有已记录的非本机响应 URL、状态码和状态文本能与 console 文本一一对应时才归类为外部资源错误；本机或数量不匹配的错误必须继续阻断。
+- RED: 外部响应错误分类合同 -> FAIL，原诊断只记录 request failure，不能把 HTTP 502 response 与通用 console 文本绑定。
+- GREEN: 页面诊断新增全部 HTTP 错误响应的 method/URL/status/statusText；使用计数映射逐条消费外部证据，本机 MES 响应仍进入目标错误。静态行为合同 -> PASS。
+- E2E-BLOCKED: 独立目录 `p7-main-20260815-2122` 在登录页等待 `networkidle` 超时，分类为 `LOGIN_PREREQUISITE`；浏览器和页面后台持续请求未静默放宽，目标业务写入 0，`finally CLEAN/0`、admin 基线不变。
+- BDD: 登录等待真实 DOM 和正式登录响应 -> Given 登录页存在持续轮询或外部资源 When 进入登录页 Then 只等待 `domcontentloaded` 和真实表单可见；登录成功仍必须核验正式 `/auth/login` HTTP/业务响应及离开登录路由，不能用 `networkidle` 作为登录页可用性的代理。
+- RED: 登录等待合同 -> FAIL，原脚本固定 `page.goto(... waitUntil: 'networkidle')`。
+- GREEN: 登录页改为 `domcontentloaded`，后续租户、账号、密码控件和正式登录响应断言全部保留；`node --check` 与静态合同 -> PASS。
+- FIXTURE: 最终独立目录 `e2e-artifacts/admin-tenant1-int-main/p7-main-20260815-2132/`；租户 `1/芋道源码`，复用受保护 admin 身份，O1 计划 6、O2 计划 20、提交量 10；fixture verify 为 `READY` 且 `protectedBaselineVerified=true`，owned user/role/signature 集合为空。
+- GREEN: `FAS_RUNTIME_MODE=ADMIN_TENANT1_INT_MAIN` 真实 Playwright E2E -> PASS，退出码 0，新事件 ID=`233`。一线通过真实页面选择 O1 并提交 10；版本 1 为 `FRONTLINE_SELECTED`、O1=10、红色待调整 4；组长通过真实页面改配 O1=6/O2=4，版本 2 为 `MANUAL`、池总量 10、未分配 0、红色消失，审计记录完整。
+- E2E-WRITES: 目标业务写请求恰好 2 次，只包含一线提交和组长确认；page errors、目标 request failures、目标 HTTP errors、目标 console errors 均为 0。两条外部头像资源 502 均有非本机响应 URL/status/statusText 一一对应，完整保留为 `externalResourceConsoleErrors`，未当作业务成功或静默丢弃。
+- CLEANUP: E2E `finally` cleanup -> `CLEAN`、`cleanupVerified=true`、`remainingTaskDataCount=0`、`protectedBaselineVerified=true`；独立二次 cleanup -> `CLEAN/0` 且基线再次一致。
+- VISUAL: `initial-overage-red.png` 为真实组长分配弹窗，显示 O1 要生产 6、分配 10 和红色“待调整 4”；`after-manual-reallocation.png` 显示“分配已保存”并返回报工管理列表。两张截图均为 1280x720 非空 PNG，最终 O1/O2 数量、红色消失和审计由同轮 DOM/JSON 共同证明。
+- GREEN: 最终回归 -> `node --check` PASS、真实 E2E 静态合同 PASS、fixture `py_compile`/`--self-test` PASS、12 项正式证据文件（9 JSON、1 Markdown、2 PNG）机器校验 PASS、任务差异 `git diff --check` 无错误。
+- STATUS: P7 admin 补充真实 E2E 已完成；它只作为补充证据，不替代 P5/P6 的租户 122 独立账号真实验收。未修改生产业务代码，未推送远端。
+
+## P7 独立复核与任务收尾（2026-08-15）
+
+- INDEPENDENT-TEST: 主线程未参与 P7 实现，独立复跑 E2E `node --check`、静态合同、fixture `py_compile`/`--self-test` 及结果机器断言，全部 PASS；逐项证据已写入 `test-report.md`。
+- INDEPENDENT-EVIDENCE: 事件 233、目标写请求 2、四类目标错误 0、版本 2 O1/O2=`6/4`、总量 10、未分配 0、审计 3、finally 与二次 `CLEAN/0`、admin 保护指纹一致及两张页面截图均通过独立检查。
+- CLOSEOUT-PRECHECK: 清理前枚举 6 份 admin fixture manifest，每个 runId 均存在 `CLEAN/0` 且 `protectedBaselineVerified=true` 的清理证据，未带残留风险进入产物删除。
+- CLOSEOUT-PREVIEW: `task_closeout.py --mode preview --worktree-closeout off` -> `status=ready`、`blocked=[]`、`warnings=[]`；保留核心文档、P5/P6 历史证据和 P7 事件 233 的 12 项正式证据，只删除本任务失败/阻塞轮次、无效运行标识、孤儿证据与 `__pycache__`。
+- CLOSEOUT-APPLY: 同一命令 `--mode apply` -> `status=applied`；清理范围与 preview 一致，未操作生产代码、admin 基线、无关并行任务文件或共享运行态。
+- EXPERIENCE: 按 `project-experience-consolidation` 复核后，P7 的通用经验已合并到既有 `docs/e2e-rules.md` 与 `docs/experience-index.md`：写入型 fixture 全量按 run ID 隔离、通用 console 错误须用外部 response 逐条归因、持续请求页面不得用 `networkidle` 代替正式登录/控件判据。未新建长期经验文档。
+- RUNTIME-KEEP: 最终 8081 PID 35448 HTTP 200、48081 PID 21556 health=`UP`，均归属 `E:\IntRuoyi`；按项目规则保留共享 `int_main` 运行态。
+- FINAL-GATE: 完成态 closeout preview -> `delete=[]`、`blocked=[]`、`warnings=[]`；`check_plan_completion.py --apply` -> `complete=true`；P7 正式目录仅保留事件 233 的 12 项证据，临时产物 0。
+- FINAL: P7 状态 `completed`，任务业务数据残留 0、admin 基线不变、无阻塞，未提交或推送远端。

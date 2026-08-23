@@ -149,3 +149,55 @@ BDD: 多个同工单活跃记录 -> Given 同一工单存在两个活跃订单�
 - RED: <命令> -> FAIL, <预期失败原因>
 - GREEN: <命令> -> PASS
 - E2E: <命令> -> PASS/BLOCKED, <账号、订单、事件、分配、红色标识、清理证据>
+
+## Corrective Post-Merge int_main E2E Verification
+
+BDD: 融合后主线真实页面闭环 -> Given 当前分支为 `int_main`、功能提交已融合、固定运行态为前端 8081 和后端 48081，且 fixture 在租户 122 创建本轮任务自有 O1/O2、独立一线/组长账号和正式权限 When 一线真实登录选择计划量 6 的 O1 提交 10，组长真实登录查看红色待调整 4 并改配为 O1=6/O2=4 Then 版本 1 为 `FRONTLINE_SELECTED` 且 O1=10，版本 2 为 `MANUAL` 且总量 10、未分配 0、红色消失、审计完整。
+
+BDD: 融合后验证链路不得复用旧工作树 -> Given 旧 worktree 事件 227/228 来自 8099/48099 When 执行本轮融合后验收 Then 运行态证据、事件 ID、结果 JSON、截图和清理结果必须来自 `E:\IntRuoyi` 的 8081/48081，旧证据不得计入本轮 PASS。
+
+BDD: 融合后全链路零错误和零残留 -> Given 真实页面产生一线提交和组长确认两次目标业务写入 When 验证结束或中途失败 Then 目标页面错误、目标请求失败、目标 HTTP 错误、目标控制台错误均为 0，finally cleanup 必须执行，独立二次 cleanup 必须返回 `CLEAN` 且任务数据残留 0。
+
+验证命令：
+
+- `python -X utf8 doc/tasks/20260814-frontline-active-order-submit-allocation-docs/fas_fixture_orchestrator.py prepare ...`
+- 在显式 `POST_MERGE_INT_MAIN` 和 `http://127.0.0.1:8081` / `http://127.0.0.1:48081` 环境下运行 `node tests/e2e/frontline-active-order-submit-allocation-real.e2e.js`。
+- `python -X utf8 doc/tasks/20260814-frontline-active-order-submit-allocation-docs/fas_fixture_orchestrator.py cleanup ...` 进行独立二次清理。
+
+通过条件：
+
+- 真实页面 E2E 退出码 0，并生成新的融合后事件 ID、结果 JSON、证据 Markdown 和两张页面截图。
+- 一线提交、红色标识、组长改配、两个分配版本、审计、写请求计数和四类错误计数全部满足业务断言。
+- E2E finally cleanup 与独立二次 cleanup 均为 `CLEAN/0`。
+
+阻塞条件：
+
+- `int_main` 分支或融合提交缺失、8081/48081 归属不明、运行态不是当前主工作区构建、测试租户/登录/数据库/Redis/浏览器/fixture 任一正式前置缺失时必须 BLOCKED。
+- E2E 脚本只能运行 8099/48099 或依赖已删除 worktree 时，先以静态/行为 RED 锁定该验证链路问题，再修复为显式主线模式；不得换端口或复用旧事件。
+
+## Supplementary Yudao Source Admin Real E2E
+
+BDD: admin 补充真实页面闭环 -> Given 当前分支为 `int_main`、8081/48081 归属 `E:\IntRuoyi`，且“芋道源码/admin”真实登录有效 When admin 在任务自有 O1/O2 上通过一线页面选择计划量 6 的 O1 提交 10，再通过生产组长页面把分配改为 O1=6/O2=4 Then 版本 1、红色待调整 4、版本 2、红色消失、总量 10、未分配 0 和审计必须与 P6 业务合同一致。
+
+BDD: admin 基线不可修改 -> Given 租户 1 的 admin 是受保护基线账号 When 准备、执行和清理补充 E2E Then admin 用户、密码指纹、角色集合和既有签名授权指纹必须前后一致，只能新增并删除带本轮任务标识的业务 fixture。
+
+BDD: admin 模式不得降级原验收 -> Given P5/P6 要求独立非 admin 一线与组长账号 When 新增 admin 补充模式 Then 原模式的固定租户、独立账号、端口、业务断言和清理合同必须继续通过静态及行为回归，admin PASS 不能替代角色隔离 PASS。
+
+BDD: admin 补充链路零目标错误和零业务残留 -> Given 本轮允许的目标业务写入只有一线提交与组长确认 When 场景成功或中途失败 Then page error、目标请求失败、目标 HTTP 错误和目标 console error 均必须为 0，finally cleanup 与独立二次 cleanup 必须返回 `CLEAN/0`，任务自有业务数据残留 0。
+
+验证命令：
+
+- admin fixture 编排器自检及静态合同先 RED 后 GREEN。
+- 使用显式 admin 模式在 `http://127.0.0.1:8081` / `http://127.0.0.1:48081` 执行真实 Playwright E2E，凭据只从本机受控配置注入且不输出。
+- 独立复跑原 P6 静态合同、admin 结果机器断言、admin 基线前后指纹和二次 cleanup。
+
+通过条件：
+
+- 真实页面显示登录身份为“芋道源码/admin”，新事件、两版分配、红色状态、审计和写请求均满足业务断言。
+- admin 用户、密码、角色和既有签名授权前后不变；本轮任务自有业务数据清理为 `CLEAN/0`。
+- 原租户 122 独立账号验证合同继续 PASS；admin 结果明确标注为补充权限验证，不冒充角色隔离验收。
+
+阻塞条件：
+
+- admin 登录、页面入口、现有签名授权或主运行态任一前置缺失时，在目标业务写入前 BLOCKED。
+- 任何方案需要修改 admin 用户、角色、密码、既有签名授权或正式业务数据时必须 BLOCKED。

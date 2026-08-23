@@ -20,7 +20,7 @@
       "acceptance_criteria": [
         {
           "ac_id": "P1-AC1",
-          "text": "未勾选工艺流程时不得按 Word 重建工序节点、普通流程边或 START/END 边界；仅生成批记录表单绑定候选时必须沿用原 ACTIVE flowGraph。",
+          "text": "实现当前里程碑目标：让“工艺流程”勾选项成为按 Word 工序顺序重建工序节点和流程关系的唯一入口。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P1-Execution-Evidence",
@@ -29,7 +29,7 @@
         },
         {
           "ac_id": "P1-AC2",
-          "text": "勾选工艺流程且已有路线时页面提示生成或更新候选版本并在发布后生效，同时回传预检冻结的路线和候选 ID。",
+          "text": "交付物已落地：未勾选“工艺流程”时，不重建 flowGraph.nodes、edges 或 boundaryEdges；若只生成批记录表单绑定候选，候选 flowGraph 必须沿用原 ACTIVE。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P1-Execution-Evidence",
@@ -38,12 +38,24 @@
         },
         {
           "ac_id": "P1-AC3",
-          "text": "候选为 PENDING_APPROVAL 或 READY_TO_PUBLISH 时前端阻断继续导入。",
+          "text": "交付物已落地：勾选“工艺流程”且已有路线时，页面提示生成或更新候选版本，发布后才生效。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P1-Execution-Evidence",
             "test-report.md#Independent-P1-Verification-2026-08-14"
           ]
+        },
+        {
+          "ac_id": "P1-AC4",
+          "text": "交付物已落地：候选锁定时前端阻断继续导入。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P1-AC5",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "pending",
+          "evidence": []
         }
       ],
       "evidence": [
@@ -76,7 +88,7 @@
       "acceptance_criteria": [
         {
           "ac_id": "P2-AC1",
-          "text": "请求勾选工艺流程但缺少 dccProjectCodeId、expectedRouteId 或 expectedRouteVersionId 时后端 fail fast。",
+          "text": "实现当前里程碑目标：后端以 DCC 项目代码和预检冻结 ID 精确定位路线，已有路线只创建或更新 DRAFT 候选。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P2-Execution-Evidence",
@@ -85,7 +97,7 @@
         },
         {
           "ac_id": "P2-AC2",
-          "text": "所选 DCC 项目没有现有路线时新建路线、工序、流程关系、DCC 绑定和初始 ACTIVE 版本。",
+          "text": "交付物已落地：缺少 dccProjectCodeId、expectedRouteId 或 expectedRouteVersionId 时 fail fast。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P2-Execution-Evidence",
@@ -94,7 +106,7 @@
         },
         {
           "ac_id": "P2-AC3",
-          "text": "所选 DCC 项目已有唯一 ACTIVE 路线时只创建或更新同源 DRAFT 候选，发布前 ACTIVE 不变。",
+          "text": "交付物已落地：无现有路线时创建路线、工序、流程关系、DCC 项目代码绑定和初始 ACTIVE 版本。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P2-Execution-Evidence",
@@ -103,12 +115,24 @@
         },
         {
           "ac_id": "P2-AC4",
-          "text": "预检后 ACTIVE 或候选版本漂移时最终校验失败且不继续写入。",
+          "text": "交付物已落地：已有路线时创建或更新同源 DRAFT 候选，ACTIVE 发布前不变。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P2-Execution-Evidence",
             "test-report.md#P4-Verification-And-Final-Regression-2026-08-15"
           ]
+        },
+        {
+          "ac_id": "P2-AC5",
+          "text": "交付物已落地：预检后 ACTIVE 或候选版本漂移时拒绝写入。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P2-AC6",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "pending",
+          "evidence": []
         }
       ],
       "evidence": [
@@ -143,7 +167,7 @@
       "acceptance_criteria": [
         {
           "ac_id": "P3-AC1",
-          "text": "已有路线升版时候选 flowGraph.nodes 按 Word 顺序生成，并包含正式 processId 和可发布投影的 routeProcess 身份。",
+          "text": "实现当前里程碑目标：在 createOrUpdateCandidateRouteVersion 生成候选快照时，把旧路线可唯一映射的逐工序配置迁移到新工序节点。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P3-Execution-Evidence",
@@ -152,7 +176,7 @@
         },
         {
           "ac_id": "P3-AC2",
-          "text": "旧工序唯一映射到候选时保留正式批记录表单绑定，不由 formBindings 或默认 MAIN 推断。",
+          "text": "交付物已落地：候选 flowGraph.nodes 按 Word 顺序生成，节点具备正式 processId 和可投影的 routeProcess 身份。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P3-Execution-Evidence",
@@ -161,7 +185,7 @@
         },
         {
           "ac_id": "P3-AC3",
-          "text": "formBindings 只作为表单槽位迁移到对应新工序，不改变批记录表单来源。",
+          "text": "交付物已落地：batchUseConfigs.batchRecordReports 正式批记录表单绑定迁移到候选新工序。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P3-Execution-Evidence",
@@ -170,7 +194,7 @@
         },
         {
           "ac_id": "P3-AC4",
-          "text": "routeStartProductionLeaders、batchRecordAttachmentOwners 等 START 配置保留，END 只保留流程边界且不生成结束绑定。",
+          "text": "交付物已落地：batchUseConfigs.formBindings 仅作为表单槽位迁移，不替代正式批记录表单。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P3-Execution-Evidence",
@@ -179,12 +203,24 @@
         },
         {
           "ac_id": "P3-AC5",
-          "text": "旧配置所在工序缺失或无法唯一映射时后端阻断并提示具体工序。",
+          "text": "交付物已落地：routeStartProductionLeaders、batchRecordAttachmentOwners 等工序开始配置迁移到候选；不新增工序结束绑定。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P3-Execution-Evidence",
             "test-report.md#Independent-P3-Verification-2026-08-14"
           ]
+        },
+        {
+          "ac_id": "P3-AC6",
+          "text": "交付物已落地：旧配置无法唯一映射时 fail fast。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P3-AC7",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "pending",
+          "evidence": []
         }
       ],
       "evidence": [
@@ -215,7 +251,7 @@
       "acceptance_criteria": [
         {
           "ac_id": "P4-AC1",
-          "text": "候选发布后正式路线按候选节点和关系投影，并保留批记录表单、formBindings 和工序开始配置。",
+          "text": "实现当前里程碑目标：候选发布后，正式 ACTIVE 路线按候选快照投影，且三类配置仍在正确链路上。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P4-Execution-Evidence",
@@ -224,7 +260,7 @@
         },
         {
           "ac_id": "P4-AC2",
-          "text": "候选尚未发布时批次执行和路线配置仍读取原 ACTIVE。",
+          "text": "交付物已落地：发布后正式路线节点、关系和三类配置与候选一致。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P4-Execution-Evidence",
@@ -233,12 +269,24 @@
         },
         {
           "ac_id": "P4-AC3",
-          "text": "发布投影缺少必要配置快照时 fail fast，不以空配置、旧 ACTIVE 或默认值冒充成功。",
+          "text": "交付物已落地：发布前批次执行或路线配置仍读取原 ACTIVE。",
           "status": "completed",
           "evidence": [
             "execution-log.md#P4-Execution-Evidence",
             "test-report.md#P4-Verification-And-Final-Regression-2026-08-15"
           ]
+        },
+        {
+          "ac_id": "P4-AC4",
+          "text": "交付物已落地：发布投影缺必要配置快照时 fail fast。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P4-AC5",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "pending",
+          "evidence": []
         }
       ],
       "evidence": [
@@ -263,7 +311,7 @@
     "test_loops": 0
   },
   "created_at": "2026-08-14T12:13:35",
-  "updated_at": "2026-08-14T20:22:58+00:00",
+  "updated_at": "2026-08-15T11:38:23+00:00",
   "branch": "int_main",
   "baseline_revision": "33302985228b16faae2695458b03268098a433af",
   "workspace_root": "E:\\IntRuoyi",

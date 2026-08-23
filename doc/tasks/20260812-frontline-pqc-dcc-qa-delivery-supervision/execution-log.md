@@ -443,3 +443,51 @@
 
 - INT12 RED: 冻结 Maven 命令虽执行 33 个既有测试并通过，但 MesFrontlinePqcEmployeeSwitchServiceTest、MesFrontlinePqcSubmissionConcurrencyTest 等冻结测试类缺失，不能作为 GREEN；runtime static 因 switch 仍使用 workOrderId/routeId 失败，formal-submit static 因缺正式 QA/task identity 失败。执行 Agent 正在补正式身份、task 行锁/hash/event 和全链 resultType。
 - Cleanup recovery: Git 已注销但残留的 DF11 ignored node_modules/build 输出已从原 worktree 路径移入可恢复隔离目录 D:\IntRuoyiWorktree\.cleanup-trash\20260814-frontline-pqc-dcc-qa-df11-residual；原 DF11 worktree 路径现不存在，未递归删除残留数据。
+
+## 2026-08-14 21:25:19 +0800 INT12 / VAL13 repair gate
+
+- TEST FAIL: VAL13 round 1 existence gate found only 14 of 17 frozen responsibility test classes and returned the defect to INT12 without changing production code.
+- GREEN: INT12 repair commit `3e0df78fe3a6262aa918a94b03094809966a0bbf` adds the three missing classes plus tracked snapshot support; new tests are 10/10 PASS, the INT12 seven-class regression is 43/43 PASS, and all 17 classes now exist exactly once.
+- TEST FAIL: The full 17-class Maven command ran 126 tests with 0 failures and 3 errors: C00 lacks `20260813_mes_active_order_qa_decoupling.sql`; DF06 has two `UnnecessaryStubbingException` errors in `MesTeamLeaderActiveOrderServiceTest`.
+- REPAIR READY: Isolated C00 and DF06 fix worktrees contain only the exact missing SQL file and removal of the two unused Mockito stubs. Their clean reactor verification cannot start because the committed DCC module fails compilation before MES tests.
+- ROOT CAUSE: Commit `33302985228b16faae2695458b03268098a433af` added the global DCC assignment-candidate endpoint and committed all consumers but omitted `DccProjectCodeAssignmentCandidatePageReqVO.java` and `DccProjectCodeAssignmentCandidateRespVO.java`; both source files remain untracked and no reachable branch contains them.
+- OWNERSHIP BLOCKER: The omitted DTOs belong to the separate `20260813-dcc-residual-issues-fix` task, not C00/DF06/INT12. They are excluded from cleanup and preserved, but are not imported or committed without explicit authorization. No fallback build path, mock artifact, source-path injection, push, deploy, server operation, or business-data write was used.
+
+## 2026-08-14 21:45:00 +0800 Contract-conflict correction
+
+- AUDIT FAIL: The proposed `20260813_mes_active_order_qa_decoupling.sql` is not a missing C00 deliverable. C00 already adds the three snapshot columns as nullable for migration and postflight changes them to NOT NULL after zero blockers; the later SQL would undo that approved final state.
+- AUDIT FAIL: Removing two strict-Mockito stubs is not a DF06 repair. Commit `333029852` removed candidate DCC/QA validation, active-order snapshot writes, PQC task generation, and removed-order snapshot validation; the stubs became unused only because the production contract was changed.
+- USER-INTENT CONFLICT: The untracked `20260813-add-admin-pressure-pump-orders` task records a later explicit user decision to add active orders before QA/PQC is valid. This conflicts directly with the active 14-task DF06 contract that requires atomic DCC/QA lock and task creation on add.
+- CLEAN RESTORE: The invalid SQL copy was deleted only from the task-owned C00 fix worktree, and the two removed stubs were restored only in the task-owned DF06 fix worktree. Both fix worktrees are clean again. The main workspace's untracked SQL, task records, DTOs, runtime, and business data were not modified.
+- PRESERVATION: The two unique untracked DCC DTOs were backed up as an unapplied patch at `doc/tasks/20260814-fast-forward-int-main/patch-backups/20260814-dcc-assignment-candidate-dtos-untracked.patch`; `git apply --check` succeeds against a clean worktree and SHA-256 is `4DD0EF21D2D297318491EA68BA1FCE439B6082D901C03678D36E750C4829AB74`.
+- BLOCKER: Supervisor requires an explicit decision selecting either the original DF06 lock-at-add contract or the later lock-after-add contract. No production/test/schema change, merge, push, deployment, server operation, or business-data write will proceed across that ambiguity.
+
+## 2026-08-14 22:05:00 +0800 Later-lock completeness audit
+
+- READ-ONLY RESULT: Production-source search found no active-order writer that later fills `dccProjectCodeId`, `qaRegulationId`, or `qaRegulationVersionId`; the only active-order builder references outside the removed add path copy existing values during reactivation.
+- READ-ONLY RESULT: `insertPqcInspectionTasks` and `validateRemovedQaLockSnapshot` remain as dead private declarations with no caller. The frontline projection and locked-version resolver still fail fast when any of the three snapshot IDs is missing.
+- BUSINESS IMPACT: The later decoupling decision currently proves only that an order can enter the active pool. It does not define or implement the point where QA is frozen and PQC tasks are created, so such an order cannot complete the formal frontline PQC flow.
+- DECISION IMPACT: Choosing the later-lock model requires a formal change request covering the lock command/transaction, idempotency, failure UI, reactivation, migration, task creation, and DF02/DF06/DF07/DF10/INT12/VAL13 contracts. It cannot be completed by retaining nullable columns alone.
+
+## 2026-08-14 22:40:16 +0800 User decision and resume
+
+- USER DECISION: `A + 授权补 DTO`.
+- CONTRACT AUTHORITY: Restore the approved 14-task rule: adding an active order atomically locks DCC/QA snapshots and creates PQC tasks; invalid QA blocks the add transaction.
+- SCOPE AUTHORITY: The two omitted DCC assignment-candidate DTOs may be added through an isolated narrow task and fast-forwarded to `int_main`; no other dirty DCC changes are authorized.
+- RESUME: The supervised goal is active again. Execution order is DTO prerequisite, C00 orphan-test repair, DF06 behavior restoration, INT12 integration, then independent VAL13.
+
+## 2026-08-15 04:50:00 +0800 DTO prerequisite closeout and DF06 dispatch
+
+- GREEN: DCC assignment-candidate DTO prerequisite was independently verified and fast-forwarded into `int_main`; post-merge DCC regression passed 23 tests with 0 failures/errors/skips.
+- PRESERVATION: The pre-existing untracked DTO patch remains at `doc/tasks/20260814-fast-forward-int-main/patch-backups/20260814-dcc-assignment-candidate-dtos-untracked.patch` and was not reapplied; exact source equality was verified before recoverable cleanup of temporary copies.
+- CLOSEOUT: DTO worktree, branch and slot were closed after task-closeout preview/apply; `int_main` now includes implementation commit `f7e540c937bb825077bf0f6f149f6a4c13af163a` and closeout commit `42c93f8392923554887005db5332e79b8dd6591b`.
+- STATE: The DTO prerequisite was removed from `blocking_prereqs`; DF06 remains `in_progress` and VAL13 waits for DF06/C00 plus INT12 latest-main integration.
+- DISPATCH: Created `doc/tasks/20260815-frontline-pqc-df06-contract-restoration/` in the clean slot-17 worktree and assigned a bounded executor. The executor may modify only DF06 creation/reactivation code, its focused tests, the C00 schema test orphan assertion, and the remediation execution log; SQL and downstream contracts are out of scope.
+- TDD GATE: The executor must first restore formal assertions and capture RED, then minimally restore atomic DCC/QA locking, canonical task creation and historical reactivation validation. An independent tester will run after executor completion.
+## 2026-08-15 Remaining-Task Resume
+
+- 用户要求继续完成剩余任务。
+- 监督恢复检查确认原任务包使用 `dev-plan.md`，与 `development-plan-supervisor` 的固定文件名合同不兼容，因此按既有 `supervised-complex-delivery` 任务状态继续，不重写 PRD、任务图或任务编号。
+- 当前未完成链路为：C00 回填修复独立复审/提交 -> DF06 正式合同修复融合最新 `int_main` -> INT12 最新主线复验 -> VAL13 独立验收。
+- C00 回填 worktree 已按正式端口合同登记 `int_main slot 20`，前端 `8154`、后端 `48154`；未启动服务。
+- 当前只启动一个独立 tester 复核 C00 回填修复；tester 只允许写 C00 任务的 `test-report.md`，不得修改生产代码、SQL、任务状态或其它任务文档。
