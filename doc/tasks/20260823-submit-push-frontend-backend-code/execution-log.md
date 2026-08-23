@@ -27,6 +27,7 @@ BDD: 精确提交并推送前后端代码 -> Given 当前工作区同时包含�
 - `git push origin int_main` 失败：Git 配置代理 `127.0.0.1:7890` 不可连接；使用命令级空代理重试仍因 GitHub 连接被重置失败。当前本地 HEAD 为 `9b18ee0934746a0356785181963f044f69813f53`，`origin/int_main` 为 `8fe9228b20521d6a6f32a055f0d3d2fc2c9bd4fe`，ahead 67。
 - 收尾清理预览：`task_closeout.py --task-id 20260823-submit-push-frontend-backend-code --mode preview` -> PASS，保留 task.md、execution-log.md、verification-report.md，无删除项、阻塞项或警告。
 - 收尾清理应用：同一 task id 使用 `--mode apply` -> PASS，无删除项；当前仓库是主 worktree，不执行合并或 worktree 删除。
+- 收尾记录提交：`5652096e82f6f06d54de4c7baae15e04e0fe5be8`，包含本任务三份记录；随后任务文档只读核验发现本地相对远端 ahead 68。
 
 ## Verification Evidence
 
