@@ -241,3 +241,13 @@ RED: 流程6 worktree guard（修复前） -> FAIL，slot=41 登记为 `8256/482
 GREEN: 补齐 `scripts/runtime/branch-runtime-profile.ps1` 的第三扩展端口和 registry `contractVersion` 校验，修正 `docs/local-runtime.md` / `docs/worktree-restrictions.md` 的 `slot >= 51` 规则后，流程6 worktree `branch-runtime-port-guard.ps1 -Profile int_main -WorktreePath D:\IntRuoyiWorktree\20260822-flow-repair-06-design-development` -> PASS（8213/48213）；主线 E:\IntRuoyi guard -> PASS（8081/48081）；`git diff --check` -> PASS。
 
 REGRESSION: 全局 runtime canonical commit 已存在于 `ea39dacc2`；流程6 owner 必须只 `git add` task-owned 代码，不能提交 runtime/docs 全局规则。registry 已有流程6 active slot=38 登记；slot=31 合法，不作为 blocker。未运行全量 MES、未修改流程4业务代码。
+
+## M25 流程6/8旧 worktree 基线迁移
+
+BDD: 旧 worktree 不得以 v4/v5 runtime 规则继续提交 -> Given 当前主线 `int_main=6717b60c1` 已统一 v6 / slot `1..50`，流程6 current-main-verify 仍为 v4/v5、流程8 design-development 仍为 v4 且无 registry / When 只读运行各自 guard 并为需要继续开发的线程创建干净 integration worktree / Then 旧目录保留只读，不覆盖其 dirty/staged 业务文件，新的 worktree 从 `6717b60c1` 建立并用 reserve 脚本登记。
+
+RED: `D:\IntRuoyiWorktree\20260822-flow-repair-06-current-main-verify` guard -> FAIL，旧脚本/文档要求 `1..40` / v4-v5；`D:\IntRuoyiWorktree\20260822-flow-repair-08-design-development` guard -> FAIL，旧脚本要求 `1..30` / v4。两者都是 runtime 基线阻断，不是流程4、流程6或流程8业务 RED。
+
+GREEN: `git worktree add -b codex/20260823-flow06-int-main-integration D:\IntRuoyiWorktree\20260823-flow06-int-main-integration 6717b60c1` 后，`reserve-worktree-slot.ps1` 登记 slot=45 / `8260/48260`；`git worktree add -b codex/20260823-flow08-int-main-integration D:\IntRuoyiWorktree\20260823-flow08-int-main-integration 6717b60c1` 后登记 slot=46 / `8261/48261`。两个 clean worktree 的 guard 均 PASS。
+
+REGRESSION: 旧流程6/8目录不得继续提交全局 runtime 文件；对应 owner 应将业务差异迁移到新的 integration worktree，并只提交 task-owned 路径。slot=31 合法，未停止服务、未运行全 MES、未修改流程6/8业务代码。

@@ -158,3 +158,10 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 全局 canonical runtime v6 已由 `ea39dacc2` 提供：`branch-runtime-profile.ps1`、preflight guard、分支端口文档和本地 runtime 规则统一 `2026-08-22-branch-runtime-v6`，附加槽位为 `1..50`，slot=31 合法，`slot >= 51` 才阻断。
 - 流程6 registry 当前存在 active 条目：`D:\IntRuoyiWorktree\20260822-flow-repair-06-design-development`，profile `int_main`，slot `38`，端口 `8213/48213`。原始阻断是流程6 worktree 未提交 runtime profile 对 slot `41..50` 缺少第三扩展段，并非业务代码或缺少登记。
 - runtime owner 补齐流程6 worktree 的第三扩展端口和 registry contract 校验后，流程6 worktree guard 与主线 guard 均 PASS，`git diff --check` PASS。流程6应排除 runtime/docs 全局文件，仅提交 task-owned 业务代码；不使用 `--no-verify`，不重复全 MES。
+
+## 10.5 流程6/8旧 worktree 与当前基线
+
+- 当前 `int_main=6717b60c1` 的 runtime 脚本、文档和 registry 均为 v6，合法附加槽位为 `1..50`。slot=31 不构成阻断。
+- 旧 `20260822-flow-repair-06-current-main-verify` guard 实际失败（v4/v5 文档与旧上限），旧 `20260822-flow-repair-08-design-development` guard 实际失败（v4、最大 slot=30，且无当前 registry 登记）。两个旧目录均不作为新提交/验证基线，未删除、未覆盖其业务改动。
+- 已创建干净当前基线 integration worktree：流程6 `D:\IntRuoyiWorktree\20260823-flow06-int-main-integration`，slot=45，`8260/48260`；流程8 `D:\IntRuoyiWorktree\20260823-flow08-int-main-integration`，slot=46，`8261/48261`。两者均从 `6717b60c1` 创建、registry active、guard PASS、worktree clean。
+- 迁移命令：`git worktree add -b <branch> <path> 6717b60c1`，随后 `scripts/runtime/reserve-worktree-slot.ps1 -Name <name> -Path <path> -Branch <branch> -Profile int_main -AsJson`。旧 worktree 业务差异由各自 owner 有选择地迁移，流程11不代改流程6/8业务代码。
