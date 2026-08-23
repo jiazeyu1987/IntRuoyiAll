@@ -68,7 +68,7 @@ Every capture attempt must log entry type, idempotency key, source bundle hash, 
 
 后置 release-decision 命令要求显式 originId，并校验该 Origin 属于当前 batchExecutionId；多 Origin 不取首条记录猜测。traceability/list 的 releaseApplicationId 条件通过 RELEASE_DECISION TraceLink 的 sourceObjectId 查询 batchExecutionId，再与 Origin 条件交集，不依赖 Origin 上不存在的放行申请列。该修订及映射缺失门禁已由 service contract 5 tests 验证；真实 Mapper、数据库和权限回归仍未运行。
 
-历史定向 GREEN：validator 16 tests + service contract 7 tests，共 23 tests；该结果已被后续 25-test 结果 supersede，覆盖 `PQC_INDEPENDENT` canonical 独立入口、损耗条件、manifest hash 链、逐 Origin 关系门禁及后置放行归属。REGRESSION 仍为 NOT RUN。
+历史定向 GREEN：validator 16 tests + service contract 7 tests，共 23 tests；该结果已被后续当前 `int_main` 29-test 结果 supersede，覆盖 `PQC_INDEPENDENT` canonical 独立入口、损耗条件、manifest hash 链、逐 Origin 关系门禁及后置放行归属。REGRESSION 仍为 NOT RUN。
 
 ## 2026-08-22 最新来源身份完整性验证
 
@@ -81,6 +81,6 @@ Every capture attempt must log entry type, idempotency key, source bundle hash, 
 
 - Tx-C producer entry is `POST /mes/pro/edhr-batch-execution/traceability/tx-c`; its request is a witness/idempotency envelope only. The producer reads the successful Flow6 `OPEN` audit, Flow1 binding header/items and formal Flow4/2/3/5 source evidence from persistence under the current tenant. It does not accept client-supplied Origin/TraceLink/Manifest/source payloads.
 - Success writes Origin/TraceLink/Manifest and `mes_pro_edhr_batch_trace_outbox_event` in one transaction, then publishes `FLOW7_TRACE_MAPPING_SUCCEEDED` after commit. Failure rolls back graph writes and commits a separate retryable/final outbox event with `TRACE_MAPPING_BLOCKED`; precheck mutation is `SOURCE_CHANGED_AFTER_PRECHECK`. Flow6 remains the `BATCH_READY` owner.
-- `GREEN: mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests clean compile -> PASS` at `2026-08-23T14:33:27+08:00`; 24 reactor modules completed and MES compiled 2857 main sources. The focused test command without `maven.testResources.skip` -> PASS at `2026-08-23T14:34:54+08:00`. All 29 focused tests (validator 17 + service contract 12) completed with 0 failures/errors/skips and `BUILD SUCCESS`.
+- `GREEN: mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests clean compile -> PASS` at `2026-08-23T14:55:52+08:00`; 24 reactor modules completed and MES compiled 2857 main sources. The focused test command without `maven.testResources.skip` -> PASS at `2026-08-23T14:57:33+08:00`. All 29 focused tests (validator 17 + service contract 12) completed with 0 failures/errors/skips and `BUILD SUCCESS`.
 - This proves the task-owned implementation slice only. Service startup, real Mapper/database/permission runtime, upstream formal receipt adapters, Flow8 material gate, Flow10 final release and write-enabled E2E remain `NOT RUN`.
 - Evidence validators: `validate_backend_api.py -> PASS`; task-local documentation structure and SQL static scans also pass. These are static checks and do not replace runtime or cross-flow verification.

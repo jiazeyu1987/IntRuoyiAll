@@ -2,11 +2,11 @@
 
 ## Latest Authoritative Verification (2026-08-23)
 
-Flow7 implementation slice: **PARTIAL PASS (fresh clean verification)**. Main-workspace Maven 3.9.16 clean compile passed at `2026-08-23T14:33:27+08:00` across 24 reactor modules (MES 2857 main sources); 29 focused tests (17 validator + 12 service contract) passed at `2026-08-23T14:34:54+08:00` with zero failures/errors/skips (`BUILD SUCCESS`). Test resources were copied normally. The verified slice covers task-owned Origin/TraceLink/Manifest contracts, formal Tx-C producer/outbox handling, explicit `originId`, persisted `RELEASE_DECISION` TraceLink resolution, canonical source identity mismatch blocking, and loss-fact mapping. The linked-worktree flatten/compiler ACL failures are historical context only.
+Flow7 implementation slice: **PASS for the Flow7 task-owned scope (fresh current-int_main verification)**. Current `int_main` Maven 3.9.16 clean compile passed at `2026-08-23T14:55:52+08:00` across 24 reactor modules (MES 2857 main sources); 29 focused tests (17 validator + 12 service contract) passed at `2026-08-23T14:57:33+08:00` with zero failures/errors/skips (`BUILD SUCCESS`). Test resources were copied normally. The verified slice covers task-owned Origin/TraceLink/Manifest contracts, formal Tx-C producer/outbox handling, source-precheck resolver, explicit `originId`, persisted `RELEASE_DECISION` TraceLink resolution, canonical source identity mismatch blocking, and loss-fact mapping. The linked-worktree flatten/compiler ACL failures are historical context only.
 
 Full target: **BLOCKED**. Formal Flow1 pick-list binding, Flow4 completionBackfillReceipt, Flow5 loss receipt, and Flow6 batch-provision receipt adapters/owners/fixtures are not all connected; real database migration/append-only trigger/Mapper/permission/runtime verification and service startup are `NOT RUN`; Flow8 four-material gate, Flow10 final `RELEASED`, full regression and write-enabled E2E are also `NOT RUN`. Flow7 does not own those states.
 
-提交交付：**BLOCKED**。主工作区 `.git/index` 受只读边界保护，`git add` 无法创建 `E:\IntRuoyi\.git\index.lock`；未修改 ACL、未复制 Git 元数据、未进行旁路提交。流程7 task-owned 文件已在主工作区并通过本次验证，但尚未形成 Git commit。
+提交交付：**PASS（task-owned selective commits）**。当前 `int_main` 已包含 `0767b1fa5` 以及后续验证/文档提交；未使用 `git add -A`，未重复提交已跟踪 DTO，未混入流程6/8/10或其它 dirty/untracked。提交不改变流程6/8/10状态 owner。
 
 Tx-C 交付边界：生产入口为 `POST /mes/pro/edhr-batch-execution/traceability/tx-c`；成功事务提交四张 Flow7 表并在提交后发布 `FLOW7_TRACE_MAPPING_SUCCEEDED`，失败在独立失败事务提交 `TRACE_MAPPING_BLOCKED` outbox 事件且不保留半成品。来源预检后变化使用 `SOURCE_CHANGED_AFTER_PRECHECK` 证据 fail-fast。该合同可供流程6消费，但流程6的正式 sourceEvidence/receipt 持久化适配尚未提供。
 
