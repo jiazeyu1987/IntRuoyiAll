@@ -149,6 +149,15 @@ PowerShell 5.1/7 中执行 SSH、bash 片段、HTTP host:port、release-info JSO
 - `rg`：正则以 `-` 开头时使用 `rg -- "<pattern>" <path>`；包含 lookahead/lookbehind 时使用 `rg --pcre2` 或 Python `re`。
 - 脱敏：只匹配 `mysql -p<非空密码>`、`/user:<user> <secret>`、`password/token/secret` 等明确 secret 形态；扫描命中后打印上下文人工确认，避免把 `-ProdServerHost`、`ruoyi-vue-pro`、releaseTag 或普通路径改写掉。
 
+## 2026-08-23 Maven 回归参数、内存与证据基线门禁
+
+- Trigger: Windows PowerShell 执行 Maven/Surefire 全量或定向回归，并需要把失败矩阵与后续提交对账。
+- Preflight check: 含 `-D...` 的 Surefire 参数整体用单引号传入，避免 PowerShell 将参数拆成 lifecycle phase；为大规模 MES 回归显式设置受控 `MAVEN_OPTS`（heap、metaspace、code cache、编译线程和栈），并记录退出码与 Surefire XML，不能只看控制台摘要。
+- Evidence rule: 全量矩阵必须记录生成时的 commit HEAD；后续合入流程提交后只重跑受影响测试类并更新对应行，不能把旧 HEAD 的 failure/error 总数冒充当前主线全量结果。
+- Blocker: 参数拆分、JVM native-memory allocation failure、未进入 Surefire、或矩阵 HEAD 与被测 HEAD 不一致时，均属于工具/证据阻断，不得写成业务 PASS/RED。
+- Verification: 记录 bundled Maven 命令、实际 exit code、每个定向类的 tests/failures/errors/skipped、当前 HEAD 和 `git diff --check`；保留其它任务运行中的 runtime/Flow10 进程，不因定向复验强制终止。
+- Forbidden action: 不重复无必要的全 MES 重跑，不使用 mock/API-only/default-success 替代真实测试，不覆盖并行任务 dirty/untracked 文件，不用 `--no-verify`。
+
 
 ## 2026-07-13 Playwright console 统计文本与 release-info CRLF 门禁
 
