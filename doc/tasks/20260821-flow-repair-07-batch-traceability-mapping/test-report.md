@@ -25,7 +25,7 @@
 
 ## P5
 
-- PARTIAL/BLOCKED: Maven 3.9.16 compile PASS; 28 focused tests PASS (17 validator + 11 service contract); real Tx-C persistence/outbox/runtime and upstream receipt adapters remain NOT RUN.
+- PARTIAL/BLOCKED: Maven 3.9.16 clean compile PASS; 29 focused tests PASS (17 validator + 12 service contract, 0 failures/errors/skips); real Tx-C persistence/outbox/runtime and upstream receipt adapters remain NOT RUN.
 
 ## Final Verdict
 
