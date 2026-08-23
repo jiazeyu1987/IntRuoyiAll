@@ -12,8 +12,10 @@ class MesIndependentBatchPrerequisiteReceiptSqlContractTest {
 
     @Test
     void migrationFreezesReceiptIntegrityAndIdempotencyColumns() throws Exception {
-        String sql = Files.readString(Path.of("..", "sql", "mysql",
-                "20260823_mes_independent_batch_prerequisite_receipt.sql"), StandardCharsets.UTF_8);
+        Path backendRoot = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize().getParent();
+        Path migration = backendRoot.resolve("sql").resolve("mysql")
+                .resolve("20260823_mes_independent_batch_prerequisite_receipt.sql");
+        String sql = Files.readString(migration, StandardCharsets.UTF_8);
         for (String required : new String[]{"receipt_id", "tenant_id", "entry_type", "source_relation_id",
                 "source_snapshot_hash", "canonical_payload", "payload_hash", "signature", "issued_at",
                 "expires_at", "revoked_at", "audit_event_id", "idempotency_key"}) {
