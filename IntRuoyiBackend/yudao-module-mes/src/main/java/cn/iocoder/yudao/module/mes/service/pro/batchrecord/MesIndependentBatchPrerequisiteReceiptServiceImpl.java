@@ -105,7 +105,13 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
             throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_PREREQUISITE_MISSING);
         }
         MesIndependentBatchPrerequisiteReceiptDO data = store.selectByReceiptId(tenantId, command.getReceiptId());
-        if (data == null) throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_PREREQUISITE_MISSING);
+        if (data == null) {
+            MesIndependentBatchPrerequisiteReceiptDO unscoped = store.selectByReceiptIdUnscoped(command.getReceiptId());
+            if (unscoped != null && !tenantId.equals(unscoped.getTenantId())) {
+                throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_TENANT_MISMATCH);
+            }
+            throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_PREREQUISITE_MISSING);
+        }
         if (!tenantId.equals(data.getTenantId())) throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_TENANT_MISMATCH);
         MesIndependentBatchPrerequisiteReceipt receipt = toReceipt(data);
         if (!ENTRY_TYPES.contains(receipt.getEntryType()) || !receipt.getEntryType().equals(command.getEntryType())) {
@@ -157,7 +163,13 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
             throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_PREREQUISITE_MISSING);
         }
         MesIndependentBatchPrerequisiteReceiptDO data = store.selectByReceiptId(tenantId, command.getReceiptId());
-        if (data == null) throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_PREREQUISITE_MISSING);
+        if (data == null) {
+            MesIndependentBatchPrerequisiteReceiptDO unscoped = store.selectByReceiptIdUnscoped(command.getReceiptId());
+            if (unscoped != null && !tenantId.equals(unscoped.getTenantId())) {
+                throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_TENANT_MISMATCH);
+            }
+            throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_PREREQUISITE_MISSING);
+        }
         if (!STATUS_ISSUED.equals(data.getStatus()) || data.getRevokedAt() != null) {
             throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_ALREADY_REVOKED);
         }

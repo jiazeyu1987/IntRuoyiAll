@@ -15,6 +15,11 @@ public interface MesIndependentBatchPrerequisiteReceiptMapper
                 .eq(MesIndependentBatchPrerequisiteReceiptDO::getReceiptId, receiptId));
     }
 
+    default MesIndependentBatchPrerequisiteReceiptDO selectByReceiptIdUnscoped(String receiptId) {
+        return selectOne(new LambdaQueryWrapperX<MesIndependentBatchPrerequisiteReceiptDO>()
+                .eq(MesIndependentBatchPrerequisiteReceiptDO::getReceiptId, receiptId));
+    }
+
     default MesIndependentBatchPrerequisiteReceiptDO selectByIdempotencyKey(Long tenantId,
                                                                               String entryType,
                                                                               String idempotencyKey) {

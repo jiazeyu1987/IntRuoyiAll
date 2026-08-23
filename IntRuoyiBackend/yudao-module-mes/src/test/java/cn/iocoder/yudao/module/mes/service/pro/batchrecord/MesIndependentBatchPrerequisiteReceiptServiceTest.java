@@ -105,6 +105,9 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
             MesIndependentBatchPrerequisiteReceiptDO value = byReceipt.get(receiptId);
             return value != null && tenantId.equals(value.getTenantId()) ? value : null;
         }
+        @Override public MesIndependentBatchPrerequisiteReceiptDO selectByReceiptIdUnscoped(String receiptId) {
+            return byReceipt.get(receiptId);
+        }
         @Override public MesIndependentBatchPrerequisiteReceiptDO selectByIdempotencyKey(Long tenantId, String entryType, String key) {
             return byReceipt.values().stream().filter(value -> tenantId.equals(value.getTenantId())
                     && entryType.equals(value.getEntryType()) && key.equals(value.getIdempotencyKey())).findFirst().orElse(null);

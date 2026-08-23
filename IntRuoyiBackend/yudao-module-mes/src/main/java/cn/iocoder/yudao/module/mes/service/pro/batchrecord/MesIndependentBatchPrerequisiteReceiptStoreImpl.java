@@ -13,6 +13,9 @@ public class MesIndependentBatchPrerequisiteReceiptStoreImpl implements MesIndep
     @Override public MesIndependentBatchPrerequisiteReceiptDO selectByReceiptId(Long tenantId, String receiptId) {
         return mapper.selectByReceiptId(tenantId, receiptId);
     }
+    @Override public MesIndependentBatchPrerequisiteReceiptDO selectByReceiptIdUnscoped(String receiptId) {
+        return mapper.selectByReceiptIdUnscoped(receiptId);
+    }
     @Override public MesIndependentBatchPrerequisiteReceiptDO selectByIdempotencyKey(Long tenantId, String entryType, String idempotencyKey) {
         return mapper.selectByIdempotencyKey(tenantId, entryType, idempotencyKey);
     }
