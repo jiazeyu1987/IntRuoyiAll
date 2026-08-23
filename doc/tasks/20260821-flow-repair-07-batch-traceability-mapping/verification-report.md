@@ -63,3 +63,14 @@ FAIL（相对于目标态）：当前实现只能可靠追溯生产工单和路�
 ## 下一步实施门槛
 
 实施前先关闭 blocker，并按 test-plan.md 顺序记录真实 RED、GREEN、REGRESSION 证据。任一项缺失都不得创建不完整批次、提前放行或用旧批次冒充成功。
+
+## 2026-08-23 current int_main re-verification
+
+Baseline: `7770f36fb6ed64f4e306320410d131f184cf2789` (`int_main`). Fresh commands, all exit code 0:
+
+- `MesProEdhrTraceTerminalPartitionContractTest`: 2/2 PASS, 0 failures/errors/skips, `BUILD SUCCESS`, finished `2026-08-23T19:46:29+08:00`.
+- `MesProBatchRecordRouteIdentityContractTest`: 2/2 PASS, 0 failures/errors/skips, `BUILD SUCCESS`, finished `2026-08-23T19:47:44+08:00`.
+- `MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest`: 29/29 PASS (17 + 12), 0 failures/errors/skips, `BUILD SUCCESS`, finished `2026-08-23T19:48:32+08:00`.
+- `-DskipTests compile`: 24-module reactor PASS, `BUILD SUCCESS`, finished `2026-08-23T19:50:26+08:00`.
+
+This confirms the 7770f36fb changes on current `int_main`, not historical worktree reports. The completedTraceOnly partition and formal DCC project-code/item/routeProduct identity are green. Full cross-flow runtime, migration, permissions, Flow8 gate, Flow10 release, and write-enabled E2E remain outside this verification and are `NOT RUN`.

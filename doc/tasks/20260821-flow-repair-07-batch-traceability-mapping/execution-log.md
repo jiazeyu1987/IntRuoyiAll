@@ -238,3 +238,13 @@ REGRESSION: `mvn.cmd --% -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Ds
 来源变化与流程边界保持不变：流程7正式 resolver/持久化读取返回 `batchExecutionId`、`originLinkId`、`traceLinkHash`、`sourceSnapshotHash`；预检后来源变化阻断为 `FLOW8_SOURCE_PRECHECK_STALE`，batch/origin 不一致为 `FLOW8_TRACE_LINK_ORIGIN_MISMATCH`，Tx-C 映射缺失、版本/hash 变化为 `TRACE_MAPPING_BLOCKED`，不得推进流程6 `BATCH_READY`。流程10 的最终 `RELEASED` 仍不属于流程7。
 
 本轮未运行真实数据库迁移、服务启动、权限对象验证或写入型 E2E；主工作树仍包含其它任务 dirty/untracked，提交必须仅选择流程7两处代码和本任务日志。
+
+## 2026-08-23 7770f36fb current int_main re-verification
+
+RED: no new RED on the committed baseline; the two regression classes previously failed on the pre-7770f36fb source and now reproduce GREEN on current `int_main`.
+
+GREEN: `MesProEdhrTraceTerminalPartitionContractTest` -> PASS, 2/2, finished `2026-08-23T19:46:29+08:00`; `MesProBatchRecordRouteIdentityContractTest` -> PASS, 2/2, finished `2026-08-23T19:47:44+08:00`.
+
+REGRESSION: `MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest` -> PASS, 29/29 (17 + 12), finished `2026-08-23T19:48:32+08:00`; MES `-DskipTests compile` -> PASS, 24-module reactor, finished `2026-08-23T19:50:26+08:00`; all commands exited 0.
+
+These are fresh current-`int_main` results for HEAD `7770f36fb6ed64f4e306320410d131f184cf2789`, not inherited worktree reports. No Flow7 source was changed during this verification. Full cross-flow runtime, migration, permissions, Flow8/10 integration, and write-enabled E2E remain NOT RUN.

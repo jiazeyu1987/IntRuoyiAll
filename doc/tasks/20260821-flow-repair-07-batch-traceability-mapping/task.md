@@ -18,6 +18,10 @@ Git 交付已完成 task-owned 选择性提交：`0767b1fa5`。提交包含 Flow
 
 partial / blocked
 
+### Latest verification on current int_main (2026-08-23 19:50:26+08:00)
+
+Baseline is `7770f36fb6ed64f4e306320410d131f184cf2789`. Fresh current-int_main evidence: `MesProEdhrTraceTerminalPartitionContractTest` 2/2 PASS at `19:46:29`; `MesProBatchRecordRouteIdentityContractTest` 2/2 PASS at `19:47:44`; Flow7 validator/service contract suite 29/29 PASS at `19:48:32`; 24-module MES compile PASS at `19:50:26`. No Flow7 code was changed during this verification run.
+
 流程9入口类型已与本任务统一为 `PQC_INDEPENDENT`、`MANUAL`、`SCHEDULED`；活跃订单建批仍以流程4 completionBackfillReceipt、流程1 pickListBindingId/sourceSnapshotHash 和流程6 batch provision 成功结果为核心，不要求尚未发生的 releaseApplicationId。
 
 ## 任务目标
