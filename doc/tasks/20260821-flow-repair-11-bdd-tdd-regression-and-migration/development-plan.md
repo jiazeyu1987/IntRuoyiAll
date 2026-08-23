@@ -131,5 +131,5 @@ dry-run 输出 migrationBatchId、batchExecutionId、completion/independent cred
 - BDD: Given BPM/ERP 生产代码引用被 `**/runtime/` 错误忽略的类型 / When 在干净流程11集成 worktree 编译 / Then 补齐源文件后完整 Reactor 编译通过，且不修改流程1-10业务状态实现。
 - RED: 首次完整 compile 暴露 `WordTableVisualSchemaBuilder`、`ErpKingdeeSyncRuntimeTransactionService` 缺失；这是源码未被 Git 追踪的构建阻断。
 - GREEN: `mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS，24/24 modules `BUILD SUCCESS`；Python runner 12 场景、pytest 12 passed、py_compile、Node 静态语法检查和 Flow11 runtime guard 均通过。
-- REGRESSION: runtime profile pytest 使用受控 basetemp -> PASS（16 passed），slot=31 扩展槽可用，slot=41 越界按当前上限 fail-fast。
+- REGRESSION: runtime profile pytest 使用受控 basetemp -> PASS（16 passed），slot=31 扩展槽可用，slot=51 越界按 runtime v6 当前上限 fail-fast。
 - REGRESSION: `git diff --check` 与 `git merge-base --is-ancestor codex/20260822-flow-repair-11-design-development origin/int_main` -> PASS；真实流程1-10合同回归、生产数据库迁移、人工批准/回滚和 Playwright E2E 仍未运行，继续保持 No-Go。

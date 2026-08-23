@@ -26,7 +26,7 @@
 - `F7-TRACE` 的 5 行是流程 8 的前置阻断证据；它们不能通过上传材料或默认成功绕过。流程 7 owner 必须先完成 Origin/TraceLink 映射，流程 8 才能判断材料门禁。
 - `A456` 中 `MesP0*`、`MesProEdhrBatchExecution*` 以及三类正式回填/批次报告行为会影响流程 6 的 BATCH_* 或流程 4/5 receipt；这类行的 `blocksFlow8=Y`。批记录 Word/路线导入 fixture 行只标 `C`（条件），不能被误写为流程 8 gate failure。
 - `PAR` 中前线签名/运行时行标 `Y`（上游完成前置未满足），排产、路线、反馈、ERP、QA 行标 `C`；它们由相应 owner 处理。`batchrecordcelllink` 的前端 `pnpm run ts:check` 失败是 `PAR+ENV`，不属于流程 8 Java failure。
-- slot=31 按 runtime v6 合法范围 1..40 处理，不计入 152 行，不是业务 failure，也不是 blocker。
+- slot=31 按 runtime v6 合法范围 1..50 处理，不计入 152 行，不是业务 failure，也不是 blocker。
 
 逐条行的 `blocksFlow8` 继承规则：`F7-TRACE=Y`；团队回填/损耗/签名/批次行 `A456=Y`；批记录报告 `B6/B7=C`（仅在其结果作为正式来源或批次输入时升级为 Y）；`E-FIX=N`；Word parser ownership `N`；`PAR` 前线 CAS/运行时 `Y`，排产/路线/反馈/ERP/QA `C`。因此每个清单行都能由自身前缀和所属分组确定阻断结论，不以“全量失败”替代逐条判断。
 

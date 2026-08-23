@@ -82,7 +82,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 已执行（M13 历史结果）：初次 bundled Maven compile 因 `MesFrontlinePqcContextServiceImpl.java:736` 缺少 `EquipmentOption` 失败。
 - 已执行（M14/M16）：恢复 QA DTO 后 MES reactor 24/24 `BUILD SUCCESS`；补齐被 `**/runtime/` 错误忽略的 BPM/ERP 源后，完整 `mvn -pl yudao-module-bpm,yudao-module-erp,yudao-module-infra,yudao-module-mes -am -DskipTests compile` -> PASS；Flow11 runtime guard（8090/48090）-> PASS。
 - 已执行：Flow11 Python runner 12 场景、pytest `12 passed`、py_compile、两个受影响 E2E `node --check`、`git diff --check` -> PASS。
-- 已执行：`test_branch_runtime_profile.py -q --basetemp D:\IntRuoyiWorktree\flow11-pytest-temp` -> PASS，16 passed；slot=31 可用，slot=41 按当前上限拒绝，不再出现 `must be between 1 and 30`。
+- 已执行：`test_branch_runtime_profile.py -q --basetemp D:\IntRuoyiWorktree\flow11-pytest-temp` -> PASS，16 passed；按 runtime v6 合同 slot=31 可用，slot=51 按当前上限拒绝，不再出现 `must be between 1 and 30`。
 - 已核对：远端 `origin/int_main` 包含集成提交 `c22d4df23` 及流程11分支，`git merge-base --is-ancestor codex/20260822-flow-repair-11-design-development origin/int_main` -> PASS；本地主工作树未强行更新，未把独立 worktree 结果冒充本地 checkout 证据。
 - 已执行：只读 rg --files、rg -n，核对五份文档、流程合同引用、四材料节点和 BDD/RED/GREEN/REGRESSION markers；自定义标记扫描确认独立入口、四个 BATCH_*、损耗三态和映射门禁均存在且旧凭证/待冻结措辞不存在。
 - 已执行：只读 git diff --check；对未跟踪 Markdown 另以 rg 扫描尾随空格。
@@ -124,7 +124,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 | `A456` 流程4/5/6/9/10 | 84（37F/47E） | 回填、损耗、签名、批次和批记录由对应 owner 修复；流程11不越权改业务 |
 | `PAR` 前线运行时、排产/路线、反馈、ERP及其它并行模块 | 63（18F/45E） | 对应并行 owner 处理；前线签名行是上游条件阻断，排产/反馈/ERP为条件阻断 |
 
-环境/fixture/依赖是二次标记而不是第五类业务 RED：包括 scheduleIssueMapper NPE、候选路线快照不完整、Word 解析 0 表格、H2 `loss_reason_id`/generated-column、strict Mockito stub、缺少 fixture/依赖，以及 `batchrecordcelllink` `routeProcessId` 的 TS 静态错误。slot=31 按 runtime v6 的 1..40 合法范围处理，不进入失败分类。
+环境/fixture/依赖是二次标记而不是第五类业务 RED：包括 scheduleIssueMapper NPE、候选路线快照不完整、Word 解析 0 表格、H2 `loss_reason_id`/generated-column、strict Mockito stub、缺少 fixture/依赖，以及 `batchrecordcelllink` `routeProcessId` 的 TS 静态错误。slot=31 按 runtime v6 的 1..50 合法范围处理，不进入失败分类。
 
 本轮全量 Maven 重跑没有取得新的业务结果：未引用参数的 PowerShell 命令因参数拆分失败；修正引号后 JVM native memory allocation failure，未进入 surefire，均记录为工具/环境 blocker。XML 证据仍是只读历史基线，不使用 mock、API-only、直接 SQL、默认成功或 skip 代替真实回归。流程8 owner、流程7 owner、流程4/5/6/9/10及并行 owner、测试基础设施 owner 的持久化摘要见分类报告第 5 节。
 
