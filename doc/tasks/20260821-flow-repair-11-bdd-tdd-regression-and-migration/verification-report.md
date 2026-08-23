@@ -91,7 +91,7 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 ## 8.2 当前本地 int_main 融合与验证
 
 - 本节记录较早的集成树快照；其中 45/46 BPM 结果和缺失脚本描述已由 8.3 物理主工作树复验 supersede，不作为最终证据。
-- 最终证据以 8.3 和 M19 为准：本地 `int_main` 已包含流程11 `8fe9228b2`，主工作树未覆盖其它 dirty/untracked 改动。
+- 最终证据以 8.3 和 M19 为准：本地 `int_main` 当前为 `5e6117f9292f0cfab73d405042b03a22c7342e84`，已包含流程11 `8fe9228b2`，主工作树未覆盖其它 dirty/untracked 改动。
 
 ## 8.3 物理 E:\IntRuoyi 最终门禁
 
@@ -112,3 +112,20 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 流程11独立迁移切片已完成 runner 和 fixture dry-run 验证，但整体代码保持 No-Go。只有实现线程关闭旧顺序和直接放行路径，并取得四材料硬门禁、多入口幂等、完整追溯、生产历史迁移授权/回滚和真实 Playwright 证据后，才可重新评估 Go。
 
 本轮 task.md 已标记 `completed`（流程11专项范围）：流程11代码、Python 验证、完整 Maven 编译、定向 JUnit、Node/TS 静态检查、主线融合和 staged 删除恢复均已取得实际证据。流程1-10生产回归、真实 E2E、生产历史迁移、人工批准和回滚仍阻断，因此全链路仍为 No-Go。流程 8 仅接受四节点当前有效 COMPLETED（有批准字段时 APPROVED，节点 version/file_hash/source_snapshot_hash 与 manifest 一致），历史迁移统一五类。五份正式文档和流程11迁移模块均保留。
+
+## 10. 流程8全 MES 回归失败分类（M20）
+
+流程8独立 worktree 的只读 Surefire 工件为 479 suites、3575 tests、59 failures、93 errors、19 skipped。流程11已将 152 条 failure/error（59+93）逐条列出到 `flow8-mes-regression-classification.md`，每条包含测试类/方法、原始 F/E 类型、primary 分类、owner、root-cause 判断、`blocksFlow8`、最小复现命令和后续动作；19 skipped 单独记录为覆盖缺口，不作为业务 RED。
+
+| primary 分类 | 覆盖 | 结论 |
+|---|---:|---|
+| `F8-GATE` 四材料/放行 gate | 0 | 流程8定向 215 tests 仍有 PASS 证据；没有把其它模块失败冒充流程8 gate failure |
+| `F7-TRACE` Origin/TraceLink/来源快照 | 5（4F/1E） | 流程7 owner；映射不完整必须 `TRACE_MAPPING_BLOCKED`，条件阻断流程8/10 |
+| `A456` 流程4/5/6/9/10 | 84（37F/47E） | 回填、损耗、签名、批次和批记录由对应 owner 修复；流程11不越权改业务 |
+| `PAR` 前线运行时、排产/路线、反馈、ERP及其它并行模块 | 63（18F/45E） | 对应并行 owner 处理；前线签名行是上游条件阻断，排产/反馈/ERP为条件阻断 |
+
+环境/fixture/依赖是二次标记而不是第五类业务 RED：包括 scheduleIssueMapper NPE、候选路线快照不完整、Word 解析 0 表格、H2 `loss_reason_id`/generated-column、strict Mockito stub、缺少 fixture/依赖，以及 `batchrecordcelllink` `routeProcessId` 的 TS 静态错误。slot=31 按 runtime v6 的 1..40 合法范围处理，不进入失败分类。
+
+本轮全量 Maven 重跑没有取得新的业务结果：未引用参数的 PowerShell 命令因参数拆分失败；修正引号后 JVM native memory allocation failure，未进入 surefire，均记录为工具/环境 blocker。XML 证据仍是只读历史基线，不使用 mock、API-only、直接 SQL、默认成功或 skip 代替真实回归。流程8 owner、流程7 owner、流程4/5/6/9/10及并行 owner、测试基础设施 owner 的持久化摘要见分类报告第 5 节。
+
+本专项仍保持“流程11代码与分类工具已验证；全链路 No-Go”：流程1-10生产闭环、真实 Playwright、生产历史迁移、人工批准和回滚演练没有因本次分类而变为通过。

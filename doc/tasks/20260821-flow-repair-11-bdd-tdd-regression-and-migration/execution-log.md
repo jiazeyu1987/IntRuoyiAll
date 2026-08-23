@@ -109,7 +109,7 @@ REGRESSION: node tests/e2e/edhr-special-nodes-real-flow.e2e.js -> PASS（计划�
 - REGRESSION: 规范化 fixture dry-run -> PASS，总数 8、唯一批次 ID 8，分类计数为 1/1/4/1/1，所有 entry `write_allowed=false`，报告 `side_effects=[]`。
 - Implementation: 新增 `IntRuoyiBackend/script/flow_repair_11_migration.py`、`IntRuoyiBackend/script/run_flow_repair_11_contracts.py` 和 `IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py`；纯函数无数据库、SQL、网络和文件写入副作用。
 - COMMIT: `6a6d2afac`（流程11迁移实现/合同和 runtime v5 同步）、`9e188f9d6`（本地 runtime 旧限制文档修正）、`d012479b2`（worktree 长期经验修正）均已由正常 hook 创建；未使用 `--no-verify`，未修改其它任务登记。
-- Runtime verification: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1` -> PASS；当前 worktree 登记为 `int_main slot=9`（8090/48090），共享 `slot=31` 可按 v5 映射，未启动服务。
+- Runtime verification: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/preflight/branch-runtime-port-guard.ps1` -> PASS；当前 worktree 登记为 `int_main slot=9`（8090/48090），共享 `slot=31` 按 runtime v6 合法范围处理，未启动服务。
 - Backend regression attempt (M13 historical result): bundled Maven `mvn -pl yudao-module-mes -am -DskipTests compile` -> FAIL；MES 编译在 `MesFrontlinePqcContextServiceImpl.java:736` 因 `MesQaInspectionRegulationPublishedVersionRespVO` 缺少 `EquipmentOption` 符号阻断，未运行流程1-10 Java 合同测试。该阻断已由 M14 修复并复验。
 
 ## M13 提交、融合和复验
@@ -183,3 +183,15 @@ REGRESSION: `node --check` 两个受影响 E2E 静态脚本、Flow11 `branch-run
 - 主线程 ERP 定向 JUnit -> PASS 6/6，BPM 定向 JUnit -> PASS 46/46；前端 `pnpm run ts:check`、两个受影响 E2E `node --check`、v5 runtime guard（8081/48081）和 `git diff --check` -> PASS。
 - staged 删除复核为 0；此前确认的流程11自有误删已按当前 `int_main` 精确恢复。其它 dirty/untracked 文件（含并行 ERP 测试改动）保留未改。
 - 流程11专项标记完成；未启动服务、访问数据库、执行真实 Playwright、生产历史迁移、人工批准或回滚演练，全链路继续 No-Go。
+
+## M20 流程8全 MES 回归失败分类
+
+BDD: 全 MES 回归失败必须可分派且不越权 -> Given 流程8提供 479 份 Surefire XML、聚合基线为 3575 tests / 59 failures / 93 errors / 19 skipped / 152 failure-or-error rows / When 流程11只读扫描并建立责任矩阵 / Then 每条 failure/error 都有 class、method、primary owner、root-cause 判断、是否阻断流程8、最小复现和后续动作；环境/fixture/依赖问题不得伪装成业务 RED，流程8业务代码不被修改。
+
+GREEN: `PowerShell` 只读扫描 `D:\IntRuoyiWorktree\20260822-flow-repair-08-design-development\IntRuoyiBackend\yudao-module-mes\target\surefire-reports\TEST-*.xml` -> PASS，479 suites 聚合为 3575/59/93/19；逐条清单 `flow8-mes-regression-classification.md` 通过 152 条 bullet 与 59+93 对账。
+
+REGRESSION: 流程8定向 215 tests 已有 PASS 证据且 `F8-GATE=0`；5 条 `F7-TRACE`、84 条 `A456`、63 条 `PAR` 均保留为跨线程 owner blocker/条件 blocker。前端 `batchrecordcelllink` `routeProcessId` 静态错误标记 `PAR+ENV`；runtime v6 slot=31 合法，不计入业务失败。
+
+RED: `mvn -pl yudao-module-mes test -Dsurefire.failIfNoSpecifiedTests=false` -> FAIL，PowerShell 参数拆分为无效 lifecycle phase，未运行测试；修正引号后同一全量命令 -> FAIL，JVM native memory allocation failure，未进入 surefire。两条均为工具/环境 blocker，不改变 XML 工件事实，不得写成流程8业务 RED。
+
+Owner 通知已写入分类报告第 5 节：流程8 owner（0 条直接 gate failure）、流程7 owner（5 条来源/追溯前置）、流程4/5/6/9/10及并行 owner（A456/PAR）和测试基础设施 owner（fixture、依赖、19 skipped）。流程11只维护总回归合同和阻断证据。

@@ -19,6 +19,7 @@
 - [x] M14：恢复发布版/保存版 QA DTO 的设备选项类型契约，Maven 生产源码编译和 `MesFrontlinePqcContextServiceTest` 定向回归通过。
 - [x] M15：完成 task-owned 边界复核、主工作树 runtime guard 和受保护 fast-forward-only 融合尝试。
 - [x] M16：在干净 Flow11 集成 worktree 合入已提交的 `int_main` 前后端代码，补齐被全局 ignore 错误排除的 BPM/ERP 编译源和运行时合同测试，完成全模块编译并推送远端 `int_main`。
+- [x] M20：接管流程 8 提供的全 MES 回归工件，完成 152 条 failure/error 的逐条分类、owner 矩阵和环境/工具阻断通知；不修改流程 8 或其它业务代码。
 
 ## 预期验证
 
@@ -44,7 +45,7 @@
 
 ## Current Status
 
-completed（流程11专项范围）：流程11迁移分类器、只读 dry-run、12 个 Python 合同场景、BPM/ERP 编译源修复、全模块 Maven 编译、task-owned 文件恢复及本地受保护融合已完成并验证；本地 `int_main` 当前为 `7e5f4c707`，包含流程11 `8fe9228b2`。ERP 定向 JUnit 6/6、BPM 46/46、runner、pytest、py_compile、前端 TS/Node 静态检查、runtime guard 和 diff-check 均通过。主工作树其它 dirty/untracked 文件未被覆盖。全链路仍为 No-Go：流程1-10生产闭环、真实 Playwright E2E、生产历史迁移、人工批准和回滚演练尚未完成。
+completed（流程11专项范围）：流程11迁移分类器、只读 dry-run、12 个 Python 合同场景、BPM/ERP 编译源修复、全模块 Maven 编译、task-owned 文件恢复及本地受保护融合已完成并验证；本地 `int_main` 当前为 `5e6117f9292f0cfab73d405042b03a22c7342e84`，包含流程11 `8fe9228b2`。ERP 定向 JUnit 6/6、BPM 46/46、runner、pytest、py_compile、前端 TS/Node 静态检查、runtime guard 和 diff-check 均通过。主工作树其它 dirty/untracked 文件未被覆盖。全链路仍为 No-Go：流程1-10生产闭环、真实 Playwright E2E、生产历史迁移、人工批准和回滚演练尚未完成。
 
 ## 修改边界
 
@@ -58,3 +59,4 @@ completed（流程11专项范围）：流程11迁移分类器、只读 dry-run�
 - doc/tasks/20260821-flow-repair-11-bdd-tdd-regression-and-migration/test-plan.md
 - doc/tasks/20260821-flow-repair-11-bdd-tdd-regression-and-migration/execution-log.md
 - doc/tasks/20260821-flow-repair-11-bdd-tdd-regression-and-migration/verification-report.md
+- doc/tasks/20260821-flow-repair-11-bdd-tdd-regression-and-migration/flow8-mes-regression-classification.md
