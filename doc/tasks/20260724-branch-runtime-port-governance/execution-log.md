@@ -22,3 +22,12 @@
 - UPDATE: User added D:\ProjectPackage\IntRuoyi\IntRuoyiAll; assigned it as the primary local int_main repository with frontend 8081 and backend 48081.
 - GREEN: Primary int_main guard -> PASS, D:\ProjectPackage\IntRuoyi\IntRuoyiAll branch int_main frontend 8081, backend 48081.
 - IMPLEMENTED: Added post-merge hook so fast-forward merges run the runtime guard after merge; pre-push remains the blocking gate before remote propagation.
+
+## 2026-08-23 v6 slot range alignment
+
+- BDD: slot 31 is valid -> Given the v6 registry contains an active worktree with slot `31`, When the runtime profile and guard execute, Then slot `31` resolves through the second extension range and is not rejected.
+- BDD: guard protection remains -> Given valid slots `1..50`, When a duplicate slot/port, base-port collision, or slot `>=51` is registered, Then the guard fails fast.
+- GREEN: main runtime guard -> PASS for `int_main/int_main`, frontend `8081`, backend `48081`.
+- GREEN: Maven environment -> `MAVEN_HOME=C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16`; `mvn -version` -> Apache Maven `3.9.16`, Java `21.0.10`.
+- GREEN: task-local runtime contract test -> `TEMP/TMP/TMPDIR=.runtime\pytest-tmp python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py -q` -> `22 passed in 10.66s` on current `int_main` (the isolated branch v6 slice also passed its 14-test subset).
+- COMMIT: main already contains the equivalent v6 runtime implementation in `ea39dacc2` (`任务: 统一运行时 V6 槽位合同`); no duplicate merge was attempted.

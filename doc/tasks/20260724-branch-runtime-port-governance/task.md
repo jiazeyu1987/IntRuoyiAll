@@ -23,7 +23,7 @@ Establish durable branch-specific local runtime port rules for `int_main`, `int_
 
 ready_for_closeout
 
-Implementation and guard verification are complete. Commit/push closeout is not performed in this turn because each workspace has pre-existing unrelated tracked deletions that must not be silently mixed into this task.
+Implementation and guard verification are complete. The v6 runtime alignment is present in main commit `ea39dacc2`; unrelated dirty files remain excluded from this task.
 
 ## 设计约束检查
 

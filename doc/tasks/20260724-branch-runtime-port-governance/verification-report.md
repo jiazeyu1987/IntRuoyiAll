@@ -21,4 +21,14 @@
 ## Remaining Closeout
 
 - No services were started in this verification; this task verifies configuration and guard behavior only.
-- No commits or pushes were performed because unrelated tracked deletions already exist in the workspaces and must not be mixed into this task without explicit commit direction.
+- Historical note: the original closeout did not commit because unrelated tracked deletions existed; the current v6 runtime implementation is already committed in main as `ea39dacc2`.
+
+## 2026-08-23 v6 slot range alignment
+
+- Contract: PASS. Main runtime files use `2026-08-22-branch-runtime-v6`, additional slots `1..50`, and reject `slot >=51`.
+- Slot 31: PASS by profile calculation; it uses the second extension band and does not collide with base ports.
+- Main guard: PASS, `int_main/int_main` -> frontend `8081`, backend `48081`.
+- Maven: PASS, `MAVEN_HOME` resolves to Maven `3.9.16` with Java `21.0.10`.
+- Python runtime contract tests: PASS, `22 passed in 10.66s` on current `int_main` with task-local temporary directories.
+- Main containment: PASS, `ea39dacc2` contains the v6 runtime implementation; no duplicate merge or unrelated dirty-file staging was performed.
+- Scope: no service, database, registry entry, other worktree, Flow4 business code, or unrelated dirty file was modified by this main-thread evidence update.
