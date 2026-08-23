@@ -166,3 +166,14 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 已创建干净当前基线 integration worktree：流程6 `D:\IntRuoyiWorktree\20260823-flow06-int-main-integration`，slot=45，`8260/48260`；流程8 `D:\IntRuoyiWorktree\20260823-flow08-int-main-integration`，slot=46，`8261/48261`。两者均从 `6717b60c1` 创建、registry active、guard PASS、worktree clean。
 - 迁移命令：`git worktree add -b <branch> <path> 6717b60c1`，随后 `scripts/runtime/reserve-worktree-slot.ps1 -Name <name> -Path <path> -Branch <branch> -Profile int_main -AsJson`。旧 worktree 业务差异由各自 owner 有选择地迁移，流程11不代改流程6/8业务代码。
 - 两个新 worktree 随后以 `git merge --ff-only 0fcb3f365` 快进到当前主线；在各自真实工作目录执行 guard 均 PASS，且均 clean。registry slot/端口保持 F6=45/`8260/48260`、F8=46/`8261/48261`。
+
+## 10.6 F4/F6/F8 统一 v6 worktree 方案
+
+- 当前唯一基线：`8f4d843ad`；主线 runtime v6 合同统一为 `2026-08-22-branch-runtime-v6`，附加 slot 合法范围 `1..50`。不修改或释放 slot31。
+- 旧 F6 worktree `20260822-flow-repair-06-current-main-verify` 的 guard 实际报缺少旧 `1..40` 合同；旧 F8 worktree `20260822-flow-repair-08-design-development` 的 guard 实际报缺少旧 `1..30` 合同；F8 旧目录在当前 registry 无 active entry。两项均为旧版本/无登记阻断，不是业务失败。
+- 旧 F4 worktree 已是 v6 且 guard PASS，但 HEAD 不是 `8f4d843ad`，因此也不作为本轮统一基线。三个 clean integration worktree 已从 `8f4d843ad` 创建并登记：
+  - F4：`D:\IntRuoyiWorktree\20260823-flow04-int-main-integration`，slot=48，`8263/48263`；
+  - F6：`D:\IntRuoyiWorktree\20260823-flow06-int-main-integration`，slot=45，`8260/48260`；
+  - F8：`D:\IntRuoyiWorktree\20260823-flow08-int-main-integration`，slot=46，`8261/48261`。
+- 三个目录 HEAD 均为 `8f4d843ad`、registry active、worktree clean、`branch-runtime-port-guard.ps1` PASS。统一命令为：`git worktree add -b <branch> <path> 8f4d843ad`，随后 `scripts/runtime/reserve-worktree-slot.ps1 -Name <name> -Path <path> -Branch <branch> -Profile int_main -AsJson`。
+- ACL 复核：F6/F8 旧目录 `Get-Acl` 均成功，owner `A\BJB110`；没有真实 ACL/权限错误证据。禁止删除旧目录、手工改写 registry、改写 slot31 或整体提交 `E:\IntRuoyi`。

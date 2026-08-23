@@ -253,3 +253,15 @@ GREEN: `git worktree add -b codex/20260823-flow06-int-main-integration D:\IntRuo
 REGRESSION: 旧流程6/8目录不得继续提交全局 runtime 文件；对应 owner 应将业务差异迁移到新的 integration worktree，并只提交 task-owned 路径。slot=31 合法，未停止服务、未运行全 MES、未修改流程6/8业务代码。
 
 M26: 两个干净 integration worktree 已通过 `git merge --ff-only 0fcb3f365` 快进到当前主线；各自 `branch-runtime-port-guard.ps1` 在其真实工作目录执行均退出码 0，F6 为 `8260/48260`、F8 为 `8261/48261`，worktree clean。主线 dirty/untracked 文件未触碰。
+
+## M27 F4/F6/F8 统一 v6 基线与错误分类
+
+BDD: F4/F6/F8 提交和验证必须使用同一 v6 基线 -> Given 当前唯一基线为 `8f4d843ad`、runtime 合同为 slot `1..50` / When 核对旧 worktree、registry 和新 integration worktree / Then 旧目录只读保留，统一从 `8f4d843ad` 创建并以 reserve 脚本登记，业务线程不修改全局 runtime 文件。
+
+RED（旧版本）: F6 `D:\IntRuoyiWorktree\20260822-flow-repair-06-current-main-verify` guard -> FAIL，旧脚本/文档缺少当前 v6 所需 `1..40` 文本；F8 `D:\IntRuoyiWorktree\20260822-flow-repair-08-design-development` guard -> FAIL，旧脚本/文档缺少当前 v6 所需 `1..30` 文本。两者归类为旧版本，不是业务 RED。
+
+RED（无登记）: F8 旧目录在 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 无对应 active entry；归类为无登记，不能通过随机端口或手工改 registry 解决。
+
+GREEN（当前基线）: `git worktree add -b codex/20260823-flow04-int-main-integration D:\IntRuoyiWorktree\20260823-flow04-int-main-integration 8f4d843ad` + reserve -> F4 slot=48 / `8263/48263`; F6 slot=45 / `8260/48260`; F8 slot=46 / `8261/48261`。三者 HEAD 均为 `8f4d843ad`、worktree clean、guard PASS。
+
+REGRESSION（真实 ACL）: 对 F6/F8 旧目录执行 `Get-Acl` 均成功，owner 为 `A\BJB110`；不存在 helper deny-read、UnauthorizedAccess 或 ACL 拒绝证据，因此本轮没有真实权限错误。未删除旧目录、未改写 slot31、未整体提交主工作树。
