@@ -27,6 +27,7 @@
 - 目标测试：`ScheduleApplierTest, MesBatchExecutionEntryContractTest, MesPqcReleaseBatchExecutionServiceTest, MesProductionReleaseBatchExecutionPortTest` -> `Tests run: 42, Failures: 0, Errors: 0`。
 - `git diff --check` -> 通过；`branch-runtime-port-guard.ps1` -> 通过（int_main: 8081/48081）。
 - 最新主线复核（2026-08-23）保持上述 compile、42 项定向测试、diff-check 和 runtime guard 结果；流程9专项完成，流程6/7/8/10/11 全链路仍不属于流程9交付范围。
+- 最终主线程 HEAD=`40118d79e28d09aaba85cc88ea44a35c482be4ba`；`477c97d41`、`2cf830d7b`、`656e343df` 均可由 `git merge-base --is-ancestor <commit> HEAD` 证明已在祖先链。
 - 本轮新增验证：`mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-DforkCount=0' test` -> `BUILD SUCCESS`，`Tests run: 4, Failures: 0, Errors: 0`；新增 SQL/API evidence 已静态核对，真实迁移 NOT RUN。
 - 本轮以 `int_main` 最新 HEAD=`ef217fe2ca8887e5b4242d0823f203179d6b059e` 为父节点创建 `2cf830d7b`，随后创建 `656e343df` 修复跨租户错误码；未覆盖主线其它 dirty/untracked 文件。
 
@@ -44,4 +45,4 @@
 
 ## 状态
 
-流程9自身任务：`completed`（入口合同与受控 receipt 生命周期已提交，42项入口回归与4项 receipt 专项测试通过）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。
+流程9自身任务：`completed`（入口合同与受控 receipt 生命周期已提交，42项入口回归与4项 receipt 专项测试通过；最终主线程 HEAD=`40118d79e`）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。

@@ -64,7 +64,7 @@ completed
 
 收尾证据：已标记 `ready_for_closeout`，完成 cleanup preview/apply（无可删除附属产物）后标记 `completed`；流程9自身代码已提交，receipt 专项测试 `4/4 PASS`，跨流程闭环仍未完成。
 
-最新主线收尾（2026-08-23）：并行流程11先提交 `ef217fe2c`，流程9随后提交 `2cf830d7b` 和租户隔离修复 `656e343df`；`477c97d41`、`2cf830d7b`、`656e343df` 均在 `int_main` 祖先链，不重复融合旧 worktree。
+最新主线收尾（2026-08-23）：并行流程11先提交 `ef217fe2c`，流程9随后提交 `2cf830d7b` 和租户隔离修复 `656e343df`；最终主线程 HEAD=`40118d79e`，且 `477c97d41`、`2cf830d7b`、`656e343df` 均在 `int_main` 祖先链，不重复融合旧 worktree。
 
 ## Cleanup Keep
 

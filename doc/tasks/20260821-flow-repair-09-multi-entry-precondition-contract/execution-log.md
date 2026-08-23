@@ -20,6 +20,7 @@
 - M8 CLOSEOUT（2026-08-23）：保留主线 dirty/untracked，流程9 task-owned 文件单独收口。
 - M9 PASS（2026-08-23）：在并行流程11提交 `ef217fe2c` 之后，以最新 `int_main` 为父节点提交流程9受控 receipt 生命周期，commit=`2cf830d7b`；commit hook 的 `branch-runtime-port-guard.ps1` 通过（8081/48081）。
 - M10 PASS（2026-08-23）：复核跨租户验真/撤销时原先被租户过滤误报为缺凭证的问题；新增无租户范围 receipt 查询，仅用于返回稳定 `TENANT_MISMATCH`，不泄露凭证内容；commit=`656e343df`。
+- M11 PASS（2026-08-23）：主线程最终 HEAD=`40118d79e28d09aaba85cc88ea44a35c482be4ba`；确认 `477c97d41`、`2cf830d7b`、`656e343df` 均在祖先链，未重复融合。
 
 ## BDD/TDD 记录
 
@@ -67,4 +68,4 @@
 
 ## 结论
 
-流程9自身入口合同与独立 receipt issue/verify/revoke 实现已提交至 `int_main`（`2cf830d7b`、租户隔离修复 `656e343df`）并通过提交门禁；跨流程持久化运行、四材料 gate、最终放行和全链路迁移仍不能据此放行生产。
+流程9自身入口合同与独立 receipt issue/verify/revoke 实现已提交至 `int_main`（`2cf830d7b`、租户隔离修复 `656e343df`、收尾文档 `40118d79e`）并通过提交门禁；跨流程持久化运行、四材料 gate、最终放行和全链路迁移仍不能据此放行生产。
