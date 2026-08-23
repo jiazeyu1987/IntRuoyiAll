@@ -24,13 +24,14 @@
 - Flow9 独立 receipt 生命周期 commit：`2cf830d7b feat(flow9): add controlled independent receipt lifecycle`，父节点为并行流程11提交 `ef217fe2c`；当前 `int_main` 已包含该提交，不重复融合旧 worktree。
 - Flow9 租户隔离修复 commit：`656e343df fix(flow9): preserve tenant mismatch for receipt lifecycle`；当前 `int_main` 已包含该提交。
 - 当前主线程 HEAD：`698dc6928d0c597ff8a1f18a5d090ee4d10bf72c`；上述 Flow9 提交仍在祖先链。
+- SQL 合同测试修复提交：`2a0d6d948 test(flow9): resolve migration contract path`；仅修改 task-owned 测试路径，不修改生产逻辑。
 - 编译：`mvn -o -pl yudao-module-mes -am -DskipTests compile` -> `BUILD SUCCESS`。
 - 目标测试：`ScheduleApplierTest, MesBatchExecutionEntryContractTest, MesPqcReleaseBatchExecutionServiceTest, MesProductionReleaseBatchExecutionPortTest` -> `Tests run: 42, Failures: 0, Errors: 0`。
 - `git diff --check` -> 通过；`branch-runtime-port-guard.ps1` -> 通过（int_main: 8081/48081）。
 - 最新主线复核（2026-08-23）保持上述 compile、42 项定向测试、diff-check 和 runtime guard 结果；流程9专项完成，流程6/7/8/10/11 全链路仍不属于流程9交付范围。
 - 最终主线程 HEAD=`40118d79e28d09aaba85cc88ea44a35c482be4ba`；`477c97d41`、`2cf830d7b`、`656e343df` 均可由 `git merge-base --is-ancestor <commit> HEAD` 证明已在祖先链。
 - 本轮新增验证：`mvn -o -pl yudao-module-mes "-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> `BUILD SUCCESS`，`Tests run: 4, Failures: 0, Errors: 0`；42 项定向回归 -> `BUILD SUCCESS`，`Tests run: 42, Failures: 0, Errors: 0`。
-- SQL 合同测试当前受相对路径缺陷影响（`NoSuchFileException`），迁移文件静态字段/唯一键核验通过；环境无 SQL 客户端或迁移 runner，真实 dry-run `NOT RUN`。
+- SQL 合同测试：`mvn -o -pl yudao-module-mes "-Dtest=MesIndependentBatchPrerequisiteReceiptSqlContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> `BUILD SUCCESS`，`Tests run: 1, Failures: 0, Errors: 0`。真实数据库迁移 dry-run 仍 `NOT RUN`，因为当前环境无 SQL 客户端/迁移 runner。
 - 本轮以 `int_main` 最新 HEAD=`ef217fe2ca8887e5b4242d0823f203179d6b059e` 为父节点创建 `2cf830d7b`，随后创建 `656e343df` 修复跨租户错误码；未覆盖主线其它 dirty/untracked 文件。
 
 ## 已读取合同证据
@@ -47,4 +48,4 @@
 
 ## 状态
 
-流程9自身任务：`completed`（入口合同与受控 receipt 生命周期已提交，42项入口回归与4项 receipt 专项测试通过；最终复核 HEAD=`698dc6928`）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。
+流程9自身任务：`completed`（入口合同与受控 receipt 生命周期已提交，SQL 合同测试 1/1、receipt 专项 4/4、入口回归 42/42 通过；复核后 HEAD=`2a0d6d948`）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。
