@@ -34,6 +34,14 @@
 - Forbidden action: 禁止强杀其它任务 Maven/Java 进程、删除共享模块 `target`、改用随机 Maven 输出目录、把 isolated worktree 未验证 diff 的结果当作主工作区验证、或遗漏 worktree 删除记录。
 - Evidence: `doc/tasks/20260803-dcc-docx-preview-system-exception/verification-report.md`，主工作区 DCC target 与并发 Maven 冲突时，创建 detached verification worktree、应用单个 service diff、通过 focused/adjacent preview Maven 测试后删除 worktree。
 
+## 子线程 ACL 无法创建 Worktree 时的主线程接管门禁
+
+- Trigger: 子线程执行 `git worktree add` 时在主仓库 `.git/worktrees` 报 `Permission denied`，或因当前目录不是 Git 仓库而无法继续；同时主工作区或原任务 worktree 存在并行 dirty 改动。
+- Preflight check: 不在原 dirty worktree 内修复 Git 元数据，也不清理、reset、checkout、stash 或整体提交并行改动；由具备写权限的主线程先读取 worktree 规则，确认目标路径位于 `D:\IntRuoyiWorktree\`，以当前主线实际 `git rev-parse HEAD` 为基线，先用 `reserve-worktree-slot.ps1` 登记合法 `slot 1..50`，再创建具名独立 worktree/分支。对用户提供的旧 baseline 只作为线索，必须重新核对当前 HEAD，避免把过期提交当成集成基线。
+- Blocker: 主线程也无法写 `.git/worktrees`、目标路径已存在、登记表无法加锁或槽位/端口合同不一致时必须 fail fast；不得把 ACL 错误伪装成代码失败，也不得在旧 dirty worktree 中强行补写任务文件。
+- Verification: 在新 worktree 只应用可证明归属当前任务的最小 diff；运行目标测试、必要编译、`git diff --check` 和 runtime guard；提交前核对 staged 文件清单，提交后核对新 worktree clean、主工作区 HEAD/dirty 数量未变化、原 dirty worktree HEAD/dirty 数量未变化，以及 slot 登记仍指向新路径。
+- Forbidden action: 禁止声称子线程自己创建了 worktree 或产生了 commit；禁止使用 `--no-verify` 绕过 guard；禁止把主线未提交的并行文件混入修复提交；禁止未核对当前 HEAD 就沿用旧截图、旧回复或旧 commit 的验证结论。
+
 ### 隔离验证 Worktree Sparse 初始化门禁
 
 - Trigger: `git worktree add --detach <path> HEAD` 长时间停留在 `locked initializing`，或全量 checkout 因旧 target/残留目录拖慢但当前只需后端定向 Maven。
