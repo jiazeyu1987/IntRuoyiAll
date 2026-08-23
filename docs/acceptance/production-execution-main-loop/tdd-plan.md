@@ -47,7 +47,7 @@
 | PQC 提交 | `pqcSubmissionIdempotencyKey`、`pqcTaskId`、`qaRegulationVersionId`、`actualEmployeeId`、`deviceAccountId`、`deviceId`、`workstationId`、`inspectionQuantity`、`qualifiedQuantity`、`allocatableQuantity`、`consumedQualityQuantity`、`signatureId`、`signatureEmployeeUserId`、`signatureSnapshotJson`、正式生产提交绑定 ID 或绑定关系 ID；rawPayload 只能作为审计快照 | P0-T03、P0-T04、P0-T09A |
 | 生产/PQC 复核 | `reviewIdempotencyKey`、`reviewTargetProcessPoolEventId`、`reviewerUserId`、`reviewRole`、`reviewRequiredFlag`、`reviewResult`、`reviewSignatureId`、`reviewSignatureUserId`、`reviewSignatureSnapshotJson` | P0-T05、P0-T06 |
 | FIFO 确认 | `confirmationIdempotencyKey`、`sourceReviewId`、`sourceProcessPoolEventId`、`activeOrderId`、`targetWorkOrderId`、`allocatedQuantity`、`confirmedQuantity`、`confirmSignatureId` | P0-T07 |
-| 批记录回填 | `batchRecordExecutionId`、`batchRecordReportId`、`batchRecordDefinitionId`、`batchRecordVersionId`、`fieldAuditBatchId`、`fieldAuditItemId`、`sourceProcessPoolEventId` 或 `sourceAllocationId`、`backfillIdempotencyKey` | P0-T08、P0-T10 |
+| 统一回填 | `activeOrderCompleteId`、`batchRecordExecutionId`、`batchRecordReportId`、`batchRecordDefinitionId`、`batchRecordVersionId`、`fieldAuditBatchId`、`fieldAuditItemId`、`sourceProcessPoolEventId` 或 `sourceAllocationId`、`processInspectionBackfillId`、有损耗时的 `lossReportBackfillId`、`backfillIdempotencyKey` | P0-T08、P0-T10 |
 | 统一 trace | `processPoolEventId`、`complete`、`sections`、`sourceIds`、`blockers`、`candidateEvents`、`lastUpdatedAt` | P0-T09、P0-T10 |
 
 字段名可以按当前 VO/DTO 命名规范调整，但必须能一一映射到上表语义；任何“后端可根据名称/时间/当前用户猜出来”的字段都不视为已冻结。
@@ -81,7 +81,7 @@
 | P0-T05 | 复核电子签名 schema | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0TeamLeaderReviewSignatureSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | `mes_pro_process_pool_submission_review` 缺复核签名 ID、签名员工和签名快照。 | 复核记录模型和迁移包含正式签名字段。 | 同 RED 命令 PASS。 | 复核签名不能只写备注或登录用户。 |
 | P0-T06 | 复核签名服务门禁 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0TeamLeaderReviewSignatureServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | 无签名仍可复核或确认分配；强制复核角色缺失时仍可 FIFO。 | `reviewSubmission` 和 `confirmSubmission` 必须校验复核签名，签名员工等于复核人或正式授权复核人，并在 FIFO 前校验所有强制复核角色。 | 同 RED 命令 PASS。 | 复核只写复核事实，不修改原提交。 |
 | P0-T07 | FIFO 活跃订单闭环 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0ActiveOrderFifoClosedLoopTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | 分配可指向非活跃订单、总数与确认数量不一致，或并发确认产生重复分配。 | FIFO 和手工分配都只允许活跃生产工单，且总数、剩余数量、当前工序一致；写入事务内重新校验质量和强制复核。 | 同 RED 命令 PASS。 | 不回退到排产、创建时间或非活跃订单；不信任页面预检状态。 |
-| P0-T08 | 工序完成批记录回填 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0BatchRecordBackfillClosedLoopTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | 完成后无法证明回填来自正式逐工序绑定和字段映射，或重复确认产生重复字段审计。 | 完成触发正式批记录执行和字段审计，缺绑定或映射时阻塞；字段审计记录来源值、旧值、新值、单元格和幂等键。 | 同 RED 命令 PASS。 | 禁止使用 `formBindings`、默认 `MAIN`、空批记录或无来源值审计替代。 |
+| P0-T08 | 活跃订单完成统一回填 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0BatchRecordBackfillClosedLoopTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | 活跃订单完成后无法证明批记录、过程检验单和有损耗时的损耗单来自正式来源，或一线提交/组长复核/单个工序完成提前写入最终资料。 | 活跃订单双进度 100% 且班组长点击完成后统一回填正式资料，缺绑定或映射时阻塞；无损耗时不生成损耗单；回填后才创建批次执行。 | 同 RED 命令 PASS。 | 禁止使用 `formBindings`、默认 `MAIN`、空批记录、空损耗单、回填前批次执行或无来源值审计替代。 |
 | P0-T09 | 统一闭环 trace 后端 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0ProductionExecutionTraceServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | 现有 trace 分散，无法按事件返回提交、质量、复核、分配、完成、批记录字段审计。 | 新增或扩展 trace 服务，按 `processPoolEventId` 返回六分组和基础 blocker；该 GREEN 只代表 M3 initial，不代表 P0 完成。 | 同 RED 命令 PASS。 | trace 只读，不执行分配、复核、回填或修改；不得因六分组存在就返回 `complete=true`。 |
 | P0-T09A | trace 质量绑定与候选歧义 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0ProductionExecutionTraceQualityBindingTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | trace 只按同工单、同工序、时间接近、rawPayload 解析或第一条 PQC 记录拼接质量结果，或 `candidateEvents` 永远为空。 | 只有正式结构化绑定目标 `processPoolEventId` 或提交数量片段的 PQC 可完成；多候选返回 `candidateEvents` 且 `complete=false`。 | 同 RED 命令 PASS。 | 不用 nearest/first/order+process/rawPayload-only 拼接质量事实。 |
 | P0-T09B | trace 复核聚合与强制角色 | `workdir=IntRuoyiBackend; mvn -pl yudao-module-mes -am "-Dtest=MesP0ProductionExecutionTraceReviewGateTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` | trace 只取第一条复核，或强制复核角色缺签名、缺来源事件时仍完成。 | 生产组长和配置要求的 PQC 组长复核均返回配置状态、实际状态、签名和来源事件；缺任一强制项时 `review.status=BLOCKED`。 | 同 RED 命令 PASS。 | 不用前端角色标签、备注或登录人推断复核完成。 |
@@ -155,8 +155,8 @@ pnpm e2e:p0-production-execution-loop:real
 ## Refactor Checks
 
 - 不新增 fallback、默认成功、默认员工、默认设备、默认质量合格、默认签名或 mock 成功。
-- 生产提交、PQC 提交、复核、分配和批记录回填都必须有正式结构化 ID 关联。
-- 复核、审核副本、原始 revision、批记录回填是不同写链路，不得互相覆盖。
+- 生产提交、PQC 提交、复核、分配和活跃订单完成统一回填都必须有正式结构化 ID 关联。
+- 复核、审核副本、原始 revision、批记录/过程检验单/损耗单统一回填是不同写链路，不得互相覆盖。
 - 统一 trace 只能读取和聚合，不得带写副作用。
 - trace `complete=true` 必须由后端源 ID 和 blocker 计算得出；前端静态合同不得替代后端完成判定测试。
 - P0 闭环证据包必须由后端 trace 或只读核验事实生成；前端可以展示或保存脱敏摘要，但不得本地拼接缺失来源 ID。

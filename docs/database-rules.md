@@ -17,6 +17,8 @@
 - Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
 - Blocker: 无法确认当前后端实际连接库、目标迁移依赖未满足、运行态表结构与迁移前置不一致、迁移会破坏现有唯一性或历史数据，或只能通过默认值、吞异常、伪造上下文继续提交时必须停止。
 - Verification: 迁移前用可重复运行的运行态 schema 契约记录 RED；执行正式迁移后用同一契约记录 GREEN，并运行目标服务回归和不写基线业务数据的真实页面复验。成功写入型 E2E 仍须遵守测试租户、任务自有数据和明确授权门禁。
+- Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若订单初始化返回业务码 500 且日志为缺列，先修复运行库迁移漂移，再判断前端错误归属。
+- Policy scope: 完整 SQL 根目录门禁若被无关文件阻断，不得修改无关迁移或绕过记录；应冻结目标迁移的完整 dependsOn 闭包单独核验并同时记录根目录门禁阻断，未通过的完整门禁不能宣称全库发布就绪。
 - Forbidden action: 禁止在源码已有正式迁移时新增业务 fallback、把空业务上下文伪造成默认 ID、手工只改单列而遗漏生成列/索引/相邻表、仅凭迁移文件存在宣称运行态已修复，或在未授权的 admin 基线租户自动重放正式写请求。
 - Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`。
 
@@ -56,14 +58,14 @@
 - Forbidden action: 禁止把 `tenant_id=0` 当作业务租户可见的默认值，禁止只改前端空状态或返回空页，禁止把全局目录改成按当前租户复制多份而不说明同步和一致性策略。
 - Evidence: `doc/tasks/mes-process-xlsx-sync-20260731/verification-report.md`。
 
-### 数据修复临时表排序规则门禁
+### 数据修复字符串比较排序规则门禁
 
-- Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量或用户变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。
-- Preflight check: 写入前用 `information_schema.COLUMNS` 核对目标字符列 `COLLATION_NAME`；临时表字符串列必须声明与目标列一致的 `CHARACTER SET` 和 `COLLATE`，或在比较表达式上显式 `COLLATE` 到目标列排序规则。
+- Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量、用户变量或存储过程局部字符串变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。
+- Preflight check: 写入前用 `information_schema.COLUMNS` 核对目标字符列 `COLLATION_NAME`，并核对连接 `collation_connection`；临时表字符串列必须声明与目标列一致的 `CHARACTER SET` 和 `COLLATE`。存储过程局部字符串变量会继承创建过程时的连接排序规则，与表列比较时必须显式统一 `COLLATE`，或在要求大小写和字节完全一致的冻结身份校验中对两侧使用 `BINARY` 精确比较。
 - Blocker: MySQL 报 `ERROR 1267 Illegal mix of collations`，或发现临时字符串列与目标字符列排序规则不一致时必须停止并回滚当前事务；MySQL 报 `ERROR 1137 Can't reopen table` 时也必须停止，不能把已提交前后的汇总 SELECT 当作成功证据。
 - Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果；同一事务内需要多次统计同一临时表时，先 `SELECT COUNT(*) INTO` 过程变量，或拆成多条不重复打开同一临时表的语句。
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
-- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用；`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，压力泵 QA 种子首次因临时工序表与正式表排序规则不一致而整事务回滚，显式统一为 `utf8mb4_unicode_ci` 后幂等迁移通过。
+- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用；`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，压力泵 QA 种子首次因临时工序表与正式表排序规则不一致而整事务回滚，显式统一为 `utf8mb4_unicode_ci` 后幂等迁移通过；`doc/tasks/20260817-generate-current-active-order-pqc-tasks/execution-log.md`，PQC 数据修复存储过程的局部字符串变量继承 `utf8mb4_general_ci`，与 `utf8mb4_unicode_ci` 表列比较触发 `ERROR 1267`，回滚确认后改为两侧 `BINARY` 精确身份比较并通过。
 
 ### 数据修复 DML 影响行数读取顺序门禁
 
@@ -230,11 +232,20 @@
 ### 生产用料清单跨环境白名单 upsert 门禁
 
 - Trigger: 将 `mes_kingdee_production_material_list`、生产用料清单、ERP 用料清单、白名单表级 upsert 或类似明细表从本机同步到测试服/其它租户。
-- Preflight check: 写入前必须只读核对源/目标 schema、唯一业务键、租户集合、目标原始行数、菜单/权限/同步任务前置，以及测试服备份；关联 ID 不得直接复制本地值，必须按目标租户和正式父表唯一解析；若同租户同生产工单编码存在多条未删除工单，必须按当前排程/任务实际引用的 `work_order_id` 与 PML 归属逐一拆分。
-- Blocker: 目标表缺列/缺唯一键、租户不匹配、备份失败、目标父表同编码不唯一、缺少同租户物料/工单/BOM、PML 挂在未排程重复工单而当前排程工单缺 PML、或生成跨租户 `product_id` / `child_material_id` / `work_order_id` / `work_order_bom_id` 时必须停止并修正；不得把跨租户 ID 视为已解析。
-- Verification: 写入后必须比对源/目标业务键总数、按租户行数、显式业务字段 hash、staging 表清理状态，并按目标租户复核 `work_order_id`、`product_id`、`child_material_id`、`work_order_bom_id` 均指向未删除正式父表；排程日历验证还必须覆盖当前月份接口，防止修完首个缺口后暴露下一张工单缺 PML；页面/API 验证需区分真实登录页 E2E、只读 API、token-bootstrap 页面渲染。
-- Forbidden action: 禁止复制本地自增 ID、跨租户引用物料主数据、用全库编码唯一替代同租户唯一、删除目标差异行、绕过备份、API-only 冒充页面验证、或在验证码阻塞时宣称登录页 E2E 通过。
+- Preflight check: 写入前必须只读核对源/目标 schema、唯一业务键、租户集合、目标原始行数、菜单/权限/同步任务前置，以及测试服备份；关联 ID 不得直接复制本地值，必须按目标租户和正式父表唯一解析；若同租户同生产工单编码存在多条未删除工单，必须按当前排程/任务实际引用的 `work_order_id` 与 PML 归属逐一拆分；若本地缺同租户物料，应先走正式“金蝶产品/商品 -> MES 物料”同步链路，若同步被重复计量单位、重复分类或其它 `selectOne` 唯一性异常卡住，先按引用范围归并正式主数据重复项，再重跑同步，不得手工伪造物料。
+- Blocker: 目标表缺列/缺唯一键、租户不匹配、备份失败、目标父表同编码不唯一、缺少同租户物料/工单/BOM、PML 挂在未排程重复工单而当前排程工单缺 PML、物料同步所需单位/分类等正式主数据不唯一、或生成跨租户 `product_id` / `child_material_id` / `work_order_id` / `work_order_bom_id` 时必须停止并修正；不得把跨租户 ID 视为已解析。
+- Verification: 写入后必须比对源/目标业务键总数、按租户行数、显式业务字段 hash、staging 表清理状态，并按目标租户复核 `work_order_id`、`product_id`、`child_material_id`、`work_order_bom_id` 均指向未删除正式父表；若修复过单位/分类等主数据重复，必须复核重复项只剩唯一活动记录、原引用已迁移且无孤儿引用；排程日历验证还必须覆盖当前月份接口，防止修完首个缺口后暴露下一张工单缺 PML；页面/API 验证需区分真实登录页 E2E、只读 API、token-bootstrap 页面渲染。
+- Forbidden action: 禁止复制本地自增 ID、跨租户引用物料主数据、用全库编码唯一替代同租户唯一、删除目标差异行、绕过正式同步链路手工创建物料、绕过备份、API-only 冒充页面验证、或在验证码阻塞时宣称登录页 E2E 通过。
 - Evidence: `doc/tasks/20260801-production-material-list-data-sync-test/verification-report.md`；`doc/tasks/20260801-fix-test-schedule-material-item-mapping/verification-report.md`。
+
+### MES 同名物料路线产品身份收敛门禁
+
+- Trigger: 同一租户存在多个 `mes_md_item.name` 相同的物料，且排产、生产工单、生产组长活跃订单、工艺路线产品绑定或一线运行态因物料 ID 不同出现“活跃订单冻结工序快照不完整”、新增活跃订单失败、路线产品身份不一致、同名物料收敛或压力泵同名物料问题。
+- Preflight check: 写入前必须冻结 `tenant_id + item_id + item.code + product_master_id`、目标 `route_id + route.code`、DCC 项目代码与 `product_master_id` 绑定、当前活跃订单 `work_order.product_id`、路线产品 `mes_pro_route_product` 有效绑定数量和冻结工序快照数量；中文名称只能作为排查线索，不能作为更新主键。若同一名称下有多个正式编码，应先确认当前订单实际引用的物料 ID，再判断是补路线产品绑定、迁移引用还是阻塞。
+- Blocker: 只能按中文名称定位目标、目标物料缺正式 `product_master_id` 或与 DCC 项目不一致、目标路线有效产品绑定存在 product master 漂移、同一路线同物料已有多条有效绑定、活跃订单引用物料在目标路线下无有效产品绑定、或待修复范围跨租户/跨 product master 时必须停止；不得继续新增活跃订单或用其它同名物料代替。
+- Verification: 先用只读 SQL 形成 RED，证明目标订单引用的 `work_order.product_id` 缺少目标路线有效 `route_product`；修复必须事务化、幂等、精确限定租户/路线/物料/DCC 项目/product master，并记录影响行数；修复后复核目标物料有效绑定数为 1、活跃订单冻结快照数量不变且 `active_route_product_binding_count=1`、目标路线 active product master 漂移数为 0，同时运行迁移静态合同和 release migration policy gate。
+- Forbidden action: 禁止把所有同中文名物料物理合并、禁用、重命名或批量改工单引用；禁止按 `name` 更新、按当前路线猜测历史订单、复制其它活跃订单快照、补默认物料、前端隐藏错误、API-only 冒充页面验证或让运行态 fallback 到任意同名物料。
+- Evidence: `doc/tasks/20260818-pressure-pump-same-name-material-convergence/verification-report.md`；`IntRuoyiBackend/sql/mysql/20260818_mes_pressure_pump_same_name_item_convergence.sql`。
 
 ## 租户和菜单权限
 

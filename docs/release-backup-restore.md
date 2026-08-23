@@ -24,6 +24,15 @@
 - 缺少备份目标、恢复脚本、数据盘、MinIO 容器或数据库连接证据时必须 fail fast。
 - 不得删除、清空、重挂载或改写共享存储，除非用户明确授权且有回滚说明。
 
+### 本机数据迁移包恢复门禁
+
+- Trigger: 用户要求把当前电脑的本机 IntRuoyi 数据打包给另一台电脑、保持两台开发电脑数据一致、或生成给 Codex 使用的恢复 README。
+- Preflight check: 先区分代码与运行数据，至少盘点 MySQL、MinIO/上传附件对象、Redis、SQLite/本地外部数据文件和前后端本地配置；导出包不得写入数据库密码、MinIO 密钥、Redis 密码或其它运行密钥。恢复说明必须要求目标电脑先备份再覆盖，并使用目标电脑自己的容器环境变量或本地配置读取凭据。
+- Blocker: 本机 MySQL/MinIO/Redis 容器缺失、目标数据范围不清、磁盘空间不足、哈希校验不一致、MinIO `/data` 无法完整归档、目标电脑未确认可覆盖本地数据，或只能通过切换空库/远端库/随机端口来让页面有数据时必须停止。
+- Verification: 记录迁移包目录、MySQL dump 字节数和数据库名、MinIO 归档字节数与 `gzip -t` 结果、Redis RDB 文件头、SHA-256 清单、README UTF-8 可读性，以及目标恢复后的数据库关键行数和 MinIO bucket 存在性检查。
+- Forbidden action: 禁止只导 Git 或 MySQL 就宣称环境一致；禁止把 Redis 缓存当成业务主数据；禁止把源机密码写进迁移包；禁止恢复前不备份目标数据；禁止清空其它 Docker volume、改目标端口、切换数据源、使用 mock/空数据冒充恢复成功。
+- Evidence: `doc/tasks/data-sync-package-20260818/verification-report.md`。
+
 ### 工艺路线删除恢复完整性门禁
 
 - Trigger: 恢复被删除的 MES 工艺路线、路线工序、路线产品、流程边、开始/结束边或布局，尤其父路线仍有 ACTIVE 发布快照但正常页面不可见。
@@ -48,6 +57,7 @@
 - Preflight check: 先确认唯一实现、测试和打包源为 `E:\IntRuoyi\IntRuoyiBackend\script\backup-ops`；不得用维护仓 `ops/backup-ops` 历史副本的测试结果证明实际后端已修复。随后同时核对计划任务查询退出码、`Enabled/Status`、`NextRunTime`、`LastTaskResult`、`Task To Run`、脚本/config/secrets 路径、受保护生产确认、`taskPrincipal.principalId`、S4U/Limited、batch-logon、ACL identity、`backup.repositoryEnvironment`、最新成功点 `completedAt` 和已批准的 `backup.maxFreshnessHours`。
 - Blocker: 运行/打包/测试源不一致，查询命令非 0，`NextRunTime=N/A`，任务禁用，脚本或配置路径漂移，受保护输入、principal 或 ACL 无效，仓库环境缺失/非法，`LastTaskResult` 非 0，成功备份点或 `completedAt` 缺失/不可解析，或 `now - completedAt` 超过新鲜度阈值时，不能宣布定时备份正常。
 - Verification: 记录后端 source-of-truth 合同测试、计划任务名称、principal/logon type、ACL 验证身份、启用状态、下次运行时间、上次运行时间、上次结果、脚本/config/secrets 路径、仓库环境、最新成功点 `completedAt`、新鲜度阈值及实际年龄；秘密字段只记录脱敏证明，不记录明文。
+- Implementation gate: 注册脚本合同转绿前，必须同时验证 `backup-ops.ps1` 主入口接受并校验同一个 `RepositoryEnvironment`，非交互正式备份只从 secrets 的 `auth.productionBackupConfirmText` 取得受保护确认；不得只让注册命令字符串或示例 JSON 变绿。
 - Forbidden action: 禁止把维护仓副本、`schtasks` 错误/空输出、旧路径、禁用任务、默认仓库、当前用户/SYSTEM/最高权限、命令行明文凭据、仅有历史备份文件或缺少恢复/新鲜度证据包装成“定时备份正常”。
 - Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260813-production-operations-hardening-plan\` 规划包及其独立复审报告。
 

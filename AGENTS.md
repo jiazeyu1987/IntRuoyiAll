@@ -118,6 +118,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Write-type E2E must use a confirmed test tenant/account and create traceable, task-owned test data. Do not modify production tenant data, admin baseline data, or unrelated real business records.
 - If login credentials, tenant baseline, menu permissions, runtime ports, database, Redis, or sample data are missing, fail fast. Do not replace real E2E with mocks, backup data, direct SQL shortcuts, or API-only paths.
 - If a frontend entry, menu route, role binding, or dynamic route is missing, distinguish between product scope and environment/setup scope before changing code.
+- 活跃订单缺损数据只能通过“重建”或“删除后重新新增活跃订单”修复，禁止直接修改任务、快照或报工数据；本机环境可删除相关历史数据，但须先完整校验，失败不得部分写入。
 
 ## Server, Release, Backup, and Worktree Safety
 
@@ -167,3 +168,5 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Preserve `task.md`, `execution-log.md`, and `verification-report.md` by default.
 
 - Thread baseline: 子 Agent 调度必须直接调用 collaboration 接口；不得嵌套 functions.exec，也不得用 exec wait 代替 wait_agent。
+- Thread baseline: QA首检数量和巡检比例按工序分别配置，不要求跨工序一致；末检适用性是项目级统一开关。
+- Thread baseline: Windows 命令优先使用已批准 PowerShell 精确前缀并指定 workdir=E:\IntRuoyi；不要额外夹 -NoProfile。

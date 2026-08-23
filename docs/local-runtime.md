@@ -239,6 +239,25 @@ PORT_CONTRACT_VERSION: 2026-08-22-branch-runtime-v6
 - Forbidden action: 禁止只凭“同属 int_main”强停请求后新出现的 PID；禁止并发任务仍在共享主工作区构建或重启时盲目重跑 `full`；禁止把被中止的 `full` 脚本记录为成功。
 - Evidence: `doc/tasks/20260814-restart-local-runtime/verification-report.md`。
 
+## 2026-08-17 Spring Boot 重打包长时 I/O 门禁
+
+- Trigger: 标准 `full/backend` 重启已进入 `spring-boot:repackage`，`yudao-server-exec.jar` 暂时为 `0` 字节、Maven 长时间无新输出，或误以为最终打包卡死。
+- Preflight check: 不得只根据终端静默、低 CPU 或临时 `0` 字节 Jar 判定失败；先确认 Maven 进程仍属于本次任务，再用 `jcmd <pid> Thread.print -l` 检查主线程。若主线程处于 `AbstractJarWriter$StoredEntryPreparator.load`、`writeNestedLibrary` 或 `Repackager.repackage` 的文件读取/写入链路，说明仍在处理 Spring Boot 嵌套依赖，应继续等待标准命令返回。
+- Blocker: Maven 进程已退出且脚本非零返回、线程栈不再属于打包链路、进程归属不明、目标 Jar 长时间不变化且无法证明仍在 I/O，或最终没有 `BUILD SUCCESS` 时，必须停止成功结论。
+- Verification: 以 Maven `BUILD SUCCESS`、`yudao-server-exec.jar` 完整生成、标准重启脚本退出码 `0`、新 `48081/8081` 进程归属及最终 health/HTTP 检查共同证明完成；线程栈只能证明“仍在执行”，不能代替最终成功结果。
+- Forbidden action: 禁止因临时 `0` 字节 Jar 或终端静默强停本任务构建、改用旧 Jar、跳过重打包或手工启动旧后端冒充成功。
+- Evidence: `doc/tasks/20260817-restart-local-runtime/verification-report.md`。
+
+
+## 2026-08-21 E 盘 NTFS Dirty/索引损坏最小修复门禁
+
+- 触发场景：E: 显示 NTFS Warning/Full Repair Needed、fsutil dirty query 报 Dirty、读取报 OS error 1392，或 Windows sandbox 访问 E: 时出现 apply deny-read ACLs。
+- 前置检查：先记录磁盘、分区和卷健康状态并运行只读 chkdsk/scan；只停止已确认属于当前任务的 E: 占用进程。无法备份时，离线修复前必须取得用户明确授权，并区分执行器 ACL 失败与文件系统损坏。
+- 阻塞条件：磁盘 Offline/ReadOnly、设备断开、健康状态不稳定或修复报告坏扇区时必须停止，保留原盘等待恢复复制；禁止循环重复修复命令。
+- 修复范围：用户授权且卷已卸载后，只使用 chkdsk E: /f /x。禁止格式化、diskpart clean、重建分区、用大范围 icacls/takeown 冒充文件系统修复，或删除 target/build 目录掩盖索引错误。
+- 验证方式：必须看到 chkdsk 报 no further action、坏扇区为 0、Get-Volume 为 Healthy/OK、fsutil dirty 报 NOT Dirty，且关键项目路径可读。Git fsck 必须单独核对；本地 Git 对象错误不等于 NTFS 修复失败，远端 Git 提交也不覆盖非 Git E: 数据。
+- 证据：doc/tasks/20260821-e-drive-minimal-repair/execution-log.md。
+
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。

@@ -41,6 +41,14 @@
 - apply 通过后再标记 `completed`。
 - 默认保留 `task.md`、`execution-log.md`、`verification-report.md`。
 
+## 重复任务记录收口门禁
+
+- Trigger: 同一用户缺陷或功能因多次“继续”、重开任务或重复建档，在 `doc/tasks/` 下出现多个语义相同的任务目录，且其中部分仍为 `in_progress`、`pending` 或验证证据为空。
+- Preflight check: 收尾前用任务目标、用户原话、BDD、改动文件和验证命令识别主任务目录；主任务必须包含完整实现、RED/GREEN、回归和收尾证据。重复任务不得复制实现结论冒充独立完成，只能明确引用主任务证据并说明自身为重复记录。
+- Blocker: 无法判断哪个目录是主任务、重复任务记录包含相互冲突的验收范围、主任务缺少关键验证证据，或重复任务仍保留 `in_progress` 导致后续 resume/继续误判未完成时，必须先补齐任务记录再总结。
+- Verification: 主任务 `verification-report.md` 记录最终证据；重复任务 `task.md` 的 `## Current Status` 第一条非空文本为 `completed` 或 `blocked`，并在 `execution-log.md` 写明主任务路径、已复用的 RED/GREEN 证据和任何当前重跑 blocker。
+- Forbidden action: 禁止删除重复任务目录来掩盖历史，禁止把重复任务继续留在 `in_progress`，禁止让过期 pending 验证覆盖主任务已通过证据，也禁止把环境阻塞写成产品代码失败。
+
 ## 验收范围变更门禁
 
 - Trigger: 用户明确变更任务完成门禁、取消全量回归、改为只跑开发文档或测试计划列出的定向测试，或说明某个测试命令不再作为当前任务完成条件。

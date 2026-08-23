@@ -443,3 +443,35 @@ ssh root@172.30.30.58 bash -s
 
 - 本次任务：`doc/tasks/20260728-codeonly-no-onlyoffice-test-release/execution-log.md`。
 - r1 暴露 `/release-info.json` 返回 SPA `index.html`；修复发布脚本写入 `release-info.json` 后，r2 `release-20260728-codeonly-noonlyoffice-test-r2` 通过本地包、NAS 包和测试服 HTTP release-info 验收。
+
+## 2026-08-18 测试服前端 SPA 回退入口缓存头门禁
+
+### Trigger
+
+测试服前端发布后，老浏览器或旧会话访问 `/index`、`/login`、动态路由等 SPA 回退地址时仍加载旧登录页、旧脚本或旧菜单缓存，表现为新浏览器可登录但旧浏览器无法登录。
+
+### Preflight check
+
+- 修改测试服前端 Nginx、Dockerfile、发布脚本或运行态验收时，必须同时检查 `/`、`/index.html`、`/index` 和通用 `location /` SPA 回退入口。
+- SPA 入口和回退入口必须返回 `Cache-Control: no-store, no-cache, must-revalidate, max-age=0`、`Pragma: no-cache`、`Expires: 0`。
+- 带 hash 的 `/assets/` 和 `/admin-ui-vue3/assets/` 资源继续使用 `public, max-age=31536000, immutable`，入口页不缓存与静态资源长期缓存必须分开验证。
+
+### Blocker
+
+- `/index` 或通用 SPA 回退只 `try_files ... /index.html` 但没有禁缓存响应头。
+- 只验证 `/` 或 `/index.html`，未覆盖测试服常用入口 `/index`。
+- 为解决旧浏览器问题要求用户手工清缓存，却没有修正发布入口缓存策略。
+
+### Verification
+
+- 运行 `node script/tests/test_admin_frontend_nginx_cache_headers.mjs`，确认入口、`/index`、SPA 回退和 hash 静态资源缓存策略同时通过。
+- 发布后用 HTTP header 或浏览器网络面板核对 `/index` 与任一动态路由返回禁缓存头，`/assets/*.js` 返回 immutable 缓存头。
+
+### Forbidden action
+
+- 禁止用强制用户清缓存、无痕窗口、退出重登、仅重启后端或仅刷新 Redis 作为根因修复。
+- 禁止把所有静态资源都改成不缓存来掩盖入口页缓存问题。
+
+### Evidence
+
+- 本次任务：`doc/tasks/20260818-test-server-login-cache/execution-log.md`。

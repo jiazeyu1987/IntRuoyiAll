@@ -162,6 +162,14 @@
 - Verification: 写入后立即执行目标片段搜索、`git diff -- <path>`、相关静态测试或类型检查，并在任务日志记录 ACL 原因、提升范围和验证结果。
 - Forbidden action: 禁止因 ACL 拦截改用宽泛脚本批量扫描/重写目录；禁止跳过 diff 与测试直接宣称完成。
 - Evidence: `doc\tasks\20260725-codex-test-method-target-items\execution-log.md`，前端测试管理页面方法项/目标项展示改造遇到 ACL 后采用限定文件 UTF-8 写入并通过静态测试与类型检查。
+### Codex Windows PowerShell 精确前缀门禁
+
+- Trigger: Codex 普通 PowerShell、Node REPL 或 apply_patch 因 Windows helper ACL 报错，但需要继续创建任务目录、写任务文档或更新 AGENTS.md。
+- Preflight check: 优先使用已批准精确前缀 C:\windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command ...，并显式设置 workdir=E:\IntRuoyi；脚本内容用单引号保护，避免外层 shell 展开变量，不额外夹 -NoProfile。
+- Blocker: 精确前缀仍失败、目标路径不属于当前任务、需要触碰并发任务文件、或写入后无法 UTF-8 回读时停止，不得随机换 shell。
+- Verification: 先做 smoke：创建任务目录临时文件、显式 UTF-8 写入、UTF-8 回读、删除并确认无残留；正式写入后复核目标 baseline 或片段出现次数。
+- Forbidden action: 禁止把 ACL/helper 故障误写成业务代码失败；禁止用默认编码写中文文档；禁止在未指定 workdir 时操作项目文件。
+- Evidence: doc/tasks/20260821-stable-tool-chain-agents-baseline/execution-log.md。
 ### PowerShell 命令文本管道字符门禁
 
 - Trigger: 在 PowerShell 命令参数、字符串替换、TypeScript 类型联合、正则或 Markdown 内容中需要出现字面 `|`、`||`、尖括号、中文或多行文本，并且命令会通过 Codex sandbox/approval 执行。
@@ -170,6 +178,24 @@
 - Verification: 写入后运行 `Get-Item <path> | Select-Object Length`、目标片段只读检查、`git diff -- <path>`、相关类型检查或静态合同，并把恢复证据写入 `doc\tasks\<task-id>\execution-log.md`。
 - Forbidden action: 禁止在未确认 diff 和文件长度前继续提交；禁止用默认编码 `Set-Content`/`Out-File` 写中文或源码；禁止把工具截断、反引号字面量、BOM 漂移造成的文件异常当成正常业务改动。
 - Evidence: `doc\tasks\merge-jiluben-residual-20260725\execution-log.md`，`BatchRecordCellRulesConfirmDialog.vue` 一次 ACL 后 PowerShell 替换超时截断并恢复；`doc\tasks\20260726-route-start-batch-record-attachments\execution-log.md`，测试 import 追加时 `` `r`n`` 被写成字面量，改回 `apply_patch` 并复跑 Maven 通过。
+
+### PowerShell UTF-8 无 BOM 脚本执行门禁
+
+- Trigger: 通过 `apply_patch` 生成含中文文件名、中文工作表名、中文参数或中文业务文本的 `.ps1` 脚本，并准备在 Windows PowerShell 5.1 或未确认版本的 PowerShell 中执行。
+- Preflight check: 优先使用 `pwsh -NoProfile -ExecutionPolicy Bypass -File <script.ps1>` 执行 UTF-8 无 BOM 脚本；如果必须使用 Windows PowerShell 5.1，脚本文件必须带 BOM 或改为 ASCII 脚本加 UTF-8 数据文件，并在执行前用 UTF-8 方式回读关键中文参数。
+- Blocker: 输出出现 mojibake、中文文件名中的 `.xlsx` 等扩展名被破坏、外部工具报不支持的文件类型、或中文 sheet/cell 参数被写空时，必须停止并改用 UTF-8 安全执行路径，不得继续沿用损坏产物。
+- Verification: 记录失败命令、改用 `pwsh` 或 UTF-8 安全路径后的命令、关键中文文件名/路径回读结果，以及最终目标文件的结构化校验。
+- Forbidden action: 禁止把 Windows PowerShell 5.1 对 UTF-8 无 BOM 脚本的乱码输出当作正常工具失败；禁止发现乱码后继续生成 Office、JSON、SQL 或任务证据。
+- Evidence: `doc/tasks/20260819-dcc-windchill-comparison-excel/execution-log.md`，首次用 `powershell -File` 执行含中文 `.xlsx` 文件名的脚本时文件名变成 mojibake 且 officecli 误判扩展名，改用 `pwsh -File` 后工作簿生成成功。
+
+### OfficeCLI XLSX 导入后内容复核门禁
+
+- Trigger: 使用 `officecli import`、TSV/CSV 或批处理生成 `.xlsx`，特别是含中文工作表名、中文表头或已预置格式的 Excel 交付物。
+- Preflight check: 导入命令返回成功后，必须立即用 `officecli get <file> '/<sheet>/A1:<end>' --json` 或 `officecli view <file> text` 复核关键表头和前几行真实 cell text；不能只看 `Imported N rows x M cols`、`outline` 行列数或 `validate` 结果。
+- Blocker: `outline` 显示行列存在但 `get`/`view text` 为空、单元格仍为 `empty=true`，或 HTML 预览没有业务内容时，必须停止并重写单元格值；不得把空工作簿交付给用户。
+- Verification: 记录写入方式、关键单元格 `get` 输出、`officecli view issues`、`officecli validate`、错误单元格查询和 HTML 预览占位符检查；必要时用 `officecli batch` 对 TSV/CSV 逐单元格写值后再次复核。
+- Forbidden action: 禁止把 OfficeCLI import 成功消息、结构验证通过或格式存在当作内容已写入；禁止跳过首行/样例行读取；禁止在发现空值后只修样式不修数据。
+- Evidence: `doc/tasks/20260819-iso13485-electronic-system-gap-analysis/execution-log.md`，ISO13485 差距分析工作簿首次显示 18x9/5x3 且 validate 通过，但 `view text` 与 `get` 证实单元格为空；改用 UTF-8 TSV 读取并 `officecli batch` 写入 177 个单元格后，表头、前两行、评分说明和 HTML 预览均复核通过。
 
 ### PowerShell Maven -D 参数引号门禁
 
@@ -266,3 +292,12 @@
    推荐命令: `git diff --check`、对象大小扫描命令、`git push origin <branch>`、`git status --short --branch`。
    Fail Fast: verification 未通过、推送被拒、仍然 ahead、或缺凭据/网络。
    必须记录: 实现提交 hash、收尾提交 hash、推送结果和最终状态。
+
+### 重启后融合状态复核门禁
+
+- Trigger: git merge --ff-only、git add 或 git commit 曾因 .git/index.lock 阻塞，随后电脑重启、终端重开或外部 Git 进程自然结束。
+- Preflight check: 不要直接按旧 blocker 删除锁或重复合并；先只读运行 git worktree list --porcelain、git log --oneline --decorate -n <N>、git rev-parse <main> <integration> HEAD 和 git merge-base --is-ancestor <integration> <main>，确认目标提交是否已经被其它成功路径或 post-merge 流程带入主线。
+- Blocker: 主线、集成分支和 HEAD 不一致，存在 MERGE_HEAD/rebase/cherry-pick 状态，index 非空，或任务增量与当前脏文件出现精确/目录前缀重叠时必须停止；不得用旧会话的阻塞状态继续操作。
+- Verification: 若三者已经一致且 ancestry 通过，再运行 scripts\preflight\branch-runtime-port-guard.ps1，记录最终 HEAD、guard 输出和任务状态更新；如果仍需删除 stale lock，必须重新满足零字节、超过 60 秒且无活动 Git 进程的原门禁。
+- Forbidden action: 禁止重启后跳过实际 HEAD 复核，禁止对可能已经完成的 fast-forward 再次合并、rebase、reset 或清理锁文件，禁止把旧 blocker 继续写成当前阻断。
+- Evidence: doc/tasks/20260816-registration-certificate-full-business-delivery/execution-log.md，T10-C 首次融合被外部 Git index.lock 阻塞；重启后只读复核发现 int_main、集成分支和 HEAD 已同为目标提交，随后只更新收尾记录并运行端口 guard。

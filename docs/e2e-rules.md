@@ -13,6 +13,7 @@
 - 默认本机入口为 `http://localhost:8081` 或 `http://127.0.0.1:8081`。
 - 写入型 E2E 必须使用已确认的测试租户和账号，并创建带任务标识、可追踪、可清理的数据。
 - 只读验证必须说明使用的数据来源和只读范围。
+- 提交型后台任务的真实 E2E 必须区分“页面提交成功”和“业务执行完成”：前端 POST 返回成功只表示任务已受理，必须通过同一真实页面刷新或轮询确认成功/失败终态；若仍显示运行中，必须记录任务记录、访问日志和线程栈证据，禁止重复提交。
 
 ## 缺入口处理
 
@@ -50,6 +51,15 @@
 - Verification: 证据必须区分静态合同 PASS、TypeScript PASS、Playwright 真实路径 PASS 和 E2E BLOCKED；真实 E2E 只有在 Playwright 操作真实页面并完成目标断言后才能记为 PASS。
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`。
+
+### 列表筛选输入与请求参数同步门禁
+
+- Trigger: Playwright 在 Element Plus 表格、多条件筛选、quick filter、页签过滤或列表搜索中填入目标业务编号，但列表结果仍返回大批量数据、目标样本缺失、或失败信息疑似“数据不存在”。
+- Preflight check: 点击查询前必须同时确认目标筛选容器内可见输入框的 DOM value 已等于目标值，并监听正式分页请求；请求返回后必须记录实际 request URL、业务码、total 和前几条业务 code，确认 URL 中包含目标筛选参数。对于需要页签或筛选状态同步的组件，必须等待组件内部状态更新后再点击查询。
+- Blocker: 输入框可见值正确但正式分页请求 URL 未带目标参数、请求命中错误页签/错误接口、返回 list 前几条 code 明显未按目标过滤，或只能证明 DOM 值而不能证明请求参数时，必须停止并归因为脚本/组件同步问题，不得把结果写成目标业务数据缺失。
+- Verification: 真实 E2E 证据需包含目标筛选值、最终请求 URL、业务码、total、前几条 code，以及修复后同一用户路径命中目标样本并完成后续断言。
+- Forbidden action: 禁止只填 placeholder 输入框、只检查输入框 value、用 API-only 查询替代页面筛选、改成模糊全表扫描、或把未带筛选参数的大列表结果当作目标样本缺失证据。
+- Evidence: `doc/tasks/20260813-scheduler-seven-issues-closure/execution-log.md`，排产目标 7 E2E 曾因生产工单分页 URL 未带 `code` 参数误报缺少 `CODexERP20260610E`，修复 quick filter 状态同步后真实页面闭环 PASS。
 
 ### DCC 文控审批处理入口门禁
 
@@ -109,9 +119,9 @@
 ### Playwright 目标链路与外部资源异常归因门禁
 
 - Trigger: Playwright 捕获到 `console error`、`requestfailed` 或非 2xx 响应，且失败 URL 包含外部头像、图片、CDN、非当前页签接口或其它非本轮目标链路资源。
-- Preflight check: 采集失败请求的完整 URL、状态码和资源类型；按本机前端、当前后端、目标业务 API 与目标读写接口定义目标链路。多页签页面必须按当前验收页签精确限定目标接口，例如审批中心“已办”只把 `/approval-center/done` 和 `viewType=DONE` 列为目标链路，页签切换中被浏览器中止的 TODO 请求只能单独记录为非 DONE 审批中心请求，不得冒充 DONE 失败。只读页面若自动触发命令式 POST（如一线页面 `switch-employee` 用于授权校验、运行态读取和模板解析），必须先核对后端实现没有 insert/update/delete 或业务状态推进，再把它单独归类为“只读型 POST”；不得把它混入目标业务写请求，也不得在未核对实现时直接放行。只有在确认非目标 URL 未造成目标控件缺失且目标行为断言独立通过后，才允许将其单独记录为非目标链路异常；不得用域名白名单批量忽略错误。控制台通用超时只有在时间、URL 和错误类型都与已记录的第三方请求超时精确关联时才可单独分类；未关联超时、同域业务请求或权限错误继续作为目标失败。
+- Preflight check: 采集失败请求的完整 URL、状态码和资源类型；按本机前端、当前后端、目标业务 API 与目标读写接口定义目标链路。多页签页面必须按当前验收页签精确限定目标接口，例如审批中心“已办”只把 `/approval-center/done` 和 `viewType=DONE` 列为目标链路，页签切换中被浏览器中止的 TODO 请求只能单独记录为非 DONE 审批中心请求，不得冒充 DONE 失败。只读页面若自动触发命令式 POST（如一线页面 `switch-employee` 用于授权校验、运行态读取和模板解析），必须先核对后端实现没有 insert/update/delete 或业务状态推进，再把它单独归类为“只读型 POST”；不得把它混入目标业务写请求，也不得在未核对实现时直接放行。只有在确认非目标 URL 未造成目标控件缺失且目标行为断言独立通过后，才允许将其单独记录为非目标链路异常；不得用域名白名单批量忽略错误。浏览器只给出通用 `Failed to load resource` 文本时，必须同时记录 response URL、HTTP status、status text，并按出现次数逐条绑定；只有非本机响应和 console 文本一一对应的条目可归类为外部资源错误。本机响应、数量不匹配或缺 URL 的通用错误继续作为目标失败。
 - Blocker: 任一本机目标业务请求失败、出现未解释的 `pageerror`、外部或非目标请求失败导致目标页面或控件不可用、无法确认目标写请求数量，或失败请求归属不明确时必须停止。
-- Verification: 证据必须同时记录目标链路错误数、非目标同域请求或外部异常 URL 与状态码、`pageerror` 数量、目标 UI 断言、目标写请求数量，以及被单独归类的只读型 POST 数量和后端只读实现依据；只读/取消确认路径必须明确证明真正业务写请求为 0。若分类控制台超时，还必须保存与之关联的第三方失败请求 URL 和分类数量，并用负向合同证明未关联超时不会被忽略。
+- Verification: 证据必须同时记录目标链路错误数、非目标同域请求或外部异常 URL 与状态码、`pageerror` 数量、目标 UI 断言、目标写请求数量，以及被单独归类的只读型 POST 数量和后端只读实现依据；只读/取消确认路径必须明确证明真正业务写请求为 0。若分类通用 console 错误，还必须保存与之关联的第三方失败响应 URL、状态、分类数量，并用负向合同证明未关联、本机或多余的同文错误不会被忽略。
 - Forbidden action: 禁止全局关闭 console/network 断言、忽略全部第三方域名、仅按错误文案宽泛忽略超时、把页面 HTTP 200 当作目标功能通过，或省略外部异常证据。
 - Evidence: `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/verification-report.md`，DCC 列表只读 E2E 将外部头像 502 与本机/DCC 目标链路分开归因，并证明目标链路错误数和 DCC 写请求数均为 0；`doc/tasks/20260811-route-publish-chain-clarity/verification-report.md`，一线生产只读 E2E 将模板解析 `switch-employee` POST 与真正业务写请求分开统计，核对后端只读实现后证明业务写请求为 0；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md`，活跃订单提交 E2E 以精确关联合同分离第三方请求超时，目标页面、请求、HTTP 和控制台错误均保持为 0。
 
@@ -131,6 +141,15 @@
 - Verification: 修正顺序后重跑真实页面路径，证据需包含登录落点、目标导航 URL、目标接口响应或明确的无目标写请求计数、console/pageerror/toast 采集结果和截图/result JSON。
 - Forbidden action: 禁止通过加长超时、读取旧 `result.json`、API-only 查询、重复刷新碰运气或忽略缺失目标响应来宣称 E2E 通过或未复现。
 - Evidence: `doc/tasks/20260808-process-route-editor-stack-overflow-repro/verification-report.md`，工艺路线编辑器复现脚本先把登录 redirect 从目标页改为 `/`，再显式进入工艺路线列表，避免列表接口响应在监听前被登录重定向提前消费；`doc/tasks/20260808-dcc-upload-optimization-fixes/verification-report.md`，DCC 上传 current-version 真实 E2E 将 `waitForResponse` 提前到文件编号 `fill/blur` 前，避免请求过快导致脚本漏听。
+
+### 动态菜单真实入口与直达地址假阳性门禁
+
+- Trigger: Playwright 通过 `page.goto()` 直达动态路由后只看到页面标题、面包屑或布局框架，目标列表接口未发出，或需要判断当前账号是否拥有某个菜单入口。
+- Preflight check: 先枚举当前账号真实可见的左侧菜单项，并从可点击菜单进入目标页面；同时监听目标列表接口，确认页面主体控件或表格已渲染。地址栏、面包屑、标签页标题和菜单搜索结果只能证明路由文字存在，不能证明当前账号拥有入口或目标组件已加载。
+- Blocker: 真实菜单中没有目标项、点击菜单后目标组件未渲染、目标列表接口未发出，或只能通过手工拼接 URL 显示面包屑时，必须按账号权限或页面入口缺失记录阻塞；不得把空框架误判为业务数据为空。
+- Verification: 证据需包含账号标签、可见菜单项、点击后的实际 URL、页面主体关键控件、目标列表请求及业务结果；若阻塞，还需记录登录后写请求为 0，并区分无关静态资源失败与目标接口失败。
+- Forbidden action: 禁止用 `page.goto()` 直达地址、面包屑文本、页面标题、API-only 列表或 SQL 查询替代真实菜单入口；禁止因为头像、图标或统计资源失败就把未加载的业务页面归因为目标接口失败。
+- Evidence: `doc/tasks/20260814-production-release-flow-implementation/execution-log.md#pass-51-p11-second-tenant-real-menu-diagnosis`，生产放行 P11 第二租户盘点中，直达 `/system/tenant` 只渲染布局和面包屑，当前管理员真实菜单没有“租户管理”，目标列表请求为 0。
 
 ### Vite 动态导入 500 与冲突标记门禁
 
@@ -162,11 +181,11 @@
 ### Worktree / int_main 运行态 URL 门禁
 
 - Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、真实 E2E 需要使用已登记 worktree slot 端口运行，或 worktree 融合后需要在 `E:\IntRuoyi` 的 `int_main` 主端口复验。
-- Preflight check: 同时显式传入前端和后端 URL；附加 worktree 必须来自同一 runtime slot，融合后主运行态只允许 `8081/48081` 且端口命令行归属 `E:\IntRuoyi`。脚本应只允许这两种合法模式：`int_main 8081/48081` 或成对 `int_main slot 1..19`。
-- Blocker: 只传一个 URL、端口既不是 `8081/48081` 又不属于同一 slot、未确认端口监听命令行归属目标 worktree/主工作区、或后端业务接口返回配置缺失/404 时必须停止并记录真实原因，不得静默切换端口或 API-only。
-- Verification: 记录 base URL、backend URL、端口归属、前端 HTTP 200、后端 health UP、关键目标接口业务响应、真实页面断言，以及任务结束后的任务自有数据清理结果。
-- Forbidden action: 禁止强停并行 48081、随机换端口、只看 health 就宣称目标 Controller 已加载、用未配对的 frontend/backend URL 造成前端访问旧后端，或让融合后 E2E 脚本拒绝合法 `int_main 8081/48081` 主运行态。
-- Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，48081 旧 jar 返回新增接口 404 后，使用 slot 5 的 8086/48086 成对 URL 完成真实 E2E；`doc/tasks/20260727-edhr-visual-fill-config-implementation/execution-log.md`，融合后先在 slot 2 通过，再修正脚本允许 `int_main 8081/48081` 并完成主端口真实 E2E。
+- Preflight check: 同时显式传入前端和后端 URL；附加 worktree 必须来自同一 runtime slot，融合后主运行态只允许 `8081/48081` 且端口命令行归属 `E:\IntRuoyi`。脚本应只允许这两种合法模式：`int_main 8081/48081` 或按集中端口契约成对分配的 `int_main slot 1..50`。当验收要求“融合后复跑”时，必须使用新的 run/event、独立证据目录和当前主运行态证据；worktree 上已经 PASS 的事件、截图和结果只能作为融合前历史。
+- Blocker: 只传一个 URL、端口既不是 `8081/48081` 又不属于同一 slot、未确认端口监听命令行归属目标 worktree/主工作区、后端业务接口返回配置缺失/404、运行 Jar 缺少本次关键方法/字段、或真实 E2E 仍只接受 worktree 模式时必须停止并记录真实原因，不得静默切换端口或 API-only。
+- Verification: 记录运行模式、base URL、backend URL、端口归属、前端 HTTP 200、后端 health UP、源码 revision/工作树指纹/运行产物哈希、关键目标接口业务响应、新的真实页面事件与断言，以及任务结束后的任务自有数据清理结果。融合后证据必须与融合前证据分目录保存，防止覆盖后无法证明各自运行态。
+- Forbidden action: 禁止强停并行 48081、随机换端口、只看 health 就宣称目标 Controller 已加载、用未配对的 frontend/backend URL 造成前端访问旧后端、让融合后 E2E 脚本拒绝合法 `int_main 8081/48081` 主运行态，或把 worktree 旧事件复制/改名后冒充融合后复跑。
+- Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，48081 旧 jar 返回新增接口 404 后，使用 slot 5 的 8086/48086 成对 URL 完成真实 E2E；`doc/tasks/20260727-edhr-visual-fill-config-implementation/execution-log.md`，融合后先在 slot 2 通过，再修正脚本允许 `int_main 8081/48081` 并完成主端口真实 E2E；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/verification-report.md`，旧 8099/48099 事件仅保留为融合前证据，新增显式主线 profile 后在 8081/48081 生成新事件并独立保存融合后证据。
 
 ### Playwright 全新上下文登录导航竞争门禁
 
@@ -199,8 +218,8 @@
 ### 真实 E2E 主链路与扩展诊断产物隔离门禁
 
 - Trigger: 同一任务目录内同时运行主验收链路、resume 复核、权限负向验证、traceability/viewer linkage/诊断脚本，或多个脚本默认写同一个 `e2e-result.json`、`result.json`、`verification-report.md`、`final-readonly-db-verification.json`。
-- Preflight check: 运行前必须明确本轮用户要求的主链路范围与可选扩展断言边界；主链路结果文件、扩展诊断结果文件和固定最终证据文件必须使用不同路径，或在脚本启动前确认无同任务目录写入进程会覆盖默认结果。若完成门禁同时读取 Markdown evidence 和 Playwright `result.json`，二者必须来自同一个 task root 和同一轮 run，不能回退读取主工作区、其它 worktree 或历史 run 的同名结果；若 evidence 记录目标请求或响应身份，`result.json.targetRequestEvidenceFlushed` 必须为 `true`，`result.json.targetRequests` 每一项必须是 JSON object，`result.json.targetRequests` 与 Markdown 中的 URL、Method、HTTP Status、Business Code 等关键请求字段必须逐项一致，且每个 `targetRequests[*].label`、`targetRequests[*].url` 与 `targetRequests[*].method` 必须存在并非空，`targetRequests[*].httpStatus` 与 `targetRequests[*].businessCode` 都必须存在并可解析为数字；`result.json.targetResponseIdentities.<LABEL>` 每一项必须是 JSON object，`result.json.targetResponseIdentities.<LABEL>.field` 必须存在且非空，`result.json.targetResponseIdentities.<LABEL>.value` 必须存在且可解析为正整数，`result.json.targetResponseIdentities.<LABEL>.sourceRequestLabel` 必须存在且非空，并绑定回同一个 canonical `<LABEL>`，且 `targetResponseIdentities` key 集合必须等于同一 artifact 内 `targetRequests[].label` 观测集合。扩展断言必须通过显式 opt-in 环境变量开启，默认不得影响主链路验收结论。
-- Blocker: 若扩展诊断脚本仍在运行、默认结果文件被其它进程改写、可选断言失败覆盖主链路 PASS、报告中的文件号/状态与最新主链路结果不一致、Markdown evidence 与 `result.json` 的 status/root ID/关键闭环字段不一致，Markdown 目标请求成功但 `result.json.targetRequestEvidenceFlushed` 不是 true、`result.json.targetRequests` 缺失、`targetRequests[*]` 非 JSON object、指向其它后端、方法/HTTP 状态/业务码不一致、`label` 缺失/为空、`url` 缺失/为空、`method` 缺失/为空、`httpStatus` 缺失/非数字、`businessCode` 缺失/非数字，或 `result.json.targetResponseIdentities.<LABEL>` 非 JSON object、缺少 `field`、缺少可解析正整数 `value`、缺少对应 `sourceRequestLabel`、`sourceRequestLabel` 为空 / 串用其它 label / 与 `targetRequests[].label` 观测集合不一致，必须停止收尾并恢复到清晰的主链路证据；不得把被扩展诊断覆盖的 `BLOCKED`、旧文件号或旧 `result.json` 当作当前验收结论。
+- Preflight check: 运行前必须明确本轮用户要求的主链路范围与可选扩展断言边界；主链路结果文件、扩展诊断结果文件和固定最终证据文件必须使用不同路径，或在脚本启动前确认无同任务目录写入进程会覆盖默认结果。写入型 E2E 的 manifest、scenario state、截图、结果和 cleanup 也必须绑定同一合法 run ID 并进入独立子目录；只隔离截图/结果而仍共享 fixture manifest，会让另一轮 cleanup 删除当前 fixture，仍不算隔离。若完成门禁同时读取 Markdown evidence 和 Playwright `result.json`，二者必须来自同一个 task root 和同一轮 run，不能回退读取主工作区、其它 worktree 或历史 run 的同名结果；若 evidence 记录目标请求或响应身份，`result.json.targetRequestEvidenceFlushed` 必须为 `true`，`result.json.targetRequests` 每一项必须是 JSON object，`result.json.targetRequests` 与 Markdown 中的 URL、Method、HTTP Status、Business Code 等关键请求字段必须逐项一致，且每个 `targetRequests[*].label`、`targetRequests[*].url` 与 `targetRequests[*].method` 必须存在并非空，`targetRequests[*].httpStatus` 与 `targetRequests[*].businessCode` 都必须存在并可解析为数字；`result.json.targetResponseIdentities.<LABEL>` 每一项必须是 JSON object，`result.json.targetResponseIdentities.<LABEL>.field` 必须存在且非空，`result.json.targetResponseIdentities.<LABEL>.value` 必须存在且可解析为正整数，`result.json.targetResponseIdentities.<LABEL>.sourceRequestLabel` 必须存在且非空，并绑定回同一个 canonical `<LABEL>`，且 `targetResponseIdentities` key 集合必须等于同一 artifact 内 `targetRequests[].label` 观测集合。扩展断言必须通过显式 opt-in 环境变量开启，默认不得影响主链路验收结论。
+- Blocker: 若扩展诊断脚本仍在运行、默认结果文件或 fixture manifest 被其它进程改写、当前 run 的数据库对象被其它 cleanup 删除、可选断言失败覆盖主链路 PASS、报告中的文件号/状态与最新主链路结果不一致、Markdown evidence 与 `result.json` 的 status/root ID/关键闭环字段不一致，Markdown 目标请求成功但 `result.json.targetRequestEvidenceFlushed` 不是 true、`result.json.targetRequests` 缺失、`targetRequests[*]` 非 JSON object、指向其它后端、方法/HTTP 状态/业务码不一致、`label` 缺失/为空、`url` 缺失/为空、`method` 缺失/为空、`httpStatus` 缺失/非数字、`businessCode` 缺失/非数字，或 `result.json.targetResponseIdentities.<LABEL>` 非 JSON object、缺少 `field`、缺少可解析正整数 `value`、缺少对应 `sourceRequestLabel`、`sourceRequestLabel` 为空 / 串用其它 label / 与 `targetRequests[].label` 观测集合不一致，必须停止收尾并恢复到清晰的主链路证据；不得把被扩展诊断覆盖的 `BLOCKED`、旧文件号或旧 `result.json` 当作当前验收结论。
 - Verification: 收尾前延迟复查一次结果文件和任务文档，记录无当前任务脚本进程、默认结果和固定最终结果均为预期状态，且 `verification-report.md`、`task.md`、`execution-log.md` 的文件编号、文件 ID、master ID、状态、浏览路径、目标请求以及 Markdown evidence 与 `result.json` 的核心身份字段一致。
 - Forbidden action: 禁止多个并行 Playwright 脚本共享同一个最终结果路径；禁止扩展诊断失败后直接改口主场景 BLOCKED 或 PASS；禁止用旧 resume 结果覆盖新建任务文件；禁止让 completion gate 为了“找得到结果”跨 task root 读取旧 run 或其它 worktree 的 `result.json`；禁止 Markdown 手工写目标请求成功而 `result.json.targetRequests` 指向旧后端、缺少真实请求、缺少实际 label、缺少实际 URL、缺少实际方法、缺少可解析 HTTP 状态或缺少可解析业务码；禁止只用响应身份 key 替代 `field` / `value` 结构化采集，禁止只用响应身份 key、field、value 三元组替代来源请求 label 绑定或跳过请求/响应身份集合一致性；禁止把可选 viewer linkage、签核追溯、权限负向验证混入用户明确限定的主验收范围。
 - Evidence: `doc/tasks/20260802-dcc-original-release-e2e-current/execution-log.md`，DCC 原版发布主链路 PASS 后，可选 viewer linkage / traceability 诊断多次覆盖默认结果和报告，最终通过显式关闭扩展断言、固定主链路结果文件并延迟复查结果稳定性收口。
@@ -209,11 +228,11 @@
 ### 真实 E2E 页面加载判据门禁
 
 - Trigger: 真实 Playwright 验证只读详情页、批次执行详情、当前工序高亮、页面顶部批号/执行号/标题文案可能与接口字段不一致。
-- Preflight check: 脚本必须先等待目标业务接口命中目标对象 ID，再等待本次需求真正依赖的页面控件或状态渲染；只读页面可用任务组、状态 class、颜色、按钮可见性等目标控件作为页面加载判据。
-- Blocker: 页面不稳定展示内部执行号、生产批号或标题文本时，不得让这类文本等待替代目标行为断言；若目标业务控件未渲染或接口未命中目标 ID，必须失败并截图记录。
-- Verification: 证据需包含目标接口 ID、目标页面控件状态、截图路径、关键样式/交互断言和 MES 写请求数；修正等待条件后必须重跑真实 Playwright。
+- Preflight check: 脚本必须先等待目标业务接口命中目标对象 ID，再等待本次需求真正依赖的页面控件或状态渲染；只读页面可用任务组、状态 class、颜色、按钮可见性等目标控件作为页面加载判据。登录页、首页和带轮询/统计角标/外部资源的 SPA 不得把 `networkidle` 当作可用性前置，应使用 `domcontentloaded` 或 `commit` 后继续等待目标表单/控件，并核验正式登录或业务响应。页面初始化若按订单、工序、人员等链式异步选择并会关闭弹窗，自动化在重新打开选择器前必须等待整条初始化链的末端状态稳定；只等待第一个字段有值仍可能与后续回写竞争。PQC 订单选择后即使订单号已经显示，也必须继续等待正式工序、任务和检验面板就绪，或明确出现 `data-frontline-error-message`；订单摘要文本不能替代工序/任务加载完成判据。
+- Blocker: 页面不稳定展示内部执行号、生产批号或标题文本时，不得让这类文本等待替代目标行为断言；因持续后台请求永远达不到 `networkidle` 时应修正等待判据，不能把它误报为登录或业务接口失败；若目标业务控件未渲染或接口未命中目标 ID，必须失败并截图记录。
+- Verification: 证据需包含目标接口 ID、目标页面控件状态、截图路径、关键样式/交互断言和 MES 写请求数；PQC 还必须记录订单摘要、工序/任务选择和检验面板（或正式错误状态）三段链路；修正等待条件后必须重跑真实 Playwright。
 - Forbidden action: 禁止为了通过 E2E 删除目标页面断言、改成 API-only、等待无关菜单/标题文本、或把页面未渲染解释成接口已通过。
-- Evidence: `doc/tasks/20260729-edhr-parallel-start-process-highlight/verification-report.md`，真实脚本改为接口命中目标批次后等待工序组渲染，并断言三 个当前工序黄底。
+- Evidence: `doc/tasks/20260729-edhr-parallel-start-process-highlight/verification-report.md`，真实脚本改为接口命中目标批次后等待工序组渲染，并断言三 个当前工序黄底；`doc/tasks/20260820-frontline-production-pqc-success/verification-report.md`，PQC 真实脚本修正为订单摘要后继续等待工序/任务检验面板或正式错误，再执行提交。
 
 ### 真实 E2E 用户列配置与列表可见性门禁
 
@@ -289,11 +308,21 @@
 ### 写入型 E2E 任务自有模拟环境门禁
 
 - Trigger: 写入型、多账号、权限范围、共享数据或跨角色可见性的真实 E2E 初始判断为缺少测试账号、租户、路线、工序、报工样本或可清理数据前置。
-- Preflight check: 先判断缺口是否可在本机测试租户内用任务自有前缀、安全 fixture 脚本和正式 schema/API 补齐；fixture 必须创建真实账号、角色、权限、业务对象和清理范围，密码只能由环境变量注入，不得写入日志或证据。角色权限除目标菜单外，还必须盘点页面全局壳层会自动请求的角标、待办或导航查询权限；缺少这些只读权限会制造与目标业务无关的控制台错误，必须在 fixture 合同中显式列出，不能靠 E2E 忽略。涉及正式生产提交、报工、批记录或生产组长可见性闭环时，fixture 还必须逐项断言已确认工单、非空记录本字段 schema、生产组长 `PRODUCTION + EMPLOYEE` 正式人员范围，以及每轮运行新业务签名，不能复用旧提交痕迹。验收要求覆盖不同员工或不同工序时，任何写请求前必须从页面运行态盘点去重后的正式员工、路线工序和 MES 工序数量；不足目标组合时先 BLOCKED，再用固定任务身份补齐正式员工档案、人员范围、工序配置、签名授权及授权审计，不能把选择入口可用当作已覆盖组合。涉及同一目标工序的多类传统报表资料时，启动任何写路径前必须只读统计每类正式 `batchRecordReportId` 的非空数，并证明同一任务自有路线工序具备完整组合；`formSlotType + formTemplateId` 只能证明动态表单槽位，不能替代传统报表绑定。跨角色签名链路还必须先证明每个业务账号能登录且签名口令已通过安全环境变量注入，数据库中仅存在账号或签名授权行不算凭据可用。
+- Preflight check: 先判断缺口是否可在本机测试租户内用任务自有前缀、安全 fixture 脚本和正式 schema/API 补齐；fixture 必须创建真实账号、角色、权限、业务对象和清理范围，密码只能由环境变量注入，不得写入日志或证据。角色权限除目标菜单外，还必须盘点页面全局壳层会自动请求的角标、待办或导航查询权限；缺少这些只读权限会制造与目标业务无关的控制台错误，必须在 fixture 合同中显式列出，不能靠 E2E 忽略。涉及正式生产提交、报工、批记录或生产组长可见性闭环时，fixture 还必须逐项断言已确认工单、非空记录本字段 schema、生产组长 `PRODUCTION + EMPLOYEE` 正式人员范围，以及每轮运行新业务签名，不能复用旧提交痕迹。验收要求覆盖不同员工或不同工序时，任何写请求前必须从页面运行态盘点去重后的正式员工、路线工序和 MES 工序数量；不足目标组合时先 BLOCKED，再用固定任务身份补齐正式员工档案、人员范围、工序配置、签名授权及授权审计，不能把选择入口可用当作已覆盖组合。涉及同一目标工序的多类传统报表资料时，启动任何写路径前必须只读统计每类正式 `batchRecordReportId` 的非空数，并证明同一任务自有路线工序具备完整组合；`formSlotType + formTemplateId` 只能证明动态表单槽位，不能替代传统报表绑定。涉及过程检验、损耗单等动态 FormCenter 槽位时，E2E 前置脚本也必须按当前路线工序正式绑定的 `formTemplateId + lastPublishedTemplateVersionId` 校验，不得把截图中的模板 ID 或历史测试模板 ID 写死为通过条件。跨角色签名链路还必须先证明每个业务账号能登录且签名口令已通过安全环境变量注入，数据库中仅存在账号或签名授权行不算凭据可用。
+- 如果上一轮真实 E2E 已执行 cleanup 并清空任务数据，后续重跑前必须重新 prepare fixture；若 verify 提示 `Task-owned users or roles are missing`，说明当前 manifest 对应的任务用户或角色已被清掉，不能复用旧 manifest 或旧 runId，必须先重建任务自有账号/角色再继续 Playwright。
 - Blocker: 无测试租户授权、缺正式 schema、缺目标工序要求的任一传统报表绑定、只有动态表单槽位、跨角色登录/签名凭据未证明、缺必要菜单/角色权限、无法清理任务自有数据、只能使用 `芋道源码/admin` 或需要生产/无关真实业务数据时，必须继续记录 BLOCKED。
 - Verification: 模拟环境完成后必须分别记录 fixture 输出、运行态 API 只读核验、真实 Playwright 页面路径、跨账号可见性、目标写接口业务 `code=0`、目标 HTTP/page errors 为空，以及删除/禁用/清理后的状态。正式提交链路必须额外记录生成的报工、记录本、工序池事件 ID；多员工、多工序验收还必须逐轮记录页面所选员工、路线工序、MES 工序和签名主体，并以正式数据库事实证明匹配，不能只统计入口数量。人员范围验收还需用对应组长可见、非对应组长不可见证明范围生效。若前置阻塞，证据必须记录各正式来源总数/非空数、完整组合查询结果、缺失的凭据类别、实际业务写请求数和任务残留数，不能只写“缺 fixture”。
 - Forbidden action: 禁止把 API-only、静态合同、默认 admin、mock 数据或前端直塞 localStorage 当作写入型 E2E 通过；禁止因首次缺账号就跳过可安全构造的任务自有模拟环境。
 - Evidence: `doc/tasks/20260805-process-loss-reasons/verification-report.md`，AC-D04 先从缺生产组长/员工前置转为任务自有模拟环境，再用两个生产组长真实页面验证授权工序、共享新增、共享修改和删除停用；`doc/tasks/20260807-formal-frontline-production-submit/verification-report.md`，一线正式提交 fixture 补齐已确认工单、记录本 schema、`PRODUCTION + EMPLOYEE` scope 和新签名后，真实提交事件只对对应生产组长可见；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md`，任务角色补齐全局审批角标查询权限 `1221` 后，真实页面目标控制台错误归零。
+
+### 工艺路线过程检验映射正式来源门禁
+
+- Trigger: 从工艺路线“流转关系图/表单槽位”进入批记录单元格链接，或验证一线 PQC 数据映射到共用过程检验记录表单；尤其涉及 `PQC_AGGREGATE_DETAIL`、`PROCESS_INSPECTION`、`formTemplateId`、`lastPublishedTemplateVersionId`、`routeProcessId` 或“粗洗/精洗”等工序名称。
+- Preflight check: 先按当前路线的 `routeId + routeProcessId` 解析工序正式身份，再按该工序的 `PROCESS_INSPECTION formBinding` 取得 `formTemplateId + lastPublishedTemplateVersionId`；PQC 字段必须来自当前路线绑定的 DCC 项目及其当前发布 QA 版本，并按 QA 工序正式 code/ID 或已确认的 routeProcessId→qaProcessId 关系匹配。正常入口可以省略模板 query 参数，但后端必须从正式 binding 自动解析；前端入口必须携带当前 routeProcessId 和 `sourceReportId=PQC_AGGREGATE_DETAIL`。
+- Blocker: 当前发布 QA 版本没有目标工序、正式 QA 项目为空、模板版本未发布、来源字段属于其它 routeProcessId、或只能按名称把相邻工序（例如“清洗”）猜成目标工序时，必须在业务写入前停止并记录 BLOCKED。
+- Verification: 真实 Playwright 必须从工艺路线页面点击过程检验链接进入 `/mes/pro/batch-record-cell-link`，并断言当前 routeProcessId、PQC 来源、过程检验目标模板和当前工序字段数量；API 只能做最终只读复核，证据还需记录 QA/DCC 正式来源及 MES 写请求数为 0（只读场景）。
+- Forbidden action: 禁止把截图中的模板 ID、历史模板版本、产品 ID、processId、表单名称或相邻 QA 工序作为默认来源；禁止把动态 `formBindings` 当传统批记录报表绑定；禁止用 API/SQL 直接补映射后冒充真实页面验证。
+- Evidence: `doc/tasks/20260820-pqc-shared-process-inspection-mapping/verification-report.md`，精洗/清洗正常入口与 58 个 PQC 字段真实通过；粗洗因 DCC 项目 147 当前发布 QA 版本缺正式工序而按门禁阻塞。
 
 ### 写入型 E2E 响应不确定断点恢复门禁
 
@@ -429,6 +458,14 @@
 - Verification: 对写入结果使用 UI 响应和最终只读 API/DB 核验；涉及发布版/草稿版差异时，必须核验落库版本 ID、版本号、快照 JSON 和当前草稿仍存在。Popover 内下拉还必须验证“选择后保持打开、确认成功后显式关闭”。
 - Forbidden action: 禁止把接口数组下标、隐藏 value、输入框残留文本、API-only 选中或坐标点击当作真实页面选择。
 - Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/execution-log.md`；`doc/tasks/20260726-route-flow-copy-popover-stability/execution-log.md`；`doc/tasks/20260730-standard-template-list-search-alias/`，顶部菜单搜索框视觉上显示 placeholder，但真实 DOM 只有 `input.el-select__input[role="combobox"]`，最终真实 E2E 改用 combobox 后通过。
+
+### Element Plus 权限树与多选提交门禁
+
+- Trigger: Playwright 在权限角色菜单树、用户角色多选或其它树/多选弹窗中选择并提交授权。
+- Preflight check: 权限标识、角色码和菜单 ID 必须先从完整页面数据按唯一键核对，再用弹窗实时可见的节点名称选择；树节点重绘后不得复用旧下标。多选下拉选择后必须显式收起下拉层并确认其不可见，再点击“确定”；父子联动开关必须读取实际 checkbox 状态后明确关闭或开启。
+- Blocker: 选择后下拉层仍拦截确认按钮、树节点名称重复且无法映射到唯一 ID、父子联动状态未知、提交响应返回的 ID 集合与预期不一致，或只通过页面标签而没有最终 ID 回读时必须停止并纠正，不得继续下一个角色或账号。
+- Verification: 每次授权提交都记录允许的写请求路径和次数，随后重新打开同一弹窗按 ID 集合回读；幂等续跑只能复用已逐项核验的对象，不能盲目重放或删除重建。
+- Forbidden action: 禁止按静态树下标、名称首个匹配、接口数组顺序或隐藏 value 选中权限；禁止把下拉层未收起、toast 成功或页面标签可见单独当作角色权限提交成功。
 
 ### Element Plus 页签点击门禁
 
@@ -590,12 +627,12 @@
 
 ### 一线 PQC 活跃订单路线产品项目上下文门禁
 
-- Trigger: 一线 PQC 活跃订单列表可见目标产品订单，但选择订单后检验项目区为空、检验方法按钮不渲染、或页面提示 `routeProjectItems`、`missingItemIds`、设备账号上下文不完整。
-- Preflight check: 活跃订单存在只证明候选入口，不证明该订单可执行 PQC。必须通过真实页面选择精确目标产品订单，等待 `/mes/pro/feedback/frontline/device-account/pqc/active-order/processes` 完成，并核对订单产品项目已通过正式 `routeProjectItems` 绑定到该 `routeId`；同产品存在多条任务自有订单时至少复验两条，区分单订单异常与共享路线绑定缺口。
-- Blocker: 页面返回 `routeProjectItems routeId=<id>，missingItemIds=[...]`、目标订单和路线不一致、工序接口 HTTP 200 但页面业务上下文拒绝、或检验方法入口未渲染时必须记录 BLOCKED；HTTP 200、活跃订单数量、其它产品订单可用或静态弹窗合同均不能替代目标订单真实路径。
-- Verification: 证据必须包含租户/账号标签、目标订单编码与产品名称、`routeId`、缺失项目 ID、工序请求状态、页面错误文案、检验方法按钮/弹窗是否可见、目标业务写请求、`consoleErrors` 和 `pageErrors`。页面自动调用 `/pqc/switch-employee` 时，只有源码确认该服务不执行 Mapper/DAO 写入或事务持久化后，才可将其单独记录为上下文解析 POST；不得省略该请求或把它计成 PQC 正式提交。
+- Trigger: 一线 PQC 活跃订单列表可见目标产品订单，但选择订单后检验项目区为空、检验方法按钮不渲染，或页面提示 `routeProjectItems`、`missingItemIds`、PQC 任务身份不一致、设备账号上下文不完整。
+- Preflight check: 活跃订单存在只证明候选入口，不证明该订单可执行 PQC。必须通过真实页面选择精确目标产品订单，等待 `/mes/pro/feedback/frontline/device-account/pqc/active-order/processes` 完成，核对业务码，并确认返回任务的 `activeOrderId`、`regulationVersionId`、`qaProcessId` 和规则身份完整；需要路线产品项目的场景还必须核对正式 `routeProjectItems` 已绑定到该 `routeId`。同产品存在多条任务自有订单时至少复验两条，区分单订单异常、共享路线绑定缺口和历史任务回填缺口。
+- Blocker: 页面返回 `routeProjectItems routeId=<id>，missingItemIds=[...]`、PQC 任务身份不一致且 `regulationVersionId`/`qaProcessId` 为空、目标订单和路线不一致、工序接口 HTTP 200 但业务码非 0、页面业务上下文拒绝、或检验方法入口未渲染时必须记录 BLOCKED；HTTP 200、活跃订单数量、其它产品订单可用或静态弹窗合同均不能替代目标订单真实路径。
+- Verification: 证据必须包含租户/账号标签、目标订单编码与产品名称、`activeOrderId`、`routeId`、`pqcTaskId`、`regulationVersionId`、`qaProcessId`、缺失项目 ID、工序请求 HTTP/业务码、页面错误文案、检验方法按钮/弹窗是否可见、目标业务写请求、`consoleErrors` 和 `pageErrors`。页面自动调用 `/pqc/switch-employee` 时，只有源码确认该服务不执行 Mapper/DAO 写入或事务持久化后，才可将其单独记录为上下文解析 POST；不得省略该请求或把它计成 PQC 正式提交。
 - Forbidden action: 禁止用 API/SQL 临时补 `routeProjectItems`、前端直塞工序/检验项目、跨产品或跨路线借用其它订单、忽略页面业务错误、只看 HTTP 200，或把上下文解析 POST 冒充正式提交成功。
-- Evidence: `doc/tasks/20260809-frontline-qa-inspection-detail-fields/verification-report.md`，QA 来源页真实通过后，一线 PQC 三个同产品订单均因路线 `980091` 缺产品项目 `14` 而被正式上下文拒绝。
+- Evidence: `doc/tasks/20260809-frontline-qa-inspection-detail-fields/verification-report.md`，QA 来源页真实通过后，一线 PQC 三个同产品订单均因路线 `980091` 缺产品项目 `14` 而被正式上下文拒绝；`doc/tasks/20260817-frontline-pqc-yudao-source-validation/verification-report.md`，订单可见但三条正式 PQC 任务因 `qaProcessId` 为空被工序读取 fail-fast 拒绝；`doc/tasks/20260817-frontline-pqc-historical-task-repair/verification-report.md`，历史缺 QA 工序身份任务在无提交事件、无 PQC 记录、无聚合明细且实际检验数量为 0 时，按受控取消与软删除恢复工序列表；若要恢复可提交任务，必须先修正锁定 QA 规程数量/比例规则，再按锁定版本生成任务，不得运行时推算。
 
 ## eDHR 本地状态样本操作审计追溯门禁
 
