@@ -4,7 +4,7 @@
 
 - 只读审计放行完成后的最终状态、权限、并发、快照、审计和追溯出口。
 - 设计多放行入口共用的唯一终态合同，并与流程修复 7、8、9、11 对接。
-- 本任务只写开发文档，不修改生产代码、数据库、配置或运行环境。
+- 本轮只处理流程10终态追溯分区回归；不修改数据库、不运行写入型 E2E，不改变流程7负责的 Origin/TraceLink 来源映射。
 
 ## 里程碑
 
@@ -18,7 +18,7 @@
 
 - 指定任务目录包含 `task.md`、`development-plan.md`、`test-plan.md`、`execution-log.md`、`verification-report.md`。
 - 五份文档覆盖用户要求的全部设计主题，且状态、接口、幂等、追溯和跨线程合同互相一致。
-- 实现验证使用 Maven 定向编译和合同测试；不启动服务、不运行写入型 E2E。
+- 实现验证使用 Maven 定向合同测试、yudao-server package 和只读启动/health smoke；不运行写入型 E2E。
 
 ## 适用经验门禁
 
@@ -36,6 +36,16 @@
 ## Current Status
 
 ready_for_closeout：流程10专项实现、融合和主线程验证已完成；跨流程权威适配器、迁移、outbox 和全链路 E2E 仍 No-Go。
+
+### 终态分区回归复核（2026-08-23）
+
+- 当前验证基线：int_main HEAD 7770f36fb6ed64f4e306320410d131f184cf2789。
+- 根因已闭合：批次追溯的 completedTraceOnly 不再强制只查 RELEASED；现在同时接受 RELEASED 决策和 ARCHIVED/REJECTED 批次终态，仍排除 VOIDED。放行事实写入仍由流程10 finalizeRelease/finalizeApproval 负责，流程7的 Origin/TraceLink 来源映射不在本轮修改边界。
+- 单类 GREEN：MesProEdhrTraceTerminalPartitionContractTest 2/2 PASS。
+- 流程10原定向合同回归：47/47 PASS；加入终态分区和配置 smoke 后扩展回归：49/49 PASS。
+- yudao-server package：BUILD SUCCESS。
+- 48081 已由既有 runtime-control 服务监听，/actuator/health 返回 {"status":"UP"}；本轮未停止该非本轮启动的长期服务。
+- 本轮没有新增默认成功 Bean；流程4/6/8权威适配器缺失时仍由结构化 blocker fail-fast。
 
 ### 启动 Bean 注册修复（2026-08-23）
 

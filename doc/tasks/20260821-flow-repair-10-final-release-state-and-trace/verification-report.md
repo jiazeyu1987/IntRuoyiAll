@@ -69,3 +69,13 @@ development-plan.md 规定流程 6 负责三类回填成功后的批次执行创
 - PASS：状态 owner、流程 1/4/5/6/7/8/9/11 契约和 owner 受控联动边界已写明。
 - PASS：四份材料固定为来料检报告、灭菌报告、成品检报告、成品检记录；历史三材料仅为迁移阻断，旧开关仅为实现 blocker。
 - PASS：RED、GREEN、REGRESSION 均诚实标记；实际定向验证单独列出，未把计划结果冒充 GREEN PASS。
+
+## 终态分区复核（2026-08-23）
+
+- 当前 int_main 验证基线：7770f36fb6ed64f4e306320410d131f184cf2789。
+- MesProEdhrTraceTerminalPartitionContractTest：修复前 2 failures；修复后 2/2 PASS。修复内容只扩大 completedTraceOnly 的终态分区到 RELEASED、ARCHIVED、REJECTED，并继续排除 VOIDED。
+- 流程10 focused suite：47/47 PASS；包含终态分区的扩展 suite：49/49 PASS。
+- mvn -pl yudao-server -am -DskipTests package：BUILD SUCCESS。
+- 48081：既有 runtime-control PID 4176 LISTEN；GET /actuator/health 返回 {"status":"UP"}；启动日志最新成功段包含 Started YudaoServerApplication 和“项目启动成功”，未见最新启动段的 APPLICATION FAILED TO START 或 MesReleaseAuthoritativeContextPort Bean 缺失。
+- 流程10仍是唯一 release transaction RELEASED owner；流程7继续拥有 Origin/TraceLink 来源映射；流程4/6/8适配器未接入时结构化 blocker 仍 fail-fast，无默认成功。
+- 本轮不停止 PID 4176：它是既有长期 runtime-control 服务，非本轮启动进程；无残留的本轮前台服务需要清理。

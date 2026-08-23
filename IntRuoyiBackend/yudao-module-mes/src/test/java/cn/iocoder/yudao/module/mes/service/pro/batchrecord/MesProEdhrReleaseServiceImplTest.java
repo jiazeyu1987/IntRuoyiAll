@@ -1019,7 +1019,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void pageCompletedTraceIncludesOnlyReleasedTransactionsBeforePagination() {
+    void pageCompletedTraceIncludesReleasedAndTerminalBatchPartitionsBeforePagination() {
         MesProEdhrBatchExecutionDO releasedClosedBatch = insertClosedBatch(930000L, "BATCH-TRACE-RELEASED-CLOSED");
         releaseTransactionMapper.insert(MesProEdhrReleaseTransactionDO.builder()
                 .id(931000L)
@@ -1071,10 +1071,10 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .map(MesProEdhrReleaseRespVO::getBatchExecutionId)
                 .toList();
 
-        assertEquals(1L, page.getTotal());
+        assertEquals(3L, page.getTotal());
         assertTrue(batchIds.contains(releasedClosedBatch.getId()));
-        assertFalse(batchIds.contains(archivedBatch.getId()));
-        assertFalse(batchIds.contains(rejectedBatch.getId()));
+        assertTrue(batchIds.contains(archivedBatch.getId()));
+        assertTrue(batchIds.contains(rejectedBatch.getId()));
     }
 
     private MesProEdhrBatchExecutionDO insertClosedBatch(String batchCode) {

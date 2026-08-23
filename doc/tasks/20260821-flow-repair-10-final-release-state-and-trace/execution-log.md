@@ -96,3 +96,15 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 - Runtime：48081 LISTEN，PID 37224；`/actuator/health` 退出码 0，`status=UP`。
 - 日志：最新启动日志包含 `Started YudaoServerApplication` 和“项目启动成功”，无 `APPLICATION FAILED TO START`、端口 Bean 缺失或构造注入失败签名。
 - No-Go：流程4/6/8权威适配器、迁移/历史回填、outbox、真实全链路 E2E；未改业务代码。
+
+### M9：终态分区回归复核（2026-08-23）
+
+- 状态：完成；任务继续保持 ready_for_closeout。
+- 当前 int_main HEAD：7770f36fb6ed64f4e306320410d131f184cf2789。本轮仅保留流程10终态分区测试改动；流程7负责的 Origin/TraceLink 来源映射不在本轮修复范围。
+- RED: mvn -pl yudao-module-mes -Dtest=MesProEdhrTraceTerminalPartitionContractTest test（修复前） -> FAIL，2 failures，原因是 completedTraceOnly 只保留 RELEASED，ARCHIVED/REJECTED 终态被错误排除。
+- GREEN: 同一命令（修复后） -> PASS，Tests run 2, Failures 0, Errors 0。
+- GREEN: mvn -pl yudao-module-mes -Dtest=MesReleaseAuthoritativeContextConfigurationTest,MesReleaseFinalizationValidatorTest,MesProEdhrReleaseServiceImplTest,MesProductionReleaseManagerApprovalServiceTest test -> PASS，47/47。
+- REGRESSION: 加入 MesProEdhrTraceTerminalPartitionContractTest 的扩展 suite -> PASS，49/49。
+- REGRESSION: mvn -pl yudao-server -am -DskipTests package -> PASS，BUILD SUCCESS；构建产物为 IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar。
+- Runtime smoke：既有 PID 4176（backend-runtime-control-20260823-191443.jar，19:14:48 启动）监听 48081；GET http://127.0.0.1:48081/actuator/health -> 退出码 0，{\"status\":\"UP\"}。日志含 Started YudaoServerApplication/项目启动成功，未出现最新启动段的 APPLICATION FAILED TO START 或 Bean 缺失。该进程不是本轮启动，按边界未停止。
+- 终态 owner 复核：finalizeRelease 统一进入流程10，finalizeApproval 的 release transaction RELEASED CAS 是唯一最终写入口；管理者审批只负责 prepare/complete，缺少流程4/6/8权威适配器时保留结构化 fail-fast。
