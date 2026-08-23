@@ -177,3 +177,21 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
   - F8：`D:\IntRuoyiWorktree\20260823-flow08-int-main-integration`，slot=46，`8261/48261`。
 - 三个目录 HEAD 均为 `8f4d843ad`、registry active、worktree clean、`branch-runtime-port-guard.ps1` PASS。统一命令为：`git worktree add -b <branch> <path> 8f4d843ad`，随后 `scripts/runtime/reserve-worktree-slot.ps1 -Name <name> -Path <path> -Branch <branch> -Profile int_main -AsJson`。
 - ACL 复核：F6/F8 旧目录 `Get-Acl` 均成功，owner `A\BJB110`；没有真实 ACL/权限错误证据。禁止删除旧目录、手工改写 registry、改写 slot31 或整体提交 `E:\IntRuoyi`。
+
+## 10.7 基线 8af0aa8f2 流程 1-10 验证矩阵（观察员复核）
+
+本轮验证基线为 `int_main` HEAD `8af0aa8f2`。仅核对各流程任务报告与提交祖先关系；没有重复全 MES，也没有启动服务、访问数据库、执行生产迁移/人工批准/回滚或写入型 Playwright。
+
+| 流程 | 门禁摘要 | 可引用证据（均在基线祖先链或明确标注历史） | 结论 | 未决责任/阻断 |
+|---|---|---|---|---|
+| 2 | 提交/复核只形成正式来源事实 | `cf58816f7`；108 项定向/相邻测试报告 PASS | 定向 PASS；运行态未验证 | 流程2 owner；流程4 receipt 仍未验证 |
+| 3 | PQC 提交、复核、汇集事实 | `477c97d410`；27/27 定向测试报告 PASS | 定向 PASS；下游回填未验证 | 流程3 owner；不得直接生成正式过程检验单 |
+| 4 | 双100完成节点 Tx-A 三类回填与成功 receipt | 报告标明文档设计、代码/测试 NOT_RUN | No-Go / NOT RUN | 流程4 owner；失败必须原子回滚且无 receipt |
+| 5 | 条件损耗三态与零损耗正式快照 | `24fdf7767a`；27/27 定向 JUnit 报告 PASS | task-owned PASS；集成未验证 | 流程5 owner；缺事实或绑定必须阻断 |
+| 6 | receipt 后建批、BATCH_*、Tx-C 前置 | 报告标明生产实现/测试 NOT_RUN | No-Go / NOT RUN | 流程6 owner；不得先建批 |
+| 7 | Origin/TraceLink/Manifest 映射和放行后追溯 | `7770f36fb`；29/29 及当前受影响定向 4/4 报告 PASS | 定向 PASS；真实映射/E2E 未验证 | 流程7 owner；映射缺失阻断材料和放行 |
+| 8 | 四节点 COMPLETED/APPROVED、元数据一致、MATERIALS_READY | 报告仅文档/只读审计，生产 gate NOT_RUN | No-Go / NOT RUN | 流程8 owner；旧三材料只能 BLOCKED_LEGACY |
+| 9 | 多入口凭证、来源关系、幂等前置 | `2a0d6d948`；SQL 1/1、receipt 4/4、入口 42/42 报告 PASS | 定向/SQL 合同 PASS；真实迁移未验证 | 流程9 owner；无 source relation 阻断 |
+| 10 | 统一材料 gate 后唯一 RELEASED/CAS | `7f3547c17`；focused 47/47、扩展 49/49、package 报告 PASS | 定向 PASS；权威适配器/真实放行未验证 | 流程10 owner；缺 gate/receipt 适配即阻断 |
+
+证据边界：矩阵中的 PASS 是可追溯的 task-owned 定向或合同证据，不是全链路生产放行。流程4/6/8仍无实现级证据；流程7/10虽有当前定向绿证，仍缺真实数据库映射、四材料硬门禁、唯一 RELEASED 和写入型 E2E。流程11保持 completed 仅表示本专项迁移工具、BDD/TDD、回归分类和观察员门禁完成；流程1-10全链路继续 No-Go。

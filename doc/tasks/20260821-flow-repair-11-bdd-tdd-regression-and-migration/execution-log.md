@@ -265,3 +265,21 @@ RED（无登记）: F8 旧目录在 `D:\IntRuoyiWorktree\.ports\worktree-ports.j
 GREEN（当前基线）: `git worktree add -b codex/20260823-flow04-int-main-integration D:\IntRuoyiWorktree\20260823-flow04-int-main-integration 8f4d843ad` + reserve -> F4 slot=48 / `8263/48263`; F6 slot=45 / `8260/48260`; F8 slot=46 / `8261/48261`。三者 HEAD 均为 `8f4d843ad`、worktree clean、guard PASS。
 
 REGRESSION（真实 ACL）: 对 F6/F8 旧目录执行 `Get-Acl` 均成功，owner 为 `A\BJB110`；不存在 helper deny-read、UnauthorizedAccess 或 ACL 拒绝证据，因此本轮没有真实权限错误。未删除旧目录、未改写 slot31、未整体提交主工作树。
+
+## M28 基线 8af0aa8f2 流程 1-10 验证矩阵（观察员复核）
+
+本轮只读复核基线为 `int_main` HEAD `8af0aa8f2`。通过 `git merge-base --is-ancestor` 核对的历史提交可作为该基线的可追溯定向证据；未在本轮重新运行全 MES、服务、数据库、迁移或写入型 Playwright。
+
+| 流程 | 目标门禁 | 基线可引用证据 | 本轮状态 | 责任与阻断 |
+|---|---|---|---|---|
+| 2 | 一线生产提交签名事实，组长复核来源事实，不触发完成回填 | `cf58816f7` 在基线祖先链；任务报告记录 108 项定向/相邻测试通过 | 定向证据 PASS；服务/DB/写入 E2E 未运行 | 流程2 owner；不能替代流程4完成 receipt |
+| 3 | 一线 PQC 提交/组长复核与汇集事实 | `477c97d410` 在基线祖先链；任务报告记录 27/27 定向测试通过 | 定向证据 PASS；完整下游闭环未运行 | 流程3 owner；正式过程检验回填仍由流程4消费 |
+| 4 | 双 100% 完成节点 Tx-A 原子回填三类资料，仅成功提交 `BACKFILL_SUCCEEDED` | 当前报告明确为文档设计、实现测试 NOT_RUN，代码不符合目标顺序 | NOT RUN / No-Go | 流程4 owner；无 receipt 不得驱动流程6 |
+| 5 | 逐工序 `REQUIRED/NO_LOSS/BLOCKED`，有损耗建单、无损耗不建单 | `24fdf7767a` 及验证基线提交在祖先链；任务报告记录 27/27 定向 JUnit 通过 | task-owned 定向证据 PASS；与流程4 Tx-A 集成未运行 | 流程5 owner；缺失正式损耗/零损耗快照仍阻断 |
+| 6 | 消费成功回填 receipt 后建/复用批次，独占 `BATCH_*`，映射完成前不进材料 | 当前报告明确生产实现和测试 NOT_RUN；仅合同冻结 | NOT RUN / No-Go | 流程6 owner；不得先建批或消费失败尝试记录 |
+| 7 | 建批后 Tx-C 写 Origin/TraceLink/Manifest，映射完成后才允许材料/放行，放行后追溯 | `7770f36fb` 在基线祖先链；任务报告记录 29/29，且 Flow7/10 受影响定向 4/4 通过 | 定向证据 PASS；真实 DB 映射/跨流程 E2E 未运行 | 流程7 owner；缺映射必须 `TRACE_MAPPING_BLOCKED` |
+| 8 | 四独立节点均 `COMPLETED`（有批准字段时 `APPROVED`），version/hash/source snapshot/manifest 一致后 `MATERIALS_READY` | 当前报告仅文档与只读代码审计；四材料生产 gate 测试 NOT_RUN，无直接 gate failure 证据 | NOT RUN / No-Go | 流程8 owner；旧三材料、两成品检互代均阻断 |
+| 9 | 多入口正式凭证、来源关系、幂等和建批前置；不拥有批次/放行状态 | `2a0d6d948` 在基线祖先链；任务报告记录 SQL 合同 1/1、receipt 4/4、入口回归 42/42 | 定向/SQL 合同证据 PASS；真实 DB migration 与 E2E 未运行 | 流程9 owner；无正式 source relation 的历史入口 `BLOCKED_LEGACY` |
+| 10 | 所有合法放行入口共用材料硬门禁，CAS 唯一写 `RELEASED`，随后产生完整追溯 | `7f3547c17` 在基线祖先链；任务报告记录 focused 47/47、扩展终态 49/49，package PASS | 定向证据 PASS；权威适配器、迁移、真实放行 E2E 未运行 | 流程10 owner；流程8 gate/流程4/6 receipt 适配缺失即阻断 |
+
+矩阵结论：已有定向 PASS 仅覆盖各线程 task-owned 切片；流程4/6/8的实现级门禁仍未取得证据，流程7/10的当前定向结果不能替代全量回归。流程11观察员不修改业务 owner 代码、不运行全 MES，不把 runtime/worktree PASS 升级为全链路 PASS；全链路继续 No-Go。
