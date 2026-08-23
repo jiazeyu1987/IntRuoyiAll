@@ -16,6 +16,8 @@
 - M5 PASS：流程9入口合同代码、task-owned 测试和五份文档结构核验完成。
 - M6 PASS：`477c97d41` 已 fast-forward 融合到 `int_main`；当前主线程 HEAD 为 `155c767d5`，目标编译 BUILD SUCCESS，目标测试 42/42 PASS。
 - M7 PASS（2026-08-23）：最新 `int_main` HEAD=`b2f8e8356e1c6e27161147bb0d0d3802da3e848f`；确认 `477c97d41` 在祖先链，无重复融合。
+- M8 IN PROGRESS（2026-08-23）：新增流程9受控 `IndependentBatchPrerequisiteReceipt` issue/verify/revoke 服务、REST 合同、持久化 DO/Mapper/SQL 迁移和 task-owned 合同测试；不修改流程6实现。
+- M8 CLOSEOUT（2026-08-23）：当前 `int_main` HEAD=`425028c3fe175838c4302056f146d56def7239aa`；保留主线 dirty/untracked，流程9 task-owned 文件单独收口。
 
 ## BDD/TDD 记录
 
@@ -24,12 +26,18 @@
 - `BDD: 场景混用/缺凭证/过期撤销阻断 -> Given/When/Then`：fail fast，无副作用。
 - `BDD: 批次创建与最终放行分离 -> Given/When/Then`：流程 8 统一四材料 gate，流程 10 消费 batchExecutionId 并唯一写 RELEASED。
 - `BDD: 独立来源追溯 -> Given/When/Then`：放行后保留真实 source IDs 和 receipt 链。
+- `BDD: 独立凭证签发 -> Given/When/Then`：Given 受控后端用户、合法 entryType、租户和正式来源事实，When issue，Then 后端生成有效期、issuer、canonical payload/hash、HMAC 签名、审计事件并持久化；客户端字段不能覆盖这些值。
+- `BDD: 独立凭证验真与篡改阻断 -> Given/When/Then`：Given receiptId，When verify，Then 服务端重新读取并校验 canonical/hash/signature/tenant/source snapshot/lifecycle；任一篡改或来源变化 fail fast。
+- `BDD: 独立凭证过期/撤销/幂等 -> Given/When/Then`：Given 已过期、已撤销、重复相同幂等键或不同载荷重试，When verify/issue/revoke，Then 分别返回稳定失效、已撤销、原结果或冲突错误。
 
 ## 执行状态
 
 - `RED: mvn -o -pl yudao-module-mes -Dtest=ScheduleApplierTest,MesBatchExecutionEntryContractTest,MesPqcReleaseBatchExecutionServiceTest,MesProductionReleaseBatchExecutionPortTest -Dsurefire.failIfNoSpecifiedTests=false -DforkCount=0 test -> FAIL，先暴露独立/活跃凭证、损耗事实和入口映射夹具不一致。`
 - `GREEN: mvn -o -pl yudao-module-mes -am -DskipTests compile -> PASS；目标四类测试 -> PASS，Tests run: 42, Failures: 0, Errors: 0。`
 - `REGRESSION: NOT RUN ->` 流程11全链路、并发/迁移、四材料、最终放行和真实 E2E 仍未执行。
+- `RED: mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' ... test -> FAIL，先暴露主线未跟踪流程7缺失 MesProEdhrBatchTraceSourcePrecheckRespVO；该错误不在流程9改动路径。`
+- `GREEN: MesIndependentBatchPrerequisiteReceiptServiceTest -> NOT RUN（外部编译阻断）；静态 SQL/API 合同已写入 task-owned 证据，未把文档结构 PASS 冒充生产 GREEN。`
+- `REGRESSION: NOT RUN ->` 数据库迁移、流程11全链路、流程8四材料、流程10最终放行和真实写入型 E2E 未执行。
 - 最新主线程复核沿用已通过命令：MES compile `BUILD SUCCESS`；入口合同/PQC 联动/生产放行端口/排产 fail-fast 定向测试 `42/42 PASS`；`git diff --check` 和 `branch-runtime-port-guard.ps1` 通过。
 
 ## 代码审计事实
@@ -51,7 +59,8 @@
 
 ## 未实现项
 
-- 双 receipt 后端受控签发/有效期/撤销、流程 6/8/10/11 生产实现、数据库迁移、历史盘点和真实 E2E 均未执行。
+- 流程9新增 receipt 服务代码已实现，但真实数据库迁移、配置密钥注入、流程6正式消费接线、流程8/10/11生产实现、历史盘点和真实 E2E 均未执行。
+- 当前编译 blocker 是主线已有流程7未跟踪文件缺少 `MesProEdhrBatchTraceSourcePrecheckRespVO`，不属于流程9，不能通过修改其它任务解决。
 - 历史无正式凭证/source relation 只能保持 `BLOCKED_LEGACY`。
 
 ## 结论

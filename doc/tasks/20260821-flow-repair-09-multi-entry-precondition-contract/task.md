@@ -52,11 +52,17 @@
 
 completed
 
+## 设计约束检查
+
+- 不新增默认凭证、空签名放行、前端携带整份凭证或吞异常的 fallback；缺少签发密钥、来源事实、租户或正式持久化时 fail fast。
+- 本轮只补流程9独立凭证签发/验真/撤销及其持久化合同，不改流程6批次状态、流程8材料门禁或流程10最终放行。
+- 先以 RED 合同测试冻结 canonical/hash/signature、租户、生命周期和幂等边界，再实现生产代码；迁移运行态未执行不得宣称数据库已就绪。
+
 ### 主流程统一冻结合同（2026-08-22）
 
 独立凭证统一使用后端签发的 `IndependentBatchPrerequisiteReceipt`，至少包含 receiptId、tenantId、entryType、工单/路线/批号、正式来源关系及 source IDs、sourceSnapshotHash、业务理由、签发系统/用户/角色、issuedAt、expiresAt、撤销信息、credentialVersion、payloadHash、签名/审计事件和幂等键。PQC 关联活跃订单必须消费 `BACKFILL_SUCCEEDED` receipt；独立 PQC 仅凭有效独立凭证进入流程6统一建批服务。
 
-收尾证据：先标记 `ready_for_closeout`，完成 cleanup preview/apply（无可删除附属产物）后标记 `completed`；流程9自身代码与 task-owned 合同测试已合并并验证，跨流程闭环仍未完成。
+收尾证据：已标记 `ready_for_closeout`，完成 cleanup preview/apply（无可删除附属产物）后标记 `completed`；流程9自身代码已提交，新增合同测试受外部流程7编译 blocker 影响未运行，跨流程闭环仍未完成。
 
 最新主线收尾（2026-08-23）：`int_main` HEAD=`b2f8e8356e1c6e27161147bb0d0d3802da3e848f`，`477c97d41` 仍在祖先链；不重复融合旧 worktree。
 
@@ -64,3 +70,5 @@ completed
 
 - doc/tasks/20260821-flow-repair-09-multi-entry-precondition-contract/development-plan.md
 - doc/tasks/20260821-flow-repair-09-multi-entry-precondition-contract/test-plan.md
+- doc/tasks/20260821-flow-repair-09-multi-entry-precondition-contract/backend-api-evidence.md
+- doc/tasks/20260821-flow-repair-09-multi-entry-precondition-contract/database-schema-evidence.md

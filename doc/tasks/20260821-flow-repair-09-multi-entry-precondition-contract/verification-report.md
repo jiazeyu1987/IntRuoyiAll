@@ -2,7 +2,7 @@
 
 ## 结论
 
-流程9自身代码符合性 `PASS`，跨流程全链路符合性 `PARTIAL`。入口合同代码和 task-owned 测试已合并到 `int_main`；数据库、配置、服务启动和写入型 E2E 未执行。
+流程9自身代码符合性 `PARTIAL / IMPLEMENTED-BUT-COMPILE-BLOCKED`，跨流程全链路符合性 `PARTIAL`。本轮新增受控独立凭证 issue/verify/revoke、持久化结构和迁移；数据库、密钥配置、流程6消费接线、服务启动和写入型 E2E 未执行。
 
 ## 验收逐条关闭
 
@@ -16,6 +16,7 @@
 8. **签发与 blocker：已关闭（文档）**。独立 receipt 明确后端受控签发、签发系统/用户/角色、有效期、撤销、签名和审计字段；删除泛化的业务确认 blocker，仅保留未实现代码、迁移和历史数据审查 blocker。
 9. **BDD/迁移/回滚：已关闭（文档）**。新增独立三 entryType、无凭证、场景混用、生命周期失效、建批/放行分离、四材料、流程 10 最终放行、真实来源追溯和 `BLOCKED_LEGACY` 场景，迁移/回滚边界已同步。
 10. **RED/GREEN/REGRESSION：已关闭**。RED 记录了合同测试先失败的夹具问题，GREEN 记录目标编译和 42/42 测试通过，跨流程回归仍明确 `NOT RUN`。
+11. **独立凭证后端合同：代码已实现，验证受外部编译阻断**。`MesIndependentBatchPrerequisiteReceiptServiceImpl` 按固定 canonical 字段生成 SHA-256/HMAC-SHA256，重新读取持久化行验真并支持撤销；REST 入口只接受 receiptId 或事实字段，不接受完整可信凭证。新增服务测试未能进入测试编译，因为主线已有流程7未跟踪文件缺少 `MesProEdhrBatchTraceSourcePrecheckRespVO`。
 
 ## 主线程证据
 
@@ -25,6 +26,8 @@
 - 目标测试：`ScheduleApplierTest, MesBatchExecutionEntryContractTest, MesPqcReleaseBatchExecutionServiceTest, MesProductionReleaseBatchExecutionPortTest` -> `Tests run: 42, Failures: 0, Errors: 0`。
 - `git diff --check` -> 通过；`branch-runtime-port-guard.ps1` -> 通过（int_main: 8081/48081）。
 - 最新主线复核（2026-08-23）保持上述 compile、42 项定向测试、diff-check 和 runtime guard 结果；流程9专项完成，流程6/7/8/10/11 全链路仍不属于流程9交付范围。
+- 本轮新增验证：`mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' ... test` -> FAIL 于流程7缺失类型，未报告流程9新增类错误；新增 SQL/API evidence 已静态核对，真实迁移 NOT RUN。
+- 本轮主线 HEAD=`425028c3fe175838c4302056f146d56def7239aa`；未重复融合既有 `477c97d41`，也未覆盖主线其它 dirty/untracked 文件。
 
 ## 已读取合同证据
 
@@ -34,10 +37,10 @@
 
 ## 未解决 blocker
 
-- 流程6独立凭证正式签发、source relation 持久化和跨入口复用仍由流程6负责，当前仅完成流程9接口适配。
+- 流程6正式消费 `receiptId`/验证结果的接线和跨入口复用仍由流程6负责；本轮已提供流程9后端签发、持久化、验真和撤销接口，但密钥配置和运行态迁移尚未执行。
 - 流程8四材料 gate、流程10最终 RELEASED、流程11全链路/迁移/真实 Playwright 路径均未执行。
 - 无正式 receipt/source relation 的历史批次只能保持 `BLOCKED_LEGACY`，不得猜测认领。
 
 ## 状态
 
-流程9自身任务：`completed`。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。
+流程9自身任务：`completed`（代码实现已提交；新增测试的主线编译受外部流程7缺失类型阻断）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。

@@ -78,6 +78,24 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_479, "批次入口正式凭证已撤销");
     ErrorCode PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID =
             new ErrorCode(1_040_750_480, "批次入口正式凭证完整性校验失败");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_INVALID =
+            new ErrorCode(1_040_750_482, "独立批次正式前置凭证无效");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_PREREQUISITE_MISSING =
+            new ErrorCode(1_040_750_483, "独立批次缺少正式前置凭证");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_PERMISSION_DENIED =
+            new ErrorCode(1_040_750_484, "当前用户无权签发或撤销独立批次正式前置凭证");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_IDEMPOTENCY_CONFLICT =
+            new ErrorCode(1_040_750_485, "独立批次正式前置凭证幂等键与来源载荷冲突");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_SOURCE_CHANGED =
+            new ErrorCode(1_040_750_486, "独立批次正式来源快照已变化");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_TENANT_MISMATCH =
+            new ErrorCode(1_040_750_487, "独立批次正式前置凭证租户不匹配");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_SIGNATURE_INVALID =
+            new ErrorCode(1_040_750_488, "独立批次正式前置凭证签名校验失败");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_HASH_INVALID =
+            new ErrorCode(1_040_750_489, "独立批次正式前置凭证规范载荷摘要校验失败");
+    ErrorCode PRO_EDHR_INDEPENDENT_RECEIPT_ALREADY_REVOKED =
+            new ErrorCode(1_040_750_490, "独立批次正式前置凭证已撤销");
     ErrorCode PRO_EDHR_RELEASE_PRECHECK_REQUIRED =
             new ErrorCode(1_040_750_430, "eDHR 放行前检查未通过，禁止提交放行");
     ErrorCode PRO_EDHR_RELEASE_STATUS_INVALID =
