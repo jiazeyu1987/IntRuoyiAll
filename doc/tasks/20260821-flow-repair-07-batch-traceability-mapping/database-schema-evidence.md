@@ -61,6 +61,6 @@
 ## 2026-08-23 Tx-C Schema and Verification Boundary
 
 - Tx-C adds the append-only `mes_pro_edhr_batch_trace_outbox_event` table with tenant/event/idempotency keys, batch/origin/link IDs, event/status/error/reason, source and manifest hashes, payload hash and retryability. Two outbox UPDATE/DELETE triggers join the six Origin/TraceLink/Manifest append-only guards.
-- Main-workspace Maven compile/testCompile and the 29 Flow7 focused tests (17 validator + 12 service contract) passed; the latest test invocation skipped Maven test-resource copying because of an old fixture lock, so this remains application-slice evidence only.
+- Main-workspace Maven compile/testCompile and the 29 Flow7 focused tests (17 validator + 12 service contract) passed; the post-commit invocation copied testResources normally. This remains application-slice evidence only and does not prove a real migration/runtime.
 - Real MySQL migration, append-only trigger execution, Mapper queries, permission runtime and rollback rehearsal remain `NOT RUN`; the authored SQL remains un-applied.
 - `validate_database_schema.py -> PASS`; static SQL shape scan is `PASS (tables=3, append-only triggers=6, SIGNAL guards=7)`. This does not prove that MySQL accepted or executed the migration.

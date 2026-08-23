@@ -8,7 +8,7 @@
 
 M5 (implementation slice and verification) is `partial / blocked`; its focused compile/tests pass, while full cross-flow delivery remains blocked. M1-M4 below are historical design/document milestones and their earlier `completed` labels do not mean production delivery.
 
-Git 交付当前为 `BLOCKED`：主工作区 `.git/index` 受只读边界保护，`git add` 创建 `E:\IntRuoyi\.git\index.lock` 被拒绝；不修改 ACL、不复制 Git 元数据、不使用旁路提交。待受保护 Git 写权限可用后再按 task-owned 路径提交。
+Git 交付已完成 task-owned 选择性提交：`0767b1fa5`。提交包含 Flow7 DTO/API、Tx-C producer、Origin/TraceLink/Manifest/outbox 持久化、迁移 SQL、定向测试和任务文档；未使用 `git add -A`，未混入流程9或其它 dirty/untracked。提交后标准 Maven compile 与未跳过 testResources 的 29 项定向测试均通过。
 
 ### 主流程统一冻结合同（2026-08-22）
 

@@ -137,7 +137,7 @@ Tx-C 在一个事务中写入不可变 Origin、TraceLink、Manifest 和 outbox 
 
 当前流程 6 审计 metadata 尚未持久化完整 `sourceEvidence`/receipt payload，故真实生产路径在该上游合同补齐前必须保持结构化 blocker；本节不把独立测试或静态 fixture 视为全链路完成。
 
-- Main-workspace Maven 3.9.16 compile, testCompile and the focused 29 tests (17 validator + 12 service contract) passed with 0 failures/errors/skips and `BUILD SUCCESS`; the latest test invocation skipped Maven test-resource copying only to bypass an old fixture lock.
+- Main-workspace Maven 3.9.16 compile, testCompile and the focused 29 tests (17 validator + 12 service contract) passed with 0 failures/errors/skips and `BUILD SUCCESS`; the post-commit invocation copied testResources normally.
 - The linked-worktree flatten/compiler ACL failures are historical context only and are superseded by the fresh main-workspace result.
 - The verified slice covers only Flow7 validator/service-contract behavior (including required `originId`, `RELEASE_DECISION` TraceLink lookup, canonical source identity, and loss-fact mapping); it does not prove the complete workflow, real database migration/Mapper/runtime permissions, service startup, the Flow8 four-material gate, the Flow10 `RELEASED` transition, or write-enabled E2E.
 - Full regression, real database migration/append-only trigger/permission/runtime verification, upstream formal-receipt adapters/owners/fixtures, Flow8/Flow10 cross-thread integration, and write-enabled E2E remain `NOT RUN` and are blockers.
@@ -148,4 +148,4 @@ Tx-C 在一个事务中写入不可变 Origin、TraceLink、Manifest 和 outbox 
 - 当前正式上游 receipt/快照适配器和 owner 尚未全部冻结，无法宣称全链路生产可用。
 - 真实数据库 migration、append-only trigger、Mapper、权限对象和运行时验证尚未在本任务环境执行。
 - 流程 8 四材料硬门禁、流程 10 唯一 RELEASED 终态和真实后置关系尚未完成跨线程集成。
-- 完整 REGRESSION、服务启动和写入型 E2E 仍为 NOT RUN；29 项流程 7 定向测试只能证明独立切片，完整 test-resource 复制也仍待验证。
+- 完整 REGRESSION、服务启动和写入型 E2E 仍为 NOT RUN；29 项流程 7 定向测试只能证明独立切片。

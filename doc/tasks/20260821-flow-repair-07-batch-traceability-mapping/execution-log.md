@@ -1,19 +1,20 @@
 # 执行记录
 
-## 2026-08-23 14:18:06 主工作区复验（最新）
+## 2026-08-23 14:24:55 提交后标准复验（最新）
 
-- `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dtest=MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest -Dsurefire.failIfNoSpecifiedTests=false -Dmaven.testResources.skip=true test -> PASS`；流程7定向测试 29 项（validator 17 + service contract 12），0 failures、0 errors、0 skipped，`BUILD SUCCESS`。
-- 本次命令跳过 Maven testResources 复制，仅为绕开旧测试进程持有 fixture 文件锁；MES production compile、testCompile 与目标类执行均通过，但完整 testResources 复制、全量回归、真实数据库/outbox/runtime 仍为 `NOT RUN`。
+- `COMMIT: git commit -m "feat(mes): add batch traceability tx-c producer" -> PASS`；task-owned 提交 `0767b1fa5`，46 files changed，未暂存流程9或其它并行 dirty/untracked。
+- `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests compile -> PASS`；24 模块 reactor `BUILD SUCCESS`，结束时间 `2026-08-23T14:23:59+08:00`。
+- `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dtest=MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false test -> PASS`；未跳过 testResources，流程7定向测试 29 项（validator 17 + service contract 12），0 failures、0 errors、0 skipped，`BUILD SUCCESS`，结束时间 `2026-08-23T14:24:55+08:00`。
 - 本次修复包含批次执行 DO 的 `tenant_id` 映射，使 Tx-C producer 在读取 Flow6 provision audit 前执行当前租户边界校验；不改变流程6/8状态 owner。
-- `COMMIT` 与选择性暂存将在本次证据复验后执行；只包含 Flow7 task-owned DTO、服务、持久化、SQL、测试和任务文档，不包含其它 dirty/untracked。
+- 全量回归、真实数据库 migration/trigger/Mapper/outbox、服务启动、流程6 consumer、流程8 gate、流程10 `RELEASED` 和写入型 E2E 仍为 `NOT RUN`/blocked。
 
-## 2026-08-23 13:54:30 主工作区复验（最新）
+## 2026-08-23 13:54:30 主工作区复验（历史，已被 14:24:55 提交后复验取代）
 
 - `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DfailIfNoTests=false" test -> PASS`；流程7定向测试 28 项（validator 17 + service contract 11），0 failures、0 errors、0 skipped，`BUILD SUCCESS`，结束时间 `2026-08-23T13:54:30+08:00`。
 - 同一 Maven 3.9.16 reactor compile 已在 `2026-08-23T13:50:02+08:00` 通过；本次补验增加 Tx-C 批次租户边界契约，要求先验证 `batchExecutionId` 所属租户，再读取 Flow6 provision audit。
 - 该结果只证明 Flow7 task-owned 编译和 focused contract/validator slice。真实 Mapper/数据库 append-only trigger/outbox、Flow4 receipt producer、Flow6 consumer、Flow8 四材料 gate、Flow10 `RELEASED`、完整回归、服务启动和写入型 E2E 仍为 `NOT RUN`/blocked。
 
-## 2026-08-23 Latest Continuation Evidence (authoritative)
+## 2026-08-23 Historical Continuation Evidence (superseded by commit `0767b1fa5`)
 
 - User-authorized continuation implemented and verified only the Flow7 task-owned slice; unrelated dirty worktree changes were not staged or modified.
 - `GREEN: mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests compile -> PASS`; Maven 3.9.16 compiled the MES reactor in the main workspace with `BUILD SUCCESS`.
@@ -26,7 +27,7 @@
 - Covered contract evidence includes explicit `originId` for release decisions, persisted `RELEASE_DECISION` TraceLink lookup, unowned-origin rejection, canonical source identity mismatch blocking, and `hasActualLoss`/`NO_LOSS` mapping.
 - `GREEN: validate_backend_api.py --evidence backend-api-evidence.md -> PASS` and `GREEN: validate_database_schema.py --evidence database-schema-evidence.md -> PASS`.
 - `GREEN: SQL_STATIC_SCAN -> PASS (tables=3, append-only triggers=6, SIGNAL guards=7)` and `GREEN: DOC_STRUCTURE_SCAN -> PASS (8 task-local evidence/design files present)`.
-- `COMMIT: BLOCKED`；主工作区 `.git/index` 位于受限只读边界，`git add` 创建 `E:\IntRuoyi\.git\index.lock` 返回 `Permission denied`。未修改 ACL、未复制 Git 元数据、未使用旁路提交；流程7文件仍保留在主工作区，待具备受保护 Git 写权限后按明确路径暂存和提交。
+- 历史提交阻断（已由提交 `0767b1fa5` 解除）：当时主工作区 `.git/index` 位于受限只读边界，`git add` 创建 `E:\IntRuoyi\.git\index.lock` 返回 `Permission denied`。未修改 ACL、未复制 Git 元数据、未使用旁路提交；后续在主工作区恢复受保护 Git 写权限后按明确路径完成选择性暂存和提交。
 - `REGRESSION: full cross-flow regression, real DB migration/append-only trigger/Mapper/permissions/runtime, service startup, Flow8 four-material gate, Flow10 final RELEASED, and write-enabled E2E -> NOT RUN` because formal upstream receipts/owners/fixtures, runtime prerequisites, and a writable verification worktree are not available.
 - Current task status is `partial / blocked`. Earlier M1-M4, cleanup, and `completed` entries below are historical design/closeout records and are superseded for current status; they must not be read as proof of production completion.
 
@@ -36,7 +37,7 @@
 - Formal read set: the latest successful Flow6 `OPEN` audit for the batch, Flow1 binding header/items in the current tenant, and the audit metadata's Flow4 completion receipt, Flow2/3 production/PQC facts, Flow5 `REQUIRED`/`NO_LOSS` fact, Flow6 provision receipt/status and canonical source evidence. Missing or inconsistent evidence fails with `TRACE_MAPPING_BLOCKED`.
 - Tx-C success writes `mes_pro_edhr_batch_execution_origin`, `mes_pro_edhr_batch_execution_trace_link`, `mes_pro_edhr_batch_execution_trace_manifest`, and `mes_pro_edhr_batch_trace_outbox_event`; the event carries `batchExecutionId`, `originLinkId`, `traceLinkHash`, `sourceSnapshotHash`, manifest version and source IDs. Flow6 remains the `BATCH_READY` state owner and consumes only `FLOW7_TRACE_MAPPING_SUCCEEDED`.
 - Tx-C failure writes no partial mapping and emits `FLOW7_TRACE_MAPPING_FAILED_RETRYABLE` or `FLOW7_TRACE_MAPPING_FAILED_FINAL` with stable `TRACE_MAPPING_BLOCKED`. A second read after precheck detects `SOURCE_CHANGED_AFTER_PRECHECK`; duplicate event/idempotency requests return the existing immutable outbox result.
-- `REGRESSION: full cross-flow/real DB/outbox/permissions/runtime/E2E -> NOT RUN`; current 28 tests are task-owned validator/service-contract evidence only. Upstream Flow4 receipt persistence and Flow6 sourceEvidence/provision receipt adapters remain blockers.
+- `REGRESSION: full cross-flow/real DB/outbox/permissions/runtime/E2E -> NOT RUN`; 本历史节点的 28 项结果已被提交后 29 项定向测试取代，且两者都只属于 task-owned validator/service-contract 证据。上游流程4 receipt 持久化及流程6 sourceEvidence/provision receipt 适配器仍是 blocker。
 
 ## 2026-08-21 任务建立
 

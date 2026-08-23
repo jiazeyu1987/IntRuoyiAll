@@ -10,7 +10,7 @@ BDD: Tx-C formal persistence boundary -> Given Flow6 has a successful provision 
 
 RED: real Tx-C DB/outbox integration -> NOT RUN, the task has no writable verification database, Mapper runtime, or upstream immutable sourceEvidence fixture; static contract tests must not be counted as persistence proof.
 
-GREEN: focused Flow7 contract suite -> PASS, 29 tests (17 validator + 12 service contract), 0 failures/errors/skips. This is slice evidence only. The latest invocation used `-Dmaven.testResources.skip=true` after an old test process held a fixture lock; full test-resource copying remains unverified.
+GREEN: focused Flow7 contract suite -> PASS, 29 tests (17 validator + 12 service contract), 0 failures/errors/skips. The post-commit invocation did not skip testResources and copied MES test resources successfully. This is slice evidence only.
 
 REGRESSION: Flow6 event consumer, real outbox delivery, cross-tenant permissions, Flow8 material gate, Flow10 release, full regression and write-enabled E2E -> NOT RUN.
 
