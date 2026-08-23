@@ -62,13 +62,14 @@
 
 ## Final Status
 
-in_progress（流程6局部实现和定向验证已通过；正式跨流程闭环、迁移和主线融合仍 blocked）。
+in_progress（流程6局部实现、主线选择性融合和定向验证已通过；正式跨流程闭环、迁移和运行验证仍 blocked）。
 
 ## Coding Verification Update (2026-08-24)
 
 - 37 个流程6定向测试通过；MES 24 模块 reactor compile 通过；`git diff --check` 通过。
-- `e539e8a2c` 为流程6 task-owned 实现提交。
-- 仍未完成：流程4 Tx-A receipt producer、流程7 Tx-C 真实事件闭环、流程9正式签名凭证消费、迁移 dry-run/apply/rollback、主线融合和主线程复验。
+- `e539e8a2c` 为流程6 task-owned 实现提交，`fa2593258` 为验证记录，`ecf8053f4` 已快进融合到 `int_main`。
+- 主线定向 suite 37/37 PASS，24 模块 MES compile PASS，`git diff --check` PASS，HEAD containment PASS。
+- 仍未完成：流程4 Tx-A receipt producer、流程7 Tx-C 真实事件闭环、流程9正式签名凭证消费的端到端运行证据、迁移 dry-run/apply/rollback、材料/最终放行运行验证。
 
 ## 主流程冻结合同核验（2026-08-22）
 
@@ -84,4 +85,4 @@ in_progress（流程6局部实现和定向验证已通过；正式跨流程闭�
 | 四材料有效定义 | PASS | COMPLETED、持久化、元数据/SHA-256、当前版本/hash；门禁状态为 MATERIALS_*，批准字段按存在性校验 |
 | 历史迁移与独立追溯 | PASS | dry-run 分类；不适用关系使用 `NOT_APPLICABLE` 原因码 |
 
-上述 PASS 表示本轮合同修订后的文档结构核验；实现测试仍为 NOT RUN，不代表生产代码 GREEN。若发现任一旧关键词（receipt 持有 BATCH_*、流程6写流程7映射、READY 材料状态、PQC_RELEASE 主键、旧流程7映射错误码）残留，应重新阻断而非宣称合同一致。
+上述合同 PASS 为设计边界核验；代码定向测试和主线编译已有 GREEN 证据，但不替代流程4/7/9真实 producer、数据库迁移、材料和放行运行证据。若发现任一旧关键词（receipt 持有 BATCH_*、流程6写流程7映射、READY 材料状态、PQC_RELEASE 主键、旧流程7映射错误码）残留，应重新阻断而非宣称合同一致。

@@ -57,8 +57,7 @@ DOC-STRUCTURE: 五份文件存在、包含目标态/事实/根因/边界/接口/
 
 ## Change Boundary
 
-- 仅修改本任务目录五份 Markdown 文档。
-- 未修改 Java/TypeScript/SQL、未改数据库、未启动服务、未运行写入型 E2E、未提交生产实现。
+- 已选择性提交流程6自有 Java/测试及五份任务文档；未修改流程4/7/9/10生产实现、未改数据库、未启动服务、未运行写入型 E2E。
 
 ## Remaining Blockers
 
@@ -69,7 +68,7 @@ DOC-STRUCTURE: 五份文件存在、包含目标态/事实/根因/边界/接口/
 
 ## Current Status
 
-in_progress（流程6局部实现和定向验证已完成；跨流程集成和主线验证仍待完成）。
+in_progress（流程6局部实现、主线选择性融合和定向验证已完成；跨流程真实闭环、迁移和运行验证仍待完成）。
 
 ## Coding Verification Update (2026-08-24)
 
@@ -83,11 +82,15 @@ GREEN: 24-module MES reactor compile -> PASS, exit code 0.
 
 GREEN: `git diff --check` and v6 branch-runtime guard -> PASS.
 
-Commit: `e539e8a2c`.
+Commit: `e539e8a2c`; verification evidence `fa2593258`; mainline integration `ecf8053f4`.
+
+GREEN: main `int_main` targeted Maven suite -> PASS, 37 tests, 0 failures, 0 errors, exit code 0.
+GREEN: main `int_main` 24-module MES reactor compile -> PASS, exit code 0.
+GREEN: main `git diff --check` and protected fast-forward containment -> PASS; `int_main` contains `ecf8053f4`.
 
 ## 主流程合同同步记录（2026-08-22）
 
 DOC-STRUCTURE: 已将 Tx-A immutable receipt 与流程6 `BatchProvisioningRecord` 分离、Tx-C 流程7映射顺序及稳定错误码 `TRACE_MAPPING_BLOCKED`、流程8冻结材料错误码集合、Tx-A 失败不落 receipt、`MATERIALS_PENDING/MATERIALS_READY/MATERIALS_RECHECK_REQUIRED` 门禁、完整领料/损耗字段、活跃完成链幂等键、独立凭证字段与服务端有效期、建批重试白名单、历史 dry-run 分类和独立追溯 `NOT_APPLICABLE` 写回五份流程6文档 -> PASS（结构核验，不是代码 GREEN）。
 
-RED: 新增合同测试 -> NOT RUN（本次仍为文档任务）。
-GREEN: 新增合同实现 -> NOT RUN。
+RED: 流程4/7/9正式接口、迁移和真实运行闭环 -> NOT RUN，依赖/环境前置未形成可执行证据。
+GREEN: 流程4/7/9跨流程生产闭环、材料/放行运行验证 -> NOT RUN。
