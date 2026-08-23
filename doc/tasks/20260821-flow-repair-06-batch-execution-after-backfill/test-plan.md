@@ -68,7 +68,7 @@ BDD: T9 历史批次阻断 -> Given 旧批次无有效完成 receipt、流程1�
 
 ## Current Status
 
-in_progress（BDD/TDD/回归计划已冻结；流程6定向实现测试已运行并通过，跨流程和迁移测试仍待集成）。
+in_progress（BDD/TDD/回归计划已冻结；流程6定向实现测试和主线复验已通过，跨流程和迁移测试仍待真实环境）。
 
 ## Coding Verification Update (2026-08-24)
 

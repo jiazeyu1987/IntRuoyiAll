@@ -105,7 +105,7 @@ Legacy batches without valid completion receipt, flow1 binding, or flow7 mapping
 
 ## Current Status
 
-in_progress（设计合同已冻结；流程6局部实现和定向测试已通过，跨流程闭环与迁移待集成）。
+in_progress（设计合同已冻结；流程6局部实现、主线融合和定向测试已通过，跨流程闭环与迁移仍待真实集成）。
 
 ## Coding Verification Update (2026-08-24)
 

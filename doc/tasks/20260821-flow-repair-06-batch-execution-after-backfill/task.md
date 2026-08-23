@@ -15,7 +15,7 @@
 
 ## Current Status
 
-in_progress（已完成流程6局部实现和定向验证；跨流程集成、迁移和主线复验仍待完成）。
+in_progress（流程6局部实现、主线融合和定向验证已完成；跨流程真实闭环、迁移和运行验证仍待完成）。
 
 ## Current Code Facts
 
@@ -113,7 +113,7 @@ Tx-A 失败时页面显示“完成未提交，请修正来源后重试”，活
 
 ## Current Status
 
-in_progress（流程6实现已形成 task-owned commit；流程4/7/9正式闭环、迁移和主线融合仍未完成）。
+in_progress（流程6实现已形成 task-owned commit 并快进融合到 int_main；流程4/7/9正式闭环、迁移和运行验证仍未完成）。
 
 ## Coding Verification Update (2026-08-24)
 
