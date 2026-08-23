@@ -1,6 +1,16 @@
 # 执行记录
 
-## 2026-08-23 14:57:33 当前 int_main 标准复核（最新）
+## 2026-08-23 15:40:52 当前 int_main 标准复核（最新）
+
+- `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests clean compile -> PASS`；当前 `int_main` 的 24 模块 reactor 完成 clean compile，MES 编译 2857 个主源码文件，`BUILD SUCCESS`，结束时间 `2026-08-23T15:39:37+08:00`。
+- `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dtest=MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false test -> PASS`；流程7定向测试 29 项（validator 17 + service contract 12），0 failures、0 errors、0 skipped，`BUILD SUCCESS`，结束时间 `2026-08-23T15:40:52+08:00`，testResources 正常复制。
+- 当前 `int_main` 已包含 task-owned 提交 `0767b1fa5` 及后续验证/文档提交；未重复提交 DTO，未使用 `git add -A`，未混入流程6/8/10或其它 dirty/untracked。
+- Tx-C 正式合同：入口 `POST /mes/pro/edhr-batch-execution/traceability/tx-c`；成功写入 Origin/TraceLink/Manifest/outbox 并发布 `FLOW7_TRACE_MAPPING_SUCCEEDED`，失败以 `TRACE_MAPPING_BLOCKED` 持久化可重试/最终失败事件；流程6消费成功事件并拥有 `BATCH_READY`，流程7不写流程6状态。流程8通过 source-precheck resolver 读取 `batchExecutionId`、`originLinkId`、`traceLinkHash`、`sourceSnapshotHash`。
+- 来源变化证据：流程8 resolver 的正式预检先读取版本/hash，预检后替换来源再读取立即返回 `FLOW8_SOURCE_PRECHECK_STALE`；批次与 origin link 不一致返回 `FLOW8_TRACE_LINK_ORIGIN_MISMATCH`。Tx-C producer 对同一变化以稳定 blocker `TRACE_MAPPING_BLOCKED` 和原因 `SOURCE_CHANGED_AFTER_PRECHECK` 失败，并不发布成功事件或推进 `BATCH_READY`；事件键 `eventId + idempotencyKey` 保持重复消费幂等。
+- `BDD: source-precheck freshness -> Given 已持久化 Origin/TraceLink/Manifest When 预检后来源版本或 hash 改变 Then resolver fail-fast 并保留关系不一致证据；Tx-C 以 TRACE_MAPPING_BLOCKED 失败且流程6不推进 BATCH_READY`。
+- `REGRESSION: full cross-flow regression, real database migration/append-only trigger/Mapper/permissions/runtime, service startup, Flow6 consumer, Flow8 four-material gate, Flow10 final RELEASED, and write-enabled E2E -> NOT RUN`；上游正式 receipt/sourceEvidence 适配器及真实运行环境仍是 blocker。
+
+## 2026-08-23 14:57:33 当前 int_main 标准复核（历史，已被 15:40:52 当前 int_main 复验取代）
 
 - `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests clean compile -> PASS`；当前 `int_main` 的 24 模块 reactor 完成 clean compile，MES 编译 2857 个主源码文件，`BUILD SUCCESS`，结束时间 `2026-08-23T14:55:52+08:00`。
 - `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dtest=MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false test -> PASS`；流程7定向测试 29 项（validator 17 + service contract 12），0 failures、0 errors、0 skipped，`BUILD SUCCESS`，结束时间 `2026-08-23T14:57:33+08:00`，testResources 正常复制。
@@ -8,7 +18,7 @@
 - Tx-C 正式合同：入口 `POST /mes/pro/edhr-batch-execution/traceability/tx-c`；成功写入 Origin/TraceLink/Manifest/outbox 并发布 `FLOW7_TRACE_MAPPING_SUCCEEDED`，失败以 `TRACE_MAPPING_BLOCKED` 持久化可重试/最终失败事件；流程6消费成功事件并拥有 `BATCH_READY`，流程7不写流程6状态。流程8通过 source-precheck resolver 读取 `batchExecutionId`、`originLinkId`、`traceLinkHash`、`sourceSnapshotHash`。
 - `REGRESSION: full cross-flow regression, real database migration/append-only trigger/Mapper/permissions/runtime, service startup, Flow6 consumer, Flow8 four-material gate, Flow10 final RELEASED, and write-enabled E2E -> NOT RUN`；上游正式 receipt/sourceEvidence 适配器及真实运行环境仍是 blocker。
 
-## 2026-08-23 14:34:54 Clean 后标准复验（历史，已被 14:57:33 当前 int_main 复验取代）
+## 2026-08-23 14:34:54 Clean 后标准复验（历史，已被 15:40:52 当前 int_main 复验取代）
 
 - `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -DskipTests clean compile -> PASS`；24 模块 reactor 执行 clean compile，MES 编译 2857 个主源码文件，`BUILD SUCCESS`，结束时间 `2026-08-23T14:33:27+08:00`。
 - `GREEN: C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dtest=MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false test -> PASS`；testResources 正常复制，流程7定向测试 29 项（validator 17 + service contract 12），0 failures、0 errors、0 skipped，`BUILD SUCCESS`，结束时间 `2026-08-23T14:34:54+08:00`。
