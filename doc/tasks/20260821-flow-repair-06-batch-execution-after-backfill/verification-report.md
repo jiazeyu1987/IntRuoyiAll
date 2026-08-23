@@ -62,7 +62,13 @@
 
 ## Final Status
 
-completed（本次文档修订和结构核验完成；生产实现仍 blocked，未声称代码 GREEN）。
+in_progress（流程6局部实现和定向验证已通过；正式跨流程闭环、迁移和主线融合仍 blocked）。
+
+## Coding Verification Update (2026-08-24)
+
+- 37 个流程6定向测试通过；MES 24 模块 reactor compile 通过；`git diff --check` 通过。
+- `e539e8a2c` 为流程6 task-owned 实现提交。
+- 仍未完成：流程4 Tx-A receipt producer、流程7 Tx-C 真实事件闭环、流程9正式签名凭证消费、迁移 dry-run/apply/rollback、主线融合和主线程复验。
 
 ## 主流程冻结合同核验（2026-08-22）
 

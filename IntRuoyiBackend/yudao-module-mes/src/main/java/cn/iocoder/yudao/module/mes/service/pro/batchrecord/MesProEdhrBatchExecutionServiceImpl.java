@@ -5644,6 +5644,22 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private TaskGate resolveTaskGate(MesProEdhrBatchExecutionTaskDO task,
+                                     List<MesProEdhrBatchExecutionTaskDO> allTasks) {
+        Map<Long, Set<Long>> predecessorRouteProcessIdMap = new LinkedHashMap<>();
+        for (MesProEdhrBatchExecutionTaskDO candidate : allTasks) {
+            if (!isRouteForm(candidate) || candidate.getRouteProcessId() == null) {
+                continue;
+            }
+            Set<Long> predecessors = predecessorRouteProcessIdMap.computeIfAbsent(
+                    candidate.getRouteProcessId(), ignored -> new LinkedHashSet<>());
+            if (candidate.getPredecessorRouteProcessId() != null) {
+                predecessors.add(candidate.getPredecessorRouteProcessId());
+            }
+        }
+        return resolveTaskGate(task, allTasks, predecessorRouteProcessIdMap);
+    }
+
+    private TaskGate resolveTaskGate(MesProEdhrBatchExecutionTaskDO task,
                                      List<MesProEdhrBatchExecutionTaskDO> allTasks,
                                      Map<Long, Set<Long>> predecessorRouteProcessIdMap) {
         if (Objects.equals(task.getStatus(), TASK_STATUS_BLOCKED)

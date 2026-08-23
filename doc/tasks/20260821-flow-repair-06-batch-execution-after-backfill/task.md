@@ -15,7 +15,7 @@
 
 ## Current Status
 
-completed（文档审计/设计完成；生产实现、TDD 和迁移未运行）。
+in_progress（已完成流程6局部实现和定向验证；跨流程集成、迁移和主线复验仍待完成）。
 
 ## Current Code Facts
 
@@ -113,7 +113,13 @@ Tx-A 失败时页面显示“完成未提交，请修正来源后重试”，活
 
 ## Current Status
 
-completed（仅文档；实现和测试待流程修复11总门禁）。
+in_progress（流程6实现已形成 task-owned commit；流程4/7/9正式闭环、迁移和主线融合仍未完成）。
+
+## Coding Verification Update (2026-08-24)
+
+- `e539e8a2c` is the Flow 6 task-owned implementation commit: task-gate overload plus legacy fixture correction.
+- Targeted Flow 6 suite: 37 tests passed; 24-module MES reactor compile passed; `git diff --check` passed.
+- Flow 4/7/9 formal closure, migration, and main-line verification remain blockers.
 
 ## 主流程统一冻结合同（2026-08-22）
 

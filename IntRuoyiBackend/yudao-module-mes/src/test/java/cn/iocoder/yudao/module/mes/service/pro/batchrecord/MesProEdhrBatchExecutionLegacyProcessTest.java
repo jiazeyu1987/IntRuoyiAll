@@ -138,13 +138,6 @@ class MesProEdhrBatchExecutionLegacyProcessTest {
         when(routeFlowProcessBatchRecordMapper.selectListByRouteProcessIdsAndUseType(
                 anyCollection(), eq("BATCH"))).thenReturn(List.of(historicalRecord));
         when(reportMapper.selectListByReportIds(anyCollection())).thenReturn(List.of(report));
-        when(batchRecordVersionMapper.selectLatestApprovedByDefinitionId(BATCH_RECORD_DEFINITION_ID))
-                .thenReturn(MesProBatchRecordVersionDO.builder()
-                        .id(BATCH_RECORD_VERSION_ID)
-                        .definitionId(BATCH_RECORD_DEFINITION_ID)
-                        .versionNo("V1.0")
-                        .status("APPROVED")
-                        .build());
         when(reportMapper.selectListByDefinitionIdAndVersionId(
                 BATCH_RECORD_DEFINITION_ID, BATCH_RECORD_VERSION_ID)).thenReturn(List.of(report));
         when(processMapper.selectBatchIds(anyCollection()))

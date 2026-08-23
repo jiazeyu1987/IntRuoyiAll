@@ -68,7 +68,15 @@ BDD: T9 历史批次阻断 -> Given 旧批次无有效完成 receipt、流程1�
 
 ## Current Status
 
-completed（BDD/TDD/回归计划；所有实现测试 NOT RUN）。
+in_progress（BDD/TDD/回归计划已冻结；流程6定向实现测试已运行并通过，跨流程和迁移测试仍待集成）。
+
+## Coding Verification Update (2026-08-24)
+
+GREEN: Flow 6 targeted Maven suite -> 37 tests passed.
+
+GREEN: MES reactor compile (`-pl yudao-module-mes -am -DskipTests`) -> exit code 0.
+
+NOT RUN: migration dry-run/apply/rollback, service/E2E, and cross-thread Flow 4/7/9 integration.
 
 ## 主流程冻结合同测试增补（后续实现，NOT RUN）
 

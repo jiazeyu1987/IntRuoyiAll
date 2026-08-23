@@ -105,7 +105,11 @@ Legacy batches without valid completion receipt, flow1 binding, or flow7 mapping
 
 ## Current Status
 
-completed（设计文档；实现、迁移和测试待后续线程）。
+in_progress（设计合同已冻结；流程6局部实现和定向测试已通过，跨流程闭环与迁移待集成）。
+
+## Coding Verification Update (2026-08-24)
+
+`e539e8a2c` implements the Flow 6 task-gate overload and legacy fixture correction. The targeted 37-test suite and 24-module MES compile passed. This does not replace formal Flow 4/7/9 integration or migration gates.
 
 ## 主流程统一冻结合同（2026-08-22）
 

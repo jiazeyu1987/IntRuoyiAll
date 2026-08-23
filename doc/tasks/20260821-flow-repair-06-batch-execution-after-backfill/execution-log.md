@@ -69,7 +69,21 @@ DOC-STRUCTURE: 五份文件存在、包含目标态/事实/根因/边界/接口/
 
 ## Current Status
 
-completed（文档审计完成；生产实现和验证待后续）。
+in_progress（流程6局部实现和定向验证已完成；跨流程集成和主线验证仍待完成）。
+
+## Coding Verification Update (2026-08-24)
+
+BDD: task-gate compatibility -> Given a task and route task list, When the two-argument resolver is invoked, Then it delegates to canonical gate evaluation without default success.
+
+RED: legacy Flow 6 suite -> FAIL, obsolete strict Mockito stub raised `UnnecessaryStubbingException`.
+
+GREEN: targeted Flow 6 suite -> PASS, 37 tests, 0 failures, 0 errors.
+
+GREEN: 24-module MES reactor compile -> PASS, exit code 0.
+
+GREEN: `git diff --check` and v6 branch-runtime guard -> PASS.
+
+Commit: `e539e8a2c`.
 
 ## 主流程合同同步记录（2026-08-22）
 
