@@ -1,17 +1,24 @@
 # Worktree Memory
 
+## 运行时 smoke 进程归属与日志时间窗门禁
+
+- 触发场景：验证需要启动后端端口，但目标端口已经被长期 runtime-control 服务监听，或共享日志包含多次启动记录。
+- 经验规则：启动前用命令行、PID、创建时间和 runtime-control 标识确认进程归属；只停止本任务实际启动且可证明归属的 PID。为本次 smoke 使用独立日志目录，健康检查和启动成功判断只看本次启动时间窗，不能把历史 APPLICATION FAILED 当作当前结果，也不能把当前成功覆盖历史失败。
+- 排查顺序：先记录端口监听和 PID，再请求 /actuator/health，随后按启动时间窗扫描 Started YudaoServerApplication、APPLICATION FAILED、Bean 缺失和结构化 blocker，最后停止自有 PID 并复扫端口；既有服务不在本任务范围时保留并记录。
+- 禁止做法：禁止按端口盲杀其它任务服务、复用混杂历史日志宣称启动通过、用健康接口单点结果掩盖最新启动失败，或因前台等待而留下自有服务。
+
 ## Worktree 端口段与原子槽位门禁
 
-- Trigger: 新建、登记、启动、提交或推送 `D:\IntRuoyiWorktree\` 下的 worktree；出现 `slot >= 41`、基准端口碰撞、重复活动槽位、重复活动端口、`No worktree port registry entry is registered`，或 `E:\IntRuoyi` 被识别为 `int_main_d`。
-- Preflight check: 附加 worktree 创建后，在首次启动、提交、推送或运行 `branch-runtime-port-guard.ps1` 前运行 `scripts\runtime\reserve-worktree-slot.ps1`，由脚本在跨进程互斥锁内读取登记表并分配所属 profile 的最低空闲 `slot 1..40`；槽位 `1..19` 保持原映射，`20..30` 和 `31..40` 分别使用集中定义的两段扩展端口。随后运行 `show-branch-runtime.ps1` 或提交前钩子确认 profile、slot 和前后端端口。长期任务分支还必须先核对自身 guard/profile 合同与当前 `docs\branch-runtime-ports.md` 的槽位范围一致；若旧分支仍只接受旧槽位范围，应先以任务相关的独立 Git 变更同步守卫，再判断共享登记是否合法。
-- Blocker: 槽位不在 `1..40`、登记端口不符合集中映射、计算端口命中任一 profile 基准端口、活动登记项复用 `profile/slot` 或前后端端口、基准工作区请求非零槽位、路径与 profile 无法唯一匹配、提交钩子提示缺少当前 worktree registry active entry，或目标分支 guard 合同落后于共享登记合同且尚未完成范围可证明的同步时必须 fail fast。
+- Trigger: 新建、登记、启动、提交或推送 `D:\IntRuoyiWorktree\` 下的 worktree；出现 `slot >= 51`、基准端口碰撞、重复活动槽位、重复活动端口、`No worktree port registry entry is registered`，或 `E:\IntRuoyi` 被识别为 `int_main_d`。
+- Preflight check: 附加 worktree 创建后，在首次启动、提交、推送或运行 `branch-runtime-port-guard.ps1` 前运行 `scripts\runtime\reserve-worktree-slot.ps1`，由脚本在跨进程互斥锁内读取登记表并分配所属 profile 的最低空闲 `slot 1..50`；槽位 `1..19` 保持原映射，`20..30`、`31..40` 和 `41..50` 分别使用集中定义的三段扩展端口。随后运行 `show-branch-runtime.ps1` 或提交前钩子确认 profile、slot 和前后端端口。长期任务分支还必须先核对自身 guard/profile 合同与当前 `docs\branch-runtime-ports.md` 的槽位范围一致；若旧分支仍只接受旧槽位范围，应先以任务相关的独立 Git 变更同步守卫，再判断共享登记是否合法。
+- Blocker: 槽位不在 `1..50`、登记端口不符合集中映射、计算端口命中任一 profile 基准端口、活动登记项复用 `profile/slot` 或前后端端口、基准工作区请求非零槽位、路径与 profile 无法唯一匹配、提交钩子提示缺少当前 worktree registry active entry，或目标分支 guard 合同落后于共享登记合同且尚未完成范围可证明的同步时必须 fail fast。
 - Verification: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py`、`pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1`、目标工作区 `show-branch-runtime.ps1` 输出，或 `reserve-worktree-slot.ps1 -AsJson` 返回当前路径、分支、profile、slot、frontendPort、backendPort 且后续 `git commit` 钩子通过。
-- Forbidden action: 禁止手工猜测槽位、并发直接改写登记表、使用 `slot >= 41`、自行推算扩展端口、基准工作区借用 worktree 槽位、冲突时随机换端口或按分支名猜测歧义 profile；禁止为迁就旧分支守卫而删除或改写其它任务的合法登记，也禁止整体复制混有无关业务内容的提交来同步守卫。
+- Forbidden action: 禁止手工猜测槽位、并发直接改写登记表、使用 `slot >= 51`、自行推算扩展端口、基准工作区借用 worktree 槽位、冲突时随机换端口或按分支名猜测歧义 profile；禁止为迁就旧分支守卫而删除或改写其它任务的合法登记，也禁止整体复制混有无关业务内容的提交来同步守卫。
 - Evidence: `doc/tasks/20260726-harden-worktree-port-slot-allocation/verification-report.md`；`doc/tasks/20260803-pqc-equipment-standard-method-design/execution-log.md`，PQC 文档 worktree 未启动服务但提交钩子仍要求 registry，补跑 `reserve-worktree-slot.ps1` 登记 slot 15 后解除阻塞；`doc/tasks/20260815-expand-worktree-slots-30/verification-report.md`，保留既有 1–19 映射并用独立扩展段把容量扩至 30；`doc/tasks/20260814-production-release-flow-implementation/verification-report.md`，长期 PQC 分支的 v3 `1..19` 守卫拒绝共享登记中的 v4 合法 slot 20，任务保持阻塞且未修改并发登记。
 
 ## Worktree 旧无监听槽位释放门禁
 
-- Trigger: 用户明确要求清理 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中旧 active slot、无监听 slot、过期 runtime slot 或 slot 1..40 全占用但多数端口未监听。
+- Trigger: 用户明确要求清理 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中旧 active slot、无监听 slot、过期 runtime slot 或 slot 1..50 全占用但多数端口未监听。
 - Preflight check: 先读取 `docs\worktree-restrictions.md`、`docs\branch-runtime-ports.md` 和端口登记表；用 `Get-NetTCPConnection -State Listen` 复扫登记端口；释放前必须取得同 `reserve-worktree-slot.ps1` 一致的登记表 mutex；历史登记项可能缺少 `profile` 等字段，脚本必须显式可选读取字段并 fail fast。
 - Blocker: 未获得用户明确授权、端口仍有监听、创建时间不满足用户给定条件、登记表校验失败、active 项释放后出现重复 active slot/端口、或无法确认修改只影响用户指定范围时必须停止。
 - Verification: 重新读取登记表确认目标 active 项已变为 inactive；复扫 worktree 端口监听；运行 `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1`；在任务日志记录清理和保留清单。
@@ -46,6 +53,15 @@
 - Evidence: `doc/tasks/20260805-ac-m19-deterministic-backfill/verification-report.md`，AC-M19 新 worktree 验证中先后同步主工作区 QA/PQC 最小编译基线，解除非 AC-M19 编译阻塞后目标 Maven 两组 JUnit 均 PASS；`doc/tasks/20260805-ac-m18-progress-repair/verification-report.md`，AC-M18 隔离 worktree 先补主工作区 QA/PQC 编译前置，再到达并通过目标 AC-M18 Surefire；`doc/tasks/20260813-concurrent-regression-repair-reverify/verification-report.md`，隔离源码首次漏掉根级 `lombok.config` 时产生大面积链式 setter 伪错误，补齐正式配置后 2654 个主源码编译和 26 项定向测试全部通过；`doc/tasks/20260814-frontline-active-order-submit-allocation-docs/execution-log.md`，临时运行覆盖 36 项在真实 E2E 后恢复 13 个原有文件并删除 23 个覆盖新增文件，逐项核验错误数为 0。
 - 本次流程7复验补充：先核对 Maven 绝对路径与 PATH，工具存在不等于命令可用；定向 Surefire PASS 只证明 validator slice，不能升级为跨流程、数据库或 E2E GREEN。任务仍为 `blocked` 且 linked worktree 有未提交代码时，不得 apply cleanup、merge 或删除 worktree。
 
+### Maven 环境刷新与受限测试证据门禁
+
+- Trigger: 用户更新 Maven 安装位置，或隔离 worktree 的定向测试需要区分工具环境问题与源码编译问题。
+- Preflight check: 同时核对当前进程 `$env:MAVEN_HOME`、用户级 `[Environment]::GetEnvironmentVariable('MAVEN_HOME','User')` 和新路径下 `mvn.cmd -version`；用户级变量已更新但当前 Codex 进程仍可能继承旧值，验证命令必须使用已确认的绝对路径并记录 Java/Maven 版本。
+- Blocker: reactor 或目标模块在进入当前任务 Surefire 前被其它模块/既有源码编译错误阻断时，目标任务只能记为 BLOCKED；缺少正式跨流程适配器时必须由端口 fail-fast，不能用 mock、默认进度或合成来源把失败变成成功。
+- Verification: 可记录受限 `javac`/JUnit 的类级通过作为局部证据，但只有同一 Maven 命令进入目标 Surefire 且 `BUILD SUCCESS` 才能标记模块级 GREEN；提交、融合和 cleanup 必须等待完整证据。
+- Forbidden action: 禁止修改无关编译错误来解阻、把受限测试通过升级为完整回归通过、在适配器缺失时提交默认成功实现，或在任务仍 blocked/in_progress 时 commit/merge/remove worktree。
+- Evidence: `doc/tasks/20260821-flow-repair-04-active-order-complete-unified-backfill/execution-log.md` 与 `verification-report.md`（Maven 3.9.16 环境、ERP/MES 首错、Flow4 受限 9/9 边界）。
+
 ## 前置源码缺失与 Maven GREEN 复验门禁
 
 - Trigger: 目标 worktree 基线缺少当前测试所需的 Java 源码，而源码只作为另一个 worktree 的 untracked 文件存在；或 Maven 命令超时但目标目录已经生成了部分 Surefire 报告。
@@ -53,14 +69,6 @@
 - Blocker: 发现秘密、fallback/临时逻辑、无法解释的 staged 文件、前置提交混入无关文件、目标编译仍缺类，或复跑命令没有真实退出码时必须停止；超时前生成的旧报告只能作为诊断线索，不能作为 GREEN 证据。
 - Verification: 记录前置提交 hash、`git show --name-status --oneline -1`、目标 worktree `git status --short --branch`、完整 Maven 命令和本次退出输出；只接受本次命令进入 Surefire 且 `BUILD SUCCESS` 的结果。
 - Forbidden action: 禁止复制未提交文件绕过 Git，禁止使用旧 `target`/静态扫描/API-only 冒充 Maven GREEN，禁止用 `git add -A` 将其它任务文件带入前置提交，也禁止在并发 Maven 未释放时叠加复跑。
-
-### 全局 ignore 导致的编译源缺失
-
-- Trigger: 编译器报告生产类型缺失，但同名源文件存在于另一个 worktree、`target/classes` 曾经可以编译，或路径命中 `**/runtime/` 等全局 ignore 规则。
-- Preflight check: 先用 `rg --files`、`git check-ignore -v <path>` 和 `git ls-files <path>` 确认源文件是否被 Git 忽略；从 task-owned worktree 逐文件补齐正式源码和运行时合同测试，禁止用旧 target 或复制未提交文件掩盖缺失。
-- Blocker: 无法证明文件归属、补齐范围包含其它任务、编译仍依赖 stale target，或测试只在缓存 class 上通过时必须停止；记录首次缺类、ignore 规则、补齐提交和复编译退出码。
-- Verification: 重新运行完整 `mvn -pl ... -am -DskipTests compile`，确认目标 Reactor `BUILD SUCCESS`，并用 `git ls-tree -r --name-only <integrated-ref>` 核验源文件已经进入集成引用；随后运行对应合同测试。
-- Forbidden action: 禁止修改 ignore 规则来吞掉缺失、复制主工作区旧 jar/class、使用 `--no-verify` 或将未解释的 runtime 文件批量 `git add -A`。
 
 ## 多 Worktree 批量融合门禁
 
@@ -71,6 +79,14 @@
 - Verification: 所有分支合入后逐项验证 ancestor 与 worktree clean；运行覆盖全部目标分支的聚焦组合回归。扩大到旧完整测试类时若出现失败，必须用 `git log`/`git diff <baseline>..HEAD -- <paths>` 判断是否由本批分支引入，并同时保留宽回归失败和目标回归结果，禁止把窄测通过冒充全量通过。
 - Forbidden action: 禁止把多个 dirty worktree 内容直接复制到主工作区；禁止用 `--force` merge、整文件 `ours/theirs`、静默跳过失败测试、或在首次推送和分支 ancestor 验证前删除 worktree。
 - Evidence: `doc/tasks/20260726-merge-worktrees-into-int-main/verification-report.md`，六个 worktree 在 dirty 内容独立提交、逐分支 merge、冲突后聚焦回归和 ancestor 验证后进入删除阶段。
+
+### 主线同路径未跟踪任务目录融合门禁
+
+- Trigger: 任务分支已形成独立提交，但 `int_main` 同时存在同路径未跟踪任务目录、同路径未提交文件或其它并行 dirty 改动。
+- Preflight check: 除了比较 task commit 与主线已跟踪文件的重叠，还必须用 `git status --porcelain`、`git ls-files --others --exclude-standard` 核对提交将新增的每个路径；逐项确认主线未跟踪目录不会被 fast-forward 覆盖，并记录当前 `int_main` HEAD 与任务基线的祖先关系。
+- Blocker: 任务提交新增路径在主线已存在为未跟踪目录，主线同路径文件有未提交修改，或主线 HEAD 已领先任务基线且无法在不改写 dirty 主线的隔离环境完成语义重放时，必须停止受保护融合；不得用 `git add -A`、stash、reset、checkout、clean 或删除未跟踪目录绕过保护。
+- Verification: 记录 task commit hash、主线 HEAD、tracked/untracked overlap 清单、`git merge-base --is-ancestor` 结果；只有主线工作树安全且 fast-forward 前置关系成立后，才能执行 merge 并在主线重跑目标测试和 `git diff --check`。
+- Evidence: 流程修复任务收尾中，独立 worktree 的条件损耗 commit 与主线定向代码未形成 tracked overlap，但主线存在同路径未跟踪流程任务目录及大量并行 dirty 改动，因此保留 commit、停止融合并将主线程验证记为 NOT RUN。
 
 ### 跨分支运行时契约复验门禁
 
@@ -188,6 +204,14 @@
 - Forbidden action: 禁止强杀并行任务进程、把旧 `48081` Jar 当作修复验证、只替换嵌套 class 拼混合 Jar、前端走 worktree 但后端仍代理到主工作区、或在未确认运行态成对归属前宣称真实 E2E 通过。
 - Evidence: `doc/tasks/20260802-third-party-feedback-import-list-progress/verification-report.md`，第三方报工导入修复在主 `48081` 被 DCC 任务占用时，使用 slot 9 的 `8090/48090` 成对运行态完成真实导入验证。
 
+## 任务分支快进融合的同名未跟踪文档门禁
+
+- Trigger: task-owned 分支需要快进合入 `int_main`，而主工作区已存在同路径未跟踪任务文档或并行任务记录。
+- Preflight check: 先记录主线 dirty/untracked 清单和分支 task-owned 文件清单；代码/测试提交只纳入当前任务文件。若同名未跟踪文件会阻止快进，不能删除、覆盖或整目录复制；应从最新主线重建最小代码提交，保留主线已有文档，再在主线程单独核对任务记录。
+- Blocker: 无法区分文件归属、需要覆盖主线未跟踪文件、或快进会改变并行任务内容时必须停止；不能用 `reset`、`checkout`、`stash`、`clean` 或强制合并绕过。
+- Verification: 记录 task-owned commit、`git merge --ff-only` 结果、主线 HEAD 是否包含 commit、主线程目标编译/测试/`git diff --check`/runtime guard；任务文档保留在主线原路径并准确区分局部代码完成与跨流程 blocker。
+- Forbidden action: 禁止把“文档未能随代码提交”误报为生产代码未合入，也禁止把局部合同测试 PASS 升级为全链路放行。
+
 ## Worktree 删除门禁
 
 - Trigger: 删除、清理、合并后移除、修复残留目录、处理 `git worktree remove` 失败、`Directory not empty`、`Invalid argument`、或断链 worktree。
@@ -293,3 +317,18 @@
    推荐命令：`git worktree list --porcelain`、`Test-Path <path>`、读取 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`。
    Fail Fast：任一目标仍注册、物理目录仍存在、或端口登记状态无法解释。
    必须记录：最终 worktree 列表、目录存在性、端口登记表处理结果。
+
+## Maven 用户级环境刷新与当前进程继承差异
+
+- Trigger: 用户更换 Maven 安装位置，或同一桌面会话中需要使用新 Maven 运行编译/测试。
+- Preflight check: 同时读取用户级 MAVEN_HOME/Path、当前进程 $env:MAVEN_HOME，并直接执行新路径下的 mvn.cmd -version；用户级变量更新不会刷新已启动的 Codex/PowerShell 进程。
+- Verification: 对本次命令显式设置进程级 MAVEN_HOME 与 Path，记录 mvn.cmd -version 的 Maven/Java 版本；新终端或新任务再复核当前进程变量。
+- Forbidden action: 禁止因当前进程仍显示旧路径就修改无关项目配置，禁止把绝对路径 Maven 已通过误写成系统环境已刷新，禁止下载/安装第二份 Maven 作为旁路。
+
+### 全量回归工件分类与工具阻断门禁
+
+- Trigger: 全量 MES/JUnit 回归已产生 Surefire XML，但主工作区重跑受 Maven 参数解析、JVM 内存、fixture 或并行编译影响，或需要把失败分派给相邻流程 owner。
+- Preflight check: 只读扫描目标 worktree 的 `target/surefire-reports/TEST-*.xml`，先用 suite 聚合核对 tests/failures/errors/skipped，再保留每条 testcase 的 class、method、原始 F/E 和最短错误摘要；将流程 gate、相邻流程、并行模块和环境/fixture 作为互斥 primary 分类，环境问题仅作二次标记。
+- Blocker: XML 工件缺失、聚合数与报告基线不一致、无法取得逐条 class/method、Maven 尚未进入 Surefire、或失败根因只能靠猜测时必须停在分类/阻断，不能把 skipped、fixture、PowerShell ParserError、JVM native memory failure 写成业务 RED，也不能以局部定向绿证替代全量回归。
+- Verification: 记录只读工件路径、suite/test/failure/error/skip 聚合、逐条清单与 owner 矩阵；对每个 failure/error 提供原命令的 `-Dtest=Class#method` 最小复现和后续动作；重新运行时必须使用真实 fixture/JUnit，保留原始退出码和工具错误。
+- Forbidden action: 禁止让流程 gate owner 修复跨模块失败，禁止 API-only、mock、默认成功或跳过测试掩盖缺口，禁止把合法 runtime slot 当业务失败，禁止覆盖并行 worktree 或修改其它任务代码来“清零”分类。
