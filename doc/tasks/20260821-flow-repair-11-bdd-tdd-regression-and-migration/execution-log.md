@@ -251,3 +251,5 @@ RED: `D:\IntRuoyiWorktree\20260822-flow-repair-06-current-main-verify` guard -> 
 GREEN: `git worktree add -b codex/20260823-flow06-int-main-integration D:\IntRuoyiWorktree\20260823-flow06-int-main-integration 6717b60c1` 后，`reserve-worktree-slot.ps1` 登记 slot=45 / `8260/48260`；`git worktree add -b codex/20260823-flow08-int-main-integration D:\IntRuoyiWorktree\20260823-flow08-int-main-integration 6717b60c1` 后登记 slot=46 / `8261/48261`。两个 clean worktree 的 guard 均 PASS。
 
 REGRESSION: 旧流程6/8目录不得继续提交全局 runtime 文件；对应 owner 应将业务差异迁移到新的 integration worktree，并只提交 task-owned 路径。slot=31 合法，未停止服务、未运行全 MES、未修改流程6/8业务代码。
+
+M26: 两个干净 integration worktree 已通过 `git merge --ff-only 0fcb3f365` 快进到当前主线；各自 `branch-runtime-port-guard.ps1` 在其真实工作目录执行均退出码 0，F6 为 `8260/48260`、F8 为 `8261/48261`，worktree clean。主线 dirty/untracked 文件未触碰。

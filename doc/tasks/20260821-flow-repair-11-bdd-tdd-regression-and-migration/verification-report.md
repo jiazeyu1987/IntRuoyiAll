@@ -165,3 +165,4 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 旧 `20260822-flow-repair-06-current-main-verify` guard 实际失败（v4/v5 文档与旧上限），旧 `20260822-flow-repair-08-design-development` guard 实际失败（v4、最大 slot=30，且无当前 registry 登记）。两个旧目录均不作为新提交/验证基线，未删除、未覆盖其业务改动。
 - 已创建干净当前基线 integration worktree：流程6 `D:\IntRuoyiWorktree\20260823-flow06-int-main-integration`，slot=45，`8260/48260`；流程8 `D:\IntRuoyiWorktree\20260823-flow08-int-main-integration`，slot=46，`8261/48261`。两者均从 `6717b60c1` 创建、registry active、guard PASS、worktree clean。
 - 迁移命令：`git worktree add -b <branch> <path> 6717b60c1`，随后 `scripts/runtime/reserve-worktree-slot.ps1 -Name <name> -Path <path> -Branch <branch> -Profile int_main -AsJson`。旧 worktree 业务差异由各自 owner 有选择地迁移，流程11不代改流程6/8业务代码。
+- 两个新 worktree 随后以 `git merge --ff-only 0fcb3f365` 快进到当前主线；在各自真实工作目录执行 guard 均 PASS，且均 clean。registry slot/端口保持 F6=45/`8260/48260`、F8=46/`8261/48261`。
