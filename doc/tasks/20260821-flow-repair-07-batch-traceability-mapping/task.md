@@ -4,9 +4,9 @@
 
 ### Latest Authoritative Status (2026-08-23)
 
-`partial / blocked` for the Flow7 implementation slice. The continuation added task-owned batch Origin/TraceLink/Manifest persistence, a formal Tx-C producer/outbox path, and service contracts, but it does not claim completion of the full cross-flow workflow. Main-workspace Maven 3.9.16 clean compile passed at `2026-08-23T14:33:27+08:00` (24 modules, MES 2857 main sources); the focused 29 tests passed at `2026-08-23T14:34:54+08:00` (validator 17 + service contract 12, zero failures/errors/skips, `BUILD SUCCESS`). The linked-worktree ACL failure is historical context only. Real upstream receipt adapters/owners, database migration/runtime/permissions, Flow8 four-material gate, Flow10 final `RELEASED`, full regression, service startup and write-enabled E2E remain `NOT RUN`/blocked.
+`completed for the Flow7 task-owned scope; full cross-flow target remains blocked`. The delivered scope includes task-owned batch Origin/TraceLink/Manifest persistence, the formal Tx-C producer/outbox path, source-precheck resolver contract, and service contracts. Main-workspace Maven 3.9.16 clean compile passed at `2026-08-23T14:33:27+08:00` (24 modules, MES 2857 main sources); the focused 29 tests passed at `2026-08-23T14:34:54+08:00` (validator 17 + service contract 12, zero failures/errors/skips, `BUILD SUCCESS`). The linked-worktree ACL failure is historical context only. Real upstream receipt adapters/owners, database migration/runtime/permissions, Flow8 four-material gate, Flow10 final `RELEASED`, full regression, service startup and write-enabled E2E remain `NOT RUN`/blocked and are not owned by Flow7.
 
-M5 (implementation slice and verification) is `partial / blocked`; its focused compile/tests pass, while full cross-flow delivery remains blocked. M1-M4 below are historical design/document milestones and their earlier `completed` labels do not mean production delivery.
+M5 (Flow7 implementation slice and verification) is `completed for Flow7 scope`; full cross-flow integration remains blocked. M1-M4 below are historical design/document milestones and their earlier `completed` labels do not mean cross-flow production delivery.
 
 Git 交付已完成 task-owned 选择性提交：`0767b1fa5`。提交包含 Flow7 DTO/API、Tx-C producer、Origin/TraceLink/Manifest/outbox 持久化、迁移 SQL、定向测试和任务文档；未使用 `git add -A`，未混入流程9或其它 dirty/untracked。提交后标准 Maven compile 与未跳过 testResources 的 29 项定向测试均通过。
 
@@ -32,7 +32,7 @@ partial / blocked
 | M2 目标态设计 | completed | 关系、状态、接口、权限、幂等和迁移设计 |
 | M3 BDD/TDD 与验收计划 | completed | 可执行 RED/GREEN/REGRESSION 计划 |
 | M4 文档结构验证 | completed | 五份必需文档及必填章节 |
-| M5 流程7实现切片与验证 | partial / blocked | Origin/TraceLink/Manifest/Tx-C producer/outbox/API/SQL/测试切片；29项定向证据；完整链路 blocker |
+| M5 流程7实现切片与验证 | completed for Flow7 scope / blocked for cross-flow integration | Origin/TraceLink/Manifest/Tx-C producer/outbox/API/SQL/测试切片；clean compile 与 29 项定向证据；完整链路 blocker |
 
 ## 预期验证
 
