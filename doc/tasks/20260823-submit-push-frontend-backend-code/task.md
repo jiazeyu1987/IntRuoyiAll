@@ -10,7 +10,7 @@
 - [x] 核对当前分支、远端、暂存区和前后端改动归属。
 - [x] 完成本次前后端代码的提交前验证。
 - [x] 精确暂存前后端代码范围并复核 staged 清单。
-- [x] 完成本地 Git commit 并复扫残余改动；推送因网络前置条件失败。
+- [x] 完成本地 Git commit、推送并复扫残余改动。
 - [x] 完成收尾清理并记录最终状态。
 
 ## Expected Verification
@@ -29,7 +29,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## Applicable Experience Gates
 
@@ -47,7 +47,7 @@ blocked
 
 ## Blockers
 
-- 推送阻塞：GitHub HTTPS 当前不可达；本机配置的 `127.0.0.1:7890` 代理未监听，直连重试被重置。恢复网络或代理后需重新执行 `git push origin int_main`，并确认本地不再 ahead。
+- 无；此前 GitHub HTTPS 代理阻塞已解除并完成推送。
 
 ## Cleanup Keep
 

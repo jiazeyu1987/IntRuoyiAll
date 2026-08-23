@@ -29,6 +29,16 @@ BDD: 精确提交并推送前后端代码 -> Given 当前工作区同时包含�
 - 收尾清理应用：同一 task id 使用 `--mode apply` -> PASS，无删除项；当前仓库是主 worktree，不执行合并或 worktree 删除。
 - 收尾记录提交：`5652096e82f6f06d54de4c7baae15e04e0fe5be8`，包含本任务三份记录；随后任务文档只读核验发现本地相对远端 ahead 68。
 
+## Resumed Verification
+
+- 用户再次要求提交推送；复验发现本机代理 `127.0.0.1:7890` 和 GitHub 443 已恢复可达，旧网络 blocker 解除。
+- 复核并行新增提交 `fe878746a`、`1b59dd8d2`、`0002767c0`，变更仅为 MES 测试及任务验证文档；前后端工作区无未提交改动，暂存区为空。
+- `mvn -pl yudao-module-mes -am '-Dtest=MesReleaseAuthoritativeContextConfigurationTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> PASS，2 项测试，失败 0。
+- 推送前对象扫描：402 个 blob，超过 100 MB 的 blob 为 0。
+- `git -c http.version=HTTP/1.1 ls-remote origin HEAD` -> PASS，远端可达。
+- `git push origin int_main` -> PASS，推送范围 `8fe9228b2..0002767c0`。
+- 推送后 `HEAD` 与 `origin/int_main` 均为 `0002767c0486f11d82bd82666bf8b0f164aee597`，`git rev-list --count origin/int_main..HEAD` 为 0；前后端残余改动数为 0，暂存区为空。
+
 ## Verification Evidence
 
 RED: `mvn -pl yudao-module-system -am -Dtest=TenantServiceImplTest -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL, PowerShell/Maven 将未加引号的 `-Dsurefire.failIfNoSpecifiedTests=false` 解析为生命周期阶段 `.failIfNoSpecifiedTests=false`；未执行测试。
@@ -39,4 +49,4 @@ GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, int_main 使�
 
 ## Blockers
 
-- 推送阻塞：当前 GitHub HTTPS 路径不可用，本机代理端口 `127.0.0.1:7890` 未监听，直连重试被远端重置；代码已提交本地但尚未同步到 `origin/int_main`。
+- 无；此前 GitHub HTTPS 网络阻塞已解除并完成推送。
