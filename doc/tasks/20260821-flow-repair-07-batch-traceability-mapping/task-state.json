@@ -1,0 +1,253 @@
+{
+  "schema_version": 2,
+  "task_id": "20260821-flow-repair-07-batch-traceability-mapping",
+  "mode": "full",
+  "status": "blocked",
+  "current_phase": "P5",
+  "phase_statuses": [
+    {
+      "phase_id": "P1",
+      "title": "规则与现状审计",
+      "objective": "冻结正式来源规则、当前代码事实、根因和流程2/3/4/5/6/7/8/9/10/11职责边界。",
+      "owned_paths": [
+        "`doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/task.md`",
+        "`doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/backend-api-evidence.md`"
+      ],
+      "dependencies": [],
+      "deliverables": [
+        "现状代码事实和正式来源 blocker 清单"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P1-AC1",
+          "text": "实现当前里程碑目标：冻结正式来源规则、当前代码事实、根因和流程2/3/4/5/6/7/8/9/10/11职责边界。",
+          "status": "completed",
+          "evidence": []
+        },
+        {
+          "ac_id": "P1-AC2",
+          "text": "交付物已落地：现状代码事实和正式来源 blocker 清单",
+          "status": "completed",
+          "evidence": []
+        },
+        {
+          "ac_id": "P1-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": []
+        }
+      ],
+      "evidence": [],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": null,
+      "status": "completed"
+    },
+    {
+      "phase_id": "P2",
+      "title": "目标态与数据/API设计",
+      "objective": "定义 Batch Origin、TraceLink、TraceManifest、状态 owner、事务、幂等、权限、历史迁移和跨线程接口契约。",
+      "owned_paths": [
+        "`doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/prd.md`",
+        "`doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/development-plan.md`",
+        "`IntRuoyiBackend/sql/mysql/20260822_mes_edhr_batch_traceability.sql`"
+      ],
+      "dependencies": [
+        "P1"
+      ],
+      "deliverables": [
+        "关系模型、接口合同、迁移/回滚边界"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P2-AC1",
+          "text": "实现当前里程碑目标：定义 Batch Origin、TraceLink、TraceManifest、状态 owner、事务、幂等、权限、历史迁移和跨线程接口契约。",
+          "status": "completed",
+          "evidence": []
+        },
+        {
+          "ac_id": "P2-AC2",
+          "text": "交付物已落地：关系模型、接口合同、迁移/回滚边界",
+          "status": "completed",
+          "evidence": []
+        },
+        {
+          "ac_id": "P2-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": []
+        }
+      ],
+      "evidence": [],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": null,
+      "status": "completed"
+    },
+    {
+      "phase_id": "P3",
+      "title": "BDD/TDD与验收计划",
+      "objective": "定义完成回填、建批、来源映射、无损耗、四份材料、后置放行和独立入口的 Given/When/Then、RED/GREEN/REGRESSION门禁。",
+      "owned_paths": [
+        "`doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/test-plan.md`",
+        "`doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/execution-log.md`"
+      ],
+      "dependencies": [
+        "P2"
+      ],
+      "deliverables": [
+        "可执行测试矩阵和失败 blocker 记录"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P3-AC1",
+          "text": "实现当前里程碑目标：定义完成回填、建批、来源映射、无损耗、四份材料、后置放行和独立入口的 Given/When/Then、RED/GREEN/REGRESSION门禁。",
+          "status": "completed",
+          "evidence": []
+        },
+        {
+          "ac_id": "P3-AC2",
+          "text": "交付物已落地：可执行测试矩阵和失败 blocker 记录",
+          "status": "completed",
+          "evidence": []
+        },
+        {
+          "ac_id": "P3-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": []
+        }
+      ],
+      "evidence": [],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": null,
+      "status": "completed"
+    },
+    {
+      "phase_id": "P4",
+      "title": "文档与证据结构验证",
+      "objective": "验证任务必需文档、章节、职责表、接口契约和证据文件结构完整且保持一致。",
+      "owned_paths": [
+        "`doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/verification-report.md`",
+        "`doc/tasks/20260821-flow-repair-07-batch-traceability-mapping/database-schema-evidence.md`"
+      ],
+      "dependencies": [
+        "P3"
+      ],
+      "deliverables": [
+        "文档结构检查和 API/数据库证据校验结果"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P4-AC1",
+          "text": "实现当前里程碑目标：验证任务必需文档、章节、职责表、接口契约和证据文件结构完整且保持一致。",
+          "status": "completed",
+          "evidence": []
+        },
+        {
+          "ac_id": "P4-AC2",
+          "text": "交付物已落地：文档结构检查和 API/数据库证据校验结果",
+          "status": "completed",
+          "evidence": []
+        },
+        {
+          "ac_id": "P4-AC3",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": []
+        }
+      ],
+      "evidence": [],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": null,
+      "status": "completed"
+    },
+    {
+      "phase_id": "P5",
+      "title": "流程7实现切片与验证",
+      "objective": "在已存在 batchExecutionId 和正式上游 receipt 的前提下，实现并验证 Origin/TraceLink/Manifest、canonical source identity、损耗事实和 RELEASE_DECISION 后置追溯。",
+      "owned_paths": [
+        "`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord`",
+        "`IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord`",
+        "`IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord`"
+      ],
+      "dependencies": [
+        "P4"
+      ],
+      "deliverables": [
+        "Flow7 task-owned API/service/SQL/test slice",
+        "28项定向测试和完整链路 blocker 证据"
+      ],
+      "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
+      "acceptance_criteria": [
+        {
+          "ac_id": "P5-AC1",
+          "text": "实现当前里程碑目标：在已存在 batchExecutionId 和正式上游 receipt 的前提下，实现并验证 Origin/TraceLink/Manifest、canonical source identity、损耗事实和 RELEASE_DECISION 后置追溯。",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "ac_id": "P5-AC2",
+          "text": "交付物已落地：Flow7 task-owned API/service/SQL/test slice",
+          "status": "completed",
+          "evidence": []
+        },
+        {
+          "ac_id": "P5-AC3",
+          "text": "交付物已落地：28项定向测试和完整链路 blocker 证据",
+          "status": "completed",
+          "evidence": []
+        },
+        {
+          "ac_id": "P5-AC4",
+          "text": "已完成当前里程碑验证并记录执行与测试证据",
+          "status": "completed",
+          "evidence": []
+        }
+      ],
+      "evidence": [],
+      "notes": [
+        "Mapped test topics require main-agent review."
+      ],
+      "last_reviewed_at": null,
+      "status": "blocked"
+    }
+  ],
+  "planner_review_status": "approved",
+  "test_status": "partial",
+  "blocking_prereqs": [
+    "Flow4 immutable completionBackfillReceipt persistence/owner is not available to the Tx-C formal read.",
+    "Flow6 successful provision audit does not yet carry the immutable sourceEvidence/provision receipt payload required by Tx-C.",
+    "Writable database/Mapper/outbox runtime, Flow6 event consumer, Flow8/10 integration, full regression and write-enabled E2E are NOT RUN."
+  ],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "created_at": "2026-08-23T04:26:50+00:00",
+  "updated_at": "2026-08-23T13:38:46+08:00",
+  "branch": "int_main",
+  "baseline_revision": "425028c3fe175838c4302056f146d56def7239aa",
+  "workspace_root": "E:\\IntRuoyi",
+  "tasks_root": "E:\\IntRuoyi\\doc\\tasks",
+  "task_dir": "E:\\IntRuoyi\\doc\\tasks\\20260821-flow-repair-07-batch-traceability-mapping",
+  "goal": "流程修复 7：批次执行完整映射和放行后追溯 PRD",
+  "artifacts": {
+    "prd": "E:\\IntRuoyi\\doc\\tasks\\20260821-flow-repair-07-batch-traceability-mapping\\prd.md",
+    "test_plan": "E:\\IntRuoyi\\doc\\tasks\\20260821-flow-repair-07-batch-traceability-mapping\\test-plan.md",
+    "task_state": "E:\\IntRuoyi\\doc\\tasks\\20260821-flow-repair-07-batch-traceability-mapping\\task-state.json",
+    "execution_log": "E:\\IntRuoyi\\doc\\tasks\\20260821-flow-repair-07-batch-traceability-mapping\\execution-log.md",
+    "test_report": "E:\\IntRuoyi\\doc\\tasks\\20260821-flow-repair-07-batch-traceability-mapping\\test-report.md"
+  }
+}

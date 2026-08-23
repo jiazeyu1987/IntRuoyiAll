@@ -23,10 +23,18 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskOpenReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskOpenRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskPreviewRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceCaptureReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceReleaseDecisionReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceSourcePrecheckRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceTxCReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchWorkbenchRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrLocalStateSampleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrLocalStateSampleRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceSourcePrecheckCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceTxCProducer;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchWorkbenchService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrLocalStateSampleService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrRehearsalReadinessCommand;
@@ -64,6 +72,10 @@ public class MesProEdhrBatchExecutionController {
 
     @Resource
     private MesProEdhrBatchExecutionService batchExecutionService;
+    @Resource
+    private MesProEdhrBatchTraceabilityService batchTraceabilityService;
+    @Resource
+    private MesProEdhrBatchTraceTxCProducer batchTraceTxCProducer;
     @Resource
     private MesProEdhrBatchWorkbenchService batchWorkbenchService;
     @Resource
@@ -219,6 +231,73 @@ public class MesProEdhrBatchExecutionController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
     public CommonResult<EdhrBatchExecutionReviewTimelineRespVO> reviewTimeline(@RequestParam("id") Long id) {
         return success(batchExecutionService.getReviewTimeline(id));
+    }
+
+    @GetMapping("/traceability")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<MesProEdhrBatchTraceabilityRespVO> traceability(
+            @RequestParam("batchExecutionId") Long batchExecutionId) {
+        return success(batchTraceabilityService.getTraceability(batchExecutionId));
+    }
+
+    @GetMapping("/traceability/manifest")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<MesProEdhrBatchTraceabilityRespVO> traceabilityManifest(
+            @RequestParam("batchExecutionId") Long batchExecutionId) {
+        return success(batchTraceabilityService.getTraceability(batchExecutionId));
+    }
+
+    @GetMapping("/traceability/source-precheck")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<MesProEdhrBatchTraceSourcePrecheckRespVO> sourcePrecheck(
+            @RequestParam("batchExecutionId") Long batchExecutionId,
+            @RequestParam("originLinkId") Long originLinkId,
+            @RequestParam(value = "expectedTraceLinkHash", required = false) String expectedTraceLinkHash,
+            @RequestParam(value = "expectedSourceSnapshotHash", required = false) String expectedSourceSnapshotHash,
+            @RequestParam(value = "expectedSourceVersion", required = false) Integer expectedSourceVersion) {
+        return success(batchTraceabilityService.resolveSourcePrecheck(
+                new MesProEdhrBatchTraceSourcePrecheckCommand()
+                        .setBatchExecutionId(batchExecutionId)
+                        .setOriginLinkId(originLinkId)
+                        .setExpectedTraceLinkHash(expectedTraceLinkHash)
+                        .setExpectedSourceSnapshotHash(expectedSourceSnapshotHash)
+                        .setExpectedSourceVersion(expectedSourceVersion)));
+    }
+
+    @GetMapping("/traceability/list")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<List<MesProEdhrBatchTraceabilityRespVO>> traceabilityList(
+            @RequestParam(value = "activeOrderId", required = false) Long activeOrderId,
+            @RequestParam(value = "workOrderId", required = false) Long workOrderId,
+            @RequestParam(value = "pickListId", required = false) Long pickListId,
+            @RequestParam(value = "releaseApplicationId", required = false) Long releaseApplicationId,
+            @RequestParam(value = "entryType", required = false) String entryType) {
+        return success(batchTraceabilityService.listTraceability(activeOrderId, workOrderId, pickListId,
+                releaseApplicationId, entryType));
+    }
+
+    @PostMapping("/traceability/capture")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:trace-capture')")
+    public CommonResult<MesProEdhrBatchTraceabilityRespVO> captureTraceability(
+            @Valid @RequestBody MesProEdhrBatchTraceCaptureReqVO reqVO) {
+        reqVO.setCapturedBy(SecurityFrameworkUtils.getLoginUserId());
+        return success(batchTraceabilityService.capture(reqVO));
+    }
+
+    @PostMapping("/traceability/tx-c")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:trace-capture')")
+    public CommonResult<cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceTxCResult> produceTxC(
+            @Valid @RequestBody MesProEdhrBatchTraceTxCReqVO reqVO) {
+        reqVO.setCapturedBy(SecurityFrameworkUtils.getLoginUserId());
+        return success(batchTraceTxCProducer.produce(reqVO));
+    }
+
+    @PostMapping("/traceability/release-decision")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:trace-capture')")
+    public CommonResult<MesProEdhrBatchTraceabilityRespVO> appendReleaseDecisionTrace(
+            @Valid @RequestBody MesProEdhrBatchTraceReleaseDecisionReqVO reqVO) {
+        reqVO.setCapturedBy(SecurityFrameworkUtils.getLoginUserId());
+        return success(batchTraceabilityService.appendReleaseDecision(reqVO));
     }
 
     @GetMapping("/rehearsal-readiness")

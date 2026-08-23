@@ -28,6 +28,11 @@ public class MesProEdhrBatchExecutionDO extends BaseDO {
     @TableId
     private Long id;
 
+    /**
+     * 租户边界快照。批次执行基础表已经持久化该列，Tx-C 读取时必须显式校验。
+     */
+    private Long tenantId;
+
     private String batchExecutionCode;
 
     private Long workOrderId;

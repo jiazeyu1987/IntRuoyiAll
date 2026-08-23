@@ -39,4 +39,14 @@ public interface MesProEdhrOperationAuditEventMapper extends BaseMapperX<MesProE
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
                 .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
     }
+
+    default List<MesProEdhrOperationAuditEventDO> selectSuccessfulListByBatchExecutionIdAndOperation(
+            Long batchExecutionId, String operationType) {
+        return selectList(new LambdaQueryWrapperX<MesProEdhrOperationAuditEventDO>()
+                .eq(MesProEdhrOperationAuditEventDO::getBatchExecutionId, batchExecutionId)
+                .eq(MesProEdhrOperationAuditEventDO::getOperationType, operationType)
+                .eq(MesProEdhrOperationAuditEventDO::getResultStatus, "SUCCESS")
+                .orderByDesc(MesProEdhrOperationAuditEventDO::getOccurredAt)
+                .orderByDesc(MesProEdhrOperationAuditEventDO::getId));
+    }
 }
