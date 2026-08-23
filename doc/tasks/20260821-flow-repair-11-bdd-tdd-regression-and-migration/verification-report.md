@@ -129,3 +129,10 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 本轮全量 Maven 重跑没有取得新的业务结果：未引用参数的 PowerShell 命令因参数拆分失败；修正引号后 JVM native memory allocation failure，未进入 surefire，均记录为工具/环境 blocker。XML 证据仍是只读历史基线，不使用 mock、API-only、直接 SQL、默认成功或 skip 代替真实回归。流程8 owner、流程7 owner、流程4/5/6/9/10及并行 owner、测试基础设施 owner 的持久化摘要见分类报告第 5 节。
 
 本专项仍保持“流程11代码与分类工具已验证；全链路 No-Go”：流程1-10生产闭环、真实 Playwright、生产历史迁移、人工批准和回滚演练没有因本次分类而变为通过。
+
+## 10.1 M21 受控 Maven 重跑结论
+
+- 原始 native-memory blocker 的根因已确认：旧 Maven 进程的 ergonomic `MaxHeapSize` 约 8GB，在 `hs_err_pid49664.log` 中记录系统物理可用约 1.7GB 时分配约 2.3MB 失败；这是 JVM/主机资源问题，不是流程8业务断言。
+- 通过单次进程级 `MAVEN_OPTS` 限制（`-Xmx2048m`、512MB Metaspace、128MB code cache、2 个编译线程、512KB 栈）并正确引用 Surefire 参数后，Maven 已进入 Surefire，native memory allocation failure 未再次出现。
+- 当前主线受控重跑的 `yudao-module-mes/target/surefire-reports` 只读聚合为 240 suites、1589 tests、7 failures、195 errors、0 skipped。失败类已列入执行日志，主要属于流程4/5/6/7/9/10、前线运行时、排产/路线或 fixture/依赖 owner；未出现流程8四材料/最终放行 gate 的直接失败项。
+- 因仍有真实 failure/error，本轮不能写成 Maven 回归通过；流程11工具验证完成，但流程8全 MES 回归和流程1-10全链路仍 No-Go。未修改流程8业务代码、未启动服务、未访问生产数据库、未执行真实 Playwright 或写入型迁移。

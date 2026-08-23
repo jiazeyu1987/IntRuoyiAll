@@ -195,3 +195,15 @@ REGRESSION: 流程8定向 215 tests 已有 PASS 证据且 `F8-GATE=0`；5 条 `F
 RED: `mvn -pl yudao-module-mes test -Dsurefire.failIfNoSpecifiedTests=false` -> FAIL，PowerShell 参数拆分为无效 lifecycle phase，未运行测试；修正引号后同一全量命令 -> FAIL，JVM native memory allocation failure，未进入 surefire。两条均为工具/环境 blocker，不改变 XML 工件事实，不得写成流程8业务 RED。
 
 Owner 通知已写入分类报告第 5 节：流程8 owner（0 条直接 gate failure）、流程7 owner（5 条来源/追溯前置）、流程4/5/6/9/10及并行 owner（A456/PAR）和测试基础设施 owner（fixture、依赖、19 skipped）。流程11只维护总回归合同和阻断证据。
+
+## M21 受控 Maven 重跑与内存阻断复核
+
+BDD: 全量 MES 回归必须先排除工具环境阻断再判定业务结果 -> Given 旧命令曾因 PowerShell 参数拆分失败，修正后又在 Surefire 前触发 JVM native memory allocation failure / When 使用 bundled Maven 并限制本次进程 JVM 内存后重跑 `-pl yudao-module-mes test` / Then 命令进入 Surefire，内存崩溃不再复现，但真实测试失败仍按 owner 矩阵分类，不得写成 PASS。
+
+RED: 未引用参数的 PowerShell Maven 命令 -> FAIL，参数被拆成无效 lifecycle phase，未运行测试；修正后无内存限制的同一全量命令 -> FAIL，`hs_err_pid49664.log` 记录 `Native memory allocation (malloc) failed to allocate 2408400 bytes`，当时 JVM ergonomic MaxHeapSize 约 8GB、系统物理可用约 1.7GB，未进入 Surefire。
+
+GREEN（工具门禁）: `$env:MAVEN_OPTS='-Xms256m -Xmx2048m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=128m -XX:CICompilerCount=2 -Xss512k'` 配合 bundled Maven `C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd -o -pl yudao-module-mes test '-Dsurefire.failIfNoSpecifiedTests=false'` -> 进入 Surefire，未再次出现 native memory allocation failure。
+
+REGRESSION（当前主线结果）: 本次受控重跑生成的当前 `target/surefire-reports` 汇总为 240 suites、1589 tests、7 failures、195 errors、0 skipped；失败集中在 `MesProcessPoolTeamLeaderControllerTest`（1F）、`MesProScheduleOrderControllerTest`（5E）、`MesC015RouteDccQaReconciliationSchemaTest`（1F）、`MesProcessPoolSchemaTest`（1F）、`MesProEdhrTraceTerminalPartitionContractTest`（2F）、`MesProRouteScheduleConfigServiceTest`（14E）、`MesIndependentBatchPrerequisiteReceiptServiceTest`（1F）、`MesProEdhrBatchExecutionLegacyProcessTest`（1E）、`MesProEdhrBatchExecutionServiceTest`（167E）、`MesProEdhrBatchExecutionTaskGateTest`（7E）、`MesProEdhrWorkTaskLegacyProcessTest`（1E）和 `MesFrontlineRuntimeConfigProcessScopeTest`（1F）。这些是当前主线业务/fixture/相邻流程回归结果，不能归入流程8自身 gate；不修改对应 owner 代码。
+
+证据边界：PowerShell wrapper 的退出码不能单独代表 Surefire 通过；以 Surefire XML/TXT 的 failure/error 计数为准。本次只验证内存工具阻断已解除并取得真实失败清单，流程8四材料 gate 仍无直接失败证据；全链路 No-Go 保持不变。
