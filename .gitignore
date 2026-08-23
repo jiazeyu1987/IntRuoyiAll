@@ -102,6 +102,42 @@ doc/tasks/**/*.jpg
 doc/tasks/**/*.jpeg
 doc/tasks/**/*.webp
 
+# Task-local verification sandboxes and copied build snapshots
+doc/tasks/**/tmp-*/
+doc/tasks/**/isolated-*/
+doc/tasks/**/qa-reader-isolated/
+doc/tasks/**/route-hash-isolated/
+doc/tasks/**/e2e-artifacts/
+doc/tasks/**/patch-backups/
+doc/tasks/**/prerequisite-main-overlap-backup/
+doc/tasks/**/runtime-hotpatch/
+doc/tasks/**/jar-inspect-*/
+doc/tasks/**/runtime-compile-*/
+doc/tasks/**/runtime-compiled-classes-*/
+doc/tasks/**/runtime-check/
+doc/tasks/**/runtime-patch-*/
+doc/tasks/**/runtime-patch-work-*/
+doc/tasks/**/scoped-test-libs/
+doc/tasks/**/artifacts/
+doc/tasks/**/db-backup/
+doc/tasks/**/backups/
+doc/tasks/**/maven-target/
+doc/tasks/**/verification-target/
+doc/tasks/**/*.HEAD.*
+doc/tasks/**/tools/node_modules/
+doc/tasks/**/*.class
+doc/tasks/**/*.args
+doc/tasks/**/*.imports
+doc/tasks/**/*.dumpstream
+doc/tasks/**/*.factories
+doc/tasks/**/*.bak
+doc/tasks/**/test-classpath.txt
+doc/tasks/**/*test-classpath.txt
+
+# Local office lock/copy files
+**/~$*
+**/*.analysis-copy.*
+
 ######################################################################
 # Worktree and temporary folders
 
@@ -109,3 +145,11 @@ doc/tasks/**/*.webp
 **/.worktrees/
 tmp/
 **/tmp/
+
+# Local-only review, export, and migration data
+.review-fix-loop/runs/
+.codex-worktree-qa-*/
+.merge_file_*
+.codex_patch_test*.tmp
+outputs/
+migration-packages/
