@@ -29,6 +29,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildResultRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCompletionReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCompletionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderReleaseApplyRespVO;
@@ -83,6 +85,9 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRebuildResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionCommand;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionResult;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailService;
@@ -161,6 +166,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesActiveOrderTransferTraceService activeOrderTransferTraceService;
     private final MesTeamLeaderActiveOrderReleaseApplicationService releaseApplicationService;
     private final MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService;
+    private final MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService;
 
     public MesProcessPoolTeamLeaderController(MesTeamLeaderWorkbenchService workbenchService,
                                               MesTeamLeaderSubmissionReviewService submissionReviewService,
@@ -176,7 +182,8 @@ public class MesProcessPoolTeamLeaderController {
                                               MesTeamLeaderTraceService traceService,
                                               MesActiveOrderTransferTraceService activeOrderTransferTraceService,
                                               MesTeamLeaderActiveOrderReleaseApplicationService releaseApplicationService,
-                                              MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService) {
+                                              MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService,
+                                              MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService) {
         this.workbenchService = workbenchService;
         this.submissionReviewService = submissionReviewService;
         this.abnormalReportService = abnormalReportService;
@@ -192,6 +199,7 @@ public class MesProcessPoolTeamLeaderController {
         this.activeOrderTransferTraceService = activeOrderTransferTraceService;
         this.releaseApplicationService = releaseApplicationService;
         this.activeOrderSimulationService = activeOrderSimulationService;
+        this.activeOrderCompletionService = activeOrderCompletionService;
     }
 
     @GetMapping("/submission/page")
@@ -402,6 +410,33 @@ public class MesProcessPoolTeamLeaderController {
         MesTeamLeaderActiveOrderSimulationResult result = activeOrderSimulationService.simulateActiveOrderCompletion(
                 SecurityFrameworkUtils.getLoginUserId(), reqVO.getActiveOrderId());
         return success(toActiveOrderSimulationRespVO(result));
+    }
+
+    @PostMapping("/active-order/complete")
+    @Operation(summary = "完成生产组长活跃订单并统一回填三类资料")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesTeamLeaderActiveOrderCompletionRespVO> completeActiveOrder(
+            @Valid @RequestBody MesTeamLeaderActiveOrderCompletionReqVO reqVO) {
+        MesTeamLeaderActiveOrderCompletionResult result = activeOrderCompletionService.complete(
+                SecurityFrameworkUtils.getLoginUserId(), new MesTeamLeaderActiveOrderCompletionCommand()
+                        .setActiveOrderId(reqVO.getActiveOrderId())
+                        .setExpectedVersion(reqVO.getExpectedVersion())
+                        .setIdempotencyKey(reqVO.getIdempotencyKey()));
+        return success(new MesTeamLeaderActiveOrderCompletionRespVO()
+                .setActiveOrderId(result.getActiveOrderId())
+                .setCompletionReceiptId(result.getCompletionReceiptId())
+                .setBatchCode(result.getBatchCode())
+                .setRouteId(result.getRouteId())
+                .setRouteVersionId(result.getRouteVersionId())
+                .setReceiptHash(result.getReceiptHash())
+                .setFlow6ReceiptStatus(result.getFlow6ReceiptStatus())
+                .setActiveOrderVersion(result.getActiveOrderVersion())
+                .setBatchRecordStatus(result.getBatchRecordStatus())
+                .setProcessInspectionStatus(result.getProcessInspectionStatus())
+                .setLossReportStatus(result.getLossReportStatus())
+                .setHasActualLoss(result.getHasActualLoss())
+                .setLossQuantity(result.getLossQuantity())
+                .setProvisionHandoff(result.getProvisionHandoff()));
     }
 
     @GetMapping("/active-order/list")

@@ -46,6 +46,20 @@ public interface MesPqcProcessInspectionAggregateDetailMapper
                 .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getId));
     }
 
+    default List<MesPqcProcessInspectionAggregateDetailDO> selectListByActiveOrderIdForUpdate(Long activeOrderId) {
+        if (activeOrderId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesPqcProcessInspectionAggregateDetailDO>()
+                .eq(MesPqcProcessInspectionAggregateDetailDO::getActiveOrderId, activeOrderId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getRouteProcessId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getProcessId)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getSampleNo)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
+                .orderByAsc(MesPqcProcessInspectionAggregateDetailDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     default int deleteByActiveOrderId(Long activeOrderId) {
         return activeOrderId == null ? 0 : physicalDeleteByActiveOrderId(activeOrderId);
     }

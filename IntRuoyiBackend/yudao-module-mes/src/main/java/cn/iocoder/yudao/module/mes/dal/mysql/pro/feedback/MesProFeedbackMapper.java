@@ -52,6 +52,16 @@ public interface MesProFeedbackMapper extends BaseMapperX<MesProFeedbackDO> {
                 .orderByAsc(MesProFeedbackDO::getId));
     }
 
+    default List<MesProFeedbackDO> selectListByIdsForUpdate(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProFeedbackDO>()
+                .in(MesProFeedbackDO::getId, ids)
+                .orderByAsc(MesProFeedbackDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     default List<MesProFeedbackDO> selectListBySourceImportRecordId(Long sourceImportRecordId) {
         if (sourceImportRecordId == null) {
             return Collections.emptyList();

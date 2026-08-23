@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.wm.productissue.vo.MesWmProd
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDO;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.List;
+
 /**
  * MES 领料出库单 Mapper
  */
@@ -30,6 +32,17 @@ public interface MesWmProductIssueMapper extends BaseMapperX<MesWmProductIssueDO
 
     default Long selectCountByWorkOrderId(Long workOrderId) {
         return selectCount(MesWmProductIssueDO::getWorkOrderId, workOrderId);
+    }
+
+    /**
+     * Locks all formal issue headers for the work order while Tx-A validates
+     * the unique finished source and snapshots its details.
+     */
+    default List<MesWmProductIssueDO> selectListByWorkOrderIdForUpdate(Long workOrderId) {
+        return selectList(new LambdaQueryWrapperX<MesWmProductIssueDO>()
+                .eq(MesWmProductIssueDO::getWorkOrderId, workOrderId)
+                .orderByAsc(MesWmProductIssueDO::getId)
+                .last("FOR UPDATE"));
     }
 
 }

@@ -23,6 +23,16 @@ public interface MesProcessPoolSubmissionReviewMapper extends BaseMapperX<MesPro
                 .orderByAsc(MesProcessPoolSubmissionReviewDO::getId));
     }
 
+    default List<MesProcessPoolSubmissionReviewDO> selectListByEventIdForUpdate(Long eventId) {
+        if (eventId == null) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolSubmissionReviewDO>()
+                .eq(MesProcessPoolSubmissionReviewDO::getEventId, eventId)
+                .orderByAsc(MesProcessPoolSubmissionReviewDO::getId)
+                .last("FOR UPDATE"));
+    }
+
     default MesProcessPoolSubmissionReviewDO selectLatestByEventIdForUpdate(Long eventId) {
         if (eventId == null) {
             return null;

@@ -58,7 +58,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
                         .thenComparing(MesProcessPoolActiveOrderProcessSnapshotDO::getProcessId))
                 .toList();
         List<MesProProcessPoolEventDO> events = orderedEvents(
-                eventMapper.selectProductionSubmitsByWorkOrderAndRoute(command.getWorkOrderId(), command.getRouteId()));
+                eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(command.getWorkOrderId(), command.getRouteId()));
         LinkedHashSet<Long> feedbackIds = new LinkedHashSet<>();
         for (MesProProcessPoolEventDO event : events) {
             if (event != null && FEEDBACK_SOURCE_TYPE.equals(event.getFeedbackSourceType())
@@ -68,7 +68,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
         }
         Map<Long, MesProFeedbackDO> feedbackById = new LinkedHashMap<>();
         if (!feedbackIds.isEmpty()) {
-            List<MesProFeedbackDO> feedbacks = feedbackMapper.selectListByIds(List.copyOf(feedbackIds));
+            List<MesProFeedbackDO> feedbacks = feedbackMapper.selectListByIdsForUpdate(List.copyOf(feedbackIds));
             if (feedbacks != null) {
                 feedbacks.stream().filter(Objects::nonNull)
                         .sorted(Comparator.comparing(MesProFeedbackDO::getId))
@@ -101,8 +101,9 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
                             "请由正式填写人和生产组长完成电子签名"));
                     continue;
                 }
-                LossFacts facts = exactLossFacts(event, feedback, snapshot, blockers);
-                if (facts == null) {
+                List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.LossDetail> details =
+                        exactLossDetails(event, feedback, snapshot, blockers);
+                if (details == null) {
                     continue;
                 }
                 sources.add(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource()
@@ -111,10 +112,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
                         .setEvent(event)
                         .setAllocation(allocation)
                         .setReview(review)
-                        .setLossDetails(facts.details())
-                        .setHasActualLoss(facts.hasActualLoss())
-                        .setZeroLossConfirmed(facts.zeroLossConfirmed())
-                        .setLossDecision(facts.lossDecision()));
+                        .setLossDetails(details));
             }
             if (sources.size() == sourcesBefore && matchingEvents.isEmpty()) {
                 blockers.add(blocker("LOSS_SOURCE_REQUIRED", snapshot, "ROUTE_PROCESS",
@@ -164,7 +162,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
             MesTeamLeaderActiveOrderReleaseLossReportPlanCommand command,
             MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
             MesProProcessPoolEventDO event) {
-        List<MesProcessPoolReportAllocationDO> allocations = allocationMapper.selectListByEventId(event.getId());
+        List<MesProcessPoolReportAllocationDO> allocations = allocationMapper.selectListByEventIdForUpdate(event.getId());
         List<MesProcessPoolReportAllocationDO> formal = allocations == null ? List.of() : allocations.stream()
                 .filter(Objects::nonNull)
                 .filter(allocation -> Objects.equals(command.getActiveOrderId(), allocation.getActiveOrderId())
@@ -178,7 +176,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
 
     private MesProcessPoolSubmissionReviewDO uniqueReview(
             MesProProcessPoolEventDO event, MesProcessPoolReportAllocationDO allocation) {
-        List<MesProcessPoolSubmissionReviewDO> reviews = reviewMapper.selectListByEventId(event.getId());
+        List<MesProcessPoolSubmissionReviewDO> reviews = reviewMapper.selectListByEventIdForUpdate(event.getId());
         if (allocation == null) {
             return null;
         }
@@ -226,49 +224,22 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
                 && Objects.equals(allocation.getConfirmedAt(), review.getReviewedAt());
     }
 
-    private LossFacts exactLossFacts(
+    private List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.LossDetail> exactLossDetails(
             MesProProcessPoolEventDO event,
             MesProFeedbackDO feedback,
             MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
             List<MesTeamLeaderActiveOrderReleaseBlocker> blockers) {
-        JsonNode payload;
+        JsonNode detailsNode;
         try {
-            payload = JsonUtils.getObjectMapper().readTree(event.getRawPayload());
+            JsonNode payload = JsonUtils.getObjectMapper().readTree(event.getRawPayload());
+            detailsNode = payload == null ? null : payload.get("lossDetails");
         } catch (Exception ex) {
-            payload = null;
+            detailsNode = null;
         }
-        if (payload == null || !payload.isObject()) {
-            blockers.add(blocker("LOSS_SOURCE_REQUIRED", snapshot, "PRODUCTION_EVENT", event.getId(),
-                    "rawPayload", "签名生产提交缺少可解析的正式损耗事实", "请重新提交正式生产反馈"));
-            return null;
-        }
-        JsonNode hasActualLossNode = payload.get("hasActualLoss");
-        JsonNode zeroLossConfirmedNode = payload.get("zeroLossConfirmed");
-        JsonNode lossDecisionNode = payload.get("lossDecision");
-        if (hasActualLossNode == null || !hasActualLossNode.isBoolean()
-                || zeroLossConfirmedNode == null || !zeroLossConfirmedNode.isBoolean()
-                || lossDecisionNode == null || !lossDecisionNode.isTextual()
-                || StrUtil.isBlank(lossDecisionNode.asText())) {
-            blockers.add(blocker("LOSS_HAS_ACTUAL_LOSS_REQUIRED", snapshot, "PRODUCTION_EVENT", event.getId(),
-                    "hasActualLoss", "正式生产提交必须冻结 hasActualLoss、zeroLossConfirmed 和 lossDecision",
-                    "请通过正式生产反馈重新提交损耗事实"));
-            return null;
-        }
-        boolean hasActualLoss = hasActualLossNode.asBoolean();
-        boolean zeroLossConfirmed = zeroLossConfirmedNode.asBoolean();
-        String lossDecision = lossDecisionNode.asText();
-        boolean quantityPositive = feedback.getUnqualifiedQuantity() != null
-                && feedback.getUnqualifiedQuantity().signum() > 0;
-        if (hasActualLoss != quantityPositive
-                || (hasActualLoss && (zeroLossConfirmed || !"REQUIRED".equals(lossDecision)))
-                || (!hasActualLoss && (!zeroLossConfirmed || !"NO_LOSS".equals(lossDecision)))) {
-            blockers.add(blocker("LOSS_HAS_ACTUAL_LOSS_CONFLICT", snapshot, "PRODUCTION_EVENT", event.getId(),
-                    "hasActualLoss", "正式损耗布尔事实、决策状态和反馈数量不一致",
-                    "请修复签名生产提交中的损耗事实后重新提交"));
-            return null;
-        }
-        JsonNode detailsNode = payload.get("lossDetails");
         if (detailsNode == null || !detailsNode.isArray()) {
+            if (isZero(feedback.getUnqualifiedQuantity())) {
+                return List.of();
+            }
             blockers.add(blocker("LOSS_SOURCE_REQUIRED", snapshot, "PRODUCTION_EVENT", event.getId(),
                     "lossDetails", "签名生产提交缺少结构化 lossDetails",
                     "请由正式生产反馈链路保存结构化损耗明细"));
@@ -300,13 +271,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
                     .setReasonName(reasonName.asText())
                     .setQuantity(detailQuantity));
         }
-        if (!hasActualLoss && !details.isEmpty()) {
-            blockers.add(blocker("LOSS_HAS_ACTUAL_LOSS_CONFLICT", snapshot, "PRODUCTION_EVENT", event.getId(),
-                    "lossDetails", "无损耗事实不能携带正数损耗明细",
-                    "请重新提交明确的空 lossDetails"));
-            return null;
-        }
-        return new LossFacts(List.copyOf(details), hasActualLoss, zeroLossConfirmed, lossDecision);
+        return List.copyOf(details);
     }
 
     private List<MesProProcessPoolEventDO> orderedEvents(List<MesProProcessPoolEventDO> events) {
@@ -318,13 +283,6 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
 
     private boolean isZero(BigDecimal value) {
         return value != null && value.signum() == 0;
-    }
-
-    private record LossFacts(
-            List<MesTeamLeaderActiveOrderReleaseLossSourceReadResult.LossDetail> details,
-            Boolean hasActualLoss,
-            Boolean zeroLossConfirmed,
-            String lossDecision) {
     }
 
     private MesTeamLeaderActiveOrderReleaseBlocker blocker(

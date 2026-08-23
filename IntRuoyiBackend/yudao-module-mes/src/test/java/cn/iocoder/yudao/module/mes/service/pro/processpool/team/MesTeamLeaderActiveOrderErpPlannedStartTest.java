@@ -2,11 +2,13 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
+import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
+import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
-import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
-import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
@@ -27,6 +29,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQu
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyFieldMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
@@ -36,8 +40,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
@@ -227,6 +229,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .thenReturn(List.of(publishedRegulationVersion()));
         lenient().when(inspectionRegulationVersionMapper.selectById(9902L))
                 .thenReturn(publishedRegulationVersion());
+        lenient().when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
+                .thenReturn(publishedRegulationVersion());
         lenient().when(inspectionRegulationItemMapper.selectListByVersionIds(List.of(9902L))).thenReturn(pqcItems());
         lenient().when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(pqcItems());
         lenient().when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9902L)))
@@ -237,6 +241,14 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                 .thenReturn(null);
         lenient().when(pqcInspectionTaskMapper.insert(any(MesPqcInspectionTaskDO.class))).thenReturn(1);
         lenient().when(releaseApplicationMapper.selectLatestByActiveOrderIds(any())).thenReturn(List.of());
+        lenient().when(pickListMapper.selectById(901L)).thenReturn(ErpKingdeeProductionPickListDO.builder()
+                .id(901L).sourceFormId("PRD_PICK").sourceFid("FID-901").sourceBillNo("ISSUE-901")
+                .documentStatus("C").build());
+        lenient().when(pickListItemMapper.selectListByPickListIds(List.of(901L))).thenReturn(List.of(
+                ErpKingdeeProductionPickListItemDO.builder().id(902L).productionPickListId(901L)
+                        .sourceEntryId("ENTRY-1").sourceLineKey("LINE-1").productionOrderNo("WO-9001")
+                        .materialNumber("WO-PRODUCT").actualQuantity(new BigDecimal("200"))
+                        .requestedQuantity(new BigDecimal("200")).build()));
     }
 
     @Test
@@ -263,6 +275,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
         MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
+                .pickListId(901L)
+                .idempotencyKey("erp-planned-start-test-1")
                 .build());
 
         assertEquals(8101L, result.getActiveOrderId());
@@ -295,6 +309,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
         MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
                 .leaderUserId(3001L)
                 .workOrderId(9001L)
+                .pickListId(901L)
+                .idempotencyKey("erp-planned-start-test-2")
                 .build());
 
         assertEquals(8101L, result.getActiveOrderId());
@@ -387,7 +403,8 @@ class MesTeamLeaderActiveOrderErpPlannedStartTest {
                   "configSnapshots": {
                     "flowGraph": {
                       "nodes": [
-                        {"routeProcessId": 928609, "processId": 6001, "sort": 10}
+                        {"routeProcessId": 928609, "processId": 6001, "processCode": "CLEAN-001",
+                         "processName": "清洗", "sort": 10}
                       ]
                     },
                     "scheduleUseConfigs": [

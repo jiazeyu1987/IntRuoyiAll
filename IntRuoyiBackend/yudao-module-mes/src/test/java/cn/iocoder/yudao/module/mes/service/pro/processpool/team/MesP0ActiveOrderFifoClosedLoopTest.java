@@ -238,6 +238,7 @@ class MesP0ActiveOrderFifoClosedLoopTest {
                 .routeProcessId(5001L)
                 .processId(6001L)
                 .actualEmployeeId(2001L)
+                .reportOutputQuantity(new BigDecimal("80"))
                 .rawPayload(rawPayload)
                 .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 10, 0))
                 .build();

@@ -73,6 +73,20 @@ public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessP
                 .last("FOR UPDATE"));
     }
 
+    default int markCompleted(Long activeOrderId, Integer expectedVersion, Long leaderUserId) {
+        if (activeOrderId == null || expectedVersion == null || leaderUserId == null) {
+            return 0;
+        }
+        return update(null, new LambdaUpdateWrapper<MesProcessPoolActiveOrderDO>()
+                .eq(MesProcessPoolActiveOrderDO::getId, activeOrderId)
+                .eq(MesProcessPoolActiveOrderDO::getActiveStatus, "ACTIVE")
+                .eq(MesProcessPoolActiveOrderDO::getVersion, expectedVersion)
+                .set(MesProcessPoolActiveOrderDO::getBusinessStatus, "COMPLETED")
+                .set(MesProcessPoolActiveOrderDO::getUpdateTime, LocalDateTime.now())
+                .set(MesProcessPoolActiveOrderDO::getUpdater, leaderUserId.toString())
+                .setSql("version = version + 1"));
+    }
+
     default List<MesProcessPoolActiveOrderDO> selectListByWorkOrderIdForUpdate(Long workOrderId) {
         if (workOrderId == null) {
             return List.of();

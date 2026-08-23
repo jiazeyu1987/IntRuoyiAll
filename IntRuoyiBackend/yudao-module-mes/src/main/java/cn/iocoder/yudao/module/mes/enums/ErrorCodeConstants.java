@@ -1272,6 +1272,22 @@ public interface ErrorCodeConstants {
             "活跃订单存在已分配给其它订单的共享报工记录，不能直接重建：activeOrderId={}，eventId={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_VERSION_CONFLICT = new ErrorCode(1_040_760_364,
             "活跃订单放行关闭版本已变化，请刷新后重试：activeOrderId={}，expectedVersion={}，currentVersion={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PROGRESS_NOT_COMPLETE = new ErrorCode(1_040_760_365,
+            "活跃订单生产进度和检验进度必须均为100%才能完成：activeOrderId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_NOT_OWNED = new ErrorCode(1_040_760_366,
+            "活跃订单不属于当前生产组长负责范围：activeOrderId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_VERSION_CONFLICT = new ErrorCode(1_040_760_367,
+            "活跃订单版本已变化，请刷新后重试：activeOrderId={}，expectedVersion={}，currentVersion={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_IDEMPOTENCY_CONFLICT = new ErrorCode(1_040_760_368,
+            "活跃订单完成幂等键与既有回执载荷或来源不一致：activeOrderId={}，idempotencyKey={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING = new ErrorCode(1_040_760_369,
+            "活跃订单完成缺少正式三类回填来源：activeOrderId={}，blocker={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED = new ErrorCode(1_040_760_370,
+            "活跃订单完成回执持久化失败：activeOrderId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_NOT_FOUND = new ErrorCode(1_040_760_371,
+            "活跃订单完成回执不存在或不属于当前租户：receiptId={}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_TAMPERED = new ErrorCode(1_040_760_372,
+            "活跃订单完成回执完整性校验失败：receiptId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

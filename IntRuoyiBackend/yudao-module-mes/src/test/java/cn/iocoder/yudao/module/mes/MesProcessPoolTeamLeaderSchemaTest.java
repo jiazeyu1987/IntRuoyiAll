@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDefectReasonDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
@@ -13,8 +14,11 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolWorkOrderAbnormalDO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.MesProcessPoolTeamLeaderController;
 import com.baomidou.mybatisplus.annotation.TableName;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.PostMapping;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -23,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -426,6 +431,87 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertTrue(sql.contains("`operator_user_id` bigint"));
         assertTrue(sql.contains("`result_status` varchar(32)"));
         assertTrue(sql.contains("`change_summary` varchar(1000)"));
+    }
+
+    @Test
+    void completionReceiptSchemaMustBeImmutableAndFlow6Independent() throws Exception {
+        assertEquals("mes_pro_process_pool_active_order_completion_receipt", tableName(
+                MesProcessPoolActiveOrderCompletionReceiptDO.class));
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "activeOrderId", Long.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "requestIdempotencyKey", String.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "sourceSnapshotHash", String.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "formalSourceSnapshotJson", String.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "signatureSnapshotJson", String.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "batchCode", String.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "routeId", Long.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "routeVersionId", Long.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "receiptHash", String.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "receiptStatus", String.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "lossReportStatus", String.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "hasActualLoss", Boolean.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "lossQuantity", BigDecimal.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "lossConditionFactsJson", String.class);
+        assertFalse(java.util.Arrays.stream(MesProcessPoolActiveOrderCompletionReceiptDO.class.getDeclaredFields())
+                .anyMatch(field -> field.getName().equals("batchExecutionId")));
+
+        String sql = Files.readString(resolveBackendPath(
+                "sql/mysql/20260822_mes_process_pool_active_order_completion_receipt.sql"), StandardCharsets.UTF_8);
+        assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_active_order_completion_receipt`"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_pp_completion_receipt_order`"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_pp_completion_receipt_idempotency`"));
+        assertTrue(sql.contains("`loss_report_status` varchar(32) NOT NULL"));
+        assertTrue(sql.contains("`has_actual_loss` bit(1) NOT NULL"));
+        assertTrue(sql.contains("`loss_quantity` decimal(24,6) NOT NULL"));
+        assertTrue(sql.contains("`loss_condition_facts_json` json NOT NULL"));
+        assertTrue(sql.contains("`formal_source_snapshot_json` json NOT NULL"));
+        assertTrue(sql.contains("`signature_snapshot_json` json NOT NULL"));
+        assertTrue(sql.contains("`receipt_hash` char(64) NOT NULL"));
+        assertTrue(sql.contains("`receipt_status` varchar(32) NOT NULL"));
+        assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_active_order_completion_backfill`"));
+        assertTrue(sql.contains("UNIQUE KEY `uk_mes_pp_completion_backfill_order_type`"));
+        assertFalse(sql.contains("batch_execution_id"));
+        assertFalse(sql.contains("ON UPDATE CURRENT_TIMESTAMP"));
+    }
+
+    @Test
+    void completionEndpointContractMustBeTeamLeaderOwned() {
+        var method = java.util.Arrays.stream(MesProcessPoolTeamLeaderController.class.getDeclaredMethods())
+                .filter(candidate -> candidate.getName().equals("completeActiveOrder"))
+                .findFirst().orElseThrow();
+        PostMapping mapping = method.getAnnotation(PostMapping.class);
+        assertTrue(mapping != null && java.util.Arrays.asList(mapping.value()).contains("/active-order/complete"));
+        PreAuthorize authorization = method.getAnnotation(PreAuthorize.class);
+        assertEquals("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')",
+                authorization == null ? null : authorization.value());
+    }
+
+    @Test
+    void flow6ReceiptHandoffContractMustExposeFrozenFieldsWithoutBatchState() throws Exception {
+        Class<?> handoff = Class.forName(
+                "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt");
+        for (String field : List.of("receiptId", "batchCode", "routeId", "routeVersionId", "receiptHash",
+                "status", "sourceSnapshotHash", "formalSourceSnapshotJson", "signatureSnapshotJson",
+                "requestIdempotencyKey", "tenantId", "batchRecordSourceIdsJson",
+                "processInspectionSourceIdsJson", "lossRecordId", "zeroLossConfirmationSnapshot")) {
+            assertField(handoff, field, field.endsWith("Id") ? Long.class : String.class);
+        }
+        assertField(handoff, "createdAt", LocalDateTime.class);
+        assertFalse(java.util.Arrays.stream(handoff.getDeclaredFields())
+                .anyMatch(field -> field.getName().equals("batchExecutionId")));
+        assertEquals("BACKFILL_SUCCEEDED", handoff.getField("STATUS_BACKFILL_SUCCEEDED").get(null));
+        assertEquals("mes_pro_process_pool_active_order_completion_backfill", tableName(
+                Class.forName("cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionBackfillDO")));
+    }
+
+    @Test
+    void flow6ReceiptReadContractMustRequireTenant() throws Exception {
+        var method = Class.forName(
+                "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort")
+                .getDeclaredMethod("getByReceiptId", Long.class, Long.class);
+        assertEquals("cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt",
+                method.getReturnType().getName());
+        assertEquals(Long.class, MesProcessPoolActiveOrderCompletionReceiptDO.class.getSuperclass()
+                .getDeclaredField("tenantId").getType());
     }
 
     private static String tableName(Class<?> clazz) {

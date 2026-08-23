@@ -47,7 +47,9 @@ class MesFrontlineActiveOrderInitialAllocationContractTest {
                         + "MesProFrontlineFeedbackSubmitServiceImpl.java");
         int eventCreation = source.indexOf("createSubmitEvent(eventPayload)");
         int initialAllocation = source.indexOf("createInitialAllocation(", eventCreation);
-        int response = source.indexOf("return new MesProFrontlineFeedbackSubmitRespVO()", eventCreation);
+        int response = source.indexOf(
+                "MesProFrontlineFeedbackSubmitRespVO response = new MesProFrontlineFeedbackSubmitRespVO()",
+                eventCreation);
 
         assertTrue(eventCreation >= 0, "frontline submit must create the process-pool event");
         assertTrue(initialAllocation > eventCreation && initialAllocation < response,

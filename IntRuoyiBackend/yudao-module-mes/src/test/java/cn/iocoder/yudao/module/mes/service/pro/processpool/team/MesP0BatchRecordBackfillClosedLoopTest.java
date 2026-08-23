@@ -27,6 +27,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -85,7 +87,7 @@ class MesP0BatchRecordBackfillClosedLoopTest {
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
         verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
         MesProBatchRecordExecutionFieldAuditSaveChangesCommand command = auditCaptor.getValue();
-        assertEquals("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101",
+        assertEquals(sha256("PROCESS_POOL_REPORT_BACKFILL_AGG:9001:5001:6001:agg-single-1001-7101"),
                 command.getIdempotencyKey());
         assertEquals("before-hash", command.getBaseCellValuesHash());
         assertEquals(1L, command.getBaseFieldAuditRevision());
@@ -129,6 +131,7 @@ class MesP0BatchRecordBackfillClosedLoopTest {
                 .setSourceEvents(List.of(eventWithStructuredProductionPayload()))
                 .setAllocations(List.of(allocation()))
                 .setWorkOrder(workOrder())
+                .setPickListBindingId(8801L)
                 .setDccProjectCodeId(8001L));
 
         ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
@@ -144,12 +147,12 @@ class MesP0BatchRecordBackfillClosedLoopTest {
 
     private static MesTeamLeaderBatchRecordBackfillCommand backfillCommand() {
         return new MesTeamLeaderBatchRecordBackfillCommand()
-                .setPickListBindingId(8801L)
                 .setEvent(event())
                 .setAllocation(allocation())
                 .setSourceEvents(List.of(event()))
                 .setAllocations(List.of(allocation()))
                 .setWorkOrder(workOrder())
+                .setPickListBindingId(8801L)
                 .setDccProjectCodeId(8001L);
     }
 
@@ -308,5 +311,19 @@ class MesP0BatchRecordBackfillClosedLoopTest {
         rule.setAggregationStrategy("LAST");
         rule.setEnabled(true);
         return rule;
+    }
+
+    private static String sha256(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte item : digest) {
+                hex.append(String.format("%02x", item));
+            }
+            return hex.toString();
+        } catch (Exception ex) {
+            throw new AssertionError("SHA-256 is unavailable", ex);
+        }
     }
 }
