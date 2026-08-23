@@ -2,7 +2,7 @@
 
 ## 结论
 
-流程9自身代码符合性 `IMPLEMENTED / VERIFIED`，跨流程全链路符合性 `PARTIAL`。本轮新增受控独立凭证 issue/verify/revoke、持久化结构和迁移；数据库、密钥配置、流程6消费接线、服务启动和写入型 E2E 未执行。
+流程9自身代码符合性 `IMPLEMENTED / VERIFIED`，跨流程全链路符合性 `PARTIAL`。当前主线程复核 compile、4 项 receipt 生命周期测试和 42 项入口回归均通过；数据库迁移 dry-run、密钥配置、流程6消费接线、服务启动和写入型 E2E 未执行。
 
 ## 验收逐条关闭
 
@@ -23,12 +23,14 @@
 - Flow9 基础入口合同 commit：`477c97d41 feat: enforce flow9 multi-entry batch preconditions`。
 - Flow9 独立 receipt 生命周期 commit：`2cf830d7b feat(flow9): add controlled independent receipt lifecycle`，父节点为并行流程11提交 `ef217fe2c`；当前 `int_main` 已包含该提交，不重复融合旧 worktree。
 - Flow9 租户隔离修复 commit：`656e343df fix(flow9): preserve tenant mismatch for receipt lifecycle`；当前 `int_main` 已包含该提交。
+- 当前主线程 HEAD：`698dc6928d0c597ff8a1f18a5d090ee4d10bf72c`；上述 Flow9 提交仍在祖先链。
 - 编译：`mvn -o -pl yudao-module-mes -am -DskipTests compile` -> `BUILD SUCCESS`。
 - 目标测试：`ScheduleApplierTest, MesBatchExecutionEntryContractTest, MesPqcReleaseBatchExecutionServiceTest, MesProductionReleaseBatchExecutionPortTest` -> `Tests run: 42, Failures: 0, Errors: 0`。
 - `git diff --check` -> 通过；`branch-runtime-port-guard.ps1` -> 通过（int_main: 8081/48081）。
 - 最新主线复核（2026-08-23）保持上述 compile、42 项定向测试、diff-check 和 runtime guard 结果；流程9专项完成，流程6/7/8/10/11 全链路仍不属于流程9交付范围。
 - 最终主线程 HEAD=`40118d79e28d09aaba85cc88ea44a35c482be4ba`；`477c97d41`、`2cf830d7b`、`656e343df` 均可由 `git merge-base --is-ancestor <commit> HEAD` 证明已在祖先链。
-- 本轮新增验证：`mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-DforkCount=0' test` -> `BUILD SUCCESS`，`Tests run: 4, Failures: 0, Errors: 0`；新增 SQL/API evidence 已静态核对，真实迁移 NOT RUN。
+- 本轮新增验证：`mvn -o -pl yudao-module-mes "-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> `BUILD SUCCESS`，`Tests run: 4, Failures: 0, Errors: 0`；42 项定向回归 -> `BUILD SUCCESS`，`Tests run: 42, Failures: 0, Errors: 0`。
+- SQL 合同测试当前受相对路径缺陷影响（`NoSuchFileException`），迁移文件静态字段/唯一键核验通过；环境无 SQL 客户端或迁移 runner，真实 dry-run `NOT RUN`。
 - 本轮以 `int_main` 最新 HEAD=`ef217fe2ca8887e5b4242d0823f203179d6b059e` 为父节点创建 `2cf830d7b`，随后创建 `656e343df` 修复跨租户错误码；未覆盖主线其它 dirty/untracked 文件。
 
 ## 已读取合同证据
@@ -45,4 +47,4 @@
 
 ## 状态
 
-流程9自身任务：`completed`（入口合同与受控 receipt 生命周期已提交，42项入口回归与4项 receipt 专项测试通过；最终主线程 HEAD=`40118d79e`）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。
+流程9自身任务：`completed`（入口合同与受控 receipt 生命周期已提交，42项入口回归与4项 receipt 专项测试通过；最终复核 HEAD=`698dc6928`）。跨流程生产闭环：`PARTIAL / BLOCKED`，不得据本文档批准上线。

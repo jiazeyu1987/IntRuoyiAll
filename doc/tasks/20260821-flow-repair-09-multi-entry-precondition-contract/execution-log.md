@@ -21,6 +21,7 @@
 - M9 PASS（2026-08-23）：在并行流程11提交 `ef217fe2c` 之后，以最新 `int_main` 为父节点提交流程9受控 receipt 生命周期，commit=`2cf830d7b`；commit hook 的 `branch-runtime-port-guard.ps1` 通过（8081/48081）。
 - M10 PASS（2026-08-23）：复核跨租户验真/撤销时原先被租户过滤误报为缺凭证的问题；新增无租户范围 receipt 查询，仅用于返回稳定 `TENANT_MISMATCH`，不泄露凭证内容；commit=`656e343df`。
 - M11 PASS（2026-08-23）：主线程最终 HEAD=`40118d79e28d09aaba85cc88ea44a35c482be4ba`；确认 `477c97d41`、`2cf830d7b`、`656e343df` 均在祖先链，未重复融合。
+- M12 PASS（2026-08-23）：当前 `int_main` HEAD=`698dc6928d0c597ff8a1f18a5d090ee4d10bf72c`；MES compile `BUILD SUCCESS`；receipt 服务 issue/verify/revoke 测试 4/4 PASS；入口/PQC/生产放行/排产回归 42/42 PASS。
 
 ## BDD/TDD 记录
 
@@ -42,6 +43,7 @@
 - `GREEN: mvn -o -pl yudao-module-mes '-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-DforkCount=0' test -> PASS，Tests run: 4, Failures: 0, Errors: 0；覆盖签发、验真、篡改/来源变化、过期/撤销、跨租户和幂等边界。`
 - `REGRESSION: NOT RUN ->` 数据库迁移、流程11全链路、流程8四材料、流程10最终放行和真实写入型 E2E 未执行。
 - 最新主线程复核：MES compile `BUILD SUCCESS`；入口合同/PQC 联动/生产放行端口/排产 fail-fast 定向测试 `42/42 PASS`；receipt 专项测试 `4/4 PASS`；`git diff --check` 和 `branch-runtime-port-guard.ps1` 通过。
+- 本轮 SQL 合同测试因测试相对路径 `..\sql\mysql\20260823_mes_independent_batch_prerequisite_receipt.sql` 与 Maven 工作目录不匹配而失败；直接读取迁移文件的字段/唯一键核验为 `SQL_CONTRACT_PASS`。环境无 `mysql`、`mariadb`、`flyway`、`liquibase`、`sqlcmd`，真实迁移 dry-run 保持 `NOT RUN`。
 
 ## 代码审计事实
 
@@ -68,4 +70,4 @@
 
 ## 结论
 
-流程9自身入口合同与独立 receipt issue/verify/revoke 实现已提交至 `int_main`（`2cf830d7b`、租户隔离修复 `656e343df`、收尾文档 `40118d79e`）并通过提交门禁；跨流程持久化运行、四材料 gate、最终放行和全链路迁移仍不能据此放行生产。
+流程9自身入口合同与独立 receipt issue/verify/revoke 实现已提交至 `int_main`（`2cf830d7b`、租户隔离修复 `656e343df`、收尾文档 `40118d79e`）并通过提交门禁；流程6消费固定为 `receiptId`/正式验证引用，不接收客户端完整凭证对象；跨流程持久化运行、四材料 gate、最终放行和全链路迁移仍不能据此放行生产。
