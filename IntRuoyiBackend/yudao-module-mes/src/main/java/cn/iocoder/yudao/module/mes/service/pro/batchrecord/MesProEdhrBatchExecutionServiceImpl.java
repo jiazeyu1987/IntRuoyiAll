@@ -2229,37 +2229,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private String hashSpecialNodeAttachment(MesProBatchRecordExecutionAttachmentDO attachment) {
-        Map<String, Object> root = new LinkedHashMap<>();
-        root.put("executionId", attachment.getExecutionId());
-        root.put("batchExecutionId", attachment.getBatchExecutionId());
-        root.put("batchTaskId", attachment.getBatchTaskId());
-        root.put("workTaskId", attachment.getWorkTaskId());
-        root.put("rowIndex", attachment.getRowIndex());
-        root.put("columnIndex", attachment.getColumnIndex());
-        root.put("fieldKey", attachment.getFieldKey());
-        root.put("fieldPath", attachment.getFieldPath());
-        root.put("attachmentType", attachment.getAttachmentType());
-        root.put("attachmentGroupKey", attachment.getAttachmentGroupKey());
-        root.put("attachmentAction", attachment.getAttachmentAction());
-        root.put("versionNo", attachment.getVersionNo());
-        root.put("fileId", attachment.getFileId());
-        root.put("fileUrl", attachment.getFileUrl());
-        root.put("storageConfigId", attachment.getStorageConfigId());
-        root.put("storagePath", attachment.getStoragePath());
-        root.put("fileName", attachment.getFileName());
-        root.put("contentType", attachment.getContentType());
-        root.put("fileSize", attachment.getFileSize());
-        root.put("sha256", attachment.getSha256());
-        root.put("storageRetentionHash", attachment.getStorageRetentionHash());
-        root.put("previousAttachmentHash", attachment.getPreviousAttachmentHash());
-        root.put("operatorId", attachment.getOperatorId());
-        root.put("operatorName", attachment.getOperatorName());
-        root.put("operatedAt", attachment.getOperatedAt().toString());
-        root.put("reasonCategory", attachment.getReasonCategory());
-        root.put("reasonText", attachment.getReasonText());
-        return MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                SPECIAL_NODE_ATTACHMENT_LEDGER_PREFIX
-                        + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(JSON.toJSONString(root)));
+        return MesProEdhrSpecialNodeAttachmentHasher.attachmentHash(attachment);
     }
 
     private void validateCurrentUserIsBatchOwner(MesProEdhrBatchExecutionDO batch) {

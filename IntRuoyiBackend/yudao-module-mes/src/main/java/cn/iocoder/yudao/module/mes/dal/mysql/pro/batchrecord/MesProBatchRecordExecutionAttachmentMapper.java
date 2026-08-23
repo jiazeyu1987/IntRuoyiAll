@@ -38,6 +38,14 @@ public interface MesProBatchRecordExecutionAttachmentMapper
                 .orderByAsc(MesProBatchRecordExecutionAttachmentDO::getId));
     }
 
+    default List<MesProBatchRecordExecutionAttachmentDO> selectListByBatchExecutionId(Long batchExecutionId) {
+        return selectList(new LambdaQueryWrapperX<MesProBatchRecordExecutionAttachmentDO>()
+                .eq(MesProBatchRecordExecutionAttachmentDO::getBatchExecutionId, batchExecutionId)
+                .orderByAsc(MesProBatchRecordExecutionAttachmentDO::getFieldKey)
+                .orderByAsc(MesProBatchRecordExecutionAttachmentDO::getVersionNo)
+                .orderByAsc(MesProBatchRecordExecutionAttachmentDO::getId));
+    }
+
     default List<MesProBatchRecordExecutionAttachmentDO> selectListByExecutionField(
             Long executionId, String fieldPath, String fieldKey) {
         return selectList(new LambdaQueryWrapperX<MesProBatchRecordExecutionAttachmentDO>()

@@ -71,7 +71,6 @@ import java.util.List;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomLongId;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_PRECHECK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_SIGNOFF_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY;
@@ -140,11 +139,17 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesReleaseUpstreamStatePort upstreamStatePort;
     @MockitoBean
     private MesReleaseAuthoritativeContextPort authoritativeContextPort;
+    @MockitoBean
+    private MesProEdhrFourMaterialGateService fourMaterialGateService;
 
     @BeforeEach
     void setUpDossierRequirementDefaults() {
         mockDossierRequirementState(false, false, false, false, "dossier-hash-all-false");
         mockReleaseCompletenessSourcesAsNotApplicable();
+        when(fourMaterialGateService.evaluate(any())).thenAnswer(invocation ->
+                readyMaterialGate(invocation.getArgument(0)));
+        when(fourMaterialGateService.requireMaterialsReady(any())).thenAnswer(invocation ->
+                readyMaterialGate(invocation.getArgument(0)));
         when(adminUserApi.getUser(any())).thenAnswer(invocation -> {
             Long userId = invocation.getArgument(0);
             return user(userId, "用户" + userId);
@@ -261,7 +266,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void precheckDossierRequirementsDefaultOffDoNotBlockIncompleteSpecialNodes() {
+    void legacyDefaultOffCannotDisableFourMaterialGate() {
         MesProEdhrBatchExecutionDO batch = insertReadyToCloseBatch("BATCH-REL-DOSSIER-DEFAULT-OFF");
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7261L);
         insertCompletedExecution(task.getExecutionId(), true);
@@ -276,20 +281,22 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .setTaskTotal(5)
                 .setTaskApprovedCount(1));
 
+        when(fourMaterialGateService.evaluate(batch.getId())).thenReturn(new MesProEdhrFourMaterialGateResult(
+                MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_PENDING, false, null, List.of()));
         MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
 
-        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
-        assertEquals(0, result.getFailedCheckCount());
-        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_FAILED, result.getReleaseStatus());
+        assertEquals(4, result.getFailedCheckCount());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER,
                 selectCheckItem(result.getReleaseTransactionId(),
                         MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_INCOMING_INSPECTION_REPORT).getCheckResult());
-        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER,
                 selectCheckItem(result.getReleaseTransactionId(),
                         MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_STERILIZATION_REPORT).getCheckResult());
-        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER,
                 selectCheckItem(result.getReleaseTransactionId(),
                         MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_REPORT).getCheckResult());
-        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER,
                 selectCheckItem(result.getReleaseTransactionId(),
                         MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_RECORD).getCheckResult());
     }
@@ -325,6 +332,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                     .setId(batch.getId())
                     .setTaskTotal(2)
                     .setTaskApprovedCount(1));
+            when(fourMaterialGateService.evaluate(batch.getId())).thenReturn(new MesProEdhrFourMaterialGateResult(
+                    MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_PENDING, false, null, List.of()));
 
             MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
             MesProEdhrReleaseCheckItemDO item =
@@ -335,13 +344,12 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
             assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, item.getCheckResult(),
                     requirementCase.nodeType());
             assertEquals("BLOCKER", item.getSeverity(), requirementCase.nodeType());
-            assertTrue(item.getFailureReason().contains("未完成")
-                    || item.getFailureReason().contains("缺少已保存 ADD 附件"), requirementCase.nodeType());
+            assertTrue(item.getFailureReason().contains("MATERIALS_PENDING"), requirementCase.nodeType());
         }
     }
 
     @Test
-    void precheckDossierRequirementPassesWhenSpecialNodeApprovedAndSavedAddAttachmentExists() {
+    void precheckMapsFourMaterialReadyGateToPassItems() {
         mockDossierRequirementState(true, false, false, false, "dossier-hash-incoming-required");
         MesProEdhrBatchExecutionDO batch = insertReadyToCloseBatch("BATCH-REL-DOSSIER-PASS-INCOMING");
         MesProEdhrBatchExecutionTaskDO ordinaryTask = insertApprovedOrdinaryTask(batch.getId(), 7271L);
@@ -366,7 +374,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void submitRejectsWhenDossierRequirementConfigHashChangedAfterPrecheck() {
+    void submitIgnoresLegacyDossierRequirementConfigChangeAfterPrecheck() {
         mockDossierRequirementState(false, false, false, false, "dossier-hash-before-submit");
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-DOSSIER-HASH-STALE");
         insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
@@ -375,18 +383,17 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
         mockDossierRequirementState(true, false, false, false, "dossier-hash-after-submit");
 
+        MesProEdhrReleaseRespVO submitted;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
-            ServiceException exception = assertThrows(ServiceException.class,
-                    () -> releaseService.submit(new MesProEdhrReleaseSubmitReqVO()
-                            .setReleaseTransactionId(precheck.getReleaseTransactionId())
-                            .setIdempotencyKey("submit-dossier-hash-stale")
-                            .setPassword("owner-sign-secret")));
-            assertEquals(PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE.getCode(), exception.getCode());
+            submitted = releaseService.submit(new MesProEdhrReleaseSubmitReqVO()
+                    .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                    .setIdempotencyKey("submit-dossier-hash-stale")
+                    .setPassword("owner-sign-secret"));
         }
 
-        assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size());
-        verify(adminUserApi, never()).validatePassword(10001L, "owner-sign-secret");
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL, submitted.getReleaseStatus());
+        verify(adminUserApi).validatePassword(10001L, "owner-sign-secret");
     }
 
     @Test
@@ -1491,6 +1498,21 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                     .cellValuesHash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
                     .build());
         }
+    }
+
+    private MesProEdhrFourMaterialGateResult readyMaterialGate(Long batchExecutionId) {
+        List<MesProBatchRecordExecutionAttachmentDO> materials =
+                MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES.stream()
+                        .map(node -> MesProBatchRecordExecutionAttachmentDO.builder()
+                                .batchExecutionId(batchExecutionId)
+                                .batchTaskId(Math.abs((long) node.hashCode()))
+                                .fieldKey(node)
+                                .attachmentGroupKey(node)
+                                .build())
+                        .toList();
+        return new MesProEdhrFourMaterialGateResult(
+                MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, true,
+                "gate-manifest-" + batchExecutionId, materials);
     }
 
     private record DossierRequirementCase(String nodeType,

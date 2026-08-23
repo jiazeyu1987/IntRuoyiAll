@@ -84,13 +84,13 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.UNAUTHORIZED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_IDEMPOTENCY_KEY_REQUIRED;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_OWNER_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_PRECHECK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_SIGNATURE_PASSWORD_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_SIGNOFF_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_STATUS_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_MATERIAL_MANIFEST_STALE;
 
 @Service
 public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
@@ -175,8 +175,6 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Resource
     private FormActionInstanceMapper formActionInstanceMapper;
     @Resource
-    private MesProEdhrReleaseDossierRequirementSettingService dossierRequirementSettingService;
-    @Resource
     private MesProEdhrCandidateResolver candidateResolver;
     @Resource
     private MesOrderReleaseCompletenessService releaseCompletenessService;
@@ -188,6 +186,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesReleaseUpstreamStatePort upstreamStatePort;
     @Resource
     private MesReleaseAuthoritativeContextPort authoritativeContextPort;
+    @Resource
+    private MesProEdhrFourMaterialGateService fourMaterialGateService;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -409,10 +409,9 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
 
         releaseCheckItemMapper.closeOpenByReleaseTransactionId(transaction.getId());
         LocalDateTime checkedAt = now();
-        MesProEdhrReleaseDossierRequirementState dossierRequirementState =
-                dossierRequirementSettingService.getRequirementState();
+        MesProEdhrFourMaterialGateResult fourMaterialGate = fourMaterialGateService.evaluate(batch.getId());
         List<MesProEdhrReleaseCheckItemDO> checkItems =
-                buildCheckItems(transaction.getId(), batch, checkedAt, dossierRequirementState);
+                buildCheckItems(transaction.getId(), batch, checkedAt, fourMaterialGate);
         checkItems.forEach(releaseCheckItemMapper::insert);
 
         int failedCount = (int) checkItems.stream()
@@ -424,7 +423,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .count();
         String releaseStatus = failedCount == 0 ? STATUS_PRECHECK_PASSED : STATUS_PRECHECK_FAILED;
         Map<String, Object> snapshot =
-                buildSnapshot(batch, checkItems, releaseStatus, checkedAt, dossierRequirementState.configHash());
+                buildSnapshot(batch, checkItems, releaseStatus, checkedAt, fourMaterialGate.manifestHash());
         String precheckSnapshotJson = JSON.toJSONString(snapshot);
 
         transaction = new MesProEdhrReleaseTransactionDO()
@@ -466,7 +465,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
 
         MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(reqVO.getReleaseTransactionId());
         requirePrecheckPassed(transaction);
-        requireDossierRequirementConfigHashCurrent(extractDossierRequirementConfigHash(transaction));
+        requirePrecheckMaterialManifestCurrent(transaction);
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();
@@ -543,6 +542,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         }
         command.setActorUserId(authenticatedActorUserId);
         if (command.getAction() == MesReleaseFinalizationAction.APPROVE) {
+            MesProEdhrFourMaterialGateResult currentGate =
+                    fourMaterialGateService.requireMaterialsReady(command.getBatchExecutionId());
+            if (!Objects.equals(currentGate.manifestHash(), command.getMaterialGateManifestHash())) {
+                throw exception(PRO_EDHR_RELEASE_MATERIAL_MANIFEST_STALE);
+            }
             MesReleaseFinalizationEvidence evidence = authoritativeContextPort.require(command);
             MesReleaseFinalizationValidator.validate(command, evidence, java.time.Clock.systemUTC());
             return finalizeApproval(command, evidence);
@@ -889,27 +893,22 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private List<MesProEdhrReleaseCheckItemDO> buildCheckItems(Long releaseTransactionId,
                                                               MesProEdhrBatchExecutionDO batch,
                                                               LocalDateTime checkedAt,
-                                                              MesProEdhrReleaseDossierRequirementState
-                                                                      dossierRequirementState) {
+                                                              MesProEdhrFourMaterialGateResult fourMaterialGate) {
         return List.of(
                 buildDhrCompletenessItem(releaseTransactionId, batch, checkedAt),
-                buildDossierRequirementItem(releaseTransactionId, batch, checkedAt,
-                        dossierRequirementState.incomingInspectionReportRequired(),
+                buildDossierRequirementItem(releaseTransactionId, batch, checkedAt, fourMaterialGate,
                         MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT,
                         CHECK_DOSSIER_INCOMING_INSPECTION_REPORT, "来料检报告",
                         "来料检报告资料限制"),
-                buildDossierRequirementItem(releaseTransactionId, batch, checkedAt,
-                        dossierRequirementState.sterilizationReportRequired(),
+                buildDossierRequirementItem(releaseTransactionId, batch, checkedAt, fourMaterialGate,
                         MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_STERILIZATION_REPORT,
                         CHECK_DOSSIER_STERILIZATION_REPORT, "灭菌报告",
                         "灭菌报告资料限制"),
-                buildDossierRequirementItem(releaseTransactionId, batch, checkedAt,
-                        dossierRequirementState.finishedProductInspectionReportRequired(),
+                buildDossierRequirementItem(releaseTransactionId, batch, checkedAt, fourMaterialGate,
                         MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_REPORT,
                         CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_REPORT, "成品检报告",
                         "成品检报告资料限制"),
-                buildDossierRequirementItem(releaseTransactionId, batch, checkedAt,
-                        dossierRequirementState.finishedProductInspectionRecordRequired(),
+                buildDossierRequirementItem(releaseTransactionId, batch, checkedAt, fourMaterialGate,
                         MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_RECORD,
                         CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_RECORD, "成品检记录",
                         "成品检记录限制"),
@@ -939,33 +938,28 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrReleaseCheckItemDO buildDossierRequirementItem(Long releaseTransactionId,
                                                                      MesProEdhrBatchExecutionDO batch,
                                                                      LocalDateTime checkedAt,
-                                                                     boolean required,
+                                                                     MesProEdhrFourMaterialGateResult fourMaterialGate,
                                                                      String nodeType,
                                                                      String checkCode,
                                                                      String nodeLabel,
                                                                      String checkName) {
-        if (!required) {
-            return buildItem(releaseTransactionId, batch, checkedAt, checkCode, CATEGORY_DOSSIER, checkName,
-                    CHECK_RESULT_NOT_APPLICABLE, SEVERITY_INFO, MODULE_EDHR,
-                    SOURCE_OBJECT_TYPE_SPECIAL_NODE_ATTACHMENT, String.valueOf(batch.getId()), nodeLabel,
-                    nodeLabel + "限制未开启，放行不要求上传该资料",
-                    "无需处理；如需强制上传，请由金手指在个人中心配置页签开启该限制");
-        }
-
-        DossierRequirementEvidence evidence = resolveDossierRequirementEvidence(batch.getId(), nodeType, nodeLabel);
-        if (evidence.pass()) {
+        MesProBatchRecordExecutionAttachmentDO evidence = fourMaterialGate.materials().stream()
+                .filter(item -> Objects.equals(nodeType, item.getFieldKey())
+                        || Objects.equals(nodeType, item.getAttachmentGroupKey()))
+                .findFirst().orElse(null);
+        if (evidence != null) {
             return buildItem(releaseTransactionId, batch, checkedAt, checkCode, CATEGORY_DOSSIER, checkName,
                     CHECK_RESULT_PASS, SEVERITY_INFO, MODULE_EDHR,
-                    SOURCE_OBJECT_TYPE_SPECIAL_NODE_ATTACHMENT, String.valueOf(evidence.sourceTaskId()),
-                    evidence.sourceTaskCode(),
-                    nodeLabel + "节点已完成且存在已保存 ADD 附件",
+                    SOURCE_OBJECT_TYPE_SPECIAL_NODE_ATTACHMENT, String.valueOf(evidence.getBatchTaskId()),
+                    nodeLabel,
+                    nodeLabel + "当前版本已完成并通过文件元数据与摘要校验",
                     "无需处理");
         }
         return buildItem(releaseTransactionId, batch, checkedAt, checkCode, CATEGORY_DOSSIER, checkName,
                 CHECK_RESULT_BLOCKER, SEVERITY_BLOCKER, MODULE_EDHR,
-                SOURCE_OBJECT_TYPE_SPECIAL_NODE_ATTACHMENT, String.valueOf(evidence.sourceTaskId()),
-                evidence.sourceTaskCode(), evidence.failureReason(),
-                "完成" + nodeLabel + "特殊节点并保存至少 1 个 ADD 附件后重新预检");
+                SOURCE_OBJECT_TYPE_SPECIAL_NODE_ATTACHMENT, String.valueOf(batch.getId()),
+                nodeLabel, nodeLabel + "缺失或当前版本无效：" + fourMaterialGate.status(),
+                "完成" + nodeLabel + "当前版本上传后重新预检");
     }
 
     private DossierRequirementEvidence resolveDossierRequirementEvidence(Long batchExecutionId,
@@ -1260,7 +1254,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                                               List<MesProEdhrReleaseCheckItemDO> checkItems,
                                               String releaseStatus,
                                               LocalDateTime checkedAt,
-                                              String dossierRequirementConfigHash) {
+                                              String materialGateManifestHash) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("batchExecutionId", batch.getId());
         snapshot.put("batchExecutionCode", batch.getBatchExecutionCode());
@@ -1269,7 +1263,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("productCode", batch.getProductCode());
         snapshot.put("releaseStatus", releaseStatus);
         snapshot.put("checkedAt", checkedAt);
-        snapshot.put("dossierRequirementConfigHash", dossierRequirementConfigHash);
+        snapshot.put("materialGateManifestHash", materialGateManifestHash);
         snapshot.put("items", checkItems.stream()
                 .map(item -> Map.of(
                         "checkCode", item.getCheckCode(),
@@ -1281,26 +1275,29 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         return snapshot;
     }
 
-    private String extractDossierRequirementConfigHash(MesProEdhrReleaseTransactionDO transaction) {
+    private String extractMaterialGateManifestHash(MesProEdhrReleaseTransactionDO transaction) {
         String snapshotJson = transaction == null ? null : transaction.getPrecheckSnapshotJson();
         if (StrUtil.isBlank(snapshotJson)) {
             return null;
         }
         try {
             JSONObject snapshot = JSON.parseObject(snapshotJson);
-            return snapshot == null ? null : snapshot.getString("dossierRequirementConfigHash");
+            return snapshot == null ? null : snapshot.getString("materialGateManifestHash");
         } catch (RuntimeException ex) {
-            throw exception(PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE);
+            throw exception(PRO_EDHR_RELEASE_MATERIAL_MANIFEST_STALE);
         }
     }
 
-    private void requireDossierRequirementConfigHashCurrent(String precheckConfigHash) {
-        MesProEdhrReleaseDossierRequirementState currentState =
-                dossierRequirementSettingService.getRequirementState();
-        if (StrUtil.isBlank(precheckConfigHash) || !Objects.equals(currentState.configHash(), precheckConfigHash)) {
-            throw exception(PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE);
+    private MesProEdhrFourMaterialGateResult requirePrecheckMaterialManifestCurrent(
+            MesProEdhrReleaseTransactionDO transaction) {
+        MesProEdhrFourMaterialGateResult current =
+                fourMaterialGateService.requireMaterialsReady(transaction.getBatchExecutionId());
+        String precheckManifestHash = extractMaterialGateManifestHash(transaction);
+        if (StrUtil.isBlank(precheckManifestHash)
+                || !Objects.equals(precheckManifestHash, current.manifestHash())) {
+            throw exception(PRO_EDHR_RELEASE_MATERIAL_MANIFEST_STALE);
         }
-        dossierRequirementSettingService.requireCurrentConfigHash(precheckConfigHash);
+        return current;
     }
 
     private String buildPrecheckIdempotencyKey(MesProEdhrReleaseTransactionDO transaction, LocalDateTime checkedAt) {
@@ -1910,7 +1907,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
 
         MesProEdhrReleaseTransactionDO transaction = requireTransactionForUpdate(command.getReleaseTransactionId());
         requirePrecheckPassed(transaction);
-        requireDossierRequirementConfigHashCurrent(extractDossierRequirementConfigHash(transaction));
+        requirePrecheckMaterialManifestCurrent(transaction);
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();

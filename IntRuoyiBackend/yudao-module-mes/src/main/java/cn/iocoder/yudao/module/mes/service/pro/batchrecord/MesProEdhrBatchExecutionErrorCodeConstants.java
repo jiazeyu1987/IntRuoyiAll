@@ -164,4 +164,8 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_464, "eDHR 放行资料限制配置值非法：{}={}");
     ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE =
             new ErrorCode(1_040_750_465, "eDHR 放行资料限制配置已变更，请重新执行放行预检");
+    ErrorCode PRO_EDHR_RELEASE_FOUR_MATERIAL_GATE_BLOCKED =
+            new ErrorCode(1_040_750_466, "四份放行材料未齐套或当前版本无效：{}");
+    ErrorCode PRO_EDHR_RELEASE_MATERIAL_MANIFEST_STALE =
+            new ErrorCode(1_040_750_467, "四份放行材料版本或清单摘要已变化，请重新预检");
 }
