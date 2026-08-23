@@ -231,3 +231,13 @@ GREEN: `$env:MAVEN_OPTS='-Xms256m -Xmx1536m -XX:MaxMetaspaceSize=384m -XX:CIComp
 REGRESSION: `flow8-mes-regression-current-20260823.md` 已将 Flow7/10 标注为历史 3F 与当前定向 0F/0E；其余历史 311 条 F/E 未因本轮重复全 MES，`F8-GATE=0` 保持。未终止 PID 4176/12944 等其它任务 runtime/Flow10 进程，未修改流程7/10业务代码。
 
 本轮流程11门禁复验：`python -X utf8 IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS，12 场景；`python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q --basetemp D:\IntRuoyiWorktree\flow11-targeted-pytest-temp` -> PASS，12 passed；三文件 `py_compile` -> 退出码 0；`branch-runtime-port-guard.ps1 -Profile int_main -WorktreePath E:\IntRuoyi` -> 退出码 0（8081/48081）。
+
+## M24 流程6提交门禁解锁审计
+
+BDD: 流程6 task-owned 提交不得被旧 runtime 规则阻断 -> Given 全局 runtime v6 合同要求 slot `1..50`，而流程6 worktree 的未提交 profile 对 slot `41..50` 缺少第三扩展段 / When 只读检查 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`、流程6 worktree 规则文件并运行 branch-runtime guard / Then 由 runtime owner 补齐第三扩展解析和 registry contract 校验，流程6只提交业务路径。
+
+RED: 流程6 worktree guard（修复前） -> FAIL，slot=41 登记为 `8256/48256`，旧 profile 错算为 `8206/48206`；不是流程4/6业务失败，也不是 slot=31 越界。
+
+GREEN: 补齐 `scripts/runtime/branch-runtime-profile.ps1` 的第三扩展端口和 registry `contractVersion` 校验，修正 `docs/local-runtime.md` / `docs/worktree-restrictions.md` 的 `slot >= 51` 规则后，流程6 worktree `branch-runtime-port-guard.ps1 -Profile int_main -WorktreePath D:\IntRuoyiWorktree\20260822-flow-repair-06-design-development` -> PASS（8213/48213）；主线 E:\IntRuoyi guard -> PASS（8081/48081）；`git diff --check` -> PASS。
+
+REGRESSION: 全局 runtime canonical commit 已存在于 `ea39dacc2`；流程6 owner 必须只 `git add` task-owned 代码，不能提交 runtime/docs 全局规则。registry 已有流程6 active slot=38 登记；slot=31 合法，不作为 blocker。未运行全量 MES、未修改流程4业务代码。

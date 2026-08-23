@@ -152,3 +152,9 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 结果：退出码 `0`；两类各 2 tests，合计 `4 tests / 0 failures / 0 errors / 0 skipped`。矩阵已将两行更新为“历史 3F；当前定向 0F/0E”，其余历史 311 条 F/E 未在本轮重跑。
 - `F8-GATE=0` 保持。流程11 runner/pytest/py_compile 既有证据保持有效；流程1-10生产闭环、真实 Playwright、生产历史迁移、人工批准和回滚仍为 No-Go。未终止 PID 4176/12944 等其它任务进程，未修改流程7/10业务代码。
 - 本轮再次执行流程11门禁：runner 12 场景 PASS，pytest `12 passed`，三文件 `py_compile` 退出码 0，`branch-runtime-port-guard.ps1 -Profile int_main -WorktreePath E:\IntRuoyi` 退出码 0（8081/48081）。
+
+## 10.4 流程6 runtime 提交门禁审计
+
+- 全局 canonical runtime v6 已由 `ea39dacc2` 提供：`branch-runtime-profile.ps1`、preflight guard、分支端口文档和本地 runtime 规则统一 `2026-08-22-branch-runtime-v6`，附加槽位为 `1..50`，slot=31 合法，`slot >= 51` 才阻断。
+- 流程6 registry 当前存在 active 条目：`D:\IntRuoyiWorktree\20260822-flow-repair-06-design-development`，profile `int_main`，slot `38`，端口 `8213/48213`。原始阻断是流程6 worktree 未提交 runtime profile 对 slot `41..50` 缺少第三扩展段，并非业务代码或缺少登记。
+- runtime owner 补齐流程6 worktree 的第三扩展端口和 registry contract 校验后，流程6 worktree guard 与主线 guard 均 PASS，`git diff --check` PASS。流程6应排除 runtime/docs 全局文件，仅提交 task-owned 业务代码；不使用 `--no-verify`，不重复全 MES。
