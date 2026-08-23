@@ -86,3 +86,13 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 - GREEN: MesReleaseAuthoritativeContextConfigurationTest 2/2 PASS；流程10定向 suite 47/47 PASS。
 - GREEN: mvn -pl yudao-server -am -DskipTests package -> BUILD SUCCESS；实际启动后 48081 LISTEN，/actuator/health 返回 status=UP。
 - REGRESSION: 构建产物与运行时 nested MES JAR 中配置类、结构化 blocker 类 SHA-256 一致；启动日志无 APPLICATION FAILED TO START。
+
+### M8：当前 int_main 收尾复核（2026-08-23）
+
+- 状态：完成；任务保持 `ready_for_closeout`。
+- HEAD：`a6574c3631dfa3c5f8381596fcef5c91acd98db0`；目标提交 `9b18ee093`、`1b59dd8d2`、`0002767c0` 均已包含。
+- 命令：`mvn -pl yudao-module-mes "-Dtest=MesReleaseAuthoritativeContextConfigurationTest,MesReleaseFinalizationValidatorTest,MesProEdhrReleaseServiceImplTest,MesProductionReleaseManagerApprovalServiceTest" test` -> 退出码 0，47/47 PASS。
+- 命令：`mvn -pl yudao-server -am -DskipTests package` -> 退出码 0，BUILD SUCCESS。
+- Runtime：48081 LISTEN，PID 37224；`/actuator/health` 退出码 0，`status=UP`。
+- 日志：最新启动日志包含 `Started YudaoServerApplication` 和“项目启动成功”，无 `APPLICATION FAILED TO START`、端口 Bean 缺失或构造注入失败签名。
+- No-Go：流程4/6/8权威适配器、迁移/历史回填、outbox、真实全链路 E2E；未改业务代码。

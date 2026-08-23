@@ -2,7 +2,7 @@
 
 ## 验证范围
 
-本报告验证流程10专项实现、融合和主线程定向合同符合性；不宣称全链路生产就绪。未启动服务，未运行 SQL 迁移或写入型 E2E。
+本报告验证流程10专项实现、融合、启动 Bean 修复和当前主线程复核；不宣称全链路生产就绪。未运行 SQL 迁移或写入型 E2E。
 
 ## 结构结果
 
@@ -32,10 +32,9 @@ development-plan.md 规定流程 6 负责三类回填成功后的批次执行创
 
 ## 主线程验证证据
 
-- `7f3547c17` 已 fast-forward 融合到 `int_main`。
-- Maven 3.9.16 `-pl yudao-module-mes -DskipTests compile`：BUILD SUCCESS。
-- 流程10 focused suite：45 tests, 0 failures, 0 errors。
-- 流程6/8/9/审批中心合同 suite：29 tests, 0 failures, 0 errors。
+ - 当前 `int_main` HEAD：`a6574c3631dfa3c5f8381596fcef5c91acd98db0`；`9b18ee093`、`1b59dd8d2`、`0002767c0` 均为其祖先。
+ - 流程10 focused suite 命令：`mvn -pl yudao-module-mes "-Dtest=MesReleaseAuthoritativeContextConfigurationTest,MesReleaseFinalizationValidatorTest,MesProEdhrReleaseServiceImplTest,MesProductionReleaseManagerApprovalServiceTest" test`；退出码 0，47 tests, 0 failures, 0 errors。
+ - yudao-server package 命令：`mvn -pl yudao-server -am -DskipTests package`；退出码 0，BUILD SUCCESS。
 - commit diff-check：PASS；branch runtime guard：PASS（int_main，frontend 8081/backend 48081）。
 
 ## 最终判定
@@ -49,12 +48,19 @@ development-plan.md 规定流程 6 负责三类回填成功后的批次执行创
 ## 启动 Bean 修复验证证据
 
 - 9b18ee093 已进入 int_main，新增 MesReleaseAuthoritativeContextConfiguration 显式 @Bean，移除实现类上的扫描条件注解。
-- MesReleaseAuthoritativeContextConfigurationTest：1/1 PASS；端口类型 Bean 恰好一个，实例为结构化 blocker 实现。
+ - MesReleaseAuthoritativeContextConfigurationTest：2/2 PASS；端口类型 Bean 恰好一个，且未接入权威适配器时返回结构化 blocker。
 - 流程10定向合同 suite：47/47 PASS。
 - mvn -pl yudao-server -am -DskipTests package：BUILD SUCCESS。
 - 实际启动 yudao-server-exec.jar：48081 LISTEN；GET http://127.0.0.1:48081/actuator/health 返回 status=UP。
 - 运行时 nested yudao-module-mes JAR 中配置类和 blocker 类 SHA-256 与当前构建产物一致；启动日志无缺失 Bean 或应用启动失败。
-- 流程4/6/8适配器未接入时仍保留 AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED 结构化阻断，不伪造放行成功。
+ - 流程4/6/8适配器未接入时仍保留 AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED 结构化阻断，不伪造放行成功。
+
+## 当前复核（2026-08-23）
+
+- `48081`：LISTEN，PID 37224。
+- `GET http://127.0.0.1:48081/actuator/health`：退出码 0，返回 `{"status":"UP"}`。
+- 最新运行日志：`E:/IntRuoyi/output/runtime/int_main/bean-fix-20260823-1551/logs/yudao-server.log`；包含 `Started YudaoServerApplication` 和“项目启动成功”，未匹配 `APPLICATION FAILED TO START`、缺失 `MesReleaseAuthoritativeContextPort` 或 executor 构造注入失败签名。
+- 任务状态保持 `ready_for_closeout`；仅全链路权威适配器、迁移/历史回填、outbox 和真实全链路 E2E 仍为 No-Go blocker。
 
 ## 复核修订项
 
