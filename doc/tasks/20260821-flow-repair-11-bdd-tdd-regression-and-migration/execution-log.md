@@ -207,3 +207,15 @@ GREEN（工具门禁）: `$env:MAVEN_OPTS='-Xms256m -Xmx2048m -XX:MaxMetaspaceSi
 REGRESSION（当前主线结果）: 本次受控重跑生成的当前 `target/surefire-reports` 汇总为 240 suites、1589 tests、7 failures、195 errors、0 skipped；失败集中在 `MesProcessPoolTeamLeaderControllerTest`（1F）、`MesProScheduleOrderControllerTest`（5E）、`MesC015RouteDccQaReconciliationSchemaTest`（1F）、`MesProcessPoolSchemaTest`（1F）、`MesProEdhrTraceTerminalPartitionContractTest`（2F）、`MesProRouteScheduleConfigServiceTest`（14E）、`MesIndependentBatchPrerequisiteReceiptServiceTest`（1F）、`MesProEdhrBatchExecutionLegacyProcessTest`（1E）、`MesProEdhrBatchExecutionServiceTest`（167E）、`MesProEdhrBatchExecutionTaskGateTest`（7E）、`MesProEdhrWorkTaskLegacyProcessTest`（1E）和 `MesFrontlineRuntimeConfigProcessScopeTest`（1F）。这些是当前主线业务/fixture/相邻流程回归结果，不能归入流程8自身 gate；不修改对应 owner 代码。
 
 证据边界：PowerShell wrapper 的退出码不能单独代表 Surefire 通过；以 Surefire XML/TXT 的 failure/error 计数为准。本次只验证内存工具阻断已解除并取得真实失败清单，流程8四材料 gate 仍无直接失败证据；全链路 No-Go 保持不变。
+
+## M22 当前 int_main 全 MES 314 条归属审计
+
+BDD: 当前主线回归必须以最新 Surefire 工件为准 -> Given `int_main` 当前 HEAD 与其它并行 dirty/untracked 改动共存 / When 使用受控 `MAVEN_OPTS` 执行全 MES 测试并逐条读取 `target/surefire-reports/TEST-*.xml` / Then 记录本轮真实总数、首个根因、责任流程、级联阻断和后续动作，不沿用过期的 202 条快照。
+
+RED: `mvn.cmd -o -pl yudao-module-mes test '-Dsurefire.failIfNoSpecifiedTests=false'`（受控 JVM） -> FAIL，退出码 1；Surefire 汇总 `3643 tests / 56 failures / 258 errors / 18 skipped`，共 314 条 failure/error。
+
+GREEN（流程11工具门禁）: `python -X utf8 IntRuoyiBackend/script/run_flow_repair_11_contracts.py` -> PASS，12 场景；`python -X utf8 -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q --basetemp D:\IntRuoyiWorktree\flow11-audit-pytest-temp2` -> PASS，12 passed；三文件 `py_compile` -> PASS；ERP 定向 `ErpKingdeeSyncRuntimeServiceImplTest` -> PASS，6/6；BPM 定向 `DefaultWordFormTemplateRecognizerTest` -> PASS，1/1；前端 `pnpm run ts:check` -> PASS；runtime v6 guard -> PASS，slot=31 合法。
+
+REGRESSION: 最新314条矩阵写入 `flow8-mes-regression-current-20260823.md`，覆盖 32 个测试类且 314/314 可追溯。归属汇总为 `F4/F6=235（26F/209E）`、`F7/F10=3（3F/0E）`、`PAR=76（27F/49E）`、`F8-GATE=0`。批次 bean/回填/任务门禁影响流程6，追溯终态影响流程7/10，前线/排产/路线/H2/Mockito 为相邻或基础设施 owner；流程11不代改业务所有权代码。
+
+本轮没有启动服务、访问生产数据库、执行生产迁移、人工批准/回滚或真实 Playwright；全链路继续 No-Go。待流程2/3/4/5/6/7/8/10新提交融合后再重跑全 MES。

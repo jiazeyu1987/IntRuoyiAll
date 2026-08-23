@@ -136,3 +136,11 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 - 通过单次进程级 `MAVEN_OPTS` 限制（`-Xmx2048m`、512MB Metaspace、128MB code cache、2 个编译线程、512KB 栈）并正确引用 Surefire 参数后，Maven 已进入 Surefire，native memory allocation failure 未再次出现。
 - 当前主线受控重跑的 `yudao-module-mes/target/surefire-reports` 只读聚合为 240 suites、1589 tests、7 failures、195 errors、0 skipped。失败类已列入执行日志，主要属于流程4/5/6/7/9/10、前线运行时、排产/路线或 fixture/依赖 owner；未出现流程8四材料/最终放行 gate 的直接失败项。
 - 因仍有真实 failure/error，本轮不能写成 Maven 回归通过；流程11工具验证完成，但流程8全 MES 回归和流程1-10全链路仍 No-Go。未修改流程8业务代码、未启动服务、未访问生产数据库、未执行真实 Playwright 或写入型迁移。
+
+## 10.2 M22 当前主线全 MES 回归审计
+
+- 受控命令：`MAVEN_OPTS=-Xms256m -Xmx2048m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=128m -XX:CICompilerCount=2 -Xss512k`，bundled Maven `3.9.16` 执行 `mvn.cmd -o -pl yudao-module-mes test '-Dsurefire.failIfNoSpecifiedTests=false'`。退出码 `1`；Surefire 已完成，未发生 native-memory allocation failure。
+- 当前主线真实汇总：`3643 tests / 56 failures / 258 errors / 18 skipped`，即 `314` 条 failure/error。此前 `7 failures + 195 errors = 202` 是过期快照，不作为当前结果；新矩阵见 `flow8-mes-regression-current-20260823.md`。
+- 分类汇总：`F4/F6=235（26F/209E）`、`F7/F10=3（3F/0E）`、`PAR=76（27F/49E）`、`F8-GATE=0`。流程8四材料 gate 没有直接失败证据，但流程4/6和流程7/10上游失败形成条件阻断；全链路仍 No-Go。
+- 流程11 runner：退出码 `0`，12 场景通过；pytest：退出码 `0`，12 passed；py_compile：退出码 `0`。ERP 定向 JUnit：退出码 `0`，6/6；BPM 定向 JUnit：退出码 `0`，1/1；前端 `pnpm run ts:check`：退出码 `0`；runtime v6 guard：退出码 `0`，slot=31 合法。
+- 未执行真实服务、生产数据库迁移、人工批准/回滚和 Playwright；不把当前分类结果写成流程8或全链路放行。
