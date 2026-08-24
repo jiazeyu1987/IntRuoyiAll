@@ -27,6 +27,9 @@ public class MesFlow6CompletionBackfillReceipt {
     private String signatureSnapshotJson;
     private Integer completionVersion;
     private String status;
+    /** Frozen result of the three Tx-A backfill branches; Flow-6 may only consume SUCCESS values. */
+    private String batchRecordStatus;
+    private String processInspectionStatus;
     private Boolean hasActualLoss;
     private BigDecimal lossQuantity;
     private String lossReportStatus;

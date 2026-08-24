@@ -69,6 +69,8 @@ public class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortImpl
                 .setSignatureSnapshotJson(receipt.getSignatureSnapshotJson())
                 .setCompletionVersion(receipt.getCompletedVersion())
                 .setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
+                .setBatchRecordStatus(receipt.getBatchRecordStatus())
+                .setProcessInspectionStatus(receipt.getProcessInspectionStatus())
                 .setHasActualLoss(receipt.getHasActualLoss())
                 .setLossQuantity(receipt.getLossQuantity())
                 .setLossReportStatus(receipt.getLossReportStatus())

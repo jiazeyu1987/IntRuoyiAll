@@ -42,6 +42,16 @@ REGRESSION: <待实现阶段确定的完整回归命令> -> NOT_RUN, 当前任�
 - 已按复核意见更正流程6建批、流程8材料、流程10最终放行、流程5条件损耗、流程7追溯和流程11总门禁职责。
 - 任务状态：ready_for_closeout（待主线程完成最终只读一致性检查和收尾）。
 
+## Flow6 receipt read-contract freeze (2026-08-24)
+
+BDD: Flow6 consumes an immutable receipt -> Given a tenant-scoped receiptId, When Flow6 reads the Flow4 handoff, Then only a persisted BACKFILL_SUCCEEDED receipt is returned; missing, tampered, cross-tenant, incomplete, or non-success receipts fail fast and Flow6 must not rebuild from production/PQC facts.
+BDD: Three backfill statuses are explicit -> Given a successful Tx-A receipt, When Flow6 validates the handoff, Then batchRecordStatus=SUCCESS and processInspectionStatus=SUCCESS; lossReportStatus=SUCCESS is required only for hasActualLoss=true and positive lossQuantity, otherwise hasActualLoss=false, lossQuantity=0, lossReportStatus=NOT_REQUIRED, a zero-loss snapshot is required, and no loss record is exposed.
+BDD: Receipt identity is frozen -> Given a valid receipt, When Flow6 consumes it, Then receiptId remains Long, tenantId is matched in the query and rechecked on the row, completionVersion, sourceSnapshotHash, and receiptHash are non-empty/frozen, and no batchExecutionId or BATCH_* field is part of the handoff.
+
+RED: & $env:MAVEN_HOME\\bin\\mvn.cmd -pl yudao-module-mes -Dtest=MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest -Dsurefire.failIfNoSpecifiedTests=false test -> FAIL, expected missing DTO status getters; the same compile also reported pre-existing unrelated MesIndependentBatchPrerequisiteReceiptServiceTest errors.
+GREEN: Same targeted Maven command after DTO/port mapping -> BLOCKED before test execution by pre-existing unrelated MesIndependentBatchPrerequisiteReceiptServiceTest missing getVerifiedByReceiptId(...); no Flow4 production compile error remained.
+REGRESSION: & $env:MAVEN_HOME\\bin\\mvn.cmd -pl yudao-module-mes -am -DskipTests compile -> to be run after the main-line parallel compile blocker is cleared.
+
 - 已计划产物：`task.md`、`development-plan.md`、`test-plan.md`、`execution-log.md`、`verification-report.md`。
 - 下一步：执行只读结构/UTF-8 验证；不执行构建、服务或写入测试。
 
