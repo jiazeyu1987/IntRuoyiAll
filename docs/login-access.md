@@ -58,6 +58,15 @@
 - Forbidden action: 禁止把收到 Cookie 当作登录成功；禁止用 HTML5/Silverlight 单点登录测试链接、临时时间戳签名或 `appID` 静默替代当前用户名密码认证；禁止缺少当前连接选择配置时默认测试账套、默认正式账套、读取环境变量兜底或继续执行同步；禁止为了验证登录调用 `ExecuteBillQuery`、保存目标配置、输出密码/Cookie/签名或记录完整响应。
 - Evidence: `doc/tasks/20260807-kingdee-target-acct-connectivity-check/verification-report.md`、`doc/tasks/20260807-kingdee-production-order-read-check/verification-report.md`、`doc/tasks/20260813-erp-production-pick-list-sync/verification-report.md`。
 
+### 发布后页面登录基线门禁
+
+- Trigger: 测试服发布后需要用 Playwright 验证真实业务页面或版本浮层。
+- Preflight check: 发布前只读确认测试租户账号可登录、密码未过期、租户选择接口有目标租户；凭据只能由当前进程安全注入，不写入任务文档或截图。
+- Blocker: 登录返回密码过期/账号密码错误、租户选择无数据、目标前端入口不可达或页面 console errors 非零时，认证后页面门禁必须 BLOCKED；不能猜密码或改账号。
+- Verification: 记录脱敏的登录页 URL、租户/账号标签、HTTP 状态、页面 title、console errors 和失败提示；公共登录页/静态 release-info 与认证后业务页结论分开。
+- Forbidden action: 禁止冒用本机 admin 密码登录远端测试租户、切换正式/备份环境、API-only 冒充页面、为验收修改租户/用户密码或把过期凭据写进脚本。
+- Evidence: IntRuoyiMaintance task 20260823-fix-training-rules-sfc-test-release execution-log.md ISSUE-016。
+
 ### ERP 表格全量同步写入门禁
 
 - Trigger: ERP 自动同步页面新增“全量同步”、需要补齐某张 ERP 表，或发现全量任务把已有本地数据更新/重复计数。
