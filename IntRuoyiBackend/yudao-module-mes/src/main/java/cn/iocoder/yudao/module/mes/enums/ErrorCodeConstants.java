@@ -1260,6 +1260,12 @@ public interface ErrorCodeConstants {
             "报工分配版本已变化，请刷新后重试：eventId={}，expectedVersion={}，currentVersion={}");
     ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED = new ErrorCode(1_040_760_358,
             "订单分配已经放行，禁止调整：activeOrderId={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED = new ErrorCode(1_040_760_380,
+            "提交数量超过生产订单工序允许上限：当前 {}，上限 {}，路线工序 {}，工序 {}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_REQUIRED = new ErrorCode(1_040_760_381,
+            "未配置生产订单工序允许超量比例：组长 {}，路线工序 {}，工序 {}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_PERCENT_INVALID = new ErrorCode(1_040_760_382,
+            "生产订单工序允许超量比例无效：{}，合法范围为 0-100");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_HISTORY_AMBIGUOUS = new ErrorCode(1_040_760_359,
             "生产工单存在多条历史记录，无法确定应复用的冻结订单：workOrderId={}，activeOrderIds={}");
     ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID = new ErrorCode(1_040_760_360,

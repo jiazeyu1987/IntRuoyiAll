@@ -51,6 +51,7 @@ class MesReportAllocationFrontlineSnapshotGuardTest {
     @Mock private MesReportAllocationQuantityFragmentService quantityFragmentService;
     @Mock private MesTeamLeaderOrderProcessCompletionService completionService;
     @Mock private MesProductionReportManagementSummaryService reportManagementSummaryService;
+    @Mock private MesTeamLeaderOverageLimitService overageLimitService;
 
     private MesReportAllocationCommandService service;
 
@@ -59,7 +60,7 @@ class MesReportAllocationFrontlineSnapshotGuardTest {
         service = new MesReportAllocationCommandService(scopeService, eventMapper, activeOrderMapper, workOrderMapper,
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
-                completionService, reportManagementSummaryService);
+                completionService, reportManagementSummaryService, overageLimitService);
     }
 
     @Test

@@ -87,8 +87,15 @@ export interface TeamLeaderProcessConfigRowRespVO {
   processCode?: string
   processName?: string
   sort?: number
+  overagePercent?: number | string | null
   lossReasons: TeamLeaderLossReasonVO[]
   devices: TeamLeaderProcessConfigDeviceVO[]
+}
+
+export interface TeamLeaderProcessOverageLimitSaveReqVO {
+  routeProcessId: number
+  processId: number
+  overagePercent: number | string
 }
 
 export interface TeamLeaderResponsibleRouteRespVO {
@@ -666,6 +673,15 @@ export const getTeamLeaderProcessConfigList = async (
   return await request.get<TeamLeaderProcessConfigRowRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/process-config/list',
     params
+  })
+}
+
+export const saveTeamLeaderProcessOverageLimit = async (
+  data: TeamLeaderProcessOverageLimitSaveReqVO
+) => {
+  return await request.post<TeamLeaderProcessConfigRowRespVO>({
+    url: '/mes/pro/process-pool/team-leader/process-config/overage-limit/save',
+    data
   })
 }
 

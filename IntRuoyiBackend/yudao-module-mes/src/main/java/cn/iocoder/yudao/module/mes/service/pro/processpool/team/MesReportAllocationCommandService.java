@@ -70,6 +70,8 @@ public class MesReportAllocationCommandService {
     private final MesTeamLeaderOrderProcessCompletionService completionService;
     private final MesProductionReportManagementSummaryService reportManagementSummaryService;
 
+    private final MesTeamLeaderOverageLimitService overageLimitService;
+
     @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
 
@@ -89,7 +91,8 @@ public class MesReportAllocationCommandService {
             MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService,
             MesReportAllocationQuantityFragmentService quantityFragmentService,
             MesTeamLeaderOrderProcessCompletionService completionService,
-            MesProductionReportManagementSummaryService reportManagementSummaryService) {
+            MesProductionReportManagementSummaryService reportManagementSummaryService,
+            MesTeamLeaderOverageLimitService overageLimitService) {
         this.scopeService = scopeService;
         this.eventMapper = eventMapper;
         this.activeOrderMapper = activeOrderMapper;
@@ -106,6 +109,7 @@ public class MesReportAllocationCommandService {
         this.quantityFragmentService = quantityFragmentService;
         this.completionService = completionService;
         this.reportManagementSummaryService = reportManagementSummaryService;
+        this.overageLimitService = overageLimitService;
     }
 
     public MesReportAllocationSnapshot getCurrent(Long eventId, Long leaderUserId, String leaderType) {
@@ -350,6 +354,8 @@ public class MesReportAllocationCommandService {
             targets.put(order.getId(), target);
             BigDecimal totalForOrder = allocatedElsewhere.getOrDefault(order.getId(), BigDecimal.ZERO)
                     .add(entry.getValue());
+            overageLimitService.assertWithinLimit(order.getLeaderUserId(), target.routeProcessId(),
+                    target.processId(), target.plannedQuantity(), totalForOrder);
             BigDecimal overage = totalForOrder.subtract(target.plannedQuantity()).max(BigDecimal.ZERO);
             overageByActiveOrderId.put(order.getId(), overage);
         }

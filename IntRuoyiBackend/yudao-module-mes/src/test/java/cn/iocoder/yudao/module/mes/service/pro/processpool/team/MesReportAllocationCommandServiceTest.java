@@ -56,6 +56,7 @@ class MesReportAllocationCommandServiceTest {
     @Mock private MesReportAllocationQuantityFragmentService quantityFragmentService;
     @Mock private MesTeamLeaderOrderProcessCompletionService completionService;
     @Mock private MesProductionReportManagementSummaryService reportManagementSummaryService;
+    @Mock private MesTeamLeaderOverageLimitService overageLimitService;
 
     private MesReportAllocationCommandService service;
 
@@ -64,7 +65,7 @@ class MesReportAllocationCommandServiceTest {
         service = new MesReportAllocationCommandService(scopeService, eventMapper, activeOrderMapper, workOrderMapper,
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
-                completionService, reportManagementSummaryService);
+                completionService, reportManagementSummaryService, overageLimitService);
         org.mockito.Mockito.lenient().when(routeStartAuthorizationService.listAuthorizedRouteProcesses(3001L)).thenReturn(List.of(
                 MesProRouteProcessDO.builder().id(5001L).processId(6001L).build()));
     }

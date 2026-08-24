@@ -42,6 +42,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderLossReasonUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderProcessConfigListReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderProcessConfigRowRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderProcessOverageLimitSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
@@ -311,6 +312,17 @@ public class MesProcessPoolTeamLeaderController {
         return success(processConfigService.listProcessConfigs(SecurityFrameworkUtils.getLoginUserId(), reqVO).stream()
                 .map(MesProcessPoolTeamLeaderController::toProcessConfigRowRespVO)
                 .toList());
+    }
+
+    @PostMapping("/process-config/overage-limit/save")
+    @Operation(summary = "保存生产组长工序允许超量比例")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesTeamLeaderProcessConfigRowRespVO> saveProcessOverageLimit(
+            @Valid @RequestBody MesTeamLeaderProcessOverageLimitSaveReqVO reqVO) {
+        MesTeamLeaderProcessConfigRow row = processConfigService.saveOverageLimit(
+                SecurityFrameworkUtils.getLoginUserId(), reqVO.getRouteProcessId(), reqVO.getProcessId(),
+                reqVO.getOveragePercent());
+        return success(toProcessConfigRowRespVO(row));
     }
 
     @PostMapping("/active-order/add")
@@ -842,6 +854,7 @@ public class MesProcessPoolTeamLeaderController {
                 .setProcessCode(row.getProcessCode())
                 .setProcessName(row.getProcessName())
                 .setSort(row.getSort())
+                .setOveragePercent(row.getOveragePercent())
                 .setLossReasons(row.getLossReasons().stream()
                         .map(MesProcessPoolTeamLeaderController::toProcessConfigLossReasonRespVO)
                         .toList())

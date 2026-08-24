@@ -21,6 +21,7 @@ public class MesTeamLeaderProcessConfigRowRespVO {
     private String processCode;
     private String processName;
     private Integer sort;
+    private BigDecimal overagePercent;
     private List<LossReason> lossReasons;
     private List<Device> devices;
 

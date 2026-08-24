@@ -2207,6 +2207,22 @@
           </span>
         </template>
       </el-table-column>
+      <el-table-column label="允许超量比例" width="180">
+        <template #default="{ row }">
+          <div class="team-leader-workbench__overage-limit" data-team-leader-process-config-overage-limit>
+            <el-input-number
+              v-model="row.overagePercent"
+              :min="0"
+              :max="100"
+              :precision="2"
+              :step="1"
+              controls-position="right"
+              @change="saveProcessConfigOverageLimit(row)"
+            />
+            <span>%</span>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column label="损耗原因" min-width="260">
         <template #default="{ row }">
           <div
@@ -3416,6 +3432,7 @@
         </el-table-column>
       </el-table>
       <div class="team-leader-workbench__hint mt-8px" data-team-leader-allocation-summary>
+        超过允许上限的提交不会增加活跃订单生产进度。
         池总量：{{
           allocationSnapshot?.poolQuantity ?? reviewEvent?.outputQuantity ?? 0
         }}，已分配：{{ allocationTotalQuantity }}，未分配：{{
@@ -3705,6 +3722,7 @@ import {
   getPqcPersonnelList,
   getTeamDeviceList,
   getTeamLeaderProcessConfigList,
+  saveTeamLeaderProcessOverageLimit,
   getTeamLeaderResponsibleRouteList,
   getProductionPersonnelList,
   getTeamLeaderActiveOrderDetail,
@@ -5529,6 +5547,29 @@ async function queryProcessConfigRows() {
     ElMessage.error(resolveErrorMessage(error, '工序配置筛选查询失败'))
   } finally {
     processConfigLoading.value = false
+  }
+}
+
+const saveProcessConfigOverageLimit = async (row: TeamLeaderProcessConfigRowRespVO) => {
+  const overagePercent = Number(row.overagePercent)
+  if (!Number.isFinite(overagePercent) || overagePercent < 0 || overagePercent > 100) {
+    ElMessage.error('允许超量比例必须在 0% 到 100% 之间')
+    return
+  }
+  processConfigSubmitting.value = true
+  try {
+    const saved = await saveTeamLeaderProcessOverageLimit({
+      routeProcessId: row.routeProcessId,
+      processId: row.processId,
+      overagePercent
+    })
+    row.overagePercent = saved.overagePercent
+    ElMessage.success('允许超量比例已保存')
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '允许超量比例保存失败'))
+    await loadProcessConfigRows()
+  } finally {
+    processConfigSubmitting.value = false
   }
 }
 

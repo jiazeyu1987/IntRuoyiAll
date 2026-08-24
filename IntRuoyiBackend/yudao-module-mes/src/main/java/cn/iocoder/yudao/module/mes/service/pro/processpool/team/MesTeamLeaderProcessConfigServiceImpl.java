@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED;
 
 @Service
 @Validated
@@ -46,6 +47,7 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
     private final MesProcessPoolTeamDeviceMapper deviceMapper;
     private final MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     private final MesProProcessPoolEventMapper eventMapper;
+    private final MesTeamLeaderOverageLimitService overageLimitService;
     private final Clock clock;
 
     @Autowired
@@ -53,8 +55,10 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
                                                  MesProcessPoolTeamProcessDeviceMapper processDeviceMapper,
                                                  MesProcessPoolTeamDeviceMapper deviceMapper,
                                                  MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper,
-                                                 MesProProcessPoolEventMapper eventMapper) {
+                                                 MesProProcessPoolEventMapper eventMapper,
+                                                 MesTeamLeaderOverageLimitService overageLimitService) {
         this(lossReasonService, processDeviceMapper, deviceMapper, parameterRuleMapper, eventMapper,
+                overageLimitService,
                 Clock.systemDefaultZone());
     }
 
@@ -63,12 +67,14 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
                                           MesProcessPoolTeamDeviceMapper deviceMapper,
                                           MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper,
                                           MesProProcessPoolEventMapper eventMapper,
+                                          MesTeamLeaderOverageLimitService overageLimitService,
                                           Clock clock) {
         this.lossReasonService = lossReasonService;
         this.processDeviceMapper = processDeviceMapper;
         this.deviceMapper = deviceMapper;
         this.parameterRuleMapper = parameterRuleMapper;
         this.eventMapper = eventMapper;
+        this.overageLimitService = overageLimitService;
         this.clock = clock;
     }
 
@@ -110,7 +116,7 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
                         .collect(Collectors.groupingBy(rule -> new RouteDeviceKey(rule.getRouteProcessId(), rule.getDeviceId()),
                                 LinkedHashMap::new, Collectors.toList()));
         List<MesTeamLeaderProcessConfigRow> configRows = authorizedRows.stream()
-                .map(row -> toConfigRow(row, bindingsByProcess, deviceMap, rulesByRouteDevice))
+                .map(row -> toConfigRow(row, bindingsByProcess, deviceMap, rulesByRouteDevice, leaderUserId))
                 .toList();
         String routeKeyword = normalizeKeyword(reqVO.getRouteKeyword());
         String processKeyword = normalizeKeyword(reqVO.getProcessKeyword());
@@ -129,6 +135,20 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
                         .anyMatch(parameter -> matchesAny(parameterKeyword,
                                 parameter.getParameterCode(), parameter.getParameterName())))
                 .toList();
+    }
+
+    @Override
+    public MesTeamLeaderProcessConfigRow saveOverageLimit(Long leaderUserId, Long routeProcessId, Long processId,
+                                                           BigDecimal overagePercent) {
+        MesTeamLeaderProcessConfigRow authorized = listProcessConfigs(leaderUserId,
+                        new MesTeamLeaderProcessConfigListReqVO()).stream()
+                .filter(row -> Objects.equals(row.getRouteProcessId(), routeProcessId)
+                        && Objects.equals(row.getProcessId(), processId))
+                .findFirst()
+                .orElseThrow(() -> exception(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "路线工序"));
+        overageLimitService.save(leaderUserId, routeProcessId, processId, overagePercent);
+        authorized.setOveragePercent(overagePercent);
+        return authorized;
     }
 
     private String normalizeKeyword(String keyword) {
@@ -200,7 +220,8 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
     private MesTeamLeaderProcessConfigRow toConfigRow(MesTeamLeaderLossReasonRow source,
                                                       Map<Long, List<MesProcessPoolTeamProcessDeviceDO>> bindingsByProcess,
                                                       Map<Long, MesProcessPoolTeamDeviceDO> deviceMap,
-                                                      Map<RouteDeviceKey, List<MesProcessPoolDeviceParameterRuleDO>> rulesByRouteDevice) {
+                                                      Map<RouteDeviceKey, List<MesProcessPoolDeviceParameterRuleDO>> rulesByRouteDevice,
+                                                      Long leaderUserId) {
         List<MesTeamLeaderProcessConfigDevice> devices = new ArrayList<>();
         Set<Long> emittedDeviceIds = new LinkedHashSet<>();
         for (MesProcessPoolTeamProcessDeviceDO binding : bindingsByProcess.getOrDefault(source.getProcessId(), List.of())) {
@@ -231,6 +252,8 @@ public class MesTeamLeaderProcessConfigServiceImpl implements MesTeamLeaderProce
                 .setProcessCode(source.getProcessCode())
                 .setProcessName(source.getProcessName())
                 .setSort(source.getSort())
+                .setOveragePercent(overageLimitService.findPercent(leaderUserId, source.getRouteProcessId(),
+                        source.getProcessId()))
                 .setLossReasons(source.getReasons() == null ? List.of() : source.getReasons())
                 .setDevices(devices);
     }

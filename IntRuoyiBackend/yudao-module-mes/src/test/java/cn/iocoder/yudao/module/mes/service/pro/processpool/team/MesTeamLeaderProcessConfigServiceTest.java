@@ -46,13 +46,15 @@ class MesTeamLeaderProcessConfigServiceTest {
     private MesProcessPoolDeviceParameterRuleMapper parameterRuleMapper;
     @Mock
     private MesProProcessPoolEventMapper eventMapper;
+    @Mock
+    private MesTeamLeaderOverageLimitService overageLimitService;
 
     private MesTeamLeaderProcessConfigService service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderProcessConfigServiceImpl(lossReasonService, processDeviceMapper, deviceMapper,
-                parameterRuleMapper, eventMapper, FIXED_CLOCK);
+                parameterRuleMapper, eventMapper, overageLimitService, FIXED_CLOCK);
     }
 
     @Test
@@ -63,7 +65,8 @@ class MesTeamLeaderProcessConfigServiceTest {
                         MesProcessPoolTeamProcessDeviceMapper.class,
                         MesProcessPoolTeamDeviceMapper.class,
                         MesProcessPoolDeviceParameterRuleMapper.class,
-                        MesProProcessPoolEventMapper.class);
+                        MesProProcessPoolEventMapper.class,
+                        MesTeamLeaderOverageLimitService.class);
 
         assertTrue(runtimeConstructor.isAnnotationPresent(Autowired.class),
                 "Spring must use the public runtime constructor instead of looking for a default constructor");
