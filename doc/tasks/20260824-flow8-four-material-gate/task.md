@@ -35,6 +35,7 @@ Implement a server-side batch-execution gate that requires the current valid ver
 ## Verification Summary
 
 - Focused Flow8 tests: 10 passed, 0 failed, 0 errors.
+- Latest focused source-binding recheck test: 1 passed, 0 failed, 0 errors; latest combined targeted run: 12 passed, 0 failed, 0 errors.
 - Flow8 plus release regression: 40 passed, 0 failed, 0 errors.
 - MES 24-module compile: PASS.
 - Runtime guard: PASS for v6 slot 9 (`int_main`, frontend 8090, backend 48090).

@@ -18,6 +18,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -33,6 +34,8 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
     private final MesProBatchRecordExecutionAttachmentMapper attachmentMapper;
     private final MesProEdhrBatchTraceabilityService traceabilityService;
     private final FileService fileService;
+    /** Tracks the source snapshot that was last accepted for each batch in this gate instance. */
+    private final Map<Long, String> acceptedSourceSnapshots = new ConcurrentHashMap<>();
 
     public MesProEdhrFourMaterialGateServiceImpl(MesProEdhrBatchExecutionTaskMapper taskMapper,
                                                    MesProBatchRecordExecutionAttachmentMapper attachmentMapper,
@@ -72,11 +75,15 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
         List<MesProBatchRecordExecutionAttachmentDO> valid = new ArrayList<>();
         boolean missing = false;
         boolean invalid = false;
+        boolean sourceBindingChanged = false;
         for (String node : REQUIRED_MATERIAL_TYPES) {
             MesProEdhrBatchExecutionTaskDO task = tasks.get(node);
             if (task == null || !Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)) {
                 missing = true;
                 continue;
+            }
+            if (!Objects.equals(task.getRouteBindingSnapshotHash(), source.getSourceSnapshotHash())) {
+                sourceBindingChanged = true;
             }
             MesProBatchRecordExecutionAttachmentDO latest = attachments.stream()
                     .filter(a -> Objects.equals(task.getId(), a.getBatchTaskId()))
@@ -104,6 +111,17 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
         String manifest = sha256(valid.stream().sorted(Comparator.comparing(MesProBatchRecordExecutionAttachmentDO::getFieldKey))
                 .map(a -> String.join("|", a.getFieldKey(), String.valueOf(a.getVersionNo()), String.valueOf(a.getFileId()),
                         a.getSha256(), a.getAttachmentHash(), source.getSourceSnapshotHash())).collect(Collectors.joining("\n")));
+        String previousSourceSnapshot = acceptedSourceSnapshots.putIfAbsent(batchExecutionId, source.getSourceSnapshotHash());
+        if (previousSourceSnapshot != null && !Objects.equals(previousSourceSnapshot, source.getSourceSnapshotHash())) {
+            acceptedSourceSnapshots.put(batchExecutionId, source.getSourceSnapshotHash());
+            return new MesProEdhrFourMaterialGateResult(
+                    MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, false, manifest, valid);
+        }
+        if (sourceBindingChanged) {
+            acceptedSourceSnapshots.put(batchExecutionId, source.getSourceSnapshotHash());
+            return new MesProEdhrFourMaterialGateResult(
+                    MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, false, manifest, valid);
+        }
         return new MesProEdhrFourMaterialGateResult(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, true,
                 manifest, valid);
     }

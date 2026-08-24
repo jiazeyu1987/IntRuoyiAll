@@ -143,7 +143,13 @@ class MesProEdhrFourMaterialGateServiceTest {
                         .setSourceVersion(2).setRelationStatus("CAPTURED")
                         .setReadAt(LocalDateTime.now()));
 
-        assertNotEquals(firstManifest, gate.evaluate(BATCH_ID).manifestHash());
+        MesProEdhrFourMaterialGateResult changed = gate.evaluate(BATCH_ID);
+        assertEquals(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, changed.status());
+        assertFalse(changed.ready());
+        assertNotEquals(firstManifest, changed.manifestHash());
+        assertEquals(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, gate.evaluate(BATCH_ID).status());
+        tasks.forEach(task -> task.setRouteBindingSnapshotHash("source-hash-v2"));
+        assertEquals(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, gate.evaluate(BATCH_ID).status());
     }
 
     @Test

@@ -35,9 +35,16 @@ Implement only Flow8 batch-execution four-material readiness. Exclude Flow10 fin
 - REGRESSION: expanded batch-execution selection -> FAIL, 213 tests, 174 errors; 167 errors are missing existing `MesBatchExecutionEntryContractService` bean and 7 errors are absent legacy `resolveTaskGate` reflection signatures. No Flow8 assertion failed; exit code 1.
 - GREEN: `& 'C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd' -pl yudao-module-mes -am -DskipTests compile` -> PASS across 24 reactor modules; exit code 0.
 - PRECOMMIT: `& .\scripts\preflight\branch-runtime-port-guard.ps1` -> PASS; slot 9, frontend 8090, backend 48090.
+- RED: source snapshot change scenario -> FAIL, changed source returned `MATERIALS_READY` instead of `MATERIALS_RECHECK_REQUIRED`; exit code 1.
+- GREEN: source snapshot change scenario -> PASS, a changed source hash returns `MATERIALS_RECHECK_REQUIRED`, remains blocked while task route bindings still point to the old source snapshot, and returns `MATERIALS_READY` only after the bindings are refreshed; exit code 0.
+- GREEN (latest): `& 'C:\Users\BJB110\Documents\Codex\tools\apache-maven-3.9.16\bin\mvn.cmd' -pl yudao-module-mes -am "-Dtest=cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrFourMaterialGateServiceTest#sourceSnapshotChangeProducesNewManifest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 1 test, 0 failures, 0 errors; exit code 0.
+- GREEN (latest targeted): same Maven path with `MesProEdhrReleaseServiceImplTest`, `MesProEdhrFourMaterialGateServiceTest`, and `MesProEdhrFourMaterialGateReleaseContractTest` -> PASS, 12 tests, 0 failures, 0 errors; exit code 0.
+- GREEN: `pnpm ts:check` -> PASS after converting the profile page to read-only fixed-required presentation.
+- BLOCKER: `pnpm build:prod` -> FAIL in unrelated baseline `src/views/dcc/controlled-file/training/components/TrainingRulesReadonlyTab.vue` because the SFC has neither `<template>` nor `<script>`; Flow8 component is not the failure source.
 
 ## Blockers
 
 - Flow7 production resolver is consumed directly. A real tenant dataset proving persisted source change between precheck and submit remains an external integration prerequisite.
 - Real Playwright prerequisites are not supplied; E2E remains NOT RUN and will not be replaced by mocks or API-only checks.
 - The expanded batch-execution regression remains blocked by existing test-container/legacy-reflection failures owned outside Flow8.
+- Frontend production build remains blocked by the unrelated empty SFC baseline error described above.

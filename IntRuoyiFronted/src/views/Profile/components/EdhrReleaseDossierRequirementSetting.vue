@@ -3,35 +3,25 @@
     <el-card shadow="never">
       <template #header>
         <div class="edhr-release-dossier-requirement-setting__header">
-          <div class="edhr-release-dossier-requirement-setting__title">eDHR 放行资料限制</div>
+          <div class="edhr-release-dossier-requirement-setting__title">eDHR 放行资料（固定必填）</div>
         </div>
       </template>
 
       <el-alert
-        v-if="loadError"
-        :title="loadError"
-        type="error"
+        title="以下四份资料由服务端固定校验，不能通过配置或前端开关关闭。"
+        type="info"
         :closable="false"
         show-icon
       />
 
-      <div v-else class="edhr-release-dossier-requirement-setting__grid">
+      <div class="edhr-release-dossier-requirement-setting__grid">
         <div
-          v-for="item in switchItems"
-          :key="item.field"
+          v-for="item in requiredItems"
+          :key="item"
           class="edhr-release-dossier-requirement-setting__item"
         >
-          <div>
-            <div class="edhr-release-dossier-requirement-setting__item-title">{{ item.label }}</div>
-          </div>
-          <el-switch
-            :model-value="setting[item.field]"
-            :loading="loading || savingField === item.field"
-            :disabled="loading || savingField !== ''"
-            active-text="需要"
-            inactive-text="不需要"
-            @change="(value) => requestSwitchChange(item.field, value === true)"
-          />
+          <div class="edhr-release-dossier-requirement-setting__item-title">{{ item }}</div>
+          <el-tag type="success" effect="plain">固定必填</el-tag>
         </div>
       </div>
     </el-card>
@@ -39,125 +29,12 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessageBox } from 'element-plus'
-import {
-  type EdhrReleaseDossierRequirementSettingRespVO,
-  type EdhrReleaseDossierRequirementSettingUpdateReqVO,
-  getEdhrReleaseDossierRequirementSetting,
-  updateEdhrReleaseDossierRequirementSetting
-} from '@/api/mes/pro/edhr/releaseDossierRequirementSetting'
-
-type DossierRequirementField = keyof EdhrReleaseDossierRequirementSettingUpdateReqVO
-
-const message = useMessage()
-
-const defaultSetting = (): EdhrReleaseDossierRequirementSettingUpdateReqVO => ({
-  incomingInspectionReportRequired: false,
-  sterilizationReportRequired: false,
-  finishedProductInspectionReportRequired: false,
-  finishedProductInspectionRecordRequired: false
-})
-
-const switchItems: Array<{
-  field: DossierRequirementField
-  label: string
-}> = [
-  {
-    field: 'incomingInspectionReportRequired',
-    label: '来料检报告'
-  },
-  {
-    field: 'sterilizationReportRequired',
-    label: '灭菌报告'
-  },
-  {
-    field: 'finishedProductInspectionReportRequired',
-    label: '成品检报告'
-  },
-  {
-    field: 'finishedProductInspectionRecordRequired',
-    label: '成品检记录限制'
-  }
+const requiredItems = [
+  '来料检报告',
+  '灭菌报告',
+  '成品检报告',
+  '成品检记录'
 ]
-
-const loading = ref(false)
-const savingField = ref<DossierRequirementField | ''>('')
-const loadError = ref('')
-const setting = ref<EdhrReleaseDossierRequirementSettingUpdateReqVO>(defaultSetting())
-
-const cloneSetting = (source: EdhrReleaseDossierRequirementSettingUpdateReqVO) => ({ ...source })
-
-const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
-  if (error instanceof Error && error.message.trim()) return error.message
-  const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
-  return typeof responseMessage === 'string' && responseMessage.trim() ? responseMessage : defaultMessage
-}
-
-const isCancelAction = (error: unknown) => error === 'cancel' || error === 'close'
-
-const applyLoadedSetting = (result: EdhrReleaseDossierRequirementSettingRespVO) => {
-  setting.value = {
-    incomingInspectionReportRequired: result.incomingInspectionReportRequired === true,
-    sterilizationReportRequired: result.sterilizationReportRequired === true,
-    finishedProductInspectionReportRequired: result.finishedProductInspectionReportRequired === true,
-    finishedProductInspectionRecordRequired: result.finishedProductInspectionRecordRequired === true
-  }
-}
-
-const loadSetting = async () => {
-  loading.value = true
-  loadError.value = ''
-  try {
-    applyLoadedSetting(await getEdhrReleaseDossierRequirementSetting())
-  } catch (error) {
-    loadError.value = resolveErrorMessage(error, '放行资料限制开关加载失败。')
-  } finally {
-    loading.value = false
-  }
-}
-
-const buildFullPayload = (): EdhrReleaseDossierRequirementSettingUpdateReqVO => ({
-  incomingInspectionReportRequired: setting.value.incomingInspectionReportRequired,
-  sterilizationReportRequired: setting.value.sterilizationReportRequired,
-  finishedProductInspectionReportRequired: setting.value.finishedProductInspectionReportRequired,
-  finishedProductInspectionRecordRequired: setting.value.finishedProductInspectionRecordRequired
-})
-
-const requestSwitchChange = async (field: DossierRequirementField, nextValue: boolean) => {
-  if (loading.value || savingField.value) return
-  const previousSetting = cloneSetting(setting.value)
-  setting.value = { ...setting.value, [field]: nextValue }
-  const item = switchItems.find((candidate) => candidate.field === field)
-  const actionText = nextValue ? '打开' : '关闭'
-
-  try {
-    await ElMessageBox.confirm(
-      `确认${actionText}${item?.label || '资料限制'}？${nextValue ? '打开后，缺少对应资料的批次将无法放行。' : '关闭后，放行不再强制要求该资料。'}`,
-      `${actionText}放行资料限制`,
-      { type: nextValue ? 'warning' : 'info' }
-    )
-  } catch (error) {
-    setting.value = previousSetting
-    if (!isCancelAction(error)) {
-      message.error(resolveErrorMessage(error, '放行资料限制开关确认失败。'))
-    }
-    return
-  }
-
-  savingField.value = field
-  try {
-    const result = await updateEdhrReleaseDossierRequirementSetting(buildFullPayload())
-    applyLoadedSetting(result)
-    message.success(`${item?.label || '资料限制'}已${nextValue ? '打开' : '关闭'}`)
-  } catch (error) {
-    setting.value = previousSetting
-    message.error(resolveErrorMessage(error, '放行资料限制开关接口保存失败。'))
-  } finally {
-    savingField.value = ''
-  }
-}
-
-onMounted(loadSetting)
 </script>
 
 <style scoped>
@@ -182,6 +59,7 @@ onMounted(loadSetting)
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  margin-top: 16px;
 }
 
 .edhr-release-dossier-requirement-setting__item {
