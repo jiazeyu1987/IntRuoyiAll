@@ -27,6 +27,16 @@ public interface ErpKingdeeProductionPickListItemMapper
                 sourceLineKey);
     }
 
+    default List<Long> selectPickListIdsByProductionOrderNo(String productionOrderNo) {
+        return selectObjs(new LambdaQueryWrapperX<ErpKingdeeProductionPickListItemDO>()
+                .select(ErpKingdeeProductionPickListItemDO::getProductionPickListId)
+                .like(ErpKingdeeProductionPickListItemDO::getProductionOrderNo, productionOrderNo))
+                .stream()
+                .map(value -> ((Number) value).longValue())
+                .distinct()
+                .toList();
+    }
+
     default List<ErpKingdeeProductionPickListItemDO> selectListByProductionOrderNo(
             String productionOrderNo) {
         return selectList(new LambdaQueryWrapperX<ErpKingdeeProductionPickListItemDO>()

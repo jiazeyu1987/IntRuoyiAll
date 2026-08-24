@@ -23,6 +23,15 @@ public class ErpProductionPickListPageReqVO extends PageParam {
     @Schema(description = "单据状态")
     private String documentStatus;
 
+    @Schema(description = "生产订单编号，按领料明细匹配")
+    private String productionOrderNo;
+
+    @Schema(description = "库存组织")
+    private String stockOrgName;
+
+    @Schema(description = "生产组织")
+    private String productionOrgName;
+
     @Schema(description = "单据日期")
     @DateTimeFormat(pattern = FORMAT_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND)
     private LocalDateTime[] billDate;

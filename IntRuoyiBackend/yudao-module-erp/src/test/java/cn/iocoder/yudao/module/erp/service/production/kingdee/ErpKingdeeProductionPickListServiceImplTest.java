@@ -4,11 +4,13 @@ import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeP
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
+import cn.iocoder.yudao.module.erp.controller.admin.production.vo.ErpProductionPickListPageReqVO;
 import cn.iocoder.yudao.module.erp.service.config.ErpKingdeeConfigService;
 import cn.iocoder.yudao.module.erp.service.production.sync.ErpKingdeeProductionPickList;
 import cn.iocoder.yudao.module.erp.service.production.sync.ErpKingdeeProductionPickListClient;
 import cn.iocoder.yudao.module.erp.service.production.sync.ErpKingdeeProductionPickListSyncResult;
 import cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProperties;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,9 +23,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -120,6 +124,35 @@ class ErpKingdeeProductionPickListServiceImplTest {
         verify(productionPickListClient, never()).fetchProductionPickLists(
                 any(ErpKingdeeProperties.class), any(LocalDateTime.class), any(LocalDateTime.class));
         verify(productionPickListClient).fetchProductionPickListsModifiedBetween(properties, windowStart, windowEnd);
+    }
+
+    @Test
+    void getPage_filtersHeadersByProductionOrderFromLines() {
+        ErpProductionPickListPageReqVO reqVO = new ErpProductionPickListPageReqVO();
+        reqVO.setProductionOrderNo("MO001");
+        ErpKingdeeProductionPickListDO header = ErpKingdeeProductionPickListDO.builder()
+                .id(501L)
+                .sourceBillNo("PICK001")
+                .build();
+        ErpKingdeeProductionPickListItemDO item = ErpKingdeeProductionPickListItemDO.builder()
+                .productionPickListId(501L)
+                .productionOrderNo("MO001")
+                .materialName("物料一")
+                .build();
+        when(productionPickListItemMapper.selectPickListIdsByProductionOrderNo("MO001"))
+                .thenReturn(List.of(501L));
+        when(productionPickListMapper.selectPageByProductionPickListIds(eq(reqVO), eq(List.of(501L))))
+                .thenReturn(new PageResult<>(List.of(header), 1L));
+        when(productionPickListItemMapper.selectListByPickListIds(Set.of(501L)))
+                .thenReturn(List.of(item));
+
+        PageResult<?> result = service.getPage(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(1, result.getList().size());
+        verify(productionPickListItemMapper).selectPickListIdsByProductionOrderNo("MO001");
+        verify(productionPickListMapper)
+                .selectPageByProductionPickListIds(eq(reqVO), eq(List.of(501L)));
     }
 
     private static ErpKingdeeProductionPickList buildPickList() {

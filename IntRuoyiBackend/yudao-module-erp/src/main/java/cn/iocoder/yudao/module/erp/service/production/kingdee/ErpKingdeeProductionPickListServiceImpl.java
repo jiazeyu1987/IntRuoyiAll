@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.erp.service.production.kingdee;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
@@ -47,8 +48,17 @@ public class ErpKingdeeProductionPickListServiceImpl
     @Override
     public PageResult<ErpProductionPickListRespVO> getPage(
             ErpProductionPickListPageReqVO pageReqVO) {
+        List<Long> productionPickListIds = null;
+        if (StrUtil.isNotBlank(pageReqVO.getProductionOrderNo())) {
+            productionPickListIds = productionPickListItemMapper
+                    .selectPickListIdsByProductionOrderNo(pageReqVO.getProductionOrderNo());
+            if (CollUtil.isEmpty(productionPickListIds)) {
+                return PageResult.empty();
+            }
+        }
         PageResult<ErpKingdeeProductionPickListDO> pageResult =
-                productionPickListMapper.selectPage(pageReqVO);
+                productionPickListMapper.selectPageByProductionPickListIds(pageReqVO,
+                        productionPickListIds);
         if (CollUtil.isEmpty(pageResult.getList())) {
             return PageResult.empty(pageResult.getTotal());
         }
