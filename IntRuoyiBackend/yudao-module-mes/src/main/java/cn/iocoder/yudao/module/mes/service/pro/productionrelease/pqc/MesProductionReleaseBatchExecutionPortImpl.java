@@ -12,11 +12,16 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecut
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrProductionReleaseBatchCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionEntryContractService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionProvisionCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptVerifyCommand;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST;
@@ -29,21 +34,18 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrBatchExecutionService batchExecutionService;
     private final MesBatchExecutionEntryContractService entryContractService;
+    private final MesIndependentBatchPrerequisiteReceiptService independentReceiptService;
 
     @Autowired
     public MesProductionReleaseBatchExecutionPortImpl(
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrBatchExecutionService batchExecutionService,
-            MesBatchExecutionEntryContractService entryContractService) {
+            MesBatchExecutionEntryContractService entryContractService,
+            MesIndependentBatchPrerequisiteReceiptService independentReceiptService) {
         this.batchExecutionMapper = batchExecutionMapper;
         this.batchExecutionService = batchExecutionService;
         this.entryContractService = entryContractService;
-    }
-
-    public MesProductionReleaseBatchExecutionPortImpl(
-            MesProEdhrBatchExecutionMapper batchExecutionMapper,
-            MesProEdhrBatchExecutionService batchExecutionService) {
-        this(batchExecutionMapper, batchExecutionService, new MesBatchExecutionEntryContractService());
+        this.independentReceiptService = independentReceiptService;
     }
 
     @Override
@@ -51,6 +53,7 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
         if (command == null) {
             throw exception(BAD_REQUEST);
         }
+        reloadIndependentReceipt(command);
         entryContractService.validate(toProvisionCommand(command));
         String activeContextKey = CONTEXT_PREFIX + command.getApplicationId();
         MesProEdhrBatchExecutionDO releaseBatch = batchExecutionMapper.selectByActiveContextKey(activeContextKey);
@@ -139,6 +142,20 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
                 .setPayloadHash(command == null ? null : command.getPayloadHash())
                 .setCompletionBackfillReceipt(command == null ? null : command.getCompletionBackfillReceipt())
                 .setIndependentReceipt(command == null ? null : command.getIndependentReceipt());
+    }
+
+    private void reloadIndependentReceipt(MesProductionReleaseBatchExecutionCommand command) {
+        if (!Set.of("MANUAL", "SCHEDULED", "PQC_INDEPENDENT").contains(command.getEntryType())) {
+            return;
+        }
+        Long securityTenantId = TenantContextHolder.getTenantId();
+        MesIndependentBatchPrerequisiteReceipt verified = independentReceiptService.verify(
+                new MesIndependentBatchPrerequisiteReceiptVerifyCommand()
+                        .setReceiptId(command.getSourceCredentialId())
+                        .setEntryType(command.getEntryType())
+                        .setSourceSnapshotHash(command.getSourceSnapshotHash()),
+                securityTenantId);
+        command.setIndependentReceipt(verified);
     }
 
     private void requireSameFrozenContext(
