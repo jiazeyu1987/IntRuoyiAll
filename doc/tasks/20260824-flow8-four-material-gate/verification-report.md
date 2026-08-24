@@ -4,7 +4,7 @@
 
 in_progress
 
-The Flow8 task-owned slice is integrated on `int_main` as `4b764f835`; the end-to-end business task remains `in_progress`.
+The Flow8 task-owned slice is integrated on `int_main` as `4b764f835`, with source-binding recheck review `18c37fe4e`; the end-to-end business task remains `in_progress`.
 
 - PASS: four fixed node types are mandatory and independently evaluated.
 - PASS: legacy dossier requirement switches and their config hash no longer participate in release decisions.
