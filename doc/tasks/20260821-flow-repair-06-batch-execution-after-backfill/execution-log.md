@@ -94,3 +94,23 @@ DOC-STRUCTURE: 已将 Tx-A immutable receipt 与流程6 `BatchProvisioningRecord
 
 RED: 流程4/7/9正式接口、迁移和真实运行闭环 -> NOT RUN，依赖/环境前置未形成可执行证据。
 GREEN: 流程4/7/9跨流程生产闭环、材料/放行运行验证 -> NOT RUN。
+
+## Independent Receipt Verification Fix (2026-08-24)
+
+BDD: 独立入口正式验真 -> Given MANUAL、SCHEDULED 或 PQC_INDEPENDENT 请求携带 receiptId 和可能伪造的完整凭证对象，When Flow 6 `openOrCreate` 执行，Then 先以安全租户调用 Flow 9 `verify(receiptId, entryType, sourceSnapshotHash)`，再将 Flow 9 返回的已验真对象交给本地合同和 Tx-B；拒绝时不建批。
+
+RED: `mvn.cmd -Dflatten.skip=true -pl yudao-module-mes -am -Dtest=MesProductionReleaseBatchExecutionPortTest -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL；回归测试先因生产端没有四参构造器/Flow 9 验真接线而无法编译。
+
+GREEN: 隔离 worktree `D:\IntRuoyiWorktree\flow6-independent-receipt-15ea` 定向 suite -> PASS，39 tests, 0 failures, 0 errors；`MesProductionReleaseBatchExecutionPortTest` 新增正式返回对象 identity 断言。
+
+GREEN: 隔离 worktree 24-module MES reactor compile -> PASS，exit code 0。
+
+GREEN: `int_main` 定向 suite -> PASS，39 tests, 0 failures, 0 errors；`int_main` 24-module MES reactor compile -> PASS，exit code 0。
+
+GREEN: `git diff --check`、隔离 worktree branch-runtime-port-guard、提交 hook -> PASS。
+
+COMMIT: `90455bdba` (`fix(mes): verify independent batch receipt by id`)，仅包含 Flow 6 生产端口和对应测试；已推送 `origin/codex/flow6-independent-receipt-15ea`。
+
+MERGE: `int_main` 从 `15ea4349e` 以 `git merge --ff-only 90455bdba` 快进到 `90455bdba`；保留主线既有 5 个无关 dirty 文件，未清理、未覆盖。
+
+BLOCKER: 数据库 migration dry-run/apply/rollback、服务运行态、写入型 Playwright E2E，以及流程4 Tx-A、流程7 Tx-C、流程8材料和流程10放行的跨线程运行闭环仍未运行；不得以本次 39 个单元/契约测试替代。

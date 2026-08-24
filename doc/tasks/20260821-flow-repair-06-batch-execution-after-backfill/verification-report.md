@@ -71,6 +71,19 @@ in_progress（流程6局部实现、主线选择性融合和定向验证已通�
 - 主线定向 suite 37/37 PASS，24 模块 MES compile PASS，`git diff --check` PASS，HEAD containment PASS。
 - 仍未完成：流程4 Tx-A receipt producer、流程7 Tx-C 真实事件闭环、流程9正式签名凭证消费的端到端运行证据、迁移 dry-run/apply/rollback、材料/最终放行运行验证。
 
+## Independent Receipt Verification Fix (2026-08-24)
+
+| Gate | Result | Evidence |
+|---|---|---|
+| Caller payload is not trusted | PASS | Flow 6 reloads by `sourceCredentialId` through Flow 9 before local contract validation; regression asserts the verified object identity reaches Tx-B |
+| RED | PASS | Pre-fix targeted test compile failed because the verification constructor/seam was absent |
+| Isolated GREEN | PASS | 39 targeted tests, 0 failures/errors; MES 24-module reactor compile exit 0 |
+| Mainline GREEN | PASS | `int_main` same 39-test suite and 24-module MES compile both passed |
+| Commit/containment | PASS | `90455bdba`, two task-owned Java files; `git merge --ff-only` to `int_main` |
+| Diff/runtime guard | PASS | `git diff --check` and branch-runtime-port-guard passed |
+
+This is a Flow 6 unit/contract integration slice, not full production-chain completion. Migration, service runtime, write E2E, and cross-thread Flow 4/7/8/10 runtime gates remain NOT RUN.
+
 ## 主流程冻结合同核验（2026-08-22）
 
 | 合同 | 结果 | 说明 |

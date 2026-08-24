@@ -78,6 +78,18 @@ GREEN: MES reactor compile (`-pl yudao-module-mes -am -DskipTests`) -> exit code
 
 NOT RUN: migration dry-run/apply/rollback, service/E2E, and cross-thread Flow 4/7/9 integration.
 
+## Implemented TDD Slice (2026-08-24)
+
+BDD: Flow 9 receipt reload -> Given an independent entry may contain a forged full receipt object, When Flow 6 provisions it, Then only the Flow 9 service result loaded by receipt id, entry type, source snapshot and security tenant reaches validation and Tx-B.
+
+RED: `MesProductionReleaseBatchExecutionPortTest` initially failed at test compile because the production port had no Flow 9 service constructor/verification seam.
+
+GREEN: Flow 6 targeted Maven suite -> PASS, 39 tests, 0 failures, 0 errors; MES 24-module reactor compile -> PASS.
+
+REGRESSION: Main `int_main` targeted suite -> PASS, 39 tests, 0 failures, 0 errors; main MES compile -> PASS; `git diff --check` and branch-runtime guard -> PASS.
+
+NOT RUN: database migration, service runtime, write E2E, and full Flow 4/7/8/10 cross-thread runtime gates.
+
 ## 主流程冻结合同测试增补（后续实现，NOT RUN）
 
 BDD: Tx-A 外部调用阻断 -> Given 外部快照在事务前已生成，When 本地版本/hash 不一致，Then fail fast 返回 `SOURCE_SNAPSHOT_MISMATCH`，不远程重查、不写任何回填。

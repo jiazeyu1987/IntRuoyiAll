@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-本任务只做代码审计、需求澄清和开发文档设计，不修改生产代码、数据库、服务或运行写入型 E2E。目标是冻结“活跃订单完成 -> 三类正式回填 -> 创建或复用批次执行 -> 四份材料齐套 -> 统一放行”的可实现合同，同时允许合法独立批次入口。
+本任务以已冻结的设计合同为基线，交付流程6批次建批与独立入口验真代码切片；不修改数据库、不启动服务、不运行写入型 E2E。目标仍是冻结并逐步实现“活跃订单完成 -> 三类正式回填 -> 创建或复用批次执行 -> 四份材料齐套 -> 统一放行”的可实现合同，同时允许合法独立批次入口。
 
 ## Target State
 
@@ -114,6 +114,14 @@ Tx-A 失败时页面显示“完成未提交，请修正来源后重试”，活
 ## Current Status
 
 in_progress（流程6实现已形成 task-owned commit 并快进融合到 int_main；流程4/7/9正式闭环、迁移和运行验证仍未完成）。
+
+## Coding Slice Evidence (2026-08-24)
+
+- `MesProductionReleaseBatchExecutionPortImpl` now receives the formal Flow 9 receipt service and reloads/verifies independent entries by receipt id under the security tenant before local validation and Tx-B.
+- The caller's full `independentReceipt` object is replaced with Flow 9's verified record; no default-success or fallback adapter was added.
+- Commit `90455bdba` contains only the Flow 6 production port and regression test and is fast-forwarded into `int_main`.
+- Isolated and mainline targeted suites each pass 39/39; both 24-module MES compile commands pass; `git diff --check` and runtime guard pass.
+- Full task remains `in_progress` because Flow 4/7/8/10 runtime chain, migration, and write E2E evidence are not complete.
 
 ## Coding Verification Update (2026-08-24)
 

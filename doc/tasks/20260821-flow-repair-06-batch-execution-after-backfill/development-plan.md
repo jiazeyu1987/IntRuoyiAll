@@ -118,3 +118,7 @@ in_progress（设计合同已冻结；流程6局部实现、主线融合和定�
 - 独立凭证字段、签发和有效期以 task.md 冻结合同为准；前端不得自造。PQC 活跃订单和独立申请必须按 entryType 分流，均调用统一 provisioner。
 - 四材料有效定义补充 `COMPLETED`、文件持久化、元数据/SHA-256、当前版本和 source hash；有批准字段必须 `APPROVED`，无字段不得默认批准；版本/hash/来源变化使 gate 进入 `MATERIALS_RECHECK_REQUIRED`，放行前置只能是 `MATERIALS_READY`。
 - 迁移先 dry-run 分类 `INCOMPLETE_OR_AMBIGUOUS`/`ALREADY_RELEASED_REVIEW_REQUIRED`，需 owner 批准后才可写入；独立追溯用 `NOT_APPLICABLE` 原因码表达不适用关系。
+
+## Coding Slice Update (2026-08-24)
+
+Flow 6 independent entries now call Flow 9's formal `MesIndependentBatchPrerequisiteReceiptService.verify` using `receiptId`, `entryType`, `sourceSnapshotHash`, and the security tenant before local entry validation. The verified receipt replaces any caller-supplied object and is the only object passed to Tx-B. Commit `90455bdba` contains the production port and regression test only; isolated and mainline targeted suites pass 39/39 and the 24-module MES compile passes. Full Flow 4/7/8/10 runtime, migration, and write E2E gates remain blocked/NOT RUN.
