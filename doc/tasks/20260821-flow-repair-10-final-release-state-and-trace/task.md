@@ -37,6 +37,14 @@
 
 ready_for_closeout：流程10专项实现、融合和主线程验证已完成；跨流程权威适配器、迁移、outbox 和全链路 E2E 仍 No-Go。
 
+### 权威上下文接口冻结（2026-08-24）
+
+- 已冻结 HTTP 输入边界：客户端只能提交 batchExecutionId、凭证 ID/hash 和最终化控制字段，不能提交可被采用的嵌套完成、独立批次或材料凭证。
+- 流程10只能通过 MesReleaseAuthoritativeContextPort 从流程4/6/7/8持久化 owner 读取正式快照；流程6提供已持久化 batchExecutionId，流程7映射必须 READY，流程8必须 MATERIALS_READY。
+- 本轮仅增加 @JsonIgnore 输入阻断和合同测试，不改变 finalizeRelease 主事务，不新增凭证解析器。
+- 验证：合同单测 1/1 PASS；权威上下文组合回归 11/11 PASS。
+- 状态保持 ready_for_closeout；持久化 owner 适配器未接入仍为结构化 No-Go。
+
 ### 终态分区回归复核（2026-08-23）
 
 - 当前验证基线：int_main HEAD 7770f36fb6ed64f4e306320410d131f184cf2789。

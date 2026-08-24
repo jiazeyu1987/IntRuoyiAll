@@ -109,3 +109,14 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 - Runtime smoke：既有 PID 4176（backend-runtime-control-20260823-191443.jar，19:14:48 启动）监听 48081；GET http://127.0.0.1:48081/actuator/health -> 退出码 0，{\"status\":\"UP\"}。日志含 Started YudaoServerApplication/项目启动成功，未出现最新启动段的 APPLICATION FAILED TO START 或 Bean 缺失。该进程不是本轮启动，按边界未停止。
 - 终态 owner 复核：finalizeRelease 统一进入流程10，finalizeApproval 的 release transaction RELEASED CAS 是唯一最终写入口；管理者审批只负责 prepare/complete，缺少流程4/6/8权威适配器时保留结构化 fail-fast。
 - 独立启动日志 E:/IntRuoyi/output/runtime/int_main/bean-fix-20260823-1551/logs/yudao-server.log：仅匹配 Started YudaoServerApplication 和“项目启动成功”，未匹配 APPLICATION FAILED、BeanCreationException 或 MesReleaseAuthoritativeContextPort 缺失。
+
+### M10：权威上下文 HTTP 输入面冻结（2026-08-24）
+
+- 状态：完成；未改变最终放行事务、状态 owner 或流程6/8业务逻辑，任务继续保持 ready_for_closeout。
+- 基线：int_main 628fb8a990952fce7ef9128d958b728c5aa9f6c5。
+- BDD: 客户端嵌套凭证不得成为权威事实 -> Given 请求体包含伪造的 completionBackfillReceipt、independentPrerequisiteReceipt 或 materialGateReceipt；When 调用 finalizeRelease/approve DTO 反序列化；Then 嵌套对象不进入最终化命令，流程10只能通过 MesReleaseAuthoritativeContextPort.require 从流程4/6/7/8 owner 读取持久化证据。
+- RED: 只读审计发现 MesReleaseFinalizationCommand 和 MesProEdhrReleaseApproveReqVO 暴露嵌套凭证字段，未来适配器存在误用风险。
+- GREEN: mvn -pl yudao-module-mes -Dtest=MesReleaseFinalizationRequestContractTest -Dcheckstyle.skip=true test -> 退出码 0，1/1 PASS，BUILD SUCCESS。
+- REGRESSION: mvn -pl yudao-module-mes -Dtest=MesReleaseFinalizationRequestContractTest,MesReleaseAuthoritativeContextConfigurationTest,MesReleaseFinalizationValidatorTest -Dcheckstyle.skip=true test -> 退出码 0，11/11 PASS，BUILD SUCCESS。
+- 代码结论：需要最小接口合同修改，已在两个 HTTP 输入 DTO/命令嵌套凭证字段上增加 @JsonIgnore；没有新增凭证解析器，没有改变 finalizeRelease 主事务，也没有默认成功适配器。
+- 流程6/4/7/8接入要求保持不变：只实现 MesReleaseAuthoritativeContextPort，从持久化 owner 读取 batchExecutionId、正式 receipt/hash、READY 映射和四材料 MATERIALS_READY；未接入时继续结构化 fail-fast。

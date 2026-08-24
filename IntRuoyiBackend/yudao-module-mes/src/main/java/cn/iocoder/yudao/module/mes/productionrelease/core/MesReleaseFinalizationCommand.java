@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.productionrelease.core;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -36,7 +37,11 @@ public class MesReleaseFinalizationCommand {
     private String signoffEvidenceHash;
     private String approvalOpinion;
     private String decisionReason;
+    /** HTTP callers may submit only receipt identifiers; authoritative payloads come from the owner port. */
+    @JsonIgnore
     private IndependentBatchPrerequisiteReceipt independentPrerequisiteReceipt;
+
+    @JsonIgnore
     private MesReleaseMaterialGateReceipt materialGateReceipt;
 
     public boolean isIndependentOrigin() {

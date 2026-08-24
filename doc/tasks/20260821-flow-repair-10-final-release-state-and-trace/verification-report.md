@@ -80,3 +80,13 @@ development-plan.md 规定流程 6 负责三类回填成功后的批次执行创
 - 流程10仍是唯一 release transaction RELEASED owner；流程7继续拥有 Origin/TraceLink 来源映射；流程4/6/8适配器未接入时结构化 blocker 仍 fail-fast，无默认成功。
 - 本轮不停止 PID 4176：它是既有长期 runtime-control 服务，非本轮启动进程；无残留的本轮前台服务需要清理。
 - 独立启动日志 E:/IntRuoyi/output/runtime/int_main/bean-fix-20260823-1551/logs/yudao-server.log：只匹配 Started YudaoServerApplication 和“项目启动成功”，未匹配 APPLICATION FAILED、BeanCreationException 或 MesReleaseAuthoritativeContextPort 缺失。
+
+## 权威上下文输入面复核（2026-08-24）
+
+- 基线：int_main 628fb8a990952fce7ef9128d958b728c5aa9f6c5。
+- 发现：最终化命令和批准 DTO 曾暴露客户端嵌套 independentPrerequisiteReceipt、materialGateReceipt 字段，虽然当前 unavailable port 不读取它们，但接口合同未明确禁止未来适配器误用。
+- 修复范围：仅在 MesReleaseFinalizationCommand 和 MesProEdhrReleaseApproveReqVO 的嵌套凭证字段增加 @JsonIgnore；客户端仍可提交 receipt ID/hash，权威 payload 只能由 MesReleaseAuthoritativeContextPort 返回。
+- BDD/TDD：新增 MesReleaseFinalizationRequestContractTest，断言四个 HTTP 嵌套凭证字段均标记 @JsonIgnore。
+- 验证：单类 1/1 PASS；配置、请求面和 validator 回归 11/11 PASS；两条 Maven 命令均 BUILD SUCCESS。
+- 结论：需要最小接口层代码修改，已完成；不修改 finalizeRelease 主逻辑，不创建流程6未提供的凭证解析器。
+- 未解决 blocker：流程4/6/7/8持久化 owner 适配器仍未接入；在适配器接入前，流程10必须返回结构化 AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED，不得放行。

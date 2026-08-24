@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import cn.iocoder.yudao.module.mes.productionrelease.core.IndependentBatchPrerequisiteReceipt;
@@ -66,8 +67,11 @@ public class MesProEdhrReleaseApproveReqVO {
 
     private String sourceSnapshotHash;
 
+    /** Receipt payloads are never accepted from HTTP; only IDs/hashes are forwarded to the owner port. */
+    @JsonIgnore
     private IndependentBatchPrerequisiteReceipt independentPrerequisiteReceipt;
 
+    @JsonIgnore
     private MesReleaseMaterialGateReceipt materialGateReceipt;
 
     public MesProEdhrReleaseApproveReqVO setReleaseTransactionId(Long releaseTransactionId) {
