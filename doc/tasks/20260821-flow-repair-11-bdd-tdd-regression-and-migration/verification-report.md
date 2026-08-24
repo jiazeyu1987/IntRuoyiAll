@@ -195,3 +195,9 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 | 10 | 统一材料 gate 后唯一 RELEASED/CAS | `7f3547c17`；focused 47/47、扩展 49/49、package 报告 PASS | 定向 PASS；权威适配器/真实放行未验证 | 流程10 owner；缺 gate/receipt 适配即阻断 |
 
 证据边界：矩阵中的 PASS 是可追溯的 task-owned 定向或合同证据，不是全链路生产放行。流程4/6/8仍无实现级证据；流程7/10虽有当前定向绿证，仍缺真实数据库映射、四材料硬门禁、唯一 RELEASED 和写入型 E2E。流程11保持 completed 仅表示本专项迁移工具、BDD/TDD、回归分类和观察员门禁完成；流程1-10全链路继续 No-Go。
+
+## 10.8 建批权威凭证链验收准备
+
+流程11已建立 batch-authoritative-receipt-acceptance.md，将流程6/9提交后的集成验证拆为八个 BDD 场景：活跃订单成功回填 receipt、失败/缺失 receipt、独立入口服务端 receipt、过期/撤销、nested receipt 与业务字段篡改、跨租户、统一解析幂等、流程7来源消费。清单同时定义严格 RED/GREEN/REGRESSION 命令及 F6/F9/F7/F4/F8-10/PAR-ENV owner 分类。
+
+当前结论为验收计划 READY、实际建批验证 NOT RUN。流程6/9提交尚未在本轮形成可验证的干净集成基线；缺少真实测试租户、正式 batchExecutionSourceRelation、可写测试数据或服务/数据库入口时必须保持 BLOCKED，禁止用 mock、API-only、nested receipt 或默认成功替代真实路径。receipt service 与 SQL 合同的已有 PASS 仅作为前置证据，不代表建批持久化、幂等或流程7 Tx-C 消费已通过。

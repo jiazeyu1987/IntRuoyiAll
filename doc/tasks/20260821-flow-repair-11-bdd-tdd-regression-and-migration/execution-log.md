@@ -283,3 +283,10 @@ REGRESSION（真实 ACL）: 对 F6/F8 旧目录执行 `Get-Acl` 均成功，owne
 | 10 | 所有合法放行入口共用材料硬门禁，CAS 唯一写 `RELEASED`，随后产生完整追溯 | `7f3547c17` 在基线祖先链；任务报告记录 focused 47/47、扩展终态 49/49，package PASS | 定向证据 PASS；权威适配器、迁移、真实放行 E2E 未运行 | 流程10 owner；流程8 gate/流程4/6 receipt 适配缺失即阻断 |
 
 矩阵结论：已有定向 PASS 仅覆盖各线程 task-owned 切片；流程4/6/8的实现级门禁仍未取得证据，流程7/10的当前定向结果不能替代全量回归。流程11观察员不修改业务 owner 代码、不运行全 MES，不把 runtime/worktree PASS 升级为全链路 PASS；全链路继续 No-Go。
+
+## M29 建批权威凭证链验收准备（待流程6/9提交后执行）
+
+- 新增 task-owned 清单：batch-authoritative-receipt-acceptance.md，覆盖 A1-A8 Given/When/Then、RED/GREEN/REGRESSION、验收数据前置和 F6/F9/F7/F4/F8-10/PAR-ENV 失败归属。
+- 已核对流程6当前合同要求 active-order 仅消费 BACKFILL_SUCCEEDED receipt，independent 仅消费流程9服务端签发 receiptId；流程9验真必须重新读取租户范围内权威记录，拒绝 nested receipt、字段/hash 篡改、过期、撤销和跨租户请求。
+- RED/GREEN 命令已准备，但流程6/9提交后的干净 integration worktree、真实测试租户、正式来源关系和可写测试数据尚未就绪；本轮不运行建批回归，不修改业务代码。
+- 当前状态：验收计划 READY，实际建批 GREEN/REGRESSION 为 NOT RUN；receipt service/SQL 单测通过不能替代真实建批持久化和流程7消费证据。
