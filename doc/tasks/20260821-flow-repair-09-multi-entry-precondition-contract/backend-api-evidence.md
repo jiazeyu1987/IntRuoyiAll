@@ -14,5 +14,11 @@ Flow 6 integration is intentionally an interface boundary: it must pass `receipt
 
 ## Verification status
 
+## Internal Port
+
+- `MesIndependentBatchPrerequisiteReceiptPort#getVerifiedByReceiptId(tenantId, receiptId, entryType, sourceSnapshotHash)` 由持久化服务实现。实现按 receiptId/tenantId 重读数据库并复用严格 verify；调用方不得传入或信任完整凭证对象。
+- 流程6建批主逻辑尚未接入该内部 port；本次仅提供正式读取/验真边界。
+
 - Service contract tests cover issue, repeated verification, tampering, source change, expiry, revoke, cross-tenant access, and idempotency conflict.
 - Full MES Maven compilation is currently blocked by unrelated untracked Flow 7 source references to missing `MesProEdhrBatchTraceSourcePrecheckRespVO`; no Flow 9 source error was reported before that external failure.
+- 本轮新增测试编译还暴露并行流程4测试缺失 `MesFlow6CompletionBackfillReceipt.getBatchRecordStatus/getProcessInspectionStatus`，未修改该并行任务。

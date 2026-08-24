@@ -1,6 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
-public interface MesIndependentBatchPrerequisiteReceiptService {
+public interface MesIndependentBatchPrerequisiteReceiptService extends MesIndependentBatchPrerequisiteReceiptPort {
     MesIndependentBatchPrerequisiteReceipt issue(MesIndependentBatchPrerequisiteReceiptIssueCommand command,
                                                  Long tenantId, Long actorUserId);
 

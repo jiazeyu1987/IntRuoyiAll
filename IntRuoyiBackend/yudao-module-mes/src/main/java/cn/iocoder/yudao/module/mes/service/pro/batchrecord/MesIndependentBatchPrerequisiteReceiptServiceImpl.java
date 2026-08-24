@@ -122,7 +122,8 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
                 || receipt.getCredentialVersion() == null || receipt.getCredentialVersion() <= 0
                 || blank(receipt.getAuditEventId()) || blank(receipt.getIdempotencyKey())
                 || blank(receipt.getSourceRelationId()) || blank(receipt.getSourceRelationVersion())
-                || blank(receipt.getSourceRelationSnapshotHash())) {
+                || blank(receipt.getSourceRelationSnapshotHash())
+                || !validEvidence(receipt.getSourceEvidence())) {
             throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_INVALID);
         }
         if (!command.getSourceSnapshotHash().equals(receipt.getSourceSnapshotHash())) {
@@ -152,6 +153,16 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
             throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_INVALID);
         }
         return receipt;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MesIndependentBatchPrerequisiteReceipt getVerifiedByReceiptId(Long tenantId, String receiptId,
+                                                                         String entryType, String sourceSnapshotHash) {
+        return verify(new MesIndependentBatchPrerequisiteReceiptVerifyCommand()
+                .setReceiptId(receiptId)
+                .setEntryType(entryType)
+                .setSourceSnapshotHash(sourceSnapshotHash), tenantId);
     }
 
     @Override

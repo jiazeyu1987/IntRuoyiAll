@@ -14,6 +14,7 @@ import java.util.Map;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ENTRY_RECEIPT_EXPIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_INDEPENDENT_RECEIPT_ALREADY_REVOKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_INDEPENDENT_RECEIPT_HASH_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_INDEPENDENT_RECEIPT_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_INDEPENDENT_RECEIPT_IDEMPOTENCY_CONFLICT;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_INDEPENDENT_RECEIPT_SOURCE_CHANGED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_INDEPENDENT_RECEIPT_TENANT_MISMATCH;
@@ -45,6 +46,12 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
         store.byReceipt.get(receipt.getReceiptId()).setCanonicalPayload("tampered");
         ServiceException hash = assertThrows(ServiceException.class, () -> service.verify(verifyCommand(receipt), 1L));
         assertEquals(PRO_EDHR_INDEPENDENT_RECEIPT_HASH_INVALID.getCode(), hash.getCode());
+
+        MesIndependentBatchPrerequisiteReceipt evidenceReceipt = service.issue(command().setIdempotencyKey("evidence"), 1L, 9L);
+        store.byReceipt.get(evidenceReceipt.getReceiptId()).setSourceEvidenceJson("[]");
+        ServiceException evidence = assertThrows(ServiceException.class,
+                () -> service.verify(verifyCommand(evidenceReceipt), 1L));
+        assertEquals(PRO_EDHR_INDEPENDENT_RECEIPT_INVALID.getCode(), evidence.getCode());
 
         MesIndependentBatchPrerequisiteReceipt second = service.issue(command().setIdempotencyKey("second"), 1L, 9L);
         ServiceException source = assertThrows(ServiceException.class,
@@ -78,6 +85,22 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
         store.byReceipt.get(receipt.getReceiptId()).setExpiresAt(LocalDateTime.of(2026, 8, 22, 23, 59));
         ServiceException error = assertThrows(ServiceException.class, () -> service.verify(verifyCommand(receipt), 1L));
         assertEquals(PRO_EDHR_BATCH_ENTRY_RECEIPT_EXPIRED.getCode(), error.getCode());
+    }
+
+    @Test
+    void internalPortReadsPersistedReceiptAndNeverTrustsCallerObject() {
+        MesIndependentBatchPrerequisiteReceipt issued = service.issue(command(), 1L, 9L);
+        String persistedPayloadHash = issued.getPayloadHash();
+        issued.setPayloadHash("caller-forged").setSignature("caller-forged");
+
+        MesIndependentBatchPrerequisiteReceipt verified = service.getVerifiedByReceiptId(
+                1L, issued.getReceiptId(), issued.getEntryType(), "snapshot");
+
+        assertEquals(persistedPayloadHash, verified.getPayloadHash());
+        assertEquals("snapshot", verified.getSourceSnapshotHash());
+        ServiceException tenant = assertThrows(ServiceException.class,
+                () -> service.getVerifiedByReceiptId(2L, issued.getReceiptId(), issued.getEntryType(), "snapshot"));
+        assertEquals(PRO_EDHR_INDEPENDENT_RECEIPT_TENANT_MISMATCH.getCode(), tenant.getCode());
     }
 
     private MesIndependentBatchPrerequisiteReceiptIssueCommand command() {

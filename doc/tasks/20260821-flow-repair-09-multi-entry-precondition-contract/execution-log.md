@@ -65,6 +65,11 @@
 
 ## 未实现项
 
+- BDD: 流程6按 receiptId 读取独立凭证 -> Given 客户端对象被篡改，When 流程9内部 port 按 tenantId/receiptId/entryType/sourceSnapshotHash 验真，Then 仅返回数据库重新读取且验真的 canonical receipt；跨租户、过期、撤销、哈希/签名/来源证据异常必须失败。
+- `RED: mvn -o -pl yudao-module-mes "-Dtest=MesIndependentBatchPrerequisiteReceiptServiceTest" ... test -> FAIL，新增内部 port 调用不存在；同时暴露并行流程4测试缺失 getBatchRecordStatus/getProcessInspectionStatus，非流程9错误。`
+- `GREEN: mvn -o -pl yudao-module-mes -DskipTests compile -> PASS，流程9新增内部 port 与服务实现编译通过。`
+- `REGRESSION: NOT RUN -> receipt 专项测试待并行流程4测试编译阻断解除后重跑；当前不修改流程4。`
+
 - 流程9新增 receipt 服务代码已实现，但真实数据库迁移、配置密钥注入、流程6正式消费接线、流程8/10/11生产实现、历史盘点和真实 E2E 均未执行。
 - 初次 receipt 测试曾被主线已有流程7未跟踪文件缺少 `MesProEdhrBatchTraceSourcePrecheckRespVO` 阻断，后续主线依赖状态恢复后已通过；该类型仍不属于流程9改动路径。
 - 历史无正式凭证/source relation 只能保持 `BLOCKED_LEGACY`。
