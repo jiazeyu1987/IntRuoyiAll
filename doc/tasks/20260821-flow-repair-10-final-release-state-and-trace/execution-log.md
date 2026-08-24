@@ -117,6 +117,7 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 - BDD: 客户端嵌套凭证不得成为权威事实 -> Given 请求体包含伪造的 completionBackfillReceipt、independentPrerequisiteReceipt 或 materialGateReceipt；When 调用 finalizeRelease/approve DTO 反序列化；Then 嵌套对象不进入最终化命令，流程10只能通过 MesReleaseAuthoritativeContextPort.require 从流程4/6/7/8 owner 读取持久化证据。
 - RED: 只读审计发现 MesReleaseFinalizationCommand 和 MesProEdhrReleaseApproveReqVO 暴露嵌套凭证字段，未来适配器存在误用风险。
 - GREEN: mvn -pl yudao-module-mes -Dtest=MesReleaseFinalizationRequestContractTest -Dcheckstyle.skip=true test -> 退出码 0，1/1 PASS，BUILD SUCCESS。
+- GREEN（无跳过参数复核）：mvn -pl yudao-module-mes -Dtest=MesReleaseFinalizationRequestContractTest test -> 退出码 0，1/1 PASS，BUILD SUCCESS。
 - REGRESSION: mvn -pl yudao-module-mes -Dtest=MesReleaseFinalizationRequestContractTest,MesReleaseAuthoritativeContextConfigurationTest,MesReleaseFinalizationValidatorTest -Dcheckstyle.skip=true test -> 退出码 0，11/11 PASS，BUILD SUCCESS。
 - 代码结论：需要最小接口合同修改，已在两个 HTTP 输入 DTO/命令嵌套凭证字段上增加 @JsonIgnore；没有新增凭证解析器，没有改变 finalizeRelease 主事务，也没有默认成功适配器。
 - 流程6/4/7/8接入要求保持不变：只实现 MesReleaseAuthoritativeContextPort，从持久化 owner 读取 batchExecutionId、正式 receipt/hash、READY 映射和四材料 MATERIALS_READY；未接入时继续结构化 fail-fast。
