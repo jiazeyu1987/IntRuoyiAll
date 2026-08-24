@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REJECT_REASON_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_NOT_STAGED;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -46,75 +46,81 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
     private MdmCompanyScopeApi companyScopeApi;
 
     @Test
-    void uploadKeepsPendingConfirmationLightAndNeverAutoConfirms() {
+    void uploadTakesEffectImmediatelyAndClearsEightMonthLightReminder() {
         Fixture fixture = seedCurrentCertificate();
 
         DccRegistrationCertificateSupportingDocumentResult result = assertDoesNotThrow(
                 () -> service.upload(uploadCommand(fixture)));
 
         assertNotNull(result.supportingDocumentId());
-        assertEquals("PENDING_CONFIRMATION", result.status());
-        assertEquals(true, result.lightRequired());
-        assertEquals("PENDING_CONFIRMATION", text("SELECT status FROM dcc_registration_certificate_supporting_document WHERE id = ?", result.supportingDocumentId()));
-        assertEquals(1L, longValue("SELECT open_unique_flag FROM dcc_registration_certificate_supporting_document WHERE id = ?", result.supportingDocumentId()));
-        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document WHERE id = ? AND confirmed_at IS NOT NULL", result.supportingDocumentId()));
-        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type = 'SUPPORTING_DOCUMENT_UPLOADED'", fixture.certificateId()));
-        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type = 'SUPPORTING_DOCUMENT_CONFIRMED'", fixture.certificateId()));
-        verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
-    }
-
-    @Test
-    void confirmBySameCompanyDocControlClearsLightAndWritesManualAudit() {
-        Fixture fixture = seedCurrentCertificate();
-        Long supportId = seedPendingSupportingDocument(fixture);
-
-        DccRegistrationCertificateSupportingDocumentResult result = assertDoesNotThrow(
-                () -> service.confirm(reviewCommand(fixture, supportId, "confirm-1", null)));
-
-        assertEquals(supportId, result.supportingDocumentId());
-        assertEquals("CONFIRMED", result.status());
+        assertEquals("EFFECTIVE", result.status());
         assertFalse(result.lightRequired());
-        assertEquals(null, objectValue("SELECT open_unique_flag FROM dcc_registration_certificate_supporting_document WHERE id = ?", supportId));
-        assertEquals(99L, longValue("SELECT confirmed_by FROM dcc_registration_certificate_supporting_document WHERE id = ?", supportId));
-        assertEquals(2, count("SELECT row_version FROM dcc_registration_certificate_supporting_document WHERE id = ?", supportId));
-        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type = 'SUPPORTING_DOCUMENT_CONFIRMED'", fixture.certificateId()));
+        assertEquals("EFFECTIVE", text("SELECT status FROM dcc_registration_certificate_supporting_document WHERE id = ?", result.supportingDocumentId()));
+        assertEquals("SUPPORTING_DOCUMENT", text("SELECT owner_type FROM dcc_registration_certificate_file WHERE id = ?", fixture.businessFileId()));
+        assertEquals(result.supportingDocumentId(), longValue("SELECT owner_id FROM dcc_registration_certificate_file WHERE id = ?", fixture.businessFileId()));
+        assertEquals("BOUND", text("SELECT status FROM dcc_registration_certificate_file WHERE id = ?", fixture.businessFileId()));
+        assertEquals(null, objectValue("SELECT open_unique_flag FROM dcc_registration_certificate_supporting_document WHERE id = ?", result.supportingDocumentId()));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type = 'SUPPORTING_DOCUMENT_EFFECTIVE'", fixture.certificateId()));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type IN ('SUPPORTING_DOCUMENT_CONFIRMED', 'SUPPORTING_DOCUMENT_REJECTED')", fixture.certificateId()));
         verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
     }
 
     @Test
-    void rejectRequiresReasonAndKeepsLightForManualFollowUp() {
+    void uploadReplayReturnsTheSameEffectiveDocumentWithoutSecondLifecycleEvent() {
         Fixture fixture = seedCurrentCertificate();
-        Long supportId = seedPendingSupportingDocument(fixture);
+        DccRegistrationCertificateSupportingDocumentResult first = assertDoesNotThrow(
+                () -> service.upload(uploadCommand(fixture)));
+        DccRegistrationCertificateSupportingDocumentResult replay = assertDoesNotThrow(
+                () -> service.upload(uploadCommand(fixture)));
 
-        ServiceException missingReason = assertServiceException(
-                () -> service.reject(reviewCommand(fixture, supportId, "reject-blank", "  ")));
-        assertEquals(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REJECT_REASON_REQUIRED.getCode(), missingReason.getCode());
-        assertEquals("PENDING_CONFIRMATION", text("SELECT status FROM dcc_registration_certificate_supporting_document WHERE id = ?", supportId));
-
-        DccRegistrationCertificateSupportingDocumentResult result =
-                assertDoesNotThrow(() -> service.reject(
-                        reviewCommand(fixture, supportId, "reject-valid", "补充材料不清晰")));
-
-        assertEquals("REJECTED", result.status());
-        assertEquals(true, result.lightRequired());
-        assertEquals(1L, longValue("SELECT open_unique_flag FROM dcc_registration_certificate_supporting_document WHERE id = ?", supportId));
-        assertEquals("补充材料不清晰", text("SELECT reject_reason FROM dcc_registration_certificate_supporting_document WHERE id = ?", supportId));
-        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type = 'SUPPORTING_DOCUMENT_REJECTED'", fixture.certificateId()));
+        assertEquals(first.supportingDocumentId(), replay.supportingDocumentId());
+        assertEquals("EFFECTIVE", replay.status());
+        assertFalse(replay.lightRequired());
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type = 'SUPPORTING_DOCUMENT_EFFECTIVE'", fixture.certificateId()));
     }
 
     @Test
-    void crossCompanyDocControlFailureDoesNotMutatePendingDocument() {
+    void replayWithTheSameKeyButDifferentBusinessFileIsRejected() {
         Fixture fixture = seedCurrentCertificate();
-        Long supportId = seedPendingSupportingDocument(fixture);
+        assertDoesNotThrow(() -> service.upload(uploadCommand(fixture)));
+
+        ServiceException error = assertServiceException(() -> service.upload(
+                new DccRegistrationCertificateSupportingDocumentCommand(
+                        1L, 99L, "upload-1", "trace-upload-1", fixture.certificateId(), fixture.versionId(),
+                        9002L, null, null, "RENEWAL_ACCEPTANCE_RECEIPT", null)));
+
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT.getCode(), error.getCode());
+    }
+
+    @Test
+    void crossCompanyUploadFailureDoesNotCreateAnEffectiveDocument() {
+        Fixture fixture = seedCurrentCertificate();
         ServiceException denied = new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         doThrow(denied).when(companyScopeApi).validateUserCompanyAccess(99L, 10L);
 
         ServiceException error = assertServiceException(
-                () -> service.confirm(reviewCommand(fixture, supportId, "confirm-denied", null)));
+                () -> service.upload(uploadCommand(fixture)));
 
         assertEquals(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED.getCode(), error.getCode());
-        assertEquals("PENDING_CONFIRMATION", text("SELECT status FROM dcc_registration_certificate_supporting_document WHERE id = ?", supportId));
-        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND event_key = 'confirm-denied'"));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
+    }
+
+    @Test
+    void uploadRejectsAFileThatIsNotStagedForTheCurrentVersion() {
+        Fixture fixture = seedCurrentCertificate();
+        jdbcTemplate.update("UPDATE dcc_registration_certificate_file SET status = 'BOUND' WHERE id = ?",
+                fixture.businessFileId());
+
+        ServiceException error = assertServiceException(() -> service.upload(new DccRegistrationCertificateSupportingDocumentCommand(
+                1L, 99L, "upload-invalid-file", "trace-upload-invalid-file", fixture.certificateId(),
+                fixture.versionId(), fixture.businessFileId(), null, null,
+                "RENEWAL_ACCEPTANCE_RECEIPT", null)));
+
+        assertEquals(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED.getCode(), error.getCode());
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_supporting_document WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ?", fixture.certificateId()));
     }
 
     private Fixture seedCurrentCertificate() {
@@ -142,32 +148,31 @@ class DccRegistrationCertificateSupportingDocumentServiceTest extends BaseDbUnit
                 VALUES (3001, 1, 2001, 1, 'Product A', 'Registrant', 'Model', 'Structure',
                         'Use', 'Requirements', 'Residence', 'Production', FALSE, TRUE, '[]', ?)
                 """, LocalDateTime.of(2026, 8, 10, 9, 0));
-        return new Fixture(1001L, 2001L, 9001L);
-    }
-
-    private Long seedPendingSupportingDocument(Fixture fixture) {
         jdbcTemplate.update("""
-                INSERT INTO dcc_registration_certificate_supporting_document
-                  (id, tenant_id, owner_company_id, certificate_id, version_id, business_file_id,
-                   document_type, status, open_unique_flag, row_version, uploaded_at, uploaded_by)
-                VALUES (4001, 1, 10, ?, ?, ?, 'RENEWAL_SUPPLEMENT_NOTICE',
-                        'PENDING_CONFIRMATION', 1, 1, ?, 88)
-                """, fixture.certificateId(), fixture.versionId(), fixture.businessFileId(),
-                LocalDateTime.of(2026, 8, 17, 9, 0));
-        return 4001L;
+                INSERT INTO dcc_registration_certificate_file
+                  (id, owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
+                   file_size, sha256, status, bound_at, bound_by, tenant_id)
+                VALUES (9001, 'VERSION', 2001, 'RENEWAL_ACCEPTANCE_RECEIPT', 9101,
+                        'renewal-acceptance.pdf', 'application/pdf', 128,
+                        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                        'STAGED', NULL, NULL, 1)
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_file
+                  (id, owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
+                   file_size, sha256, status, bound_at, bound_by, tenant_id)
+                VALUES (9002, 'VERSION', 2001, 'RENEWAL_ACCEPTANCE_RECEIPT', 9102,
+                        'renewal-acceptance-2.pdf', 'application/pdf', 128,
+                        'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                        'STAGED', NULL, NULL, 1)
+                """);
+        return new Fixture(1001L, 2001L, 9001L);
     }
 
     private DccRegistrationCertificateSupportingDocumentCommand uploadCommand(Fixture fixture) {
         return new DccRegistrationCertificateSupportingDocumentCommand(
                 1L, 99L, "upload-1", "trace-upload-1", fixture.certificateId(), fixture.versionId(),
                 fixture.businessFileId(), null, null, "RENEWAL_ACCEPTANCE_RECEIPT", null);
-    }
-
-    private DccRegistrationCertificateSupportingDocumentCommand reviewCommand(Fixture fixture, Long supportId,
-                                                                              String key, String reason) {
-        return new DccRegistrationCertificateSupportingDocumentCommand(
-                1L, 99L, key, "trace-" + key, fixture.certificateId(), fixture.versionId(),
-                fixture.businessFileId(), supportId, 1, "RENEWAL_SUPPLEMENT_NOTICE", reason);
     }
 
     private ServiceException assertServiceException(Runnable runnable) {

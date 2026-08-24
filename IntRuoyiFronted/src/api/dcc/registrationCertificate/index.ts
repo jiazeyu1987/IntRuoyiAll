@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import { generateUUID } from '@/utils'
 
 export type DccRegistrationCertificateStatus =
   | 'DRAFT'
@@ -56,8 +57,10 @@ export interface DccRegistrationCertificateOldIndexItemVO {
 
 export interface DccRegistrationCertificateDetailVO {
   certificateId: number | string
+  rowVersion: number
   versionId: number | string
   snapshotId: number | string
+  snapshotRevision: number
   ownerCompanyId: number | string
   ownerCompanyName: string
   productMasterId: number | string
@@ -124,13 +127,13 @@ export interface DccRegistrationCertificateUpdateDraftReqVO
 export interface DccRegistrationCertificateFormalizeReqVO {
   expectedRowVersion: number
   expectedSnapshotRevision: number
-  businessFileId: number | string
+  businessFileId?: number | string
 }
 
 export interface DccRegistrationCertificateRenewalUploadReqVO {
   expectedRowVersion: number
   currentVersionId: number | string
-  businessFileId: number | string
+  businessFileId?: number | string
   categoryChanged: boolean
   certificateNo?: string
   classification?: string
@@ -147,6 +150,7 @@ export interface DccRegistrationCertificateRenewalVoidReqVO {
 export interface DccRegistrationCertificateChangeApplyReqVO {
   expectedRowVersion: number
   approvalDate: string
+  businessFileId?: number | string
   structuredValues?: Record<string, string>
   otherDescription?: string
   entrustedProduction?: boolean
@@ -162,14 +166,8 @@ export interface DccRegistrationCertificateVoidReqVO {
 
 export interface DccRegistrationCertificateSupportingDocumentUploadReqVO {
   versionId: number | string
-  businessFileId: number | string
+  businessFileId?: number | string
   documentType: string
-}
-
-export interface DccRegistrationCertificateSupportingDocumentReviewReqVO
-  extends DccRegistrationCertificateSupportingDocumentUploadReqVO {
-  expectedRowVersion: number
-  rejectReason?: string
 }
 
 export interface DccRegistrationCertificateAccessRequestSubmitReqVO {
@@ -373,32 +371,6 @@ export const uploadRegistrationCertificateSupportingDocument = async (
   })
 }
 
-export const confirmRegistrationCertificateSupportingDocument = async (
-  certificateId: number | string,
-  supportingDocumentId: number | string,
-  data: DccRegistrationCertificateSupportingDocumentReviewReqVO,
-  idempotencyKey: string
-) => {
-  return await request.post({
-    url: `/dcc/registration-certificates/${certificateId}/supporting-documents/${supportingDocumentId}/confirm`,
-    data,
-    headers: { 'Idempotency-Key': idempotencyKey }
-  })
-}
-
-export const rejectRegistrationCertificateSupportingDocument = async (
-  certificateId: number | string,
-  supportingDocumentId: number | string,
-  data: DccRegistrationCertificateSupportingDocumentReviewReqVO,
-  idempotencyKey: string
-) => {
-  return await request.post({
-    url: `/dcc/registration-certificates/${certificateId}/supporting-documents/${supportingDocumentId}/reject`,
-    data,
-    headers: { 'Idempotency-Key': idempotencyKey }
-  })
-}
-
 export const submitRegistrationCertificateAccessRequest = async (
   data: DccRegistrationCertificateAccessRequestSubmitReqVO,
   idempotencyKey: string
@@ -440,14 +412,12 @@ export const revokeRegistrationCertificateGrant = async (
 
 export const downloadRegistrationCertificateFile = async (
   businessFileId: number | string,
-  attemptKey: string
+  attemptKey?: string
 ): Promise<{ blob: Blob; fileName: string }> => {
-  if (!attemptKey || !attemptKey.trim()) {
-    throw new Error('请填写稳定下载尝试键后再下载。')
-  }
+  const resolvedAttemptKey = attemptKey?.trim() || `DCC-REG-CERT-DOWNLOAD-${generateUUID()}`
   const response = await request.downloadOriginal<any>({
     url: `/dcc/registration-certificates/files/${businessFileId}/download`,
-    headers: { 'X-DCC-Download-Attempt-Key': attemptKey.trim() }
+    headers: { 'X-DCC-Download-Attempt-Key': resolvedAttemptKey }
   })
   const disposition = response.headers?.['content-disposition'] || response.headers?.['Content-Disposition']
   if (!disposition) {

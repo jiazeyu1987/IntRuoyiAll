@@ -34,40 +34,40 @@ class DccRegistrationCertificateReminderServiceTest extends BaseDbUnitTest {
     @Test
     void thresholdMatrixUsesCalendarBoundariesAndExpiredRemainsBright() {
         List<DccRegistrationCertificateReminderEvaluation> cases = List.of(
-                service.evaluateThreshold(LocalDate.of(2026, 1, 29), LocalDate.of(2026, 2, 28), false),
-                service.evaluateThreshold(LocalDate.of(2028, 1, 30), LocalDate.of(2028, 2, 29), false),
-                service.evaluateThreshold(LocalDate.of(2026, 3, 23), LocalDate.of(2026, 3, 31), false),
-                service.evaluateThreshold(LocalDate.of(2026, 3, 29), LocalDate.of(2026, 3, 31), false),
-                service.evaluateThreshold(LocalDate.of(2026, 3, 30), LocalDate.of(2026, 3, 31), false),
+                service.evaluateThreshold(LocalDate.of(2023, 2, 28), LocalDate.of(2025, 8, 28), false),
+                service.evaluateThreshold(LocalDate.of(2024, 2, 29), LocalDate.of(2026, 8, 29), false),
+                service.evaluateThreshold(LocalDate.of(2026, 7, 31), LocalDate.of(2027, 3, 31), false),
+                service.evaluateThreshold(LocalDate.of(2027, 1, 31), LocalDate.of(2027, 3, 31), false),
+                service.evaluateThreshold(LocalDate.of(2027, 2, 28), LocalDate.of(2027, 3, 31), false),
                 service.evaluateThreshold(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 3, 31), false),
                 service.evaluateThreshold(LocalDate.of(2026, 3, 30), LocalDate.of(2026, 3, 31), true));
 
         assertEquals(List.of("T_30", "T_30", "T_8", "T_2", "T_1", "T_1", "CLEARED"),
                 cases.stream().map(DccRegistrationCertificateReminderEvaluation::thresholdLevel).toList());
-        assertEquals(List.of("YELLOW", "YELLOW", "ORANGE", "RED", "BRIGHT_RED", "BRIGHT_RED", "CLEARED"),
+        assertEquals(List.of("NORMAL", "NORMAL", "LIGHT", "BRIGHT", "BRIGHT", "BRIGHT", "CLEARED"),
                 cases.stream().map(DccRegistrationCertificateReminderEvaluation::colorCode).toList());
         assertEquals(-1, cases.get(5).daysUntilDue());
     }
 
     @Test
     void catchUpSuppressesMissedLowerThresholdsAndLaterEscalatesOnce() {
-        insertActiveCertificate(1L, 101L, 201L, null, 301L, LocalDate.of(2026, 3, 31));
+        insertActiveCertificate(1L, 101L, 201L, null, 301L, LocalDate.of(2027, 3, 31));
 
         DccRegistrationCertificateReminderRunResult first = service.generateOccurrences(
-                1L, 9001L, LocalDate.of(2026, 3, 23));
+                1L, 9001L, LocalDate.of(2026, 7, 31));
         assertEquals(1, first.pendingCount());
         assertEquals(1, first.suppressedCount());
         assertOccurrence(101L, "T_8", "PENDING_DELIVERY", null);
         assertOccurrence(101L, "T_30", "SUPPRESSED", "MISSED_BY_CATCH_UP");
 
         DccRegistrationCertificateReminderRunResult replay = service.generateOccurrences(
-                1L, 9001L, LocalDate.of(2026, 3, 23));
+                1L, 9001L, LocalDate.of(2026, 7, 31));
         assertEquals(0, replay.pendingCount());
         assertEquals(0, replay.suppressedCount());
         assertEquals(2, countOccurrences(101L));
 
         DccRegistrationCertificateReminderRunResult later = service.generateOccurrences(
-                1L, 9002L, LocalDate.of(2026, 3, 29));
+                1L, 9002L, LocalDate.of(2027, 1, 31));
         assertEquals(1, later.pendingCount());
         assertEquals(0, later.suppressedCount());
         assertOccurrence(101L, "T_2", "PENDING_DELIVERY", null);
@@ -76,10 +76,10 @@ class DccRegistrationCertificateReminderServiceTest extends BaseDbUnitTest {
 
     @Test
     void renewalCandidateSuppressesExpiryWithoutDelivery() {
-        insertActiveCertificate(1L, 102L, 202L, 203L, 302L, LocalDate.of(2026, 4, 30));
+        insertActiveCertificate(1L, 102L, 202L, 203L, 302L, LocalDate.of(2027, 4, 30));
 
         DccRegistrationCertificateReminderRunResult result = service.generateOccurrences(
-                1L, 9003L, LocalDate.of(2026, 4, 22));
+                1L, 9003L, LocalDate.of(2026, 8, 30));
 
         assertEquals(0, result.pendingCount());
         assertEquals(2, result.suppressedCount());
@@ -88,17 +88,10 @@ class DccRegistrationCertificateReminderServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void confirmedSupportingDocumentClearsSupportingDocumentReminder() {
+    void effectiveSupportingDocumentClearsSupportingDocumentReminder() {
         insertActiveCertificate(1L, 103L, 203L, null, 303L, LocalDate.of(2026, 5, 31));
-        insertSupportingDocument(1L, 7001L, 103L, 203L, "PENDING_CONFIRMATION");
         assertFalse(service.isSupportingDocumentCleared(1L, 103L, "RENEWAL_ACCEPTANCE_RECEIPT"));
-
-        jdbcTemplate.update("""
-                UPDATE dcc_registration_certificate_supporting_document
-                   SET status = 'CONFIRMED', open_unique_flag = NULL, confirmed_at = CURRENT_TIMESTAMP, confirmed_by = 9
-                 WHERE id = 7001
-                """);
-
+        insertSupportingDocument(1L, 7001L, 103L, 203L, "EFFECTIVE");
         assertTrue(service.isSupportingDocumentCleared(1L, 103L, "RENEWAL_ACCEPTANCE_RECEIPT"));
     }
 

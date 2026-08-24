@@ -82,6 +82,7 @@ public class DccRegistrationCertificateChangeService {
         ChangeSelection selection = validateSelection(command);
         CertificateState state = requireCurrentState(command.tenantId(), command.certificateId(),
                 command.expectedRowVersion());
+        validateChangeFile(command, state);
 
         Long resultingSnapshotId = state.snapshotId();
         SnapshotRow target = state.snapshot();
@@ -102,6 +103,7 @@ public class DccRegistrationCertificateChangeService {
         Long eventId = insertLifecycleEvent(command, state, resultingSnapshotId, EVENT_CHANGE_APPLIED,
                 payloadHash, selection.itemTypes());
         Long changeId = insertChange(command, state, resultingSnapshotId, eventId, selection.itemTypes());
+        bindChangeFile(command, state, changeId);
         insertChangeItems(command.tenantId(), changeId, state.snapshot(), target, selection);
         return new DccRegistrationCertificateChangeResult(command.certificateId(), changeId,
                 state.snapshotId(), resultingSnapshotId, "APPLIED");
@@ -272,6 +274,43 @@ public class DccRegistrationCertificateChangeService {
                    AND file_kind = 'REGISTRATION_CERTIFICATE' AND status = 'BOUND'
                 """, tenantId, versionId);
         if (affected != boundCount) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+        }
+    }
+
+    private void validateChangeFile(DccRegistrationCertificateChangeCommand command, CertificateState state) {
+        if (command.businessFileId() == null) {
+            return;
+        }
+        Integer matching = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM dcc_registration_certificate_file
+                 WHERE id = ? AND tenant_id = ? AND owner_type = 'VERSION' AND owner_id = ?
+                   AND file_kind = 'CHANGE_APPROVAL' AND status = 'STAGED'
+                """, Integer.class, command.businessFileId(), command.tenantId(), state.versionId());
+        if (matching == null || matching != 1) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        }
+    }
+
+    private void bindChangeFile(DccRegistrationCertificateChangeCommand command, CertificateState state,
+                                Long changeId) {
+        if (command.businessFileId() == null) {
+            return;
+        }
+        int affected;
+        try {
+            affected = jdbcTemplate.update("""
+                    UPDATE dcc_registration_certificate_file
+                       SET owner_type = 'CHANGE', owner_id = ?, status = 'BOUND',
+                           bound_at = ?, bound_by = ?
+                     WHERE id = ? AND tenant_id = ? AND owner_type = 'VERSION' AND owner_id = ?
+                       AND file_kind = 'CHANGE_APPROVAL' AND status = 'STAGED'
+                    """, changeId, businessClock.now(), command.actorId(), command.businessFileId(),
+                    command.tenantId(), state.versionId());
+        } catch (DuplicateKeyException exception) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+        }
+        if (affected != 1) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
         }
     }
@@ -457,7 +496,7 @@ public class DccRegistrationCertificateChangeService {
                 + "|" + command.approvalDate() + "|" + normalize(command.structuredValues())
                 + "|" + normalize(command.otherDescription()) + "|" + command.entrustedProduction()
                 + "|" + command.selfProduction() + "|" + normalize(command.entrustedEnterprisesJson())
-                + "|" + normalize(command.voidReason()));
+                + "|" + normalize(command.voidReason()) + "|" + command.businessFileId());
     }
 
     private static String normalize(Map<String, String> values) {

@@ -48,7 +48,7 @@ public class DccRegistrationCertificateChangeController {
                 TracerUtils.getTraceId(), certificateId, reqVO.getExpectedRowVersion(),
                 reqVO.getApprovalDate(), reqVO.getStructuredValues(), reqVO.getOtherDescription(),
                 reqVO.getEntrustedProduction(), reqVO.getSelfProduction(),
-                reqVO.getEntrustedEnterprisesJson(), null)));
+                reqVO.getEntrustedEnterprisesJson(), null, reqVO.getBusinessFileId())));
     }
 
     @PostMapping("/void")

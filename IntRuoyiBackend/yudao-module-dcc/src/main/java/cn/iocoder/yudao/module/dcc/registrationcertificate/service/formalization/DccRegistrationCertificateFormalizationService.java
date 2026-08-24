@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledConten
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentProjectionSnapshot;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionService;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -127,10 +128,28 @@ public class DccRegistrationCertificateFormalizationService {
     }
 
     private DccRegistrationCertificateFileDO requireStagedFile(Long tenantId, Long versionId, Long businessFileId) {
-        if (businessFileId == null || businessFileId <= 0) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        DccRegistrationCertificateFileDO file;
+        if (businessFileId == null) {
+            List<DccRegistrationCertificateFileDO> candidates = fileMapper.selectList(
+                    new LambdaQueryWrapperX<DccRegistrationCertificateFileDO>()
+                            .eq(DccRegistrationCertificateFileDO::getTenantId, tenantId)
+                            .eq(DccRegistrationCertificateFileDO::getOwnerType, "VERSION")
+                            .eq(DccRegistrationCertificateFileDO::getOwnerId, versionId)
+                            .eq(DccRegistrationCertificateFileDO::getFileKind, "REGISTRATION_CERTIFICATE")
+                            .eq(DccRegistrationCertificateFileDO::getStatus, "STAGED"));
+            if (candidates == null || candidates.isEmpty()) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+            }
+            if (candidates.size() != 1) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
+            }
+            file = candidates.get(0);
+        } else {
+            if (businessFileId <= 0) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+            }
+            file = fileMapper.selectById(businessFileId);
         }
-        DccRegistrationCertificateFileDO file = fileMapper.selectById(businessFileId);
         if (file == null) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
         }

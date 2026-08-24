@@ -16,5 +16,17 @@ public record DccRegistrationCertificateChangeCommand(
         Boolean entrustedProduction,
         Boolean selfProduction,
         String entrustedEnterprisesJson,
-        String voidReason) {
+        String voidReason,
+        Long businessFileId) {
+
+    public DccRegistrationCertificateChangeCommand(Long tenantId, Long actorId, String idempotencyKey,
+                                                   String requestTraceId, Long certificateId,
+                                                   Integer expectedRowVersion, LocalDate approvalDate,
+                                                   Map<String, String> structuredValues, String otherDescription,
+                                                   Boolean entrustedProduction, Boolean selfProduction,
+                                                   String entrustedEnterprisesJson, String voidReason) {
+        this(tenantId, actorId, idempotencyKey, requestTraceId, certificateId, expectedRowVersion,
+                approvalDate, structuredValues, otherDescription, entrustedProduction, selfProduction,
+                entrustedEnterprisesJson, voidReason, null);
+    }
 }

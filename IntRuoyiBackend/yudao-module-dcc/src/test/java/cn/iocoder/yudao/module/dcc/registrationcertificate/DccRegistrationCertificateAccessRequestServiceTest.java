@@ -117,6 +117,19 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     }
 
     @Test
+    void submitDownloadRequestResolvesProjectAndFileIdsFromTheCertificateWhenOmitted() {
+        FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
+        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
+                DccProjectCodeStatusConstants.ENABLE));
+
+        DccRegistrationCertificateAccessRequestResult result = service.submit(1L, 99L, "download-auto-ids",
+                download(fixture.certificateId(), null, List.of()));
+
+        assertEquals(List.of(fixture.fileId()), result.businessFileIds());
+        assertEquals(40L, requestMapper.selectById(result.requestId()).getProjectCodeId());
+    }
+
+    @Test
     void viewOldCertificateRequestDoesNotRequireProjectOrFileRows() {
         FormalFixture fixture = seedFormalCertificate("EXPIRED_UNRENEWED", "OLD", "BOUND");
 
@@ -202,11 +215,12 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
 
     @Test
     void downloadProjectCodeIsRequiredEnabledSameTenantAndSameProductBeforeInsert() {
-        FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
+        FormalFixture missingProjectFixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND", null);
         ServiceException missing = assertThrows(ServiceException.class, () -> service.submit(1L, 99L,
-                "missing-project", download(fixture.certificateId(), null, List.of(fixture.fileId()))));
+                "missing-project", download(missingProjectFixture.certificateId(), null, List.of(missingProjectFixture.fileId()))));
         assertEquals(REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED.getCode(), missing.getCode());
 
+        FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
         when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
                 DccProjectCodeStatusConstants.DISABLE));
         ServiceException disabled = assertThrows(ServiceException.class, () -> service.submit(1L, 99L,
@@ -272,10 +286,15 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     }
 
     private FormalFixture seedFormalCertificate(String masterStatus, String versionStatus, String fileStatus) {
+        return seedFormalCertificate(masterStatus, versionStatus, fileStatus, 40L);
+    }
+
+    private FormalFixture seedFormalCertificate(String masterStatus, String versionStatus, String fileStatus,
+                                                Long projectCodeId) {
         DccRegistrationCertificateDO certificate = DccRegistrationCertificateDO.builder()
                 .ownerCompanyId(10L)
                 .productMasterId(20L)
-                .projectCodeId(40L)
+                .projectCodeId(projectCodeId)
                 .firstObtainedDate(LocalDate.of(2020, 1, 1))
                 .status(masterStatus)
                 .rowVersion(1)
@@ -297,6 +316,8 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
                 .build();
         version.setTenantId(1L);
         assertEquals(1, versionMapper.insert(version));
+        certificate.setCurrentVersionId(version.getId());
+        assertEquals(1, certificateMapper.updateById(certificate));
 
         DccRegistrationCertificateFileDO file = DccRegistrationCertificateFileDO.builder()
                 .ownerType("VERSION")

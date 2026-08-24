@@ -1933,6 +1933,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_lifecycle_event` (
   CONSTRAINT `chk_dcc_reg_cert_lifecycle_event_type` CHECK (`event_type` IN
     ('RENEWAL_UPLOADED', 'ACTIVATION_APPLIED', 'SUPPORTING_DOCUMENT_UPLOADED',
      'SUPPORTING_DOCUMENT_CONFIRMED', 'SUPPORTING_DOCUMENT_REJECTED',
+     'SUPPORTING_DOCUMENT_EFFECTIVE',
      'CHANGE_APPLIED', 'CANDIDATE_VOIDED', 'CERTIFICATE_VOIDED')),
   CONSTRAINT `chk_dcc_reg_cert_lifecycle_sequence` CHECK (`event_sequence` > 0),
   UNIQUE KEY `uk_dcc_reg_cert_lifecycle_event_key` (`tenant_id`, `event_key`),
@@ -1989,7 +1990,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_supporting_document` (
   CONSTRAINT `chk_dcc_reg_cert_support_type` CHECK (`document_type` IN
     ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')),
   CONSTRAINT `chk_dcc_reg_cert_support_status` CHECK (`status` IN
-    ('PENDING_CONFIRMATION', 'CONFIRMED', 'REJECTED', 'VOIDED')),
+    ('EFFECTIVE', 'REJECTED', 'VOIDED')),
   CONSTRAINT `chk_dcc_reg_cert_support_reject_reason` CHECK (
     `status` <> 'REJECTED' OR (`reject_reason` IS NOT NULL AND TRIM(`reject_reason`) <> '')
   ),

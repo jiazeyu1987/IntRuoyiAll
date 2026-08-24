@@ -33,8 +33,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import javax.sql.DataSource;
 
 import java.lang.reflect.Modifier;
 import java.time.LocalDate;
@@ -62,9 +67,18 @@ import static org.mockito.Mockito.when;
         DccRegistrationCertificateQueryServiceImpl.class,
         DccRegistrationCertificateReadAuditService.class,
         DccRegistrationCertificateAccessPolicyService.class,
-        DccRegistrationCertificateBusinessClock.class
+        DccRegistrationCertificateBusinessClock.class,
+        DccRegistrationCertificateQueryServiceTest.JdbcTestConfiguration.class
 })
 class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class JdbcTestConfiguration {
+        @Bean
+        JdbcTemplate jdbcTemplate(DataSource dataSource) {
+            return new JdbcTemplate(dataSource);
+        }
+    }
 
     @Resource
     private DccRegistrationCertificateQueryService queryService;
@@ -97,6 +111,10 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     void detailContractExposesFormalRegistrationBusinessFileId() {
         assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("registrationFileId"),
                 "detail response must expose the formal registration business-file id");
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("rowVersion"),
+                "detail response must expose the server row version for automatic concurrency control");
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("snapshotRevision"),
+                "detail response must expose the server snapshot revision for automatic concurrency control");
     }
 
     @Test
@@ -111,6 +129,10 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
 
         assertEquals(visible.registrationFileId(), detail.getRegistrationFileId(),
                 "detail must return the formal business-file id selected by the query mapper");
+        assertEquals(2, detail.getRowVersion(),
+                "detail must return the server row version instead of asking the user to type it");
+        assertEquals(1, detail.getSnapshotRevision(),
+                "detail must return the server snapshot revision instead of asking the user to type it");
     }
 
     @Test

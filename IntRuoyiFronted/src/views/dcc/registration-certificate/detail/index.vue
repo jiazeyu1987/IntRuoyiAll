@@ -46,7 +46,10 @@
 
       <RegistrationCertificateActionPanel
         :certificate-id="detail.certificateId"
+        :row-version="detail.rowVersion"
         :version-id="detail.versionId"
+        :snapshot-revision="detail.snapshotRevision"
+        :project-code-id="detail.projectCodeId"
         :business-file-id="detail.registrationFileId"
       />
 

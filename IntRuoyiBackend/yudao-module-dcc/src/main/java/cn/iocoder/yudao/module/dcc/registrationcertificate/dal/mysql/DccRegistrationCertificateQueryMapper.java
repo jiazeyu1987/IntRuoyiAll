@@ -85,8 +85,10 @@ public interface DccRegistrationCertificateQueryMapper {
         private static String select() {
             return """
                     SELECT c.id AS certificate_id,
+                           c.row_version,
                            v.id AS version_id,
                            s.id AS snapshot_id,
+                           s.revision_no AS snapshot_revision,
                            c.owner_company_id,
                            c.product_master_id,
                            c.project_code_id,

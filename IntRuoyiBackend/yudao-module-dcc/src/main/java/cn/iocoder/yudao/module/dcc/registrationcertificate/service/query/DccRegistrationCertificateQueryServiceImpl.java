@@ -208,8 +208,10 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             DccRegistrationCertificateQueryRecord row, String ownerCompanyName) {
         return DccRegistrationCertificateDetail.builder()
                 .certificateId(row.getCertificateId())
+                .rowVersion(row.getRowVersion())
                 .versionId(row.getVersionId())
                 .snapshotId(row.getSnapshotId())
+                .snapshotRevision(row.getSnapshotRevision())
                 .ownerCompanyId(row.getOwnerCompanyId())
                 .ownerCompanyName(ownerCompanyName)
                 .productMasterId(row.getProductMasterId())

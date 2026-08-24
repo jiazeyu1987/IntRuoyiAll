@@ -7,8 +7,10 @@ import java.time.LocalDate;
 @Data
 public class DccRegistrationCertificateQueryRecord {
     private Long certificateId;
+    private Integer rowVersion;
     private Long versionId;
     private Long snapshotId;
+    private Integer snapshotRevision;
     private Long ownerCompanyId;
     private Long productMasterId;
     private Long projectCodeId;

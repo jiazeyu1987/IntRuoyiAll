@@ -19,22 +19,20 @@ import java.util.List;
 import java.util.Objects;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACTIVATION_EVENT_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_NOT_STAGED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_IDEMPOTENCY_KEY_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_CONFLICT;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REJECT_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_STATUS_INVALID;
 
 @Service
 public class DccRegistrationCertificateSupportingDocumentService {
 
-    private static final String STATUS_PENDING = "PENDING_CONFIRMATION";
-    private static final String STATUS_CONFIRMED = "CONFIRMED";
-    private static final String STATUS_REJECTED = "REJECTED";
-    private static final String EVENT_UPLOADED = "SUPPORTING_DOCUMENT_UPLOADED";
-    private static final String EVENT_CONFIRMED = "SUPPORTING_DOCUMENT_CONFIRMED";
-    private static final String EVENT_REJECTED = "SUPPORTING_DOCUMENT_REJECTED";
+    private static final String STATUS_EFFECTIVE = "EFFECTIVE";
+    private static final String EVENT_EFFECTIVE = "SUPPORTING_DOCUMENT_EFFECTIVE";
 
     private final JdbcTemplate jdbcTemplate;
     private final MdmCompanyScopeApi companyScopeApi;
@@ -56,68 +54,55 @@ public class DccRegistrationCertificateSupportingDocumentService {
         validateDocumentType(command.documentType());
         ExistingEvent existing = findEvent(command.tenantId(), command.idempotencyKey());
         if (existing != null) {
-            return replay(command, existing, EVENT_UPLOADED);
+            return replay(command, existing, EVENT_EFFECTIVE);
         }
         CertificateRef certificate = requireCertificate(command);
         companyScopeApi.validateUserCompanyAccess(command.actorId(), certificate.ownerCompanyId());
-        Long supportId = insertPendingDocument(command, certificate);
-        insertLifecycleEvent(command, certificate, supportId, EVENT_UPLOADED, null);
+        requireStagedBusinessFile(command);
+        Long supportId = insertEffectiveDocument(command, certificate);
+        bindBusinessFile(command, supportId);
+        insertLifecycleEvent(command, certificate, supportId, EVENT_EFFECTIVE, null);
         return new DccRegistrationCertificateSupportingDocumentResult(supportId, command.certificateId(),
-                command.versionId(), command.documentType().trim(), STATUS_PENDING, true);
+                command.versionId(), command.documentType().trim(), STATUS_EFFECTIVE, false);
     }
 
-    @Transactional(rollbackFor = Exception.class)
-    public DccRegistrationCertificateSupportingDocumentResult confirm(
-            DccRegistrationCertificateSupportingDocumentCommand command) {
-        validateReview(command);
-        ExistingEvent existing = findEvent(command.tenantId(), command.idempotencyKey());
-        if (existing != null) {
-            return replay(command, existing, EVENT_CONFIRMED);
+    private void requireStagedBusinessFile(DccRegistrationCertificateSupportingDocumentCommand command) {
+        List<BusinessFile> rows = jdbcTemplate.query("""
+                SELECT tenant_id, owner_type, owner_id, file_kind, status
+                  FROM dcc_registration_certificate_file
+                 WHERE id = ? AND deleted = 0
+                """, (rs, rowNum) -> new BusinessFile(
+                rs.getLong("tenant_id"), rs.getString("owner_type"), rs.getLong("owner_id"),
+                rs.getString("file_kind"), rs.getString("status")), command.businessFileId());
+        if (rows.isEmpty()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
         }
-        SupportingDocument document = requirePendingDocument(command);
-        companyScopeApi.validateUserCompanyAccess(command.actorId(), document.ownerCompanyId());
+        BusinessFile file = rows.get(0);
+        if (!Objects.equals(file.tenantId(), command.tenantId())
+                || !"VERSION".equals(file.ownerType())
+                || !Objects.equals(file.ownerId(), command.versionId())
+                || !Objects.equals(file.fileKind(), command.documentType().trim())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
+        }
+        if (!"STAGED".equals(file.status())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
+        }
+    }
+
+    private void bindBusinessFile(DccRegistrationCertificateSupportingDocumentCommand command, Long supportId) {
+        LocalDateTime boundAt = businessClock.now();
         requireSingle(jdbcTemplate.update("""
-                UPDATE dcc_registration_certificate_supporting_document
-                   SET status = ?, open_unique_flag = NULL, row_version = row_version + 1,
-                       confirmed_at = ?, confirmed_by = ?, updater = ?, update_time = ?
-                 WHERE id = ? AND tenant_id = ? AND status = ? AND row_version = ? AND deleted = 0
-                """, STATUS_CONFIRMED, businessClock.now(), command.actorId(), String.valueOf(command.actorId()),
-                businessClock.now(), document.id(), command.tenantId(), STATUS_PENDING, command.expectedRowVersion()),
+                UPDATE dcc_registration_certificate_file
+                   SET owner_type = 'SUPPORTING_DOCUMENT', owner_id = ?, status = 'BOUND',
+                       bound_at = ?, bound_by = ?, updater = ?, update_time = ?
+                 WHERE id = ? AND tenant_id = ? AND owner_type = 'VERSION' AND owner_id = ?
+                   AND file_kind = ? AND status = 'STAGED' AND deleted = 0
+                """, supportId, boundAt, command.actorId(), String.valueOf(command.actorId()), boundAt,
+                command.businessFileId(), command.tenantId(), command.versionId(), command.documentType().trim()),
                 REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_STATUS_INVALID);
-        insertLifecycleEvent(command, document.toCertificateRef(), document.id(), EVENT_CONFIRMED, null);
-        return new DccRegistrationCertificateSupportingDocumentResult(document.id(), document.certificateId(),
-                document.versionId(), document.documentType(), STATUS_CONFIRMED, false);
     }
 
-    @Transactional(rollbackFor = Exception.class)
-    public DccRegistrationCertificateSupportingDocumentResult reject(
-            DccRegistrationCertificateSupportingDocumentCommand command) {
-        validateReview(command);
-        if (isBlank(command.rejectReason())) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REJECT_REASON_REQUIRED);
-        }
-        ExistingEvent existing = findEvent(command.tenantId(), command.idempotencyKey());
-        if (existing != null) {
-            return replay(command, existing, EVENT_REJECTED);
-        }
-        SupportingDocument document = requirePendingDocument(command);
-        companyScopeApi.validateUserCompanyAccess(command.actorId(), document.ownerCompanyId());
-        String reason = command.rejectReason().trim();
-        requireSingle(jdbcTemplate.update("""
-                UPDATE dcc_registration_certificate_supporting_document
-                   SET status = ?, open_unique_flag = 1, row_version = row_version + 1,
-                       rejected_at = ?, rejected_by = ?, reject_reason = ?, updater = ?, update_time = ?
-                 WHERE id = ? AND tenant_id = ? AND status = ? AND row_version = ? AND deleted = 0
-                """, STATUS_REJECTED, businessClock.now(), command.actorId(), reason,
-                String.valueOf(command.actorId()), businessClock.now(), document.id(), command.tenantId(),
-                STATUS_PENDING, command.expectedRowVersion()),
-                REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_STATUS_INVALID);
-        insertLifecycleEvent(command, document.toCertificateRef(), document.id(), EVENT_REJECTED, reason);
-        return new DccRegistrationCertificateSupportingDocumentResult(document.id(), document.certificateId(),
-                document.versionId(), document.documentType(), STATUS_REJECTED, true);
-    }
-
-    private Long insertPendingDocument(DccRegistrationCertificateSupportingDocumentCommand command,
+    private Long insertEffectiveDocument(DccRegistrationCertificateSupportingDocumentCommand command,
                                        CertificateRef certificate) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         try {
@@ -125,8 +110,8 @@ public class DccRegistrationCertificateSupportingDocumentService {
                 PreparedStatement ps = connection.prepareStatement("""
                         INSERT INTO dcc_registration_certificate_supporting_document
                           (tenant_id, owner_company_id, certificate_id, version_id, business_file_id,
-                           document_type, status, open_unique_flag, row_version, uploaded_at, uploaded_by, creator)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)
+                           document_type, status, row_version, uploaded_at, uploaded_by, creator)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
                         """, Statement.RETURN_GENERATED_KEYS);
                 ps.setLong(1, command.tenantId());
                 ps.setLong(2, certificate.ownerCompanyId());
@@ -134,7 +119,7 @@ public class DccRegistrationCertificateSupportingDocumentService {
                 ps.setLong(4, command.versionId());
                 ps.setLong(5, command.businessFileId());
                 ps.setString(6, command.documentType().trim());
-                ps.setString(7, STATUS_PENDING);
+                ps.setString(7, STATUS_EFFECTIVE);
                 ps.setObject(8, businessClock.now());
                 ps.setLong(9, command.actorId());
                 ps.setString(10, String.valueOf(command.actorId()));
@@ -170,36 +155,6 @@ public class DccRegistrationCertificateSupportingDocumentService {
         return rows.get(0);
     }
 
-    private SupportingDocument requirePendingDocument(DccRegistrationCertificateSupportingDocumentCommand command) {
-        List<SupportingDocument> rows = jdbcTemplate.query("""
-                SELECT id, owner_company_id, certificate_id, version_id, business_file_id,
-                       document_type, status, row_version
-                  FROM dcc_registration_certificate_supporting_document
-                 WHERE id = ? AND tenant_id = ? AND deleted = 0
-                """, (rs, rowNum) -> new SupportingDocument(
-                rs.getLong("id"),
-                rs.getLong("owner_company_id"),
-                rs.getLong("certificate_id"),
-                rs.getLong("version_id"),
-                rs.getLong("business_file_id"),
-                rs.getString("document_type"),
-                rs.getString("status"),
-                rs.getInt("row_version")), command.supportingDocumentId(), command.tenantId());
-        if (rows.size() != 1) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED);
-        }
-        SupportingDocument document = rows.get(0);
-        if (!Objects.equals(document.certificateId(), command.certificateId())
-                || !Objects.equals(document.versionId(), command.versionId())
-                || !Objects.equals(document.businessFileId(), command.businessFileId())
-                || !Objects.equals(document.documentType(), command.documentType().trim())
-                || !STATUS_PENDING.equals(document.status())
-                || !Objects.equals(document.rowVersion(), command.expectedRowVersion())) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_STATUS_INVALID);
-        }
-        return document;
-    }
-
     private void insertLifecycleEvent(DccRegistrationCertificateSupportingDocumentCommand command,
                                       CertificateRef certificate, Long supportId,
                                       String eventType, String rejectReason) {
@@ -217,7 +172,8 @@ public class DccRegistrationCertificateSupportingDocumentService {
                     VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)
                     """, command.tenantId(), certificate.ownerCompanyId(), command.certificateId(),
                     command.versionId(), command.versionId(), command.idempotencyKey(), eventType, nextSequence,
-                    command.actorId(), JsonUtils.toJsonString(new EventDetail(supportId, command.documentType().trim(),
+                    command.actorId(), JsonUtils.toJsonString(new EventDetail(supportId, command.businessFileId(),
+                            command.documentType().trim(),
                             rejectReason)), businessClock.now(), String.valueOf(command.actorId())),
                     REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_CONFLICT);
         } catch (DuplicateKeyException exception) {
@@ -249,18 +205,15 @@ public class DccRegistrationCertificateSupportingDocumentService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT);
         }
         EventDetail detail = JsonUtils.parseObject(event.detailJson(), EventDetail.class);
-        if (detail == null || !Objects.equals(detail.documentType(), command.documentType().trim())) {
+        if (detail == null || !Objects.equals(detail.businessFileId(), command.businessFileId())
+                || !Objects.equals(detail.documentType(), command.documentType().trim())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT);
         }
-        String status = switch (expectedType) {
-            case EVENT_UPLOADED -> STATUS_PENDING;
-            case EVENT_CONFIRMED -> STATUS_CONFIRMED;
-            case EVENT_REJECTED -> STATUS_REJECTED;
-            default -> throw new ServiceException(REGISTRATION_CERTIFICATE_ACTIVATION_EVENT_CONFLICT);
-        };
+        if (!EVENT_EFFECTIVE.equals(expectedType)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACTIVATION_EVENT_CONFLICT);
+        }
         return new DccRegistrationCertificateSupportingDocumentResult(detail.supportingDocumentId(),
-                event.certificateId(), event.versionId(), detail.documentType(), status,
-                !STATUS_CONFIRMED.equals(status));
+                event.certificateId(), event.versionId(), detail.documentType(), STATUS_EFFECTIVE, false);
     }
 
     private void validateCommon(DccRegistrationCertificateSupportingDocumentCommand command) {
@@ -274,15 +227,6 @@ public class DccRegistrationCertificateSupportingDocumentService {
         if (isBlank(command.idempotencyKey())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_IDEMPOTENCY_KEY_REQUIRED);
         }
-    }
-
-    private void validateReview(DccRegistrationCertificateSupportingDocumentCommand command) {
-        validateCommon(command);
-        if (command.supportingDocumentId() == null || command.supportingDocumentId() <= 0
-                || command.expectedRowVersion() == null || command.expectedRowVersion() <= 0) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_SUPPORTING_DOCUMENT_REQUIRED);
-        }
-        validateDocumentType(command.documentType());
     }
 
     private void validateDocumentType(String documentType) {
@@ -316,16 +260,12 @@ public class DccRegistrationCertificateSupportingDocumentService {
     private record CertificateRef(Long ownerCompanyId, Long currentVersionId, String versionStatus) {
     }
 
-    private record SupportingDocument(Long id, Long ownerCompanyId, Long certificateId, Long versionId,
-                                      Long businessFileId, String documentType, String status, Integer rowVersion) {
-        CertificateRef toCertificateRef() {
-            return new CertificateRef(ownerCompanyId, versionId, "CURRENT");
-        }
+    private record BusinessFile(Long tenantId, String ownerType, Long ownerId, String fileKind, String status) {
     }
 
     private record ExistingEvent(String eventType, Long certificateId, Long versionId, String detailJson) {
     }
 
-    private record EventDetail(Long supportingDocumentId, String documentType, String rejectReason) {
+    private record EventDetail(Long supportingDocumentId, Long businessFileId, String documentType, String rejectReason) {
     }
 }

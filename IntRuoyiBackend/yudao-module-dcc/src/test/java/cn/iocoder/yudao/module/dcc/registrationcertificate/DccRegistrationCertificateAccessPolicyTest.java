@@ -15,9 +15,14 @@ import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import javax.sql.DataSource;
 
 import java.time.LocalDateTime;
 
@@ -30,8 +35,17 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
-@Import(DccRegistrationCertificateAccessPolicyService.class)
+@Import({DccRegistrationCertificateAccessPolicyService.class,
+        DccRegistrationCertificateAccessPolicyTest.JdbcTestConfiguration.class})
 class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class JdbcTestConfiguration {
+        @Bean
+        JdbcTemplate jdbcTemplate(DataSource dataSource) {
+            return new JdbcTemplate(dataSource);
+        }
+    }
 
     @Resource
     private DccRegistrationCertificateAccessPolicyService accessPolicyService;

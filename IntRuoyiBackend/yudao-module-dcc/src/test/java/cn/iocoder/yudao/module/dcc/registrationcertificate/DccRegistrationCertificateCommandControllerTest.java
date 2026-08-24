@@ -92,10 +92,8 @@ class DccRegistrationCertificateCommandControllerTest {
         assertRoot(supportingController, "/dcc/registration-certificates/{certificateId}/supporting-documents");
         assertRoute(supportingController, "upload", PostMapping.class, "",
                 "dcc:registration-certificate:supporting-document:upload", 1);
-        assertRoute(supportingController, "confirm", PostMapping.class, "/{supportingDocumentId}/confirm",
-                "dcc:registration-certificate:supporting-document:confirm", 1);
-        assertRoute(supportingController, "reject", PostMapping.class, "/{supportingDocumentId}/reject",
-                "dcc:registration-certificate:supporting-document:confirm", 1);
+        assertNoDeclaredMethod(supportingController, "confirm");
+        assertNoDeclaredMethod(supportingController, "reject");
     }
 
     private static Class<?> assertControllerPresent(String className) throws Exception {
@@ -129,6 +127,15 @@ class DccRegistrationCertificateCommandControllerTest {
         assertEquals(expectedPath, firstMappingValue(mapping), methodName + " route");
         assertPermission(method, permission);
         assertIdempotencyHeader(method, idempotencyParameterIndex);
+    }
+
+    private static void assertNoDeclaredMethod(Class<?> controller, String methodName) {
+        for (Method method : controller.getDeclaredMethods()) {
+            if (method.getName().equals(methodName)) {
+                throw new AssertionError(controller.getSimpleName() + "." + methodName
+                        + " must not exist after direct-effective upload policy");
+            }
+        }
     }
 
     private static String firstMappingValue(Annotation mapping) {

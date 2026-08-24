@@ -13,7 +13,6 @@ public class DccRegistrationCertificateFormalizeReqVO {
     @NotNull
     @Positive
     private Integer expectedSnapshotRevision;
-    @NotNull
     @Positive
     private Long businessFileId;
 }

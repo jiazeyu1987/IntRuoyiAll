@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -36,18 +37,21 @@ public class DccRegistrationCertificateAccessPolicyService {
     private final DccRegistrationCertificateFileMapper fileMapper;
     private final DccRegistrationCertificateGrantMapper grantMapper;
     private final MdmCompanyScopeApi companyScopeApi;
+    private final JdbcTemplate jdbcTemplate;
 
     public DccRegistrationCertificateAccessPolicyService(
             DccRegistrationCertificateMapper certificateMapper,
             DccRegistrationCertificateVersionMapper versionMapper,
             DccRegistrationCertificateFileMapper fileMapper,
             DccRegistrationCertificateGrantMapper grantMapper,
-            MdmCompanyScopeApi companyScopeApi) {
+            MdmCompanyScopeApi companyScopeApi,
+            JdbcTemplate jdbcTemplate) {
         this.certificateMapper = require(certificateMapper, "certificateMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
         this.fileMapper = require(fileMapper, "fileMapper");
         this.grantMapper = require(grantMapper, "grantMapper");
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
+        this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
     }
 
     public void assertCurrentPreviewAllowed(Long tenantId, Long actorId, Long certificateId) {
@@ -83,12 +87,11 @@ public class DccRegistrationCertificateAccessPolicyService {
         DccRegistrationCertificateGrantDO grant = selectValidGrant(grants, at);
         DccRegistrationCertificateFileDO file = fileMapper.selectById(businessFileId);
         if (file == null || !Objects.equals(file.getTenantId(), tenantId)
-                || !FILE_OWNER_TYPE_VERSION.equals(file.getOwnerType())
-                || !FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind())
-                || !FILE_STATUS_BOUND.equals(file.getStatus())) {
+                || !FILE_STATUS_BOUND.equals(file.getStatus())
+                || !isDownloadableFileKind(file)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
         }
-        DccRegistrationCertificateVersionDO version = versionMapper.selectById(file.getOwnerId());
+        DccRegistrationCertificateVersionDO version = versionMapper.selectById(resolveVersionId(tenantId, file));
         if (version == null || !Objects.equals(version.getTenantId(), tenantId)
                 || !Objects.equals(version.getCertificateId(), grant.getCertificateId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
@@ -96,6 +99,23 @@ public class DccRegistrationCertificateAccessPolicyService {
         DccRegistrationCertificateDO certificate = requireLiveCertificate(tenantId, grant.getCertificateId());
         assertCompanyScope(actorId, certificate.getOwnerCompanyId());
         return grant;
+    }
+
+    private boolean isDownloadableFileKind(DccRegistrationCertificateFileDO file) {
+        return (FILE_OWNER_TYPE_VERSION.equals(file.getOwnerType())
+                && FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind()))
+                || ("CHANGE".equals(file.getOwnerType())
+                && "CHANGE_APPROVAL".equals(file.getFileKind()));
+    }
+
+    private Long resolveVersionId(Long tenantId, DccRegistrationCertificateFileDO file) {
+        if (FILE_OWNER_TYPE_VERSION.equals(file.getOwnerType())) {
+            return file.getOwnerId();
+        }
+        return jdbcTemplate.query("""
+                SELECT source_version_id FROM dcc_registration_certificate_change
+                 WHERE tenant_id = ? AND id = ? AND status = 'APPLIED' AND deleted = 0
+                """, rs -> rs.next() ? rs.getLong(1) : null, tenantId, file.getOwnerId());
     }
 
     private DccRegistrationCertificateGrantDO selectValidGrant(

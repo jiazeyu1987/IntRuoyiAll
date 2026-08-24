@@ -24,10 +24,10 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 public class DccRegistrationCertificateReminderService {
 
     private static final List<Threshold> THRESHOLDS = List.of(
-            new Threshold("T_30", 30, "YELLOW", 1),
-            new Threshold("T_8", 8, "ORANGE", 2),
-            new Threshold("T_2", 2, "RED", 3),
-            new Threshold("T_1", 1, "BRIGHT_RED", 4));
+            new Threshold("T_30", 30, "NORMAL", 1),
+            new Threshold("T_8", 8, "LIGHT", 2),
+            new Threshold("T_2", 2, "BRIGHT", 3),
+            new Threshold("T_1", 1, "BRIGHT", 4));
     private static final String TYPE_CERTIFICATE_EXPIRY = "CERTIFICATE_EXPIRY";
     private static final String STATUS_PENDING = "PENDING_DELIVERY";
     private static final String STATUS_SUPPRESSED = "SUPPRESSED";
@@ -52,7 +52,7 @@ public class DccRegistrationCertificateReminderService {
         if (cleared) {
             return new DccRegistrationCertificateReminderEvaluation("CLEARED", "CLEARED", daysUntilDue);
         }
-        Threshold threshold = selectThreshold(daysUntilDue);
+        Threshold threshold = selectThreshold(businessDate, dueDate);
         if (threshold == null) {
             return new DccRegistrationCertificateReminderEvaluation("NONE", "NORMAL", daysUntilDue);
         }
@@ -70,7 +70,7 @@ public class DccRegistrationCertificateReminderService {
         int suppressed = 0;
         for (CertificateExpiry expiry : selectCertificateExpiries(tenantId)) {
             int daysUntilDue = Math.toIntExact(ChronoUnit.DAYS.between(businessDate, expiry.dueDate()));
-            List<Threshold> crossed = crossedThresholds(daysUntilDue);
+            List<Threshold> crossed = crossedThresholds(businessDate, expiry.dueDate());
             if (crossed.isEmpty()) {
                 continue;
             }
@@ -118,7 +118,7 @@ public class DccRegistrationCertificateReminderService {
                  WHERE tenant_id = ?
                    AND certificate_id = ?
                    AND document_type = ?
-                   AND status = 'CONFIRMED'
+                   AND status = 'EFFECTIVE'
                    AND deleted = 0
                 """, Integer.class, tenantId, certificateId, documentType.trim());
         return confirmed != null && confirmed > 0;
@@ -238,23 +238,23 @@ public class DccRegistrationCertificateReminderService {
                 + "\",\"reason\":\"" + Objects.toString(reason, "") + "\"}";
     }
 
-    private static Threshold selectThreshold(int daysUntilDue) {
-        return crossedThresholds(daysUntilDue).stream()
+    private static Threshold selectThreshold(LocalDate businessDate, LocalDate dueDate) {
+        return crossedThresholds(businessDate, dueDate).stream()
                 .max(Comparator.comparingInt(Threshold::urgency))
                 .orElse(null);
     }
 
-    private static List<Threshold> crossedThresholds(int daysUntilDue) {
+    private static List<Threshold> crossedThresholds(LocalDate businessDate, LocalDate dueDate) {
         List<Threshold> crossed = new ArrayList<>();
         for (Threshold threshold : THRESHOLDS) {
-            if (daysUntilDue <= threshold.days()) {
+            if (!businessDate.isBefore(dueDate.minusMonths(threshold.months()))) {
                 crossed.add(threshold);
             }
         }
         return crossed;
     }
 
-    private record Threshold(String level, int days, String colorCode, int urgency) {
+    private record Threshold(String level, int months, String colorCode, int urgency) {
     }
 
     private record CertificateExpiry(Long certificateId, Long ownerCompanyId, Long versionId,

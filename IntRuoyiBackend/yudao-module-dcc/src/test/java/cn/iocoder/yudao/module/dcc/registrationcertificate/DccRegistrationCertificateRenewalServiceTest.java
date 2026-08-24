@@ -138,6 +138,18 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void sameCategoryRenewalAutomaticallyUsesTheOnlyStagedRegistrationFileWhenIdIsOmitted() {
+        CurrentFixture current = seedCurrentCertificate();
+
+        DccRegistrationCertificateRenewalResult result = uploadOrFail(sameCategoryCommand(
+                current.certificateId(), current.currentVersionId(), null, "renewal-auto-file-1"));
+
+        assertEquals(current.stagedFileId(), result.businessFileId());
+        assertEquals(result.renewalVersionId(), fileMapper.selectById(current.stagedFileId()).getOwnerId());
+        assertEquals("BOUND", fileMapper.selectById(current.stagedFileId()).getStatus());
+    }
+
+    @Test
     void sameCategoryRenewalRejectsCertificateNumberOrCategoryTamperingBeforeWritingFacts() {
         CurrentFixture current = seedCurrentCertificate();
 

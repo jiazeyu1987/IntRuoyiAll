@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal;
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateFileDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
@@ -317,7 +318,20 @@ public class DccRegistrationCertificateRenewalService {
     private DccRegistrationCertificateFileDO requireStagedRenewalFile(Long tenantId, Long currentVersionId,
                                                                       Long businessFileId) {
         if (businessFileId == null || businessFileId <= 0) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+            List<DccRegistrationCertificateFileDO> candidates = fileMapper.selectList(
+                    new LambdaQueryWrapperX<DccRegistrationCertificateFileDO>()
+                            .eq(DccRegistrationCertificateFileDO::getTenantId, tenantId)
+                            .eq(DccRegistrationCertificateFileDO::getOwnerType, FILE_OWNER_VERSION)
+                            .eq(DccRegistrationCertificateFileDO::getOwnerId, currentVersionId)
+                            .eq(DccRegistrationCertificateFileDO::getFileKind, FILE_KIND_REGISTRATION_CERTIFICATE)
+                            .eq(DccRegistrationCertificateFileDO::getStatus, FILE_STATUS_STAGED));
+            if (candidates.isEmpty()) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+            }
+            if (candidates.size() > 1) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
+            }
+            return candidates.get(0);
         }
         DccRegistrationCertificateFileDO file = fileMapper.selectById(businessFileId);
         if (file == null) {

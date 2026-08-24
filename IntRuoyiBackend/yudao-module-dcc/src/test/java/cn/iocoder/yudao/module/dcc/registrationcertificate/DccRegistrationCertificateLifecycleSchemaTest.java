@@ -126,15 +126,15 @@ class DccRegistrationCertificateLifecycleSchemaTest extends BaseDbUnitTest {
             try (var statement = connection.prepareStatement("""
                     INSERT INTO dcc_registration_certificate_supporting_document
                       (id, tenant_id, owner_company_id, certificate_id, version_id, document_type, status,
-                       open_unique_flag, row_version, uploaded_at, uploaded_by)
+                       row_version, uploaded_at, uploaded_by)
                     VALUES (?, 1, 10, 1001, 2002, 'RENEWAL_ACCEPTANCE_RECEIPT',
-                       'PENDING_CONFIRMATION', 1001, 1, ?, 99)
+                       'EFFECTIVE', 1, ?, 99)
                     """)) {
                 statement.setLong(1, 20L);
                 statement.setTimestamp(2, Timestamp.valueOf(LocalDateTime.of(2026, 8, 18, 9, 1)));
                 assertEquals(1, statement.executeUpdate());
                 statement.setLong(1, 21L);
-                assertThrows(SQLException.class, statement::executeUpdate);
+                assertEquals(1, statement.executeUpdate());
             }
             try (var statement = connection.prepareStatement("""
                     INSERT INTO dcc_registration_certificate_supporting_document
@@ -177,6 +177,7 @@ class DccRegistrationCertificateLifecycleSchemaTest extends BaseDbUnitTest {
                 "constraint `chk_dcc_reg_cert_lifecycle_event_type` check",
                 "constraint `chk_dcc_reg_cert_activation_replay_order` check",
                 "constraint `chk_dcc_reg_cert_support_reject_reason` check",
+                "'supporting_document_effective'",
                 "constraint `chk_dcc_reg_cert_change_item_value` check");
         assertFalse(fixture.contains("json_length("),
                 "H2 fixture must not fake MySQL JSON generated-column contracts");

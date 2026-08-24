@@ -14,8 +14,10 @@ import java.time.LocalDate;
 public class DccRegistrationCertificateDetail {
 
     private Long certificateId;
+    private Integer rowVersion;
     private Long versionId;
     private Long snapshotId;
+    private Integer snapshotRevision;
     private Long ownerCompanyId;
     private String ownerCompanyName;
     private Long productMasterId;

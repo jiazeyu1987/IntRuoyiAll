@@ -35,6 +35,9 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.nio.charset.StandardCharsets;
@@ -47,6 +50,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.sql.DataSource;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DOWNLOAD_ALREADY_CONSUMED;
@@ -67,7 +72,8 @@ import static org.mockito.Mockito.when;
 @Import({
         DccRegistrationCertificateFileDeliveryServiceImpl.class,
         DccRegistrationCertificateAccessPolicyService.class,
-        DccRegistrationCertificateBusinessClock.class
+        DccRegistrationCertificateBusinessClock.class,
+        DccRegistrationCertificateFileDeliveryServiceTest.DbTestConfiguration.class
 })
 class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
 
@@ -93,6 +99,8 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     private DccRegistrationCertificateAccessAuditMapper accessAuditMapper;
     @Resource
     private DccRegistrationCertificateBusinessClock businessClock;
+    @Resource
+    private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     private MdmCompanyScopeApi companyScopeApi;
@@ -128,6 +136,40 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
         assertNotNull(accessAuditMapper.selectByEventKey(1L, "attempt-success-1:DOWNLOAD:SUCCESS"));
         assertNotNull(accessAuditMapper.selectByEventKey(1L, "attempt-success-2:DOWNLOAD:FAILURE"));
         verify(fileService, times(1)).getFileContent(fixture.infraConfigId(), fixture.infraPath());
+    }
+
+    @Test
+    void changeAndExpiredFilesUseTheRequiredDownloadNameSuffixes() throws Exception {
+        FormalFixture changeFixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "change.pdf");
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_change
+                  (id, tenant_id, owner_company_id, certificate_id, source_version_id, source_snapshot_id,
+                   resulting_snapshot_id, event_id, approval_date, selected_change_types_json,
+                   selected_item_count, status, actor_id, applied_at)
+                VALUES (7001, 1, 10, ?, ?, ?, ?, 97001, ?, '[\"PRODUCT_NAME\"]', 1, 'APPLIED', 99, ?)
+                """, changeFixture.certificateId(), changeFixture.versionId(), changeFixture.snapshotId(),
+                changeFixture.snapshotId(), LocalDate.of(2026, 8, 17), businessClock.now());
+        jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_file
+                   SET owner_type = 'CHANGE', owner_id = 7001, file_kind = 'CHANGE_APPROVAL'
+                 WHERE id = ?
+                """, changeFixture.businessFileId());
+        when(fileService.getFile(changeFixture.infraFileId())).thenReturn(infraFile(changeFixture, "change.pdf"));
+        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 20L));
+        when(fileService.getFileContent(changeFixture.infraConfigId(), changeFixture.infraPath()))
+                .thenReturn("CHANGE".getBytes(StandardCharsets.UTF_8));
+
+        DccRegistrationCertificateFileDownloadResult changeResult = deliveryService.download(
+                1L, 99L, changeFixture.businessFileId(), "attempt-change-name", context("REQ-CHANGE-NAME"));
+        assertEquals("PRJ-001_20200201_ProductA_变更文件_CERT-DL-001.pdf", changeResult.fileName());
+
+        FormalFixture oldFixture = seedGrantedDownload("ACTIVE", "OLD", "BOUND", "old.pdf");
+        when(fileService.getFile(oldFixture.infraFileId())).thenReturn(infraFile(oldFixture, "old.pdf"));
+        when(fileService.getFileContent(oldFixture.infraConfigId(), oldFixture.infraPath()))
+                .thenReturn("OLD".getBytes(StandardCharsets.UTF_8));
+        DccRegistrationCertificateFileDownloadResult oldResult = deliveryService.download(
+                1L, 99L, oldFixture.businessFileId(), "attempt-old-name", context("REQ-OLD-NAME"));
+        assertEquals("PRJ-001_20200201_ProductA_CERT-DL-001_已失效.pdf", oldResult.fileName());
     }
 
     @Test
@@ -446,5 +488,14 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
 
     private record FormalFixture(Long certificateId, Long versionId, Long snapshotId, Long businessFileId,
                                  Long infraFileId, Long infraConfigId, String infraPath, Long grantId) {
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class DbTestConfiguration {
+
+        @Bean
+        JdbcTemplate jdbcTemplate(DataSource dataSource) {
+            return new JdbcTemplate(dataSource);
+        }
     }
 }

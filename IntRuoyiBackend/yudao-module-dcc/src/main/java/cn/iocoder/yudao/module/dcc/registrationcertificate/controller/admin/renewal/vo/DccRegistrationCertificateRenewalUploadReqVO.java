@@ -16,7 +16,6 @@ public class DccRegistrationCertificateRenewalUploadReqVO {
     @NotNull
     @Positive
     private Long currentVersionId;
-    @NotNull
     @Positive
     private Long businessFileId;
     @NotNull

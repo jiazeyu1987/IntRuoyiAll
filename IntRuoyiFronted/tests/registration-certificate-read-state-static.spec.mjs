@@ -17,7 +17,11 @@ for (const file of [apiPath, statePath, indexPath, detailPath, historyPath]) {
 }
 
 const api = read(apiPath)
-assert.match(api, /type\s+DccRegistrationCertificateStatus\s*=/, 'API exposes explicit server status union')
+assert.match(
+  api,
+  /type\s+DccRegistrationCertificateStatus\s*=/,
+  'API exposes explicit server status union'
+)
 for (const status of ['DRAFT', 'PENDING_EFFECTIVE', 'CURRENT', 'OLD', 'VOIDED']) {
   assert.match(api, new RegExp(`['"]${status}['"]`), `API keeps server status ${status}`)
 }
@@ -27,7 +31,11 @@ for (const endpoint of [
   '/dcc/registration-certificates/${id}',
   '/dcc/registration-certificates/${id}/history'
 ]) {
-  assert.match(api, new RegExp(endpoint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `API endpoint ${endpoint} is frozen`)
+  assert.match(
+    api,
+    new RegExp(endpoint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `API endpoint ${endpoint} is frozen`
+  )
 }
 for (const exported of [
   'getRegistrationCertificatePage',
@@ -37,10 +45,18 @@ for (const exported of [
 ]) {
   assert.match(api, new RegExp(`export\\s+const\\s+${exported}\\b`), `${exported} must be exported`)
 }
-assert.doesNotMatch(api, /localStorage|sessionStorage|new\s+Date|Date\.now/, 'API wrapper must not persist or calculate state locally')
+assert.doesNotMatch(
+  api,
+  /localStorage|sessionStorage|new\s+Date|Date\.now/,
+  'API wrapper must not persist or calculate state locally'
+)
 
 const state = read(statePath)
-assert.match(state, /REGISTRATION_CERTIFICATE_STATUS_META/, 'shared state metadata must be centralized')
+assert.match(
+  state,
+  /REGISTRATION_CERTIFICATE_STATUS_META/,
+  'shared state metadata must be centralized'
+)
 for (const [status, label] of [
   ['DRAFT', '草稿'],
   ['PENDING_EFFECTIVE', '待生效'],
@@ -48,12 +64,37 @@ for (const [status, label] of [
   ['OLD', '旧证'],
   ['VOIDED', '已作废']
 ]) {
-  assert.match(state, new RegExp(`${status}[\\s\\S]{0,120}${label}`), `${status} label must be explicit`)
+  assert.match(
+    state,
+    new RegExp(`${status}[\\s\\S]{0,120}${label}`),
+    `${status} label must be explicit`
+  )
 }
 assert.match(state, /formatMissingMarker/, 'missing-marker formatter must be explicit')
-assert.doesNotMatch(state, /new\s+Date|Date\.now|effectiveDate\s*[<>]=?|expiryDate\s*[<>]=?/, 'state metadata must not calculate status from dates')
+assert.doesNotMatch(
+  state,
+  /new\s+Date|Date\.now|effectiveDate\s*[<>]=?|expiryDate\s*[<>]=?/,
+  'state metadata must not calculate status from dates'
+)
 
 const index = read(indexPath)
+assert.match(
+  index,
+  /import\s+UnifiedListTemplate\s+from\s+['\"]@\/components\/UnifiedListTemplate\/index\.vue['\"]/,
+  'registration-certificate lists must use the project UnifiedListTemplate'
+)
+assert.equal(
+  (index.match(/<UnifiedListTemplate\b/g) || []).length,
+  2,
+  'current and old certificate tabs must each render a UnifiedListTemplate'
+)
+for (const tableKey of ['dcc.registrationCertificate.current', 'dcc.registrationCertificate.old']) {
+  assert.match(
+    index,
+    new RegExp(`table-key=\"${tableKey}\"`),
+    `${tableKey} must have its own standard list identity`
+  )
+}
 for (const token of [
   'getRegistrationCertificatePage',
   'getRegistrationCertificateOldIndexPage',
@@ -61,12 +102,25 @@ for (const token of [
   'formatMissingMarker',
   'data-testid="registration-certificate-read-page"',
   'data-testid="registration-certificate-old-index"',
+  'data-testid="registration-certificate-tabs"',
+  'el-tab-pane',
+  'activeTab',
+  '注册证',
+  '老证',
   'hasProjectCode',
   'hasRegistrationFile'
 ]) {
-  assert.match(index, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `index page must contain ${token}`)
+  assert.match(
+    index,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `index page must contain ${token}`
+  )
 }
-assert.doesNotMatch(index, /router\.replace|router\.push\(\{\s*query|localStorage|sessionStorage|new\s+Date|Date\.now/, 'index page must not persist filters or compute server state')
+assert.doesNotMatch(
+  index,
+  /router\.replace|router\.push\(\{\s*query|localStorage|sessionStorage|new\s+Date|Date\.now/,
+  'index page must not persist filters or compute server state'
+)
 
 const detail = read(detailPath)
 for (const token of [
@@ -77,9 +131,17 @@ for (const token of [
   'entrustedEnterprisesJson',
   'hasRegistrationFile'
 ]) {
-  assert.match(detail, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `detail page must contain ${token}`)
+  assert.match(
+    detail,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `detail page must contain ${token}`
+  )
 }
-assert.doesNotMatch(detail, /new\s+Date|Date\.now|localStorage|sessionStorage/, 'detail page must not compute or persist state')
+assert.doesNotMatch(
+  detail,
+  /new\s+Date|Date\.now|localStorage|sessionStorage/,
+  'detail page must not compute or persist state'
+)
 
 const history = read(historyPath)
 for (const token of [
@@ -88,6 +150,14 @@ for (const token of [
   'afterValueJson',
   'data-testid="registration-certificate-history-page"'
 ]) {
-  assert.match(history, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `history page must contain ${token}`)
+  assert.match(
+    history,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `history page must contain ${token}`
+  )
 }
-assert.doesNotMatch(history, /mock|placeholder|defaultSuccess|localStorage|sessionStorage/, 'history page must not mock or persist evidence')
+assert.doesNotMatch(
+  history,
+  /mock|placeholder|defaultSuccess|localStorage|sessionStorage/,
+  'history page must not mock or persist evidence'
+)

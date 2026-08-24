@@ -117,6 +117,19 @@ class DccRegistrationCertificateFormalizationTest {
     }
 
     @Test
+    void formalizeAutomaticallyUsesTheOnlyStagedRegistrationFileWhenIdIsOmitted() {
+        DccRegistrationCertificateDraftState state = draftState(LocalDate.of(2026, 8, 17));
+        when(fileMapper.selectList(any())).thenReturn(List.of(stagedFile()));
+        allowFormalWrites();
+
+        DccRegistrationCertificateFormalizationResult result = service.formalize(
+                state, matchingResolvedDraft(), 1L, 99L, 1, null);
+
+        assertEquals(5001L, result.businessFileId());
+        verify(fileMapper).selectList(any());
+    }
+
+    @Test
     void formalize_rejectsAFileOwnedByAnotherVersionBeforeAnyFormalWrite() {
         DccRegistrationCertificateFileDO file = stagedFile();
         file.setOwnerId(9999L);

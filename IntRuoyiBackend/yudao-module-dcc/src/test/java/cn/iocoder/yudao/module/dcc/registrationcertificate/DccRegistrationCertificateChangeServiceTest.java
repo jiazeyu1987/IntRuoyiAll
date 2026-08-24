@@ -60,6 +60,30 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void changeApprovalFileIsBoundToTheAppliedChangeAndNotTheVersion() {
+        seedCurrentCertificate();
+        jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_file
+                  (id, tenant_id, owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
+                   file_size, sha256, status, bound_at, bound_by)
+                VALUES (4002, 1, 'VERSION', 2001, 'CHANGE_APPROVAL', 9002, 'change.pdf',
+                        'application/pdf', 128, 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                        'STAGED', NULL, NULL)
+                """);
+
+        DccRegistrationCertificateChangeCommand command = new DccRegistrationCertificateChangeCommand(
+                1L, 99L, "change-with-file", "trace-change-with-file", 1001L, 3,
+                LocalDate.of(2026, 8, 17), Map.of("PRODUCT_NAME", "Product B"), null,
+                null, null, null, null, 4002L);
+
+        DccRegistrationCertificateChangeResult result = assertDoesNotThrow(() -> service.applyChange(command));
+
+        assertEquals("CHANGE", text("SELECT owner_type FROM dcc_registration_certificate_file WHERE id = 4002"));
+        assertEquals(result.changeId(), longValue("SELECT owner_id FROM dcc_registration_certificate_file WHERE id = 4002"));
+        assertEquals("BOUND", text("SELECT status FROM dcc_registration_certificate_file WHERE id = 4002"));
+    }
+
+    @Test
     void multiStructuredChangeUpdatesEverySelectedFieldAndProductionRelation() {
         seedCurrentCertificate();
 

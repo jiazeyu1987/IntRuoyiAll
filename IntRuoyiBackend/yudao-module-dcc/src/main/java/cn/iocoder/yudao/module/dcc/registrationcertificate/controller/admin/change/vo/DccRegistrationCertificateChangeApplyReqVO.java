@@ -16,6 +16,8 @@ public class DccRegistrationCertificateChangeApplyReqVO {
     private Integer expectedRowVersion;
     @NotNull
     private LocalDate approvalDate;
+    @Positive
+    private Long businessFileId;
     private Map<@Size(max = 64) String, @Size(max = 4096) String> structuredValues;
     @Size(max = 4096)
     private String otherDescription;

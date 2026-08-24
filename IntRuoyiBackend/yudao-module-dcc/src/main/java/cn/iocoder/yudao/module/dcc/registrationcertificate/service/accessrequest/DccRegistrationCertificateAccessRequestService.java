@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,15 +93,16 @@ public class DccRegistrationCertificateAccessRequestService {
             Long tenantId, Long actorId, String requestKey,
             DccRegistrationCertificateAccessRequestCommand command) {
         String normalizedKey = requireText(requestKey, "requestKey", REGISTRATION_CERTIFICATE_ACCESS_REQUEST_KEY_REQUIRED);
-        NormalizedCommand normalized = normalize(command);
+        NormalizedCommand requested = normalize(command);
+        DccRegistrationCertificateDO certificate = requireCertificate(tenantId, requested.certificateId());
+        companyScope(tenantId, actorId, certificate.getOwnerCompanyId());
+        NormalizedCommand normalized = resolveFormalReferences(tenantId, certificate, requested);
         String payloadHash = payloadHash(normalized);
         DccRegistrationCertificateAccessRequestDO existing =
                 requestMapper.selectByTenantAndRequestKey(tenantId, normalizedKey);
         if (existing != null) {
             return replay(existing, payloadHash);
         }
-        DccRegistrationCertificateDO certificate = requireCertificate(tenantId, normalized.certificateId());
-        companyScope(tenantId, actorId, certificate.getOwnerCompanyId());
         if (TYPE_DOWNLOAD_FILE.equals(normalized.requestType())) {
             validateProjectCode(tenantId, actorId, normalized.projectCodeId(), certificate.getProductMasterId());
         }
@@ -174,16 +176,50 @@ public class DccRegistrationCertificateAccessRequestService {
                 REGISTRATION_CERTIFICATE_ACCESS_REQUEST_TYPE_INVALID);
         List<Long> businessFileIds = normalizeFileIds(command.businessFileIds());
         if (TYPE_DOWNLOAD_FILE.equals(type)) {
-            if (command.projectCodeId() == null || command.projectCodeId() <= 0) {
-                throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED);
-            }
-            if (businessFileIds.isEmpty()) {
-                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
-            }
+            // Project and file identities are resolved from the formal certificate facts in submit().
         } else if (!businessFileIds.isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_TYPE_INVALID);
         }
         return new NormalizedCommand(command.certificateId(), type, purpose, command.projectCodeId(), businessFileIds);
+    }
+
+    private NormalizedCommand resolveFormalReferences(
+            Long tenantId, DccRegistrationCertificateDO certificate,
+            NormalizedCommand requested) {
+        if (!TYPE_DOWNLOAD_FILE.equals(requested.requestType())) {
+            return requested;
+        }
+        Long projectCodeId = requested.projectCodeId();
+        if (projectCodeId == null) {
+            projectCodeId = certificate.getProjectCodeId();
+        } else if (!Objects.equals(projectCodeId, certificate.getProjectCodeId())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
+        }
+        if (projectCodeId == null || projectCodeId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED);
+        }
+        List<Long> fileIds = requested.businessFileIds();
+        if (fileIds.isEmpty()) {
+            if (certificate.getCurrentVersionId() == null) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
+            }
+            List<DccRegistrationCertificateFileDO> candidates = fileMapper.selectList(
+                    new LambdaQueryWrapperX<DccRegistrationCertificateFileDO>()
+                            .eq(DccRegistrationCertificateFileDO::getTenantId, tenantId)
+                            .eq(DccRegistrationCertificateFileDO::getOwnerType, FILE_OWNER_TYPE_VERSION)
+                            .eq(DccRegistrationCertificateFileDO::getOwnerId, certificate.getCurrentVersionId())
+                            .eq(DccRegistrationCertificateFileDO::getFileKind, FILE_KIND_REGISTRATION_CERTIFICATE)
+                            .eq(DccRegistrationCertificateFileDO::getStatus, FILE_STATUS_BOUND));
+            if (candidates == null || candidates.isEmpty()) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
+            }
+            if (candidates.size() != 1) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
+            }
+            fileIds = List.of(candidates.get(0).getId());
+        }
+        return new NormalizedCommand(requested.certificateId(), requested.requestType(), requested.purpose(),
+                projectCodeId, fileIds);
     }
 
     private List<Long> normalizeFileIds(List<Long> rawIds) {

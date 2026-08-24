@@ -26,6 +26,7 @@ import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -63,6 +64,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
     private final DccRegistrationCertificateAccessAuditMapper accessAuditMapper;
     private final DccProjectCodeService projectCodeService;
     private final FileService fileService;
+    private final JdbcTemplate jdbcTemplate;
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final TransactionTemplate transactionTemplate;
     private final ConcurrentMap<String, Object> downloadLocks = new ConcurrentHashMap<>();
@@ -79,7 +81,8 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
             DccProjectCodeService projectCodeService,
             FileService fileService,
             DccRegistrationCertificateBusinessClock businessClock,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            JdbcTemplate jdbcTemplate) {
         this.accessPolicyService = require(accessPolicyService, "accessPolicyService");
         this.requestMapper = require(requestMapper, "requestMapper");
         this.certificateMapper = require(certificateMapper, "certificateMapper");
@@ -91,6 +94,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         this.projectCodeService = require(projectCodeService, "projectCodeService");
         this.fileService = require(fileService, "fileService");
         this.businessClock = require(businessClock, "businessClock");
+        this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
         this.transactionTemplate = new TransactionTemplate(require(transactionManager, "transactionManager"));
     }
 
@@ -107,7 +111,7 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
         try {
             grant = accessPolicyService.requireDownloadGrant(tenantId, userId, businessFileId, now);
             businessFile = requireBusinessFile(tenantId, businessFileId);
-            DccRegistrationCertificateVersionDO version = requireVersion(tenantId, businessFile.getOwnerId());
+            DccRegistrationCertificateVersionDO version = requireVersion(tenantId, businessFile);
             DccRegistrationCertificateDO certificate = requireCertificate(tenantId, grant.getCertificateId());
             DccRegistrationCertificateSnapshotDO snapshot = requireSnapshot(version.getId());
             DccRegistrationCertificateAccessRequestDO request = requireRequest(tenantId, grant.getRequestId());
@@ -162,15 +166,22 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
     private DccRegistrationCertificateFileDO requireBusinessFile(Long tenantId, Long businessFileId) {
         DccRegistrationCertificateFileDO file = registrationFileMapper.selectById(businessFileId);
         if (file == null || !Objects.equals(file.getTenantId(), tenantId)
-                || !"VERSION".equals(file.getOwnerType())
-                || !"REGISTRATION_CERTIFICATE".equals(file.getFileKind())
-                || !"BOUND".equals(file.getStatus())) {
+                || !"BOUND".equals(file.getStatus())
+                || !("VERSION".equals(file.getOwnerType()) && "REGISTRATION_CERTIFICATE".equals(file.getFileKind())
+                || "CHANGE".equals(file.getOwnerType()) && "CHANGE_APPROVAL".equals(file.getFileKind()))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
         }
         return file;
     }
 
-    private DccRegistrationCertificateVersionDO requireVersion(Long tenantId, Long versionId) {
+    private DccRegistrationCertificateVersionDO requireVersion(Long tenantId, DccRegistrationCertificateFileDO file) {
+        Long versionId = "VERSION".equals(file.getOwnerType()) ? file.getOwnerId() : jdbcTemplate.query("""
+                SELECT source_version_id FROM dcc_registration_certificate_change
+                 WHERE tenant_id = ? AND id = ? AND status = 'APPLIED' AND deleted = 0
+                """, rs -> rs.next() ? rs.getLong(1) : null, tenantId, file.getOwnerId());
+        if (versionId == null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
+        }
         DccRegistrationCertificateVersionDO version = versionMapper.selectById(versionId);
         if (version == null || !Objects.equals(version.getTenantId(), tenantId)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID);
@@ -287,10 +298,12 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
                                  DccRegistrationCertificateSnapshotDO snapshot,
                                  DccRegistrationCertificateFileDO businessFile) {
         String extension = extensionOf(businessFile.getOriginalName());
+        String changeSuffix = "CHANGE".equals(businessFile.getOwnerType()) ? "_变更文件" : "";
+        String expiredSuffix = "OLD".equals(version.getStatus()) ? "_已失效" : "";
         return safeSegment(projectCode.getProjectCode()) + "_"
                 + version.getApprovalDate().format(APPROVAL_DATE_FORMAT) + "_"
-                + safeSegment(snapshot.getProductName()) + "_"
-                + safeSegment(version.getCertificateNo()) + extension;
+                + safeSegment(snapshot.getProductName()) + changeSuffix + "_"
+                + safeSegment(version.getCertificateNo()) + expiredSuffix + extension;
     }
 
     private static String extensionOf(String originalName) {
