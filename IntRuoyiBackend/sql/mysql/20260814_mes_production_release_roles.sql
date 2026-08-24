@@ -285,6 +285,13 @@ BEGIN
     PRIMARY KEY (`role_code`, `menu_id`)
   ) ENGINE=Memory;
 
+  DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_required_role_menu_source`;
+  CREATE TEMPORARY TABLE `tmp_mes_production_release_required_role_menu_source` (
+    `role_code` varchar(100) NOT NULL,
+    `menu_id` bigint NOT NULL,
+    PRIMARY KEY (`role_code`, `menu_id`)
+  ) ENGINE=Memory;
+
   INSERT INTO `tmp_mes_production_release_required_role_menu` (`role_code`, `menu_id`)
   SELECT `required`.`role_code`, `menu`.`id`
     FROM `tmp_mes_production_release_required_permission` AS `required`
@@ -294,9 +301,14 @@ BEGIN
      AND `menu`.`deleted` = b'0';
 
   REPEAT
+    TRUNCATE TABLE `tmp_mes_production_release_required_role_menu_source`;
+    INSERT INTO `tmp_mes_production_release_required_role_menu_source` (`role_code`, `menu_id`)
+    SELECT `required_menu`.`role_code`, `required_menu`.`menu_id`
+      FROM `tmp_mes_production_release_required_role_menu` AS `required_menu`;
+
     INSERT IGNORE INTO `tmp_mes_production_release_required_role_menu` (`role_code`, `menu_id`)
     SELECT `required_menu`.`role_code`, `parent`.`id`
-      FROM `tmp_mes_production_release_required_role_menu` AS `required_menu`
+      FROM `tmp_mes_production_release_required_role_menu_source` AS `required_menu`
       JOIN `system_menu` AS `child`
         ON `child`.`id` = `required_menu`.`menu_id`
        AND `child`.`deleted` = b'0'
@@ -426,9 +438,14 @@ BEGIN
         WHERE `role_menu`.`role_id` = `role`.`role_id`
           AND `role_menu`.`deleted` = b'0'
      )
-  ) OR EXISTS (
-    SELECT 1
-      FROM `tmp_mes_production_release_role` AS `role`
+  ) THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Production release role permission set mismatch';
+  END IF;
+
+  IF EXISTS (
+     SELECT 1
+       FROM `tmp_mes_production_release_role` AS `role`
       JOIN `system_role_menu` AS `role_menu`
         ON `role_menu`.`role_id` = `role`.`role_id`
        AND `role_menu`.`deleted` = b'0'
@@ -465,6 +482,7 @@ BEGIN
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_user_role_keep`;
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_initial_binding`;
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_role_menu_keep`;
+  DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_required_role_menu_source`;
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_required_role_menu`;
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_required_permission`;
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_role`;

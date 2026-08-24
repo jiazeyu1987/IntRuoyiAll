@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.context.ConfigurableApplicationContext;
 
@@ -21,6 +22,17 @@ class MesProRouteVersionSnapshotMigrationCommandTest {
 
     @TempDir
     Path tempDir;
+
+    @Test
+    void runner_shouldMarkProductionConstructorForSpringInjection() throws Exception {
+        assertTrue(MesProRouteVersionSnapshotMigrationRunner.class
+                .getConstructor(
+                        MesProRouteVersionSnapshotMigrationCommand.class,
+                        ConfigurableApplicationContext.class,
+                        String.class,
+                        String.class)
+                .isAnnotationPresent(Autowired.class));
+    }
 
     @Test
     void run_shouldWriteMachineReadableBlockerReportAndReturnNonZero() throws Exception {
