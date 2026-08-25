@@ -43,7 +43,7 @@
 - 是否从根因和长期维护角度解决：是；以正式来源、明确状态所有者、幂等与可追溯合同为设计主线。
 - 是否存在临时补丁或绕过：否。
 
-## Current Status
+## Historical Scope Status
 
 completed（流程11专项范围）：流程11迁移分类器、只读 dry-run、12 个 Python 合同场景、BPM/ERP 编译源修复、全模块 Maven 编译、task-owned 文件恢复及本地受保护融合已完成并验证；本轮主线文档提交为 `8401fa800`（包含流程11 `8fe9228b2`），当前 `int_main` 已完成 Flow7/10 定向复验 4/4，并完成 F4/F6/F8 从 `8f4d843ad` 创建的 v6 integration worktree 门禁协调。ERP 定向 JUnit 6/6、BPM 46/46、runner、pytest、py_compile、前端 TS/Node 静态检查、runtime guard 和 diff-check 均通过。主工作树其它 dirty/untracked 文件未被覆盖。全链路仍为 No-Go：流程1-10生产闭环、真实 Playwright E2E、生产历史迁移、人工批准和回滚演练尚未完成。
 
@@ -54,7 +54,7 @@ completed（流程11专项范围）：流程11迁移分类器、只读 dry-run�
 
 ## Cleanup Keep
 
-## M30 统一验收状态（2026-08-25）
+## Current Status
 
 状态：ready_for_closeout / No-Go。当前 int_main=27386bbc4 的 MES compile 已进入 24 模块并编译 2929 个 MES 源码，但被并行 dirty 基线/构建产物依赖错误阻断，未进入 Surefire。流程11 runner 12 场景、pytest 12 passed、runtime guard 通过；py_compile 因拒绝写入 script/__pycache__ 失败。现有四材料共享 gate 报告有 1 条 everyReleaseEntryUsesSharedServerGate failure（期望 shared gate=true，实际=false），不可标记 GREEN。流程4/6/7/8/10完整链路、迁移、真实租户和 Playwright 仍缺证据，全链路保持 No-Go。
 
