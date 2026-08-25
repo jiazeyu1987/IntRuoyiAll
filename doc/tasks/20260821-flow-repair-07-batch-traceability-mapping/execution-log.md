@@ -248,3 +248,32 @@ GREEN: `MesProEdhrTraceTerminalPartitionContractTest` -> PASS, 2/2, finished `20
 REGRESSION: `MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest` -> PASS, 29/29 (17 + 12), finished `2026-08-23T19:48:32+08:00`; MES `-DskipTests compile` -> PASS, 24-module reactor, finished `2026-08-23T19:50:26+08:00`; all commands exited 0.
 
 These are fresh current-`int_main` results for HEAD `7770f36fb6ed64f4e306320410d131f184cf2789`, not inherited worktree reports. No Flow7 source was changed during this verification. Full cross-flow runtime, migration, permissions, Flow8/10 integration, and write-enabled E2E remain NOT RUN.
+
+## 2026-08-24 Flow6 authoritative-context contract audit
+
+BDD: Tx-C witness-only boundary -> Given a client invokes Flow7 after Flow6 provision When the Tx-C command is constructed Then it may carry only `batchExecutionId`, event/idempotency keys, expected persisted witness hashes/versions, and actor; receipts, independent credentials, source evidence, and raw payloads are not accepted as Tx-C fields.
+
+GREEN: `C:/Users/BJB110/Documents/Codex/tools/apache-maven-3.9.16/bin/mvn.cmd --% -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am -Dtest=MesProEdhrBatchTraceTxCInputContractTest,MesProEdhrBatchTraceabilityValidatorTest,MesProEdhrBatchTraceabilityServiceContractTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false test` -> PASS; 24-module reactor, MES compile/testCompile succeeded, `MesProEdhrBatchTraceTxCInputContractTest` 1/1, validator 17/17, service contract 12/12, total 30/30, 0 failures/errors/skips, `BUILD SUCCESS`, exit 0, finished `2026-08-24T13:09:51+08:00`.
+
+RED: Flow6 persisted-context sufficiency -> BLOCKED by current `int_main` contract. `MesBatchExecutionProvisionCommand` carries `sourceCredentialId` but no `sourceCredentialHash`; `MesProEdhrBatchExecutionServiceImpl.entryAuditMetadata` persists `sourceCredentialId`, `sourceSnapshotHash`, and receipt hash but not `sourceCredentialHash`, `completionVersion`, `sourceBundleHash`, or `sourceEvidence`. `MesProEdhrBatchExecutionDO` has no authoritative source credential/snapshot columns. Flow7 therefore cannot manufacture or infer these values and must fail closed with `FORMAL_SOURCE_EVIDENCE_REQUIRED`/`TRACE_MAPPING_BLOCKED`. No Flow6 code was changed.
+
+RED: independent-entry read path -> BLOCKED by Flow7 producer preconditions. `MesProEdhrBatchTraceTxCProducer.readFormalInput` currently requires `activeOrderId`, completion receipt/version, and pick-list binding before branching to the validator, while the validator correctly models independent entries as `NOT_APPLICABLE` for those relationships. Until Flow6 persists an independent source relation/credential snapshot in its provision audit, Flow7 cannot safely construct an independent capture; it must not guess from work-order or batch code.
+
+GREEN: client-forged receipt boundary -> PASS; the new task-owned `MesProEdhrBatchTraceTxCInputContractTest` reflects the Tx-C command and proves no `completionBackfillReceipt`, `independentReceipt`, `sourceEvidence`, `payload`, or `rawPayload` field can cross the Flow7 boundary. This is a structural contract test, not a runtime database/E2E claim.
+
+GREEN: source freshness/relationship guards -> PASS in the existing Flow7 slice: formal precheck mutation returns `FLOW8_SOURCE_PRECHECK_STALE`; batch/origin mismatch returns `FLOW8_TRACE_LINK_ORIGIN_MISMATCH`; Tx-C source mutation/missing persisted witness remains stable `TRACE_MAPPING_BLOCKED` with no success event or `BATCH_READY` progression.
+
+REGRESSION: `git diff --check` -> PASS. Full Flow6/7/8 runtime, real database Mapper/permission verification, service startup, migration, and write-enabled E2E -> NOT RUN.
+
+Contract notification: Flow6 must persist the server-authoritative provision witness (entry type, source credential id and hash where applicable, source relation IDs, source snapshot/bundle hash, receipt/version, tenant and immutable source evidence) in the successful batch provision audit/context before Flow7 Tx-C can succeed. Flow8 may consume only Flow7's persisted resolver result `{batchExecutionId, originLinkId, traceLinkHash, sourceSnapshotHash}` after the above witness is present; missing or changed values remain fail-fast blockers.
+## 2026-08-25 P5 Tx-C authoritative source resolver
+
+BDD: Tx-C reads the persisted Flow-6 witness -> Given an ACTIVE_ORDER_COMPLETION or independent batch context and a server-verified receipt, When the producer resolves formal sources, Then it validates tenant, credential, receipt hash and source snapshot before capture; missing persisted evidence remains TRACE_MAPPING_BLOCKED.
+
+BDD: precheck source replacement -> Given a frozen receipt witness, When the persisted receipt hash or source snapshot changes before capture, Then the resolver fails with SOURCE_SNAPSHOT_HASH_MISMATCH and the producer records TRACE_MAPPING_BLOCKED; no client receipt/raw payload is accepted.
+
+RED: Maven module compile with maven.compiler.fork=false -> FAIL, shared dirty baseline errors in MesReleaseAuthoritativeContextPortImpl and MesStage6IdiSimulationServiceImpl (four unresolved symbols); no Flow7 resolver/producer compiler error was emitted before the baseline failure.
+
+GREEN: module incremental compile completed with BUILD SUCCESS after constraining JVM memory; the full MES reactor remains blocked by four unrelated shared-worktree symbols. Targeted Maven test command ran 35 tests (service contract 14, validator 17, resolver 3, Tx-C input boundary 1), 0 failures and 0 errors, BUILD SUCCESS. Runtime DB/Flow-6 event-consumer verification remains NOT RUN.
+
+Implementation boundary: MesProEdhrBatchTraceFormalSourceResolver is Flow7-owned and consumes only persisted Flow-4/Flow-9 receipt objects plus Flow-6 persisted evidence. MesProEdhrBatchTraceTxCProducer now branches active versus independent entry types and never fills active-order fields for independent entries. Flow6 remains the BATCH_READY owner; Flow8 consumes the persisted Origin/TraceLink/Manifest contract.

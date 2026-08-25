@@ -16,6 +16,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperation
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -68,6 +70,8 @@ public class MesProEdhrBatchTraceTxCProducer {
     private final MesProEdhrBatchTraceabilityService traceabilityService;
     private final ApplicationEventPublisher eventPublisher;
     private final PlatformTransactionManager transactionManager;
+    private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
+    private final MesIndependentBatchPrerequisiteReceiptPort independentReceiptPort;
 
     public MesProEdhrBatchTraceTxCResult produce(MesProEdhrBatchTraceTxCCommand command) {
         if (command == null || command.getBatchExecutionId() == null
@@ -135,52 +139,54 @@ public class MesProEdhrBatchTraceTxCProducer {
         }
         MesProEdhrOperationAuditEventDO audit = audits.get(0);
         JSONObject metadata = parseMetadata(audit.getMetadataJson());
-        requireText(metadata, "entryType");
+        String entryType = requireText(metadata, "entryType").toUpperCase(Locale.ROOT);
         requireText(metadata, "originKey");
-        requireLong(metadata, "activeOrderId");
-        requireLong(metadata, "workOrderId");
-        requireText(metadata, "completionTransactionId");
-        requireLong(metadata, "completionVersion");
-        requireLong(metadata, "completionBackfillReceiptId");
-        requireText(metadata, "completionBackfillReceiptHash");
-        Long bindingId = requireLong(metadata, "pickListBindingId");
-        requireLong(metadata, "pickListId");
-        requireLong(metadata, "bindingVersion");
         requireText(metadata, "sourceSnapshotHash");
-        requireText(metadata, "sourceBundleHash");
-        requireLong(metadata, "batchProvisionReceiptId");
-        requireText(metadata, "batchProvisionStatus");
         requireText(metadata, "sourceVersion");
-        if (!metadata.containsKey("hasActualLoss")) {
-            throw blocked("FORMAL_SOURCE_EVIDENCE_REQUIRED", "hasActualLoss is not a formal witness");
-        }
         JSONArray evidence = metadata.getJSONArray("sourceEvidence");
-        if (evidence == null || evidence.isEmpty()) {
-            throw blocked("FORMAL_SOURCE_EVIDENCE_REQUIRED",
-                    "Flow 6 audit metadata does not contain immutable sourceEvidence");
-        }
-        MesProcessPoolActiveOrderPickListBindingDO binding = bindingMapper.selectById(bindingId);
-        if (binding == null || !Objects.equals(binding.getTenantId(), tenantId)) {
-            throw blocked("FLOW1_BINDING_REQUIRED", "formal pick-list binding is missing or crosses tenant boundary");
-        }
-        if (!BOUND_STATUS.equalsIgnoreCase(binding.getBindingStatus())
-                || !Objects.equals(binding.getActiveOrderId(), metadata.getLong("activeOrderId"))
-                || !Objects.equals(binding.getWorkOrderId(), metadata.getLong("workOrderId"))
-                || !Objects.equals(binding.getPickListId(), metadata.getLong("pickListId"))
-                || !Objects.equals(binding.getBindingVersion(), metadata.getInteger("bindingVersion"))
-                || !Objects.equals(binding.getSourceSnapshotHash(), metadata.getString("sourceSnapshotHash"))) {
-            throw blocked("SOURCE_SNAPSHOT_HASH_MISMATCH", "binding snapshot/version does not match provision witness");
-        }
-        List<MesProcessPoolActiveOrderPickListBindingItemDO> items = bindingItemMapper.selectListByBindingId(bindingId);
-        if (items == null || items.isEmpty()) {
-            throw blocked("FLOW1_BINDING_REQUIRED", "formal pick-list binding has no immutable line snapshots");
+        MesProcessPoolActiveOrderPickListBindingDO binding = null;
+        List<MesProcessPoolActiveOrderPickListBindingItemDO> items = List.of();
+        if (MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)) {
+            Long credentialId = requireLong(metadata, "sourceCredentialId");
+            MesFlow6CompletionBackfillReceipt receipt = completionReceiptPort.getByReceiptId(credentialId, tenantId);
+            evidence = MesProEdhrBatchTraceFormalSourceResolver.resolveActive(tenantId, receipt, metadata, evidence);
+            requireLong(metadata, "activeOrderId");
+            requireLong(metadata, "workOrderId");
+            requireText(metadata, "completionTransactionId");
+            requireLong(metadata, "completionVersion");
+            requireLong(metadata, "completionBackfillReceiptId");
+            Long bindingId = requireLong(metadata, "pickListBindingId");
+            requireLong(metadata, "pickListId");
+            requireLong(metadata, "bindingVersion");
+            binding = bindingMapper.selectById(bindingId);
+            if (binding == null || !Objects.equals(binding.getTenantId(), tenantId)) {
+                throw blocked("FLOW1_BINDING_REQUIRED", "formal pick-list binding is missing or crosses tenant boundary");
+            }
+            if (!BOUND_STATUS.equalsIgnoreCase(binding.getBindingStatus())
+                    || !Objects.equals(binding.getActiveOrderId(), metadata.getLong("activeOrderId"))
+                    || !Objects.equals(binding.getWorkOrderId(), metadata.getLong("workOrderId"))
+                    || !Objects.equals(binding.getPickListId(), metadata.getLong("pickListId"))
+                    || !Objects.equals(binding.getBindingVersion(), metadata.getInteger("bindingVersion"))
+                    || !Objects.equals(binding.getSourceSnapshotHash(), metadata.getString("sourceSnapshotHash"))) {
+                throw blocked("SOURCE_SNAPSHOT_HASH_MISMATCH", "binding snapshot/version does not match provision witness");
+            }
+            items = bindingItemMapper.selectListByBindingId(bindingId);
+            if (items == null || items.isEmpty()) {
+                throw blocked("FLOW1_BINDING_REQUIRED", "formal pick-list binding has no immutable line snapshots");
+            }
+        } else {
+            String credentialId = requireText(metadata, "sourceCredentialId");
+            MesIndependentBatchPrerequisiteReceipt receipt = independentReceiptPort.getVerifiedByReceiptId(
+                    tenantId, credentialId, entryType, metadata.getString("sourceSnapshotHash"));
+            evidence = MesProEdhrBatchTraceFormalSourceResolver.resolveIndependent(tenantId, receipt, metadata, evidence);
+            requireLong(metadata, "workOrderId");
         }
         Map<String, Object> fingerprintPayload = new LinkedHashMap<>();
         fingerprintPayload.put("auditHash", audit.getAuditHash());
         fingerprintPayload.put("metadata", metadata);
-        fingerprintPayload.put("bindingId", binding.getId());
-        fingerprintPayload.put("bindingVersion", binding.getBindingVersion());
-        fingerprintPayload.put("bindingHash", binding.getSourceSnapshotHash());
+        fingerprintPayload.put("bindingId", binding == null ? null : binding.getId());
+        fingerprintPayload.put("bindingVersion", binding == null ? null : binding.getBindingVersion());
+        fingerprintPayload.put("bindingHash", binding == null ? null : binding.getSourceSnapshotHash());
         fingerprintPayload.put("itemHashes", items.stream().map(MesProcessPoolActiveOrderPickListBindingItemDO::getItemSnapshotHash).toList());
         fingerprintPayload.put("evidence", evidence);
         String fingerprint = DigestUtil.sha256Hex(
@@ -249,24 +255,34 @@ public class MesProEdhrBatchTraceTxCProducer {
                     .setSourceIdentityKey(identity).setSnapshotJson(snapshotJson).setSnapshotHash(snapshotHash)
                     .setRelationStatus(relationStatus).setRelationReason(evidence.getString("relationReason")));
         }
-        return new MesProEdhrBatchTraceCaptureCommand()
-                .setBatchExecutionId(command.getBatchExecutionId())
-                .setEntryType(requiredText(metadata, "entryType")).setOriginKey(requiredText(metadata, "originKey"))
-                .setActiveOrderId(requiredLong(metadata, "activeOrderId")).setWorkOrderId(requiredLong(metadata, "workOrderId"))
-                .setCompletionTransactionId(parseLong(requiredText(metadata, "completionTransactionId"), "completionTransactionId"))
-                .setCompletionVersion(requiredInteger(metadata, "completionVersion"))
-                .setCompletionBackfillReceiptId(requiredLong(metadata, "completionBackfillReceiptId"))
-                .setCompletionBackfillReceiptHash(requiredText(metadata, "completionBackfillReceiptHash"))
-                .setPickListBindingId(requiredLong(metadata, "pickListBindingId")).setPickListId(requiredLong(metadata, "pickListId"))
-                .setPickListBindingVersion(requiredInteger(metadata, "bindingVersion"))
+        String entryType = requiredText(metadata, "entryType").toUpperCase(Locale.ROOT);
+        MesProEdhrBatchTraceCaptureCommand capture = new MesProEdhrBatchTraceCaptureCommand()
+                .setBatchExecutionId(command.getBatchExecutionId()).setEntryType(entryType)
+                .setOriginKey(requiredText(metadata, "originKey"))
+                .setWorkOrderId(requiredLong(metadata, "workOrderId"))
                 .setSourceSnapshotHash(requiredText(metadata, "sourceSnapshotHash"))
-                .setBatchProvisionReceiptId(requiredLong(metadata, "batchProvisionReceiptId"))
-                .setBatchProvisionStatus(requiredText(metadata, "batchProvisionStatus"))
                 .setSourceBundleHash(requiredText(metadata, "sourceBundleHash"))
-                .setIdempotencyKey(command.getIdempotencyKey()).setSourceCredentialId(optionalLong(metadata, "sourceCredentialId"))
+                .setIdempotencyKey(command.getIdempotencyKey())
+                .setSourceCredentialId(optionalLong(metadata, "sourceCredentialId"))
                 .setSourceCredentialHash(metadata.getString("sourceCredentialHash"))
-                .setHasActualLoss(metadata.getBoolean("hasActualLoss"))
                 .setCapturedBy(command.getCapturedBy()).setSources(sources);
+        if (MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)) {
+            capture.setActiveOrderId(requiredLong(metadata, "activeOrderId"))
+                    .setCompletionTransactionId(parseLong(requiredText(metadata, "completionTransactionId"), "completionTransactionId"))
+                    .setCompletionVersion(requiredInteger(metadata, "completionVersion"))
+                    .setCompletionBackfillReceiptId(requiredLong(metadata, "completionBackfillReceiptId"))
+                    .setCompletionBackfillReceiptHash(requiredText(metadata, "completionBackfillReceiptHash"))
+                    .setPickListBindingId(requiredLong(metadata, "pickListBindingId"))
+                    .setPickListId(requiredLong(metadata, "pickListId"))
+                    .setPickListBindingVersion(requiredInteger(metadata, "bindingVersion"))
+                    .setBatchProvisionReceiptId(requiredLong(metadata, "batchProvisionReceiptId"))
+                    .setBatchProvisionStatus(requiredText(metadata, "batchProvisionStatus"))
+                    .setHasActualLoss(metadata.getBoolean("hasActualLoss"));
+        } else {
+            capture.setBatchProvisionReceiptId(optionalLong(metadata, "batchProvisionReceiptId"))
+                    .setBatchProvisionStatus(metadata.getString("batchProvisionStatus"));
+        }
+        return capture;
     }
 
     private MesProEdhrBatchTraceabilityRespVOWithLink captureFormalMapping(MesProEdhrBatchTraceCaptureCommand capture) {
@@ -420,8 +436,8 @@ public class MesProEdhrBatchTraceTxCProducer {
         return normalized;
     }
 
-    private void requireText(JSONObject object, String key) {
-        requiredText(object, key);
+    private String requireText(JSONObject object, String key) {
+        return requiredText(object, key);
     }
 
     private String requiredText(JSONObject object, String key) {
