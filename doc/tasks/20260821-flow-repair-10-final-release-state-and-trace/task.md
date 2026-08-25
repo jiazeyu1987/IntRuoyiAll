@@ -33,9 +33,23 @@
 - 是否从根因和长期维护角度解决：是；以唯一状态所有者、统一终态命令、正式来源快照、条件唯一约束和可验证追溯为主线。
 - 是否存在临时补丁或绕过：否。
 
+### 本轮权威上下文实现（2026-08-25）
+
+- `MesReleaseAuthoritativeContextPortImpl` 现在先读取已存在的流程6批次并要求 `READY_TO_CLOSE/CLOSED`，再读取流程7 Origin/TraceLink 预检，最后从 `MesReleaseMaterialGateReceiptPort` 读取流程8持久化 `MATERIALS_READY` 凭证。
+- 活跃订单入口才校验流程4 `BACKFILL_SUCCEEDED`、领料绑定、双进度和三类回填；MANUAL/SCHEDULED/PQC_INDEPENDENT 入口改为读取并验证 canonical `IndependentBatchPrerequisiteReceipt`，不要求伪造 activeOrderId、pickListId 或 completionBackfillReceipt。
+- 流程8持久化 receipt 端口尚未由流程8 owner 提供时，流程10返回结构化 `AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED`；不从四份材料临时计算 receipt，不使用请求体嵌套对象，也不写默认成功。
+- 本轮 Maven compile：PASS；新增测试因现有非流程10测试源语法错误尚未执行，已记录在 execution-log 与 verification-report。
+
+### 本轮打包和运行态 smoke（2026-08-25）
+
+- `yudao-server` 使用 `maven.test.skip=true` 打包成功；这是为了隔离既有非流程10测试源错误，不是测试通过证明。
+- 新构建的 `yudao-server-exec.jar` 实际启动成功，日志出现 `Started YudaoServerApplication`，48081 曾监听，`/actuator/health` 返回 HTTP 200 `{"status":"UP"}`；本轮启动的进程已停止。
+- 已有配置 smoke 仍证明 `MesReleaseAuthoritativeContextPort` 恰好一个 Bean；新增权威上下文组合测试暂受既有 MES/BPM 测试源错误阻断。
+- 流程8未提供持久化 `MATERIALS_READY` receipt 适配器前，流程10继续返回结构化 blocker，绝不默认放行。
+
 ## Current Status
 
-ready_for_closeout：流程10专项实现、融合和主线程验证已完成；跨流程权威适配器、迁移、outbox 和全链路 E2E 仍 No-Go。
+ready_for_closeout：流程10专项实现、融合和主线程验证已完成；本轮补强了权威上下文读取边界；跨流程权威凭证适配、迁移、outbox 和全链路 E2E 仍 No-Go。
 
 ### 权威上下文接口冻结（2026-08-24）
 

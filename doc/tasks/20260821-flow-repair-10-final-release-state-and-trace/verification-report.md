@@ -53,7 +53,15 @@ development-plan.md 规定流程 6 负责三类回填成功后的批次执行创
 - mvn -pl yudao-server -am -DskipTests package：BUILD SUCCESS。
 - 实际启动 yudao-server-exec.jar：48081 LISTEN；GET http://127.0.0.1:48081/actuator/health 返回 status=UP。
 - 运行时 nested yudao-module-mes JAR 中配置类和 blocker 类 SHA-256 与当前构建产物一致；启动日志无缺失 Bean 或应用启动失败。
- - 流程4/6/8适配器未接入时仍保留 AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED 结构化阻断，不伪造放行成功。
+- 流程4/6/8适配器未接入时仍保留 AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED 结构化阻断，不伪造放行成功。
+
+## 本轮打包与启动复核（2026-08-25）
+
+- `mvn -pl yudao-server -am '-Dmaven.test.skip=true' '-Dcheckstyle.skip=true' package`：退出码 0，`BUILD SUCCESS`，生成 `IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar`。该命令跳过所有测试源编译，不能替代测试证据。
+- 实际启动该新包（local profile，显式传入已有本地 DCC artifact-directory、MySQL/Redis 参数）：日志 `E:/IntRuoyi/output/runtime/int_main/logs/flow10-explicit-20260825-125343.log` 出现 `Started YudaoServerApplication`，未出现 `APPLICATION FAILED`。
+- 启动期间 `48081` LISTEN；`GET /actuator/health` 返回 HTTP 200 和 `{"status":"UP"}`。本轮启动进程已在核验后停止。
+- 已有 `MesReleaseAuthoritativeContextConfigurationTest` 的 2/2 PASS 继续作为唯一 Bean 配置 smoke 证据；本轮新增权威上下文组合测试未能运行，原因是其它未跟踪 MES/BPM 测试源的既有语法/编译错误，详见 execution-log，未修改这些文件。
+- 结论：流程10实现可编译、可打包、可启动；缺少流程8持久化材料 receipt 适配器时仍结构化阻断。任务状态保持 `ready_for_closeout`，不能标记全链路完成。
 
 ## 当前复核（2026-08-23）
 
@@ -91,3 +99,14 @@ development-plan.md 规定流程 6 负责三类回填成功后的批次执行创
 - 无跳过参数复核：MesReleaseFinalizationRequestContractTest 1/1 PASS，BUILD SUCCESS。
 - 结论：需要最小接口层代码修改，已完成；不修改 finalizeRelease 主逻辑，不创建流程6未提供的凭证解析器。
 - 未解决 blocker：流程4/6/7/8持久化 owner 适配器仍未接入；在适配器接入前，流程10必须返回结构化 AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED，不得放行。
+
+## 本轮代码复核（2026-08-25）
+
+- `MesReleaseAuthoritativeContextPortImpl` 已作为流程10正式 `@Service` 实现，批准入口仍统一进入 `finalizeRelease`；它不创建批次，也不把客户端嵌套 receipt 当作权威事实。
+- 流程6：先读取已有 `batchExecutionId`，仅接受 `READY_TO_CLOSE/CLOSED` 批次状态；缺失或状态不符返回结构化 blocker。
+- 流程7：服务端读取 Origin/TraceLink 预检，要求 batch、origin link、trace hash、source snapshot hash 和 `CAPTURED/READY` 关系状态一致。
+- 流程8：新增 `MesReleaseMaterialGateReceiptPort` 作为持久化 `MATERIALS_READY` receipt 的 owner 端口；端口缺失、重复或返回不完整 receipt 均 fail-fast。没有从附件结果拼接 receipt 的旁路逻辑。
+- 活跃订单与独立来源已条件化：活跃订单保留流程4成功回执、领料绑定、双100%和三类回填门禁；独立来源使用现有服务验证 `IndependentBatchPrerequisiteReceipt` 并要求 Flow7 source credential hash 一致，不要求 activeOrderId/pickListId。
+- 验证命令：`mvn -pl yudao-module-mes -am '-DskipTests' '-Dcheckstyle.skip=true' compile` -> `BUILD SUCCESS`。
+- 验证阻断：新增测试尚未运行。带 `-am` 的定向 test 被 BPM 现有 `FormTemplateFillRuleAutoDetectServiceTest.java:96` 编译错误阻断；不带 `-am` 的 MES test 被现有 `MesProEdhrBatchTraceFormalSourceResolverTest.java:65-66` 语法错误阻断。两项均为非流程10文件，本轮未修改。
+- 当前状态：`ready_for_closeout`。流程8持久化 receipt 实现、流程4/6正式适配器联调、迁移/历史回填、outbox 和真实全链路 E2E 仍为 No-Go。

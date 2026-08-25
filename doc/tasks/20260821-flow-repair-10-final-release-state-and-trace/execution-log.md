@@ -121,3 +121,24 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 - REGRESSION: mvn -pl yudao-module-mes -Dtest=MesReleaseFinalizationRequestContractTest,MesReleaseAuthoritativeContextConfigurationTest,MesReleaseFinalizationValidatorTest -Dcheckstyle.skip=true test -> 退出码 0，11/11 PASS，BUILD SUCCESS。
 - 代码结论：需要最小接口合同修改，已在两个 HTTP 输入 DTO/命令嵌套凭证字段上增加 @JsonIgnore；没有新增凭证解析器，没有改变 finalizeRelease 主事务，也没有默认成功适配器。
 - 流程6/4/7/8接入要求保持不变：只实现 MesReleaseAuthoritativeContextPort，从持久化 owner 读取 batchExecutionId、正式 receipt/hash、READY 映射和四材料 MATERIALS_READY；未接入时继续结构化 fail-fast。
+## M11：权威上下文适配器收紧（2026-08-25）
+
+- 状态：流程10代码切片完成，任务保持 `ready_for_closeout`；不宣称全链路完成。
+- BDD: 独立批次来源条件化 -> Given 已存在流程6 BATCH_READY 批次、流程7 CAPTURED/READY 映射、Flow9 `IndependentBatchPrerequisiteReceipt` 和流程8 MATERIALS_READY 凭证；When MANUAL/SCHEDULED/PQC_INDEPENDENT 入口调用 `finalizeRelease`；Then 不要求 activeOrderId、pickListId 或 completionBackfillReceipt，且只消费服务端校验后的凭证。
+- BDD: 客户端伪造材料凭证阻断 -> Given 请求体带有 materialGateReceipt 但流程8持久化凭证端口没有返回事实；When 进入权威上下文读取；Then 返回 `AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED`，不采用请求体对象。
+- BDD: 批次和追溯门禁 -> Given batchExecutionId 不存在、批次不是 READY_TO_CLOSE/CLOSED、或流程7映射缺失/状态非 CAPTURED/READY；When 请求最终放行；Then fail-fast 并不写 RELEASED。
+- RED: `mvn -pl yudao-module-mes -am '-DskipTests' '-Dcheckstyle.skip=true' compile`（首次） -> FAIL，PowerShell 未引用 `-Dcheckstyle.skip=true` 导致 Maven 将 `.skip=true` 解析为生命周期阶段；修正参数引用后重跑。
+- GREEN: `mvn -pl yudao-module-mes -am '-DskipTests' '-Dcheckstyle.skip=true' compile` -> PASS，MES `BUILD SUCCESS`。
+- GREEN: 本轮新增独立来源/材料端口测试尚未能运行；MES testCompile 被现有未跟踪 `MesProEdhrBatchTraceFormalSourceResolverTest.java:65-66` 语法错误阻断，未修改该非流程10文件。
+- REGRESSION: `mvn -pl yudao-module-mes -am '-Dtest=...' test` -> BLOCKED，BPM 现有 `FormTemplateFillRuleAutoDetectServiceTest.java:96` 编译错误；`mvn -pl yudao-module-mes ... test` -> BLOCKED，MES 现有 `MesProEdhrBatchTraceFormalSourceResolverTest.java:65-66` 编译错误。未将阻断冒充 PASS。
+- 代码边界：新增 `MesReleaseMaterialGateReceiptPort` 作为流程8持久化凭证读取端口；没有从四份材料计算伪造 receipt，也没有默认成功实现。缺少该端口时结构化阻断；Flow6 独立凭证通过现有 `MesIndependentBatchPrerequisiteReceiptService` 服务端校验读取。
+
+## M12：本轮打包与启动 smoke（2026-08-25）
+
+- 状态：代码验证完成；任务保持 `ready_for_closeout`。
+- GREEN: `mvn -pl yudao-server -am '-Dmaven.test.skip=true' '-Dcheckstyle.skip=true' package` -> 退出码 0，`BUILD SUCCESS`（12:46:09）。使用 `maven.test.skip=true` 只跳过仓库中已有的测试源编译错误；不得将其记作测试通过。
+- GREEN: 使用 `yudao-server/target/yudao-server-exec.jar`、local profile、显式本地 DCC artifact-directory 和数据源参数实际启动 -> 日志 `output/runtime/int_main/logs/flow10-explicit-20260825-125343.log` 出现 `Started YudaoServerApplication`，且没有 `APPLICATION FAILED`。
+- GREEN: 启动后 `GET http://127.0.0.1:48081/actuator/health` -> HTTP 200，body 为 `{"status":"UP"}`；当时监听进程为本轮启动的 yudao-server。验证后已停止本轮启动进程，无残留 48081 listener。
+- GREEN: 已有配置 smoke `MesReleaseAuthoritativeContextConfigurationTest` 仍为 2/2 PASS，证明 `MesReleaseAuthoritativeContextPort` 配置注册恰好一个 Bean，并在权威适配器缺失时返回结构化 blocker。
+- REGRESSION: 本轮新增 `MesReleaseAuthoritativeContextPortImplTest` 尚未运行；MES testCompile 被既有未跟踪 `MesProEdhrBatchTraceFormalSourceResolverTest.java:65-66` 语法错误阻断，带 `-am` 的测试还会被 BPM `FormTemplateFillRuleAutoDetectServiceTest.java:96` 阻断。未修改或绕过这些非流程10文件。
+- BLOCKER: 流程8尚未提供 `MesReleaseMaterialGateReceiptPort` 的正式持久化实现，因此最终放行仍 fail-fast，不返回默认成功；流程4/6/7/8权威适配器、迁移/历史回填、outbox 和真实全链路 E2E 仍为 No-Go。
