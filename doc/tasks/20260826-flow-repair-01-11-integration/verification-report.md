@@ -56,3 +56,4 @@
 3. 写入型 Playwright 所需测试租户、生产/PQC/管理者账号、四份材料和清理权限未冻结。
 4. `E:/IntRuoyi` 主工作树在本轮复核时有 268 项 dirty/untracked 改动，流程负责人仍在并行写入；重叠范围正在继续变化，不能在共享工作树活跃期间更新主干。
 5. 将主干现有 tracked dirty patch 与目标提交做三方保真检查时，BPM 并行改动导致 `FormCenterRuntimeServiceImpl.java:88` 无法解析 `FormTemplateFillRuleAutoDetectService`；这不是流程1-11代码缺陷，不能在本任务中擅自补齐其它任务的服务实现。
+6. 主干 Stage2.5 模拟代码仍依赖已被流程4移除的 dossier 三 writer 接口，和“完成节点统一回填、放行阶段只读 receipt”的目标规则冲突；必须由模拟 owner 改造或明确不纳入本次主干融合，不能强行保留旧接口。

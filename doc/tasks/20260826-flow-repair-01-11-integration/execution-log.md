@@ -130,3 +130,10 @@ GREEN: 增量后端使用稳定运行 Jar 在 `48258` 完整启动，日志出�
 - Flow4 `MesPqcReleaseDossierPort` 只暴露 `readCompletionReceipt`；旧 `MesPqcReleaseDossierPlan`、`MesPqcReleaseDossierWriteResult` 和旧 dossier writer 生产依赖已移除。
 - Flow7 `MesProEdhrBatchProvisionedEvent` 只传递 source snapshot/bundle、completion receipt、credential ID/hash witness；producer 仍从持久化批次审计、Flow1领料绑定和正式来源重新读取事实。
 - Flow6 仍拥有批次执行和 `BATCH_*` 状态；Flow7 不写批次状态，不接受客户端 raw receipt/payload。
+
+## int_main promotion audit (2026-08-26)
+
+- 以当前 `int_main` HEAD `2faf0f33234614f46867e5d23e450c41ef62cc1f` 和目标 HEAD `ae32b0be5455d2bb813f419243993a7afd5892a6` 创建临时三方快照；主工作树当前 268 项 dirty/untracked，索引无暂存改动。
+- 主干 tracked patch 大部分可自动叠加到目标；三个冲突文件为 `MesProEdhrBatchExecutionServiceImpl.java`、`MesPqcReleaseDossierPort.java`、`MesPqcReleaseDossierPortImpl.java`。
+- `MesProEdhrBatchExecutionServiceImpl.java` 的冲突可保留权威解析器、Flow7 publisher 和主干独立 receipt service 三个依赖；但两个 dossier 文件是语义冲突：主干 Stage2.5 模拟仍调用旧 `plan/planForActiveOrder/write` 三 writer，目标流程4已移除该生产写入接口。不能用 ours/theirs 覆盖，必须由模拟任务改为正式完成 receipt/Flow6 handoff，或明确排除该模拟切片。
+- 临时提升 worktree 和 patch 已删除；`E:/IntRuoyi` HEAD、文件和 dirty 内容未修改。
