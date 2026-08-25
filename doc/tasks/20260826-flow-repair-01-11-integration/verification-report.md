@@ -31,8 +31,8 @@
 - 正常目标分支提交：已完成，当前 HEAD 为 `305eca335e53341d74013d7c2d43939d30bcd39e`；不使用 `--no-verify`。
 - 流程8材料 receipt 定向验证：`43/43 PASS`，包含门禁服务、receipt adapter、预检和权威放行上下文。
 - 流程4 dossier receipt reuse：`1/1 PASS`，活跃订单路径不调用旧三类 writer。
-- 流程7 Tx-C 自动触发：代码已接入 `AFTER_COMMIT` 事件，待批次服务事件消费回归和真实数据库 outbox 验证。
-- 流程7事件 witness 映射：`MesProEdhrBatchTraceTxCProducerEventTest 1/1 PASS`。
+- 流程7 Tx-C 自动触发：代码已接入 `AFTER_COMMIT` application service，应用服务只接收 witness 并唯一调用 producer；真实数据库 outbox 验证仍未执行。
+- 流程7事件 witness 映射：`MesProEdhrBatchTraceTxCApplicationServiceContractTest 3/3 PASS`，包含 tenant/batch 校验和 `AFTER_COMMIT` phase 合同。
 - 新增材料 receipt SQL 合同：`MesReleaseMaterialGateReceiptSqlContractTest 1/1 PASS`。
 - 全融合定向回归：`307/307 PASS`，0 failures、0 errors。
 - Flow4/Flow6/Flow7/Flow8/Flow10/traceability 增量回归：`294/294 PASS`，0 failures、0 errors、0 skipped。
