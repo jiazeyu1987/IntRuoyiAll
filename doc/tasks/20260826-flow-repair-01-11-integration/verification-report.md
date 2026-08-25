@@ -28,7 +28,7 @@
 - 流程3/5/6定向测试：`222/222 PASS`。
 - `git diff --check`：PASS。
 - runtime guard：PASS，slot 43，前端 `8258`，后端 `48258`。
-- 正常目标分支提交：已完成，当前 HEAD 为 `24e2b06343c6a59d22b6f652e55a68ab0d40980b`；不使用 `--no-verify`。
+- 正常目标分支提交：已完成，当前 HEAD 为 `cfde01b5ab1f1a6b2832f91d7af0b9ea5171cc31`；不使用 `--no-verify`。
 - 流程8材料 receipt 定向验证：`43/43 PASS`，包含门禁服务、receipt adapter、预检和权威放行上下文。
 - 流程4 dossier receipt reuse：`1/1 PASS`，活跃订单路径不调用旧三类 writer。
 - 流程7 Tx-C 自动触发：代码已接入 `AFTER_COMMIT` application service，应用服务只接收 witness 并唯一调用 producer；真实数据库 outbox 验证仍未执行。
@@ -43,11 +43,12 @@
 - 独立后端启动：`48258` health HTTP `200`，`{"status":"UP"}`；启动日志确认 `Started YudaoServerApplication`，运行 Jar 为 `output/runtime/xiufu20260826/yudao-server-exec.jar`。
 - runtime guard：PASS，slot 43，前端 `8258`，后端 `48258`。
 - 本地 Docker MySQL migration：PASS；表 `mes_pro_edhr_material_gate_receipt` 为 `InnoDB/utf8mb4_unicode_ci`，18 字段、4 索引、0 行；同一 migration 重跑 PASS。
+- migration 后稳定 Jar 启动：PASS；`48258` 日志确认 `Started YudaoServerApplication`，health HTTP `200`、`{"status":"UP"}`，进程随后已停止。
 - 真实 Tx-C outbox 写入闭环、写入型 Playwright E2E：未完成。
 
 ## 结论
 
-代码融合提交已经完成，当前目标 HEAD 为 `24e2b06343c6a59d22b6f652e55a68ab0d40980b`；`int_main` 已原子 fast-forward 到同一提交。流程4旧双写、流程7 AFTER_COMMIT witness handoff 和流程8 receipt 持久化已补齐；但 `E:/IntRuoyi` 主工作树仍有未提交 overlay，不能把主工作树当前运行文件或定向测试写成流程1-11全链路完成。
+代码融合提交已经完成，当前目标 HEAD 为 `cfde01b5ab1f1a6b2832f91d7af0b9ea5171cc31`；`int_main` 已原子 fast-forward 到同一提交。流程4旧双写、流程7 AFTER_COMMIT witness handoff 和流程8 receipt 持久化已补齐；但 `E:/IntRuoyi` 主工作树仍有未提交 overlay，不能把主工作树当前运行文件或定向测试写成流程1-11全链路完成。
 
 剩余阻塞：
 

@@ -141,7 +141,7 @@ GREEN: 增量后端使用稳定运行 Jar 在 `48258` 完整启动，日志出�
 ## int_main fast-forward (2026-08-26)
 
 - 前置复核：`int_main` 原 HEAD=`2faf0f33234614f46867e5d23e450c41ef62cc1f`，目标 HEAD=`d19199aa24e2d64bbaa25fbf62ada95f8e6d40d3`，`git merge-base --is-ancestor int_main codex/xiufu20260826` PASS；主干索引无暂存项。
-- 使用带旧值校验的原子 `git update-ref refs/heads/int_main <target> <old>` 完成 fast-forward，并同步了本任务收尾文档；当前 `E:/IntRuoyi` 的 `int_main` 和目标分支均解析到 `24e2b06343c6a59d22b6f652e55a68ab0d40980b`。
+- 使用带旧值校验的原子 `git update-ref refs/heads/int_main <target> <old>` 完成 fast-forward，并同步了本任务收尾文档；当前 `E:/IntRuoyi` 的 `int_main` 和目标分支均解析到 `cfde01b5ab1f1a6b2832f91d7af0b9ea5171cc31`。
 - 没有执行 merge/reset/checkout/stash/clean，也没有提交主干 dirty/untracked 文件；主工作树现有改动保留，包含被排除的 Stage2/Stage2.5/Stage4/5/6 模拟切片。
 - 目标 worktree 的 294 项回归、30模块打包和 `48258` 启动验证是融合前已通过的干净代码证据；主工作树仍存在 dirty overlay，不能以 `E:/IntRuoyi` 当前文件直接宣称运行态已刷新。
 
@@ -153,3 +153,4 @@ GREEN: migration 通过 Docker MySQL `source` 执行，exit 0；`mes_pro_edhr_ma
 GREEN: 同一 migration 第二次执行 exit 0；未执行 DROP、业务数据 DML 或远端操作。
 
 影响范围：schema blocker 已解除；真实 Tx-C outbox 业务写入、真实租户/账号/四份材料和 Playwright E2E 仍未执行。
+GREEN: migration 后使用稳定 Jar `51D2DAF5068F4333DA3D313354299A2796CB163B203359D5F200EB6E0BD52CAF` 在 `48258` 启动，日志出现 `Started YudaoServerApplication`，health HTTP `200`、`{"status":"UP"}`，随后优雅停止。
