@@ -98,6 +98,25 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
                 org.mockito.ArgumentCaptor.forClass(MesProcessPoolActiveOrderCompletionReceiptDO.class);
         verify(receiptMapper).insert(receiptCaptor.capture());
         assertEquals(1L, receiptCaptor.getValue().getTenantId());
+        assertEquals(101L, receiptCaptor.getValue().getBatchRecordId());
+        assertEquals(102L, receiptCaptor.getValue().getProcessInspectionId());
+    }
+
+    @Test
+    void writerWithoutFormalResultIdsMustNotMarkOrderOrCreateReceipt() {
+        MesProcessPoolActiveOrderDO order = order();
+        when(activeOrderMapper.selectByIdForUpdate(10L)).thenReturn(order);
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(null);
+        when(receiptMapper.selectByIdempotencyKeyForUpdate("key-1")).thenReturn(null);
+        when(progressPort.read(anyLong(), any())).thenReturn(progress());
+        when(backfillPort.prepare(anyLong(), any(), any())).thenReturn(draft()
+                .setBatchRecordId(null).setProcessInspectionId(null));
+
+        assertThrows(RuntimeException.class, () -> service.complete(20L, command()));
+
+        verify(backfillPort).write(any(), anyLong());
+        verify(activeOrderMapper, never()).markCompleted(anyLong(), any(), anyLong());
+        verify(receiptMapper, never()).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
     }
 
     @Test
@@ -246,6 +265,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
                 .setSignatureSnapshotJson("{\"signature\":true}").setBatchRecordSourceIdsJson("[1]")
                 .setProcessInspectionSourceIdsJson("[2]").setBatchRecordStatus("SUCCESS")
                 .setProcessInspectionStatus("SUCCESS").setLossReportStatus("NOT_REQUIRED")
+                .setBatchRecordId(101L).setProcessInspectionId(102L)
                 .setHasActualLoss(false).setLossQuantity(BigDecimal.ZERO)
                 .setZeroLossConfirmationSnapshot("{\"confirmed\":true}")
                 .setLossConditionFactsJson("[{\"processId\":1,\"status\":\"NO_LOSS\","

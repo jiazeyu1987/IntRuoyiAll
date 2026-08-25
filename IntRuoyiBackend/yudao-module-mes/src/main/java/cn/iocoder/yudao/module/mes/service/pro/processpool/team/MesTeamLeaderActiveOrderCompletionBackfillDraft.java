@@ -23,6 +23,8 @@ public class MesTeamLeaderActiveOrderCompletionBackfillDraft {
     private String lossSourceHash;
     private String batchRecordStatus;
     private String processInspectionStatus;
+    private Long batchRecordId;
+    private Long processInspectionId;
     private String lossReportStatus;
     private Boolean hasActualLoss;
     private BigDecimal lossQuantity;

@@ -97,6 +97,11 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
 
         draft.setMaterializedBy(leaderUserId);
         backfillPort.write(draft, activeOrder.getId());
+        if (draft.getBatchRecordId() == null || draft.getProcessInspectionId() == null
+                || (Boolean.TRUE.equals(draft.getHasActualLoss()) && draft.getLossRecordId() == null)
+                || (!Boolean.TRUE.equals(draft.getHasActualLoss()) && draft.getLossRecordId() != null)) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED, activeOrder.getId());
+        }
         Integer currentVersion = activeOrder.getVersion() == null ? 0 : activeOrder.getVersion();
         if (activeOrderMapper.markCompleted(activeOrder.getId(), currentVersion, leaderUserId) != 1) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_VERSION_CONFLICT, activeOrder.getId(),
@@ -123,6 +128,8 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         receipt.setCompletionStatus(MesProcessPoolActiveOrderCompletionReceiptDO.STATUS_SUCCESS);
         receipt.setBatchRecordStatus(draft.getBatchRecordStatus());
         receipt.setProcessInspectionStatus(draft.getProcessInspectionStatus());
+        receipt.setBatchRecordId(draft.getBatchRecordId());
+        receipt.setProcessInspectionId(draft.getProcessInspectionId());
         receipt.setLossReportStatus(draft.getLossReportStatus());
         receipt.setHasActualLoss(draft.getHasActualLoss());
         receipt.setLossQuantity(draft.getLossQuantity());

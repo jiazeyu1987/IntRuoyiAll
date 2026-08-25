@@ -59,6 +59,8 @@ public class MesProcessPoolActiveOrderCompletionReceiptDO extends TenantBaseDO {
     private String completionStatus;
     private String batchRecordStatus;
     private String processInspectionStatus;
+    private Long batchRecordId;
+    private Long processInspectionId;
     private String lossReportStatus;
     private Boolean hasActualLoss;
     private BigDecimal lossQuantity;

@@ -184,18 +184,39 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         }
         validateWriteDraft(activeOrderId, draft);
         Long workOrderId = draft.getWorkOrderId();
-        insert(activeOrderId, workOrderId, MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD,
+        draft.setBatchRecordId(insert(activeOrderId, workOrderId, MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD,
                 draft.getBatchRecordSourceIdsJson(), draft.getSourceSnapshotHash(),
-                draft.getBatchRecordSourceIdsJson(), draft.getMaterializedBy(), draft.getTenantId());
-        insert(activeOrderId, workOrderId, MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION,
+                materializedPayload(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD, draft),
+                draft.getMaterializedBy(), draft.getTenantId()));
+        draft.setProcessInspectionId(insert(activeOrderId, workOrderId, MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION,
                 draft.getProcessInspectionSourceIdsJson(), draft.getSourceSnapshotHash(),
-                draft.getProcessInspectionSourceIdsJson(), draft.getMaterializedBy(), draft.getTenantId());
+                materializedPayload(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION, draft),
+                draft.getMaterializedBy(), draft.getTenantId()));
         if (Boolean.TRUE.equals(draft.getHasActualLoss())) {
-            insert(activeOrderId, workOrderId, MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_LOSS_REPORT,
-                    draft.getLossRecordId() == null ? "[]" : JsonUtils.toJsonString(List.of(draft.getLossRecordId())),
-                    draft.getLossSourceHash(), draft.getLossConditionFactsJson(), draft.getMaterializedBy(),
-                    draft.getTenantId());
+            Long sourceLossRecordId = draft.getLossRecordId();
+            Long formalLossRecordId = insert(activeOrderId, workOrderId,
+                    MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_LOSS_REPORT,
+                    JsonUtils.toJsonString(List.of(sourceLossRecordId)), draft.getLossSourceHash(),
+                    draft.getLossConditionFactsJson(), draft.getMaterializedBy(), draft.getTenantId());
+            draft.setLossRecordId(formalLossRecordId);
+        } else {
+            insert(activeOrderId, workOrderId, MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_NO_LOSS,
+                    "[]", draft.getLossSourceHash(), draft.getZeroLossConfirmationSnapshot(),
+                    draft.getMaterializedBy(), draft.getTenantId());
         }
+    }
+
+    private static String materializedPayload(String type,
+                                              MesTeamLeaderActiveOrderCompletionBackfillDraft draft) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("type", type);
+        payload.put("status", MesProcessPoolActiveOrderCompletionReceiptDO.BACKFILL_STATUS_SUCCESS);
+        payload.put("sourceSnapshotHash", draft.getSourceSnapshotHash());
+        payload.put("formalSourceSnapshot", draft.getFormalSourceSnapshotJson());
+        payload.put("signatureSnapshot", draft.getSignatureSnapshotJson());
+        payload.put("sourceIds", MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD.equals(type)
+                ? draft.getBatchRecordSourceIdsJson() : draft.getProcessInspectionSourceIdsJson());
+        return JsonUtils.toJsonString(payload);
     }
 
     private static void validateWriteDraft(Long activeOrderId,
@@ -275,7 +296,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         }
     }
 
-    private void insert(Long activeOrderId, Long workOrderId, String type, String sourceIds,
+    private Long insert(Long activeOrderId, Long workOrderId, String type, String sourceIds,
                         String sourceHash, String payload, Long materializedBy, Long tenantId) {
         MesProcessPoolActiveOrderCompletionBackfillDO row = MesProcessPoolActiveOrderCompletionBackfillDO.builder()
                 .activeOrderId(activeOrderId).workOrderId(workOrderId).backfillType(type).status("SUCCESS")
@@ -285,6 +306,10 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         if (backfillMapper.insert(row) <= 0) {
             throw sourceMissing(null, "BACKFILL_WRITE_" + type);
         }
+        if (row.getId() == null) {
+            throw sourceMissingById(activeOrderId, "BACKFILL_WRITE_ID_" + type);
+        }
+        return row.getId();
     }
 
     private List<MesProcessPoolActiveOrderProcessSnapshotDO> lockedSnapshots(MesProcessPoolActiveOrderDO order) {

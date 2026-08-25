@@ -447,6 +447,8 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "routeVersionId", Long.class);
         assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "receiptHash", String.class);
         assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "receiptStatus", String.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "batchRecordId", Long.class);
+        assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "processInspectionId", Long.class);
         assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "lossReportStatus", String.class);
         assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "hasActualLoss", Boolean.class);
         assertField(MesProcessPoolActiveOrderCompletionReceiptDO.class, "lossQuantity", BigDecimal.class);
@@ -467,7 +469,10 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertTrue(sql.contains("`signature_snapshot_json` json NOT NULL"));
         assertTrue(sql.contains("`receipt_hash` char(64) NOT NULL"));
         assertTrue(sql.contains("`receipt_status` varchar(32) NOT NULL"));
+        assertTrue(sql.contains("`batch_record_id` bigint NOT NULL"));
+        assertTrue(sql.contains("`process_inspection_id` bigint NOT NULL"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_active_order_completion_backfill`"));
+        assertTrue(sql.contains("BATCH_RECORD/PROCESS_INSPECTION/LOSS_REPORT/NO_LOSS"));
         assertTrue(sql.contains("UNIQUE KEY `uk_mes_pp_completion_backfill_order_type`"));
         assertFalse(sql.contains("batch_execution_id"));
         assertFalse(sql.contains("ON UPDATE CURRENT_TIMESTAMP"));

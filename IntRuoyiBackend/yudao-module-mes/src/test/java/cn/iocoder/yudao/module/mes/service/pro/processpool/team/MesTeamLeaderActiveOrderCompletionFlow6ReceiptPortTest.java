@@ -72,12 +72,24 @@ class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest {
         assertEquals("source-hash", handoff.getSourceSnapshotHash());
         assertEquals(3, handoff.getCompletionVersion());
         assertEquals(receipt.getReceiptHash(), handoff.getReceiptHash());
+        assertEquals(101L, handoff.getBatchRecordId());
+        assertEquals(102L, handoff.getProcessInspectionId());
     }
 
     @Test
     void incompleteBackfillStatusMustBlockFlow6() {
         MesProcessPoolActiveOrderCompletionReceiptDO receipt = validReceipt()
                 .setBatchRecordStatus("BLOCKED");
+        receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
+        when(receiptMapper.selectByIdAndTenantId(99L, 7L)).thenReturn(receipt);
+
+        assertThrows(RuntimeException.class, () -> port.getByReceiptId(99L, 7L));
+    }
+
+    @Test
+    void missingFormalBackfillResultIdMustBlockFlow6() {
+        MesProcessPoolActiveOrderCompletionReceiptDO receipt = validReceipt()
+                .setProcessInspectionId(null);
         receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
         when(receiptMapper.selectByIdAndTenantId(99L, 7L)).thenReturn(receipt);
 
@@ -106,6 +118,7 @@ class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest {
                 .receiptStatus("BACKFILL_SUCCEEDED")
                 .completionStatus("SUCCESS").batchRecordStatus("SUCCESS")
                 .processInspectionStatus("SUCCESS").lossReportStatus("SUCCESS")
+                .batchRecordId(101L).processInspectionId(102L)
                 .hasActualLoss(true).lossQuantity(BigDecimal.ONE).lossRecordId(44L)
                 .lossConditionFactsJson("[{\"status\":\"REQUIRED\"}]")
                 .batchRecordSourceIdsJson("[1]").processInspectionSourceIdsJson("[2]")

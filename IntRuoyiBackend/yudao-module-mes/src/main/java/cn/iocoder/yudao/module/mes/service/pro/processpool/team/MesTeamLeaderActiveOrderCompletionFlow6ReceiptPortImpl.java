@@ -43,6 +43,7 @@ public class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortImpl
                 .equals(receipt.getProcessInspectionStatus())
                 || receipt.getBatchCode() == null || receipt.getBatchCode().isBlank()
                 || receipt.getRouteId() == null || receipt.getRouteVersionId() == null
+                || receipt.getBatchRecordId() == null || receipt.getProcessInspectionId() == null
                 || receipt.getRequestIdempotencyKey() == null || receipt.getRequestIdempotencyKey().isBlank()
                 || !MesProcessPoolActiveOrderCompletionReceiptDO.RECEIPT_STATUS_BACKFILL_SUCCEEDED
                 .equals(receipt.getReceiptStatus())
@@ -71,6 +72,8 @@ public class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortImpl
                 .setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
                 .setBatchRecordStatus(receipt.getBatchRecordStatus())
                 .setProcessInspectionStatus(receipt.getProcessInspectionStatus())
+                .setBatchRecordId(receipt.getBatchRecordId())
+                .setProcessInspectionId(receipt.getProcessInspectionId())
                 .setHasActualLoss(receipt.getHasActualLoss())
                 .setLossQuantity(receipt.getLossQuantity())
                 .setLossReportStatus(receipt.getLossReportStatus())

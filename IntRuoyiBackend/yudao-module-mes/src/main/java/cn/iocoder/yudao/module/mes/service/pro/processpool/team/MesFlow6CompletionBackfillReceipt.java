@@ -30,6 +30,8 @@ public class MesFlow6CompletionBackfillReceipt {
     /** Frozen result of the three Tx-A backfill branches; Flow-6 may only consume SUCCESS values. */
     private String batchRecordStatus;
     private String processInspectionStatus;
+    private Long batchRecordId;
+    private Long processInspectionId;
     private Boolean hasActualLoss;
     private BigDecimal lossQuantity;
     private String lossReportStatus;

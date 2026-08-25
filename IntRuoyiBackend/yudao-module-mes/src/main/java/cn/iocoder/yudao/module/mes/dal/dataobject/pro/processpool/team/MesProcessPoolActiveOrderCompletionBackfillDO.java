@@ -22,6 +22,7 @@ public class MesProcessPoolActiveOrderCompletionBackfillDO extends TenantBaseDO 
     public static final String TYPE_BATCH_RECORD = "BATCH_RECORD";
     public static final String TYPE_PROCESS_INSPECTION = "PROCESS_INSPECTION";
     public static final String TYPE_LOSS_REPORT = "LOSS_REPORT";
+    public static final String TYPE_NO_LOSS = "NO_LOSS";
 
     @TableId
     private Long id;

@@ -62,7 +62,17 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         org.mockito.Mockito.lenient().when(productIssueDetailMapper.selectListByIssueIdForUpdate(901L))
                 .thenReturn(List.of(productIssueDetail()));
         org.mockito.Mockito.lenient().when(backfillMapper.insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class)))
-                .thenReturn(1);
+                .thenAnswer(invocation -> {
+                    MesProcessPoolActiveOrderCompletionBackfillDO row = invocation.getArgument(0);
+                    row.setId(switch (row.getBackfillType()) {
+                        case MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD -> 1101L;
+                        case MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION -> 1102L;
+                        case MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_LOSS_REPORT -> 1103L;
+                        case MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_NO_LOSS -> 1104L;
+                        default -> throw new IllegalStateException("unexpected type");
+                    });
+                    return 1;
+                });
     }
 
     @Test
@@ -80,8 +90,14 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         assertEquals("NOT_REQUIRED", draft.getLossReportStatus());
         ArgumentCaptor<MesProcessPoolActiveOrderCompletionBackfillDO> captor =
                 ArgumentCaptor.forClass(MesProcessPoolActiveOrderCompletionBackfillDO.class);
-        verify(backfillMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
+        verify(backfillMapper, org.mockito.Mockito.times(3)).insert(captor.capture());
         assertTrue(captor.getAllValues().stream().allMatch(row -> row.getTenantId().equals(1L)));
+        assertTrue(captor.getAllValues().stream().anyMatch(row ->
+                MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_NO_LOSS.equals(row.getBackfillType())));
+        assertFalse(captor.getAllValues().stream().anyMatch(row ->
+                MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_LOSS_REPORT.equals(row.getBackfillType())));
+        assertEquals(1101L, draft.getBatchRecordId());
+        assertEquals(1102L, draft.getProcessInspectionId());
     }
 
     @Test
@@ -94,12 +110,14 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
         assertTrue(draft.getHasActualLoss());
         assertEquals(BigDecimal.ONE, draft.getLossQuantity());
-        assertEquals(501L, draft.getLossRecordId());
+        assertEquals(1103L, draft.getLossRecordId());
         ArgumentCaptor<MesProcessPoolActiveOrderCompletionBackfillDO> captor =
                 ArgumentCaptor.forClass(MesProcessPoolActiveOrderCompletionBackfillDO.class);
         verify(backfillMapper, org.mockito.Mockito.times(3)).insert(captor.capture());
         assertTrue(captor.getAllValues().stream().anyMatch(row ->
                 MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_LOSS_REPORT.equals(row.getBackfillType())));
+        assertFalse(captor.getAllValues().stream().anyMatch(row ->
+                MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_NO_LOSS.equals(row.getBackfillType())));
     }
 
     @Test

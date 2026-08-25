@@ -37,6 +37,8 @@ public final class MesTeamLeaderActiveOrderCompletionReceiptHash {
         body.put("completionStatus", receipt.getCompletionStatus());
         body.put("batchRecordStatus", receipt.getBatchRecordStatus());
         body.put("processInspectionStatus", receipt.getProcessInspectionStatus());
+        body.put("batchRecordId", receipt.getBatchRecordId());
+        body.put("processInspectionId", receipt.getProcessInspectionId());
         body.put("lossReportStatus", receipt.getLossReportStatus());
         body.put("hasActualLoss", receipt.getHasActualLoss());
         body.put("lossQuantity", receipt.getLossQuantity());
