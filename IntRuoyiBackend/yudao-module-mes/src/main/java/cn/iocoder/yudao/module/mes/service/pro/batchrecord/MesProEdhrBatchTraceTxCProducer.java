@@ -20,6 +20,8 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6Completi
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -115,6 +117,30 @@ public class MesProEdhrBatchTraceTxCProducer {
         }
     }
 
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onBatchExecutionProvisioned(MesBatchExecutionProvisionedEvent event) {
+        if (event == null || event.batchExecutionId() == null || event.tenantId() == null) {
+            throw new IllegalArgumentException("FLOW7_PROVISIONED_EVENT_INCOMPLETE");
+        }
+        String witness = event.idempotencyKey();
+        String suffix = DigestUtil.sha256Hex(witness == null ? String.valueOf(event.batchExecutionId()) : witness)
+                .substring(0, 32);
+        TenantContextHolder.setTenantId(event.tenantId());
+        try {
+            produce(new MesProEdhrBatchTraceTxCCommand()
+                    .setBatchExecutionId(event.batchExecutionId())
+                    .setEventId("FLOW7-TXC-" + event.batchExecutionId() + "-" + suffix)
+                    .setIdempotencyKey("FLOW7-TXC-IDEM-" + event.batchExecutionId() + "-" + suffix)
+                    .setExpectedSourceSnapshotHash(event.sourceSnapshotHash())
+                    .setExpectedSourceBundleHash(event.sourceBundleHash())
+                    .setExpectedCompletionBackfillReceiptHash(event.completionBackfillReceiptHash())
+                    .setExpectedSourceVersion(event.sourceVersion())
+                    .setCapturedBy(event.capturedBy()));
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
     private MesProEdhrBatchTraceTxCResult persistFailureInNewTransaction(
             MesProEdhrBatchTraceTxCCommand command, String reasonCode, String reason) {
         MesProEdhrBatchTraceTxCResult result = new TransactionTemplate(transactionManager)
@@ -146,7 +172,7 @@ public class MesProEdhrBatchTraceTxCProducer {
         JSONArray evidence = metadata.getJSONArray("sourceEvidence");
         MesProcessPoolActiveOrderPickListBindingDO binding = null;
         List<MesProcessPoolActiveOrderPickListBindingItemDO> items = List.of();
-        if (MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)) {
+        if (isActiveOrderEntryType(entryType)) {
             Long credentialId = requireLong(metadata, "sourceCredentialId");
             MesFlow6CompletionBackfillReceipt receipt = completionReceiptPort.getByReceiptId(credentialId, tenantId);
             evidence = MesProEdhrBatchTraceFormalSourceResolver.resolveActive(tenantId, receipt, metadata, evidence);
@@ -266,7 +292,7 @@ public class MesProEdhrBatchTraceTxCProducer {
                 .setSourceCredentialId(optionalLong(metadata, "sourceCredentialId"))
                 .setSourceCredentialHash(metadata.getString("sourceCredentialHash"))
                 .setCapturedBy(command.getCapturedBy()).setSources(sources);
-        if (MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)) {
+        if (isActiveOrderEntryType(entryType)) {
             capture.setActiveOrderId(requiredLong(metadata, "activeOrderId"))
                     .setCompletionTransactionId(parseLong(requiredText(metadata, "completionTransactionId"), "completionTransactionId"))
                     .setCompletionVersion(requiredInteger(metadata, "completionVersion"))
@@ -414,6 +440,11 @@ public class MesProEdhrBatchTraceTxCProducer {
 
     public static boolean isRetryableReason(String reasonCode) {
         return RETRYABLE_REASONS.contains(reasonCode);
+    }
+
+    private boolean isActiveOrderEntryType(String entryType) {
+        return MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)
+                || "ACTIVE_ORDER_PQC".equals(entryType);
     }
 
     private String toLinkType(String sourceType) {

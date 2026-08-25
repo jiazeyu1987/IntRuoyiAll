@@ -75,3 +75,13 @@ GREEN: MES compile -> `BUILD SUCCESS`。
 - MATERIALS_READY 评估成功时生成不可变版本 receipt；相同来源和 manifest 重复评估幂等。
 - 预检快照保存 receiptId、receiptHash、版本集合 hash；流程10在请求缺少 receiptId 时只从持久化预检快照读取。
 - 租户、批次、来源快照、材料类型集合和 receipt hash 任一不匹配均返回阻断，不信任请求体材料对象。
+
+## 流程4/7联动里程碑
+
+BDD: 活跃订单 release dossier 不重复回填 -> Given 活跃订单已在点击完成节点形成成功 Tx-A receipt；When release dossier 规划和写入；Then 只读取并返回 Tx-A 的三类回填证据，不调用旧批记录、过程检验或损耗 writer。
+
+GREEN: `MesPqcReleaseDossierPortImplTest` -> `1/1 PASS`。
+
+BDD: 建批成功自动触发 Tx-C -> Given 流程6已持久化成功建批审计；When production-release 建批事务提交；Then 发布 provisioned 事件，由流程7唯一 Tx-C producer 在 AFTER_COMMIT 消费正式审计和来源绑定，成功或失败均由流程7 outbox 记录。
+
+GREEN: MES 24模块 compile -> `BUILD SUCCESS`；Tx-C producer 和事件监听代码通过编译。

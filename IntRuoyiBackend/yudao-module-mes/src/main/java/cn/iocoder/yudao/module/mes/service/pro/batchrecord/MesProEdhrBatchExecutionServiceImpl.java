@@ -134,6 +134,7 @@ import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
+import org.springframework.context.ApplicationEventPublisher;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -447,6 +448,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private MesBatchExecutionEntryContractService batchExecutionEntryContractService;
     @Resource
     private MesBatchExecutionAuthoritativeContextResolver authoritativeContextResolver;
+    @Resource
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -927,7 +930,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             recordOperationAudit("PRODUCTION_RELEASE_APPLICATION", String.valueOf(command.getApplicationId()),
                     "BATCH_EXECUTION_REUSED_FROM_RELEASE", "复用已存在的申请批次", existing.getId(), null, null,
                     existing.getRouteId(), null, null, null, "mes:pro-production-release:pqc-approve", "ALLOW",
-                    "SUCCESS", null, null, entryAuditMetadata(provisionCommand));
+                    "SUCCESS", null, null, entryAuditMetadata(provisionCommand, existing.getId()));
+            publishBatchProvisioned(existing, provisionCommand);
             return existing.getId();
         }
         MesProWorkOrderDO workOrder = validateSelectableWorkOrder(command.getWorkOrderId());
@@ -984,7 +988,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 "BATCH_EXECUTION_CREATED_FROM_RELEASE", "PQC 批准后创建申请唯一批次", latest.getId(),
                 null, null, latest.getRouteId(), null, null, null,
                 "mes:pro-production-release:pqc-approve", "ALLOW", "SUCCESS",
-                null, null, entryAuditMetadata(provisionCommand));
+                null, null, entryAuditMetadata(provisionCommand, latest.getId()));
+        publishBatchProvisioned(latest, provisionCommand);
         return latest.getId();
     }
 
@@ -8072,11 +8077,19 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     /** Keep the entry contract traceable until Flow 6 owns durable source relations. */
     private String entryAuditMetadata(MesBatchExecutionProvisionCommand command) {
+        return entryAuditMetadata(command, null);
+    }
+
+    private String entryAuditMetadata(MesBatchExecutionProvisionCommand command, Long batchExecutionId) {
         if (command == null) {
             return null;
         }
         JSONObject metadata = new JSONObject(true);
-        metadata.put("entryType", command.getEntryType());
+        String entryType = command.getEntryType();
+        if ("ACTIVE_ORDER_PQC".equals(entryType) && command.getActiveOrderId() != null) {
+            entryType = MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION;
+        }
+        metadata.put("entryType", entryType);
         metadata.put("entryBusinessId", command.getEntryBusinessId());
         metadata.put("sourceCredentialType", command.getSourceCredentialType());
         metadata.put("sourceCredentialId", command.getSourceCredentialId());
@@ -8084,6 +8097,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         metadata.put("sourceContextHash", command.getSourceContextHash());
         metadata.put("sourceSnapshotHash", command.getSourceSnapshotHash());
         metadata.put("sourceVersion", command.getSourceVersion());
+        metadata.put("sourceBundleHash", command.getSourceBundleHash());
+        metadata.put("sourceEvidence", command.getSourceEvidence());
+        metadata.put("originKey", command.getActiveOrderId() == null
+                ? entryType + ":" + command.getSourceCredentialId()
+                : "ACTIVE_ORDER:" + command.getActiveOrderId());
         metadata.put("expectedSourceVersion", command.getExpectedSourceVersion());
         metadata.put("activeOrderId", command.getActiveOrderId());
         metadata.put("workOrderId", command.getWorkOrderId());
@@ -8094,9 +8112,30 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         metadata.put("batchPickListRelationId", command.getBatchPickListRelationId());
         metadata.put("completionBackfillReceiptId", command.getCompletionBackfillReceiptId());
         metadata.put("completionBackfillReceiptHash", command.getCompletionBackfillReceiptHash());
+        metadata.put("sourceCredentialHash", command.getIndependentReceipt() == null
+                ? command.getCompletionBackfillReceiptHash() : command.getIndependentReceipt().getReceiptHash());
+        metadata.put("completionTransactionId", command.getCompletionTransactionId());
+        metadata.put("completionVersion", command.getCompletionVersion());
+        metadata.put("pickListBindingId", command.getPickListBindingId());
+        metadata.put("pickListId", command.getPickListId());
+        metadata.put("hasActualLoss", command.getCompletionBackfillReceipt() == null
+                ? null : command.getCompletionBackfillReceipt().getHasActualLoss());
+        metadata.put("batchProvisionReceiptId", batchExecutionId);
+        metadata.put("batchProvisionStatus", batchExecutionId == null ? null : "PROVISIONED");
         metadata.put("idempotencyKey", command.getIdempotencyKey());
         metadata.put("payloadHash", command.getPayloadHash());
         return metadata.toJSONString();
+    }
+
+    private void publishBatchProvisioned(MesProEdhrBatchExecutionDO batch,
+                                         MesBatchExecutionProvisionCommand command) {
+        if (batch == null || batch.getId() == null || command == null || applicationEventPublisher == null) {
+            throw new IllegalStateException("FLOW7_PROVISIONED_EVENT_PUBLISHER_NOT_READY");
+        }
+        applicationEventPublisher.publishEvent(new MesBatchExecutionProvisionedEvent(
+                TenantContextHolder.getRequiredTenantId(), batch.getId(), command.getIdempotencyKey(),
+                command.getSourceSnapshotHash(), command.getSourceBundleHash(),
+                command.getCompletionBackfillReceiptHash(), command.getSourceVersion(), currentUserId()));
     }
 
     private record SpecialNodeAttachmentOwnerConfig(String attachmentCode,

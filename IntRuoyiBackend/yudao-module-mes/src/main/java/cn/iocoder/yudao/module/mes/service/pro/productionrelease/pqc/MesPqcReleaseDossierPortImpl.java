@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
@@ -17,6 +18,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEv
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
@@ -42,6 +44,8 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseProcessInspectionWriteResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseProcessInspectionWriter;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -65,6 +69,8 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
     private final MesTeamLeaderActiveOrderReleaseProcessInspectionWriter processInspectionWriter;
     private final MesTeamLeaderActiveOrderReleaseLossReportWriter lossReportWriter;
     private final MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher;
+    private final MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
+    private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
 
     public MesPqcReleaseDossierPortImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -80,7 +86,9 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
             MesTeamLeaderActiveOrderReleaseBatchRecordWriter batchRecordWriter,
             MesTeamLeaderActiveOrderReleaseProcessInspectionWriter processInspectionWriter,
             MesTeamLeaderActiveOrderReleaseLossReportWriter lossReportWriter,
-            MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher) {
+            MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher,
+            MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper,
+            MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort) {
         this.activeOrderMapper = activeOrderMapper;
         this.pickListBindingMapper = pickListBindingMapper;
         this.workOrderMapper = workOrderMapper;
@@ -95,6 +103,8 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         this.processInspectionWriter = processInspectionWriter;
         this.lossReportWriter = lossReportWriter;
         this.sourceSnapshotHasher = sourceSnapshotHasher;
+        this.completionReceiptMapper = completionReceiptMapper;
+        this.completionReceiptPort = completionReceiptPort;
     }
 
     @Override
@@ -125,6 +135,26 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         if (!Objects.equals(application.getSourceSnapshotHash(), currentSourceHash)) {
             throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, application, null,
                     "authoritative production or inspection sources changed after SP-1");
+        }
+
+        MesFlow6CompletionBackfillReceipt completionReceipt = null;
+        Long completionReceiptId = null;
+        if (application.getActiveOrderId() != null) {
+            MesProcessPoolActiveOrderCompletionReceiptDO receiptRow =
+                    completionReceiptMapper.selectByActiveOrderIdForUpdate(application.getActiveOrderId());
+            if (receiptRow == null || receiptRow.getId() == null) {
+                throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application, null,
+                        "active-order release must reuse the formal Tx-A completion receipt");
+            }
+            completionReceiptId = receiptRow.getId();
+            completionReceipt = completionReceiptPort.getByReceiptId(completionReceiptId, tenantId);
+            if (completionReceipt == null
+                    || !Objects.equals(completionReceipt.getSourceSnapshotHash(), currentSourceHash)
+                    || !Objects.equals(completionReceipt.getWorkOrderId(), application.getWorkOrderId())
+                    || !Objects.equals(completionReceipt.getBatchCode(), application.getBatchCode())) {
+                throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, application, null,
+                        "active-order release receipt no longer matches the frozen sources");
+            }
         }
 
         MesTeamLeaderActiveOrderReleaseBatchRecordPlan batchPlan = batchRecordWriter.plan(
@@ -165,6 +195,9 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
         requireFormalPlan(application, batchPlan, inspectionPlan, lossPlan);
         return new MesPqcReleaseDossierPlan()
                 .setSourceSnapshotHash(currentSourceHash)
+                .setActiveOrderId(application.getActiveOrderId())
+                .setCompletionBackfillReceiptId(completionReceiptId)
+                .setCompletionReceipt(completionReceipt)
                 .setBatchRecordPlan(batchPlan)
                 .setProcessInspectionPlan(inspectionPlan)
                 .setLossReportPlan(lossPlan);
@@ -172,6 +205,9 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
 
     @Override
     public MesPqcReleaseDossierWriteResult write(MesPqcReleaseDossierPlan plan, Long batchExecutionId) {
+        if (plan.getActiveOrderId() != null) {
+            return writeFromCompletionReceipt(plan, batchExecutionId);
+        }
         MesTeamLeaderActiveOrderReleaseBatchRecordWriteResult batchWrite =
                 batchRecordWriter.write(plan.getBatchRecordPlan(), batchExecutionId);
         MesTeamLeaderActiveOrderReleaseProcessInspectionWriteResult inspectionWrite =
@@ -187,6 +223,27 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                 .setHasActualLoss(lossWrite.getHasActualLoss())
                 .setLossQuantity(lossWrite.getLossQuantity())
                 .setSourceSnapshotHash(lossWrite.getSourceSnapshotHash());
+    }
+
+    private MesPqcReleaseDossierWriteResult writeFromCompletionReceipt(
+            MesPqcReleaseDossierPlan plan, Long batchExecutionId) {
+        MesFlow6CompletionBackfillReceipt receipt = plan.getCompletionReceipt();
+        if (receipt == null || !Objects.equals(plan.getCompletionBackfillReceiptId(), receipt.getReceiptId())
+                || batchExecutionId == null || batchExecutionId <= 0
+                || receipt.getBatchRecordId() == null || receipt.getProcessInspectionId() == null) {
+            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, null, null,
+                    "active-order release requires an existing successful Tx-A receipt");
+        }
+        List<Long> lossIds = Boolean.TRUE.equals(receipt.getHasActualLoss()) && receipt.getLossRecordId() != null
+                ? List.of(receipt.getLossRecordId()) : List.of();
+        return new MesPqcReleaseDossierWriteResult()
+                .setBatchRecordEvidenceIds(List.of(receipt.getBatchRecordId()))
+                .setProcessInspectionEvidenceIds(List.of(receipt.getProcessInspectionId()))
+                .setLossReportEvidenceIds(lossIds)
+                .setLossReportStatus(receipt.getLossReportStatus())
+                .setHasActualLoss(receipt.getHasActualLoss())
+                .setLossQuantity(receipt.getLossQuantity())
+                .setSourceSnapshotHash(receipt.getSourceSnapshotHash());
     }
 
     private void requireApplicationSources(

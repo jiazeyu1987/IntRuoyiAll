@@ -2,7 +2,7 @@
 
 ## 结果
 
-当前代码融合结果为 `in_progress`，业务代码已经应用到 `D:/IntRuoyiWorktree/xiufu20260826`，v7 runtime 基线已同步，正在执行正常融合提交。
+当前代码融合结果为 `in_progress`，业务代码已经应用到 `D:/IntRuoyiWorktree/xiufu20260826`，v7 runtime 基线已同步，流程4/7/8补强代码正在提交和回归。
 
 ## 已融合代码
 
@@ -25,8 +25,10 @@
 - runtime guard：PASS，slot 43，前端 `8258`，后端 `48258`。
 - 正常融合提交：待执行；不使用 `--no-verify`。
 - 流程8材料 receipt 定向验证：`43/43 PASS`，包含门禁服务、receipt adapter、预检和权威放行上下文。
+- 流程4 dossier receipt reuse：`1/1 PASS`，活跃订单路径不调用旧三类 writer。
+- 流程7 Tx-C 自动触发：代码已接入 `AFTER_COMMIT` 事件，待批次服务事件消费回归和真实数据库 outbox 验证。
 - 真实数据库迁移、服务启动、写入型 Playwright E2E：未运行。
 
 ## 结论
 
-代码融合本身没有 Git 冲突；流程8 receipt 持久化已补齐。当前剩余项是流程4旧回填路径、流程7 Tx-C自动接线、正常提交和主干集成。不能把当前定向测试结果写成流程1-11全链路完成。
+代码融合本身没有 Git 冲突；流程4旧双写和流程8 receipt 持久化已补齐，流程7自动触发已接入。当前剩余项是事件消费回归、数据库迁移/真实 outbox、主线集成和真实全链路 E2E。不能把当前定向测试结果写成流程1-11全链路完成。
