@@ -144,3 +144,12 @@ GREEN: 增量后端使用稳定运行 Jar 在 `48258` 完整启动，日志出�
 - 使用带旧值校验的原子 `git update-ref refs/heads/int_main <target> <old>` 完成 fast-forward，并同步了本任务收尾文档；当前 `E:/IntRuoyi` 的 `int_main` 和目标分支均解析到 `24e2b06343c6a59d22b6f652e55a68ab0d40980b`。
 - 没有执行 merge/reset/checkout/stash/clean，也没有提交主干 dirty/untracked 文件；主工作树现有改动保留，包含被排除的 Stage2/Stage2.5/Stage4/5/6 模拟切片。
 - 目标 worktree 的 294 项回归、30模块打包和 `48258` 启动验证是融合前已通过的干净代码证据；主工作树仍存在 dirty overlay，不能以 `E:/IntRuoyi` 当前文件直接宣称运行态已刷新。
+
+## Local schema migration verification (2026-08-26)
+
+BDD: 四材料 receipt 表可部署 -> Given 本地 Docker MySQL `ruoyi-vue-pro` 中目标表不存在；When 执行正式 `20260826_mes_edhr_material_gate_receipt.sql`；Then 仅新增权威 receipt 表，不写入业务数据，并可重复执行。
+
+GREEN: migration 通过 Docker MySQL `source` 执行，exit 0；`mes_pro_edhr_material_gate_receipt` 为 `InnoDB/utf8mb4_unicode_ci`，18 columns、4 indexes、0 rows。
+GREEN: 同一 migration 第二次执行 exit 0；未执行 DROP、业务数据 DML 或远端操作。
+
+影响范围：schema blocker 已解除；真实 Tx-C outbox 业务写入、真实租户/账号/四份材料和 Playwright E2E 仍未执行。

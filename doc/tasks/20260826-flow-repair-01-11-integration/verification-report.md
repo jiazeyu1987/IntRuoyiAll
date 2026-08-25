@@ -2,7 +2,7 @@
 
 ## 结果
 
-当前代码融合结果为 `in_progress`，业务代码已经应用并提交到 `D:/IntRuoyiWorktree/xiufu20260826`，v7 runtime 基线已同步，定向回归和独立后端启动验证通过；真实迁移、Tx-C outbox 写入和主干融合仍有阻塞。
+当前代码融合结果为 `in_progress`，业务代码已经应用并提交到 `D:/IntRuoyiWorktree/xiufu20260826`，v7 runtime 基线已同步，定向回归、schema migration 和独立后端启动验证通过；真实 Tx-C outbox、写入型 E2E 和主工作树运行态仍有阻塞。
 
 ## 已融合代码
 
@@ -42,8 +42,8 @@
 - 增量稳定运行 Jar SHA-256：`51D2DAF5068F4333DA3D313354299A2796CB163B203359D5F200EB6E0BD52CAF`；`48258` 启动日志确认 `Started YudaoServerApplication`，health HTTP `200`、`{"status":"UP"}`。
 - 独立后端启动：`48258` health HTTP `200`，`{"status":"UP"}`；启动日志确认 `Started YudaoServerApplication`，运行 Jar 为 `output/runtime/xiufu20260826/yudao-server-exec.jar`。
 - runtime guard：PASS，slot 43，前端 `8258`，后端 `48258`。
-- 只读 schema 核对发现 `mes_pro_edhr_material_gate_receipt` 尚未存在，正式迁移未执行。
-- 真实数据库迁移、真实 Tx-C outbox 写入闭环、写入型 Playwright E2E：未完成。
+- 本地 Docker MySQL migration：PASS；表 `mes_pro_edhr_material_gate_receipt` 为 `InnoDB/utf8mb4_unicode_ci`，18 字段、4 索引、0 行；同一 migration 重跑 PASS。
+- 真实 Tx-C outbox 写入闭环、写入型 Playwright E2E：未完成。
 
 ## 结论
 
@@ -51,9 +51,8 @@
 
 剩余阻塞：
 
-1. 本地真实库尚未应用 `20260826_mes_edhr_material_gate_receipt.sql`，且当前任务未获得明确的业务库 DDL 写入授权。
-2. 真实 Tx-C outbox 写入闭环未执行，缺少可清理的测试批次和真实来源数据。
-3. 写入型 Playwright 所需测试租户、生产/PQC/管理者账号、四份材料和清理权限未冻结。
-4. `int_main` 分支指针已完成融合，但 `E:/IntRuoyi` 主工作树仍有 268 项 dirty/untracked overlay；其中排除的模拟文件和其它并行改动尚未刷新到新 HEAD，主工作树服务必须保持不作为本次融合运行态使用。
-5. 将主干现有 tracked dirty patch 与目标提交做三方保真检查时，BPM 并行改动导致 `FormCenterRuntimeServiceImpl.java:88` 无法解析 `FormTemplateFillRuleAutoDetectService`；这不是流程1-11代码缺陷，不能在本任务中擅自补齐其它任务的服务实现。
-6. 主干 Stage2.5 模拟代码仍依赖已被流程4移除的 dossier 三 writer 接口，和“完成节点统一回填、放行阶段只读 receipt”的目标规则冲突；必须由模拟 owner 改造或明确不纳入本次主干融合，不能强行保留旧接口。
+1. 真实 Tx-C outbox 写入闭环未执行，缺少可清理的测试批次和真实来源数据。
+2. 写入型 Playwright 所需测试租户、生产/PQC/管理者账号、四份材料和清理权限未冻结。
+3. `int_main` 分支指针已完成融合，但 `E:/IntRuoyi` 主工作树仍有 309 项 dirty/untracked overlay；其中排除的模拟文件和其它并行改动尚未刷新到新 HEAD，主工作树服务必须保持不作为本次融合运行态使用。
+4. 将主干现有 tracked dirty patch 与目标提交做三方保真检查时，BPM 并行改动导致 `FormCenterRuntimeServiceImpl.java:88` 无法解析 `FormTemplateFillRuleAutoDetectService`；这不是流程1-11代码缺陷，不能在本任务中擅自补齐其它任务的服务实现。
+5. 主干 Stage2.5 模拟代码已确认排除本次融合；若未来纳入，必须独立改为正式 completion receipt -> Flow6 handoff 后再测试提交。

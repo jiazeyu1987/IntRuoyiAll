@@ -8,7 +8,7 @@
 
 - 数据库：MySQL/InnoDB。
 - 迁移承载：`IntRuoyiBackend/sql/mysql/` 中带 `release-migration` 头的 SQL 文件。
-- 当前环境未发现 `mysql`、`mariadb`、`flyway`、`liquibase` 或 `sqlcmd` 命令，真实 up/down 或 dry-run 未执行。
+- 当前环境未发现宿主机 `mysql`、`mariadb`、`flyway`、`liquibase` 或 `sqlcmd` 命令；使用已运行的本地 Docker MySQL `int-ruoyi-mysql` 执行正式 migration 文件，不访问远端。
 
 ## Schema 变更
 
@@ -29,6 +29,8 @@ BDD: receipt 篡改阻断 -> Given 持久化 receipt 的租户、批次、来源
 - GREEN: `MesReleaseMaterialGateReceiptPortImplTest` -> `2/2 PASS`。
 - GREEN: `MesReleaseMaterialGateReceiptSqlContractTest` -> `1/1 PASS`。
 - GREEN: `mvn -o -pl yudao-module-mes -am -DskipTests compile` -> `BUILD SUCCESS`。
+- GREEN: 本地 Docker MySQL 执行 `source /tmp/20260826_mes_edhr_material_gate_receipt.sql` -> exit 0；表为 `InnoDB/utf8mb4_unicode_ci`，18 个字段，索引为 `PRIMARY`、`uk_mes_edhr_material_gate_receipt_id`、`uk_mes_edhr_material_gate_receipt_version`、`idx_mes_edhr_material_gate_receipt_batch`，现有行数 0。
+- GREEN: 同一正式 migration 第二次执行 -> exit 0，证明 `CREATE TABLE IF NOT EXISTS` 幂等；未执行 DROP 或业务数据写入。
 
 ## 数据安全与回滚
 
@@ -38,5 +40,5 @@ BDD: receipt 篡改阻断 -> Given 持久化 receipt 的租户、批次、来源
 
 ## 当前阻塞
 
-- 真实数据库迁移未执行，原因是当前环境缺少可确认的数据库迁移 CLI/连接前置。
-- 真实文件上传、真实租户和 Playwright 放行链路未执行；单元测试和 SQL 静态合同不替代真实迁移或 E2E。
+- 真实文件上传、真实租户和 Playwright 放行链路未执行；单元测试和 schema 迁移不替代真实 E2E。
+- 真实 Tx-C outbox 写入闭环未执行，缺少可清理的测试批次和正式来源数据。
