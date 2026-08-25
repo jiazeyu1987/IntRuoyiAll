@@ -137,3 +137,10 @@ GREEN: 增量后端使用稳定运行 Jar 在 `48258` 完整启动，日志出�
 - 主干 tracked patch 大部分可自动叠加到目标；三个冲突文件为 `MesProEdhrBatchExecutionServiceImpl.java`、`MesPqcReleaseDossierPort.java`、`MesPqcReleaseDossierPortImpl.java`。
 - `MesProEdhrBatchExecutionServiceImpl.java` 的冲突可保留权威解析器、Flow7 publisher 和主干独立 receipt service 三个依赖；但两个 dossier 文件是语义冲突：主干 Stage2.5 模拟仍调用旧 `plan/planForActiveOrder/write` 三 writer，目标流程4已移除该生产写入接口。不能用 ours/theirs 覆盖，必须由模拟任务改为正式完成 receipt/Flow6 handoff，或明确排除该模拟切片。
 - 临时提升 worktree 和 patch 已删除；`E:/IntRuoyi` HEAD、文件和 dirty 内容未修改。
+
+## int_main fast-forward (2026-08-26)
+
+- 前置复核：`int_main` 原 HEAD=`2faf0f33234614f46867e5d23e450c41ef62cc1f`，目标 HEAD=`d19199aa24e2d64bbaa25fbf62ada95f8e6d40d3`，`git merge-base --is-ancestor int_main codex/xiufu20260826` PASS；主干索引无暂存项。
+- 使用带旧值校验的原子 `git update-ref refs/heads/int_main <target> <old>` 完成 fast-forward，当前 `E:/IntRuoyi` 的 `int_main` 和目标分支均解析到 `d19199aa24e2d64bbaa25fbf62ada95f8e6d40d3`。
+- 没有执行 merge/reset/checkout/stash/clean，也没有提交主干 dirty/untracked 文件；主工作树现有改动保留，包含被排除的 Stage2/Stage2.5/Stage4/5/6 模拟切片。
+- 目标 worktree 的 294 项回归、30模块打包和 `48258` 启动验证是融合前已通过的干净代码证据；主工作树仍存在 dirty overlay，不能以 `E:/IntRuoyi` 当前文件直接宣称运行态已刷新。
