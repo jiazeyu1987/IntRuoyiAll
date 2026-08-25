@@ -423,7 +423,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .count();
         String releaseStatus = failedCount == 0 ? STATUS_PRECHECK_PASSED : STATUS_PRECHECK_FAILED;
         Map<String, Object> snapshot =
-                buildSnapshot(batch, checkItems, releaseStatus, checkedAt, fourMaterialGate.manifestHash());
+                buildSnapshot(batch, checkItems, releaseStatus, checkedAt, fourMaterialGate);
         String precheckSnapshotJson = JSON.toJSONString(snapshot);
 
         transaction = new MesProEdhrReleaseTransactionDO()
@@ -1275,7 +1275,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                                               List<MesProEdhrReleaseCheckItemDO> checkItems,
                                               String releaseStatus,
                                               LocalDateTime checkedAt,
-                                              String materialGateManifestHash) {
+                                              MesProEdhrFourMaterialGateResult materialGate) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("batchExecutionId", batch.getId());
         snapshot.put("batchExecutionCode", batch.getBatchExecutionCode());
@@ -1284,7 +1284,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("productCode", batch.getProductCode());
         snapshot.put("releaseStatus", releaseStatus);
         snapshot.put("checkedAt", checkedAt);
-        snapshot.put("materialGateManifestHash", materialGateManifestHash);
+        snapshot.put("materialGateReceiptId", materialGate == null ? null : materialGate.receiptId());
+        snapshot.put("materialGateManifestHash", materialGate == null ? null : materialGate.manifestHash());
+        snapshot.put("materialGateReceiptHash", materialGate == null ? null : materialGate.receiptHash());
+        snapshot.put("materialGateVersionSetHash", materialGate == null ? null : materialGate.materialVersionSetHash());
+        snapshot.put("materialGateVersion", materialGate == null ? null : materialGate.version());
         snapshot.put("items", checkItems.stream()
                 .map(item -> Map.of(
                         "checkCode", item.getCheckCode(),

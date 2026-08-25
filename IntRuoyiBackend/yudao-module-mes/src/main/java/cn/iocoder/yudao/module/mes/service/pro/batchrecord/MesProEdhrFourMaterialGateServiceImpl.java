@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceSourcePrecheckRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
@@ -21,6 +23,8 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGateReceipt;
+
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityBlocker.TRACE_MAPPING_BLOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityErrorCodeConstants.TRACE_CAPTURE_BLOCKED;
@@ -33,14 +37,17 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
     private final MesProBatchRecordExecutionAttachmentMapper attachmentMapper;
     private final MesProEdhrBatchTraceabilityService traceabilityService;
     private final FileService fileService;
+    private final MesReleaseMaterialGateReceiptWriter receiptWriter;
     public MesProEdhrFourMaterialGateServiceImpl(MesProEdhrBatchExecutionTaskMapper taskMapper,
                                                    MesProBatchRecordExecutionAttachmentMapper attachmentMapper,
                                                    MesProEdhrBatchTraceabilityService traceabilityService,
-                                                   FileService fileService) {
+                                                   FileService fileService,
+                                                   MesReleaseMaterialGateReceiptWriter receiptWriter) {
         this.taskMapper = taskMapper;
         this.attachmentMapper = attachmentMapper;
         this.traceabilityService = traceabilityService;
         this.fileService = fileService;
+        this.receiptWriter = receiptWriter;
     }
 
     @Override
@@ -111,8 +118,14 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
             return new MesProEdhrFourMaterialGateResult(
                     MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, false, manifest, valid);
         }
-        return new MesProEdhrFourMaterialGateResult(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, true,
-                manifest, valid);
+        MesProEdhrFourMaterialGateResult ready = new MesProEdhrFourMaterialGateResult(
+                MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, true, manifest, valid);
+        MesReleaseMaterialGateReceipt receipt = receiptWriter.persistReady(
+                TenantContextHolder.getRequiredTenantId(), batchExecutionId,
+                source.getSourceSnapshotHash(), ready, SecurityFrameworkUtils.getLoginUserId());
+        return new MesProEdhrFourMaterialGateResult(ready.status(), ready.ready(), ready.manifestHash(),
+                ready.materials(), receipt.getReceiptId(), receipt.getReceiptHash(),
+                receipt.getMaterialVersionSetHash(), receipt.getVersion());
     }
 
     private boolean isCurrentValid(MesProBatchRecordExecutionAttachmentDO a,

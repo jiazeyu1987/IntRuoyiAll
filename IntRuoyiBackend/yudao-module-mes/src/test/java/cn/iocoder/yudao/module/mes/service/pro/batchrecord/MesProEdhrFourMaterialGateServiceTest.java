@@ -3,12 +3,15 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceSourcePrecheckRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGateReceipt;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -19,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,19 +38,34 @@ class MesProEdhrFourMaterialGateServiceTest {
     @Mock private MesProBatchRecordExecutionAttachmentMapper attachmentMapper;
     @Mock private MesProEdhrBatchTraceabilityService traceabilityService;
     @Mock private FileService fileService;
+    @Mock private MesReleaseMaterialGateReceiptWriter receiptWriter;
 
     private MesProEdhrFourMaterialGateService gate;
 
     @BeforeEach
     void setUp() {
+        TenantContextHolder.setTenantId(1L);
         gate = new MesProEdhrFourMaterialGateServiceImpl(taskMapper, attachmentMapper,
-                traceabilityService, fileService);
+                traceabilityService, fileService, receiptWriter);
         lenient().when(traceabilityService.resolveSourcePrecheck(any()))
                 .thenReturn(new MesProEdhrBatchTraceSourcePrecheckRespVO()
                         .setBatchExecutionId(BATCH_ID).setOriginLinkId(9L)
                         .setTraceLinkHash("trace-hash").setSourceSnapshotHash(SOURCE_HASH)
                         .setSourceVersion(1).setRelationStatus("CAPTURED")
-                        .setReadAt(LocalDateTime.now()));
+                .setReadAt(LocalDateTime.now()));
+        lenient().when(receiptWriter.persistReady(any(), any(), any(), any(), any()))
+                .thenReturn(new MesReleaseMaterialGateReceipt()
+                        .setReceiptId("MATERIALS-88-1").setBatchExecutionId(BATCH_ID)
+                        .setGateStatus(MesReleaseMaterialGateReceipt.STATUS_MATERIALS_READY)
+                        .setMaterialTypeKeys(Set.copyOf(MesReleaseMaterialGateReceipt.REQUIRED_MATERIAL_TYPES))
+                        .setManifestHash("manifest-hash").setSourceSnapshotHash(SOURCE_HASH)
+                        .setMaterialVersionSetHash("version-hash").setReceiptHash("receipt-hash")
+                        .setIssuedBy(1001L).setAuditEventId("FLOW8-MATERIALS-88-1").setVersion(1));
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContextHolder.clear();
     }
 
     @Test

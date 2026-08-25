@@ -60,3 +60,18 @@ BDD: 流程代码选择性融合 -> Given 目标 worktree 基于当前 int_main 
 - 目标 worktree 已同步 v7 所需的 runtime 文档和 guard/profile 文件。
 - `branch-runtime-port-guard.ps1`：PASS。
 - 未修改共享 runtime 登记表，不使用 `--no-verify`。
+
+## 流程8材料 receipt 里程碑
+
+BDD: 四份材料形成权威回执 -> Given 批次执行的来料检、灭菌、成品检报告、成品检记录均已批准且附件 hash/来源快照有效；When 门禁评估返回 MATERIALS_READY；Then 服务端持久化版本化 receipt，流程10只能按 tenant、batch、receiptId、sourceSnapshotHash 和 receiptHash重新读取。
+
+RED: `MesReleaseMaterialGateReceiptPortImplTest` -> FAIL，正式 DO/Mapper/adapter 尚不存在。
+GREEN: `MesReleaseMaterialGateReceiptPortImplTest`、`MesProEdhrFourMaterialGateServiceTest`、`MesProEdhrReleaseServiceImplTest`、`MesReleaseAuthoritativeContextPortImplTest` -> `43/43 PASS`。
+GREEN: MES compile -> `BUILD SUCCESS`。
+
+实现内容：
+
+- 新增 `mes_pro_edhr_material_gate_receipt` 持久化表、DO、Mapper 和 receipt adapter。
+- MATERIALS_READY 评估成功时生成不可变版本 receipt；相同来源和 manifest 重复评估幂等。
+- 预检快照保存 receiptId、receiptHash、版本集合 hash；流程10在请求缺少 receiptId 时只从持久化预检快照读取。
+- 租户、批次、来源快照、材料类型集合和 receipt hash 任一不匹配均返回阻断，不信任请求体材料对象。

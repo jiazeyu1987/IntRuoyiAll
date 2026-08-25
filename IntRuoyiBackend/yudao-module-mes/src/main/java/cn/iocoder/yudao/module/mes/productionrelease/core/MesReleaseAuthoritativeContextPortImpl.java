@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.productionrelease.core;
 
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
@@ -25,6 +26,8 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6Completi
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.ObjectProvider;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 
 import java.util.List;
 import java.util.Objects;
@@ -126,8 +129,11 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(batchExecutionId));
         requireTracePrecheck(source, origin, batchExecutionId, application);
 
+        String persistedMaterialGateReceiptId = StrUtil.isBlank(command.getMaterialGateReceiptId())
+                ? extractMaterialGateReceiptId(transaction.getPrecheckSnapshotJson())
+                : command.getMaterialGateReceiptId();
         MesReleaseMaterialGateReceipt gateReceipt = loadMaterialGateReceipt(
-                tenantId, batchExecutionId, command.getMaterialGateReceiptId(), source.getSourceSnapshotHash(), application);
+                tenantId, batchExecutionId, persistedMaterialGateReceiptId, source.getSourceSnapshotHash(), application);
         MesReleaseFinalizationEvidence evidence = new MesReleaseFinalizationEvidence()
                 .setMaterialGateReceipt(gateReceipt);
         if ("ACTIVE_ORDER_COMPLETION".equals(persistedEntryType)) {
@@ -182,6 +188,18 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
             throw blocker(application, "Flow 8 persisted receipt is not MATERIALS_READY or is stale");
         }
         return receipt;
+    }
+
+    private String extractMaterialGateReceiptId(String precheckSnapshotJson) {
+        if (isBlank(precheckSnapshotJson)) {
+            return null;
+        }
+        try {
+            JSONObject snapshot = JSON.parseObject(precheckSnapshotJson);
+            return snapshot == null ? null : snapshot.getString("materialGateReceiptId");
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     private void requireTracePrecheck(MesProEdhrBatchTraceSourcePrecheckRespVO source,

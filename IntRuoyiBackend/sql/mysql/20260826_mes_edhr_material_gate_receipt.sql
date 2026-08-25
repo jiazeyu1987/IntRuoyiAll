@@ -1,0 +1,25 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260822_mes_edhr_release_final_state_trace; type=schema; riskLevel=medium
+CREATE TABLE IF NOT EXISTS mes_pro_edhr_material_gate_receipt (
+  id bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  receipt_id varchar(128) NOT NULL COMMENT '四材料门禁回执ID',
+  tenant_id bigint NOT NULL DEFAULT 0 COMMENT '租户ID',
+  batch_execution_id bigint NOT NULL COMMENT '批次执行ID',
+  gate_status varchar(32) NOT NULL COMMENT '固定为 MATERIALS_READY',
+  material_type_keys_json varchar(512) NOT NULL COMMENT '四类材料类型集合',
+  manifest_hash char(64) NOT NULL COMMENT '材料manifest摘要',
+  source_snapshot_hash char(64) NOT NULL COMMENT '来源快照摘要',
+  material_version_set_hash char(64) NOT NULL COMMENT '材料版本集合摘要',
+  receipt_hash char(64) NOT NULL COMMENT '回执规范载荷摘要',
+  issued_by bigint NOT NULL COMMENT '签发人',
+  audit_event_id varchar(128) NOT NULL COMMENT '审计事件ID',
+  version int NOT NULL COMMENT '材料门禁版本',
+  creator varchar(64) DEFAULT '',
+  create_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updater varchar(64) DEFAULT '',
+  update_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_mes_edhr_material_gate_receipt_id (tenant_id, receipt_id, deleted),
+  UNIQUE KEY uk_mes_edhr_material_gate_receipt_version (tenant_id, batch_execution_id, version, deleted),
+  KEY idx_mes_edhr_material_gate_receipt_batch (tenant_id, batch_execution_id, version, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='MES eDHR 四材料门禁权威回执';
