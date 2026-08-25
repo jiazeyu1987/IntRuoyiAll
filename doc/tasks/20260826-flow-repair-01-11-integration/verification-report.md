@@ -27,8 +27,11 @@
 - 流程8材料 receipt 定向验证：`43/43 PASS`，包含门禁服务、receipt adapter、预检和权威放行上下文。
 - 流程4 dossier receipt reuse：`1/1 PASS`，活跃订单路径不调用旧三类 writer。
 - 流程7 Tx-C 自动触发：代码已接入 `AFTER_COMMIT` 事件，待批次服务事件消费回归和真实数据库 outbox 验证。
+- 流程7事件 witness 映射：`MesProEdhrBatchTraceTxCProducerEventTest 1/1 PASS`。
+- 新增材料 receipt SQL 合同：`MesReleaseMaterialGateReceiptSqlContractTest 1/1 PASS`。
+- 全融合定向回归：`307/307 PASS`，0 failures、0 errors。
 - 真实数据库迁移、服务启动、写入型 Playwright E2E：未运行。
 
 ## 结论
 
-代码融合本身没有 Git 冲突；流程4旧双写和流程8 receipt 持久化已补齐，流程7自动触发已接入。当前剩余项是事件消费回归、数据库迁移/真实 outbox、主线集成和真实全链路 E2E。不能把当前定向测试结果写成流程1-11全链路完成。
+代码融合本身没有 Git 冲突；流程4旧双写、流程7自动触发和流程8 receipt 持久化已补齐。当前剩余项是正常提交这些新增证据、真实数据库迁移/真实 outbox、真实服务启动和全链路 Playwright，之后才允许主干集成。不能把当前定向测试结果写成流程1-11全链路完成。

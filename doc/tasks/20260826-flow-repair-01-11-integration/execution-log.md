@@ -68,6 +68,7 @@ BDD: 四份材料形成权威回执 -> Given 批次执行的来料检、灭菌�
 RED: `MesReleaseMaterialGateReceiptPortImplTest` -> FAIL，正式 DO/Mapper/adapter 尚不存在。
 GREEN: `MesReleaseMaterialGateReceiptPortImplTest`、`MesProEdhrFourMaterialGateServiceTest`、`MesProEdhrReleaseServiceImplTest`、`MesReleaseAuthoritativeContextPortImplTest` -> `43/43 PASS`。
 GREEN: MES compile -> `BUILD SUCCESS`。
+GREEN: `MesReleaseMaterialGateReceiptSqlContractTest` -> `1/1 PASS`。
 
 实现内容：
 
@@ -85,3 +86,10 @@ GREEN: `MesPqcReleaseDossierPortImplTest` -> `1/1 PASS`。
 BDD: 建批成功自动触发 Tx-C -> Given 流程6已持久化成功建批审计；When production-release 建批事务提交；Then 发布 provisioned 事件，由流程7唯一 Tx-C producer 在 AFTER_COMMIT 消费正式审计和来源绑定，成功或失败均由流程7 outbox 记录。
 
 GREEN: MES 24模块 compile -> `BUILD SUCCESS`；Tx-C producer 和事件监听代码通过编译。
+GREEN: `MesProEdhrBatchTraceTxCProducerEventTest` -> `1/1 PASS`。
+
+## 全融合回归
+
+- 流程3、5、6、7、8、10相关定向集合：`307/307 PASS`，0 failures、0 errors。
+- `git diff --check`：PASS。
+- 真实数据库迁移、服务启动、真实租户 Playwright E2E：尚未运行，缺少当前任务可确认的数据库 CLI/连接和真实写入测试前置。
