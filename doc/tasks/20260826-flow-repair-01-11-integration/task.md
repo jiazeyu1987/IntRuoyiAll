@@ -24,7 +24,7 @@
 
 in_progress
 
-代码已经选择性应用并提交，当前 HEAD 为 `305eca335e53341d74013d7c2d43939d30bcd39e`；已通过流程4/6/7/8/10/traceability 定向回归、30模块打包、独立后端启动和 runtime guard。真实数据库迁移、真实 Tx-C outbox、写入型 E2E 和主干融合仍未完成。
+代码已经选择性应用并提交，当前 HEAD 为 `24e2b06343c6a59d22b6f652e55a68ab0d40980b`；已通过流程4/6/7/8/10/traceability 定向回归、30模块打包、独立后端启动和 runtime guard；`int_main` 已 fast-forward 到同一提交。真实数据库迁移、真实 Tx-C outbox、写入型 E2E 和主工作树运行态刷新仍未完成。
 
 ## 设计约束检查
 

@@ -101,8 +101,8 @@ GREEN: `MesProEdhrBatchTraceTxCProducerEventTest` -> `1/1 PASS`。
 
 ## 集成状态
 
-- 目标分支 `codex/xiufu20260826` 当前 HEAD：`305eca335e53341d74013d7c2d43939d30bcd39e`。
-- `int_main` 当前 HEAD：`2faf0f33234614f46867e5d23e450c41ef62cc1f`，是目标分支祖先，因此提交历史本身可 fast-forward。
+- 目标分支 `codex/xiufu20260826` 当前 HEAD：`24e2b06343c6a59d22b6f652e55a68ab0d40980b`。
+- `int_main` 当前 HEAD：`24e2b06343c6a59d22b6f652e55a68ab0d40980b`，与目标分支一致。
 - 主工作树 `E:/IntRuoyi` 在本轮复核时有 268 项 dirty/untracked 改动；流程负责人仍在并行写入，重叠范围继续变化。
 - 重叠核对显示 `AGENTS.md`、`docs/branch-runtime-ports.md`、`docs/codex-branch-runtime-handoff.md`、`docs/worktree-restrictions.md`、`scripts/preflight/branch-runtime-port-guard.ps1`、`scripts/runtime/branch-runtime-profile.ps1` 的主工作树内容已与目标提交相同；以下 5 个代码/测试路径和 `docs/local-runtime.md` 仍与目标内容不同，不能在主工作树未分类提交前融合：`MesProEdhrBatchExecutionServiceImpl.java`、`MesProEdhrBatchTraceTxCProducer.java`、`MesProEdhrReleaseServiceImpl.java`、`MesPqcReleaseDossierPortImpl.java`、`MesProEdhrBatchExecutionServiceTest.java`、`docs/local-runtime.md`。
 - 未在主工作树执行 merge、reset、stash、checkout、整体提交或清理；这些操作可能覆盖并行任务改动。
@@ -141,6 +141,6 @@ GREEN: 增量后端使用稳定运行 Jar 在 `48258` 完整启动，日志出�
 ## int_main fast-forward (2026-08-26)
 
 - 前置复核：`int_main` 原 HEAD=`2faf0f33234614f46867e5d23e450c41ef62cc1f`，目标 HEAD=`d19199aa24e2d64bbaa25fbf62ada95f8e6d40d3`，`git merge-base --is-ancestor int_main codex/xiufu20260826` PASS；主干索引无暂存项。
-- 使用带旧值校验的原子 `git update-ref refs/heads/int_main <target> <old>` 完成 fast-forward，当前 `E:/IntRuoyi` 的 `int_main` 和目标分支均解析到 `d19199aa24e2d64bbaa25fbf62ada95f8e6d40d3`。
+- 使用带旧值校验的原子 `git update-ref refs/heads/int_main <target> <old>` 完成 fast-forward，并同步了本任务收尾文档；当前 `E:/IntRuoyi` 的 `int_main` 和目标分支均解析到 `24e2b06343c6a59d22b6f652e55a68ab0d40980b`。
 - 没有执行 merge/reset/checkout/stash/clean，也没有提交主干 dirty/untracked 文件；主工作树现有改动保留，包含被排除的 Stage2/Stage2.5/Stage4/5/6 模拟切片。
 - 目标 worktree 的 294 项回归、30模块打包和 `48258` 启动验证是融合前已通过的干净代码证据；主工作树仍存在 dirty overlay，不能以 `E:/IntRuoyi` 当前文件直接宣称运行态已刷新。

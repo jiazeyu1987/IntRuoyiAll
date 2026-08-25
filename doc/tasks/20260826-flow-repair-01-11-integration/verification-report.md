@@ -28,7 +28,7 @@
 - 流程3/5/6定向测试：`222/222 PASS`。
 - `git diff --check`：PASS。
 - runtime guard：PASS，slot 43，前端 `8258`，后端 `48258`。
-- 正常目标分支提交：已完成，当前 HEAD 为 `305eca335e53341d74013d7c2d43939d30bcd39e`；不使用 `--no-verify`。
+- 正常目标分支提交：已完成，当前 HEAD 为 `24e2b06343c6a59d22b6f652e55a68ab0d40980b`；不使用 `--no-verify`。
 - 流程8材料 receipt 定向验证：`43/43 PASS`，包含门禁服务、receipt adapter、预检和权威放行上下文。
 - 流程4 dossier receipt reuse：`1/1 PASS`，活跃订单路径不调用旧三类 writer。
 - 流程7 Tx-C 自动触发：代码已接入 `AFTER_COMMIT` application service，应用服务只接收 witness 并唯一调用 producer；真实数据库 outbox 验证仍未执行。
@@ -47,7 +47,7 @@
 
 ## 结论
 
-代码融合提交已经完成，当前目标 HEAD 为 `d19199aa24e2d64bbaa25fbf62ada95f8e6d40d3`；`int_main` 已原子 fast-forward 到同一提交。流程4旧双写、流程7 AFTER_COMMIT witness handoff 和流程8 receipt 持久化已补齐；但 `E:/IntRuoyi` 主工作树仍有未提交 overlay，不能把主工作树当前运行文件或定向测试写成流程1-11全链路完成。
+代码融合提交已经完成，当前目标 HEAD 为 `24e2b06343c6a59d22b6f652e55a68ab0d40980b`；`int_main` 已原子 fast-forward 到同一提交。流程4旧双写、流程7 AFTER_COMMIT witness handoff 和流程8 receipt 持久化已补齐；但 `E:/IntRuoyi` 主工作树仍有未提交 overlay，不能把主工作树当前运行文件或定向测试写成流程1-11全链路完成。
 
 剩余阻塞：
 
