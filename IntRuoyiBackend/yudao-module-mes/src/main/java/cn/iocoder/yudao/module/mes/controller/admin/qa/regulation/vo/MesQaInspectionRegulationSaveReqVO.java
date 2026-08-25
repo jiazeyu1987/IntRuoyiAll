@@ -97,6 +97,16 @@ public class MesQaInspectionRegulationSaveReqVO {
         private String sourceOriginalItem;
         private String sourceOriginalExcerpt;
         private String sourceOriginalMethod;
+        @Valid
+        private List<InspectionEquipment> equipmentOptions;
+    }
+
+    @Data
+    public static class InspectionEquipment {
+        @NotNull(message = "检验设备不能为空")
+        private Long equipmentId;
+        private Boolean defaultFlag;
+        private Integer sort;
     }
 
 

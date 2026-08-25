@@ -21,13 +21,13 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -103,7 +103,7 @@ class MesFrontlinePqcEmployeeSwitchServiceTest {
                 mock(MesQaInspectionRegulationMapper.class), mock(MesQaInspectionRegulationVersionMapper.class),
                 mock(MesQaInspectionRegulationProcessMapper.class),
                 mock(MesQaInspectionRegulationItemMapper.class),
-                mock(MesPqcItemEquipmentConfigService.class), regulationService, taskMapper,
+                mock(MesQaInspectionRegulationItemEquipmentMapper.class), regulationService, taskMapper,
                 mock(MesPqcInspectionPieceDetailMapper.class), mock(MesMdItemService.class), scopeMapper,
                 adminUserApi, mock(MesProcessPoolEventService.class),
                 mock(MesProProcessPoolPqcRecordMapper.class),

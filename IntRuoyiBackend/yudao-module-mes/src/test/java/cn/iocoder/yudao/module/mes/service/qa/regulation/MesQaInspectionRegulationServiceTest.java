@@ -7,7 +7,9 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationPublishedVersionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemEquipmentMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
@@ -16,6 +18,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
+import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,6 +72,10 @@ class MesQaInspectionRegulationServiceTest {
     @Mock
     private MesQaInspectionRegulationItemMapper itemMapper;
     @Mock
+    private MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper;
+    @Mock
+    private MesDvMachineryService machineryService;
+    @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Mock
     private MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
@@ -79,6 +86,7 @@ class MesQaInspectionRegulationServiceTest {
     void setUp() {
         service = new MesQaInspectionRegulationServiceImpl(dccProjectCodeMapper, regulationMapper,
                 versionMapper, processMapper, itemMapper,
+                itemEquipmentMapper, machineryService,
                 activeOrderMapper, pqcInspectionTaskMapper);
         lenient().when(versionMapper.selectLatestPublishedByRegulationId(REGULATION_ID))
                 .thenReturn(publishedVersion());
@@ -101,6 +109,35 @@ class MesQaInspectionRegulationServiceTest {
         assertEquals("清洗", result.getProcesses().get(0).getProcessName());
         assertEquals(List.of("FIRST", "PATROL", "FINAL"),
                 result.getProcesses().get(0).getItems().get(0).getApplicableInspectionTypes());
+    }
+
+    @Test
+    void getCurrent_exposesQaVersionEquipmentSnapshotFromLedgerBinding() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(processMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(qaProcess()));
+        when(itemMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(item("FIRST", 5, null)));
+        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
+                MesQaInspectionRegulationItemEquipmentDO.builder()
+                        .regulationVersionId(VERSION_ID)
+                        .inspectionType("FIRST")
+                        .itemCode("ID-001-WASH-APP")
+                        .equipmentId(901L)
+                        .equipmentCode("FM-001")
+                        .equipmentName("15N砝码")
+                        .equipmentNumber("FM-001")
+                        .defaultFlag(true)
+                        .sort(1)
+                        .build()));
+
+        MesQaInspectionRegulationPublishedVersionRespVO result = service.getCurrent(DCC_PROJECT_ID);
+
+        MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption option = result.getProcesses().get(0)
+                .getItems().get(0).getEquipmentOptions().get(0);
+        assertEquals(901L, option.getEquipmentId());
+        assertEquals("15N砝码", option.getEquipmentName());
+        assertEquals("FM-001", option.getEquipmentNumber());
+        assertTrue(option.getDefaultFlag());
     }
 
     @Test

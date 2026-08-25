@@ -357,13 +357,6 @@
     >
       <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
       <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
-      <el-tab-pane
-        v-if="showPqcEquipmentTab"
-        label="检验设备"
-        name="equipment"
-        data-pqc-leader-module-tab-equipment
-        data-production-leader-module-tab-equipment
-      />
       <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
       <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
     </el-tabs>
@@ -501,37 +494,6 @@
   </ContentWrap>
 
   <ContentWrap
-    v-if="showPqcEquipmentModule"
-    class="team-leader-workbench__pqc-module-card"
-    data-pqc-leader-equipment-tab
-  >
-    <div class="team-leader-workbench__embedded-header">
-      <div class="team-leader-workbench__title">{{ pageTitle }}</div>
-      <div class="team-leader-workbench__subtitle">
-        {{ pageSubtitle }}
-      </div>
-    </div>
-    <el-tabs
-      v-model="activePqcModuleTab"
-      class="team-leader-workbench__module-tabs team-leader-workbench__module-tabs--flat"
-      data-pqc-leader-module-tabs
-    >
-      <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
-      <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
-      <el-tab-pane
-        v-if="showPqcEquipmentTab"
-        label="检验设备"
-        name="equipment"
-        data-pqc-leader-module-tab-equipment
-        data-production-leader-module-tab-equipment
-      />
-      <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
-      <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
-    </el-tabs>
-    <PqcItemEquipmentConfigPanel />
-  </ContentWrap>
-
-  <ContentWrap
     v-if="showPqcManagementModule"
     :class="{
       'team-leader-workbench__pqc-module-card': showPqcModuleTabs,
@@ -600,13 +562,6 @@
     >
       <el-tab-pane label="人员管理" name="personnel" data-pqc-leader-module-tab-personnel />
       <el-tab-pane label="PQC管理" name="management" data-pqc-leader-module-tab-management />
-      <el-tab-pane
-        v-if="showPqcEquipmentTab"
-        label="检验设备"
-        name="equipment"
-        data-pqc-leader-module-tab-equipment
-        data-production-leader-module-tab-equipment
-      />
       <el-tab-pane label="详情" name="detail" data-pqc-leader-module-tab-detail />
       <el-tab-pane label="历史表单" name="history" data-pqc-leader-module-tab-history />
     </el-tabs>
@@ -3701,7 +3656,6 @@ import { watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import PqcItemEquipmentConfigPanel from '@/views/mes/pro/processpool/PqcItemEquipmentConfigPanel.vue'
 import {
   useTableMultiFilter,
   type ListMultiFilterDefinition
@@ -3993,7 +3947,6 @@ const props = withDefaults(
     leaderType?: TeamLeaderType
     showLeaderTypeTabs?: boolean
     showPqcModuleTabs?: boolean
-    showPqcEquipmentTab?: boolean
     showProductionModuleTabs?: boolean
     title?: string
     subtitle?: string
@@ -4002,7 +3955,6 @@ const props = withDefaults(
     leaderType: 'PRODUCTION',
     showLeaderTypeTabs: false,
     showPqcModuleTabs: false,
-    showPqcEquipmentTab: false,
     showProductionModuleTabs: false,
     title: '工序池班组长工作台',
     subtitle: '负责生产报工确认、活跃订单分配、异常上报和班组配置中心维护'
@@ -4322,7 +4274,6 @@ const resetSubmissionColumnConfig = async () => {
 
 const showLeaderTypeTabs = computed(() => props.showLeaderTypeTabs)
 const showPqcModuleTabs = computed(() => props.showPqcModuleTabs && activeLeaderTab.value === 'PQC')
-const showPqcEquipmentTab = computed(() => showPqcModuleTabs.value && props.showPqcEquipmentTab)
 const showPqcDetailAsTab = computed(
   () => activeLeaderTab.value === 'PQC' && showPqcModuleTabs.value
 )
@@ -4383,12 +4334,6 @@ const showPqcFormHistoryModule = computed(
     activeLeaderTab.value === 'PQC' &&
     showPqcModuleTabs.value &&
     activePqcModuleTab.value === 'history'
-)
-const showPqcEquipmentModule = computed(
-  () =>
-    activeLeaderTab.value === 'PQC' &&
-    showPqcEquipmentTab.value &&
-    activePqcModuleTab.value === 'equipment'
 )
 const showPqcManagementModule = computed(
   () =>

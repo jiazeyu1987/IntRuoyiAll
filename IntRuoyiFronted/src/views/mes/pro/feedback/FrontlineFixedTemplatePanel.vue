@@ -293,38 +293,6 @@
                   </select>
                 </label>
 
-                <label
-                  v-if="hasPqcEquipmentOptions(activePqcTabItem)"
-                  class="pqc-select-card"
-                  data-pqc-equipment-number-card
-                  :class="{
-                    'is-selected': Boolean(getPqcItemSelection(activePqcTabItem.key).selectedEquipmentNumber),
-                    'is-empty': !getPqcItemSelection(activePqcTabItem.key).selectedEquipmentNumber
-                  }"
-                >
-                  <span>
-                    <strong>设备编号</strong>
-                    <span>{{ getPqcSelectedEquipmentNumberLabel(activePqcTabItem) }}</span>
-                  </span>
-                  <em aria-hidden="true">&gt;</em>
-                  <select
-                    class="pqc-select-native"
-                    :value="getPqcItemSelection(activePqcTabItem.key).selectedEquipmentNumber ?? ''"
-                    data-pqc-equipment-number-select
-                    aria-label="选择设备编号"
-                    @change="updatePqcItemSelectedEquipmentNumber(activePqcTabItem.key, $event)"
-                  >
-                    <option value="">选择设备编号</option>
-                    <option
-                      v-for="option in getPqcEquipmentNumberOptions(activePqcTabItem.key)"
-                      :key="`${option.equipmentId}:${option.equipmentNumber}`"
-                      :value="option.equipmentNumber"
-                    >
-                      {{ option.equipmentNumber }}
-                    </option>
-                  </select>
-                </label>
-
                 <button
                   type="button"
                   class="pqc-fact-card is-primary"
@@ -2941,33 +2909,19 @@ const getUniquePqcEquipmentOptions = (item: PqcInspectionItem) => {
 }
 
 const formatPqcEquipmentLabel = (option: FrontlinePqcEquipmentOptionVO) =>
-  [
-    option.equipmentName || option.equipmentCode || `设备${option.equipmentId}`,
-    option.equipmentCode
-  ].filter(Boolean).join(' / ')
-
-const getPqcEquipmentNumberOptions = (itemKey: PqcInspectionItemKey) => {
-  const item = pqcInspectionItemMap.value[itemKey]
-  if (!item) {
-    return []
-  }
-  const selectedEquipmentId = getPqcItemSelection(itemKey).selectedEquipmentId
-  return item.equipmentOptions.filter((option) =>
-    selectedEquipmentId ? option.equipmentId === selectedEquipmentId : true
-  )
-}
+  [option.equipmentName, option.equipmentNumber].filter(Boolean).join(' / ')
 
 const updatePqcItemSelectedEquipment = (itemKey: PqcInspectionItemKey, event: Event) => {
   const value = (event.target as HTMLSelectElement).value
   const selection = getPqcItemSelection(itemKey)
-  selection.selectedEquipmentId = value ? Number(value) : undefined
-  const firstNumber = getPqcEquipmentNumberOptions(itemKey)[0]?.equipmentNumber
-  selection.selectedEquipmentNumber = firstNumber || undefined
-}
-
-const updatePqcItemSelectedEquipmentNumber = (itemKey: PqcInspectionItemKey, event: Event) => {
-  const selection = getPqcItemSelection(itemKey)
-  selection.selectedEquipmentNumber = (event.target as HTMLSelectElement).value || undefined
+  const selectedEquipmentId = value ? Number(value) : undefined
+  const item = pqcInspectionItemMap.value[itemKey]
+  const selectedOption = item?.equipmentOptions.find((option) => option.equipmentId === selectedEquipmentId)
+  if (selectedEquipmentId && !selectedOption) {
+    throw new Error((item?.label || itemKey) + '所选检验设备不存在于当前 QA 版本。')
+  }
+  selection.selectedEquipmentId = selectedEquipmentId
+  selection.selectedEquipmentNumber = selectedOption?.equipmentNumber
 }
 
 const openPqcStandardDialog = (itemKey: PqcInspectionItemKey) => {
@@ -3138,10 +3092,6 @@ const getPqcSelectedEquipmentLabel = (item: PqcInspectionItem) => {
   }
   return hasPqcEquipmentOptions(item) ? '可选检验设备' : ''
 }
-
-const getPqcSelectedEquipmentNumberLabel = (item: PqcInspectionItem) =>
-  getPqcItemSelection(item.key).selectedEquipmentNumber ||
-    (hasPqcEquipmentOptions(item) ? '可选设备编号' : '')
 
 const formatPqcInspectionItemTabLabel = (item: PqcInspectionItem) =>
   item.itemName || '未配置检验项目名称'

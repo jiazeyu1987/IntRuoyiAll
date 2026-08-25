@@ -88,6 +88,20 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
         private String sourceOriginalItem;
         private String sourceOriginalExcerpt;
         private String sourceOriginalMethod;
+        private List<EquipmentOption> equipmentOptions;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class EquipmentOption {
+        private Long equipmentId;
+        private String equipmentCode;
+        private String equipmentName;
+        private String equipmentNumber;
+        private Boolean defaultFlag;
+        private Integer sort;
     }
 
 }

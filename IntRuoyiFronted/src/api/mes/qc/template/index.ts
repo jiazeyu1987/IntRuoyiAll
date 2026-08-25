@@ -25,6 +25,21 @@ export interface QaInspectionRegulationInspectionTypeRuleVO {
   releaseGate: string
 }
 
+export interface QaInspectionRegulationItemEquipmentVO {
+  equipmentId: number
+  equipmentCode: string
+  equipmentName: string
+  equipmentNumber: string
+  defaultFlag?: boolean
+  sort?: number
+}
+
+export interface QaInspectionRegulationItemEquipmentRefVO {
+  equipmentId: number
+  defaultFlag?: boolean
+  sort?: number
+}
+
 export interface QaInspectionRegulationItemVO {
   itemSort: number
   itemCode: string
@@ -48,6 +63,7 @@ export interface QaInspectionRegulationItemVO {
   sourceOriginalItem?: string
   sourceOriginalExcerpt?: string
   sourceOriginalMethod?: string
+  equipmentOptions: QaInspectionRegulationItemEquipmentVO[]
 }
 
 export interface QaInspectionRegulationProcessVO {
@@ -98,7 +114,19 @@ export interface QaInspectionRegulationSaveReqVO {
   finalInspectionApplicable: boolean
   finalInspectionNotApplicableReason?: string
   inspectionTypeRules: QaInspectionRegulationInspectionTypeRuleVO[]
-  processes: QaInspectionRegulationProcessVO[]
+  processes: QaInspectionRegulationSaveProcessVO[]
+}
+
+export interface QaInspectionRegulationSaveProcessVO {
+  processCode: string
+  processName: string
+  sort: number
+  items: QaInspectionRegulationSaveItemVO[]
+}
+
+export interface QaInspectionRegulationSaveItemVO
+  extends Omit<QaInspectionRegulationItemVO, 'equipmentOptions'> {
+  equipmentOptions: QaInspectionRegulationItemEquipmentRefVO[]
 }
 
 export interface QaInspectionRegulationSaveRespVO {
