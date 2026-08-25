@@ -12,6 +12,8 @@
 - 流程4：活跃订单完工 receipt 复用，避免 dossier 节点重复调用旧三类回填 writer。
 - 流程7：批次执行提交后的 `AFTER_COMMIT` Tx-C 事件触发和生产者映射。
 - 流程8：四份材料 `MATERIALS_READY` 权威 receipt 持久化和放行读取。
+- 流程4增量：放行 dossier 改为只读 Flow4 completion receipt，删除旧三 writer 计划/写入生产依赖。
+- 流程7增量：新增 Flow6->Flow7 witness-only event/application service/invoker，监听阶段固定为 `AFTER_COMMIT`，避免建批事务未提交时执行 Tx-C 或重复消费。
 
 ## 已排除代码
 
@@ -33,7 +35,11 @@
 - 流程7事件 witness 映射：`MesProEdhrBatchTraceTxCProducerEventTest 1/1 PASS`。
 - 新增材料 receipt SQL 合同：`MesReleaseMaterialGateReceiptSqlContractTest 1/1 PASS`。
 - 全融合定向回归：`307/307 PASS`，0 failures、0 errors。
+- Flow4/Flow6/Flow7/Flow8/Flow10/traceability 增量回归：`294/294 PASS`，0 failures、0 errors、0 skipped。
 - `mvn -o -pl yudao-server -am -DskipTests package`：`BUILD SUCCESS`，30/30 modules。
+- 增量后 `mvn -o -pl yudao-module-mes -am -DskipTests compile`：`BUILD SUCCESS`，24/24 modules。
+- 增量后 `mvn -o -pl yudao-server -am -DskipTests package`：`BUILD SUCCESS`，30/30 modules。
+- 增量稳定运行 Jar SHA-256：`51D2DAF5068F4333DA3D313354299A2796CB163B203359D5F200EB6E0BD52CAF`；`48258` 启动日志确认 `Started YudaoServerApplication`，health HTTP `200`、`{"status":"UP"}`。
 - 独立后端启动：`48258` health HTTP `200`，`{"status":"UP"}`；启动日志确认 `Started YudaoServerApplication`，运行 Jar 为 `output/runtime/xiufu20260826/yudao-server-exec.jar`。
 - runtime guard：PASS，slot 43，前端 `8258`，后端 `48258`。
 - 只读 schema 核对发现 `mes_pro_edhr_material_gate_receipt` 尚未存在，正式迁移未执行。
@@ -48,5 +54,5 @@
 1. 本地真实库尚未应用 `20260826_mes_edhr_material_gate_receipt.sql`，且当前任务未获得明确的业务库 DDL 写入授权。
 2. 真实 Tx-C outbox 写入闭环未执行，缺少可清理的测试批次和真实来源数据。
 3. 写入型 Playwright 所需测试租户、生产/PQC/管理者账号、四份材料和清理权限未冻结。
-4. `E:/IntRuoyi` 主工作树在本轮复核时有 213 项 dirty/untracked 改动，12 个路径与目标提交重叠；其中 5 个 MES 代码/测试文件和 `docs/local-runtime.md` 内容确实不同，另外 6 个规则文件内容已与目标一致。不能在不覆盖并行改动的前提下直接更新主干工作树；需先由主干负责人对以下不同路径分类提交或明确融合窗口：`MesProEdhrBatchExecutionServiceImpl.java`、`MesProEdhrBatchTraceTxCProducer.java`、`MesProEdhrReleaseServiceImpl.java`、`MesPqcReleaseDossierPortImpl.java`、`MesProEdhrBatchExecutionServiceTest.java`、`docs/local-runtime.md`。
+4. `E:/IntRuoyi` 主工作树在本轮复核时有 268 项 dirty/untracked 改动，流程负责人仍在并行写入；原有 12 个重叠路径之外，当前范围正在继续变化，不能在共享工作树活跃期间更新主干。
 5. 将主干现有 tracked dirty patch 与目标提交做三方保真检查时，BPM 并行改动导致 `FormCenterRuntimeServiceImpl.java:88` 无法解析 `FormTemplateFillRuleAutoDetectService`；这不是流程1-11代码缺陷，不能在本任务中擅自补齐其它任务的服务实现。

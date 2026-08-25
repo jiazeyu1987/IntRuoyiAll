@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -87,19 +88,9 @@ class MesPqcReleaseBatchExecutionServiceTest {
 
     @Test
     void pqcApproveCreatesBatchExecutionOnlyAfterPqcRelease() {
-        MesPqcReleaseDossierPlan dossierPlan = new MesPqcReleaseDossierPlan()
-                .setSourceSnapshotHash("source-hash");
-        MesPqcReleaseDossierWriteResult dossierWrite = new MesPqcReleaseDossierWriteResult()
-                .setBatchRecordEvidenceIds(List.of(101L))
-                .setProcessInspectionEvidenceIds(List.of(201L))
-                .setLossReportEvidenceIds(List.of())
-                .setLossReportStatus("NOT_REQUIRED")
-                .setHasActualLoss(false)
-                .setLossQuantity(java.math.BigDecimal.ZERO);
         List<MesProductionReleaseReportUploadTaskReceipt> reportTasks = reportTasks();
-        when(dossierPort.plan(any(), eq(PQC_USER_ID))).thenReturn(dossierPlan);
+        when(dossierPort.readCompletionReceipt(99L, TENANT_ID)).thenReturn(validFlow6Receipt(false));
         when(batchExecutionPort.openOrCreate(any())).thenReturn(BATCH_EXECUTION_ID);
-        when(dossierPort.write(dossierPlan, BATCH_EXECUTION_ID)).thenReturn(dossierWrite);
         when(reportStageInitializer.initializeRequiredReportStage(any()))
                 .thenReturn(new MesProductionReleaseReportStageInitializationResult()
                         .setReportUploadTasks(reportTasks)
@@ -118,10 +109,22 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setEntryType("ACTIVE_ORDER_PQC")
                         .setEntryBusinessId("release-application-7001")
                         .setSourceCredentialType("CompletionBackfillReceipt")
-                        .setSourceCredentialId("completion-7001")
+                        .setSourceCredentialId("99")
                         .setSourceContextHash("source-context-7001")
                         .setSourceSnapshotHash("source-hash")
-                        .setPayloadHash("payload-7001"));
+                        .setPayloadHash("payload-7001")
+                        .setSourceVersion("source-v1")
+                        .setSourceBundleHash("bundle-hash")
+                        .setPickListBindingId(601L)
+                        .setPickListId(602L)
+                        .setBatchPickListRelationId(603L)
+                        .setBindingVersion(1L)
+                        .setPickListHeaderSnapshotHash("pick-header-hash")
+                        .setPickListLineSnapshotHash("pick-line-hash")
+                        .setCompletionTransactionId("completion-tx-7001")
+                        .setExpectedActiveOrderVersion(1L)
+                        .setSourceEvidence(sourceEvidence())
+                        .setCompletionBackfillReceiptId("99"));
 
         assertEquals("APPROVE", result.getDecision());
         assertEquals(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING, result.getStatus());
@@ -135,12 +138,32 @@ class MesPqcReleaseBatchExecutionServiceTest {
         verify(batchExecutionPort).openOrCreate(argThat(item ->
                 "ACTIVE_ORDER_PQC".equals(item.getEntryType())
                         && "release-application-7001".equals(item.getEntryBusinessId())
-                        && "completion-7001".equals(item.getSourceCredentialId())
+                        && "99".equals(item.getSourceCredentialId())
                         && "source-context-7001".equals(item.getSourceContextHash())
                         && "source-hash".equals(item.getSourceSnapshotHash())
                         && "payload-7001".equals(item.getPayloadHash())));
-        verify(dossierPort).write(dossierPlan, BATCH_EXECUTION_ID);
+        verify(dossierPort).readCompletionReceipt(99L, TENANT_ID);
         verify(reportStageInitializer).initializeRequiredReportStage(any());
+    }
+
+    @Test
+    void pqcApproveConsumesPersistedCompletionReceiptWithoutWritingReleaseDossier() {
+        MesFlow6CompletionBackfillReceipt receipt = validFlow6Receipt(false)
+                .setRequestIdempotencyKey("pqc-approve-receipt");
+        when(dossierPort.readCompletionReceipt(99L, TENANT_ID)).thenReturn(receipt);
+        when(batchExecutionPort.openOrCreate(any())).thenReturn(BATCH_EXECUTION_ID);
+        when(reportStageInitializer.initializeRequiredReportStage(any()))
+                .thenReturn(new MesProductionReleaseReportStageInitializationResult()
+                        .setReportUploadTasks(reportTasks())
+                        .setReportSnapshotHash("report-hash"));
+        when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
+                eq(PQC_USER_ID), any(), eq("report-hash"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
+
+        service.approve(PQC_USER_ID, approveCommand("pqc-approve-receipt")
+                .setCompletionBackfillReceiptId("99"));
+
+        verify(dossierPort).readCompletionReceipt(99L, TENANT_ID);
     }
 
     @Test
@@ -164,8 +187,6 @@ class MesPqcReleaseBatchExecutionServiceTest {
         assertTrue(result.getLossReportEvidenceIds().isEmpty());
         assertTrue(result.getReportUploadTasks().isEmpty());
         verify(batchExecutionPort, never()).openOrCreate(any());
-        verify(dossierPort, never()).plan(any(), any());
-        verify(dossierPort, never()).write(any(), any());
         verify(reportStageInitializer, never()).initializeRequiredReportStage(any());
     }
 
@@ -181,7 +202,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
 
     @Test
     void dynamicFormCannotReplaceFormalProductionReleaseDocuments() {
-        when(dossierPort.plan(any(), eq(PQC_USER_ID))).thenThrow(blocker(
+        when(dossierPort.readCompletionReceipt(99L, TENANT_ID)).thenThrow(blocker(
                 MesReleaseFlowBlockerType.PROCESS_INSPECTION_SOURCE_REQUIRED,
                 "formal process-inspection report binding is required"));
 
@@ -195,8 +216,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
 
     @Test
     void legacyBatchExecutionWithoutReleaseApplicationAssociationCannotBeReused() {
-        when(dossierPort.plan(any(), eq(PQC_USER_ID))).thenReturn(
-                new MesPqcReleaseDossierPlan().setSourceSnapshotHash("source-hash"));
+        when(dossierPort.readCompletionReceipt(99L, TENANT_ID)).thenReturn(validFlow6Receipt(false));
         when(batchExecutionPort.openOrCreate(any())).thenThrow(blocker(
                 MesReleaseFlowBlockerType.LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED,
                 "legacy batch execution lacks the release application association"));
@@ -206,7 +226,6 @@ class MesPqcReleaseBatchExecutionServiceTest {
 
         assertEquals(MesReleaseFlowBlockerType.LEGACY_BATCH_EXECUTION_MIGRATION_REQUIRED,
                 failure.getFailure().getBlockers().get(0).getBlockerType());
-        verify(dossierPort, never()).write(any(), any());
     }
 
     @Test
@@ -274,18 +293,8 @@ class MesPqcReleaseBatchExecutionServiceTest {
 
     @Test
     void reportStageFailureStopsApplicationAndWorkTaskTransition() {
-        MesPqcReleaseDossierPlan dossierPlan = new MesPqcReleaseDossierPlan()
-                .setSourceSnapshotHash("source-hash");
-        when(dossierPort.plan(any(), eq(PQC_USER_ID))).thenReturn(dossierPlan);
+        when(dossierPort.readCompletionReceipt(99L, TENANT_ID)).thenReturn(validFlow6Receipt(false));
         when(batchExecutionPort.openOrCreate(any())).thenReturn(BATCH_EXECUTION_ID);
-        when(dossierPort.write(dossierPlan, BATCH_EXECUTION_ID)).thenReturn(
-                new MesPqcReleaseDossierWriteResult()
-                        .setBatchRecordEvidenceIds(List.of(101L))
-                        .setProcessInspectionEvidenceIds(List.of(201L))
-                        .setLossReportEvidenceIds(List.of())
-                        .setLossReportStatus("NOT_REQUIRED")
-                        .setHasActualLoss(false)
-                        .setLossQuantity(java.math.BigDecimal.ZERO));
         when(reportStageInitializer.initializeRequiredReportStage(any())).thenThrow(blocker(
                 MesReleaseFlowBlockerType.REPORT_OWNER_REQUIRED, "one report owner is missing"));
 
@@ -317,7 +326,68 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 .setApplicationId(APPLICATION_ID)
                 .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
                 .setExpectedVersion(VERSION)
-                .setIdempotencyKey(key);
+                .setIdempotencyKey(key)
+                .setCompletionBackfillReceiptId("99")
+                .setSourceCredentialType("CompletionBackfillReceipt")
+                .setSourceCredentialId("99")
+                .setSourceContextHash("source-context-7001")
+                .setSourceSnapshotHash("source-hash")
+                .setPayloadHash("payload-7001")
+                .setSourceVersion("source-v1")
+                .setSourceBundleHash("bundle-hash")
+                .setPickListBindingId(601L)
+                .setPickListId(602L)
+                .setBatchPickListRelationId(603L)
+                .setBindingVersion(1L)
+                .setPickListHeaderSnapshotHash("pick-header-hash")
+                .setPickListLineSnapshotHash("pick-line-hash")
+                .setCompletionTransactionId("completion-tx-7001")
+                .setExpectedActiveOrderVersion(1L)
+                .setSourceEvidence(sourceEvidence());
+    }
+
+    private List<cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence> sourceEvidence() {
+        return List.of(
+                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence()
+                        .setSourceType("PRODUCTION").setSourceId("production-1").setSourceVersion("v1")
+                        .setSourceSnapshotHash("production-hash").setPayloadHash("production-payload")
+                        .setSignature("production-signature"),
+                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence()
+                        .setSourceType("PQC").setSourceId("pqc-1").setSourceVersion("v1")
+                        .setSourceSnapshotHash("pqc-hash").setPayloadHash("pqc-payload")
+                        .setSignature("pqc-signature"),
+                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence()
+                        .setSourceType("LOSS").setSourceId("loss-1").setSourceVersion("v1")
+                        .setSourceSnapshotHash("loss-hash").setPayloadHash("loss-payload")
+                        .setSignature("loss-signature"));
+    }
+
+    private MesFlow6CompletionBackfillReceipt validFlow6Receipt(boolean actualLoss) {
+        return new MesFlow6CompletionBackfillReceipt()
+                .setReceiptId(99L)
+                .setTenantId(TENANT_ID)
+                .setActiveOrderId(2001L)
+                .setWorkOrderId(3001L)
+                .setBatchCode("BATCH-001")
+                .setRouteId(4001L)
+                .setRouteVersionId(4002L)
+                .setRequestIdempotencyKey("pqc-approve-receipt")
+                .setCreatedAt(LocalDateTime.of(2026, 8, 25, 12, 0))
+                .setSourceSnapshotHash("source-hash")
+                .setFormalSourceSnapshotJson("{\"formal\":true}")
+                .setSignatureSnapshotJson("{\"signature\":true}")
+                .setCompletionVersion(2)
+                .setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
+                .setBatchRecordStatus("SUCCESS")
+                .setProcessInspectionStatus("SUCCESS")
+                .setBatchRecordId(101L)
+                .setProcessInspectionId(201L)
+                .setHasActualLoss(actualLoss)
+                .setLossQuantity(actualLoss ? java.math.BigDecimal.ONE : java.math.BigDecimal.ZERO)
+                .setLossReportStatus(actualLoss ? "SUCCESS" : "NOT_REQUIRED")
+                .setLossRecordId(actualLoss ? 301L : null)
+                .setZeroLossConfirmationSnapshot(actualLoss ? null : "{\"status\":\"NO_LOSS\"}")
+                .setReceiptHash("receipt-hash");
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO application() {

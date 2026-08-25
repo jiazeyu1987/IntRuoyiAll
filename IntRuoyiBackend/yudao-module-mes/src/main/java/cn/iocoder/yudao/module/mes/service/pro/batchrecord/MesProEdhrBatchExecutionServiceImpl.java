@@ -8132,10 +8132,24 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (batch == null || batch.getId() == null || command == null || applicationEventPublisher == null) {
             throw new IllegalStateException("FLOW7_PROVISIONED_EVENT_PUBLISHER_NOT_READY");
         }
-        applicationEventPublisher.publishEvent(new MesBatchExecutionProvisionedEvent(
-                TenantContextHolder.getRequiredTenantId(), batch.getId(), command.getIdempotencyKey(),
-                command.getSourceSnapshotHash(), command.getSourceBundleHash(),
-                command.getCompletionBackfillReceiptHash(), command.getSourceVersion(), currentUserId()));
+        String witness = command.getIdempotencyKey();
+        String suffix = DigestUtil.sha256Hex(witness == null ? String.valueOf(batch.getId()) : witness)
+                .substring(0, 32);
+        String sourceCredentialHash = command.getIndependentReceipt() == null
+                ? command.getCompletionBackfillReceiptHash()
+                : command.getIndependentReceipt().getReceiptHash();
+        applicationEventPublisher.publishEvent(new MesProEdhrBatchProvisionedEvent()
+                .setTenantId(TenantContextHolder.getRequiredTenantId())
+                .setBatchExecutionId(batch.getId())
+                .setEventId("FLOW7-TXC-" + batch.getId() + "-" + suffix)
+                .setIdempotencyKey("FLOW7-TXC-IDEM-" + batch.getId() + "-" + suffix)
+                .setExpectedSourceSnapshotHash(command.getSourceSnapshotHash())
+                .setExpectedSourceBundleHash(command.getSourceBundleHash())
+                .setExpectedCompletionBackfillReceiptHash(command.getCompletionBackfillReceiptHash())
+                .setExpectedSourceVersion(command.getSourceVersion())
+                .setExpectedSourceCredentialId(command.getSourceCredentialId())
+                .setExpectedSourceCredentialHash(sourceCredentialHash)
+                .setCapturedBy(currentUserId()));
     }
 
     private record SpecialNodeAttachmentOwnerConfig(String attachmentCode,

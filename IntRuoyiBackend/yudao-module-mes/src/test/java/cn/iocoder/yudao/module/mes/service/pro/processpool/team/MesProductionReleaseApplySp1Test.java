@@ -83,6 +83,7 @@ class MesProductionReleaseApplySp1Test {
     @Mock private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock private MesProductionReleaseRequiredCandidateResolver candidateResolver;
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
+    @Mock private MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
 
     private MesTeamLeaderActiveOrderReleaseGenerationService generationService;
 
@@ -95,7 +96,8 @@ class MesProductionReleaseApplySp1Test {
         generationService = new MesTeamLeaderActiveOrderReleaseGenerationService(
                 activeOrderMapper, workOrderMapper, processSnapshotMapper, completionMapper,
                 pqcTaskMapper, aggregateDetailMapper, allocationMapper, applicationMapper, workTaskMapper,
-                persistenceService, candidateResolver, new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher());
+                persistenceService, candidateResolver, new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher(),
+                completionReceiptPort);
 
         lenient().when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
         lenient().when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID)).thenReturn(workOrder());
@@ -109,6 +111,8 @@ class MesProductionReleaseApplySp1Test {
                 .thenReturn(List.of(aggregateDetail()));
         lenient().when(allocationMapper.selectListByActiveOrderIds(List.of(ACTIVE_ORDER_ID)))
                 .thenReturn(List.of(allocation(BigDecimal.TEN)));
+        lenient().when(completionReceiptPort.getByActiveOrderId(ACTIVE_ORDER_ID, TENANT_ID))
+                .thenReturn(flow4Receipt());
         lenient().when(candidateResolver.resolveRequiredCandidates(
                         TENANT_ID, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER))
                 .thenReturn(candidates());
@@ -124,6 +128,16 @@ class MesProductionReleaseApplySp1Test {
         }).when(workTaskMapper).insert(any(MesProEdhrWorkTaskDO.class));
         lenient().when(applicationMapper.updateById(any(MesProcessPoolActiveOrderReleaseApplicationDO.class)))
                 .thenReturn(1);
+    }
+
+    @Test
+    void releaseApplyMustReadFlow4ReceiptBeforeCreatingApplication() {
+        when(completionReceiptPort.getByActiveOrderId(ACTIVE_ORDER_ID, TENANT_ID)).thenReturn(null);
+
+        assertThrows(RuntimeException.class,
+                () -> generationService.generate(LEADER_USER_ID, command("release-requires-receipt")));
+
+        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
     }
 
     @AfterEach
@@ -421,6 +435,22 @@ class MesProductionReleaseApplySp1Test {
                 .routeProcessId(ROUTE_PROCESS_ID)
                 .processId(PROCESS_ID)
                 .build();
+    }
+
+    private static MesFlow6CompletionBackfillReceipt flow4Receipt() {
+        return new MesFlow6CompletionBackfillReceipt()
+                .setReceiptId(9901L)
+                .setTenantId(TENANT_ID)
+                .setActiveOrderId(ACTIVE_ORDER_ID)
+                .setWorkOrderId(WORK_ORDER_ID)
+                .setBatchCode("BATCH-001")
+                .setRouteId(ROUTE_ID)
+                .setRouteVersionId(ROUTE_VERSION_ID)
+                .setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
+                .setBatchRecordStatus("SUCCESS")
+                .setProcessInspectionStatus("SUCCESS")
+                .setBatchRecordId(9911L)
+                .setProcessInspectionId(9912L);
     }
 
     private static MesProductionReleaseRoleCandidates candidates() {

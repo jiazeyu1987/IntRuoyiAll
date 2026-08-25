@@ -65,6 +65,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     private final MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService;
     private final MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private final MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher;
+    private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
 
     public MesTeamLeaderActiveOrderReleaseGenerationService(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -78,7 +79,8 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
             MesProEdhrWorkTaskMapper workTaskMapper,
             MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService,
             MesProductionReleaseRequiredCandidateResolver candidateResolver,
-            MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher) {
+            MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher sourceSnapshotHasher,
+            MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
@@ -91,6 +93,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         this.persistenceService = persistenceService;
         this.candidateResolver = candidateResolver;
         this.sourceSnapshotHasher = sourceSnapshotHasher;
+        this.completionReceiptPort = completionReceiptPort;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -101,6 +104,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrder(command.getActiveOrderId(), leaderUserId);
         MesProWorkOrderDO workOrder = requireWorkOrder(activeOrder);
         String batchCode = requireBatchCode(workOrder);
+        requireCompletionReceipt(activeOrder, workOrder, batchCode, tenantId);
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = requireSnapshots(activeOrder);
         requireNoProductionQuantityConflict(activeOrder, snapshots);
         List<MesProcessPoolOrderProcessCompletionDO> completions =
@@ -278,8 +282,6 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
     private boolean isFormalProductionComplete(MesProcessPoolOrderProcessCompletionDO completion) {
         return completion.getId() != null
                 && MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED.equals(completion.getCompletionStatus())
-                && MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS.equals(completion.getBackfillStatus())
-                && completion.getBackfillExecutionId() != null
                 && positive(completion.getTargetQuantity())
                 && completion.getConfirmedQuantity() != null
                 && completion.getConfirmedQuantity().compareTo(completion.getTargetQuantity()) >= 0
@@ -288,6 +290,28 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
                 && StrUtil.isNotBlank(completion.getSourceAllocationIdsJson())
                 && StrUtil.isNotBlank(completion.getAggregateHash())
                 && StrUtil.isNotBlank(completion.getBackfillIdempotencyKey());
+    }
+
+    private void requireCompletionReceipt(MesProcessPoolActiveOrderDO activeOrder,
+                                          MesProWorkOrderDO workOrder,
+                                          String batchCode,
+                                          Long tenantId) {
+        MesFlow6CompletionBackfillReceipt receipt = completionReceiptPort.getByActiveOrderId(
+                activeOrder.getId(), tenantId);
+        if (receipt == null || !MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED
+                .equals(receipt.getStatus())
+                || !Objects.equals(activeOrder.getId(), receipt.getActiveOrderId())
+                || !Objects.equals(activeOrder.getWorkOrderId(), receipt.getWorkOrderId())
+                || !Objects.equals(activeOrder.getRouteId(), receipt.getRouteId())
+                || !Objects.equals(activeOrder.getRouteVersionId(), receipt.getRouteVersionId())
+                || !Objects.equals(workOrder.getBatchCode(), receipt.getBatchCode())
+                || !Objects.equals(batchCode, receipt.getBatchCode())
+                || receipt.getBatchRecordId() == null || receipt.getProcessInspectionId() == null) {
+            throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, null,
+                    "COMPLETION_BACKFILL_RECEIPT", String.valueOf(activeOrder.getId()), null,
+                    "Flow-4 completion receipt is required before release application",
+                    "complete the active order and retry the release application");
+        }
     }
 
     private void requireNoProductionQuantityConflict(

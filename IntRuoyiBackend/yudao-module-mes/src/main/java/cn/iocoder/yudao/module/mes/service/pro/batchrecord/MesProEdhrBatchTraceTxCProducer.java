@@ -20,8 +20,6 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6Completi
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -47,7 +45,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
  */
 @Service
 @RequiredArgsConstructor
-public class MesProEdhrBatchTraceTxCProducer {
+public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCInvoker {
 
     public static final String SUCCESS_EVENT = "FLOW7_TRACE_MAPPING_SUCCEEDED";
     public static final String RETRYABLE_FAILURE_EVENT = "FLOW7_TRACE_MAPPING_FAILED_RETRYABLE";
@@ -75,6 +73,7 @@ public class MesProEdhrBatchTraceTxCProducer {
     private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
     private final MesIndependentBatchPrerequisiteReceiptPort independentReceiptPort;
 
+    @Override
     public MesProEdhrBatchTraceTxCResult produce(MesProEdhrBatchTraceTxCCommand command) {
         if (command == null || command.getBatchExecutionId() == null
                 || isBlank(command.getEventId()) || isBlank(command.getIdempotencyKey())) {
@@ -114,30 +113,6 @@ public class MesProEdhrBatchTraceTxCProducer {
             return persistFailureInNewTransaction(command, ex.reasonCode, ex.getMessage());
         } catch (RuntimeException ex) {
             return persistFailureInNewTransaction(command, "TRACE_SERVICE_FAILURE", nonBlankMessage(ex));
-        }
-    }
-
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onBatchExecutionProvisioned(MesBatchExecutionProvisionedEvent event) {
-        if (event == null || event.batchExecutionId() == null || event.tenantId() == null) {
-            throw new IllegalArgumentException("FLOW7_PROVISIONED_EVENT_INCOMPLETE");
-        }
-        String witness = event.idempotencyKey();
-        String suffix = DigestUtil.sha256Hex(witness == null ? String.valueOf(event.batchExecutionId()) : witness)
-                .substring(0, 32);
-        TenantContextHolder.setTenantId(event.tenantId());
-        try {
-            produce(new MesProEdhrBatchTraceTxCCommand()
-                    .setBatchExecutionId(event.batchExecutionId())
-                    .setEventId("FLOW7-TXC-" + event.batchExecutionId() + "-" + suffix)
-                    .setIdempotencyKey("FLOW7-TXC-IDEM-" + event.batchExecutionId() + "-" + suffix)
-                    .setExpectedSourceSnapshotHash(event.sourceSnapshotHash())
-                    .setExpectedSourceBundleHash(event.sourceBundleHash())
-                    .setExpectedCompletionBackfillReceiptHash(event.completionBackfillReceiptHash())
-                    .setExpectedSourceVersion(event.sourceVersion())
-                    .setCapturedBy(event.capturedBy()));
-        } finally {
-            TenantContextHolder.clear();
         }
     }
 
@@ -244,6 +219,10 @@ public class MesProEdhrBatchTraceTxCProducer {
         witness(command.getExpectedCompletionBackfillReceiptHash(),
                 metadata.getString("completionBackfillReceiptHash"), "completionBackfillReceiptHash");
         witness(command.getExpectedSourceVersion(), metadata.getString("sourceVersion"), "sourceVersion");
+        witness(command.getExpectedSourceCredentialId(), metadata.getString("sourceCredentialId"),
+                "sourceCredentialId");
+        witness(command.getExpectedSourceCredentialHash(), metadata.getString("sourceCredentialHash"),
+                "sourceCredentialHash");
     }
 
     private void witness(String expected, String actual, String field) {

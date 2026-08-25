@@ -84,6 +84,16 @@ public class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortImpl
                 .setReceiptHash(receipt.getReceiptHash());
     }
 
+    @Override
+    public MesFlow6CompletionBackfillReceipt getByActiveOrderId(Long activeOrderId, Long tenantId) {
+        MesProcessPoolActiveOrderCompletionReceiptDO receipt = activeOrderId == null ? null
+                : receiptMapper.selectByActiveOrderIdForUpdate(activeOrderId);
+        if (receipt == null || receipt.getId() == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_NOT_FOUND, activeOrderId);
+        }
+        return getByReceiptId(receipt.getId(), tenantId);
+    }
+
     private static boolean lossFactsAreValid(MesProcessPoolActiveOrderCompletionReceiptDO receipt) {
         if (receipt.getHasActualLoss() == null || receipt.getLossQuantity() == null
                 || receipt.getLossQuantity().signum() < 0 || receipt.getLossConditionFactsJson() == null

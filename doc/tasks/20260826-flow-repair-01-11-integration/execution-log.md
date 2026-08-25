@@ -109,3 +109,24 @@ GREEN: `MesProEdhrBatchTraceTxCProducerEventTest` -> `1/1 PASS`。
 - 干净集成检查：临时 `D:/IntRuoyiWorktree/xiufu20260826-merge-check` 从 `int_main` 创建，`git merge --ff-only codex/xiufu20260826` 成功到 `79d386b834678e10fb3b0b165f65477405be571c`，状态干净；检查完成后已使用非强制 `git worktree remove` 删除，目录和登记项均不存在。
 - 主干 dirty 保真检查：将 `E:/IntRuoyi` 当前 tracked patch（约 740 KB）以三方方式应用到目标提交的临时 worktree；除 `MesProEdhrBatchExecutionServiceImpl.java` 的一个依赖字段冲突外，其余 tracked 改动均自动合并。冲突保留了流程6权威解析器、流程7事件发布器和主干已有的独立 receipt 服务字段，未覆盖任一方。
 - 合并后快照编译在 BPM 模块失败：`FormCenterRuntimeServiceImpl.java:88` 引用缺失的 `FormTemplateFillRuleAutoDetectService`。该缺失来自主干并行 dirty 改动，流程1-11目标代码独立编译仍为 PASS；临时检查目录已删除，主工作树未修改。
+
+## Flow4/Flow7 implementation follow-up
+
+BDD: 放行批准只读完成回执 -> Given 活跃订单完成 Tx-A 已提交 `BACKFILL_SUCCEEDED` completion receipt；When 放行批准进入 dossier 适配器；Then 只按租户读取 Flow4 receipt，不再计划或写入批记录、过程检验和损耗三类旧 dossier writer。
+
+GREEN: Flow4定向测试 `MesPqcReleaseBatchExecutionServiceTest, MesProductionReleaseApplySp1Test, MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest, MesPqcReleaseDossierPortImplTest` -> `30/30 PASS`。
+
+BDD: 建批提交后触发 Tx-C -> Given 流程6成功持久化批次执行；When 建批事务提交；Then 发布只含 batch、事件/幂等键和持久化 witness 的 Flow7 event，由 `AFTER_COMMIT` application service 唯一调用 Tx-C producer，不能在提交前映射或重复触发。
+
+RED: Flow7 application boundary contract -> FAIL，目标 worktree 尚无 witness-only event、application service 和 invoker；该 RED 由流程7 task-owned staged slice 提供。
+GREEN: `MesProEdhrBatchTraceTxCApplicationServiceContractTest` -> `3/3 PASS`，并通过反射确认 listener phase 为 `AFTER_COMMIT`。
+GREEN: Flow4/6/7/8/10/traceability combined suite -> `294/294 PASS`，0 failures/errors/skips。
+GREEN: `mvn -o -pl yudao-module-mes -am -DskipTests compile` -> `BUILD SUCCESS`，24/24 modules。
+GREEN: `mvn -o -pl yudao-server -am -DskipTests package` -> `BUILD SUCCESS`，30/30 modules；增量运行 Jar SHA-256 为 `51D2DAF5068F4333DA3D313354299A2796CB163B203359D5F200EB6E0BD52CAF`。
+GREEN: 增量后端使用稳定运行 Jar 在 `48258` 完整启动，日志出现 `Started YudaoServerApplication`，health HTTP `200`、`{"status":"UP"}`；Flow7 application service/producer Spring Bean 链接成功。
+
+实现边界：
+
+- Flow4 `MesPqcReleaseDossierPort` 只暴露 `readCompletionReceipt`；旧 `MesPqcReleaseDossierPlan`、`MesPqcReleaseDossierWriteResult` 和旧 dossier writer 生产依赖已移除。
+- Flow7 `MesProEdhrBatchProvisionedEvent` 只传递 source snapshot/bundle、completion receipt、credential ID/hash witness；producer 仍从持久化批次审计、Flow1领料绑定和正式来源重新读取事实。
+- Flow6 仍拥有批次执行和 `BATCH_*` 状态；Flow7 不写批次状态，不接受客户端 raw receipt/payload。
