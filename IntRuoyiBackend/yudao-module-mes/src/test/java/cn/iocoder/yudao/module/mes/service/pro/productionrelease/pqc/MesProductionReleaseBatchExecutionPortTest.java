@@ -6,11 +6,8 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerE
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionEntryContractService;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionProvisionCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionAuthoritativeContextResolver;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrProductionReleaseBatchCommand;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptService;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,17 +29,15 @@ class MesProductionReleaseBatchExecutionPortTest {
 
     @Mock private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Mock private MesProEdhrBatchExecutionService batchExecutionService;
-    @Mock private MesIndependentBatchPrerequisiteReceiptService independentReceiptService;
+    @Mock private MesBatchExecutionAuthoritativeContextResolver authoritativeContextResolver;
 
     private MesProductionReleaseBatchExecutionPort port;
 
     @BeforeEach
     void setUp() {
         TenantContextHolder.setTenantId(1L);
-        port = new MesProductionReleaseBatchExecutionPortImpl(
-                batchExecutionMapper, batchExecutionService,
-                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionEntryContractService(),
-                independentReceiptService);
+        port = new MesProductionReleaseBatchExecutionPortImpl(batchExecutionMapper, batchExecutionService,
+                authoritativeContextResolver);
     }
 
     @AfterEach
@@ -55,6 +50,7 @@ class MesProductionReleaseBatchExecutionPortTest {
         when(batchExecutionService.openOrCreateFromProductionRelease(any())).thenReturn(901L);
 
         assertEquals(901L, port.openOrCreate(command()));
+        verify(authoritativeContextResolver).resolve(any(), org.mockito.ArgumentMatchers.eq(1L));
         verify(batchExecutionService).openOrCreateFromProductionRelease(
                 org.mockito.ArgumentMatchers.argThat(item ->
                         "PQC_RELEASE:701".equals(item.getActiveContextKey())
@@ -75,58 +71,21 @@ class MesProductionReleaseBatchExecutionPortTest {
     }
 
     @Test
-    void independentEntryReloadsFormalReceiptBeforeLocalContractValidation() {
-        MesProductionReleaseBatchExecutionCommand command = new MesProductionReleaseBatchExecutionCommand()
-                .setEntryType("PQC_INDEPENDENT")
-                .setEntryBusinessId("independent-701")
-                .setSourceCredentialType("IndependentBatchPrerequisiteReceipt")
-                .setSourceCredentialId("receipt-701")
-                .setSourceContextHash("source-701")
-                .setSourceSnapshotHash("source-701")
-                .setTenantId(1L);
-
-        when(independentReceiptService.verify(any(), org.mockito.ArgumentMatchers.eq(1L)))
-                .thenReturn(new MesIndependentBatchPrerequisiteReceipt().setReceiptId("receipt-701"));
-
-        assertThrows(Exception.class, () -> port.openOrCreate(command));
-        verify(independentReceiptService).verify(
-                org.mockito.ArgumentMatchers.argThat(request ->
-                        "receipt-701".equals(request.getReceiptId())
-                                && "PQC_INDEPENDENT".equals(request.getEntryType())
-                                && "source-701".equals(request.getSourceSnapshotHash())),
-                org.mockito.ArgumentMatchers.eq(1L));
-    }
-
-    @Test
-    void independentEntryUsesVerifiedReceiptInsteadOfCallerPayload() {
-        MesBatchExecutionEntryContractService contractService = mock(MesBatchExecutionEntryContractService.class);
-        MesIndependentBatchPrerequisiteReceipt verified = new MesIndependentBatchPrerequisiteReceipt()
-                .setReceiptId("receipt-verified");
-        MesIndependentBatchPrerequisiteReceipt forged = new MesIndependentBatchPrerequisiteReceipt()
-                .setReceiptId("receipt-forged");
-        when(independentReceiptService.verify(any(), org.mockito.ArgumentMatchers.eq(1L)))
-                .thenReturn(verified);
-        when(contractService.validate(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    void doesNotForwardCallerNestedReceiptToUnifiedBatchService() {
         when(batchExecutionService.openOrCreateFromProductionRelease(any())).thenReturn(902L);
-
-        MesProductionReleaseBatchExecutionCommand command = new MesProductionReleaseBatchExecutionCommand()
+        MesProductionReleaseBatchExecutionCommand forged = command()
                 .setEntryType("MANUAL")
-                .setEntryBusinessId("manual-702")
-                .setSourceCredentialType("IndependentBatchPrerequisiteReceipt")
-                .setSourceCredentialId("receipt-verified")
-                .setSourceContextHash("source-702")
-                .setSourceSnapshotHash("snapshot-702")
-                .setTenantId(1L)
-                .setIndependentReceipt(forged);
-        MesProductionReleaseBatchExecutionPort isolatedPort = new MesProductionReleaseBatchExecutionPortImpl(
-                batchExecutionMapper, batchExecutionService, contractService, independentReceiptService);
+                .setIndependentReceipt(new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt()
+                        .setReceiptId("forged"));
 
-        assertEquals(902L, isolatedPort.openOrCreate(command));
-        verify(contractService).validate(org.mockito.ArgumentMatchers.argThat((MesBatchExecutionProvisionCommand provision) ->
-                provision.getIndependentReceipt() == verified));
+        assertEquals(902L, port.openOrCreate(forged));
+        verify(authoritativeContextResolver).resolve(
+                org.mockito.ArgumentMatchers.argThat(item -> item.getIndependentReceipt() == null
+                        && item.getCompletionBackfillReceipt() == null),
+                org.mockito.ArgumentMatchers.eq(1L));
         verify(batchExecutionService).openOrCreateFromProductionRelease(
-                org.mockito.ArgumentMatchers.argThat((MesProEdhrProductionReleaseBatchCommand provision) ->
-                        provision.getIndependentReceipt() == verified));
+                org.mockito.ArgumentMatchers.argThat(item -> item.getIndependentReceipt() == null
+                        && item.getCompletionBackfillReceipt() == null));
     }
 
     private MesProductionReleaseBatchExecutionCommand command() {

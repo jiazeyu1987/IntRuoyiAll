@@ -8,7 +8,7 @@
 
 ## 固定基线
 
-PORT_CONTRACT_VERSION: 2026-08-22-branch-runtime-v6
+PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 - 主工作区：`E:\IntRuoyi`。
 - D-Main 工作区：`D:\ProjectPackage\IntRuoyi\IntRuoyiAll`。
@@ -31,7 +31,7 @@ PORT_CONTRACT_VERSION: 2026-08-22-branch-runtime-v6
 - `int_qms` profile：基准前端 `8061`，基准后端 `48061`。
 - 槽位 `1..19` 的前后端端口继续按所属 profile 基准端口 + slot 计算。
 - 槽位 `20..30` 使用本文件定义的独立扩展端口段。
-- `slot = 0` 只用于各 profile 的基准工作区；同一 profile 的附加 worktree 必须使用稳定槽位 `1..50`。
+- `slot = 0` 只用于各 profile 的基准工作区；同一 profile 的附加 worktree 必须使用稳定槽位 `1..100`。
 - 跨 profile 不共享 slot 语义；例如 `int_batch slot=1` 是 `8042/48042`，`int_qms slot=1` 是 `8062/48062`。
 - 分支端口矩阵的权威说明见 `docs\branch-runtime-ports.md`，提交、合并、推送前必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`。
 
@@ -49,8 +49,8 @@ PORT_CONTRACT_VERSION: 2026-08-22-branch-runtime-v6
 - `int_batch` 基准工作区永远使用 `slot = 0`，前端 `8041`，后端 `48041`。
 - `int_shedule` 基准工作区永远使用 `slot = 0`，前端 `8021`，后端 `48021`。
 - `int_qms` 基准工作区永远使用 `slot = 0`，前端 `8061`，后端 `48061`。
-- 附加 worktree 必须使用稳定整数槽位，`slot = 1..50`。
-- `slot >= 51` 必须 fail fast。
+- 附加 worktree 必须使用稳定整数槽位，`slot = 1..100`。
+- `slot >= 101` 必须 fail fast。
 - 槽位 `1..19` 的端口按所属 runtime profile 的基准端口计算；槽位 `20..30` 必须使用集中定义的扩展端口段，不得自行推算或随机选择。
 - 示例：
   - `int_main_d slot = 1`：前端 `8102`，后端 `48102`
@@ -74,6 +74,13 @@ PORT_CONTRACT_VERSION: 2026-08-22-branch-runtime-v6
   - int_qms：8196-8205 / 48196-48205
   - int_main：8206-8215 / 48206-48215
   - int_main_d：8216-8225 / 48216-48225
+
+- 新增槽位 51..60、61..70、71..80、81..90、91..100 分别使用第四至第八独立扩展端口段：
+  - `int_shedule`：8276-8285/48276-48285、8326-8335/48326-48335、8376-8385/48376-48385、8426-8435/48426-48435、8476-8485/48476-48485
+  - `int_batch`：8286-8295/48286-48295、8336-8345/48336-48345、8386-8395/48386-48395、8436-8445/48436-48445、8486-8495/48486-48495
+  - `int_qms`：8296-8305/48296-48305、8346-8355/48346-48355、8396-8405/48396-48405、8446-8455/48446-48455、8496-8505/48496-48505
+  - `int_main`：8306-8315/48306-48315、8356-8365/48356-48365、8406-8415/48406-48415、8456-8465/48456-48465、8506-8515/48506-48515
+  - `int_main_d`：8316-8325/48316-48325、8366-8375/48366-48375、8416-8425/48416-48425、8466-8475/48466-48475、8516-8525/48516-48525
 
 ## 端口登记表规则
 
@@ -120,7 +127,7 @@ PORT_CONTRACT_VERSION: 2026-08-22-branch-runtime-v6
 - 禁止在未读取本文件时创建或启动 worktree。
 - 禁止非 `int_main` 使用 `8081/48081`。
 - 禁止任一 profile 使用其他 profile 的基准端口。
-- 禁止附加 worktree 使用 `slot >= 51`。
+- 禁止附加 worktree 使用 `slot >= 101`。
 - 禁止绕过 `scripts\runtime\reserve-worktree-slot.ps1` 手工猜测或并发写入槽位。
 - 禁止活动登记项复用其他 worktree 的 `profile/slot`、前端端口或后端端口。
 - 禁止随机选择端口或按启动顺序临时分配端口。

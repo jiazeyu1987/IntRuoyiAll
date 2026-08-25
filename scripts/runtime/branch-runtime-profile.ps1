@@ -1,11 +1,11 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PortContractVersion = '2026-08-22-branch-runtime-v6'
+$script:PortContractVersion = '2026-08-24-branch-runtime-v7'
 $script:DefaultWorktreePortRegistryPath = 'D:\IntRuoyiWorktree\.ports\worktree-ports.json'
 $script:MinimumWorktreeSlot = 1
 $script:LegacyMaximumWorktreeSlot = 19
-$script:MaximumWorktreeSlot = 50
+$script:MaximumWorktreeSlot = 100
 
 function Get-BranchRuntimeProfiles {
     @(
@@ -21,6 +21,16 @@ function Get-BranchRuntimeProfiles {
             SecondExtendedBackendStartPort = 48216
             ThirdExtendedFrontendStartPort = 8266
             ThirdExtendedBackendStartPort = 48266
+            FourthExtendedFrontendStartPort = 8316
+            FourthExtendedBackendStartPort = 48316
+            FifthExtendedFrontendStartPort = 8366
+            FifthExtendedBackendStartPort = 48366
+            SixthExtendedFrontendStartPort = 8416
+            SixthExtendedBackendStartPort = 48416
+            SeventhExtendedFrontendStartPort = 8466
+            SeventhExtendedBackendStartPort = 48466
+            EighthExtendedFrontendStartPort = 8516
+            EighthExtendedBackendStartPort = 48516
             FrontendMode = 'branch-main-d'
             EnvFile = 'IntRuoyiFronted\.env.branch-main-d'
         },
@@ -36,6 +46,16 @@ function Get-BranchRuntimeProfiles {
             SecondExtendedBackendStartPort = 48206
             ThirdExtendedFrontendStartPort = 8256
             ThirdExtendedBackendStartPort = 48256
+            FourthExtendedFrontendStartPort = 8306
+            FourthExtendedBackendStartPort = 48306
+            FifthExtendedFrontendStartPort = 8356
+            FifthExtendedBackendStartPort = 48356
+            SixthExtendedFrontendStartPort = 8406
+            SixthExtendedBackendStartPort = 48406
+            SeventhExtendedFrontendStartPort = 8456
+            SeventhExtendedBackendStartPort = 48456
+            EighthExtendedFrontendStartPort = 8506
+            EighthExtendedBackendStartPort = 48506
             FrontendMode = 'env.local'
             EnvFile = $null
         },
@@ -51,6 +71,16 @@ function Get-BranchRuntimeProfiles {
             SecondExtendedBackendStartPort = 48186
             ThirdExtendedFrontendStartPort = 8236
             ThirdExtendedBackendStartPort = 48236
+            FourthExtendedFrontendStartPort = 8286
+            FourthExtendedBackendStartPort = 48286
+            FifthExtendedFrontendStartPort = 8336
+            FifthExtendedBackendStartPort = 48336
+            SixthExtendedFrontendStartPort = 8386
+            SixthExtendedBackendStartPort = 48386
+            SeventhExtendedFrontendStartPort = 8436
+            SeventhExtendedBackendStartPort = 48436
+            EighthExtendedFrontendStartPort = 8486
+            EighthExtendedBackendStartPort = 48486
             FrontendMode = 'branch-batch'
             EnvFile = 'IntRuoyiFronted\.env.branch-batch'
         },
@@ -66,6 +96,16 @@ function Get-BranchRuntimeProfiles {
             SecondExtendedBackendStartPort = 48176
             ThirdExtendedFrontendStartPort = 8226
             ThirdExtendedBackendStartPort = 48226
+            FourthExtendedFrontendStartPort = 8276
+            FourthExtendedBackendStartPort = 48276
+            FifthExtendedFrontendStartPort = 8326
+            FifthExtendedBackendStartPort = 48326
+            SixthExtendedFrontendStartPort = 8376
+            SixthExtendedBackendStartPort = 48376
+            SeventhExtendedFrontendStartPort = 8426
+            SeventhExtendedBackendStartPort = 48426
+            EighthExtendedFrontendStartPort = 8476
+            EighthExtendedBackendStartPort = 48476
             FrontendMode = 'branch-shedule'
             EnvFile = 'IntRuoyiFronted\.env.branch-shedule'
         },
@@ -81,6 +121,16 @@ function Get-BranchRuntimeProfiles {
             SecondExtendedBackendStartPort = 48196
             ThirdExtendedFrontendStartPort = 8246
             ThirdExtendedBackendStartPort = 48246
+            FourthExtendedFrontendStartPort = 8296
+            FourthExtendedBackendStartPort = 48296
+            FifthExtendedFrontendStartPort = 8346
+            FifthExtendedBackendStartPort = 48346
+            SixthExtendedFrontendStartPort = 8396
+            SixthExtendedBackendStartPort = 48396
+            SeventhExtendedFrontendStartPort = 8446
+            SeventhExtendedBackendStartPort = 48446
+            EighthExtendedFrontendStartPort = 8496
+            EighthExtendedBackendStartPort = 48496
             FrontendMode = 'branch-qms'
             EnvFile = 'IntRuoyiFronted\.env.branch-qms'
         }
@@ -438,10 +488,30 @@ function Get-BranchRuntimePorts {
         $secondExtendedOffset = $Slot - 31
         $frontendPort = $Profile.SecondExtendedFrontendStartPort + $secondExtendedOffset
         $backendPort = $Profile.SecondExtendedBackendStartPort + $secondExtendedOffset
-    } else {
+    } elseif ($Slot -le 50) {
         $thirdExtendedOffset = $Slot - 41
         $frontendPort = $Profile.ThirdExtendedFrontendStartPort + $thirdExtendedOffset
         $backendPort = $Profile.ThirdExtendedBackendStartPort + $thirdExtendedOffset
+    } elseif ($Slot -le 60) {
+        $fourthExtendedOffset = $Slot - 51
+        $frontendPort = $Profile.FourthExtendedFrontendStartPort + $fourthExtendedOffset
+        $backendPort = $Profile.FourthExtendedBackendStartPort + $fourthExtendedOffset
+    } elseif ($Slot -le 70) {
+        $fifthExtendedOffset = $Slot - 61
+        $frontendPort = $Profile.FifthExtendedFrontendStartPort + $fifthExtendedOffset
+        $backendPort = $Profile.FifthExtendedBackendStartPort + $fifthExtendedOffset
+    } elseif ($Slot -le 80) {
+        $sixthExtendedOffset = $Slot - 71
+        $frontendPort = $Profile.SixthExtendedFrontendStartPort + $sixthExtendedOffset
+        $backendPort = $Profile.SixthExtendedBackendStartPort + $sixthExtendedOffset
+    } elseif ($Slot -le 90) {
+        $seventhExtendedOffset = $Slot - 81
+        $frontendPort = $Profile.SeventhExtendedFrontendStartPort + $seventhExtendedOffset
+        $backendPort = $Profile.SeventhExtendedBackendStartPort + $seventhExtendedOffset
+    } else {
+        $eighthExtendedOffset = $Slot - 91
+        $frontendPort = $Profile.EighthExtendedFrontendStartPort + $eighthExtendedOffset
+        $backendPort = $Profile.EighthExtendedBackendStartPort + $eighthExtendedOffset
     }
 
     [pscustomobject]@{

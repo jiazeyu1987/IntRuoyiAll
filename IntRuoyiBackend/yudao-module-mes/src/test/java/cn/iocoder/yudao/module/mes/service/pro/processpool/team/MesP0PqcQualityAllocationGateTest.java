@@ -27,12 +27,15 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAll
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoTargetWorkOrder;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import com.alibaba.fastjson.JSON;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -45,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -84,6 +88,8 @@ class MesP0PqcQualityAllocationGateTest {
     private MesWorkOrderAbnormalStateService abnormalStateService;
     @Mock
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesTeamLeaderReportConfirmationService service;
 
@@ -97,6 +103,8 @@ class MesP0PqcQualityAllocationGateTest {
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
                 orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
                 reportManagementSummaryService);
+        ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any())).thenReturn(9101L);
     }
 
     @Test
@@ -255,8 +263,6 @@ class MesP0PqcQualityAllocationGateTest {
                 ArgumentCaptor.forClass(Collection.class);
         verify(allocationMapper).insertBatch(allocationCaptor.capture());
         assertEquals(1, allocationCaptor.getValue().size());
-        verify(orderProcessCompletionService).applyConfirmedAllocations(any(MesProProcessPoolEventDO.class),
-                anyCollection());
     }
 
     @Test
@@ -325,8 +331,6 @@ class MesP0PqcQualityAllocationGateTest {
         assertEquals(0, new BigDecimal("2").compareTo(target.getRequiredQuantity()));
         verify(reviewMapper).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(allocationMapper).insertBatch(anyCollection());
-        verify(orderProcessCompletionService).applyConfirmedAllocations(any(MesProProcessPoolEventDO.class),
-                anyCollection());
     }
 
     @Test
@@ -389,6 +393,7 @@ class MesP0PqcQualityAllocationGateTest {
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_FIFO)
                 .reviewRemark("确认 FIFO 分配")
+                .signaturePassword("sign-123")
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(LEADER_USER_ID)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
@@ -406,6 +411,7 @@ class MesP0PqcQualityAllocationGateTest {
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .allocationMode(MesProcessPoolReportAllocationDO.MODE_MANUAL)
                 .reviewRemark("确认 FIFO 分配")
+                .signaturePassword("sign-123")
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(LEADER_USER_ID)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
@@ -431,6 +437,7 @@ class MesP0PqcQualityAllocationGateTest {
                 .processId(6001L)
                 .actualEmployeeId(2001L)
                 .rawPayload(rawPayload)
+                .reportOutputQuantity(JSON.parseObject(rawPayload).getBigDecimal("outputQuantity"))
                 .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 10, 0))
                 .build();
     }

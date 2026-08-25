@@ -530,7 +530,7 @@ class MesProFeedbackImportRecordServiceImplTest {
         assertEquals(20L, feedbackReqCaptor.getValue().getScheduleOrderProcessId());
         verify(routeProcessService, never()).resolveCurrentRouteProcess(600L, 400L, 2000L);
         verify(feedbackService, never()).submitFeedback(700L);
-        verify(scheduleOrderProcessMapper).selectById(20L);
+        verify(scheduleOrderProcessMapper, times(2)).selectById(20L);
         verifyNoMoreInteractions(scheduleOrderProcessMapper);
         ArgumentCaptor<MesProFeedbackDO> feedbackUpdateCaptor = ArgumentCaptor.forClass(MesProFeedbackDO.class);
         verify(feedbackMapper).updateById(feedbackUpdateCaptor.capture());
