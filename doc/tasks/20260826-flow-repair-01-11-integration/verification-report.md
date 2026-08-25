@@ -26,7 +26,7 @@
 - 流程3/5/6定向测试：`222/222 PASS`。
 - `git diff --check`：PASS。
 - runtime guard：PASS，slot 43，前端 `8258`，后端 `48258`。
-- 正常融合提交：待执行；不使用 `--no-verify`。
+- 正常目标分支提交：已完成，当前 HEAD 为 `79d386b834678e10fb3b0b165f65477405be571c`；不使用 `--no-verify`。
 - 流程8材料 receipt 定向验证：`43/43 PASS`，包含门禁服务、receipt adapter、预检和权威放行上下文。
 - 流程4 dossier receipt reuse：`1/1 PASS`，活跃订单路径不调用旧三类 writer。
 - 流程7 Tx-C 自动触发：代码已接入 `AFTER_COMMIT` 事件，待批次服务事件消费回归和真实数据库 outbox 验证。
@@ -41,7 +41,7 @@
 
 ## 结论
 
-代码融合提交已经完成，当前目标 HEAD 为 `9c696db6d45ef3dda1a64e262c14cda2934ae106`。流程4旧双写、流程7自动触发和流程8 receipt 持久化已补齐；但不能把定向测试和 health 结果写成流程1-11全链路完成。
+代码融合提交已经完成，当前目标 HEAD 为 `79d386b834678e10fb3b0b165f65477405be571c`。流程4旧双写、流程7自动触发和流程8 receipt 持久化已补齐；干净集成 worktree 已验证可 fast-forward，但 `E:/IntRuoyi` 主工作树仍不能安全更新，且不能把定向测试和 health 结果写成流程1-11全链路完成。
 
 剩余阻塞：
 
