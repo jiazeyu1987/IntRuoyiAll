@@ -104,4 +104,5 @@ GREEN: `MesProEdhrBatchTraceTxCProducerEventTest` -> `1/1 PASS`。
 - 目标分支 `codex/xiufu20260826` 当前 HEAD：`9c696db6d45ef3dda1a64e262c14cda2934ae106`。
 - `int_main` 当前 HEAD：`2faf0f33234614f46867e5d23e450c41ef62cc1f`，是目标分支祖先，因此提交历史本身可 fast-forward。
 - 主工作树 `E:/IntRuoyi` 有 212 项 dirty/untracked 改动；其中 12 个路径与目标分支变更重叠，包括流程6/7/8/10代码、运行规则和 AGENTS.md。
+- 重叠核对显示 `AGENTS.md`、`docs/branch-runtime-ports.md`、`docs/codex-branch-runtime-handoff.md`、`docs/worktree-restrictions.md`、`scripts/preflight/branch-runtime-port-guard.ps1`、`scripts/runtime/branch-runtime-profile.ps1` 的主工作树内容已与目标提交相同；以下 5 个代码/测试路径和 `docs/local-runtime.md` 仍与目标内容不同，不能在主工作树未分类提交前融合：`MesProEdhrBatchExecutionServiceImpl.java`、`MesProEdhrBatchTraceTxCProducer.java`、`MesProEdhrReleaseServiceImpl.java`、`MesPqcReleaseDossierPortImpl.java`、`MesProEdhrBatchExecutionServiceTest.java`、`docs/local-runtime.md`。
 - 未在主工作树执行 merge、reset、stash、checkout、整体提交或清理；这些操作可能覆盖并行任务改动。

@@ -48,4 +48,4 @@
 1. 本地真实库尚未应用 `20260826_mes_edhr_material_gate_receipt.sql`，且当前任务未获得明确的业务库 DDL 写入授权。
 2. 真实 Tx-C outbox 写入闭环未执行，缺少可清理的测试批次和真实来源数据。
 3. 写入型 Playwright 所需测试租户、生产/PQC/管理者账号、四份材料和清理权限未冻结。
-4. `E:/IntRuoyi` 主工作树有 212 项 dirty/untracked 改动，12 个路径与目标提交重叠；在不覆盖并行改动的前提下不能直接更新主干工作树。需先由主干负责人对重叠文件分类提交或明确融合窗口。
+4. `E:/IntRuoyi` 主工作树有 212 项 dirty/untracked 改动，12 个路径与目标提交重叠；其中 5 个 MES 代码/测试文件和 `docs/local-runtime.md` 内容确实不同，另外 6 个规则文件内容已与目标一致。不能在不覆盖并行改动的前提下直接更新主干工作树；需先由主干负责人对以下不同路径分类提交或明确融合窗口：`MesProEdhrBatchExecutionServiceImpl.java`、`MesProEdhrBatchTraceTxCProducer.java`、`MesProEdhrReleaseServiceImpl.java`、`MesPqcReleaseDossierPortImpl.java`、`MesProEdhrBatchExecutionServiceTest.java`、`docs/local-runtime.md`。
