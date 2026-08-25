@@ -290,3 +290,12 @@ REGRESSION（真实 ACL）: 对 F6/F8 旧目录执行 `Get-Acl` 均成功，owne
 - 已核对流程6当前合同要求 active-order 仅消费 BACKFILL_SUCCEEDED receipt，independent 仅消费流程9服务端签发 receiptId；流程9验真必须重新读取租户范围内权威记录，拒绝 nested receipt、字段/hash 篡改、过期、撤销和跨租户请求。
 - RED/GREEN 命令已准备，但流程6/9提交后的干净 integration worktree、真实测试租户、正式来源关系和可写测试数据尚未就绪；本轮不运行建批回归，不修改业务代码。
 - 当前状态：验收计划 READY，实际建批 GREEN/REGRESSION 为 NOT RUN；receipt service/SQL 单测通过不能替代真实建批持久化和流程7消费证据。
+
+## M30 当前主线统一验收（2026-08-25）
+
+- Baseline：int_main HEAD 27386bbc483d7b9b2dde02e905b926825363c875；未修改流程4/6/7/8/10业务代码，未整体提交并行 dirty 文件。
+- RED：bundled Maven -o -pl yudao-module-mes -am -Dmaven.test.skip=true compile 进入24模块、编译2929个MES源码后失败；首要错误为当前 system target 缺 RoleMapper/AdminUserMapper/RoleConfigPackageService，及 MesProEdhrWorkTask* getter/VO 不匹配。未进入Surefire，归属 PAR/ENV/并行基线 owner。
+- GREEN：Flow11 runner 12 场景 PASS；pytest 12 passed；runtime guard 8081/48081 PASS。
+- RED（工具前置）：py_compile 因 [Errno 13] Permission denied 写入 script/__pycache__ 失败，不能写成 PASS。
+- REGRESSION：现有 MesProEdhrFourMaterialGateReleaseContractTest XML（2026-08-25 11:11）为1 failure；everyReleaseEntryUsesSharedServerGate 期望 true、实际 false。因本轮compile未到Surefire，此artifact仅作待重跑证据。
+- 矩阵：流程4 receipt 37/37为历史slice；流程6建批39/39为历史slice；流程7 trace 29/29为历史slice；流程8 shared gate BLOCKED；流程10 47/47/49/49为历史slice。当前完成-建批-Tx-C-四材料-finalize-追溯链未实证。

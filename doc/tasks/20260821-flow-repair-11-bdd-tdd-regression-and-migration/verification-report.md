@@ -201,3 +201,18 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 流程11已建立 batch-authoritative-receipt-acceptance.md，将流程6/9提交后的集成验证拆为八个 BDD 场景：活跃订单成功回填 receipt、失败/缺失 receipt、独立入口服务端 receipt、过期/撤销、nested receipt 与业务字段篡改、跨租户、统一解析幂等、流程7来源消费。清单同时定义严格 RED/GREEN/REGRESSION 命令及 F6/F9/F7/F4/F8-10/PAR-ENV owner 分类。
 
 当前结论为验收计划 READY、实际建批验证 NOT RUN。流程6/9提交尚未在本轮形成可验证的干净集成基线；缺少真实测试租户、正式 batchExecutionSourceRelation、可写测试数据或服务/数据库入口时必须保持 BLOCKED，禁止用 mock、API-only、nested receipt 或默认成功替代真实路径。receipt service 与 SQL 合同的已有 PASS 仅作为前置证据，不代表建批持久化、幂等或流程7 Tx-C 消费已通过。
+
+## 10.9 当前主线统一验收（2026-08-25）
+
+基线为 int_main=27386bbc4。Maven compile 进入24模块并编译2929个MES源码后被并行/脏基线的 system target 类缺失与 MesProEdhrWorkTask* DTO/VO getter不匹配阻断，未进入Surefire；该失败归属 PAR/ENV，不是流程11业务错误。Flow11 runner=12 PASS、pytest=12 passed、runtime guard=PASS；py_compile因写入 script/__pycache__ 权限错误失败。现有四材料共享gate artifact 有1 failure（everyReleaseEntryUsesSharedServerGate expected true but false），不能标记当前GREEN。
+
+| 节点 | 当前状态 | owner/blocker |
+|---|---|---|
+| 流程4 Tx-A/三回填/BACKFILL_SUCCEEDED | 历史37/37，当前未重跑 | 流程4 receipt producer/真实数据 |
+| 流程6 权威建批/统一解析 | 历史39/39，当前未重跑 | 流程6 clean compile/持久化 |
+| 流程7 Tx-C映射 | 历史29/29，当前未重跑 | 流程7 outbox/来源消费 |
+| 流程8 四材料共享gate | BLOCKED，artifact 1 failure | 流程8修复 shared server gate |
+| 流程10 finalizeRelease/唯一RELEASED | 历史47/47、49/49 | 流程10权威上下文+材料 |
+| SQL/迁移/真实租户/Playwright | NOT RUN | 环境与真实数据前置 |
+
+结论：流程11本轮统一验收保持 ready_for_closeout / No-Go；不得标记全链路 completed，不得以历史artifact、mock、API-only或默认成功替代当前实证。

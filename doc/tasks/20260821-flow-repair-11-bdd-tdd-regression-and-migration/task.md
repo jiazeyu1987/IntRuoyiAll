@@ -54,6 +54,10 @@ completed（流程11专项范围）：流程11迁移分类器、只读 dry-run�
 
 ## Cleanup Keep
 
+## M30 统一验收状态（2026-08-25）
+
+状态：ready_for_closeout / No-Go。当前 int_main=27386bbc4 的 MES compile 已进入 24 模块并编译 2929 个 MES 源码，但被并行 dirty 基线/构建产物依赖错误阻断，未进入 Surefire。流程11 runner 12 场景、pytest 12 passed、runtime guard 通过；py_compile 因拒绝写入 script/__pycache__ 失败。现有四材料共享 gate 报告有 1 条 everyReleaseEntryUsesSharedServerGate failure（期望 shared gate=true，实际=false），不可标记 GREEN。流程4/6/7/8/10完整链路、迁移、真实租户和 Playwright 仍缺证据，全链路保持 No-Go。
+
 - doc/tasks/20260821-flow-repair-11-bdd-tdd-regression-and-migration/task.md
 - doc/tasks/20260821-flow-repair-11-bdd-tdd-regression-and-migration/development-plan.md
 - doc/tasks/20260821-flow-repair-11-bdd-tdd-regression-and-migration/test-plan.md
