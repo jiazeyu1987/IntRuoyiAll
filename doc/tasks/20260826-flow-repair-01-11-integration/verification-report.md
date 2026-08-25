@@ -28,7 +28,7 @@
 - 流程3/5/6定向测试：`222/222 PASS`。
 - `git diff --check`：PASS。
 - runtime guard：PASS，slot 43，前端 `8258`，后端 `48258`。
-- 正常目标分支提交：已完成，当前 HEAD 为 `79d386b834678e10fb3b0b165f65477405be571c`；不使用 `--no-verify`。
+- 正常目标分支提交：已完成，当前 HEAD 为 `305eca335e53341d74013d7c2d43939d30bcd39e`；不使用 `--no-verify`。
 - 流程8材料 receipt 定向验证：`43/43 PASS`，包含门禁服务、receipt adapter、预检和权威放行上下文。
 - 流程4 dossier receipt reuse：`1/1 PASS`，活跃订单路径不调用旧三类 writer。
 - 流程7 Tx-C 自动触发：代码已接入 `AFTER_COMMIT` 事件，待批次服务事件消费回归和真实数据库 outbox 验证。
@@ -47,12 +47,12 @@
 
 ## 结论
 
-代码融合提交已经完成，当前目标 HEAD 为 `79d386b834678e10fb3b0b165f65477405be571c`。流程4旧双写、流程7自动触发和流程8 receipt 持久化已补齐；干净集成 worktree 已验证可 fast-forward，但 `E:/IntRuoyi` 主工作树仍不能安全更新，且不能把定向测试和 health 结果写成流程1-11全链路完成。
+代码融合提交已经完成，当前目标 HEAD 为 `305eca335e53341d74013d7c2d43939d30bcd39e`。流程4旧双写、流程7 AFTER_COMMIT witness handoff 和流程8 receipt 持久化已补齐；目标提交历史已验证可 fast-forward，但 `E:/IntRuoyi` 主工作树仍不能安全更新，且不能把定向测试和 health 结果写成流程1-11全链路完成。
 
 剩余阻塞：
 
 1. 本地真实库尚未应用 `20260826_mes_edhr_material_gate_receipt.sql`，且当前任务未获得明确的业务库 DDL 写入授权。
 2. 真实 Tx-C outbox 写入闭环未执行，缺少可清理的测试批次和真实来源数据。
 3. 写入型 Playwright 所需测试租户、生产/PQC/管理者账号、四份材料和清理权限未冻结。
-4. `E:/IntRuoyi` 主工作树在本轮复核时有 268 项 dirty/untracked 改动，流程负责人仍在并行写入；原有 12 个重叠路径之外，当前范围正在继续变化，不能在共享工作树活跃期间更新主干。
+4. `E:/IntRuoyi` 主工作树在本轮复核时有 268 项 dirty/untracked 改动，流程负责人仍在并行写入；重叠范围正在继续变化，不能在共享工作树活跃期间更新主干。
 5. 将主干现有 tracked dirty patch 与目标提交做三方保真检查时，BPM 并行改动导致 `FormCenterRuntimeServiceImpl.java:88` 无法解析 `FormTemplateFillRuleAutoDetectService`；这不是流程1-11代码缺陷，不能在本任务中擅自补齐其它任务的服务实现。

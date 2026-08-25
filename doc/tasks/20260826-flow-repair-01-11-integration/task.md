@@ -24,7 +24,7 @@
 
 in_progress
 
-代码已经选择性应用并提交，当前 HEAD 为 `9c696db6d45ef3dda1a64e262c14cda2934ae106`；已通过定向编译/测试、独立后端启动和 runtime guard。真实数据库迁移、Tx-C outbox、写入型 E2E 和主干融合仍未完成。
+代码已经选择性应用并提交，当前 HEAD 为 `305eca335e53341d74013d7c2d43939d30bcd39e`；已通过流程4/6/7/8/10/traceability 定向回归、30模块打包、独立后端启动和 runtime guard。真实数据库迁移、真实 Tx-C outbox、写入型 E2E 和主干融合仍未完成。
 
 ## 设计约束检查
 
