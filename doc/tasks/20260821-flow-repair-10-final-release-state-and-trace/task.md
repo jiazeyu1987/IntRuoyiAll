@@ -42,6 +42,7 @@
 
 ### 本轮打包和运行态 smoke（2026-08-25）
 
+- 当前 `int_main` HEAD：`d3a1fecca83cb87b80d8002593cf7a291fb2593b`。
 - `yudao-server` 使用 `maven.test.skip=true` 打包成功；这是为了隔离既有非流程10测试源错误，不是测试通过证明。
 - 新构建的 `yudao-server-exec.jar` 实际启动成功，日志出现 `Started YudaoServerApplication`，48081 曾监听，`/actuator/health` 返回 HTTP 200 `{"status":"UP"}`；本轮启动的进程已停止。
 - 已有配置 smoke 仍证明 `MesReleaseAuthoritativeContextPort` 恰好一个 Bean；新增权威上下文组合测试暂受既有 MES/BPM 测试源错误阻断。

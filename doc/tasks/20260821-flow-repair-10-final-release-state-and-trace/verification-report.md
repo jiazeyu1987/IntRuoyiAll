@@ -57,6 +57,7 @@ development-plan.md 规定流程 6 负责三类回填成功后的批次执行创
 
 ## 本轮打包与启动复核（2026-08-25）
 
+- 当前 `int_main` HEAD：`d3a1fecca83cb87b80d8002593cf7a291fb2593b`，包含本轮流程10权威上下文代码、测试和任务记录提交。
 - `mvn -pl yudao-server -am '-Dmaven.test.skip=true' '-Dcheckstyle.skip=true' package`：退出码 0，`BUILD SUCCESS`，生成 `IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar`。该命令跳过所有测试源编译，不能替代测试证据。
 - 实际启动该新包（local profile，显式传入已有本地 DCC artifact-directory、MySQL/Redis 参数）：日志 `E:/IntRuoyi/output/runtime/int_main/logs/flow10-explicit-20260825-125343.log` 出现 `Started YudaoServerApplication`，未出现 `APPLICATION FAILED`。
 - 启动期间 `48081` LISTEN；`GET /actuator/health` 返回 HTTP 200 和 `{"status":"UP"}`。本轮启动进程已在核验后停止。

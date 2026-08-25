@@ -136,6 +136,7 @@ REGRESSION: NOT RUN -> 全链路真实回归、迁移和写入型 E2E 未运行�
 ## M12：本轮打包与启动 smoke（2026-08-25）
 
 - 状态：代码验证完成；任务保持 `ready_for_closeout`。
+- task-owned commit：`d3a1fecca83cb87b80d8002593cf7a291fb2593b`（当前 `int_main` HEAD）。
 - GREEN: `mvn -pl yudao-server -am '-Dmaven.test.skip=true' '-Dcheckstyle.skip=true' package` -> 退出码 0，`BUILD SUCCESS`（12:46:09）。使用 `maven.test.skip=true` 只跳过仓库中已有的测试源编译错误；不得将其记作测试通过。
 - GREEN: 使用 `yudao-server/target/yudao-server-exec.jar`、local profile、显式本地 DCC artifact-directory 和数据源参数实际启动 -> 日志 `output/runtime/int_main/logs/flow10-explicit-20260825-125343.log` 出现 `Started YudaoServerApplication`，且没有 `APPLICATION FAILED`。
 - GREEN: 启动后 `GET http://127.0.0.1:48081/actuator/health` -> HTTP 200，body 为 `{"status":"UP"}`；当时监听进程为本轮启动的 yudao-server。验证后已停止本轮启动进程，无残留 48081 listener。
