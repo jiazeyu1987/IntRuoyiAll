@@ -544,10 +544,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (command.getAction() == MesReleaseFinalizationAction.APPROVE) {
             MesProEdhrFourMaterialGateResult currentGate =
                     fourMaterialGateService.requireMaterialsReady(command.getBatchExecutionId());
+            MesReleaseFinalizationEvidence evidence = authoritativeContextPort.require(command);
+            hydrateFromAuthoritativeEvidence(command, evidence);
             if (!Objects.equals(currentGate.manifestHash(), command.getMaterialGateManifestHash())) {
                 throw exception(PRO_EDHR_RELEASE_MATERIAL_MANIFEST_STALE);
             }
-            MesReleaseFinalizationEvidence evidence = authoritativeContextPort.require(command);
             MesReleaseFinalizationValidator.validate(command, evidence, java.time.Clock.systemUTC());
             return finalizeApproval(command, evidence);
         }
@@ -556,6 +557,26 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             case WITHDRAW -> finalizeWithdraw(command);
             case APPROVE -> throw new IllegalStateException("approve action must use approval finalizer");
         };
+    }
+
+    private void hydrateFromAuthoritativeEvidence(MesReleaseFinalizationCommand command,
+                                                   MesReleaseFinalizationEvidence evidence) {
+        if (evidence == null || evidence.getMaterialGateReceipt() == null) {
+            return;
+        }
+        MesReleaseMaterialGateReceipt gate = evidence.getMaterialGateReceipt();
+        if (command.getBatchExecutionId() == null) {
+            command.setBatchExecutionId(gate.getBatchExecutionId());
+        }
+        if (command.getMaterialGateReceiptId() == null) {
+            command.setMaterialGateReceiptId(gate.getReceiptId());
+        }
+        if (command.getMaterialGateManifestHash() == null) {
+            command.setMaterialGateManifestHash(gate.getManifestHash());
+        }
+        if (command.getMaterialGateSourceSnapshotHash() == null) {
+            command.setMaterialGateSourceSnapshotHash(gate.getSourceSnapshotHash());
+        }
     }
 
     private MesProEdhrReleaseRespVO finalizeApproval(

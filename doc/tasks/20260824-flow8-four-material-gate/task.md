@@ -37,7 +37,7 @@ Implement a server-side batch-execution gate that requires the current valid ver
 - Focused Flow8 tests: 10 passed, 0 failed, 0 errors.
 - Latest focused source-binding recheck test: 1 passed, 0 failed, 0 errors; latest combined targeted run: 12 passed, 0 failed, 0 errors.
 - Flow8 plus release regression: 40 passed, 0 failed, 0 errors.
-- MES 24-module compile: PASS.
+- MES 24-module compile: historical PASS on the prior integrated baseline; latest direct module compile is BLOCKED by unrelated dirty MES simulation/production-release sources (7 compile errors) before tests. Flow8 sources are not the failure source.
 - Runtime guard: PASS for v6 slot 9 (`int_main`, frontend 8090, backend 48090).
 - Expanded batch-execution suite: NOT GREEN because 167 tests cannot create the existing `MesBatchExecutionEntryContractService` bean and 7 task-gate tests target an absent legacy reflection signature; these failures predate and do not exercise the Flow8 gate.
 - Real Playwright: NOT RUN because writable tenant, role accounts, an existing batch execution, four cleanable files, and cleanup authority were not supplied.
