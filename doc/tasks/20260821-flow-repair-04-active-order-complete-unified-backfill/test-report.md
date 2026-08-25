@@ -1,4 +1,6 @@
-# P1 独立测试审查报告
+# P1 独立测试审查报告（2026-08-22 历史基线）
+
+> 本报告记录 2026-08-22 在旧主线快照上的独立缺口审查，不代表 2026-08-25 Flow4 实现状态。当前实现和测试证据见 `execution-log.md`、`verification-report.md` 及本报告末尾的复核补记。
 
 ## 审查范围
 
@@ -36,3 +38,9 @@
 ## 独立结论
 
 **P1 = NO-GO（实现与测试证据不足，且测试执行被工具链阻塞）。** 现有测试可作为 hash 基础能力和旧申请流程回归基线，但不能证明流程修复 4 的双 100% 完成、Tx-A 原子三类回填、失败无回执或完成级幂等已经满足目标态。
+
+## 2026-08-25 implementation recheck
+
+- Flow4 已新增订单完成 Tx-A、正式三类回填结果 ID、不可变 `BACKFILL_SUCCEEDED` receipt 和 Flow6 tenant-scoped read port；不含 `batchExecutionId`/`BATCH_*`。
+- `MesTeamLeaderActiveOrderCompletionServiceTest`、`MesTeamLeaderActiveOrderCompletionBackfillPortImplTest`、`MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest`、`MesProcessPoolTeamLeaderSchemaTest` 定向套件为 `37/37 PASS`；MES compile 为 `BUILD SUCCESS`。
+- 数据库 migration apply/rollback、真实租户事务回滚和 Playwright E2E 仍 `NOT_RUN`；完整 reactor 在无关 `yudao-server` MDEP-98 阻断。

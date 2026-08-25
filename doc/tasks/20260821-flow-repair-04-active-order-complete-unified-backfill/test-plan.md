@@ -2,7 +2,7 @@
 
 ## 范围
 
-本计划用于后续严格 TDD 实施。当前任务不运行构建、服务或写入型 E2E；下面的 RED/GREEN/REGRESSION 是实施门槛，不是已经取得的测试结果。
+本计划定义严格 TDD 实施和验收边界。当前已执行流程4后端单元/合同测试和 MES compile；数据库写入型迁移、真实数据事务回滚和 Playwright E2E 仍因环境/下游前置未运行。
 
 ## 测试数据前置
 
@@ -63,6 +63,13 @@ REGRESSION: <精确测试命令> -> PASS
 - Playwright 真实用户路径：生产组长完成、四份文件上传、管理者代表放行、追溯查询；每个写入均为任务自有数据并按同一页面路径清理/恢复。
 - E2E 证据记录订单、批次执行和资料 ID，避免记录密码、token 或签名口令。
 
+## 2026-08-25 execution evidence
+
+- `RED: mvn -pl yudao-module-mes -Dtest=... test` -> FAIL，首轮缺少新增 receipt 结果 ID 合同，随后由 DTO/DO/端口测试驱动实现。
+- `GREEN: mvn -pl yudao-module-mes -Dtest=MesTeamLeaderActiveOrderCompletionServiceTest,MesTeamLeaderActiveOrderCompletionBackfillPortImplTest,MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest,MesProcessPoolTeamLeaderSchemaTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，`37/37`。
+- `GREEN: mvn -pl yudao-module-mes -DskipTests -Dmaven.test.skip=true compile` -> PASS。
+- `REGRESSION: git diff --check` -> PASS；完整 reactor 在无关 `yudao-server` MDEP-98 阻断，未将该失败归因于流程4。
+
 ## 当前 blocker
 
-当前仅完成只读设计；流程5、6/9、7、8、10、11 合同已冻结，但生产实现、测试、真实任务自有数据、正式签名账号、四份材料、迁移证据和下游实现端口尚未完成。因此所有可执行测试均处于 `NOT_RUN`，不得宣称通过。
+流程4 Tx-A 代码、持久化 receipt、幂等/冲突和定向测试已落地；状态保持 `ready_for_closeout`。数据库 migration apply/rollback、真实租户数据事务回滚和 Playwright 真实用户路径尚未运行；流程6 Tx-B、流程7/8/10/11 全链路证据仍由各 owner 提供。完整 reactor 的 `yudao-server` MDEP-98 和主线其它并行测试编译错误均为非流程4 blocker。

@@ -2,7 +2,7 @@
 
 ## Current Status
 
-ready_for_closeout。已按总流程复核修订职责、事务边界、材料门禁和测试计划；未修改生产代码、数据库或运行环境，未执行写入型 E2E。待主线程完成最终只读一致性检查和收尾清理。
+ready_for_closeout。流程4 Tx-A、不可变 completionBackfillReceipt、定向测试和 MES 编译已完成；数据库迁移 apply/rollback、真实数据 E2E 及主线程最终验证仍待执行。流程6/7/8/10/11 的后继证据不属于本任务实现范围。
 
 ## 任务目标
 
@@ -27,6 +27,14 @@ ready_for_closeout。已按总流程复核修订职责、事务边界、材料�
 - `MesTeamLeaderOrderProcessCompletionService` 在单个工序满足条件时调用 `completeAndBackfill`；`MesTeamLeaderBatchRecordBackfillServiceImpl` 以独立事务回填批记录。这会在订单完成前物化最终资料。
 - 进度读取在 `MesTeamLeaderActiveOrderServiceImpl` 中按工序完成记录汇总；未发现锁定订单、双 100% 权威校验及统一回填建批的订单级命令。
 - 现有申请有请求和业务幂等，但没有涵盖“三类回填、建批/复用、状态推进”的订单完成级幂等回执。
+
+## 2026-08-25 实现状态
+
+- `POST /active-order/complete` 在 `@Transactional(rollbackFor = Exception.class)` Tx-A 内锁定订单并重新校验生产/PQC 双100、正式工单/领料/PQC/损耗来源及签名快照。
+- Tx-A 依次写入批记录、过程检验和损耗结果行；正损耗写 `LOSS_REPORT` 并把新生成的正式结果行 ID 写入 receipt，无损耗写 `NO_LOSS`/`NOT_REQUIRED`，不创建损耗单；任一写入异常在服务层阻止订单完成和 receipt 插入。
+- receipt 表新增 `batch_record_id`、`process_inspection_id`，结果哈希覆盖两类正式结果 ID；Flow6 读取端按租户、唯一 `BACKFILL_SUCCEEDED`、三类状态、结果 ID、来源哈希/完成版本/receiptHash 重新校验，缺失或篡改 fail-fast。
+- 流程4不写 `batchExecutionId` 或 `BATCH_*`；流程6仅在后继 Tx-B 消费 receipt。逐工序服务不再调用 `completeAndBackfill`。
+- 定向测试 `MesProcessPoolTeamLeaderSchemaTest`、`MesTeamLeaderActiveOrderCompletionBackfillPortImplTest`、`MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest`、`MesTeamLeaderActiveOrderCompletionServiceTest` 共 37/37 通过；MES compile 通过。数据库 apply/rollback、真实租户数据和写入型 E2E 尚未运行。
 
 ## 根因
 

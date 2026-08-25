@@ -184,6 +184,13 @@
 4. 交付前端完成操作和正式 blocker 展示。
 5. 流程11统筹真实用户路径和回归；流程8、10、7分别覆盖四份材料、最终放行和放行后追溯。
 
+## 2026-08-25 implementation evidence
+
+- Tx-A 已在活跃订单完成服务中锁定订单、重算生产/PQC 双 100%、校验正式来源快照和签名快照，并在同一事务中写入批记录、过程检验记录、实际损耗或正式 `NO_LOSS` 事实。
+- 三类正式结果写入均返回持久化记录 ID；只有三类写入成功后才插入不可变 `BACKFILL_SUCCEEDED` completion receipt。receipt 包含 `batchRecordId`、`processInspectionId`、损耗结果 ID/`NO_LOSS` 决策、来源快照和哈希，不持有 `batchExecutionId` 或 `BATCH_*` 状态。
+- Flow6 读取端口按租户、receiptId、receiptHash、完成版本、三类回填状态和损耗分支再次校验；缺失、篡改、跨租户或不完整 receipt 均阻断，不从原始报工/PQC 补造。
+- 定向服务、回填适配器、Flow6 receipt 端口和 schema 合同共 `37/37` 通过；MES 模块 compile 通过；完整 reactor 在无关 `yudao-server` MDEP-98 阻断，数据库 apply/rollback 和真实数据 E2E 未运行。
+
 ## 12. 实施 blocker（合同已冻结）
 
 1. 流程6/9/8/10/7/11 的职责、状态和接口合同已在对应任务文档冻结；当前生产代码尚未实现这些合同。

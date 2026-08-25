@@ -2,11 +2,11 @@
 
 ## 验证范围
 
-本报告只验证本任务的文档设计和只读审计结论。未修改生产代码、数据库或运行环境；未启动服务，未运行构建和写入型 E2E。
+本报告验证流程4 Tx-A 代码、receipt 持久化契约、定向测试和 MES 编译；未执行数据库 apply/rollback、真实数据准备、服务启动或写入型 E2E。
 
 ## 代码符合性结论
 
-**不符合目标态，需实施修复。**
+**流程4 task-owned 实现符合当前代码合同；尚不能作为全链路放行证据。**
 
 现有实现将批记录回填放在工序完成阶段，并在申请放行阶段要求每工序回填成功；它没有以活跃订单完成为唯一状态所有者。目标边界已修订为 Tx-A 在双100完成节点原子执行三类回填并一次写入不可变 completionBackfillReceipt，返回 provisionHandoff=PENDING_FLOW6；receipt 不持有 batchExecutionId 或流程6批次状态。流程6（含流程9合法入口）在后继 Tx-B 创建/复用批次，独占 BATCH_PROVISIONING、BATCH_PROVISIONING_RETRYABLE、BATCH_PROVISIONING_BLOCKED、BATCH_READY 和 batchExecutionId；Tx-A 与 Tx-B 不宣称同一数据库事务。现有申请级幂等不足以覆盖完成 receipt 和后继建批重试。
 
@@ -21,13 +21,21 @@
 
 已完成 UTF-8 读取及必需文件存在性检查：DOCUMENT_CHECK=PASS。五份必需文档均存在，且覆盖目标态、当前代码事实、根因、修改边界、API/数据/状态、BDD、TDD 计划、blocker、迁移/回滚和跨流程契约。
 
-## 未运行验证
+## 已运行验证
+
+| 项目 | 状态 | 证据 |
+| --- | --- | --- |
+| 流程4定向测试 | PASS | 4 个类共 37 tests，0 failures/errors |
+| MES main compile | PASS | `-pl yudao-module-mes -DskipTests -Dmaven.test.skip=true compile` |
+| schema/diff-check | PASS | schema contract assertions pass；`git diff --check` clean |
+
+## 验证边界
 
 | 项目 | 状态 | 原因 |
 | --- | --- | --- |
-| 后端测试 | NOT_RUN | 本任务仅文档设计，未改代码 |
-| 前端测试 | NOT_RUN | 本任务仅文档设计，未改前端 |
-| 构建 | NOT_RUN | 用户明确不启动服务或运行实现验证 |
+| 数据库 migration apply/rollback | NOT_RUN | 未授权真实数据库和备份/回滚演练 |
+| 前端测试 | NOT_RUN | 本任务未改前端；完成按钮静态合同由既有前端任务负责 |
+| 全 reactor 回归 | BLOCKED | MES 目标测试通过后，无关 `yudao-server` dependency unpack (`MDEP-98`) 失败 |
 | Playwright 写入型 E2E | NOT_RUN | 用户明确禁止；且真实前置尚未齐备 |
 
 ## 实施 blocker（合同已冻结）
@@ -40,10 +48,10 @@
 
 ## 结论
 
-当前设计已按复核意见明确职责、Tx-A/Tx-B 边界、正式目标、实施边界和验收方法；合同已冻结，但生产实现、测试、真实数据和迁移证据尚未完成，不应据此放行生产代码。任务文档状态为 ready_for_closeout。
+当前流程4代码已实现双100门禁、正式来源/签名快照锁定、三类结果同事务写入、NO_LOSS 分支、不可变 BACKFILL_SUCCEEDED receipt、幂等/冲突和 Flow6 fail-fast 读取合同；定向 37/37 和 MES compile 已通过，仍需数据库迁移演练和真实 E2E，任务文档状态为 ready_for_closeout。
 
 
 
 ## 文档验证补记
 
-已完成 UTF-8 读取及必需文件存在性检查：DOCUMENT_CHECK=PASS。实现级测试仍为 NOT_RUN；文档结构验证已通过，尚未取得生产实现、真实数据或迁移证据。任务文档状态为 ready_for_closeout。
+已完成 UTF-8 读取及必需文件存在性检查：DOCUMENT_CHECK=PASS。实现级定向测试已取得 37/37 PASS；数据库真实执行、迁移回滚和真实数据 E2E 仍为 NOT_RUN。任务文档状态为 ready_for_closeout。

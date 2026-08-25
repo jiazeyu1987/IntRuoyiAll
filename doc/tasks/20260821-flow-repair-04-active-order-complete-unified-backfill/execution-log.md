@@ -44,6 +44,8 @@ REGRESSION: <待实现阶段确定的完整回归命令> -> NOT_RUN, 当前任�
 
 ## Flow6 receipt read-contract freeze (2026-08-24)
 
+> 本节中的“未运行/待实现”仅是 2026-08-24 复核快照；2026-08-25 的实现和测试证据以本日志末尾的 Tx-A implementation milestone 为准。
+
 BDD: Flow6 consumes an immutable receipt -> Given a tenant-scoped receiptId, When Flow6 reads the Flow4 handoff, Then only a persisted BACKFILL_SUCCEEDED receipt is returned; missing, tampered, cross-tenant, incomplete, or non-success receipts fail fast and Flow6 must not rebuild from production/PQC facts.
 BDD: Three backfill statuses are explicit -> Given a successful Tx-A receipt, When Flow6 validates the handoff, Then batchRecordStatus=SUCCESS and processInspectionStatus=SUCCESS; lossReportStatus=SUCCESS is required only for hasActualLoss=true and positive lossQuantity, otherwise hasActualLoss=false, lossQuantity=0, lossReportStatus=NOT_REQUIRED, a zero-loss snapshot is required, and no loss record is exposed.
 BDD: Receipt identity is frozen -> Given a valid receipt, When Flow6 consumes it, Then receiptId remains Long, tenantId is matched in the query and rechecked on the row, completionVersion, sourceSnapshotHash, and receiptHash are non-empty/frozen, and no batchExecutionId or BATCH_* field is part of the handoff.
@@ -69,3 +71,16 @@ REGRESSION: & $env:MAVEN_HOME\\bin\\mvn.cmd -pl yudao-module-mes -am -DskipTests
 - DOCUMENT_CHECK=PASS；五份必需文档均存在，Node UTF-8 读取无替换字符，设计必需段落均已覆盖。
 - 未运行构建、服务、数据库操作或写入型 E2E，符合用户限定范围。
 - 任务状态：ready_for_closeout（待主线程完成最终只读一致性检查和收尾）。
+
+## Tx-A implementation milestone (2026-08-25)
+
+BDD: 三类正式结果同节点提交 -> Given 活跃订单双进度均为100%且正式来源/签名快照完整，When 生产组长点击 `/active-order/complete`，Then 同一 `@Transactional` Tx-A 写入 BATCH_RECORD、PROCESS_INSPECTION 和 LOSS_REPORT 或 NO_LOSS，成功后才插入不可变 `BACKFILL_SUCCEEDED` receipt。
+BDD: 正损耗/无损耗分支 -> Given REQUIRED 实际损耗，Then 生成 LOSS_REPORT 正式结果行并将其 ID 写入 receipt；Given NO_LOSS，Then 仅生成 NO_LOSS 事实、`hasActualLoss=false`、`lossQuantity=0`、`lossReportStatus=NOT_REQUIRED`，不生成损耗单。
+BDD: 结果 ID 和篡改阻断 -> Given receipt 缺失批记录/过程检验结果 ID、租户不匹配、哈希变化或状态非 BACKFILL_SUCCEEDED，When 流程6按 receiptId/tenantId 读取，Then fail-fast 且不得从原始报工/PQC事实补造。
+
+RED: `& $env:MAVEN_HOME\\bin\\mvn.cmd -pl yudao-module-mes "-Dtest=...Flow6ReceiptPortTest" test` -> FAIL，预期为缺少正式结果 getter/校验字段。
+GREEN: `& $env:MAVEN_HOME\\bin\\mvn.cmd -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderCompletionServiceTest,MesTeamLeaderActiveOrderCompletionBackfillPortImplTest,MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest,MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，37 tests, 0 failures/errors。
+GREEN: `& $env:MAVEN_HOME\\bin\\mvn.cmd "-DskipTests" "-Dmaven.test.skip=true" "-pl" "yudao-module-mes" compile` -> PASS，MES main compile。
+REGRESSION: 带 reactor 的同一测试命令在 MES 37 tests 通过后于无关 `yudao-server` dependency unpack (`MDEP-98`) 失败；未修改该模块。数据库 apply/rollback、真实租户数据和写入型 Playwright E2E 为 NOT_RUN。
+
+实现证据：backfill insert 返回并校验生成 ID；receipt hash 覆盖 batchRecordId/processInspectionId/正式损耗结果 ID；Flow6 读取端重新校验这些字段和损耗分支；service failure path 在 markCompleted/receiptMapper.insert 前抛出异常。流程4不持有 batchExecutionId/BATCH_*。
