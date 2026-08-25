@@ -2,13 +2,16 @@
 
 ## 结果
 
-当前代码融合结果为 `in_progress`，业务代码已经应用到 `D:/IntRuoyiWorktree/xiufu20260826`，v7 runtime 基线已同步，流程4/7/8补强代码正在提交和回归。
+当前代码融合结果为 `in_progress`，业务代码已经应用并提交到 `D:/IntRuoyiWorktree/xiufu20260826`，v7 runtime 基线已同步，定向回归和独立后端启动验证通过；真实迁移、Tx-C outbox 写入和主干融合仍有阻塞。
 
 ## 已融合代码
 
 - 流程3：PQC 数量 fixture 和当前主线签名确认测试适配。
 - 流程5：损耗导入测试 fixture、测试 SQL 字段。
 - 流程6：服务端权威 batch receipt resolver、入口合同和建批服务测试。
+- 流程4：活跃订单完工 receipt 复用，避免 dossier 节点重复调用旧三类回填 writer。
+- 流程7：批次执行提交后的 `AFTER_COMMIT` Tx-C 事件触发和生产者映射。
+- 流程8：四份材料 `MATERIALS_READY` 权威 receipt 持久化和放行读取。
 
 ## 已排除代码
 
@@ -30,8 +33,19 @@
 - 流程7事件 witness 映射：`MesProEdhrBatchTraceTxCProducerEventTest 1/1 PASS`。
 - 新增材料 receipt SQL 合同：`MesReleaseMaterialGateReceiptSqlContractTest 1/1 PASS`。
 - 全融合定向回归：`307/307 PASS`，0 failures、0 errors。
-- 真实数据库迁移、服务启动、写入型 Playwright E2E：未运行。
+- `mvn -o -pl yudao-server -am -DskipTests package`：`BUILD SUCCESS`，30/30 modules。
+- 独立后端启动：`48258` health HTTP `200`，`{"status":"UP"}`；启动日志确认 `Started YudaoServerApplication`，运行 Jar 为 `output/runtime/xiufu20260826/yudao-server-exec.jar`。
+- runtime guard：PASS，slot 43，前端 `8258`，后端 `48258`。
+- 只读 schema 核对发现 `mes_pro_edhr_material_gate_receipt` 尚未存在，正式迁移未执行。
+- 真实数据库迁移、真实 Tx-C outbox 写入闭环、写入型 Playwright E2E：未完成。
 
 ## 结论
 
-代码融合本身没有 Git 冲突；流程4旧双写、流程7自动触发和流程8 receipt 持久化已补齐。当前剩余项是正常提交这些新增证据、真实数据库迁移/真实 outbox、真实服务启动和全链路 Playwright，之后才允许主干集成。不能把当前定向测试结果写成流程1-11全链路完成。
+代码融合提交已经完成，当前目标 HEAD 为 `9c696db6d45ef3dda1a64e262c14cda2934ae106`。流程4旧双写、流程7自动触发和流程8 receipt 持久化已补齐；但不能把定向测试和 health 结果写成流程1-11全链路完成。
+
+剩余阻塞：
+
+1. 本地真实库尚未应用 `20260826_mes_edhr_material_gate_receipt.sql`，且当前任务未获得明确的业务库 DDL 写入授权。
+2. 真实 Tx-C outbox 写入闭环未执行，缺少可清理的测试批次和真实来源数据。
+3. 写入型 Playwright 所需测试租户、生产/PQC/管理者账号、四份材料和清理权限未冻结。
+4. `E:/IntRuoyi` 主工作树有 212 项 dirty/untracked 改动，12 个路径与目标提交重叠；在不覆盖并行改动的前提下不能直接更新主干工作树。需先由主干负责人对重叠文件分类提交或明确融合窗口。

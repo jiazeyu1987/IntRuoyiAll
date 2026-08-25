@@ -92,4 +92,16 @@ GREEN: `MesProEdhrBatchTraceTxCProducerEventTest` -> `1/1 PASS`。
 
 - 流程3、5、6、7、8、10相关定向集合：`307/307 PASS`，0 failures、0 errors。
 - `git diff --check`：PASS。
-- 真实数据库迁移、服务启动、真实租户 Playwright E2E：尚未运行，缺少当前任务可确认的数据库 CLI/连接和真实写入测试前置。
+- `mvn -o -pl yudao-server -am -DskipTests package`：`BUILD SUCCESS`，30/30 modules。
+- 已将验证 Jar 复制到 `output/runtime/xiufu20260826/yudao-server-exec.jar`，SHA-256 为 `A8395D4D4A895492ABC5B97008C769C5F72D9A5C04197EE8743F458E9B5A5EBC`。
+- 目标后端以该稳定运行 Jar 启动在 `48258`，进程命令行指向目标 worktree，日志出现 `Started YudaoServerApplication`；`GET /actuator/health` 返回 HTTP `200`、`{"status":"UP"}`。
+- `branch-runtime-port-guard.ps1`：PASS，slot 43，前端 `8258`，后端 `48258`。
+- 只读 schema 核对：本地 Docker MySQL 可连接，但 `mes_pro_edhr_material_gate_receipt` 尚不存在；正式迁移未执行，不能把 SQL 文件存在或应用启动成功写成迁移完成。
+- 真实数据库迁移、真实 Tx-C outbox 写入闭环、真实租户 Playwright E2E：未完成。迁移属于数据库写入，当前任务没有明确授权执行本地业务库 DDL；真实租户、账号、四份测试材料和清理权限也未冻结。
+
+## 集成状态
+
+- 目标分支 `codex/xiufu20260826` 当前 HEAD：`9c696db6d45ef3dda1a64e262c14cda2934ae106`。
+- `int_main` 当前 HEAD：`2faf0f33234614f46867e5d23e450c41ef62cc1f`，是目标分支祖先，因此提交历史本身可 fast-forward。
+- 主工作树 `E:/IntRuoyi` 有 212 项 dirty/untracked 改动；其中 12 个路径与目标分支变更重叠，包括流程6/7/8/10代码、运行规则和 AGENTS.md。
+- 未在主工作树执行 merge、reset、stash、checkout、整体提交或清理；这些操作可能覆盖并行任务改动。
