@@ -10,7 +10,7 @@
 2. `completed`：按确认范围显式暂存并检查 staged 文件。
 3. `completed`：提交当前快照并复扫残余工作区。
 4. `completed`：运行分支运行时端口门禁并推送 `origin/int_main`。
-5. `ready_for_closeout`：确认远端同步，执行收尾清理并记录最终证据。
+5. `completed`：确认远端同步，执行收尾清理并记录最终证据。
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
