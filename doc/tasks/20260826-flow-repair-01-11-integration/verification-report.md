@@ -29,7 +29,7 @@
 - 流程3/5/6定向测试：`222/222 PASS`。
 - `git diff --check`：PASS。
 - runtime guard：PASS，slot 43，前端 `8258`，后端 `48258`。
-- 正常目标分支提交：已完成，当前 HEAD 为 `e1b179329ff3ea32227ceca473c4f063d5bcb90a`；不使用 `--no-verify`。
+- 正常目标分支提交：已完成，当前 HEAD 为 `93bd2b365d721711f8d3d2f8aada319a502cb9ba`；不使用 `--no-verify`。
 - 流程8材料 receipt 定向验证：`43/43 PASS`，包含门禁服务、receipt adapter、预检和权威放行上下文。
 - 流程4 dossier receipt reuse：`1/1 PASS`，活跃订单路径不调用旧三类 writer。
 - 流程7 Tx-C 自动触发：代码已接入 `AFTER_COMMIT` application service，应用服务只接收 witness 并唯一调用 producer；真实数据库 outbox 验证仍未执行。
@@ -47,10 +47,11 @@
 - migration 后稳定 Jar 启动：PASS；`48258` 日志确认 `Started YudaoServerApplication`，health HTTP `200`、`{"status":"UP"}`，进程随后已停止。
 - Stage2.5 增量验证：`MesStage2_5ReceiptHandoffContractTest 1/1 PASS`；24模块测试编译、30模块打包、slot 44 `48259` 启动和 health 均 PASS。
 - 真实 Tx-C outbox 写入闭环、写入型 Playwright E2E：未完成。
+- Stage2.5 独立修复：已完成并融合；`MesStage2_5ReceiptHandoffContractTest` 为 `1/1 PASS`，24模块测试编译、30模块打包、slot 44 `48259` 启动和 health 均通过，专属 worktree 已删除。
 
 ## 结论
 
-代码融合提交已经完成，当前目标 HEAD 为 `e1b179329ff3ea32227ceca473c4f063d5bcb90a`；`int_main` 已原子 fast-forward 到同一提交。流程4旧双写、流程7 AFTER_COMMIT witness handoff、流程8 receipt 持久化和 Stage2.5 receipt handoff 已补齐；但 `E:/IntRuoyi` 主工作树仍有未提交 overlay，不能把主工作树当前运行文件或定向测试写成流程1-11全链路完成。
+代码融合提交已经完成，当前目标 HEAD 为 `93bd2b365d721711f8d3d2f8aada319a502cb9ba`；`int_main` 已原子 fast-forward 到同一提交。流程4旧双写、流程7 AFTER_COMMIT witness handoff、流程8 receipt 持久化和 Stage2.5 receipt handoff 已补齐；但 `E:/IntRuoyi` 主工作树仍有未提交 overlay，不能把主工作树当前运行文件或定向测试写成流程1-11全链路完成。
 
 剩余阻塞：
 

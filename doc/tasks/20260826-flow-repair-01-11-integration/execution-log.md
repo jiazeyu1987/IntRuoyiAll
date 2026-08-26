@@ -162,4 +162,10 @@ BDD: Stage2.5 consumes completion receipt -> Given active-order completion has r
 RED: copied Stage2.5 slice initially failed compilation because removed dossier types and a stale four-argument simulation API were still referenced.
 GREEN: independent commit `b3607cb3c` removed the writer dependency, used the current two-argument simulation API, and added the Stage2.5 API/contract test.
 GREEN: `MesStage2_5ReceiptHandoffContractTest 1/1 PASS`; MES 24-module test compile and server 30-module package PASS; slot 44 `48259` startup/health PASS.
-INTEGRATION: Stage2.5 fast-forwarded into target and `int_main`; all relevant refs point to `e1b179329ff3ea32227ceca473c4f063d5bcb90a`.
+INTEGRATION: Stage2.5 fast-forwarded into target and `int_main`; later integration documentation commits advance both refs to `93bd2b365d721711f8d3d2f8aada319a502cb9ba`.
+
+## Stage2.5 closeout update (2026-08-26)
+
+- Stage2.5 task status is `completed`; the dedicated source worktree was removed after clean-worktree and ancestor checks, and runtime slot 44 was released.
+- Current target and `int_main` HEAD: `93bd2b365d721711f8d3d2f8aada319a502cb9ba`.
+- The shared `E:\IntRuoyi` dirty/untracked overlay remains preserved and is not treated as the integrated runtime state.
