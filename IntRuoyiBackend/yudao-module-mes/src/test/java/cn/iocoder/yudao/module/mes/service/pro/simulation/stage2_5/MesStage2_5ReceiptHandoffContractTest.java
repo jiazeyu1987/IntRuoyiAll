@@ -25,7 +25,8 @@ class MesStage2_5ReceiptHandoffContractTest {
         assertFalse(source.contains("dossierPort"));
         assertTrue(source.contains("completionReceiptMapper"));
         assertTrue(source.contains("buildBackfillReceipt"));
-        assertTrue(source.contains("simulateActiveOrderCompletion(validated.getActorUserId(), activeOrder.getId())"));
+        assertTrue(source.contains("simulateActiveOrderCompletion(validated.getActorUserId(), activeOrder.getId(),")
+                        && source.contains("\"2.5\", validated.getSimulationRunId()"));
         assertTrue(source.contains("setCompletionBackfillReceipt(receipt)"));
         assertTrue(source.contains("backfillReceipt.getBatchRecordId()"));
         assertTrue(source.contains("backfillReceipt.getProcessInspectionId()"));

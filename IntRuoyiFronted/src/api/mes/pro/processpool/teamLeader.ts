@@ -233,6 +233,23 @@ export interface TeamLeaderActiveOrderSimulationRespVO {
   inspectionProgressPercent: number | string
 }
 
+export interface Stage2_5BackfillBatchExecutionSimulationReqVO {
+  simulationRunId: string
+  activeOrderId: number
+  expectedVersion: number
+}
+
+export interface Stage2_5BackfillBatchExecutionSimulationRespVO {
+  simulationRunId: string
+  cleanedSimulationRunId?: string
+  batchExecutionId: number
+  batchExecutionCode?: string
+  completionReceiptId?: number
+  detailPath: string
+  batchExecutionSnapshot: Record<string, unknown>
+  blockers?: string[]
+}
+
 export interface Stage6IdiSimulationReqVO {
   simulationRunId: string
 }
@@ -838,6 +855,16 @@ export const simulateTeamLeaderActiveOrderCompletion = async (
 ) => {
   return await request.post<TeamLeaderActiveOrderSimulationRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulate-completion',
+    data,
+    ignoreErrorMessage: true
+  })
+}
+
+export const simulateStage2_5BackfillBatchExecution = async (
+  data: Stage2_5BackfillBatchExecutionSimulationReqVO
+) => {
+  return await request.post<Stage2_5BackfillBatchExecutionSimulationRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/stage2-5',
     data,
     ignoreErrorMessage: true
   })

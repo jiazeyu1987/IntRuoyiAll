@@ -1548,6 +1548,22 @@
                 <Icon icon="ep:magic-stick" />
                 模拟完成
               </el-button>
+              <el-button
+                link
+                type="success"
+                :loading="activeOrderSimulationSubmittingId === row.id"
+                :disabled="
+                  maintenanceSubmitting ||
+                  activeOrderRebuildSubmittingId !== undefined ||
+                  activeOrderSimulationSubmittingId !== undefined
+                "
+                data-team-leader-simulate-active-order-stage2-5
+                title="模拟完工并打开真实批次执行详情"
+                @click="handleSimulateStage2_5(row)"
+              >
+                <Icon icon="ep:finished" />
+                模拟完工
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -3719,6 +3735,7 @@ import {
   previewTeamLeaderActiveOrderRebuild,
   rebuildTeamLeaderActiveOrder,
   simulateStage1ActiveOrderCompletion,
+  simulateStage2_5BackfillBatchExecution,
   simulateStage6IdiData,
   simulateTeamLeaderActiveOrderCompletion,
   removeTeamLeaderActiveOrder,
@@ -8479,6 +8496,33 @@ const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
     ElMessage.error(
       resolveErrorMessage(error, writeCompleted ? 'Stage1 已生成，但列表刷新失败' : 'Stage1 模拟失败')
     )
+  } finally {
+    activeOrderSimulationSubmittingId.value = undefined
+  }
+}
+
+const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
+  if (!row.version && row.version !== 0) {
+    ElMessage.error('活跃订单版本缺失，无法安全执行模拟完工')
+    return
+  }
+  activeOrderSimulationSubmittingId.value = row.id
+  try {
+    await ElMessageBox.confirm(
+      '本次将复用真实活跃订单完工逻辑，统一回填批记录、过程检验记录和必要的损耗单，随后创建或打开真实批次执行并进入详情页。不会上传来料检、灭菌或成品检文件，也不会最终放行。',
+      '确认模拟完工',
+      { type: 'warning', confirmButtonText: '开始模拟', cancelButtonText: '取消' }
+    )
+    const result = await simulateStage2_5BackfillBatchExecution({
+      simulationRunId: 'STAGE2_5-' + Date.now(),
+      activeOrderId: row.id,
+      expectedVersion: row.version
+    })
+    ElMessage.success('模拟完工已完成，正在打开真实批次执行详情')
+    await router.push(result.detailPath)
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, '模拟完工失败'))
   } finally {
     activeOrderSimulationSubmittingId.value = undefined
   }

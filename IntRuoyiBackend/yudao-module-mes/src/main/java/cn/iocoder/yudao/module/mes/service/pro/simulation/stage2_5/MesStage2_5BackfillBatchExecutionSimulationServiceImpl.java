@@ -211,7 +211,8 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
 
         MesTeamLeaderActiveOrderCompletionResult completion;
         MesTeamLeaderActiveOrderSimulationResult simulation = activeOrderSimulationService
-                .simulateActiveOrderCompletion(validated.getActorUserId(), activeOrder.getId());
+                .simulateActiveOrderCompletion(validated.getActorUserId(), activeOrder.getId(),
+                        "2.5", validated.getSimulationRunId());
         requireDoubleComplete(simulation);
         completion = activeOrderCompletionService.complete(validated.getActorUserId(),
                 new MesTeamLeaderActiveOrderCompletionCommand()
