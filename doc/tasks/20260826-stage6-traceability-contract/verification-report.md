@@ -11,8 +11,18 @@ Stage6 contract alignment is complete. The backend endpoint, frontend API, workb
 - MES compile: BUILD SUCCESS。
 - Stage6 backend uses Stage5 release snapshot plus formal batch/domain trace reads。
 - Stage6 does not create work orders, active orders, PQC facts, files, backfills or approval decisions。
+- int_main 主干 MES compile：BUILD SUCCESS。
+- int_main 主干 Java Stage6 contracts：9/9 PASS。
+- int_main 主干 frontend static contract：PASS。
+- int_main runtime port guard：PASS（8081/48081）。
+- 流程6相关路径 `git diff --check`：PASS。
 
 ## Integration
 
 - The main worktree had an older Stage6 static test file while its Stage6 source was already current。
-- Only the Stage6 static test will be synchronized to E:\IntRuoyi；unrelated dirty frontend changes remain untouched。
+- The Stage6 static test was synchronized to E:\IntRuoyi；unrelated dirty frontend changes remain untouched。
+- The main worktree currently retains unrelated dirty/untracked changes and has no staged flow6 changes。
+
+## Conclusion
+
+流程6已达到本任务定义的完成门禁：前后端只读追溯契约一致，编译、定向测试、静态合同和运行时端口门禁全部通过。

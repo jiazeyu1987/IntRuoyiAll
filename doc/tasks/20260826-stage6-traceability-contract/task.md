@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Verification Evidence
 
@@ -28,6 +28,9 @@ ready_for_closeout
 - Stage6 Java contracts: 9/9 PASS。
 - MES module compile: BUILD SUCCESS。
 - Main backend and frontend sources already use the same stage6-idpr and simulationRunId-only contract。
+- int_main frontend static contract: PASS。
+- int_main runtime port guard: PASS（8081/48081）。
+- int_main staged index: empty；existing unrelated dirty/untracked overlay preserved。
 
 ## 设计约束检查
 
