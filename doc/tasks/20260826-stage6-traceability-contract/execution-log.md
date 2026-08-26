@@ -27,4 +27,10 @@ BDD: Stage6 uses the released traceability path -> Given Stage5 has produced an 
 
 ## Blockers
 
-无。真实 Playwright 业务链路未纳入本任务门禁，因为当前没有在本任务内创建的真实测试租户、账号和已放行 Stage5 数据；已完成静态契约、后端定向测试和编译门禁。
+真实 Playwright 业务链路未纳入本任务门禁，因为当前没有在本任务内创建的真实测试租户、账号和已放行 Stage5 数据；已完成静态契约、后端定向测试和编译门禁。
+
+## Closeout
+
+- cleanup preview：阻塞。
+- 原因：E:\\IntRuoyi 主工作树存在并行 dirty/untracked 改动，不能执行临时 worktree 的 ff-only 收尾合并和删除。
+- 处理：不清理、不覆盖、不提交并行改动；保留当前流程6 worktree 和 ready_for_closeout 状态。

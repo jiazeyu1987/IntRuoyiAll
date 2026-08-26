@@ -25,4 +25,4 @@ Stage6 contract alignment is complete. The backend endpoint, frontend API, workb
 
 ## Conclusion
 
-流程6已达到本任务定义的完成门禁：前后端只读追溯契约一致，编译、定向测试、静态合同和运行时端口门禁全部通过。
+流程6已达到本任务定义的代码完成门禁：前后端只读追溯契约一致，编译、定向测试、静态合同和运行时端口门禁全部通过。任务状态保留为 ready_for_closeout，因为主工作树的并行 dirty/untracked 改动阻止了临时 worktree 的安全删除。

@@ -20,7 +20,7 @@
 
 ## Current Status
 
-completed
+ready_for_closeout
 
 ## Verification Evidence
 
