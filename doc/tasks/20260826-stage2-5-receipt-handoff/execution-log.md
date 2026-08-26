@@ -29,3 +29,6 @@ Implementation in progress. The RED confirms the old dossier writer dependency i
 - `mvn -o -pl yudao-module-mes -am "-Dtest=MesStage2_5ReceiptHandoffContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> `1/1 PASS`, 24-module reactor `BUILD SUCCESS`.
 - The focused test was rerun after the final test assertion correction and passed.
 - Production source scan confirms no Stage2.5 reference to dossier plan/write types or `dossierPort`.
+- `mvn -o -pl yudao-server -am -DskipTests package` -> `BUILD SUCCESS`, 30 modules; stable Jar SHA-256 `8758C9A4821F4F8F21FD34891546B86D1FA9EDADE785E993AB19EC4B372C0C2F`.
+- Runtime validation on registered slot 44 (`48259`) -> application started with `Started YudaoServerApplication`, health HTTP `200`/`UP`, then graceful shutdown.
+- Runtime guard and `git diff --check` -> PASS.
