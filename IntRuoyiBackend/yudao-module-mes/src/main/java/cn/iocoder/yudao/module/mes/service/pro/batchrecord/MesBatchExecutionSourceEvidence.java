@@ -14,4 +14,10 @@ public class MesBatchExecutionSourceEvidence {
     private String sourceSnapshotHash;
     private String payloadHash;
     private String signature;
+    private String sourceObjectType;
+    private String sourceObjectId;
+    private String snapshotJson;
+    private String sourceIdentityKey;
+    private String relationStatus;
+    private String relationReason;
 }

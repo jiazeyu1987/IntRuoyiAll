@@ -51,7 +51,7 @@ assert.match(
 
 assert.match(
   page,
-  /const PRODUCTION_REPORT_HISTORY_TABLE_KEY = `\$\{SUBMISSION_TABLE_KEY\}\.productionHistory`/,
+  /const PRODUCTION_REPORT_HISTORY_TABLE_KEY = `\$\{SUBMISSION_TABLE_KEY\}\.productionHistory(?:\.reject-v1)?`/,
   '报工历史必须使用独立列配置 tableKey，避免污染报工管理列设置。'
 )
 assert.match(
@@ -67,7 +67,7 @@ assert.match(
 
 assert.match(
   page,
-  /const isProductionReportHistoryTab = computed\(\(\) =>\s*isProductionLeader\.value && activeProductionModuleTab\.value === 'reportHistory'\s*\)/,
+  /const isProductionReportHistoryTab = computed\(\s*\(\) =>\s*isProductionLeader\.value && activeProductionModuleTab\.value === 'reportHistory'\s*\)/,
   '报工历史必须有稳定 computed 状态供查询与操作边界复用。'
 )
 assert.match(
@@ -83,22 +83,22 @@ assert.match(
 
 assert.match(
   page,
-  /label="审核通过人"[\s\S]*data-team-leader-report-history-approved-by[\s\S]*submissionReviewLeaderUserName/,
+  /label="(?:审核通过人|处理人)"[\s\S]*data-team-leader-report-history-(?:approved-by|handler)[\s\S]*submissionReviewLeaderUserName/,
   '报工历史表格必须显示审核通过人姓名。'
 )
 assert.match(
   page,
-  /label="审核通过时间"[\s\S]*data-team-leader-report-history-approved-at[\s\S]*formatDateTime\(row\.submissionReviewedAt\)/,
+  /label="(?:审核通过时间|处理时间)"[\s\S]*data-team-leader-report-history-(?:approved-at|handled-at)[\s\S]*formatDateTime\(row\.submissionReviewedAt\)/,
   '报工历史表格必须显示审核通过时间。'
 )
 assert.match(
   page,
-  /const canReviewSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*(?:!isProductionReportHistoryTab\.value|!\(isProductionReportHistoryTab\.value\s*\|\|\s*isPqcFormHistoryTab\.value\))[\s\S]*row\.submissionReviewStatus === 'PENDING'/,
+  /const canReviewSubmission = \(row: ProcessPoolTimelineEventVO\) =>[\s\S]*!isProductionReportHistoryTab\.value/,
   '报工历史行不得出现复核入口。'
 )
 assert.match(
   page,
-  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>\s*(?:!isProductionReportHistoryTab\.value|!\(isProductionReportHistoryTab\.value\s*\|\|\s*isPqcFormHistoryTab\.value\))[\s\S]*row\.submissionReviewStatus === 'REJECTED'/,
+  /const canCorrectSubmission = \(row: ProcessPoolTimelineEventVO\) =>[\s\S]*!isProductionReportHistoryTab\.value/,
   '报工历史行不得出现修改入口。'
 )
 

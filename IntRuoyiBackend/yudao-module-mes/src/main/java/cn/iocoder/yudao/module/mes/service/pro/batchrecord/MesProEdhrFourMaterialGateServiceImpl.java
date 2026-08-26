@@ -23,8 +23,6 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGateReceipt;
-
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityBlocker.TRACE_MAPPING_BLOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityErrorCodeConstants.TRACE_CAPTURE_BLOCKED;
@@ -78,15 +76,15 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
         List<MesProBatchRecordExecutionAttachmentDO> valid = new ArrayList<>();
         boolean missing = false;
         boolean invalid = false;
-        boolean sourceBindingChanged = false;
+        boolean materialSourceChanged = false;
         for (String node : REQUIRED_MATERIAL_TYPES) {
             MesProEdhrBatchExecutionTaskDO task = tasks.get(node);
             if (task == null || !Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)) {
                 missing = true;
                 continue;
             }
-            if (!Objects.equals(task.getRouteBindingSnapshotHash(), source.getSourceSnapshotHash())) {
-                sourceBindingChanged = true;
+            if (!Objects.equals(task.getMaterialSourceSnapshotHash(), source.getSourceSnapshotHash())) {
+                materialSourceChanged = true;
             }
             MesProBatchRecordExecutionAttachmentDO latest = attachments.stream()
                     .filter(a -> Objects.equals(task.getId(), a.getBatchTaskId()))
@@ -114,18 +112,37 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
         String manifest = sha256(valid.stream().sorted(Comparator.comparing(MesProBatchRecordExecutionAttachmentDO::getFieldKey))
                 .map(a -> String.join("|", a.getFieldKey(), String.valueOf(a.getVersionNo()), String.valueOf(a.getFileId()),
                         a.getSha256(), a.getAttachmentHash(), source.getSourceSnapshotHash())).collect(Collectors.joining("\n")));
-        if (sourceBindingChanged) {
+        if (materialSourceChanged) {
             return new MesProEdhrFourMaterialGateResult(
                     MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, false, manifest, valid);
         }
-        MesProEdhrFourMaterialGateResult ready = new MesProEdhrFourMaterialGateResult(
-                MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, true, manifest, valid);
-        MesReleaseMaterialGateReceipt receipt = receiptWriter.persistReady(
-                TenantContextHolder.getRequiredTenantId(), batchExecutionId,
-                source.getSourceSnapshotHash(), ready, SecurityFrameworkUtils.getLoginUserId());
-        return new MesProEdhrFourMaterialGateResult(ready.status(), ready.ready(), ready.manifestHash(),
-                ready.materials(), receipt.getReceiptId(), receipt.getReceiptHash(),
-                receipt.getMaterialVersionSetHash(), receipt.getVersion());
+        return new MesProEdhrFourMaterialGateResult(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, true,
+                manifest, valid);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
+    public MesProEdhrFourMaterialGateResult requireMaterialsReady(Long batchExecutionId) {
+        MesProEdhrFourMaterialGateResult result = evaluate(batchExecutionId);
+        if (!result.ready()) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_FOUR_MATERIAL_GATE_BLOCKED,
+                    result.status());
+        }
+        if (receiptWriter == null) {
+            throw new IllegalStateException("MATERIAL_GATE_RECEIPT_WRITER_NOT_WIRED");
+        }
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Long issuedBy = SecurityFrameworkUtils.getLoginUserId();
+        if (issuedBy == null) {
+            throw new IllegalStateException("MATERIAL_GATE_RECEIPT_ISSUER_REQUIRED");
+        }
+        MesProEdhrBatchTraceSourcePrecheckRespVO source = traceabilityService.resolveSourcePrecheck(
+                new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(batchExecutionId));
+        if (source == null || blank(source.getSourceSnapshotHash())) {
+            throw exception(TRACE_CAPTURE_BLOCKED, TRACE_MAPPING_BLOCKED);
+        }
+        receiptWriter.persistReady(tenantId, batchExecutionId, source.getSourceSnapshotHash(), result, issuedBy);
+        return result;
     }
 
     private boolean isCurrentValid(MesProBatchRecordExecutionAttachmentDO a,

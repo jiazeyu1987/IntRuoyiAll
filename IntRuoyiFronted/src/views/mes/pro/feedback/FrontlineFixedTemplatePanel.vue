@@ -476,17 +476,6 @@
               </button>
               <span>件</span>
             </div>
-            <div class="frontline-pqc-defect-description">
-              <label for="frontlinePqcDefectDescription">不良</label>
-              <textarea
-                id="frontlinePqcDefectDescription"
-                data-pqc-defect-description
-                :value="pqcDraft.defectDescription ?? ''"
-                placeholder="出现不良或损耗时手动输入说明"
-                rows="3"
-                @input="updatePqcDefectDescription"
-              ></textarea>
-            </div>
           </div>
         </section>
         <footer class="frontline-pqc-submit-bar">
@@ -1514,7 +1503,6 @@ type PqcTaskDraftKey = string
 interface PqcTaskDraftState {
   inspectionQuantity?: number
   scrapQuantity?: number
-  defectDescription?: string
 }
 
 type PqcTaskOptionSnapshot = FrontlinePqcTaskOptionVO & {
@@ -1634,8 +1622,7 @@ const pqcDraft = reactive({
   inspectionType: undefined as InspectionType | undefined,
   patrolRound: undefined as number | undefined,
   inspectionQuantity: undefined as number | undefined,
-  scrapQuantity: undefined as number | undefined,
-  defectDescription: undefined as string | undefined
+  scrapQuantity: undefined as number | undefined
 })
 
 const pqcTaskDrafts = reactive<Record<PqcTaskDraftKey, PqcTaskDraftState>>({})
@@ -2704,8 +2691,7 @@ const getPqcTaskDraftKey = (taskOption: PqcTaskOptionSnapshot | undefined): PqcT
 
 const createPqcTaskDraftState = (taskOption: PqcTaskOptionSnapshot): PqcTaskDraftState => ({
   inspectionQuantity: taskOption.plannedInspectionQuantity,
-  scrapQuantity: undefined,
-  defectDescription: undefined
+  scrapQuantity: undefined
 })
 
 const getPqcTaskDraft = (taskOption: PqcTaskOptionSnapshot): PqcTaskDraftState => {
@@ -2733,8 +2719,7 @@ const persistCurrentPqcTaskDraft = () => {
   }
   pqcTaskDrafts[key] = {
     inspectionQuantity: pqcDraft.inspectionQuantity ?? taskOption.plannedInspectionQuantity,
-    scrapQuantity: pqcDraft.scrapQuantity,
-    defectDescription: pqcDraft.defectDescription
+    scrapQuantity: pqcDraft.scrapQuantity
   }
 }
 
@@ -2808,7 +2793,6 @@ const applyPqcTaskOptionToDraft = (option: PqcTaskOptionSnapshot) => {
   pqcDraft.patrolRound = option.roundNo
   pqcDraft.inspectionQuantity = storedDraft.inspectionQuantity ?? option.plannedInspectionQuantity
   pqcDraft.scrapQuantity = storedDraft.scrapQuantity
-  pqcDraft.defectDescription = storedDraft.defectDescription
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
   pqcSubmitResultUncertain.value = false
@@ -2822,7 +2806,6 @@ const clearPqcTaskOptionDraft = () => {
   pqcDraft.patrolRound = undefined
   pqcDraft.inspectionQuantity = undefined
   pqcDraft.scrapQuantity = undefined
-  pqcDraft.defectDescription = undefined
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
   pqcSubmitResultUncertain.value = false
@@ -3434,12 +3417,6 @@ const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
   persistCurrentPqcTaskDraft()
 }
 
-const updatePqcDefectDescription = (event: Event) => {
-  const inputValue = (event.target as HTMLTextAreaElement).value
-  pqcDraft.defectDescription = inputValue || undefined
-  persistCurrentPqcTaskDraft()
-}
-
 const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
   if (field === 'inspectionQuantity' && isPqcInspectionQuantityLocked.value) {
     return
@@ -3530,7 +3507,6 @@ const resetPqcSubmissionDrafts = (submittedPqcTaskIds: number[] = []) => {
   }
   clearPqcPieceValues()
   pqcDraft.scrapQuantity = undefined
-  pqcDraft.defectDescription = undefined
   payloadPreview.value = undefined
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
@@ -3853,7 +3829,11 @@ const handleSelectActiveOrder = async (
   const selectionRequestId = ++activeOrderSelectionRequestId
   let processes: FrontlinePqcProcessVO[]
   try {
-    processes = await selectFrontlinePqcActiveOrder(deviceState, activeOrder)
+    processes = await selectFrontlinePqcActiveOrder(
+      deviceState,
+      activeOrder,
+      currentLoginUserId.value
+    )
   } catch (error) {
     if (selectionRequestId !== activeOrderSelectionRequestId ||
       error instanceof FrontlinePqcStaleActiveOrderSelectionError) {
@@ -4327,6 +4307,7 @@ const handleConfirmPqcSubmit = async () => {
       }
     }
     resetPqcSubmissionDrafts(submitPayloads.map((payload) => payload.pqcTaskId))
+    clearFrontlineError()
     const eventIds = submitReceipts.map((receipt) => receipt.pqcEventId).join('、')
     const receiptText = eventIds || '已恢复正式回执'
     message.success(
@@ -4799,15 +4780,13 @@ const buildPqcInspectionSubmitPayloadForTask = (
     actualInspectionQuantity: getPqcInspectionQuantityForTask(taskOption),
     scrapQuantity: normalizePqcQuantity(taskDraft.scrapQuantity),
     signaturePassword: pqcSignaturePassword.value,
-    nonconformanceDescription: normalizePqcDefectDescriptionForTask(taskOption),
     itemResults,
     rawPayload: {
       pqcDraft: {
         inspectionType: taskOption.inspectionType,
         patrolRound: taskOption.roundNo,
         inspectionQuantity: getPqcInspectionQuantityForTask(taskOption),
-        scrapQuantity: normalizePqcQuantity(taskDraft.scrapQuantity),
-        defectDescription: normalizePqcDefectDescriptionForTask(taskOption)
+        scrapQuantity: normalizePqcQuantity(taskDraft.scrapQuantity)
       },
       pqcPieceValues: buildPqcPieceValuesPayloadForTask(taskOption),
       pqcItemDetails,
@@ -4848,8 +4827,7 @@ const buildPqcInspectionSubmitPayload = (): FrontlinePqcInspectionSubmitReqVO =>
     rawPayload: {
       ...(payload.rawPayload || {}),
       pqcDraft: {
-        ...(payload.rawPayload?.pqcDraft as Record<string, unknown> | undefined),
-        defectDescription: normalizePqcDefectDescription()
+        ...(payload.rawPayload?.pqcDraft as Record<string, unknown> | undefined)
       },
       pqcPieceValues: buildPqcPieceValuesPayload(),
       itemResults: buildPqcItemResultsPayload()
@@ -4905,16 +4883,6 @@ const resolvePqcResult = () => {
   return taskOption
     ? resolvePqcResultForTask(taskOption)
     : FRONTLINE_PQC_RESULTS.DETECTION_SUCCESS
-}
-
-const normalizePqcDefectDescriptionForTask = (taskOption: PqcTaskOptionSnapshot) => {
-  const value = getPqcTaskDraft(taskOption).defectDescription?.trim()
-  return value || undefined
-}
-
-const normalizePqcDefectDescription = () => {
-  const value = pqcDraft.defectDescription?.trim()
-  return value || undefined
 }
 
 const applyActiveOrderToContext = (activeOrder: FrontlineActiveOrderVO) => {
@@ -7231,36 +7199,6 @@ onUnmounted(() => {
   }
 }
 
-.frontline-pqc-defect-description {
-  display: grid;
-  grid-template-columns: 116px minmax(0, 1fr);
-  gap: 8px 10px;
-  align-items: start;
-  min-width: 0;
-
-  label {
-    padding-top: 12px;
-    font-size: 25px;
-    font-weight: 900;
-  }
-
-  textarea {
-    width: 100%;
-    min-width: 0;
-    min-height: 96px;
-    box-sizing: border-box;
-    border: 3px solid var(--frontline-line);
-    border-radius: 18px;
-    padding: 12px 14px;
-    background: #ffffff;
-    color: var(--frontline-ink);
-    font: inherit;
-    font-size: 24px;
-    font-weight: 800;
-    resize: vertical;
-  }
-}
-
 .frontline-pqc-submit-bar {
   display: grid;
   grid-column: 1;
@@ -7987,7 +7925,6 @@ onUnmounted(() => {
   .frontline-pqc-type-tabs,
   .frontline-pqc-round-tabs,
   .frontline-pqc-number-field,
-  .frontline-pqc-defect-description,
   .frontline-pqc-submit-bar {
     grid-template-columns: 1fr !important;
   }

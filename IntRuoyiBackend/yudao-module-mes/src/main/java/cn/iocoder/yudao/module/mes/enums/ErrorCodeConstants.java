@@ -231,6 +231,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_SCHEDULE_ORDER_PROCESS_WIP_CALENDAR_RULE_REQUIRED = new ErrorCode(1_040_270_021, "工序启用夜班但缺少排程日历规则，processId={}");
     ErrorCode PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED = new ErrorCode(1_040_270_022, "资源计算排产工序缺少可用资源产能，routeProcessId={}");
     ErrorCode PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED = new ErrorCode(1_040_270_023, "生产工单缺少 ERP 正式生产订单同步记录或正式 ID/编号，不能生成排产工单");
+    ErrorCode PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED = new ErrorCode(1_040_270_024, "以下生产工单无法加入排产工单池：{}");
 
     // ========== MES 第三方报工待归属（1-040-272-000） ==========
     ErrorCode PRO_FEEDBACK_IMPORT_RECORD_NOT_EXISTS = new ErrorCode(1_040_272_000, "待归属记录不存在");

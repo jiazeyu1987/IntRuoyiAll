@@ -3,16 +3,14 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
-/**
- * Flow 6 to Flow 7 handoff. This event is intentionally witness-only: Flow 7
- * re-reads the persisted provision audit and formal sources by batch ID.
- */
+/** Flow 6 to Flow 7 handoff. The event contains only persisted witnesses. */
 @Data
 @Accessors(chain = true)
 public class MesProEdhrBatchProvisionedEvent {
 
     private Long tenantId;
     private Long batchExecutionId;
+    private Long provisioningReceiptId;
     private String eventId;
     private String idempotencyKey;
     private String expectedSourceSnapshotHash;
@@ -26,18 +24,18 @@ public class MesProEdhrBatchProvisionedEvent {
     MesProEdhrBatchTraceTxCCommand toCommand() {
         require(tenantId, "tenantId");
         require(batchExecutionId, "batchExecutionId");
+        require(provisioningReceiptId, "provisioningReceiptId");
         requireText(eventId, "eventId");
         requireText(idempotencyKey, "idempotencyKey");
         return new MesProEdhrBatchTraceTxCCommand()
                 .setBatchExecutionId(batchExecutionId)
+                .setProvisioningReceiptId(provisioningReceiptId)
                 .setEventId(eventId)
                 .setIdempotencyKey(idempotencyKey)
                 .setExpectedSourceSnapshotHash(expectedSourceSnapshotHash)
                 .setExpectedSourceBundleHash(expectedSourceBundleHash)
                 .setExpectedCompletionBackfillReceiptHash(expectedCompletionBackfillReceiptHash)
                 .setExpectedSourceVersion(expectedSourceVersion)
-                .setExpectedSourceCredentialId(expectedSourceCredentialId)
-                .setExpectedSourceCredentialHash(expectedSourceCredentialHash)
                 .setCapturedBy(capturedBy);
     }
 

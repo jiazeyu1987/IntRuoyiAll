@@ -75,6 +75,22 @@ public class MesReleaseMaterialGateReceiptPortImpl
             return null;
         }
         MesProEdhrMaterialGateReceiptDO row = mapper.selectByReceiptId(tenantId, batchExecutionId, receiptId);
+        return verifyRow(row, tenantId, batchExecutionId, sourceSnapshotHash);
+    }
+
+    @Override
+    public MesReleaseMaterialGateReceipt getLatestVerified(Long tenantId, Long batchExecutionId,
+                                                           String sourceSnapshotHash) {
+        if (tenantId == null || batchExecutionId == null || StrUtil.isBlank(sourceSnapshotHash)) {
+            return null;
+        }
+        return verifyRow(mapper.selectLatestByBatchExecutionId(tenantId, batchExecutionId),
+                tenantId, batchExecutionId, sourceSnapshotHash);
+    }
+
+    private MesReleaseMaterialGateReceipt verifyRow(MesProEdhrMaterialGateReceiptDO row,
+                                                    Long tenantId, Long batchExecutionId,
+                                                    String sourceSnapshotHash) {
         if (row == null || !Objects.equals(row.getTenantId(), tenantId)
                 || !Objects.equals(row.getBatchExecutionId(), batchExecutionId)
                 || !Objects.equals(row.getSourceSnapshotHash(), sourceSnapshotHash)

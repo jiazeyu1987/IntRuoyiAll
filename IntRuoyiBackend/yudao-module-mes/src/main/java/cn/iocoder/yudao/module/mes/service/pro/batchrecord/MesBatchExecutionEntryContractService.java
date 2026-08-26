@@ -2,8 +2,8 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -49,57 +49,107 @@ public class MesBatchExecutionEntryContractService {
             throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
         }
         if (ACTIVE_ENTRY_TYPES.contains(command.getEntryType())) {
-            MesFlow6CompletionBackfillReceipt receipt = context.getCompletionReceipt();
-            MesProcessPoolActiveOrderPickListBindingDO binding = context.getPickListBinding();
-            if (receipt == null || !Objects.equals(receipt.getTenantId(), securityTenantId)
-                    || !Objects.equals(receipt.getReceiptId(), parseLong(command.getSourceCredentialId()))
-                    || !MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED.equals(receipt.getStatus())
-                    || receipt.getWorkOrderId() == null || receipt.getBatchCode() == null
-                    || receipt.getRouteId() == null || receipt.getRouteVersionId() == null
-                    || blank(receipt.getSourceSnapshotHash()) || blank(receipt.getReceiptHash())
-                    || receipt.getHasActualLoss() == null || receipt.getLossQuantity() == null
-                    || binding == null || binding.getId() == null || binding.getPickListId() == null
-                    || binding.getBindingVersion() == null || binding.getBindingVersion() <= 0
-                    || !Objects.equals(binding.getTenantId(), securityTenantId)
-                    || !Objects.equals(binding.getActiveOrderId(), receipt.getActiveOrderId())
-                    || !Objects.equals(binding.getWorkOrderId(), receipt.getWorkOrderId())
-                    || !"BOUND".equalsIgnoreCase(binding.getBindingStatus())
-                    || !Objects.equals(command.getPickListBindingId(), binding.getId())
-                    || !Objects.equals(command.getPickListId(), binding.getPickListId())
-                    || !Objects.equals(command.getBindingVersion(), Long.valueOf(binding.getBindingVersion()))
-                    || (Boolean.TRUE.equals(receipt.getHasActualLoss())
-                        && (receipt.getLossRecordId() == null || blank(receipt.getLossReportStatus())))
-                    || (Boolean.FALSE.equals(receipt.getHasActualLoss())
-                        && (receipt.getLossRecordId() != null || receipt.getLossQuantity().signum() != 0
-                            || blank(receipt.getZeroLossConfirmationSnapshot())))) {
-                throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
-            }
+            validateActiveContext(context, securityTenantId);
             return command;
         }
         if (INDEPENDENT_ENTRY_TYPES.contains(command.getEntryType())) {
-            MesIndependentBatchPrerequisiteReceipt receipt = context.getIndependentReceipt();
-            if (receipt == null || !Objects.equals(receipt.getTenantId(), securityTenantId)
-                    || !Objects.equals(receipt.getReceiptId(), command.getSourceCredentialId())
-                    || !Objects.equals(receipt.getEntryType(), command.getEntryType())
-                    || !Objects.equals(receipt.getWorkOrderId(), command.getWorkOrderId())
-                    || !Objects.equals(receipt.getRouteId(), command.getRouteId())
-                    || !Objects.equals(receipt.getRouteVersionId(), command.getRouteVersionId())
-                    || !Objects.equals(receipt.getBatchCode(), command.getBatchCode())
-                    || !Objects.equals(receipt.getSourceSnapshotHash(), command.getSourceSnapshotHash())
-                    || !Objects.equals(receipt.getSourceContextHash(), command.getSourceContextHash())
-                    || !Objects.equals(receipt.getPayloadHash(), command.getPayloadHash())
-                    || !"ISSUED".equals(receipt.getStatus()) && !"VALID".equals(receipt.getStatus())
-                    || receipt.getRevokedAt() != null || receipt.getIssuedAt() == null
-                    || receipt.getExpiresAt() == null || !receipt.getExpiresAt().isAfter(LocalDateTime.now())
-                    || blank(receipt.getPayloadHash()) || blank(receipt.getReceiptHash())
-                    || blank(receipt.getSignature()) || blank(receipt.getIssuerSystem())
-                    || receipt.getIssuerUserId() == null || receipt.getCredentialVersion() == null
-                    || receipt.getCredentialVersion() <= 0) {
-                throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
-            }
+            validateIndependentContext(context, securityTenantId);
             return command;
         }
         throw exception(PRO_EDHR_BATCH_ENTRY_SCENARIO_MISMATCH);
+    }
+
+    /**
+     * Legacy unit-contract validator retained for isolated contract tests. Production entry
+     * points must call the authoritative-context overload above before invoking this logic.
+     */
+    @Deprecated
+    public MesBatchExecutionProvisionCommand validate(MesBatchExecutionProvisionCommand command) {
+        if (command == null || blank(command.getEntryType())) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_TYPE_REQUIRED);
+        }
+        Long securityTenantId = TenantContextHolder.getTenantId();
+        if (securityTenantId == null) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_TENANT_REQUIRED);
+        }
+        if (blank(command.getEntryBusinessId())) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_BUSINESS_ID_REQUIRED);
+        }
+        if (blank(command.getSourceContextHash())) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_CONTEXT_REQUIRED);
+        }
+        if (blank(command.getSourceCredentialId())) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_CREDENTIAL_REQUIRED);
+        }
+        if (blank(command.getIdempotencyKey())) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_IDEMPOTENCY_REQUIRED);
+        }
+        if (!ACTIVE_ENTRY_TYPES.contains(command.getEntryType())
+                && !INDEPENDENT_ENTRY_TYPES.contains(command.getEntryType())) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_SCENARIO_MISMATCH);
+        }
+        if (ACTIVE_ENTRY_TYPES.contains(command.getEntryType())) {
+            validateActive(command, securityTenantId);
+        } else {
+            validateIndependent(command, securityTenantId);
+        }
+        return command;
+    }
+
+    private void validateActiveContext(MesBatchExecutionAuthoritativeContext context, Long tenantId) {
+        MesBatchExecutionProvisionCommand command = context.getProvisionCommand();
+        MesFlow6CompletionBackfillReceipt receipt = context.getCompletionReceipt();
+        MesProcessPoolActiveOrderPickListBindingDO binding = context.getPickListBinding();
+        if (receipt == null || binding == null || !Objects.equals(receipt.getTenantId(), tenantId)
+                || !Objects.equals(receipt.getReceiptId(), parseLong(command.getSourceCredentialId()))
+                || !MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED.equals(receipt.getStatus())
+                || receipt.getWorkOrderId() == null || receipt.getRouteId() == null
+                || receipt.getRouteVersionId() == null || blank(receipt.getBatchCode())
+                || blank(receipt.getSourceSnapshotHash()) || blank(receipt.getReceiptHash())
+                || receipt.getBatchRecordId() == null || receipt.getProcessInspectionId() == null
+                || receipt.getHasActualLoss() == null || receipt.getLossQuantity() == null
+                || binding.getId() == null || binding.getPickListId() == null
+                || binding.getBindingVersion() == null || binding.getBindingVersion() <= 0
+                || !Objects.equals(binding.getTenantId(), tenantId)
+                || !Objects.equals(binding.getActiveOrderId(), receipt.getActiveOrderId())
+                || !Objects.equals(binding.getWorkOrderId(), receipt.getWorkOrderId())
+                || !"BOUND".equalsIgnoreCase(binding.getBindingStatus())
+                || !Objects.equals(command.getPickListBindingId(), binding.getId())
+                || !Objects.equals(command.getPickListId(), binding.getPickListId())
+                || !Objects.equals(command.getBindingVersion(), Long.valueOf(binding.getBindingVersion()))) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
+        }
+        if (Boolean.TRUE.equals(receipt.getHasActualLoss())
+                && (receipt.getLossRecordId() == null || receipt.getLossQuantity().signum() <= 0
+                || blank(receipt.getLossReportStatus()))) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
+        }
+        if (Boolean.FALSE.equals(receipt.getHasActualLoss())
+                && (receipt.getLossRecordId() != null || receipt.getLossQuantity().signum() != 0
+                || blank(receipt.getZeroLossConfirmationSnapshot()))) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
+        }
+    }
+
+    private void validateIndependentContext(MesBatchExecutionAuthoritativeContext context, Long tenantId) {
+        MesBatchExecutionProvisionCommand command = context.getProvisionCommand();
+        MesIndependentBatchPrerequisiteReceipt receipt = context.getIndependentReceipt();
+        if (receipt == null || !Objects.equals(receipt.getTenantId(), tenantId)
+                || !Objects.equals(receipt.getReceiptId(), command.getSourceCredentialId())
+                || !Objects.equals(receipt.getEntryType(), command.getEntryType())
+                || !Objects.equals(receipt.getWorkOrderId(), command.getWorkOrderId())
+                || !Objects.equals(receipt.getRouteId(), command.getRouteId())
+                || !Objects.equals(receipt.getRouteVersionId(), command.getRouteVersionId())
+                || !Objects.equals(receipt.getBatchCode(), command.getBatchCode())
+                || !Objects.equals(receipt.getSourceSnapshotHash(), command.getSourceSnapshotHash())
+                || !Objects.equals(receipt.getSourceContextHash(), command.getSourceContextHash())
+                || !Objects.equals(receipt.getPayloadHash(), command.getPayloadHash())
+                || !("ISSUED".equals(receipt.getStatus()) || "VALID".equals(receipt.getStatus()))
+                || receipt.getRevokedAt() != null || receipt.getIssuedAt() == null
+                || receipt.getExpiresAt() == null || !receipt.getExpiresAt().isAfter(LocalDateTime.now())
+                || blank(receipt.getReceiptHash()) || blank(receipt.getSignature())) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
+        }
     }
 
     private Long parseLong(String value) {
@@ -110,18 +160,6 @@ public class MesBatchExecutionEntryContractService {
         }
     }
 
-    /**
-     * Rejects the legacy raw-command contract. Production callers must resolve a server-owned
-     * receipt into {@link MesBatchExecutionAuthoritativeContext} first; accepting a command here
-     * would re-introduce the client-controlled receipt path.
-     */
-    @Deprecated
-    public MesBatchExecutionProvisionCommand validate(MesBatchExecutionProvisionCommand command) {
-        throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
-    }
-
-    /* Legacy receipt-field validators were intentionally removed with the raw-command contract. */
-    /*
     private void validateActive(MesBatchExecutionProvisionCommand command, Long securityTenantId) {
         if (!ACTIVE_RECEIPT_TYPE.equals(command.getSourceCredentialType())
                 || command.getCompletionBackfillReceipt() == null
@@ -293,13 +331,12 @@ public class MesBatchExecutionEntryContractService {
             throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_EXPIRED);
         }
     }
-    */
 
     private boolean blank(String value) {
         return StrUtil.isBlank(value);
     }
 
-    /* private boolean sameEvidence(java.util.List<MesBatchExecutionSourceEvidence> commandEvidence,
+    private boolean sameEvidence(java.util.List<MesBatchExecutionSourceEvidence> commandEvidence,
                                  java.util.List<MesBatchExecutionSourceEvidence> receiptEvidence) {
         if (commandEvidence.size() != receiptEvidence.size()) {
             return false;
@@ -341,5 +378,5 @@ public class MesBatchExecutionEntryContractService {
         Set<String> types = evidence.stream().map(MesBatchExecutionSourceEvidence::getSourceType)
                 .collect(java.util.stream.Collectors.toSet());
         return types.containsAll(Set.of("PRODUCTION", "PQC", "LOSS"));
-    } */
+    }
 }

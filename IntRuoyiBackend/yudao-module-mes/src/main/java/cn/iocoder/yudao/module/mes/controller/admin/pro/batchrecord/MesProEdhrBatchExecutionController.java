@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionManualOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionReexecuteReqVO;
@@ -91,11 +92,11 @@ public class MesProEdhrBatchExecutionController {
     @Resource
     private MesProEdhrLocalStateSampleService localStateSampleService;
     @Resource
-    private MesProductionReleaseReportService productionReleaseReportService;
-    @Resource
     private MesStage4DossierUploadSimulationService stage4DossierUploadSimulationService;
     @Resource
     private MesStage5FinalReleaseSimulationService stage5FinalReleaseSimulationService;
+    @Resource
+    private MesProductionReleaseReportService productionReleaseReportService;
 
     @GetMapping("/page")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
@@ -126,6 +127,13 @@ public class MesProEdhrBatchExecutionController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:create')")
     public CommonResult<EdhrBatchExecutionRespVO> openOrCreate(@Valid @RequestBody EdhrBatchExecutionOpenOrCreateReqVO reqVO) {
         return success(batchExecutionService.openOrCreate(reqVO));
+    }
+
+    @PostMapping("/open-or-create-manual")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:create')")
+    public CommonResult<EdhrBatchExecutionRespVO> openOrCreateManual(
+            @Valid @RequestBody EdhrBatchExecutionManualOpenOrCreateReqVO reqVO) {
+        return success(batchExecutionService.openOrCreateManual(reqVO));
     }
 
     @PostMapping("/reexecute-rejected-batch")
@@ -164,10 +172,10 @@ public class MesProEdhrBatchExecutionController {
     public CommonResult<MesStage5FinalReleaseSimulationResult> simulateStage5FinalRelease(
             @Valid @RequestBody EdhrStage5FinalReleaseSimulationReqVO reqVO) {
         return success(stage5FinalReleaseSimulationService.prepare(
-                new MesStage5FinalReleaseSimulationCommand()
-                        .setActorUserId(SecurityFrameworkUtils.getLoginUserId())
+                        new MesStage5FinalReleaseSimulationCommand()
+                                .setActorUserId(SecurityFrameworkUtils.getLoginUserId())
                         .setSimulationRunId(reqVO.getSimulationRunId())
-                        .setPreviousSimulationRunId(reqVO.getPreviousSimulationRunId())));
+                                .setPreviousSimulationRunId(reqVO.getPreviousSimulationRunId())));
     }
 
     @GetMapping("/simulation/stage5/release-snapshot")

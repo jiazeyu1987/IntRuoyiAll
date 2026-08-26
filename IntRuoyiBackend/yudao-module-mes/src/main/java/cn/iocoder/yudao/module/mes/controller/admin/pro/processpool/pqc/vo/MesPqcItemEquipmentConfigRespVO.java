@@ -14,8 +14,14 @@ public class MesPqcItemEquipmentConfigRespVO {
     @Schema(description = "检验项目编号", requiredMode = Schema.RequiredMode.REQUIRED)
     private String itemCode;
 
+    @Schema(description = "本次同名检验名称对应的全部检验项目编号")
+    private List<String> itemCodes;
+
     @Schema(description = "检验项目名称")
     private String itemName;
+
+    @Schema(description = "同名检验项目编号的设备配置是否一致")
+    private Boolean configurationConsistent;
 
     @Schema(description = "检验设备组")
     private List<EquipmentGroup> equipmentGroups;

@@ -998,28 +998,53 @@
           </el-table-column>
           <el-table-column
             v-if="isProductionReportHistoryTab && isSubmissionColumnVisible('approvedBy')"
-            label="审核通过人"
+            label="处理人"
             prop="approvedBy"
             :width="getSubmissionColumnWidthString('approvedBy')"
             :min-width="getSubmissionColumnMinWidthString('approvedBy', 140)"
           >
             <template #default="{ row }">
-              <span data-team-leader-report-history-approved-by>
-                {{ row.submissionReviewLeaderUserName || '--' }}
+              <span data-team-leader-report-history-handler>
+                {{ row.submissionReviewLeaderUserName || row.submissionReviewLeaderUserId || '--' }}
               </span>
             </template>
           </el-table-column>
           <el-table-column
             v-if="isProductionReportHistoryTab && isSubmissionColumnVisible('approvedAt')"
-            label="审核通过时间"
+            label="处理时间"
             prop="approvedAt"
             :width="getSubmissionColumnWidthString('approvedAt')"
             :min-width="getSubmissionColumnMinWidthString('approvedAt', 160)"
           >
             <template #default="{ row }">
-              <span data-team-leader-report-history-approved-at>
+              <span data-team-leader-report-history-handled-at>
                 {{ formatDateTime(row.submissionReviewedAt) }}
               </span>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isProductionReportHistoryTab && isSubmissionColumnVisible('reviewStatus')"
+            label="处理结果"
+            prop="reviewStatus"
+            :width="getSubmissionColumnWidthString('reviewStatus')"
+            :min-width="getSubmissionColumnMinWidthString('reviewStatus', 120)"
+          >
+            <template #default="{ row }">
+              <el-tag :type="resolveSubmissionReviewTagType(row.submissionReviewStatus)" effect="plain">
+                {{ resolveSubmissionReviewStatusText(row.submissionReviewStatus) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isProductionReportHistoryTab && isSubmissionColumnVisible('reviewRemark')"
+            label="处理说明"
+            prop="reviewRemark"
+            :width="getSubmissionColumnWidthString('reviewRemark')"
+            :min-width="getSubmissionColumnMinWidthString('reviewRemark', 220)"
+            show-overflow-tooltip
+          >
+            <template #default="{ row }">
+              {{ row.submissionReviewRemark || '--' }}
             </template>
           </el-table-column>
           <el-table-column
@@ -1046,24 +1071,6 @@
               <span data-pqc-leader-history-approved-at>
                 {{ formatDateTime(row.submissionReviewedAt) }}
               </span>
-            </template>
-          </el-table-column>
-          <el-table-column
-            v-if="activeLeaderTab === 'PQC' && isSubmissionColumnVisible('defectDescription')"
-            label="不良说明"
-            prop="defectDescription"
-            :width="getSubmissionColumnWidthString('defectDescription')"
-            :min-width="getSubmissionColumnMinWidthString('defectDescription', 180)"
-          >
-            <template #default="{ row }">
-              <div
-                class="team-leader-workbench__structured-list"
-                data-pqc-leader-defect-description
-              >
-                <span class="team-leader-workbench__structured-pill">
-                  {{ resolvePqcDefectDescriptionText(row) }}
-                </span>
-              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -1105,6 +1112,15 @@
                   @click="openCorrection(row)"
                 >
                   修改
+                </el-button>
+                <el-button
+                  v-if="canRejectProductionSubmission(row)"
+                  link
+                  type="danger"
+                  :data-production-report-reject-event-id="String(row.id)"
+                  @click="openProductionReject(row)"
+                >
+                  驳回
                 </el-button>
                 <el-button
                   v-if="canAllocateSubmission(row)"
@@ -3257,15 +3273,21 @@
     width="min(1120px, calc(100vw - 32px))"
     class="team-leader-workbench__review-dialog"
   >
-    <el-form v-if="reviewDialogMode === 'REVIEW'" :model="reviewForm" label-width="92px">
+    <el-form v-if="reviewDialogMode !== 'ALLOCATION'" :model="reviewForm" label-width="92px">
       <el-form-item v-if="reviewDialogMode === 'REVIEW'" label="判定结果">
         <el-select v-model="reviewForm.reviewStatus">
           <el-option label="正确" value="APPROVED" />
           <el-option label="不正确" value="REJECTED" />
         </el-select>
       </el-form-item>
-      <el-form-item label="复核说明">
-        <el-input v-model="reviewForm.reviewRemark" type="textarea" :rows="4" />
+      <el-form-item :label="reviewDialogMode === 'REJECTION' ? '驳回原因' : '复核说明'">
+        <el-input
+          v-model="reviewForm.reviewRemark"
+          type="textarea"
+          :rows="4"
+          maxlength="1000"
+          show-word-limit
+        />
       </el-form-item>
       <el-form-item label="电子签名" required data-team-leader-review-signature>
         <el-input
@@ -3605,16 +3627,6 @@
             />
           </el-form-item>
         </div>
-        <el-form-item label="不良说明">
-          <el-input
-            v-model="correctionForm.pqcNonconformanceDescription"
-            type="textarea"
-            :rows="2"
-            maxlength="500"
-            show-word-limit
-            data-pqc-inspection-correction-defect
-          />
-        </el-form-item>
         <div class="team-leader-workbench__correction-rows">
           <div
             v-for="itemRow in correctionForm.pqcItemResults"
@@ -3694,6 +3706,7 @@
 
 <script setup lang="ts">
 import { watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -4007,6 +4020,7 @@ const props = withDefaults(
 
 const abnormalFormRef = ref()
 const activeLeaderTab = ref<WorkbenchLeaderTab>(props.leaderType)
+const router = useRouter()
 const activePqcModuleTab = ref<'personnel' | 'management' | 'equipment' | 'detail' | 'history'>(
   'management'
 )
@@ -4131,7 +4145,7 @@ const lossReasonEditingReasonId = ref<number>()
 const allocationRows = ref<TeamLeaderReportAllocationDraftLine[]>([])
 const allocationSnapshot = ref<TeamLeaderReportAllocationSnapshotRespVO>()
 const allocationSaveIdempotencyState = ref<{ requestIdentity: string; key: string }>()
-const reviewDialogMode = ref<'REVIEW' | 'ALLOCATION'>('REVIEW')
+const reviewDialogMode = ref<'REVIEW' | 'ALLOCATION' | 'REJECTION'>('REVIEW')
 const configuredDefectReasonOptions = ref<
   Array<{ reasonType: string; reasonCode: string; reasonName: string }>
 >([])
@@ -4213,7 +4227,7 @@ const pqcDetailColumns: any[] = [
 ]
 const SUBMISSION_TABLE_KEY = 'mes.processPool.teamLeader.submissions'
 const PRODUCTION_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.production.operation-half-width-v1`
-const PRODUCTION_REPORT_HISTORY_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.productionHistory`
+const PRODUCTION_REPORT_HISTORY_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.productionHistory.reject-v1`
 const PQC_SUBMISSION_TABLE_KEY = `${SUBMISSION_TABLE_KEY}.pqc`
 const PQC_FORM_HISTORY_TABLE_KEY = `${PQC_SUBMISSION_TABLE_KEY}.history`
 const submissionQuickFilterDefinitions: any[] = []
@@ -4235,8 +4249,10 @@ const productionSubmissionDefaultColumns: UserTableColumnDefinition[] = [
 ]
 const productionReportHistoryDefaultColumns: UserTableColumnDefinition[] = [
   ...productionSubmissionDefaultColumns.filter((column) => column.key !== 'operation'),
-  { key: 'approvedBy', label: '审核通过人', minWidth: 140 },
-  { key: 'approvedAt', label: '审核通过时间', minWidth: 160 },
+  { key: 'approvedBy', label: '处理人', minWidth: 140 },
+  { key: 'approvedAt', label: '处理时间', minWidth: 160 },
+  { key: 'reviewStatus', label: '处理结果', minWidth: 120 },
+  { key: 'reviewRemark', label: '处理说明', minWidth: 220 },
   { key: 'operation', label: '操作', width: 110, hideable: false, business: false }
 ]
 const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
@@ -4258,7 +4274,6 @@ const pqcSubmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'inspectionJudgement', label: '检验判定', minWidth: 150 },
   { key: 'parameterSnapshot', label: '参数明细', minWidth: 280 },
   { key: 'deviceParameterReadings', label: '设备参数', minWidth: 280 },
-  { key: 'defectDescription', label: '不良说明', minWidth: 180 },
   { key: 'operation', label: '操作', width: 270, hideable: false, business: false }
 ]
 const pqcFormHistoryDefaultColumns: UserTableColumnDefinition[] = [
@@ -4494,6 +4509,13 @@ const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
 const canAllocateSubmission = (row: ProcessPoolTimelineEventVO) =>
   isProductionLeader.value && !isProductionReportHistoryTab.value && Boolean(row.id)
 
+const canRejectProductionSubmission = (row: ProcessPoolTimelineEventVO) =>
+  isProductionLeader.value &&
+  !isProductionReportHistoryTab.value &&
+  row.submissionReviewStatus !== 'REJECTED' &&
+  Boolean(row.id) &&
+  !(row.reportAllocations || []).some((allocation) => allocation.released)
+
 const findReportSelectedActiveOrder = (event: ProcessPoolTimelineEventVO) => {
   const workOrderId = Number(event.workOrderId)
   if (!Number.isFinite(workOrderId) || workOrderId <= 0) return undefined
@@ -4532,12 +4554,16 @@ const allocationUnallocatedQuantity = computed(() => {
   return Math.max(0, pool - allocationTotalQuantity.value)
 })
 
-const reviewDialogTitle = computed(() =>
-  reviewDialogMode.value === 'ALLOCATION' ? '分配报工' : '复核员工提交'
-)
-const reviewDialogSubmitText = computed(() =>
-  reviewDialogMode.value === 'ALLOCATION' ? '确认分配' : '提交复核'
-)
+const reviewDialogTitle = computed(() => {
+  if (reviewDialogMode.value === 'ALLOCATION') return '分配报工'
+  if (reviewDialogMode.value === 'REJECTION') return '驳回生产报工'
+  return '复核员工提交'
+})
+const reviewDialogSubmitText = computed(() => {
+  if (reviewDialogMode.value === 'ALLOCATION') return '确认分配'
+  if (reviewDialogMode.value === 'REJECTION') return '确认驳回'
+  return '提交复核'
+})
 
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
@@ -4678,7 +4704,6 @@ const correctionForm = reactive({
   deviceParameterReadings: [] as ProductionReportCorrectionParameterRow[],
   pqcActualInspectionQuantity: undefined as number | undefined,
   pqcScrapQuantity: 0,
-  pqcNonconformanceDescription: '',
   pqcItemResults: [] as PqcInspectionCorrectionItemRow[],
   changeReason: '',
   signaturePassword: ''
@@ -4747,19 +4772,6 @@ const correctionChangePreview = computed<ProductionReportCorrectionPreviewItem[]
         label: 'PQC损耗数量',
         beforeValue: correctionValueText(beforeScrap),
         afterValue: correctionValueText(afterScrap)
-      })
-    }
-    const beforeDescription = String(
-      readSubmissionPayloadValue(rootPayload, ['nonconformanceDescription', 'defectDescription']) ||
-        ''
-    ).trim()
-    const afterDescription = correctionForm.pqcNonconformanceDescription.trim()
-    if (beforeDescription !== afterDescription) {
-      changes.push({
-        key: 'PQC_NONCONFORMANCE_DESCRIPTION',
-        label: 'PQC不良说明',
-        beforeValue: beforeDescription || '--',
-        afterValue: afterDescription || '--'
       })
     }
     const beforeItems = new Map(
@@ -6906,14 +6918,10 @@ const resolveSubmissionLossBreakdownItems = (
   const { rootPayload } = resolvePqcPayloadPair(row)
   const lossQuantity = resolveSubmissionLossQuantityValue(row)
   if (isPqcSubmissionRow(row)) {
-    const description = readSubmissionPayloadValue(rootPayload, [
-      'defectDescription',
-      'nonconformanceDescription'
-    ])
     return [
       {
         key: 'pqc-loss',
-        label: formatSubmissionText(description, '不良/损耗'),
+        label: '不良/损耗',
         valueText: formatSubmissionQuantity(lossQuantity)
       }
     ]
@@ -7101,15 +7109,6 @@ const resolvePqcInspectionJudgementItems = (row: ProcessPoolTimelineEventVO) =>
   resolvePqcDetailStructuredItems(row, (detail) =>
     formatSubmissionText(detail.judgement || detail.itemResult || detail.resultType, '--')
   )
-
-const resolvePqcDefectDescriptionText = (row: ProcessPoolTimelineEventVO) => {
-  const { rootPayload } = resolvePqcPayloadPair(row)
-  const value = readSubmissionPayloadValue(rootPayload, [
-    'defectDescription',
-    'nonconformanceDescription'
-  ])
-  return formatSubmissionText(value, '--')
-}
 
 const normalizeProductionParameterRules = (value: unknown): ProductionParameterRuleSnapshot[] => {
   if (Array.isArray(value)) {
@@ -7549,6 +7548,21 @@ const openReview = async (event: ProcessPoolTimelineEventVO) => {
   }
 }
 
+const openProductionReject = (event: ProcessPoolTimelineEventVO) => {
+  requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
+  if (!canRejectProductionSubmission(event)) {
+    ElMessage.error('已放行或已处理的生产报工不能驳回')
+    return
+  }
+  reviewDialogMode.value = 'REJECTION'
+  reviewEvent.value = event
+  reviewForm.reviewStatus = 'REJECTED'
+  reviewForm.reviewRemark = ''
+  reviewForm.reviewSignaturePassword = ''
+  resetReviewAllocation()
+  reviewVisible.value = true
+}
+
 const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (!canAllocateSubmission(event)) {
@@ -7588,7 +7602,16 @@ const submitReview = async () => {
   try {
     const leaderType = resolveCurrentLeaderType()
     const reviewRemark = reviewForm.reviewRemark.trim() || undefined
-    if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
+    if (reviewDialogMode.value === 'REJECTION') {
+      const reviewSignaturePayload = buildReviewSignaturePayload()
+      await reviewTeamLeaderSubmission({
+        leaderType: 'PRODUCTION',
+        eventId,
+        reviewStatus: 'REJECTED',
+        reviewRemark,
+        ...reviewSignaturePayload
+      })
+    } else if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
       if (reviewDialogMode.value === 'ALLOCATION') {
         const allocations = buildAllocationSubmitLines()
         const snapshot = await confirmTeamLeaderReportAllocation({
@@ -7630,9 +7653,18 @@ const submitReview = async () => {
       })
     }
     writeCompleted = true
-    ElMessage.success(reviewDialogMode.value === 'ALLOCATION' ? '分配已保存' : '复核已提交')
+    ElMessage.success(
+      reviewDialogMode.value === 'ALLOCATION'
+        ? '分配已保存'
+        : reviewDialogMode.value === 'REJECTION'
+          ? '生产报工已驳回'
+          : '复核已提交'
+    )
     reviewVisible.value = false
-    if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
+    if (
+      isProductionLeader.value &&
+      (reviewForm.reviewStatus === 'APPROVED' || reviewDialogMode.value === 'REJECTION')
+    ) {
       await Promise.all([getSubmissionList(), loadActiveOrders()])
     } else {
       await getSubmissionList()
@@ -7657,8 +7689,12 @@ const submitReview = async () => {
         writeCompleted
           ? reviewDialogMode.value === 'ALLOCATION'
             ? '分配已保存，但列表刷新失败'
-            : '复核已提交，但列表刷新失败'
-          : '复核提交失败'
+            : reviewDialogMode.value === 'REJECTION'
+              ? '生产报工已驳回，但列表刷新失败'
+              : '复核已提交，但列表刷新失败'
+          : reviewDialogMode.value === 'REJECTION'
+            ? '生产报工驳回失败'
+            : '复核提交失败'
       )
     )
   } finally {
@@ -7678,7 +7714,6 @@ const resetCorrectionFormForEvent = (
   correctionForm.deviceParameterReadings = []
   correctionForm.pqcActualInspectionQuantity = undefined
   correctionForm.pqcScrapQuantity = 0
-  correctionForm.pqcNonconformanceDescription = ''
   correctionForm.pqcItemResults = []
   correctionForm.changeReason = ''
   correctionForm.signaturePassword = ''
@@ -7768,10 +7803,6 @@ const openPqcCorrection = (event: ProcessPoolTimelineEventVO, eventId: number) =
   resetCorrectionFormForEvent(event, eventId, 'PQC')
   correctionForm.pqcActualInspectionQuantity = actualInspectionQuantity
   correctionForm.pqcScrapQuantity = scrapQuantity
-  correctionForm.pqcNonconformanceDescription = String(
-    readSubmissionPayloadValue(rootPayload, ['nonconformanceDescription', 'defectDescription']) ||
-      ''
-  ).trim()
   correctionForm.pqcItemResults = pqcItems.map((item) => {
     const itemCode = String(item.itemCode || '').trim()
     if (!itemCode) {
@@ -7891,7 +7922,6 @@ const buildPqcCorrectionRequest = () => {
     eventId: requirePositiveNumber(correctionForm.eventId, '工序池提交事件编号不能为空'),
     actualInspectionQuantity,
     scrapQuantity,
-    nonconformanceDescription: correctionForm.pqcNonconformanceDescription.trim() || undefined,
     itemResults,
     ...auditFields
   }

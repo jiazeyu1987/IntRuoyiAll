@@ -9,6 +9,11 @@ public class MesReleaseFlowExceptionAdvice {
 
     @ExceptionHandler(MesReleaseFlowBlockerException.class)
     public CommonResult<MesReleaseFlowFailureRespVO> handleBlocker(MesReleaseFlowBlockerException exception) {
+        return toResult(exception);
+    }
+
+    public static CommonResult<MesReleaseFlowFailureRespVO> toResult(
+            MesReleaseFlowBlockerException exception) {
         CommonResult<MesReleaseFlowFailureRespVO> result = CommonResult.error(
                 MesReleaseFlowErrorCodeConstants.RELEASE_FLOW_BLOCKED.getCode(), exception.getMessage());
         result.setData(exception.getFailure());

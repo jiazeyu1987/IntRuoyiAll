@@ -155,7 +155,7 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         String password = randomString();
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
                 .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
-                .setPasswordUpdateTime(LocalDateTime.now().minusDays(91)));
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(366)));
         when(userService.getUserByUsername(eq(username))).thenReturn(user);
         when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(true);
 

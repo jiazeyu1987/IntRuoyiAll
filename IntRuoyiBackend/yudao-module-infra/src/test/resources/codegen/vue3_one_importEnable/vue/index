@@ -213,7 +213,7 @@ const queryParams = reactive({
   birthday: [],
   sex: undefined,
   enabled: undefined,
-  createTime: [],
+  createTime: []
 })
 const queryFormRef = ref() // 搜索的表单
 const exportLoading = ref(false) // 导出的加载中

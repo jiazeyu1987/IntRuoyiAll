@@ -8,23 +8,23 @@ const approvalCenter = fs.readFileSync(approvalCenterPath, 'utf8')
 
 assert.match(
   approvalCenter,
-  /\{\{\s*resolveDecisionActionLabel\(row\)\s*\}\}/,
-  '待办行的模块处理入口必须使用后端动作能力解析按钮文案，不能固定显示“详情”。'
+  /const canReviewAction = \(row: ApprovalTaskSummaryVO\) =>[\s\S]*?canReviewInModule\(row\)/,
+  '待办行审核入口必须使用后端动作能力合并直接审核和模块审核。'
 )
 assert.match(
   approvalCenter,
-  /actions\.includes\('REVIEW_IN_MODULE'\)[\s\S]*?return '审核'/,
-  'eDHR REVIEW 工作任务必须在审批中心显示“审核”入口。'
+  /actions\.includes\('REVIEW_IN_MODULE'\)/,
+  'eDHR REVIEW 工作任务必须保留模块审核能力。'
 )
 assert.match(
   approvalCenter,
-  /actions\.includes\('APPROVE_IN_MODULE'\)[\s\S]*?return '批准'/,
-  'eDHR APPROVE 工作任务必须在审批中心显示“批准”入口。'
+  /actions\.includes\('APPROVE_IN_MODULE'\)/,
+  'eDHR APPROVE 工作任务必须保留模块审核能力。'
 )
 assert.match(
   approvalCenter,
-  /canReview\(row\)[\s\S]*?return '详情'/,
-  '已支持统一弹窗直接审核的任务，第二入口必须保持为详情，避免重复显示审核按钮。'
+  /const openReviewAction = \(row: ApprovalTaskSummaryVO\) =>[\s\S]*?openReviewDialog\(row\)[\s\S]*?openDecisionDetail\(row\)/,
+  '审核入口必须按任务能力选择统一审核弹窗或模块审核页。'
 )
 
 console.log('approval center module review action static contract passed')

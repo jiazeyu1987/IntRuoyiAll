@@ -28,6 +28,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -102,8 +103,8 @@ class MesFrontlinePqcEmployeeSwitchServiceTest {
                 mock(MesProRouteVersionMapper.class), mock(DccProjectCodeMapper.class),
                 mock(MesQaInspectionRegulationMapper.class), mock(MesQaInspectionRegulationVersionMapper.class),
                 mock(MesQaInspectionRegulationProcessMapper.class),
-                mock(MesQaInspectionRegulationItemMapper.class),
-                mock(MesQaInspectionRegulationItemEquipmentMapper.class), regulationService, taskMapper,
+                mock(MesQaInspectionRegulationItemMapper.class), regulationService,
+                mock(MesPqcItemEquipmentConfigService.class), taskMapper,
                 mock(MesPqcInspectionPieceDetailMapper.class), mock(MesMdItemService.class), scopeMapper,
                 adminUserApi, mock(MesProcessPoolEventService.class),
                 mock(MesProProcessPoolPqcRecordMapper.class),

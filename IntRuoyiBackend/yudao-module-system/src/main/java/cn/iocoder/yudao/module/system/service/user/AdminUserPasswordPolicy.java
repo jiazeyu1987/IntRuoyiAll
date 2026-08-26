@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 public final class AdminUserPasswordPolicy {
 
     public static final int MIN_LENGTH = 8;
-    public static final int MAX_AGE_DAYS = 90;
+    public static final int MAX_AGE_DAYS = 365;
 
     private AdminUserPasswordPolicy() {
     }

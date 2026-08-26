@@ -214,7 +214,6 @@ public class MesFrontlineDeviceAccountController {
                         .signaturePassword(reqVO.getSignaturePassword())
                         .templateType(FrontlineTemplateCodes.PQC_SIMPLIFIED)
                         .scrapQuantity(reqVO.getScrapQuantity())
-                        .nonconformanceDescription(reqVO.getNonconformanceDescription())
                         .itemResults(reqVO.getItemResults().stream()
                                 .map(MesFrontlineDeviceAccountController::toPqcItemResultCommand)
                                 .toList())

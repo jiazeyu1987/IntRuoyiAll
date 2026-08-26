@@ -204,6 +204,21 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                     "[]", draft.getLossSourceHash(), draft.getZeroLossConfirmationSnapshot(),
                     draft.getMaterializedBy(), draft.getTenantId());
         }
+        List<MesProcessPoolOrderProcessCompletionDO> completions = completionMapper
+                .selectListByWorkOrderIdsForUpdate(List.of(workOrderId));
+        if (completions == null || completions.isEmpty()
+                || completions.stream().anyMatch(item -> item == null || item.getId() == null
+                || !MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED.equals(item.getCompletionStatus()))) {
+            throw sourceMissingById(activeOrderId, "BACKFILL_WRITE_COMPLETION_REQUIRED");
+        }
+        for (MesProcessPoolOrderProcessCompletionDO completion : completions) {
+            completion.setBackfillStatus(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS)
+                    .setBackfillExecutionId(draft.getBatchRecordId())
+                    .setBackfillError(null);
+            if (completionMapper.updateById(completion) != 1) {
+                throw sourceMissingById(activeOrderId, "BACKFILL_WRITE_COMPLETION_UPDATE_FAILED");
+            }
+        }
     }
 
     private static String materializedPayload(String type,
@@ -379,11 +394,10 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                                                    List<MesPqcInspectionTaskDO> tasks,
                                                    List<MesPqcProcessInspectionAggregateDetailDO> details) {
         List<Long> ids = new ArrayList<>();
-        for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
-            MesPqcInspectionTaskDO task = tasks.stream().filter(item -> item != null
-                    && Objects.equals(snapshot.getRouteProcessId(), item.getRouteProcessId())
-                    && Objects.equals(snapshot.getProcessId(), item.getProcessId())
-                    && MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(item.getTaskStatus()))
+        for (MesPqcInspectionTaskDO task : tasks) {
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot = snapshots.stream().filter(item -> item != null
+                    && Objects.equals(item.getRouteProcessId(), task == null ? null : task.getRouteProcessId())
+                    && Objects.equals(item.getProcessId(), task == null ? null : task.getProcessId()))
                     .findFirst().orElse(null);
             MesPqcProcessInspectionAggregateDetailDO detail = task == null ? null : details.stream()
                     .filter(item -> item != null && Objects.equals(task.getId(), item.getPqcTaskId())
@@ -391,14 +405,18 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                             && Objects.equals(order.getWorkOrderId(), item.getWorkOrderId())
                             && Objects.equals(order.getRouteId(), item.getRouteId())
                             && Objects.equals(order.getRouteVersionId(), item.getRouteVersionId())
-                            && Objects.equals(snapshot.getRouteProcessId(), item.getRouteProcessId())
-                            && Objects.equals(snapshot.getProcessId(), item.getProcessId()))
+                            && Objects.equals(task.getRouteProcessId(), item.getRouteProcessId())
+                            && Objects.equals(task.getProcessId(), item.getProcessId()))
                     .findFirst().orElse(null);
-            if (task == null || detail == null || task.getId() == null || detail.getId() == null) {
+            if (task == null || !MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())
+                    || snapshot == null || task.getId() == null || detail == null || detail.getId() == null) {
                 throw sourceMissing(order, "PROCESS_INSPECTION");
             }
             ids.add(task.getId());
             ids.add(detail.getId());
+        }
+        if (ids.isEmpty()) {
+            throw sourceMissing(order, "PROCESS_INSPECTION");
         }
         return ids.stream().distinct().sorted().toList();
     }

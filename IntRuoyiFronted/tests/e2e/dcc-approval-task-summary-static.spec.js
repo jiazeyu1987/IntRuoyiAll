@@ -50,9 +50,8 @@ for (const summaryToken of [
 }
 
 for (const actionToken of [
-  'canReview(row)',
-  'openReviewDialog(row)',
-  'openDecisionDetail(row)',
+  'canReviewAction(row)',
+  'openReviewAction(row)',
   'openModuleDetail(row)'
 ]) {
   assert.ok(approvalCenterTable.includes(actionToken), `统一审批中心必须保留真实审批动作：${actionToken}`)

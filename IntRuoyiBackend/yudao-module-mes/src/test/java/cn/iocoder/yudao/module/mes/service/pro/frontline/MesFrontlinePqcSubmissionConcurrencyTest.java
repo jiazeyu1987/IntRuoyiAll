@@ -33,6 +33,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
@@ -272,7 +273,8 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                     processSnapshotMapper,
                     mock(MesProWorkOrderMapper.class), mock(MesProRouteMapper.class),
                     mock(MesProRouteVersionMapper.class), dccMapper, regulationMapper, versionMapper,
-                    processMapper, itemMapper, regulationItemEquipmentMapper, mock(MesQaInspectionRegulationService.class),
+                    processMapper, itemMapper, mock(MesQaInspectionRegulationService.class),
+                    mock(MesPqcItemEquipmentConfigService.class),
                     taskMapper, pieceDetailMapper, mock(MesMdItemService.class), scopeMapper, adminUserApi,
                     eventService, recordMapper, signatureService);
         }

@@ -37,6 +37,7 @@ public class EdhrBatchExecutionReexecuteReqVO {
     private Long bindingVersion;
     private Long batchPickListRelationId;
     private String sourceSnapshotHash;
+    private Long routeId;
     private Long routeVersionId;
     private String completionTransactionId;
     private Long expectedActiveOrderVersion;

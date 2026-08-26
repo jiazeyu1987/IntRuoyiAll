@@ -49,5 +49,5 @@ export const StudentApi = {
   // 导出学生 Excel
   exportStudent: async (params) => {
     return await request.download({ url: `/infra/student/export-excel`, params })
-  },
+  }
 }

@@ -36,7 +36,6 @@ public class MesFrontlinePqcSubmitCommand {
     private String signaturePassword;
     private String templateType;
     private Integer scrapQuantity;
-    private String nonconformanceDescription;
     private List<ItemResult> itemResults;
     private Map<String, Object> rawPayload;
     private LocalDateTime clientSubmitTime;

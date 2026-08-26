@@ -56,7 +56,7 @@ class FormCenterRepositoryBoundaryTest {
 
         assertTrue(submitReq.contains("Map<String, List<Long>> startUserSelectAssignees"),
                 "form submission must expose BPM start-user-selected assignees explicitly");
-        assertTrue(source.contains("buildBpmRequest(instance, policy, reqVO.getStartUserSelectAssignees())"),
+        assertTrue(source.contains("buildBpmRequest(instance, resolvedPolicy, reqVO.getStartUserSelectAssignees())"),
                 "form center must read start-user-selected assignees from the submit request");
         assertTrue(source.contains("reqDTO.setStartUserSelectAssignees(startUserSelectAssignees)"),
                 "form center must pass start-user-selected assignees to BpmProcessInstanceCreateReqDTO");

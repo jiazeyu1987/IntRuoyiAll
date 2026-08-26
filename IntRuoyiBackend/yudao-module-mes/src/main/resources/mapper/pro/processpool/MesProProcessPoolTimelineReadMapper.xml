@@ -163,6 +163,8 @@
             AND pool_event.report_management_status IN (
                 'UNALLOCATED', 'PARTIALLY_ALLOCATED', 'PENDING_RELEASE'
             )
+            AND (latest_submission_review.review_status IS NULL
+                 OR latest_submission_review.review_status <![CDATA[<>]]> 'REJECTED')
         </if>
         <if test="reqVO.allocationView == 'HISTORY'">
             AND pool_event.event_type = 'PRODUCTION_SUBMIT'

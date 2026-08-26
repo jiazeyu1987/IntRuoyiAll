@@ -419,7 +419,6 @@ export interface FrontlinePqcInspectionSubmitReqVO {
   actualInspectionQuantity: number
   scrapQuantity: number
   signaturePassword: string
-  nonconformanceDescription?: string
   itemResults?: FrontlinePqcItemResultSubmitReqVO[]
   rawPayload?: Record<string, unknown>
   clientSubmitTime?: string

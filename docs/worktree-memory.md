@@ -9,16 +9,16 @@
 
 ## Worktree 端口段与原子槽位门禁
 
-- Trigger: 新建、登记、启动、提交或推送 `D:\IntRuoyiWorktree\` 下的 worktree；出现 `slot >= 51`、基准端口碰撞、重复活动槽位、重复活动端口、`No worktree port registry entry is registered`，或 `E:\IntRuoyi` 被识别为 `int_main_d`。
-- Preflight check: 附加 worktree 创建后，在首次启动、提交、推送或运行 `branch-runtime-port-guard.ps1` 前运行 `scripts\runtime\reserve-worktree-slot.ps1`，由脚本在跨进程互斥锁内读取登记表并分配所属 profile 的最低空闲 `slot 1..50`；槽位 `1..19` 保持原映射，`20..30`、`31..40` 和 `41..50` 分别使用集中定义的三段扩展端口。随后运行 `show-branch-runtime.ps1` 或提交前钩子确认 profile、slot 和前后端端口。长期任务分支还必须先核对自身 guard/profile 合同与当前 `docs\branch-runtime-ports.md` 的槽位范围一致；若旧分支仍只接受旧槽位范围，应先以任务相关的独立 Git 变更同步守卫，再判断共享登记是否合法。
-- Blocker: 槽位不在 `1..50`、登记端口不符合集中映射、计算端口命中任一 profile 基准端口、活动登记项复用 `profile/slot` 或前后端端口、基准工作区请求非零槽位、路径与 profile 无法唯一匹配、提交钩子提示缺少当前 worktree registry active entry，或目标分支 guard 合同落后于共享登记合同且尚未完成范围可证明的同步时必须 fail fast。
+- Trigger: 新建、登记、启动、提交或推送 `D:\IntRuoyiWorktree\` 下的 worktree；出现 `slot >= 101`、基准端口碰撞、重复活动槽位、重复活动端口、`No worktree port registry entry is registered`，或 `E:\IntRuoyi` 被识别为 `int_main_d`。
+- Preflight check: 附加 worktree 创建后，在首次启动、提交、推送或运行 `branch-runtime-port-guard.ps1` 前运行 `scripts\runtime\reserve-worktree-slot.ps1`，由脚本在跨进程互斥锁内读取登记表并分配所属 profile 的最低空闲 `slot 1..100`；槽位 `1..19` 保持原映射，`20..30`、`31..40`、`41..50`、`51..60`、`61..70`、`71..80`、`81..90` 和 `91..100` 分别使用集中定义的八段扩展端口。随后运行 `show-branch-runtime.ps1` 或提交前钩子确认 profile、slot 和前后端端口。长期任务分支还必须先核对自身 guard/profile 合同与当前 `docs\branch-runtime-ports.md` 的槽位范围一致；若旧分支仍只接受旧槽位范围，应先以任务相关的独立 Git 变更同步守卫，再判断共享登记是否合法。
+- Blocker: 槽位不在 `1..100`、登记端口不符合集中映射、计算端口命中任一 profile 基准端口、活动登记项复用 `profile/slot` 或前后端端口、基准工作区请求非零槽位、路径与 profile 无法唯一匹配、提交钩子提示缺少当前 worktree registry active entry，或目标分支 guard 合同落后于共享登记合同且尚未完成范围可证明的同步时必须 fail fast。
 - Verification: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py`、`pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1`、目标工作区 `show-branch-runtime.ps1` 输出，或 `reserve-worktree-slot.ps1 -AsJson` 返回当前路径、分支、profile、slot、frontendPort、backendPort 且后续 `git commit` 钩子通过。
-- Forbidden action: 禁止手工猜测槽位、并发直接改写登记表、使用 `slot >= 51`、自行推算扩展端口、基准工作区借用 worktree 槽位、冲突时随机换端口或按分支名猜测歧义 profile；禁止为迁就旧分支守卫而删除或改写其它任务的合法登记，也禁止整体复制混有无关业务内容的提交来同步守卫。
+- Forbidden action: 禁止手工猜测槽位、并发直接改写登记表、使用 `slot >= 101`、自行推算扩展端口、基准工作区借用 worktree 槽位、冲突时随机换端口或按分支名猜测歧义 profile；禁止为迁就旧分支守卫而删除或改写其它任务的合法登记，也禁止整体复制混有无关业务内容的提交来同步守卫。
 - Evidence: `doc/tasks/20260726-harden-worktree-port-slot-allocation/verification-report.md`；`doc/tasks/20260803-pqc-equipment-standard-method-design/execution-log.md`，PQC 文档 worktree 未启动服务但提交钩子仍要求 registry，补跑 `reserve-worktree-slot.ps1` 登记 slot 15 后解除阻塞；`doc/tasks/20260815-expand-worktree-slots-30/verification-report.md`，保留既有 1–19 映射并用独立扩展段把容量扩至 30；`doc/tasks/20260814-production-release-flow-implementation/verification-report.md`，长期 PQC 分支的 v3 `1..19` 守卫拒绝共享登记中的 v4 合法 slot 20，任务保持阻塞且未修改并发登记。
 
 ## Worktree 旧无监听槽位释放门禁
 
-- Trigger: 用户明确要求清理 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中旧 active slot、无监听 slot、过期 runtime slot 或 slot 1..50 全占用但多数端口未监听。
+- Trigger: 用户明确要求清理 `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中旧 active slot、无监听 slot、过期 runtime slot 或 slot 1..100 全占用但多数端口未监听。
 - Preflight check: 先读取 `docs\worktree-restrictions.md`、`docs\branch-runtime-ports.md` 和端口登记表；用 `Get-NetTCPConnection -State Listen` 复扫登记端口；释放前必须取得同 `reserve-worktree-slot.ps1` 一致的登记表 mutex；历史登记项可能缺少 `profile` 等字段，脚本必须显式可选读取字段并 fail fast。
 - Blocker: 未获得用户明确授权、端口仍有监听、创建时间不满足用户给定条件、登记表校验失败、active 项释放后出现重复 active slot/端口、或无法确认修改只影响用户指定范围时必须停止。
 - Verification: 重新读取登记表确认目标 active 项已变为 inactive；复扫 worktree 端口监听；运行 `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1`；在任务日志记录清理和保留清单。
@@ -333,6 +333,15 @@
 - Verification: 记录只读工件路径、suite/test/failure/error/skip 聚合、逐条清单与 owner 矩阵；对每个 failure/error 提供原命令的 `-Dtest=Class#method` 最小复现和后续动作；重新运行时必须使用真实 fixture/JUnit，保留原始退出码和工具错误。
 - Forbidden action: 禁止让流程 gate owner 修复跨模块失败，禁止 API-only、mock、默认成功或跳过测试掩盖缺口，禁止把合法 runtime slot 当业务失败，禁止覆盖并行 worktree 或修改其它任务代码来“清零”分类。
 
+### 发布 worktree 与控制台身份一致性门禁
+
+- Trigger: 每次 build-release/publish-test 创建新的临时 release worktree，或运行控制台端口仍由上一轮任务占用。
+- Preflight check: 记录 maintenance/app worktree 绝对路径、冻结 HEAD、clean 状态、控制台 config/state-dir/PID；preview 输出的 source roots、releaseTag 和 state dir 必须与本轮 worktree 完全一致。
+- Blocker: preview 命中旧 worktree/旧配置、operation 进程已退出但状态仍 RUNNING、worktree 注册/物理路径/端口归属无法解释时停止，不构建或发布。
+- Verification: 使用 git worktree list --porcelain、git status --short --branch、进程命令行和 preview JSON 交叉验证；operation final 后再允许清理。
+- Forbidden action: 禁止跨仓库错误执行 git worktree add、复用旧控制台 state、删除未确认归属的 worktree、用本地 JSON 手工伪造 SUCCESS。
+- Evidence: IntRuoyiMaintance task 20260823-fix-training-rules-sfc-test-release execution-log.md ISSUE-014/015。
+
 ### 主工作区大规模 Dirty/Untracked 分类门禁
 
 - Trigger: 主工作区同时出现大量 tracked dirty、untracked 任务文档、运行快照、迁移包或本地 Office 输入，且需要恢复主线可集成状态。
@@ -343,3 +352,12 @@
 - Blocker: 已跟踪的设计表格、业务资源或其他不可再生输入无法确认归属时，必须保留 dirty 并单独交由业务负责人审阅；不能通过 restore、reset 或宽泛 ignore 隐藏修改。
 - Verification: 最终同时记录提交 hash、分支 HEAD、git ls-files --others --exclude-standard 数量、git status --short --branch、git diff --check 和仍需业务确认的 tracked 文件清单；未跟踪归零不等于业务文件已经获准提交。
 - Forbidden action: 禁止删除并行任务实体文件，禁止将数十 GB 的数据库/MinIO 备份提交到仓库，禁止把 OfficeCLI 的格式或 Schema 问题当作可安全提交的业务变更。
+
+### 运行时融合后的版本与端口交叉核验
+
+- 触发场景：功能 worktree 已融合到 `int_main`，需要用本机长期运行态做真实页面验证，且运行态目录可能同时保留多个历史 jar。
+- 经验规则：先核对 `int_main` 的祖先链和分支端口门禁，再按 PID、启动命令、jar 文件名和独立日志确认端口归属；只在新 jar 的健康检查和启动成功时间窗均通过后宣称运行态已切换。
+- 经验规则：如果两个已验证运行包分别覆盖不同模块，优先以最新且已验证的运行包为底，逐个替换缺失的 nested module jar，再用 `jar tf` 复核关键 class 同时存在；不要直接把单个 class、`target/classes` 或未核对的模块拼成 fat jar。
+- 经验规则：启动参数中的日志文件路径、超时等关键配置，尽量用完整单参数或环境变量传递；不要让命令行出现 `key= value` 这种被空格拆开的写法，否则 Spring Boot 可能拿到空值或错误值，导致日志不落盘或配置未生效。
+- 排查顺序：记录旧 PID/新 PID，确认新 PID 独占 `48081`，请求 `/actuator/health`，再扫描本次日志中的启动成功或失败标记；不要只凭端口可访问或历史日志判断版本。
+- 禁止做法：禁止按端口盲杀不属于当前任务的 Java 进程，禁止把 worktree 构建成功写成 `int_main` 已验证，禁止在主工作区 dirty 时清理或覆盖并行任务文件。

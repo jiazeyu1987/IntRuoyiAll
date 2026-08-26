@@ -102,6 +102,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -1666,7 +1667,7 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
-    void shouldFailActiveOrderListWhenFormalRouteIsMissing() {
+    void shouldSkipActiveOrderListWhenFormalRouteIsMissing() {
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
                 MesProcessPoolActiveOrderDO.builder()
                         .id(8101L)
@@ -1675,14 +1676,116 @@ class MesTeamLeaderActiveOrderServiceTest {
                         .build()));
         when(routeMapper.selectBatchIds(List.of(922119L))).thenReturn(List.of());
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.listActiveOrders(3001L));
-
-        assertEquals(ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS.getCode(), ex.getCode());
-        verify(routeVersionMapper, never()).selectBatchIds(any());
+        assertTrue(service.listActiveOrders(3001L).isEmpty());
+        verify(routeVersionMapper).selectBatchIds(List.of(448L));
     }
 
     @Test
-    void shouldFailActiveOrderListWhenVersionDoesNotBelongToRoute() {
+    void shouldDisplayActiveOrderFromFrozenRouteSnapshotWhenRouteMasterWasDeleted() {
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
+                MesProcessPoolActiveOrderDO.builder()
+                        .id(8101L)
+                        .leaderUserId(3001L)
+                        .workOrderId(9001L)
+                        .routeId(922119L)
+                        .routeVersionId(448L)
+                        .erpFixedQuantitySnapshot(new BigDecimal("200"))
+                        .activeStatus("ACTIVE")
+                        .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
+                        .build()));
+        when(routeMapper.selectBatchIds(List.of(922119L))).thenReturn(List.of());
+        when(routeVersionMapper.selectBatchIds(List.of(448L))).thenReturn(List.of(
+                MesProRouteVersionDO.builder()
+                        .id(448L)
+                        .routeId(922119L)
+                        .versionNo("V1")
+                        .routeSnapshotJson(activeRouteSnapshotJsonWithRouteIdentity(1))
+                        .build()));
+        when(workOrderMapper.selectBatchIds(List.of(9001L))).thenReturn(List.of(confirmedWorkOrder()));
+        when(itemMapper.selectBatchIds(List.of(1001L))).thenReturn(List.of(MesMdItemDO.builder()
+                .id(1001L)
+                .code("AW.107.02.01.2010")
+                .name("球囊扩张压力泵")
+                .build()));
+        when(processSnapshotMapper.selectListByActiveOrderIds(List.of(8101L)))
+                .thenReturn(List.of(frozenProcessSnapshot()));
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
+
+        List<MesTeamLeaderActiveOrderRow> activeOrders = service.listActiveOrders(3001L);
+
+        assertEquals(1, activeOrders.size());
+        assertEquals("冻结工艺路线", activeOrders.get(0).getRouteName());
+    }
+
+    @Test
+    void shouldSkipInvalidActiveOrderWithoutBlockingValidRows() {
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
+                MesProcessPoolActiveOrderDO.builder()
+                        .id(8101L)
+                        .leaderUserId(3001L)
+                        .workOrderId(9001L)
+                        .routeId(922119L)
+                        .routeVersionId(448L)
+                        .erpFixedQuantitySnapshot(new BigDecimal("200"))
+                        .activeStatus("ACTIVE")
+                        .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 30))
+                        .build(),
+                MesProcessPoolActiveOrderDO.builder()
+                        .id(8102L)
+                        .leaderUserId(3001L)
+                        .workOrderId(9002L)
+                        .routeId(9999L)
+                        .routeVersionId(9998L)
+                        .erpFixedQuantitySnapshot(new BigDecimal("200"))
+                        .activeStatus("ACTIVE")
+                        .joinedAt(LocalDateTime.of(2026, 7, 31, 8, 31))
+                        .build()));
+        when(routeMapper.selectBatchIds(List.of(922119L, 9999L))).thenReturn(List.of(MesProRouteDO.builder()
+                .id(922119L)
+                .name("按压式球囊扩充压力泵工艺路线")
+                .build()));
+        when(routeVersionMapper.selectBatchIds(List.of(448L, 9998L))).thenReturn(List.of(
+                MesProRouteVersionDO.builder()
+                        .id(448L)
+                        .routeId(922119L)
+                        .versionNo("V1")
+                        .routeSnapshotJson(activeRouteSnapshotJson(1))
+                        .build()));
+        when(workOrderMapper.selectBatchIds(List.of(9001L))).thenReturn(List.of(confirmedWorkOrder()));
+        when(itemMapper.selectBatchIds(List.of(1001L))).thenReturn(List.of(MesMdItemDO.builder()
+                .id(1001L)
+                .code("AW.107.02.01.2010")
+                .name("球囊扩张压力泵")
+                .build()));
+        when(processSnapshotMapper.selectListByActiveOrderIds(List.of(8101L)))
+                .thenReturn(List.of(frozenProcessSnapshot()));
+        when(pqcInspectionTaskMapper.selectListByActiveOrderIds(List.of(8101L))).thenReturn(List.of());
+
+        List<MesTeamLeaderActiveOrderRow> activeOrders = service.listActiveOrders(3001L);
+
+        assertEquals(List.of(8101L), activeOrders.stream()
+                .map(MesTeamLeaderActiveOrderRow::getId)
+                .toList());
+    }
+
+    @Test
+    void shouldPropagateUnknownActiveOrderListException() {
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
+                MesProcessPoolActiveOrderDO.builder()
+                        .id(8101L)
+                        .routeId(922119L)
+                        .routeVersionId(448L)
+                        .build()));
+        doThrow(new ServiceException(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED))
+                .when(routeMapper).selectBatchIds(any());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.listActiveOrders(3001L));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+    }
+
+    @Test
+    void shouldSkipActiveOrderListWhenVersionDoesNotBelongToRoute() {
         when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
                 MesProcessPoolActiveOrderDO.builder()
                         .id(8101L)
@@ -1699,9 +1802,7 @@ class MesTeamLeaderActiveOrderServiceTest {
                 .versionNo("V1")
                 .build()));
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.listActiveOrders(3001L));
-
-        assertEquals(ErrorCodeConstants.PRO_ROUTE_VERSION_NOT_EXISTS.getCode(), ex.getCode());
+        assertTrue(service.listActiveOrders(3001L).isEmpty());
     }
 
     private static MesTeamLeaderActiveOrderAddReqBO activeOrderReq() {
@@ -2309,6 +2410,13 @@ class MesTeamLeaderActiveOrderServiceTest {
                   }
                 }
                 """.formatted(nodes, configs);
+    }
+
+    private static String activeRouteSnapshotJsonWithRouteIdentity(int processCount) {
+        String snapshot = activeRouteSnapshotJson(processCount);
+        return snapshot.replaceFirst("\\{\\s*\\\"configSnapshots\\\":",
+                "{\\\"routeId\\\":922119,\\\"routeCode\\\":\\\"ROUTE-001\\\","
+                        + "\\\"routeName\\\":\\\"冻结工艺路线\\\",\\\"configSnapshots\\\":");
     }
 
     private static List<MesQaInspectionRegulationItemDO> defaultPqcItems(Long regulationVersionId) {

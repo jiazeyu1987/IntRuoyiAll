@@ -299,3 +299,14 @@ REGRESSION（真实 ACL）: 对 F6/F8 旧目录执行 `Get-Acl` 均成功，owne
 - RED（工具前置）：py_compile 因 [Errno 13] Permission denied 写入 script/__pycache__ 失败，不能写成 PASS。
 - REGRESSION：现有 MesProEdhrFourMaterialGateReleaseContractTest XML（2026-08-25 11:11）为1 failure；everyReleaseEntryUsesSharedServerGate 期望 true、实际 false。因本轮compile未到Surefire，此artifact仅作待重跑证据。
 - 矩阵：流程4 receipt 37/37为历史slice；流程6建批39/39为历史slice；流程7 trace 29/29为历史slice；流程8 shared gate BLOCKED；流程10 47/47/49/49为历史slice。当前完成-建批-Tx-C-四材料-finalize-追溯链未实证。
+
+## M31 int_main 流程11复验
+
+- RED: python -m pytest script/tests/test_release_migration_policy_gate.py -q --basetemp <task-dir> -> FAIL, 新增回滚脚本场景被错误判定为缺少 release-migration metadata；主线全量 gate 同样被 20260822_mes_process_pool_active_order_completion_receipt_rollback.sql 阻断。
+- GREEN: release_migration_manifest.py 与 release_migration_policy_gate.py 现在识别 rollback-migration，正常 release manifest 排除回滚专用 SQL；显式传入回滚 SQL 仍返回明确 blocker，不会静默执行。
+- REGRESSION: python -m pytest script/tests/test_release_migration_policy_gate.py -q --basetemp <task-dir> -> PASS, 9 passed；python -m pytest script/tests/test_release_manifest_migration_contract.py -q --basetemp <task-dir> -> PASS, 8 passed；python -X utf8 script/release/run-release-migration-policy-gate.py --sql-root sql/mysql -> PASS, 522 migrations。
+- REGRESSION: python -m pytest IntRuoyiBackend/script/tests/test_release_readiness_g10_g11_contracts.py -q --basetemp <task-dir> -> PASS, 11 passed；python IntRuoyiBackend/script/run_flow_repair_11_contracts.py -> PASS, 12；python -m pytest IntRuoyiBackend/script/tests/test_flow_repair_11_migration.py -q -> PASS, 12 passed；三份流程11 Python 源码 AST 解析 -> PASS。
+- 工具归因：G10/G11 首次失败来自默认用户临时目录 ACL，迁移策略首次失败来自仓库根目录导入路径；改用任务目录 basetemp 和 IntRuoyiBackend 脚本根目录后均通过。未改全局临时目录权限，未修改业务数据。
+
+- BDD: 历史迁移与发布确认必须 fail-closed -> Given 当前输入缺少真实迁移授权或 G10/G11 责任人确认，When 流程11执行分类、dry-run 或发布确认校验，Then 只读报告不得产生副作用，发布决策必须为 BLOCKED。
+- RED: 本轮将重新执行 Flow11 runner、pytest、py_compile、G10/G11 合同和迁移策略合同；若现状仍通过，继续定位专项文档与当前代码是否存在可执行缺口，不把历史 PASS 当作当前主线 GREEN。

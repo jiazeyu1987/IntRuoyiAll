@@ -315,11 +315,29 @@
 
 - Trigger: 生产组长活跃订单“完成/完工/申请生产放行”、`active-order/release/apply`、生产进度 100%、检验进度 100%、批记录回填、过程检验单回填、损耗单回填、批次执行创建、来料检文件、灭菌文件、成品检文件、管理者代表批记录放行。
 - Preflight check: 后端必须作为权威门禁核对当前用户生产组长负责范围、活跃订单生产进度和检验进度均为 100%、发布态路线快照、逐工序正式 BATCH 批记录绑定、过程检验汇集确认明细、生产工单与领料单正式对应、损耗事实、管理者代表新权限角色和申请幂等键。一线生产、一线 PQC 签名提交以及生产组长、PQC 组长复核都只形成正式来源事实，不得触发最终表单回填；只有活跃订单点击完成时，才在同一业务节点统一执行批记录回填、过程检验单回填和损耗单回填。批记录来源只能来自工序设置逐工序 BATCH 绑定、`RECORD_CATEGORY_BATCH_RECORD`、一线生产事实、生产工单和领料单；过程检验来源只能来自已确认的 PQC 汇集明细，过程检验设备字段只能使用提交/汇集明细中的 `selectedEquipmentId/Code/Name/Number` 快照；损耗单只在一线生产存在损耗时写入，无损耗时不得生成空损耗单或零损耗报告。三类回填成功后才允许创建或复用批次执行，并把一线生产、生产工单、领料单、一线 PQC 和损耗来源映射到批次执行及对应资料。批次执行创建后必须完成来料检、灭菌、成品检三类文件上传；若当前系统把成品检拆成“成品检报告/成品检记录”两个节点，则两个节点都属于成品检文件齐套要求。三类文件全部上传成功后，才允许创建或通过管理者代表批记录放行；管理者代表角色首版授权 `xujianhai`。
+- Simulation preflight extension: 多阶段放行模拟在创建任务自有工单、生产/PQC 事实或库存前，必须只读确认目标产品正式路线的批记录版本已批准，所有需要批记录的 `MAIN` 绑定均有正式 definition/version ID 和启用字段映射，实际生成 PQC 任务的工序均有正式过程检验绑定；预检失败时直接返回 blocker，禁止先执行整套业务写入后才发现版本 `PRECHECK_FAILED`，也禁止由模拟服务修补路线主数据。
 - Blocker: 进度不足、非当前组长负责范围、一线生产或 PQC 复核事实缺失、生产工单与领料单未正式对应、完成节点前已写入最终批记录/过程检验单/损耗单、回填前已创建正式批次执行、缺正式批记录绑定、过程检验槽位只有动态表单模板而无传统 `batchRecordReportId`、PQC 汇集未确认或无结构化明细、过程检验设备字段反查 QA 版本设备或当前最新租户设备配置、有损耗但损耗单正式映射未证明、无损耗却生成损耗单、来料检/灭菌/成品检文件任一未上传成功、缺管理者代表角色或 `xujianhai` 授权、幂等冲突、eDHR 批次或放行事务无法持久化时必须返回 blocker 或 fail fast，不得创建不完整资料或提前放行。
 - Verification: 后端静态/单元回归至少覆盖成功、进度不足、非当前组长、一线生产/PQC/组长复核不触发回填、活跃订单完成节点一次性回填批记录和过程检验单、PQC 提交后 QA 版本设备或租户级设备配置变化时放行仍使用提交/汇集设备快照、有损耗时回填损耗单、无损耗时不写损耗单、回填后才创建批次执行、正式来源缺失、来料检/灭菌/成品检文件缺任一份阻塞、管理者代表候选为 `xujianhai`、重复申请幂等和负责人缺失；schema 测试锁定申请表唯一键、状态字段、来源快照和权限码；前端静态合同覆盖双 100% 完成按钮、确认文案、刷新和 blocker 展示；真实 E2E 必须使用任务自有双 100% 活跃订单、正式生产/PQC/领料来源、三类上传文件、`xujianhai`、签名、正式模板和可清理数据。
+
+### eDHR 四份材料必须绑定正式来源快照
+
+- Trigger: 四份放行材料、来料检报告、灭菌报告、成品检报告、成品检记录、MATERIALS_READY、sourceSnapshotHash、routeBindingSnapshotHash、Flow 7 来源变化或材料门禁异常。
+- Preflight check: 创建四个材料任务时，必须从已校验的 Flow 6/Flow 7 正式来源凭证取得 sourceSnapshotHash，并分别持久化到专用材料任务来源快照字段；门禁只允许将该字段与 Flow 7 Origin/TraceLink 预检返回的来源快照比较。routeBindingSnapshotHash 只能表示路线/表单绑定配置，不得作为材料来源证明。
+- Blocker: 材料任务缺少专用来源快照、来源快照与 Flow 7 不一致、Flow 7 来源预检缺 Origin/TraceLink、或仅有路线绑定快照而没有正式来源快照时，必须阻断 MATERIALS_READY 和后续放行；历史任务不得通过默认值、路线配置快照或旧附件自动补齐。
+- Verification: 后端回归必须覆盖四个材料任务创建后来源快照一致、Flow 7 来源变化后进入 MATERIALS_RECHECK_REQUIRED、专用来源快照刷新后才恢复 MATERIALS_READY，以及 routeBindingSnapshotHash 与来源哈希相同但专用字段为空时仍阻断；迁移必须以幂等 schema 合同验证专用列存在。
+- Forbidden action: 禁止把路线/表单配置哈希、附件哈希、批次号、当前最新来源查询结果或前端字段拼接当作已冻结材料来源；禁止为兼容历史任务写默认快照、跳过来源预检或用旧附件版本绕过门禁。
+- Evidence: doc/tasks/20260824-flow8-four-material-gate/；IntRuoyiBackend/sql/mysql/20260826_mes_edhr_material_task_source_witness.sql。
+
+### eDHR 批次创建入口必须与正式入口合同一致
+
+- Trigger: eDHR 批次创建弹窗、`/open-or-create`、`entryType` 缺失或“批次入口缺少 entryType”。
+- Preflight check: 前端只能调用与业务入口匹配的正式接口，并提交该入口实际生成的 `entryType`、`entryBusinessId`、来源凭证、来源上下文哈希和幂等键；`MANUAL`、`PQC_INDEPENDENT`、活跃订单完成或排产入口的凭证链路必须分别由正式来源生成。只有工单、路线、批次号和备注的旧弹窗不能直接调用受 Flow 9 合同保护的创建接口。
+- Blocker: 禁止在前端填固定 `entryType`、空字符串、默认来源 ID、伪造 receipt 或将 `formBindings`、工序开始配置、页面文案当作批次入口来源；缺少正式人工入口凭证服务时必须阻塞并明确提示，而不是继续请求后端。
+- Verification: 前端合同测试必须同时锁定入口类型与完整正式字段；后端入口合同测试必须覆盖缺字段、场景不匹配和正式凭证校验；真实页面验证必须证明请求来自对应业务入口并记录实际写请求。
 - Forbidden action: 禁止用 `formBindings`、默认 `MAIN`、工序开始配置、当前登录人、空资料、mock、直接 SQL、API-only、默认成功、吞异常、直接调用负责人电子签名放行、在一线提交或组长复核节点提前回填、回填前创建批次执行、无损耗生成空损耗单、三类文件未齐套预检通过、或把旧 `RELEASE_APPROVE` 候选当管理者代表来替代正式生产放行与批记录放行链路。
 - Historical data gate: 切换到“活跃订单完成统一回填后创建批次执行”前，必须盘点旧流程在回填前或 PQC 审批前已创建的批次执行。只有与同一有效完成申请、正式回填证据和幂等键存在正式关联的执行才允许作为重复请求结果复用；无有效完成/回填关联的旧执行必须返回迁移 blocker，并由经批准的数据修复方案处理。回归至少覆盖“旧执行无完成回填关联时不认领、不复用、不自动删除”。
 - Interface contract gate: 多阶段流程允许上下游并行开发前，必须冻结唯一状态所有者、可持久化状态与迁移审计编码的区别、同步内部端口、HTTP 请求/响应、Long ID JSON 类型、权限候选来源、事务回滚、幂等键、乐观版本、网络不确定回执和结构化 blocker。下游初始化必须与当前命令同事务；审计事件不得替代下游触发。若框架通用异常响应会丢失 blocker data，或后端/前端 Long ID 序列化类型不一致，必须先补正式响应适配器和提供方/消费方合同测试，禁止用成功码包失败、中文 msg 分支、建议接口或“状态/事件二选一”放行并行开发。
+- Exception-handler gate: 领域阻塞异常若继承普通 RuntimeException，必须在实际控制器入口验证异常处理优先级；全局 `@RestControllerAdvice` 可能先将结构化 blocker 改写为 HTTP 500“系统异常”。申请/回执接口必须由控制器级处理器或框架正式适配器返回非零业务码与完整 blocker data，并覆盖真实 HTTP 回归，不能只测试 advice 方法本身。
 - Shared schema ownership gate: 多阶段流程共用同一申请表、工作待办或聚合版本时，必须指定唯一迁移所有者并冻结字段类型、索引、历史数据预检和迁移顺序；消费阶段可以按 DTO/内部端口并行开发，但不得各自新增同名字段、平行关联列或工作待办版本列。复用多业务作用域表时，唯一约束只能命中目标作用域；必要时使用条件生成列，禁止用覆盖所有作用域的宽泛唯一索引破坏多签字格、归档等既有任务。
 - Version ownership gate: 每个写命令必须明确 `expectedVersion` 属于哪个聚合以及查询响应如何投影该版本。工作待办没有正式版本列时，只能从受唯一关系约束的申请或放行事务读取；解析不到唯一聚合必须报数据完整性 blocker，不得用更新时间、默认 0 或其它聚合版本替代。临时上传不改变正式证据时可以只校验并原样返回版本，正式节点完成才递增。
 - Interface verification: 合同测试同时覆盖字段集合、ID JSON 类型、状态前置、相同幂等键同载荷回执、同键不同载荷冲突、版本归属/冲突、共享迁移唯一所有者、条件唯一索引不影响其它业务作用域，以及下游初始化失败整事务回滚；未执行的 RED/GREEN 只能记录 expected 结果，不得预写 PASS。
@@ -371,7 +389,7 @@
 ### 活跃订单模拟完成必须写正式模拟事实
 
 - Trigger: 生产组长活跃订单“模拟完成”、一键模拟一线生产提交、生产组长复核、一线 PQC 提交、PQC 组长复核、生产进度 100%、检验进度 100%、`active-order/simulate-completion`、`simulationRunId`、Stage 分段模拟闭环。
-- Preflight check: 模拟入口只能在用户明确确认“模拟数据”后使用；后端必须先校验活跃订单属于当前生产组长且为 `ACTIVE`，订单冻结路线版本、逐工序快照、生产目标数量、PQC 任务、PQC 计划数量和 QA 检验项目身份完整。模拟完成应沿用正式提交/分配/复核/逐件明细/汇集确认链路写入可追溯事实，并用 `simulated=true`、来源标识、`stageCode`、`simulationRunId` 和复核备注区分模拟数据；生产进度和检验进度必须由正式事实重新计算。分段模拟按钮必须是闭环动作：一次触发内先按上一轮 `simulationRunId` 清理本段模拟数据，再创建干净 fixture，再复用正式模拟服务，再自动验证输出。每段自造输入 fixture 必须逐字段、状态枚举和来源语义对照上一段当前输出契约；本段输出必须逐字段对照下一段当前输入契约。涉及现有业务节点时还必须核对后端真实常量及正式门禁引用，禁止为文档方便自造聚合节点、别名节点或双契约 fallback。若验证前需要对同一活跃订单执行“重建”，重建清理必须物理删除该订单自有运行态事件，确保事件幂等唯一键可重复生成，不得用软删除事件替代；缺少 `simulationRunId` 的事实不得纳入自动清理范围。
+- Preflight check: 模拟入口只能在用户明确确认“模拟数据”后使用；后端必须先校验活跃订单属于当前生产组长且为 `ACTIVE`，订单冻结路线版本、逐工序快照、生产目标数量、PQC 任务、PQC 计划数量和 QA 检验项目身份完整。模拟完成应沿用正式提交/分配/复核/逐件明细/汇集确认链路写入可追溯事实，并用 `simulated=true`、来源标识、`stageCode`、`simulationRunId` 和复核备注区分模拟数据；生产进度和检验进度必须由正式事实重新计算。分段模拟按钮必须是闭环动作：一次触发内先按上一轮 `simulationRunId` 清理本段模拟数据，再创建干净 fixture，再复用正式模拟服务，再自动验证输出。每段自造输入 fixture 必须逐字段、状态枚举和来源语义对照上一段当前输出契约；本段输出必须逐字段对照下一段当前输入契约。涉及现有业务节点时还必须核对后端真实常量及正式门禁引用，禁止为文档方便自造聚合节点、别名节点或双契约 fallback。若验证前需要对同一活跃订单执行“重建”，重建清理必须物理删除该订单自有运行态事件，确保事件幂等唯一键可重复生成，不得用软删除事件替代；缺少 `simulationRunId` 的事实不得纳入自动清理范围。无下游副作用断言若会读取关联实体，迁移与实体字段必须一并核对并先以 schema 合同锁定；不得等到真实 E2E 才因旧表缺字段而失败。
 - Blocker: 缺活跃订单、缺冻结工序、缺生产目标数量、缺 PQC 任务、PQC 任务不属于订单冻结工序、任务数量或 QA 项目身份不完整、当前登录组长无归属，重复重建触发 `mes_pro_process_pool_event` 幂等唯一键冲突、生产/PQC 任一模拟事实无法完整写入 `simulationRunId`/`stageCode`/模拟来源标识、分段模拟动作不能闭环完成清理建数执行验证、相邻阶段契约字段或状态不等价、文档节点键与后端真实常量不一致，或只能通过直接改进度字段达成 100% 时必须停止；不得部分写入后返回成功。
 - Verification: 后端合同必须断言模拟入口逐工序生成生产提交、初始分配和生产组长复核，逐任务生成 PQC 逐件明细、PQC 提交和 PQC 组长确认/过程检验汇集，同时负向扫描不得写 `productionProgressPercent`、`inspectionProgressPercent` 等直接进度字段；合同测试必须断言每条生产/PQC模拟事实均带同一轮 `simulationRunId`、`stageCode` 和模拟来源标识，缺任一字段返回 blocker；文档级验证必须分别扫描上一段输出、本段输入、本段输出、下一段输入和后端真实节点常量，证明字段、状态枚举、来源字段及节点键一一对应，旧错误键只允许出现在禁止项或负向测试说明中；重建合同必须断言自有运行态事件使用物理删除清理，并覆盖同一活跃订单重复“重建 -> 模拟完成”不再触发幂等唯一键冲突；前端合同必须断言按钮在活跃订单行操作区、确认文案明确“模拟数据”、成功后展示生产/PQC 数量和双进度并刷新列表。真实写入 E2E 只有在具备任务自有活跃订单 fixture、多账号签名前置、`simulationRunId` 落表验证和清理计划时执行。
 - Forbidden action: 禁止用 SQL、状态字段、直接进度覆盖、默认成功、mock 提交、空逐件明细、跳过 PQC 任务确认、跳过生产组长/PQC 组长复核、事件软删除、只写 `simulated=true` 但缺 `simulationRunId`、API-only 成功提示或吞异常来伪造双 100%。
@@ -386,6 +404,8 @@
 - Rule identity: QA 发布规则以 `key` 为稳定身份，当前至少包含 `FIRST/PATROL_AM/PATROL_PM/FINAL`；`PATROL_AM` 与 `PATROL_PM` 共用 `inspectionType=PATROL` 项目，但必须分别生成、展示、排序和提交任务。禁止把 inspectionType 当唯一规则键或把上午/下午巡检合并。
 - QA version contract: 新建或明确重建 active order 必须在执行时按 QA 规程版本表实时查询最新 `PUBLISHED` 版本（按 `publishedAt`、`id` 倒序），再把该版本锁定到 active order 和 PQC 任务；不得依赖可能失真的 `currentVersionId`、历史订单旧版本或具体版本号常量。历史页面必须使用独立锁定版本读取合同，按 activeOrder 的 DCC/QA/version 快照校验同租户和归属，并允许 DCC 后续禁用、version 为 `PUBLISHED/RETIRED` 时继续读取。管理 API 的“DCC 当前启用”校验不能复用于历史锁定读取。
 - Active-order contract: `REMOVED` 订单重新激活复用原冻结版本、process snapshot 和 task 历史，不重新解析今天的路线关系或 current QA。全部有效活跃订单可见，不能由 PENDING 任务过滤；QA 工序保持独立，不建立 QA 工序到 MES 路线工序映射。
+- Frozen-route display contract: 活跃订单列表的路线展示必须先校验订单锁定的 `routeVersionId` 与 `routeId`；当前路线主档可读时使用主档名称，主档缺失时只能使用同一锁定版本快照中同时匹配 `routeId` 且非空的正式 `routeName`。路线版本或快照身份缺失必须形成明确的订单完整性错误，禁止空名称、当前路线猜测、同名路线或前端隐藏错误。
+- Active-order list isolation contract: 当用户明确要求列表容忍历史缺损订单时，只允许按明确白名单隔离单条订单的路线、版本、工单、产品或工序快照完整性错误，并记录订单 ID、读取阶段和业务错误码；其它有效订单必须继续返回。白名单外的 `ServiceException`、解析异常、数据库异常和系统异常仍必须 fail-fast，禁止捕获通用异常、返回空列表或用前端隐藏错误。隔离只改变列表读取，不得修改订单、任务、快照、报工或进度数据；缺损订单仍须按正式重建或删除后重新新增流程治理。
 - Response contract symmetry: 当任务身份正式下沉到 `pqcTaskOptions` 时，后端响应 VO、响应映射、前端 DTO、页面读取点和合同测试必须同时删除工序顶层的 `pqcTaskId/inspectionRuleKey/taskStatus/inspectionType/businessDate/shiftCode/roundNo/plannedInspectionQuantity` 副本。只跑前端正向静态合同和类型检查可能在后端仍输出兼容字段时全部通过；完成门禁必须按冻结接口逐层比对精确字段集合，并对后端顶层字段声明、映射写入、前端顶层字段/读取点和仍断言旧字段的测试做负向扫描。任一层保留第二权威时必须阻塞，不得以“前端未读取”接受兼容输出。
 - Task overlay boundary: 当前页面的任务叠加只接受活跃订单锁定 QA 版本及其正式 QA 工序。旧版本或旧工序下已经 `CANCELLED` 的历史任务可以保留审计记录，但不得阻断当前锁定版本读取，也不得进入当前工序汇总或提交选项；当前锁定版本内身份完整的 `CANCELLED` 任务仍可进入历史汇总。任何 `PENDING/SUBMITTED/CONFIRMED` 任务与锁定版本、QA 工序或订单身份不一致时必须 fail-fast。前端可以保留各状态投影视图，但员工切换和正式提交只能从 `taskStatus=PENDING` 的任务建立上下文。
 - Concurrency gate: 路线-DCC version 必须在同路线全部历史上单调递增，PUT/DELETE 按 tenant/route/deleted/version 原子更新；PQC 同一 `pqcTaskId` 的正式提交必须行锁或等价串行化，PENDING->SUBMITTED CAS 影响行数必须为 1，失败后只能进入唯一正式事件的内容比较，不得继续写签名、明细或事件。
@@ -480,12 +500,23 @@
 
 ### PQC 过程检验汇集必须形成最终确认明细
 
+- Identity extension: 同名检验项目可能在不同QA版本使用不同编号。租户级设备配置和一线运行态必须以当前订单冻结QA版本实际返回的检验项目编号核对；配置页项目编号与当前订单项目编号不一致时，必须按配置缺失处理，不得按名称、QA版本或其它编号回退匹配。
+
 - Trigger: AC-M21、过程检验记录汇集、一线 PQC 提交、PQC 组长复核通过、`productionSubmitEventId`、`qaProcessId`、`aggregateApprovedPqcSubmission`、`processInspectionAggregationStatus`、`mes_pqc_process_inspection_aggregate_detail`、`mes_pqc_inspection_task.task_status`。
 - Preflight check: 修改一线 PQC 提交或汇集链路前先核对 `mes_pro_process_pool_event`、`mes_pro_process_pool_pqc_record`、`mes_pqc_inspection_task`、`mes_pqc_inspection_piece_detail` 和汇集明细表的租户、事件、任务、轮次、规程版本、逐件明细来源。一线 PQC 的正式绑定对象只有活跃订单、当前 PQC 任务、QA 工序/规程和结构化逐件明细；检验设备配置只来自当前租户级 `itemCode` 设备配置，QA 版本只提供检验项目、检验标准、抽样规则等任务事实；`productionSubmitEventId` 不是 PQC 提交身份，PQC 事件和记录允许为空，不能从同一订单同一工序的生产报工反查、选择或绑定唯一事件。过程检验动态 FormCenter 模板身份必须来自当前路线工序正式绑定的 `formTemplateId + lastPublishedTemplateVersionId + lastPublishedTemplateVersionNo`，并校验已发布模板版本的 `templateId` 与绑定一致；不得把“过程检验记录”或某个具体模板 ID（例如 28）写成业务判定。汇集只能读取正式 `SUBMITTED` 任务和结构化逐件明细，并在同一事务中 CAS 标记记录已汇集、确认任务为 `CONFIRMED`、写入结构化汇集明细；活跃订单检验进度来自这条 PQC 任务确认和汇集事实，不依赖生产报工事件或当前设备配置。
 - Blocker: PQC 提交要求存在、唯一解析或自动绑定生产报工事件，因同工序有多条或零条生产报工拒绝 PQC 提交，PQC 幂等查询遗漏正式 `qaProcessId` 身份，设备默认回填未证明所选设备仍属于当前租户级 `itemCode` 配置，过程检验动态模板写死为某个 templateId 或只按模板名称判定，或者只能证明状态标记而没有结构化明细、仍从 raw payload 汇集、未校验租户/事件/任务一致性、未排除旧修订/未确认任务/重复汇集、任务确认与明细插入不在同一事务时必须停止。
 - Verification: 后端回归必须覆盖无生产报工、同订单同工序多条生产报工时的一线 PQC 提交均不绑定生产报工事件，提交载荷 `productionSubmitEventId` 为空且不查询生产报工；还必须覆盖 PQC 事件幂等查询使用 `qaProcessId`、默认设备回填按实际检验员 + `itemCode` 且命中当前租户级启用配置、非固定 templateId 的过程检验动态模板解析、成功汇集明细字段、重复汇集 CAS、跨租户拒绝、无逐件明细拒绝、任务确认 CAS 失败回滚，并配合 schema 测试验证唯一键 `tenant_id + event_id + source_piece_detail_id + deleted`。
 - Forbidden action: 禁止将生产报工存在性、唯一性、事件 ID、报工状态或报工进度作为一线 PQC 提交、PQC 组长复核或活跃订单检验进度的前置；禁止把 QA 版本设备配置作为一线设备选择、默认回填或放行设备字段的权威来源；禁止把过程检验表单模板 ID、模板名称或当前截图当作固定判定；禁止用前端展示、状态字段、默认空明细、raw payload、API-only 截图或吞唯一键异常替代正式结构化汇集事实。
 - Evidence: `doc/tasks/20260805-ac-m21-process-inspection-aggregation-fix/verification-report.md`；`doc/tasks/20260820-frontline-pqc-decouple-production-submit/verification-report.md`；`doc/tasks/20260820-frontline-pqc-process-inspection-route-binding/verification-report.md`；`doc/tasks/20260820-frontline-pqc-inspection-equipment-selection/verification-report.md`。
+
+### 项目范围设备候选必须先过滤正式项目身份
+
+- Trigger: 租户级 PQC 检验设备配置、QA 项目切换、`dccProjectCodeId`、同名检验项目、历史 QA 数据异常、`item-equipment/items`。
+- Preflight check: 项目范围查询必须先按正式 `dccProjectCodeId` 过滤 QA 检验项目关系，再对命中当前项目的数据执行版本、规程、DCC 项目和显示字段的严格校验；租户内其它项目的历史脏数据不得参与当前项目解析。
+- Blocker: 当前项目命中的规程版本、规程、DCC 项目或检验项目字段缺失，或当前项目内同一 `itemCode` 的正式名称/项目身份冲突时必须 fail-fast；不得用跳过错误、空列表或其它项目数据掩盖当前项目异常。
+- Verification: 回归必须覆盖“其它项目缺少 DCC 项目归属但当前项目候选仍正常返回”“当前项目自身缺少正式项目归属仍明确报错”“同名项目只展示一条但保留全部 `itemCode`”；真实 QA 页面必须核对请求携带当前项目 ID、批量配置携带全部编号，一线 PQC 必须按当前订单冻结 QA 项目的实际编号读取租户级设备选项。
+- Forbidden action: 禁止先全租户严格解析再按项目过滤，禁止按项目名称猜测身份，禁止从 QA 版本回退到设备配置，禁止在历史脏数据影响当前项目时返回默认成功或空配置。
+- Evidence: `doc/tasks/20260824-qa-inspection-equipment-tab/verification-report.md`。
 
 ### QA 规程配置状态必须来自产品级规程记录
 
@@ -613,6 +644,7 @@
 - Blocker: FIFO 预览因为非当前 routeProcess 的活跃订单直接阻塞当前工序、手工确认把缺当前快照的指定订单静默成功、生产系数缺省被当成非法空值、非正数量被默认成功、或预览和最终确认共用同一宽松路径时必须停止并补回归。
 - Verification: 后端回归必须同时覆盖“FIFO 预览跳过不含当前 `routeProcessId + processId` 快照的活跃订单并继续分配”“缺省生产系数按 `1` 派生目标数量”“非正系数仍失败”“最终确认/手工指定仍 fail-fast”，并复跑 FIFO 闭环和 PQC 分配相邻测试。
 - Forbidden action: 禁止为了消除 FIFO 报错而全局默认目标数量、吞掉 `requireTarget` 错误、用基础 `processId` 替代 routeProcess 身份、把缺正式快照的指定订单当成功、改前端隐藏错误或用 API-only 说明替代服务回归。
+- 真实页面验收门禁：点击活跃订单模拟按钮前，必须从生产组长活跃订单池真实搜索并确认目标产品候选存在有效的当前工序生产系数和目标数量快照；若页面提示快照缺失或没有候选，必须在零业务写请求前记录 BLOCKED，不能用旧活跃订单、API-only、JSON fixture 或直接数据库补值代替正式来源。
 - Evidence: `doc/tasks/20260808-fifo-active-order-process-target/verification-report.md`。
 
 ### 工序共享分配池与旧报工终结链路边界

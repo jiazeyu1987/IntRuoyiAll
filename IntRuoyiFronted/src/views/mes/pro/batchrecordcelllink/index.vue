@@ -103,7 +103,10 @@
       <main class="batch-record-cell-link__form-stage">
         <section
           class="batch-record-cell-link__pane is-source"
-          :class="{ 'batch-record-cell-link__work-order-field-panel': isStructuredSourceSelected }"
+          :class="{
+            'batch-record-cell-link__work-order-field-panel': isStructuredSourceSelected,
+            'batch-record-cell-link__pqc-source-panel': isPqcAggregateSelected
+          }"
           :data-process-pool-report-source-fields="sourceType === SOURCE_TYPE_PROCESS_POOL_REPORT ? 'true' : undefined"
           :data-process-pool-report-field-count="sourceType === SOURCE_TYPE_PROCESS_POOL_REPORT ? filteredProcessPoolReportSourceFields.length : undefined"
           :data-production-pick-list-source-fields="sourceType === SOURCE_TYPE_PRODUCTION_PICK_LIST ? 'true' : undefined"
@@ -115,11 +118,37 @@
             <span>{{ isStructuredSourceSelected ? '源字段' : '源表单' }}</span>
             <strong>{{ sourcePanelTitle }}</strong>
           </div>
+          <div v-if="isPqcAggregateSelected" class="batch-record-cell-link__pqc-process-selector" data-pqc-process-selector>
+            <div class="batch-record-cell-link__pqc-process-selector-main">
+              <span>工序名称</span>
+              <el-select
+                v-model="selectedPqcQaProcessId"
+                class="batch-record-cell-link__pqc-process-select"
+                placeholder="选择工序"
+                filterable
+                data-pqc-process-select
+                @change="handlePqcProcessChange"
+              >
+                <el-option
+                  v-for="process in pqcProcesses"
+                  :key="process.id"
+                  :label="`${process.sort ?? '-'}. ${process.processName || '未命名工序'}`"
+                  :value="process.id"
+                />
+              </el-select>
+            </div>
+            <div class="batch-record-cell-link__pqc-process-meta">
+              <span>当前工序序号</span>
+              <strong>{{ selectedPqcQaProcess?.sort ?? '-' }}</strong>
+              <span>当前工序</span>
+              <strong>{{ selectedPqcQaProcess?.processName || '请选择工序' }}</strong>
+            </div>
+          </div>
           <div class="batch-record-cell-link__sheet-scroll">
             <BatchRecordLinkSheet
               :columns="sourceRenderableSheet.columns"
               :rows="sourceRenderableSheet.rows"
-              empty-text="请选择源表单"
+              :empty-text="sourceSheetEmptyText"
               @select-cell="selectSourceCell"
             />
           </div>
@@ -220,6 +249,7 @@ import {
   type BatchRecordCellLinkCellVO,
   type BatchRecordCellLinkFormCellsVO,
   type BatchRecordCellLinkFormVO,
+  type BatchRecordCellLinkPqcProcessVO,
   type BatchRecordCellLinkRuleVO,
   type BatchRecordCellLinkSourceFieldVO,
   type BatchRecordCellLinkWorkbenchContextVO,
@@ -389,6 +419,8 @@ const loading = ref(false)
 const saving = ref(false)
 const context = ref<BatchRecordCellLinkWorkbenchContextVO>()
 const forms = ref<BatchRecordCellLinkFormVO[]>([])
+const pqcProcesses = ref<BatchRecordCellLinkPqcProcessVO[]>([])
+const selectedPqcQaProcessId = ref<number>()
 const productionWorkOrderSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
 const processPoolReportSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
 const productionPickListSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
@@ -478,6 +510,9 @@ const sourceForm = computed(() =>
     : forms.value.find((form) => form.reportId === sourceReportId.value)
 )
 const targetForm = computed(() => forms.value.find((form) => form.reportId === targetReportId.value))
+const selectedPqcQaProcess = computed(() =>
+  pqcProcesses.value.find((process) => Number(process.id) === Number(selectedPqcQaProcessId.value))
+)
 const activeTargetRouteProcessId = computed(() => targetForm.value?.routeProcessId ?? requestedTargetRouteProcessId)
 const hasFormalRouteProcessContext = computed(() => Boolean(
   context.value?.routeId && (
@@ -498,8 +533,13 @@ const filteredProductionPickListSourceFields = computed(() => {
   return productionPickListSourceFields.value.filter((field) => field.routeProcessId === targetRouteProcessId)
 })
 const filteredPqcAggregateSourceFields = computed(() => {
-  const targetRouteProcessId = activeTargetRouteProcessId.value
-  return pqcAggregateSourceFields.value.filter((field) => field.routeProcessId === targetRouteProcessId)
+  const targetQaProcessId = selectedPqcQaProcessId.value
+  return pqcAggregateSourceFields.value.filter((field) =>
+    targetQaProcessId !== undefined &&
+    field.qaProcessId !== undefined &&
+    field.qaProcessId !== null &&
+    Number(field.qaProcessId) === Number(targetQaProcessId)
+  )
 })
 const targetForms = computed(() => {
   if (isStructuredSourceSelected.value) {
@@ -540,8 +580,25 @@ const currentProcessPoolReportSourceTitle = computed(() =>
   `${targetForm.value?.reportName || '当前工序'}的一线生产字段`
 )
 const currentPqcAggregateSourceTitle = computed(() =>
-  `${targetForm.value?.reportName || '当前工序'}的一线PQC字段`
+  selectedPqcQaProcess.value
+    ? `${selectedPqcQaProcess.value.sort ?? '-'}. ${selectedPqcQaProcess.value.processName || '未命名工序'}的一线PQC字段`
+    : '请选择工序后查看一线PQC字段'
 )
+const sourceSheetEmptyText = computed(() => {
+  if (!isPqcAggregateSelected.value) {
+    return '请选择源表单'
+  }
+  if (loading.value) {
+    return '正在加载当前工序的一线PQC字段'
+  }
+  if (selectedPqcQaProcessId.value === undefined) {
+    return '请选择QA规程工序'
+  }
+  if (!filteredPqcAggregateSourceFields.value.length) {
+    return '当前工序暂无正式一线PQC字段'
+  }
+  return '请选择源表单'
+})
 const sourcePanelTitle = computed(() =>
   sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
     ? PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME
@@ -610,13 +667,17 @@ async function loadWorkbenchContext() {
       routeId: parseNumber(route.query.routeId),
       definitionId: parseNumber(route.query.definitionId),
       versionId: parseNumber(route.query.versionId),
-      sourceReportId: String(route.query.sourceReportId || ''),
+      sourceReportId: sourceReportId.value || String(route.query.sourceReportId || ''),
       templateId: parseNumber(route.query.templateId),
       versionNo: String(route.query.versionNo || ''),
-      routeProcessId: requestedTargetRouteProcessId
+      routeProcessId: requestedTargetRouteProcessId,
+      qaProcessId: selectedPqcQaProcessId.value
     })
     context.value = data
     forms.value = data.forms || []
+    pqcProcesses.value = (data.pqcProcesses || []).slice().sort((left, right) =>
+      (left.sort ?? Number.MAX_SAFE_INTEGER) - (right.sort ?? Number.MAX_SAFE_INTEGER)
+    )
     productionWorkOrderSourceFields.value = (data.sourceFields || []).filter(
       (field) => field.sourceType === SOURCE_TYPE_PRODUCTION_WORK_ORDER
     )
@@ -661,9 +722,21 @@ async function loadWorkbenchContext() {
   }
 }
 
+const handlePqcProcessChange = async () => {
+  selectedSourceCell.value = undefined
+  selectedTargetCell.value = undefined
+  sourceFieldCode.value = ''
+  sourceCells.value = undefined
+  if (selectedPqcQaProcessId.value === undefined) {
+    return
+  }
+  await loadWorkbenchContext()
+}
+
 const handleSourceSelectionChange = async () => {
   selectedSourceCell.value = undefined
   selectedTargetCell.value = undefined
+  sourceCells.value = undefined
   sourceType.value = isProductionWorkOrderSelected.value
     ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
     : isProcessPoolReportSelected.value
@@ -677,10 +750,16 @@ const handleSourceSelectionChange = async () => {
   if (isStructuredSourceSelected.value) {
     sourceFieldCode.value = currentStructuredSourceFields()[0]?.fieldCode || ''
   }
+  if (isPqcAggregateSelected.value) {
+    selectedPqcQaProcessId.value = undefined
+    pqcAggregateSourceFields.value = []
+    await loadWorkbenchContext()
+    return
+  }
   const requestedTargetForm = targetForms.value.find((form) =>
     (!requestedTargetReportId || form.reportId === requestedTargetReportId) &&
-    (requestedTargetRouteProcessId === undefined || form.routeProcessId === undefined ||
-      form.routeProcessId === null || form.routeProcessId === requestedTargetRouteProcessId)
+    (activeTargetRouteProcessId.value === undefined || form.routeProcessId === undefined ||
+      form.routeProcessId === null || form.routeProcessId === activeTargetRouteProcessId.value)
   )
   if (requestedTargetForm) {
     targetReportId.value = requestedTargetForm.reportId
@@ -977,11 +1056,12 @@ function buildSourceFieldCells(
 ): BatchRecordCellLinkFormCellsVO {
   const rows = fields.reduce<Record<string, { height: number; cells: Record<string, { text: string; fillForm: unknown }> }>>(
     (acc, field, index) => {
+      const displayName = resolveSourceFieldDisplayName(field, structuredSourceType)
       acc[String(index)] = {
         height: DEFAULT_ROW_HEIGHT,
         cells: {
           0: {
-            text: field.fieldName,
+            text: displayName,
             fillForm: { field: field.fieldCode }
           }
         }
@@ -994,21 +1074,46 @@ function buildSourceFieldCells(
     reportId,
     reportName,
     sheetLayoutJson: JSON.stringify({ cols: { 0: { width: 240 } }, rows }),
-    cells: fields.map((field, index) => ({
-      rowIndex: index,
-      columnIndex: 0,
-      cellKey: field.fieldCode,
-      sourceType: structuredSourceType,
-      sourceFieldCode: field.fieldCode,
-      sourceFieldName: field.fieldName,
-      label: field.fieldName,
-      valueType: field.valueType || 'STRING',
-      readonly: false,
-      signatureCell: false,
-      linkableAsSource: true,
-      linkableAsTarget: false
-    }))
+    cells: fields.map((field, index) => {
+      const displayName = resolveSourceFieldDisplayName(field, structuredSourceType)
+      return {
+        rowIndex: index,
+        columnIndex: 0,
+        cellKey: field.sourceCellKey || field.fieldCode,
+        sourceType: structuredSourceType,
+        sourceFieldCode: field.fieldCode,
+        sourceFieldName: displayName,
+        label: displayName,
+        valueType: field.valueType || 'STRING',
+        readonly: false,
+        signatureCell: false,
+        linkableAsSource: true,
+        linkableAsTarget: false
+      }
+    })
   }
+}
+
+function resolveSourceFieldDisplayName(field: BatchRecordCellLinkSourceFieldVO, structuredSourceType: string) {
+  if (structuredSourceType !== SOURCE_TYPE_PQC_AGGREGATE_DETAIL) {
+    return field.fieldName
+  }
+  const readableSuffix = field.fieldCode.endsWith('|inspectorUserId')
+    ? '填写人签名'
+    : field.fieldCode.endsWith('|inspectedAt')
+      ? '填写时间'
+      : field.fieldCode.endsWith('|reviewerUserId')
+        ? '复核人签名'
+        : field.fieldCode.endsWith('|reviewedAt')
+          ? '复核时间'
+          : undefined
+  if (!readableSuffix) {
+    return field.fieldName
+  }
+  const separatorIndex = field.fieldName.lastIndexOf(' / ')
+  return separatorIndex >= 0
+    ? `${field.fieldName.slice(0, separatorIndex)} / ${readableSuffix}`
+    : readableSuffix
 }
 
 const persistRules = async (nextRules: BatchRecordCellLinkRuleVO[], successMessage: string) => {
@@ -1330,6 +1435,48 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   display: grid;
   grid-template-rows: 44px minmax(0, 1fr);
   background: #ffffff;
+}
+
+.batch-record-cell-link__pqc-source-panel {
+  grid-template-rows: 44px auto minmax(0, 1fr);
+}
+
+.batch-record-cell-link__pqc-process-selector {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5edf7;
+  background: #f8fbff;
+}
+
+.batch-record-cell-link__pqc-process-selector-main,
+.batch-record-cell-link__pqc-process-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.batch-record-cell-link__pqc-process-selector-main > span,
+.batch-record-cell-link__pqc-process-meta > span {
+  flex: none;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.batch-record-cell-link__pqc-process-select {
+  min-width: 0;
+  flex: 1;
+}
+
+.batch-record-cell-link__pqc-process-meta strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #1677ff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .batch-record-cell-link__work-order-field-panel {

@@ -31,7 +31,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRele
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseDecisionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
@@ -45,6 +44,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseDe
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
@@ -149,6 +149,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Resource
+    private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
+    @Resource
     private MesProEdhrBatchExecutionTaskMapper batchExecutionTaskMapper;
     @Resource
     private MesProBatchRecordExecutionMapper executionMapper;
@@ -190,8 +192,6 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesReleaseAuthoritativeContextPort authoritativeContextPort;
     @Resource
     private MesProEdhrFourMaterialGateService fourMaterialGateService;
-    @Resource
-    private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -427,7 +427,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .count();
         String releaseStatus = failedCount == 0 ? STATUS_PRECHECK_PASSED : STATUS_PRECHECK_FAILED;
         Map<String, Object> snapshot =
-                buildSnapshot(batch, checkItems, releaseStatus, checkedAt, fourMaterialGate);
+                buildSnapshot(batch, checkItems, releaseStatus, checkedAt, fourMaterialGate.manifestHash());
         String precheckSnapshotJson = JSON.toJSONString(snapshot);
 
         transaction = new MesProEdhrReleaseTransactionDO()
@@ -1279,7 +1279,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                                               List<MesProEdhrReleaseCheckItemDO> checkItems,
                                               String releaseStatus,
                                               LocalDateTime checkedAt,
-                                              MesProEdhrFourMaterialGateResult materialGate) {
+                                              String materialGateManifestHash) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("batchExecutionId", batch.getId());
         snapshot.put("batchExecutionCode", batch.getBatchExecutionCode());
@@ -1288,11 +1288,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("productCode", batch.getProductCode());
         snapshot.put("releaseStatus", releaseStatus);
         snapshot.put("checkedAt", checkedAt);
-        snapshot.put("materialGateReceiptId", materialGate == null ? null : materialGate.receiptId());
-        snapshot.put("materialGateManifestHash", materialGate == null ? null : materialGate.manifestHash());
-        snapshot.put("materialGateReceiptHash", materialGate == null ? null : materialGate.receiptHash());
-        snapshot.put("materialGateVersionSetHash", materialGate == null ? null : materialGate.materialVersionSetHash());
-        snapshot.put("materialGateVersion", materialGate == null ? null : materialGate.version());
+        snapshot.put("materialGateManifestHash", materialGateManifestHash);
         snapshot.put("items", checkItems.stream()
                 .map(item -> Map.of(
                         "checkCode", item.getCheckCode(),
@@ -1850,6 +1846,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrReleaseRespVO toResp(MesProEdhrBatchExecutionDO batch,
                                            MesProEdhrReleaseTransactionDO transaction) {
         String releaseStatus = transaction == null ? STATUS_PRECHECK_REQUIRED : transaction.getReleaseStatus();
+        MesProcessPoolActiveOrderReleaseApplicationDO releaseApplication = resolveReleaseApplication(transaction);
         return new MesProEdhrReleaseRespVO()
                 .setReleaseTransactionId(transaction == null ? null : transaction.getId())
                 .setReleaseCode(transaction == null ? null : transaction.getReleaseCode())
@@ -1887,8 +1884,9 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setApprovedAt(transaction == null ? null : transaction.getApprovedAt())
                 .setApprovalSignoffEvidenceHash(transaction == null ? null : transaction.getApprovalSignoffEvidenceHash())
                 .setApprovalOpinion(transaction == null ? null : transaction.getApprovalOpinion())
-                .setReportSnapshotHash(transaction == null ? null
-                        : resolveReportSnapshotHash(transaction))
+                .setReleaseApprovalWorkTaskId(releaseApplication == null
+                        ? null : releaseApplication.getReleaseApprovalWorkTaskId())
+                .setReportSnapshotHash(releaseApplication == null ? null : releaseApplication.getReportSnapshotHash())
                 .setRejectedBy(transaction == null ? null : transaction.getRejectedBy())
                 .setRejectedAt(transaction == null ? null : transaction.getRejectedAt())
                 .setRejectReason(transaction == null ? null : transaction.getRejectReason())
@@ -1898,13 +1896,25 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setVersion(transaction == null ? null : transaction.getVersion());
     }
 
-    private String resolveReportSnapshotHash(MesProEdhrReleaseTransactionDO transaction) {
-        if (transaction == null || transaction.getBatchExecutionId() == null) {
+    private MesProcessPoolActiveOrderReleaseApplicationDO resolveReleaseApplication(
+            MesProEdhrReleaseTransactionDO transaction) {
+        if (transaction == null || transaction.getId() == null) {
             return null;
         }
-        MesProcessPoolActiveOrderReleaseApplicationDO application = releaseApplicationMapper
-                .selectByBatchExecutionIdForUpdate(transaction.getBatchExecutionId());
-        return application == null ? null : application.getReportSnapshotHash();
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications =
+                releaseApplicationMapper.selectListByReleaseTransactionId(transaction.getId());
+        if (applications.size() > 1) {
+            throw new MesReleaseFlowBlockerException("release transaction is linked to multiple applications",
+                    new MesReleaseFlowFailureRespVO()
+                            .setStage(MesReleaseFlowStage.SP_4)
+                            .setBlockers(List.of(new MesReleaseFlowBlocker()
+                                    .setBlockerType(MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE)
+                                    .setObjectType("RELEASE_TRANSACTION")
+                                    .setObjectId(String.valueOf(transaction.getId()))
+                                    .setReason("release transaction has multiple authoritative applications")
+                                    .setSuggestion("repair the release application relationship before reading the receipt"))));
+        }
+        return applications.isEmpty() ? null : applications.get(0);
     }
 
     private String resolvePrecheckSummary(String releaseStatus, MesProEdhrReleaseTransactionDO transaction) {

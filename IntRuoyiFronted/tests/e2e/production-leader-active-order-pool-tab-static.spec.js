@@ -92,6 +92,16 @@ const activeOrderDialogBlock = sliceDialogByMarker('data-team-leader-active-orde
 const activeOrderAddReqBlock = sliceInterfaceBlock(apiSource, 'TeamLeaderActiveOrderAddReqVO')
 assert.match(
   activeOrderBlock,
+  /data-team-leader-simulate-active-order-stage1[\s\S]*@click="handleSimulateStage1\(row\)"[\s\S]*>\s*<Icon icon="ep:refresh" \/>\s*Stage1模拟\s*<\/el-button>/,
+  'The active-order list must expose the independent Stage1 simulation button with the Stage1模拟 label.'
+)
+assert.doesNotMatch(
+  activeOrderBlock,
+  /data-team-leader-simulate-active-order-completion|handleSimulateActiveOrderCompletion|ep:magic-stick|模拟完成/,
+  'The active-order list must remove the generic magic-wand simulation entry.'
+)
+assert.match(
+  activeOrderBlock,
   /data-team-leader-active-order-config/,
   'The new active-order tab must retain the stable active-order maintenance marker.'
 )

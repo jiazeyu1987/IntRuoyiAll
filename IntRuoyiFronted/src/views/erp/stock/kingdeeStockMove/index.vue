@@ -28,7 +28,7 @@
           plain
           :loading="syncLoading"
           @click="handleKingdeeSync"
-          v-hasPermi="['infra:job:trigger']"
+          v-hasPermi="['erp:kingdee-sync:query']"
         >
           <Icon icon="ep:refresh-right" class="mr-5px" /> 增量同步
         </el-button>
@@ -265,7 +265,7 @@ async function getList() {
 const handleKingdeeSync = async () => {
   syncLoading.value = true
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob('kingdeeStockMoveSyncJob')
+    await ErpKingdeeSyncApi.runIncrementalSync('STOCK_MOVE')
     message.success('金蝶调拨单增量同步任务已提交')
     await getList()
   } finally {

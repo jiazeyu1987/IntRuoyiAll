@@ -6,6 +6,10 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface MesTeamLeaderOverageLimitService {
+    /**
+     * Returns configured limits for the leader. Missing process-specific values are represented as the
+     * business default (10 percent) by the lookup methods below.
+     */
     List<MesProcessPoolTeamProcessOverageLimitDO> list(Long leaderUserId);
     MesProcessPoolTeamProcessOverageLimitDO save(Long leaderUserId, Long routeProcessId, Long processId,
                                                   BigDecimal overagePercent);

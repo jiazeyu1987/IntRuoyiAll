@@ -94,6 +94,9 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
             }
 
             MesProRouteFlowProcessBatchRecordDO binding = formalBinding(snapshot, blockers);
+            if (binding == null) {
+                continue;
+            }
             List<MesProBatchRecordCellLinkRuleDO> rules = binding == null
                     ? List.of() : formalRules(snapshot, binding, blockers);
             validateHistorySources(command, source, rules, blockers, sourceObjectIds, sourceValueHashes, signatures);
@@ -259,6 +262,9 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                         && !PROCESS_INSPECTION.equals(binding.getFormSlotType())
                         && !LOSS_REPORT.equals(binding.getFormSlotType()))
                 .toList();
+        if (formal.isEmpty()) {
+            return null;
+        }
         if (formal.size() != 1) {
             blockers.add(blocker("BATCH_RECORD_BINDING_REQUIRED", "ROUTE_PROCESS", snapshot.getRouteProcessId(),
                     "工序必须存在唯一逐工序正式批记录绑定，当前数量=" + formal.size(),

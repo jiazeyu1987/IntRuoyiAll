@@ -285,12 +285,12 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         payload.put("inspectionQuantity", command.getActualInspectionQuantity());
         payload.put("scrapQuantity", command.getScrapQuantity());
         payload.put("inspectionResult", inspectionResult);
-        if (StrUtil.isBlank(command.getNonconformanceDescription())) {
-            payload.remove("nonconformanceDescription");
-            payload.remove("defectDescription");
-        } else {
-            payload.put("nonconformanceDescription", command.getNonconformanceDescription().trim());
-            payload.put("defectDescription", command.getNonconformanceDescription().trim());
+        payload.remove("nonconformanceDescription");
+        payload.remove("defectDescription");
+        JsonNode pqcDraft = payload.get("pqcDraft");
+        if (pqcDraft instanceof ObjectNode) {
+            ((ObjectNode) pqcDraft).remove("defectDescription");
+            ((ObjectNode) pqcDraft).remove("nonconformanceDescription");
         }
         payload.set("pqcItemDetails", buildPqcItemDetailsSnapshot(details));
         payload.put("pieceDetailCount", details.size());
@@ -340,9 +340,6 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 String.valueOf(command.getActualInspectionQuantity()));
         addChange(changes, "PQC.SCRAP_QUANTITY", "PQC损耗数量",
                 text(beforePayload.get("scrapQuantity")), String.valueOf(command.getScrapQuantity()));
-        addChange(changes, "PQC.NONCONFORMANCE_DESCRIPTION", "PQC不良说明",
-                text(beforePayload.get("nonconformanceDescription")),
-                StrUtil.blankToDefault(command.getNonconformanceDescription(), ""));
         addChange(changes, "PQC.INSPECTION_RESULT", "PQC判定结果",
                 text(beforePayload.get("inspectionResult")), afterInspectionResult);
 

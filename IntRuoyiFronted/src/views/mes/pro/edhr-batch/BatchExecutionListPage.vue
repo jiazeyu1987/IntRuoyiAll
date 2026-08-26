@@ -735,7 +735,7 @@ import {
   getEdhrBatchExecutionRouteOptions,
   getLatestEdhrBatchArchive,
   getEdhrBatchExecutionPage,
-  openOrCreateEdhrBatchExecution,
+  openOrCreateManualEdhrBatchExecution,
   type EdhrBatchExecutionArchiveRespVO,
   type EdhrBatchExecutionPageReqVO,
   type EdhrBatchExecutionRespVO,
@@ -1513,12 +1513,16 @@ const resolveRouteOptionLabel = (routeOption: EdhrBatchExecutionRouteOptionRespV
 
 const submitOpenOrCreate = async () => {
   createLoading.value = true
-  createError.value = ''
   try {
     if (createForm.workOrderId == null) throw new Error('请选择有效的未冻结生产工单。')
-    if (createForm.routeId == null) throw new Error('请选择工艺路线。')
+    if (createRouteOptionsLoading.value) throw new Error('工艺路线正在加载，请稍候再确认。')
+    if (createForm.routeId == null) {
+      if (!createError.value) createError.value = '请选择工艺路线。'
+      return
+    }
     if (!createForm.batchCode.trim()) throw new Error('批次号不能为空。')
-    const result = await openOrCreateEdhrBatchExecution({
+    createError.value = ''
+    const result = await openOrCreateManualEdhrBatchExecution({
       workOrderId: createForm.workOrderId,
       routeId: createForm.routeId,
       batchCode: createForm.batchCode.trim(),

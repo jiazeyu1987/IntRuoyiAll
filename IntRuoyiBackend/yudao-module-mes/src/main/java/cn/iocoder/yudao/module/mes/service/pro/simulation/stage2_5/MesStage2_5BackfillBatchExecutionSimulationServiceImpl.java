@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.simulation.stage2_5;
 
+import cn.hutool.core.util.IdUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
@@ -359,7 +360,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         ErpKingdeeProductionPickListDO header = BeanUtils.toBean(sourceHeader,
                         ErpKingdeeProductionPickListDO.class)
                 .setId(null)
-                .setSourceFid(marker(runId, actorUserId) + ":FID")
+                .setSourceFid(sourceFid(runId, actorUserId))
                 .setSourceBillNo("STAGE2_5-PL-" + safe)
                 .setDocumentStatus("C")
                 .setDescription("Stage2.5正式领料模拟");
@@ -368,7 +369,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
             pickListItemMapper.insert(BeanUtils.toBean(row, ErpKingdeeProductionPickListItemDO.class)
                     .setId(null)
                     .setProductionPickListId(header.getId())
-                    .setSourceFid(marker(runId, actorUserId) + ":ENTRY:" + row.getId())
+                    .setSourceFid(sourceEntryFid(runId, actorUserId, row.getId()))
                     .setSourceEntryId("STAGE2_5-" + safe + "-ENTRY-" + row.getId())
                     .setSourceLineKey("STAGE2_5-" + safe + "-LINE-" + row.getId())
                     .setSourceBillNo(header.getSourceBillNo())
@@ -391,8 +392,8 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         String snapshotHash = hash(List.of(header.getId(), header.getSourceFid(), header.getSourceBillNo(),
                 header.getDocumentStatus(), items));
         MesProcessPoolActiveOrderPickListBindingDO copy = BeanUtils.toBean(source,
-                        MesProcessPoolActiveOrderPickListBindingDO.class)
-                .setId(null)
+                MesProcessPoolActiveOrderPickListBindingDO.class)
+                .setId(IdUtil.getSnowflake().nextId())
                 .setActiveOrderId(activeOrder.getId())
                 .setWorkOrderId(workOrder.getId())
                 .setPickListId(header.getId())
@@ -407,6 +408,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         bindingMapper.insert(copy);
         for (ErpKingdeeProductionPickListItemDO item : items) {
             bindingItemMapper.insert(MesProcessPoolActiveOrderPickListBindingItemDO.builder()
+                    .id(IdUtil.getSnowflake().nextId())
                     .bindingId(copy.getId())
                     .pickListItemId(item.getId())
                     .sourceEntryId(item.getSourceEntryId())
@@ -890,6 +892,14 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
             throw new IllegalArgumentException("simulationRunId contains no usable characters");
         }
         return value.length() <= 32 ? value : value.substring(value.length() - 32);
+    }
+
+    private String sourceFid(String runId, Long actorUserId) {
+        return "S25-" + DigestUtil.sha256Hex(runId + "|" + actorUserId).substring(0, 60);
+    }
+
+    private String sourceEntryFid(String runId, Long actorUserId, Long sourceItemId) {
+        return "S25E-" + DigestUtil.sha256Hex(runId + "|" + actorUserId + "|" + sourceItemId).substring(0, 59);
     }
 
     private String hash(Object value) {

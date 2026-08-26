@@ -83,7 +83,6 @@ class MesProductionReleaseApplySp1Test {
     @Mock private MesProcessPoolReportAllocationMapper allocationMapper;
     @Mock private MesProductionReleaseRequiredCandidateResolver candidateResolver;
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
-    @Mock private MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
 
     private MesTeamLeaderActiveOrderReleaseGenerationService generationService;
 
@@ -96,8 +95,7 @@ class MesProductionReleaseApplySp1Test {
         generationService = new MesTeamLeaderActiveOrderReleaseGenerationService(
                 activeOrderMapper, workOrderMapper, processSnapshotMapper, completionMapper,
                 pqcTaskMapper, aggregateDetailMapper, allocationMapper, applicationMapper, workTaskMapper,
-                persistenceService, candidateResolver, new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher(),
-                completionReceiptPort);
+                persistenceService, candidateResolver, new MesTeamLeaderActiveOrderReleaseSourceSnapshotHasher());
 
         lenient().when(activeOrderMapper.selectByIdForUpdate(ACTIVE_ORDER_ID)).thenReturn(activeOrder());
         lenient().when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID)).thenReturn(workOrder());
@@ -111,8 +109,6 @@ class MesProductionReleaseApplySp1Test {
                 .thenReturn(List.of(aggregateDetail()));
         lenient().when(allocationMapper.selectListByActiveOrderIds(List.of(ACTIVE_ORDER_ID)))
                 .thenReturn(List.of(allocation(BigDecimal.TEN)));
-        lenient().when(completionReceiptPort.getByActiveOrderId(ACTIVE_ORDER_ID, TENANT_ID))
-                .thenReturn(flow4Receipt());
         lenient().when(candidateResolver.resolveRequiredCandidates(
                         TENANT_ID, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER))
                 .thenReturn(candidates());
@@ -128,16 +124,6 @@ class MesProductionReleaseApplySp1Test {
         }).when(workTaskMapper).insert(any(MesProEdhrWorkTaskDO.class));
         lenient().when(applicationMapper.updateById(any(MesProcessPoolActiveOrderReleaseApplicationDO.class)))
                 .thenReturn(1);
-    }
-
-    @Test
-    void releaseApplyMustReadFlow4ReceiptBeforeCreatingApplication() {
-        when(completionReceiptPort.getByActiveOrderId(ACTIVE_ORDER_ID, TENANT_ID)).thenReturn(null);
-
-        assertThrows(RuntimeException.class,
-                () -> generationService.generate(LEADER_USER_ID, command("release-requires-receipt")));
-
-        verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
     }
 
     @AfterEach
@@ -205,6 +191,25 @@ class MesProductionReleaseApplySp1Test {
         verify(applicationMapper, never()).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
         verify(workTaskMapper, never()).insert(any(MesProEdhrWorkTaskDO.class));
         verify(auditRecorder, never()).record(any());
+    }
+
+    @Test
+    void processWithoutPqcTaskDoesNotBlockRelease() {
+        MesProcessPoolActiveOrderProcessSnapshotDO unconfigured = snapshot(4102L, 5002L, 6002L);
+        when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(ACTIVE_ORDER_ID))
+                .thenReturn(List.of(snapshot(), unconfigured));
+        when(completionMapper.selectListByWorkOrderIds(List.of(WORK_ORDER_ID)))
+                .thenReturn(List.of(completion(BigDecimal.TEN, "production-aggregate"),
+                        completion(5002L, 6002L, BigDecimal.TEN, "production-aggregate-2")));
+        when(allocationMapper.selectListByActiveOrderIds(List.of(ACTIVE_ORDER_ID)))
+                .thenReturn(List.of(allocation(BigDecimal.TEN), allocation(5502L, 5002L, 6002L,
+                        BigDecimal.TEN)));
+
+        MesTeamLeaderActiveOrderReleaseApplicationResult result =
+                generationService.generate(LEADER_USER_ID, command("release-request-no-pqc-process"));
+
+        assertEquals(APPLICATION_ID, result.getApplicationId());
+        verify(applicationMapper).insert(any(MesProcessPoolActiveOrderReleaseApplicationDO.class));
     }
 
     @Test
@@ -365,25 +370,43 @@ class MesProductionReleaseApplySp1Test {
     }
 
     private static MesProcessPoolActiveOrderProcessSnapshotDO snapshot() {
+        return snapshot(4101L, ROUTE_PROCESS_ID, PROCESS_ID);
+    }
+
+    private static MesProcessPoolActiveOrderProcessSnapshotDO snapshot(Long id, Long routeProcessId,
+                                                                         Long processId) {
         return MesProcessPoolActiveOrderProcessSnapshotDO.builder()
-                .id(4101L)
+                .id(id)
                 .activeOrderId(ACTIVE_ORDER_ID)
                 .workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID)
                 .routeVersionId(ROUTE_VERSION_ID)
-                .routeProcessId(ROUTE_PROCESS_ID)
-                .processId(PROCESS_ID)
+                .routeProcessId(routeProcessId)
+                .processId(processId)
                 .plannedQuantitySnapshot(BigDecimal.TEN)
                 .build();
     }
 
     private static MesProcessPoolOrderProcessCompletionDO completion(BigDecimal confirmedQuantity,
                                                                        String aggregateHash) {
+        return completion(ROUTE_PROCESS_ID, PROCESS_ID, 5101L, 5501L, confirmedQuantity, aggregateHash);
+    }
+
+    private static MesProcessPoolOrderProcessCompletionDO completion(Long routeProcessId, Long processId,
+                                                                       BigDecimal confirmedQuantity,
+                                                                       String aggregateHash) {
+        return completion(routeProcessId, processId, 5102L, 5502L, confirmedQuantity, aggregateHash);
+    }
+
+    private static MesProcessPoolOrderProcessCompletionDO completion(Long routeProcessId, Long processId,
+                                                                       Long id, Long allocationId,
+                                                                       BigDecimal confirmedQuantity,
+                                                                       String aggregateHash) {
         return MesProcessPoolOrderProcessCompletionDO.builder()
-                .id(5101L)
+                .id(id)
                 .workOrderId(WORK_ORDER_ID)
-                .routeProcessId(ROUTE_PROCESS_ID)
-                .processId(PROCESS_ID)
+                .routeProcessId(routeProcessId)
+                .processId(processId)
                 .targetQuantity(BigDecimal.TEN)
                 .confirmedQuantity(confirmedQuantity)
                 .completionStatus(MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED)
@@ -393,19 +416,24 @@ class MesProductionReleaseApplySp1Test {
                 .lastEventId(5301L)
                 .lastReviewId(5401L)
                 .sourceEventIdsJson("[5301]")
-                .sourceAllocationIdsJson("[5501]")
+                .sourceAllocationIdsJson("[" + allocationId + "]")
                 .aggregateHash(aggregateHash)
                 .backfillIdempotencyKey("production-backfill-key")
                 .build();
     }
 
     private static MesProcessPoolReportAllocationDO allocation(BigDecimal allocatedQuantity) {
+        return allocation(5501L, ROUTE_PROCESS_ID, PROCESS_ID, allocatedQuantity);
+    }
+
+    private static MesProcessPoolReportAllocationDO allocation(Long id, Long routeProcessId, Long processId,
+                                                                BigDecimal allocatedQuantity) {
         return MesProcessPoolReportAllocationDO.builder()
-                .id(5501L)
+                .id(id)
                 .activeOrderId(ACTIVE_ORDER_ID)
                 .workOrderId(WORK_ORDER_ID)
-                .routeProcessId(ROUTE_PROCESS_ID)
-                .processId(PROCESS_ID)
+                .routeProcessId(routeProcessId)
+                .processId(processId)
                 .allocatedQuantity(allocatedQuantity)
                 .lifecycleStatus(MesProcessPoolReportAllocationDO.LIFECYCLE_CURRENT)
                 .build();
@@ -435,22 +463,6 @@ class MesProductionReleaseApplySp1Test {
                 .routeProcessId(ROUTE_PROCESS_ID)
                 .processId(PROCESS_ID)
                 .build();
-    }
-
-    private static MesFlow6CompletionBackfillReceipt flow4Receipt() {
-        return new MesFlow6CompletionBackfillReceipt()
-                .setReceiptId(9901L)
-                .setTenantId(TENANT_ID)
-                .setActiveOrderId(ACTIVE_ORDER_ID)
-                .setWorkOrderId(WORK_ORDER_ID)
-                .setBatchCode("BATCH-001")
-                .setRouteId(ROUTE_ID)
-                .setRouteVersionId(ROUTE_VERSION_ID)
-                .setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
-                .setBatchRecordStatus("SUCCESS")
-                .setProcessInspectionStatus("SUCCESS")
-                .setBatchRecordId(9911L)
-                .setProcessInspectionId(9912L);
     }
 
     private static MesProductionReleaseRoleCandidates candidates() {

@@ -80,6 +80,17 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 ArgumentCaptor.forClass(MesProProcessPoolPqcRecordDO.class);
         verify(fixture.pqcRecordMapper).updateById(recordCaptor.capture());
         assertEquals(expectedJudgement, recordCaptor.getValue().getInspectionResult());
+
+        ArgumentCaptor<MesProcessPoolEventRevisionUpdateReqBO> revisionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(fixture.revisionService).updatePqcInspectionRecord(revisionCaptor.capture());
+        String afterPayload = revisionCaptor.getValue().getAfterPayload();
+        org.junit.jupiter.api.Assertions.assertFalse(
+                afterPayload.contains("nonconformanceDescription"),
+                "PQC correction payload must not write the removed nonconformance description");
+        org.junit.jupiter.api.Assertions.assertFalse(
+                afterPayload.contains("defectDescription"),
+                "PQC correction payload must not write the removed defect description");
     }
 
     private static void assertInvalidCorrection(String resultType, String requestedValue,
@@ -106,12 +117,13 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 mock(MesProProcessPoolPqcRecordMapper.class);
         private final MesPqcInspectionPieceDetailMapper pieceDetailMapper =
                 mock(MesPqcInspectionPieceDetailMapper.class);
+        private final MesProcessPoolEventRevisionService revisionService =
+                mock(MesProcessPoolEventRevisionService.class);
         private final MesProcessPoolPqcInspectionCorrectionService service;
 
         private Fixture(String resultType, BigDecimal lower, BigDecimal upper, Integer precision) {
             MesProProcessPoolEventMapper eventMapper = mock(MesProProcessPoolEventMapper.class);
             MesPqcInspectionTaskMapper taskMapper = mock(MesPqcInspectionTaskMapper.class);
-            MesProcessPoolEventRevisionService revisionService = mock(MesProcessPoolEventRevisionService.class);
             MesProBatchRecordExecutionSignatureService signatureService =
                     mock(MesProBatchRecordExecutionSignatureService.class);
             MesTeamLeaderScopeService scopeService = mock(MesTeamLeaderScopeService.class);
@@ -141,7 +153,6 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                     .setActorUserId(ACTOR_ID)
                     .setActualInspectionQuantity(1)
                     .setScrapQuantity(0)
-                    .setNonconformanceDescription("纠正后")
                     .setItemResults(List.of(new MesProcessPoolPqcInspectionCorrectionCommand.ItemResultCommand()
                             .setItemCode("QA-001")
                             .setSampleValues(List.of(requestedValue))))

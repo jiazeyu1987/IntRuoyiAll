@@ -52,3 +52,14 @@ Implement only Flow8 batch-execution four-material readiness. Exclude Flow10 fin
 - Real Playwright prerequisites are not supplied; E2E remains NOT RUN and will not be replaced by mocks or API-only checks.
 - The expanded batch-execution regression remains blocked by existing test-container/legacy-reflection failures owned outside Flow8.
 - Frontend production build remains blocked by the unrelated empty SFC baseline error described above.
+
+## Current Repair Round
+
+- BDD: Material nodes use a dedicated source witness -> Given Flow7 has produced the authoritative source snapshot, When four material tasks are created or evaluated, Then each material task persists and compares its dedicated source snapshot witness; a route/form binding snapshot alone cannot make the gate ready.
+- RED intent: update the Flow8 gate contract test to require the dedicated material source witness; before the model and producer changes the test must fail at compilation or readiness assertion.
+- RED: `mvn -o -pl ':yudao-module-mes' '-Dtest=MesProEdhrFourMaterialGateServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> FAIL, test compilation reported that `MesProEdhrBatchExecutionTaskDO` had no `setMaterialSourceSnapshotHash` method or builder property; this is the expected missing dedicated source-witness contract.
+- Implementation: added `materialSourceSnapshotHash` to the batch task model, propagated `MesBatchExecutionProvisionCommand.sourceSnapshotHash` when creating special material tasks, changed Flow8 comparison to use the dedicated witness, and added the idempotent schema migration plus regression assertions.
+- RED: `mvn -o -pl ':yudao-module-mes' '-Dtest=MesProEdhrFourMaterialGateServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> FAIL, after the Flow8 scope error was corrected the module compile stopped on the unrelated `MesStage5FinalReleaseSimulationServiceImpl` call to missing `ErpKingdeeProductionPickListMapper.hardDeleteById(Long)`; no Flow8 compilation error remained.
+- RED: `mvn -o -pl ':yudao-module-mes' '-Dmaven.main.skip=true' '-Dtest=MesProEdhrFourMaterialGateServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> FAIL, the existing dirty test source set cannot compile because multiple unrelated MES service implementation classes and transaction packages are absent.
+- Static verification: `git diff --check` and the Flow8 source/migration contract checks -> PASS; this is not a Maven GREEN because the required module/test compilation remains blocked.
+- Blocker: do not repair or restore the unrelated stage5/legacy MES files from Flow8. M8 can be marked GREEN only after the owning concurrent changes restore a compilable integration baseline, then the full module compile and focused Flow8 test can run without skip flags.

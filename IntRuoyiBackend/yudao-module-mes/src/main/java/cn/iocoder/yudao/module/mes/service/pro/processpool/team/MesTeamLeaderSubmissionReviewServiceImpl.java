@@ -42,6 +42,9 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     private final MesPqcProcessInspectionAggregationService processInspectionAggregationService;
 
     @Resource
+    private MesReportAllocationCommandService reportAllocationCommandService;
+
+    @Resource
     private MesProBatchRecordExecutionSignatureService signatureService;
 
     public MesTeamLeaderSubmissionReviewServiceImpl(MesTeamLeaderScopeService scopeService,
@@ -58,6 +61,12 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     @Transactional(rollbackFor = Exception.class)
     public Long reviewSubmission(MesTeamLeaderSubmissionReviewReqBO reqBO) {
         validateReq(reqBO);
+        if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(reqBO.getLeaderType())
+                && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(reqBO.getReviewStatus())) {
+            return reportAllocationCommandService.rejectProductionSubmission(
+                    reqBO.getEventId(), reqBO.getLeaderUserId(), reqBO.getReviewRemark(),
+                    reqBO.getSignaturePassword());
+        }
         MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(reqBO.getEventId());
         if (event == null) {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());

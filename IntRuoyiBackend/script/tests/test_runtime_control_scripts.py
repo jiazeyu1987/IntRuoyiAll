@@ -127,6 +127,13 @@ def test_local_restart_backend_uses_java_argument_array_instead_of_powershell_li
     assert "--spring.datasource.dynamic.datasource.master.url=jdbc:mysql://${LocalDockerRuntimeHost}:23306/ruoyi-vue-pro?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true" in script
 
 
+def test_local_restart_backend_passes_required_dcc_artifact_directory_to_java():
+    script = read_script("restart-int-ruoyi-local.ps1")
+    backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
+
+    assert '"--yudao.dcc.download.encryption.artifact-directory=$DccDownloadEncryptionArtifactDirectory"' in backend_block
+
+
 def test_local_restart_backend_routes_mysql_and_redis_through_unshadowed_docker_loopback():
     script = read_script("restart-int-ruoyi-local.ps1")
 

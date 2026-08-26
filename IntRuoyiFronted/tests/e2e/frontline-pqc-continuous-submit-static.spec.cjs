@@ -58,7 +58,6 @@ assert.ok(resetHandler, 'PQC 成功提交后必须有独立的批量提交草稿
 for (const required of [
   'clearPqcPieceValues()',
   'pqcDraft.scrapQuantity = undefined',
-  'pqcDraft.defectDescription = undefined',
   'payloadPreview.value = undefined'
 ]) {
   assert.ok(resetHandler.includes(required), `PQC 成功后复位必须覆盖：${required}`)

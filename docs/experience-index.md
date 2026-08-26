@@ -1,5 +1,9 @@
 # 项目经验索引
+- Keywords: rollback-migration、回滚专用 SQL、release manifest、migration policy gate、rollback-only migrations -> docs/release-build-preflight-lessons.md#2026-08-26-rollback-migration-不得进入正常-release-manifest
 
+- Keywords: eDHR 四份材料、MATERIALS_READY、sourceSnapshotHash、routeBindingSnapshotHash、来料检报告、灭菌报告、成品检报告、成品检记录、来源快照 -> docs/backend-development.md#eDHR-四份材料必须绑定正式来源快照
+
+- Keywords: 租户级 PQC 检验设备配置、QA 项目切换、dccProjectCodeId、item-equipment/items、历史 QA 脏数据、同名检验项目、项目范围先过滤 -> `docs/backend-development.md#项目范围设备候选必须先过滤正式项目身份`
 - Keywords: 工艺路线过程检验映射, PQC_AGGREGATE_DETAIL, routeProcessId, PROCESS_INSPECTION, formTemplateId, lastPublishedTemplateVersionId, QA工序缺失, 清洗冒充粗洗, 表单槽位正常入口 -> `docs/e2e-rules.md#工艺路线过程检验映射正式来源门禁`
 - Keywords: 工艺路线附加表单, 全局联动, globalSyncKey, formBindingKey, 同模板独立, 跨工序同步, 复制表单保留全局组, 清空模板删除确认 -> `docs/frontend-development.md#工艺路线附加表单显式全局联动门禁`
 - Keywords: 候选快照全局配置组, 完整组校验, 全部普通工序覆盖, 局部保存篡改, 同组配置一致, 事务整体失败, global_sync_key -> `docs/backend-development.md#候选快照全局配置组完整性门禁`
@@ -8,7 +12,7 @@
 - Keywords: 一线生产最大化, 首次切换工序短暂加载, 首次切换员工短暂加载, 再次切换无加载, 全部员工模板快照, employeeSwitchSnapshots, runtime-config GET 预热, switch-employee POST 禁止批量预调用 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 - Keywords: 一线生产默认首单, 活跃订单冻结工序, activeOrderId 工序接口, routeVersionId, 旧订单旧工序, 新订单新工序, 冻结节点缺少 processCode processName, 冻结工序标签只读订单逐工序快照与锁定路线快照, 禁止读取当前工序主数据补历史, PQC任务必须属于订单冻结routeProcessId和processId, 禁止按 routeId 过滤当前路线, 运行配置活跃订单身份, 切换订单清理旧工序员工模板配置, 旧下游不得拒绝切换上游, 迟到响应令牌 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁` and `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`
 - Keywords: infra_job 固定 ID, 定时任务 ID 冲突, handler_name, Quartz job does not exist, 迁移覆盖无关任务, 自增任务主键, 运行态重载 Quartz -> `docs/database-rules.md#定时任务迁移业务键与运行态注册门禁`
-- Keywords: 源码已有迁移, 本机迁移漏执行, 运行态 schema 漂移, doesn't have a default value, work_order_id NOT NULL, 生成列索引, migration RED GREEN, 页面系统异常 -> `docs/database-rules.md#运行态迁移漂移系统异常门禁`
+- Keywords: 源码已有迁移, 本机迁移漏执行, 运行态 schema 漂移, doesn't have a default value, work_order_id NOT NULL, 生成列索引, migration RED GREEN, 页面系统异常, 个人中心系统异常, 聚合页子请求 500 -> `docs/database-rules.md#运行态迁移漂移系统异常门禁`
 - Keywords: 确认分配, 确认提交, leaderType null, 请求参数不正确, 不能为空null, queryParams.leaderType, activeLeaderTab, 当前页签上下文漂移 -> `docs/frontend-development.md#前端确认提交上下文来源门禁`
 - Keywords: 一线生产提交快照校验, 最大化快照切换, runtime-config 快照, 服务端快照编号, 快照校验值, 快照过期, 快照篡改, 所选工序与运行配置不一致, 所选员工与提交签名不一致, 提交时实时刷新快照禁止, 后端实时工序员工模板读取禁止, 设备参数损耗原因按快照 -> `docs/frontend-development.md#前端提交结构字段严格校验门禁`
 - Keywords: PQC 任务生成, QA工序 + QA项目 + 规则键, 同工序多个 FINAL 项目, FINAL 任务按项目拆分, inspectionRuleKey, qaItemCode, 活跃订单加入生成任务 -> `docs/backend-development.md#qa-首检数量和巡检比例按检验项目配置末检适用性项目级统一`
@@ -81,6 +85,7 @@
 - Keywords: PowerShell UTF-8 无 BOM 脚本, Windows PowerShell 5.1 中文乱码, ps1 中文文件名, xlsx 扩展名被破坏, officecli Unsupported file type, mojibake, pwsh -File -> `docs/powershell-memory.md#powershell-utf-8-无-bom-脚本执行门禁`
 - Keywords: 静态合同缩进定位, Vue SFC 弹框块定位, el-dialog class 回找, CRLF LF, source.indexOf 精确缩进失败 -> `docs/e2e-rules.md#windows-换行与脚本行为同步`
 - Keywords: 显示详情不显示编码, 显示名称不显示编码, 用户可见描述, 内部编码, reasonName, reasonCode, description || code, 编号占位 fallback, 不良明细卡片 -> `docs/frontend-development.md#用户可见描述与内部编码隔离门禁`
+- Keywords: AI 自动识别按钮不可点击, 只读版本识别候选, 可点击读取与应用保存拆分, readonlyMode 禁用误伤, 自动生成草稿版本, 表单模板填写配置 -> `docs/frontend-development.md#前端按钮文案与行为一致性门禁`
 - Keywords: pnpm test:e2e 缺失, ERR_PNPM_NO_SCRIPT, named target unknown, process-pool-review-copy-and-revision.spec.ts, E2E 脚本入口缺失, 静态合同不能冒充真实 E2E, 写入型用户路径页面入口缺失, 只有 API wrapper 不能算页面验收 -> `docs/e2e-rules.md#e2e-脚本入口存在性门禁`
 - Keywords: table-quick-filter, 多条件筛选, quick filter, 输入框 value 正确但 URL 未带参数, 生产工单分页未带 code, 目标样本误判缺失, waitForResponse URL 参数, 前 10 个 code, 列表筛选状态同步 -> `docs/e2e-rules.md#列表筛选输入与请求参数同步门禁`
 - Keywords: showDirectoryPicker, 本地目录授权, 浏览器本地目录写入, createWritable, 下载到本地对应目录, 取消目录选择, import task 不应提前创建, LOCAL_WRITTEN 前不得归档, real:check 不能冒充 full 真实 E2E, 授权共享 NAS 源文件缺失, 已存在 NAS 文件, 现有 NAS 文件只读验证, 源文件 SHA-256, 本地文件哈希等值, .pdf 不等于 %PDF, 未分类待处理可本地下载, _未分类待处理, PENDING_MANUAL_REVIEW 无归档副作用, ZIP 降级禁止, 默认下载目录禁止 -> `docs/e2e-rules.md#浏览器本地目录写入门禁`
@@ -147,6 +152,7 @@
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker, 相邻产品模板, 函数截取边界, 远端结束锚点误计数, createBalloonPressurePumpQaRegulationItems, data-* 前缀计数, data-production-leader-module-tab-report\b, report-history 误计数, (?=[\s/>]) -> `docs/frontend-development.md#前端静态契约隔离门禁`
 - Keywords: 按钮文案与行为不一致, 刷新按钮改新增, 新增仍绑定刷新, @click 旧方法, loadProcessConfigRows, data-team-leader-process-config-create-entry, 按钮点击处理器合同 -> `docs/frontend-development.md#前端按钮文案与行为一致性门禁`
 - Keywords: picker 初始化空白, 工序列表空, 员工列表空, openPicker 只切换状态, 候选请求未启动, 无关 catalog 串行阻塞, loading prerequisite empty error ready, 正式候选数组, Promise.all 初始化 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
+- Keywords: 工艺路线候选请求失败, route-options error 被提交校验清空, 请选择工艺路线泛化提示, loading 时确认提交, 产品路线绑定错误可见 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 - Keywords: 多行选择重复, 分配弹框重复订单编号, 同一订单不能重复分配, 逐行候选排重, 当前行保留自身选择, 提交前唯一性校验, 正式生产订单身份, workOrderId, activeOrderId 不等于订单编号 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 - Keywords: 一线PQC最大化预加载, PQC 最大化缓存, fullscreen preload, requestFullscreen 后预热, 未选订单不查工序, active-orders personnel GET 缓存, 选单后 active-order/processes, 无效订单阻断入口, switch-employee POST 不预热 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 - Keywords: 一线生产最大化缓存, 生产最大化预加载, runtime-config GET 缓存, activeOrderId fail-fast, 缺活跃订单身份不得请求运行配置, API wrapper 身份校验, 工序员工切换慢, switch-employee 首次真实选择后缓存, 员工切换 POST 不批量预热, 重复员工选择 POST 计数, 新工序首次员工上下文 POST, 过期响应 token -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
@@ -247,7 +253,7 @@
 - Keywords: Execution context was destroyed, Playwright 登录导航竞争, page.evaluate localStorage.clear, 全新 browser.newContext, 登录页自动重定向, 二次导航登录, fresh context storage -> `docs/e2e-rules.md#playwright-全新上下文登录导航竞争门禁`
 - Keywords: worktree 真实 E2E env, .env.local, VITE_APP_CAPTCHA_ENABLE=false, 登录页验证码已开启, slot 前端代理后端端口, 8088 48088 -> `docs/worktree-memory.md#worktree-真实-e2e-运行产物门禁`
 - Keywords: worktree 前端 vite 缺失, Command "vite" not found, cross-env is not recognized, node_modules .bin vite, node_modules .bin cross-env, pnpm ts:check worktree 依赖, pnpm install --frozen-lockfile, pnpm install --offline --frozen-lockfile --ignore-scripts, node_modules .pnpm 已下载但 .bin 未链接, node_modules.shared-link, 目录联接, reparse point, purge-icons generated pending, 页面停在启动页, 不复制 node_modules -> `docs/worktree-memory.md#worktree-前端依赖启动门禁`
-- Keywords: worktree 端口段, slot 1..50, slot >= 51, slot 20..30 扩展段, slot 31..40 第二扩展段, slot 41..50 第三扩展段, reserve-worktree-slot, 原子槽位, 重复活动槽位, 基准端口碰撞, int_main 误判 int_main_d -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
+ - Keywords: worktree 端口段, slot 1..100, slot >= 101, slot 20..30 扩展段, slot 31..40 第二扩展段, slot 41..50 第三扩展段, slot 51..60 至 91..100 第四至第八扩展段, reserve-worktree-slot, 原子槽位, 重复活动槽位, 基准端口碰撞, int_main 误判 int_main_d -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
 - Keywords: 多 worktree 融合, 批量 merge worktree, dirty worktree 独立提交, merge-base --is-ancestor, 聚焦组合回归, 宽回归失败归因, 合并后删除 worktree -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
 - Keywords: task-owned 代码提交, 主线同名未跟踪任务文档, fast-forward 被 untracked 阻断, 保留并行任务记录, 局部代码完成与跨流程 blocker 分离 -> `docs/worktree-memory.md#任务分支快进融合的同名未跟踪文档门禁`
 - Keywords: worktree 任务 blocked, clean branch 但验证未达成, stale branch 大量删除主线证据, blocked worktree 不得强行 merge -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
@@ -256,6 +262,7 @@
 - Keywords: D-Main 本地主线滞后远端, int_main ahead behind, origin/int_main behind 445, git diff --cached --check upstream whitespace, 冲突经验门禁文档, rg -n "^(<<<<<<<|=======|>>>>>>>)", conflict marker anchored scan, branch-runtime-port-guard after merge -> `docs/worktree-memory.md#d-main-本地主线滞后远端融合门禁`
 - Keywords: schema-backed E2E, 运行库迁移未应用, 表不存在, dcc_nas_control_audit_file, import snapshot, audit_task_id, local_relative_path, archive_category_id_snapshot, source_type, source_field_code, sourceFields, Unknown column, 字段矩阵可见但不可选, is-source-selectable, 单元格链接生产工单字段, 只读 E2E 无 MES 写请求 -> `docs/e2e-rules.md#schema-backed-e2e-迁移与字段可选态门禁`
 - Keywords: eDHR 单据填写人显示值, 损耗单卡片, fillableUsers displayName, candidateSourceNames 格式, 页面填写人断言 -> `docs/e2e-rules.md#edhr-单据填写人显示值门禁`
+- Keywords: eDHR 任务自有资料模拟夹具, 仅特殊节点批次, remark 与 activeContextKey 阶段标记, simulationRunId, 通用路由补建, 工艺路线不存在, 缺少工艺流程批记录配置, 详情页模拟上传, 两轮清理 -> `docs/e2e-rules.md#edhr-任务自有资料模拟夹具详情读取边界门禁`
 - Keywords: eDHR 终态批次个人待办, edhr-work-task/my-page, edhr-work-task/stats, workTaskId, 当前 eDHR 批次状态不允许该操作, TODO 作废批次, VOIDED, CLOSED, ARCHIVED, REJECTED, openTask 终态保护 -> `docs/e2e-rules.md#edhr-终态批次个人待办门禁`
 - Keywords: eDHR 路线表单跳过口径, 损耗单打开填写, 查看表单, routeFormReadonly, 无 OPEN_FORM 只读查看, 必填路线表单不允许跳过, requiredPolicy OPTIONAL, requiredFlag 误判可跳过, canSkipOptionalTask, isOptionalTask, SKIP allowedActions, task/preview, shouldLoadTaskPreview, formCenterInstanceId -> `docs/e2e-rules.md#edhr-路线表单跳过口径门禁`
 - Keywords: eDHR 右侧表单卡片标题, EDHRB 重复标题, resolveTaskCardDisplayName, EDHR_BATCH_TASK_STATUS_DRAFT, 草稿星号, edhr-batch-detail__rail-execution-code, detail?.batchExecutionCode 卡片标题 -> `docs/e2e-rules.md#edhr-右侧表单卡片标题门禁`
@@ -267,6 +274,7 @@
 - Keywords: 放行负责人, 工序结束放行责任人, releaseOwnerLabel, RELEASE_APPROVE, CLOSE 关闭负责人不能放行, stageOwnerRole 执行人兜底, 角色成员均可放行 -> `docs/backend-development.md#edhr-放行负责人来源门禁`
 - Keywords: 活跃订单申请放行, 活跃订单完工, 活跃订单完成, 生产放行, 管理者代表, xujianhai, active-order/release/apply, MesTeamLeaderActiveOrderReleaseApplicationService, 批记录回填, 过程检验单回填, 损耗单回填, 三类统一回填, 同一节点回填, 无损耗不写损耗单, 回填后创建批次执行, 来料检文件, 灭菌文件, 成品检文件, 三类文件上传后放行, 正式批记录数据, 正式过程检验单, 正式损耗单, 放行资料, 双100%, 生产进度100, 检验进度100, RELEASE_APPROVE, RECORD_CATEGORY_BATCH_RECORD, LOSS_REPORT, PQC 汇集明细, 过程检验设备快照, 放行不反查QA版本设备, 放行不反查当前最新设备配置, 生产工单领料单对应, formBindings 禁止, 默认 MAIN 禁止, submitForApproval, 多阶段接口合同, 状态所有者, 迁移审计编码, 同步内部端口, 结构化 blocker, CommonResult data, Long ID 字符串, 提供方消费方合同测试, 共享迁移单一所有者, expectedVersion 聚合归属, 工作待办版本禁止, 业务作用域条件生成列唯一索引 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: 活跃订单放行 A6, 三类传统 batchRecordReportId, batch_record_report_id 非空数, MAIN PROCESS_INSPECTION LOSS_REPORT 完整组合, form_template_id 不可替代, 多角色登录凭据, 签名口令未证明, fixture 前置阻塞 -> `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁` and `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
+- Keywords: 放行阻塞异常被全局异常处理器改写为 HTTP 500, 控制器级 ExceptionHandler, 结构化 blocker data, 实际 HTTP 回归 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: 一线 PQC 活跃订单可见但不可执行, routeProjectItems, missingItemIds, 设备账号上下文不完整, active-order/processes HTTP 200 页面拒绝, 检验方法按钮不渲染, pqc/switch-employee 非持久化上下文 POST -> `docs/e2e-rules.md#一线-pqc-活跃订单路线产品项目上下文门禁`
 - Keywords: 需求追踪语义, RQ AC BDD API SP TDD, 编号数量完整但映射错误, 结构校验 PASS 不等于业务 PASS, planned/not-created, 测试编号标题权威, 独立 source-first reviewer -> `docs/backend-development.md#需求追踪必须校验语义而不是只校验编号门禁`
 - Keywords: 受监管业务文件, 旧版文件申请查看, 全部下载审批, infra_file 公共直链, 通用非受控文件预览, 裸 fileId, OnlyOffice 预览不得降级下载, BusinessFileAccessGuard -> `docs/backend-development.md#受监管业务文件全出口授权门禁`
@@ -361,7 +369,7 @@
 - Keywords: 本地 OnlyOffice 错误码 -4, OnlyOffice 下载失败, onlyofficeDocumentUrl, public-file-base-url, host.docker.internal, Docker onlyoffice 访问 48081 -> `docs/local-runtime.md#2026-07-27-本地-onlyoffice-容器下载地址门禁`
 - Keywords: DCC 上传预览 OnlyOffice 文档地址, OnlyOffice 预览地址未准备好, upload-preview onlyofficeBaseUrl onlyofficeDocumentUrl, RESOURCE_UPLOAD_PREVIEW, signed onlyofficeDocumentUrl, 原始 fileId 禁止暴露, ProtectedPdfViewer OnlyOfficeReadOnlyViewer, 专利检索与分析报告（如适用） -> `docs/local-runtime.md#2026-08-04-dcc-上传预览-onlyoffice-文档地址门禁`
 - Keywords: D-Main local runtime, int_main_d, vite command not found, Java package runtime ignored, *.runtime不存在, git check-ignore runtime source -> `docs/local-runtime.md#2026-07-25-d-main-本地启动源码与依赖门禁`
-- Keywords: isolated backend jar, dirty main workspace, int_main 48081, jar SHA256, local E2E reload, clean worktree build, 重启到最新后端, 先构建再停旧进程, 临时 detached worktree 构建, 未登录 401, 登录态路由验证, route-not-found, 请求地址不存在, team-device/list, 生产组长工序配置接口, 旧业务错误, fat jar 内嵌模块, BOOT-INF/lib, 运行 Jar 缺少关键 class, 跨模块 API 方法, 接口 调用方 实现类 服务 Mapper 成组替换, Controller 注解, RequestParam required=false, 缺省 keyword, javap -v, DccUploadDirectoryResolver, Spring Boot nested jar, jar uf0, compress_type=0, 内嵌 jar 压缩导致 classpath resource missing, schema 字段核对 -> `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`
+- Keywords: isolated backend jar, dirty main workspace, int_main 48081, jar SHA256, local E2E reload, clean worktree build, 重启到最新后端, 先构建再停旧进程, 临时 detached worktree 构建, 未登录 401, 登录态路由验证, route-not-found, 请求地址不存在, team-device/list, 生产组长工序配置接口, 旧业务错误, fat jar 内嵌模块, BOOT-INF/lib, 运行 Jar 缺少关键 class, 跨模块 API 方法, 接口 调用方 实现类 服务 Mapper 成组替换, Controller 注解, RequestParam required=false, 缺省 keyword, javap -v, DccUploadDirectoryResolver, Spring Boot nested jar, jar uf0, compress_type=0, 内嵌 jar 压缩导致 classpath resource missing, schema 字段核对, DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY, artifact-directory is required, backendArgs 显式传参, 父进程环境继承丢失 -> `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`
 - Keywords: health UP 但 API 挂起, Logback OutputStreamAppender lock, stdout stderr 未消费, SQL DEBUG, MyBatis mapper debug, logging.file.name, output/runtime logs, task-closeout 日志锁, 共享后端活动连接 -> `docs/local-runtime.md#2026-07-27-本地后端标准输出阻塞与日志目录门禁`
 - Keywords: target Jar 运行中被 Maven 覆盖, NoClassDefFoundError, ChainedPersistenceExceptionTranslator, ExceptionUtil, RequestUtil, JimuReportDao_update.sql, TemplateLoaderUtils, 稳定运行 Jar 副本 -> `docs/local-runtime.md#2026-07-27-本地后端运行-jar-不可变门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
@@ -385,6 +393,7 @@
 - Keywords: Codex Runner, 系统管理 测试管理, 自然语言测试方法, 检查点截图, runner token, tokenless Runner, Codex Runner token 无效或未配置, CODEX_TEST_RUNNER_TOKEN, parallelSafe, Codex 调用 Playwright, 没有在线 Codex Runner, 按需 Runner, Runner 包装层, 裸调用 codex, codex-test-result, taskkill.exe, Windows codex.cmd 子进程, child close 不触发, currentRunningCount 不归零, heartbeat 过期, 只读 Runner 超时, CODEX_TEST_CODEX_READONLY_REASONING_EFFORT, CODEX_TEST_CODEX_READONLY_IGNORE_RULES, --ignore-rules, model_reasoning_effort, xhigh 只读冒烟超时, analysisMode, CODE_READONLY, PLAYWRIGHT_E2E, 代码只读分析, 不要打开浏览器作为优先路径 -> `docs/e2e-rules.md#codex-runner-自动测试门禁`
 - Keywords: CODE_READONLY timeout of 30000ms exceeded, 按需 Runner 注册事务快照, REPEATABLE_READ 看不到新 Runner, 迟到 heartbeat 续租, 显式 OFFLINE 拒绝, 结果查询独立超时, Windows read-only apply deny-read ACLs, Runner 实时代码证据, claim Task testDataText, Checkpoint remark 不存在, task checkpoint description is missing, 白名单 src/main src/test, 分类配额, 业务行为别名, 严格输出 Schema, 职责描述拆解, 局部链路误判 PASS, 相邻业务词冒充完整职责, 核心入口 API 状态链路 权限 测试证据缺失判 FAIL, 历史回复通俗化, 测试拿错业务链, 一句话业务结论, 冲突在哪里, 是否需要修改, 禁止技术词堆叠 -> `docs/e2e-rules.md#codex-runner-code_readonly-长任务与实时代码证据门禁`
 - Keywords: 后端重启测试批次悬挂, Runner session STALE, heartbeat age 超时, 批次长期 RUNNING, 测试记录页面取消, Codex CLI 自检, codex exec exit 1, remote plugin authentication, api key auth is not supported, unknown feature key, 600000ms timeout -> `docs/e2e-rules.md#codex-runner-运行态重启与-cli-自检门禁`
+- Keywords: Codex CLI 上游 502, Upstream request failed, 候选文件已生成但子进程未退出, AI 自动识别超时, node.exe codex.js, output-schema, provider 5xx -> `docs/e2e-rules.md#codex-cli-上游错误与长提示词门禁`
 - Keywords: Codex Runner 目标测试项, 作废测试不存在, system_codex_test_case, 测试管理页面搜索总数 0, Runner 空领取不得当成功 -> `docs/e2e-rules.md#codex-runner-目标测试项存在性门禁`
 - Keywords: 测试管理串行节点串, 节点串名称, 串内序号, node_chain_name, node_chain_sort, 节点串必须从第 1 节点开始连续选择, 前置失败后续 BLOCKED, 非节点串顺序执行不阻断 -> `docs/e2e-rules.md#测试管理串行节点串门禁`
 - Keywords: 测试管理测试节点闭环, 自然语言测试方法, 业务可读目标, 固定样本, 前置复位, 清理恢复, 重复执行, 批记录节点, 批记录测试页签业务描述, 不出现程序细节, 业务环节, 业务说明, 测试项名称加载旧说明, 固定列表内部词扫描, 历史按钮状态颜色, 测试成功绿色, 测试失败红色, ready 统一变绿禁止 -> `docs/e2e-rules.md#测试管理测试节点闭环门禁`
@@ -481,7 +490,7 @@
 - Keywords: ERP 金蝶字段合同, PRD_PickMtrl, ExecuteBillQuery 错误数组, 账套字段标识差异, 日期格式, 页面列名不能猜字段 -> `docs/login-access.md#erp-金蝶账套登录连通性门禁`
 - Keywords: ERP 金蝶全量同步超时, ExecuteBillQuery 长时间不返回, production-pick-list sync timeout, 客户端超时服务端仍运行, 开始记录先提交, RUNNING 可见, 长事务不能覆盖远程查询, RestTemplate.postForEntity, 禁止第二轮并发同步, 禁止按单据号分批冒充全量 -> `docs/login-access.md#erp-金蝶账套登录连通性门禁`
 - Keywords: ERP 表格全量同步, 增量同步, 全量同步按钮, 显式同步类型, 相同业务编号跳过, skip existing, created/skipped/updated 计数, 全量不覆盖本地 -> `docs/login-access.md#erp-表格全量同步写入门禁`
-- Keywords: ERP 外部快照同步, tenant_id=0, TenantBaseDO, 当前租户上下文, 主子表租户一致, 真实同步租户分布 -> `docs/database-rules.md#erp-外部快照同步租户落库门禁`
+- Keywords: ERP 外部快照同步, 手动 ERP 同步任务租户范围, TenantJobParam, tenant_id=0, TenantBaseDO, 当前租户上下文, 主子表租户一致, 真实同步租户分布 -> `docs/database-rules.md#erp-外部快照同步租户落库门禁`
 - Keywords: playwright-cli Windows 命名会话, -s=session, UV_HANDLE_CLOSING, open 后 browser session 不存在, 登录快照预填密码, page-yml 凭据泄露, CLI 工具链失败改项目 Playwright 脚本, 禁止 API-only 降级 -> `docs/e2e-rules.md#playwright-快照与-daemon-收尾门禁`
 - Keywords: Playwright 默认浏览器缓存缺失, PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, 本机 Chrome Edge, 真实 E2E 浏览器前置, 运行库迁移缺失后复跑 GREEN, 班组长工作台冒烟 -> `docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁`
 - Keywords: 写入型 E2E 模拟环境, 任务自有模拟环境, 多账号权限 E2E, 缺生产组长账号, 缺测试账号前置, fixture 补齐测试租户, 已确认工单, 记录本字段 schema, PRODUCTION EMPLOYEE scope, 每轮新签名, 正式提交事件, 跨账号可见性, 不同员工不同工序组合, 运行态候选去重盘点, 员工档案人员范围签名授权审计, 页面选择与正式事实逐轮匹配, API-only 不能代替模拟环境 -> `docs/e2e-rules.md#写入型-e2e-任务自有模拟环境门禁`
@@ -514,3 +523,7 @@
 - Keywords: 工艺路线关联产品系统异常, V2草稿, configSnapshots.products, 产品名称字符串, Fastjson解析失败, 正式itemId, 结构化产品快照, Word候选产品, 保留草稿已有配置, 禁止按名称猜产品身份 -> `docs/backend-development.md#工艺路线候选产品快照必须保存正式产品身份`
 - Keywords: Element Plus 权限树, 角色菜单权限, 多选下拉遮挡确定按钮, 下拉层拦截点击, 父子联动, 树节点重绘, 实时节点名称, 精确菜单ID回读, 幂等续跑 -> `docs/e2e-rules.md#element-plus-权限树与多选提交门禁`
 - Keywords: 租户识别失败, 登录请求未发出, 登录接口失败, 权限信息请求超时, 同一业务账号重登 -> `docs/login-access.md#失败处理`
+- Keywords: int_main 融合后运行态核验, 新旧 jar, PID 归属, 48081, 独立启动日志, 主工作区 dirty 不清理并行文件 -> `docs/worktree-memory.md#运行时融合后的版本与端口交叉核验`
+- Keywords: 真实页面配置行缺失, 允许超量比例, 只读 E2E, 配置列表行数为 0, 禁止 API-only 补行, 无测试租户阻断 -> `docs/e2e-rules.md#真实页面配置行缺失的-e2e-阻断门禁`
+- Keywords: eDHR 批次创建入口, 批次入口缺少 entryType, Flow 9, entryBusinessId, sourceCredentialId, sourceContextHash, idempotencyKey, MANUAL 凭证, 独立前置凭证, 禁止固定 entryType, 正式入口来源 -> `docs/backend-development.md#edhr-批次创建入口必须与正式入口合同一致`
+- Keywords: 活跃订单列表单条隔离, 工艺路线不存在不阻断全部订单, 历史缺损订单, 已知订单完整性错误白名单, 记录订单ID读取阶段业务错误码, 未知异常继续失败, 禁止通用异常吞掉, 列表读取不修改数据, 重建或删除后重新新增 -> `docs/backend-development.md#一线-pqc-dcc-qa-正式关系目标态切换门禁`

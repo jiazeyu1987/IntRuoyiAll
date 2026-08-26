@@ -10,9 +10,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspec
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationResetRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaInspectionRegulationSaveRespVO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemEquipmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
@@ -23,7 +21,6 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
-import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import org.springframework.stereotype.Service;
@@ -77,7 +74,6 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     private final MesQaInspectionRegulationProcessMapper processMapper;
     private final MesQaInspectionRegulationItemMapper itemMapper;
     private final MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper;
-    private final MesDvMachineryService machineryService;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
 
@@ -88,7 +84,6 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             MesQaInspectionRegulationProcessMapper processMapper,
             MesQaInspectionRegulationItemMapper itemMapper,
             MesQaInspectionRegulationItemEquipmentMapper itemEquipmentMapper,
-            MesDvMachineryService machineryService,
             MesProcessPoolActiveOrderMapper activeOrderMapper,
             MesPqcInspectionTaskMapper pqcInspectionTaskMapper) {
         this.dccProjectCodeMapper = dccProjectCodeMapper;
@@ -97,7 +92,6 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
         this.processMapper = processMapper;
         this.itemMapper = itemMapper;
         this.itemEquipmentMapper = itemEquipmentMapper;
-        this.machineryService = machineryService;
         this.activeOrderMapper = activeOrderMapper;
         this.pqcInspectionTaskMapper = pqcInspectionTaskMapper;
     }
@@ -288,7 +282,6 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
 
     private DraftContext saveDraftInternal(MesQaInspectionRegulationSaveReqVO reqVO,
                                            DccProjectCodeDO dccProjectCode) {
-        Map<Long, MesDvMachineryDO> machineryById = resolveBoundMachinery(reqVO);
         MesQaInspectionRegulationDO regulation = resolveRegulation(reqVO, dccProjectCode);
         MesQaInspectionRegulationVersionDO version = versionMapper.selectByRegulationIdAndVersionNo(
                 regulation.getId(), StrUtil.trim(reqVO.getVersionNo()));
@@ -326,7 +319,6 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     .setFinalInspectionApplicable(reqVO.getFinalInspectionApplicable())
                     .setFinalInspectionNotApplicableReason(normalizeFinalInspectionReason(reqVO))
                     .setSnapshotJson(snapshotJson);
-            itemEquipmentMapper.deleteByVersionId(version.getId());
             itemMapper.deleteByVersionId(version.getId());
             processMapper.deleteByVersionId(version.getId());
         }
@@ -344,79 +336,10 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 for (String inspectionType : normalizedInspectionTypes(itemReq.getApplicableInspectionTypes())) {
                     itemMapper.insert(toItemDO(version.getId(), process.getId(), itemReq,
                             inspectionType, finalInspectionQuantity));
-                    saveItemEquipmentSnapshots(version.getId(), itemReq, inspectionType, machineryById);
                 }
             }
         }
         return new DraftContext(regulation, version);
-    }
-
-    private Map<Long, MesDvMachineryDO> resolveBoundMachinery(
-            MesQaInspectionRegulationSaveReqVO reqVO) {
-        Set<Long> equipmentIds = new LinkedHashSet<>();
-        for (MesQaInspectionRegulationSaveReqVO.InspectionProcess process : reqVO.getProcesses()) {
-            for (MesQaInspectionRegulationSaveReqVO.InspectionItem item : process.getItems()) {
-                Set<Long> itemEquipmentIds = new LinkedHashSet<>();
-                int defaultCount = 0;
-                if (CollUtil.isEmpty(item.getEquipmentOptions())) {
-                    continue;
-                }
-                for (MesQaInspectionRegulationSaveReqVO.InspectionEquipment option
-                        : item.getEquipmentOptions()) {
-                    if (option == null || option.getEquipmentId() == null
-                            || !itemEquipmentIds.add(option.getEquipmentId())) {
-                        throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID,
-                                item.getItemCode() + ".equipmentOptions");
-                    }
-                    if (Boolean.TRUE.equals(option.getDefaultFlag())) {
-                        defaultCount++;
-                    }
-                    equipmentIds.add(option.getEquipmentId());
-                }
-                if (defaultCount > 1) {
-                    throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID,
-                            item.getItemCode() + ".equipmentOptions.defaultFlag");
-                }
-            }
-        }
-        if (equipmentIds.isEmpty()) {
-            return Map.of();
-        }
-        Map<Long, MesDvMachineryDO> machineryById = machineryService.getMachineryMap(equipmentIds);
-        if (machineryById.size() != equipmentIds.size()
-                || machineryById.values().stream().anyMatch(machinery -> machinery == null
-                || StrUtil.isBlank(machinery.getCode()) || StrUtil.isBlank(machinery.getName()))) {
-            throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID, "equipmentOptions.equipmentId");
-        }
-        return machineryById;
-    }
-
-    private void saveItemEquipmentSnapshots(Long versionId,
-                                            MesQaInspectionRegulationSaveReqVO.InspectionItem item,
-                                            String inspectionType,
-                                            Map<Long, MesDvMachineryDO> machineryById) {
-        if (CollUtil.isEmpty(item.getEquipmentOptions())) {
-            return;
-        }
-        for (int index = 0; index < item.getEquipmentOptions().size(); index++) {
-            MesQaInspectionRegulationSaveReqVO.InspectionEquipment option = item.getEquipmentOptions().get(index);
-            MesDvMachineryDO machinery = machineryById.get(option.getEquipmentId());
-            if (machinery == null) {
-                throw exception(QA_INSPECTION_REGULATION_ITEM_INVALID,
-                        item.getItemCode() + ".equipmentOptions.equipmentId");
-            }
-            itemEquipmentMapper.insert(MesQaInspectionRegulationItemEquipmentDO.builder()
-                    .regulationVersionId(versionId)
-                    .inspectionType(inspectionType)
-                    .itemCode(StrUtil.trim(item.getItemCode()))
-                    .equipmentId(machinery.getId())
-                    .equipmentCode(StrUtil.trim(machinery.getCode()))
-                    .equipmentName(StrUtil.trim(machinery.getName()))
-                    .equipmentNumber(StrUtil.trim(machinery.getCode()))
-                    .defaultFlag(Boolean.TRUE.equals(option.getDefaultFlag()))
-                    .sort(option.getSort() == null ? index + 1 : option.getSort())
-                    .build());
-        }
     }
 
     private MesQaInspectionRegulationDO resolveRegulation(MesQaInspectionRegulationSaveReqVO reqVO,
@@ -470,11 +393,6 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, version.getId());
         }
         List<MesQaInspectionRegulationItemDO> items = itemMapper.selectListByVersionId(version.getId());
-        List<MesQaInspectionRegulationItemEquipmentDO> itemEquipment = itemEquipmentMapper
-                .selectListByVersionId(version.getId());
-        Map<String, List<MesQaInspectionRegulationItemEquipmentDO>> equipmentByItemCode = itemEquipment.stream()
-                .collect(Collectors.groupingBy(MesQaInspectionRegulationItemEquipmentDO::getItemCode,
-                        LinkedHashMap::new, Collectors.toList()));
         return MesQaInspectionRegulationPublishedVersionRespVO.builder()
                 .dccProjectCodeId(regulation.getDccProjectCodeId())
                 .regulationId(regulation.getId())
@@ -489,14 +407,13 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .finalInspectionApplicable(version.getFinalInspectionApplicable())
                 .finalInspectionNotApplicableReason(version.getFinalInspectionNotApplicableReason())
                 .inspectionTypeRules(parseInspectionTypeRules(version))
-                .processes(buildProcessResponses(processes, items, equipmentByItemCode, version.getId()))
+                .processes(buildProcessResponses(processes, items, version.getId()))
                 .build();
     }
 
     private static List<MesQaInspectionRegulationPublishedVersionRespVO.InspectionProcess> buildProcessResponses(
             List<MesQaInspectionRegulationProcessDO> processes,
             List<MesQaInspectionRegulationItemDO> items,
-            Map<String, List<MesQaInspectionRegulationItemEquipmentDO>> equipmentByItemCode,
             Long versionId) {
         Map<Long, List<MesQaInspectionRegulationItemDO>> itemsByProcess = items.stream()
                 .collect(Collectors.groupingBy(MesQaInspectionRegulationItemDO::getQaProcessId));
@@ -510,14 +427,13 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                         .processCode(process.getProcessCode())
                         .processName(process.getProcessName())
                         .sort(process.getSort())
-                        .items(buildItemResponses(itemsByProcess.get(process.getId()), equipmentByItemCode))
+                        .items(buildItemResponses(itemsByProcess.get(process.getId())))
                         .build())
                 .toList();
     }
 
     private static List<MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem> buildItemResponses(
-            List<MesQaInspectionRegulationItemDO> processItems,
-            Map<String, List<MesQaInspectionRegulationItemEquipmentDO>> equipmentByItemCode) {
+            List<MesQaInspectionRegulationItemDO> processItems) {
         if (CollUtil.isEmpty(processItems)) {
             return List.of();
         }
@@ -529,13 +445,12 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .collect(Collectors.groupingBy(MesQaInspectionRegulationItemDO::getItemCode,
                         LinkedHashMap::new, Collectors.toList()));
         return rowsByItemCode.values().stream()
-                .map(rows -> buildItemResponse(rows, equipmentByItemCode))
+                .map(MesQaInspectionRegulationServiceImpl::buildItemResponse)
                 .toList();
     }
 
     private static MesQaInspectionRegulationPublishedVersionRespVO.InspectionItem buildItemResponse(
-            List<MesQaInspectionRegulationItemDO> rows,
-            Map<String, List<MesQaInspectionRegulationItemEquipmentDO>> equipmentByItemCode) {
+            List<MesQaInspectionRegulationItemDO> rows) {
         MesQaInspectionRegulationItemDO source = rows.get(0);
         List<String> applicableTypes = rows.stream()
                 .map(MesQaInspectionRegulationItemDO::getInspectionType)
@@ -575,31 +490,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .sourceOriginalItem(source.getSourceOriginalItem())
                 .sourceOriginalExcerpt(source.getSourceOriginalExcerpt())
                 .sourceOriginalMethod(source.getSourceOriginalMethod())
-                .equipmentOptions(toEquipmentOptions(equipmentByItemCode.get(source.getItemCode())))
+                .equipmentOptions(List.of())
                 .build();
-    }
-
-    private static List<MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption> toEquipmentOptions(
-            List<MesQaInspectionRegulationItemEquipmentDO> rows) {
-        if (CollUtil.isEmpty(rows)) {
-            return List.of();
-        }
-        Map<Long, MesQaInspectionRegulationItemEquipmentDO> uniqueByEquipmentId = new LinkedHashMap<>();
-        rows.stream()
-                .sorted(Comparator.comparing(MesQaInspectionRegulationItemEquipmentDO::getSort,
-                                Comparator.nullsLast(Integer::compareTo))
-                        .thenComparing(MesQaInspectionRegulationItemEquipmentDO::getEquipmentId))
-                .forEach(row -> uniqueByEquipmentId.putIfAbsent(row.getEquipmentId(), row));
-        return uniqueByEquipmentId.values().stream()
-                .map(row -> MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption.builder()
-                        .equipmentId(row.getEquipmentId())
-                        .equipmentCode(row.getEquipmentCode())
-                        .equipmentName(row.getEquipmentName())
-                        .equipmentNumber(row.getEquipmentNumber())
-                        .defaultFlag(row.getDefaultFlag())
-                        .sort(row.getSort())
-                        .build())
-                .toList();
     }
 
     private static List<MesQaInspectionRegulationPublishedVersionRespVO.InspectionTypeRule>
@@ -872,7 +764,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .standardUpperLimit(item.getStandardUpperLimit())
                 .standardUnit(StrUtil.trim(item.getStandardUnit()))
                 .standardPrecision(item.getStandardPrecision())
-                .equipmentRequired(CollUtil.isNotEmpty(item.getEquipmentOptions()))
+                .equipmentRequired(false)
                 .resultType(StrUtil.trim(item.getResultType()))
                 .firstInspectionQuantity(fixedQuantity)
                 .patrolInspectionRatio(isPatrolInspectionType(inspectionType)

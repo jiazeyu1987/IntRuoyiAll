@@ -83,14 +83,10 @@ assert.doesNotMatch(
   /row\.moduleCode\s*===\s*['"]EDHR['"][\s\S]*reviewApprovalTask/,
   '统一审批中心不得为 EDHR 增加直接审核提交分支'
 )
-const decisionActionLabelBlock = approvalCenter.match(
-  /const resolveDecisionActionLabel = \(row: ApprovalTaskSummaryVO\) => \{[\s\S]*?\n\}/
-)?.[0] || ''
-assert.ok(decisionActionLabelBlock, '审批中心必须集中解析模块处理入口文案')
-assert.doesNotMatch(
-  decisionActionLabelBlock,
-  /openReviewDialog/,
-  'eDHR REVIEW/APPROVE 模块处理动作只能跳转正式处理页，不能打开统一直接审核弹窗'
+assert.match(
+  approvalCenter,
+  /const openReviewAction = \(row: ApprovalTaskSummaryVO\) =>[\s\S]*?openReviewDialog\(row\)[\s\S]*?openDecisionDetail\(row\)/,
+  '审批中心必须集中分发直接审核弹窗和 eDHR 模块审核入口'
 )
 
 assert.match(workTaskService, /MesProEdhrCandidateResolver/, '工作任务候选解析必须委托共享候选解析入口')

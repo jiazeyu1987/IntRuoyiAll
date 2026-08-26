@@ -16,8 +16,8 @@ class SignatureGovernanceMenuContractTest {
         Path projectDir = findProjectDir();
         String sql = Files.readString(projectDir.resolve("sql/mysql/20260714_unified_signature_records_menu.sql"),
                 StandardCharsets.UTF_8);
-        String route = Files.readString(projectDir.getParent()
-                        .resolve("yudao-ui-admin-vue3/src/router/modules/remaining.ts"),
+        String route = Files.readString(projectDir.resolveSibling("IntRuoyiFronted")
+                        .resolve("src/router/modules/remaining.ts"),
                 StandardCharsets.UTF_8);
 
         assertTrue(sql.contains("release-migration"), "menu SQL must declare release migration metadata");

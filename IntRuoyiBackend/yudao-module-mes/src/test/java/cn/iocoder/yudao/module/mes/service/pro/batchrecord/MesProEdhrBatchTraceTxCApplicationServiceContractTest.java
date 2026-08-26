@@ -21,23 +21,20 @@ class MesProEdhrBatchTraceTxCApplicationServiceContractTest {
                             .setExpectedSourceBundleHash(command.getExpectedSourceBundleHash())
                             .setExpectedCompletionBackfillReceiptHash(
                                     command.getExpectedCompletionBackfillReceiptHash())
-                            .setExpectedSourceVersion(command.getExpectedSourceVersion())
-                            .setExpectedSourceCredentialId(command.getExpectedSourceCredentialId())
-                            .setExpectedSourceCredentialHash(command.getExpectedSourceCredentialHash());
+                            .setExpectedSourceVersion(command.getExpectedSourceVersion());
                     return new MesProEdhrBatchTraceTxCResult().setStatus("TRACE_MAPPING_BLOCKED");
                 });
 
         service.handle(new MesProEdhrBatchProvisionedEvent()
                 .setTenantId(7L)
                 .setBatchExecutionId(101L)
+                .setProvisioningReceiptId(202L)
                 .setEventId("flow6-open-101")
                 .setIdempotencyKey("flow6-open-101:v1")
                 .setExpectedSourceSnapshotHash("snapshot-v1")
                 .setExpectedSourceBundleHash("bundle-v1")
                 .setExpectedCompletionBackfillReceiptHash("receipt-v1")
-                .setExpectedSourceVersion("3")
-                .setExpectedSourceCredentialId("credential-101")
-                .setExpectedSourceCredentialHash("credential-hash-v1"));
+                .setExpectedSourceVersion("3"));
 
         assertEquals(101L, captured.getBatchExecutionId());
         assertEquals("flow6-open-101", captured.getEventId());
@@ -45,8 +42,6 @@ class MesProEdhrBatchTraceTxCApplicationServiceContractTest {
         assertEquals("bundle-v1", captured.getExpectedSourceBundleHash());
         assertEquals("receipt-v1", captured.getExpectedCompletionBackfillReceiptHash());
         assertEquals("3", captured.getExpectedSourceVersion());
-        assertEquals("credential-101", captured.getExpectedSourceCredentialId());
-        assertEquals("credential-hash-v1", captured.getExpectedSourceCredentialHash());
     }
 
     @Test

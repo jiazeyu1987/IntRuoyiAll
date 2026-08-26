@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.hutool.core.util.IdUtil;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
@@ -16,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInsp
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
@@ -49,6 +51,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
@@ -76,6 +79,9 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
+import jakarta.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -127,6 +133,11 @@ import static cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLe
 @Service
 @Validated
 public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveOrderService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MesTeamLeaderActiveOrderServiceImpl.class);
+
+    @Resource
+    private MesProProcessMapper processMapper;
 
     static final String STATUS_ACTIVE = "ACTIVE";
     static final String STATUS_REMOVED = "REMOVED";
@@ -665,10 +676,18 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
                         workOrder == null ? null : workOrder.getId());
             }
-            String processCode = requireSnapshotText(node.getString("processCode"),
-                    workOrder == null ? null : workOrder.getId());
-            String processName = requireSnapshotText(node.getString("processName"),
-                    workOrder == null ? null : workOrder.getId());
+            MesProProcessDO formalProcess = processMapper == null ? null
+                    : processMapper.selectByIdIgnoreDeleted(processId);
+            String processCode = node.getString("processCode");
+            String processName = node.getString("processName");
+            if (processCode == null || processCode.isBlank()) {
+                processCode = formalProcess == null ? null : formalProcess.getCode();
+            }
+            if (processName == null || processName.isBlank()) {
+                processName = formalProcess == null ? null : formalProcess.getName();
+            }
+            processCode = requireSnapshotText(processCode, workOrder == null ? null : workOrder.getId());
+            processName = requireSnapshotText(processName, workOrder == null ? null : workOrder.getId());
             ProcessIdentity identity = new ProcessIdentity(routeProcessId, processId);
             if (!processIdentities.add(identity)) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED,
@@ -1432,6 +1451,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             MesProcessPoolActiveOrderDO activeOrder, MesTeamLeaderActiveOrderAddReqBO reqBO,
             PickListSnapshot pickList) {
         MesProcessPoolActiveOrderPickListBindingDO binding = MesProcessPoolActiveOrderPickListBindingDO.builder()
+                .id(IdUtil.getSnowflake().nextId())
                 .activeOrderId(activeOrder.getId())
                 .workOrderId(activeOrder.getWorkOrderId())
                 .pickListId(pickList.header().getId())
@@ -1450,6 +1470,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         pickListBindingMapper.insert(binding);
         for (ErpKingdeeProductionPickListItemDO item : pickList.items()) {
             pickListBindingItemMapper.insert(MesProcessPoolActiveOrderPickListBindingItemDO.builder()
+                    .id(IdUtil.getSnowflake().nextId())
                     .bindingId(binding.getId())
                     .pickListItemId(item.getId())
                     .sourceEntryId(item.getSourceEntryId())
@@ -1561,7 +1582,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         Map<Long, MesProRouteDO> routesById = routeMapper.selectBatchIds(routeIds).stream()
                 .filter(route -> route.getId() != null)
                 .collect(Collectors.toMap(MesProRouteDO::getId, Function.identity(), (left, right) -> left));
-        activeOrders.forEach(activeOrder -> requireFormalRoute(activeOrder, routesById));
 
         List<Long> routeVersionIds = activeOrders.stream()
                 .map(MesProcessPoolActiveOrderDO::getRouteVersionId)
@@ -1572,9 +1592,39 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .filter(routeVersion -> routeVersion.getId() != null)
                 .collect(Collectors.toMap(MesProRouteVersionDO::getId, Function.identity(),
                         (left, right) -> left));
-        activeOrders.forEach(activeOrder -> requireFormalRouteVersion(activeOrder, routeVersionsById));
+        Map<Long, String> routeNamesByActiveOrderId = new LinkedHashMap<>();
+        List<MesProcessPoolActiveOrderDO> readableActiveOrders = new ArrayList<>();
+        for (MesProcessPoolActiveOrderDO activeOrder : activeOrders) {
+            if (activeOrder.getId() == null) {
+                LOGGER.warn("Skip invalid active order from list: missing activeOrderId");
+                continue;
+            }
+            try {
+                routeNamesByActiveOrderId.put(activeOrder.getId(),
+                        requireFormalRouteName(activeOrder, routesById, routeVersionsById));
+                requireFormalRouteVersion(activeOrder, routeVersionsById);
+                readableActiveOrders.add(activeOrder);
+            } catch (ServiceException ex) {
+                if (!isSkippableActiveOrderReadError(ex)) {
+                    throw ex;
+                }
+                logSkippedActiveOrder(activeOrder, "route", ex);
+            }
+        }
+        activeOrders = readableActiveOrders;
+        if (activeOrders.isEmpty()) {
+            return Collections.emptyList();
+        }
         Map<Long, MesProWorkOrderDO> workOrdersById = loadActiveOrderWorkOrders(activeOrders);
+        activeOrders = retainActiveOrdersWithWorkOrders(activeOrders, workOrdersById);
+        if (activeOrders.isEmpty()) {
+            return Collections.emptyList();
+        }
         Map<Long, MesMdItemDO> productsById = loadActiveOrderProducts(workOrdersById.values());
+        activeOrders = retainActiveOrdersWithProducts(activeOrders, workOrdersById, productsById);
+        if (activeOrders.isEmpty()) {
+            return Collections.emptyList();
+        }
         List<Long> workOrderIds = activeOrders.stream()
                 .map(MesProcessPoolActiveOrderDO::getWorkOrderId)
                 .distinct()
@@ -1583,10 +1633,24 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 abnormalStateService.findLatestOpenByWorkOrderIds(workOrderIds);
         Map<Long, ActiveOrderProgress> progressByActiveOrderId = loadActiveOrderProgress(activeOrders,
                 routeVersionsById);
+        activeOrders = activeOrders.stream()
+                .filter(activeOrder -> {
+                    boolean readable = progressByActiveOrderId.containsKey(activeOrder.getId());
+                    if (!readable) {
+                        LOGGER.warn("Skip invalid active order from list: activeOrderId={}, missing=progress",
+                                activeOrder.getId());
+                    }
+                    return readable;
+                })
+                .toList();
+        if (activeOrders.isEmpty()) {
+            return Collections.emptyList();
+        }
         Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> latestReleaseApplicationByActiveOrderId =
                 loadLatestReleaseApplications(activeOrders);
         return activeOrders.stream()
-                .map(activeOrder -> toActiveOrderRow(activeOrder, routesById, routeVersionsById,
+                .map(activeOrder -> toActiveOrderRow(activeOrder, routeVersionsById,
+                        routeNamesByActiveOrderId,
                         workOrdersById, productsById, progressByActiveOrderId, openAbnormalByWorkOrderId,
                         latestReleaseApplicationByActiveOrderId))
                 .toList();
@@ -1609,12 +1673,27 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return latestByActiveOrderId;
     }
 
-    private void requireFormalRoute(MesProcessPoolActiveOrderDO activeOrder,
-                                    Map<Long, MesProRouteDO> routesById) {
+    private String requireFormalRouteName(MesProcessPoolActiveOrderDO activeOrder,
+                                          Map<Long, MesProRouteDO> routesById,
+                                          Map<Long, MesProRouteVersionDO> routeVersionsById) {
         MesProRouteDO route = routesById.get(activeOrder.getRouteId());
-        if (route == null || route.getName() == null || route.getName().isBlank()) {
+        if (route != null && route.getName() != null && !route.getName().isBlank()) {
+            return route.getName();
+        }
+        MesProRouteVersionDO routeVersion = routeVersionsById.get(activeOrder.getRouteVersionId());
+        if (routeVersion == null) {
             throw exception(PRO_ROUTE_NOT_EXISTS);
         }
+        if (!Objects.equals(activeOrder.getRouteId(), routeVersion.getRouteId())) {
+            throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, activeOrder.getRouteVersionId());
+        }
+        JSONObject snapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        if (snapshot == null || !Objects.equals(activeOrder.getRouteId(), snapshot.getLong("routeId"))
+                || snapshot.getString("routeName") == null
+                || snapshot.getString("routeName").isBlank()) {
+            throw exception(PRO_ROUTE_NOT_EXISTS);
+        }
+        return snapshot.getString("routeName");
     }
 
     private void requireFormalRouteVersion(MesProcessPoolActiveOrderDO activeOrder,
@@ -1626,6 +1705,54 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 || routeVersion.getVersionNo().isBlank()) {
             throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, activeOrder.getRouteVersionId());
         }
+    }
+
+    private static boolean isSkippableActiveOrderReadError(ServiceException ex) {
+        return Objects.equals(ex.getCode(), PRO_ROUTE_NOT_EXISTS.getCode())
+                || Objects.equals(ex.getCode(), PRO_ROUTE_VERSION_NOT_EXISTS.getCode())
+                || Objects.equals(ex.getCode(), PRO_WORK_ORDER_NOT_EXISTS.getCode())
+                || Objects.equals(ex.getCode(), MD_ITEM_NOT_EXISTS.getCode())
+                || Objects.equals(ex.getCode(), PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED.getCode());
+    }
+
+    private void logSkippedActiveOrder(MesProcessPoolActiveOrderDO activeOrder, String stage,
+                                       ServiceException ex) {
+        LOGGER.warn("Skip invalid active order from list: activeOrderId={}, stage={}, code={}, message={}",
+                activeOrder.getId(), stage, ex.getCode(), ex.getMessage());
+    }
+
+    private List<MesProcessPoolActiveOrderDO> retainActiveOrdersWithWorkOrders(
+            List<MesProcessPoolActiveOrderDO> activeOrders,
+            Map<Long, MesProWorkOrderDO> workOrdersById) {
+        return activeOrders.stream()
+                .filter(activeOrder -> {
+                    boolean readable = activeOrder.getWorkOrderId() != null
+                            && workOrdersById.containsKey(activeOrder.getWorkOrderId());
+                    if (!readable) {
+                        LOGGER.warn("Skip invalid active order from list: activeOrderId={}, missing=workOrder",
+                                activeOrder.getId());
+                    }
+                    return readable;
+                })
+                .toList();
+    }
+
+    private List<MesProcessPoolActiveOrderDO> retainActiveOrdersWithProducts(
+            List<MesProcessPoolActiveOrderDO> activeOrders,
+            Map<Long, MesProWorkOrderDO> workOrdersById,
+            Map<Long, MesMdItemDO> productsById) {
+        return activeOrders.stream()
+                .filter(activeOrder -> {
+                    MesProWorkOrderDO workOrder = workOrdersById.get(activeOrder.getWorkOrderId());
+                    boolean readable = workOrder != null && workOrder.getProductId() != null
+                            && productsById.containsKey(workOrder.getProductId());
+                    if (!readable) {
+                        LOGGER.warn("Skip invalid active order from list: activeOrderId={}, missing=product",
+                                activeOrder.getId());
+                    }
+                    return readable;
+                })
+                .toList();
     }
 
     private Map<Long, MesProWorkOrderDO> loadActiveOrderWorkOrders(
@@ -1640,12 +1767,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 : workOrderMapper.selectBatchIds(workOrderIds).stream()
                 .filter(workOrder -> workOrder.getId() != null)
                 .collect(Collectors.toMap(MesProWorkOrderDO::getId, Function.identity(), (left, right) -> left));
-        activeOrders.forEach(activeOrder -> {
-            if (activeOrder.getWorkOrderId() == null
-                    || !workOrdersById.containsKey(activeOrder.getWorkOrderId())) {
-                throw exception(PRO_WORK_ORDER_NOT_EXISTS);
-            }
-        });
         return workOrdersById;
     }
 
@@ -1660,11 +1781,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 : itemMapper.selectBatchIds(productIds).stream()
                 .filter(item -> item.getId() != null)
                 .collect(Collectors.toMap(MesMdItemDO::getId, Function.identity(), (left, right) -> left));
-        workOrders.forEach(workOrder -> {
-            if (workOrder.getProductId() == null || !productsById.containsKey(workOrder.getProductId())) {
-                throw exception(MD_ITEM_NOT_EXISTS);
-            }
-        });
         return productsById;
     }
 
@@ -1703,36 +1819,44 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                 LinkedHashMap::new, Collectors.toList()));
         Map<Long, ActiveOrderProgress> progressByActiveOrderId = new LinkedHashMap<>();
         activeOrders.forEach(activeOrder -> {
-            List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots =
-                    snapshotsByActiveOrderId.getOrDefault(activeOrder.getId(), List.of());
-            List<ProcessIdentity> snapshotProcessIdentities = requireProgressProcessIdentities(activeOrder, snapshots);
-            Map<ProcessIdentity, BigDecimal> targetQuantityByProcess = progressTargetQuantities(activeOrder,
-                    snapshots);
-            List<MesTeamLeaderActiveOrderRow.ProcessRemainingQuantity> processRemainingQuantities =
-                    resolveProcessRemainingQuantities(activeOrder, snapshots, allocatedQuantityByProcess);
-            int quantityConflictProcessCount = (int) processRemainingQuantities.stream()
-                    .filter(item -> Boolean.TRUE.equals(item.getQuantityConflict()))
-                    .count();
-            BigDecimal overageQuantity = processRemainingQuantities.stream()
-                    .map(MesTeamLeaderActiveOrderRow.ProcessRemainingQuantity::getOverageQuantity)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            List<ProcessIdentity> processIdentities = resolveFormalProgressProcessIdentities(activeOrder,
-                    routeVersionsById.get(activeOrder.getRouteVersionId()), snapshotProcessIdentities);
-            int totalProcessCount = processIdentities.size();
-            long completedProcessCount = processIdentities.stream()
-                    .filter(process -> isProductionProcessFullyAllocated(activeOrder, process,
-                            targetQuantityByProcess, allocatedQuantityByProcess))
-                    .count();
-            List<MesPqcInspectionTaskDO> pqcTasks = pqcTasksByActiveOrderId.getOrDefault(activeOrder.getId(),
-                    List.of());
-            progressByActiveOrderId.put(activeOrder.getId(), new ActiveOrderProgress(
-                    toProgressPercent(completedProcessCount, totalProcessCount),
-                    calculateInspectionProgressPercent(pqcTasks),
-                    processRemainingQuantities,
-                    quantityConflictProcessCount > 0,
-                    quantityConflictProcessCount,
-                    overageQuantity));
+            try {
+                List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots =
+                        snapshotsByActiveOrderId.getOrDefault(activeOrder.getId(), List.of());
+                List<ProcessIdentity> snapshotProcessIdentities = requireProgressProcessIdentities(activeOrder,
+                        snapshots);
+                Map<ProcessIdentity, BigDecimal> targetQuantityByProcess = progressTargetQuantities(activeOrder,
+                        snapshots);
+                List<MesTeamLeaderActiveOrderRow.ProcessRemainingQuantity> processRemainingQuantities =
+                        resolveProcessRemainingQuantities(activeOrder, snapshots, allocatedQuantityByProcess);
+                int quantityConflictProcessCount = (int) processRemainingQuantities.stream()
+                        .filter(item -> Boolean.TRUE.equals(item.getQuantityConflict()))
+                        .count();
+                BigDecimal overageQuantity = processRemainingQuantities.stream()
+                        .map(MesTeamLeaderActiveOrderRow.ProcessRemainingQuantity::getOverageQuantity)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                List<ProcessIdentity> processIdentities = resolveFormalProgressProcessIdentities(activeOrder,
+                        routeVersionsById.get(activeOrder.getRouteVersionId()), snapshotProcessIdentities);
+                int totalProcessCount = processIdentities.size();
+                long completedProcessCount = processIdentities.stream()
+                        .filter(process -> isProductionProcessFullyAllocated(activeOrder, process,
+                                targetQuantityByProcess, allocatedQuantityByProcess))
+                        .count();
+                List<MesPqcInspectionTaskDO> pqcTasks = pqcTasksByActiveOrderId.getOrDefault(activeOrder.getId(),
+                        List.of());
+                progressByActiveOrderId.put(activeOrder.getId(), new ActiveOrderProgress(
+                        toProgressPercent(completedProcessCount, totalProcessCount),
+                        calculateInspectionProgressPercent(pqcTasks),
+                        processRemainingQuantities,
+                        quantityConflictProcessCount > 0,
+                        quantityConflictProcessCount,
+                        overageQuantity));
+            } catch (ServiceException ex) {
+                if (!isSkippableActiveOrderReadError(ex)) {
+                    throw ex;
+                }
+                logSkippedActiveOrder(activeOrder, "progress", ex);
+            }
         });
         return progressByActiveOrderId;
     }
@@ -1909,14 +2033,13 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private MesTeamLeaderActiveOrderRow toActiveOrderRow(
             MesProcessPoolActiveOrderDO activeOrder,
-            Map<Long, MesProRouteDO> routesById,
             Map<Long, MesProRouteVersionDO> routeVersionsById,
+            Map<Long, String> routeNamesByActiveOrderId,
             Map<Long, MesProWorkOrderDO> workOrdersById,
             Map<Long, MesMdItemDO> productsById,
             Map<Long, ActiveOrderProgress> progressByActiveOrderId,
             Map<Long, MesProcessPoolWorkOrderAbnormalDO> openAbnormalByWorkOrderId,
             Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> releaseApplicationByActiveOrderId) {
-        MesProRouteDO route = routesById.get(activeOrder.getRouteId());
         MesProRouteVersionDO routeVersion = routeVersionsById.get(activeOrder.getRouteVersionId());
         MesProWorkOrderDO workOrder = workOrdersById.get(activeOrder.getWorkOrderId());
         MesMdItemDO product = productsById.get(workOrder.getProductId());
@@ -1938,7 +2061,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .setBatchCode(workOrder.getBatchCode())
                 .setQuantity(workOrder.getQuantity())
                 .setRouteId(activeOrder.getRouteId())
-                .setRouteName(route.getName())
+                .setRouteName(routeNamesByActiveOrderId.get(activeOrder.getId()))
                 .setRouteVersionId(activeOrder.getRouteVersionId())
                 .setRouteVersionNo(routeVersion.getVersionNo())
                 .setErpFixedQuantitySnapshot(activeOrder.getErpFixedQuantitySnapshot())

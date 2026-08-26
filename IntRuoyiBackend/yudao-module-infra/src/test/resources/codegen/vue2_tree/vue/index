@@ -74,7 +74,7 @@ import CategoryForm from './CategoryForm.vue';
 export default {
   name: "Category",
   components: {
-          CategoryForm,
+          CategoryForm
   },
   data() {
     return {

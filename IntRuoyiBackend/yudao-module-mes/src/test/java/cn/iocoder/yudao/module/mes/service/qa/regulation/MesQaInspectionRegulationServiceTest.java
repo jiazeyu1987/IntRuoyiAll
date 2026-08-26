@@ -86,7 +86,7 @@ class MesQaInspectionRegulationServiceTest {
     void setUp() {
         service = new MesQaInspectionRegulationServiceImpl(dccProjectCodeMapper, regulationMapper,
                 versionMapper, processMapper, itemMapper,
-                itemEquipmentMapper, machineryService,
+                itemEquipmentMapper,
                 activeOrderMapper, pqcInspectionTaskMapper);
         lenient().when(versionMapper.selectLatestPublishedByRegulationId(REGULATION_ID))
                 .thenReturn(publishedVersion());
@@ -112,32 +112,15 @@ class MesQaInspectionRegulationServiceTest {
     }
 
     @Test
-    void getCurrent_exposesQaVersionEquipmentSnapshotFromLedgerBinding() {
+    void getCurrent_doesNotExposeEquipmentFromQaVersionSnapshot() {
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
         when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
         when(processMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(qaProcess()));
         when(itemMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(item("FIRST", 5, null)));
-        when(itemEquipmentMapper.selectListByVersionId(VERSION_ID)).thenReturn(List.of(
-                MesQaInspectionRegulationItemEquipmentDO.builder()
-                        .regulationVersionId(VERSION_ID)
-                        .inspectionType("FIRST")
-                        .itemCode("ID-001-WASH-APP")
-                        .equipmentId(901L)
-                        .equipmentCode("FM-001")
-                        .equipmentName("15N砝码")
-                        .equipmentNumber("FM-001")
-                        .defaultFlag(true)
-                        .sort(1)
-                        .build()));
-
         MesQaInspectionRegulationPublishedVersionRespVO result = service.getCurrent(DCC_PROJECT_ID);
 
-        MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption option = result.getProcesses().get(0)
-                .getItems().get(0).getEquipmentOptions().get(0);
-        assertEquals(901L, option.getEquipmentId());
-        assertEquals("15N砝码", option.getEquipmentName());
-        assertEquals("FM-001", option.getEquipmentNumber());
-        assertTrue(option.getDefaultFlag());
+        assertTrue(result.getProcesses().get(0).getItems().get(0).getEquipmentOptions().isEmpty());
+        verifyNoInteractions(itemEquipmentMapper);
     }
 
     @Test

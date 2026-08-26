@@ -53,6 +53,14 @@ public class ErpKingdeeSyncController {
         return success(syncAdminService.getWatermarks());
     }
 
+    @PostMapping("/incremental-sync")
+    @Operation(summary = "增量同步 ERP 金蝶表格")
+    @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")
+    public CommonResult<ErpKingdeeFullSyncRespVO> runIncrementalSync(
+            @Valid @RequestBody ErpKingdeeFullSyncReqVO reqVO) {
+        return success(syncAdminService.runIncrementalSync(reqVO.getSyncType()));
+    }
+
     @PostMapping("/full-sync")
     @Operation(summary = "全量同步 ERP 金蝶表格")
     @PreAuthorize("@ss.hasPermission('erp:kingdee-sync:query')")

@@ -43,9 +43,10 @@ public class MesProBatchRecordCellLinkController {
             @RequestParam(value = "sourceReportId", required = false) String sourceReportId,
             @RequestParam(value = "templateId", required = false) Long templateId,
             @RequestParam(value = "versionNo", required = false) String versionNo,
-            @RequestParam(value = "routeProcessId", required = false) Long routeProcessId) {
+            @RequestParam(value = "routeProcessId", required = false) Long routeProcessId,
+            @RequestParam(value = "qaProcessId", required = false) Long qaProcessId) {
         return success(cellLinkService.getWorkbenchContext(routeId, definitionId, versionId, sourceReportId,
-                templateId, versionNo, routeProcessId));
+                templateId, versionNo, routeProcessId, qaProcessId));
     }
 
     @GetMapping("/form-cells")

@@ -61,6 +61,7 @@ export interface EdhrReleaseRowVO {
   approvedAt?: string | number
   approvalSignoffEvidenceHash?: string
   approvalOpinion?: string
+  reportSnapshotHash?: string
   rejectedBy?: string
   rejectedAt?: string | number
   rejectReason?: string

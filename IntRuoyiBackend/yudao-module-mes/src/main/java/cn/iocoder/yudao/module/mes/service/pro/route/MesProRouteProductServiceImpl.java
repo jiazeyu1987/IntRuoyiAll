@@ -482,7 +482,6 @@ public class MesProRouteProductServiceImpl implements MesProRouteProductService 
             return null;
         }
         if (existing == null) {
-            routeService.validateRouteNotEnable(routeId);
             MesProRouteProductDO routeProduct = MesProRouteProductDO.builder()
                     .routeId(routeId)
                     .itemId(itemId)

@@ -40,6 +40,8 @@ import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentConfigService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipmentOption;
 import cn.iocoder.yudao.module.mes.service.qa.regulation.MesQaInspectionRegulationService;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -114,6 +116,7 @@ class MesFrontlinePqcContextServiceTest {
     private MesProProcessPoolPqcRecordMapper pqcRecordMapper;
     private MesProBatchRecordExecutionSignatureService signatureService;
     private MesQaInspectionRegulationService regulationService;
+    private MesPqcItemEquipmentConfigService pqcItemEquipmentConfigService;
     private MesMdItemService itemService;
     private MesFrontlinePqcContextService service;
 
@@ -133,6 +136,7 @@ class MesFrontlinePqcContextServiceTest {
         regulationItemEquipmentMapper = mock(MesQaInspectionRegulationItemEquipmentMapper.class);
         when(regulationItemEquipmentMapper.selectListByVersionId(anyLong())).thenReturn(List.of());
         regulationService = mock(MesQaInspectionRegulationService.class);
+        pqcItemEquipmentConfigService = mock(MesPqcItemEquipmentConfigService.class);
         pqcTaskMapper = mock(MesPqcInspectionTaskMapper.class);
         pieceDetailMapper = mock(MesPqcInspectionPieceDetailMapper.class);
         itemService = mock(MesMdItemService.class);
@@ -145,7 +149,8 @@ class MesFrontlinePqcContextServiceTest {
                 processSnapshotMapper,
                 workOrderMapper, routeMapper, routeVersionMapper, dccProjectCodeMapper,
                 regulationMapper, versionMapper, regulationProcessMapper, regulationItemMapper,
-                regulationItemEquipmentMapper, regulationService, pqcTaskMapper, pieceDetailMapper, itemService, scopeMapper,
+                regulationService, pqcItemEquipmentConfigService, pqcTaskMapper,
+                pieceDetailMapper, itemService, scopeMapper,
                 adminUserApi, eventService, pqcRecordMapper, signatureService);
     }
 
@@ -215,6 +220,9 @@ class MesFrontlinePqcContextServiceTest {
                 MesQaInspectionRegulationPublishedVersionRespVO.EquipmentOption.builder()
                         .equipmentId(1101L).equipmentCode("FM").equipmentName("砝码")
                         .equipmentNumber("FM-001").defaultFlag(false).sort(1).build()));
+        when(pqcItemEquipmentConfigService.listEnabledEquipmentOptionsByProjectAndItemCodes(anyLong(), any()))
+                .thenReturn(Map.of("ID-001", List.of(new MesPqcItemEquipmentOption(
+                        "ID-001", 1101L, "FM", "砝码", "FM-001", false, 1))));
 
         when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(activeOrder);
         when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
@@ -328,7 +336,9 @@ class MesFrontlinePqcContextServiceTest {
                         .itemCode("ID-001")
                         .sampleValues(List.of("合格"))
                         .build()))
-                .rawPayload(Map.of())
+                .rawPayload(Map.of(
+                        "nonconformanceDescription", "must-not-be-written",
+                        "pqcDraft", Map.of("defectDescription", "must-not-be-written")))
                 .clientSubmitTime(submitTime)
                 .build();
 
@@ -342,7 +352,14 @@ class MesFrontlinePqcContextServiceTest {
         MesProcessPoolCreatePqcInspectionReqDTO request = requestCaptor.getValue();
         assertNull(request.getProductionSubmitEventId());
         assertNotNull(request.getRawPayload());
-        assertNull(JsonUtils.parseObject(request.getRawPayload(), Map.class).get("productionSubmitEventId"));
+        Map<String, Object> rawPayload = JsonUtils.parseObject(request.getRawPayload(), Map.class);
+        assertNull(rawPayload.get("productionSubmitEventId"));
+        assertNull(rawPayload.get("nonconformanceDescription"));
+        assertNull(rawPayload.get("defectDescription"));
+        Map<String, Object> pqcDraft = JsonUtils.parseObject(
+                JsonUtils.toJsonString(rawPayload.get("pqcDraft")), Map.class);
+        assertNull(pqcDraft.get("nonconformanceDescription"));
+        assertNull(pqcDraft.get("defectDescription"));
         verify(processPoolEventMapper, never()).selectProductionSubmitsByWorkOrderAndRoute(WORK_ORDER_ID, ROUTE_ID);
     }
 

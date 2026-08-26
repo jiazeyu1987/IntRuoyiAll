@@ -130,6 +130,13 @@ test-plan.md 和 execution-log.md 已记录 Given/When/Then、RED、GREEN、REGR
 
 本专项仍保持“流程11代码与分类工具已验证；全链路 No-Go”：流程1-10生产闭环、真实 Playwright、生产历史迁移、人工批准和回滚演练没有因本次分类而变为通过。
 
+## Current int_main Flow11 Repair Verification
+
+- PASS: rollback-only SQL is now excluded from the normal release migration manifest and cannot be explicitly included without a blocker.
+- PASS: migration policy contract tests 9/9, manifest migration contract tests 8/8, full SQL migration policy gate 522 migrations.
+- PASS: G10/G11 confirmation contracts 11/11, Flow11 runner 12/12, Flow11 migration pytest 12/12, and Python AST syntax checks.
+- BLOCKED by scope, not this repair: production historical dry-run, human approval, rollback rehearsal, real Playwright, and the Flow1-10 production closure remain No-Go prerequisites.
+
 ## 10.1 M21 受控 Maven 重跑结论
 
 - 原始 native-memory blocker 的根因已确认：旧 Maven 进程的 ergonomic `MaxHeapSize` 约 8GB，在 `hs_err_pid49664.log` 中记录系统物理可用约 1.7GB 时分配约 2.3MB 失败；这是 JVM/主机资源问题，不是流程8业务断言。

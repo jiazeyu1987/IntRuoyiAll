@@ -14,5 +14,7 @@ public interface ErpKingdeeSyncAdminService {
 
     List<ErpKingdeeSyncWatermarkRespVO> getWatermarks();
 
+    ErpKingdeeFullSyncRespVO runIncrementalSync(String syncType);
+
     ErpKingdeeFullSyncRespVO runFullSync(String syncType);
 }

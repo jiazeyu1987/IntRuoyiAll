@@ -3,15 +3,12 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
-import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceSourcePrecheckRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
-import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGateReceipt;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -22,7 +19,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -44,7 +40,6 @@ class MesProEdhrFourMaterialGateServiceTest {
 
     @BeforeEach
     void setUp() {
-        TenantContextHolder.setTenantId(1L);
         gate = new MesProEdhrFourMaterialGateServiceImpl(taskMapper, attachmentMapper,
                 traceabilityService, fileService, receiptWriter);
         lenient().when(traceabilityService.resolveSourcePrecheck(any()))
@@ -52,20 +47,7 @@ class MesProEdhrFourMaterialGateServiceTest {
                         .setBatchExecutionId(BATCH_ID).setOriginLinkId(9L)
                         .setTraceLinkHash("trace-hash").setSourceSnapshotHash(SOURCE_HASH)
                         .setSourceVersion(1).setRelationStatus("CAPTURED")
-                .setReadAt(LocalDateTime.now()));
-        lenient().when(receiptWriter.persistReady(any(), any(), any(), any(), any()))
-                .thenReturn(new MesReleaseMaterialGateReceipt()
-                        .setReceiptId("MATERIALS-88-1").setBatchExecutionId(BATCH_ID)
-                        .setGateStatus(MesReleaseMaterialGateReceipt.STATUS_MATERIALS_READY)
-                        .setMaterialTypeKeys(Set.copyOf(MesReleaseMaterialGateReceipt.REQUIRED_MATERIAL_TYPES))
-                        .setManifestHash("manifest-hash").setSourceSnapshotHash(SOURCE_HASH)
-                        .setMaterialVersionSetHash("version-hash").setReceiptHash("receipt-hash")
-                        .setIssuedBy(1001L).setAuditEventId("FLOW8-MATERIALS-88-1").setVersion(1));
-    }
-
-    @AfterEach
-    void tearDown() {
-        TenantContextHolder.clear();
+                        .setReadAt(LocalDateTime.now()));
     }
 
     @Test
@@ -167,8 +149,30 @@ class MesProEdhrFourMaterialGateServiceTest {
         assertFalse(changed.ready());
         assertNotEquals(firstManifest, changed.manifestHash());
         assertEquals(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, gate.evaluate(BATCH_ID).status());
-        tasks.forEach(task -> task.setRouteBindingSnapshotHash("source-hash-v2"));
+        tasks.forEach(task -> task.setMaterialSourceSnapshotHash("source-hash-v2"));
         assertEquals(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, gate.evaluate(BATCH_ID).status());
+    }
+
+    @Test
+    void routeBindingSnapshotCannotSatisfyMaterialSourceBinding() {
+        List<MesProEdhrBatchExecutionTaskDO> tasks = new ArrayList<>();
+        List<MesProBatchRecordExecutionAttachmentDO> attachments = new ArrayList<>();
+        long id = 1L;
+        for (String node : MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES) {
+            tasks.add(task(node, id).setMaterialSourceSnapshotHash(null)
+                    .setRouteBindingSnapshotHash(SOURCE_HASH));
+            attachments.add(attachment(node, id, id));
+            id++;
+        }
+        when(taskMapper.selectListByBatchExecutionId(BATCH_ID)).thenReturn(tasks);
+        when(attachmentMapper.selectListByBatchExecutionId(BATCH_ID)).thenReturn(attachments);
+        when(fileService.getFile(any())).thenAnswer(invocation -> FileDO.builder().id(invocation.getArgument(0))
+                .configId(3L).name("report.pdf").path("/report.pdf").url("https://files/report.pdf")
+                .type("application/pdf").size(10L).build());
+
+        MesProEdhrFourMaterialGateResult result = gate.evaluate(BATCH_ID);
+        assertEquals(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, result.status());
+        assertFalse(result.ready());
     }
 
     @Test
@@ -209,7 +213,7 @@ class MesProEdhrFourMaterialGateServiceTest {
     private MesProEdhrBatchExecutionTaskDO task(String node, Long id) {
         return MesProEdhrBatchExecutionTaskDO.builder().id(id).batchExecutionId(BATCH_ID)
                 .nodeType(node).status(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
-                .routeBindingSnapshotHash(SOURCE_HASH).build();
+                .materialSourceSnapshotHash(SOURCE_HASH).build();
     }
 
     private MesProBatchRecordExecutionAttachmentDO attachment(String node, Long taskId, Long version) {

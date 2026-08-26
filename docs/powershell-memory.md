@@ -206,6 +206,15 @@
 - Forbidden action: 禁止把 PowerShell 参数拆分错误误判为产品编译失败；禁止移除 `-am` 或改成更宽测试作为绕过。
 - Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码。
 
+### Maven 编译结论与行为测试失败分层门禁
+
+- Trigger: 增量 `package` 显示 `BUILD SUCCESS`，但工作区存在大量源码改动、模块显示 `Nothing to compile`，或 clean reactor 在某个上游模块的 Surefire 行为测试阶段失败。
+- Preflight check: 先用受影响模块的 clean reactor 强制重编生产源码和测试源码，再用同一 reactor 的 `-DskipTests` 继续验证后续模块；分别记录 javac/testCompile、Surefire 和 repackage 阶段，不把测试失败倒推成编译失败。
+- Blocker: clean 后出现 javac/testCompile 错误才判定为编译阻塞；若生产/测试编译已通过、仅行为测试断言失败，则保持编译结论独立，并按失败模块另立行为回归任务。
+- Verification: 主应用执行 `mvn -pl yudao-server -am "-DskipTests" package`；受影响模块执行 `mvn -pl <module> -am clean test` 或同一 clean 状态下的 `-DskipTests`；目标合同测试必须进入 Surefire 并记录实际测试数。
+- Forbidden action: 禁止以增量 `Nothing to compile` 作为源码已验证的唯一证据，禁止把 `Surefire` 行为失败写成 javac RED，禁止为绕过行为失败使用 `maven.test.skip` 或修改无关测试。
+- Evidence: `doc/tasks/20260826-fix-backend-compile-errors/execution-log.md`，clean reactor 编译通过、`yudao-module-infra` 行为测试另有 39 failures/1 error，随后主应用 clean `-DskipTests` 构建和 MES Stage 6 9/9 定向测试通过。
+
 ### PowerShell JDBC/JShell 中文证据输出门禁
 
 - Trigger: 在 PowerShell 中通过 JShell、JDBC 或 Java 小脚本读取 MySQL 中文业务数据，并把结果作为任务证据或迁移源核对。

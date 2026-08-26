@@ -413,6 +413,7 @@ export const selectFrontlinePqcActiveOrder = async (
   actualEmployeeId?: number
 ) => {
   const requestToken = ++state.pqcActiveOrderSelectionRequestToken
+  invalidateFrontlinePqcProcessCacheForActiveOrder(state, activeOrder.activeOrderId)
   const cacheKey = buildFrontlinePqcActiveOrderProcessCacheKey(activeOrder, actualEmployeeId)
   const cachedProcesses = state.pqcProcessOptionsCache.get(cacheKey)
   state.selectedActiveOrder = activeOrder

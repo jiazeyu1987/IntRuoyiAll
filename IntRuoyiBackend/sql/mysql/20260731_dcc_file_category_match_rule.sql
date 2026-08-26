@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS `dcc_file_category_match_rule` (
   `category_id` BIGINT NOT NULL COMMENT 'DCC file category id',
   `match_text` VARCHAR(255) NOT NULL COMMENT 'Normalized text or extension to match',
   `match_type` VARCHAR(32) NOT NULL DEFAULT 'CONTAINS' COMMENT 'CONTAINS/EXACT/PREFIX/SUFFIX/EXTENSION',
-  `weight` INT NOT NULL DEFAULT 0 COMMENT 'Rule score weight; higher beats broad legacy aliases',
+  `weight` INT NOT NULL DEFAULT 0 COMMENT 'Rule score weight, higher beats broad legacy aliases',
   `active` TINYINT NOT NULL DEFAULT 1 COMMENT 'Whether this rule is enabled',
   `remark` VARCHAR(255) NULL COMMENT 'Rule note',
   `tenant_id` BIGINT NOT NULL DEFAULT 0,

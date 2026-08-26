@@ -308,6 +308,7 @@ class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
                 .assignmentId(9201L)
                 .projectCodeId(3001L)
                 .controlledFileId(9101L)
+                .masterId(9100L)
                 .directoryIdSnapshot(assignedChild.getId())
                 .build());
         when(accessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);

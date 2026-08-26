@@ -186,7 +186,7 @@
       ],
       "deliverables": [
         "Flow7 task-owned API/service/SQL/test slice",
-        "29项定向测试（validator 17 + service contract 12）和完整链路 blocker 证据"
+        "29项定向测试和完整链路 blocker 证据"
       ],
       "evidence_expectation": "Execution evidence in execution-log.md plus independent tester evidence in test-report.md.",
       "acceptance_criteria": [
@@ -236,7 +236,7 @@
     "test_loops": 0
   },
   "created_at": "2026-08-23T04:26:50+00:00",
-  "updated_at": "2026-08-23T14:57:33+08:00",
+  "updated_at": "2026-08-25T03:35:02+00:00",
   "branch": "int_main",
   "baseline_revision": "425028c3fe175838c4302056f146d56def7239aa",
   "workspace_root": "E:\\IntRuoyi",

@@ -1,10 +1,10 @@
 # P6 生产组长工作台真实 E2E 证据
 
 - Task ID: `20260731-team-leader-workbench-prd-plan`
-- Generated At: `2026-08-10T05:15:04.495Z`
+- Generated At: `2026-08-26T08:06:33.981Z`
 - Status: `BLOCKED`
-- Frontend: `http://127.0.0.1:8081`
-- Backend: `http://127.0.0.1:48081`
+- Frontend: `--`
+- Backend: `--`
 - Tenant: `--`
 - User: `--`
 - Data Prefix: `TLW-20260731-`
@@ -17,6 +17,8 @@
 ## BLOCKED
 
 - E2E: `pnpm --dir IntRuoyiFronted e2e:team-leader-workbench:real` -> BLOCKED, 缺少真实写入型 E2E 前置条件。
+- Missing: `TLW_FRONTEND_URL` - 真实前端入口，例如 http://127.0.0.1:8084 或 http://127.0.0.1:8081。
+- Missing: `TLW_BACKEND_URL` - 真实后端入口，例如 http://127.0.0.1:48084 或 http://127.0.0.1:48081。
 - Missing: `TLW_TENANT` - 可写测试租户，禁止使用生产或 admin 基线租户。
 - Missing: `TLW_USERNAME` - 拥有生产组长页签和员工填报路径权限的测试账号。
 - Missing: `TLW_PASSWORD` - 测试账号密码，只能通过进程环境注入。
@@ -48,4 +50,5 @@
 - Missing: `TLW_SIGNATURE_EMPLOYEE_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
 - Missing: `TLW_APPROVE_USER_ID` - 必须是大于 0 的真实数字 ID，不能使用占位值。
 - Missing: `TLW_FEEDBACK_TYPE` - 必须是大于 0 的真实数字 ID，不能使用占位值。
+- Missing: `TLW_FRONTEND_URL/TLW_BACKEND_URL` - 前后端 URL 必须成对使用：8084/48084 用于当前 worktree，或 8081/48081 用于 int_main 融合后验证。
 - Impact: 未执行写入型真实 E2E；没有使用 mock、静态合同或 API-only 冒充成功。

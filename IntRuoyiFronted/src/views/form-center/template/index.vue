@@ -382,6 +382,7 @@
     :fill-assignments="parsedTemplateJimuSchema?.fillAssignments || []"
     :readonly="selectedTemplate?.status !== 'DRAFT'"
     :saving="fillConfigSaving"
+    @draft-version-ready="handleDraftVersionReady"
     @save="saveSelectedTemplateFillConfig"
   />
   <Dialog
@@ -777,6 +778,7 @@ import type {
   FormRecognizedFieldVO,
   FormTemplateListItemVO,
   FormTemplateObsoletePendingRespVO,
+  FormTemplateFillRuleAutoDetectRespVO,
   FormTemplateStatus
 } from '@/api/form-center/template'
 import type {
@@ -1086,6 +1088,25 @@ const openImport = () => {
 const selectTemplate = (row: FormTemplateListItemVO) => {
   selectedTemplateKey.value = templateRowKey(row)
   void refreshSelectedTemplateObsoletePending()
+}
+
+const selectTemplateVersion = (templateId: number, versionNo: string) => {
+  const row = list.value.find((item) => item.templateId === templateId && item.versionNo === versionNo)
+  if (!row) return
+  selectedTemplateKey.value = templateRowKey(row)
+  void refreshSelectedTemplateObsoletePending()
+}
+
+const handleDraftVersionReady = async (response: FormTemplateFillRuleAutoDetectRespVO) => {
+  if (
+    selectedTemplate.value &&
+    selectedTemplate.value.templateId === response.templateId &&
+    selectedTemplate.value.versionNo === response.versionNo
+  ) {
+    return
+  }
+  await getList()
+  selectTemplateVersion(response.templateId, response.versionNo)
 }
 
 const refreshSelectedTemplateObsoletePending = async () => {

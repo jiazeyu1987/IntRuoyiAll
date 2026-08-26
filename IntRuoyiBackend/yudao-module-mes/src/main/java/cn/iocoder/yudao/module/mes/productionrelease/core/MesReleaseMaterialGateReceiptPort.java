@@ -8,4 +8,7 @@ public interface MesReleaseMaterialGateReceiptPort {
 
     MesReleaseMaterialGateReceipt getVerifiedByReceiptId(Long tenantId, Long batchExecutionId,
                                                           String receiptId, String sourceSnapshotHash);
+
+    MesReleaseMaterialGateReceipt getLatestVerified(Long tenantId, Long batchExecutionId,
+                                                    String sourceSnapshotHash);
 }

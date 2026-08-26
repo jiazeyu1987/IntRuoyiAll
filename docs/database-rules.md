@@ -17,10 +17,10 @@
 - Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
 - Blocker: 无法确认当前后端实际连接库、目标迁移依赖未满足、运行态表结构与迁移前置不一致、迁移会破坏现有唯一性或历史数据，或只能通过默认值、吞异常、伪造上下文继续提交时必须停止。
 - Verification: 迁移前用可重复运行的运行态 schema 契约记录 RED；执行正式迁移后用同一契约记录 GREEN，并运行目标服务回归和不写基线业务数据的真实页面复验。成功写入型 E2E 仍须遵守测试租户、任务自有数据和明确授权门禁。
-- Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若订单初始化返回业务码 500 且日志为缺列，先修复运行库迁移漂移，再判断前端错误归属。
+- Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若订单初始化或个人中心聚合页的任一子请求返回业务码 500 且日志为缺列，先修复运行库迁移漂移，再判断前端错误归属；不要通过隐藏该子请求错误或返回空数据掩盖 schema 缺口。
 - Policy scope: 完整 SQL 根目录门禁若被无关文件阻断，不得修改无关迁移或绕过记录；应冻结目标迁移的完整 dependsOn 闭包单独核验并同时记录根目录门禁阻断，未通过的完整门禁不能宣称全库发布就绪。
 - Forbidden action: 禁止在源码已有正式迁移时新增业务 fallback、把空业务上下文伪造成默认 ID、手工只改单列而遗漏生成列/索引/相邻表、仅凭迁移文件存在宣称运行态已修复，或在未授权的 admin 基线租户自动重放正式写请求。
-- Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`。
+- Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`；`doc/tasks/20260826-user-profile-system-error/verification-report.md`。
 
 ### 一对多读模型聚合门禁
 
@@ -265,6 +265,7 @@
 - Preflight check: 主表和明细表都必须使用租户数据基类；同步入口必须从当前租户上下文取得必填租户 ID，并在主子记录写入前显式赋值。最小测试上下文、定时任务上下文和真实 Web 请求的租户拦截器装配可能不同，不能依赖数据库默认 `tenant_id=0` 或只依赖拦截器补值。
 - Blocker: 当前租户缺失、主子任一表写入 `tenant_id=0`、主子租户不一致、或真实同步后无法按租户证明行数和样例归属时必须停止；先清理本任务错误租户数据并修正正式写入链路，不能把全局默认租户当作测试租户成功。
 - Verification: 单元测试同时断言主表和明细表租户 ID；真实同步后按 `tenant_id` 分组核对主子表行数、错误租户为 0、任务种子为 0，并从目标租户抽样核对业务字段。
+- 异步手动同步门禁：从当前租户页面提交 ERP 同步时，必须把当前租户 ID 与原始处理参数一起编码进任务参数；@TenantJob 收到显式范围时只执行该租户。未携带范围的任务只保留给定时自动同步的全部启用租户语义，页面按钮不得绕过业务入口直接触发通用任务接口。
 - Forbidden action: 禁止依赖列默认值、测试专用 SQL 重写租户、查询时忽略租户、或仅凭总行数宣称同步通过。
 - Evidence: `doc/tasks/20260813-erp-production-pick-list-sync/verification-report.md`。
 

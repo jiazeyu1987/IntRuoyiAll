@@ -39,19 +39,26 @@ for (const token of [
   'ProRouteProductApi.saveRouteProductByItem',
   'ProRouteApi.getRouteItemBindingList',
   'CommonStatusEnum.ENABLE',
-  ':disabled="isRouteOptionDisabled(route)"',
+  'persistedRouteId',
   '当前工艺路线已启用，不能在产品侧变更或解除',
   'v-model="routeId"',
   'label="工艺路线"',
   'clearable',
   '保存工艺路线',
-  '生产数量、生产用时仍在工艺路线关联产品中维护'
+  '保存工艺路线'
 ]) {
-  assert(
-    itemRouteForm.includes(token),
-    `产品侧工艺路线表单缺少正式契约片段：${token}`
-  )
+  assert(itemRouteForm.includes(token), `产品侧工艺路线表单缺少正式契约片段：${token}`)
 }
+
+assert(
+  !itemRouteForm.includes(':disabled="isRouteOptionDisabled(route)"'),
+  '未绑定产品必须可以选择已启用路线新增绑定。'
+)
+assert.match(
+  itemRouteForm,
+  /isCurrentRouteLocked[\s\S]*persistedRouteId[\s\S]*CommonStatusEnum\.ENABLE/,
+  '只有已持久化绑定到启用路线的产品才保持变更/解除锁定。'
+)
 
 assert.match(
   routeProductApi,
@@ -70,7 +77,7 @@ assert.match(
 )
 assert(
   !itemRouteForm.includes('getRouteSimpleList'),
-  '产品侧工艺路线下拉不能使用只返回已启用路线的 simple-list，否则会和后端“已启用路线不可维护”校验冲突。'
+  '产品侧工艺路线下拉必须继续使用包含状态的 item-binding-list。'
 )
 
 assert(

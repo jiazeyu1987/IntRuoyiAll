@@ -30,6 +30,7 @@ public class MesProcessPoolReportAllocationAdjustmentAuditDO extends TenantBaseD
     public static final String SOURCE_FIFO = "FIFO";
     public static final String SOURCE_MANUAL = "MANUAL";
     public static final String SOURCE_ORDER_CHANGE = "ORDER_CHANGE";
+    public static final String SOURCE_SUBMISSION_REJECTED = "SUBMISSION_REJECTED";
 
     @TableId
     private Long id;

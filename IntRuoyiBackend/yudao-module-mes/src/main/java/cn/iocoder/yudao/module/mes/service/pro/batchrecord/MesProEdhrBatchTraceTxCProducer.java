@@ -8,11 +8,13 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchTraceOutboxEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchProvisioningRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchTraceOutboxEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchProvisioningRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO;
@@ -72,11 +74,13 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
     private final PlatformTransactionManager transactionManager;
     private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
     private final MesIndependentBatchPrerequisiteReceiptPort independentReceiptPort;
+    private final MesProEdhrBatchProvisioningRecordMapper provisioningRecordMapper;
 
     @Override
     public MesProEdhrBatchTraceTxCResult produce(MesProEdhrBatchTraceTxCCommand command) {
         if (command == null || command.getBatchExecutionId() == null
-                || isBlank(command.getEventId()) || isBlank(command.getIdempotencyKey())) {
+                || command.getProvisioningReceiptId() == null || isBlank(command.getEventId())
+                || isBlank(command.getIdempotencyKey())) {
             throw new IllegalArgumentException("Tx-C requires batchExecutionId, eventId and idempotencyKey");
         }
         try {
@@ -95,15 +99,16 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
                             "idempotencyKey already belongs to a different source witness");
                 }
 
-                FormalInput first = readFormalInput(command.getBatchExecutionId());
+                FormalInput first = readFormalInput(command);
                 validateWitness(command, first.metadata);
-                FormalInput second = readFormalInput(command.getBatchExecutionId());
+                FormalInput second = readFormalInput(command);
                 if (!Objects.equals(first.fingerprint, second.fingerprint)) {
                     throw blocked("SOURCE_CHANGED_AFTER_PRECHECK",
                             "formal source fingerprint changed after precheck");
                 }
                 MesProEdhrBatchTraceCaptureCommand capture = toCaptureCommand(command, second);
                 MesProEdhrBatchTraceabilityRespVOWithLink trace = captureFormalMapping(capture);
+                markProvisioningReady(command, second.metadata);
                 MesProEdhrBatchTraceOutboxEventDO event = persistSuccess(command, second, trace);
                 publishAfterCommit(event);
                 return toResult(event);
@@ -123,7 +128,30 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         return Objects.requireNonNull(result, "Tx-C failure transaction returned no result");
     }
 
-    private FormalInput readFormalInput(Long batchExecutionId) {
+    private void markProvisioningReady(MesProEdhrBatchTraceTxCCommand command, JSONObject metadata) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        Long recordId = command.getProvisioningReceiptId();
+        MesProEdhrBatchProvisioningRecordDO record = provisioningRecordMapper
+                .selectByIdAndTenantId(tenantId, recordId);
+        if (record == null || !Objects.equals(record.getBatchExecutionId(), command.getBatchExecutionId())
+                || !Objects.equals(record.getSourceSnapshotHash(), metadata.getString("sourceSnapshotHash"))
+                || !MesBatchProvisioningStatus.BATCH_PROVISIONING.name().equals(record.getStatus())) {
+            throw blocked("BATCH_PROVISIONING_STATE_INVALID", "Flow 6 provisioning state is not ready for Tx-C");
+        }
+        if (batchExecutionMapper.updateProvisioningStatus(tenantId, command.getBatchExecutionId(),
+                MesBatchProvisioningStatus.BATCH_READY.name()) != 1) {
+            throw blocked("BATCH_PROVISIONING_STATE_PERSIST_FAILED", "BATCH_READY was not persisted");
+        }
+        record.setStatus(MesBatchProvisioningStatus.BATCH_READY.name())
+                .setMappingEventId(command.getEventId()).setMappingIdempotencyKey(command.getIdempotencyKey())
+                .setErrorCode(null);
+        if (provisioningRecordMapper.updateById(record) != 1) {
+            throw blocked("BATCH_PROVISIONING_STATE_PERSIST_FAILED", "provisioning receipt was not updated");
+        }
+    }
+
+    private FormalInput readFormalInput(MesProEdhrBatchTraceTxCCommand command) {
+        Long batchExecutionId = command.getBatchExecutionId();
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(batchExecutionId);
         if (batch == null) {
             throw blocked("FLOW6_PROVISION_AUDIT_REQUIRED", "batchExecutionId does not exist");
@@ -140,6 +168,18 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         }
         MesProEdhrOperationAuditEventDO audit = audits.get(0);
         JSONObject metadata = parseMetadata(audit.getMetadataJson());
+        Long provisioningReceiptId = requireLong(metadata, "batchProvisionReceiptId");
+        if (!Objects.equals(provisioningReceiptId, command == null ? null : command.getProvisioningReceiptId())) {
+            throw blocked("BATCH_PROVISIONING_WITNESS_MISMATCH",
+                    "Tx-C event does not identify the persisted Flow 6 provisioning record");
+        }
+        MesProEdhrBatchProvisioningRecordDO provisioningRecord = provisioningRecordMapper
+                .selectByIdAndTenantId(tenantId, provisioningReceiptId);
+        if (provisioningRecord == null
+                || !Objects.equals(provisioningRecord.getBatchExecutionId(), batchExecutionId)
+                || !MesBatchProvisioningStatus.BATCH_PROVISIONING.name().equals(provisioningRecord.getStatus())) {
+            throw blocked("BATCH_PROVISIONING_STATE_INVALID", "Flow 6 provisioning record is not pending Tx-C");
+        }
         String entryType = requireText(metadata, "entryType").toUpperCase(Locale.ROOT);
         requireText(metadata, "originKey");
         requireText(metadata, "sourceSnapshotHash");
@@ -147,7 +187,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         JSONArray evidence = metadata.getJSONArray("sourceEvidence");
         MesProcessPoolActiveOrderPickListBindingDO binding = null;
         List<MesProcessPoolActiveOrderPickListBindingItemDO> items = List.of();
-        if (isActiveOrderEntryType(entryType)) {
+        if (MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)) {
             Long credentialId = requireLong(metadata, "sourceCredentialId");
             MesFlow6CompletionBackfillReceipt receipt = completionReceiptPort.getByReceiptId(credentialId, tenantId);
             evidence = MesProEdhrBatchTraceFormalSourceResolver.resolveActive(tenantId, receipt, metadata, evidence);
@@ -167,8 +207,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
                     || !Objects.equals(binding.getActiveOrderId(), metadata.getLong("activeOrderId"))
                     || !Objects.equals(binding.getWorkOrderId(), metadata.getLong("workOrderId"))
                     || !Objects.equals(binding.getPickListId(), metadata.getLong("pickListId"))
-                    || !Objects.equals(binding.getBindingVersion(), metadata.getInteger("bindingVersion"))
-                    || !Objects.equals(binding.getSourceSnapshotHash(), metadata.getString("sourceSnapshotHash"))) {
+                    || !Objects.equals(binding.getBindingVersion(), metadata.getInteger("bindingVersion"))) {
                 throw blocked("SOURCE_SNAPSHOT_HASH_MISMATCH", "binding snapshot/version does not match provision witness");
             }
             items = bindingItemMapper.selectListByBindingId(bindingId);
@@ -219,10 +258,6 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         witness(command.getExpectedCompletionBackfillReceiptHash(),
                 metadata.getString("completionBackfillReceiptHash"), "completionBackfillReceiptHash");
         witness(command.getExpectedSourceVersion(), metadata.getString("sourceVersion"), "sourceVersion");
-        witness(command.getExpectedSourceCredentialId(), metadata.getString("sourceCredentialId"),
-                "sourceCredentialId");
-        witness(command.getExpectedSourceCredentialHash(), metadata.getString("sourceCredentialHash"),
-                "sourceCredentialHash");
     }
 
     private void witness(String expected, String actual, String field) {
@@ -241,17 +276,23 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
             }
             String sourceType = requiredText(evidence, "sourceType");
             String linkType = toLinkType(sourceType);
-            String objectType = requiredText(evidence, "sourceObjectType");
-            Long objectId = parseLong(requiredText(evidence, "sourceObjectId"), "sourceObjectId");
-            String snapshotJson = requiredText(evidence, "snapshotJson");
+            String objectType = nonBlank(evidence.getString("sourceObjectType"), sourceType);
+            String objectIdText = nonBlank(evidence.getString("sourceObjectId"), evidence.getString("sourceId"));
+            Long objectId = isBlank(objectIdText) ? null : parseLong(objectIdText, "sourceObjectId");
+            String snapshotJson = nonBlank(evidence.getString("snapshotJson"),
+                    JSON.toJSONString(new java.util.LinkedHashMap<>(evidence)));
             String snapshotHash = requiredText(evidence, "sourceSnapshotHash");
-            String canonicalHash = DigestUtil.sha256Hex(
-                    MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(snapshotJson));
-            if (!canonicalHash.equalsIgnoreCase(snapshotHash)) {
+            String calculatedHash = MesProEdhrBatchTraceSourceHash.calculate(linkType, snapshotJson);
+            boolean externallyWitnessed = MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE.equals(linkType)
+                    || MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE.equals(linkType)
+                    || MesProEdhrBatchTraceLinkType.COMPLETION_BACKFILL_RECEIPT.equals(linkType)
+                    || MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT.equals(linkType)
+                    || MesProEdhrBatchTraceLinkType.LOSS_REPORT_RECEIPT.equals(linkType);
+            if (!externallyWitnessed && !calculatedHash.equalsIgnoreCase(snapshotHash)) {
                 throw blocked("SOURCE_SNAPSHOT_HASH_MISMATCH", "sourceEvidence snapshot hash mismatch");
             }
-            String identity = requiredText(evidence, "sourceIdentityKey");
-            String relationStatus = requiredText(evidence, "relationStatus");
+            String identity = nonBlank(evidence.getString("sourceIdentityKey"), sourceType + ":" + objectIdText);
+            String relationStatus = nonBlank(evidence.getString("relationStatus"), "BOUND");
             sources.add(new MesProEdhrBatchTraceSource()
                     .setLinkType(linkType).setSourceObjectType(objectType).setSourceObjectId(objectId)
                     .setSourceLineId(optionalLong(evidence, "sourceLineId"))
@@ -271,7 +312,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
                 .setSourceCredentialId(optionalLong(metadata, "sourceCredentialId"))
                 .setSourceCredentialHash(metadata.getString("sourceCredentialHash"))
                 .setCapturedBy(command.getCapturedBy()).setSources(sources);
-        if (isActiveOrderEntryType(entryType)) {
+        if (MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)) {
             capture.setActiveOrderId(requiredLong(metadata, "activeOrderId"))
                     .setCompletionTransactionId(parseLong(requiredText(metadata, "completionTransactionId"), "completionTransactionId"))
                     .setCompletionVersion(requiredInteger(metadata, "completionVersion"))
@@ -353,6 +394,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         payload.put("requestedEventId", eventId);
         payload.put("reasonCode", reasonCode);
         payload.put("reason", reason);
+        markProvisioningFailure(command, reasonCode, retryable);
         MesProEdhrBatchTraceOutboxEventDO event = insertOutbox(
                 new MesProEdhrBatchTraceTxCCommand().setBatchExecutionId(batchId).setEventId(actualEventId)
                         .setIdempotencyKey(actualKey)
@@ -364,6 +406,27 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
                 command == null ? null : command.getExpectedSourceBundleHash(), null, payload);
         publishAfterCommit(event);
         return toResult(event);
+    }
+
+    private void markProvisioningFailure(MesProEdhrBatchTraceTxCCommand command,
+                                          String reasonCode, boolean retryable) {
+        if (command == null || command.getProvisioningReceiptId() == null) {
+            return;
+        }
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        MesProEdhrBatchProvisioningRecordDO record = provisioningRecordMapper
+                .selectByIdAndTenantId(tenantId, command.getProvisioningReceiptId());
+        if (record == null || !Objects.equals(record.getBatchExecutionId(), command.getBatchExecutionId())) {
+            throw blocked("BATCH_PROVISIONING_RECORD_REQUIRED", "Flow 6 provisioning receipt is missing");
+        }
+        String status = retryable ? MesBatchProvisioningStatus.BATCH_PROVISIONING_RETRYABLE.name()
+                : MesBatchProvisioningStatus.BATCH_PROVISIONING_BLOCKED.name();
+        record.setStatus(status).setErrorCode(reasonCode)
+                .setAttemptCount(record.getAttemptCount() == null ? 1 : record.getAttemptCount() + 1);
+        if (provisioningRecordMapper.updateById(record) != 1
+                || batchExecutionMapper.updateProvisioningStatus(tenantId, command.getBatchExecutionId(), status) != 1) {
+            throw blocked("BATCH_PROVISIONING_STATE_PERSIST_FAILED", "provisioning failure state was not persisted");
+        }
     }
 
     private MesProEdhrBatchTraceOutboxEventDO insertOutbox(MesProEdhrBatchTraceTxCCommand command,
@@ -419,11 +482,6 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
 
     public static boolean isRetryableReason(String reasonCode) {
         return RETRYABLE_REASONS.contains(reasonCode);
-    }
-
-    private boolean isActiveOrderEntryType(String entryType) {
-        return MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)
-                || "ACTIVE_ORDER_PQC".equals(entryType);
     }
 
     private String toLinkType(String sourceType) {

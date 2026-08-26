@@ -10,8 +10,11 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStage;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrProductionReleaseBatchCommand;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionAuthoritativeContextResolver;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionEntryContractService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionProvisionCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptVerifyCommand;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -30,16 +33,19 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
 
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrBatchExecutionService batchExecutionService;
-    private final MesBatchExecutionAuthoritativeContextResolver authoritativeContextResolver;
+    private final MesBatchExecutionEntryContractService entryContractService;
+    private final MesIndependentBatchPrerequisiteReceiptService independentReceiptService;
 
     @Autowired
     public MesProductionReleaseBatchExecutionPortImpl(
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrBatchExecutionService batchExecutionService,
-            MesBatchExecutionAuthoritativeContextResolver authoritativeContextResolver) {
+            MesBatchExecutionEntryContractService entryContractService,
+            MesIndependentBatchPrerequisiteReceiptService independentReceiptService) {
         this.batchExecutionMapper = batchExecutionMapper;
         this.batchExecutionService = batchExecutionService;
-        this.authoritativeContextResolver = authoritativeContextResolver;
+        this.entryContractService = entryContractService;
+        this.independentReceiptService = independentReceiptService;
     }
 
     @Override
@@ -47,7 +53,8 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
         if (command == null) {
             throw exception(BAD_REQUEST);
         }
-        authoritativeContextResolver.resolve(toProvisionCommand(command), TenantContextHolder.getTenantId());
+        reloadIndependentReceipt(command);
+        entryContractService.validate(toProvisionCommand(command));
         String activeContextKey = CONTEXT_PREFIX + command.getApplicationId();
         MesProEdhrBatchExecutionDO releaseBatch = batchExecutionMapper.selectByActiveContextKey(activeContextKey);
         if (releaseBatch != null) {
@@ -93,6 +100,8 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
                         .setPickListLineSnapshotHash(command.getPickListLineSnapshotHash())
                         .setSourceEvidence(command.getSourceEvidence())
                         .setPayloadHash(command.getPayloadHash())
+                        .setCompletionBackfillReceipt(command.getCompletionBackfillReceipt())
+                        .setIndependentReceipt(command.getIndependentReceipt())
                         .setActiveContextKey(activeContextKey)
                         .setRemark("PQC production release application " + command.getApplicationId()));
     }
@@ -130,7 +139,23 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
                 .setPickListHeaderSnapshotHash(command == null ? null : command.getPickListHeaderSnapshotHash())
                 .setPickListLineSnapshotHash(command == null ? null : command.getPickListLineSnapshotHash())
                 .setSourceEvidence(command == null ? null : command.getSourceEvidence())
-                .setPayloadHash(command == null ? null : command.getPayloadHash());
+                .setPayloadHash(command == null ? null : command.getPayloadHash())
+                .setCompletionBackfillReceipt(command == null ? null : command.getCompletionBackfillReceipt())
+                .setIndependentReceipt(command == null ? null : command.getIndependentReceipt());
+    }
+
+    private void reloadIndependentReceipt(MesProductionReleaseBatchExecutionCommand command) {
+        if (!Set.of("MANUAL", "SCHEDULED", "PQC_INDEPENDENT").contains(command.getEntryType())) {
+            return;
+        }
+        Long securityTenantId = TenantContextHolder.getTenantId();
+        MesIndependentBatchPrerequisiteReceipt verified = independentReceiptService.verify(
+                new MesIndependentBatchPrerequisiteReceiptVerifyCommand()
+                        .setReceiptId(command.getSourceCredentialId())
+                        .setEntryType(command.getEntryType())
+                        .setSourceSnapshotHash(command.getSourceSnapshotHash()),
+                securityTenantId);
+        command.setIndependentReceipt(verified);
     }
 
     private void requireSameFrozenContext(

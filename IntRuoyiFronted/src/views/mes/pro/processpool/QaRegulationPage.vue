@@ -600,7 +600,11 @@
                           v-model="equipment.equipmentId"
                           filterable
                           :loading="qaMachineryOptionsLoading"
-                          :disabled="qaMachineryOptionsLoading || qaMachineryOptions.length === 0"
+                          :disabled="
+                            qaMachineryOptionsLoading ||
+                            qaEquipmentAutoSaving ||
+                            qaMachineryOptions.length === 0
+                          "
                           placeholder="选择设备台账"
                           class="qa-regulation-page__equipment-select"
                           :aria-label="`${row.itemName || '检验项目'}检验设备`"
@@ -629,7 +633,11 @@
                       <el-button
                         link
                         type="primary"
-                        :disabled="qaMachineryOptionsLoading || qaMachineryOptions.length === 0"
+                        :disabled="
+                          qaMachineryOptionsLoading ||
+                          qaEquipmentAutoSaving ||
+                          qaMachineryOptions.length === 0
+                        "
                         data-qa-item-equipment-add
                         @click="addQaItemEquipment(row)"
                       >
@@ -638,6 +646,12 @@
                       </el-button>
                       <span v-if="qaMachineryOptionsLoadError" class="qa-regulation-page__equipment-error">
                         {{ qaMachineryOptionsLoadError }}
+                      </span>
+                      <span
+                        v-if="qaEquipmentBindingLoadError"
+                        class="qa-regulation-page__equipment-error"
+                      >
+                        {{ qaEquipmentBindingLoadError }}
                       </span>
                     </div>
                   </template>
@@ -979,8 +993,10 @@ import {
 } from '@/api/mes/dv/machinery'
 import {
   QcTemplateApi,
+  type PqcItemEquipmentConfigVO,
   type QaInspectionRegulationImportRespVO,
   type QaInspectionRegulationInspectionTypeRuleVO,
+  type QaInspectionRegulationItemEquipmentVO,
   type QaInspectionRegulationItemVO,
   type QaInspectionRegulationProcessVO,
   type QaInspectionRegulationPublishedVersionVO,
@@ -1231,6 +1247,8 @@ const selectedDccProjectCode = ref<DccProjectCodeRespVO>()
 const qaMachineryOptions = ref<DvMachineryVO[]>([])
 const qaMachineryOptionsLoading = ref(false)
 const qaMachineryOptionsLoadError = ref('')
+const qaEquipmentBindingLoadError = ref('')
+const qaEquipmentAutoSaving = ref(false)
 const QA_MACHINERY_PAGE_SIZE = 100
 const qaRegulationProjectStatusByDccId = ref(
   new Map<number, QaInspectionRegulationProjectStatusVO>()
@@ -1373,7 +1391,7 @@ const flattenQaRegulationProcesses = (
           sourceOriginalItem: item.sourceOriginalItem,
           sourceOriginalExcerpt: item.sourceOriginalExcerpt,
           sourceOriginalMethod: item.sourceOriginalMethod,
-          equipmentOptions: (item.equipmentOptions || []).map((equipment) => ({ ...equipment })),
+          equipmentOptions: [],
           ...createQaItemInspectionState(item)
         }))
     )
@@ -1386,6 +1404,7 @@ const resetQaRegulationConfiguration = (dccProjectCodeId?: number) => {
     ...createEmptyQaInspectionTypeRules()
   )
   qaRegulationItems.value = []
+  qaEquipmentBindingLoadError.value = ''
   qaConfigurationExists.value = false
   qaPublishedVersionNo.value = ''
   qaItemsQuery.pageNo = 1
@@ -1411,6 +1430,67 @@ const applyQaRegulationConfiguration = (
   qaPublishedVersionNo.value =
     configuration.lifecycleStatus === 'PUBLISHED' ? configuration.versionNo : ''
   qaItemsQuery.pageNo = 1
+}
+
+const toQaEquipmentOptions = (
+  config: PqcItemEquipmentConfigVO
+): QaInspectionRegulationItemEquipmentVO[] =>
+  (config.equipmentGroups || [])
+    .filter((group) => group.enabled !== false)
+    .flatMap((group) =>
+      (group.equipmentNumbers || [])
+        .filter((number) => number.enabled !== false)
+        .map((number, index) => ({
+          equipmentId: group.equipmentId,
+          equipmentCode: group.equipmentCode || '',
+          equipmentName: group.equipmentName || '',
+          equipmentNumber: number.equipmentNumber,
+          defaultFlag: group.defaultFlag === true && index === 0,
+          sort: group.sort ?? index + 1
+        }))
+    )
+
+const getQaItemNameGroup = (row: QaRegulationItem) => {
+  const itemName = row.itemName.trim()
+  return qaRegulationItems.value.filter(
+    (candidate) => candidate.itemName.trim() === itemName && candidate.itemCode.trim()
+  )
+}
+
+const applyQaEquipmentOptionsToItemNameGroup = (
+  row: QaRegulationItem,
+  options: QaInspectionRegulationItemEquipmentVO[]
+) => {
+  getQaItemNameGroup(row).forEach((candidate) => {
+    candidate.equipmentOptions = options.map((option) => ({ ...option }))
+  })
+}
+
+const loadQaEquipmentBindings = async (dccProjectCodeId: number) => {
+  const groups = new Map<string, QaRegulationItem[]>()
+  qaRegulationItems.value.forEach((row) => {
+    const key = row.itemName.trim()
+    if (!key || !row.itemCode.trim()) {
+      return
+    }
+    groups.set(key, [...(groups.get(key) || []), row])
+  })
+  qaEquipmentBindingLoadError.value = ''
+  try {
+    await Promise.all(
+      Array.from(groups.values()).map(async (rows) => {
+        const config = await QcTemplateApi.getPqcItemEquipmentConfigBatch(
+          dccProjectCodeId,
+          rows.map((row) => row.itemCode.trim())
+        )
+        applyQaEquipmentOptionsToItemNameGroup(rows[0], toQaEquipmentOptions(config))
+      })
+    )
+  } catch (error) {
+    qaEquipmentBindingLoadError.value =
+      '检验设备配置加载失败：' + resolveDccProjectCodeErrorMessage(error)
+    throw error
+  }
 }
 
 const createQaRegulationProjectStatusMap = (statuses: QaInspectionRegulationProjectStatusVO[]) => {
@@ -1566,6 +1646,7 @@ const addQaItemEquipment = (row: QaRegulationItem) => {
     defaultFlag: row.equipmentOptions.length === 0,
     sort: row.equipmentOptions.length + 1
   })
+  return autoSaveQaItemEquipment(row)
 }
 
 const removeQaItemEquipment = (row: QaRegulationItem, equipmentIndex: number) => {
@@ -1573,6 +1654,7 @@ const removeQaItemEquipment = (row: QaRegulationItem, equipmentIndex: number) =>
   row.equipmentOptions.forEach((equipment, index) => {
     equipment.sort = index + 1
   })
+  return autoSaveQaItemEquipment(row)
 }
 
 const handleQaItemEquipmentChange = (
@@ -1598,6 +1680,48 @@ const handleQaItemEquipmentChange = (
   equipment.equipmentCode = machinery.code
   equipment.equipmentName = machinery.name
   equipment.equipmentNumber = machinery.code
+  return autoSaveQaItemEquipment(row)
+}
+
+const autoSaveQaItemEquipment = async (row: QaRegulationItem) => {
+  const dccProjectCodeId = resolvePositiveId(qaRegulationDraft.dccProjectCodeId, 'DCC 项目代码 ID')
+  const itemRows = getQaItemNameGroup(row)
+  const itemCodes = itemRows.map((candidate) => candidate.itemCode.trim())
+  if (!itemCodes.length) {
+    throw new Error('检验项目编号不能为空')
+  }
+  qaEquipmentAutoSaving.value = true
+  try {
+    const saved = await QcTemplateApi.savePqcItemEquipmentConfigBatch({
+      dccProjectCodeId,
+      itemCode: itemCodes[0],
+      itemCodes,
+      itemNameSnapshot: row.itemName.trim(),
+      equipmentGroups: row.equipmentOptions.map((equipment, index) => ({
+        equipmentId: resolvePositiveId(equipment.equipmentId, row.itemName + '检验设备'),
+        enabled: true,
+        defaultFlag: equipment.defaultFlag === true || index === 0,
+        sort: index + 1,
+        equipmentNumbers: [
+          {
+            equipmentNumber: resolveRequiredText(
+              equipment.equipmentNumber,
+              row.itemName + '设备编号'
+            ),
+            enabled: true,
+            sort: 0
+          }
+        ]
+      }))
+    })
+    applyQaEquipmentOptionsToItemNameGroup(row, toQaEquipmentOptions(saved))
+    ElMessage.success('检验设备配置已自动保存')
+  } catch (error) {
+    ElMessage.error('检验设备配置自动保存失败：' + resolveDccProjectCodeErrorMessage(error))
+    throw error
+  } finally {
+    qaEquipmentAutoSaving.value = false
+  }
 }
 
 const loadCurrentPublishedQaRegulationVersion = async (project?: DccProjectCodeRespVO) => {
@@ -1651,6 +1775,7 @@ const loadCurrentQaRegulation = async (dccProjectCodeId: number) => {
     }
     if (configuration) {
       applyQaRegulationConfiguration(configuration)
+      await loadQaEquipmentBindings(dccProjectCodeId)
     }
   } catch (error) {
     if (loadSerial === qaCurrentConfigurationLoadSerial) {
@@ -2008,12 +2133,7 @@ const buildQaRegulationSaveItem = (
     sourceOriginalPage: item.sourceOriginalPage,
     sourceOriginalItem: item.sourceOriginalItem?.trim() || undefined,
     sourceOriginalExcerpt: item.sourceOriginalExcerpt?.trim() || undefined,
-    sourceOriginalMethod: item.sourceOriginalMethod?.trim() || undefined,
-    equipmentOptions: item.equipmentOptions.map((equipment, index) => ({
-      equipmentId: resolvePositiveId(equipment.equipmentId, itemName + '检验设备'),
-      defaultFlag: Boolean(equipment.defaultFlag),
-      sort: equipment.sort || index + 1
-    }))
+    sourceOriginalMethod: item.sourceOriginalMethod?.trim() || undefined
   }
 }
 

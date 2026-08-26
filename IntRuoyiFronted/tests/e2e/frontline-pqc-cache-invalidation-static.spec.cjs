@@ -37,5 +37,10 @@ assert.match(
   /ProFeedbackApi\.getPqcProcesses\(activeOrder\.activeOrderId, actualEmployeeId\)/,
   'PQC process loading must pass actualEmployeeId to the backend.'
 )
+assert.match(
+  source,
+  /selectFrontlinePqcActiveOrder = async[\s\S]{0,500}invalidateFrontlinePqcProcessCacheForActiveOrder\(state, activeOrder\.activeOrderId\)/,
+  'PQC active-order selection must refresh tenant equipment configuration instead of reusing old process data.'
+)
 
 console.log('PASS: frontline PQC active-order process cache invalidation contract')

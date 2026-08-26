@@ -32,6 +32,15 @@ public interface FormTemplateVersionMapper extends BaseMapperX<FormTemplateVersi
                 .last("LIMIT 1"));
     }
 
+    default FormTemplateVersionDO selectDraftByTemplateId(Long tenantId, Long templateId) {
+        return selectOne(new QueryWrapperX<FormTemplateVersionDO>()
+                .eq("tenant_id", tenantId)
+                .eq("template_id", templateId)
+                .eq("status", "DRAFT")
+                .orderByDesc("id")
+                .last("LIMIT 1"));
+    }
+
     default FormTemplateVersionDO selectLatestByTemplateName(Long tenantId, String templateName) {
         return selectOne(new QueryWrapperX<FormTemplateVersionDO>()
                 .eq("tenant_id", tenantId)

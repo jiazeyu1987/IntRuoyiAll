@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationAdjustmentAuditDO;
@@ -48,6 +49,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED;
 
 @Service
@@ -164,6 +167,7 @@ public class MesReportAllocationCommandService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "frontlineInitialAllocation");
         }
         MesProProcessPoolEventDO event = requireEvent(eventId, true);
+        assertSubmissionNotRejected(event.getId());
         if (event.getDeviceAccountId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "event.deviceAccountId");
         }
@@ -223,6 +227,7 @@ public class MesReportAllocationCommandService {
         validateCommand(command);
         MesProProcessPoolEventDO event = requireEvent(command.getEventId(), true);
         assertScope(event, command.getLeaderUserId(), command.getLeaderType());
+        assertSubmissionNotRejected(event.getId());
         BigDecimal pool = poolQuantityService.requirePoolQuantity(event);
         MesProcessPoolReportAllocationStateDO state = requireStateForUpdate(event, command.getLeaderUserId());
         List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventIdForUpdate(event.getId());
@@ -321,6 +326,108 @@ public class MesReportAllocationCommandService {
         return buildSnapshot(event, pool, newVersion, next, validation.overageByActiveOrderId());
     }
 
+    /**
+     * 驳回生产报工并回滚该事件已经形成的共享分配事实。
+     *
+     * <p>生产报工的正式进度来自当前有效分配，因此这里通过生命周期替换、数量片段重建和
+     * 订单工序完成量回算恢复派生状态，不直接覆盖任何进度百分比。</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Long rejectProductionSubmission(Long eventId, Long leaderUserId,
+                                           String rejectReason, String signaturePassword) {
+        validateRejectCommand(eventId, leaderUserId, rejectReason, signaturePassword);
+        MesProProcessPoolEventDO event = requireEvent(eventId, true);
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionSubmitEvent");
+        }
+        assertScope(event, leaderUserId, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION);
+        MesProcessPoolReportAllocationStateDO state = requireStateForUpdate(event, leaderUserId);
+        List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventIdForUpdate(eventId);
+        MesProcessPoolSubmissionReviewDO existingReview = reviewMapper.selectLatestByEventIdForUpdate(eventId);
+        boolean sameRejectedRequest = existingReview != null
+                && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(existingReview.getReviewStatus())
+                && isSameRejection(existingReview, leaderUserId, rejectReason);
+        if (existingReview != null
+                && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(existingReview.getReviewStatus())) {
+            if (sameRejectedRequest && current.isEmpty()) {
+                return existingReview.getId();
+            }
+            if (!sameRejectedRequest) {
+                throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
+                        eventId, existingReview.getReviewStatus());
+            }
+        }
+        if (existingReview != null
+                && !MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(existingReview.getReviewStatus())
+                && !sameRejectedRequest) {
+            throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
+                    eventId, existingReview.getReviewStatus());
+        }
+
+        Set<Long> activeOrderIds = current.stream()
+                .map(MesProcessPoolReportAllocationDO::getActiveOrderId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Long> releasedActiveOrderIds = releaseStateService.findReleasedActiveOrderIdsForUpdate(activeOrderIds);
+        if (!releasedActiveOrderIds.isEmpty()) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED,
+                    releasedActiveOrderIds.iterator().next());
+        }
+
+        int currentVersion = state.getCurrentVersion() == null ? 0 : state.getCurrentVersion();
+        int rejectedVersion = Math.max(currentVersion + 1, 1);
+        List<Long> currentAllocationIds = current.stream()
+                .map(MesProcessPoolReportAllocationDO::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (!currentAllocationIds.isEmpty()
+                && allocationMapper.supersedeCurrentRows(currentAllocationIds, rejectedVersion)
+                != currentAllocationIds.size()) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
+                    eventId, currentVersion, rejectedVersion);
+        }
+
+        // Rebuild with an empty current allocation set: this supersedes FIFO lines and restores fragment balances.
+        quantityFragmentService.rebuildForVersion(event, rejectedVersion, List.of());
+        if (!current.isEmpty()) {
+            completionService.reconcileAffectedAllocations(event, current);
+            insertRejectionAudits(event, leaderUserId, rejectReason, rejectedVersion, current);
+        }
+
+        ReviewSignaturePayload signature = recordRejectionSignature(event, leaderUserId, signaturePassword);
+        if (existingReview != null) {
+            if (reviewMapper.deleteById(existingReview.getId()) != 1) {
+                throw new IllegalStateException("Failed to preserve previous production review history: " + eventId);
+            }
+        }
+        MesProcessPoolSubmissionReviewDO rejectedReview = MesProcessPoolSubmissionReviewDO.builder()
+                .eventId(eventId)
+                .leaderUserId(leaderUserId)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
+                .reviewRemark(rejectReason.trim())
+                .reviewedAt(LocalDateTime.now())
+                .reviewSignatureId(signature.reviewSignatureId())
+                .reviewSignatureUserId(signature.reviewSignatureUserId())
+                .reviewSignatureSnapshotJson(signature.reviewSignatureSnapshotJson())
+                .build();
+        if (reviewMapper.insert(rejectedReview) != 1) {
+            throw new IllegalStateException("Failed to insert production rejection review: " + eventId);
+        }
+
+        state.setCurrentVersion(rejectedVersion)
+                .setLastIdempotencyKey(null)
+                .setLastRequestHash(null)
+                .setLastChangedBy(leaderUserId)
+                .setLastChangedAt(LocalDateTime.now());
+        if (stateMapper.updateById(state) != 1) {
+            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
+                    eventId, currentVersion, rejectedVersion);
+        }
+        reportManagementSummaryService.refreshProductionEvent(event);
+        return rejectedReview.getId();
+    }
+
     public List<MesProcessPoolReportAllocationAdjustmentAuditDO> listAudit(
             Long eventId, Long leaderUserId, String leaderType) {
         MesProProcessPoolEventDO event = requireEvent(eventId, false);
@@ -409,6 +516,10 @@ public class MesReportAllocationCommandService {
     private Long requireReview(MesProProcessPoolEventDO event, MesReportAllocationSaveCommand command) {
         MesProcessPoolSubmissionReviewDO review = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
         if (review != null) {
+            if (MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(review.getReviewStatus())) {
+                throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
+                        event.getId(), review.getReviewStatus());
+            }
             return review.getId();
         }
         Long signatureId = null;
@@ -584,6 +695,81 @@ public class MesReportAllocationCommandService {
         return event;
     }
 
+    private void assertSubmissionNotRejected(Long eventId) {
+        MesProcessPoolSubmissionReviewDO review = reviewMapper.selectLatestByEventIdForUpdate(eventId);
+        if (review != null && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(review.getReviewStatus())) {
+            throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
+                    eventId, review.getReviewStatus());
+        }
+    }
+
+    private void validateRejectCommand(Long eventId, Long leaderUserId,
+                                       String rejectReason, String signaturePassword) {
+        if (eventId == null || leaderUserId == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionReject");
+        }
+        if (StrUtil.isBlank(rejectReason)) {
+            throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_REJECT_REMARK_REQUIRED, eventId);
+        }
+        if (StrUtil.isBlank(signaturePassword)) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                    "productionReject.signaturePassword");
+        }
+    }
+
+    private boolean isSameRejection(MesProcessPoolSubmissionReviewDO review,
+                                    Long leaderUserId, String rejectReason) {
+        return Objects.equals(review.getLeaderUserId(), leaderUserId)
+                && Objects.equals(normalizeReason(review.getReviewRemark()), normalizeReason(rejectReason));
+    }
+
+    private String normalizeReason(String reason) {
+        return StrUtil.isBlank(reason) ? null : StrUtil.trim(reason);
+    }
+
+    private void insertRejectionAudits(MesProProcessPoolEventDO event, Long leaderUserId,
+                                       String rejectReason, int rejectedVersion,
+                                       List<MesProcessPoolReportAllocationDO> current) {
+        List<MesProcessPoolReportAllocationAdjustmentAuditDO> audits = current.stream()
+                .map(allocation -> MesProcessPoolReportAllocationAdjustmentAuditDO.builder()
+                        .eventId(event.getId())
+                        .allocationVersion(rejectedVersion)
+                        .sourceAllocationId(allocation.getId())
+                        .activeOrderId(allocation.getActiveOrderId())
+                        .workOrderId(allocation.getWorkOrderId())
+                        .routeProcessId(allocation.getRouteProcessId())
+                        .processId(allocation.getProcessId())
+                        .beforeQuantity(allocation.getAllocatedQuantity())
+                        .afterQuantity(BigDecimal.ZERO)
+                        .deltaQuantity(allocation.getAllocatedQuantity().negate())
+                        .actorUserId(leaderUserId)
+                        .adjustmentReason(rejectReason.trim())
+                        .allocationMode(MesProcessPoolReportAllocationDO.MODE_SYSTEM)
+                        .changeSource(MesProcessPoolReportAllocationAdjustmentAuditDO.SOURCE_SUBMISSION_REJECTED)
+                        .occurredAt(LocalDateTime.now())
+                        .build())
+                .toList();
+        if (!Boolean.TRUE.equals(auditMapper.insertBatch(audits))) {
+            throw new IllegalStateException("Failed to insert production rejection allocation audits: " + event.getId());
+        }
+    }
+
+    private ReviewSignaturePayload recordRejectionSignature(MesProProcessPoolEventDO event,
+                                                              Long leaderUserId,
+                                                              String signaturePassword) {
+        Long signatureId = signatureService.recordTeamLeaderReviewSignature(
+                leaderUserId, signaturePassword, "组长驳回生产报工:PRODUCTION:" + event.getId());
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("signatureId", signatureId);
+        snapshot.put("actorId", leaderUserId);
+        snapshot.put("actionType", MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW);
+        snapshot.put("processPoolEventId", event.getId());
+        snapshot.put("eventType", event.getEventType());
+        snapshot.put("leaderType", MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION);
+        snapshot.put("reviewStatus", MesProcessPoolSubmissionReviewDO.STATUS_REJECTED);
+        return new ReviewSignaturePayload(signatureId, leaderUserId, JsonUtils.toJsonString(snapshot));
+    }
+
     private void assertScope(MesProProcessPoolEventDO event, Long leaderUserId, String leaderType) {
         if (leaderUserId == null || !MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(leaderType)) {
             throw exception(PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED,
@@ -634,5 +820,10 @@ public class MesReportAllocationCommandService {
 
     private record AllocationValidation(Map<Long, MesTeamLeaderOrderProcessTarget> targets,
                                         Map<Long, BigDecimal> overageByActiveOrderId) {
+    }
+
+    private record ReviewSignaturePayload(Long reviewSignatureId,
+                                          Long reviewSignatureUserId,
+                                          String reviewSignatureSnapshotJson) {
     }
 }

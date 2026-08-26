@@ -62,6 +62,8 @@ public class EdhrBatchExecutionRespVO {
 
     private Integer status;
 
+    private String provisioningStatus;
+
     private Integer taskTotal;
 
     private Integer taskApprovedCount;

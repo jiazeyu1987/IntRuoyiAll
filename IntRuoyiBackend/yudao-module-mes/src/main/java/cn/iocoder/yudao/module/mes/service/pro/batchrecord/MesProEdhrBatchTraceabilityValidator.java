@@ -32,7 +32,8 @@ public class MesProEdhrBatchTraceabilityValidator {
             MesProEdhrBatchTraceEntryType.SCHEDULED);
     private static final Set<String> PROVISION_STATUSES = Set.of(
             MesProEdhrBatchTraceProvisionStatus.CREATED,
-            MesProEdhrBatchTraceProvisionStatus.REUSED);
+            MesProEdhrBatchTraceProvisionStatus.REUSED,
+            MesProEdhrBatchTraceProvisionStatus.BATCH_PROVISIONING);
     private static final Set<String> ACTIVE_ORDER_REQUIRED_LINK_TYPES = Set.of(
             MesProEdhrBatchTraceLinkType.ACTIVE_ORDER,
             MesProEdhrBatchTraceLinkType.WORK_ORDER,
@@ -259,8 +260,8 @@ public class MesProEdhrBatchTraceabilityValidator {
                 return MesProEdhrBatchTraceValidationResult.blocked(TRACE_SOURCE_CONFLICT,
                         "release-decision-must-be-appended-after-capture");
             }
-            String calculatedHash = DigestUtil.sha256Hex(
-                    MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(source.getSnapshotJson()));
+            String calculatedHash = MesProEdhrBatchTraceSourceHash.calculate(
+                    source.getLinkType(), source.getSnapshotJson());
             if (!calculatedHash.equalsIgnoreCase(source.getSnapshotHash())) {
                 return MesProEdhrBatchTraceValidationResult.blocked(TRACE_SOURCE_CONFLICT, "source-hash");
             }

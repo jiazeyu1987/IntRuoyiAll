@@ -2,14 +2,26 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+
+import cn.hutool.crypto.digest.DigestUtil;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ENTRY_CREDENTIAL_REQUIRED;
@@ -68,8 +80,7 @@ public class MesBatchExecutionAuthoritativeContextResolver {
         Long receiptId = parseReceiptId(request.getSourceCredentialId());
         MesFlow6CompletionBackfillReceipt receipt = completionReceiptPort.getByReceiptId(receiptId, tenantId);
         if (receipt == null || !Objects.equals(receiptId, receipt.getReceiptId())
-                || !Objects.equals(tenantId, receipt.getTenantId())
-                || !isCompleteSuccessfulReceipt(receipt)) {
+                || !Objects.equals(tenantId, receipt.getTenantId()) || !isCompleteSuccessfulReceipt(receipt)) {
             throw exception(PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
         }
         requireMatch(request.getSourceCredentialType(), ACTIVE_RECEIPT_TYPE);
@@ -91,14 +102,33 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                 .setActiveOrderId(receipt.getActiveOrderId()).setWorkOrderId(receipt.getWorkOrderId())
                 .setBatchCode(receipt.getBatchCode()).setRouteId(receipt.getRouteId())
                 .setRouteVersionId(receipt.getRouteVersionId()).setSourceContextHash(receipt.getSourceSnapshotHash())
-                .setSourceSnapshotHash(receipt.getSourceSnapshotHash()).setCompletionVersion(receipt.getCompletionVersion().longValue())
+                .setSourceSnapshotHash(receipt.getSourceSnapshotHash())
+                .setCompletionVersion(receipt.getCompletionVersion() == null ? null : receipt.getCompletionVersion().longValue())
+                .setExpectedActiveOrderVersion(receipt.getExpectedActiveOrderVersion() == null ? null : receipt.getExpectedActiveOrderVersion().longValue())
+                .setCompletionTransactionId(receipt.getRequestIdempotencyKey())
+                .setCompletionEventId(receipt.getRequestIdempotencyKey())
                 .setStatus(receipt.getStatus()).setReceiptHash(receipt.getReceiptHash())
-                .setIdempotencyKey(receipt.getRequestIdempotencyKey()).setHasActualLoss(receipt.getHasActualLoss())
-                .setLossQuantity(receipt.getLossQuantity()).setLossRecordId(receipt.getLossRecordId())
-                .setLossReportStatus(receipt.getLossReportStatus())
+                .setIdempotencyKey(receipt.getRequestIdempotencyKey())
+                .setPayloadHash(receipt.getPayloadHash())
+                .setAuditEventId("ACTIVE_ORDER_COMPLETION_RECEIPT:" + receipt.getReceiptId())
+                .setReceiptVersion("1").setProductionProgress(100).setInspectionProgress(100)
+                .setInspectionBackfillStatus(receipt.getProcessInspectionStatus())
+                .setProductionBackfillStatus(receipt.getBatchRecordStatus())
+                .setLossBackfillStatus(Boolean.TRUE.equals(receipt.getHasActualLoss())
+                        ? receipt.getLossReportStatus() : "NO_LOSS")
+                .setBatchRecordId(receipt.getBatchRecordId()).setProcessInspectionId(receipt.getProcessInspectionId())
+                .setHasActualLoss(receipt.getHasActualLoss()).setLossQuantity(receipt.getLossQuantity())
+                .setLossRecordId(receipt.getLossRecordId()).setLossReportStatus(receipt.getLossReportStatus())
                 .setLossDecision(Boolean.TRUE.equals(receipt.getHasActualLoss()) ? "ACTUAL_LOSS" : "NO_LOSS")
-                .setProductionBackfillStatus(receipt.getStatus()).setInspectionBackfillStatus(receipt.getStatus())
-                .setLossBackfillStatus(Boolean.TRUE.equals(receipt.getHasActualLoss()) ? receipt.getLossReportStatus() : "NO_LOSS");
+                .setSourceVersion(String.valueOf(receipt.getCompletionVersion()))
+                .setSourceBundleHash(sourceBundleHash(receipt))
+                .setPickListBindingId(pickListBinding.getId()).setPickListId(pickListBinding.getPickListId())
+                .setBatchPickListRelationId(pickListBinding.getId())
+                .setBindingVersion(pickListBinding.getBindingVersion() == null ? null
+                        : pickListBinding.getBindingVersion().longValue())
+                .setPickListHeaderSnapshotHash(pickListBinding.getSourceSnapshotHash())
+                .setPickListLineSnapshotHash(pickListBinding.getSourceSnapshotHash())
+                .setSourceEvidence(traceEvidence(receipt, pickListBinding));
         MesBatchExecutionProvisionCommand canonical = new MesBatchExecutionProvisionCommand()
                 .setEntryType(request.getEntryType()).setEntryBusinessId(request.getEntryBusinessId())
                 .setSourceCredentialType(ACTIVE_RECEIPT_TYPE).setSourceCredentialId(String.valueOf(receipt.getReceiptId()))
@@ -106,16 +136,24 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                 .setActiveOrderId(receipt.getActiveOrderId()).setWorkOrderId(receipt.getWorkOrderId())
                 .setWorkOrderCode(request.getWorkOrderCode()).setBatchCode(receipt.getBatchCode())
                 .setRouteId(receipt.getRouteId()).setRouteVersionId(receipt.getRouteVersionId())
-                .setSourceSnapshotHash(receipt.getSourceSnapshotHash()).setIdempotencyKey(receipt.getRequestIdempotencyKey())
-                .setCompletionVersion(receipt.getCompletionVersion().longValue())
+                .setSourceSnapshotHash(receipt.getSourceSnapshotHash()).setIdempotencyKey(request.getIdempotencyKey())
+                .setCompletionVersion(receipt.getCompletionVersion() == null ? null : receipt.getCompletionVersion().longValue())
+                .setExpectedActiveOrderVersion(receipt.getExpectedActiveOrderVersion() == null ? null : receipt.getExpectedActiveOrderVersion().longValue())
+                .setCompletionTransactionId(receipt.getRequestIdempotencyKey())
                 .setCompletionBackfillReceiptId(String.valueOf(receipt.getReceiptId()))
                 .setCompletionBackfillReceiptHash(receipt.getReceiptHash())
-                .setPickListBindingId(pickListBinding.getId())
-                .setPickListId(pickListBinding.getPickListId())
-                .setBindingVersion(Long.valueOf(pickListBinding.getBindingVersion()))
+                .setSourceVersion(canonicalReceipt.getSourceVersion()).setSourceBundleHash(canonicalReceipt.getSourceBundleHash())
+                .setPickListBindingId(pickListBinding.getId()).setPickListId(pickListBinding.getPickListId())
+                .setBindingVersion(canonicalReceipt.getBindingVersion())
+                .setBatchPickListRelationId(pickListBinding.getId())
+                .setPickListHeaderSnapshotHash(canonicalReceipt.getPickListHeaderSnapshotHash())
+                .setPickListLineSnapshotHash(canonicalReceipt.getPickListLineSnapshotHash())
+                .setSourceEvidence(canonicalReceipt.getSourceEvidence())
+                .setExpectedSourceVersion(canonicalReceipt.getSourceVersion())
+                .setPayloadHash(canonicalReceipt.getPayloadHash())
                 .setCompletionBackfillReceipt(canonicalReceipt);
-        return new MesBatchExecutionAuthoritativeContext().setProvisionCommand(canonical).setCompletionReceipt(receipt)
-                .setPickListBinding(pickListBinding);
+        return new MesBatchExecutionAuthoritativeContext().setProvisionCommand(canonical)
+                .setCompletionReceipt(receipt).setPickListBinding(pickListBinding);
     }
 
     private MesBatchExecutionAuthoritativeContext resolveIndependent(
@@ -148,9 +186,10 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                 .setTenantId(receipt.getTenantId()).setWorkOrderId(receipt.getWorkOrderId())
                 .setWorkOrderCode(receipt.getWorkOrderCode()).setBatchCode(receipt.getBatchCode())
                 .setRouteId(receipt.getRouteId()).setRouteVersionId(receipt.getRouteVersionId())
-                .setSourceSnapshotHash(receipt.getSourceSnapshotHash()).setIdempotencyKey(receipt.getIdempotencyKey())
+                .setSourceSnapshotHash(receipt.getSourceSnapshotHash()).setIdempotencyKey(request.getIdempotencyKey())
                 .setExpectedSourceVersion(receipt.getSourceRelationVersion()).setPayloadHash(receipt.getPayloadHash())
-                .setSourceEvidence(receipt.getSourceEvidence())
+                .setSourceVersion(receipt.getSourceRelationVersion()).setSourceBundleHash(receipt.getSourceContextHash())
+                .setSourceEvidence(normalizeIndependentEvidence(receipt.getSourceEvidence()))
                 .setIndependentReceipt(receipt);
         return new MesBatchExecutionAuthoritativeContext().setProvisionCommand(canonical)
                 .setIndependentReceipt(receipt);
@@ -201,10 +240,94 @@ public class MesBatchExecutionAuthoritativeContextResolver {
         }
         if (Boolean.TRUE.equals(receipt.getHasActualLoss())) {
             return receipt.getLossQuantity().signum() > 0 && receipt.getLossRecordId() != null
-                    && "BACKFILL_SUCCEEDED".equals(receipt.getLossReportStatus());
+                    && MesProcessPoolActiveOrderCompletionReceiptDO.LOSS_REPORT_STATUS_SUCCESS
+                    .equals(receipt.getLossReportStatus());
         }
         return receipt.getLossQuantity().signum() == 0 && receipt.getLossRecordId() == null
-                && Set.of("NO_LOSS", "NOT_REQUIRED").contains(receipt.getLossReportStatus())
-                && !StrUtil.isBlank(receipt.getZeroLossConfirmationSnapshot());
+                && MesProcessPoolActiveOrderCompletionReceiptDO.LOSS_REPORT_STATUS_NOT_REQUIRED
+                .equals(receipt.getLossReportStatus()) && !StrUtil.isBlank(receipt.getZeroLossConfirmationSnapshot());
+    }
+
+    private String sourceBundleHash(MesFlow6CompletionBackfillReceipt receipt) {
+        return DigestUtil.sha256Hex(
+                String.valueOf(receipt.getFormalSourceSnapshotJson()) + "|"
+                        + String.valueOf(receipt.getSignatureSnapshotJson()));
+    }
+
+    private List<MesBatchExecutionSourceEvidence> traceEvidence(
+            MesFlow6CompletionBackfillReceipt receipt, MesProcessPoolActiveOrderPickListBindingDO binding) {
+        List<MesBatchExecutionSourceEvidence> evidence = new ArrayList<>();
+        evidence.add(simpleEvidence("ACTIVE_ORDER", receipt.getActiveOrderId(), receipt.getSourceSnapshotHash(), "BOUND"));
+        evidence.add(simpleEvidence("WORK_ORDER", receipt.getWorkOrderId(), receipt.getSourceSnapshotHash(), "BOUND"));
+        evidence.add(simpleEvidence("MATERIAL_ISSUE", binding.getPickListId(), receipt.getSourceSnapshotHash(), "BOUND"));
+        evidence.add(simpleEvidence("MATERIAL_ISSUE_LINE", binding.getId(), receipt.getSourceSnapshotHash(), "BOUND"));
+        for (String type : List.of("PRODUCTION_SUBMIT", "PRODUCTION_SIGNATURE", "PRODUCTION_LEADER_REVIEW")) {
+            evidence.add(simpleEvidence(type, receipt.getBatchRecordId(), receipt.getReceiptHash(), "BOUND"));
+        }
+        for (String type : List.of("PQC_TASK", "PQC_SUBMISSION", "PQC_SIGNATURE",
+                "PQC_LEADER_CONFIRMATION", "PQC_AGGREGATE_DETAIL")) {
+            evidence.add(simpleEvidence(type, receipt.getProcessInspectionId(), receipt.getReceiptHash(), "BOUND"));
+        }
+        evidence.add(simpleEvidence("BATCH_RECORD_RECEIPT", receipt.getBatchRecordId(), receipt.getReceiptHash(), "BOUND"));
+        evidence.add(simpleEvidence("PROCESS_INSPECTION_RECEIPT", receipt.getProcessInspectionId(), receipt.getReceiptHash(), "BOUND"));
+        evidence.add(simpleEvidence("COMPLETION_BACKFILL_RECEIPT", receipt.getReceiptId(), receipt.getReceiptHash(), "BOUND"));
+        if (Boolean.TRUE.equals(receipt.getHasActualLoss())) {
+            evidence.add(simpleEvidence("LOSS_FACT", receipt.getLossRecordId(), receipt.getReceiptHash(), "HAS_LOSS"));
+            evidence.add(simpleEvidence("LOSS_REPORT_RECEIPT", receipt.getLossRecordId(), receipt.getReceiptHash(), "BOUND"));
+        } else {
+            evidence.add(simpleEvidence("NO_LOSS_CONFIRMED", receipt.getReceiptId(), receipt.getReceiptHash(), "NO_LOSS"));
+        }
+        return evidence;
+    }
+
+    private MesBatchExecutionSourceEvidence simpleEvidence(String type, Long id, String witnessHash,
+                                                            String relationStatus) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("sourceType", type);
+        snapshot.put("sourceId", id);
+        snapshot.put("witnessHash", witnessHash);
+        String snapshotJson = JSON.toJSONString(snapshot);
+        String calculatedHash = MesProEdhrBatchTraceSourceHash.calculate(type, snapshotJson);
+        boolean materialSource = "MATERIAL_ISSUE".equals(type) || "MATERIAL_ISSUE_LINE".equals(type);
+        boolean receiptSource = type.endsWith("RECEIPT") || "LOSS_REPORT_RECEIPT".equals(type);
+        return new MesBatchExecutionSourceEvidence().setSourceType(type).setSourceId(String.valueOf(id))
+                .setSourceVersion("1").setSourceSnapshotHash(materialSource
+                        ? witnessHash : receiptSource ? witnessHash : calculatedHash)
+                .setPayloadHash(witnessHash).setSignature(witnessHash)
+                .setSourceObjectType(type).setSourceObjectId(String.valueOf(id)).setSnapshotJson(snapshotJson)
+                .setSourceIdentityKey(type + ":" + id).setRelationStatus(relationStatus);
+    }
+
+    private List<MesBatchExecutionSourceEvidence> normalizeIndependentEvidence(
+            List<MesBatchExecutionSourceEvidence> sourceEvidence) {
+        if (sourceEvidence == null || sourceEvidence.isEmpty()) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
+        }
+        return sourceEvidence.stream().map(item -> {
+            if (item == null || StrUtil.isBlank(item.getSourceType())
+                    || StrUtil.isBlank(item.getSourceId()) || StrUtil.isBlank(item.getSourceSnapshotHash())) {
+                throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
+            }
+            Map<String, Object> snapshot = new LinkedHashMap<>();
+            snapshot.put("sourceType", item.getSourceType());
+            snapshot.put("sourceId", item.getSourceId());
+            snapshot.put("witnessHash", item.getSourceSnapshotHash());
+            String snapshotJson = StrUtil.isBlank(item.getSnapshotJson())
+                    ? JSON.toJSONString(snapshot) : item.getSnapshotJson();
+            String sourceObjectId = StrUtil.isBlank(item.getSourceObjectId())
+                    ? item.getSourceId() : item.getSourceObjectId();
+            return new MesBatchExecutionSourceEvidence()
+                    .setSourceType(item.getSourceType()).setSourceId(item.getSourceId())
+                    .setSourceVersion(StrUtil.isBlank(item.getSourceVersion()) ? "1" : item.getSourceVersion())
+                    .setSourceSnapshotHash(item.getSourceSnapshotHash())
+                    .setPayloadHash(item.getPayloadHash()).setSignature(item.getSignature())
+                    .setSourceObjectType(StrUtil.isBlank(item.getSourceObjectType())
+                            ? item.getSourceType() : item.getSourceObjectType())
+                    .setSourceObjectId(sourceObjectId).setSnapshotJson(snapshotJson)
+                    .setSourceIdentityKey(StrUtil.isBlank(item.getSourceIdentityKey())
+                            ? item.getSourceType() + ":" + item.getSourceId() : item.getSourceIdentityKey())
+                    .setRelationStatus(StrUtil.isBlank(item.getRelationStatus()) ? "BOUND" : item.getRelationStatus())
+                    .setRelationReason(item.getRelationReason());
+        }).toList();
     }
 }

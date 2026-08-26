@@ -17,7 +17,7 @@ def _write_registry(tmp_path: Path, entries: list[dict]) -> Path:
         json.dumps(
             {
                 "version": 1,
-                "contractVersion": "2026-08-22-branch-runtime-v6",
+                "contractVersion": "2026-08-24-branch-runtime-v7",
                 "worktrees": entries,
             },
             ensure_ascii=False,
@@ -238,11 +238,13 @@ def test_registered_worktree_second_extended_slot_uses_dedicated_port_band(tmp_p
     assert '"BackendPort":  48206' in result.stdout
 
 
-def test_registered_worktree_boundary_slots_1_31_50_are_accepted(tmp_path: Path) -> None:
+def test_registered_worktree_boundary_slots_1_31_50_51_100_are_accepted(tmp_path: Path) -> None:
     expected_ports = {
         1: (8082, 48082),
         31: (8206, 48206),
         50: (8265, 48265),
+        51: (8306, 48306),
+        100: (8515, 48515),
     }
     for slot, (frontend_port, backend_port) in expected_ports.items():
         registry_path = _write_registry(
@@ -303,7 +305,7 @@ def test_registered_worktree_slot_zero_fails_fast(tmp_path: Path) -> None:
     result = _run_powershell(command, registry_path)
 
     assert result.returncode != 0
-    assert "must be between 1 and 50" in result.stderr
+    assert "must be between 1 and 100" in result.stderr
 
 
 def test_registry_contract_version_mismatch_fails_fast(tmp_path: Path) -> None:
@@ -362,12 +364,12 @@ def test_runtime_contract_consumers_use_shared_profile_version() -> None:
         encoding="utf-8"
     )
 
-    assert "$script:PortContractVersion = '2026-08-22-branch-runtime-v6'" in profile_text
+    assert "$script:PortContractVersion = '2026-08-24-branch-runtime-v7'" in profile_text
     assert ". \"$PSScriptRoot/branch-runtime-profile.ps1\"".replace("/", "\\") in reserve_text
     assert "$script:PortContractVersion" in guard_text
 
 
-def test_registered_worktree_slot_above_50_fails_fast(tmp_path: Path) -> None:
+def test_registered_worktree_slot_above_100_fails_fast(tmp_path: Path) -> None:
     registry_path = _write_registry(
         tmp_path,
         [
@@ -376,7 +378,7 @@ def test_registered_worktree_slot_above_50_fails_fast(tmp_path: Path) -> None:
                 "path": "D:\\IntRuoyiWorktree\\slot-above-limit",
                 "branch": "codex/slot-above-limit",
                 "profile": "int_main",
-                "slot": 51,
+                "slot": 101,
                 "frontendPort": 9999,
                 "backendPort": 49999,
                 "active": True,
@@ -394,15 +396,15 @@ def test_registered_worktree_slot_above_50_fails_fast(tmp_path: Path) -> None:
     result = _run_powershell(command, registry_path)
 
     assert result.returncode != 0
-    assert "must be between 1 and 50" in result.stderr
+    assert "must be between 1 and 100" in result.stderr
 
 
-def test_all_profile_worktree_ports_are_unique_through_slot_50(tmp_path: Path) -> None:
+def test_all_profile_worktree_ports_are_unique_through_slot_100(tmp_path: Path) -> None:
     registry_path = _write_registry(tmp_path, [])
     command = (
         f". '{PROFILE_SCRIPT}'; "
         "$rows = foreach ($profile in Get-BranchRuntimeProfiles) { "
-        "foreach ($slot in 1..50) { "
+        "foreach ($slot in 1..100) { "
         "$ports = Get-BranchRuntimePorts -Profile $profile -Slot $slot; "
         "[pscustomobject]@{ profile = $profile.Name; slot = $slot; "
         "frontendPort = $ports.FrontendPort; backendPort = $ports.BackendPort } "
@@ -414,9 +416,9 @@ def test_all_profile_worktree_ports_are_unique_through_slot_50(tmp_path: Path) -
 
     assert result.returncode == 0, result.stderr
     rows = json.loads(result.stdout)
-    assert len(rows) == 250
-    assert len({row["frontendPort"] for row in rows}) == 250
-    assert len({row["backendPort"] for row in rows}) == 250
+    assert len(rows) == 500
+    assert len({row["frontendPort"] for row in rows}) == 500
+    assert len({row["backendPort"] for row in rows}) == 500
     assert {row["frontendPort"] for row in rows}.isdisjoint(
         {8021, 8041, 8061, 8081, 8101}
     )
@@ -450,11 +452,51 @@ def test_all_profile_worktree_ports_are_unique_through_slot_50(tmp_path: Path) -
         "int_main": (8265, 48265),
         "int_main_d": (8275, 48275),
     }
+    expected_fourth_extension_ports = {
+        "int_shedule": (8285, 48285),
+        "int_batch": (8295, 48295),
+        "int_qms": (8305, 48305),
+        "int_main": (8315, 48315),
+        "int_main_d": (8325, 48325),
+    }
+    expected_fifth_extension_ports = {
+        "int_shedule": (8335, 48335),
+        "int_batch": (8345, 48345),
+        "int_qms": (8355, 48355),
+        "int_main": (8365, 48365),
+        "int_main_d": (8375, 48375),
+    }
+    expected_sixth_extension_ports = {
+        "int_shedule": (8385, 48385),
+        "int_batch": (8395, 48395),
+        "int_qms": (8405, 48405),
+        "int_main": (8415, 48415),
+        "int_main_d": (8425, 48425),
+    }
+    expected_seventh_extension_ports = {
+        "int_shedule": (8435, 48435),
+        "int_batch": (8445, 48445),
+        "int_qms": (8455, 48455),
+        "int_main": (8465, 48465),
+        "int_main_d": (8475, 48475),
+    }
+    expected_eighth_extension_ports = {
+        "int_shedule": (8485, 48485),
+        "int_batch": (8495, 48495),
+        "int_qms": (8505, 48505),
+        "int_main": (8515, 48515),
+        "int_main_d": (8525, 48525),
+    }
     for profile, (slot_20_ports, slot_30_ports) in expected_extension_ranges.items():
         assert by_profile_slot[(profile, 20)] == slot_20_ports
         assert by_profile_slot[(profile, 30)] == slot_30_ports
         assert by_profile_slot[(profile, 40)] == expected_second_extension_ports[profile]
         assert by_profile_slot[(profile, 50)] == expected_third_extension_ports[profile]
+        assert by_profile_slot[(profile, 60)] == expected_fourth_extension_ports[profile]
+        assert by_profile_slot[(profile, 70)] == expected_fifth_extension_ports[profile]
+        assert by_profile_slot[(profile, 80)] == expected_sixth_extension_ports[profile]
+        assert by_profile_slot[(profile, 90)] == expected_seventh_extension_ports[profile]
+        assert by_profile_slot[(profile, 100)] == expected_eighth_extension_ports[profile]
 
 
 def test_duplicate_active_profile_slots_fail_fast(tmp_path: Path) -> None:
@@ -713,7 +755,66 @@ def test_slot_allocator_uses_third_extended_slot_after_second_extension(tmp_path
     assert allocation["backendPort"] == 48256
 
 
+def test_slot_allocator_uses_eighth_extended_slot_after_seventh_extension(tmp_path: Path) -> None:
+    extension_starts = {
+        20: (8154, 48154),
+        31: (8206, 48206),
+        41: (8256, 48256),
+        51: (8306, 48306),
+        61: (8356, 48356),
+        71: (8406, 48406),
+        81: (8456, 48456),
+        91: (8506, 48506),
+    }
+    entries = []
+    for slot in range(1, 91):
+        if slot <= 19:
+            frontend_port, backend_port = 8081 + slot, 48081 + slot
+        else:
+            start_slot = max(candidate for candidate in extension_starts if candidate <= slot)
+            frontend_start, backend_start = extension_starts[start_slot]
+            frontend_port = frontend_start + slot - start_slot
+            backend_port = backend_start + slot - start_slot
+        entries.append(
+            {
+                "name": f"occupied-{slot}",
+                "path": f"D:\\IntRuoyiWorktree\\occupied-{slot}",
+                "branch": f"codex/occupied-{slot}",
+                "profile": "int_main",
+                "slot": slot,
+                "frontendPort": frontend_port,
+                "backendPort": backend_port,
+                "active": True,
+            }
+        )
+    registry_path = _write_registry(tmp_path, entries)
+
+    result = subprocess.run(
+        _slot_allocator_command(registry_path, name="eighth-extension"),
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=180,
+    )
+
+    assert result.returncode == 0, result.stderr
+    allocation = json.loads(result.stdout)
+    assert allocation["slot"] == 91
+    assert allocation["frontendPort"] == 8506
+    assert allocation["backendPort"] == 48506
+
+
 def test_slot_allocator_fails_when_profile_band_is_exhausted(tmp_path: Path) -> None:
+    extension_starts = {
+        20: (8154, 48154),
+        31: (8206, 48206),
+        41: (8256, 48256),
+        51: (8306, 48306),
+        61: (8356, 48356),
+        71: (8406, 48406),
+        81: (8456, 48456),
+        91: (8506, 48506),
+    }
     entries = [
         {
             "name": f"occupied-{slot}",
@@ -724,24 +825,18 @@ def test_slot_allocator_fails_when_profile_band_is_exhausted(tmp_path: Path) -> 
             "frontendPort": (
                 8081 + slot
                 if slot <= 19
-                else 8154 + slot - 20
-                if slot <= 30
-                else 8206 + slot - 31
-                if slot <= 40
-                else 8256 + slot - 41
+                else extension_starts[max(candidate for candidate in extension_starts if candidate <= slot)][0]
+                + slot - max(candidate for candidate in extension_starts if candidate <= slot)
             ),
             "backendPort": (
                 48081 + slot
                 if slot <= 19
-                else 48154 + slot - 20
-                if slot <= 30
-                else 48206 + slot - 31
-                if slot <= 40
-                else 48256 + slot - 41
+                else extension_starts[max(candidate for candidate in extension_starts if candidate <= slot)][1]
+                + slot - max(candidate for candidate in extension_starts if candidate <= slot)
             ),
             "active": True,
         }
-        for slot in range(1, 51)
+        for slot in range(1, 101)
     ]
     registry_path = _write_registry(tmp_path, entries)
 
@@ -754,7 +849,7 @@ def test_slot_allocator_fails_when_profile_band_is_exhausted(tmp_path: Path) -> 
     )
 
     assert result.returncode != 0
-    assert "No available runtime slot for profile 'int_main' in range 1..50" in result.stderr
+    assert "No available runtime slot for profile 'int_main' in range 1..100" in result.stderr
 
 
 def test_branch_frontend_start_injects_required_local_runtime_env() -> None:

@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260719_business_approval_policy,20260719_dcc_upload_form_policy_seed; type=data; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260717_bpm_form_center,20260719_business_approval_policy,20260719_dcc_upload_form_policy_seed; type=data; riskLevel=medium
 SET NAMES utf8mb4;
 
 DROP PROCEDURE IF EXISTS ensure_dcc_obsolete_form_policy;

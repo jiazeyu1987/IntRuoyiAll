@@ -4,7 +4,7 @@
       <div>
         <div class="pqc-item-equipment-config__title">检验设备</div>
         <div class="pqc-item-equipment-config__hint">
-          当前租户内共用，按检验项目维护可选检验设备和设备编号。
+          当前项目：{{ props.projectName }}；配置在当前租户内共用。
         </div>
       </div>
       <el-button type="primary" :loading="saving" :disabled="!selectedItemCode" @click="saveConfig">
@@ -21,6 +21,15 @@
       show-icon
     />
 
+    <el-alert
+      v-if="selectedItem && configurationConsistent === false"
+      class="mb-12px"
+      title="同名检验项目的设备配置当前不一致，保存后将统一覆盖该名称对应的全部项目编号。"
+      type="warning"
+      :closable="false"
+      show-icon
+    />
+
     <div class="pqc-item-equipment-config__selector">
       <el-form label-width="96px">
         <el-form-item label="检验项目">
@@ -28,22 +37,23 @@
             v-model="selectedItemCode"
             filterable
             class="pqc-item-equipment-config__item-select"
-            placeholder="请选择检验项目编号"
+            placeholder="请选择检验名称"
             :loading="itemsLoading"
             data-pqc-item-equipment-item-select
             @change="handleItemChange"
           >
             <el-option
-              v-for="item in items"
+              v-for="item in filteredItems"
               :key="item.itemCode"
-              :label="formatItemLabel(item)"
+              :label="item.itemName"
               :value="item.itemCode"
             />
           </el-select>
         </el-form-item>
       </el-form>
       <div v-if="selectedItem" class="pqc-item-equipment-config__item-meta">
-        <span>检验项目：{{ selectedItem.itemName || selectedItem.itemCode }}</span>
+        <span>项目名称：{{ selectedItem.projectName }}</span>
+        <span>检验名称：{{ selectedItem.itemName }}</span>
         <span v-if="selectedItem.inspectionMethod">检验方法：{{ selectedItem.inspectionMethod }}</span>
         <span v-if="selectedItem.samplingPlanText">抽样规则：{{ selectedItem.samplingPlanText }}</span>
       </div>
@@ -142,18 +152,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { DvMachineryApi, type DvMachineryVO } from '@/api/mes/dv/machinery'
 import {
-  getPqcItemEquipmentConfig,
-  getPqcItemEquipmentItems,
-  savePqcItemEquipmentConfig,
+  QcTemplateApi,
   type PqcItemEquipmentConfigVO,
   type PqcItemEquipmentItemVO
-} from '@/api/mes/pro/processpool/teamLeader'
+} from '@/api/mes/qc/template'
 
 defineOptions({ name: 'PqcItemEquipmentConfigPanel' })
+
+const props = defineProps<{
+  dccProjectCodeId: number
+  projectName: string
+}>()
 
 type DraftNumber = {
   localKey: string
@@ -184,15 +197,30 @@ const configLoading = ref(false)
 const machineryLoading = ref(false)
 const saving = ref(false)
 const loadError = ref('')
+const configurationConsistent = ref(true)
+let itemsLoadSerial = 0
+
+const filteredItems = computed(() => {
+  const groupedByItemName = new Map<string, PqcItemEquipmentItemVO>()
+  items.value
+    .filter((item) => item.dccProjectCodeId === props.dccProjectCodeId)
+    .forEach((item) => {
+      const itemCodes = Array.from(new Set([...(item.itemCodes || []), item.itemCode]))
+      const existing = groupedByItemName.get(item.itemName)
+      if (!existing) {
+        groupedByItemName.set(item.itemName, { ...item, itemCodes })
+      } else {
+        existing.itemCodes = Array.from(new Set([...(existing.itemCodes || []), ...itemCodes]))
+      }
+    })
+  return Array.from(groupedByItemName.values())
+})
 
 const selectedItem = computed(() =>
-  items.value.find((item) => item.itemCode === selectedItemCode.value)
+  filteredItems.value.find((item) => item.itemCode === selectedItemCode.value)
 )
 
 const createLocalKey = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`
-
-const formatItemLabel = (item: PqcItemEquipmentItemVO) =>
-  [item.itemCode, item.itemName].filter(Boolean).join(' / ')
 
 const formatMachineryLabel = (machinery: DvMachineryVO) =>
   [machinery.code, machinery.name].filter(Boolean).join(' / ')
@@ -229,19 +257,23 @@ const toDraftGroups = (config?: PqcItemEquipmentConfigVO): DraftGroup[] =>
   }))
 
 const loadItems = async () => {
+  const loadSerial = ++itemsLoadSerial
   itemsLoading.value = true
   loadError.value = ''
   try {
-    items.value = await getPqcItemEquipmentItems()
-    if (!selectedItemCode.value && items.value.length) {
-      selectedItemCode.value = items.value[0].itemCode
-      await loadConfig(selectedItemCode.value)
+    const nextItems = await QcTemplateApi.getPqcItemEquipmentItems(props.dccProjectCodeId)
+    if (loadSerial === itemsLoadSerial) {
+      items.value = nextItems
     }
   } catch (error) {
-    loadError.value = '检验项目列表加载失败，请稍后重试。'
+    if (loadSerial === itemsLoadSerial) {
+      loadError.value = '检验项目列表加载失败，请稍后重试。'
+    }
     throw error
   } finally {
-    itemsLoading.value = false
+    if (loadSerial === itemsLoadSerial) {
+      itemsLoading.value = false
+    }
   }
 }
 
@@ -249,8 +281,14 @@ const loadConfig = async (itemCode: string) => {
   if (!itemCode) return
   configLoading.value = true
   loadError.value = ''
+  configurationConsistent.value = true
   try {
-    const config = await getPqcItemEquipmentConfig(itemCode)
+    const itemCodes = selectedItem.value?.itemCodes || [itemCode]
+    const config = await QcTemplateApi.getPqcItemEquipmentConfigBatch(
+      props.dccProjectCodeId,
+      itemCodes
+    )
+    configurationConsistent.value = config.configurationConsistent !== false
     draftGroups.value = toDraftGroups(config)
   } catch (error) {
     loadError.value = '检验设备配置加载失败，请稍后重试。'
@@ -258,6 +296,13 @@ const loadConfig = async (itemCode: string) => {
   } finally {
     configLoading.value = false
   }
+}
+
+const resetSelectedItemState = () => {
+  selectedItemCode.value = ''
+  draftGroups.value = []
+  configurationConsistent.value = true
+  loadError.value = ''
 }
 
 const handleItemChange = async (itemCode: string) => {
@@ -350,7 +395,9 @@ const buildSavePayload = () => {
     throw new Error('请选择检验项目。')
   }
   return {
+    dccProjectCodeId: props.dccProjectCodeId,
     itemCode: selectedItemCode.value,
+    itemCodes: selectedItem.value?.itemCodes || [selectedItemCode.value],
     itemNameSnapshot: selectedItem.value?.itemName,
     equipmentGroups: draftGroups.value.map((group, groupIndex) => {
       if (!group.equipmentId) {
@@ -391,7 +438,8 @@ const saveConfig = async () => {
   }
   saving.value = true
   try {
-    const saved = await savePqcItemEquipmentConfig(payload)
+    const saved = await QcTemplateApi.savePqcItemEquipmentConfigBatch(payload)
+    configurationConsistent.value = saved.configurationConsistent !== false
     draftGroups.value = toDraftGroups(saved)
     ElMessage.success('检验设备配置已保存')
   } catch (error) {
@@ -402,8 +450,17 @@ const saveConfig = async () => {
   }
 }
 
+watch(
+  () => props.dccProjectCodeId,
+  async () => {
+    resetSelectedItemState()
+    await loadItems()
+  },
+  { immediate: true }
+)
+
 onMounted(async () => {
-  await Promise.all([loadItems(), ensureMachineryOptions()])
+  await ensureMachineryOptions()
 })
 </script>
 
@@ -446,6 +503,7 @@ onMounted(async () => {
 }
 
 .pqc-item-equipment-config__item-select,
+.pqc-item-equipment-config__project-select,
 .pqc-item-equipment-config__equipment-select {
   width: 100%;
 }

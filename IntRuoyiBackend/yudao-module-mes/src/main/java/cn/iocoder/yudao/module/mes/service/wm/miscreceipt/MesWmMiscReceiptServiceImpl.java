@@ -128,6 +128,7 @@ public class MesWmMiscReceiptServiceImpl implements MesWmMiscReceiptService {
         wmTransactionService.createTransactionList(convertList(lines, line -> new MesWmTransactionSaveReqDTO()
                 .setType(MesWmTransactionTypeEnum.IN.getType()).setItemId(line.getItemId())
                 .setQuantity(line.getQuantity()) // 入库数量为正数
+                .setBatchCode(line.getBatchCode())
                 .setWarehouseId(line.getWarehouseId()).setLocationId(line.getLocationId()).setAreaId(line.getAreaId())
                 .setBizType(MesBizTypeConstants.WM_MISC_RECPT).setBizId(receipt.getId()).setBizCode(receipt.getCode()).setBizLineId(line.getId())));
     }

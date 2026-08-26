@@ -64,6 +64,10 @@ public class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortImpl
                 .setRouteVersionId(receipt.getRouteVersionId())
                 .setTenantId(receipt.getTenantId())
                 .setRequestIdempotencyKey(receipt.getRequestIdempotencyKey())
+                .setExpectedActiveOrderVersion(receipt.getExpectedVersion() == null ? null
+                        : receipt.getExpectedVersion().longValue())
+                .setCompletionTransactionId(receipt.getRequestIdempotencyKey())
+                .setCompletionEventId(receipt.getRequestIdempotencyKey())
                 .setCreatedAt(receipt.getCreateTime())
                 .setSourceSnapshotHash(receipt.getSourceSnapshotHash())
                 .setFormalSourceSnapshotJson(receipt.getFormalSourceSnapshotJson())
@@ -82,16 +86,6 @@ public class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortImpl
                 .setProcessInspectionSourceIdsJson(receipt.getProcessInspectionSourceIdsJson())
                 .setZeroLossConfirmationSnapshot(receipt.getZeroLossConfirmationSnapshot())
                 .setReceiptHash(receipt.getReceiptHash());
-    }
-
-    @Override
-    public MesFlow6CompletionBackfillReceipt getByActiveOrderId(Long activeOrderId, Long tenantId) {
-        MesProcessPoolActiveOrderCompletionReceiptDO receipt = activeOrderId == null ? null
-                : receiptMapper.selectByActiveOrderIdForUpdate(activeOrderId);
-        if (receipt == null || receipt.getId() == null) {
-            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_RECEIPT_NOT_FOUND, activeOrderId);
-        }
-        return getByReceiptId(receipt.getId(), tenantId);
     }
 
     private static boolean lossFactsAreValid(MesProcessPoolActiveOrderCompletionReceiptDO receipt) {

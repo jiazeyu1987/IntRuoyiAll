@@ -44,6 +44,12 @@ public class MesProScheduleOrderProcessDO extends BaseDO {
 
     private Long predecessorRouteProcessId;
 
+    /**
+     * 完整直接前置路线工序ID集合快照（JSON数组）。
+     * predecessorRouteProcessId 仅保留给旧数据和单前置兼容读取。
+     */
+    private String predecessorRouteProcessIdsJson;
+
     private Boolean rootProcessFlag;
 
     private Long routeVersionId;

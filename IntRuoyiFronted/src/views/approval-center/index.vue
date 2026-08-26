@@ -220,49 +220,50 @@
                 label="操作"
                 fixed="right"
                 prop="actions"
-                :width="getApprovalColumnWidthString('actions', 230)"
+                :width="getApprovalColumnWidthString('actions', 180)"
               >
                 <template #default="{ row }">
-                  <el-button
-                    v-if="canReview(row)"
-                    link
-                    type="primary"
-                    :disabled="row.businessDeleted"
-                    @click="openReviewDialog(row)"
-                  >
-                    {{ resolveReviewActionLabel(row) }}
-                  </el-button>
                   <el-tooltip
-                    :disabled="canOpenDecisionDetail(row)"
-                    :content="resolveDecisionDetailDisabledReason(row)"
+                    :disabled="canOpenView(row)"
+                    :content="resolveViewDisabledReason(row)"
                     placement="top"
                   >
                     <span>
                       <el-button
                         link
                         type="primary"
-                        :disabled="!canOpenDecisionDetail(row)"
-                        @click="openDecisionDetail(row)"
+                        data-approval-action="view"
+                        :disabled="!canOpenView(row)"
+                        @click="openModuleDetail(row)"
                       >
-                        {{ resolveDecisionActionLabel(row) }}
+                        查看
                       </el-button>
                     </span>
                   </el-tooltip>
-                  <el-button link type="primary" :disabled="row.businessDeleted" @click="openModuleDetail(row)">
-                    {{ resolveModuleOpenLabel(row) }}
+                  <el-button
+                    v-if="canReviewAction(row)"
+                    link
+                    type="primary"
+                    data-approval-action="review"
+                    :disabled="row.businessDeleted"
+                    @click="openReviewAction(row)"
+                  >
+                    审核
                   </el-button>
                   <el-tooltip
-                    :content="hasTimelineCapability(row) ? '查看统一审批轨迹' : '该模块暂未接入统一轨迹'"
+                    :disabled="canOpenFlow(row)"
+                    :content="resolveFlowDisabledReason(row)"
                     placement="top"
                   >
                     <span>
                       <el-button
                         link
                         type="primary"
-                        :disabled="!hasTimelineCapability(row)"
+                        data-approval-action="flow"
+                        :disabled="!canOpenFlow(row)"
                         @click="openTimeline(row)"
                       >
-                        轨迹
+                        流程
                       </el-button>
                     </span>
                   </el-tooltip>
@@ -276,7 +277,7 @@
 
     <el-drawer
       v-model="timelineDrawerVisible"
-      title="审批轨迹"
+      title="审批流程"
       size="560px"
       append-to-body
       destroy-on-close
@@ -299,7 +300,7 @@
       <div v-loading="timelineLoading" class="approval-center__timeline-body">
         <el-empty
           v-if="!timelineLoading && !timelineError && timelineRows.length === 0"
-          description="暂无审批轨迹"
+          description="暂无审批流程记录"
         />
         <el-timeline v-else>
           <el-timeline-item
@@ -581,7 +582,7 @@ const approvalDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'approvalRemark', label: '备注', minWidth: 220 },
   { key: 'capabilities', label: '能力', width: 260 },
   { key: 'time', label: '时间', width: 190 },
-  { key: 'actions', label: '操作', width: 230, hideable: false, business: false }
+  { key: 'actions', label: '操作', width: 180, hideable: false, business: false }
 ]
 
 const approvalColumnControls = {
@@ -944,63 +945,63 @@ const resolveDecisionDetailQuery = (row: ApprovalTaskSummaryVO) => {
   return row.detailQuery || {}
 }
 
-const canOpenDecisionDetail = (row: ApprovalTaskSummaryVO) => {
-  return !row.businessDeleted && Boolean(resolveDecisionDetailRoute(row))
+const canOpenView = (row: ApprovalTaskSummaryVO) => {
+  return !row.businessDeleted && Boolean(row.detailRoute)
 }
 
-const resolveDecisionActionLabel = (row: ApprovalTaskSummaryVO) => {
-  const actions = row.availableActions || []
-  if (queryParams.viewType === 'TODO' && actions.includes('REVIEW_IN_MODULE')) {
-    return '审核'
-  }
-  if (queryParams.viewType === 'TODO' && actions.includes('APPROVE_IN_MODULE')) {
-    return '批准'
-  }
-  if (queryParams.viewType === 'TODO' && actions.includes('PROCESS_IN_MODULE')) {
-    return '处理'
-  }
-  if (canReview(row)) {
-    return '详情'
-  }
-  return '详情'
-}
-
-const resolveReviewActionLabel = (row: ApprovalTaskSummaryVO) => {
-  return row.moduleCode === 'DCC' ? '审批' : '审核'
-}
-
-const resolveDecisionDetailDisabledReason = (row: ApprovalTaskSummaryVO) => {
+const resolveViewDisabledReason = (row: ApprovalTaskSummaryVO) => {
   if (row.businessDeleted) {
     return '审批历史对应业务记录已删除'
   }
   return '审批任务缺少业务详情入口'
 }
 
-const openDecisionDetail = (row: ApprovalTaskSummaryVO) => {
-  if (!canOpenDecisionDetail(row)) {
-    ElMessage.error(resolveDecisionDetailDisabledReason(row))
-    return
-  }
-  router.push(resolveDccApprovalDetailLocation(row, resolveDecisionDetailRoute(row), resolveDecisionDetailQuery(row)))
-}
-
-const resolveModuleOpenLabel = (row: ApprovalTaskSummaryVO) => {
-  return isBpmProcessDetailOnly(row) ? '流程' : '打开'
-}
-
 const openModuleDetail = (row: ApprovalTaskSummaryVO) => {
-  if (row.businessDeleted) {
-    ElMessage.error('审批历史对应业务记录已删除')
-    return
-  }
-  if (!row.detailRoute) {
-    ElMessage.error('审批任务缺少模块详情入口')
+  if (!canOpenView(row)) {
+    ElMessage.error(resolveViewDisabledReason(row))
     return
   }
   router.push(resolveDccApprovalDetailLocation(row, row.detailRoute, row.detailQuery || {}))
 }
 
+const openProcessFlow = (row: ApprovalTaskSummaryVO) => {
+  if (row.businessDeleted) {
+    ElMessage.error('审批历史对应业务记录已删除')
+    return
+  }
+  if (!row.detailRoute) {
+    ElMessage.error('审批任务缺少流程详情入口')
+    return
+  }
+  router.push(resolveDccApprovalDetailLocation(row, row.detailRoute, row.detailQuery || {}))
+}
+
+const hasTimelineCapability = (row: ApprovalTaskSummaryVO) => {
+  return (row.capabilities || []).includes('TIMELINE')
+}
+
+const canOpenFlow = (row: ApprovalTaskSummaryVO) => {
+  if (isBpmProcessDetailOnly(row)) {
+    return !row.businessDeleted && Boolean(row.detailRoute)
+  }
+  return !row.businessDeleted && hasTimelineCapability(row)
+}
+
+const resolveFlowDisabledReason = (row: ApprovalTaskSummaryVO) => {
+  if (row.businessDeleted) {
+    return '审批历史对应业务记录已删除'
+  }
+  if (isBpmProcessDetailOnly(row)) {
+    return row.detailRoute ? '' : '审批任务缺少流程详情入口'
+  }
+  return hasTimelineCapability(row) ? '' : '该模块暂未接入统一审批轨迹'
+}
+
 const openTimeline = async (row: ApprovalTaskSummaryVO) => {
+  if (isBpmProcessDetailOnly(row)) {
+    openProcessFlow(row)
+    return
+  }
   if (!hasTimelineCapability(row)) {
     const message = '该审批任务未声明统一轨迹能力'
     timelineError.value = message
@@ -1021,7 +1022,7 @@ const openTimeline = async (row: ApprovalTaskSummaryVO) => {
       processInstanceId: row.processInstanceId
     })
     if (!data || data.length === 0) {
-      const message = '审批轨迹为空，请检查模块适配器轨迹实现'
+    const message = '审批流程记录为空，请检查模块适配器流程实现'
       timelineError.value = message
       ElMessage.error(message)
       return
@@ -1036,16 +1037,43 @@ const openTimeline = async (row: ApprovalTaskSummaryVO) => {
   }
 }
 
-const hasTimelineCapability = (row: ApprovalTaskSummaryVO) => {
-  return (row.capabilities || []).includes('TIMELINE')
-}
-
 const canReview = (row: ApprovalTaskSummaryVO) => {
   const actions = row.availableActions || []
   return queryParams.viewType === 'TODO'
     && !row.businessDeleted
     && actions.includes('APPROVE')
     && actions.includes('REJECT')
+}
+
+const canReviewInModule = (row: ApprovalTaskSummaryVO) => {
+  const actions = row.availableActions || []
+  return queryParams.viewType === 'TODO'
+    && !row.businessDeleted
+    && (actions.includes('REVIEW_IN_MODULE') || actions.includes('APPROVE_IN_MODULE'))
+}
+
+const canReviewAction = (row: ApprovalTaskSummaryVO) => {
+  return canReview(row) || canReviewInModule(row)
+}
+
+const openReviewAction = (row: ApprovalTaskSummaryVO) => {
+  if (canReview(row)) {
+    openReviewDialog(row)
+    return
+  }
+  if (canReviewInModule(row)) {
+    openDecisionDetail(row)
+    return
+  }
+  ElMessage.error('该审批任务暂不支持审核')
+}
+
+const openDecisionDetail = (row: ApprovalTaskSummaryVO) => {
+  if (!row.businessDeleted && !resolveDecisionDetailRoute(row)) {
+    ElMessage.error(resolveViewDisabledReason(row))
+    return
+  }
+  router.push(resolveDccApprovalDetailLocation(row, resolveDecisionDetailRoute(row), resolveDecisionDetailQuery(row)))
 }
 
 const openReviewDialog = (row: ApprovalTaskSummaryVO) => {

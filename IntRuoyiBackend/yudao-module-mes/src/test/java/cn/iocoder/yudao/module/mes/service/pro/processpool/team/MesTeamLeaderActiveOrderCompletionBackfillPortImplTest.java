@@ -54,6 +54,9 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         when(snapshotMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(snapshot()));
         when(allocationMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(allocation()));
         when(completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L))).thenReturn(List.of(completion()));
+        org.mockito.Mockito.lenient().when(completionMapper.updateById(
+                org.mockito.ArgumentMatchers.any(MesProcessPoolOrderProcessCompletionDO.class)))
+                .thenReturn(1);
         when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail()));
         when(workOrderMapper.selectByIdForUpdate(30L)).thenReturn(workOrder());
@@ -98,6 +101,10 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_LOSS_REPORT.equals(row.getBackfillType())));
         assertEquals(1101L, draft.getBatchRecordId());
         assertEquals(1102L, draft.getProcessInspectionId());
+        verify(completionMapper).updateById(org.mockito.ArgumentMatchers.argThat(
+                (MesProcessPoolOrderProcessCompletionDO row) ->
+                MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS.equals(row.getBackfillStatus())
+                        && Long.valueOf(1101L).equals(row.getBackfillExecutionId())));
     }
 
     @Test
@@ -184,16 +191,44 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         assertEquals(before.getSourceSnapshotHash(), after.getSourceSnapshotHash());
     }
 
+    @Test
+    void productionProcessWithoutConfiguredPqcTaskDoesNotBlockInspectionBackfill() {
+        MesProcessPoolActiveOrderProcessSnapshotDO secondSnapshot = snapshot(102L, 1L);
+        when(snapshotMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(snapshot(101L, 1L), secondSnapshot));
+        when(allocationMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(allocation(201L, 101L), allocation(202L, 102L)));
+        when(completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)))
+                .thenReturn(List.of(completion(301L, 101L, 201L), completion(302L, 102L, 202L)));
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 101L)));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail(801L, 701L, 101L)));
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO,
+                List.of(snapshot(101L, 1L), secondSnapshot)));
+
+        MesTeamLeaderActiveOrderCompletionBackfillDraft draft = port.prepare(20L, order(), command());
+        draft.setMaterializedBy(20L);
+        port.write(draft, 10L);
+
+        assertEquals(1102L, draft.getProcessInspectionId());
+    }
+
     private MesTeamLeaderActiveOrderReleaseLossSourceReadResult lossSources(BigDecimal loss) {
+        return lossSources(loss, List.of(snapshot()));
+    }
+
+    private MesTeamLeaderActiveOrderReleaseLossSourceReadResult lossSources(
+            BigDecimal loss, List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots) {
         MesProFeedbackDO feedback = MesProFeedbackDO.builder().id(501L).workOrderId(30L).routeId(40L)
                 .processId(1L).unqualifiedQuantity(loss).build();
         MesProProcessPoolEventDO event = MesProProcessPoolEventDO.builder().id(401L).workOrderId(30L)
                 .routeId(40L).routeProcessId(101L).processId(1L).build();
         return new MesTeamLeaderActiveOrderReleaseLossSourceReadResult()
                 .setBlockers(List.of())
-                .setProcessSources(List.of(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource()
-                        .setSnapshot(snapshot()).setFeedback(feedback).setEvent(event).setAllocation(allocation())
-                        .setReview(MesProcessPoolSubmissionReviewDO.builder().id(601L).build()).setLossDetails(List.of())));
+                .setProcessSources(snapshots.stream().map(snapshot ->
+                        new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ProcessLossSource()
+                                .setSnapshot(snapshot).setFeedback(feedback).setEvent(event)
+                                .setAllocation(allocation()).setReview(MesProcessPoolSubmissionReviewDO.builder()
+                                        .id(601L).build()).setLossDetails(List.of())).toList());
     }
 
     private MesTeamLeaderActiveOrderCompletionCommand command() {
@@ -209,33 +244,53 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     private MesProcessPoolActiveOrderProcessSnapshotDO snapshot() {
-        return MesProcessPoolActiveOrderProcessSnapshotDO.builder().id(101L).activeOrderId(10L).workOrderId(30L)
-                .routeId(40L).routeVersionId(41L).routeProcessId(101L).processId(1L)
+        return snapshot(101L, 1L);
+    }
+
+    private MesProcessPoolActiveOrderProcessSnapshotDO snapshot(Long routeProcessId, Long processId) {
+        return MesProcessPoolActiveOrderProcessSnapshotDO.builder().id(routeProcessId).activeOrderId(10L)
+                .workOrderId(30L).routeId(40L).routeVersionId(41L).routeProcessId(routeProcessId).processId(processId)
                 .plannedQuantitySnapshot(BigDecimal.TEN).build();
     }
 
     private MesProcessPoolReportAllocationDO allocation() {
-        return MesProcessPoolReportAllocationDO.builder().id(201L).activeOrderId(10L).workOrderId(30L)
-                .routeProcessId(101L).processId(1L).allocatedQuantity(BigDecimal.TEN).build();
+        return allocation(201L, 101L);
+    }
+
+    private MesProcessPoolReportAllocationDO allocation(Long id, Long routeProcessId) {
+        return MesProcessPoolReportAllocationDO.builder().id(id).activeOrderId(10L).workOrderId(30L)
+                .routeProcessId(routeProcessId).processId(1L).allocatedQuantity(BigDecimal.TEN).build();
     }
 
     private MesProcessPoolOrderProcessCompletionDO completion() {
-        return MesProcessPoolOrderProcessCompletionDO.builder().id(301L).workOrderId(30L)
-                .routeProcessId(101L).processId(1L).targetQuantity(BigDecimal.TEN)
+        return completion(301L, 101L, 201L);
+    }
+
+    private MesProcessPoolOrderProcessCompletionDO completion(Long id, Long routeProcessId, Long allocationId) {
+        return MesProcessPoolOrderProcessCompletionDO.builder().id(id).workOrderId(30L)
+                .routeProcessId(routeProcessId).processId(1L).targetQuantity(BigDecimal.TEN)
                 .confirmedQuantity(BigDecimal.TEN).completionStatus("COMPLETED").lastEventId(401L)
-                .lastReviewId(601L).sourceEventIdsJson("[401]").sourceAllocationIdsJson("[201]")
+                .lastReviewId(601L).sourceEventIdsJson("[401]").sourceAllocationIdsJson("[" + allocationId + "]")
                 .aggregateHash("completion-hash").build();
     }
 
     private MesPqcInspectionTaskDO task() {
-        return MesPqcInspectionTaskDO.builder().id(701L).activeOrderId(10L).workOrderId(30L).routeId(40L)
-                .routeVersionId(41L).routeProcessId(101L).processId(1L).taskStatus("CONFIRMED").build();
+        return task(701L, 101L);
+    }
+
+    private MesPqcInspectionTaskDO task(Long id, Long routeProcessId) {
+        return MesPqcInspectionTaskDO.builder().id(id).activeOrderId(10L).workOrderId(30L).routeId(40L)
+                .routeVersionId(41L).routeProcessId(routeProcessId).processId(1L).taskStatus("CONFIRMED").build();
     }
 
     private MesPqcProcessInspectionAggregateDetailDO detail() {
-        return MesPqcProcessInspectionAggregateDetailDO.builder().id(801L).activeOrderId(10L)
-                .workOrderId(30L).routeId(40L).routeVersionId(41L).routeProcessId(101L).processId(1L)
-                .pqcTaskId(701L).build();
+        return detail(801L, 701L, 101L);
+    }
+
+    private MesPqcProcessInspectionAggregateDetailDO detail(Long id, Long taskId, Long routeProcessId) {
+        return MesPqcProcessInspectionAggregateDetailDO.builder().id(id).activeOrderId(10L)
+                .workOrderId(30L).routeId(40L).routeVersionId(41L).routeProcessId(routeProcessId).processId(1L)
+                .pqcTaskId(taskId).build();
     }
 
     private MesProWorkOrderDO workOrder() {

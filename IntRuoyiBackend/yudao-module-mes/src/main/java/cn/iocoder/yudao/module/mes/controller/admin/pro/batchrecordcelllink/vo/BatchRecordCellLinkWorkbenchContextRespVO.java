@@ -15,6 +15,8 @@ public class BatchRecordCellLinkWorkbenchContextRespVO {
     private Long batchRecordDefinitionId;
     private Long batchRecordVersionId;
     private List<BatchRecordCellLinkFormRespVO> forms;
+
+    private List<BatchRecordCellLinkPqcProcessVO> pqcProcesses;
     private List<BatchRecordCellLinkSourceFieldVO> sourceFields;
     private String defaultSourceReportId;
     private String defaultTargetReportId;

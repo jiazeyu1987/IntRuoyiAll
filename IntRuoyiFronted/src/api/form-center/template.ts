@@ -31,6 +31,32 @@ export interface FormTemplateListItemVO {
   sourceFileName?: string
 }
 
+export interface FormTemplateFillRuleCandidateVO {
+  rowIndex: number
+  columnIndex: number
+  label: string
+  valueType: 'STRING' | 'NUMBER' | 'DATE' | 'DATETIME' | 'BOOLEAN'
+  componentFlag: 'input-text' | 'input-number' | 'date' | 'datetime' | 'checkbox'
+  required: boolean
+  constraints?: Record<string, unknown>
+  unit?: string
+  placeholder?: string
+  helpText?: string
+  confidence: number
+  reason: string
+}
+
+export interface FormTemplateFillRuleAutoDetectRespVO {
+  templateId: number
+  templateName: string
+  sourceVersionNo: string
+  versionNo: string
+  targetStatus: FormTemplateStatus
+  draftCreated: boolean
+  candidateCount: number
+  candidates: FormTemplateFillRuleCandidateVO[]
+}
+
 export interface FormTemplateImportRespVO {
   templateId: number
   versionNo: string
@@ -93,6 +119,15 @@ export const saveTemplateJimuSchema = (templateId: number, versionNo: string, ji
   return request.put<boolean>({
     url: `/form-center/templates/${templateId}/versions/${versionNo}/jimu-schema`,
     data: { jimuSchema }
+  })
+}
+
+export const autoDetectTemplateFillRules = (templateId: number, versionNo: string) => {
+  return request.post<FormTemplateFillRuleAutoDetectRespVO>({
+    url: `/form-center/templates/${templateId}/versions/${versionNo}/fill-rule-auto-detect`,
+    // Codex CLI analysis is bounded by the backend's explicit 120s timeout.
+    // Keep the browser request open long enough to receive that authoritative result.
+    timeout: 180000
   })
 }
 

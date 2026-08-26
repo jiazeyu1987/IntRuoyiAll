@@ -43,6 +43,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     private MesPqcProcessInspectionAggregationService processInspectionAggregationService;
     @Mock
     private MesProBatchRecordExecutionSignatureService signatureService;
+    @Mock
+    private MesReportAllocationCommandService reportAllocationCommandService;
 
     private MesTeamLeaderSubmissionReviewService service;
 
@@ -51,6 +53,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         service = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
                 processInspectionAggregationService);
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        ReflectionTestUtils.setField(service, "reportAllocationCommandService", reportAllocationCommandService);
         lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any())).thenReturn(9101L);
     }
 
@@ -108,6 +111,20 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 ex.getCode());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
+    }
+
+    @Test
+    void shouldDelegateProductionRejectionToAllocationRollbackService() {
+        when(reportAllocationCommandService.rejectProductionSubmission(1001L, 3001L,
+                "数量错误", "review-pass")).thenReturn(7401L);
+
+        Long reviewId = service.reviewSubmission(rejectedProductionReviewReq());
+
+        assertEquals(7401L, reviewId);
+        verify(reportAllocationCommandService).rejectProductionSubmission(1001L, 3001L,
+                "数量错误", "review-pass");
+        verify(eventMapper, never()).selectByIdForUpdate(any());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
 
     @Test
@@ -232,6 +249,13 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     private static MesTeamLeaderSubmissionReviewReqBO productionReviewReq() {
         return reviewReq()
                 .setLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION);
+    }
+
+    private static MesTeamLeaderSubmissionReviewReqBO rejectedProductionReviewReq() {
+        return reviewReq()
+                .setLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .setReviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
+                .setReviewRemark("数量错误");
     }
 
     private static MesTeamLeaderSubmissionReviewReqBO rejectedReviewReq() {

@@ -65,7 +65,8 @@ class RuntimeIncidentServiceImplTest {
 
     @Test
     void closeIncidentShouldFailWhenResponsibilityGateIsMissing() {
-        RuntimeControlIncidentRespVO incident = incidentService.createIncident(createReq("ALERT", "1"), "1001");
+        RuntimeControlIncidentRespVO incident = incidentService.createIncident(
+                createReq("ALERT", "1", "unconfigured-action"), "1001");
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> incidentService.closeIncident(incident.getId(), closeReq(), "1003"));
@@ -103,9 +104,13 @@ class RuntimeIncidentServiceImplTest {
     }
 
     private RuntimeControlIncidentCreateReqVO createReq(String sourceType, String sourceId) {
+        return createReq(sourceType, sourceId, "storage-capacity-warning");
+    }
+
+    private RuntimeControlIncidentCreateReqVO createReq(String sourceType, String sourceId, String action) {
         RuntimeControlIncidentCreateReqVO reqVO = new RuntimeControlIncidentCreateReqVO();
         reqVO.setEnvironment("prod");
-        reqVO.setAction("storage-capacity-warning");
+        reqVO.setAction(action);
         reqVO.setSeverity("WARN");
         reqVO.setTitle("日志磁盘容量异常");
         reqVO.setDescription("日志目录超过阈值");

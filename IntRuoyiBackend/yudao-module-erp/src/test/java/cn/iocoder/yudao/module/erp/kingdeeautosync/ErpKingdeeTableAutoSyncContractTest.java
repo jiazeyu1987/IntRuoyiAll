@@ -165,7 +165,8 @@ class ErpKingdeeTableAutoSyncContractTest {
         String transactionService = read(ERP_MAIN.resolve(
                 "service/sync/runtime/ErpKingdeeSyncRuntimeTransactionService.java"));
 
-        assertContains(adminService, "jobService.triggerJob(job.getId(), ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM)");
+        assertContains(adminService, "TenantJobParam.forTenant");
+        assertContains(adminService, "TenantContextHolder.getRequiredTenantId()");
         assertContains(adminService, "getJobPage");
         assertFalse(adminService.contains("handler.executeFullSync()"),
                 "HTTP full-sync submission must not execute ERP work synchronously.");

@@ -359,6 +359,7 @@ const checkItems = ref<EdhrReleaseCheckItemVO[]>([])
 const eventList = ref<EdhrReleaseEventRespVO[]>([])
 const checkItemTotal = ref(0)
 const eventTotal = ref(0)
+const autoOpenedTraceKey = ref('')
 
 const queryParams = reactive<EdhrReleasePageReqVO & { pageNo: number; pageSize: number }>({
   pageNo: 1,
@@ -368,13 +369,6 @@ const queryParams = reactive<EdhrReleasePageReqVO & { pageNo: number; pageSize: 
   workOrderCode: typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : '',
   batchCode: typeof route.query.batchCode === 'string' ? route.query.batchCode : '',
   productCode: typeof route.query.productCode === 'string' ? route.query.productCode : ''
-})
-const autoOpenBatchExecutionId = computed(() => {
-  const raw = Array.isArray(route.query.autoOpenBatchExecutionId)
-    ? route.query.autoOpenBatchExecutionId[0]
-    : route.query.autoOpenBatchExecutionId
-  const value = Number(raw)
-  return Number.isFinite(value) && value > 0 ? String(value) : ''
 })
 
 const checkItemQuery = reactive<EdhrReleaseCheckItemPageReqVO>({
@@ -472,10 +466,16 @@ async function getList() {
     const data = await getEdhrReleasePage(buildQuery())
     list.value = data.list || []
     total.value = data.total || 0
-    const matchedRow = list.value.find(
-      (row) => String(row.batchExecutionId) === autoOpenBatchExecutionId.value
-    )
-    if (matchedRow) openBatchTrace(matchedRow)
+    const requestedBatchExecutionId = String(route.query.autoOpenBatchExecutionId || '').trim()
+    if (requestedBatchExecutionId && autoOpenedTraceKey.value !== requestedBatchExecutionId) {
+      const matchedRow = list.value.find(
+        (row) => String(row.batchExecutionId) === requestedBatchExecutionId
+      )
+      if (matchedRow) {
+        autoOpenedTraceKey.value = requestedBatchExecutionId
+        openBatchTrace(matchedRow)
+      }
+    }
   } catch (error) {
     list.value = []
     total.value = 0

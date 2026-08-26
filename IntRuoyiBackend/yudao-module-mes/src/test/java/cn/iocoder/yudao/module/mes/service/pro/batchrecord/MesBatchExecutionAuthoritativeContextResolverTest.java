@@ -9,13 +9,10 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
 
 class MesBatchExecutionAuthoritativeContextResolverTest {
 
@@ -42,12 +39,7 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
 
     @Test
     void activeEntryUsesFlow4AuthoritativeReceiptAndBlocksTamperedClientContext() {
-        MesFlow6CompletionBackfillReceipt receipt = new MesFlow6CompletionBackfillReceipt()
-                .setReceiptId(77L).setTenantId(1L).setActiveOrderId(10L).setWorkOrderId(20L)
-                .setBatchCode("B-77").setRouteId(30L).setRouteVersionId(31L)
-                .setRequestIdempotencyKey("idem-77").setSourceSnapshotHash("source-77")
-                .setCompletionVersion(2).setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
-                .setCreatedAt(LocalDateTime.now()).setReceiptHash("receipt-hash").setHasActualLoss(false);
+        MesFlow6CompletionBackfillReceipt receipt = validActiveReceipt(77L, 10L, 20L, "B-77", "source-77");
         when(completionPort.getByReceiptId(77L, 1L)).thenReturn(receipt);
         when(pickListBindingMapper.selectByActiveOrderId(10L)).thenReturn(binding(10L, 20L));
         MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
@@ -62,14 +54,7 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
 
     @Test
     void activeEntryCarriesFlow1PickListSnapshotIntoCanonicalCommand() {
-        MesFlow6CompletionBackfillReceipt receipt = new MesFlow6CompletionBackfillReceipt()
-                .setReceiptId(78L).setTenantId(1L).setActiveOrderId(11L).setWorkOrderId(21L)
-                .setBatchCode("B-78").setRouteId(30L).setRouteVersionId(31L)
-                .setRequestIdempotencyKey("idem-78").setSourceSnapshotHash("source-78")
-                .setCompletionVersion(1).setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
-                .setReceiptHash("receipt-78").setHasActualLoss(false)
-                .setLossQuantity(java.math.BigDecimal.ZERO).setLossReportStatus("NO_LOSS")
-                .setZeroLossConfirmationSnapshot("zero-loss-78");
+        MesFlow6CompletionBackfillReceipt receipt = validActiveReceipt(78L, 11L, 21L, "B-78", "source-78");
         MesProcessPoolActiveOrderPickListBindingDO binding = binding(11L, 21L)
                 .setId(8802L).setPickListId(9902L).setSourceSnapshotHash("pick-source-78");
         when(completionPort.getByReceiptId(78L, 1L)).thenReturn(receipt);
@@ -88,14 +73,7 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
 
     @Test
     void activeEntryWithoutFormalFlow1BindingIsBlocked() {
-        MesFlow6CompletionBackfillReceipt receipt = new MesFlow6CompletionBackfillReceipt()
-                .setReceiptId(79L).setTenantId(1L).setActiveOrderId(12L).setWorkOrderId(22L)
-                .setBatchCode("B-79").setRouteId(30L).setRouteVersionId(31L)
-                .setRequestIdempotencyKey("idem-79").setSourceSnapshotHash("source-79")
-                .setCompletionVersion(1).setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
-                .setReceiptHash("receipt-79").setHasActualLoss(false)
-                .setLossQuantity(java.math.BigDecimal.ZERO).setLossReportStatus("NO_LOSS")
-                .setZeroLossConfirmationSnapshot("zero-loss-79");
+        MesFlow6CompletionBackfillReceipt receipt = validActiveReceipt(79L, 12L, 22L, "B-79", "source-79");
         when(completionPort.getByReceiptId(79L, 1L)).thenReturn(receipt);
         when(pickListBindingMapper.selectByActiveOrderId(12L)).thenReturn(null);
 
@@ -109,25 +87,17 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
 
     @Test
     void everyActiveEntryTypeUsesFlow4ReceiptPort() {
-        MesFlow6CompletionBackfillReceipt receipt = new MesFlow6CompletionBackfillReceipt()
-                .setReceiptId(77L).setTenantId(1L).setActiveOrderId(10L).setWorkOrderId(20L)
-                .setBatchCode("B-77").setRouteId(30L).setRouteVersionId(31L)
-                .setRequestIdempotencyKey("idem-77").setSourceSnapshotHash("source-77")
-                .setCompletionVersion(2).setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
-                .setReceiptHash("receipt-hash").setHasActualLoss(false)
-                .setLossQuantity(java.math.BigDecimal.ZERO).setLossReportStatus("NO_LOSS")
-                .setZeroLossConfirmationSnapshot("zero-loss-confirmed");
+        MesFlow6CompletionBackfillReceipt receipt = validActiveReceipt(77L, 10L, 20L, "B-77", "source-77");
         when(completionPort.getByReceiptId(77L, 1L)).thenReturn(receipt);
         when(pickListBindingMapper.selectByActiveOrderId(10L)).thenReturn(binding(10L, 20L));
         for (String entryType : java.util.List.of("ACTIVE_ORDER_COMPLETION", "ACTIVE_ORDER_SCHEDULED",
                 "ACTIVE_ORDER_PQC", "MANUAL_CONTROLLED_RETRY")) {
-            MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
+            resolver.resolve(new MesBatchExecutionProvisionCommand()
                     .setEntryType(entryType).setEntryBusinessId(entryType)
                     .setSourceCredentialId("77").setSourceCredentialType("CompletionBackfillReceipt")
-                    .setSourceSnapshotHash("source-77");
-            resolver.resolve(request, 1L);
+                    .setSourceSnapshotHash("source-77"), 1L);
         }
-        verify(completionPort, org.mockito.Mockito.times(4)).getByReceiptId(77L, 1L);
+        verify(completionPort, times(4)).getByReceiptId(77L, 1L);
     }
 
     @Test
@@ -145,8 +115,7 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
     @Test
     void independentEntryUsesFlow9VerifiedReceiptAsCanonicalSource() {
         MesIndependentBatchPrerequisiteReceipt verified = independentReceipt();
-        when(independentService.verify(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(1L)))
-                .thenReturn(verified);
+        when(independentService.verify(any(), eq(1L))).thenReturn(verified);
         MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
                 .setEntryType("MANUAL").setEntryBusinessId("manual-1")
                 .setSourceCredentialType("IndependentBatchPrerequisiteReceipt")
@@ -156,16 +125,14 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
 
         assertEquals("B-20", resolved.getProvisionCommand().getBatchCode());
         assertEquals(verified, resolved.getProvisionCommand().getIndependentReceipt());
-        verify(independentService).verify(org.mockito.ArgumentMatchers.argThat(command ->
-                        "ind-1".equals(command.getReceiptId()) && "MANUAL".equals(command.getEntryType())),
-                org.mockito.ArgumentMatchers.eq(1L));
+        verify(independentService).verify(argThat(command ->
+                        "ind-1".equals(command.getReceiptId()) && "MANUAL".equals(command.getEntryType())), eq(1L));
     }
 
     @Test
     void independentEntryBlocksCrossTenantVerifiedReceipt() {
         MesIndependentBatchPrerequisiteReceipt receipt = independentReceipt().setTenantId(2L);
-        when(independentService.verify(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(1L)))
-                .thenReturn(receipt);
+        when(independentService.verify(any(), eq(1L))).thenReturn(receipt);
         MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
                 .setEntryType("MANUAL").setEntryBusinessId("manual-1")
                 .setSourceCredentialId("ind-1").setSourceSnapshotHash("source-1");
@@ -177,15 +144,26 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
     void everyIndependentEntryTypeUsesFlow9VerifiedService() {
         for (String entryType : java.util.List.of("MANUAL", "SCHEDULED", "PQC_INDEPENDENT")) {
             MesIndependentBatchPrerequisiteReceipt verified = independentReceipt().setEntryType(entryType);
-            when(independentService.verify(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(1L)))
-                    .thenReturn(verified);
-            MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
+            when(independentService.verify(any(), eq(1L))).thenReturn(verified);
+            resolver.resolve(new MesBatchExecutionProvisionCommand()
                     .setEntryType(entryType).setEntryBusinessId(entryType)
-                    .setSourceCredentialId("ind-1").setSourceSnapshotHash("source-1");
-            resolver.resolve(request, 1L);
+                    .setSourceCredentialId("ind-1").setSourceSnapshotHash("source-1"), 1L);
         }
-        verify(independentService, org.mockito.Mockito.times(3)).verify(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(1L));
+        verify(independentService, times(3)).verify(any(), eq(1L));
+    }
+
+    private MesFlow6CompletionBackfillReceipt validActiveReceipt(Long receiptId, Long activeOrderId,
+                                                                  Long workOrderId, String batchCode,
+                                                                  String sourceHash) {
+        return new MesFlow6CompletionBackfillReceipt()
+                .setReceiptId(receiptId).setTenantId(1L).setActiveOrderId(activeOrderId).setWorkOrderId(workOrderId)
+                .setBatchCode(batchCode).setRouteId(30L).setRouteVersionId(31L)
+                .setRequestIdempotencyKey("idem-" + receiptId).setSourceSnapshotHash(sourceHash)
+                .setCompletionVersion(1).setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
+                .setReceiptHash("receipt-" + receiptId).setHasActualLoss(false)
+                .setLossQuantity(java.math.BigDecimal.ZERO)
+                .setLossReportStatus("NOT_REQUIRED")
+                .setZeroLossConfirmationSnapshot("zero-loss-" + receiptId);
     }
 
     private MesIndependentBatchPrerequisiteReceipt independentReceipt() {

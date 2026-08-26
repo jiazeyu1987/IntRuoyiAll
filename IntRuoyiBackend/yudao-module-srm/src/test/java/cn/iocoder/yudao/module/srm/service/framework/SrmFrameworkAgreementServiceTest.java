@@ -13,15 +13,19 @@ import cn.iocoder.yudao.module.srm.controller.admin.supplieraccess.vo.SrmSupplie
 import cn.iocoder.yudao.module.srm.dal.dataobject.framework.SrmFrameworkAgreementDO;
 import cn.iocoder.yudao.module.srm.dal.dataobject.framework.SrmFrameworkAgreementLineDO;
 import cn.iocoder.yudao.module.srm.dal.dataobject.supplier.SrmErpSupplierDO;
+import cn.iocoder.yudao.module.srm.dal.dataobject.supplier.SrmSupplierPortalApplicationDO;
 import cn.iocoder.yudao.module.srm.dal.mysql.framework.SrmFrameworkAgreementLineMapper;
 import cn.iocoder.yudao.module.srm.dal.mysql.framework.SrmFrameworkAgreementMapper;
 import cn.iocoder.yudao.module.srm.dal.mysql.supplier.SrmErpSupplierMapper;
+import cn.iocoder.yudao.module.srm.dal.mysql.supplier.SrmSupplierPortalApplicationMapper;
 import cn.iocoder.yudao.module.srm.enums.coderule.SrmCodeRuleTargetFormEnum;
 import cn.iocoder.yudao.module.srm.enums.framework.SrmFrameworkAgreementStatusEnum;
 import cn.iocoder.yudao.module.srm.enums.framework.SrmFrameworkPlanStatusEnum;
 import cn.iocoder.yudao.module.srm.enums.procurement.SrmProcurementMethodEnum;
+import cn.iocoder.yudao.module.srm.enums.supplier.SrmSupplierPortalApplicationStatusEnum;
 import cn.iocoder.yudao.module.srm.service.coderule.SrmCodeRuleServiceImpl;
 import cn.iocoder.yudao.module.srm.service.supplier.SrmSupplierAccessRiskServiceImpl;
+import cn.iocoder.yudao.module.srm.service.supplier.SrmSupplierPortalApplicationServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
@@ -34,7 +38,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mockStatic;
 
-@Import({SrmCodeRuleServiceImpl.class, SrmSupplierAccessRiskServiceImpl.class, SrmFrameworkAgreementServiceImpl.class})
+@Import({SrmCodeRuleServiceImpl.class, SrmSupplierAccessRiskServiceImpl.class,
+        SrmSupplierPortalApplicationServiceImpl.class, SrmFrameworkAgreementServiceImpl.class})
 class SrmFrameworkAgreementServiceTest extends BaseDbUnitTest {
 
     @Resource
@@ -45,6 +50,8 @@ class SrmFrameworkAgreementServiceTest extends BaseDbUnitTest {
     private SrmFrameworkAgreementServiceImpl frameworkAgreementService;
     @Resource
     private SrmErpSupplierMapper erpSupplierMapper;
+    @Resource
+    private SrmSupplierPortalApplicationMapper supplierPortalApplicationMapper;
     @Resource
     private SrmFrameworkAgreementMapper frameworkAgreementMapper;
     @Resource
@@ -144,6 +151,7 @@ class SrmFrameworkAgreementServiceTest extends BaseDbUnitTest {
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .tenantId(1L)
                 .build());
+        insertApprovedPortalApplication(supplierId, supplierId, supplierName + "-portal");
         Long accessId;
         try (MockedStatic<SecurityFrameworkUtils> ignored = mockLoginUser(10L, "supplier-owner")) {
             SrmSupplierAccessSaveReqVO reqVO = new SrmSupplierAccessSaveReqVO();
@@ -151,12 +159,49 @@ class SrmFrameworkAgreementServiceTest extends BaseDbUnitTest {
             reqVO.setAccessRemark("框架供应商准入");
             accessId = supplierAccessRiskService.createSupplierAccess(reqVO);
         }
+        try (MockedStatic<SecurityFrameworkUtils> ignored = mockLoginUser(12L, "sample-auditor")) {
+            SrmSupplierAccessAuditReqVO reqVO = new SrmSupplierAccessAuditReqVO();
+            reqVO.setId(accessId);
+            reqVO.setAuditRemark("样品测试通过");
+            supplierAccessRiskService.approveSampleTest(reqVO);
+        }
+        try (MockedStatic<SecurityFrameworkUtils> ignored = mockLoginUser(13L, "trial-auditor")) {
+            SrmSupplierAccessAuditReqVO reqVO = new SrmSupplierAccessAuditReqVO();
+            reqVO.setId(accessId);
+            reqVO.setAuditRemark("小批试用通过");
+            supplierAccessRiskService.approveTrialOrder(reqVO);
+        }
         try (MockedStatic<SecurityFrameworkUtils> ignored = mockLoginUser(11L, "supplier-auditor")) {
             SrmSupplierAccessAuditReqVO reqVO = new SrmSupplierAccessAuditReqVO();
             reqVO.setId(accessId);
             reqVO.setAuditRemark("准入通过");
             supplierAccessRiskService.approveSupplierAccess(reqVO);
         }
+    }
+
+    private void insertApprovedPortalApplication(Long supplierId, Long userId, String submitterName) {
+        supplierPortalApplicationMapper.insert(SrmSupplierPortalApplicationDO.builder()
+                .tenantId(1L)
+                .userId(userId)
+                .supplierId(supplierId)
+                .companyName("门户申请-" + supplierId)
+                .unifiedSocialCreditCode("USCC-" + supplierId)
+                .contactName("联系人-" + supplierId)
+                .contactPhone("1380013" + String.format("%04d", supplierId % 10000))
+                .contactEmail("portal" + supplierId + "@example.com")
+                .qualificationAttachmentUrls("http://files.local/" + supplierId + ".pdf")
+                .qualificationExpireDate(LocalDate.now().plusDays(60))
+                .bankName("招商银行")
+                .bankAccount("622202" + supplierId)
+                .bankAddress("深圳")
+                .applicationStatus(SrmSupplierPortalApplicationStatusEnum.APPROVED.getStatus())
+                .submitterName(submitterName)
+                .submittedTime(java.time.LocalDateTime.now().minusDays(1))
+                .auditBy(99L)
+                .auditName("portal-auditor")
+                .auditTime(java.time.LocalDateTime.now())
+                .auditRemark("通过")
+                .build());
     }
 
     private void seedFrameworkCodeRules() {

@@ -131,7 +131,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         "material.3201.lotNumber", "手柄（MAT-001）- 物料批次号", "STRING", 5001L)));
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null);
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null, null);
 
         assertEquals(1, result.getSourceFields().stream()
                 .filter(field -> "PRODUCTION_PICK_LIST".equals(field.getSourceType()))
@@ -151,8 +151,10 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, 2001L, 3001L,
-                        null, null, null, 5001L);
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L);
 
+        assertEquals(1, result.getPqcProcesses().size());
+        assertEquals(8001L, result.getPqcProcesses().get(0).getId());
         assertPqcSourceField(result, "FIRST|LEAK|1|measuredValue",
                 "首检 / 泄漏测试 / 第1件 / 实测值", "STRING", 5001L);
         assertPqcSourceField(result, "FIRST|LEAK|1|selectedEquipmentName",
@@ -172,7 +174,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, 2001L, 3001L,
-                        "PQC_AGGREGATE_DETAIL", null, null, 5001L);
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L);
 
         assertEquals("PQC_AGGREGATE_DETAIL", result.getDefaultSourceReportId());
         assertEquals("process-inspection-report", result.getDefaultTargetReportId());
@@ -198,7 +200,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, null, null,
-                        "PQC_AGGREGATE_DETAIL", null, null, 5001L);
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L);
 
         assertEquals("ROUTE_VERSION", result.getScopeType());
         assertEquals(3001L, result.getScopeId());
@@ -219,7 +221,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, 2001L, 3001L,
-                        "PQC_AGGREGATE_DETAIL", null, null, 5001L);
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L);
 
         assertEquals("ROUTE_VERSION", result.getScopeType());
         assertEquals(3001L, result.getScopeId());
@@ -242,7 +244,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER)));
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null);
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null, null);
 
         assertProcessPoolSourceField(result, "allocatedQuantity", "放行分配数量", "NUMBER", null);
         assertProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工", "NUMBER", null);
@@ -293,7 +295,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER)));
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null);
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null, null);
 
         assertEquals(5001L, result.getForms().get(0).getRouteProcessId());
         assertProcessPoolSourceField(result, "outputQuantity", "本次报工产出数量", "NUMBER", null);
@@ -352,6 +354,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         .setSourceRowIndex(-1)
                         .setSourceColumnIndex(-1)
                         .setSourceFieldCode("FIRST|LEAK|1|measuredValue")
+                        .setSourceCellKey("QA_PROCESS:8001|FIRST|LEAK|1|measuredValue")
                         .setTargetReportId("process-inspection-report")
                         .setTargetRowIndex(1)
                         .setTargetColumnIndex(2))));
@@ -363,13 +366,14 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals("PQC_AGGREGATE_DETAIL", row.getSourceType());
         assertEquals("PQC_AGGREGATE_DETAIL", row.getSourceReportId());
         assertEquals("FIRST|LEAK|1|measuredValue", row.getSourceFieldCode());
+        assertEquals("QA_PROCESS:8001|FIRST|LEAK|1|measuredValue", row.getSourceCellKey());
         assertEquals("首检 / 泄漏测试 / 第1件 / 实测值", row.getSourceFieldName());
         assertEquals("process-inspection-report", row.getTargetReportId());
         assertEquals("1:2", row.getTargetCellKey());
     }
 
     @Test
-    void saveRules_rejectsPqcAggregateFieldFromAnotherRouteProcess() {
+    void saveRules_rejectsPqcAggregateFieldWithoutCurrentQaProcessAssociation() {
         stubSharedProcessInspectionSaveContext();
         stubPublishedQaForRouteProcess(5001L, 8001L, "FIRST", "LEAK", "泄漏测试");
 
@@ -378,7 +382,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         .setScopeType("ROUTE_VERSION")
                         .setScopeId(3001L)
                         .setRouteId(9001L)
-                        .setRouteProcessId(5002L)
+                        .setRouteProcessId(5001L)
                         .setBatchRecordDefinitionId(2001L)
                         .setBatchRecordVersionId(3001L)
                         .setRules(List.of(new BatchRecordCellLinkRuleSaveItemReqVO()
@@ -387,12 +391,13 @@ class MesProBatchRecordCellLinkServiceImplTest {
                                 .setSourceRowIndex(-1)
                                 .setSourceColumnIndex(-1)
                                 .setSourceFieldCode("FIRST|LEAK|1|measuredValue")
+                                .setSourceCellKey("QA_PROCESS:9999|FIRST|LEAK|1|measuredValue")
                                 .setTargetReportId("process-inspection-report")
                                 .setTargetRowIndex(1)
                                 .setTargetColumnIndex(2)))));
 
         assertEquals(
-                MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED.getCode(),
+                MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_PROCESS_MISSING.getCode(),
                 error.getCode());
         verify(ruleMapper, never()).deleteByScope("ROUTE_VERSION", 3001L);
     }
@@ -499,7 +504,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
         when(ruleMapper.selectListByScope("FORM_TEMPLATE_VERSION", 7001L)).thenReturn(List.of());
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(null, null, null, null, 1001L, "V3.0", null);
+                service.getWorkbenchContext(null, null, null, null, 1001L, "V3.0", null, null);
 
         assertEquals("FORM_TEMPLATE_VERSION", result.getScopeType());
         assertEquals(7001L, result.getScopeId());
@@ -518,13 +523,31 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, null, null,
-                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5001L);
+                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5001L, 8001L);
 
         assertEquals("FORM_TEMPLATE_VERSION", result.getScopeType());
         assertEquals("PQC_AGGREGATE_DETAIL", result.getDefaultSourceReportId());
         assertEquals("FORMTPL:7001", result.getDefaultTargetReportId());
         assertPqcSourceField(result, "FIRST|LEAK|1|measuredValue",
                 "首检 / 泄漏测试 / 第1件 / 实测值", "STRING", 5001L);
+    }
+
+    @Test
+    void getWorkbenchContext_rejectsPqcWhenDccProjectHasNoPublishedQaCatalog() {
+        MesProBatchRecordReportDO sharedProcessInspectionReport =
+                report("process-inspection-report", "球囊扩张压力泵过程检验记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L))
+                .thenReturn(List.of(sharedProcessInspectionReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        when(routeDccProjectBindingMapper.selectCurrentByRouteId(9001L)).thenReturn(null);
+
+        ServiceException error = assertThrows(ServiceException.class, () ->
+                service.getWorkbenchContext(9001L, 2001L, 3001L,
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, null));
+
+        assertEquals(
+                MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_CATALOG_MISSING.getCode(),
+                error.getCode());
     }
 
     @Test
@@ -546,7 +569,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, null, null,
-                        "PQC_AGGREGATE_DETAIL", null, null, 5001L);
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L);
 
         assertEquals("FORM_TEMPLATE_VERSION", result.getScopeType());
         assertEquals(7001L, result.getScopeId());
@@ -567,7 +590,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, null, null,
-                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5002L);
+                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5002L, 8102L);
 
         assertPqcSourceField(result, "FIRST|FINE-CLEAN|1|measuredValue",
                 "首检 / 精洗外观 / 第1件 / 实测值", "STRING", 5002L);
@@ -584,7 +607,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, null, null,
-                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5006L);
+                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5006L, 8106L);
 
         assertPqcSourceField(result, "FIRST|LIGHT-CURE|1|measuredValue",
                 "首检 / 光固强度 / 第1件 / 实测值", "STRING", 5006L);
@@ -722,6 +745,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         .setSourceRowIndex(-1)
                         .setSourceColumnIndex(-1)
                         .setSourceFieldCode("FIRST|LEAK|1|measuredValue")
+                        .setSourceCellKey("QA_PROCESS:8001|FIRST|LEAK|1|measuredValue")
                         .setTargetReportId("FORMTPL:32")
                         .setTargetRowIndex(3)
                         .setTargetColumnIndex(1))));
@@ -735,7 +759,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals(5001L, row.getRouteProcessId());
         assertEquals("PQC_AGGREGATE_DETAIL", row.getSourceType());
         assertEquals("PQC_AGGREGATE_DETAIL", row.getSourceReportId());
-        assertEquals("FIRST|LEAK|1|measuredValue", row.getSourceCellKey());
+        assertEquals("QA_PROCESS:8001|FIRST|LEAK|1|measuredValue", row.getSourceCellKey());
         assertEquals("FIRST|LEAK|1|measuredValue", row.getSourceFieldCode());
         assertEquals("首检 / 泄漏测试 / 第1件 / 实测值", row.getSourceFieldName());
         assertEquals("FORMTPL:32", row.getTargetReportId());
@@ -1187,22 +1211,19 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
     private void stubPublishedQaForRouteProcess(Long routeProcessId, Long routeVersionId, Long versionId,
                                                 String inspectionType, String itemCode, String itemName) {
-        lenient().when(routeVersionMapper.selectActiveByRouteId(9001L)).thenReturn(
-                MesProRouteVersionDO.builder()
-                        .id(routeVersionId)
+        lenient().when(routeDccProjectBindingMapper.selectCurrentByRouteId(9001L)).thenReturn(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
                         .routeId(9001L)
-                        .active(true)
-                        .lifecycleStatus("ACTIVE")
+                        .dccProjectCodeId(147L)
                         .build());
-        lenient().when(qaRegulationMapper.selectList(any())).thenReturn(List.of(
+        lenient().when(qaRegulationMapper.selectByDccProjectCodeId(147L)).thenReturn(
                 MesQaInspectionRegulationDO.builder()
                         .id(7001L)
-                        .routeId(9001L)
-                        .routeVersionId(routeVersionId)
-                        .routeProcessId(routeProcessId)
+                        .dccProjectCodeId(147L)
                         .lifecycleStatus("PUBLISHED")
                         .currentVersionId(versionId)
-                        .build()));
+                        .build());
         lenient().when(qaRegulationVersionMapper.selectById(versionId)).thenReturn(
                 MesQaInspectionRegulationVersionDO.builder()
                         .id(versionId)
@@ -1210,10 +1231,19 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         .versionNo("V1")
                         .lifecycleStatus("PUBLISHED")
                         .build());
+        Long qaProcessId = 8001L;
+        lenient().when(qaRegulationProcessMapper.selectListByVersionId(versionId)).thenReturn(List.of(
+                MesQaInspectionRegulationProcessDO.builder()
+                        .id(qaProcessId)
+                        .regulationVersionId(versionId)
+                        .processCode("QA-" + routeProcessId)
+                        .processName("QA工序-" + routeProcessId)
+                        .build()));
         lenient().when(qaRegulationItemMapper.selectListByVersionId(versionId)).thenReturn(List.of(
                 MesQaInspectionRegulationItemDO.builder()
                         .id(9001L)
                         .regulationVersionId(versionId)
+                        .qaProcessId(qaProcessId)
                         .inspectionType(inspectionType)
                         .itemCode(itemCode)
                         .itemName(itemName)

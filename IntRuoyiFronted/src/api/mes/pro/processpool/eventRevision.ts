@@ -58,7 +58,6 @@ export interface ProcessPoolPqcInspectionCorrectionReqVO {
   eventId: number
   actualInspectionQuantity: number
   scrapQuantity: number
-  nonconformanceDescription?: string
   itemResults: ProcessPoolPqcInspectionCorrectionItemReqVO[]
   changeReason: string
   signaturePassword: string

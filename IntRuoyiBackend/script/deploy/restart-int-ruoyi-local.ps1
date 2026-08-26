@@ -1064,6 +1064,7 @@ function Start-Backend {
     foreach ($requiredEnv in $RequiredDccDownloadEncryptionEnv) {
         Require-EnvironmentVariable $requiredEnv
     }
+    $DccDownloadEncryptionArtifactDirectory = [Environment]::GetEnvironmentVariable('DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY')
     if (-not (Test-Path -LiteralPath (Join-Path $BackendDir 'pom.xml'))) {
         Fail "Missing backend workspace: $BackendDir"
     }
@@ -1116,6 +1117,7 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
   "--spring.datasource.dynamic.datasource.slave.password=123456"
   "--spring.data.redis.host=$LocalDockerRuntimeHost"
   "--spring.data.redis.port=26379"
+  "--yudao.dcc.download.encryption.artifact-directory=$DccDownloadEncryptionArtifactDirectory"
   "--logging.file.name=$backendLogFile"
   "--yudao.runtime-control.repo-root=$RepoRoot"
   "--yudao.runtime-control.state-dir=$RuntimeControlStateDir"

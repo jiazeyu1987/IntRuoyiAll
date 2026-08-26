@@ -18,6 +18,12 @@ assert.match(qaPage, /DvMachineryApi|getMachineryPage/)
 assert.match(qaPage, /equipmentOptions[\s\S]*equipmentId[\s\S]*equipmentCode[\s\S]*equipmentNumber/)
 assert.match(qaApi, /equipmentOptions: QaInspectionRegulationItemEquipmentVO\[\]/)
 assert.match(qaApi, /interface QaInspectionRegulationItemEquipmentVO[\s\S]*equipmentId: number[\s\S]*equipmentNumber: string/)
+assert.match(qaApi, /type QaInspectionRegulationSaveItemVO = Omit</)
+const saveItemTypeBlock = qaApi.slice(
+  qaApi.indexOf('export type QaInspectionRegulationSaveItemVO'),
+  qaApi.indexOf('export interface QaInspectionRegulationSaveRespVO')
+)
+assert.doesNotMatch(saveItemTypeBlock, /equipmentOptions\s*:/)
 assert.match(qaApi, /processes: QaInspectionRegulationProcessVO\[\]/)
 
 const frontlineEquipmentBlock = frontlinePanel.slice(

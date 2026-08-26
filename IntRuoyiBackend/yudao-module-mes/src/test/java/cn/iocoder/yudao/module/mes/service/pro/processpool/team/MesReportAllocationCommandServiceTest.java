@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationStateMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -57,6 +59,7 @@ class MesReportAllocationCommandServiceTest {
     @Mock private MesTeamLeaderOrderProcessCompletionService completionService;
     @Mock private MesProductionReportManagementSummaryService reportManagementSummaryService;
     @Mock private MesTeamLeaderOverageLimitService overageLimitService;
+    @Mock private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesReportAllocationCommandService service;
 
@@ -66,6 +69,9 @@ class MesReportAllocationCommandServiceTest {
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
                 completionService, reportManagementSummaryService, overageLimitService);
+        ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        org.mockito.Mockito.lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any()))
+                .thenReturn(9901L);
         org.mockito.Mockito.lenient().when(routeStartAuthorizationService.listAuthorizedRouteProcesses(3001L)).thenReturn(List.of(
                 MesProRouteProcessDO.builder().id(5001L).processId(6001L).build()));
     }
@@ -495,6 +501,136 @@ class MesReportAllocationCommandServiceTest {
                         .allocatedQuantity(new BigDecimal("50")).build()))));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED.getCode(), ex.getCode());
+    }
+
+    @Test
+    void shouldRejectUnreleasedProductionSubmissionAndRebuildDerivedFacts() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO current = allocation(7101L, 8101L, 9001L, 5101L, "100");
+        MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
+                .id(7201L).eventId(1001L).currentVersion(1).build();
+        MesProcessPoolSubmissionReviewDO approved = MesProcessPoolSubmissionReviewDO.builder()
+                .id(7301L).eventId(1001L).leaderType("PRODUCTION")
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED).build();
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(current));
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(approved);
+        when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
+        when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
+        when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
+        when(reviewMapper.deleteById(7301L)).thenReturn(1);
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7401L);
+            return 1;
+        });
+        when(stateMapper.updateById(state)).thenReturn(1);
+
+        Long reviewId = service.rejectProductionSubmission(1001L, 3001L, "数量与现场不符", "reject-pass");
+
+        assertEquals(7401L, reviewId);
+        verify(quantityFragmentService).rebuildForVersion(event, 2, List.of());
+        verify(completionService).reconcileAffectedAllocations(event, List.of(current));
+        verify(reportManagementSummaryService).refreshProductionEvent(event);
+        ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
+        verify(reviewMapper).insert(reviewCaptor.capture());
+        assertEquals(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED, reviewCaptor.getValue().getReviewStatus());
+        assertEquals("数量与现场不符", reviewCaptor.getValue().getReviewRemark());
+    }
+
+    @Test
+    void shouldRejectProductionSubmissionBeforeWritingWhenAnyAllocationWasReleased() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO current = allocation(7101L, 8101L, 9001L, 5101L, "100");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(
+                MesProcessPoolReportAllocationStateDO.builder().id(7201L).eventId(1001L).currentVersion(1).build());
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(current));
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(
+                MesProcessPoolSubmissionReviewDO.builder().id(7301L).eventId(1001L)
+                        .leaderType("PRODUCTION").reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED).build());
+        when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of(8101L));
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.rejectProductionSubmission(1001L, 3001L, "不合格", "reject-pass"));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED.getCode(), ex.getCode());
+        verify(allocationMapper, never()).supersedeCurrentRows(anyCollection(), any());
+        verify(quantityFragmentService, never()).rebuildForVersion(any(), any(), anyCollection());
+        verify(reviewMapper, never()).deleteById(any());
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
+    }
+
+    @Test
+    void shouldReplaySameProductionRejectionWithoutNewWrites() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolSubmissionReviewDO rejected = MesProcessPoolSubmissionReviewDO.builder()
+                .id(7401L).eventId(1001L).leaderUserId(3001L).leaderType("PRODUCTION")
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
+                .reviewRemark("不合格").build();
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(
+                MesProcessPoolReportAllocationStateDO.builder().id(7201L).eventId(1001L).currentVersion(2).build());
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejected);
+
+        Long reviewId = service.rejectProductionSubmission(1001L, 3001L, "不合格", "reject-pass");
+
+        assertEquals(7401L, reviewId);
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any());
+        verify(quantityFragmentService, never()).rebuildForVersion(any(), any(), anyCollection());
+        verify(stateMapper, never()).updateById(any(MesProcessPoolReportAllocationStateDO.class));
+    }
+
+    @Test
+    void shouldRepairResidualCurrentAllocationWhenRejectedRequestWasProcessedByOldRuntime() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO current = allocation(7101L, 8101L, 9001L, 5101L, "9111");
+        MesProcessPoolReportAllocationStateDO state = MesProcessPoolReportAllocationStateDO.builder()
+                .id(7201L).eventId(1001L).currentVersion(1).build();
+        MesProcessPoolSubmissionReviewDO rejected = MesProcessPoolSubmissionReviewDO.builder()
+                .id(7401L).eventId(1001L).leaderUserId(3001L).leaderType("PRODUCTION")
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
+                .reviewRemark("不合格").build();
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(current));
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(rejected);
+        when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());
+        when(allocationMapper.supersedeCurrentRows(List.of(7101L), 2)).thenReturn(1);
+        when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
+        when(reviewMapper.deleteById(7401L)).thenReturn(1);
+        when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7402L);
+            return 1;
+        });
+        when(stateMapper.updateById(state)).thenReturn(1);
+
+        Long reviewId = service.rejectProductionSubmission(1001L, 3001L, "不合格", "reject-pass");
+
+        assertEquals(7402L, reviewId);
+        verify(allocationMapper).supersedeCurrentRows(List.of(7101L), 2);
+        verify(quantityFragmentService).rebuildForVersion(event, 2, List.of());
+        verify(completionService).reconcileAffectedAllocations(event, List.of(current));
+        verify(reportManagementSummaryService).refreshProductionEvent(event);
+    }
+
+    @Test
+    void shouldBlockAllocationAfterProductionSubmissionWasRejected() {
+        MesProProcessPoolEventDO event = event();
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(
+                MesProcessPoolSubmissionReviewDO.builder().id(7401L).eventId(1001L)
+                        .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED).build());
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.save(saveCommand(1, List.of())));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS.getCode(), ex.getCode());
+        verify(stateMapper, never()).selectByEventIdForUpdate(any());
+        verify(allocationMapper, never()).supersedeCurrentRows(anyCollection(), any());
     }
 
     private static MesReportAllocationSaveCommand saveCommand(Integer version,

@@ -35,7 +35,6 @@ const requiredSubmissionColumns = [
   ['deviceParameterReadings', 280],
   ['approvedBy', 140],
   ['approvedAt', 160],
-  ['defectDescription', 180]
 ]
 
 const submissionTableMarker = 'data-user-table-column-explicit'

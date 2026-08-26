@@ -13,4 +13,5 @@ public class BatchRecordCellLinkSourceFieldVO {
     private String fieldName;
     private String valueType;
     private Long routeProcessId;
+    private Long qaProcessId;
 }

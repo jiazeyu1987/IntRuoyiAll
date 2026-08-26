@@ -23,6 +23,12 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
     @Update("UPDATE mes_pro_edhr_batch_execution SET active_context_key = NULL WHERE id = #{id}")
     void clearActiveContextKey(@Param("id") Long id);
 
+    @Update("UPDATE mes_pro_edhr_batch_execution SET provisioning_status = #{status} "
+            + "WHERE tenant_id = #{tenantId} AND id = #{id}")
+    int updateProvisioningStatus(@Param("tenantId") Long tenantId,
+                                 @Param("id") Long id,
+                                 @Param("status") String status);
+
     default MesProEdhrBatchExecutionDO selectByActiveContextKey(String activeContextKey) {
         if (activeContextKey == null || activeContextKey.isBlank()) {
             return null;

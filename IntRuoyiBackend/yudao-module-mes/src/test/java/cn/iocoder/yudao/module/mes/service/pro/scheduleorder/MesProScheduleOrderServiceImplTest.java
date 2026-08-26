@@ -92,9 +92,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_BATCH_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_PRIORITY_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_PROCESS_WIP_CALENDAR_RULE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_PROCESS_WIP_NOT_EXISTS;
@@ -2973,6 +2975,98 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
+    void createFromWorkOrder_shouldAcceptValidMultipleStartAndMergeFlowGraph() {
+        MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
+                .id(120L)
+                .code("ERP-MO-MULTI-START")
+                .name("多起点排产工单")
+                .productId(220L)
+                .quantity(new BigDecimal("40.000000"))
+                .status(MesProWorkOrderStatusEnum.CONFIRMED.getStatus())
+                .temporaryFrozen(Boolean.FALSE)
+                .build();
+        MesProRouteProductDO routeProduct = MesProRouteProductDO.builder().routeId(320L).itemId(220L).build();
+        MesProRouteDO route = MesProRouteDO.builder()
+                .id(320L).code("ROUTE-MULTI-START").status(CommonStatusEnum.ENABLE.getStatus()).build();
+        List<MesProRouteProcessDO> routeProcesses = List.of(
+                MesProRouteProcessDO.builder().id(330L).routeId(320L).processId(430L).sort(1).keyFlag(Boolean.TRUE).build(),
+                MesProRouteProcessDO.builder().id(331L).routeId(320L).processId(431L).sort(2).keyFlag(Boolean.FALSE).build(),
+                MesProRouteProcessDO.builder().id(332L).routeId(320L).processId(432L).sort(3).keyFlag(Boolean.FALSE).build(),
+                MesProRouteProcessDO.builder().id(333L).routeId(320L).processId(433L).sort(4).keyFlag(Boolean.FALSE).build());
+        MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder()
+                .id(732L).routeId(320L).versionNo("V1").active(Boolean.TRUE).build();
+        MesProScheduleOrderCreateFromWorkOrderReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrderReqVO();
+        reqVO.setWorkOrderId(120L);
+        reqVO.setPromiseDate(LocalDate.of(2026, 8, 30));
+
+        when(workOrderMapper.selectById(120L)).thenReturn(workOrder);
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(120L))).thenReturn(List.of());
+        when(scheduleOrderMapper.selectMaxCodeByPrefix(anyString())).thenReturn(null);
+        when(routeProductMapper.selectByItemId(220L)).thenReturn(routeProduct);
+        when(routeMapper.selectById(320L)).thenReturn(route);
+        when(routeProcessMapper.selectListByRouteId(320L)).thenReturn(routeProcesses);
+        when(routeProcessFlowEdgeMapper.selectListByRouteId(320L)).thenReturn(List.of(
+                edge(320L, 330L, 332L), edge(320L, 331L, 332L), edge(320L, 331L, 333L)));
+        when(routeVersionMapper.selectActiveByRouteId(320L)).thenReturn(routeVersion);
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                320L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(routeProcesses.stream()
+                .map(routeProcess -> MesProRouteFlowProcessConfigDO.builder()
+                        .routeFlowConfigId(320L)
+                        .routeId(320L)
+                        .routeProcessId(routeProcess.getId())
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                        .enabled(Boolean.TRUE)
+                        .productionQuantityFactor(BigDecimal.ONE)
+                        .build())
+                .toList());
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(732L)).thenReturn(routeProcesses.stream()
+                .map(routeProcess -> MesProRouteScheduleConfigDO.builder()
+                        .routeVersionId(732L)
+                        .routeProcessId(routeProcess.getId())
+                        .capacityMode(MesProScheduleCapacityModeEnum.FINITE_HOURLY.getMode())
+                        .hourlyCapacity(new BigDecimal("10.000000"))
+                        .build())
+                .toList());
+        when(processMapper.selectBatchIds(List.of(430L, 431L, 432L, 433L))).thenReturn(List.of(
+                MesProProcessDO.builder().id(430L).code("P430").name("并行工序一").build(),
+                MesProProcessDO.builder().id(431L).code("P431").name("并行工序二").build(),
+                MesProProcessDO.builder().id(432L).code("P432").name("后续工序一").build(),
+                MesProProcessDO.builder().id(433L).code("P433").name("后续工序二").build()));
+        doAnswer(invocation -> {
+            MesProScheduleOrderDO scheduleOrder = invocation.getArgument(0);
+            scheduleOrder.setId(920L);
+            return 1;
+        }).when(scheduleOrderMapper).insert(any(MesProScheduleOrderDO.class));
+
+        Long scheduleOrderId = scheduleOrderService.createFromWorkOrder(reqVO);
+
+        assertEquals(920L, scheduleOrderId);
+        ArgumentCaptor<MesProScheduleOrderProcessDO> processCaptor =
+                ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
+        verify(scheduleOrderProcessMapper, times(4)).insert(processCaptor.capture());
+        MesProScheduleOrderProcessDO mergeSnapshot = processCaptor.getAllValues().stream()
+                .filter(process -> Objects.equals(process.getRouteProcessId(), 332L))
+                .findFirst().orElseThrow();
+        assertEquals("[330,331]", mergeSnapshot.getPredecessorRouteProcessIdsJson());
+        assertNull(mergeSnapshot.getPredecessorRouteProcessId());
+    }
+
+    @Test
+    void buildRouteProcessPredecessorMap_shouldRejectCycleAfterAllowingMultiplePredecessors() {
+        List<MesProRouteProcessDO> routeProcesses = List.of(
+                MesProRouteProcessDO.builder().id(340L).routeId(321L).processId(440L).build(),
+                MesProRouteProcessDO.builder().id(341L).routeId(321L).processId(441L).build(),
+                MesProRouteProcessDO.builder().id(342L).routeId(321L).processId(442L).build());
+        when(routeProcessFlowEdgeMapper.selectListByRouteId(321L)).thenReturn(List.of(
+                edge(321L, 340L, 341L), edge(321L, 341L, 342L), edge(321L, 342L, 341L)));
+        MesProScheduleOrderServiceImpl service = new MesProScheduleOrderServiceImpl();
+        ReflectionTestUtils.setField(service, "routeProcessFlowEdgeMapper", routeProcessFlowEdgeMapper);
+
+        assertThrows(ServiceException.class, () -> ReflectionTestUtils.invokeMethod(
+                service, "buildRouteProcessPredecessorMap", 321L, routeProcesses));
+    }
+
+    @Test
     void createFromWorkOrder_shouldMultiplyProcessPlannedQuantityByProductionFactor() {
         MesProScheduleOrderCreateFromWorkOrderReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrderReqVO();
         reqVO.setWorkOrderId(100L);
@@ -3124,6 +3218,60 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
+    void createFromWorkOrders_shouldReportEverySelectedWorkOrderCodeAndReason() {
+        MesProScheduleOrderCreateFromWorkOrdersReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrdersReqVO();
+        reqVO.setWorkOrderIds(List.of(100L, 101L, 102L));
+        reqVO.setPromiseDate(LocalDate.of(2026, 7, 10));
+        MesProWorkOrderDO frozen = workOrder(100L, "MO-100", 20L);
+        frozen.setTemporaryFrozen(Boolean.TRUE);
+        MesProWorkOrderDO notConfirmed = workOrder(101L, "MO-101", 21L);
+        notConfirmed.setStatus(MesProWorkOrderStatusEnum.PREPARE.getStatus());
+        MesProWorkOrderDO erpMissing = workOrder(102L, "MO-102", 22L);
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L, 101L, 102L))).thenReturn(List.of());
+        when(workOrderMapper.selectById(100L)).thenReturn(frozen);
+        when(workOrderMapper.selectById(101L)).thenReturn(notConfirmed);
+        when(workOrderMapper.selectById(102L)).thenReturn(erpMissing);
+        when(syncRecordMapper.selectByWorkOrderId(102L)).thenReturn(null);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> scheduleOrderService.createFromWorkOrders(reqVO));
+
+        assertTrue(exception.getMessage().contains("MO-100"));
+        assertTrue(exception.getMessage().contains("生产工单已被临时冻结"));
+        assertTrue(exception.getMessage().contains("MO-101"));
+        assertTrue(exception.getMessage().contains("不是已确认状态"));
+        assertTrue(exception.getMessage().contains("MO-102"));
+        assertTrue(exception.getMessage().contains("缺少 ERP 正式同步记录"));
+        verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));
+        verify(scheduleOrderProcessMapper, never()).insert(any(MesProScheduleOrderProcessDO.class));
+    }
+
+    @Test
+    void createFromWorkOrders_shouldAggregatePreflightAndRouteIssuesWithWorkOrderCodes() {
+        MesProScheduleOrderCreateFromWorkOrdersReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrdersReqVO();
+        reqVO.setWorkOrderIds(List.of(103L, 104L));
+        reqVO.setPromiseDate(LocalDate.of(2026, 7, 10));
+        MesProWorkOrderDO frozen = workOrder(103L, "MO-103", 999L);
+        frozen.setTemporaryFrozen(Boolean.TRUE);
+        MesProWorkOrderDO routeMissing = workOrder(104L, "MO-104", 998L);
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(103L, 104L))).thenReturn(List.of());
+        when(workOrderMapper.selectById(103L)).thenReturn(frozen);
+        when(workOrderMapper.selectById(104L)).thenReturn(routeMissing);
+        when(routeProductMapper.selectByItemId(998L)).thenReturn(null);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> scheduleOrderService.createFromWorkOrders(reqVO));
+
+        assertEquals(PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED.getCode(), exception.getCode());
+        assertTrue(exception.getMessage().contains("MO-103"));
+        assertTrue(exception.getMessage().contains("生产工单已被临时冻结"));
+        assertTrue(exception.getMessage().contains("MO-104"));
+        assertTrue(exception.getMessage().contains("产品缺少启用工艺路线"));
+        verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));
+        verify(scheduleOrderProcessMapper, never()).insert(any(MesProScheduleOrderProcessDO.class));
+    }
+
+    @Test
     void createFromWorkOrders_shouldRejectEmptySelectionBeforeAnyInsert() {
         MesProScheduleOrderCreateFromWorkOrdersReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrdersReqVO();
         reqVO.setWorkOrderIds(java.util.Arrays.asList(null, null));
@@ -3138,7 +3286,7 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
-    void createFromWorkOrders_shouldFailFastWhenAnySelectedWorkOrderAlreadyAdmitted() {
+    void createFromWorkOrders_shouldReportAlreadyAdmittedWorkOrder() {
         MesProScheduleOrderCreateFromWorkOrdersReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrdersReqVO();
         reqVO.setWorkOrderIds(List.of(100L, 101L));
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 10));
@@ -3149,13 +3297,14 @@ class MesProScheduleOrderServiceImplTest {
                 () -> scheduleOrderService.createFromWorkOrders(reqVO));
 
         assertEquals(PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE.getCode(), exception.getCode());
-        verify(workOrderMapper, never()).selectById(any());
+        assertTrue(exception.getMessage().contains("工单ID 101"));
+        assertTrue(exception.getMessage().contains("已在排产工单池中"));
         verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));
         verify(scheduleOrderProcessMapper, never()).insert(any(MesProScheduleOrderProcessDO.class));
     }
 
     @Test
-    void createFromWorkOrders_shouldFailFastWhenAnySelectedWorkOrderHasNonDeletedScheduleOrder() {
+    void createFromWorkOrders_shouldReportNonDeletedScheduleOrder() {
         MesProScheduleOrderCreateFromWorkOrdersReqVO reqVO = new MesProScheduleOrderCreateFromWorkOrdersReqVO();
         reqVO.setWorkOrderIds(List.of(100L, 101L));
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 10));
@@ -3171,7 +3320,8 @@ class MesProScheduleOrderServiceImplTest {
                 () -> scheduleOrderService.createFromWorkOrders(reqVO));
 
         assertEquals(PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE.getCode(), exception.getCode());
-        verify(workOrderMapper, never()).selectById(any());
+        assertTrue(exception.getMessage().contains("工单ID 101"));
+        assertTrue(exception.getMessage().contains("已在排产工单池中"));
         verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));
         verify(scheduleOrderProcessMapper, never()).insert(any(MesProScheduleOrderProcessDO.class));
     }

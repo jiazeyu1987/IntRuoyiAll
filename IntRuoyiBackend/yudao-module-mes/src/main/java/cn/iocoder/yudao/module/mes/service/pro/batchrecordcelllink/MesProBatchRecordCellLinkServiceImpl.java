@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.B
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkSourceFieldVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkPqcProcessVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkWorkbenchContextRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupMappingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupMappingVO;
@@ -191,7 +192,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     public BatchRecordCellLinkWorkbenchContextRespVO getWorkbenchContext(Long routeId, Long definitionId,
                                                                          Long versionId, String sourceReportId,
                                                                          Long templateId, String versionNo,
-                                                                         Long routeProcessId) {
+                                                                         Long routeProcessId, Long qaProcessId) {
         Scope scope = resolveQueryScope(routeId, definitionId, versionId, sourceReportId, templateId, versionNo,
                 routeProcessId);
         List<BatchRecordCellLinkFormRespVO> forms = selectFormsInScope(scope, routeId);
@@ -235,7 +236,11 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setBatchRecordDefinitionId(scope.definitionId())
                 .setBatchRecordVersionId(scope.versionId())
                 .setForms(forms)
-                .setSourceFields(toSourceFieldVOList(scope, routeId, routeProcessId))
+                .setPqcProcesses(isPqcAggregateSourceReport(defaultSourceReportId)
+                        ? toPqcProcessVOList(requirePqcProcessCatalog(routeId, scope), routeId)
+                        : List.of())
+                .setSourceFields(toSourceFieldVOList(scope, routeId, routeProcessId, qaProcessId,
+                        defaultSourceReportId))
                 .setDefaultSourceReportId(defaultSourceReportId)
                 .setDefaultTargetReportId(defaultTargetReportId)
                 .setRules(toRuleVOList(ruleMapper.selectListByScope(scope.type(), scope.id())))
@@ -402,7 +407,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                         || Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)) {
                     PqcAggregateSourceField sourceField = requirePqcAggregateSourceField(scope, reqVO.getRouteId(),
                             resolveTargetRouteProcessId(reqVO, targetReport),
-                            StrUtil.blankToDefault(item.getSourceFieldCode(), item.getSourceCellKey()));
+                            item.getSourceFieldCode(), item.getSourceCellKey());
                     sourceSpec = SourceSpec.pqcAggregate(sourceField);
                 } else {
                     throw exception(
@@ -1198,8 +1203,57 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 || SOURCE_TYPE_PRODUCTION_LOSS.equals(sourceType);
     }
 
+    private boolean isPqcAggregateSourceReport(String sourceReportId) {
+        return SOURCE_TYPE_PQC_AGGREGATE_DETAIL.equals(StrUtil.trim(sourceReportId));
+    }
+
+    private PqcProcessCatalog requirePqcProcessCatalog(Long routeId, Scope scope) {
+        if (routeId == null || scope == null
+                || (!Objects.equals(scope.type(), SCOPE_TYPE_ROUTE_VERSION)
+                && !Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION))) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_CATALOG_MISSING,
+                    routeId);
+        }
+        MesRouteDccProjectBindingDO binding = routeDccProjectBindingMapper.selectCurrentByRouteId(routeId);
+        if (binding == null || binding.getDccProjectCodeId() == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_CATALOG_MISSING,
+                    routeId);
+        }
+        MesQaInspectionRegulationDO regulation = qaRegulationMapper.selectByDccProjectCodeId(
+                binding.getDccProjectCodeId());
+        if (regulation == null || regulation.getId() == null || regulation.getCurrentVersionId() == null
+                || !"PUBLISHED".equals(StrUtil.trim(regulation.getLifecycleStatus()))) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_CATALOG_MISSING,
+                    routeId);
+        }
+        MesQaInspectionRegulationVersionDO version = qaRegulationVersionMapper.selectById(
+                regulation.getCurrentVersionId());
+        if (version == null || version.getId() == null || !"PUBLISHED".equals(StrUtil.trim(version.getLifecycleStatus()))) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_CATALOG_MISSING,
+                    routeId);
+        }
+        List<MesQaInspectionRegulationProcessDO> processes = qaRegulationProcessMapper.selectListByVersionId(version.getId());
+        if (processes == null || processes.isEmpty()) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_CATALOG_MISSING,
+                    routeId);
+        }
+        return new PqcProcessCatalog(regulation, version, List.copyOf(processes));
+    }
+
+    private List<BatchRecordCellLinkPqcProcessVO> toPqcProcessVOList(PqcProcessCatalog catalog, Long routeId) {
+        return catalog.processes().stream()
+                .map(process -> new BatchRecordCellLinkPqcProcessVO()
+                        .setId(process.getId())
+                        .setProcessCode(process.getProcessCode())
+                        .setProcessName(process.getProcessName())
+                        .setSort(process.getSort()))
+                .toList();
+    }
+
     private List<BatchRecordCellLinkSourceFieldVO> toSourceFieldVOList(Scope scope, Long routeId,
-                                                                       Long requestedRouteProcessId) {
+                                                                       Long requestedRouteProcessId,
+                                                                       Long requestedQaProcessId,
+                                                                       String sourceReportId) {
         List<BatchRecordCellLinkSourceFieldVO> result = new ArrayList<>();
         PRODUCTION_WORK_ORDER_SOURCE_FIELDS.stream()
                 .map(field -> new BatchRecordCellLinkSourceFieldVO()
@@ -1227,26 +1281,31 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                                 .setRouteProcessId(field.routeProcessId()))
                         .forEach(result::add);
             }
-            pqcAggregateSourceFields(scope, routeId, requestedRouteProcessId).stream()
+            if (isPqcAggregateSourceReport(sourceReportId)) {
+                pqcAggregateSourceFields(scope, routeId, requestedRouteProcessId, requestedQaProcessId).stream()
                     .map(field -> new BatchRecordCellLinkSourceFieldVO()
                             .setSourceType(SOURCE_TYPE_PQC_AGGREGATE_DETAIL)
                             .setFieldCode(field.code())
-                            .setSourceCellKey(field.code())
+                            .setSourceCellKey(field.sourceCellKey())
                             .setFieldName(field.name())
                             .setValueType(field.valueType())
-                            .setRouteProcessId(field.routeProcessId()))
+                            .setRouteProcessId(field.routeProcessId())
+                            .setQaProcessId(field.qaProcessId()))
                     .forEach(result::add);
+            }
         }
         if (Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)
-                && routeId != null && requestedRouteProcessId != null) {
-            pqcAggregateSourceFields(scope, routeId, requestedRouteProcessId).stream()
+                && routeId != null && requestedRouteProcessId != null
+                && isPqcAggregateSourceReport(sourceReportId)) {
+            pqcAggregateSourceFields(scope, routeId, requestedRouteProcessId, requestedQaProcessId).stream()
                     .map(field -> new BatchRecordCellLinkSourceFieldVO()
                             .setSourceType(SOURCE_TYPE_PQC_AGGREGATE_DETAIL)
                             .setFieldCode(field.code())
-                            .setSourceCellKey(field.code())
+                            .setSourceCellKey(field.sourceCellKey())
                             .setFieldName(field.name())
                             .setValueType(field.valueType())
-                            .setRouteProcessId(field.routeProcessId()))
+                            .setRouteProcessId(field.routeProcessId())
+                            .setQaProcessId(field.qaProcessId()))
                     .forEach(result::add);
         }
         return List.copyOf(result);
@@ -1263,19 +1322,44 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     }
 
     private PqcAggregateSourceField requirePqcAggregateSourceField(Scope scope, Long routeId,
-                                                                  Long targetRouteProcessId, String fieldCode) {
+                                                                  Long targetRouteProcessId, String fieldCode,
+                                                                  String sourceCellKey) {
         String normalized = StrUtil.trim(fieldCode);
-        return pqcAggregateSourceFields(scope, routeId, targetRouteProcessId).stream()
+        String normalizedSourceCellKey = StrUtil.trim(sourceCellKey);
+        Long qaProcessId = parseQaProcessId(normalizedSourceCellKey);
+        return pqcAggregateSourceFields(scope, routeId, targetRouteProcessId, qaProcessId).stream()
                 .filter(field -> Objects.equals(targetRouteProcessId, field.routeProcessId()))
+                .filter(field -> Objects.equals(qaProcessId, field.qaProcessId()))
                 .filter(field -> field.code().equals(normalized))
+                .filter(field -> field.sourceCellKey().equals(normalizedSourceCellKey))
                 .findFirst()
                 .orElseThrow(() -> exception(
                         MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
                         fieldCode));
     }
 
+    private Long parseQaProcessId(String sourceCellKey) {
+        String prefix = "QA_PROCESS:";
+        if (StrUtil.isBlank(sourceCellKey) || !sourceCellKey.startsWith(prefix)) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_PROCESS_MISSING,
+                    sourceCellKey);
+        }
+        int separator = sourceCellKey.indexOf('|', prefix.length());
+        if (separator <= prefix.length()) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_PROCESS_MISSING,
+                    sourceCellKey);
+        }
+        try {
+            return Long.valueOf(sourceCellKey.substring(prefix.length(), separator));
+        } catch (NumberFormatException ex) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_PROCESS_MISSING,
+                    sourceCellKey);
+        }
+    }
+
     private List<PqcAggregateSourceField> pqcAggregateSourceFields(Scope scope, Long routeId,
-                                                                   Long targetRouteProcessId) {
+                                                                   Long targetRouteProcessId,
+                                                                   Long qaProcessId) {
         boolean routeVersionScope = Objects.equals(scope.type(), SCOPE_TYPE_ROUTE_VERSION);
         boolean formTemplateScope = Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION);
         if ((!routeVersionScope && !formTemplateScope) || targetRouteProcessId == null
@@ -1283,105 +1367,28 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 || (formTemplateScope && routeId == null)) {
             return List.of();
         }
-        List<PqcAggregateSourceField> dccProjectFields =
-                pqcAggregateSourceFieldsFromDccProject(routeId, targetRouteProcessId);
-        if (!dccProjectFields.isEmpty()) {
-            return dccProjectFields;
-        }
-        Long pqcRouteVersionId = resolvePqcRouteVersionId(routeId);
-        List<MesQaInspectionRegulationDO> regulations = qaRegulationMapper.selectList(
-                new LambdaQueryWrapperX<MesQaInspectionRegulationDO>()
-                        .eq(routeId != null, MesQaInspectionRegulationDO::getRouteId, routeId)
-                        .eq(pqcRouteVersionId != null, MesQaInspectionRegulationDO::getRouteVersionId,
-                                pqcRouteVersionId)
-                        .eq(MesQaInspectionRegulationDO::getRouteProcessId, targetRouteProcessId)
-                        .eq(MesQaInspectionRegulationDO::getLifecycleStatus, "PUBLISHED")
-                        .orderByDesc(MesQaInspectionRegulationDO::getId));
-        if (regulations == null || regulations.isEmpty()) {
+        PqcProcessCatalog catalog = requirePqcProcessCatalog(routeId, scope);
+        if (qaProcessId == null) {
             return List.of();
         }
-        regulations = regulations.stream()
-                .filter(regulation -> routeId == null || Objects.equals(routeId, regulation.getRouteId()))
-                .filter(regulation -> pqcRouteVersionId == null
-                        || Objects.equals(pqcRouteVersionId, regulation.getRouteVersionId()))
-                .filter(regulation -> Objects.equals(targetRouteProcessId, regulation.getRouteProcessId()))
-                .filter(regulation -> "PUBLISHED".equals(StrUtil.trim(regulation.getLifecycleStatus())))
-                .toList();
-        if (regulations.isEmpty()) {
-            return List.of();
-        }
-        List<PqcAggregateSourceField> fields = new ArrayList<>();
-        Set<String> fieldCodes = new LinkedHashSet<>();
-        for (MesQaInspectionRegulationDO regulation : regulations) {
-            MesQaInspectionRegulationVersionDO version = regulation.getCurrentVersionId() == null
-                    ? qaRegulationVersionMapper.selectLatestPublishedByRegulationId(regulation.getId())
-                    : qaRegulationVersionMapper.selectById(regulation.getCurrentVersionId());
-            if (version == null || !"PUBLISHED".equals(StrUtil.trim(version.getLifecycleStatus()))) {
-                continue;
-            }
-            List<MesQaInspectionRegulationItemDO> items =
-                    qaRegulationItemMapper.selectListByVersionId(version.getId());
-            if (items == null || items.isEmpty()) {
-                continue;
-            }
-            addPqcHeaderFields(fields, fieldCodes, targetRouteProcessId, items);
-            addPqcDccFields(fields, fieldCodes, targetRouteProcessId, items);
-            for (MesQaInspectionRegulationItemDO item : items) {
-                String inspectionType = StrUtil.trim(item.getInspectionType());
-                String itemCode = StrUtil.trim(item.getItemCode());
-                String itemName = StrUtil.trim(item.getItemName());
-                if (StrUtil.isBlank(inspectionType) || StrUtil.isBlank(itemCode) || StrUtil.isBlank(itemName)) {
-                    throw exception(
-                            MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
-                            "PQC_AGGREGATE_DETAIL 项目定义不完整");
-                }
-                int sampleCount = Math.max(1, item.getFirstInspectionQuantity() == null
-                        ? 1 : item.getFirstInspectionQuantity());
-                for (int sampleNo = 1; sampleNo <= sampleCount; sampleNo += 1) {
-                    addPqcItemFields(fields, fieldCodes, targetRouteProcessId, item, inspectionType,
-                            itemCode, itemName, sampleNo);
-                }
-            }
-        }
-        return List.copyOf(fields);
-    }
-
-    private List<PqcAggregateSourceField> pqcAggregateSourceFieldsFromDccProject(Long routeId,
-                                                                                 Long targetRouteProcessId) {
-        if (routeId == null || targetRouteProcessId == null) {
-            return List.of();
-        }
-        MesRouteDccProjectBindingDO binding = routeDccProjectBindingMapper.selectCurrentByRouteId(routeId);
-        if (binding == null || binding.getDccProjectCodeId() == null) {
-            return List.of();
-        }
-        MesQaInspectionRegulationDO regulation = qaRegulationMapper.selectByDccProjectCodeId(
-                binding.getDccProjectCodeId());
-        if (regulation == null || regulation.getCurrentVersionId() == null
-                || !"PUBLISHED".equals(StrUtil.trim(regulation.getLifecycleStatus()))) {
-            return List.of();
-        }
-        MesQaInspectionRegulationVersionDO version = qaRegulationVersionMapper.selectById(
-                regulation.getCurrentVersionId());
-        if (version == null || !"PUBLISHED".equals(StrUtil.trim(version.getLifecycleStatus()))) {
-            return List.of();
-        }
-        MesQaInspectionRegulationProcessDO qaProcess = resolveQaProcessForRouteProcess(
-                version.getId(), routeId, targetRouteProcessId);
-        if (qaProcess == null) {
-            return List.of();
-        }
-        List<MesQaInspectionRegulationItemDO> items = qaRegulationItemMapper.selectListByVersionId(version.getId())
-                .stream()
+        MesQaInspectionRegulationProcessDO qaProcess = catalog.processes().stream()
+                .filter(process -> Objects.equals(process.getId(), qaProcessId))
+                .findFirst()
+                .orElseThrow(() -> exception(
+                        MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_PROCESS_MISSING,
+                        qaProcessId));
+        List<MesQaInspectionRegulationItemDO> items = qaRegulationItemMapper.selectListByVersionId(
+                        catalog.version().getId()).stream()
                 .filter(item -> Objects.equals(qaProcess.getId(), item.getQaProcessId()))
                 .toList();
         if (items.isEmpty()) {
-            return List.of();
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_ITEMS_MISSING,
+                    qaProcessId);
         }
         List<PqcAggregateSourceField> fields = new ArrayList<>();
         Set<String> fieldCodes = new LinkedHashSet<>();
-        addPqcHeaderFields(fields, fieldCodes, targetRouteProcessId, items);
-        addPqcDccFields(fields, fieldCodes, targetRouteProcessId, items);
+        addPqcHeaderFields(fields, fieldCodes, targetRouteProcessId, qaProcessId, items);
+        addPqcDccFields(fields, fieldCodes, targetRouteProcessId, qaProcessId, items);
         for (MesQaInspectionRegulationItemDO item : items) {
             String inspectionType = StrUtil.trim(item.getInspectionType());
             String itemCode = StrUtil.trim(item.getItemCode());
@@ -1394,153 +1401,90 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             int sampleCount = Math.max(1, item.getFirstInspectionQuantity() == null
                     ? 1 : item.getFirstInspectionQuantity());
             for (int sampleNo = 1; sampleNo <= sampleCount; sampleNo += 1) {
-                addPqcItemFields(fields, fieldCodes, targetRouteProcessId, item, inspectionType,
+                addPqcItemFields(fields, fieldCodes, targetRouteProcessId, qaProcessId, item, inspectionType,
                         itemCode, itemName, sampleNo);
             }
         }
         return List.copyOf(fields);
     }
 
-    private MesQaInspectionRegulationProcessDO resolveQaProcessForRouteProcess(Long regulationVersionId,
-                                                                               Long routeId,
-                                                                               Long targetRouteProcessId) {
-        MesProRouteProcessDO routeProcess = routeProcessMapper.selectByIdIgnoreDeleted(targetRouteProcessId);
-        if (routeProcess == null || !Objects.equals(routeId, routeProcess.getRouteId())
-                || routeProcess.getProcessId() == null) {
-            return null;
-        }
-        MesProProcessDO process = processMapper.selectByIdIgnoreDeleted(routeProcess.getProcessId());
-        if (process == null) {
-            return null;
-        }
-        List<MesQaInspectionRegulationProcessDO> qaProcesses =
-                qaRegulationProcessMapper.selectListByVersionId(regulationVersionId);
-        if (qaProcesses == null || qaProcesses.isEmpty()) {
-            return null;
-        }
-        String processCode = normalizePqcProcessKey(process.getCode());
-        if (StrUtil.isNotBlank(processCode)) {
-            List<MesQaInspectionRegulationProcessDO> matchedByCode = qaProcesses.stream()
-                    .filter(qaProcess -> processCode.equals(normalizePqcProcessKey(qaProcess.getProcessCode())))
-                    .toList();
-            if (matchedByCode.size() == 1) {
-                return matchedByCode.get(0);
-            }
-        }
-        String processName = normalizePqcProcessKey(process.getName());
-        if (StrUtil.isBlank(processName)) {
-            return null;
-        }
-        List<MesQaInspectionRegulationProcessDO> matchedByName = qaProcesses.stream()
-                .filter(qaProcess -> processName.equals(normalizePqcProcessKey(qaProcess.getProcessName())))
-                .toList();
-        return matchedByName.size() == 1 ? matchedByName.get(0) : null;
-    }
-
-    private String normalizePqcProcessKey(String value) {
-        if (StrUtil.isBlank(value)) {
-            return "";
-        }
-        String normalized = StrUtil.trim(value)
-                .replaceAll("\\s+", "")
-                .replace("Ⅰ", "I")
-                .replace("Ⅱ", "II")
-                .replace("Ⅲ", "III")
-                .replace("Ⅳ", "IV")
-                .replace("Ⅴ", "V")
-                .replace("Ⅵ", "VI")
-                .replace("Ⅶ", "VII")
-                .replace("Ⅷ", "VIII")
-                .replace("Ⅸ", "IX")
-                .replace("Ⅹ", "X")
-                .replaceAll("工序$", "");
-        return normalized.toUpperCase(Locale.ROOT);
-    }
-
-    private Long resolvePqcRouteVersionId(Long routeId) {
-        if (routeId == null) {
-            return null;
-        }
-        MesProRouteVersionDO activeRouteVersion = routeVersionMapper.selectActiveByRouteId(routeId);
-        return activeRouteVersion == null ? null : activeRouteVersion.getId();
-    }
-
     private void addPqcHeaderFields(List<PqcAggregateSourceField> fields, Set<String> fieldCodes,
-                                    Long routeProcessId, List<MesQaInspectionRegulationItemDO> items) {
+                                    Long routeProcessId, Long qaProcessId, List<MesQaInspectionRegulationItemDO> items) {
         items.stream().map(MesQaInspectionRegulationItemDO::getInspectionType)
                 .map(StrUtil::trim)
                 .filter(StrUtil::isNotBlank)
                 .distinct()
                 .forEach(inspectionType -> {
-                    addPqcField(fields, fieldCodes, routeProcessId,
+                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
                             inspectionType + "|inspectorUserId", inspectionTypeLabel(inspectionType)
                                     + " / 检验员", "NUMBER");
-                    addPqcField(fields, fieldCodes, routeProcessId,
+                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
                             inspectionType + "|inspectedAt", inspectionTypeLabel(inspectionType)
                                     + " / 检验时间", "DATETIME");
-                    addPqcField(fields, fieldCodes, routeProcessId,
+                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
                             inspectionType + "|reviewerUserId", inspectionTypeLabel(inspectionType)
                                     + " / 复核人", "NUMBER");
-                    addPqcField(fields, fieldCodes, routeProcessId,
+                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
                             inspectionType + "|reviewedAt", inspectionTypeLabel(inspectionType)
                                     + " / 复核时间", "DATETIME");
                 });
     }
 
     private void addPqcDccFields(List<PqcAggregateSourceField> fields, Set<String> fieldCodes,
-                                 Long routeProcessId, List<MesQaInspectionRegulationItemDO> items) {
+                                 Long routeProcessId, Long qaProcessId, List<MesQaInspectionRegulationItemDO> items) {
         items.stream().map(MesQaInspectionRegulationItemDO::getInspectionType)
                 .map(StrUtil::trim)
                 .filter(StrUtil::isNotBlank)
                 .distinct()
                 .forEach(inspectionType -> {
-                    addPqcField(fields, fieldCodes, routeProcessId,
+                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
                             inspectionType + "|DCC|dccProjectId", inspectionTypeLabel(inspectionType)
                                     + " / DCC项目ID", "NUMBER");
-                    addPqcField(fields, fieldCodes, routeProcessId,
+                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
                             inspectionType + "|DCC|dccProjectCode", inspectionTypeLabel(inspectionType)
                                     + " / DCC项目代码", "STRING");
-                    addPqcField(fields, fieldCodes, routeProcessId,
+                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
                             inspectionType + "|DCC|dccProjectName", inspectionTypeLabel(inspectionType)
                                     + " / DCC项目名称", "STRING");
                 });
     }
 
     private void addPqcItemFields(List<PqcAggregateSourceField> fields, Set<String> fieldCodes,
-                                  Long routeProcessId, MesQaInspectionRegulationItemDO item,
+                                  Long routeProcessId, Long qaProcessId, MesQaInspectionRegulationItemDO item,
                                   String inspectionType, String itemCode, String itemName, int sampleNo) {
         String prefix = inspectionType + "|" + itemCode + "|" + sampleNo + "|";
         String labelPrefix = inspectionTypeLabel(inspectionType) + " / " + itemName + " / 第" + sampleNo + "件 / ";
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "itemCode", labelPrefix + "检验项目编号", "STRING");
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "itemName", labelPrefix + "检验项目名称", "STRING");
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "inspectionMethod", labelPrefix + "检验方法", "STRING");
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "standardText", labelPrefix + "标准要求", "STRING");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "itemCode", labelPrefix + "检验项目编号", "STRING");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "itemName", labelPrefix + "检验项目名称", "STRING");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "inspectionMethod", labelPrefix + "检验方法", "STRING");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "standardText", labelPrefix + "标准要求", "STRING");
         if (item.getStandardLowerLimit() != null) {
-            addPqcField(fields, fieldCodes, routeProcessId, prefix + "standardLowerLimit", labelPrefix + "下限", "NUMBER");
+            addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "standardLowerLimit", labelPrefix + "下限", "NUMBER");
         }
         if (item.getStandardUpperLimit() != null) {
-            addPqcField(fields, fieldCodes, routeProcessId, prefix + "standardUpperLimit", labelPrefix + "上限", "NUMBER");
+            addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "standardUpperLimit", labelPrefix + "上限", "NUMBER");
         }
         if (StrUtil.isNotBlank(item.getStandardUnit())) {
-            addPqcField(fields, fieldCodes, routeProcessId, prefix + "standardUnit", labelPrefix + "单位", "STRING");
+            addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "standardUnit", labelPrefix + "单位", "STRING");
         }
         if (item.getStandardPrecision() != null) {
-            addPqcField(fields, fieldCodes, routeProcessId, prefix + "standardPrecision", labelPrefix + "精度", "NUMBER");
+            addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "standardPrecision", labelPrefix + "精度", "NUMBER");
         }
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "resultType", labelPrefix + "结果类型", "STRING");
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "measuredValue", labelPrefix + "实测值",
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "resultType", labelPrefix + "结果类型", "STRING");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "measuredValue", labelPrefix + "实测值",
                 pqcMeasuredValueType(item.getResultType()));
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "judgement", labelPrefix + "判定", "STRING");
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "selectedEquipmentId", labelPrefix + "检验设备ID", "NUMBER");
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "selectedEquipmentCode", labelPrefix + "检验设备编码", "STRING");
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "selectedEquipmentName", labelPrefix + "检验设备名称", "STRING");
-        addPqcField(fields, fieldCodes, routeProcessId, prefix + "selectedEquipmentNumber", labelPrefix + "设备编号", "STRING");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "judgement", labelPrefix + "判定", "STRING");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "selectedEquipmentId", labelPrefix + "检验设备ID", "NUMBER");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "selectedEquipmentCode", labelPrefix + "检验设备编码", "STRING");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "selectedEquipmentName", labelPrefix + "检验设备名称", "STRING");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId, prefix + "selectedEquipmentNumber", labelPrefix + "设备编号", "STRING");
     }
 
     private void addPqcField(List<PqcAggregateSourceField> fields, Set<String> fieldCodes,
-                             Long routeProcessId, String code, String name, String valueType) {
-        if (fieldCodes.add(routeProcessId + "|" + code)) {
-            fields.add(new PqcAggregateSourceField(code, name, valueType, routeProcessId));
+                             Long routeProcessId, Long qaProcessId, String code, String name, String valueType) {
+        String sourceCellKey = "QA_PROCESS:" + qaProcessId + "|" + code;
+        if (fieldCodes.add(sourceCellKey)) {
+            fields.add(new PqcAggregateSourceField(code, sourceCellKey, name, valueType, routeProcessId, qaProcessId));
         }
     }
 
@@ -2332,7 +2276,13 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         }
     }
 
-    private record PqcAggregateSourceField(String code, String name, String valueType, Long routeProcessId) {
+    private record PqcAggregateSourceField(String code, String sourceCellKey, String name, String valueType,
+                                           Long routeProcessId, Long qaProcessId) {
+    }
+
+    private record PqcProcessCatalog(MesQaInspectionRegulationDO regulation,
+                                     MesQaInspectionRegulationVersionDO version,
+                                     List<MesQaInspectionRegulationProcessDO> processes) {
     }
 
     private record TargetSpec(String reportId, String reportName, Long batchRecordDefinitionId,
@@ -2375,8 +2325,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             return new SourceSpec(SOURCE_TYPE_PQC_AGGREGATE_DETAIL,
                     PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID,
                     PQC_AGGREGATE_DETAIL_SOURCE_REPORT_NAME,
-                    -1, -1, field.code(), field.code(), field.name(),
-                    field.name(), field.valueType(), SOURCE_TYPE_PQC_AGGREGATE_DETAIL + ":" + field.code());
+                    -1, -1, field.sourceCellKey(), field.code(), field.name(),
+                    field.name(), field.valueType(), SOURCE_TYPE_PQC_AGGREGATE_DETAIL + ":" + field.sourceCellKey());
         }
 
         static SourceSpec formTemplateFormalSource(String sourceType, BatchRecordCellLinkRuleSaveItemReqVO item) {

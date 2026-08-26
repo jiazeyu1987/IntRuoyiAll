@@ -49,11 +49,10 @@ assert.match(
 for (const token of [
   '/erp/kingdee-sync/run/page',
   '/erp/kingdee-sync/watermark/list',
+  '/erp/kingdee-sync/incremental-sync',
   '/erp/kingdee-sync/full-sync',
-  'runIncrementalSyncJob',
+  'runIncrementalSync',
   'runFullSync',
-  'JobApi.getJobPage',
-  'JobApi.runJob'
 ]) {
   assert.match(
     syncApi,
@@ -118,7 +117,7 @@ for (const token of [
 
 assert.match(
   workOrderPage,
-  /ErpKingdeeSyncApi\.runIncrementalSyncJob\('kingdeeProductionOrderSyncJob'\)/,
+  /ErpKingdeeSyncApi\.runIncrementalSync\('PRODUCTION_ORDER'\)/,
   '生产工单页面必须继续使用正式 Job 增量同步链路作为 Profile 配置参照。'
 )
 
@@ -131,7 +130,7 @@ for (const token of [
   'JobApi.updateJobStatus',
   'InfraJobStatusEnum.NORMAL',
   'InfraJobStatusEnum.STOP',
-  'ErpKingdeeSyncApi.runIncrementalSyncJob',
+  'ErpKingdeeSyncApi.runIncrementalSync',
   'toDailyCronExpression',
   'parseDailyCronExpression'
 ]) {
@@ -267,7 +266,7 @@ for (const token of [
   'fullSyncingType',
   'handleRunIncremental(row',
   'handleRunFull(row',
-  'ErpKingdeeSyncApi.runIncrementalSyncJob(row.handlerName)',
+  'ErpKingdeeSyncApi.runIncrementalSync(row.syncType)',
   'ErpKingdeeSyncApi.runFullSync(row.syncType)',
   'row.erpTableName',
   'incrementalSyncingType === row.syncType',
@@ -404,6 +403,11 @@ assert.doesNotMatch(
   component,
   /kingdeeTableAutoSync|ErpKingdeeTableAutoSyncApi|kingdee-table-auto-sync/,
   'Profile ERP 表格自动同步不得再调用旧 kingdee-table-auto-sync 接口。'
+)
+assert.doesNotMatch(
+  syncApi,
+  /JobApi\.(getJobPage|runJob)|runIncrementalSyncJob/,
+  'ERP 手动增量同步不得绕过 ERP 接口直接调用通用定时任务。'
 )
 
 for (const token of [

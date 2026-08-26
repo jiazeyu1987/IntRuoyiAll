@@ -38,7 +38,11 @@
 
 ## Current Status
 
-completed
+in_progress
+
+2026-08-24 主线复核发现新的流程3回归：`MesP0PqcQualityAllocationGateTest` 的测试夹具未随流程2新增的正式签名密码契约更新，导致 8 个目标用例出现 6 个失败和 2 个异常，未能覆盖既定的 PQC 配额门禁断言。先前 27/27 的流程3定向证据不覆盖该测试类，不能作为当前流程3完成结论。
+
+原编码工作树 `D:\IntRuoyiWorktree\flow-repair-coding-03-8af0` 已删除，已基于当前 `int_main` HEAD `628fb8a990952fce7ef9128d958b728c5aa9f6c5` 新建专属工作树 `D:\IntRuoyiWorktree\20260824-flow-repair-03-test-fixture`，分支 `codex/20260824-flow-repair-03-test-fixture`，已登记 `int_main` profile 的 slot 30（8164/48164）。本轮不启动服务；流程3负责人须在该工作树按 TDD 修正 fixture、恢复目标测试并重新验证。
 
 流程 3 的 task-owned 提交/复核边界实现已融合到当前 `int_main`（`aeb58c37d`，本次源代码复核基线为 `5591587c50063744bb0b4096c53fb7f17614af65`，其后仅增加流程 3 收尾文档提交），主线程定向测试、MES 相关编译和 runtime guard 均已取得真实证据。任务仍不能宣称全链路完成：流程 4/6/7/8/9/10/11 的跨流程实现、历史迁移对账和真实读写 E2E 仍未完成或验证。
 

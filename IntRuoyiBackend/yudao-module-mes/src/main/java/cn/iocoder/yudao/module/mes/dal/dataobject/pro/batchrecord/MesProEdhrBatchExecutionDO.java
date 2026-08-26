@@ -71,6 +71,9 @@ public class MesProEdhrBatchExecutionDO extends BaseDO {
 
     private Integer status;
 
+    /** Flow-6/7 provisioning lifecycle, separate from the task execution status. */
+    private String provisioningStatus;
+
     private Integer taskTotal;
 
     private Integer taskApprovedCount;

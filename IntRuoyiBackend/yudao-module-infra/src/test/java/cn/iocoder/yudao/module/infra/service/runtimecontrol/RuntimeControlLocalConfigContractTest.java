@@ -19,9 +19,9 @@ class RuntimeControlLocalConfigContractTest {
                 "yudao-server", "src", "main", "resources", "application-local.yaml"
         )), StandardCharsets.UTF_8);
 
-        assertTrue(localConfig.contains("name: ${user.home}/logs/${spring.application.name}.log"));
+        assertTrue(localConfig.contains("name: ${INTRUOYI_BACKEND_LOG_FILE:${INTRUOYI_RUNTIME_LOG_DIR:../output/runtime/${INTRUOYI_RUNTIME_PROFILE:int_main}/logs}/${spring.application.name}.log"));
         assertTrue(localConfig.contains("storage-guard:"));
-        assertTrue(localConfig.contains("log-dir: ${INTRUOYI_RUNTIME_CONTROL_LOG_DIR:${user.home}/logs}"));
+        assertTrue(localConfig.contains("log-dir: ${INTRUOYI_RUNTIME_CONTROL_LOG_DIR:${INTRUOYI_RUNTIME_LOG_DIR:../output/runtime/${INTRUOYI_RUNTIME_PROFILE:int_main}/logs}}"));
         assertFalse(localConfig.contains("log-dir: ${INTRUOYI_RUNTIME_CONTROL_LOG_DIR:E:/Int/CacheData/IntRuoyi/runtime}"));
     }
 

@@ -12,11 +12,9 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
@@ -84,21 +82,16 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
             }
         }
 
-        Set<String> matchedTaskKeys = new HashSet<>();
         long inspectionComplete = tasks.stream().filter(Objects::nonNull).peek(task -> {
             if (!Objects.equals(activeOrder.getId(), task.getActiveOrderId())
                     || !Objects.equals(activeOrder.getWorkOrderId(), task.getWorkOrderId())
                     || !Objects.equals(activeOrder.getRouteId(), task.getRouteId())
                     || !Objects.equals(activeOrder.getRouteVersionId(), task.getRouteVersionId())
                     || task.getRouteProcessId() == null || task.getProcessId() == null || task.getId() == null
-                    || !snapshotsByProcess.containsKey(key(task.getRouteProcessId(), task.getProcessId()))
-                    || !matchedTaskKeys.add(key(task.getRouteProcessId(), task.getProcessId()))) {
+                    || !snapshotsByProcess.containsKey(key(task.getRouteProcessId(), task.getProcessId()))) {
                 throw sourceMissing(activeOrder, "PQC_TASK");
             }
         }).filter(task -> MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())).count();
-        if (matchedTaskKeys.size() != snapshotsByProcess.size()) {
-            throw sourceMissing(activeOrder, "PQC_TASK_PROCESS_COVERAGE");
-        }
         return new MesTeamLeaderActiveOrderCompletionProgress()
                 .setProductionProgressPercent(percent(productionComplete, snapshots.size()))
                 .setInspectionProgressPercent(percent(inspectionComplete, tasks.size()));

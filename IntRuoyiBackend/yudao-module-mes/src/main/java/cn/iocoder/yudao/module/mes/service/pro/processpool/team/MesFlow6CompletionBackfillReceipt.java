@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -21,11 +22,23 @@ public class MesFlow6CompletionBackfillReceipt {
     private Long routeVersionId;
     private Long tenantId;
     private String requestIdempotencyKey;
+    private String workOrderCode;
     private LocalDateTime createdAt;
     private String sourceSnapshotHash;
     private String formalSourceSnapshotJson;
     private String signatureSnapshotJson;
     private Integer completionVersion;
+    private Long expectedActiveOrderVersion;
+    private String completionTransactionId;
+    private String completionEventId;
+    private String sourceVersion;
+    private String sourceBundleHash;
+    private Long pickListBindingId;
+    private Long pickListId;
+    private Long batchPickListRelationId;
+    private Long bindingVersion;
+    private String pickListHeaderSnapshotHash;
+    private String pickListLineSnapshotHash;
     private String status;
     /** Frozen result of the three Tx-A backfill branches; Flow-6 may only consume SUCCESS values. */
     private String batchRecordStatus;
@@ -40,4 +53,8 @@ public class MesFlow6CompletionBackfillReceipt {
     private String processInspectionSourceIdsJson;
     private String zeroLossConfirmationSnapshot;
     private String receiptHash;
+    private String receiptVersion;
+    private String payloadHash;
+    private String auditEventId;
+    private java.util.List<MesBatchExecutionSourceEvidence> sourceEvidence;
 }

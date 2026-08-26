@@ -27,6 +27,8 @@ public class EdhrBatchExecutionGoldenFingerBulkVoidRespVO {
 
         private Integer status;
 
+        private String provisioningStatus;
+
         private String result;
 
         private String message;

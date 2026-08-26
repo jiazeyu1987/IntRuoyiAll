@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.erp.service.sync.admin;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.job.TenantJobParam;
 import cn.iocoder.yudao.module.infra.controller.admin.job.vo.job.JobPageReqVO;
 import cn.iocoder.yudao.module.infra.dal.dataobject.job.JobDO;
 import cn.iocoder.yudao.module.infra.service.job.JobService;
@@ -58,7 +60,16 @@ public class ErpKingdeeSyncAdminServiceImpl implements ErpKingdeeSyncAdminServic
     }
 
     @Override
+    public ErpKingdeeFullSyncRespVO runIncrementalSync(String syncType) {
+        return runManualSync(syncType, false);
+    }
+
+    @Override
     public ErpKingdeeFullSyncRespVO runFullSync(String syncType) {
+        return runManualSync(syncType, true);
+    }
+
+    private ErpKingdeeFullSyncRespVO runManualSync(String syncType, boolean fullSync) {
         kingdeeConfigService.getActiveConnection();
         ErpKingdeeTableAutoSyncTypeEnum type = resolveSyncType(syncType);
         Object bean;
@@ -67,16 +78,20 @@ public class ErpKingdeeSyncAdminServiceImpl implements ErpKingdeeSyncAdminServic
         } catch (Exception ex) {
             throw exception(KINGDEE_TABLE_AUTO_SYNC_JOB_HANDLER_MISSING, type.getHandlerName());
         }
-        if (!(bean instanceof ErpKingdeeFullSyncHandler handler)) {
+        if (fullSync && !(bean instanceof ErpKingdeeFullSyncHandler)) {
             throw exception(KINGDEE_TABLE_AUTO_SYNC_JOB_HANDLER_INVALID, type.getHandlerName());
         }
         JobDO job = findJob(type.getHandlerName());
         try {
-            jobService.triggerJob(job.getId(), ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM);
+            String originalHandlerParam = fullSync ? ErpKingdeeFullSyncHandler.FULL_SYNC_JOB_PARAM
+                    : job.getHandlerParam();
+            String handlerParam = TenantJobParam.forTenant(TenantContextHolder.getRequiredTenantId(), originalHandlerParam);
+            jobService.triggerJob(job.getId(), handlerParam);
         } catch (SchedulerException ex) {
             throw exception(KINGDEE_TABLE_AUTO_SYNC_EXECUTE_FAILED, ex.getMessage());
         }
-        return new ErpKingdeeFullSyncRespVO(type.getSyncType(), type.getHandlerName(), job.getId(), "已提交全量同步任务");
+        return new ErpKingdeeFullSyncRespVO(type.getSyncType(), type.getHandlerName(), job.getId(),
+                fullSync ? "已提交全量同步任务" : "已提交增量同步任务");
     }
 
     private JobDO findJob(String handlerName) {

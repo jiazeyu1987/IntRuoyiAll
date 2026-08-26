@@ -28,7 +28,7 @@ for (const token of [
 
 for (const token of [
   'ErpProductionPickListApi.getPage',
-  "ErpKingdeeSyncApi.runIncrementalSyncJob('kingdeeProductionPickListSyncJob')",
+  "ErpKingdeeSyncApi.runIncrementalSync('PRODUCTION_PICK_LIST')",
   '生产领料单号',
   '生产订单编号',
   '单据日期',

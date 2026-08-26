@@ -449,6 +449,14 @@
             :closable="false"
             show-icon
           />
+          <el-alert
+            v-if="managerReleaseSnapshot"
+            title="Stage5正式放行追溯回执已生成"
+            :description="`回执 ${String(managerReleaseSnapshot.releaseReceiptId)}，三类文件证据已固化。`"
+            type="success"
+            :closable="false"
+            show-icon
+          />
         </div>
         <template #footer>
           <el-button
@@ -593,6 +601,7 @@ import {
   getEdhrRelease,
   type EdhrReleaseRowVO
 } from '@/api/mes/pro/edhr/release'
+import { getEdhrStage5ReleaseSnapshot } from '@/api/mes/pro/edhr/batchExecution'
 import { ProRouteApi, type ProRouteVO } from '@/api/mes/pro/route'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 import { navigateToEdhrWorkTask } from '@/utils/edhrWorkTaskNavigation'
@@ -602,6 +611,7 @@ import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 defineOptions({ name: 'MesProEdhrWorkTaskBoardPage' })
 
 const router = useRouter()
+const route = useRoute()
 const message = useMessage()
 const loading = ref(false)
 const loadError = ref('')
@@ -624,6 +634,7 @@ const managerReleaseLoading = ref(false)
 const managerReleaseSubmitting = ref(false)
 const managerReleaseTask = ref<EdhrWorkTaskRespVO | null>(null)
 const managerReleaseReceipt = ref<EdhrReleaseRowVO | null>(null)
+const managerReleaseSnapshot = ref<Record<string, unknown> | null>(null)
 const managerReleaseBlockers = ref<MesProductionReleaseBlockerRespVO[]>([])
 const managerReleaseUncertainMessage = ref('')
 const managerReleaseIdempotencyKey = ref('')
@@ -650,6 +661,7 @@ const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
   taskType: '',
+  batchExecutionId: '',
   workOrderCode: '',
   batchCode: '',
   processName: ''
@@ -669,6 +681,7 @@ const managerReleaseForm = reactive({
   signoffEvidenceHash: '',
   approvalOpinion: ''
 })
+const STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY = 'mes:stage5-final-release:signoff-evidence-hash'
 const managerReleaseRules: FormRules<typeof managerReleaseForm> = {
   signoffEvidenceHash: [
     { required: true, message: '请输入正式电子签名证据哈希', trigger: 'blur' },
@@ -881,6 +894,7 @@ const buildQuery = () => ({
   pageNo: queryParams.pageNo,
   pageSize: queryParams.pageSize,
   taskType: queryParams.taskType || undefined,
+  batchExecutionId: queryParams.batchExecutionId || undefined,
   workOrderCode: queryParams.workOrderCode.trim() || undefined,
   batchCode: queryParams.batchCode.trim() || undefined,
   processName: queryParams.processName.trim() || undefined
@@ -1079,6 +1093,7 @@ const resetQuery = () => {
   queryParams.pageNo = 1
   queryParams.pageSize = 10
   queryParams.taskType = ''
+  queryParams.batchExecutionId = ''
   queryParams.workOrderCode = ''
   queryParams.batchCode = ''
   queryParams.processName = ''
@@ -1453,6 +1468,7 @@ const resetManagerReleaseDialog = () => {
   managerReleaseSubmitting.value = false
   managerReleaseTask.value = null
   managerReleaseReceipt.value = null
+  managerReleaseSnapshot.value = null
   managerReleaseBlockers.value = []
   managerReleaseUncertainMessage.value = ''
   managerReleaseIdempotencyKey.value = ''
@@ -1515,6 +1531,17 @@ const openManagerReleaseDialog = async (row: EdhrWorkTaskRespVO) => {
   managerReleaseDialogVisible.value = true
   managerReleaseLoading.value = true
   try {
+    const simulationRunId =
+      typeof route.query.simulationRunId === 'string' ? route.query.simulationRunId.trim() : ''
+    if (simulationRunId) {
+      const signoffEvidenceHash = window.localStorage.getItem(
+        `${STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY}:${simulationRunId}`
+      )?.trim()
+      if (!signoffEvidenceHash) {
+        throw new Error('Stage5模拟缺少管理者电子签名证据哈希，无法提交正式放行。')
+      }
+      managerReleaseForm.signoffEvidenceHash = signoffEvidenceHash
+    }
     if (!canHandleManagerRelease(row)) {
       throw new Error(resolveInactionReasonLabel(row))
     }
@@ -1560,6 +1587,7 @@ const recoverUncertainManagerReleaseApproval = async (
       row,
       managerReleaseForm.signoffEvidenceHash.trim()
     )
+    await loadStage5ReleaseSnapshot(receipt)
     managerReleaseReceipt.value = receipt
     managerReleaseIdempotencyKey.value = ''
     message.warning('最终放行响应异常，但权威回执已确认事务为已放行。')
@@ -1580,6 +1608,24 @@ const refreshManagerReleaseListAfterSuccess = async () => {
   if (loadError.value) {
     message.warning(`最终放行已确认，但待办列表刷新失败：${loadError.value}`)
   }
+}
+
+const loadStage5ReleaseSnapshot = async (receipt: EdhrReleaseRowVO) => {
+  const simulationRunId =
+    typeof route.query.simulationRunId === 'string' ? route.query.simulationRunId.trim() : ''
+  if (!simulationRunId) return
+  const snapshot = await getEdhrStage5ReleaseSnapshot(simulationRunId, receipt.batchExecutionId)
+  const evidence = snapshot.threeFileEvidence
+  if (
+    snapshot.releaseStatus !== 'RELEASED' ||
+    !snapshot.releaseReceiptId ||
+    !snapshot.releaseDecisionId ||
+    !Array.isArray(evidence) ||
+    evidence.length !== 3
+  ) {
+    throw new Error('Stage5正式放行回执缺少完整追溯证据。')
+  }
+  managerReleaseSnapshot.value = snapshot
 }
 
 const submitManagerReleaseApproval = async () => {
@@ -1641,6 +1687,17 @@ const submitManagerReleaseApproval = async () => {
 
   managerReleaseReceipt.value = result
   managerReleaseIdempotencyKey.value = ''
+  try {
+    await loadStage5ReleaseSnapshot(result)
+  } catch (snapshotError) {
+    managerReleaseUncertainMessage.value = `最终放行已确认，但 Stage5 追溯回执读取失败：${resolveErrorMessage(
+      snapshotError,
+      '请人工核对后刷新页面'
+    )}`
+    message.error(managerReleaseUncertainMessage.value)
+    managerReleaseSubmitting.value = false
+    return
+  }
   message.success(`最终放行已确认，生产批次 ${result.batchExecutionId} 已进入可追溯列表。`)
   await getList()
   if (loadError.value) {
@@ -1710,7 +1767,21 @@ const handleCompleteCandidateSignature = async (row: EdhrWorkTaskRespVO) => {
   }
 }
 
-onMounted(getList)
+const initializeRouteFilters = () => {
+  const taskType = typeof route.query.taskType === 'string' ? route.query.taskType.trim() : ''
+  const batchExecutionId =
+    typeof route.query.batchExecutionId === 'string' ? route.query.batchExecutionId.trim() : ''
+  if (taskType) {
+    queryParams.taskType = taskType
+    activeTab.value = 'candidate'
+  }
+  if (batchExecutionId) queryParams.batchExecutionId = batchExecutionId
+}
+
+onMounted(() => {
+  initializeRouteFilters()
+  getList()
+})
 </script>
 
 <style scoped>

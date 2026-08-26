@@ -423,7 +423,7 @@ const loadListFromRoute = async () => {
 const handleSyncKingdeeWorkOrders = async () => {
   kingdeeSyncLoading.value = true
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob('kingdeeProductionOrderSyncJob')
+    await ErpKingdeeSyncApi.runIncrementalSync('PRODUCTION_ORDER')
     message.success('生产工单增量同步任务已提交')
     await getList()
   } finally {

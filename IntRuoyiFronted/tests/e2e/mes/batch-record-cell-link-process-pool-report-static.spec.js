@@ -53,14 +53,36 @@ for (const token of [
   "const PQC_AGGREGATE_DETAIL_SOURCE_REPORT_NAME = '一线PQC数据'",
   'label="一线PQC数据"',
   ':value="PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID"',
+  'ProRouteProcessApi.getRouteProcessListByRoute',
+  'const routeProcesses = ref',
+  'const selectedPqcRouteProcessId = ref',
+  'const selectedPqcRouteProcess = computed',
+  'batch-record-cell-link__pqc-process-select',
+  '选择工序',
   'pqcAggregateSourceFields.value = (data.sourceFields || []).filter',
   'const isPqcAggregateSelected = computed(() => sourceReportId.value === PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID)',
   'sourceType.value === SOURCE_TYPE_PQC_AGGREGATE_DETAIL',
   'filteredPqcAggregateSourceFields.value',
+  'selectedPqcRouteProcessId.value',
+  'selectedPqcRouteProcess?.sort',
+  'selectedPqcRouteProcess?.processName',
   'buildSourceFieldCells(filteredPqcAggregateSourceFields.value, PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID',
-  'routeProcessId: requestedTargetRouteProcessId'
+  'routeProcessId: routeProcessIdForContext',
+  'async function loadRouteProcesses()',
+  'const handlePqcProcessChange = async'
 ]) {
   assert.ok(page.includes(token), `page misses PQC aggregate mapping token: ${token}`)
+}
+
+for (const token of [
+  '填写时间',
+  '复核时间',
+  '填写人签名',
+  '复核人签名',
+  '当前工序序号',
+  '工序名称'
+]) {
+  assert.ok(page.includes(token), `PQC aggregate source panel must surface readable process/time/signature labels: ${token}`)
 }
 
 for (const token of [
@@ -80,9 +102,9 @@ for (const token of [
   'data-pqc-aggregate-source-fields',
   'data-pqc-aggregate-field-count',
   'const currentPqcAggregateSourceTitle = computed',
-  "`${targetForm.value?.reportName || '当前工序'}的一线PQC字段`",
-  'return pqcAggregateSourceFields.value.filter((field) =>',
-  'field.routeProcessId === targetRouteProcessId',
+  '请选择工序后查看一线PQC字段',
+  'const targetRouteProcessId = selectedPqcRouteProcessId.value',
+  'return pqcAggregateSourceFields.value.filter((field) => field.routeProcessId === targetRouteProcessId)',
   'currentPqcAggregateSourceTitle.value'
 ]) {
   assert.ok(page.includes(token), `PQC aggregate source panel must refresh by selected target process: ${token}`)
@@ -129,7 +151,7 @@ for (const token of [
   'const requestedTargetRouteProcessId = parseNumber(route.query.routeProcessId)',
   "const requestedTargetReportId = String(route.query.targetReportId || '')",
   ':disabled="!hasFormalRouteProcessContext"',
-  'form.routeProcessId === requestedTargetRouteProcessId',
+  'form.routeProcessId === routeProcessIdForContext',
   'form.reportId === requestedTargetReportId'
 ]) {
   assert.ok(page.includes(token), `cell-link page must select the requested formal process target: ${token}`)

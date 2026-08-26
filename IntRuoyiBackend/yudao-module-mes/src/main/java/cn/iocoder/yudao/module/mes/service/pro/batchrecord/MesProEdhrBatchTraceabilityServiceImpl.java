@@ -179,10 +179,16 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
     @Transactional(readOnly = true)
     public MesProEdhrBatchTraceSourcePrecheckRespVO resolveSourcePrecheck(
             MesProEdhrBatchTraceSourcePrecheckCommand command) {
-        if (command == null || command.getBatchExecutionId() == null || command.getOriginLinkId() == null) {
+        if (command == null || command.getBatchExecutionId() == null) {
             throw exception(FLOW8_SOURCE_PRECHECK_REQUIRED);
         }
         requireBatch(command.getBatchExecutionId());
+        if (command.getOriginLinkId() == null) {
+            return resolveSourcePrecheckWithoutLinkId(command,
+                    originMapper.selectListByBatchExecutionId(command.getBatchExecutionId()),
+                    traceLinkMapper.selectListByBatchExecutionId(command.getBatchExecutionId()),
+                    LocalDateTime.now());
+        }
         MesProEdhrBatchExecutionTraceLinkDO link = traceLinkMapper.selectByIdAndBatchExecutionId(
                 command.getOriginLinkId(), command.getBatchExecutionId());
         if (link == null) {
@@ -193,6 +199,36 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
                 .filter(candidate -> Objects.equals(candidate.getId(), link.getOriginId()))
                 .findFirst().orElse(null);
         return resolveSourcePrecheck(command, origin, link, LocalDateTime.now());
+    }
+
+    static MesProEdhrBatchTraceSourcePrecheckRespVO resolveSourcePrecheckWithoutLinkId(
+            MesProEdhrBatchTraceSourcePrecheckCommand command,
+            List<MesProEdhrBatchExecutionOriginDO> origins,
+            List<MesProEdhrBatchExecutionTraceLinkDO> links,
+            LocalDateTime readAt) {
+        if (command == null || command.getBatchExecutionId() == null || origins == null || links == null) {
+            throw exception(FLOW8_SOURCE_PRECHECK_REQUIRED);
+        }
+        List<MesProEdhrBatchExecutionTraceLinkDO> candidates = links.stream()
+                .filter(Objects::nonNull)
+                .filter(link -> Objects.equals(command.getBatchExecutionId(), link.getBatchExecutionId()))
+                .filter(link -> MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT.equals(link.getLinkType()))
+                .filter(link -> "CAPTURED".equalsIgnoreCase(link.getRelationStatus()))
+                .filter(MesProEdhrBatchTraceabilityServiceImpl::isTraceLinkIntegrityValid)
+                .filter(link -> origins.stream().anyMatch(origin ->
+                        Objects.equals(origin.getId(), link.getOriginId())
+                                && Objects.equals(origin.getBatchExecutionId(), link.getBatchExecutionId())
+                                && !isBlank(origin.getSourceSnapshotHash())
+                                && !Objects.equals("NOT_APPLICABLE", link.getRelationStatus())))
+                .toList();
+        if (candidates.size() != 1) {
+            throw exception(FLOW8_SOURCE_PRECHECK_REQUIRED);
+        }
+        MesProEdhrBatchExecutionTraceLinkDO link = candidates.get(0);
+        MesProEdhrBatchExecutionOriginDO origin = origins.stream()
+                .filter(candidate -> Objects.equals(candidate.getId(), link.getOriginId()))
+                .findFirst().orElse(null);
+        return resolveSourcePrecheck(command.setOriginLinkId(link.getId()), origin, link, readAt);
     }
 
     static MesProEdhrBatchTraceSourcePrecheckRespVO resolveSourcePrecheck(
@@ -476,8 +512,8 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
         if (!expectedIdentity.equals(link.getSourceIdentityKey())) {
             return false;
         }
-        String expectedHash = DigestUtil.sha256Hex(
-                MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(link.getSnapshotJson()));
+        String expectedHash = MesProEdhrBatchTraceSourceHash.calculate(
+                link.getLinkType(), link.getSnapshotJson());
         return expectedHash.equalsIgnoreCase(link.getSnapshotHash());
     }
 

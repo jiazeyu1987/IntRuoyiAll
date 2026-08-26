@@ -11,449 +11,459 @@
         @tab-change="handleScheduleOrderTabChange"
       >
         <el-tab-pane label="排产工单" name="scheduleOrders">
-      <ScheduleOrderMainList
-        :query-model="scheduleOrderQueryParams"
-        :filter-definitions="scheduleOrderQuickFilterDefinitions"
-        :quick-filter-state="scheduleOrderQuickFilter.state"
-        :selected-filter-definition="scheduleOrderQuickFilter.selectedDefinition.value"
-        :operator-options="scheduleOrderQuickFilter.operatorOptions.value"
-        :show-multi-filter="true"
-        :multi-filter-definitions="scheduleOrderMultiFilterDefinitions"
-        :multi-filter-state="scheduleOrderMultiFilter.state"
-        :show-multi-filter-operators="false"
-        :columns="scheduleOrderColumns"
-        :column-saving="scheduleOrderColumnSaving"
-        v-model:sort-state="scheduleOrderSortState"
-        :total="scheduleOrderTotal"
-        @update:page="scheduleOrderQueryParams.pageNo = $event"
-        @update:limit="scheduleOrderQueryParams.pageSize = $event"
-        @update:quick-filter-state="scheduleOrderQuickFilter.updateState"
-        @quick-filter-query="scheduleOrderQuickFilter.applyQuickFilter"
-        @update:multi-filter-state="scheduleOrderMultiFilter.updateState"
-        @multi-filter-query="scheduleOrderMultiFilter.applyMultiFilter"
-        @multi-filter-reset="scheduleOrderMultiFilter.resetMultiFilter"
-        @multi-filter-remove="scheduleOrderMultiFilter.removeConditionAndApply"
-        @column-change="saveScheduleOrderColumnConfig"
-        @column-reset="resetScheduleOrderColumnConfig"
-        @sort-change="handleScheduleOrderSortChange"
-        @pagination="getScheduleOrderList"
-      >
-        <template #actions>
-          <div class="schedule-order-pool__tab-actions">
-            <div
-              class="schedule-order-pool__last-success-time"
-              :class="{ 'schedule-order-pool__last-success-time--error': latestSuccessfulScheduleApplyError }"
-              :title="latestSuccessfulScheduleApplyTooltip"
-            >
-              <Icon icon="ep:clock" class="mr-5px" />
-              <span>最近一次成功排产时间</span>
-              <strong>{{ latestSuccessfulScheduleApplyTimeText }}</strong>
-            </div>
-            <div class="schedule-order-pool__toolbar-group schedule-order-pool__toolbar-group--primary">
-              <el-button
-                v-hasPermi="['mes:pro-schedule-order:export']"
-                :loading="scheduleOrderExporting"
-                plain
-                @click="openScheduleOrderExportDialog"
-              >
-                <Icon icon="ep:download" class="mr-5px" /> 导出
-              </el-button>
-              <el-tooltip
-                :disabled="selectedScheduleOrders.length > 0"
-                content="请先勾选排产工单"
-                placement="top"
-              >
-                <span class="schedule-order-pool__toolbar-inline">
-                  <el-button
-                    v-hasPermi="['mes:pro-auto-schedule:replan']"
-                    type="warning"
-                    :disabled="!selectedScheduleOrders.length"
-                    @click="openReplanDrawer"
-                  >
-                    <Icon icon="ep:refresh" class="mr-5px" /> 手动重排
-                  </el-button>
-                </span>
-              </el-tooltip>
-            </div>
-            <UserTableColumnSettings
-              class="schedule-order-pool__tab-column-settings"
-              :columns="scheduleOrderColumns"
-              :saving="scheduleOrderColumnSaving"
-              :show-reset="false"
-              @change="saveScheduleOrderColumnConfig"
-              @reset="resetScheduleOrderColumnConfig"
-            />
-          </div>
-        </template>
-        <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-          <el-table
-            ref="scheduleOrderTableRef"
-            v-loading="scheduleOrderLoading"
-            data-user-table-column-explicit
-            data-user-table-key="mes.pro.scheduleOrder.main"
-            :data="scheduleOrderList"
-            :height="scheduleOrderTableHeight"
-            border
-            :stripe="true"
-            :show-overflow-tooltip="true"
-            :cell-class-name="getMainTableCellClassName"
-            :header-cell-class-name="getScheduleOrderHeaderCellClassName"
-            :row-class-name="getScheduleOrderRowClassName"
-            row-key="id"
-            @selection-change="handleScheduleOrderSelectionChange"
-            @header-dragend="handleScheduleOrderHeaderDragend"
-            @sort-change="handleTemplateSortChange"
+          <ScheduleOrderMainList
+            :query-model="scheduleOrderQueryParams"
+            :filter-definitions="scheduleOrderQuickFilterDefinitions"
+            :quick-filter-state="scheduleOrderQuickFilter.state"
+            :selected-filter-definition="scheduleOrderQuickFilter.selectedDefinition.value"
+            :operator-options="scheduleOrderQuickFilter.operatorOptions.value"
+            :show-multi-filter="true"
+            :multi-filter-definitions="scheduleOrderMultiFilterDefinitions"
+            :multi-filter-state="scheduleOrderMultiFilter.state"
+            :show-multi-filter-operators="false"
+            :columns="scheduleOrderColumns"
+            :column-saving="scheduleOrderColumnSaving"
+            v-model:sort-state="scheduleOrderSortState"
+            :total="scheduleOrderTotal"
+            @update:page="scheduleOrderQueryParams.pageNo = $event"
+            @update:limit="scheduleOrderQueryParams.pageSize = $event"
+            @update:quick-filter-state="scheduleOrderQuickFilter.updateState"
+            @quick-filter-query="scheduleOrderQuickFilter.applyQuickFilter"
+            @update:multi-filter-state="scheduleOrderMultiFilter.updateState"
+            @multi-filter-query="scheduleOrderMultiFilter.applyMultiFilter"
+            @multi-filter-reset="scheduleOrderMultiFilter.resetMultiFilter"
+            @multi-filter-remove="scheduleOrderMultiFilter.removeConditionAndApply"
+            @column-change="saveScheduleOrderColumnConfig"
+            @column-reset="resetScheduleOrderColumnConfig"
+            @sort-change="handleScheduleOrderSortChange"
+            @pagination="getScheduleOrderList"
           >
-        <el-table-column
-          type="selection"
-          width="48"
-          fixed="left"
-          :selectable="isScheduleOrderSelectable"
-        />
-        <el-table-column label="重排状态" width="104" fixed="left" align="center">
-          <template #default="{ row }">
-            <span
-              v-if="!isScheduleOrderReplanable(row)"
-              class="schedule-order-pool__replan-block-reason"
-              role="status"
-              :aria-label="`不可重排：${getScheduleOrderReplanBlockReason(row)}`"
-            >
-              <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
-              <span>不可重排</span>
-              <small>{{ getScheduleOrderReplanBlockReason(row) }}</small>
-            </span>
-            <span
-              v-else
-              class="schedule-order-pool__replan-available"
-              role="status"
-              aria-label="可重排"
-            >
-              <Icon icon="ep:circle-check-filled" :size="13" aria-hidden="true" />
-              可重排
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('code')"
-          label="排产工单号"
-          prop="code"
-          :width="getScheduleOrderColumnWidthString('code', 180)"
-          v-bind="sortColumnAttrs('code')"
-        >
-          <template #default="{ row }">
-            <span class="schedule-order-pool__main-table-text">{{ row.code || '--' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('erpWorkOrderCode')"
-          label="来源生产工单号"
-          prop="erpWorkOrderCode"
-          :width="getScheduleOrderColumnWidthString('erpWorkOrderCode', 180)"
-          v-bind="sortColumnAttrs('erpWorkOrderCode')"
-        >
-          <template #default="{ row }">
-            <div class="schedule-order-pool__work-order-ref">
-              <el-button
-                v-if="row.erpWorkOrderCode"
-                link
-                type="primary"
-                class="schedule-order-pool__inline-link"
-                @click="openWorkOrder(row)"
-              >
-                {{ getScheduleOrderSourceCodeText(row) }}
-              </el-button>
-              <span v-else>--</span>
-              <el-tooltip
-                v-if="Number(row.blockingIssueCount || 0) > 0"
-                effect="dark"
-                placement="top"
-                :content="row.latestBlockingIssueMessage || '存在阻断问题'"
-              >
-                <span class="schedule-order-pool__blocking-reason">
-                  阻断：{{ row.latestBlockingIssueMessage || '存在阻断问题' }}
-                </span>
-              </el-tooltip>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('productCode')"
-          label="产品编号"
-          prop="productCode"
-          :min-width="getScheduleOrderColumnMinWidthString('productCode', 120)"
-          v-bind="sortColumnAttrs('productCode')"
-        >
-          <template #default="{ row }">
-            <span
-              :class="[
-                getScheduleOrderProductCodeClass(row),
-                'schedule-order-pool__main-table-text'
-              ]"
-            >
-              {{ row.productCode || '--' }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('productName')"
-          label="产品名称"
-          prop="productName"
-          :min-width="getScheduleOrderColumnMinWidthString('productName', 150)"
-          v-bind="sortColumnAttrs('productName')"
-        />
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('productSpecification')"
-          label="规格型号"
-          prop="productSpecification"
-          :min-width="getScheduleOrderColumnMinWidthString('productSpecification', 130)"
-          v-bind="sortColumnAttrs('productSpecification')"
-        />
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('progressPercent')"
-          label="数量/进度"
-          prop="progressPercent"
-          :width="getScheduleOrderColumnWidthString('progressPercent', 170)"
-          v-bind="sortColumnAttrs('progressPercent')"
-        >
-          <template #default="{ row }">
-            <div class="schedule-order-pool__quantity-progress">
-              <div class="schedule-order-pool__quantity-main">
-                <span>总量 {{ formatQuantity(row.totalQuantity ?? row.quantity) }}</span>
-                <strong>{{ formatPercent(row.progressPercent) }}%</strong>
+            <template #actions>
+              <div class="schedule-order-pool__tab-actions">
+                <div
+                  class="schedule-order-pool__last-success-time"
+                  :class="{
+                    'schedule-order-pool__last-success-time--error':
+                      latestSuccessfulScheduleApplyError
+                  }"
+                  :title="latestSuccessfulScheduleApplyTooltip"
+                >
+                  <Icon icon="ep:clock" class="mr-5px" />
+                  <span>最近一次成功排产时间</span>
+                  <strong>{{ latestSuccessfulScheduleApplyTimeText }}</strong>
+                </div>
+                <div
+                  class="schedule-order-pool__toolbar-group schedule-order-pool__toolbar-group--primary"
+                >
+                  <el-button
+                    v-hasPermi="['mes:pro-schedule-order:export']"
+                    :loading="scheduleOrderExporting"
+                    plain
+                    @click="openScheduleOrderExportDialog"
+                  >
+                    <Icon icon="ep:download" class="mr-5px" /> 导出
+                  </el-button>
+                  <el-tooltip
+                    :disabled="selectedScheduleOrders.length > 0"
+                    content="请先勾选排产工单"
+                    placement="top"
+                  >
+                    <span class="schedule-order-pool__toolbar-inline">
+                      <el-button
+                        v-hasPermi="['mes:pro-auto-schedule:replan']"
+                        type="warning"
+                        :disabled="!selectedScheduleOrders.length"
+                        @click="openReplanDrawer"
+                      >
+                        <Icon icon="ep:refresh" class="mr-5px" /> 手动重排
+                      </el-button>
+                    </span>
+                  </el-tooltip>
+                </div>
+                <UserTableColumnSettings
+                  class="schedule-order-pool__tab-column-settings"
+                  :columns="scheduleOrderColumns"
+                  :saving="scheduleOrderColumnSaving"
+                  :show-reset="false"
+                  @change="saveScheduleOrderColumnConfig"
+                  @reset="resetScheduleOrderColumnConfig"
+                />
               </div>
-              <el-progress
-                :percentage="normalizePercent(row.progressPercent)"
-                :show-text="false"
-                :stroke-width="6"
-              />
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('promiseDate')"
-          label="承诺交期"
-          prop="promiseDate"
-          :width="getScheduleOrderColumnWidthString('promiseDate', 130)"
-          align="center"
-          v-bind="sortColumnAttrs('promiseDate')"
-        />
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('latestStartTime')"
-          label="最晚开工"
-          prop="latestStartTime"
-          :width="getScheduleOrderColumnWidthString('latestStartTime', 160)"
-          align="center"
-          v-bind="sortColumnAttrs('latestStartTime')"
-        >
-          <template #default="{ row }">{{ formatDateTime(row.latestStartTime) }}</template>
-        </el-table-column>
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('plannedStartTime')"
-          label="计划开工"
-          prop="plannedStartTime"
-          :width="getScheduleOrderColumnWidthString('plannedStartTime', 160)"
-          align="center"
-          v-bind="sortColumnAttrs('plannedStartTime')"
-        >
-          <template #default="{ row }">
-            <div class="schedule-order-pool__risk-cell">
-              <span :class="{ 'schedule-order-pool__risk-text': isStartRisk(row) }">
-                {{ formatDateTime(row.plannedStartTime) }}
-              </span>
-              <span
-                v-if="getStartRiskText(row)"
-                class="schedule-order-pool__risk-indicator schedule-order-pool__risk-indicator--critical"
-                role="status"
-                :aria-label="getStartRiskText(row)"
+            </template>
+            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+              <el-table
+                ref="scheduleOrderTableRef"
+                v-loading="scheduleOrderLoading"
+                data-user-table-column-explicit
+                data-user-table-key="mes.pro.scheduleOrder.main"
+                :data="scheduleOrderList"
+                :height="scheduleOrderTableHeight"
+                border
+                :stripe="true"
+                :show-overflow-tooltip="true"
+                :cell-class-name="getMainTableCellClassName"
+                :header-cell-class-name="getScheduleOrderHeaderCellClassName"
+                :row-class-name="getScheduleOrderRowClassName"
+                row-key="id"
+                @selection-change="handleScheduleOrderSelectionChange"
+                @header-dragend="handleScheduleOrderHeaderDragend"
+                @sort-change="handleTemplateSortChange"
               >
-                <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
-                {{ getStartRiskText(row) }}
-              </span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('plannedEndTime')"
-          label="计划完成"
-          prop="plannedEndTime"
-          :width="getScheduleOrderColumnWidthString('plannedEndTime', 160)"
-          align="center"
-          v-bind="sortColumnAttrs('plannedEndTime')"
-        >
-          <template #default="{ row }">
-            <div class="schedule-order-pool__risk-cell">
-              <span :class="{ 'schedule-order-pool__warning-text': isDeliveryRisk(row) }">
-                {{ formatDateTime(row.plannedEndTime) }}
-              </span>
-              <span
-                v-if="getDeliveryRiskText(row)"
-                class="schedule-order-pool__risk-indicator"
-                role="status"
-                :aria-label="getDeliveryRiskText(row)"
-              >
-                <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
-                {{ getDeliveryRiskText(row) }}
-              </span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('priorityNo')"
-          label="优先级"
-          prop="priorityNo"
-          :width="getScheduleOrderColumnWidthString('priorityNo', 100)"
-          align="center"
-          v-bind="sortColumnAttrs({ key: 'priorityNo', sortable: 'custom' })"
-        />
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('productionMaterialList')"
-          label="生产用料清单"
-          prop="productionMaterialList"
-          :min-width="getScheduleOrderColumnMinWidthString('productionMaterialList', 190)"
-          align="center"
-          v-bind="sortColumnAttrs('productionMaterialList')"
-        >
-          <template #default="{ row }">
-            <el-link
-              v-if="row.productionMaterialListCount > 0"
-              type="primary"
-              @click="handleOpenProductionMaterialList(row)"
-            >
-              {{
-                row.productionMaterialListSummary || `共 ${row.productionMaterialListCount} 张`
-              }}
-            </el-link>
-            <el-tooltip
-              v-else
-              :content="MISSING_MATERIAL_LIST_HINT"
-              effect="dark"
-              placement="top"
-              popper-class="schedule-order-pool__missing-value-popper"
-            >
-              <span
-                class="schedule-order-pool__missing-value-hint schedule-order-pool__material-missing"
-                tabindex="0"
-                :aria-label="MISSING_MATERIAL_LIST_HINT"
-              >
-                <span>缺失</span>
-                <Icon icon="ep:question-filled" :size="14" aria-hidden="true" />
-              </span>
-            </el-tooltip>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('currentProcessName')"
-          label="当前工序"
-          prop="currentProcessName"
-          :min-width="getScheduleOrderColumnMinWidthString('currentProcessName', 170)"
-          v-bind="sortColumnAttrs('currentProcessName')"
-        >
-          <template #default="{ row }">
-            <div v-if="row.currentProcessId" class="schedule-order-pool__current-process">
-              <el-button
-                v-if="row.routeId && row.currentRouteProcessId"
-                link
-                type="primary"
-                class="schedule-order-pool__inline-link"
-                @click="openCurrentProcessRouteDetail(row)"
-              >
-                {{ row.currentProcessName || row.currentProcessCode || row.currentProcessId }}
-              </el-button>
-              <span v-else>{{
-                row.currentProcessName || row.currentProcessCode || row.currentProcessId
-              }}</span>
-              <span>{{ formatPercent(row.currentProcessProgressPercent) }}%</span>
-            </div>
-            <el-tooltip
-              v-else
-              :content="MISSING_CURRENT_PROCESS_HINT"
-              effect="dark"
-              placement="top"
-              popper-class="schedule-order-pool__missing-value-popper"
-            >
-              <span
-                class="schedule-order-pool__missing-value-hint schedule-order-pool__current-process-missing"
-                tabindex="0"
-                :aria-label="MISSING_CURRENT_PROCESS_HINT"
-              >
-                <span>-</span>
-                <Icon icon="ep:question-filled" :size="14" aria-hidden="true" />
-              </span>
-            </el-tooltip>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isScheduleOrderColumnVisible('createTime')"
-          label="创建时间"
-          prop="createTime"
-          :formatter="dateFormatter"
-          :width="getScheduleOrderColumnWidthString('createTime', 170)"
-          align="center"
-          v-bind="sortColumnAttrs('createTime')"
-        />
-        <el-table-column label="操作" width="140" align="center" fixed="right">
-          <template #default="{ row }">
-            <div v-if="row.frozen" class="schedule-order-pool__row-actions">
-              <el-button
-                v-hasPermi="['mes:pro-schedule-order:update']"
-                link
-                type="primary"
-                @click="openUnfreezeDialog(row)"
-              >
-                解冻
-              </el-button>
-            </div>
-            <div v-else class="schedule-order-pool__row-actions">
-              <el-button link type="primary" @click="openProcessDialog(row)"> 查看 </el-button>
-              <el-button
-                v-hasPermi="['mes:pro-schedule-order:update']"
-                link
-                type="primary"
-                @click="openPriorityDialog(row)"
-              >
-                调整
-              </el-button>
-              <el-button
-                v-hasPermi="['mes:pro-schedule-order:update']"
-                link
-                type="primary"
-                @click="openPromiseDateDialog(row)"
-              >
-                交期
-              </el-button>
-              <el-button
-                v-hasPermi="['mes:pro-schedule-order:update']"
-                link
-                type="warning"
-                @click="openFreezeDialog(row)"
-              >
-                冻结
-              </el-button>
-              <el-button
-                v-if="!row.manualFinished && row.status !== SCHEDULE_ORDER_STATUS_FINISHED"
-                v-hasPermi="['mes:pro-schedule-order:manual-finish']"
-                link
-                type="success"
-                @click="openManualFinishDialog(row)"
-              >
-                强制完成
-              </el-button>
-              <el-button
-                v-if="row.manualFinished"
-                v-hasPermi="['mes:pro-schedule-order:revoke-complete']"
-                link
-                type="danger"
-                :title="buildManualFinishTooltip(row)"
-                @click="openRevokeManualFinishDialog(row)"
-              >
-                撤销强制完成
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-        </template>
-      </ScheduleOrderMainList>
+                <el-table-column
+                  type="selection"
+                  width="48"
+                  fixed="left"
+                  :selectable="isScheduleOrderSelectable"
+                />
+                <el-table-column label="重排状态" width="104" fixed="left" align="center">
+                  <template #default="{ row }">
+                    <span
+                      v-if="!isScheduleOrderReplanable(row)"
+                      class="schedule-order-pool__replan-block-reason"
+                      role="status"
+                      :aria-label="`不可重排：${getScheduleOrderReplanBlockReason(row)}`"
+                    >
+                      <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
+                      <span>不可重排</span>
+                      <small>{{ getScheduleOrderReplanBlockReason(row) }}</small>
+                    </span>
+                    <span
+                      v-else
+                      class="schedule-order-pool__replan-available"
+                      role="status"
+                      aria-label="可重排"
+                    >
+                      <Icon icon="ep:circle-check-filled" :size="13" aria-hidden="true" />
+                      可重排
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('code')"
+                  label="排产工单号"
+                  prop="code"
+                  :width="getScheduleOrderColumnWidthString('code', 180)"
+                  v-bind="sortColumnAttrs('code')"
+                >
+                  <template #default="{ row }">
+                    <span class="schedule-order-pool__main-table-text">{{ row.code || '--' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('erpWorkOrderCode')"
+                  label="来源生产工单号"
+                  prop="erpWorkOrderCode"
+                  :width="getScheduleOrderColumnWidthString('erpWorkOrderCode', 180)"
+                  v-bind="sortColumnAttrs('erpWorkOrderCode')"
+                >
+                  <template #default="{ row }">
+                    <div class="schedule-order-pool__work-order-ref">
+                      <el-button
+                        v-if="row.erpWorkOrderCode"
+                        link
+                        type="primary"
+                        class="schedule-order-pool__inline-link"
+                        @click="openWorkOrder(row)"
+                      >
+                        {{ getScheduleOrderSourceCodeText(row) }}
+                      </el-button>
+                      <span v-else>--</span>
+                      <el-tooltip
+                        v-if="Number(row.blockingIssueCount || 0) > 0"
+                        effect="dark"
+                        placement="top"
+                        :content="row.latestBlockingIssueMessage || '存在阻断问题'"
+                      >
+                        <span class="schedule-order-pool__blocking-reason">
+                          阻断：{{ row.latestBlockingIssueMessage || '存在阻断问题' }}
+                        </span>
+                      </el-tooltip>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('productCode')"
+                  label="产品编号"
+                  prop="productCode"
+                  :min-width="getScheduleOrderColumnMinWidthString('productCode', 120)"
+                  v-bind="sortColumnAttrs('productCode')"
+                >
+                  <template #default="{ row }">
+                    <span
+                      :class="[
+                        getScheduleOrderProductCodeClass(row),
+                        'schedule-order-pool__main-table-text'
+                      ]"
+                    >
+                      {{ row.productCode || '--' }}
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('productName')"
+                  label="产品名称"
+                  prop="productName"
+                  :min-width="getScheduleOrderColumnMinWidthString('productName', 150)"
+                  v-bind="sortColumnAttrs('productName')"
+                />
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('productSpecification')"
+                  label="规格型号"
+                  prop="productSpecification"
+                  :min-width="getScheduleOrderColumnMinWidthString('productSpecification', 130)"
+                  v-bind="sortColumnAttrs('productSpecification')"
+                />
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('progressPercent')"
+                  label="数量/进度"
+                  prop="progressPercent"
+                  :width="getScheduleOrderColumnWidthString('progressPercent', 170)"
+                  v-bind="sortColumnAttrs('progressPercent')"
+                >
+                  <template #default="{ row }">
+                    <div class="schedule-order-pool__quantity-progress">
+                      <div class="schedule-order-pool__quantity-main">
+                        <span>总量 {{ formatQuantity(row.totalQuantity ?? row.quantity) }}</span>
+                        <strong>{{ formatPercent(row.progressPercent) }}%</strong>
+                      </div>
+                      <el-progress
+                        :percentage="normalizePercent(row.progressPercent)"
+                        :show-text="false"
+                        :stroke-width="6"
+                      />
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('promiseDate')"
+                  label="承诺交期"
+                  prop="promiseDate"
+                  :width="getScheduleOrderColumnWidthString('promiseDate', 130)"
+                  align="center"
+                  v-bind="sortColumnAttrs('promiseDate')"
+                />
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('latestStartTime')"
+                  label="最晚开工"
+                  prop="latestStartTime"
+                  :width="getScheduleOrderColumnWidthString('latestStartTime', 160)"
+                  align="center"
+                  v-bind="sortColumnAttrs('latestStartTime')"
+                >
+                  <template #default="{ row }">{{ formatDateTime(row.latestStartTime) }}</template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('plannedStartTime')"
+                  label="计划开工"
+                  prop="plannedStartTime"
+                  :width="getScheduleOrderColumnWidthString('plannedStartTime', 160)"
+                  align="center"
+                  v-bind="sortColumnAttrs('plannedStartTime')"
+                >
+                  <template #default="{ row }">
+                    <div class="schedule-order-pool__risk-cell">
+                      <span :class="{ 'schedule-order-pool__risk-text': isStartRisk(row) }">
+                        {{ formatDateTime(row.plannedStartTime) }}
+                      </span>
+                      <span
+                        v-if="getStartRiskText(row)"
+                        class="schedule-order-pool__risk-indicator schedule-order-pool__risk-indicator--critical"
+                        role="status"
+                        :aria-label="getStartRiskText(row)"
+                      >
+                        <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
+                        {{ getStartRiskText(row) }}
+                      </span>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('plannedEndTime')"
+                  label="计划完成"
+                  prop="plannedEndTime"
+                  :width="getScheduleOrderColumnWidthString('plannedEndTime', 160)"
+                  align="center"
+                  v-bind="sortColumnAttrs('plannedEndTime')"
+                >
+                  <template #default="{ row }">
+                    <div class="schedule-order-pool__risk-cell">
+                      <span :class="{ 'schedule-order-pool__warning-text': isDeliveryRisk(row) }">
+                        {{ formatDateTime(row.plannedEndTime) }}
+                      </span>
+                      <span
+                        v-if="getDeliveryRiskText(row)"
+                        class="schedule-order-pool__risk-indicator"
+                        role="status"
+                        :aria-label="getDeliveryRiskText(row)"
+                      >
+                        <Icon icon="ep:warning-filled" :size="13" aria-hidden="true" />
+                        {{ getDeliveryRiskText(row) }}
+                      </span>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('priorityNo')"
+                  label="优先级"
+                  prop="priorityNo"
+                  :width="getScheduleOrderColumnWidthString('priorityNo', 100)"
+                  align="center"
+                  v-bind="sortColumnAttrs({ key: 'priorityNo', sortable: 'custom' })"
+                />
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('productionMaterialList')"
+                  label="生产用料清单"
+                  prop="productionMaterialList"
+                  :min-width="getScheduleOrderColumnMinWidthString('productionMaterialList', 190)"
+                  align="center"
+                  v-bind="sortColumnAttrs('productionMaterialList')"
+                >
+                  <template #default="{ row }">
+                    <el-link
+                      v-if="row.productionMaterialListCount > 0"
+                      type="primary"
+                      @click="handleOpenProductionMaterialList(row)"
+                    >
+                      {{
+                        row.productionMaterialListSummary ||
+                        `共 ${row.productionMaterialListCount} 张`
+                      }}
+                    </el-link>
+                    <el-tooltip
+                      v-else
+                      :content="MISSING_MATERIAL_LIST_HINT"
+                      effect="dark"
+                      placement="top"
+                      popper-class="schedule-order-pool__missing-value-popper"
+                    >
+                      <span
+                        class="schedule-order-pool__missing-value-hint schedule-order-pool__material-missing"
+                        tabindex="0"
+                        :aria-label="MISSING_MATERIAL_LIST_HINT"
+                      >
+                        <span>缺失</span>
+                        <Icon icon="ep:question-filled" :size="14" aria-hidden="true" />
+                      </span>
+                    </el-tooltip>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('currentProcessName')"
+                  label="当前工序"
+                  prop="currentProcessName"
+                  :min-width="getScheduleOrderColumnMinWidthString('currentProcessName', 170)"
+                  v-bind="sortColumnAttrs('currentProcessName')"
+                >
+                  <template #default="{ row }">
+                    <div v-if="row.currentProcessId" class="schedule-order-pool__current-process">
+                      <el-button
+                        v-if="row.routeId && row.currentRouteProcessId"
+                        link
+                        type="primary"
+                        class="schedule-order-pool__inline-link"
+                        @click="openCurrentProcessRouteDetail(row)"
+                      >
+                        {{
+                          row.currentProcessName || row.currentProcessCode || row.currentProcessId
+                        }}
+                      </el-button>
+                      <span v-else>{{
+                        row.currentProcessName || row.currentProcessCode || row.currentProcessId
+                      }}</span>
+                      <span>{{ formatPercent(row.currentProcessProgressPercent) }}%</span>
+                    </div>
+                    <el-tooltip
+                      v-else
+                      :content="MISSING_CURRENT_PROCESS_HINT"
+                      effect="dark"
+                      placement="top"
+                      popper-class="schedule-order-pool__missing-value-popper"
+                    >
+                      <span
+                        class="schedule-order-pool__missing-value-hint schedule-order-pool__current-process-missing"
+                        tabindex="0"
+                        :aria-label="MISSING_CURRENT_PROCESS_HINT"
+                      >
+                        <span>-</span>
+                        <Icon icon="ep:question-filled" :size="14" aria-hidden="true" />
+                      </span>
+                    </el-tooltip>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isScheduleOrderColumnVisible('createTime')"
+                  label="创建时间"
+                  prop="createTime"
+                  :formatter="dateFormatter"
+                  :width="getScheduleOrderColumnWidthString('createTime', 170)"
+                  align="center"
+                  v-bind="sortColumnAttrs('createTime')"
+                />
+                <el-table-column label="操作" width="140" align="center" fixed="right">
+                  <template #default="{ row }">
+                    <div v-if="row.frozen" class="schedule-order-pool__row-actions">
+                      <el-button
+                        v-hasPermi="['mes:pro-schedule-order:update']"
+                        link
+                        type="primary"
+                        @click="openUnfreezeDialog(row)"
+                      >
+                        解冻
+                      </el-button>
+                    </div>
+                    <div v-else class="schedule-order-pool__row-actions">
+                      <el-button link type="primary" @click="openProcessDialog(row)">
+                        查看
+                      </el-button>
+                      <el-button
+                        v-hasPermi="['mes:pro-schedule-order:update']"
+                        link
+                        type="primary"
+                        @click="openPriorityDialog(row)"
+                      >
+                        调整
+                      </el-button>
+                      <el-button
+                        v-hasPermi="['mes:pro-schedule-order:update']"
+                        link
+                        type="primary"
+                        @click="openPromiseDateDialog(row)"
+                      >
+                        交期
+                      </el-button>
+                      <el-button
+                        v-hasPermi="['mes:pro-schedule-order:update']"
+                        link
+                        type="warning"
+                        @click="openFreezeDialog(row)"
+                      >
+                        冻结
+                      </el-button>
+                      <el-button
+                        v-if="!row.manualFinished && row.status !== SCHEDULE_ORDER_STATUS_FINISHED"
+                        v-hasPermi="['mes:pro-schedule-order:manual-finish']"
+                        link
+                        type="success"
+                        @click="openManualFinishDialog(row)"
+                      >
+                        强制完成
+                      </el-button>
+                      <el-button
+                        v-if="row.manualFinished"
+                        v-hasPermi="['mes:pro-schedule-order:revoke-complete']"
+                        link
+                        type="danger"
+                        :title="buildManualFinishTooltip(row)"
+                        @click="openRevokeManualFinishDialog(row)"
+                      >
+                        撤销强制完成
+                      </el-button>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </template>
+          </ScheduleOrderMainList>
         </el-tab-pane>
         <el-tab-pane label="同步工单" name="workOrderAdmission">
           <div class="schedule-order-pool__admission-tab">
@@ -486,7 +496,9 @@
               @pagination="getWorkOrderAdmissionList"
             >
               <template #actions>
-                <div class="schedule-order-pool__admission-actions schedule-order-pool__admission-bar">
+                <div
+                  class="schedule-order-pool__admission-actions schedule-order-pool__admission-bar"
+                >
                   <el-button
                     type="primary"
                     :loading="workOrderAdmissionSaving"
@@ -524,7 +536,11 @@
                     @header-dragend="handleWorkOrderAdmissionHeaderDragend"
                     @sort-change="handleTemplateSortChange"
                   >
-                    <el-table-column type="selection" width="48" :selectable="isAdmissionRowSelectable" />
+                    <el-table-column
+                      type="selection"
+                      width="48"
+                      :selectable="isAdmissionRowSelectable"
+                    />
                     <el-table-column
                       v-if="isWorkOrderAdmissionColumnVisible('workOrderCode')"
                       label="工单编码"
@@ -582,13 +598,63 @@
                       label="规格型号"
                       prop="productSpecification"
                       :width="getWorkOrderAdmissionColumnWidthString('productSpecification')"
-                      :min-width="getWorkOrderAdmissionColumnMinWidthString('productSpecification', 140)"
+                      :min-width="
+                        getWorkOrderAdmissionColumnMinWidthString('productSpecification', 140)
+                      "
                       v-bind="sortColumnAttrs('productSpecification')"
                     >
                       <template #default="{ row }">
                         <span class="schedule-order-pool__admission-cell-text">
                           {{ row.productSpecification || '--' }}
                         </span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column
+                      v-if="isWorkOrderAdmissionColumnVisible('analysis')"
+                      label="分析"
+                      prop="analysis"
+                      :width="getWorkOrderAdmissionColumnWidthString('analysis', 220)"
+                      :min-width="getWorkOrderAdmissionColumnMinWidthString('analysis', 180)"
+                      align="center"
+                      v-bind="sortColumnAttrs('analysis')"
+                    >
+                      <template #default="{ row }">
+                        <span
+                          :class="[
+                            'schedule-order-pool__admission-analysis',
+                            row.selectable
+                              ? 'schedule-order-pool__admission-analysis--ready'
+                              : 'schedule-order-pool__admission-analysis--blocked'
+                          ]"
+                          role="status"
+                          :aria-label="
+                            row.selectable
+                              ? '可加入'
+                              : `不能加入：${row.message || getReasonCodeText(row.reasonCode)}`
+                          "
+                        >
+                          <Icon
+                            :icon="row.selectable ? 'ep:circle-check-filled' : 'ep:warning-filled'"
+                            :size="14"
+                            aria-hidden="true"
+                          />
+                          <span>{{
+                            row.selectable
+                              ? '可加入'
+                              : row.message || getReasonCodeText(row.reasonCode)
+                          }}</span>
+                        </span>
+                        <el-button
+                          v-if="isMissingRouteRow(row)"
+                          link
+                          type="primary"
+                          size="small"
+                          class="schedule-order-pool__route-binding-button"
+                          :loading="routeBindingSavingWorkOrderId === row.workOrderId"
+                          @click.stop="openRouteBindingDialog(row)"
+                        >
+                          <Icon icon="ep:plus" class="mr-2px" /> 一键加入
+                        </el-button>
                       </template>
                     </el-table-column>
                     <el-table-column
@@ -620,7 +686,10 @@
                       v-bind="sortColumnAttrs('admissionStatus')"
                     >
                       <template #default="{ row }">
-                        <el-tag :type="getAdmissionStatusTag(row.admissionStatus, row.severity)" effect="light">
+                        <el-tag
+                          :type="getAdmissionStatusTag(row.admissionStatus, row.severity)"
+                          effect="light"
+                        >
                           {{ getAdmissionStatusText(row.admissionStatus) }}
                         </el-tag>
                       </template>
@@ -726,6 +795,62 @@
         </template>
       </Dialog>
     </ContentWrap>
+
+    <Dialog v-model="routeBindingDialogVisible" title="为产品绑定工艺路线" width="620px">
+      <el-form label-width="96px">
+        <el-form-item label="产品编号">
+          <span>{{
+            routeBindingTarget?.productCode || routeBindingTarget?.productId || '--'
+          }}</span>
+        </el-form-item>
+        <el-form-item label="产品名称">
+          <span>{{ routeBindingTarget?.productName || '--' }}</span>
+        </el-form-item>
+        <el-form-item label="工艺路线" required>
+          <el-select
+            v-model="routeBindingRouteId"
+            class="!w-full"
+            filterable
+            clearable
+            :loading="routeBindingOptionsLoading"
+            :disabled="routeBindingOptionsLoading || routeBindingSaving"
+            placeholder="请选择工艺路线"
+          >
+            <el-option
+              v-for="routeOption in routeBindingRouteOptions"
+              :key="routeOption.id"
+              :label="formatRouteBindingOptionLabel(routeOption)"
+              :value="routeOption.id"
+            />
+          </el-select>
+          <el-alert
+            v-if="routeBindingOptionsError"
+            class="mt-8px"
+            type="error"
+            :closable="false"
+            :title="routeBindingOptionsError"
+          />
+          <el-empty
+            v-else-if="!routeBindingOptionsLoading && routeBindingRouteOptions.length === 0"
+            description="暂无可选择的工艺路线"
+            :image-size="60"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="routeBindingSaving" @click="routeBindingDialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="routeBindingSaving"
+          :disabled="routeBindingOptionsLoading || !routeBindingRouteId"
+          @click="submitRouteBinding"
+        >
+          保存并刷新
+        </el-button>
+      </template>
+    </Dialog>
 
     <Dialog v-model="priorityDialogVisible" title="调整排产工单" width="500px">
       <el-form label-width="88px">
@@ -867,7 +992,9 @@
 
     <Dialog
       v-model="manualFinishDialogVisible"
-      :title="manualFinishDialogMode === 'MANUAL_FINISH' ? '排产工单强制完成' : '撤销排产工单强制完成'"
+      :title="
+        manualFinishDialogMode === 'MANUAL_FINISH' ? '排产工单强制完成' : '撤销排产工单强制完成'
+      "
       width="460px"
     >
       <el-alert
@@ -1111,7 +1238,9 @@
                 :min-width="getOperationLogColumnMinWidthString('diffCount', 90)"
                 align="right"
               >
-                <template #default="{ row }">{{ buildOperationLogDiffRows(row).length }} 项</template>
+                <template #default="{ row }"
+                  >{{ buildOperationLogDiffRows(row).length }} 项</template
+                >
               </el-table-column>
             </el-table>
           </template>
@@ -1201,13 +1330,22 @@
                     >
                       <el-tag
                         v-for="(resource, index) in getProcessResourceRows(row)"
-                        :key="resource.workstationId || resource.workstationCode || resource.workstationName || index"
+                        :key="
+                          resource.workstationId ||
+                          resource.workstationCode ||
+                          resource.workstationName ||
+                          index
+                        "
                         effect="light"
                         size="small"
                       >
-                        {{ resource.workstationName || resource.workstationCode || resource.workstationId }}
-                        · {{ getCapacitySourceText(resource.resourceType) }}
-                        · {{ formatCapacityIntegerNumber(resource.hourlyCapacity) }}/h
+                        {{
+                          resource.workstationName ||
+                          resource.workstationCode ||
+                          resource.workstationId
+                        }}
+                        · {{ getCapacitySourceText(resource.resourceType) }} ·
+                        {{ formatCapacityIntegerNumber(resource.hourlyCapacity) }}/h
                       </el-tag>
                     </div>
                   </div>
@@ -1249,7 +1387,9 @@
                             :width="getFeedbackHistoryColumnWidthString('code', 160)"
                             :min-width="getFeedbackHistoryColumnMinWidthString('code', 140)"
                           >
-                            <template #default="{ row: feedback }">{{ feedback.code || '-' }}</template>
+                            <template #default="{ row: feedback }">{{
+                              feedback.code || '-'
+                            }}</template>
                           </el-table-column>
                           <el-table-column
                             label="报工时间"
@@ -1266,7 +1406,9 @@
                             label="本次数量"
                             prop="feedbackQuantity"
                             :width="getFeedbackHistoryColumnWidthString('feedbackQuantity', 110)"
-                            :min-width="getFeedbackHistoryColumnMinWidthString('feedbackQuantity', 96)"
+                            :min-width="
+                              getFeedbackHistoryColumnMinWidthString('feedbackQuantity', 96)
+                            "
                             align="right"
                           >
                             <template #default="{ row: feedback }">
@@ -1277,7 +1419,9 @@
                             label="合格数"
                             prop="qualifiedQuantity"
                             :width="getFeedbackHistoryColumnWidthString('qualifiedQuantity', 100)"
-                            :min-width="getFeedbackHistoryColumnMinWidthString('qualifiedQuantity', 88)"
+                            :min-width="
+                              getFeedbackHistoryColumnMinWidthString('qualifiedQuantity', 88)
+                            "
                             align="right"
                           >
                             <template #default="{ row: feedback }">
@@ -1287,8 +1431,12 @@
                           <el-table-column
                             label="报工人"
                             prop="feedbackUserNickname"
-                            :width="getFeedbackHistoryColumnWidthString('feedbackUserNickname', 120)"
-                            :min-width="getFeedbackHistoryColumnMinWidthString('feedbackUserNickname', 104)"
+                            :width="
+                              getFeedbackHistoryColumnWidthString('feedbackUserNickname', 120)
+                            "
+                            :min-width="
+                              getFeedbackHistoryColumnMinWidthString('feedbackUserNickname', 104)
+                            "
                           >
                             <template #default="{ row: feedback }">
                               {{ feedback.feedbackUserNickname || feedback.feedbackUserId || '-' }}
@@ -1340,7 +1488,9 @@
                 align="right"
                 v-bind="sortColumnAttrs('hourlyCapacityTotal')"
               >
-                <template #default="{ row }">{{ formatCapacityIntegerNumber(row.hourlyCapacityTotal) }}</template>
+                <template #default="{ row }">{{
+                  formatCapacityIntegerNumber(row.hourlyCapacityTotal)
+                }}</template>
               </el-table-column>
               <el-table-column
                 v-if="isProcessRouteColumnVisible('capacitySource')"
@@ -1351,7 +1501,9 @@
                 align="center"
                 v-bind="sortColumnAttrs('capacitySource')"
               >
-                <template #default="{ row }">{{ getCapacitySourceText(row.capacitySource) }}</template>
+                <template #default="{ row }">{{
+                  getCapacitySourceText(row.capacitySource)
+                }}</template>
               </el-table-column>
               <el-table-column
                 v-if="isProcessRouteColumnVisible('shiftCapacityTotal')"
@@ -1362,7 +1514,9 @@
                 align="right"
                 v-bind="sortColumnAttrs('shiftCapacityTotal')"
               >
-                <template #default="{ row }">{{ formatCapacityIntegerNumber(row.shiftCapacityTotal) }}</template>
+                <template #default="{ row }">{{
+                  formatCapacityIntegerNumber(row.shiftCapacityTotal)
+                }}</template>
               </el-table-column>
               <el-table-column
                 v-if="isProcessRouteColumnVisible('plannedQuantity')"
@@ -1452,7 +1606,9 @@
                 align="center"
                 v-bind="sortColumnAttrs('estimatedCompletionTime')"
               >
-                <template #default="{ row }">{{ getProcessRouteEstimatedCompletionTime(row) }}</template>
+                <template #default="{ row }">{{
+                  getProcessRouteEstimatedCompletionTime(row)
+                }}</template>
               </el-table-column>
             </el-table>
           </div>
@@ -1569,297 +1725,290 @@
     </Dialog>
 
     <ScheduleOrderReplanDrawer>
-    <Dialog v-model="replanSettingsDialogVisible" title="重排设置" width="640px">
-      <div class="schedule-order-pool__replan-settings">
-        <el-alert type="info" :closable="false" show-icon>
-          <template #title>
-            <div class="schedule-order-pool__capacity-alert">
-              <span>
-                排产前检查是只读诊断；手动重排会生成变更预览。可归因到工单的阻断会跳过该工单，其余可排工单继续应用；全局阻断仍会停止应用。
-              </span>
-              <span>{{ runtimeCapacityBasisDifferenceText }}</span>
-            </div>
-          </template>
-        </el-alert>
-        <el-form label-width="96px">
-          <el-form-item label="重排开始">
-            <el-date-picker
-              v-model="replanForm.startTime"
-              value-format="YYYY-MM-DD"
-              type="date"
-              placeholder="请选择预览开始日期"
-              class="!w-260px"
-            />
-          </el-form-item>
-          <el-form-item label="产能口径">
-            <el-radio-group v-model="replanForm.runtimeCapacityBasis">
-              <el-radio-button label="PLANNED">计划产能</el-radio-button>
-              <el-radio-button label="ACTUAL">实际产能</el-radio-button>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item label="手工锁定">
-            <el-switch v-model="replanForm.preserveManualLockedTasks" />
-          </el-form-item>
-          <el-form-item label="重排原因">
-            <el-input
-              v-model="replanForm.reason"
-              type="textarea"
-              :rows="2"
-              maxlength="500"
-              show-word-limit
-              placeholder="可选填写本次重排的业务原因"
-            />
-          </el-form-item>
-        </el-form>
-        <el-alert
-          :title="replanScopeSummaryText"
-          type="warning"
-          :closable="false"
-          show-icon
-        />
-      </div>
-    </Dialog>
+      <Dialog v-model="replanSettingsDialogVisible" title="重排设置" width="640px">
+        <div class="schedule-order-pool__replan-settings">
+          <el-alert type="info" :closable="false" show-icon>
+            <template #title>
+              <div class="schedule-order-pool__capacity-alert">
+                <span>
+                  排产前检查是只读诊断；手动重排会生成变更预览。可归因到工单的阻断会跳过该工单，其余可排工单继续应用；全局阻断仍会停止应用。
+                </span>
+                <span>{{ runtimeCapacityBasisDifferenceText }}</span>
+              </div>
+            </template>
+          </el-alert>
+          <el-form label-width="96px">
+            <el-form-item label="重排开始">
+              <el-date-picker
+                v-model="replanForm.startTime"
+                value-format="YYYY-MM-DD"
+                type="date"
+                placeholder="请选择预览开始日期"
+                class="!w-260px"
+              />
+            </el-form-item>
+            <el-form-item label="产能口径">
+              <el-radio-group v-model="replanForm.runtimeCapacityBasis">
+                <el-radio-button label="PLANNED">计划产能</el-radio-button>
+                <el-radio-button label="ACTUAL">实际产能</el-radio-button>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="手工锁定">
+              <el-switch v-model="replanForm.preserveManualLockedTasks" />
+            </el-form-item>
+            <el-form-item label="重排原因">
+              <el-input
+                v-model="replanForm.reason"
+                type="textarea"
+                :rows="2"
+                maxlength="500"
+                show-word-limit
+                placeholder="可选填写本次重排的业务原因"
+              />
+            </el-form-item>
+          </el-form>
+          <el-alert :title="replanScopeSummaryText" type="warning" :closable="false" show-icon />
+        </div>
+      </Dialog>
 
-    <el-drawer v-model="replanDrawerVisible" title="排产前检查 / 手动重排" size="720px">
-      <div class="schedule-order-pool__replan">
-        <div class="schedule-order-pool__preflight-panel">
-          <div class="schedule-order-pool__preflight-head">
-            <div>
-              <span class="schedule-order-pool__preflight-title">排产前检查</span>
-              <span class="schedule-order-pool__preflight-time">
-                {{
-                  preflightResult?.checkedAt ? formatDateTime(preflightResult.checkedAt) : '未检查'
-                }}
-              </span>
+      <el-drawer v-model="replanDrawerVisible" title="排产前检查 / 手动重排" size="720px">
+        <div class="schedule-order-pool__replan">
+          <div class="schedule-order-pool__preflight-panel">
+            <div class="schedule-order-pool__preflight-head">
+              <div>
+                <span class="schedule-order-pool__preflight-title">排产前检查</span>
+                <span class="schedule-order-pool__preflight-time">
+                  {{
+                    preflightResult?.checkedAt
+                      ? formatDateTime(preflightResult.checkedAt)
+                      : '未检查'
+                  }}
+                </span>
+              </div>
+              <el-button :loading="preflightLoading" @click="runPreflight">
+                <Icon icon="ep:refresh" class="mr-5px" /> 重新检查
+              </el-button>
             </div>
-            <el-button :loading="preflightLoading" @click="runPreflight">
-              <Icon icon="ep:refresh" class="mr-5px" /> 重新检查
+            <div v-if="preflightResult" class="schedule-order-pool__preflight-summary">
+              <el-tag :type="getPreflightResultTag(preflightResult.result)" effect="light">
+                {{ getPreflightResultText(preflightResult.result) }}
+              </el-tag>
+              <el-tag type="success" effect="light"
+                >通过 {{ preflightResult.summary?.passCount ?? 0 }}</el-tag
+              >
+              <el-tag type="warning" effect="light"
+                >警告 {{ preflightResult.summary?.warnCount ?? 0 }}</el-tag
+              >
+              <el-tag type="danger" effect="light"
+                >阻断 {{ preflightResult.summary?.blockedCount ?? 0 }}</el-tag
+              >
+            </div>
+            <el-alert
+              v-if="preflightStale"
+              title="检查范围或参数已变化，请重新检查。"
+              type="warning"
+              :closable="false"
+              show-icon
+            />
+            <el-alert
+              v-if="preflightHasBlockedIssue"
+              :title="
+                preflightHasGlobalBlockedIssue
+                  ? '存在无法归因到工单的阻断问题，不能应用重排。'
+                  : '存在部分工单阻断；应用时将跳过问题工单，其余可排工单可继续重排。'
+              "
+              :type="preflightHasGlobalBlockedIssue ? 'error' : 'warning'"
+              :closable="false"
+              show-icon
+            />
+            <el-table
+              v-if="preflightResult?.issues?.length"
+              data-user-table-column-explicit
+              class="mt-12px"
+              :data="preflightResult.issues"
+              :show-overflow-tooltip="true"
+            >
+              <el-table-column label="严重度" prop="severity" width="90">
+                <template #default="{ row }">
+                  <el-tag :type="getPreflightResultTag(row.severity)" effect="light">
+                    {{ getPreflightResultText(row.severity) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="产品/编号" min-width="180">
+                <template #default="{ row }">
+                  <div class="schedule-order-pool__issue-product">
+                    <span>{{ getPreflightIssueProductName(row) }}</span>
+                    <small>{{ getPreflightIssueProductCode(row) }}</small>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="不可排原因" prop="message" min-width="250">
+                <template #default="{ row }">{{
+                  row.message || getReasonCodeText(row.reasonCode)
+                }}</template>
+              </el-table-column>
+              <el-table-column label="建议处理" prop="ownerRole" width="110" />
+              <el-table-column label="操作" width="170" align="center">
+                <template #default="{ row }">
+                  <el-button
+                    v-if="canOpenIssueAction(row.action)"
+                    link
+                    type="primary"
+                    @click="openIssueAction(row.action)"
+                  >
+                    {{ row.action.actionLabel }}
+                  </el-button>
+                  <el-tag v-else-if="row.action?.requiredPermission" type="info" effect="light">
+                    缺失权限 {{ row.action.requiredPermission }}
+                  </el-tag>
+                  <span v-else>-</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
+          <div class="schedule-order-pool__replan-actions">
+            <el-button
+              v-if="hasReplanPermission"
+              type="primary"
+              :loading="replanApplyLoading || replanPreviewLoading"
+              :disabled="!canApplyReplan"
+              @click="applyReplan"
+            >
+              <Icon icon="ep:refresh" class="mr-5px" /> 开始重排
+            </el-button>
+            <span
+              v-if="hasReplanPermission && replanProjectionState.disabled"
+              class="schedule-order-pool__replan-blocker"
+              :title="replanProjectionState.blockerMessage"
+            >
+              {{ replanProjectionState.blockerMessage }}
+            </span>
+            <span
+              v-show="showReplanApplyProgress"
+              class="schedule-order-pool__replan-progress"
+              aria-live="polite"
+            >
+              <span>重排进度 {{ replanApplyProgressPercent }}%</span>
+              <el-progress
+                :percentage="replanApplyProgressPercent"
+                :stroke-width="6"
+                :show-text="false"
+              />
+            </span>
+            <el-button v-if="hasReplanPermission" @click="openReplanSettingsDialog">
+              <Icon icon="ep:setting" class="mr-5px" /> 设置
             </el-button>
           </div>
-          <div v-if="preflightResult" class="schedule-order-pool__preflight-summary">
-            <el-tag :type="getPreflightResultTag(preflightResult.result)" effect="light">
-              {{ getPreflightResultText(preflightResult.result) }}
-            </el-tag>
-            <el-tag type="success" effect="light"
-              >通过 {{ preflightResult.summary?.passCount ?? 0 }}</el-tag
-            >
-            <el-tag type="warning" effect="light"
-              >警告 {{ preflightResult.summary?.warnCount ?? 0 }}</el-tag
-            >
-            <el-tag type="danger" effect="light"
-              >阻断 {{ preflightResult.summary?.blockedCount ?? 0 }}</el-tag
-            >
-          </div>
+
           <el-alert
-            v-if="preflightStale"
-            title="检查范围或参数已变化，请重新检查。"
+            v-if="replanPreviewStale"
+            title="重排参数已变化，开始重排时会重新检查并生成预览。"
             type="warning"
             :closable="false"
             show-icon
           />
           <el-alert
-            v-if="preflightHasBlockedIssue"
+            v-if="replanPreviewHasBlockedIssue"
             :title="
-              preflightHasGlobalBlockedIssue
-                ? '存在无法归因到工单的阻断问题，不能应用重排。'
-                : '存在部分工单阻断；应用时将跳过问题工单，其余可排工单可继续重排。'
+              replanPreviewHasGlobalBlockedIssue
+                ? '重排预览存在无法归因到工单的阻断问题，不能应用重排。'
+                : '重排预览存在部分工单阻断；确认后将仅应用其余可排工单。'
             "
-            :type="preflightHasGlobalBlockedIssue ? 'error' : 'warning'"
+            :type="replanPreviewHasGlobalBlockedIssue ? 'error' : 'warning'"
             :closable="false"
             show-icon
           />
-          <el-table
-            v-if="preflightResult?.issues?.length"
-            data-user-table-column-explicit
-            class="mt-12px"
-            :data="preflightResult.issues"
-            :show-overflow-tooltip="true"
-          >
-            <el-table-column label="严重度" prop="severity" width="90">
-              <template #default="{ row }">
-                <el-tag :type="getPreflightResultTag(row.severity)" effect="light">
-                  {{ getPreflightResultText(row.severity) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="产品/编号" min-width="180">
-              <template #default="{ row }">
-                <div class="schedule-order-pool__issue-product">
-                  <span>{{ getPreflightIssueProductName(row) }}</span>
-                  <small>{{ getPreflightIssueProductCode(row) }}</small>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column label="不可排原因" prop="message" min-width="250">
-              <template #default="{ row }">{{
-                row.message || getReasonCodeText(row.reasonCode)
-              }}</template>
-            </el-table-column>
-            <el-table-column label="建议处理" prop="ownerRole" width="110" />
-            <el-table-column label="操作" width="170" align="center">
-              <template #default="{ row }">
+
+          <div v-if="replanPreview" class="schedule-order-pool__replan-summary">
+            <el-descriptions :column="1" border>
+              <el-descriptions-item label="工单数">
+                {{ replanPreview.summary?.workOrderCount ?? 0 }}
+              </el-descriptions-item>
+              <el-descriptions-item label="生成任务">
+                {{ replanPreview.summary?.generatedTaskCount ?? 0 }}
+              </el-descriptions-item>
+              <el-descriptions-item label="冻结保护">
+                {{ formatPreservedTaskSummary(replanPreview.summary?.preservedTaskCount) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="报工保护">
                 <el-button
-                  v-if="canOpenIssueAction(row.action)"
-                  link
                   type="primary"
-                  @click="openIssueAction(row.action)"
+                  link
+                  :disabled="!replanFeedbackProtectionCount"
+                  @click="replanFeedbackProtectionDialogVisible = true"
                 >
-                  {{ row.action.actionLabel }}
+                  报工保护({{ replanFeedbackProtectionCount }})
                 </el-button>
-                <el-tag v-else-if="row.action?.requiredPermission" type="info" effect="light">
-                  缺失权限 {{ row.action.requiredPermission }}
-                </el-tag>
-                <span v-else>-</span>
-              </template>
-            </el-table-column>
-          </el-table>
+              </el-descriptions-item>
+              <el-descriptions-item label="阻塞问题">
+                {{ replanPreview.summary?.blockingIssueCount ?? 0 }}
+              </el-descriptions-item>
+            </el-descriptions>
+            <el-table
+              v-if="replanIssueRows.length"
+              data-user-table-column-explicit
+              class="mt-12px"
+              :data="replanIssueRows"
+              :show-overflow-tooltip="true"
+            >
+              <el-table-column label="严重度" prop="severity" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="getIssueSeverityTag(row.severity)" effect="light">
+                    {{ getIssueSeverityText(row.severity) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="问题" prop="problem" min-width="220" />
+              <el-table-column label="备注" min-width="320">
+                <template #default="{ row }">
+                  <div class="schedule-order-pool__issue-remark">
+                    <el-button
+                      v-if="row.issueType === 'MATERIAL'"
+                      link
+                      type="primary"
+                      @click="openMaterialShortageDialog"
+                    >
+                      查看缺料
+                    </el-button>
+                    <span v-for="part in row.remarkParts" :key="part">{{ part }}</span>
+                    <el-button
+                      v-if="row.sourceIssue && canOpenReplanIssueCalendar(row.sourceIssue)"
+                      link
+                      type="primary"
+                      @click="openReplanIssueCalendar(row.sourceIssue)"
+                    >
+                      跳到班次
+                    </el-button>
+                    <span
+                      v-if="
+                        !row.remarkParts.length && row.issueType !== 'MATERIAL' && !row.sourceIssue
+                      "
+                      >-</span
+                    >
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
         </div>
+      </el-drawer>
 
-        <div class="schedule-order-pool__replan-actions">
-          <el-button
-            v-if="hasReplanPermission"
-            type="primary"
-            :loading="replanApplyLoading || replanPreviewLoading"
-            :disabled="!canApplyReplan"
-            @click="applyReplan"
-          >
-            <Icon icon="ep:refresh" class="mr-5px" /> 开始重排
-          </el-button>
-          <span
-            v-if="hasReplanPermission && replanProjectionState.disabled"
-            class="schedule-order-pool__replan-blocker"
-            :title="replanProjectionState.blockerMessage"
-          >
-            {{ replanProjectionState.blockerMessage }}
-          </span>
-          <span
-            v-show="showReplanApplyProgress"
-            class="schedule-order-pool__replan-progress"
-            aria-live="polite"
-          >
-            <span>重排进度 {{ replanApplyProgressPercent }}%</span>
-            <el-progress
-              :percentage="replanApplyProgressPercent"
-              :stroke-width="6"
-              :show-text="false"
-            />
-          </span>
-          <el-button v-if="hasReplanPermission" @click="openReplanSettingsDialog">
-            <Icon icon="ep:setting" class="mr-5px" /> 设置
-          </el-button>
-        </div>
-
-        <el-alert
-          v-if="replanPreviewStale"
-          title="重排参数已变化，开始重排时会重新检查并生成预览。"
-          type="warning"
-          :closable="false"
-          show-icon
-        />
-        <el-alert
-          v-if="replanPreviewHasBlockedIssue"
-          :title="
-            replanPreviewHasGlobalBlockedIssue
-              ? '重排预览存在无法归因到工单的阻断问题，不能应用重排。'
-              : '重排预览存在部分工单阻断；确认后将仅应用其余可排工单。'
-          "
-          :type="replanPreviewHasGlobalBlockedIssue ? 'error' : 'warning'"
-          :closable="false"
-          show-icon
-        />
-
-        <div v-if="replanPreview" class="schedule-order-pool__replan-summary">
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="工单数">
-              {{ replanPreview.summary?.workOrderCount ?? 0 }}
-            </el-descriptions-item>
-            <el-descriptions-item label="生成任务">
-              {{ replanPreview.summary?.generatedTaskCount ?? 0 }}
-            </el-descriptions-item>
-            <el-descriptions-item label="冻结保护">
-              {{ formatPreservedTaskSummary(replanPreview.summary?.preservedTaskCount) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="报工保护">
-              <el-button
-                type="primary"
-                link
-                :disabled="!replanFeedbackProtectionCount"
-                @click="replanFeedbackProtectionDialogVisible = true"
-              >
-                报工保护({{ replanFeedbackProtectionCount }})
-              </el-button>
-            </el-descriptions-item>
-            <el-descriptions-item label="阻塞问题">
-              {{ replanPreview.summary?.blockingIssueCount ?? 0 }}
-            </el-descriptions-item>
-          </el-descriptions>
-          <el-table
-            v-if="replanIssueRows.length"
-            data-user-table-column-explicit
-            class="mt-12px"
-            :data="replanIssueRows"
-            :show-overflow-tooltip="true"
-          >
-            <el-table-column label="严重度" prop="severity" width="100" align="center">
-              <template #default="{ row }">
-                <el-tag :type="getIssueSeverityTag(row.severity)" effect="light">
-                  {{ getIssueSeverityText(row.severity) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="问题" prop="problem" min-width="220" />
-            <el-table-column label="备注" min-width="320">
-              <template #default="{ row }">
-                <div class="schedule-order-pool__issue-remark">
-                  <el-button
-                    v-if="row.issueType === 'MATERIAL'"
-                    link
-                    type="primary"
-                    @click="openMaterialShortageDialog"
-                  >
-                    查看缺料
-                  </el-button>
-                  <span v-for="part in row.remarkParts" :key="part">{{ part }}</span>
-                  <el-button
-                    v-if="row.sourceIssue && canOpenReplanIssueCalendar(row.sourceIssue)"
-                    link
-                    type="primary"
-                    @click="openReplanIssueCalendar(row.sourceIssue)"
-                  >
-                    跳到班次
-                  </el-button>
-                  <span
-                    v-if="
-                      !row.remarkParts.length && row.issueType !== 'MATERIAL' && !row.sourceIssue
-                    "
-                    >-</span
-                  >
-                </div>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </div>
-    </el-drawer>
-
-    <Dialog v-model="replanFeedbackProtectionDialogVisible" title="报工保护明细" width="680px">
-      <el-table
-        :data="replanFeedbackProtectedTasks"
-        :show-overflow-tooltip="true"
-      >
-        <el-table-column label="任务" min-width="260">
-          <template #default="{ row }">
-            {{ formatProtectedTaskLabel(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="保护原因" width="140">
-          <template #default="{ row }">
-            {{ formatProtectionReason(row.protectionReason) }}
-          </template>
-        </el-table-column>
-      </el-table>
-    </Dialog>
-
+      <Dialog v-model="replanFeedbackProtectionDialogVisible" title="报工保护明细" width="680px">
+        <el-table :data="replanFeedbackProtectedTasks" :show-overflow-tooltip="true">
+          <el-table-column label="任务" min-width="260">
+            <template #default="{ row }">
+              {{ formatProtectedTaskLabel(row) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="保护原因" width="140">
+            <template #default="{ row }">
+              {{ formatProtectionReason(row.protectionReason) }}
+            </template>
+          </el-table-column>
+        </el-table>
+      </Dialog>
     </ScheduleOrderReplanDrawer>
 
     <Dialog
@@ -1888,8 +2037,8 @@
         </div>
         <div class="schedule-order-pool__replan-start-hint">
           当前选择日期：{{ replanStartDate || '未选择' }}，计算日期从 00:00 开始；起排时间
-          {{ replanStartDateStartTime }}。下一可用班次由排程日历决定，例如白班 08:00 开始时，实际任务按班次
-          08:00 开始。
+          {{ replanStartDateStartTime }}。下一可用班次由排程日历决定，例如白班 08:00
+          开始时，实际任务按班次 08:00 开始。
         </div>
         <div class="schedule-order-pool__dialog-footer">
           <el-button @click="replanStartDateDialogVisible = false">取消</el-button>
@@ -1923,7 +2072,7 @@
 
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import { ElNotification } from 'element-plus'
+import { ElMessageBox, ElNotification } from 'element-plus'
 import download from '@/utils/download'
 import { generateUUID } from '@/utils'
 import { dateFormatter, formatDate, formatDateTimeValue } from '@/utils/formatTime'
@@ -1939,6 +2088,8 @@ import {
   type MesProScheduleOrderProcessVO,
   type MesProScheduleOrderVO
 } from '@/api/mes/pro/scheduleorder'
+import { ProRouteApi, type ProRouteVO } from '@/api/mes/pro/route'
+import { ProRouteProductApi } from '@/api/mes/pro/route/product'
 import {
   ProTaskAutoScheduleApi,
   type ProTaskAutoScheduleIssueVO,
@@ -1948,6 +2099,7 @@ import {
   type ProTaskAutoScheduleReplanPreviewRespVO
 } from '@/api/mes/pro/task/autoSchedule'
 import { MesProWorkOrderStatusEnum } from '@/views/mes/utils/constants'
+import { CommonStatusEnum } from '@/utils/constants'
 import { checkPermi } from '@/utils/permission'
 import { useEmitt } from '@/hooks/web/useEmitt'
 import {
@@ -1956,7 +2108,10 @@ import {
   type MesScheduleOrderRefreshPayload
 } from '../shared/scheduleEvents'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
-import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import {
   useTableQuickFilter,
   type TableQuickFilterDefinition,
@@ -1989,12 +2144,16 @@ type ScheduleOrderTemplateSortableColumn = {
   sortOrders?: ScheduleOrderTemplateSortOrder[]
 }
 
-type ScheduleOrderTemplateSortColumnAttrs = (columnKeyOrConfig: string | {
-  key: string
-  prop?: string
-  sortable?: boolean | 'custom'
-  sortOrders?: ScheduleOrderTemplateSortOrder[]
-}) => {
+type ScheduleOrderTemplateSortColumnAttrs = (
+  columnKeyOrConfig:
+    | string
+    | {
+        key: string
+        prop?: string
+        sortable?: boolean | 'custom'
+        sortOrders?: ScheduleOrderTemplateSortOrder[]
+      }
+) => {
   sortable: boolean | 'custom'
   sortOrders: ScheduleOrderTemplateSortOrder[]
 }
@@ -2064,6 +2223,7 @@ const workOrderAdmissionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'productCode', label: '产品编号', minWidth: 130 },
   { key: 'productName', label: '产品名称', minWidth: 150 },
   { key: 'productSpecification', label: '规格型号', minWidth: 140 },
+  { key: 'analysis', label: '分析', width: 220 },
   { key: 'quantity', label: '总数量', width: 110 },
   { key: 'requestDate', label: '需求日期', width: 160 },
   { key: 'admissionStatus', label: '入池状态', width: 120 },
@@ -2203,7 +2363,9 @@ const scheduleOrderExportColumnOptions = [
   { key: 'currentProcessName', label: '当前工序' },
   { key: 'createTime', label: '创建时间' }
 ]
-const defaultScheduleOrderExportColumns = scheduleOrderExportColumnOptions.map((column) => column.key)
+const defaultScheduleOrderExportColumns = scheduleOrderExportColumnOptions.map(
+  (column) => column.key
+)
 const scheduleOrderExportColumns = ref<string[]>([...defaultScheduleOrderExportColumns])
 const scheduleOrderQueryParams = reactive({
   pageNo: 1,
@@ -2236,7 +2398,12 @@ const scheduleOrderQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     queryParamKey: 'completionFilter',
     options: scheduleOrderCompletionFilterOptions
   },
-  { key: 'erpWorkOrderCode', label: '来源生产工单号', type: 'text', placeholder: '请输入来源生产工单号' },
+  {
+    key: 'erpWorkOrderCode',
+    label: '来源生产工单号',
+    type: 'text',
+    placeholder: '请输入来源生产工单号'
+  },
   { key: 'productName', label: '产品名称', type: 'text', placeholder: '请输入产品名称' },
   { key: 'productSpecification', label: '规格型号', type: 'text', placeholder: '请输入规格型号' },
   { key: 'promiseDate', label: '承诺交期', type: 'dateRange' }
@@ -2347,6 +2514,14 @@ const workOrderAdmissionSaving = ref(false)
 const workOrderAdmissionList = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const selectedWorkOrders = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const workOrderAdmissionTotal = ref(0)
+const routeBindingDialogVisible = ref(false)
+const routeBindingOptionsLoading = ref(false)
+const routeBindingOptionsError = ref('')
+const routeBindingSaving = ref(false)
+const routeBindingSavingWorkOrderId = ref<number>()
+const routeBindingTarget = ref<MesProScheduleOrderAdmissionDiffRowVO>()
+const routeBindingRouteOptions = ref<ProRouteVO[]>([])
+const routeBindingRouteId = ref<number>()
 let workOrderAdmissionRequestSerial = 0
 const workOrderAdmissionQueryParams = reactive({
   pageNo: 1,
@@ -2574,10 +2749,13 @@ const preflightHasBlockedIssue = computed(() => {
   )
 })
 
-const isPreflightIssueAttributableToWorkOrder = (
-  issue: MesProScheduleOrderPreflightIssueVO
-) => {
-  if (issue.workOrderId || issue.scheduleOrderId || issue.workOrderCode || issue.scheduleOrderCode) {
+const isPreflightIssueAttributableToWorkOrder = (issue: MesProScheduleOrderPreflightIssueVO) => {
+  if (
+    issue.workOrderId ||
+    issue.scheduleOrderId ||
+    issue.workOrderCode ||
+    issue.scheduleOrderCode
+  ) {
     return true
   }
   return (
@@ -2801,9 +2979,7 @@ const notifySkippedSelectedReplanRows = (preview: ProTaskAutoScheduleReplanPrevi
 
 const canApplyReplan = computed(() => {
   return Boolean(
-      replanProjectionState.value.allowed &&
-      !replanPreviewLoading.value &&
-      !replanApplyLoading.value
+    replanProjectionState.value.allowed && !replanPreviewLoading.value && !replanApplyLoading.value
   )
 })
 const resolveScheduleReplanProjection = () => {
@@ -2892,7 +3068,10 @@ const latestSuccessfulScheduleApplyTimeText = computed(() => {
   if (latestSuccessfulScheduleApplyError.value) {
     return '加载失败'
   }
-  if (latestSuccessfulScheduleApply.value?.hasData && latestSuccessfulScheduleApply.value?.appliedAt) {
+  if (
+    latestSuccessfulScheduleApply.value?.hasData &&
+    latestSuccessfulScheduleApply.value?.appliedAt
+  ) {
     return formatDateTime(latestSuccessfulScheduleApply.value.appliedAt)
   }
   return '暂无成功排产'
@@ -2901,7 +3080,10 @@ const latestSuccessfulScheduleApplyTooltip = computed(() => {
   if (latestSuccessfulScheduleApplyError.value) {
     return latestSuccessfulScheduleApplyError.value
   }
-  if (latestSuccessfulScheduleApply.value?.hasData && latestSuccessfulScheduleApply.value?.appliedAt) {
+  if (
+    latestSuccessfulScheduleApply.value?.hasData &&
+    latestSuccessfulScheduleApply.value?.appliedAt
+  ) {
     const operationTypeText =
       latestSuccessfulScheduleApply.value.operationType === 'AUTO_APPLY' ? '自动排产' : '手动重排'
     const operator = latestSuccessfulScheduleApply.value.operatorName
@@ -3014,7 +3196,8 @@ async function loadLatestSuccessfulScheduleApplyTime() {
   latestSuccessfulScheduleApplyLoading.value = true
   latestSuccessfulScheduleApplyError.value = ''
   try {
-    latestSuccessfulScheduleApply.value = await ProTaskAutoScheduleApi.getLatestSuccessfulScheduleApply()
+    latestSuccessfulScheduleApply.value =
+      await ProTaskAutoScheduleApi.getLatestSuccessfulScheduleApply()
   } catch (error) {
     latestSuccessfulScheduleApply.value = null
     latestSuccessfulScheduleApplyError.value = `加载最近成功排产时间失败：${error instanceof Error ? error.message : String(error)}`
@@ -3052,7 +3235,10 @@ const processRouteQuickFilter = useTableQuickFilter(
   applyProcessRouteQuickFilter
 )
 
-const normalizeProcessRouteFilterText = (value: unknown) => String(value ?? '').trim().toLowerCase()
+const normalizeProcessRouteFilterText = (value: unknown) =>
+  String(value ?? '')
+    .trim()
+    .toLowerCase()
 
 const processCapacityModeTextMap: Record<string, string> = {
   RESOURCE_CALCULATED: '资源计算',
@@ -3192,7 +3378,13 @@ const syncScheduleOrderPriorityAriaSort = async () => {
   })
 }
 
-const handleScheduleOrderSortChange = async ({ prop, order }: { prop?: string; order?: string | null }) => {
+const handleScheduleOrderSortChange = async ({
+  prop,
+  order
+}: {
+  prop?: string
+  order?: string | null
+}) => {
   scheduleOrderQueryParams.pageNo = 1
   if (prop !== 'priorityNo' || (order !== 'ascending' && order !== 'descending')) {
     scheduleOrderQueryParams.sortField = undefined
@@ -3585,14 +3777,18 @@ const formatOperationSnapshotValue = (value: unknown) => {
   return String(value)
 }
 
-const buildOperationLogDiffRows = (row: MesProScheduleOrderOperationLogVO): OperationLogDiffRow[] => {
+const buildOperationLogDiffRows = (
+  row: MesProScheduleOrderOperationLogVO
+): OperationLogDiffRow[] => {
   const beforeSnapshot = parseOperationSnapshot(row.beforeSnapshotJson)
   const afterSnapshot = parseOperationSnapshot(row.afterSnapshotJson)
   const fields = Array.from(
     new Set([...Object.keys(beforeSnapshot), ...Object.keys(afterSnapshot)])
   ).sort()
   const diffRows = fields
-    .filter((field) => JSON.stringify(beforeSnapshot[field]) !== JSON.stringify(afterSnapshot[field]))
+    .filter(
+      (field) => JSON.stringify(beforeSnapshot[field]) !== JSON.stringify(afterSnapshot[field])
+    )
     .map((field) => ({
       field,
       fieldLabel: getOperationFieldLabel(field),
@@ -3625,7 +3821,9 @@ const getWorkOrderAdmissionList = async () => {
   } catch (error) {
     if (requestSerial === workOrderAdmissionRequestSerial) {
       console.error('[MES] 加载同步工单列表失败', error)
-      message.error(`加载同步工单列表失败：${error instanceof Error ? error.message : String(error)}`)
+      message.error(
+        `加载同步工单列表失败：${error instanceof Error ? error.message : String(error)}`
+      )
     }
   } finally {
     if (requestSerial === workOrderAdmissionRequestSerial) {
@@ -3645,11 +3843,7 @@ const handleWorkOrderAdmissionSelectionChange = (rows: MesProScheduleOrderAdmiss
   selectedWorkOrders.value = rows
 }
 
-const getMainTableCellClassName = ({
-  column
-}: {
-  column: { property?: string }
-}) => {
+const getMainTableCellClassName = ({ column }: { column: { property?: string } }) => {
   const wrapColumns = new Set(['erpWorkOrderCode', 'productCode'])
   return wrapColumns.has(column.property || '') ? 'schedule-order-pool__main-table__cell--wrap' : ''
 }
@@ -3753,7 +3947,8 @@ const resolveReplanParticipatingScheduleOrderIds = (
 const updateLastReplanParticipatingScheduleOrders = (
   preview: ProTaskAutoScheduleReplanPreviewRespVO
 ) => {
-  lastReplanParticipatingScheduleOrderIds.value = resolveReplanParticipatingScheduleOrderIds(preview)
+  lastReplanParticipatingScheduleOrderIds.value =
+    resolveReplanParticipatingScheduleOrderIds(preview)
 }
 
 const isScheduleOrderParticipatingInLastReplan = (row: MesProScheduleOrderVO) => {
@@ -3787,11 +3982,72 @@ const isAdmissionRowAdmitted = (row: MesProScheduleOrderAdmissionDiffRowVO) => {
   return Boolean(row.scheduleOrderId || row.admissionStatus === 'ALREADY_ADMITTED')
 }
 
-const getAdmissionCellClassName = ({
-  column
-}: {
-  column: { property?: string }
-}) => {
+const isMissingRouteRow = (row: MesProScheduleOrderAdmissionDiffRowVO) => {
+  return row.reasonCode === 'BLOCKED_MISSING_ROUTE' && Number(row.productId) > 0
+}
+
+const formatRouteBindingOptionLabel = (route: ProRouteVO) => {
+  const code = route.code ? `${route.code} / ` : ''
+  const status = route.status === CommonStatusEnum.ENABLE ? '（已启用，可新增产品）' : ''
+  return `${code}${route.name || route.id}${status}`
+}
+
+const openRouteBindingDialog = async (row: MesProScheduleOrderAdmissionDiffRowVO) => {
+  if (!isMissingRouteRow(row)) {
+    return
+  }
+  routeBindingTarget.value = row
+  routeBindingRouteId.value = undefined
+  routeBindingRouteOptions.value = []
+  routeBindingOptionsError.value = ''
+  routeBindingDialogVisible.value = true
+  routeBindingOptionsLoading.value = true
+  try {
+    routeBindingRouteOptions.value = await ProRouteApi.getRouteItemBindingList()
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    routeBindingOptionsError.value = `加载工艺路线失败：${errorMessage}`
+  } finally {
+    routeBindingOptionsLoading.value = false
+  }
+}
+
+const submitRouteBinding = async () => {
+  const target = routeBindingTarget.value
+  const routeId = routeBindingRouteId.value
+  if (!target || !isMissingRouteRow(target)) {
+    message.error('当前工单缺少有效的产品物料身份，不能绑定工艺路线')
+    return
+  }
+  if (!routeId) {
+    message.warning('请选择工艺路线')
+    return
+  }
+  const route = routeBindingRouteOptions.value.find((item) => item.id === routeId)
+  if (!route) {
+    message.error('所选工艺路线不可用于产品绑定，请重新选择')
+    return
+  }
+  routeBindingSaving.value = true
+  routeBindingSavingWorkOrderId.value = target.workOrderId
+  try {
+    await ProRouteProductApi.saveRouteProductByItem({
+      itemId: target.productId!,
+      routeId
+    })
+    message.success('工艺路线绑定成功，正在刷新同步工单分析')
+    routeBindingDialogVisible.value = false
+    await getWorkOrderAdmissionList()
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    message.error(`工艺路线绑定失败：${errorMessage}`)
+  } finally {
+    routeBindingSaving.value = false
+    routeBindingSavingWorkOrderId.value = undefined
+  }
+}
+
+const getAdmissionCellClassName = ({ column }: { column: { property?: string } }) => {
   const wrapColumns = new Set([
     'workOrderCode',
     'productCode',
@@ -3799,7 +4055,9 @@ const getAdmissionCellClassName = ({
     'productSpecification',
     'message'
   ])
-  return wrapColumns.has(column.property || '') ? 'schedule-order-pool__admission-table__cell--wrap' : ''
+  return wrapColumns.has(column.property || '')
+    ? 'schedule-order-pool__admission-table__cell--wrap'
+    : ''
 }
 
 const submitWorkOrderAdmission = async () => {
@@ -3817,6 +4075,15 @@ const submitWorkOrderAdmission = async () => {
     selectedWorkOrders.value = []
     await getWorkOrderAdmissionList()
     await getScheduleOrderList()
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    await ElMessageBox.alert(errorMessage, '工单无法加入排产工单池', {
+      type: 'warning',
+      confirmButtonText: '知道了',
+      closeOnClickModal: false,
+      closeOnPressEscape: false,
+      showClose: false
+    })
   } finally {
     workOrderAdmissionSaving.value = false
   }
@@ -4490,7 +4757,9 @@ onMounted(async () => {
 
 <style scoped>
 .schedule-order-pool {
-  height: calc(100vh - var(--top-tool-height) - var(--tags-view-height) - var(--app-footer-height) - 32px);
+  height: calc(
+    100vh - var(--top-tool-height) - var(--tags-view-height) - var(--app-footer-height) - 32px
+  );
   min-height: 0;
 }
 
@@ -5398,6 +5667,34 @@ onMounted(async () => {
   word-break: break-all;
   overflow-wrap: anywhere;
   line-height: 18px;
+}
+
+.schedule-order-pool__admission-analysis {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 18px;
+  text-align: left;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.schedule-order-pool__admission-analysis--ready {
+  color: #008f7a;
+  font-weight: 600;
+}
+
+.schedule-order-pool__admission-analysis--blocked {
+  color: #cf1322;
+  font-weight: 600;
+}
+
+.schedule-order-pool__route-binding-button {
+  flex: 0 0 auto;
+  margin-left: 4px;
+  white-space: nowrap;
 }
 
 .schedule-order-pool__admission-template :deep(.unified-list-template__query-form) {

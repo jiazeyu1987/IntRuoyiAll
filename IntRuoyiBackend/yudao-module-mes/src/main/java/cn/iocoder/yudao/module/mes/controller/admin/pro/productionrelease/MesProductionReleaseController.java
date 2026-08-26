@@ -76,6 +76,7 @@ public class MesProductionReleaseController {
                         .setPickListHeaderSnapshotHash(reqVO.getPickListHeaderSnapshotHash())
                         .setPickListLineSnapshotHash(reqVO.getPickListLineSnapshotHash())
                         .setSourceEvidence(reqVO.getSourceEvidence())
+                        .setCompletionBackfillReceipt(reqVO.getCompletionBackfillReceipt())
                         .setIndependentReceipt(reqVO.getIndependentReceipt()))));
     }
 

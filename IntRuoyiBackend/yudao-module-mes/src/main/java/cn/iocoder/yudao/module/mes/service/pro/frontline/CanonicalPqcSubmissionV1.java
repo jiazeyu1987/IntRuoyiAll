@@ -17,6 +17,11 @@ public final class CanonicalPqcSubmissionV1 {
     private CanonicalPqcSubmissionV1() {
     }
 
+    /**
+     * Historical V1 compatibility hash. New submissions must use
+     * {@link CanonicalPqcSubmissionV2}, which deliberately excludes the
+     * removed manual nonconformance description.
+     */
     public static String hash(MesPqcInspectionTaskDO task, MesFrontlinePqcSubmitCommand command,
                               String nonconformanceDescription,
                               List<MesPqcInspectionPieceDetailDO> details) {

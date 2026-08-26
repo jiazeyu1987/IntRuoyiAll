@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.pojo.QuickFilter;
@@ -82,6 +83,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowContextMatcher;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteScheduleConfigService;
+import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleTopologyPredecessors;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleDailyCompareStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
@@ -124,6 +126,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_PROCESS_FLOW_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FEEDBACK_QUANTITY_EXCEED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_BATCH_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_DELETE_BLOCKED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_FROZEN;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_MANUAL_FINISH_ALREADY;
@@ -281,7 +284,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         }
 
         MesProRouteVersionDO activeRouteVersion = validateScheduleAdmissionRequirements(route, routeProcesses);
-        Map<Long, Long> predecessorMap = buildRouteProcessPredecessorMap(route.getId(), routeProcesses);
+        Map<Long, Set<Long>> predecessorMap = buildRouteProcessPredecessorMap(route.getId(), routeProcesses);
         Map<Long, MesProProcessDO> processMap = toProcessMap(routeProcesses);
         ResourceSnapshotContext resourceContext = buildResourceSnapshotContext(routeProcesses);
         Map<Long, MesProRouteScheduleConfigDO> scheduleConfigMap =
@@ -299,7 +302,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                     resourceContext.snapshotByRouteProcessId.getOrDefault(routeProcess.getId(),
                             ResourceSnapshot.unconfigured(routeProcess.getId())),
                     activeRouteVersion, scheduleConfig, scheduleRouteFlowConfigMap.get(routeProcess.getId()),
-                    predecessorMap.get(routeProcess.getId())));
+                    predecessorMap.getOrDefault(routeProcess.getId(), Collections.emptySet())));
         }
         return scheduleOrder.getId();
     }
@@ -317,14 +320,39 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (CollUtil.isEmpty(workOrderIds)) {
             throw exception(PRO_SCHEDULE_ORDER_BATCH_REQUIRED);
         }
-        failFastWhenAnyWorkOrderAlreadyAdmitted(workOrderIds);
+        Map<Long, MesProScheduleOrderDO> existingScheduleOrderMap = scheduleOrderMapper
+                .selectListByWorkOrderIds(workOrderIds)
+                .stream()
+                .filter(item -> item.getWorkOrderId() != null)
+                .collect(Collectors.toMap(MesProScheduleOrderDO::getWorkOrderId, item -> item,
+                        (left, right) -> left, LinkedHashMap::new));
+        List<BatchAdmissionIssue> admissionIssues = collectBatchAdmissionIssues(workOrderIds,
+                existingScheduleOrderMap);
+        Set<Long> blockedWorkOrderIds = admissionIssues.stream()
+                .map(BatchAdmissionIssue::workOrderId)
+                .collect(Collectors.toSet());
+
         List<Long> scheduleOrderIds = new ArrayList<>();
         for (Long workOrderId : workOrderIds) {
+            if (blockedWorkOrderIds.contains(workOrderId)) {
+                continue;
+            }
             MesProScheduleOrderCreateFromWorkOrderReqVO singleReqVO = new MesProScheduleOrderCreateFromWorkOrderReqVO();
             singleReqVO.setWorkOrderId(workOrderId);
             singleReqVO.setPromiseDate(reqVO.getPromiseDate());
-            scheduleOrderIds.add(createFromWorkOrder(singleReqVO, false));
+            try {
+                scheduleOrderIds.add(createFromWorkOrder(singleReqVO, false));
+            } catch (ServiceException exception) {
+                MesProWorkOrderDO workOrder = workOrderMapper.selectById(workOrderId);
+                admissionIssues.add(new BatchAdmissionIssue(
+                        workOrderId,
+                        exception.getCode() == null ? PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED.getCode()
+                                : exception.getCode(),
+                        resolveBatchWorkOrderCode(workOrder, workOrderId),
+                        exception.getMessage()));
+            }
         }
+        throwBatchAdmissionIssues(admissionIssues);
         return scheduleOrderIds;
     }
 
@@ -1399,6 +1427,9 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         return action;
     }
 
+    private record BatchAdmissionIssue(Long workOrderId, int code, String workOrderCode, String message) {
+    }
+
     private record AdmissionRouteCheck(boolean routeReady, boolean warnOnly, String reasonCode, String message, String ownerRole,
                                        MesProScheduleOrderIssueActionRespVO action) {
         private static AdmissionRouteCheck ready() {
@@ -2459,12 +2490,55 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         return result;
     }
 
-    private void failFastWhenAnyWorkOrderAlreadyAdmitted(List<Long> workOrderIds) {
-        List<MesProScheduleOrderDO> existingScheduleOrders = scheduleOrderMapper.selectListByWorkOrderIds(workOrderIds);
-        if (CollUtil.isEmpty(existingScheduleOrders)) {
+    private List<BatchAdmissionIssue> collectBatchAdmissionIssues(List<Long> workOrderIds,
+                                                                    Map<Long, MesProScheduleOrderDO> existingScheduleOrderMap) {
+        List<BatchAdmissionIssue> issues = new ArrayList<>();
+        for (Long workOrderId : workOrderIds) {
+            MesProWorkOrderDO workOrder = workOrderMapper.selectById(workOrderId);
+            MesProScheduleOrderDO existingScheduleOrder = existingScheduleOrderMap.get(workOrderId);
+            String workOrderCode = resolveBatchWorkOrderCode(workOrder, workOrderId);
+            if (existingScheduleOrder != null) {
+                issues.add(new BatchAdmissionIssue(workOrderId, PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE.getCode(), workOrderCode,
+                        "生产工单已在排产工单池中"));
+                continue;
+            }
+            if (workOrder == null) {
+                continue;
+            }
+            if (Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
+                issues.add(new BatchAdmissionIssue(workOrderId, PRO_SCHEDULE_ORDER_WORK_ORDER_FROZEN.getCode(), workOrderCode,
+                        "生产工单已被临时冻结"));
+            }
+            if (!Objects.equals(workOrder.getStatus(), MesProWorkOrderStatusEnum.CONFIRMED.getStatus())) {
+                issues.add(new BatchAdmissionIssue(workOrderId, PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED.getCode(), workOrderCode,
+                        "生产工单不是已确认状态"));
+            }
+            if (!hasFormalErpSyncIdentity(syncRecordMapper.selectByWorkOrderId(workOrder.getId()), workOrder.getId())) {
+                issues.add(new BatchAdmissionIssue(workOrderId, PRO_SCHEDULE_ORDER_WORK_ORDER_ERP_SYNC_REQUIRED.getCode(), workOrderCode,
+                        "生产工单缺少 ERP 正式同步记录"));
+            }
+        }
+        return issues;
+    }
+
+    private String resolveBatchWorkOrderCode(MesProWorkOrderDO workOrder, Long workOrderId) {
+        return workOrder == null || StrUtil.isBlank(workOrder.getCode())
+                ? "工单ID " + workOrderId : workOrder.getCode();
+    }
+
+    private void throwBatchAdmissionIssues(List<BatchAdmissionIssue> issues) {
+        if (CollUtil.isEmpty(issues)) {
             return;
         }
-        throw exception(PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE);
+        String detail = issues.stream()
+                .map(issue -> issue.workOrderCode() + "：" + StrUtil.blankToDefault(issue.message(), "入池校验未通过"))
+                .collect(Collectors.joining("；"));
+        Set<Integer> errorCodes = issues.stream().map(BatchAdmissionIssue::code).collect(Collectors.toSet());
+        if (errorCodes.size() == 1) {
+            throw exception0(issues.get(0).code(), "以下生产工单无法加入排产工单池：{}", detail);
+        }
+        throw exception0(PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED.getCode(),
+                PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED.getMsg(), detail);
     }
 
     private Map<Long, BigDecimal> sumFeedbackByScheduleOrderProcessId(List<MesProFeedbackDO> feedbackList,
@@ -2704,7 +2778,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                                                      MesProRouteVersionDO activeRouteVersion,
                                                      String routeVersion,
                                                      ResourceSnapshotContext resourceContext,
-                                                     Map<Long, Long> predecessorMap) {
+                                                     Map<Long, Set<Long>> predecessorMap) {
         return MesProScheduleOrderDO.builder()
                 .code(nextCode(workOrder.getCode()))
                 .workOrderId(workOrder.getId())
@@ -2758,7 +2832,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                                                               MesProRouteVersionDO activeRouteVersion,
                                                               MesProRouteScheduleConfigDO scheduleConfig,
                                                               MesProRouteFlowProcessConfigDO scheduleRouteFlowConfig,
-                                                              Long predecessorRouteProcessId) {
+                                                              Set<Long> predecessorRouteProcessIds) {
         Boolean processEnabled = resolveScheduleProcessEnabled(routeProcess, scheduleRouteFlowConfig);
         BigDecimal productionQuantityFactor = resolveProductionQuantityFactor(routeProcess, scheduleRouteFlowConfig);
         BigDecimal quantity = normalizeQuantity(workOrder.getQuantity())
@@ -2770,8 +2844,9 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         return MesProScheduleOrderProcessDO.builder()
                 .scheduleOrderId(scheduleOrderId)
                 .routeProcessId(routeProcess.getId())
-                .predecessorRouteProcessId(predecessorRouteProcessId)
-                .rootProcessFlag(predecessorRouteProcessId == null)
+                .predecessorRouteProcessId(ScheduleTopologyPredecessors.legacyScalar(predecessorRouteProcessIds))
+                .predecessorRouteProcessIdsJson(ScheduleTopologyPredecessors.serialize(predecessorRouteProcessIds))
+                .rootProcessFlag(predecessorRouteProcessIds == null || predecessorRouteProcessIds.isEmpty())
                 .routeVersionId(activeRouteVersion == null ? null : activeRouteVersion.getId())
                 .routeScheduleConfigId(scheduleConfig == null ? null : scheduleConfig.getId())
                 .processId(routeProcess.getProcessId())
@@ -2890,7 +2965,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     private String buildRouteSnapshot(MesProRouteDO route, List<MesProRouteProcessDO> routeProcesses,
                                       MesProRouteVersionDO activeRouteVersion,
                                       String routeVersion,
-                                      Map<Long, Long> predecessorMap) {
+                                      Map<Long, Set<Long>> predecessorMap) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("routeId", route.getId());
         payload.put("routeCode", route.getCode());
@@ -2903,44 +2978,83 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             process.put("routeProcessId", routeProcess.getId());
             process.put("processId", routeProcess.getProcessId());
             process.put("sort", routeProcess.getSort());
-            process.put("predecessorRouteProcessId", predecessorMap.get(routeProcess.getId()));
-            process.put("rootProcessFlag", predecessorMap.get(routeProcess.getId()) == null);
+            Set<Long> predecessorIds = predecessorMap.getOrDefault(routeProcess.getId(), Collections.emptySet());
+            process.put("predecessorRouteProcessId", ScheduleTopologyPredecessors.legacyScalar(predecessorIds));
+            process.put("predecessorRouteProcessIds", predecessorIds.stream().sorted().toList());
+            process.put("rootProcessFlag", predecessorIds.isEmpty());
             processes.add(process);
         }
         payload.put("processes", processes);
         return JsonUtils.toJsonString(payload);
     }
 
-    private Map<Long, Long> buildRouteProcessPredecessorMap(
+    private Map<Long, Set<Long>> buildRouteProcessPredecessorMap(
             Long routeId, List<MesProRouteProcessDO> routeProcesses) {
         Set<Long> routeProcessIds = routeProcesses.stream()
                 .map(MesProRouteProcessDO::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<Long, Long> predecessorMap = new LinkedHashMap<>();
         Map<Long, Set<Long>> outgoingMap = new LinkedHashMap<>();
+        Map<Long, Set<Long>> incomingMap = new LinkedHashMap<>();
+        Set<String> seenEdges = new HashSet<>();
         routeProcessIds.forEach(id -> outgoingMap.put(id, new LinkedHashSet<>()));
+        routeProcessIds.forEach(id -> incomingMap.put(id, new LinkedHashSet<>()));
         for (MesProRouteProcessFlowEdgeDO edge : routeProcessFlowEdgeMapper.selectListByRouteId(routeId)) {
-            if (!routeProcessIds.contains(edge.getSourceRouteProcessId())
+            if (edge == null || !routeProcessIds.contains(edge.getSourceRouteProcessId())
                     || !routeProcessIds.contains(edge.getTargetRouteProcessId())
                     || Objects.equals(edge.getSourceRouteProcessId(), edge.getTargetRouteProcessId())
-                    || predecessorMap.putIfAbsent(
-                            edge.getTargetRouteProcessId(), edge.getSourceRouteProcessId()) != null) {
+                    || !seenEdges.add(edge.getSourceRouteProcessId() + "->" + edge.getTargetRouteProcessId())) {
                 throw exception(PRO_ROUTE_PROCESS_FLOW_INVALID);
             }
-            outgoingMap.get(edge.getSourceRouteProcessId()).add(edge.getTargetRouteProcessId());
+            Long sourceRouteProcessId = edge.getSourceRouteProcessId();
+            Long targetRouteProcessId = edge.getTargetRouteProcessId();
+            outgoingMap.get(sourceRouteProcessId).add(targetRouteProcessId);
+            incomingMap.get(targetRouteProcessId).add(sourceRouteProcessId);
         }
-        long rootCount = routeProcessIds.stream().filter(id -> !predecessorMap.containsKey(id)).count();
-        if (rootCount != 1 || predecessorMap.size() != routeProcessIds.size() - 1) {
+        Set<Long> rootRouteProcessIds = routeProcessIds.stream()
+                .filter(id -> incomingMap.get(id).isEmpty())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (rootRouteProcessIds.isEmpty()
+                || (routeProcessIds.size() > 1 && routeProcessIds.stream()
+                .anyMatch(id -> incomingMap.get(id).isEmpty() && outgoingMap.get(id).isEmpty()))
+                || hasRouteProcessCycle(routeProcessIds, outgoingMap)) {
             throw exception(PRO_ROUTE_PROCESS_FLOW_INVALID);
         }
-        Long rootRouteProcessId = routeProcessIds.stream()
-                .filter(id -> !predecessorMap.containsKey(id))
-                .findFirst()
-                .orElseThrow(() -> exception(PRO_ROUTE_PROCESS_FLOW_INVALID));
-        if (reachableRouteProcessIds(rootRouteProcessId, outgoingMap).size() != routeProcessIds.size()) {
+        Set<Long> reachableFromRoots = new LinkedHashSet<>();
+        rootRouteProcessIds.forEach(rootRouteProcessId ->
+                reachableFromRoots.addAll(reachableRouteProcessIds(rootRouteProcessId, outgoingMap)));
+        if (reachableFromRoots.size() != routeProcessIds.size()) {
             throw exception(PRO_ROUTE_PROCESS_FLOW_INVALID);
         }
-        return predecessorMap;
+        return incomingMap;
+    }
+
+    private boolean hasRouteProcessCycle(Set<Long> routeProcessIds, Map<Long, Set<Long>> outgoingMap) {
+        Set<Long> visiting = new HashSet<>();
+        Set<Long> visited = new HashSet<>();
+        for (Long routeProcessId : routeProcessIds) {
+            if (hasRouteProcessCycle(routeProcessId, outgoingMap, visiting, visited)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasRouteProcessCycle(Long routeProcessId, Map<Long, Set<Long>> outgoingMap,
+                                          Set<Long> visiting, Set<Long> visited) {
+        if (visited.contains(routeProcessId)) {
+            return false;
+        }
+        if (!visiting.add(routeProcessId)) {
+            return true;
+        }
+        for (Long targetRouteProcessId : outgoingMap.getOrDefault(routeProcessId, Set.of())) {
+            if (hasRouteProcessCycle(targetRouteProcessId, outgoingMap, visiting, visited)) {
+                return true;
+            }
+        }
+        visiting.remove(routeProcessId);
+        visited.add(routeProcessId);
+        return false;
     }
 
     private Set<Long> reachableRouteProcessIds(Long rootRouteProcessId, Map<Long, Set<Long>> outgoingMap) {

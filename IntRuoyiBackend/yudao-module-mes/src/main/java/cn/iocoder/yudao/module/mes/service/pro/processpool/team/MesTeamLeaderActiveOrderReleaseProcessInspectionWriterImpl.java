@@ -677,22 +677,22 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
                 .sorted(Comparator.comparing(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
                         .thenComparing(MesPqcProcessInspectionAggregateDetailDO::getSampleNo)
                         .thenComparing(MesPqcProcessInspectionAggregateDetailDO::getId)).toList()) {
-            putItemValues(values, detail);
+            putItemValues(values, source.getTask().getQaProcessId(), detail);
         }
         MesPqcInspectionTaskDO task = source.getTask();
-        put(values, headerSourceKey(task.getInspectionType(), "inspectorUserId"), "inspectorUserId",
+        put(values, headerSourceKey(task.getQaProcessId(), task.getInspectionType(), "inspectorUserId"), "inspectorUserId",
                 source.getEvent().getSignatureUserId());
-        put(values, headerSourceKey(task.getInspectionType(), "inspectedAt"), "inspectedAt",
+        put(values, headerSourceKey(task.getQaProcessId(), task.getInspectionType(), "inspectedAt"), "inspectedAt",
                 source.getEvent().getServerSubmitTime());
-        put(values, headerSourceKey(task.getInspectionType(), "reviewerUserId"), "reviewerUserId",
+        put(values, headerSourceKey(task.getQaProcessId(), task.getInspectionType(), "reviewerUserId"), "reviewerUserId",
                 source.getReview().getReviewSignatureUserId());
-        put(values, headerSourceKey(task.getInspectionType(), "reviewedAt"), "reviewedAt",
+        put(values, headerSourceKey(task.getQaProcessId(), task.getInspectionType(), "reviewedAt"), "reviewedAt",
                 source.getReview().getReviewedAt());
-        put(values, dccSourceKey(task.getInspectionType(), "dccProjectId"), "dccProjectId",
+        put(values, dccSourceKey(task.getQaProcessId(), task.getInspectionType(), "dccProjectId"), "dccProjectId",
                 source.getDccProject().getId());
-        put(values, dccSourceKey(task.getInspectionType(), "dccProjectCode"), "dccProjectCode",
+        put(values, dccSourceKey(task.getQaProcessId(), task.getInspectionType(), "dccProjectCode"), "dccProjectCode",
                 source.getDccProject().getProjectCode());
-        put(values, dccSourceKey(task.getInspectionType(), "dccProjectName"), "dccProjectName",
+        put(values, dccSourceKey(task.getQaProcessId(), task.getInspectionType(), "dccProjectName"), "dccProjectName",
                 source.getDccProject().getProjectName());
         return values;
     }
@@ -737,7 +737,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         return values;
     }
 
-    private void putItemValues(Map<String, SourceValue> values,
+    private void putItemValues(Map<String, SourceValue> values, Long qaProcessId,
                                MesPqcProcessInspectionAggregateDetailDO detail) {
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("itemCode", detail.getItemCode());
@@ -754,7 +754,7 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         fields.put("selectedEquipmentId", detail.getSelectedEquipmentId());
         fields.put("selectedEquipmentNumber", detail.getSelectedEquipmentNumber());
         for (Map.Entry<String, Object> entry : fields.entrySet()) {
-            put(values, itemSourceKey(detail, entry.getKey()), entry.getKey(), entry.getValue());
+            put(values, itemSourceKey(qaProcessId, detail, entry.getKey()), entry.getKey(), entry.getValue());
         }
     }
 
@@ -777,32 +777,32 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         for (MesPqcProcessInspectionAggregateDetailDO detail : source.getAggregateDetails()) {
             for (String field : List.of("itemCode", "itemName", "inspectionMethod", "standardText",
                     "resultType", "measuredValue", "judgement")) {
-                required.add(itemSourceKey(detail, field));
+                required.add(itemSourceKey(source.getTask().getQaProcessId(), detail, field));
             }
             if (detail.getStandardLowerLimit() != null) {
-                required.add(itemSourceKey(detail, "standardLowerLimit"));
+                required.add(itemSourceKey(source.getTask().getQaProcessId(), detail, "standardLowerLimit"));
             }
             if (detail.getStandardUpperLimit() != null) {
-                required.add(itemSourceKey(detail, "standardUpperLimit"));
+                required.add(itemSourceKey(source.getTask().getQaProcessId(), detail, "standardUpperLimit"));
             }
             if (StrUtil.isNotBlank(detail.getStandardUnit())) {
-                required.add(itemSourceKey(detail, "standardUnit"));
+                required.add(itemSourceKey(source.getTask().getQaProcessId(), detail, "standardUnit"));
             }
             if (detail.getStandardPrecision() != null) {
-                required.add(itemSourceKey(detail, "standardPrecision"));
+                required.add(itemSourceKey(source.getTask().getQaProcessId(), detail, "standardPrecision"));
             }
             boolean hasEquipmentSnapshot = detail.getSelectedEquipmentId() != null
                     || StrUtil.isNotBlank(detail.getSelectedEquipmentNumber());
             if (hasEquipmentSnapshot) {
-                required.add(itemSourceKey(detail, "selectedEquipmentId"));
-                required.add(itemSourceKey(detail, "selectedEquipmentNumber"));
+                required.add(itemSourceKey(source.getTask().getQaProcessId(), detail, "selectedEquipmentId"));
+                required.add(itemSourceKey(source.getTask().getQaProcessId(), detail, "selectedEquipmentNumber"));
             }
         }
         for (String field : List.of("inspectorUserId", "inspectedAt", "reviewerUserId", "reviewedAt")) {
-            required.add(headerSourceKey(source.getTask().getInspectionType(), field));
+            required.add(headerSourceKey(source.getTask().getQaProcessId(), source.getTask().getInspectionType(), field));
         }
         for (String field : List.of("dccProjectId", "dccProjectCode", "dccProjectName")) {
-            required.add(dccSourceKey(source.getTask().getInspectionType(), field));
+            required.add(dccSourceKey(source.getTask().getQaProcessId(), source.getTask().getInspectionType(), field));
         }
         return required;
     }
@@ -1249,17 +1249,26 @@ public class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl
         }
     }
 
-    private String itemSourceKey(MesPqcProcessInspectionAggregateDetailDO detail, String fieldCode) {
-        return detail.getInspectionType() + "|" + detail.getItemCode() + "|" + detail.getSampleNo()
-                + "|" + fieldCode;
+    private String itemSourceKey(Long qaProcessId, MesPqcProcessInspectionAggregateDetailDO detail,
+                                 String fieldCode) {
+        return pqcSourceKey(qaProcessId, detail.getInspectionType() + "|" + detail.getItemCode()
+                + "|" + detail.getSampleNo() + "|" + fieldCode);
     }
 
-    private String headerSourceKey(String inspectionType, String fieldCode) {
-        return inspectionType + "|" + fieldCode;
+    private String headerSourceKey(Long qaProcessId, String inspectionType, String fieldCode) {
+        return pqcSourceKey(qaProcessId, inspectionType + "|" + fieldCode);
     }
 
-    private String dccSourceKey(String inspectionType, String fieldCode) {
-        return inspectionType + "|DCC|" + fieldCode;
+    private String dccSourceKey(Long qaProcessId, String inspectionType, String fieldCode) {
+        return pqcSourceKey(qaProcessId, inspectionType + "|DCC|" + fieldCode);
+    }
+
+    private String pqcSourceKey(Long qaProcessId, String plainKey) {
+        if (qaProcessId == null || StrUtil.isBlank(plainKey)) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
+                    "PQC汇集来源缺少QA工序身份");
+        }
+        return "QA_PROCESS:" + qaProcessId + "|" + plainKey;
     }
 
     private String summarySourceKey(String fieldCode) {

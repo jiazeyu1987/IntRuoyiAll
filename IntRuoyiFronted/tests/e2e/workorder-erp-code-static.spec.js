@@ -70,7 +70,7 @@ assert(
 
 assert(
   listSource.includes('handleSyncKingdeeWorkOrders') &&
-    listSource.includes("runIncrementalSyncJob('kingdeeProductionOrderSyncJob')"),
+    listSource.includes("runIncrementalSync('PRODUCTION_ORDER')"),
   'Production work order list must keep Kingdee sync import entry.'
 )
 

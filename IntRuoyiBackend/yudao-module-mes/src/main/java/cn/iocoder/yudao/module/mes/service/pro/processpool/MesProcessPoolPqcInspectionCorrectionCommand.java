@@ -13,7 +13,6 @@ public class MesProcessPoolPqcInspectionCorrectionCommand {
     private Long actorUserId;
     private Integer actualInspectionQuantity;
     private Integer scrapQuantity;
-    private String nonconformanceDescription;
     private List<ItemResultCommand> itemResults;
     private String changeReason;
     private String signaturePassword;

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo;
 
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSourceEvidence;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesCompletionBackfillReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
@@ -60,5 +61,6 @@ public class MesPqcProductionReleaseApproveReqVO {
     private String pickListHeaderSnapshotHash;
     private String pickListLineSnapshotHash;
     private List<MesBatchExecutionSourceEvidence> sourceEvidence;
+    private MesCompletionBackfillReceipt completionBackfillReceipt;
     private MesIndependentBatchPrerequisiteReceipt independentReceipt;
 }

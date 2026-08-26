@@ -21,21 +21,16 @@ const releaseWriter = read(
   'yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderReleaseProcessInspectionWriterImpl.java'
 )
 
-assert.match(saveReq, /class InspectionEquipment/)
-assert.match(saveReq, /Long equipmentId/)
 assert.match(publishedResp, /class EquipmentOption/)
 assert.match(publishedResp, /String equipmentNumber/)
 assert.match(qaService, /MesQaInspectionRegulationItemEquipmentMapper/)
 assert.match(qaService, /itemEquipmentMapper\.deleteByVersionId/)
-assert.match(qaService, /itemEquipmentMapper\.insert/)
-assert.match(qaService, /MesDvMachineryService/)
-assert.match(qaService, /getMachineryMap/)
-assert.match(qaService, /equipmentRequired\(CollUtil\.isNotEmpty\(item\.getEquipmentOptions\(\)\)\)/)
+assert.doesNotMatch(qaService, /saveItemEquipmentSnapshots|itemEquipmentMapper\.insert|MesDvMachineryService|getMachineryMap/)
+assert.match(qaService, /equipmentRequired\(false\)/)
 
-assert.match(contextService, /MesQaInspectionRegulationItemEquipmentMapper/)
-assert.doesNotMatch(contextService, /MesPqcItemEquipmentConfigService|pqcItemEquipmentConfigService/)
-assert.match(contextService, /source\.getEquipmentOptions\(\)/)
-assert.match(contextService, /regulationItemEquipmentMapper\.selectListByVersionId/)
+assert.match(contextService, /MesPqcItemEquipmentConfigService|pqcItemEquipmentConfigService/)
+assert.match(contextService, /listEnabledEquipmentOptionsByItemCodes/)
+assert.doesNotMatch(contextService, /source\.getEquipmentOptions\(\)/)
 assert.match(contextService, /selectedEquipmentNumber/)
 assert.match(contextService, /MesPqcInspectionPieceDetailDO\.builder\(\)[\s\S]*selectedEquipmentCode/)
 
@@ -43,4 +38,4 @@ assert.match(releaseWriter, /getSelectedEquipmentName\(\)/)
 assert.match(releaseWriter, /getSelectedEquipmentNumber\(\)/)
 assert.doesNotMatch(releaseWriter, /MesQaInspectionRegulationItemEquipment|matchesQaEquipment|hashEquipment/)
 
-console.log('PASS: QA-version equipment bindings are the only runtime source; release uses submitted snapshots')
+console.log('PASS: live tenant equipment config is the runtime source; release uses submitted snapshots')

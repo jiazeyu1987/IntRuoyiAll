@@ -168,5 +168,6 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Preserve `task.md`, `execution-log.md`, and `verification-report.md` by default.
 
 - Thread baseline: 子 Agent 调度必须直接调用 collaboration 接口；不得嵌套 functions.exec，也不得用 exec wait 代替 wait_agent。
+- Agent 委派策略：除非用户明确要求，否则不得启动子 Agent、子智能体或其他协作子任务；用户未明确要求时由当前 Agent 独立完成任务。
 - Thread baseline: QA首检数量和巡检比例按工序分别配置，不要求跨工序一致；末检适用性是项目级统一开关。
 - Thread baseline: Windows 命令优先使用已批准 PowerShell 精确前缀并指定 workdir=E:\IntRuoyi；不要额外夹 -NoProfile。

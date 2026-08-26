@@ -3,16 +3,23 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.pqc;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.pqc.vo.MesPqcItemEquipmentConfigRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.pqc.vo.MesPqcItemEquipmentConfigSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.pqc.vo.MesPqcItemEquipmentBatchConfigSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.pqc.vo.MesPqcItemEquipmentItemRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.dv.machinery.MesDvMachineryDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcItemEquipmentConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcItemEquipmentNumberConfigDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcItemEquipmentConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcItemEquipmentNumberConfigMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.springframework.stereotype.Service;
@@ -41,38 +48,101 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
     private final MesPqcItemEquipmentConfigMapper configMapper;
     private final MesPqcItemEquipmentNumberConfigMapper numberConfigMapper;
     private final MesQaInspectionRegulationItemMapper regulationItemMapper;
+    private final MesQaInspectionRegulationVersionMapper regulationVersionMapper;
+    private final MesQaInspectionRegulationMapper regulationMapper;
+    private final DccProjectCodeMapper dccProjectCodeMapper;
     private final MesDvMachineryService machineryService;
 
     public MesPqcItemEquipmentConfigServiceImpl(MesPqcItemEquipmentConfigMapper configMapper,
                                                 MesPqcItemEquipmentNumberConfigMapper numberConfigMapper,
                                                 MesQaInspectionRegulationItemMapper regulationItemMapper,
+                                                MesQaInspectionRegulationVersionMapper regulationVersionMapper,
+                                                MesQaInspectionRegulationMapper regulationMapper,
+                                                DccProjectCodeMapper dccProjectCodeMapper,
                                                 MesDvMachineryService machineryService) {
         this.configMapper = configMapper;
         this.numberConfigMapper = numberConfigMapper;
         this.regulationItemMapper = regulationItemMapper;
+        this.regulationVersionMapper = regulationVersionMapper;
+        this.regulationMapper = regulationMapper;
+        this.dccProjectCodeMapper = dccProjectCodeMapper;
         this.machineryService = machineryService;
     }
 
     @Override
-    public List<MesPqcItemEquipmentItemRespVO> listConfigurableItems() {
-        Map<String, MesQaInspectionRegulationItemDO> itemByCode = loadConfigurableItemMap();
+    public List<MesPqcItemEquipmentItemRespVO> listConfigurableItems(Long dccProjectCodeId) {
+        if (dccProjectCodeId == null || dccProjectCodeId <= 0) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "itemEquipmentConfig.dccProjectCodeId");
+        }
+        Map<String, ConfigurableItem> itemByCode = loadConfigurableItemMap(dccProjectCodeId);
         return itemByCode.values().stream()
-                .map(item -> new MesPqcItemEquipmentItemRespVO()
-                        .setItemCode(item.getItemCode())
-                        .setItemName(item.getItemName())
-                        .setInspectionMethod(item.getInspectionMethod())
-                        .setStandardText(item.getStandardText())
-                        .setSamplingPlanText(item.getSamplingPlanText()))
+                .collect(Collectors.groupingBy(ConfigurableItem::itemName,
+                        LinkedHashMap::new, Collectors.toList()))
+                .values().stream()
+                .map(items -> {
+                    ConfigurableItem item = items.get(0);
+                    return new MesPqcItemEquipmentItemRespVO()
+                            .setDccProjectCodeId(item.dccProjectCodeId())
+                            .setItemCode(item.itemCode())
+                            .setItemCodes(items.stream().map(ConfigurableItem::itemCode).toList())
+                            .setProjectName(item.projectName())
+                            .setItemName(item.itemName())
+                            .setInspectionMethod(item.inspectionMethod())
+                            .setStandardText(item.standardText())
+                            .setSamplingPlanText(item.samplingPlanText());
+                })
                 .toList();
     }
 
     @Override
     public MesPqcItemEquipmentConfigRespVO getItemConfig(String itemCode) {
         String normalizedItemCode = normalizeItemCode(itemCode);
-        MesQaInspectionRegulationItemDO item = requireConfigurableItem(normalizedItemCode);
+        ConfigurableItem item = requireConfigurableItem(normalizedItemCode);
         List<MesPqcItemEquipmentConfigDO> configs = configMapper.selectListByItemCode(normalizedItemCode);
         Map<Long, List<MesPqcItemEquipmentNumberConfigDO>> numbersByConfigId = loadNumbersByConfigId(configs, false);
-        return toConfigRespVO(item.getItemCode(), item.getItemName(), configs, numbersByConfigId);
+        return toConfigRespVO(item.itemCode(), List.of(item.itemCode()), item.itemName(), configs, numbersByConfigId)
+                .setConfigurationConsistent(true);
+    }
+
+    @Override
+    public MesPqcItemEquipmentConfigRespVO getItemConfig(Long dccProjectCodeId, Collection<String> itemCodes) {
+        if (dccProjectCodeId == null || dccProjectCodeId <= 0) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "itemEquipmentConfig.dccProjectCodeId");
+        }
+        List<String> normalizedCodes = normalizeItemCodes(itemCodes);
+        Map<String, ConfigurableItem> itemMap = loadConfigurableItemMap(dccProjectCodeId);
+        List<ConfigurableItem> items = normalizedCodes.stream()
+                .map(code -> itemMap.get(code))
+                .toList();
+        if (items.stream().anyMatch(Objects::isNull)) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.itemCodes.projectMismatch=" + normalizedCodes);
+        }
+        ConfigurableItem first = items.get(0);
+        if (items.stream().anyMatch(item -> !Objects.equals(first.itemName(), item.itemName()))) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.itemCodes.itemNameMismatch=" + normalizedCodes);
+        }
+        requireCompleteSameNameItemCodes(itemMap, first.itemName(), normalizedCodes);
+        List<MesPqcItemEquipmentConfigDO> referenceConfigs = List.of();
+        String referenceSignature = null;
+        boolean consistent = true;
+        for (String itemCode : normalizedCodes) {
+            List<MesPqcItemEquipmentConfigDO> configs = configMapper.selectListByItemCode(itemCode);
+            String signature = configurationSignature(configs);
+            if (referenceSignature == null) {
+                referenceSignature = signature;
+            } else if (!Objects.equals(referenceSignature, signature)) {
+                consistent = false;
+            }
+            if (referenceConfigs.isEmpty() && !configs.isEmpty()) {
+                referenceConfigs = configs;
+            }
+        }
+        Map<Long, List<MesPqcItemEquipmentNumberConfigDO>> numbersByConfigId =
+                loadNumbersByConfigId(referenceConfigs, false);
+        return toConfigRespVO(first.itemCode(), normalizedCodes, first.itemName(), referenceConfigs,
+                numbersByConfigId).setConfigurationConsistent(consistent);
     }
 
     @Override
@@ -82,17 +152,52 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "itemEquipmentConfig.request");
         }
         String itemCode = normalizeItemCode(reqVO.getItemCode());
-        MesQaInspectionRegulationItemDO item = requireConfigurableItem(itemCode);
+        ConfigurableItem item = requireConfigurableItem(itemCode);
         List<MesPqcItemEquipmentConfigSaveReqVO.EquipmentGroup> groups =
                 reqVO.getEquipmentGroups() == null ? List.of() : reqVO.getEquipmentGroups();
         validateConfigGroups(groups);
+
+        replaceSingleItemConfig(itemCode, item, reqVO.getItemNameSnapshot(), groups);
+        return getItemConfig(itemCode);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesPqcItemEquipmentConfigRespVO replaceItemConfigs(MesPqcItemEquipmentBatchConfigSaveReqVO reqVO) {
+        if (reqVO == null || reqVO.getDccProjectCodeId() == null || reqVO.getDccProjectCodeId() <= 0) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "itemEquipmentConfig.request");
+        }
+        List<String> itemCodes = normalizeItemCodes(reqVO.getItemCodes());
+        Map<String, ConfigurableItem> itemMap = loadConfigurableItemMap(reqVO.getDccProjectCodeId());
+        List<ConfigurableItem> items = itemCodes.stream().map(itemMap::get).toList();
+        if (items.stream().anyMatch(Objects::isNull)) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.itemCodes.projectMismatch=" + itemCodes);
+        }
+        ConfigurableItem first = items.get(0);
+        if (items.stream().anyMatch(item -> !Objects.equals(first.itemName(), item.itemName()))) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.itemCodes.itemNameMismatch=" + itemCodes);
+        }
+        requireCompleteSameNameItemCodes(itemMap, first.itemName(), itemCodes);
+        List<MesPqcItemEquipmentConfigSaveReqVO.EquipmentGroup> groups =
+                reqVO.getEquipmentGroups() == null ? List.of() : reqVO.getEquipmentGroups();
+        validateConfigGroups(groups);
+        for (ConfigurableItem item : items) {
+            replaceSingleItemConfig(item.itemCode(), item, reqVO.getItemNameSnapshot(), groups);
+        }
+        return getItemConfig(reqVO.getDccProjectCodeId(), itemCodes);
+    }
+
+    private void replaceSingleItemConfig(String itemCode, ConfigurableItem item, String itemNameSnapshot,
+                                         List<MesPqcItemEquipmentConfigSaveReqVO.EquipmentGroup> groups) {
 
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         numberConfigMapper.physicalDeleteByTenantIdAndItemCode(tenantId, itemCode);
         configMapper.physicalDeleteByTenantIdAndItemCode(tenantId, itemCode);
 
         if (groups.isEmpty()) {
-            return toConfigRespVO(itemCode, item.getItemName(), List.of(), Map.of());
+            return;
         }
 
         Set<Long> equipmentIds = groups.stream()
@@ -107,9 +212,15 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
                 throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                         itemCode + ".equipmentId=" + group.getEquipmentId());
             }
+            if (group.getEquipmentNumbers() == null || group.getEquipmentNumbers().size() != 1
+                    || !Objects.equals(normalizeEquipmentNumber(
+                    group.getEquipmentNumbers().get(0).getEquipmentNumber()), StrUtil.trim(machinery.getCode()))) {
+                throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                        itemCode + ".equipmentNumberMustMatchLedgerCode");
+            }
             configs.add(MesPqcItemEquipmentConfigDO.builder()
                     .itemCode(itemCode)
-                    .itemNameSnapshot(StrUtil.blankToDefault(reqVO.getItemNameSnapshot(), item.getItemName()))
+                    .itemNameSnapshot(StrUtil.blankToDefault(itemNameSnapshot, item.itemName()))
                     .equipmentId(machinery.getId())
                     .equipmentCode(machinery.getCode())
                     .equipmentName(machinery.getName())
@@ -143,7 +254,6 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
         if (!numbers.isEmpty() && !Boolean.TRUE.equals(numberConfigMapper.insertBatch(numbers))) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, itemCode + ".equipmentNumberConfig");
         }
-        return getItemConfig(itemCode);
     }
 
     @Override
@@ -183,28 +293,203 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
                         (left, right) -> left, LinkedHashMap::new));
     }
 
-    private Map<String, MesQaInspectionRegulationItemDO> loadConfigurableItemMap() {
-        List<MesQaInspectionRegulationItemDO> rows = regulationItemMapper.selectList(
-                new LambdaQueryWrapperX<MesQaInspectionRegulationItemDO>()
-                        .orderByAsc(MesQaInspectionRegulationItemDO::getItemCode)
-                        .orderByAsc(MesQaInspectionRegulationItemDO::getItemSort)
-                        .orderByAsc(MesQaInspectionRegulationItemDO::getId));
-        Map<String, MesQaInspectionRegulationItemDO> itemByCode = new LinkedHashMap<>();
+    @Override
+    public Map<String, List<MesPqcItemEquipmentOption>> listEnabledEquipmentOptionsByProjectAndItemCodes(
+            Long dccProjectCodeId, Collection<String> itemCodes) {
+        if (dccProjectCodeId == null || dccProjectCodeId <= 0) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.dccProjectCodeId");
+        }
+        List<String> normalizedCodes = normalizeItemCodes(itemCodes);
+        if (normalizedCodes.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, ConfigurableItem> itemMap = loadConfigurableItemMap(dccProjectCodeId);
+        if (normalizedCodes.stream().anyMatch(code -> !itemMap.containsKey(code))) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.itemCodes.projectMismatch=" + normalizedCodes);
+        }
+        Map<String, List<MesPqcItemEquipmentOption>> directOptions =
+                listEnabledEquipmentOptionsByItemCodes(normalizedCodes);
+        Map<String, List<String>> codesByItemName = itemMap.values().stream()
+                .filter(item -> normalizedCodes.contains(item.itemCode()))
+                .collect(Collectors.groupingBy(ConfigurableItem::itemName,
+                        LinkedHashMap::new,
+                        Collectors.mapping(ConfigurableItem::itemCode, Collectors.toList())));
+        Map<String, List<MesPqcItemEquipmentOption>> expanded = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : codesByItemName.entrySet()) {
+            List<List<MesPqcItemEquipmentOption>> configuredOptions = entry.getValue().stream()
+                    .map(directOptions::get)
+                    .filter(CollUtil::isNotEmpty)
+                    .distinct()
+                    .toList();
+            if (configuredOptions.size() > 1) {
+                throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                        "itemEquipmentConfig.itemName.inconsistent=" + entry.getKey());
+            }
+            if (configuredOptions.isEmpty()) {
+                continue;
+            }
+            entry.getValue().forEach(code -> expanded.put(code, configuredOptions.get(0)));
+        }
+        return expanded;
+    }
+
+    private Map<String, ConfigurableItem> loadConfigurableItemMap() {
+        return loadConfigurableItemMap(null);
+    }
+
+    private Map<String, ConfigurableItem> loadConfigurableItemMap(Long dccProjectCodeId) {
+        List<MesQaInspectionRegulationItemDO> rows;
+        if (dccProjectCodeId == null) {
+            rows = regulationItemMapper.selectList(
+                    new LambdaQueryWrapperX<MesQaInspectionRegulationItemDO>()
+                            .orderByAsc(MesQaInspectionRegulationItemDO::getItemCode)
+                            .orderByAsc(MesQaInspectionRegulationItemDO::getItemSort)
+                            .orderByAsc(MesQaInspectionRegulationItemDO::getId));
+        } else {
+            MesQaInspectionRegulationDO regulation =
+                    regulationMapper.selectByDccProjectCodeId(dccProjectCodeId);
+            if (regulation == null || regulation.getId() == null) {
+                return Map.of();
+            }
+            MesQaInspectionRegulationVersionDO version =
+                    regulationVersionMapper.selectLatestDraftByRegulationId(regulation.getId());
+            if (version == null) {
+                version = regulationVersionMapper.selectLatestPublishedByRegulationId(regulation.getId());
+            }
+            rows = version == null ? List.of() : regulationItemMapper.selectListByVersionId(version.getId());
+        }
+        Map<Long, MesQaInspectionRegulationVersionDO> versionById = loadVersionsById(rows);
+        Map<Long, MesQaInspectionRegulationDO> regulationById = loadRegulationsById(versionById.values());
+        Map<Long, DccProjectCodeDO> projectById = loadProjectsById(regulationById.values());
+        Map<String, ConfigurableItem> itemByCode = new LinkedHashMap<>();
         for (MesQaInspectionRegulationItemDO row : rows) {
             if (row != null && StrUtil.isNotBlank(row.getItemCode())) {
-                itemByCode.putIfAbsent(row.getItemCode().trim(), row);
+                if (dccProjectCodeId != null) {
+                    MesQaInspectionRegulationVersionDO version = versionById.get(row.getRegulationVersionId());
+                    MesQaInspectionRegulationDO regulation = version == null
+                            ? null : regulationById.get(version.getRegulationId());
+                    if (regulation == null
+                            || !Objects.equals(regulation.getDccProjectCodeId(), dccProjectCodeId)) {
+                        continue;
+                    }
+                }
+                ConfigurableItem configurableItem = toConfigurableItem(row, versionById, regulationById, projectById);
+                if (dccProjectCodeId != null
+                        && !Objects.equals(configurableItem.dccProjectCodeId(), dccProjectCodeId)) {
+                    continue;
+                }
+                ConfigurableItem existing = itemByCode.putIfAbsent(configurableItem.itemCode(), configurableItem);
+                if (existing != null && (!Objects.equals(existing.projectName(), configurableItem.projectName())
+                        || !Objects.equals(existing.itemName(), configurableItem.itemName()))) {
+                    throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                            "itemEquipmentConfig.itemCode.displayNameAmbiguous=" + configurableItem.itemCode());
+                }
             }
         }
         return itemByCode;
     }
 
-    private MesQaInspectionRegulationItemDO requireConfigurableItem(String itemCode) {
-        MesQaInspectionRegulationItemDO item = loadConfigurableItemMap().get(itemCode);
+    private Map<Long, MesQaInspectionRegulationVersionDO> loadVersionsById(
+            List<MesQaInspectionRegulationItemDO> rows) {
+        Set<Long> versionIds = rows.stream()
+                .filter(Objects::nonNull)
+                .map(MesQaInspectionRegulationItemDO::getRegulationVersionId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return regulationVersionMapper.selectList(MesQaInspectionRegulationVersionDO::getId, versionIds).stream()
+                .collect(Collectors.toMap(MesQaInspectionRegulationVersionDO::getId, Function.identity(),
+                        (left, right) -> left, LinkedHashMap::new));
+    }
+
+    private Map<Long, MesQaInspectionRegulationDO> loadRegulationsById(
+            Collection<MesQaInspectionRegulationVersionDO> versions) {
+        Set<Long> regulationIds = versions.stream()
+                .filter(Objects::nonNull)
+                .map(MesQaInspectionRegulationVersionDO::getRegulationId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return regulationMapper.selectList(MesQaInspectionRegulationDO::getId, regulationIds).stream()
+                .collect(Collectors.toMap(MesQaInspectionRegulationDO::getId, Function.identity(),
+                        (left, right) -> left, LinkedHashMap::new));
+    }
+
+    private Map<Long, DccProjectCodeDO> loadProjectsById(
+            Collection<MesQaInspectionRegulationDO> regulations) {
+        Set<Long> projectIds = regulations.stream()
+                .filter(Objects::nonNull)
+                .map(MesQaInspectionRegulationDO::getDccProjectCodeId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return dccProjectCodeMapper.selectList(DccProjectCodeDO::getId, projectIds).stream()
+                .collect(Collectors.toMap(DccProjectCodeDO::getId, Function.identity(),
+                        (left, right) -> left, LinkedHashMap::new));
+    }
+
+    private ConfigurableItem toConfigurableItem(
+            MesQaInspectionRegulationItemDO row,
+            Map<Long, MesQaInspectionRegulationVersionDO> versionById,
+            Map<Long, MesQaInspectionRegulationDO> regulationById,
+            Map<Long, DccProjectCodeDO> projectById) {
+        MesQaInspectionRegulationVersionDO version = versionById.get(row.getRegulationVersionId());
+        if (version == null) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.regulationVersionId=" + row.getRegulationVersionId());
+        }
+        MesQaInspectionRegulationDO regulation = regulationById.get(version.getRegulationId());
+        if (regulation == null) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.regulationId=" + version.getRegulationId());
+        }
+        DccProjectCodeDO project = projectById.get(regulation.getDccProjectCodeId());
+        if (project == null) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.dccProjectCodeId=" + regulation.getDccProjectCodeId());
+        }
+        String itemCode = row.getItemCode().trim();
+        return new ConfigurableItem(regulation.getDccProjectCodeId(), itemCode,
+                requireDisplayName(project.getProjectName(), "itemEquipmentConfig.projectName=" + itemCode),
+                requireDisplayName(row.getItemName(), "itemEquipmentConfig.itemName=" + itemCode),
+                row.getInspectionMethod(), row.getStandardText(), row.getSamplingPlanText());
+    }
+
+    private ConfigurableItem requireConfigurableItem(String itemCode) {
+        ConfigurableItem item = loadConfigurableItemMap().get(itemCode);
         if (item == null) {
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
                     "itemEquipmentConfig.itemCode=" + itemCode);
         }
         return item;
+    }
+
+    private String requireDisplayName(String displayName, String field) {
+        if (StrUtil.isBlank(displayName)) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, field);
+        }
+        return displayName.trim();
+    }
+
+    private void requireCompleteSameNameItemCodes(Map<String, ConfigurableItem> itemMap, String itemName,
+                                                  Collection<String> submittedCodes) {
+        Set<String> expectedCodes = itemMap.values().stream()
+                .filter(item -> Objects.equals(itemName, item.itemName()))
+                .map(ConfigurableItem::itemCode)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (!expectedCodes.equals(new LinkedHashSet<>(submittedCodes))) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID,
+                    "itemEquipmentConfig.itemCodes.incomplete=" + submittedCodes);
+        }
+    }
+
+    private record ConfigurableItem(
+            Long dccProjectCodeId,
+            String itemCode,
+            String projectName,
+            String itemName,
+            String inspectionMethod,
+            String standardText,
+            String samplingPlanText) {
     }
 
     private void validateConfigGroups(List<MesPqcItemEquipmentConfigSaveReqVO.EquipmentGroup> groups) {
@@ -244,16 +529,40 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
 
     private MesPqcItemEquipmentConfigRespVO toConfigRespVO(
             String itemCode,
+            List<String> itemCodes,
             String itemName,
             List<MesPqcItemEquipmentConfigDO> configs,
             Map<Long, List<MesPqcItemEquipmentNumberConfigDO>> numbersByConfigId) {
         MesPqcItemEquipmentConfigRespVO respVO = new MesPqcItemEquipmentConfigRespVO();
         respVO.setItemCode(itemCode);
+        respVO.setItemCodes(itemCodes);
         respVO.setItemName(itemName);
         respVO.setEquipmentGroups(configs.stream()
                 .map(config -> toGroupRespVO(config, numbersByConfigId.getOrDefault(config.getId(), List.of())))
                 .toList());
         return respVO;
+    }
+
+    private String configurationSignature(List<MesPqcItemEquipmentConfigDO> configs) {
+        Map<Long, List<MesPqcItemEquipmentNumberConfigDO>> numbersByConfigId =
+                loadNumbersByConfigId(configs, false);
+        StringBuilder signature = new StringBuilder();
+        for (MesPqcItemEquipmentConfigDO config : configs) {
+            signature.append(config.getEquipmentId()).append('|')
+                    .append(config.getEquipmentCode()).append('|')
+                    .append(config.getEquipmentName()).append('|')
+                    .append(config.getEnabled()).append('|')
+                    .append(config.getDefaultFlag()).append('|')
+                    .append(config.getSort()).append(':');
+            for (MesPqcItemEquipmentNumberConfigDO number :
+                    numbersByConfigId.getOrDefault(config.getId(), List.of())) {
+                signature.append(number.getEquipmentNumber()).append('|')
+                        .append(number.getEnabled()).append('|')
+                        .append(number.getSort()).append(';');
+            }
+            signature.append('/');
+        }
+        return signature.toString();
     }
 
     private MesPqcItemEquipmentConfigRespVO.EquipmentGroup toGroupRespVO(
@@ -283,6 +592,18 @@ public class MesPqcItemEquipmentConfigServiceImpl implements MesPqcItemEquipment
             throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "itemCode");
         }
         return itemCode.trim();
+    }
+
+    private List<String> normalizeItemCodes(Collection<String> itemCodes) {
+        List<String> normalizedCodes = itemCodes == null ? List.of() : itemCodes.stream()
+                .filter(StrUtil::isNotBlank)
+                .map(String::trim)
+                .distinct()
+                .toList();
+        if (normalizedCodes.isEmpty()) {
+            throw exception(PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID, "itemCodes");
+        }
+        return normalizedCodes;
     }
 
     private String normalizeEquipmentNumber(String equipmentNumber) {

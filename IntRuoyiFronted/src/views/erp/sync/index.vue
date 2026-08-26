@@ -182,7 +182,7 @@
             type="warning"
             :loading="runningHandlerName === row.handlerName"
             @click="runSyncJob(row)"
-            v-hasPermi="['infra:job:trigger']"
+            v-hasPermi="['erp:kingdee-sync:query']"
           >
             增量同步
           </el-button>
@@ -426,10 +426,10 @@ const openJobLogPage = (handlerName: string) => {
   push({ name: 'InfraJobLog', query: { handlerName } })
 }
 
-const runSyncJob = async (row: { handlerName: string; label: string }) => {
+const runSyncJob = async (row: { type: string; handlerName: string; label: string }) => {
   runningHandlerName.value = row.handlerName
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob(row.handlerName)
+    await ErpKingdeeSyncApi.runIncrementalSync(row.type)
     if (row.handlerName === 'kingdeeProductionOrderSyncJob' && lastProductionOrderClosure.value) {
       lastProductionOrderClosure.value = {
         ...lastProductionOrderClosure.value,

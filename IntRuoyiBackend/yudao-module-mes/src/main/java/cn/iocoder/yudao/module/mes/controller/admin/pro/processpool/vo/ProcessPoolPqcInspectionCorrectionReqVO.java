@@ -29,9 +29,6 @@ public class ProcessPoolPqcInspectionCorrectionReqVO {
     @Min(value = 0, message = "损耗数量不能小于 0")
     private Integer scrapQuantity;
 
-    @Schema(description = "不良说明")
-    private String nonconformanceDescription;
-
     @Schema(description = "PQC 项目级检验结果", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotEmpty(message = "PQC 检验项目不能为空")
     @Valid
@@ -50,7 +47,6 @@ public class ProcessPoolPqcInspectionCorrectionReqVO {
                 .setEventId(eventId)
                 .setActualInspectionQuantity(actualInspectionQuantity)
                 .setScrapQuantity(scrapQuantity)
-                .setNonconformanceDescription(nonconformanceDescription)
                 .setItemResults(itemResults.stream()
                         .map(ItemResultReqVO::toCommand)
                         .toList())

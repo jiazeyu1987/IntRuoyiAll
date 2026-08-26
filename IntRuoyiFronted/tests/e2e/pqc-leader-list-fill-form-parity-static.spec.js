@@ -52,8 +52,7 @@ for (const [key, label, marker] of [
   ['equipmentNumber', '设备编号', 'data-pqc-leader-equipment-number'],
   ['acceptanceStandard', '接收标准', 'data-pqc-leader-acceptance-standard'],
   ['inspectionMethod', '检验方法', 'data-pqc-leader-inspection-method'],
-  ['inspectionJudgement', '检验判定', 'data-pqc-leader-inspection-judgement'],
-  ['defectDescription', '不良说明', 'data-pqc-leader-defect-description']
+  ['inspectionJudgement', '检验判定', 'data-pqc-leader-inspection-judgement']
 ]) {
   assert.match(
     pqcDefaultColumnsBlock,
@@ -99,7 +98,6 @@ for (const resolver of [
   'resolvePqcAcceptanceStandardItems',
   'resolvePqcInspectionMethodItems',
   'resolvePqcInspectionJudgementItems',
-  'resolvePqcDefectDescriptionText',
   'resolvePqcPieceSampleItems'
 ]) {
   assert.match(source, new RegExp(`const ${resolver}\\s*=`), `missing structured PQC resolver ${resolver}.`)
@@ -150,8 +148,13 @@ assert.match(
 )
 assert.match(
   source,
-  /readSubmissionPayloadValue\(rootPayload, \['defectDescription', 'nonconformanceDescription'\]\)/,
-  'PQC list must read the frontline bad/loss description field.'
+  /label:\s*'不良\/损耗'/,
+  'PQC loss breakdown must use a fixed business label without reading defect descriptions.'
+)
+assert.doesNotMatch(
+  source,
+  /defectDescription|nonconformanceDescription/,
+  'PQC leader list must not read or render removed defect descriptions.'
 )
 assert.match(
   source,

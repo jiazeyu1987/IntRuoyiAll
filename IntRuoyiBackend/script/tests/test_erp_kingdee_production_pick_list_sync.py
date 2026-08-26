@@ -107,7 +107,7 @@ def test_production_pick_list_frontend_page_is_readonly_and_manual_syncs_own_han
 
     assert "/erp/production-pick-list/page" in api
     assert "ErpProductionPickListApi.getPage" in page
-    assert "ErpKingdeeSyncApi.runIncrementalSyncJob('kingdeeProductionPickListSyncJob')" in page
+    assert "ErpKingdeeSyncApi.runIncrementalSync('PRODUCTION_PICK_LIST')" in page
     assert "生产领料单号" in page
     assert "生产订单编号" in page
     assert "物料编码" in page

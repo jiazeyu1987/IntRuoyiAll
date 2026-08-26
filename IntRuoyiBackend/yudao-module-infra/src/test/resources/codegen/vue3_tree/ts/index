@@ -40,5 +40,5 @@ export const CategoryApi = {
   // 导出分类 Excel
   exportCategory: async (params) => {
     return await request.download({ url: `/infra/category/export-excel`, params })
-  },
+  }
 }

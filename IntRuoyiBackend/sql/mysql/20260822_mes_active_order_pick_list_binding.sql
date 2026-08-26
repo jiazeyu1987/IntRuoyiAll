@@ -1,3 +1,6 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260730_mes_process_pool_foundation; type=schema; riskLevel=medium
+-- MES active-order pick-list binding header and immutable line snapshot schema.
+
 CREATE TABLE IF NOT EXISTS mes_pro_process_pool_active_order_pick_list_binding (
   id bigint NOT NULL,
   tenant_id bigint NOT NULL DEFAULT 0,

@@ -2,6 +2,9 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import org.junit.jupiter.api.Test;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTraceLinkDO;
+
+import java.lang.reflect.Method;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -237,6 +240,41 @@ class MesProEdhrBatchTraceabilityValidatorTest {
         MesProEdhrBatchTraceValidationResult result = validator.validate(command);
 
         assertEquals(MesProEdhrBatchTraceabilityBlocker.TRACE_SOURCE_CONFLICT, result.blockerCode());
+    }
+
+    @Test
+    void completionReceiptUsesItsImmutableRawBodyHash() {
+        MesProEdhrBatchTraceCaptureCommand command = activeCommand();
+        MesProEdhrBatchTraceSource receiptSource = command.getSources().stream()
+                .filter(source -> MesProEdhrBatchTraceLinkType.COMPLETION_BACKFILL_RECEIPT.equals(source.getLinkType()))
+                .findFirst().orElseThrow();
+        String immutableReceiptBody = "{\"z\":1,\"a\":2}";
+        String receiptHash = DigestUtil.sha256Hex(immutableReceiptBody);
+        receiptSource.setSnapshotJson(immutableReceiptBody).setSnapshotHash(receiptHash);
+        command.setCompletionBackfillReceiptHash(receiptHash)
+                .setSourceBundleHash(validator.calculateSourceBundleHash(command.getSources()));
+
+        MesProEdhrBatchTraceValidationResult result = validator.validate(command);
+
+        assertTrue(result.valid(), result.blockerCode() + ":" + result.blockerScope());
+    }
+
+    @Test
+    void persistedCompletionReceiptLinkUsesTheSameImmutableRawBodyHash() throws Exception {
+        String immutableReceiptBody = "{\"z\":1,\"a\":2}";
+        MesProEdhrBatchExecutionTraceLinkDO link = MesProEdhrBatchExecutionTraceLinkDO.builder()
+                .linkType(MesProEdhrBatchTraceLinkType.COMPLETION_BACKFILL_RECEIPT)
+                .sourceObjectType("COMPLETION_RECEIPT")
+                .sourceObjectId(10L)
+                .sourceIdentityKey("COMPLETION_BACKFILL_RECEIPT:COMPLETION_RECEIPT:10::")
+                .snapshotJson(immutableReceiptBody)
+                .snapshotHash(DigestUtil.sha256Hex(immutableReceiptBody))
+                .build();
+        Method method = MesProEdhrBatchTraceabilityServiceImpl.class
+                .getDeclaredMethod("isTraceLinkIntegrityValid", MesProEdhrBatchExecutionTraceLinkDO.class);
+        method.setAccessible(true);
+
+        assertTrue((Boolean) method.invoke(null, link));
     }
 
     private MesProEdhrBatchTraceCaptureCommand activeCommand() {

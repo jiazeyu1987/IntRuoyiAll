@@ -82,6 +82,7 @@ import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleDefaul
 import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleInputAssembler;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.component.RouteSnapshotResolver;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleTopologyResolver;
+import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleTopologyPredecessors;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.identity.LineProcessIdentity;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.identity.RouteProcessIdentity;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.identity.ScheduleOrderProcessIdentity;
@@ -1632,16 +1633,21 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             }
         }
         for (MesProScheduleOrderProcessDO process : processes) {
-            if (process == null || process.getPredecessorRouteProcessId() == null || Boolean.FALSE.equals(process.getEnabled())) {
+            if (process == null || Boolean.FALSE.equals(process.getEnabled())) {
                 continue;
             }
-            Long snapshotPredecessorId = process.getPredecessorRouteProcessId();
-            Long currentPredecessorId = currentRouteProcessIdBySnapshotId.computeIfAbsent(
-                    snapshotPredecessorId,
-                    id -> resolveLatestPublishedRouteProcessId(
-                            scheduleOrder.getRouteId(), id, latestRouteProcessById));
-            if (!Objects.equals(snapshotPredecessorId, currentPredecessorId)) {
-                process.setPredecessorRouteProcessId(currentPredecessorId);
+            Set<Long> snapshotPredecessorIds = ScheduleTopologyPredecessors.resolve(process);
+            Set<Long> currentPredecessorIds = snapshotPredecessorIds.stream()
+                    .map(snapshotPredecessorId -> currentRouteProcessIdBySnapshotId.computeIfAbsent(
+                            snapshotPredecessorId,
+                            id -> resolveLatestPublishedRouteProcessId(
+                                    scheduleOrder.getRouteId(), id, latestRouteProcessById)))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            if (!Objects.equals(snapshotPredecessorIds, currentPredecessorIds)
+                    || !Objects.equals(process.getPredecessorRouteProcessIdsJson(),
+                    ScheduleTopologyPredecessors.serialize(currentPredecessorIds))) {
+                process.setPredecessorRouteProcessId(ScheduleTopologyPredecessors.legacyScalar(currentPredecessorIds));
+                process.setPredecessorRouteProcessIdsJson(ScheduleTopologyPredecessors.serialize(currentPredecessorIds));
                 changedProcessIds.add(process.getId());
             }
         }
@@ -1657,6 +1663,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         updateObj.setId(process.getId());
         updateObj.setRouteProcessId(process.getRouteProcessId());
         updateObj.setPredecessorRouteProcessId(process.getPredecessorRouteProcessId());
+        updateObj.setPredecessorRouteProcessIdsJson(process.getPredecessorRouteProcessIdsJson());
         updateObj.setProcessId(process.getProcessId());
         scheduleOrderProcessMapper.updateById(updateObj);
     }
@@ -2912,16 +2919,21 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                         routeProcess.getProcessId(), null, null, "排产工序缺少路线快照"));
                 return null;
             }
-            if (scheduleOrderProcess.getPredecessorRouteProcessId() == null) {
+            Set<Long> predecessorRouteProcessIds = ScheduleTopologyPredecessors.resolve(scheduleOrderProcess);
+            if (predecessorRouteProcessIds.isEmpty()) {
                 if (Boolean.FALSE.equals(scheduleOrderProcess.getRootProcessFlag())) {
                     computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_ROUTE, workOrder.getId(),
                             routeProcess.getProcessId(), null, null, "排产工序缺少直接前置关系快照"));
                     return null;
                 }
             } else {
-                LocalDateTime predecessorScheduledEndTime =
-                        routeProcessEndTimeMap.get(scheduleOrderProcess.getPredecessorRouteProcessId());
-                if (predecessorScheduledEndTime == null) {
+                LocalDateTime predecessorScheduledEndTime = predecessorRouteProcessIds.stream()
+                        .map(routeProcessEndTimeMap::get)
+                        .filter(Objects::nonNull)
+                        .max(LocalDateTime::compareTo)
+                        .orElse(null);
+                if (predecessorScheduledEndTime == null
+                        || predecessorRouteProcessIds.stream().anyMatch(id -> !routeProcessEndTimeMap.containsKey(id))) {
                     computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_ROUTE, workOrder.getId(),
                             routeProcess.getProcessId(), null, null, "直接前置工序尚未完成排产"));
                     return null;
@@ -2965,7 +2977,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             if (processCandidate == null) {
                 return null;
             }
-            LocalDateTime dependencyReleasedAt = computation.requestStartTime;
+            LocalDateTime dependencyReleasedAt = predecessorRouteProcessIds.stream()
+                    .map(routeProcessEndTimeMap::get)
+                    .filter(Objects::nonNull)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(computation.requestStartTime);
 
             if (protectedTask != null) {
                 candidate.steps.add(PreviewStep.fromExisting(protectedTask));
@@ -3655,7 +3671,8 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private boolean hasRouteProcessTopologySnapshot(Collection<MesProScheduleOrderProcessDO> snapshotProcesses) {
         return CollUtil.isNotEmpty(snapshotProcesses)
                 && snapshotProcesses.stream().anyMatch(item -> item != null
-                && (item.getPredecessorRouteProcessId() != null || item.getRootProcessFlag() != null));
+                && (StrUtil.isNotBlank(item.getPredecessorRouteProcessIdsJson())
+                || item.getPredecessorRouteProcessId() != null || item.getRootProcessFlag() != null));
     }
 
     private List<MesProRouteProcessDO> restrictToActiveSnapshotRouteProcesses(
@@ -3690,8 +3707,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         return snapshotProcesses.stream()
-                .map(MesProScheduleOrderProcessDO::getPredecessorRouteProcessId)
-                .filter(Objects::nonNull)
+                .flatMap(process -> ScheduleTopologyPredecessors.resolve(process).stream())
                 .anyMatch(predecessorRouteProcessId -> !activeRouteProcessIds.contains(predecessorRouteProcessId));
     }
 

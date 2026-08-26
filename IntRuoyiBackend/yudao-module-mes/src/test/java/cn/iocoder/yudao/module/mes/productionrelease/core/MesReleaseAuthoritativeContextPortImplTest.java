@@ -71,7 +71,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
         MesProEdhrBatchTraceSourcePrecheckRespVO source = new MesProEdhrBatchTraceSourcePrecheckRespVO()
                 .setBatchExecutionId(20L).setOriginLinkId(61L).setTraceLinkHash("trace-hash")
                 .setSourceSnapshotHash("source-snapshot").setRelationStatus("CAPTURED");
-        MesReleaseMaterialGateReceipt gate = completeGate("independent-gate", 20L, "source-snapshot");
+        MesReleaseMaterialGateReceipt gate = completeGate("gate-1", 20L, "source-snapshot");
         MesIndependentBatchPrerequisiteReceipt receipt = independentReceipt();
 
         when(releaseTransactionMapper.selectById(10L)).thenReturn(transaction);

@@ -503,6 +503,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .id(TASK_ID).activeOrderId(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
                 .routeProcessId(ROUTE_PROCESS_ID).processId(PROCESS_ID)
+                .qaProcessId(8001L)
                 .regulationVersionId(REGULATION_VERSION_ID).inspectionType("PQC")
                 .businessDate(LocalDate.of(2026, 8, 9)).shiftCode("DAY").roundNo(1)
                 .plannedInspectionQuantity(1).actualInspectionQuantity(1)
@@ -765,14 +766,14 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     private static String itemKey(String fieldCode) {
-        return "PQC|PRESSURE|1|" + fieldCode;
+        return "QA_PROCESS:8001|PQC|PRESSURE|1|" + fieldCode;
     }
 
     private static String headerKey(String fieldCode) {
         if (fieldCode.startsWith("dccProject")) {
-            return "PQC|DCC|" + fieldCode;
+            return "QA_PROCESS:8001|PQC|DCC|" + fieldCode;
         }
-        return "PQC|" + fieldCode;
+        return "QA_PROCESS:8001|PQC|" + fieldCode;
     }
 
     private static String summaryKey(String fieldCode) {

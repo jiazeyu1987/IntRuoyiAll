@@ -11,11 +11,13 @@ import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_PERCENT_INVALID;
 
 @Service
 public class MesTeamLeaderOverageLimitServiceImpl implements MesTeamLeaderOverageLimitService {
+    /** The business default used when a production leader has not configured a process limit. */
+    static final BigDecimal DEFAULT_OVERAGE_PERCENT = new BigDecimal("10");
+
     private final MesProcessPoolTeamProcessOverageLimitMapper mapper;
 
     public MesTeamLeaderOverageLimitServiceImpl(MesProcessPoolTeamProcessOverageLimitMapper mapper) {
@@ -51,8 +53,7 @@ public class MesTeamLeaderOverageLimitServiceImpl implements MesTeamLeaderOverag
         MesProcessPoolTeamProcessOverageLimitDO row = mapper.selectByLeaderAndRouteProcess(
                 leaderUserId, routeProcessId, processId);
         if (row == null || row.getOveragePercent() == null) {
-            throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_REQUIRED,
-                    leaderUserId, routeProcessId, processId);
+            return DEFAULT_OVERAGE_PERCENT;
         }
         return row.getOveragePercent();
     }
@@ -61,7 +62,8 @@ public class MesTeamLeaderOverageLimitServiceImpl implements MesTeamLeaderOverag
     public BigDecimal findPercent(Long leaderUserId, Long routeProcessId, Long processId) {
         MesProcessPoolTeamProcessOverageLimitDO row = mapper.selectByLeaderAndRouteProcess(
                 leaderUserId, routeProcessId, processId);
-        return row == null ? null : row.getOveragePercent();
+        return row == null || row.getOveragePercent() == null
+                ? DEFAULT_OVERAGE_PERCENT : row.getOveragePercent();
     }
 
     @Override

@@ -36,4 +36,10 @@ public interface MesProBatchRecordCellLinkErrorCodeConstants {
             new ErrorCode(1_040_509_094, "批记录领料单来源关系不完整：{}");
     ErrorCode PRO_BATCH_RECORD_PICK_LIST_SOURCE_VALUE_REQUIRED =
             new ErrorCode(1_040_509_095, "批记录领料单来源值不可用：{}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_PQC_QA_CATALOG_MISSING =
+            new ErrorCode(1_040_509_096, "一线PQC来源缺少当前DCC项目的已发布QA工序目录：routeId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_PQC_QA_PROCESS_MISSING =
+            new ErrorCode(1_040_509_097, "所选一线PQC工序不属于当前DCC项目的已发布QA版本：qaProcessId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_PQC_QA_ITEMS_MISSING =
+            new ErrorCode(1_040_509_098, "所选一线PQC工序未配置已发布QA检验项目：qaProcessId={}");
 }

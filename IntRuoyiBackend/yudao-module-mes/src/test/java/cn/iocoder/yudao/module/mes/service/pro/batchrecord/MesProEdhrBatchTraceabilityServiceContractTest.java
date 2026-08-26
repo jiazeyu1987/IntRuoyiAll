@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityErrorCodeConstants.FLOW8_SOURCE_PRECHECK_STALE;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityErrorCodeConstants.FLOW8_SOURCE_PRECHECK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityErrorCodeConstants.FLOW8_TRACE_LINK_ORIGIN_MISMATCH;
 
 class MesProEdhrBatchTraceabilityServiceContractTest {
@@ -231,6 +232,44 @@ class MesProEdhrBatchTraceabilityServiceContractTest {
                         origin, link, java.time.LocalDateTime.now()));
 
         assertEquals(FLOW8_TRACE_LINK_ORIGIN_MISMATCH.getCode(), exception.getCode());
+    }
+
+    @Test
+    void flow8SourcePrecheckSelectsTheSingleFormalBatchProvisionLinkWhenCallerHasNoLinkId() {
+        MesProEdhrBatchExecutionOriginDO origin = MesProEdhrBatchExecutionOriginDO.builder()
+                .id(1L).batchExecutionId(101L).entryType(MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION)
+                .sourceSnapshotHash("origin-snapshot-v1").build();
+        MesProEdhrBatchExecutionTraceLinkDO provision = traceLink(3L, 1L,
+                MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT, "BATCH_PROVISION_RECEIPT", 13L)
+                .setRelationStatus("CAPTURED");
+
+        MesProEdhrBatchTraceSourcePrecheckRespVO snapshot =
+                MesProEdhrBatchTraceabilityServiceImpl.resolveSourcePrecheckWithoutLinkId(
+                        new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(101L),
+                        List.of(origin), List.of(provision), java.time.LocalDateTime.of(2026, 8, 24, 12, 0));
+
+        assertEquals(3L, snapshot.getOriginLinkId());
+        assertEquals("origin-snapshot-v1", snapshot.getSourceSnapshotHash());
+    }
+
+    @Test
+    void flow8SourcePrecheckBlocksWhenFormalBatchProvisionLinkIsAmbiguous() {
+        MesProEdhrBatchExecutionOriginDO origin = MesProEdhrBatchExecutionOriginDO.builder()
+                .id(1L).batchExecutionId(101L).entryType(MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION)
+                .sourceSnapshotHash("origin-snapshot-v1").build();
+        MesProEdhrBatchExecutionTraceLinkDO first = traceLink(3L, 1L,
+                MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT, "BATCH_PROVISION_RECEIPT", 13L)
+                .setRelationStatus("CAPTURED");
+        MesProEdhrBatchExecutionTraceLinkDO second = traceLink(4L, 1L,
+                MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT, "BATCH_PROVISION_RECEIPT", 14L)
+                .setRelationStatus("CAPTURED");
+
+        ServiceException exception = assertThrows(ServiceException.class, () ->
+                MesProEdhrBatchTraceabilityServiceImpl.resolveSourcePrecheckWithoutLinkId(
+                        new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(101L),
+                        List.of(origin), List.of(first, second), java.time.LocalDateTime.now()));
+
+        assertEquals(FLOW8_SOURCE_PRECHECK_REQUIRED.getCode(), exception.getCode());
     }
 
     private MesProEdhrBatchExecutionTraceLinkDO traceLink(Long id, Long originId, String linkType,

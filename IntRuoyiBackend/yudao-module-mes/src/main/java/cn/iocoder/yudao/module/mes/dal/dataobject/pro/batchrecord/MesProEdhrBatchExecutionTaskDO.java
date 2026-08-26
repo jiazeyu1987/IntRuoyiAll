@@ -90,6 +90,13 @@ public class MesProEdhrBatchExecutionTaskDO extends BaseDO {
 
     private String routeBindingSnapshotHash;
 
+    /**
+     * The Flow7/Flow6 formal source snapshot witnessed when a mandatory
+     * release-material task was created. It is intentionally distinct from
+     * routeBindingSnapshotHash, which only describes route/form configuration.
+     */
+    private String materialSourceSnapshotHash;
+
     private String requiredPolicy;
 
     private String requiredConditionJson;

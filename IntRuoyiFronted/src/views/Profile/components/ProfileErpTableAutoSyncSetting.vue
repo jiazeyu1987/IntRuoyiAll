@@ -623,7 +623,7 @@ const handleRunOnce = async () => {
   try {
     await refreshJobsBeforeMutation()
     await Promise.all(
-      selectedItems.map((item) => ErpKingdeeSyncApi.runIncrementalSyncJob(item.handlerName))
+      selectedItems.map((item) => ErpKingdeeSyncApi.runIncrementalSync(item.syncType))
     )
     ElMessage.success(`已提交 ${selectedItems.length} 个 ERP 增量同步任务`)
     await Promise.all([loadJobs(), loadLatestRuns(), loadRunningSyncRuns()])
@@ -637,7 +637,7 @@ const handleRunOnce = async () => {
 const handleRunIncremental = async (row: ProfileErpSyncTableRow) => {
   incrementalSyncingType.value = row.syncType
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob(row.handlerName)
+    await ErpKingdeeSyncApi.runIncrementalSync(row.syncType)
     ElMessage.success(`已提交 ${row.erpTableName} 单表 ERP 增量同步任务`)
     await Promise.all([loadLatestRuns(), loadRunningSyncRuns()])
   } catch (error) {

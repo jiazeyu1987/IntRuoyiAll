@@ -26,9 +26,10 @@ assert.deepEqual(
   [
     { label: '总览', name: 'overview' },
     { label: '检验项目', name: 'items' },
+    { label: '检验设备', name: 'equipment' },
     { label: '任务预览', name: 'verification' }
   ],
-  'QA navigation must expose overview, item configuration and formal task preview tabs.'
+  'QA navigation must expose overview, item configuration, equipment configuration and formal task preview tabs.'
 )
 
 assert.doesNotMatch(
@@ -78,8 +79,8 @@ assert.match(
 
 assert.match(
   qaSource,
-  /type QaRegulationTabName = 'overview' \| 'items' \| 'verification'/,
-  'QA tab state type must no longer include the removed rules tab.'
+  /type QaRegulationTabName = 'overview' \| 'items' \| 'equipment' \| 'verification'/,
+  'QA tab state type must include the equipment configuration tab and exclude the removed rules tab.'
 )
 assert.match(
   qaSource,

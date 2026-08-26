@@ -57,6 +57,8 @@
 
 ## Current Blockers
 
+- 2026-08-24 main-thread 回归发现：`MesP0PqcQualityAllocationGateTest` 运行 8 个用例时出现 6 failures 和 2 errors。根因是其测试 fixture 未传入流程2现在必填的 `signaturePassword`，请求在组长复核的正式前置校验即以 `1040760000` 失败，未进入 PQC 配额/门禁断言。必须采用最小 test-only fixture 修复，不得移除或放宽生产签名校验。
+- 原 `D:\IntRuoyiWorktree\flow-repair-coding-03-8af0` 工作树和登记项已删除/失活，不能复用。已重新创建并登记 `D:\IntRuoyiWorktree\20260824-flow-repair-03-test-fixture`（`codex/20260824-flow-repair-03-test-fixture`，基线 `628fb8a990952fce7ef9128d958b728c5aa9f6c5`，`int_main` slot 30，8164/48164）。本轮不启动运行态。
 - 业务语义、字段身份、状态 owner、终态/受控修订、两个建批分支、四份材料和禁止替代规则已冻结；独立入口 canonical 凭证为 `IndependentBatchPrerequisiteReceipt`，跨线程失败必须传递已冻结稳定码，具体载体名称可由实现统一映射。
 - 生产代码、自动化测试、真实 E2E 和历史迁移对账证据尚未完成；这些实现/验证 blocker 不阻止本文档定稿，但阻止生产 GREEN、迁移通过或放行结论。
 

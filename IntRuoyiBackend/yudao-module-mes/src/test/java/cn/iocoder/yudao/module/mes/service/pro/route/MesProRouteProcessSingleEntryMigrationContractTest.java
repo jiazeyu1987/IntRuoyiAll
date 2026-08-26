@@ -11,16 +11,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MesProRouteProcessSingleEntryMigrationContractTest {
 
     @Test
-    void migration_shouldEnforceSingleIncomingAndPersistDependencySnapshots() throws Exception {
+    void migration_shouldPersistDependencySnapshotsWithoutSingleIncomingConstraint() throws Exception {
         Path migration = Path.of(System.getProperty("user.dir"))
                 .getParent()
                 .resolve(Path.of("sql", "mysql",
                         "20260710_mes_route_process_single_entry_multi_exit.sql"));
         String sql = Files.readString(migration, StandardCharsets.UTF_8);
 
-        assertTrue(sql.contains("uk_mes_route_process_flow_target"));
-        assertTrue(sql.contains("target_route_process_id`, `deleted"));
-        assertTrue(sql.contains("route process flow contains multiple incoming edges"));
+        assertTrue(!sql.contains("ADD UNIQUE INDEX `uk_mes_route_process_flow_target`"));
+        assertTrue(!sql.contains("route process flow contains multiple incoming edges"));
         assertTrue(sql.contains("mes_pro_schedule_order_process"));
         assertTrue(sql.contains("mes_pro_edhr_batch_execution_task"));
         assertTrue(sql.contains("predecessor_route_process_id"));

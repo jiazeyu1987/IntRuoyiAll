@@ -222,7 +222,11 @@ yudao:
         policy-version: ${DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION}
         key-id: ${DCC_DOWNLOAD_ENCRYPTION_KEY_ID}
         base64-key: ${DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY}
-        artifact-directory: ${DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY}
+      artifact-directory: ${DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY}
+  form-center:
+    fill-rule-ai:
+      codex-cli-command: ${FORM_CENTER_FILL_RULE_AI_CODEX_CLI_COMMAND:cmd.exe /c codex.cmd}
+      timeout-seconds: ${FORM_CENTER_FILL_RULE_AI_CODEX_TIMEOUT_SECONDS:120}
   pay:
     order-notify-url: http://yunai.natapp1.cc/admin-api/pay/notify/order # 支付渠道的【支付】回调地址
     refund-notify-url: http://yunai.natapp1.cc/admin-api/pay/notify/refund # 支付渠道的【退款】回调地址

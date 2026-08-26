@@ -61,7 +61,7 @@
           plain
           :loading="kingdeeSyncLoading"
           @click="handleIncrementalSync"
-          v-hasPermi="['infra:job:trigger']"
+          v-hasPermi="['erp:kingdee-sync:query']"
         >
           <Icon icon="ep:refresh" class="mr-5px" /> 增量同步
         </el-button>
@@ -309,7 +309,7 @@ const resetQuery = () => {
 const handleIncrementalSync = async () => {
   kingdeeSyncLoading.value = true
   try {
-    await ErpKingdeeSyncApi.runIncrementalSyncJob('kingdeeProductionMaterialListSyncJob')
+    await ErpKingdeeSyncApi.runIncrementalSync('PRODUCTION_MATERIAL_LIST')
     message.success('生产用料清单增量同步任务已提交')
     await getList()
   } finally {

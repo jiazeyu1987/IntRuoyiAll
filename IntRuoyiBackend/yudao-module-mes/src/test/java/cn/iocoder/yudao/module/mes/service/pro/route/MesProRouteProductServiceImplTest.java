@@ -341,7 +341,7 @@ class MesProRouteProductServiceImplTest {
     }
 
     @Test
-    void saveRouteProductByItem_shouldCreateDefaultBindingWhenProductHasNoRoute() {
+    void saveRouteProductByItem_shouldCreateBindingForEnabledRouteWhenProductHasNoRoute() {
         when(routeProductMapper.selectByItemId(301L)).thenReturn(null);
         doAnswer(invocation -> {
             MesProRouteProductDO data = invocation.getArgument(0);
@@ -352,7 +352,7 @@ class MesProRouteProductServiceImplTest {
         Long result = routeProductService.saveRouteProductByItem(301L, 200L);
 
         assertEquals(101L, result);
-        verify(routeService).validateRouteNotEnable(200L);
+        verify(routeService, never()).validateRouteNotEnable(any());
         ArgumentCaptor<MesProRouteProductDO> productCaptor = ArgumentCaptor.forClass(MesProRouteProductDO.class);
         verify(routeProductMapper).insert(productCaptor.capture());
         MesProRouteProductDO inserted = productCaptor.getValue();

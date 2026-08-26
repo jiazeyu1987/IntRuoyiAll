@@ -63,9 +63,6 @@ public class MesFrontlinePqcSubmitReqVO {
     @Min(value = 0, message = "损耗数量不能小于 0")
     private Integer scrapQuantity;
 
-    @Schema(description = "PQC 手动不良说明")
-    private String nonconformanceDescription;
-
     @Schema(description = "PQC 项目级正式检验结果")
     private List<ItemResult> itemResults;
 

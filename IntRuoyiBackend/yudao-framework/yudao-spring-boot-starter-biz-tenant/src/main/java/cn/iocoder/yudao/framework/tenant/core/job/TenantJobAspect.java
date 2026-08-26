@@ -33,11 +33,12 @@ public class TenantJobAspect {
 
     @Around("@annotation(tenantJob)")
     public String around(ProceedingJoinPoint joinPoint, TenantJob tenantJob) {
-        // 获得租户列表
-        List<Long> tenantIds = tenantFrameworkService.getTenantIds();
+        TenantJobParam scopedParam = getScopedParam(joinPoint.getArgs());
+        List<Long> tenantIds = getTenantIds(scopedParam);
         if (CollUtil.isEmpty(tenantIds)) {
             return null;
         }
+        Object[] handlerArgs = scopedParam != null ? new Object[]{scopedParam.handlerParam()} : joinPoint.getArgs();
 
         // 逐个租户，执行 Job
         Map<Long, String> results = new ConcurrentHashMap<>();
@@ -45,7 +46,7 @@ public class TenantJobAspect {
             // TODO 芋艿：先通过 parallel 实现并行；1）多个租户，是一条执行日志；2）异常的情况
             TenantUtils.execute(tenantId, () -> {
                 try {
-                    Object result = joinPoint.proceed();
+                    Object result = scopedParam != null ? joinPoint.proceed(handlerArgs) : joinPoint.proceed();
                     results.put(tenantId, StrUtil.toStringOrEmpty(result));
                 } catch (Throwable e) {
                     log.error("[execute][租户({}) 执行 Job 发生异常", tenantId, e);
@@ -54,6 +55,21 @@ public class TenantJobAspect {
             });
         });
         return JsonUtils.toJsonString(results);
+    }
+
+    private TenantJobParam getScopedParam(Object[] args) {
+        if (args == null || args.length != 1 || !(args[0] instanceof String handlerParam)) {
+            return null;
+        }
+        return TenantJobParam.parse(handlerParam);
+    }
+
+    private List<Long> getTenantIds(TenantJobParam scopedParam) {
+        if (scopedParam == null) {
+            return tenantFrameworkService.getTenantIds();
+        }
+        tenantFrameworkService.validTenant(scopedParam.tenantId());
+        return List.of(scopedParam.tenantId());
     }
 
 }

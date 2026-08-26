@@ -461,7 +461,11 @@ export const MesProScheduleOrderApi = {
   },
 
   createFromWorkOrders: async (data: MesProScheduleOrderCreateFromWorkOrdersReqVO) => {
-    return await request.post({ url: '/mes/pro/schedule-order/create-from-work-orders', data })
+    return await request.post({
+      url: '/mes/pro/schedule-order/create-from-work-orders',
+      data,
+      ignoreErrorMessage: true
+    })
   },
 
   getAdmissionDiff: async (params: MesProScheduleOrderAdmissionDiffPageReqVO) => {

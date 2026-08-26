@@ -17,6 +17,14 @@ Implement a server-side batch-execution gate that requires the current valid ver
 - [x] M5: Commit only Flow8-owned code, tests, and task evidence (initial `609fcd5fc` / integrated as `4b764f835`; source-binding recheck review `18c37fe4e`).
 - [x] M6: Re-run Flow8 targeted tests, MES compile, diff check, and runtime guard on `int_main` after integration.
 - [ ] M7: Run real Playwright, migration verification, and formal Flow7 source integration evidence.
+- [ ] M8: Persist a dedicated Flow7 source snapshot witness for the four material tasks and verify that route-binding metadata cannot substitute for it.
+
+### Current M8 Progress
+
+- Implemented the dedicated `material_source_snapshot_hash` task witness and propagated the formal provision source snapshot through the three batch-creation/re-execution paths.
+- The gate now compares only the dedicated witness against Flow7 `sourceSnapshotHash`; legacy tasks without the witness remain blocked.
+- Added the schema migration, test-schema column, gate regression coverage, and batch-creation persistence assertions.
+- M8 remains open because the current `int_main` worktree cannot complete MES compilation or test compilation: unrelated concurrent changes leave `stage5` with a missing `hardDeleteById` mapper method and remove multiple legacy service classes used by the test source set.
 
 ## Expected Verification
 
@@ -31,6 +39,7 @@ Implement a server-side batch-execution gate that requires the current valid ver
 - Use only persisted batch task and attachment evidence; no mock/default resolver or inferred source.
 - A missing formal Flow7 Origin/TraceLink source must fail fast as an external integration blocker.
 - Real Playwright remains NOT RUN until a writable tenant, role accounts, an existing batch execution, four cleanable files, and cleanup authority are supplied.
+- Four material task source binding must use a dedicated persisted witness; `routeBindingSnapshotHash` is route/form configuration metadata and cannot satisfy the Flow7 source snapshot contract.
 
 ## Verification Summary
 
@@ -41,6 +50,7 @@ Implement a server-side batch-execution gate that requires the current valid ver
 - Runtime guard: PASS for v6 slot 9 (`int_main`, frontend 8090, backend 48090).
 - Expanded batch-execution suite: NOT GREEN because 167 tests cannot create the existing `MesBatchExecutionEntryContractService` bean and 7 task-gate tests target an absent legacy reflection signature; these failures predate and do not exercise the Flow8 gate.
 - Real Playwright: NOT RUN because writable tenant, role accounts, an existing batch execution, four cleanable files, and cleanup authority were not supplied.
+- Current M8 verification: static contract and `git diff --check` pass; Maven GREEN is blocked by unrelated concurrent MES source/test deletions described above.
 
 ## 设计约束检查
 

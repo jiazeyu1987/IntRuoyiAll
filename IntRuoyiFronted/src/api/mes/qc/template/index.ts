@@ -124,10 +124,10 @@ export interface QaInspectionRegulationSaveProcessVO {
   items: QaInspectionRegulationSaveItemVO[]
 }
 
-export interface QaInspectionRegulationSaveItemVO
-  extends Omit<QaInspectionRegulationItemVO, 'equipmentOptions'> {
-  equipmentOptions: QaInspectionRegulationItemEquipmentRefVO[]
-}
+export type QaInspectionRegulationSaveItemVO = Omit<
+  QaInspectionRegulationItemVO,
+  'equipmentOptions'
+>
 
 export interface QaInspectionRegulationSaveRespVO {
   dccProjectCodeId: number
@@ -161,6 +161,54 @@ export interface QaInspectionRegulationResetRespVO {
   processCount: number
   itemCount: number
   itemEquipmentCount: number
+}
+
+export interface PqcItemEquipmentItemVO {
+  dccProjectCodeId: number
+  itemCode: string
+  itemCodes?: string[]
+  projectName: string
+  itemName: string
+  inspectionMethod?: string
+  standardText?: string
+  samplingPlanText?: string
+}
+
+export interface PqcItemEquipmentNumberConfigVO {
+  id?: number
+  equipmentNumber: string
+  enabled?: boolean
+  sort?: number
+}
+
+export interface PqcItemEquipmentGroupConfigVO {
+  id?: number
+  equipmentId: number
+  equipmentCode?: string
+  equipmentName?: string
+  enabled?: boolean
+  defaultFlag?: boolean
+  sort?: number
+  equipmentNumbers: PqcItemEquipmentNumberConfigVO[]
+}
+
+export interface PqcItemEquipmentConfigVO {
+  itemCode: string
+  itemCodes?: string[]
+  itemName?: string
+  configurationConsistent?: boolean
+  equipmentGroups: PqcItemEquipmentGroupConfigVO[]
+}
+
+export interface PqcItemEquipmentConfigSaveReqVO {
+  itemCode: string
+  itemNameSnapshot?: string
+  equipmentGroups: PqcItemEquipmentGroupConfigVO[]
+}
+
+export interface PqcItemEquipmentBatchConfigSaveReqVO extends PqcItemEquipmentConfigSaveReqVO {
+  dccProjectCodeId: number
+  itemCodes: string[]
 }
 
 // MES 质检方案 API
@@ -233,6 +281,55 @@ export const QcTemplateApi = {
     return await request.get({
       url: `/mes/qa/inspection-regulation/project-statuses`,
       params: { dccProjectCodeIds: dccProjectCodeIds.join(',') }
+    })
+  },
+
+  // 查询当前 QA 项目下可维护的租户级 PQC 检验项目
+  getPqcItemEquipmentItems: async (
+    dccProjectCodeId: number
+  ): Promise<PqcItemEquipmentItemVO[]> => {
+    return await request.get({
+      url: `/mes/pqc/item-equipment/items`,
+      params: { dccProjectCodeId }
+    })
+  },
+
+  // 查询租户级 PQC 检验项目设备配置
+  getPqcItemEquipmentConfig: async (itemCode: string): Promise<PqcItemEquipmentConfigVO> => {
+    return await request.get({
+      url: `/mes/pqc/item-equipment/config`,
+      params: { itemCode }
+    })
+  },
+
+  // 查询当前 QA 项目同名检验项目对应的全部设备配置
+  getPqcItemEquipmentConfigBatch: async (
+    dccProjectCodeId: number,
+    itemCodes: string[]
+  ): Promise<PqcItemEquipmentConfigVO> => {
+    return await request.get({
+      url: '/mes/pqc/item-equipment/config/batch',
+      params: { dccProjectCodeId, itemCodes: itemCodes.join(',') }
+    })
+  },
+
+  // 保存租户级 PQC 检验项目设备配置
+  savePqcItemEquipmentConfig: async (
+    data: PqcItemEquipmentConfigSaveReqVO
+  ): Promise<PqcItemEquipmentConfigVO> => {
+    return await request.post({
+      url: `/mes/pqc/item-equipment/config`,
+      data
+    })
+  },
+
+  // 原子保存当前 QA 项目同名检验项目对应的全部设备配置
+  savePqcItemEquipmentConfigBatch: async (
+    data: PqcItemEquipmentBatchConfigSaveReqVO
+  ): Promise<PqcItemEquipmentConfigVO> => {
+    return await request.post({
+      url: '/mes/pqc/item-equipment/config/batch',
+      data
     })
   },
 

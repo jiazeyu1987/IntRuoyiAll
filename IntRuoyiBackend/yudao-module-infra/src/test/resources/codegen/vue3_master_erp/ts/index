@@ -139,5 +139,5 @@ export const StudentApi = {
   // 获得学生班主任
   getStudentTeacher: async (id: number) => {
     return await request.get({ url: `/infra/student/student-teacher/get?id=` + id })
-  },
+  }
 }

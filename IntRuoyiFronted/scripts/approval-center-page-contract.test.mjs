@@ -30,9 +30,10 @@ for (const expected of [
   assert.ok(api.includes(expected), `approval center API must contain ${expected}`)
 }
 
-for (const label of ['待办', '已办', '我发起的', '抄送我的', '签名待处理']) {
+for (const label of ['待办', '已办', '我发起的', '抄送我的']) {
   assert.ok(page.includes(label), `approval center page must expose ${label} tab`)
 }
+assert.ok(!page.includes('签名待处理'), 'approval center must not expose an independent signature pending tab')
 
 for (const expected of [
   'getApprovalCenterModules',
@@ -42,13 +43,12 @@ for (const expected of [
   'decisionDetailRoute',
   'decisionDetailQuery',
   'openDecisionDetail',
-  'canOpenDecisionDetail',
+  'canOpenView',
   '详情',
   'businessDeleted',
   '已删除',
   'ElMessage.error',
   '<el-table',
-  '<Pagination',
   'approvalTabNames',
   'resolveRouteTab',
   '未知审批中心子页签'
@@ -59,7 +59,7 @@ for (const expected of [
 assert.ok(router.includes("path: '/approval-center'"), 'approval center direct route must exist')
 assert.ok(router.includes("redirect: '/approval-center/todo'"), 'approval center root route must redirect to todo child route')
 assert.ok(router.includes("title: '审批中心'"), 'approval center route title must be 审批中心')
-for (const childPath of ['todo', 'done', 'my-initiated', 'cc', 'signature-pending']) {
+for (const childPath of ['todo', 'done', 'my-initiated', 'cc']) {
   assert.ok(router.includes(`path: '${childPath}'`), `approval center must define child route ${childPath}`)
 }
 assert.ok(router.includes("name: 'ApprovalCenterTodo'"), 'approval center todo child route must exist')

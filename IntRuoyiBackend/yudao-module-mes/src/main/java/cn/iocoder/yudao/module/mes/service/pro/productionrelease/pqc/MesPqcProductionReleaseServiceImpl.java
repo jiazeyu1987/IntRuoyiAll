@@ -20,8 +20,6 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesCompletionBackfillReceipt;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
 import com.alibaba.fastjson.JSON;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -108,24 +106,14 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         MesProEdhrWorkTaskDO workTask = requireProcessableTask(
                 application, command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId);
 
-        Long receiptId = parseReceiptId(command.getCompletionBackfillReceiptId(), application);
-        MesFlow6CompletionBackfillReceipt completionReceipt = dossierPort.readCompletionReceipt(
-                receiptId, TenantContextHolder.getTenantId());
-        if (completionReceipt == null
-                || !Objects.equals(application.getActiveOrderId(), completionReceipt.getActiveOrderId())
-                || !Objects.equals(application.getWorkOrderId(), completionReceipt.getWorkOrderId())
-                || !Objects.equals(application.getBatchCode(), completionReceipt.getBatchCode())
-                || !Objects.equals(application.getRouteId(), completionReceipt.getRouteId())
-                || !Objects.equals(application.getRouteVersionId(), completionReceipt.getRouteVersionId())
-                || !Objects.equals(application.getSourceSnapshotHash(), completionReceipt.getSourceSnapshotHash())
-                || !MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED
-                .equals(completionReceipt.getStatus())) {
+        MesPqcReleaseDossierPlan dossierPlan = dossierPort.plan(application, actorUserId);
+        if (dossierPlan == null || !Objects.equals(application.getSourceSnapshotHash(),
+                dossierPlan.getSourceSnapshotHash())) {
             throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, application,
                     "RELEASE_APPLICATION", String.valueOf(application.getId()),
-                    "the persisted Flow-4 completion receipt is missing or does not match the release application",
-                    "complete the active order again from the authoritative Flow-4 completion node");
+                    "authoritative source snapshot changed after the release application",
+                    "create a new release application from the current frozen route sources");
         }
-        command.setCompletionBackfillReceipt(toBatchEntryReceipt(application, completionReceipt, command));
         Long batchExecutionId = batchExecutionPort.openOrCreate(new MesProductionReleaseBatchExecutionCommand()
                 .setApplicationId(application.getId())
                 .setWorkOrderId(application.getWorkOrderId())
@@ -167,6 +155,8 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "repair the release-bound batch execution contract before retrying");
         }
 
+        MesPqcReleaseDossierWriteResult dossierWrite = requireDossierWrite(
+                application, dossierPort.write(dossierPlan, batchExecutionId));
         MesProductionReleaseReportStageInitializationResult reportStage = requireReportStage(
                 application, reportStageInitializer.initializeRequiredReportStage(
                         new MesProductionReleaseReportStageInitializationCommand()
@@ -181,14 +171,13 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .setDecision("APPROVE")
                 .setStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
                 .setBatchExecutionId(batchExecutionId)
-                .setBatchRecordEvidenceIds(List.of(completionReceipt.getBatchRecordId()))
-                .setProcessInspectionEvidenceIds(List.of(completionReceipt.getProcessInspectionId()))
-                .setLossReportEvidenceIds(completionReceipt.getLossRecordId() == null
-                        ? List.of() : List.of(completionReceipt.getLossRecordId()))
-                .setLossReportStatus(completionReceipt.getLossReportStatus())
-                .setHasActualLoss(completionReceipt.getHasActualLoss())
-                .setLossQuantity(completionReceipt.getLossQuantity())
-                .setLossSourceSnapshotHash(completionReceipt.getSourceSnapshotHash())
+                .setBatchRecordEvidenceIds(copy(dossierWrite.getBatchRecordEvidenceIds()))
+                .setProcessInspectionEvidenceIds(copy(dossierWrite.getProcessInspectionEvidenceIds()))
+                .setLossReportEvidenceIds(copy(dossierWrite.getLossReportEvidenceIds()))
+                .setLossReportStatus(dossierWrite.getLossReportStatus())
+                .setHasActualLoss(dossierWrite.getHasActualLoss())
+                .setLossQuantity(dossierWrite.getLossQuantity())
+                .setLossSourceSnapshotHash(dossierWrite.getSourceSnapshotHash())
                 .setReportUploadTasks(copy(reportStage.getReportUploadTasks()))
                 .setReportSnapshotHash(reportStage.getReportSnapshotHash())
                 .setVersion(command.getExpectedVersion() + 1)
@@ -383,90 +372,26 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 .anyMatch(expected::equals);
     }
 
-    private Long parseReceiptId(String value, MesProcessPoolActiveOrderReleaseApplicationDO application) {
-        try {
-            long parsed = Long.parseLong(value);
-            if (parsed > 0) {
-                return parsed;
-            }
-        } catch (RuntimeException ignored) {
-            // handled as a stable release blocker below
-        }
-        throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, application,
-                "COMPLETION_BACKFILL_RECEIPT", value,
-                "a persisted Flow-4 completion receipt id is required",
-                "complete the active order before approving production release");
-    }
-
-    private MesCompletionBackfillReceipt toBatchEntryReceipt(
+    private MesPqcReleaseDossierWriteResult requireDossierWrite(
             MesProcessPoolActiveOrderReleaseApplicationDO application,
-            MesFlow6CompletionBackfillReceipt source,
-            MesPqcProductionReleaseApproveCommand command) {
-        if (source.getBatchRecordId() == null || source.getProcessInspectionId() == null
-                || StrUtil.isBlank(source.getReceiptHash()) || StrUtil.isBlank(source.getRequestIdempotencyKey())
-                || StrUtil.isBlank(source.getFormalSourceSnapshotJson())
-                || StrUtil.isBlank(source.getSignatureSnapshotJson())
-                || (!Boolean.TRUE.equals(source.getHasActualLoss())
-                && StrUtil.isBlank(source.getZeroLossConfirmationSnapshot()))
-                || StrUtil.isBlank(command.getSourceContextHash())
-                || StrUtil.isBlank(command.getSourceVersion())
-                || StrUtil.isBlank(command.getSourceBundleHash())
-                || command.getPickListBindingId() == null || command.getPickListId() == null
-                || command.getBatchPickListRelationId() == null || command.getBindingVersion() == null
-                || StrUtil.isBlank(command.getPickListHeaderSnapshotHash())
-                || StrUtil.isBlank(command.getPickListLineSnapshotHash())
-                || StrUtil.isBlank(command.getCompletionTransactionId())
-                || command.getExpectedActiveOrderVersion() == null
-                || StrUtil.isBlank(command.getPayloadHash())
-                || command.getSourceEvidence() == null || command.getSourceEvidence().isEmpty()) {
-            throw blocker(MesReleaseFlowBlockerType.FROZEN_ROUTE_SOURCE_REQUIRED, application,
-                    "COMPLETION_BACKFILL_RECEIPT", String.valueOf(source.getReceiptId()),
-                    "Flow-4 receipt or its formal release context is incomplete",
-                    "produce a complete immutable completion receipt and retry");
+            MesPqcReleaseDossierWriteResult result) {
+        boolean validLossReceipt = result != null
+                && (("SUCCESS".equals(result.getLossReportStatus())
+                && Boolean.TRUE.equals(result.getHasActualLoss())
+                && result.getLossQuantity() != null && result.getLossQuantity().signum() > 0
+                && !empty(result.getLossReportEvidenceIds()))
+                || ("NOT_REQUIRED".equals(result.getLossReportStatus())
+                && Boolean.FALSE.equals(result.getHasActualLoss())
+                && result.getLossQuantity() != null && result.getLossQuantity().signum() == 0
+                && empty(result.getLossReportEvidenceIds())));
+        if (result == null || empty(result.getBatchRecordEvidenceIds())
+                || empty(result.getProcessInspectionEvidenceIds()) || !validLossReceipt) {
+            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application,
+                    "RELEASE_DOSSIER", String.valueOf(application.getId()),
+                    "all three formal document mappings must return persistent evidence identifiers",
+                    "repair the batch-record, process-inspection and loss-report mappings before retrying");
         }
-        return new MesCompletionBackfillReceipt()
-                .setReceiptId(String.valueOf(source.getReceiptId()))
-                .setTenantId(source.getTenantId())
-                .setActiveOrderId(source.getActiveOrderId())
-                .setWorkOrderId(source.getWorkOrderId())
-                .setBatchCode(source.getBatchCode())
-                .setRouteId(source.getRouteId())
-                .setRouteVersionId(source.getRouteVersionId())
-                .setBatchRecordId(source.getBatchRecordId())
-                .setProcessInspectionId(source.getProcessInspectionId())
-                .setHasActualLoss(source.getHasActualLoss())
-                .setLossQuantity(source.getLossQuantity())
-                .setLossReportStatus(source.getLossReportStatus())
-                .setLossRecordId(source.getLossRecordId())
-                .setStatus(source.getStatus())
-                .setReceiptHash(source.getReceiptHash())
-                .setSourceSnapshotHash(source.getSourceSnapshotHash())
-                .setCompletionVersion(source.getCompletionVersion() == null ? null
-                        : source.getCompletionVersion().longValue())
-                .setIdempotencyKey(source.getRequestIdempotencyKey())
-                .setPayloadHash(command.getPayloadHash())
-                .setProductionProgress(100)
-                .setInspectionProgress(100)
-                .setProductionBackfillStatus(source.getBatchRecordStatus())
-                .setInspectionBackfillStatus(source.getProcessInspectionStatus())
-                .setLossBackfillStatus(Boolean.TRUE.equals(source.getHasActualLoss())
-                        ? "BACKFILL_SUCCEEDED" : "NO_LOSS")
-                .setLossDecision(Boolean.TRUE.equals(source.getHasActualLoss()) ? "REQUIRED" : "NO_LOSS")
-                .setSourceContextHash(command.getSourceContextHash())
-                .setSourceVersion(command.getSourceVersion())
-                .setSourceBundleHash(command.getSourceBundleHash())
-                .setPickListBindingId(command.getPickListBindingId())
-                .setPickListId(command.getPickListId())
-                .setBatchPickListRelationId(command.getBatchPickListRelationId())
-                .setBindingVersion(command.getBindingVersion())
-                .setPickListHeaderSnapshotHash(command.getPickListHeaderSnapshotHash())
-                .setPickListLineSnapshotHash(command.getPickListLineSnapshotHash())
-                .setCompletionTransactionId(command.getCompletionTransactionId())
-                .setExpectedActiveOrderVersion(command.getExpectedActiveOrderVersion())
-                .setCompletionEventId(command.getCompletionTransactionId())
-                .setReceiptVersion("FLOW4")
-                .setAuditEventId(command.getCompletionTransactionId())
-                .setSourceEvidence(command.getSourceEvidence());
+        return result;
     }
 
     private MesProductionReleaseReportStageInitializationResult requireReportStage(

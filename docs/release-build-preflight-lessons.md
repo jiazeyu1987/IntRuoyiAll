@@ -213,6 +213,14 @@
 - 前置门禁：新增 SQL 的 `dependsOn` 必须引用 `sql\mysql` 中真实存在的 SQL 文件 stem / migrationId；不得凭表名、历史记忆或业务模块名称编造依赖。
 - 处理要求：先冻结门禁失败 JSON 和目标 SQL 首行，再只读列出同域 SQL 的 release-migration 元数据，确认最小真实依赖后修复 SQL 元数据；修复后必须重跑 migration policy gate，生成新提交后重建 release worktree，不得把临时 worktree 未提交修复混入发布包。
 
+## 2026-08-26 rollback-migration 不得进入正常 release manifest
+
+- 触发场景：SQL 根目录同时包含正常 release migration 和带 rollback-migration 元数据的人工回滚脚本，migration policy gate 报缺少 release-migration metadata。
+- 前置门禁：正常 release manifest 只扫描 release-migration；rollback-migration 必须被识别为回滚专用脚本并排除。显式把回滚脚本传入 release manifest 时必须返回 blocker，不能静默忽略或执行。
+- 验证方式：运行 migration policy contract、manifest contract 和全量 run-release-migration-policy-gate.py --sql-root sql/mysql；同时保留回滚脚本的 backup/人工授权/回滚演练门禁。
+- 禁止做法：禁止为破坏性回滚 SQL 伪造 release-migration 元数据、把回滚脚本当普通 schema 自动发布，或通过删除脚本掩盖发布门禁失败。
+- Evidence: IntRuoyiBackend/script/release/release_migration_manifest.py、IntRuoyiBackend/script/release/release_migration_policy_gate.py、doc/tasks/20260821-flow-repair-11-bdd-tdd-regression-and-migration/execution-log.md。
+
 ## 2026-07-04 正式服验证必须读取 docker compose 端口映射
 
 - 触发条件：promote-prod 后执行远端健康检查。

@@ -229,7 +229,8 @@ class RuntimeOpsResponsibilityServiceImplTest extends BaseMockitoUnitTest {
             java.nio.file.Files.createDirectories(root);
             java.nio.file.Files.writeString(root.resolve("release-manifest.json"),
                     "{\"releaseTag\":\"" + releaseTag + "\",\"packageDirectoryName\":\"" + releaseTag
-                            + "\",\"onlyOfficeIncluded\":false,\"artifacts\":[{\"path\":\"image.tar\",\"sha256\":\"abc\"}]}");
+                            + "\",\"component\":\"backend\",\"includeShowroomBuildPackage\":false"
+                            + ",\"onlyOfficeIncluded\":false,\"artifacts\":[{\"path\":\"image.tar\",\"sha256\":\"abc\"}]}");
             java.nio.file.Files.writeString(root.resolve("tested.json"),
                     "{\"releaseTag\":\"" + releaseTag + "\",\"packageDirectoryName\":\"" + releaseTag
                             + "\",\"testedAt\":\"2026-05-30T00:00:00Z\",\"operatorName\":\"tester\"}");

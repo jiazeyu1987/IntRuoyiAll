@@ -7,6 +7,7 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 
 const apiSource = read('src/api/mes/pro/feedback/index.ts')
 const panelSource = read('src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue')
+const contextSource = read('src/views/mes/pro/feedback/frontlineDeviceEmployeeContext.ts')
 const backendRespSource = read(
   '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/feedback/vo/frontline/MesFrontlinePqcProcessRespVO.java'
 )
@@ -64,6 +65,16 @@ assert.match(
   panelSource,
   /applyPqcItemEquipmentDefaults\(/,
   'PQC page must apply backend-provided last selected equipment to item selections.'
+)
+assert.match(
+  panelSource,
+  /selectFrontlinePqcActiveOrder\(\s*deviceState,\s*activeOrder,\s*currentLoginUserId\.value\s*\)/,
+  'Initial PQC active-order loading must pass the current login employee to load defaults.'
+)
+assert.match(
+  contextSource,
+  /selectFrontlinePqcActiveOrder = async[\s\S]{0,700}invalidateFrontlinePqcProcessCacheForActiveOrder\(state, activeOrder\.activeOrderId\)/,
+  'Selecting a PQC active order must invalidate old tenant equipment options before loading.'
 )
 const applyDefaultsBlock = between(
   panelSource,

@@ -134,6 +134,7 @@ export interface BatchRecordCellLinkWorkbenchContextVO {
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
   forms: BatchRecordCellLinkFormVO[]
+  pqcProcesses?: BatchRecordCellLinkPqcProcessVO[]
   sourceFields?: BatchRecordCellLinkSourceFieldVO[]
   defaultSourceReportId?: string
   defaultTargetReportId?: string
@@ -141,12 +142,21 @@ export interface BatchRecordCellLinkWorkbenchContextVO {
   repeatRowGroups?: BatchRecordRepeatRowGroupVO[]
 }
 
+export interface BatchRecordCellLinkPqcProcessVO {
+  id: number
+  processCode?: string
+  processName: string
+  sort?: number
+}
+
 export interface BatchRecordCellLinkSourceFieldVO {
   sourceType: string
   fieldCode: string
   fieldName: string
   valueType?: string
+  sourceCellKey?: string
   routeProcessId?: number
+  qaProcessId?: number
 }
 
 export interface BatchRecordCellLinkFormCellsVO {
@@ -211,6 +221,7 @@ export const BatchRecordCellLinkApi = {
     templateId?: number
     versionNo?: string
     routeProcessId?: number
+    qaProcessId?: number
   }) => {
     return await request.get<BatchRecordCellLinkWorkbenchContextVO>({
       url: '/mes/pro/batch-record-cell-link/workbench-context',

@@ -1,4 +1,5 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260822_mes_edhr_release_final_state_trace; type=schema; riskLevel=medium
+-- Flow 8 authoritative four-material gate receipt.
 CREATE TABLE IF NOT EXISTS mes_pro_edhr_material_gate_receipt (
   id bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
   receipt_id varchar(128) NOT NULL COMMENT '四材料门禁回执ID',

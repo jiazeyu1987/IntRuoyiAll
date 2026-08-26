@@ -181,7 +181,7 @@
 ### Worktree / int_main 运行态 URL 门禁
 
 - Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、真实 E2E 需要使用已登记 worktree slot 端口运行，或 worktree 融合后需要在 `E:\IntRuoyi` 的 `int_main` 主端口复验。
-- Preflight check: 同时显式传入前端和后端 URL；附加 worktree 必须来自同一 runtime slot，融合后主运行态只允许 `8081/48081` 且端口命令行归属 `E:\IntRuoyi`。脚本应只允许这两种合法模式：`int_main 8081/48081` 或按集中端口契约成对分配的 `int_main slot 1..50`。当验收要求“融合后复跑”时，必须使用新的 run/event、独立证据目录和当前主运行态证据；worktree 上已经 PASS 的事件、截图和结果只能作为融合前历史。
+- Preflight check: 同时显式传入前端和后端 URL；附加 worktree 必须来自同一 runtime slot，融合后主运行态只允许 `8081/48081` 且端口命令行归属 `E:\IntRuoyi`。脚本应只允许这两种合法模式：`int_main 8081/48081` 或按集中端口契约成对分配的 `int_main slot 1..100`。当验收要求“融合后复跑”时，必须使用新的 run/event、独立证据目录和当前主运行态证据；worktree 上已经 PASS 的事件、截图和结果只能作为融合前历史。
 - Blocker: 只传一个 URL、端口既不是 `8081/48081` 又不属于同一 slot、未确认端口监听命令行归属目标 worktree/主工作区、后端业务接口返回配置缺失/404、运行 Jar 缺少本次关键方法/字段、或真实 E2E 仍只接受 worktree 模式时必须停止并记录真实原因，不得静默切换端口或 API-only。
 - Verification: 记录运行模式、base URL、backend URL、端口归属、前端 HTTP 200、后端 health UP、源码 revision/工作树指纹/运行产物哈希、关键目标接口业务响应、新的真实页面事件与断言，以及任务结束后的任务自有数据清理结果。融合后证据必须与融合前证据分目录保存，防止覆盖后无法证明各自运行态。
 - Forbidden action: 禁止强停并行 48081、随机换端口、只看 health 就宣称目标 Controller 已加载、用未配对的 frontend/backend URL 造成前端访问旧后端、让融合后 E2E 脚本拒绝合法 `int_main 8081/48081` 主运行态，或把 worktree 旧事件复制/改名后冒充融合后复跑。
@@ -402,6 +402,15 @@
 - Forbidden action: 禁止把列表排除终态误判为权限缺失后绕过页面清理；禁止对未作废批次用 API-only 或 SQL 执行作废。
 
 
+## eDHR 任务自有资料模拟夹具详情读取边界门禁
+
+- Trigger: 真实 E2E 为 eDHR 批次资料上传、特殊节点完成或分段模拟创建“仅包含资料节点”的任务自有批次，并在写入后打开真实批次执行详情页。
+- Preflight check: 模拟夹具必须在 `remark` 与 `activeContextKey` 同时保存完整阶段标记和 `simulationRunId`；详情读取流程只能对两字段完全匹配的任务自有夹具跳过通用工艺路线/批记录任务补建，真实批次、标记不完整或字段不一致的批次继续走正式路由存在性、批记录配置和权限校验。
+- Blocker: 目标上传接口返回成功但详情页出现“工艺路线不存在”“缺少工艺流程批记录配置”或同类通用配置错误时，必须判定详情页 E2E 未通过；不得只凭 POST 业务码和输出快照宣称页面链路通过。
+- Verification: Playwright 必须从真实登录页进入列表和详情页触发按钮，断言目标响应、页面无上述配置错误、`pageErrors=[]`，并在第二轮运行断言上一轮 `simulationRunId` 被清理；API 只能做最终只读对象核验。
+- Forbidden action: 禁止用有效共享工艺路线、修改真实路线配置、隐藏错误提示、放宽所有活跃批次的路由补建条件或 API-only 写入来掩盖模拟夹具与详情读取边界不一致。
+- Evidence: `doc/tasks/20260821-simulation-stage4-dossier-upload-design/verification-report.md`。
+
 ## eDHR 历史执行只读验证门禁
 
 - Trigger: Playwright 需要从 eDHR 批次详情、批记录、记录本或执行记录入口打开 `/mes/pro/feedback/edhr-execution/form`，尤其是复验历史 `executionId`、`batchTaskId`、`workTaskId`、`returnPath` 或 `viewMode`。
@@ -580,6 +589,15 @@
 - Forbidden action: 禁止在旧批次仍 `RUNNING` 时继续叠加新节点串，禁止用新 Runner 进程存在替代旧执行收敛，禁止把插件认证警告或未知 feature key 静默忽略后继续长链路，禁止 API-only 取消任务自有悬挂批次。
 - Evidence: `doc/tasks/20260730-test-management-serial-routes-verification/verification-report.md`，3 条正式节点串验证中识别到后端重启后的悬挂批次、Runner session 切换、Codex CLI `exit 1` 和 `600000ms` 超时。
 
+### Codex CLI 上游错误与长提示词门禁
+
+- Trigger: 后端业务接口调用 Codex CLI 返回超时、候选输出文件已生成但子进程未退出，或 CLI 日志出现 `502 Bad Gateway`、`Upstream request failed`。
+- Preflight check: 真实业务 E2E 前先在同一运行环境执行短预算、只读、严格 JSON 输出的 Codex CLI 自检；再用目标模板的实际输入文件复验，并记录 CLI 入口、模型配置、输出文件状态和 provider 响应。Windows 下优先直接启动 PATH 中的 `node.exe` 与 Codex `codex.js`，避免 `cmd.exe` 包装进程影响收敛。
+- Blocker: 短自检或目标输入返回 provider 5xx、长时间无结构化输出、超时后子进程仍持有候选文件，或无法区分 CLI 未启动与 provider 失败时必须停止真实业务 E2E，不能把页面 HTTP 200 或候选文件存在当作通过。
+- Verification: 记录后端接口耗时和业务错误码、CLI stderr 的 provider 状态、子进程退出码/信号、候选文件字节数、运行 Jar 与 PID；provider 恢复后使用同一真实 Playwright 路径复跑并核对返回的业务结果。
+- Forbidden action: 禁止仅延长请求超时、吞掉 provider 5xx、把已有候选文件直接视为成功、切换到 mock/API-only 数据，或在上游未恢复时伪造草稿版本成功。
+- Evidence: `doc/tasks/20260825-ai-autodetect-auto-draft-version/verification-report.md`，AI 填写规则真实页面登录与入口通过，但 Codex 直接诊断在目标模板输入下返回上游 `502 Bad Gateway`，后端按超时失败。
+
 ### Codex Runner 目标测试项存在性门禁
 
 - Trigger: 用户指定运行测试管理中的某个测试项名称，例如“作废测试”，或要求 Runner 领取并执行单个自然语言测试项。
@@ -615,6 +633,13 @@
 - Verification: 真实通过路径最终状态必须是已停用、已删除或已恢复；脚本静态合同锁定写成功状态更新和异常清理调用，失败结果包含 `cleanup`、`cleanupError` 或等价字段及残留状态。
 - Forbidden action: 禁止用 API-only、SQL、管理员或生产基线数据完成清理；禁止根据刷新前的陈旧 DOM 推断后端已停用；禁止吞掉清理失败或覆盖原始失败原因。
 - Evidence: `doc/tasks/20260807-team-leader-loss-maintenance-dialog/`，损耗真实 E2E 在 POST/PUT/DELETE `code=0` 后单独记录任务数据状态，并在后续失败时通过同一维护弹框尝试停用。
+
+### 真实页面配置行缺失的 E2E 阻断门禁
+
+- 触发场景：真实页面已经打开新增配置入口并显示字段，但当前租户没有可编辑的正式配置行，无法证明行级输入、保存和边界行为。
+- 经验规则：只读 E2E 可以证明菜单、页签、字段和新增入口可达；没有任务自有配置行时必须记录 `BLOCKED`，不得通过 API、SQL、mock 或共享管理员数据补行来升级结论。
+- 验证方式：结果中记录租户/账号标签、配置列表真实返回的业务码和行数、字段/入口可见性、所有写请求数量；只有确认的可丢弃测试租户、账号和配置行完成真实页面创建后，才运行写入型边界 E2E。
+- 禁止做法：禁止把“页面有字段”写成“配置保存已通过”，禁止把无数据的空表当作业务失败，禁止用 API-only 代替真实生产组长页签路径。
 
 ### 顶部固定信息栏真实视口边界门禁
 
