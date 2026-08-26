@@ -46,6 +46,9 @@ public class MesProcessPoolActiveOrderDO extends TenantBaseDO {
     private Long releaseDecisionId;
     private Long releasedBy;
     private LocalDateTime releasedAt;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
     @Version
     private Integer version;
 }

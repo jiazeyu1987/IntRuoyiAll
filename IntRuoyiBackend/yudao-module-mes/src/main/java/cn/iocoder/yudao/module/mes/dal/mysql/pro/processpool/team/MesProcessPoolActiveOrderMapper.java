@@ -7,6 +7,8 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -15,6 +17,15 @@ import java.util.Objects;
 
 @Mapper
 public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessPoolActiveOrderDO> {
+
+    @Update("UPDATE mes_pro_process_pool_active_order " +
+            "SET simulated = #{simulated}, simulation_stage = #{simulationStage}, " +
+            "simulation_run_id = #{simulationRunId}, update_time = NOW() " +
+            "WHERE id = #{id} AND deleted = 0")
+    int updateSimulationMetadata(@Param("id") Long id,
+                                 @Param("simulated") Boolean simulated,
+                                 @Param("simulationStage") String simulationStage,
+                                 @Param("simulationRunId") String simulationRunId);
 
     default List<MesProcessPoolActiveOrderDO> selectActiveListByLeader(Long leaderUserId) {
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderDO>()

@@ -217,6 +217,9 @@ public class MesPqcProcessInspectionAggregationServiceImpl
                         .itemResult(pieceDetail.getItemResult())
                         .measuredValue(pieceDetail.getMeasuredValue())
                         .judgement(pieceDetail.getJudgement())
+                        .simulated(pieceDetail.getSimulated())
+                        .simulationStage(pieceDetail.getSimulationStage())
+                        .simulationRunId(pieceDetail.getSimulationRunId())
                         .aggregatedAt(aggregatedAt)
                         .build();
         aggregateDetail.setTenantId(record.getTenantId());

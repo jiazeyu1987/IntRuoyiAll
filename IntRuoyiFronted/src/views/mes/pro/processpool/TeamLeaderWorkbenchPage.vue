@@ -1511,6 +1511,31 @@
               <el-button
                 link
                 type="primary"
+                data-team-leader-simulate-stage6-idpr
+                title="生成 IDPR 放行后追溯验证数据"
+                @click="handleSimulateStage6Idi"
+              >
+                <Icon icon="ep:connection" />
+                模拟放行后追溯
+              </el-button>
+              <el-button
+                link
+                type="primary"
+                :loading="activeOrderSimulationSubmittingId === row.id"
+                :disabled="
+                  maintenanceSubmitting ||
+                  activeOrderRebuildSubmittingId !== undefined ||
+                  activeOrderSimulationSubmittingId !== undefined
+                "
+                data-team-leader-simulate-active-order-stage1
+                @click="handleSimulateStage1(row)"
+              >
+                <Icon icon="ep:magic-stick" />
+                模拟生产/PQC
+              </el-button>
+              <el-button
+                link
+                type="primary"
                 :loading="activeOrderSimulationSubmittingId === row.id"
                 :disabled="
                   maintenanceSubmitting ||
@@ -3693,6 +3718,8 @@ import {
   previewTeamLeaderReportFifoAllocation,
   previewTeamLeaderActiveOrderRebuild,
   rebuildTeamLeaderActiveOrder,
+  simulateStage1ActiveOrderCompletion,
+  simulateStage6IdiData,
   simulateTeamLeaderActiveOrderCompletion,
   removeTeamLeaderActiveOrder,
   resetTemporaryTeamEmployeeSignaturePassword,
@@ -8424,6 +8451,50 @@ const handleSimulateActiveOrderCompletion = async (row: TeamLeaderActiveOrderRes
         writeCompleted ? '活跃订单已模拟完成，但列表刷新失败' : '活跃订单模拟完成失败'
       )
     )
+  } finally {
+    activeOrderSimulationSubmittingId.value = undefined
+  }
+}
+
+const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
+  activeOrderSimulationSubmittingId.value = row.id
+  let writeCompleted = false
+  try {
+    await ElMessageBox.confirm(
+      '系统将从当前活跃订单创建一份可清理的测试订单，并通过正式生产和PQC提交、复核链路形成生产进度和检验进度均为100%的事实。不会完工、回填、创建批次、上传资料或放行。',
+      '确认模拟生产和PQC',
+      { type: 'warning', confirmButtonText: '开始模拟', cancelButtonText: '取消' }
+    )
+    const result = await simulateStage1ActiveOrderCompletion({
+      simulationRunId: `STAGE1-${Date.now()}`,
+      templateActiveOrderId: requirePositiveNumber(row.id, '活跃订单模板ID不能为空')
+    })
+    writeCompleted = true
+    ElMessage.success(
+      `Stage1 已完成：新活跃订单 ${result.activeOrderId}，生产和检验进度均为100%。`
+    )
+    await loadActiveOrders()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(
+      resolveErrorMessage(error, writeCompleted ? 'Stage1 已生成，但列表刷新失败' : 'Stage1 模拟失败')
+    )
+  } finally {
+    activeOrderSimulationSubmittingId.value = undefined
+  }
+}
+
+const handleSimulateStage6Idi = async () => {
+  activeOrderSimulationSubmittingId.value = -1
+  try {
+    const result = await simulateStage6IdiData({
+      simulationRunId: `STAGE6-IDPR-${Date.now()}`,
+    })
+    ElMessage.success('放行后追溯验证数据已准备，正在打开真实追溯入口')
+    await router.push(result.traceEntryPath)
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(resolveErrorMessage(error, '放行后追溯验证数据准备失败'))
   } finally {
     activeOrderSimulationSubmittingId.value = undefined
   }

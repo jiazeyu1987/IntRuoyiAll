@@ -65,6 +65,9 @@ public class MesProProcessPoolEventDO extends TenantBaseDO {
     private Long signatureId;
     private Long signatureUserId;
     private String signatureSnapshot;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
     private String reportManagementStatus;
     private BigDecimal reportOutputQuantity;
     private BigDecimal reportAllocatedQuantity;

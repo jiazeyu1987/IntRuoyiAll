@@ -37,4 +37,7 @@ public class MesProcessPoolActiveOrderPickListBindingItemDO extends TenantBaseDO
     private Integer productionOrderLineNo;
     private LocalDateTime sourceModifyTime;
     private String itemSnapshotHash;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
 }

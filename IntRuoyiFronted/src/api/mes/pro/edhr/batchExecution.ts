@@ -78,6 +78,13 @@ export interface EdhrBatchExecutionOpenOrCreateReqVO {
   remark?: string
 }
 
+export interface EdhrBatchExecutionManualOpenOrCreateReqVO {
+  workOrderId: number
+  batchCode: string
+  routeId: number
+  remark?: string
+}
+
 export interface EdhrBatchExecutionRouteOptionRespVO {
   routeId: number
   routeCode?: string
@@ -103,6 +110,42 @@ export interface EdhrLocalStateSampleRespVO {
   sampleState: EdhrLocalStateSampleState
   detailPath?: string
   routeQuery?: Record<string, string>
+}
+
+export interface EdhrStage4DossierUploadSimulationRespVO {
+  simulationRunId: string
+  cleanedSimulationRunId?: string
+  batchExecutionId: string
+  batchExecutionCode?: string
+  detailPath?: string
+  batchExecutionSnapshot: Record<string, unknown>
+  batchExecutionDossierSnapshot: Record<string, unknown>
+  dossierReadyForRelease: boolean
+  blockers?: string[]
+}
+
+export interface EdhrStage5FinalReleaseSimulationRespVO {
+  simulationRunId: string
+  cleanedSimulationRunId?: string
+  batchExecutionId: string
+  batchExecutionCode?: string
+  releaseApplicationId: string
+  releaseTransactionId: string
+  managerReleaseWorkTaskId: string
+  managerSignoffEvidenceHash: string
+  managerCandidateSnapshotHash: string
+  reportSnapshotHash: string
+  sourceDossierHash: string
+  releaseStatus: string
+  applicationStatus: string
+  managerWorkTaskPath: string
+  finalReleaseReady: boolean
+  batchExecutionDossierSnapshot: Record<string, unknown>
+  managerReleaseContext: Record<string, unknown>
+ precheckResult: Record<string, unknown>
+  runManifest?: Record<string, unknown>
+  releaseSnapshot?: Record<string, unknown> | null
+ blockers?: string[]
 }
 
 export interface EdhrRehearsalReadinessReqVO {
@@ -807,6 +850,42 @@ export const createEdhrLocalStateSample = async (data: EdhrLocalStateSampleReqVO
   return await request.post<EdhrLocalStateSampleRespVO>({
     url: `${BATCH_EXECUTION_BASE_URL}/local-state-sample`,
     data
+  })
+}
+
+export const simulateEdhrStage4DossierUpload = async (simulationRunId: string) => {
+  return await request.post<EdhrStage4DossierUploadSimulationRespVO>({
+    url: BATCH_EXECUTION_BASE_URL + '/simulation/stage4/dossier-upload',
+    data: { simulationRunId }
+  })
+}
+
+export const openOrCreateManualEdhrBatchExecution = async (
+  data: EdhrBatchExecutionManualOpenOrCreateReqVO
+) => {
+  return await request.post<EdhrBatchExecutionRespVO>({
+    url: BATCH_EXECUTION_BASE_URL + '/open-or-create-manual',
+    data
+  })
+}
+
+export const simulateEdhrStage5FinalRelease = async (
+  simulationRunId: string,
+  previousSimulationRunId?: string
+) => {
+  return await request.post<EdhrStage5FinalReleaseSimulationRespVO>({
+    url: BATCH_EXECUTION_BASE_URL + '/simulation/stage5/final-release',
+    data: { simulationRunId, previousSimulationRunId }
+  })
+}
+
+export const getEdhrStage5ReleaseSnapshot = async (
+  simulationRunId: string,
+  batchExecutionId?: string
+) => {
+  return await request.get<Record<string, unknown>>({
+    url: BATCH_EXECUTION_BASE_URL + '/simulation/stage5/release-snapshot',
+    params: { simulationRunId, batchExecutionId }
   })
 }
 

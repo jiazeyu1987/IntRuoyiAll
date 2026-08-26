@@ -17,4 +17,7 @@ public class MesProcessPoolQuantityFragmentCreateDTO {
     private String qualityStatus;
     private BigDecimal totalQuantity;
     private String rawPayload;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
 }

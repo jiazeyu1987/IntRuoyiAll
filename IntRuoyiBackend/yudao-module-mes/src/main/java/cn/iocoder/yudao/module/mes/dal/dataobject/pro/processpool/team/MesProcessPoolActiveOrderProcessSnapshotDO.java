@@ -42,4 +42,7 @@ public class MesProcessPoolActiveOrderProcessSnapshotDO extends TenantBaseDO {
     private String parameterSnapshotJson;
     private String parameterSnapshotSha256;
     private String parameterSnapshotState;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
 }

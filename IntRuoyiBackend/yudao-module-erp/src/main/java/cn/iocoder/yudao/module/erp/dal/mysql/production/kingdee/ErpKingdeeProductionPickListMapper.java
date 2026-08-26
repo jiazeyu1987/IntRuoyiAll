@@ -6,11 +6,15 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.erp.controller.admin.production.vo.ErpProductionPickListPageReqVO;
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Delete;
 
 import java.util.Collection;
 
 @Mapper
 public interface ErpKingdeeProductionPickListMapper extends BaseMapperX<ErpKingdeeProductionPickListDO> {
+
+    @Delete("DELETE FROM erp_kingdee_production_pick_list WHERE id = #{id}")
+    int hardDeleteById(Long id);
 
     default PageResult<ErpKingdeeProductionPickListDO> selectPage(
             ErpProductionPickListPageReqVO reqVO) {

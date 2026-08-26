@@ -116,6 +116,9 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .signatureId(reqDTO.getSignatureId())
                 .signatureUserId(reqDTO.getSignatureUserId())
                 .signatureSnapshot(reqDTO.getSignatureSnapshot())
+                .simulated(reqDTO.getSimulated())
+                .simulationStage(reqDTO.getSimulationStage())
+                .simulationRunId(reqDTO.getSimulationRunId())
                 .build());
 
         MesProProcessPoolEventDO event = processPoolEventMapper.selectById(eventId);
@@ -134,6 +137,9 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .inspectionResult(reqDTO.getInspectionResult())
                 .serverSubmitTime(event.getServerSubmitTime())
                 .rawPayload(reqDTO.getRawPayload())
+                .simulated(reqDTO.getSimulated())
+                .simulationStage(reqDTO.getSimulationStage())
+                .simulationRunId(reqDTO.getSimulationRunId())
                 .processInspectionAggregationStatus(
                         MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_PENDING)
                 .build();
@@ -285,6 +291,9 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                 .signatureId(reqDTO.getSignatureId())
                 .signatureUserId(reqDTO.getSignatureUserId())
                 .signatureSnapshot(reqDTO.getSignatureSnapshot())
+                .simulated(reqDTO.getSimulated())
+                .simulationStage(reqDTO.getSimulationStage())
+                .simulationRunId(reqDTO.getSimulationRunId())
                 .build();
     }
 
@@ -429,6 +438,9 @@ public class MesProcessPoolEventServiceImpl implements MesProcessPoolEventServic
                     .allocationStatus(MesProProcessPoolQuantityFragmentDO.ALLOCATION_STATUS_AVAILABLE)
                     .locked(Boolean.FALSE)
                     .rawPayload(fragment.getRawPayload())
+                    .simulated(fragment.getSimulated())
+                    .simulationStage(fragment.getSimulationStage())
+                    .simulationRunId(fragment.getSimulationRunId())
                     .build();
             quantityFragmentMapper.insert(fragmentDO);
         }

@@ -34,4 +34,7 @@ public class MesProcessPoolActiveOrderPickListBindingDO extends TenantBaseDO {
     private String idempotencyKey;
     private String requestPayloadHash;
     private Integer bindingVersion;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
 }

@@ -35,4 +35,7 @@ public class MesProcessPoolCreatePqcInspectionReqDTO {
     private Long signatureId;
     private Long signatureUserId;
     private String signatureSnapshot;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
 }

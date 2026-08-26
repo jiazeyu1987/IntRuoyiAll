@@ -29,6 +29,10 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildResultRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage1ActiveOrderCompleteSimulationReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage1ActiveOrderCompleteSimulationRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage6IdiSimulationReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage6IdiSimulationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage2_5BackfillBatchExecutionSimulationReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage2_5BackfillBatchExecutionSimulationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCompletionReqVO;
@@ -88,6 +92,12 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRebuildResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationService;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage1.MesStage1ActiveOrderCompleteSimulationCommand;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage1.MesStage1ActiveOrderCompleteSimulationResult;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage1.MesStage1ActiveOrderCompleteSimulationService;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage6.MesStage6IdiSimulationCommand;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage6.MesStage6IdiSimulationResult;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage6.MesStage6IdiSimulationService;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage2_5.MesStage2_5BackfillBatchExecutionSimulationCommand;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage2_5.MesStage2_5BackfillBatchExecutionSimulationResult;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage2_5.MesStage2_5BackfillBatchExecutionSimulationService;
@@ -173,6 +183,8 @@ public class MesProcessPoolTeamLeaderController {
     private final MesTeamLeaderActiveOrderReleaseApplicationService releaseApplicationService;
     private final MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService;
     private final MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService;
+    private final MesStage1ActiveOrderCompleteSimulationService stage1SimulationService;
+    private final MesStage6IdiSimulationService stage6IdiSimulationService;
     private final MesStage2_5BackfillBatchExecutionSimulationService stage2_5SimulationService;
 
     public MesProcessPoolTeamLeaderController(MesTeamLeaderWorkbenchService workbenchService,
@@ -191,6 +203,8 @@ public class MesProcessPoolTeamLeaderController {
                                               MesTeamLeaderActiveOrderReleaseApplicationService releaseApplicationService,
                                               MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService,
                                               MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService,
+                                              MesStage1ActiveOrderCompleteSimulationService stage1SimulationService,
+                                              MesStage6IdiSimulationService stage6IdiSimulationService,
                                               MesStage2_5BackfillBatchExecutionSimulationService stage2_5SimulationService) {
         this.workbenchService = workbenchService;
         this.submissionReviewService = submissionReviewService;
@@ -208,6 +222,8 @@ public class MesProcessPoolTeamLeaderController {
         this.releaseApplicationService = releaseApplicationService;
         this.activeOrderSimulationService = activeOrderSimulationService;
         this.activeOrderCompletionService = activeOrderCompletionService;
+        this.stage1SimulationService = stage1SimulationService;
+        this.stage6IdiSimulationService = stage6IdiSimulationService;
         this.stage2_5SimulationService = stage2_5SimulationService;
     }
 
@@ -432,6 +448,31 @@ public class MesProcessPoolTeamLeaderController {
         return success(toActiveOrderSimulationRespVO(result));
     }
 
+    @PostMapping("/active-order/simulation/stage1")
+    @Operation(summary = "创建独立活跃订单并模拟生产和PQC双100%")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesStage1ActiveOrderCompleteSimulationRespVO> simulateStage1(
+            @Valid @RequestBody MesStage1ActiveOrderCompleteSimulationReqVO reqVO) {
+        MesStage1ActiveOrderCompleteSimulationResult result = stage1SimulationService.simulate(
+                MesStage1ActiveOrderCompleteSimulationCommand.validate(
+                        reqVO.getSimulationRunId(), reqVO.getTemplateActiveOrderId(),
+                        SecurityFrameworkUtils.getLoginUserId()));
+        return success(new MesStage1ActiveOrderCompleteSimulationRespVO()
+                .setSimulationRunId(result.getSimulationRunId())
+                .setCleanedSimulationRunId(result.getCleanedSimulationRunId())
+                .setActiveOrderId(result.getActiveOrderId())
+                .setWorkOrderId(result.getWorkOrderId())
+                .setPickListId(result.getPickListId())
+                .setProductionSubmitCount(result.getProductionSubmitCount())
+                .setProductionReviewCount(result.getProductionReviewCount())
+                .setPqcSubmitCount(result.getPqcSubmitCount())
+                .setPqcReviewCount(result.getPqcReviewCount())
+                .setProductionProgress100(result.isProductionProgress100())
+                .setInspectionProgress100(result.isInspectionProgress100())
+                .setCompletionButtonEnabled(result.isCompletionButtonEnabled())
+                .setActiveOrderCompleteSnapshot(result.getActiveOrderCompleteSnapshot()));
+    }
+
     @PostMapping("/active-order/simulation/stage2-5")
     @Operation(summary = "模拟活跃订单完工、读取完成回执并创建批次执行")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
@@ -450,6 +491,37 @@ public class MesProcessPoolTeamLeaderController {
                 .setDetailPath(result.getDetailPath())
                 .setBatchExecutionSnapshot(result.getBatchExecutionSnapshot())
                 .setBlockers(result.getBlockers()));
+    }
+
+    @PostMapping("/active-order/simulation/stage6-idpr")
+    @Operation(summary = "生成 IDPR Stage6 放行后追溯模拟数据")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesStage6IdiSimulationRespVO> simulateStage6Idi(
+            @Valid @RequestBody MesStage6IdiSimulationReqVO reqVO) {
+        MesStage6IdiSimulationResult result = stage6IdiSimulationService.simulate(
+                new MesStage6IdiSimulationCommand()
+                        .setSimulationRunId(reqVO.getSimulationRunId()));
+        return success(new MesStage6IdiSimulationRespVO()
+                .setSimulationRunId(result.getSimulationRunId())
+                .setCleanedSimulationRunId(result.getCleanedSimulationRunId())
+                .setWorkOrderId(result.getWorkOrderId())
+                .setWorkOrderCode(result.getWorkOrderCode())
+                .setActiveOrderId(result.getActiveOrderId())
+                .setCompletionReceiptId(result.getCompletionReceiptId())
+                .setCompletionStatus(result.getCompletionStatus())
+                .setProductionSubmitCount(result.getProductionSubmitCount())
+                .setProductionReviewCount(result.getProductionReviewCount())
+                .setPqcSubmitCount(result.getPqcSubmitCount())
+                .setPqcReviewCount(result.getPqcReviewCount())
+                .setReleasePreparationStatus(result.getReleasePreparationStatus())
+                .setTraceEntryPath(result.getTraceEntryPath())
+                .setBatchExecutionId(result.getBatchExecutionId())
+                .setExecutionId(result.getExecutionId())
+                .setReleaseTransactionId(result.getReleaseTransactionId())
+                .setReleaseDecisionId(result.getReleaseDecisionId())
+                .setReleaseReceiptId(result.getReleaseReceiptId())
+                .setReleaseSnapshot(result.getReleaseSnapshot())
+                .setTraceabilitySnapshot(result.getTraceabilitySnapshot()));
     }
 
     @PostMapping("/active-order/complete")

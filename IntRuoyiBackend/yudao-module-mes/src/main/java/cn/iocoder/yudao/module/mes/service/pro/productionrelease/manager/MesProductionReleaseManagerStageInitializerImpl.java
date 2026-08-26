@@ -192,7 +192,7 @@ public class MesProductionReleaseManagerStageInitializerImpl
                 .setRouteId(batch.getRouteId())
                 .setProcessName("管理者代表最终放行")
                 .setAssigneeUserId(candidates.candidateUserIds().get(0))
-                .setCandidateSourceType("ROLE")
+                .setCandidateSourceType("ROLE_GROUP")
                 .setCandidateSourceId(candidates.roleId())
                 .setCandidateUserSnapshot(candidateSnapshot)
                 .setSourceUserId(application.getAppliedBy())

@@ -16,6 +16,10 @@ public final class MesTeamLeaderActiveOrderCompletionReceiptHash {
     }
 
     public static String compute(MesProcessPoolActiveOrderCompletionReceiptDO receipt) {
+        return sha256(snapshotJson(receipt));
+    }
+
+    public static String snapshotJson(MesProcessPoolActiveOrderCompletionReceiptDO receipt) {
         if (receipt == null) {
             throw new IllegalArgumentException("receipt is required");
         }
@@ -51,7 +55,7 @@ public final class MesTeamLeaderActiveOrderCompletionReceiptHash {
         body.put("provisionHandoff", receipt.getProvisionHandoff());
         body.put("completedAt", receipt.getCompletedAt());
         body.put("completedBy", receipt.getCompletedBy());
-        return sha256(JsonUtils.toJsonString(body));
+        return JsonUtils.toJsonString(body);
     }
 
     private static String sha256(String value) {

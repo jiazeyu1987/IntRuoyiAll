@@ -233,6 +233,54 @@ export interface TeamLeaderActiveOrderSimulationRespVO {
   inspectionProgressPercent: number | string
 }
 
+export interface Stage6IdiSimulationReqVO {
+  simulationRunId: string
+}
+
+export interface Stage6IdiSimulationRespVO {
+  simulationRunId: string
+  cleanedSimulationRunId?: string
+  workOrderId?: number
+  workOrderCode?: string
+  activeOrderId?: number
+  completionReceiptId?: number
+  completionStatus?: string
+  productionSubmitCount?: number
+  productionReviewCount?: number
+  pqcSubmitCount?: number
+  pqcReviewCount?: number
+  releasePreparationStatus?: string
+  traceEntryPath: string
+  batchExecutionId?: number
+  executionId?: number
+  releaseTransactionId?: number
+  releaseDecisionId?: number
+  releaseReceiptId?: string
+  releaseSnapshot?: Record<string, unknown>
+  traceabilitySnapshot?: Record<string, unknown>
+}
+
+export interface Stage1ActiveOrderCompleteSimulationReqVO {
+  simulationRunId: string
+  templateActiveOrderId: number
+}
+
+export interface Stage1ActiveOrderCompleteSimulationRespVO {
+  simulationRunId: string
+  cleanedSimulationRunId?: string
+  activeOrderId: number
+  workOrderId: number
+  pickListId: number
+  productionSubmitCount: number
+  productionReviewCount: number
+  pqcSubmitCount: number
+  pqcReviewCount: number
+  productionProgress100: boolean
+  inspectionProgress100: boolean
+  completionButtonEnabled: boolean
+  activeOrderCompleteSnapshot: Record<string, unknown>
+}
+
 export interface TeamLeaderActiveOrderListRequestOptions {
   ignoreErrorMessage?: boolean
 }
@@ -790,6 +838,24 @@ export const simulateTeamLeaderActiveOrderCompletion = async (
 ) => {
   return await request.post<TeamLeaderActiveOrderSimulationRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulate-completion',
+    data,
+    ignoreErrorMessage: true
+  })
+}
+
+export const simulateStage6IdiData = async (data: Stage6IdiSimulationReqVO) => {
+  return await request.post<Stage6IdiSimulationRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/stage6-idpr',
+    data,
+    ignoreErrorMessage: true
+  })
+}
+
+export const simulateStage1ActiveOrderCompletion = async (
+  data: Stage1ActiveOrderCompleteSimulationReqVO
+) => {
+  return await request.post<Stage1ActiveOrderCompleteSimulationRespVO>({
+    url: '/mes/pro/process-pool/team-leader/active-order/simulation/stage1',
     data,
     ignoreErrorMessage: true
   })

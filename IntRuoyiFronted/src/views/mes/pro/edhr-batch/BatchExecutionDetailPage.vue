@@ -17,6 +17,53 @@
         :closable="false"
         show-icon
       />
+      <div class="edhr-batch-detail__simulation-toolbar" aria-label="模拟操作">
+        <el-button
+          v-hasPermi="['mes:pro-edhr-batch-execution:update']"
+          type="warning"
+          :loading="stage4SimulationLoading"
+          @click="handleStage4DossierUploadSimulation"
+        >
+          批次执行三类文件上传模拟
+        </el-button>
+        <el-button
+          v-hasPermi="['mes:pro-edhr-batch-execution:update']"
+          type="danger"
+          :loading="stage5SimulationLoading"
+          @click="handleStage5FinalReleaseSimulation"
+        >
+          最终放行模拟准备
+        </el-button>
+      </div>
+
+      <section
+        v-if="stage4SimulationResult"
+        class="edhr-batch-detail__stage4-summary"
+        data-stage4-dossier-summary
+        aria-label="Stage4 资料上传模拟结果"
+      >
+        <el-alert type="success" :closable="false" show-icon>
+          <template #title>Stage4 资料上传模拟完成：dossierReadyForRelease=true</template>
+          <div class="edhr-batch-detail__stage4-summary-meta">
+            <span>simulationRunId：{{ stage4SimulationResult.simulationRunId }}</span>
+            <span v-if="stage4SimulationResult.cleanedSimulationRunId">
+              cleanedSimulationRunId：{{ stage4SimulationResult.cleanedSimulationRunId }}
+            </span>
+          </div>
+        </el-alert>
+        <div class="edhr-batch-detail__stage4-node-list">
+          <div
+            v-for="node in stage4SimulationNodes"
+            :key="node.nodeType"
+            class="edhr-batch-detail__stage4-node"
+            :data-stage4-node-key="node.nodeType"
+          >
+            <span>{{ node.label }}</span>
+            <el-tag type="success" size="small">{{ node.status }}</el-tag>
+            <span class="edhr-batch-detail__stage4-node-file">{{ node.fileName }}</span>
+          </div>
+        </div>
+      </section>
 
       <div v-if="workbench?.stageBlockers?.length" class="edhr-batch-detail__blockers">
         <div class="edhr-batch-detail__section-title">当前待处理事项</div>
@@ -1457,6 +1504,8 @@ import {
   qualityRejectEdhrBatchExecution,
   reexecuteRejectedEdhrBatchExecution,
   skipEdhrBatchSpecialNode,
+  simulateEdhrStage4DossierUpload,
+  simulateEdhrStage5FinalRelease,
   syncEdhrBatchExecutionStatus,
   type EdhrBatchExecutionReviewFormViewModel,
   type EdhrBatchExecutionReviewExecutionRespVO,
@@ -1467,6 +1516,7 @@ import {
   type EdhrBatchExecutionTaskOpenRespVO,
   type EdhrBatchExecutionTaskRespVO,
   type EdhrBatchSpecialNodeAttachment,
+  type EdhrStage4DossierUploadSimulationRespVO,
   type MesProductionReleaseReportNodeCompleteRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
 import {
@@ -1559,6 +1609,11 @@ type TraceRecordTab = 'release' | 'change' | 'audit' | 'domain' | 'fieldResponsi
 
 const loading = ref(false)
 const syncLoading = ref(false)
+const stage4SimulationLoading = ref(false)
+const stage5SimulationLoading = ref(false)
+const stage4SimulationResult = ref<EdhrStage4DossierUploadSimulationRespVO>()
+const STAGE5_SIMULATION_RUN_STORAGE_KEY = 'mes:stage5-final-release:last-run-id'
+const STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY = 'mes:stage5-final-release:signoff-evidence-hash'
 const reopenLoading = ref(false)
 const reexecuteLoading = ref(false)
 const qualityRejectLoading = ref(false)
@@ -1582,6 +1637,31 @@ let releaseActionErrorAutoHideTimer: number | undefined
 let routeFormAutoOpenKey = ''
 const detail = ref<EdhrBatchExecutionRespVO>()
 const workbench = ref<EdhrBatchWorkbenchRespVO>()
+type Stage4SimulationNodeView = {
+  nodeType: string
+  label: string
+  status: string
+  fileName: string
+}
+const stage4SimulationNodeDefinitions = [
+  { nodeType: 'INCOMING_INSPECTION_REPORT', label: '来料检报告' },
+  { nodeType: 'STERILIZATION_REPORT', label: '灭菌报告' },
+  { nodeType: 'FINISHED_PRODUCT_INSPECTION_REPORT', label: '成品检报告' },
+  { nodeType: 'FINISHED_PRODUCT_INSPECTION_RECORD', label: '成品检记录' }
+] as const
+const readStage4SnapshotRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+const stage4SimulationNodes = computed<Stage4SimulationNodeView[]>(() => {
+  const snapshot = readStage4SnapshotRecord(stage4SimulationResult.value?.batchExecutionDossierSnapshot)
+  const statuses = readStage4SnapshotRecord(snapshot.nodeStatuses)
+  const fileNames = readStage4SnapshotRecord(snapshot.fileName)
+  return stage4SimulationNodeDefinitions.map((node) => ({
+    nodeType: node.nodeType,
+    label: node.label,
+    status: String(statuses[node.nodeType] || 'UNKNOWN'),
+    fileName: String(fileNames[node.nodeType] || '--')
+  }))
+})
 const archivePrintDrawerVisible = ref(false)
 const traceRecordDrawerVisible = ref(false)
 const uxChecklistDrawerVisible = ref(false)
@@ -4478,6 +4558,66 @@ const handleSync = async () => {
   }
 }
 
+const handleStage4DossierUploadSimulation = async () => {
+  if (stage4SimulationLoading.value) return
+  stage4SimulationLoading.value = true
+  try {
+    const simulationRunId = `STAGE4-DOSSIER-${dayjs().format('YYYYMMDDHHmmss')}-${generateUUID()}`
+    const result = await simulateEdhrStage4DossierUpload(simulationRunId)
+    if (!result.dossierReadyForRelease || result.blockers?.length) {
+      throw new Error(result.blockers?.join('；') || 'Stage4 模拟未形成齐套放行资料。')
+    }
+    stage4SimulationResult.value = result
+    message.success('三类文件上传模拟完成，正在打开模拟批次详情。')
+    await router.push({
+      query: {
+        ...route.query,
+        id: result.batchExecutionId,
+        simulationRunId: result.simulationRunId
+      }
+    })
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '三类文件上传模拟失败。'))
+  } finally {
+    stage4SimulationLoading.value = false
+  }
+}
+
+const handleStage5FinalReleaseSimulation = async () => {
+  if (stage5SimulationLoading.value) return
+  stage5SimulationLoading.value = true
+  try {
+    const simulationRunId = `STAGE5-FINAL-RELEASE-${dayjs().format('YYYYMMDDHHmmss')}-${generateUUID()}`
+    const previousSimulationRunId = window.localStorage.getItem(STAGE5_SIMULATION_RUN_STORAGE_KEY) || undefined
+    const result = await simulateEdhrStage5FinalRelease(simulationRunId, previousSimulationRunId)
+    if (!result.managerSignoffEvidenceHash?.trim()) {
+      throw new Error('最终放行模拟缺少管理者签名证据哈希。')
+    }
+    window.localStorage.setItem(STAGE5_SIMULATION_RUN_STORAGE_KEY, result.simulationRunId)
+    window.localStorage.setItem(
+      `${STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY}:${result.simulationRunId}`,
+      result.managerSignoffEvidenceHash.trim()
+    )
+    if (result.blockers?.length) {
+      message.warning(`最终放行模拟已准备管理者代表待办，但仍有阻断：${result.blockers.join('；')}`)
+    } else {
+      message.success('最终放行模拟已准备管理者代表待办。')
+    }
+    await router.push({
+      path: '/mes/pro/feedback/edhr-work-task',
+      query: {
+        taskType: 'RELEASE_APPROVE',
+        simulationRunId: result.simulationRunId,
+        batchExecutionId: result.batchExecutionId
+      }
+    })
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '最终放行模拟准备失败。'))
+  } finally {
+    stage5SimulationLoading.value = false
+  }
+}
+
 const openArchivePrintDrawer = () => {
   if (!canOpenArchivePrintDrawer.value) {
     message.error(batchActionLockMessage.value)
@@ -5601,6 +5741,68 @@ watch(
   flex-direction: column;
   gap: 16px;
   min-height: 0;
+}
+
+.edhr-batch-detail__simulation-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.edhr-batch-detail__stage4-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.edhr-batch-detail__stage4-summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 6px;
+  color: #526176;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.edhr-batch-detail__stage4-node-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.edhr-batch-detail__stage4-node {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #dce3ed;
+  background: #fff;
+}
+
+.edhr-batch-detail__stage4-node-file {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: #6b778c;
+  font-size: 12px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .edhr-batch-detail__stage4-node-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .edhr-batch-detail__stage4-node-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .edhr-batch-detail__review {

@@ -49,4 +49,7 @@ public class MesProcessPoolReportAllocationDO extends TenantBaseDO {
     private Integer createdVersion;
     private Integer supersededVersion;
     private LocalDateTime confirmedAt;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
 }

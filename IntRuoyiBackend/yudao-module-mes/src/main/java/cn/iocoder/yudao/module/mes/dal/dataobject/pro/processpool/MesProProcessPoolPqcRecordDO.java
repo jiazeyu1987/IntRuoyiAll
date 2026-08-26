@@ -47,6 +47,9 @@ public class MesProProcessPoolPqcRecordDO extends TenantBaseDO {
     private String inspectionResult;
     private LocalDateTime serverSubmitTime;
     private String rawPayload;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
     private String processInspectionAggregationStatus;
     private Long processInspectionReviewId;
     private LocalDateTime processInspectionAggregatedAt;

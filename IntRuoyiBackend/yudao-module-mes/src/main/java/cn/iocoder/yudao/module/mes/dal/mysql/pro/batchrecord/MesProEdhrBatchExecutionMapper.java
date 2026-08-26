@@ -115,4 +115,23 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
                 .notIn(MesProEdhrBatchExecutionDO::getStatus, 40, 50, BATCH_STATUS_VOIDED)
                 .orderByDesc(MesProEdhrBatchExecutionDO::getId));
     }
+
+    default MesProEdhrBatchExecutionDO selectLatestStage4Simulation() {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .like(MesProEdhrBatchExecutionDO::getRemark, "[STAGE4_SIMULATION]")
+                .orderByDesc(MesProEdhrBatchExecutionDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    default MesProEdhrBatchExecutionDO selectLatestStage5Simulation() {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .like(MesProEdhrBatchExecutionDO::getRemark, "[STAGE5_SIMULATION]")
+                .orderByDesc(MesProEdhrBatchExecutionDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    default MesProEdhrBatchExecutionDO selectStage5SimulationByRemark(String remark) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .eq(MesProEdhrBatchExecutionDO::getRemark, remark));
+    }
 }

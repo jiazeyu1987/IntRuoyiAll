@@ -51,4 +51,7 @@ public class MesPqcInspectionTaskDO extends TenantBaseDO {
     private String taskStatus;
     private String submittedContentHash;
     private Long submittedEventId;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
 }

@@ -31,6 +31,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRele
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseDecisionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
@@ -44,6 +45,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseDe
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProductionReportManagementSummaryService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalResult;
@@ -188,6 +190,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesReleaseAuthoritativeContextPort authoritativeContextPort;
     @Resource
     private MesProEdhrFourMaterialGateService fourMaterialGateService;
+    @Resource
+    private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -1883,6 +1887,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setApprovedAt(transaction == null ? null : transaction.getApprovedAt())
                 .setApprovalSignoffEvidenceHash(transaction == null ? null : transaction.getApprovalSignoffEvidenceHash())
                 .setApprovalOpinion(transaction == null ? null : transaction.getApprovalOpinion())
+                .setReportSnapshotHash(transaction == null ? null
+                        : resolveReportSnapshotHash(transaction))
                 .setRejectedBy(transaction == null ? null : transaction.getRejectedBy())
                 .setRejectedAt(transaction == null ? null : transaction.getRejectedAt())
                 .setRejectReason(transaction == null ? null : transaction.getRejectReason())
@@ -1890,6 +1896,15 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setWithdrawnAt(transaction == null ? null : transaction.getWithdrawnAt())
                 .setWithdrawReason(transaction == null ? null : transaction.getWithdrawReason())
                 .setVersion(transaction == null ? null : transaction.getVersion());
+    }
+
+    private String resolveReportSnapshotHash(MesProEdhrReleaseTransactionDO transaction) {
+        if (transaction == null || transaction.getBatchExecutionId() == null) {
+            return null;
+        }
+        MesProcessPoolActiveOrderReleaseApplicationDO application = releaseApplicationMapper
+                .selectByBatchExecutionIdForUpdate(transaction.getBatchExecutionId());
+        return application == null ? null : application.getReportSnapshotHash();
     }
 
     private String resolvePrecheckSummary(String releaseStatus, MesProEdhrReleaseTransactionDO transaction) {

@@ -81,6 +81,8 @@ public class MesProEdhrReleaseRespVO {
 
     private String approvalOpinion;
 
+    private String reportSnapshotHash;
+
     private Long rejectedBy;
 
     private LocalDateTime rejectedAt;

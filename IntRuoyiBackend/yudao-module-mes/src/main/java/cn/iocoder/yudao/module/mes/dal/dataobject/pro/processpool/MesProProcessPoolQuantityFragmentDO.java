@@ -47,4 +47,7 @@ public class MesProProcessPoolQuantityFragmentDO extends TenantBaseDO {
     private String allocationStatus;
     private Boolean locked;
     private String rawPayload;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
 }

@@ -36,5 +36,8 @@ public class MesProcessPoolCreateEventReqDTO {
     private Long signatureId;
     private Long signatureUserId;
     private String signatureSnapshot;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
     private List<MesProcessPoolQuantityFragmentCreateDTO> quantityFragments;
 }

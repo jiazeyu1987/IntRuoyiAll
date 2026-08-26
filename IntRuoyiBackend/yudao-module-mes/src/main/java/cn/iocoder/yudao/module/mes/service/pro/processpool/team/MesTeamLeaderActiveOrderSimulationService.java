@@ -111,6 +111,14 @@ public class MesTeamLeaderActiveOrderSimulationService {
     @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderSimulationResult simulateActiveOrderCompletion(Long leaderUserId,
                                                                                   Long activeOrderId) {
+        return simulateActiveOrderCompletion(leaderUserId, activeOrderId, null, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public MesTeamLeaderActiveOrderSimulationResult simulateActiveOrderCompletion(Long leaderUserId,
+                                                                                  Long activeOrderId,
+                                                                                  String simulationStage,
+                                                                                  String simulationRunId) {
         requirePositive(leaderUserId, "leaderUserId");
         requirePositive(activeOrderId, "activeOrderId");
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrderForLeader(leaderUserId, activeOrderId);
@@ -126,9 +134,10 @@ public class MesTeamLeaderActiveOrderSimulationService {
         validatePqcTasksBeforeWrite(activeOrder, formalIdentitySet, pqcTasks);
 
         ProductionSimulationSummary productionSummary =
-                simulateProductionSubmissions(activeOrder, snapshots, leaderUserId);
+                simulateProductionSubmissions(activeOrder, snapshots, leaderUserId, simulationStage,
+                        simulationRunId);
         PqcSimulationSummary pqcSummary = simulatePqcSubmissions(activeOrder, formalIdentitySet, pqcTasks,
-                leaderUserId);
+                leaderUserId, simulationStage, simulationRunId);
         ProgressSnapshot progress = calculateProgress(activeOrder, routeVersion, snapshots);
         if (progress.productionProgressPercent().compareTo(PERCENT_DIVISOR) != 0
                 || progress.inspectionProgressPercent().compareTo(PERCENT_DIVISOR) != 0) {
@@ -214,7 +223,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private ProductionSimulationSummary simulateProductionSubmissions(
             MesProcessPoolActiveOrderDO activeOrder,
             List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
-            Long leaderUserId) {
+            Long leaderUserId, String simulationStage, String simulationRunId) {
         Map<ProcessIdentity, BigDecimal> allocatedByProcess = aggregateAllocatedByProcess(activeOrder.getId());
         int submitCount = 0;
         int reviewCount = 0;
@@ -226,10 +235,13 @@ public class MesTeamLeaderActiveOrderSimulationService {
             if (remainingQuantity.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
-            Long eventId = createProductionSubmitEvent(activeOrder, snapshot, remainingQuantity, leaderUserId);
+            Long eventId = createProductionSubmitEvent(activeOrder, snapshot, remainingQuantity, leaderUserId,
+                    simulationStage, simulationRunId);
             reportAllocationCommandService.createInitialAllocation(eventId, activeOrder.getId(), remainingQuantity);
+            markSimulationAllocations(eventId, simulationStage, simulationRunId);
             Long reviewId = insertApprovedReview(eventId, leaderUserId,
-                    MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, "模拟生产组长复核");
+                    MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, "模拟生产组长复核",
+                    simulationStage, simulationRunId);
             linkAllocationsToReview(eventId, reviewId);
             submitCount++;
             reviewCount++;
@@ -240,7 +252,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private Long createProductionSubmitEvent(MesProcessPoolActiveOrderDO activeOrder,
                                              MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
                                              BigDecimal quantity,
-                                             Long leaderUserId) {
+                                             Long leaderUserId, String simulationStage,
+                                             String simulationRunId) {
         LocalDateTime now = LocalDateTime.now();
         String idempotencyKey = "SIM-AO-PROD-" + activeOrder.getId() + "-" + snapshot.getRouteProcessId()
                 + "-" + snapshot.getProcessId();
@@ -251,6 +264,10 @@ public class MesTeamLeaderActiveOrderSimulationService {
         payload.put("processId", snapshot.getProcessId());
         payload.put("outputQuantity", quantity);
         payload.put("source", "active-order-simulate-completion");
+        putSimulationMetadata(payload, simulationStage, simulationRunId);
+        if (simulationRunId != null && !simulationRunId.isBlank()) {
+            idempotencyKey = idempotencyKey + "-" + simulationRunId;
+        }
         return processPoolEventService.createEvent(MesProcessPoolCreateEventReqDTO.builder()
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
                 .eventIdempotencyKey(idempotencyKey)
@@ -269,13 +286,33 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .signatureId(nextSimulationSignatureId())
                 .signatureUserId(leaderUserId)
                 .signatureSnapshot(simulationSignatureSnapshot(leaderUserId, "PRODUCTION_SUBMIT",
-                        activeOrder.getId(), now))
+                        activeOrder.getId(), now, simulationStage, simulationRunId))
+                .simulated(simulationStage != null && !simulationStage.isBlank())
+                .simulationStage(simulationStage)
+                .simulationRunId(simulationRunId)
                 .quantityFragments(List.of(MesProcessPoolQuantityFragmentCreateDTO.builder()
                         .sourceQuantityType(MesProProcessPoolQuantityFragmentDO.SOURCE_QUANTITY_TYPE_OUTPUT)
                         .totalQuantity(quantity)
                         .rawPayload(JsonUtils.toJsonString(payload))
+                        .simulated(simulationStage != null && !simulationStage.isBlank())
+                        .simulationStage(simulationStage)
+                        .simulationRunId(simulationRunId)
                         .build()))
                 .build());
+    }
+
+    private void markSimulationAllocations(Long eventId, String simulationStage, String simulationRunId) {
+        if (simulationStage == null || simulationStage.isBlank()
+                || simulationRunId == null || simulationRunId.isBlank()) {
+            return;
+        }
+        for (MesProcessPoolReportAllocationDO allocation :
+                reportAllocationMapper.selectListByEventIdForUpdate(eventId)) {
+            allocation.setSimulated(Boolean.TRUE)
+                    .setSimulationStage(simulationStage)
+                    .setSimulationRunId(simulationRunId);
+            reportAllocationMapper.updateById(allocation);
+        }
     }
 
     private void linkAllocationsToReview(Long eventId, Long reviewId) {
@@ -298,7 +335,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private PqcSimulationSummary simulatePqcSubmissions(MesProcessPoolActiveOrderDO activeOrder,
                                                         Set<ProcessIdentity> formalIdentitySet,
                                                         List<MesPqcInspectionTaskDO> lockedTasks,
-                                                        Long leaderUserId) {
+                                                        Long leaderUserId, String simulationStage,
+                                                        String simulationRunId) {
         int submitCount = 0;
         int reviewCount = 0;
         for (MesPqcInspectionTaskDO task : lockedTasks) {
@@ -307,7 +345,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
             }
             Long eventId;
             if (MesPqcInspectionTaskDO.TASK_STATUS_PENDING.equals(task.getTaskStatus())) {
-                eventId = submitPqcTask(activeOrder, task, leaderUserId);
+                eventId = submitPqcTask(activeOrder, task, leaderUserId, simulationStage, simulationRunId);
                 submitCount++;
             } else if (MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())) {
                 eventId = requirePositive(task.getSubmittedEventId(), "pqcTask.submittedEventId");
@@ -316,7 +354,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
                         "活跃订单 PQC 任务状态不可模拟，activeOrderId=" + activeOrder.getId());
             }
             Long reviewId = insertApprovedReview(eventId, leaderUserId,
-                    MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, "模拟PQC组长复核");
+                    MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, "模拟PQC组长复核",
+                    simulationStage, simulationRunId);
             pqcProcessInspectionAggregationService.aggregateApprovedPqcSubmission(eventId, reviewId);
             reviewCount++;
         }
@@ -330,7 +369,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
     }
 
     private Long submitPqcTask(MesProcessPoolActiveOrderDO activeOrder, MesPqcInspectionTaskDO task,
-                               Long leaderUserId) {
+                               Long leaderUserId, String simulationStage, String simulationRunId) {
         Integer actualInspectionQuantity = requirePositiveInteger(task.getPlannedInspectionQuantity(),
                 "pqcTask.plannedInspectionQuantity");
         List<MesPqcInspectionPieceDetailDO> existingDetails = pqcPieceDetailMapper.selectListByTaskId(task.getId());
@@ -339,7 +378,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     "待提交 PQC 任务已经存在逐件明细，taskId=" + task.getId());
         }
         List<MesPqcInspectionPieceDetailDO> pieceDetails = buildSimulatedPieceDetails(task,
-                actualInspectionQuantity);
+                actualInspectionQuantity, simulationStage, simulationRunId);
         pieceDetails.forEach(pieceDetail -> pieceDetail.setTenantId(task.getTenantId()));
         if (!Boolean.TRUE.equals(pqcPieceDetailMapper.insertBatch(pieceDetails))) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcPieceDetails");
@@ -352,11 +391,17 @@ public class MesTeamLeaderActiveOrderSimulationService {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                     "PQC任务提交状态更新失败，taskId=" + task.getId());
         }
+        pqcInspectionTaskMapper.updateSimulationMetadata(task.getId(),
+                simulationStage != null && !simulationStage.isBlank(), simulationStage, simulationRunId);
         LocalDateTime now = LocalDateTime.now();
+        String pqcIdempotencyKey = "SIM-AO-PQC-" + task.getId();
+        if (simulationRunId != null && !simulationRunId.isBlank()) {
+            pqcIdempotencyKey = pqcIdempotencyKey + "-" + simulationRunId;
+        }
         Long eventId = processPoolEventService.createPqcInspectionEvent(MesProcessPoolCreatePqcInspectionReqDTO
                 .builder()
                 .workOrderId(task.getWorkOrderId())
-                .pqcSubmissionIdempotencyKey("SIM-AO-PQC-" + task.getId())
+                .pqcSubmissionIdempotencyKey(pqcIdempotencyKey)
                 .routeId(task.getRouteId())
                 .qaProcessId(task.getQaProcessId())
                 .actualEmployeeId(leaderUserId)
@@ -366,12 +411,16 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .recordbookSourceType(PQC_INSPECTION_TASK_SOURCE_TYPE)
                 .recordbookSourceId(task.getId())
                 .inspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
-                .rawPayload(buildPqcRawPayload(activeOrder, task, actualInspectionQuantity))
+                .rawPayload(buildPqcRawPayload(activeOrder, task, actualInspectionQuantity, simulationStage,
+                        simulationRunId))
                 .clientSubmitTime(now)
                 .signatureId(nextSimulationSignatureId())
                 .signatureUserId(leaderUserId)
                 .signatureSnapshot(simulationSignatureSnapshot(leaderUserId, "PQC_SUBMIT",
-                        activeOrder.getId(), now))
+                        activeOrder.getId(), now, simulationStage, simulationRunId))
+                .simulated(simulationStage != null && !simulationStage.isBlank())
+                .simulationStage(simulationStage)
+                .simulationRunId(simulationRunId)
                 .build());
         if (pqcInspectionTaskMapper.updateSubmittedEventId(task.getId(), eventId) != 1) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcTask.submittedEventId");
@@ -384,7 +433,9 @@ public class MesTeamLeaderActiveOrderSimulationService {
     }
 
     private List<MesPqcInspectionPieceDetailDO> buildSimulatedPieceDetails(MesPqcInspectionTaskDO task,
-                                                                           Integer actualInspectionQuantity) {
+                                                                           Integer actualInspectionQuantity,
+                                                                           String simulationStage,
+                                                                           String simulationRunId) {
         List<MesQaInspectionRegulationItemDO> matchedItems = inspectionRegulationItemMapper
                 .selectListByVersionId(task.getRegulationVersionId()).stream()
                 .filter(item -> inspectionItemBelongsToTask(task, item))
@@ -417,6 +468,9 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     .itemResult(measuredValue)
                     .measuredValue(measuredValue)
                     .judgement(JUDGEMENT_PASS)
+                    .simulated(simulationStage != null && !simulationStage.isBlank())
+                    .simulationStage(simulationStage)
+                    .simulationRunId(simulationRunId)
                     .build());
         }
         return result;
@@ -446,7 +500,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
     }
 
     private String buildPqcRawPayload(MesProcessPoolActiveOrderDO activeOrder, MesPqcInspectionTaskDO task,
-                                      Integer actualInspectionQuantity) {
+                                      Integer actualInspectionQuantity, String simulationStage,
+                                      String simulationRunId) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("simulated", true);
         payload.put("activeOrderId", activeOrder.getId());
@@ -466,10 +521,12 @@ public class MesTeamLeaderActiveOrderSimulationService {
         payload.put("actualInspectionQuantity", actualInspectionQuantity);
         payload.put("inspectionResult", MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS);
         payload.put("source", "active-order-simulate-completion");
+        putSimulationMetadata(payload, simulationStage, simulationRunId);
         return JsonUtils.toJsonString(payload);
     }
 
-    private Long insertApprovedReview(Long eventId, Long leaderUserId, String leaderType, String remark) {
+    private Long insertApprovedReview(Long eventId, Long leaderUserId, String leaderType, String remark,
+                                      String simulationStage, String simulationRunId) {
         MesProcessPoolSubmissionReviewDO existing = submissionReviewMapper.selectLatestByEventIdForUpdate(eventId);
         if (existing != null) {
             if (MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(existing.getReviewStatus())
@@ -484,12 +541,15 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .leaderUserId(leaderUserId)
                 .leaderType(leaderType)
                 .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
-                .reviewRemark(remark)
+                .reviewRemark(withSimulationMetadata(remark, simulationStage, simulationRunId))
                 .reviewedAt(now)
                 .reviewSignatureId(nextSimulationSignatureId())
                 .reviewSignatureUserId(leaderUserId)
                 .reviewSignatureSnapshotJson(simulationSignatureSnapshot(leaderUserId, leaderType + "_REVIEW",
-                        eventId, now))
+                        eventId, now, simulationStage, simulationRunId))
+                .simulated(simulationStage != null && !simulationStage.isBlank())
+                .simulationStage(simulationStage)
+                .simulationRunId(simulationRunId)
                 .build();
         submissionReviewMapper.insert(review);
         return review.getId();
@@ -691,14 +751,35 @@ public class MesTeamLeaderActiveOrderSimulationService {
     }
 
     private String simulationSignatureSnapshot(Long actorId, String actionType, Long objectId,
-                                               LocalDateTime occurredAt) {
+                                               LocalDateTime occurredAt, String simulationStage,
+                                               String simulationRunId) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("simulated", true);
         payload.put("actorId", actorId);
         payload.put("actionType", actionType);
         payload.put("objectId", objectId);
         payload.put("occurredAt", occurredAt);
+        putSimulationMetadata(payload, simulationStage, simulationRunId);
         return JsonUtils.toJsonString(payload);
+    }
+
+    private void putSimulationMetadata(Map<String, Object> payload, String simulationStage,
+                                       String simulationRunId) {
+        if (simulationStage != null && !simulationStage.isBlank()) {
+            payload.put("simulationStage", simulationStage);
+        }
+        if (simulationRunId != null && !simulationRunId.isBlank()) {
+            payload.put("simulationRunId", simulationRunId);
+        }
+    }
+
+    private String withSimulationMetadata(String remark, String simulationStage, String simulationRunId) {
+        if (simulationStage == null || simulationStage.isBlank()
+                || simulationRunId == null || simulationRunId.isBlank()) {
+            return remark;
+        }
+        return remark + " [simulationStage=" + simulationStage + "][simulationRunId="
+                + simulationRunId + "]";
     }
 
     private static Long requirePositive(Long value, String fieldName) {

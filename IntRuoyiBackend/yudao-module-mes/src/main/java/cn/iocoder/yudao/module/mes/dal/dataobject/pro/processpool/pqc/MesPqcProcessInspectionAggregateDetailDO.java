@@ -65,5 +65,8 @@ public class MesPqcProcessInspectionAggregateDetailDO extends TenantBaseDO {
     private String itemResult;
     private String measuredValue;
     private String judgement;
+    private Boolean simulated;
+    private String simulationStage;
+    private String simulationRunId;
     private LocalDateTime aggregatedAt;
 }
