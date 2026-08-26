@@ -29,6 +29,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesT
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRebuildResultRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderSimulationRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage2_5BackfillBatchExecutionSimulationReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesStage2_5BackfillBatchExecutionSimulationRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCompletionReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderCompletionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
@@ -86,6 +88,9 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRebuildResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationService;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage2_5.MesStage2_5BackfillBatchExecutionSimulationCommand;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage2_5.MesStage2_5BackfillBatchExecutionSimulationResult;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage2_5.MesStage2_5BackfillBatchExecutionSimulationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionCommand;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionService;
@@ -168,6 +173,7 @@ public class MesProcessPoolTeamLeaderController {
     private final MesTeamLeaderActiveOrderReleaseApplicationService releaseApplicationService;
     private final MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService;
     private final MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService;
+    private final MesStage2_5BackfillBatchExecutionSimulationService stage2_5SimulationService;
 
     public MesProcessPoolTeamLeaderController(MesTeamLeaderWorkbenchService workbenchService,
                                               MesTeamLeaderSubmissionReviewService submissionReviewService,
@@ -184,7 +190,8 @@ public class MesProcessPoolTeamLeaderController {
                                               MesActiveOrderTransferTraceService activeOrderTransferTraceService,
                                               MesTeamLeaderActiveOrderReleaseApplicationService releaseApplicationService,
                                               MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService,
-                                              MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService) {
+                                              MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService,
+                                              MesStage2_5BackfillBatchExecutionSimulationService stage2_5SimulationService) {
         this.workbenchService = workbenchService;
         this.submissionReviewService = submissionReviewService;
         this.abnormalReportService = abnormalReportService;
@@ -201,6 +208,7 @@ public class MesProcessPoolTeamLeaderController {
         this.releaseApplicationService = releaseApplicationService;
         this.activeOrderSimulationService = activeOrderSimulationService;
         this.activeOrderCompletionService = activeOrderCompletionService;
+        this.stage2_5SimulationService = stage2_5SimulationService;
     }
 
     @GetMapping("/submission/page")
@@ -422,6 +430,26 @@ public class MesProcessPoolTeamLeaderController {
         MesTeamLeaderActiveOrderSimulationResult result = activeOrderSimulationService.simulateActiveOrderCompletion(
                 SecurityFrameworkUtils.getLoginUserId(), reqVO.getActiveOrderId());
         return success(toActiveOrderSimulationRespVO(result));
+    }
+
+    @PostMapping("/active-order/simulation/stage2-5")
+    @Operation(summary = "模拟活跃订单完工、读取完成回执并创建批次执行")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<MesStage2_5BackfillBatchExecutionSimulationRespVO> simulateStage2_5(
+            @Valid @RequestBody MesStage2_5BackfillBatchExecutionSimulationReqVO reqVO) {
+        MesStage2_5BackfillBatchExecutionSimulationResult result = stage2_5SimulationService.simulate(
+                MesStage2_5BackfillBatchExecutionSimulationCommand.validate(
+                        reqVO.getSimulationRunId(), reqVO.getActiveOrderId(), reqVO.getExpectedVersion(),
+                        SecurityFrameworkUtils.getLoginUserId()));
+        return success(new MesStage2_5BackfillBatchExecutionSimulationRespVO()
+                .setSimulationRunId(result.getSimulationRunId())
+                .setCleanedSimulationRunId(result.getCleanedSimulationRunId())
+                .setBatchExecutionId(result.getBatchExecutionId())
+                .setBatchExecutionCode(result.getBatchExecutionCode())
+                .setCompletionReceiptId(result.getCompletionReceiptId())
+                .setDetailPath(result.getDetailPath())
+                .setBatchExecutionSnapshot(result.getBatchExecutionSnapshot())
+                .setBlockers(result.getBlockers()));
     }
 
     @PostMapping("/active-order/complete")
