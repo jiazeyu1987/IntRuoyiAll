@@ -11,9 +11,9 @@ const service = read('../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocod
 
 assert.match(api, /interface Stage6IdiSimulationReqVO[\s\S]*simulationRunId: string/)
 assert.doesNotMatch(api.slice(api.indexOf('interface Stage6IdiSimulationReqVO'), api.indexOf('interface Stage6IdiSimulationRespVO')), /signaturePassword/)
-assert.match(api, /simulateStage6IdiData[\s\S]*stage6-id/)
+assert.match(api, /simulateStage6IdiData[\s\S]*\/simulation\/stage6-idpr/)
 
-assert.match(page, /data-team-leader-simulate-stage6-id/)
+assert.match(page, /data-team-leader-simulate-stage6-idpr/)
 assert.match(page, /simulateStage6IdiData/)
 const stage6Handler = page.slice(
   page.indexOf('const handleSimulateStage6Idi'),
