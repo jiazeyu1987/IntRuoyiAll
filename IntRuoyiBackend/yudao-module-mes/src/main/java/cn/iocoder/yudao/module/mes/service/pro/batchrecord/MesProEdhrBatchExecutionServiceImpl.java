@@ -7168,6 +7168,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setExecutionCode(execution.getExecutionCode())
                 .setActorId(signature.getActorId())
                 .setActorName(signature.getActorName())
+                .setActorNicknameSnapshot(signature.getActorNicknameSnapshot())
+                .setActorUsernameSnapshot(signature.getActorUsernameSnapshot())
                 .setActionType(signature.getActionType())
                 .setSignatureMode(signature.getSignatureMode())
                 .setPasswordVerified(signature.getPasswordVerified())
@@ -7179,7 +7181,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setSelectedTimeZone(signature.getSelectedTimeZone())
                 .setSelectedTimeReason(signature.getSelectedTimeReason())
                 .setSelectedTimePolicyVersion(signature.getSelectedTimePolicyVersion())
-                .setSelectedTimeAuditHash(signature.getSelectedTimeAuditHash());
+                .setSelectedTimeAuditHash(signature.getSelectedTimeAuditHash())
+                .setSignaturePurpose(signature.getSignaturePurpose())
+                .setRecordHashSnapshot(signature.getRecordHashSnapshot());
     }
 
     private EdhrBatchExecutionReviewTimelineRespVO.ExecutionReview toExecutionReview(
@@ -7498,7 +7502,55 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         manifest.put("withdrawnBy", transaction.getWithdrawnBy());
         manifest.put("withdrawnAt", transaction.getWithdrawnAt());
         manifest.put("withdrawReason", transaction.getWithdrawReason());
+        Set<Long> actorIds = new LinkedHashSet<>();
+        if (transaction.getSubmittedBy() != null) {
+            actorIds.add(transaction.getSubmittedBy());
+        }
+        if (transaction.getApprovedBy() != null) {
+            actorIds.add(transaction.getApprovedBy());
+        }
+        if (transaction.getRejectedBy() != null) {
+            actorIds.add(transaction.getRejectedBy());
+        }
+        if (transaction.getWithdrawnBy() != null) {
+            actorIds.add(transaction.getWithdrawnBy());
+        }
+        if (!actorIds.isEmpty()) {
+            Map<Long, AdminUserRespDTO> userMap = Objects.requireNonNull(adminUserApi.getUserMap(actorIds),
+                    "EDHR archive release actor users are required");
+            if (transaction.getSubmittedBy() != null) {
+                AdminUserRespDTO user = Objects.requireNonNull(userMap.get(transaction.getSubmittedBy()),
+                        "EDHR archive submittedBy user is required");
+                manifest.put("submittedByName", requireActorNickname(user, "submittedBy"));
+                manifest.put("submittedByUsername", user.getUsername());
+            }
+            if (transaction.getApprovedBy() != null) {
+                AdminUserRespDTO user = Objects.requireNonNull(userMap.get(transaction.getApprovedBy()),
+                        "EDHR archive approvedBy user is required");
+                manifest.put("approvedByName", requireActorNickname(user, "approvedBy"));
+                manifest.put("approvedByUsername", user.getUsername());
+            }
+            if (transaction.getRejectedBy() != null) {
+                AdminUserRespDTO user = Objects.requireNonNull(userMap.get(transaction.getRejectedBy()),
+                        "EDHR archive rejectedBy user is required");
+                manifest.put("rejectedByName", requireActorNickname(user, "rejectedBy"));
+                manifest.put("rejectedByUsername", user.getUsername());
+            }
+            if (transaction.getWithdrawnBy() != null) {
+                AdminUserRespDTO user = Objects.requireNonNull(userMap.get(transaction.getWithdrawnBy()),
+                        "EDHR archive withdrawnBy user is required");
+                manifest.put("withdrawnByName", requireActorNickname(user, "withdrawnBy"));
+                manifest.put("withdrawnByUsername", user.getUsername());
+            }
+        }
         return manifest;
+    }
+
+    private String requireActorNickname(AdminUserRespDTO user, String fieldName) {
+        if (user == null || StrUtil.isBlank(user.getNickname())) {
+            throw new IllegalStateException("EDHR archive " + fieldName + " nickname is required");
+        }
+        return user.getNickname();
     }
 
     private List<Map<String, Object>> buildArchiveReleaseEventManifests(

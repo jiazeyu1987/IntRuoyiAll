@@ -6,11 +6,11 @@
 
 ## Milestones
 
-1. `in_progress`：完成提交/推送前置检查并建立任务记录。
-2. `pending`：按确认范围显式暂存并检查 staged 文件。
-3. `pending`：提交本次范围并复扫残余工作区。
-4. `pending`：运行分支运行时端口门禁并推送 `origin/int_main`。
-5. `pending`：确认远端同步、记录证据并完成收尾。
+1. `completed`：完成提交/推送前置检查并建立任务记录。
+2. `completed`：按确认范围显式暂存并检查 staged 文件。
+3. `completed`：提交当前快照并复扫残余工作区。
+4. `completed`：运行分支运行时端口门禁并推送 `origin/int_main`。
+5. `ready_for_closeout`：确认远端同步，执行收尾清理并记录最终证据。
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 

@@ -13,11 +13,14 @@ BDD: 主干指定范围同步 -> Given 当前分支为 `int_main` 且工作区�
 - 2026-08-26：只读确认当前分支为 `int_main`，远端为 `origin`，本地领先远端 45 个提交；工作区存在代码、测试、SQL、脚本、配置、任务文档及需排除的临时/二进制文件。
 - 2026-08-26：用户明确提交范围，允许提交代码、测试、SQL、脚本、配置和相关任务文档，排除 `.pytest-temp`、`LOG_FILE_IS_UNDEFINED` 和 `resource` 下二进制资料。
 - 2026-08-26：显式暂存 352 个文件；排除项未进入暂存区。可见测试行尾空格已清理。默认 `git diff --cached --check` 仅对 7 个 `-text` 代码生成 fixture 的 CR 行尾提示，使用 `git -c core.whitespace=cr-at-eol diff --cached --check` 复验通过。
+- 2026-08-26：首次提交 `716dfc0ff`，包含 354 个范围内文件；提交后发现并发写入的 MES Mapper/静态测试及 4 个 MES 代码/测试文件，按用户“提交当前的就可以”授权继续纳入当前快照。
+- 2026-08-26：补充提交 `724cbab1f`，包含 7 个当前快照文件（其中包含 `MesIndependentBatchPrerequisiteReceipt.java`）；`origin/int_main` 推送成功，远端由 `171cc4cf8` 更新至 `724cbab1f`。
+- 2026-08-26：推送后残余仅为持续生成的 `.pytest-temp`、`LOG_FILE_IS_UNDEFINED` 和 `resource` 二进制文档，均不在用户确认范围内，未触碰。
 
 ## Verification Evidence
 
-待执行：前置门禁、显式路径暂存、cached diff 检查、端口 guard、提交、推送及最终状态复核。
+已完成：显式路径暂存 354 个文件，排除项 0 个；`git -c core.whitespace=cr-at-eol diff --cached --check` 通过；分支端口 guard 通过；提交 `716dfc0ff`、`724cbab1f`；`git push origin int_main` 成功。
 
 ## Blockers
 
-无。
+持续写入说明：推送后工作区仍会出现未跟踪临时/二进制文件，用户已明确允许按当前快照提交，不再追踪后续写入。

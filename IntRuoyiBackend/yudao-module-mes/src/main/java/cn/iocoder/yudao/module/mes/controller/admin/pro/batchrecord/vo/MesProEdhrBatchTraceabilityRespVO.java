@@ -48,8 +48,7 @@ public class MesProEdhrBatchTraceabilityRespVO {
         @JsonSerialize(using = ToStringSerializer.class)
         private Long batchProvisionReceiptId;
         private String batchProvisionStatus;
-        @JsonSerialize(using = ToStringSerializer.class)
-        private Long sourceCredentialId;
+        private String sourceCredentialId;
         private String sourceCredentialHash;
         private String sourceBundleHash;
         private String idempotencyKey;

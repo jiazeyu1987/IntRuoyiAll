@@ -72,7 +72,7 @@ class MesProEdhrBatchTraceabilityValidatorTest {
                 .setCompletionBackfillReceiptId(null)
                 .setCompletionBackfillReceiptHash(null)
                 .setPickListBindingId(null)
-                .setSourceCredentialId(44L)
+                .setSourceCredentialId("44")
                 .setSourceCredentialHash("credential-hash")
                 .setReleaseApplicationId(null);
 
@@ -90,7 +90,7 @@ class MesProEdhrBatchTraceabilityValidatorTest {
                 .setCompletionBackfillReceiptId(null)
                 .setCompletionBackfillReceiptHash(null)
                 .setPickListBindingId(null)
-                .setSourceCredentialId(45L)
+                .setSourceCredentialId("45")
                 .setSourceCredentialHash("pqc-credential-hash")
                 .setReleaseApplicationId(null);
 

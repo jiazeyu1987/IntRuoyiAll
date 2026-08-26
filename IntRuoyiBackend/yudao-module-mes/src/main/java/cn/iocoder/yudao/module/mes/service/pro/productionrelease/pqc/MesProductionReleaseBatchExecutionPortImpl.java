@@ -53,8 +53,6 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
         if (command == null) {
             throw exception(BAD_REQUEST);
         }
-        reloadIndependentReceipt(command);
-        entryContractService.validate(toProvisionCommand(command));
         String activeContextKey = CONTEXT_PREFIX + command.getApplicationId();
         MesProEdhrBatchExecutionDO releaseBatch = batchExecutionMapper.selectByActiveContextKey(activeContextKey);
         if (releaseBatch != null) {
@@ -142,20 +140,6 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
                 .setPayloadHash(command == null ? null : command.getPayloadHash())
                 .setCompletionBackfillReceipt(command == null ? null : command.getCompletionBackfillReceipt())
                 .setIndependentReceipt(command == null ? null : command.getIndependentReceipt());
-    }
-
-    private void reloadIndependentReceipt(MesProductionReleaseBatchExecutionCommand command) {
-        if (!Set.of("MANUAL", "SCHEDULED", "PQC_INDEPENDENT").contains(command.getEntryType())) {
-            return;
-        }
-        Long securityTenantId = TenantContextHolder.getTenantId();
-        MesIndependentBatchPrerequisiteReceipt verified = independentReceiptService.verify(
-                new MesIndependentBatchPrerequisiteReceiptVerifyCommand()
-                        .setReceiptId(command.getSourceCredentialId())
-                        .setEntryType(command.getEntryType())
-                        .setSourceSnapshotHash(command.getSourceSnapshotHash()),
-                securityTenantId);
-        command.setIndependentReceipt(verified);
     }
 
     private void requireSameFrozenContext(

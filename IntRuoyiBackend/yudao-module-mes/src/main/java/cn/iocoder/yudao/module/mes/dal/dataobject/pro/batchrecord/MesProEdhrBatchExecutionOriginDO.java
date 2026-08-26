@@ -45,7 +45,7 @@ public class MesProEdhrBatchExecutionOriginDO extends BaseDO {
     private String sourceSnapshotHash;
     private Long batchProvisionReceiptId;
     private String batchProvisionStatus;
-    private Long sourceCredentialId;
+    private String sourceCredentialId;
     private String sourceCredentialHash;
     private String sourceBundleHash;
     private String idempotencyKey;

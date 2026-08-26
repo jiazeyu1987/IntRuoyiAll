@@ -309,8 +309,6 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
                 .setSourceSnapshotHash(requiredText(metadata, "sourceSnapshotHash"))
                 .setSourceBundleHash(requiredText(metadata, "sourceBundleHash"))
                 .setIdempotencyKey(command.getIdempotencyKey())
-                .setSourceCredentialId(optionalLong(metadata, "sourceCredentialId"))
-                .setSourceCredentialHash(metadata.getString("sourceCredentialHash"))
                 .setCapturedBy(command.getCapturedBy()).setSources(sources);
         if (MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)) {
             capture.setActiveOrderId(requiredLong(metadata, "activeOrderId"))
@@ -325,7 +323,9 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
                     .setBatchProvisionStatus(requiredText(metadata, "batchProvisionStatus"))
                     .setHasActualLoss(metadata.getBoolean("hasActualLoss"));
         } else {
-            capture.setBatchProvisionReceiptId(optionalLong(metadata, "batchProvisionReceiptId"))
+            capture.setSourceCredentialId(requiredText(metadata, "sourceCredentialId"))
+                    .setSourceCredentialHash(requiredText(metadata, "sourceCredentialHash"))
+                    capture.setBatchProvisionReceiptId(optionalLong(metadata, "batchProvisionReceiptId"))
                     .setBatchProvisionStatus(metadata.getString("batchProvisionStatus"));
         }
         return capture;

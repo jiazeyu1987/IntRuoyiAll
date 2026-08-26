@@ -41,8 +41,9 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     private static final float CELL_PADDING = 3.5F;
     private static final float DEFAULT_COLUMN_WIDTH = 160F;
     private static final float DEFAULT_ROW_HEIGHT = 30F;
-    private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter DATABASE_TIME_SECONDS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DATABASE_TIME_MINUTES = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final Color BORDER_COLOR = new Color(31, 41, 55);
     private static final Color STATIC_BG = new Color(243, 244, 246);
     private static final Color FILLABLE_BG = Color.WHITE;
@@ -134,13 +135,19 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
         }
         canvas.writeSubTitle("签名记录");
         for (JSONObject signature : signatures) {
-            String line = String.join(" | ",
-                    "动作=" + value(signature.get("actionType")),
-                    "签名人=" + value(signature.get("actorName")),
-                    "签名时间=" + formatDateTime(firstNonBlank(
-                            signature.getString("signatureDisplayAt"),
-                            signature.getString("selectedSignedAt"),
-                            signature.getString("signedAt"))));
+            List<String> parts = new ArrayList<>();
+            parts.add("签署含义=" + value(resolveSignaturePurpose(signature)));
+            parts.add("签名人=" + value(resolveSignatureActorName(signature)));
+            parts.add("签名时间=" + formatSignatureDateTime(signature));
+            String recordHash = resolveSignatureRecordHash(signature);
+            if (StrUtil.isNotBlank(recordHash)) {
+                parts.add("记录哈希=" + recordHash);
+            }
+            String timeAuditHash = StrUtil.trim(signature.getString("selectedTimeAuditHash"));
+            if (StrUtil.isNotBlank(timeAuditHash)) {
+                parts.add("时间哈希=" + timeAuditHash);
+            }
+            String line = String.join(" | ", parts);
             canvas.writeParagraph(line);
         }
     }
@@ -260,9 +267,9 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
         canvas.writeKeyValue("放行单号", release.getString("releaseCode"));
         canvas.writeKeyValue("放行状态", release.getString("releaseStatus"));
         canvas.writeKeyValue("预检时间", formatDateTime(release.getString("lastPrecheckAt")));
-        canvas.writeKeyValue("审核人/提交人", value(release.get("submittedBy")));
+        canvas.writeKeyValue("审核人/提交人", value(release.get("submittedByName")));
         canvas.writeKeyValue("审核时间", formatDateTime(release.getString("submittedAt")));
-        canvas.writeKeyValue("批准人", value(release.get("approvedBy")));
+        canvas.writeKeyValue("批准人", value(release.get("approvedByName")));
         canvas.writeKeyValue("批准时间", formatDateTime(release.getString("approvedAt")));
         canvas.writeKeyValue("审批意见", release.getString("approvalOpinion"));
         canvas.writeKeyValue("签名证据哈希", release.getString("approvalSignoffEvidenceHash"));
@@ -618,13 +625,60 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
         if (signatureRecord == null) {
             return "未签名";
         }
-        String actor = StrUtil.blankToDefault(signatureRecord.getString("actorName"),
-                signatureRecord.getString("actorId"));
-        String signedAt = formatDateTime(firstNonBlank(
+        List<String> lines = new ArrayList<>();
+        lines.add("签名人:" + value(resolveSignatureActorName(signatureRecord)));
+        lines.add("含义:" + value(resolveSignaturePurpose(signatureRecord)));
+        lines.add("时间:" + formatSignatureDateTime(signatureRecord));
+        String recordHash = resolveSignatureRecordHash(signatureRecord);
+        if (StrUtil.isNotBlank(recordHash)) {
+            lines.add("记录哈希:" + recordHash);
+        }
+        return String.join("\n", lines);
+    }
+
+    private static String resolveSignatureActorName(JSONObject signatureRecord) {
+        return firstNonBlank(
+                signatureRecord.getString("actorName"),
+                signatureRecord.getString("actorNicknameSnapshot"),
+                signatureRecord.getString("actorUsernameSnapshot"));
+    }
+
+    private static String resolveSignaturePurpose(JSONObject signatureRecord) {
+        return StrUtil.blankToDefault(
+                StrUtil.trim(signatureRecord.getString("signaturePurpose")),
+                signatureMeaning(signatureRecord.getString("actionType")));
+    }
+
+    private static String resolveSignatureRecordHash(JSONObject signatureRecord) {
+        return firstNonBlank(
+                signatureRecord.getString("recordHashSnapshot"),
+                signatureRecord.getString("aggregateHash"),
+                firstNonBlank(
+                        signatureRecord.getString("fieldAuditHeadHash"),
+                        signatureRecord.getString("cellValuesHash"),
+                        signatureRecord.getString("selectedTimeAuditHash")));
+    }
+
+    private static String formatSignatureDateTime(JSONObject signatureRecord) {
+        String formatted = formatDateTime(firstNonBlank(
                 signatureRecord.getString("signatureDisplayAt"),
                 signatureRecord.getString("selectedSignedAt"),
                 signatureRecord.getString("signedAt")));
-        return actor + "\n" + signedAt;
+        String timeZone = StrUtil.trim(signatureRecord.getString("selectedTimeZone"));
+        return StrUtil.isBlank(timeZone) ? formatted : formatted + " (" + timeZone + ")";
+    }
+
+    private static String signatureMeaning(String actionType) {
+        return switch (String.valueOf(actionType)) {
+            case MesProBatchRecordExecutionSignatureService.ACTION_FIELD_CHANGE -> "字段变更";
+            case MesProBatchRecordExecutionSignatureService.ACTION_FORM_REVIEW -> "表单复核";
+            case MesProBatchRecordExecutionSignatureService.ACTION_SUBMIT -> "提交审批";
+            case MesProBatchRecordExecutionSignatureService.ACTION_APPROVE -> "最终批准";
+            case MesProBatchRecordExecutionSignatureService.ACTION_REJECT -> "审批驳回";
+            case MesProBatchRecordExecutionSignatureService.ACTION_ARCHIVE_SEAL -> "归档封存";
+            case MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT -> "一线生产报工提交";
+            default -> actionType;
+        };
     }
 
     private static Map<String, JSONObject> parseCellValueMap(String cellValuesJson) {
@@ -890,7 +944,7 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
                 return LocalDateTime.parse(raw, DATABASE_TIME_SECONDS);
             } catch (RuntimeException ignored) {
                 try {
-                    return LocalDateTime.parse(raw, DISPLAY_TIME);
+                    return LocalDateTime.parse(raw, DATABASE_TIME_MINUTES);
                 } catch (RuntimeException ignoredAgain) {
                     return null;
                 }

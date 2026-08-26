@@ -33,7 +33,7 @@ BEGIN
     source_snapshot_hash char(64) NOT NULL,
     batch_provision_receipt_id bigint NOT NULL,
     batch_provision_status varchar(16) NOT NULL,
-    source_credential_id bigint DEFAULT NULL,
+    source_credential_id varchar(128) DEFAULT NULL,
     source_credential_hash char(64) DEFAULT NULL,
     source_bundle_hash char(64) NOT NULL,
     idempotency_key varchar(180) NOT NULL,
@@ -63,6 +63,16 @@ BEGIN
   ) THEN
     ALTER TABLE mes_pro_edhr_batch_execution_origin
       ADD COLUMN has_actual_loss bit(1) DEFAULT NULL AFTER pick_list_binding_version;
+  END IF;
+
+  IF EXISTS (
+      SELECT 1 FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'mes_pro_edhr_batch_execution_origin'
+        AND COLUMN_NAME = 'source_credential_id'
+  ) THEN
+    ALTER TABLE mes_pro_edhr_batch_execution_origin
+      MODIFY COLUMN source_credential_id varchar(128) DEFAULT NULL;
   END IF;
 
   CREATE TABLE IF NOT EXISTS mes_pro_edhr_batch_execution_trace_link (

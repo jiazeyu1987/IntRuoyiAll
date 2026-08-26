@@ -91,14 +91,16 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
     void internalPortReadsPersistedReceiptAndNeverTrustsCallerObject() {
         MesIndependentBatchPrerequisiteReceipt issued = service.issue(command(), 1L, 9L);
         String persistedPayloadHash = issued.getPayloadHash();
+        String persistedCanonicalPayload = store.byReceipt.get(issued.getReceiptId()).getCanonicalPayload();
+        String persistedReceiptHash = store.byReceipt.get(issued.getReceiptId()).getReceiptHash();
         issued.setPayloadHash("caller-forged").setSignature("caller-forged");
 
         MesIndependentBatchPrerequisiteReceipt verified = service.getVerifiedByReceiptId(
                 1L, issued.getReceiptId(), issued.getEntryType(), "snapshot");
 
         assertEquals(persistedPayloadHash, verified.getPayloadHash());
-        assertEquals(issued.getCanonicalPayload(), verified.getCanonicalPayload());
-        assertEquals(issued.getReceiptHash(), verified.getReceiptHash());
+        assertEquals(persistedCanonicalPayload, verified.getCanonicalPayload());
+        assertEquals(persistedReceiptHash, verified.getReceiptHash());
         assertEquals("snapshot", verified.getSourceSnapshotHash());
         ServiceException tenant = assertThrows(ServiceException.class,
                 () -> service.getVerifiedByReceiptId(2L, issued.getReceiptId(), issued.getEntryType(), "snapshot"));

@@ -26,7 +26,7 @@ public class MesProEdhrBatchTraceCaptureCommand {
     private String batchProvisionStatus;
     private String sourceBundleHash;
     private String idempotencyKey;
-    private Long sourceCredentialId;
+    private String sourceCredentialId;
     private String sourceCredentialHash;
     private Long releaseApplicationId;
     private Boolean hasActualLoss;

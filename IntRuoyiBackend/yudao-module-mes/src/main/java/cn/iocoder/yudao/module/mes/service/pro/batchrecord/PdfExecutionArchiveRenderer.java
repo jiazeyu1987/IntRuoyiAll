@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,6 +39,7 @@ public class PdfExecutionArchiveRenderer implements MesProBatchRecordExecutionAr
     private static final float TITLE_FONT_SIZE = 16F;
     private static final float LEADING = 14F;
     private static final int WRAP_CHARS = 96;
+    private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
     public String getArtifactType() {
@@ -108,17 +111,20 @@ public class PdfExecutionArchiveRenderer implements MesProBatchRecordExecutionAr
             lines.add("ID=" + value(signature.getId())
                     + ", Action=" + value(signature.getActionType())
                     + ", Meaning=" + value(signatureMeaning(signature.getActionType()))
-                    + ", Actor=" + value(signature.getActorId())
+                    + ", Signer=" + value(resolveSignerName(signature))
+                    + ", Purpose=" + value(resolveSignaturePurpose(signature))
                     + ", Mode=" + value(signature.getSignatureMode())
                     + ", PasswordVerified=" + value(signature.getPasswordVerified())
-                    + ", SignedAt=" + value(signature.getSignedAt())
+                    + ", SignedAt=" + formatDateTime(signature.getSignedAt())
                     + ", Comment=" + value(signature.getComment()));
-            lines.add("  SelectedSignedAt=" + value(signature.getSelectedSignedAt()));
-            lines.add("  DisplaySignedAt=" + value(signature.getSignatureDisplayAt()));
+            lines.add("  SelectedSignedAt=" + formatDateTime(signature.getSelectedSignedAt()));
+            lines.add("  DisplaySignedAt=" + formatDateTime(firstNonNull(signature.getSignatureDisplayAt(),
+                    signature.getSelectedSignedAt(), signature.getSignedAt())) + displayTimeZone(signature));
             lines.add("  SignatureTimeMode=" + value(signature.getSignatureTimeMode()));
             lines.add("  SelectedTimeZone=" + value(signature.getSelectedTimeZone()));
             lines.add("  SelectedTimeReason=" + value(signature.getSelectedTimeReason()));
             lines.add("  SelectedTimeAuditHash=" + value(signature.getSelectedTimeAuditHash()));
+            lines.add("  RecordHash=" + value(resolveRecordHash(signature)));
         }
         lines.add("");
         lines.add("Attachments:");
@@ -153,6 +159,56 @@ public class PdfExecutionArchiveRenderer implements MesProBatchRecordExecutionAr
             case MesProBatchRecordExecutionSignatureService.ACTION_ARCHIVE_SEAL -> "归档封存";
             default -> actionType;
         };
+    }
+
+    private String resolveSignerName(MesProBatchRecordExecutionSignatureDO signature) {
+        return firstNonBlank(signature.getActorName(), signature.getActorNicknameSnapshot(),
+                signature.getActorUsernameSnapshot(), value(signature.getActorId()));
+    }
+
+    private String resolveSignaturePurpose(MesProBatchRecordExecutionSignatureDO signature) {
+        return firstNonBlank(signature.getSignaturePurpose(), signatureMeaning(signature.getActionType()));
+    }
+
+    private String resolveRecordHash(MesProBatchRecordExecutionSignatureDO signature) {
+        return firstNonBlank(signature.getRecordHashSnapshot(), signature.getFieldAuditHeadHash(),
+                signature.getCellValuesHash(), signature.getSelectedTimeAuditHash());
+    }
+
+    private String formatDateTime(LocalDateTime time) {
+        return time == null ? "--" : DISPLAY_TIME.format(time);
+    }
+
+    private String displayTimeZone(MesProBatchRecordExecutionSignatureDO signature) {
+        String zone = signature.getSelectedTimeZone();
+        return StrUtil.isBlank(zone) ? "" : " (" + zone + ")";
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return StrUtil.isNotBlank(first) ? first : second;
+    }
+
+    private String firstNonBlank(String first, String second, String third, String fourth) {
+        if (StrUtil.isNotBlank(first)) {
+            return first;
+        }
+        if (StrUtil.isNotBlank(second)) {
+            return second;
+        }
+        if (StrUtil.isNotBlank(third)) {
+            return third;
+        }
+        return fourth;
+    }
+
+    private LocalDateTime firstNonNull(LocalDateTime first, LocalDateTime second, LocalDateTime third) {
+        if (first != null) {
+            return first;
+        }
+        if (second != null) {
+            return second;
+        }
+        return third;
     }
 
     private String fileName(RenderData data) {
