@@ -167,5 +167,5 @@ INTEGRATION: Stage2.5 fast-forwarded into target and `int_main`; later integrati
 ## Stage2.5 closeout update (2026-08-26)
 
 - Stage2.5 task status is `completed`; the dedicated source worktree was removed after clean-worktree and ancestor checks, and runtime slot 44 was released.
-- Current target and `int_main` HEAD: `a5057c7a2fe83d4826d24e09626ce123cf4576cc`.
+- Code integration baseline `a5057c7a2fe83d4826d24e09626ce123cf4576cc` and the subsequent closeout documentation are both included in the target and `int_main`.
 - The shared `E:\IntRuoyi` dirty/untracked overlay remains preserved and is not treated as the integrated runtime state.

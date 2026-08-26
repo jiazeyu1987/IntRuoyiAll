@@ -24,7 +24,7 @@
 
 in_progress
 
-代码已经选择性应用并提交，当前 HEAD 为 `a5057c7a2fe83d4826d24e09626ce123cf4576cc`；已通过流程4/6/7/8/10/traceability 与 Stage2.5 定向回归、正式本地 schema migration、30模块打包、独立后端启动和 runtime guard；`int_main` 已 fast-forward 到同一提交。真实 Tx-C outbox、写入型 E2E 和主工作树运行态刷新仍未完成。
+代码已经选择性应用并提交，代码融合基线为 `a5057c7a2fe83d4826d24e09626ce123cf4576cc`，其后的文档收尾提交已包含在目标分支和 `int_main`；已通过流程4/6/7/8/10/traceability 与 Stage2.5 定向回归、正式本地 schema migration、30模块打包、独立后端启动和 runtime guard。真实 Tx-C outbox、写入型 E2E 和主工作树运行态刷新仍未完成。
 
 ## 设计约束检查
 
