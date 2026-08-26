@@ -24,7 +24,7 @@
 
 in_progress
 
-代码已经选择性应用并提交，当前 HEAD 为 `49fb20dd9f049a7c4e59d9290a73ec996cfd8956`；已通过流程4/6/7/8/10/traceability 定向回归、正式本地 schema migration、30模块打包、独立后端启动和 runtime guard；`int_main` 已 fast-forward 到同一提交。真实 Tx-C outbox、写入型 E2E 和主工作树运行态刷新仍未完成。
+代码已经选择性应用并提交，当前 HEAD 为 `e1b179329ff3ea32227ceca473c4f063d5bcb90a`；已通过流程4/6/7/8/10/traceability 与 Stage2.5 定向回归、正式本地 schema migration、30模块打包、独立后端启动和 runtime guard；`int_main` 已 fast-forward 到同一提交。真实 Tx-C outbox、写入型 E2E 和主工作树运行态刷新仍未完成。
 
 ## 设计约束检查
 

@@ -154,3 +154,12 @@ GREEN: 同一 migration 第二次执行 exit 0；未执行 DROP、业务数据 D
 
 影响范围：schema blocker 已解除；真实 Tx-C outbox 业务写入、真实租户/账号/四份材料和 Playwright E2E 仍未执行。
 GREEN: migration 后使用稳定 Jar `51D2DAF5068F4333DA3D313354299A2796CB163B203359D5F200EB6E0BD52CAF` 在 `48258` 启动，日志出现 `Started YudaoServerApplication`，health HTTP `200`、`{"status":"UP"}`，随后优雅停止。
+
+## Stage2.5 receipt handoff follow-up (2026-08-26)
+
+BDD: Stage2.5 consumes completion receipt -> Given active-order completion has returned a formal `BACKFILL_SUCCEEDED` receipt; When Stage2.5 opens or reuses the batch; Then it does not call dossier plan/write or create the three backfill documents again, and snapshot links use receipt evidence IDs.
+
+RED: copied Stage2.5 slice initially failed compilation because removed dossier types and a stale four-argument simulation API were still referenced.
+GREEN: independent commit `b3607cb3c` removed the writer dependency, used the current two-argument simulation API, and added the Stage2.5 API/contract test.
+GREEN: `MesStage2_5ReceiptHandoffContractTest 1/1 PASS`; MES 24-module test compile and server 30-module package PASS; slot 44 `48259` startup/health PASS.
+INTEGRATION: Stage2.5 fast-forwarded into target and `int_main`; all relevant refs point to `e1b179329ff3ea32227ceca473c4f063d5bcb90a`.
