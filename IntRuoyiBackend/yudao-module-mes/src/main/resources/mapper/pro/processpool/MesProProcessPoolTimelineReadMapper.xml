@@ -291,7 +291,7 @@
              AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
              AND pqc_task.id = pool_event.pqc_task_id
         </if>
-        <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView != null">
+        <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView != null or reqVO.allocationView == 'WORKBENCH' or reqVO.allocationView == 'HISTORY'">
             <include refid="LatestSubmissionReviewJoin"/>
         </if>
         WHERE <include refid="TimelineFilters"/>

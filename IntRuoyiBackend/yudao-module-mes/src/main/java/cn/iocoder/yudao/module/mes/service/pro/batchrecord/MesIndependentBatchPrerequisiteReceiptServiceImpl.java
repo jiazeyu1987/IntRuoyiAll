@@ -282,7 +282,8 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
                     .setIssuerUserId(value.getIssuerUserId()).setIssuerUserRole(value.getIssuerUserRole())
                     .setIssuedAt(value.getIssuedAt()).setExpiresAt(value.getExpiresAt()).setRevokedAt(value.getRevokedAt())
                     .setRevocationReason(value.getRevocationReason()).setCredentialVersion(value.getCredentialVersion())
-                    .setStatus(value.getStatus()).setReceiptHash(value.getReceiptHash()).setPayloadHash(value.getPayloadHash())
+                    .setStatus(value.getStatus()).setCanonicalPayload(value.getCanonicalPayload())
+                    .setReceiptHash(value.getReceiptHash()).setPayloadHash(value.getPayloadHash())
                     .setSignature(value.getSignature()).setAuditEventId(value.getAuditEventId()).setIdempotencyKey(value.getIdempotencyKey())
                     .setSourceEvidence(JsonUtils.getObjectMapper().readValue(value.getSourceEvidenceJson(),
                             JsonUtils.getObjectMapper().getTypeFactory().constructCollectionType(List.class, MesBatchExecutionSourceEvidence.class)));

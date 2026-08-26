@@ -38,6 +38,7 @@ public class MesIndependentBatchPrerequisiteReceipt {
     private String revocationReason;
     private Long credentialVersion;
     private String status;
+    private String canonicalPayload;
     private String receiptHash;
     private String payloadHash;
     private String signature;

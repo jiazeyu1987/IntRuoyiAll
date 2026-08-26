@@ -63,6 +63,16 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - 用户提示不合理时，先核对当前代码、文档和业务规则；发现错误或风险必须指出并给出可执行修正，不得盲从。
 - 回复用户时默认按“用户不懂代码”处理：用简单、业务化的话说明做了什么、业务影响、风险和下一步；除非用户明确要求技术细节，不要用代码、文件名、函数、类、接口等技术表达来解释。
 
+## 子 Agent 禁止规则
+
+- 本项目禁止启动、创建、委派或使用任何子 Agent、子智能体、协作线程或外部协作任务。
+- 除非用户在当前消息中明确提出“启动子 Agent”“委派子任务”“使用协作 Agent”或等价要求，否则不得调用任何 Agent 创建、分叉、委派或线程创建工具，包括 `collaboration__spawn_agent`、`functions.collaboration.spawn_agent`、`create_thread`、`fork_thread` 及等价工具。
+- 任务复杂、需要并行、需要代码审查、需要测试、需要独立验证或预计耗时较长，都不是启动子 Agent 的理由；由当前 Agent 独立完成。
+- 不得主动询问用户是否要启动子 Agent，也不得以提高效率、并行处理、独立验证或减少等待为理由启动子 Agent。
+- `multi_tool_use.parallel` 只能并行执行普通工具调用，不得用于创建、分叉、委派或触发 Agent。
+- 每次调用工具前，若工具可能创建或触发 Agent，必须先确认当前用户消息存在明确委派授权；没有授权时禁止调用。
+- 如果误创建 Agent，必须立即中断该 Agent，停止后续协作调用，并在最终说明中报告误操作及其影响。
+
 ## Rule Precedence and Ownership
 
 - The nearest applicable `AGENTS.md` governs conflicting rules for files under its scope; compatible parent rules remain active.

@@ -26,7 +26,7 @@ class MesProEdhrBatchTraceTxCInputContractTest {
                 "batchExecutionId", "provisioningReceiptId", "eventId", "idempotencyKey",
                 "expectedSourceSnapshotHash", "expectedSourceBundleHash",
                 "expectedCompletionBackfillReceiptHash", "expectedSourceVersion",
-                "expectedSourceCredentialId", "expectedSourceCredentialHash", "capturedBy"), fields);
+                "capturedBy"), fields);
         assertFalse(fields.stream().anyMatch(name -> name.equals("completionBackfillReceipt")
                 || name.equals("independentReceipt")
                 || name.equals("sourceEvidence")

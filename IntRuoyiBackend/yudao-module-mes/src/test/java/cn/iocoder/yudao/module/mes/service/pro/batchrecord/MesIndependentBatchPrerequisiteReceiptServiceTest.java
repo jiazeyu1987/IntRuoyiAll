@@ -97,6 +97,8 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
                 1L, issued.getReceiptId(), issued.getEntryType(), "snapshot");
 
         assertEquals(persistedPayloadHash, verified.getPayloadHash());
+        assertEquals(issued.getCanonicalPayload(), verified.getCanonicalPayload());
+        assertEquals(issued.getReceiptHash(), verified.getReceiptHash());
         assertEquals("snapshot", verified.getSourceSnapshotHash());
         ServiceException tenant = assertThrows(ServiceException.class,
                 () -> service.getVerifiedByReceiptId(2L, issued.getReceiptId(), issued.getEntryType(), "snapshot"));
