@@ -133,14 +133,22 @@
                   label="操作"
                   align="center"
                   fixed="right"
-                  :width="getCurrentColumnWidthString('actions', 160)"
+                  :width="getCurrentColumnWidthString('actions', 260)"
                 >
                   <template #default="{ row }">
                     <el-button link type="primary" @click="openDetail(row.certificateId)">
                       详情
                     </el-button>
-                    <el-button link type="primary" @click="openDetail(row.certificateId)">
-                      维护
+                    <el-button link type="primary" @click="openLinkedProductManagement(row.productMasterId)">
+                      产品
+                    </el-button>
+                    <el-button
+                      v-if="row.projectCodeId"
+                      link
+                      type="primary"
+                      @click="openLinkedProjectCodeManagement(row.projectCodeId)"
+                    >
+                      项目代码
                     </el-button>
                   </template>
                 </el-table-column>
@@ -236,14 +244,22 @@
                   label="操作"
                   align="center"
                   fixed="right"
-                  :width="getOldColumnWidthString('actions', 160)"
+                  :width="getOldColumnWidthString('actions', 260)"
                 >
                   <template #default="{ row }">
                     <el-button link type="primary" @click="openDetail(row.certificateId)">
                       详情
                     </el-button>
-                    <el-button link type="warning" @click="openDetail(row.certificateId)">
-                      申请查看
+                    <el-button link type="primary" @click="openLinkedProductManagement(row.productMasterId)">
+                      产品
+                    </el-button>
+                    <el-button
+                      v-if="row.projectCodeId"
+                      link
+                      type="primary"
+                      @click="openLinkedProjectCodeManagement(row.projectCodeId)"
+                    >
+                      项目代码
                     </el-button>
                   </template>
                 </el-table-column>
@@ -259,8 +275,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   getRegistrationCertificateOldIndexPage,
   getRegistrationCertificatePage,
@@ -289,6 +305,7 @@ import {
 defineOptions({ name: 'DccRegistrationCertificateIndex' })
 
 const router = useRouter()
+const route = useRoute()
 const activeTab = ref<'current' | 'old'>('current')
 const loading = ref(false)
 const oldLoading = ref(false)
@@ -298,8 +315,12 @@ const total = ref(0)
 const oldTotal = ref(0)
 const showCreateDraft = ref(false)
 
-const queryParams = reactive<DccRegistrationCertificatePageReqVO>({ pageNo: 1, pageSize: 10 })
-const oldQueryParams = reactive<DccRegistrationCertificatePageReqVO>({ pageNo: 1, pageSize: 10 })
+type RegistrationCertificatePageQuery = DccRegistrationCertificatePageReqVO &
+  Required<Pick<PageParam, 'pageNo' | 'pageSize'>>
+
+
+const queryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
+const oldQueryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
 
 const currentColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'certificateNo', label: '注册证编号', minWidth: 180, sortable: false },
@@ -322,7 +343,7 @@ const oldColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'versionNo', label: '版本', width: 90, sortable: false },
   { key: 'status', label: '状态', width: 130, sortable: false },
   { key: 'expiryDate', label: '原有效期至', width: 140, sortable: false },
-  { key: 'actions', label: '操作', width: 96, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 260, hideable: false, business: false, sortable: false }
 ]
 
 const {
@@ -422,6 +443,26 @@ const oldQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   }
 ])
 
+const resolveRouteQueryText = (value: unknown) => {
+  const rawValue = Array.isArray(value) ? value[0] : value
+  if (rawValue === undefined || rawValue === null) {
+    return undefined
+  }
+  const text = String(rawValue).trim()
+  return /^[1-9]\d*$/.test(text) ? text : undefined
+}
+
+const syncRegistrationCertificateQueryFromRoute = () => {
+  queryParams.productMasterId = resolveRouteQueryText(route.query.productMasterId)
+  queryParams.projectCodeId = resolveRouteQueryText(route.query.projectCodeId)
+  oldQueryParams.productMasterId = resolveRouteQueryText(route.query.productMasterId)
+  oldQueryParams.projectCodeId = resolveRouteQueryText(route.query.projectCodeId)
+  if (queryParams.productMasterId || queryParams.projectCodeId) {
+    queryParams.pageNo = 1
+    oldQueryParams.pageNo = 1
+  }
+}
+
 const loadPage = async () => {
   loading.value = true
   try {
@@ -467,6 +508,19 @@ const handleTabChange = (tabName: string | number) => {
   void loadPage()
 }
 
+const openLinkedProductManagement = (productMasterId: number | string) => {
+  router.push({
+    path: '/mdm/product',
+    query: { productMasterId: String(productMasterId) }
+  })
+}
+
+const openLinkedProjectCodeManagement = (projectCodeId: number | string) => {
+  router.push({
+    path: '/mdm/project-code',
+    query: { projectCodeId: String(projectCodeId) }
+  })
+}
 const openDetail = (certificateId: number | string) => {
   router.push(`/mdm/registration-certificate/detail/${certificateId}`)
 }
@@ -476,6 +530,19 @@ const openCreateDraft = () => {
 }
 
 onMounted(() => {
+  syncRegistrationCertificateQueryFromRoute()
   void loadPage()
 })
+
+watch(
+  () => [route.query.productMasterId, route.query.projectCodeId],
+  async () => {
+    syncRegistrationCertificateQueryFromRoute()
+    if (activeTab.value === 'old') {
+      await loadOldIndexPage()
+      return
+    }
+    await loadPage()
+  }
+)
 </script>

@@ -18,7 +18,9 @@ public class DccRegistrationCertificatePageItem {
     private Long snapshotId;
     private Long ownerCompanyId;
     private String ownerCompanyName;
+    private Long productMasterId;
     private String productName;
+    private Long projectCodeId;
     private String certificateNo;
     private Integer versionNo;
     private String status;

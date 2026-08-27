@@ -161,6 +161,9 @@ public interface DccRegistrationCertificateQueryMapper {
                       <if test="query.productMasterId != null">
                         AND c.product_master_id = #{query.productMasterId}
                       </if>
+                      <if test="query.projectCodeId != null">
+                        AND c.project_code_id = #{query.projectCodeId}
+                      </if>
                       <if test="query.status != null and query.status != ''">
                         AND v.status = #{query.status}
                       </if>
@@ -229,6 +232,9 @@ public interface DccRegistrationCertificateQueryMapper {
                       </if>
                       <if test="query.productMasterId != null">
                         AND c.product_master_id = #{query.productMasterId}
+                      </if>
+                      <if test="query.projectCodeId != null">
+                        AND c.project_code_id = #{query.projectCodeId}
                       </if>
                       <if test="query.certificateNo != null and query.certificateNo != ''">
                         AND v.certificate_no LIKE CONCAT('%', #{query.certificateNo}, '%')

@@ -11,6 +11,7 @@ export type DccRegistrationCertificateStatus =
 export interface DccRegistrationCertificatePageReqVO extends PageParam {
   ownerCompanyId?: number | string
   productMasterId?: number | string
+  projectCodeId?: number | string
   status?: DccRegistrationCertificateStatus
   certificateNo?: string
   missingProjectCode?: boolean
@@ -31,7 +32,9 @@ export interface DccRegistrationCertificatePageItemVO {
   snapshotId?: number | string
   ownerCompanyId: number | string
   ownerCompanyName: string
+  productMasterId: number | string
   productName: string
+  projectCodeId?: number | string
   certificateNo: string
   versionNo: number
   status: DccRegistrationCertificateStatus
@@ -48,7 +51,9 @@ export interface DccRegistrationCertificateOldIndexItemVO {
   versionId: number | string
   ownerCompanyId: number | string
   ownerCompanyName: string
+  productMasterId: number | string
   productName: string
+  projectCodeId?: number | string
   certificateNo: string
   versionNo: number
   expiryDate?: string
