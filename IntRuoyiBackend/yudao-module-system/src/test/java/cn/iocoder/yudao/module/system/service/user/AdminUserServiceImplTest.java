@@ -244,6 +244,40 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testRecordUserLoginFailure_lockOnFifthFailure() {
+        AdminUserDO user = randomAdminUserDO(o -> {
+            o.setLoginFailureCount(4);
+            o.setLoginLocked(0);
+            o.setLoginLockedTime(null);
+        });
+        userMapper.insert(user);
+
+        userService.recordUserLoginFailure(user.getId());
+
+        AdminUserDO dbUser = userMapper.selectById(user.getId());
+        assertEquals(5, dbUser.getLoginFailureCount());
+        assertEquals(1, dbUser.getLoginLocked());
+        assertNotNull(dbUser.getLoginLockedTime());
+    }
+
+    @Test
+    public void testResetUserLoginFailure() {
+        AdminUserDO user = randomAdminUserDO(o -> {
+            o.setLoginFailureCount(4);
+            o.setLoginLocked(1);
+            o.setLoginLockedTime(LocalDateTime.now().minusMinutes(10));
+        });
+        userMapper.insert(user);
+
+        userService.resetUserLoginFailure(user.getId());
+
+        AdminUserDO dbUser = userMapper.selectById(user.getId());
+        assertEquals(0, dbUser.getLoginFailureCount());
+        assertEquals(0, dbUser.getLoginLocked());
+        assertNull(dbUser.getLoginLockedTime());
+    }
+
+    @Test
     public void testUpdateUserProfile_success() {
         // mock 数据
         AdminUserDO dbUser = randomAdminUserDO();
@@ -1033,6 +1067,9 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         Consumer<AdminUserDO> consumer = (o) -> {
             o.setStatus(randomEle(CommonStatusEnum.values()).getStatus()); // 保证 status 的范围
             o.setSex(randomEle(SexEnum.values()).getSex()); // 保证 sex 的范围
+            o.setLoginFailureCount(0);
+            o.setLoginLocked(0);
+            o.setLoginLockedTime(null);
         };
         return randomPojo(AdminUserDO.class, ArrayUtils.append(consumer, consumers));
     }

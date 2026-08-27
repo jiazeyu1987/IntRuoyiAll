@@ -16,6 +16,7 @@ public interface DccProjectCodeMapper extends BaseMapperX<DccProjectCodeDO> {
 
     default PageResult<DccProjectCodeDO> selectPage(DccProjectCodePageReqVO reqVO) {
         LambdaQueryWrapperX<DccProjectCodeDO> wrapper = new LambdaQueryWrapperX<DccProjectCodeDO>()
+                .eqIfPresent(DccProjectCodeDO::getProductMasterId, reqVO.getProductMasterId())
                 .likeIfPresent(DccProjectCodeDO::getProjectName, reqVO.getProjectName())
                 .likeIfPresent(DccProjectCodeDO::getProjectCode, reqVO.getProjectCode())
                 .eqIfPresent(DccProjectCodeDO::getCategory, reqVO.getCategory())

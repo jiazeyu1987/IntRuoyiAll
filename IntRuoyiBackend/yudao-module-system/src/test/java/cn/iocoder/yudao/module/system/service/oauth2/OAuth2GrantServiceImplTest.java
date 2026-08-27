@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2AccessTokenDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2CodeDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.auth.AdminAuthService;
+import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -36,6 +37,8 @@ public class OAuth2GrantServiceImplTest extends BaseMockitoUnitTest {
     private OAuth2CodeService oauth2CodeService;
     @Mock
     private AdminAuthService adminAuthService;
+    @Mock
+    private AdminUserService userService;
 
     @Test
     public void testGrantImplicit() {
@@ -117,6 +120,7 @@ public class OAuth2GrantServiceImplTest extends BaseMockitoUnitTest {
         // 调用，并断言
         assertPojoEquals(accessTokenDO, oauth2GrantService.grantPassword(
                 username, password, clientId, scopes));
+        org.mockito.Mockito.verify(userService).resetUserLoginFailure(eq(user.getId()));
     }
 
     @Test

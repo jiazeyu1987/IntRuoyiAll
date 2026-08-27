@@ -332,6 +332,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         DccProjectCodePageReqVO queryReqVO = new DccProjectCodePageReqVO();
         queryReqVO.setPageNo(1);
         queryReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
+        queryReqVO.setProductMasterId(reqVO.getProductMasterId());
         queryReqVO.setKeyword(reqVO.getKeyword());
         queryReqVO.setProjectName(reqVO.getProjectName());
         queryReqVO.setProjectCode(reqVO.getProjectCode());

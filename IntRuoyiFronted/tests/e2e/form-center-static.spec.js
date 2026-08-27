@@ -119,7 +119,6 @@ assertIncludes(templatePage, '作废申请中')
 assertIncludes(templatePage, 'form-template-route-workspace')
 assertIncludes(templatePage, 'form-template-fill-workspace')
 assertIncludes(templatePage, 'form-template-signature-dialog')
-assertIncludes(templatePage, 'openSelectedTemplateAction')
 assertIncludes(templatePage, 'openTemplateActionDialog')
 assertIncludes(templatePage, 'openSelectedTemplateWorkspace')
 assertIncludes(templatePage, 'openSelectedTemplateCellLinks')
@@ -169,9 +168,9 @@ const disableButtonMatch = previewActions.match(/<el-button[\s\S]*?disableSelect
 if (!disableButtonMatch || !/canDisableTemplate\(selectedTemplate\)/.test(disableButtonMatch[0])) {
   throw new Error('表单模板“停用”按钮必须只在可停用状态显示，不能覆盖已停用状态')
 }
-const editButtonMatch = previewActions.match(/<el-button[\s\S]*?editSelectedTemplate[\s\S]*?<\/el-button>/)
+const editButtonMatch = previewActions.match(/<el-button[\s\S]*?openDesigner\(selectedTemplate, 'edit'\)[\s\S]*?<\/el-button>/)
 if (!editButtonMatch || !/canUseTemplateInteractiveAction\(selectedTemplate\)/.test(editButtonMatch[0])) {
-  throw new Error('已作废表单模板不应显示“编辑”按钮，编辑入口必须受终态只读动作投影控制')
+  throw new Error('表单模板“编辑”按钮必须直接进入与批记录表单一致的正式编辑入口，并受终态只读动作投影控制')
 }
 const fillButtonMatch = previewActions.match(/<el-button[\s\S]*?openSelectedTemplateFill[\s\S]*?<\/el-button>/)
 if (!fillButtonMatch || !/canUseTemplateInteractiveAction\(selectedTemplate\)/.test(fillButtonMatch[0])) {

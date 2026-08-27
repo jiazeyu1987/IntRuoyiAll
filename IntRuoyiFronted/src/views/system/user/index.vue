@@ -214,6 +214,18 @@
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isUserColumnVisible('loginLocked')"
+                label="锁定状态"
+                key="loginLocked"
+                prop="loginLocked"
+                :width="getUserColumnWidthString('loginLocked', 100)"
+                v-bind="sortColumnAttrs('loginLocked')"
+              >
+                <template #default="{ row }">
+                  {{ row.loginLocked === 1 ? '已锁定' : '未锁定' }}
+                </template>
+              </el-table-column>
+              <el-table-column
                 v-if="isUserColumnVisible('createTime')"
                 label="创建时间"
                 align="center"
@@ -267,6 +279,15 @@
                         v-hasPermi="['system:permission:assign-user-role']"
                       >
                         分配角色
+                      </el-button>
+                      <el-button
+                        v-if="scope.row.loginLocked === 1"
+                        type="success"
+                        link
+                        @click="handleUnlock(scope.row)"
+                        v-hasPermi="['system:user:update']"
+                      >
+                        解锁
                       </el-button>
                     </div>
                   </div>
@@ -370,8 +391,9 @@ const userDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'postNamesText', label: '岗位', minWidth: 180 },
   { key: 'mobile', label: '手机号码', width: 120 },
   { key: 'status', label: '状态', width: 100 },
+  { key: 'loginLocked', label: '锁定状态', width: 100 },
   { key: 'createTime', label: '创建时间', width: 180 },
-  { key: 'actions', label: '操作', width: 160, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 220, hideable: false, business: false, sortable: false }
 ]
 
 const {
@@ -669,6 +691,16 @@ const handleResetPwd = async (row: UserApi.UserVO) => {
   } catch {}
 }
 
+/** 解锁用户 */
+const handleUnlock = async (row: UserApi.UserVO) => {
+  try {
+    await message.confirm('确认要解锁"' + row.username + '"用户吗?')
+    await UserApi.unlockUser(row.id)
+    message.success('解锁成功')
+    await getList()
+  } catch {}
+}
+
 /** 分配角色 */
 const assignRoleFormRef = ref()
 const handleRole = (row: UserApi.UserVO) => {
@@ -708,7 +740,7 @@ watch(
 
 .system-user-row-actions__row {
   display: grid;
-  grid-template-columns: repeat(2, max-content);
+  grid-template-columns: repeat(3, max-content);
   align-items: center;
   justify-content: center;
   column-gap: 10px;

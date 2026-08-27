@@ -11,6 +11,9 @@ export interface UserVO {
   mobile: string
   sex: number
   avatar: string
+  loginFailureCount?: number
+  loginLocked?: number
+  loginLockedTime?: Date
   loginIp: string
   status: number
   remark: string
@@ -94,6 +97,11 @@ export const updateUserStatus = (id: number, status: number) => {
     status
   }
   return request.put({ url: '/system/user/update-status', data: data })
+}
+
+// 解锁用户
+export const unlockUser = (id: number) => {
+  return request.put({ url: '/system/user/unlock?id=' + id })
 }
 
 // 获取用户精简信息列表

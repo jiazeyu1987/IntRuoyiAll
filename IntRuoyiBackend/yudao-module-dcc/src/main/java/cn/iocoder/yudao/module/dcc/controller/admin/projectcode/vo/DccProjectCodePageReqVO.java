@@ -12,6 +12,9 @@ import lombok.ToString;
 @ToString(callSuper = true)
 public class DccProjectCodePageReqVO extends PageParam {
 
+    @Schema(description = "关联产品主数据编号")
+    private Long productMasterId;
+
     @Schema(description = "关键词")
     private String keyword;
 

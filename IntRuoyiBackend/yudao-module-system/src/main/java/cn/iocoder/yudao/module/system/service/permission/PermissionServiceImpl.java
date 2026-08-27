@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMenuMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.UserRoleMapper;
 import cn.iocoder.yudao.module.system.dal.redis.RedisKeyConstants;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
+import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.baomidou.dynamic.datasource.annotation.DSTransactional;
@@ -32,9 +33,12 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.annotation.Resource;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertSet;
 import static cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 
 /**
  * 权限 Service 实现类
@@ -44,6 +48,8 @@ import static cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString
 @Service
 @Slf4j
 public class PermissionServiceImpl implements PermissionService {
+
+    private static final Pattern LOG_PERMISSION_PATTERN = Pattern.compile("(^|[:\\-])log([:\\-]|$)");
 
     @Resource
     private RoleMenuMapper roleMenuMapper;
@@ -261,6 +267,7 @@ public class PermissionServiceImpl implements PermissionService {
         // 获得角色拥有角色编号
         Set<Long> dbRoleIds = convertSet(userRoleMapper.selectListByUserId(userId),
                 UserRoleDO::getRoleId);
+        validateAssignableUserRoles(dbRoleIds, roleIds);
         // 计算新增和删除的角色编号
         Set<Long> roleIdList = CollUtil.emptyIfNull(roleIds);
         Collection<Long> createRoleIds = CollUtil.subtract(roleIdList, dbRoleIds);
@@ -277,6 +284,44 @@ public class PermissionServiceImpl implements PermissionService {
         if (!CollectionUtil.isEmpty(deleteMenuIds)) {
             userRoleMapper.deleteListByUserIdAndRoleIdIds(userId, deleteMenuIds);
         }
+    }
+
+    private void validateAssignableUserRoles(Collection<Long> currentRoleIds, Collection<Long> targetRoleIds) {
+        if (CollectionUtil.isEmpty(targetRoleIds)) {
+            return;
+        }
+        if (hasAnyRestrictedRole(currentRoleIds)) {
+            return;
+        }
+        if (hasAnyRestrictedRole(targetRoleIds)) {
+            throw exception(USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN);
+        }
+    }
+
+    private boolean hasAnyRestrictedRole(Collection<Long> roleIds) {
+        if (CollectionUtil.isEmpty(roleIds)) {
+            return false;
+        }
+        List<RoleDO> roles = roleService.getRoleListFromCache(roleIds);
+        if (CollUtil.isEmpty(roles)) {
+            return false;
+        }
+        for (RoleDO role : roles) {
+            if (role != null && RoleCodeEnum.isAdminRole(role.getCode())) {
+                return true;
+            }
+        }
+
+        Set<Long> menuIds = convertSet(roleMenuMapper.selectListByRoleId(roleIds), RoleMenuDO::getMenuId);
+        if (CollUtil.isEmpty(menuIds)) {
+            return false;
+        }
+        List<MenuDO> menus = menuService.getMenuList(menuIds);
+        return menus.stream().anyMatch(menu -> menu != null && isLogPermission(menu.getPermission()));
+    }
+
+    private boolean isLogPermission(String permission) {
+        return permission != null && LOG_PERMISSION_PATTERN.matcher(permission).find();
     }
 
     @Override

@@ -1,5 +1,8 @@
 # 项目经验索引
+- Keywords: 备用服运行承载对齐, 备份服改成正式服一致, /dev/vdb missing, DEV_VDB_MISSING, /var/lib/docker 容量不足, runtime-data 迁移, MinIO 容器名不匹配 -> `docs/release-backup-restore.md#备用服运行承载对齐门禁`
 - Keywords: rollback-migration、回滚专用 SQL、release manifest、migration policy gate、rollback-only migrations -> docs/release-build-preflight-lessons.md#2026-08-26-rollback-migration-不得进入正常-release-manifest
+- Keywords: 5 次锁定账号, login_failure_count, login_locked, resetUserLoginFailure, unlockUser, 15 分钟自动退出, useIdleLogout, lockStore.resetLockInfo -> `docs/login-access.md#账号锁定解锁与空闲退出门禁`
+- Keywords: 普通用户不能分配管理员角色, 日志权限, user-role assignment, RoleCodeEnum, PermissionServiceImpl, USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN -> `docs/backend-development.md#系统用户角色分配高权限拦截门禁`
 
 - Keywords: eDHR 四份材料、MATERIALS_READY、sourceSnapshotHash、routeBindingSnapshotHash、来料检报告、灭菌报告、成品检报告、成品检记录、来源快照 -> docs/backend-development.md#eDHR-四份材料必须绑定正式来源快照
 
@@ -12,7 +15,7 @@
 - Keywords: 一线生产最大化, 首次切换工序短暂加载, 首次切换员工短暂加载, 再次切换无加载, 全部员工模板快照, employeeSwitchSnapshots, runtime-config GET 预热, switch-employee POST 禁止批量预调用 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 - Keywords: 一线生产默认首单, 活跃订单冻结工序, activeOrderId 工序接口, routeVersionId, 旧订单旧工序, 新订单新工序, 冻结节点缺少 processCode processName, 冻结工序标签只读订单逐工序快照与锁定路线快照, 禁止读取当前工序主数据补历史, PQC任务必须属于订单冻结routeProcessId和processId, 禁止按 routeId 过滤当前路线, 运行配置活跃订单身份, 切换订单清理旧工序员工模板配置, 旧下游不得拒绝切换上游, 迟到响应令牌 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁` and `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`
 - Keywords: infra_job 固定 ID, 定时任务 ID 冲突, handler_name, Quartz job does not exist, 迁移覆盖无关任务, 自增任务主键, 运行态重载 Quartz -> `docs/database-rules.md#定时任务迁移业务键与运行态注册门禁`
-- Keywords: 源码已有迁移, 本机迁移漏执行, 运行态 schema 漂移, doesn't have a default value, work_order_id NOT NULL, 生成列索引, migration RED GREEN, 页面系统异常, 个人中心系统异常, 聚合页子请求 500 -> `docs/database-rules.md#运行态迁移漂移系统异常门禁`
+- Keywords: 源码已有迁移, 本机迁移漏执行, 运行态 schema 漂移, Java 进程实际数据源, application-local 与运行库不一致, doesn't have a default value, work_order_id NOT NULL, 生成列索引, migration RED GREEN, 页面系统异常, 排产工单系统异常, 个人中心系统异常, 聚合页子请求 500 -> `docs/database-rules.md#运行态迁移漂移系统异常门禁`
 - Keywords: 确认分配, 确认提交, leaderType null, 请求参数不正确, 不能为空null, queryParams.leaderType, activeLeaderTab, 当前页签上下文漂移 -> `docs/frontend-development.md#前端确认提交上下文来源门禁`
 - Keywords: 一线生产提交快照校验, 最大化快照切换, runtime-config 快照, 服务端快照编号, 快照校验值, 快照过期, 快照篡改, 所选工序与运行配置不一致, 所选员工与提交签名不一致, 提交时实时刷新快照禁止, 后端实时工序员工模板读取禁止, 设备参数损耗原因按快照 -> `docs/frontend-development.md#前端提交结构字段严格校验门禁`
 - Keywords: PQC 任务生成, QA工序 + QA项目 + 规则键, 同工序多个 FINAL 项目, FINAL 任务按项目拆分, inspectionRuleKey, qaItemCode, 活跃订单加入生成任务 -> `docs/backend-development.md#qa-首检数量和巡检比例按检验项目配置末检适用性项目级统一`
@@ -77,7 +80,7 @@
 - pnpm approve-builds 空结果但 install 仍因 ERR_PNPM_IGNORED_BUILDS 失败：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 
 - PowerShell 命令编排 / 中文编码 / 终端输出预检：先读权威共同规则 `E:\IntRuoyi\docs\powershell-memory.md`，维护仓专项增量再读 `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\powershell-preflight-lessons.md`
-- Keywords: OfficeCLI xlsx import, Excel TSV import success blank cells, 导入成功但单元格为空, 空工作簿, view text blank, officecli batch set, xlsx 交付物内容复核 -> `docs/powershell-memory.md#officecli-xlsx-导入后内容复核门禁`
+- Keywords: OfficeCLI xlsx import, Excel TSV import success blank cells, 导入成功但单元格为空, 空工作簿, view text blank, officecli batch set, xlsx 交付物内容复核, AutoFilter range overlaps existing table, 表格筛选重叠, WPS 自定义表格属性, filterBottomFollowUsedRange, table autoFilter schema error -> `docs/powershell-memory.md#officecli-xlsx-导入后内容复核门禁`
 - Keywords: PowerShell 分号串联测试, cmd1; cmd2, Node 静态合同串联, 中间测试失败被最后 PASS 掩盖, `$LASTEXITCODE`, 逐条测试退出码 -> `docs/powershell-memory.md#powershell-分号串联测试退出码门禁`
 - Keywords: task-state 并行写入, record_phase_review, record_test_review, check_completion --apply, render_task_status, blocking_prereqs 丢失, 阶段状态回退, P4 pending blocked 覆盖, 状态脚本串行 -> `docs/powershell-memory.md#任务状态脚本串行写入门禁`
 - Keywords: git index.lock, Unable to create .git/index.lock, File exists, 陈旧 Git 锁, 零字节 index lock, 活动 git 进程 -> `docs/powershell-memory.md#git-indexlock-陈旧锁恢复门禁`
@@ -104,7 +107,8 @@
 - Keywords: e2e-result 被覆盖, fixture manifest 被并发 cleanup 删除, FAS_EVIDENCE_RUN_ID, 每轮独立 run 目录, result.json 被旧 run 污染, result.json targetRequests 非 JSON object, result.json targetRequests 与 Markdown Target Request 不一致, result.json targetRequests label 缺失, result.json targetRequests url 缺失, result.json targetRequests method 缺失, result.json targetRequests httpStatus 缺失, result.json targetRequests businessCode 缺失, result.json targetResponseIdentities 非 JSON object, result.json targetResponseIdentities field 缺失, result.json targetResponseIdentities value 缺失, result.json targetResponseIdentities sourceRequestLabel, result.json targetResponseIdentities sourceRequestLabel 缺失, 响应身份来源请求 label, targetResponseIdentities 与 targetRequests label 集合不一致, targetRequestEvidenceFlushed, Business Code flush, Markdown 目标请求成功但 JSON 指向旧后端, verification-report 被覆盖, final-readonly-db-verification 被覆盖, Markdown evidence 与 Playwright result 不一致, 主链路 PASS 被扩展诊断覆盖, viewer linkage 可选断言, traceability 可选诊断, DCC 原版发布 resume 覆盖结果, 同任务目录多个 Playwright 脚本共享结果文件, completion gate 跨 task root 读取其它 worktree result -> `docs/e2e-rules.md#真实-e2e-主链路与扩展诊断产物隔离门禁`
 - Keywords: PowerShell Maven -D, -Dsurefire.failIfNoSpecifiedTests, -Dtest, Unknown lifecycle phase, 目标 JUnit 加引号 -> `docs/powershell-memory.md#powershell-maven--d-参数引号门禁`
 - Keywords: Maven 单模块陈旧依赖, stale local reactor dependencies, 本地 .m2 陈旧产物, 不带 -am 测试前失败, system API artifacts, testCompile 上游模块签名不一致, reactor 验证命令 -> `docs/powershell-memory.md#maven-单模块陈旧依赖门禁`
-- Keywords: Maven 同模块 target/classes 陈旧, Nothing to compile all classes are up to date, testCompile 旧构造器, 刚新增 mapper 方法找不到, 旧签名仍被测试编译看到, 当前模块 clean test -> `docs/powershell-memory.md#maven-同模块-targetclasses-陈旧门禁`
+- Keywords: Maven 同模块 target/classes 陈旧, Nothing to compile all classes are up to date, testCompile 旧构造器, 刚新增 mapper 方法找不到, ClassNotFoundException 缺少新增 mapper class, target/classes 缺 class, 旧签名仍被测试编译看到, 当前模块 clean test -> `docs/powershell-memory.md#maven-同模块-targetclasses-陈旧门禁`
+- Keywords: javac 参数文件, dependency:build-classpath, surefire:test, 只编译目标测试类, 标准 Maven lifecycle blocked, JUnit 补充证据, eDHR PDF 签名验证 -> `docs/powershell-memory.md#maven-javaclombok-class-写入长时间运行门禁`
 - Keywords: Surefire user.dir, JUnit 静态源码合同, Files.readString, Path.of src main java, readSource, NoSuchFileException, 重复模块路径, yudao-module-mes yudao-module-mes src, validator 实现类断言 -> `docs/powershell-memory.md#maven-静态源码合同工作目录门禁`
 - Keywords: IncrementalBuildHelper.beforeRebuildExecution, WinNTFileSystem.delete0, Windows Maven 增量输出删除卡住, Maven 无 surefire 报告, 仅停止任务自有 Maven PID -> `docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁`
 - Keywords: target classes NoSuchFileException, Maven target cleanup stuck, WinNTFileSystem.delete0, getBooleanAttributes0, 同模块类大量缺失, DCC target 损坏, 不叠加 Maven 命令 -> `docs/powershell-memory.md#maven-目标目录文件系统异常门禁`
@@ -240,7 +244,7 @@
 - Keywords: eDHR 批记录 Word 表格解析, packed 物料矩阵, 括号续行, 生产自检, 合格标准, 检验方法, 截图位置错位, fixture 缺失, 表单名特例禁止 -> `docs/backend-development.md#edhr-批记录-word-表格解析门禁`
 - Keywords: 过程检验 5.0, 过程检验 6.0, 气密性检测工装：______, xxx：______, 源 Word profile, source profile, normalizeSourceTables, label+underline, input-text, process-inspection normalizer, Form Center, jimuSchemaJson, sheetLayoutJson, 封面表污染, 非过程检验表过滤 -> `docs/backend-development.md#过程检验源-word-必须先命中-profile-再拆输入框`；`docs/backend-development.md#form-center-导入必须同时持久化源表格布局`
 - Keywords: Sheet1 Excel 真实 fixture, 批记录路线导入真实 fixture, NoSuchFileException, 不需要覆盖这个, 真实样本覆盖取消, 禁止 @Disabled, Maven excludes, 合成 workbook 冒充 fixture -> `docs/backend-development.md#批记录路线导入真实-fixture-覆盖范围变更边界`
-- Keywords: Jimu fillForm 组件类型, componentFlag input-textarea, componentFlag input-text, componentFlag signature, 多行文本, 普通文本, 日期单元格, 电子签名, 签名日期宽空白格, 记录人/日期, 操作人/日期, 复核人/日期, edhrSignature -> `docs/backend-development.md#jimu-fillform-组件类型语义优先边界`
+- Keywords: Jimu fillForm 组件类型, componentFlag input-textarea, componentFlag input-text, componentFlag signature, 多行文本, 普通文本, 日期单元格, 电子签名, 签名日期宽空白格, 记录人/日期, 操作人/日期, 复核人/日期, edhrSignature, 正式化可映射格子, 保留识别类型, 一键正式化, 定点测试 -> `docs/backend-development.md#jimu-fillform-组件类型语义优先边界`
 - Keywords: 子表集合替换, 软删除唯一键, 逻辑删除占用唯一键, deleteByCaseId, system_codex_test_checkpoint, updateCase_allowsRepeatedCheckpointReplacement -> `docs/backend-development.md#2026-07-25-子表集合替换软删除唯一键门禁`
 - Keywords: 测试项固定名称, 同名测试项重复创建删除, system_codex_test_case tenant_id name deleted, DuplicateKeyException, deleteCase_allowsRepeatedCreateAndDeleteWithSameName -> `docs/backend-development.md#2026-07-27-测试项固定名称删除唯一键门禁`
 - Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 静态合同负向断言范围, 正则范围过宽, false positive, 废弃弹窗流程, 字段审计保存直连 API, 接口契约收缩, 删除旧输入字段, 相邻宽静态合同旧字段断言 -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`

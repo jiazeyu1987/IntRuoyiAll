@@ -30,6 +30,15 @@
 - 涉及 API 行为时，验证成功路径和失败路径。
 - 涉及前端调用时，最后通过真实前端路径或已批准的 E2E 核对接口结果。
 
+## 系统用户角色分配高权限拦截门禁
+
+- Trigger: `system_users` 分配角色、普通用户被赋予管理员角色或日志操作权限、`PermissionService.assignUserRole`、`RoleCodeEnum`、`USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN`。
+- Preflight check: 写入前先区分“当前已具备高权限”和“目标角色会引入高权限”两种状态；系统判定必须读取正式角色 code 和菜单 permission，禁止只靠前端禁用或写后回滚。管理员/日志权限的判定必须同时覆盖角色 code 与菜单 permission 两条来源，且普通用户在写入前就应被阻断。
+- Blocker: 普通用户成功拿到 admin/audit/log 类角色或菜单权限、仅在保存后清理、或角色/菜单判定依赖名称模糊匹配时必须停止。
+- Verification: 后端服务测试必须覆盖给普通用户分配管理员角色、给普通用户分配日志权限、已有高权限用户继续增删角色，以及角色/菜单判定的正负例；错误必须是正式服务异常而非静默过滤。
+- Forbidden action: 禁止写后修正、禁止把日志菜单名称当权限来源、禁止引入 fallback 让普通用户先保存再清理。
+- Evidence: `doc/tasks/20260827-login-security-controls/verification-report.md`
+
 ## MES 一线设备账号权限门禁
 
 ### 权限角色授权必须走登录用户标准权限解析
@@ -239,8 +248,10 @@
 
 - Trigger: Jimu 编辑页右侧“当前组件”与批记录单元格语义不一致、日期/签名日期单元格显示为“多行文本”或普通文本、`fillForm.componentFlag=input-textarea` / `input-text`、`记录人/日期` / `操作人/日期` / `复核人/日期` 等签名日期宽空白格。
 - Preflight check: 先审计后端 `MesProBatchRecordReportJsonBuilder` 生成的 `fillForm.componentFlag`、`edhrSignature` 与相邻/同一行标签语义；Jimu 右侧当前组件以 `fillForm.componentFlag` 为准，只有 `edhrSignature` 元数据不足以显示电子签名控件；宽合并空白格不得在语义判断前被 `isWideBlankNarrativeArea` 直接归类为 textarea。
+- Formalization boundary: 识别出来的可填格子正式化时只补正式身份、映射 key 和版本关联，不得重算 `componentFlag` / `valueType`；日期、电子签名、普通文本必须沿用识别阶段语义，不能在“正式化”步骤里悄悄降级成通用文本。
 - Blocker: 如果无法用最小合成表格稳定复现组件类型误判，或无法证明普通叙述型宽空白格仍保持 textarea，不得宣称修复完成。
 - Verification: 必须同时覆盖“签名日期宽空白格生成 `componentFlag=signature` 并保留 `edhrSignature`”和“普通高/合并叙述空白格仍生成 `input-textarea`”两个回归断言。
+- Verification supplement: 新增正式化链路时优先用定点测试分别断言日期、签名、文本三类格子正式化后类型不变且幂等；如果同模块全量类已有既有失败，必须单独记录为背景噪音，不能拿它替代当前链路验证。
 - Forbidden action: 禁止只改前端“当前组件”显示文案、禁止直接手工改 Jimu JSON、禁止按模板/产品/文件名硬编码日期格、禁止只把签名日期格退化成 `input-text` 或普通日期展示而丢失电子签名组件语义。
 - Evidence: `doc/tasks/20260727-jimu-signature-date-cell-type/verification-report.md`。
 

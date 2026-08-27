@@ -5,6 +5,7 @@ export const DCC_PROJECT_CODE_STATUS_ENABLE = 'ENABLE'
 export const DCC_PROJECT_CODE_STATUS_DISABLE = 'DISABLE'
 
 export interface DccProjectCodePageReqVO extends PageParam {
+  productMasterId?: number | string
   keyword?: string
   projectName?: string
   projectCode?: string

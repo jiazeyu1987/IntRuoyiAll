@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import cn.iocoder.yudao.framework.common.biz.system.permission.dto.DeptDataPermissionRespDTO;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
@@ -14,6 +15,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMenuMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.permission.UserRoleMapper;
 import cn.iocoder.yudao.module.system.enums.permission.DataScopeEnum;
+import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
@@ -320,6 +322,63 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         assertEquals(200L, userRoleDOList.get(0).getRoleId());
         assertEquals(1L, userRoleDOList.get(1).getUserId());
         assertEquals(300L, userRoleDOList.get(1).getRoleId());
+    }
+
+    @Test
+    public void testAssignUserRole_adminRoleForbiddenForNormalUser() {
+        Long userId = 1L;
+        Long currentRoleId = 100L;
+        Long targetRoleId = 200L;
+        userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(currentRoleId));
+
+        RoleDO currentRole = randomPojo(RoleDO.class, o -> o.setId(currentRoleId)
+                .setCode("normal_role").setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        RoleDO targetRole = randomPojo(RoleDO.class, o -> o.setId(targetRoleId)
+                .setCode(RoleCodeEnum.BPM_ADMIN.getCode()).setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        when(roleService.getRoleListFromCache(any())).thenAnswer(invocation -> {
+            Collection<Long> ids = invocation.getArgument(0);
+            List<RoleDO> roles = new java.util.ArrayList<>();
+            if (ids != null && ids.contains(currentRoleId)) {
+                roles.add(currentRole);
+            }
+            if (ids != null && ids.contains(targetRoleId)) {
+                roles.add(targetRole);
+            }
+            return roles;
+        });
+
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(userId, Set.of(targetRoleId)));
+    }
+
+    @Test
+    public void testAssignUserRole_logPermissionForbiddenForNormalUser() {
+        Long userId = 1L;
+        Long currentRoleId = 100L;
+        Long targetRoleId = 200L;
+        Long logMenuId = 3000L;
+        userRoleMapper.insert(randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(currentRoleId));
+        roleMenuMapper.insert(randomPojo(RoleMenuDO.class).setRoleId(targetRoleId).setMenuId(logMenuId));
+
+        RoleDO currentRole = randomPojo(RoleDO.class, o -> o.setId(currentRoleId)
+                .setCode("normal_role").setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        RoleDO targetRole = randomPojo(RoleDO.class, o -> o.setId(targetRoleId)
+                .setCode("report_role").setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        when(roleService.getRoleListFromCache(any())).thenAnswer(invocation -> {
+            Collection<Long> ids = invocation.getArgument(0);
+            List<RoleDO> roles = new java.util.ArrayList<>();
+            if (ids != null && ids.contains(currentRoleId)) {
+                roles.add(currentRole);
+            }
+            if (ids != null && ids.contains(targetRoleId)) {
+                roles.add(targetRole);
+            }
+            return roles;
+        });
+        when(menuService.getMenuList(eq(Set.of(logMenuId)))).thenReturn(List.of(
+                randomPojo(MenuDO.class, o -> o.setId(logMenuId).setPermission("system:login-log:query"))
+        ));
+
+        assertThrows(ServiceException.class, () -> permissionService.assignUserRole(userId, Set.of(targetRoleId)));
     }
 
     @Test

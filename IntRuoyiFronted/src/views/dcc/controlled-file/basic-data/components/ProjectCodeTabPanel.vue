@@ -386,7 +386,7 @@
             label="关联文档"
             prop="actions"
             fixed="right"
-            :width="getProjectCodeColumnWidthString('actions', 240)"
+            :width="getProjectCodeColumnWidthString('actions', 360)"
           >
             <template #default="{ row }">
               <el-button
@@ -414,6 +414,23 @@
                 @click="openProjectCodeDetail(row)"
               >
                 详情
+              </el-button>
+              <el-button
+                v-if="row.productMasterId"
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                @click="openLinkedProductManagement(row)"
+              >
+                产品
+              </el-button>
+              <el-button
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                @click="openLinkedRegistrationCertificateManagement(row)"
+              >
+                注册证
               </el-button>
             </template>
           </el-table-column>
@@ -1286,7 +1303,7 @@ const projectCodeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'mainBatchRecordStatus', label: '主批记录', width: 150 },
   { key: 'qaRegulationStatus', label: 'QA规程', width: 130 },
   { key: 'updateTime', label: '更新时间', width: 180 },
-  { key: 'actions', label: '关联文档', width: 240, hideable: false, business: false }
+  { key: 'actions', label: '关联文档', width: 360, hideable: false, business: false }
 ]
 
 const {
@@ -1904,6 +1921,7 @@ type DccProjectCodePageQuery = DccProjectCodePageReqVO & {
 const queryParams = reactive<DccProjectCodePageQuery>({
   pageNo: 1,
   pageSize: 10,
+  productMasterId: undefined,
   keyword: undefined,
   projectName: undefined,
   projectCode: undefined,
@@ -1915,8 +1933,29 @@ const queryParams = reactive<DccProjectCodePageQuery>({
   qaRegulationConfigured: undefined
 })
 
-const resolveQueryProjectCodeId = () =>
-  Array.isArray(route.query.projectCodeId) ? route.query.projectCodeId[0] : route.query.projectCodeId
+const POSITIVE_INTEGER_TEXT = /^[1-9]\d*$/
+
+const resolveRouteQueryText = (value: unknown) => {
+  const rawValue = Array.isArray(value) ? value[0] : value
+  if (rawValue === undefined || rawValue === null) {
+    return undefined
+  }
+  const text = String(rawValue).trim()
+  return POSITIVE_INTEGER_TEXT.test(text) ? text : undefined
+}
+
+const resolvePositiveRouteQueryText = (value: unknown) => {
+  return resolveRouteQueryText(value)
+}
+
+const resolveQueryProjectCodeId = () => resolvePositiveRouteQueryText(route.query.projectCodeId)
+
+const syncProjectCodeQueryFromRoute = () => {
+  queryParams.productMasterId = resolveRouteQueryText(route.query.productMasterId)
+  if (queryParams.productMasterId) {
+    queryParams.pageNo = 1
+  }
+}
 
 const resolveQueryAssociatedFileId = () => {
   const raw = Array.isArray(route.query.associatedFileId)
@@ -2068,6 +2107,23 @@ const openQaRegulation = (row: DccProjectCodeRespVO) => {
   router.push({
     name: 'MesProProcessPoolQaRegulation',
     query: { dccProjectCodeId: String(row.id) }
+  })
+}
+
+const openLinkedProductManagement = (row: DccProjectCodeRespVO) => {
+  if (!row.productMasterId) {
+    return
+  }
+  router.push({
+    path: '/mdm/product',
+    query: { productMasterId: String(row.productMasterId) }
+  })
+}
+
+const openLinkedRegistrationCertificateManagement = (row: DccProjectCodeRespVO) => {
+  router.push({
+    path: '/mdm/registration-certificate',
+    query: { projectCodeId: String(row.id) }
   })
 }
 
@@ -2989,17 +3045,10 @@ const syncDetailFromRoute = async () => {
     associatedFilesLoading.value = false
     return
   }
-  const id = Number(queryProjectCodeId)
-  if (!Number.isFinite(id)) {
-    detailRequestSequence += 1
-    detailDrawerVisible.value = false
-    detailLoading.value = false
-    associatedFilesLoading.value = false
-    return
-  }
+  const id = queryProjectCodeId
   const requestToken = ++detailRequestSequence
   detailDrawerVisible.value = true
-  const hasCurrentProjectCode = Number(selectedProjectCode.value?.id) === id
+  const hasCurrentProjectCode = String(selectedProjectCode.value?.id || '') === id
   if (!hasCurrentProjectCode) {
     selectedProjectCode.value = null
     resetAssociatedFilesState()
@@ -3026,8 +3075,8 @@ const syncDetailFromRoute = async () => {
 const openProjectCodeDetail = async (projectCode: DccProjectCodeRespVO | number | string) => {
   const projectCodeId =
     typeof projectCode === 'object' && projectCode !== null ? projectCode.id : projectCode
-  const id = Number(projectCodeId)
-  if (!Number.isFinite(id)) {
+  const id = resolvePositiveRouteQueryText(projectCodeId)
+  if (!id) {
     return
   }
   if (typeof projectCode === 'object' && projectCode !== null) {
@@ -3038,7 +3087,7 @@ const openProjectCodeDetail = async (projectCode: DccProjectCodeRespVO | number 
   detailDrawerVisible.value = true
   await router.replace({
     path: '/mdm/project-code',
-    query: { ...route.query, projectCodeId: String(id) }
+    query: { ...route.query, projectCodeId: id }
   })
 }
 
@@ -3073,6 +3122,7 @@ const importActionTagType = (action: string) => {
 }
 
 onMounted(async () => {
+  syncProjectCodeQueryFromRoute()
   await ensureLoaded()
   await syncDetailFromRoute()
   await restoreLatestBatchAiCategoryTask()
@@ -3081,6 +3131,16 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   stopBatchAiCategoryPolling()
 })
+
+watch(
+  () => route.query.productMasterId,
+  async () => {
+    syncProjectCodeQueryFromRoute()
+    if (hasLoaded.value) {
+      await getList()
+    }
+  }
+)
 
 watch(
   () => route.query.projectCodeId,

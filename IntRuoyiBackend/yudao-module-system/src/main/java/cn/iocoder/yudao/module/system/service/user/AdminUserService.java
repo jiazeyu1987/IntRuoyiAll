@@ -59,6 +59,20 @@ public interface AdminUserService {
     void updateUserLogin(Long id, String loginIp);
 
     /**
+     * 记录用户登录失败
+     *
+     * @param id 用户编号
+     */
+    void recordUserLoginFailure(Long id);
+
+    /**
+     * 清空用户登录失败信息
+     *
+     * @param id 用户编号
+     */
+    void resetUserLoginFailure(Long id);
+
+    /**
      * 修改用户个人信息
      *
      * @param id 用户编号

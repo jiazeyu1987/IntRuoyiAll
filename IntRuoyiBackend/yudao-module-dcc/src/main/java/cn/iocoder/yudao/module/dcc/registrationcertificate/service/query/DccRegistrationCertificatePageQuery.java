@@ -15,6 +15,7 @@ public class DccRegistrationCertificatePageQuery {
     private Integer pageSize = 10;
     private Long ownerCompanyId;
     private Long productMasterId;
+    private Long projectCodeId;
     private String status;
     private String certificateNo;
     private Boolean missingProjectCode;

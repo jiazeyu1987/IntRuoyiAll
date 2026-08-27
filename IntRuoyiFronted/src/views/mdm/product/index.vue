@@ -141,7 +141,7 @@
             label="操作"
             prop="actions"
             fixed="right"
-            :width="getProductColumnWidthString('actions', 220)"
+            :width="getProductColumnWidthString('actions', 320)"
           >
             <template #default="{ row }">
               <el-button
@@ -160,6 +160,22 @@
                 @click="handleReferences(row)"
               >
                 引用
+              </el-button>
+              <el-button
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                @click="openLinkedProjectCodeManagement(row)"
+              >
+                项目代码
+              </el-button>
+              <el-button
+                link
+                class="scheme-d-row-action scheme-d-row-action--primary"
+                type="primary"
+                @click="openLinkedRegistrationCertificateManagement(row)"
+              >
+                注册证
               </el-button>
               <el-button
                 link
@@ -317,6 +333,7 @@ import {
   useTableQuickFilter,
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
+import { useRoute, useRouter } from 'vue-router'
 import * as ProductApi from '@/api/mdm/product'
 import type {
   MdmProductImportPreviewRespVO,
@@ -326,6 +343,9 @@ import type {
 } from '@/api/mdm/product'
 
 defineOptions({ name: 'MdmProduct' })
+
+const route = useRoute()
+const router = useRouter()
 
 const productQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
@@ -362,7 +382,7 @@ const productDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'category', label: '分类', minWidth: 130 },
   { key: 'status', label: '状态', width: 100 },
   { key: 'updateTime', label: '更新时间', width: 180 },
-  { key: 'actions', label: '操作', width: 220, hideable: false, business: false }
+  { key: 'actions', label: '操作', width: 320, hideable: false, business: false }
 ]
 
 const {
@@ -389,6 +409,7 @@ type MdmProductPageQuery = ProductApi.MdmProductPageReqVO & {
 const queryParams = reactive<MdmProductPageQuery>({
   pageNo: 1,
   pageSize: 10,
+  productMasterId: undefined,
   keyword: undefined,
   productCode: undefined,
   status: undefined
@@ -452,6 +473,23 @@ const importActionTagType = (action: string) =>
     DISABLE: 'info',
     INVALID: 'danger'
   })[action] || ''
+
+const resolveRouteQueryText = (value: unknown) => {
+  const rawValue = Array.isArray(value) ? value[0] : value
+  if (rawValue === undefined || rawValue === null) {
+    return undefined
+  }
+  const text = String(rawValue).trim()
+  return /^[1-9]\d*$/.test(text) ? text : undefined
+}
+
+const syncProductQueryFromRoute = () => {
+  queryParams.productMasterId = resolveRouteQueryText(route.query.productMasterId)
+  if (queryParams.productMasterId) {
+    queryParams.pageNo = 1
+  }
+}
+
 const getList = async () => {
   loading.value = true
   try {
@@ -619,7 +657,32 @@ const handleReferences = async (row: MdmProductRespVO) => {
   referenceVisible.value = true
 }
 
-onMounted(getList)
+const openLinkedProjectCodeManagement = (row: MdmProductRespVO) => {
+  router.push({
+    path: '/mdm/project-code',
+    query: { productMasterId: String(row.id) }
+  })
+}
+
+const openLinkedRegistrationCertificateManagement = (row: MdmProductRespVO) => {
+  router.push({
+    path: '/mdm/registration-certificate',
+    query: { productMasterId: String(row.id) }
+  })
+}
+
+onMounted(() => {
+  syncProductQueryFromRoute()
+  void getList()
+})
+
+watch(
+  () => route.query.productMasterId,
+  async () => {
+    syncProductQueryFromRoute()
+    await getList()
+  }
+)
 </script>
 
 <style scoped>

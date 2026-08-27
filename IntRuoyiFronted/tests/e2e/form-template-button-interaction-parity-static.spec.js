@@ -35,13 +35,18 @@ assert.match(
 )
 assert.match(
   templatePage,
-  /const\s+editSelectedTemplate\s*=[\s\S]*?openSelectedTemplateWorkspace\('edit'\)/,
-  '“编辑”必须进入当前模板的同页编辑工作区'
+  /@click="openDesigner\(selectedTemplate,\s*'edit'\)"/,
+  '“编辑”必须直接进入当前模板的同页编辑工作区'
 )
 assert.match(
   templatePage,
-  /const\s+openSelectedTemplateWorkspace\s*=[\s\S]*?path:\s*route\.path[\s\S]*?mode:\s*'designer'[\s\S]*?templateMode/,
-  '同页 DesignerWrapper 必须保留当前页面路径并使用模板自身模式参数'
+  /const\s+openDesigner\s*=\s*async\s*\([\s\S]*?templateMode:\s*'preview'\s*\|\s*'edit'\s*=\s*'preview'[\s\S]*?path:\s*route\.path[\s\S]*?templateId:\s*template\.templateId[\s\S]*?versionNo:\s*template\.versionNo[\s\S]*?mode:\s*'designer'[\s\S]*?templateMode/,
+  '同页 DesignerWrapper 必须由 openDesigner 保留当前页面路径并使用模板自身模式参数'
+)
+assert.match(
+  templatePage,
+  /const\s+openSelectedTemplateWorkspace\s*=\s*async\s*\(templateMode:\s*'preview'\s*\|\s*'edit'\)\s*=>\s*\{[\s\S]*?openDesigner\(selectedTemplate\.value,\s*templateMode\)/,
+  'openSelectedTemplateWorkspace 必须转调 openDesigner，避免重复维护路由细节'
 )
 assert.match(
   templatePage,

@@ -14,6 +14,7 @@ public class DccRegistrationCertificatePageReqVO extends PageParam {
 
     private Long ownerCompanyId;
     private Long productMasterId;
+    private Long projectCodeId;
     private String status;
     private String certificateNo;
     private Boolean missingProjectCode;
@@ -42,6 +43,7 @@ public class DccRegistrationCertificatePageReqVO extends PageParam {
                 .pageSize(getPageSize())
                 .ownerCompanyId(ownerCompanyId)
                 .productMasterId(productMasterId)
+                .projectCodeId(projectCodeId)
                 .status(status)
                 .certificateNo(certificateNo)
                 .missingProjectCode(missingProjectCode)

@@ -35,6 +35,7 @@ import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import com.google.common.annotations.VisibleForTesting;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.mzt.logapi.context.LogRecordContext;
 import com.mzt.logapi.service.impl.DiffParseFunction;
 import com.mzt.logapi.starter.annotation.LogRecord;
@@ -67,6 +68,8 @@ public class AdminUserServiceImpl implements AdminUserService {
     static final String USER_INIT_PASSWORD_KEY = "system.user.init-password";
 
     static final String USER_REGISTER_ENABLED_KEY = "system.user.register-enabled";
+
+    static final int USER_LOGIN_FAILURE_LOCK_THRESHOLD = 5;
 
     @Resource
     private AdminUserMapper userMapper;
@@ -194,6 +197,28 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Override
     public void updateUserLogin(Long id, String loginIp) {
         userMapper.updateById(new AdminUserDO().setId(id).setLoginIp(loginIp).setLoginDate(LocalDateTime.now()));
+    }
+
+    @Override
+    public void recordUserLoginFailure(Long id) {
+        AdminUserDO user = validateUserExists(id);
+        int failureCount = Optional.ofNullable(user.getLoginFailureCount()).orElse(0) + 1;
+        AdminUserDO updateObj = new AdminUserDO().setId(id).setLoginFailureCount(failureCount);
+        if (failureCount >= USER_LOGIN_FAILURE_LOCK_THRESHOLD) {
+            updateObj.setLoginLocked(1);
+            updateObj.setLoginLockedTime(LocalDateTime.now());
+        }
+        userMapper.updateById(updateObj);
+    }
+
+    @Override
+    public void resetUserLoginFailure(Long id) {
+        validateUserExists(id);
+        userMapper.update(null, Wrappers.lambdaUpdate(AdminUserDO.class)
+                .eq(AdminUserDO::getId, id)
+                .set(AdminUserDO::getLoginFailureCount, 0)
+                .set(AdminUserDO::getLoginLocked, 0)
+                .set(AdminUserDO::getLoginLockedTime, null));
     }
 
     @Override

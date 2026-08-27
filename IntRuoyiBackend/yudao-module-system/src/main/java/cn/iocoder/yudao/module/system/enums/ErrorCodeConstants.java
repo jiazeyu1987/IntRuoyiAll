@@ -12,6 +12,7 @@ public interface ErrorCodeConstants {
     // ========== AUTH 模块 1-002-000-000 ==========
     ErrorCode AUTH_LOGIN_BAD_CREDENTIALS = new ErrorCode(1_002_000_000, "登录失败，账号密码不正确");
     ErrorCode AUTH_LOGIN_USER_DISABLED = new ErrorCode(1_002_000_001, "登录失败，账号被禁用");
+    ErrorCode AUTH_LOGIN_USER_LOCKED = new ErrorCode(1_002_000_010, "登录失败，账号已锁定");
     ErrorCode AUTH_LOGIN_CAPTCHA_CODE_ERROR = new ErrorCode(1_002_000_004, "验证码不正确，原因：{}");
     ErrorCode AUTH_THIRD_LOGIN_NOT_BIND = new ErrorCode(1_002_000_005, "未绑定账号，需要进行绑定");
     ErrorCode AUTH_MOBILE_NOT_EXISTS = new ErrorCode(1_002_000_007, "手机号不存在");
@@ -93,6 +94,7 @@ public interface ErrorCodeConstants {
     ErrorCode USER_PASSWORD_STRENGTH_INVALID = new ErrorCode(1_002_003_021, "密码强度不足，至少 8 位且必须包含英文和数字");
     ErrorCode USER_TABLE_COLUMN_CONFIG_INVALID = new ErrorCode(1_002_003_022, "用户列表列配置非法");
     ErrorCode PROFILE_WORKBENCH_TASK_VISIBILITY_INVALID = new ErrorCode(1_002_003_023, "个人工作台任务隐藏配置非法");
+    ErrorCode USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN = new ErrorCode(1_002_003_024, "普通用户不能被分配管理员或日志权限");
 
     // ========== 部门模块 1-002-004-000 ==========
     ErrorCode DEPT_NAME_DUPLICATE = new ErrorCode(1_002_004_000, "已经存在该名字的部门");

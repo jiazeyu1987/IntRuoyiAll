@@ -89,6 +89,18 @@ public class AdminUserDO extends TenantBaseDO {
      */
     private Integer status;
     /**
+     * 登录失败次数
+     */
+    private Integer loginFailureCount;
+    /**
+     * 登录锁定标记，0-未锁定，1-锁定
+     */
+    private Integer loginLocked;
+    /**
+     * 登录锁定时间
+     */
+    private LocalDateTime loginLockedTime;
+    /**
      * 最后登录IP
      */
     private String loginIp;

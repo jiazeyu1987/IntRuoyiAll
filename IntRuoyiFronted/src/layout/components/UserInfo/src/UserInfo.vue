@@ -3,6 +3,7 @@ import { ElMessageBox } from 'element-plus'
 
 import avatarImg from '@/assets/imgs/default-avatar.png'
 import { useDesign } from '@/hooks/web/useDesign'
+import { useIdleLogout } from '@/hooks/web/useIdleLogout'
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { useUserStore } from '@/store/modules/user'
 import LockDialog from './components/LockDialog.vue'
@@ -22,6 +23,8 @@ const tagsViewStore = useTagsViewStore()
 const { getPrefixCls } = useDesign()
 
 const prefixCls = getPrefixCls('user-info')
+
+useIdleLogout()
 
 const avatar = computed(() => userStore.user.avatar || avatarImg)
 const userName = computed(() => userStore.user.nickname ?? 'Admin')
@@ -43,6 +46,7 @@ const loginOut = async () => {
     })
     await userStore.loginOut()
     tagsViewStore.delAllViews()
+    lockStore.resetLockInfo()
     replace('/login?redirect=/user/profile')
   } catch {}
 }

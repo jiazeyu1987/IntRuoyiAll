@@ -88,14 +88,19 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             createLoginLog(null, username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
             throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
         }
-        if (!userService.isPasswordMatch(password, user.getPassword())) {
-            createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
-            throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
-        }
         // 校验是否禁用
         if (CommonStatusEnum.isDisable(user.getStatus())) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.USER_DISABLED);
             throw exception(AUTH_LOGIN_USER_DISABLED);
+        }
+        if (Objects.equals(user.getLoginLocked(), 1)) {
+            createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.USER_LOCKED);
+            throw exception(AUTH_LOGIN_USER_LOCKED);
+        }
+        if (!userService.isPasswordMatch(password, user.getPassword())) {
+            userService.recordUserLoginFailure(user.getId());
+            createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
+            throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
         }
         if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now())) {
             createLoginLog(user.getId(), username, logTypeEnum, LoginResultEnum.PASSWORD_EXPIRED);
@@ -213,6 +218,8 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     }
 
     private AuthLoginRespVO createTokenAfterLoginSuccess(Long userId, String username, LoginLogTypeEnum logType) {
+        // 清空登录失败次数
+        userService.resetUserLoginFailure(userId);
         // 插入登陆日志
         createLoginLog(userId, username, logType, LoginResultEnum.SUCCESS);
         // 创建访问令牌

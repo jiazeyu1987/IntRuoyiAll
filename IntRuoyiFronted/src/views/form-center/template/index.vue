@@ -175,7 +175,7 @@
               link
               class="scheme-d-row-action scheme-d-row-action--primary"
               type="primary"
-              @click="editSelectedTemplate"
+              @click="openDesigner(selectedTemplate, 'edit')"
             >
               编辑
             </el-button>
@@ -1110,6 +1110,19 @@ const handleDraftVersionReady = async (response: FormTemplateFillRuleAutoDetectR
     return
   }
   await getList()
+  let resolvedRow = list.value.find(
+    (item) => item.templateId === response.templateId && item.versionNo === response.versionNo
+  )
+  if (!resolvedRow) {
+    resolvedRow = await TemplateApi.getTemplateVersion(response.templateId, response.versionNo)
+    if (!resolvedRow) {
+      throw new Error(`未找到 AI 自动识别生成的草稿版本 ${response.templateId}/${response.versionNo}。`)
+    }
+    list.value = [
+      resolvedRow,
+      ...list.value.filter((item) => templateRowKey(item) !== templateRowKey(resolvedRow))
+    ]
+  }
   selectTemplateVersion(response.templateId, response.versionNo)
 }
 
@@ -1139,18 +1152,21 @@ const selectedTemplateObsoletePending = computed(() => {
   return obsoletePendingByTemplateKey.value[templateRowKey(selectedTemplate.value)] || null
 })
 
-const openSelectedTemplateWorkspace = async (templateMode: 'preview' | 'edit') => {
-  if (!selectedTemplate.value) return
-  const row = selectedTemplate.value
+const openDesigner = async (template: FormTemplateListItemVO, templateMode: 'preview' | 'edit' = 'preview') => {
   await router.push({
     path: route.path,
     query: {
-      templateId: row.templateId,
-      versionNo: row.versionNo,
+      templateId: template.templateId,
+      versionNo: template.versionNo,
       mode: 'designer',
       templateMode
     }
   })
+}
+
+const openSelectedTemplateWorkspace = async (templateMode: 'preview' | 'edit') => {
+  if (!selectedTemplate.value) return
+  await openDesigner(selectedTemplate.value, templateMode)
 }
 
 const openSelectedTemplate = async () => {
@@ -1448,7 +1464,7 @@ const saveSelectedTemplateFillConfig = async (data: FormTemplateFillConfigSavePa
 const openEditorFromSignatureDialog = () => {
   if (!selectedTemplate.value) return
   signatureDialogVisible.value = false
-  void openSelectedTemplateWorkspace('edit')
+  void openDesigner(selectedTemplate.value, 'edit')
 }
 
 const handleTemplatePreviewSignatureAction = (_context: TemplateEditableCellContext) => {

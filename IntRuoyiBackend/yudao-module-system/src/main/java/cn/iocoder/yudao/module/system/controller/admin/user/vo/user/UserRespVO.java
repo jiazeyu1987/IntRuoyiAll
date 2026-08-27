@@ -61,6 +61,18 @@ public class UserRespVO{
     @DictFormat(DictTypeConstants.COMMON_STATUS)
     private Integer status;
 
+    @Schema(description = "登录失败次数", example = "3")
+    @ExcelProperty("登录失败次数")
+    private Integer loginFailureCount;
+
+    @Schema(description = "登录锁定状态，0-未锁定，1-锁定", example = "1")
+    @ExcelProperty("登录锁定状态")
+    private Integer loginLocked;
+
+    @Schema(description = "登录锁定时间", example = "时间戳格式")
+    @ExcelProperty("登录锁定时间")
+    private LocalDateTime loginLockedTime;
+
     @Schema(description = "最后登录 IP", requiredMode = Schema.RequiredMode.REQUIRED, example = "192.168.1.1")
     @ExcelProperty("最后登录IP")
     private String loginIp;

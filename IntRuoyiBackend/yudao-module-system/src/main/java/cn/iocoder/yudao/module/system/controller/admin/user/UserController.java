@@ -101,6 +101,15 @@ public class UserController {
         return success(true);
     }
 
+    @PutMapping("/unlock")
+    @Operation(summary = "解锁用户")
+    @Parameter(name = "id", description = "编号", required = true, example = "1024")
+    @PreAuthorize("@ss.hasPermission('system:user:update')")
+    public CommonResult<Boolean> unlockUser(@RequestParam("id") Long id) {
+        userService.resetUserLoginFailure(id);
+        return success(true);
+    }
+
     @GetMapping("/page")
     @Operation(summary = "获得用户分页列表")
     @PreAuthorize("@ss.hasPermission('system:user:query')")

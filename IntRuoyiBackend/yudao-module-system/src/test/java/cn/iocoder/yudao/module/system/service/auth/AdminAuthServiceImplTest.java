@@ -116,13 +116,34 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
                 .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus()));
         when(userService.getUserByUsername(eq(username))).thenReturn(user);
+        when(userService.isPasswordMatch(eq(password), eq(user.getPassword()))).thenReturn(false);
 
         // 调用, 并断言异常
         assertServiceException(() -> authService.authenticate(username, password),
                 AUTH_LOGIN_BAD_CREDENTIALS);
+        verify(userService).recordUserLoginFailure(eq(user.getId()));
         verify(loginLogService).createLoginLog(
                 argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
                         && o.getResult().equals(LoginResultEnum.BAD_CREDENTIALS.getResult())
+                        && o.getUserId().equals(user.getId()))
+        );
+    }
+
+    @Test
+    public void testAuthenticate_userLocked() {
+        String username = randomString();
+        String password = randomString();
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setUsername(username)
+                .setPassword(password).setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(1));
+        when(userService.getUserByUsername(eq(username))).thenReturn(user);
+
+        assertServiceException(() -> authService.authenticate(username, password),
+                AUTH_LOGIN_USER_LOCKED);
+        verify(userService, never()).isPasswordMatch(anyString(), anyString());
+        verify(loginLogService).createLoginLog(
+                argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
+                        && o.getResult().equals(LoginResultEnum.USER_LOCKED.getResult())
                         && o.getUserId().equals(user.getId()))
         );
     }
@@ -199,6 +220,7 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
                         && o.getResult().equals(LoginResultEnum.SUCCESS.getResult())
                         && o.getUserId().equals(user.getId()))
         );
+        verify(userService).resetUserLoginFailure(eq(user.getId()));
         verify(socialUserService).bindSocialUser(eq(new SocialUserBindReqDTO(
                 user.getId(), UserTypeEnum.ADMIN.getValue(),
                 reqVO.getSocialType(), reqVO.getSocialCode(), reqVO.getSocialState())));
