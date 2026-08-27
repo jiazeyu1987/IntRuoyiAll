@@ -151,6 +151,8 @@ public interface MesProBatchRecordReportService {
 
     BatchRecordReportCellRulesRespVO getCellRules(String reportId);
 
+    BatchRecordReportCellRulesRespVO formalizeCellRules(String reportId);
+
     BatchRecordReportCellRulesRespVO saveCellRules(BatchRecordReportCellRulesReqVO reqVO);
 
     void renameGeneratedReport(String reportId, String reportName);

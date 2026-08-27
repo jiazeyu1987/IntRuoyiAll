@@ -199,6 +199,15 @@ public class MesProBatchRecordReportController {
         return success(batchRecordReportService.getCellRules(reportId));
     }
 
+    @PostMapping("/cell-rules/formalize")
+    @Operation(summary = "正式化电子批记录报表单元格规则")
+    @Parameter(name = "reportId", description = "积木报表 ID", required = true)
+    @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-template:update')")
+    public CommonResult<BatchRecordReportCellRulesRespVO> formalizeCellRules(
+            @RequestParam("reportId") String reportId) {
+        return success(batchRecordReportService.formalizeCellRules(reportId));
+    }
+
     @PutMapping("/cell-rules")
     @Operation(summary = "保存电子批记录报表单元格填写规则")
     @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-template:update')")

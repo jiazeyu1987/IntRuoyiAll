@@ -325,7 +325,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         } else {
             capture.setSourceCredentialId(requiredText(metadata, "sourceCredentialId"))
                     .setSourceCredentialHash(requiredText(metadata, "sourceCredentialHash"))
-                    capture.setBatchProvisionReceiptId(optionalLong(metadata, "batchProvisionReceiptId"))
+                    .setBatchProvisionReceiptId(optionalLong(metadata, "batchProvisionReceiptId"))
                     .setBatchProvisionStatus(metadata.getString("batchProvisionStatus"));
         }
         return capture;

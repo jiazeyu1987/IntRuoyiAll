@@ -1758,6 +1758,19 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public BatchRecordReportCellRulesRespVO formalizeCellRules(String reportId) {
+        MesProBatchRecordReportDO metadata = requireMetadata(reportId);
+        BatchRecordReportCellRulesRespVO current = getCellRules(reportId);
+        JSONObject root = parseReportJson(reportId);
+        applyFormalizedCellRules(root, metadata.getReportCode(), current.getSuggestions().stream()
+                .map(this::toFormalizedCellRule)
+                .toList());
+        jimuReportGateway.updateReportJson(reportId, root.toJSONString());
+        return toCellRulesRespVO(reportId, root);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public BatchRecordReportCellRulesRespVO saveCellRules(BatchRecordReportCellRulesReqVO reqVO) {
         MesProBatchRecordReportDO metadata = requireMetadata(reqVO.getReportId());
         JSONObject root = parseReportJson(reqVO.getReportId());
@@ -1788,6 +1801,44 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         }
         jimuReportGateway.updateReportJson(reqVO.getReportId(), root.toJSONString());
         return toCellRulesRespVO(reqVO.getReportId(), root);
+    }
+
+    private BatchRecordReportCellRuleVO toFormalizedCellRule(BatchRecordReportCellRuleVO rule) {
+        return new BatchRecordReportCellRuleVO()
+                .setRowIndex(rule.getRowIndex())
+                .setColumnIndex(rule.getColumnIndex())
+                .setValueType(rule.getValueType())
+                .setComponentFlag(rule.getComponentFlag())
+                .setRequired(rule.getRequired())
+                .setLabel(rule.getLabel())
+                .setPlaceholder(rule.getPlaceholder())
+                .setHelpText(rule.getHelpText())
+                .setConstraints(rule.getConstraints() == null ? Map.of() : new LinkedHashMap<>(rule.getConstraints()))
+                .setAttachmentRule(rule.getAttachmentRule() == null ? null : new LinkedHashMap<>(rule.getAttachmentRule()))
+                .setUnit(rule.getUnit())
+                .setSource("MANUAL")
+                .setConfidence(1.0)
+                .setReviewed(true);
+    }
+
+    private void applyFormalizedCellRules(JSONObject root, String reportCode, List<BatchRecordReportCellRuleVO> rules) {
+        clearCellRules(root);
+        for (BatchRecordReportCellRuleVO rule : rules) {
+            JSONObject cell = MesProBatchRecordCellRuleSupport.requireCell(root, rule.getRowIndex(), rule.getColumnIndex());
+            if (cell == null) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_CELL_RULE_CELL_MISSING,
+                        rule.getRowIndex(), rule.getColumnIndex());
+            }
+            try {
+                MesProBatchRecordCellRuleSupport.ensureManualFillForm(rule, cell, reportCode);
+                MesProBatchRecordCellRuleSupport.validateRule(rule, cell);
+            } catch (IllegalArgumentException ex) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_CELL_RULE_INVALID,
+                        ex.getMessage());
+            }
+            cell.put(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY,
+                    MesProBatchRecordCellRuleSupport.toRuleJson(rule));
+        }
     }
 
     @Override

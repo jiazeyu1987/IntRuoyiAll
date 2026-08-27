@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -42,6 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Answers.RETURNS_DEFAULTS;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -260,6 +263,38 @@ class MesProBatchRecordReportControllerTest {
                 deleteByNameMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
         assertEquals("false",
                 deleteByNameMethod.getParameters()[1].getAnnotation(RequestParam.class).defaultValue());
+    }
+
+    @Test
+    void formalizeCellRulesDelegatesToService() throws Exception {
+        BatchRecordReportCellRulesRespVO expected = new BatchRecordReportCellRulesRespVO();
+        MesProBatchRecordReportService localReportService = mock(MesProBatchRecordReportService.class, invocation -> {
+            if ("formalizeCellRules".equals(invocation.getMethod().getName())) {
+                return expected;
+            }
+            return RETURNS_DEFAULTS.answer(invocation);
+        });
+        MesProBatchRecordReportController localController = new MesProBatchRecordReportController();
+        Field serviceField = MesProBatchRecordReportController.class.getDeclaredField("batchRecordReportService");
+        serviceField.setAccessible(true);
+        serviceField.set(localController, localReportService);
+
+        Method formalizeMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
+                "formalizeCellRules", String.class);
+        CommonResult<BatchRecordReportCellRulesRespVO> response =
+                (CommonResult<BatchRecordReportCellRulesRespVO>) formalizeMethod.invoke(localController, "report-1");
+
+        assertSame(expected, response.getData());
+    }
+
+    @Test
+    void contractMappings_exposeCellRuleFormalizationEndpoint() throws Exception {
+        Method formalizeMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
+                "formalizeCellRules", String.class);
+        assertArrayEquals(new String[]{"/cell-rules/formalize"}, formalizeMethod.getAnnotation(PostMapping.class).value());
+        assertEquals("reportId", formalizeMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertEquals("@ss.hasPermission('mes:pro-batch-record-template:update')",
+                formalizeMethod.getAnnotation(PreAuthorize.class).value());
     }
 
     @Test

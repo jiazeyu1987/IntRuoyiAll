@@ -74,6 +74,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.lang.reflect.Method;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.math.BigDecimal;
@@ -5573,6 +5574,53 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void formalizeCellRules_promotesRecognizedTypesAndIsIdempotent() throws Exception {
+        MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
+                46L, "sample-formalize-cell-rules", 1, "formalize-cell-rule-report-1",
+                "EBR_RULE_T04", "正式化表", PILOT_FILE_NAME);
+        reportMapper.insert(report);
+        AtomicReference<String> reportJson = new AtomicReference<>(sampleFormalizeCellRuleReportJson());
+        when(jimuReportGateway.getReportJson("formalize-cell-rule-report-1")).thenAnswer(invocation -> reportJson.get());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            reportJson.set(invocation.getArgument(1));
+            return null;
+        }).when(jimuReportGateway).updateReportJson(eq("formalize-cell-rule-report-1"), any());
+
+        Method formalizeMethod = MesProBatchRecordReportService.class.getMethod("formalizeCellRules", String.class);
+        BatchRecordReportCellRulesRespVO first = (BatchRecordReportCellRulesRespVO)
+                formalizeMethod.invoke(reportService, "formalize-cell-rule-report-1");
+        String afterFirstFormalize = reportJson.get();
+        BatchRecordReportCellRulesRespVO second = (BatchRecordReportCellRulesRespVO)
+                formalizeMethod.invoke(reportService, "formalize-cell-rule-report-1");
+
+        assertEquals(3, first.getRules().size());
+        assertEquals("DATE", first.getRules().stream()
+                .filter(rule -> rule.getRowIndex() == 0 && rule.getColumnIndex() == 1)
+                .findFirst()
+                .orElseThrow()
+                .getValueType());
+        assertEquals("SIGNATURE", first.getRules().stream()
+                .filter(rule -> rule.getRowIndex() == 1 && rule.getColumnIndex() == 1)
+                .findFirst()
+                .orElseThrow()
+                .getValueType());
+        assertEquals("STRING", first.getRules().stream()
+                .filter(rule -> rule.getRowIndex() == 2 && rule.getColumnIndex() == 1)
+                .findFirst()
+                .orElseThrow()
+                .getValueType());
+        assertEquals("MANUAL", JSONObject.parseObject(afterFirstFormalize)
+                .getJSONObject("rows").getJSONObject("0").getJSONObject("cells").getJSONObject("1")
+                .getJSONObject("edhrCellRule").getString("source"));
+        assertEquals("SIGNATURE", JSONObject.parseObject(afterFirstFormalize)
+                .getJSONObject("rows").getJSONObject("1").getJSONObject("cells").getJSONObject("1")
+                .getJSONObject("edhrCellRule").getString("valueType"));
+        assertEquals(afterFirstFormalize, reportJson.get());
+        assertEquals(3, second.getRules().size());
+        assertEquals(afterFirstFormalize, reportJson.get());
+    }
+
+    @Test
     void saveCellRules_createsAndRemovesManualFillFormForPlainRealCell() {
         MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
                 44L, "sample-plain-cell-rule", 1, "plain-cell-rule-report-1", "EBR_RULE_T04",
@@ -6182,6 +6230,42 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                   "fillFormInfo":{"layout":{"direction":"horizontal","width":160,"height":32}},
                   "printConfig":{"paper":"A4"},
                   "dataRectWidth":260
+                }
+                """;
+    }
+
+    private String sampleFormalizeCellRuleReportJson() {
+        return """
+                {
+                  "name":"formalize-cell-rule-demo",
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"生产日期"},
+                        "1":{"text":"","fillForm":{"field":"ebr_formalize_r0_c1","component":"Input","componentFlag":"input-text","required":false,"label":"","labelText":""}}
+                      },
+                      "height":24
+                    },
+                    "1":{
+                      "cells":{
+                        "0":{"text":"提交签名"},
+                        "1":{"text":"","fillForm":{"field":"ebr_formalize_r1_c1","component":"Input","componentFlag":"signature","required":false,"label":"","labelText":""},"edhrSignature":{"enabled":true,"actionType":"SUBMIT","signatureCellKey":"1:1"}}
+                      },
+                      "height":24
+                    },
+                    "2":{
+                      "cells":{
+                        "0":{"text":"备注"},
+                        "1":{"text":"","fillForm":{"field":"ebr_formalize_r2_c1","component":"Input","componentFlag":"input-text","required":false,"label":"","labelText":""}}
+                      },
+                      "height":24
+                    }
+                  },
+                  "cols":{"0":{"width":120},"1":{"width":160},"len":2},
+                  "merges":[],
+                  "fillFormInfo":{"layout":{"direction":"horizontal","width":160,"height":32}},
+                  "printConfig":{"paper":"A4"},
+                  "dataRectWidth":280
                 }
                 """;
     }
