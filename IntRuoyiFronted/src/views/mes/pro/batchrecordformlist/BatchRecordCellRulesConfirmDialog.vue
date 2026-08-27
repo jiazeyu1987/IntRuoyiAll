@@ -463,6 +463,16 @@
             </el-button>
             <el-button
               size="small"
+              plain
+              :loading="saving"
+              :disabled="!reportId || loading || saving || navigationLoading"
+              data-fill-config-action="formalize"
+              @click="formalizeDetectedCells"
+            >
+              正式化可映射格子
+            </el-button>
+            <el-button
+              size="small"
               type="primary"
               :loading="saving"
               :disabled="!canConfirmRules"
@@ -1818,6 +1828,28 @@ const loadCellRules = async () => {
     message.error(resolved)
   } finally {
     loading.value = false
+  }
+}
+
+const formalizeDetectedCells = async () => {
+  if (!reportId.value) {
+    throw new Error('缺少有效表单ID，无法正式化可映射格子。')
+  }
+  saving.value = true
+  errorMessage.value = ''
+  try {
+    const data = await BatchRecordReportApi.formalizeCellRules(reportId.value)
+    applyCellRulesResponse(data)
+    markEditableStateClean()
+    emit('confirmed', data)
+    message.success('可映射格子已正式化')
+    dialogVisible.value = false
+  } catch (error) {
+    const resolved = resolveErrorMessage(error, '正式化可映射格子失败，请联系管理员。')
+    errorMessage.value = resolved
+    message.error(resolved)
+  } finally {
+    saving.value = false
   }
 }
 

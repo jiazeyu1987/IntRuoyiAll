@@ -428,6 +428,13 @@ export const BatchRecordReportApi = {
     })
   },
 
+  formalizeCellRules: async (reportId: string) => {
+    return await request.post<BatchRecordReportCellRulesRespVO>({
+      url: '/mes/pro/batch-record-report/cell-rules/formalize',
+      params: { reportId }
+    })
+  },
+
   saveCellRules: async (data: BatchRecordReportCellRulesReqVO) => {
     return await request.put<BatchRecordReportCellRulesRespVO>({
       url: '/mes/pro/batch-record-report/cell-rules',
