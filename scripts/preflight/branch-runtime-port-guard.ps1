@@ -71,15 +71,20 @@ Assert-Contains -RelativePath 'docs\branch-runtime-ports.md' -Needles @(
     'E:\IntRuoyiBranch\QMS\IntRuoyiAll',
     '`8061`',
     '`48061`',
-    '`1..50`',
+    '`1..100`',
     '`20..30`',
     '`31..40`',
     '`41..50`',
+    '`51..60`',
+    '`61..70`',
+    '`71..80`',
+    '`81..90`',
+    '`91..100`',
     'reserve-worktree-slot.ps1'
 )
 
 Assert-Contains -RelativePath 'docs\local-runtime.md' -Needles @(
-    'PORT_CONTRACT_VERSION: 2026-08-22-branch-runtime-v6',
+    'PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7',
     '`int_main_d`',
     '`8101`',
     '`48101`',
@@ -95,22 +100,27 @@ Assert-Contains -RelativePath 'docs\local-runtime.md' -Needles @(
     '`int_qms`',
     '`8061`',
     '`48061`',
-    '`1..50`',
+    '`1..100`',
     '`20..30`',
     '31..40',
     '41..50',
+    '51..60',
+    '61..70',
+    '71..80',
+    '81..90',
+    '91..100',
     'reserve-worktree-slot.ps1'
 )
 
 Assert-Contains -RelativePath 'docs\worktree-restrictions.md' -Needles @(
-    'PORT_CONTRACT_VERSION: 2026-08-22-branch-runtime-v6',
+    'PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7',
     '`int_main_d` profile',
     '`int_main` profile',
     '`int_batch` profile',
     '`int_shedule` profile',
     '`int_qms` profile',
     'profile',
-    'slot = 1..50',
+    'slot = 1..100',
     '20..30',
     '31..40',
     '41..50',
@@ -118,20 +128,25 @@ Assert-Contains -RelativePath 'docs\worktree-restrictions.md' -Needles @(
 )
 
 Assert-Contains -RelativePath 'docs\codex-branch-runtime-handoff.md' -Needles @(
-    'PORT_CONTRACT_VERSION: 2026-08-22-branch-runtime-v6',
+    'PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7',
     'reserve-worktree-slot.ps1',
     '`int_main_d`',
-    '`1..50`',
+    '`1..100`',
     '`20..30`',
     '`31..40`',
-    '`41..50`'
+    '`41..50`',
+    '`51..60`',
+    '`61..70`',
+    '`71..80`',
+    '`81..90`',
+    '`91..100`'
 )
 
 Assert-Contains -RelativePath 'AGENTS.md' -Needles @(
     'Branch runtime port matrix',
     'docs\branch-runtime-ports.md',
     'int_main_d=8101/48101',
-    'slot in `1..50`',
+    'slot in `1..100`',
     'reserve-worktree-slot.ps1'
 )
 

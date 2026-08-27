@@ -85,6 +85,8 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     @Resource
     private FormTemplateRecognizer templateRecognizer;
     @Resource
+    private FormTemplateFillRuleAutoDetectService formTemplateFillRuleAutoDetectService;
+    @Resource
     private BpmProcessInstanceApi processInstanceApi;
     @Resource
     private TaskService flowableTaskService;
@@ -278,6 +280,11 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         }
         version.setJimuSchemaJson(reqVO.getJimuSchema());
         templateVersionMapper.updateById(version);
+    }
+
+    @Override
+    public FormTemplateFillRuleAutoDetectRespVO autoDetectTemplateFillRules(Long templateId, String versionNo) {
+        return formTemplateFillRuleAutoDetectService.detect(templateId, versionNo);
     }
 
     @Override

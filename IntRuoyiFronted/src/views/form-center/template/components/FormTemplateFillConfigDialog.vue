@@ -11,7 +11,7 @@
       <main class="batch-record-cell-rules-editor__main-panel">
         <el-alert
           v-if="readonlyMode"
-          title="只有草稿版本可以保存填写配置。"
+          title="AI 自动识别可在任意版本执行；识别后会自动生成或复用草稿版本，应用并保存仍需草稿。"
           type="warning"
           :closable="false"
           show-icon
@@ -195,6 +195,58 @@
               }}
             </p>
           </div>
+
+          <section
+            v-if="activeConfigMode !== 'assistMapping'"
+            class="batch-record-cell-rules-editor__ai-detect-panel"
+          >
+            <div class="batch-record-cell-rules-editor__assist-grid-control-head">
+              <strong>AI 填写规则识别</strong>
+              <p>基于已保存版本识别，先预览候选，人工应用后再点击保存。</p>
+            </div>
+            <el-button
+              class="scheme-d-btn scheme-d-btn--primary"
+              type="primary"
+              plain
+              :loading="autoDetecting"
+              :disabled="aiDetectDisabled"
+              @click="handleAutoDetect"
+            >
+              AI 自动识别
+            </el-button>
+            <el-alert
+              v-if="aiDetectSummary"
+              :title="aiDetectSummary"
+              type="info"
+              :closable="false"
+              show-icon
+            />
+            <div v-if="pendingAiCandidates.length" class="batch-record-cell-rules-editor__ai-candidates">
+              <el-table :data="pendingAiCandidates" size="small" border max-height="220">
+                <el-table-column label="单元格" width="90">
+                  <template #default="scope">
+                    R{{ scope.row.rowIndex + 1 }}C{{ scope.row.columnIndex + 1 }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="label" label="字段" min-width="110" />
+                <el-table-column prop="valueType" label="类型" width="82" />
+                <el-table-column prop="reason" label="识别依据" min-width="180" show-overflow-tooltip />
+              </el-table>
+              <div class="batch-record-cell-rules-editor__ai-actions">
+                <el-button
+                  size="small"
+                  type="primary"
+                  :disabled="readonlyMode"
+                  @click="applyAiCandidates"
+                >
+                  应用识别结果
+                </el-button>
+                <el-button size="small" :disabled="readonlyMode" @click="clearAiCandidates">
+                  清空候选
+                </el-button>
+              </div>
+            </div>
+          </section>
 
           <template v-if="activeConfigMode === 'assistMapping'">
             <section class="batch-record-cell-rules-editor__assist-grid-control">
@@ -603,7 +655,7 @@
           <el-button
             class="scheme-d-btn scheme-d-btn--warning"
             :loading="loading"
-            :disabled="loading || saving"
+            :disabled="loading || saving || autoDetecting"
             @click="reloadTemplateRules"
           >
             重新读取
@@ -632,7 +684,12 @@ import type {
   BatchRecordReportCellValueType,
   BatchRecordReportSignatureCellMarkerVO
 } from '@/api/mes/pro/batchrecordreport'
-import type { FormTemplateListItemVO } from '@/api/form-center/template'
+import {
+  autoDetectTemplateFillRules,
+  type FormTemplateFillRuleCandidateVO,
+  type FormTemplateFillRuleAutoDetectRespVO,
+  type FormTemplateListItemVO
+} from '@/api/form-center/template'
 import type {
   EdhrProcessFormCandidateSourceType,
   EdhrProcessFormCompletionPolicy,
@@ -746,6 +803,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
+  'draft-version-ready': [value: FormTemplateFillRuleAutoDetectRespVO]
   save: [value: FormTemplateFillConfigSavePayload]
 }>()
 
@@ -768,6 +826,10 @@ const assistAssignments = reactive<Record<string, AssistAssignmentDraft>>({})
 const simpleUserOptions = ref<UserVO[]>([])
 const simpleRoleOptions = ref<RoleVO[]>([])
 const sheetLayout = ref<RuleEditorRawLayout | null>(null)
+const autoDetecting = ref(false)
+const pendingAiCandidates = ref<FormTemplateFillRuleCandidateVO[]>([])
+const aiDetectSummary = ref('')
+const preserveAiCandidatesOnReload = ref(false)
 
 const DEFAULT_COLUMN_WIDTH = 150
 const DEFAULT_ROW_HEIGHT = 34
@@ -784,6 +846,9 @@ const templateName = computed(() =>
 )
 const readonlyMode = computed(() => Boolean(props.readonly))
 const saving = computed(() => Boolean(props.saving))
+const aiDetectDisabled = computed(
+  () => loading.value || saving.value || autoDetecting.value
+)
 const valueTypeLabelMap = Object.fromEntries(
   cellRuleValueTypeOptions.map((option) => [option.value, option.label])
 ) as Record<string, string>
@@ -794,9 +859,14 @@ const componentFlagBaseOptions = [
   { label: '日期 date', value: 'date' },
   { label: '日期时间 datetime', value: 'datetime' },
   { label: '复选框 checkbox', value: 'checkbox' },
+  { label: '复选框组 radio-group', value: 'radio-group' },
+  { label: '单选组 option-group', value: 'option-group' },
+  { label: '下拉选择 select', value: 'select' },
   { label: '电子签名 signature', value: 'signature' },
+  { label: '多行文本 textarea', value: 'textarea' },
   { label: '文件上传 upload-file', value: 'upload-file' },
-  { label: '图片上传 upload-image', value: 'upload-image' }
+  { label: '图片上传 upload-image', value: 'upload-image' },
+  { label: '多图片上传 upload-images', value: 'upload-images' }
 ]
 
 const componentFlagOptions = computed(() => {
@@ -1799,8 +1869,8 @@ const normalizedAssistRowsForSave = () => {
     return rows
   }
   const rows = normalizeAssistRows(editableAssistRows.value)
-  if (ruleRows.value.length > 0 && rows.length === 0) {
-    throw new Error('At least one assist row is required for fillable cells.')
+  if (rows.length === 0) {
+    return []
   }
   const assignedCellKeys = new Set<string>()
   rows.forEach((row, rowIndex) => {
@@ -1818,10 +1888,6 @@ const normalizedAssistRowsForSave = () => {
       assignedCellKeys.add(key)
     })
   })
-  const uncoveredRule = ruleRows.value.find((rule) => !assignedCellKeys.has(ruleIdentity(rule)))
-  if (uncoveredRule) {
-    throw new Error(`Cell R${uncoveredRule.rowIndex + 1}C${uncoveredRule.columnIndex + 1} is not assigned to an assist row.`)
-  }
   return rows
 }
 
@@ -1913,9 +1979,84 @@ const loadCandidateOptions = async () => {
   }
 }
 
-const reloadTemplateRules = () => {
+const reloadTemplateRules = (options?: { keepAiCandidates?: boolean }) => {
   applyTemplateRules()
+  if (!options?.keepAiCandidates) {
+    clearAiCandidates()
+  }
   void loadCandidateOptions()
+}
+
+const handleAutoDetect = async () => {
+  if (aiDetectDisabled.value) return
+  const templateId = props.template?.templateId
+  const versionNo = props.template?.versionNo
+  if (!templateId || !versionNo) {
+    errorMessage.value = '当前模板缺少有效的模板编号或版本号，无法执行 AI 识别。'
+    return
+  }
+  autoDetecting.value = true
+  errorMessage.value = ''
+  clearAiCandidates()
+  try {
+    const response = await autoDetectTemplateFillRules(templateId, versionNo)
+    pendingAiCandidates.value = response.candidates || []
+    const switchedToDraft = response.versionNo !== versionNo
+    aiDetectSummary.value = switchedToDraft
+      ? response.candidateCount
+        ? `已识别 ${response.candidateCount} 个候选规则，并已自动生成${response.draftCreated ? '新的' : '复用现有'}草稿版本 ${response.versionNo}。请切换到草稿后应用并保存。`
+        : `未识别到新的未配置填写字段，但已自动生成${response.draftCreated ? '新的' : '复用现有'}草稿版本 ${response.versionNo}。请切换到草稿后继续保存。`
+      : response.candidateCount
+        ? `已识别 ${response.candidateCount} 个候选规则。请检查后点击“应用识别结果”，最后再保存。`
+        : '未识别到新的未配置填写字段。'
+    preserveAiCandidatesOnReload.value = switchedToDraft
+    emit('draft-version-ready', response)
+  } catch (error) {
+    errorMessage.value = resolveErrorMessage(error, 'AI 自动识别失败，现有填写配置未改变。')
+    message.error(errorMessage.value)
+  } finally {
+    autoDetecting.value = false
+  }
+}
+
+const clearAiCandidates = () => {
+  pendingAiCandidates.value = []
+  aiDetectSummary.value = ''
+}
+
+const applyAiCandidates = async () => {
+  if (readonlyMode.value || !pendingAiCandidates.value.length) return
+  await ElMessageBox.confirm(
+    '候选规则只会加入当前草稿编辑状态，不会立即写入服务器。请确认后继续。',
+    '应用 AI 识别结果',
+    { type: 'warning', confirmButtonText: '应用', cancelButtonText: '取消' }
+  )
+  const currentRuleMap = new Map(ruleRows.value.map((rule) => [ruleIdentity(rule), rule]))
+  pendingAiCandidates.value.forEach((candidate) => {
+    const identity = cellIdentity(candidate.rowIndex, candidate.columnIndex)
+    if (currentRuleMap.has(identity)) return
+    currentRuleMap.set(identity, normalizeCellRule({
+      rowIndex: candidate.rowIndex,
+      columnIndex: candidate.columnIndex,
+      label: candidate.label,
+      valueType: candidate.valueType as BatchRecordReportCellValueType,
+      componentFlag: candidate.componentFlag,
+      required: candidate.required,
+      constraints: candidate.constraints,
+      unit: candidate.unit,
+      placeholder: candidate.placeholder,
+      helpText: candidate.helpText,
+      source: 'AI',
+      confidence: candidate.confidence,
+      reviewed: false
+    }))
+  })
+  const appliedCount = pendingAiCandidates.value.length
+  ruleRows.value = Array.from(currentRuleMap.values()).sort((left, right) =>
+    left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex
+  )
+  pendingAiCandidates.value = []
+  aiDetectSummary.value = `已应用 ${appliedCount} 个候选规则到当前编辑状态，请检查后点击“保存填写配置”。`
 }
 
 const confirmAllRules = () => {
@@ -1957,7 +2098,8 @@ watch(
   ] as const,
   ([visible]) => {
     if (!visible) return
-    reloadTemplateRules()
+    reloadTemplateRules({ keepAiCandidates: preserveAiCandidatesOnReload.value })
+    preserveAiCandidatesOnReload.value = false
   },
   { immediate: true }
 )

@@ -104,6 +104,15 @@ includes(fillConfigDialog, 'getSimpleRoleList', '模板填写配置必须复用�
 includes(fillConfigDialog, 'fillAssignments', '模板填写配置必须读写模板自身 fillAssignments。')
 includes(fillConfigDialog, 'assistRows', '模板填写配置必须读写模板自身 assistRows。')
 includes(fillConfigDialog, '只有草稿版本可以保存填写配置。', '非草稿模板必须明确只读保存约束。')
+includes(fillConfigDialog, '复选框组 radio-group', '右侧控件类型必须支持复选框组。')
+includes(fillConfigDialog, '单选组 option-group', '右侧控件类型必须支持单选组。')
+includes(fillConfigDialog, '下拉选择 select', '右侧控件类型必须支持下拉选择。')
+includes(fillConfigDialog, '多行文本 textarea', '右侧控件类型必须支持多行文本。')
+includes(fillConfigDialog, '多图片上传 upload-images', '右侧控件类型必须支持多图片上传。')
+includes(fillConfigDialog, 'if (rows.length === 0) {', '未配置辅助行时必须允许保存单元规则。')
+includes(fillConfigDialog, 'return []', '未配置辅助行时保存空辅助行集合。')
+notIncludes(fillConfigDialog, 'At least one assist row is required for fillable cells.', '单元类型配置不得被辅助行必填校验拦截。')
+notIncludes(fillConfigDialog, 'is not assigned to an assist row.', '普通单元规则保存不得要求全部归属辅助行。')
 
 for (const source of [templatePage, fillConfigDialog, templateApi]) {
   for (const forbidden of [

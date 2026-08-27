@@ -21,6 +21,8 @@ public interface FormCenterRuntimeService {
 
     void saveJimuSchema(Long templateId, String versionNo, FormCenterTemplateJimuSchemaReqVO reqVO);
 
+    FormTemplateFillRuleAutoDetectRespVO autoDetectTemplateFillRules(Long templateId, String versionNo);
+
     void publishTemplate(Long templateId, String versionNo);
 
     void disableTemplate(Long templateId, String versionNo);

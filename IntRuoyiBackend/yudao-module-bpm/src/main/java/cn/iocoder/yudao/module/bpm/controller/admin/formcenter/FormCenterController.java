@@ -93,6 +93,15 @@ public class FormCenterController {
         return success(true);
     }
 
+    @PostMapping("/templates/{templateId}/versions/{versionNo}/fill-rule-auto-detect")
+    @Operation(summary = "使用 Codex 自动识别模板填写配置")
+    @PreAuthorize("@ss.hasPermission('form:template:update')")
+    public CommonResult<FormTemplateFillRuleAutoDetectRespVO> autoDetectTemplateFillRules(
+            @PathVariable("templateId") Long templateId,
+            @PathVariable("versionNo") String versionNo) {
+        return success(formCenterRuntimeService.autoDetectTemplateFillRules(templateId, versionNo));
+    }
+
     @PostMapping("/templates/{templateId}/versions/{versionNo}/publish")
     @Operation(summary = "发布模板版本")
     @PreAuthorize("@ss.hasPermission('form:template:publish')")
