@@ -23,6 +23,8 @@ final class WordTableVisualSchemaBuilder {
     private static final int DEFAULT_ROW_HEIGHT = 30;
     private static final Pattern INLINE_TEXT_INPUT_PATTERN =
             Pattern.compile("^(.+?[：:])([＿_]{2,})$");
+    private static final Pattern CHECKBOX_OPTION_PATTERN =
+            Pattern.compile("□\\s*([^□]+?)(?=□|$)");
 
     private WordTableVisualSchemaBuilder() {
     }
@@ -37,7 +39,7 @@ final class WordTableVisualSchemaBuilder {
         Map<String, Object> schema = new LinkedHashMap<>();
         schema.put("sheetLayoutJson", JsonUtils.toJsonString(layout));
         schema.put("cellRules", buildCellRules(table, columnCount));
-        schema.put("signatureCellMarkers", List.of());
+        schema.put("signatureCellMarkers", buildSignatureCellMarkers(table, columnCount));
         schema.put("assistRows", List.of());
         schema.put("fillAssignments", List.of());
         return JsonUtils.toJsonString(schema);
@@ -95,40 +97,178 @@ final class WordTableVisualSchemaBuilder {
     private static List<Map<String, Object>> buildCellRules(XWPFTable table, int columnCount) {
         List<Map<String, Object>> rules = new ArrayList<>();
         List<XWPFTableRow> tableRows = table.getRows();
+        buildHeaderRules(tableRows.isEmpty() ? null : tableRows.get(0), rules);
+        Map<Integer, String> headerLabels = resolveInspectionHeaderLabels(table, columnCount);
+        int headerRowIndex = resolveInspectionHeaderRowIndex(table);
         for (int rowIndex = 0; rowIndex < tableRows.size(); rowIndex++) {
+            if (rowIndex <= headerRowIndex || isFooterRow(rowText(tableRows.get(rowIndex)))) {
+                continue;
+            }
             int columnIndex = 0;
-            List<XWPFTableCell> rowCells = tableRows.get(rowIndex).getTableCells();
-            for (int physicalCellIndex = 0; physicalCellIndex < rowCells.size(); physicalCellIndex++) {
-                XWPFTableCell cell = rowCells.get(physicalCellIndex);
+            for (XWPFTableCell cell : tableRows.get(rowIndex).getTableCells()) {
                 int columnSpan = resolveColumnSpan(cell);
                 if (isVerticalMergeFollower(cell)) {
                     columnIndex += columnSpan;
                     continue;
                 }
                 InlineTextInput inlineInput = parseInlineTextInput(cell.getText());
-                if (inlineInput == null) {
+                if (inlineInput != null) {
+                    rules.add(buildRule(rowIndex, columnIndex + 1, "STRING", "input-text",
+                            inlineInput.label(), Map.of()));
+                    columnIndex += Math.max(columnSpan, 2);
+                    continue;
+                }
+                String text = normalizeText(cell.getText());
+                if (countCheckboxMarkers(text) > 0) {
+                    rules.add(buildCheckboxRule(rowIndex, columnIndex, text));
                     columnIndex += columnSpan;
                     continue;
                 }
-                int inputColumnIndex = columnIndex + 1;
-                if (inputColumnIndex >= columnCount) {
-                    throw new IllegalStateException("inline text input exceeds source table columns");
+                String headerLabel = headerLabels.get(columnIndex);
+                if (text.isBlank() && headerLabel != null) {
+                    if (headerLabel.contains("复核人")) {
+                        rules.add(buildRule(rowIndex, columnIndex, "SIGNATURE", "signature",
+                                headerLabel, Map.of()));
+                    } else if (headerLabel.contains("检验日期") || headerLabel.contains("检验人/日期")) {
+                        rules.add(buildRule(rowIndex, columnIndex, "DATE", "date",
+                                headerLabel, Map.of()));
+                    } else if (headerLabel.contains("序号") || headerLabel.contains("检测数量")) {
+                        rules.add(buildRule(rowIndex, columnIndex, "NUMBER", "input-number",
+                                headerLabel, Map.of()));
+                    }
                 }
-                rules.add(Map.of(
-                        "rowIndex", rowIndex,
-                        "columnIndex", inputColumnIndex,
-                        "valueType", "STRING",
-                        "componentFlag", "input-text",
-                        "required", false,
-                        "label", inlineInput.label(),
-                        "placeholder", "",
-                        "source", "AUTO",
-                        "reviewed", false,
-                        "confidence", 1));
-                columnIndex += Math.max(columnSpan, 2);
+                columnIndex += columnSpan;
             }
         }
         return rules;
+    }
+
+    private static void buildHeaderRules(XWPFTableRow row, List<Map<String, Object>> rules) {
+        if (row == null) {
+            return;
+        }
+        int columnIndex = 0;
+        String pendingLabel = null;
+        for (XWPFTableCell cell : row.getTableCells()) {
+            int columnSpan = resolveColumnSpan(cell);
+            String text = normalizeText(cell.getText());
+            if (!text.isBlank()) {
+                pendingLabel = text;
+            } else if (pendingLabel != null) {
+                String valueType = pendingLabel.contains("批数量") ? "NUMBER" : "STRING";
+                String componentFlag = "NUMBER".equals(valueType) ? "input-number" : "input-text";
+                rules.add(buildRule(0, columnIndex, valueType, componentFlag, pendingLabel, Map.of()));
+                pendingLabel = null;
+            }
+            columnIndex += columnSpan;
+        }
+    }
+
+    private static List<Map<String, Object>> buildSignatureCellMarkers(XWPFTable table, int columnCount) {
+        List<Map<String, Object>> markers = new ArrayList<>();
+        Map<Integer, String> headerLabels = resolveInspectionHeaderLabels(table, columnCount);
+        int headerRowIndex = resolveInspectionHeaderRowIndex(table);
+        Integer signatureColumn = headerLabels.entrySet().stream()
+                .filter(entry -> entry.getValue().contains("复核人"))
+                .map(Map.Entry::getKey)
+                .findFirst().orElse(null);
+        if (signatureColumn == null) {
+            return markers;
+        }
+        for (int rowIndex = headerRowIndex + 1; rowIndex < table.getRows().size(); rowIndex++) {
+            if (!isFooterRow(rowText(table.getRow(rowIndex)))) {
+                markers.add(Map.of(
+                        "rowIndex", rowIndex,
+                        "columnIndex", signatureColumn,
+                        "enabled", true,
+                        "signatureCellKey", rowIndex + ":" + signatureColumn,
+                        "actionType", "FORM_REVIEW",
+                        "label", "复核人/日期"));
+            }
+        }
+        return markers;
+    }
+
+    private static Map<Integer, String> resolveInspectionHeaderLabels(XWPFTable table, int columnCount) {
+        int headerRowIndex = resolveInspectionHeaderRowIndex(table);
+        if (headerRowIndex < 0) {
+            return Map.of();
+        }
+        Map<Integer, String> labels = new LinkedHashMap<>();
+        int columnIndex = 0;
+        for (XWPFTableCell cell : table.getRow(headerRowIndex).getTableCells()) {
+            int columnSpan = resolveColumnSpan(cell);
+            String text = normalizeText(cell.getText());
+            for (int offset = 0; offset < columnSpan && columnIndex + offset < columnCount; offset++) {
+                labels.put(columnIndex + offset, text);
+            }
+            columnIndex += columnSpan;
+        }
+        return labels;
+    }
+
+    private static int resolveInspectionHeaderRowIndex(XWPFTable table) {
+        for (int rowIndex = 0; rowIndex < table.getRows().size(); rowIndex++) {
+            String text = rowText(table.getRow(rowIndex));
+            if (text.contains("序号") && text.contains("检验日期") && text.contains("检测数量")) {
+                return rowIndex;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isFooterRow(String text) {
+        String normalized = normalizeText(text);
+        return normalized.contains("合格数量") || normalized.startsWith("备注");
+    }
+
+    private static String rowText(XWPFTableRow row) {
+        return row.getTableCells().stream()
+                .map(XWPFTableCell::getText)
+                .map(WordTableVisualSchemaBuilder::normalizeText)
+                .filter(text -> !text.isBlank())
+                .reduce((left, right) -> left + " " + right)
+                .orElse("");
+    }
+
+    private static Map<String, Object> buildRule(int rowIndex, int columnIndex, String valueType,
+                                                  String componentFlag, String label,
+                                                  Map<String, Object> constraints) {
+        Map<String, Object> rule = new LinkedHashMap<>();
+        rule.put("rowIndex", rowIndex);
+        rule.put("columnIndex", columnIndex);
+        rule.put("valueType", valueType);
+        rule.put("componentFlag", componentFlag);
+        rule.put("required", false);
+        rule.put("label", label);
+        rule.put("placeholder", "");
+        rule.put("constraints", constraints);
+        rule.put("source", "AUTO");
+        rule.put("reviewed", false);
+        rule.put("confidence", 1);
+        return rule;
+    }
+
+    private static Map<String, Object> buildCheckboxRule(int rowIndex, int columnIndex, String text) {
+        List<Map<String, String>> options = new ArrayList<>();
+        Matcher matcher = CHECKBOX_OPTION_PATTERN.matcher(text);
+        while (matcher.find()) {
+            String label = matcher.group(1).replaceAll("[_＿]+$", "").trim();
+            if (!label.isBlank()) {
+                options.add(Map.of("label", label, "value", label));
+            }
+        }
+        if (options.size() >= 2) {
+            Map<String, Object> constraints = new LinkedHashMap<>();
+            constraints.put("selectionMode", "single");
+            constraints.put("options", options);
+            return buildRule(rowIndex, columnIndex, "STRING", "radio-group", "检测结果", constraints);
+        }
+        return buildRule(rowIndex, columnIndex, "BOOLEAN", "checkbox", text, Map.of());
+    }
+
+    private static int countCheckboxMarkers(String text) {
+        return (int) text.chars().filter(character -> character == '□').count();
     }
 
     private static Map<String, Object> layoutCell(String text, int rowSpan, int columnSpan) {

@@ -1015,10 +1015,14 @@ const componentFlagBaseOptions = [
   { label: '日期 date', value: 'date' },
   { label: '日期时间 datetime', value: 'datetime' },
   { label: '复选框 checkbox', value: 'checkbox' },
+  { label: '复选框组 radio-group', value: 'radio-group' },
+  { label: '单选组 option-group', value: 'option-group' },
+  { label: '下拉选择 select', value: 'select' },
   { label: '电子签名 signature', value: 'signature' },
   { label: '多行文本 textarea', value: 'textarea' },
   { label: '文件上传 upload-file', value: 'upload-file' },
-  { label: '图片上传 upload-image', value: 'upload-image' }
+  { label: '图片上传 upload-image', value: 'upload-image' },
+  { label: '多图片上传 upload-images', value: 'upload-images' }
 ]
 
 const componentFlagOptions = computed(() => {
@@ -1680,6 +1684,7 @@ const fieldComponentFlag = (fieldType?: string) => {
   if (normalized === 'date') return 'date'
   if (normalized === 'datetime') return 'datetime'
   if (normalized === 'checkbox') return 'checkbox'
+  if (normalized === 'checkbox-group') return 'radio-group'
   if (normalized === 'signature') return 'signature'
   if (normalized === 'textarea') return 'textarea'
   return 'input-text'

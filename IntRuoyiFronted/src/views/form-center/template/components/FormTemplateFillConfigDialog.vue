@@ -859,9 +859,14 @@ const componentFlagBaseOptions = [
   { label: '日期 date', value: 'date' },
   { label: '日期时间 datetime', value: 'datetime' },
   { label: '复选框 checkbox', value: 'checkbox' },
+  { label: '复选框组 radio-group', value: 'radio-group' },
+  { label: '单选组 option-group', value: 'option-group' },
+  { label: '下拉选择 select', value: 'select' },
   { label: '电子签名 signature', value: 'signature' },
+  { label: '多行文本 textarea', value: 'textarea' },
   { label: '文件上传 upload-file', value: 'upload-file' },
-  { label: '图片上传 upload-image', value: 'upload-image' }
+  { label: '图片上传 upload-image', value: 'upload-image' },
+  { label: '多图片上传 upload-images', value: 'upload-images' }
 ]
 
 const componentFlagOptions = computed(() => {
@@ -1864,8 +1869,8 @@ const normalizedAssistRowsForSave = () => {
     return rows
   }
   const rows = normalizeAssistRows(editableAssistRows.value)
-  if (ruleRows.value.length > 0 && rows.length === 0) {
-    throw new Error('At least one assist row is required for fillable cells.')
+  if (rows.length === 0) {
+    return []
   }
   const assignedCellKeys = new Set<string>()
   rows.forEach((row, rowIndex) => {
@@ -1883,10 +1888,6 @@ const normalizedAssistRowsForSave = () => {
       assignedCellKeys.add(key)
     })
   })
-  const uncoveredRule = ruleRows.value.find((rule) => !assignedCellKeys.has(ruleIdentity(rule)))
-  if (uncoveredRule) {
-    throw new Error(`Cell R${uncoveredRule.rowIndex + 1}C${uncoveredRule.columnIndex + 1} is not assigned to an assist row.`)
-  }
   return rows
 }
 

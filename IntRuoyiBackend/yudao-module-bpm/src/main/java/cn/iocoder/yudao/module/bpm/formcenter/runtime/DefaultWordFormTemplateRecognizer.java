@@ -110,8 +110,17 @@ public class DefaultWordFormTemplateRecognizer implements FormTemplateRecognizer
     }
 
     private String guessFieldType(String label) {
+        if (label.contains("复核人")) {
+            return "signature";
+        }
+        if (label.contains("数量") || label.contains("序号") || label.toLowerCase(Locale.ROOT).contains("pcs")) {
+            return "number";
+        }
         if (label.contains("日期") || label.toLowerCase(Locale.ROOT).contains("date")) {
             return "date";
+        }
+        if (label.chars().filter(character -> character == '□').count() > 1) {
+            return "checkbox-group";
         }
         if (label.contains("是否") || label.contains("合格") || label.contains("□")) {
             return "checkbox";
