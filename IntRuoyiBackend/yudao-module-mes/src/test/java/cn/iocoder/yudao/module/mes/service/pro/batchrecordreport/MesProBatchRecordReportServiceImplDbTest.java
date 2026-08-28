@@ -5621,6 +5621,36 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void formalizeCellRules_createsSignatureMarkerForReviewedSignatureRules() throws Exception {
+        MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
+                50L, "sample-formalize-stale-signature-rule", 1, "formalize-stale-signature-rule-report-1",
+                "EBR_RULE_T07", "旧签名规则正式化表", PILOT_FILE_NAME);
+        reportMapper.insert(report);
+        AtomicReference<String> reportJson = new AtomicReference<>(sampleFormalizeStaleSignatureRuleReportJson());
+        when(jimuReportGateway.getReportJson("formalize-stale-signature-rule-report-1"))
+                .thenAnswer(invocation -> reportJson.get());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            reportJson.set(invocation.getArgument(1));
+            return null;
+        }).when(jimuReportGateway).updateReportJson(eq("formalize-stale-signature-rule-report-1"), any());
+
+        Method formalizeMethod = MesProBatchRecordReportService.class.getMethod("formalizeCellRules", String.class);
+        BatchRecordReportCellRulesRespVO saved = (BatchRecordReportCellRulesRespVO)
+                formalizeMethod.invoke(reportService, "formalize-stale-signature-rule-report-1");
+
+        assertEquals(1, saved.getRules().size());
+        assertEquals("SIGNATURE", saved.getRules().get(0).getValueType());
+        JSONObject savedCell = JSONObject.parseObject(reportJson.get())
+                .getJSONObject("rows").getJSONObject("0").getJSONObject("cells").getJSONObject("1");
+        JSONObject signature = savedCell.getJSONObject("edhrSignature");
+        assertNotNull(signature);
+        assertEquals(true, signature.getBoolean("enabled"));
+        assertEquals("FORM_REVIEW", signature.getString("actionType"));
+        assertEquals("操作人签名", signature.getString("label"));
+        assertEquals("R0C1", signature.getString("signatureCellKey"));
+    }
+
+    @Test
     void saveCellRules_createsAndRemovesManualFillFormForPlainRealCell() {
         MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
                 44L, "sample-plain-cell-rule", 1, "plain-cell-rule-report-1", "EBR_RULE_T04",
@@ -6342,6 +6372,32 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                       "cells":{
                         "0":{"text":"备注"},
                         "1":{"text":"","fillForm":{"field":"ebr_formalize_r2_c1","component":"Input","componentFlag":"input-text","required":false,"label":"","labelText":""}}
+                      },
+                      "height":24
+                    }
+                  },
+                  "cols":{"0":{"width":120},"1":{"width":160},"len":2},
+                  "merges":[],
+                  "fillFormInfo":{"layout":{"direction":"horizontal","width":160,"height":32}},
+                  "printConfig":{"paper":"A4"},
+                  "dataRectWidth":280
+                }
+                """;
+    }
+
+    private String sampleFormalizeStaleSignatureRuleReportJson() {
+        return """
+                {
+                  "name":"formalize-stale-signature-rule-demo",
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"操作人签名"},
+                        "1":{
+                          "text":"",
+                          "fillForm":{"field":"ebr_stale_signature_r0_c1","component":"Input","componentFlag":"signature","required":false,"label":"","labelText":""},
+                          "edhrCellRule":{"rowIndex":0,"columnIndex":1,"valueType":"SIGNATURE","componentFlag":"signature","required":false,"label":"操作人签名","constraints":{},"source":"MANUAL","confidence":1.0,"reviewed":true}
+                        }
                       },
                       "height":24
                     }
