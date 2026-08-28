@@ -24,6 +24,7 @@ export interface FormTemplateListItemVO {
   status: FormTemplateStatus
   updatedTime: string
   remark?: string
+  batchRecordReportId?: string
   slotCode?: string
   actionCode?: string
   recognizedFields?: FormRecognizedFieldVO[]
@@ -35,8 +36,21 @@ export interface FormTemplateFillRuleCandidateVO {
   rowIndex: number
   columnIndex: number
   label: string
-  valueType: 'STRING' | 'NUMBER' | 'DATE' | 'DATETIME' | 'BOOLEAN'
-  componentFlag: 'input-text' | 'input-number' | 'date' | 'datetime' | 'checkbox'
+  valueType: 'STRING' | 'NUMBER' | 'DATE' | 'DATETIME' | 'BOOLEAN' | 'SIGNATURE'
+  componentFlag:
+    | 'input-text'
+    | 'input-number'
+    | 'date'
+    | 'datetime'
+    | 'checkbox'
+    | 'radio-group'
+    | 'option-group'
+    | 'select'
+    | 'signature'
+    | 'textarea'
+    | 'upload-file'
+    | 'upload-image'
+    | 'upload-images'
   required: boolean
   constraints?: Record<string, unknown>
   unit?: string
@@ -125,8 +139,7 @@ export const saveTemplateJimuSchema = (templateId: number, versionNo: string, ji
 export const autoDetectTemplateFillRules = (templateId: number, versionNo: string) => {
   return request.post<FormTemplateFillRuleAutoDetectRespVO>({
     url: `/form-center/templates/${templateId}/versions/${versionNo}/fill-rule-auto-detect`,
-    // Codex CLI analysis is bounded by the backend's explicit 120s timeout.
-    // Keep the browser request open long enough to receive that authoritative result.
+    // Keep the browser request open long enough to receive the backend rule-recognition result.
     timeout: 180000
   })
 }

@@ -1,10 +1,13 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import org.jeecg.modules.jmreport.desreport.dao.JimuReportDao;
 import org.jeecg.modules.jmreport.desreport.entity.JimuReport;
+import org.jeecg.modules.jmreport.desreport.model.TreeModel;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -287,6 +290,86 @@ class MesProBatchRecordJimuReportGatewayImplTest {
         verify(jimuReportDao).update(reportCaptor.capture());
         assertEquals("新名称", reportCaptor.getValue().getName());
         assertEquals("1", reportCaptor.getValue().getTenantId());
+    }
+
+    @Test
+    void ensureFormTemplateDesignerReport_createsVirtualDesignerReportFromTemplateVersion() {
+        JimuReportDao jimuReportDao = mock(JimuReportDao.class);
+        FormTemplateVersionMapper templateVersionMapper = mock(FormTemplateVersionMapper.class);
+        org.jeecg.modules.jmreport.desreport.service.IJimuReportCategoryService reportCategoryService =
+                mock(org.jeecg.modules.jmreport.desreport.service.IJimuReportCategoryService.class);
+        ReflectionTestUtils.setField(gateway, "jimuReportDao", jimuReportDao);
+        ReflectionTestUtils.setField(gateway, "templateVersionMapper", templateVersionMapper);
+        ReflectionTestUtils.setField(gateway, "reportCategoryService", reportCategoryService);
+        TreeModel category = mock(TreeModel.class);
+        when(category.getTitle()).thenReturn(MesProBatchRecordReportConstants.CATEGORY_NAME);
+        when(category.getId()).thenReturn("category-ebrr");
+        when(reportCategoryService.queryList(any())).thenReturn(java.util.List.of(category));
+        when(jimuReportDao.get("FORMTPL:123")).thenReturn(null);
+        MiniDaoPage<JimuReport> emptyPage = new MiniDaoPage<>();
+        emptyPage.setResults(java.util.List.of());
+        when(jimuReportDao.getAll(any(JimuReport.class), eq(1), eq(1))).thenReturn(emptyPage);
+        when(templateVersionMapper.selectById(123L)).thenReturn(FormTemplateVersionDO.builder()
+                .id(123L)
+                .templateName("模板A")
+                .versionNo("V1.2")
+                .jimuSchemaJson("{\"rows\":{}}")
+                .build());
+        TenantContextHolder.setTenantId(1L);
+
+        gateway.ensureFormTemplateDesignerReport("FORMTPL:123");
+
+        ArgumentCaptor<JimuReport> reportCaptor = ArgumentCaptor.forClass(JimuReport.class);
+        verify(jimuReportDao).insert(reportCaptor.capture());
+        JimuReport persisted = reportCaptor.getValue();
+        assertEquals("FORMTPL:123", persisted.getId());
+        assertEquals("FORMTPL:123", persisted.getCode());
+        assertEquals("模板A V1.2", persisted.getName());
+        assertEquals("category-ebrr", persisted.getType());
+        assertEquals("{\"rows\":{}}", persisted.getJsonStr());
+        assertEquals(MesProBatchRecordJimuReportGatewayImpl.FILL_FORM_PREVIEW_CSS, persisted.getCssStr());
+        assertEquals("1", persisted.getTenantId());
+    }
+
+    @Test
+    void updateReportJson_syncsVirtualDesignerReportBackToTemplateVersion() {
+        JimuReportDao jimuReportDao = mock(JimuReportDao.class);
+        FormTemplateVersionMapper templateVersionMapper = mock(FormTemplateVersionMapper.class);
+        org.jeecg.modules.jmreport.desreport.service.IJimuReportCategoryService reportCategoryService =
+                mock(org.jeecg.modules.jmreport.desreport.service.IJimuReportCategoryService.class);
+        ReflectionTestUtils.setField(gateway, "jimuReportDao", jimuReportDao);
+        ReflectionTestUtils.setField(gateway, "templateVersionMapper", templateVersionMapper);
+        ReflectionTestUtils.setField(gateway, "reportCategoryService", reportCategoryService);
+        TreeModel category = mock(TreeModel.class);
+        when(category.getTitle()).thenReturn(MesProBatchRecordReportConstants.CATEGORY_NAME);
+        when(category.getId()).thenReturn("category-ebrr");
+        when(reportCategoryService.queryList(any())).thenReturn(java.util.List.of(category));
+        FormTemplateVersionDO templateVersion = FormTemplateVersionDO.builder()
+                .id(123L)
+                .templateName("模板A")
+                .versionNo("V1.2")
+                .jimuSchemaJson("{\"rows\":{}}")
+                .build();
+        when(templateVersionMapper.selectById(123L)).thenReturn(templateVersion);
+        JimuReport existing = new JimuReport();
+        existing.setId("FORMTPL:123");
+        existing.setCode("FORMTPL:123");
+        existing.setName("模板A V1.2");
+        existing.setUpdateCount(2);
+        when(jimuReportDao.get("FORMTPL:123")).thenReturn(existing);
+        TenantContextHolder.setTenantId(1L);
+
+        gateway.updateReportJson("FORMTPL:123", "{\"rows\":{\"0\":{}}}");
+
+        ArgumentCaptor<JimuReport> reportCaptor = ArgumentCaptor.forClass(JimuReport.class);
+        verify(jimuReportDao).update(reportCaptor.capture());
+        assertEquals("{\"rows\":{\"0\":{}}}", reportCaptor.getValue().getJsonStr());
+        assertEquals(Integer.valueOf(3), reportCaptor.getValue().getUpdateCount());
+        assertEquals("1", reportCaptor.getValue().getTenantId());
+
+        ArgumentCaptor<FormTemplateVersionDO> templateCaptor = ArgumentCaptor.forClass(FormTemplateVersionDO.class);
+        verify(templateVersionMapper).updateById(templateCaptor.capture());
+        assertEquals("{\"rows\":{\"0\":{}}}", templateCaptor.getValue().getJimuSchemaJson());
     }
 
     private static MesProBatchRecordParsedTable parsedTable(int index, String title) {

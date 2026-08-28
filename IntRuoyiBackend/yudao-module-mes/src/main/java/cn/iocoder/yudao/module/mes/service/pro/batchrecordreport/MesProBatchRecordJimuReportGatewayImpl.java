@@ -6,6 +6,8 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
 import org.jeecgframework.minidao.pojo.MiniDaoPage;
 import org.jeecg.modules.jmreport.desreport.dao.JimuReportDao;
 import org.jeecg.modules.jmreport.desreport.entity.JimuReport;
@@ -20,11 +22,14 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 
 @Component
 public class MesProBatchRecordJimuReportGatewayImpl implements MesProBatchRecordJimuReportGateway {
+
+    private static final String FORM_TEMPLATE_REPORT_PREFIX = "FORMTPL:";
 
     static final String FILL_FORM_PREVIEW_CSS = """
             .fillForm-box,
@@ -54,6 +59,8 @@ public class MesProBatchRecordJimuReportGatewayImpl implements MesProBatchRecord
     private IJimuReportCategoryService reportCategoryService;
     @Resource
     private JimuReportDao jimuReportDao;
+    @Resource
+    private FormTemplateVersionMapper templateVersionMapper;
     @Resource
     private MesProBatchRecordReportJsonBuilder reportJsonBuilder;
     @Resource
@@ -260,6 +267,15 @@ public class MesProBatchRecordJimuReportGatewayImpl implements MesProBatchRecord
         return toReportInfo(jimuReportDao.get(reportId));
     }
 
+    @Override
+    public void ensureFormTemplateDesignerReport(String reportId) {
+        if (!isFormTemplateReportId(reportId)) {
+            return;
+        }
+        FormTemplateVersionDO templateVersion = requireFormTemplateVersion(parseFormTemplateReportId(reportId));
+        ensureFormTemplateDesignerReport(reportId, templateVersion);
+    }
+
     private MesProBatchRecordReportInfo toReportInfo(JimuReport report) {
         if (report == null) {
             return null;
@@ -272,12 +288,18 @@ public class MesProBatchRecordJimuReportGatewayImpl implements MesProBatchRecord
 
     @Override
     public String getReportJson(String reportId) {
+        if (isFormTemplateReportId(reportId)) {
+            ensureFormTemplateDesignerReport(reportId);
+        }
         JimuReport report = jimuReportDao.get(reportId);
         return report == null ? null : report.getJsonStr();
     }
 
     @Override
     public void updateReportJson(String reportId, String jsonStr) {
+        if (isFormTemplateReportId(reportId) && jimuReportDao.get(reportId) == null) {
+            ensureFormTemplateDesignerReport(reportId);
+        }
         JimuReport report = jimuReportDao.get(reportId);
         if (report == null) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_LINKED_REPORT_MISSING,
@@ -289,10 +311,18 @@ public class MesProBatchRecordJimuReportGatewayImpl implements MesProBatchRecord
         report.setTenantId(resolveTenantId());
         report.setUpdateCount(report.getUpdateCount() == null ? 1 : report.getUpdateCount() + 1);
         jimuReportDao.update(report);
+        if (isFormTemplateReportId(reportId)) {
+            FormTemplateVersionDO templateVersion = requireFormTemplateVersion(parseFormTemplateReportId(reportId));
+            templateVersion.setJimuSchemaJson(jsonStr);
+            templateVersionMapper.updateById(templateVersion);
+        }
     }
 
     @Override
     public void renameReportName(String reportId, String reportName) {
+        if (isFormTemplateReportId(reportId)) {
+            ensureFormTemplateDesignerReport(reportId);
+        }
         JimuReport report = jimuReportDao.get(reportId);
         if (report == null) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_LINKED_REPORT_MISSING,
@@ -346,6 +376,91 @@ public class MesProBatchRecordJimuReportGatewayImpl implements MesProBatchRecord
         return StrUtil.isBlank(tenantId)
                 ? "/jmreport/view/" + reportId
                 : "/jmreport/view/" + reportId + "?tenantId=" + tenantId;
+    }
+
+    private void ensureFormTemplateDesignerReport(String reportId, FormTemplateVersionDO templateVersion) {
+        String reportName = formTemplateReportName(templateVersion);
+        String jsonStr = templateVersion.getJimuSchemaJson();
+        if (StrUtil.isBlank(jsonStr)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_LINKED_REPORT_MISSING,
+                    reportId);
+        }
+        Date now = new Date();
+        JimuReport report = jimuReportDao.get(reportId);
+        if (report == null) {
+            report = findJimuReportByCode(reportId);
+            if (report != null && !Objects.equals(report.getId(), reportId)) {
+                jimuReportDao.deleteById(report.getId());
+                report = null;
+            }
+        }
+        boolean insert = report == null;
+        if (insert) {
+            report = new JimuReport();
+            report.setId(reportId);
+            report.setCreateBy(resolveActor());
+            report.setCreateTime(now);
+            report.setViewCount(0L);
+            report.setDelFlag(0);
+            report.setUpdateCount(0);
+        } else {
+            report.setUpdateCount(report.getUpdateCount() == null ? 1 : report.getUpdateCount() + 1);
+        }
+        report.setCode(reportId);
+        report.setName(reportName);
+        report.setType(ensureElectronicBatchRecordCategoryId());
+        report.setJsonStr(jsonStr);
+        report.setUpdateBy(resolveActor());
+        report.setUpdateTime(now);
+        report.setTenantId(resolveTenantId());
+        report.setTemplate(0);
+        report.setSubmitForm(1);
+        report.setIsMultiSheet(0);
+        report.setCssStr(FILL_FORM_PREVIEW_CSS);
+        if (insert) {
+            jimuReportDao.insert(report);
+        } else {
+            jimuReportDao.update(report);
+        }
+    }
+
+    private String formTemplateReportName(FormTemplateVersionDO templateVersion) {
+        String templateName = StrUtil.blankToDefault(templateVersion.getTemplateName(),
+                reportIdOf(templateVersion));
+        return StrUtil.isBlank(templateVersion.getVersionNo())
+                ? templateName
+                : templateName + " " + StrUtil.trim(templateVersion.getVersionNo());
+    }
+
+    private String reportIdOf(FormTemplateVersionDO templateVersion) {
+        return FORM_TEMPLATE_REPORT_PREFIX + templateVersion.getId();
+    }
+
+    private boolean isFormTemplateReportId(String reportId) {
+        return StrUtil.startWith(reportId, FORM_TEMPLATE_REPORT_PREFIX);
+    }
+
+    private Long parseFormTemplateReportId(String reportId) {
+        String templateVersionId = StrUtil.subAfter(reportId, FORM_TEMPLATE_REPORT_PREFIX, false);
+        if (StrUtil.isBlank(templateVersionId)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_LINKED_REPORT_MISSING,
+                    reportId);
+        }
+        try {
+            return Long.valueOf(templateVersionId);
+        } catch (NumberFormatException ex) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_LINKED_REPORT_MISSING,
+                    reportId);
+        }
+    }
+
+    private FormTemplateVersionDO requireFormTemplateVersion(Long templateVersionId) {
+        FormTemplateVersionDO templateVersion = templateVersionMapper.selectById(templateVersionId);
+        if (templateVersion == null) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_LINKED_REPORT_MISSING,
+                    FORM_TEMPLATE_REPORT_PREFIX + templateVersionId);
+        }
+        return templateVersion;
     }
 
     private String resolveActor() {

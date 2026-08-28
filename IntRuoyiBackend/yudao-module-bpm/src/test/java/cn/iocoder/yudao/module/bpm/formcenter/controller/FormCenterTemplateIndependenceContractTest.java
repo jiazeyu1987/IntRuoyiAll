@@ -10,11 +10,13 @@ import java.nio.file.Path;
 import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FormCenterTemplateIndependenceContractTest {
 
+    private static final String DESIGNER_REPORT_ID_FIELD = "batchRecordReportId";
+
     private static final String[] BATCH_RECORD_BINDING_FIELDS = {
-            "batchRecordReportId",
             "batchRecordReportName",
             "batchRecordName",
             "batchRecordVersionNo",
@@ -24,15 +26,24 @@ class FormCenterTemplateIndependenceContractTest {
     };
 
     @Test
-    void formCenterTemplateContractDoesNotExposeBatchRecordBinding() {
+    void formCenterTemplateContractExposesDesignerReportIdWithoutPersistingItOnVersionDo() {
+        assertFieldPresent(FormCenterTemplateRespVO.class, DESIGNER_REPORT_ID_FIELD);
+        assertFieldAbsent(FormTemplateVersionDO.class, DESIGNER_REPORT_ID_FIELD);
         assertFieldsAbsent(FormCenterTemplateRespVO.class);
         assertFieldsAbsent(FormTemplateVersionDO.class);
     }
 
     @Test
-    void runtimeDoesNotMapBatchRecordBinding() throws IOException {
+    void runtimeMapsDesignerReportIdFromTemplateVersionId() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/FormCenterRuntimeServiceImpl.java"));
+
+        assertTrue(source.contains("setBatchRecordReportId"),
+                "form-center runtime must map designer report id onto template response");
+        assertTrue(source.contains("FORMTPL:"),
+                "form-center runtime must use the formal FORM template report prefix");
+        assertTrue(source.contains("version.getId()"),
+                "form-center runtime must derive designer report id from the exact template version id");
 
         for (String field : BATCH_RECORD_BINDING_FIELDS) {
             String accessor = Character.toUpperCase(field.charAt(0)) + field.substring(1);
@@ -43,11 +54,21 @@ class FormCenterTemplateIndependenceContractTest {
         }
     }
 
+    private static void assertFieldPresent(Class<?> type, String fieldName) {
+        assertTrue(Arrays.stream(type.getDeclaredFields())
+                .anyMatch(field -> field.getName().equals(fieldName)),
+                type.getSimpleName() + " must expose " + fieldName);
+    }
+
+    private static void assertFieldAbsent(Class<?> type, String fieldName) {
+        assertFalse(Arrays.stream(type.getDeclaredFields())
+                .anyMatch(field -> field.getName().equals(fieldName)),
+                type.getSimpleName() + " must not expose " + fieldName);
+    }
+
     private static void assertFieldsAbsent(Class<?> type) {
         for (String fieldName : BATCH_RECORD_BINDING_FIELDS) {
-            assertFalse(Arrays.stream(type.getDeclaredFields())
-                            .anyMatch(field -> field.getName().equals(fieldName)),
-                    type.getSimpleName() + " must not expose " + fieldName);
+            assertFieldAbsent(type, fieldName);
         }
     }
 }

@@ -59,6 +59,7 @@ import java.util.regex.Pattern;
 @Service
 public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
 
+    private static final String FORM_TEMPLATE_REPORT_PREFIX = "FORMTPL:";
     private static final String BUSINESS_KEY_PREFIX = "FORM_ACTION:";
     private static final String TEMPLATE_IMPORT_ACTION_CREATE = "CREATE";
     private static final String TEMPLATE_IMPORT_ACTION_UPGRADE = "UPGRADE";
@@ -1404,10 +1405,18 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         respVO.setStatus(version.getStatus());
         respVO.setUpdatedTime(version.getUpdateTime());
         respVO.setRemark(version.getRemark());
+        respVO.setBatchRecordReportId(buildFormTemplateReportId(version));
         respVO.setRecognizedFields(parseRecognizedFields(version.getRecognizedSchemaJson()));
         respVO.setJimuSchemaJson(version.getJimuSchemaJson());
         respVO.setSourceFileName(version.getSourceFileName());
         return respVO;
+    }
+
+    private String buildFormTemplateReportId(FormTemplateVersionDO version) {
+        if (version.getId() == null) {
+            throw new IllegalStateException("template version id is missing");
+        }
+        return FORM_TEMPLATE_REPORT_PREFIX + version.getId();
     }
 
     private List<FormRecognizedField> parseRecognizedFields(String recognizedSchemaJson) {

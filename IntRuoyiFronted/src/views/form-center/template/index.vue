@@ -175,7 +175,8 @@
               link
               class="scheme-d-row-action scheme-d-row-action--primary"
               type="primary"
-              @click="openDesigner(selectedTemplate, 'edit')"
+              data-form-template-action="edit"
+              @click="editSelectedTemplate"
             >
               编辑
             </el-button>
@@ -1116,7 +1117,7 @@ const handleDraftVersionReady = async (response: FormTemplateFillRuleAutoDetectR
   if (!resolvedRow) {
     resolvedRow = await TemplateApi.getTemplateVersion(response.templateId, response.versionNo)
     if (!resolvedRow) {
-      throw new Error(`未找到 AI 自动识别生成的草稿版本 ${response.templateId}/${response.versionNo}。`)
+      throw new Error(`未找到规则识别生成的草稿版本 ${response.templateId}/${response.versionNo}。`)
     }
     list.value = [
       resolvedRow,
@@ -1174,7 +1175,20 @@ const openSelectedTemplate = async () => {
 }
 
 const editSelectedTemplate = async () => {
-  await openSelectedTemplateWorkspace('edit')
+  if (!selectedTemplate.value) return
+  const reportId = String(selectedTemplate.value.batchRecordReportId || '').trim()
+  if (!reportId) {
+    message.error('当前模板未绑定批记录表单')
+    return
+  }
+  await router.push({
+    path: '/mes/pro/batch-record-form-list',
+    query: {
+      mode: 'designer',
+      reportId,
+      reportMode: 'edit'
+    }
+  })
 }
 
 const openSelectedTemplateFill = async () => {
@@ -1464,7 +1478,7 @@ const saveSelectedTemplateFillConfig = async (data: FormTemplateFillConfigSavePa
 const openEditorFromSignatureDialog = () => {
   if (!selectedTemplate.value) return
   signatureDialogVisible.value = false
-  void openDesigner(selectedTemplate.value, 'edit')
+  void editSelectedTemplate()
 }
 
 const handleTemplatePreviewSignatureAction = (_context: TemplateEditableCellContext) => {
