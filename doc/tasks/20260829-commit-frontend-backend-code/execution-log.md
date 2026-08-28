@@ -20,6 +20,8 @@
 - Additional residual test commits completed: `993b59e28 test: commit residual frontend backend test updates` and `575ccf74e test: update form template edit real flow`.
 - Final successful code push updated `origin/int_main` through `575ccf74e`.
 - Final status before this closeout-record update: branch showed no ahead marker, and frontend/backend non-log dirty count was 0.
+- Closeout completion record commit `9791c4d71` was pushed to `origin/int_main`.
+- Final evidence correction removes stale pending-push wording from task records.
 
 ## Evidence
 
@@ -46,6 +48,7 @@
 - `git -c http.https://github.com.proxy= -c http.proxy= -c http.sslbackend=schannel -c http.version=HTTP/1.1 -c core.compression=0 push origin int_main` later succeeded again: `f2980178e..575ccf74e int_main -> int_main`.
 - `git status --short --branch` after code push showed `## int_main...origin/int_main` with no ahead marker.
 - Final frontend/backend residual scan after code push: 0 non-log dirty files.
+- `git -c http.https://github.com.proxy= -c http.proxy= -c http.sslbackend=schannel -c http.version=HTTP/1.1 -c core.compression=0 push origin int_main` pushed closeout commit `9791c4d71`.
 
 ## Blockers
 

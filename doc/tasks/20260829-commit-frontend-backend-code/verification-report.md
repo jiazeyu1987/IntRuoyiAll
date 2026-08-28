@@ -2,7 +2,7 @@
 
 ## Current Status
 
-completed - Frontend/backend code commits were pushed to `origin/int_main`; final closeout record update is pending commit/push.
+completed - Frontend/backend code commits and closeout records were pushed to `origin/int_main`.
 
 ## Evidence
 
@@ -30,8 +30,9 @@ completed - Frontend/backend code commits were pushed to `origin/int_main`; fina
 - Later HTTPS direct retry with `schannel`, HTTP/1.1, and compression disabled succeeded.
 - `origin/int_main` was updated through `575ccf74e`.
 - Final status after code push: `int_main...origin/int_main` with no ahead marker.
+- Closeout completion record commit `9791c4d71` was pushed to `origin/int_main`.
 
-## Remaining Verification
+## Final Verification
 
-- Commit and push this final closeout-record update.
-- Confirm final `git status --short --branch` no longer shows local commits ahead after the closeout-record push.
+- Final task records no longer contain a pending-push status.
+- Final branch verification after the evidence correction must show no ahead marker before user handoff.

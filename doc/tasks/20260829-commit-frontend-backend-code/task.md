@@ -27,7 +27,7 @@ Commit and push the current frontend/backend code changes on the active branch, 
 
 ## Current Status
 
-completed - Frontend/backend code commits were pushed to `origin/int_main`; final closeout record update is ready to commit and push.
+completed - Frontend/backend code commits and closeout records were pushed to `origin/int_main`.
 
 ## Scope Boundary
 
@@ -55,6 +55,7 @@ completed - Frontend/backend code commits were pushed to `origin/int_main`; fina
 - SSH checks for GitHub on normal SSH and SSH port `443` failed with `Permission denied (publickey)`.
 - Subsequent one-time HTTPS direct retries succeeded.
 - Pushed code/task commits: `bf94b2a18`, `478147253`, `08c752160`, `f2980178e`, `993b59e28`, `575ccf74e`.
+- Closeout completion record commit pushed: `9791c4d71`.
 - Verification after push showed `int_main...origin/int_main` with no ahead marker and 0 non-log dirty files under frontend/backend roots.
 
 ## Design Constraint Check
