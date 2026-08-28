@@ -29,3 +29,9 @@ CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\tas
 CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260828-form-template-edit-button-batch-record-designer --mode apply` -> PASS, 已删除 `template-edit-designer.png`，保留 `template-edit-current-workspace.png`。
 
 REGRESSION: 本次回归覆盖按钮绑定、模板自身路由、表单模板独立 DesignerWrapper、真实页面点击和右侧编辑控件渲染，防止再次进入批记录表单页面或空白 jimu 编辑页。
+
+GIT: `git commit -m "test(form-center): lock template edit workspace parity"` -> PASS, commit `8b5799a89`，提交范围仅包含表单模板按钮对齐静态/真实 E2E 合同、任务证据截图、任务记录和相关经验门禁。
+
+GIT-LOCK: 首次 commit 遇到 `.git/index.lock`；核对 `E:\IntRuoyi\.git\index.lock` 为 0 字节、最后写入时间为 2026-08-28 09:59:54 UTC，且无活动 git/git-lfs 进程后，删除该精确锁文件并复核 `git status --short --branch` 可正常读取。
+
+PUSH-BLOCKED: `git push origin int_main` -> FAIL, Git 使用已配置的 `http.https://github.com.proxy=http://127.0.0.1:7890`，但 7890 未监听。改用一次性禁用该代理后，`git ls-remote origin HEAD` 曾成功返回远端 `10fecf5c...`，两次 push 分别失败于 `Recv failure: Connection was reset` 和 `TLS connect error: unexpected eof while reading`；随后 `Test-NetConnection github.com -Port 443` 失败，SSH 443 探针返回 `Permission denied (publickey)`，未切换 remote。当前本地 `int_main` 仍领先远端 1 个提交。

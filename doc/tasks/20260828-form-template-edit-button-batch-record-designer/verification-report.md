@@ -56,6 +56,11 @@
 
 Playwright 过程中出现外部头像和百度统计请求 `ERR_ABORTED`，以及一次非目标资源 `502` 控制台提示；目标模板页、模板版本读取、按钮点击、路由和右侧编辑控件断言均已通过，本任务未发起模板保存写请求。
 
+## Git / Push
+
+- Local commit: `8b5799a89 test(form-center): lock template edit workspace parity`
+- Push status: BLOCKED, GitHub HTTPS 443 当前不可达，且本机 GitHub 代理 `127.0.0.1:7890` 未监听；SSH 443 也未通过当前公钥认证，未切换推送方式。
+
 ## Blockers
 
-None.
+远端推送未完成。本地实现和验证已完成，`int_main` 当前领先 `origin/int_main` 1 个提交，待网络或代理恢复后继续推送。

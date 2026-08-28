@@ -42,7 +42,7 @@
 
 ## Current Status
 
-completed
+ready_for_closeout - 本地实现、验证、任务证据和实现提交已完成；远端推送因 GitHub 443 网络/本地代理不可达暂时阻塞，待网络或代理恢复后执行 `git push origin int_main`。
 
 ## 设计约束检查
 
