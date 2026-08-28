@@ -16,15 +16,27 @@ assert.match(controller, /active-order\/simulation\/stage2-5/,
 assert.match(controller, /MesStage2_5BackfillBatchExecutionSimulationService/,
   'controller must delegate Stage2.5 orchestration to a dedicated service')
 assert.match(simulationService, /cleanupOwnedRuns/,
-  'Stage2.5 must clean only its own simulation runs before creating a fixture')
-assert.match(simulationService, /createFixture/,
-  'Stage2.5 must create an independent active-order fixture')
-assert.match(simulationService, /activeOrderMapper\.insert\(activeOrder\)/,
-  'Stage2.5 must not mutate the selected real active order')
-assert.match(simulationService, /simulateActiveOrderCompletion\(validated\.getActorUserId\(\), activeOrder\.getId\(\),[\s\S]*"2\.5", validated\.getSimulationRunId\(\)/,
-  'Stage2.5 must persist simulation stage metadata through the real simulation service')
+  'Stage2.5 must clean only its own simulation runs before completing the Stage1 fixture')
+assert.match(simulationService, /cleanupOwnedBatches\(validated\.getActorUserId\(\)\)/,
+  'Stage2.5 must clean only its own batch executions before recreating downstream state')
+assert.match(simulationService, /MesProcessPoolActiveOrderDO activeOrder = template/,
+  'Stage2.5 must consume the Stage1 active-order fixture instead of cloning a new one')
+assert.match(simulationService, /STAGE2_5_STAGE1_SOURCE_REQUIRED/,
+  'Stage2.5 must reject active orders that were not produced by Stage1')
+assert.match(simulationService, /activeOrderCompletionService\.complete\(validated\.getActorUserId\(\),/,
+  'Stage2.5 must trigger the formal active-order completion node')
+assert.doesNotMatch(simulationService, /simulateActiveOrderCompletion\(validated\.getActorUserId\(\), activeOrder\.getId\(\),/,
+  'Stage2.5 must not re-run Stage1 production/PQC fact simulation')
+assert.doesNotMatch(simulationService, /MesProcessPoolActiveOrderDO activeOrder = createFixture/,
+  'Stage2.5 must not create another active-order fixture after Stage1')
 assert.match(simulationService, /Objects\.equals\(activeOrder\.getTenantId\(\), TenantContextHolder\.getTenantId\(\)/,
-  'Stage2.5 must enforce current-tenant ownership before cloning the fixture')
+  'Stage2.5 must enforce current-tenant ownership before completion')
+assert.match(simulationService, /setCompletionBackfillReceipt\(receipt\)/,
+  'Stage2.5 must pass the formal completion receipt into Flow6 batch creation')
+assert.match(simulationService, /backfillReceipt\.getBatchRecordId\(\)/,
+  'Stage2.5 must expose the batch-record backfill identity')
+assert.match(simulationService, /backfillReceipt\.getProcessInspectionId\(\)/,
+  'Stage2.5 must expose the process-inspection backfill identity')
 assert.match(simulationService, /MesStage4DossierUploadSimulationContractValidator\.validateInput\(snapshot\)/,
   'Stage2.5 output must be validated against the formal Stage4 input contract')
 assert.match(simulationService, /lossRequirement\.put\(\"required\"/,

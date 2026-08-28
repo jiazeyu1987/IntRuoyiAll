@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
@@ -25,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -57,6 +59,8 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     private MesReportAllocationCommandService reportAllocationCommandService;
     @Mock
     private MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService;
+    @Mock
+    private MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
 
     private MesTeamLeaderActiveOrderSimulationService service;
 
@@ -65,7 +69,8 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
         service = new MesTeamLeaderActiveOrderSimulationService(activeOrderMapper, processSnapshotMapper,
                 routeVersionMapper, reportAllocationMapper, submissionReviewMapper, pqcInspectionTaskMapper,
                 inspectionRegulationItemMapper, pqcPieceDetailMapper, processPoolEventService,
-                reportAllocationCommandService, pqcProcessInspectionAggregationService);
+                reportAllocationCommandService, pqcProcessInspectionAggregationService,
+                orderProcessCompletionService);
     }
 
     @Test
@@ -123,6 +128,12 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
         assertEquals(1, result.getPqcReviewCount());
         assertEquals(new BigDecimal("100.000000"), result.getProductionProgressPercent());
         assertEquals(new BigDecimal("100.000000"), result.getInspectionProgressPercent());
+        org.mockito.Mockito.verify(reportAllocationCommandService).createInitialAllocation(
+                7001L, 8101L, new BigDecimal("200.000000"));
+        org.mockito.Mockito.verify(reportAllocationCommandService).createInitialAllocation(
+                7002L, 8101L, new BigDecimal("200.000000"));
+        org.mockito.Mockito.verify(orderProcessCompletionService, org.mockito.Mockito.times(2))
+                .reconcileAffectedAllocations(any(MesProProcessPoolEventDO.class), any(Collection.class));
     }
 
     private static MesProcessPoolActiveOrderDO activeOrder() {

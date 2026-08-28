@@ -81,6 +81,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private final MesProcessPoolEventService processPoolEventService;
     private final MesReportAllocationCommandService reportAllocationCommandService;
     private final MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService;
+    private final MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService;
     private final AtomicLong simulationSequence = new AtomicLong();
 
     public MesTeamLeaderActiveOrderSimulationService(
@@ -94,7 +95,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
             MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper,
             MesProcessPoolEventService processPoolEventService,
             MesReportAllocationCommandService reportAllocationCommandService,
-            MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService) {
+            MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService,
+            MesTeamLeaderOrderProcessCompletionService orderProcessCompletionService) {
         this.activeOrderMapper = activeOrderMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.routeVersionMapper = routeVersionMapper;
@@ -106,6 +108,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         this.processPoolEventService = processPoolEventService;
         this.reportAllocationCommandService = reportAllocationCommandService;
         this.pqcProcessInspectionAggregationService = pqcProcessInspectionAggregationService;
+        this.orderProcessCompletionService = orderProcessCompletionService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -242,11 +245,30 @@ public class MesTeamLeaderActiveOrderSimulationService {
             Long reviewId = insertApprovedReview(eventId, leaderUserId,
                     MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, "模拟生产组长复核",
                     simulationStage, simulationRunId);
-            linkAllocationsToReview(eventId, reviewId);
+            List<MesProcessPoolReportAllocationDO> confirmedAllocations = linkAllocationsToReview(eventId, reviewId);
+            orderProcessCompletionService.reconcileAffectedAllocations(simulatedProductionEvent(
+                    eventId, activeOrder, snapshot, leaderUserId), confirmedAllocations);
             submitCount++;
             reviewCount++;
         }
         return new ProductionSimulationSummary(submitCount, reviewCount);
+    }
+
+    private MesProProcessPoolEventDO simulatedProductionEvent(Long eventId,
+                                                              MesProcessPoolActiveOrderDO activeOrder,
+                                                              MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+                                                              Long leaderUserId) {
+        MesProProcessPoolEventDO event = MesProProcessPoolEventDO.builder()
+                .id(eventId)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .workOrderId(activeOrder.getWorkOrderId())
+                .routeId(activeOrder.getRouteId())
+                .routeProcessId(snapshot.getRouteProcessId())
+                .processId(snapshot.getProcessId())
+                .actualEmployeeId(leaderUserId)
+                .build();
+        event.setTenantId(activeOrder.getTenantId());
+        return event;
     }
 
     private Long createProductionSubmitEvent(MesProcessPoolActiveOrderDO activeOrder,
@@ -315,7 +337,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         }
     }
 
-    private void linkAllocationsToReview(Long eventId, Long reviewId) {
+    private List<MesProcessPoolReportAllocationDO> linkAllocationsToReview(Long eventId, Long reviewId) {
         List<MesProcessPoolReportAllocationDO> allocations =
                 reportAllocationMapper.selectListByEventIdForUpdate(eventId);
         if (allocations.isEmpty()) {
@@ -330,6 +352,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 reportAllocationMapper.updateById(allocation);
             }
         }
+        return allocations;
     }
 
     private PqcSimulationSummary simulatePqcSubmissions(MesProcessPoolActiveOrderDO activeOrder,

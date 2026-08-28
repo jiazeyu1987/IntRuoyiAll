@@ -62,6 +62,21 @@ class MesStage2_5ReceiptHandoffContractTest {
     }
 
     @Test
+    void stage1MustMaterializeFormalProductIssueForStage25() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage1/"
+                        + "MesStage1ActiveOrderCompleteSimulationServiceImpl.java"), StandardCharsets.UTF_8);
+
+        assertTrue(source.contains("createFormalProductIssue"));
+        assertTrue(source.contains("productIssueMapper.selectListByWorkOrderIdForUpdate"));
+        assertTrue(source.contains("productIssueLineMapper.deleteByIssueId"));
+        assertTrue(source.contains("productIssueDetailMapper.deleteByIssueId"));
+        assertTrue(source.contains("MesWmProductIssueStatusEnum.FINISHED"));
+        assertTrue(source.contains("batchMapper.insert(batch)"));
+        assertTrue(source.contains("materialStockMapper.insert(stock)"));
+    }
+
+    @Test
     void downstreamStagesMustCarryTheExistingBatchIdentity() throws Exception {
         String stage4 = Files.readString(Path.of(
                 "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage4/"

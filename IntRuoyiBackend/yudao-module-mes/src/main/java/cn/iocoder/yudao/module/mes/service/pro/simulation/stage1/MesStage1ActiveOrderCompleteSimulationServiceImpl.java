@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeP
 import cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListItemDO;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListItemMapper;
 import cn.iocoder.yudao.module.erp.dal.mysql.production.kingdee.ErpKingdeeProductionPickListMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.MesProWorkOrderSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
@@ -24,6 +25,15 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.batch.MesWmBatchDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.materialstock.MesWmMaterialStockDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDetailDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueLineDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseAreaDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.wm.warehouse.MesWmWarehouseLocationDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolPqcRecordMapper;
@@ -49,7 +59,16 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderBomMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.batch.MesWmBatchMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.materialstock.MesWmMaterialStockMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueDetailMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueLineMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.warehouse.MesWmWarehouseAreaMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.warehouse.MesWmWarehouseLocationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.wm.warehouse.MesWmWarehouseMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderTypeEnum;
+import cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationService;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
@@ -82,6 +101,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private final MesProWorkOrderMapper workOrderMapper;
     private final MesProWorkOrderService workOrderService;
     private final MesProWorkOrderBomMapper workOrderBomMapper;
+    private final MesMdItemMapper itemMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
     private final MesPqcInspectionTaskMapper pqcTaskMapper;
     private final MesProcessPoolActiveOrderPickListBindingMapper bindingMapper;
@@ -106,6 +126,14 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private final MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    private final MesWmWarehouseMapper warehouseMapper;
+    private final MesWmWarehouseLocationMapper warehouseLocationMapper;
+    private final MesWmWarehouseAreaMapper warehouseAreaMapper;
+    private final MesWmBatchMapper batchMapper;
+    private final MesWmMaterialStockMapper materialStockMapper;
+    private final MesWmProductIssueMapper productIssueMapper;
+    private final MesWmProductIssueLineMapper productIssueLineMapper;
+    private final MesWmProductIssueDetailMapper productIssueDetailMapper;
     private final MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService;
 
     public MesStage1ActiveOrderCompleteSimulationServiceImpl(
@@ -113,6 +141,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             MesProWorkOrderMapper workOrderMapper,
             MesProWorkOrderService workOrderService,
             MesProWorkOrderBomMapper workOrderBomMapper,
+            MesMdItemMapper itemMapper,
             MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper,
             MesPqcInspectionTaskMapper pqcTaskMapper,
             MesProcessPoolActiveOrderPickListBindingMapper bindingMapper,
@@ -137,11 +166,20 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
             MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper,
             MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper,
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
+            MesWmWarehouseMapper warehouseMapper,
+            MesWmWarehouseLocationMapper warehouseLocationMapper,
+            MesWmWarehouseAreaMapper warehouseAreaMapper,
+            MesWmBatchMapper batchMapper,
+            MesWmMaterialStockMapper materialStockMapper,
+            MesWmProductIssueMapper productIssueMapper,
+            MesWmProductIssueLineMapper productIssueLineMapper,
+            MesWmProductIssueDetailMapper productIssueDetailMapper,
             MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService) {
         this.activeOrderMapper = activeOrderMapper;
         this.workOrderMapper = workOrderMapper;
         this.workOrderService = workOrderService;
         this.workOrderBomMapper = workOrderBomMapper;
+        this.itemMapper = itemMapper;
         this.snapshotMapper = snapshotMapper;
         this.pqcTaskMapper = pqcTaskMapper;
         this.bindingMapper = bindingMapper;
@@ -166,6 +204,14 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         this.completionReceiptMapper = completionReceiptMapper;
         this.releaseApplicationMapper = releaseApplicationMapper;
         this.batchExecutionMapper = batchExecutionMapper;
+        this.warehouseMapper = warehouseMapper;
+        this.warehouseLocationMapper = warehouseLocationMapper;
+        this.warehouseAreaMapper = warehouseAreaMapper;
+        this.batchMapper = batchMapper;
+        this.materialStockMapper = materialStockMapper;
+        this.productIssueMapper = productIssueMapper;
+        this.productIssueLineMapper = productIssueLineMapper;
+        this.productIssueDetailMapper = productIssueDetailMapper;
         this.activeOrderSimulationService = activeOrderSimulationService;
     }
 
@@ -245,6 +291,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         cloneSnapshots(template.getId(), activeOrder, command.getSimulationRunId());
         clonePqcTasks(template.getId(), activeOrder, command.getSimulationRunId());
         cloneBinding(templateBinding, activeOrder, workOrder, command);
+        createFormalProductIssue(activeOrder, workOrder, command);
         return activeOrder;
     }
 
@@ -450,6 +497,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                 .selectListByBindingId(binding.getId())) {
             requireMarker(item, runId, "pickListBindingItem");
         }
+        validateFormalProductIssue(activeOrder, runId, activeOrder.getLeaderUserId());
         List<MesProProcessPoolEventDO> productionEvents = eventMapper
                 .selectProductionSubmitsByWorkOrderAndRouteForUpdate(activeOrder.getWorkOrderId(),
                         activeOrder.getRouteId());
@@ -629,6 +677,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
                         .forEach(item -> pickListItemMapper.deleteById(item.getId()));
                 pickListMapper.deleteById(pickList.getId());
             }
+            cleanupFormalProductIssueSources(workOrder.getId());
             workOrderBomMapper.deleteByWorkOrderId(workOrder.getId());
             workOrderMapper.deleteById(workOrder.getId());
             cleanedRunId = runId;
@@ -676,6 +725,232 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
         if (!eventIds.isEmpty()) {
             eventMapper.deleteActiveOrderRuntimeEventsByIds(eventIds);
         }
+    }
+
+    private void cleanupFormalProductIssueSources(Long workOrderId) {
+        List<MesWmProductIssueDO> issues = productIssueMapper.selectListByWorkOrderIdForUpdate(workOrderId);
+        if (issues == null || issues.isEmpty()) {
+            return;
+        }
+        Set<Long> batchIds = new LinkedHashSet<>();
+        Set<Long> stockIds = new LinkedHashSet<>();
+        for (MesWmProductIssueDO issue : issues) {
+            if (issue == null || issue.getId() == null) {
+                continue;
+            }
+            for (MesWmProductIssueDetailDO detail : productIssueDetailMapper.selectListByIssueId(issue.getId())) {
+                if (detail != null) {
+                    if (detail.getBatchId() != null) {
+                        batchIds.add(detail.getBatchId());
+                    }
+                    if (detail.getMaterialStockId() != null) {
+                        stockIds.add(detail.getMaterialStockId());
+                    }
+                }
+            }
+            productIssueDetailMapper.deleteByIssueId(issue.getId());
+            productIssueLineMapper.deleteByIssueId(issue.getId());
+            productIssueMapper.deleteById(issue.getId());
+        }
+        if (!stockIds.isEmpty()) {
+            materialStockMapper.delete(new LambdaQueryWrapper<MesWmMaterialStockDO>()
+                    .in(MesWmMaterialStockDO::getId, stockIds));
+        }
+        if (!batchIds.isEmpty()) {
+            batchMapper.delete(new LambdaQueryWrapper<MesWmBatchDO>()
+                    .in(MesWmBatchDO::getId, batchIds));
+        }
+    }
+
+    private void createFormalProductIssue(MesProcessPoolActiveOrderDO activeOrder,
+                                          MesProWorkOrderDO workOrder,
+                                          MesStage1ActiveOrderCompleteSimulationCommand command) {
+        MesProcessPoolActiveOrderPickListBindingDO binding = bindingMapper.selectByActiveOrderId(activeOrder.getId());
+        List<MesProcessPoolActiveOrderPickListBindingItemDO> bindingItems = bindingItemMapper
+                .selectListByBindingId(binding.getId());
+        if (bindingItems == null || bindingItems.isEmpty()) {
+            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_REQUIRED");
+        }
+        MesWmWarehouseDO warehouse = requireWarehouse(MesWmWarehouseDO.WIP_VIRTUAL_WAREHOUSE);
+        MesWmWarehouseLocationDO location = requireLocation(warehouse.getId(),
+                MesWmWarehouseLocationDO.WIP_VIRTUAL_LOCATION);
+        MesWmWarehouseAreaDO area = requireArea(location.getId(), MesWmWarehouseAreaDO.WIP_VIRTUAL_AREA);
+        String marker = marker(command.getSimulationRunId(), command.getActorUserId());
+        LocalDateTime now = LocalDateTime.now();
+        MesWmProductIssueDO issue = MesWmProductIssueDO.builder()
+                .code("STAGE1-ISSUE-" + shortRunId(command.getSimulationRunId()))
+                .name(workOrder.getName() + " Stage1正式领料")
+                .workOrderId(workOrder.getId())
+                .issueDate(now)
+                .requiredTime(now)
+                .status(MesWmProductIssueStatusEnum.FINISHED.getStatus())
+                .remark(marker)
+                .build();
+        productIssueMapper.insert(issue);
+        int index = 0;
+        for (MesProcessPoolActiveOrderPickListBindingItemDO bindingItem : bindingItems) {
+            MesMdItemDO item = itemMapper.selectByCode(bindingItem.getMaterialNumber());
+            if (item == null) {
+                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_ITEM_REQUIRED");
+            }
+            BigDecimal quantity = resolveProductIssueQuantity(bindingItem);
+            MesWmBatchDO batch = MesWmBatchDO.builder()
+                    .code("STAGE1-BATCH-" + shortRunId(command.getSimulationRunId()) + "-" + index)
+                    .itemId(item.getId())
+                    .produceDate(now)
+                    .receiptDate(now)
+                    .workOrderId(workOrder.getId())
+                    .lotNumber(bindingItem.getLotNumber())
+                    .remark(marker)
+                    .build();
+            batchMapper.insert(batch);
+            MesWmMaterialStockDO stock = MesWmMaterialStockDO.builder()
+                    .itemTypeId(item.getItemTypeId())
+                    .itemId(item.getId())
+                    .batchId(batch.getId())
+                    .batchCode(batch.getCode())
+                    .warehouseId(warehouse.getId())
+                    .locationId(location.getId())
+                    .areaId(area.getId())
+                    .vendorId(workOrder.getVendorId())
+                    .quantity(BigDecimal.ZERO)
+                    .receiptTime(now)
+                    .frozen(Boolean.FALSE)
+                    .build();
+            materialStockMapper.insert(stock);
+            MesWmProductIssueLineDO line = MesWmProductIssueLineDO.builder()
+                    .issueId(issue.getId())
+                    .itemId(item.getId())
+                    .quantity(quantity)
+                    .batchId(batch.getId())
+                    .remark(marker)
+                    .build();
+            productIssueLineMapper.insert(line);
+            MesWmProductIssueDetailDO detail = MesWmProductIssueDetailDO.builder()
+                    .issueId(issue.getId())
+                    .lineId(line.getId())
+                    .materialStockId(stock.getId())
+                    .itemId(item.getId())
+                    .quantity(quantity)
+                    .batchId(batch.getId())
+                    .batchCode(batch.getCode())
+                    .warehouseId(warehouse.getId())
+                    .locationId(location.getId())
+                    .areaId(area.getId())
+                    .remark(marker)
+                    .build();
+            productIssueDetailMapper.insert(detail);
+            index++;
+        }
+    }
+
+    private void validateFormalProductIssue(MesProcessPoolActiveOrderDO activeOrder, String runId, Long actorUserId) {
+        List<MesWmProductIssueDO> issues = productIssueMapper
+                .selectListByWorkOrderIdForUpdate(activeOrder.getWorkOrderId());
+        if (issues == null || issues.size() != 1) {
+            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_REQUIRED");
+        }
+        MesWmProductIssueDO issue = issues.get(0);
+        String marker = marker(runId, actorUserId);
+        if (issue == null || issue.getId() == null || !Objects.equals(activeOrder.getWorkOrderId(), issue.getWorkOrderId())
+                || !Objects.equals(MesWmProductIssueStatusEnum.FINISHED.getStatus(), issue.getStatus())
+                || !Objects.equals(marker, issue.getRemark())) {
+            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_INVALID");
+        }
+        List<MesWmProductIssueLineDO> lines = productIssueLineMapper.selectListByIssueId(issue.getId());
+        List<MesWmProductIssueDetailDO> details = productIssueDetailMapper.selectListByIssueId(issue.getId());
+        if (lines == null || lines.isEmpty() || details == null || details.isEmpty()
+                || lines.size() != details.size()) {
+            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_DETAIL_REQUIRED");
+        }
+        Set<Long> batchIds = new LinkedHashSet<>();
+        Set<Long> stockIds = new LinkedHashSet<>();
+        for (MesWmProductIssueLineDO line : lines) {
+            if (line == null || line.getId() == null || !Objects.equals(issue.getId(), line.getIssueId())
+                    || line.getItemId() == null || line.getQuantity() == null
+                    || line.getQuantity().signum() <= 0 || line.getBatchId() == null
+                    || !Objects.equals(marker, line.getRemark())) {
+                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_LINE_INVALID");
+            }
+            batchIds.add(line.getBatchId());
+        }
+        for (MesWmProductIssueDetailDO detail : details) {
+            if (detail == null || detail.getId() == null || !Objects.equals(issue.getId(), detail.getIssueId())
+                    || detail.getLineId() == null || detail.getMaterialStockId() == null
+                    || detail.getItemId() == null || detail.getQuantity() == null
+                    || detail.getQuantity().signum() <= 0 || detail.getBatchId() == null
+                    || blank(detail.getBatchCode()) || detail.getWarehouseId() == null
+                    || detail.getLocationId() == null || detail.getAreaId() == null
+                    || !Objects.equals(marker, detail.getRemark())) {
+                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_DETAIL_INVALID");
+            }
+            batchIds.add(detail.getBatchId());
+            stockIds.add(detail.getMaterialStockId());
+        }
+        List<MesWmBatchDO> batches = batchMapper.selectList(new LambdaQueryWrapper<MesWmBatchDO>()
+                .in(MesWmBatchDO::getId, batchIds)
+                .orderByAsc(MesWmBatchDO::getId));
+        if (batches == null || batches.size() != batchIds.size()) {
+            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_BATCH_REQUIRED");
+        }
+        for (MesWmBatchDO batch : batches) {
+            if (batch == null || batch.getId() == null || !Objects.equals(activeOrder.getWorkOrderId(), batch.getWorkOrderId())
+                    || blank(batch.getCode()) || blank(batch.getLotNumber())
+                    || !Objects.equals(marker, batch.getRemark())) {
+                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_BATCH_INVALID");
+            }
+        }
+        List<MesWmMaterialStockDO> stocks = materialStockMapper.selectListByIds(stockIds);
+        if (stocks == null || stocks.size() != stockIds.size()) {
+            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_STOCK_REQUIRED");
+        }
+        for (MesWmMaterialStockDO stock : stocks) {
+            if (stock == null || stock.getId() == null || stock.getItemId() == null
+                    || stock.getBatchId() == null || blank(stock.getBatchCode())
+                    || stock.getWarehouseId() == null || stock.getLocationId() == null
+                    || stock.getAreaId() == null || stock.getQuantity() == null
+                    || stock.getQuantity().signum() < 0) {
+                throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_STOCK_INVALID");
+            }
+        }
+    }
+
+    private MesWmWarehouseDO requireWarehouse(String code) {
+        MesWmWarehouseDO warehouse = warehouseMapper.selectByCode(code);
+        if (warehouse == null || warehouse.getId() == null) {
+            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_WAREHOUSE_REQUIRED");
+        }
+        return warehouse;
+    }
+
+    private MesWmWarehouseLocationDO requireLocation(Long warehouseId, String code) {
+        MesWmWarehouseLocationDO location = warehouseLocationMapper.selectByCode(warehouseId, code);
+        if (location == null || location.getId() == null) {
+            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_LOCATION_REQUIRED");
+        }
+        return location;
+    }
+
+    private MesWmWarehouseAreaDO requireArea(Long locationId, String code) {
+        MesWmWarehouseAreaDO area = warehouseAreaMapper.selectByCode(locationId, code);
+        if (area == null || area.getId() == null) {
+            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_AREA_REQUIRED");
+        }
+        return area;
+    }
+
+    private BigDecimal resolveProductIssueQuantity(MesProcessPoolActiveOrderPickListBindingItemDO bindingItem) {
+        BigDecimal quantity = bindingItem.getBaseActualQuantity();
+        if (quantity == null || quantity.signum() <= 0) {
+            quantity = bindingItem.getActualQuantity();
+        }
+        if (quantity == null || quantity.signum() <= 0) {
+            quantity = bindingItem.getRequestedQuantity();
+        }
+        if (quantity == null || quantity.signum() <= 0) {
+            throw new IllegalStateException("STAGE1_FORMAL_PRODUCT_ISSUE_QUANTITY_REQUIRED");
+        }
+        return quantity;
     }
 
     private void requireMarker(Object value, String runId) {
