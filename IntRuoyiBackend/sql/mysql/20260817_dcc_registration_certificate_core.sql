@@ -34,7 +34,7 @@ BEGIN
       is_nullable char(3) NOT NULL,
       generated_column boolean NOT NULL,
       PRIMARY KEY (table_name, column_name)
-    );
+    ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     INSERT INTO tmp_dcc_reg_cert_expected_column
       (table_name, column_name, column_type, is_nullable, generated_column)
     VALUES
@@ -212,7 +212,7 @@ BEGIN
       column_name varchar(128) NOT NULL,
       normalized_expression varchar(1024) NOT NULL,
       PRIMARY KEY (table_name, column_name)
-    );
+    ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     INSERT INTO tmp_dcc_reg_cert_expected_generation
       (table_name, column_name, normalized_expression)
     VALUES
@@ -318,7 +318,7 @@ BEGIN
       constraint_name varchar(128) NOT NULL,
       normalized_expression text NOT NULL,
       PRIMARY KEY (table_name, constraint_name)
-    );
+    ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     INSERT INTO tmp_dcc_reg_cert_expected_check
       (table_name, constraint_name, normalized_expression)
     VALUES
