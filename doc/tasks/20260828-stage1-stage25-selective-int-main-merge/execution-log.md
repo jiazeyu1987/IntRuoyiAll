@@ -14,3 +14,6 @@
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesStage2_5ReceiptHandoffContractTest,MesTeamLeaderActiveOrderSimulationServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，MES reactor 24/24 SUCCESS，Tests run: 6, Failures: 0, Errors: 0, Skipped: 0。
 - Boundary verification: `git diff --check -- <selected paths>` -> PASS。
 - Remaining context: 主干仍有大量既有 unrelated dirty/untracked 改动，本任务未清理、未暂存、未覆盖这些文件。
+- Commit: `17b48e9bb fix(mes): merge stage1 stage2.5 simulation handoff`，提交 5 个 stage1/stage2.5 代码/测试文件和任务记录。
+- Cleanup preview/apply: `task_closeout.py --task-id 20260828-stage1-stage25-selective-int-main-merge --mode preview/apply` -> PASS；删除临时 `backend-api-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- Final status: completed。
