@@ -51,7 +51,7 @@ BEGIN
       column_type varchar(64) NOT NULL,
       is_nullable char(3) NOT NULL,
       PRIMARY KEY (table_name, column_name)
-    );
+    ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     INSERT INTO tmp_dcc_reg_cert_access_expected_column
       (table_name, column_name, column_type, is_nullable)
     VALUES
@@ -214,7 +214,7 @@ BEGIN
       column_list varchar(512) NOT NULL,
       non_unique int NOT NULL,
       PRIMARY KEY (table_name, index_name)
-    );
+    ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     INSERT INTO tmp_dcc_reg_cert_access_expected_index
       (table_name, index_name, column_list, non_unique)
     VALUES
