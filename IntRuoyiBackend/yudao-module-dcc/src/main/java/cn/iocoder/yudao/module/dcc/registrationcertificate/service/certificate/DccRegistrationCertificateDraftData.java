@@ -22,7 +22,8 @@ public record DccRegistrationCertificateDraftData(
         String productionAddress,
         Boolean entrustedProduction,
         Boolean selfProduction,
-        List<Long> entrustedEnterpriseIds) {
+        List<Long> entrustedEnterpriseIds,
+        String remark) {
 
     public DccRegistrationCertificateDraftData {
         entrustedEnterpriseIds = entrustedEnterpriseIds == null ? null : List.copyOf(entrustedEnterpriseIds);
