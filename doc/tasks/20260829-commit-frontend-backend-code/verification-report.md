@@ -2,7 +2,7 @@
 
 ## Current Status
 
-blocked - Code commits are local; push to `origin/int_main` failed because the available GitHub network/authentication paths are not currently usable.
+completed - Frontend/backend code commits were pushed to `origin/int_main`; final closeout record update is pending commit/push.
 
 ## Evidence
 
@@ -18,18 +18,20 @@ blocked - Code commits are local; push to `origin/int_main` failed because the a
 - Code commit: `bf94b2a18 chore: commit frontend and backend updates`.
 - Residual backend-code commit: `478147253 chore: commit backend SQL follow-up updates`.
 - Final backend-test residual commit: `08c752160 test: update batch record report DB coverage`.
+- Additional residual test commits: `993b59e28 test: commit residual frontend backend test updates`, `575ccf74e test: update form template edit real flow`.
 - Residual scan after commits: 0 non-log dirty files under frontend/backend roots.
 - Cleanup preview/apply: PASS with no deletions, blockers, or warnings.
 
-## Push Attempts
+## Push Result
 
-- HTTPS direct push with the broken local proxy disabled: FAILED, connection reset.
-- SSH to GitHub port `443`: FAILED, public key denied.
-- SSH to GitHub default SSH endpoint: FAILED, public key denied.
-- HTTPS direct push with `schannel` and HTTP/1.1: FAILED, connection reset.
+- Early HTTPS direct push attempts failed with connection reset.
+- SSH to GitHub port `443` failed because no authorized public key was available.
+- SSH to GitHub default SSH endpoint failed because no authorized public key was available.
+- Later HTTPS direct retry with `schannel`, HTTP/1.1, and compression disabled succeeded.
+- `origin/int_main` was updated through `575ccf74e`.
+- Final status after code push: `int_main...origin/int_main` with no ahead marker.
 
 ## Remaining Verification
 
-- Restore working GitHub HTTPS/proxy connectivity or configure an authorized SSH key.
-- Push `int_main` to `origin`.
-- Confirm final `git status --short --branch` no longer shows local commits ahead.
+- Commit and push this final closeout-record update.
+- Confirm final `git status --short --branch` no longer shows local commits ahead after the closeout-record push.

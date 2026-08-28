@@ -11,8 +11,8 @@ Commit and push the current frontend/backend code changes on the active branch, 
 - [x] Run commit safety checks and verification suitable for a commit-only task.
 - [x] Commit task-owned code changes.
 - [x] Run cleanup preview/apply.
-- [ ] Commit task records.
-- [ ] Push the active branch to origin and confirm it is no longer ahead.
+- [x] Commit task records.
+- [x] Push the active branch to origin and confirm it is no longer ahead.
 
 ## Expected Verification
 
@@ -27,7 +27,7 @@ Commit and push the current frontend/backend code changes on the active branch, 
 
 ## Current Status
 
-blocked - Frontend/backend code was committed locally, but GitHub push is blocked by network/authentication: HTTPS direct push is reset and SSH has no authorized public key.
+completed - Frontend/backend code commits were pushed to `origin/int_main`; final closeout record update is ready to commit and push.
 
 ## Scope Boundary
 
@@ -47,14 +47,15 @@ blocked - Frontend/backend code was committed locally, but GitHub push is blocke
 - No files were deleted.
 - The main worktree is the current `int_main` worktree, so no worktree merge/removal was required.
 
-## Push Blocker
+## Push Resolution
 
 - Initial `git fetch origin int_main` failed because Git was configured to use local proxy `127.0.0.1:7890` and that port was not listening.
 - One-time HTTPS direct fetch succeeded after confirming GitHub port `443` was reachable.
-- HTTPS push attempts using one-time direct config failed with connection reset.
+- Early HTTPS push attempts using one-time direct config failed with connection reset.
 - SSH checks for GitHub on normal SSH and SSH port `443` failed with `Permission denied (publickey)`.
-- Local code commits pending push: `bf94b2a18`, `478147253`, `08c752160`.
-- Impact: local commits exist but have not reached `origin/int_main`.
+- Subsequent one-time HTTPS direct retries succeeded.
+- Pushed code/task commits: `bf94b2a18`, `478147253`, `08c752160`, `f2980178e`, `993b59e28`, `575ccf74e`.
+- Verification after push showed `int_main...origin/int_main` with no ahead marker and 0 non-log dirty files under frontend/backend roots.
 
 ## Design Constraint Check
 

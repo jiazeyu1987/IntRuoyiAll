@@ -16,6 +16,10 @@
 - Experience consolidation check complete: existing gates already cover the proxy and credential lessons; no new long-term experience document was needed.
 - Cleanup preview/apply complete: no files deleted, no blocked paths, no warnings.
 - Push blocked: HTTPS direct push failed twice with connection reset; SSH authentication failed due missing authorized public key.
+- First successful push updated `origin/int_main` through `f2980178e`.
+- Additional residual test commits completed: `993b59e28 test: commit residual frontend backend test updates` and `575ccf74e test: update form template edit real flow`.
+- Final successful code push updated `origin/int_main` through `575ccf74e`.
+- Final status before this closeout-record update: branch showed no ahead marker, and frontend/backend non-log dirty count was 0.
 
 ## Evidence
 
@@ -38,7 +42,11 @@
 - `ssh -T -o BatchMode=yes -o StrictHostKeyChecking=accept-new -p 443 git@ssh.github.com` failed: public key denied.
 - `ssh -T -o BatchMode=yes -o StrictHostKeyChecking=accept-new git@github.com` failed: public key denied.
 - `git -c http.https://github.com.proxy= -c http.proxy= -c http.sslbackend=schannel -c http.version=HTTP/1.1 -c core.compression=0 push origin int_main` failed: connection reset.
+- `git -c http.https://github.com.proxy= -c http.proxy= -c http.sslbackend=schannel -c http.version=HTTP/1.1 -c core.compression=0 push origin int_main` later succeeded: `10fecf5ca..f2980178e int_main -> int_main`.
+- `git -c http.https://github.com.proxy= -c http.proxy= -c http.sslbackend=schannel -c http.version=HTTP/1.1 -c core.compression=0 push origin int_main` later succeeded again: `f2980178e..575ccf74e int_main -> int_main`.
+- `git status --short --branch` after code push showed `## int_main...origin/int_main` with no ahead marker.
+- Final frontend/backend residual scan after code push: 0 non-log dirty files.
 
 ## Blockers
 
-- GitHub push is blocked by current network/auth state. Required next action: restore a working GitHub HTTPS route or authorize/configure an SSH key for GitHub, then rerun `git push origin int_main` or the equivalent one-time direct HTTPS command.
+- None for the requested frontend/backend code commit and push.
