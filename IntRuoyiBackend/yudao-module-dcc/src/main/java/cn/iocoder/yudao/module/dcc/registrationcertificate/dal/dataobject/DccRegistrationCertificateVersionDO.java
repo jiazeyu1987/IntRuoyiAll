@@ -36,6 +36,7 @@ public class DccRegistrationCertificateVersionDO extends TenantBaseDO {
     private String classification;
     private Boolean categoryChanged;
     private Long baseSnapshotId;
+    private String remark;
     private String status;
     @TableField(insertStrategy = FieldStrategy.NEVER, updateStrategy = FieldStrategy.NEVER)
     private Integer currentUniqueFlag;
