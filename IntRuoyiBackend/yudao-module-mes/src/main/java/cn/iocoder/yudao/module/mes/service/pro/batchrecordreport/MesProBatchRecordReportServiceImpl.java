@@ -1858,6 +1858,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                         rule.getRowIndex(), rule.getColumnIndex());
             }
             try {
+                syncSignatureMarkerForCellRule(rule, cell);
                 MesProBatchRecordCellRuleSupport.ensureManualFillForm(rule, cell, reportCode);
                 MesProBatchRecordCellRuleSupport.validateRule(rule, cell);
             } catch (IllegalArgumentException ex) {

@@ -17,6 +17,7 @@ const config = {
 
 const executablePath =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+const targetResponses = []
 
 function logStep(message) {
   console.log(`[step] ${message}`)
@@ -30,6 +31,32 @@ function assertPrerequisites() {
   )
   assert.ok(config.password, '缺少 FORM_TEMPLATE_EDIT_PARITY_E2E_PASSWORD')
   assert.ok(fs.existsSync(executablePath), `缺少 Chrome 可执行文件: ${executablePath}`)
+}
+
+function sanitizeUrl(rawUrl) {
+  return rawUrl.replace(/([?&]token=)[^&]+/g, '$1[redacted]')
+}
+
+async function rememberTargetResponse(response) {
+  const url = response.url()
+  if (!url.includes('/jmreport') && !url.includes('/drag') && !url.includes('/batch-record-report')) {
+    return
+  }
+  const record = {
+    method: response.request().method(),
+    url: sanitizeUrl(url),
+    status: response.status()
+  }
+  const contentType = response.headers()['content-type'] || ''
+  if (contentType.includes('application/json')) {
+    try {
+      const text = await response.text()
+      record.body = text.slice(0, 800)
+    } catch {
+      record.body = '<unreadable>'
+    }
+  }
+  targetResponses.push(record)
 }
 
 function unwrapCacheValue(raw) {
@@ -237,16 +264,49 @@ async function openTemplateDesignerFromEdit(page) {
   const frame = iframeHandle ? await iframeHandle.contentFrame() : undefined
   assert.ok(frame, '未找到表单模板 Jimu 编辑 iframe')
   await frame.waitForLoadState('domcontentloaded', { timeout: 120000 })
-  await frame.waitForFunction(
-    () => {
-      const rows = window.xs?.sheet?.data?.rows?._
-      if (!rows) return false
-      return Object.values(rows).some((row) =>
-        Object.values(row?.cells || {}).some((cell) => String(cell?.text || '').trim())
+  try {
+    await frame.waitForFunction(
+      () => {
+        const rows = window.xs?.sheet?.data?.rows?._
+        if (!rows) return false
+        return Object.values(rows).some((row) =>
+          Object.values(row?.cells || {}).some((cell) => String(cell?.text || '').trim())
+        )
+      },
+      { timeout: 120000 }
+    )
+  } catch (error) {
+    const diagnosticPath = path.resolve(
+      __dirname,
+      '../../../doc/tasks/20260828-form-template-edit-button-batch-record-designer/template-edit-jimu-diagnostic.png'
+    )
+    await page.screenshot({ path: diagnosticPath, fullPage: false })
+    const diagnostics = await frame.evaluate(() => {
+      const xsRows = window.xs?.sheet?.data?.rows?._
+      return {
+        href: window.location.href,
+        title: document.title,
+        bodyText: document.body?.innerText?.slice(0, 1600) || '',
+        hasXs: Boolean(window.xs),
+        xsRowCount: xsRows ? Object.keys(xsRows).length : 0,
+        spreadsheetCount: document.querySelectorAll('.x-spreadsheet, .x-spreadsheet-sheet, .x-spreadsheet-table').length,
+        canvasCount: document.querySelectorAll('canvas').length,
+        tableCount: document.querySelectorAll('table').length
+      }
+    })
+    console.error(
+      JSON.stringify(
+        {
+          diagnosticPath,
+          diagnostics,
+          targetResponses
+        },
+        null,
+        2
       )
-    },
-    { timeout: 120000 }
-  )
+    )
+    throw error
+  }
   const jimuInfo = await frame.evaluate(() => {
     const rows = window.xs?.sheet?.data?.rows?._ || {}
     let textCellCount = 0
@@ -313,6 +373,9 @@ async function main() {
   page.on('requestfailed', (request) =>
     console.log(`[requestfailed] ${request.method()} ${request.url()} ${request.failure()?.errorText || ''}`)
   )
+  page.on('response', (response) => {
+    void rememberTargetResponse(response)
+  })
 
   try {
     await login(page)
