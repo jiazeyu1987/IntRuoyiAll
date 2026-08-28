@@ -313,7 +313,8 @@ public class MesProBatchRecordJimuReportGatewayImpl implements MesProBatchRecord
         jimuReportDao.update(report);
         if (isFormTemplateReportId(reportId)) {
             FormTemplateVersionDO templateVersion = requireFormTemplateVersion(parseFormTemplateReportId(reportId));
-            templateVersion.setJimuSchemaJson(jsonStr);
+            templateVersion.setJimuSchemaJson(buildFormTemplateSchemaWithDesignerJson(
+                    templateVersion.getJimuSchemaJson(), jsonStr, reportId));
             templateVersionMapper.updateById(templateVersion);
         }
     }
@@ -380,11 +381,7 @@ public class MesProBatchRecordJimuReportGatewayImpl implements MesProBatchRecord
 
     private void ensureFormTemplateDesignerReport(String reportId, FormTemplateVersionDO templateVersion) {
         String reportName = formTemplateReportName(templateVersion);
-        String jsonStr = templateVersion.getJimuSchemaJson();
-        if (StrUtil.isBlank(jsonStr)) {
-            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_LINKED_REPORT_MISSING,
-                    reportId);
-        }
+        String jsonStr = extractFormTemplateDesignerJson(templateVersion.getJimuSchemaJson(), reportId);
         Date now = new Date();
         JimuReport report = jimuReportDao.get(reportId);
         if (report == null) {
@@ -421,6 +418,53 @@ public class MesProBatchRecordJimuReportGatewayImpl implements MesProBatchRecord
             jimuReportDao.insert(report);
         } else {
             jimuReportDao.update(report);
+        }
+    }
+
+    private String extractFormTemplateDesignerJson(String templateSchemaJson, String reportId) {
+        JSONObject templateSchema = parseJsonObject(templateSchemaJson, reportId);
+        String sheetLayoutJson = StrUtil.trim(templateSchema.getString("sheetLayoutJson"));
+        if (StrUtil.isBlank(sheetLayoutJson)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_JSON_INVALID,
+                    reportId + " missing sheetLayoutJson");
+        }
+        return normalizeFormTemplateDesignerJson(parseJsonObject(sheetLayoutJson, reportId), reportId).toJSONString();
+    }
+
+    private String buildFormTemplateSchemaWithDesignerJson(String templateSchemaJson, String designerJson,
+                                                           String reportId) {
+        JSONObject templateSchema = parseJsonObject(templateSchemaJson, reportId);
+        JSONObject designerRoot = normalizeFormTemplateDesignerJson(parseJsonObject(designerJson, reportId), reportId);
+        templateSchema.put("sheetLayoutJson", designerRoot.toJSONString());
+        return templateSchema.toJSONString();
+    }
+
+    private JSONObject normalizeFormTemplateDesignerJson(JSONObject designerRoot, String reportId) {
+        if (!(designerRoot.get("rows") instanceof JSONObject)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_JSON_INVALID,
+                    reportId + " missing rows");
+        }
+        if (!(designerRoot.get("cols") instanceof JSONObject)) {
+            designerRoot.put("cols", new JSONObject(true));
+        }
+        return designerRoot;
+    }
+
+    private JSONObject parseJsonObject(String jsonStr, String reportId) {
+        if (StrUtil.isBlank(jsonStr)) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_JSON_INVALID,
+                    reportId + " blank json");
+        }
+        try {
+            JSONObject root = JSON.parseObject(jsonStr);
+            if (root == null) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_JSON_INVALID,
+                        reportId + " empty json");
+            }
+            return root;
+        } catch (RuntimeException ex) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_JSON_INVALID,
+                    reportId + " " + ex.getMessage());
         }
     }
 

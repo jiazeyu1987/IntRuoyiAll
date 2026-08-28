@@ -24,20 +24,3 @@ INSERT INTO `system_menu` (
     `updater` = VALUES(`updater`),
     `update_time` = VALUES(`update_time`),
     `deleted` = VALUES(`deleted`);
-
-INSERT INTO `system_role_menu` (`role_id`, `menu_id`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`)
-SELECT DISTINCT rm.`role_id`, menu_ids.`menu_id`, '1', NOW(), '1', NOW(), b'0', rm.`tenant_id`
-FROM `system_role_menu` rm
-JOIN (
-    SELECT 6034 AS `menu_id`
-) menu_ids
-WHERE rm.`menu_id` = 2645
-  AND rm.`deleted` = b'0'
-  AND NOT EXISTS (
-      SELECT 1
-      FROM `system_role_menu` exists_rm
-      WHERE exists_rm.`role_id` = rm.`role_id`
-        AND exists_rm.`menu_id` = menu_ids.`menu_id`
-        AND exists_rm.`tenant_id` = rm.`tenant_id`
-        AND exists_rm.`deleted` = b'0'
-  );

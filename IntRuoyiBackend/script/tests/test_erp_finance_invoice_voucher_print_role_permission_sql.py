@@ -20,7 +20,7 @@ def test_role_permission_sql_declares_release_contract_and_fail_fast_guards() ->
     )
     assert "SET NAMES utf8mb4;" in text
     assert "START TRANSACTION;" in text
-    assert "ensure_erp_finance_invoice_voucher_print_role_permission_20260829" in text
+    assert "ensure_erp_invoice_print_role_20260829" in text
     assert "SIGNAL SQLSTATE '45000'" in text
 
     for required_guard in [
