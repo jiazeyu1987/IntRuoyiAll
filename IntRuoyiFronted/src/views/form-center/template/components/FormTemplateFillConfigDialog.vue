@@ -11,7 +11,7 @@
       <main class="batch-record-cell-rules-editor__main-panel">
         <el-alert
           v-if="readonlyMode"
-          title="AI 自动识别可在任意版本执行；识别后会自动生成或复用草稿版本，应用并保存仍需草稿。"
+          title="代码规则识别可在任意版本执行；识别后会自动生成或复用草稿版本，应用并保存仍需草稿。"
           type="warning"
           :closable="false"
           show-icon
@@ -198,10 +198,10 @@
 
           <section
             v-if="activeConfigMode !== 'assistMapping'"
-            class="batch-record-cell-rules-editor__ai-detect-panel"
-          >
-            <div class="batch-record-cell-rules-editor__assist-grid-control-head">
-              <strong>AI 填写规则识别</strong>
+          class="batch-record-cell-rules-editor__ai-detect-panel"
+        >
+          <div class="batch-record-cell-rules-editor__assist-grid-control-head">
+              <strong>填写规则识别</strong>
               <p>基于已保存版本识别，先预览候选，人工应用后再点击保存。</p>
             </div>
             <el-button
@@ -212,7 +212,7 @@
               :disabled="aiDetectDisabled"
               @click="handleAutoDetect"
             >
-              AI 自动识别
+              规则识别
             </el-button>
             <el-alert
               v-if="aiDetectSummary"
@@ -1992,7 +1992,7 @@ const handleAutoDetect = async () => {
   const templateId = props.template?.templateId
   const versionNo = props.template?.versionNo
   if (!templateId || !versionNo) {
-    errorMessage.value = '当前模板缺少有效的模板编号或版本号，无法执行 AI 识别。'
+    errorMessage.value = '当前模板缺少有效的模板编号或版本号，无法执行规则识别。'
     return
   }
   autoDetecting.value = true
@@ -2004,15 +2004,15 @@ const handleAutoDetect = async () => {
     const switchedToDraft = response.versionNo !== versionNo
     aiDetectSummary.value = switchedToDraft
       ? response.candidateCount
-        ? `已识别 ${response.candidateCount} 个候选规则，并已自动生成${response.draftCreated ? '新的' : '复用现有'}草稿版本 ${response.versionNo}。请切换到草稿后应用并保存。`
-        : `未识别到新的未配置填写字段，但已自动生成${response.draftCreated ? '新的' : '复用现有'}草稿版本 ${response.versionNo}。请切换到草稿后继续保存。`
+        ? `已识别 ${response.candidateCount} 个候选规则，并已自动生成${response.draftCreated ? '新的' : '复用现有'}草稿版本 ${response.versionNo}。系统会自动切换到草稿，请应用并保存。`
+        : `未识别到新的未配置填写字段，但已自动生成${response.draftCreated ? '新的' : '复用现有'}草稿版本 ${response.versionNo}。系统会自动切换到草稿，请继续保存。`
       : response.candidateCount
         ? `已识别 ${response.candidateCount} 个候选规则。请检查后点击“应用识别结果”，最后再保存。`
         : '未识别到新的未配置填写字段。'
     preserveAiCandidatesOnReload.value = switchedToDraft
     emit('draft-version-ready', response)
   } catch (error) {
-    errorMessage.value = resolveErrorMessage(error, 'AI 自动识别失败，现有填写配置未改变。')
+    errorMessage.value = resolveErrorMessage(error, '规则识别失败，现有填写配置未改变。')
     message.error(errorMessage.value)
   } finally {
     autoDetecting.value = false
@@ -2028,7 +2028,7 @@ const applyAiCandidates = async () => {
   if (readonlyMode.value || !pendingAiCandidates.value.length) return
   await ElMessageBox.confirm(
     '候选规则只会加入当前草稿编辑状态，不会立即写入服务器。请确认后继续。',
-    '应用 AI 识别结果',
+    '应用识别结果',
     { type: 'warning', confirmButtonText: '应用', cancelButtonText: '取消' }
   )
   const currentRuleMap = new Map(ruleRows.value.map((rule) => [ruleIdentity(rule), rule]))
@@ -2046,7 +2046,7 @@ const applyAiCandidates = async () => {
       unit: candidate.unit,
       placeholder: candidate.placeholder,
       helpText: candidate.helpText,
-      source: 'AI',
+      source: 'AUTO',
       confidence: candidate.confidence,
       reviewed: false
     }))

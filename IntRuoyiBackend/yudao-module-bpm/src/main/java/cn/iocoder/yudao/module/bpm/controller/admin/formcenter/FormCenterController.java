@@ -94,7 +94,7 @@ public class FormCenterController {
     }
 
     @PostMapping("/templates/{templateId}/versions/{versionNo}/fill-rule-auto-detect")
-    @Operation(summary = "使用 Codex 自动识别模板填写配置")
+    @Operation(summary = "使用代码规则识别模板填写配置")
     @PreAuthorize("@ss.hasPermission('form:template:update')")
     public CommonResult<FormTemplateFillRuleAutoDetectRespVO> autoDetectTemplateFillRules(
             @PathVariable("templateId") Long templateId,

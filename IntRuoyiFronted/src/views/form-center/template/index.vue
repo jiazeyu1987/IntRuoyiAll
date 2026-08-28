@@ -1175,20 +1175,7 @@ const openSelectedTemplate = async () => {
 }
 
 const editSelectedTemplate = async () => {
-  if (!selectedTemplate.value) return
-  const reportId = String(selectedTemplate.value.batchRecordReportId || '').trim()
-  if (!reportId) {
-    message.error('当前模板未绑定批记录表单')
-    return
-  }
-  await router.push({
-    path: '/mes/pro/batch-record-form-list',
-    query: {
-      mode: 'designer',
-      reportId,
-      reportMode: 'edit'
-    }
-  })
+  await openSelectedTemplateWorkspace('edit')
 }
 
 const openSelectedTemplateFill = async () => {

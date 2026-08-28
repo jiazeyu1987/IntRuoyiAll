@@ -24,7 +24,6 @@ export interface FormTemplateListItemVO {
   status: FormTemplateStatus
   updatedTime: string
   remark?: string
-  batchRecordReportId?: string
   slotCode?: string
   actionCode?: string
   recognizedFields?: FormRecognizedFieldVO[]
