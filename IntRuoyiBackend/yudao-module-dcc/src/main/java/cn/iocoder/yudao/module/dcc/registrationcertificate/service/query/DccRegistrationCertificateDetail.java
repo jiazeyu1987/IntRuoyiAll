@@ -23,6 +23,7 @@ public class DccRegistrationCertificateDetail {
     private Long productMasterId;
     private String productName;
     private Long projectCodeId;
+    private String projectCode;
     private String certificateNo;
     private Integer versionNo;
     private String status;
@@ -31,6 +32,7 @@ public class DccRegistrationCertificateDetail {
     private LocalDate effectiveDate;
     private LocalDate expiryDate;
     private String classification;
+    private String remark;
     private String registrantName;
     private String modelSpecification;
     private String structureComposition;
@@ -43,4 +45,6 @@ public class DccRegistrationCertificateDetail {
     private String entrustedEnterprisesJson;
     private Long registrationFileId;
     private Boolean hasRegistrationFile;
+    private String reminderColor;
+    private String visualState;
 }

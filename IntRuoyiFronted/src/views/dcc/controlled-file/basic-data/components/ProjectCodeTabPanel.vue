@@ -1100,6 +1100,7 @@
 </template>
 
 <script lang="ts" setup>
+import { onActivated } from 'vue'
 import { dateFormatter2 } from '@/utils/formatTime'
 import { checkPermi, checkRole } from '@/utils/permission'
 import download from '@/utils/download'
@@ -1934,6 +1935,9 @@ const queryParams = reactive<DccProjectCodePageQuery>({
 })
 
 const POSITIVE_INTEGER_TEXT = /^[1-9]\d*$/
+const PROJECT_CODE_ROUTE_PATH = '/mdm/project-code'
+
+const isProjectCodeRoute = () => route.path === PROJECT_CODE_ROUTE_PATH
 
 const resolveRouteQueryText = (value: unknown) => {
   const rawValue = Array.isArray(value) ? value[0] : value
@@ -3128,13 +3132,33 @@ onMounted(async () => {
   await restoreLatestBatchAiCategoryTask()
 })
 
+let projectCodeInitialActivationHandled = false
+
+onActivated(async () => {
+  if (!isProjectCodeRoute()) {
+    return
+  }
+  if (!projectCodeInitialActivationHandled) {
+    projectCodeInitialActivationHandled = true
+    return
+  }
+  syncProjectCodeQueryFromRoute()
+  if (hasLoaded.value) {
+    await getList()
+  }
+  await syncDetailFromRoute()
+})
+
 onBeforeUnmount(() => {
   stopBatchAiCategoryPolling()
 })
 
 watch(
-  () => route.query.productMasterId,
+  () => [route.path, route.query.productMasterId],
   async () => {
+    if (!isProjectCodeRoute()) {
+      return
+    }
     syncProjectCodeQueryFromRoute()
     if (hasLoaded.value) {
       await getList()
@@ -3143,8 +3167,11 @@ watch(
 )
 
 watch(
-  () => route.query.projectCodeId,
+  () => [route.path, route.query.projectCodeId],
   async () => {
+    if (!isProjectCodeRoute()) {
+      return
+    }
     await syncDetailFromRoute()
   }
 )

@@ -34,6 +34,15 @@
         >
           最终放行模拟准备
         </el-button>
+        <el-button
+          v-hasPermi="['mes:pro-edhr-batch-execution:update']"
+          type="success"
+          :loading="stage6SimulationLoading"
+          data-batch-simulate-stage6-idpr
+          @click="handleStage6IdiSimulation"
+        >
+          放行后追溯验证
+        </el-button>
       </div>
 
       <section
@@ -1533,6 +1542,7 @@ import {
   submitEdhrRelease,
   type EdhrReleaseCheckItemVO
 } from '@/api/mes/pro/edhr/release'
+import { simulateStage6IdiData } from '@/api/mes/pro/processpool/teamLeader'
 import dayjs from 'dayjs'
 import { requestReopenBatch } from '@/api/mes/pro/edhr/change'
 import {
@@ -1611,9 +1621,11 @@ const loading = ref(false)
 const syncLoading = ref(false)
 const stage4SimulationLoading = ref(false)
 const stage5SimulationLoading = ref(false)
+const stage6SimulationLoading = ref(false)
 const stage4SimulationResult = ref<EdhrStage4DossierUploadSimulationRespVO>()
 const STAGE5_SIMULATION_RUN_STORAGE_KEY = 'mes:stage5-final-release:last-run-id'
 const STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY = 'mes:stage5-final-release:signoff-evidence-hash'
+const STAGE5_SIMULATION_BATCH_STORAGE_KEY = 'mes:stage5-final-release:last-batch-id'
 const reopenLoading = ref(false)
 const reexecuteLoading = ref(false)
 const qualityRejectLoading = ref(false)
@@ -4563,7 +4575,15 @@ const handleStage4DossierUploadSimulation = async () => {
   stage4SimulationLoading.value = true
   try {
     const simulationRunId = `STAGE4-DOSSIER-${dayjs().format('YYYYMMDDHHmmss')}-${generateUUID()}`
-    const result = await simulateEdhrStage4DossierUpload(simulationRunId)
+    const upstreamSimulationRunId = String(route.query.simulationRunId || '').trim()
+    if (!batchExecutionId.value || !upstreamSimulationRunId) {
+      throw new Error('当前批次缺少流程2.5正式来源，不能上传流程4资料。')
+    }
+    const result = await simulateEdhrStage4DossierUpload(
+      simulationRunId,
+      batchExecutionId.value,
+      upstreamSimulationRunId
+    )
     if (!result.dossierReadyForRelease || result.blockers?.length) {
       throw new Error(result.blockers?.join('；') || 'Stage4 模拟未形成齐套放行资料。')
     }
@@ -4589,11 +4609,21 @@ const handleStage5FinalReleaseSimulation = async () => {
   try {
     const simulationRunId = `STAGE5-FINAL-RELEASE-${dayjs().format('YYYYMMDDHHmmss')}-${generateUUID()}`
     const previousSimulationRunId = window.localStorage.getItem(STAGE5_SIMULATION_RUN_STORAGE_KEY) || undefined
-    const result = await simulateEdhrStage5FinalRelease(simulationRunId, previousSimulationRunId)
+    const upstreamSimulationRunId = String(route.query.simulationRunId || '').trim()
+    if (!batchExecutionId.value || !upstreamSimulationRunId) {
+      throw new Error('当前批次缺少流程4正式来源，不能准备流程5放行。')
+    }
+    const result = await simulateEdhrStage5FinalRelease(
+      simulationRunId,
+      batchExecutionId.value,
+      upstreamSimulationRunId,
+      previousSimulationRunId
+    )
     if (!result.managerSignoffEvidenceHash?.trim()) {
       throw new Error('最终放行模拟缺少管理者签名证据哈希。')
     }
     window.localStorage.setItem(STAGE5_SIMULATION_RUN_STORAGE_KEY, result.simulationRunId)
+    window.localStorage.setItem(STAGE5_SIMULATION_BATCH_STORAGE_KEY, String(result.batchExecutionId))
     window.localStorage.setItem(
       `${STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY}:${result.simulationRunId}`,
       result.managerSignoffEvidenceHash.trim()
@@ -4615,6 +4645,37 @@ const handleStage5FinalReleaseSimulation = async () => {
     message.error(resolveErrorMessage(error, '最终放行模拟准备失败。'))
   } finally {
     stage5SimulationLoading.value = false
+  }
+}
+
+const handleStage6IdiSimulation = async () => {
+  if (stage6SimulationLoading.value) return
+  stage6SimulationLoading.value = true
+  try {
+    const stage5SimulationRunId = window.localStorage.getItem(STAGE5_SIMULATION_RUN_STORAGE_KEY)
+    const stage5BatchExecutionId = Number(
+      window.localStorage.getItem(STAGE5_SIMULATION_BATCH_STORAGE_KEY)
+    )
+    if (!stage5SimulationRunId?.trim()) {
+      throw new Error('当前批次缺少流程5正式放行快照，不能启动流程6。')
+    }
+    if (!Number.isSafeInteger(stage5BatchExecutionId) || stage5BatchExecutionId <= 0) {
+      throw new Error('流程5放行上下文缺少批次执行编号，不能启动流程6。')
+    }
+    if (String(stage5BatchExecutionId) !== assertBatchExecutionId()) {
+      throw new Error('当前批次与流程5放行快照不一致，不能启动流程6。')
+    }
+    const result = await simulateStage6IdiData({
+      simulationRunId: `STAGE6-IDPR-${dayjs().format('YYYYMMDDHHmmss')}-${generateUUID()}`,
+      stage5SimulationRunId: stage5SimulationRunId.trim(),
+      batchExecutionId: stage5BatchExecutionId
+    })
+    message.success('放行后追溯验证数据已准备，正在打开真实追溯入口')
+    await router.push(result.traceEntryPath)
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '放行后追溯验证数据准备失败。'))
+  } finally {
+    stage6SimulationLoading.value = false
   }
 }
 

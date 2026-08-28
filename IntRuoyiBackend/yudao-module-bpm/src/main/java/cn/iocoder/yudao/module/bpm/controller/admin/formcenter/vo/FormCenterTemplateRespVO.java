@@ -29,8 +29,8 @@ public class FormCenterTemplateRespVO {
     @Schema(description = "备注")
     private String remark;
 
-    @Schema(description = "批记录设计器报表 ID")
-    private String batchRecordReportId;
+    @Schema(description = "表单模板设计器报表 ID")
+    private String designerReportId;
 
     @Schema(description = "识别字段")
     private List<FormRecognizedField> recognizedFields;

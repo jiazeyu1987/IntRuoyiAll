@@ -109,6 +109,23 @@
                         勾选
                       </el-checkbox>
 
+                      <el-radio-group
+                        v-else-if="cell.editableContext.componentKind === 'radio'"
+                        :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                        class="edhr-template-editable-form__radio-group"
+                        @update:model-value="
+                          (value) => patchField(cell.editableContext!.fieldIdentity, String(value || ''))
+                        "
+                      >
+                        <el-radio
+                          v-for="option in cell.editableContext.options || []"
+                          :key="option.value"
+                          :value="option.value"
+                        >
+                          {{ option.label }}
+                        </el-radio>
+                      </el-radio-group>
+
                       <el-select
                         v-else-if="cell.editableContext.componentKind === 'select'"
                         :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
@@ -163,6 +180,18 @@
                         :placeholder="cell.editableContext.placeholder || '请选择日期时间'"
                         @update:model-value="
                           (value) => patchField(cell.editableContext!.fieldIdentity, value || '')
+                        "
+                      />
+
+                      <el-input
+                        v-else-if="cell.editableContext.componentKind === 'textarea'"
+                        :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                        type="textarea"
+                        :rows="2"
+                        size="small"
+                        :placeholder="cell.editableContext.placeholder || '请输入内容'"
+                        @update:model-value="
+                          (value) => patchField(cell.editableContext!.fieldIdentity, value)
                         "
                       />
 
@@ -265,6 +294,23 @@
                       勾选
                     </el-checkbox>
 
+                    <el-radio-group
+                      v-else-if="cell.editableContext.componentKind === 'radio'"
+                      :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                      class="edhr-template-editable-form__radio-group"
+                      @update:model-value="
+                        (value) => patchField(cell.editableContext!.fieldIdentity, String(value || ''))
+                      "
+                    >
+                      <el-radio
+                        v-for="option in cell.editableContext.options || []"
+                        :key="option.value"
+                        :value="option.value"
+                      >
+                        {{ option.label }}
+                      </el-radio>
+                    </el-radio-group>
+
                     <el-select
                       v-else-if="cell.editableContext.componentKind === 'select'"
                       :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
@@ -319,6 +365,18 @@
                       :placeholder="cell.editableContext.placeholder || '请选择日期时间'"
                       @update:model-value="
                         (value) => patchField(cell.editableContext!.fieldIdentity, value || '')
+                      "
+                    />
+
+                    <el-input
+                      v-else-if="cell.editableContext.componentKind === 'textarea'"
+                      :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                      type="textarea"
+                      :rows="2"
+                      size="small"
+                      :placeholder="cell.editableContext.placeholder || '请输入内容'"
+                      @update:model-value="
+                        (value) => patchField(cell.editableContext!.fieldIdentity, value)
                       "
                     />
 
@@ -848,6 +906,14 @@ const resolveNumberValue = (value: TemplateSimulationValueMap[string]) => {
   background: #faf5ff;
 }
 
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-radio {
+  background: #f5f3ff;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-select {
+  background: #eff6ff;
+}
+
 .edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-attachment {
   background: #fef2f2;
 }
@@ -907,6 +973,16 @@ const resolveNumberValue = (value: TemplateSimulationValueMap[string]) => {
   color: #6d28d9;
 }
 
+.edhr-template-editable-form__rule-type-badge.is-radio {
+  border-color: #c4b5fd;
+  color: #5b21b6;
+}
+
+.edhr-template-editable-form__rule-type-badge.is-select {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
 .edhr-template-editable-form__rule-type-badge.is-attachment {
   border-color: #fdba74;
   color: #c2410c;
@@ -958,6 +1034,13 @@ const resolveNumberValue = (value: TemplateSimulationValueMap[string]) => {
   color: #92400e;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.edhr-template-editable-form__radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
 }
 
 .edhr-template-editable-form__hint {

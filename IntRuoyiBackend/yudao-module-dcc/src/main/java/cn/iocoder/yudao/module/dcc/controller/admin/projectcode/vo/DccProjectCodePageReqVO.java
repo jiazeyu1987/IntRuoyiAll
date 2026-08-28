@@ -42,6 +42,9 @@ public class DccProjectCodePageReqVO extends PageParam {
     @Schema(description = "QA 规程是否已配置")
     private Boolean qaRegulationConfigured;
 
+    @Schema(description = "是否仅返回绑定合法 DCC 产品编号的项目代码")
+    private Boolean requireDccProductCode;
+
     @Schema(description = "关联文件数排序，asc 或 desc")
     private String fileCountSort;
 }

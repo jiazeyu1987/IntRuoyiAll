@@ -811,10 +811,18 @@ export interface ProFeedbackEdhrSnapshotFieldVO {
   disabled?: boolean
   inputType?: string
   componentType?: string
+  component?: string
+  componentFlag?: string
   type?: string
+  dataType?: string
   value?: unknown
   defaultValue?: unknown
+  constraints?: Record<string, unknown>
+  attachmentRule?: Record<string, unknown>
+  unit?: string
   options?: Array<Record<string, unknown> | string | number | boolean>
+  fillForm?: Record<string, unknown>
+  edhrCellRule?: Record<string, unknown>
   [key: string]: unknown
 }
 

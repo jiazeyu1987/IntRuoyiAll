@@ -264,25 +264,81 @@ const resolveEmbeddedTemplateVersionForActionForm = (): FormTemplateListItemVO |
   }
 }
 
+const normalizeRecognizedFieldType = (fieldType?: string) =>
+  String(fieldType || '')
+    .trim()
+    .toLowerCase()
+
+const isSignatureRecognizedFieldType = (normalized: string) =>
+  normalized === 'signature' ||
+  normalized === 'sign' ||
+  normalized === 'electronic-signature' ||
+  normalized === 'electronic-sign' ||
+  normalized === 'e-signature' ||
+  normalized === 'e-sign' ||
+  normalized.includes('signature')
+
 const fieldValueType = (fieldType?: string): BatchRecordReportCellValueType => {
-  const normalized = String(fieldType || '').toLowerCase()
-  if (normalized === 'number') return 'NUMBER'
+  const normalized = normalizeRecognizedFieldType(fieldType)
+  if (normalized === 'number' || normalized === 'input-number') return 'NUMBER'
   if (normalized === 'date') return 'DATE'
-  if (normalized === 'datetime') return 'DATETIME'
+  if (normalized === 'datetime' || normalized === 'date-time') return 'DATETIME'
   if (normalized === 'checkbox') return 'BOOLEAN'
-  if (normalized === 'signature') return 'SIGNATURE'
+  if (isSignatureRecognizedFieldType(normalized)) return 'SIGNATURE'
   return 'STRING'
 }
 
 const fieldComponentFlag = (fieldType?: string) => {
-  const normalized = String(fieldType || '').toLowerCase()
-  if (normalized === 'number') return 'input-number'
-  if (normalized === 'date') return 'date'
-  if (normalized === 'datetime') return 'datetime'
-  if (normalized === 'checkbox') return 'checkbox'
-  if (normalized === 'signature') return 'signature'
-  if (normalized === 'textarea') return 'textarea'
-  return 'input-text'
+  const normalized = normalizeRecognizedFieldType(fieldType)
+  switch (normalized) {
+    case 'number':
+    case 'input-number':
+      return 'input-number'
+    case 'date':
+      return 'date'
+    case 'datetime':
+    case 'date-time':
+      return 'datetime'
+    case 'checkbox':
+      return 'checkbox'
+    case 'checkbox-group':
+    case 'radio-group':
+    case 'option-group':
+    case 'single-choice':
+      return 'radio-group'
+    case 'select':
+    case 'dropdown':
+      return 'select'
+    case 'textarea':
+      return 'textarea'
+    case 'upload-file':
+    case 'upload-image':
+    case 'upload-images':
+      return normalized
+    default:
+      if (isSignatureRecognizedFieldType(normalized)) return 'signature'
+      if (
+        normalized.includes('radio') ||
+        normalized.includes('single-choice') ||
+        normalized.includes('singlechoice') ||
+        normalized.includes('checkbox-group') ||
+        normalized.includes('checkboxgroup')
+      ) return 'radio-group'
+      return 'input-text'
+  }
+}
+
+const fieldPlaceholder = (field: FormRecognizedFieldVO) => {
+  const label = field.label || field.fieldCode
+  const componentFlag = fieldComponentFlag(field.fieldType)
+  if (componentFlag === 'checkbox') return '□'
+  if (componentFlag === 'signature') return '请签名'
+  if (componentFlag === 'date' || componentFlag === 'datetime') return `请选择${label}`
+  if (componentFlag === 'radio-group' || componentFlag === 'select') {
+    return `请选择${label}`
+  }
+  if (componentFlag.startsWith('upload-')) return `请上传${label}`
+  return `请输入${label}`
 }
 
 const buildRecognizedFieldCellRules = (fields: FormRecognizedFieldVO[]) =>
@@ -297,7 +353,7 @@ const buildRecognizedFieldCellRules = (fields: FormRecognizedFieldVO[]) =>
       componentFlag: fieldComponentFlag(field.fieldType),
       required: field.required,
       label: field.label || field.fieldCode,
-      placeholder: field.fieldType === 'checkbox' ? '□' : '',
+      placeholder: fieldPlaceholder(field),
       source: 'AUTO',
       reviewed: false
     } as BatchRecordReportCellRuleVO

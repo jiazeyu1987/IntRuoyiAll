@@ -37,6 +37,7 @@ final class DccRegistrationCertificateCommandFingerprint {
         add(canonical, draft.entrustedProduction());
         add(canonical, draft.selfProduction());
         addList(canonical, draft.entrustedEnterpriseIds());
+        add(canonical, normalizeText(draft.remark()));
         return sha256(canonical.toString());
     }
 

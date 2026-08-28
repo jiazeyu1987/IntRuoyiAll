@@ -26,6 +26,7 @@ export interface FormTemplateListItemVO {
   remark?: string
   slotCode?: string
   actionCode?: string
+  designerReportId?: string
   recognizedFields?: FormRecognizedFieldVO[]
   jimuSchemaJson?: string
   sourceFileName?: string

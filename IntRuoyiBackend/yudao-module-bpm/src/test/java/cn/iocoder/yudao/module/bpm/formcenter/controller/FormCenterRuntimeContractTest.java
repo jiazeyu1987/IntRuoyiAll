@@ -76,6 +76,13 @@ class FormCenterRuntimeContractTest {
         assertEquals("@ss.hasPermission('form:template:update')",
                 saveJimuSchema.getAnnotation(PreAuthorize.class).value());
 
+        Method autoDetectTemplateFillRules = FormCenterController.class.getDeclaredMethod("autoDetectTemplateFillRules",
+                Long.class, String.class);
+        assertArrayEquals(new String[]{"/templates/{templateId}/versions/{versionNo}/fill-rule-auto-detect"},
+                autoDetectTemplateFillRules.getAnnotation(PostMapping.class).value());
+        assertEquals("@ss.hasPermission('form:template:update')",
+                autoDetectTemplateFillRules.getAnnotation(PreAuthorize.class).value());
+
         Method publishTemplate = FormCenterController.class.getDeclaredMethod("publishTemplate", Long.class,
                 String.class);
         assertArrayEquals(new String[]{"/templates/{templateId}/versions/{versionNo}/publish"},

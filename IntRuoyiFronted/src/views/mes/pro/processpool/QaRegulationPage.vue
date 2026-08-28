@@ -2102,8 +2102,7 @@ const removeQaRegulationItemByRow = (row: QaRegulationItem) => {
 
 const buildQaRegulationSaveItem = (
   item: QaRegulationItem,
-  itemSort: number,
-  settings: { publishing?: boolean } = {}
+  itemSort: number
 ): QaInspectionRegulationSaveItemVO => {
   const itemName = resolveRequiredText(item.itemName, '检验项目名称')
   const inspectionConfiguration = resolveQaItemInspectionPayload(
@@ -2137,9 +2136,7 @@ const buildQaRegulationSaveItem = (
   }
 }
 
-const buildQaRegulationProcesses = (
-  settings: { publishing?: boolean } = {}
-): QaInspectionRegulationSaveProcessVO[] => {
+const buildQaRegulationProcesses = (): QaInspectionRegulationSaveProcessVO[] => {
   const groups = new Map<
     string,
     { code: string; name: string; sort: number; items: QaRegulationItem[] }
@@ -2169,15 +2166,11 @@ const buildQaRegulationProcesses = (
       processCode: group.code,
       processName: group.name,
       sort: processIndex + 1,
-      items: group.items.map((item, itemIndex) =>
-        buildQaRegulationSaveItem(item, itemIndex + 1, settings)
-      )
+      items: group.items.map((item, itemIndex) => buildQaRegulationSaveItem(item, itemIndex + 1))
     }))
 }
 
-const buildQaRegulationSavePayload = (
-  settings: { publishing?: boolean } = {}
-): QaInspectionRegulationSaveReqVO => {
+const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO => {
   const finalRule = qaInspectionTypeRules.find((rule) => rule.key === 'FINAL')
   const finalInspectionApplicable = Boolean(finalRule?.required)
   const finalInspectionNotApplicableReason = finalInspectionApplicable
@@ -2193,7 +2186,7 @@ const buildQaRegulationSavePayload = (
     finalInspectionApplicable,
     finalInspectionNotApplicableReason,
     inspectionTypeRules: qaInspectionTypeRules.map((rule) => ({ ...rule })),
-    processes: buildQaRegulationProcesses(settings)
+    processes: buildQaRegulationProcesses()
   }
 }
 
@@ -2357,7 +2350,7 @@ const runQaPublishPrecheck = async () => {
   }
   let payload: QaInspectionRegulationSaveReqVO
   try {
-    payload = buildQaRegulationSavePayload({ publishing: true })
+    payload = buildQaRegulationSavePayload()
   } catch (error) {
     ElMessage.warning(resolveDccProjectCodeErrorMessage(error))
     return

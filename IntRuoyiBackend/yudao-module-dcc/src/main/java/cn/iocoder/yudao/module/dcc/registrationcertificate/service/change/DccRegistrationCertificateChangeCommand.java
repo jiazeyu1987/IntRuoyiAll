@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.service.change;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.time.LocalDate;
 import java.util.Map;
 
@@ -17,7 +19,7 @@ public record DccRegistrationCertificateChangeCommand(
         Boolean selfProduction,
         String entrustedEnterprisesJson,
         String voidReason,
-        Long businessFileId) {
+        MultipartFile file) {
 
     public DccRegistrationCertificateChangeCommand(Long tenantId, Long actorId, String idempotencyKey,
                                                    String requestTraceId, Long certificateId,

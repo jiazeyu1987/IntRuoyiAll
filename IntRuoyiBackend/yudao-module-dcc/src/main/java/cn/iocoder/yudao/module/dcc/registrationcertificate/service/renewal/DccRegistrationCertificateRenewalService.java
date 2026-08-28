@@ -392,7 +392,34 @@ public class DccRegistrationCertificateRenewalService {
         if (certificate == null || !Objects.equals(certificate.getTenantId(), tenantId)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_NOT_EXISTS);
         }
-        return certificate.getPendingVersionId() == null;
+        if (certificate.getPendingVersionId() != null) {
+            return false;
+        }
+        Integer stagedApprovalCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM dcc_registration_certificate_access_request r
+                  JOIN dcc_registration_certificate_access_request_file rf
+                    ON rf.tenant_id = r.tenant_id
+                   AND rf.request_id = r.id
+                   AND rf.deleted = 0
+                   AND rf.file_kind = ?
+                   AND rf.status = ?
+                  JOIN dcc_registration_certificate_file f
+                    ON f.tenant_id = r.tenant_id
+                   AND f.id = rf.business_file_id
+                   AND f.deleted = 0
+                   AND f.owner_type = ?
+                   AND f.file_kind = ?
+                   AND f.status = ?
+                 WHERE r.tenant_id = ?
+                   AND r.certificate_id = ?
+                   AND r.request_type = ?
+                   AND r.status IN ('SUBMITTED', 'BPM_BOUND')
+                   AND r.deleted = 0
+                """, Integer.class, FILE_KIND_REGISTRATION_CERTIFICATE, REQUEST_FILE_STATUS_REQUESTED,
+                FILE_OWNER_VERSION, FILE_KIND_REGISTRATION_CERTIFICATE, FILE_STATUS_STAGED,
+                tenantId, certificateId, REQUEST_TYPE_UPLOAD_CERTIFICATE);
+        return stagedApprovalCount == null || stagedApprovalCount == 0;
     }
 
     private DccRegistrationCertificateDO requireActiveCertificate(DccRegistrationCertificateRenewalCommand command) {

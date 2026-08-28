@@ -139,6 +139,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
             throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
                     "Template recognition failed: " + recognition.getFailureReason());
         }
+        String recognizedJimuSchemaJson = requireRecognizedVisualSchema(recognition.getJimuSchemaJson());
         FormTemplateVersionDO insertObj = FormTemplateVersionDO.builder()
                 .tenantId(tenantId)
                 .templateId(upgradeImport ? latestExisting.getTemplateId() : null)
@@ -148,7 +149,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
                 .sourceFileName(command.getSourceFileName())
                 .sourceFileContent(Base64.getEncoder().encodeToString(sourceBytes))
                 .recognizedSchemaJson(JsonUtils.toJsonString(recognition.getFields()))
-                .jimuSchemaJson(recognition.getJimuSchemaJson())
+                .jimuSchemaJson(recognizedJimuSchemaJson)
                 .remark(reqVO.getRemark())
                 .build();
         templateVersionMapper.insert(insertObj);
@@ -1405,7 +1406,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         respVO.setStatus(version.getStatus());
         respVO.setUpdatedTime(version.getUpdateTime());
         respVO.setRemark(version.getRemark());
-        respVO.setBatchRecordReportId(buildFormTemplateReportId(version));
+        respVO.setDesignerReportId(buildFormTemplateReportId(version));
         respVO.setRecognizedFields(parseRecognizedFields(version.getRecognizedSchemaJson()));
         respVO.setJimuSchemaJson(version.getJimuSchemaJson());
         respVO.setSourceFileName(version.getSourceFileName());
@@ -1492,6 +1493,49 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
             return Map.of();
         }
         return JsonUtils.parseObject(formDataJson, new TypeReference<Map<String, Object>>() {});
+    }
+
+    private String requireRecognizedVisualSchema(String jimuSchemaJson) {
+        if (jimuSchemaJson == null || jimuSchemaJson.isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template schema rows are missing");
+        }
+        Map<String, Object> root;
+        try {
+            root = JsonUtils.parseObject(jimuSchemaJson, new TypeReference<Map<String, Object>>() {});
+        } catch (RuntimeException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template visual schema is invalid");
+        }
+        Object rawSheetLayoutJson = root.get("sheetLayoutJson");
+        if (!(rawSheetLayoutJson instanceof String sheetLayoutJson) || sheetLayoutJson.isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template schema rows are missing");
+        }
+        Map<String, Object> layout;
+        try {
+            layout = JsonUtils.parseObject(sheetLayoutJson, new TypeReference<Map<String, Object>>() {});
+        } catch (RuntimeException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template visual schema is invalid");
+        }
+        if (!hasRecognizedRows(layout.get("rows"))) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template schema rows are missing");
+        }
+        Object rawCellRules = root.get("cellRules");
+        if (!(rawCellRules instanceof List<?> cellRules) || cellRules.isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_RECOGNITION_FAILED,
+                    "Template cell rules are missing");
+        }
+        return jimuSchemaJson;
+    }
+
+    private boolean hasRecognizedRows(Object rawRows) {
+        if (!(rawRows instanceof Map<?, ?> rows)) {
+            return false;
+        }
+        return rows.keySet().stream().anyMatch(key -> !"len".equals(String.valueOf(key)));
     }
 
     private FormEffectExecutionRespVO toEffectResp(FormEffectExecutionDO execution) {

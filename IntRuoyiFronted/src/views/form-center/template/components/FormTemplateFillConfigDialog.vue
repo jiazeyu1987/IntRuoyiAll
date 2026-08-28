@@ -1,13 +1,15 @@
 <template>
-  <Dialog
+  <component
+    :is="editorShellComponent"
     v-model="dialogVisible"
-    class="scheme-d-basic-data-page scheme-d-basic-data-page--form-template scheme-d-form-control"
-    title="填写配置"
-    width="calc(100vw - 32px)"
-    :fullscreen="true"
-    :default-fullscreen="true"
+    :class="editorShellClass"
+    v-bind="editorShellProps"
   >
-    <div v-loading="loading" class="batch-record-cell-rules-editor">
+    <div
+      v-loading="loading"
+      class="batch-record-cell-rules-editor"
+      :class="{ 'batch-record-cell-rules-editor--embedded': embeddedMode }"
+    >
       <main class="batch-record-cell-rules-editor__main-panel">
         <el-alert
           v-if="readonlyMode"
@@ -651,7 +653,7 @@
         </div>
 
         <div class="batch-record-cell-rules-editor__side-actions scheme-d-dialog-footer">
-          <el-button class="scheme-d-btn scheme-d-btn--danger" @click="dialogVisible = false">关闭</el-button>
+          <el-button class="scheme-d-btn scheme-d-btn--danger" @click="closeEditor">关闭</el-button>
           <el-button
             class="scheme-d-btn scheme-d-btn--warning"
             :loading="loading"
@@ -672,7 +674,7 @@
         </div>
       </aside>
     </div>
-  </Dialog>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -782,6 +784,7 @@ type SourceCellGridAssignment = AssistGridKey & {
 }
 
 export type FormTemplateFillConfigSavePayload = {
+  configMode: ConfigMode
   sheetLayoutJson: string
   cellRules: BatchRecordReportCellRuleVO[]
   signatureCellMarkers: BatchRecordReportSignatureCellMarkerVO[]
@@ -799,11 +802,14 @@ const props = defineProps<{
   fillAssignments?: EdhrProcessFormFillAssignment[]
   readonly?: boolean
   saving?: boolean
+  embedded?: boolean
+  title?: string
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'draft-version-ready': [value: FormTemplateFillRuleAutoDetectRespVO]
+  close: []
   save: [value: FormTemplateFillConfigSavePayload]
 }>()
 
@@ -840,6 +846,29 @@ const dialogVisible = computed({
   get: () => props.modelValue,
   set: (value: boolean) => emit('update:modelValue', value)
 })
+const embeddedMode = computed(() => props.embedded === true)
+const editorShellComponent = computed(() => (embeddedMode.value ? 'div' : 'Dialog'))
+const editorShellClass = computed(() => [
+  'scheme-d-basic-data-page scheme-d-basic-data-page--form-template scheme-d-form-control',
+  { 'form-template-fill-config-editor--embedded': embeddedMode.value }
+])
+const editorShellProps = computed(() =>
+  embeddedMode.value
+    ? {}
+    : {
+        title: props.title || '填写配置',
+        width: 'calc(100vw - 32px)',
+        fullscreen: true,
+        defaultFullscreen: true
+      }
+)
+const closeEditor = () => {
+  if (embeddedMode.value) {
+    emit('close')
+    return
+  }
+  dialogVisible.value = false
+}
 
 const templateName = computed(() =>
   props.template?.templateName || props.template?.templateId || '-'
@@ -2073,6 +2102,7 @@ const confirmAllRules = () => {
     const rules = ruleRows.value.map(toManualReviewedRule)
     const assistRowsForSave = normalizedAssistRowsForSave()
     emit('save', {
+      configMode: activeConfigMode.value,
       sheetLayoutJson: JSON.stringify(sheetLayout.value),
       cellRules: rules,
       signatureCellMarkers: normalizedSignatureMarkersForSave(rules),

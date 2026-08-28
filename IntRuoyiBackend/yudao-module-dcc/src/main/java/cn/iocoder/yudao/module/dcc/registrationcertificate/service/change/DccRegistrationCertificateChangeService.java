@@ -4,13 +4,16 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
+import cn.iocoder.yudao.module.infra.service.file.FileService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -28,7 +31,6 @@ import java.util.Objects;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_HISTORY_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_VALUE_FORBIDDEN;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_REQUIRED;
@@ -48,6 +50,9 @@ public class DccRegistrationCertificateChangeService {
     private static final String STATUS_VOIDED = "VOIDED";
     private static final String EVENT_CHANGE_APPLIED = "CHANGE_APPLIED";
     private static final String EVENT_CERTIFICATE_VOIDED = "CERTIFICATE_VOIDED";
+    private static final String FILE_OWNER_CHANGE = "CHANGE";
+    private static final String FILE_KIND_CHANGE_APPROVAL = "CHANGE_APPROVAL";
+    private static final String FILE_STATUS_BOUND = "BOUND";
 
     private static final Map<String, String> STRUCTURED_COLUMNS = new LinkedHashMap<>();
 
@@ -63,18 +68,22 @@ public class DccRegistrationCertificateChangeService {
     }
 
     private final JdbcTemplate jdbcTemplate;
+    private final FileService fileService;
     private final DccRegistrationCertificateBusinessClock businessClock;
 
     public DccRegistrationCertificateChangeService(JdbcTemplate jdbcTemplate,
+                                                   FileService fileService,
                                                    DccRegistrationCertificateBusinessClock businessClock) {
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
+        this.fileService = require(fileService, "fileService");
         this.businessClock = require(businessClock, "businessClock");
     }
 
     @Transactional(rollbackFor = Exception.class)
     public DccRegistrationCertificateChangeResult applyChange(DccRegistrationCertificateChangeCommand command) {
         validateBaseCommand(command);
-        String payloadHash = payloadHash("CHANGE", command);
+        ChangeUploadFile uploadFile = requireUploadFile(command.file());
+        String payloadHash = payloadHash("CHANGE", command, uploadFile);
         ExistingEvent existing = findExistingEvent(command.tenantId(), command.idempotencyKey());
         if (existing != null) {
             return replayChange(existing, payloadHash);
@@ -82,7 +91,9 @@ public class DccRegistrationCertificateChangeService {
         ChangeSelection selection = validateSelection(command);
         CertificateState state = requireCurrentState(command.tenantId(), command.certificateId(),
                 command.expectedRowVersion());
-        validateChangeFile(command, state);
+        Long infraFileId = fileService.createFileAndReturnId(
+                uploadFile.content(), uploadFile.originalName(),
+                "dcc/registration-certificate/change/" + command.certificateId(), uploadFile.mimeType());
 
         Long resultingSnapshotId = state.snapshotId();
         SnapshotRow target = state.snapshot();
@@ -103,7 +114,7 @@ public class DccRegistrationCertificateChangeService {
         Long eventId = insertLifecycleEvent(command, state, resultingSnapshotId, EVENT_CHANGE_APPLIED,
                 payloadHash, selection.itemTypes());
         Long changeId = insertChange(command, state, resultingSnapshotId, eventId, selection.itemTypes());
-        bindChangeFile(command, state, changeId);
+        insertChangeFile(command, changeId, infraFileId, uploadFile);
         insertChangeItems(command.tenantId(), changeId, state.snapshot(), target, selection);
         return new DccRegistrationCertificateChangeResult(command.certificateId(), changeId,
                 state.snapshotId(), resultingSnapshotId, "APPLIED");
@@ -115,7 +126,7 @@ public class DccRegistrationCertificateChangeService {
         if (isBlank(command.voidReason())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_TOP_LEVEL_VOID_REASON_REQUIRED);
         }
-        String payloadHash = payloadHash("VOID", command);
+        String payloadHash = payloadHash("VOID", command, null);
         ExistingEvent existing = findExistingEvent(command.tenantId(), command.idempotencyKey());
         if (existing != null) {
             return replayVoid(existing, payloadHash);
@@ -176,9 +187,6 @@ public class DccRegistrationCertificateChangeService {
             }
         }
         boolean hasOther = !isBlank(command.otherDescription());
-        if (hasOther && !structured.isEmpty()) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_VALUE_FORBIDDEN);
-        }
         if (!hasOther && structured.isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_CHANGE_TYPE_INVALID);
         }
@@ -278,39 +286,22 @@ public class DccRegistrationCertificateChangeService {
         }
     }
 
-    private void validateChangeFile(DccRegistrationCertificateChangeCommand command, CertificateState state) {
-        if (command.businessFileId() == null) {
-            return;
-        }
-        Integer matching = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM dcc_registration_certificate_file
-                 WHERE id = ? AND tenant_id = ? AND owner_type = 'VERSION' AND owner_id = ?
-                   AND file_kind = 'CHANGE_APPROVAL' AND status = 'STAGED'
-                """, Integer.class, command.businessFileId(), command.tenantId(), state.versionId());
-        if (matching == null || matching != 1) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
-        }
-    }
-
-    private void bindChangeFile(DccRegistrationCertificateChangeCommand command, CertificateState state,
-                                Long changeId) {
-        if (command.businessFileId() == null) {
-            return;
-        }
-        int affected;
-        try {
-            affected = jdbcTemplate.update("""
-                    UPDATE dcc_registration_certificate_file
-                       SET owner_type = 'CHANGE', owner_id = ?, status = 'BOUND',
-                           bound_at = ?, bound_by = ?
-                     WHERE id = ? AND tenant_id = ? AND owner_type = 'VERSION' AND owner_id = ?
-                       AND file_kind = 'CHANGE_APPROVAL' AND status = 'STAGED'
-                    """, changeId, businessClock.now(), command.actorId(), command.businessFileId(),
-                    command.tenantId(), state.versionId());
-        } catch (DuplicateKeyException exception) {
+    private void insertChangeFile(DccRegistrationCertificateChangeCommand command, Long changeId,
+                                  Long infraFileId, ChangeUploadFile uploadFile) {
+        if (infraFileId == null || infraFileId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
         }
-        if (affected != 1) {
+        try {
+            requireSingle(jdbcTemplate.update("""
+                    INSERT INTO dcc_registration_certificate_file
+                      (tenant_id, owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
+                       file_size, sha256, status, bound_at, bound_by, creator)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, command.tenantId(), FILE_OWNER_CHANGE, changeId, FILE_KIND_CHANGE_APPROVAL,
+                    infraFileId, uploadFile.originalName(), uploadFile.mimeType(), uploadFile.fileSize(),
+                    uploadFile.sha256(), FILE_STATUS_BOUND, businessClock.now(), command.actorId(),
+                    String.valueOf(command.actorId())), REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+        } catch (DuplicateKeyException exception) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
         }
     }
@@ -491,12 +482,44 @@ public class DccRegistrationCertificateChangeService {
         return JsonUtils.toJsonString(Map.of("value", value == null ? "" : value));
     }
 
-    private static String payloadHash(String prefix, DccRegistrationCertificateChangeCommand command) {
+    private ChangeUploadFile requireUploadFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        }
+        String originalName = normalize(file.getOriginalFilename());
+        String mimeType = normalize(file.getContentType());
+        if (isBlank(originalName) || isBlank(mimeType) || file.getSize() <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        }
+        byte[] content;
+        try {
+            content = file.getBytes();
+        } catch (IOException exception) {
+            ServiceException mapped = new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            mapped.initCause(exception);
+            throw mapped;
+        }
+        if (content.length == 0 || content.length != file.getSize()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+        }
+        return new ChangeUploadFile(originalName, mimeType, file.getSize(), content, sha256(content));
+    }
+
+    private static String payloadHash(String prefix, DccRegistrationCertificateChangeCommand command,
+                                      ChangeUploadFile uploadFile) {
         return sha256(prefix + "|" + command.certificateId() + "|" + command.expectedRowVersion()
                 + "|" + command.approvalDate() + "|" + normalize(command.structuredValues())
                 + "|" + normalize(command.otherDescription()) + "|" + command.entrustedProduction()
                 + "|" + command.selfProduction() + "|" + normalize(command.entrustedEnterprisesJson())
-                + "|" + normalize(command.voidReason()) + "|" + command.businessFileId());
+                + "|" + normalize(command.voidReason()) + "|" + uploadFilePart(uploadFile));
+    }
+
+    private static String uploadFilePart(ChangeUploadFile uploadFile) {
+        if (uploadFile == null) {
+            return "";
+        }
+        return uploadFile.originalName() + "|" + uploadFile.mimeType() + "|"
+                + uploadFile.fileSize() + "|" + uploadFile.sha256();
     }
 
     private static String normalize(Map<String, String> values) {
@@ -511,6 +534,14 @@ public class DccRegistrationCertificateChangeService {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
+    private static String sha256(byte[] value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
@@ -551,6 +582,14 @@ public class DccRegistrationCertificateChangeService {
     }
 
     private record ChangeEventDetail(String payloadHash, List<String> itemTypes, String voidReason) {
+    }
+
+    private record ChangeUploadFile(
+            String originalName,
+            String mimeType,
+            long fileSize,
+            byte[] content,
+            String sha256) {
     }
 
     private record SnapshotRow(Long id, Long versionId, Integer revisionNo, String productName,

@@ -64,8 +64,9 @@ class DccRegistrationCertificateDomainTest {
     void productionRelationShouldRejectInvalidFlagAndAuthorityCombinations() throws Exception {
         Object enterpriseA = entrusted(10L, "Factory A");
 
-        assertConstructionFails(false, false, List.of());
+        assertDoesNotThrow(() -> relation(false, false, List.of()));
         assertConstructionFails(true, false, List.of());
+        assertDoesNotThrow(() -> relation(false, true, List.of()));
         assertConstructionFails(false, true, List.of(enterpriseA));
         assertConstructionFails(true, false, List.of(enterpriseA, enterpriseA));
         assertConstructionFails(true, false, List.of(entrusted(null, "Factory")));

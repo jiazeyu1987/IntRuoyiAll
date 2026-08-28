@@ -49,6 +49,8 @@ class MesProSchedulerWorkbenchMapperXmlTest {
         String mapperXml = Files.readString(MAPPER_XML, StandardCharsets.UTF_8);
         String sql = selectSql(mapperXml, "selectCurrentScheduleReportedQuantity");
 
+        assertTrue(sql.contains("so.id IN") && sql.contains("collection=\"scheduleOrderIds\""),
+                "当前排产实际报工数量必须限定最近一次成功排产工单范围");
         assertTrue(sql.contains("MAX(sop.reported_quantity)"),
                 "当前排产实际报工数量必须优先使用工序快照真实报工数量，不能使用进度折算值");
         assertTrue(sql.contains("MAX(feedback_by_order.feedback_quantity)"),
@@ -68,6 +70,9 @@ class MesProSchedulerWorkbenchMapperXmlTest {
         String mapperXml = Files.readString(MAPPER_XML, StandardCharsets.UTF_8);
         String sql = selectSql(mapperXml, "selectRouteActiveOrders");
 
+        assertTrue(countOccurrences(sql, "so.id IN") >= 2
+                        && countOccurrences(sql, "collection=\"scheduleOrderIds\"") >= 2,
+                "工艺路线在制订单路线汇总和产品汇总都必须限定最近一次成功排产工单范围");
         assertTrue(sql.contains("MesProScheduleOrderStatusEnum@PREPARE.status"),
                 "工艺路线在制订单必须覆盖待排产工单，和工序在制订单口径一致");
         assertTrue(sql.contains("MesProScheduleOrderStatusEnum@SCHEDULED.status"),
@@ -91,6 +96,19 @@ class MesProSchedulerWorkbenchMapperXmlTest {
 
         assertTrue(countOccurrences(sql, "so.frozen = b'0'") >= 2,
                 "工艺路线在制订单路线汇总和产品汇总都必须排除冻结工单，避免比排产工单未冻结列表多统计");
+    }
+
+    @Test
+    void selectCurrentSchedulePlannedQuantityAndBottlenecks_shouldUseLatestScheduleOrderScope() throws IOException {
+        String mapperXml = Files.readString(MAPPER_XML, StandardCharsets.UTF_8);
+        String plannedSql = selectSql(mapperXml, "selectCurrentSchedulePlannedQuantity");
+        String bottleneckSql = selectSql(mapperXml, "selectBottlenecks");
+
+        assertTrue(plannedSql.contains("id IN") && plannedSql.contains("collection=\"scheduleOrderIds\""),
+                "当前排产计划数量必须限定最近一次成功排产工单范围");
+        assertTrue(bottleneckSql.contains("schedule_order.id IN")
+                        && bottleneckSql.contains("collection=\"scheduleOrderIds\""),
+                "瓶颈列表必须限定最近一次成功排产工单范围");
     }
 
     private static String selectSql(String mapperXml, String selectId) {

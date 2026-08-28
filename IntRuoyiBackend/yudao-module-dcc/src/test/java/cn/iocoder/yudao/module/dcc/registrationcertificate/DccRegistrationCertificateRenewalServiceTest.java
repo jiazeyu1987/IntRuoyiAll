@@ -16,6 +16,8 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.D
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalSubmitCommand;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalSubmitResult;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentProjectionSnapshot;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionService;
@@ -26,9 +28,11 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import javax.sql.DataSource;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -51,6 +55,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Import({
         DccRegistrationCertificateRenewalService.class,
@@ -148,6 +153,45 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
         assertEquals(current.stagedFileId(), result.businessFileId());
         assertEquals(result.renewalVersionId(), fileMapper.selectById(current.stagedFileId()).getOwnerId());
         assertEquals("BOUND", fileMapper.selectById(current.stagedFileId()).getStatus());
+    }
+
+    @Test
+    void submittedRenewalApprovalMakesRenewalUploadNotMissingBeforeManagerApproval() {
+        CurrentFixture current = seedCurrentCertificate();
+        when(fileService.createFileAndReturnId(any(byte[].class), eq("renewal.pdf"), anyString(), eq("application/pdf")))
+                .thenReturn(9001L);
+
+        DccRegistrationCertificateRenewalSubmitResult result = service.submitRenewalForApproval(
+                new DccRegistrationCertificateRenewalSubmitCommand(
+                        1L, 99L, "renewal-approval-pending-1", "trace-renewal-approval-pending-1",
+                        current.certificateId(), 1, current.currentVersionId(),
+                        LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1),
+                        LocalDate.of(2031, 9, 1), renewalApprovalFile()));
+
+        assertEquals("SUBMITTED", result.requestStatus());
+        assertFalse(service.isRenewalUploadMissing(1L, current.certificateId()));
+        assertNull(certificateMapper.selectById(current.certificateId()).getPendingVersionId());
+        assertEquals(1, count("""
+                SELECT COUNT(*)
+                  FROM dcc_registration_certificate_access_request r
+                  JOIN dcc_registration_certificate_access_request_file rf
+                    ON rf.tenant_id = r.tenant_id
+                   AND rf.request_id = r.id
+                   AND rf.file_kind = 'REGISTRATION_CERTIFICATE'
+                   AND rf.status = 'REQUESTED'
+                  JOIN dcc_registration_certificate_file f
+                    ON f.tenant_id = r.tenant_id
+                   AND f.id = rf.business_file_id
+                   AND f.owner_type = 'VERSION'
+                   AND f.owner_id = ?
+                   AND f.file_kind = 'REGISTRATION_CERTIFICATE'
+                   AND f.status = 'STAGED'
+                 WHERE r.tenant_id = 1
+                   AND r.certificate_id = ?
+                   AND r.request_type = 'UPLOAD_CERTIFICATE'
+                   AND r.status IN ('SUBMITTED', 'BPM_BOUND')
+                   AND r.deleted = 0
+                """, current.currentVersionId(), current.certificateId()));
     }
 
     @Test
@@ -255,6 +299,12 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
         } catch (RuntimeException exception) {
             return exception;
         }
+    }
+
+    private MockMultipartFile renewalApprovalFile() {
+        return new MockMultipartFile(
+                "file", "renewal.pdf", "application/pdf",
+                "renewal-content".getBytes(StandardCharsets.UTF_8));
     }
 
     private CurrentFixture seedCurrentCertificate() {

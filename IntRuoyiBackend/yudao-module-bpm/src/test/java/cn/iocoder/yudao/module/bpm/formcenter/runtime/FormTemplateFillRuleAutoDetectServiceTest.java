@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.bpm.formcenter.runtime;
 
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormTemplateFillRuleAutoDetectRespVO;
@@ -7,11 +8,17 @@ import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormTemplateFi
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormTemplateStatus;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -122,6 +129,43 @@ class FormTemplateFillRuleAutoDetectServiceTest extends BaseMockitoUnitTest {
         assertEquals(2, response.getCandidateCount());
         verify(templateVersionMapper, never()).selectDraftByTemplateId(122L, 200L);
         verify(templateVersionMapper, never()).insert((FormTemplateVersionDO) any());
+    }
+
+    @Test
+    void detectReadsImportedSheetLayoutJsonAndExistingCellRules() throws Exception {
+        Path fixture = Path.of("..", "..", "resource", "按压式球囊扩充压力泵IDI-001", "过程检验记录.docx")
+                .toAbsolutePath().normalize();
+        String jimuSchemaJson;
+        try (InputStream input = Files.newInputStream(fixture);
+             XWPFDocument document = new XWPFDocument(input)) {
+            jimuSchemaJson = WordTableVisualSchemaBuilder.build(document.getTables().get(0));
+        }
+
+        TenantContextHolder.setTenantId(1L);
+        FormTemplateVersionDO version = FormTemplateVersionDO.builder()
+                .id(8001L)
+                .templateId(33L)
+                .tenantId(1L)
+                .templateName("按压式压力泵过程检验记录")
+                .versionNo("V8.0")
+                .status(FormTemplateStatus.DRAFT.name())
+                .jimuSchemaJson(jimuSchemaJson)
+                .build();
+        when(templateVersionMapper.selectByTemplateIdAndVersionNo(33L, "V8.0")).thenReturn(version);
+
+        FormTemplateFillRuleAutoDetectRespVO response = service.detect(33L, "V8.0");
+        List<FormTemplateFillRuleCandidateVO> candidates = response.getCandidates();
+
+        assertTrue(candidates.stream().anyMatch(candidate -> "NUMBER".equals(candidate.getValueType())
+                && "input-number".equals(candidate.getComponentFlag())));
+        assertTrue(candidates.stream().anyMatch(candidate -> "DATE".equals(candidate.getValueType())
+                && "date".equals(candidate.getComponentFlag())));
+        assertTrue(candidates.stream().anyMatch(candidate -> "STRING".equals(candidate.getValueType())
+                && "radio-group".equals(candidate.getComponentFlag())
+                && JsonUtils.toJsonString(candidate.getConstraints()).contains("符合要求")
+                && JsonUtils.toJsonString(candidate.getConstraints()).contains("不符合要求")));
+        assertTrue(candidates.stream().anyMatch(candidate -> "SIGNATURE".equals(candidate.getValueType())
+                && "signature".equals(candidate.getComponentFlag())));
     }
 
     private FormTemplateVersionDO templateVersion(Long id, Long tenantId, String templateName, String versionNo,

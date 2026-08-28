@@ -17,11 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -139,7 +141,11 @@ public class FormTemplateFillRuleAutoDetectService {
             return List.of();
         }
 
-        List<FormTemplateFillRuleCandidateVO> candidates = new ArrayList<>();
+        List<FormTemplateFillRuleCandidateVO> candidates = buildCandidatesFromExistingRules(root);
+        Set<String> existingCellKeys = new HashSet<>();
+        for (FormTemplateFillRuleCandidateVO candidate : candidates) {
+            existingCellKeys.add(cellKey(candidate.getRowIndex(), candidate.getColumnIndex()));
+        }
         for (Integer rowIndex : numericKeys(rows)) {
             Map<String, Object> row = asMap(rows.get(String.valueOf(rowIndex)));
             Map<String, Object> cells = row == null ? null : asMap(row.get("cells"));
@@ -147,15 +153,62 @@ public class FormTemplateFillRuleAutoDetectService {
                 continue;
             }
             for (Integer columnIndex : numericKeys(cells)) {
+                if (existingCellKeys.contains(cellKey(rowIndex, columnIndex))) {
+                    continue;
+                }
                 Map<String, Object> cell = asMap(cells.get(String.valueOf(columnIndex)));
                 FormTemplateFillRuleCandidateVO candidate = buildCandidate(layout, rowIndex, columnIndex, cell);
                 if (candidate != null) {
                     candidates.add(candidate);
+                    existingCellKeys.add(cellKey(rowIndex, columnIndex));
                 }
             }
         }
         candidates.sort(Comparator.comparing(FormTemplateFillRuleCandidateVO::getRowIndex)
                 .thenComparing(FormTemplateFillRuleCandidateVO::getColumnIndex));
+        return candidates;
+    }
+
+    private List<FormTemplateFillRuleCandidateVO> buildCandidatesFromExistingRules(Map<String, Object> root) {
+        Object rawRules = root.get("cellRules");
+        if (!(rawRules instanceof List<?> rules) || rules.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<FormTemplateFillRuleCandidateVO> candidates = new ArrayList<>();
+        for (Object rawRule : rules) {
+            Map<String, Object> rule = asMap(rawRule);
+            if (rule == null) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                        "Template cell rule must be an object");
+            }
+            Integer rowIndex = asInteger(rule.get("rowIndex"));
+            Integer columnIndex = asInteger(rule.get("columnIndex"));
+            String valueType = normalizeValueType(getString(rule, "valueType"));
+            String componentFlag = normalizeComponentFlag(getString(rule, "componentFlag"));
+            if (rowIndex == null || columnIndex == null || StrUtil.isBlank(valueType)
+                    || StrUtil.isBlank(componentFlag)) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                        "Template cell rule is invalid");
+            }
+            FormTemplateFillRuleCandidateVO candidate = new FormTemplateFillRuleCandidateVO();
+            candidate.setRowIndex(rowIndex);
+            candidate.setColumnIndex(columnIndex);
+            candidate.setLabel(firstNonBlank(getString(rule, "label"),
+                    getString(rule, "labelText"), defaultLabel(rowIndex, columnIndex)));
+            candidate.setValueType(valueType);
+            candidate.setComponentFlag(componentFlag);
+            candidate.setRequired(asBoolean(rule.get("required"), false));
+            candidate.setConstraints(asMap(rule.get("constraints")));
+            candidate.setUnit(blankToNull(getString(rule, "unit")));
+            candidate.setPlaceholder(blankToNull(firstNonBlank(getString(rule, "placeholder"),
+                    resolvePlaceholder(valueType, componentFlag, candidate.getLabel(), ""))));
+            candidate.setHelpText(blankToNull(firstNonBlank(getString(rule, "helpText"),
+                    resolveHelpText(valueType, candidate.getLabel(), candidate.getUnit(), "",
+                            List.of(), ""))));
+            candidate.setConfidence(asDouble(rule.get("confidence"), 1d));
+            candidate.setReason(firstNonBlank(getString(rule, "reason"), "使用导入时已识别的填写规则"));
+            candidates.add(candidate);
+        }
         return candidates;
     }
 
@@ -563,8 +616,27 @@ public class FormTemplateFillRuleAutoDetectService {
         if (layout != null && asMap(layout.get("rows")) != null) {
             return layout;
         }
+        layout = parseJsonMap(root.get("sheetLayoutJson"), "Template sheet layout parse failed");
+        if (layout != null && asMap(layout.get("rows")) != null) {
+            return layout;
+        }
+        layout = parseJsonMap(root.get("layout"), "Template layout parse failed");
+        if (layout != null && asMap(layout.get("rows")) != null) {
+            return layout;
+        }
         throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
                 "Template schema rows are missing");
+    }
+
+    private Map<String, Object> parseJsonMap(Object value, String failureMessage) {
+        if (!(value instanceof String json) || json.isBlank()) {
+            return null;
+        }
+        try {
+            return JsonUtils.parseObject(json, new TypeReference<Map<String, Object>>() {});
+        } catch (RuntimeException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID, failureMessage);
+        }
     }
 
     private Map<String, Object> asMap(Object value) {
@@ -613,6 +685,43 @@ public class FormTemplateFillRuleAutoDetectService {
                 .map(key -> Integer.valueOf(key.toString()))
                 .sorted()
                 .toList();
+    }
+
+    private Integer asInteger(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String stringValue && stringValue.matches("\\d+")) {
+            return Integer.valueOf(stringValue);
+        }
+        return null;
+    }
+
+    private Boolean asBoolean(Object value, boolean defaultValue) {
+        return value instanceof Boolean boolValue ? boolValue : defaultValue;
+    }
+
+    private Double asDouble(Object value, double defaultValue) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (value instanceof String stringValue && StrUtil.isNotBlank(stringValue)) {
+            try {
+                return Double.valueOf(stringValue);
+            } catch (NumberFormatException ex) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                        "Template cell rule confidence is invalid");
+            }
+        }
+        return defaultValue;
+    }
+
+    private String normalizeValueType(String valueType) {
+        return StrUtil.blankToDefault(valueType, "").trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String cellKey(Integer rowIndex, Integer columnIndex) {
+        return rowIndex + ":" + columnIndex;
     }
 
     private String cellText(Map<String, Object> cell) {

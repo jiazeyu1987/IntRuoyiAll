@@ -621,6 +621,35 @@
                               清空
                             </el-button>
                           </div>
+                          <div
+                            v-else-if="field.componentKind === 'radio'"
+                            class="edhr-fill-workspace__choice-group"
+                          >
+                            <el-radio-group
+                              :model-value="String(draftFieldValues[field.fieldIdentity] ?? '')"
+                              :disabled="isReadonly"
+                              @update:model-value="
+                                (value) => (draftFieldValues[field.fieldIdentity] = String(value || ''))
+                              "
+                            >
+                              <el-radio
+                                v-for="option in field.options"
+                                :key="option.value"
+                                :value="option.value"
+                              >
+                                {{ option.label }}
+                              </el-radio>
+                            </el-radio-group>
+                            <el-button
+                              v-if="!isReadonly && draftFieldValues[field.fieldIdentity]"
+                              size="small"
+                              text
+                              type="primary"
+                              @click="draftFieldValues[field.fieldIdentity] = ''"
+                            >
+                              清空
+                            </el-button>
+                          </div>
                           <el-select
                             v-else-if="field.componentKind === 'select'"
                             v-model="draftFieldValues[field.fieldIdentity]"
@@ -773,8 +802,40 @@
                           </el-tag>
                         </div>
 
+                      <div
+                        v-if="resolveTemplateSnapshotField(context)?.componentKind === 'radio'"
+                        class="edhr-fill-workspace__choice-group"
+                      >
+                        <el-radio-group
+                          :model-value="String(resolveTemplateFieldValue(context) ?? '')"
+                          :disabled="isTemplateContextReadonlyForCurrentTask(context)"
+                          @update:model-value="
+                            (value) => updateTemplateFieldValue(context, String(value || ''))
+                          "
+                        >
+                          <el-radio
+                            v-for="option in resolveTemplateSnapshotField(context)?.options || []"
+                            :key="String(option.value)"
+                            :value="option.value"
+                          >
+                            {{ option.label }}
+                          </el-radio>
+                        </el-radio-group>
+                        <el-button
+                          v-if="
+                            !isTemplateContextReadonlyForCurrentTask(context) &&
+                            resolveTemplateFieldValue(context)
+                          "
+                          size="small"
+                          text
+                          type="primary"
+                          @click="updateTemplateFieldValue(context, '')"
+                        >
+                          清空
+                        </el-button>
+                      </div>
                       <el-select
-                        v-if="resolveTemplateSnapshotField(context)?.componentKind === 'select'"
+                        v-else-if="resolveTemplateSnapshotField(context)?.componentKind === 'select'"
                         :model-value="resolveTemplateFieldValue(context)"
                         :disabled="isTemplateContextReadonlyForCurrentTask(context)"
                         clearable
@@ -1683,6 +1744,7 @@ type NormalizedSnapshotField = {
     | 'datetime'
     | 'select'
     | 'checkbox'
+    | 'radio'
     | 'signature'
     | 'upload-file'
     | 'upload-image'
@@ -2099,6 +2161,37 @@ const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
   return defaultMessage
 }
 
+const readSnapshotRecord = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+
+const readSnapshotString = (value: unknown) =>
+  typeof value === 'string' && value.trim() ? value.trim() : ''
+
+const readSnapshotNestedString = (
+  field: ProFeedbackEdhrSnapshotFieldVO,
+  sourceKey: 'edhrCellRule' | 'fillForm',
+  valueKey: string
+) => readSnapshotString(readSnapshotRecord(field[sourceKey])?.[valueKey])
+
+const resolveSnapshotComponentTypeText = (field: ProFeedbackEdhrSnapshotFieldVO) =>
+  [
+    field.componentFlag,
+    readSnapshotNestedString(field, 'edhrCellRule', 'componentFlag'),
+    readSnapshotNestedString(field, 'fillForm', 'componentFlag'),
+    field.inputType,
+    field.componentType,
+    field.component,
+    readSnapshotNestedString(field, 'edhrCellRule', 'component'),
+    readSnapshotNestedString(field, 'fillForm', 'component'),
+    field.type
+  ]
+    .map(readSnapshotString)
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
 const resolveSnapshotFieldLabel = (
   field: ProFeedbackEdhrSnapshotFieldVO,
   rowIndex: number,
@@ -2120,7 +2213,12 @@ const resolveSnapshotFieldPlaceholder = (
   if (typeof field.placeholder === 'string' && field.placeholder.trim()) {
     return field.placeholder.trim()
   }
-  if (componentKind === 'select' || componentKind === 'date' || componentKind === 'datetime') {
+  if (
+    componentKind === 'radio' ||
+    componentKind === 'select' ||
+    componentKind === 'date' ||
+    componentKind === 'datetime'
+  ) {
     return `请选择${label}`
   }
   return `请输入${label}`
@@ -2130,7 +2228,7 @@ const resolveSnapshotFieldHelpText = (field: ProFeedbackEdhrSnapshotFieldVO) => 
   if (typeof field.helpText === 'string' && field.helpText.trim()) {
     return field.helpText.trim()
   }
-  const rule = (field as any)?.edhrCellRule
+  const rule = readSnapshotRecord(field.edhrCellRule)
   if (rule && typeof rule.helpText === 'string' && rule.helpText.trim()) {
     return rule.helpText.trim()
   }
@@ -2268,15 +2366,7 @@ const formatAttachmentRule = (rule?: SnapshotAttachmentRule) => {
 const resolveSnapshotComponentKind = (
   field: ProFeedbackEdhrSnapshotFieldVO
 ): NormalizedSnapshotField['componentKind'] => {
-  const valueType = String(field.valueType || '').toUpperCase()
-  if (valueType === 'NUMBER') return 'number'
-  if (valueType === 'DATE') return 'date'
-  if (valueType === 'DATETIME') return 'datetime'
-  if (valueType === 'BOOLEAN') return 'checkbox'
-  if (valueType === 'SIGNATURE') return 'signature'
-  const rawType = String(
-    field.inputType || field.componentType || field.component || field.componentFlag || field.type || ''
-  ).toLowerCase()
+  const rawType = resolveSnapshotComponentTypeText(field)
   if (rawType.includes('upload-images') || rawType.includes('image-list')) {
     return 'upload-images'
   }
@@ -2288,6 +2378,14 @@ const resolveSnapshotComponentKind = (
   }
   if (rawType.includes('signature') || rawType.includes('sign')) {
     return 'signature'
+  }
+  if (
+    rawType.includes('radio-group') ||
+    rawType.includes('radio') ||
+    rawType.includes('option-group') ||
+    rawType.includes('single-choice')
+  ) {
+    return 'radio'
   }
   if (rawType.includes('textarea') || rawType.includes('multiline') || rawType.includes('remark')) {
     return 'textarea'
@@ -2304,8 +2402,19 @@ const resolveSnapshotComponentKind = (
   if (rawType.includes('switch') || rawType.includes('boolean') || rawType.includes('checkbox')) {
     return 'checkbox'
   }
+  const valueType = String(field.valueType || '').toUpperCase()
+  if (valueType === 'NUMBER') return 'number'
+  if (valueType === 'DATE') return 'date'
+  if (valueType === 'DATETIME') return 'datetime'
+  if (valueType === 'BOOLEAN') return 'checkbox'
+  if (valueType === 'SIGNATURE') return 'signature'
   const options = resolveSnapshotFieldOptions(field)
-  if (options.length > 0 || rawType.includes('select') || rawType.includes('enum')) {
+  if (
+    options.length > 0 ||
+    rawType.includes('select') ||
+    rawType.includes('dropdown') ||
+    rawType.includes('enum')
+  ) {
     return 'select'
   }
   return 'text'
@@ -2317,6 +2426,9 @@ const resolveSnapshotDefaultValue = (
   options: SnapshotFieldOption[] = []
 ): DraftFieldValue => {
   const seed = field.defaultValue ?? field.value ?? ''
+  if (componentKind === 'radio') {
+    return seed == null ? '' : String(seed)
+  }
   if (componentKind === 'checkbox' && options.length > 1) {
     return seed == null || typeof seed === 'boolean' ? '' : String(seed)
   }
@@ -2400,6 +2512,9 @@ const resolveFieldValueType = (
   componentKind: NormalizedSnapshotField['componentKind'],
   options: SnapshotFieldOption[] = []
 ): EdhrFieldValueType => {
+  if (componentKind === 'radio') {
+    return 'STRING'
+  }
   if (componentKind === 'checkbox' && options.length > 1) {
     return 'STRING'
   }

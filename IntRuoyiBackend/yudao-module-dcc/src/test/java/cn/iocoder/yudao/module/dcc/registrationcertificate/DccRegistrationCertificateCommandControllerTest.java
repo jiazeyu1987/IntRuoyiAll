@@ -4,6 +4,8 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.cert
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.certificate.vo.command.DccRegistrationCertificateDraftReqVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.certificate.vo.command.DccRegistrationCertificateFormalizeReqVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.certificate.vo.command.DccRegistrationCertificateUpdateDraftReqVO;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,10 +17,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DccRegistrationCertificateCommandControllerTest {
@@ -58,11 +62,35 @@ class DccRegistrationCertificateCommandControllerTest {
         for (Map.Entry<String, Integer> expected : Map.of(
                 "certificateNo", 128,
                 "classification", 64,
-                "registrantName", 255).entrySet()) {
+                "registrantName", 255,
+                "remark", 1024).entrySet()) {
             Size size = DccRegistrationCertificateDraftReqVO.class
                     .getDeclaredField(expected.getKey()).getAnnotation(Size.class);
             assertNotNull(size, expected.getKey() + " must declare an HTTP length boundary");
             assertEquals(expected.getValue(), size.max(), expected.getKey());
+        }
+    }
+
+    @Test
+    void draftRequest_keepsHiddenDraftFieldsOptional() throws Exception {
+        for (String fieldName : List.of(
+                "approvalDate",
+                "registrantName",
+                "modelSpecification",
+                "structureComposition",
+                "intendedUse",
+                "technicalRequirements",
+                "residenceAddress",
+                "productionAddress",
+                "entrustedProduction",
+                "selfProduction",
+                "entrustedEnterpriseIds")) {
+            assertNull(DccRegistrationCertificateDraftReqVO.class.getDeclaredField(fieldName)
+                            .getAnnotation(NotNull.class),
+                    fieldName + " must remain optional");
+            assertNull(DccRegistrationCertificateDraftReqVO.class.getDeclaredField(fieldName)
+                            .getAnnotation(NotBlank.class),
+                    fieldName + " must not be blank-required");
         }
     }
 
@@ -72,7 +100,7 @@ class DccRegistrationCertificateCommandControllerTest {
                 "cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.renewal"
                         + ".DccRegistrationCertificateRenewalController");
         assertRoot(renewalController, "/dcc/registration-certificates/{certificateId}/renewals");
-        assertRoute(renewalController, "uploadCandidate", PostMapping.class, "",
+        assertRoute(renewalController, "submitForApproval", PostMapping.class, "",
                 "dcc:registration-certificate:renewal:upload", 1);
         assertRoute(renewalController, "voidPendingCandidate", PostMapping.class, "/{pendingVersionId}/void",
                 "dcc:registration-certificate:renewal:void", 1);

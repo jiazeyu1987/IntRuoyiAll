@@ -71,6 +71,7 @@ class DccRegistrationCertificateAccessSchemaTest extends BaseDbUnitTest {
                 "unique key `uk_dcc_reg_cert_download_once` (`tenant_id`, `grant_id`, `business_file_id`, `success_unique_flag`)",
                 "unique key `uk_dcc_reg_cert_access_audit_key` (`tenant_id`, `event_key`)",
                 "constraint `chk_dcc_reg_cert_access_request_type` check",
+                "('view_old_certificate', 'download_file', 'upload_certificate')",
                 "constraint `chk_dcc_reg_cert_access_request_status` check",
                 "constraint `chk_dcc_reg_cert_access_request_project` check",
                 "constraint `chk_dcc_reg_cert_request_file_download` check",
@@ -128,6 +129,12 @@ class DccRegistrationCertificateAccessSchemaTest extends BaseDbUnitTest {
                 statement.setString(3, "req:download:missing-project");
                 assertThrows(SQLException.class, statement::executeUpdate,
                         "download requests must carry an approved project code at submission");
+                statement.setLong(1, 4L);
+                statement.setString(2, "UPLOAD_CERTIFICATE");
+                statement.setString(3, "req:upload:1");
+                statement.setObject(4, 2002L);
+                statement.setTimestamp(5, Timestamp.valueOf(LocalDateTime.of(2026, 8, 18, 10, 1)));
+                assertEquals(1, statement.executeUpdate());
             }
             try (var statement = connection.prepareStatement("""
                     INSERT INTO dcc_registration_certificate_access_request

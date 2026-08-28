@@ -58,6 +58,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderRouteStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesTimeUnitTypeEnum;
 import cn.iocoder.yudao.module.mes.service.cal.holiday.MesCalHolidayService;
 import cn.iocoder.yudao.module.mes.service.cal.plan.MesCalPlanService;
@@ -725,6 +726,30 @@ class MesProAutoScheduleAlgorithmContractTest {
                         || "同一工单工序存在多个受保护任务".equals(issue.getMessage())));
         assertEquals(2, preview.getSummary().getGeneratedTaskCount());
         assertEquals(1, processTasks(preview, 1L, 300L).size());
+    }
+
+    @Test
+    void preview_shouldBlockCanceledSourceWorkOrderBeforeProtectedTaskConflict() {
+        urgentWorkOrder.setStatus(MesProWorkOrderStatusEnum.CANCELED.getStatus());
+        lenient().when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(urgentOrder));
+        lenient().when(workOrderService.getWorkOrderList(any())).thenReturn(List.of(urgentWorkOrder));
+        when(taskMapper.selectListByWorkOrderIds(any())).thenReturn(List.of(
+                existingTask(7301L, 1L, 300L, MesProTaskStatusEnum.FINISHED.getStatus(),
+                        LocalDateTime.of(2026, 5, 10, 8, 0)),
+                existingTask(7302L, 1L, 300L, MesProTaskStatusEnum.FINISHED.getStatus(),
+                        LocalDateTime.of(2026, 5, 10, 9, 0))));
+
+        MesProAutoSchedulePreviewRespVO preview = autoScheduleService.preview(
+                req(List.of(501L), LocalDateTime.of(2026, 5, 13, 8, 0)));
+
+        assertEquals(1, preview.getSummary().getBlockingIssueCount(), () -> String.valueOf(preview.getIssues()));
+        assertTrue(preview.getIssues().stream()
+                .anyMatch(issue -> "WORK_ORDER_STATUS".equals(issue.getIssueType())
+                        && "生产工单已取消".equals(issue.getMessage())));
+        assertFalse(preview.getIssues().stream()
+                .anyMatch(issue -> "PROTECTED_TASK".equals(issue.getIssueType())
+                        || "同一工单工序存在多个受保护任务".equals(issue.getMessage())));
+        assertEquals(0, preview.getSummary().getGeneratedTaskCount());
     }
 
     @Test

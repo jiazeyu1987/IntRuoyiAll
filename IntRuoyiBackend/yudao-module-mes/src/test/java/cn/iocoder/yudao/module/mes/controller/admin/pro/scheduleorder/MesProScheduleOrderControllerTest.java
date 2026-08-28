@@ -23,6 +23,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProScheduleIssueDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
@@ -30,6 +31,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderD
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleIssueMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
@@ -147,6 +149,66 @@ class MesProScheduleOrderControllerTest {
         MesProScheduleOrderRespVO vo = response.getData().getList().get(0);
         assertEquals("MO-LEGACY-001", vo.getErpWorkOrderCode());
         verify(workOrderService).getWorkOrderMap(Set.of(20L));
+    }
+
+    @Test
+    void getScheduleOrderPage_prefersCanceledSourceWorkOrderOverStaleProtectedIssue() {
+        MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
+                .id(10L)
+                .code("SCH-CANCELED-WO")
+                .workOrderId(20L)
+                .erpWorkOrderCode("WO-CANCELED")
+                .productId(30L)
+                .quantity(new BigDecimal("10.000000"))
+                .promiseDate(LocalDate.of(2026, 7, 2))
+                .status(1)
+                .build();
+
+        when(scheduleOrderService.getScheduleOrderPage(any()))
+                .thenReturn(new PageResult<>(List.of(scheduleOrder), 1L));
+        when(itemService.getItemMap(Set.of(30L)))
+                .thenReturn(Map.of(30L, MesMdItemDO.builder()
+                        .id(30L)
+                        .code("ITEM-001")
+                        .name("产品")
+                        .specification("S1")
+                        .build()));
+        when(routeService.getRouteMap(Set.of())).thenReturn(Map.of());
+        when(workOrderService.getWorkOrderMap(Set.of(20L)))
+                .thenReturn(Map.of(20L, MesProWorkOrderDO.builder()
+                        .id(20L)
+                        .code("WO-CANCELED")
+                        .status(MesProWorkOrderStatusEnum.CANCELED.getStatus())
+                        .build()));
+        when(productionMaterialListMapper.selectListByWorkOrderIds(Set.of(20L))).thenReturn(List.of());
+        when(scheduleOrderService.getScheduleOrderProcessListByScheduleOrderIds(Set.of(10L)))
+                .thenReturn(List.of());
+        when(scheduleIssueMapper.selectListByWorkOrderIds(Set.of(20L))).thenReturn(List.of(
+                MesProScheduleIssueDO.builder()
+                        .id(100L)
+                        .issueType("PROTECTED_TASK")
+                        .severity("BLOCKING")
+                        .workOrderId(20L)
+                        .processId(300L)
+                        .message("同一工单工序存在多个受保护任务")
+                        .resolved(Boolean.FALSE)
+                        .status("OPEN")
+                        .build()));
+        when(scheduleOrderService.calculateProcessAggregateProgressSummary(new BigDecimal("10.000000"), List.of()))
+                .thenReturn(new MesProScheduleOrderService.ProgressSummary(
+                        new BigDecimal("10.000000"),
+                        BigDecimal.ZERO.setScale(6),
+                        new BigDecimal("10.000000"),
+                        BigDecimal.ZERO.setScale(6)));
+        when(processService.getProcessMap(Set.of())).thenReturn(Map.of());
+
+        CommonResult<PageResult<MesProScheduleOrderRespVO>> response =
+                controller.getScheduleOrderPage(new MesProScheduleOrderPageReqVO());
+
+        MesProScheduleOrderRespVO vo = response.getData().getList().get(0);
+        assertEquals(MesProWorkOrderStatusEnum.CANCELED.getStatus(), vo.getSourceWorkOrderStatus());
+        assertEquals(1, vo.getBlockingIssueCount());
+        assertEquals("生产工单已取消", vo.getLatestBlockingIssueMessage());
     }
 
     @Test

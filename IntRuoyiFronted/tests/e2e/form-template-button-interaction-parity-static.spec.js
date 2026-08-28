@@ -9,12 +9,23 @@ const templatePage = read('src/views/form-center/template/index.vue')
 const templateApi = read('src/api/form-center/template.ts')
 const simulatePage = read('src/views/form-center/template/FormTemplateSimulatePage.vue')
 const routes = read('src/router/modules/remaining.ts')
-const designerWrapper = read('src/views/form-center/template/components/FormTemplateDesignerWrapper.vue')
+const designerWrapper = read('src/views/mes/pro/batchrecord-shared/DesignerWrapper.vue')
+const formTemplateDesignerWrapper = read(
+  'src/views/form-center/template/components/FormTemplateDesignerWrapper.vue'
+)
+const formTemplateFillConfigDialog = read(
+  'src/views/form-center/template/components/FormTemplateFillConfigDialog.vue'
+)
 
 assert.match(
   templatePage,
-  /<FormTemplateDesignerWrapper[\s\S]*?v-if="isDesignerMode\s*&&\s*templateDesignerMode\s*===\s*'preview'"/,
-  '表单模板必须像批记录管理一样通过独立 DesignerWrapper 切换同页设计工作区'
+  /<FormTemplateDesignerWrapper\s+v-(?:else-)?if="isDesignerMode(?:\s*&&\s*!templateRouteLoadError)?"[\s\S]*designer-title="表单模板 Jimu 编辑器"[\s\S]*preview-title="表单模板预览"[\s\S]*\/>/,
+  '表单模板必须保留当前表单模板页内的 Jimu 预览壳'
+)
+assert.doesNotMatch(
+  templatePage,
+  /isTemplateDesignerEditMode|templateMode/,
+  '表单模板“编辑”不得再回退到 templateMode=edit 的规则面板'
 )
 assert.match(
   templatePage,
@@ -23,8 +34,13 @@ assert.match(
 )
 assert.match(
   templatePage,
-  /const\s+templateDesignerMode\s*=\s*computed<'preview'\s*\|\s*'edit'>/,
-  '表单模板 DesignerWrapper 必须区分 preview 和 edit'
+  /import\s+FormTemplateDesignerWrapper\s+from\s+'\.\/components\/FormTemplateDesignerWrapper\.vue'/,
+  '表单模板必须通过表单中心自己的组件进入 Jimu 设计器'
+)
+assert.doesNotMatch(
+  templatePage,
+  /import\s+DesignerWrapper\s+from\s+'@\/views\/mes\/pro\/batchrecord-shared\/DesignerWrapper\.vue'/,
+  '表单模板不得从批记录表单页面导入 DesignerWrapper 壳'
 )
 assert.match(
   templatePage,
@@ -38,17 +54,12 @@ assert.match(
 )
 assert.match(
   templatePage,
-  /const\s+editSelectedTemplate\s*=[\s\S]*?openSelectedTemplateWorkspace\('edit'\)/,
-  '“编辑”必须通过统一工作区函数进入当前模板的同页编辑模式'
+  /const\s+openDesigner\s*=\s*async\s*\([\s\S]*?reportMode:\s*'preview'\s*\|\s*'edit'\s*=\s*'preview'[\s\S]*?const\s+reportId\s*=\s*normalizeRouteQueryText\(template\.designerReportId\)[\s\S]*?path:\s*route\.path[\s\S]*?templateId:\s*template\.templateId[\s\S]*?versionNo:\s*template\.versionNo[\s\S]*?mode:\s*'designer'[\s\S]*?reportId[\s\S]*?reportMode/,
+  'openDesigner 必须保留当前表单模板页面路径，并用当前模板 reportId + reportMode 进入 Jimu'
 )
 assert.match(
   templatePage,
-  /const\s+openDesigner\s*=\s*async\s*\([\s\S]*?templateMode:\s*'preview'\s*\|\s*'edit'\s*=\s*'preview'[\s\S]*?path:\s*route\.path[\s\S]*?templateId:\s*template\.templateId[\s\S]*?versionNo:\s*template\.versionNo[\s\S]*?mode:\s*'designer'[\s\S]*?templateMode/,
-  '同页 DesignerWrapper 必须由 openDesigner 保留当前页面路径并使用模板自身模式参数'
-)
-assert.match(
-  templatePage,
-  /const\s+openSelectedTemplateWorkspace\s*=\s*async\s*\(templateMode:\s*'preview'\s*\|\s*'edit'\)\s*=>\s*\{[\s\S]*?openDesigner\(selectedTemplate\.value,\s*templateMode\)/,
+  /const\s+openSelectedTemplateWorkspace\s*=\s*async\s*\(reportMode:\s*'preview'\s*\|\s*'edit'\)\s*=>\s*\{[\s\S]*?openDesigner\(selectedTemplate\.value,\s*reportMode\)/,
   'openSelectedTemplateWorkspace 必须转调 openDesigner，避免重复维护路由细节'
 )
 assert.match(
@@ -58,8 +69,38 @@ assert.match(
 )
 assert.match(
   designerWrapper,
-  /defineOptions\(\{\s*name:\s*'FormCenterTemplateDesignerWrapper'\s*\}\)/,
-  '表单模板必须提供独立 DesignerWrapper 组件'
+  /defineOptions\(\{\s*name:\s*'MesProBatchRecordReportDesignerWrapper'\s*\}\)/,
+  '批记录表单 Jimu DesignerWrapper 必须继续存在，作为交互对齐基准'
+)
+assert.match(
+  designerWrapper,
+  /reportMode\s*=\s*computed<'preview'\s*\|\s*'edit'>/,
+  '共享 Jimu DesignerWrapper 必须支持 edit/preview 模式切换'
+)
+assert.match(
+  formTemplateDesignerWrapper,
+  /reportMode\s*=\s*computed<'preview'\s*\|\s*'edit'>/,
+  '表单模板 Jimu DesignerWrapper 必须支持 edit/preview 模式切换'
+)
+assert.match(
+  formTemplateDesignerWrapper,
+  /BatchRecordReportApi\.getEditPath\(reportId\)/,
+  '表单模板 Jimu 壳必须像批记录表单一样通过 edit path 进入 Jimu 编辑器'
+)
+assert.doesNotMatch(
+  templatePage,
+  /if\s*\(reportMode\s*===\s*'edit'\)[\s\S]{0,600}?return/,
+  '表单模板“编辑”不得再分流到非 Jimu 的本地规则面板'
+)
+assert.match(
+  formTemplateFillConfigDialog,
+  /embedded\?:\s*boolean[\s\S]*?close:\s*\[\]/,
+  '表单模板填写配置编辑器必须支持页面内嵌和关闭返回'
+)
+assert.doesNotMatch(
+  templatePage,
+  /\/mes\/pro\/batch-record-form-list/,
+  '表单模板“编辑”不得跳转到批记录表单列表页面'
 )
 assert.doesNotMatch(
   templatePage,

@@ -66,6 +66,7 @@ BEGIN
       ('dcc_registration_certificate_version', 'classification', 'varchar(64)', 'YES', FALSE),
       ('dcc_registration_certificate_version', 'category_changed', 'bit(1)', 'NO', FALSE),
       ('dcc_registration_certificate_version', 'base_snapshot_id', 'bigint', 'YES', FALSE),
+      ('dcc_registration_certificate_version', 'remark', 'varchar(1024)', 'YES', FALSE),
       ('dcc_registration_certificate_version', 'status', 'varchar(32)', 'NO', FALSE),
       ('dcc_registration_certificate_version', 'formalized_at', 'datetime', 'YES', FALSE),
       ('dcc_registration_certificate_version', 'formalized_by', 'bigint', 'YES', FALSE),
@@ -86,7 +87,7 @@ BEGIN
       ('dcc_registration_certificate_snapshot', 'revision_no', 'int', 'NO', FALSE),
       ('dcc_registration_certificate_snapshot', 'source_change_id', 'bigint', 'YES', FALSE),
       ('dcc_registration_certificate_snapshot', 'product_name', 'varchar(255)', 'NO', FALSE),
-      ('dcc_registration_certificate_snapshot', 'registrant_name', 'varchar(255)', 'NO', FALSE),
+      ('dcc_registration_certificate_snapshot', 'registrant_name', 'varchar(255)', 'YES', FALSE),
       ('dcc_registration_certificate_snapshot', 'model_specification', 'text', 'YES', FALSE),
       ('dcc_registration_certificate_snapshot', 'structure_composition', 'text', 'YES', FALSE),
       ('dcc_registration_certificate_snapshot', 'intended_use', 'text', 'YES', FALSE),
@@ -331,7 +332,7 @@ BEGIN
       ('dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_snapshot_json_array',
        '(json_type(entrusted_enterprises_json)=''array'')'),
       ('dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation',
-       '(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0))))'),
+       '((((entrusted_production=0x00)and(self_production=0x00)and(entrusted_enterprise_count=0)))or(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0)))))'),
       ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type',
        '(owner_typein(''version'',''change'',''supporting_document''))'),
       ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind',
@@ -456,6 +457,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_version` (
   `classification` varchar(64) DEFAULT NULL COMMENT 'Certificate classification',
   `category_changed` bit(1) NOT NULL DEFAULT b'0' COMMENT 'Renewal category change flag',
   `base_snapshot_id` bigint DEFAULT NULL COMMENT 'Base formal snapshot id',
+  `remark` varchar(1024) DEFAULT NULL COMMENT 'Draft remark',
   `status` varchar(32) NOT NULL COMMENT 'Version lifecycle status',
   `formalized_at` datetime DEFAULT NULL COMMENT 'Formalization time',
   `formalized_by` bigint DEFAULT NULL COMMENT 'Formalization actor',
@@ -490,7 +492,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_snapshot` (
   `revision_no` int NOT NULL COMMENT 'Snapshot revision number',
   `source_change_id` bigint DEFAULT NULL COMMENT 'Later change fact id',
   `product_name` varchar(255) NOT NULL COMMENT 'Product name snapshot',
-  `registrant_name` varchar(255) NOT NULL COMMENT 'Registrant name snapshot',
+  `registrant_name` varchar(255) DEFAULT NULL COMMENT 'Registrant name snapshot',
   `model_specification` text DEFAULT NULL COMMENT 'Model and specification snapshot',
   `structure_composition` text DEFAULT NULL COMMENT 'Structure and composition snapshot',
   `intended_use` text DEFAULT NULL COMMENT 'Intended use snapshot',
@@ -513,9 +515,16 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_snapshot` (
   CONSTRAINT `chk_dcc_reg_cert_snapshot_json_array` CHECK
     (JSON_TYPE(`entrusted_enterprises_json`) = 'ARRAY'),
   CONSTRAINT `chk_dcc_reg_cert_production_relation` CHECK (
-    (`entrusted_production` = b'1' OR `self_production` = b'1')
-    AND ((`entrusted_production` = b'1' AND `entrusted_enterprise_count` >= 1)
-      OR (`entrusted_production` = b'0' AND `entrusted_enterprise_count` = 0))
+    (
+      `entrusted_production` = b'0'
+      AND `self_production` = b'0'
+      AND `entrusted_enterprise_count` = 0
+    )
+    OR (
+      (`entrusted_production` = b'1' OR `self_production` = b'1')
+      AND ((`entrusted_production` = b'1' AND `entrusted_enterprise_count` >= 1)
+        OR (`entrusted_production` = b'0' AND `entrusted_enterprise_count` = 0))
+    )
   ),
   UNIQUE KEY `uk_dcc_reg_cert_snapshot_revision` (`tenant_id`, `version_id`, `revision_no`),
   KEY `idx_dcc_reg_cert_snapshot_change` (`tenant_id`, `source_change_id`)

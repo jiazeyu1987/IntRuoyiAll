@@ -58,6 +58,20 @@ assert.match(projectCodeMapper, /eqIfPresent\(DccProjectCodeDO::getProductMaster
   'backend project-code page must filter by productMasterId')
 assert.match(projectCodePage, /queryParams\.productMasterId\s*=\s*resolveRouteQueryText\(route\.query\.productMasterId\)/,
   'project-code page must sync linked productMasterId route query into the formal page request')
+assert.match(projectCodePage, /const\s+resolveQueryProjectCodeId\s*=\s*\(\)\s*=>\s*resolvePositiveRouteQueryText\(route\.query\.projectCodeId\)/,
+  'project-code page must parse linked projectCodeId route query as a string identity')
+assert.match(projectCodePage, /const\s+syncDetailFromRoute\s*=\s*async\s*\(\)\s*=>\s*\{[\s\S]*const\s+projectCode\s*=\s*await\s+getProjectCode\(id\)[\s\S]*selectedProjectCode\.value\s*=\s*projectCode/,
+  'project-code page must open the linked project-code detail drawer from projectCodeId')
+assert.match(projectCodePage, /watch\(\s*\(\)\s*=>\s*\[route\.path,\s*route\.query\.projectCodeId\],[\s\S]*if\s*\(!isProjectCodeRoute\(\)\)\s*\{[\s\S]*return[\s\S]*await\s+syncDetailFromRoute\(\)/,
+  'project-code page must resync the detail drawer only when linked projectCodeId changes on the project-code route')
+assert.match(projectCodePage, /const\s+PROJECT_CODE_ROUTE_PATH\s*=\s*['"]\/mdm\/project-code['"]/,
+  'project-code route path must be explicit')
+assert.match(projectCodePage, /const\s+isProjectCodeRoute\s*=\s*\(\)\s*=>\s*route\.path\s*===\s*PROJECT_CODE_ROUTE_PATH/,
+  'project-code query sync must be scoped to the active project-code route')
+assert.match(projectCodePage, /onActivated\(\s*async\s*\(\)\s*=>\s*\{[\s\S]*if\s*\(!isProjectCodeRoute\(\)\)\s*\{[\s\S]*return[\s\S]*syncProjectCodeQueryFromRoute\(\)[\s\S]*await\s+getList\(\)/,
+  'project-code cached activation must reload the linked filter when returning from product or registration pages')
+assert.match(projectCodePage, /watch\(\s*\(\)\s*=>\s*\[route\.path,\s*route\.query\.productMasterId\],[\s\S]*if\s*\(!isProjectCodeRoute\(\)\)\s*\{[\s\S]*return/,
+  'project-code productMasterId watcher must ignore same-named query keys while another page is active')
 assert.match(projectCodePage, /@click="openLinkedProductManagement\(row\)"/,
   'project-code rows must expose a product-management jump')
 assert.match(projectCodePage, /@click="openLinkedRegistrationCertificateManagement\(row\)"/,
@@ -72,6 +86,14 @@ assert.match(mdmProductMapper, /eqIfPresent\(MdmProductDO::getId,\s*reqVO\.getPr
 assert.match(mdmProductPage, /useRoute\(\)/, 'product management page must read route query for linked entry')
 assert.match(mdmProductPage, /queryParams\.productMasterId\s*=\s*resolveRouteQueryText\(route\.query\.productMasterId\)/,
   'product management page must sync productMasterId route query into the formal page request')
+assert.match(mdmProductPage, /const\s+PRODUCT_ROUTE_PATH\s*=\s*['"]\/mdm\/product['"]/,
+  'product route path must be explicit')
+assert.match(mdmProductPage, /const\s+isProductRoute\s*=\s*\(\)\s*=>\s*route\.path\s*===\s*PRODUCT_ROUTE_PATH/,
+  'product query sync must be scoped to the active product route')
+assert.match(mdmProductPage, /onActivated\(\s*async\s*\(\)\s*=>\s*\{[\s\S]*if\s*\(!isProductRoute\(\)\)\s*\{[\s\S]*return[\s\S]*syncProductQueryFromRoute\(\)[\s\S]*await\s+getList\(\)/,
+  'product cached activation must reload linked filters when returning from other pages')
+assert.match(mdmProductPage, /watch\(\s*\(\)\s*=>\s*\[route\.path,\s*route\.query\.productMasterId\],[\s\S]*if\s*\(!isProductRoute\(\)\)\s*\{[\s\S]*return/,
+  'product watcher must ignore same-named query keys while another page is active')
 assert.match(mdmProductPage, /@click="openLinkedProjectCodeManagement\(row\)"/,
   'product rows must expose a project-code jump')
 assert.match(mdmProductPage, /@click="openLinkedRegistrationCertificateManagement\(row\)"/,
@@ -95,6 +117,14 @@ assert.match(certificateService, /\.productMasterId\(row\.getProductMasterId\(\)
 assert.match(registrationPage, /useRoute\(\)/, 'registration page must read route query for linked entry')
 assert.match(registrationPage, /queryParams\.projectCodeId\s*=\s*resolveRouteQueryText\(route\.query\.projectCodeId\)/,
   'registration page must sync projectCodeId route query into current list request')
+assert.match(registrationPage, /const\s+REGISTRATION_CERTIFICATE_ROUTE_PATH\s*=\s*['"]\/mdm\/registration-certificate['"]/,
+  'registration certificate route path must be explicit')
+assert.match(registrationPage, /const\s+isRegistrationCertificateRoute\s*=\s*\(\)\s*=>\s*route\.path\s*===\s*REGISTRATION_CERTIFICATE_ROUTE_PATH/,
+  'registration certificate query sync must be scoped to the active registration route')
+assert.match(registrationPage, /onActivated\(\s*async\s*\(\)\s*=>\s*\{[\s\S]*if\s*\(!isRegistrationCertificateRoute\(\)\)\s*\{[\s\S]*return[\s\S]*syncRegistrationCertificateQueryFromRoute\(\)[\s\S]*await\s+loadPage\(\)/,
+  'registration cached activation must reload linked filters when returning from product or project-code pages')
+assert.match(registrationPage, /watch\(\s*\(\)\s*=>\s*\[route\.path,\s*route\.query\.productMasterId,\s*route\.query\.projectCodeId\],[\s\S]*if\s*\(!isRegistrationCertificateRoute\(\)\)\s*\{[\s\S]*return/,
+  'registration watcher must ignore same-named query keys while another page is active')
 assert.match(registrationPage, /@click="openLinkedProductManagement\(row\.productMasterId\)"/,
   'registration rows must expose a product-management jump')
 assert.match(registrationPage, /@click="openLinkedProjectCodeManagement\(row\.projectCodeId\)"/,

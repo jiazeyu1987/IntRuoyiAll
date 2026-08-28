@@ -13,6 +13,9 @@ public class DccRegistrationCertificateAuditDetail {
     private Long actorId;
     private String payloadHash;
     private Long outcomeCertificateId;
+    private Long outcomeVersionId;
+    private Long outcomeSnapshotId;
+    private Long outcomeBusinessFileId;
     private Integer failureCode;
     private String failureMessage;
 }

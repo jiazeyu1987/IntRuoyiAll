@@ -74,6 +74,12 @@ final class WordTableVisualSchemaBuilder {
                 }
                 int rowSpan = isVerticalMergeRestart(cell)
                         ? resolveVerticalSpan(table, rowIndex, physicalCellIndex) : 1;
+                List<InlineInputSegment> segmentedInputs = parseSegmentedInputCell(cell.getText());
+                if (!segmentedInputs.isEmpty()) {
+                    appendSegmentedInputLayout(cells, columnIndex, rowSpan, columnSpan, segmentedInputs);
+                    columnIndex += columnSpan;
+                    continue;
+                }
                 InlineTextInput inlineInput = parseInlineTextInput(cell.getText());
                 if (inlineInput == null) {
                     cells.put(String.valueOf(columnIndex), layoutCell(normalizeText(cell.getText()), rowSpan, columnSpan));
@@ -101,13 +107,23 @@ final class WordTableVisualSchemaBuilder {
         Map<Integer, String> headerLabels = resolveInspectionHeaderLabels(table, columnCount);
         int headerRowIndex = resolveInspectionHeaderRowIndex(table);
         for (int rowIndex = 0; rowIndex < tableRows.size(); rowIndex++) {
-            if (rowIndex <= headerRowIndex || isFooterRow(rowText(tableRows.get(rowIndex)))) {
+            if (rowIndex <= headerRowIndex) {
                 continue;
             }
             int columnIndex = 0;
             for (XWPFTableCell cell : tableRows.get(rowIndex).getTableCells()) {
                 int columnSpan = resolveColumnSpan(cell);
                 if (isVerticalMergeFollower(cell)) {
+                    columnIndex += columnSpan;
+                    continue;
+                }
+                List<InlineInputSegment> segmentedInputs = parseSegmentedInputCell(cell.getText());
+                if (!segmentedInputs.isEmpty()) {
+                    appendSegmentedInputRules(rules, rowIndex, columnIndex, columnSpan, segmentedInputs);
+                    columnIndex += columnSpan;
+                    continue;
+                }
+                if (isFooterRow(rowText(tableRows.get(rowIndex)))) {
                     columnIndex += columnSpan;
                     continue;
                 }
@@ -162,6 +178,48 @@ final class WordTableVisualSchemaBuilder {
             }
             columnIndex += columnSpan;
         }
+    }
+
+    private static void appendSegmentedInputLayout(Map<String, Object> cells, int startColumn, int rowSpan,
+                                                   int columnSpan, List<InlineInputSegment> segments) {
+        for (InlineInputPlacement placement : resolveSegmentedInputPlacements(startColumn, columnSpan, segments)) {
+            cells.put(String.valueOf(placement.labelColumn()),
+                    layoutCell(placement.segment().displayLabel(), rowSpan, placement.labelSpan()));
+            cells.put(String.valueOf(placement.inputColumn()),
+                    layoutCell("", rowSpan, placement.inputSpan()));
+        }
+    }
+
+    private static void appendSegmentedInputRules(List<Map<String, Object>> rules, int rowIndex, int startColumn,
+                                                  int columnSpan, List<InlineInputSegment> segments) {
+        for (InlineInputPlacement placement : resolveSegmentedInputPlacements(startColumn, columnSpan, segments)) {
+            InlineInputSegment segment = placement.segment();
+            rules.add(buildRule(rowIndex, placement.inputColumn(), segment.valueType(),
+                    segment.componentFlag(), segment.ruleLabel(), Map.of()));
+        }
+    }
+
+    private static List<InlineInputPlacement> resolveSegmentedInputPlacements(int startColumn, int columnSpan,
+            List<InlineInputSegment> segments) {
+        List<InlineInputPlacement> placements = new ArrayList<>();
+        int remainingSpan = Math.max(columnSpan, segments.size() * 2);
+        int columnIndex = startColumn;
+        for (int index = 0; index < segments.size(); index++) {
+            InlineInputSegment segment = segments.get(index);
+            int remainingSegments = segments.size() - index - 1;
+            int requiredSpanAfterCurrentInput = remainingSegments * 2;
+            int labelSpan = Math.min(segment.preferredLabelSpan(),
+                    Math.max(1, remainingSpan - 1 - requiredSpanAfterCurrentInput));
+            int labelColumn = columnIndex;
+            columnIndex += labelSpan;
+            remainingSpan -= labelSpan;
+            int inputSpan = index == segments.size() - 1 ? Math.max(1, remainingSpan) : 1;
+            int inputColumn = columnIndex;
+            columnIndex += inputSpan;
+            remainingSpan -= inputSpan;
+            placements.add(new InlineInputPlacement(segment, labelColumn, labelSpan, inputColumn, inputSpan));
+        }
+        return placements;
     }
 
     private static List<Map<String, Object>> buildSignatureCellMarkers(XWPFTable table, int columnCount) {
@@ -355,6 +413,41 @@ final class WordTableVisualSchemaBuilder {
         return matcher.matches() ? new InlineTextInput(matcher.group(1), matcher.group(2)) : null;
     }
 
+    private static List<InlineInputSegment> parseSegmentedInputCell(String text) {
+        String normalized = normalizeText(text)
+                .replace('\u00A0', ' ')
+                .replace('\u3000', ' ');
+        String compact = normalized.replaceAll("\\s+", "");
+        if (compact.contains("合格数量") && compact.contains("不合格数量")
+                && compact.contains("不合格评审报告编号")) {
+            List<InlineInputSegment> segments = new ArrayList<>();
+            Matcher matcher = Pattern.compile("([^；;：:\\n]+?)[：:]([^；;\\n]*)[；;]?").matcher(normalized);
+            while (matcher.find()) {
+                String label = normalizeRuleLabel(matcher.group(1));
+                if ("合格数量".equals(label) || "不合格数量".equals(label)) {
+                    segments.add(new InlineInputSegment(label, label + "：", "NUMBER", "input-number", 1));
+                } else if (label.contains("不合格评审报告编号")) {
+                    segments.add(new InlineInputSegment("不合格评审报告编号（若有）",
+                            "不合格评审报告编号（若有）：", "STRING", "input-text", 3));
+                }
+            }
+            return segments;
+        }
+        if (compact.startsWith("备注：特殊内容") || compact.startsWith("备注:特殊内容")) {
+            return List.of(new InlineInputSegment("备注", normalized, "STRING", "textarea", 4));
+        }
+        return List.of();
+    }
+
+    private static String normalizeRuleLabel(String label) {
+        if (label == null) {
+            return "";
+        }
+        return label.replaceAll("^[；;\\s]+", "")
+                .replaceAll("[：:]$", "")
+                .trim();
+    }
+
     private static String normalizeText(String text) {
         if (text == null) {
             return "";
@@ -363,6 +456,14 @@ final class WordTableVisualSchemaBuilder {
     }
 
     private record InlineTextInput(String label, String underline) {
+    }
+
+    private record InlineInputSegment(String ruleLabel, String displayLabel, String valueType,
+                                      String componentFlag, int preferredLabelSpan) {
+    }
+
+    private record InlineInputPlacement(InlineInputSegment segment, int labelColumn, int labelSpan,
+                                        int inputColumn, int inputSpan) {
     }
 
 }

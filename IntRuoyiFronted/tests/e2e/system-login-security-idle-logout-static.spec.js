@@ -31,12 +31,19 @@ assert.ok(
 
 for (const token of [
   'userStore.loginOut()',
+  "console.error('Idle logout request failed before local session cleanup.'",
   "replace('/login",
   'onMounted',
   'onBeforeUnmount'
 ]) {
   assert.ok(hookSource.includes(token), `idle logout hook must keep logout lifecycle: ${token}`)
 }
+
+assert.equal(
+  hookSource.includes('catch(() => {})'),
+  false,
+  'idle logout hook must not silently swallow logout failures'
+)
 
 assert.ok(
   userInfoSource.includes("useIdleLogout") && userInfoSource.includes("useIdleLogout()"),

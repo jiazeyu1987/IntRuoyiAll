@@ -14,6 +14,9 @@ public class DccRegistrationCertificateQueryRecord {
     private Long ownerCompanyId;
     private Long productMasterId;
     private Long projectCodeId;
+    private String projectCode;
+    private String reminderColor;
+    private String visualState;
     private LocalDate firstObtainedDate;
     private String productName;
     private String certificateNo;
@@ -23,6 +26,7 @@ public class DccRegistrationCertificateQueryRecord {
     private LocalDate effectiveDate;
     private LocalDate expiryDate;
     private String classification;
+    private String remark;
     private String registrantName;
     private String modelSpecification;
     private String structureComposition;

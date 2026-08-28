@@ -83,14 +83,15 @@ assert.match(
 includes(templatePage, 'FormTemplateFillConfigDialog', '页面必须挂载模板自身填写配置弹窗。')
 includes(templatePage, 'fillConfigDialogVisible', '页面必须维护填写配置弹窗可见状态。')
 includes(templatePage, 'openSelectedTemplateFillConfig', '页面必须提供填写配置打开入口。')
+includes(templatePage, 'fillConfigOpening', '正式版本进入填写配置时必须有明确加载状态，不能表现为点击无反应。')
 includes(templatePage, 'saveSelectedTemplateFillConfig', '页面必须提供模板自身填写配置保存处理。')
 includes(templatePage, 'buildTemplateJimuSchemaPayload', '模板规则保存必须合并既有 jimuSchema 字段。')
 includes(templatePage, 'assistRows: parsedTemplateJimuSchema.value?.assistRows', '模板编辑保存不得覆盖已有辅助行。')
 includes(templatePage, 'fillAssignments: parsedTemplateJimuSchema.value?.fillAssignments', '模板编辑保存不得覆盖已有辅助行填写人。')
 
-includes(fillConfigDialog, 'title="填写配置"', '模板填写配置弹窗标题必须与批记录填写配置一致。')
-includes(fillConfigDialog, ':fullscreen="true"', '模板填写配置弹窗右上角必须显示最大化/恢复按钮。')
-includes(fillConfigDialog, ':default-fullscreen="true"', '模板填写配置弹窗必须默认最大化打开。')
+includes(fillConfigDialog, "title: props.title || '填写配置'", '模板填写配置弹窗标题必须默认与批记录填写配置一致。')
+includes(fillConfigDialog, 'fullscreen: true', '模板填写配置弹窗右上角必须显示最大化/恢复按钮。')
+includes(fillConfigDialog, 'defaultFullscreen: true', '模板填写配置弹窗必须默认最大化打开。')
 includes(fillConfigDialog, 'batch-record-cell-rules-editor__main-panel', '模板填写配置必须把表格预览放入左侧黄框主区域。')
 includes(fillConfigDialog, 'data-fill-config-panel="template-config-sidebar"', '模板填写配置必须把字段、辅助行和操作按钮集中到右侧蓝框侧栏。')
 includes(fillConfigDialog, 'batch-record-cell-rules-editor__side-scroll', '右侧蓝框侧栏必须独立滚动，避免挤压左侧表格。')
@@ -124,6 +125,20 @@ includes(fillConfigDialog, 'if (rows.length === 0) {', '未配置辅助行时必
 includes(fillConfigDialog, 'return []', '未配置辅助行时保存空辅助行集合。')
 notIncludes(fillConfigDialog, 'At least one assist row is required for fillable cells.', '单元类型配置不得被辅助行必填校验拦截。')
 notIncludes(fillConfigDialog, 'is not assigned to an assist row.', '普通单元规则保存不得要求全部归属辅助行。')
+
+const openFillConfigBlock =
+  templatePage.match(/const openSelectedTemplateFillConfig = async \(\) => \{[\s\S]*?\n\}/)?.[0] || ''
+assert.ok(openFillConfigBlock, '填写配置打开入口必须是异步正式入口。')
+assert.match(
+  openFillConfigBlock,
+  /row\.status !== 'DRAFT'[\s\S]*TemplateApi\.autoDetectTemplateFillRules\(row\.templateId,\s*row\.versionNo\)[\s\S]*handleDraftVersionReady\(response\)[\s\S]*fillConfigDialogVisible\.value = true/s,
+  '正式版本点击填写配置必须先通过规则识别接口生成或复用草稿、切换草稿，再打开可编辑面板。'
+)
+assert.match(
+  openFillConfigBlock,
+  /fillConfigOpening\.value = true[\s\S]*finally[\s\S]*fillConfigOpening\.value = false/s,
+  '正式版本生成草稿期间必须维护加载状态，并在结束后恢复。'
+)
 
 for (const source of [templatePage, fillConfigDialog, templateApi]) {
   for (const forbidden of [

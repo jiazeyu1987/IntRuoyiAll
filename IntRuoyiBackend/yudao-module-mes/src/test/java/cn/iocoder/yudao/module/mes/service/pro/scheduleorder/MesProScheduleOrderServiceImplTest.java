@@ -248,6 +248,42 @@ class MesProScheduleOrderServiceImplTest {
         return result;
     }
 
+    private void stubProcessWipScheduleOrders(MesProScheduleOrderDO... scheduleOrders) {
+        List<MesProScheduleOrderDO> scheduleOrderList = List.of(scheduleOrders);
+        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(scheduleOrderList);
+        stubLatestSuccessfulScheduleApplyIds(scheduleOrderList.stream()
+                .map(MesProScheduleOrderDO::getId)
+                .filter(Objects::nonNull)
+                .toList());
+    }
+
+    private void stubLatestSuccessfulScheduleApplyIds(List<Long> scheduleOrderIds) {
+        String afterSnapshotJson = JsonUtils.toJsonString(Map.of(
+                "operationType", "AUTO_APPLY",
+                "requestId", "process-wip-test",
+                "scheduleOrderIds", scheduleOrderIds));
+        MesProScheduleOrderOperationLogDO latestLog = MesProScheduleOrderOperationLogDO.builder()
+                .id(790000L)
+                .scheduleOrderId(scheduleOrderIds.isEmpty() ? null : scheduleOrderIds.get(scheduleOrderIds.size() - 1))
+                .scheduleOrderCode(scheduleOrderIds.isEmpty() ? null : "SCH-" + scheduleOrderIds.get(scheduleOrderIds.size() - 1))
+                .operationType("AUTO_APPLY")
+                .afterSnapshotJson(afterSnapshotJson)
+                .build();
+        org.mockito.Mockito.lenient().when(scheduleOrderOperationLogMapper.selectLatestByOperationTypes(
+                        List.of("AUTO_APPLY", "REPLAN_APPLY")))
+                .thenReturn(latestLog);
+        org.mockito.Mockito.lenient().when(scheduleOrderOperationLogMapper
+                        .selectListByOperationTypeAndAfterSnapshotJson("AUTO_APPLY", afterSnapshotJson))
+                .thenReturn(scheduleOrderIds.stream()
+                        .map(id -> MesProScheduleOrderOperationLogDO.builder()
+                                .scheduleOrderId(id)
+                                .scheduleOrderCode("SCH-" + id)
+                                .operationType("AUTO_APPLY")
+                                .afterSnapshotJson(afterSnapshotJson)
+                                .build())
+                        .toList());
+    }
+
     @Test
     void buildScheduleConfigMap_shouldKeepFrozenRouteProcessId() {
         MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder()
@@ -349,7 +385,7 @@ class MesProScheduleOrderServiceImplTest {
                 .frozen(Boolean.TRUE)
                 .manualFinished(Boolean.FALSE)
                 .build();
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        stubProcessWipScheduleOrders(scheduleOrder);
 
         List<MesProScheduleOrderProcessWipRespVO> result = scheduleOrderService.getProcessWipStatistics();
 
@@ -402,7 +438,7 @@ class MesProScheduleOrderServiceImplTest {
                 .sort(1)
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        stubProcessWipScheduleOrders(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900332L)))
                 .thenReturn(List.of(validProcess, orphanProcess));
         when(routeProcessMapper.selectBatchIds(Set.of(710332L, 710333L)))
@@ -547,7 +583,7 @@ class MesProScheduleOrderServiceImplTest {
                 .plannedStartTime(latestStartTime)
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(firstOrder, secondOrder));
+        stubProcessWipScheduleOrders(firstOrder, secondOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900351L, 900352L)))
                 .thenReturn(List.of(firstProcess, secondProcess));
         stubCurrentRouteProcessDefinitions(firstProcess, secondProcess);
@@ -596,7 +632,7 @@ class MesProScheduleOrderServiceImplTest {
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(order));
+        stubProcessWipScheduleOrders(order);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900361L)))
                 .thenReturn(List.of(process));
         stubCurrentRouteProcessDefinitions(process);
@@ -682,7 +718,7 @@ class MesProScheduleOrderServiceImplTest {
                 .remainingQuantity(new BigDecimal("90"))
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(firstOrder, secondOrder));
+        stubProcessWipScheduleOrders(firstOrder, secondOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900401L, 900402L)))
                 .thenReturn(List.of(firstOrderBlow, firstOrderAssembly, secondOrderAssembly));
         stubCurrentRouteProcessDefinitions(firstOrderBlow, firstOrderAssembly, secondOrderAssembly);
@@ -712,6 +748,99 @@ class MesProScheduleOrderServiceImplTest {
         assertEquals("吹球囊成型", blowWip.getProcessName());
         assertEquals(1L, blowWip.getWipOrderCount());
         assertEquals(List.of(900401L), blowWip.getScheduleOrderIds());
+    }
+
+    @Test
+    void getProcessWipStatistics_shouldOnlyCountLatestSuccessfulScheduleApplyOrders() {
+        MesProScheduleOrderDO latestFirstOrder = MesProScheduleOrderDO.builder()
+                .id(900411L)
+                .routeId(500411L)
+                .routeVersionId(600411L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderDO latestSecondOrder = MesProScheduleOrderDO.builder()
+                .id(900412L)
+                .routeId(500411L)
+                .routeVersionId(600411L)
+                .status(MesProScheduleOrderStatusEnum.SCHEDULED.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderDO historicalOrder = MesProScheduleOrderDO.builder()
+                .id(900413L)
+                .routeId(500411L)
+                .routeVersionId(600411L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderProcessDO latestFirstProcess = MesProScheduleOrderProcessDO.builder()
+                .id(800411L)
+                .scheduleOrderId(900411L)
+                .routeVersionId(600411L)
+                .routeProcessId(710411L)
+                .processId(700411L)
+                .processCode("A0411")
+                .processName("最近排产工序")
+                .sort(1)
+                .enabled(Boolean.TRUE)
+                .progressPercent(BigDecimal.ZERO)
+                .remainingQuantity(new BigDecimal("100.000000"))
+                .build();
+        MesProScheduleOrderProcessDO latestSecondProcess = MesProScheduleOrderProcessDO.builder()
+                .id(800412L)
+                .scheduleOrderId(900412L)
+                .routeVersionId(600411L)
+                .routeProcessId(710411L)
+                .processId(700411L)
+                .processCode("A0411")
+                .processName("最近排产工序")
+                .sort(1)
+                .enabled(Boolean.TRUE)
+                .progressPercent(BigDecimal.ZERO)
+                .remainingQuantity(new BigDecimal("200.000000"))
+                .build();
+        MesProScheduleOrderProcessDO historicalProcess = MesProScheduleOrderProcessDO.builder()
+                .id(800413L)
+                .scheduleOrderId(900413L)
+                .routeVersionId(600411L)
+                .routeProcessId(710411L)
+                .processId(700411L)
+                .processCode("A0411")
+                .processName("最近排产工序")
+                .sort(1)
+                .enabled(Boolean.TRUE)
+                .progressPercent(BigDecimal.ZERO)
+                .remainingQuantity(new BigDecimal("300.000000"))
+                .build();
+        String latestApplySnapshotJson = JsonUtils.toJsonString(Map.of(
+                "operationType", "REPLAN_APPLY",
+                "requestId", "latest-workbench-wip-test",
+                "scheduleOrderIds", List.of(900411L, 900412L)));
+        when(scheduleOrderOperationLogMapper.selectLatestByOperationTypes(List.of("AUTO_APPLY", "REPLAN_APPLY")))
+                .thenReturn(MesProScheduleOrderOperationLogDO.builder()
+                        .id(790411L)
+                        .scheduleOrderId(900412L)
+                        .scheduleOrderCode("SCH-900412")
+                        .operationType("REPLAN_APPLY")
+                        .afterSnapshotJson(latestApplySnapshotJson)
+                        .build());
+        when(scheduleOrderMapper.selectListForProcessWip())
+                .thenReturn(List.of(latestFirstOrder, latestSecondOrder, historicalOrder));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900411L, 900412L)))
+                .thenReturn(List.of(latestFirstProcess, latestSecondProcess));
+        stubCurrentRouteProcessDefinitions(latestFirstProcess, latestSecondProcess, historicalProcess);
+        when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600411L, 710411L))
+                .thenReturn(routeConfig(750411L, 600411L, 710411L, false));
+
+        List<MesProScheduleOrderProcessWipRespVO> result = scheduleOrderService.getProcessWipStatistics();
+
+        assertEquals(1, result.size());
+        MesProScheduleOrderProcessWipRespVO row = result.get(0);
+        assertEquals(700411L, row.getProcessId());
+        assertEquals(2L, row.getWipOrderCount());
+        assertEquals(new BigDecimal("300.000000"), row.getUnfinishedDemandQuantity());
+        assertEquals(List.of(900411L, 900412L), row.getScheduleOrderIds());
+        verify(scheduleOrderProcessMapper).selectListByScheduleOrderIds(Set.of(900411L, 900412L));
     }
 
     @Test
@@ -773,7 +902,7 @@ class MesProScheduleOrderServiceImplTest {
                 .shiftCapacityTotal(new BigDecimal("45"))
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(firstOrder, secondOrder));
+        stubProcessWipScheduleOrders(firstOrder, secondOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900451L, 900452L)))
                 .thenReturn(List.of(firstCurrentProcess, firstNextProcess, secondCurrentProcess));
         stubCurrentRouteProcessDefinitions(firstCurrentProcess, firstNextProcess, secondCurrentProcess);
@@ -842,7 +971,7 @@ class MesProScheduleOrderServiceImplTest {
                 .name("当前路线工序")
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(order));
+        stubProcessWipScheduleOrders(order);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900461L)))
                 .thenReturn(List.of(staleSnapshot));
         when(routeProcessMapper.selectBatchIds(Set.of(710461L))).thenReturn(List.of(currentRouteProcess));
@@ -893,7 +1022,7 @@ class MesProScheduleOrderServiceImplTest {
                 .name("历史冻结工序")
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(order));
+        stubProcessWipScheduleOrders(order);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900499L)))
                 .thenReturn(List.of(frozenProcess));
         when(routeProcessService.resolveFrozenRouteProcess(710499L, 500499L, 700499L))
@@ -949,7 +1078,7 @@ class MesProScheduleOrderServiceImplTest {
                 .status(MesProFeedbackStatusEnum.FINISHED.getStatus())
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(order));
+        stubProcessWipScheduleOrders(order);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900501L)))
                 .thenReturn(List.of(process));
         stubCurrentRouteProcessDefinitions(process);
@@ -1020,7 +1149,7 @@ class MesProScheduleOrderServiceImplTest {
                 .shiftHours(new BigDecimal("8.00"))
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(order));
+        stubProcessWipScheduleOrders(order);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900511L)))
                 .thenReturn(List.of(staleSnapshot));
         when(routeProcessMapper.selectBatchIds(Set.of(710511L))).thenReturn(List.of(currentRouteProcess));
@@ -1082,7 +1211,7 @@ class MesProScheduleOrderServiceImplTest {
                 .nightShiftEnabled(Boolean.FALSE)
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(order));
+        stubProcessWipScheduleOrders(order);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900512L)))
                 .thenReturn(List.of(process));
         stubCurrentRouteProcessDefinitions(process);
@@ -1196,7 +1325,7 @@ class MesProScheduleOrderServiceImplTest {
                 .shiftHours(new BigDecimal("8.00"))
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(manualOrder, machineOrder, workerOrder));
+        stubProcessWipScheduleOrders(manualOrder, machineOrder, workerOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900521L, 900522L, 900523L)))
                 .thenReturn(List.of(manualProcess, machineProcess, workerProcess));
         when(routeProcessMapper.selectBatchIds(Set.of(710521L, 710522L, 710523L)))
@@ -1319,7 +1448,7 @@ class MesProScheduleOrderServiceImplTest {
                 .shiftHours(new BigDecimal("8.00"))
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(order));
+        stubProcessWipScheduleOrders(order);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900467L)))
                 .thenReturn(List.of(wipProcess));
         when(routeMapper.selectBatchIds(Set.of(500467L))).thenReturn(List.of(
@@ -1413,7 +1542,7 @@ class MesProScheduleOrderServiceImplTest {
                 routeConfigWithShiftCapacity(750551L, 600551L, 700551L, "40.000000", true);
         config.setCalendarRuleId(1L);
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(firstOrder, secondOrder));
+        stubProcessWipScheduleOrders(firstOrder, secondOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900551L, 900552L)))
                 .thenReturn(List.of(firstProcess, secondProcess));
         stubCurrentRouteProcessDefinitions(firstProcess, secondProcess);
@@ -1484,7 +1613,7 @@ class MesProScheduleOrderServiceImplTest {
                 .shiftCapacityTotal(new BigDecimal("15.000000"))
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(firstOrder, secondOrder));
+        stubProcessWipScheduleOrders(firstOrder, secondOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900561L, 900562L)))
                 .thenReturn(List.of(firstProcess, secondProcess));
         stubCurrentRouteProcessDefinitions(firstProcess, secondProcess);
@@ -1561,7 +1690,7 @@ class MesProScheduleOrderServiceImplTest {
                 .plannedStartTime(LocalDateTime.of(2026, 7, 10, 0, 0))
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(firstOrder, secondOrder));
+        stubProcessWipScheduleOrders(firstOrder, secondOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900601L, 900602L)))
                 .thenReturn(List.of(firstProcess, secondProcess));
         stubCurrentRouteProcessDefinitions(firstProcess, secondProcess);
@@ -1628,7 +1757,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setNightShiftEnabled(Boolean.TRUE);
         reqVO.setPlannedStartDate(LocalDate.of(2026, 7, 15));
         reqVO.setReason("工作台设置夜班和开排日期");
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(firstOrder, secondOrder));
+        stubProcessWipScheduleOrders(firstOrder, secondOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900701L, 900702L)))
                 .thenReturn(List.of(firstProcess, secondProcess));
         when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600701L, 710701L))
@@ -1661,6 +1790,59 @@ class MesProScheduleOrderServiceImplTest {
                 .allMatch(log -> log.getAfterSnapshotJson().contains("7")));
         assertTrue(logCaptor.getAllValues().stream()
                 .allMatch(log -> log.getAfterSnapshotJson().contains("15")));
+    }
+
+    @Test
+    void saveProcessWipSettings_shouldOnlyUpdateLatestSuccessfulScheduleApplyOrders() {
+        MesProScheduleOrderDO latestOrder = MesProScheduleOrderDO.builder()
+                .id(900731L)
+                .code("SCH-731")
+                .routeId(500731L)
+                .routeVersionId(600731L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderDO historicalOrder = MesProScheduleOrderDO.builder()
+                .id(900733L)
+                .code("SCH-733")
+                .routeId(500731L)
+                .routeVersionId(600731L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderProcessDO latestProcess = MesProScheduleOrderProcessDO.builder()
+                .id(800731L)
+                .scheduleOrderId(900731L)
+                .routeVersionId(600731L)
+                .routeProcessId(710731L)
+                .processId(700731L)
+                .enabled(Boolean.TRUE)
+                .progressPercent(new BigDecimal("20"))
+                .nightShiftEnabled(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderProcessWipSettingsReqVO reqVO = new MesProScheduleOrderProcessWipSettingsReqVO();
+        reqVO.setRouteVersionId(600731L);
+        reqVO.setRouteProcessId(710731L);
+        reqVO.setNightShiftEnabled(Boolean.FALSE);
+        reqVO.setPlannedStartDate(LocalDate.of(2026, 8, 29));
+        reqVO.setReason("最近一次排产工作台设置");
+
+        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(latestOrder, historicalOrder));
+        stubLatestSuccessfulScheduleApplyIds(List.of(900731L));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900731L)))
+                .thenReturn(List.of(latestProcess));
+        when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600731L, 710731L))
+                .thenReturn(routeConfig(750731L, 600731L, 710731L, false));
+
+        scheduleOrderService.saveProcessWipSettings(reqVO);
+
+        verify(scheduleOrderProcessMapper).selectListByScheduleOrderIds(Set.of(900731L));
+        ArgumentCaptor<MesProScheduleOrderProcessDO> processCaptor =
+                ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
+        verify(scheduleOrderProcessMapper).updateById(processCaptor.capture());
+        assertEquals(800731L, processCaptor.getValue().getId());
+        assertEquals(LocalDateTime.of(2026, 8, 29, 0, 0), processCaptor.getValue().getPlannedStartTime());
+        verify(scheduleOrderOperationLogMapper).insert(any(MesProScheduleOrderOperationLogDO.class));
     }
 
     @Test
@@ -1699,7 +1881,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setShiftCapacityTotal(new BigDecimal("1200.000000"));
         reqVO.setReason("工作台调整班次产能");
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        stubProcessWipScheduleOrders(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900704L)))
                 .thenReturn(List.of(process));
         when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600704L, 710704L))
@@ -1760,7 +1942,7 @@ class MesProScheduleOrderServiceImplTest {
                 .nightShiftEnabled(Boolean.FALSE)
                 .build();
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        stubProcessWipScheduleOrders(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900705L)))
                 .thenReturn(List.of(process));
         when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600705L, 710705L))
@@ -1778,6 +1960,65 @@ class MesProScheduleOrderServiceImplTest {
         assertEquals(new BigDecimal("120.000000"), updateObj.getHourlyCapacityTotal());
         assertEquals(new BigDecimal("9.000000"), updateObj.getShiftHours());
         assertEquals(new BigDecimal("1080.000000000000"), updateObj.getShiftCapacityTotal());
+    }
+
+    @Test
+    void refreshProcessWipCapacitySnapshotsForShiftHours_shouldOnlyRefreshLatestSuccessfulScheduleApplyOrders() {
+        MesProScheduleOrderDO latestOrder = MesProScheduleOrderDO.builder()
+                .id(900741L)
+                .code("SCH-741")
+                .routeId(500741L)
+                .routeVersionId(600741L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderDO historicalOrder = MesProScheduleOrderDO.builder()
+                .id(900743L)
+                .code("SCH-743")
+                .routeId(500741L)
+                .routeVersionId(600741L)
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .manualFinished(Boolean.FALSE)
+                .build();
+        MesProScheduleOrderProcessDO latestProcess = MesProScheduleOrderProcessDO.builder()
+                .id(800741L)
+                .scheduleOrderId(900741L)
+                .routeVersionId(600741L)
+                .routeProcessId(710741L)
+                .processId(700741L)
+                .enabled(Boolean.TRUE)
+                .progressPercent(new BigDecimal("30"))
+                .capacityMode(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode())
+                .capacitySource("MANUAL_OVERRIDE")
+                .hourlyCapacityTotal(new BigDecimal("120.000000"))
+                .shiftHours(new BigDecimal("10.000000"))
+                .shiftCapacityTotal(new BigDecimal("1200.000000"))
+                .nightShiftEnabled(Boolean.FALSE)
+                .build();
+        MesProRouteScheduleConfigDO routeConfig = MesProRouteScheduleConfigDO.builder()
+                .id(750741L)
+                .routeVersionId(600741L)
+                .routeProcessId(710741L)
+                .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
+                .hourlyCapacity(null)
+                .nightShiftEnabled(Boolean.FALSE)
+                .build();
+
+        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(latestOrder, historicalOrder));
+        stubLatestSuccessfulScheduleApplyIds(List.of(900741L));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900741L)))
+                .thenReturn(List.of(latestProcess));
+        when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600741L, 710741L))
+                .thenReturn(routeConfig);
+
+        scheduleOrderService.refreshProcessWipCapacitySnapshotsForShiftHours(new BigDecimal("9.000000"));
+
+        verify(scheduleOrderProcessMapper).selectListByScheduleOrderIds(Set.of(900741L));
+        ArgumentCaptor<MesProScheduleOrderProcessDO> processCaptor =
+                ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
+        verify(scheduleOrderProcessMapper).updateById(processCaptor.capture());
+        assertEquals(800741L, processCaptor.getValue().getId());
+        assertEquals(new BigDecimal("1080.000000000000"), processCaptor.getValue().getShiftCapacityTotal());
     }
 
     @Test
@@ -1804,7 +2045,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setRouteProcessId(710700L);
         reqVO.setNightShiftEnabled(Boolean.FALSE);
         reqVO.setReason("修复旧工序快照");
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        stubProcessWipScheduleOrders(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900703L)))
                 .thenReturn(List.of(historicalProcess));
         when(routeProcessService.resolveFrozenRouteProcess(710700L, 500703L, 700700L))
@@ -1881,7 +2122,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setPlannedStartDate(LocalDate.of(2026, 7, 20));
         reqVO.setReason("只修改目标路线工序");
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(firstOrder, secondOrder));
+        stubProcessWipScheduleOrders(firstOrder, secondOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900705L, 900706L)))
                 .thenReturn(List.of(targetProcess, otherRouteProcess));
         when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600705L, 700705L))
@@ -1938,7 +2179,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setNightShiftEnabled(Boolean.TRUE);
         reqVO.setPlannedStartDate(LocalDate.of(2026, 7, 18));
         reqVO.setReason("工作台设置夜班");
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        stubProcessWipScheduleOrders(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900711L)))
                 .thenReturn(List.of(process));
         when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600711L, 710711L))
@@ -2016,7 +2257,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setPlannedStartDate(LocalDate.of(2026, 7, 8));
         reqVO.setReason(new String(new char[]{'工','作','台','设','置','夜','班'}));
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(firstOrder, secondOrder));
+        stubProcessWipScheduleOrders(firstOrder, secondOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(9003941L, 9003942L)))
                 .thenReturn(List.of(staleProcess, freshProcess));
         when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(910394L, 922483L))
@@ -2094,7 +2335,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setNightShiftEnabled(Boolean.TRUE);
         reqVO.setReason("排产员工作台工序在制列表维护");
 
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        stubProcessWipScheduleOrders(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(9003931L)))
                 .thenReturn(List.of(process));
         org.mockito.Mockito.lenient().when(routeScheduleConfigMapper.selectById(463L))
@@ -2135,7 +2376,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setNightShiftEnabled(Boolean.FALSE);
         reqVO.setPlannedStartDate(LocalDate.of(2026, 7, 16));
         reqVO.setReason("工作台设置");
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        stubProcessWipScheduleOrders(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900801L))).thenReturn(List.of(
                 MesProScheduleOrderProcessDO.builder()
                         .id(800801L)
@@ -2170,7 +2411,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setNightShiftEnabled(Boolean.TRUE);
         reqVO.setPlannedStartDate(LocalDate.of(2026, 7, 17));
         reqVO.setReason("工作台设置夜班");
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        stubProcessWipScheduleOrders(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900901L))).thenReturn(List.of(
                 MesProScheduleOrderProcessDO.builder()
                         .id(800901L)
@@ -2226,7 +2467,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setRouteProcessId(710902L);
         reqVO.setNightShiftEnabled(Boolean.TRUE);
         reqVO.setReason("工作台设置夜班");
-        when(scheduleOrderMapper.selectListForProcessWip()).thenReturn(List.of(scheduleOrder));
+        stubProcessWipScheduleOrders(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(Set.of(900902L))).thenReturn(List.of(process));
         when(routeScheduleConfigMapper.selectByRouteVersionIdAndRouteProcessId(600902L, 710902L))
                 .thenReturn(routeConfig);

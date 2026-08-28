@@ -101,7 +101,7 @@ assertIncludes(templatePage, 'visualPreviewFormViewModel')
 assertIncludes(templatePage, 'downloadSelectedTemplateSource')
 assertIncludes(templatePage, 'publishSelectedTemplate')
 assertIncludes(templatePage, 'openSelectedTemplate')
-assertIncludes(templatePage, 'editSelectedTemplate')
+assertIncludes(templatePage, '@click="editSelectedTemplate"')
 assertIncludes(templatePage, 'openSelectedTemplateFill')
 assertIncludes(templatePage, 'obsoleteSelectedTemplate')
 assertIncludes(templatePage, 'obsoleteRequestDialogVisible')
@@ -168,7 +168,7 @@ const disableButtonMatch = previewActions.match(/<el-button[\s\S]*?disableSelect
 if (!disableButtonMatch || !/canDisableTemplate\(selectedTemplate\)/.test(disableButtonMatch[0])) {
   throw new Error('表单模板“停用”按钮必须只在可停用状态显示，不能覆盖已停用状态')
 }
-const editButtonMatch = previewActions.match(/<el-button[\s\S]*?openDesigner\(selectedTemplate, 'edit'\)[\s\S]*?<\/el-button>/)
+const editButtonMatch = previewActions.match(/<el-button[\s\S]*?data-form-template-action="edit"[\s\S]*?@click="editSelectedTemplate"[\s\S]*?<\/el-button>/)
 if (!editButtonMatch || !/canUseTemplateInteractiveAction\(selectedTemplate\)/.test(editButtonMatch[0])) {
   throw new Error('表单模板“编辑”按钮必须直接进入与批记录表单一致的正式编辑入口，并受终态只读动作投影控制')
 }
@@ -205,13 +205,7 @@ if (/prop=["']actions["']/.test(templatePage)) {
 if (/form-template-preview__field-grid/.test(templatePage)) {
   throw new Error('表单模板右侧红框主内容不得继续使用字段卡片网格，应渲染与批记录表单页签一致的视觉表格预览')
 }
-const editFunction = templatePage.match(/const editSelectedTemplate = (?:async )?\(\) => \{[\s\S]*?\n\}/)
-if (!editFunction || !/openSelectedTemplateWorkspace\('edit'\)/.test(editFunction[0])) {
-  throw new Error('表单模板“编辑”按钮应进入模板编辑工作区，不得打开导入/升版弹窗')
-}
-if (editFunction && /importDialogRef/.test(editFunction[0])) {
-  throw new Error('表单模板“编辑”按钮不得复用导入/升版弹窗')
-}
+assertIncludes(templatePage, "openSelectedTemplateWorkspace('edit')")
 if (/openSelectedTemplateAction\('cellRules'\)/.test(templatePage)) {
   throw new Error('表单模板“规则”能力应合并到“编辑”，不应保留独立 cellRules 入口')
 }
@@ -228,26 +222,33 @@ if (obsoleteFunction && /TemplateApi\./.test(obsoleteFunction[0])) {
 if (/rulesDialogVisible\.value\s*=\s*true/.test(templatePage) && !/editableTemplateCellRules/.test(templatePage)) {
   throw new Error('表单模板“编辑”按钮不得只打开静态表格，应进入可编辑规则工作区')
 }
-if (!/isDesignerMode\s*&&\s*templateDesignerMode\s*===\s*'edit'/.test(templatePage)) {
-  throw new Error('表单模板“编辑”按钮必须进入路由驱动的 DesignerWrapper 规则确认工作区')
+if (/isTemplateDesignerEditMode|templateMode/.test(templatePage)) {
+  throw new Error('表单模板“编辑”不得再回退到 templateMode=edit 的规则面板')
 }
 if (/v-model=["']rulesDialogVisible["']/.test(templatePage)) {
   throw new Error('表单模板“编辑”按钮不得继续依赖规则确认弹窗')
 }
 for (const expected of [
-  'batch-record-cell-rules-editor__sheet',
-  'aria-label="选择单元格规则"',
-  '是否可填写',
-  '字段说明',
+  "import FormTemplateDesignerWrapper from './components/FormTemplateDesignerWrapper.vue'",
+  "mode: 'designer'",
+  'designerReportId',
+  'reportMode',
+  "openSelectedTemplateWorkspace('edit')",
+  'const editSelectedTemplate = async () =>'
+]) {
+  assertIncludes(templatePage, expected, `表单模板“编辑”按钮缺少模板页内编辑契约：${expected}`)
+}
+for (const obsoleteEditorToken of [
+  'templateDesignerMode',
+  'editableTemplateCellRules',
+  'editableTemplateSheetLayoutJson',
   'selectedRuleKey',
   'isSelectedCellFillable',
   'enableSelectedCellRule',
   'disableSelectedCellRule',
-  'buildManualRuleFromCell',
-  'selectRuleCell',
-  'editableTemplateSheetLayoutJson'
+  'buildManualRuleFromCell'
 ]) {
-  assertIncludes(templatePage, expected, `表单模板“编辑”按钮缺少批记录式规则确认契约：${expected}`)
+  assertNotIncludes(templatePage, obsoleteEditorToken, `表单模板页不得保留旧本地规则编辑器状态：${obsoleteEditorToken}`)
 }
 if (/editableTemplateCellRules\.value\.length > 0/.test(templatePage)) {
   throw new Error('form template rules must allow saving an empty rule set after all cells are switched to non-fillable')
@@ -278,6 +279,14 @@ const templateDesignerWrapper = assertFile(
   'src/views/form-center/template/components/FormTemplateDesignerWrapper.vue'
 )
 assertIncludes(templateDesignerWrapper, "name: 'FormCenterTemplateDesignerWrapper'")
+assertIncludes(templateDesignerWrapper, "route.query.reportMode")
+assertIncludes(templateDesignerWrapper, 'ensureFormTemplateReportId(reportId)')
+assertIncludes(templateDesignerWrapper, 'BatchRecordReportApi.getEditPath(reportId)')
+const templateFillConfigDialog = assertFile(
+  'src/views/form-center/template/components/FormTemplateFillConfigDialog.vue'
+)
+assertIncludes(templateFillConfigDialog, 'embedded?: boolean')
+assertIncludes(templateFillConfigDialog, 'close: []')
 const templateSimulatePage = assertFile(
   'src/views/form-center/template/FormTemplateSimulatePage.vue'
 )
@@ -389,7 +398,7 @@ for (const file of [
   'src/api/form-center/policy.ts',
   'src/views/form-center/template/index.vue',
   'src/views/form-center/template/FormTemplateSimulatePage.vue',
-  'src/views/form-center/template/components/FormTemplateDesignerWrapper.vue',
+  'src/views/mes/pro/batchrecord-shared/DesignerWrapper.vue',
   'src/views/form-center/template/components/TemplateImportDialog.vue',
   'src/views/form-center/business-action/ActionFormPanel.vue',
   'src/views/form-center/policy/index.vue'

@@ -32,8 +32,8 @@ const extractConstFunction = (source, name) => {
 }
 
 const openSelectedTemplateBody = extractConstFunction(templatePage, 'openSelectedTemplate')
-const editSelectedTemplateBody = extractConstFunction(templatePage, 'editSelectedTemplate')
 const fillSelectedTemplateBody = extractConstFunction(templatePage, 'openSelectedTemplateFill')
+const openDesignerBody = extractConstFunction(templatePage, 'openDesigner')
 
 assert.match(
   openSelectedTemplateBody,
@@ -41,9 +41,9 @@ assert.match(
   '表单模板“打开”必须进入当前模板自身只读工作区'
 )
 assert.match(
-  editSelectedTemplateBody,
-  /openSelectedTemplateWorkspace\('edit'\)/,
-  '表单模板“编辑”必须进入当前模板自身规则编辑工作区'
+  templatePage,
+  /<el-button[\s\S]*?canUseTemplateInteractiveAction\(selectedTemplate\)[\s\S]*?data-form-template-action="edit"[\s\S]*?@click="editSelectedTemplate"[\s\S]*?>[\s\S]*?编辑\s*<\/el-button>/,
+  '表单模板“编辑”必须从右侧操作区通过统一入口进入当前模板自身 Jimu 编辑器'
 )
 assert.match(
   fillSelectedTemplateBody,
@@ -74,8 +74,23 @@ for (const field of [
 }
 
 assert.match(templatePage, /isDesignerMode/)
+assert.doesNotMatch(
+  templatePage,
+  /isTemplateDesignerEditMode|templateMode/,
+  '表单模板“编辑”不得再回退到 templateMode=edit 的规则面板'
+)
+assert.match(
+  openDesignerBody,
+  /const\s+reportId\s*=\s*normalizeRouteQueryText\(template\.designerReportId\)[\s\S]*?reportId[\s\S]*?reportMode/,
+  '表单模板“编辑”必须使用当前模板 designerReportId 和 reportMode=edit 进入 Jimu 编辑器'
+)
 assert.match(templatePage, /isTemplateSimulationMode/)
 assert.match(templatePage, /getTemplateVersion/)
 assert.match(templatePage, /form-template-route-workspace/)
+assert.doesNotMatch(
+  openDesignerBody,
+  /if\s*\(reportMode\s*===\s*'edit'\)[\s\S]{0,600}?return/,
+  '表单模板“编辑”不得再分流到非 Jimu 的本地规则面板'
+)
 
 console.log('PASS form-template-independent-button-actions-static')

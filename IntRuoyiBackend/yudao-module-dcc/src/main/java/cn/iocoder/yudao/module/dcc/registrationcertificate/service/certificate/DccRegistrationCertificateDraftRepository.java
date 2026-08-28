@@ -121,7 +121,8 @@ public class DccRegistrationCertificateDraftRepository {
                 .set(DccRegistrationCertificateVersionDO::getApprovalDate, draft.approvalDate())
                 .set(DccRegistrationCertificateVersionDO::getEffectiveDate, draft.effectiveDate())
                 .set(DccRegistrationCertificateVersionDO::getExpiryDate, draft.expiryDate())
-                .set(DccRegistrationCertificateVersionDO::getClassification, trim(draft.classification())));
+                .set(DccRegistrationCertificateVersionDO::getClassification, trim(draft.classification()))
+                .set(DccRegistrationCertificateVersionDO::getRemark, trim(draft.remark())));
         requireSingle(versionUpdated, REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
 
         deleteProjection(state, tenantId, expectedSnapshotRevision);

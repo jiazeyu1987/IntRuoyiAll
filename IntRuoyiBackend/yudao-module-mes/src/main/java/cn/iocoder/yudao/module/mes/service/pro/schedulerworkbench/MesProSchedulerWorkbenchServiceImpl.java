@@ -33,6 +33,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -86,6 +87,8 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
     public MesProSchedulerWorkbenchSummaryRespVO getSummary(LocalDate date) {
         LocalDateTime beginTime = date.atStartOfDay();
         LocalDateTime endTime = date.plusDays(1).atStartOfDay();
+        Set<Long> latestScheduleOrderIds = scheduleOrderService.getLatestSuccessfulApplyScheduleOrderIds();
+        boolean hasLatestScheduleScope = !latestScheduleOrderIds.isEmpty();
 
         MesProSchedulerWorkbenchSummaryRespVO summary = new MesProSchedulerWorkbenchSummaryRespVO();
         summary.setDate(date);
@@ -95,8 +98,12 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
         summary.setTodayFeedbackCount(nvl(schedulerWorkbenchMapper.selectTodayFeedbackCount(beginTime, endTime)));
         summary.setTodayFeedbackQuantity(nvl(schedulerWorkbenchMapper.selectTodayFeedbackQuantity(beginTime, endTime)));
         summary.setPendingApprovalFeedbackCount(nvl(schedulerWorkbenchMapper.selectPendingApprovalFeedbackCount()));
-        summary.setCurrentSchedulePlannedQuantity(nvl(schedulerWorkbenchMapper.selectCurrentSchedulePlannedQuantity()));
-        summary.setCurrentScheduleReportedQuantity(nvl(schedulerWorkbenchMapper.selectCurrentScheduleReportedQuantity()));
+        summary.setCurrentSchedulePlannedQuantity(hasLatestScheduleScope
+                ? nvl(schedulerWorkbenchMapper.selectCurrentSchedulePlannedQuantity(latestScheduleOrderIds))
+                : BigDecimal.ZERO);
+        summary.setCurrentScheduleReportedQuantity(hasLatestScheduleScope
+                ? nvl(schedulerWorkbenchMapper.selectCurrentScheduleReportedQuantity(latestScheduleOrderIds))
+                : BigDecimal.ZERO);
         summary.setReportedDeviationQuantity(summary.getCurrentScheduleReportedQuantity()
                 .subtract(summary.getCurrentSchedulePlannedQuantity()));
         summary.setReportedDeviationText(buildDeviationText(summary.getReportedDeviationQuantity()));
@@ -109,12 +116,18 @@ public class MesProSchedulerWorkbenchServiceImpl implements MesProSchedulerWorkb
                 + summary.getMaterialShortageCount());
         summary.setNightlyReplanText("每晚 02:00 自动重排；已报工、已完成、手工锁定任务保持不动。");
         summary.setTodayActionSuggestion(buildActionSuggestion(summary));
-        summary.setCurrentScheduleScopeText("报工偏差按当前有效排产工单（已排产/生产中）的实际报工数量与排产数量计算；不再按当天任务段重复累计。");
+        summary.setCurrentScheduleScopeText("报工偏差按最近一次成功排产的工单实际报工数量与排产数量计算；不再混入历史排产或其它未参与本次排产的工单。");
         summary.setGlobalRiskScopeText(buildGlobalRiskScopeText(summary));
         summary.setSteps(buildSteps(summary));
-        summary.setBottlenecks(schedulerWorkbenchMapper.selectBottlenecks(beginTime, endTime));
-        summary.setReportedDeviationDetails(schedulerWorkbenchMapper.selectReportedDeviationDetails());
-        summary.setRouteActiveOrders(schedulerWorkbenchMapper.selectRouteActiveOrders());
+        summary.setBottlenecks(hasLatestScheduleScope
+                ? schedulerWorkbenchMapper.selectBottlenecks(beginTime, endTime, latestScheduleOrderIds)
+                : Collections.emptyList());
+        summary.setReportedDeviationDetails(hasLatestScheduleScope
+                ? schedulerWorkbenchMapper.selectReportedDeviationDetails(latestScheduleOrderIds)
+                : Collections.emptyList());
+        summary.setRouteActiveOrders(hasLatestScheduleScope
+                ? schedulerWorkbenchMapper.selectRouteActiveOrders(latestScheduleOrderIds)
+                : Collections.emptyList());
         return summary;
     }
 

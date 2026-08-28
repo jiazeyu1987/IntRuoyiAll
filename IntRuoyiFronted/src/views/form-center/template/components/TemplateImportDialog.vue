@@ -32,7 +32,7 @@
           </template>
         </el-autocomplete>
         <div class="form-template-import-dialog__hint">
-          版本号由系统自动生成；选择已有模板将自动提交升版审批。
+          版本号由系统自动生成；导入时会自动进行代码规则识别。选择已有模板将生成升版版本，并按审批流自动发布或等待审批后发布。
         </div>
       </el-form-item>
       <el-form-item label="备注" prop="remark">
@@ -176,6 +176,19 @@ const resolveImportErrorMessage = (error: unknown, fallback: string) => {
   return responseMessage || directMessage || fallback
 }
 
+const resolveImportSuccessMessage = (result: TemplateApi.FormTemplateImportRespVO) => {
+  if (result.status === 'PUBLISHED') {
+    return `已导入并自动发布 ${result.versionNo}，请使用发布版本测试`
+  }
+  if (result.status === 'PENDING_APPROVAL') {
+    return `已导入并提交升版审批，审批通过后自动发布 ${result.versionNo}`
+  }
+  if (result.status === 'DRAFT') {
+    return `已导入并生成草稿 ${result.versionNo}`
+  }
+  return `已导入 ${result.versionNo}，当前状态：${result.status}`
+}
+
 const submitForm = async () => {
   await formRef.value?.validate()
   if (!fileList.value.length) {
@@ -197,11 +210,7 @@ const submitForm = async () => {
   loading.value = true
   try {
     const result = await TemplateApi.importTemplateDoc(payload)
-    const successMessage =
-      result.importAction === 'UPGRADE'
-        ? `已生成 ${result.versionNo} 并提交升版审批`
-        : `导入成功，版本 ${result.versionNo}`
-    message.success(successMessage)
+    message.success(resolveImportSuccessMessage(result))
     dialogVisible.value = false
     emit('success')
   } catch (error) {

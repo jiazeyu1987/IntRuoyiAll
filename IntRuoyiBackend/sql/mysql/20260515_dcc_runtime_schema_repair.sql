@@ -46,6 +46,11 @@ CALL ensure_dcc_column(
   'training_required',
   'ALTER TABLE `dcc_file_category` ADD COLUMN `training_required` tinyint NOT NULL DEFAULT 0 AFTER `distribution_required`'
 );
+CALL ensure_dcc_column(
+  'dcc_registration_certificate_version',
+  'remark',
+  'ALTER TABLE `dcc_registration_certificate_version` ADD COLUMN `remark` varchar(1024) DEFAULT NULL COMMENT ''Draft remark'' AFTER `base_snapshot_id`'
+);
 
 UPDATE `dcc_file_category`
 SET `lifecycle_stage` = CASE

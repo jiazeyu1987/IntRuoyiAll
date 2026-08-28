@@ -63,6 +63,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesTimeUnitTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.CapacityWindowAllocator.ScheduleWindowResult;
 import cn.iocoder.yudao.module.mes.service.pro.schedule.CapacityWindowAllocator.ShiftWindow;
@@ -140,6 +141,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private static final String ISSUE_TYPE_CALENDAR = "CALENDAR";
     private static final String ISSUE_TYPE_CAPACITY = "CAPACITY";
     private static final String ISSUE_TYPE_ACTIVE_TASK = "ACTIVE_TASK";
+    private static final String ISSUE_TYPE_WORK_ORDER_STATUS = "WORK_ORDER_STATUS";
     private static final String ISSUE_STATUS_OPEN = "OPEN";
     private static final String ISSUE_STATUS_RESOLVED = "RESOLVED";
     private static final String ISSUE_TYPE_PROTECTED = "PROTECTED_TASK";
@@ -1878,6 +1880,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         computation.workOrderMap = computation.workOrders.stream()
                 .collect(Collectors.toMap(MesProWorkOrderDO::getId, workOrder -> workOrder));
 
+        appendTerminalWorkOrderIssues(computation);
         collectRouteContexts(computation);
         collectMasterData(computation);
         collectExistingTasks(computation);
@@ -1898,6 +1901,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private void collectRouteContexts(ScheduleComputation computation) {
         Set<Long> routeIds = new LinkedHashSet<>();
         for (MesProWorkOrderDO workOrder : computation.workOrders) {
+            if (hasBlockingIssueForWorkOrder(computation.issues, workOrder.getId())) {
+                continue;
+            }
             MesProRouteProductDO routeProduct = routeProductService.getRouteProductByItemId(workOrder.getProductId());
             if (routeProduct == null) {
                 computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_ROUTE, workOrder.getId(), null, null, null,
@@ -2212,7 +2218,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     }
 
     private void collectExistingTasks(ScheduleComputation computation) {
+        Set<Long> blockedWorkOrderIds = blockingWorkOrderIds(computation.issues);
         computation.scopeTasks = taskMapper.selectListByWorkOrderIds(computation.workOrderMap.keySet()).stream()
+                .filter(task -> !blockedWorkOrderIds.contains(task.getWorkOrderId()))
                 .filter(task -> !isCanceledTask(task))
                 .toList();
         Set<Long> scopeTaskIds = computation.scopeTasks.stream()
@@ -2282,6 +2290,30 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
         hydrateProtectedTaskWorkstations(computation);
         collectLineAvailabilityFromExistingTasks(computation);
+    }
+
+    private void appendTerminalWorkOrderIssues(ScheduleComputation computation) {
+        for (MesProWorkOrderDO workOrder : computation.workOrders) {
+            String message = resolveSourceWorkOrderTerminalMessage(workOrder);
+            if (StrUtil.isBlank(message)) {
+                continue;
+            }
+            computation.issues.add(ScheduleIssueDraft.blocking(ISSUE_TYPE_WORK_ORDER_STATUS,
+                    workOrder.getId(), null, null, null, message));
+        }
+    }
+
+    private String resolveSourceWorkOrderTerminalMessage(MesProWorkOrderDO workOrder) {
+        if (workOrder == null) {
+            return null;
+        }
+        if (ObjUtil.equal(workOrder.getStatus(), MesProWorkOrderStatusEnum.FINISHED.getStatus())) {
+            return "生产工单已完成";
+        }
+        if (ObjUtil.equal(workOrder.getStatus(), MesProWorkOrderStatusEnum.CANCELED.getStatus())) {
+            return "生产工单已取消";
+        }
+        return null;
     }
 
     private void hydrateProtectedTaskWorkstations(ScheduleComputation computation) {

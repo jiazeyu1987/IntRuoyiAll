@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateReminderEvaluation;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateReminderService;
 import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
@@ -35,6 +37,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
     private final DccRegistrationCertificateReadAuditService readAuditService;
     private final DccRegistrationCertificateAccessPolicyService accessPolicyService;
     private final DccRegistrationCertificateBusinessClock businessClock;
+    private final DccRegistrationCertificateReminderService reminderService;
 
     public DccRegistrationCertificateQueryServiceImpl(
             DccRegistrationCertificateQueryMapper queryMapper,
@@ -42,13 +45,15 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             MdmEnterpriseApi enterpriseApi,
             DccRegistrationCertificateReadAuditService readAuditService,
             DccRegistrationCertificateAccessPolicyService accessPolicyService,
-            DccRegistrationCertificateBusinessClock businessClock) {
+            DccRegistrationCertificateBusinessClock businessClock,
+            DccRegistrationCertificateReminderService reminderService) {
         this.queryMapper = require(queryMapper, "queryMapper");
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.enterpriseApi = require(enterpriseApi, "enterpriseApi");
         this.readAuditService = require(readAuditService, "readAuditService");
         this.accessPolicyService = require(accessPolicyService, "accessPolicyService");
         this.businessClock = require(businessClock, "businessClock");
+        this.reminderService = require(reminderService, "reminderService");
     }
 
     @Override
@@ -65,7 +70,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         rows.forEach(row -> readAuditService.record(successAudit(
                 tenantId, actorId, row, "PAGE", auditContext, "page")));
         return new PageResult<>(rows.stream()
-                .map(row -> pageItem(row, companyNames.get(row.getOwnerCompanyId())))
+                .map(row -> pageItem(tenantId, row, companyNames.get(row.getOwnerCompanyId())))
                 .toList(), total);
     }
 
@@ -91,7 +96,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
         }
         Map<Long, String> companyNames = companyNames(tenantId, List.of(row));
         readAuditService.record(successAudit(tenantId, actorId, row, "DETAIL", auditContext, "detail"));
-        return detail(row, companyNames.get(row.getOwnerCompanyId()));
+        return detail(tenantId, row, companyNames.get(row.getOwnerCompanyId()));
     }
 
     @Override
@@ -183,10 +188,12 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .build());
     }
 
-    private static DccRegistrationCertificatePageItem pageItem(
-            DccRegistrationCertificateQueryRecord row, String ownerCompanyName) {
+    private DccRegistrationCertificatePageItem pageItem(
+            Long tenantId, DccRegistrationCertificateQueryRecord row, String ownerCompanyName) {
+        DccRegistrationCertificateReminderEvaluation reminder = reminderState(tenantId, row);
         return DccRegistrationCertificatePageItem.builder()
                 .certificateId(row.getCertificateId())
+                .rowVersion(row.getRowVersion())
                 .versionId(row.getVersionId())
                 .snapshotId(row.getSnapshotId())
                 .ownerCompanyId(row.getOwnerCompanyId())
@@ -194,11 +201,15 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .productMasterId(row.getProductMasterId())
                 .productName(row.getProductName())
                 .projectCodeId(row.getProjectCodeId())
+                .projectCode(row.getProjectCode())
                 .certificateNo(row.getCertificateNo())
                 .versionNo(row.getVersionNo())
                 .status(row.getStatus())
+                .remark(row.getRemark())
                 .hasProjectCode(row.getProjectCodeId() != null)
                 .hasRegistrationFile(row.getRegistrationFileId() != null)
+                .reminderColor(reminder.colorCode())
+                .visualState(reminder.thresholdLevel())
                 .firstObtainedDate(row.getFirstObtainedDate())
                 .approvalDate(row.getApprovalDate())
                 .effectiveDate(row.getEffectiveDate())
@@ -206,8 +217,9 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .build();
     }
 
-    private static DccRegistrationCertificateDetail detail(
-            DccRegistrationCertificateQueryRecord row, String ownerCompanyName) {
+    private DccRegistrationCertificateDetail detail(
+            Long tenantId, DccRegistrationCertificateQueryRecord row, String ownerCompanyName) {
+        DccRegistrationCertificateReminderEvaluation reminder = reminderState(tenantId, row);
         return DccRegistrationCertificateDetail.builder()
                 .certificateId(row.getCertificateId())
                 .rowVersion(row.getRowVersion())
@@ -227,6 +239,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .effectiveDate(row.getEffectiveDate())
                 .expiryDate(row.getExpiryDate())
                 .classification(row.getClassification())
+                .remark(row.getRemark())
                 .registrantName(row.getRegistrantName())
                 .modelSpecification(row.getModelSpecification())
                 .structureComposition(row.getStructureComposition())
@@ -239,7 +252,24 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .entrustedEnterprisesJson(row.getEntrustedEnterprisesJson())
                 .registrationFileId(row.getRegistrationFileId())
                 .hasRegistrationFile(row.getRegistrationFileId() != null)
+                .reminderColor(reminder.colorCode())
+                .visualState(reminder.thresholdLevel())
                 .build();
+    }
+
+    private DccRegistrationCertificateReminderEvaluation reminderState(
+            Long tenantId, DccRegistrationCertificateQueryRecord row) {
+        DccRegistrationCertificateReminderEvaluation evaluation = reminderService.evaluateThreshold(
+                businessClock.businessDate(), row.getExpiryDate(), false);
+        if (!"T_8".equals(evaluation.thresholdLevel())) {
+            return evaluation;
+        }
+        boolean cleared = reminderService.isSupportingDocumentCleared(
+                tenantId, row.getCertificateId(), "RENEWAL_ACCEPTANCE_RECEIPT")
+                || reminderService.isSupportingDocumentCleared(
+                tenantId, row.getCertificateId(), "RENEWAL_SUPPLEMENT_NOTICE");
+        return cleared ? reminderService.evaluateThreshold(
+                businessClock.businessDate(), row.getExpiryDate(), true) : evaluation;
     }
 
     private static DccRegistrationCertificateOldIndexItem oldIndexItem(
@@ -252,6 +282,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .productMasterId(row.getProductMasterId())
                 .productName(row.getProductName())
                 .projectCodeId(row.getProjectCodeId())
+                .projectCode(row.getProjectCode())
                 .certificateNo(row.getCertificateNo())
                 .versionNo(row.getVersionNo())
                 .expiryDate(row.getExpiryDate())

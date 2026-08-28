@@ -202,8 +202,20 @@ service.interceptors.response.use(
         // 2. 进行刷新访问令牌
         try {
           const refreshTokenRes = await refreshToken()
+          const refreshTokenPayload = refreshTokenRes.data
+          const refreshCode = refreshTokenPayload?.code ?? result_code
+          if (refreshCode !== 0 && refreshCode !== 200) {
+            throw createApiError(
+              refreshTokenPayload?.msg || refreshTokenPayload?.message || t('sys.api.timeoutMessage'),
+              refreshCode,
+              refreshTokenPayload
+            )
+          }
+          if (!refreshTokenPayload?.data?.accessToken || !refreshTokenPayload?.data?.refreshToken) {
+            throw createApiError(t('sys.api.timeoutMessage'), refreshCode, refreshTokenPayload)
+          }
           // 2.1 刷新成功，则回放队列的请求 + 当前请求
-          setToken((await refreshTokenRes).data.data)
+          setToken(refreshTokenPayload.data)
           ;(config.headers as RequestCustomHeaders).Authorization = 'Bearer ' + getAccessToken()
           requestList.forEach((cb: any) => {
             cb()
@@ -298,6 +310,12 @@ const refreshToken = async () => {
 }
 const handleAuthorized = () => {
   const { t } = useI18n()
+  if (isRelogin.show) {
+    deleteUserCache()
+    removeToken()
+    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search)
+    return Promise.reject(t('sys.api.timeoutMessage'))
+  }
   if (!isRelogin.show) {
     // 如果已经到登录页面则不进行弹窗提示
     if (window.location.href.includes('login')) {

@@ -8,9 +8,11 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccR
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalStartCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadSubmitResult;
+import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -45,11 +47,13 @@ public class DccRegistrationCertificateUploadController {
     @Transactional(rollbackFor = Exception.class)
     public CommonResult<Long> submit(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @ModelAttribute DccRegistrationCertificateUploadSubmitReqVO reqVO) {
+            @Valid @ModelAttribute DccRegistrationCertificateUploadSubmitReqVO reqVO,
+            HttpServletRequest request) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         Long actorId = getLoginUserId();
+        String requestTraceId = DccRequestAuditContext.from(request, TracerUtils.getTraceId()).requestId();
         DccRegistrationCertificateUploadSubmitResult result = uploadService.submitUploadForApproval(
-                tenantId, actorId, idempotencyKey, TracerUtils.getTraceId(), reqVO.toCommand());
+                tenantId, actorId, idempotencyKey, requestTraceId, reqVO.toCommand());
         approvalService.startNativeApproval(
                 tenantId, actorId, new DccRegistrationCertificateApprovalStartCommand(result.requestId()));
         return success(result.requestId());

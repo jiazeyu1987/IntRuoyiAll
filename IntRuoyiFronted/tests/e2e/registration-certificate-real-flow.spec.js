@@ -229,7 +229,7 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
       await expect(page.locator('[data-testid="registration-certificate-read-page"]')).toBeVisible({
         timeout: 60000
       })
-      await expect(page.getByRole('button', { name: '新增注册证' })).toBeVisible()
+      await expect(page.getByRole('button', { name: '上传注册证' })).toBeVisible()
 
       const pagePayload = await readJsonResponse(await pageResponsePromise)
       expect(

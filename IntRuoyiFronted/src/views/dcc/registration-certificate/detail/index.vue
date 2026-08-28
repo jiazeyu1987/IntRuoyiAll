@@ -10,7 +10,10 @@
           <p>{{ detail.ownerCompanyName }} / {{ detail.productName }}</p>
         </div>
         <el-tag :type="getRegistrationCertificateStatusTagType(detail.status)" effect="dark">
-          {{ formatRegistrationCertificateStatus(detail.status) }}
+          {{ detail.status === 'OLD' ? '已失效，失效日期 ' + (detail.expiryDate || '—') : formatRegistrationCertificateStatus(detail.status) }}
+        </el-tag>
+        <el-tag :type="getRegistrationCertificateReminderTagType(detail.reminderColor)">
+          提醒：{{ formatRegistrationCertificateReminder(detail.visualState) }}
         </el-tag>
       </div>
 
@@ -21,7 +24,7 @@
         <el-descriptions-item label="批准日">{{ displayText(detail.approvalDate) }}</el-descriptions-item>
         <el-descriptions-item label="生效日">{{ displayText(detail.effectiveDate) }}</el-descriptions-item>
         <el-descriptions-item label="有效期至">{{ displayText(detail.expiryDate) }}</el-descriptions-item>
-        <el-descriptions-item label="项目代码">{{ displayText(detail.projectCodeId) }}</el-descriptions-item>
+        <el-descriptions-item label="项目代码">{{ displayText(detail.projectCode) }}</el-descriptions-item>
         <el-descriptions-item label="注册证文件">
           <el-tag :type="getMissingMarkerTagType(detail.hasRegistrationFile)">
             {{ formatMissingMarker(detail.hasRegistrationFile) }}
@@ -40,11 +43,23 @@
       </el-descriptions>
 
       <el-card class="detail-card" shadow="never">
+        <template #header>备注</template>
+        <div class="detail-remark">
+          {{ displayText(detail.remark) }}
+        </div>
+      </el-card>
+
+      <el-card class="detail-card" shadow="never">
         <template #header>受托生产企业</template>
-        <pre class="detail-json">{{ detail.entrustedEnterprisesJson || '[]' }}</pre>
+        <div class="detail-enterprise-names">
+          {{ formatEntrustedEnterpriseNames(detail.entrustedEnterprisesJson) }}
+        </div>
       </el-card>
 
       <RegistrationCertificateActionPanel
+        :initial-action="viewMode === 'current' ? 'draft' : 'access'"
+        :read-only="viewMode !== 'current'"
+        :certificate-status="detail.status"
         :certificate-id="detail.certificateId"
         :row-version="detail.rowVersion"
         :version-id="detail.versionId"
@@ -80,9 +95,12 @@ import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
 import {
   displayText,
+  formatEntrustedEnterpriseNames,
   formatMissingMarker,
+  formatRegistrationCertificateReminder,
   formatRegistrationCertificateStatus,
   getMissingMarkerTagType,
+  getRegistrationCertificateReminderTagType,
   getRegistrationCertificateStatusTagType
 } from '../shared/state'
 
@@ -90,6 +108,11 @@ defineOptions({ name: 'DccRegistrationCertificateDetail' })
 
 const route = useRoute()
 const certificateId = computed(() => parsePositiveRouteQueryId(route.params.id))
+const viewMode = computed(() => {
+  if (route.query.mode === 'access-request') return 'access-request'
+  if (route.query.mode === 'old-detail') return 'old-detail'
+  return 'current'
+})
 const invalidRoute = computed(() => !certificateId.value)
 const loading = ref(false)
 const detail = ref<DccRegistrationCertificateDetailVO>()
@@ -136,7 +159,13 @@ onMounted(loadDetail)
   margin-top: 4px;
 }
 
-.detail-json {
+.detail-enterprise-names {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detail-remark {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;

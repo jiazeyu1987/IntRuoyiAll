@@ -52,6 +52,10 @@
         SELECT IFNULL(SUM(COALESCE(total_quantity, quantity, 0)), 0)
         FROM mes_pro_schedule_order
         WHERE deleted = 0
+          AND id IN
+          <foreach collection="scheduleOrderIds" item="scheduleOrderId" open="(" separator="," close=")">
+              #{scheduleOrderId}
+          </foreach>
           AND status IN (
               ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@SCHEDULED.status},
               ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@IN_PROGRESS.status}
@@ -77,6 +81,10 @@
                 GROUP BY schedule_order_id
             ) feedback_by_order ON feedback_by_order.schedule_order_id = so.id
             WHERE so.deleted = 0
+              AND so.id IN
+              <foreach collection="scheduleOrderIds" item="scheduleOrderId" open="(" separator="," close=")">
+                  #{scheduleOrderId}
+              </foreach>
               AND so.status IN (
                   ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@SCHEDULED.status},
                   ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@IN_PROGRESS.status}
@@ -109,6 +117,10 @@
              AND process.deleted = 0
         WHERE sop.deleted = 0
           AND sop.enabled = b'1'
+          AND so.id IN
+          <foreach collection="scheduleOrderIds" item="scheduleOrderId" open="(" separator="," close=")">
+              #{scheduleOrderId}
+          </foreach>
           AND so.status IN (
               ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@SCHEDULED.status},
               ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@IN_PROGRESS.status}
@@ -147,6 +159,10 @@
             LEFT JOIN mes_pro_route route ON route.id = so.route_id
                  AND route.deleted = 0
             WHERE so.deleted = 0
+              AND so.id IN
+              <foreach collection="scheduleOrderIds" item="scheduleOrderId" open="(" separator="," close=")">
+                  #{scheduleOrderId}
+              </foreach>
               AND so.status IN (
                   ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@PREPARE.status},
                   ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@SCHEDULED.status},
@@ -174,6 +190,10 @@
             LEFT JOIN mes_md_item item ON item.id = so.product_id
                  AND item.deleted = 0
             WHERE so.deleted = 0
+              AND so.id IN
+              <foreach collection="scheduleOrderIds" item="scheduleOrderId" open="(" separator="," close=")">
+                  #{scheduleOrderId}
+              </foreach>
               AND so.status IN (
                   ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@PREPARE.status},
                   ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@SCHEDULED.status},
@@ -270,6 +290,10 @@
              AND process.deleted = 0
         WHERE process_snapshot.deleted = 0
           AND process_snapshot.enabled = b'1'
+          AND schedule_order.id IN
+          <foreach collection="scheduleOrderIds" item="scheduleOrderId" open="(" separator="," close=")">
+              #{scheduleOrderId}
+          </foreach>
           AND (process_snapshot.bottleneck_flag = b'1'
                OR IFNULL(process_snapshot.remaining_quantity, 0) &gt; 0
                OR process_snapshot.capacity_source IS NULL

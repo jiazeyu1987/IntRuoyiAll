@@ -31,7 +31,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -80,6 +82,7 @@ class MesProSchedulerWorkbenchServiceImplTest {
         LocalDate date = LocalDate.of(2026, 6, 10);
         LocalDateTime beginTime = LocalDateTime.of(2026, 6, 10, 0, 0);
         LocalDateTime endTime = LocalDateTime.of(2026, 6, 11, 0, 0);
+        Set<Long> latestScheduleOrderIds = new LinkedHashSet<>(List.of(47L, 48L));
         MesProSchedulerWorkbenchSummaryRespVO.Bottleneck bottleneck = new MesProSchedulerWorkbenchSummaryRespVO.Bottleneck();
         bottleneck.setScheduleOrderProcessId(125L);
         bottleneck.setProcessCode("B060");
@@ -118,15 +121,16 @@ class MesProSchedulerWorkbenchServiceImplTest {
         when(schedulerWorkbenchMapper.selectTodayFeedbackCount(beginTime, endTime)).thenReturn(2L);
         when(schedulerWorkbenchMapper.selectTodayFeedbackQuantity(beginTime, endTime)).thenReturn(new BigDecimal("12"));
         when(schedulerWorkbenchMapper.selectPendingApprovalFeedbackCount()).thenReturn(5L);
-        when(schedulerWorkbenchMapper.selectCurrentSchedulePlannedQuantity()).thenReturn(new BigDecimal("432"));
-        when(schedulerWorkbenchMapper.selectCurrentScheduleReportedQuantity()).thenReturn(new BigDecimal("12"));
-        when(schedulerWorkbenchMapper.selectReportedDeviationDetails()).thenReturn(List.of(detail));
+        when(scheduleOrderService.getLatestSuccessfulApplyScheduleOrderIds()).thenReturn(latestScheduleOrderIds);
+        when(schedulerWorkbenchMapper.selectCurrentSchedulePlannedQuantity(latestScheduleOrderIds)).thenReturn(new BigDecimal("432"));
+        when(schedulerWorkbenchMapper.selectCurrentScheduleReportedQuantity(latestScheduleOrderIds)).thenReturn(new BigDecimal("12"));
+        when(schedulerWorkbenchMapper.selectReportedDeviationDetails(latestScheduleOrderIds)).thenReturn(List.of(detail));
         when(schedulerWorkbenchMapper.selectTodayAvailableCapacity(beginTime, endTime)).thenReturn(new BigDecimal("380"));
         when(schedulerWorkbenchMapper.selectRepairingMachineryCount()).thenReturn(1L);
         when(schedulerWorkbenchMapper.selectResourceUnconfiguredCount()).thenReturn(2L);
         when(schedulerWorkbenchMapper.selectMaterialShortageCount(beginTime, endTime)).thenReturn(4L);
-        when(schedulerWorkbenchMapper.selectBottlenecks(beginTime, endTime)).thenReturn(List.of(bottleneck));
-        when(schedulerWorkbenchMapper.selectRouteActiveOrders()).thenReturn(List.of(routeActiveOrder));
+        when(schedulerWorkbenchMapper.selectBottlenecks(beginTime, endTime, latestScheduleOrderIds)).thenReturn(List.of(bottleneck));
+        when(schedulerWorkbenchMapper.selectRouteActiveOrders(latestScheduleOrderIds)).thenReturn(List.of(routeActiveOrder));
 
         MesProSchedulerWorkbenchSummaryRespVO summary = service.getSummary(date);
 
@@ -151,7 +155,7 @@ class MesProSchedulerWorkbenchServiceImplTest {
                 summary.getTodayActionSuggestion());
         assertTrue(summary.getTodayActionSuggestion().contains("预览/发布前检查结果"),
                 "今日建议必须提醒工作台摘要风险不等同于本次排产最终阻断。");
-        assertEquals("报工偏差按当前有效排产工单（已排产/生产中）的实际报工数量与排产数量计算；不再按当天任务段重复累计。",
+        assertEquals("报工偏差按最近一次成功排产的工单实际报工数量与排产数量计算；不再混入历史排产或其它未参与本次排产的工单。",
                 summary.getCurrentScheduleScopeText());
         assertEquals("全局队列治理风险：资源未配置 2 项、维修设备 1 台、今日物料短缺 4 项；用于治理排队，不等同于本次发布阻断。",
                 summary.getGlobalRiskScopeText());
@@ -184,11 +188,45 @@ class MesProSchedulerWorkbenchServiceImplTest {
         assertEquals(new BigDecimal("-420"), summary.getReportedDeviationDetails().get(0).getDeviationQuantity());
         assertEquals("B060", summary.getBottlenecks().get(0).getProcessCode());
 
-        verify(schedulerWorkbenchMapper).selectBottlenecks(beginTime, endTime);
-        verify(schedulerWorkbenchMapper).selectCurrentSchedulePlannedQuantity();
-        verify(schedulerWorkbenchMapper).selectCurrentScheduleReportedQuantity();
-        verify(schedulerWorkbenchMapper).selectReportedDeviationDetails();
-        verify(schedulerWorkbenchMapper).selectRouteActiveOrders();
+        verify(scheduleOrderService).getLatestSuccessfulApplyScheduleOrderIds();
+        verify(schedulerWorkbenchMapper).selectBottlenecks(beginTime, endTime, latestScheduleOrderIds);
+        verify(schedulerWorkbenchMapper).selectCurrentSchedulePlannedQuantity(latestScheduleOrderIds);
+        verify(schedulerWorkbenchMapper).selectCurrentScheduleReportedQuantity(latestScheduleOrderIds);
+        verify(schedulerWorkbenchMapper).selectReportedDeviationDetails(latestScheduleOrderIds);
+        verify(schedulerWorkbenchMapper).selectRouteActiveOrders(latestScheduleOrderIds);
+    }
+
+    @Test
+    void getSummary_shouldReturnEmptyCurrentScopeWhenNoLatestSuccessfulScheduleApply() {
+        LocalDate date = LocalDate.of(2026, 8, 28);
+        LocalDateTime beginTime = LocalDateTime.of(2026, 8, 28, 0, 0);
+        LocalDateTime endTime = LocalDateTime.of(2026, 8, 29, 0, 0);
+
+        when(schedulerWorkbenchMapper.selectPendingScheduleOrderCount()).thenReturn(0L);
+        when(schedulerWorkbenchMapper.selectTodayScheduledTaskCount(beginTime, endTime)).thenReturn(0L);
+        when(schedulerWorkbenchMapper.selectTodayPlannedCapacity(beginTime, endTime)).thenReturn(BigDecimal.ZERO);
+        when(schedulerWorkbenchMapper.selectTodayFeedbackCount(beginTime, endTime)).thenReturn(0L);
+        when(schedulerWorkbenchMapper.selectTodayFeedbackQuantity(beginTime, endTime)).thenReturn(BigDecimal.ZERO);
+        when(schedulerWorkbenchMapper.selectPendingApprovalFeedbackCount()).thenReturn(0L);
+        when(scheduleOrderService.getLatestSuccessfulApplyScheduleOrderIds()).thenReturn(Set.of());
+        when(schedulerWorkbenchMapper.selectTodayAvailableCapacity(beginTime, endTime)).thenReturn(BigDecimal.ZERO);
+        when(schedulerWorkbenchMapper.selectRepairingMachineryCount()).thenReturn(0L);
+        when(schedulerWorkbenchMapper.selectResourceUnconfiguredCount()).thenReturn(0L);
+        when(schedulerWorkbenchMapper.selectMaterialShortageCount(beginTime, endTime)).thenReturn(0L);
+
+        MesProSchedulerWorkbenchSummaryRespVO summary = service.getSummary(date);
+
+        assertEquals(BigDecimal.ZERO, summary.getCurrentSchedulePlannedQuantity());
+        assertEquals(BigDecimal.ZERO, summary.getCurrentScheduleReportedQuantity());
+        assertEquals(BigDecimal.ZERO, summary.getReportedDeviationQuantity());
+        assertTrue(summary.getBottlenecks().isEmpty());
+        assertTrue(summary.getReportedDeviationDetails().isEmpty());
+        assertTrue(summary.getRouteActiveOrders().isEmpty());
+        verify(schedulerWorkbenchMapper, never()).selectCurrentSchedulePlannedQuantity(any());
+        verify(schedulerWorkbenchMapper, never()).selectCurrentScheduleReportedQuantity(any());
+        verify(schedulerWorkbenchMapper, never()).selectReportedDeviationDetails(any());
+        verify(schedulerWorkbenchMapper, never()).selectRouteActiveOrders(any());
+        verify(schedulerWorkbenchMapper, never()).selectBottlenecks(any(), any(), any());
     }
 
     @Test

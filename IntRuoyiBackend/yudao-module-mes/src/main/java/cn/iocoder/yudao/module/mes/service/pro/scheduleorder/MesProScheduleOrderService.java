@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Map;
 import java.util.List;
+import java.util.Set;
 
 /**
  * MES 排产工单 Service 接口
@@ -134,6 +135,11 @@ public interface MesProScheduleOrderService {
      * 按当前工序聚合未完成排产工单在制订单数。
      */
     List<MesProScheduleOrderProcessWipRespVO> getProcessWipStatistics();
+
+    /**
+     * 获得最近一次成功排产涉及的排产工单编号集合。
+     */
+    Set<Long> getLatestSuccessfulApplyScheduleOrderIds();
 
     /**
      * 保存当前工序在制夜班与开排日期设置。

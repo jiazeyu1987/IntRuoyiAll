@@ -33,6 +33,9 @@ import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
+import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
+import cn.iocoder.yudao.module.mdm.enums.MdmProductStatusConstants;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import jakarta.annotation.Resource;
@@ -111,6 +114,8 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     private PermissionApi permissionApi;
     @MockitoBean
     private DccProjectCodeConfigurationStatusApi configurationStatusApi;
+    @MockitoBean
+    private MdmProductApi productApi;
 
     @Test
     void createUpdateDeleteShouldPersistNormalizedFieldsAndAllowBlankProjectCode() {
@@ -391,6 +396,36 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 descPageResult.getList().stream().map(DccProjectCodeDO::getId).toList());
         assertEquals(List.of(2L, 1L, 0L),
                 descPageResult.getList().stream().map(DccProjectCodeDO::getAssociatedFileCount).toList());
+    }
+
+    @Test
+    void pageShouldOnlyReturnProjectCodesWithValidDccProductsWhenRequested() {
+        DccProjectCodeDO validProjectCode = insertProjectCodeWithProduct("1", "项目A", "CODE-A", 20L);
+        DccProjectCodeDO invalidProductProjectCode = insertProjectCodeWithProduct("2", "项目B", "CODE-B", 21L);
+        DccProjectCodeDO missingProductProjectCode = insertProjectCodeWithProduct("3", "项目C", "CODE-C", null);
+        when(productApi.listSimpleProducts(MdmProductStatusConstants.ENABLE, true, null))
+                .thenReturn(List.of(MdmProductRespDTO.builder()
+                        .id(20L)
+                        .productCode("P-20")
+                        .dccProductCode("A1234567890123")
+                        .nameCn("产品A")
+                        .status(MdmProductStatusConstants.ENABLE)
+                        .build()));
+
+        DccProjectCodePageReqVO reqVO = new DccProjectCodePageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(20);
+        reqVO.setRequireDccProductCode(true);
+
+        PageResult<DccProjectCodeDO> pageResult = projectCodeService.getProjectCodePage(reqVO);
+
+        assertEquals(1L, pageResult.getTotal());
+        assertEquals(List.of(validProjectCode.getId()),
+                pageResult.getList().stream().map(DccProjectCodeDO::getId).toList());
+        assertFalse(pageResult.getList().stream().map(DccProjectCodeDO::getId)
+                .toList().contains(invalidProductProjectCode.getId()));
+        assertFalse(pageResult.getList().stream().map(DccProjectCodeDO::getId)
+                .toList().contains(missingProductProjectCode.getId()));
     }
 
     @Test
@@ -1160,10 +1195,16 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     }
 
     private DccProjectCodeDO insertProjectCode(String docControlNo, String projectName, String projectCode) {
+        return insertProjectCodeWithProduct(docControlNo, projectName, projectCode, null);
+    }
+
+    private DccProjectCodeDO insertProjectCodeWithProduct(String docControlNo, String projectName, String projectCode,
+                                                          Long productMasterId) {
         DccProjectCodeDO projectCodeDO = DccProjectCodeDO.builder()
                 .docControlNo(docControlNo)
                 .projectName(projectName)
                 .projectCode(projectCode)
+                .productMasterId(productMasterId)
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build();
         projectCodeMapper.insert(projectCodeDO);

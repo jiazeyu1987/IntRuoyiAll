@@ -40,7 +40,41 @@ export const formatMissingMarker = (present?: boolean | null) => (present ? '已
 export const getMissingMarkerTagType = (present?: boolean | null): TagProps['type'] =>
   present ? 'success' : 'danger'
 
+export const formatRegistrationCertificateReminder = (state?: string | null) => {
+  if (!state || state === 'NONE' || state === 'CLEARED') return '正常'
+  return state.replace('_', '-')
+}
+
+export const getRegistrationCertificateReminderTagType = (color?: string | null): TagProps['type'] => {
+  if (color === 'BRIGHT') return 'danger'
+  if (color === 'LIGHT') return 'warning'
+  return 'success'
+}
+
 export const displayText = (value?: string | number | boolean | null) => {
   if (value === undefined || value === null || value === '') return '—'
   return String(value)
+}
+
+interface EntrustedEnterpriseSnapshot {
+  enterpriseName?: unknown
+}
+
+export const formatEntrustedEnterpriseNames = (value?: string | null) => {
+  if (!value || !value.trim() || value.trim() === '[]') return '—'
+  const parsed = JSON.parse(value) as unknown
+  if (!Array.isArray(parsed)) {
+    throw new Error('注册证受托生产企业数据格式无效。')
+  }
+  const names = parsed.map((item) => {
+    if (!item || typeof item !== 'object') {
+      throw new Error('注册证受托生产企业缺少企业名称。')
+    }
+    const enterpriseName = (item as EntrustedEnterpriseSnapshot).enterpriseName
+    if (typeof enterpriseName !== 'string' || !enterpriseName.trim()) {
+      throw new Error('注册证受托生产企业缺少企业名称。')
+    }
+    return enterpriseName.trim()
+  })
+  return names.length ? names.join('、') : '—'
 }

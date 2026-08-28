@@ -1,6 +1,8 @@
 import request from '@/config/axios'
 import { generateUUID } from '@/utils'
 
+const REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_ID_HEADER = 'X-DCC-Request-Id'
+
 export type DccRegistrationCertificateStatus =
   | 'DRAFT'
   | 'PENDING_EFFECTIVE'
@@ -329,7 +331,10 @@ export const submitRegistrationCertificateUpload = async (
   return await request.upload({
     url: '/dcc/registration-certificates/uploads',
     data,
-    headers: { 'Idempotency-Key': idempotencyKey }
+    headers: {
+      'Idempotency-Key': idempotencyKey,
+      [REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_ID_HEADER]: idempotencyKey
+    }
   })
 }
 

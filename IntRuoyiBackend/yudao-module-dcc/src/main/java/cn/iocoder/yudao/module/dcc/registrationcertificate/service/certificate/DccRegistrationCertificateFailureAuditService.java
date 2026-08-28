@@ -25,7 +25,7 @@ public class DccRegistrationCertificateFailureAuditService {
                               Integer failureCode, String failureMessage) {
         DccRegistrationCertificateAuditDetail detail = new DccRegistrationCertificateAuditDetail(
                 metadata.commandKind(), metadata.actorId(), metadata.payloadHash(), null,
-                failureCode, failureMessage);
+                null, null, null, failureCode, failureMessage);
         terminalAuditService.insert(DccRegistrationCertificateAuditDO.builder()
                 .tenantId(metadata.tenantId())
                 .ownerCompanyId(context.ownerCompanyId())

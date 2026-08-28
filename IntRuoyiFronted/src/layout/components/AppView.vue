@@ -12,10 +12,9 @@ const layout = computed(() => appStore.getLayout)
 
 const fixedHeader = computed(() => appStore.getFixedHeader)
 
-const footer = computed(() => appStore.getFooter)
-
 const tagsViewStore = useTagsViewStore()
 const currentRoute = useRoute()
+const shouldShowFooter = computed(() => appStore.getFooter && currentRoute.meta?.hideFooter !== true)
 
 const resolveKeepAliveName = (route: RouteLocationNormalizedLoaded) =>
   String(route.meta?.keepAliveName || route.name || '')
@@ -52,7 +51,7 @@ void [layout, fixedHeader, tagsView]
       'p-[var(--app-content-padding)] w-full bg-[var(--app-content-bg-color)] dark:bg-[var(--el-bg-color)]',
       {
         '!min-h-[calc(100vh-var(--top-tool-height)-var(--tags-view-height)-var(--app-footer-height))] pb-0':
-          footer
+          shouldShowFooter
       }
     ]"
   >
@@ -64,5 +63,5 @@ void [layout, fixedHeader, tagsView]
       </template>
     </router-view>
   </section>
-  <Footer v-if="footer" />
+  <Footer v-if="shouldShowFooter" />
 </template>

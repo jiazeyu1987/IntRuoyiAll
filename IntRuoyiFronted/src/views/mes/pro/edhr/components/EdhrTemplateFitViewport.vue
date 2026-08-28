@@ -49,11 +49,20 @@ const syncViewportScale = () => {
   if (!viewport || !measure) return
   const nextWidth = Math.max(measure.scrollWidth, measure.offsetWidth, 1)
   const nextHeight = Math.max(measure.scrollHeight, measure.offsetHeight, 1)
-  contentSize.value = { width: nextWidth, height: nextHeight }
+  const nextContentSize = { width: nextWidth, height: nextHeight }
+  if (
+    contentSize.value.width !== nextContentSize.width ||
+    contentSize.value.height !== nextContentSize.height
+  ) {
+    contentSize.value = nextContentSize
+  }
   const widthScale = viewport.clientWidth > 0 ? viewport.clientWidth / nextWidth : 1
   const heightScale = viewport.clientHeight > 0 ? viewport.clientHeight / nextHeight : 1
   const nextScale = props.widthOnly ? widthScale : Math.min(widthScale, heightScale)
-  scale.value = Number.isFinite(nextScale) && nextScale > 0 ? nextScale : 1
+  const normalizedScale = Number.isFinite(nextScale) && nextScale > 0 ? nextScale : 1
+  if (Math.abs(scale.value - normalizedScale) > 0.0001) {
+    scale.value = normalizedScale
+  }
 }
 
 const scheduleViewportScale = () => {

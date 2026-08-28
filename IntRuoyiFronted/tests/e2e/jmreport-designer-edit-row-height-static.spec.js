@@ -60,6 +60,24 @@ assert.match(
   'Batch record template edit mode must pass jmreport-designer-edit to IFrame'
 )
 
+assert.match(
+  designerWrapperSource,
+  /const isDesignerPath = \(path: string\) => path\.includes\('\/jmreport\/index\/'\)/,
+  'DesignerWrapper edit mode must identify JMReport designer paths explicitly'
+)
+
+assert.match(
+  designerWrapperSource,
+  /ensureSameOriginDesignerEditSupport\(\)[\s\S]*src\.value = appendToken\(normalizeDesignerPath\(data\.path\), false\)/,
+  'DesignerWrapper edit mode must use the same-origin /jmreport proxy before applying iframe edit adaptation'
+)
+
+assert.doesNotMatch(
+  designerWrapperSource,
+  /if \(reportMode\.value === 'edit'\) \{[\s\S]*?src\.value = appendToken\(data\.path\)[\s\S]*?\} else \{/,
+  'DesignerWrapper edit mode must not load JMReport edit iframe from the backend port directly'
+)
+
 assert.doesNotMatch(
   designerWrapperSource,
   /viewMode\.value === 'preview' \? 'jmreport-viewer' : 'off'/,

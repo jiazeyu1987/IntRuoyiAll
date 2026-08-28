@@ -207,7 +207,8 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 "  " + draft.technicalRequirements() + "  ",
                 "  " + draft.residenceAddress() + "  ",
                 "  " + draft.productionAddress() + "  ",
-                draft.entrustedProduction(), draft.selfProduction(), draft.entrustedEnterpriseIds());
+                draft.entrustedProduction(), draft.selfProduction(), draft.entrustedEnterpriseIds(),
+                draft.remark());
 
         Long replayed = assertDoesNotThrow(
                 () -> service.createDraft(1L, 99L, "create-1", "trace-2", padded));
@@ -336,6 +337,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 .resultCode(String.valueOf(REGISTRATION_CERTIFICATE_PRODUCT_INVALID.getCode()))
                 .detailJson(JsonUtils.toJsonString(new DccRegistrationCertificateAuditDetail(
                         first.commandKind(), first.actorId(), first.payloadHash(), null,
+                        null, null, null,
                         REGISTRATION_CERTIFICATE_PRODUCT_INVALID.getCode(),
                         REGISTRATION_CERTIFICATE_PRODUCT_INVALID.getMsg())))
                 .build();
@@ -801,6 +803,20 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void createDraft_allowsMinimalVisibleFieldsWithoutHiddenDraftAttributes() {
+        configureDbValidDependencies();
+        DccRegistrationCertificateDraftData draft = new DccRegistrationCertificateDraftData(
+                10L, 20L, null,
+                LocalDate.of(2026, 1, 1), "CERT-MIN-001",
+                null, LocalDate.of(2026, 2, 1), LocalDate.of(2031, 2, 1),
+                "II", null, null, null, null, null, null, null, null, null, null,
+                "  Minimal remark  ");
+
+        assertDoesNotThrow(() -> independentDbCommandService().createDraft(
+                1L, 99L, "create-minimal", "trace-minimal", draft));
+    }
+
+    @Test
     void validatorRejectsDisabledCrossTenantAndProductReboundProjectCodes() {
         DccRegistrationCertificatePrerequisiteValidator validator = validValidator();
         DccRegistrationCertificateDraftData draft = copyDraft(
@@ -842,7 +858,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         DccRegistrationCertificateDraftData neitherProductionMode = copyDraft(
                 validDraft(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1),
                 LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1), null, "CERT-001",
-                false, false, List.of());
+                true, false, List.of());
         ServiceException invalidRelation = assertThrows(ServiceException.class,
                 () -> validator.validate(1L, 99L, neitherProductionMode));
         assertEquals(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID.getCode(), invalidRelation.getCode());
@@ -1068,7 +1084,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 .requestTraceId("trace-1")
                 .detailJson(JsonUtils.toJsonString(new DccRegistrationCertificateAuditDetail(
                         metadata.commandKind(), metadata.actorId(), metadata.payloadHash(),
-                        certificateId, null, null)))
+                        certificateId, null, null, null, null, null)))
                 .build();
     }
 
@@ -1078,7 +1094,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 LocalDate.of(2026, 1, 1), "CERT-001",
                 LocalDate.of(2026, 2, 1), LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1),
                 "II", "Registrant", "Model", "Structure", "Use", "Requirements",
-                "Residence", "Production", true, false, List.of(30L));
+                "Residence", "Production", true, false, List.of(30L), "Draft remark");
     }
 
     private static DccRegistrationCertificateDraftData copyDraft(
@@ -1101,7 +1117,8 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 certificateNo, approvalDate, effectiveDate, expiryDate, source.classification(),
                 source.registrantName(), source.modelSpecification(), source.structureComposition(),
                 source.intendedUse(), source.technicalRequirements(), source.residenceAddress(),
-                source.productionAddress(), entrustedProduction, selfProduction, entrustedEnterpriseIds);
+                source.productionAddress(), entrustedProduction, selfProduction, entrustedEnterpriseIds,
+                source.remark());
     }
 
     private static DccRegistrationCertificateDraftData draftWithText(
@@ -1113,6 +1130,6 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                 source.expiryDate(), classification, registrantName, source.modelSpecification(),
                 source.structureComposition(), source.intendedUse(), source.technicalRequirements(),
                 source.residenceAddress(), source.productionAddress(), source.entrustedProduction(),
-                source.selfProduction(), source.entrustedEnterpriseIds());
+                source.selfProduction(), source.entrustedEnterpriseIds(), source.remark());
     }
 }

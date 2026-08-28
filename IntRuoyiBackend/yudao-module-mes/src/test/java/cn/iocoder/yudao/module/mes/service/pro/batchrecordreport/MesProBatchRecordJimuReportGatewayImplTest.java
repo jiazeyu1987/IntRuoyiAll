@@ -313,7 +313,12 @@ class MesProBatchRecordJimuReportGatewayImplTest {
                 .id(123L)
                 .templateName("模板A")
                 .versionNo("V1.2")
-                .jimuSchemaJson("{\"rows\":{}}")
+                .jimuSchemaJson("""
+                        {
+                          "sheetLayoutJson":"{\\"rows\\":{\\"0\\":{\\"cells\\":{\\"0\\":{\\"text\\":\\"模板内容\\"}}}},\\"cols\\":{}}",
+                          "cellRules":[{"rowIndex":0,"columnIndex":0,"label":"模板内容"}]
+                        }
+                        """)
                 .build());
         TenantContextHolder.setTenantId(1L);
 
@@ -326,7 +331,12 @@ class MesProBatchRecordJimuReportGatewayImplTest {
         assertEquals("FORMTPL:123", persisted.getCode());
         assertEquals("模板A V1.2", persisted.getName());
         assertEquals("category-ebrr", persisted.getType());
-        assertEquals("{\"rows\":{}}", persisted.getJsonStr());
+        JSONObject designerRoot = JSON.parseObject(persisted.getJsonStr());
+        assertEquals("模板内容", designerRoot.getJSONObject("rows")
+                .getJSONObject("0")
+                .getJSONObject("cells")
+                .getJSONObject("0")
+                .getString("text"));
         assertEquals(MesProBatchRecordJimuReportGatewayImpl.FILL_FORM_PREVIEW_CSS, persisted.getCssStr());
         assertEquals("1", persisted.getTenantId());
     }
@@ -348,7 +358,13 @@ class MesProBatchRecordJimuReportGatewayImplTest {
                 .id(123L)
                 .templateName("模板A")
                 .versionNo("V1.2")
-                .jimuSchemaJson("{\"rows\":{}}")
+                .jimuSchemaJson("""
+                        {
+                          "sheetLayoutJson":"{\\"rows\\":{\\"0\\":{\\"cells\\":{\\"0\\":{\\"text\\":\\"旧模板内容\\"}}}},\\"cols\\":{}}",
+                          "cellRules":[{"rowIndex":0,"columnIndex":0,"label":"字段A"}],
+                          "assistRows":[{"rowKey":"assist-1","description":"辅助行","sort":1,"fields":[]}]
+                        }
+                        """)
                 .build();
         when(templateVersionMapper.selectById(123L)).thenReturn(templateVersion);
         JimuReport existing = new JimuReport();
@@ -369,7 +385,10 @@ class MesProBatchRecordJimuReportGatewayImplTest {
 
         ArgumentCaptor<FormTemplateVersionDO> templateCaptor = ArgumentCaptor.forClass(FormTemplateVersionDO.class);
         verify(templateVersionMapper).updateById(templateCaptor.capture());
-        assertEquals("{\"rows\":{\"0\":{}}}", templateCaptor.getValue().getJimuSchemaJson());
+        JSONObject templateRoot = JSON.parseObject(templateCaptor.getValue().getJimuSchemaJson());
+        assertEquals("{\"rows\":{\"0\":{}},\"cols\":{}}", templateRoot.getString("sheetLayoutJson"));
+        assertEquals(1, templateRoot.getJSONArray("cellRules").size());
+        assertEquals(1, templateRoot.getJSONArray("assistRows").size());
     }
 
     private static MesProBatchRecordParsedTable parsedTable(int index, String title) {

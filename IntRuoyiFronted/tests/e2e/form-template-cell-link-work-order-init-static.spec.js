@@ -22,10 +22,36 @@ assert.match(
   '工作台初始化必须把默认来源写入 sourceReportId'
 )
 
+const sourceTypeAssignment =
+  loadWorkbenchContextBody.match(
+    /sourceType\.value\s*=\s*defaultSourceReportId[\s\S]*?:\s*SOURCE_TYPE_BATCH_RECORD_CELL/
+  )?.[0] || ''
+
+assert.ok(sourceTypeAssignment, '默认来源必须同步成正式来源类型')
 assert.match(
-  loadWorkbenchContextBody,
-  /sourceType\.value\s*=\s*defaultSourceReportId\s*===\s*PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID\s*\?\s*SOURCE_TYPE_PRODUCTION_WORK_ORDER\s*:\s*SOURCE_TYPE_BATCH_RECORD_CELL/,
+  sourceTypeAssignment,
+  /PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID[\s\S]*SOURCE_TYPE_PRODUCTION_WORK_ORDER/,
   '当表单模板入口默认来源是生产工单时，初始化必须同步为生产工单来源类型'
+)
+assert.match(
+  sourceTypeAssignment,
+  /PROCESS_POOL_REPORT_SOURCE_REPORT_ID[\s\S]*SOURCE_TYPE_PROCESS_POOL_REPORT/,
+  '当默认来源是报工数据时，初始化必须同步为报工来源类型'
+)
+assert.match(
+  sourceTypeAssignment,
+  /PRODUCTION_PICK_LIST_SOURCE_REPORT_ID[\s\S]*SOURCE_TYPE_PRODUCTION_PICK_LIST/,
+  '当默认来源是领料单数据时，初始化必须同步为领料单来源类型'
+)
+assert.match(
+  sourceTypeAssignment,
+  /PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID[\s\S]*SOURCE_TYPE_PQC_AGGREGATE_DETAIL/,
+  '当默认来源是一线PQC数据时，初始化必须同步为PQC聚合来源类型'
+)
+assert.match(
+  sourceTypeAssignment,
+  /:\s*SOURCE_TYPE_BATCH_RECORD_CELL$/,
+  '未知默认来源必须保持普通批记录单元格来源'
 )
 
 assert.ok(

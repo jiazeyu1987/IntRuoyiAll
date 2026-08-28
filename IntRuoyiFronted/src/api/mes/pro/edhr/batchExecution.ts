@@ -853,10 +853,14 @@ export const createEdhrLocalStateSample = async (data: EdhrLocalStateSampleReqVO
   })
 }
 
-export const simulateEdhrStage4DossierUpload = async (simulationRunId: string) => {
+export const simulateEdhrStage4DossierUpload = async (
+  simulationRunId: string,
+  batchExecutionId: string | number,
+  stage2_5SimulationRunId: string
+) => {
   return await request.post<EdhrStage4DossierUploadSimulationRespVO>({
     url: BATCH_EXECUTION_BASE_URL + '/simulation/stage4/dossier-upload',
-    data: { simulationRunId }
+    data: { simulationRunId, batchExecutionId, stage2_5SimulationRunId }
   })
 }
 
@@ -871,11 +875,13 @@ export const openOrCreateManualEdhrBatchExecution = async (
 
 export const simulateEdhrStage5FinalRelease = async (
   simulationRunId: string,
+  batchExecutionId: string | number,
+  stage4SimulationRunId: string,
   previousSimulationRunId?: string
 ) => {
   return await request.post<EdhrStage5FinalReleaseSimulationRespVO>({
     url: BATCH_EXECUTION_BASE_URL + '/simulation/stage5/final-release',
-    data: { simulationRunId, previousSimulationRunId }
+    data: { simulationRunId, batchExecutionId, stage4SimulationRunId, previousSimulationRunId }
   })
 }
 

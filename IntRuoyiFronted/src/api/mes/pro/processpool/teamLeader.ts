@@ -252,6 +252,8 @@ export interface Stage2_5BackfillBatchExecutionSimulationRespVO {
 
 export interface Stage6IdiSimulationReqVO {
   simulationRunId: string
+  stage5SimulationRunId: string
+  batchExecutionId: number
 }
 
 export interface Stage6IdiSimulationRespVO {

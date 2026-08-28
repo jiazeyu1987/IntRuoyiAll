@@ -169,7 +169,7 @@ async function pickManualFinishCandidate(page) {
       uncompletedQuantity > 0
     )
   })
-  assert.ok(candidate, 'BLOCKED: 测试租户未找到可用于强制完成验收的真实未完成排产工单。')
+  assert.ok(candidate, 'BLOCKED: 测试租户未找到可用于完成验收的真实未完成排产工单。')
   return candidate
 }
 
@@ -225,17 +225,17 @@ async function submitManualFinish(page, row, reason) {
       { timeout: 60000 }
     ),
     (async () => {
-      await row.getByRole('button', { name: /^强制完成$/ }).click()
-      const dialog = page.locator('.el-dialog:visible').filter({ hasText: '排产工单强制完成' }).first()
+      await row.getByRole('button', { name: /^完成$/ }).click()
+      const dialog = page.locator('.el-dialog:visible').filter({ hasText: '排产工单完成' }).first()
       await dialog.waitFor({ state: 'visible', timeout: 30000 })
       await dialog.locator('textarea').fill(reason)
-      await dialog.getByRole('button', { name: /^强制完成$/ }).click()
+      await dialog.getByRole('button', { name: /^完成$/ }).click()
       await page.locator('.el-message-box:visible').waitFor({ state: 'visible', timeout: 30000 })
       await page.locator('.el-message-box:visible').getByRole('button', { name: /^确定$/ }).click()
     })()
   ])
-  await readJsonResponse(response, '强制完成')
-  await page.getByText('排产工单已强制完成').waitFor({ state: 'visible', timeout: 30000 })
+  await readJsonResponse(response, '完成')
+  await page.getByText('排产工单已完成').waitFor({ state: 'visible', timeout: 30000 })
 }
 
 async function submitRevoke(page, row, reason) {
@@ -247,17 +247,17 @@ async function submitRevoke(page, row, reason) {
       { timeout: 60000 }
     ),
     (async () => {
-      await row.getByRole('button', { name: /^撤销强制完成$/ }).click()
-      const dialog = page.locator('.el-dialog:visible').filter({ hasText: '撤销排产工单强制完成' }).first()
+      await row.getByRole('button', { name: /^撤销完成$/ }).click()
+      const dialog = page.locator('.el-dialog:visible').filter({ hasText: '撤销排产工单完成' }).first()
       await dialog.waitFor({ state: 'visible', timeout: 30000 })
       await dialog.locator('textarea').fill(reason)
-      await dialog.getByRole('button', { name: /^撤销强制完成$/ }).click()
+      await dialog.getByRole('button', { name: /^撤销完成$/ }).click()
       await page.locator('.el-message-box:visible').waitFor({ state: 'visible', timeout: 30000 })
       await page.locator('.el-message-box:visible').getByRole('button', { name: /^确定$/ }).click()
     })()
   ])
-  await readJsonResponse(response, '撤销强制完成')
-  await page.getByText('排产工单已撤销强制完成').waitFor({ state: 'visible', timeout: 30000 })
+  await readJsonResponse(response, '撤销完成')
+  await page.getByText('排产工单已撤销完成').waitFor({ state: 'visible', timeout: 30000 })
 }
 
 async function openTraceAndAssert(page, row, expectedOperationType, expectedReason) {
@@ -297,7 +297,7 @@ async function openProcessDialogAndAssertManualHint(page, row) {
   await readJsonResponse(response, '工艺流程排产配置')
   const dialog = page.locator('.el-dialog:visible').filter({ hasText: '工艺流程排产配置' }).first()
   await dialog
-    .getByText('该工单已由有权限人员强制关闭；汇总按 100% 展示，以下工序仍保留真实进度，可撤销强制完成。')
+    .getByText('该工单已由有权限人员完成；汇总按 100% 展示，以下工序仍保留真实进度，可撤销完成。')
     .waitFor({ state: 'visible', timeout: 30000 })
   await page.keyboard.press('Escape')
   await dialog.waitFor({ state: 'hidden', timeout: 30000 })
@@ -313,8 +313,8 @@ async function main() {
     await openScheduleOrderPage(plannerPage)
 
     const candidate = await pickManualFinishCandidate(plannerPage)
-    const finishReason = `E2E强制完成-${Date.now()}`
-    const revokeReason = `E2E撤销强制完成-${Date.now()}`
+    const finishReason = `E2E完成-${Date.now()}`
+    const revokeReason = `E2E撤销完成-${Date.now()}`
 
     let searchResult = await searchScheduleOrder(plannerPage, candidate)
     await searchResult.row.waitFor({ state: 'visible', timeout: 30000 })
@@ -329,25 +329,25 @@ async function main() {
     assert.equal(
       incompleteRowsAfterFinish.some((row) => row.erpWorkOrderCode === candidate.erpWorkOrderCode),
       false,
-      '强制完成后工单必须从未完成状态筛选中消失。'
+      '完成后工单必须从未完成状态筛选中消失。'
     )
 
     await setCompletionFilter(plannerPage, FILTER_COMPLETED)
     searchResult = await searchScheduleOrder(plannerPage, candidate)
     await searchResult.row.waitFor({ state: 'visible', timeout: 30000 })
-    assert.ok(searchResult.rowData?.manualFinished, '强制完成后列表行必须标记 manualFinished=true。')
-    assert.equal(searchResult.rowData?.status, STATUS_FINISHED, '强制完成后状态必须为已完成。')
-    assert.equal(Number(searchResult.rowData?.progressPercent), 100, '强制完成后汇总进度必须为 100。')
+    assert.ok(searchResult.rowData?.manualFinished, '完成后列表行必须标记 manualFinished=true。')
+    assert.equal(searchResult.rowData?.status, STATUS_FINISHED, '完成后状态必须为已完成。')
+    assert.equal(Number(searchResult.rowData?.progressPercent), 100, '完成后汇总进度必须为 100。')
     assert.equal(
       Number(searchResult.rowData?.completedQuantity),
       Number(searchResult.rowData?.totalQuantity),
-      '强制完成后汇总完成数量必须等于总量。'
+      '完成后汇总完成数量必须等于总量。'
     )
-    assert.equal(Number(searchResult.rowData?.uncompletedQuantity), 0, '强制完成后汇总未完成数量必须为 0。')
+    assert.equal(Number(searchResult.rowData?.uncompletedQuantity), 0, '完成后汇总未完成数量必须为 0。')
     const rowText = await searchResult.row.innerText()
-    assert.ok(rowText.includes('已完成'), '强制完成后列表状态必须显示已完成。')
+    assert.ok(rowText.includes('已完成'), '完成后列表状态必须显示已完成。')
     await searchResult.row
-      .getByRole('button', { name: /^撤销强制完成$/ })
+      .getByRole('button', { name: /^撤销完成$/ })
       .waitFor({ state: 'visible', timeout: 30000 })
     await searchResult.row
       .locator('.schedule-order-pool__work-order-code--finished')
@@ -368,21 +368,21 @@ async function main() {
     await adminSearchResult.row.waitFor({ state: 'visible', timeout: 30000 })
     assert.ok(
       !adminSearchResult.rowData?.manualFinished,
-      '撤销强制完成后列表行必须清除 manualFinished 标记。'
+      '撤销完成后列表行必须清除 manualFinished 标记。'
     )
     assert.notEqual(
       Number(adminSearchResult.rowData?.progressPercent),
       100,
-      '撤销强制完成后进度必须恢复真实报工口径，不能仍是 100。'
+      '撤销完成后进度必须恢复真实报工口径，不能仍是 100。'
     )
     assert.ok(
       Number(adminSearchResult.rowData?.uncompletedQuantity) > 0,
-      '撤销强制完成后未完成数量必须恢复为真实值。'
+      '撤销完成后未完成数量必须恢复为真实值。'
     )
     const revertedRowText = await adminSearchResult.row.innerText()
-    assert.equal(revertedRowText.includes('撤销强制完成'), false, '撤销后列表不应继续显示撤销强制完成动作。')
+    assert.equal(revertedRowText.includes('撤销完成'), false, '撤销后列表不应继续显示撤销完成动作。')
     await adminSearchResult.row
-      .getByRole('button', { name: /^强制完成$/ })
+      .getByRole('button', { name: /^完成$/ })
       .waitFor({ state: 'visible', timeout: 30000 })
     await openTraceAndAssert(adminPage, adminSearchResult.row, 'REVOKE_MANUAL_FINISH', revokeReason)
 

@@ -188,11 +188,12 @@ const selectedFile = ref<File | null>(null)
 
 type RegistrationCertificateUploadForm = Omit<
   DccRegistrationCertificateUploadSubmitReqVO,
-  'projectCodeId'
+  'projectCodeId' | 'remark'
 > & {
   projectCodeId?: number | string
   projectCode: string
   productName: string
+  remark: string
 }
 
 const form = reactive<RegistrationCertificateUploadForm>({
@@ -250,7 +251,8 @@ const loadProjectCodes = async (keyword = '') => {
       pageNo: 1,
       pageSize: 20,
       keyword: keyword.trim() || undefined,
-      status: DCC_PROJECT_CODE_STATUS_ENABLE
+      status: DCC_PROJECT_CODE_STATUS_ENABLE,
+      requireDccProductCode: true
     })
     projectCodeOptions.value = page.list || []
   } finally {

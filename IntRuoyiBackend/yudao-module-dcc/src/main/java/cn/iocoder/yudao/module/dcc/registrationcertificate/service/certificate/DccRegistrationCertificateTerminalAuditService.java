@@ -32,7 +32,8 @@ public class DccRegistrationCertificateTerminalAuditService {
             throw new IllegalStateException("successful registration certificate audit requires trusted identity");
         }
         DccRegistrationCertificateAuditDetail detail = new DccRegistrationCertificateAuditDetail(
-                metadata.commandKind(), metadata.actorId(), metadata.payloadHash(), context.certificateId(), null, null);
+                metadata.commandKind(), metadata.actorId(), metadata.payloadHash(), context.certificateId(),
+                versionId, snapshotId, businessFileId, null, null);
         insert(DccRegistrationCertificateAuditDO.builder()
                 .tenantId(metadata.tenantId())
                 .ownerCompanyId(context.ownerCompanyId())

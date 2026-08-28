@@ -47,6 +47,14 @@ const MES_PRO_WORK_ORDER_ROUTE_PATHS = new Set([
   'mes/pro/work-order',
   'pro/work-order'
 ])
+const MES_PRO_SCHEDULE_ORDER_ROUTE_COMPONENTS = new Set([
+  'mes/pro/scheduleorder/index',
+  'mes/pro/scheduleorder'
+])
+const MES_PRO_SCHEDULE_ORDER_ROUTE_PATHS = new Set([
+  'mes/pro/schedule-order',
+  'pro/schedule-order'
+])
 const MES_FEEDBACK_ROUTE_COMPONENTS = new Set(['mes/pro/feedback', 'mes/pro/feedback/index'])
 const MES_FEEDBACK_ROUTE_PATHS = new Set(['mes/pro/feedback', 'pro/feedback'])
 const APPROVAL_CENTER_REDIRECT_SHELL_ROUTE_COMPONENTS = new Set([
@@ -121,6 +129,12 @@ const applyRouteMetaOverrides = (
     APPROVAL_CENTER_REDIRECT_SHELL_ROUTE_COMPONENTS.has(componentPath)
   ) {
     meta.noTagsView = true
+  }
+  if (
+    MES_PRO_SCHEDULE_ORDER_ROUTE_PATHS.has(routePath) ||
+    MES_PRO_SCHEDULE_ORDER_ROUTE_COMPONENTS.has(componentPath)
+  ) {
+    meta.hideFooter = true
   }
 }
 

@@ -33,13 +33,20 @@ export const useIdleLogout = () => {
     }
     handlingLogout = true
     clearTimer()
+    let logoutError: unknown = null
     try {
-      await userStore.loginOut().catch(() => {})
+      await userStore.loginOut()
+    } catch (error) {
+      logoutError = error
+      console.error('Idle logout request failed before local session cleanup.', error)
+    } finally {
       tagsViewStore.delAllViews()
       lockStore.resetLockInfo()
       await redirectToLogin()
-    } finally {
       handlingLogout = false
+    }
+    if (logoutError) {
+      throw logoutError
     }
   }
 

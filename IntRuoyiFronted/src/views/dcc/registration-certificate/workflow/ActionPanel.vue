@@ -21,7 +21,7 @@
     />
 
     <el-tabs v-model="activeAction" class="registration-certificate-workflow__tabs">
-      <el-tab-pane label="草稿维护" name="draft">
+      <el-tab-pane v-if="!props.readOnly && (!props.certificateStatus || props.certificateStatus === 'DRAFT')" label="草稿维护" name="draft">
         <div data-testid="registration-certificate-draft-action" class="registration-certificate-workflow__panel">
           <el-form :model="draftForm" inline data-testid="registration-certificate-draft-form">
             <el-form-item label="所属公司"><el-input v-model="draftForm.ownerCompanyId" aria-label="公司 ID" /></el-form-item>
@@ -29,58 +29,101 @@
             <el-form-item label="项目代码"><el-input v-model="draftForm.projectCodeId" aria-label="项目代码 ID（可选）" /></el-form-item>
             <el-form-item label="首次获证"><el-date-picker v-model="draftForm.firstObtainedDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
             <el-form-item label="注册证号"><el-input v-model="draftForm.certificateNo" /></el-form-item>
-            <el-form-item label="批准日期"><el-date-picker v-model="draftForm.approvalDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
             <el-form-item label="生效日期"><el-date-picker v-model="draftForm.effectiveDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
             <el-form-item label="有效期至"><el-date-picker v-model="draftForm.expiryDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
             <el-form-item label="类别"><el-input v-model="draftForm.classification" /></el-form-item>
-            <el-form-item label="注册人名称"><el-input v-model="draftForm.registrantName" /></el-form-item>
-            <el-form-item label="型号规格"><el-input v-model="draftForm.modelSpecification" aria-label="型号规格" /></el-form-item>
-            <el-form-item label="结构组成"><el-input v-model="draftForm.structureComposition" /></el-form-item>
-            <el-form-item label="适用范围"><el-input v-model="draftForm.intendedUse" /></el-form-item>
-            <el-form-item label="技术要求"><el-input v-model="draftForm.technicalRequirements" /></el-form-item>
-            <el-form-item label="注册人住所"><el-input v-model="draftForm.residenceAddress" /></el-form-item>
-            <el-form-item label="生产地址"><el-input v-model="draftForm.productionAddress" /></el-form-item>
-            <el-form-item label="是否委托生产"><el-select v-model="draftForm.entrustedProduction"><el-option label="是" :value="true" /><el-option label="否" :value="false" /></el-select></el-form-item>
-            <el-form-item label="是否自行生产"><el-select v-model="draftForm.selfProduction"><el-option label="是" :value="true" /><el-option label="否" :value="false" /></el-select></el-form-item>
-            <el-form-item v-if="draftForm.entrustedProduction" label="受托企业 ID"><el-input v-model="entrustedEnterpriseText" aria-label="多个 ID 用英文逗号分隔" /></el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="draftForm.remark" maxlength="1024" show-word-limit />
+            </el-form-item>
           </el-form>
           <el-button type="primary" :loading="submitting" @click="handleCreateDraft">创建草稿</el-button>
           <el-button :loading="submitting" @click="handleUpdateDraft">更新草稿</el-button>
           <el-button type="danger" plain :loading="submitting" @click="handleDeleteDraft">删除草稿</el-button>
         </div>
       </el-tab-pane>
-      <el-tab-pane label="正式化" name="formalize">
+      <el-tab-pane v-if="!props.readOnly && (!props.certificateStatus || props.certificateStatus === 'DRAFT')" label="正式化" name="formalize">
         <div data-testid="registration-certificate-formalize-action" class="registration-certificate-workflow__panel">
           <el-button type="primary" :loading="submitting" @click="handleFormalize">正式化</el-button>
         </div>
       </el-tab-pane>
-      <el-tab-pane label="延续" name="renewal">
+      <el-tab-pane v-if="!props.readOnly && props.certificateStatus !== 'DRAFT'" label="延续" name="renewal">
         <div data-testid="registration-certificate-renewal-action" class="registration-certificate-workflow__panel">
-          <el-form inline data-testid="registration-certificate-renewal-form">
-            <el-form-item label="批准日期"><el-date-picker v-model="renewalForm.approvalDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
-            <el-form-item label="生效日期"><el-date-picker v-model="renewalForm.effectiveDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
-            <el-form-item label="有效期至"><el-date-picker v-model="renewalForm.expiryDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
-            <el-form-item label="类别是否变更"><el-select v-model="renewalForm.categoryChanged"><el-option label="否" :value="false" /><el-option label="是" :value="true" /></el-select></el-form-item>
-            <el-form-item label="业务文件 ID"><el-input v-model="renewalForm.businessFileId" aria-label="文件中心返回的业务文件 ID" /></el-form-item>
-          </el-form>
-          <el-button type="primary" :loading="submitting" @click="handleUploadRenewal">上传延续候选</el-button>
+          <el-alert type="info" :closable="false" title="延续注册证请从注册证列表对应行点击“延续”，填写三项日期并上传延续注册证文件后进入注册部经理审批。" />
           <el-button type="warning" plain :loading="submitting" @click="handleVoidRenewal">作废延续候选</el-button>
         </div>
       </el-tab-pane>
-      <el-tab-pane label="变更/作废" name="change">
+      <el-tab-pane v-if="!props.readOnly && props.certificateStatus !== 'DRAFT'" label="变更/作废" name="change">
         <div data-testid="registration-certificate-change-action" class="registration-certificate-workflow__panel">
-          <el-form inline data-testid="registration-certificate-change-form">
-            <el-form-item label="批准日期"><el-date-picker v-model="changeForm.approvalDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
-            <el-form-item label="变更内容"><el-select v-model="changeForm.changeType"><el-option v-for="item in changeTypeOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
-            <el-form-item label="变更后内容"><el-input v-model="changeForm.changeValue" /></el-form-item>
-            <el-form-item label="变更批件业务文件 ID"><el-input v-model="changeForm.businessFileId" aria-label="已上传业务文件 ID" /></el-form-item>
-            <el-form-item v-if="changeForm.changeType === 'OTHER_CONTENT'" label="其他说明"><el-input v-model="changeForm.otherDescription" /></el-form-item>
+          <el-form data-testid="registration-certificate-change-form" label-width="118px">
+            <el-form-item label="批准日期">
+              <el-date-picker v-model="changeForm.approvalDate" type="date" value-format="YYYY-MM-DD" />
+            </el-form-item>
+            <el-form-item label="变更内容">
+              <el-select
+                v-model="changeForm.changeTypes"
+                multiple
+                collapse-tags
+                data-change-type-values="PRODUCT_NAME,MODEL_SPECIFICATION,STRUCTURE_COMPOSITION,INTENDED_USE,TECHNICAL_REQUIREMENTS,REGISTRANT_NAME,RESIDENCE_ADDRESS,PRODUCTION_ADDRESS,OTHER_CONTENT"
+              >
+                <el-option v-for="item in changeTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              v-for="item in selectedStructuredChangeTypes"
+              :key="item.value"
+              :label="item.label"
+            >
+              <el-input
+                v-model="changeForm.structuredValues[item.value]"
+                :placeholder="item.placeholder"
+              />
+            </el-form-item>
+            <el-form-item v-if="changeForm.changeTypes.includes('OTHER_CONTENT')" label="其他说明">
+              <el-input v-model="changeForm.otherDescription" maxlength="4096" />
+            </el-form-item>
+            <template v-if="changeForm.changeTypes.includes('PRODUCTION_ADDRESS')">
+              <el-form-item label="是否委托生产">
+                <el-select v-model="changeForm.entrustedProduction">
+                  <el-option label="是" :value="true" />
+                  <el-option label="否" :value="false" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="是否自行生产">
+                <el-select v-model="changeForm.selfProduction">
+                  <el-option label="是" :value="true" />
+                  <el-option label="否" :value="false" />
+                </el-select>
+              </el-form-item>
+              <el-form-item v-if="changeForm.entrustedProduction" label="受托企业">
+                <el-input
+                  v-model="changeForm.entrustedEnterpriseNames"
+                  placeholder="受托企业：请输入变更后的受托企业，多个请换行"
+                  type="textarea"
+                />
+              </el-form-item>
+            </template>
+            <el-form-item label="变更批件文件">
+              <el-upload
+                v-model:file-list="changeFileList"
+                action="#"
+                :auto-upload="false"
+                :limit="1"
+                :on-change="handleChangeFileChange"
+                :on-remove="handleChangeFileRemove"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                data-testid="registration-certificate-change-approval-file"
+              >
+                <el-button>
+                  <Icon icon="ep:upload" class="mr-5px" />选择文件
+                </el-button>
+              </el-upload>
+            </el-form-item>
           </el-form>
           <el-button type="primary" :loading="submitting" @click="handleSubmitChange">提交变更</el-button>
           <el-button type="danger" plain :loading="submitting" @click="handleVoidCertificate">作废证书</el-button>
         </div>
       </el-tab-pane>
-      <el-tab-pane label="支持文件" name="supporting">
+      <el-tab-pane v-if="!props.readOnly && props.certificateStatus !== 'DRAFT'" label="支持文件" name="supporting">
         <div data-testid="registration-certificate-supporting-document-action" class="registration-certificate-workflow__panel">
           <el-form inline data-testid="registration-certificate-supporting-document-form">
             <el-form-item label="材料类型"><el-select v-model="supportingForm.documentType"><el-option label="延续受理单" value="RENEWAL_ACCEPTANCE_RECEIPT" /><el-option label="立卷发补单" value="RENEWAL_SUPPLEMENT_NOTICE" /></el-select></el-form-item>
@@ -158,13 +201,13 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import type { UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
 import {
   createRegistrationCertificateDraft,
   updateRegistrationCertificateDraft,
   deleteRegistrationCertificateDraft,
   formalizeRegistrationCertificate,
-  uploadRegistrationCertificateRenewalCandidate,
   voidRegistrationCertificateRenewalCandidate,
   submitRegistrationCertificateChange,
   voidRegistrationCertificate,
@@ -188,9 +231,12 @@ const props = defineProps<{
   projectCodeId?: number | string
   businessFileId?: number | string
   supportingDocumentId?: number | string
+  initialAction?: 'draft' | 'formalize' | 'renewal' | 'change' | 'supporting' | 'access' | 'approvalResult'
+  readOnly?: boolean
+  certificateStatus?: string
 }>()
 
-const activeAction = ref('draft')
+const activeAction = ref(props.initialAction || 'draft')
 const submitting = ref(false)
 const lastActionError = ref('')
 const lastActionResult = ref('')
@@ -199,7 +245,7 @@ const accessRequestId = ref<number | string>('')
 const accessReason = ref('')
 const accessStatus = ref<DccRegistrationCertificateAccessRequestStatusVO>()
 const pendingVersionId = ref<number | string>()
-const activeSupportingDocumentId = ref<number | string>(props.supportingDocumentId)
+const activeSupportingDocumentId = ref<number | string>(props.supportingDocumentId ?? '')
 
 const operationKeys = {
   draftCreate: ref(''),
@@ -223,61 +269,65 @@ const draftForm = reactive<DccRegistrationCertificateDraftReqVO>({
   projectCodeId: '',
   firstObtainedDate: '',
   certificateNo: '',
-  approvalDate: '',
   effectiveDate: '',
   expiryDate: '',
   classification: '',
-  registrantName: '',
-  modelSpecification: '',
-  structureComposition: '',
-  intendedUse: '',
-  technicalRequirements: '',
-  residenceAddress: '',
-  productionAddress: '',
-  entrustedProduction: false,
-  selfProduction: true,
-  entrustedEnterpriseIds: []
+  remark: ''
 })
 
-const entrustedEnterpriseText = ref('')
-const renewalForm = reactive({
-  approvalDate: '',
-  effectiveDate: '',
-  expiryDate: '',
-  categoryChanged: false,
-  businessFileId: props.businessFileId || ''
-})
+const structuredChangeTypeOptions = [
+  { label: '产品名称', value: 'PRODUCT_NAME', placeholder: '变更后的产品名称' },
+  { label: '型号规格', value: 'MODEL_SPECIFICATION', placeholder: '变更后的型号规格' },
+  { label: '结构组成', value: 'STRUCTURE_COMPOSITION', placeholder: '变更后的结构组成' },
+  { label: '适用范围', value: 'INTENDED_USE', placeholder: '变更后的适用范围' },
+  { label: '产品技术要求', value: 'TECHNICAL_REQUIREMENTS', placeholder: '变更后的产品技术要求' },
+  { label: '注册人名称', value: 'REGISTRANT_NAME', placeholder: '变更后的注册人名称' },
+  { label: '住所', value: 'RESIDENCE_ADDRESS', placeholder: '变更后的住所' },
+  { label: '生产地址', value: 'PRODUCTION_ADDRESS', placeholder: '变更后的生产地址' }
+] as const
+
 const changeTypeOptions = [
-  { label: '产品名称', value: 'PRODUCT_NAME' },
-  { label: '型号规格', value: 'MODEL_SPECIFICATION' },
-  { label: '结构组成', value: 'STRUCTURE_COMPOSITION' },
-  { label: '适用范围', value: 'INTENDED_USE' },
-  { label: '产品技术要求', value: 'TECHNICAL_REQUIREMENTS' },
-  { label: '注册人名称', value: 'REGISTRANT_NAME' },
-  { label: '住所', value: 'RESIDENCE_ADDRESS' },
-  { label: '生产地址', value: 'PRODUCTION_ADDRESS' },
+  ...structuredChangeTypeOptions,
   { label: '其他内容', value: 'OTHER_CONTENT' }
 ] as const
+
+type StructuredChangeType = (typeof structuredChangeTypeOptions)[number]['value']
+type ChangeType = StructuredChangeType | 'OTHER_CONTENT'
+
 const changeForm = reactive({
   approvalDate: '',
-  changeType: 'PRODUCT_NAME',
-  changeValue: '',
+  changeTypes: [] as ChangeType[],
+  structuredValues: {} as Partial<Record<StructuredChangeType, string>>,
   otherDescription: '',
-  businessFileId: ''
+  entrustedProduction: undefined as boolean | undefined,
+  selfProduction: undefined as boolean | undefined,
+  entrustedEnterpriseNames: ''
 })
+const changeFileList = ref<UploadUserFile[]>([])
+const selectedChangeFile = ref<File | null>(null)
 const supportingForm = reactive({
   documentType: 'RENEWAL_ACCEPTANCE_RECEIPT',
   businessFileId: props.businessFileId || ''
 })
 
-const normalizeEnterpriseIds = () => entrustedEnterpriseText.value
-  .split(',')
-  .map((value) => value.trim())
-  .filter(Boolean)
+const selectedStructuredChangeTypes = computed(() =>
+  structuredChangeTypeOptions.filter((item) => changeForm.changeTypes.includes(item.value))
+)
 
-const draftPayload = () => ({
+const handleChangeFileChange = (uploadFile: UploadFile, uploadFiles: UploadFiles) => {
+  selectedChangeFile.value = uploadFile.raw ?? null
+  changeFileList.value = uploadFiles.slice(-1) as UploadUserFile[]
+}
+
+const handleChangeFileRemove = () => {
+  selectedChangeFile.value = null
+  changeFileList.value = []
+}
+
+const draftPayload = (): DccRegistrationCertificateDraftReqVO => ({
   ...draftForm,
-  entrustedEnterpriseIds: normalizeEnterpriseIds()
+  projectCodeId: draftForm.projectCodeId || undefined,
+  remark: (draftForm.remark ?? '').trim() || undefined
 })
 
 const getOrCreateIdempotencyKey = (operation: IdempotencyOperation) => {
@@ -390,41 +440,110 @@ const handleFormalize = () => runAction('正式化', () =>
     businessFileId: requireBusinessFileId()
   }, getOrCreateIdempotencyKey('formalize')), 'formalize')
 
-const handleUploadRenewal = () => runAction('上传延续候选', async () => {
-  const result = await uploadRegistrationCertificateRenewalCandidate(requireCertificateId(), {
-    expectedRowVersion: requireRowVersion(),
-    currentVersionId: requireVersionId(),
-    businessFileId: renewalForm.businessFileId || requireBusinessFileId(),
-    categoryChanged: renewalForm.categoryChanged,
-    approvalDate: renewalForm.approvalDate,
-    effectiveDate: renewalForm.effectiveDate,
-    expiryDate: renewalForm.expiryDate
-  }, getOrCreateIdempotencyKey('renewalUpload'))
-  pendingVersionId.value = result.renewalVersionId
-  return result
-}, 'renewalUpload')
-
 const handleVoidRenewal = () => runAction('作废延续候选', () =>
   voidRegistrationCertificateRenewalCandidate(requireCertificateId(), requirePendingVersionId(), {
     expectedRowVersion: requireRowVersion(),
     voidReason: '页面提交的延续候选作废原因'
   }, getOrCreateIdempotencyKey('renewalVoid')), 'renewalVoid')
 
+const requireChangeApprovalDate = () => {
+  if (!changeForm.approvalDate) {
+    throw new Error('请选择变更批件批准日期。')
+  }
+  return changeForm.approvalDate
+}
+
+const normalizeText = (value?: string) => (value ?? '').trim()
+
+const appendStructuredChangeValues = (payload: FormData) => {
+  for (const item of structuredChangeTypeOptions) {
+    if (!changeForm.changeTypes.includes(item.value)) {
+      continue
+    }
+    const nextValue = normalizeText(changeForm.structuredValues[item.value])
+    if (!nextValue) {
+      throw new Error(`请填写${item.placeholder}。`)
+    }
+    payload.append(`structuredValues[${item.value}]`, nextValue)
+  }
+}
+
+const requireOtherDescription = () => {
+  if (!changeForm.changeTypes.includes('OTHER_CONTENT')) {
+    return
+  }
+  const description = normalizeText(changeForm.otherDescription)
+  if (!description) {
+    throw new Error('请填写其他内容说明。')
+  }
+  return description
+}
+
+const requireProductionRelation = () => {
+  if (!changeForm.changeTypes.includes('PRODUCTION_ADDRESS')) {
+    return
+  }
+  if (changeForm.entrustedProduction === undefined || changeForm.selfProduction === undefined) {
+    throw new Error('请选择是否委托生产和是否自行生产。')
+  }
+  if (!changeForm.entrustedProduction && !changeForm.selfProduction) {
+    throw new Error('委托生产和自行生产不可同时选择否。')
+  }
+  const entrustedNames = changeForm.entrustedEnterpriseNames
+    .split(/\r?\n|[,，;；]/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+  if (changeForm.entrustedProduction && entrustedNames.length === 0) {
+    throw new Error('委托生产为是时，请填写受托企业。')
+  }
+  if (!changeForm.entrustedProduction && entrustedNames.length > 0) {
+    throw new Error('委托生产为否时，不可填写受托企业。')
+  }
+  return {
+    entrustedProduction: changeForm.entrustedProduction,
+    selfProduction: changeForm.selfProduction,
+    entrustedEnterprisesJson: JSON.stringify(
+      entrustedNames.map((enterpriseName) => ({ enterpriseName }))
+    )
+  }
+}
+
+const buildChangePayload = () => {
+  if (changeForm.changeTypes.length === 0) {
+    throw new Error('请选择至少一项变更内容。')
+  }
+  if (!selectedChangeFile.value) {
+    throw new Error('请先选择变更批件文件。')
+  }
+  const payload = new FormData()
+  payload.append('expectedRowVersion', String(requireRowVersion()))
+  payload.append('approvalDate', requireChangeApprovalDate())
+  appendStructuredChangeValues(payload)
+  const otherDescription = requireOtherDescription()
+  if (otherDescription) {
+    payload.append('otherDescription', otherDescription)
+  }
+  const productionRelation = requireProductionRelation()
+  if (productionRelation) {
+    payload.append('entrustedProduction', String(productionRelation.entrustedProduction))
+    payload.append('selfProduction', String(productionRelation.selfProduction))
+    payload.append('entrustedEnterprisesJson', productionRelation.entrustedEnterprisesJson)
+  }
+  payload.append('file', selectedChangeFile.value)
+  return payload
+}
+
 const handleSubmitChange = () => runAction('提交变更', () =>
-  submitRegistrationCertificateChange(requireCertificateId(), {
-    expectedRowVersion: requireRowVersion(),
-    approvalDate: changeForm.approvalDate,
-    businessFileId: changeForm.businessFileId || undefined,
-    structuredValues: changeForm.changeType === 'OTHER_CONTENT'
-      ? undefined
-      : { [changeForm.changeType]: changeForm.changeValue },
-    otherDescription: changeForm.changeType === 'OTHER_CONTENT' ? changeForm.otherDescription : undefined
-  }, getOrCreateIdempotencyKey('changeSubmit')), 'changeSubmit')
+  submitRegistrationCertificateChange(
+    requireCertificateId(),
+    buildChangePayload(),
+    getOrCreateIdempotencyKey('changeSubmit')
+  ), 'changeSubmit')
 
 const handleVoidCertificate = () => runAction('作废证书', () =>
   voidRegistrationCertificate(requireCertificateId(), {
     expectedRowVersion: requireRowVersion(),
-    approvalDate: draftForm.approvalDate,
+    approvalDate: changeForm.approvalDate,
     voidReason: '页面提交的证书作废原因'
   }, getOrCreateIdempotencyKey('certificateVoid')), 'certificateVoid')
 

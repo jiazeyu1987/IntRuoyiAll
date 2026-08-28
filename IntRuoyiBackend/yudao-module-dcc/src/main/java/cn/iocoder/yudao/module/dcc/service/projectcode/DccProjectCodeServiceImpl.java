@@ -38,6 +38,9 @@ import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataUpdateS
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
+import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
+import cn.iocoder.yudao.module.mdm.enums.MdmProductStatusConstants;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -158,6 +161,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     private PermissionApi permissionApi;
     @Resource
     private DccProjectCodeConfigurationStatusApi configurationStatusApi;
+    @Resource
+    private MdmProductApi productApi;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -344,10 +349,29 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
             Set<Long> scope = new LinkedHashSet<>(scopedProjectCodeIds);
             records.removeIf(record -> !scope.contains(record.getId()));
         }
+        records = applyDccProductCodeFilter(records, reqVO);
         records = applyConfigurationFilters(records, reqVO);
         populateAssociatedFileCounts(records);
         records.sort(projectCodeDisplayOrder(reqVO));
         return records;
+    }
+
+    private List<DccProjectCodeDO> applyDccProductCodeFilter(List<DccProjectCodeDO> records,
+                                                              DccProjectCodePageReqVO reqVO) {
+        if (records.isEmpty() || !Boolean.TRUE.equals(reqVO.getRequireDccProductCode())) {
+            return records;
+        }
+        Set<Long> validProductIds = productApi.listSimpleProducts(
+                        MdmProductStatusConstants.ENABLE, true, null).stream()
+                .map(MdmProductRespDTO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (validProductIds.isEmpty()) {
+            return List.of();
+        }
+        return records.stream()
+                .filter(record -> validProductIds.contains(record.getProductMasterId()))
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     private List<DccProjectCodeDO> applyConfigurationFilters(List<DccProjectCodeDO> records,

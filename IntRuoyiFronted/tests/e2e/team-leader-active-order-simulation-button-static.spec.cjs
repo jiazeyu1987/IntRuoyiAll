@@ -2,7 +2,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const root = process.cwd()
+const root = path.resolve(__dirname, '../..')
 const source = fs.readFileSync(
   path.join(root, 'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'),
   'utf8'

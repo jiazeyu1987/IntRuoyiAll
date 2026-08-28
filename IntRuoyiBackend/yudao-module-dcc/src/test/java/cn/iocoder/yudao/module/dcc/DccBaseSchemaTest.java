@@ -434,6 +434,10 @@ class DccBaseSchemaTest {
                 "DCC runtime repair schema must patch legacy dcc_controlled_file columns");
         assertTrue(schema.contains("'master_id'"),
                 "DCC runtime repair schema must add the controlled-file master reference");
+        assertTrue(Pattern.compile(
+                        "ensure_dcc_column\\s*\\(\\s*'dcc_registration_certificate_version'\\s*,\\s*'remark'",
+                        Pattern.CASE_INSENSITIVE | Pattern.DOTALL).matcher(schema).find(),
+                "DCC runtime repair schema must patch registration-certificate remark through ensure_dcc_column");
         assertTrue(schema.contains("'dcc_category_approval_route_node'"),
                 "DCC runtime repair schema must patch legacy route-node columns");
         assertTrue(schema.contains("'stage_type'"),

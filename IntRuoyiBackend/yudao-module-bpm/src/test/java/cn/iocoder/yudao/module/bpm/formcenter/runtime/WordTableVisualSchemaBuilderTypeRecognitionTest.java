@@ -39,6 +39,18 @@ class WordTableVisualSchemaBuilderTypeRecognitionTest {
                         && "STRING".equals(rule.get("valueType"))));
                 assertTrue(rules.stream().anyMatch(rule -> "批数量".equals(rule.get("label"))
                         && "NUMBER".equals(rule.get("valueType"))));
+                assertTrue(rules.stream().anyMatch(rule -> "合格数量".equals(rule.get("label"))
+                        && "NUMBER".equals(rule.get("valueType"))
+                        && "input-number".equals(rule.get("componentFlag"))));
+                assertTrue(rules.stream().anyMatch(rule -> "不合格数量".equals(rule.get("label"))
+                        && "NUMBER".equals(rule.get("valueType"))
+                        && "input-number".equals(rule.get("componentFlag"))));
+                assertTrue(rules.stream().anyMatch(rule -> "不合格评审报告编号（若有）".equals(rule.get("label"))
+                        && "STRING".equals(rule.get("valueType"))
+                        && "input-text".equals(rule.get("componentFlag"))));
+                assertTrue(rules.stream().anyMatch(rule -> "备注".equals(rule.get("label"))
+                        && "STRING".equals(rule.get("valueType"))
+                        && "textarea".equals(rule.get("componentFlag"))));
                 assertTrue(rules.stream().anyMatch(rule -> "DATE".equals(rule.get("valueType"))
                         && "date".equals(rule.get("componentFlag"))));
                 assertTrue(rules.stream().anyMatch(rule -> "STRING".equals(rule.get("valueType"))

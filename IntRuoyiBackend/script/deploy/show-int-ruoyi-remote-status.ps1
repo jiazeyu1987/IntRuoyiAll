@@ -146,7 +146,7 @@ if ([string]::IsNullOrWhiteSpace($RemoteAppDir)) {
 
 Require-Command 'ssh'
 $runtimeDirState = Invoke-SshCapture "if [ -d '$RemoteAppDir' ]; then echo PRESENT; else echo MISSING; fi"
-$dataDiskState = Invoke-SshCapture "data_disk_source=`$(findmnt -n -o SOURCE --target '$RemoteDataDiskMount' 2>/dev/null || true); data_dir_source=`$(df -P '$RemoteAppDir/data' 2>/dev/null | awk 'NR==2 {print `$1}'); if [ `"`$data_disk_source`" = '$RemoteDataDiskDevice' ] && [ `"`$data_dir_source`" = '$RemoteDataDiskDevice' ]; then echo READY; else echo `"INVALID data-disk=`$data_disk_source runtime-data=`$data_dir_source expected=$RemoteDataDiskDevice root=$RemoteDataRoot`"; fi"
+$dataDiskState = Invoke-SshCapture "data_disk_source=`$(findmnt -n -o SOURCE --target '$RemoteDataDiskMount' 2>/dev/null || true); data_disk_device=`"`$`{data_disk_source%%[*`}`"; data_dir_source=`$(df -P '$RemoteAppDir/data' 2>/dev/null | awk 'NR==2 {print `$1}'); if [ `"`$data_disk_device`" = '$RemoteDataDiskDevice' ] && [ `"`$data_dir_source`" = '$RemoteDataDiskDevice' ]; then echo READY; else echo `"INVALID data-disk=`$data_disk_source runtime-data=`$data_dir_source expected=$RemoteDataDiskDevice root=$RemoteDataRoot`"; fi"
 $dockerState = Invoke-SshCapture "if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then echo PRESENT; else echo MISSING; fi"
 $containerState = Invoke-SshCapture "docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' | grep intruoyi || true"
 $currentReleaseTag = Read-RemoteImageTag

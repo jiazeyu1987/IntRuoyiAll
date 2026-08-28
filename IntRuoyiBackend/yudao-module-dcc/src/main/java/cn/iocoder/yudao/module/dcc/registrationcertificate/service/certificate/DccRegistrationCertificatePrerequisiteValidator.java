@@ -92,33 +92,8 @@ public class DccRegistrationCertificatePrerequisiteValidator {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
         }
         validateProjectCode(tenantId, actorId, draft.projectCodeId(), draft.productMasterId());
-
-        List<Long> entrustedIds = draft.entrustedEnterpriseIds();
-        if (entrustedIds == null || entrustedIds.stream().anyMatch(id -> id == null || id <= 0)
-                || new HashSet<>(entrustedIds).size() != entrustedIds.size()) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
-        }
-        List<MdmEnterpriseRespDTO> enterprises = List.of();
-        if (!entrustedIds.isEmpty()) {
-            try {
-                enterprises = enterpriseApi.getEnabledEnterprises(entrustedIds, ENTRUSTED_TYPES);
-            } catch (RuntimeException exception) {
-                throw dependencyFailure(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID, exception);
-            }
-            requireExactEnterprises(enterprises, entrustedIds, tenantId,
-                    REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
-        }
-        List<DccRegistrationCertificateEntrustedEnterprise> entrusted = enterprises.stream()
-                .map(item -> new DccRegistrationCertificateEntrustedEnterprise(item.getId(), item.getName()))
-                .toList();
-        try {
-            return new DccRegistrationCertificateResolvedDraft(product.getNameCn(),
-                    new DccRegistrationCertificateProductionRelation(
-                            Boolean.TRUE.equals(draft.entrustedProduction()),
-                            Boolean.TRUE.equals(draft.selfProduction()), entrusted));
-        } catch (IllegalArgumentException exception) {
-            throw mapped(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID, exception);
-        }
+        return new DccRegistrationCertificateResolvedDraft(product.getNameCn(),
+                resolveProductionRelation(tenantId, draft));
     }
 
     public void validateCompanyScope(Long actorId, Long ownerCompanyId) {
@@ -161,29 +136,65 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         LocalDate approval = draft.approvalDate();
         LocalDate effective = draft.effectiveDate();
         LocalDate expiry = draft.expiryDate();
-        if (first == null || approval == null || effective == null || expiry == null
-                || first.isAfter(approval) || approval.isAfter(effective) || !effective.isBefore(expiry)) {
+        if (first == null || effective == null || expiry == null
+                || first.isAfter(effective) || !effective.isBefore(expiry)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID);
+        }
+        if (approval != null && (first.isAfter(approval) || approval.isAfter(effective))) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID);
         }
         LocalDate businessDate = businessClock.businessDate();
         if (first.isAfter(businessDate)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FIRST_OBTAINED_DATE_INVALID);
         }
-        if (approval.isAfter(businessDate)) {
+        if (approval != null && approval.isAfter(businessDate)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID);
         }
     }
 
     private void validateRequiredText(DccRegistrationCertificateDraftData draft) {
-        if (isBlank(draft.certificateNo()) || isBlank(draft.classification()) || isBlank(draft.registrantName())
-                || isBlank(draft.modelSpecification()) || isBlank(draft.structureComposition())
-                || isBlank(draft.intendedUse()) || isBlank(draft.technicalRequirements())
-                || isBlank(draft.residenceAddress()) || isBlank(draft.productionAddress())
+        if (isBlank(draft.certificateNo()) || isBlank(draft.classification())
                 || normalizedLengthExceeds(draft.certificateNo(), CERTIFICATE_NO_MAX_LENGTH)
                 || normalizedLengthExceeds(draft.classification(), CLASSIFICATION_MAX_LENGTH)
                 || normalizedLengthExceeds(draft.registrantName(), REGISTRANT_NAME_MAX_LENGTH)
-                || draft.entrustedProduction() == null || draft.selfProduction() == null) {
+                || normalizedLengthExceeds(draft.remark(), 1024)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
+        }
+    }
+
+    private DccRegistrationCertificateProductionRelation resolveProductionRelation(
+            Long tenantId, DccRegistrationCertificateDraftData draft) {
+        boolean entrustedProduction = Boolean.TRUE.equals(draft.entrustedProduction());
+        boolean selfProduction = Boolean.TRUE.equals(draft.selfProduction());
+        List<Long> entrustedIds = draft.entrustedEnterpriseIds();
+        if (entrustedIds == null || entrustedIds.isEmpty()) {
+            if (entrustedProduction) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+            }
+            return new DccRegistrationCertificateProductionRelation(false, selfProduction, List.of());
+        }
+        if (entrustedIds.stream().anyMatch(id -> id == null || id <= 0)
+                || new HashSet<>(entrustedIds).size() != entrustedIds.size()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+        }
+        if (!entrustedProduction) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+        }
+        List<MdmEnterpriseRespDTO> enterprises;
+        try {
+            enterprises = enterpriseApi.getEnabledEnterprises(entrustedIds, ENTRUSTED_TYPES);
+        } catch (RuntimeException exception) {
+            throw dependencyFailure(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID, exception);
+        }
+        requireExactEnterprises(enterprises, entrustedIds, tenantId,
+                REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+        List<DccRegistrationCertificateEntrustedEnterprise> entrusted = enterprises.stream()
+                .map(item -> new DccRegistrationCertificateEntrustedEnterprise(item.getId(), item.getName()))
+                .toList();
+        try {
+            return new DccRegistrationCertificateProductionRelation(entrustedProduction, selfProduction, entrusted);
+        } catch (IllegalArgumentException exception) {
+            throw mapped(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID, exception);
         }
     }
 

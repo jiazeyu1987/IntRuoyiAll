@@ -96,6 +96,15 @@
 - Forbidden action: 禁止用前端临时缓存冒充已保存，禁止把工作台覆盖写回工艺路线版本、工作站主数据或路线审批链，禁止重排时用最新资源快照静默覆盖已保存的工作台当前产能。
 - Evidence: `doc/tasks/20260818-scheduler-workbench-capacity-override/verification-report.md`。
 
+## 工作台最近一次排产口径门禁
+
+- Trigger: 排产员工作台工序列表、`process-wip-statistics`、`process-wip-settings`、班次小时刷新或用户反馈“最近只排了 N 个订单但工序显示更多订单在做”。
+- Preflight check: 先定位最新成功 `AUTO_APPLY` / `REPLAN_APPLY` 操作日志，并读取同批 `scheduleOrderIds` 作为工作台当前排产范围；工序统计、设置保存和班次产能刷新都必须先收口到这批排产工单，再按 `routeVersionId + routeProcessId` 聚合。
+- Blocker: 最新成功排产日志缺少工单范围快照、快照不是数组、包含非数字工单 ID、或目标逻辑仍从所有 PREPARE/SCHEDULED/IN_PROGRESS 历史工单直接聚合时，必须停止并补正式读模型，不得继续展示默认全量在制。
+- Verification: 后端回归至少覆盖同工序历史订单不计入工作台在制单数、保存工作台工序设置不更新历史订单、统一班次小时刷新不更新历史订单；本机运行态复验必须确认 48081 已加载新 Jar。
+- Forbidden action: 禁止只在前端隐藏历史行、按产品号或基础 `processId` 去重、用所有未完成订单冒充最近排产、或让可见列表是最近排产但保存/刷新仍批量更新历史工单。
+- Evidence: `doc/tasks/20260828-scheduler-workbench-latest-run-wip/verification-report.md`。
+
 ## 报工联动变更门禁
 
 - `报工联动变更门禁`：任何影响报工、导入报工、进度同步、历史报工、进度数量或剩余量的改动，必须同时核对排产任务、排产工序快照、排产工单进度和正式业务单。

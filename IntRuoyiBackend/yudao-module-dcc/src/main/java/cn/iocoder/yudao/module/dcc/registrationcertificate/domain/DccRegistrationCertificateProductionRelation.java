@@ -43,6 +43,9 @@ public final class DccRegistrationCertificateProductionRelation {
     }
 
     private void validate() {
+        if (!entrustedProduction && !selfProduction && entrustedEnterprises.isEmpty()) {
+            return;
+        }
         if (!entrustedProduction && !selfProduction) {
             throw new IllegalArgumentException("At least one production mode is required");
         }

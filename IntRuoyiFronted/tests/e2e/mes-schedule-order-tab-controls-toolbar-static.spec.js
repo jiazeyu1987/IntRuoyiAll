@@ -7,12 +7,21 @@ const mainListPath = path.resolve(
   process.cwd(),
   'src/views/mes/pro/scheduleorder/components/ScheduleOrderMainList.vue'
 )
+const appViewPath = path.resolve(process.cwd(), 'src/layout/components/AppView.vue')
+const routerHelperPath = path.resolve(process.cwd(), 'src/utils/routerHelper.ts')
+const routerTypePath = path.resolve(process.cwd(), 'types/router.d.ts')
 
 assert.equal(fs.existsSync(pagePath), true, '排产工单页面必须存在。')
 assert.equal(fs.existsSync(mainListPath), true, '排产工单主列表组件必须存在。')
+assert.equal(fs.existsSync(appViewPath), true, '应用主视图必须存在。')
+assert.equal(fs.existsSync(routerHelperPath), true, '动态路由合并工具必须存在。')
+assert.equal(fs.existsSync(routerTypePath), true, '路由类型声明必须存在。')
 
 const source = fs.readFileSync(pagePath, 'utf8')
 const mainListSource = fs.readFileSync(mainListPath, 'utf8')
+const appViewSource = fs.readFileSync(appViewPath, 'utf8')
+const routerHelperSource = fs.readFileSync(routerHelperPath, 'utf8')
+const routerTypeSource = fs.readFileSync(routerTypePath, 'utf8')
 
 assert.equal(
   source.includes('<ContentWrap title="排产工单">'),
@@ -75,17 +84,12 @@ assert.match(
 )
 assert.match(
   admissionActionsSource,
-  /<template #actions>[\s\S]*schedule-order-pool__admission-actions[\s\S]*重置[\s\S]*选中工单加入排产工单池[\s\S]*UserTableColumnSettings/,
-  '同步工单页签工具栏必须包含重置、入池和显示字段。'
+  /<template #actions>[\s\S]*schedule-order-pool__admission-actions[\s\S]*选中工单加入排产工单池[\s\S]*UserTableColumnSettings/,
+  '同步工单页签工具栏必须包含入池和显示字段。'
 )
 for (const forbidden of ['schedule-order-pool__admission-summary', '可入池', '警告', '阻断']) {
   assert.equal(admissionActionsSource.includes(forbidden), false, `同步工单页签工具栏不能继续渲染 ${forbidden}。`)
 }
-assert.match(
-  admissionActionsSource,
-  /schedule-order-pool__admission-show-admitted[\s\S]*显示已入池订单/,
-  '同步工单页签工具栏允许渲染新的显示已入池订单开关。'
-)
 assert.match(
   source,
   /\.schedule-order-pool__admission-template\s+:deep\(\.unified-list-template__query-form\)\s*\{[\s\S]*flex-wrap:\s*nowrap;[\s\S]*align-items:\s*center;/,
@@ -135,8 +139,35 @@ assert.equal(
 )
 assert.match(
   source,
-  /\.schedule-order-pool\s*\{[\s\S]*height:\s*calc\(100vh - var\(--top-tool-height\) - var\(--tags-view-height\) - var\(--app-footer-height\) - 32px\);[\s\S]*min-height:\s*0;/,
-  '排产工单页面必须限定在可视高度内，避免页脚上方出现空白。'
+  /\.schedule-order-pool\s*\{[\s\S]*height:\s*calc\(\s*100vh\s*-\s*var\(--top-tool-height\)\s*-\s*var\(--tags-view-height\)\s*-\s*32px\s*\);[\s\S]*min-height:\s*0;/,
+  '排产工单页面必须占满无页脚视口高度，避免底部版权区和空白区域继续显示。'
+)
+const scheduleOrderStyleStart = source.indexOf('.schedule-order-pool {')
+const scheduleOrderStyleEnd = source.indexOf('.schedule-order-pool__content', scheduleOrderStyleStart)
+const scheduleOrderStyleSource =
+  scheduleOrderStyleStart >= 0 && scheduleOrderStyleEnd > scheduleOrderStyleStart
+    ? source.slice(scheduleOrderStyleStart, scheduleOrderStyleEnd)
+    : ''
+assert.equal(
+  scheduleOrderStyleSource.includes('var(--app-footer-height)'),
+  false,
+  '排产工单页面高度不能再预留全局 Footer 高度。'
+)
+assert(
+  routerTypeSource.includes('hideFooter?: boolean'),
+  '路由元信息必须声明 hideFooter，用于页面级隐藏底部版权区。'
+)
+assert(
+  routerHelperSource.includes('MES_PRO_SCHEDULE_ORDER_ROUTE_PATHS') &&
+    routerHelperSource.includes('MES_PRO_SCHEDULE_ORDER_ROUTE_COMPONENTS') &&
+    routerHelperSource.includes('meta.hideFooter = true'),
+  '排产工单动态路由必须写入 hideFooter 元信息。'
+)
+assert(
+  appViewSource.includes('const shouldShowFooter = computed') &&
+    appViewSource.includes('currentRoute.meta?.hideFooter !== true') &&
+    appViewSource.includes('<Footer v-if="shouldShowFooter" />'),
+  '应用主视图必须按当前路由 hideFooter 控制全局 Footer 是否渲染。'
 )
 assert.match(
   source,

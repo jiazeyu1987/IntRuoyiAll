@@ -8,7 +8,7 @@
       <el-tab-pane name="current" label="注册证">
         <div data-testid="registration-certificate-current-tab">
           <UnifiedListTemplate
-            table-key="dcc.registrationCertificate.current"
+            :table-key="CURRENT_TABLE_KEY"
             :query-model="queryParams"
             label-width="82px"
             query-form-test-id="registration-certificate-current-filter-form"
@@ -37,7 +37,7 @@
               <el-table
                 v-loading="loading"
                 data-user-table-column-explicit
-                data-user-table-key="dcc.registrationCertificate.current"
+                :data-user-table-key="CURRENT_TABLE_KEY"
                 :data="list"
                 border
                 :stripe="true"
@@ -159,31 +159,33 @@
                   label="操作"
                   align="center"
                   fixed="right"
-                  :width="getCurrentColumnWidthString('actions', 260)"
+                  :width="getCurrentColumnWidthString('actions', 420)"
                 >
                   <template #default="{ row }">
-                    <el-button link type="primary" @click="openDetail(row.certificateId)">
-                      详情
-                    </el-button>
-                    <el-button
-                      link
-                      type="primary"
-                      v-hasPermi="['dcc:registration-certificate:renewal:upload']"
-                      @click="openRenewalDialog(row)"
-                    >
-                      延续
-                    </el-button>
-                    <el-button link type="primary" @click="openLinkedProductManagement(row.productMasterId)">
-                      产品
-                    </el-button>
-                    <el-button
-                      v-if="row.projectCodeId"
-                      link
-                      type="primary"
-                      @click="openLinkedProjectCodeManagement(row.projectCodeId)"
-                    >
-                      项目代码
-                    </el-button>
+                    <div class="registration-certificate-row-actions">
+                      <el-button link type="primary" @click="openDetail(row.certificateId)">
+                        详情
+                      </el-button>
+                      <el-button
+                        link
+                        type="primary"
+                        v-hasPermi="['dcc:registration-certificate:renewal:upload']"
+                        @click="openRenewalDialog(row)"
+                      >
+                        延续
+                      </el-button>
+                      <el-button link type="primary" @click="openLinkedProductManagement(row.productMasterId)">
+                        产品
+                      </el-button>
+                      <el-button
+                        v-if="row.projectCodeId"
+                        link
+                        type="primary"
+                        @click="openLinkedProjectCodeManagement(row.projectCodeId)"
+                      >
+                        项目代码
+                      </el-button>
+                    </div>
                   </template>
                 </el-table-column>
               </el-table>
@@ -195,7 +197,7 @@
       <el-tab-pane name="old" label="老证">
         <div data-testid="registration-certificate-old-index">
           <UnifiedListTemplate
-            table-key="dcc.registrationCertificate.old"
+            :table-key="OLD_TABLE_KEY"
             :query-model="oldQueryParams"
             label-width="82px"
             query-form-test-id="registration-certificate-old-filter-form"
@@ -218,7 +220,7 @@
               <el-table
                 v-loading="oldLoading"
                 data-user-table-column-explicit
-                data-user-table-key="dcc.registrationCertificate.old"
+                :data-user-table-key="OLD_TABLE_KEY"
                 :data="oldList"
                 border
                 :stripe="true"
@@ -278,26 +280,28 @@
                   label="操作"
                   align="center"
                   fixed="right"
-                  :width="getOldColumnWidthString('actions', 260)"
+                  :width="getOldColumnWidthString('actions', 420)"
                 >
                   <template #default="{ row }">
-                    <el-button link type="primary" @click="openOldDetail(row.certificateId)">
-                      详情
-                    </el-button>
-                    <el-button link type="warning" @click="openOldAccessRequest(row.certificateId)">
-                      申请查看
-                    </el-button>
-                    <el-button link type="primary" @click="openLinkedProductManagement(row.productMasterId)">
-                      产品
-                    </el-button>
-                    <el-button
-                      v-if="row.projectCodeId"
-                      link
-                      type="primary"
-                      @click="openLinkedProjectCodeManagement(row.projectCodeId)"
-                    >
-                      项目代码
-                    </el-button>
+                    <div class="registration-certificate-row-actions">
+                      <el-button link type="primary" @click="openOldDetail(row.certificateId)">
+                        详情
+                      </el-button>
+                      <el-button link type="warning" @click="openOldAccessRequest(row.certificateId)">
+                        申请查看
+                      </el-button>
+                      <el-button link type="primary" @click="openLinkedProductManagement(row.productMasterId)">
+                        产品
+                      </el-button>
+                      <el-button
+                        v-if="row.projectCodeId"
+                        link
+                        type="primary"
+                        @click="openLinkedProjectCodeManagement(row.projectCodeId)"
+                      >
+                        项目代码
+                      </el-button>
+                    </div>
                   </template>
                 </el-table-column>
               </el-table>
@@ -369,6 +373,8 @@ const oldTotal = ref(0)
 const showUploadDialog = ref(false)
 const showRenewalDialog = ref(false)
 const selectedRenewalCertificate = ref<DccRegistrationCertificatePageItemVO>()
+const CURRENT_TABLE_KEY = 'dcc.registrationCertificate.current.actionsWideV2'
+const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.actionsWideV2'
 
 type RegistrationCertificatePageQuery = DccRegistrationCertificatePageReqVO &
   Required<Pick<PageParam, 'pageNo' | 'pageSize'>>
@@ -390,7 +396,7 @@ const currentColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'effectiveDate', label: '生效日', width: 120, sortable: false },
   { key: 'expiryDate', label: '有效期至', width: 120, sortable: false },
   { key: 'remark', label: '备注', minWidth: 220, sortable: false },
-  { key: 'actions', label: '操作', width: 330, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false }
 ]
 
 const oldColumnDefinitions: UserTableColumnDefinition[] = [
@@ -400,7 +406,7 @@ const oldColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'versionNo', label: '版本', width: 90, sortable: false },
   { key: 'status', label: '状态', width: 130, sortable: false },
   { key: 'expiryDate', label: '原有效期至', width: 140, sortable: false },
-  { key: 'actions', label: '操作', width: 260, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false }
 ]
 
 const {
@@ -411,7 +417,7 @@ const {
   getColumnMinWidthString: getCurrentColumnMinWidthString,
   handleHeaderDragend: handleCurrentHeaderDragend,
   saveConfig: saveCurrentColumnConfig
-} = useUserTableColumns('dcc.registrationCertificate.current', currentColumnDefinitions)
+} = useUserTableColumns(CURRENT_TABLE_KEY, currentColumnDefinitions)
 
 const {
   columns: oldColumns,
@@ -421,7 +427,7 @@ const {
   getColumnMinWidthString: getOldColumnMinWidthString,
   handleHeaderDragend: handleOldHeaderDragend,
   saveConfig: saveOldColumnConfig
-} = useUserTableColumns('dcc.registrationCertificate.old', oldColumnDefinitions)
+} = useUserTableColumns(OLD_TABLE_KEY, oldColumnDefinitions)
 
 const currentQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   {
@@ -704,3 +710,19 @@ watch(
   }
 )
 </script>
+
+<style scoped>
+.registration-certificate-row-actions {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
+  gap: 4px 8px;
+}
+
+.registration-certificate-row-actions :deep(.el-button) {
+  margin-left: 0;
+  white-space: nowrap;
+}
+</style>

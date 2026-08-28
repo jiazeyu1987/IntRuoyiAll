@@ -11,7 +11,7 @@ const config = {
   headed: process.env.FORM_TEMPLATE_EDIT_PARITY_E2E_HEADED === '1',
   screenshotPath: path.resolve(
     __dirname,
-    '../../../doc/tasks/20260828-form-template-edit-button-batch-record-designer/template-edit-current-workspace.png'
+    '../../../doc/tasks/20260828-form-template-edit-stay-jimu/template-edit-jimu-editor.png'
   )
 }
 
@@ -97,7 +97,15 @@ async function findTemplateCandidate(page) {
   for (let pageNo = 1; pageNo <= 20; pageNo += 1) {
     const data = await apiGet(page, `/form-center/template-pool?pageNo=${pageNo}&pageSize=50`)
     const rows = Array.isArray(data?.list) ? data.list : []
-    const candidate = rows.find((row) => row.status !== 'OBSOLETE' && row.status !== 'PENDING_APPROVAL')
+    const candidate = rows.find(
+      (row) =>
+        row.status !== 'OBSOLETE' &&
+        row.status !== 'PENDING_APPROVAL' &&
+        typeof row.designerReportId === 'string' &&
+        row.designerReportId.startsWith('FORMTPL:') &&
+        typeof row.jimuSchemaJson === 'string' &&
+        row.jimuSchemaJson.trim()
+    )
     if (candidate) {
       return { candidate, pageNo }
     }
@@ -206,45 +214,73 @@ async function openTemplateDesignerFromEdit(page) {
     (url) =>
       url.pathname === '/mdm/form-center/template' &&
       url.searchParams.get('mode') === 'designer' &&
-      url.searchParams.get('templateMode') === 'edit',
+      url.searchParams.get('reportMode') === 'edit' &&
+      url.searchParams.get('reportId') === targetRow.designerReportId &&
+      url.searchParams.get('templateId') === String(targetRow.templateId) &&
+      url.searchParams.get('versionNo') === targetRow.versionNo,
     { timeout: 120000, waitUntil: 'commit' }
   )
   await editButton.click()
   logStep('template edit clicked')
   await navigationPromise
   logStep(`template designer url reached: ${page.url()}`)
-  await page.locator('.form-template-route-workspace').first().waitFor({ state: 'visible', timeout: 120000 })
-  await page.getByText('规则编辑模式：左侧只选单元格，右侧切换可填写/不可填写').first().waitFor({
-    state: 'visible',
-    timeout: 120000
+  await page.getByText('表单模板 Jimu 编辑器', { exact: false }).first().waitFor({ state: 'visible', timeout: 120000 })
+  const iframe = page.locator('iframe[src*="/jmreport/index/"]').first()
+  await iframe.waitFor({ state: 'visible', timeout: 120000 })
+  const iframeSrc = await iframe.getAttribute('src')
+  assert.ok(iframeSrc && iframeSrc.includes('/jmreport/index/'), `表单模板“编辑”未进入 Jimu 编辑器: ${iframeSrc}`)
+  assert.ok(
+    iframeSrc.includes(targetRow.designerReportId) ||
+      iframeSrc.includes(encodeURIComponent(targetRow.designerReportId)),
+    `表单模板“编辑”未使用当前模板自己的 Jimu 报表 ID: ${iframeSrc}`
+  )
+  const iframeHandle = await iframe.elementHandle()
+  const frame = iframeHandle ? await iframeHandle.contentFrame() : undefined
+  assert.ok(frame, '未找到表单模板 Jimu 编辑 iframe')
+  await frame.waitForLoadState('domcontentloaded', { timeout: 120000 })
+  await frame.waitForFunction(
+    () => {
+      const rows = window.xs?.sheet?.data?.rows?._
+      if (!rows) return false
+      return Object.values(rows).some((row) =>
+        Object.values(row?.cells || {}).some((cell) => String(cell?.text || '').trim())
+      )
+    },
+    { timeout: 120000 }
+  )
+  const jimuInfo = await frame.evaluate(() => {
+    const rows = window.xs?.sheet?.data?.rows?._ || {}
+    let textCellCount = 0
+    for (const row of Object.values(rows)) {
+      for (const cell of Object.values(row?.cells || {})) {
+        if (String(cell?.text || '').trim()) textCellCount += 1
+      }
+    }
+    return {
+      rowCount: Object.keys(rows).length,
+      textCellCount
+    }
   })
-  const ruleCellButton = page
-    .locator(
-      '.form-template-route-workspace .batch-record-cell-rules-editor__cell.is-rule .batch-record-cell-rules-editor__cell-button'
-    )
-    .first()
-  await ruleCellButton.waitFor({ state: 'visible', timeout: 120000 })
-  logStep(`rule cell buttons found: ${await page.locator('.form-template-route-workspace .batch-record-cell-rules-editor__cell.is-rule .batch-record-cell-rules-editor__cell-button').count()}`)
-  await ruleCellButton.scrollIntoViewIfNeeded({ timeout: 30000 })
-  await ruleCellButton.click({ timeout: 30000 })
-  logStep('rule cell clicked')
-  await page.getByText('是否可填写', { exact: true }).first().waitFor({
-    state: 'visible',
-    timeout: 120000
-  })
-  await page.getByText('字段名称', { exact: true }).first().waitFor({
-    state: 'visible',
-    timeout: 120000
-  })
-  await page.getByText('字段类型', { exact: true }).first().waitFor({
-    state: 'visible',
-    timeout: 120000
-  })
+  assert.equal(
+    await page.locator('text=JMReport 表单编辑行高适配失败').count(),
+    0,
+    '表单模板 Jimu 编辑器不得触发行高适配失败'
+  )
+  assert.equal(
+    await page.locator('.batch-record-cell-rules-editor').count(),
+    0,
+    '表单模板“编辑”不得回退到填写配置规则面板'
+  )
+  assert.equal(page.url().includes('/mes/pro/batch-record-form-list'), false, '表单模板“编辑”不得进入批记录表单模块')
   await page.screenshot({ path: config.screenshotPath, fullPage: false })
   return {
     templateName: targetRow.templateName,
     versionNo: targetRow.versionNo,
+    templateId: targetRow.templateId,
+    reportId: targetRow.designerReportId,
     url: page.url(),
+    iframeSrc,
+    jimuInfo,
     workspace: 'form-template',
     screenshotPath: config.screenshotPath
   }
@@ -256,7 +292,9 @@ function normalizeDesignerUrl(rawUrl) {
     pathname: url.pathname,
     mode: url.searchParams.get('mode'),
     reportMode: url.searchParams.get('reportMode'),
-    reportId: url.searchParams.get('reportId')
+    reportId: url.searchParams.get('reportId'),
+    templateId: url.searchParams.get('templateId'),
+    versionNo: url.searchParams.get('versionNo')
   }
 }
 
@@ -289,8 +327,10 @@ async function main() {
       `表单模板“编辑”没有留在表单模板工作区: ${templateFlow.url}`
     )
     assert.equal(templateRoute.mode, 'designer', `表单模板“编辑”模式异常: ${templateFlow.url}`)
-    assert.equal(templateRoute.reportMode, null, `表单模板“编辑”不应携带 reportMode: ${templateFlow.url}`)
-    assert.equal(templateRoute.reportId, null, `表单模板“编辑”不应携带 reportId: ${templateFlow.url}`)
+    assert.equal(templateRoute.reportMode, 'edit', `表单模板“编辑”必须进入 reportMode=edit 的 Jimu 编辑器: ${templateFlow.url}`)
+    assert.equal(templateRoute.reportId, templateFlow.reportId, `表单模板“编辑”必须使用当前模板自己的 reportId: ${templateFlow.url}`)
+    assert.equal(templateRoute.templateId, String(templateFlow.templateId), `表单模板“编辑”必须携带当前模板 ID: ${templateFlow.url}`)
+    assert.equal(templateRoute.versionNo, templateFlow.versionNo, `表单模板“编辑”必须携带当前模板版本: ${templateFlow.url}`)
 
     console.log(
       JSON.stringify(
@@ -300,7 +340,11 @@ async function main() {
           username: config.username,
           templateName: templateFlow.templateName,
           templateVersionNo: templateFlow.versionNo,
+          templateId: templateFlow.templateId,
+          reportId: templateFlow.reportId,
           templateEditUrl: templateFlow.url,
+          iframeSrc: templateFlow.iframeSrc,
+          jimuInfo: templateFlow.jimuInfo,
           workspace: templateFlow.workspace,
           screenshotPath: templateFlow.screenshotPath
         },

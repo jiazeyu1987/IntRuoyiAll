@@ -5,13 +5,15 @@ import { join } from 'node:path'
 const root = process.cwd()
 const read = (relativePath) => readFileSync(join(root, relativePath), 'utf8')
 const exists = (relativePath) => existsSync(join(root, relativePath))
+const appRoot = exists('src') ? '' : 'IntRuoyiFronted'
+const backendRoot = exists('IntRuoyiBackend') ? 'IntRuoyiBackend' : '../IntRuoyiBackend'
 
-const sqlPath = '../IntRuoyiBackend/sql/mysql/20260816_dcc_registration_certificate_menu.sql'
-const profileIndexPath = 'src/views/Profile/Index.vue'
-const componentIndexPath = 'src/views/Profile/components/index.ts'
-const configComponentPath = 'src/views/Profile/components/RegistrationCertificateConfig.vue'
-const configApiPath = 'src/api/dcc/registrationCertificate/reminderConfig.ts'
-const listPagePath = 'src/views/dcc/registration-certificate/index/index.vue'
+const sqlPath = `${backendRoot}/sql/mysql/20260816_dcc_registration_certificate_menu.sql`
+const profileIndexPath = `${appRoot ? `${appRoot}/` : ''}src/views/Profile/Index.vue`
+const componentIndexPath = `${appRoot ? `${appRoot}/` : ''}src/views/Profile/components/index.ts`
+const configComponentPath = `${appRoot ? `${appRoot}/` : ''}src/views/Profile/components/RegistrationCertificateConfig.vue`
+const configApiPath = `${appRoot ? `${appRoot}/` : ''}src/api/dcc/registrationCertificate/reminderConfig.ts`
+const listPagePath = `${appRoot ? `${appRoot}/` : ''}src/views/dcc/registration-certificate/index/index.vue`
 const configControllerPath =
   '../IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/registrationcertificate/controller/admin/config/DccRegistrationCertificateReminderConfigController.java'
 

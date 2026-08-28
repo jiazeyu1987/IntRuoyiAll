@@ -14,9 +14,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FormCenterTemplateIndependenceContractTest {
 
-    private static final String DESIGNER_REPORT_ID_FIELD = "batchRecordReportId";
+    private static final String DESIGNER_REPORT_ID_FIELD = "designerReportId";
 
     private static final String[] BATCH_RECORD_BINDING_FIELDS = {
+            "batchRecordReportId",
             "batchRecordReportName",
             "batchRecordName",
             "batchRecordVersionNo",
@@ -38,8 +39,8 @@ class FormCenterTemplateIndependenceContractTest {
         String source = Files.readString(Path.of(
                 "src/main/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/FormCenterRuntimeServiceImpl.java"));
 
-        assertTrue(source.contains("setBatchRecordReportId"),
-                "form-center runtime must map designer report id onto template response");
+        assertTrue(source.contains("setDesignerReportId"),
+                "form-center runtime must map designer report id onto template response without batch-record naming");
         assertTrue(source.contains("FORMTPL:"),
                 "form-center runtime must use the formal FORM template report prefix");
         assertTrue(source.contains("version.getId()"),

@@ -34,6 +34,10 @@ class MesProBatchRecordReportDesignerContractTest {
 
         assertTrue(source.contains("ensureFormTemplateDesignerReport"),
                 "Jimu gateway must upsert a virtual designer report for form templates");
+        assertTrue(source.contains("extractFormTemplateDesignerJson"),
+                "Jimu gateway must pass only sheetLayoutJson to Jimu, not the form-template wrapper JSON");
+        assertTrue(source.contains("buildFormTemplateSchemaWithDesignerJson"),
+                "Jimu gateway must wrap edited Jimu layout back into the form-template schema");
         assertTrue(source.contains("templateVersionMapper"),
                 "Jimu gateway must be able to sync virtual report edits back to the template version");
         assertTrue(source.contains("updateReportJson"),

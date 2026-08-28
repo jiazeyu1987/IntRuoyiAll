@@ -41,7 +41,7 @@
     </template>
     <template
       #table="{
-        sortState,
+        sortState: templateSortState,
         sortableColumns,
         sortableColumnMap,
         sortColumnAttrs,
@@ -50,7 +50,7 @@
     >
       <slot
         name="table"
-        :sort-state="sortState"
+        :sort-state="templateSortState"
         :sortable-columns="sortableColumns"
         :sortable-column-map="sortableColumnMap"
         :sort-column-attrs="sortColumnAttrs"

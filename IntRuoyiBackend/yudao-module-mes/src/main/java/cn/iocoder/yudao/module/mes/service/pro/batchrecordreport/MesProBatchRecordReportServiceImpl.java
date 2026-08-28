@@ -1737,6 +1737,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     public BatchRecordReportCellRulesRespVO saveCellRules(BatchRecordReportCellRulesReqVO reqVO) {
         MesProBatchRecordReportDO metadata = requireMetadata(reqVO.getReportId());
         JSONObject root = parseReportJson(reqVO.getReportId());
+        removeStaleSignatureMarkersForCellRules(root, reqVO.getRules());
         clearCellRules(root);
         for (BatchRecordReportCellRuleVO rule : reqVO.getRules()) {
             JSONObject cell = MesProBatchRecordCellRuleSupport.requireCell(root, rule.getRowIndex(), rule.getColumnIndex());
@@ -1745,6 +1746,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                         rule.getRowIndex(), rule.getColumnIndex());
             }
             try {
+                syncSignatureMarkerForCellRule(rule, cell);
                 MesProBatchRecordCellRuleSupport.ensureManualFillForm(rule, cell, metadata.getReportCode());
                 MesProBatchRecordCellRuleSupport.validateRule(rule, cell);
             } catch (IllegalArgumentException ex) {
@@ -1782,6 +1784,69 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .setSource("MANUAL")
                 .setConfidence(1.0)
                 .setReviewed(true);
+    }
+
+    private void removeStaleSignatureMarkersForCellRules(JSONObject root, List<BatchRecordReportCellRuleVO> rules) {
+        Set<String> requestedRuleCoordinates = new LinkedHashSet<>();
+        Set<String> requestedSignatureRuleCoordinates = new LinkedHashSet<>();
+        for (BatchRecordReportCellRuleVO rule : rules) {
+            String coordinate = buildCellRuleCoordinate(rule.getRowIndex(), rule.getColumnIndex());
+            requestedRuleCoordinates.add(coordinate);
+            if (isSignatureCellRule(rule)) {
+                requestedSignatureRuleCoordinates.add(coordinate);
+            }
+        }
+        MesProBatchRecordCellRuleSupport.forEachCell(root, (rowIndex, columnIndex, cell) -> {
+            String coordinate = buildCellRuleCoordinate(rowIndex, columnIndex);
+            if (requestedRuleCoordinates.contains(coordinate)
+                    && !requestedSignatureRuleCoordinates.contains(coordinate)) {
+                cell.remove(MesProBatchRecordCellRuleSupport.SIGNATURE_KEY);
+                return;
+            }
+            JSONObject existingRule = cell.getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY);
+            if (MesProBatchRecordCellRuleSupport.isReviewedRule(existingRule)
+                    && !requestedSignatureRuleCoordinates.contains(coordinate)) {
+                cell.remove(MesProBatchRecordCellRuleSupport.SIGNATURE_KEY);
+            }
+        });
+    }
+
+    private void syncSignatureMarkerForCellRule(BatchRecordReportCellRuleVO rule, JSONObject cell) {
+        if (!isSignatureCellRule(rule)) {
+            cell.remove(MesProBatchRecordCellRuleSupport.SIGNATURE_KEY);
+            return;
+        }
+        JSONObject existingSignature = cell.getJSONObject(MesProBatchRecordCellRuleSupport.SIGNATURE_KEY);
+        String existingActionType = existingSignature == null ? null : existingSignature.getString("actionType");
+        String actionType = existingActionType != null && SIGNATURE_ACTION_TYPES.contains(existingActionType)
+                ? existingActionType : "FORM_REVIEW";
+        JSONObject signature = new JSONObject(true);
+        signature.put("enabled", true);
+        signature.put("signatureCellKey", StrUtil.blankToDefault(
+                existingSignature == null ? null : existingSignature.getString("signatureCellKey"),
+                buildSignatureCellKey(rule.getRowIndex(), rule.getColumnIndex())));
+        signature.put("actionType", actionType);
+        signature.put("label", StrUtil.blankToDefault(StrUtil.trim(rule.getLabel()), StrUtil.blankToDefault(
+                existingSignature == null ? null : StrUtil.trim(existingSignature.getString("label")), "签名")));
+        signature.put("displayFormat", StrUtil.blankToDefault(
+                existingSignature == null ? null : existingSignature.getString("displayFormat"),
+                DEFAULT_SIGNATURE_DISPLAY_FORMAT));
+        if (Objects.equals("APPROVE", actionType) && existingSignature != null) {
+            signature.put("reviewSourceType", existingSignature.getString("reviewSourceType"));
+            signature.put("reviewSourceId", existingSignature.getLong("reviewSourceId"));
+            signature.put("reviewSourceIds", existingSignature.getJSONArray("reviewSourceIds"));
+            signature.put("reviewSourceName", existingSignature.getString("reviewSourceName"));
+        }
+        cell.put(MesProBatchRecordCellRuleSupport.SIGNATURE_KEY, signature);
+    }
+
+    private boolean isSignatureCellRule(BatchRecordReportCellRuleVO rule) {
+        return "SIGNATURE".equals(MesProBatchRecordCellRuleSupport.normalizeValueType(
+                rule == null ? null : rule.getValueType()));
+    }
+
+    private String buildCellRuleCoordinate(Integer rowIndex, Integer columnIndex) {
+        return rowIndex + ":" + columnIndex;
     }
 
     private void applyFormalizedCellRules(JSONObject root, String reportCode, List<BatchRecordReportCellRuleVO> rules) {

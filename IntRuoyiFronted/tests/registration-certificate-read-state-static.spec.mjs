@@ -127,14 +127,48 @@ for (const token of [
   'getRegistrationCertificateDetail',
   'getRegistrationCertificateHistory',
   'formatRegistrationCertificateStatus',
+  'formatEntrustedEnterpriseNames',
   'data-testid="registration-certificate-detail-page"',
-  'entrustedEnterprisesJson',
   'hasRegistrationFile'
 ]) {
   assert.match(
     detail,
     new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     `detail page must contain ${token}`
+  )
+}
+assert.doesNotMatch(
+  detail,
+  /<pre\s+class="detail-json">[\s\S]*entrustedEnterprisesJson[\s\S]*<\/pre>/,
+  'detail page must not render raw entrustedEnterprisesJson JSON'
+)
+assert.doesNotMatch(
+  detail,
+  /RegistrationCertificateActionPanel/,
+  'detail page must not mount the workflow action panel'
+)
+assert.doesNotMatch(
+  detail,
+  /<el-descriptions-item\s+label="备注"/,
+  'remark must move out of the registration certificate descriptions table'
+)
+assert.match(
+  detail,
+  /<\/el-descriptions>[\s\S]{0,240}<el-card\s+class="detail-card"\s+shadow="never"[\s\S]{0,120}<template\s+#header>备注<\/template>[\s\S]{0,220}displayText\(detail\.remark\)[\s\S]{0,240}<template\s+#header>受托生产企业<\/template>/,
+  'green-box remark area must render detail.remark above entrusted enterprises'
+)
+for (const token of [
+  '型号规格',
+  '结构组成',
+  '适用范围',
+  '技术要求',
+  '住所',
+  '生产地址'
+]) {
+  assert.match(
+    detail,
+    new RegExp(`<el-descriptions-item\\s+label="${token}"`),
+    `detail page must show the yellow-box field ${token}`
   )
 }
 assert.doesNotMatch(

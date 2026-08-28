@@ -20,6 +20,7 @@ public class DccRegistrationCertificateOldIndexItem {
     private Long productMasterId;
     private String productName;
     private Long projectCodeId;
+    private String projectCode;
     private String certificateNo;
     private Integer versionNo;
     private LocalDate expiryDate;

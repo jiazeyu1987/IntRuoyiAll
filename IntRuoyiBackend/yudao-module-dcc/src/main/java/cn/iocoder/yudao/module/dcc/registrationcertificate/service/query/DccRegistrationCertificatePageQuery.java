@@ -18,6 +18,14 @@ public class DccRegistrationCertificatePageQuery {
     private Long projectCodeId;
     private String status;
     private String certificateNo;
+    private String ownerCompanyName;
+    private String productName;
+    private String classification;
+    private String registrantName;
+    private String modelSpecification;
+    private String productionAddress;
+    private String entrustedEnterpriseName;
+    private String projectCode;
     private Boolean missingProjectCode;
     private Boolean missingFile;
     private LocalDate firstObtainedStart;

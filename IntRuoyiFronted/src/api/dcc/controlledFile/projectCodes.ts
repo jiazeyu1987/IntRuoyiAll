@@ -15,6 +15,7 @@ export interface DccProjectCodePageReqVO extends PageParam {
   routeConfigured?: boolean
   mainBatchRecordConfigured?: boolean
   qaRegulationConfigured?: boolean
+  requireDccProductCode?: boolean
   fileCountSort?: 'asc' | 'desc'
 }
 

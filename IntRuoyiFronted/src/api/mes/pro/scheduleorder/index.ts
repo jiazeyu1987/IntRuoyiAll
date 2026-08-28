@@ -7,6 +7,7 @@ export interface MesProScheduleOrderVO {
   code: string
   workOrderId: number
   erpWorkOrderCode: string
+  sourceWorkOrderStatus?: number
   productionMaterialListCount?: number
   productionMaterialListSummary?: string
   productId: number

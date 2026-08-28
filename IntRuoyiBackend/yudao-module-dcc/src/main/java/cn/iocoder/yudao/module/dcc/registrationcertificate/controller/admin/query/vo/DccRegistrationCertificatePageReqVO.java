@@ -17,6 +17,14 @@ public class DccRegistrationCertificatePageReqVO extends PageParam {
     private Long projectCodeId;
     private String status;
     private String certificateNo;
+    private String ownerCompanyName;
+    private String productName;
+    private String classification;
+    private String registrantName;
+    private String modelSpecification;
+    private String productionAddress;
+    private String entrustedEnterpriseName;
+    private String projectCode;
     private Boolean missingProjectCode;
     private Boolean missingFile;
 
@@ -46,6 +54,14 @@ public class DccRegistrationCertificatePageReqVO extends PageParam {
                 .projectCodeId(projectCodeId)
                 .status(status)
                 .certificateNo(certificateNo)
+                .ownerCompanyName(ownerCompanyName)
+                .productName(productName)
+                .classification(classification)
+                .registrantName(registrantName)
+                .modelSpecification(modelSpecification)
+                .productionAddress(productionAddress)
+                .entrustedEnterpriseName(entrustedEnterpriseName)
+                .projectCode(projectCode)
                 .missingProjectCode(missingProjectCode)
                 .missingFile(missingFile)
                 .firstObtainedStart(firstObtainedStart)

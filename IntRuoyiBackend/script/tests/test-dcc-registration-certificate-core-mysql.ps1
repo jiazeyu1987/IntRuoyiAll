@@ -330,14 +330,9 @@ INSERT INTO dcc_registration_certificate_snapshot
 VALUES
   (101, 11, 1, 'Product A', 'Registrant A', b'0', b'1', JSON_ARRAY(), NOW(), 1),
   (102, 12, 1, 'Product A', 'Registrant A', b'1', b'0',
-   JSON_ARRAY(JSON_OBJECT('enterpriseId', 30, 'enterpriseName', 'Factory A')), NOW(), 1);
+   JSON_ARRAY(JSON_OBJECT('enterpriseId', 30, 'enterpriseName', 'Factory A')), NOW(), 1),
+  (103, 13, 1, 'Product A', 'Registrant A', b'0', b'0', JSON_ARRAY(), NOW(), 1);
 '@)
-    Assert-SqlFails -Schema $schema -Label 'both production modes false' -Sql @'
-INSERT INTO dcc_registration_certificate_snapshot
-  (version_id, revision_no, product_name, registrant_name,
-   entrusted_production, self_production, entrusted_enterprises_json, effective_at, tenant_id)
-VALUES (13, 1, 'P', 'R', b'0', b'0', JSON_ARRAY(), NOW(), 1);
-'@
     Assert-SqlFails -Schema $schema -Label 'entrusted production without authority' -Sql @'
 INSERT INTO dcc_registration_certificate_snapshot
   (version_id, revision_no, product_name, registrant_name,

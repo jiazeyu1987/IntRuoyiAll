@@ -109,19 +109,20 @@
                     :rowspan="cell.rowSpan"
                     :colspan="cell.colSpan"
                     :class="[cell.classNames, { 'is-assist-mapped': isSourceCellMappedToAssistGrid(cell) }]"
+                    @click="handleSourceCellClick(cell, $event)"
                   >
                     <button
                       type="button"
                       class="batch-record-cell-rules-editor__cell-button"
                       :aria-label="activeConfigMode === 'assistMapping' ? '映射原表单元格' : '选择单元格规则'"
-                      :aria-pressed="cell.identity === selectedRuleKey"
+                      :aria-pressed="selectedRuleKeys.has(cell.identity)"
                       :title="resolveSourceCellAssistMappingTitle(cell)"
-                      @click="handleSourceCellClick(cell)"
+                      @click.stop="handleSourceCellClick(cell, $event)"
                     >
                       <span v-if="cell.text" class="batch-record-cell-rules-editor__cell-text">
                         {{ cell.text }}
                       </span>
-                      <span v-else class="batch-record-cell-rules-editor__cell-placeholder">
+                      <span v-else-if="!cell.rule" class="batch-record-cell-rules-editor__cell-placeholder">
                         第 {{ cell.rowIndex + 1 }} 行第 {{ cell.columnIndex + 1 }} 列
                       </span>
                     </button>
@@ -286,13 +287,98 @@
                 </div>
               </section>
             </template>
+            <section
+              v-if="activeConfigMode === 'source' && selectedRuleKeys.size > 1"
+              class="batch-record-cell-rules-editor__batch-control"
+            >
+              <div class="batch-record-cell-rules-editor__batch-control-head">
+                <strong data-fill-config-batch-selected-count>
+                  已选择 {{ selectedRuleKeys.size }} 个单元格
+                </strong>
+                <p>统一修改字段类型；如所选格子已有映射，系统会先让你选择映射处理方式。</p>
+              </div>
+              <el-form label-position="top" class="batch-record-cell-rules-editor__form">
+                <el-form-item label="批量可填写状态">
+                  <el-button-group>
+                    <el-button
+                      size="small"
+                      data-fill-config-batch-fillable
+                      @click="setSelectedRulesFillable(true)"
+                    >
+                      设为可填写
+                    </el-button>
+                    <el-button
+                      size="small"
+                      data-fill-config-batch-unfillable
+                      @click="setSelectedRulesFillable(false)"
+                    >
+                      设为不可填写
+                    </el-button>
+                  </el-button-group>
+                </el-form-item>
+                <el-form-item label="批量必填状态">
+                  <el-button-group>
+                    <el-button
+                      size="small"
+                      data-fill-config-batch-required
+                      @click="setSelectedRulesRequired(true)"
+                    >
+                      设为必填
+                    </el-button>
+                    <el-button
+                      size="small"
+                      data-fill-config-batch-optional
+                      @click="setSelectedRulesRequired(false)"
+                    >
+                      设为可选
+                    </el-button>
+                  </el-button-group>
+                </el-form-item>
+                <el-form-item label="批量字段类型">
+                  <el-select
+                    :model-value="batchSelectedValueType"
+                    class="!w-1/1"
+                    placeholder="选择要统一设置的字段类型"
+                    data-fill-config-batch-field-type
+                    @change="handleBatchValueTypeChange"
+                  >
+                    <el-option
+                      v-for="option in batchFieldTypeOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="批量控件类型">
+                  <el-select
+                    :model-value="batchSelectedComponentFlag"
+                    class="!w-1/1"
+                    filterable
+                    allow-create
+                    default-first-option
+                    placeholder="选择要统一设置的控件类型"
+                    data-fill-config-batch-component-flag
+                    @change="handleBatchComponentFlagChange"
+                  >
+                    <el-option
+                      v-for="option in componentFlagOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-form>
+            </section>
             <template v-if="selectedCell">
               <div class="batch-record-cell-rules-editor__fillable-toggle">
                 <strong>是否可填写</strong>
                 <el-switch
-                  v-model="isSelectedCellFillable"
+                  :model-value="isSelectedPropertyFillable"
                   active-text="可填写"
                   inactive-text="不可填写"
+                  @change="handleSelectedFillableChange"
                 />
               </div>
 
@@ -332,15 +418,16 @@
 
                 <el-form-item label="是否必填">
                   <el-switch
-                    v-model="selectedRule.required"
+                    :model-value="isSelectedPropertyRequired"
                     active-text="必填"
                     inactive-text="可选"
+                    @change="handleSelectedRequiredChange"
                   />
                 </el-form-item>
 
                 <el-form-item label="字段类型">
                   <el-select
-                    v-model="selectedRule.valueType"
+                    :model-value="selectedPropertyValueType"
                     class="!w-1/1"
                     @change="handleSelectedValueTypeChange"
                   >
@@ -355,12 +442,13 @@
 
                 <el-form-item label="控件类型">
                   <el-select
-                    v-model="selectedRule.componentFlag"
+                    :model-value="selectedPropertyComponentFlag"
                     class="!w-1/1"
                     filterable
                     allow-create
                     default-first-option
                     placeholder="请选择或输入控件类型"
+                    @change="handleSelectedComponentFlagChange"
                   >
                     <el-option
                       v-for="option in componentFlagOptions"
@@ -483,6 +571,30 @@
           </div>
         </aside>
       </section>
+
+      <el-dialog
+        v-model="batchMappingConflictDialogVisible"
+        title="处理已有映射"
+        width="420px"
+        append-to-body
+        :show-close="false"
+        :close-on-click-modal="false"
+        :close-on-press-escape="false"
+        data-fill-config-mapping-conflict-dialog
+      >
+        <p class="batch-record-cell-rules-editor__mapping-conflict-text">
+          所选单元格中有 {{ pendingBatchMappedRuleKeys.size }} 个已存在映射，修改为“{{ pendingBatchValueTypeLabel }}”后可能与原映射字段含义不一致，请选择处理方式。
+        </p>
+        <template #footer>
+          <el-button @click="resolveBatchMappingConflict('cancel')">取消本次修改</el-button>
+          <el-button plain type="warning" @click="resolveBatchMappingConflict('clear')">
+            清除原映射
+          </el-button>
+          <el-button type="primary" @click="resolveBatchMappingConflict('keep')">
+            保留原映射
+          </el-button>
+        </template>
+      </el-dialog>
     </div>
 
   </Dialog>
@@ -548,6 +660,17 @@ type RuleEditorCell = {
   classNames: Record<string, boolean>
 }
 
+type RuleEditorCellTypeTone =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'datetime'
+  | 'select'
+  | 'radio'
+  | 'checkbox'
+  | 'signature'
+  | 'attachment'
+
 type RuleEditorRow = {
   rowIndex: number
   height: number
@@ -568,6 +691,8 @@ type AssistAssignmentDraft = {
 }
 
 type ConfigMode = 'source' | 'assistMapping'
+
+type BatchMappingConflictAction = 'keep' | 'clear' | 'cancel'
 
 type AssistResponsibilitySubject = {
   subjectKey: string
@@ -622,6 +747,7 @@ const errorMessage = ref('')
 const sheetLayoutError = ref('')
 const activeConfigMode = ref<ConfigMode>('source')
 const selectedRuleKey = ref('')
+const selectedRuleKeys = ref<Set<string>>(new Set())
 const selectedAssistGridCellKey = ref('')
 const selectedAssistSubjectKey = ref('')
 const pendingAssistSubjectType = ref<EdhrProcessFormCandidateSourceType>('ROLE')
@@ -636,9 +762,13 @@ const savedStateSignature = ref('')
 const simpleUserOptions = ref<UserVO[]>([])
 const simpleRoleOptions = ref<RoleVO[]>([])
 const sheetLayout = ref<RuleEditorRawLayout | null>(null)
+const batchMappingConflictDialogVisible = ref(false)
+const pendingBatchValueType = ref<BatchRecordReportCellValueType>()
+const pendingBatchMappedRuleKeys = ref<Set<string>>(new Set())
 const summary = reactive({
   unreviewedFillableCellCount: 0
 })
+let pendingBatchMappingConflictResolver: ((action: BatchMappingConflictAction) => void) | null = null
 
 const DEFAULT_COLUMN_WIDTH = 150
 const DEFAULT_ROW_HEIGHT = 34
@@ -671,6 +801,8 @@ const componentFlagBaseOptions = [
   { label: '数字输入 input-number', value: 'input-number' },
   { label: '日期 date', value: 'date' },
   { label: '日期时间 datetime', value: 'datetime' },
+  { label: '下拉框 select', value: 'select' },
+  { label: '单选框 radio', value: 'radio' },
   { label: '复选框 checkbox', value: 'checkbox' },
   { label: '电子签名 signature', value: 'signature' },
   { label: '文件上传 upload-file', value: 'upload-file' },
@@ -687,6 +819,48 @@ const componentFlagOptions = computed(() => {
   })
   return Array.from(optionMap.values())
 })
+
+const batchFieldTypeOptions = cellRuleValueTypeOptions.filter((option) => option.value !== 'BOOLEAN')
+
+const resolveBatchValueTypeLabel = (value?: BatchRecordReportCellValueType) =>
+  cellRuleValueTypeOptions.find((option) => option.value === value)?.label || ''
+
+const pendingBatchValueTypeLabel = computed(() => resolveBatchValueTypeLabel(pendingBatchValueType.value))
+
+const resolveRuleEditorCellTypeTone = (rule: BatchRecordReportCellRuleVO): RuleEditorCellTypeTone => {
+  const rawComponent = String(rule.componentFlag || '').trim().toLowerCase()
+  const selectionMode = String(rule.constraints?.selectionMode || '').trim().toLowerCase()
+  if (
+    rawComponent.includes('upload-file') ||
+    rawComponent.includes('upload-image') ||
+    rawComponent.includes('attachment') ||
+    Boolean(rule.attachmentRule)
+  ) {
+    return 'attachment'
+  }
+  if (rule.valueType === 'SIGNATURE' || rawComponent.includes('signature')) {
+    return 'signature'
+  }
+  if (rawComponent.includes('radio')) {
+    return 'radio'
+  }
+  if (rule.valueType === 'BOOLEAN' || rawComponent.includes('checkbox') || selectionMode === 'multiple') {
+    return 'checkbox'
+  }
+  if (selectionMode === 'single' || rawComponent.includes('select') || rawComponent.includes('dropdown')) {
+    return 'select'
+  }
+  if (rule.valueType === 'NUMBER' || rawComponent.includes('number')) {
+    return 'number'
+  }
+  if (rule.valueType === 'DATETIME' || rawComponent.includes('datetime')) {
+    return 'datetime'
+  }
+  if (rule.valueType === 'DATE' || rawComponent === 'date' || rawComponent.includes('date-picker')) {
+    return 'date'
+  }
+  return 'text'
+}
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
@@ -783,6 +957,30 @@ const ruleMap = computed(() => {
   return map
 })
 
+const selectedRuleKeyList = computed(() => Array.from(selectedRuleKeys.value))
+
+const batchSelectedValueType = computed(() => {
+  if (selectedRuleKeyList.value.length <= 1) return undefined
+  const selectedRules = selectedRuleKeyList.value
+    .map((key) => ruleMap.value.get(key))
+    .filter((rule): rule is BatchRecordReportCellRuleVO => Boolean(rule))
+  if (selectedRules.length !== selectedRuleKeyList.value.length || !selectedRules.length) return undefined
+  const firstValueType = selectedRules[0].valueType
+  return selectedRules.every((rule) => rule.valueType === firstValueType) ? firstValueType : undefined
+})
+
+const batchSelectedComponentFlag = computed(() => {
+  if (selectedRuleKeyList.value.length <= 1) return undefined
+  const selectedRules = selectedRuleKeyList.value
+    .map((key) => ruleMap.value.get(key))
+    .filter((rule): rule is BatchRecordReportCellRuleVO => Boolean(rule))
+  if (selectedRules.length !== selectedRuleKeyList.value.length || !selectedRules.length) return undefined
+  const firstComponentFlag = selectedRules[0].componentFlag
+  return selectedRules.every((rule) => rule.componentFlag === firstComponentFlag)
+    ? firstComponentFlag
+    : undefined
+})
+
 const rowIndexes = computed(() => {
   const rows = sheetLayout.value?.rows || {}
   return Object.keys(rows)
@@ -856,6 +1054,8 @@ const renderedRows = computed<RuleEditorRow[]>(() => {
       const merge = normalizeTemplateCellMerge(rawCell)
       const text = stringifyTemplateCell(rawCell?.value ?? rawCell?.text)
       const rule = ruleMap.value.get(identity)
+      const cellTypeTone = rule ? resolveRuleEditorCellTypeTone(rule) : ''
+      const typeClassName = cellTypeTone ? `is-rule-type-${cellTypeTone}` : ''
       cells.push({
         identity,
         rowIndex,
@@ -869,7 +1069,10 @@ const renderedRows = computed<RuleEditorRow[]>(() => {
           'is-empty': !text.trim(),
           'is-rule': Boolean(rule),
           'is-required': Boolean(rule?.required),
-          'is-selected': selectedRuleKey.value === identity
+          'is-selected': selectedRuleKeys.value.has(identity),
+          'is-active-selected': selectedRuleKey.value === identity,
+          'is-multi-selected': selectedRuleKeys.value.has(identity),
+          [typeClassName]: Boolean(typeClassName)
         }
       })
     })
@@ -893,6 +1096,10 @@ const selectedCell = computed(() => {
   if (!selectedRuleKey.value) return null
   return findRenderedCellByIdentity(selectedRuleKey.value)
 })
+
+const setSelectedRuleKeys = (keys: Iterable<string>) => {
+  selectedRuleKeys.value = new Set(Array.from(keys).filter((key) => key.trim()))
+}
 
 const createDefaultAssistAssignment = (): AssistAssignmentDraft => ({
   candidateSourceType: 'USERS',
@@ -1345,9 +1552,33 @@ const assistGridPreviewRows = computed<AssistGridPreviewRow[]>(() => {
   }))
 })
 
+const resolveRenderedCellKeySet = () => {
+  const keys = new Set<string>()
+  renderedRows.value.forEach((row) => {
+    row.cells.forEach((cell) => keys.add(cell.identity))
+  })
+  return keys
+}
+
+const syncSelectedRuleKeysWithRenderedCells = () => {
+  const renderedKeys = resolveRenderedCellKeySet()
+  const retainedKeys = selectedRuleKeyList.value.filter((key) => renderedKeys.has(key))
+  if (selectedRuleKey.value && renderedKeys.has(selectedRuleKey.value) && !retainedKeys.includes(selectedRuleKey.value)) {
+    retainedKeys.unshift(selectedRuleKey.value)
+  }
+  if (!retainedKeys.length && selectedRuleKey.value && renderedKeys.has(selectedRuleKey.value)) {
+    retainedKeys.push(selectedRuleKey.value)
+  }
+  setSelectedRuleKeys(retainedKeys)
+}
+
 const ensureSelectedRuleStillExists = () => {
-  if (selectedRuleKey.value && selectedCell.value) return
+  if (selectedRuleKey.value && selectedCell.value) {
+    syncSelectedRuleKeysWithRenderedCells()
+    return
+  }
   selectedRuleKey.value = ruleRows.value.length ? ruleIdentity(ruleRows.value[0]) : ''
+  syncSelectedRuleKeysWithRenderedCells()
 }
 
 const applyCellRulesResponse = (data: BatchRecordReportCellRulesRespVO) => {
@@ -1389,28 +1620,88 @@ const buildManualRuleFromCell = (cell: RuleEditorCell): BatchRecordReportCellRul
     reviewed: true
   })
 
-const selectRuleCell = (cell: RuleEditorCell) => {
+const ensureRulesForKeys = (keys: string[]) => {
+  const targetKeys = Array.from(new Set(keys)).filter((key) => Boolean(findRenderedCellByIdentity(key)))
+  const ruleByKey = new Map(ruleRows.value.map((rule) => [ruleIdentity(rule), rule]))
+  const nextRules = [...ruleRows.value]
+  targetKeys.forEach((key) => {
+    if (ruleByKey.has(key)) return
+    const cell = findRenderedCellByIdentity(key)
+    if (!cell) return
+    const rule = buildManualRuleFromCell(cell)
+    ruleByKey.set(key, rule)
+    nextRules.push(rule)
+  })
+  if (nextRules.length !== ruleRows.value.length) {
+    ruleRows.value = sortRules(nextRules)
+  }
+  return targetKeys
+    .map((key) => ruleByKey.get(key))
+    .filter((rule): rule is BatchRecordReportCellRuleVO => Boolean(rule))
+}
+
+const removeRuleCellsForKeys = (keys: string[]) => {
+  const targetKeys = new Set(keys)
+  if (!targetKeys.size) return
+  ruleRows.value = ruleRows.value.filter((rule) => !targetKeys.has(ruleIdentity(rule)))
+  assistRows.value = orderAssistGridRows(
+    assistRows.value.filter((row) =>
+      row.fields.every((field) => !targetKeys.has(cellIdentity(field.rowIndex, field.columnIndex)))
+    )
+  )
+  syncAssistAssignmentsWithRows()
+  ensureSelectedAssistSubjectStillExists()
+  ensureSelectedAssistGridCellStillExists()
+}
+
+const resolveRangeSelectedRuleKeys = (startKey: string, endCell: RuleEditorCell) => {
+  const startCell = findRenderedCellByIdentity(startKey)
+  if (!startCell) return [endCell.identity]
+  const minRowIndex = Math.min(startCell.rowIndex, endCell.rowIndex)
+  const maxRowIndex = Math.max(startCell.rowIndex, endCell.rowIndex)
+  const minColumnIndex = Math.min(startCell.columnIndex, endCell.columnIndex)
+  const maxColumnIndex = Math.max(startCell.columnIndex, endCell.columnIndex)
+  return renderedRows.value.flatMap((row) =>
+    row.cells
+      .filter(
+        (cell) =>
+          cell.rowIndex >= minRowIndex &&
+          cell.rowIndex <= maxRowIndex &&
+          cell.columnIndex >= minColumnIndex &&
+          cell.columnIndex <= maxColumnIndex
+      )
+      .map((cell) => cell.identity)
+  )
+}
+
+const selectRuleCell = (cell: RuleEditorCell, event?: MouseEvent) => {
+  if (event?.shiftKey && selectedRuleKey.value) {
+    setSelectedRuleKeys(resolveRangeSelectedRuleKeys(selectedRuleKey.value, cell))
+    selectedRuleKey.value = cell.identity
+    return
+  }
+  if (event?.ctrlKey || event?.metaKey) {
+    const nextKeys = new Set(selectedRuleKeys.value)
+    if (nextKeys.has(cell.identity) && nextKeys.size > 1) {
+      nextKeys.delete(cell.identity)
+      selectedRuleKey.value = Array.from(nextKeys).at(-1) || ''
+    } else {
+      nextKeys.add(cell.identity)
+      selectedRuleKey.value = cell.identity
+    }
+    setSelectedRuleKeys(nextKeys)
+    return
+  }
   selectedRuleKey.value = cell.identity
+  setSelectedRuleKeys([cell.identity])
 }
 
 const enableSelectedCellRule = () => {
   const cell = selectedCell.value
-  if (!cell || ruleMap.value.has(cell.identity)) return
-  ruleRows.value = sortRules([...ruleRows.value, buildManualRuleFromCell(cell)])
+  if (!cell) return
+  ensureRulesForKeys([cell.identity])
   selectedRuleKey.value = cell.identity
-}
-
-const disableSelectedCellRule = () => {
-  const key = selectedRuleKey.value
-  if (!key || !ruleMap.value.has(key)) return
-  ruleRows.value = ruleRows.value.filter((rule) => ruleIdentity(rule) !== key)
-  assistRows.value = orderAssistGridRows(
-    assistRows.value.filter((row) =>
-      row.fields.every((field) => cellIdentity(field.rowIndex, field.columnIndex) !== key)
-    )
-  )
-  syncAssistAssignmentsWithRows()
-  selectedRuleKey.value = key
+  setSelectedRuleKeys([...selectedRuleKeys.value, cell.identity])
 }
 
 const selectAssistResponsibilitySubject = (subjectKey: string) => {
@@ -1544,6 +1835,51 @@ const removeAssistGridCellMapping = (cellKey = selectedAssistGridCellKey.value) 
   syncAssistAssignmentsWithRows()
 }
 
+const resolveMappedRuleKeys = (ruleKeys: string[]) =>
+  new Set(ruleKeys.filter((key) => sourceCellGridAssignmentMap.value.has(key)))
+
+const resolveMappedSelectedRuleKeys = () => resolveMappedRuleKeys(selectedRuleKeyList.value)
+
+const clearAssistMappingsForRuleKeys = (ruleKeys: Set<string>) => {
+  if (!ruleKeys.size) return
+  const removedRowKeys = new Set<string>()
+  assistRows.value = orderAssistGridRows(
+    assistRows.value.filter((row) => {
+      const shouldRemove = row.fields.some((field) =>
+        ruleKeys.has(cellIdentity(field.rowIndex, field.columnIndex))
+      )
+      if (shouldRemove) removedRowKeys.add(row.rowKey)
+      return !shouldRemove
+    })
+  )
+  removedRowKeys.forEach((rowKey) => {
+    delete assistAssignments[rowKey]
+  })
+  syncAssistAssignmentsWithRows()
+  ensureSelectedAssistSubjectStillExists()
+  ensureSelectedAssistGridCellStillExists()
+}
+
+const requestBatchMappingConflictResolution = (
+  valueType: BatchRecordReportCellValueType,
+  mappedRuleKeys: Set<string>
+) =>
+  new Promise<BatchMappingConflictAction>((resolve) => {
+    pendingBatchValueType.value = valueType
+    pendingBatchMappedRuleKeys.value = new Set(mappedRuleKeys)
+    pendingBatchMappingConflictResolver = resolve
+    batchMappingConflictDialogVisible.value = true
+  })
+
+const resolveBatchMappingConflict = (action: BatchMappingConflictAction) => {
+  batchMappingConflictDialogVisible.value = false
+  const resolver = pendingBatchMappingConflictResolver
+  pendingBatchMappingConflictResolver = null
+  pendingBatchValueType.value = undefined
+  pendingBatchMappedRuleKeys.value = new Set()
+  resolver?.(action)
+}
+
 const buildAssistGridCellDescription = (cell: RuleEditorCell) => {
   const rule = ruleMap.value.get(cell.identity)
   return String(rule?.helpText || rule?.label || cell.text || '辅助填写项').trim()
@@ -1553,6 +1889,7 @@ const selectLinkedAssistGridCellForSourceCell = (cell: RuleEditorCell) => {
   const linkedAssignment = sourceCellGridAssignmentMap.value.get(cell.identity)
   if (!linkedAssignment) return false
   selectedRuleKey.value = cell.identity
+  setSelectedRuleKeys([cell.identity])
   selectedAssistSubjectKey.value = linkedAssignment.subjectKey
   selectedAssistGridCellKey.value = linkedAssignment.rowKey
   return true
@@ -1571,6 +1908,7 @@ const mapSourceCellToSelectedAssistGridCell = (cell: RuleEditorCell) => {
     return true
   }
   selectedRuleKey.value = cell.identity
+  setSelectedRuleKeys([cell.identity])
   if (!selectedRule.value) {
     enableSelectedCellRule()
   }
@@ -1593,26 +1931,149 @@ const mapSourceCellToSelectedAssistGridCell = (cell: RuleEditorCell) => {
   return true
 }
 
-const handleSourceCellClick = (cell: RuleEditorCell) => {
+const handleSourceCellClick = (cell: RuleEditorCell, event?: MouseEvent) => {
   if (mapSourceCellToSelectedAssistGridCell(cell)) return
-  selectRuleCell(cell)
+  selectRuleCell(cell, event)
 }
 
-const isSelectedCellFillable = computed({
-  get: () => Boolean(selectedRule.value),
-  set: (value: boolean) => {
-    if (value) {
-      enableSelectedCellRule()
-      return
-    }
-    disableSelectedCellRule()
-  }
+const resolveSelectedPropertyTargetKeys = () => {
+  const rawKeys =
+    selectedRuleKeys.value.size > 1
+      ? selectedRuleKeyList.value
+      : selectedRuleKey.value
+        ? [selectedRuleKey.value]
+      : selectedRuleKeyList.value
+  return Array.from(new Set(rawKeys)).filter((key) => Boolean(findRenderedCellByIdentity(key)))
+}
+
+const selectedPropertyTargetKeys = computed(() => resolveSelectedPropertyTargetKeys())
+
+const selectedPropertyRules = computed(() =>
+  selectedPropertyTargetKeys.value
+    .map((key) => ruleMap.value.get(key))
+    .filter((rule): rule is BatchRecordReportCellRuleVO => Boolean(rule))
+)
+
+const isSelectedPropertyFillable = computed(() => {
+  const targetKeys = selectedPropertyTargetKeys.value
+  return targetKeys.length > 0 && targetKeys.every((key) => ruleMap.value.has(key))
 })
 
-const handleSelectedValueTypeChange = (value: BatchRecordReportCellValueType) => {
-  if (!selectedRule.value) return
-  selectedRule.value.componentFlag = cellRuleDefaultComponentMap[value]
-  selectedRule.value.constraints = cleanedRuleConstraints(selectedRule.value.constraints, value)
+const isSelectedPropertyRequired = computed(() => {
+  const targetKeys = selectedPropertyTargetKeys.value
+  return (
+    targetKeys.length > 0 &&
+    selectedPropertyRules.value.length === targetKeys.length &&
+    selectedPropertyRules.value.every((rule) => Boolean(rule.required))
+  )
+})
+
+const selectedPropertyValueType = computed(() => {
+  const targetKeys = selectedPropertyTargetKeys.value
+  const rules = selectedPropertyRules.value
+  if (!targetKeys.length || rules.length !== targetKeys.length) return undefined
+  const firstValueType = rules[0].valueType
+  return rules.every((rule) => rule.valueType === firstValueType) ? firstValueType : undefined
+})
+
+const selectedPropertyComponentFlag = computed(() => {
+  const targetKeys = selectedPropertyTargetKeys.value
+  const rules = selectedPropertyRules.value
+  if (!targetKeys.length || rules.length !== targetKeys.length) return undefined
+  const firstComponentFlag = rules[0].componentFlag
+  return rules.every((rule) => rule.componentFlag === firstComponentFlag)
+    ? firstComponentFlag
+    : undefined
+})
+
+const normalizeSwitchValue = (value: boolean | string | number) =>
+  value === true || value === 'true' || value === 1 || value === '1'
+
+const setSelectedRulesFillable = (value: boolean) => {
+  const targetKeys = resolveSelectedPropertyTargetKeys()
+  if (!targetKeys.length) return
+  if (value) {
+    ensureRulesForKeys(targetKeys)
+    setSelectedRuleKeys(targetKeys)
+    return
+  }
+  removeRuleCellsForKeys(targetKeys)
+  setSelectedRuleKeys(targetKeys)
+}
+
+const handleSelectedFillableChange = (value: boolean | string | number) => {
+  setSelectedRulesFillable(normalizeSwitchValue(value))
+}
+
+const applyValueTypeToRule = (
+  rule: BatchRecordReportCellRuleVO,
+  value: BatchRecordReportCellValueType
+) => {
+  rule.valueType = value
+  rule.componentFlag = cellRuleDefaultComponentMap[value]
+  rule.constraints = cleanedRuleConstraints(rule.constraints, value)
+}
+
+const setSelectedRulesRequired = (value: boolean) => {
+  const selectedRules = ensureRulesForKeys(resolveSelectedPropertyTargetKeys())
+  selectedRules.forEach((rule) => {
+    rule.required = value
+  })
+}
+
+const handleSelectedRequiredChange = (value: boolean | string | number) => {
+  setSelectedRulesRequired(normalizeSwitchValue(value))
+}
+
+const setSelectedRulesComponentFlag = (value: string) => {
+  const componentFlag = String(value || '').trim()
+  if (!componentFlag) return
+  const selectedRules = ensureRulesForKeys(resolveSelectedPropertyTargetKeys())
+  selectedRules.forEach((rule) => {
+    rule.componentFlag = componentFlag
+  })
+}
+
+const handleSelectedComponentFlagChange = (value: string) => {
+  setSelectedRulesComponentFlag(value)
+}
+
+const handleBatchComponentFlagChange = (value: string) => {
+  setSelectedRulesComponentFlag(value)
+}
+
+const applyValueTypeToRuleKeys = async (
+  targetKeys: string[],
+  value: BatchRecordReportCellValueType,
+  mappedRuleKeys = resolveMappedRuleKeys(targetKeys)
+) => {
+  const uniqueTargetKeys = Array.from(new Set(targetKeys)).filter((key) =>
+    Boolean(findRenderedCellByIdentity(key))
+  )
+  if (!uniqueTargetKeys.length) return []
+  if (uniqueTargetKeys.length > 1 && mappedRuleKeys.size > 0) {
+    const action = await requestBatchMappingConflictResolution(value, mappedRuleKeys)
+    if (action === 'cancel') return []
+    if (action === 'clear') {
+      clearAssistMappingsForRuleKeys(mappedRuleKeys)
+    }
+  }
+  const selectedRules = ensureRulesForKeys(uniqueTargetKeys)
+  selectedRules.forEach((rule) => applyValueTypeToRule(rule, value))
+  if (uniqueTargetKeys.length > 1) {
+    message.success(`已将 ${selectedRules.length} 个单元格设置为${resolveBatchValueTypeLabel(value)}`)
+  }
+  return selectedRules
+}
+
+const handleBatchValueTypeChange = async (value: BatchRecordReportCellValueType) => {
+  if (selectedRuleKeys.value.size <= 1) return
+  const mappedRuleKeys = resolveMappedSelectedRuleKeys()
+  await applyValueTypeToRuleKeys(selectedRuleKeyList.value, value, mappedRuleKeys)
+}
+
+const handleSelectedValueTypeChange = async (value: BatchRecordReportCellValueType) => {
+  await applyValueTypeToRuleKeys(resolveSelectedPropertyTargetKeys(), value)
 }
 
 const ensureSelectedRuleConstraints = () => {
@@ -1718,12 +2179,12 @@ const removeSelectedStringOption = (optionIndex: number) => {
 
 const normalizedAssistRowsForSave = () => {
   if (ruleRows.value.length === 0) return []
-  if (assistResponsibilitySubjects.value.length === 0) {
-    throw new Error('请先添加至少一个辅助表格责任主体。')
-  }
   const rows = orderAssistGridRows(normalizeAssistRows(assistRows.value))
   if (rows.length === 0) {
-    throw new Error('请先在辅助表格中完成原表单元格映射。')
+    return []
+  }
+  if (assistResponsibilitySubjects.value.length === 0) {
+    throw new Error('请先添加至少一个辅助表格责任主体。')
   }
   const assignedCellKeys = new Set<string>()
   rows.forEach((row, rowIndex) => {
@@ -1843,7 +2304,6 @@ const formalizeDetectedCells = async () => {
     markEditableStateClean()
     emit('confirmed', data)
     message.success('可映射格子已正式化')
-    dialogVisible.value = false
   } catch (error) {
     const resolved = resolveErrorMessage(error, '正式化可映射格子失败，请联系管理员。')
     errorMessage.value = resolved
@@ -1862,22 +2322,28 @@ const confirmAllRules = async () => {
   try {
     validateRuleRowsBeforeSave()
     const assistRowsForSave = normalizedAssistRowsForSave()
+    const hasAssistRowsForSave = assistRowsForSave.length > 0
     const data = await BatchRecordReportApi.saveCellRules({
       reportId: reportId.value,
       rules: ruleRows.value.map(toManualReviewedRule),
-      assistRows: assistRowsForSave,
-      assistGridRowCount: normalizeAssistGridSizeValue(assistGridRowCount.value),
-      assistGridColumnCount: normalizeAssistGridSizeValue(assistGridColumnCount.value)
+      ...(hasAssistRowsForSave
+        ? {
+            assistRows: assistRowsForSave,
+            assistGridRowCount: normalizeAssistGridSizeValue(assistGridRowCount.value),
+            assistGridColumnCount: normalizeAssistGridSizeValue(assistGridColumnCount.value)
+          }
+        : {})
     })
-    await EdhrProcessFormPermissionRuleApi.saveByReport({
-      batchRecordReportId: reportId.value,
-      fillAssignments: normalizedAssistAssignmentsForSave(assistRowsForSave)
-    })
+    if (hasAssistRowsForSave) {
+      await EdhrProcessFormPermissionRuleApi.saveByReport({
+        batchRecordReportId: reportId.value,
+        fillAssignments: normalizedAssistAssignmentsForSave(assistRowsForSave)
+      })
+    }
     applyCellRulesResponse(data)
     markEditableStateClean()
     emit('confirmed', data)
     message.success('填写配置已保存')
-    dialogVisible.value = false
   } catch (error) {
     const resolved = resolveErrorMessage(error, '填写规则确认失败，请联系管理员。')
     errorMessage.value = resolved
@@ -2209,12 +2675,13 @@ watch(
   min-width: 72px;
   border: 1px solid #cfd8e6;
   background: #fff;
+  cursor: pointer;
   padding: 0;
   vertical-align: stretch;
 }
 
 .batch-record-cell-rules-editor__cell.is-empty {
-  background: #fbfcfe;
+  background: #fff;
 }
 
 .batch-record-cell-rules-editor__cell.is-rule {
@@ -2229,9 +2696,55 @@ watch(
   background: #eff6ff;
 }
 
+.batch-record-cell-rules-editor__cell.is-rule.is-rule-type-text {
+  background: #dbeafe;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule.is-rule-type-number {
+  background: #ecfdf5;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule.is-rule-type-date {
+  background: #eff6ff;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule.is-rule-type-datetime {
+  background: #f0fdfa;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule.is-rule-type-select {
+  background: #fffbeb;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule.is-rule-type-radio {
+  background: #f5f3ff;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule.is-rule-type-checkbox {
+  background: #f0f9ff;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule.is-rule-type-signature {
+  background: #fff1f2;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule.is-rule-type-attachment {
+  background: #fff7ed;
+}
+
 .batch-record-cell-rules-editor__cell.is-selected {
   outline: 2px solid #2563eb;
   outline-offset: -2px;
+}
+
+.batch-record-cell-rules-editor__cell.is-multi-selected {
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.28), 0 0 0 1px rgba(37, 99, 235, 0.2);
+}
+
+.batch-record-cell-rules-editor__cell.is-active-selected {
+  outline: 3px solid #1d4ed8;
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 1px #bfdbfe, 0 0 0 1px rgba(29, 78, 216, 0.24);
 }
 
 .batch-record-cell-rules-editor__workspace--assist-mapping .batch-record-cell-rules-editor__cell.is-selected {
@@ -2239,14 +2752,24 @@ watch(
   box-shadow: inset 0 0 0 1px #16a34a;
 }
 
+.batch-record-cell-rules-editor__workspace--assist-mapping .batch-record-cell-rules-editor__cell.is-active-selected {
+  outline-color: #15803d;
+  box-shadow: inset 0 0 0 1px #bbf7d0, 0 0 0 1px rgba(21, 128, 61, 0.24);
+}
+
 .batch-record-cell-rules-editor__cell.is-assist-mapped {
   background: #e5e7eb;
   color: #7a8291;
 }
 
+.batch-record-cell-rules-editor__cell:not(.is-rule) {
+  background: #fff;
+}
+
 .batch-record-cell-rules-editor__cell-button {
   display: flex;
   width: 100%;
+  height: 100%;
   min-height: 100%;
   align-items: stretch;
   justify-content: space-between;
@@ -2262,6 +2785,10 @@ watch(
 
 .batch-record-cell-rules-editor__cell-button:hover {
   background: rgba(37, 99, 235, 0.08);
+}
+
+.batch-record-cell-rules-editor__cell:not(.is-rule) .batch-record-cell-rules-editor__cell-button:hover {
+  background: transparent;
 }
 
 .batch-record-cell-rules-editor__cell-button:disabled {
@@ -2306,6 +2833,7 @@ watch(
   flex: 0 0 auto;
 }
 
+.batch-record-cell-rules-editor__batch-control,
 .batch-record-cell-rules-editor__assist-grid-control,
 .batch-record-cell-rules-editor__assist-filler-control {
   display: flex;
@@ -2315,6 +2843,23 @@ watch(
   border: 1px solid #b9d7ff;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.66);
+}
+
+.batch-record-cell-rules-editor__batch-control {
+  border-color: #a7c7ff;
+  background: #f6faff;
+}
+
+.batch-record-cell-rules-editor__batch-control-head strong {
+  color: #123b72;
+  font-size: 13px;
+}
+
+.batch-record-cell-rules-editor__batch-control-head p {
+  margin: 4px 0 0;
+  color: #31547c;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .batch-record-cell-rules-editor__assist-grid-control-head strong {
@@ -2491,6 +3036,13 @@ watch(
   max-width: 220px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.batch-record-cell-rules-editor__mapping-conflict-text {
+  margin: 0;
+  color: #344054;
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 @media (max-width: 1180px) {

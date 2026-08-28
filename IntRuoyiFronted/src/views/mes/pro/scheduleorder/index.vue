@@ -446,7 +446,7 @@
                         type="success"
                         @click="openManualFinishDialog(row)"
                       >
-                        强制完成
+                        完成
                       </el-button>
                       <el-button
                         v-if="row.manualFinished"
@@ -456,7 +456,7 @@
                         :title="buildManualFinishTooltip(row)"
                         @click="openRevokeManualFinishDialog(row)"
                       >
-                        撤销强制完成
+                        撤销完成
                       </el-button>
                     </div>
                   </template>
@@ -993,7 +993,7 @@
     <Dialog
       v-model="manualFinishDialogVisible"
       :title="
-        manualFinishDialogMode === 'MANUAL_FINISH' ? '排产工单强制完成' : '撤销排产工单强制完成'
+        manualFinishDialogMode === 'MANUAL_FINISH' ? '排产工单完成' : '撤销排产工单完成'
       "
       width="460px"
     >
@@ -1003,7 +1003,7 @@
         type="warning"
         :closable="false"
         show-icon
-        title="这是有权限人员执行的强制关闭操作。强制完成后汇总按 100% 展示，真实工序进度仍保留，可撤销。"
+        title="这是有权限人员执行的完成操作。完成后汇总按 100% 展示，真实工序进度仍保留，可撤销。"
       />
       <el-alert
         v-else
@@ -1021,7 +1021,7 @@
           <span>{{ manualFinishTarget?.erpWorkOrderCode || '-' }}</span>
         </el-form-item>
         <el-form-item
-          :label="manualFinishDialogMode === 'MANUAL_FINISH' ? '强制完成原因' : '撤销强制完成原因'"
+          :label="manualFinishDialogMode === 'MANUAL_FINISH' ? '完成原因' : '撤销完成原因'"
         >
           <el-input
             v-model="manualFinishReason"
@@ -1030,8 +1030,8 @@
             maxlength="500"
             :placeholder="
               manualFinishDialogMode === 'MANUAL_FINISH'
-                ? '请填写强制完成原因'
-                : '请填写撤销强制完成原因'
+                ? '请填写完成原因'
+                : '请填写撤销完成原因'
             "
           />
         </el-form-item>
@@ -1043,7 +1043,7 @@
           :loading="manualFinishSaving"
           @click="submitManualFinishAction"
         >
-          {{ manualFinishDialogMode === 'MANUAL_FINISH' ? '强制完成' : '撤销强制完成' }}
+          {{ manualFinishDialogMode === 'MANUAL_FINISH' ? '完成' : '撤销完成' }}
         </el-button>
       </template>
     </Dialog>
@@ -1261,7 +1261,7 @@
         type="warning"
         :closable="false"
         show-icon
-        title="该工单已由有权限人员强制关闭；汇总按 100% 展示，以下工序仍保留真实进度，可撤销强制完成。"
+        title="该工单已由有权限人员完成；汇总按 100% 展示，以下工序仍保留真实进度，可撤销完成。"
       />
       <UnifiedListTemplate
         table-key="mes.pro.scheduleOrder.processRoute"
@@ -3669,15 +3669,15 @@ const submitManualFinishAction = async () => {
   if (!manualFinishReason.value.trim()) {
     message.warning(
       manualFinishDialogMode.value === 'MANUAL_FINISH'
-        ? '强制完成原因不能为空'
-        : '撤销强制完成原因不能为空'
+        ? '完成原因不能为空'
+        : '撤销完成原因不能为空'
     )
     return
   }
   const confirmText =
     manualFinishDialogMode.value === 'MANUAL_FINISH'
-      ? '确认强制完成该排产工单吗？这是有权限人员执行的强制关闭操作；强制完成后汇总按 100% 展示，真实工序进度仍保留，可撤销。'
-      : '确认撤销该排产工单的强制完成吗？撤销后将根据真实工序进度恢复汇总状态。'
+      ? '确认完成该排产工单吗？这是有权限人员执行的完成操作；完成后汇总按 100% 展示，真实工序进度仍保留，可撤销。'
+      : '确认撤销该排产工单的完成状态吗？撤销后将根据真实工序进度恢复汇总状态。'
   await message.confirm(confirmText)
   manualFinishSaving.value = true
   try {
@@ -3686,13 +3686,13 @@ const submitManualFinishAction = async () => {
         id: manualFinishTarget.value.id,
         reason: manualFinishReason.value
       })
-      message.success('排产工单已强制完成')
+      message.success('排产工单已完成')
     } else {
       await MesProScheduleOrderApi.revokeManualFinishScheduleOrder({
         id: manualFinishTarget.value.id,
         reason: manualFinishReason.value
       })
-      message.success('排产工单已撤销强制完成')
+      message.success('排产工单已撤销完成')
     }
     manualFinishDialogVisible.value = false
     await getScheduleOrderList()
@@ -3723,10 +3723,10 @@ const operationTraceFieldLabelMap: Record<string, string> = {
   frozenTime: '冻结时间',
   frozenBy: '冻结人',
   freezeReason: '冻结原因',
-  manualFinished: '强制完成',
-  manualFinishedTime: '强制完成时间',
-  manualFinishedBy: '强制完成人',
-  manualFinishedReason: '强制完成原因',
+  manualFinished: '完成',
+  manualFinishedTime: '完成时间',
+  manualFinishedBy: '完成人',
+  manualFinishedReason: '完成原因',
   status: '状态',
   remark: '备注'
 }
@@ -3861,6 +3861,9 @@ const getScheduleOrderRowClassName = ({ row }: { row: MesProScheduleOrderVO }) =
 
 const getScheduleOrderReplanBlockReason = (row: MesProScheduleOrderVO) => {
   if (row.frozen) return '已冻结'
+  const sourceWorkOrderStatus = Number(row.sourceWorkOrderStatus)
+  if (sourceWorkOrderStatus === MesProWorkOrderStatusEnum.FINISHED) return '生产工单已完成'
+  if (sourceWorkOrderStatus === MesProWorkOrderStatusEnum.CANCELED) return '生产工单已取消'
   if (Number(row.status) === SCHEDULE_ORDER_STATUS_FINISHED) return '已完成'
   if (Number(row.status) === SCHEDULE_ORDER_STATUS_CANCELED) return '已取消'
   return '不满足重排条件'
@@ -3868,10 +3871,13 @@ const getScheduleOrderReplanBlockReason = (row: MesProScheduleOrderVO) => {
 
 const isScheduleOrderReplanable = (row: MesProScheduleOrderVO) => {
   const status = Number(row.status)
+  const sourceWorkOrderStatus = Number(row.sourceWorkOrderStatus)
   return (
     !row.frozen &&
     status !== SCHEDULE_ORDER_STATUS_FINISHED &&
-    status !== SCHEDULE_ORDER_STATUS_CANCELED
+    status !== SCHEDULE_ORDER_STATUS_CANCELED &&
+    sourceWorkOrderStatus !== MesProWorkOrderStatusEnum.FINISHED &&
+    sourceWorkOrderStatus !== MesProWorkOrderStatusEnum.CANCELED
   )
 }
 
@@ -4572,8 +4578,8 @@ const isDeliveryRisk = (row: MesProScheduleOrderVO) => Boolean(getDeliveryRiskTe
 
 const buildManualFinishTooltip = (row: MesProScheduleOrderVO) => {
   return [
-    row.manualFinishedTime ? `强制完成时间：${formatDateTime(row.manualFinishedTime)}` : '',
-    row.manualFinishedReason ? `强制完成原因：${row.manualFinishedReason}` : ''
+    row.manualFinishedTime ? `完成时间：${formatDateTime(row.manualFinishedTime)}` : '',
+    row.manualFinishedReason ? `完成原因：${row.manualFinishedReason}` : ''
   ]
     .filter(Boolean)
     .join('\n')
@@ -4734,8 +4740,8 @@ const getOperationTypeText = (type: string) => {
     UNFREEZE: '解冻',
     UPDATE: '修改',
     DELETE: '删除',
-    MANUAL_FINISH: '强制完成',
-    REVOKE_MANUAL_FINISH: '撤销强制完成',
+    MANUAL_FINISH: '完成',
+    REVOKE_MANUAL_FINISH: '撤销完成',
     SYNC_PROGRESS: '同步进度'
   }
   return textMap[type] || type || '-'
@@ -4758,7 +4764,7 @@ onMounted(async () => {
 <style scoped>
 .schedule-order-pool {
   height: calc(
-    100vh - var(--top-tool-height) - var(--tags-view-height) - var(--app-footer-height) - 32px
+    100vh - var(--top-tool-height) - var(--tags-view-height) - 32px
   );
   min-height: 0;
 }

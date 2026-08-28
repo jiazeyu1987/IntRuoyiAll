@@ -30,7 +30,9 @@ class MesC015RouteDccQaReconciliationSchemaTest {
                 "bootstrap must not infer or populate product-master relationships");
         assertTrue(preflight.contains("dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_bootstrap"));
         assertTrue(backfill.contains("dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_preflight"));
-        assertTrue(schema.contains("dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_backfill"));
+        assertTrue(schema.contains("dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_bootstrap"));
+        assertFalse(schema.contains("dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_backfill"),
+                "executable schema migration must not depend on evidence-only backfill");
         assertTrue(postflight.contains("dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_schema"));
 
         assertTrue(preflight.contains("information_schema.columns"));

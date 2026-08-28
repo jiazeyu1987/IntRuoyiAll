@@ -6,14 +6,19 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.D
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeService;
+import cn.iocoder.yudao.module.infra.service.file.FileService;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 
 import javax.sql.DataSource;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -22,7 +27,6 @@ import java.time.ZoneId;
 import java.util.Map;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_VALUE_FORBIDDEN;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REVISION_CONFLICT;
@@ -31,6 +35,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 @Import({
         DccRegistrationCertificateChangeService.class,
@@ -42,6 +49,14 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     private DccRegistrationCertificateChangeService service;
     @Resource
     private JdbcTemplate jdbcTemplate;
+    @MockitoBean
+    private FileService fileService;
+
+    @BeforeEach
+    void setUpFileService() {
+        when(fileService.createFileAndReturnId(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(9002L);
+    }
 
     @Test
     void structuredChangeUpdatesOnlySelectedFieldsAndKeepsHistoryImmutable() {
@@ -60,27 +75,23 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void changeApprovalFileIsBoundToTheAppliedChangeAndNotTheVersion() {
+    void changeApprovalFileIsUploadedAndBoundToTheAppliedChange() {
         seedCurrentCertificate();
-        jdbcTemplate.update("""
-                INSERT INTO dcc_registration_certificate_file
-                  (id, tenant_id, owner_type, owner_id, file_kind, infra_file_id, original_name, mime_type,
-                   file_size, sha256, status, bound_at, bound_by)
-                VALUES (4002, 1, 'VERSION', 2001, 'CHANGE_APPROVAL', 9002, 'change.pdf',
-                        'application/pdf', 128, 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-                        'STAGED', NULL, NULL)
-                """);
 
         DccRegistrationCertificateChangeCommand command = new DccRegistrationCertificateChangeCommand(
                 1L, 99L, "change-with-file", "trace-change-with-file", 1001L, 3,
                 LocalDate.of(2026, 8, 17), Map.of("PRODUCT_NAME", "Product B"), null,
-                null, null, null, null, 4002L);
+                null, null, null, null, changeFile("change-with-file"));
 
         DccRegistrationCertificateChangeResult result = assertDoesNotThrow(() -> service.applyChange(command));
 
-        assertEquals("CHANGE", text("SELECT owner_type FROM dcc_registration_certificate_file WHERE id = 4002"));
-        assertEquals(result.changeId(), longValue("SELECT owner_id FROM dcc_registration_certificate_file WHERE id = 4002"));
-        assertEquals("BOUND", text("SELECT status FROM dcc_registration_certificate_file WHERE id = 4002"));
+        Long businessFileId = longValue("SELECT id FROM dcc_registration_certificate_file "
+                + "WHERE owner_type = 'CHANGE' AND owner_id = ? AND file_kind = 'CHANGE_APPROVAL'",
+                result.changeId());
+        assertEquals(9002L, longValue("SELECT infra_file_id FROM dcc_registration_certificate_file WHERE id = ?",
+                businessFileId));
+        assertEquals("BOUND", text("SELECT status FROM dcc_registration_certificate_file WHERE id = ?",
+                businessFileId));
     }
 
     @Test
@@ -124,13 +135,27 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
 
         assertCode(REGISTRATION_CERTIFICATE_CHANGE_VALUE_REQUIRED.getCode(), () -> service.applyChange(command(
                 "missing-product", 3, Map.of("PRODUCT_NAME", " "), null, null, null, null)));
-        assertCode(REGISTRATION_CERTIFICATE_CHANGE_VALUE_FORBIDDEN.getCode(), () -> service.applyChange(command(
-                "other-and-structured", 3, Map.of("PRODUCT_NAME", "Product B"), "仅说明", null, null, null)));
         assertCode(REGISTRATION_CERTIFICATE_CHANGE_PRODUCTION_RELATION_REQUIRED.getCode(), () -> service.applyChange(command(
                 "production-no-relation", 3, Map.of("PRODUCTION_ADDRESS", "New Production"), null, null, null, null)));
 
         assertEquals(3001L, longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id = 1001"));
         assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_change"));
+    }
+
+    @Test
+    void otherContentCanBeSubmittedWithStructuredChangesInTheSameApproval() {
+        seedCurrentCertificate();
+
+        DccRegistrationCertificateChangeResult result = assertDoesNotThrow(() -> service.applyChange(command(
+                "other-and-structured", 3, Map.of("PRODUCT_NAME", "Product B"),
+                "补充变更说明", null, null, null)));
+
+        assertEquals("Product B", text("SELECT product_name FROM dcc_registration_certificate_snapshot WHERE id = ?",
+                result.resultingSnapshotId()));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_change_item "
+                + "WHERE change_id = ? AND item_type = 'PRODUCT_NAME'", result.changeId()));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_change_item "
+                + "WHERE change_id = ? AND item_type = 'OTHER_CONTENT'", result.changeId()));
     }
 
     @Test
@@ -176,7 +201,12 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
                                                             String voidReason) {
         return new DccRegistrationCertificateChangeCommand(1L, 99L, key, "trace-" + key, 1001L, rowVersion,
                 LocalDate.of(2026, 8, 17), values, other, entrusted, entrusted == null ? null : !entrusted,
-                entrustedJson, voidReason);
+                entrustedJson, voidReason, changeFile(key));
+    }
+
+    private MockMultipartFile changeFile(String key) {
+        return new MockMultipartFile("file", key + ".pdf", "application/pdf",
+                ("change approval " + key).getBytes(StandardCharsets.UTF_8));
     }
 
     private void seedCurrentCertificate() {

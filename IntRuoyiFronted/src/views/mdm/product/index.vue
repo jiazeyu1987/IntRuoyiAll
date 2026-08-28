@@ -333,6 +333,7 @@ import {
   useTableQuickFilter,
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
+import { onActivated } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import * as ProductApi from '@/api/mdm/product'
 import type {
@@ -346,6 +347,9 @@ defineOptions({ name: 'MdmProduct' })
 
 const route = useRoute()
 const router = useRouter()
+const PRODUCT_ROUTE_PATH = '/mdm/product'
+
+const isProductRoute = () => route.path === PRODUCT_ROUTE_PATH
 
 const productQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
@@ -676,9 +680,26 @@ onMounted(() => {
   void getList()
 })
 
+let productInitialActivationHandled = false
+
+onActivated(async () => {
+  if (!isProductRoute()) {
+    return
+  }
+  if (!productInitialActivationHandled) {
+    productInitialActivationHandled = true
+    return
+  }
+  syncProductQueryFromRoute()
+  await getList()
+})
+
 watch(
-  () => route.query.productMasterId,
+  () => [route.path, route.query.productMasterId],
   async () => {
+    if (!isProductRoute()) {
+      return
+    }
     syncProductQueryFromRoute()
     await getList()
   }

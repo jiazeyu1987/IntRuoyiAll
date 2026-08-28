@@ -26,6 +26,9 @@ public class MesProScheduleOrderRespVO {
     @Schema(description = "ERP 工单编码", example = "881MO090880")
     private String erpWorkOrderCode;
 
+    @Schema(description = "来源生产工单状态", example = "1")
+    private Integer sourceWorkOrderStatus;
+
     @Schema(description = "生产用料清单数量", example = "2")
     private Integer productionMaterialListCount;
 

@@ -1,5 +1,5 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260814_mes_c015_route_dcc_qa_reconciliation_bootstrap; type=schema; riskLevel=high
--- C015 converges current-main schema after structural bootstrap; evidence-only preflight/backfill/postflight remain independent release gates.
+-- C015 converges current-main schema after bootstrap; body-level guards fail fast instead of depending on evidence-only scripts.
 
 DROP PROCEDURE IF EXISTS migrate_mes_c015_route_dcc_qa_reconciliation_schema;
 DELIMITER $$

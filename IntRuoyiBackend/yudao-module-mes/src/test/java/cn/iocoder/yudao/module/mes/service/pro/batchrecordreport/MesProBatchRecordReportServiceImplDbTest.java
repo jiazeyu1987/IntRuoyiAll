@@ -5670,6 +5670,91 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void saveCellRules_createsSignatureMarkerWhenRuleBecomesSignature() {
+        MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
+                48L, "sample-signature-cell-rule", 1, "signature-cell-rule-report-1",
+                "EBR_RULE_T05", "签名规则表", PILOT_FILE_NAME);
+        reportMapper.insert(report);
+        AtomicReference<String> reportJson = new AtomicReference<>(samplePlainCellRuleReportJson());
+        when(jimuReportGateway.getReportJson("signature-cell-rule-report-1")).thenAnswer(invocation -> reportJson.get());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            reportJson.set(invocation.getArgument(1));
+            return null;
+        }).when(jimuReportGateway).updateReportJson(eq("signature-cell-rule-report-1"), any());
+
+        BatchRecordReportCellRulesRespVO saved = reportService.saveCellRules(new BatchRecordReportCellRulesReqVO()
+                .setReportId("signature-cell-rule-report-1")
+                .setRules(List.of(new BatchRecordReportCellRuleVO()
+                        .setRowIndex(0)
+                        .setColumnIndex(1)
+                        .setValueType("SIGNATURE")
+                        .setComponentFlag("signature")
+                        .setRequired(false)
+                        .setLabel("操作人签名")
+                        .setSource("MANUAL")
+                        .setConfidence(1.0)
+                        .setReviewed(true))));
+
+        assertEquals(1, saved.getRules().size());
+        JSONObject savedCell = JSONObject.parseObject(reportJson.get())
+                .getJSONObject("rows").getJSONObject("0").getJSONObject("cells").getJSONObject("1");
+        assertEquals("SIGNATURE", savedCell.getJSONObject("edhrCellRule").getString("valueType"));
+        JSONObject signature = savedCell.getJSONObject("edhrSignature");
+        assertNotNull(signature);
+        assertEquals(true, signature.getBoolean("enabled"));
+        assertEquals("FORM_REVIEW", signature.getString("actionType"));
+        assertEquals("操作人签名", signature.getString("label"));
+        assertEquals("R0C1", signature.getString("signatureCellKey"));
+        assertEquals("ACTOR_SIGNED_AT", signature.getString("displayFormat"));
+    }
+
+    @Test
+    void saveCellRules_removesSignatureMarkerWhenRuleChangesBackToPlainType() {
+        MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
+                49L, "sample-signature-to-number-rule", 1, "sig-to-num-rule-report-1",
+                "EBR_RULE_T06", "签名改数字规则表", PILOT_FILE_NAME);
+        reportMapper.insert(report);
+        AtomicReference<String> reportJson = new AtomicReference<>(samplePlainCellRuleReportJson());
+        when(jimuReportGateway.getReportJson("sig-to-num-rule-report-1")).thenAnswer(invocation -> reportJson.get());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            reportJson.set(invocation.getArgument(1));
+            return null;
+        }).when(jimuReportGateway).updateReportJson(eq("sig-to-num-rule-report-1"), any());
+
+        reportService.saveCellRules(new BatchRecordReportCellRulesReqVO()
+                .setReportId("sig-to-num-rule-report-1")
+                .setRules(List.of(new BatchRecordReportCellRuleVO()
+                        .setRowIndex(0)
+                        .setColumnIndex(1)
+                        .setValueType("SIGNATURE")
+                        .setComponentFlag("signature")
+                        .setLabel("复核签名")
+                        .setSource("MANUAL")
+                        .setConfidence(1.0)
+                        .setReviewed(true))));
+
+        BatchRecordReportCellRulesRespVO saved = reportService.saveCellRules(new BatchRecordReportCellRulesReqVO()
+                .setReportId("sig-to-num-rule-report-1")
+                .setRules(List.of(new BatchRecordReportCellRuleVO()
+                        .setRowIndex(0)
+                        .setColumnIndex(1)
+                        .setValueType("NUMBER")
+                        .setComponentFlag("input-number")
+                        .setLabel("复核数量")
+                        .setConstraints(Map.of("min", 0))
+                        .setSource("MANUAL")
+                        .setConfidence(1.0)
+                        .setReviewed(true))));
+
+        assertEquals(1, saved.getRules().size());
+        JSONObject savedCell = JSONObject.parseObject(reportJson.get())
+                .getJSONObject("rows").getJSONObject("0").getJSONObject("cells").getJSONObject("1");
+        assertTrue(!savedCell.containsKey("edhrSignature"));
+        assertEquals("NUMBER", savedCell.getJSONObject("edhrCellRule").getString("valueType"));
+        assertEquals("input-number", savedCell.getJSONObject("fillForm").getString("componentFlag"));
+    }
+
+    @Test
     void getCellRulesAndSignatureMarkers_returnRenderableSheetLayoutJson() {
         MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
                 45L, "sample-renderable-layout", 1, "renderable-layout-report-1", "EBR_LAYOUT_T01",

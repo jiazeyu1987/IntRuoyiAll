@@ -22,10 +22,12 @@ export type TemplateRawLayout = {
 
 export type TemplateSimulationComponentKind =
   | 'text'
+  | 'textarea'
   | 'number'
   | 'date'
   | 'datetime'
   | 'checkbox'
+  | 'radio'
   | 'select'
   | 'signature'
   | 'attachment'
@@ -279,6 +281,12 @@ export const resolveTemplateRuleTypeBadge = (
   if (context.componentKind === 'signature') {
     return templateRuleTypeBadgeMap.SIGNATURE
   }
+  if (context.componentKind === 'radio') {
+    return { label: '单选', symbol: '单', tone: 'radio' }
+  }
+  if (context.componentKind === 'select') {
+    return { label: '下拉', symbol: '选', tone: 'select' }
+  }
   return templateRuleTypeBadgeMap[context.valueType] || templateRuleTypeBadgeMap.STRING
 }
 
@@ -343,12 +351,11 @@ const resolveTemplateSimulationComponentKind = (
   rule: BatchRecordReportCellRuleVO,
   marker?: BatchRecordReportSignatureCellMarkerVO
 ): TemplateSimulationComponentKind => {
-  if (marker?.enabled || rule.valueType === 'SIGNATURE') {
-    return 'signature'
-  }
   const rawComponent = String(rule.componentFlag || '').toLowerCase()
-  if (rawComponent === 'select') {
-    return 'select'
+  const selectionMode = String(rule.constraints?.selectionMode || '').trim().toLowerCase()
+  const options = cleanedSelectOptions(rule.constraints?.options)
+  if (marker?.enabled || rule.valueType === 'SIGNATURE' || rawComponent.includes('signature')) {
+    return 'signature'
   }
   if (
     rawComponent.includes('upload-file') ||
@@ -358,6 +365,41 @@ const resolveTemplateSimulationComponentKind = (
     cleanedAttachmentRule(rule.attachmentRule)
   ) {
     return 'attachment'
+  }
+  if (
+    rawComponent.includes('radio-group') ||
+    rawComponent.includes('radio') ||
+    rawComponent.includes('option-group') ||
+    rawComponent.includes('single-choice')
+  ) {
+    return 'radio'
+  }
+  if (
+    rawComponent.includes('select') ||
+    rawComponent.includes('dropdown') ||
+    selectionMode === 'single' ||
+    options.length > 0
+  ) {
+    return 'select'
+  }
+  if (
+    rawComponent.includes('checkbox') ||
+    rawComponent.includes('switch') ||
+    selectionMode === 'multiple'
+  ) {
+    return 'checkbox'
+  }
+  if (rawComponent.includes('textarea') || rawComponent.includes('multiline')) {
+    return 'textarea'
+  }
+  if (rawComponent.includes('number') || rawComponent.includes('digit') || rawComponent.includes('decimal')) {
+    return 'number'
+  }
+  if (rawComponent.includes('datetime') || rawComponent.includes('date-time')) {
+    return 'datetime'
+  }
+  if (rawComponent === 'date' || rawComponent.includes('date-picker')) {
+    return 'date'
   }
   return templateSimulationComponentMap[rule.valueType] || 'text'
 }

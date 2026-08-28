@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.scheduleorder;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
+import com.fasterxml.jackson.databind.JsonNode;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
@@ -194,6 +195,10 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     private static final String ROUTE_EDIT_TARGET = "MesProRouteEdit";
     private static final String PERMISSION_CALENDAR_UPDATE = "mes:pro-schedule-calendar:update";
     private static final BigDecimal DEFAULT_PRODUCTION_QUANTITY_FACTOR = new BigDecimal("1.000000");
+    private static final String OPERATION_AUTO_APPLY = "AUTO_APPLY";
+    private static final String OPERATION_REPLAN_APPLY = "REPLAN_APPLY";
+    private static final List<String> PROCESS_WIP_APPLY_OPERATION_TYPES =
+            List.of(OPERATION_AUTO_APPLY, OPERATION_REPLAN_APPLY);
 
     @Resource
     private MesProScheduleOrderMapper scheduleOrderMapper;
@@ -1534,10 +1539,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     @Override
     public List<MesProScheduleOrderProcessWipRespVO> getProcessWipStatistics() {
-        List<MesProScheduleOrderDO> scheduleOrders = scheduleOrderMapper.selectListForProcessWip().stream()
-                .filter(order -> !Boolean.TRUE.equals(order.getFrozen()))
-                .filter(order -> !Boolean.TRUE.equals(order.getManualFinished()))
-                .toList();
+        List<MesProScheduleOrderDO> scheduleOrders = selectLatestProcessWipScheduleOrders();
         if (CollUtil.isEmpty(scheduleOrders)) {
             return Collections.emptyList();
         }
@@ -1697,13 +1699,78 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void saveProcessWipSettings(MesProScheduleOrderProcessWipSettingsReqVO reqVO) {
-        validateOperationReason(reqVO.getReason());
-        List<MesProScheduleOrderDO> scheduleOrders = scheduleOrderMapper.selectListForProcessWip().stream()
+    public Set<Long> getLatestSuccessfulApplyScheduleOrderIds() {
+        MesProScheduleOrderOperationLogDO latestLog = scheduleOrderOperationLogMapper.selectLatestByOperationTypes(
+                PROCESS_WIP_APPLY_OPERATION_TYPES);
+        if (latestLog == null) {
+            return Collections.emptySet();
+        }
+        if (StrUtil.isBlank(latestLog.getAfterSnapshotJson())) {
+            throw new IllegalStateException("最近一次成功排产日志缺少工单范围快照，operationLogId=" + latestLog.getId());
+        }
+        Set<Long> scheduleOrderIds = new LinkedHashSet<>();
+        collectScheduleOrderIdsFromLatestApplySnapshot(latestLog.getAfterSnapshotJson(), scheduleOrderIds);
+        List<MesProScheduleOrderOperationLogDO> applyLogs =
+                scheduleOrderOperationLogMapper.selectListByOperationTypeAndAfterSnapshotJson(
+                        latestLog.getOperationType(), latestLog.getAfterSnapshotJson());
+        if (CollUtil.isNotEmpty(applyLogs)) {
+            applyLogs.stream()
+                    .map(MesProScheduleOrderOperationLogDO::getScheduleOrderId)
+                    .filter(Objects::nonNull)
+                    .forEach(scheduleOrderIds::add);
+        }
+        if (latestLog.getScheduleOrderId() != null) {
+            scheduleOrderIds.add(latestLog.getScheduleOrderId());
+        }
+        if (CollUtil.isEmpty(scheduleOrderIds)) {
+            throw new IllegalStateException("最近一次成功排产日志未包含任何排产工单，operationLogId=" + latestLog.getId());
+        }
+        return scheduleOrderIds;
+    }
+
+    private List<MesProScheduleOrderDO> selectLatestProcessWipScheduleOrders() {
+        Set<Long> latestApplyScheduleOrderIds = getLatestSuccessfulApplyScheduleOrderIds();
+        if (CollUtil.isEmpty(latestApplyScheduleOrderIds)) {
+            return Collections.emptyList();
+        }
+        return scheduleOrderMapper.selectListForProcessWip().stream()
+                .filter(order -> latestApplyScheduleOrderIds.contains(order.getId()))
                 .filter(order -> !Boolean.TRUE.equals(order.getFrozen()))
                 .filter(order -> !Boolean.TRUE.equals(order.getManualFinished()))
                 .toList();
+    }
+
+    private void collectScheduleOrderIdsFromLatestApplySnapshot(String afterSnapshotJson, Set<Long> scheduleOrderIds) {
+        JsonNode root = JsonUtils.parseTree(afterSnapshotJson);
+        JsonNode idsNode = root.path("scheduleOrderIds");
+        if (idsNode.isMissingNode() || idsNode.isNull()) {
+            return;
+        }
+        if (!idsNode.isArray()) {
+            throw new IllegalStateException("最近一次成功排产日志的工单范围格式不正确：scheduleOrderIds 必须是数组");
+        }
+        idsNode.forEach(idNode -> scheduleOrderIds.add(parseLatestApplyScheduleOrderId(idNode)));
+    }
+
+    private Long parseLatestApplyScheduleOrderId(JsonNode idNode) {
+        if (idNode != null && idNode.isIntegralNumber()) {
+            return idNode.longValue();
+        }
+        if (idNode != null && idNode.isTextual() && StrUtil.isNotBlank(idNode.asText())) {
+            try {
+                return Long.valueOf(idNode.asText());
+            } catch (NumberFormatException ex) {
+                throw new IllegalStateException("最近一次成功排产日志包含非数字工单ID：" + idNode.asText(), ex);
+            }
+        }
+        throw new IllegalStateException("最近一次成功排产日志包含非数字工单ID：" + idNode);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveProcessWipSettings(MesProScheduleOrderProcessWipSettingsReqVO reqVO) {
+        validateOperationReason(reqVO.getReason());
+        List<MesProScheduleOrderDO> scheduleOrders = selectLatestProcessWipScheduleOrders();
         if (CollUtil.isEmpty(scheduleOrders)) {
             throw exception(PRO_SCHEDULE_ORDER_PROCESS_WIP_NOT_EXISTS, reqVO.getRouteProcessId());
         }
@@ -1787,10 +1854,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     @Transactional(rollbackFor = Exception.class)
     public void refreshProcessWipCapacitySnapshotsForShiftHours(BigDecimal shiftHours) {
         BigDecimal normalizedShiftHours = normalizePositiveShiftHours(shiftHours);
-        List<MesProScheduleOrderDO> scheduleOrders = scheduleOrderMapper.selectListForProcessWip().stream()
-                .filter(order -> !Boolean.TRUE.equals(order.getFrozen()))
-                .filter(order -> !Boolean.TRUE.equals(order.getManualFinished()))
-                .toList();
+        List<MesProScheduleOrderDO> scheduleOrders = selectLatestProcessWipScheduleOrders();
         if (CollUtil.isEmpty(scheduleOrders)) {
             return;
         }

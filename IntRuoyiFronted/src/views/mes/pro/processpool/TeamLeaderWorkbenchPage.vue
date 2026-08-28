@@ -1527,16 +1527,6 @@
               <el-button
                 link
                 type="primary"
-                data-team-leader-simulate-stage6-idpr
-                title="生成 IDPR 放行后追溯验证数据"
-                @click="handleSimulateStage6Idi"
-              >
-                <Icon icon="ep:connection" />
-                模拟放行后追溯
-              </el-button>
-              <el-button
-                link
-                type="primary"
                 :loading="activeOrderSimulationSubmittingId === row.id"
                 :disabled="
                   maintenanceSubmitting ||
@@ -1546,23 +1536,8 @@
                 data-team-leader-simulate-active-order-stage1
                 @click="handleSimulateStage1(row)"
               >
-                <Icon icon="ep:magic-stick" />
-                模拟生产/PQC
-              </el-button>
-              <el-button
-                link
-                type="primary"
-                :loading="activeOrderSimulationSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-simulate-active-order-completion
-                @click="handleSimulateActiveOrderCompletion(row)"
-              >
-                <Icon icon="ep:magic-stick" />
-                模拟完成
+                <Icon icon="ep:refresh" />
+                Stage1模拟
               </el-button>
               <el-button
                 link
@@ -1899,7 +1874,7 @@
                   v-else-if="candidate.eligible"
                   class="team-leader-workbench__active-order-candidate-badge"
                 >
-                  可加入
+                  符合要求
                 </span>
                 <el-tooltip
                   v-else
@@ -3749,7 +3724,6 @@ import {
   rebuildTeamLeaderActiveOrder,
   simulateStage1ActiveOrderCompletion,
   simulateStage2_5BackfillBatchExecution,
-  simulateStage6IdiData,
   simulateTeamLeaderActiveOrderCompletion,
   removeTeamLeaderActiveOrder,
   resetTemporaryTeamEmployeeSignaturePassword,
@@ -8469,40 +8443,6 @@ const handleRebuildActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {
   }
 }
 
-const handleSimulateActiveOrderCompletion = async (row: TeamLeaderActiveOrderRespVO) => {
-  activeOrderSimulationSubmittingId.value = row.id
-  let writeCompleted = false
-  try {
-    await ElMessageBox.confirm(
-      '确认使用模拟数据完成当前活跃订单？系统会模拟一线生产提交、生产组长复核、一线 PQC 提交和 PQC 组长复核，并按正式规则重新计算进度。',
-      '模拟完成活跃订单',
-      {
-        type: 'warning',
-        confirmButtonText: '确认模拟',
-        cancelButtonText: '取消'
-      }
-    )
-    const result = await simulateTeamLeaderActiveOrderCompletion({
-      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
-    })
-    writeCompleted = true
-    ElMessage.success(
-      `活跃订单已模拟完成：生产提交 ${result.productionSubmitCount} 条，生产复核 ${result.productionReviewCount} 条，PQC 提交 ${result.pqcSubmitCount} 条，PQC 复核 ${result.pqcReviewCount} 条，生产进度 ${formatActiveOrderProgressPercent(result.productionProgressPercent)}，检验进度 ${formatActiveOrderProgressPercent(result.inspectionProgressPercent)}`
-    )
-    await loadActiveOrders()
-  } catch (error) {
-    if (error === 'cancel' || error === 'close') return
-    ElMessage.error(
-      resolveErrorMessage(
-        error,
-        writeCompleted ? '活跃订单已模拟完成，但列表刷新失败' : '活跃订单模拟完成失败'
-      )
-    )
-  } finally {
-    activeOrderSimulationSubmittingId.value = undefined
-  }
-}
-
 const handleSimulateStage1 = async (row: TeamLeaderActiveOrderRespVO) => {
   activeOrderSimulationSubmittingId.value = row.id
   let writeCompleted = false
@@ -8553,22 +8493,6 @@ const handleSimulateStage2_5 = async (row: TeamLeaderActiveOrderRespVO) => {
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
     ElMessage.error(resolveErrorMessage(error, '模拟完工失败'))
-  } finally {
-    activeOrderSimulationSubmittingId.value = undefined
-  }
-}
-
-const handleSimulateStage6Idi = async () => {
-  activeOrderSimulationSubmittingId.value = -1
-  try {
-    const result = await simulateStage6IdiData({
-      simulationRunId: `STAGE6-IDPR-${Date.now()}`,
-    })
-    ElMessage.success('放行后追溯验证数据已准备，正在打开真实追溯入口')
-    await router.push(result.traceEntryPath)
-  } catch (error) {
-    if (error === 'cancel' || error === 'close') return
-    ElMessage.error(resolveErrorMessage(error, '放行后追溯验证数据准备失败'))
   } finally {
     activeOrderSimulationSubmittingId.value = undefined
   }
