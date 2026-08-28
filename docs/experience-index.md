@@ -379,7 +379,7 @@
 - Keywords: health UP 但 API 挂起, Logback OutputStreamAppender lock, stdout stderr 未消费, SQL DEBUG, MyBatis mapper debug, logging.file.name, output/runtime logs, task-closeout 日志锁, 共享后端活动连接 -> `docs/local-runtime.md#2026-07-27-本地后端标准输出阻塞与日志目录门禁`
 - Keywords: target Jar 运行中被 Maven 覆盖, NoClassDefFoundError, ChainedPersistenceExceptionTranslator, ExceptionUtil, RequestUtil, JimuReportDao_update.sql, TemplateLoaderUtils, 稳定运行 Jar 副本 -> `docs/local-runtime.md#2026-07-27-本地后端运行-jar-不可变门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
-- Keywords: 手动重排全选, 确认应用重排, 重排进度 90%, 未参与排产的工单, replan apply 未发出, preflight preview apply 三段请求, confirmDialogVisible false, dateDialogVisible false -> `docs/e2e-rules.md#mes-手动重排全选应用完成门禁`
+- Keywords: 手动重排全选, 确认应用重排, 重排进度 90%, 未参与排产的工单, replan apply 未发出, preflight preview apply 三段请求, confirmDialogVisible false, dateDialogVisible false, 排产完成创建 eDHR 批次缺少前置条件：首任务责任来源/候选池, getScheduleCompletionMissingItems, openOrCreateFromScheduleCompletion -> `docs/e2e-rules.md#mes-手动重排全选应用完成门禁`
 - Keywords: Element Plus 同名列表行, 同名类别, 类别名重复, 按类别名误配, 只读表格单元格断言, API 行与 DOM 行对应, API DOM 行顺序核验 -> `docs/e2e-rules.md#表格行定位`
 - Keywords: 手动重排数据包, 导出全部数据包, 导入全部数据包, manualReplanDataPackage, scheduler-manual-replan-data, 排产工单快照导入, 任务扩展导入, 日历产能导入 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#手动重排数据包门禁`
 - Keywords: edhr-batch-execution-real-flow.e2e.js, int-ruoyi-mysql, 数据库夹具, LOCAL_DATABASE_FIXTURE, 芋道源码/admin, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`
@@ -531,5 +531,5 @@
 - Keywords: 租户识别失败, 登录请求未发出, 登录接口失败, 权限信息请求超时, 同一业务账号重登 -> `docs/login-access.md#失败处理`
 - Keywords: int_main 融合后运行态核验, 新旧 jar, PID 归属, 48081, 独立启动日志, 主工作区 dirty 不清理并行文件 -> `docs/worktree-memory.md#运行时融合后的版本与端口交叉核验`
 - Keywords: 真实页面配置行缺失, 允许超量比例, 只读 E2E, 配置列表行数为 0, 禁止 API-only 补行, 无测试租户阻断 -> `docs/e2e-rules.md#真实页面配置行缺失的-e2e-阻断门禁`
-- Keywords: eDHR 批次创建入口, 批次入口缺少 entryType, Flow 9, entryBusinessId, sourceCredentialId, sourceContextHash, idempotencyKey, MANUAL 凭证, 独立前置凭证, 禁止固定 entryType, 正式入口来源 -> `docs/backend-development.md#edhr-批次创建入口必须与正式入口合同一致`
+- Keywords: eDHR 批次创建入口, 批次入口缺少 entryType, Flow 9, entryBusinessId, sourceCredentialId, sourceContextHash, idempotencyKey, MANUAL 凭证, 独立前置凭证, 禁止固定 entryType, 正式入口来源, 手动重排, replanApply_shouldSkipEdhrBatchCreationAfterScheduleComplete, 排产完成创建 eDHR 批次缺少前置条件：首任务责任来源/候选池 -> `docs/backend-development.md#eDHR-批次创建入口必须与正式入口合同一致`
 - Keywords: 活跃订单列表单条隔离, 工艺路线不存在不阻断全部订单, 历史缺损订单, 已知订单完整性错误白名单, 记录订单ID读取阶段业务错误码, 未知异常继续失败, 禁止通用异常吞掉, 列表读取不修改数据, 重建或删除后重新新增 -> `docs/backend-development.md#一线-pqc-dcc-qa-正式关系目标态切换门禁`

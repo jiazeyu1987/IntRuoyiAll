@@ -47,10 +47,11 @@
 - Trigger: 任务验收文档指定 `pnpm test:e2e ...`、`pnpm test <target>`、Playwright spec 文件或新增真实用户路径 E2E。
 - Preflight check: 运行前读取当前前端 `package.json` 的 scripts，确认命令名存在、命名 runner 能识别目标、spec 文件存在，并记录实际工作目录；PowerShell 下若 `pnpm --dir` 或 `pnpm -C` 解析异常，改用显式 `workdir` 复核，不把第一次命令解析失败当作业务 E2E 结果。
 - Preflight check: 验收文档包含写入型用户路径时，还必须同时确认真实页面入口、前端 route、权限 meta、页面主按钮和写 API wrapper 全链路存在；只有 API wrapper 或只读追溯页存在时，不得宣称写路径已实现。
-- Blocker: `ERR_PNPM_NO_SCRIPT`、named target unknown、spec 文件缺失、真实页面入口缺失、菜单权限或测试租户账号缺失时必须停止并记录具体前置缺口。
+- Preflight check: 复用历史真实脚本前，必须先按当前源码或真实 DOM 核对入口按钮文案、稳定锚点和可点击条件；按钮已 visible 但仍受 loading、navigationLoading、saving 或权限状态禁用时，脚本应等待正式可点击状态并记录禁用来源，不能把瞬时 disabled 或旧文案定位失败直接写成产品功能失败。
+- Blocker: `ERR_PNPM_NO_SCRIPT`、named target unknown、spec 文件缺失、真实页面入口缺失、菜单权限或测试租户账号缺失，或当前源码/DOM 已证明入口文案和历史脚本定位不一致且未修正脚本时，必须停止并记录具体前置缺口。
 - Verification: 证据必须区分静态合同 PASS、TypeScript PASS、Playwright 真实路径 PASS 和 E2E BLOCKED；真实 E2E 只有在 Playwright 操作真实页面并完成目标断言后才能记为 PASS。
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
-- Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`。
+- Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`；`doc/tasks/20260828-batch-record-mappable-cells-int-main-e2e/verification-report.md`，融合后批记录可映射格子 E2E 先因旧按钮文案“规则”和按钮加载禁用态校准失败，最终按当前“填写配置”入口并等待“正式化可映射格子”按钮可点击后通过真实页面验证。
 
 ### 列表筛选输入与请求参数同步门禁
 
@@ -535,6 +536,7 @@
 ## 表格行定位
 
 - 当页面对列表进行本地排序、过滤或虚拟渲染时，Playwright 必须按页面可见的业务唯一文本定位目标行，再操作同一行的复选框或按钮。
+- 行状态文案存在包含关系时必须使用精确状态或显式反向排除，例如“不可重排”包含“可重排”；脚本不得用 `hasText('可重排')`、`includes('可重排')` 直接定位可重排行，必须同时排除“不可重排”或读取专用状态/aria。
 - 不得直接用 API 返回数组下标映射前端表格行；接口排序和页面排序可能不同，会误选冻结行、错误行或无关业务数据。
 - Element Plus `el-table` 存在 header/body/fixed 表格重复 DOM 时，选择行复选框必须限定在可见 `.el-table__body-wrapper tbody tr`，显式排除 `.el-table__header-wrapper` 和 `thead`；点击后必须立即断言已选业务唯一键集合，再进入“确认/应用”等写入动作。
 - 行内编辑会把原显示文本替换为输入框、开关或其它编辑控件时，只能用原文本定位并点击进入编辑；进入编辑态后必须改用当前弹框或表格作用域内唯一可见编辑器继续填写，保存刷新后再用目标文本重新定位。若同时出现多个可见编辑器或无法按稳定记录 ID 证明编辑对象，必须停止，不得继续复用依赖旧文本的动态行 locator。
@@ -552,10 +554,10 @@
 
 - Trigger: Playwright 验证 `排产工单`、`手动重排`、`开始重排`、`确认应用重排`、全选排产工单、自动重排局部阻断、进度停在 `90%` 或“存在未参与排产的工单”。
 - Preflight check: 写入型真实 E2E 必须使用真实前端路径逐行勾选可见 body 表格中的可选排产工单，记录已选业务行集合和开始重排日期；点击 `确认应用重排` 后必须同时等待并记录 `preflight`、`preview`、`apply` 三段目标请求，且 `apply` 必须返回 HTTP 2xx、业务 `code=0`。如果预览存在可归因到工单的阻断或未参与工单，页面只能给非阻塞提示；不得再打开会阻断 `apply` 的二次确认框。
-- Blocker: 只完成排产前检查或重排预览、未观察到 `/auto-schedule/replan/apply`、进度停在 `90%`、开始日期弹窗或阻塞确认框未关闭、选中集合无法追溯、点击到禁用行/表头 checkbox、或目标请求/响应证据缺失时，必须判定真实 E2E 未通过。
-- Verification: 证据必须包含选中行数/业务文本、开始日期、三段目标请求 URL 和 payload 摘要、三段响应 HTTP 状态和业务码、apply summary、进度最终状态、`confirmDialogVisible=false`、`dateDialogVisible=false`、`pageErrors=[]`、`consoleErrors=[]`、最终截图和 JSON 路径。
+- Blocker: 只完成排产前检查或重排预览、未观察到 `/auto-schedule/replan/apply`、进度停在 `90%`、开始日期弹窗或阻塞确认框未关闭、选中集合无法追溯、点击到禁用行/表头 checkbox、或目标请求/响应证据缺失时，必须判定真实 E2E 未通过；如果 `apply` 返回“排产完成创建 eDHR 批次缺少前置条件：首任务责任来源/候选池”，也必须判定为后端回归，不得把它解释成页面选择问题。
+- Verification: 证据必须包含选中行数/业务文本、开始日期、三段目标请求 URL 和 payload 摘要、三段响应 HTTP 状态和业务码、apply summary、进度最终状态、`confirmDialogVisible=false`、`dateDialogVisible=false`、`pageErrors=[]`、`consoleErrors=[]`、最终截图和 JSON 路径；若后端已修复，`apply` 不能再返回 eDHR 批次前置条件错误。
 - Forbidden action: 禁止把夹具红行验证、只读红行验证、API-only apply、历史截图、预览 summary、进度中间值或 success toast 单独当作全选应用 E2E 通过；禁止为了继续排产而二次阻塞确认“未参与排产的工单”。
-- Evidence: `doc/tasks/20260804-mes-partial-replan-blockers/verification-report.md`，2026-08-05 用户截图复验中，旧二次确认导致 `90%` 卡住风险，改为非阻塞通知后 `芋道源码/admin` 当前页 12 条可选排产工单全选应用真实 E2E PASS。
+- Evidence: `doc/tasks/20260804-mes-partial-replan-blockers/verification-report.md`，2026-08-05 用户截图复验中，旧二次确认导致 `90%` 卡住风险，改为非阻塞通知后 `芋道源码/admin` 当前页 12 条可选排产工单全选应用真实 E2E PASS；`doc/tasks/20260828-schedule-replan-all-worktree-e2e/verification-report.md`，手动重排真实 E2E 复验 PASS，且后端不再返回 eDHR 批次前置条件错误。
 
 ### Codex Runner 自动测试门禁
 

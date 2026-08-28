@@ -271,7 +271,7 @@
 ### 主工作区融合 worktree 切片后的合同复核门禁
 
 - Trigger: 将一个或多个已验证 worktree 切片同步回 `E:\IntRuoyi` 的 `int_main`，尤其主工作区已存在并行脏改动、后续补丁或相邻业务测试。
-- Preflight check: 先冻结来源 allow-list，并排除不属于本次切片的旧模型、临时证据和相邻问题；复制后对 allow-list 做 source/current hash 复核，区分“漏同步”和“主线后续上下文补丁”。随后必须运行目标模块 `testCompile` 或聚焦 Surefire，让整个测试源码先编译；若相邻已有测试因被覆盖的生产合同无法编译，应恢复正式生产行为和测试夹具，而不是删除测试、调低 `failIfNoSpecifiedTests` 或只跑单个已编译类。
+- Preflight check: 先冻结来源 allow-list，并排除不属于本次切片的旧模型、临时证据和相邻问题；复制后对 allow-list 做 source/current hash 复核，区分“漏同步”和“主线后续上下文补丁”。如果 `int_main` 已经有相同修复但还叠着别的任务补丁，先用逐文件 diff 证明哪些内容已存在、哪些是本次切片的额外差异，只提交本次任务的 allow-list 文件，禁止为了统一基线而整文件覆盖或 `git add -A`。随后必须运行目标模块 `testCompile` 或聚焦 Surefire，让整个测试源码先编译；若相邻已有测试因被覆盖的生产合同无法编译，应恢复正式生产行为和测试夹具，而不是删除测试、调低 `failIfNoSpecifiedTests` 或只跑单个已编译类。
 - Blocker: source/current 存在未解释差异、同表双模型同时出现、主线已有测试合同编译失败、H2 夹具缺正式列、前端类型导出名和投影层不一致、或发布迁移门禁被已跟踪 SQL 缺元数据阻断时必须停下修正；不得宣称已融合完成。
 - Verification: 记录 copied/missing/different 计数、被排除路径、聚焦后端测试数、前端静态合同、`pnpm ts:check`、迁移策略门禁、`git diff --check` 和 staged 为空。发布 SQL 仅补元数据时也要重跑迁移门禁，证明不是绕过。
 - Forbidden action: 禁止用整分支 merge、ours/theirs、宽泛复制或 `git add -A` 处理局部切片；禁止把主线后续补丁覆盖成旧来源；禁止因测试编译失败就把失败归类为“无关”而跳过；禁止在未区分当前任务和并行任务文件前提交。
