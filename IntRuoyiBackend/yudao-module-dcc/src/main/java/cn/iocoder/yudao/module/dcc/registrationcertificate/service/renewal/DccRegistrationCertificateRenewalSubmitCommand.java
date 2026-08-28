@@ -1,8 +1,10 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.time.LocalDate;
 
-public record DccRegistrationCertificateRenewalCommand(
+public record DccRegistrationCertificateRenewalSubmitCommand(
         Long tenantId,
         Long actorId,
         String idempotencyKey,
@@ -10,8 +12,8 @@ public record DccRegistrationCertificateRenewalCommand(
         Long certificateId,
         Integer expectedRowVersion,
         Long currentVersionId,
-        Long businessFileId,
         LocalDate approvalDate,
         LocalDate effectiveDate,
-        LocalDate expiryDate) {
+        LocalDate expiryDate,
+        MultipartFile file) {
 }

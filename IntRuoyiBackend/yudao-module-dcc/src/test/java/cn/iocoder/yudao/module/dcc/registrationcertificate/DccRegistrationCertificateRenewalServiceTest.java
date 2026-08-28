@@ -1,7 +1,7 @@
 package cn.iocoder.yudao.module.dcc.registrationcertificate;
 
-import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateFileDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.D
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
+import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentProjectionSnapshot;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionService;
 import jakarta.annotation.Resource;
@@ -39,8 +40,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -76,6 +75,8 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
 
     @MockitoBean
     private ControlledContentRegistrationProjectionService projectionService;
+    @MockitoBean
+    private FileService fileService;
 
     @Test
     void sameCategoryRenewalCreatesPendingCandidateAndKeepsCurrentActive() {
@@ -150,37 +151,15 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void sameCategoryRenewalRejectsCertificateNumberOrCategoryTamperingBeforeWritingFacts() {
-        CurrentFixture current = seedCurrentCertificate();
+    void renewalCommandOnlyCarriesDatesAndFileIdentity() {
+        List<String> componentNames = java.util.Arrays.stream(
+                        DccRegistrationCertificateRenewalCommand.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName)
+                .toList();
 
-        ServiceException changedNo = assertServiceException(() -> service.uploadRenewalCandidate(
-                sameCategoryCommand(current.certificateId(), current.currentVersionId(),
-                        current.stagedFileId(), "renewal-field-1", "CERT-CHANGED", "II")));
-        ServiceException changedCategory = assertServiceException(() -> service.uploadRenewalCandidate(
-                sameCategoryCommand(current.certificateId(), current.currentVersionId(),
-                        current.stagedFileId(), "renewal-field-2", "CERT-001", "III")));
-
-        assertEquals(REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN.getCode(), changedNo.getCode());
-        assertEquals(REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN.getCode(), changedCategory.getCode());
-        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_version WHERE tenant_id = 1"));
-        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1"));
-        assertEquals("STAGED", fileMapper.selectById(current.stagedFileId()).getStatus());
-    }
-
-    @Test
-    void categoryChangedRenewalRequiresNewCertificateNumberAndClassification() {
-        CurrentFixture current = seedCurrentCertificate();
-
-        ServiceException missingNumber = assertServiceException(() -> service.uploadRenewalCandidate(
-                categoryChangedCommand(current.certificateId(), current.currentVersionId(),
-                        current.stagedFileId(), "renewal-category-1", " ", "III")));
-        ServiceException missingCategory = assertServiceException(() -> service.uploadRenewalCandidate(
-                categoryChangedCommand(current.certificateId(), current.currentVersionId(),
-                        current.stagedFileId(), "renewal-category-2", "CERT-002", " ")));
-
-        assertEquals(REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED.getCode(), missingNumber.getCode());
-        assertEquals(REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED.getCode(), missingCategory.getCode());
-        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_version WHERE tenant_id = 1"));
+        assertEquals(List.of("tenantId", "actorId", "idempotencyKey", "requestTraceId",
+                "certificateId", "expectedRowVersion", "currentVersionId", "businessFileId",
+                "approvalDate", "effectiveDate", "expiryDate"), componentNames);
     }
 
     @Test
@@ -266,18 +245,6 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
             fail("renewal candidate void should recompute pending state, but failed with " + exception);
             throw exception;
         }
-    }
-
-    private static ServiceException assertServiceException(Runnable runnable) {
-        try {
-            runnable.run();
-        } catch (ServiceException exception) {
-            return exception;
-        } catch (RuntimeException exception) {
-            fail("expected stable ServiceException, but got " + exception);
-        }
-        fail("expected stable ServiceException");
-        return null;
     }
 
     private static Object outcome(Callable<DccRegistrationCertificateRenewalResult> call) throws Exception {
@@ -375,24 +342,8 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
 
     private static DccRegistrationCertificateRenewalCommand sameCategoryCommand(
             Long certificateId, Long currentVersionId, Long businessFileId, String key) {
-        return sameCategoryCommand(certificateId, currentVersionId, businessFileId, key, null, null);
-    }
-
-    private static DccRegistrationCertificateRenewalCommand sameCategoryCommand(
-            Long certificateId, Long currentVersionId, Long businessFileId, String key,
-            String certificateNo, String classification) {
         return new DccRegistrationCertificateRenewalCommand(
                 1L, 99L, key, "trace-" + key, certificateId, 1, currentVersionId, businessFileId,
-                false, certificateNo, classification,
-                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1));
-    }
-
-    private static DccRegistrationCertificateRenewalCommand categoryChangedCommand(
-            Long certificateId, Long currentVersionId, Long businessFileId, String key,
-            String certificateNo, String classification) {
-        return new DccRegistrationCertificateRenewalCommand(
-                1L, 99L, key, "trace-" + key, certificateId, 1, currentVersionId, businessFileId,
-                true, certificateNo, classification,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1));
     }
 

@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.audit.DccRegistrationCertificateReadAuditService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.reminder.DccRegistrationCertificateReminderService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificateDetail;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificateOldIndexItem;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.query.DccRegistrationCertificatePageItem;
@@ -68,6 +69,7 @@ import static org.mockito.Mockito.when;
         DccRegistrationCertificateReadAuditService.class,
         DccRegistrationCertificateAccessPolicyService.class,
         DccRegistrationCertificateBusinessClock.class,
+        DccRegistrationCertificateReminderService.class,
         DccRegistrationCertificateQueryServiceTest.JdbcTestConfiguration.class
 })
 class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
@@ -96,6 +98,8 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     private DccRegistrationCertificateAuditMapper auditMapper;
     @Resource
     private DccRegistrationCertificateQueryMapper queryMapper;
+    @Resource
+    private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     private MdmCompanyScopeApi companyScopeApi;
@@ -115,6 +119,18 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 "detail response must expose the server row version for automatic concurrency control");
         assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("snapshotRevision"),
                 "detail response must expose the server snapshot revision for automatic concurrency control");
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("projectCode"),
+                "detail response must expose the formal DCC project code business value");
+        assertDoesNotThrow(() -> DccRegistrationCertificatePageItem.class.getDeclaredField("projectCode"),
+                "current page response must expose the formal DCC project code business value");
+        assertDoesNotThrow(() -> DccRegistrationCertificatePageItem.class.getDeclaredField("reminderColor"),
+                "current page response must expose the registration reminder color");
+        assertDoesNotThrow(() -> DccRegistrationCertificatePageItem.class.getDeclaredField("visualState"),
+                "current page response must expose the registration reminder state");
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("reminderColor"),
+                "detail response must expose the registration reminder color");
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("visualState"),
+                "detail response must expose the registration reminder state");
     }
 
     @Test
@@ -133,6 +149,8 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 "detail must return the server row version instead of asking the user to type it");
         assertEquals(1, detail.getSnapshotRevision(),
                 "detail must return the server snapshot revision instead of asking the user to type it");
+        assertEquals("DCC-PROJ-20", detail.getProjectCode(),
+                "detail must return the formal project code instead of the project-code database id");
     }
 
     @Test
@@ -152,10 +170,39 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertEquals(List.of(visible.certificateId()),
                 page.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
         assertEquals("Owner A", page.getList().get(0).getOwnerCompanyName());
+        assertEquals("DCC-PROJ-20", page.getList().get(0).getProjectCode());
+        assertEquals("Remark CERT-VISIBLE", page.getList().get(0).getRemark());
         assertEquals(1, auditMapper.selectListByCertificateId(visible.certificateId()).size());
         assertEquals(0, auditMapper.selectListByCertificateId(hidden.certificateId()).size());
         assertEquals(1L, queryMapper.countPage(1L, List.of(10L),
                 DccRegistrationCertificatePageQuery.builder().status("CURRENT").missingFile(false).build()));
+    }
+
+    @Test
+    void pageAndDetailExposeReminderVisualStateFromFormalExpiry() {
+        FormalFixture visible = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-REMINDER", true, 20L);
+        LocalDate expiryDate = LocalDate.now(DccRegistrationCertificateBusinessClock.BUSINESS_ZONE)
+                .plusMonths(3);
+        assertEquals(1, jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_version
+                   SET expiry_date = ?
+                 WHERE id = ?
+                """, expiryDate, visible.versionId()));
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
+                1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                        .pageNo(1).pageSize(10).certificateNo("CERT-REMINDER").build(),
+                context("REQ-REMINDER-PAGE"));
+        DccRegistrationCertificateDetail detail = queryService.getDetail(
+                1L, 99L, visible.certificateId(), context("REQ-REMINDER-DETAIL"));
+
+        assertEquals("LIGHT", page.getList().get(0).getReminderColor());
+        assertEquals("T_8", page.getList().get(0).getVisualState());
+        assertEquals("LIGHT", detail.getReminderColor());
+        assertEquals("T_8", detail.getVisualState());
     }
 
     @Test
@@ -172,6 +219,14 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .productMasterId(20L)
                 .status("CURRENT")
                 .certificateNo("VISIBLE")
+                .ownerCompanyName("Owner")
+                .productName("Product CERT-VISIBLE")
+                .classification("II")
+                .registrantName("Sensitive Registrant")
+                .modelSpecification("Sensitive Model")
+                .productionAddress("Sensitive Production")
+                .entrustedEnterpriseName("Factory A")
+                .projectCode("DCC-PROJ-20")
                 .missingProjectCode(false)
                 .missingFile(false)
                 .firstObtainedStart(LocalDate.of(2026, 1, 1))
@@ -236,8 +291,8 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .map(java.lang.reflect.Field::getName)
                 .collect(Collectors.toSet());
         assertEquals(Set.of("certificateId", "versionId", "ownerCompanyId", "ownerCompanyName",
-                "productName", "certificateNo", "versionNo", "expiryDate", "status"), fields);
-        assertFalse(fields.contains("projectCodeId"));
+                "productMasterId", "productName", "projectCodeId",
+                "certificateNo", "versionNo", "expiryDate", "status"), fields);
         assertFalse(fields.contains("registrantName"));
         assertFalse(fields.contains("productionAddress"));
         assertFalse(fields.contains("fileId"));
@@ -259,6 +314,29 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertEquals(1L, page.getTotal());
         assertEquals(List.of(current.certificateId()), page.getList().stream()
                 .map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+    }
+
+    @Test
+    void currentPageShowsApprovedPendingRenewalAsTheSingleCurrentRow() {
+        FormalFixture current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-CURRENT", true, 20L);
+        FormalFixture renewal = seedPendingRenewal(current.certificateId(), current.snapshotId());
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
+                1L, 99L, DccRegistrationCertificatePageQuery.builder().pageNo(1).pageSize(10).build(),
+                context("REQ-CURRENT-PAGE-PENDING-RENEWAL"));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(1, page.getList().size());
+        DccRegistrationCertificatePageItem item = page.getList().get(0);
+        assertEquals(current.certificateId(), item.getCertificateId());
+        assertEquals(renewal.versionId(), item.getVersionId());
+        assertEquals("PENDING_EFFECTIVE", item.getStatus());
+        assertEquals(LocalDate.of(2026, 8, 1), item.getApprovalDate());
+        assertEquals(LocalDate.of(2026, 10, 1), item.getEffectiveDate());
+        assertEquals(LocalDate.of(2031, 10, 1), item.getExpiryDate());
     }
 
     @Test
@@ -333,6 +411,8 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .build();
         certificate.setTenantId(tenantId);
         assertEquals(1, certificateMapper.insert(certificate));
+        seedProjectCode(tenantId, projectCodeId);
+        seedMdmEnterprise(tenantId, ownerCompanyId);
 
         DccRegistrationCertificateVersionDO version = DccRegistrationCertificateVersionDO.builder()
                 .certificateId(certificate.getId())
@@ -343,6 +423,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .effectiveDate(LocalDate.of(2026, 9, 1))
                 .expiryDate(LocalDate.of(2031, 9, 1))
                 .classification("II")
+                .remark("Remark " + certificateNo)
                 .categoryChanged(false)
                 .status(versionStatus)
                 .formalizedAt(java.time.LocalDateTime.of(2026, 8, 17, 9, 0))
@@ -369,6 +450,11 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .build();
         snapshot.setTenantId(tenantId);
         assertEquals(1, snapshotMapper.insert(snapshot));
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_snapshot_entrusted
+                    (snapshot_id, enterprise_id, enterprise_name_snapshot, sort_order, tenant_id, deleted)
+                VALUES (?, ?, ?, ?, ?, 0)
+                """, snapshot.getId(), 30L, "Factory A", 1, tenantId));
 
         Long registrationFileId = null;
         if (hasFile) {
@@ -395,6 +481,86 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         certificate.setCurrentSnapshotId("CURRENT".equals(versionStatus) ? snapshot.getId() : null);
         assertEquals(1, certificateMapper.updateById(certificate));
         return new FormalFixture(certificate.getId(), version.getId(), snapshot.getId(), registrationFileId);
+    }
+
+    private FormalFixture seedPendingRenewal(Long certificateId, Long baseSnapshotId) {
+        DccRegistrationCertificateVersionDO version = DccRegistrationCertificateVersionDO.builder()
+                .certificateId(certificateId)
+                .versionNo(2)
+                .versionType("RENEWAL_CERTIFICATE")
+                .certificateNo("CERT-RENEWED")
+                .approvalDate(LocalDate.of(2026, 8, 1))
+                .effectiveDate(LocalDate.of(2026, 10, 1))
+                .expiryDate(LocalDate.of(2031, 10, 1))
+                .classification("II")
+                .remark("Renewal remark")
+                .categoryChanged(false)
+                .baseSnapshotId(baseSnapshotId)
+                .status("PENDING_EFFECTIVE")
+                .formalizedAt(java.time.LocalDateTime.of(2026, 8, 20, 9, 0))
+                .formalizedBy(200L)
+                .build();
+        version.setTenantId(1L);
+        assertEquals(1, versionMapper.insert(version));
+
+        DccRegistrationCertificateSnapshotDO snapshot = DccRegistrationCertificateSnapshotDO.builder()
+                .versionId(version.getId())
+                .revisionNo(1)
+                .productName("Product CERT-RENEWED")
+                .registrantName("Sensitive Registrant")
+                .modelSpecification("Sensitive Model")
+                .structureComposition("Sensitive Structure")
+                .intendedUse("Sensitive Use")
+                .technicalRequirements("Sensitive Requirement")
+                .residenceAddress("Sensitive Residence")
+                .productionAddress("Sensitive Production")
+                .entrustedProduction(true)
+                .selfProduction(false)
+                .entrustedEnterprisesJson("[{\"enterpriseId\":30,\"enterpriseName\":\"Factory A\"}]")
+                .effectiveAt(java.time.LocalDateTime.of(2026, 10, 1, 0, 0))
+                .build();
+        snapshot.setTenantId(1L);
+        assertEquals(1, snapshotMapper.insert(snapshot));
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_snapshot_entrusted
+                    (snapshot_id, enterprise_id, enterprise_name_snapshot, sort_order, tenant_id, deleted)
+                VALUES (?, ?, ?, ?, ?, 0)
+                """, snapshot.getId(), 30L, "Factory A", 1, 1L));
+        assertEquals(1, jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate
+                   SET pending_version_id = ?, row_version = row_version + 1
+                 WHERE tenant_id = 1 AND id = ?
+                """, version.getId(), certificateId));
+        return new FormalFixture(certificateId, version.getId(), snapshot.getId(), null);
+    }
+
+    private void seedProjectCode(Long tenantId, Long projectCodeId) {
+        if (projectCodeId == null || exists("dcc_project_code", tenantId, projectCodeId)) {
+            return;
+        }
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_project_code
+                    (id, product_master_id, project_name, project_code, status, tenant_id, deleted)
+                VALUES (?, ?, ?, ?, 'ENABLED', ?, 0)
+                """, projectCodeId, 20L, "Project " + projectCodeId, "DCC-PROJ-" + projectCodeId, tenantId));
+    }
+
+    private void seedMdmEnterprise(Long tenantId, Long ownerCompanyId) {
+        if (exists("mdm_enterprise", tenantId, ownerCompanyId)) {
+            return;
+        }
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO mdm_enterprise
+                    (id, enterprise_code, name, type, status, tenant_id, deleted)
+                VALUES (?, ?, ?, 'OWNED_COMPANY', 'ENABLED', ?, 0)
+                """, ownerCompanyId, "OWNER-" + ownerCompanyId, "Owner A", tenantId));
+    }
+
+    private boolean exists(String tableName, Long tenantId, Long id) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM " + tableName + " WHERE tenant_id = ? AND id = ?",
+                Integer.class, tenantId, id);
+        return count != null && count > 0;
     }
 
     private void seedOldViewGrant(Long certificateId, LocalDateTime grantedAt, LocalDateTime expiresAt) {

@@ -19,6 +19,8 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccR
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalStartCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.grant.DccRegistrationCertificateGrantService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
@@ -44,6 +46,7 @@ import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approv
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVAL_TASK_DEFINITION_KEY;
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVER_ROLE_CODE;
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.PROCESS_DEFINITION_KEY;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.UPLOAD_APPROVAL_PERMISSION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -82,6 +85,10 @@ class DccRegistrationCertificateBpmIntegrationTest {
     @Mock
     private DccRegistrationCertificateBusinessClock businessClock;
     @Mock
+    private DccRegistrationCertificateRenewalService renewalService;
+    @Mock
+    private DccRegistrationCertificateUploadService uploadService;
+    @Mock
     private DccRegistrationCertificateApprovalService listenerApprovalService;
 
     private DccRegistrationCertificateApprovalService service;
@@ -91,7 +98,7 @@ class DccRegistrationCertificateBpmIntegrationTest {
     void setUp() {
         service = new DccRegistrationCertificateApprovalService(
                 requestMapper, bindingMapper, grantMapper, grantService,
-                bpmProcessInstanceApi, companyScopeApi, roleApi, businessClock);
+                bpmProcessInstanceApi, companyScopeApi, roleApi, businessClock, renewalService, uploadService);
         lenient().when(roleApi.getRoleByCode(APPROVER_ROLE_CODE)).thenReturn(approverRole());
         listener = new DccRegistrationCertificateApprovalStatusListener(listenerApprovalService);
     }
@@ -132,6 +139,27 @@ class DccRegistrationCertificateBpmIntegrationTest {
         assertEquals("DCC_REG_CERT_ACCESS:1001", bpmRequest.getBusinessKey());
         assertEquals(List.of(110L, 120L), bpmRequest.getStartUserSelectAssignees().get(APPROVAL_TASK_DEFINITION_KEY));
         assertEquals(REQUEST_ID, bpmRequest.getVariables().get("requestId"));
+    }
+
+    @Test
+    void startUsesUploadApprovalPermissionForUploadRequests() {
+        DccRegistrationCertificateAccessRequestDO request = submittedUploadRequest();
+        when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);
+        when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
+        when(companyScopeApi.resolveRecipientUserIds(eq(10L), any(Collection.class), eq(UPLOAD_APPROVAL_PERMISSION)))
+                .thenReturn(new LinkedHashSet<>(List.of(ACTOR_ID, 120L)));
+        when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
+                .thenReturn("proc-upload-1001");
+        when(bindingMapper.insert(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
+        when(requestMapper.updateById(any(DccRegistrationCertificateAccessRequestDO.class))).thenReturn(1);
+
+        DccRegistrationCertificateApprovalResult result = service.startNativeApproval(
+                TENANT_ID, ACTOR_ID, new DccRegistrationCertificateApprovalStartCommand(REQUEST_ID));
+
+        assertEquals("proc-upload-1001", result.processInstanceId());
+        ArgumentCaptor<Collection<Long>> roleIdsCaptor = ArgumentCaptor.forClass(Collection.class);
+        verify(companyScopeApi).resolveRecipientUserIds(eq(10L), roleIdsCaptor.capture(), eq(UPLOAD_APPROVAL_PERMISSION));
+        assertEquals(List.of(8L), List.copyOf(roleIdsCaptor.getValue()));
     }
 
     @Test
@@ -360,6 +388,13 @@ class DccRegistrationCertificateBpmIntegrationTest {
                 .requestType("VIEW_OLD_CERTIFICATE").requestKey("request-1001").purpose("legacy review")
                 .status("SUBMITTED").build();
         request.setTenantId(TENANT_ID);
+        return request;
+    }
+
+    private static DccRegistrationCertificateAccessRequestDO submittedUploadRequest() {
+        DccRegistrationCertificateAccessRequestDO request = submittedRequest();
+        request.setRequestType("UPLOAD_CERTIFICATE");
+        request.setDetailJson("{\"operation\":\"UPLOAD_CERTIFICATE\"}");
         return request;
     }
 

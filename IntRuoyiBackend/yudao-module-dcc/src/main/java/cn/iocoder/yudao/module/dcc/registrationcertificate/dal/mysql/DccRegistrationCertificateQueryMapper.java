@@ -92,6 +92,7 @@ public interface DccRegistrationCertificateQueryMapper {
                            c.owner_company_id,
                            c.product_master_id,
                            c.project_code_id,
+                           pc.project_code,
                            c.first_obtained_date,
                            s.product_name,
                            v.certificate_no,
@@ -101,6 +102,7 @@ public interface DccRegistrationCertificateQueryMapper {
                            v.effective_date,
                            v.expiry_date,
                            v.classification,
+                           v.remark,
                            s.registrant_name,
                            s.model_specification,
                            s.structure_composition,
@@ -134,6 +136,10 @@ public interface DccRegistrationCertificateQueryMapper {
                         ON s.tenant_id = c.tenant_id
                        AND s.version_id = v.id
                        AND s.deleted = 0
+                      LEFT JOIN dcc_project_code pc
+                        ON pc.tenant_id = c.tenant_id
+                       AND pc.id = c.project_code_id
+                       AND pc.deleted = 0
                     """;
         }
 
@@ -149,7 +155,11 @@ public interface DccRegistrationCertificateQueryMapper {
         }
 
         private static String currentWhere() {
-            return commonWhere() + " AND v.status != 'OLD'";
+            return commonWhere() + """
+                    AND c.status = 'ACTIVE'
+                    AND v.id = COALESCE(c.pending_version_id, c.current_version_id)
+                    AND v.status IN ('CURRENT', 'PENDING_EFFECTIVE')
+                    """;
         }
 
         private static String filters() {
@@ -169,6 +179,30 @@ public interface DccRegistrationCertificateQueryMapper {
                       </if>
                       <if test="query.certificateNo != null and query.certificateNo != ''">
                         AND v.certificate_no LIKE CONCAT('%', #{query.certificateNo}, '%')
+                      </if>
+                      <if test="query.ownerCompanyName != null and query.ownerCompanyName != ''">
+                        AND EXISTS (SELECT 1 FROM mdm_enterprise e WHERE e.tenant_id = c.tenant_id AND e.id = c.owner_company_id AND e.deleted = 0 AND e.type = 'OWNED_COMPANY' AND e.name LIKE CONCAT('%', #{query.ownerCompanyName}, '%'))
+                      </if>
+                      <if test="query.productName != null and query.productName != ''">
+                        AND s.product_name LIKE CONCAT('%', #{query.productName}, '%')
+                      </if>
+                      <if test="query.classification != null and query.classification != ''">
+                        AND v.classification LIKE CONCAT('%', #{query.classification}, '%')
+                      </if>
+                      <if test="query.registrantName != null and query.registrantName != ''">
+                        AND s.registrant_name LIKE CONCAT('%', #{query.registrantName}, '%')
+                      </if>
+                      <if test="query.modelSpecification != null and query.modelSpecification != ''">
+                        AND s.model_specification LIKE CONCAT('%', #{query.modelSpecification}, '%')
+                      </if>
+                      <if test="query.productionAddress != null and query.productionAddress != ''">
+                        AND s.production_address LIKE CONCAT('%', #{query.productionAddress}, '%')
+                      </if>
+                      <if test="query.entrustedEnterpriseName != null and query.entrustedEnterpriseName != ''">
+                        AND EXISTS (SELECT 1 FROM dcc_registration_certificate_snapshot_entrusted se WHERE se.tenant_id = c.tenant_id AND se.snapshot_id = s.id AND se.deleted = 0 AND se.enterprise_name_snapshot LIKE CONCAT('%', #{query.entrustedEnterpriseName}, '%'))
+                      </if>
+                      <if test="query.projectCode != null and query.projectCode != ''">
+                        AND pc.project_code LIKE CONCAT('%', #{query.projectCode}, '%')
                       </if>
                       <if test="query.missingProjectCode != null and query.missingProjectCode">
                         AND c.project_code_id IS NULL
@@ -238,6 +272,30 @@ public interface DccRegistrationCertificateQueryMapper {
                       </if>
                       <if test="query.certificateNo != null and query.certificateNo != ''">
                         AND v.certificate_no LIKE CONCAT('%', #{query.certificateNo}, '%')
+                      </if>
+                      <if test="query.ownerCompanyName != null and query.ownerCompanyName != ''">
+                        AND EXISTS (SELECT 1 FROM mdm_enterprise e WHERE e.tenant_id = c.tenant_id AND e.id = c.owner_company_id AND e.deleted = 0 AND e.type = 'OWNED_COMPANY' AND e.name LIKE CONCAT('%', #{query.ownerCompanyName}, '%'))
+                      </if>
+                      <if test="query.productName != null and query.productName != ''">
+                        AND s.product_name LIKE CONCAT('%', #{query.productName}, '%')
+                      </if>
+                      <if test="query.classification != null and query.classification != ''">
+                        AND v.classification LIKE CONCAT('%', #{query.classification}, '%')
+                      </if>
+                      <if test="query.registrantName != null and query.registrantName != ''">
+                        AND s.registrant_name LIKE CONCAT('%', #{query.registrantName}, '%')
+                      </if>
+                      <if test="query.modelSpecification != null and query.modelSpecification != ''">
+                        AND s.model_specification LIKE CONCAT('%', #{query.modelSpecification}, '%')
+                      </if>
+                      <if test="query.productionAddress != null and query.productionAddress != ''">
+                        AND s.production_address LIKE CONCAT('%', #{query.productionAddress}, '%')
+                      </if>
+                      <if test="query.entrustedEnterpriseName != null and query.entrustedEnterpriseName != ''">
+                        AND EXISTS (SELECT 1 FROM dcc_registration_certificate_snapshot_entrusted se WHERE se.tenant_id = c.tenant_id AND se.snapshot_id = s.id AND se.deleted = 0 AND se.enterprise_name_snapshot LIKE CONCAT('%', #{query.entrustedEnterpriseName}, '%'))
+                      </if>
+                      <if test="query.projectCode != null and query.projectCode != ''">
+                        AND pc.project_code LIKE CONCAT('%', #{query.projectCode}, '%')
                       </if>
                       <if test="query.expiryStart != null">
                         AND v.expiry_date &gt;= #{query.expiryStart}

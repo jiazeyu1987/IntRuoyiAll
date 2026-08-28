@@ -5,16 +5,20 @@ import cn.iocoder.yudao.framework.common.util.monitor.TracerUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.renewal.vo.DccRegistrationCertificateRenewalUploadReqVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.renewal.vo.DccRegistrationCertificateRenewalVoidReqVO;
-import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalCommand;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalStartCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalSubmitCommand;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -31,25 +35,33 @@ import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUti
 public class DccRegistrationCertificateRenewalController {
 
     private final DccRegistrationCertificateRenewalService renewalService;
+    private final DccRegistrationCertificateApprovalService approvalService;
 
-    public DccRegistrationCertificateRenewalController(DccRegistrationCertificateRenewalService renewalService) {
+    public DccRegistrationCertificateRenewalController(
+            DccRegistrationCertificateRenewalService renewalService,
+            DccRegistrationCertificateApprovalService approvalService) {
         this.renewalService = renewalService;
+        this.approvalService = approvalService;
     }
 
     @PostMapping
-    @Operation(summary = "上传延续候选")
+    @Operation(summary = "提交延续注册证审批")
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:renewal:upload')")
-    public CommonResult<DccRegistrationCertificateRenewalResult> uploadCandidate(
+    @Transactional(rollbackFor = Exception.class)
+    public CommonResult<Long> submitForApproval(
             @PathVariable("certificateId") @Positive Long certificateId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @RequestBody DccRegistrationCertificateRenewalUploadReqVO reqVO) {
+            @Valid @ModelAttribute DccRegistrationCertificateRenewalUploadReqVO reqVO) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         Long actorId = getLoginUserId();
-        return success(renewalService.uploadRenewalCandidate(new DccRegistrationCertificateRenewalCommand(
+        Long requestId = renewalService.submitRenewalForApproval(new DccRegistrationCertificateRenewalSubmitCommand(
                 tenantId, actorId, idempotencyKey, TracerUtils.getTraceId(), certificateId,
-                reqVO.getExpectedRowVersion(), reqVO.getCurrentVersionId(), reqVO.getBusinessFileId(),
-                reqVO.getCategoryChanged(), reqVO.getCertificateNo(), reqVO.getClassification(),
-                reqVO.getApprovalDate(), reqVO.getEffectiveDate(), reqVO.getExpiryDate())));
+                reqVO.getExpectedRowVersion(), reqVO.getCurrentVersionId(),
+                reqVO.getApprovalDate(), reqVO.getEffectiveDate(), reqVO.getExpiryDate(), reqVO.getFile()))
+                .requestId();
+        approvalService.startNativeApproval(
+                tenantId, actorId, new DccRegistrationCertificateApprovalStartCommand(requestId));
+        return success(requestId);
     }
 
     @PostMapping("/{pendingVersionId}/void")

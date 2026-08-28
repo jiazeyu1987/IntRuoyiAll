@@ -4,17 +4,22 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessRequestDO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateAccessRequestFileDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateFileDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateSnapshotEntrustedDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateVersionDO;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateAccessRequestFileMapper;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateAccessRequestMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateFileMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotEntrustedMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
+import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentKey;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentProjectionSnapshot;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionService;
@@ -23,16 +28,22 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CANDIDATE_VOID_REASON_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_NOT_STAGED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_REQUIRED;
@@ -42,11 +53,10 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REVISION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_STATUS_INVALID;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.REQUEST_TYPE_UPLOAD_CERTIFICATE;
 import static cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.DCC_REGISTRATION_CERTIFICATE;
 
 @Service
@@ -62,12 +72,21 @@ public class DccRegistrationCertificateRenewalService {
     private static final String FILE_STATUS_VOIDED = "VOIDED";
     private static final String FILE_OWNER_VERSION = "VERSION";
     private static final String FILE_KIND_REGISTRATION_CERTIFICATE = "REGISTRATION_CERTIFICATE";
+    private static final String REQUEST_STATUS_SUBMITTED = "SUBMITTED";
+    private static final String REQUEST_STATUS_APPROVED = "APPROVED";
+    private static final String REQUEST_FILE_STATUS_REQUESTED = "REQUESTED";
+    private static final String REQUEST_FILE_STATUS_APPROVED = "APPROVED";
+    private static final String REQUEST_FILE_STATUS_REJECTED = "REJECTED";
+    private static final String RENEWAL_REQUEST_PURPOSE = "上传延续注册证，待注册部经理审批";
 
     private final DccRegistrationCertificateMapper certificateMapper;
     private final DccRegistrationCertificateVersionMapper versionMapper;
     private final DccRegistrationCertificateSnapshotMapper snapshotMapper;
     private final DccRegistrationCertificateSnapshotEntrustedMapper entrustedMapper;
     private final DccRegistrationCertificateFileMapper fileMapper;
+    private final DccRegistrationCertificateAccessRequestMapper requestMapper;
+    private final DccRegistrationCertificateAccessRequestFileMapper requestFileMapper;
+    private final FileService fileService;
     private final JdbcTemplate jdbcTemplate;
     private final ControlledContentRegistrationProjectionService projectionService;
     private final DccRegistrationCertificateBusinessClock businessClock;
@@ -78,6 +97,9 @@ public class DccRegistrationCertificateRenewalService {
             DccRegistrationCertificateSnapshotMapper snapshotMapper,
             DccRegistrationCertificateSnapshotEntrustedMapper entrustedMapper,
             DccRegistrationCertificateFileMapper fileMapper,
+            DccRegistrationCertificateAccessRequestMapper requestMapper,
+            DccRegistrationCertificateAccessRequestFileMapper requestFileMapper,
+            FileService fileService,
             JdbcTemplate jdbcTemplate,
             ControlledContentRegistrationProjectionService projectionService,
             DccRegistrationCertificateBusinessClock businessClock) {
@@ -86,9 +108,109 @@ public class DccRegistrationCertificateRenewalService {
         this.snapshotMapper = require(snapshotMapper, "snapshotMapper");
         this.entrustedMapper = require(entrustedMapper, "entrustedMapper");
         this.fileMapper = require(fileMapper, "fileMapper");
+        this.requestMapper = require(requestMapper, "requestMapper");
+        this.requestFileMapper = require(requestFileMapper, "requestFileMapper");
+        this.fileService = require(fileService, "fileService");
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
         this.projectionService = require(projectionService, "projectionService");
         this.businessClock = require(businessClock, "businessClock");
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public DccRegistrationCertificateRenewalSubmitResult submitRenewalForApproval(
+            DccRegistrationCertificateRenewalSubmitCommand command) {
+        validateEventInput(command.tenantId(), command.actorId(), command.idempotencyKey(), command.requestTraceId());
+        RenewalUploadFile uploadFile = requireUploadFile(command.file());
+        String payloadHash = submitPayloadHash(command, uploadFile);
+        DccRegistrationCertificateAccessRequestDO existing =
+                requestMapper.selectByTenantAndRequestKey(command.tenantId(), command.idempotencyKey());
+        if (existing != null) {
+            return replaySubmit(existing, payloadHash);
+        }
+
+        DccRegistrationCertificateDO certificate = requireActiveCertificate(candidateCommand(command, null));
+        DccRegistrationCertificateVersionDO currentVersion = requireCurrentVersion(certificate, command.currentVersionId());
+        validateRenewalDates(certificate.getFirstObtainedDate(), command.approvalDate(),
+                command.effectiveDate(), command.expiryDate());
+        ensureNoOpenRenewalApproval(command.tenantId(), certificate.getId());
+
+        Long infraFileId = fileService.createFileAndReturnId(
+                uploadFile.content(), uploadFile.originalName(),
+                "dcc/registration-certificate/renewal/" + certificate.getId(), uploadFile.mimeType());
+        DccRegistrationCertificateFileDO businessFile = DccRegistrationCertificateFileDO.builder()
+                .ownerType(FILE_OWNER_VERSION)
+                .ownerId(currentVersion.getId())
+                .fileKind(FILE_KIND_REGISTRATION_CERTIFICATE)
+                .infraFileId(infraFileId)
+                .originalName(uploadFile.originalName())
+                .mimeType(uploadFile.mimeType())
+                .fileSize(uploadFile.fileSize())
+                .sha256(uploadFile.sha256())
+                .status(FILE_STATUS_STAGED)
+                .build();
+        businessFile.setTenantId(command.tenantId());
+        requireSingle(fileMapper.insert(businessFile), REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+
+        DccRegistrationCertificateAccessRequestDO request = DccRegistrationCertificateAccessRequestDO.builder()
+                .ownerCompanyId(certificate.getOwnerCompanyId())
+                .certificateId(certificate.getId())
+                .requesterUserId(command.actorId())
+                .requestType(REQUEST_TYPE_UPLOAD_CERTIFICATE)
+                .requestKey(command.idempotencyKey().trim())
+                .purpose(RENEWAL_REQUEST_PURPOSE)
+                .status(REQUEST_STATUS_SUBMITTED)
+                .requestedAt(businessClock.now())
+                .detailJson(JsonUtils.toJsonString(submitDetail(command, businessFile.getId(), payloadHash, uploadFile)))
+                .build();
+        request.setTenantId(command.tenantId());
+        try {
+            requireSingle(requestMapper.insert(request), REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        } catch (DuplicateKeyException exception) {
+            DccRegistrationCertificateAccessRequestDO duplicate =
+                    requestMapper.selectByTenantAndRequestKey(command.tenantId(), command.idempotencyKey());
+            if (duplicate != null) {
+                return replaySubmit(duplicate, payloadHash);
+            }
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        }
+
+        DccRegistrationCertificateAccessRequestFileDO requestFile =
+                DccRegistrationCertificateAccessRequestFileDO.builder()
+                        .requestId(request.getId())
+                        .businessFileId(businessFile.getId())
+                        .fileKind(FILE_KIND_REGISTRATION_CERTIFICATE)
+                        .downloadRequested(false)
+                        .status(REQUEST_FILE_STATUS_REQUESTED)
+                        .detailJson(JsonUtils.toJsonString(Map.of("payloadHash", payloadHash)))
+                        .build();
+        requestFile.setTenantId(command.tenantId());
+        requireSingle(requestFileMapper.insert(requestFile), REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        return new DccRegistrationCertificateRenewalSubmitResult(
+                request.getId(), certificate.getId(), businessFile.getId(), request.getStatus());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public DccRegistrationCertificateRenewalResult approveRenewalRequest(
+            Long tenantId, Long approverId, Long requestId, String approvalKey) {
+        DccRegistrationCertificateAccessRequestDO request = requireRenewalRequest(tenantId, requestId);
+        if (!REQUEST_STATUS_APPROVED.equals(request.getStatus())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        }
+        RenewalRequestDetail detail = parseRenewalRequestDetail(request);
+        DccRegistrationCertificateRenewalResult result = uploadRenewalCandidate(new DccRegistrationCertificateRenewalCommand(
+                tenantId, approverId, approvalKey, approvalKey, request.getCertificateId(),
+                detail.expectedRowVersion(), detail.currentVersionId(), detail.businessFileId(),
+                detail.approvalDate(), detail.effectiveDate(), detail.expiryDate()));
+        markRenewalRequestFiles(tenantId, requestId, REQUEST_FILE_STATUS_APPROVED);
+        return result;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectRenewalRequest(Long tenantId, Long actorId, Long requestId, String reason) {
+        DccRegistrationCertificateAccessRequestDO request = requireRenewalRequest(tenantId, requestId);
+        RenewalRequestDetail detail = parseRenewalRequestDetail(request);
+        markRenewalRequestFiles(tenantId, requestId, REQUEST_FILE_STATUS_REJECTED);
+        voidStagedRenewalFile(tenantId, detail.businessFileId(), actorId, reason);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -112,19 +234,16 @@ public class DccRegistrationCertificateRenewalService {
         validateRenewalDates(certificate.getFirstObtainedDate(), command.approvalDate(),
                 command.effectiveDate(), command.expiryDate());
 
-        String renewalCertificateNo = resolveRenewalCertificateNo(command, currentVersion);
-        String renewalClassification = resolveRenewalClassification(command, currentVersion);
-
         DccRegistrationCertificateVersionDO renewalVersion = DccRegistrationCertificateVersionDO.builder()
                 .certificateId(certificate.getId())
                 .versionNo(currentVersion.getVersionNo() + 1)
                 .versionType(VERSION_TYPE_RENEWAL)
-                .certificateNo(renewalCertificateNo)
+                .certificateNo(currentVersion.getCertificateNo())
                 .approvalDate(command.approvalDate())
                 .effectiveDate(command.effectiveDate())
                 .expiryDate(command.expiryDate())
-                .classification(renewalClassification)
-                .categoryChanged(Boolean.TRUE.equals(command.categoryChanged()))
+                .classification(currentVersion.getClassification())
+                .categoryChanged(false)
                 .baseSnapshotId(currentSnapshot.getId())
                 .status(STATUS_PENDING)
                 .formalizedAt(businessClock.now())
@@ -363,36 +482,6 @@ public class DccRegistrationCertificateRenewalService {
         }
     }
 
-    private String resolveRenewalCertificateNo(DccRegistrationCertificateRenewalCommand command,
-                                               DccRegistrationCertificateVersionDO currentVersion) {
-        if (Boolean.TRUE.equals(command.categoryChanged())) {
-            if (isBlank(command.certificateNo()) || isBlank(command.classification())) {
-                throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED);
-            }
-            return command.certificateNo().trim();
-        }
-        if (!isBlank(command.certificateNo())
-                && !Objects.equals(command.certificateNo().trim(), currentVersion.getCertificateNo())) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN);
-        }
-        return currentVersion.getCertificateNo();
-    }
-
-    private String resolveRenewalClassification(DccRegistrationCertificateRenewalCommand command,
-                                                DccRegistrationCertificateVersionDO currentVersion) {
-        if (Boolean.TRUE.equals(command.categoryChanged())) {
-            if (isBlank(command.certificateNo()) || isBlank(command.classification())) {
-                throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED);
-            }
-            return command.classification().trim();
-        }
-        if (!isBlank(command.classification())
-                && !Objects.equals(command.classification().trim(), currentVersion.getClassification())) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN);
-        }
-        return currentVersion.getClassification();
-    }
-
     private DccRegistrationCertificateSnapshotDO copySnapshot(DccRegistrationCertificateSnapshotDO source,
                                                               Long renewalVersionId) {
         DccRegistrationCertificateSnapshotDO copy = DccRegistrationCertificateSnapshotDO.builder()
@@ -509,6 +598,141 @@ public class DccRegistrationCertificateRenewalService {
         return files.isEmpty() ? null : files.get(0);
     }
 
+    private DccRegistrationCertificateRenewalCommand candidateCommand(
+            DccRegistrationCertificateRenewalSubmitCommand command, Long businessFileId) {
+        return new DccRegistrationCertificateRenewalCommand(
+                command.tenantId(), command.actorId(), command.idempotencyKey(), command.requestTraceId(),
+                command.certificateId(), command.expectedRowVersion(), command.currentVersionId(),
+                businessFileId, command.approvalDate(), command.effectiveDate(), command.expiryDate());
+    }
+
+    private DccRegistrationCertificateRenewalSubmitResult replaySubmit(
+            DccRegistrationCertificateAccessRequestDO request, String payloadHash) {
+        if (!REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        }
+        RenewalRequestDetail detail = parseRenewalRequestDetail(request);
+        if (!Objects.equals(payloadHash, detail.payloadHash())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        }
+        return new DccRegistrationCertificateRenewalSubmitResult(
+                request.getId(), request.getCertificateId(), detail.businessFileId(), request.getStatus());
+    }
+
+    private DccRegistrationCertificateAccessRequestDO requireRenewalRequest(Long tenantId, Long requestId) {
+        if (tenantId == null || tenantId <= 0 || requestId == null || requestId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        }
+        DccRegistrationCertificateAccessRequestDO request = requestMapper.selectById(requestId);
+        if (request == null || !Objects.equals(tenantId, request.getTenantId())
+                || !REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        }
+        return request;
+    }
+
+    private void ensureNoOpenRenewalApproval(Long tenantId, Long certificateId) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM dcc_registration_certificate_access_request
+                 WHERE tenant_id = ?
+                   AND certificate_id = ?
+                   AND request_type = ?
+                   AND status IN ('SUBMITTED', 'BPM_BOUND')
+                   AND deleted = 0
+                """, Integer.class, tenantId, certificateId, REQUEST_TYPE_UPLOAD_CERTIFICATE);
+        if (count != null && count > 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT);
+        }
+    }
+
+    private void markRenewalRequestFiles(Long tenantId, Long requestId, String status) {
+        requireSingle(requestFileMapper.update(null,
+                new LambdaUpdateWrapper<DccRegistrationCertificateAccessRequestFileDO>()
+                        .eq(DccRegistrationCertificateAccessRequestFileDO::getTenantId, tenantId)
+                        .eq(DccRegistrationCertificateAccessRequestFileDO::getRequestId, requestId)
+                        .eq(DccRegistrationCertificateAccessRequestFileDO::getFileKind,
+                                FILE_KIND_REGISTRATION_CERTIFICATE)
+                        .eq(DccRegistrationCertificateAccessRequestFileDO::getStatus,
+                                REQUEST_FILE_STATUS_REQUESTED)
+                        .set(DccRegistrationCertificateAccessRequestFileDO::getStatus, status)),
+                REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+    }
+
+    private void voidStagedRenewalFile(Long tenantId, Long businessFileId, Long actorId, String reason) {
+        if (businessFileId == null || businessFileId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        }
+        requireSingle(fileMapper.update(null,
+                new LambdaUpdateWrapper<DccRegistrationCertificateFileDO>()
+                        .eq(DccRegistrationCertificateFileDO::getId, businessFileId)
+                        .eq(DccRegistrationCertificateFileDO::getTenantId, tenantId)
+                        .eq(DccRegistrationCertificateFileDO::getOwnerType, FILE_OWNER_VERSION)
+                        .eq(DccRegistrationCertificateFileDO::getFileKind, FILE_KIND_REGISTRATION_CERTIFICATE)
+                        .eq(DccRegistrationCertificateFileDO::getStatus, FILE_STATUS_STAGED)
+                        .set(DccRegistrationCertificateFileDO::getStatus, FILE_STATUS_VOIDED)
+                        .set(DccRegistrationCertificateFileDO::getBoundAt, businessClock.now())
+                        .set(DccRegistrationCertificateFileDO::getBoundBy, actorId)),
+                REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
+    }
+
+    private RenewalUploadFile requireUploadFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        }
+        String originalName = normalize(file.getOriginalFilename());
+        String mimeType = normalize(file.getContentType());
+        if (isBlank(originalName) || isBlank(mimeType) || file.getSize() <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_REQUIRED);
+        }
+        byte[] content;
+        try {
+            content = file.getBytes();
+        } catch (IOException exception) {
+            ServiceException mapped = new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+            mapped.initCause(exception);
+            throw mapped;
+        }
+        if (content.length == 0 || content.length != file.getSize()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_CONFLICT);
+        }
+        return new RenewalUploadFile(originalName, mimeType, file.getSize(), content, sha256(content));
+    }
+
+    private Map<String, Object> submitDetail(
+            DccRegistrationCertificateRenewalSubmitCommand command, Long businessFileId,
+            String payloadHash, RenewalUploadFile uploadFile) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("payloadHash", payloadHash);
+        detail.put("operation", VERSION_TYPE_RENEWAL);
+        detail.put("currentVersionId", command.currentVersionId());
+        detail.put("expectedRowVersion", command.expectedRowVersion());
+        detail.put("businessFileId", businessFileId);
+        detail.put("approvalDate", command.approvalDate().toString());
+        detail.put("effectiveDate", command.effectiveDate().toString());
+        detail.put("expiryDate", command.expiryDate().toString());
+        detail.put("fileSha256", uploadFile.sha256());
+        detail.put("originalName", uploadFile.originalName());
+        detail.put("fileSize", uploadFile.fileSize());
+        return detail;
+    }
+
+    private RenewalRequestDetail parseRenewalRequestDetail(DccRegistrationCertificateAccessRequestDO request) {
+        Map<?, ?> parsed = isBlank(request.getDetailJson())
+                ? Map.of() : JsonUtils.parseObject(request.getDetailJson(), Map.class);
+        if (parsed == null || !VERSION_TYPE_RENEWAL.equals(String.valueOf(parsed.get("operation")))) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        }
+        return new RenewalRequestDetail(
+                requireDetailText(parsed, "payloadHash"),
+                requireDetailLong(parsed, "currentVersionId"),
+                requireDetailInteger(parsed, "expectedRowVersion"),
+                requireDetailLong(parsed, "businessFileId"),
+                LocalDate.parse(requireDetailText(parsed, "approvalDate")),
+                LocalDate.parse(requireDetailText(parsed, "effectiveDate")),
+                LocalDate.parse(requireDetailText(parsed, "expiryDate")));
+    }
+
     private void validateEventInput(Long tenantId, Long actorId, String eventKey, String requestTraceId) {
         if (tenantId == null || tenantId <= 0 || actorId == null || actorId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT);
@@ -524,9 +748,16 @@ public class DccRegistrationCertificateRenewalService {
     private static String uploadPayloadHash(DccRegistrationCertificateRenewalCommand command) {
         return sha256("UPLOAD|" + command.certificateId() + "|" + command.expectedRowVersion()
                 + "|" + command.currentVersionId() + "|" + command.businessFileId()
-                + "|" + command.categoryChanged() + "|" + normalize(command.certificateNo())
-                + "|" + normalize(command.classification()) + "|" + command.approvalDate()
-                + "|" + command.effectiveDate() + "|" + command.expiryDate());
+                + "|" + command.approvalDate() + "|" + command.effectiveDate() + "|" + command.expiryDate());
+    }
+
+    private static String submitPayloadHash(
+            DccRegistrationCertificateRenewalSubmitCommand command, RenewalUploadFile uploadFile) {
+        return sha256("SUBMIT|" + command.certificateId() + "|" + command.expectedRowVersion()
+                + "|" + command.currentVersionId() + "|" + command.approvalDate()
+                + "|" + command.effectiveDate() + "|" + command.expiryDate()
+                + "|" + uploadFile.originalName() + "|" + uploadFile.mimeType()
+                + "|" + uploadFile.fileSize() + "|" + uploadFile.sha256());
     }
 
     private static String voidPayloadHash(Long certificateId, Integer expectedRowVersion,
@@ -542,6 +773,43 @@ public class DccRegistrationCertificateRenewalService {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
+    }
+
+    private static String sha256(byte[] value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
+    private static String requireDetailText(Map<?, ?> values, String key) {
+        Object value = values.get(key);
+        if (value == null || isBlank(String.valueOf(value))) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        }
+        return String.valueOf(value).trim();
+    }
+
+    private static Long requireDetailLong(Map<?, ?> values, String key) {
+        Object value = values.get(key);
+        if (value instanceof Number number) {
+            long result = number.longValue();
+            if (result > 0) {
+                return result;
+            }
+        } else if (value != null && String.valueOf(value).matches("[1-9]\\d*")) {
+            return Long.valueOf(String.valueOf(value));
+        }
+        throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+    }
+
+    private static Integer requireDetailInteger(Map<?, ?> values, String key) {
+        Long value = requireDetailLong(values, key);
+        if (value > Integer.MAX_VALUE) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        }
+        return value.intValue();
     }
 
     private static String normalize(String value) {
@@ -579,5 +847,23 @@ public class DccRegistrationCertificateRenewalService {
             Long targetSnapshotId,
             Long businessFileId,
             Boolean renewalUploadMissing) {
+    }
+
+    private record RenewalUploadFile(
+            String originalName,
+            String mimeType,
+            long fileSize,
+            byte[] content,
+            String sha256) {
+    }
+
+    private record RenewalRequestDetail(
+            String payloadHash,
+            Long currentVersionId,
+            Integer expectedRowVersion,
+            Long businessFileId,
+            LocalDate approvalDate,
+            LocalDate effectiveDate,
+            LocalDate expiryDate) {
     }
 }

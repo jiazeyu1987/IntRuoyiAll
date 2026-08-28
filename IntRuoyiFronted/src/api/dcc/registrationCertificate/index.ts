@@ -14,6 +14,14 @@ export interface DccRegistrationCertificatePageReqVO extends PageParam {
   projectCodeId?: number | string
   status?: DccRegistrationCertificateStatus
   certificateNo?: string
+  ownerCompanyName?: string
+  productName?: string
+  classification?: string
+  registrantName?: string
+  modelSpecification?: string
+  productionAddress?: string
+  entrustedEnterpriseName?: string
+  projectCode?: string
   missingProjectCode?: boolean
   missingFile?: boolean
   firstObtainedStart?: string
@@ -28,6 +36,7 @@ export interface DccRegistrationCertificatePageReqVO extends PageParam {
 
 export interface DccRegistrationCertificatePageItemVO {
   certificateId: number | string
+  rowVersion: number
   versionId: number | string
   snapshotId?: number | string
   ownerCompanyId: number | string
@@ -35,11 +44,15 @@ export interface DccRegistrationCertificatePageItemVO {
   productMasterId: number | string
   productName: string
   projectCodeId?: number | string
+  projectCode?: string
   certificateNo: string
   versionNo: number
   status: DccRegistrationCertificateStatus
+  remark?: string
   hasProjectCode: boolean
   hasRegistrationFile: boolean
+  reminderColor: string
+  visualState: string
   firstObtainedDate?: string
   approvalDate?: string
   effectiveDate?: string
@@ -54,6 +67,7 @@ export interface DccRegistrationCertificateOldIndexItemVO {
   productMasterId: number | string
   productName: string
   projectCodeId?: number | string
+  projectCode?: string
   certificateNo: string
   versionNo: number
   expiryDate?: string
@@ -71,6 +85,7 @@ export interface DccRegistrationCertificateDetailVO {
   productMasterId: number | string
   productName: string
   projectCodeId?: number | string
+  projectCode?: string
   certificateNo: string
   versionNo: number
   status: DccRegistrationCertificateStatus
@@ -79,6 +94,7 @@ export interface DccRegistrationCertificateDetailVO {
   effectiveDate?: string
   expiryDate?: string
   classification: string
+  remark?: string
   registrantName: string
   modelSpecification: string
   structureComposition: string
@@ -91,6 +107,8 @@ export interface DccRegistrationCertificateDetailVO {
   entrustedEnterprisesJson?: string
   registrationFileId?: number | string
   hasRegistrationFile: boolean
+  reminderColor: string
+  visualState: string
 }
 
 export interface DccRegistrationCertificateHistoryItemVO {
@@ -107,20 +125,21 @@ export interface DccRegistrationCertificateDraftReqVO {
   projectCodeId?: number | string
   firstObtainedDate: string
   certificateNo: string
-  approvalDate: string
+  approvalDate?: string
   effectiveDate: string
   expiryDate: string
   classification: string
-  registrantName: string
-  modelSpecification: string
-  structureComposition: string
-  intendedUse: string
-  technicalRequirements: string
-  residenceAddress: string
-  productionAddress: string
-  entrustedProduction: boolean
-  selfProduction: boolean
-  entrustedEnterpriseIds: Array<number | string>
+  registrantName?: string
+  modelSpecification?: string
+  structureComposition?: string
+  intendedUse?: string
+  technicalRequirements?: string
+  residenceAddress?: string
+  productionAddress?: string
+  entrustedProduction?: boolean
+  selfProduction?: boolean
+  entrustedEnterpriseIds?: Array<number | string>
+  remark?: string
 }
 
 export interface DccRegistrationCertificateUpdateDraftReqVO
@@ -135,32 +154,9 @@ export interface DccRegistrationCertificateFormalizeReqVO {
   businessFileId?: number | string
 }
 
-export interface DccRegistrationCertificateRenewalUploadReqVO {
-  expectedRowVersion: number
-  currentVersionId: number | string
-  businessFileId?: number | string
-  categoryChanged: boolean
-  certificateNo?: string
-  classification?: string
-  approvalDate: string
-  effectiveDate: string
-  expiryDate: string
-}
-
 export interface DccRegistrationCertificateRenewalVoidReqVO {
   expectedRowVersion: number
   voidReason: string
-}
-
-export interface DccRegistrationCertificateChangeApplyReqVO {
-  expectedRowVersion: number
-  approvalDate: string
-  businessFileId?: number | string
-  structuredValues?: Record<string, string>
-  otherDescription?: string
-  entrustedProduction?: boolean
-  selfProduction?: boolean
-  entrustedEnterprisesJson?: string
 }
 
 export interface DccRegistrationCertificateVoidReqVO {
@@ -173,6 +169,17 @@ export interface DccRegistrationCertificateSupportingDocumentUploadReqVO {
   versionId: number | string
   businessFileId?: number | string
   documentType: string
+}
+
+export interface DccRegistrationCertificateUploadSubmitReqVO {
+  companyName: string
+  projectCodeId: number | string
+  certificateNo: string
+  firstObtainedDate: string
+  effectiveDate: string
+  expiryDate: string
+  classification: string
+  remark?: string
 }
 
 export interface DccRegistrationCertificateAccessRequestSubmitReqVO {
@@ -315,13 +322,12 @@ export const formalizeRegistrationCertificate = async (
   })
 }
 
-export const uploadRegistrationCertificateRenewalCandidate = async (
-  certificateId: number | string,
-  data: DccRegistrationCertificateRenewalUploadReqVO,
+export const submitRegistrationCertificateUpload = async (
+  data: FormData,
   idempotencyKey: string
 ) => {
-  return await request.post({
-    url: `/dcc/registration-certificates/${certificateId}/renewals`,
+  return await request.upload({
+    url: '/dcc/registration-certificates/uploads',
     data,
     headers: { 'Idempotency-Key': idempotencyKey }
   })
@@ -342,10 +348,10 @@ export const voidRegistrationCertificateRenewalCandidate = async (
 
 export const submitRegistrationCertificateChange = async (
   certificateId: number | string,
-  data: DccRegistrationCertificateChangeApplyReqVO,
+  data: FormData,
   idempotencyKey: string
 ) => {
-  return await request.post({
+  return await request.upload({
     url: `/dcc/registration-certificates/${certificateId}/changes`,
     data,
     headers: { 'Idempotency-Key': idempotencyKey }
@@ -442,5 +448,25 @@ export const getRegistrationCertificateFilePreviewMetadata = async (
 ) => {
   return await request.get<DccRegistrationCertificatePreviewMetadataVO>({
     url: `/dcc/registration-certificates/files/${businessFileId}/preview-metadata`
+  })
+}
+
+export interface DccRegistrationCertificateRenewalUploadReqVO {
+  expectedRowVersion: number
+  currentVersionId: number | string
+  approvalDate: string
+  effectiveDate: string
+  expiryDate: string
+}
+
+export const submitRegistrationCertificateRenewal = async (
+  certificateId: number | string,
+  data: FormData,
+  idempotencyKey: string
+) => {
+  return await request.upload<number | string>({
+    url: `/dcc/registration-certificates/${certificateId}/renewals`,
+    data,
+    headers: { 'Idempotency-Key': idempotencyKey }
   })
 }
