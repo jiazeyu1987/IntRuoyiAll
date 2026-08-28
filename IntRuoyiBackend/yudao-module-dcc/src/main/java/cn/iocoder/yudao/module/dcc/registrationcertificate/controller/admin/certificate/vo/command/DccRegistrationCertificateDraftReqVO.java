@@ -26,7 +26,6 @@ public class DccRegistrationCertificateDraftReqVO {
     @NotBlank
     @Size(max = 128)
     private String certificateNo;
-    @NotNull
     private LocalDate approvalDate;
     @NotNull
     private LocalDate effectiveDate;
@@ -35,27 +34,19 @@ public class DccRegistrationCertificateDraftReqVO {
     @NotBlank
     @Size(max = 64)
     private String classification;
-    @NotBlank
     @Size(max = 255)
     private String registrantName;
-    @NotBlank
     private String modelSpecification;
-    @NotBlank
     private String structureComposition;
-    @NotBlank
     private String intendedUse;
-    @NotBlank
     private String technicalRequirements;
-    @NotBlank
     private String residenceAddress;
-    @NotBlank
     private String productionAddress;
-    @NotNull
     private Boolean entrustedProduction;
-    @NotNull
     private Boolean selfProduction;
-    @NotNull
     private List<@Positive Long> entrustedEnterpriseIds;
+    @Size(max = 1024)
+    private String remark;
 
     public DccRegistrationCertificateDraftData toDraftData() {
         return new DccRegistrationCertificateDraftData(
@@ -63,6 +54,6 @@ public class DccRegistrationCertificateDraftReqVO {
                 certificateNo, approvalDate, effectiveDate, expiryDate, classification,
                 registrantName, modelSpecification, structureComposition, intendedUse,
                 technicalRequirements, residenceAddress, productionAddress,
-                entrustedProduction, selfProduction, entrustedEnterpriseIds);
+                entrustedProduction, selfProduction, entrustedEnterpriseIds, remark);
     }
 }

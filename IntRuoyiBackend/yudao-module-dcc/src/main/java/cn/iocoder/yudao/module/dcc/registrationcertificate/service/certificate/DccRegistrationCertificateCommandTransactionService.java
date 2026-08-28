@@ -79,6 +79,7 @@ public class DccRegistrationCertificateCommandTransactionService {
                 .expiryDate(draft.expiryDate())
                 .classification(draft.classification().trim())
                 .categoryChanged(false)
+                .remark(draft.remark() == null ? null : draft.remark().trim())
                 .status("DRAFT")
                 .build();
         version.setTenantId(metadata.tenantId());
@@ -163,7 +164,8 @@ public class DccRegistrationCertificateCommandTransactionService {
                 state.snapshot().getResidenceAddress(), state.snapshot().getProductionAddress(),
                 state.snapshot().getEntrustedProduction(), state.snapshot().getSelfProduction(),
                 state.entrustedProjection().stream()
-                        .map(DccRegistrationCertificateSnapshotEntrustedDO::getEnterpriseId).toList());
+                        .map(DccRegistrationCertificateSnapshotEntrustedDO::getEnterpriseId).toList(),
+                state.version().getRemark());
     }
 
     private static void requireSingle(int affected) {
