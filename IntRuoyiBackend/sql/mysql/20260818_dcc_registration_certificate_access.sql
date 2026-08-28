@@ -298,7 +298,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_request` (
   UNIQUE KEY `uk_dcc_reg_cert_access_request_key` (`tenant_id`, `request_key`),
   UNIQUE KEY `uk_dcc_reg_cert_access_request_bpm` (`tenant_id`, `bpm_process_instance_id`),
   CONSTRAINT `chk_dcc_reg_cert_access_request_type` CHECK (`request_type` IN
-    ('VIEW_OLD_CERTIFICATE', 'DOWNLOAD_FILE')),
+    ('VIEW_OLD_CERTIFICATE', 'DOWNLOAD_FILE', 'UPLOAD_CERTIFICATE')),
   CONSTRAINT `chk_dcc_reg_cert_access_request_status` CHECK (`status` IN
     ('SUBMITTED', 'BPM_BOUND', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'REVOKED')),
   CONSTRAINT `chk_dcc_reg_cert_access_request_key` CHECK (TRIM(`request_key`) <> ''),

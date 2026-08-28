@@ -282,6 +282,15 @@
 - Forbidden action: 禁止用前端空列表兜底、默认清空筛选、吞模块接口异常、过滤掉 provider 行、或只改徽标数量来掩盖正式待办数据链路不一致。
 - Evidence: `doc/tasks/20260804-approval-center-todo-empty-list/verification-report.md`。
 
+## 注册证上传审批入口与入库门禁
+
+- Trigger: 注册证上传弹框、`/dcc/registration-certificates/uploads`、`UPLOAD_CERTIFICATE`、`dcc:registration-certificate:upload:create`、`dcc:registration-certificate:upload:approve`、保存后进入审批中心、审批通过后进入注册证列表。
+- Preflight check: 先区分“首证上传提交”和旧“草稿维护/正式化”入口；上传页只采集业务要求字段和注册证文件，后端必须用专用上传 Controller 创建待审批请求并立即绑定 Native BPM，审批候选权限使用上传审批权限，审批通过后再正式化入库。
+- Blocker: 上传接口仍复用草稿维护/正式化权限、保存后只刷新当前列表、`UPLOAD_CERTIFICATE` 未进入访问请求约束、审批候选仍按访问申请权限解析、审批前草稿出现在正式列表，或审批通过未绑定注册证文件时必须停止。
+- Verification: 前端静态合同锁定上传弹框字段、上传 API、保存后 `/approval-center?moduleCode=DCC&viewType=TODO` 跳转和旧入口负向断言；后端回归覆盖 `UPLOAD_CERTIFICATE` 约束、上传审批权限候选、审批通过调用首证上传正式化且不创建访问授权。
+- Forbidden action: 禁止用旧草稿按钮、API-only 成功、toast、列表刷新、默认审批权限、空文件成功或 SQL 直改状态冒充上传审批闭环。
+- Evidence: `doc/tasks/20260828-registration-certificate-upload-approval-simplify/verification-report.md`。
+
 ## 业务审批策略按配置执行门禁
 
 ### 表单模板升版/作废审批模式以 published 策略为准
@@ -343,6 +352,7 @@
 
 - Trigger: eDHR 批次创建弹窗、`/open-or-create`、`entryType` 缺失或“批次入口缺少 entryType”。
 - Preflight check: 前端只能调用与业务入口匹配的正式接口，并提交该入口实际生成的 `entryType`、`entryBusinessId`、来源凭证、来源上下文哈希和幂等键；`MANUAL`、`PQC_INDEPENDENT`、活跃订单完成或排产入口的凭证链路必须分别由正式来源生成。只有工单、路线、批次号和备注的旧弹窗不能直接调用受 Flow 9 合同保护的创建接口。
+- Schedule boundary: 当前排产/手动重排与批记录创建是两条分开的业务；批记录只能由正式批记录入口（例如生产组长加入活跃工单后的批记录链路）生成，不得在排产完成后自动创建 eDHR 批次、自动签发 `SCHEDULED_BATCH` 凭证，或让排产提交被 eDHR 凭证幂等冲突阻断。未来若要恢复排产触发批记录，必须先定义正式入口合同、迁移策略和回归/E2E 证据。
 - Blocker: 禁止在前端填固定 `entryType`、空字符串、默认来源 ID、伪造 receipt 或将 `formBindings`、工序开始配置、页面文案当作批次入口来源；缺少正式人工入口凭证服务时必须阻塞并明确提示，而不是继续请求后端。
 - Verification: 前端合同测试必须同时锁定入口类型与完整正式字段；后端入口合同测试必须覆盖缺字段、场景不匹配和正式凭证校验；真实页面验证必须证明请求来自对应业务入口并记录实际写请求。
 - Forbidden action: 禁止用 `formBindings`、默认 `MAIN`、工序开始配置、当前登录人、空资料、mock、直接 SQL、API-only、默认成功、吞异常、直接调用负责人电子签名放行、在一线提交或组长复核节点提前回填、回填前创建批次执行、无损耗生成空损耗单、三类文件未齐套预检通过、或把旧 `RELEASE_APPROVE` 候选当管理者代表来替代正式生产放行与批记录放行链路。

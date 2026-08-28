@@ -12,6 +12,8 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccReg
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.dataobject.DccRegistrationCertificateGrantDO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.grant.DccRegistrationCertificateGrantService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
@@ -43,6 +45,8 @@ import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approv
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVER_ROLE_CODE;
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.BUSINESS_KEY_PREFIX;
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.PROCESS_DEFINITION_KEY;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.REQUEST_TYPE_UPLOAD_CERTIFICATE;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.UPLOAD_APPROVAL_PERMISSION;
 
 @Service
 public class DccRegistrationCertificateApprovalService {
@@ -56,6 +60,7 @@ public class DccRegistrationCertificateApprovalService {
     private static final String BINDING_APPROVED = "APPROVED";
     private static final String BINDING_REJECTED = "REJECTED";
     private static final String BINDING_WITHDRAWN = "WITHDRAWN";
+    private static final String OPERATION_RENEWAL_CERTIFICATE = "RENEWAL_CERTIFICATE";
     private final DccRegistrationCertificateAccessRequestMapper requestMapper;
     private final DccRegistrationCertificateBpmBindingMapper bindingMapper;
     private final DccRegistrationCertificateGrantMapper grantMapper;
@@ -64,6 +69,8 @@ public class DccRegistrationCertificateApprovalService {
     private final MdmCompanyScopeApi companyScopeApi;
     private final RoleApi roleApi;
     private final DccRegistrationCertificateBusinessClock businessClock;
+    private final DccRegistrationCertificateRenewalService renewalService;
+    private final DccRegistrationCertificateUploadService uploadService;
 
     @Autowired
     public DccRegistrationCertificateApprovalService(
@@ -74,7 +81,9 @@ public class DccRegistrationCertificateApprovalService {
             BpmProcessInstanceApi bpmProcessInstanceApi,
             MdmCompanyScopeApi companyScopeApi,
             RoleApi roleApi,
-            DccRegistrationCertificateBusinessClock businessClock) {
+            DccRegistrationCertificateBusinessClock businessClock,
+            DccRegistrationCertificateRenewalService renewalService,
+            DccRegistrationCertificateUploadService uploadService) {
         this.requestMapper = require(requestMapper, "requestMapper");
         this.bindingMapper = require(bindingMapper, "bindingMapper");
         this.grantMapper = require(grantMapper, "grantMapper");
@@ -83,6 +92,8 @@ public class DccRegistrationCertificateApprovalService {
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.roleApi = require(roleApi, "roleApi");
         this.businessClock = require(businessClock, "businessClock");
+        this.renewalService = require(renewalService, "renewalService");
+        this.uploadService = require(uploadService, "uploadService");
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -109,7 +120,7 @@ public class DccRegistrationCertificateApprovalService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_CANDIDATE_EMPTY);
         }
         Set<Long> rawCandidates = companyScopeApi.resolveRecipientUserIds(
-                request.getOwnerCompanyId(), List.of(approverRole.getId()), APPROVAL_PERMISSION);
+                request.getOwnerCompanyId(), List.of(approverRole.getId()), approvalPermission(request));
         List<Long> candidates = normalizeCandidates(rawCandidates, actorId);
         if (candidates.isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_CANDIDATE_EMPTY);
@@ -184,6 +195,17 @@ public class DccRegistrationCertificateApprovalService {
         recordTerminalApprovalKey(binding, command.approvalKey());
         requireUpdated(requestMapper.updateById(request));
         requireUpdated(bindingMapper.updateById(binding));
+        if (isRenewalUploadRequest(request)) {
+            renewalService.approveRenewalRequest(tenantId, approverId, request.getId(), command.approvalKey().trim());
+            return result(request, binding, List.of());
+        }
+        if (isInitialUploadRequest(request)) {
+            uploadService.approveUploadRequest(tenantId, approverId, request.getId(), command.approvalKey().trim());
+            return result(request, binding, List.of());
+        }
+        if (REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_STATUS_INVALID);
+        }
         List<DccRegistrationCertificateGrantDO> grants = grantService.createGrantsForApprovedRequest(
                 tenantId, approverId, request.getId(), command.approvalKey().trim(), decidedAt);
         return result(request, binding, grants.stream().map(DccRegistrationCertificateGrantDO::getId).toList());
@@ -213,6 +235,14 @@ public class DccRegistrationCertificateApprovalService {
         recordTerminalApprovalKey(binding, command.approvalKey());
         requireUpdated(requestMapper.updateById(request));
         requireUpdated(bindingMapper.updateById(binding));
+        if (isRenewalUploadRequest(request)) {
+            renewalService.rejectRenewalRequest(tenantId, approverId, request.getId(), command.rejectReason().trim());
+        } else if (isInitialUploadRequest(request)) {
+            uploadService.rejectUploadRequest(tenantId, approverId, request.getId(), command.approvalKey().trim(),
+                    command.rejectReason().trim());
+        } else if (REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_STATUS_INVALID);
+        }
         return result(request, binding, List.of());
     }
 
@@ -446,6 +476,29 @@ public class DccRegistrationCertificateApprovalService {
 
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private static boolean isRenewalUploadRequest(DccRegistrationCertificateAccessRequestDO request) {
+        if (!REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
+            return false;
+        }
+        Map<?, ?> parsed = isBlank(request.getDetailJson())
+                ? Map.of() : JsonUtils.parseObject(request.getDetailJson(), Map.class);
+        return parsed != null && OPERATION_RENEWAL_CERTIFICATE.equals(String.valueOf(parsed.get("operation")));
+    }
+
+    private static boolean isInitialUploadRequest(DccRegistrationCertificateAccessRequestDO request) {
+        if (!REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())) {
+            return false;
+        }
+        Map<?, ?> parsed = isBlank(request.getDetailJson())
+                ? Map.of() : JsonUtils.parseObject(request.getDetailJson(), Map.class);
+        return parsed != null && "UPLOAD_CERTIFICATE".equals(String.valueOf(parsed.get("operation")));
+    }
+
+    private static String approvalPermission(DccRegistrationCertificateAccessRequestDO request) {
+        return REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())
+                ? UPLOAD_APPROVAL_PERMISSION : APPROVAL_PERMISSION;
     }
 
     private static <T> T require(T value, String name) {

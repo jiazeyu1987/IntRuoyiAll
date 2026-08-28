@@ -14,6 +14,8 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccR
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.grant.DccRegistrationCertificateGrantService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
@@ -32,6 +34,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_WITHDRAW_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVER_ROLE_CODE;
 import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVAL_PERMISSION;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.REQUEST_TYPE_UPLOAD_CERTIFICATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -64,6 +67,10 @@ class DccRegistrationCertificateApprovalRuntimeTest {
     private RoleApi roleApi;
     @Mock
     private DccRegistrationCertificateBusinessClock businessClock;
+    @Mock
+    private DccRegistrationCertificateRenewalService renewalService;
+    @Mock
+    private DccRegistrationCertificateUploadService uploadService;
 
     private DccRegistrationCertificateApprovalService service;
 
@@ -71,7 +78,7 @@ class DccRegistrationCertificateApprovalRuntimeTest {
     void setUp() {
         service = new DccRegistrationCertificateApprovalService(
                 requestMapper, bindingMapper, grantMapper, grantService,
-                bpmProcessInstanceApi, companyScopeApi, roleApi, businessClock);
+                bpmProcessInstanceApi, companyScopeApi, roleApi, businessClock, renewalService, uploadService);
         lenient().when(requestMapper.updateById(any(DccRegistrationCertificateAccessRequestDO.class))).thenReturn(1);
         lenient().when(bindingMapper.updateById(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
         lenient().when(grantMapper.updateById(any(DccRegistrationCertificateGrantDO.class))).thenReturn(1);
@@ -98,6 +105,51 @@ class DccRegistrationCertificateApprovalRuntimeTest {
         assertEquals("APPROVED", binding.getStatus());
         verify(grantService).createGrantsForApprovedRequest(eq(TENANT_ID), eq(200L), eq(1001L),
                 eq("approval-1"), any(LocalDateTime.class));
+        verify(renewalService, never()).approveRenewalRequest(any(), any(), any(), any());
+    }
+
+    @Test
+    void approveRenewalUploadTriggersRenewalAndDoesNotCreateAccessGrant() {
+        DccRegistrationCertificateAccessRequestDO request = request("BPM_BOUND");
+        request.setRequestType(REQUEST_TYPE_UPLOAD_CERTIFICATE);
+        request.setDetailJson("{\"operation\":\"RENEWAL_CERTIFICATE\"}");
+        DccRegistrationCertificateBpmBindingDO binding = binding("RUNNING");
+        when(bindingMapper.selectByProcessInstanceId(TENANT_ID, "proc-1")).thenReturn(binding);
+        when(requestMapper.selectById(1001L)).thenReturn(request);
+
+        DccRegistrationCertificateApprovalResult result = service.approve(
+                TENANT_ID, 200L,
+                new DccRegistrationCertificateApprovalCallbackCommand(
+                        "proc-1", "approval-renewal-1", null,
+                        LocalDateTime.of(2026, 8, 19, 10, 0)));
+
+        assertEquals("APPROVED", result.status());
+        assertEquals(List.of(), result.grantIds());
+        verify(renewalService).approveRenewalRequest(TENANT_ID, 200L, 1001L, "approval-renewal-1");
+        verify(grantService, never()).createGrantsForApprovedRequest(any(), any(), any(), any(), any());
+        verify(uploadService, never()).approveUploadRequest(any(), any(), any(), any());
+    }
+
+    @Test
+    void approveInitialUploadTriggersUploadAndDoesNotCreateAccessGrant() {
+        DccRegistrationCertificateAccessRequestDO request = request("BPM_BOUND");
+        request.setRequestType(REQUEST_TYPE_UPLOAD_CERTIFICATE);
+        request.setDetailJson("{\"operation\":\"UPLOAD_CERTIFICATE\"}");
+        DccRegistrationCertificateBpmBindingDO binding = binding("RUNNING");
+        when(bindingMapper.selectByProcessInstanceId(TENANT_ID, "proc-1")).thenReturn(binding);
+        when(requestMapper.selectById(1001L)).thenReturn(request);
+
+        DccRegistrationCertificateApprovalResult result = service.approve(
+                TENANT_ID, 200L,
+                new DccRegistrationCertificateApprovalCallbackCommand(
+                        "proc-1", "approval-upload-1", null,
+                        LocalDateTime.of(2026, 8, 19, 10, 0)));
+
+        assertEquals("APPROVED", result.status());
+        assertEquals(List.of(), result.grantIds());
+        verify(uploadService).approveUploadRequest(TENANT_ID, 200L, 1001L, "approval-upload-1");
+        verify(renewalService, never()).approveRenewalRequest(any(), any(), any(), any());
+        verify(grantService, never()).createGrantsForApprovedRequest(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -122,6 +174,8 @@ class DccRegistrationCertificateApprovalRuntimeTest {
                 new DccRegistrationCertificateApprovalCallbackCommand("proc-1", "approval-1", "缺少正式文件", null));
         assertEquals("REJECTED", rejected.status());
         assertEquals("缺少正式文件", request.getRejectReason());
+        verify(renewalService, never()).rejectRenewalRequest(any(), any(), any(), any());
+        verify(uploadService, never()).rejectUploadRequest(any(), any(), any(), any(), any());
 
         request.setStatus("BPM_BOUND");
         binding.setStatus("RUNNING");
@@ -129,6 +183,27 @@ class DccRegistrationCertificateApprovalRuntimeTest {
         DccRegistrationCertificateApprovalResult withdrawn = service.withdraw(TENANT_ID, ACTOR_ID, 1001L, "申请人撤回");
         assertEquals("WITHDRAWN", withdrawn.status());
         verify(bpmProcessInstanceApi).cancelProcessInstance(ACTOR_ID, "proc-1", "申请人撤回");
+    }
+
+    @Test
+    void rejectInitialUploadDelegatesToUploadCleanup() {
+        DccRegistrationCertificateAccessRequestDO request = request("BPM_BOUND");
+        request.setRequestType(REQUEST_TYPE_UPLOAD_CERTIFICATE);
+        request.setDetailJson("{\"operation\":\"UPLOAD_CERTIFICATE\"}");
+        DccRegistrationCertificateBpmBindingDO binding = binding("RUNNING");
+        when(bindingMapper.selectByProcessInstanceId(TENANT_ID, "proc-1")).thenReturn(binding);
+        when(requestMapper.selectById(1001L)).thenReturn(request);
+
+        DccRegistrationCertificateApprovalResult rejected = service.reject(
+                TENANT_ID, 200L,
+                new DccRegistrationCertificateApprovalCallbackCommand(
+                        "proc-1", "approval-upload-reject-1", "缺少正式文件", null));
+
+        assertEquals("REJECTED", rejected.status());
+        verify(uploadService).rejectUploadRequest(
+                TENANT_ID, 200L, 1001L, "approval-upload-reject-1", "缺少正式文件");
+        verify(renewalService, never()).rejectRenewalRequest(any(), any(), any(), any());
+        verify(grantService, never()).createGrantsForApprovedRequest(any(), any(), any(), any(), any());
     }
 
     @Test

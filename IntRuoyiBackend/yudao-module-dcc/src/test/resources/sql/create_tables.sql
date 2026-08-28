@@ -1341,6 +1341,17 @@ CREATE TABLE IF NOT EXISTS `dcc_project_code` (
   CONSTRAINT `uk_dcc_project_code_tenant_project` UNIQUE (`tenant_id`, `project_name`, `project_code`)
 );
 
+CREATE TABLE IF NOT EXISTS `mdm_enterprise` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `enterprise_code` VARCHAR(64) NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `type` VARCHAR(32) NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_product_onboarding_request` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `product_master_id` BIGINT NULL,
@@ -1773,6 +1784,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_version` (
   `classification` VARCHAR(64) NULL,
   `category_changed` TINYINT NOT NULL DEFAULT 0,
   `base_snapshot_id` BIGINT NULL,
+  `remark` VARCHAR(1024) NULL,
   `status` VARCHAR(32) NOT NULL,
   `current_unique_flag` TINYINT NULL,
   `pending_unique_flag` TINYINT NULL,
@@ -1803,7 +1815,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_snapshot` (
   `revision_no` INT NOT NULL,
   `source_change_id` BIGINT NULL,
   `product_name` VARCHAR(255) NOT NULL,
-  `registrant_name` VARCHAR(255) NOT NULL,
+  `registrant_name` VARCHAR(255) NULL,
   `model_specification` VARCHAR(2000) NULL,
   `structure_composition` VARCHAR(4000) NULL,
   `intended_use` VARCHAR(4000) NULL,
@@ -1823,7 +1835,10 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_snapshot` (
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   CONSTRAINT `chk_dcc_reg_cert_production_mode` CHECK
-    (`entrusted_production` = 1 OR `self_production` = 1),
+    ((`entrusted_production` = 0 AND `self_production` = 0 AND `entrusted_enterprises_json` = '[]')
+      OR ((`entrusted_production` = 1 OR `self_production` = 1)
+        AND ((`entrusted_production` = 1 AND `entrusted_enterprises_json` <> '[]')
+          OR (`entrusted_production` = 0 AND `entrusted_enterprises_json` = '[]')))),
   UNIQUE KEY `uk_dcc_reg_cert_snapshot_revision` (`tenant_id`, `version_id`, `revision_no`)
 );
 
@@ -2197,7 +2212,7 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_access_request` (
   UNIQUE KEY `uk_dcc_reg_cert_access_request_key` (`tenant_id`, `request_key`),
   UNIQUE KEY `uk_dcc_reg_cert_access_request_bpm` (`tenant_id`, `bpm_process_instance_id`),
   CONSTRAINT `chk_dcc_reg_cert_access_request_type` CHECK (`request_type` IN
-    ('VIEW_OLD_CERTIFICATE', 'DOWNLOAD_FILE')),
+    ('VIEW_OLD_CERTIFICATE', 'DOWNLOAD_FILE', 'UPLOAD_CERTIFICATE')),
   CONSTRAINT `chk_dcc_reg_cert_access_request_status` CHECK (`status` IN
     ('SUBMITTED', 'BPM_BOUND', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'REVOKED')),
   CONSTRAINT `chk_dcc_reg_cert_access_request_key` CHECK (TRIM(`request_key`) <> ''),

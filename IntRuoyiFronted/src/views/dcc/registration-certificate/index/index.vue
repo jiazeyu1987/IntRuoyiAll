@@ -28,8 +28,8 @@
             @pagination="loadPage"
           >
             <template #actions>
-              <el-button type="success" @click="openCreateDraft">
-                <Icon icon="ep:plus" class="mr-5px" />新增注册证
+              <el-button v-hasPermi="['dcc:registration-certificate:upload:create']" type="success" @click="openUploadDialog">
+                <Icon icon="ep:upload" class="mr-5px" />上传注册证
               </el-button>
             </template>
 
@@ -67,6 +67,13 @@
                   :width="getCurrentColumnWidthString('productName')"
                 />
                 <el-table-column
+                  v-if="isCurrentColumnVisible('projectCode')"
+                  label="实际项目代码"
+                  prop="projectCode"
+                  :min-width="getCurrentColumnMinWidthString('projectCode', 150)"
+                  :width="getCurrentColumnWidthString('projectCode')"
+                />
+                <el-table-column
                   v-if="isCurrentColumnVisible('versionNo')"
                   label="版本"
                   prop="versionNo"
@@ -83,6 +90,18 @@
                   <template #default="{ row }">
                     <el-tag :type="getRegistrationCertificateStatusTagType(row.status)">
                       {{ formatRegistrationCertificateStatus(row.status) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isCurrentColumnVisible('reminder')"
+                  label="提醒状态"
+                  prop="visualState"
+                  width="120"
+                >
+                  <template #default="{ row }">
+                    <el-tag :type="getRegistrationCertificateReminderTagType(row.reminderColor)">
+                      {{ formatRegistrationCertificateReminder(row.visualState) }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -129,6 +148,13 @@
                   :width="getCurrentColumnWidthString('expiryDate', 120)"
                 />
                 <el-table-column
+                  v-if="isCurrentColumnVisible('remark')"
+                  label="备注"
+                  prop="remark"
+                  :min-width="getCurrentColumnMinWidthString('remark', 220)"
+                  :width="getCurrentColumnWidthString('remark')"
+                />
+                <el-table-column
                   v-if="isCurrentColumnVisible('actions')"
                   label="操作"
                   align="center"
@@ -138,6 +164,14 @@
                   <template #default="{ row }">
                     <el-button link type="primary" @click="openDetail(row.certificateId)">
                       详情
+                    </el-button>
+                    <el-button
+                      link
+                      type="primary"
+                      v-hasPermi="['dcc:registration-certificate:renewal:upload']"
+                      @click="openRenewalDialog(row)"
+                    >
+                      延续
                     </el-button>
                     <el-button link type="primary" @click="openLinkedProductManagement(row.productMasterId)">
                       产品
@@ -229,7 +263,7 @@
                 >
                   <template #default="{ row }">
                     <el-tag :type="getRegistrationCertificateStatusTagType(row.status)">
-                      {{ formatRegistrationCertificateStatus(row.status) }}
+                      {{ row.status === 'OLD' ? '已失效，失效日期 ' + (row.expiryDate || '—') : formatRegistrationCertificateStatus(row.status) }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -247,8 +281,11 @@
                   :width="getOldColumnWidthString('actions', 260)"
                 >
                   <template #default="{ row }">
-                    <el-button link type="primary" @click="openDetail(row.certificateId)">
+                    <el-button link type="primary" @click="openOldDetail(row.certificateId)">
                       详情
+                    </el-button>
+                    <el-button link type="warning" @click="openOldAccessRequest(row.certificateId)">
+                      申请查看
                     </el-button>
                     <el-button link type="primary" @click="openLinkedProductManagement(row.productMasterId)">
                       产品
@@ -271,11 +308,20 @@
     </el-tabs>
   </ContentWrap>
 
-  <RegistrationCertificateActionPanel v-if="showCreateDraft" />
+  <RegistrationCertificateUploadDialog
+    data-testid="registration-certificate-upload-dialog"
+    v-model="showUploadDialog"
+    @saved="handleUploadSaved"
+  />
+  <RegistrationCertificateRenewalDialog
+    v-model="showRenewalDialog"
+    :certificate="selectedRenewalCertificate"
+    @saved="handleRenewalSaved"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onActivated, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   getRegistrationCertificateOldIndexPage,
@@ -293,12 +339,15 @@ import {
   useUserTableColumns,
   type UserTableColumnDefinition
 } from '@/hooks/web/useUserTableColumns'
-import RegistrationCertificateActionPanel from '../workflow/ActionPanel.vue'
+import RegistrationCertificateUploadDialog from '../upload/UploadDialog.vue'
+import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'
 import {
   REGISTRATION_CERTIFICATE_STATUS_OPTIONS,
   formatMissingMarker,
+  formatRegistrationCertificateReminder,
   formatRegistrationCertificateStatus,
   getMissingMarkerTagType,
+  getRegistrationCertificateReminderTagType,
   getRegistrationCertificateStatusTagType
 } from '../shared/state'
 
@@ -306,6 +355,10 @@ defineOptions({ name: 'DccRegistrationCertificateIndex' })
 
 const router = useRouter()
 const route = useRoute()
+const REGISTRATION_CERTIFICATE_ROUTE_PATH = '/mdm/registration-certificate'
+
+const isRegistrationCertificateRoute = () => route.path === REGISTRATION_CERTIFICATE_ROUTE_PATH
+
 const activeTab = ref<'current' | 'old'>('current')
 const loading = ref(false)
 const oldLoading = ref(false)
@@ -313,11 +366,12 @@ const list = ref<DccRegistrationCertificatePageItemVO[]>([])
 const oldList = ref<DccRegistrationCertificateOldIndexItemVO[]>([])
 const total = ref(0)
 const oldTotal = ref(0)
-const showCreateDraft = ref(false)
+const showUploadDialog = ref(false)
+const showRenewalDialog = ref(false)
+const selectedRenewalCertificate = ref<DccRegistrationCertificatePageItemVO>()
 
 type RegistrationCertificatePageQuery = DccRegistrationCertificatePageReqVO &
   Required<Pick<PageParam, 'pageNo' | 'pageSize'>>
-
 
 const queryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
 const oldQueryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
@@ -326,14 +380,17 @@ const currentColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'certificateNo', label: '注册证编号', minWidth: 180, sortable: false },
   { key: 'ownerCompanyName', label: '所属公司', minWidth: 180, sortable: false },
   { key: 'productName', label: '产品', minWidth: 180, sortable: false },
+  { key: 'projectCode', label: '实际项目代码', minWidth: 150, sortable: false },
   { key: 'versionNo', label: '版本', width: 90, sortable: false },
   { key: 'status', label: '状态', width: 130, sortable: false },
+  { key: 'reminder', label: '提醒状态', width: 120, sortable: false },
   { key: 'hasProjectCode', label: '项目代码', width: 110, sortable: false },
   { key: 'hasRegistrationFile', label: '注册证文件', width: 120, sortable: false },
   { key: 'approvalDate', label: '批准日', width: 120, sortable: false },
   { key: 'effectiveDate', label: '生效日', width: 120, sortable: false },
   { key: 'expiryDate', label: '有效期至', width: 120, sortable: false },
-  { key: 'actions', label: '操作', width: 96, hideable: false, business: false, sortable: false }
+  { key: 'remark', label: '备注', minWidth: 220, sortable: false },
+  { key: 'actions', label: '操作', width: 330, hideable: false, business: false, sortable: false }
 ]
 
 const oldColumnDefinitions: UserTableColumnDefinition[] = [
@@ -373,6 +430,62 @@ const currentQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() 
     type: 'text',
     queryParamKey: 'certificateNo',
     placeholder: '输入注册证编号'
+  },
+  {
+    key: 'ownerCompanyName',
+    label: '所属公司',
+    type: 'text',
+    queryParamKey: 'ownerCompanyName',
+    placeholder: '输入所属公司'
+  },
+  {
+    key: 'productName',
+    label: '产品名称',
+    type: 'text',
+    queryParamKey: 'productName',
+    placeholder: '输入产品名称'
+  },
+  {
+    key: 'classification',
+    label: '分类',
+    type: 'text',
+    queryParamKey: 'classification',
+    placeholder: '输入分类'
+  },
+  {
+    key: 'registrantName',
+    label: '注册人',
+    type: 'text',
+    queryParamKey: 'registrantName',
+    placeholder: '输入注册人'
+  },
+  {
+    key: 'modelSpecification',
+    label: '型号规格',
+    type: 'text',
+    queryParamKey: 'modelSpecification',
+    placeholder: '输入型号规格'
+  },
+  {
+    key: 'productionAddress',
+    label: '生产地址',
+    type: 'text',
+    queryParamKey: 'productionAddress',
+    placeholder: '输入生产地址'
+  },
+  {
+    key: 'entrustedEnterpriseName',
+    label: '受托企业',
+    type: 'text',
+    queryParamKey: 'entrustedEnterpriseName',
+    placeholder: '输入受托企业'
+  },
+  {
+    key: 'projectCode',
+    label: '实际项目代码',
+    type: 'text',
+    queryParamKey: 'projectCode',
+    placeholder: '输入实际项目代码'
   },
   {
     key: 'status',
@@ -508,6 +621,18 @@ const handleTabChange = (tabName: string | number) => {
   void loadPage()
 }
 
+const openDetail = (certificateId: number | string) => {
+  router.push(`/mdm/registration-certificate/detail/${certificateId}`)
+}
+
+const openOldDetail = (certificateId: number | string) => {
+  router.push('/mdm/registration-certificate/detail/' + String(certificateId) + '?mode=old-detail')
+}
+
+const openOldAccessRequest = (certificateId: number | string) => {
+  router.push('/mdm/registration-certificate/detail/' + String(certificateId) + '?mode=access-request')
+}
+
 const openLinkedProductManagement = (productMasterId: number | string) => {
   router.push({
     path: '/mdm/product',
@@ -521,12 +646,24 @@ const openLinkedProjectCodeManagement = (projectCodeId: number | string) => {
     query: { projectCodeId: String(projectCodeId) }
   })
 }
-const openDetail = (certificateId: number | string) => {
-  router.push(`/mdm/registration-certificate/detail/${certificateId}`)
+
+const openUploadDialog = () => {
+  showUploadDialog.value = true
 }
 
-const openCreateDraft = () => {
-  showCreateDraft.value = true
+const openRenewalDialog = (row: DccRegistrationCertificatePageItemVO) => {
+  selectedRenewalCertificate.value = row
+  showRenewalDialog.value = true
+}
+
+const handleUploadSaved = async () => {
+  showUploadDialog.value = false
+  await router.push('/approval-center?moduleCode=DCC&viewType=TODO')
+}
+
+const handleRenewalSaved = async () => {
+  showRenewalDialog.value = false
+  await loadPage()
 }
 
 onMounted(() => {
@@ -534,9 +671,30 @@ onMounted(() => {
   void loadPage()
 })
 
+let registrationCertificateInitialActivationHandled = false
+
+onActivated(async () => {
+  if (!isRegistrationCertificateRoute()) {
+    return
+  }
+  if (!registrationCertificateInitialActivationHandled) {
+    registrationCertificateInitialActivationHandled = true
+    return
+  }
+  syncRegistrationCertificateQueryFromRoute()
+  if (activeTab.value === 'old') {
+    await loadOldIndexPage()
+    return
+  }
+  await loadPage()
+})
+
 watch(
-  () => [route.query.productMasterId, route.query.projectCodeId],
+  () => [route.path, route.query.productMasterId, route.query.projectCodeId],
   async () => {
+    if (!isRegistrationCertificateRoute()) {
+      return
+    }
     syncRegistrationCertificateQueryFromRoute()
     if (activeTab.value === 'old') {
       await loadOldIndexPage()

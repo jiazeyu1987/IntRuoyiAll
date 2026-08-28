@@ -1,7 +1,7 @@
 # 项目经验索引
 - Keywords: 备用服运行承载对齐, 备份服改成正式服一致, /dev/vdb missing, DEV_VDB_MISSING, /var/lib/docker 容量不足, runtime-data 迁移, MinIO 容器名不匹配 -> `docs/release-backup-restore.md#备用服运行承载对齐门禁`
 - Keywords: rollback-migration、回滚专用 SQL、release manifest、migration policy gate、rollback-only migrations -> docs/release-build-preflight-lessons.md#2026-08-26-rollback-migration-不得进入正常-release-manifest
-- Keywords: 5 次锁定账号, login_failure_count, login_locked, resetUserLoginFailure, unlockUser, 15 分钟自动退出, useIdleLogout, lockStore.resetLockInfo -> `docs/login-access.md#账号锁定解锁与空闲退出门禁`
+- Keywords: 5 次锁定账号, 第5次错误返回账号已锁定, login_failure_count, login_locked, resetUserLoginFailure, unlockUser, 15 分钟自动退出, useIdleLogout, lockStore.resetLockInfo -> `docs/login-access.md#账号锁定解锁与空闲退出门禁`
 - Keywords: 普通用户不能分配管理员角色, 日志权限, user-role assignment, RoleCodeEnum, PermissionServiceImpl, USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN -> `docs/backend-development.md#系统用户角色分配高权限拦截门禁`
 
 - Keywords: eDHR 四份材料、MATERIALS_READY、sourceSnapshotHash、routeBindingSnapshotHash、来料检报告、灭菌报告、成品检报告、成品检记录、来源快照 -> docs/backend-development.md#eDHR-四份材料必须绑定正式来源快照
@@ -15,6 +15,7 @@
 - Keywords: 一线生产最大化, 首次切换工序短暂加载, 首次切换员工短暂加载, 再次切换无加载, 全部员工模板快照, employeeSwitchSnapshots, runtime-config GET 预热, switch-employee POST 禁止批量预调用 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 - Keywords: 一线生产默认首单, 活跃订单冻结工序, activeOrderId 工序接口, routeVersionId, 旧订单旧工序, 新订单新工序, 冻结节点缺少 processCode processName, 冻结工序标签只读订单逐工序快照与锁定路线快照, 禁止读取当前工序主数据补历史, PQC任务必须属于订单冻结routeProcessId和processId, 禁止按 routeId 过滤当前路线, 运行配置活跃订单身份, 切换订单清理旧工序员工模板配置, 旧下游不得拒绝切换上游, 迟到响应令牌 -> `docs/frontend-development.md#前端选择弹框即时反馈门禁` and `docs/backend-development.md#一线生产正式提交必须单事务落链并按唯一组长归属可见`
 - Keywords: infra_job 固定 ID, 定时任务 ID 冲突, handler_name, Quartz job does not exist, 迁移覆盖无关任务, 自增任务主键, 运行态重载 Quartz -> `docs/database-rules.md#定时任务迁移业务键与运行态注册门禁`
+- Keywords: 8081在线但48081未监听, 前端在线后端未启动, 点击排产系统异常, 后端不是最新, productionMaterialListSyncService is null, replan preview NPE, schedule-order/page ClientAbortException, AsyncRequestNotUsableException, 手动重排目标接口响应, Started YudaoServerApplication, backend-runtime-control jar 没有主清单属性, 重复 Maven 写坏 yudao-server-exec.jar, 运行 Jar 明显小于完整 fat jar -> `docs/local-runtime.md#前端在线但后端未监听业务系统异常门禁` and `docs/local-runtime.md#2026-08-14-主工作区并发重启所有权门禁`
 - Keywords: 源码已有迁移, 本机迁移漏执行, 运行态 schema 漂移, Java 进程实际数据源, application-local 与运行库不一致, doesn't have a default value, work_order_id NOT NULL, 生成列索引, migration RED GREEN, 页面系统异常, 排产工单系统异常, 个人中心系统异常, 聚合页子请求 500 -> `docs/database-rules.md#运行态迁移漂移系统异常门禁`
 - Keywords: 确认分配, 确认提交, leaderType null, 请求参数不正确, 不能为空null, queryParams.leaderType, activeLeaderTab, 当前页签上下文漂移 -> `docs/frontend-development.md#前端确认提交上下文来源门禁`
 - Keywords: 一线生产提交快照校验, 最大化快照切换, runtime-config 快照, 服务端快照编号, 快照校验值, 快照过期, 快照篡改, 所选工序与运行配置不一致, 所选员工与提交签名不一致, 提交时实时刷新快照禁止, 后端实时工序员工模板读取禁止, 设备参数损耗原因按快照 -> `docs/frontend-development.md#前端提交结构字段严格校验门禁`
@@ -94,6 +95,7 @@
 - Keywords: showDirectoryPicker, 本地目录授权, 浏览器本地目录写入, createWritable, 下载到本地对应目录, 取消目录选择, import task 不应提前创建, LOCAL_WRITTEN 前不得归档, real:check 不能冒充 full 真实 E2E, 授权共享 NAS 源文件缺失, 已存在 NAS 文件, 现有 NAS 文件只读验证, 源文件 SHA-256, 本地文件哈希等值, .pdf 不等于 %PDF, 未分类待处理可本地下载, _未分类待处理, PENDING_MANUAL_REVIEW 无归档副作用, ZIP 降级禁止, 默认下载目录禁止 -> `docs/e2e-rules.md#浏览器本地目录写入门禁`
 - Keywords: 规划型 E2E, BDD/TDD 验收文档, 关键业务标记扫描, doc consistency marker scan, ARCHIVE_METADATA_REQUIRED, 未分类/待处理, sourceType 可检索, 结构 validator 通过但关键标记缺失 -> `docs/e2e-rules.md#规划型-e2e-前置与业务-red-分离门禁`
 - Keywords: DCC 文控审批, DCC 原版上传, DCC 新文件上传, DCC 上传升版, DCC 文件作废, DCC 文件废止, 作废不走审批, 升版本老版本自动作废, 旧版自动失效, OBSOLETE, SUPERSEDED, DccControlledFileDetail, viewer=1, traceability=1, from=browser, 只读 viewer, viewer 发布链路, 最终目录路径, publishedFileId, stampedFileId, PROCESS_IN_MODULE, approve-task, approval-center moduleCode DCC, 当前没有待处理审批任务, 当前任务按钮可见, BPM 原生审批 403, 非 viewer 重定向受控浏览, DCC_PUBLISH, 发布申请, form:instance:create, form:instance:submit, system:user:query, UserSelectV2, APPROVE_USER_SELECT, 下一个任务的审批人未配置 -> `docs/e2e-rules.md#dcc-文控审批处理入口门禁`
+- Keywords: 注册证上传弹框, 注册证上传审批, `/dcc/registration-certificates/uploads`, `UPLOAD_CERTIFICATE`, `dcc:registration-certificate:upload:create`, `dcc:registration-certificate:upload:approve`, 保存后进入审批中心, 审批通过进入注册证列表, 首证上传提交, 注册证文件上传 -> `docs/backend-development.md#注册证上传审批入口与入库门禁`
 - Keywords: DCC 受控浏览, 当前有效版, 预览当前有效版, 无权限或无匹配当前有效文件, 受控浏览权限隔离, 目录路径, 项目代码定位, 分类定位, publishedFileId, stampedFileId, targetLinkErrorCount, targetDccMutationRequestCount, 低权限账号看不到, 草稿历史版隔离, 会话失效, 筛选标签表格不同步, 陈旧数据, jumper Enter, preview popup, 运行态未复现 -> `docs/e2e-rules.md#dcc-受控浏览当前有效版与权限隔离门禁`
 - Keywords: DCC 菜单恢复, 跨环境角色同步, 文控中心, 电子签名, 基础数据, wenkong_no_download, 无下载角色, directory:manage 下载旁路, access-rule:manage 下载旁路, 用户角色缓存, user_role_ids -> `docs/database-rules.md#dcc-菜单恢复与无下载角色隔离门禁`
 - Keywords: DCC 文件分发, 纸质发放, 线上分发, 电子副本分发, 签收确认, 确认领取, 旧版回收, 确认回收, 分发追溯, 回收追溯, 受控副本责任人, 文控权限 分发规则, 纸质分发部门, 线上分发部门, 电子分发部门, DISTRIBUTE 类别规则, DCC 分发权限, 升版后旧版不可误用, V1 RECOVERED, V2 ACKNOWLEDGED -> `docs/e2e-rules.md#dcc-分发与旧版回收门禁`

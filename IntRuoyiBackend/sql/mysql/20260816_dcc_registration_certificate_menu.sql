@@ -178,6 +178,8 @@ VALUES
   (990236, '注册证正式化', 'dcc:registration-certificate:formalize', 40),
   (990237, '注册证访问申请', 'dcc:registration-certificate:access-request:create', 50),
   (990246, '注册证访问审批', 'dcc:registration-certificate:access-request:approve', 55),
+  (990247, '注册证上传提交', 'dcc:registration-certificate:upload:create', 56),
+  (990248, '注册证上传审批', 'dcc:registration-certificate:upload:approve', 57),
   (990238, '注册证配置查询', 'dcc:registration-certificate:config:query', 60),
   (990239, '注册证配置修改', 'dcc:registration-certificate:config:update', 70),
   (990240, '注册证延续上传', 'dcc:registration-certificate:renewal:upload', 80),
