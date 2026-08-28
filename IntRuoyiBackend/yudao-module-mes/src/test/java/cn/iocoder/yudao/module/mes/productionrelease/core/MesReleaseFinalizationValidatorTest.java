@@ -19,6 +19,7 @@ class MesReleaseFinalizationValidatorTest {
     @Test
     void activeOrderRequiresCompletionAndBackfillReceipts() {
         MesReleaseFinalizationCommand command = base(MesReleaseOrigin.ACTIVE_ORDER)
+                .setEntryType("ACTIVE_ORDER_COMPLETION")
                 .setActiveOrderId(10L)
                 .setPickListBindingId("pick-binding-1")
                 .setCompletionEventId("completion-1")
@@ -31,6 +32,33 @@ class MesReleaseFinalizationValidatorTest {
                 () -> MesReleaseFinalizationValidator.validate(command, CLOCK));
 
         assertEquals(MesReleaseFlowBlockerType.PRODUCTION_PROGRESS_NOT_COMPLETED,
+                failure.getFailure().getBlockers().get(0).getBlockerType());
+    }
+
+    @Test
+    void activeOrderReleaseAcceptsCompletionEntryType() {
+        MesReleaseFinalizationCommand command = activeOrderCommand()
+                .setDualProgressCompleted(true)
+                .setThreeBackfillsSucceeded(true)
+                .setActiveOrderExpectedVersion(3);
+
+        assertDoesNotThrow(() -> MesReleaseFinalizationValidator.validate(
+                command, activeOrderEvidence(command), CLOCK));
+    }
+
+    @Test
+    void activeOrderReleaseRejectsOriginNameAsEntryType() {
+        MesReleaseFinalizationCommand command = activeOrderCommand()
+                .setEntryType("ACTIVE_ORDER")
+                .setDualProgressCompleted(true)
+                .setThreeBackfillsSucceeded(true)
+                .setActiveOrderExpectedVersion(3);
+
+        MesReleaseFlowBlockerException failure = assertThrows(
+                MesReleaseFlowBlockerException.class,
+                () -> MesReleaseFinalizationValidator.validate(command, activeOrderEvidence(command), CLOCK));
+
+        assertEquals(MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                 failure.getFailure().getBlockers().get(0).getBlockerType());
     }
 
@@ -146,6 +174,45 @@ class MesReleaseFinalizationValidatorTest {
                         .setIssuedBy(100L)
                         .setAuditEventId("gate-audit")
                         .setVersion(1));
+    }
+
+    private MesReleaseFinalizationCommand activeOrderCommand() {
+        return base(MesReleaseOrigin.ACTIVE_ORDER)
+                .setEntryType("ACTIVE_ORDER_COMPLETION")
+                .setActiveOrderId(10L)
+                .setWorkOrderId(20L)
+                .setPickListBindingId("pick-binding-1")
+                .setPickListId(30L)
+                .setCompletionEventId("completion-1")
+                .setCompletionBackfillReceiptId("backfill-1")
+                .setIndependentPrerequisiteReceiptId(null);
+    }
+
+    private MesReleaseFinalizationEvidence activeOrderEvidence(MesReleaseFinalizationCommand command) {
+        return new MesReleaseFinalizationEvidence()
+                .setMaterialGateReceipt(command.getMaterialGateReceipt())
+                .setCompletionBackfillReceipt(new CompletionBackfillReceipt()
+                        .setReceiptId("backfill-1")
+                        .setTenantId(1L)
+                        .setActiveOrderId(10L)
+                        .setWorkOrderId(20L)
+                        .setPickListBindingId("pick-binding-1")
+                        .setPickListId(30L)
+                        .setSourceSnapshotHash("source-hash")
+                        .setBindingVersion(1)
+                        .setCompletionVersion(1)
+                        .setCompletionTransactionId("completion-tx")
+                        .setCompletionEventId("completion-1")
+                        .setBatchRecordId(40L)
+                        .setProcessInspectionId(50L)
+                        .setHasActualLoss(false)
+                        .setLossDecision("NO_LOSS")
+                        .setLossReportStatus("NOT_REQUIRED")
+                        .setReceiptHash("receipt-hash")
+                        .setIdempotencyKey("completion-idempotency")
+                        .setAuditEventId("completion-audit")
+                        .setStatus(CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
+                        .setIssuedAt(LocalDateTime.of(2026, 8, 21, 0, 0)));
     }
 
     private MesReleaseFinalizationEvidence authoritativeEvidence(MesReleaseFinalizationCommand command) {

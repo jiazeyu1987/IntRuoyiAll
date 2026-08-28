@@ -16,13 +16,17 @@ class MesStage6IdiSimulationCommandTest {
     @Test
     void acceptsTheFixedIdiSimulationContract() {
         assertDoesNotThrow(() -> MesStage6IdiSimulationCommand.validate(
-                "STAGE6-20260824-001"));
+                "STAGE6-20260824-001", "STAGE5-FINAL-RELEASE-20260824-001", 101L));
     }
 
     @Test
     void rejectsMissingRunIdentityOrSignaturePassword() {
         assertThrows(IllegalArgumentException.class, () -> MesStage6IdiSimulationCommand.validate(
-                ""));
+                "", "STAGE5-FINAL-RELEASE-20260824-001", 101L));
+        assertThrows(IllegalArgumentException.class, () -> MesStage6IdiSimulationCommand.validate(
+                "STAGE6-20260824-001", "", 101L));
+        assertThrows(IllegalArgumentException.class, () -> MesStage6IdiSimulationCommand.validate(
+                "STAGE6-20260824-001", "STAGE5-FINAL-RELEASE-20260824-001", null));
     }
 
     @Test

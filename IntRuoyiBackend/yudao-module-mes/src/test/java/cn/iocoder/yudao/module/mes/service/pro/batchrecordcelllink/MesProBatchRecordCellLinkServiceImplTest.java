@@ -538,7 +538,6 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 report("process-inspection-report", "球囊扩张压力泵过程检验记录", 2001L, 3001L);
         when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L))
                 .thenReturn(List.of(sharedProcessInspectionReport));
-        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
         when(routeDccProjectBindingMapper.selectCurrentByRouteId(9001L)).thenReturn(null);
 
         ServiceException error = assertThrows(ServiceException.class, () ->

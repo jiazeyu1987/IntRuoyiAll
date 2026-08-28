@@ -166,6 +166,9 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         if (audits == null || audits.isEmpty()) {
             throw blocked("FLOW6_PROVISION_AUDIT_REQUIRED", "Flow 6 successful provision audit is missing");
         }
+        if (audits.size() != 1) {
+            throw blocked("FLOW6_PROVISION_AUDIT_REQUIRED", "Flow 6 successful provision audit is ambiguous");
+        }
         MesProEdhrOperationAuditEventDO audit = audits.get(0);
         JSONObject metadata = parseMetadata(audit.getMetadataJson());
         Long provisioningReceiptId = requireLong(metadata, "batchProvisionReceiptId");
@@ -187,7 +190,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         JSONArray evidence = metadata.getJSONArray("sourceEvidence");
         MesProcessPoolActiveOrderPickListBindingDO binding = null;
         List<MesProcessPoolActiveOrderPickListBindingItemDO> items = List.of();
-        if (MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)) {
+        if (MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(entryType)) {
             Long credentialId = requireLong(metadata, "sourceCredentialId");
             MesFlow6CompletionBackfillReceipt receipt = completionReceiptPort.getByReceiptId(credentialId, tenantId);
             evidence = MesProEdhrBatchTraceFormalSourceResolver.resolveActive(tenantId, receipt, metadata, evidence);
@@ -310,9 +313,9 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
                 .setSourceBundleHash(requiredText(metadata, "sourceBundleHash"))
                 .setIdempotencyKey(command.getIdempotencyKey())
                 .setCapturedBy(command.getCapturedBy()).setSources(sources);
-        if (MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION.equals(entryType)) {
+        if (MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(entryType)) {
             capture.setActiveOrderId(requiredLong(metadata, "activeOrderId"))
-                    .setCompletionTransactionId(parseLong(requiredText(metadata, "completionTransactionId"), "completionTransactionId"))
+                    .setCompletionTransactionId(requiredText(metadata, "completionTransactionId"))
                     .setCompletionVersion(requiredInteger(metadata, "completionVersion"))
                     .setCompletionBackfillReceiptId(requiredLong(metadata, "completionBackfillReceiptId"))
                     .setCompletionBackfillReceiptHash(requiredText(metadata, "completionBackfillReceiptHash"))

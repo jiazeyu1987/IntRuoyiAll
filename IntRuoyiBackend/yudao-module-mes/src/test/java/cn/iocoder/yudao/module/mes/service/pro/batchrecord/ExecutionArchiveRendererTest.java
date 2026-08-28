@@ -54,10 +54,13 @@ class ExecutionArchiveRendererTest {
                         .id(101L)
                         .executionId(11L)
                         .actorId(7L)
+                        .actorName("李提交")
                         .actionType("SUBMIT")
                         .signatureMode("PASSWORD")
                         .passwordVerified(true)
                         .signedAt(LocalDateTime.of(2026, 5, 24, 9, 20))
+                        .selectedTimeZone("Asia/Shanghai")
+                        .recordHashSnapshot("record-hash-submit")
                         .comment("submit approved")
                         .build(),
                 MesProBatchRecordExecutionSignatureDO.builder()
@@ -94,8 +97,31 @@ class ExecutionArchiveRendererTest {
             assertTrue(text.contains("SelectedTimeReason=复核签名按线下完成时间显示"));
             assertTrue(text.contains("SelectedTimeAuditHash=cccccccc"));
             assertTrue(text.contains("RecordHash=record-hash-review"));
+            assertTrue(text.contains("SelectedSignedAt=2026-05-24 09:10:00"));
+            assertTrue(text.contains("Signer=李提交"));
+            assertFalse(text.contains("Signer=7"));
             assertFalse(text.contains("Actor=8"));
         }
+    }
+
+    @Test
+    void pdfRenderer_rejectsSignatureWithoutSignerNameInsteadOfPrintingActorId() {
+        MesProBatchRecordExecutionArchiveRenderContext context = validContext();
+        context.setSignatures(List.of(MesProBatchRecordExecutionSignatureDO.builder()
+                .id(901L)
+                .executionId(11L)
+                .actorId(7L)
+                .actionType("SUBMIT")
+                .signatureMode("PASSWORD")
+                .passwordVerified(true)
+                .signedAt(LocalDateTime.of(2026, 5, 24, 9, 20))
+                .recordHashSnapshot("record-hash-submit")
+                .build()));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> new PdfExecutionArchiveRenderer().render(context));
+
+        assertTrue(ex.getMessage().contains("signature signer name is required"));
     }
 
     @Test
@@ -212,9 +238,11 @@ class ExecutionArchiveRendererTest {
                 """));
         form.put("signatureRecords", JSONArray.parseArray("""
                 [{"actionType":"FIELD_CHANGE","actorName":"瑛泰管理员",
-                "signedAt":"2026-07-22 10:07:12","signatureDisplayAt":"2026-07-22 10:07:12"},
+                "signedAt":"2026-07-22 10:07:12","signatureDisplayAt":"2026-07-22 10:07:12",
+                "selectedTimeZone":"Asia/Shanghai","recordHashSnapshot":"record-hash-field-change"},
                 {"actionType":"SUBMIT","actorName":"瑛泰管理员",
-                "signedAt":"2026-07-22 10:08:12","signatureDisplayAt":"2026-07-22 10:08:12"}]
+                "signedAt":"2026-07-22 10:08:12","signatureDisplayAt":"2026-07-22 10:08:12",
+                "selectedTimeZone":"Asia/Shanghai","recordHashSnapshot":"record-hash-submit"}]
                 """));
         JSONObject manifest = new JSONObject();
         manifest.put("schemaVersion", "EDHR_BATCH_PRINTABLE_ARCHIVE_V1");
@@ -291,14 +319,60 @@ class ExecutionArchiveRendererTest {
             assertTrue(text.contains("签名人=王复核"));
             assertTrue(text.contains("签署含义=审核"));
             assertTrue(text.contains("签名时间=2026-07-22 10:08:12 (Asia/Shanghai)"));
-            assertTrue(text.contains("记录哈希=record-hash-review"));
+            assertTrue(text.contains("记录哈希="));
+            assertTrue(text.contains("record-hash-review"));
             assertTrue(text.contains("时间哈希=time-audit-hash-review"));
-            assertTrue(text.contains("审核人/提交人=李提交"));
-            assertTrue(text.contains("批准人=赵批准"));
+            assertTrue(text.contains("审核人/提交人：李提交"));
+            assertTrue(text.contains("批准人：赵批准"));
             assertFalse(text.contains("动作=FORM_REVIEW"));
-            assertFalse(text.contains("审核人/提交人=101"));
-            assertFalse(text.contains("批准人=102"));
+            assertFalse(text.contains("审核人/提交人：101"));
+            assertFalse(text.contains("批准人：102"));
         }
+    }
+
+    @Test
+    void printableBatchArchiveRenderer_rejectsSignatureWithoutActorNameInsteadOfPrintingUsername() {
+        JSONObject layout = JSON.parseObject("""
+                {"rows":{"1":{"cells":{"1":{"text":"审核人","edhrSignature":{"enabled":true,"actionType":"FORM_REVIEW"}}}}},
+                "cols":{"1":{"width":180}}}
+                """);
+        JSONObject form = new JSONObject();
+        form.put("processName", "粗洗工序");
+        form.put("batchRecordReportName", "生产记录");
+        form.put("executionCode", "BRE-SIGNATURE-NAME-REQUIRED");
+        form.put("submittedAt", "2026-07-22 10:08:12");
+        form.put("sheetLayoutJson", layout.toJSONString());
+        form.put("executionSnapshotJson", new JSONObject()
+                .fluentPut("layout", layout)
+                .fluentPut("fields", new JSONArray())
+                .toJSONString());
+        form.put("cellValuesJson", "[]");
+        form.put("signatureCellMarkers", JSONArray.parseArray("""
+                [{"rowIndex":1,"columnIndex":1,"enabled":true,"actionType":"FORM_REVIEW"}]
+                """));
+        form.put("signatureRecords", JSONArray.parseArray("""
+                [{"actionType":"FORM_REVIEW","actorUsernameSnapshot":"reviewer01",
+                "signaturePurpose":"审核","recordHashSnapshot":"record-hash-review",
+                "signedAt":"2026-07-22 10:08:12","signatureDisplayAt":"2026-07-22 10:08:12",
+                "selectedTimeZone":"Asia/Shanghai","selectedTimeAuditHash":"time-audit-hash-review"}]
+                """));
+        JSONObject manifest = new JSONObject();
+        manifest.put("schemaVersion", "EDHR_BATCH_PRINTABLE_ARCHIVE_V1");
+        manifest.put("batchCode", "BATCH-SIGNATURE-NAME-REQUIRED");
+        manifest.put("routeName", "测试路线");
+        manifest.put("routeCode", "RT-SIGN");
+        manifest.put("generatedAt", "2026-07-22 10:30:00");
+        manifest.put("aggregateHash", "archive-hash");
+        manifest.put("bodyForms", new JSONArray().fluentAdd(form));
+        manifest.put("appendixSpecialNodes", new JSONArray());
+        manifest.put("dossierItems", new JSONArray());
+        manifest.put("changeEvents", new JSONArray());
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> MesProEdhrBatchArchivePrintablePdfRenderer.render(
+                        manifest.toJSONString(), "C:/Windows/Fonts/simhei.ttf", "C:/Windows/Fonts/seguisym.ttf"));
+
+        assertTrue(ex.getMessage().contains("signature actor name is required"));
     }
 
     @Test

@@ -199,10 +199,6 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                     JsonUtils.toJsonString(List.of(sourceLossRecordId)), draft.getLossSourceHash(),
                     draft.getLossConditionFactsJson(), draft.getMaterializedBy(), draft.getTenantId());
             draft.setLossRecordId(formalLossRecordId);
-        } else {
-            insert(activeOrderId, workOrderId, MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_NO_LOSS,
-                    "[]", draft.getLossSourceHash(), draft.getZeroLossConfirmationSnapshot(),
-                    draft.getMaterializedBy(), draft.getTenantId());
         }
         List<MesProcessPoolOrderProcessCompletionDO> completions = completionMapper
                 .selectListByWorkOrderIdsForUpdate(List.of(workOrderId));
@@ -350,12 +346,16 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                                                    List<MesProcessPoolOrderProcessCompletionDO> completions) {
         List<Long> ids = new ArrayList<>();
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
-            MesProcessPoolOrderProcessCompletionDO completion = completions.stream()
+            List<MesProcessPoolOrderProcessCompletionDO> completionMatches = completions.stream()
                     .filter(item -> item != null && Objects.equals(snapshot.getRouteProcessId(), item.getRouteProcessId())
                             && Objects.equals(snapshot.getProcessId(), item.getProcessId())
                             && Objects.equals(order.getWorkOrderId(), item.getWorkOrderId()))
-                    .findFirst().orElse(null);
-            if (completion == null || completion.getId() == null
+                    .toList();
+            if (completionMatches.size() != 1) {
+                throw sourceMissing(order, "PRODUCTION_COMPLETION");
+            }
+            MesProcessPoolOrderProcessCompletionDO completion = completionMatches.get(0);
+            if (completion.getId() == null
                     || !MesProcessPoolOrderProcessCompletionDO.STATUS_COMPLETED.equals(completion.getCompletionStatus())
                     || completion.getTargetQuantity() == null || completion.getConfirmedQuantity() == null
                     || completion.getConfirmedQuantity().compareTo(completion.getTargetQuantity()) < 0
@@ -395,11 +395,15 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                                                    List<MesPqcProcessInspectionAggregateDetailDO> details) {
         List<Long> ids = new ArrayList<>();
         for (MesPqcInspectionTaskDO task : tasks) {
-            MesProcessPoolActiveOrderProcessSnapshotDO snapshot = snapshots.stream().filter(item -> item != null
+            List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshotMatches = snapshots.stream().filter(item -> item != null
                     && Objects.equals(item.getRouteProcessId(), task == null ? null : task.getRouteProcessId())
                     && Objects.equals(item.getProcessId(), task == null ? null : task.getProcessId()))
-                    .findFirst().orElse(null);
-            MesPqcProcessInspectionAggregateDetailDO detail = task == null ? null : details.stream()
+                    .toList();
+            if (snapshotMatches.size() != 1) {
+                throw sourceMissing(order, "PROCESS_INSPECTION");
+            }
+            MesProcessPoolActiveOrderProcessSnapshotDO snapshot = snapshotMatches.get(0);
+            List<MesPqcProcessInspectionAggregateDetailDO> detailMatches = task == null ? List.of() : details.stream()
                     .filter(item -> item != null && Objects.equals(task.getId(), item.getPqcTaskId())
                             && Objects.equals(order.getId(), item.getActiveOrderId())
                             && Objects.equals(order.getWorkOrderId(), item.getWorkOrderId())
@@ -407,9 +411,13 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                             && Objects.equals(order.getRouteVersionId(), item.getRouteVersionId())
                             && Objects.equals(task.getRouteProcessId(), item.getRouteProcessId())
                             && Objects.equals(task.getProcessId(), item.getProcessId()))
-                    .findFirst().orElse(null);
+                    .toList();
+            if (detailMatches.size() != 1) {
+                throw sourceMissing(order, "PROCESS_INSPECTION");
+            }
+            MesPqcProcessInspectionAggregateDetailDO detail = detailMatches.get(0);
             if (task == null || !MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())
-                    || snapshot == null || task.getId() == null || detail == null || detail.getId() == null) {
+                    || task.getId() == null || detail.getId() == null) {
                 throw sourceMissing(order, "PROCESS_INSPECTION");
             }
             ids.add(task.getId());

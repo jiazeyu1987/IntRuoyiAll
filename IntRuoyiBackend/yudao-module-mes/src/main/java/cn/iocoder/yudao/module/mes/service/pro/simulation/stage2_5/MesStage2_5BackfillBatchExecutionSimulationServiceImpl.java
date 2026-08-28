@@ -55,10 +55,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionSour
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesCompletionBackfillReceipt;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionCommand;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionService;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationResult;
-import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderSimulationService;
 import cn.iocoder.yudao.module.mes.service.pro.simulation.stage4.MesStage4DossierUploadSimulationContractValidator;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import com.alibaba.fastjson.JSON;
@@ -116,7 +113,6 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProBatchRecordExecutionMapper batchRecordExecutionMapper;
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
-    private final MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService;
     private final MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService;
     private final MesProEdhrBatchExecutionService batchExecutionService;
 
@@ -151,7 +147,6 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProBatchRecordExecutionMapper batchRecordExecutionMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
-            MesTeamLeaderActiveOrderSimulationService activeOrderSimulationService,
             MesTeamLeaderActiveOrderCompletionService activeOrderCompletionService,
             MesProEdhrBatchExecutionService batchExecutionService) {
         this.activeOrderMapper = activeOrderMapper;
@@ -184,7 +179,6 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         this.batchExecutionMapper = batchExecutionMapper;
         this.batchRecordExecutionMapper = batchRecordExecutionMapper;
         this.batchTaskMapper = batchTaskMapper;
-        this.activeOrderSimulationService = activeOrderSimulationService;
         this.activeOrderCompletionService = activeOrderCompletionService;
         this.batchExecutionService = batchExecutionService;
     }
@@ -202,20 +196,15 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         requireTenant();
 
         String cleanedRunId = cleanupOwnedRuns(validated.getActorUserId());
+        cleanupOwnedBatches(validated.getActorUserId());
         MesProcessPoolActiveOrderDO template = activeOrderMapper
                 .selectByIdForUpdate(validated.getActiveOrderId());
         requireOwnedActiveOrder(template, validated);
         MesProWorkOrderDO templateWorkOrder = requireWorkOrder(template);
         MesProcessPoolActiveOrderPickListBindingDO templateBinding = requireBinding(template);
-        MesProcessPoolActiveOrderDO activeOrder = createFixture(template, templateWorkOrder,
-                templateBinding, validated);
+        MesProcessPoolActiveOrderDO activeOrder = template;
 
-        MesTeamLeaderActiveOrderCompletionResult completion;
-        MesTeamLeaderActiveOrderSimulationResult simulation = activeOrderSimulationService
-                .simulateActiveOrderCompletion(validated.getActorUserId(), activeOrder.getId(),
-                        "2.5", validated.getSimulationRunId());
-        requireDoubleComplete(simulation);
-        completion = activeOrderCompletionService.complete(validated.getActorUserId(),
+        var completion = activeOrderCompletionService.complete(validated.getActorUserId(),
                 new MesTeamLeaderActiveOrderCompletionCommand()
                         .setActiveOrderId(activeOrder.getId())
                         .setExpectedVersion(activeOrder.getVersion())
@@ -439,7 +428,8 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
         List<MesProWorkOrderDO> workOrders = workOrderMapper.selectList(
                 new LambdaQueryWrapper<MesProWorkOrderDO>()
                         .eq(MesProWorkOrderDO::getTenantId, TenantContextHolder.getTenantId())
-                        .like(MesProWorkOrderDO::getRemark, SIMULATION_MARKER));
+                        .like(MesProWorkOrderDO::getRemark, SIMULATION_MARKER)
+                        .like(MesProWorkOrderDO::getRemark, "][actorUserId=" + actorUserId + "]"));
         String cleanedRunId = null;
         for (MesProWorkOrderDO workOrder : workOrders) {
             String runId = runIdFromMarker(workOrder.getRemark(), actorUserId);
@@ -471,6 +461,22 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
             cleanedRunId = runId;
         }
         return cleanedRunId;
+    }
+
+    private void cleanupOwnedBatches(Long actorUserId) {
+        List<MesProEdhrBatchExecutionDO> batches = batchExecutionMapper.selectList(
+                new LambdaQueryWrapper<MesProEdhrBatchExecutionDO>()
+                        .eq(MesProEdhrBatchExecutionDO::getTenantId, TenantContextHolder.getTenantId())
+                        .like(MesProEdhrBatchExecutionDO::getRemark, SIMULATION_MARKER)
+                        .like(MesProEdhrBatchExecutionDO::getRemark, "][actorUserId=" + actorUserId + "]"));
+        for (MesProEdhrBatchExecutionDO batch : batches) {
+            runIdFromMarker(batch.getRemark(), actorUserId);
+            batchRecordExecutionMapper.delete(new LambdaQueryWrapper<MesProBatchRecordExecutionDO>()
+                    .eq(MesProBatchRecordExecutionDO::getBatchExecutionId, batch.getId()));
+            batchTaskMapper.selectListByBatchExecutionId(batch.getId())
+                    .forEach(task -> batchTaskMapper.deleteById(task.getId()));
+            batchExecutionMapper.deleteById(batch.getId());
+        }
     }
 
     private void cleanupRuntime(MesProcessPoolActiveOrderDO activeOrder) {
@@ -540,18 +546,15 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                 || activeOrder.getRouteVersionId() == null) {
             throw new IllegalStateException("STAGE2_5_FIXTURE_INVALID");
         }
+        if (!Boolean.TRUE.equals(activeOrder.getSimulated())
+                || !"STAGE1".equals(activeOrder.getSimulationStage())
+                || activeOrder.getSimulationRunId() == null
+                || activeOrder.getSimulationRunId().isBlank()) {
+            throw new IllegalStateException("STAGE2_5_STAGE1_SOURCE_REQUIRED");
+        }
         if ("ACTIVE".equals(activeOrder.getActiveStatus())
                 && !Objects.equals(activeOrder.getVersion(), command.getExpectedVersion())) {
             throw new IllegalStateException("ACTIVE_ORDER_COMPLETION_VERSION_CONFLICT");
-        }
-    }
-
-    private void requireDoubleComplete(MesTeamLeaderActiveOrderSimulationResult simulation) {
-        if (simulation == null || simulation.getProductionProgressPercent() == null
-                || simulation.getInspectionProgressPercent() == null
-                || simulation.getProductionProgressPercent().compareTo(BigDecimal.valueOf(100)) != 0
-                || simulation.getInspectionProgressPercent().compareTo(BigDecimal.valueOf(100)) != 0) {
-            throw new IllegalStateException("STAGE2_5_FIXTURE_INVALID");
         }
     }
 
@@ -668,7 +671,8 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                 .setSourceVersion(sourceVersion)
                 .setSourceSnapshotHash(receipt.getSourceSnapshotHash())
                 .setPayloadHash(hash(payload))
-                .setSignature(hash(receipt.getSignatureSnapshotJson() + "|" + signatureType));
+                .setSignature(hash(receipt.getSignatureSnapshotJson() + "|" + signatureType))
+                .setRelationStatus("BOUND");
     }
 
     private EdhrBatchExecutionOpenOrCreateReqVO buildBatchRequest(

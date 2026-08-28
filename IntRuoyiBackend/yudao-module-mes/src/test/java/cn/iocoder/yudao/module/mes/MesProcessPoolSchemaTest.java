@@ -88,7 +88,7 @@ class MesProcessPoolSchemaTest {
                 StandardCharsets.UTF_8);
         String normalizedSql = sql.replace("\r\n", "\n");
         assertTrue(normalizedSql.startsWith("-- release-migration: allowedEnvironments=test,backup,prod; "
-                + "dependsOn=20260729_dcc_product_catalog_remove_subsidiary_source; type=schema; riskLevel=medium\n"));
+                + "dependsOn=20260512_mes_base_schema; type=schema; riskLevel=medium\n"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool`"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_event`"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_quantity_fragment`"));

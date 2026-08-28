@@ -9,4 +9,6 @@ public class MesStage4DossierUploadSimulationCommand {
 
     private Long actorUserId;
     private String simulationRunId;
+    private Long batchExecutionId;
+    private String stage2_5SimulationRunId;
 }

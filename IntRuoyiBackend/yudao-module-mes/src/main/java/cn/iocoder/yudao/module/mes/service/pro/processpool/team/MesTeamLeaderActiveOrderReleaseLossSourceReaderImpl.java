@@ -82,6 +82,13 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
             List<MesProProcessPoolEventDO> matchingEvents = events.stream()
                     .filter(event -> matches(command, snapshot, event))
                     .toList();
+            if (matchingEvents.size() > 1) {
+                blockers.add(blocker("LOSS_SOURCE_REQUIRED", snapshot, "PRODUCTION_EVENT",
+                        matchingEvents.get(0).getId(), null,
+                        "当前活跃订单工序存在重复签名生产提交，无法形成唯一损耗来源闭环",
+                        "请删除重复生产提交或重新生成正式反馈后再申请损耗"));
+                continue;
+            }
             int sourcesBefore = sources.size();
             for (MesProProcessPoolEventDO event : matchingEvents) {
                 MesProFeedbackDO feedback = feedbackById.get(event.getFeedbackSourceId());

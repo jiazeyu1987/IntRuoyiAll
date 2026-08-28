@@ -28,6 +28,16 @@ class MesProEdhrBatchTraceabilityValidatorTest {
     }
 
     @Test
+    void activeOrderAliasesMustUseTheSameFormalActiveOrderRules() {
+        MesProEdhrBatchTraceCaptureCommand command = activeCommand()
+                .setEntryType("ACTIVE_ORDER_SCHEDULED");
+
+        MesProEdhrBatchTraceValidationResult result = validator.validate(command);
+
+        assertTrue(result.valid(), result.blockerCode());
+    }
+
+    @Test
     void releaseApplicationCannotBeCapturedBeforeReleaseDecision() {
         MesProEdhrBatchTraceCaptureCommand command = activeCommand()
                 .setReleaseApplicationId(77L);
@@ -322,7 +332,7 @@ class MesProEdhrBatchTraceabilityValidatorTest {
                 .setOriginKey("tenant:active:7:completion:9")
                 .setActiveOrderId(7L)
                 .setWorkOrderId(8L)
-                .setCompletionTransactionId(9L)
+                .setCompletionTransactionId("9")
                 .setCompletionVersion(1)
                 .setCompletionBackfillReceiptId(10L)
                 .setCompletionBackfillReceiptHash(completionReceiptHash)

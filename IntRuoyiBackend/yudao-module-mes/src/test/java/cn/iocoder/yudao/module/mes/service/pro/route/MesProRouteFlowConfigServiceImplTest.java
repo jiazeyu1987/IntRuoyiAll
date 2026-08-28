@@ -1858,7 +1858,7 @@ class MesProRouteFlowConfigServiceImplTest {
 
     private void stubTenantAndTemplate(Long templateId, Long versionId, String templateName) {
         TenantContextHolder.setTenantId(122L);
-        when(formTemplateVersionMapper.selectLatestPublishedByTemplateId(122L, templateId))
+        lenient().when(formTemplateVersionMapper.selectLatestPublishedByTemplateId(122L, templateId))
                 .thenReturn(FormTemplateVersionDO.builder()
                         .id(versionId)
                         .templateId(templateId)
@@ -2145,7 +2145,7 @@ class MesProRouteFlowConfigServiceImplTest {
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> service.saveRouteFlowConfig(reqVO));
 
-        assertEquals(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCONSISTENT.getCode(), exception.getCode());
+        assertEquals(PRO_ROUTE_FLOW_CONFIG_GLOBAL_FORM_GROUP_INCOMPLETE.getCode(), exception.getCode());
         verify(routeCandidateConfigService, never()).saveConfigSnapshot(any(), any(), any());
     }
 

@@ -11,9 +11,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mockStatic;
@@ -36,6 +40,8 @@ class MesProRouteVersionPlatformAdapterTest {
     private BpmProcessInstanceApi bpmProcessInstanceApi;
     @Mock
     private MesProRouteVersionPublishProjectionServiceImpl publishProjectionService;
+    @Spy
+    private MesProRouteSnapshotCanonicalizer routeSnapshotCanonicalizer = new MesProRouteSnapshotCanonicalizer();
     @Mock
     private MesProRouteControlledContentAdapter platformAdapter;
 
@@ -86,6 +92,10 @@ class MesProRouteVersionPlatformAdapterTest {
         candidate.setLifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH);
         when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
         when(routeVersionMapper.selectActiveByRouteId(candidate.getRouteId())).thenReturn(active);
+        when(routeVersionMapper.updateById(any(MesProRouteVersionDO.class))).thenReturn(1);
+        when(publishProjectionService.projectCandidate(candidate)).thenReturn(
+                new MesProRouteVersionPublishProjectionServiceImpl.ProjectionResult(
+                        candidate.getRouteSnapshotJson(), Set.of(10L)));
 
         MesProRouteVersionDO published = lifecycleService.publishCandidate(candidate.getId(), 504L);
 

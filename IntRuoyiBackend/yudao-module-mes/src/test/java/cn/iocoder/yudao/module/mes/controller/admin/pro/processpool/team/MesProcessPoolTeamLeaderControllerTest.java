@@ -308,7 +308,7 @@ class MesProcessPoolTeamLeaderControllerTest {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(3001L);
             MesTeamLeaderActiveOrderAddRespVO addReceipt = controller.addActiveOrder(new MesTeamLeaderActiveOrderAddReqVO()
                     .setWorkOrderId(9001L)).getData();
-            assertEquals(8101L, addReceipt.getActiveOrderId());
+            assertEquals("8101", addReceipt.getActiveOrderId());
             assertEquals("RECOVER", addReceipt.getAction());
             controller.removeActiveOrder(new MesTeamLeaderActiveOrderRemoveReqVO().setActiveOrderId(8101L));
             listResponse = controller.getActiveOrderList();

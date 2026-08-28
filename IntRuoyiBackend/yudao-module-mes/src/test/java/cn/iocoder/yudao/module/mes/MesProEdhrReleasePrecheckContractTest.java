@@ -73,8 +73,9 @@ class MesProEdhrReleasePrecheckContractTest {
         assertTrue(source.contains("EVENT_TYPE_REJECT"));
         assertTrue(source.contains("EVENT_TYPE_WITHDRAW"));
         assertTrue(source.contains("public MesProEdhrReleaseRespVO submit("));
-        assertTrue(source.contains("dossierRequirementConfigHash"));
-        assertTrue(source.contains("requireCurrentConfigHash"));
+        assertTrue(source.contains("materialGateManifestHash"));
+        assertTrue(source.contains("extractMaterialGateManifestHash"));
+        assertTrue(source.contains("fourMaterialGateService"));
         assertTrue(source.contains("CHECK_DOSSIER_INCOMING_INSPECTION_REPORT"));
         assertTrue(source.contains("CHECK_DOSSIER_STERILIZATION_REPORT"));
         assertTrue(source.contains("CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_REPORT"));

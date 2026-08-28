@@ -134,7 +134,7 @@ public final class MesReleaseFinalizationValidator {
                 "origin is required so source-specific prerequisites cannot be inferred");
         require(command.getEntryType() != null && !command.getEntryType().isBlank(),
                 MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE, "entryType is required");
-        require(command.getOrigin().name().equals(command.getEntryType()),
+        require(entryTypeMatchesOrigin(command),
                 MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                 "entryType must match origin exactly");
         require(command.getSourceRelation() != null && !command.getSourceRelation().isBlank(),
@@ -151,6 +151,13 @@ public final class MesReleaseFinalizationValidator {
         require(command.getSignoffEvidenceHash() != null && !command.getSignoffEvidenceHash().isBlank(),
                 MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                 "verified signoff evidence hash is required");
+    }
+
+    private static boolean entryTypeMatchesOrigin(MesReleaseFinalizationCommand command) {
+        if (command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER) {
+            return "ACTIVE_ORDER_COMPLETION".equals(command.getEntryType());
+        }
+        return command.getOrigin().name().equals(command.getEntryType());
     }
 
     private static void requireText(String value, MesReleaseFlowBlockerType type, String reason) {

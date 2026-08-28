@@ -2212,7 +2212,9 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     }
 
     private void collectExistingTasks(ScheduleComputation computation) {
-        computation.scopeTasks = taskMapper.selectListByWorkOrderIds(computation.workOrderMap.keySet());
+        computation.scopeTasks = taskMapper.selectListByWorkOrderIds(computation.workOrderMap.keySet()).stream()
+                .filter(task -> !isCanceledTask(task))
+                .toList();
         Set<Long> scopeTaskIds = computation.scopeTasks.stream()
                 .map(MesProTaskDO::getId)
                 .filter(Objects::nonNull)
@@ -2257,7 +2259,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             List<MesProTaskDO> stronglyProtectedTasks = protectedTasks.stream()
                     .filter(task -> {
                         MesProTaskScheduleExtDO ext = extMap.get(task.getId());
-                        return MesProTaskStatusEnum.isEndStatus(task.getStatus())
+                        return isFinishedTask(task)
                                 || (ext != null && Boolean.TRUE.equals(ext.getLocked()));
                     })
                     .toList();
@@ -2712,7 +2714,7 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
     private String resolveProtectionReason(ScheduleComputation computation,
                                            MesProTaskDO task,
                                            MesProTaskScheduleExtDO ext) {
-        if (MesProTaskStatusEnum.isEndStatus(task.getStatus())) {
+        if (isFinishedTask(task)) {
             return PROTECTION_REASON_FINISHED;
         }
         if (ObjUtil.equal(task.getStatus(), MesProTaskStatusEnum.IN_PROGRESS.getStatus())) {
@@ -2725,10 +2727,19 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             return PROTECTION_REASON_LOCKED;
         }
         if (Boolean.TRUE.equals(computation.preserveManualLockedTasks)
-                && (ext == null || ObjUtil.notEqual(SCHEDULE_SOURCE_AUTO, ext.getScheduleSource()))) {
+                && ext != null
+                && ObjUtil.notEqual(SCHEDULE_SOURCE_AUTO, ext.getScheduleSource())) {
             return PROTECTION_REASON_MANUAL;
         }
         return null;
+    }
+
+    private boolean isCanceledTask(MesProTaskDO task) {
+        return task != null && ObjUtil.equal(task.getStatus(), MesProTaskStatusEnum.CANCELED.getStatus());
+    }
+
+    private boolean isFinishedTask(MesProTaskDO task) {
+        return task != null && ObjUtil.equal(task.getStatus(), MesProTaskStatusEnum.FINISHED.getStatus());
     }
 
     private void validateMaterialAvailability(ScheduleComputation computation) {

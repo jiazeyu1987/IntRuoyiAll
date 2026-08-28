@@ -261,6 +261,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private static final String SIGNATURE_TIME_MODE_SERVER = "SERVER_TIME";
     private static final String SIGNATURE_TIME_MODE_USER_SELECTED = "USER_SELECTED";
     private static final String SIGNATURE_TIME_POLICY_VERSION = "EDHR_SIGNATURE_TIME_V1";
+    private static final String DEFAULT_SIGNATURE_TIME_ZONE = "Asia/Shanghai";
     private static final String ARCHIVE_STATUS_SEALED = "SEALED";
     private static final String ARTIFACT_TYPE_BATCH_FINAL_PDF = "BATCH_FINAL_PDF";
     private static final Set<String> OPEN_RECORD_CHANGE_STATUSES = Set.of("DRAFT", "SUBMITTED", "APPROVED");
@@ -696,7 +697,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (reqVO == null) {
             throw exception(BAD_REQUEST);
         }
-        return openOrCreateInternal(reqVO, false);
+        MesBatchExecutionProvisionCommand provisionCommand = batchExecutionEntryContractService.validate(
+                authoritativeContextResolver.resolve(toProvisionCommand(reqVO), TenantContextHolder.getRequiredTenantId()));
+        applyAuthoritativeContext(reqVO, provisionCommand);
+        return openOrCreateInternal(reqVO, provisionCommand, false);
     }
 
     @Override
@@ -725,37 +729,42 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 entryBusinessId + "|actor=" + actorUserId);
         String idempotencyKey = "MANUAL_BATCH:" + sourceSnapshotHash;
         MesBatchExecutionSourceEvidence evidence = new MesBatchExecutionSourceEvidence()
-                .setSourceType("MANUAL_BATCH_ENTRY")
-                .setSourceId(entryBusinessId)
+                .setSourceType("WORK_ORDER")
+                .setSourceId(String.valueOf(workOrder.getId()))
                 .setSourceVersion("1")
-                .setSourceSnapshotHash(sourceSnapshotHash)
+                .setSourceSnapshotHash(MesProEdhrBatchTraceSourceHash.calculate("WORK_ORDER",
+                        JSON.toJSONString(Map.of("workOrderId", workOrder.getId()))))
                 .setPayloadHash(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
                         entryBusinessId + "|" + sourceSnapshotHash))
                 .setSignature(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
-                        "MANUAL|" + sourceContextHash + "|" + actorUserId));
-        MesIndependentBatchPrerequisiteReceipt receipt = independentBatchPrerequisiteReceiptService.issue(
-                new MesIndependentBatchPrerequisiteReceiptIssueCommand()
-                        .setEntryType("MANUAL")
-                        .setWorkOrderId(workOrder.getId())
-                        .setWorkOrderCode(workOrder.getCode())
-                        .setRouteId(routeId)
-                        .setRouteVersionId(routeVersion.getId())
-                        .setRouteVersion(routeVersion.getVersionNo())
-                        .setBatchCode(batchCode)
-                        .setSourceRelationId(entryBusinessId)
-                        .setSourceRelationVersion("1")
-                        .setSourceRelationSnapshotHash(sourceSnapshotHash)
-                        .setSourceObjectType("MANUAL_BATCH_ENTRY")
-                        .setSourceObjectId(entryBusinessId)
-                        .setMaterialSourceType("WORK_ORDER")
-                        .setMaterialSourceId(String.valueOf(workOrder.getId()))
-                        .setSourceContextHash(sourceContextHash)
-                        .setSourceSnapshotHash(sourceSnapshotHash)
-                        .setBusinessReason("用户通过 eDHR 批次执行入口人工创建")
-                        .setIdempotencyKey(idempotencyKey)
-                        .setSourceEvidence(List.of(evidence)),
-                tenantId, actorUserId);
-        return openOrCreateInternal(new EdhrBatchExecutionOpenOrCreateReqVO()
+                        "MANUAL|" + sourceContextHash + "|" + actorUserId))
+                .setSourceObjectType("WORK_ORDER")
+                .setSourceObjectId(String.valueOf(workOrder.getId()))
+                .setSnapshotJson(JSON.toJSONString(Map.of("workOrderId", workOrder.getId())))
+                .setRelationStatus("BOUND");
+        MesBatchExecutionProvisionCommand provisionCommand = new MesBatchExecutionProvisionCommand()
+                .setEntryType("MANUAL")
+                .setEntryBusinessId(entryBusinessId)
+                .setSourceCredentialType("MANUAL_BATCH_CONTEXT")
+                .setSourceCredentialId(entryBusinessId)
+                .setSourceRelationId(entryBusinessId)
+                .setSourceContextHash(sourceContextHash)
+                .setTenantId(tenantId)
+                .setWorkOrderId(workOrder.getId())
+                .setWorkOrderCode(workOrder.getCode())
+                .setBatchCode(batchCode)
+                .setRouteId(routeId)
+                .setRouteVersionId(routeVersion.getId())
+                .setSourceSnapshotHash(sourceSnapshotHash)
+                .setIdempotencyKey(idempotencyKey)
+                .setExpectedSourceVersion("1")
+                .setSourceVersion(routeVersion.getVersionNo())
+                .setSourceBundleHash(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
+                        entryBusinessId + "|" + sourceSnapshotHash + "|" + routeVersion.getVersionNo()))
+                .setPayloadHash(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
+                        entryBusinessId + "|" + sourceSnapshotHash + "|" + sourceContextHash))
+                .setSourceEvidence(List.of(evidence));
+        EdhrBatchExecutionOpenOrCreateReqVO openRequest = new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(workOrder.getId())
                 .setWorkOrderCode(workOrder.getCode())
                 .setBatchCode(batchCode)
@@ -764,16 +773,17 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setRemark(reqVO.getRemark())
                 .setEntryType("MANUAL")
                 .setEntryBusinessId(entryBusinessId)
-                .setSourceCredentialType("IndependentBatchPrerequisiteReceipt")
-                .setSourceCredentialId(receipt.getReceiptId())
-                .setSourceRelationId(receipt.getSourceRelationId())
-                .setSourceContextHash(receipt.getSourceContextHash())
+                .setSourceCredentialType("MANUAL_BATCH_CONTEXT")
+                .setSourceCredentialId(entryBusinessId)
+                .setSourceRelationId(entryBusinessId)
+                .setSourceContextHash(sourceContextHash)
                 .setTenantId(tenantId)
-                .setSourceSnapshotHash(receipt.getSourceSnapshotHash())
-                .setExpectedSourceVersion(receipt.getSourceRelationVersion())
-                .setIdempotencyKey(receipt.getIdempotencyKey())
-                .setPayloadHash(receipt.getPayloadHash())
-                .setIndependentReceipt(receipt), false);
+                .setSourceSnapshotHash(sourceSnapshotHash)
+                .setExpectedSourceVersion("1")
+                .setIdempotencyKey(idempotencyKey)
+                .setPayloadHash(provisionCommand.getPayloadHash());
+        applyAuthoritativeContext(openRequest, provisionCommand);
+        return openOrCreateInternal(openRequest, provisionCommand, false);
     }
 
     private String manualSourceSnapshotHash(Long tenantId, MesProWorkOrderDO workOrder, MesProRouteDO route,
@@ -785,12 +795,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private EdhrBatchExecutionRespVO openOrCreateInternal(EdhrBatchExecutionOpenOrCreateReqVO reqVO,
+                                                           MesBatchExecutionProvisionCommand provisionCommand,
                                                            boolean scheduleEntry) {
-        MesBatchExecutionAuthoritativeContext authoritativeContext = authoritativeContextResolver.resolve(
-                toProvisionCommand(reqVO), TenantContextHolder.getRequiredTenantId());
-        MesBatchExecutionProvisionCommand provisionCommand =
-                batchExecutionEntryContractService.validate(authoritativeContext);
-        applyAuthoritativeContext(reqVO, provisionCommand);
         if (scheduleEntry) {
             requireEntryType(reqVO.getEntryType(), "ACTIVE_ORDER_SCHEDULED", "SCHEDULED");
         } else {
@@ -820,9 +826,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         .distinct()
                         .count();
                 if (routeCount == 1) {
-                    validateExistingEntryContext(existingBatches.get(0), reqVO.getWorkOrderId(), batchCode,
-                            requestedRouteId, requestedRouteVersionId);
-                    return openExistingBatch(existingBatches.get(0), provisionCommand);
+                    throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
                 }
                 throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
             }
@@ -1115,10 +1119,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                     || !Objects.equals(StrUtil.trim(command.getBatchCode()), existing.getBatchCode())) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
             }
-            recordOperationAudit("PRODUCTION_RELEASE_APPLICATION", String.valueOf(command.getApplicationId()),
-                    "BATCH_EXECUTION_REUSED_FROM_RELEASE", "复用已存在的申请批次", existing.getId(), null, null,
-                    existing.getRouteId(), null, null, null, "mes:pro-production-release:pqc-approve", "ALLOW",
-                    "SUCCESS", null, null, entryAuditMetadata(toProvisionCommand(command)));
+            openExistingBatch(existing, provisionCommand);
             return existing.getId();
         }
         MesProWorkOrderDO workOrder = validateSelectableWorkOrder(command.getWorkOrderId());
@@ -1339,14 +1340,59 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     private EdhrBatchExecutionRespVO openExistingBatch(MesProEdhrBatchExecutionDO existing,
                                                        MesBatchExecutionProvisionCommand provisionCommand) {
+        return openExistingBatch(existing, provisionCommand, "打开已有 eDHR 批次");
+    }
+
+    private EdhrBatchExecutionRespVO openExistingBatch(MesProEdhrBatchExecutionDO existing,
+                                                       MesBatchExecutionProvisionCommand provisionCommand,
+                                                       String auditReason) {
+        if (provisionCommand != null) {
+            requireExistingProvisioning(existing, provisionCommand);
+        }
         syncIfActive(existing);
         existing = batchExecutionMapper.selectById(existing.getId());
         EdhrBatchExecutionRespVO result = toResp(existing);
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(existing.getId()), "OPEN",
-                "打开已有 eDHR 批次", existing.getId(), null, null, existing.getRouteId(), null,
+                auditReason, existing.getId(), null, null, existing.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:create", "ALLOW",
                 "SUCCESS", null, null, entryAuditMetadata(provisionCommand));
         return result;
+    }
+
+    private void requireExistingProvisioning(MesProEdhrBatchExecutionDO existing,
+                                              MesBatchExecutionProvisionCommand command) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        if (existing == null || existing.getId() == null) {
+            throw new IllegalStateException("BATCH_PROVISIONING_RECORD_REQUIRED");
+        }
+        String batchStatus = existing == null ? null : existing.getProvisioningStatus();
+        MesProEdhrBatchProvisioningRecordDO record = provisioningRecordMapper
+                .selectByBatchExecutionId(tenantId, existing.getId());
+        if (record == null) {
+            throw new IllegalStateException("BATCH_PROVISIONING_RECORD_REQUIRED");
+        }
+        if (StrUtil.isBlank(batchStatus)) {
+            throw new IllegalStateException("BATCH_PROVISIONING_RECORD_REQUIRED");
+        }
+        boolean supportedStatus = Set.of(
+                MesBatchProvisioningStatus.BATCH_PROVISIONING.name(),
+                MesBatchProvisioningStatus.BATCH_PROVISIONING_RETRYABLE.name(),
+                MesBatchProvisioningStatus.BATCH_PROVISIONING_BLOCKED.name(),
+                MesBatchProvisioningStatus.BATCH_READY.name()).contains(batchStatus);
+        if (!supportedStatus) {
+            throw new IllegalStateException("BATCH_PROVISIONING_RECORD_REQUIRED");
+        }
+        if (record == null || !Objects.equals(record.getBatchExecutionId(), existing.getId())
+                || !Objects.equals(record.getTenantId(), tenantId)
+                || !Objects.equals(record.getStatus(), batchStatus)
+                || !Objects.equals(record.getEntryType(), command.getEntryType())
+                || !Objects.equals(record.getSourceCredentialId(), command.getSourceCredentialId())
+                || !Objects.equals(record.getSourceSnapshotHash(), command.getSourceSnapshotHash())
+                || !Objects.equals(record.getSourceBundleHash(), command.getSourceBundleHash())
+                || !Objects.equals(record.getSourceVersion(), command.getSourceVersion())
+                || !Objects.equals(record.getIdempotencyKey(), command.getIdempotencyKey())) {
+            throw new IllegalStateException("BATCH_PROVISIONING_IDEMPOTENCY_CONFLICT");
+        }
     }
 
     private MesProWorkOrderDO validateSelectableWorkOrder(Long workOrderId) {
@@ -1391,9 +1437,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (command == null) {
             throw exception(BAD_REQUEST);
         }
-        if (StrUtil.isBlank(command.getEntryType())) {
-            command.setEntryType("ACTIVE_ORDER_SCHEDULED");
-        }
         if (StrUtil.isBlank(command.getSourceCredentialId())) {
             List<String> missingItems = getScheduleCompletionMissingItems(command);
             if (!missingItems.isEmpty()) {
@@ -1421,15 +1464,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 command.getWorkOrderId(), command.getBatchCode().trim(), command.getRouteId());
         if (existing != null) {
             validateScheduleCompletionExistingContext(existing, command);
-            syncIfActive(existing);
-            existing = batchExecutionMapper.selectById(existing.getId());
-            recordOperationAudit("BATCH_EXECUTION", String.valueOf(existing.getId()), "OPEN",
-                    "排产完成复用已有 eDHR 批次", existing.getId(), null, null, existing.getRouteId(), null,
-                    null, null, "mes:pro-edhr-batch-execution:create", "ALLOW", "SUCCESS", null, null,
-                    entryAuditMetadata(provisionCommand));
-            return toResp(existing);
+            return openExistingBatch(existing, provisionCommand, "排产完成复用已有 eDHR 批次");
         }
-        return openOrCreateInternal(new EdhrBatchExecutionOpenOrCreateReqVO()
+        EdhrBatchExecutionOpenOrCreateReqVO openRequest = new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(command.getWorkOrderId())
                 .setWorkOrderCode(command.getWorkOrderCode())
                 .setBatchCode(command.getBatchCode())
@@ -1463,7 +1500,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setSourceEvidence(command.getSourceEvidence())
                 .setPayloadHash(command.getPayloadHash())
                 .setCompletionBackfillReceipt(command.getCompletionBackfillReceipt())
-                .setIndependentReceipt(command.getIndependentReceipt()), true);
+                .setIndependentReceipt(command.getIndependentReceipt());
+        applyAuthoritativeContext(openRequest, provisionCommand);
+        return openOrCreateInternal(openRequest, provisionCommand, true);
     }
 
     private MesBatchExecutionProvisionCommand toProvisionCommand(MesProEdhrProductionReleaseBatchCommand command) {
@@ -1635,15 +1674,57 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (route != null && routeProcesses.isEmpty()) {
             missingItems.add("工序");
         }
-        MesProRouteProcessDO firstRouteProcess = route == null || routeProcesses.isEmpty()
-                ? null : resolveFirstBatchRecordRouteProcess(route.getId(), routeProcesses, missingItems);
-        if (firstRouteProcess != null && !hasInitialFillAssignmentRule(firstRouteProcess.getId())) {
+        InitialBatchRecordContext firstBatchRecordContext = route == null || routeProcesses.isEmpty()
+                ? null : resolveFirstBatchRecordContext(command, route, routeProcesses, missingItems);
+        if (firstBatchRecordContext != null && !hasInitialFillAssignmentSource(firstBatchRecordContext)) {
             missingItems.add("首任务责任来源/候选池");
         }
         return missingItems.stream().distinct().toList();
     }
 
-    private MesProRouteProcessDO resolveFirstBatchRecordRouteProcess(Long routeId,
+    private InitialBatchRecordContext resolveFirstBatchRecordContext(EdhrScheduleCompletionCreateCommand command,
+                                                                     MesProRouteDO route,
+                                                                     List<MesProRouteProcessDO> routeProcesses,
+                                                                     List<String> missingItems) {
+        MesProRouteVersionDO routeVersion = command == null || command.getRouteVersionId() == null
+                ? null : routeVersionMapper.selectById(command.getRouteVersionId());
+        if (routeVersion != null
+                && Objects.equals(routeVersion.getRouteId(), route.getId())
+                && hasFrozenBatchTaskConfigSnapshot(routeVersion.getRouteSnapshotJson())) {
+            return resolveFirstFrozenBatchRecordContext(route, routeProcesses, routeVersion, missingItems);
+        }
+        return resolveFirstBatchRecordContext(route.getId(), routeProcesses, missingItems);
+    }
+
+    private InitialBatchRecordContext resolveFirstFrozenBatchRecordContext(MesProRouteDO route,
+                                                                           List<MesProRouteProcessDO> routeProcesses,
+                                                                           MesProRouteVersionDO routeVersion,
+                                                                           List<String> missingItems) {
+        try {
+            return buildBatchTaskConfigs(route, routeProcesses, routeVersion).stream()
+                    .filter(config -> config.specialNodeType() == null)
+                    .filter(config -> config.routeProcess() != null && config.batchRecord() != null)
+                    .filter(config -> StrUtil.isNotBlank(config.batchRecord().getBatchRecordReportId()))
+                    .filter(config -> config.batchRecord().getReportSort() != null
+                            && config.batchRecord().getReportSort() > 0)
+                    .min(Comparator.comparing((BatchTaskConfig config) -> config.routeProcess().getSort(),
+                                    Comparator.nullsLast(Integer::compareTo))
+                            .thenComparing(config -> config.batchRecord().getReportSort(),
+                                    Comparator.nullsLast(Integer::compareTo))
+                            .thenComparing(config -> config.batchRecord().getId(),
+                                    Comparator.nullsLast(Long::compareTo)))
+                    .map(config -> new InitialBatchRecordContext(config.routeProcess(), config.batchRecord()))
+                    .orElse(null);
+        } catch (ServiceException ex) {
+            if (PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED.getCode() != ex.getCode()) {
+                throw ex;
+            }
+            missingItems.add("工序与批记录绑定");
+            return null;
+        }
+    }
+
+    private InitialBatchRecordContext resolveFirstBatchRecordContext(Long routeId,
                                                                      List<MesProRouteProcessDO> routeProcesses,
                                                                      List<String> missingItems) {
         String batchUseType = MesProRouteFlowConfigTypeEnum.BATCH.getType();
@@ -1679,12 +1760,27 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             missingItems.add("工序与批记录绑定");
             return null;
         }
-        return routeProcessMap.values().stream()
+        MesProRouteProcessDO firstRouteProcess = routeProcessMap.values().stream()
                 .filter(process -> boundRouteProcessIds.contains(process.getId()))
                 .sorted(Comparator.comparing(MesProRouteProcessDO::getSort, Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(MesProRouteProcessDO::getId, Comparator.nullsLast(Long::compareTo)))
                 .findFirst()
                 .orElse(null);
+        if (firstRouteProcess == null) {
+            return null;
+        }
+        MesProRouteFlowProcessBatchRecordDO firstBinding = batchRecords.stream()
+                .filter(record -> StrUtil.isNotBlank(record.getBatchRecordReportId()))
+                .filter(record -> record.getReportSort() != null && record.getReportSort() > 0)
+                .filter(record -> Objects.equals(currentRouteProcessIdBySnapshot.get(record.getRouteProcessId()),
+                        firstRouteProcess.getId()))
+                .sorted(Comparator.comparing(MesProRouteFlowProcessBatchRecordDO::getReportSort,
+                                Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(MesProRouteFlowProcessBatchRecordDO::getId,
+                                Comparator.nullsLast(Long::compareTo)))
+                .findFirst()
+                .orElse(null);
+        return firstBinding == null ? null : new InitialBatchRecordContext(firstRouteProcess, firstBinding);
     }
 
     private boolean hasInitialFillAssignmentRule(Long routeProcessId) {
@@ -1698,6 +1794,53 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             return rule.getCandidateSourceId() != null || rule.getAssigneeUserId() != null;
         }
         return rule.getCandidateSourceId() != null;
+    }
+
+    private boolean hasInitialFillAssignmentSource(InitialBatchRecordContext context) {
+        if (context == null || context.routeProcess() == null || context.routeProcess().getId() == null) {
+            return false;
+        }
+        if (hasInitialFillAssignmentRule(context.routeProcess().getId())) {
+            return true;
+        }
+        if (hasInitialProcessFormFillCandidateSource(context.routeProcess().getId(), context.routeBinding())) {
+            return true;
+        }
+        return hasRouteBindingCandidateSource(context.routeBinding());
+    }
+
+    private boolean hasInitialProcessFormFillCandidateSource(Long routeProcessId,
+                                                            MesProRouteFlowProcessBatchRecordDO routeBinding) {
+        String bindingKey = resolveRouteBindingKey(routeBinding);
+        if (routeProcessId == null || StrUtil.isBlank(bindingKey)) {
+            return false;
+        }
+        return processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
+                        routeProcessId, bindingKey, routeBinding.getBatchRecordVersionId()).stream()
+                .anyMatch(this::hasProcessFormCandidateSource);
+    }
+
+    private String resolveRouteBindingKey(MesProRouteFlowProcessBatchRecordDO routeBinding) {
+        if (routeBinding == null) {
+            return null;
+        }
+        return StrUtil.blankToDefault(StrUtil.trim(routeBinding.getBatchRecordReportId()),
+                StrUtil.trim(routeBinding.getFormBindingKey()));
+    }
+
+    private boolean hasProcessFormCandidateSource(MesProEdhrProcessFormPermissionRuleDO rule) {
+        return rule != null && StrUtil.isNotBlank(rule.getCandidateSourceType())
+                && StrUtil.isNotBlank(rule.getCandidateSourceIds());
+    }
+
+    private boolean hasRouteBindingCandidateSource(MesProRouteFlowProcessBatchRecordDO routeBinding) {
+        return routeBinding != null
+                && StrUtil.isNotBlank(routeBinding.getCandidateSourceType())
+                && StrUtil.isNotBlank(routeBinding.getCandidateSourceIds());
+    }
+
+    private record InitialBatchRecordContext(MesProRouteProcessDO routeProcess,
+                                             MesProRouteFlowProcessBatchRecordDO routeBinding) {
     }
 
     private void validateScheduleCompletionExistingContext(MesProEdhrBatchExecutionDO existing,
@@ -4355,6 +4498,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         Long actorId = currentUserId();
         validateBatchSignaturePassword(batch, actorId, reqVO.getPassword(), "BATCH_CLOSE",
                 "关闭 eDHR 批次", "mes:pro-edhr-batch-execution:close");
+        String actorName = requireSignatureActorName(actorId, "BATCH_CLOSE");
         LocalDateTime signedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         BatchSignatureTimeEvidence signatureTimeEvidence =
                 buildBatchSignatureTimeEvidence(batch.getId(), "BATCH_CLOSE", actorId, signedAt,
@@ -4362,7 +4506,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrBatchExecutionSignatureDO signature = new MesProEdhrBatchExecutionSignatureDO()
                 .setBatchExecutionId(batch.getId())
                 .setActorId(actorId)
-                .setActorName(String.valueOf(actorId))
+                .setActorName(actorName)
                 .setActionType("BATCH_CLOSE")
                 .setSignatureMode("PASSWORD")
                 .setPasswordVerified(true)
@@ -4410,6 +4554,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         Long actorId = currentUserId();
         validateBatchSignaturePassword(batch, actorId, reqVO.getPassword(), "QUALITY_REJECT",
                 "质量终态拒收 eDHR 批次", "mes:pro-edhr-batch-execution:quality-reject");
+        String actorName = requireSignatureActorName(actorId, "QUALITY_REJECT");
         requireQualityRejectPrecheckStage(batch);
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         String reason = StrUtil.trim(reqVO.getReason());
@@ -4420,7 +4565,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrBatchExecutionSignatureDO signature = new MesProEdhrBatchExecutionSignatureDO()
                 .setBatchExecutionId(batch.getId())
                 .setActorId(actorId)
-                .setActorName(String.valueOf(actorId))
+                .setActorName(actorName)
                 .setActionType("QUALITY_REJECT")
                 .setSignatureMode("PASSWORD")
                 .setPasswordVerified(true)
@@ -4823,6 +4968,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .ownerRoleKey(ownerRoleKey)
                 .archiveVisibility(record.getArchiveVisibility())
                 .slotConfigSnapshotHash(record.getSlotConfigSnapshotHash())
+                .candidateSourceType(record.getCandidateSourceType())
+                .candidateSourceIds(record.getCandidateSourceIds())
+                .candidateSourceNames(record.getCandidateSourceNames())
                 .reportSort(record.getReportSort())
                 .remark(record.getRemark())
                 .build();
@@ -7553,6 +7701,15 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return user.getNickname();
     }
 
+    private String requireSignatureActorName(Long actorId, String actionType) {
+        AdminUserRespDTO user = adminUserApi.getUser(actorId);
+        if (user == null || StrUtil.isBlank(user.getNickname())) {
+            throw new IllegalStateException("EDHR batch signature actor name is required, actionType="
+                    + actionType + ", actorId=" + value(actorId));
+        }
+        return user.getNickname();
+    }
+
     private List<Map<String, Object>> buildArchiveReleaseEventManifests(
             MesProEdhrReleaseTransactionDO releaseTransaction) {
         if (releaseTransaction == null || releaseTransaction.getId() == null) {
@@ -8095,8 +8252,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 ? SIGNATURE_TIME_MODE_SERVER : SIGNATURE_TIME_MODE_USER_SELECTED;
         LocalDateTime displayAt = selectedSignedAt == null
                 ? signedAt : selectedSignedAt.truncatedTo(ChronoUnit.SECONDS);
-        String selectedTimeZone = null;
-        String selectedTimeReason = null;
+        String selectedTimeZone = DEFAULT_SIGNATURE_TIME_ZONE;
+        String selectedTimeReason = "";
         if (selectedSignedAt != null) {
             selectedTimeZone = StrUtil.trim(signatureTime.getSelectedTimeZone());
             selectedTimeReason = StrUtil.trim(signatureTime.getSelectedTimeReason());
@@ -8386,7 +8543,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             return null;
         }
         JSONObject metadata = new JSONObject(true);
-        String entryType = "ACTIVE_ORDER_PQC".equals(command.getEntryType()) && command.getActiveOrderId() != null
+        String entryType = MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(command.getEntryType())
+                && command.getActiveOrderId() != null
                 ? MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION : command.getEntryType();
         metadata.put("entryType", entryType);
         metadata.put("entryBusinessId", command.getEntryBusinessId());
@@ -8433,11 +8591,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             provisionEvidence.put("sourceObjectId", String.valueOf(provisioningReceiptId));
             provisionEvidence.put("sourceVersion", command.getSourceVersion());
             provisionEvidence.put("sourceSnapshotHash", command.getSourceSnapshotHash());
-            provisionEvidence.put("sourceIdentityKey", "BATCH_PROVISION_RECEIPT:" + provisioningReceiptId);
+            provisionEvidence.put("witnessHash", command.getSourceSnapshotHash());
+            provisionEvidence.put("sourceIdentityKey", "BATCH_PROVISION_RECEIPT:BATCH_PROVISIONING_RECORD:"
+                    + provisioningReceiptId + ":::");
             provisionEvidence.put("relationStatus", "BOUND");
             provisionEvidence.put("snapshotJson", JSON.toJSONString(Map.of(
                     "sourceType", "BATCH_PROVISION_RECEIPT",
                     "sourceId", provisioningReceiptId,
+                    "witnessHash", command.getSourceSnapshotHash(),
                     "sourceSnapshotHash", command.getSourceSnapshotHash())));
             sourceEvidence.add(provisionEvidence);
         }

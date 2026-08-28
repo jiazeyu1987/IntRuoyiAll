@@ -32,6 +32,17 @@ class MesProEdhrBatchTraceFormalSourceResolverTest {
     }
 
     @Test
+    void activeOrderEntryAliasesUseTheFlow4ReceiptContract() {
+        for (String entryType : java.util.List.of("ACTIVE_ORDER_COMPLETION", "ACTIVE_ORDER_SCHEDULED",
+                "ACTIVE_ORDER_PQC", "MANUAL_CONTROLLED_RETRY")) {
+            org.junit.jupiter.api.Assertions.assertTrue(
+                    MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(entryType));
+        }
+        org.junit.jupiter.api.Assertions.assertFalse(
+                MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType("PQC_INDEPENDENT"));
+    }
+
+    @Test
     void independentReceiptMustBeServerVerifiedAndCannotUseActiveFields() {
         JSONObject metadata = metadata("MANUAL", "independent-1", "credential-hash", "snapshot-i");
         MesIndependentBatchPrerequisiteReceipt receipt = new MesIndependentBatchPrerequisiteReceipt()

@@ -637,26 +637,41 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     }
 
     private static String resolveSignatureActorName(JSONObject signatureRecord) {
-        return firstNonBlank(
+        String actorName = firstNonBlank(
                 signatureRecord.getString("actorName"),
                 signatureRecord.getString("actorNicknameSnapshot"),
-                signatureRecord.getString("actorUsernameSnapshot"));
+                null);
+        if (StrUtil.isBlank(actorName)) {
+            throw new IllegalStateException("EDHR batch archive signature actor name is required, actionType="
+                    + value(signatureRecord.getString("actionType")));
+        }
+        return actorName;
     }
 
     private static String resolveSignaturePurpose(JSONObject signatureRecord) {
-        return StrUtil.blankToDefault(
+        String purpose = StrUtil.blankToDefault(
                 StrUtil.trim(signatureRecord.getString("signaturePurpose")),
                 signatureMeaning(signatureRecord.getString("actionType")));
+        if (StrUtil.isBlank(purpose)) {
+            throw new IllegalStateException("EDHR batch archive signature purpose is required, actionType="
+                    + value(signatureRecord.getString("actionType")));
+        }
+        return purpose;
     }
 
     private static String resolveSignatureRecordHash(JSONObject signatureRecord) {
-        return firstNonBlank(
+        String recordHash = firstNonBlank(
                 signatureRecord.getString("recordHashSnapshot"),
                 signatureRecord.getString("aggregateHash"),
                 firstNonBlank(
                         signatureRecord.getString("fieldAuditHeadHash"),
                         signatureRecord.getString("cellValuesHash"),
-                        signatureRecord.getString("selectedTimeAuditHash")));
+                        null));
+        if (StrUtil.isBlank(recordHash)) {
+            throw new IllegalStateException("EDHR batch archive signature record hash is required, actionType="
+                    + value(signatureRecord.getString("actionType")));
+        }
+        return recordHash;
     }
 
     private static String formatSignatureDateTime(JSONObject signatureRecord) {
@@ -665,7 +680,15 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
                 signatureRecord.getString("selectedSignedAt"),
                 signatureRecord.getString("signedAt")));
         String timeZone = StrUtil.trim(signatureRecord.getString("selectedTimeZone"));
-        return StrUtil.isBlank(timeZone) ? formatted : formatted + " (" + timeZone + ")";
+        if ("--".equals(formatted)) {
+            throw new IllegalStateException("EDHR batch archive signature time is required, actionType="
+                    + value(signatureRecord.getString("actionType")));
+        }
+        if (StrUtil.isBlank(timeZone)) {
+            throw new IllegalStateException("EDHR batch archive signature time zone is required, actionType="
+                    + value(signatureRecord.getString("actionType")));
+        }
+        return formatted + " (" + timeZone + ")";
     }
 
     private static String signatureMeaning(String actionType) {
@@ -674,10 +697,13 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
             case MesProBatchRecordExecutionSignatureService.ACTION_FORM_REVIEW -> "表单复核";
             case MesProBatchRecordExecutionSignatureService.ACTION_SUBMIT -> "提交审批";
             case MesProBatchRecordExecutionSignatureService.ACTION_APPROVE -> "最终批准";
+            case MesProBatchRecordExecutionSignatureService.ACTION_REVIEW_APPROVE -> "审核签名";
             case MesProBatchRecordExecutionSignatureService.ACTION_REJECT -> "审批驳回";
             case MesProBatchRecordExecutionSignatureService.ACTION_ARCHIVE_SEAL -> "归档封存";
             case MesProBatchRecordExecutionSignatureService.ACTION_PRODUCTION_SUBMIT -> "一线生产报工提交";
-            default -> actionType;
+            case MesProBatchRecordExecutionSignatureService.ACTION_PQC_SUBMIT -> "PQC检验提交";
+            case MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW -> "组长复核";
+            default -> null;
         };
     }
 

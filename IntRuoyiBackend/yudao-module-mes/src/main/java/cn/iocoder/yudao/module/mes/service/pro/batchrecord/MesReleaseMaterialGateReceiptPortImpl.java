@@ -43,6 +43,9 @@ public class MesReleaseMaterialGateReceiptPortImpl
                 && Objects.equals(current.getManifestHash(), result.manifestHash())
                 && Objects.equals(current.getMaterialVersionSetHash(), versionSetHash)
                 && MesReleaseMaterialGateReceipt.STATUS_MATERIALS_READY.equals(current.getGateStatus())) {
+            if (!Objects.equals(current.getReceiptHash(), receiptHash(current))) {
+                throw new IllegalStateException("MATERIAL_GATE_RECEIPT_HASH_FAILED");
+            }
             return toCore(current, materialTypesJson);
         }
         int version = current == null || current.getVersion() == null ? 1 : current.getVersion() + 1;
@@ -107,9 +110,21 @@ public class MesReleaseMaterialGateReceiptPortImpl
         if (tenantId == null || tenantId <= 0 || batchExecutionId == null || batchExecutionId <= 0
                 || StrUtil.isBlank(sourceSnapshotHash) || issuedBy == null || issuedBy <= 0
                 || result == null || !result.ready() || StrUtil.isBlank(result.manifestHash())
-                || result.materials().size() != MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES.size()) {
+                || result.materials().size() != MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES.size()
+                || !materialTypesMatchRequired(result.materials())) {
             throw new IllegalArgumentException("MATERIAL_GATE_RECEIPT_INPUT_INCOMPLETE");
         }
+    }
+
+    private boolean materialTypesMatchRequired(List<MesProBatchRecordExecutionAttachmentDO> materials) {
+        if (materials == null) {
+            return false;
+        }
+        Set<String> actualTypes = materials.stream()
+                .map(MesProBatchRecordExecutionAttachmentDO::getFieldKey)
+                .collect(Collectors.toSet());
+        return actualTypes.size() == MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES.size()
+                && actualTypes.containsAll(MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES);
     }
 
     private MesReleaseMaterialGateReceipt toCore(MesProEdhrMaterialGateReceiptDO row, String materialTypesJson) {

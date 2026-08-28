@@ -22,6 +22,9 @@ public final class MesStage5FinalReleaseSimulationContractValidator {
             "STERILIZATION_REPORT",
             "FINISHED_PRODUCT_INSPECTION_REPORT",
             "FINISHED_PRODUCT_INSPECTION_RECORD");
+    private static final Set<String> RELEASE_MATERIAL_CATEGORIES = Set.of(
+            "INCOMING_INSPECTION_REPORT", "STERILIZATION_REPORT",
+            "FINISHED_PRODUCT_INSPECTION_REPORT", "FINISHED_PRODUCT_INSPECTION_RECORD");
     private static final Pattern SHA256 = Pattern.compile("[0-9a-f]{64}");
 
     private MesStage5FinalReleaseSimulationContractValidator() {
@@ -136,27 +139,53 @@ public final class MesStage5FinalReleaseSimulationContractValidator {
                 "releaseApprovalWorkTaskId", "reportSnapshotHash", "version")) {
             require(snapshot, field);
         }
+        requirePositiveLong(snapshot, "batchExecutionId");
+        requireNonBlank(snapshot, "releaseReceiptId");
+        requirePositiveLong(snapshot, "releaseDecisionId");
+        requirePositiveLong(snapshot, "releaseApprovalWorkTaskId");
+        requirePositiveLong(snapshot, "version");
         requireEquals(RELEASED_STATUS, snapshot.get("releaseStatus"), "releaseSnapshot.releaseStatus");
         requireHash(snapshot.get("reportSnapshotHash"), "releaseSnapshot.reportSnapshotHash");
         List<?> fileEvidence = list(snapshot.get("threeFileEvidence"), "releaseSnapshot.threeFileEvidence");
-        if (fileEvidence.size() != 3) {
-            throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence must contain three material categories");
+        if (fileEvidence.size() != 4) {
+            throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence must contain four material categories");
         }
+        Set<String> categories = new java.util.HashSet<>();
         fileEvidence.forEach(value -> {
             Map<?, ?> evidence = map(value, "releaseSnapshot.threeFileEvidence.item");
-            require(evidence, "nodeType");
+            requireNonBlank(evidence, "nodeType");
+            if (!categories.add(String.valueOf(evidence.get("nodeType")))) {
+                throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence contains duplicate categories");
+            }
+            List<?> attachmentIds = list(evidence.get("attachmentIds"), "releaseSnapshot.threeFileEvidence.item.attachmentIds");
+            if (attachmentIds.isEmpty() || attachmentIds.stream().anyMatch(item -> item == null
+                    || String.valueOf(item).isBlank() || Long.parseLong(String.valueOf(item)) <= 0)) {
+                throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence.item.attachmentIds must be non-empty");
+            }
             List<?> hashes = list(evidence.get("sha256"), "releaseSnapshot.threeFileEvidence.item.sha256");
             if (hashes.isEmpty()) {
                 throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence.item.sha256 must not be empty");
             }
             hashes.forEach(hash -> requireHash(hash, "releaseSnapshot.threeFileEvidence.item.sha256.item"));
         });
+        if (!Objects.equals(RELEASE_MATERIAL_CATEGORIES, categories)) {
+            throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence must contain incoming, sterilization, finished-product report and finished-product record categories");
+        }
         Map<?, ?> sourceChain = map(snapshot.get("sourceChain"), "releaseSnapshot.sourceChain");
         for (String field : List.of("productionSourceIds", "pickListId", "backfillReceiptId")) {
             require(sourceChain, field);
         }
-        if (list(sourceChain.get("productionSourceIds"), "releaseSnapshot.sourceChain.productionSourceIds").isEmpty()) {
+        if (list(sourceChain.get("productionSourceIds"), "releaseSnapshot.sourceChain.productionSourceIds").isEmpty()
+                || isBlank(sourceChain.get("pickListId")) || isBlank(sourceChain.get("backfillReceiptId"))) {
             throw new IllegalArgumentException("releaseSnapshot.sourceChain.productionSourceIds must not be empty");
+        }
+        if (list(sourceChain.get("productionSourceIds"), "releaseSnapshot.sourceChain.productionSourceIds").stream()
+                .anyMatch(item -> item == null || Long.parseLong(String.valueOf(item)) <= 0)) {
+            throw new IllegalArgumentException("releaseSnapshot.sourceChain.productionSourceIds must contain positive ids");
+        }
+        if (Long.parseLong(String.valueOf(sourceChain.get("pickListId"))) <= 0
+                || Long.parseLong(String.valueOf(sourceChain.get("backfillReceiptId"))) <= 0) {
+            throw new IllegalArgumentException("releaseSnapshot.sourceChain.pickListId/backfillReceiptId must be positive");
         }
     }
 
@@ -190,5 +219,27 @@ public final class MesStage5FinalReleaseSimulationContractValidator {
         if (value == null || !SHA256.matcher(String.valueOf(value)).matches()) {
             throw new IllegalArgumentException(field + " must be a lowercase SHA-256 hash");
         }
+    }
+
+    private static void requirePositiveLong(Map<?, ?> map, String field) {
+        require(map, field);
+        try {
+            if (Long.parseLong(String.valueOf(map.get(field))) <= 0) {
+                throw new NumberFormatException();
+            }
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(field + " must be a positive number");
+        }
+    }
+
+    private static void requireNonBlank(Map<?, ?> map, String field) {
+        require(map, field);
+        if (String.valueOf(map.get(field)).isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+    }
+
+    private static boolean isBlank(Object value) {
+        return value == null || String.valueOf(value).isBlank();
     }
 }

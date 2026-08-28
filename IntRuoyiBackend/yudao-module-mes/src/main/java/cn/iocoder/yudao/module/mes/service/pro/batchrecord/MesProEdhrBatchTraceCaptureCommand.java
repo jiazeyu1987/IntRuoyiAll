@@ -14,7 +14,7 @@ public class MesProEdhrBatchTraceCaptureCommand {
     private String originKey;
     private Long activeOrderId;
     private Long workOrderId;
-    private Long completionTransactionId;
+    private String completionTransactionId;
     private Integer completionVersion;
     private Long completionBackfillReceiptId;
     private String completionBackfillReceiptHash;

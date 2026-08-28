@@ -32,8 +32,7 @@ public class MesProEdhrBatchTraceabilityRespVO {
         private Long activeOrderId;
         @JsonSerialize(using = ToStringSerializer.class)
         private Long workOrderId;
-        @JsonSerialize(using = ToStringSerializer.class)
-        private Long completionTransactionId;
+        private String completionTransactionId;
         private Integer completionVersion;
         @JsonSerialize(using = ToStringSerializer.class)
         private Long completionBackfillReceiptId;

@@ -25,8 +25,11 @@ class MesStage2_5ReceiptHandoffContractTest {
         assertFalse(source.contains("dossierPort"));
         assertTrue(source.contains("completionReceiptMapper"));
         assertTrue(source.contains("buildBackfillReceipt"));
-        assertTrue(source.contains("simulateActiveOrderCompletion(validated.getActorUserId(), activeOrder.getId(),")
-                        && source.contains("\"2.5\", validated.getSimulationRunId()"));
+        assertTrue(source.contains("MesProcessPoolActiveOrderDO activeOrder = template"));
+        assertTrue(source.contains("STAGE2_5_STAGE1_SOURCE_REQUIRED"));
+        assertFalse(source.contains("simulateActiveOrderCompletion(validated.getActorUserId(), activeOrder.getId(),"));
+        assertTrue(source.contains("activeOrderCompletionService.complete(validated.getActorUserId(),"));
+        assertFalse(source.contains("MesProcessPoolActiveOrderDO activeOrder = createFixture"));
         assertTrue(source.contains("setCompletionBackfillReceipt(receipt)"));
         assertTrue(source.contains("backfillReceipt.getBatchRecordId()"));
         assertTrue(source.contains("backfillReceipt.getProcessInspectionId()"));
@@ -46,5 +49,40 @@ class MesStage2_5ReceiptHandoffContractTest {
         assertTrue(source.contains("MesProcessPoolActiveOrderPickListBindingItemDO.builder()")
                 && source.contains(".id(IdUtil.getSnowflake().nextId())"));
         assertFalse(source.contains("setSourceFid(marker(runId, actorUserId)"));
+    }
+
+    @Test
+    void stage1SourceSnapshotHashMustBeCanonicalSha256() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage1/"
+                        + "MesStage1ActiveOrderCompleteSimulationServiceImpl.java"), StandardCharsets.UTF_8);
+
+        assertTrue(source.contains("DigestUtil.sha256Hex(JsonUtils.toJsonString(value))"));
+        assertFalse(source.contains("Integer.toHexString(JsonUtils.toJsonString(value).hashCode())"));
+    }
+
+    @Test
+    void downstreamStagesMustCarryTheExistingBatchIdentity() throws Exception {
+        String stage4 = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage4/"
+                        + "MesStage4DossierUploadSimulationServiceImpl.java"), StandardCharsets.UTF_8);
+        String stage5 = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage5/"
+                        + "MesStage5FinalReleaseSimulationServiceImpl.java"), StandardCharsets.UTF_8);
+        assertTrue(stage4.contains("requireStage2_5Batch(command)"));
+        assertFalse(stage4.contains("MesProEdhrBatchExecutionDO batch = createFixture"));
+        assertTrue(stage5.contains("loadStage4Fixture(actorUserId, batchExecutionId, stage4RunId)"));
+        assertFalse(stage5.contains("Fixture fixture = createFixture(actorUserId, runId)"));
+    }
+
+    @Test
+    void cleanupMustBeScopedToTheCurrentSimulationActor() throws Exception {
+        String stage1 = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage1/"
+                        + "MesStage1ActiveOrderCompleteSimulationServiceImpl.java"), StandardCharsets.UTF_8);
+        String stage25 = Files.readString(IMPLEMENTATION, StandardCharsets.UTF_8);
+        assertTrue(stage1.contains("like(MesProWorkOrderDO::getRemark, \"][actorUserId=\" + actorUserId + \"]\")"));
+        assertTrue(stage25.contains("cleanupOwnedBatches(validated.getActorUserId())"));
+        assertTrue(stage25.contains("like(MesProEdhrBatchExecutionDO::getRemark, \"][actorUserId=\" + actorUserId + \"]\")"));
     }
 }

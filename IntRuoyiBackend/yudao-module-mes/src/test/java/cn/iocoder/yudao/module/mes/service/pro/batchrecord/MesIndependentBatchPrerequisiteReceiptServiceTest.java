@@ -8,6 +8,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,6 +42,22 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
     }
 
     @Test
+    void issueVerifySurvivesDatabaseSecondPrecisionRoundTrip() {
+        PrecisionNormalizingStore precisionStore = new PrecisionNormalizingStore();
+        MesIndependentBatchPrerequisiteReceiptServiceImpl precisionService =
+                new MesIndependentBatchPrerequisiteReceiptServiceImpl(precisionStore,
+                        Clock.fixed(Instant.parse("2026-08-23T00:00:00.987654321Z"), ZoneOffset.UTC),
+                        "mes-test", "test-secret");
+
+        MesIndependentBatchPrerequisiteReceipt receipt = precisionService.issue(command(), 1L, 9L);
+
+        assertEquals(receipt.getReceiptId(), precisionService.verify(verifyCommand(receipt), 1L).getReceiptId());
+        assertEquals(receipt.getPayloadHash(),
+                MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
+                        precisionStore.byReceipt.get(receipt.getReceiptId()).getCanonicalPayload()));
+    }
+
+    @Test
     void tamperedCanonicalPayloadAndSourceChangeFailFast() {
         MesIndependentBatchPrerequisiteReceipt receipt = service.issue(command(), 1L, 9L);
         store.byReceipt.get(receipt.getReceiptId()).setCanonicalPayload("tampered");
@@ -57,6 +74,15 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
         ServiceException source = assertThrows(ServiceException.class,
                 () -> service.verify(verifyCommand(second).setSourceSnapshotHash("changed"), 1L));
         assertEquals(PRO_EDHR_INDEPENDENT_RECEIPT_SOURCE_CHANGED.getCode(), source.getCode());
+    }
+
+    @Test
+    void missingExplicitRelationStatusIsRejectedDuringIssue() {
+        MesIndependentBatchPrerequisiteReceiptIssueCommand issueCommand = command();
+        issueCommand.getSourceEvidence().get(0).setRelationStatus(null);
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.issue(issueCommand, 1L, 9L));
+        assertEquals(PRO_EDHR_INDEPENDENT_RECEIPT_INVALID.getCode(), error.getCode());
     }
 
     @Test
@@ -118,7 +144,8 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
                 .setBusinessReason("independent test").setIdempotencyKey("idempotency-1")
                 .setSourceEvidence(java.util.List.of(new MesBatchExecutionSourceEvidence()
                         .setSourceType("PQC").setSourceId("pqc-1").setSourceVersion("v1")
-                        .setSourceSnapshotHash("pqc-snapshot").setPayloadHash("pqc-payload").setSignature("pqc-signature")));
+                        .setSourceSnapshotHash("pqc-snapshot").setPayloadHash("pqc-payload")
+                        .setSignature("pqc-signature").setRelationStatus("BOUND")));
     }
 
     private MesIndependentBatchPrerequisiteReceiptVerifyCommand verifyCommand(MesIndependentBatchPrerequisiteReceipt receipt) {
@@ -126,8 +153,8 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
                 .setEntryType(receipt.getEntryType()).setSourceSnapshotHash(receipt.getSourceSnapshotHash());
     }
 
-    private static final class InMemoryStore implements MesIndependentBatchPrerequisiteReceiptStore {
-        private final Map<String, MesIndependentBatchPrerequisiteReceiptDO> byReceipt = new HashMap<>();
+    static class InMemoryStore implements MesIndependentBatchPrerequisiteReceiptStore {
+        protected final Map<String, MesIndependentBatchPrerequisiteReceiptDO> byReceipt = new HashMap<>();
         @Override public MesIndependentBatchPrerequisiteReceiptDO selectByReceiptId(Long tenantId, String receiptId) {
             MesIndependentBatchPrerequisiteReceiptDO value = byReceipt.get(receiptId);
             return value != null && tenantId.equals(value.getTenantId()) ? value : null;
@@ -141,5 +168,37 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
         }
         @Override public void insert(MesIndependentBatchPrerequisiteReceiptDO data) { byReceipt.put(data.getReceiptId(), data); }
         @Override public void update(MesIndependentBatchPrerequisiteReceiptDO data) { byReceipt.put(data.getReceiptId(), data); }
+    }
+
+    private static final class PrecisionNormalizingStore extends InMemoryStore {
+        @Override public void insert(MesIndependentBatchPrerequisiteReceiptDO data) {
+            super.insert(normalize(data));
+        }
+        @Override public void update(MesIndependentBatchPrerequisiteReceiptDO data) {
+            super.update(normalize(data));
+        }
+        private MesIndependentBatchPrerequisiteReceiptDO normalize(MesIndependentBatchPrerequisiteReceiptDO value) {
+            return new MesIndependentBatchPrerequisiteReceiptDO()
+                    .setId(value.getId()).setReceiptId(value.getReceiptId()).setTenantId(value.getTenantId())
+                    .setEntryType(value.getEntryType()).setWorkOrderId(value.getWorkOrderId())
+                    .setWorkOrderCode(value.getWorkOrderCode()).setRouteId(value.getRouteId())
+                    .setRouteVersionId(value.getRouteVersionId()).setRouteVersion(value.getRouteVersion())
+                    .setBatchCode(value.getBatchCode()).setSourceRelationId(value.getSourceRelationId())
+                    .setSourceRelationVersion(value.getSourceRelationVersion())
+                    .setSourceRelationSnapshotHash(value.getSourceRelationSnapshotHash())
+                    .setSourceObjectType(value.getSourceObjectType()).setSourceObjectId(value.getSourceObjectId())
+                    .setMaterialSourceType(value.getMaterialSourceType()).setMaterialSourceId(value.getMaterialSourceId())
+                    .setSourceContextHash(value.getSourceContextHash()).setSourceSnapshotHash(value.getSourceSnapshotHash())
+                    .setBusinessReason(value.getBusinessReason()).setIssuerSystem(value.getIssuerSystem())
+                    .setIssuerUserId(value.getIssuerUserId()).setIssuerUserRole(value.getIssuerUserRole())
+                    .setIssuedAt(value.getIssuedAt() == null ? null : value.getIssuedAt().truncatedTo(ChronoUnit.SECONDS))
+                    .setExpiresAt(value.getExpiresAt() == null ? null : value.getExpiresAt().truncatedTo(ChronoUnit.SECONDS))
+                    .setRevokedAt(value.getRevokedAt()).setRevocationReason(value.getRevocationReason())
+                    .setCredentialVersion(value.getCredentialVersion()).setStatus(value.getStatus())
+                    .setCanonicalPayload(value.getCanonicalPayload()).setSourceEvidenceJson(value.getSourceEvidenceJson())
+                    .setReceiptHash(value.getReceiptHash()).setPayloadHash(value.getPayloadHash())
+                    .setSignature(value.getSignature()).setAuditEventId(value.getAuditEventId())
+                    .setIdempotencyKey(value.getIdempotencyKey());
+        }
     }
 }

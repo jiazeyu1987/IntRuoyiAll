@@ -66,6 +66,8 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerT
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -245,6 +247,33 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.getDhrStatus());
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
+    }
+
+    @Test
+    void dossierRequirementEvidenceBlocksDuplicateSpecialNodeTasks() throws Exception {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-DUP-SPECIAL-NODE");
+        insertSpecialTask(batch.getId(),
+                MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT,
+                MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED);
+        insertSpecialTask(batch.getId(),
+                MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT,
+                MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED);
+
+        Field mapperField = MesProEdhrReleaseServiceImpl.class.getDeclaredField("batchExecutionTaskMapper");
+        mapperField.setAccessible(true);
+        mapperField.set(releaseService, batchTaskMapper);
+
+        Method method = MesProEdhrReleaseServiceImpl.class.getDeclaredMethod(
+                "resolveDossierRequirementEvidence", Long.class, String.class, String.class);
+        method.setAccessible(true);
+        Object evidence = method.invoke(releaseService, batch.getId(),
+                MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT,
+                "来料检报告");
+        Method failureReason = evidence.getClass().getDeclaredMethod("failureReason");
+        failureReason.setAccessible(true);
+
+        assertEquals("来料检报告特殊节点存在重复任务，无法确认放行资料已上传",
+                failureReason.invoke(evidence));
     }
 
     @Test

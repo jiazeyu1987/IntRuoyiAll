@@ -101,6 +101,33 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
         assertTrue(result.getProcessSources().isEmpty());
     }
 
+    @Test
+    void shouldRejectDuplicateProductionSubmitsForTheSameSnapshot() {
+        MesProProcessPoolEventDO firstEvent = event(1001L,
+                "{\"lossQuantity\":999,\"lossDetails\":[{\"reasonId\":8301,"
+                        + "\"reasonCode\":\"LOSS-001\",\"reasonName\":\"正常损耗\","
+                        + "\"quantity\":2.500}]}"
+        );
+        MesProProcessPoolEventDO secondEvent = event(1002L,
+                "{\"lossQuantity\":999,\"lossDetails\":[{\"reasonId\":8301,"
+                        + "\"reasonCode\":\"LOSS-001\",\"reasonName\":\"正常损耗\","
+                        + "\"quantity\":2.500}]}"
+        );
+        when(eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(WORK_ORDER_ID, ROUTE_ID))
+                .thenReturn(List.of(firstEvent, secondEvent));
+        when(feedbackMapper.selectListByIdsForUpdate(List.of(5101L)))
+                .thenReturn(List.of(feedback()));
+
+        MesTeamLeaderActiveOrderReleaseLossSourceReadResult result = reader.read(command());
+
+        assertTrue(result.getBlockers().stream().anyMatch(blocker ->
+                "LOSS_SOURCE_REQUIRED".equals(blocker.getBlockerType())
+                        && ROUTE_PROCESS_ID.equals(blocker.getRouteProcessId())
+                        && "PRODUCTION_EVENT".equals(blocker.getObjectType())
+                        && "当前活跃订单工序存在重复签名生产提交，无法形成唯一损耗来源闭环".equals(blocker.getReason())));
+        assertTrue(result.getProcessSources().isEmpty());
+    }
+
     private static MesTeamLeaderActiveOrderReleaseLossReportPlanCommand command() {
         return new MesTeamLeaderActiveOrderReleaseLossReportPlanCommand()
                 .setTenantId(1L)
@@ -123,8 +150,12 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     }
 
     private static MesProProcessPoolEventDO event(String payload) {
+        return event(1001L, payload);
+    }
+
+    private static MesProProcessPoolEventDO event(Long id, String payload) {
         return MesProProcessPoolEventDO.builder()
-                .id(1001L)
+                .id(id)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
                 .workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID)

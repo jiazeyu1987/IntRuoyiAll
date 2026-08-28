@@ -22,7 +22,7 @@ BEGIN
     origin_key varchar(180) NOT NULL,
     active_order_id bigint DEFAULT NULL,
     work_order_id bigint DEFAULT NULL,
-    completion_transaction_id bigint DEFAULT NULL,
+    completion_transaction_id varchar(180) DEFAULT NULL,
     completion_version int DEFAULT NULL,
     completion_backfill_receipt_id bigint DEFAULT NULL,
     completion_backfill_receipt_hash char(64) DEFAULT NULL,

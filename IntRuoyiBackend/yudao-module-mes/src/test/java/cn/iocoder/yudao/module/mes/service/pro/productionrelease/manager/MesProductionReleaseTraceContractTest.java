@@ -8,13 +8,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProductionReleaseTraceContractTest {
 
     @Test
-    void completedTraceForcesReleasedTransactionInsteadOfArchivedOrRejectedBatchFallback() throws Exception {
+    void completedTraceIncludesReleasedArchivedAndRejectedTerminalBatches() throws Exception {
         String source = Files.readString(sourcePath(
                 "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/"
                         + "MesProEdhrBatchExecutionMapper.java"), StandardCharsets.UTF_8);
@@ -23,19 +22,18 @@ class MesProductionReleaseTraceContractTest {
         String traceFilter = source.substring(start, end);
 
         assertTrue(traceFilter.contains("exists(releasedTransactionExistsSql())"));
-        assertFalse(traceFilter.contains("BATCH_STATUS_ARCHIVED"));
-        assertFalse(traceFilter.contains("BATCH_STATUS_REJECTED"));
+        assertTrue(traceFilter.contains("BATCH_STATUS_ARCHIVED"));
+        assertTrue(traceFilter.contains("BATCH_STATUS_REJECTED"));
 
         String releaseService = Files.readString(sourcePath(
                 "yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
                         + "MesProEdhrReleaseServiceImpl.java"), StandardCharsets.UTF_8);
-        assertTrue(releaseService.contains("reqVO.setReleaseStatus(STATUS_RELEASED)"));
         int statusFilterStart = releaseService.indexOf("private boolean batchExecutionStatusMatches");
         int statusFilterEnd = releaseService.indexOf("private boolean matches", statusFilterStart);
         String statusFilter = releaseService.substring(statusFilterStart, statusFilterEnd);
         assertTrue(statusFilter.contains("return STATUS_RELEASED.equals(item.getReleaseStatus())"));
-        assertFalse(statusFilter.contains("BATCH_STATUS_ARCHIVED"));
-        assertFalse(statusFilter.contains("BATCH_STATUS_REJECTED"));
+        assertTrue(statusFilter.contains("BATCH_STATUS_ARCHIVED"));
+        assertTrue(statusFilter.contains("BATCH_STATUS_REJECTED"));
     }
 
     private static Path sourcePath(String moduleRelativePath) {

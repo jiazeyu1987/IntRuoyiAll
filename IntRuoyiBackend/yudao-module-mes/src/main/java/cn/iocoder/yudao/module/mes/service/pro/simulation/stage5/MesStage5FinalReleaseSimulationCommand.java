@@ -9,5 +9,7 @@ public class MesStage5FinalReleaseSimulationCommand {
 
     private Long actorUserId;
     private String simulationRunId;
+    private Long batchExecutionId;
+    private String stage4SimulationRunId;
     private String previousSimulationRunId;
 }

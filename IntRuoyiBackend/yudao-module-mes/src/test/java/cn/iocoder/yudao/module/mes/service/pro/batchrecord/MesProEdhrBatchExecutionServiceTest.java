@@ -309,19 +309,25 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private MesProBatchRecordCellLinkService cellLinkService;
 
+    private final Map<Long, MesProEdhrBatchProvisioningRecordDO> provisioningRecords = new LinkedHashMap<>();
+
     @BeforeEach
     void setTenant() {
         TenantContextHolder.setTenantId(1L);
+        provisioningRecords.clear();
         when(authoritativeContextResolver.resolve(any(MesBatchExecutionProvisionCommand.class), eq(1L)))
                 .thenAnswer(invocation -> testAuthoritativeContext(invocation.getArgument(0)));
         when(batchExecutionEntryContractService.validate(any(MesBatchExecutionAuthoritativeContext.class)))
                 .thenAnswer(invocation -> ((MesBatchExecutionAuthoritativeContext) invocation.getArgument(0))
                         .getProvisionCommand());
         when(provisioningRecordMapper.selectByIdempotencyKey(any(), any())).thenReturn(null);
+        when(provisioningRecordMapper.selectByBatchExecutionId(any(), any())).thenAnswer(invocation ->
+                provisioningRecords.get(invocation.getArgument(1, Long.class)));
         when(provisioningRecordMapper.insert(any(MesProEdhrBatchProvisioningRecordDO.class)))
                 .thenAnswer(invocation -> {
                     MesProEdhrBatchProvisioningRecordDO record = invocation.getArgument(0);
                     record.setId(randomLongId());
+                    provisioningRecords.put(record.getBatchExecutionId(), record);
                     return 1;
                 });
         when(permissionApi.hasAnyPermissions(any(), eq(MesProEdhrBatchTaskVisibilityService.OVERVIEW_PERMISSION)))
@@ -337,6 +343,11 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 users.put(userId, user(userId, "用户" + userId));
             }
             return users;
+        });
+        when(adminUserApi.getUser(any())).thenAnswer(invocation -> {
+            Object rawUserId = invocation.getArgument(0, Object.class);
+            Long userId = Long.valueOf(String.valueOf(rawUserId));
+            return user(userId, "用户" + userId);
         });
         when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), any()))
                 .thenAnswer(invocation -> {
@@ -788,46 +799,22 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openOrCreateManual_issuesFormalManualReceiptBeforeProvisioning() {
+    void openOrCreateManual_createsAndReusesBatchWithoutFormalReceipt() {
         Fixture fixture = insertRouteFixture(true, true);
-        when(independentBatchPrerequisiteReceiptService.issue(any(), eq(1L), any()))
-                .thenAnswer(invocation -> {
-                    MesIndependentBatchPrerequisiteReceiptIssueCommand command = invocation.getArgument(0);
-                    return new MesIndependentBatchPrerequisiteReceipt()
-                            .setReceiptId("manual-receipt-1")
-                            .setTenantId(1L)
-                            .setEntryType(command.getEntryType())
-                            .setWorkOrderId(command.getWorkOrderId())
-                            .setWorkOrderCode(command.getWorkOrderCode())
-                            .setRouteId(command.getRouteId())
-                            .setRouteVersionId(command.getRouteVersionId())
-                            .setRouteVersion(command.getRouteVersion())
-                            .setBatchCode(command.getBatchCode())
-                            .setSourceRelationId(command.getSourceRelationId())
-                            .setSourceRelationVersion(command.getSourceRelationVersion())
-                            .setSourceContextHash(command.getSourceContextHash())
-                            .setSourceSnapshotHash(command.getSourceSnapshotHash())
-                            .setIdempotencyKey(command.getIdempotencyKey())
-                            .setPayloadHash("manual-payload")
-                            .setSourceEvidence(command.getSourceEvidence());
-                });
 
         EdhrBatchExecutionRespVO result = batchExecutionService.openOrCreateManual(
                 new EdhrBatchExecutionManualOpenOrCreateReqVO()
                         .setWorkOrderId(fixture.workOrderId())
                         .setRouteId(fixture.routeId())
                         .setBatchCode("MANUAL-001"));
+        EdhrBatchExecutionRespVO repeated = batchExecutionService.openOrCreateManual(
+                new EdhrBatchExecutionManualOpenOrCreateReqVO()
+                        .setWorkOrderId(fixture.workOrderId())
+                        .setRouteId(fixture.routeId())
+                        .setBatchCode("MANUAL-001"));
 
-        ArgumentCaptor<MesIndependentBatchPrerequisiteReceiptIssueCommand> captor =
-                ArgumentCaptor.forClass(MesIndependentBatchPrerequisiteReceiptIssueCommand.class);
-        verify(independentBatchPrerequisiteReceiptService).issue(captor.capture(), eq(1L), any());
-        MesIndependentBatchPrerequisiteReceiptIssueCommand command = captor.getValue();
-        assertEquals("MANUAL", command.getEntryType());
-        assertEquals("MANUAL-001", command.getBatchCode());
-        assertEquals("1", command.getSourceRelationVersion());
-        assertNotNull(command.getSourceContextHash());
-        assertNotNull(command.getSourceEvidence());
-        assertFalse(command.getSourceEvidence().isEmpty());
+        verify(independentBatchPrerequisiteReceiptService, never()).issue(any(), any(), any());
+        assertEquals(result.getId(), repeated.getId());
         assertEquals("MANUAL-001", result.getBatchCode());
         assertEquals(fixture.routeId(), result.getRouteId());
     }
@@ -1434,6 +1421,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         EdhrBatchExecutionRespVO reexecuted = batchExecutionService.reexecuteRejectedBatch(
                 new EdhrBatchExecutionReexecuteReqVO()
                         .setSourceRejectedBatchExecutionId(original.getId())
+                        .setEntryType("MANUAL_CONTROLLED_RETRY")
                         .setReason("真拒收后同生产批号重做")
                         .setRemark("同批号新执行尝试"));
 
@@ -2105,6 +2093,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         EdhrScheduleCompletionCreateCommand command = new EdhrScheduleCompletionCreateCommand()
                 .setScheduleOrderId(7001L)
                 .setScheduleOrderCode("SCH-T4-001")
+                .setEntryType("SCHEDULED")
                 .setWorkOrderId(fixture.workOrderId())
                 .setBatchCode("BATCH-T4-SCHEDULE")
                 .setProductId(fixture.productId())
@@ -2123,6 +2112,73 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 "FINISHED_PRODUCT_INSPECTION_RECORD"), created.getTasks().stream()
                 .map(task -> task.getBatchRecordReportId() == null ? task.getProcessCode() : "ROUTE_FORM")
                 .toList());
+        verify(workTaskService).createInitialFillTask(any(MesProEdhrBatchExecutionDO.class));
+    }
+
+    @Test
+    void openOrCreateFromScheduleCompletion_acceptsRouteBindingCandidateForInitialFillTask() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteFlowProcessBatchRecordDO firstBinding =
+                routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(fixture.routeId(), "BATCH").stream()
+                        .filter(binding -> StrUtil.isNotBlank(binding.getBatchRecordReportId()))
+                        .min(Comparator.comparing(MesProRouteFlowProcessBatchRecordDO::getReportSort,
+                                        Comparator.nullsLast(Integer::compareTo))
+                                .thenComparing(MesProRouteFlowProcessBatchRecordDO::getId,
+                                        Comparator.nullsLast(Long::compareTo)))
+                        .orElseThrow();
+        routeFlowProcessBatchRecordMapper.updateById(MesProRouteFlowProcessBatchRecordDO.builder()
+                .id(firstBinding.getId())
+                .candidateSourceType("USERS")
+                .candidateSourceIds("10001")
+                .build());
+
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreateFromScheduleCompletion(
+                new EdhrScheduleCompletionCreateCommand()
+                        .setScheduleOrderId(7002L)
+                        .setScheduleOrderCode("SCH-T4-ROUTE-BINDING-CANDIDATE")
+                        .setEntryType("SCHEDULED")
+                        .setWorkOrderId(fixture.workOrderId())
+                        .setBatchCode("BATCH-T4-ROUTE-BINDING-CANDIDATE")
+                        .setProductId(fixture.productId())
+                        .setRouteId(fixture.routeId()));
+
+        assertNotNull(created.getId());
+        verify(workTaskService).createInitialFillTask(any(MesProEdhrBatchExecutionDO.class));
+    }
+
+    @Test
+    void openOrCreateFromScheduleCompletion_usesFrozenRouteVersionCandidateWhenCurrentConfigDrifts() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteFlowProcessBatchRecordDO firstBinding =
+                routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(fixture.routeId(), "BATCH").stream()
+                        .filter(binding -> StrUtil.isNotBlank(binding.getBatchRecordReportId()))
+                        .min(Comparator.comparing(MesProRouteFlowProcessBatchRecordDO::getReportSort,
+                                        Comparator.nullsLast(Integer::compareTo))
+                                .thenComparing(MesProRouteFlowProcessBatchRecordDO::getId,
+                                        Comparator.nullsLast(Long::compareTo)))
+                        .orElseThrow();
+        routeFlowProcessBatchRecordMapper.updateById(MesProRouteFlowProcessBatchRecordDO.builder()
+                .id(firstBinding.getId())
+                .candidateSourceType("USERS")
+                .candidateSourceIds("10002")
+                .build());
+        refreshRouteVersionSnapshot(fixture.routeVersionId(), routeMapper.selectById(fixture.routeId()));
+        replaceEnabledProcessConfigWithoutMovingBinding(fixture.routeId());
+
+        EdhrScheduleCompletionCreateCommand command = new EdhrScheduleCompletionCreateCommand()
+                .setScheduleOrderId(7003L)
+                .setScheduleOrderCode("SCH-T4-FROZEN-CANDIDATE")
+                .setEntryType("SCHEDULED")
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-T4-FROZEN-CANDIDATE")
+                .setProductId(fixture.productId())
+                .setRouteId(fixture.routeId())
+                .setRouteVersionId(fixture.routeVersionId());
+
+        assertEquals(List.of(), batchExecutionService.getScheduleCompletionMissingItems(command));
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreateFromScheduleCompletion(command);
+
+        assertNotNull(created.getId());
         verify(workTaskService).createInitialFillTask(any(MesProEdhrBatchExecutionDO.class));
     }
 
@@ -2146,6 +2202,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 () -> batchExecutionService.openOrCreateFromScheduleCompletion(new EdhrScheduleCompletionCreateCommand()
                         .setWorkOrderId(noBindingFixture.workOrderId())
                         .setBatchCode("BATCH-T4-NO-BINDING")
+                        .setEntryType("SCHEDULED")
                         .setProductId(noBindingFixture.productId())
                         .setRouteId(noBindingFixture.routeId())));
         assertEquals(PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING.getCode(), bindingEx.getCode());
@@ -2156,6 +2213,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 () -> batchExecutionService.openOrCreateFromScheduleCompletion(new EdhrScheduleCompletionCreateCommand()
                         .setWorkOrderId(noCandidateFixture.workOrderId())
                         .setBatchCode("BATCH-T4-NO-CANDIDATE")
+                        .setEntryType("SCHEDULED")
                         .setProductId(noCandidateFixture.productId())
                         .setRouteId(noCandidateFixture.routeId())));
         assertEquals(PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING.getCode(), candidateEx.getCode());
@@ -2172,6 +2230,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 () -> batchExecutionService.openOrCreateFromScheduleCompletion(new EdhrScheduleCompletionCreateCommand()
                         .setWorkOrderId(fixture.workOrderId())
                         .setBatchCode("BATCH-SCHEDULE-STALE-BINDING")
+                        .setEntryType("SCHEDULED")
                         .setProductId(fixture.productId())
                         .setRouteId(fixture.routeId())));
 
@@ -5268,6 +5327,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setPassword("secret")
                 .setComment("close with optional shared form skipped"));
         assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, closed.getStatus());
+        MesProEdhrBatchExecutionDO closedBatch = batchExecutionMapper.selectById(batch.getId());
+        MesProEdhrBatchExecutionSignatureDO closeSignature =
+                batchSignatureMapper.selectById(closedBatch.getCloseSignatureId());
+        assertEquals("用户0", closeSignature.getActorName());
+        assertEquals("SERVER_TIME", closeSignature.getSignatureTimeMode());
+        assertEquals("Asia/Shanghai", closeSignature.getSelectedTimeZone());
     }
 
     @Test
@@ -5815,6 +5880,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionDO updated = batchExecutionMapper.selectById(batch.getId());
         MesProEdhrBatchExecutionSignatureDO signature = batchSignatureMapper.selectById(updated.getCloseSignatureId());
         assertEquals("BATCH_CLOSE", signature.getActionType());
+        assertEquals("用户0", signature.getActorName());
         assertEquals(selectedSignedAt, signature.getSelectedSignedAt());
         assertEquals(selectedSignedAt, signature.getSignatureDisplayAt());
         assertEquals("USER_SELECTED", signature.getSignatureTimeMode());
@@ -5994,6 +6060,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals("QUALITY_REJECT", signature.getActionType());
         assertEquals("质量负责人终态拒收。", signature.getComment());
         assertEquals(188L, signature.getActorId());
+        assertEquals("用户188", signature.getActorName());
         assertEquals(selectedSignedAt, signature.getSelectedSignedAt());
         assertEquals(selectedSignedAt, signature.getSignatureDisplayAt());
         assertEquals("USER_SELECTED", signature.getSignatureTimeMode());
@@ -6845,6 +6912,23 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void openOrCreate_blocksWhenMultipleExistingBatchesShareTheSameContext() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
+        MesProEdhrBatchExecutionDO first = existingBatch(fixture, workOrder, "EDHRB-DUP-1");
+        MesProEdhrBatchExecutionDO second = existingBatch(fixture, workOrder, "EDHRB-DUP-2");
+        batchExecutionMapper.insert(first);
+        batchExecutionMapper.insert(second);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                        .setWorkOrderId(fixture.workOrderId())
+                        .setBatchCode(first.getBatchCode())));
+
+        assertEquals(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED.getCode(), exception.getCode());
+    }
+
+    @Test
     void workbench_prefersReleaseStageWhenReleaseTransactionExists() {
         Fixture fixture = insertRouteFixture(true, true);
         insertInitialFillAssignmentRule(fixture.routeId());
@@ -7495,6 +7579,30 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .status(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)
                 .requiredFlag(Boolean.TRUE)
                 .build());
+    }
+
+    private MesProEdhrBatchExecutionDO existingBatch(Fixture fixture, MesProWorkOrderDO workOrder, String batchCode) {
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(fixture.routeVersionId());
+        return new MesProEdhrBatchExecutionDO()
+                .setBatchExecutionCode(batchCode)
+                .setWorkOrderId(workOrder.getId())
+                .setWorkOrderCode(workOrder.getCode())
+                .setBatchCode("BATCH-DUPLICATE-CONTEXT")
+                .setAttemptNo(1)
+                .setProductId(workOrder.getProductId())
+                .setProductCode(String.valueOf(workOrder.getProductId()))
+                .setProductName(workOrder.getName())
+                .setRouteId(route.getId())
+                .setRouteVersionId(routeVersion.getId())
+                .setRouteVersionNo(routeVersion.getVersionNo())
+                .setRouteSnapshotJson(routeVersion.getRouteSnapshotJson())
+                .setRouteCode(route.getCode())
+                .setRouteName(route.getName())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
+                .setTaskTotal(0)
+                .setTaskApprovedCount(0)
+                .setBlockedCount(0);
     }
 
     private Fixture insertRouteFixture(boolean firstReport, boolean secondReport) {
@@ -8489,6 +8597,11 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .signatureMode("PASSWORD")
                 .passwordVerified(true)
                 .signedAt(signedAt)
+                .signatureDisplayAt(signedAt)
+                .signatureTimeMode("SERVER_TIME")
+                .selectedTimeZone("Asia/Shanghai")
+                .recordVersionSnapshot("1")
+                .recordHashSnapshot("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
                 .cellValuesHash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
                 .fieldAuditHeadHash("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
                 .fieldAuditRevision(1L)

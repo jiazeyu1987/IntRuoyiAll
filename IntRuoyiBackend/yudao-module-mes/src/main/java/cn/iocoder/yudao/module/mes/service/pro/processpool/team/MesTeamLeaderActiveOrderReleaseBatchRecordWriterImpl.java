@@ -151,11 +151,14 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                     .orElseThrow(() -> exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
                             "批记录 writer 缺少 completion 末次生产提交，eventId="
                                     + completion.getLastEventId()));
-            MesProcessPoolReportAllocationDO allocation = allocations.stream()
+            List<MesProcessPoolReportAllocationDO> matchedAllocations = allocations.stream()
                     .filter(item -> Objects.equals(item.getEventId(), event.getId()))
-                    .reduce((first, second) -> second)
-                    .orElseThrow(() -> exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
-                            "批记录 writer 缺少末次生产提交对应分配，eventId=" + event.getId()));
+                    .toList();
+            if (matchedAllocations.size() != 1) {
+                throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
+                        "批记录 writer 缺少唯一末次生产提交对应分配，eventId=" + event.getId());
+            }
+            MesProcessPoolReportAllocationDO allocation = matchedAllocations.get(0);
             MesTeamLeaderBatchRecordBackfillResult backfill = backfillService.backfillCompletedProcess(
                     new MesTeamLeaderBatchRecordBackfillCommand()
                             .setEvent(event)

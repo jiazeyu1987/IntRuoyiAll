@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -135,6 +136,18 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         assertEquals(8801L, result.getExecutionId());
         assertEquals(1, result.getAppliedFieldCount());
         verify(productionPickListSourceService, never()).resolveValue(any());
+    }
+
+    @Test
+    void shouldRejectDuplicateSourceEventsInBackfillContext() {
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.backfillCompletedProcess(
+                command().setSourceEvents(List.of(
+                        event(1001L, "{\"outputQuantity\":80,\"pressure\":15}", LocalDateTime.of(2026, 8, 1, 9, 0)),
+                        event(1001L, "{\"outputQuantity\":81,\"pressure\":16}", LocalDateTime.of(2026, 8, 1, 9, 5))))));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+        verifyNoInteractions(bindingMapper, executionService, executionMapper, ruleMapper,
+                fieldAuditService, productionPickListSourceService);
     }
 
     @Test

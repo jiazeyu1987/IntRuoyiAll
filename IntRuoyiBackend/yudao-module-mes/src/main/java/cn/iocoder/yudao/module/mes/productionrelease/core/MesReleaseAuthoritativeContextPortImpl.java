@@ -213,7 +213,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 value -> command.setWorkOrderId(value), "workOrderId");
         setOrRequire(command.getOrigin(), MesReleaseOrigin.ACTIVE_ORDER, application,
                 value -> command.setOrigin(value), "origin");
-        setOrRequire(command.getEntryType(), MesReleaseOrigin.ACTIVE_ORDER.name(), application,
+        setOrRequire(command.getEntryType(), "ACTIVE_ORDER_COMPLETION", application,
                 value -> command.setEntryType(value), "entryType");
         setOrRequire(command.getActiveOrderId(), origin.getActiveOrderId(), application,
                 value -> command.setActiveOrderId(value), "activeOrderId");
@@ -321,7 +321,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
             MesFlow6CompletionBackfillReceipt receipt) {
         List<Long> batchRecordIds = parseIds(receipt.getBatchRecordSourceIdsJson());
         List<Long> inspectionIds = parseIds(receipt.getProcessInspectionSourceIdsJson());
-        if (batchRecordIds.isEmpty() || inspectionIds.isEmpty()) {
+        if (batchRecordIds.size() != 1 || inspectionIds.size() != 1) {
             throw blocker(null, "formal completion receipt does not identify batch record and process inspection sources");
         }
         boolean actualLoss = Boolean.TRUE.equals(receipt.getHasActualLoss());

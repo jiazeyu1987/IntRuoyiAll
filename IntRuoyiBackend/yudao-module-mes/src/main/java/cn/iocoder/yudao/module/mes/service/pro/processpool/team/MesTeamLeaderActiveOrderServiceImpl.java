@@ -912,15 +912,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderAddResult addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getWorkOrderId() == null
-                || reqBO.getPickListId() == null || reqBO.getIdempotencyKey() == null
-                || reqBO.getIdempotencyKey().isBlank()) {
+                || reqBO.getIdempotencyKey() == null || reqBO.getIdempotencyKey().isBlank()) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder");
         }
         MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExists(reqBO.getWorkOrderId());
-        PickListSnapshot pickList = requirePickListSnapshot(reqBO, workOrder);
-        MesProcessPoolActiveOrderPickListBindingDO idempotent = pickListBindingMapper
-                .selectByIdempotencyKey(reqBO.getIdempotencyKey());
-        if (idempotent != null && (!Objects.equals(idempotent.getWorkOrderId(), reqBO.getWorkOrderId())
+        PickListSnapshot pickList = reqBO.getPickListId() == null ? null : requirePickListSnapshot(reqBO, workOrder);
+        MesProcessPoolActiveOrderPickListBindingDO idempotent = reqBO.getPickListId() == null ? null
+                : pickListBindingMapper.selectByIdempotencyKey(reqBO.getIdempotencyKey());
+        if (pickList != null && idempotent != null && (!Objects.equals(idempotent.getWorkOrderId(), reqBO.getWorkOrderId())
                 || !Objects.equals(idempotent.getPickListId(), reqBO.getPickListId())
                 || !Objects.equals(idempotent.getSourceSnapshotHash(), pickList.snapshotHash()))) {
             throw exception(PRO_PROCESS_POOL_PICK_LIST_IDEMPOTENCY_CONFLICT);
@@ -976,9 +975,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         }
         insertProcessSnapshots(activeOrder, erpFixedQuantity, routeSource.routeProcesses());
         insertPqcInspectionTasks(activeOrder, qaSource, pqcTaskPlan, routeSource.routeProcesses());
-        MesProcessPoolActiveOrderPickListBindingDO binding = persistPickListBinding(activeOrder, reqBO, pickList);
+        MesProcessPoolActiveOrderPickListBindingDO binding = pickList == null
+                ? null : persistPickListBinding(activeOrder, reqBO, pickList);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "ADD_ACTIVE_ORDER",
-                "ACTIVE_ORDER", activeOrder.getId(), null, activeOrder + ", pickListBindingId=" + binding.getId());
+                "ACTIVE_ORDER", activeOrder.getId(), null,
+                activeOrder + ", pickListBindingId=" + (binding == null ? null : binding.getId()));
         return addResult(activeOrder.getId(), ACTION_ADD, reqBO.getWorkOrderId(), binding);
     }
 
@@ -1417,6 +1418,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private PickListSnapshot requirePickListSnapshot(MesTeamLeaderActiveOrderAddReqBO reqBO,
                                                      MesProWorkOrderDO workOrder) {
+        if (reqBO.getPickListId() == null) {
+            return null;
+        }
         ErpKingdeeProductionPickListDO header = pickListMapper.selectById(reqBO.getPickListId());
         if (header == null) {
             throw exception(PRO_PROCESS_POOL_PICK_LIST_NOT_EXISTS, reqBO.getPickListId());
@@ -1494,6 +1498,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private void requireSameBinding(MesProcessPoolActiveOrderPickListBindingDO binding,
                                     PickListSnapshot pickList, Long pickListId) {
+        if (pickList == null) {
+            return;
+        }
         if (binding == null || !Objects.equals(binding.getPickListId(), pickListId)
                 || !Objects.equals(binding.getSourceSnapshotHash(), pickList.snapshotHash())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_PICK_LIST_CONFLICT);

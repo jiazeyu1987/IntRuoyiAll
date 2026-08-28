@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
@@ -23,8 +24,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -178,6 +181,24 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
         verify(scheduleOrderMapper).updateProgressSummary(7701L, new BigDecimal("900.000000"),
                 new BigDecimal("300.000000"), new BigDecimal("600.000000"), new BigDecimal("33.333333"),
                 MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus());
+    }
+
+    @Test
+    void shouldRejectDuplicateFormalScheduleProcessesForSameWorkOrderAndRouteProcess() {
+        MesProProcessPoolEventDO event = event();
+        MesProcessPoolReportAllocationDO confirmedLine = allocation(9001L, "300");
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(workOrder("300")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(confirmedLine));
+        when(orderProcessTargetService.requireTarget(8101L, 9001L, 5001L, 6001L)).thenReturn(target("900"));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(9001L))).thenReturn(List.of(scheduleOrder("300")));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(7701L))
+                .thenReturn(List.of(scheduleProcess("300"), scheduleProcess("300")));
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> service.applyConfirmedAllocations(event, List.of(confirmedLine)));
+
+        assertEquals(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED.getCode(), ex.getCode());
     }
 
     @Test

@@ -23,6 +23,7 @@ import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeC
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_MISSING;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_LOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE;
 
 @Service
@@ -51,26 +52,8 @@ public class MesProEdhrReleaseDossierRequirementSettingServiceImpl
     @Transactional(rollbackFor = Exception.class)
     public EdhrReleaseDossierRequirementSettingRespVO updateRequirementSetting(
             EdhrReleaseDossierRequirementSettingUpdateReqVO reqVO) {
-        ConfigDO config = requireConfig();
-        MesProEdhrReleaseDossierRequirementState beforeState = parseStrictState(config.getValue());
-        String beforeJson = canonicalJson(beforeState);
-        String afterJson = canonicalJson(reqVO);
-
-        ConfigSaveReqVO saveReqVO = new ConfigSaveReqVO();
-        saveReqVO.setId(config.getId());
-        saveReqVO.setCategory(StrUtil.blankToDefault(config.getCategory(), "mes"));
-        saveReqVO.setName(StrUtil.blankToDefault(config.getName(), "eDHR 放行资料限制开关"));
-        saveReqVO.setKey(CONFIG_KEY);
-        saveReqVO.setValue(afterJson);
-        saveReqVO.setVisible(config.getVisible() == null ? Boolean.TRUE : config.getVisible());
-        saveReqVO.setRemark(StrUtil.blankToDefault(config.getRemark(),
-                "金手指专用放行资料限制开关；开启后对应特殊节点必须完成且存在已保存 ADD 附件。"));
-        configService.updateConfig(saveReqVO);
-
-        ConfigDO updated = requireConfig();
-        MesProEdhrReleaseDossierRequirementState updatedState = parseStrictState(updated.getValue());
-        recordAudit(beforeJson, canonicalJson(updatedState));
-        return toResp(updated, updatedState);
+        requireConfig();
+        throw exception(PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_LOCKED, CONFIG_KEY);
     }
 
     @Override

@@ -193,9 +193,6 @@ class MesProEdhrWorkTaskLegacyProcessTest {
                 HISTORICAL_ROUTE_PROCESS_ID, ROUTE_ID, HISTORICAL_PROCESS_ID)).thenReturn(frozenRouteProcess);
         when(assignmentRuleMapper.selectEnabledByRouteProcessAndType(
                 HISTORICAL_ROUTE_PROCESS_ID, MesProEdhrWorkTaskService.TASK_TYPE_FILL)).thenReturn(frozenRule);
-        when(candidateResolver.resolveAssignmentRule(frozenRule))
-                .thenReturn(new MesProEdhrCandidateResolver.MesProEdhrCandidateContract(
-                        "USER", 88L, "88"));
         Method method = MesProEdhrWorkTaskServiceImpl.class.getDeclaredMethod(
                 "calculateDueTime", MesProEdhrWorkTaskDO.class, MesProEdhrBatchExecutionDO.class);
         method.setAccessible(true);

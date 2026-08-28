@@ -306,6 +306,7 @@ class MesBatchExecutionEntryContractTest {
     private MesBatchExecutionSourceEvidence evidence(String type, String id) {
         return new MesBatchExecutionSourceEvidence().setSourceType(type).setSourceId(id)
                 .setSourceVersion("v1").setSourceSnapshotHash(type + "-snapshot")
-                .setPayloadHash(type + "-payload").setSignature(type + "-signature");
+                .setPayloadHash(type + "-payload").setSignature(type + "-signature")
+                .setRelationStatus("BOUND");
     }
 }

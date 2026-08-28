@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
@@ -10,5 +11,11 @@ public class MesStage6IdiSimulationReqVO {
 
     @NotBlank(message = "simulationRunId 不能为空")
     private String simulationRunId;
+
+    @NotBlank(message = "stage5SimulationRunId 不能为空")
+    private String stage5SimulationRunId;
+
+    @NotNull(message = "batchExecutionId 不能为空")
+    private Long batchExecutionId;
 
 }

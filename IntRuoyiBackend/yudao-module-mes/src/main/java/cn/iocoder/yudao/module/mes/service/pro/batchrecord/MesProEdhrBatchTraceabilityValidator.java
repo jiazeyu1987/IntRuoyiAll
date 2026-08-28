@@ -61,7 +61,7 @@ public class MesProEdhrBatchTraceabilityValidator {
         if (isBlank(command.getEntryType())) {
             return MesProEdhrBatchTraceValidationResult.blocked(ENTRY_TYPE_REQUIRED, "entry");
         }
-        if (!ENTRY_TYPES.contains(command.getEntryType())) {
+        if (!isActiveOrderEntryType(command.getEntryType()) && !ENTRY_TYPES.contains(command.getEntryType())) {
             return MesProEdhrBatchTraceValidationResult.blocked(ENTRY_TYPE_INVALID, "entry");
         }
         if (isBlank(command.getOriginKey()) || isBlank(command.getSourceSnapshotHash())
@@ -73,7 +73,7 @@ public class MesProEdhrBatchTraceabilityValidator {
             return MesProEdhrBatchTraceValidationResult.blocked(ENTRY_SCENARIO_MISMATCH,
                     "release-decision-must-be-appended-after-capture");
         }
-        if (MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION.equals(command.getEntryType())) {
+        if (isActiveOrderEntryType(command.getEntryType())) {
             if (command.getActiveOrderId() == null || command.getWorkOrderId() == null
                     || command.getCompletionTransactionId() == null
                     || command.getCompletionVersion() == null || command.getCompletionVersion() <= 0
@@ -121,7 +121,7 @@ public class MesProEdhrBatchTraceabilityValidator {
 
     private MesProEdhrBatchTraceValidationResult validateSourceSnapshotBinding(
             MesProEdhrBatchTraceCaptureCommand command) {
-        if (!MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION.equals(command.getEntryType())) {
+        if (!isActiveOrderEntryType(command.getEntryType())) {
             return MesProEdhrBatchTraceValidationResult.ok();
         }
         List<MesProEdhrBatchTraceSource> pickListSources = command.getSources().stream()
@@ -138,7 +138,7 @@ public class MesProEdhrBatchTraceabilityValidator {
 
     private MesProEdhrBatchTraceValidationResult validateFormalSourceBindings(
             MesProEdhrBatchTraceCaptureCommand command) {
-        if (MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION.equals(command.getEntryType())) {
+        if (isActiveOrderEntryType(command.getEntryType())) {
             if (!hasExactlyOneSourceId(command.getSources(), MesProEdhrBatchTraceLinkType.ACTIVE_ORDER,
                     command.getActiveOrderId())
                     || !hasExactlyOneSourceId(command.getSources(), MesProEdhrBatchTraceLinkType.WORK_ORDER,
@@ -195,7 +195,7 @@ public class MesProEdhrBatchTraceabilityValidator {
                 return MesProEdhrBatchTraceValidationResult.blocked(TRACE_SOURCE_REQUIRED,
                         "formal-sources");
         }
-        if (MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION.equals(command.getEntryType())) {
+        if (isActiveOrderEntryType(command.getEntryType())) {
             boolean hasLossReport = linkTypes.contains(MesProEdhrBatchTraceLinkType.LOSS_REPORT_RECEIPT);
             boolean hasLossFact = linkTypes.contains(MesProEdhrBatchTraceLinkType.LOSS_FACT);
             boolean hasNoLossFact = linkTypes.contains(MesProEdhrBatchTraceLinkType.NO_LOSS_CONFIRMED);
@@ -224,8 +224,12 @@ public class MesProEdhrBatchTraceabilityValidator {
                 .anyMatch(source -> allowed.contains(source.getRelationStatus()));
     }
 
+    private static boolean isActiveOrderEntryType(String entryType) {
+        return MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(entryType);
+    }
+
     static Set<String> requiredLinkTypesFor(String entryType) {
-        if (MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION.equals(entryType)) {
+        if (isActiveOrderEntryType(entryType)) {
             return ACTIVE_ORDER_REQUIRED_LINK_TYPES;
         }
         if (!ENTRY_TYPES.contains(entryType)) {
@@ -260,9 +264,8 @@ public class MesProEdhrBatchTraceabilityValidator {
                 return MesProEdhrBatchTraceValidationResult.blocked(TRACE_SOURCE_CONFLICT,
                         "release-decision-must-be-appended-after-capture");
             }
-            String calculatedHash = MesProEdhrBatchTraceSourceHash.calculate(
-                    source.getLinkType(), source.getSnapshotJson());
-            if (!calculatedHash.equalsIgnoreCase(source.getSnapshotHash())) {
+            if (!MesProEdhrBatchTraceSourceHash.isValid(
+                    source.getLinkType(), source.getSnapshotJson(), source.getSnapshotHash())) {
                 return MesProEdhrBatchTraceValidationResult.blocked(TRACE_SOURCE_CONFLICT, "source-hash");
             }
         }
@@ -272,6 +275,9 @@ public class MesProEdhrBatchTraceabilityValidator {
     public String calculateSourceBundleHash(List<MesProEdhrBatchTraceSource> sources) {
         List<Map<String, Object>> entries = new ArrayList<>();
         for (MesProEdhrBatchTraceSource source : sources) {
+            if (MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT.equals(source.getLinkType())) {
+                continue;
+            }
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("linkType", source.getLinkType());
             entry.put("sourceObjectType", source.getSourceObjectType());

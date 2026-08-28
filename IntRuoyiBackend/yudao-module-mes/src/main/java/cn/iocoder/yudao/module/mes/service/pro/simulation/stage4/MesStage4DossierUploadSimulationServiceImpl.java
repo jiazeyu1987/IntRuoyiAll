@@ -6,9 +6,13 @@ import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrSpecialNodeAttachment;
@@ -34,6 +38,7 @@ public class MesStage4DossierUploadSimulationServiceImpl
     private static final String DETAIL_PATH = "/mes/pro/feedback/edhr-batch-execution/detail";
     private static final String FILE_EVIDENCE_SOURCE =
             "STAGE4_INDEPENDENT_FIXTURE_FORMAL_ATTACHMENT_UPLOAD";
+    private static final String SIMULATION_MARKER = "[STAGE4_SIMULATION]";
     private static final Pattern RUN_ID = Pattern.compile("[A-Za-z0-9._:-]{1,128}");
     private static final List<NodeDefinition> NODES = List.of(
             new NodeDefinition("INCOMING_INSPECTION_REPORT", "来料检报告", 0, "incoming-inspection-report.pdf"),
@@ -45,6 +50,8 @@ public class MesStage4DossierUploadSimulationServiceImpl
 
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
+    private final MesProEdhrBatchExecutionOriginMapper originMapper;
+    private final MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
     private final MesProBatchRecordExecutionAttachmentMapper attachmentMapper;
     private final MesProEdhrBatchExecutionService batchExecutionService;
     private final FileService fileService;
@@ -52,11 +59,15 @@ public class MesStage4DossierUploadSimulationServiceImpl
     public MesStage4DossierUploadSimulationServiceImpl(
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
+            MesProEdhrBatchExecutionOriginMapper originMapper,
+            MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper,
             MesProBatchRecordExecutionAttachmentMapper attachmentMapper,
             MesProEdhrBatchExecutionService batchExecutionService,
             FileService fileService) {
         this.batchExecutionMapper = batchExecutionMapper;
         this.batchTaskMapper = batchTaskMapper;
+        this.originMapper = originMapper;
+        this.completionReceiptMapper = completionReceiptMapper;
         this.attachmentMapper = attachmentMapper;
         this.batchExecutionService = batchExecutionService;
         this.fileService = fileService;
@@ -67,10 +78,20 @@ public class MesStage4DossierUploadSimulationServiceImpl
     public MesStage4DossierUploadSimulationResult simulate(MesStage4DossierUploadSimulationCommand command) {
         Long actorUserId = requireActor(command);
         String simulationRunId = normalizeRunId(command.getSimulationRunId());
-        String cleanedRunId = cleanupLatestSimulation();
-        MesProEdhrBatchExecutionDO batch = createFixture(actorUserId, simulationRunId);
+        MesProEdhrBatchExecutionDO batch = requireStage2_5Batch(command);
+        MesProEdhrBatchExecutionOriginDO origin = requireSingleOrigin(batch.getId());
+        MesProcessPoolActiveOrderCompletionReceiptDO completionReceipt = completionReceiptMapper
+                .selectByActiveOrderIdForUpdate(origin.getActiveOrderId());
+        if (completionReceipt == null || !Objects.equals(completionReceipt.getId(), origin.getCompletionBackfillReceiptId())
+                || !Objects.equals(completionReceipt.getReceiptHash(), origin.getCompletionBackfillReceiptHash())) {
+            throw new IllegalStateException("STAGE4_COMPLETION_RECEIPT_SOURCE_INVALID");
+        }
+        String cleanedRunId = cleanupOwnedAttachments(batch.getId());
+        batch.setRemark(batch.getRemark() + SIMULATION_MARKER + "[simulationRunId=" + simulationRunId + "]");
+        batchExecutionMapper.updateById(batch);
         Map<String, MesProEdhrBatchExecutionTaskDO> tasks = loadFixtureTasks(batch.getId());
-        Map<String, Object> inputSnapshot = buildInputSnapshot(batch, tasks, simulationRunId);
+        Map<String, Object> inputSnapshot = buildInputSnapshot(batch, tasks, simulationRunId,
+                origin, completionReceipt);
         MesStage4DossierUploadSimulationContractValidator.validateInput(inputSnapshot);
         batch.setAggregateHash(hash(inputSnapshot));
         batchExecutionMapper.updateById(batch);
@@ -88,6 +109,7 @@ public class MesStage4DossierUploadSimulationServiceImpl
                     "STERILIZATION_REPORT".equals(node.nodeType())
                             ? "STE-STAGE4-" + shortRunId(simulationRunId) : null,
                     List.of(toAttachment(prepared)));
+            markAttachmentOwned(batch.getId(), task.getId(), simulationRunId);
         }
 
         Map<String, Object> dossierSnapshot = buildDossierSnapshot(batch, simulationRunId);
@@ -113,6 +135,35 @@ public class MesStage4DossierUploadSimulationServiceImpl
         return command.getActorUserId();
     }
 
+    private MesProEdhrBatchExecutionDO requireStage2_5Batch(
+            MesStage4DossierUploadSimulationCommand command) {
+        if (command.getBatchExecutionId() == null || command.getBatchExecutionId() <= 0
+                || command.getStage2_5SimulationRunId() == null
+                || command.getStage2_5SimulationRunId().isBlank()) {
+            throw new IllegalArgumentException("Stage4 requires the Stage2.5 batch and source run");
+        }
+        String sourceRunId = normalizeRunId(command.getStage2_5SimulationRunId());
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(command.getBatchExecutionId());
+        if (batch == null || !Objects.equals(batch.getTenantId(), TenantContextHolder.getTenantId())
+                || batch.getRemark() == null
+                || !batch.getRemark().contains("[STAGE2_5_SIMULATION][simulationRunId=" + sourceRunId + "]")) {
+            throw new IllegalStateException("STAGE4_STAGE2_5_BATCH_SOURCE_INVALID");
+        }
+        return batch;
+    }
+
+    private MesProEdhrBatchExecutionOriginDO requireSingleOrigin(Long batchExecutionId) {
+        List<MesProEdhrBatchExecutionOriginDO> origins = originMapper.selectListByBatchExecutionId(batchExecutionId);
+        if (origins.size() != 1 || origins.get(0).getActiveOrderId() == null
+                || origins.get(0).getWorkOrderId() == null || origins.get(0).getPickListId() == null
+                || origins.get(0).getPickListBindingId() == null
+                || origins.get(0).getCompletionBackfillReceiptId() == null
+                || origins.get(0).getCompletionBackfillReceiptHash() == null) {
+            throw new IllegalStateException("STAGE4_FORMAL_ORIGIN_REQUIRED");
+        }
+        return origins.get(0);
+    }
+
     private String normalizeRunId(String raw) {
         String value = raw == null ? "" : raw.trim();
         if (!RUN_ID.matcher(value).matches()) {
@@ -121,42 +172,21 @@ public class MesStage4DossierUploadSimulationServiceImpl
         return value;
     }
 
-    private String cleanupLatestSimulation() {
-        MesProEdhrBatchExecutionDO previous = batchExecutionMapper.selectLatestStage4Simulation();
-        if (previous == null) {
-            return null;
-        }
-        String marker = previous.getRemark();
-        String prefix = MesStage4DossierUploadSimulationMarker.PREFIX + "[simulationRunId=";
-        if (marker == null || !marker.startsWith(prefix) || !marker.endsWith("]")) {
+    private String cleanupOwnedAttachments(Long batchExecutionId) {
+        List<MesProBatchRecordExecutionAttachmentDO> attachments = attachmentMapper
+                .selectListByBatchExecutionId(batchExecutionId).stream()
+                .filter(item -> Objects.equals(item.getBatchExecutionId(), batchExecutionId)
+                        && item.getReasonText() != null && item.getReasonText().startsWith(SIMULATION_MARKER))
+                .toList();
+        if (attachments.isEmpty()) return null;
+        String runId = attachments.get(0).getReasonText()
+                .replace(SIMULATION_MARKER + "[simulationRunId=", "");
+        int end = runId.indexOf(']');
+        if (end <= 0 || !RUN_ID.matcher(runId.substring(0, end)).matches()) {
             throw new IllegalStateException("STAGE4_SIMULATION_CLEANUP_SCOPE_INVALID");
         }
-        String runId = marker.substring(prefix.length(), marker.length() - 1);
-        if (!RUN_ID.matcher(runId).matches()) {
-            throw new IllegalStateException("STAGE4_SIMULATION_CLEANUP_SCOPE_INVALID");
-        }
-        List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(previous.getId());
-        Set<Long> taskIds = tasks.stream().map(MesProEdhrBatchExecutionTaskDO::getId)
-                .filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet());
-        Set<String> taskNodeTypes = tasks.stream().map(MesProEdhrBatchExecutionTaskDO::getNodeType)
-                .collect(java.util.stream.Collectors.toSet());
-        if (tasks.size() != NODES.size()
-                || !Objects.equals(taskNodeTypes, MesStage4DossierUploadSimulationContractValidator.REQUIRED_NODE_TYPES)) {
-            throw new IllegalStateException("STAGE4_SIMULATION_CLEANUP_SCOPE_INVALID");
-        }
-        List<MesProBatchRecordExecutionAttachmentDO> attachments =
-                attachmentMapper.selectListByBatchExecutionId(previous.getId());
-        Set<Long> fileIds = attachments.stream()
-                .filter(item -> Objects.equals(previous.getId(), item.getBatchExecutionId()))
-                .map(MesProBatchRecordExecutionAttachmentDO::getFileId)
-                .filter(Objects::nonNull)
-                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        if (attachments.stream().anyMatch(item -> !Objects.equals(previous.getId(), item.getBatchExecutionId())
-                || !taskIds.contains(item.getBatchTaskId())
-                || !MesStage4DossierUploadSimulationContractValidator.REQUIRED_NODE_TYPES
-                .contains(item.getFieldKey()))) {
-            throw new IllegalStateException("STAGE4_SIMULATION_CLEANUP_SCOPE_INVALID");
-        }
+        Set<Long> fileIds = attachments.stream().map(MesProBatchRecordExecutionAttachmentDO::getFileId)
+                .filter(Objects::nonNull).collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
         try {
             if (!fileIds.isEmpty()) {
                 fileService.deleteFileList(new ArrayList<>(fileIds));
@@ -165,10 +195,17 @@ public class MesStage4DossierUploadSimulationServiceImpl
             throw new IllegalStateException("STAGE4_SIMULATION_FILE_CLEANUP_FAILED", exception);
         }
         attachments.forEach(item -> attachmentMapper.deleteById(item.getId()));
-        batchTaskMapper.selectListByBatchExecutionId(previous.getId())
-                .forEach(item -> batchTaskMapper.deleteById(item.getId()));
-        batchExecutionMapper.deleteById(previous.getId());
-        return runId;
+        return runId.substring(0, end);
+    }
+
+    private void markAttachmentOwned(Long batchExecutionId, Long batchTaskId, String runId) {
+        List<MesProBatchRecordExecutionAttachmentDO> attachments = attachmentMapper
+                .selectListByBatchExecutionId(batchExecutionId).stream()
+                .filter(item -> Objects.equals(item.getBatchTaskId(), batchTaskId))
+                .max(java.util.Comparator.comparing(MesProBatchRecordExecutionAttachmentDO::getId))
+                .stream().toList();
+        attachments.forEach(item -> attachmentMapper.updateById(item
+                .setReasonText(SIMULATION_MARKER + "[simulationRunId=" + runId + "]")));
     }
 
     private MesProEdhrBatchExecutionDO createFixture(Long actorUserId, String simulationRunId) {
@@ -257,8 +294,9 @@ public class MesStage4DossierUploadSimulationServiceImpl
 
     private Map<String, Object> buildInputSnapshot(MesProEdhrBatchExecutionDO batch,
                                                     Map<String, MesProEdhrBatchExecutionTaskDO> tasks,
-                                                    String simulationRunId) {
-        String sourcePrefix = "STAGE4|" + simulationRunId + "|" + batch.getId();
+                                                    String simulationRunId,
+                                                    MesProEdhrBatchExecutionOriginDO origin,
+                                                    MesProcessPoolActiveOrderCompletionReceiptDO receipt) {
         List<Map<String, Object>> requiredNodes = NODES.stream()
                 .map(node -> Map.<String, Object>of(
                         "nodeType", node.nodeType(),
@@ -275,56 +313,56 @@ public class MesStage4DossierUploadSimulationServiceImpl
         snapshot.put("batchExecutionCode", batch.getBatchExecutionCode());
         snapshot.put("batchCode", batch.getBatchCode());
         snapshot.put("activeContextKey", batch.getActiveContextKey());
-        snapshot.put("activeOrderId", "STAGE4-ACTIVE-ORDER-" + shortRunId(simulationRunId));
-        snapshot.put("activeOrderCode", "STAGE4-AO-" + shortRunId(simulationRunId));
-        snapshot.put("workOrderId", String.valueOf(batch.getWorkOrderId()));
+        snapshot.put("activeOrderId", String.valueOf(origin.getActiveOrderId()));
+        snapshot.put("activeOrderCode", origin.getOriginKey());
+        snapshot.put("workOrderId", String.valueOf(origin.getWorkOrderId()));
         snapshot.put("workOrderCode", batch.getWorkOrderCode());
-        snapshot.put("erpWorkOrderNo", "STAGE4-ERP-WO-" + shortRunId(simulationRunId));
+        snapshot.put("erpWorkOrderNo", batch.getWorkOrderCode());
         snapshot.put("routeId", String.valueOf(batch.getRouteId()));
         snapshot.put("routeVersionId", String.valueOf(batch.getRouteVersionId()));
         snapshot.put("routeVersionNo", batch.getRouteVersionNo());
         snapshot.put("materialIssueSource", Map.of(
-                "pickListId", "STAGE4-PICK-LIST-" + shortRunId(simulationRunId),
-                "pickListCode", "STAGE4-PL-" + shortRunId(simulationRunId),
-                "materialIssueId", "STAGE4-MATERIAL-ISSUE-" + shortRunId(simulationRunId),
-                "materialIssueNo", "STAGE4-MI-" + shortRunId(simulationRunId),
-                "materialBatchRefs", List.of(Map.of("materialCode", "STAGE4-MATERIAL",
-                        "materialName", "Stage4 fixture material", "batchNo", "STAGE4-MATERIAL-BATCH",
-                        "quantity", "100")),
-                "sourceHash", hash(sourcePrefix + "|material")));
-        snapshot.put("batchRecordLinks", List.of(Map.of(
-                "batchRecordBackfillId", "STAGE4-BATCH-RECORD-BACKFILL-" + shortRunId(simulationRunId),
-                "batchRecordId", "STAGE4-BATCH-RECORD-" + shortRunId(simulationRunId),
-                "batchRecordReportId", "STAGE4-BATCH-REPORT-" + shortRunId(simulationRunId),
-                "routeProcessId", String.valueOf(batch.getRouteId()),
-                "recordCategory", "RECORD_CATEGORY_BATCH_RECORD",
-                "backfillStatus", "COMPLETED",
-                "sourceHash", hash(sourcePrefix + "|batchRecord"))));
-        snapshot.put("processInspectionLinks", List.of(Map.of(
-                "processInspectionBackfillId", "STAGE4-PROCESS-INSPECTION-BACKFILL-" + shortRunId(simulationRunId),
-                "processInspectionId", "STAGE4-PROCESS-INSPECTION-" + shortRunId(simulationRunId),
-                "batchRecordReportId", "STAGE4-PROCESS-REPORT-" + shortRunId(simulationRunId),
-                "routeProcessId", String.valueOf(batch.getRouteId()),
-                "recordCategory", "PROCESS_INSPECTION",
-                "backfillStatus", "COMPLETED",
-                "sourceType", "CONFIRMED_PQC_AGGREGATION_DETAIL",
-                "sourceHash", hash(sourcePrefix + "|processInspection"))));
-        snapshot.put("hasLoss", false);
-        snapshot.put("lossReportRequirement", Map.of("required", false, "status", "NOT_REQUIRED",
-                "sourceHash", hash(sourcePrefix + "|lossRequirement")));
-        snapshot.put("optionalLossReportLinks", List.of());
+                "pickListId", String.valueOf(origin.getPickListId()),
+                "pickListBindingId", String.valueOf(origin.getPickListBindingId()),
+                "sourceSnapshotHash", origin.getSourceSnapshotHash()));
+        snapshot.put("batchRecordLinks", actualLinks(receipt.getBatchRecordSourceIdsJson(),
+                "BATCH_RECORD", origin.getSourceSnapshotHash()));
+        snapshot.put("processInspectionLinks", actualLinks(receipt.getProcessInspectionSourceIdsJson(),
+                "PROCESS_INSPECTION", origin.getSourceSnapshotHash()));
+        boolean hasLoss = Boolean.TRUE.equals(receipt.getHasActualLoss());
+        snapshot.put("hasLoss", hasLoss);
+        snapshot.put("lossReportRequirement", Map.of("required", hasLoss,
+                "status", hasLoss ? "COMPLETED" : "NOT_REQUIRED",
+                "sourceHash", hasLoss ? receipt.getLossSourceHash() : "not-required:no-loss"));
+        snapshot.put("optionalLossReportLinks", hasLoss
+                ? actualLinks(String.valueOf(receipt.getLossRecordId()), "LOSS_REPORT", receipt.getLossSourceHash())
+                : List.of());
         snapshot.put("specialNodeUploadStatus", Map.of("overallStatus", "PENDING_UPLOAD",
                 "requiredNodes", requiredNodes));
-        snapshot.put("sourceHash", Map.of("stage3BatchExecutionSnapshot", hash(sourcePrefix + "|snapshot"),
-                "backfillResultSnapshot", hash(sourcePrefix + "|backfill"),
-                "materialIssueSource", hash(sourcePrefix + "|material"),
-                "batchRecordLinks", hash(sourcePrefix + "|batchRecord"),
-                "processInspectionLinks", hash(sourcePrefix + "|processInspection"),
-                "optionalLossReportLinks", hash(sourcePrefix + "|loss"),
-                "specialNodeUploadStatus", hash(sourcePrefix + "|nodes")));
+        snapshot.put("sourceHash", Map.of("stage3BatchExecutionSnapshot", hash(batch.getRouteSnapshotJson()),
+                "backfillResultSnapshot", hash(receipt.getFormalSourceSnapshotJson()),
+                "materialIssueSource", hash(snapshot.get("materialIssueSource")),
+                "batchRecordLinks", hash(snapshot.get("batchRecordLinks")),
+                "processInspectionLinks", hash(snapshot.get("processInspectionLinks")),
+                "optionalLossReportLinks", hash(snapshot.get("optionalLossReportLinks")),
+                "specialNodeUploadStatus", hash(snapshot.get("specialNodeUploadStatus"))));
         snapshot.put("status", MesStage4DossierUploadSimulationContractValidator.INPUT_STATUS);
         snapshot.put("blockers", List.of());
         return snapshot;
+    }
+
+    private List<Map<String, Object>> actualLinks(String rawIds, String category, String sourceHash) {
+        if (rawIds == null || rawIds.isBlank() || sourceHash == null || sourceHash.isBlank()) {
+            throw new IllegalStateException("STAGE4_BACKFILL_SOURCE_INVALID:" + category);
+        }
+        List<?> ids = rawIds != null && rawIds.trim().startsWith("[")
+                ? JSON.parseArray(rawIds) : List.of(rawIds);
+        if (ids.isEmpty() || ids.stream().anyMatch(id -> id == null || Long.parseLong(String.valueOf(id)) <= 0)) {
+            throw new IllegalStateException("STAGE4_BACKFILL_SOURCE_INVALID:" + category);
+        }
+        return ids.stream().map(id -> Map.<String, Object>of(
+                "sourceId", String.valueOf(id), "recordCategory", category,
+                "backfillStatus", "COMPLETED", "sourceHash", sourceHash)).toList();
     }
 
     private Map<String, Object> buildDossierSnapshot(MesProEdhrBatchExecutionDO batch, String simulationRunId) {

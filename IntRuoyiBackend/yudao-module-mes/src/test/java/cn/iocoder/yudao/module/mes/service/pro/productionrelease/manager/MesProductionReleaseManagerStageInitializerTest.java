@@ -105,7 +105,7 @@ class MesProductionReleaseManagerStageInitializerTest {
         MesProEdhrWorkTaskDO task = taskCaptor.getValue();
         assertEquals("RELEASE_APPROVE", task.getTaskType());
         assertEquals("RELEASE_TRANSACTION", task.getBusinessScopeType());
-        assertEquals("ROLE", task.getCandidateSourceType());
+        assertEquals("ROLE_GROUP", task.getCandidateSourceType());
         assertEquals(77L, task.getCandidateSourceId());
         assertEquals("8101,8102", task.getCandidateUserSnapshot());
         assertEquals("manager-candidate-hash", task.getResponsibilitySourceVersion());

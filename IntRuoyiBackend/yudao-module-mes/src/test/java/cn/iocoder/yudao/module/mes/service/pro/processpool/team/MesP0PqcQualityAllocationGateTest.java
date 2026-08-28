@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolAllocatableQuantityFragment;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationCommand;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationResult;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -44,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -84,6 +87,8 @@ class MesP0PqcQualityAllocationGateTest {
     private MesWorkOrderAbnormalStateService abnormalStateService;
     @Mock
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesTeamLeaderReportConfirmationService service;
 
@@ -97,6 +102,8 @@ class MesP0PqcQualityAllocationGateTest {
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
                 orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
                 reportManagementSummaryService);
+        ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any())).thenReturn(9101L);
     }
 
     @Test
@@ -392,6 +399,7 @@ class MesP0PqcQualityAllocationGateTest {
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(LEADER_USER_ID)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                .signaturePassword("leader-password")
                 .allocations(List.of(MesTeamLeaderReportAllocationLineReqBO.builder()
                         .activeOrderId(8101L)
                         .allocatedQuantity(new BigDecimal(quantity))
@@ -409,6 +417,7 @@ class MesP0PqcQualityAllocationGateTest {
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(LEADER_USER_ID)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                .signaturePassword("leader-password")
                 .allocations(List.of(MesTeamLeaderReportAllocationLineReqBO.builder()
                         .activeOrderId(8101L)
                         .allocatedQuantity(new BigDecimal(quantity))

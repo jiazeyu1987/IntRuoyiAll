@@ -56,6 +56,9 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
             throw exception(TRACE_CAPTURE_BLOCKED, validation.blockerCode());
         }
         Long batchExecutionId = command.getBatchExecutionId();
+        String entryType = MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(command.getEntryType())
+                ? MesProEdhrBatchTraceFormalSourceResolver.ACTIVE_ORDER_COMPLETION
+                : command.getEntryType();
         MesProEdhrBatchExecutionOriginDO existing = originMapper.selectByBatchAndOriginKey(
                 batchExecutionId, command.getOriginKey());
         if (existing != null) {
@@ -70,7 +73,7 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
         LocalDateTime now = LocalDateTime.now();
         MesProEdhrBatchExecutionOriginDO origin = MesProEdhrBatchExecutionOriginDO.builder()
                 .tenantId(tenantId).batchExecutionId(batchExecutionId)
-                .entryType(command.getEntryType()).originKey(command.getOriginKey())
+                .entryType(entryType).originKey(command.getOriginKey())
                 .activeOrderId(command.getActiveOrderId()).workOrderId(command.getWorkOrderId())
                 .completionTransactionId(command.getCompletionTransactionId()).completionVersion(command.getCompletionVersion())
                 .completionBackfillReceiptId(command.getCompletionBackfillReceiptId())
@@ -87,8 +90,8 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
             throw exception(TRACE_PERSIST_FAILED);
         }
         insertLinks(batchExecutionId, origin.getId(), command.getSources(), command.getCapturedBy(), now);
-        if (!MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION.equals(command.getEntryType())) {
-            insertNotApplicableLinks(batchExecutionId, origin.getId(), command.getEntryType(), command.getCapturedBy(), now);
+        if (!MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(entryType)) {
+            insertNotApplicableLinks(batchExecutionId, origin.getId(), entryType, command.getCapturedBy(), now);
         }
         appendManifest(batchExecutionId, command.getCapturedBy(), "TRACE_CAPTURED");
         return getTraceability(batchExecutionId);
@@ -323,8 +326,10 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
                     || !isTraceLinkIntegrityValid(link)) {
                 return false;
             }
-            linkTypesByOrigin.computeIfAbsent(link.getOriginId(), ignored -> new HashSet<>())
-                    .add(link.getLinkType());
+            Set<String> linkTypes = linkTypesByOrigin.computeIfAbsent(link.getOriginId(), ignored -> new HashSet<>());
+            if (!linkTypes.add(link.getLinkType())) {
+                return false;
+            }
         }
         for (MesProEdhrBatchExecutionOriginDO origin : origins) {
             Set<String> linkTypes = linkTypesByOrigin.get(origin.getId());
@@ -341,23 +346,34 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
 
     static boolean isLossRelationConsistent(MesProEdhrBatchExecutionOriginDO origin,
                                             List<MesProEdhrBatchExecutionTraceLinkDO> links) {
-        if (origin == null || !MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION.equals(origin.getEntryType())) {
+        if (origin == null || !MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(origin.getEntryType())) {
             return true;
         }
         List<MesProEdhrBatchExecutionTraceLinkDO> originLinks = links == null ? List.of() : links.stream()
                 .filter(Objects::nonNull).filter(link -> Objects.equals(origin.getId(), link.getOriginId())).toList();
         Set<String> linkTypes = originLinks.stream().map(MesProEdhrBatchExecutionTraceLinkDO::getLinkType)
                 .filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        long lossFactCount = originLinks.stream()
+                .filter(link -> MesProEdhrBatchTraceLinkType.LOSS_FACT.equals(link.getLinkType()))
+                .count();
+        long lossReportCount = originLinks.stream()
+                .filter(link -> MesProEdhrBatchTraceLinkType.LOSS_REPORT_RECEIPT.equals(link.getLinkType()))
+                .count();
+        long noLossCount = originLinks.stream()
+                .filter(link -> MesProEdhrBatchTraceLinkType.NO_LOSS_CONFIRMED.equals(link.getLinkType()))
+                .count();
         boolean hasLossFact = linkTypes.contains(MesProEdhrBatchTraceLinkType.LOSS_FACT);
         boolean hasLossReport = linkTypes.contains(MesProEdhrBatchTraceLinkType.LOSS_REPORT_RECEIPT);
         boolean hasNoLossFact = linkTypes.contains(MesProEdhrBatchTraceLinkType.NO_LOSS_CONFIRMED);
         if (Boolean.TRUE.equals(origin.getHasActualLoss())) {
-            return hasLossFact && hasLossReport && !hasNoLossFact
+            return lossFactCount == 1 && lossReportCount == 1 && noLossCount == 0
+                    && hasLossFact && hasLossReport && !hasNoLossFact
                     && originLinks.stream().filter(link -> MesProEdhrBatchTraceLinkType.LOSS_FACT.equals(link.getLinkType()))
                     .anyMatch(link -> "HAS_LOSS".equals(link.getRelationStatus()));
         }
         if (Boolean.FALSE.equals(origin.getHasActualLoss())) {
-            return hasNoLossFact && !hasLossFact && !hasLossReport
+            return noLossCount == 1 && lossFactCount == 0 && lossReportCount == 0
+                    && hasNoLossFact && !hasLossFact && !hasLossReport
                     && originLinks.stream().filter(link -> MesProEdhrBatchTraceLinkType.NO_LOSS_CONFIRMED.equals(link.getLinkType()))
                     .anyMatch(link -> "NO_LOSS".equals(link.getRelationStatus())
                             || "NO_LOSS_CONFIRMED".equals(link.getRelationStatus()));
@@ -512,9 +528,8 @@ public class MesProEdhrBatchTraceabilityServiceImpl implements MesProEdhrBatchTr
         if (!expectedIdentity.equals(link.getSourceIdentityKey())) {
             return false;
         }
-        String expectedHash = MesProEdhrBatchTraceSourceHash.calculate(
-                link.getLinkType(), link.getSnapshotJson());
-        return expectedHash.equalsIgnoreCase(link.getSnapshotHash());
+        return MesProEdhrBatchTraceSourceHash.isValid(
+                link.getLinkType(), link.getSnapshotJson(), link.getSnapshotHash());
     }
 
     private String canonicalHash(String json) {

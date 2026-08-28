@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Validates the server-side source bundle used by Tx-C.  This class deliberately
@@ -14,8 +15,14 @@ import java.util.Objects;
 public final class MesProEdhrBatchTraceFormalSourceResolver {
 
     public static final String ACTIVE_ORDER_COMPLETION = "ACTIVE_ORDER_COMPLETION";
+    private static final Set<String> ACTIVE_ORDER_ENTRY_TYPES = Set.of(
+            ACTIVE_ORDER_COMPLETION, "ACTIVE_ORDER_SCHEDULED", "ACTIVE_ORDER_PQC", "MANUAL_CONTROLLED_RETRY");
 
     private MesProEdhrBatchTraceFormalSourceResolver() {
+    }
+
+    public static boolean isActiveOrderEntryType(String entryType) {
+        return entryType != null && ACTIVE_ORDER_ENTRY_TYPES.contains(entryType);
     }
 
     public static JSONArray resolveActive(Long tenantId, MesFlow6CompletionBackfillReceipt receipt,

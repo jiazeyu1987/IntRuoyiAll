@@ -4,8 +4,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProEdhrBatchTraceTxCApplicationServiceContractTest {
 
@@ -62,5 +66,14 @@ class MesProEdhrBatchTraceTxCApplicationServiceContractTest {
                 .getAnnotation(TransactionalEventListener.class);
 
         assertEquals(TransactionPhase.AFTER_COMMIT, listener.phase());
+    }
+
+    @Test
+    void producerRoutesAllActiveOrderAliasesThroughFlow4ReceiptBranch() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
+                        + "MesProEdhrBatchTraceTxCProducer.java"));
+
+        assertTrue(source.contains("MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(entryType)"));
     }
 }

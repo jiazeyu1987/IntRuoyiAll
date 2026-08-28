@@ -130,6 +130,19 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
     }
 
     @Test
+    void independentEntryRejectsEvidenceWithoutExplicitRelationStatus() {
+        MesIndependentBatchPrerequisiteReceipt verified = independentReceipt();
+        verified.getSourceEvidence().get(0).setRelationStatus(null);
+        when(independentService.verify(any(), eq(1L))).thenReturn(verified);
+        MesBatchExecutionProvisionCommand request = new MesBatchExecutionProvisionCommand()
+                .setEntryType("MANUAL").setEntryBusinessId("manual-1")
+                .setSourceCredentialType("IndependentBatchPrerequisiteReceipt")
+                .setSourceCredentialId("ind-1").setSourceSnapshotHash("source-1");
+
+        assertThrows(RuntimeException.class, () -> resolver.resolve(request, 1L));
+    }
+
+    @Test
     void independentEntryBlocksCrossTenantVerifiedReceipt() {
         MesIndependentBatchPrerequisiteReceipt receipt = independentReceipt().setTenantId(2L);
         when(independentService.verify(any(), eq(1L))).thenReturn(receipt);
@@ -161,6 +174,7 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
                 .setRequestIdempotencyKey("idem-" + receiptId).setSourceSnapshotHash(sourceHash)
                 .setCompletionVersion(1).setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
                 .setReceiptHash("receipt-" + receiptId).setHasActualLoss(false)
+                .setBatchRecordId(100L).setProcessInspectionId(101L)
                 .setLossQuantity(java.math.BigDecimal.ZERO)
                 .setLossReportStatus("NOT_REQUIRED")
                 .setZeroLossConfirmationSnapshot("zero-loss-" + receiptId);
@@ -182,7 +196,10 @@ class MesBatchExecutionAuthoritativeContextResolverTest {
                 .setSignature("signature-1").setAuditEventId("audit-1").setIdempotencyKey("idem-1")
                 .setSourceEvidence(java.util.List.of(new MesBatchExecutionSourceEvidence()
                         .setSourceType("WORK_ORDER").setSourceId("20").setSourceVersion("1")
-                        .setSourceSnapshotHash("source-1").setPayloadHash("payload-1").setSignature("signature-1")));
+                        .setSourceSnapshotHash("source-1").setPayloadHash("payload-1").setSignature("signature-1")
+                        .setSourceObjectType("WORK_ORDER").setSourceObjectId("20")
+                        .setSnapshotJson("{\"workOrderId\":20}")
+                        .setRelationStatus("BOUND")));
     }
 
     private MesProcessPoolActiveOrderPickListBindingDO binding(Long activeOrderId, Long workOrderId) {

@@ -94,6 +94,7 @@ import java.lang.reflect.Method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -762,6 +763,32 @@ class MesTeamLeaderActiveOrderServiceTest {
                         && Objects.equals(928601L, task.getRouteProcessId())
                         && Objects.equals(6001L, task.getProcessId())));
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldAddWorkOrderToLeaderActivePoolWithoutPickList() {
+        stubWorkOrderExists(confirmedWorkOrder());
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        when(activeOrderMapper.selectLastByLeaderForUpdate(3001L))
+                .thenReturn(MesProcessPoolActiveOrderDO.builder().id(8000L).sortOrder(40L).build());
+        stubSuccessfulActiveOrderInsert();
+
+        MesTeamLeaderActiveOrderAddResult result = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .idempotencyKey("IDEMP-9001-DIRECT")
+                .build());
+
+        assertEquals(8101L, result.getActiveOrderId());
+        assertEquals(MesTeamLeaderActiveOrderAddResult.ACTION_ADD, result.getAction());
+        assertNull(result.getPickListBindingId());
+        assertNull(result.getPickListId());
+        assertNull(result.getSourceSnapshotHash());
+        assertNull(result.getBindingVersion());
+        verify(pickListMapper, never()).selectById(any());
+        verify(pickListItemMapper, never()).selectListByPickListIds(any());
+        verify(pickListBindingMapper, never()).insert(any(MesProcessPoolActiveOrderPickListBindingDO.class));
     }
 
     @Test

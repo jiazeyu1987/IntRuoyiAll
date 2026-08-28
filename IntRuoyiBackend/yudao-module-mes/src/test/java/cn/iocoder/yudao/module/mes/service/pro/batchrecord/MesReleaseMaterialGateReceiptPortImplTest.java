@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -60,6 +61,30 @@ class MesReleaseMaterialGateReceiptPortImplTest {
         assertNull(adapter.getVerifiedByReceiptId(TENANT_ID, BATCH_ID, "MATERIALS-88-1", "source-hash"));
     }
 
+    @Test
+    void persistReadyRejectsTamperedExistingReceiptInsteadOfReusingIt() {
+        MesReleaseMaterialGateReceiptPortImpl adapter = new MesReleaseMaterialGateReceiptPortImpl(mapper);
+        MesProEdhrMaterialGateReceiptDO tampered = rowFrom(readyResult(), "source-hash");
+        tampered.setReceiptHash("tampered");
+        when(mapper.selectLatestByBatchExecutionId(TENANT_ID, BATCH_ID)).thenReturn(tampered);
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () ->
+                adapter.persistReady(TENANT_ID, BATCH_ID, "source-hash", readyResult(), 1001L));
+
+        assertEquals("MATERIAL_GATE_RECEIPT_HASH_FAILED", exception.getMessage());
+    }
+
+    @Test
+    void persistReadyRejectsDuplicateMaterialTypesEvenWhenTheCountLooksComplete() {
+        MesReleaseMaterialGateReceiptPortImpl adapter = new MesReleaseMaterialGateReceiptPortImpl(mapper);
+        MesProEdhrFourMaterialGateResult gate = duplicateTypeResult();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                adapter.persistReady(TENANT_ID, BATCH_ID, "source-hash", gate, 1001L));
+
+        assertEquals("MATERIAL_GATE_RECEIPT_INPUT_INCOMPLETE", exception.getMessage());
+    }
+
     private MesProEdhrFourMaterialGateResult readyResult() {
         List<MesProBatchRecordExecutionAttachmentDO> materials =
                 MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES.stream()
@@ -72,6 +97,26 @@ class MesReleaseMaterialGateReceiptPortImplTest {
         return new MesProEdhrFourMaterialGateResult(
                 MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, true,
                 "manifest-hash", materials);
+    }
+
+    private MesProEdhrFourMaterialGateResult duplicateTypeResult() {
+        List<String> required = MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES;
+        List<MesProBatchRecordExecutionAttachmentDO> materials = List.of(
+                material(required.get(0), 1L),
+                material(required.get(0), 2L),
+                material(required.get(1), 3L),
+                material(required.get(2), 4L));
+        return new MesProEdhrFourMaterialGateResult(
+                MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, true,
+                "manifest-hash", materials);
+    }
+
+    private MesProBatchRecordExecutionAttachmentDO material(String type, Long fileId) {
+        return MesProBatchRecordExecutionAttachmentDO.builder()
+                .fieldKey(type).attachmentGroupKey(type).versionNo(1).fileId(fileId)
+                .sha256((type + "-" + fileId).repeat(8).substring(0, 64))
+                .attachmentHash((type + "-attachment-" + fileId).repeat(8).substring(0, 64))
+                .build();
     }
 
     private MesProEdhrMaterialGateReceiptDO rowFrom(MesProEdhrFourMaterialGateResult result,

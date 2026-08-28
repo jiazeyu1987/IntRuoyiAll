@@ -53,25 +53,13 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
         if (batchExecutionId == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
-        // Flow7 is the authoritative source owner and must be read before materials.
-        MesProEdhrBatchTraceSourcePrecheckRespVO source;
-        try {
-            source = traceabilityService.resolveSourcePrecheck(
-                    new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(batchExecutionId));
-        } catch (ServiceException ex) {
-            throw exception(TRACE_CAPTURE_BLOCKED, TRACE_MAPPING_BLOCKED);
-        }
-        if (source == null || !Objects.equals(batchExecutionId, source.getBatchExecutionId())
-                || source.getOriginLinkId() == null || blank(source.getTraceLinkHash())
-                || blank(source.getSourceSnapshotHash())
-                || blank(source.getRelationStatus()) || "NOT_APPLICABLE".equalsIgnoreCase(source.getRelationStatus())) {
-            throw exception(TRACE_CAPTURE_BLOCKED, TRACE_MAPPING_BLOCKED);
-        }
-
-        Map<String, MesProEdhrBatchExecutionTaskDO> tasks = taskMapper.selectListByBatchExecutionId(batchExecutionId)
+        MesProEdhrBatchTraceSourcePrecheckRespVO source = requireTraceSourceReady(batchExecutionId);
+        List<MesProEdhrBatchExecutionTaskDO> materialTasks = taskMapper.selectListByBatchExecutionId(batchExecutionId)
                 .stream().filter(t -> REQUIRED_MATERIAL_TYPES.contains(t.getNodeType()))
-                .collect(Collectors.toMap(MesProEdhrBatchExecutionTaskDO::getNodeType, Function.identity(),
-                        (a, b) -> a.getId() >= b.getId() ? a : b));
+                .toList();
+        requireUniqueMaterialTasks(materialTasks);
+        Map<String, MesProEdhrBatchExecutionTaskDO> tasks = materialTasks.stream()
+                .collect(Collectors.toMap(MesProEdhrBatchExecutionTaskDO::getNodeType, Function.identity()));
         List<MesProBatchRecordExecutionAttachmentDO> attachments = attachmentMapper.selectListByBatchExecutionId(batchExecutionId);
         List<MesProBatchRecordExecutionAttachmentDO> valid = new ArrayList<>();
         boolean missing = false;
@@ -109,15 +97,27 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
             return new MesProEdhrFourMaterialGateResult(
                     MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, false, null, valid);
         }
-        String manifest = sha256(valid.stream().sorted(Comparator.comparing(MesProBatchRecordExecutionAttachmentDO::getFieldKey))
-                .map(a -> String.join("|", a.getFieldKey(), String.valueOf(a.getVersionNo()), String.valueOf(a.getFileId()),
-                        a.getSha256(), a.getAttachmentHash(), source.getSourceSnapshotHash())).collect(Collectors.joining("\n")));
+        String manifest = materialManifest(valid, source.getSourceSnapshotHash());
         if (materialSourceChanged) {
             return new MesProEdhrFourMaterialGateResult(
                     MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, false, manifest, valid);
         }
         return new MesProEdhrFourMaterialGateResult(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_READY, true,
                 manifest, valid);
+    }
+
+    private void requireUniqueMaterialTasks(List<MesProEdhrBatchExecutionTaskDO> materialTasks) {
+        List<String> duplicateNodeTypes = materialTasks.stream()
+                .collect(Collectors.groupingBy(MesProEdhrBatchExecutionTaskDO::getNodeType, Collectors.counting()))
+                .entrySet().stream()
+                .filter(entry -> entry.getValue() != null && entry.getValue() > 1)
+                .map(Map.Entry::getKey)
+                .sorted()
+                .toList();
+        if (!duplicateNodeTypes.isEmpty()) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_FOUR_MATERIAL_GATE_BLOCKED,
+                    "duplicate required material tasks: " + String.join(",", duplicateNodeTypes));
+        }
     }
 
     @Override
@@ -136,13 +136,31 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
         if (issuedBy == null) {
             throw new IllegalStateException("MATERIAL_GATE_RECEIPT_ISSUER_REQUIRED");
         }
-        MesProEdhrBatchTraceSourcePrecheckRespVO source = traceabilityService.resolveSourcePrecheck(
-                new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(batchExecutionId));
-        if (source == null || blank(source.getSourceSnapshotHash())) {
-            throw exception(TRACE_CAPTURE_BLOCKED, TRACE_MAPPING_BLOCKED);
+        MesProEdhrBatchTraceSourcePrecheckRespVO source = requireTraceSourceReady(batchExecutionId);
+        if (!Objects.equals(result.manifestHash(), materialManifest(result.materials(), source.getSourceSnapshotHash()))) {
+            throw exception(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_FOUR_MATERIAL_GATE_BLOCKED,
+                    MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED);
         }
         receiptWriter.persistReady(tenantId, batchExecutionId, source.getSourceSnapshotHash(), result, issuedBy);
         return result;
+    }
+
+    private MesProEdhrBatchTraceSourcePrecheckRespVO requireTraceSourceReady(Long batchExecutionId) {
+        MesProEdhrBatchTraceSourcePrecheckRespVO source;
+        try {
+            source = traceabilityService.resolveSourcePrecheck(
+                    new MesProEdhrBatchTraceSourcePrecheckCommand().setBatchExecutionId(batchExecutionId));
+        } catch (ServiceException ex) {
+            throw exception(TRACE_CAPTURE_BLOCKED, TRACE_MAPPING_BLOCKED);
+        }
+        if (source == null || !Objects.equals(batchExecutionId, source.getBatchExecutionId())
+                || source.getOriginLinkId() == null || blank(source.getTraceLinkHash())
+                || blank(source.getSourceSnapshotHash()) || blank(source.getRelationStatus())
+                || !("CAPTURED".equalsIgnoreCase(source.getRelationStatus())
+                || "READY".equalsIgnoreCase(source.getRelationStatus()))) {
+            throw exception(TRACE_CAPTURE_BLOCKED, TRACE_MAPPING_BLOCKED);
+        }
+        return source;
     }
 
     private boolean isCurrentValid(MesProBatchRecordExecutionAttachmentDO a,
@@ -171,6 +189,13 @@ public class MesProEdhrFourMaterialGateServiceImpl implements MesProEdhrFourMate
     }
 
     private static boolean blank(String value) { return value == null || value.isBlank(); }
+
+    private static String materialManifest(List<MesProBatchRecordExecutionAttachmentDO> materials,
+                                           String sourceSnapshotHash) {
+        return sha256(materials.stream().sorted(Comparator.comparing(MesProBatchRecordExecutionAttachmentDO::getFieldKey))
+                .map(a -> String.join("|", a.getFieldKey(), String.valueOf(a.getVersionNo()), String.valueOf(a.getFileId()),
+                        a.getSha256(), a.getAttachmentHash(), sourceSnapshotHash)).collect(Collectors.joining("\n")));
+    }
 
     private static String sha256(String value) {
         try {

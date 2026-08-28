@@ -753,10 +753,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         }
         if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
             return STATUS_RELEASED.equals(item.getReleaseStatus())
-                    || Objects.equals(item.getBatchExecutionStatus(),
-                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED)
-                    || Objects.equals(item.getBatchExecutionStatus(),
-                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED);
+                    || MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED == item.getBatchExecutionStatus()
+                    || MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED == item.getBatchExecutionStatus();
         }
         return true;
     }
@@ -997,6 +995,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (tasks.isEmpty()) {
             return DossierRequirementEvidence.fail(batchExecutionId, nodeLabel,
                     nodeLabel + "特殊节点缺失，无法确认放行资料已上传");
+        }
+        if (tasks.size() > 1) {
+            MesProEdhrBatchExecutionTaskDO duplicateTask = tasks.get(0);
+            return DossierRequirementEvidence.fail(duplicateTask.getId(), nodeLabel,
+                    nodeLabel + "特殊节点存在重复任务，无法确认放行资料已上传");
         }
         MesProEdhrBatchExecutionTaskDO approvedTaskWithAttachment = tasks.stream()
                 .filter(task -> Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED))

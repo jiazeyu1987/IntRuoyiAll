@@ -130,6 +130,38 @@ class MesProEdhrBatchTraceabilityServiceContractTest {
     }
 
     @Test
+    void activeOrderAliasesMustStillEnforceLossDecisionRelation() {
+        MesProEdhrBatchExecutionOriginDO origin = MesProEdhrBatchExecutionOriginDO.builder()
+                .id(1L).entryType("ACTIVE_ORDER_SCHEDULED")
+                .hasActualLoss(false).build();
+        MesProEdhrBatchExecutionTraceLinkDO lossFact = MesProEdhrBatchExecutionTraceLinkDO.builder()
+                .originId(1L).linkType(MesProEdhrBatchTraceLinkType.LOSS_FACT)
+                .relationStatus("HAS_LOSS").build();
+
+        assertFalse(MesProEdhrBatchTraceabilityServiceImpl.isLossRelationConsistent(origin,
+                List.of(lossFact)));
+    }
+
+    @Test
+    void duplicateLossFactsMustBeRejectedInsteadOfLettingOneGoodRowHideOneBadRow() {
+        MesProEdhrBatchExecutionOriginDO origin = MesProEdhrBatchExecutionOriginDO.builder()
+                .id(1L).entryType(MesProEdhrBatchTraceEntryType.ACTIVE_ORDER_COMPLETION)
+                .hasActualLoss(true).build();
+        MesProEdhrBatchExecutionTraceLinkDO lossFact = MesProEdhrBatchExecutionTraceLinkDO.builder()
+                .originId(1L).linkType(MesProEdhrBatchTraceLinkType.LOSS_FACT)
+                .relationStatus("HAS_LOSS").build();
+        MesProEdhrBatchExecutionTraceLinkDO duplicateLossFact = MesProEdhrBatchExecutionTraceLinkDO.builder()
+                .originId(1L).linkType(MesProEdhrBatchTraceLinkType.LOSS_FACT)
+                .relationStatus("NO_LOSS").build();
+        MesProEdhrBatchExecutionTraceLinkDO lossReport = MesProEdhrBatchExecutionTraceLinkDO.builder()
+                .originId(1L).linkType(MesProEdhrBatchTraceLinkType.LOSS_REPORT_RECEIPT)
+                .build();
+
+        assertFalse(MesProEdhrBatchTraceabilityServiceImpl.isLossRelationConsistent(origin,
+                List.of(lossFact, duplicateLossFact, lossReport)));
+    }
+
+    @Test
     void tamperedTraceLinkIdentityOrSnapshotBlocksCapturedGraph() {
         MesProEdhrBatchExecutionOriginDO origin = MesProEdhrBatchExecutionOriginDO.builder()
                 .id(1L).batchExecutionId(101L).entryType(MesProEdhrBatchTraceEntryType.MANUAL).build();
@@ -157,6 +189,24 @@ class MesProEdhrBatchTraceabilityServiceContractTest {
 
         assertFalse(MesProEdhrBatchTraceabilityServiceImpl.isTraceCaptured(
                 List.of(origin), List.of(workOrder, provision), List.of(manifest)));
+    }
+
+    @Test
+    void duplicateTraceLinkTypesOnTheSameOriginMustBlockCapturedGraph() {
+        MesProEdhrBatchExecutionOriginDO origin = MesProEdhrBatchExecutionOriginDO.builder()
+                .id(1L).batchExecutionId(101L).entryType(MesProEdhrBatchTraceEntryType.MANUAL).build();
+        MesProEdhrBatchExecutionTraceLinkDO first = traceLink(2L, 1L,
+                MesProEdhrBatchTraceLinkType.WORK_ORDER, "WORK_ORDER", 8L);
+        MesProEdhrBatchExecutionTraceLinkDO second = traceLink(3L, 1L,
+                MesProEdhrBatchTraceLinkType.WORK_ORDER, "WORK_ORDER", 9L);
+        String manifestJson = "{\"batchExecutionId\":101}";
+        MesProEdhrBatchExecutionTraceManifestDO manifest = MesProEdhrBatchExecutionTraceManifestDO.builder()
+                .id(4L).batchExecutionId(101L).manifestVersion(1).manifestJson(manifestJson)
+                .manifestHash(DigestUtil.sha256Hex(
+                        MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(manifestJson))).build();
+
+        assertFalse(MesProEdhrBatchTraceabilityServiceImpl.isTraceCaptured(
+                List.of(origin), List.of(first, second), List.of(manifest)));
     }
 
     @Test

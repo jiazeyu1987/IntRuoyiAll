@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
@@ -2485,7 +2486,9 @@ class MesProScheduleOrderServiceImplTest {
         assertEquals("计划调整", log.getReason());
         assertTrue(log.getBeforeSnapshotJson().contains("before"));
         assertTrue(log.getAfterSnapshotJson().contains("after"));
-        assertTrue(log.getAfterSnapshotJson().contains("2026-07-02T09:30"));
+        MesProScheduleOrderDO afterSnapshot = JsonUtils.parseObject(log.getAfterSnapshotJson(),
+                MesProScheduleOrderDO.class);
+        assertEquals(LocalDateTime.of(2026, 7, 2, 9, 30), afterSnapshot.getPlannedStartTime());
     }
 
     @Test
@@ -3296,7 +3299,7 @@ class MesProScheduleOrderServiceImplTest {
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> scheduleOrderService.createFromWorkOrders(reqVO));
 
-        assertEquals(PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE.getCode(), exception.getCode());
+        assertEquals(PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED.getCode(), exception.getCode());
         assertTrue(exception.getMessage().contains("工单ID 101"));
         assertTrue(exception.getMessage().contains("已在排产工单池中"));
         verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));
@@ -3319,7 +3322,7 @@ class MesProScheduleOrderServiceImplTest {
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> scheduleOrderService.createFromWorkOrders(reqVO));
 
-        assertEquals(PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE.getCode(), exception.getCode());
+        assertEquals(PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED.getCode(), exception.getCode());
         assertTrue(exception.getMessage().contains("工单ID 101"));
         assertTrue(exception.getMessage().contains("已在排产工单池中"));
         verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));

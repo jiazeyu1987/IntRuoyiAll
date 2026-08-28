@@ -22,12 +22,14 @@ class MesStage6TraceabilityContractTest {
                 "releasedAt", "2026-08-25T10:00:00",
                 "releaseStatus", "RELEASED",
                 "threeFileEvidence", List.of(
-                        Map.of("nodeType", "INCOMING_INSPECTION", "sourceIds", List.of(1L),
+                        Map.of("nodeType", "INCOMING_INSPECTION_REPORT", "attachmentIds", List.of(1L),
                                 "sha256", List.of("a".repeat(64))),
-                        Map.of("nodeType", "STERILIZATION", "sourceIds", List.of(2L),
+                        Map.of("nodeType", "STERILIZATION_REPORT", "attachmentIds", List.of(2L),
                                 "sha256", List.of("b".repeat(64))),
-                        Map.of("nodeType", "FINISHED_PRODUCT", "sourceIds", List.of(3L, 4L),
-                                "sha256", List.of("c".repeat(64), "d".repeat(64)))
+                        Map.of("nodeType", "FINISHED_PRODUCT_INSPECTION_REPORT", "attachmentIds", List.of(3L),
+                                "sha256", List.of("c".repeat(64))),
+                        Map.of("nodeType", "FINISHED_PRODUCT_INSPECTION_RECORD", "attachmentIds", List.of(4L),
+                                "sha256", List.of("d".repeat(64)))
                 ),
                 "sourceChain", Map.of("productionSourceIds", List.of(10L), "pickListId", 11L,
                         "backfillReceiptId", "12"),
@@ -64,7 +66,8 @@ class MesStage6TraceabilityContractTest {
                                 "drawerDisplaysElectronicSignature", true,
                                 "drawerDisplaysReleaseEvents", true,
                                 "domainTraceDetailDisplaysItems", true)),
-                "backendTraceabilitySummary", Map.of("status", "VERIFIED", "blockers", List.of())
+                "backendTraceabilitySummary", Map.of("status", "VERIFIED", "blockers", List.of(),
+                        "batchTraceabilityCaptured", true)
         );
 
         assertDoesNotThrow(() -> MesStage6TraceabilityContractValidator.validateReleaseSnapshot(releaseSnapshot));

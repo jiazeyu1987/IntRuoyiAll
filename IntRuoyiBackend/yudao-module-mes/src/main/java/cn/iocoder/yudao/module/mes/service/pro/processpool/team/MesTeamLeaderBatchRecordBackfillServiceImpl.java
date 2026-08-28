@@ -177,7 +177,12 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         List<Long> sourceEventIds = sourceEvents.stream()
                 .map(MesProProcessPoolEventDO::getId)
                 .toList();
+        List<Long> allocationIds = allocations.stream()
+                .map(MesProcessPoolReportAllocationDO::getId)
+                .toList();
         if (!Objects.equals(event.getProcessId(), allocation.getProcessId())
+                || hasDuplicates(sourceEventIds)
+                || hasDuplicates(allocationIds)
                 || sourceEvents.stream().anyMatch(source -> source == null || source.getId() == null
                 || !Objects.equals(allocation.getProcessId(), source.getProcessId()))
                 || allocations.stream().anyMatch(sourceAllocation -> sourceAllocation == null
@@ -188,6 +193,10 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                 || !Objects.equals(allocation.getProcessId(), sourceAllocation.getProcessId()))) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfillSources");
         }
+    }
+
+    private static boolean hasDuplicates(List<Long> ids) {
+        return ids.size() != new LinkedHashSet<>(ids).size();
     }
 
     private MesProRouteFlowProcessBatchRecordDO requireFormalBinding(Long routeProcessId) {

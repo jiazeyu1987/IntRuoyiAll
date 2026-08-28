@@ -376,8 +376,9 @@ public class MesProcessPoolTeamLeaderController {
                 .setActiveOrderId(String.valueOf(result.getActiveOrderId()))
                 .setAction(result.getAction())
                 .setWorkOrderId(String.valueOf(result.getWorkOrderId()))
-                .setPickListBindingId(String.valueOf(result.getPickListBindingId()))
-                .setPickListId(String.valueOf(result.getPickListId()))
+                .setPickListBindingId(result.getPickListBindingId() == null ? null
+                        : String.valueOf(result.getPickListBindingId()))
+                .setPickListId(result.getPickListId() == null ? null : String.valueOf(result.getPickListId()))
                 .setSourceSnapshotHash(result.getSourceSnapshotHash())
                 .setBindingVersion(result.getBindingVersion()));
     }
@@ -510,7 +511,9 @@ public class MesProcessPoolTeamLeaderController {
             @Valid @RequestBody MesStage6IdiSimulationReqVO reqVO) {
         MesStage6IdiSimulationResult result = stage6IdiSimulationService.simulate(
                 new MesStage6IdiSimulationCommand()
-                        .setSimulationRunId(reqVO.getSimulationRunId()));
+                        .setSimulationRunId(reqVO.getSimulationRunId())
+                        .setStage5SimulationRunId(reqVO.getStage5SimulationRunId())
+                        .setBatchExecutionId(reqVO.getBatchExecutionId()));
         return success(new MesStage6IdiSimulationRespVO()
                 .setSimulationRunId(result.getSimulationRunId())
                 .setCleanedSimulationRunId(result.getCleanedSimulationRunId())

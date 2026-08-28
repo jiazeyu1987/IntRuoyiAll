@@ -18,6 +18,9 @@ public final class MesStage6TraceabilityContractValidator {
     private static final Set<String> CURRENT_DOMAIN_TRACE_ITEMS = Set.of(
             "WORK_ORDER", "ROUTE_PROCESS", "BATCH_RECORD_REPORT", "BATCH",
             "EXECUTION_SNAPSHOT", "FIELD_AUDIT_BASELINE");
+    private static final Set<String> RELEASE_MATERIAL_CATEGORIES = Set.of(
+            "INCOMING_INSPECTION_REPORT", "STERILIZATION_REPORT",
+            "FINISHED_PRODUCT_INSPECTION_REPORT", "FINISHED_PRODUCT_INSPECTION_RECORD");
 
     private MesStage6TraceabilityContractValidator() {
     }
@@ -30,21 +33,34 @@ public final class MesStage6TraceabilityContractValidator {
                 "releaseApprovalWorkTaskId", "reportSnapshotHash", "version")) {
             require(snapshot, field);
         }
+        requirePositiveLong(snapshot, "batchExecutionId");
+        requireNonBlank(snapshot, "releaseReceiptId");
+        requirePositiveLong(snapshot, "releaseDecisionId");
+        requirePositiveLong(snapshot, "releaseApprovalWorkTaskId");
+        requirePositiveLong(snapshot, "version");
         requireEquals(RELEASED_STATUS, snapshot, "releaseStatus");
         requireHash(snapshot.get("reportSnapshotHash"), "reportSnapshotHash");
         List<?> files = list(snapshot.get("threeFileEvidence"), "threeFileEvidence");
-        if (files.size() != 3) {
-            throw new IllegalArgumentException("threeFileEvidence must contain three material categories");
+        if (files.size() != 4) {
+            throw new IllegalArgumentException("threeFileEvidence must contain four material categories");
         }
         files.forEach(value -> {
             Map<?, ?> file = map(value, "threeFileEvidence.item");
-            require(file, "nodeType");
-            if (list(file.get("sourceIds"), "threeFileEvidence.item.sourceIds").isEmpty()) {
-                throw new IllegalArgumentException("threeFileEvidence.item.sourceIds must not be empty");
+            requireNonBlank(file, "nodeType");
+            List<?> attachmentIds = list(file.get("attachmentIds"), "threeFileEvidence.item.attachmentIds");
+            if (attachmentIds.isEmpty() || attachmentIds.stream().anyMatch(item -> item == null
+                    || String.valueOf(item).isBlank() || Long.parseLong(String.valueOf(item)) <= 0)) {
+                throw new IllegalArgumentException("threeFileEvidence.item.attachmentIds must not be empty");
             }
             list(file.get("sha256"), "threeFileEvidence.item.sha256").forEach(hash ->
                     requireHash(hash, "threeFileEvidence.item.sha256"));
         });
+        Set<String> categories = files.stream()
+                .map(value -> String.valueOf(map(value, "threeFileEvidence.item").get("nodeType")))
+                .collect(java.util.stream.Collectors.toSet());
+        if (!Objects.equals(RELEASE_MATERIAL_CATEGORIES, categories)) {
+            throw new IllegalArgumentException("threeFileEvidence categories are invalid");
+        }
         Map<?, ?> sourceChain = map(snapshot.get("sourceChain"), "sourceChain");
         for (String field : List.of("productionSourceIds", "pickListId", "backfillReceiptId")) {
             require(sourceChain, field);
@@ -52,6 +68,12 @@ public final class MesStage6TraceabilityContractValidator {
         if (list(sourceChain.get("productionSourceIds"), "sourceChain.productionSourceIds").isEmpty()) {
             throw new IllegalArgumentException("sourceChain.productionSourceIds must not be empty");
         }
+        if (list(sourceChain.get("productionSourceIds"), "sourceChain.productionSourceIds").stream()
+                .anyMatch(item -> item == null || Long.parseLong(String.valueOf(item)) <= 0)) {
+            throw new IllegalArgumentException("sourceChain.productionSourceIds must contain positive ids");
+        }
+        requirePositiveLong(sourceChain, "pickListId");
+        requirePositiveLong(sourceChain, "backfillReceiptId");
     }
 
     public static void validateTraceabilitySnapshot(Map<?, ?> snapshot) {
@@ -85,6 +107,9 @@ public final class MesStage6TraceabilityContractValidator {
         }
         Map<?, ?> backend = map(snapshot.get("backendTraceabilitySummary"), "backendTraceabilitySummary");
         requireEquals("VERIFIED", backend, "status");
+        if (!Boolean.TRUE.equals(backend.get("batchTraceabilityCaptured"))) {
+            throw new IllegalArgumentException("batchTraceabilityCaptured must be true");
+        }
         if (!(backend.get("blockers") instanceof List<?> backendBlockers) || !backendBlockers.isEmpty()) {
             throw new IllegalArgumentException("backendTraceabilitySummary.blockers must be empty");
         }
@@ -135,6 +160,24 @@ public final class MesStage6TraceabilityContractValidator {
     private static void requireHash(Object value, String field) {
         if (value == null || !SHA256.matcher(String.valueOf(value)).matches()) {
             throw new IllegalArgumentException(field + " must be a lowercase SHA-256 hash");
+        }
+    }
+
+    private static void requirePositiveLong(Map<?, ?> map, String field) {
+        require(map, field);
+        try {
+            if (Long.parseLong(String.valueOf(map.get(field))) <= 0) {
+                throw new NumberFormatException();
+            }
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(field + " must be a positive number");
+        }
+    }
+
+    private static void requireNonBlank(Map<?, ?> map, String field) {
+        require(map, field);
+        if (String.valueOf(map.get(field)).isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
         }
     }
 }

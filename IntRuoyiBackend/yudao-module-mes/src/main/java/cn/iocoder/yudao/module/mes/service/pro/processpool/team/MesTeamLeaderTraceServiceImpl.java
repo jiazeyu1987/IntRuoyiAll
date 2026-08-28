@@ -301,6 +301,11 @@ public class MesTeamLeaderTraceServiceImpl implements MesTeamLeaderTraceService 
                     "由负责班组长完成带电子签名的复核");
             return section;
         }
+        if (reviews.size() != 1) {
+            block(section, "REVIEW_AMBIGUOUS", "存在多条班组长复核记录，无法唯一追溯当前提交", "review",
+                    "仅保留一条正式复核记录后重新生成追溯");
+            return section;
+        }
         MesProcessPoolSubmissionReviewDO review = reviews.get(0);
         put(section, "reviewIds", reviews.stream().map(MesProcessPoolSubmissionReviewDO::getId).toList());
         put(section, "reviewId", review.getId());
@@ -337,6 +342,11 @@ public class MesTeamLeaderTraceServiceImpl implements MesTeamLeaderTraceService 
         if (allocations == null || allocations.isEmpty()) {
             block(section, "ALLOCATION_MISSING", "缺少 FIFO 或手工分配记录", "allocation",
                     "班组长复核后确认活跃生产工单分配");
+            return section;
+        }
+        if (allocations.size() != 1) {
+            block(section, "ALLOCATION_AMBIGUOUS", "存在多条报工分配记录，无法唯一追溯当前提交", "allocation",
+                    "仅保留一条正式分配记录后重新生成追溯");
             return section;
         }
         MesProcessPoolReportAllocationDO allocation = allocations.get(0);
@@ -431,7 +441,10 @@ public class MesTeamLeaderTraceServiceImpl implements MesTeamLeaderTraceService 
             return section;
         }
         MesProBatchRecordExecutionFieldAuditItemDO firstItem = items.get(0);
-        Long sourceAllocationId = firstAllocationId(allocations, submitEvent);
+        MesProcessPoolReportAllocationDO allocation = requireSingleAllocation(allocations, submitEvent, section);
+        if (allocation == null) {
+            return section;
+        }
         put(section, "batchRecordExecutionId", execution.getId());
         put(section, "batchRecordReportId", execution.getBatchRecordReportId());
         put(section, "batchRecordDefinitionId", execution.getBatchRecordDefinitionId());
@@ -441,7 +454,7 @@ public class MesTeamLeaderTraceServiceImpl implements MesTeamLeaderTraceService 
         put(section, "fieldAuditFieldKey", firstItem.getFieldKey());
         put(section, "fieldAuditValueDisplay", firstItem.getNewValueDisplay());
         put(section, "sourceProcessPoolEventId", completion.getLastEventId());
-        put(section, "sourceAllocationId", sourceAllocationId);
+        put(section, "sourceAllocationId", allocation.getId());
         section.setLastUpdatedAt(completion.getCompletedAt());
         if (completion.getLastEventId() == null || !Objects.equals(completion.getLastEventId(), eventId)) {
             block(section, "BATCH_RECORD_SOURCE_MISSING", "批记录追溯缺少来源生产提交事件 ID",
@@ -451,10 +464,6 @@ public class MesTeamLeaderTraceServiceImpl implements MesTeamLeaderTraceService 
                 completion.getProcessId(), submitEvent)) {
             block(section, "BATCH_RECORD_SOURCE_MISSING", "批记录追溯来源不属于当前生产工单、路线工序或 MES 工序",
                     "batchRecordScope", "只允许同工单、同路线工序、同 MES 工序的批记录回填进入 trace");
-        }
-        if (sourceAllocationId == null) {
-            block(section, "BATCH_RECORD_SOURCE_MISSING", "批记录追溯缺少来源分配 ID", "sourceAllocationId",
-                    "补齐批记录回填来源分配记录");
         }
         if (!hasFormalFieldAuditItem(firstItem)) {
             block(section, "FIELD_AUDIT_MISSING", "批记录字段审计缺少字段路径或单元格位置", "fieldAuditItem",
@@ -817,16 +826,26 @@ public class MesTeamLeaderTraceServiceImpl implements MesTeamLeaderTraceService 
                 .toList();
     }
 
-    private static Long firstAllocationId(List<MesProcessPoolReportAllocationDO> allocations,
-                                          MesProProcessPoolEventDO submitEvent) {
-        return Optional.ofNullable(allocations).orElse(List.of()).stream()
+    private static MesProcessPoolReportAllocationDO requireSingleAllocation(
+            List<MesProcessPoolReportAllocationDO> allocations,
+            MesProProcessPoolEventDO submitEvent,
+            MesProductionExecutionTraceRespVO.Section section) {
+        List<MesProcessPoolReportAllocationDO> matches = Optional.ofNullable(allocations).orElse(List.of()).stream()
                 .filter(allocation -> Objects.equals(allocation.getEventId(), submitEvent.getId()))
                 .filter(allocation -> sameWorkOrderProcess(allocation.getWorkOrderId(), allocation.getRouteProcessId(),
                         allocation.getProcessId(), submitEvent))
-                .map(MesProcessPoolReportAllocationDO::getId)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+                .toList();
+        if (matches.isEmpty()) {
+            block(section, "BATCH_RECORD_SOURCE_MISSING", "批记录追溯缺少来源分配记录", "sourceAllocationId",
+                    "补齐批记录回填来源分配记录");
+            return null;
+        }
+        if (matches.size() != 1) {
+            block(section, "ALLOCATION_AMBIGUOUS", "存在多条报工分配记录，无法唯一追溯当前提交", "allocation",
+                    "仅保留一条正式分配记录后重新生成追溯");
+            return null;
+        }
+        return matches.get(0);
     }
 
     private static boolean sameWorkOrderProcess(Long workOrderId, Long routeProcessId, Long processId,

@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
@@ -23,9 +24,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,7 +62,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 .thenReturn(1);
         when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail()));
-        when(workOrderMapper.selectByIdForUpdate(30L)).thenReturn(workOrder());
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(30L)).thenReturn(workOrder());
         org.mockito.Mockito.lenient().when(productIssueMapper.selectListByWorkOrderIdForUpdate(30L))
                 .thenReturn(List.of(productIssue()));
         org.mockito.Mockito.lenient().when(productIssueDetailMapper.selectListByIssueIdForUpdate(901L))
@@ -93,9 +96,9 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         assertEquals("NOT_REQUIRED", draft.getLossReportStatus());
         ArgumentCaptor<MesProcessPoolActiveOrderCompletionBackfillDO> captor =
                 ArgumentCaptor.forClass(MesProcessPoolActiveOrderCompletionBackfillDO.class);
-        verify(backfillMapper, org.mockito.Mockito.times(3)).insert(captor.capture());
+        verify(backfillMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
         assertTrue(captor.getAllValues().stream().allMatch(row -> row.getTenantId().equals(1L)));
-        assertTrue(captor.getAllValues().stream().anyMatch(row ->
+        assertFalse(captor.getAllValues().stream().anyMatch(row ->
                 MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_NO_LOSS.equals(row.getBackfillType())));
         assertFalse(captor.getAllValues().stream().anyMatch(row ->
                 MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_LOSS_REPORT.equals(row.getBackfillType())));
@@ -210,6 +213,28 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         port.write(draft, 10L);
 
         assertEquals(1102L, draft.getProcessInspectionId());
+    }
+
+    @Test
+    void duplicateCompletedProcessesMustBeRejectedBeforeBackfill() {
+        when(completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)))
+                .thenReturn(List.of(completion(301L, 101L, 201L), completion(302L, 101L, 202L)));
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> port.prepare(20L, order(), command()));
+
+        assertEquals(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING.getCode(), ex.getCode());
+    }
+
+    @Test
+    void duplicateInspectionDetailsMustBeRejectedBeforeBackfill() {
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(detail(801L, 701L, 101L), detail(802L, 701L, 101L)));
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> port.prepare(20L, order(), command()));
+
+        assertEquals(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING.getCode(), ex.getCode());
     }
 
     private MesTeamLeaderActiveOrderReleaseLossSourceReadResult lossSources(BigDecimal loss) {

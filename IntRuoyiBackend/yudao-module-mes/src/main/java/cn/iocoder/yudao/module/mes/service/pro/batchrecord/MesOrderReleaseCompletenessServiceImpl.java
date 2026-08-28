@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -213,6 +214,21 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
                 .map(MesProcessPoolActiveOrderTransferTraceDO::getSourceType)
                 .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toSet());
+        List<String> duplicateSourceTypes = traces.stream()
+                .map(MesProcessPoolActiveOrderTransferTraceDO::getSourceType)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.groupingBy(type -> type, java.util.LinkedHashMap::new,
+                        java.util.stream.Collectors.counting()))
+                .entrySet().stream()
+                .filter(entry -> entry.getValue() != null && entry.getValue() > 1)
+                .map(Map.Entry::getKey)
+                .toList();
+        if (!duplicateSourceTypes.isEmpty()) {
+            return blocker(MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY, "库存一致性检查",
+                    "INVENTORY", MODULE_WMS, "ACTIVE_ORDER_TRANSFER_TRACE", String.valueOf(activeOrder.getId()),
+                    String.valueOf(activeOrder.getId()), "存在重复库存追溯来源：" + duplicateSourceTypes,
+                    "去重并重新同步正式调拨、发货、补退料和批次追溯来源后重新预检");
+        }
         Set<String> missingSourceTypes = REQUIRED_INVENTORY_SOURCE_TYPES.stream()
                 .filter(type -> !existingSourceTypes.contains(type))
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
@@ -278,11 +294,11 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         }
         List<String> missing = new ArrayList<>();
         for (MesProcessPoolActiveOrderProcessSnapshotDO snapshot : snapshots) {
-            requirePqcTaskIdentity(tasks, snapshot, "FIRST", "FIRST", missing);
-            requirePqcTaskIdentity(tasks, snapshot, "PATROL", "AM", missing);
-            requirePqcTaskIdentity(tasks, snapshot, "PATROL", "PM", missing);
+            requireUniquePqcTaskIdentity(tasks, snapshot, "FIRST", "FIRST", missing);
+            requireUniquePqcTaskIdentity(tasks, snapshot, "PATROL", "AM", missing);
+            requireUniquePqcTaskIdentity(tasks, snapshot, "PATROL", "PM", missing);
             if (isFinalInspectionApplicableForSnapshot(tasks, snapshot, missing)) {
-                requirePqcTaskIdentity(tasks, snapshot, "FINAL", "FINAL", missing);
+                requireUniquePqcTaskIdentity(tasks, snapshot, "FINAL", "FINAL", missing);
             }
         }
         return missing;
@@ -329,21 +345,26 @@ public class MesOrderReleaseCompletenessServiceImpl implements MesOrderReleaseCo
         return Boolean.TRUE.equals(version.getFinalInspectionApplicable());
     }
 
-    private void requirePqcTaskIdentity(List<MesPqcInspectionTaskDO> tasks,
-                                        MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
-                                        String inspectionType, String shiftCode, List<String> missing) {
-        boolean exists = tasks.stream().anyMatch(task ->
+    private void requireUniquePqcTaskIdentity(List<MesPqcInspectionTaskDO> tasks,
+                                              MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+                                              String inspectionType, String shiftCode, List<String> missing) {
+        long count = tasks.stream().filter(task ->
                 Objects.equals(snapshot.getRouteProcessId(), task.getRouteProcessId())
                         && Objects.equals(snapshot.getProcessId(), task.getProcessId())
                         && Objects.equals(inspectionType, task.getInspectionType())
                         && Objects.equals(shiftCode, task.getShiftCode())
-                        && Objects.equals(PQC_DEFAULT_ROUND_NO, task.getRoundNo()));
-        if (!exists) {
-            missing.add("routeProcessId=" + snapshot.getRouteProcessId()
-                    + ", processId=" + snapshot.getProcessId()
-                    + ", inspectionType=" + inspectionType
-                    + ", shiftCode=" + shiftCode
-                    + ", roundNo=" + PQC_DEFAULT_ROUND_NO);
+                        && Objects.equals(PQC_DEFAULT_ROUND_NO, task.getRoundNo())).count();
+        String identity = "routeProcessId=" + snapshot.getRouteProcessId()
+                + ", processId=" + snapshot.getProcessId()
+                + ", inspectionType=" + inspectionType
+                + ", shiftCode=" + shiftCode
+                + ", roundNo=" + PQC_DEFAULT_ROUND_NO;
+        if (count == 0) {
+            missing.add(identity);
+            return;
+        }
+        if (count > 1) {
+            missing.add(identity + " 存在重复任务");
         }
     }
 

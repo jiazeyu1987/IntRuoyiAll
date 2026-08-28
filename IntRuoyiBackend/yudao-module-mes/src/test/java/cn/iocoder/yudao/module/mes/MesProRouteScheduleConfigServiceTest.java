@@ -210,7 +210,10 @@ class MesProRouteScheduleConfigServiceTest {
                           "routeCode": "R-10",
                           "routeName": "测试路线",
                           "configSnapshots": {
-                            "flowGraph": {"nodes": [{"routeProcessId": 200}, {"routeProcessId": 201}]},
+                            "flowGraph": {"nodes": [
+                              {"routeProcessId": 200, "processId": 300, "sort": 1},
+                              {"routeProcessId": 201, "processId": 301, "sort": 2}
+                            ]},
                             "products": [],
                             "scheduleConfigs": {
                               "200": {
@@ -268,7 +271,9 @@ class MesProRouteScheduleConfigServiceTest {
                           "routeCode": "R-10",
                           "routeName": "测试路线",
                           "configSnapshots": {
-                            "flowGraph": {"nodes": [{"routeProcessId": 200}]},
+                            "flowGraph": {"nodes": [
+                              {"routeProcessId": 200, "processId": 300, "sort": 1}
+                            ]},
                             "products": [],
                             "scheduleConfigs": {
                               "200": {
@@ -323,7 +328,9 @@ class MesProRouteScheduleConfigServiceTest {
                           "routeCode": "R-10",
                           "routeName": "测试路线",
                           "configSnapshots": {
-                            "flowGraph": {"nodes": [{"routeProcessId": 200}]},
+                            "flowGraph": {"nodes": [
+                              {"routeProcessId": 200, "processId": 300, "sort": 1}
+                            ]},
                             "products": [],
                             "scheduleConfigs": {
                               "200": {
@@ -1086,7 +1093,10 @@ class MesProRouteScheduleConfigServiceTest {
                           "routeCode": "R-10",
                           "routeName": "测试路线",
                           "configSnapshots": {
-                            "flowGraph": {"nodes": [{"routeProcessId": 200}, {"routeProcessId": 201}]},
+                            "flowGraph": {"nodes": [
+                              {"routeProcessId": 200, "processId": 300, "sort": 1},
+                              {"routeProcessId": 201, "processId": 301, "sort": 2}
+                            ]},
                             "products": [],
                             "scheduleConfigs": %s,
                             "batchUseConfigs": [],

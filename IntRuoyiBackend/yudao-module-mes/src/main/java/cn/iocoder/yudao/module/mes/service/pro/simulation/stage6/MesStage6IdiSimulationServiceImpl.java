@@ -44,10 +44,12 @@ public class MesStage6IdiSimulationServiceImpl implements MesStage6IdiSimulation
     @Transactional(rollbackFor = Exception.class)
     public MesStage6IdiSimulationResult simulate(MesStage6IdiSimulationCommand command) {
         MesStage6IdiSimulationCommand validated = MesStage6IdiSimulationCommand.validate(
-                command == null ? null : command.getSimulationRunId());
+                command == null ? null : command.getSimulationRunId(),
+                command == null ? null : command.getStage5SimulationRunId(),
+                command == null ? null : command.getBatchExecutionId());
 
         Map<String, Object> releaseSnapshot = stage5Service.getReleaseSnapshot(
-                validated.getSimulationRunId(), null);
+                validated.getStage5SimulationRunId(), validated.getBatchExecutionId());
         MesStage6TraceabilityContractValidator.validateReleaseSnapshot(releaseSnapshot);
 
         Long batchExecutionId = requireLong(releaseSnapshot.get("batchExecutionId"), "batchExecutionId");
@@ -55,6 +57,10 @@ public class MesStage6IdiSimulationServiceImpl implements MesStage6IdiSimulation
         Long releaseDecisionId = requireLong(releaseSnapshot.get("releaseDecisionId"), "releaseDecisionId");
         MesProEdhrBatchTraceabilityRespVO batchTraceability =
                 batchTraceabilityService.getTraceability(batchExecutionId);
+        if (batchTraceability == null || batchTraceability.getLatestManifest() == null
+                || !Objects.equals(batchExecutionId, batchTraceability.getLatestManifest().getBatchExecutionId())) {
+            throw new IllegalStateException("STAGE6_TRACE_MANIFEST_REQUIRED");
+        }
 
         MesProBatchRecordExecutionDO execution = findExecution(batchExecutionId);
         if (execution == null || execution.getId() == null) {

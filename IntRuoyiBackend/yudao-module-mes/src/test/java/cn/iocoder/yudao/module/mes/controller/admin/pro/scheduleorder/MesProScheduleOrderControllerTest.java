@@ -27,6 +27,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProSchedu
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesKingdeeProductionMaterialListDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleIssueMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
 import cn.iocoder.yudao.module.mes.service.md.item.MesMdItemService;
@@ -76,6 +77,8 @@ class MesProScheduleOrderControllerTest {
     private MesProWorkOrderService workOrderService;
     @Mock
     private MesKingdeeProductionMaterialListMapper productionMaterialListMapper;
+    @Mock
+    private MesProScheduleIssueMapper scheduleIssueMapper;
     @Mock
     private AdminUserApi adminUserApi;
 
@@ -129,6 +132,7 @@ class MesProScheduleOrderControllerTest {
                         .build()));
         when(scheduleOrderService.getScheduleOrderProcessListByScheduleOrderIds(Set.of(10L)))
                 .thenReturn(List.of());
+        when(scheduleIssueMapper.selectListByWorkOrderIds(Set.of(20L))).thenReturn(List.of());
         when(scheduleOrderService.calculateProcessAggregateProgressSummary(new BigDecimal("10.000000"), List.of()))
                 .thenReturn(new MesProScheduleOrderService.ProgressSummary(
                         new BigDecimal("10.000000"),
@@ -173,6 +177,7 @@ class MesProScheduleOrderControllerTest {
                 MesKingdeeProductionMaterialListDO.builder().workOrderId(20L).sourceBillNo("PPBOM-002").build()));
         when(scheduleOrderService.getScheduleOrderProcessListByScheduleOrderIds(Set.of(10L)))
                 .thenReturn(List.of());
+        when(scheduleIssueMapper.selectListByWorkOrderIds(Set.of(20L))).thenReturn(List.of());
         when(scheduleOrderService.calculateProcessAggregateProgressSummary(new BigDecimal("10.000000"), List.of()))
                 .thenReturn(new MesProScheduleOrderService.ProgressSummary(
                         new BigDecimal("10.000000"),
@@ -233,6 +238,7 @@ class MesProScheduleOrderControllerTest {
                         .build()));
         when(scheduleOrderService.getScheduleOrderProcessListByScheduleOrderIds(Set.of(10L)))
                 .thenReturn(List.of(firstProcess, secondProcess));
+        when(scheduleIssueMapper.selectListByWorkOrderIds(Set.of(20L))).thenReturn(List.of());
         when(scheduleOrderService.calculateProcessAggregateProgressSummary(any(), any()))
                 .thenReturn(new MesProScheduleOrderService.ProgressSummary(
                         new BigDecimal("200.000000"),
@@ -331,6 +337,7 @@ class MesProScheduleOrderControllerTest {
                         .build()));
         when(scheduleOrderService.getScheduleOrderProcessListByScheduleOrderIds(Set.of(10L)))
                 .thenReturn(List.of(firstProcess, secondProcess));
+        when(scheduleIssueMapper.selectListByWorkOrderIds(Set.of(20L))).thenReturn(List.of());
         when(scheduleOrderService.calculateProcessProgressMetrics(10L, List.of(firstProcess, secondProcess)))
                 .thenReturn(Map.of(
                         101L, new MesProScheduleOrderService.ProcessProgressMetrics(
@@ -618,6 +625,7 @@ class MesProScheduleOrderControllerTest {
         when(routeService.getRouteMap(Set.of())).thenReturn(Map.of());
         when(productionMaterialListMapper.selectListByWorkOrderIds(Set.of(20L))).thenReturn(List.of());
         when(scheduleOrderService.getScheduleOrderProcessListByScheduleOrderIds(Set.of(10L))).thenReturn(List.of());
+        when(scheduleIssueMapper.selectListByWorkOrderIds(Set.of(20L))).thenReturn(List.of());
         when(scheduleOrderService.calculateProcessAggregateProgressSummary(new BigDecimal("10.000000"), List.of()))
                 .thenReturn(new MesProScheduleOrderService.ProgressSummary(
                         new BigDecimal("10.000000"),

@@ -73,6 +73,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_EDHR_PROC
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ADVANCE_PREREQUISITE_MISSING;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ACTIVE_NOT_UNIQUE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNMENT_RULE_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH;
@@ -1663,7 +1664,13 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     public MesProEdhrWorkTaskDO getActiveByExecutionAndType(Long executionId, String taskType) {
         List<MesProEdhrWorkTaskDO> tasks = workTaskMapper.selectActiveListByExecutionAndType(executionId, taskType);
-        return tasks.isEmpty() ? null : tasks.get(0);
+        if (tasks.isEmpty()) {
+            return null;
+        }
+        if (tasks.size() != 1) {
+            throw exception(PRO_EDHR_WORK_TASK_ACTIVE_NOT_UNIQUE);
+        }
+        return tasks.get(0);
     }
 
     @Override

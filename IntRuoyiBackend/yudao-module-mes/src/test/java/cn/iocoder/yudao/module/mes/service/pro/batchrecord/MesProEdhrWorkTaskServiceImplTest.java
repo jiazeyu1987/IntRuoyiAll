@@ -64,6 +64,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_NOT
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ADVANCE_PREREQUISITE_MISSING;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ACTIVE_NOT_UNIQUE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID;
@@ -1557,6 +1558,17 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
 
         assertEquals(MesProEdhrWorkTaskStatus.TODO,
                 workTaskMapper.selectById(candidateTask.getId()).getStatus());
+    }
+
+    @Test
+    void getActiveByExecutionAndTypeRejectsDuplicateActiveTasks() {
+        insertFillTask(5404L, 2404L, "active-duplicate-a");
+        insertFillTask(5404L, 2405L, "active-duplicate-b");
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> workTaskService.getActiveByExecutionAndType(5404L, MesProEdhrWorkTaskService.TASK_TYPE_FILL));
+
+        assertEquals(PRO_EDHR_WORK_TASK_ACTIVE_NOT_UNIQUE.getCode(), exception.getCode());
     }
 
     @Test

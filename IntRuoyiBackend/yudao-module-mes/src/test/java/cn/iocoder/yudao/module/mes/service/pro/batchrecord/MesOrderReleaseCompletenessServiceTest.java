@@ -22,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.LongStream;
 
@@ -136,6 +137,28 @@ class MesOrderReleaseCompletenessServiceTest {
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.checkResult());
         assertTrue(result.failureReason().contains("身份完整"));
+    }
+
+    @Test
+    void evaluateInspectionResultBlocksWhenConfirmedPqcTasksDuplicateAnExpectedIdentity() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(activeOrder);
+        when(pqcInspectionTaskMapper.selectListByActiveOrderId(activeOrder.getId())).thenReturn(List.of(
+                confirmedPqcTask(1L, "FIRST", "FIRST"),
+                confirmedPqcTask(2L, "FIRST", "FIRST"),
+                confirmedPqcTask(3L, "PATROL", "AM"),
+                confirmedPqcTask(4L, "PATROL", "PM"),
+                confirmedPqcTask(5L, "FINAL", "FINAL")));
+        when(processSnapshotMapper.selectListByActiveOrderId(activeOrder.getId()))
+                .thenReturn(List.of(processSnapshot()));
+
+        MesOrderReleaseCompletenessCheck result = service.evaluateInspectionResult(batch);
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
+        assertTrue(result.failureReason().contains("重复任务"));
+        assertTrue(result.failureReason().contains("inspectionType=FIRST"));
     }
 
     @Test
@@ -267,6 +290,24 @@ class MesOrderReleaseCompletenessServiceTest {
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
         assertTrue(result.failureReason().contains("无效库存追溯来源"));
         assertTrue(result.failureReason().contains("来源状态未闭环"));
+        verify(materialStockMapper, never()).selectListByIds(any());
+    }
+
+    @Test
+    void evaluateInventoryConsistencyBlocksWhenTraceSourceTypesDuplicate() {
+        MesProEdhrBatchExecutionDO batch = batch();
+        MesProcessPoolActiveOrderDO activeOrder = activeOrder(batch);
+        List<MesProcessPoolActiveOrderTransferTraceDO> traces = new ArrayList<>(completeInventoryTraces());
+        traces.add(trace(4L, MesProcessPoolActiveOrderTransferTraceDO.SOURCE_TYPE_TRANSFER));
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(batch.getWorkOrderId(), batch.getRouteId(),
+                batch.getRouteVersionId())).thenReturn(activeOrder);
+        when(transferTraceMapper.selectListByActiveOrderIdAndSourceTypes(eq(activeOrder.getId()), any()))
+                .thenReturn(traces);
+
+        MesOrderReleaseCompletenessCheck result = service.evaluateInventoryConsistency(batch);
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, result.checkResult());
+        assertTrue(result.failureReason().contains("重复库存追溯来源"));
         verify(materialStockMapper, never()).selectListByIds(any());
     }
 

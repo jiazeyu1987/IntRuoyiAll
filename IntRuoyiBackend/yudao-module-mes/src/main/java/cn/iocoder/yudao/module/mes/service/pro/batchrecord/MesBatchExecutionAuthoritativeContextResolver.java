@@ -121,7 +121,7 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                 .setLossRecordId(receipt.getLossRecordId()).setLossReportStatus(receipt.getLossReportStatus())
                 .setLossDecision(Boolean.TRUE.equals(receipt.getHasActualLoss()) ? "ACTUAL_LOSS" : "NO_LOSS")
                 .setSourceVersion(String.valueOf(receipt.getCompletionVersion()))
-                .setSourceBundleHash(sourceBundleHash(receipt))
+                .setSourceBundleHash(traceSourceBundleHash(traceEvidence(receipt, pickListBinding)))
                 .setPickListBindingId(pickListBinding.getId()).setPickListId(pickListBinding.getPickListId())
                 .setBatchPickListRelationId(pickListBinding.getId())
                 .setBindingVersion(pickListBinding.getBindingVersion() == null ? null
@@ -188,7 +188,8 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                 .setRouteId(receipt.getRouteId()).setRouteVersionId(receipt.getRouteVersionId())
                 .setSourceSnapshotHash(receipt.getSourceSnapshotHash()).setIdempotencyKey(request.getIdempotencyKey())
                 .setExpectedSourceVersion(receipt.getSourceRelationVersion()).setPayloadHash(receipt.getPayloadHash())
-                .setSourceVersion(receipt.getSourceRelationVersion()).setSourceBundleHash(receipt.getSourceContextHash())
+                .setSourceVersion(receipt.getSourceRelationVersion())
+                .setSourceBundleHash(traceSourceBundleHash(normalizeIndependentEvidence(receipt.getSourceEvidence())))
                 .setSourceEvidence(normalizeIndependentEvidence(receipt.getSourceEvidence()))
                 .setIndependentReceipt(receipt);
         return new MesBatchExecutionAuthoritativeContext().setProvisionCommand(canonical)
@@ -248,12 +249,6 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                 .equals(receipt.getLossReportStatus()) && !StrUtil.isBlank(receipt.getZeroLossConfirmationSnapshot());
     }
 
-    private String sourceBundleHash(MesFlow6CompletionBackfillReceipt receipt) {
-        return DigestUtil.sha256Hex(
-                String.valueOf(receipt.getFormalSourceSnapshotJson()) + "|"
-                        + String.valueOf(receipt.getSignatureSnapshotJson()));
-    }
-
     private List<MesBatchExecutionSourceEvidence> traceEvidence(
             MesFlow6CompletionBackfillReceipt receipt, MesProcessPoolActiveOrderPickListBindingDO binding) {
         List<MesBatchExecutionSourceEvidence> evidence = new ArrayList<>();
@@ -295,7 +290,37 @@ public class MesBatchExecutionAuthoritativeContextResolver {
                         ? witnessHash : receiptSource ? witnessHash : calculatedHash)
                 .setPayloadHash(witnessHash).setSignature(witnessHash)
                 .setSourceObjectType(type).setSourceObjectId(String.valueOf(id)).setSnapshotJson(snapshotJson)
-                .setSourceIdentityKey(type + ":" + id).setRelationStatus(relationStatus);
+                .setSourceIdentityKey(type + ":" + type + ":" + id + ":::").setRelationStatus(relationStatus);
+    }
+
+    private String traceSourceBundleHash(List<MesBatchExecutionSourceEvidence> evidence) {
+        MesProEdhrBatchTraceabilityValidator validator = new MesProEdhrBatchTraceabilityValidator();
+        List<MesProEdhrBatchTraceSource> sources = evidence.stream().map(item ->
+                new MesProEdhrBatchTraceSource().setLinkType(item.getSourceType())
+                        .setSourceObjectType(item.getSourceObjectType())
+                        .setSourceObjectId(parseEvidenceId(item.getSourceObjectId()))
+                        .setSourceVersion(parseEvidenceVersion(item.getSourceVersion()))
+                        .setSourceIdentityKey(item.getSourceIdentityKey())
+                        .setSnapshotHash(item.getSourceSnapshotHash())
+                        .setRelationStatus(item.getRelationStatus())
+                        .setRelationReason(item.getRelationReason())).toList();
+        return validator.calculateSourceBundleHash(sources);
+    }
+
+    private Long parseEvidenceId(String value) {
+        try {
+            return Long.valueOf(value);
+        } catch (RuntimeException ex) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
+        }
+    }
+
+    private Integer parseEvidenceVersion(String value) {
+        try {
+            return Integer.valueOf(value);
+        } catch (RuntimeException ex) {
+            throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
+        }
     }
 
     private List<MesBatchExecutionSourceEvidence> normalizeIndependentEvidence(
@@ -305,28 +330,33 @@ public class MesBatchExecutionAuthoritativeContextResolver {
         }
         return sourceEvidence.stream().map(item -> {
             if (item == null || StrUtil.isBlank(item.getSourceType())
-                    || StrUtil.isBlank(item.getSourceId()) || StrUtil.isBlank(item.getSourceSnapshotHash())) {
+                    || StrUtil.isBlank(item.getSourceId()) || StrUtil.isBlank(item.getSourceSnapshotHash())
+                    || StrUtil.isBlank(item.getSourceVersion()) || StrUtil.isBlank(item.getRelationStatus())
+                    || StrUtil.isBlank(item.getSourceObjectType()) || StrUtil.isBlank(item.getSourceObjectId())) {
                 throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
             }
             Map<String, Object> snapshot = new LinkedHashMap<>();
             snapshot.put("sourceType", item.getSourceType());
             snapshot.put("sourceId", item.getSourceId());
             snapshot.put("witnessHash", item.getSourceSnapshotHash());
-            String snapshotJson = StrUtil.isBlank(item.getSnapshotJson())
-                    ? JSON.toJSONString(snapshot) : item.getSnapshotJson();
-            String sourceObjectId = StrUtil.isBlank(item.getSourceObjectId())
-                    ? item.getSourceId() : item.getSourceObjectId();
+            String snapshotJson = item.getSnapshotJson();
+            if (StrUtil.isBlank(snapshotJson)) {
+                throw exception(PRO_EDHR_BATCH_ENTRY_SOURCE_RELATION_REQUIRED);
+            }
+            String sourceObjectId = item.getSourceObjectId();
+            String sourceObjectType = item.getSourceObjectType();
+            parseEvidenceId(sourceObjectId);
+            String normalizedSnapshotHash = MesProEdhrBatchTraceSourceHash.calculate(item.getSourceType(), snapshotJson);
             return new MesBatchExecutionSourceEvidence()
                     .setSourceType(item.getSourceType()).setSourceId(item.getSourceId())
-                    .setSourceVersion(StrUtil.isBlank(item.getSourceVersion()) ? "1" : item.getSourceVersion())
-                    .setSourceSnapshotHash(item.getSourceSnapshotHash())
+                    .setSourceVersion(item.getSourceVersion())
+                    .setSourceSnapshotHash(normalizedSnapshotHash)
                     .setPayloadHash(item.getPayloadHash()).setSignature(item.getSignature())
-                    .setSourceObjectType(StrUtil.isBlank(item.getSourceObjectType())
-                            ? item.getSourceType() : item.getSourceObjectType())
+                    .setSourceObjectType(sourceObjectType)
                     .setSourceObjectId(sourceObjectId).setSnapshotJson(snapshotJson)
-                    .setSourceIdentityKey(StrUtil.isBlank(item.getSourceIdentityKey())
-                            ? item.getSourceType() + ":" + item.getSourceId() : item.getSourceIdentityKey())
-                    .setRelationStatus(StrUtil.isBlank(item.getRelationStatus()) ? "BOUND" : item.getRelationStatus())
+                    .setSourceIdentityKey(item.getSourceType() + ":" + sourceObjectType + ":"
+                            + sourceObjectId + ":::")
+                    .setRelationStatus(item.getRelationStatus())
                     .setRelationReason(item.getRelationReason());
         }).toList();
     }

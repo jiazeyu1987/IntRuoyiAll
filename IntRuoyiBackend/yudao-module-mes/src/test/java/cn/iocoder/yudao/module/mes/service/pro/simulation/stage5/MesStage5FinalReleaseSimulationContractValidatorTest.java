@@ -76,6 +76,23 @@ class MesStage5FinalReleaseSimulationContractValidatorTest {
     }
 
     @Test
+    void releaseSnapshotMustRejectBlankReceiptAndNonPositiveSourceIds() {
+        final Map<String, Object> releaseSnapshot = new LinkedHashMap<>(releasedOutput().get("releaseSnapshot") instanceof Map<?, ?> snapshot
+                ? (Map<String, Object>) snapshot
+                : Map.of());
+        releaseSnapshot.put("releaseReceiptId", " ");
+        assertThrows(IllegalArgumentException.class, () ->
+                MesStage5FinalReleaseSimulationContractValidator.validateReleaseSnapshot(releaseSnapshot));
+
+        final Map<String, Object> nonPositiveSourceIdSnapshot = new LinkedHashMap<>((Map<String, Object>) releasedOutput().get("releaseSnapshot"));
+        final Map<String, Object> sourceChain = new LinkedHashMap<>((Map<String, Object>) nonPositiveSourceIdSnapshot.get("sourceChain"));
+        sourceChain.put("backfillReceiptId", "0");
+        nonPositiveSourceIdSnapshot.put("sourceChain", sourceChain);
+        assertThrows(IllegalArgumentException.class, () ->
+                MesStage5FinalReleaseSimulationContractValidator.validateReleaseSnapshot(nonPositiveSourceIdSnapshot));
+    }
+
+    @Test
     void fixtureMustPopulateRequiredErpPickListSyncTimes() throws Exception {
         String source = Files.readString(Path.of(
                 "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage5/"
@@ -152,6 +169,17 @@ class MesStage5FinalReleaseSimulationContractValidatorTest {
                 "Stage5 trace origin key must fit the authoritative database column");
         assertTrue(source.contains("return \"STAGE5:\" + shortRunId(runId) + \":ACTIVE_ORDER_COMPLETION\";"),
                 "Stage5 trace origin key must remain deterministic and Stage-owned");
+    }
+
+    @Test
+    void releaseSnapshotMustExposeBackfillReceiptIdInSourceChain() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage5/"
+                        + "MesStage5FinalReleaseSimulationServiceImpl.java"), StandardCharsets.UTF_8)
+                .replace("\r\n", "\n");
+
+        assertTrue(source.contains("\"backfillReceiptId\", String.valueOf(origin.getCompletionBackfillReceiptId())"),
+                "Stage5 release snapshot sourceChain must use the formal backfillReceiptId field");
     }
 
     @Test
@@ -276,9 +304,10 @@ class MesStage5FinalReleaseSimulationContractValidatorTest {
         releaseSnapshot.put("releasedAt", "2026-08-25T12:00:00");
         releaseSnapshot.put("releaseStatus", "RELEASED");
         releaseSnapshot.put("threeFileEvidence", List.of(
-                Map.of("nodeType", "INCOMING_INSPECTION_REPORT", "sha256", List.of(hash('1'))),
-                Map.of("nodeType", "STERILIZATION_REPORT", "sha256", List.of(hash('2'))),
-                Map.of("nodeType", "FINISHED_PRODUCT_INSPECTION", "sha256", List.of(hash('3'), hash('4')))));
+                Map.of("nodeType", "INCOMING_INSPECTION_REPORT", "attachmentIds", List.of("301"), "sha256", List.of(hash('1'))),
+                Map.of("nodeType", "STERILIZATION_REPORT", "attachmentIds", List.of("302"), "sha256", List.of(hash('2'))),
+                Map.of("nodeType", "FINISHED_PRODUCT_INSPECTION_REPORT", "attachmentIds", List.of("303"), "sha256", List.of(hash('3'))),
+                Map.of("nodeType", "FINISHED_PRODUCT_INSPECTION_RECORD", "attachmentIds", List.of("304"), "sha256", List.of(hash('4')))));
         releaseSnapshot.put("sourceChain", Map.of(
                 "productionSourceIds", List.of("201"),
                 "pickListId", "202",

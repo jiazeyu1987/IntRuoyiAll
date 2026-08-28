@@ -162,9 +162,11 @@ public class MesProEdhrBatchExecutionController {
     public CommonResult<MesStage4DossierUploadSimulationResult> simulateStage4DossierUpload(
             @Valid @RequestBody EdhrStage4DossierUploadSimulationReqVO reqVO) {
         return success(stage4DossierUploadSimulationService.simulate(
-                new MesStage4DossierUploadSimulationCommand()
-                        .setActorUserId(SecurityFrameworkUtils.getLoginUserId())
-                        .setSimulationRunId(reqVO.getSimulationRunId())));
+                        new MesStage4DossierUploadSimulationCommand()
+                                .setActorUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .setSimulationRunId(reqVO.getSimulationRunId())
+                        .setBatchExecutionId(reqVO.getBatchExecutionId())
+                        .setStage2_5SimulationRunId(reqVO.getStage2_5SimulationRunId())));
     }
 
     @PostMapping("/simulation/stage5/final-release")
@@ -174,7 +176,9 @@ public class MesProEdhrBatchExecutionController {
         return success(stage5FinalReleaseSimulationService.prepare(
                         new MesStage5FinalReleaseSimulationCommand()
                                 .setActorUserId(SecurityFrameworkUtils.getLoginUserId())
-                        .setSimulationRunId(reqVO.getSimulationRunId())
+                                .setSimulationRunId(reqVO.getSimulationRunId())
+                                .setBatchExecutionId(reqVO.getBatchExecutionId())
+                                .setStage4SimulationRunId(reqVO.getStage4SimulationRunId())
                                 .setPreviousSimulationRunId(reqVO.getPreviousSimulationRunId())));
     }
 

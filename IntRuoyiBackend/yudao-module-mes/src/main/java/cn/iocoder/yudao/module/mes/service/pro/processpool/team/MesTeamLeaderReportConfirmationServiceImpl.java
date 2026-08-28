@@ -200,6 +200,7 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
         if (!Boolean.TRUE.equals(allocationMapper.insertBatch(rows))) {
             throw new IllegalStateException("Failed to insert MES team leader report allocation lines");
         }
+        orderProcessCompletionService.applyConfirmedAllocations(event, rows);
         reportManagementSummaryService.refreshProductionEvent(event);
         return review.getId();
     }
@@ -288,11 +289,6 @@ public class MesTeamLeaderReportConfirmationServiceImpl implements MesTeamLeader
                     event.getProcessId());
             BigDecimal alreadyAllocated = existingAllocated.getOrDefault(activeOrder.getWorkOrderId(),
                     BigDecimal.ZERO);
-            BigDecimal remaining = target.plannedQuantity().subtract(alreadyAllocated);
-            if (line.getAllocatedQuantity().compareTo(remaining) > 0) {
-                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH,
-                        activeOrder.getWorkOrderId());
-            }
             total = total.add(line.getAllocatedQuantity());
             prepared.add(new PreparedAllocationLine(activeOrder, workOrder, target, alreadyAllocated,
                     line.getAllocatedQuantity()));

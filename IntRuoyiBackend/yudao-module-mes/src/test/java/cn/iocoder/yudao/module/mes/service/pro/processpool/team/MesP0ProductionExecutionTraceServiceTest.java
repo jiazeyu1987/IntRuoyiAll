@@ -130,6 +130,49 @@ class MesP0ProductionExecutionTraceServiceTest {
         assertEquals(99011L, sections.get("batchRecord").getSourceIds().get("fieldAuditItemId"));
     }
 
+    @Test
+    void productionExecutionTraceBlocksWhenReviewRecordsAreAmbiguous() {
+        when(eventMapper.selectById(EVENT_ID)).thenReturn(submitEvent());
+        when(eventMapper.selectPqcEventsForSubmit(submitEvent())).thenReturn(List.of(pqcEvent()));
+        when(pqcRecordMapper.selectByEventId(1101L)).thenReturn(pqcRecord());
+        when(reviewMapper.selectListByEventId(EVENT_ID)).thenReturn(List.of(review(), review(7002L, 9102L, 3002L)));
+        when(allocationMapper.selectListByEventId(EVENT_ID)).thenReturn(List.of(allocation()));
+        when(completionMapper.selectByWorkOrderAndProcess(WORK_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(completion());
+        when(executionMapper.selectById(8801L)).thenReturn(execution());
+        when(auditItemMapper.selectListByBatchId(9901L)).thenReturn(List.of(auditItem()));
+
+        MesProductionExecutionTraceRespVO trace = service.getProductionExecutionTrace(EVENT_ID);
+
+        Map<String, MesProductionExecutionTraceRespVO.Section> sections = sections(trace);
+        assertEquals("BLOCKED", sections.get("review").getStatus());
+        assertEquals("REVIEW_AMBIGUOUS", sections.get("review").getBlockers().get(0).getCode());
+        assertEquals("COMPLETE", sections.get("allocation").getStatus());
+        assertEquals("COMPLETE", sections.get("batchRecord").getStatus());
+    }
+
+    @Test
+    void productionExecutionTraceBlocksWhenAllocationRecordsAreAmbiguous() {
+        when(eventMapper.selectById(EVENT_ID)).thenReturn(submitEvent());
+        when(eventMapper.selectPqcEventsForSubmit(submitEvent())).thenReturn(List.of(pqcEvent()));
+        when(pqcRecordMapper.selectByEventId(1101L)).thenReturn(pqcRecord());
+        when(reviewMapper.selectListByEventId(EVENT_ID)).thenReturn(List.of(review()));
+        when(allocationMapper.selectListByEventId(EVENT_ID)).thenReturn(List.of(allocation(), allocation(7102L, 8112L)));
+        when(completionMapper.selectByWorkOrderAndProcess(WORK_ORDER_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(completion());
+        when(executionMapper.selectById(8801L)).thenReturn(execution());
+        when(auditItemMapper.selectListByBatchId(9901L)).thenReturn(List.of(auditItem()));
+
+        MesProductionExecutionTraceRespVO trace = service.getProductionExecutionTrace(EVENT_ID);
+
+        Map<String, MesProductionExecutionTraceRespVO.Section> sections = sections(trace);
+        assertEquals("BLOCKED", sections.get("allocation").getStatus());
+        assertEquals("ALLOCATION_AMBIGUOUS", sections.get("allocation").getBlockers().get(0).getCode());
+        assertEquals("BLOCKED", sections.get("batchRecord").getStatus());
+        assertEquals("ALLOCATION_AMBIGUOUS", sections.get("batchRecord").getBlockers().get(0).getCode());
+        assertEquals("COMPLETE", sections.get("review").getStatus());
+    }
+
     private static Map<String, MesProductionExecutionTraceRespVO.Section> sections(
             MesProductionExecutionTraceRespVO trace) {
         return trace.getSections().stream()
@@ -191,6 +234,19 @@ class MesP0ProductionExecutionTraceServiceTest {
                 .build();
     }
 
+    private static MesProcessPoolSubmissionReviewDO review(Long id, Long signatureId, Long signatureUserId) {
+        return MesProcessPoolSubmissionReviewDO.builder()
+                .id(id)
+                .eventId(EVENT_ID)
+                .leaderUserId(3001L)
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
+                .reviewSignatureId(signatureId)
+                .reviewSignatureUserId(signatureUserId)
+                .reviewSignatureSnapshotJson("{\"signature\":\"review\"}")
+                .reviewedAt(LocalDateTime.of(2026, 8, 3, 9, 10))
+                .build();
+    }
+
     private static MesProProcessPoolPqcRecordDO pqcRecord() {
         return MesProProcessPoolPqcRecordDO.builder()
                 .id(1201L)
@@ -207,6 +263,22 @@ class MesP0ProductionExecutionTraceServiceTest {
                 .reviewId(7001L)
                 .leaderUserId(3001L)
                 .activeOrderId(8101L)
+                .workOrderId(WORK_ORDER_ID)
+                .routeProcessId(ROUTE_PROCESS_ID)
+                .processId(PROCESS_ID)
+                .allocatedQuantity(new BigDecimal("80"))
+                .allocationMode(MesProcessPoolReportAllocationDO.MODE_FIFO)
+                .confirmedAt(LocalDateTime.of(2026, 8, 3, 9, 15))
+                .build();
+    }
+
+    private static MesProcessPoolReportAllocationDO allocation(Long id, Long activeOrderId) {
+        return MesProcessPoolReportAllocationDO.builder()
+                .id(id)
+                .eventId(EVENT_ID)
+                .reviewId(7001L)
+                .leaderUserId(3001L)
+                .activeOrderId(activeOrderId)
                 .workOrderId(WORK_ORDER_ID)
                 .routeProcessId(ROUTE_PROCESS_ID)
                 .processId(PROCESS_ID)

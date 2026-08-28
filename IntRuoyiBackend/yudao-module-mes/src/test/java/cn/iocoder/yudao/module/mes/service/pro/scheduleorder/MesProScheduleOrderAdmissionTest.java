@@ -251,6 +251,7 @@ class MesProScheduleOrderAdmissionTest {
                         .routeProcessId(302L)
                         .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
                         .enabled(Boolean.TRUE)
+                        .productionQuantityFactor(BigDecimal.ONE)
                         .build()));
         when(routeScheduleConfigMapper.selectListByRouteVersionId(702L)).thenReturn(List.of(
                 MesProRouteScheduleConfigDO.builder()

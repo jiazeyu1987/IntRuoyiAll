@@ -211,12 +211,15 @@ public class MesTeamLeaderOrderProcessCompletionService {
         MesProScheduleOrderDO scheduleOrder = scheduleOrderOptional.get();
         List<MesProScheduleOrderProcessDO> processes = scheduleOrderProcessMapper
                 .selectListByScheduleOrderId(scheduleOrder.getId());
-        MesProScheduleOrderProcessDO currentProcess = processes.stream()
+        List<MesProScheduleOrderProcessDO> matches = processes.stream()
                 .filter(process -> Boolean.TRUE.equals(process.getEnabled()))
                 .filter(process -> Objects.equals(process.getRouteProcessId(), routeProcessId))
                 .filter(process -> Objects.equals(process.getProcessId(), processId))
-                .findFirst()
-                .orElseThrow(() -> exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, workOrderId));
+                .toList();
+        if (matches.size() != 1) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, workOrderId);
+        }
+        MesProScheduleOrderProcessDO currentProcess = matches.get(0);
 
         BigDecimal plannedQuantity = requirePositive(currentProcess.getPlannedQuantity(), workOrderId);
         BigDecimal normalizedTargetQuantity = normalizeQuantity(targetQuantity);

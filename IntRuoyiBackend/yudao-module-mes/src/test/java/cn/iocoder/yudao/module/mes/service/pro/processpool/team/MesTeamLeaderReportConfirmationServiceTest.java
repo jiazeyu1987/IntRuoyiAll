@@ -20,6 +20,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
 import com.alibaba.fastjson.JSON;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -79,6 +81,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
     private MesWorkOrderAbnormalStateService abnormalStateService;
     @Mock
     private MesProductionReportManagementSummaryService reportManagementSummaryService;
+    @Mock
+    private MesProBatchRecordExecutionSignatureService signatureService;
 
     private MesTeamLeaderReportConfirmationService service;
 
@@ -92,6 +96,8 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 fifoAllocationService, processPoolFifoAllocationService, pqcTaskMapper, pqcPieceDetailMapper,
                 orderProcessTargetService, orderProcessCompletionService, abnormalStateService,
                 reportManagementSummaryService);
+        ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(any(), any(), any())).thenReturn(9101L);
         lenient().when(abnormalStateService.findOpenWorkOrderIds(anyCollection())).thenReturn(Set.of());
     }
 
@@ -127,6 +133,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(3001L)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                .signaturePassword("leader-password")
                 .allocations(List.of(line(8101L, "40"), line(8102L, "40")))
                 .build());
 
@@ -163,6 +170,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .reviewSignatureId(9101L)
                         .reviewSignatureUserId(3001L)
                         .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                        .signaturePassword("leader-password")
                         .allocations(List.of(line(9999L, "80")))
                         .build()));
 
@@ -195,6 +203,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .reviewSignatureId(9101L)
                         .reviewSignatureUserId(3001L)
                         .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                        .signaturePassword("leader-password")
                         .allocations(List.of(line(8101L, "70")))
                         .build()));
 
@@ -217,6 +226,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .reviewSignatureId(9101L)
                         .reviewSignatureUserId(3001L)
                         .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                        .signaturePassword("leader-password")
                         .allocations(List.of(line(8101L, "80")))
                         .build()));
 
@@ -245,6 +255,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .reviewSignatureId(9101L)
                         .reviewSignatureUserId(3001L)
                         .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                        .signaturePassword("leader-password")
                         .allocations(List.of(line(8101L, "80")))
                         .build()));
 
@@ -269,6 +280,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .reviewSignatureId(9101L)
                         .reviewSignatureUserId(3001L)
                         .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                        .signaturePassword("leader-password")
                         .allocations(List.of(line(8101L, "80")))
                         .build()));
 
@@ -289,6 +301,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                         .reviewSignatureId(9101L)
                         .reviewSignatureUserId(3001L)
                         .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                        .signaturePassword("leader-password")
                         .allocations(List.of(line(8101L, "80")))
                         .build()));
 
@@ -326,6 +339,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(3001L)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                .signaturePassword("leader-password")
                 .allocations(List.of(line(8101L, "300")))
                 .build());
 
@@ -361,6 +375,7 @@ class MesTeamLeaderReportConfirmationServiceTest {
                 .reviewSignatureId(9101L)
                 .reviewSignatureUserId(3001L)
                 .reviewSignatureSnapshotJson("{\"signature\":\"confirm\"}")
+                .signaturePassword("leader-password")
                 .allocations(List.of(line(8101L, "80")))
                 .build());
 

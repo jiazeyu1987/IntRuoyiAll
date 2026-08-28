@@ -8,20 +8,14 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerT
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureRespVO;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStage;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionProvisionCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrProductionReleaseBatchCommand;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionEntryContractService;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionProvisionCommand;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceipt;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptService;
-import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptVerifyCommand;
-import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST;
@@ -33,19 +27,12 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
 
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private final MesProEdhrBatchExecutionService batchExecutionService;
-    private final MesBatchExecutionEntryContractService entryContractService;
-    private final MesIndependentBatchPrerequisiteReceiptService independentReceiptService;
-
     @Autowired
     public MesProductionReleaseBatchExecutionPortImpl(
             MesProEdhrBatchExecutionMapper batchExecutionMapper,
-            MesProEdhrBatchExecutionService batchExecutionService,
-            MesBatchExecutionEntryContractService entryContractService,
-            MesIndependentBatchPrerequisiteReceiptService independentReceiptService) {
+            MesProEdhrBatchExecutionService batchExecutionService) {
         this.batchExecutionMapper = batchExecutionMapper;
         this.batchExecutionService = batchExecutionService;
-        this.entryContractService = entryContractService;
-        this.independentReceiptService = independentReceiptService;
     }
 
     @Override
@@ -98,8 +85,6 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
                         .setPickListLineSnapshotHash(command.getPickListLineSnapshotHash())
                         .setSourceEvidence(command.getSourceEvidence())
                         .setPayloadHash(command.getPayloadHash())
-                        .setCompletionBackfillReceipt(command.getCompletionBackfillReceipt())
-                        .setIndependentReceipt(command.getIndependentReceipt())
                         .setActiveContextKey(activeContextKey)
                         .setRemark("PQC production release application " + command.getApplicationId()));
     }
@@ -138,8 +123,7 @@ public class MesProductionReleaseBatchExecutionPortImpl implements MesProduction
                 .setPickListLineSnapshotHash(command == null ? null : command.getPickListLineSnapshotHash())
                 .setSourceEvidence(command == null ? null : command.getSourceEvidence())
                 .setPayloadHash(command == null ? null : command.getPayloadHash())
-                .setCompletionBackfillReceipt(command == null ? null : command.getCompletionBackfillReceipt())
-                .setIndependentReceipt(command == null ? null : command.getIndependentReceipt());
+                ;
     }
 
     private void requireSameFrozenContext(

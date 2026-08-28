@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -27,8 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING;
 
 @Component
 public class ScheduleApplier {
@@ -180,18 +179,25 @@ public class ScheduleApplier {
         if (commands.isEmpty()) {
             return List.of();
         }
+        List<ScheduleIssueDraft> issues = new ArrayList<>();
         for (EdhrScheduleCompletionCreateCommand command : commands) {
             Objects.requireNonNull(command, "edhr schedule completion command must not be null");
             List<String> missingItems = Objects.requireNonNull(
                     edhrBatchExecutionService.getScheduleCompletionMissingItems(command),
                     "edhr schedule completion missing items must not be null");
             if (!missingItems.isEmpty()) {
-                throw exception(PRO_EDHR_BATCH_EXECUTION_SCHEDULE_PREREQUISITE_MISSING,
-                        String.join("、", missingItems));
+                issues.add(edhrBatchCreationWarning(command, missingItems));
+                continue;
             }
             edhrBatchExecutionService.openOrCreateFromScheduleCompletion(command);
         }
-        return List.of();
+        return issues;
+    }
+
+    private ScheduleIssueDraft edhrBatchCreationWarning(EdhrScheduleCompletionCreateCommand command,
+                                                        List<String> missingItems) {
+        return ScheduleIssueDraft.warning("EDHR_BATCH_CREATION", command.getWorkOrderId(), null, null, null,
+                "排产完成创建 eDHR 批次缺少前置条件：" + String.join("、", missingItems));
     }
 
     public static final class ApplyCommand {

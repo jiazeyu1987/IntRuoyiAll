@@ -91,7 +91,7 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
         }
         if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
             queryWrapper.and(wrapper -> wrapper
-                    .in(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_ARCHIVED, BATCH_STATUS_REJECTED)
+                    .in(MesProEdhrBatchExecutionDO::getStatus, List.of(BATCH_STATUS_ARCHIVED, BATCH_STATUS_REJECTED))
                     .or()
                     .exists(releasedTransactionExistsSql()));
         }

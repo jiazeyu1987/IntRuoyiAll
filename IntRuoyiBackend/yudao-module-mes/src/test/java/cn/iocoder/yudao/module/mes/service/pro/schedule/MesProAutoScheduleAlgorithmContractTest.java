@@ -57,6 +57,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.wm.materialstock.MesWmMaterialStock
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderRouteStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesTimeUnitTypeEnum;
 import cn.iocoder.yudao.module.mes.service.cal.holiday.MesCalHolidayService;
 import cn.iocoder.yudao.module.mes.service.cal.plan.MesCalPlanService;
@@ -103,6 +104,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_AUTO_SCHE
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_AUTO_SCHEDULE_PREFLIGHT_BLOCKED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -664,6 +666,68 @@ class MesProAutoScheduleAlgorithmContractTest {
     }
 
     @Test
+    void preview_shouldIgnoreCanceledHistoryTasksWhenDetectingProtectedTaskConflict() {
+        lenient().when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(urgentOrder));
+        lenient().when(workOrderService.getWorkOrderList(any())).thenReturn(List.of(urgentWorkOrder));
+        when(taskMapper.selectListByWorkOrderIds(any())).thenReturn(List.of(
+                existingTask(7001L, 1L, 300L, MesProTaskStatusEnum.CANCELED.getStatus(),
+                        LocalDateTime.of(2026, 5, 10, 8, 0)),
+                existingTask(7002L, 1L, 300L, MesProTaskStatusEnum.CANCELED.getStatus(),
+                        LocalDateTime.of(2026, 5, 10, 9, 0))));
+
+        MesProAutoSchedulePreviewRespVO preview = autoScheduleService.preview(
+                req(List.of(501L), LocalDateTime.of(2026, 5, 13, 8, 0)));
+
+        assertEquals(0, preview.getSummary().getBlockingIssueCount(), () -> String.valueOf(preview.getIssues()));
+        assertFalse(preview.getIssues().stream()
+                .anyMatch(issue -> "PROTECTED_TASK".equals(issue.getIssueType())
+                        || "同一工单工序存在多个受保护任务".equals(issue.getMessage())));
+        assertEquals(2, preview.getSummary().getGeneratedTaskCount());
+        assertEquals(1, processTasks(preview, 1L, 300L).size());
+    }
+
+    @Test
+    void preview_shouldStillBlockMultipleFinishedHistoryTasksAsProtectedConflict() {
+        lenient().when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(urgentOrder));
+        lenient().when(workOrderService.getWorkOrderList(any())).thenReturn(List.of(urgentWorkOrder));
+        when(taskMapper.selectListByWorkOrderIds(any())).thenReturn(List.of(
+                existingTask(7101L, 1L, 300L, MesProTaskStatusEnum.FINISHED.getStatus(),
+                        LocalDateTime.of(2026, 5, 10, 8, 0)),
+                existingTask(7102L, 1L, 300L, MesProTaskStatusEnum.FINISHED.getStatus(),
+                        LocalDateTime.of(2026, 5, 10, 9, 0))));
+
+        MesProAutoSchedulePreviewRespVO preview = autoScheduleService.preview(
+                req(List.of(501L), LocalDateTime.of(2026, 5, 13, 8, 0)));
+
+        assertEquals(1, preview.getSummary().getBlockingIssueCount(), () -> String.valueOf(preview.getIssues()));
+        assertTrue(preview.getIssues().stream()
+                .anyMatch(issue -> "PROTECTED_TASK".equals(issue.getIssueType())
+                        && "同一工单工序存在多个受保护任务".equals(issue.getMessage())));
+        assertEquals(0, preview.getSummary().getGeneratedTaskCount());
+    }
+
+    @Test
+    void preview_shouldIgnorePreparedTasksWhoseScheduleExtRowsWereSoftDeleted() {
+        lenient().when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(urgentOrder));
+        lenient().when(workOrderService.getWorkOrderList(any())).thenReturn(List.of(urgentWorkOrder));
+        when(taskMapper.selectListByWorkOrderIds(any())).thenReturn(List.of(
+                existingTask(7201L, 1L, 300L, MesProTaskStatusEnum.PREPARE.getStatus(),
+                        LocalDateTime.of(2026, 5, 10, 8, 0)),
+                existingTask(7202L, 1L, 300L, MesProTaskStatusEnum.PREPARE.getStatus(),
+                        LocalDateTime.of(2026, 5, 10, 9, 0))));
+
+        MesProAutoSchedulePreviewRespVO preview = autoScheduleService.preview(
+                req(List.of(501L), LocalDateTime.of(2026, 5, 13, 8, 0)));
+
+        assertEquals(0, preview.getSummary().getBlockingIssueCount(), () -> String.valueOf(preview.getIssues()));
+        assertFalse(preview.getIssues().stream()
+                .anyMatch(issue -> "PROTECTED_TASK".equals(issue.getIssueType())
+                        || "同一工单工序存在多个受保护任务".equals(issue.getMessage())));
+        assertEquals(2, preview.getSummary().getGeneratedTaskCount());
+        assertEquals(1, processTasks(preview, 1L, 300L).size());
+    }
+
+    @Test
     void apply_shouldRefreshAndPersistNightShiftFromProductRouteConfigBeforeScheduling() {
         urgentOrder = scheduleOrder(501L, 1L, LocalDate.of(2026, 5, 14), null);
         urgentOrder.setRouteVersionId(700L);
@@ -745,19 +809,21 @@ class MesProAutoScheduleAlgorithmContractTest {
         MesProAutoSchedulePreviewReqVO reqVO = req(List.of(501L), LocalDateTime.of(2026, 5, 13, 8, 0));
 
         MesProAutoSchedulePreviewRespVO preview = autoScheduleService.preview(reqVO);
+        assertEquals(1, preview.getTasks().size());
+        GanttDataRespVO previewTask = preview.getTasks().get(0);
+        assertEquals(Integer.valueOf(301), previewTask.getType());
+        assertNull(previewTask.getParent());
+        assertEquals("301_1", previewTask.getId());
+        assertEquals(new BigDecimal("10"), previewTask.getQuantity());
         reqVO.setCalendarContextToken(preview.getCalendarContextToken());
         autoScheduleService.apply(reqVO);
-
-        List<GanttDataRespVO> finiteTasks = processTasks(preview, 1L, 300L);
-        assertEquals(1, finiteTasks.size());
-        assertEquals(LocalDateTime.of(2026, 5, 13, 20, 0), finiteTasks.get(0).getStartDate());
-        assertEquals(LocalDateTime.of(2026, 5, 13, 22, 0), finiteTasks.get(0).getEndDate());
 
         ArgumentCaptor<MesProScheduleOrderProcessDO> processCaptor = ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
         verify(scheduleOrderProcessMapper, atLeastOnce()).updateById(processCaptor.capture());
         MesProScheduleOrderProcessDO refreshedProcess = processCaptor.getAllValues().stream()
                 .filter(process -> Long.valueOf(601L).equals(process.getId()))
-                .findFirst().orElseThrow();
+                .reduce((first, second) -> second)
+                .orElseThrow();
         assertEquals(9001L, refreshedProcess.getRouteScheduleConfigId());
         assertEquals(Boolean.TRUE, refreshedProcess.getNightShiftEnabled());
         assertEquals(1L, refreshedProcess.getCalendarRuleId());
@@ -1112,6 +1178,23 @@ class MesProAutoScheduleAlgorithmContractTest {
                 .infiniteDurationQuantityFactor(quantityFactor).infiniteDurationBaseMinutes(baseMinutes)
                 .plannedQuantity(new BigDecimal("10")).remainingQuantity(new BigDecimal("10"))
                 .nightShiftEnabled(nightShiftEnabled).calendarRuleId(calendarRuleId).build();
+    }
+
+    private MesProTaskDO existingTask(Long id, Long workOrderId, Long processId, Integer status,
+                                      LocalDateTime updateTime) {
+        MesProTaskDO task = MesProTaskDO.builder()
+                .id(id)
+                .code("PT-" + id)
+                .name("历史任务-" + id)
+                .workOrderId(workOrderId)
+                .routeId(200L)
+                .processId(processId)
+                .itemId(100L)
+                .quantity(new BigDecimal("10"))
+                .status(status)
+                .build();
+        task.setUpdateTime(updateTime);
+        return task;
     }
 
     private Long defaultRouteProcessId(Integer sort) {

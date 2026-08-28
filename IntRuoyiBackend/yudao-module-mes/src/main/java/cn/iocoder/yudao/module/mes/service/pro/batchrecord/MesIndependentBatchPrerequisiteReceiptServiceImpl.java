@@ -14,6 +14,7 @@ import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
@@ -75,7 +76,7 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
         String resolvedIssuerSystem = requireConfigured(issuerSystem);
         String secret = requireConfigured(signingSecret);
         MesIndependentBatchPrerequisiteReceipt candidate = buildReceipt(command, tenantId, actorUserId,
-                resolvedIssuerSystem, LocalDateTime.now(clock));
+                resolvedIssuerSystem, LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS));
         String payload = MesIndependentBatchPrerequisiteReceiptCanonicalizer.canonicalPayload(candidate);
         candidate.setPayloadHash(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(payload));
         candidate.setSignature(sign(payload, secret));
@@ -239,7 +240,7 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
         return evidence.stream().allMatch(item -> item != null && !blank(item.getSourceType())
                 && !blank(item.getSourceId()) && !blank(item.getSourceVersion())
                 && !blank(item.getSourceSnapshotHash()) && !blank(item.getPayloadHash())
-                && !blank(item.getSignature()));
+                && !blank(item.getSignature()) && !blank(item.getRelationStatus()));
     }
 
     private MesIndependentBatchPrerequisiteReceiptDO toDO(MesIndependentBatchPrerequisiteReceipt value,

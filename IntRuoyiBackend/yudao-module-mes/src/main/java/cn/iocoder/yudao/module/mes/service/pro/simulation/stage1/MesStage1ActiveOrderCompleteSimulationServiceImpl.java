@@ -55,6 +55,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -602,7 +603,8 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     private String cleanupOwnedRuns(Long actorUserId) {
         List<MesProWorkOrderDO> workOrders = workOrderMapper.selectList(new LambdaQueryWrapper<MesProWorkOrderDO>()
                 .eq(MesProWorkOrderDO::getTenantId, TenantContextHolder.getTenantId())
-                .like(MesProWorkOrderDO::getRemark, MARKER));
+                .like(MesProWorkOrderDO::getRemark, MARKER)
+                .like(MesProWorkOrderDO::getRemark, "][actorUserId=" + actorUserId + "]"));
         String cleanedRunId = null;
         for (MesProWorkOrderDO workOrder : workOrders) {
             String runId = runIdFromMarker(workOrder.getRemark(), actorUserId);
@@ -728,7 +730,7 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
     }
 
     private String hash(Object value) {
-        return Integer.toHexString(JsonUtils.toJsonString(value).hashCode());
+        return DigestUtil.sha256Hex(JsonUtils.toJsonString(value));
     }
 
     private boolean blank(String value) {

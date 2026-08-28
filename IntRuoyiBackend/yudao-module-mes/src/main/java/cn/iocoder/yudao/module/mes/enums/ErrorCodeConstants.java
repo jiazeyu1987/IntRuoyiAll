@@ -304,8 +304,8 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_SCHEDULE_CAPACITY_MODE_INVALID = new ErrorCode(1_040_271_036, "排产策略已升级，请选择资源计算、排产产能覆盖或无限公式，routeProcessId={}");
     ErrorCode PRO_ROUTE_SCHEDULE_MANUAL_CAPACITY_REQUIRED = new ErrorCode(1_040_271_037, "排产产能覆盖小时产能必须大于 0，routeProcessId={}");
     ErrorCode PRO_ROUTE_SCHEDULE_INFINITE_DURATION_FORMULA_REQUIRED = new ErrorCode(1_040_271_038, "无限公式必须配置数量系数和基础分钟，routeProcessId={}");
-    ErrorCode PRO_ROUTE_SCHEDULE_NIGHT_SHIFT_REQUIRED = new ErrorCode(1_040_271_043, "排产策略必须显式传入夜班开关，routeProcessId={}");
-    ErrorCode PRO_ROUTE_RESOURCE_READONLY = new ErrorCode(1_040_271_044, "工艺路线资源已改为只读，请在工作站维护设备资源、人力资源和班次产能");
+    ErrorCode PRO_ROUTE_SCHEDULE_NIGHT_SHIFT_REQUIRED = new ErrorCode(1_040_271_055, "排产策略必须显式传入夜班开关，routeProcessId={}");
+    ErrorCode PRO_ROUTE_RESOURCE_READONLY = new ErrorCode(1_040_271_056, "工艺路线资源已改为只读，请在工作站维护设备资源、人力资源和班次产能");
 
     // ========== MES 设备管理-设备类型（1-040-300-000） ==========
     ErrorCode DV_MACHINERY_TYPE_NOT_EXISTS = new ErrorCode(1_040_300_000, "设备类型不存在");
@@ -845,23 +845,23 @@ public interface ErrorCodeConstants {
     ErrorCode WM_TRANSFER_DETAIL_QUANTITY_EXCEED = new ErrorCode(1_040_710_201, "调拨明细总数量不能超过调拨单行数量");
     ErrorCode WM_TRANSFER_DETAIL_MIXED_GOODS = new ErrorCode(1_040_710_202, "同一目标仓位下已存在其他物料的明细，不允许混货");
 
-    // ========== MES 仓库管理-生产退料单（1-040-711-000） ==========
-    ErrorCode WM_RETURN_ISSUE_NOT_EXISTS = new ErrorCode(1_040_710_000, "生产退料单不存在");
-    ErrorCode WM_RETURN_ISSUE_STATUS_INVALID = new ErrorCode(1_040_710_001, "生产退料单状态不正确，无法执行该操作");
-    ErrorCode WM_RETURN_ISSUE_NOT_PREPARE = new ErrorCode(1_040_710_002, "只有草稿状态的退料单才可操作");
-    ErrorCode WM_RETURN_ISSUE_NOT_CONFIRMED = new ErrorCode(1_040_710_003, "只有待检验状态的退料单才可提交");
-    ErrorCode WM_RETURN_ISSUE_NOT_APPROVING = new ErrorCode(1_040_710_004, "只有待上架状态的退料单才可入库上架");
-    ErrorCode WM_RETURN_ISSUE_NOT_APPROVED = new ErrorCode(1_040_710_005, "只有待执行退料状态的退料单才可完成");
-    ErrorCode WM_RETURN_ISSUE_NO_LINE = new ErrorCode(1_040_710_006, "生产退料单至少需要一条行数据");
-    ErrorCode WM_RETURN_ISSUE_DETAIL_QUANTITY_MISMATCH = new ErrorCode(1_040_710_007, "退料单行数量与明细数量不一致");
-    ErrorCode WM_RETURN_ISSUE_CANCEL_NOT_ALLOWED = new ErrorCode(1_040_710_008, "生产退料单已完成或已取消，无法取消");
-    ErrorCode WM_RETURN_ISSUE_LINE_NOT_EXISTS = new ErrorCode(1_040_710_100, "生产退料单行不存在");
-    ErrorCode WM_RETURN_ISSUE_DETAIL_NOT_EXISTS = new ErrorCode(1_040_710_200, "生产退料单明细不存在");
-    ErrorCode WM_RETURN_ISSUE_DETAIL_QUANTITY_INVALID = new ErrorCode(1_040_710_201, "退料明细数量必须大于0");
-    ErrorCode WM_RETURN_ISSUE_DETAIL_QUANTITY_EXCEED = new ErrorCode(1_040_710_202, "退料明细总数量不能超过退料单行数量");
-    ErrorCode WM_RETURN_ISSUE_CODE_DUPLICATE = new ErrorCode(1_040_710_203, "退料单编码已存在");
-    ErrorCode WM_RETURN_ISSUE_DETAIL_LINE_NOT_MATCH = new ErrorCode(1_040_710_204, "退料明细不属于指定的退料单");
-    ErrorCode WM_RETURN_ISSUE_DETAIL_ITEM_MISMATCH = new ErrorCode(1_040_710_205, "退料明细的物料与退料单行的物料不一致");
+    // ========== MES 仓库管理-生产退料单（1-040-719-000） ==========
+    ErrorCode WM_RETURN_ISSUE_NOT_EXISTS = new ErrorCode(1_040_719_000, "生产退料单不存在");
+    ErrorCode WM_RETURN_ISSUE_STATUS_INVALID = new ErrorCode(1_040_719_001, "生产退料单状态不正确，无法执行该操作");
+    ErrorCode WM_RETURN_ISSUE_NOT_PREPARE = new ErrorCode(1_040_719_002, "只有草稿状态的退料单才可操作");
+    ErrorCode WM_RETURN_ISSUE_NOT_CONFIRMED = new ErrorCode(1_040_719_003, "只有待检验状态的退料单才可提交");
+    ErrorCode WM_RETURN_ISSUE_NOT_APPROVING = new ErrorCode(1_040_719_004, "只有待上架状态的退料单才可入库上架");
+    ErrorCode WM_RETURN_ISSUE_NOT_APPROVED = new ErrorCode(1_040_719_005, "只有待执行退料状态的退料单才可完成");
+    ErrorCode WM_RETURN_ISSUE_NO_LINE = new ErrorCode(1_040_719_006, "生产退料单至少需要一条行数据");
+    ErrorCode WM_RETURN_ISSUE_DETAIL_QUANTITY_MISMATCH = new ErrorCode(1_040_719_007, "退料单行数量与明细数量不一致");
+    ErrorCode WM_RETURN_ISSUE_CANCEL_NOT_ALLOWED = new ErrorCode(1_040_719_008, "生产退料单已完成或已取消，无法取消");
+    ErrorCode WM_RETURN_ISSUE_LINE_NOT_EXISTS = new ErrorCode(1_040_719_100, "生产退料单行不存在");
+    ErrorCode WM_RETURN_ISSUE_DETAIL_NOT_EXISTS = new ErrorCode(1_040_719_200, "生产退料单明细不存在");
+    ErrorCode WM_RETURN_ISSUE_DETAIL_QUANTITY_INVALID = new ErrorCode(1_040_719_201, "退料明细数量必须大于0");
+    ErrorCode WM_RETURN_ISSUE_DETAIL_QUANTITY_EXCEED = new ErrorCode(1_040_719_202, "退料明细总数量不能超过退料单行数量");
+    ErrorCode WM_RETURN_ISSUE_CODE_DUPLICATE = new ErrorCode(1_040_719_203, "退料单编码已存在");
+    ErrorCode WM_RETURN_ISSUE_DETAIL_LINE_NOT_MATCH = new ErrorCode(1_040_719_204, "退料明细不属于指定的退料单");
+    ErrorCode WM_RETURN_ISSUE_DETAIL_ITEM_MISMATCH = new ErrorCode(1_040_719_205, "退料明细的物料与退料单行的物料不一致");
 
     // ========== MES 仓库管理-供应商退货单（1-040-711-000） ==========
     ErrorCode WM_RETURN_VENDOR_NOT_EXISTS = new ErrorCode(1_040_711_000, "供应商退货单不存在");
@@ -900,18 +900,18 @@ public interface ErrorCodeConstants {
     ErrorCode WM_OUTSOURCE_RECEIPT_LINE_NOT_EXISTS = new ErrorCode(1_040_713_100, "外协入库单行不存在");
     ErrorCode WM_OUTSOURCE_RECEIPT_DETAIL_NOT_EXISTS = new ErrorCode(1_040_713_200, "外协入库明细不存在");
 
-    // ========== MES 仓库管理-销售退货单（1-040-713-000） ==========
-    ErrorCode WM_RETURN_SALES_NOT_EXISTS = new ErrorCode(1_040_713_000, "销售退货单不存在");
-    ErrorCode WM_RETURN_SALES_CODE_DUPLICATE = new ErrorCode(1_040_713_001, "销售退货单编码已存在");
-    ErrorCode WM_RETURN_SALES_STATUS_NOT_PREPARE = new ErrorCode(1_040_713_002, "只有草稿状态才允许此操作");
-    ErrorCode WM_RETURN_SALES_STATUS_NOT_APPROVING = new ErrorCode(1_040_713_003, "只有待执行状态才允许执行退货");
-    ErrorCode WM_RETURN_SALES_STATUS_NOT_APPROVED = new ErrorCode(1_040_713_004, "只有待上架状态才允许执行上架");
-    ErrorCode WM_RETURN_SALES_NO_LINE = new ErrorCode(1_040_713_005, "销售退货单至少需要一条行数据");
-    ErrorCode WM_RETURN_SALES_DETAIL_QUANTITY_MISMATCH = new ErrorCode(1_040_713_006, "销售退货单行数量与明细数量不一致");
-    ErrorCode WM_RETURN_SALES_CANCEL_NOT_ALLOWED = new ErrorCode(1_040_713_007, "销售退货单已完成或已取消，无法取消");
-    ErrorCode WM_RETURN_SALES_LINE_NOT_EXISTS = new ErrorCode(1_040_713_100, "销售退货单行不存在");
-    ErrorCode WM_RETURN_SALES_DETAIL_NOT_EXISTS = new ErrorCode(1_040_713_200, "销售退货单明细不存在");
-    ErrorCode WM_RETURN_SALES_DETAIL_QUANTITY_EXCEED = new ErrorCode(1_040_713_201, "上架明细总数量不能超过退货行数量");
+    // ========== MES 仓库管理-销售退货单（1-040-718-000） ==========
+    ErrorCode WM_RETURN_SALES_NOT_EXISTS = new ErrorCode(1_040_718_000, "销售退货单不存在");
+    ErrorCode WM_RETURN_SALES_CODE_DUPLICATE = new ErrorCode(1_040_718_001, "销售退货单编码已存在");
+    ErrorCode WM_RETURN_SALES_STATUS_NOT_PREPARE = new ErrorCode(1_040_718_002, "只有草稿状态才允许此操作");
+    ErrorCode WM_RETURN_SALES_STATUS_NOT_APPROVING = new ErrorCode(1_040_718_003, "只有待执行状态才允许执行退货");
+    ErrorCode WM_RETURN_SALES_STATUS_NOT_APPROVED = new ErrorCode(1_040_718_004, "只有待上架状态才允许执行上架");
+    ErrorCode WM_RETURN_SALES_NO_LINE = new ErrorCode(1_040_718_005, "销售退货单至少需要一条行数据");
+    ErrorCode WM_RETURN_SALES_DETAIL_QUANTITY_MISMATCH = new ErrorCode(1_040_718_006, "销售退货单行数量与明细数量不一致");
+    ErrorCode WM_RETURN_SALES_CANCEL_NOT_ALLOWED = new ErrorCode(1_040_718_007, "销售退货单已完成或已取消，无法取消");
+    ErrorCode WM_RETURN_SALES_LINE_NOT_EXISTS = new ErrorCode(1_040_718_100, "销售退货单行不存在");
+    ErrorCode WM_RETURN_SALES_DETAIL_NOT_EXISTS = new ErrorCode(1_040_718_200, "销售退货单明细不存在");
+    ErrorCode WM_RETURN_SALES_DETAIL_QUANTITY_EXCEED = new ErrorCode(1_040_718_201, "上架明细总数量不能超过退货行数量");
 
     // ========== MES 仓库管理-盘点方案/任务/结果（1-040-714-100） ==========
     ErrorCode WM_STOCK_TAKING_PLAN_NOT_EXISTS = new ErrorCode(1_040_714_100, "盘点方案不存在");
@@ -1195,6 +1195,10 @@ public interface ErrorCodeConstants {
             "P6 只读核验缺少订单工序完成记录，workOrderId={}，routeProcessId={}，processId={}");
     ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_TRACE_REQUIRED = new ErrorCode(1_040_760_323,
             "P6 只读核验缺少正式批记录回填证据，workOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_TRACE_AMBIGUOUS = new ErrorCode(1_040_760_383,
+            "P6 只读核验存在多条复核记录，eventId={}，workOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_TRACE_AMBIGUOUS = new ErrorCode(1_040_760_345,
+            "P6 只读核验存在多条报工分配记录，eventId={}，workOrderId={}，routeProcessId={}，processId={}");
     ErrorCode PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED = new ErrorCode(1_040_760_324,
             "活跃订单缺少当前工序生产系数和目标数量快照：{}");
     ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_ROOT_EVENT_REQUIRED = new ErrorCode(1_040_760_325,
@@ -1235,7 +1239,7 @@ public interface ErrorCodeConstants {
             "活跃订单缺少唯一有效排产工单：{}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_ROUTE_REQUIRED = new ErrorCode(1_040_760_343,
             "活跃订单有效排产缺少正式路线或路线版本：{}");
-    ErrorCode PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED = new ErrorCode(1_040_760_345,
+    ErrorCode PRO_PROCESS_POOL_REPORT_CONFIRMATION_PRODUCTION_LEADER_REQUIRED = new ErrorCode(1_040_760_389,
             "报工确认只能由生产组长执行：eventId={}，leaderType={}");
     ErrorCode PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_PERMISSION_REQUIRED = new ErrorCode(1_040_760_346,
             "PQC 检验员必须拥有 PQC 权限角色：userId={}");
@@ -1269,19 +1273,19 @@ public interface ErrorCodeConstants {
             "生产订单工序允许超量比例无效：{}，合法范围为 0-100");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_HISTORY_AMBIGUOUS = new ErrorCode(1_040_760_359,
             "生产工单存在多条历史记录，无法确定应复用的冻结订单：workOrderId={}，activeOrderIds={}");
-    ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID = new ErrorCode(1_040_760_360,
+    ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_SNAPSHOT_INVALID = new ErrorCode(1_040_760_373,
             "一线生产活跃订单工序快照无效：activeOrderId={}，{}");
-    ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH = new ErrorCode(1_040_760_361,
+    ErrorCode PRO_FRONTLINE_ACTIVE_ORDER_PROCESS_MISMATCH = new ErrorCode(1_040_760_374,
             "一线生产活跃订单工序不匹配：activeOrderId={}，processId={}");
-    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_CONFIRM_REQUIRED = new ErrorCode(1_040_760_362,
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_CONFIRM_REQUIRED = new ErrorCode(1_040_760_375,
             "重建活跃订单会删除已有报工记录、生产进度和 PQC 检验结果，请确认后重试：{}");
-    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_SHARED_REPORT = new ErrorCode(1_040_760_363,
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_REBUILD_SHARED_REPORT = new ErrorCode(1_040_760_376,
             "活跃订单存在已分配给其它订单的共享报工记录，不能直接重建：activeOrderId={}，eventId={}");
-    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_VERSION_CONFLICT = new ErrorCode(1_040_760_364,
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_VERSION_CONFLICT = new ErrorCode(1_040_760_377,
             "活跃订单放行关闭版本已变化，请刷新后重试：activeOrderId={}，expectedVersion={}，currentVersion={}");
-    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PROGRESS_NOT_COMPLETE = new ErrorCode(1_040_760_365,
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PROGRESS_NOT_COMPLETE = new ErrorCode(1_040_760_378,
             "活跃订单生产进度和检验进度必须均为100%才能完成：activeOrderId={}");
-    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_NOT_OWNED = new ErrorCode(1_040_760_366,
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_NOT_OWNED = new ErrorCode(1_040_760_379,
             "活跃订单不属于当前生产组长负责范围：activeOrderId={}");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_VERSION_CONFLICT = new ErrorCode(1_040_760_367,
             "活跃订单版本已变化，请刷新后重试：activeOrderId={}，expectedVersion={}，currentVersion={}");

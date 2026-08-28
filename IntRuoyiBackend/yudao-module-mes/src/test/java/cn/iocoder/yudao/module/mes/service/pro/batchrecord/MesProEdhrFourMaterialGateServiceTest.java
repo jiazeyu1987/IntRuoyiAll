@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceSourcePrecheckRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
@@ -13,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -23,6 +26,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchTraceabilityErrorCodeConstants.TRACE_CAPTURE_BLOCKED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_FOUR_MATERIAL_GATE_BLOCKED;
 
 @ExtendWith(MockitoExtension.class)
 class MesProEdhrFourMaterialGateServiceTest {
@@ -154,6 +159,24 @@ class MesProEdhrFourMaterialGateServiceTest {
     }
 
     @Test
+    void duplicateRequiredMaterialTaskIsRejected() {
+        List<MesProEdhrBatchExecutionTaskDO> tasks = new ArrayList<>();
+        tasks.add(task("INCOMING_INSPECTION_REPORT", 1L));
+        tasks.add(task("INCOMING_INSPECTION_REPORT", 2L));
+        tasks.add(task("STERILIZATION_REPORT", 3L));
+        tasks.add(task("FINISHED_PRODUCT_INSPECTION_REPORT", 4L));
+        tasks.add(task("FINISHED_PRODUCT_INSPECTION_RECORD", 5L));
+        when(taskMapper.selectListByBatchExecutionId(BATCH_ID)).thenReturn(tasks);
+
+        ServiceException error = assertThrows(ServiceException.class, () -> gate.evaluate(BATCH_ID));
+        assertEquals(PRO_EDHR_RELEASE_FOUR_MATERIAL_GATE_BLOCKED.getCode(), error.getCode());
+        assertTrue(error.getMessage().contains("duplicate required material tasks"));
+        verify(traceabilityService).resolveSourcePrecheck(any());
+        verify(taskMapper).selectListByBatchExecutionId(BATCH_ID);
+        verifyNoInteractions(attachmentMapper, fileService);
+    }
+
+    @Test
     void routeBindingSnapshotCannotSatisfyMaterialSourceBinding() {
         List<MesProEdhrBatchExecutionTaskDO> tasks = new ArrayList<>();
         List<MesProBatchRecordExecutionAttachmentDO> attachments = new ArrayList<>();
@@ -173,6 +196,83 @@ class MesProEdhrFourMaterialGateServiceTest {
         MesProEdhrFourMaterialGateResult result = gate.evaluate(BATCH_ID);
         assertEquals(MesProEdhrFourMaterialGateResult.STATUS_MATERIALS_RECHECK_REQUIRED, result.status());
         assertFalse(result.ready());
+    }
+
+    @Test
+    void requireReadyFailsWhenSourceChangesBetweenEvaluationAndReceiptWrite() {
+        List<MesProEdhrBatchExecutionTaskDO> tasks = new ArrayList<>();
+        List<MesProBatchRecordExecutionAttachmentDO> attachments = new ArrayList<>();
+        long id = 1L;
+        for (String node : MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES) {
+            tasks.add(task(node, id));
+            attachments.add(attachment(node, id, id));
+            id++;
+        }
+        when(taskMapper.selectListByBatchExecutionId(BATCH_ID)).thenReturn(tasks);
+        when(attachmentMapper.selectListByBatchExecutionId(BATCH_ID)).thenReturn(attachments);
+        when(fileService.getFile(any())).thenAnswer(invocation -> FileDO.builder().id(invocation.getArgument(0))
+                .configId(3L).name("report.pdf").path("/report.pdf").url("https://files/report.pdf")
+                .type("application/pdf").size(10L).build());
+        when(traceabilityService.resolveSourcePrecheck(any()))
+                .thenReturn(new MesProEdhrBatchTraceSourcePrecheckRespVO()
+                        .setBatchExecutionId(BATCH_ID).setOriginLinkId(9L)
+                        .setTraceLinkHash("trace-hash").setSourceSnapshotHash(SOURCE_HASH)
+                        .setSourceVersion(1).setRelationStatus("CAPTURED")
+                        .setReadAt(LocalDateTime.now()))
+                .thenReturn(new MesProEdhrBatchTraceSourcePrecheckRespVO()
+                        .setBatchExecutionId(BATCH_ID).setOriginLinkId(9L)
+                        .setTraceLinkHash("trace-hash-v2").setSourceSnapshotHash("source-hash-v2")
+                        .setSourceVersion(2).setRelationStatus("CAPTURED")
+                        .setReadAt(LocalDateTime.now()));
+
+        TenantContextHolder.setTenantId(1L);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(1001L);
+            ServiceException error = assertThrows(ServiceException.class, () -> gate.requireMaterialsReady(BATCH_ID));
+            assertEquals(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_FOUR_MATERIAL_GATE_BLOCKED.getCode(),
+                    error.getCode());
+            verifyNoInteractions(receiptWriter);
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @Test
+    void requireReadyFailsWhenTracePrecheckBecomesNotApplicableBeforeReceiptWrite() {
+        List<MesProEdhrBatchExecutionTaskDO> tasks = new ArrayList<>();
+        List<MesProBatchRecordExecutionAttachmentDO> attachments = new ArrayList<>();
+        long id = 1L;
+        for (String node : MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES) {
+            tasks.add(task(node, id));
+            attachments.add(attachment(node, id, id));
+            id++;
+        }
+        when(taskMapper.selectListByBatchExecutionId(BATCH_ID)).thenReturn(tasks);
+        when(attachmentMapper.selectListByBatchExecutionId(BATCH_ID)).thenReturn(attachments);
+        when(fileService.getFile(any())).thenAnswer(invocation -> FileDO.builder().id(invocation.getArgument(0))
+                .configId(3L).name("report.pdf").path("/report.pdf").url("https://files/report.pdf")
+                .type("application/pdf").size(10L).build());
+        when(traceabilityService.resolveSourcePrecheck(any()))
+                .thenReturn(new MesProEdhrBatchTraceSourcePrecheckRespVO()
+                        .setBatchExecutionId(BATCH_ID).setOriginLinkId(9L)
+                        .setTraceLinkHash("trace-hash").setSourceSnapshotHash(SOURCE_HASH)
+                        .setSourceVersion(1).setRelationStatus("CAPTURED")
+                        .setReadAt(LocalDateTime.now()))
+                .thenReturn(new MesProEdhrBatchTraceSourcePrecheckRespVO()
+                        .setBatchExecutionId(BATCH_ID).setOriginLinkId(9L)
+                        .setTraceLinkHash("trace-hash").setSourceSnapshotHash(SOURCE_HASH)
+                        .setSourceVersion(1).setRelationStatus("NOT_APPLICABLE")
+                        .setReadAt(LocalDateTime.now()));
+
+        TenantContextHolder.setTenantId(1L);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(1001L);
+            ServiceException error = assertThrows(ServiceException.class, () -> gate.requireMaterialsReady(BATCH_ID));
+            assertEquals(TRACE_CAPTURE_BLOCKED.getCode(), error.getCode());
+            verifyNoInteractions(receiptWriter);
+        } finally {
+            TenantContextHolder.clear();
+        }
     }
 
     @Test

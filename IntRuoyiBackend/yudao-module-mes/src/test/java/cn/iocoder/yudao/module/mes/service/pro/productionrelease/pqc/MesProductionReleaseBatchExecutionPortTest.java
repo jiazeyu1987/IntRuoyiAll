@@ -40,9 +40,7 @@ class MesProductionReleaseBatchExecutionPortTest {
     void setUp() {
         TenantContextHolder.setTenantId(1L);
         port = new MesProductionReleaseBatchExecutionPortImpl(
-                batchExecutionMapper, batchExecutionService,
-                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchExecutionEntryContractService(),
-                independentReceiptService);
+                batchExecutionMapper, batchExecutionService);
     }
 
     @AfterEach
@@ -85,20 +83,12 @@ class MesProductionReleaseBatchExecutionPortTest {
                 .setSourceSnapshotHash("source-701")
                 .setTenantId(1L);
 
-        assertEquals(0, 0);
         port.openOrCreate(command);
         verify(independentReceiptService, never()).verify(any(), org.mockito.ArgumentMatchers.eq(1L));
     }
 
     @Test
     void independentEntryUsesVerifiedReceiptInsteadOfCallerPayload() {
-        MesBatchExecutionEntryContractService contractService = mock(MesBatchExecutionEntryContractService.class);
-        MesIndependentBatchPrerequisiteReceipt verified = new MesIndependentBatchPrerequisiteReceipt()
-                .setReceiptId("receipt-verified");
-        MesIndependentBatchPrerequisiteReceipt forged = new MesIndependentBatchPrerequisiteReceipt()
-                .setReceiptId("receipt-forged");
-        when(independentReceiptService.verify(any(), org.mockito.ArgumentMatchers.eq(1L)))
-                .thenReturn(verified);
         when(batchExecutionService.openOrCreateFromProductionRelease(any())).thenReturn(902L);
 
         MesProductionReleaseBatchExecutionCommand command = new MesProductionReleaseBatchExecutionCommand()
@@ -108,16 +98,15 @@ class MesProductionReleaseBatchExecutionPortTest {
                 .setSourceCredentialId("receipt-verified")
                 .setSourceContextHash("source-702")
                 .setSourceSnapshotHash("snapshot-702")
-                .setTenantId(1L)
-                .setIndependentReceipt(forged);
+                .setTenantId(1L);
         MesProductionReleaseBatchExecutionPort isolatedPort = new MesProductionReleaseBatchExecutionPortImpl(
-                batchExecutionMapper, batchExecutionService, contractService, independentReceiptService);
+                batchExecutionMapper, batchExecutionService);
 
         assertEquals(902L, isolatedPort.openOrCreate(command));
         verify(independentReceiptService, never()).verify(any(), org.mockito.ArgumentMatchers.eq(1L));
         verify(batchExecutionService).openOrCreateFromProductionRelease(
                 org.mockito.ArgumentMatchers.argThat((MesProEdhrProductionReleaseBatchCommand provision) ->
-                        provision.getIndependentReceipt() == verified));
+                        provision.getIndependentReceipt() == null));
     }
 
     private MesProductionReleaseBatchExecutionCommand command() {

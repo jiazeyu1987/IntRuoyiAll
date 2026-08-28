@@ -18,6 +18,16 @@ import java.util.List;
 public interface MesProcessPoolActiveOrderReleaseApplicationMapper
         extends BaseMapperX<MesProcessPoolActiveOrderReleaseApplicationDO> {
 
+    default MesProcessPoolActiveOrderReleaseApplicationDO selectByRemarkForUpdate(String remark, Long tenantId) {
+        if (remark == null || remark.isBlank() || tenantId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getRemark, remark)
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getTenantId, tenantId)
+                .last("FOR UPDATE"));
+    }
+
     @Select("""
             SELECT *
             FROM mes_pro_process_pool_active_order_release_application

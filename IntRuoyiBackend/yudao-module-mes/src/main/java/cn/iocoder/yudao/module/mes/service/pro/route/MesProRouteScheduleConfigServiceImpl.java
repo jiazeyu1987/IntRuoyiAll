@@ -745,8 +745,12 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
                 if (config.getLong("routeProcessId") == null) {
                     config.put("routeProcessId", parseRouteProcessIdKey(entry.getKey(), routeVersion));
                 }
+                Long routeProcessId = config.getLong("routeProcessId");
+                if (!candidateRouteProcessIds.contains(routeProcessId)) {
+                    routeProcessId = resolveCurrentRouteProcessId(routeVersion, routeProcessId);
+                }
                 Long candidateRouteProcessId = requireCandidateRouteProcessId(
-                        routeVersion, candidateRouteProcessIds, config.getLong("routeProcessId"));
+                        routeVersion, candidateRouteProcessIds, routeProcessId);
                 config.put("routeProcessId", candidateRouteProcessId);
                 result.put(String.valueOf(candidateRouteProcessId), config);
             }
@@ -755,8 +759,12 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
         if (snapshot instanceof JSONArray configs) {
             for (Object value : configs) {
                 JSONObject config = toScheduleConfigJson(value, routeVersion);
+                Long routeProcessId = config.getLong("routeProcessId");
+                if (!candidateRouteProcessIds.contains(routeProcessId)) {
+                    routeProcessId = resolveCurrentRouteProcessId(routeVersion, routeProcessId);
+                }
                 Long candidateRouteProcessId = requireCandidateRouteProcessId(
-                        routeVersion, candidateRouteProcessIds, config.getLong("routeProcessId"));
+                        routeVersion, candidateRouteProcessIds, routeProcessId);
                 config.put("routeProcessId", candidateRouteProcessId);
                 result.put(String.valueOf(candidateRouteProcessId), config);
             }
