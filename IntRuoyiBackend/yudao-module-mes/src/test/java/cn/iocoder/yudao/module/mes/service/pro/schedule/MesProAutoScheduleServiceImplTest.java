@@ -2189,6 +2189,60 @@ class MesProAutoScheduleServiceImplTest {
     }
 
     @Test
+    void replanApply_shouldSkipEdhrBatchCreationAfterScheduleComplete() {
+        List<MesProTaskDO> storedTasks = new ArrayList<>();
+        lenient().when(materialStockMapper.selectListByItemIds(any())).thenReturn(List.of(stock));
+        lenient().when(workstationMapper.selectListByProcessIds(any(), any())).thenReturn(List.of(workstation));
+        lenient().when(productionLineService.getProductionLineMap(any())).thenReturn(Map.of(40L, productionLine));
+        lenient().when(planService.getPlanMap(any())).thenReturn(Map.of(50L, plan));
+        lenient().when(planShiftService.getPlanShiftListByPlanId(50L)).thenReturn(List.of(shift));
+        lenient().when(capacityPlanMapper.selectListByLineIdsAndDate(any(), any())).thenReturn(List.of(capacityPlan));
+        lenient().when(routeFlowConfigMapper.selectByRouteIdAndUseType(20L, "BATCH"))
+                .thenReturn(MesProRouteFlowConfigDO.builder()
+                        .id(91000L).routeId(20L).useType("BATCH").enabled(Boolean.TRUE).build());
+        lenient().when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(20L, "BATCH")).thenReturn(List.of(
+                MesProRouteFlowProcessConfigDO.builder()
+                        .id(91001L)
+                        .routeFlowConfigId(91000L)
+                        .routeId(20L)
+                        .routeProcessId(3L)
+                        .useType("BATCH")
+                        .enabled(Boolean.TRUE)
+                        .executionMode("SEQUENTIAL")
+                        .build()));
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByRouteProcessIdsAndUseType(List.of(3L), "BATCH"))
+                .thenReturn(List.of(MesProRouteFlowProcessBatchRecordDO.builder()
+                        .routeFlowProcessConfigId(91001L)
+                        .routeId(20L)
+                        .routeProcessId(3L)
+                        .useType("BATCH")
+                        .batchRecordReportId("REPORT-001")
+                        .reportSort(1)
+                        .build()));
+        lenient().when(taskMapper.selectListByWorkOrderIds(any())).thenAnswer(invocation -> new ArrayList<>(storedTasks));
+        lenient().when(autoCodeRecordService.generateAutoCode(anyString())).thenReturn("PT-001");
+        lenient().doAnswer(invocation -> {
+            MesProTaskDO task = invocation.getArgument(0);
+            task.setId(920L + storedTasks.size());
+            storedTasks.add(task);
+            return 1;
+        }).when(taskMapper).insert(any(MesProTaskDO.class));
+        lenient().when(edhrBatchExecutionService.getScheduleCompletionMissingItems(any())).thenReturn(List.of());
+        lenient().when(edhrBatchExecutionService.openOrCreateFromScheduleCompletion(any()))
+                .thenReturn(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO());
+
+        MesProAutoScheduleReplanReqVO reqVO = buildReplanReq();
+        MesProAutoScheduleReplanPreviewRespVO preview = autoScheduleService.replanPreview(reqVO);
+        reqVO.setCalendarContextToken(preview.getCalendarContextToken());
+
+        var response = autoScheduleService.replanApply(reqVO);
+
+        assertTrue(response.getApplied());
+        verify(edhrBatchExecutionService, never()).getScheduleCompletionMissingItems(any());
+        verify(edhrBatchExecutionService, never()).openOrCreateFromScheduleCompletion(any());
+    }
+
+    @Test
     void apply_shouldCreateTaskAndPersistShortageWarnings() {
         List<MesProTaskDO> storedTasks = new ArrayList<>();
         MesWmMaterialStockDO shortageStock = MesWmMaterialStockDO.builder()

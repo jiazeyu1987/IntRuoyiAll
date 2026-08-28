@@ -416,11 +416,13 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
         scheduleApplier.syncQuantityScheduled(applyWorkOrderIds);
         scheduleApplier.syncScheduleOrderPlanFields(buildScheduleOrderPlanFieldUpdates(computation));
-        List<ScheduleIssueDraft> edhrBatchCreationIssues = scheduleApplier
-                .createEdhrBatchExecutionsAfterScheduleCompletion(buildEdhrBatchExecutionCompletionCommands(computation));
-        if (CollUtil.isNotEmpty(edhrBatchCreationIssues)) {
-            computation.issues.addAll(edhrBatchCreationIssues);
-            scheduleApplier.insertIssues(edhrBatchCreationIssues);
+        if (!OPERATION_REPLAN_APPLY.equals(operationType)) {
+            List<ScheduleIssueDraft> edhrBatchCreationIssues = scheduleApplier
+                    .createEdhrBatchExecutionsAfterScheduleCompletion(buildEdhrBatchExecutionCompletionCommands(computation));
+            if (CollUtil.isNotEmpty(edhrBatchCreationIssues)) {
+                computation.issues.addAll(edhrBatchCreationIssues);
+                scheduleApplier.insertIssues(edhrBatchCreationIssues);
+            }
         }
 
         MesProAutoScheduleApplyRespVO respVO = new MesProAutoScheduleApplyRespVO();

@@ -301,6 +301,11 @@ async function run() {
       { timeout: 240000 }
     )
     await clickFirstVisible(dateDialog.getByRole('button', { name: /确认应用重排/ }), 'confirm apply replan button')
+    const systemPrompt = page.locator('.el-message-box:visible').filter({ hasText: '系统提示' }).last()
+    await systemPrompt.waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined)
+    if (await systemPrompt.isVisible().catch(() => false)) {
+      await clickFirstVisible(systemPrompt.getByRole('button', { name: /确定/ }), 'system prompt confirm button')
+    }
 
     for (let index = 0; index < 5; index += 1) {
       await page.waitForTimeout(1000)
