@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const path = require('node:path')
 const { chromium } = require('playwright')
 
 const config = {
@@ -7,7 +8,11 @@ const config = {
   tenant: process.env.FORM_TEMPLATE_EDIT_PARITY_E2E_TENANT || '芋道源码',
   username: process.env.FORM_TEMPLATE_EDIT_PARITY_E2E_USERNAME || 'admin',
   password: process.env.FORM_TEMPLATE_EDIT_PARITY_E2E_PASSWORD || 'admin123',
-  headed: process.env.FORM_TEMPLATE_EDIT_PARITY_E2E_HEADED === '1'
+  headed: process.env.FORM_TEMPLATE_EDIT_PARITY_E2E_HEADED === '1',
+  screenshotPath: path.resolve(
+    __dirname,
+    '../../../doc/tasks/20260828-form-template-edit-button-batch-record-designer/template-edit-current-workspace.png'
+  )
 }
 
 const executablePath =
@@ -92,18 +97,13 @@ async function findTemplateCandidate(page) {
   for (let pageNo = 1; pageNo <= 20; pageNo += 1) {
     const data = await apiGet(page, `/form-center/template-pool?pageNo=${pageNo}&pageSize=50`)
     const rows = Array.isArray(data?.list) ? data.list : []
-    const candidate = rows.find(
-      (row) =>
-        row.batchRecordReportId &&
-        row.status !== 'OBSOLETE' &&
-        row.status !== 'PENDING_APPROVAL'
-    )
+    const candidate = rows.find((row) => row.status !== 'OBSOLETE' && row.status !== 'PENDING_APPROVAL')
     if (candidate) {
       return { candidate, pageNo }
     }
     if (rows.length < 50) break
   }
-  throw new Error('模板列表中未找到可用的批记录绑定模板')
+  throw new Error('模板列表中未找到可用于模板编辑的模板')
 }
 
 async function selectTenant(page, form) {
@@ -204,63 +204,49 @@ async function openTemplateDesignerFromEdit(page) {
   logStep('template edit button visible')
   const navigationPromise = page.waitForURL(
     (url) =>
-      url.pathname === '/mes/pro/batch-record-form-list' &&
+      url.pathname === '/mdm/form-center/template' &&
       url.searchParams.get('mode') === 'designer' &&
-      url.searchParams.get('reportMode') === 'edit',
+      url.searchParams.get('templateMode') === 'edit',
     { timeout: 120000, waitUntil: 'commit' }
   )
   await editButton.click()
   logStep('template edit clicked')
   await navigationPromise
   logStep(`template designer url reached: ${page.url()}`)
-  await page.locator('iframe').first().waitFor({ state: 'visible', timeout: 120000 })
-  const iframeSrc = await page.locator('iframe').first().getAttribute('src')
-  assert.ok(iframeSrc && iframeSrc.includes('/jmreport/'), `模板“编辑”没有打开设计器 iframe: ${iframeSrc || ''}`)
+  await page.locator('.form-template-route-workspace').first().waitFor({ state: 'visible', timeout: 120000 })
+  await page.getByText('规则编辑模式：左侧只选单元格，右侧切换可填写/不可填写').first().waitFor({
+    state: 'visible',
+    timeout: 120000
+  })
+  const ruleCellButton = page
+    .locator(
+      '.form-template-route-workspace .batch-record-cell-rules-editor__cell.is-rule .batch-record-cell-rules-editor__cell-button'
+    )
+    .first()
+  await ruleCellButton.waitFor({ state: 'visible', timeout: 120000 })
+  logStep(`rule cell buttons found: ${await page.locator('.form-template-route-workspace .batch-record-cell-rules-editor__cell.is-rule .batch-record-cell-rules-editor__cell-button').count()}`)
+  await ruleCellButton.scrollIntoViewIfNeeded({ timeout: 30000 })
+  await ruleCellButton.click({ timeout: 30000 })
+  logStep('rule cell clicked')
+  await page.getByText('是否可填写', { exact: true }).first().waitFor({
+    state: 'visible',
+    timeout: 120000
+  })
+  await page.getByText('字段名称', { exact: true }).first().waitFor({
+    state: 'visible',
+    timeout: 120000
+  })
+  await page.getByText('字段类型', { exact: true }).first().waitFor({
+    state: 'visible',
+    timeout: 120000
+  })
+  await page.screenshot({ path: config.screenshotPath, fullPage: false })
   return {
     templateName: targetRow.templateName,
     versionNo: targetRow.versionNo,
-    reportId: targetRow.batchRecordReportId,
     url: page.url(),
-    iframeSrc
-  }
-}
-
-async function openBatchRecordDesignerFromEdit(page) {
-  logStep('open batch record list page')
-  await page.goto(`${config.baseUrl}/mes/pro/batch-record-form-list`, {
-    waitUntil: 'commit',
-    timeout: 120000
-  })
-  logStep('batch record list page committed')
-  await page.getByText('批记录表单', { exact: false }).first().waitFor({ state: 'visible', timeout: 120000 })
-  logStep('batch record title visible')
-  const row = page.locator('.el-table__body-wrapper tbody tr.el-table__row').first()
-  await row.waitFor({ state: 'visible', timeout: 120000 })
-  logStep('batch record first row visible')
-  await row.scrollIntoViewIfNeeded()
-  await row.click()
-  logStep('batch record row selected')
-
-  const editButton = page.locator('.batch-record-form-preview__actions').getByRole('button', { name: '编辑' }).first()
-  await editButton.waitFor({ state: 'visible', timeout: 120000 })
-  logStep('batch record edit button visible')
-  const navigationPromise = page.waitForURL(
-    (url) =>
-      url.pathname === '/mes/pro/batch-record-form-list' &&
-      url.searchParams.get('mode') === 'designer' &&
-      url.searchParams.get('reportMode') === 'edit',
-    { timeout: 120000, waitUntil: 'commit' }
-  )
-  await editButton.click()
-  logStep('batch record edit clicked')
-  await navigationPromise
-  logStep(`batch record designer url reached: ${page.url()}`)
-  await page.locator('iframe').first().waitFor({ state: 'visible', timeout: 120000 })
-  const iframeSrc = await page.locator('iframe').first().getAttribute('src')
-  assert.ok(iframeSrc && iframeSrc.includes('/jmreport/'), `批记录表单“编辑”没有打开设计器 iframe: ${iframeSrc || ''}`)
-  return {
-    url: page.url(),
-    iframeSrc
+    workspace: 'form-template',
+    screenshotPath: config.screenshotPath
   }
 }
 
@@ -294,28 +280,17 @@ async function main() {
   try {
     await login(page)
     const templateFlow = await openTemplateDesignerFromEdit(page)
-    const batchFlow = await openBatchRecordDesignerFromEdit(page)
 
     const templateRoute = normalizeDesignerUrl(templateFlow.url)
-    const batchRoute = normalizeDesignerUrl(batchFlow.url)
 
     assert.equal(
       templateRoute.pathname,
-      '/mes/pro/batch-record-form-list',
-      `表单模板“编辑”没有进入批记录表单设计器: ${templateFlow.url}`
+      '/mdm/form-center/template',
+      `表单模板“编辑”没有留在表单模板工作区: ${templateFlow.url}`
     )
-    assert.equal(batchRoute.pathname, '/mes/pro/batch-record-form-list', `批记录表单“编辑”路径异常: ${batchFlow.url}`)
     assert.equal(templateRoute.mode, 'designer', `表单模板“编辑”模式异常: ${templateFlow.url}`)
-    assert.equal(batchRoute.mode, 'designer', `批记录表单“编辑”模式异常: ${batchFlow.url}`)
-    assert.equal(templateRoute.reportMode, 'edit', `表单模板“编辑”reportMode 异常: ${templateFlow.url}`)
-    assert.equal(batchRoute.reportMode, 'edit', `批记录表单“编辑”reportMode 异常: ${batchFlow.url}`)
-    assert.ok(templateFlow.reportId, '模板绑定的正式批记录表单 ID 缺失')
-    assert.ok(templateRoute.reportId, '模板“编辑”后的 reportId 缺失')
-    assert.equal(
-      templateRoute.pathname,
-      batchRoute.pathname,
-      `两个“编辑”入口没有进入同一个模块: template=${templateFlow.url}, batch=${batchFlow.url}`
-    )
+    assert.equal(templateRoute.reportMode, null, `表单模板“编辑”不应携带 reportMode: ${templateFlow.url}`)
+    assert.equal(templateRoute.reportId, null, `表单模板“编辑”不应携带 reportId: ${templateFlow.url}`)
 
     console.log(
       JSON.stringify(
@@ -325,9 +300,9 @@ async function main() {
           username: config.username,
           templateName: templateFlow.templateName,
           templateVersionNo: templateFlow.versionNo,
-          reportId: templateRoute.reportId,
           templateEditUrl: templateFlow.url,
-          batchRecordEditUrl: batchFlow.url
+          workspace: templateFlow.workspace,
+          screenshotPath: templateFlow.screenshotPath
         },
         null,
         2

@@ -12,12 +12,28 @@ const templateApi = fs.readFileSync(
   'utf8'
 )
 
-const openSelectedTemplateBody =
-  templatePage.match(/const\s+openSelectedTemplate\s*=[\s\S]*?\n}\n/)?.[0] || ''
-const editSelectedTemplateBody =
-  templatePage.match(/const\s+editSelectedTemplate\s*=[\s\S]*?\n}\n/)?.[0] || ''
-const fillSelectedTemplateBody =
-  templatePage.match(/const\s+openSelectedTemplateFill\s*=[\s\S]*?\n}\n/)?.[0] || ''
+const extractConstFunction = (source, name) => {
+  const start = source.indexOf(`const ${name} =`)
+  assert.notEqual(start, -1, `missing function ${name}`)
+  const braceStart = source.indexOf('{', start)
+  assert.notEqual(braceStart, -1, `missing function body ${name}`)
+  let depth = 0
+  for (let index = braceStart; index < source.length; index += 1) {
+    const char = source[index]
+    if (char === '{') depth += 1
+    if (char === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return source.slice(start, index + 1)
+      }
+    }
+  }
+  throw new Error(`unterminated function ${name}`)
+}
+
+const openSelectedTemplateBody = extractConstFunction(templatePage, 'openSelectedTemplate')
+const editSelectedTemplateBody = extractConstFunction(templatePage, 'editSelectedTemplate')
+const fillSelectedTemplateBody = extractConstFunction(templatePage, 'openSelectedTemplateFill')
 
 assert.match(
   openSelectedTemplateBody,

@@ -531,13 +531,13 @@
 
 ## 表单模板三按钮领域边界门禁
 
-- Trigger: 表单中心模板预览区“打开/编辑/填写”、`openSelectedTemplate`、`openSelectedTemplateAction('edit')`、`openSelectedTemplateFill`、`TemplateViewDialog`，或错误“当前模板未绑定批记录表单”。
-- Preflight check: 先区分“交互模式对齐”和“数据领域关联”；表单模板与批记录表单没有直接关系。交互必须对齐批记录管理：`打开/编辑`通过当前 `/mdm/form-center/template` 路由 query 切换同页全宽工作区，`填写`跳转独立 `/mdm/form-center/template/simulate` 页面；三者只使用 `templateId + versionNo + jimuSchemaJson` 等当前模板上下文。
-- Blocker: 任一按钮仍打开 `TemplateViewDialog`、`form-template-rules-dialog`、`form-template-fill-dialog`，要求 `batchRecordBindingStatus`/`batchRecordReportId`，跳转 MES 批记录路由，或未绑定普通模板显示不可操作错误时必须停止。
+- Trigger: 表单中心模板预览区“打开/编辑/填写”、`openSelectedTemplate`、`editSelectedTemplate`、`openSelectedTemplateAction('edit')`、`openSelectedTemplateFill`、`TemplateViewDialog`，或用户要求“表单模板编辑与批记录表单右侧编辑一致”。
+- Preflight check: 先区分“交互模式对齐”和“数据领域关联”；表单模板与批记录表单没有直接关系。`打开` 通过当前 `/mdm/form-center/template` 路由 query 切换同页全宽只读工作区，`编辑` 仍停留在 `/mdm/form-center/template` 并以 `mode=designer&templateMode=edit` 打开当前模板自身规则编辑工作区，右侧可填写/不可填写、字段名称、字段类型等交互对齐批记录表单；`填写` 跳转独立 `/mdm/form-center/template/simulate` 页面。三者只使用 `templateId + versionNo + jimuSchemaJson` 等当前模板上下文，不得引入 `batchRecordReportId` 或批记录路由依赖。
+- Blocker: 任一按钮仍打开 `TemplateViewDialog`、`form-template-rules-dialog`、`form-template-fill-dialog`，`编辑` 跳到 `/mes/pro/batch-record-form-list`、丢失表单模板内容、进入空白 jimu 编辑页，或点击左侧规则单元格后右侧没有可填写/字段名称/字段类型等配置项时必须停止。
 - Component isolation: 独立模拟填写路由若复用列表页组件，必须通过显式组件属性标识模拟页面实例，不得只依赖全局 `route.name`；否则路由切换期间旧列表实例和新页面实例会同时响应 watcher，重复加载模板版本。
-- Verification: 至少运行 `node tests/e2e/form-template-button-interaction-parity-static.spec.js`、`node tests/e2e/form-template-independent-button-actions-static.spec.js`、`node tests/e2e/form-center-static.spec.js`，并从真实 `/mdm/form-center/template` 页面用 Playwright 点击三个按钮，确认 URL、工作区、无可见弹窗、无绑定错误和无写请求；请求审计必须证明三个动作各只请求一次 `GET /form-center/templates/{templateId}/versions/{versionNo}`，不得先查模板池或重复请求；`pnpm ts:check` 必须通过或记录明确阻塞。
-- Forbidden action: 禁止把 UI/交互相似解释为共享 `reportId`；禁止用三个弹窗冒充批记录式页面流转；禁止伪造绑定、名称匹配、条件 fallback、跨域路由或只隐藏错误提示而保留错误数据契约。
-- Evidence: 任务 `doc/tasks/20260727-form-template-button-alignment-design/`、`doc/tasks/20260727-form-template-button-interaction-parity/`；用户在 2026-07-27 明确澄清实际表单与批记录表单没有直接关系，并继续确认三个按钮的页面行为必须与批记录管理对齐。
+- Verification: 至少运行 `node tests/e2e/form-template-button-interaction-parity-static.spec.js`、`node tests/e2e/form-template-independent-button-actions-static.spec.js`、`node tests/e2e/form-template-edit-designer-parity-static.spec.js`、`node tests/e2e/form-center-static.spec.js`，并从真实 `/mdm/form-center/template` 页面用 Playwright 点击右侧“编辑”，确认 URL 保持在模板页、左侧显示当前模板内容、点击规则单元格后右侧出现编辑控件、无可见弹窗、无绑定错误和无模板编辑写请求；请求审计必须证明模板动作读取 `GET /form-center/templates/{templateId}/versions/{versionNo}`，不得用批记录接口代替；`pnpm ts:check` 必须通过或记录明确阻塞。
+- Forbidden action: 禁止把 UI/交互相似解释为共享 `reportId` 或跳到批记录模块；禁止用三个弹窗冒充批记录式页面流转；禁止伪造绑定、名称匹配、条件 fallback、跨域路由或只隐藏错误提示而保留错误数据契约。
+- Evidence: 任务 `doc/tasks/20260727-form-template-button-alignment-design/`、`doc/tasks/20260727-form-template-button-interaction-parity/`、`doc/tasks/20260828-form-template-edit-button-batch-record-designer/`；用户在 2026-07-27 明确澄清实际表单与批记录表单没有直接关系，并在 2026-08-28 继续确认“编辑按钮仍在表单模板页里，但右侧编辑逻辑要和批记录表单一致”。
 
 ## FormCenter 动态表单字段码渲染门禁
 
