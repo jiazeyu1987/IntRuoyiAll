@@ -11,7 +11,7 @@ const config = {
   headed: process.env.FORM_TEMPLATE_EDIT_PARITY_E2E_HEADED === '1',
   screenshotPath: path.resolve(
     __dirname,
-    '../../../doc/tasks/20260828-form-template-edit-stay-jimu/template-edit-jimu-editor.png'
+    '../../../doc/tasks/20260828-form-template-edit-button-batch-record-designer/template-edit-jimu-editor.png'
   )
 }
 
@@ -224,7 +224,6 @@ async function openTemplateDesignerFromEdit(page) {
   logStep('template edit clicked')
   await navigationPromise
   logStep(`template designer url reached: ${page.url()}`)
-  await page.getByText('表单模板 Jimu 编辑器', { exact: false }).first().waitFor({ state: 'visible', timeout: 120000 })
   const iframe = page.locator('iframe[src*="/jmreport/index/"]').first()
   await iframe.waitFor({ state: 'visible', timeout: 120000 })
   const iframeSrc = await iframe.getAttribute('src')

@@ -5623,20 +5623,20 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     @Test
     void formalizeCellRules_createsSignatureMarkerForReviewedSignatureRules() throws Exception {
         MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
-                50L, "sample-formalize-stale-signature-rule", 1, "formalize-stale-signature-rule-report-1",
+                50L, "sample-formalize-stale-signature-rule", 1, "formalize-stale-sig-rule-rpt1",
                 "EBR_RULE_T07", "旧签名规则正式化表", PILOT_FILE_NAME);
         reportMapper.insert(report);
         AtomicReference<String> reportJson = new AtomicReference<>(sampleFormalizeStaleSignatureRuleReportJson());
-        when(jimuReportGateway.getReportJson("formalize-stale-signature-rule-report-1"))
+        when(jimuReportGateway.getReportJson("formalize-stale-sig-rule-rpt1"))
                 .thenAnswer(invocation -> reportJson.get());
         org.mockito.Mockito.doAnswer(invocation -> {
             reportJson.set(invocation.getArgument(1));
             return null;
-        }).when(jimuReportGateway).updateReportJson(eq("formalize-stale-signature-rule-report-1"), any());
+        }).when(jimuReportGateway).updateReportJson(eq("formalize-stale-sig-rule-rpt1"), any());
 
         Method formalizeMethod = MesProBatchRecordReportService.class.getMethod("formalizeCellRules", String.class);
         BatchRecordReportCellRulesRespVO saved = (BatchRecordReportCellRulesRespVO)
-                formalizeMethod.invoke(reportService, "formalize-stale-signature-rule-report-1");
+                formalizeMethod.invoke(reportService, "formalize-stale-sig-rule-rpt1");
 
         assertEquals(1, saved.getRules().size());
         assertEquals("SIGNATURE", saved.getRules().get(0).getValueType());
