@@ -107,6 +107,8 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 "create temporary table tmp_dcc_reg_cert_expected_column",
                 "create temporary table tmp_dcc_reg_cert_expected_generation",
                 "create temporary table tmp_dcc_reg_cert_expected_check",
+                "legacy registrant_name not null drift",
+                "modify column `registrant_name` varchar(255) default null comment 'registrant name snapshot'",
                 "default charset=utf8mb4 collate=utf8mb4_unicode_ci",
                 "dcc registration certificate core exact check expression mismatch",
                 "dcc registration certificate core exact generated expression mismatch",

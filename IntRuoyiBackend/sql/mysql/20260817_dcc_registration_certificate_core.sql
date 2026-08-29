@@ -26,6 +26,20 @@ BEGIN
   END IF;
 
   IF present_table_count = 6 THEN
+    IF EXISTS (
+      SELECT 1
+        FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'dcc_registration_certificate_snapshot'
+         AND COLUMN_NAME = 'registrant_name'
+         AND LOWER(COLUMN_TYPE) = 'varchar(255)'
+         AND IS_NULLABLE = 'NO'
+    ) THEN
+      -- Normalize legacy registrant_name NOT NULL drift before strict column assertions.
+      ALTER TABLE `dcc_registration_certificate_snapshot`
+        MODIFY COLUMN `registrant_name` varchar(255) DEFAULT NULL COMMENT 'Registrant name snapshot';
+    END IF;
+
     DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_expected_column;
     CREATE TEMPORARY TABLE tmp_dcc_reg_cert_expected_column (
       table_name varchar(128) NOT NULL,

@@ -719,25 +719,25 @@ DELETE FROM dcc_registration_certificate_audit
         -Label 'incompatible six-table baseline migration')
     [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'break ordinary column contract' -Sql @'
 ALTER TABLE dcc_registration_certificate_snapshot
-  MODIFY COLUMN registrant_name bigint NOT NULL;
+  MODIFY COLUMN registrant_name bigint NULL;
 '@)
     Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
         -Label 'incompatible six-table ordinary column type' `
         -ExpectedMessage 'DCC registration certificate core column contract mismatch'
     [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'restore ordinary column contract' -Sql @'
 ALTER TABLE dcc_registration_certificate_snapshot
-  MODIFY COLUMN registrant_name varchar(255) NOT NULL COMMENT 'Registrant name snapshot';
+  MODIFY COLUMN registrant_name varchar(255) NULL COMMENT 'Registrant name snapshot';
 '@)
     [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'break ordinary column nullability' -Sql @'
 ALTER TABLE dcc_registration_certificate_snapshot
-  MODIFY COLUMN registrant_name varchar(255) NULL;
+  MODIFY COLUMN product_name varchar(255) NULL COMMENT 'Product name snapshot';
 '@)
     Assert-SqlFails -Schema $incompatibleSchema -Sql $migrationSql `
         -Label 'incompatible six-table ordinary column nullability' `
         -ExpectedMessage 'DCC registration certificate core column contract mismatch'
     [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'restore ordinary column nullability' -Sql @'
 ALTER TABLE dcc_registration_certificate_snapshot
-  MODIFY COLUMN registrant_name varchar(255) NOT NULL COMMENT 'Registrant name snapshot';
+  MODIFY COLUMN product_name varchar(255) NOT NULL COMMENT 'Product name snapshot';
 '@)
     [void](Invoke-SqlSuccess -Schema $incompatibleSchema -Label 'weaken generated expression with tautology' -Sql @'
 ALTER TABLE dcc_registration_certificate_version
