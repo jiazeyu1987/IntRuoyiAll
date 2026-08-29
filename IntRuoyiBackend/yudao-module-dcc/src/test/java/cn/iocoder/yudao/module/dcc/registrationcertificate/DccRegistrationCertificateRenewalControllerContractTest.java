@@ -65,17 +65,21 @@ class DccRegistrationCertificateRenewalControllerContractTest {
     }
 
     @Test
-    void renewalUploadRequestOnlyContainsDatesCurrentVersionAndFile() throws Exception {
+    void renewalUploadRequestContainsDatesCurrentVersionFileAndOptionalCategoryChange() throws Exception {
         Set<String> fields = Arrays.stream(DccRegistrationCertificateRenewalUploadReqVO.class.getDeclaredFields())
                 .map(Field::getName)
                 .collect(Collectors.toSet());
         assertEquals(Set.of("expectedRowVersion", "currentVersionId",
-                "approvalDate", "effectiveDate", "expiryDate", "file"), fields);
+                "approvalDate", "effectiveDate", "expiryDate",
+                "categoryChanged", "certificateNo", "classification", "file"), fields);
         assertField("expectedRowVersion", Integer.class, true, true);
         assertField("currentVersionId", Long.class, true, true);
         assertField("approvalDate", LocalDate.class, true, false);
         assertField("effectiveDate", LocalDate.class, true, false);
         assertField("expiryDate", LocalDate.class, true, false);
+        assertField("categoryChanged", Boolean.class, true, false);
+        assertField("certificateNo", String.class, false, false);
+        assertField("classification", String.class, false, false);
         assertField("file", MultipartFile.class, true, false);
     }
 

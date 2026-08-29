@@ -13,10 +13,10 @@
       class="registration-certificate-upload-dialog__form"
       :model="form"
       :rules="rules"
-      label-width="110px"
+      label-width="124px"
       data-testid="registration-certificate-upload-form"
     >
-      <el-row :gutter="16">
+      <el-row :gutter="24">
         <el-col :span="12">
           <el-form-item label="DCC项目代码" prop="projectCodeId">
             <el-select
@@ -41,21 +41,33 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="公司名称" prop="companyName">
-            <el-input
+            <el-select
               v-model="form.companyName"
+              clearable
+              filterable
+              remote
+              reserve-keyword
+              :remote-method="searchOwnerCompanies"
+              :loading="ownerCompanyLoading"
+              placeholder="请选择公司名称"
+              data-testid="registration-certificate-upload-owner-company"
+            >
+              <el-option
+                v-for="item in ownerCompanyOptions"
+                :key="item.id"
+                :label="formatOwnerCompanyOption(item)"
+                :value="item.name"
+              />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="产品名称" prop="productName">
+            <el-input
+              v-model="form.productName"
               maxlength="255"
-              placeholder="请输入公司名称"
+              placeholder="请输入产品名称"
             />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="项目代码">
-            <el-input v-model="form.projectCode" placeholder="选择DCC项目代码后自动带出" readonly />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="产品名称">
-            <el-input v-model="form.productName" placeholder="选择DCC项目代码后自动带出" readonly />
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -112,6 +124,57 @@
             />
           </el-form-item>
         </el-col>
+        <el-col :span="12">
+          <el-form-item label="是否委托生产" prop="entrustedProduction">
+            <el-select
+              v-model="form.entrustedProduction"
+              clearable
+              placeholder="请选择是否委托生产"
+              data-testid="registration-certificate-upload-entrusted-production"
+              @change="handleEntrustedProductionChange"
+            >
+              <el-option label="是" :value="true" />
+              <el-option label="否" :value="false" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="是否自行生产" prop="selfProduction">
+            <el-select
+              v-model="form.selfProduction"
+              clearable
+              placeholder="请选择是否自行生产"
+              data-testid="registration-certificate-upload-self-production"
+              @change="handleSelfProductionChange"
+            >
+              <el-option label="是" :value="true" />
+              <el-option label="否" :value="false" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col v-if="form.entrustedProduction === true" :span="24">
+          <el-form-item label="受托企业" prop="entrustedEnterpriseIds">
+            <el-select
+              v-model="form.entrustedEnterpriseIds"
+              multiple
+              clearable
+              filterable
+              remote
+              reserve-keyword
+              :remote-method="searchEntrustedEnterprises"
+              :loading="entrustedEnterpriseLoading"
+              placeholder="受托企业：请选择已启用的受托企业"
+              data-testid="registration-certificate-upload-entrusted-enterprises"
+            >
+              <el-option
+                v-for="item in entrustedEnterpriseOptions"
+                :key="item.id"
+                :label="formatEntrustedEnterpriseOption(item)"
+                :value="item.id"
+              />
+            </el-select>
+          </el-form-item>
+        </el-col>
         <el-col :span="24">
           <el-form-item label="备注" prop="remark">
             <el-input
@@ -153,7 +216,11 @@
 
 <script setup lang="ts">
 import {
+  getUploadEntrustedEnterprises,
+  getUploadOwnerCompanies,
   submitRegistrationCertificateUpload,
+  type DccRegistrationCertificateUploadCompanyRespVO,
+  type DccRegistrationCertificateUploadEntrustedEnterpriseRespVO,
   type DccRegistrationCertificateUploadSubmitReqVO
 } from '@/api/dcc/registrationCertificate'
 import {
@@ -183,29 +250,37 @@ const formRef = ref<FormInstance>()
 const saving = ref(false)
 const projectCodeLoading = ref(false)
 const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
+const ownerCompanyLoading = ref(false)
+const ownerCompanyOptions = ref<DccRegistrationCertificateUploadCompanyRespVO[]>([])
+const entrustedEnterpriseLoading = ref(false)
+const entrustedEnterpriseOptions = ref<DccRegistrationCertificateUploadEntrustedEnterpriseRespVO[]>([])
 const fileList = ref<UploadUserFile[]>([])
 const selectedFile = ref<File | null>(null)
 
 type RegistrationCertificateUploadForm = Omit<
   DccRegistrationCertificateUploadSubmitReqVO,
-  'projectCodeId' | 'remark'
+  'projectCodeId' | 'entrustedProduction' | 'selfProduction' | 'entrustedEnterpriseIds' | 'remark'
 > & {
   projectCodeId?: number | string
-  projectCode: string
   productName: string
+  entrustedProduction?: boolean
+  selfProduction?: boolean
+  entrustedEnterpriseIds: Array<number | string>
   remark: string
 }
 
 const form = reactive<RegistrationCertificateUploadForm>({
   projectCodeId: undefined,
   companyName: '',
-  projectCode: '',
   productName: '',
   certificateNo: '',
   firstObtainedDate: '',
   effectiveDate: '',
   expiryDate: '',
   classification: '',
+  entrustedProduction: undefined,
+  selfProduction: undefined,
+  entrustedEnterpriseIds: [],
   remark: ''
 })
 
@@ -214,27 +289,64 @@ const dialogVisible = computed({
   set: (value: boolean) => emit('update:modelValue', value)
 })
 
+function validateProductionRelation(
+  _rule: unknown,
+  _value: unknown,
+  callback: (error?: Error) => void
+) {
+  if (form.entrustedProduction === false && form.selfProduction === false) {
+    callback(new Error('是否委托生产和是否自行生产不能同时为否'))
+    return
+  }
+  callback()
+}
+
+function validateEntrustedEnterpriseIds(
+  _rule: unknown,
+  _value: unknown,
+  callback: (error?: Error) => void
+) {
+  if (form.entrustedProduction === true && form.entrustedEnterpriseIds.length === 0) {
+    callback(new Error('请选择受托企业'))
+    return
+  }
+  callback()
+}
+
 const rules = reactive<FormRules>({
-  projectCodeId: [{ required: true, message: '请选择DCC项目代码', trigger: 'change' }],
-  companyName: [{ required: true, message: '请输入公司名称', trigger: 'blur' }],
+  companyName: [{ required: true, message: '请选择公司名称', trigger: 'change' }],
+  productName: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
   certificateNo: [{ required: true, message: '请输入注册证号', trigger: 'blur' }],
   firstObtainedDate: [{ required: true, message: '请选择首次获证日期', trigger: 'change' }],
   effectiveDate: [{ required: true, message: '请选择生效日期', trigger: 'change' }],
   expiryDate: [{ required: true, message: '请选择有效期至', trigger: 'change' }],
-  classification: [{ required: true, message: '请输入类别', trigger: 'blur' }]
+  classification: [{ required: true, message: '请输入类别', trigger: 'blur' }],
+  entrustedProduction: [
+    { required: true, message: '请选择是否委托生产', trigger: 'change' },
+    { validator: validateProductionRelation, trigger: 'change' }
+  ],
+  selfProduction: [
+    { required: true, message: '请选择是否自行生产', trigger: 'change' },
+    { validator: validateProductionRelation, trigger: 'change' }
+  ],
+  entrustedEnterpriseIds: [{ validator: validateEntrustedEnterpriseIds, trigger: 'change' }]
 })
 
 const resetForm = () => {
   form.projectCodeId = undefined
   form.companyName = ''
-  form.projectCode = ''
   form.productName = ''
   form.certificateNo = ''
   form.firstObtainedDate = ''
   form.effectiveDate = ''
   form.expiryDate = ''
   form.classification = ''
+  form.entrustedProduction = undefined
+  form.selfProduction = undefined
+  form.entrustedEnterpriseIds = []
   form.remark = ''
+  ownerCompanyOptions.value = []
+  entrustedEnterpriseOptions.value = []
   fileList.value = []
   selectedFile.value = null
   formRef.value?.clearValidate()
@@ -251,8 +363,7 @@ const loadProjectCodes = async (keyword = '') => {
       pageNo: 1,
       pageSize: 20,
       keyword: keyword.trim() || undefined,
-      status: DCC_PROJECT_CODE_STATUS_ENABLE,
-      requireDccProductCode: true
+      status: DCC_PROJECT_CODE_STATUS_ENABLE
     })
     projectCodeOptions.value = page.list || []
   } finally {
@@ -264,33 +375,89 @@ const searchProjectCodes = async (keyword: string) => {
   await loadProjectCodes(keyword)
 }
 
+const loadOwnerCompanies = async (keyword = '') => {
+  ownerCompanyLoading.value = true
+  try {
+    ownerCompanyOptions.value = await getUploadOwnerCompanies({
+      keyword: keyword.trim() || undefined
+    })
+  } finally {
+    ownerCompanyLoading.value = false
+  }
+}
+
+const searchOwnerCompanies = async (keyword: string) => {
+  await loadOwnerCompanies(keyword)
+}
+
+const loadEntrustedEnterprises = async (keyword = '') => {
+  entrustedEnterpriseLoading.value = true
+  try {
+    entrustedEnterpriseOptions.value = await getUploadEntrustedEnterprises({
+      keyword: keyword.trim() || undefined
+    })
+  } finally {
+    entrustedEnterpriseLoading.value = false
+  }
+}
+
+const searchEntrustedEnterprises = async (keyword: string) => {
+  await loadEntrustedEnterprises(keyword)
+}
+
 const formatProjectCodeOption = (item: DccProjectCodeRespVO) => {
   const parts = [item.projectCode, item.projectName].filter(Boolean)
   return parts.join(' - ')
 }
 
+const formatEntrustedEnterpriseOption = (
+  item: DccRegistrationCertificateUploadEntrustedEnterpriseRespVO
+) => {
+  const parts = [item.name, item.enterpriseCode].filter(Boolean)
+  return parts.join(' - ')
+}
+
+const formatOwnerCompanyOption = (item: DccRegistrationCertificateUploadCompanyRespVO) => {
+  const parts = [item.name, item.enterpriseCode].filter(Boolean)
+  return parts.join(' - ')
+}
+
 const applyProjectCode = async (projectCodeId?: number | string) => {
   if (!projectCodeId) {
-    form.projectCode = ''
-    form.productName = ''
     return
   }
   let projectCode = projectCodeOptions.value.find((item) => item.id === projectCodeId)
   if (!projectCode) {
     projectCode = await getProjectCode(projectCodeId)
   }
-  form.projectCode = projectCode.projectCode || ''
   if (projectCode.productMasterId) {
     const product = await getProduct(projectCode.productMasterId)
     form.productName = product.nameCn || ''
-  } else {
-    form.productName = ''
   }
 }
 
 const handleProjectCodeChange = async (projectCodeId: number | string | undefined) => {
   form.projectCodeId = projectCodeId
   await applyProjectCode(projectCodeId)
+}
+
+const revalidateProductionFields = () => {
+  void formRef.value
+    ?.validateField(['entrustedProduction', 'selfProduction', 'entrustedEnterpriseIds'])
+    .catch(() => undefined)
+}
+
+const handleEntrustedProductionChange = async () => {
+  if (form.entrustedProduction !== true) {
+    form.entrustedEnterpriseIds = []
+  } else if (entrustedEnterpriseOptions.value.length === 0) {
+    await loadEntrustedEnterprises('')
+  }
+  revalidateProductionFields()
+}
+
+const handleSelfProductionChange = () => {
+  revalidateProductionFields()
 }
 
 const handleFileChange = (uploadFile: UploadFile, uploadFiles: UploadFiles) => {
@@ -309,18 +476,20 @@ const submit = async () => {
     message.error('请先选择注册证文件')
     return
   }
-  if (!form.projectCodeId) {
-    message.error('请选择DCC项目代码')
-    return
-  }
   const payload = new FormData()
   payload.append('companyName', form.companyName.trim())
-  payload.append('projectCodeId', String(form.projectCodeId))
+  payload.append('productName', form.productName.trim())
+  if (form.projectCodeId) {
+    payload.append('projectCodeId', String(form.projectCodeId))
+  }
   payload.append('certificateNo', form.certificateNo.trim())
   payload.append('firstObtainedDate', form.firstObtainedDate)
   payload.append('effectiveDate', form.effectiveDate)
   payload.append('expiryDate', form.expiryDate)
   payload.append('classification', form.classification.trim())
+  payload.append('entrustedProduction', String(form.entrustedProduction))
+  payload.append('selfProduction', String(form.selfProduction))
+  form.entrustedEnterpriseIds.forEach((enterpriseId) => payload.append('entrustedEnterpriseIds', String(enterpriseId)))
   payload.append('remark', form.remark.trim())
   payload.append('file', selectedFile.value)
   saving.value = true
@@ -346,9 +515,13 @@ watch(
     if (!visible) {
       return
     }
+    await loadOwnerCompanies('')
     await loadProjectCodes('')
     if (form.projectCodeId) {
       await applyProjectCode(form.projectCodeId)
+    }
+    if (form.entrustedProduction === true) {
+      await loadEntrustedEnterprises('')
     }
   }
 )
@@ -363,7 +536,7 @@ watch(
   .el-dialog__body {
     max-height: calc(100vh - 180px);
     overflow-y: auto;
-    padding: 20px 24px !important;
+    padding: 24px 32px !important;
   }
 
   .el-dialog__footer {
@@ -371,17 +544,22 @@ watch(
   }
 
   .registration-certificate-upload-dialog__form {
+    .el-row {
+      row-gap: 4px;
+    }
+
     .el-form-item {
-      margin-bottom: 18px;
+      margin-bottom: 20px;
     }
 
     .el-form-item__label {
       height: auto;
-      padding: 0;
-      margin-bottom: 8px;
+      padding-right: 12px;
+      margin-bottom: 0;
       color: #263247;
       font-weight: 600;
-      line-height: 20px;
+      line-height: 32px;
+      white-space: nowrap;
     }
 
     .el-input,
@@ -393,6 +571,32 @@ watch(
 
     .el-textarea__inner {
       resize: vertical;
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .registration-certificate-upload-dialog {
+    .el-dialog__body {
+      padding: 20px 16px !important;
+    }
+
+    .registration-certificate-upload-dialog__form {
+      .el-form-item {
+        display: block;
+      }
+
+      .el-form-item__label {
+        width: 100% !important;
+        justify-content: flex-start;
+        padding-right: 0;
+        margin-bottom: 8px;
+        line-height: 20px;
+      }
+
+      .el-form-item__content {
+        margin-left: 0 !important;
+      }
     }
   }
 }

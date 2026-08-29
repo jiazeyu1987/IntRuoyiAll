@@ -18,6 +18,12 @@ public class MdmEnterpriseApiImpl implements MdmEnterpriseApi {
     private MdmEnterpriseService enterpriseService;
 
     @Override
+    public List<MdmEnterpriseRespDTO> listEnabledEnterprises(Collection<String> allowedTypes, String keyword, int limit) {
+        return BeanUtils.toBean(enterpriseService.listEnabledEnterprises(allowedTypes, keyword, limit),
+                MdmEnterpriseRespDTO.class);
+    }
+
+    @Override
     public List<MdmEnterpriseRespDTO> getEnabledEnterprises(Collection<Long> enterpriseIds,
                                                              Collection<String> allowedTypes) {
         return BeanUtils.toBean(enterpriseService.getEnabledEnterprises(enterpriseIds, allowedTypes),

@@ -53,6 +53,16 @@ assert.match(
   '表单模板列表类型必须接收后端返回的模板虚拟 Jimu 报表 ID'
 )
 assert.match(
+  templateApi,
+  /getTemplateDesignerPath\s*=\s*\([\s\S]*?\/form-center\/templates\/\$\{templateId\}\/versions\/\$\{versionNo\}\/designer-path/,
+  '表单模板“打开”必须调用表单中心自己的 Jimu 预览路径接口'
+)
+assert.match(
+  templateApi,
+  /getTemplateEditPath\s*=\s*\([\s\S]*?\/form-center\/templates\/\$\{templateId\}\/versions\/\$\{versionNo\}\/edit-path/,
+  '表单模板“编辑”必须调用表单中心自己的 Jimu 编辑路径接口'
+)
+assert.match(
   sharedDesignerWrapper,
   /reportMode\s*=\s*computed<'preview'\s*\|\s*'edit'>/,
   '批记录表单共享 DesignerWrapper 必须继续使用 reportMode 区分打开和编辑'
@@ -99,17 +109,27 @@ assert.match(
 )
 assert.match(
   formTemplateDesignerWrapper,
-  /BatchRecordReportApi\.getEditPath\(reportId\)/,
-  '表单模板 Jimu 壳必须像批记录表单一样通过 edit path 进入 Jimu 编辑器'
+  /TemplateApi\.getTemplateEditPath\(templateId,\s*versionNo\)/,
+  '表单模板 Jimu 壳必须通过表单中心 edit path 进入 Jimu 编辑器'
 )
 assert.match(
   formTemplateDesignerWrapper,
-  /ensureFormTemplateReportId\(reportId\)/,
-  '表单模板 Jimu 壳必须拦截非表单模板报表 ID，避免进入批记录表单模块'
+  /TemplateApi\.getTemplateDesignerPath\(templateId,\s*versionNo\)/,
+  '表单模板 Jimu 壳必须通过表单中心 designer path 进入 Jimu 预览'
+)
+assert.doesNotMatch(
+  formTemplateDesignerWrapper,
+  /BatchRecordReportApi|@\/api\/mes\/pro\/batchrecordreport|\/mes\/pro\/batch-record-report/,
+  '表单模板 Jimu 壳不得再调用批记录表单模块接口'
+)
+assert.match(
+  formTemplateDesignerWrapper,
+  /resolveTemplateRouteIdentity\(\)/,
+  '表单模板 Jimu 壳必须按 templateId + versionNo 加载当前模板'
 )
 assert.match(
   previewActions,
-  /data-form-template-action="edit"[\s\S]*?@click="editSelectedTemplate"[\s\S]*?>\s*编辑\s*</,
+  /data-form-template-action="edit"[\s\S]*?v-hasPermi="\['form:template:update'\]"[\s\S]*?@click="editSelectedTemplate"[\s\S]*?>\s*编辑\s*</,
   '表单模板右侧“编辑”必须绑定稳定的当前模板编辑入口'
 )
 assert.match(
@@ -119,7 +139,7 @@ assert.match(
 )
 assert.match(
   openSelectedTemplateWorkspaceBody,
-  /openDesigner\(selectedTemplate\.value,\s*reportMode\)/,
+  /openDesigner\(targetTemplate,\s*reportMode\)/,
   '表单模板打开和编辑必须共用同一个路由切换函数'
 )
 assert.match(

@@ -71,6 +71,15 @@ export interface FormTemplateFillRuleAutoDetectRespVO {
   candidates: FormTemplateFillRuleCandidateVO[]
 }
 
+export interface FormTemplateEditableDraftRespVO {
+  templateId: number
+  templateName: string
+  sourceVersionNo: string
+  versionNo: string
+  targetStatus: FormTemplateStatus
+  draftCreated: boolean
+}
+
 export interface FormTemplateImportRespVO {
   templateId: number
   versionNo: string
@@ -119,6 +128,24 @@ export const getTemplatePool = (params: FormTemplatePoolPageReqVO) => {
 export const getTemplateVersion = (templateId: number, versionNo: string) => {
   return request.get<FormTemplateListItemVO>({
     url: `/form-center/templates/${templateId}/versions/${versionNo}`
+  })
+}
+
+export const getTemplateDesignerPath = (templateId: number, versionNo: string) => {
+  return request.get<{ path: string }>({
+    url: `/form-center/templates/${templateId}/versions/${versionNo}/designer-path`
+  })
+}
+
+export const getTemplateEditPath = (templateId: number, versionNo: string) => {
+  return request.get<{ path: string }>({
+    url: `/form-center/templates/${templateId}/versions/${versionNo}/edit-path`
+  })
+}
+
+export const ensureTemplateEditableDraft = (templateId: number, versionNo: string) => {
+  return request.post<FormTemplateEditableDraftRespVO>({
+    url: `/form-center/templates/${templateId}/versions/${versionNo}/editable-draft`
   })
 }
 

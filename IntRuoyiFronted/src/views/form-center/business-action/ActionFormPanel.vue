@@ -269,6 +269,9 @@ const normalizeRecognizedFieldType = (fieldType?: string) =>
     .trim()
     .toLowerCase()
 
+const compactRecognizedFieldType = (fieldType?: string) =>
+  normalizeRecognizedFieldType(fieldType).replace(/[\s_-]+/g, '')
+
 const isSignatureRecognizedFieldType = (normalized: string) =>
   normalized === 'signature' ||
   normalized === 'sign' ||
@@ -276,28 +279,48 @@ const isSignatureRecognizedFieldType = (normalized: string) =>
   normalized === 'electronic-sign' ||
   normalized === 'e-signature' ||
   normalized === 'e-sign' ||
-  normalized.includes('signature')
+  normalized.includes('signature') ||
+  normalized.includes('签名') ||
+  normalized.includes('签字') ||
+  compactRecognizedFieldType(normalized).includes('electronicsignature')
 
 const fieldValueType = (fieldType?: string): BatchRecordReportCellValueType => {
   const normalized = normalizeRecognizedFieldType(fieldType)
-  if (normalized === 'number' || normalized === 'input-number') return 'NUMBER'
-  if (normalized === 'date') return 'DATE'
-  if (normalized === 'datetime' || normalized === 'date-time') return 'DATETIME'
-  if (normalized === 'checkbox') return 'BOOLEAN'
+  const compact = compactRecognizedFieldType(fieldType)
+  if (
+    normalized === 'number' ||
+    normalized === 'input-number' ||
+    compact === 'inputnumber' ||
+    normalized.includes('数字')
+  ) return 'NUMBER'
+  if (
+    normalized === 'datetime' ||
+    normalized === 'date-time' ||
+    compact === 'datetime' ||
+    normalized.includes('日期时间')
+  ) return 'DATETIME'
+  if (normalized === 'date' || normalized.includes('日期')) return 'DATE'
+  if (normalized.includes('时间')) return 'DATETIME'
+  if (normalized === 'checkbox' || compact === 'checkbox') return 'BOOLEAN'
   if (isSignatureRecognizedFieldType(normalized)) return 'SIGNATURE'
   return 'STRING'
 }
 
 const fieldComponentFlag = (fieldType?: string) => {
   const normalized = normalizeRecognizedFieldType(fieldType)
+  const compact = compactRecognizedFieldType(fieldType)
   switch (normalized) {
     case 'number':
     case 'input-number':
+    case '数字':
       return 'input-number'
     case 'date':
+    case '日期':
       return 'date'
     case 'datetime':
     case 'date-time':
+    case '时间':
+    case '日期时间':
       return 'datetime'
     case 'checkbox':
       return 'checkbox'
@@ -305,9 +328,15 @@ const fieldComponentFlag = (fieldType?: string) => {
     case 'radio-group':
     case 'option-group':
     case 'single-choice':
+    case 'radiogroup':
+    case 'optiongroup':
+    case 'singlechoice':
+    case '单选':
       return 'radio-group'
     case 'select':
     case 'dropdown':
+    case '下拉':
+    case '选择':
       return 'select'
     case 'textarea':
       return 'textarea'
@@ -315,15 +344,27 @@ const fieldComponentFlag = (fieldType?: string) => {
     case 'upload-image':
     case 'upload-images':
       return normalized
+    case '电子签名':
+    case '签名':
+    case '签字':
+      return 'signature'
     default:
       if (isSignatureRecognizedFieldType(normalized)) return 'signature'
       if (
         normalized.includes('radio') ||
         normalized.includes('single-choice') ||
         normalized.includes('singlechoice') ||
+        normalized.includes('option-group') ||
+        normalized.includes('optiongroup') ||
         normalized.includes('checkbox-group') ||
-        normalized.includes('checkboxgroup')
+        normalized.includes('checkboxgroup') ||
+        normalized.includes('单选') ||
+        compact.includes('radiogroup') ||
+        compact.includes('optiongroup') ||
+        compact.includes('singlechoice')
       ) return 'radio-group'
+      if (normalized.includes('附件') || normalized.includes('文件')) return 'upload-file'
+      if (normalized.includes('图片')) return 'upload-image'
       return 'input-text'
   }
 }

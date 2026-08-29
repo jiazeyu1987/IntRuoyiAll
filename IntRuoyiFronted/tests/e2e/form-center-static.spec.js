@@ -280,8 +280,14 @@ const templateDesignerWrapper = assertFile(
 )
 assertIncludes(templateDesignerWrapper, "name: 'FormCenterTemplateDesignerWrapper'")
 assertIncludes(templateDesignerWrapper, "route.query.reportMode")
-assertIncludes(templateDesignerWrapper, 'ensureFormTemplateReportId(reportId)')
-assertIncludes(templateDesignerWrapper, 'BatchRecordReportApi.getEditPath(reportId)')
+assertIncludes(templateDesignerWrapper, 'resolveTemplateRouteIdentity()')
+assertIncludes(templateDesignerWrapper, 'TemplateApi.getTemplateEditPath(templateId, versionNo)')
+assertIncludes(templateDesignerWrapper, 'TemplateApi.getTemplateDesignerPath(templateId, versionNo)')
+assertNotIncludes(
+  templateDesignerWrapper,
+  'BatchRecordReportApi',
+  '表单模板 Jimu 壳不得再调用批记录表单模块接口'
+)
 const templateFillConfigDialog = assertFile(
   'src/views/form-center/template/components/FormTemplateFillConfigDialog.vue'
 )

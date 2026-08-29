@@ -2175,11 +2175,38 @@ const readSnapshotNestedString = (
   valueKey: string
 ) => readSnapshotString(readSnapshotRecord(field[sourceKey])?.[valueKey])
 
+const readSnapshotNestedRecord = (
+  field: ProFeedbackEdhrSnapshotFieldVO,
+  sourceKey: 'edhrCellRule' | 'fillForm',
+  valueKey: string
+) => readSnapshotRecord(readSnapshotRecord(field[sourceKey])?.[valueKey])
+
+const resolveSnapshotFieldConstraints = (field: ProFeedbackEdhrSnapshotFieldVO) => ({
+  ...(readSnapshotNestedRecord(field, 'fillForm', 'constraints') || {}),
+  ...(readSnapshotNestedRecord(field, 'edhrCellRule', 'constraints') || {}),
+  ...(readSnapshotRecord(field.constraints) || {})
+})
+
+const resolveSnapshotValueTypeText = (field: ProFeedbackEdhrSnapshotFieldVO) =>
+  [
+    field.valueType,
+    readSnapshotNestedString(field, 'edhrCellRule', 'valueType'),
+    readSnapshotNestedString(field, 'fillForm', 'valueType'),
+    field.dataType,
+    field.type
+  ]
+    .map(readSnapshotString)
+    .find(Boolean)
+    ?.toUpperCase() || ''
+
 const resolveSnapshotComponentTypeText = (field: ProFeedbackEdhrSnapshotFieldVO) =>
   [
     field.componentFlag,
     readSnapshotNestedString(field, 'edhrCellRule', 'componentFlag'),
     readSnapshotNestedString(field, 'fillForm', 'componentFlag'),
+    resolveSnapshotValueTypeText(field),
+    field.fieldType,
+    field.componentKind,
     field.inputType,
     field.componentType,
     field.component,
@@ -2236,7 +2263,18 @@ const resolveSnapshotFieldHelpText = (field: ProFeedbackEdhrSnapshotFieldVO) => 
 }
 
 const resolveSnapshotFieldOptions = (field: ProFeedbackEdhrSnapshotFieldVO): SnapshotFieldOption[] => {
-  const source = Array.isArray(field.options) ? field.options : []
+  const fieldConstraints = resolveSnapshotFieldConstraints(field)
+  const sourceCandidates = [
+    field.options,
+    fieldConstraints.options,
+    readSnapshotRecord(field.edhrCellRule)?.options,
+    readSnapshotRecord(field.fillForm)?.options
+  ]
+  const source =
+    sourceCandidates.find(
+      (candidate): candidate is Array<Record<string, unknown> | string | number | boolean> =>
+        Array.isArray(candidate)
+    ) || []
   return source
     .map((option) => {
       if (option == null) {
@@ -2364,45 +2402,76 @@ const formatAttachmentRule = (rule?: SnapshotAttachmentRule) => {
 }
 
 const resolveSnapshotComponentKind = (
-  field: ProFeedbackEdhrSnapshotFieldVO
+  field: ProFeedbackEdhrSnapshotFieldVO,
+  marker?: NormalizedSignatureCellMarker
 ): NormalizedSnapshotField['componentKind'] => {
+  if (marker?.enabled) {
+    return 'signature'
+  }
   const rawType = resolveSnapshotComponentTypeText(field)
-  if (rawType.includes('upload-images') || rawType.includes('image-list')) {
+  const compactType = rawType.replace(/[\s_-]+/g, '')
+  const fieldConstraints = resolveSnapshotFieldConstraints(field)
+  const selectionMode = String(fieldConstraints.selectionMode || '').trim().toLowerCase()
+  if (rawType.includes('upload-images') || rawType.includes('image-list') || compactType.includes('uploadimages')) {
     return 'upload-images'
   }
-  if (rawType.includes('upload-image') || rawType.includes('image')) {
+  if (rawType.includes('upload-image') || rawType.includes('image') || compactType.includes('uploadimage') || rawType.includes('图片')) {
     return 'upload-image'
   }
-  if (rawType.includes('upload-file') || rawType.includes('attachment') || rawType.includes('file')) {
+  if (
+    rawType.includes('upload-file') ||
+    rawType.includes('attachment') ||
+    rawType.includes('file') ||
+    compactType.includes('uploadfile') ||
+    rawType.includes('附件') ||
+    rawType.includes('文件')
+  ) {
     return 'upload-file'
   }
-  if (rawType.includes('signature') || rawType.includes('sign')) {
+  if (
+    rawType.includes('signature') ||
+    rawType.includes('sign') ||
+    rawType.includes('电子签名') ||
+    rawType.includes('签名') ||
+    rawType.includes('签字')
+  ) {
     return 'signature'
   }
   if (
     rawType.includes('radio-group') ||
     rawType.includes('radio') ||
     rawType.includes('option-group') ||
-    rawType.includes('single-choice')
+    rawType.includes('single-choice') ||
+    compactType.includes('radiogroup') ||
+    compactType.includes('optiongroup') ||
+    compactType.includes('singlechoice') ||
+    rawType.includes('单选')
   ) {
     return 'radio'
   }
   if (rawType.includes('textarea') || rawType.includes('multiline') || rawType.includes('remark')) {
     return 'textarea'
   }
-  if (rawType.includes('number') || rawType.includes('digit') || rawType.includes('decimal')) {
+  if (
+    rawType.includes('number') ||
+    rawType.includes('digit') ||
+    rawType.includes('decimal') ||
+    rawType.includes('数字')
+  ) {
     return 'number'
   }
-  if (rawType.includes('datetime') || rawType.includes('date-time')) {
+  if (rawType.includes('datetime') || rawType.includes('date-time') || rawType.includes('日期时间')) {
     return 'datetime'
   }
-  if (rawType.includes('date')) {
+  if (rawType.includes('date') || rawType.includes('日期')) {
     return 'date'
   }
+  if (rawType.includes('时间')) return 'datetime'
   if (rawType.includes('switch') || rawType.includes('boolean') || rawType.includes('checkbox')) {
     return 'checkbox'
   }
-  const valueType = String(field.valueType || '').toUpperCase()
+  const rawValueType = resolveSnapshotValueTypeText(field)
+  const valueType = rawValueType.toUpperCase()
   if (valueType === 'NUMBER') return 'number'
   if (valueType === 'DATE') return 'date'
   if (valueType === 'DATETIME') return 'datetime'
@@ -2413,7 +2482,10 @@ const resolveSnapshotComponentKind = (
     options.length > 0 ||
     rawType.includes('select') ||
     rawType.includes('dropdown') ||
-    rawType.includes('enum')
+    rawType.includes('enum') ||
+    selectionMode === 'single' ||
+    selectionMode === 'radio' ||
+    selectionMode === '单选'
   ) {
     return 'select'
   }
@@ -2518,7 +2590,7 @@ const resolveFieldValueType = (
   if (componentKind === 'checkbox' && options.length > 1) {
     return 'STRING'
   }
-  const rawValueType = String(field.valueType || field.dataType || field.type || '').toUpperCase()
+  const rawValueType = resolveSnapshotValueTypeText(field)
   if (isEdhrFieldValueType(rawValueType)) {
     return rawValueType
   }
@@ -2548,7 +2620,8 @@ const normalizeSnapshotField = (
     return null
   }
 
-  const componentKind = resolveSnapshotComponentKind(field)
+  const signatureMarker = resolveSignatureCellMarker(rowIndex, columnIndex)
+  const componentKind = resolveSnapshotComponentKind(field, signatureMarker)
   const options = resolveSnapshotFieldOptions(field)
   const label = resolveSnapshotFieldLabel(field, rowIndex, columnIndex)
   const fieldKey = typeof field.fieldKey === 'string' ? field.fieldKey.trim() : ''
@@ -2558,7 +2631,6 @@ const normalizeSnapshotField = (
   }
   const fieldIdentity = buildFieldIdentity(fieldPath, fieldKey, rowIndex, columnIndex)
   const valueType = resolveFieldValueType(field, componentKind, options)
-  const signatureMarker = resolveSignatureCellMarker(rowIndex, columnIndex)
 
   return {
     fieldIdentity,

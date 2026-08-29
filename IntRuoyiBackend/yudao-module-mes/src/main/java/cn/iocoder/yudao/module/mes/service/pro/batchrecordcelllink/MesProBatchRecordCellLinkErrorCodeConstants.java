@@ -42,4 +42,12 @@ public interface MesProBatchRecordCellLinkErrorCodeConstants {
             new ErrorCode(1_040_509_097, "所选一线PQC工序不属于当前DCC项目的已发布QA版本：qaProcessId={}");
     ErrorCode PRO_BATCH_RECORD_CELL_LINK_PQC_QA_ITEMS_MISSING =
             new ErrorCode(1_040_509_098, "所选一线PQC工序未配置已发布QA检验项目：qaProcessId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_DCC_ROUTE_BINDING_REQUIRED =
+            new ErrorCode(1_040_509_099, "DCC项目代码未绑定唯一有效工艺路线：dccProjectCodeId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_DCC_ROUTE_BINDING_MISMATCH =
+            new ErrorCode(1_040_509_100, "DCC项目代码与当前工艺路线绑定不一致：routeId={}，dccProjectCodeId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_DCC_ROUTE_PROCESS_MISSING =
+            new ErrorCode(1_040_509_101, "所选工序不属于DCC项目代码绑定的工艺路线：routeId={}，routeProcessId={}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_PROCESS_POOL_DEVICE_MISSING =
+            new ErrorCode(1_040_509_102, "所选报工工序未绑定有效设备：routeProcessId={}");
 }

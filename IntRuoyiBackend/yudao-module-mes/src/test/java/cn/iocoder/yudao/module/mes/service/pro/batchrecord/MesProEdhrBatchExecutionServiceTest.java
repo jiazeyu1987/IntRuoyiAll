@@ -3908,6 +3908,44 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void previewTask_generatesDynamicRouteFormSignatureMarkersFromSignatureRules() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
+        FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersion("动态签名规则预览");
+        templateVersion.setJimuSchemaJson(dynamicFormJimuSchemaJsonWithSignatureRuleOnly());
+        templateVersion.setRemark("动态签名规则预览备注");
+        formTemplateVersionMapper.updateById(templateVersion);
+        stubFormCenterInstanceIds(85003L);
+        insertBatchProcessFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
+                "FB_DYNAMIC_SIGNATURE_RULE_ONLY");
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-DYNAMIC-SIGNATURE-RULE-ONLY")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO dynamicTask = routeTasks(batch).get(0);
+
+        EdhrBatchExecutionTaskPreviewRespVO preview =
+                batchExecutionService.previewTask(batch.getId(), dynamicTask.getId());
+
+        JSONObject layout = JSON.parseObject(preview.getFormViewModel().getSheetLayoutJson());
+        JSONObject signatureCell = layout.getJSONObject("rows")
+                .getJSONObject("4")
+                .getJSONObject("cells")
+                .getJSONObject("1");
+        JSONObject signature = signatureCell.getJSONObject("edhrSignature");
+        assertNotNull(signature);
+        assertEquals(true, signature.getBoolean("enabled"));
+        assertEquals("FORM_REVIEW", signature.getString("actionType"));
+        assertEquals("复核签名", signature.getString("label"));
+        assertEquals("4:1", signature.getString("signatureCellKey"));
+        assertEquals(1, preview.getFormViewModel().getSignatureCellMarkers().size());
+        assertEquals(4, preview.getFormViewModel().getSignatureCellMarkers().get(0).getRowIndex());
+        assertEquals(1, preview.getFormViewModel().getSignatureCellMarkers().get(0).getColumnIndex());
+        verify(jimuReportGateway, never()).getReportJson(any());
+        verify(singleExecutionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
     void previewTask_returnsDynamicRouteFormRecognizedFieldsPreviewWithoutJimuSchema() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
@@ -8278,6 +8316,41 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         schema.put("sheetLayoutJson", JSON.toJSONString(layout));
         schema.put("cellRules", rules);
         schema.put("signatureCellMarkers", markers);
+        return JSON.toJSONString(schema);
+    }
+
+    private String dynamicFormJimuSchemaJsonWithSignatureRuleOnly() {
+        JSONObject layout = JSON.parseObject("""
+                {
+                  "cols": {"0": {"width": 140}, "1": {"width": 220}},
+                  "rows": {
+                    "4": {
+                      "height": 36,
+                      "cells": {
+                        "0": {"text": "复核签名"},
+                        "1": {"text": ""}
+                      }
+                    }
+                  }
+                }
+                """);
+        JSONArray rules = JSON.parseArray("""
+                [
+                  {
+                    "rowIndex": 4,
+                    "columnIndex": 1,
+                    "label": "复核签名",
+                    "valueType": "SIGNATURE",
+                    "componentFlag": "signature",
+                    "required": false,
+                    "reviewed": true,
+                    "source": "MANUAL"
+                  }
+                ]
+                """);
+        JSONObject schema = new JSONObject();
+        schema.put("sheetLayoutJson", JSON.toJSONString(layout));
+        schema.put("cellRules", rules);
         return JSON.toJSONString(schema);
     }
 

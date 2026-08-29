@@ -93,6 +93,31 @@ class MesStage5FinalReleaseSimulationContractValidatorTest {
     }
 
     @Test
+    void releaseSnapshotMustExposeFourMaterialEvidenceContract() throws Exception {
+        String service = stage5Source();
+        String validator = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage5/"
+                        + "MesStage5FinalReleaseSimulationContractValidator.java"), StandardCharsets.UTF_8)
+                .replace("\r\n", "\n");
+        String workTaskPage = Files.readString(Path.of(
+                "../../IntRuoyiFronted/src/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue"),
+                StandardCharsets.UTF_8).replace("\r\n", "\n");
+
+        assertTrue(service.contains("snapshot.put(\"fourMaterialEvidence\""),
+                "Stage5 release snapshot must publish the four-material evidence field");
+        assertTrue(!service.contains("snapshot.put(\"threeFileEvidence\""),
+                "Stage5 release snapshot must not expose the obsolete three-file field");
+        assertTrue(validator.contains("\"fourMaterialEvidence\""),
+                "Stage5 validator must require the four-material evidence field");
+        assertTrue(!validator.contains("threeFileEvidence"),
+                "Stage5 validator must not accept the obsolete three-file field");
+        assertTrue(workTaskPage.contains("snapshot.fourMaterialEvidence"),
+                "manager release page must read fourMaterialEvidence");
+        assertTrue(workTaskPage.contains("evidence.length !== 4"),
+                "manager release page must require all four material categories");
+    }
+
+    @Test
     void fixtureMustPopulateRequiredErpPickListSyncTimes() throws Exception {
         String source = Files.readString(Path.of(
                 "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage5/"
@@ -228,14 +253,109 @@ class MesStage5FinalReleaseSimulationContractValidatorTest {
     }
 
     @Test
-    void cleanupMustPhysicallyRemoveOwnedErpPickListBeforeRecreate() throws Exception {
-        String source = Files.readString(Path.of(
+    void cleanupMustRetainUpstreamErpPickListAndSources() throws Exception {
+        String cleanupMethod = methodBlock(stage5Source(), "private String cleanupPreviousSimulation");
+
+        assertTrue(!cleanupMethod.contains("pickListMapper.hardDeleteById(pickList.getId())"),
+                "Stage5 cleanup must retain the upstream ERP pick list");
+        assertTrue(!cleanupMethod.contains("completionReceiptMapper.deleteById(completionReceipt.getId())"),
+                "Stage5 cleanup must retain the upstream completion receipt");
+    }
+
+    @Test
+    void stage5MustUseExactStage4RunEvidencePayloads() throws Exception {
+        String source = stage5Source();
+        assertTrue(source.contains("buildDossierSnapshot(fixture.batch(), runId, stage4RunId,\n"
+                        + "                fixture.sourceSnapshotHash())"),
+                "Stage5 dossier snapshot must be scoped to the exact Stage4 run id");
+        assertTrue(source.contains("buildReportEvidences(fixture.batch().getId(), stage4RunId)"),
+                "Stage5 manager report snapshot must be scoped to the exact Stage4 run id");
+
+        String reportEvidenceMethod = methodBlock(source,
+                "private List<MesProductionReleaseReportNodeEvidence> buildReportEvidences");
+        assertTrue(reportEvidenceMethod.contains("MesProductionReleaseReportNodeEvidence.fromPayloadJson"),
+                "Stage5 must consume the release-report evidence persisted by Stage4");
+        assertTrue(source.contains("stage4ReasonText(stage4RunId)"),
+                "Stage5 report evidence must match the Stage4 attachment marker");
+        assertTrue(!reportEvidenceMethod.contains("new MesProductionReleaseReportNodeEvidence()"),
+                "Stage5 must not synthesize new report evidence from latest attachments");
+        assertTrue(!reportEvidenceMethod.contains("STE-STAGE5-"),
+                "Stage5 must not replace the Stage4 sterilization batch evidence");
+
+        String dossierMethod = methodBlock(source, "private Map<String, Object> buildDossierSnapshot");
+        assertTrue(dossierMethod.contains("loadStage4Attachments(batch.getId(), stage4RunId)"),
+                "Stage5 dossier snapshot must read only the exact Stage4 upload run");
+        assertTrue(!dossierMethod.contains("STE-STAGE5-"),
+                "Stage5 dossier snapshot must retain the Stage4 sterilization batch number");
+    }
+
+    @Test
+    void stage5CleanupMustOnlyRemoveStage5OwnedReleaseRows() throws Exception {
+        String cleanupMethod = methodBlock(stage5Source(), "private String cleanupPreviousSimulation");
+
+        assertTrue(cleanupMethod.contains("marker(previousRunId)"),
+                "Stage5 cleanup must use the caller supplied Stage5 run id");
+        assertTrue(!cleanupMethod.contains("runIdFromMarker(previous.getRemark())"),
+                "Stage5 cleanup must not derive its run id from the upstream Stage4 batch remark");
+        assertTrue(!cleanupMethod.contains("attachmentMapper.deleteById"),
+                "Stage5 cleanup must not delete Stage4 material attachments");
+        assertTrue(!cleanupMethod.contains("batchTaskMapper.deleteById"),
+                "Stage5 cleanup must not delete Stage4 material tasks");
+        assertTrue(!cleanupMethod.contains("completionBackfillMapper.deleteById"),
+                "Stage5 cleanup must not delete Flow4 completion backfill rows");
+        assertTrue(!cleanupMethod.contains("completionReceiptMapper.deleteById"),
+                "Stage5 cleanup must not delete Flow4 completion receipts");
+        assertTrue(!cleanupMethod.contains("bindingMapper.deleteById"),
+                "Stage5 cleanup must not delete active-order pick-list bindings");
+        assertTrue(!cleanupMethod.contains("pickListMapper.hardDeleteById"),
+                "Stage5 cleanup must not delete ERP pick lists");
+        assertTrue(!cleanupMethod.contains("activeOrderMapper.deleteById"),
+                "Stage5 cleanup must not delete the upstream active order");
+        assertTrue(!cleanupMethod.contains("workOrderMapper.deleteById"),
+                "Stage5 cleanup must not delete the upstream work order");
+        assertTrue(!cleanupMethod.contains("batchExecutionMapper.deleteById"),
+                "Stage5 cleanup must not delete the upstream Stage2.5 batch execution");
+        assertTrue(cleanupMethod.contains("applicationMapper.deleteById(application.getId())"),
+                "Stage5 cleanup should remove its own release application");
+        assertTrue(cleanupMethod.contains("releaseTransactionMapper.deleteById(transaction.getId())"),
+                "Stage5 cleanup should remove its own pending release transaction");
+        assertTrue(cleanupMethod.contains("workTaskMapper.deleteById(managerTask.getId())"),
+                "Stage5 cleanup should remove its own manager release work task");
+    }
+
+    @Test
+    void stage5ReleaseSnapshotMustUseAuthoritativeUpstreamOrigin() throws Exception {
+        String source = stage5Source();
+        String releaseSnapshotMethod = methodBlock(source, "public Map<String, Object> getReleaseSnapshot");
+        assertTrue(releaseSnapshotMethod.contains("buildReportEvidences(batch.getId(), stage4RunIdFromBatch(batch))"),
+                "Stage5 release snapshot must use the latest Stage4 run material evidence");
+        assertTrue(releaseSnapshotMethod.contains("requireSingleOrigin(batch.getId())"),
+                "Stage5 release snapshot must read the existing Flow6/Flow7 origin on the batch");
+
+        String originMethod = methodBlock(source, "private MesProEdhrBatchExecutionOriginDO requireSingleOrigin");
+        assertTrue(!originMethod.contains("traceOriginKey(runId)"),
+                "Stage5 release snapshot must not expect a Stage5 synthetic trace origin");
+        assertTrue(originMethod.contains("origin.getCompletionBackfillReceiptId()"),
+                "Stage5 release snapshot origin must expose the completion backfill receipt");
+        assertTrue(originMethod.contains("origin.getPickListId()"),
+                "Stage5 release snapshot origin must expose the pick-list source");
+    }
+
+    private static String stage5Source() throws Exception {
+        return Files.readString(Path.of(
                 "src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage5/"
                         + "MesStage5FinalReleaseSimulationServiceImpl.java"), StandardCharsets.UTF_8)
                 .replace("\r\n", "\n");
+    }
 
-        assertTrue(source.contains("pickListMapper.hardDeleteById(pickList.getId())"),
-                "Stage5 cleanup must physically remove the validated owned ERP pick list before recreation");
+    private static String methodBlock(String source, String signature) {
+        int start = source.indexOf(signature);
+        assertTrue(start >= 0, "missing method: " + signature);
+        int next = source.indexOf("\n    private ", start + signature.length());
+        if (next < 0) {
+            next = source.indexOf("\n    public ", start + signature.length());
+        }
+        return next < 0 ? source.substring(start) : source.substring(start, next);
     }
 
     private static Map<String, Object> dossier() {
@@ -251,6 +371,7 @@ class MesStage5FinalReleaseSimulationContractValidatorTest {
         snapshot.put("contractName", "batchExecutionDossierSnapshot");
         snapshot.put("contractVersion", "stage4.v1");
         snapshot.put("batchExecutionId", "101");
+        snapshot.put("sourceSnapshotHash", hash('0'));
         snapshot.put("incomingInspectionAttachmentId", "201");
         snapshot.put("sterilizationAttachmentId", "202");
         snapshot.put("finishedProductInspectionAttachmentIds", List.of("203", "204"));
@@ -303,7 +424,7 @@ class MesStage5FinalReleaseSimulationContractValidatorTest {
         releaseSnapshot.put("releaseDecisionId", "105");
         releaseSnapshot.put("releasedAt", "2026-08-25T12:00:00");
         releaseSnapshot.put("releaseStatus", "RELEASED");
-        releaseSnapshot.put("threeFileEvidence", List.of(
+        releaseSnapshot.put("fourMaterialEvidence", List.of(
                 Map.of("nodeType", "INCOMING_INSPECTION_REPORT", "attachmentIds", List.of("301"), "sha256", List.of(hash('1'))),
                 Map.of("nodeType", "STERILIZATION_REPORT", "attachmentIds", List.of("302"), "sha256", List.of(hash('2'))),
                 Map.of("nodeType", "FINISHED_PRODUCT_INSPECTION_REPORT", "attachmentIds", List.of("303"), "sha256", List.of(hash('3'))),

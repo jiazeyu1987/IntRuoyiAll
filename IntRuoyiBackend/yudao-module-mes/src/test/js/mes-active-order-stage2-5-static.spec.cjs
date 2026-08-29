@@ -31,8 +31,12 @@ assert.doesNotMatch(simulationService, /MesProcessPoolActiveOrderDO activeOrder 
   'Stage2.5 must not create another active-order fixture after Stage1')
 assert.match(simulationService, /Objects\.equals\(activeOrder\.getTenantId\(\), TenantContextHolder\.getTenantId\(\)/,
   'Stage2.5 must enforce current-tenant ownership before completion')
-assert.match(simulationService, /setCompletionBackfillReceipt\(receipt\)/,
-  'Stage2.5 must pass the formal completion receipt into Flow6 batch creation')
+assert.doesNotMatch(simulationService, /setCompletionBackfillReceipt\(receipt\)/,
+  'Stage2.5 must not pass a nested completion receipt back into Flow6 batch creation')
+assert.match(simulationService, /setSourceContextHash\(receipt\.getSourceSnapshotHash\(\)\)/,
+  'Stage2.5 must use the authoritative completion source snapshot hash as Flow6 source context')
+assert.doesNotMatch(simulationService, /setSourceContextHash\(receipt\.getSourceContextHash\(\)\)/,
+  'Stage2.5 must not send its locally composed source context hash to Flow6')
 assert.match(simulationService, /backfillReceipt\.getBatchRecordId\(\)/,
   'Stage2.5 must expose the batch-record backfill identity')
 assert.match(simulationService, /backfillReceipt\.getProcessInspectionId\(\)/,

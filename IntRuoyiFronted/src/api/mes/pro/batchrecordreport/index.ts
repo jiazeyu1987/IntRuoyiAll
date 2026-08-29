@@ -128,7 +128,7 @@ export interface BatchRecordVersionApprovalResultVO {
   processedResult?: string
 }
 
-export type BatchRecordFormSlotType = 'MAIN' | 'LOSS_REPORT' | 'PROCESS_INSPECTION' | 'PARAMETER_RECORD'
+export type BatchRecordFormSlotType = 'MAIN' | 'FORM' | 'LOSS_REPORT' | 'PROCESS_INSPECTION' | 'PARAMETER_RECORD'
 
 export interface BatchRecordReportDeleteAllRespVO {
   deletedReportCount: number
@@ -250,6 +250,7 @@ export interface BatchRecordReportCellRulesRespVO {
 export interface BatchRecordReportCellRulesReqVO {
   reportId: string
   rules: BatchRecordReportCellRuleVO[]
+  signatureCellMarkers?: BatchRecordReportSignatureCellMarkerVO[]
   assistRows?: BatchRecordReportAssistRowVO[]
   assistGridRowCount?: number
   assistGridColumnCount?: number

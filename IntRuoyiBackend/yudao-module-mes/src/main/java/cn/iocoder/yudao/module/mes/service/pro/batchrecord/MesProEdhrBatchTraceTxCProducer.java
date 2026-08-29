@@ -285,13 +285,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
             String snapshotJson = nonBlank(evidence.getString("snapshotJson"),
                     JSON.toJSONString(new java.util.LinkedHashMap<>(evidence)));
             String snapshotHash = requiredText(evidence, "sourceSnapshotHash");
-            String calculatedHash = MesProEdhrBatchTraceSourceHash.calculate(linkType, snapshotJson);
-            boolean externallyWitnessed = MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE.equals(linkType)
-                    || MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE.equals(linkType)
-                    || MesProEdhrBatchTraceLinkType.COMPLETION_BACKFILL_RECEIPT.equals(linkType)
-                    || MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT.equals(linkType)
-                    || MesProEdhrBatchTraceLinkType.LOSS_REPORT_RECEIPT.equals(linkType);
-            if (!externallyWitnessed && !calculatedHash.equalsIgnoreCase(snapshotHash)) {
+            if (!MesProEdhrBatchTraceSourceHash.isValid(linkType, snapshotJson, snapshotHash)) {
                 throw blocked("SOURCE_SNAPSHOT_HASH_MISMATCH", "sourceEvidence snapshot hash mismatch");
             }
             String identity = nonBlank(evidence.getString("sourceIdentityKey"), sourceType + ":" + objectIdText);

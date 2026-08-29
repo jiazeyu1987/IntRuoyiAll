@@ -1710,18 +1710,6 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         }
         Set<Long> scheduleOrderIds = new LinkedHashSet<>();
         collectScheduleOrderIdsFromLatestApplySnapshot(latestLog.getAfterSnapshotJson(), scheduleOrderIds);
-        List<MesProScheduleOrderOperationLogDO> applyLogs =
-                scheduleOrderOperationLogMapper.selectListByOperationTypeAndAfterSnapshotJson(
-                        latestLog.getOperationType(), latestLog.getAfterSnapshotJson());
-        if (CollUtil.isNotEmpty(applyLogs)) {
-            applyLogs.stream()
-                    .map(MesProScheduleOrderOperationLogDO::getScheduleOrderId)
-                    .filter(Objects::nonNull)
-                    .forEach(scheduleOrderIds::add);
-        }
-        if (latestLog.getScheduleOrderId() != null) {
-            scheduleOrderIds.add(latestLog.getScheduleOrderId());
-        }
         if (CollUtil.isEmpty(scheduleOrderIds)) {
             throw new IllegalStateException("最近一次成功排产日志未包含任何排产工单，operationLogId=" + latestLog.getId());
         }
@@ -1744,7 +1732,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         JsonNode root = JsonUtils.parseTree(afterSnapshotJson);
         JsonNode idsNode = root.path("scheduleOrderIds");
         if (idsNode.isMissingNode() || idsNode.isNull()) {
-            return;
+            throw new IllegalStateException("最近一次成功排产日志缺少工单范围快照字段：scheduleOrderIds");
         }
         if (!idsNode.isArray()) {
             throw new IllegalStateException("最近一次成功排产日志的工单范围格式不正确：scheduleOrderIds 必须是数组");

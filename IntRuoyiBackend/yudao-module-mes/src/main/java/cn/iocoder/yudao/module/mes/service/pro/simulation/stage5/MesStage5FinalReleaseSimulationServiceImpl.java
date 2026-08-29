@@ -181,14 +181,15 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
         if (batchExecutionMapper.selectStage5SimulationByRemark(marker(runId)) != null) {
             throw new IllegalStateException("STAGE5_SIMULATION_RUN_ID_ALREADY_EXISTS");
         }
-        String cleanedRunId = cleanupPreviousSimulation(previousRunId);
+        String cleanedRunId = cleanupPreviousSimulation(previousRunId, batchExecutionId);
         Fixture fixture = loadStage4Fixture(actorUserId, batchExecutionId, stage4RunId);
-        Map<String, Object> dossier = buildDossierSnapshot(fixture.batch(), runId);
+        Map<String, Object> dossier = buildDossierSnapshot(fixture.batch(), runId, stage4RunId,
+                fixture.sourceSnapshotHash());
         MesStage5FinalReleaseSimulationContractValidator.validateDossierSnapshot(dossier);
 
         MesProcessPoolActiveOrderReleaseApplicationDO application = createApplication(
                 fixture, actorUserId, dossier, runId);
-        List<MesProductionReleaseReportNodeEvidence> evidences = buildReportEvidences(fixture.batch().getId());
+        List<MesProductionReleaseReportNodeEvidence> evidences = buildReportEvidences(fixture.batch().getId(), stage4RunId);
         String reportSnapshotHash = MesProductionReleaseReportSnapshots.hash(application, evidences);
         MesProductionReleaseManagerStageInitializationResult managerStage =
                 managerStageInitializer.initializeManagerReleaseStage(
@@ -319,8 +320,8 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
                 || !Objects.equals(decision.getDecisionStatus(), MesStage5FinalReleaseSimulationContractValidator.RELEASED_STATUS)) {
             throw new IllegalStateException("STAGE5_RELEASE_SNAPSHOT_AUTHORITATIVE_RECEIPT_INVALID");
         }
-        List<MesProductionReleaseReportNodeEvidence> evidences = buildReportEvidences(batch.getId());
-        MesProEdhrBatchExecutionOriginDO origin = requireSingleOrigin(batch.getId(), runId);
+        List<MesProductionReleaseReportNodeEvidence> evidences = buildReportEvidences(batch.getId(), stage4RunIdFromBatch(batch));
+        MesProEdhrBatchExecutionOriginDO origin = requireSingleOrigin(batch.getId());
         MesProcessPoolActiveOrderCompletionReceiptDO completionReceipt = completionReceiptMapper
                 .selectByActiveOrderIdForUpdate(origin.getActiveOrderId());
         List<MesProcessPoolActiveOrderCompletionBackfillDO> backfills = completionBackfillMapper
@@ -347,7 +348,7 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
         snapshot.put("releaseApprovalWorkTaskId", String.valueOf(managerTask.getId()));
         snapshot.put("reportSnapshotHash", application.getReportSnapshotHash());
         snapshot.put("version", transaction.getVersion());
-        snapshot.put("threeFileEvidence", List.of(
+        snapshot.put("fourMaterialEvidence", List.of(
                 categoryEvidence("INCOMING_INSPECTION_REPORT", evidences),
                 categoryEvidence("STERILIZATION_REPORT", evidences),
                 categoryEvidence("FINISHED_PRODUCT_INSPECTION_REPORT", evidences),
@@ -378,13 +379,20 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
                 "sha256", matching.stream().flatMap(item -> item.getAttachmentHashes().stream()).toList());
     }
 
-    private MesProEdhrBatchExecutionOriginDO requireSingleOrigin(Long batchExecutionId, String runId) {
+    private MesProEdhrBatchExecutionOriginDO requireSingleOrigin(Long batchExecutionId) {
         List<MesProEdhrBatchExecutionOriginDO> origins = originMapper.selectListByBatchExecutionId(batchExecutionId);
-        if (origins.size() != 1 || !Objects.equals(origins.get(0).getOriginKey(),
-                traceOriginKey(runId))) {
+        if (origins.size() != 1) {
             throw new IllegalStateException("STAGE5_RELEASE_SNAPSHOT_TRACE_ORIGIN_INVALID");
         }
-        return origins.get(0);
+        MesProEdhrBatchExecutionOriginDO origin = origins.get(0);
+        if (origin.getActiveOrderId() == null || origin.getWorkOrderId() == null
+                || origin.getCompletionBackfillReceiptId() == null
+                || origin.getCompletionBackfillReceiptHash() == null
+                || origin.getPickListId() == null || origin.getPickListBindingId() == null
+                || origin.getSourceSnapshotHash() == null || origin.getSourceSnapshotHash().isBlank()) {
+            throw new IllegalStateException("STAGE5_RELEASE_SNAPSHOT_TRACE_ORIGIN_INVALID");
+        }
+        return origin;
     }
 
     private Long requireActor(MesStage5FinalReleaseSimulationCommand command) {
@@ -450,19 +458,36 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
     }
 
     private void requireStage4Attachments(Long batchExecutionId, String stage4RunId) {
+        loadStage4Attachments(batchExecutionId, stage4RunId);
+    }
+
+    private Map<String, MesProBatchRecordExecutionAttachmentDO> loadStage4Attachments(
+            Long batchExecutionId, String stage4RunId) {
         List<MesProBatchRecordExecutionAttachmentDO> attachments = attachmentMapper
                 .selectListByBatchExecutionId(batchExecutionId).stream()
-                .filter(item -> item.getReasonText() != null
-                        && item.getReasonText().equals("[STAGE4_SIMULATION][simulationRunId=" + stage4RunId + "]"))
+                .filter(item -> Objects.equals(item.getBatchExecutionId(), batchExecutionId))
+                .filter(item -> Objects.equals(item.getReasonText(), stage4ReasonText(stage4RunId)))
+                .filter(item -> MesStage5FinalReleaseSimulationContractValidator.REQUIRED_NODE_TYPES
+                        .contains(item.getFieldKey()))
                 .toList();
+        Map<String, MesProBatchRecordExecutionAttachmentDO> byNode = new LinkedHashMap<>();
+        for (MesProBatchRecordExecutionAttachmentDO attachment : attachments) {
+            if (byNode.putIfAbsent(attachment.getFieldKey(), attachment) != null) {
+                throw new IllegalStateException("STAGE5_STAGE4_ATTACHMENTS_INVALID");
+            }
+        }
         if (attachments.size() != 4
-                || !attachments.stream().map(MesProBatchRecordExecutionAttachmentDO::getFieldKey)
-                .collect(java.util.stream.Collectors.toSet()).equals(MesStage5FinalReleaseSimulationContractValidator.REQUIRED_NODE_TYPES)
-                || attachments.stream().anyMatch(item -> item.getFileId() == null || item.getSha256() == null
-                || !item.getSha256().matches("[0-9a-f]{64}") || item.getAttachmentHash() == null
-                || item.getAttachmentHash().isBlank())) {
+                || !Objects.equals(byNode.keySet(),
+                MesStage5FinalReleaseSimulationContractValidator.REQUIRED_NODE_TYPES)
+                || attachments.stream().anyMatch(item -> item.getFileId() == null
+                || item.getBatchTaskId() == null
+                || !"ADD".equals(item.getAttachmentAction())
+                || item.getVersionNo() == null || item.getVersionNo() <= 0
+                || item.getSha256() == null || !item.getSha256().matches("[0-9a-f]{64}")
+                || item.getAttachmentHash() == null || item.getAttachmentHash().isBlank())) {
             throw new IllegalStateException("STAGE5_STAGE4_ATTACHMENTS_INVALID");
         }
+        return byNode;
     }
 
     private Fixture createFixture(Long actorUserId, String runId) {
@@ -908,48 +933,47 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
         return application;
     }
 
-    private List<MesProductionReleaseReportNodeEvidence> buildReportEvidences(Long batchExecutionId) {
+    private List<MesProductionReleaseReportNodeEvidence> buildReportEvidences(
+            Long batchExecutionId, String stage4RunId) {
         Map<String, MesProEdhrBatchExecutionTaskDO> tasks = new LinkedHashMap<>();
         for (MesProEdhrBatchExecutionTaskDO task : batchTaskMapper.selectListByBatchExecutionId(batchExecutionId)) {
             tasks.put(task.getNodeType(), task);
         }
-        Map<String, MesProBatchRecordExecutionAttachmentDO> latest = new LinkedHashMap<>();
-        for (MesProBatchRecordExecutionAttachmentDO attachment : attachmentMapper
-                .selectListByBatchExecutionId(batchExecutionId)) {
-            MesProBatchRecordExecutionAttachmentDO current = latest.get(attachment.getFieldKey());
-            if (current == null || attachment.getId() > current.getId()) {
-                latest.put(attachment.getFieldKey(), attachment);
-            }
-        }
+        Map<String, MesProBatchRecordExecutionAttachmentDO> attachments =
+                loadStage4Attachments(batchExecutionId, stage4RunId);
         return NODES.stream().map(node -> {
-            MesProBatchRecordExecutionAttachmentDO attachment = latest.get(node.nodeType());
-            if (attachment == null || tasks.get(node.nodeType()) == null
-                    || tasks.get(node.nodeType()).getStatus() != MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED) {
+            MesProEdhrBatchExecutionTaskDO task = tasks.get(node.nodeType());
+            MesProBatchRecordExecutionAttachmentDO attachment = attachments.get(node.nodeType());
+            MesProductionReleaseReportNodeEvidence evidence = task == null ? null
+                    : MesProductionReleaseReportNodeEvidence.fromPayloadJson(task.getSpecialPayloadJson());
+            if (attachment == null || task == null
+                    || task.getStatus() != MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED
+                    || evidence == null
+                    || !Objects.equals(evidence.getBatchExecutionId(), batchExecutionId)
+                    || !Objects.equals(evidence.getBatchTaskId(), task.getId())
+                    || !Objects.equals(evidence.getBatchTaskId(), attachment.getBatchTaskId())
+                    || !Objects.equals(evidence.getNodeType(), node.nodeType())
+                    || !Objects.equals(evidence.getActiveAttachmentVersion(), attachment.getVersionNo())
+                    || evidence.getAttachmentIds() == null || evidence.getAttachmentIds().size() != 1
+                    || !Objects.equals(evidence.getAttachmentIds().get(0), attachment.getId())
+                    || evidence.getAttachmentHashes() == null || evidence.getAttachmentHashes().size() != 1
+                    || !Objects.equals(evidence.getAttachmentHashes().get(0), attachment.getSha256())) {
                 throw new IllegalStateException("STAGE5_REPORT_EVIDENCE_INCOMPLETE");
             }
-            return new MesProductionReleaseReportNodeEvidence()
-                    .setBatchExecutionId(batchExecutionId)
-                    .setBatchTaskId(tasks.get(node.nodeType()).getId())
-                    .setNodeType(node.nodeType())
-                    .setSterilizationBatchNo("STERILIZATION_REPORT".equals(node.nodeType())
-                            ? "STE-STAGE5-" + batchExecutionId : null)
-                    .setActiveAttachmentVersion(attachment.getVersionNo())
-                    .setAttachmentIds(List.of(attachment.getId()))
-                    .setAttachmentHashes(List.of(attachment.getSha256()));
+            return evidence;
         }).toList();
     }
 
-    private Map<String, Object> buildDossierSnapshot(MesProEdhrBatchExecutionDO batch, String runId) {
-        Map<String, MesProBatchRecordExecutionAttachmentDO> latest = new LinkedHashMap<>();
-        for (MesProBatchRecordExecutionAttachmentDO attachment : attachmentMapper
-                .selectListByBatchExecutionId(batch.getId())) {
-            if (MesStage5FinalReleaseSimulationContractValidator.REQUIRED_NODE_TYPES.contains(attachment.getFieldKey())) {
-                latest.put(attachment.getFieldKey(), attachment);
-            }
-        }
-        if (latest.size() != NODES.size()) {
-            throw new IllegalStateException("STAGE5_DOSSIER_ATTACHMENT_INCOMPLETE");
-        }
+    private Map<String, Object> buildDossierSnapshot(
+            MesProEdhrBatchExecutionDO batch, String runId, String stage4RunId, String sourceSnapshotHash) {
+        Map<String, MesProBatchRecordExecutionAttachmentDO> latest =
+                loadStage4Attachments(batch.getId(), stage4RunId);
+        Map<String, MesProductionReleaseReportNodeEvidence> evidences = buildReportEvidences(
+                batch.getId(), stage4RunId).stream().collect(java.util.stream.Collectors.toMap(
+                MesProductionReleaseReportNodeEvidence::getNodeType,
+                java.util.function.Function.identity(),
+                (left, right) -> left,
+                LinkedHashMap::new));
         Map<String, Object> hashes = new LinkedHashMap<>();
         hashes.put("incomingInspectionAttachmentHash", latest.get("INCOMING_INSPECTION_REPORT").getSha256());
         hashes.put("sterilizationAttachmentHash", latest.get("STERILIZATION_REPORT").getSha256());
@@ -961,6 +985,8 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
         snapshot.put("contractVersion", MesStage5FinalReleaseSimulationContractValidator.CONTRACT_VERSION);
         snapshot.put("simulationRunId", runId);
         snapshot.put("batchExecutionId", String.valueOf(batch.getId()));
+        snapshot.put("stage4SimulationRunId", stage4RunId);
+        snapshot.put("sourceSnapshotHash", sourceSnapshotHash);
         snapshot.put("incomingInspectionAttachmentId", String.valueOf(latest.get("INCOMING_INSPECTION_REPORT").getId()));
         snapshot.put("sterilizationAttachmentId", String.valueOf(latest.get("STERILIZATION_REPORT").getId()));
         snapshot.put("finishedProductInspectionAttachmentIds", List.of(
@@ -985,7 +1011,7 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
         snapshot.put("fileName", fileNames);
         snapshot.put("storagePath", storagePaths);
         snapshot.put("attachmentAudit", audits);
-        snapshot.put("sterilizationBatchNo", "STE-STAGE5-" + shortRunId(runId));
+        snapshot.put("sterilizationBatchNo", evidences.get("STERILIZATION_REPORT").getSterilizationBatchNo());
         snapshot.put("reportSnapshotHash", hash(JSON.toJSONString(snapshot)));
         snapshot.put("dossierReadyForRelease", true);
         snapshot.put("finalReleaseRecordId", null);
@@ -1052,7 +1078,80 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
         return signoffEvidenceHash;
     }
 
-    private String cleanupPreviousSimulation(String previousRunId) {
+    private String cleanupPreviousSimulation(String previousRunId, Long batchExecutionId) {
+        if (previousRunId == null) {
+            MesProcessPoolActiveOrderReleaseApplicationDO existing =
+                    applicationMapper.selectByBatchExecutionIdForUpdate(batchExecutionId);
+            if (existing != null && existing.getRemark() != null
+                    && existing.getRemark().startsWith(SIMULATION_MARKER)) {
+                throw new IllegalStateException("STAGE5_PREVIOUS_SIMULATION_RUN_ID_REQUIRED");
+            }
+            if (existing != null) {
+                throw new IllegalStateException("STAGE5_RELEASE_APPLICATION_ALREADY_EXISTS");
+            }
+            return null;
+        }
+        MesProcessPoolActiveOrderReleaseApplicationDO application = applicationMapper
+                .selectByRemarkForUpdate(marker(previousRunId), TenantContextHolder.getRequiredTenantId());
+        if (application == null || application.getBatchExecutionId() == null
+                || !Objects.equals(application.getBatchExecutionId(), batchExecutionId)
+                || !Objects.equals(application.getRemark(), marker(previousRunId))) {
+            throw new IllegalStateException("STAGE5_PREVIOUS_SIMULATION_NOT_FOUND");
+        }
+        MesProEdhrBatchExecutionDO previous = batchExecutionMapper.selectById(application.getBatchExecutionId());
+        if (previous == null) {
+            throw new IllegalStateException("STAGE5_PREVIOUS_SIMULATION_NOT_FOUND");
+        }
+        if (!Objects.equals(application.getApplicationStatus(),
+                MesStage5FinalReleaseSimulationContractValidator.PENDING_APPLICATION_STATUS)
+                || application.getReleaseTransactionId() == null
+                || application.getReleaseApprovalWorkTaskId() == null) {
+            throw new IllegalStateException("STAGE5_SIMULATION_CLEANUP_SCOPE_INVALID");
+        }
+        MesProEdhrReleaseTransactionDO transaction =
+                releaseTransactionMapper.selectByIdForUpdate(application.getReleaseTransactionId());
+        MesProEdhrWorkTaskDO managerTask = workTaskMapper.selectByIdForUpdate(application.getReleaseApprovalWorkTaskId());
+        if (transaction == null || !Objects.equals(transaction.getBatchExecutionId(), batchExecutionId)
+                || !Objects.equals(transaction.getRemark(), marker(previousRunId))
+                || !Objects.equals(transaction.getReleaseStatus(),
+                MesStage5FinalReleaseSimulationContractValidator.PENDING_RELEASE_STATUS)
+                || managerTask == null || !Objects.equals(managerTask.getBatchExecutionId(), batchExecutionId)
+                || !Objects.equals(managerTask.getTaskType(), "RELEASE_APPROVE")
+                || !Objects.equals(managerTask.getStatus(), "TODO")
+                || !Objects.equals(managerTask.getBusinessScopeType(), "RELEASE_TRANSACTION")
+                || !Objects.equals(managerTask.getBusinessScopeId(), transaction.getId())
+                || !Objects.equals(managerTask.getRemark(), marker(previousRunId))) {
+            throw new IllegalStateException("STAGE5_SIMULATION_CLEANUP_SCOPE_INVALID");
+        }
+        if (releaseDecisionMapper.selectByTransactionIdForUpdate(transaction.getId()) != null
+                || !releaseEventMapper.selectList(new LambdaQueryWrapper<MesProEdhrReleaseTransactionEventDO>()
+                .eq(MesProEdhrReleaseTransactionEventDO::getReleaseTransactionId, transaction.getId())).isEmpty()) {
+            throw new IllegalStateException("STAGE5_SIMULATION_CLEANUP_ALREADY_AUDITED");
+        }
+        List<BpmApprovalSignatureRecordDO> signatures = approvalSignatureRecordMapper.selectList(
+                new LambdaQueryWrapper<BpmApprovalSignatureRecordDO>()
+                        .eq(BpmApprovalSignatureRecordDO::getSourceTaskType, "EDHR_WORK_TASK")
+                        .eq(BpmApprovalSignatureRecordDO::getSourceTaskId, String.valueOf(managerTask.getId())));
+        String expectedSignatureUrl = "stage5://manager-signature/" + previousRunId;
+        if (signatures.size() != 1
+                || !Objects.equals(signatures.get(0).getModuleCode(), "EDHR")
+                || !Objects.equals(signatures.get(0).getBusinessKey(), "STAGE5-SIGNATURE-" + previousRunId)
+                || signatures.get(0).getSignerUserId() == null
+                || !Objects.equals(signatures.get(0).getReviewResult(), "APPROVE")
+                || !Boolean.TRUE.equals(signatures.get(0).getPasswordVerified())
+                || !Objects.equals(signatures.get(0).getSignatureImageFileUrl(), expectedSignatureUrl)
+                || !Objects.equals(signatures.get(0).getSignatureImageSha256(), DigestUtil.sha256Hex(expectedSignatureUrl))) {
+            throw new IllegalStateException("STAGE5_SIMULATION_CLEANUP_SCOPE_INVALID");
+        }
+        // Upstream trace origin, material attachments, completion receipts and pick lists are immutable audit evidence.
+        signatures.forEach(item -> approvalSignatureRecordMapper.deleteById(item.getId()));
+        workTaskMapper.deleteById(managerTask.getId());
+        releaseTransactionMapper.deleteById(transaction.getId());
+        applicationMapper.deleteById(application.getId());
+        return previousRunId;
+    }
+
+    private String cleanupLegacyStage5FixtureSimulation(String previousRunId) {
         MesProcessPoolActiveOrderReleaseApplicationDO latestApplication = applicationMapper
                 .selectByRemarkForUpdate(previousRunId == null ? null : marker(previousRunId),
                         TenantContextHolder.getRequiredTenantId());
@@ -1223,6 +1322,29 @@ public class MesStage5FinalReleaseSimulationServiceImpl implements MesStage5Fina
 
     private String marker(String runId) {
         return SIMULATION_MARKER + "[simulationRunId=" + runId + "]";
+    }
+
+    private String stage4RunIdFromBatch(MesProEdhrBatchExecutionDO batch) {
+        String prefix = "[STAGE4_SIMULATION][simulationRunId=";
+        String remark = batch == null ? null : batch.getRemark();
+        int start = remark == null ? -1 : remark.lastIndexOf(prefix);
+        if (start < 0) {
+            throw new IllegalStateException("STAGE5_STAGE4_BATCH_SOURCE_INVALID");
+        }
+        int valueStart = start + prefix.length();
+        int valueEnd = remark.indexOf(']', valueStart);
+        if (valueEnd <= valueStart) {
+            throw new IllegalStateException("STAGE5_STAGE4_BATCH_SOURCE_INVALID");
+        }
+        String stage4RunId = remark.substring(valueStart, valueEnd);
+        if (!RUN_ID.matcher(stage4RunId).matches()) {
+            throw new IllegalStateException("STAGE5_STAGE4_BATCH_SOURCE_INVALID");
+        }
+        return stage4RunId;
+    }
+
+    private String stage4ReasonText(String stage4RunId) {
+        return "[STAGE4_SIMULATION][simulationRunId=" + stage4RunId + "]";
     }
 
     private MesProEdhrSpecialNodeAttachment toAttachment(

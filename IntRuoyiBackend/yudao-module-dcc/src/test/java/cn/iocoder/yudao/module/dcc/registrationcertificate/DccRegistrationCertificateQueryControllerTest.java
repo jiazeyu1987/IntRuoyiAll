@@ -75,7 +75,8 @@ class DccRegistrationCertificateQueryControllerTest {
                 .newInstance(queryService, historyService);
         HttpServletRequest request = auditRequest();
         List<DccRegistrationCertificateHistoryItem> expected = List.of(
-                new DccRegistrationCertificateHistoryItem("FORMALIZED", "FORMALIZED", null, "{}", 22L));
+                new DccRegistrationCertificateHistoryItem("FORMALIZED", "FORMALIZED", null, "{}", 22L,
+                        null, null));
         when(historyService.listHistory(11L, 33L)).thenReturn(expected);
 
         TenantContextHolder.setTenantId(11L);
@@ -90,7 +91,7 @@ class DccRegistrationCertificateQueryControllerTest {
         }
 
         InOrder order = inOrder(queryService, historyService);
-        order.verify(queryService).getDetail(eq(11L), eq(22L), eq(33L), any(DccRequestAuditContext.class));
+        order.verify(queryService).getDetail(eq(11L), eq(22L), eq(33L), eq(null), any(DccRequestAuditContext.class));
         order.verify(historyService).listHistory(11L, 33L);
     }
 
@@ -105,7 +106,7 @@ class DccRegistrationCertificateQueryControllerTest {
                 .newInstance(queryService, historyService);
         HttpServletRequest request = auditRequest();
         IllegalStateException denied = new IllegalStateException("scope denied");
-        when(queryService.getDetail(eq(11L), eq(22L), eq(33L), any(DccRequestAuditContext.class)))
+        when(queryService.getDetail(eq(11L), eq(22L), eq(33L), eq(null), any(DccRequestAuditContext.class)))
                 .thenThrow(denied);
 
         TenantContextHolder.setTenantId(11L);

@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,8 +58,11 @@ public class DccRegistrationCertificateAccessRequestService {
     private static final String STATUS_SUBMITTED = "SUBMITTED";
     private static final String FILE_STATUS_REQUESTED = "REQUESTED";
     private static final String FILE_KIND_REGISTRATION_CERTIFICATE = "REGISTRATION_CERTIFICATE";
+    private static final String FILE_KIND_CHANGE_APPROVAL = "CHANGE_APPROVAL";
     private static final String FILE_OWNER_TYPE_VERSION = "VERSION";
+    private static final String FILE_OWNER_TYPE_CHANGE = "CHANGE";
     private static final String FILE_STATUS_BOUND = "BOUND";
+    private static final String CHANGE_STATUS_APPLIED = "APPLIED";
 
     private final DccRegistrationCertificateAccessRequestMapper requestMapper;
     private final DccRegistrationCertificateAccessRequestFileMapper requestFileMapper;
@@ -68,6 +72,7 @@ public class DccRegistrationCertificateAccessRequestService {
     private final MdmCompanyScopeApi companyScopeApi;
     private final DccProjectCodeService projectCodeService;
     private final DccRegistrationCertificateBusinessClock businessClock;
+    private final JdbcTemplate jdbcTemplate;
 
     public DccRegistrationCertificateAccessRequestService(
             DccRegistrationCertificateAccessRequestMapper requestMapper,
@@ -77,7 +82,8 @@ public class DccRegistrationCertificateAccessRequestService {
             DccRegistrationCertificateFileMapper fileMapper,
             MdmCompanyScopeApi companyScopeApi,
             DccProjectCodeService projectCodeService,
-            DccRegistrationCertificateBusinessClock businessClock) {
+            DccRegistrationCertificateBusinessClock businessClock,
+            JdbcTemplate jdbcTemplate) {
         this.requestMapper = require(requestMapper, "requestMapper");
         this.requestFileMapper = require(requestFileMapper, "requestFileMapper");
         this.certificateMapper = require(certificateMapper, "certificateMapper");
@@ -86,6 +92,7 @@ public class DccRegistrationCertificateAccessRequestService {
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.projectCodeService = require(projectCodeService, "projectCodeService");
         this.businessClock = require(businessClock, "businessClock");
+        this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -285,18 +292,48 @@ public class DccRegistrationCertificateAccessRequestService {
                     || !FILE_STATUS_BOUND.equals(file.getStatus())) {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_NOT_STAGED);
             }
-            if (!FILE_OWNER_TYPE_VERSION.equals(file.getOwnerType())
-                    || !FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind())) {
-                throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
-            }
-            DccRegistrationCertificateVersionDO version = versionMapper.selectById(file.getOwnerId());
-            if (version == null || !Objects.equals(version.getTenantId(), tenantId)
-                    || !Objects.equals(version.getCertificateId(), certificate.getId())) {
+            if (isVersionRegistrationFile(file)) {
+                validateVersionFile(tenantId, certificate, file);
+            } else if (isChangeApprovalFile(file)) {
+                validateChangeApprovalFile(tenantId, certificate, file);
+            } else {
                 throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
             }
             files.add(file);
         }
         return files;
+    }
+
+    private boolean isVersionRegistrationFile(DccRegistrationCertificateFileDO file) {
+        return FILE_OWNER_TYPE_VERSION.equals(file.getOwnerType())
+                && FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind());
+    }
+
+    private boolean isChangeApprovalFile(DccRegistrationCertificateFileDO file) {
+        return FILE_OWNER_TYPE_CHANGE.equals(file.getOwnerType())
+                && FILE_KIND_CHANGE_APPROVAL.equals(file.getFileKind());
+    }
+
+    private void validateVersionFile(
+            Long tenantId, DccRegistrationCertificateDO certificate, DccRegistrationCertificateFileDO file) {
+        DccRegistrationCertificateVersionDO version = versionMapper.selectById(file.getOwnerId());
+        if (version == null || !Objects.equals(version.getTenantId(), tenantId)
+                || !Objects.equals(version.getCertificateId(), certificate.getId())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
+        }
+    }
+
+    private void validateChangeApprovalFile(
+            Long tenantId, DccRegistrationCertificateDO certificate, DccRegistrationCertificateFileDO file) {
+        Long count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM dcc_registration_certificate_change
+                 WHERE tenant_id = ? AND id = ? AND certificate_id = ?
+                   AND status = ? AND deleted = 0
+                """, Long.class, tenantId, file.getOwnerId(), certificate.getId(), CHANGE_STATUS_APPLIED);
+        if (!Objects.equals(count, 1L)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT);
+        }
     }
 
     private String payloadHash(NormalizedCommand command) {

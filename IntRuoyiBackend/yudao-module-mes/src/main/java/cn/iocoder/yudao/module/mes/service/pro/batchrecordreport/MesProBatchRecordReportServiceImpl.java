@@ -1737,6 +1737,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     public BatchRecordReportCellRulesRespVO saveCellRules(BatchRecordReportCellRulesReqVO reqVO) {
         MesProBatchRecordReportDO metadata = requireMetadata(reqVO.getReportId());
         JSONObject root = parseReportJson(reqVO.getReportId());
+        applySubmittedSignatureMarkers(root, reqVO.getSignatureCellMarkers());
         removeStaleSignatureMarkersForCellRules(root, reqVO.getRules());
         clearCellRules(root);
         for (BatchRecordReportCellRuleVO rule : reqVO.getRules()) {
@@ -1766,6 +1767,48 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         }
         jimuReportGateway.updateReportJson(reqVO.getReportId(), root.toJSONString());
         return toCellRulesRespVO(reqVO.getReportId(), root);
+    }
+
+    private void applySubmittedSignatureMarkers(JSONObject root, List<BatchRecordReportSignatureCellMarkerVO> markers) {
+        if (markers == null) {
+            return;
+        }
+        clearSignatureMarkers(root);
+        Set<String> signatureCellKeys = new LinkedHashSet<>();
+        for (BatchRecordReportSignatureCellMarkerVO marker : markers) {
+            if (!Boolean.TRUE.equals(marker.getEnabled())) {
+                continue;
+            }
+            validateSignatureMarker(marker);
+            JSONObject cell = requireCell(root, marker.getRowIndex(), marker.getColumnIndex());
+            String signatureCellKey = buildSignatureCellKey(marker);
+            if (!signatureCellKeys.add(signatureCellKey)) {
+                throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_SIGNATURE_CELL_DUPLICATE,
+                        signatureCellKey);
+            }
+            cell.put(MesProBatchRecordCellRuleSupport.SIGNATURE_KEY, toSignatureJson(marker, signatureCellKey));
+        }
+    }
+
+    private JSONObject toSignatureJson(BatchRecordReportSignatureCellMarkerVO marker, String signatureCellKey) {
+        JSONObject signature = new JSONObject(true);
+        signature.put("enabled", true);
+        signature.put("signatureCellKey", signatureCellKey);
+        signature.put("actionType", marker.getActionType());
+        signature.put("label", StrUtil.blankToDefault(marker.getLabel(), marker.getActionType()));
+        signature.put("displayFormat", StrUtil.blankToDefault(marker.getDisplayFormat(),
+                DEFAULT_SIGNATURE_DISPLAY_FORMAT));
+        if (Objects.equals("APPROVE", marker.getActionType())) {
+            signature.put("reviewSourceType", marker.getReviewSourceType());
+            if (isMultipleReviewSourceType(marker.getReviewSourceType())) {
+                signature.put("reviewSourceIds", normalizeReviewSourceIds(marker));
+            } else {
+                signature.put("reviewSourceId", marker.getReviewSourceId());
+            }
+            signature.put("reviewSourceName", StrUtil.blankToDefault(StrUtil.trim(marker.getReviewSourceName()),
+                    defaultReviewSourceName(marker)));
+        }
+        return signature;
     }
 
     private BatchRecordReportCellRuleVO toFormalizedCellRule(BatchRecordReportCellRuleVO rule) {
@@ -3212,8 +3255,12 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             return buildImageReportName(routeKey, sourceFileName, parsedTable);
         }
         if (source == GeneratedReportSource.UPLOADED_DOC) {
-            if (MesProBatchRecordFormSlotType.isExtraSlot(formSlotType)) {
-                return MesProBatchRecordFormSlotType.displayName(formSlotType);
+            String normalizedFormSlotType = MesProBatchRecordFormSlotType.normalize(formSlotType);
+            if (MesProBatchRecordFormSlotType.FORM.getType().equals(normalizedFormSlotType)) {
+                return trimReportName(batchRecordName);
+            }
+            if (MesProBatchRecordFormSlotType.isExtraSlot(normalizedFormSlotType)) {
+                return MesProBatchRecordFormSlotType.displayName(normalizedFormSlotType);
             }
             return buildUploadedDocReportName(parsedTable);
         }

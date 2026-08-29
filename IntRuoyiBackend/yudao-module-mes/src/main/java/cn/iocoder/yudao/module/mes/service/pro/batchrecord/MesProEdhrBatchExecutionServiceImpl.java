@@ -2047,6 +2047,69 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesProductionReleaseReportNodeEvidence completePreReleaseDossierNode(
+            Long taskId, Long actorUserId, String sterilizationBatchNo,
+            List<MesProEdhrSpecialNodeAttachment> attachments) {
+        MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAction(taskId);
+        if (workTaskMapper.selectReleaseReportByBatchTaskId(taskId) != null
+                || !Objects.equals(actorUserId, currentUserId())) {
+            throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION,
+                    "pre-release dossier upload cannot mutate a locked production release report task");
+        }
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
+        validateCurrentUserIsSpecialNodeFiller(task, batch, actorUserId);
+        String nodeType = resolveNodeType(task);
+        if (!SKIPPABLE_SPECIAL_NODE_TYPES.contains(nodeType)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID);
+        }
+        if (attachments == null || attachments.isEmpty()) {
+            throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.REPORT_ATTACHMENT_REQUIRED,
+                    "pre-release dossier node requires at least one formal attachment");
+        }
+        if (NODE_TYPE_STERILIZATION_REPORT.equals(nodeType) && StrUtil.isBlank(sterilizationBatchNo)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STERILIZATION_BATCH_REQUIRED);
+        }
+        LocalDateTime operatedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        List<MesProBatchRecordExecutionAttachmentDO> persistedAttachments =
+                persistSpecialNodeAttachments(task, attachments, operatedAt);
+        Integer activeAttachmentVersion = persistedAttachments.stream()
+                .map(MesProBatchRecordExecutionAttachmentDO::getVersionNo)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(1);
+        MesProductionReleaseReportNodeEvidence evidence = new MesProductionReleaseReportNodeEvidence()
+                .setBatchExecutionId(task.getBatchExecutionId())
+                .setBatchTaskId(task.getId())
+                .setNodeType(nodeType)
+                .setSterilizationBatchNo(NODE_TYPE_STERILIZATION_REPORT.equals(nodeType)
+                        ? StrUtil.trim(sterilizationBatchNo) : null)
+                .setActiveAttachmentVersion(activeAttachmentVersion)
+                .setAttachmentIds(persistedAttachments.stream()
+                        .map(MesProBatchRecordExecutionAttachmentDO::getId).toList())
+                .setAttachmentHashes(persistedAttachments.stream()
+                        .map(MesProBatchRecordExecutionAttachmentDO::getSha256).toList());
+        JSONObject payload = JSON.parseObject(evidence.toPayloadJson());
+        payload.put("completedBy", actorUserId);
+        payload.put("completedAt", operatedAt.toString());
+        putSpecialNodePayloadAttachments(payload, task, persistedAttachments);
+        task.setStatus(TASK_STATUS_APPROVED)
+                .setApprovedAt(operatedAt)
+                .setSpecialPayloadJson(payload.toJSONString());
+        if (batchTaskMapper.updateById(task) != 1) {
+            throw productionReleaseReportBlocker(task, MesReleaseFlowBlockerType.REPORT_NODE_NOT_PROCESSABLE,
+                    "pre-release dossier node was completed concurrently");
+        }
+        syncBatchStatus(batch);
+        recordOperationAudit("BATCH_EXECUTION_TASK", String.valueOf(task.getId()), "COMPLETE_PRE_RELEASE_DOSSIER",
+                "完成 eDHR 预放行资料节点", task.getBatchExecutionId(), task.getExecutionId(), task.getId(),
+                batch.getRouteId(), task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
+                "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS", null, null,
+                payload.toJSONString());
+        return evidence;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesProEdhrSpecialNodeAttachmentPrepareUploadResult prepareSpecialNodeAttachmentUpload(
             MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command) {
         return prepareSpecialNodeAttachmentUpload(command, null, false);
@@ -4230,8 +4293,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             rule.put("componentFlag", dynamicRouteFormRecognizedFieldComponentFlag(field.getString("fieldType")));
             rule.put("required", Boolean.TRUE.equals(field.getBoolean("required")));
             rule.put("label", label);
-            rule.put("placeholder", "checkbox".equals(StrUtil.trimToEmpty(field.getString("fieldType"))
-                    .toLowerCase(Locale.ROOT)) ? "□" : "?");
+            rule.put("placeholder", dynamicRouteFormRecognizedFieldPlaceholder(field));
             rule.put("source", "AUTO");
             rule.put("reviewed", false);
             rules.add(rule);
@@ -4328,25 +4390,107 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private String dynamicRouteFormRecognizedFieldValueType(String fieldType) {
-        return switch (StrUtil.trimToEmpty(fieldType).toLowerCase(Locale.ROOT)) {
+        String normalized = StrUtil.trimToEmpty(fieldType).toLowerCase(Locale.ROOT);
+        String compact = normalized.replaceAll("[\\s_-]+", "");
+        if (isDynamicRouteFormSignatureFieldType(normalized) || isDynamicRouteFormSignatureFieldType(normalized, compact)) {
+            return "SIGNATURE";
+        }
+        return switch (normalized) {
             case "number" -> "NUMBER";
+            case "input-number" -> "NUMBER";
+            case "digit" -> "NUMBER";
+            case "decimal" -> "NUMBER";
+            case "数字" -> "NUMBER";
             case "date" -> "DATE";
+            case "日期" -> "DATE";
             case "datetime" -> "DATETIME";
+            case "date-time" -> "DATETIME";
+            case "时间" -> "DATETIME";
+            case "日期时间" -> "DATETIME";
             case "checkbox" -> "BOOLEAN";
-            case "signature" -> "SIGNATURE";
+            case "switch" -> "BOOLEAN";
+            case "boolean" -> "BOOLEAN";
             default -> "STRING";
         };
     }
 
     private String dynamicRouteFormRecognizedFieldComponentFlag(String fieldType) {
-        return switch (StrUtil.trimToEmpty(fieldType).toLowerCase(Locale.ROOT)) {
+        String normalized = StrUtil.trimToEmpty(fieldType).toLowerCase(Locale.ROOT);
+        String compact = normalized.replaceAll("[\\s_-]+", "");
+        if (isDynamicRouteFormSignatureFieldType(normalized, compact)) {
+            return "signature";
+        }
+        return switch (normalized) {
             case "number" -> "input-number";
+            case "input-number" -> "input-number";
+            case "digit" -> "input-number";
+            case "decimal" -> "input-number";
+            case "数字" -> "input-number";
             case "date" -> "date";
+            case "日期" -> "date";
             case "datetime" -> "datetime";
+            case "date-time" -> "datetime";
+            case "时间" -> "datetime";
+            case "日期时间" -> "datetime";
             case "checkbox" -> "checkbox";
-            case "signature" -> "signature";
-            case "textarea" -> "textarea";
+            case "switch" -> "checkbox";
+            case "boolean" -> "checkbox";
+            case "textarea" -> "input-textarea";
+            case "input-textarea" -> "input-textarea";
+            case "multiline" -> "input-textarea";
+            case "radio-group" -> "radio-group";
+            case "option-group" -> "radio-group";
+            case "single-choice" -> "radio-group";
+            case "radiogroup" -> "radio-group";
+            case "optiongroup" -> "radio-group";
+            case "singlechoice" -> "radio-group";
+            case "单选" -> "radio-group";
+            case "select" -> "select";
+            case "dropdown" -> "select";
+            case "下拉" -> "select";
+            case "选择" -> "select";
+            case "upload-file" -> "upload-file";
+            case "file" -> "upload-file";
+            case "附件" -> "upload-file";
+            case "文件" -> "upload-file";
+            case "upload-image" -> "upload-image";
+            case "image" -> "upload-image";
+            case "图片" -> "upload-image";
+            case "upload-images" -> "upload-images";
+            case "image-list" -> "upload-images";
             default -> "input-text";
+        };
+    }
+
+    private boolean isDynamicRouteFormSignatureFieldType(String normalizedFieldType, String compactFieldType) {
+        return "signature".equals(normalizedFieldType)
+                || "electronic-signature".equals(normalizedFieldType)
+                || "e-signature".equals(normalizedFieldType)
+                || "sign".equals(normalizedFieldType)
+                || "electronicsignature".equals(compactFieldType)
+                || "esignature".equals(compactFieldType)
+                || normalizedFieldType.contains("签名")
+                || normalizedFieldType.contains("签字");
+    }
+
+    private boolean isDynamicRouteFormSignatureFieldType(String normalizedFieldType) {
+        return isDynamicRouteFormSignatureFieldType(
+                normalizedFieldType, StrUtil.trimToEmpty(normalizedFieldType).replaceAll("[\\s_-]+", ""));
+    }
+
+    private String dynamicRouteFormRecognizedFieldPlaceholder(JSONObject field) {
+        String componentFlag = dynamicRouteFormRecognizedFieldComponentFlag(field.getString("fieldType"));
+        return switch (componentFlag) {
+            case "checkbox" -> "□";
+            case "signature" -> "请签名";
+            case "date" -> "请选择日期";
+            case "datetime" -> "请选择日期";
+            case "radio-group" -> "请选择";
+            case "select" -> "请选择";
+            case "upload-file" -> "请上传";
+            case "upload-image" -> "请上传";
+            case "upload-images" -> "请上传";
+            default -> "请输入";
         };
     }
 

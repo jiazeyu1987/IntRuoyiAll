@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.activation.Dc
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.activation.DccRegistrationCertificateActivationResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.activation.DccRegistrationCertificateActivationService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
@@ -71,6 +72,8 @@ class DccRegistrationCertificateActivationServiceTest extends BaseDbUnitTest {
 
     @MockitoBean
     private ControlledContentRegistrationProjectionService projectionService;
+    @MockitoBean
+    private DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
 
     @Test
     void duePendingCandidateSwitchesOnceToCurrentAndOld() {
@@ -86,6 +89,9 @@ class DccRegistrationCertificateActivationServiceTest extends BaseDbUnitTest {
         assertCurrentOldSwitch(fixture, fixture.pendingSnapshotId());
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE tenant_id = 1 AND certificate_id = ? AND event_type = 'ACTIVATION_APPLIED'", fixture.certificateId()));
         verify(projectionService).publish(any(), any(), any(), eq("OLD"), eq("CURRENT"), eq(99L), anyString());
+        verify(businessEventNotifier).notifyRenewalCandidateActivated(
+                eq(1L), eq(10L), eq(fixture.certificateId()), eq(fixture.pendingVersionId()),
+                eq(99L), eq("activation-1"), eq("CERT-002"));
     }
 
     @Test

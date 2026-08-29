@@ -13,6 +13,9 @@ const workbench = read('IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeader
 const stage1Service = read(
   'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/simulation/stage1/MesStage1ActiveOrderCompleteSimulationServiceImpl.java'
 );
+const activeOrderSimulationService = read(
+  'IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderActiveOrderSimulationService.java'
+);
 const stage1Migration = read(
   'IntRuoyiBackend/sql/mysql/20260825_mes_stage1_simulation_metadata.sql'
 );
@@ -21,14 +24,20 @@ assert.match(controller, /active-order\/simulation\/stage1/,
   'Stage1 must expose a dedicated endpoint');
 assert.match(controller, /MesStage1ActiveOrderCompleteSimulationService/,
   'controller must delegate Stage1 orchestration to its own service');
-assert.match(stage1Service, /cleanupOwnedRuns/,
-  'Stage1 must clean only its previous owned run before creating a fixture');
+assert.match(stage1Service, /cleanupOwnedRuns\([^)]*validated\.getActorUserId\(\),\s*validated\.getSimulationRunId\(\)\)/,
+  'Stage1 must clean previous owned runs after the new fixture is verified, excluding the current run');
 assert.match(stage1Service, /createFixture/,
   'Stage1 must create an independent active-order fixture');
 assert.match(stage1Service, /createSimulationPickList/,
   'Stage1 must create its own pick-list fixture instead of requiring a template binding');
-assert.doesNotMatch(stage1Service, /requireBinding\(templateBinding\)/,
-  'Stage1 must not require the template active order to already have a pick-list binding');
+assert.match(stage1Service, /selectListByProductionOrderNo\(\s*workOrder\.getCode\(\)\s*\)/,
+  'Stage1 must resolve the formal pick-list source with the work-order code, matching the active-order add flow.');
+assert.doesNotMatch(stage1Service, /selectPickListIdsByProductionOrderNo\(workOrder\.getOrderSourceCode\(\)\)/,
+  'Stage1 must not resolve pick lists from orderSourceCode because real pick-list lines are bound to workOrder.code.');
+assert.match(stage1Service, /resolveTemplateBinding[\s\S]*Boolean\.TRUE\.equals\(activeOrder\.getSimulated\(\)\)/,
+  'Stage1 rerun must accept a prior simulated order and read its persisted pick-list binding');
+assert.match(stage1Service, /bindingMapper\.selectByActiveOrderId\(activeOrder\.getId\(\)\)/,
+  'Stage1 rerun must read the prior simulated order pick-list binding before cleanup');
 assert.match(stage1Service, /bindingId|IdUtil\.getSnowflake\(\)\.nextId\(\)/,
   'Stage1 binding persistence must use an explicit primary key for the non-auto-increment binding tables');
 assert.match(stage1Service, /simulateActiveOrderCompletion[\s\S]*?STAGE/,
@@ -37,6 +46,24 @@ assert.match(stage1Service, /activeOrderCompleteSnapshot\.v2/,
   'Stage1 must return the v2 completion snapshot contract');
 assert.match(stage1Service, /assertNoDownstreamSideEffects/,
   'Stage1 must verify no completion/backfill/batch/upload/release side effects');
+assert.match(stage1Service, /assertFormalOrderProcessCompletionFacts/,
+  'Stage1 must keep and validate formal per-process completion facts produced by production leader review');
+assert.match(stage1Service, /STAGE1_FORMAL_ORDER_PROCESS_COMPLETION_REQUIRED/,
+  'Stage1 must fail fast when the reviewed production facts do not produce process completion summaries');
+assert.doesNotMatch(stage1Service, /STAGE1_COMPLETION_SIDE_EFFECT/,
+  'Stage1 must not treat per-process completion summaries as downstream active-order completion side effects');
+assert.match(activeOrderSimulationService, /PRODUCTION_FEEDBACK_SOURCE_TYPE\s*=\s*"MES_PRO_FEEDBACK"/,
+  'Stage1 production submit events must point to the formal production-feedback source type');
+assert.match(activeOrderSimulationService, /createZeroLossProductionFeedback/,
+  'Stage1 must create a formal zero-loss production feedback row for each simulated production submit');
+assert.match(activeOrderSimulationService, /payload\.put\("lossDetails",\s*List\.of\(\)\)/,
+  'Stage1 formal production submit payload must carry an explicit empty lossDetails array for zero-loss evidence');
+assert.doesNotMatch(activeOrderSimulationService, /\.feedbackSourceType\(SIMULATION_SOURCE_TYPE\)/,
+  'Stage1 production submit events must not use a simulation-only feedback source');
+assert.match(stage1Service, /STAGE1_FORMAL_PRODUCTION_FEEDBACK_REQUIRED/,
+  'Stage1 must fail fast when formal production feedback links are missing');
+assert.match(stage1Service, /feedbackMapper\.delete/,
+  'Stage1 cleanup must remove task-owned formal feedback rows for prior simulation runs');
 for (const receiptColumn of ['completion_status', 'batch_record_id', 'process_inspection_id']) {
   assert.match(stage1Migration,
     new RegExp(`mes_pro_process_pool_active_order_completion_receipt[\\s\\S]*${receiptColumn}`),

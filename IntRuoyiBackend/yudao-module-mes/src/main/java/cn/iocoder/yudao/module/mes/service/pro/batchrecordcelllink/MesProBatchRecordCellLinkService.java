@@ -15,7 +15,8 @@ public interface MesProBatchRecordCellLinkService {
     BatchRecordCellLinkWorkbenchContextRespVO getWorkbenchContext(Long routeId, Long definitionId,
                                                                   Long versionId, String sourceReportId,
                                                                          Long templateId, String versionNo,
-                                                                         Long routeProcessId, Long qaProcessId);
+                                                                         Long routeProcessId, Long qaProcessId,
+                                                                         Long dccProjectCodeId);
 
     BatchRecordCellLinkFormCellsRespVO getFormCells(String reportId, Long versionId);
 

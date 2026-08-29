@@ -76,4 +76,16 @@ class MesProEdhrBatchTraceTxCApplicationServiceContractTest {
 
         assertTrue(source.contains("MesProEdhrBatchTraceFormalSourceResolver.isActiveOrderEntryType(entryType)"));
     }
+
+    @Test
+    void producerUsesCentralTraceSourceHashValidationForEveryEvidenceItem() throws Exception {
+        String source = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/"
+                        + "MesProEdhrBatchTraceTxCProducer.java"));
+
+        assertTrue(source.contains("MesProEdhrBatchTraceSourceHash.isValid(linkType, snapshotJson, snapshotHash)"),
+                "Tx-C must use the shared trace source hash contract for receipt witness evidence");
+        assertTrue(!source.contains("boolean externallyWitnessed"),
+                "Tx-C must not keep a second hard-coded external witness allowlist");
+    }
 }

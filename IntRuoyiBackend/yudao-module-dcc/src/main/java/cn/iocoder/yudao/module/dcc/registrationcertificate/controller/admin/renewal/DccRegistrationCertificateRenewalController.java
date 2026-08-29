@@ -10,8 +10,10 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccR
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalSubmitCommand;
+import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -51,13 +53,16 @@ public class DccRegistrationCertificateRenewalController {
     public CommonResult<Long> submitForApproval(
             @PathVariable("certificateId") @Positive Long certificateId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @ModelAttribute DccRegistrationCertificateRenewalUploadReqVO reqVO) {
+            @Valid @ModelAttribute DccRegistrationCertificateRenewalUploadReqVO reqVO,
+            HttpServletRequest request) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         Long actorId = getLoginUserId();
+        String requestTraceId = DccRequestAuditContext.from(request, TracerUtils.getTraceId()).requestId();
         Long requestId = renewalService.submitRenewalForApproval(new DccRegistrationCertificateRenewalSubmitCommand(
-                tenantId, actorId, idempotencyKey, TracerUtils.getTraceId(), certificateId,
+                tenantId, actorId, idempotencyKey, requestTraceId, certificateId,
                 reqVO.getExpectedRowVersion(), reqVO.getCurrentVersionId(),
-                reqVO.getApprovalDate(), reqVO.getEffectiveDate(), reqVO.getExpiryDate(), reqVO.getFile()))
+                reqVO.getApprovalDate(), reqVO.getEffectiveDate(), reqVO.getExpiryDate(),
+                reqVO.getCategoryChanged(), reqVO.getCertificateNo(), reqVO.getClassification(), reqVO.getFile()))
                 .requestId();
         approvalService.startNativeApproval(
                 tenantId, actorId, new DccRegistrationCertificateApprovalStartCommand(requestId));
@@ -71,10 +76,12 @@ public class DccRegistrationCertificateRenewalController {
             @PathVariable("certificateId") @Positive Long certificateId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @PathVariable("pendingVersionId") @Positive Long pendingVersionId,
-            @Valid @RequestBody DccRegistrationCertificateRenewalVoidReqVO reqVO) {
+            @Valid @RequestBody DccRegistrationCertificateRenewalVoidReqVO reqVO,
+            HttpServletRequest request) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
+        String requestTraceId = DccRequestAuditContext.from(request, TracerUtils.getTraceId()).requestId();
         return success(renewalService.voidPendingCandidate(
-                tenantId, getLoginUserId(), idempotencyKey, TracerUtils.getTraceId(), certificateId,
+                tenantId, getLoginUserId(), idempotencyKey, requestTraceId, certificateId,
                 reqVO.getExpectedRowVersion(), pendingVersionId, reqVO.getVoidReason()));
     }
 }

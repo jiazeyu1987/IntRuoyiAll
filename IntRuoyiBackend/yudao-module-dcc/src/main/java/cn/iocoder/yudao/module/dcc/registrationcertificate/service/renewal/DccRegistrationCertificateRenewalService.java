@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateSnapshotMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentKey;
 import cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentProjectionSnapshot;
@@ -53,6 +54,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_LIFECYCLE_EVENT_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REVISION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_STATUS_INVALID;
@@ -78,6 +81,8 @@ public class DccRegistrationCertificateRenewalService {
     private static final String REQUEST_FILE_STATUS_APPROVED = "APPROVED";
     private static final String REQUEST_FILE_STATUS_REJECTED = "REJECTED";
     private static final String RENEWAL_REQUEST_PURPOSE = "上传延续注册证，待注册部经理审批";
+    private static final int MAX_CERTIFICATE_NO_LENGTH = 128;
+    private static final int MAX_CLASSIFICATION_LENGTH = 64;
 
     private final DccRegistrationCertificateMapper certificateMapper;
     private final DccRegistrationCertificateVersionMapper versionMapper;
@@ -90,6 +95,7 @@ public class DccRegistrationCertificateRenewalService {
     private final JdbcTemplate jdbcTemplate;
     private final ControlledContentRegistrationProjectionService projectionService;
     private final DccRegistrationCertificateBusinessClock businessClock;
+    private final DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
 
     public DccRegistrationCertificateRenewalService(
             DccRegistrationCertificateMapper certificateMapper,
@@ -102,7 +108,8 @@ public class DccRegistrationCertificateRenewalService {
             FileService fileService,
             JdbcTemplate jdbcTemplate,
             ControlledContentRegistrationProjectionService projectionService,
-            DccRegistrationCertificateBusinessClock businessClock) {
+            DccRegistrationCertificateBusinessClock businessClock,
+            DccRegistrationCertificateBusinessEventNotifier businessEventNotifier) {
         this.certificateMapper = require(certificateMapper, "certificateMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
         this.snapshotMapper = require(snapshotMapper, "snapshotMapper");
@@ -114,6 +121,7 @@ public class DccRegistrationCertificateRenewalService {
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
         this.projectionService = require(projectionService, "projectionService");
         this.businessClock = require(businessClock, "businessClock");
+        this.businessEventNotifier = require(businessEventNotifier, "businessEventNotifier");
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -132,6 +140,8 @@ public class DccRegistrationCertificateRenewalService {
         DccRegistrationCertificateVersionDO currentVersion = requireCurrentVersion(certificate, command.currentVersionId());
         validateRenewalDates(certificate.getFirstObtainedDate(), command.approvalDate(),
                 command.effectiveDate(), command.expiryDate());
+        resolveRenewalCertificateNo(command.categoryChanged(), command.certificateNo(), currentVersion);
+        resolveRenewalClassification(command.categoryChanged(), command.classification(), currentVersion);
         ensureNoOpenRenewalApproval(command.tenantId(), certificate.getId());
 
         Long infraFileId = fileService.createFileAndReturnId(
@@ -200,7 +210,8 @@ public class DccRegistrationCertificateRenewalService {
         DccRegistrationCertificateRenewalResult result = uploadRenewalCandidate(new DccRegistrationCertificateRenewalCommand(
                 tenantId, approverId, approvalKey, approvalKey, request.getCertificateId(),
                 detail.expectedRowVersion(), detail.currentVersionId(), detail.businessFileId(),
-                detail.approvalDate(), detail.effectiveDate(), detail.expiryDate()));
+                detail.approvalDate(), detail.effectiveDate(), detail.expiryDate(),
+                detail.categoryChanged(), detail.certificateNo(), detail.classification()));
         markRenewalRequestFiles(tenantId, requestId, REQUEST_FILE_STATUS_APPROVED);
         return result;
     }
@@ -233,17 +244,22 @@ public class DccRegistrationCertificateRenewalService {
                 command.tenantId(), currentVersion.getId(), command.businessFileId());
         validateRenewalDates(certificate.getFirstObtainedDate(), command.approvalDate(),
                 command.effectiveDate(), command.expiryDate());
+        boolean categoryChanged = requireCategoryChanged(command.categoryChanged());
+        String renewalCertificateNo = resolveRenewalCertificateNo(
+                command.categoryChanged(), command.certificateNo(), currentVersion);
+        String renewalClassification = resolveRenewalClassification(
+                command.categoryChanged(), command.classification(), currentVersion);
 
         DccRegistrationCertificateVersionDO renewalVersion = DccRegistrationCertificateVersionDO.builder()
                 .certificateId(certificate.getId())
                 .versionNo(currentVersion.getVersionNo() + 1)
                 .versionType(VERSION_TYPE_RENEWAL)
-                .certificateNo(currentVersion.getCertificateNo())
+                .certificateNo(renewalCertificateNo)
                 .approvalDate(command.approvalDate())
                 .effectiveDate(command.effectiveDate())
                 .expiryDate(command.expiryDate())
-                .classification(currentVersion.getClassification())
-                .categoryChanged(false)
+                .classification(renewalClassification)
+                .categoryChanged(categoryChanged)
                 .baseSnapshotId(currentSnapshot.getId())
                 .status(STATUS_PENDING)
                 .formalizedAt(businessClock.now())
@@ -303,6 +319,9 @@ public class DccRegistrationCertificateRenewalService {
                 currentSnapshot.getRevisionNo(), command.actorId(),
                 new RenewalEventDetail(payloadHash, certificate.getId(), renewalVersion.getId(),
                         renewalSnapshot.getId(), file.getId(), false));
+        businessEventNotifier.notifyRenewalCandidateUploaded(
+                command.tenantId(), certificate.getOwnerCompanyId(), certificate.getId(), renewalVersion.getId(),
+                command.actorId(), command.idempotencyKey(), renewalVersion.getCertificateNo());
         return new DccRegistrationCertificateRenewalResult(certificate.getId(), renewalVersion.getId(),
                 renewalSnapshot.getId(), file.getId(), STATUS_ACTIVE, STATUS_PENDING, false);
     }
@@ -630,7 +649,8 @@ public class DccRegistrationCertificateRenewalService {
         return new DccRegistrationCertificateRenewalCommand(
                 command.tenantId(), command.actorId(), command.idempotencyKey(), command.requestTraceId(),
                 command.certificateId(), command.expectedRowVersion(), command.currentVersionId(),
-                businessFileId, command.approvalDate(), command.effectiveDate(), command.expiryDate());
+                businessFileId, command.approvalDate(), command.effectiveDate(), command.expiryDate(),
+                command.categoryChanged(), command.certificateNo(), command.classification());
     }
 
     private DccRegistrationCertificateRenewalSubmitResult replaySubmit(
@@ -738,6 +758,11 @@ public class DccRegistrationCertificateRenewalService {
         detail.put("approvalDate", command.approvalDate().toString());
         detail.put("effectiveDate", command.effectiveDate().toString());
         detail.put("expiryDate", command.expiryDate().toString());
+        detail.put("categoryChanged", Boolean.TRUE.equals(command.categoryChanged()));
+        if (Boolean.TRUE.equals(command.categoryChanged())) {
+            detail.put("certificateNo", normalize(command.certificateNo()));
+            detail.put("classification", normalize(command.classification()));
+        }
         detail.put("fileSha256", uploadFile.sha256());
         detail.put("originalName", uploadFile.originalName());
         detail.put("fileSize", uploadFile.fileSize());
@@ -757,7 +782,10 @@ public class DccRegistrationCertificateRenewalService {
                 requireDetailLong(parsed, "businessFileId"),
                 LocalDate.parse(requireDetailText(parsed, "approvalDate")),
                 LocalDate.parse(requireDetailText(parsed, "effectiveDate")),
-                LocalDate.parse(requireDetailText(parsed, "expiryDate")));
+                LocalDate.parse(requireDetailText(parsed, "expiryDate")),
+                requireDetailBoolean(parsed, "categoryChanged"),
+                optionalDetailText(parsed, "certificateNo"),
+                optionalDetailText(parsed, "classification"));
     }
 
     private void validateEventInput(Long tenantId, Long actorId, String eventKey, String requestTraceId) {
@@ -775,7 +803,9 @@ public class DccRegistrationCertificateRenewalService {
     private static String uploadPayloadHash(DccRegistrationCertificateRenewalCommand command) {
         return sha256("UPLOAD|" + command.certificateId() + "|" + command.expectedRowVersion()
                 + "|" + command.currentVersionId() + "|" + command.businessFileId()
-                + "|" + command.approvalDate() + "|" + command.effectiveDate() + "|" + command.expiryDate());
+                + "|" + command.approvalDate() + "|" + command.effectiveDate() + "|" + command.expiryDate()
+                + "|" + Boolean.TRUE.equals(command.categoryChanged())
+                + "|" + normalize(command.certificateNo()) + "|" + normalize(command.classification()));
     }
 
     private static String submitPayloadHash(
@@ -783,8 +813,49 @@ public class DccRegistrationCertificateRenewalService {
         return sha256("SUBMIT|" + command.certificateId() + "|" + command.expectedRowVersion()
                 + "|" + command.currentVersionId() + "|" + command.approvalDate()
                 + "|" + command.effectiveDate() + "|" + command.expiryDate()
+                + "|" + Boolean.TRUE.equals(command.categoryChanged())
+                + "|" + normalize(command.certificateNo()) + "|" + normalize(command.classification())
                 + "|" + uploadFile.originalName() + "|" + uploadFile.mimeType()
                 + "|" + uploadFile.fileSize() + "|" + uploadFile.sha256());
+    }
+
+    private static boolean requireCategoryChanged(Boolean categoryChanged) {
+        if (categoryChanged == null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED);
+        }
+        return Boolean.TRUE.equals(categoryChanged);
+    }
+
+    private static String resolveRenewalCertificateNo(Boolean categoryChangedValue, String certificateNo,
+                                                      DccRegistrationCertificateVersionDO currentVersion) {
+        boolean categoryChanged = requireCategoryChanged(categoryChangedValue);
+        String requestedCertificateNo = normalize(certificateNo);
+        if (!categoryChanged) {
+            if (!isBlank(requestedCertificateNo)) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN);
+            }
+            return currentVersion.getCertificateNo();
+        }
+        if (isBlank(requestedCertificateNo) || requestedCertificateNo.length() > MAX_CERTIFICATE_NO_LENGTH) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED);
+        }
+        return requestedCertificateNo;
+    }
+
+    private static String resolveRenewalClassification(Boolean categoryChangedValue, String classification,
+                                                       DccRegistrationCertificateVersionDO currentVersion) {
+        boolean categoryChanged = requireCategoryChanged(categoryChangedValue);
+        String requestedClassification = normalize(classification);
+        if (!categoryChanged) {
+            if (!isBlank(requestedClassification)) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN);
+            }
+            return currentVersion.getClassification();
+        }
+        if (isBlank(requestedClassification) || requestedClassification.length() > MAX_CLASSIFICATION_LENGTH) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED);
+        }
+        return requestedClassification;
     }
 
     private static String voidPayloadHash(Long certificateId, Integer expectedRowVersion,
@@ -839,6 +910,23 @@ public class DccRegistrationCertificateRenewalService {
         return value.intValue();
     }
 
+    private static Boolean requireDetailBoolean(Map<?, ?> values, String key) {
+        Object value = values.get(key);
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        if (value != null && ("true".equalsIgnoreCase(String.valueOf(value))
+                || "false".equalsIgnoreCase(String.valueOf(value)))) {
+            return Boolean.valueOf(String.valueOf(value));
+        }
+        throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+    }
+
+    private static String optionalDetailText(Map<?, ?> values, String key) {
+        Object value = values.get(key);
+        return value == null ? null : normalize(String.valueOf(value));
+    }
+
     private static String normalize(String value) {
         return value == null ? "" : value.trim();
     }
@@ -891,6 +979,9 @@ public class DccRegistrationCertificateRenewalService {
             Long businessFileId,
             LocalDate approvalDate,
             LocalDate effectiveDate,
-            LocalDate expiryDate) {
+            LocalDate expiryDate,
+            Boolean categoryChanged,
+            String certificateNo,
+            String classification) {
     }
 }

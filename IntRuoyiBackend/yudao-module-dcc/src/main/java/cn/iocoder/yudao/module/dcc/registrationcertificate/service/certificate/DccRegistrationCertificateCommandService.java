@@ -84,6 +84,26 @@ public class DccRegistrationCertificateCommandService {
                 metadata, context, certificateId, expectedRowVersion, expectedSnapshotRevision, businessFileId));
     }
 
+    public Long formalizeApprovedUpload(Long tenantId, Long approverId, Long validationActorId,
+                                        String idempotencyKey, String requestTraceId,
+                                        Long certificateId, Integer expectedRowVersion,
+                                        Integer expectedSnapshotRevision, Long businessFileId) {
+        if (validationActorId == null || validationActorId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
+        }
+        String kind = "FORMALIZE_APPROVED_UPLOAD";
+        DccRegistrationCertificateCommandMetadata metadata = metadata(
+                tenantId, approverId, idempotencyKey, requestTraceId, kind,
+                DccRegistrationCertificateCommandFingerprint.formalizeApprovedUpload(
+                        certificateId, expectedRowVersion, expectedSnapshotRevision, businessFileId,
+                        validationActorId));
+        DccRegistrationCertificateCommandContext context =
+                new DccRegistrationCertificateCommandContext(null, certificateId);
+        return execute(metadata, context, () -> transactionService.formalize(
+                metadata, context, certificateId, expectedRowVersion, expectedSnapshotRevision, businessFileId,
+                validationActorId));
+    }
+
     private Long execute(DccRegistrationCertificateCommandMetadata metadata,
                          DccRegistrationCertificateCommandContext context,
                          Supplier<Long> operation) {

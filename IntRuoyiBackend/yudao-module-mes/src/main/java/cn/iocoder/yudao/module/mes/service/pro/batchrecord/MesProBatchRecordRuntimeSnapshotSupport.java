@@ -114,10 +114,12 @@ public class MesProBatchRecordRuntimeSnapshotSupport {
                 field.put("rowIndex", rowIndex);
                 field.put("columnIndex", columnIndex);
                 field.put("valueType", valueType);
-                field.put("component", MesProBatchRecordCellRuleSupport.defaultComponentFlag(valueType,
+                String componentFlag = MesProBatchRecordCellRuleSupport.defaultComponentFlag(valueType,
                         StrUtil.blankToDefault(cellRule.getString("componentFlag"),
                                 StrUtil.blankToDefault(fillForm.getString("componentFlag"),
-                                        StrUtil.blankToDefault(fillForm.getString("component"), "input-text")))));
+                                        StrUtil.blankToDefault(fillForm.getString("component"), "input-text"))));
+                field.put("component", componentFlag);
+                field.put("componentFlag", componentFlag);
                 field.put("required", Boolean.TRUE.equals(cellRule.getBoolean("required")));
                 putIfPresent(field, "placeholder", firstNonBlank(cellRule.getString("placeholder"), fillForm.getString("placeholder")));
                 putIfPresent(field, "helpText", firstNonBlank(cellRule.getString("helpText"), fillForm.getString("helpText")));

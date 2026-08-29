@@ -21,7 +21,7 @@ class MesStage6TraceabilityContractTest {
                 "releaseDecisionId", 2L,
                 "releasedAt", "2026-08-25T10:00:00",
                 "releaseStatus", "RELEASED",
-                "threeFileEvidence", List.of(
+                "fourMaterialEvidence", List.of(
                         Map.of("nodeType", "INCOMING_INSPECTION_REPORT", "attachmentIds", List.of(1L),
                                 "sha256", List.of("a".repeat(64))),
                         Map.of("nodeType", "STERILIZATION_REPORT", "attachmentIds", List.of(2L),

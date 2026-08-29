@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.D
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeService;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Import({
@@ -51,6 +54,8 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
     private JdbcTemplate jdbcTemplate;
     @MockitoBean
     private FileService fileService;
+    @MockitoBean
+    private DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
 
     @BeforeEach
     void setUpFileService() {
@@ -72,6 +77,9 @@ class DccRegistrationCertificateChangeServiceTest extends BaseDbUnitTest {
         assertEquals(result.resultingSnapshotId(), longValue("SELECT current_snapshot_id FROM dcc_registration_certificate WHERE id = 1001"));
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_change_item WHERE change_id = ? AND item_type = 'PRODUCT_NAME'", result.changeId()));
         assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_lifecycle_event WHERE event_type = 'CHANGE_APPLIED' AND certificate_id = 1001"));
+        verify(businessEventNotifier).notifyChangeApprovalRecorded(
+                eq(1L), eq(10L), eq(1001L), eq(2001L), eq(99L),
+                eq("change-product"), eq("CERT-001"));
     }
 
     @Test

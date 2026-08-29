@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED;
@@ -165,6 +167,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                             .setAllocation(allocation)
                             .setSourceEvents(sourceEvents)
                             .setAllocations(allocations)
+                            .setReviews(source.getReviews())
                             .setAggregateHash(completion.getAggregateHash())
                             .setIdempotencyKey(completion.getBackfillIdempotencyKey())
                             .setWorkOrder(plan.getCommand().getWorkOrder())
@@ -396,7 +399,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
         List<MesProBatchRecordCellLinkRuleDO> reportRules = rules.stream()
                 .filter(rule -> SOURCE_TYPE_PROCESS_POOL_REPORT.equals(StrUtil.trim(rule.getSourceType())))
                 .toList();
-        if (!reportRules.isEmpty() && !validateRuleSourceValues(events, allocations, reportRules)) {
+        if (!reportRules.isEmpty() && !validateRuleSourceValues(events, allocations, reviews, reportRules)) {
             blockers.add(blocker("BATCH_RECORD_MAPPING_REQUIRED", "ROUTE_PROCESS", snapshot.getRouteProcessId(),
                     "批记录字段映射缺少对应生产来源值或多来源聚合策略", "请补齐生产参数及正式字段映射"));
             return;
@@ -488,6 +491,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
 
     private boolean validateRuleSourceValues(List<MesProProcessPoolEventDO> events,
                                              List<MesProcessPoolReportAllocationDO> allocations,
+                                             List<MesProcessPoolSubmissionReviewDO> reviews,
                                              List<MesProBatchRecordCellLinkRuleDO> rules) {
         if (rules.isEmpty()) {
             return false;
@@ -501,9 +505,23 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
                     "生产提交 JSON 无法解析，禁止生成批记录");
         }
+        Map<Long, MesProcessPoolSubmissionReviewDO> reviewById = reviews.stream()
+                .filter(Objects::nonNull)
+                .filter(review -> review.getId() != null)
+                .collect(Collectors.toMap(MesProcessPoolSubmissionReviewDO::getId, Function.identity(),
+                        (left, right) -> left, LinkedHashMap::new));
         for (MesProBatchRecordCellLinkRuleDO rule : rules) {
             if (allocations.size() > 1 && StrUtil.isBlank(rule.getAggregationStrategy())) {
                 return false;
+            }
+            if (isReviewSourceField(rule.getSourceFieldCode())) {
+                if (allocations.stream().anyMatch(allocation -> {
+                    MesProcessPoolSubmissionReviewDO review = reviewById.get(allocation.getReviewId());
+                    return review == null || reviewSourceValue(review, rule.getSourceFieldCode()) == null;
+                })) {
+                    return false;
+                }
+                continue;
             }
             if ("allocatedQuantity".equals(rule.getSourceFieldCode())) {
                 if (allocations.stream().anyMatch(item -> item.getAllocatedQuantity() == null)) {
@@ -512,6 +530,9 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                 continue;
             }
             for (MesProProcessPoolEventDO event : events) {
+                if (eventContextSourceValue(event, rule.getSourceFieldCode()) != null) {
+                    continue;
+                }
                 JsonNode value = payloads.get(event.getId()).get(rule.getSourceFieldCode());
                 if (value == null || value.isNull() || value.isContainerNode()
                         || value.isTextual() && StrUtil.isBlank(value.asText())) {
@@ -520,6 +541,33 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
             }
         }
         return true;
+    }
+
+    private boolean isReviewSourceField(String sourceFieldCode) {
+        return Set.of("reviewedAt", "reviewSignatureId", "reviewSignatureUserId")
+                .contains(StrUtil.trim(sourceFieldCode));
+    }
+
+    private Object reviewSourceValue(MesProcessPoolSubmissionReviewDO review, String sourceFieldCode) {
+        return switch (StrUtil.trim(sourceFieldCode)) {
+            case "reviewedAt" -> review.getReviewedAt();
+            case "reviewSignatureId" -> review.getReviewSignatureId();
+            case "reviewSignatureUserId" -> review.getReviewSignatureUserId();
+            default -> null;
+        };
+    }
+
+    private Object eventContextSourceValue(MesProProcessPoolEventDO event, String sourceFieldCode) {
+        return switch (StrUtil.trim(sourceFieldCode)) {
+            case "actualEmployeeId" -> event.getActualEmployeeId();
+            case "deviceAccountId" -> event.getDeviceAccountId();
+            case "deviceId" -> event.getDeviceId();
+            case "workstationId" -> event.getWorkstationId();
+            case "serverSubmitTime" -> event.getServerSubmitTime();
+            case "signatureId" -> event.getSignatureId();
+            case "signatureUserId" -> event.getSignatureUserId();
+            default -> null;
+        };
     }
 
     private MesProEdhrBatchExecutionTaskDO requireCurrentBatchTask(

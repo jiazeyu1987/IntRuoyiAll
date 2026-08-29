@@ -30,7 +30,9 @@ class MesStage2_5ReceiptHandoffContractTest {
         assertFalse(source.contains("simulateActiveOrderCompletion(validated.getActorUserId(), activeOrder.getId(),"));
         assertTrue(source.contains("activeOrderCompletionService.complete(validated.getActorUserId(),"));
         assertFalse(source.contains("MesProcessPoolActiveOrderDO activeOrder = createFixture"));
-        assertTrue(source.contains("setCompletionBackfillReceipt(receipt)"));
+        assertFalse(source.contains("setCompletionBackfillReceipt(receipt)"));
+        assertTrue(source.contains("setSourceContextHash(receipt.getSourceSnapshotHash())"));
+        assertFalse(source.contains("setSourceContextHash(receipt.getSourceContextHash())"));
         assertTrue(source.contains("backfillReceipt.getBatchRecordId()"));
         assertTrue(source.contains("backfillReceipt.getProcessInspectionId()"));
     }
@@ -99,5 +101,15 @@ class MesStage2_5ReceiptHandoffContractTest {
         assertTrue(stage1.contains("like(MesProWorkOrderDO::getRemark, \"][actorUserId=\" + actorUserId + \"]\")"));
         assertTrue(stage25.contains("cleanupOwnedBatches(validated.getActorUserId())"));
         assertTrue(stage25.contains("like(MesProEdhrBatchExecutionDO::getRemark, \"][actorUserId=\" + actorUserId + \"]\")"));
+    }
+
+    @Test
+    void cleanupMustSkipNonCanonicalBatchMarkers() throws Exception {
+        String stage25 = Files.readString(IMPLEMENTATION, StandardCharsets.UTF_8);
+
+        assertTrue(stage25.contains("String runId = tryRunIdFromMarker(batch.getRemark(), actorUserId)"));
+        assertTrue(stage25.contains("if (runId == null)"));
+        assertTrue(stage25.contains("continue;"));
+        assertFalse(stage25.contains("runIdFromMarker(batch.getRemark(), actorUserId);"));
     }
 }

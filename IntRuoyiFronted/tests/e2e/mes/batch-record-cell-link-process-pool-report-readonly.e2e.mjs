@@ -46,6 +46,39 @@ function isSuccessPayload(payload) {
   return payload && (payload.code === 0 || payload.code === 200)
 }
 
+function isWorkbenchContextResponse(response) {
+  return (
+    response.url().includes('/admin-api/mes/pro/batch-record-cell-link/workbench-context') &&
+    response.request().method() === 'GET'
+  )
+}
+
+async function selectFirstRealDropdownOption(page, description) {
+  const deadline = Date.now() + config.timeout
+  while (Date.now() < deadline) {
+    const options = page.locator('.el-select-dropdown__item:visible')
+    const labels = (await options.allInnerTexts()).map((label) => label.trim())
+    const optionIndex = labels.findIndex((label) => label && label !== 'No data')
+    if (optionIndex >= 0) {
+      return {
+        label: labels[optionIndex],
+        option: options.nth(optionIndex)
+      }
+    }
+    await page.waitForTimeout(250)
+  }
+  throw new Error(`${description} has no selectable real-data option`)
+}
+
+async function selectAndReadWorkbenchContext(page, option, description) {
+  const contextPromise = page.waitForResponse(isWorkbenchContextResponse, { timeout: config.timeout })
+  await option.click()
+  const response = await contextPromise
+  const payload = await response.json().catch(() => null)
+  assert.ok(response.ok() && isSuccessPayload(payload), `${description} context failed: ${payload?.msg || response.status()}`)
+  return payload.data
+}
+
 async function settle(page, timeout = 15000) {
   await page.waitForLoadState('networkidle', { timeout }).catch(() => null)
   await page.waitForTimeout(500)
@@ -98,6 +131,23 @@ async function login(page, credentials) {
   await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: config.timeout })
 }
 
+async function selectRoughWashReport(page) {
+  const roughWashReportName = '粗洗工序生产记录'
+  const row = page
+    .locator('.batch-record-form-layout__list .el-table__body-wrapper tr')
+    .filter({ hasText: roughWashReportName })
+    .first()
+  await row.waitFor({ state: 'visible', timeout: config.timeout })
+  await row.click()
+  await page.waitForFunction(
+    (reportName) => document.querySelector('.batch-record-form-preview__title')?.textContent?.includes(reportName),
+    roughWashReportName,
+    { timeout: config.timeout }
+  )
+  await settle(page, 30000)
+  return roughWashReportName
+}
+
 async function openWorkbench(page) {
   await page.goto(`${config.baseUrl}/mes/pro/batch-record-form-list`, {
     waitUntil: 'domcontentloaded',
@@ -105,6 +155,7 @@ async function openWorkbench(page) {
   })
   await page.getByText('批记录表单').first().waitFor({ state: 'visible', timeout: config.timeout })
   await settle(page, 30000)
+  const clickedReportName = await selectRoughWashReport(page)
 
   const contextPromise = page.waitForResponse(
     (response) =>
@@ -119,23 +170,137 @@ async function openWorkbench(page) {
   const contextPayload = await (await contextPromise).json()
   assert.ok(isSuccessPayload(contextPayload), `workbench context failed: ${contextPayload?.msg || contextPayload?.code}`)
   await settle(page, 30000)
-  return contextPayload.data
+  return {
+    context: contextPayload.data,
+    clickedReportName
+  }
+}
+
+async function readSelectedSelectText(page, selector) {
+  return page.locator(selector).first().evaluate((root) => {
+    const selectedItem =
+      root.querySelector('.el-select__selected-item') ||
+      root.querySelector('.el-select__placeholder') ||
+      root.querySelector('.el-select__selection')
+    const selectedText = selectedItem?.textContent?.trim()
+    if (selectedText) return selectedText
+    const input = root.querySelector('input')
+    return input?.value?.trim() || root.textContent?.trim() || ''
+  })
+}
+
+async function verifyClickedReportIsTarget(page, context, clickedReportName) {
+  const targetReportId = new URL(page.url()).searchParams.get('targetReportId')
+  assert.ok(targetReportId, `clicked report target id missing from URL: ${page.url()}`)
+  const targetForm = (context.forms || []).find((form) => form.reportId === targetReportId)
+  assert.ok(targetForm, `clicked target form missing from workbench context: ${targetReportId}`)
+  assert.equal(targetForm.reportName, clickedReportName, 'clicked report must be resolved as the target form')
+
+  const sourceText = await readSelectedSelectText(page, '.batch-record-cell-link__source-select')
+  const targetText = await readSelectedSelectText(page, '.batch-record-cell-link__target-select')
+  assert.ok(targetText.includes(clickedReportName), `target selector must show clicked report: ${targetText}`)
+  assert.ok(!sourceText.includes(clickedReportName), `source selector must not show clicked report: ${sourceText}`)
+  return {
+    clickedTargetReportName: clickedReportName,
+    initialSourceSelection: sourceText,
+    initialTargetSelection: targetText
+  }
+}
+
+async function verifyIndependentPanelScrolling(page) {
+  const sourceScroll = page.locator('[data-cell-link-scroll-pane="source"]').first()
+  const targetScroll = page.locator('[data-cell-link-scroll-pane="target"]').first()
+  await sourceScroll.waitFor({ state: 'visible', timeout: config.timeout })
+  await targetScroll.waitFor({ state: 'visible', timeout: config.timeout })
+
+  await sourceScroll.evaluate((element) => {
+    element.scrollTop = 0
+  })
+  await targetScroll.evaluate((element) => {
+    element.scrollTop = 0
+  })
+  await page.evaluate(() => window.scrollTo(0, 0))
+
+  const before = await page.evaluate(() => {
+    const source = document.querySelector('[data-cell-link-scroll-pane="source"]')
+    const target = document.querySelector('[data-cell-link-scroll-pane="target"]')
+    if (!source || !target) return null
+    const sourceRect = source.getBoundingClientRect()
+    const targetTable = target.querySelector('table')
+    return {
+      sourceScrollTop: source.scrollTop,
+      targetScrollTop: target.scrollTop,
+      targetScrollHeight: target.scrollHeight,
+      targetClientHeight: target.clientHeight,
+      targetTableHeight: targetTable?.getBoundingClientRect().height || 0,
+      targetTableRows: targetTable?.rows.length || 0,
+      sourceTop: sourceRect.top,
+      sourceBottom: sourceRect.bottom,
+      windowScrollY: window.scrollY
+    }
+  })
+  assert.ok(before, 'source and target scroll containers must be rendered')
+  assert.ok(
+    before.targetScrollHeight > before.targetClientHeight,
+    `target form must overflow its scroll container: ${JSON.stringify(before)}`
+  )
+
+  await targetScroll.hover()
+  await page.mouse.wheel(0, Math.max(600, Math.floor(before.targetClientHeight * 0.8)))
+  await page.waitForTimeout(150)
+
+  const after = await page.evaluate(() => {
+    const source = document.querySelector('[data-cell-link-scroll-pane="source"]')
+    const target = document.querySelector('[data-cell-link-scroll-pane="target"]')
+    if (!source || !target) return null
+    const sourceRect = source.getBoundingClientRect()
+    return {
+      sourceScrollTop: source.scrollTop,
+      targetScrollTop: target.scrollTop,
+      sourceTop: sourceRect.top,
+      sourceBottom: sourceRect.bottom,
+      windowScrollY: window.scrollY
+    }
+  })
+  assert.ok(after, 'source and target scroll containers must remain rendered after wheel input')
+  assert.ok(after.targetScrollTop > before.targetScrollTop, `target form did not scroll: ${JSON.stringify({ before, after })}`)
+  assert.equal(after.sourceScrollTop, before.sourceScrollTop, 'source field scroll position must remain unchanged')
+  assert.ok(Math.abs(after.sourceTop - before.sourceTop) < 1, 'source field panel top must remain fixed')
+  assert.ok(Math.abs(after.sourceBottom - before.sourceBottom) < 1, 'source field panel bottom must remain fixed')
+  assert.equal(after.windowScrollY, before.windowScrollY, 'page scroll position must remain unchanged')
+
+  return {
+    targetScrollTopBefore: before.targetScrollTop,
+    targetScrollTopAfter: after.targetScrollTop,
+    sourceScrollTopBefore: before.sourceScrollTop,
+    sourceScrollTopAfter: after.sourceScrollTop,
+    windowScrollYBefore: before.windowScrollY,
+    windowScrollYAfter: after.windowScrollY
+  }
 }
 
 async function verifyProcessPoolReportSource(page, context) {
   const expectedFields = [
-    ['allocatedQuantity', '放行分配数量'],
     ['outputQuantity', '本次报工产出数量'],
-    ['lossQuantity', '本次报工损耗数量']
+    ['lossQuantity', '本次报工损耗数量'],
+    ['signatureUserId', '提交签名用户'],
+    ['reviewedAt', '审核时间'],
+    ['reviewSignatureUserId', '审核人签名用户']
   ]
-  const reportFields = (context.sourceFields || []).filter((field) => field.sourceType === 'PROCESS_POOL_REPORT')
-  for (const [fieldCode, fieldName] of expectedFields) {
-    assert.ok(
-      reportFields.some((field) => field.fieldCode === fieldCode && field.fieldName === fieldName),
-      `PROCESS_POOL_REPORT source field missing: ${fieldCode}/${fieldName}`
-    )
-  }
-
+  const hiddenFields = [
+    ['allocatedQuantity', '放行分配数量'],
+    ['lossReasonCodeSnapshot', '损耗原因编码'],
+    ['actualEmployeeId', '实际操作员工'],
+    ['laborScrapQuantity', '本次报工工废数量'],
+    ['materialScrapQuantity', '本次报工料废数量'],
+    ['otherScrapQuantity', '本次报工其他废品数量'],
+    ['lossReasonNameSnapshot', '损耗原因名称'],
+    ['deviceId', '事件设备编号'],
+    ['workstationId', '工作站编号'],
+    ['deviceAccountId', '设备账号'],
+    ['signatureId', '提交签名编号'],
+    ['reviewSignatureId', '审核人签名编号']
+  ]
   const sourceSelect = page.locator('.batch-record-cell-link__source-select').first()
   await sourceSelect.click()
   const reportOption = page.locator('.el-select-dropdown__item:visible').filter({ hasText: /^报工数据$/ }).first()
@@ -143,18 +308,66 @@ async function verifyProcessPoolReportSource(page, context) {
   await reportOption.click()
   await settle(page)
 
+  const dccSelect = page.locator('[data-process-pool-dcc-project-select]').first()
+  await dccSelect.waitFor({ state: 'visible', timeout: config.timeout })
+  await dccSelect.click()
+  const dccSelection = await selectFirstRealDropdownOption(page, 'DCC project code selector')
+  const dccContext = await selectAndReadWorkbenchContext(page, dccSelection.option, 'DCC project code selection')
+  assert.ok(dccSelection.label, 'selected DCC project code must have a visible label')
+  await settle(page)
+
+  const processSelect = page.locator('[data-process-pool-route-process-select]').first()
+  await processSelect.waitFor({ state: 'visible', timeout: config.timeout })
+  await page.waitForFunction(
+    () => {
+      const select = document.querySelector('[data-process-pool-route-process-select]')
+      return select && select.getAttribute('aria-disabled') !== 'true' && !select.classList.contains('is-disabled')
+    },
+    null,
+    { timeout: config.timeout }
+  )
+  await processSelect.click()
+  const processSelection = await selectFirstRealDropdownOption(page, 'route process selector')
+  const selectedContext = await selectAndReadWorkbenchContext(page, processSelection.option, 'route process selection')
+  assert.ok(processSelection.label && processSelection.label !== 'No data', 'selected route process must have a real label')
+  await settle(page)
+
+  const reportFields = (selectedContext.sourceFields || []).filter((field) => field.sourceType === 'PROCESS_POOL_REPORT')
+  for (const [fieldCode, fieldName] of expectedFields) {
+    assert.ok(
+      reportFields.some((field) => field.fieldCode === fieldCode && field.fieldName === fieldName),
+      `PROCESS_POOL_REPORT source field missing after DCC project/process selection: ${fieldCode}/${fieldName}`
+    )
+  }
+  for (const [fieldCode, fieldName] of hiddenFields) {
+    assert.ok(
+      !reportFields.some((field) => field.fieldCode === fieldCode && field.fieldName === fieldName),
+      `PROCESS_POOL_REPORT source field must be hidden after DCC project/process selection: ${fieldCode}/${fieldName}`
+    )
+  }
+
+  await page.waitForFunction(
+    () => Number(document.querySelector('[data-process-pool-report-source-fields="true"]')?.getAttribute('data-process-pool-report-field-count') || 0) > 0,
+    null,
+    { timeout: config.timeout }
+  )
+
   const sourcePanel = page.locator('.batch-record-cell-link__work-order-field-panel').first()
   await sourcePanel.waitFor({ state: 'visible', timeout: config.timeout })
   const panelText = (await sourcePanel.innerText()).replace(/\s+/g, ' ')
-  const targetForm = (context.forms || []).find((form) => form.reportId === context.defaultTargetReportId)
-  assert.ok(targetForm, `default target form missing: ${JSON.stringify(context)}`)
+  const targetContext = selectedContext || dccContext || context
+  const targetForm = (targetContext.forms || []).find((form) => form.reportId === targetContext.defaultTargetReportId)
+  assert.ok(targetForm, `default target form missing: ${JSON.stringify(targetContext)}`)
   assert.match(panelText, /源字段/, 'source panel must identify source fields')
   assert.ok(
-    panelText.includes(`${targetForm.reportName}的一线生产字段`),
-    `source panel must identify the selected target process: ${panelText}`
+    panelText.includes(`${processSelection.label}的一线生产字段`),
+    `source panel must identify the selected route process: ${panelText}`
   )
   for (const [, fieldName] of expectedFields) {
     assert.ok(panelText.includes(fieldName), `report data field is not visible: ${fieldName}`)
+  }
+  for (const [, fieldName] of hiddenFields) {
+    assert.ok(!panelText.includes(fieldName), `hidden report data field is visible: ${fieldName}`)
   }
 
   const aggregationSelect = page.locator('.batch-record-cell-link__aggregation-select').first()
@@ -166,6 +379,7 @@ async function verifyProcessPoolReportSource(page, context) {
     .locator('.batch-record-cell-link__pane.is-target .batch-record-cell-link-sheet__cell.is-target-selectable')
     .first()
   await targetCell.waitFor({ state: 'visible', timeout: 30000 })
+  const independentPanelScroll = await verifyIndependentPanelScrolling(page)
   await targetCell.click()
   assert.equal(await createButton.isDisabled(), true, 'create button must require an aggregation strategy')
 
@@ -184,9 +398,12 @@ async function verifyProcessPoolReportSource(page, context) {
   assert.equal(await createButton.isEnabled(), true, 'create button must be enabled after source, target and aggregation')
 
   return {
-    forms: context.forms?.length || 0,
+    forms: targetContext.forms?.length || 0,
+    selectedDccProjectCode: dccSelection.label,
+    selectedRouteProcess: processSelection.label,
     reportFields: reportFields.map(({ fieldCode, fieldName, valueType }) => ({ fieldCode, fieldName, valueType })),
-    aggregationLabels: aggregationLabels.map((label) => label.trim()).filter(Boolean)
+    aggregationLabels: aggregationLabels.map((label) => label.trim()).filter(Boolean),
+    independentPanelScroll
   }
 }
 
@@ -201,7 +418,7 @@ async function main() {
     headless: !config.headed,
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined
   })
-  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, locale: 'zh-CN' })
+  const page = await browser.newPage({ viewport: { width: 1680, height: 500 }, locale: 'zh-CN' })
   const mesWriteRequests = []
   const pageErrors = []
   page.on('request', (request) => {
@@ -215,7 +432,8 @@ async function main() {
   const failedScreenshot = path.join(config.taskDir, 'process-pool-report-readonly-failed.png')
   try {
     await login(page, credentials)
-    const context = await openWorkbench(page)
+    const { context, clickedReportName } = await openWorkbench(page)
+    const directionEvidence = await verifyClickedReportIsTarget(page, context, clickedReportName)
     const evidence = await verifyProcessPoolReportSource(page, context)
     assert.equal(mesWriteRequests.length, 0, `readonly E2E sent MES writes: ${mesWriteRequests.join(', ')}`)
     assert.deepEqual(pageErrors, [], `page errors detected: ${pageErrors.join(' | ')}`)
@@ -225,6 +443,7 @@ async function main() {
         {
           status: 'PASS',
           identity: `${credentials.tenant}/${credentials.username}`,
+          ...directionEvidence,
           ...evidence,
           mesWriteRequests: mesWriteRequests.length,
           pageErrors,

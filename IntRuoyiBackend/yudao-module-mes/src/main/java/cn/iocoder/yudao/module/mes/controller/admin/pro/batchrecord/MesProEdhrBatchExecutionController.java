@@ -164,6 +164,7 @@ public class MesProEdhrBatchExecutionController {
         return success(stage4DossierUploadSimulationService.simulate(
                         new MesStage4DossierUploadSimulationCommand()
                                 .setActorUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .setInputMode(reqVO.getInputMode())
                         .setSimulationRunId(reqVO.getSimulationRunId())
                         .setBatchExecutionId(reqVO.getBatchExecutionId())
                         .setStage2_5SimulationRunId(reqVO.getStage2_5SimulationRunId())));

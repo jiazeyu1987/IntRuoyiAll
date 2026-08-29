@@ -844,6 +844,49 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
+    void getLatestSuccessfulApplyScheduleOrderIds_shouldUseSnapshotScopeOnly() {
+        String latestApplySnapshotJson = JsonUtils.toJsonString(Map.of(
+                "operationType", "REPLAN_APPLY",
+                "requestId", "latest-scope-with-protected-history",
+                "scheduleOrderIds", List.of(900421L, 900422L)));
+        when(scheduleOrderOperationLogMapper.selectLatestByOperationTypes(List.of("AUTO_APPLY", "REPLAN_APPLY")))
+                .thenReturn(MesProScheduleOrderOperationLogDO.builder()
+                        .id(790421L)
+                        .scheduleOrderId(900424L)
+                        .scheduleOrderCode("SCH-900424")
+                        .operationType("REPLAN_APPLY")
+                        .afterSnapshotJson(latestApplySnapshotJson)
+                        .build());
+        org.mockito.Mockito.lenient().when(scheduleOrderOperationLogMapper
+                        .selectListByOperationTypeAndAfterSnapshotJson("REPLAN_APPLY", latestApplySnapshotJson))
+                .thenReturn(List.of(
+                        MesProScheduleOrderOperationLogDO.builder()
+                                .scheduleOrderId(900421L)
+                                .operationType("REPLAN_APPLY")
+                                .afterSnapshotJson(latestApplySnapshotJson)
+                                .build(),
+                        MesProScheduleOrderOperationLogDO.builder()
+                                .scheduleOrderId(900422L)
+                                .operationType("REPLAN_APPLY")
+                                .afterSnapshotJson(latestApplySnapshotJson)
+                                .build(),
+                        MesProScheduleOrderOperationLogDO.builder()
+                                .scheduleOrderId(900423L)
+                                .operationType("REPLAN_APPLY")
+                                .afterSnapshotJson(latestApplySnapshotJson)
+                                .build(),
+                        MesProScheduleOrderOperationLogDO.builder()
+                                .scheduleOrderId(900424L)
+                                .operationType("REPLAN_APPLY")
+                                .afterSnapshotJson(latestApplySnapshotJson)
+                                .build()));
+
+        Set<Long> result = scheduleOrderService.getLatestSuccessfulApplyScheduleOrderIds();
+
+        assertEquals(Set.of(900421L, 900422L), result);
+    }
+
+    @Test
     void getProcessWipStatistics_shouldUseCurrentRouteProcessDefinitionForAllWorkbenchWip() {
         MesProScheduleOrderDO firstOrder = MesProScheduleOrderDO.builder()
                 .id(900451L)

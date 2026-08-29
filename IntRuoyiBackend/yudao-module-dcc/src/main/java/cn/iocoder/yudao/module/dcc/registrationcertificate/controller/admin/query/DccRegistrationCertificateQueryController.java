@@ -21,6 +21,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -71,9 +72,10 @@ public class DccRegistrationCertificateQueryController {
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:query-current')")
     public CommonResult<DccRegistrationCertificateDetail> getDetail(
             @PathVariable("id") @Positive Long id,
+            @RequestParam(value = "versionId", required = false) @Positive Long versionId,
             HttpServletRequest request) {
         return success(queryService.getDetail(
-                TenantContextHolder.getRequiredTenantId(), getLoginUserId(), id,
+                TenantContextHolder.getRequiredTenantId(), getLoginUserId(), id, versionId,
                 DccRequestAuditContext.from(request, null)));
     }
 
@@ -85,7 +87,7 @@ public class DccRegistrationCertificateQueryController {
             HttpServletRequest request) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         Long actorId = getLoginUserId();
-        queryService.getDetail(tenantId, actorId, id, DccRequestAuditContext.from(request, null));
+        queryService.getDetail(tenantId, actorId, id, null, DccRequestAuditContext.from(request, null));
         return success(historyService.listHistory(tenantId, id));
     }
 }

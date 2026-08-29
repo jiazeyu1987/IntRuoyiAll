@@ -2500,7 +2500,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             return Collections.emptyList();
         }
         return records.stream()
-                .filter(record -> record.getFormTemplateId() != null)
+                .filter(this::isDynamicFormBindingRecord)
                 .sorted(Comparator.comparing(MesProRouteFlowProcessBatchRecordDO::getReportSort,
                         Comparator.nullsLast(Integer::compareTo)))
                 .map(record -> {
@@ -2532,6 +2532,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     return vo;
                 })
                 .toList();
+    }
+
+    private boolean isDynamicFormBindingRecord(MesProRouteFlowProcessBatchRecordDO record) {
+        return record != null
+                && StrUtil.isBlank(record.getBatchRecordReportId())
+                && record.getFormTemplateId() != null;
     }
 
     private MesProRouteFlowConfigTypeEnum validateUseType(String useType) {

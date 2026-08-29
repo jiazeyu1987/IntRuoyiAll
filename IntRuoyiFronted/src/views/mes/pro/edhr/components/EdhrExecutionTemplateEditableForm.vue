@@ -502,8 +502,6 @@ const emit = defineEmits<{
   signatureAction: [context: TemplateEditableCellContext]
 }>()
 
-const parseError = ref('')
-
 const parseJson = <T,>(raw: string | undefined, label: string): T | undefined => {
   if (!raw?.trim()) return undefined
   try {
@@ -514,20 +512,30 @@ const parseJson = <T,>(raw: string | undefined, label: string): T | undefined =>
   }
 }
 
-const layout = computed(() => {
-  parseError.value = ''
+const parsedLayoutState = computed<{
+  layout?: RichTemplateRawLayout
+  error: string
+}>(() => {
   try {
     const parsed = parseJson<RichTemplateRawLayout>(props.sheetLayoutJson, '模板布局')
     if (!parsed?.rows || !Object.keys(parsed.rows).length) {
-      parseError.value = '缺少电子批记录模板布局，无法渲染模板内填写。'
-      return undefined
+      return {
+        error: '缺少电子批记录模板布局，无法渲染模板内填写。'
+      }
     }
-    return parsed
+    return {
+      layout: parsed,
+      error: ''
+    }
   } catch (error) {
-    parseError.value = error instanceof Error ? error.message : '模板布局解析失败。'
-    return undefined
+    return {
+      error: error instanceof Error ? error.message : '模板布局解析失败。'
+    }
   }
 })
+
+const parseError = computed(() => parsedLayoutState.value.error)
+const layout = computed(() => parsedLayoutState.value.layout)
 
 const normalizedRules = computed(() => (props.cellRules || []).map(normalizeCellRule))
 

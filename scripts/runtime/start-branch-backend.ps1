@@ -17,6 +17,34 @@ $ports = $context.Ports
 $backendRoot = Join-Path $repoRoot 'IntRuoyiBackend'
 $jarPath = Join-Path $backendRoot 'yudao-server\target\yudao-server-exec.jar'
 
+function Get-RequiredRuntimeEnvironmentValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    foreach ($scope in @('Process', 'User', 'Machine')) {
+        $value = [Environment]::GetEnvironmentVariable($Name, $scope)
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            return $value
+        }
+    }
+
+    throw "Missing required runtime environment variable: $Name. Configure the DCC download encryption runtime value before starting the backend."
+}
+
+$requiredDccDownloadEncryptionEnvironmentNames = @(
+    'DCC_DOWNLOAD_ENCRYPTION_POLICY_VERSION',
+    'DCC_DOWNLOAD_ENCRYPTION_KEY_ID',
+    'DCC_DOWNLOAD_ENCRYPTION_BASE64_KEY',
+    'DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY'
+)
+
+$dccDownloadEncryptionEnvironment = @{}
+foreach ($name in $requiredDccDownloadEncryptionEnvironmentNames) {
+    $dccDownloadEncryptionEnvironment[$name] = Get-RequiredRuntimeEnvironmentValue -Name $name
+}
+
 $listeners = @(Get-NetTCPConnection -LocalPort $ports.BackendPort -State Listen -ErrorAction SilentlyContinue)
 if ($listeners.Count -gt 0) {
     $pids = ($listeners | Select-Object -ExpandProperty OwningProcess -Unique) -join ', '
@@ -47,5 +75,23 @@ $javaArgs = @(
 ) + $ExtraArgs
 
 Write-Host "Starting $($profile.Name) backend on $($ports.BackendPort)."
-& java @javaArgs
-exit $LASTEXITCODE
+$previousDccDownloadEncryptionEnvironment = @{}
+foreach ($name in $requiredDccDownloadEncryptionEnvironmentNames) {
+    $environmentPath = "Env:$name"
+    $previousDccDownloadEncryptionEnvironment[$name] = (Get-Item -Path $environmentPath -ErrorAction SilentlyContinue).Value
+    Set-Item -Path $environmentPath -Value $dccDownloadEncryptionEnvironment[$name]
+}
+
+try {
+    & java @javaArgs
+    exit $LASTEXITCODE
+} finally {
+    foreach ($name in $requiredDccDownloadEncryptionEnvironmentNames) {
+        $environmentPath = "Env:$name"
+        if ($null -eq $previousDccDownloadEncryptionEnvironment[$name]) {
+            Remove-Item -Path $environmentPath -ErrorAction SilentlyContinue
+        } else {
+            Set-Item -Path $environmentPath -Value $previousDccDownloadEncryptionEnvironment[$name]
+        }
+    }
+}

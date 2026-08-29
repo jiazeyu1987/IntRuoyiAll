@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
@@ -136,6 +137,55 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         assertEquals(8801L, result.getExecutionId());
         assertEquals(1, result.getAppliedFieldCount());
         verify(productionPickListSourceService, never()).resolveValue(any());
+    }
+
+    @Test
+    void shouldBackfillReviewerSignatureFieldsFromFormalSubmissionReview() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(execution()
+                .setExecutionSnapshotJson("""
+                        {"fields":[
+                          {"fieldPath":"report.reviewSignatureId","fieldKey":"reviewSignatureId","rowIndex":5,"columnIndex":2,"valueType":"NUMBER"},
+                          {"fieldPath":"report.reviewSignatureUserId","fieldKey":"reviewSignatureUserId","rowIndex":6,"columnIndex":2,"valueType":"NUMBER"}
+                        ]}
+                        """));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(
+                        rule(1L, "reviewSignatureId", 5, 2, MesProBatchRecordExecutionFieldAuditValueType.NUMBER),
+                        rule(2L, "reviewSignatureUserId", 6, 2, MesProBatchRecordExecutionFieldAuditValueType.NUMBER)));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult()
+                        .setFieldAuditRevision(2L)
+                        .setCellValuesHash("after-hash")
+                        .setFieldAuditHeadHash("after-head")
+                        .setChangedFieldCount(2));
+
+        MesProcessPoolSubmissionReviewDO review = MesProcessPoolSubmissionReviewDO.builder()
+                .id(7001L)
+                .eventId(1001L)
+                .leaderUserId(3001L)
+                .leaderType("PRODUCTION")
+                .reviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED)
+                .reviewSignatureId(9101L)
+                .reviewSignatureUserId(3001L)
+                .reviewedAt(LocalDateTime.of(2026, 8, 1, 9, 5))
+                .reviewSignatureSnapshotJson("{\"signedAt\":\"2026-08-01T09:05:00\"}")
+                .build();
+
+        MesTeamLeaderBatchRecordBackfillResult result = service.backfillCompletedProcess(
+                command().setReviews(List.of(review)));
+
+        assertEquals(8801L, result.getExecutionId());
+        assertEquals(2, result.getAppliedFieldCount());
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
+        List<MesProBatchRecordExecutionFieldAuditChange> changes = auditCaptor.getValue().getChanges();
+        assertEquals(new BigDecimal("9101"), changes.get(0).getNewValueJson());
+        assertEquals(new BigDecimal("3001"), changes.get(1).getNewValueJson());
     }
 
     @Test

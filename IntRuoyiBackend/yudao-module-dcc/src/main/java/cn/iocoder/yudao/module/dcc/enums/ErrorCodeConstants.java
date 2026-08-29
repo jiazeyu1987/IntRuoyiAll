@@ -345,7 +345,7 @@ public interface ErrorCodeConstants {
     ErrorCode REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED = new ErrorCode(1_080_000_224,
             "Registration certificate owner company is required");
     ErrorCode REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED = new ErrorCode(1_080_000_225,
-            "Registration certificate company scope denied");
+            "当前账号无该公司注册证上传权限，请选择已授权公司");
     ErrorCode REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED = new ErrorCode(1_080_000_226,
             "Registration certificate product is required");
     ErrorCode REGISTRATION_CERTIFICATE_PRODUCT_INVALID = new ErrorCode(1_080_000_227,

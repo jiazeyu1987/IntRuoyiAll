@@ -61,6 +61,10 @@ public interface MesProEdhrBatchExecutionService {
             Long taskId, Long actorUserId, String sterilizationBatchNo,
             List<MesProEdhrSpecialNodeAttachment> attachments);
 
+    MesProductionReleaseReportNodeEvidence completePreReleaseDossierNode(
+            Long taskId, Long actorUserId, String sterilizationBatchNo,
+            List<MesProEdhrSpecialNodeAttachment> attachments);
+
     MesProEdhrSpecialNodeAttachmentPrepareUploadResult prepareSpecialNodeAttachmentUpload(
             MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command);
 

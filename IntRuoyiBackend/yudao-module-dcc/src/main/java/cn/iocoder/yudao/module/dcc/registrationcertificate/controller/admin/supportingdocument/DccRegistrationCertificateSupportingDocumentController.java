@@ -7,8 +7,10 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.supp
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.supportingdocument.DccRegistrationCertificateSupportingDocumentCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.supportingdocument.DccRegistrationCertificateSupportingDocumentResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.supportingdocument.DccRegistrationCertificateSupportingDocumentService;
+import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -41,19 +43,21 @@ public class DccRegistrationCertificateSupportingDocumentController {
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:supporting-document:upload')")
     public CommonResult<DccRegistrationCertificateSupportingDocumentResult> upload(
             @PathVariable("certificateId") @Positive Long certificateId,
-        @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @RequestBody DccRegistrationCertificateSupportingDocumentUploadReqVO reqVO) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody DccRegistrationCertificateSupportingDocumentUploadReqVO reqVO,
+            HttpServletRequest request) {
+        String requestTraceId = DccRequestAuditContext.from(request, TracerUtils.getTraceId()).requestId();
         return success(supportingDocumentService.upload(toCommand(
                 certificateId, idempotencyKey, reqVO.getVersionId(), reqVO.getBusinessFileId(),
-                reqVO.getDocumentType())));
+                reqVO.getDocumentType(), requestTraceId)));
     }
 
     private DccRegistrationCertificateSupportingDocumentCommand toCommand(
             Long certificateId, String idempotencyKey, Long versionId, Long businessFileId,
-            String documentType) {
+            String documentType, String requestTraceId) {
         return new DccRegistrationCertificateSupportingDocumentCommand(
                 TenantContextHolder.getRequiredTenantId(), getLoginUserId(), idempotencyKey,
-                TracerUtils.getTraceId(), certificateId, versionId, businessFileId,
+                requestTraceId, certificateId, versionId, businessFileId,
                 null, null, documentType, null);
     }
 }

@@ -316,7 +316,16 @@
       @closed="resetWordImportDialog"
     >
       <el-form label-width="120px" class="batch-record-word-import-form">
-        <el-form-item label="产品名称" required>
+        <el-form-item label="导入类型" required>
+          <el-radio-group
+            v-model="wordImportDialog.selectedFormSlotType"
+            @change="handleWordImportTypeChange"
+          >
+            <el-radio-button value="MAIN">批记录</el-radio-button>
+            <el-radio-button value="FORM">表单</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="isMainWordImport" label="产品名称" required>
           <el-select
             v-model="wordImportDialog.selectedDccProjectCodeId"
             class="batch-record-word-import-form__project-select"
@@ -342,11 +351,21 @@
             </el-option>
           </el-select>
         </el-form-item>
+        <el-form-item v-else label="表单名称" required>
+          <el-input
+            v-model="wordImportDialog.formName"
+            class="batch-record-word-import-form__name-input"
+            maxlength="100"
+            clearable
+            placeholder="请输入表单名称"
+            @input="handleUnifiedFormNameInput"
+          />
+        </el-form-item>
         <el-form-item label="Word 文件" required>
           <div class="batch-record-word-import-form__file-row">
             <el-button
               plain
-              :disabled="!wordImportDialog.selectedDccProjectCodeId"
+              :disabled="!canSelectWordImportFile"
               @click="handleWordImportFileSelect"
             >
               选择文件
@@ -687,6 +706,7 @@ const lastWordImportResult = ref<BatchRecordReportImportResultVO>()
 const WORD_IMPORT_PROJECT_OPTION_PAGE_SIZE = 200
 const CELL_RULES_NAVIGATION_PAGE_SIZE = 200
 const DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE: BatchRecordFormSlotType = 'MAIN'
+const UNIFIED_FORM_WORD_IMPORT_FORM_SLOT_TYPE: BatchRecordFormSlotType = 'FORM'
 const permissionDialogVisible = ref(false)
 const permissionSaving = ref(false)
 const candidateOptionsLoaded = ref(false)
@@ -713,6 +733,7 @@ const wordImportDialog = reactive({
   confirming: false,
   selectedFormSlotType: DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE as BatchRecordFormSlotType,
   selectedDccProjectCodeId: undefined as number | undefined,
+  formName: '',
   projectOptions: [] as DccProjectCodeRespVO[],
   projectLoading: false,
   preflightLoading: false,
@@ -758,6 +779,7 @@ const {
 
 const formSlotTypeLabels: Record<BatchRecordFormSlotType, string> = {
   MAIN: '批记录',
+  FORM: '表单',
   LOSS_REPORT: '损耗单',
   PROCESS_INSPECTION: '过程检验单',
   PARAMETER_RECORD: '参数记录表'
@@ -802,6 +824,14 @@ const permissionForm = reactive<{ fillRule: EdhrProcessFormCandidateRule }>({
 })
 
 const isMainWordImport = computed(() => wordImportDialog.selectedFormSlotType === 'MAIN')
+const isUnifiedFormWordImport = computed(
+  () => wordImportDialog.selectedFormSlotType === UNIFIED_FORM_WORD_IMPORT_FORM_SLOT_TYPE
+)
+const canSelectWordImportFile = computed(() =>
+  isMainWordImport.value
+    ? Boolean(wordImportDialog.selectedDccProjectCodeId)
+    : Boolean(wordImportDialog.formName.trim())
+)
 const wordImportFileAccept = '.doc,.docx'
 
 const recordFormQuickFilterDefinitions: TableQuickFilterDefinition[] = [
@@ -822,6 +852,7 @@ const recordFormQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     queryParamKey: 'formSlotType',
     options: [
       { label: '批记录', value: 'MAIN' },
+      { label: '表单', value: 'FORM' },
       { label: '损耗单', value: 'LOSS_REPORT' },
       { label: '过程检验单', value: 'PROCESS_INSPECTION' },
       { label: '参数记录表', value: 'PARAMETER_RECORD' }
@@ -1717,6 +1748,7 @@ const resetWordImportDialog = () => {
   wordImportDialog.confirming = false
   wordImportDialog.selectedFormSlotType = DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE
   wordImportDialog.selectedDccProjectCodeId = undefined
+  wordImportDialog.formName = ''
   wordImportDialog.projectOptions = []
   wordImportDialog.projectLoading = false
   resetWordImportPreflightState()
@@ -1748,6 +1780,22 @@ const getSelectedWordImportProject = () => {
   }
   return wordImportDialog.projectOptions.find((item) => item.id === selectedId)
 }
+
+const resolveWordImportSubjectName = () => {
+  if (isMainWordImport.value) {
+    return getSelectedWordImportProject()?.projectName?.trim() || ''
+  }
+  return wordImportDialog.formName.trim()
+}
+
+const resolveWordImportSubjectRequiredMessage = () =>
+  isMainWordImport.value ? '请选择产品名称。' : '请输入表单名称。'
+
+const resolveWordImportSubjectTooLongMessage = () =>
+  isMainWordImport.value ? '产品名称不能超过 100 个字符。' : '表单名称不能超过 100 个字符。'
+
+const resolveExtraFormSlotSubjectLabel = (formSlotType: BatchRecordFormSlotType) =>
+  formSlotType === UNIFIED_FORM_WORD_IMPORT_FORM_SLOT_TYPE ? '表单名称' : '产品名称'
 
 const loadWordImportProjectOptions = async (keyword = '') => {
   const trimmedKeyword = keyword.trim()
@@ -1786,6 +1834,22 @@ const loadWordImportProjectOptions = async (keyword = '') => {
   } finally {
     wordImportDialog.projectLoading = false
   }
+}
+
+const handleWordImportTypeChange = async () => {
+  clearWordImportState()
+  resetWordImportPreflightState()
+  if (isMainWordImport.value && wordImportDialog.visible && wordImportDialog.projectOptions.length === 0) {
+    await loadWordImportProjectOptions()
+  }
+}
+
+const handleUnifiedFormNameInput = () => {
+  if (!isUnifiedFormWordImport.value) {
+    return
+  }
+  clearWordImportState()
+  resetWordImportPreflightState()
 }
 
 const loadWordImportPreflight = async () => {
@@ -2023,6 +2087,7 @@ const confirmWordImportUpgradeSelections = async (
 const openWordImportDialog = async () => {
   wordImportDialog.selectedFormSlotType = DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE
   wordImportDialog.selectedDccProjectCodeId = undefined
+  wordImportDialog.formName = ''
   wordImportDialog.projectOptions = []
   clearWordImportState()
   resetWordImportPreflightState()
@@ -2037,13 +2102,13 @@ const cancelWordImportDialog = () => {
 
 const confirmWordImportDialog = async () => {
   const selectedProject = getSelectedWordImportProject()
-  const selectedProjectName = selectedProject?.projectName?.trim() || ''
+  const selectedSubjectName = resolveWordImportSubjectName()
   if (!wordImportDialog.selectedFormSlotType) {
     message.warning('请选择表单类型。')
     return
   }
-  if (!selectedProjectName || !selectedProject?.id) {
-    message.warning('请选择产品名称。')
+  if (!selectedSubjectName) {
+    message.warning(resolveWordImportSubjectRequiredMessage())
     return
   }
   const file = wordImportDialog.file
@@ -2051,14 +2116,19 @@ const confirmWordImportDialog = async () => {
     message.warning('请选择 Word 文件。')
     return
   }
-  const batchRecordName = selectedProjectName
-  const productNames = [selectedProjectName]
+  const batchRecordName = selectedSubjectName
+  const productNames = [selectedSubjectName]
   if (batchRecordName.length > 100) {
-    message.warning('产品名称不能超过 100 个字符。')
+    message.warning(resolveWordImportSubjectTooLongMessage())
     return
   }
   if (!isMainWordImport.value) {
-    await runUploadedExtraFormSlotImport(file, selectedProjectName)
+    await runUploadedExtraFormSlotImport(file, selectedSubjectName)
+    return
+  }
+  const selectedDccProjectCodeId = selectedProject?.id
+  if (!selectedDccProjectCodeId) {
+    message.warning('请选择产品名称。')
     return
   }
   if (!wordImportDialog.preflight) {
@@ -2106,7 +2176,7 @@ const confirmWordImportDialog = async () => {
   if (confirmedSelection) {
     wordImportDialog.confirming = true
     try {
-      await runUploadedWordImport(file, batchRecordName, selectedProject.id, productNames, confirmedSelection)
+      await runUploadedWordImport(file, batchRecordName, selectedDccProjectCodeId, productNames, confirmedSelection)
       wordImportDialog.visible = false
     } finally {
       wordImportDialog.confirming = false
@@ -2115,8 +2185,8 @@ const confirmWordImportDialog = async () => {
 }
 
 const handleWordImportFileSelect = () => {
-  if (!wordImportDialog.selectedDccProjectCodeId) {
-    message.warning('请选择产品名称。')
+  if (!canSelectWordImportFile.value) {
+    message.warning(resolveWordImportSubjectRequiredMessage())
     return
   }
   if (!wordImportFileInputRef.value) {
@@ -2224,12 +2294,12 @@ const runUploadedWordImport = async (
 }
 
 const findExistingExtraFormSlotReport = async (
-  selectedProjectName: string,
+  selectedSubjectName: string,
   formSlotType: BatchRecordFormSlotType
 ) => {
   const localReport = list.value.find(
     (item) =>
-      item.batchRecordName === selectedProjectName &&
+      item.batchRecordName === selectedSubjectName &&
       (item.formSlotType || 'MAIN') === formSlotType
   )
   if (localReport) {
@@ -2238,27 +2308,28 @@ const findExistingExtraFormSlotReport = async (
   const data = await BatchRecordReportApi.getGeneratedReportPage({
     pageNo: 1,
     pageSize: 200,
-    productName: selectedProjectName,
+    productName: selectedSubjectName,
     formSlotType
   })
   return (Array.isArray(data.list) ? data.list : []).find(
     (item) =>
-      item.batchRecordName === selectedProjectName &&
+      item.batchRecordName === selectedSubjectName &&
       (item.formSlotType || 'MAIN') === formSlotType
   )
 }
 
 const confirmExtraFormSlotVersionUpgrade = async (
-  selectedProjectName: string,
+  selectedSubjectName: string,
   formSlotType: BatchRecordFormSlotType,
   existingReport: BatchRecordReportVO
 ) => {
   const formSlotLabel = resolveFormSlotTypeLabel(formSlotType)
+  const subjectLabel = resolveExtraFormSlotSubjectLabel(formSlotType)
   const currentVersionNo = existingReport.versionNo || '无版本'
   const dialogClosed = await closeWordImportDialogBeforeMessageBox()
   try {
     await ElMessageBox.confirm(
-      `产品名称「${selectedProjectName}」${formSlotLabel}当前版本为 ${currentVersionNo}，确认后将生成新版本，旧版本保留。`,
+      `${subjectLabel}「${selectedSubjectName}」${formSlotLabel}当前版本为 ${currentVersionNo}，确认后将生成新版本，旧版本保留。`,
       `确认${formSlotLabel}升版`,
       {
         confirmButtonText: '升版导入',
@@ -2276,14 +2347,14 @@ const confirmExtraFormSlotVersionUpgrade = async (
   }
 }
 
-const runUploadedExtraFormSlotImport = async (file: File, selectedProjectName: string) => {
+const runUploadedExtraFormSlotImport = async (file: File, selectedSubjectName: string) => {
   const existingReport = await findExistingExtraFormSlotReport(
-    selectedProjectName,
+    selectedSubjectName,
     wordImportDialog.selectedFormSlotType
   )
   if (existingReport) {
     const confirmed = await confirmExtraFormSlotVersionUpgrade(
-      selectedProjectName,
+      selectedSubjectName,
       wordImportDialog.selectedFormSlotType,
       existingReport
     )
@@ -2302,12 +2373,13 @@ const runUploadedExtraFormSlotImport = async (file: File, selectedProjectName: s
   try {
     const result = await BatchRecordReportApi.uploadExtraFormSlot(
       file,
-      selectedProjectName,
+      selectedSubjectName,
       wordImportDialog.selectedFormSlotType
     )
     const versionSummary = submitImportedVersionApproval(result, resolveFormSlotTypeLabel(wordImportDialog.selectedFormSlotType))
+    const subjectLabel = resolveExtraFormSlotSubjectLabel(wordImportDialog.selectedFormSlotType)
     message.success(
-      `产品名称「${selectedProjectName}」${formSlotLabel}解析完成：共 ${result.importedCount} 份，新建 ${result.createdCount} 份，更新 ${result.updatedCount} 份${versionSummary}。`
+      `${subjectLabel}「${selectedSubjectName}」${formSlotLabel}解析完成：共 ${result.importedCount} 份，新建 ${result.createdCount} 份，更新 ${result.updatedCount} 份${versionSummary}。`
     )
     wordImportDialog.visible = false
     clearWordImportState()
@@ -2368,12 +2440,11 @@ const handleCellLinks = async (row: BatchRecordReportVO) => {
   await router.push({
     path: '/mes/pro/batch-record-cell-link',
     query: {
-      sourceReportId: row.reportId,
       definitionId: row.batchRecordDefinitionId ? String(row.batchRecordDefinitionId) : undefined,
       versionId: row.batchRecordVersionId ? String(row.batchRecordVersionId) : undefined,
       routeId: cellLinkRouteId || undefined,
       routeProcessId: cellLinkRouteProcessId || undefined,
-      targetReportId: cellLinkRouteProcessId ? row.reportId : undefined
+      targetReportId: row.reportId
     }
   })
 }
@@ -2448,7 +2519,7 @@ onBeforeUnmount(() => {
 watch(
   () => wordImportDialog.selectedDccProjectCodeId,
   () => {
-    if (!wordImportDialog.visible) {
+    if (!wordImportDialog.visible || !isMainWordImport.value) {
       return
     }
     clearWordImportState()
@@ -2496,6 +2567,10 @@ watch(
 }
 
 .batch-record-word-import-form__project-select {
+  width: 100%;
+}
+
+.batch-record-word-import-form__name-input {
   width: 100%;
 }
 

@@ -141,11 +141,23 @@ public class DccRegistrationCertificateCommandTransactionService {
                           DccRegistrationCertificateCommandContext context,
                           Long certificateId, Integer expectedRowVersion, Integer expectedSnapshotRevision,
                           Long businessFileId) {
+        return formalize(metadata, context, certificateId, expectedRowVersion, expectedSnapshotRevision,
+                businessFileId, metadata.actorId());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long formalize(DccRegistrationCertificateCommandMetadata metadata,
+                          DccRegistrationCertificateCommandContext context,
+                          Long certificateId, Integer expectedRowVersion, Integer expectedSnapshotRevision,
+                          Long businessFileId, Long validationActorId) {
+        if (validationActorId == null || validationActorId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
+        }
         DccRegistrationCertificateDraftState state = draftRepository.load(
                 metadata.tenantId(), certificateId, expectedRowVersion, expectedSnapshotRevision, context);
         DccRegistrationCertificateDraftData stored = storedDraft(state);
         DccRegistrationCertificateResolvedDraft resolved = prerequisiteValidator.validate(
-                metadata.tenantId(), metadata.actorId(), stored);
+                metadata.tenantId(), validationActorId, stored);
         DccRegistrationCertificateFormalizationResult result = formalizationService.formalize(
                 state, resolved, metadata.tenantId(), metadata.actorId(), expectedRowVersion, businessFileId);
         auditService.recordSuccess(metadata, context, result.versionId(), result.snapshotId(), result.businessFileId());

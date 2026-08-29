@@ -19,12 +19,10 @@
 </template>
 
 <script setup lang="ts">
-import { BatchRecordReportApi } from '@/api/mes/pro/batchrecordreport'
+import * as TemplateApi from '@/api/form-center/template'
 import { getRefreshToken } from '@/utils/auth'
 
 defineOptions({ name: 'FormCenterTemplateDesignerWrapper' })
-
-const FORM_TEMPLATE_REPORT_PREFIX = 'FORMTPL:'
 
 const props = withDefaults(
   defineProps<{
@@ -77,17 +75,21 @@ const normalizeRouteQueryText = (value: unknown) => {
   return typeof rawValue === 'string' && rawValue.trim() ? rawValue.trim() : ''
 }
 
+const resolveTemplateRouteIdentity = () => {
+  const templateIdText = normalizeRouteQueryText(route.query.templateId)
+  const versionNo = normalizeRouteQueryText(route.query.versionNo)
+  const templateId = Number(templateIdText)
+  if (!Number.isInteger(templateId) || templateId <= 0 || !versionNo) {
+    throw new Error('缺少有效模板 ID 或版本号，无法打开表单模板 Jimu 编辑器。')
+  }
+  return { templateId, versionNo }
+}
+
 const appendToken = (path: string, useBaseUrl = true) => {
   const token = getRefreshToken()
   const separator = path.includes('?') ? '&' : '?'
   const withToken = `${path}${token ? `${separator}token=${encodeURIComponent(token)}` : ''}`
   return useBaseUrl ? `${import.meta.env.VITE_BASE_URL}${withToken}` : withToken
-}
-
-const ensureFormTemplateReportId = (reportId: string) => {
-  if (!reportId.startsWith(FORM_TEMPLATE_REPORT_PREFIX)) {
-    throw new Error(`表单模板 Jimu 编辑入口收到非模板报表 ID：${reportId}`)
-  }
 }
 
 const ensureSameOriginPreviewSupport = () => {
@@ -112,14 +114,9 @@ const loadDesigner = async () => {
   loading.value = true
   loadErrorMessage.value = ''
   try {
-    const reportId = normalizeRouteQueryText(route.query.reportId)
-    if (!reportId) {
-      loadErrorMessage.value = '缺少表单模板 Jimu 报表 ID，无法打开表单模板 Jimu 编辑器。'
-      return
-    }
-    ensureFormTemplateReportId(reportId)
+    const { templateId, versionNo } = resolveTemplateRouteIdentity()
     if (reportMode.value === 'edit') {
-      const data = await BatchRecordReportApi.getEditPath(reportId)
+      const data = await TemplateApi.getTemplateEditPath(templateId, versionNo)
       if (!isDesignerPath(data.path)) {
         throw new Error(`表单模板 Jimu 编辑路径不是设计器路径：${data.path}`)
       }
@@ -127,7 +124,7 @@ const loadDesigner = async () => {
       viewMode.value = 'designer'
       src.value = appendToken(normalizeDesignerPath(data.path), false)
     } else {
-      const data = await BatchRecordReportApi.getDesignerPath(reportId)
+      const data = await TemplateApi.getTemplateDesignerPath(templateId, versionNo)
       const previewPath = isPreviewPath(data.path)
       viewMode.value = previewPath ? 'preview' : 'designer'
       if (previewPath) {
@@ -149,7 +146,7 @@ onMounted(() => {
 })
 
 watch(
-  () => [route.query.reportId, route.query.reportMode] as const,
+  () => [route.query.templateId, route.query.versionNo, route.query.reportMode] as const,
   () => {
     void loadDesigner()
   }

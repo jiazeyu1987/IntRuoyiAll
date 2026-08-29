@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.ren
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +29,12 @@ public class DccRegistrationCertificateRenewalUploadReqVO {
     @NotNull
     @DateTimeFormat(iso = DATE)
     private LocalDate expiryDate;
+    @NotNull
+    private Boolean categoryChanged;
+    @Size(max = 128)
+    private String certificateNo;
+    @Size(max = 64)
+    private String classification;
     @NotNull
     private MultipartFile file;
 }

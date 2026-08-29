@@ -59,7 +59,7 @@ assert.match(
 )
 assert.match(
   templatePage,
-  /const\s+openSelectedTemplateWorkspace\s*=\s*async\s*\(reportMode:\s*'preview'\s*\|\s*'edit'\)\s*=>\s*\{[\s\S]*?openDesigner\(selectedTemplate\.value,\s*reportMode\)/,
+  /const\s+openSelectedTemplateWorkspace\s*=\s*async\s*\(reportMode:\s*'preview'\s*\|\s*'edit'\)\s*=>\s*\{[\s\S]*?openDesigner\(targetTemplate,\s*reportMode\)/,
   'openSelectedTemplateWorkspace 必须转调 openDesigner，避免重复维护路由细节'
 )
 assert.match(
@@ -84,8 +84,18 @@ assert.match(
 )
 assert.match(
   formTemplateDesignerWrapper,
-  /BatchRecordReportApi\.getEditPath\(reportId\)/,
-  '表单模板 Jimu 壳必须像批记录表单一样通过 edit path 进入 Jimu 编辑器'
+  /TemplateApi\.getTemplateEditPath\(templateId,\s*versionNo\)/,
+  '表单模板 Jimu 壳必须通过表单中心 edit path 进入 Jimu 编辑器'
+)
+assert.match(
+  formTemplateDesignerWrapper,
+  /TemplateApi\.getTemplateDesignerPath\(templateId,\s*versionNo\)/,
+  '表单模板 Jimu 壳必须通过表单中心 designer path 进入 Jimu 预览'
+)
+assert.doesNotMatch(
+  formTemplateDesignerWrapper,
+  /BatchRecordReportApi|@\/api\/mes\/pro\/batchrecordreport|\/mes\/pro\/batch-record-report/,
+  '表单模板 Jimu 壳不得再调用批记录表单模块接口'
 )
 assert.doesNotMatch(
   templatePage,

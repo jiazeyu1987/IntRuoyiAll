@@ -452,7 +452,7 @@
           <el-alert
             v-if="managerReleaseSnapshot"
             title="Stage5正式放行追溯回执已生成"
-            :description="`回执 ${String(managerReleaseSnapshot.releaseReceiptId)}，三类文件证据已固化。`"
+            :description="`回执 ${String(managerReleaseSnapshot.releaseReceiptId)}，四份材料证据已固化。`"
             type="success"
             :closable="false"
             show-icon
@@ -1615,13 +1615,13 @@ const loadStage5ReleaseSnapshot = async (receipt: EdhrReleaseRowVO) => {
     typeof route.query.simulationRunId === 'string' ? route.query.simulationRunId.trim() : ''
   if (!simulationRunId) return
   const snapshot = await getEdhrStage5ReleaseSnapshot(simulationRunId, receipt.batchExecutionId)
-  const evidence = snapshot.threeFileEvidence
+  const evidence = snapshot.fourMaterialEvidence
   if (
     snapshot.releaseStatus !== 'RELEASED' ||
     !snapshot.releaseReceiptId ||
     !snapshot.releaseDecisionId ||
     !Array.isArray(evidence) ||
-    evidence.length !== 3
+    evidence.length !== 4
   ) {
     throw new Error('Stage5正式放行回执缺少完整追溯证据。')
   }

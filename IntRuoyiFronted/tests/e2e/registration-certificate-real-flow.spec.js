@@ -82,6 +82,17 @@ async function readJsonResponse(response) {
   }
 }
 
+async function selectDialogOption(page, dialog, label, optionText) {
+  const field = dialog.locator('.el-form-item').filter({ hasText: label }).first()
+  await field.locator('.el-select').click()
+  const option = page
+    .locator('.el-select-dropdown__item:visible')
+    .filter({ hasText: new RegExp(`^\\s*${optionText}\\s*$`) })
+    .first()
+  await option.waitFor({ state: 'visible', timeout: 30000 })
+  await option.click()
+}
+
 async function login(page, credentials = { username: config.username, password: config.password }) {
   expect(credentials.password, 'login password must be available without logging it').toBeTruthy()
 
@@ -113,12 +124,26 @@ async function login(page, credentials = { username: config.username, password: 
     .fill(credentials.username)
   await form.locator('input[type="password"]').first().fill(credentials.password)
 
+  const tenantResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/system/tenant/get-id-by-name') &&
+      response.request().method() === 'GET',
+    { timeout: 60000 }
+  )
   const loginResponsePromise = page.waitForResponse(
     (response) =>
       response.url().includes('/system/auth/login') && response.request().method() === 'POST',
     { timeout: 60000 }
   )
   await form.getByRole('button', { name: '登录' }).click()
+  const tenantResponse = await tenantResponsePromise
+  const tenantPayload = await readJsonResponse(tenantResponse)
+  expect(tenantResponse.ok(), `tenant HTTP status ${tenantResponse.status()}`).toBe(true)
+  expect(
+    isBusinessOk(tenantPayload),
+    `tenant business code ${tenantPayload.code}, message=${tenantPayload.msg || ''}`
+  ).toBe(true)
+  expect(tenantPayload.data, 'tenant id must be resolved before login').toBeTruthy()
   const loginResponse = await loginResponsePromise
   const loginPayload = await readJsonResponse(loginResponse)
   expect(loginResponse.ok(), `login HTTP status ${loginResponse.status()}`).toBe(true)
@@ -243,6 +268,51 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
         currentPage.list.length,
         'B-TEST requires at least one approved current registration certificate fixture'
       ).toBeGreaterThan(0)
+      const selected = currentPage.list[0]
+      evidence.selectedCertificateId = selected.certificateId
+      evidence.selectedVersionId = selected.versionId
+      evidence.selectedCertificateNo = selected.certificateNo
+
+      const firstCurrentRow = page.locator('.el-table:visible .el-table__row').first()
+      await expect(firstCurrentRow, 'current registration certificate row must render').toBeVisible({
+        timeout: 60000
+      })
+      await expect(firstCurrentRow.getByRole('button', { name: '详情' })).toBeVisible()
+      await expect(firstCurrentRow.getByRole('button', { name: '延续' })).toBeVisible()
+      await firstCurrentRow.getByRole('button', { name: '延续' }).click()
+
+      const renewalDialog = page.locator('[data-testid="registration-certificate-renewal-dialog"]')
+      await expect(renewalDialog).toBeVisible({ timeout: 60000 })
+      await expect(renewalDialog.getByText('批准日期')).toBeVisible()
+      await expect(renewalDialog.getByText('生效日期')).toBeVisible()
+      await expect(renewalDialog.getByText('有效期至')).toBeVisible()
+      await expect(renewalDialog.getByText('类别否变更')).toBeVisible()
+      await expect(
+        renewalDialog.locator('[data-testid="registration-certificate-renewal-file"]')
+      ).toBeVisible()
+      await expect(
+        renewalDialog.locator('input[placeholder="请输入变更后的注册证号"]')
+      ).toHaveCount(0)
+      await selectDialogOption(page, renewalDialog, '类别否变更', '是')
+      await expect(
+        renewalDialog.locator('input[placeholder="请输入变更后的注册证号"]')
+      ).toBeVisible()
+      await expect(
+        renewalDialog.locator('input[placeholder="请输入变更后的类别"]')
+      ).toBeVisible()
+      await selectDialogOption(page, renewalDialog, '类别否变更', '否')
+      await expect(
+        renewalDialog.locator('input[placeholder="请输入变更后的注册证号"]')
+      ).toHaveCount(0)
+      await expect(renewalDialog.getByRole('button', { name: '提交审批' })).toBeVisible()
+      await renewalDialog.getByRole('button', { name: '取消' }).click()
+      await expect(renewalDialog).toBeHidden({ timeout: 30000 })
+      evidence.renewalDialog = {
+        rowActions: ['详情', '延续'],
+        requiredFields: ['批准日期', '生效日期', '有效期至', '延续注册证文件'],
+        categoryChangeToggle: '类别否变更',
+        categoryChangedYesFields: ['注册证号', '类别']
+      }
 
       const oldIndexResponsePromise = page.waitForResponse(
         (response) => registrationPath(response, '/old-index/page'),
@@ -265,11 +335,6 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
         oldIndexPage.list.length,
         'B-TEST requires at least one approved old certificate fixture'
       ).toBeGreaterThan(0)
-
-      const selected = currentPage.list[0]
-      evidence.selectedCertificateId = selected.certificateId
-      evidence.selectedVersionId = selected.versionId
-      evidence.selectedCertificateNo = selected.certificateNo
 
       const detailResponsePromise = page.waitForResponse(
         (response) => registrationPath(response, `/${selected.certificateId}`),
@@ -318,10 +383,12 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
       const registrationFileId = detailPayload.data?.registrationFileId
       const projectCodeId = detailPayload.data?.projectCodeId
       const detailUrl = page.url()
-      expect(
-        config.runKey,
-        'REG_CERT_E2E_RUN_KEY must be explicit for task-owned write data'
-      ).toMatch(/^[A-Za-z0-9][A-Za-z0-9._-]{2,80}$/)
+      if (config.requireWriteFixture) {
+        expect(
+          config.runKey,
+          'REG_CERT_E2E_RUN_KEY must be explicit for task-owned write data'
+        ).toMatch(/^[A-Za-z0-9][A-Za-z0-9._-]{2,80}$/)
+      }
       expect(
         registrationFileId,
         'B-TEST fixture must expose a formal registration business file'

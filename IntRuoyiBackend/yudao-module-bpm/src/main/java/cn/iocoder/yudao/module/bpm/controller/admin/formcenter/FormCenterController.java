@@ -47,6 +47,37 @@ public class FormCenterController {
         return success(formCenterRuntimeService.getTemplateVersion(templateId, versionNo));
     }
 
+    @GetMapping("/templates/{templateId}/versions/{versionNo}/designer-path")
+    @Operation(summary = "获取表单模板 Jimu 预览路径")
+    @PreAuthorize("@ss.hasPermission('form:template:query')")
+    public CommonResult<FormCenterTemplateDesignerPathRespVO> getTemplateDesignerPath(
+            @PathVariable("templateId") Long templateId,
+            @PathVariable("versionNo") String versionNo) {
+        FormCenterTemplateDesignerPathRespVO response = new FormCenterTemplateDesignerPathRespVO();
+        response.setPath(formCenterRuntimeService.getTemplateDesignerPath(templateId, versionNo));
+        return success(response);
+    }
+
+    @GetMapping("/templates/{templateId}/versions/{versionNo}/edit-path")
+    @Operation(summary = "获取表单模板 Jimu 编辑路径")
+    @PreAuthorize("@ss.hasPermission('form:template:update')")
+    public CommonResult<FormCenterTemplateDesignerPathRespVO> getTemplateEditPath(
+            @PathVariable("templateId") Long templateId,
+            @PathVariable("versionNo") String versionNo) {
+        FormCenterTemplateDesignerPathRespVO response = new FormCenterTemplateDesignerPathRespVO();
+        response.setPath(formCenterRuntimeService.getTemplateEditPath(templateId, versionNo));
+        return success(response);
+    }
+
+    @PostMapping("/templates/{templateId}/versions/{versionNo}/editable-draft")
+    @Operation(summary = "获取表单模板可编辑草稿版本")
+    @PreAuthorize("@ss.hasPermission('form:template:update')")
+    public CommonResult<FormTemplateEditableDraftRespVO> ensureTemplateEditableDraft(
+            @PathVariable("templateId") Long templateId,
+            @PathVariable("versionNo") String versionNo) {
+        return success(formCenterRuntimeService.ensureTemplateEditableDraft(templateId, versionNo));
+    }
+
     @GetMapping("/policies")
     @Operation(summary = "查询表单策略")
     @PreAuthorize("@ss.hasPermission('form:policy:query')")

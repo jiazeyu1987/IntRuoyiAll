@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.grant.DccRegi
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
@@ -68,6 +69,7 @@ public class DccRegistrationCertificateApprovalService {
     private final BpmProcessInstanceApi bpmProcessInstanceApi;
     private final MdmCompanyScopeApi companyScopeApi;
     private final RoleApi roleApi;
+    private final PermissionApi permissionApi;
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final DccRegistrationCertificateRenewalService renewalService;
     private final DccRegistrationCertificateUploadService uploadService;
@@ -81,6 +83,7 @@ public class DccRegistrationCertificateApprovalService {
             BpmProcessInstanceApi bpmProcessInstanceApi,
             MdmCompanyScopeApi companyScopeApi,
             RoleApi roleApi,
+            PermissionApi permissionApi,
             DccRegistrationCertificateBusinessClock businessClock,
             DccRegistrationCertificateRenewalService renewalService,
             DccRegistrationCertificateUploadService uploadService) {
@@ -91,6 +94,7 @@ public class DccRegistrationCertificateApprovalService {
         this.bpmProcessInstanceApi = require(bpmProcessInstanceApi, "bpmProcessInstanceApi");
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.roleApi = require(roleApi, "roleApi");
+        this.permissionApi = require(permissionApi, "permissionApi");
         this.businessClock = require(businessClock, "businessClock");
         this.renewalService = require(renewalService, "renewalService");
         this.uploadService = require(uploadService, "uploadService");
@@ -119,9 +123,9 @@ public class DccRegistrationCertificateApprovalService {
                 || !CommonStatusEnum.isEnable(approverRole.getStatus())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_CANDIDATE_EMPTY);
         }
-        Set<Long> rawCandidates = companyScopeApi.resolveRecipientUserIds(
-                request.getOwnerCompanyId(), List.of(approverRole.getId()), approvalPermission(request));
-        List<Long> candidates = normalizeCandidates(rawCandidates, actorId);
+        List<Long> candidates = REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())
+                ? resolveUploadApprovalCandidates(approverRole.getId(), actorId)
+                : resolveScopedApprovalCandidates(request, approverRole.getId(), actorId);
         if (candidates.isEmpty()) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_BPM_CANDIDATE_EMPTY);
         }
@@ -412,6 +416,21 @@ public class DccRegistrationCertificateApprovalService {
         return candidates;
     }
 
+    private List<Long> resolveScopedApprovalCandidates(
+            DccRegistrationCertificateAccessRequestDO request, Long roleId, Long actorId) {
+        Set<Long> rawCandidates = companyScopeApi.resolveRecipientUserIds(
+                request.getOwnerCompanyId(), List.of(roleId), APPROVAL_PERMISSION);
+        return normalizeCandidates(rawCandidates, actorId);
+    }
+
+    private List<Long> resolveUploadApprovalCandidates(Long roleId, Long actorId) {
+        if (!permissionApi.hasAnyPermissionsInRoles(List.of(roleId), UPLOAD_APPROVAL_PERMISSION)) {
+            return List.of();
+        }
+        Set<Long> rawCandidates = permissionApi.getUserRoleIdListByRoleIds(List.of(roleId));
+        return normalizeCandidates(rawCandidates, actorId);
+    }
+
     private List<Long> grantIds(Long tenantId, Long requestId) {
         return grantMapper.selectByRequest(tenantId, requestId).stream()
                 .map(DccRegistrationCertificateGrantDO::getId).toList();
@@ -494,11 +513,6 @@ public class DccRegistrationCertificateApprovalService {
         Map<?, ?> parsed = isBlank(request.getDetailJson())
                 ? Map.of() : JsonUtils.parseObject(request.getDetailJson(), Map.class);
         return parsed != null && "UPLOAD_CERTIFICATE".equals(String.valueOf(parsed.get("operation")));
-    }
-
-    private static String approvalPermission(DccRegistrationCertificateAccessRequestDO request) {
-        return REQUEST_TYPE_UPLOAD_CERTIFICATE.equals(request.getRequestType())
-                ? UPLOAD_APPROVAL_PERMISSION : APPROVAL_PERMISSION;
     }
 
     private static <T> T require(T value, String name) {

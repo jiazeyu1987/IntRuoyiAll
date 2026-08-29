@@ -73,6 +73,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.lang.reflect.Method;
 import java.security.MessageDigest;
@@ -284,7 +285,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
 
     @Test
     void importPilotDocWhenGatewayFails_rollsBackMetadataRows() throws Exception {
-        when(parser.parse(any())).thenReturn(List.of(
+        when(parser.parseWord(any(), anyString())).thenReturn(List.of(
                 TestBatchRecordFixtures.parsedTable(1, "产品信息"),
                 TestBatchRecordFixtures.parsedTable(2, "工序记录")));
         when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
@@ -323,7 +324,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
 
     @Test
     void importPilotDocTwice_updatesExistingRowsInsteadOfDuplicating() throws Exception {
-        when(parser.parse(any())).thenReturn(List.of(
+        when(parser.parseWord(any(), anyString())).thenReturn(List.of(
                 TestBatchRecordFixtures.parsedTable(1, "产品信息"),
                 TestBatchRecordFixtures.parsedTable(2, "工序记录")));
         when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
@@ -384,7 +385,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
             throws Exception {
         TenantContextHolder.setTenantId(1L);
         List<MesProBatchRecordParsedTable> lossReportTables = List.of(createLossReportSourceTable());
-        when(parser.parse(any())).thenReturn(lossReportTables);
+        when(parser.parseWord(any(), anyString())).thenReturn(lossReportTables);
         when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
         String uploadedSha = sha256("same-loss-report-bytes".getBytes(StandardCharsets.UTF_8));
         String staleReportCode = "EBR_TN1_LOSS_REPORT_DOC_" + uploadedSha.substring(0, 8) + "_T01";
@@ -444,7 +445,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     @Test
     void uploadExtraFormSlot_usesSelectedProductNameAndSlotDisplayNameInListMetadata() throws Exception {
         TenantContextHolder.setTenantId(1L);
-        when(parser.parse(any())).thenReturn(List.of(TestBatchRecordFixtures.parsedTable(1, "产品名称")));
+        when(parser.parseWord(any(), anyString()))
+                .thenReturn(List.of(TestBatchRecordFixtures.parsedTable(1, "产品名称")));
         when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
         AtomicReference<MesProBatchRecordJimuReportSaveReq> saveReqRef = new AtomicReference<>();
         when(jimuReportGateway.saveOrUpdateReport(any())).thenAnswer(invocation -> {
@@ -480,6 +482,82 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void uploadExtraFormSlot_whenPlainFormSelected_savesUnifiedFormUsingEnteredName() throws Exception {
+        TenantContextHolder.setTenantId(1L);
+        when(parser.parseWord(any(), anyString()))
+                .thenReturn(List.of(TestBatchRecordFixtures.parsedTable(1, "Word表格标题")));
+        when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
+        AtomicReference<MesProBatchRecordJimuReportSaveReq> saveReqRef = new AtomicReference<>();
+        when(jimuReportGateway.saveOrUpdateReport(any())).thenAnswer(invocation -> {
+            MesProBatchRecordJimuReportSaveReq saveReq = invocation.getArgument(0);
+            saveReqRef.set(saveReq);
+            return TestBatchRecordFixtures.generatedReport(
+                    "plain-form-report", saveReq.reportCode(), saveReq.reportName());
+        });
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "过程检验记录.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "plain-form-docx".getBytes(StandardCharsets.UTF_8));
+
+        MesProBatchRecordImportResult importResult = reportService.uploadExtraFormSlot(
+                file, "过程检验记录", MesProBatchRecordFormSlotType.FORM.getType());
+
+        assertEquals(1, importResult.importedCount());
+        assertEquals("FORM", importResult.reports().get(0).formSlotType());
+        assertEquals("过程检验记录", saveReqRef.get().reportName());
+        assertEquals("过程检验记录", importResult.reports().get(0).productName());
+        assertEquals("过程检验记录", importResult.reports().get(0).reportName());
+        assertTrue(saveReqRef.get().reportCode().matches("EBR_TN1_FORM_DOC_[0-9a-f]{8}_V[0-9A-Z]+_T01"));
+        when(jimuReportGateway.getReportInfo("plain-form-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "plain-form-report", saveReqRef.get().reportCode(), "过程检验记录", LocalDateTime.now()));
+        BatchRecordReportPageReqVO pageReqVO = new BatchRecordReportPageReqVO();
+        pageReqVO.setPageNo(1);
+        pageReqVO.setPageSize(20);
+        pageReqVO.setProductName("过程检验记录");
+        pageReqVO.setFormSlotType(MesProBatchRecordFormSlotType.FORM.getType());
+
+        PageResult<MesProBatchRecordReportView> pageResult = reportService.getGeneratedReportPage(pageReqVO);
+
+        assertEquals(1L, pageResult.getTotal());
+        assertEquals("FORM", pageResult.getList().get(0).formSlotType());
+        assertEquals("过程检验记录", pageResult.getList().get(0).reportName());
+    }
+
+    @Test
+    void uploadExtraFormSlot_whenPlainFormRealDocxSelected_savesUnifiedFormUsingEnteredName() throws Exception {
+        TenantContextHolder.setTenantId(1L);
+        Path sample = Path.of("E:\\IntRuoyi\\resource\\按压式球囊扩充压力泵IDI-001\\过程检验记录.docx");
+        assertTrue(Files.exists(sample), "specified process inspection docx fixture is required");
+        byte[] fileBytes = Files.readAllBytes(sample);
+        List<MesProBatchRecordParsedTable> realTables =
+                new MesProBatchRecordDocParser().parseWord(fileBytes, sample.getFileName().toString());
+        assertEquals(1, realTables.size(), "specified process inspection docx should parse as one form table");
+        when(parser.parseWord(any(), anyString())).thenReturn(realTables);
+        when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
+        AtomicReference<MesProBatchRecordJimuReportSaveReq> saveReqRef = new AtomicReference<>();
+        when(jimuReportGateway.saveOrUpdateReport(any())).thenAnswer(invocation -> {
+            MesProBatchRecordJimuReportSaveReq saveReq = invocation.getArgument(0);
+            saveReqRef.set(saveReq);
+            return TestBatchRecordFixtures.generatedReport(
+                    "real-form-report", saveReq.reportCode(), saveReq.reportName());
+        });
+        MockMultipartFile file = new MockMultipartFile(
+                "file", sample.getFileName().toString(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", fileBytes);
+
+        MesProBatchRecordImportResult importResult = reportService.uploadExtraFormSlot(
+                file, "过程检验记录", MesProBatchRecordFormSlotType.FORM.getType());
+
+        assertEquals(1, importResult.importedCount());
+        assertEquals("FORM", importResult.reports().get(0).formSlotType());
+        assertEquals("过程检验记录", saveReqRef.get().reportName());
+        assertEquals("过程检验记录", importResult.reports().get(0).productName());
+        assertEquals("过程检验记录", importResult.reports().get(0).reportName());
+        assertContainsText(saveReqRef.get().parsedTable(), "气密性检测工装：________");
+    }
+
+    @Test
     void uploadExtraFormSlot_whenLegacySlotAlreadyExists_createsUpgradeVersionAndKeepsOldVersion() throws Exception {
         TenantContextHolder.setTenantId(1L);
         MesProBatchRecordReportDO existing = TestBatchRecordFixtures.metadataReport(
@@ -490,7 +568,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         existing.setRouteKey(MesProBatchRecordFormSlotType.LOSS_REPORT.getType());
         existing.setFormSlotType(MesProBatchRecordFormSlotType.LOSS_REPORT.getType());
         reportMapper.insert(existing);
-        when(parser.parse(any())).thenReturn(List.of(TestBatchRecordFixtures.parsedTable(1, "产品名称")));
+        when(parser.parseWord(any(), anyString()))
+                .thenReturn(List.of(TestBatchRecordFixtures.parsedTable(1, "产品名称")));
         when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
         AtomicReference<MesProBatchRecordJimuReportSaveReq> saveReqRef = new AtomicReference<>();
         when(jimuReportGateway.saveOrUpdateReport(any())).thenAnswer(invocation -> {
@@ -559,7 +638,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         legacy.setRouteKey(formSlotType);
         legacy.setFormSlotType(formSlotType);
         reportMapper.insert(legacy);
-        when(parser.parse(any())).thenReturn(List.of(TestBatchRecordFixtures.parsedTable(1, "产品名称")));
+        when(parser.parseWord(any(), anyString()))
+                .thenReturn(List.of(TestBatchRecordFixtures.parsedTable(1, "产品名称")));
         when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
         when(jimuReportGateway.saveOrUpdateReport(any())).thenAnswer(invocation -> {
             MesProBatchRecordJimuReportSaveReq saveReq = invocation.getArgument(0);
@@ -651,7 +731,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         List<MesProBatchRecordParsedTable> parsedTables = IntStream.rangeClosed(1, 15)
                 .mapToObj(index -> TestBatchRecordFixtures.parsedTable(index, "Route B Table " + index))
                 .toList();
-        when(parser.parse(any())).thenReturn(parsedTables);
+        when(parser.parseWord(any(), anyString())).thenReturn(parsedTables);
         when(routeRecognizer.recognize(any(), any(), any())).thenReturn(parsedTables);
         when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
         AtomicInteger counter = new AtomicInteger();
@@ -685,7 +765,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         List<MesProBatchRecordParsedTable> parsedTables = IntStream.rangeClosed(1, 15)
                 .mapToObj(index -> TestBatchRecordFixtures.parsedTable(index, "Route A Table " + index))
                 .toList();
-        when(parser.parse(any())).thenReturn(parsedTables);
+        when(parser.parseWord(any(), anyString())).thenReturn(parsedTables);
         when(routeRecognizer.recognize(any(), any(), any())).thenReturn(parsedTables);
         when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
         AtomicInteger counter = new AtomicInteger();
@@ -5739,6 +5819,51 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void saveCellRules_preservesSubmittedSignatureMarkerWhenRuleBecomesSignature() {
+        MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
+                51L, "sample-signature-cell-rule-with-marker", 1, "sig-cell-rule-marker-report-1",
+                "EBR_RULE_T08", "签名规则显式标记表", PILOT_FILE_NAME);
+        reportMapper.insert(report);
+        AtomicReference<String> reportJson = new AtomicReference<>(samplePlainCellRuleReportJson());
+        when(jimuReportGateway.getReportJson("sig-cell-rule-marker-report-1")).thenAnswer(invocation -> reportJson.get());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            reportJson.set(invocation.getArgument(1));
+            return null;
+        }).when(jimuReportGateway).updateReportJson(eq("sig-cell-rule-marker-report-1"), any());
+
+        BatchRecordReportCellRulesRespVO saved = reportService.saveCellRules(new BatchRecordReportCellRulesReqVO()
+                .setReportId("sig-cell-rule-marker-report-1")
+                .setRules(List.of(new BatchRecordReportCellRuleVO()
+                        .setRowIndex(0)
+                        .setColumnIndex(1)
+                        .setValueType("SIGNATURE")
+                        .setComponentFlag("signature")
+                        .setRequired(false)
+                        .setLabel("提交人签名")
+                        .setSource("MANUAL")
+                        .setConfidence(1.0)
+                        .setReviewed(true)))
+                .setSignatureCellMarkers(List.of(new BatchRecordReportSignatureCellMarkerVO()
+                        .setRowIndex(0)
+                        .setColumnIndex(1)
+                        .setEnabled(true)
+                        .setActionType("SUBMIT")
+                        .setLabel("原提交签名")
+                        .setSignatureCellKey("submit-signature-cell"))));
+
+        assertEquals(1, saved.getRules().size());
+        JSONObject savedCell = JSONObject.parseObject(reportJson.get())
+                .getJSONObject("rows").getJSONObject("0").getJSONObject("cells").getJSONObject("1");
+        JSONObject signature = savedCell.getJSONObject("edhrSignature");
+        assertNotNull(signature);
+        assertEquals(true, signature.getBoolean("enabled"));
+        assertEquals("SUBMIT", signature.getString("actionType"));
+        assertEquals("提交人签名", signature.getString("label"));
+        assertEquals("submit-signature-cell", signature.getString("signatureCellKey"));
+        assertEquals("ACTOR_SIGNED_AT", signature.getString("displayFormat"));
+    }
+
+    @Test
     void saveCellRules_removesSignatureMarkerWhenRuleChangesBackToPlainType() {
         MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
                 49L, "sample-signature-to-number-rule", 1, "sig-to-num-rule-report-1",
@@ -6564,6 +6689,17 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                   "dataRectWidth":960
                 }
                 """;
+    }
+
+    private static void assertContainsText(MesProBatchRecordParsedTable table, String expectedText) {
+        boolean found = table != null && table.getRows() != null && table.getRows().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .map(MesProBatchRecordParsedCell::getText)
+                .filter(Objects::nonNull)
+                .anyMatch(text -> text.contains(expectedText));
+        assertTrue(found, "missing text: " + expectedText);
     }
 
 }

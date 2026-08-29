@@ -30,6 +30,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.D
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateFailureAuditService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificatePrerequisiteValidator;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateResolvedDraft;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.formalization.DccRegistrationCertificateFormalizationResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateTerminalAuditService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.formalization.DccRegistrationCertificateFormalizationService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
@@ -251,6 +252,24 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
         assertEquals(REGISTRATION_CERTIFICATE_IDEMPOTENCY_CONFLICT.getCode(), commandConflict.getCode());
         verify(transactionService, never()).createDraft(any(), any(), any());
         verify(transactionService, never()).formalize(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void formalizeApprovedUploadAuditsApproverAndValidatesRequesterScope() {
+        when(terminalAuditService.find(1L, "approval-upload-1")).thenReturn(null);
+        when(transactionService.formalize(any(), any(), eq(1001L), eq(1), eq(1), eq(5001L), eq(22L)))
+                .thenReturn(1001L);
+
+        Long result = service.formalizeApprovedUpload(
+                1L, 99L, 22L, "approval-upload-1", "trace-upload-1", 1001L, 1, 1, 5001L);
+
+        assertEquals(1001L, result);
+        ArgumentCaptor<DccRegistrationCertificateCommandMetadata> metadata =
+                ArgumentCaptor.forClass(DccRegistrationCertificateCommandMetadata.class);
+        verify(transactionService).formalize(
+                metadata.capture(), any(), eq(1001L), eq(1), eq(1), eq(5001L), eq(22L));
+        assertEquals(99L, metadata.getValue().actorId());
+        assertEquals("FORMALIZE_APPROVED_UPLOAD", metadata.getValue().commandKind());
     }
 
     @Test
@@ -738,6 +757,48 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void formalizeApprovedUploadValidatesRequesterScopeAndRecordsApprover() {
+        DccRegistrationCertificateMapper certificateMapper = mock(DccRegistrationCertificateMapper.class);
+        DccRegistrationCertificateVersionMapper versionMapper = mock(DccRegistrationCertificateVersionMapper.class);
+        DccRegistrationCertificateSnapshotMapper snapshotMapper = mock(DccRegistrationCertificateSnapshotMapper.class);
+        DccRegistrationCertificateSnapshotEntrustedMapper entrustedMapper =
+                mock(DccRegistrationCertificateSnapshotEntrustedMapper.class);
+        DccRegistrationCertificateDraftRepository repository = mock(DccRegistrationCertificateDraftRepository.class);
+        DccRegistrationCertificatePrerequisiteValidator validator =
+                mock(DccRegistrationCertificatePrerequisiteValidator.class);
+        DccRegistrationCertificateFormalizationService formalization =
+                mock(DccRegistrationCertificateFormalizationService.class);
+        DccRegistrationCertificateTerminalAuditService audit =
+                mock(DccRegistrationCertificateTerminalAuditService.class);
+        DccRegistrationCertificateCommandTransactionService worker =
+                new DccRegistrationCertificateCommandTransactionService(
+                        certificateMapper, versionMapper, snapshotMapper, entrustedMapper,
+                        repository, validator, formalization, audit);
+        DccRegistrationCertificateDraftState state = draftState(10L, "DRAFT");
+        DccRegistrationCertificateResolvedDraft resolved = mock(DccRegistrationCertificateResolvedDraft.class);
+        DccRegistrationCertificateCommandContext context =
+                new DccRegistrationCertificateCommandContext(null, 1001L);
+        DccRegistrationCertificateCommandMetadata metadata =
+                new DccRegistrationCertificateCommandMetadata(1L, 99L, "approval-upload-1", "trace-upload-1",
+                        "FORMALIZE_APPROVED_UPLOAD", "hash");
+        when(repository.load(1L, 1001L, 1, 1, context)).thenAnswer(invocation -> {
+            context.resolveTrustedIdentity(10L, 1001L);
+            return state;
+        });
+        when(validator.validate(eq(1L), eq(22L), any(DccRegistrationCertificateDraftData.class)))
+                .thenReturn(resolved);
+        when(formalization.formalize(state, resolved, 1L, 99L, 1, 5001L))
+                .thenReturn(new DccRegistrationCertificateFormalizationResult(1001L, 2001L, 3001L, 5001L));
+
+        Long result = worker.formalize(metadata, context, 1001L, 1, 1, 5001L, 22L);
+
+        assertEquals(1001L, result);
+        verify(validator).validate(eq(1L), eq(22L), any(DccRegistrationCertificateDraftData.class));
+        verify(formalization).formalize(state, resolved, 1L, 99L, 1, 5001L);
+        verify(audit).recordSuccess(metadata, context, 2001L, 3001L, 5001L);
+    }
+
+    @Test
     void draftLoadRejectsFormalRowsBeforeReadingOrMutatingChildren() {
         DccRegistrationCertificateMapper certificateMapper = mock(DccRegistrationCertificateMapper.class);
         DccRegistrationCertificateVersionMapper versionMapper = mock(DccRegistrationCertificateVersionMapper.class);
@@ -800,6 +861,22 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
 
         assertEquals("Product A", resolved.productName());
         verify(projectCodeService, never()).getProjectCode(any(), any());
+    }
+
+    @Test
+    void validatorAllowsSelectedProjectCodeWithoutProductBindingWhenProductIsProvided() {
+        DccRegistrationCertificatePrerequisiteValidator validator = validValidator();
+        DccRegistrationCertificateDraftData draft = copyDraft(
+                validDraft(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1),
+                LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1), 40L, "CERT-001",
+                true, false, List.of(30L));
+        DccProjectCodeDO code = projectCode(1L, null, DccProjectCodeStatusConstants.ENABLE);
+        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(code);
+
+        DccRegistrationCertificateResolvedDraft resolved = validator.validate(1L, 99L, draft);
+
+        assertEquals("Product A", resolved.productName());
+        verify(projectCodeService).getProjectCode(99L, 40L);
     }
 
     @Test

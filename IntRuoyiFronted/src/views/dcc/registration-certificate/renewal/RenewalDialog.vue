@@ -11,8 +11,8 @@
     <el-descriptions v-if="certificate" :column="2" border class="mb-16px">
       <el-descriptions-item label="证件编号">{{ certificate.certificateNo }}</el-descriptions-item>
       <el-descriptions-item label="产品">{{ certificate.productName }}</el-descriptions-item>
-      <el-descriptions-item label="当前生效日">{{ certificate.effectiveDate || '—' }}</el-descriptions-item>
-      <el-descriptions-item label="当前有效期">{{ certificate.expiryDate || '—' }}</el-descriptions-item>
+      <el-descriptions-item label="当前生效日">{{ formatRegistrationCertificateDate(certificate.effectiveDate) }}</el-descriptions-item>
+      <el-descriptions-item label="当前有效期">{{ formatRegistrationCertificateDate(certificate.expiryDate) }}</el-descriptions-item>
     </el-descriptions>
 
     <el-form
@@ -60,6 +60,40 @@
             />
           </el-form-item>
         </el-col>
+        <el-col :span="8">
+          <el-form-item label="类别否变更" prop="categoryChanged">
+            <el-select
+              v-model="form.categoryChanged"
+              placeholder="请选择"
+              @change="handleCategoryChanged"
+            >
+              <el-option label="否" :value="false" />
+              <el-option label="是" :value="true" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <template v-if="form.categoryChanged">
+          <el-col :span="8">
+            <el-form-item label="注册证号" prop="certificateNo">
+              <el-input
+                v-model="form.certificateNo"
+                clearable
+                maxlength="128"
+                placeholder="请输入变更后的注册证号"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="类别" prop="classification">
+              <el-input
+                v-model="form.classification"
+                clearable
+                maxlength="64"
+                placeholder="请输入变更后的类别"
+              />
+            </el-form-item>
+          </el-col>
+        </template>
         <el-col :span="24">
           <el-form-item label="延续注册证文件">
             <el-upload
@@ -96,6 +130,7 @@ import {
 import { generateUUID } from '@/utils'
 import { computed, reactive, ref } from 'vue'
 import type { FormInstance, FormRules, UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
+import { formatRegistrationCertificateDate } from '../shared/state'
 
 defineOptions({ name: 'RegistrationCertificateRenewalDialog' })
 
@@ -118,7 +153,10 @@ const selectedFile = ref<File | null>(null)
 const form = reactive({
   approvalDate: '',
   effectiveDate: '',
-  expiryDate: ''
+  expiryDate: '',
+  categoryChanged: false,
+  certificateNo: '',
+  classification: ''
 })
 
 const certificate = computed(() => props.certificate)
@@ -131,13 +169,41 @@ const dialogVisible = computed({
 const rules = reactive<FormRules>({
   approvalDate: [{ required: true, message: '请选择批准日期', trigger: 'change' }],
   effectiveDate: [{ required: true, message: '请选择生效日期', trigger: 'change' }],
-  expiryDate: [{ required: true, message: '请选择有效期至', trigger: 'change' }]
+  expiryDate: [{ required: true, message: '请选择有效期至', trigger: 'change' }],
+  categoryChanged: [{ required: true, message: '请选择类别否变更', trigger: 'change' }],
+  certificateNo: [
+    {
+      validator: (_rule, value: string, callback) => {
+        if (form.categoryChanged && !value?.trim()) {
+          callback(new Error('请输入变更后的注册证号'))
+          return
+        }
+        callback()
+      },
+      trigger: 'blur'
+    }
+  ],
+  classification: [
+    {
+      validator: (_rule, value: string, callback) => {
+        if (form.categoryChanged && !value?.trim()) {
+          callback(new Error('请输入变更后的类别'))
+          return
+        }
+        callback()
+      },
+      trigger: 'blur'
+    }
+  ]
 })
 
 const resetForm = () => {
   form.approvalDate = ''
   form.effectiveDate = ''
   form.expiryDate = ''
+  form.categoryChanged = false
+  form.certificateNo = ''
+  form.classification = ''
   fileList.value = []
   selectedFile.value = null
   formRef.value?.clearValidate()
@@ -157,6 +223,14 @@ const handleFileRemove = () => {
   fileList.value = []
 }
 
+const handleCategoryChanged = () => {
+  if (!form.categoryChanged) {
+    form.certificateNo = ''
+    form.classification = ''
+    formRef.value?.clearValidate(['certificateNo', 'classification'])
+  }
+}
+
 const submit = async () => {
   await formRef.value?.validate()
   if (!props.certificate) {
@@ -174,6 +248,11 @@ const submit = async () => {
   payload.append('expiryDate', form.expiryDate)
   payload.append('expectedRowVersion', String(props.certificate.rowVersion))
   payload.append('currentVersionId', String(props.certificate.versionId))
+  payload.append('categoryChanged', String(form.categoryChanged))
+  if (form.categoryChanged) {
+    payload.append('certificateNo', form.certificateNo.trim())
+    payload.append('classification', form.classification.trim())
+  }
   payload.append('file', selectedFile.value)
 
   saving.value = true

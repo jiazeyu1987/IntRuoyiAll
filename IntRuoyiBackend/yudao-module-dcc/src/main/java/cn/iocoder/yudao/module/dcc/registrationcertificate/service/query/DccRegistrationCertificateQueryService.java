@@ -10,7 +10,7 @@ public interface DccRegistrationCertificateQueryService {
             DccRequestAuditContext auditContext);
 
     DccRegistrationCertificateDetail getDetail(
-            Long tenantId, Long actorId, Long certificateId, DccRequestAuditContext auditContext);
+            Long tenantId, Long actorId, Long certificateId, Long versionId, DccRequestAuditContext auditContext);
 
     PageResult<DccRegistrationCertificateOldIndexItem> getOldIndexPage(
             Long tenantId, Long actorId, DccRegistrationCertificatePageQuery query,

@@ -10,6 +10,8 @@ export type DccRegistrationCertificateStatus =
   | 'OLD'
   | 'VOIDED'
 
+export type DccRegistrationCertificateLocalDateValue = string | [number, number, number]
+
 export interface DccRegistrationCertificatePageReqVO extends PageParam {
   ownerCompanyId?: number | string
   productMasterId?: number | string
@@ -55,10 +57,10 @@ export interface DccRegistrationCertificatePageItemVO {
   hasRegistrationFile: boolean
   reminderColor: string
   visualState: string
-  firstObtainedDate?: string
-  approvalDate?: string
-  effectiveDate?: string
-  expiryDate?: string
+  firstObtainedDate?: DccRegistrationCertificateLocalDateValue
+  approvalDate?: DccRegistrationCertificateLocalDateValue
+  effectiveDate?: DccRegistrationCertificateLocalDateValue
+  expiryDate?: DccRegistrationCertificateLocalDateValue
 }
 
 export interface DccRegistrationCertificateOldIndexItemVO {
@@ -72,7 +74,7 @@ export interface DccRegistrationCertificateOldIndexItemVO {
   projectCode?: string
   certificateNo: string
   versionNo: number
-  expiryDate?: string
+  expiryDate?: DccRegistrationCertificateLocalDateValue
   status: DccRegistrationCertificateStatus
 }
 
@@ -91,10 +93,10 @@ export interface DccRegistrationCertificateDetailVO {
   certificateNo: string
   versionNo: number
   status: DccRegistrationCertificateStatus
-  firstObtainedDate?: string
-  approvalDate?: string
-  effectiveDate?: string
-  expiryDate?: string
+  firstObtainedDate?: DccRegistrationCertificateLocalDateValue
+  approvalDate?: DccRegistrationCertificateLocalDateValue
+  effectiveDate?: DccRegistrationCertificateLocalDateValue
+  expiryDate?: DccRegistrationCertificateLocalDateValue
   classification: string
   remark?: string
   registrantName: string
@@ -119,6 +121,8 @@ export interface DccRegistrationCertificateHistoryItemVO {
   beforeValueJson?: string
   afterValueJson?: string
   actorId?: number | string
+  businessFileId?: number | string
+  fileKind?: string
 }
 
 export interface DccRegistrationCertificateDraftReqVO {
@@ -175,13 +179,29 @@ export interface DccRegistrationCertificateSupportingDocumentUploadReqVO {
 
 export interface DccRegistrationCertificateUploadSubmitReqVO {
   companyName: string
-  projectCodeId: number | string
+  productName: string
+  projectCodeId?: number | string
   certificateNo: string
   firstObtainedDate: string
   effectiveDate: string
   expiryDate: string
   classification: string
+  entrustedProduction: boolean
+  selfProduction: boolean
+  entrustedEnterpriseIds: Array<number | string>
   remark?: string
+}
+
+export interface DccRegistrationCertificateUploadEntrustedEnterpriseRespVO {
+  id: number | string
+  enterpriseCode?: string
+  name: string
+}
+
+export interface DccRegistrationCertificateUploadCompanyRespVO {
+  id: number | string
+  enterpriseCode?: string
+  name: string
 }
 
 export interface DccRegistrationCertificateAccessRequestSubmitReqVO {
@@ -264,9 +284,13 @@ export const getRegistrationCertificateOldIndexPage = async (
   })
 }
 
-export const getRegistrationCertificateDetail = async (id: number | string) => {
+export const getRegistrationCertificateDetail = async (
+  id: number | string,
+  versionId?: number | string
+) => {
   return await request.get<DccRegistrationCertificateDetailVO>({
-    url: `/dcc/registration-certificates/${id}`
+    url: `/dcc/registration-certificates/${id}`,
+    params: versionId ? { versionId } : undefined
   })
 }
 
@@ -335,6 +359,22 @@ export const submitRegistrationCertificateUpload = async (
       'Idempotency-Key': idempotencyKey,
       [REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_ID_HEADER]: idempotencyKey
     }
+  })
+}
+
+export const getUploadEntrustedEnterprises = async (params?: {
+  keyword?: string
+}) => {
+  return await request.get<DccRegistrationCertificateUploadEntrustedEnterpriseRespVO[]>({
+    url: '/dcc/registration-certificates/uploads/entrusted-enterprises',
+    params
+  })
+}
+
+export const getUploadOwnerCompanies = async (params?: { keyword?: string }) => {
+  return await request.get<DccRegistrationCertificateUploadCompanyRespVO[]>({
+    url: '/dcc/registration-certificates/uploads/owner-companies',
+    params
   })
 }
 
@@ -459,6 +499,9 @@ export const getRegistrationCertificateFilePreviewMetadata = async (
 export interface DccRegistrationCertificateRenewalUploadReqVO {
   expectedRowVersion: number
   currentVersionId: number | string
+  categoryChanged: boolean
+  certificateNo?: string
+  classification?: string
   approvalDate: string
   effectiveDate: string
   expiryDate: string

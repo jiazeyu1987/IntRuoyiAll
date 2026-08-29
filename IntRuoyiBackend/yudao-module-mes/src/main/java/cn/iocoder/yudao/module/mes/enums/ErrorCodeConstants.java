@@ -1161,6 +1161,12 @@ public interface ErrorCodeConstants {
             "领料单绑定幂等键载荷冲突");
     ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_PICK_LIST_CONFLICT = new ErrorCode(1_040_760_366,
             "活跃订单已绑定其它领料单");
+    ErrorCode PRO_PROCESS_POOL_STAGE1_SIMULATION_TEMPLATE_INVALID = new ErrorCode(1_040_760_390,
+            "Stage1 模拟无法使用当前活跃订单：缺少有效工单、工艺路线或可用的活跃状态");
+    ErrorCode PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_SOURCE_REQUIRED = new ErrorCode(1_040_760_391,
+            "Stage1 模拟缺少可复制的正式领料单来源，请先完成领料单绑定或选择来源完整的活跃订单");
+    ErrorCode PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_PRODUCT_REQUIRED = new ErrorCode(1_040_760_392,
+            "Stage1 模拟无法按领料单格式生成明细：工单缺少有效产品主数据");
     ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS = new ErrorCode(1_040_760_307,
             "班组员工档案不存在或已禁用：{}");
     ErrorCode PRO_PROCESS_POOL_TEAM_DEVICE_NOT_EXISTS = new ErrorCode(1_040_760_308,

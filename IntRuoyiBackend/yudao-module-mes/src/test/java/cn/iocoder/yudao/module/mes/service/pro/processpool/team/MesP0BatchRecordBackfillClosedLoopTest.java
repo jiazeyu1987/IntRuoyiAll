@@ -145,6 +145,156 @@ class MesP0BatchRecordBackfillClosedLoopTest {
         assertEquals(Boolean.TRUE, changes.get(4).getNewValueJson());
     }
 
+    @Test
+    void shouldBackfillOnlyTheSelectedRealDeviceForDeviceScopedReportFields() {
+        MesProProcessPoolEventDO sourceEvent = MesProProcessPoolEventDO.builder()
+                .id(1001L)
+                .routeId(7001L)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .rawPayload("""
+                        {
+                          "selectedDevice":{"deviceId":41,"deviceCode":"A05075","deviceName":"光固机"},
+                          "deviceMeteringValidity":[
+                            {"deviceId":41,"inMeteringValidityPeriod":true},
+                            {"deviceId":42,"inMeteringValidityPeriod":false}
+                          ]
+                        }
+                        """)
+                .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 10, 0))
+                .build();
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(formalBinding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8803L));
+        when(executionMapper.selectById(8803L)).thenReturn(executionWithProductionElementFields()
+                .setId(8803L)
+                .setExecutionSnapshotJson("""
+                        {"fields":[
+                          {"fieldPath":"report.deviceName","fieldKey":"deviceName","rowIndex":7,"columnIndex":2,"valueType":"STRING"},
+                          {"fieldPath":"report.meteringValid","fieldKey":"meteringValid","rowIndex":8,"columnIndex":2,"valueType":"BOOLEAN"}
+                        ]}
+                        """));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(
+                        reportRule(1L, "selectedDevice.deviceName@device:41", 7, 2, "STRING"),
+                        reportRule(2L, "deviceMeteringValidity.inMeteringValidityPeriod@device:41", 8, 2,
+                                "BOOLEAN")));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult().setChangedFieldCount(2));
+
+        service.backfillCompletedProcess(new MesTeamLeaderBatchRecordBackfillCommand()
+                .setEvent(sourceEvent)
+                .setAllocation(allocation())
+                .setSourceEvents(List.of(sourceEvent))
+                .setAllocations(List.of(allocation()))
+                .setWorkOrder(workOrder())
+                .setPickListBindingId(8801L)
+                .setDccProjectCodeId(8001L));
+
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
+        List<MesProBatchRecordExecutionFieldAuditChange> changes = auditCaptor.getValue().getChanges();
+        assertEquals("光固机", changes.get(0).getNewValueJson());
+        assertEquals(Boolean.TRUE, changes.get(1).getNewValueJson());
+    }
+
+    @Test
+    void shouldBackfillDeviceScopedParameterValuesFromSelectedRealDevice() {
+        MesProProcessPoolEventDO deviceAEvent = MesProProcessPoolEventDO.builder()
+                .id(1001L)
+                .routeId(7001L)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .rawPayload("""
+                        {
+                          "selectedDevice":{"deviceId":41,"deviceCode":"A05075","deviceName":"光固机"},
+                          "deviceParameterReadings":[
+                            {"deviceId":41,"deviceCode":"A05075","deviceName":"光固机",
+                             "parameterCode":"pressure","parameterName":"扩张压力","unit":"kPa",
+                             "value":20,"lowerLimit":10,"upperLimit":30,"parameterStatus":"NORMAL"}
+                          ],
+                          "equipmentParameterRules":{
+                            "光固机 / A05075":[
+                              {"deviceId":41,"parameterCode":"pressure","parameterName":"扩张压力",
+                               "standardText":"低压标准","defaultValue":18}
+                            ]
+                          }
+                        }
+                        """)
+                .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 10, 0))
+                .build();
+        MesProProcessPoolEventDO deviceBEvent = MesProProcessPoolEventDO.builder()
+                .id(1002L)
+                .routeId(7001L)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .rawPayload("""
+                        {
+                          "selectedDevice":{"deviceId":42,"deviceCode":"A05076","deviceName":"光固机"},
+                          "deviceParameterReadings":[
+                            {"deviceId":42,"deviceCode":"A05076","deviceName":"光固机",
+                             "parameterCode":"pressure","parameterName":"光照强度","unit":"mW",
+                             "value":80,"lowerLimit":60,"upperLimit":90,"parameterStatus":"NORMAL"}
+                          ],
+                          "equipmentParameterRules":{
+                            "光固机 / A05076":[
+                              {"deviceId":42,"parameterCode":"pressure","parameterName":"光照强度",
+                               "standardText":"高光标准","defaultValue":75}
+                            ]
+                          }
+                        }
+                        """)
+                .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 10, 5))
+                .build();
+        MesProcessPoolReportAllocationDO deviceBAllocation = allocation()
+                .setId(7102L)
+                .setEventId(1002L);
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(formalBinding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8804L));
+        when(executionMapper.selectById(8804L)).thenReturn(executionWithProductionElementFields()
+                .setId(8804L)
+                .setExecutionSnapshotJson("""
+                        {"fields":[
+                          {"fieldPath":"report.deviceAValue","fieldKey":"deviceAValue","rowIndex":7,"columnIndex":2,"valueType":"NUMBER"},
+                          {"fieldPath":"report.deviceAStandard","fieldKey":"deviceAStandard","rowIndex":8,"columnIndex":2,"valueType":"STRING"},
+                          {"fieldPath":"report.deviceBValue","fieldKey":"deviceBValue","rowIndex":9,"columnIndex":2,"valueType":"NUMBER"},
+                          {"fieldPath":"report.deviceBStandard","fieldKey":"deviceBStandard","rowIndex":10,"columnIndex":2,"valueType":"STRING"}
+                        ]}
+                        """));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(
+                        reportRule(1L, "deviceParameterReadings.pressure.value@device:41", 7, 2, "NUMBER"),
+                        reportRule(2L, "equipmentParameterRules.pressure.standardText@device:41", 8, 2,
+                                "STRING"),
+                        reportRule(3L, "deviceParameterReadings.pressure.value@device:42", 9, 2, "NUMBER"),
+                        reportRule(4L, "equipmentParameterRules.pressure.standardText@device:42", 10, 2,
+                                "STRING")));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult().setChangedFieldCount(4));
+
+        service.backfillCompletedProcess(new MesTeamLeaderBatchRecordBackfillCommand()
+                .setEvent(deviceAEvent)
+                .setAllocation(allocation())
+                .setSourceEvents(List.of(deviceAEvent, deviceBEvent))
+                .setAllocations(List.of(allocation(), deviceBAllocation))
+                .setWorkOrder(workOrder())
+                .setPickListBindingId(8801L)
+                .setDccProjectCodeId(8001L));
+
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
+        List<MesProBatchRecordExecutionFieldAuditChange> changes = auditCaptor.getValue().getChanges();
+        assertEquals(new BigDecimal("20"), changes.get(0).getNewValueJson());
+        assertEquals("低压标准", changes.get(1).getNewValueJson());
+        assertEquals(new BigDecimal("80"), changes.get(2).getNewValueJson());
+        assertEquals("高光标准", changes.get(3).getNewValueJson());
+    }
+
     private static MesTeamLeaderBatchRecordBackfillCommand backfillCommand() {
         return new MesTeamLeaderBatchRecordBackfillCommand()
                 .setEvent(event())

@@ -116,6 +116,34 @@ class FormTemplateFillRuleAutoDetectServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void detect_ignoresOlderDraftAndCreatesDraftFromSelectedPublishedVersion() {
+        TenantContextHolder.setTenantId(122L);
+        FormTemplateVersionDO sourceVersion = templateVersion(201L, 122L, "按压式压力泵过程检验记录", "V21.0",
+                FormTemplateStatus.PUBLISHED, templateSchema());
+        FormTemplateVersionDO staleDraft = templateVersion(102L, 122L, "按压式压力泵过程检验记录", "V10.0",
+                FormTemplateStatus.DRAFT, oldDraftSchema());
+        when(templateVersionMapper.selectByTemplateIdAndVersionNo(200L, "V21.0")).thenReturn(sourceVersion);
+        when(templateVersionMapper.selectDraftByTemplateId(122L, 200L)).thenReturn(staleDraft);
+        when(templateVersionMapper.selectByTemplateIdAndVersionNo(200L, "V22.0")).thenReturn(null);
+        when(templateVersionMapper.insert((FormTemplateVersionDO) any())).thenAnswer(invocation -> {
+            FormTemplateVersionDO insert = invocation.getArgument(0);
+            insert.setId(401L);
+            return 1;
+        });
+
+        FormTemplateFillRuleAutoDetectRespVO response = service.detect(200L, "V21.0");
+
+        assertTrue(response.getDraftCreated());
+        assertEquals("V22.0", response.getVersionNo());
+        assertEquals(2, response.getCandidateCount());
+        ArgumentCaptor<FormTemplateVersionDO> captor = ArgumentCaptor.forClass(FormTemplateVersionDO.class);
+        verify(templateVersionMapper).insert(captor.capture());
+        FormTemplateVersionDO inserted = captor.getValue();
+        assertEquals("V22.0", inserted.getVersionNo());
+        assertEquals(templateSchema(), inserted.getJimuSchemaJson());
+    }
+
+    @Test
     void detect_keepsSourceDraftWithoutCreatingNewVersion() {
         TenantContextHolder.setTenantId(122L);
         FormTemplateVersionDO sourceVersion = templateVersion(103L, 122L, "生产报工模板", "V2.0",
@@ -195,6 +223,21 @@ class FormTemplateFillRuleAutoDetectServiceTest extends BaseMockitoUnitTest {
                         "1":{"text":"","fillForm":{"field":"tpl_r0_c1","component":"Input","componentFlag":"input-text","placeholder":"请输入生产批号"}},
                         "2":{"text":"操作日期"},
                         "3":{"text":"","fillForm":{"field":"tpl_r0_c3","component":"Input","componentFlag":"input-text"}}
+                      }
+                    }
+                  }
+                }
+                """;
+    }
+
+    private String oldDraftSchema() {
+        return """
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"旧字段"},
+                        "1":{"text":"","fillForm":{"field":"old_r0_c1","component":"Input","componentFlag":"input-text"}}
                       }
                     }
                   }

@@ -31,12 +31,12 @@ assert.match(api, /request\.upload\(/, 'renewal submission must use multipart up
 assert.match(api, /['"]Idempotency-Key['"]/, 'renewal submission must send Idempotency-Key')
 assert.doesNotMatch(api, /DccRegistrationCertificateRenewalUploadReqVO[\s\S]*businessFileId/,
   'renewal upload payload must not expose a pre-staged businessFileId')
-assert.doesNotMatch(api, /DccRegistrationCertificateRenewalUploadReqVO[\s\S]*categoryChanged/,
-  'row-level renewal must not expose category change fields')
-assert.doesNotMatch(api, /DccRegistrationCertificateRenewalUploadReqVO[\s\S]*certificateNo\??:/,
-  'row-level renewal must not allow changing certificate number')
-assert.doesNotMatch(api, /DccRegistrationCertificateRenewalUploadReqVO[\s\S]*classification\??:/,
-  'row-level renewal must not allow changing category')
+assert.match(api, /DccRegistrationCertificateRenewalUploadReqVO[\s\S]*categoryChanged:\s*boolean/,
+  'row-level renewal must expose the required category-changed switch')
+assert.match(api, /DccRegistrationCertificateRenewalUploadReqVO[\s\S]*certificateNo\??:\s*string/,
+  'row-level renewal must allow changing certificate number when category changes')
+assert.match(api, /DccRegistrationCertificateRenewalUploadReqVO[\s\S]*classification\??:\s*string/,
+  'row-level renewal must allow changing category when category changes')
 
 const list = read(listPath)
 assert.match(list, /RegistrationCertificateRenewalDialog/, 'list page must mount the renewal dialog')
@@ -50,11 +50,11 @@ const dialog = read(renewalDialogPath)
 assert.match(dialog, /data-testid="registration-certificate-renewal-dialog"/,
   'renewal dialog must expose a stable anchor')
 assert.match(dialog, /title="延续注册证"/, 'renewal dialog title must match the business action')
-for (const token of ['批准日期', '生效日期', '有效期至', '延续注册证文件']) {
+for (const token of ['批准日期', '生效日期', '有效期至', '类别否变更', '注册证号', '类别', '延续注册证文件']) {
   assert.match(dialog, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     `renewal dialog must contain ${token}`)
 }
-for (const token of ['注册证号', '类别否变更', '类别', '产品名称', '注册人名称', '型号规格', '结构组成', '适用范围']) {
+for (const token of ['产品名称', '注册人名称', '型号规格', '结构组成', '适用范围']) {
   assert.doesNotMatch(dialog, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     `renewal dialog must not expose editable non-renewal field ${token}`)
 }
@@ -63,6 +63,12 @@ assert.match(dialog, /payload\.append\('expectedRowVersion', String\(props\.cert
   'dialog must submit the rowVersion from the selected row')
 assert.match(dialog, /payload\.append\('currentVersionId', String\(props\.certificate\.versionId\)\)/,
   'dialog must submit the current row version identity')
+assert.match(dialog, /payload\.append\('categoryChanged', String\(form\.categoryChanged\)\)/,
+  'dialog must submit the category-changed switch')
+assert.match(dialog, /payload\.append\('certificateNo', form\.certificateNo\.trim\(\)\)/,
+  'dialog must submit the changed certificate number only when category changes')
+assert.match(dialog, /payload\.append\('classification', form\.classification\.trim\(\)\)/,
+  'dialog must submit the changed classification only when category changes')
 assert.match(dialog, /payload\.append\('file', selectedFile\.value\)/,
   'dialog must require and submit the renewal certificate file')
 
@@ -76,21 +82,21 @@ assert.doesNotMatch(currentWhereBlock, /v\.status\s*!=\s*'OLD'/,
   'current list must not join every non-old version and duplicate certificates')
 
 const renewalCommand = read(renewalCommandPath)
-assert.doesNotMatch(renewalCommand, /\bcategoryChanged\b/,
-  'renewal command must not carry legacy category-change switch')
-assert.doesNotMatch(renewalCommand, /\bcertificateNo\b/,
-  'renewal command must not carry mutable certificate number')
-assert.doesNotMatch(renewalCommand, /\bclassification\b/,
-  'renewal command must not carry mutable classification')
+assert.match(renewalCommand, /\bBoolean\s+categoryChanged\b/,
+  'renewal command must carry the category-changed switch')
+assert.match(renewalCommand, /\bString\s+certificateNo\b/,
+  'renewal command must carry the changed certificate number')
+assert.match(renewalCommand, /\bString\s+classification\b/,
+  'renewal command must carry the changed classification')
 
 const renewalService = read(renewalServicePath)
-assert.doesNotMatch(renewalService, /REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED/,
-  'renewal service must not keep the legacy category-change branch')
-assert.doesNotMatch(renewalService, /resolveRenewalCertificateNo|resolveRenewalClassification/,
-  'renewal service must directly carry over certificate number and classification')
-assert.match(renewalService, /\.certificateNo\(currentVersion\.getCertificateNo\(\)\)/,
-  'renewal version must keep the current certificate number')
-assert.match(renewalService, /\.classification\(currentVersion\.getClassification\(\)\)/,
-  'renewal version must keep the current classification')
+assert.match(renewalService, /REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED/,
+  'renewal service must fail fast when category change details are incomplete')
+assert.match(renewalService, /resolveRenewalCertificateNo/,
+  'renewal service must resolve certificate number from command only when category changes')
+assert.match(renewalService, /resolveRenewalClassification/,
+  'renewal service must resolve classification from command only when category changes')
+assert.match(renewalService, /\.categoryChanged\(categoryChanged\)/,
+  'renewal version must persist whether the renewal changed category')
 
 console.log('registration certificate renewal row approval static contract passed')

@@ -60,6 +60,18 @@ final class DccRegistrationCertificateCommandFingerprint {
         return sha256(canonical.toString());
     }
 
+    static String formalizeApprovedUpload(
+            Long certificateId, Integer rowRevision, Integer snapshotRevision, Long fileId, Long validationActorId) {
+        StringBuilder canonical = new StringBuilder();
+        add(canonical, "FORMALIZE_APPROVED_UPLOAD");
+        add(canonical, certificateId);
+        add(canonical, rowRevision);
+        add(canonical, snapshotRevision);
+        add(canonical, fileId);
+        add(canonical, validationActorId);
+        return sha256(canonical.toString());
+    }
+
     private static void addList(StringBuilder target, List<Long> values) {
         if (values == null) {
             add(target, null);

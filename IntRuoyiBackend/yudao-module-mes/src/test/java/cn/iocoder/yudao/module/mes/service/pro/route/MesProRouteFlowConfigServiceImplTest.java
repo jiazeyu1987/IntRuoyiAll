@@ -1408,11 +1408,36 @@ class MesProRouteFlowConfigServiceImplTest {
                         .validationProfile("CONTROLLED_BATCH")
                         .reportSort(1)
                         .build();
+        MesProRouteFlowProcessBatchRecordDO migratedTemplateBinding =
+                MesProRouteFlowProcessBatchRecordDO.builder()
+                        .routeFlowProcessConfigId(901L)
+                        .routeId(10L)
+                        .routeProcessId(100L)
+                        .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                        .batchRecordReportId("FORMTPL:32")
+                        .batchRecordDefinitionId(7001L)
+                        .batchRecordVersionId(7002L)
+                        .formSlotType("PROCESS_INSPECTION")
+                        .formBindingKey("FB-MIGRATED")
+                        .formTemplateId(2003L)
+                        .formTemplateNameSnapshot("迁移旧模板")
+                        .lastPublishedTemplateVersionId(32L)
+                        .lastPublishedTemplateVersionNo("V3.0")
+                        .recordCategory("INTERNAL_RECORD")
+                        .validationProfile("INTERNAL_TRACE")
+                        .ownerRoleKey("QUALITY")
+                        .reportSort(2)
+                        .build();
         MesProBatchRecordReportDO report = new MesProBatchRecordReportDO();
         report.setReportId("REPORT-CLEAN");
         report.setReportCode("BR-CLEAN");
         report.setReportName("清洗工序生产记录");
         report.setFormSlotType("MAIN");
+        MesProBatchRecordReportDO migratedReport = new MesProBatchRecordReportDO();
+        migratedReport.setReportId("FORMTPL:32");
+        migratedReport.setReportCode("FORMTPL_32");
+        migratedReport.setReportName("过程检验记录 V3.0");
+        migratedReport.setFormSlotType("PROCESS_INSPECTION");
         when(routeMapper.selectById(10L)).thenReturn(route);
         when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(routeProcess));
         doReturn(List.of(process)).when(processMapper).selectBatchIds(anyCollection());
@@ -1421,20 +1446,27 @@ class MesProRouteFlowConfigServiceImplTest {
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
                 10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of(processConfig));
         when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
-                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of(legacyReportBinding));
-        when(batchRecordReportMapper.selectListByReportIds(Set.of("REPORT-CLEAN"))).thenReturn(List.of(report));
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType()))
+                .thenReturn(List.of(legacyReportBinding, migratedTemplateBinding));
+        when(batchRecordReportMapper.selectListByReportIds(Set.of("REPORT-CLEAN", "FORMTPL:32")))
+                .thenReturn(List.of(report, migratedReport));
 
         List<MesProRouteFlowProcessConfigRespVO> result =
                 service.getRouteFlowProcessConfigList(10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
 
         assertEquals(1, result.size());
         assertEquals(List.of(), result.get(0).getFormBindings());
-        assertEquals(1, result.get(0).getBatchRecordReports().size());
+        assertEquals(2, result.get(0).getBatchRecordReports().size());
         MesProRouteFlowBatchRecordRespVO batchRecordReport = result.get(0).getBatchRecordReports().get(0);
         assertEquals("REPORT-CLEAN", batchRecordReport.getBatchRecordReportId());
         assertEquals("BR-CLEAN", batchRecordReport.getBatchRecordReportCode());
         assertEquals("清洗工序生产记录", batchRecordReport.getBatchRecordReportName());
         assertEquals("MAIN", batchRecordReport.getFormSlotType());
+        MesProRouteFlowBatchRecordRespVO migratedBatchRecordReport = result.get(0).getBatchRecordReports().get(1);
+        assertEquals("FORMTPL:32", migratedBatchRecordReport.getBatchRecordReportId());
+        assertEquals("FORMTPL_32", migratedBatchRecordReport.getBatchRecordReportCode());
+        assertEquals("过程检验记录 V3.0", migratedBatchRecordReport.getBatchRecordReportName());
+        assertEquals("PROCESS_INSPECTION", migratedBatchRecordReport.getFormSlotType());
     }
 
     @Test

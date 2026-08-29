@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -19,6 +20,8 @@ public class MesTeamLeaderBatchRecordBackfillCommand {
     private List<MesProProcessPoolEventDO> sourceEvents;
 
     private List<MesProcessPoolReportAllocationDO> allocations;
+
+    private List<MesProcessPoolSubmissionReviewDO> reviews;
 
     private String aggregateHash;
 

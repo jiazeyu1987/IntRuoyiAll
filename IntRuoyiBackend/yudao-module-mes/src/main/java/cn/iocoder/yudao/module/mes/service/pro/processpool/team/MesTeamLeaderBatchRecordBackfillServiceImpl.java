@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
@@ -39,6 +40,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_BATCH_RECORD_BINDING_REQUIRED;
@@ -57,6 +59,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
     static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     static final String SOURCE_TYPE_PROCESS_POOL_REPORT = "PROCESS_POOL_REPORT";
     static final String SOURCE_TYPE_PRODUCTION_PICK_LIST = MesProductionPickListSourceService.SOURCE_TYPE;
+    private static final String PROCESS_POOL_DEVICE_SCOPE_SEPARATOR = "@device:";
     private static final int FIELD_AUDIT_IDEMPOTENCY_KEY_LENGTH = 64;
 
     private final MesProRouteFlowProcessBatchRecordMapper bindingMapper;
@@ -90,6 +93,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         MesProcessPoolReportAllocationDO allocation = command.getAllocation();
         List<MesProProcessPoolEventDO> sourceEvents = sourceEvents(command);
         List<MesProcessPoolReportAllocationDO> allocations = allocations(command);
+        List<MesProcessPoolSubmissionReviewDO> reviews = reviews(command);
         validateSources(event, allocation, sourceEvents, allocations);
         MesProRouteFlowProcessBatchRecordDO binding = requireFormalBinding(allocation.getRouteProcessId());
         List<MesProBatchRecordCellLinkRuleDO> rules = ruleMapper.selectEnabledListByScopeAndTargetReport(
@@ -116,10 +120,11 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         Map<String, SnapshotField> fields = snapshotFields(execution.getExecutionSnapshotJson());
         Map<String, JsonNode> currentValues = currentValues(execution.getCellValuesJson());
         Map<Long, MesProProcessPoolEventDO> sourceEventMap = sourceEventMap(sourceEvents);
+        Map<Long, MesProcessPoolSubmissionReviewDO> reviewMap = reviewMap(reviews);
         Map<Long, JsonNode> payloadCache = new LinkedHashMap<>();
         List<MesProBatchRecordExecutionFieldAuditChange> changes = rules.stream()
                 .map(rule -> toChange(event, allocations, binding, rule, fields, currentValues, sourceEventMap,
-                        payloadCache, pickListValues))
+                        reviewMap, payloadCache, pickListValues))
                 .toList();
         MesProBatchRecordExecutionFieldAuditSaveResult saveResult = fieldAuditService.saveSystemCellLinkChanges(
                 new MesProBatchRecordExecutionFieldAuditSaveChangesCommand()
@@ -169,6 +174,13 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             return List.of(command.getAllocation());
         }
         return List.copyOf(command.getAllocations());
+    }
+
+    private List<MesProcessPoolSubmissionReviewDO> reviews(MesTeamLeaderBatchRecordBackfillCommand command) {
+        if (command.getReviews() == null || command.getReviews().isEmpty()) {
+            return List.of();
+        }
+        return List.copyOf(command.getReviews());
     }
 
     private void validateSources(MesProProcessPoolEventDO event, MesProcessPoolReportAllocationDO allocation,
@@ -270,6 +282,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
             Map<String, SnapshotField> fields,
             Map<String, JsonNode> currentValues,
             Map<Long, MesProProcessPoolEventDO> sourceEventMap,
+            Map<Long, MesProcessPoolSubmissionReviewDO> reviewMap,
             Map<Long, JsonNode> payloadCache,
             Map<String, MesProductionPickListSourceService.ResolvedValue> pickListValues) {
         String sourceType = StrUtil.trim(rule.getSourceType());
@@ -293,7 +306,8 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         } else if (SOURCE_TYPE_PROCESS_POOL_REPORT.equals(sourceType)) {
             List<Object> values = allocations.stream()
                     .map(sourceAllocation -> sourceValue(sourceAllocation, rule.getSourceFieldCode(), sourceEventMap,
-                            payloadCache))
+                            reviewMap, payloadCache))
+                    .filter(Objects::nonNull)
                     .toList();
             value = aggregateValue(event, binding, rule, values);
         } else {
@@ -317,6 +331,7 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
     private Object sourceValue(MesProcessPoolReportAllocationDO allocation,
                                String sourceFieldCode,
                                Map<Long, MesProProcessPoolEventDO> sourceEventMap,
+                               Map<Long, MesProcessPoolSubmissionReviewDO> reviewMap,
                                Map<Long, JsonNode> payloadCache) {
         if ("allocatedQuantity".equals(sourceFieldCode)) {
             if (allocation.getAllocatedQuantity() == null) {
@@ -329,16 +344,64 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         if (sourceEvent == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfillSourceEvent");
         }
-        Object eventContextValue = eventContextSourceValue(sourceEvent, sourceFieldCode);
+        DeviceScopedSourceField scopedSourceField = parseDeviceScopedSourceField(sourceFieldCode);
+        String resolvedSourceFieldCode = scopedSourceField == null
+                ? sourceFieldCode : scopedSourceField.baseFieldCode();
+        JsonNode payload = null;
+        if (scopedSourceField != null) {
+            payload = payloadCache.computeIfAbsent(sourceEvent.getId(), ignored -> rawPayload(sourceEvent));
+            Long selectedDeviceId = longValue(payload.path("selectedDevice").get("deviceId"));
+            if (selectedDeviceId == null) {
+                throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
+                        sourceEvent.getId(), resolvedSourceFieldCode);
+            }
+            if (!Objects.equals(selectedDeviceId, scopedSourceField.deviceId())) {
+                return null;
+            }
+        }
+        if (isReviewSourceField(resolvedSourceFieldCode)) {
+            MesProcessPoolSubmissionReviewDO review = reviewMap.get(allocation.getReviewId());
+            Object value = review == null ? null : reviewSourceValue(review, resolvedSourceFieldCode);
+            if (value == null) {
+                throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
+                        sourceEvent.getId(), resolvedSourceFieldCode);
+            }
+            return value instanceof java.time.LocalDateTime time ? time.toString() : value;
+        }
+        Object eventContextValue = eventContextSourceValue(sourceEvent, resolvedSourceFieldCode);
         if (eventContextValue != null) {
             return eventContextValue;
         }
-        JsonNode payload = payloadCache.computeIfAbsent(sourceEvent.getId(), ignored -> rawPayload(sourceEvent));
-        JsonNode node = payloadSourceValue(payload, sourceFieldCode);
+        if (payload == null) {
+            payload = payloadCache.computeIfAbsent(sourceEvent.getId(), ignored -> rawPayload(sourceEvent));
+        }
+        JsonNode node = payloadSourceValue(payload, resolvedSourceFieldCode);
         if (node == null || node.isNull() || (node.isTextual() && StrUtil.isBlank(node.asText()))) {
-            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED, sourceEvent.getId(), sourceFieldCode);
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED,
+                    sourceEvent.getId(), resolvedSourceFieldCode);
         }
         return jsonNodeValue(node);
+    }
+
+    private DeviceScopedSourceField parseDeviceScopedSourceField(String sourceFieldCode) {
+        int separatorIndex = sourceFieldCode.lastIndexOf(PROCESS_POOL_DEVICE_SCOPE_SEPARATOR);
+        if (separatorIndex <= 0) {
+            return null;
+        }
+        String baseFieldCode = sourceFieldCode.substring(0, separatorIndex);
+        if (!baseFieldCode.startsWith("selectedDevice.")
+                && !baseFieldCode.startsWith("deviceMeteringValidity.")
+                && !baseFieldCode.startsWith("deviceParameterReadings.")
+                && !baseFieldCode.startsWith("equipmentParameterRules.")) {
+            return null;
+        }
+        String rawDeviceId = sourceFieldCode.substring(
+                separatorIndex + PROCESS_POOL_DEVICE_SCOPE_SEPARATOR.length());
+        try {
+            return new DeviceScopedSourceField(baseFieldCode, Long.valueOf(rawDeviceId));
+        } catch (NumberFormatException ex) {
+            throw exception(PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED, -1L, sourceFieldCode);
+        }
     }
 
     private Map<String, MesProductionPickListSourceService.ResolvedValue> resolvePickListValues(
@@ -381,6 +444,20 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
                     ? null : sourceEvent.getServerSubmitTime().toString();
             case "signatureId" -> sourceEvent.getSignatureId();
             case "signatureUserId" -> sourceEvent.getSignatureUserId();
+            default -> null;
+        };
+    }
+
+    private boolean isReviewSourceField(String sourceFieldCode) {
+        return Set.of("reviewedAt", "reviewSignatureId", "reviewSignatureUserId")
+                .contains(StrUtil.trim(sourceFieldCode));
+    }
+
+    private Object reviewSourceValue(MesProcessPoolSubmissionReviewDO review, String sourceFieldCode) {
+        return switch (StrUtil.trim(sourceFieldCode)) {
+            case "reviewedAt" -> review.getReviewedAt();
+            case "reviewSignatureId" -> review.getReviewSignatureId();
+            case "reviewSignatureUserId" -> review.getReviewSignatureUserId();
             default -> null;
         };
     }
@@ -752,6 +829,21 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
         return result;
     }
 
+    private Map<Long, MesProcessPoolSubmissionReviewDO> reviewMap(
+            List<MesProcessPoolSubmissionReviewDO> reviews) {
+        Map<Long, MesProcessPoolSubmissionReviewDO> result = new LinkedHashMap<>();
+        for (MesProcessPoolSubmissionReviewDO review : reviews) {
+            if (review == null || review.getId() == null) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfillReviews");
+            }
+            MesProcessPoolSubmissionReviewDO existing = result.putIfAbsent(review.getId(), review);
+            if (existing != null && !existing.equals(review)) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "batchRecordBackfillReviews");
+            }
+        }
+        return result;
+    }
+
     private String aggregateHash(MesTeamLeaderBatchRecordBackfillCommand command,
                                  List<MesProProcessPoolEventDO> sourceEvents,
                                  List<MesProcessPoolReportAllocationDO> allocations) {
@@ -839,5 +931,8 @@ public class MesTeamLeaderBatchRecordBackfillServiceImpl implements MesTeamLeade
     private record SnapshotField(String fieldPath, String fieldKey,
                                  MesProBatchRecordExecutionFieldAuditValueType valueType,
                                  JsonNode defaultValue) {
+    }
+
+    private record DeviceScopedSourceField(String baseFieldCode, Long deviceId) {
     }
 }

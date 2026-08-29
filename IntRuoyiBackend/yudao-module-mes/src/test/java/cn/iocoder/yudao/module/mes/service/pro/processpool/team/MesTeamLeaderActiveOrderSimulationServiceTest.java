@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
@@ -7,7 +8,9 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
@@ -17,7 +20,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,9 +33,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -54,6 +61,8 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     @Mock
     private MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
     @Mock
+    private MesProFeedbackMapper feedbackMapper;
+    @Mock
     private MesProcessPoolEventService processPoolEventService;
     @Mock
     private MesReportAllocationCommandService reportAllocationCommandService;
@@ -68,7 +77,7 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
     void setUp() {
         service = new MesTeamLeaderActiveOrderSimulationService(activeOrderMapper, processSnapshotMapper,
                 routeVersionMapper, reportAllocationMapper, submissionReviewMapper, pqcInspectionTaskMapper,
-                inspectionRegulationItemMapper, pqcPieceDetailMapper, processPoolEventService,
+                inspectionRegulationItemMapper, pqcPieceDetailMapper, feedbackMapper, processPoolEventService,
                 reportAllocationCommandService, pqcProcessInspectionAggregationService,
                 orderProcessCompletionService);
     }
@@ -87,6 +96,7 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 allocation(7001L, 5001L, 6001L),
                 allocation(7002L, 5002L, 6002L));
         AtomicLong reviewId = new AtomicLong(9000L);
+        AtomicLong feedbackId = new AtomicLong(5000L);
 
         when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder);
         when(routeVersionMapper.selectById(448L)).thenReturn(MesProRouteVersionDO.builder()
@@ -98,6 +108,10 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
         when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(8101L)).thenReturn(List.of(pendingPqcTask));
         when(reportAllocationMapper.selectListByActiveOrderIds(List.of(8101L)))
                 .thenReturn(List.of(), completedAllocations, completedAllocations);
+        when(feedbackMapper.insert(any(MesProFeedbackDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProFeedbackDO.class).setId(feedbackId.incrementAndGet());
+            return 1;
+        });
         when(processPoolEventService.createEvent(any())).thenReturn(7001L, 7002L);
         when(reportAllocationMapper.selectListByEventIdForUpdate(7001L))
                 .thenReturn(List.of(allocation(7001L, 5001L, 6001L)));
@@ -134,6 +148,39 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 7002L, 8101L, new BigDecimal("200.000000"));
         org.mockito.Mockito.verify(orderProcessCompletionService, org.mockito.Mockito.times(2))
                 .reconcileAffectedAllocations(any(MesProProcessPoolEventDO.class), any(Collection.class));
+        ArgumentCaptor<MesProcessPoolCreateEventReqDTO> productionCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolCreateEventReqDTO.class);
+        org.mockito.Mockito.verify(processPoolEventService, org.mockito.Mockito.times(2))
+                .createEvent(productionCaptor.capture());
+        assertEquals(List.of("MES_PRO_FEEDBACK", "MES_PRO_FEEDBACK"), productionCaptor.getAllValues().stream()
+                .map(MesProcessPoolCreateEventReqDTO::getFeedbackSourceType).toList());
+        assertEquals(List.of(5001L, 5002L), productionCaptor.getAllValues().stream()
+                .map(MesProcessPoolCreateEventReqDTO::getFeedbackSourceId).toList());
+        assertTrue(productionCaptor.getAllValues().stream()
+                .allMatch(req -> req.getRawPayload().contains("\"lossDetails\":[]")));
+
+        ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
+        org.mockito.Mockito.verify(submissionReviewMapper, org.mockito.Mockito.times(3))
+                .insert(reviewCaptor.capture());
+        Map<Long, MesProcessPoolSubmissionReviewDO> productionReviewByEvent = reviewCaptor.getAllValues().stream()
+                .filter(review -> MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(review.getLeaderType()))
+                .collect(java.util.stream.Collectors.toMap(
+                        MesProcessPoolSubmissionReviewDO::getEventId,
+                        review -> review));
+        ArgumentCaptor<MesProcessPoolReportAllocationDO> allocationUpdateCaptor =
+                ArgumentCaptor.forClass(MesProcessPoolReportAllocationDO.class);
+        org.mockito.Mockito.verify(reportAllocationMapper, org.mockito.Mockito.atLeast(2))
+                .updateById(allocationUpdateCaptor.capture());
+        List<MesProcessPoolReportAllocationDO> linkedAllocationUpdates =
+                allocationUpdateCaptor.getAllValues().stream()
+                        .filter(allocation -> allocation.getReviewId() != null)
+                        .toList();
+        assertEquals(2, linkedAllocationUpdates.size());
+        assertTrue(linkedAllocationUpdates.stream().allMatch(allocation ->
+                allocation.getConfirmedAt() != null
+                        && allocation.getConfirmedAt().equals(
+                        productionReviewByEvent.get(allocation.getEventId()).getReviewedAt())));
     }
 
     private static MesProcessPoolActiveOrderDO activeOrder() {

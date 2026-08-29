@@ -15,5 +15,8 @@ public record DccRegistrationCertificateRenewalSubmitCommand(
         LocalDate approvalDate,
         LocalDate effectiveDate,
         LocalDate expiryDate,
+        Boolean categoryChanged,
+        String certificateNo,
+        String classification,
         MultipartFile file) {
 }

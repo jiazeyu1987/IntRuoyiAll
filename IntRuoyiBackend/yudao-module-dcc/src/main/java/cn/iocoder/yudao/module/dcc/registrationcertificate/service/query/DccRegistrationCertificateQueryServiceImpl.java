@@ -76,10 +76,10 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
 
     @Override
     public DccRegistrationCertificateDetail getDetail(
-            Long tenantId, Long actorId, Long certificateId, DccRequestAuditContext auditContext) {
+            Long tenantId, Long actorId, Long certificateId, Long versionId, DccRequestAuditContext auditContext) {
         List<Long> scopedCompanyIds = scopedCompanyIds(actorId);
         DccRegistrationCertificateQueryRecord row = queryMapper.selectDetail(
-                tenantId, scopedCompanyIds, certificateId);
+                tenantId, scopedCompanyIds, certificateId, versionId);
         if (row == null) {
             recordDetailFailure(tenantId, actorId, certificateId, auditContext,
                     String.valueOf(REGISTRATION_CERTIFICATE_NOT_EXISTS.getCode()), "not_found_or_out_of_scope");
@@ -231,6 +231,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .productMasterId(row.getProductMasterId())
                 .productName(row.getProductName())
                 .projectCodeId(row.getProjectCodeId())
+                .projectCode(row.getProjectCode())
                 .certificateNo(row.getCertificateNo())
                 .versionNo(row.getVersionNo())
                 .status(row.getStatus())

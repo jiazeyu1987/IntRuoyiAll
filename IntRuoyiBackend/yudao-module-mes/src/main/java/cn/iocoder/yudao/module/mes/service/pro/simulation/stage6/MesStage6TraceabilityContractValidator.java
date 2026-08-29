@@ -29,7 +29,7 @@ public final class MesStage6TraceabilityContractValidator {
         requireEquals(RELEASE_SNAPSHOT_CONTRACT_NAME, snapshot, "contractName");
         requireEquals(RELEASE_SNAPSHOT_CONTRACT_VERSION, snapshot, "contractVersion");
         for (String field : List.of("batchExecutionId", "releaseReceiptId", "releaseDecisionId",
-                "releasedAt", "releaseStatus", "threeFileEvidence", "sourceChain",
+                "releasedAt", "releaseStatus", "fourMaterialEvidence", "sourceChain",
                 "releaseApprovalWorkTaskId", "reportSnapshotHash", "version")) {
             require(snapshot, field);
         }
@@ -40,26 +40,26 @@ public final class MesStage6TraceabilityContractValidator {
         requirePositiveLong(snapshot, "version");
         requireEquals(RELEASED_STATUS, snapshot, "releaseStatus");
         requireHash(snapshot.get("reportSnapshotHash"), "reportSnapshotHash");
-        List<?> files = list(snapshot.get("threeFileEvidence"), "threeFileEvidence");
+        List<?> files = list(snapshot.get("fourMaterialEvidence"), "fourMaterialEvidence");
         if (files.size() != 4) {
-            throw new IllegalArgumentException("threeFileEvidence must contain four material categories");
+            throw new IllegalArgumentException("fourMaterialEvidence must contain four material categories");
         }
         files.forEach(value -> {
-            Map<?, ?> file = map(value, "threeFileEvidence.item");
+            Map<?, ?> file = map(value, "fourMaterialEvidence.item");
             requireNonBlank(file, "nodeType");
-            List<?> attachmentIds = list(file.get("attachmentIds"), "threeFileEvidence.item.attachmentIds");
+            List<?> attachmentIds = list(file.get("attachmentIds"), "fourMaterialEvidence.item.attachmentIds");
             if (attachmentIds.isEmpty() || attachmentIds.stream().anyMatch(item -> item == null
                     || String.valueOf(item).isBlank() || Long.parseLong(String.valueOf(item)) <= 0)) {
-                throw new IllegalArgumentException("threeFileEvidence.item.attachmentIds must not be empty");
+                throw new IllegalArgumentException("fourMaterialEvidence.item.attachmentIds must not be empty");
             }
-            list(file.get("sha256"), "threeFileEvidence.item.sha256").forEach(hash ->
-                    requireHash(hash, "threeFileEvidence.item.sha256"));
+            list(file.get("sha256"), "fourMaterialEvidence.item.sha256").forEach(hash ->
+                    requireHash(hash, "fourMaterialEvidence.item.sha256"));
         });
         Set<String> categories = files.stream()
-                .map(value -> String.valueOf(map(value, "threeFileEvidence.item").get("nodeType")))
+                .map(value -> String.valueOf(map(value, "fourMaterialEvidence.item").get("nodeType")))
                 .collect(java.util.stream.Collectors.toSet());
         if (!Objects.equals(RELEASE_MATERIAL_CATEGORIES, categories)) {
-            throw new IllegalArgumentException("threeFileEvidence categories are invalid");
+            throw new IllegalArgumentException("fourMaterialEvidence categories are invalid");
         }
         Map<?, ?> sourceChain = map(snapshot.get("sourceChain"), "sourceChain");
         for (String field : List.of("productionSourceIds", "pickListId", "backfillReceiptId")) {

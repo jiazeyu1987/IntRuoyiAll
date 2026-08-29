@@ -811,6 +811,8 @@ export interface ProFeedbackEdhrSnapshotFieldVO {
   disabled?: boolean
   inputType?: string
   componentType?: string
+  fieldType?: string
+  componentKind?: string
   component?: string
   componentFlag?: string
   type?: string

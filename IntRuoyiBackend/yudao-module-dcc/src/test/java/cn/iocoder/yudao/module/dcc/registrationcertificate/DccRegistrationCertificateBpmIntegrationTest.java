@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.grant.DccRegi
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,6 +84,8 @@ class DccRegistrationCertificateBpmIntegrationTest {
     @Mock
     private RoleApi roleApi;
     @Mock
+    private PermissionApi permissionApi;
+    @Mock
     private DccRegistrationCertificateBusinessClock businessClock;
     @Mock
     private DccRegistrationCertificateRenewalService renewalService;
@@ -98,7 +101,8 @@ class DccRegistrationCertificateBpmIntegrationTest {
     void setUp() {
         service = new DccRegistrationCertificateApprovalService(
                 requestMapper, bindingMapper, grantMapper, grantService,
-                bpmProcessInstanceApi, companyScopeApi, roleApi, businessClock, renewalService, uploadService);
+                bpmProcessInstanceApi, companyScopeApi, roleApi, permissionApi,
+                businessClock, renewalService, uploadService);
         lenient().when(roleApi.getRoleByCode(APPROVER_ROLE_CODE)).thenReturn(approverRole());
         listener = new DccRegistrationCertificateApprovalStatusListener(listenerApprovalService);
     }
@@ -146,7 +150,9 @@ class DccRegistrationCertificateBpmIntegrationTest {
         DccRegistrationCertificateAccessRequestDO request = submittedUploadRequest();
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);
         when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
-        when(companyScopeApi.resolveRecipientUserIds(eq(10L), any(Collection.class), eq(UPLOAD_APPROVAL_PERMISSION)))
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), UPLOAD_APPROVAL_PERMISSION))
+                .thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L)))
                 .thenReturn(new LinkedHashSet<>(List.of(ACTOR_ID, 120L)));
         when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
                 .thenReturn("proc-upload-1001");
@@ -157,9 +163,9 @@ class DccRegistrationCertificateBpmIntegrationTest {
                 TENANT_ID, ACTOR_ID, new DccRegistrationCertificateApprovalStartCommand(REQUEST_ID));
 
         assertEquals("proc-upload-1001", result.processInstanceId());
-        ArgumentCaptor<Collection<Long>> roleIdsCaptor = ArgumentCaptor.forClass(Collection.class);
-        verify(companyScopeApi).resolveRecipientUserIds(eq(10L), roleIdsCaptor.capture(), eq(UPLOAD_APPROVAL_PERMISSION));
-        assertEquals(List.of(8L), List.copyOf(roleIdsCaptor.getValue()));
+        verify(permissionApi).hasAnyPermissionsInRoles(List.of(8L), UPLOAD_APPROVAL_PERMISSION);
+        verify(permissionApi).getUserRoleIdListByRoleIds(List.of(8L));
+        verify(companyScopeApi, never()).resolveRecipientUserIds(eq(10L), any(Collection.class), eq(UPLOAD_APPROVAL_PERMISSION));
     }
 
     @Test

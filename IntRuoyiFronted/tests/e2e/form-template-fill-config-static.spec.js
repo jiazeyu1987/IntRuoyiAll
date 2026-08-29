@@ -90,6 +90,9 @@ includes(templatePage, 'assistRows: parsedTemplateJimuSchema.value?.assistRows',
 includes(templatePage, 'fillAssignments: parsedTemplateJimuSchema.value?.fillAssignments', '模板编辑保存不得覆盖已有辅助行填写人。')
 
 includes(fillConfigDialog, "title: props.title || '填写配置'", '模板填写配置弹窗标题必须默认与批记录填写配置一致。')
+includes(fillConfigDialog, "import Dialog from '@/components/Dialog/src/Dialog.vue'", '填写配置动态外壳必须显式导入项目 Dialog 组件，避免运行时退回原生 dialog。')
+includes(fillConfigDialog, "embeddedMode.value ? 'div' : Dialog", '非内嵌填写配置必须使用项目 Dialog 组件对象打开弹窗。')
+notIncludes(fillConfigDialog, "embeddedMode.value ? 'div' : 'Dialog'", '填写配置不得用字符串 Dialog 作为动态组件，否则自动导入无法识别，弹窗会保持隐藏。')
 includes(fillConfigDialog, 'fullscreen: true', '模板填写配置弹窗右上角必须显示最大化/恢复按钮。')
 includes(fillConfigDialog, 'defaultFullscreen: true', '模板填写配置弹窗必须默认最大化打开。')
 includes(fillConfigDialog, 'batch-record-cell-rules-editor__main-panel', '模板填写配置必须把表格预览放入左侧黄框主区域。')
@@ -126,18 +129,28 @@ includes(fillConfigDialog, 'return []', '未配置辅助行时保存空辅助行
 notIncludes(fillConfigDialog, 'At least one assist row is required for fillable cells.', '单元类型配置不得被辅助行必填校验拦截。')
 notIncludes(fillConfigDialog, 'is not assigned to an assist row.', '普通单元规则保存不得要求全部归属辅助行。')
 
-const openFillConfigBlock =
-  templatePage.match(/const openSelectedTemplateFillConfig = async \(\) => \{[\s\S]*?\n\}/)?.[0] || ''
+const openFillConfigStart = templatePage.indexOf('const openSelectedTemplateFillConfig = async () => {')
+const openFillConfigEnd = templatePage.indexOf('\ntype FormTemplateAction', openFillConfigStart)
+assert.ok(
+  openFillConfigStart >= 0 && openFillConfigEnd > openFillConfigStart,
+  '填写配置打开入口必须是异步正式入口。'
+)
+const openFillConfigBlock = templatePage.slice(openFillConfigStart, openFillConfigEnd)
 assert.ok(openFillConfigBlock, '填写配置打开入口必须是异步正式入口。')
 assert.match(
   openFillConfigBlock,
-  /row\.status !== 'DRAFT'[\s\S]*TemplateApi\.autoDetectTemplateFillRules\(row\.templateId,\s*row\.versionNo\)[\s\S]*handleDraftVersionReady\(response\)[\s\S]*fillConfigDialogVisible\.value = true/s,
-  '正式版本点击填写配置必须先通过规则识别接口生成或复用草稿、切换草稿，再打开可编辑面板。'
+  /fillConfigDialogVisible\.value = true/s,
+  '点击填写配置必须直接打开配置面板。'
+)
+assert.doesNotMatch(
+  openFillConfigBlock,
+  /autoDetectTemplateFillRules|handleDraftVersionReady|规则识别|正式版本不可直接修改/s,
+  '填写配置入口不得自动调用规则识别或自动切换草稿，避免后端识别失败时表现为点击无响应。'
 )
 assert.match(
-  openFillConfigBlock,
-  /fillConfigOpening\.value = true[\s\S]*finally[\s\S]*fillConfigOpening\.value = false/s,
-  '正式版本生成草稿期间必须维护加载状态，并在结束后恢复。'
+  fillConfigDialog,
+  /const handleAutoDetect = async \(\) => \{[\s\S]*autoDetectTemplateFillRules\(templateId,\s*versionNo\)[\s\S]*emit\('draft-version-ready', response\)/s,
+  '规则识别必须保留在弹窗内的显式按钮中，由用户主动触发后再生成或复用草稿。'
 )
 
 for (const source of [templatePage, fillConfigDialog, templateApi]) {

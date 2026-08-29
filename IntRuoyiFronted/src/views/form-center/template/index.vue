@@ -171,11 +171,11 @@
             </el-button>
             <el-button
               v-if="canUseTemplateInteractiveAction(selectedTemplate)"
-              v-hasPermi="['form:template:create']"
               link
               class="scheme-d-row-action scheme-d-row-action--primary"
               type="primary"
               data-form-template-action="edit"
+              v-hasPermi="['form:template:update']"
               @click="editSelectedTemplate"
             >
               编辑
@@ -528,6 +528,7 @@ import download from '@/utils/download'
 import * as TemplateApi from '@/api/form-center/template'
 import type {
   FormRecognizedFieldVO,
+  FormTemplateEditableDraftRespVO,
   FormTemplateListItemVO,
   FormTemplateObsoletePendingRespVO,
   FormTemplateFillRuleAutoDetectRespVO,
@@ -746,7 +747,11 @@ const selectTemplateVersion = (templateId: number, versionNo: string) => {
   void refreshSelectedTemplateObsoletePending()
 }
 
-const handleDraftVersionReady = async (response: FormTemplateFillRuleAutoDetectRespVO) => {
+type FormTemplateDraftReadyPayload =
+  | FormTemplateFillRuleAutoDetectRespVO
+  | FormTemplateEditableDraftRespVO
+
+const handleDraftVersionReady = async (response: FormTemplateDraftReadyPayload) => {
   if (
     selectedTemplate.value &&
     selectedTemplate.value.templateId === response.templateId &&
@@ -820,7 +825,27 @@ const openDesigner = async (template: FormTemplateListItemVO, reportMode: 'previ
 
 const openSelectedTemplateWorkspace = async (reportMode: 'preview' | 'edit') => {
   if (!selectedTemplate.value) return
-  await openDesigner(selectedTemplate.value, reportMode)
+  let targetTemplate = selectedTemplate.value
+  if (reportMode === 'edit' && selectedTemplate.value.status !== 'DRAFT') {
+    const response = await TemplateApi.ensureTemplateEditableDraft(
+      selectedTemplate.value.templateId,
+      selectedTemplate.value.versionNo
+    )
+    await handleDraftVersionReady(response)
+    const draftTemplate = selectedTemplate.value
+    if (!draftTemplate || draftTemplate.status !== 'DRAFT' || draftTemplate.versionNo !== response.versionNo) {
+      const reason = `未能切换到表单模板草稿版本 ${response.templateId}/${response.versionNo}，无法进入 Jimu 编辑器。`
+      message.error(reason)
+      throw new Error(reason)
+    }
+    targetTemplate = draftTemplate
+    message.success(
+      response.draftCreated
+        ? `已生成草稿版本 ${response.versionNo}，正在打开 Jimu 编辑器。`
+        : `已切换到草稿版本 ${response.versionNo}，正在打开 Jimu 编辑器。`
+    )
+  }
+  await openDesigner(targetTemplate, reportMode)
 }
 
 const openSelectedTemplate = async () => {
@@ -861,28 +886,7 @@ const openSelectedTemplateCellLinks = async () => {
 
 const openSelectedTemplateFillConfig = async () => {
   if (!selectedTemplate.value || fillConfigOpening.value) return
-  const row = selectedTemplate.value
-  if (row.status !== 'DRAFT') {
-    fillConfigOpening.value = true
-    try {
-    message.info('正式版本不可直接修改，正在生成或打开草稿版本。')
-    const response = await TemplateApi.autoDetectTemplateFillRules(row.templateId, row.versionNo)
-    await handleDraftVersionReady(response)
-    if (selectedTemplate.value?.status !== 'DRAFT') {
-      throw new Error(`规则识别未返回可编辑草稿版本：${response.templateId}/${response.versionNo}。`)
-    }
-    fillConfigDialogVisible.value = true
-      message.success(`已切换到草稿版本 ${response.versionNo}，可以修改填写配置。`)
-    } catch (error) {
-      message.error(resolveErrorMessage(error, '进入草稿填写配置失败，请联系管理员。'))
-    } finally {
-      fillConfigOpening.value = false
-    }
-    return
-  }
-  if (row.status === 'DRAFT') {
-    fillConfigDialogVisible.value = true
-  }
+  fillConfigDialogVisible.value = true
 }
 
 type FormTemplateAction = 'signature'
@@ -1234,31 +1238,122 @@ type FormTemplateJimuSchemaPayload = {
   fillAssignments?: EdhrProcessFormFillAssignment[]
 }
 
+const normalizeRecognizedFieldType = (fieldType?: string) =>
+  String(fieldType || '')
+    .trim()
+    .toLowerCase()
+
+const compactRecognizedFieldType = (fieldType?: string) =>
+  normalizeRecognizedFieldType(fieldType).replace(/[\s_-]+/g, '')
+
+const isSignatureRecognizedFieldType = (normalized: string) =>
+  normalized === 'signature' ||
+  normalized === 'sign' ||
+  normalized === 'electronic-signature' ||
+  normalized === 'electronic-sign' ||
+  normalized === 'e-signature' ||
+  normalized === 'e-sign' ||
+  normalized.includes('signature') ||
+  normalized.includes('签名') ||
+  normalized.includes('签字') ||
+  compactRecognizedFieldType(normalized).includes('electronicsignature')
+
 const fieldValueType = (fieldType?: string): BatchRecordReportCellValueType => {
-  const normalized = String(fieldType || '').toLowerCase()
-  if (normalized === 'number') return 'NUMBER'
-  if (normalized === 'date') return 'DATE'
-  if (normalized === 'datetime') return 'DATETIME'
-  if (normalized === 'checkbox') return 'BOOLEAN'
-  if (normalized === 'signature') return 'SIGNATURE'
+  const normalized = normalizeRecognizedFieldType(fieldType)
+  const compact = compactRecognizedFieldType(fieldType)
+  if (
+    normalized === 'number' ||
+    normalized === 'input-number' ||
+    compact === 'inputnumber' ||
+    normalized.includes('数字')
+  ) return 'NUMBER'
+  if (
+    normalized === 'datetime' ||
+    normalized === 'date-time' ||
+    compact === 'datetime' ||
+    normalized.includes('日期时间')
+  ) return 'DATETIME'
+  if (normalized === 'date' || normalized.includes('日期')) return 'DATE'
+  if (normalized.includes('时间')) return 'DATETIME'
+  if (normalized === 'checkbox' || compact === 'checkbox') return 'BOOLEAN'
+  if (isSignatureRecognizedFieldType(normalized)) return 'SIGNATURE'
   return 'STRING'
 }
 
 const fieldComponentFlag = (fieldType?: string) => {
-  const normalized = String(fieldType || '').toLowerCase()
-  if (normalized === 'number') return 'input-number'
-  if (normalized === 'date') return 'date'
-  if (normalized === 'datetime') return 'datetime'
-  if (normalized === 'checkbox') return 'checkbox'
-  if (normalized === 'checkbox-group') return 'radio-group'
-  if (normalized === 'signature') return 'signature'
-  if (normalized === 'textarea') return 'textarea'
-  return 'input-text'
+  const normalized = normalizeRecognizedFieldType(fieldType)
+  const compact = compactRecognizedFieldType(fieldType)
+  switch (normalized) {
+    case 'number':
+    case 'input-number':
+    case '数字':
+      return 'input-number'
+    case 'date':
+    case '日期':
+      return 'date'
+    case 'datetime':
+    case 'date-time':
+    case '时间':
+    case '日期时间':
+      return 'datetime'
+    case 'checkbox':
+      return 'checkbox'
+    case 'checkbox-group':
+    case 'radio-group':
+    case 'option-group':
+    case 'single-choice':
+    case 'radiogroup':
+    case 'optiongroup':
+    case 'singlechoice':
+    case '单选':
+      return 'radio-group'
+    case 'select':
+    case 'dropdown':
+    case '下拉':
+    case '选择':
+      return 'select'
+    case 'textarea':
+      return 'textarea'
+    case 'upload-file':
+    case 'upload-image':
+    case 'upload-images':
+      return normalized
+    case '电子签名':
+    case '签名':
+    case '签字':
+      return 'signature'
+    default:
+      if (isSignatureRecognizedFieldType(normalized)) return 'signature'
+      if (
+        normalized.includes('radio') ||
+        normalized.includes('single-choice') ||
+        normalized.includes('singlechoice') ||
+        normalized.includes('option-group') ||
+        normalized.includes('optiongroup') ||
+        normalized.includes('checkbox-group') ||
+        normalized.includes('checkboxgroup') ||
+        normalized.includes('单选') ||
+        compact.includes('radiogroup') ||
+        compact.includes('optiongroup') ||
+        compact.includes('singlechoice')
+      ) return 'radio-group'
+      if (normalized.includes('附件') || normalized.includes('文件')) return 'upload-file'
+      if (normalized.includes('图片')) return 'upload-image'
+      return 'input-text'
+  }
 }
 
 const fieldPlaceholder = (field: FormRecognizedFieldVO) => {
-  if (field.fieldType === 'checkbox') return '□'
-  return '?'
+  const label = field.label || field.fieldCode
+  const componentFlag = fieldComponentFlag(field.fieldType)
+  if (componentFlag === 'checkbox') return '□'
+  if (componentFlag === 'signature') return '请签名'
+  if (componentFlag === 'date' || componentFlag === 'datetime') return `请选择${label}`
+  if (componentFlag === 'radio-group' || componentFlag === 'select') {
+    return `请选择${label}`
+  }
+  if (componentFlag.startsWith('upload-')) return `请上传${label}`
+  return `请输入${label}`
 }
 
 const buildRecognizedFieldCellRules = (fields: FormRecognizedFieldVO[]) =>

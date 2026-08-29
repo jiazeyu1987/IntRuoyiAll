@@ -114,10 +114,12 @@ export interface EdhrLocalStateSampleRespVO {
 
 export interface EdhrStage4DossierUploadSimulationRespVO {
   simulationRunId: string
+  inputMode: string
   cleanedSimulationRunId?: string
   batchExecutionId: string
   batchExecutionCode?: string
   detailPath?: string
+  completeBatchExecutionSnapshot: Record<string, unknown>
   batchExecutionSnapshot: Record<string, unknown>
   batchExecutionDossierSnapshot: Record<string, unknown>
   dossierReadyForRelease: boolean
@@ -855,12 +857,13 @@ export const createEdhrLocalStateSample = async (data: EdhrLocalStateSampleReqVO
 
 export const simulateEdhrStage4DossierUpload = async (
   simulationRunId: string,
-  batchExecutionId: string | number,
-  stage2_5SimulationRunId: string
+  batchExecutionId: string | number | undefined,
+  stage2_5SimulationRunId: string | undefined,
+  inputMode: string
 ) => {
   return await request.post<EdhrStage4DossierUploadSimulationRespVO>({
     url: BATCH_EXECUTION_BASE_URL + '/simulation/stage4/dossier-upload',
-    data: { simulationRunId, batchExecutionId, stage2_5SimulationRunId }
+    data: { simulationRunId, batchExecutionId, stage2_5SimulationRunId, inputMode }
   })
 }
 

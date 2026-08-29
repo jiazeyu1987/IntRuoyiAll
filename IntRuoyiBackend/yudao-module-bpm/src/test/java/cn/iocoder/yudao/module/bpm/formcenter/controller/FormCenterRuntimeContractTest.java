@@ -11,8 +11,14 @@ import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormBpmTaskCre
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormCenterTemplateImportReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormEffectPendingPageReqVO;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormCenterErrorCode;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormCenterException;
+import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
+import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeServiceImpl;
+import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormTemplateJimuReportSaveSyncFilter;
+import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -26,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Method;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,6 +57,27 @@ class FormCenterRuntimeContractTest {
                 templateVersion.getAnnotation(GetMapping.class).value());
         assertEquals("@ss.hasPermission('form:template:query')",
                 templateVersion.getAnnotation(PreAuthorize.class).value());
+
+        Method templateDesignerPath = FormCenterController.class.getDeclaredMethod("getTemplateDesignerPath",
+                Long.class, String.class);
+        assertArrayEquals(new String[]{"/templates/{templateId}/versions/{versionNo}/designer-path"},
+                templateDesignerPath.getAnnotation(GetMapping.class).value());
+        assertEquals("@ss.hasPermission('form:template:query')",
+                templateDesignerPath.getAnnotation(PreAuthorize.class).value());
+
+        Method templateEditPath = FormCenterController.class.getDeclaredMethod("getTemplateEditPath",
+                Long.class, String.class);
+        assertArrayEquals(new String[]{"/templates/{templateId}/versions/{versionNo}/edit-path"},
+                templateEditPath.getAnnotation(GetMapping.class).value());
+        assertEquals("@ss.hasPermission('form:template:update')",
+                templateEditPath.getAnnotation(PreAuthorize.class).value());
+
+        Method editableDraft = FormCenterController.class.getDeclaredMethod("ensureTemplateEditableDraft",
+                Long.class, String.class);
+        assertArrayEquals(new String[]{"/templates/{templateId}/versions/{versionNo}/editable-draft"},
+                editableDraft.getAnnotation(PostMapping.class).value());
+        assertEquals("@ss.hasPermission('form:template:update')",
+                editableDraft.getAnnotation(PreAuthorize.class).value());
 
         Method importDoc = FormCenterController.class.getDeclaredMethod("importDoc", FormCenterTemplateImportReqVO.class);
         assertArrayEquals(new String[]{"/templates/import-doc"}, importDoc.getAnnotation(PostMapping.class).value());
@@ -268,6 +296,86 @@ class FormCenterRuntimeContractTest {
                 () -> FormCenterTemplateImportReqVO.class.getDeclaredField("versionNo"),
                 "导入模板不允许再暴露手工版本号字段，版本号必须由系统自动生成");
         FormCenterTemplateImportReqVO.class.getDeclaredField("selectedTemplateId");
+    }
+
+    @Test
+    void templateDesignerJsonIsExtractedFromTemplateSchemaWrapper() throws Exception {
+        FormCenterRuntimeServiceImpl service = new FormCenterRuntimeServiceImpl();
+        FormTemplateVersionDO version = FormTemplateVersionDO.builder()
+                .id(54L)
+                .jimuSchemaJson("""
+                        {"sheetLayoutJson":"{\\"rows\\":{\\"0\\":{\\"cells\\":{\\"0\\":{\\"text\\":\\"序号\\"}}}}}"}
+                        """)
+                .build();
+
+        Method method = FormCenterRuntimeServiceImpl.class.getDeclaredMethod("extractFormTemplateDesignerJson",
+                FormTemplateVersionDO.class, String.class);
+        method.setAccessible(true);
+
+        String designerJson = (String) method.invoke(service, version, "FORMTPL:54");
+
+        Assertions.assertTrue(designerJson.contains("\"rows\""),
+                "表单模板编辑入口必须从 sheetLayoutJson 抽取 Jimu 画布 JSON，而不是把外层模板 JSON 当画布校验");
+        Assertions.assertTrue(designerJson.contains("\"cols\""),
+                "表单模板编辑入口必须按批记录 Jimu 逻辑补齐 cols，避免 Jimu 编辑器空白或布局异常");
+    }
+
+    @Test
+    void templateJimuNativeSaveRouteSyncsBackToTemplateSchemaAndKeepsWrapperConfig() throws Exception {
+        Method validateWritable = FormCenterRuntimeService.class.getDeclaredMethod(
+                "validateTemplateJimuReportSaveWritable", String.class, Long.class);
+        Method syncSave = FormCenterRuntimeService.class.getDeclaredMethod(
+                "syncTemplateJimuReportSave", String.class, Long.class);
+
+        assertEquals(Void.TYPE, validateWritable.getReturnType());
+        assertEquals(Void.TYPE, syncSave.getReturnType());
+
+        FormCenterRuntimeServiceImpl service = new FormCenterRuntimeServiceImpl();
+        FormTemplateVersionDO version = FormTemplateVersionDO.builder()
+                .id(54L)
+                .jimuSchemaJson("""
+                        {"sheetLayoutJson":"{\\"rows\\":{\\"0\\":{\\"cells\\":{\\"0\\":{\\"text\\":\\"旧单元格\\"}}}}},\\"cols\\":{}}","cellRules":[{"rowIndex":0,"columnIndex":0}],"assistRows":[{"rowIndex":1}],"signatureCellMarkers":[{"rowIndex":2,"columnIndex":2}]}
+                        """)
+                .build();
+
+        Method merge = FormCenterRuntimeServiceImpl.class.getDeclaredMethod("mergeFormTemplateDesignerJson",
+                FormTemplateVersionDO.class, String.class, String.class);
+        merge.setAccessible(true);
+
+        String merged = (String) merge.invoke(service, version,
+                "{\"rows\":{\"0\":{\"cells\":{\"1\":{\"text\":\"新增单元格\"}}}},\"cols\":{\"len\":3}}",
+                "FORMTPL:54");
+        Map<String, Object> root = JsonUtils.parseObject(merged, new TypeReference<Map<String, Object>>() {});
+
+        Assertions.assertTrue(root.containsKey("cellRules"), "Jimu 原生保存只能替换 sheetLayoutJson，不能丢失填写规则");
+        Assertions.assertTrue(root.containsKey("assistRows"), "Jimu 原生保存只能替换 sheetLayoutJson，不能丢失协助填写配置");
+        Assertions.assertTrue(root.containsKey("signatureCellMarkers"), "Jimu 原生保存只能替换 sheetLayoutJson，不能丢失签名配置");
+        Assertions.assertTrue(String.valueOf(root.get("sheetLayoutJson")).contains("新增单元格"),
+                "Jimu 原生保存后的最新画布必须写回正式 sheetLayoutJson");
+    }
+
+    @Test
+    void templateJimuSaveSyncFilterOnlyInterceptsFormTemplateNativeSavePayloads() throws Exception {
+        FormTemplateJimuReportSaveSyncFilter filter = new FormTemplateJimuReportSaveSyncFilter(null);
+
+        Method resolveReportId = FormTemplateJimuReportSaveSyncFilter.class.getDeclaredMethod(
+                "resolveFormTemplateReportId", String.class);
+        resolveReportId.setAccessible(true);
+
+        assertEquals("FORMTPL:54", resolveReportId.invoke(filter,
+                "{\"designerObj\":{\"id\":\"FORMTPL:54\"},\"rows\":{}}"));
+        assertEquals("FORMTPL:55", resolveReportId.invoke(filter,
+                "{\"excel_config_id\":\"FORMTPL:55\",\"rows\":{}}"));
+        assertNull(resolveReportId.invoke(filter,
+                "{\"designerObj\":{\"id\":\"RE-PP-IDPR-01\"},\"rows\":{}}"));
+
+        Method saveSuccess = FormTemplateJimuReportSaveSyncFilter.class.getDeclaredMethod(
+                "isJimuSaveSuccessResponse", String.class, int.class);
+        saveSuccess.setAccessible(true);
+
+        Assertions.assertEquals(Boolean.TRUE, saveSuccess.invoke(filter, "{\"success\":true}", 200));
+        Assertions.assertEquals(Boolean.FALSE, saveSuccess.invoke(filter, "{\"success\":false}", 200));
+        Assertions.assertEquals(Boolean.FALSE, saveSuccess.invoke(filter, "{\"success\":true}", 500));
     }
 
 }

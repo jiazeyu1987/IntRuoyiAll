@@ -45,7 +45,7 @@ for (const token of [
   'batch-record-cell-link__detail-dialog',
   'batch-record-cell-link__pane is-source',
   'batch-record-cell-link__pane is-target',
-  'grid-template-rows: 76px minmax(0, 1fr)',
+  'grid-template-rows: 104px minmax(0, 1fr)',
   'grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)',
   '暂无表单链接关系',
   '源表单链接详情',

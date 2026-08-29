@@ -595,6 +595,30 @@ class MesProRouteServiceImplTest {
                 .validationProfile("CONTROLLED_BATCH")
                 .reportSort(2)
                 .build();
+        MesProRouteFlowProcessBatchRecordDO migratedTemplateReport = MesProRouteFlowProcessBatchRecordDO.builder()
+                .id(9903L)
+                .routeFlowProcessConfigId(901L)
+                .routeId(routeId)
+                .routeProcessId(100L)
+                .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .batchRecordReportId("FORMTPL:32")
+                .batchRecordDefinitionId(7001L)
+                .batchRecordVersionId(7002L)
+                .formSlotType("PROCESS_INSPECTION")
+                .formBindingKey("FB-MIGRATED")
+                .formTemplateId(2003L)
+                .formTemplateNameSnapshot("迁移旧模板")
+                .lastPublishedTemplateVersionId(32L)
+                .lastPublishedTemplateVersionNo("V3.0")
+                .instanceScope("BATCH_SHARED")
+                .sharedFormKey("shared-process-inspection")
+                .fillableScopeJson("{\"tables\":[1]}")
+                .recordCategory("INTERNAL_RECORD")
+                .validationProfile("INTERNAL_TRACE")
+                .ownerRoleKey("QUALITY")
+                .archiveVisibility("FINAL_DHR")
+                .reportSort(3)
+                .build();
         MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
         graph.setRouteId(routeId);
         graph.setNodes(emptyList());
@@ -608,7 +632,8 @@ class MesProRouteServiceImplTest {
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
                 routeId, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(emptyList());
         when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
-                routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of(formBinding, legacyReport));
+                routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType()))
+                .thenReturn(List.of(formBinding, legacyReport, migratedTemplateReport));
 
         JSONObject snapshot = JSON.parseObject(routeService.buildCurrentRouteSnapshotJson(routeId, routeVersionId));
 
@@ -625,9 +650,13 @@ class MesProRouteServiceImplTest {
         assertEquals(List.of("李四"), formBindings.getJSONObject(0)
                 .getJSONArray("candidateSourceNames").toJavaList(String.class));
         JSONArray batchRecordReports = batchUseConfig.getJSONArray("batchRecordReports");
-        assertEquals(1, batchRecordReports.size());
+        assertEquals(2, batchRecordReports.size());
         assertEquals("REPORT-LIVE", batchRecordReports.getJSONObject(0).getString("batchRecordReportId"));
         assertEquals("MAIN", batchRecordReports.getJSONObject(0).getString("formSlotType"));
+        assertEquals("FORMTPL:32", batchRecordReports.getJSONObject(1).getString("batchRecordReportId"));
+        assertEquals(7001L, batchRecordReports.getJSONObject(1).getLong("batchRecordDefinitionId"));
+        assertEquals(7002L, batchRecordReports.getJSONObject(1).getLong("batchRecordVersionId"));
+        assertEquals("PROCESS_INSPECTION", batchRecordReports.getJSONObject(1).getString("formSlotType"));
     }
 
     @Test

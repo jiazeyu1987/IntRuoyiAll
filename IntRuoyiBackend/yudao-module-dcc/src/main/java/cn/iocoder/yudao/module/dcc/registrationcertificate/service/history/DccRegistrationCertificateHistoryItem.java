@@ -5,5 +5,7 @@ public record DccRegistrationCertificateHistoryItem(
         String itemType,
         String beforeValueJson,
         String afterValueJson,
-        Long actorId) {
+        Long actorId,
+        Long businessFileId,
+        String fileKind) {
 }

@@ -52,11 +52,12 @@ public final class MesStage5FinalReleaseSimulationContractValidator {
     public static void validateDossierSnapshot(Map<?, ?> snapshot) {
         requireEquals(CONTRACT_NAME, snapshot.get("contractName"), "contractName");
         requireEquals(CONTRACT_VERSION, snapshot.get("contractVersion"), "contractVersion");
-        for (String field : List.of("batchExecutionId", "incomingInspectionAttachmentId",
+        for (String field : List.of("batchExecutionId", "sourceSnapshotHash", "incomingInspectionAttachmentId",
                 "sterilizationAttachmentId", "hashes", "nodeStatuses",
                 "dossierReadyForRelease", "blockers")) {
             require(snapshot, field);
         }
+        requireHash(snapshot.get("sourceSnapshotHash"), "sourceSnapshotHash");
         if (!snapshot.containsKey("finalReleaseRecordId")) {
             throw new IllegalArgumentException("missing required field: finalReleaseRecordId");
         }
@@ -135,7 +136,7 @@ public final class MesStage5FinalReleaseSimulationContractValidator {
         requireEquals(RELEASE_SNAPSHOT_CONTRACT_VERSION, snapshot.get("contractVersion"),
                 "releaseSnapshot.contractVersion");
         for (String field : List.of("batchExecutionId", "releaseReceiptId", "releaseDecisionId",
-                "releasedAt", "releaseStatus", "threeFileEvidence", "sourceChain",
+                "releasedAt", "releaseStatus", "fourMaterialEvidence", "sourceChain",
                 "releaseApprovalWorkTaskId", "reportSnapshotHash", "version")) {
             require(snapshot, field);
         }
@@ -146,30 +147,30 @@ public final class MesStage5FinalReleaseSimulationContractValidator {
         requirePositiveLong(snapshot, "version");
         requireEquals(RELEASED_STATUS, snapshot.get("releaseStatus"), "releaseSnapshot.releaseStatus");
         requireHash(snapshot.get("reportSnapshotHash"), "releaseSnapshot.reportSnapshotHash");
-        List<?> fileEvidence = list(snapshot.get("threeFileEvidence"), "releaseSnapshot.threeFileEvidence");
+        List<?> fileEvidence = list(snapshot.get("fourMaterialEvidence"), "releaseSnapshot.fourMaterialEvidence");
         if (fileEvidence.size() != 4) {
-            throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence must contain four material categories");
+            throw new IllegalArgumentException("releaseSnapshot.fourMaterialEvidence must contain four material categories");
         }
         Set<String> categories = new java.util.HashSet<>();
         fileEvidence.forEach(value -> {
-            Map<?, ?> evidence = map(value, "releaseSnapshot.threeFileEvidence.item");
+            Map<?, ?> evidence = map(value, "releaseSnapshot.fourMaterialEvidence.item");
             requireNonBlank(evidence, "nodeType");
             if (!categories.add(String.valueOf(evidence.get("nodeType")))) {
-                throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence contains duplicate categories");
+                throw new IllegalArgumentException("releaseSnapshot.fourMaterialEvidence contains duplicate categories");
             }
-            List<?> attachmentIds = list(evidence.get("attachmentIds"), "releaseSnapshot.threeFileEvidence.item.attachmentIds");
+            List<?> attachmentIds = list(evidence.get("attachmentIds"), "releaseSnapshot.fourMaterialEvidence.item.attachmentIds");
             if (attachmentIds.isEmpty() || attachmentIds.stream().anyMatch(item -> item == null
                     || String.valueOf(item).isBlank() || Long.parseLong(String.valueOf(item)) <= 0)) {
-                throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence.item.attachmentIds must be non-empty");
+                throw new IllegalArgumentException("releaseSnapshot.fourMaterialEvidence.item.attachmentIds must be non-empty");
             }
-            List<?> hashes = list(evidence.get("sha256"), "releaseSnapshot.threeFileEvidence.item.sha256");
+            List<?> hashes = list(evidence.get("sha256"), "releaseSnapshot.fourMaterialEvidence.item.sha256");
             if (hashes.isEmpty()) {
-                throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence.item.sha256 must not be empty");
+                throw new IllegalArgumentException("releaseSnapshot.fourMaterialEvidence.item.sha256 must not be empty");
             }
-            hashes.forEach(hash -> requireHash(hash, "releaseSnapshot.threeFileEvidence.item.sha256.item"));
+            hashes.forEach(hash -> requireHash(hash, "releaseSnapshot.fourMaterialEvidence.item.sha256.item"));
         });
         if (!Objects.equals(RELEASE_MATERIAL_CATEGORIES, categories)) {
-            throw new IllegalArgumentException("releaseSnapshot.threeFileEvidence must contain incoming, sterilization, finished-product report and finished-product record categories");
+            throw new IllegalArgumentException("releaseSnapshot.fourMaterialEvidence must contain incoming, sterilization, finished-product report and finished-product record categories");
         }
         Map<?, ?> sourceChain = map(snapshot.get("sourceChain"), "releaseSnapshot.sourceChain");
         for (String field : List.of("productionSourceIds", "pickListId", "backfillReceiptId")) {

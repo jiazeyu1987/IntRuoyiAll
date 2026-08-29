@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -70,13 +71,16 @@ public class DccRegistrationCertificateChangeService {
     private final JdbcTemplate jdbcTemplate;
     private final FileService fileService;
     private final DccRegistrationCertificateBusinessClock businessClock;
+    private final DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
 
     public DccRegistrationCertificateChangeService(JdbcTemplate jdbcTemplate,
                                                    FileService fileService,
-                                                   DccRegistrationCertificateBusinessClock businessClock) {
+                                                   DccRegistrationCertificateBusinessClock businessClock,
+                                                   DccRegistrationCertificateBusinessEventNotifier businessEventNotifier) {
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
         this.fileService = require(fileService, "fileService");
         this.businessClock = require(businessClock, "businessClock");
+        this.businessEventNotifier = require(businessEventNotifier, "businessEventNotifier");
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -116,6 +120,9 @@ public class DccRegistrationCertificateChangeService {
         Long changeId = insertChange(command, state, resultingSnapshotId, eventId, selection.itemTypes());
         insertChangeFile(command, changeId, infraFileId, uploadFile);
         insertChangeItems(command.tenantId(), changeId, state.snapshot(), target, selection);
+        businessEventNotifier.notifyChangeApprovalRecorded(
+                command.tenantId(), state.ownerCompanyId(), command.certificateId(), state.versionId(),
+                command.actorId(), command.idempotencyKey(), state.certificateNo());
         return new DccRegistrationCertificateChangeResult(command.certificateId(), changeId,
                 state.snapshotId(), resultingSnapshotId, "APPLIED");
     }
@@ -218,7 +225,7 @@ public class DccRegistrationCertificateChangeService {
     private CertificateState requireCurrentState(Long tenantId, Long certificateId, Integer expectedRowVersion) {
         List<CertificateState> rows = jdbcTemplate.query("""
                         SELECT c.owner_company_id, c.current_version_id, c.current_snapshot_id, c.status, c.row_version,
-                               v.status AS version_status,
+                               v.status AS version_status, v.certificate_no,
                                s.id AS snapshot_id, s.version_id, s.revision_no, s.product_name, s.registrant_name,
                                s.model_specification, s.structure_composition, s.intended_use,
                                s.technical_requirements, s.residence_address, s.production_address,
@@ -236,6 +243,7 @@ public class DccRegistrationCertificateChangeService {
                         rs.getString("status"),
                         rs.getInt("row_version"),
                         rs.getString("version_status"),
+                        rs.getString("certificate_no"),
                         new SnapshotRow(
                                 rs.getLong("snapshot_id"),
                                 rs.getLong("version_id"),
@@ -574,7 +582,8 @@ public class DccRegistrationCertificateChangeService {
     }
 
     private record CertificateState(Long ownerCompanyId, Long versionId, Long snapshotId, String status,
-                                    Integer rowVersion, String versionStatus, SnapshotRow snapshot) {
+                                    Integer rowVersion, String versionStatus, String certificateNo,
+                                    SnapshotRow snapshot) {
     }
 
     private record ExistingEvent(Long eventId, Long tenantId, Long certificateId, Long sourceSnapshotId,

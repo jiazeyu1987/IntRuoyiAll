@@ -13,6 +13,8 @@ public final class MesProEdhrBatchTraceSourceHash {
             MesProEdhrBatchTraceLinkType.MATERIAL_ISSUE_LINE,
             MesProEdhrBatchTraceLinkType.COMPLETION_BACKFILL_RECEIPT,
             MesProEdhrBatchTraceLinkType.BATCH_PROVISION_RECEIPT,
+            MesProEdhrBatchTraceLinkType.BATCH_RECORD_RECEIPT,
+            MesProEdhrBatchTraceLinkType.PROCESS_INSPECTION_RECEIPT,
             MesProEdhrBatchTraceLinkType.LOSS_REPORT_RECEIPT);
 
     private MesProEdhrBatchTraceSourceHash() {

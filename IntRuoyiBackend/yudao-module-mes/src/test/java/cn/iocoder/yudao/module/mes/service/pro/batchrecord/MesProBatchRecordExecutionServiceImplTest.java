@@ -3489,6 +3489,7 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         assertEquals(0, fields.getJSONObject(0).getIntValue("rowIndex"));
         assertEquals(1, fields.getJSONObject(0).getIntValue("columnIndex"));
         assertEquals("input-text", fields.getJSONObject(0).getString("component"));
+        assertEquals("input-text", fields.getJSONObject(0).getString("componentFlag"));
         assertEquals(true, fields.getJSONObject(0).getBooleanValue("required"));
         assertEquals("OP-001", fields.getJSONObject(0).getString("defaultValue"));
         assertEquals("OP-001", fields.getJSONObject(0).getString("value"));
@@ -3497,6 +3498,7 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         assertEquals("操作员", fields.getJSONObject(0).getJSONObject("edhrCellRule").getString("label"));
         assertEquals("备注", fields.getJSONObject(1).getString("label"));
         assertEquals("input-textarea", fields.getJSONObject(1).getString("component"));
+        assertEquals("input-textarea", fields.getJSONObject(1).getString("componentFlag"));
         assertEquals("STRING", fields.getJSONObject(1).getString("valueType"));
         assertEquals("记录本次操作相关的补充说明", fields.getJSONObject(1).getString("helpText"));
 
@@ -4084,10 +4086,12 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         JSONArray fields = snapshot.getJSONArray("fields");
         assertEquals("NUMBER", fields.getJSONObject(0).getString("valueType"));
         assertEquals("input-number", fields.getJSONObject(0).getString("component"));
+        assertEquals("input-number", fields.getJSONObject(0).getString("componentFlag"));
         assertEquals("g", fields.getJSONObject(0).getString("unit"));
         assertEquals(100, fields.getJSONObject(0).getJSONObject("constraints").getIntValue("max"));
         assertEquals("DATE", fields.getJSONObject(1).getString("valueType"));
         assertEquals("date", fields.getJSONObject(1).getString("component"));
+        assertEquals("date", fields.getJSONObject(1).getString("componentFlag"));
         assertTrue(execution.getExecutionSnapshotJson().contains("\"edhrCellRule\""));
     }
 

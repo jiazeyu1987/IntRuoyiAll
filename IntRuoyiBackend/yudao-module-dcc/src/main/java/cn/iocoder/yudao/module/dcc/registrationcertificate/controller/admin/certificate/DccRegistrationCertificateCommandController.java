@@ -7,8 +7,10 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.cert
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.certificate.vo.command.DccRegistrationCertificateFormalizeReqVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.certificate.vo.command.DccRegistrationCertificateUpdateDraftReqVO;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateCommandService;
+import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,10 +45,11 @@ public class DccRegistrationCertificateCommandController {
     @PreAuthorize("@ss.hasPermission('dcc:registration-certificate:create')")
     public CommonResult<Long> createDraft(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @RequestBody DccRegistrationCertificateDraftReqVO reqVO) {
+            @Valid @RequestBody DccRegistrationCertificateDraftReqVO reqVO,
+            HttpServletRequest request) {
         return success(commandService.createDraft(
                 TenantContextHolder.getRequiredTenantId(), getLoginUserId(), idempotencyKey,
-                TracerUtils.getTraceId(), reqVO.toDraftData()));
+                requestTraceId(request), reqVO.toDraftData()));
     }
 
     @PutMapping("/drafts/{id}")
@@ -55,10 +58,11 @@ public class DccRegistrationCertificateCommandController {
     public CommonResult<Long> updateDraft(
             @PathVariable("id") @Positive Long id,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @RequestBody DccRegistrationCertificateUpdateDraftReqVO reqVO) {
+            @Valid @RequestBody DccRegistrationCertificateUpdateDraftReqVO reqVO,
+            HttpServletRequest request) {
         return success(commandService.updateDraft(
                 TenantContextHolder.getRequiredTenantId(), getLoginUserId(), idempotencyKey,
-                TracerUtils.getTraceId(), id, reqVO.getExpectedRowVersion(),
+                requestTraceId(request), id, reqVO.getExpectedRowVersion(),
                 reqVO.getExpectedSnapshotRevision(), reqVO.toDraftData()));
     }
 
@@ -69,10 +73,11 @@ public class DccRegistrationCertificateCommandController {
             @PathVariable("id") @Positive Long id,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestParam("expectedRowVersion") @Positive Integer expectedRowVersion,
-            @RequestParam("expectedSnapshotRevision") @Positive Integer expectedSnapshotRevision) {
+            @RequestParam("expectedSnapshotRevision") @Positive Integer expectedSnapshotRevision,
+            HttpServletRequest request) {
         return success(commandService.deleteDraft(
                 TenantContextHolder.getRequiredTenantId(), getLoginUserId(), idempotencyKey,
-                TracerUtils.getTraceId(), id, expectedRowVersion, expectedSnapshotRevision));
+                requestTraceId(request), id, expectedRowVersion, expectedSnapshotRevision));
     }
 
     @PostMapping("/{id}/formalize")
@@ -81,10 +86,15 @@ public class DccRegistrationCertificateCommandController {
     public CommonResult<Long> formalize(
             @PathVariable("id") @Positive Long id,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @RequestBody DccRegistrationCertificateFormalizeReqVO reqVO) {
+            @Valid @RequestBody DccRegistrationCertificateFormalizeReqVO reqVO,
+            HttpServletRequest request) {
         return success(commandService.formalize(
                 TenantContextHolder.getRequiredTenantId(), getLoginUserId(), idempotencyKey,
-                TracerUtils.getTraceId(), id, reqVO.getExpectedRowVersion(),
+                requestTraceId(request), id, reqVO.getExpectedRowVersion(),
                 reqVO.getExpectedSnapshotRevision(), reqVO.getBusinessFileId()));
+    }
+
+    private static String requestTraceId(HttpServletRequest request) {
+        return DccRequestAuditContext.from(request, TracerUtils.getTraceId()).requestId();
     }
 }

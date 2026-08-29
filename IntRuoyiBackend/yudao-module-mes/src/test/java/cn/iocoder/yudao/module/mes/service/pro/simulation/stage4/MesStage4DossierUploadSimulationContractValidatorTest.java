@@ -42,6 +42,7 @@ class MesStage4DossierUploadSimulationContractValidatorTest {
 
     @Test
     void acceptsFourNodeDossierOutputWithoutFinalReleaseRecord() {
+        String sourceSnapshotHash = hash('7');
         Map<String, Object> hashes = Map.of(
                 "incomingInspectionAttachmentHash", hash('1'),
                 "sterilizationAttachmentHash", hash('2'),
@@ -54,6 +55,7 @@ class MesStage4DossierUploadSimulationContractValidatorTest {
         output.put("contractName", "batchExecutionDossierSnapshot");
         output.put("contractVersion", "stage4.v1");
         output.put("batchExecutionId", "1");
+        output.put("sourceSnapshotHash", sourceSnapshotHash);
         output.put("incomingInspectionAttachmentId", "2");
         output.put("sterilizationAttachmentId", "3");
         output.put("finishedProductInspectionAttachmentIds", List.of("4", "5"));
@@ -72,6 +74,7 @@ class MesStage4DossierUploadSimulationContractValidatorTest {
                     "nodeKey", node,
                     "fileId", "file-" + node,
                     "sha256", hash('6'),
+                    "sourceSnapshotHash", sourceSnapshotHash,
                     "source", "STAGE4_INDEPENDENT_FIXTURE_FORMAL_ATTACHMENT_UPLOAD",
                     "completionStatus", "COMPLETED"));
         }
@@ -101,7 +104,28 @@ class MesStage4DossierUploadSimulationContractValidatorTest {
                 () -> MesStage4DossierUploadSimulationContractValidator.validateOutput(output));
     }
 
+    @Test
+    void rejectsOutputWithoutFormalSourceSnapshot() {
+        Map<String, Object> output = validOutput();
+        output.remove("sourceSnapshotHash");
+        output.put("routeBindingSnapshotHash", hash('8'));
+        assertThrows(IllegalArgumentException.class,
+                () -> MesStage4DossierUploadSimulationContractValidator.validateOutput(output));
+    }
+
+    @Test
+    void rejectsFileEvidenceWithoutFormalSourceSnapshot() {
+        Map<String, Object> output = validOutput();
+        Map<String, Object> evidence = new LinkedHashMap<>((Map<String, Object>)
+                ((Map<?, ?>) output.get("fileEvidence")).get("INCOMING_INSPECTION_REPORT"));
+        evidence.remove("sourceSnapshotHash");
+        ((Map<String, Object>) output.get("fileEvidence")).put("INCOMING_INSPECTION_REPORT", evidence);
+        assertThrows(IllegalArgumentException.class,
+                () -> MesStage4DossierUploadSimulationContractValidator.validateOutput(output));
+    }
+
     private Map<String, Object> validOutput() {
+        String sourceSnapshotHash = hash('7');
         Map<String, Object> hashes = Map.of(
                 "incomingInspectionAttachmentHash", hash('1'),
                 "sterilizationAttachmentHash", hash('2'),
@@ -122,6 +146,7 @@ class MesStage4DossierUploadSimulationContractValidatorTest {
                     "nodeKey", node,
                     "fileId", "file-" + node,
                     "sha256", hash('6'),
+                    "sourceSnapshotHash", sourceSnapshotHash,
                     "source", "STAGE4_INDEPENDENT_FIXTURE_FORMAL_ATTACHMENT_UPLOAD",
                     "completionStatus", "COMPLETED"));
         }
@@ -129,6 +154,7 @@ class MesStage4DossierUploadSimulationContractValidatorTest {
         output.put("contractName", "batchExecutionDossierSnapshot");
         output.put("contractVersion", "stage4.v1");
         output.put("batchExecutionId", "1");
+        output.put("sourceSnapshotHash", sourceSnapshotHash);
         output.put("incomingInspectionAttachmentId", "2");
         output.put("sterilizationAttachmentId", "3");
         output.put("finishedProductInspectionAttachmentIds", List.of("4", "5"));

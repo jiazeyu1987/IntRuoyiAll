@@ -372,7 +372,9 @@ DROP PROCEDURE IF EXISTS assert_dcc_registration_certificate_reminder_contract;
 INSERT INTO `infra_job`
   (`id`, `name`, `status`, `handler_name`, `handler_param`, `cron_expression`,
    `retry_count`, `retry_interval`, `monitor_timeout`, `creator`, `create_time`, `updater`, `update_time`, `deleted`)
-SELECT 5620, '国内注册证每日提醒扫描', 1, 'registrationCertificateReminderDailyJob', '', '0 0 9 * * ?',
+SELECT 5620, '国内注册证每日提醒扫描', 1, 'registrationCertificateReminderDailyJob',
+       '{"actorId":1,"roleIds":[910218,910231],"permission":"dcc:registration-certificate:query-current"}',
+       '0 0 9 * * ?',
        3, 60, 0, 'registration-certificate-reminder', NOW(), 'registration-certificate-reminder', NOW(), b'0'
 WHERE NOT EXISTS (
   SELECT 1
@@ -385,7 +387,7 @@ UPDATE `infra_job`
    SET `name` = '国内注册证每日提醒扫描',
        `status` = 1,
        `handler_name` = 'registrationCertificateReminderDailyJob',
-       `handler_param` = '',
+       `handler_param` = '{"actorId":1,"roleIds":[910218,910231],"permission":"dcc:registration-certificate:query-current"}',
        `cron_expression` = '0 0 9 * * ?',
        `retry_count` = 3,
        `retry_interval` = 60,

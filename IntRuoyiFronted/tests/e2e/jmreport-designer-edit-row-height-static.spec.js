@@ -42,6 +42,12 @@ assert.match(
   'designer edit row-height adaptation must wait for the painted canvas to stabilize before reloading row heights'
 )
 
+assert.match(
+  iframeSource,
+  /if\s*\(isDesignerEditCanvasPainted\(frameWindow\)\)\s*\{[\s\S]{0,260}loading\.value\s*=\s*false[\s\S]{0,260}await delay\(DESIGNER_EDIT_PAINT_STABLE_DELAY_MS\)/,
+  'designer edit mode must release the outer loading mask as soon as the JMReport canvas is painted'
+)
+
 assert.doesNotMatch(
   iframeSource,
   /MutationObserver/,

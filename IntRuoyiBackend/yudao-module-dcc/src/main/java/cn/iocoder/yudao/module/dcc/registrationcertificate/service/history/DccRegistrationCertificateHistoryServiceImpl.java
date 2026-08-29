@@ -29,7 +29,25 @@ public class DccRegistrationCertificateHistoryServiceImpl implements DccRegistra
                                 CASE WHEN e.event_type = 'CERTIFICATE_VOIDED'
                                      THEN '{\"value\":\"ACTIVE\"}' ELSE NULL END) AS before_value_json,
                        COALESCE(i.after_value_json, e.detail_json) AS after_value_json,
-                       e.actor_id
+                       e.actor_id,
+                       (SELECT MIN(f.id)
+                          FROM dcc_registration_certificate_file f
+                         WHERE f.tenant_id = e.tenant_id
+                           AND f.owner_type = 'CHANGE'
+                           AND f.owner_id = c.id
+                           AND f.file_kind = 'CHANGE_APPROVAL'
+                           AND f.status = 'BOUND'
+                           AND f.deleted = 0) AS business_file_id,
+                       CASE WHEN EXISTS (
+                              SELECT 1
+                                FROM dcc_registration_certificate_file f
+                               WHERE f.tenant_id = e.tenant_id
+                                 AND f.owner_type = 'CHANGE'
+                                 AND f.owner_id = c.id
+                                 AND f.file_kind = 'CHANGE_APPROVAL'
+                                 AND f.status = 'BOUND'
+                                 AND f.deleted = 0)
+                            THEN 'CHANGE_APPROVAL' ELSE NULL END AS file_kind
                   FROM dcc_registration_certificate_lifecycle_event e
                   LEFT JOIN dcc_registration_certificate_change c
                     ON c.tenant_id = e.tenant_id AND c.event_id = e.id
@@ -42,6 +60,8 @@ public class DccRegistrationCertificateHistoryServiceImpl implements DccRegistra
                 rs.getString("item_type"),
                 rs.getString("before_value_json"),
                 rs.getString("after_value_json"),
-                rs.getObject("actor_id", Long.class)), tenantId, certificateId);
+                rs.getObject("actor_id", Long.class),
+                rs.getObject("business_file_id", Long.class),
+                rs.getString("file_kind")), tenantId, certificateId);
     }
 }

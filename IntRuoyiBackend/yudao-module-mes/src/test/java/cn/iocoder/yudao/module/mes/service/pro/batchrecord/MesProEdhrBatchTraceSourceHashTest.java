@@ -18,4 +18,17 @@ class MesProEdhrBatchTraceSourceHashTest {
         assertFalse(MesProEdhrBatchTraceSourceHash.isValid(
                 MesProEdhrBatchTraceLinkType.WORK_ORDER, snapshot, "upstream-hash"));
     }
+
+    @Test
+    void persistedCompletionOutputReceiptWitnessHashIsAcceptedForTxC() {
+        String batchRecordSnapshot = "{\"sourceType\":\"BATCH_RECORD_RECEIPT\",\"witnessHash\":\"receipt-hash\"}";
+        String processInspectionSnapshot =
+                "{\"sourceType\":\"PROCESS_INSPECTION_RECEIPT\",\"witnessHash\":\"receipt-hash\"}";
+
+        assertTrue(MesProEdhrBatchTraceSourceHash.isValid(
+                MesProEdhrBatchTraceLinkType.BATCH_RECORD_RECEIPT, batchRecordSnapshot, "receipt-hash"));
+        assertTrue(MesProEdhrBatchTraceSourceHash.isValid(
+                MesProEdhrBatchTraceLinkType.PROCESS_INSPECTION_RECEIPT,
+                processInspectionSnapshot, "receipt-hash"));
+    }
 }

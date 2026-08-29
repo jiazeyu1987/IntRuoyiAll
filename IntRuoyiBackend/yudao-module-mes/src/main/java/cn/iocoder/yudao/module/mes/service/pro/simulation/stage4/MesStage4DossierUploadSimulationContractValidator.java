@@ -76,6 +76,8 @@ public final class MesStage4DossierUploadSimulationContractValidator {
         requireEquals(OUTPUT_CONTRACT_NAME, snapshot.get("contractName"), "contractName");
         requireEquals(OUTPUT_CONTRACT_VERSION, snapshot.get("contractVersion"), "contractVersion");
         requireNonBlank(snapshot, "batchExecutionId");
+        Object sourceSnapshotHash = snapshot.get("sourceSnapshotHash");
+        requireHash(sourceSnapshotHash, "sourceSnapshotHash");
         requireNonBlank(snapshot, "incomingInspectionAttachmentId");
         requireNonBlank(snapshot, "sterilizationAttachmentId");
         List<?> finishedAttachmentIds = list(snapshot.get("finishedProductInspectionAttachmentIds"),
@@ -108,6 +110,9 @@ public final class MesStage4DossierUploadSimulationContractValidator {
             requireEquals(nodeKey, evidence.get("nodeKey"), "fileEvidence.item.nodeKey");
             requireNonBlank(evidence, "fileId");
             requireHash(evidence.get("sha256"), "fileEvidence.item.sha256");
+            requireHash(evidence.get("sourceSnapshotHash"), "fileEvidence.item.sourceSnapshotHash");
+            requireEquals(sourceSnapshotHash, evidence.get("sourceSnapshotHash"),
+                    "fileEvidence.item.sourceSnapshotHash");
             requireNonBlank(evidence, "source");
             requireEquals("COMPLETED", evidence.get("completionStatus"),
                     "fileEvidence.item.completionStatus");

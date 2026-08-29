@@ -19,28 +19,34 @@ assert.ok(
   '批记录表单页导入按钮不得直接触发隐藏文件选择器。'
 )
 
-assert.doesNotMatch(
+assert.match(
   pageSource,
-  /<el-form-item label="表单类型"/,
-  '导入弹窗不得显示表单类型整行。'
+  /<el-form-item label="导入类型" required>[\s\S]*?<el-radio-group[\s\S]*?v-model="wordImportDialog\.selectedFormSlotType"[\s\S]*?<el-radio-button value="MAIN">[\s\S]*?批记录[\s\S]*?<el-radio-button value="FORM">[\s\S]*?表单/,
+  '导入弹窗必须显示批记录/表单选择。'
 )
 
 assert.match(
   pageSource,
   /const DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE:\s*BatchRecordFormSlotType\s*=\s*'MAIN'[\s\S]*?selectedFormSlotType:\s*DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE/,
-  '隐藏表单类型后导入状态必须固定初始化为 MAIN。'
+  '默认导入类型必须固定初始化为 MAIN，保证现有批记录导入不变。'
 )
 
 assert.match(
   pageSource,
-  /<el-form-item label="产品名称" required>[\s\S]*?<el-select[\s\S]*?v-model="wordImportDialog\.selectedProjectName"[\s\S]*?:remote-method="loadWordImportProjectOptions"/,
-  '产品名称必须复用 DCC 项目名称远程下拉选择。'
+  /<el-form-item v-if="isMainWordImport" label="产品名称" required>[\s\S]*?<el-select[\s\S]*?v-model="wordImportDialog\.selectedDccProjectCodeId"[\s\S]*?:remote-method="loadWordImportProjectOptions"/,
+  '选择批记录时产品名称必须复用 DCC 项目名称远程下拉选择。'
 )
 
 assert.ok(
   pageSource.includes("@/api/dcc/controlledFile/projectCodes") &&
     pageSource.includes('getProjectCodePage'),
   '产品名称候选必须来自 DCC 项目代码接口。'
+)
+
+assert.match(
+  pageSource,
+  /<el-form-item v-else label="表单名称" required>[\s\S]*?<el-input[\s\S]*?v-model="wordImportDialog\.formName"/,
+  '选择表单时必须直接填写表单名称，不得要求先选 DCC 项目。'
 )
 
 assert.match(
@@ -57,8 +63,8 @@ assert.match(
 
 assert.match(
   pageSource,
-  /if \(!wordImportDialog\.selectedFormSlotType\)[\s\S]*?请选择表单类型[\s\S]*?if \(!selectedProjectName\)[\s\S]*?请选择产品名称[\s\S]*?if \(!file\)[\s\S]*?请选择 Word 文件/,
-  '确认导入前必须保留内部类型、产品名称和 Word 文件的完整校验。'
+  /const selectedSubjectName = resolveWordImportSubjectName\(\)[\s\S]*?if \(!selectedSubjectName\)[\s\S]*?message\.warning\(resolveWordImportSubjectRequiredMessage\(\)\)[\s\S]*?if \(!file\)[\s\S]*?请选择 Word 文件/,
+  '确认导入前必须按导入类型校验产品名称或表单名称，并继续校验 Word 文件。'
 )
 
 assert.match(
@@ -69,8 +75,8 @@ assert.match(
 
 assert.match(
   pageSource,
-  /BatchRecordReportApi\.uploadExtraFormSlot\(\s*file,\s*selectedProjectName,\s*wordImportDialog\.selectedFormSlotType/,
-  '附加表单必须用所选产品名称和表单类型调用 uploadExtraFormSlot。'
+  /BatchRecordReportApi\.uploadExtraFormSlot\(\s*file,\s*selectedSubjectName,\s*wordImportDialog\.selectedFormSlotType/,
+  '表单类型不是 MAIN 时必须用当前名称和表单类型调用 uploadExtraFormSlot。'
 )
 
 assert.doesNotMatch(

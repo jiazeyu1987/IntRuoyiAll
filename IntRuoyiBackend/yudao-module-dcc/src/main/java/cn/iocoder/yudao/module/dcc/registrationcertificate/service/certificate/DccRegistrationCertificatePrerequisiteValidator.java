@@ -126,7 +126,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         if (!DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED);
         }
-        if (!productMasterId.equals(projectCode.getProductMasterId())) {
+        if (projectCode.getProductMasterId() != null && !productMasterId.equals(projectCode.getProductMasterId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
         }
     }

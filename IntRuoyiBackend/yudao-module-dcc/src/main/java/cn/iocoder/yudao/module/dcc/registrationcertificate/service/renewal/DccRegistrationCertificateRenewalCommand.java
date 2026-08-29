@@ -13,5 +13,8 @@ public record DccRegistrationCertificateRenewalCommand(
         Long businessFileId,
         LocalDate approvalDate,
         LocalDate effectiveDate,
-        LocalDate expiryDate) {
+        LocalDate expiryDate,
+        Boolean categoryChanged,
+        String certificateNo,
+        String classification) {
 }

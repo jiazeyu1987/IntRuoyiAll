@@ -8,8 +8,10 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.controller.admin.chan
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeCommand;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeResult;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.change.DccRegistrationCertificateChangeService;
+import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,10 +45,12 @@ public class DccRegistrationCertificateChangeController {
     public CommonResult<DccRegistrationCertificateChangeResult> applyChange(
             @PathVariable("certificateId") @Positive Long certificateId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @ModelAttribute DccRegistrationCertificateChangeApplyReqVO reqVO) {
+            @Valid @ModelAttribute DccRegistrationCertificateChangeApplyReqVO reqVO,
+            HttpServletRequest request) {
+        String requestTraceId = DccRequestAuditContext.from(request, TracerUtils.getTraceId()).requestId();
         return success(changeService.applyChange(new DccRegistrationCertificateChangeCommand(
                 TenantContextHolder.getRequiredTenantId(), getLoginUserId(), idempotencyKey,
-                TracerUtils.getTraceId(), certificateId, reqVO.getExpectedRowVersion(),
+                requestTraceId, certificateId, reqVO.getExpectedRowVersion(),
                 reqVO.getApprovalDate(), reqVO.getStructuredValues(), reqVO.getOtherDescription(),
                 reqVO.getEntrustedProduction(), reqVO.getSelfProduction(),
                 reqVO.getEntrustedEnterprisesJson(), null, reqVO.getFile())));
@@ -58,10 +62,12 @@ public class DccRegistrationCertificateChangeController {
     public CommonResult<DccRegistrationCertificateChangeResult> voidCertificate(
             @PathVariable("certificateId") @Positive Long certificateId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @RequestBody DccRegistrationCertificateVoidReqVO reqVO) {
+            @Valid @RequestBody DccRegistrationCertificateVoidReqVO reqVO,
+            HttpServletRequest request) {
+        String requestTraceId = DccRequestAuditContext.from(request, TracerUtils.getTraceId()).requestId();
         return success(changeService.voidCertificate(new DccRegistrationCertificateChangeCommand(
                 TenantContextHolder.getRequiredTenantId(), getLoginUserId(), idempotencyKey,
-                TracerUtils.getTraceId(), certificateId, reqVO.getExpectedRowVersion(),
+                requestTraceId, certificateId, reqVO.getExpectedRowVersion(),
                 reqVO.getApprovalDate(), null, null, null, null, null, reqVO.getVoidReason())));
     }
 }

@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.mdm.service.enterprise;
 
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.mdm.controller.admin.enterprise.vo.MdmEnterprisePageReqVO;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mdm.controller.admin.enterprise.vo.MdmEnterpriseSaveReqVO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.enterprise.MdmEnterpriseDO;
@@ -27,8 +29,11 @@ import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRIS
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_CODE_DUPLICATE;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_DELETED;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_DISABLED;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_FIELD_REQUIRED;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_NOT_FOUND;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TENANT_MISMATCH;
+import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TYPE_INVALID;
 import static cn.iocoder.yudao.module.mdm.enums.ErrorCodeConstants.MDM_ENTERPRISE_TYPE_MISMATCH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -87,6 +92,30 @@ class MdmEnterpriseServiceImplTest {
         assertEquals(MdmEnterpriseStatusEnum.ENABLE.getStatus(), result.get(0).getStatus());
         assertEquals(3, result.get(0).getRevision());
         assertEquals(List.of("selectClassificationByIds"), mapperInvocationNames());
+    }
+
+    @Test
+    void listEnabledEnterprisesReturnsEnabledRowsByTypeAndKeyword() {
+        MdmEnterpriseDO entrustedParty = enterprise(202L, TENANT_ID, "TRUST-002", "受托企业：上海受托制造有限公司",
+                ENTRUSTED_PARTY, MdmEnterpriseStatusEnum.ENABLE.getStatus(), 7, false);
+        when(enterpriseMapper.selectEnabledByTypes(TENANT_ID, Set.of(ENTRUSTED_PARTY), "上海受托", 20))
+                .thenReturn(List.of(entrustedParty));
+
+        List<MdmEnterpriseDO> result = enterpriseService.listEnabledEnterprises(
+                Set.of(ENTRUSTED_PARTY), " 上海受托 ", 20);
+
+        assertEquals(List.of(202L), result.stream().map(MdmEnterpriseDO::getId).toList());
+        assertEquals("受托企业：上海受托制造有限公司", result.get(0).getName());
+        assertEquals(ENTRUSTED_PARTY, result.get(0).getType());
+        assertEquals(List.of("selectEnabledByTypes"), mapperInvocationNames());
+    }
+
+    @Test
+    void listEnabledEnterprisesRejectsInvalidLimitBeforeQuery() {
+        assertServiceException(() -> enterpriseService.listEnabledEnterprises(Set.of(ENTRUSTED_PARTY), null, 0),
+                MDM_ENTERPRISE_FIELD_REQUIRED);
+
+        verifyNoInteractions(enterpriseMapper);
     }
 
     @Test
@@ -338,6 +367,110 @@ class MdmEnterpriseServiceImplTest {
                     MDM_ENTERPRISE_BATCH_RESULT_INVALID);
             assertEquals(List.of("insert"), mapperInvocationNames());
         }
+    }
+
+    @Test
+    void getEnterprisePageDelegatesToMapperWithFormalFilters() {
+        MdmEnterprisePageReqVO reqVO = new MdmEnterprisePageReqVO();
+        reqVO.setKeyword("七木");
+        reqVO.setType(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType());
+        MdmEnterpriseDO enterprise = enterprise(301L, TENANT_ID, "COMP-001", "上海七木医疗器械有限公司",
+                MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(), MdmEnterpriseStatusEnum.ENABLE.getStatus(), 2, false);
+        when(enterpriseMapper.selectPage(reqVO)).thenReturn(new PageResult<>(List.of(enterprise), 1L));
+
+        PageResult<MdmEnterpriseDO> result = enterpriseService.getEnterprisePage(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("COMP-001", result.getList().get(0).getEnterpriseCode());
+        verify(enterpriseMapper).selectPage(reqVO);
+    }
+
+    @Test
+    void updateEnterprisePreservesIdentityAndIncrementsRevision() {
+        MdmEnterpriseDO existing = enterprise(301L, TENANT_ID, "COMP-001", "上海七木医疗器械有限公司",
+                MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(), MdmEnterpriseStatusEnum.ENABLE.getStatus(), 2, false);
+        when(enterpriseMapper.selectById(301L)).thenReturn(existing);
+        when(enterpriseMapper.updateById(any(MdmEnterpriseDO.class))).thenReturn(1);
+        MdmEnterpriseSaveReqVO request = validCreateRequest();
+        request.setId(301L);
+        request.setEnterpriseCode(" COMP-002 ");
+        request.setName(" 上海七木医疗科技有限公司 ");
+        request.setType(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType());
+        request.setStatus(MdmEnterpriseStatusEnum.DISABLE.getStatus());
+
+        enterpriseService.updateEnterprise(request);
+
+        ArgumentCaptor<MdmEnterpriseDO> captor = ArgumentCaptor.forClass(MdmEnterpriseDO.class);
+        verify(enterpriseMapper).updateById(captor.capture());
+        assertEquals(301L, captor.getValue().getId());
+        assertEquals("COMP-002", captor.getValue().getEnterpriseCode());
+        assertEquals("上海七木医疗科技有限公司", captor.getValue().getName());
+        assertEquals(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(), captor.getValue().getType());
+        assertEquals(MdmEnterpriseStatusEnum.DISABLE.getStatus(), captor.getValue().getStatus());
+        assertEquals(3, captor.getValue().getRevision());
+    }
+
+    @Test
+    void updateEnterpriseRejectsMissingRowBeforeMutation() {
+        MdmEnterpriseSaveReqVO request = validCreateRequest();
+        request.setId(404L);
+        when(enterpriseMapper.selectById(404L)).thenReturn(null);
+
+        assertServiceException(() -> enterpriseService.updateEnterprise(request), MDM_ENTERPRISE_NOT_FOUND);
+
+        verify(enterpriseMapper, never()).updateById(any(MdmEnterpriseDO.class));
+    }
+
+    @Test
+    void updateEnterpriseMapsOnlyNamedTenantCodeDuplicateCauseToBusinessConflict() {
+        MdmEnterpriseSaveReqVO request = validCreateRequest();
+        request.setId(301L);
+        when(enterpriseMapper.selectById(301L)).thenReturn(enterprise(301L, TENANT_ID, "COMP-001",
+                "上海七木医疗器械有限公司", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false));
+        doThrow(new DuplicateKeyException("outer duplicate", new IllegalStateException(
+                "Duplicate entry for key 'UK_MDM_ENTERPRISE_TENANT_CODE'")))
+                .when(enterpriseMapper).updateById(any(MdmEnterpriseDO.class));
+
+        assertServiceException(() -> enterpriseService.updateEnterprise(request), MDM_ENTERPRISE_CODE_DUPLICATE);
+    }
+
+    @Test
+    void updateEnterpriseStatusIncrementsRevision() {
+        when(enterpriseMapper.selectById(301L)).thenReturn(enterprise(301L, TENANT_ID, "COMP-001",
+                "上海七木医疗器械有限公司", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                MdmEnterpriseStatusEnum.ENABLE.getStatus(), 4, false));
+        when(enterpriseMapper.updateById(any(MdmEnterpriseDO.class))).thenReturn(1);
+
+        enterpriseService.updateEnterpriseStatus(301L, MdmEnterpriseStatusEnum.DISABLE.getStatus());
+
+        ArgumentCaptor<MdmEnterpriseDO> captor = ArgumentCaptor.forClass(MdmEnterpriseDO.class);
+        verify(enterpriseMapper).updateById(captor.capture());
+        assertEquals(301L, captor.getValue().getId());
+        assertEquals(MdmEnterpriseStatusEnum.DISABLE.getStatus(), captor.getValue().getStatus());
+        assertEquals(5, captor.getValue().getRevision());
+    }
+
+    @Test
+    void deleteEnterpriseRequiresExistingRowThenSoftDeletes() {
+        when(enterpriseMapper.selectById(301L)).thenReturn(enterprise(301L, TENANT_ID, "COMP-001",
+                "上海七木医疗器械有限公司", MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                MdmEnterpriseStatusEnum.ENABLE.getStatus(), 1, false));
+        when(enterpriseMapper.deleteById(301L)).thenReturn(1);
+
+        enterpriseService.deleteEnterprise(301L);
+
+        verify(enterpriseMapper).deleteById(301L);
+    }
+
+    @Test
+    void listSimpleEnterprisesRejectsInvalidStatusAndTypeBeforeQuery() {
+        assertServiceException(() -> enterpriseService.listSimpleEnterprises("BAD_TYPE",
+                MdmEnterpriseStatusEnum.ENABLE.getStatus(), null), MDM_ENTERPRISE_TYPE_INVALID);
+        assertServiceException(() -> enterpriseService.listSimpleEnterprises(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(),
+                "BAD_STATUS", null), MDM_ENTERPRISE_STATUS_INVALID);
+
+        verifyNoInteractions(enterpriseMapper);
     }
 
     private MdmEnterpriseDO enterprise(Long id, Long tenantId, String enterpriseCode, String name, String type,

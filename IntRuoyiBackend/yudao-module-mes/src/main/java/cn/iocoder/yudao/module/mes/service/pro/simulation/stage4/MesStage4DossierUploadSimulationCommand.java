@@ -7,6 +7,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesStage4DossierUploadSimulationCommand {
 
+    private String inputMode;
     private Long actorUserId;
     private String simulationRunId;
     private Long batchExecutionId;

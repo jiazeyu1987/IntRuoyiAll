@@ -134,19 +134,31 @@
                   label="批准日"
                   prop="approvalDate"
                   :width="getCurrentColumnWidthString('approvalDate', 120)"
-                />
+                >
+                  <template #default="{ row }">
+                    {{ formatRegistrationCertificateDate(row.approvalDate) }}
+                  </template>
+                </el-table-column>
                 <el-table-column
                   v-if="isCurrentColumnVisible('effectiveDate')"
                   label="生效日"
                   prop="effectiveDate"
                   :width="getCurrentColumnWidthString('effectiveDate', 120)"
-                />
+                >
+                  <template #default="{ row }">
+                    {{ formatRegistrationCertificateDate(row.effectiveDate) }}
+                  </template>
+                </el-table-column>
                 <el-table-column
                   v-if="isCurrentColumnVisible('expiryDate')"
                   label="有效期至"
                   prop="expiryDate"
                   :width="getCurrentColumnWidthString('expiryDate', 120)"
-                />
+                >
+                  <template #default="{ row }">
+                    {{ formatRegistrationCertificateDate(row.expiryDate) }}
+                  </template>
+                </el-table-column>
                 <el-table-column
                   v-if="isCurrentColumnVisible('remark')"
                   label="备注"
@@ -265,7 +277,7 @@
                 >
                   <template #default="{ row }">
                     <el-tag :type="getRegistrationCertificateStatusTagType(row.status)">
-                      {{ row.status === 'OLD' ? '已失效，失效日期 ' + (row.expiryDate || '—') : formatRegistrationCertificateStatus(row.status) }}
+                      {{ row.status === 'OLD' ? '已失效，失效日期 ' + formatRegistrationCertificateDate(row.expiryDate) : formatRegistrationCertificateStatus(row.status) }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -274,7 +286,11 @@
                   label="原有效期至"
                   prop="expiryDate"
                   :width="getOldColumnWidthString('expiryDate', 140)"
-                />
+                >
+                  <template #default="{ row }">
+                    {{ formatRegistrationCertificateDate(row.expiryDate) }}
+                  </template>
+                </el-table-column>
                 <el-table-column
                   v-if="isOldColumnVisible('actions')"
                   label="操作"
@@ -284,7 +300,7 @@
                 >
                   <template #default="{ row }">
                     <div class="registration-certificate-row-actions">
-                      <el-button link type="primary" @click="openOldDetail(row.certificateId)">
+                      <el-button link type="primary" @click="openOldDetail(row.certificateId, row.versionId)">
                         详情
                       </el-button>
                       <el-button link type="warning" @click="openOldAccessRequest(row.certificateId)">
@@ -348,6 +364,7 @@ import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'
 import {
   REGISTRATION_CERTIFICATE_STATUS_OPTIONS,
   formatMissingMarker,
+  formatRegistrationCertificateDate,
   formatRegistrationCertificateReminder,
   formatRegistrationCertificateStatus,
   getMissingMarkerTagType,
@@ -555,6 +572,80 @@ const oldQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
     placeholder: '输入注册证编号'
   },
   {
+    key: 'ownerCompanyName',
+    label: '所属公司',
+    type: 'text',
+    queryParamKey: 'ownerCompanyName',
+    placeholder: '输入所属公司'
+  },
+  {
+    key: 'productName',
+    label: '产品名称',
+    type: 'text',
+    queryParamKey: 'productName',
+    placeholder: '输入产品名称'
+  },
+  {
+    key: 'classification',
+    label: '分类',
+    type: 'text',
+    queryParamKey: 'classification',
+    placeholder: '输入分类'
+  },
+  {
+    key: 'registrantName',
+    label: '注册人',
+    type: 'text',
+    queryParamKey: 'registrantName',
+    placeholder: '输入注册人'
+  },
+  {
+    key: 'modelSpecification',
+    label: '型号规格',
+    type: 'text',
+    queryParamKey: 'modelSpecification',
+    placeholder: '输入型号规格'
+  },
+  {
+    key: 'productionAddress',
+    label: '生产地址',
+    type: 'text',
+    queryParamKey: 'productionAddress',
+    placeholder: '输入生产地址'
+  },
+  {
+    key: 'entrustedEnterpriseName',
+    label: '受托企业',
+    type: 'text',
+    queryParamKey: 'entrustedEnterpriseName',
+    placeholder: '输入受托企业'
+  },
+  {
+    key: 'projectCode',
+    label: '实际项目代码',
+    type: 'text',
+    queryParamKey: 'projectCode',
+    placeholder: '输入实际项目代码'
+  },
+  {
+    key: 'firstObtainedStart', label: '首次获证起始', type: 'date', queryParamKey: 'firstObtainedStart'
+  },
+  {
+    key: 'firstObtainedEnd', label: '首次获证截止', type: 'date', queryParamKey: 'firstObtainedEnd'
+  },
+  {
+    key: 'approvalStart', label: '批准日期起始', type: 'date', queryParamKey: 'approvalStart'
+  },
+  {
+    key: 'approvalEnd', label: '批准日期截止', type: 'date', queryParamKey: 'approvalEnd'
+  },
+  {
+    key: 'effectiveStart', label: '生效日期起始', type: 'date', queryParamKey: 'effectiveStart'
+  },
+  {
+    key: 'effectiveEnd', label: '生效日期截止', type: 'date', queryParamKey: 'effectiveEnd'
+  },
+  {
     key: 'expiryStart', label: '有效期起始', type: 'date', queryParamKey: 'expiryStart'
   },
   {
@@ -631,8 +722,11 @@ const openDetail = (certificateId: number | string) => {
   router.push(`/mdm/registration-certificate/detail/${certificateId}`)
 }
 
-const openOldDetail = (certificateId: number | string) => {
-  router.push('/mdm/registration-certificate/detail/' + String(certificateId) + '?mode=old-detail')
+const openOldDetail = (certificateId: number | string, versionId: number | string) => {
+  router.push({
+    path: '/mdm/registration-certificate/detail/' + String(certificateId),
+    query: { mode: 'old-detail', versionId: String(versionId) }
+  })
 }
 
 const openOldAccessRequest = (certificateId: number | string) => {
@@ -664,7 +758,7 @@ const openRenewalDialog = (row: DccRegistrationCertificatePageItemVO) => {
 
 const handleUploadSaved = async () => {
   showUploadDialog.value = false
-  await router.push('/approval-center?moduleCode=DCC&viewType=TODO')
+  await router.push('/approval-center/todo?viewType=TODO')
 }
 
 const handleRenewalSaved = async () => {

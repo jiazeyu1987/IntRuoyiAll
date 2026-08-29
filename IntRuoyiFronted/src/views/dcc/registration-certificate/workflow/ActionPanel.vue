@@ -139,15 +139,29 @@
             <el-radio-button value="VIEW_OLD_CERTIFICATE">查看旧证</el-radio-button>
             <el-radio-button value="DOWNLOAD_FILE">下载文件</el-radio-button>
           </el-radio-group>
-          <el-alert
-            v-if="accessRequestType === 'DOWNLOAD_FILE'"
-            :type="props.projectCodeId && props.businessFileId ? 'info' : 'warning'"
-            :title="props.projectCodeId && props.businessFileId ? '下载所需正式事实已由系统带出' : '当前档案缺少项目代码或注册证文件，下载已锁定'"
-            :closable="false"
-          />
+          <template v-if="accessRequestType === 'DOWNLOAD_FILE'">
+            <el-select
+              v-model="selectedDownloadBusinessFileId"
+              class="registration-certificate-workflow__file-select"
+              data-testid="registration-certificate-download-file-select"
+              placeholder="选择下载文件"
+            >
+              <el-option
+                v-for="file in downloadFileOptions"
+                :key="String(file.businessFileId)"
+                :label="file.label"
+                :value="file.businessFileId"
+              />
+            </el-select>
+            <el-alert
+              :type="hasDownloadFacts ? 'info' : 'warning'"
+              :title="hasDownloadFacts ? '下载所需正式事实已由系统带出' : '当前档案缺少项目代码或可下载文件，下载已锁定'"
+              :closable="false"
+            />
+          </template>
           <el-button
             type="primary"
-            :disabled="accessRequestType === 'DOWNLOAD_FILE' && (!props.projectCodeId || !props.businessFileId)"
+            :disabled="accessRequestType === 'DOWNLOAD_FILE' && !hasDownloadFacts"
             :loading="submitting"
             @click="handleSubmitAccessRequest"
           >提交访问申请</el-button>
@@ -201,7 +215,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
 import {
   createRegistrationCertificateDraft,
@@ -223,6 +237,12 @@ import {
 import { downloadByData } from '@/utils/filt'
 import { generateUUID } from '@/utils'
 
+type DownloadableFileOption = {
+  businessFileId: number | string
+  fileKind: string
+  label: string
+}
+
 const props = defineProps<{
   certificateId?: number | string
   versionId?: number | string
@@ -230,6 +250,7 @@ const props = defineProps<{
   rowVersion?: number
   projectCodeId?: number | string
   businessFileId?: number | string
+  downloadableFiles?: DownloadableFileOption[]
   supportingDocumentId?: number | string
   initialAction?: 'draft' | 'formalize' | 'renewal' | 'change' | 'supporting' | 'access' | 'approvalResult'
   readOnly?: boolean
@@ -246,6 +267,7 @@ const accessReason = ref('')
 const accessStatus = ref<DccRegistrationCertificateAccessRequestStatusVO>()
 const pendingVersionId = ref<number | string>()
 const activeSupportingDocumentId = ref<number | string>(props.supportingDocumentId ?? '')
+const selectedDownloadBusinessFileId = ref<number | string>('')
 
 const operationKeys = {
   draftCreate: ref(''),
@@ -314,6 +336,28 @@ const selectedStructuredChangeTypes = computed(() =>
   structuredChangeTypeOptions.filter((item) => changeForm.changeTypes.includes(item.value))
 )
 
+const downloadFileOptions = computed<DownloadableFileOption[]>(() => {
+  return (props.downloadableFiles ?? []).filter((file) =>
+    Boolean(file.businessFileId) && Boolean(file.fileKind)
+  )
+})
+
+const hasDownloadFacts = computed(() =>
+  Boolean(props.projectCodeId && selectedDownloadBusinessFileId.value)
+)
+
+watch(
+  downloadFileOptions,
+  (options) => {
+    const current = String(selectedDownloadBusinessFileId.value || '')
+    if (options.some((option) => String(option.businessFileId) === current)) {
+      return
+    }
+    selectedDownloadBusinessFileId.value = options[0]?.businessFileId ?? ''
+  },
+  { immediate: true }
+)
+
 const handleChangeFileChange = (uploadFile: UploadFile, uploadFiles: UploadFiles) => {
   selectedChangeFile.value = uploadFile.raw ?? null
   changeFileList.value = uploadFiles.slice(-1) as UploadUserFile[]
@@ -365,6 +409,20 @@ const requirePendingVersionId = () => {
 
 const requireBusinessFileId = () => {
   return props.businessFileId
+}
+
+const requireProjectCodeId = () => {
+  if (!props.projectCodeId) {
+    throw new Error('缺少项目代码，无法提交文件下载申请。')
+  }
+  return props.projectCodeId
+}
+
+const requireSelectedDownloadBusinessFileId = () => {
+  if (!selectedDownloadBusinessFileId.value) {
+    throw new Error('请选择需要下载的注册证业务文件。')
+  }
+  return selectedDownloadBusinessFileId.value
 }
 
 const requireAccessRequestId = () => {
@@ -563,7 +621,9 @@ const handleSubmitAccessRequest = () => runAction('提交访问申请', async ()
     ? {
         certificateId: requireCertificateId(),
         requestType,
-        purpose: '页面提交的注册证文件下载申请'
+        purpose: '页面提交的注册证文件下载申请',
+        projectCodeId: requireProjectCodeId(),
+        businessFileIds: [requireSelectedDownloadBusinessFileId()]
       }
     : {
         certificateId: requireCertificateId(),
@@ -624,6 +684,10 @@ const handleDownloadGrant = (businessFileId: number | string) => runAction('下�
 
 .registration-certificate-workflow__panel :deep(.el-input) {
   max-width: 320px;
+}
+
+.registration-certificate-workflow__file-select {
+  width: 240px;
 }
 
 .registration-certificate-workflow__status,

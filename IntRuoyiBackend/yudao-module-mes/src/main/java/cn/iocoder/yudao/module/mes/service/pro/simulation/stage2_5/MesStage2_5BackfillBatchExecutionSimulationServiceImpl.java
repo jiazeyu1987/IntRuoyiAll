@@ -470,7 +470,10 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                         .like(MesProEdhrBatchExecutionDO::getRemark, SIMULATION_MARKER)
                         .like(MesProEdhrBatchExecutionDO::getRemark, "][actorUserId=" + actorUserId + "]"));
         for (MesProEdhrBatchExecutionDO batch : batches) {
-            runIdFromMarker(batch.getRemark(), actorUserId);
+            String runId = tryRunIdFromMarker(batch.getRemark(), actorUserId);
+            if (runId == null) {
+                continue;
+            }
             batchRecordExecutionMapper.delete(new LambdaQueryWrapper<MesProBatchRecordExecutionDO>()
                     .eq(MesProBatchRecordExecutionDO::getBatchExecutionId, batch.getId()));
             batchTaskMapper.selectListByBatchExecutionId(batch.getId())
@@ -529,7 +532,10 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                         .eq(MesProEdhrBatchExecutionDO::getWorkOrderId, workOrderId)
                         .like(MesProEdhrBatchExecutionDO::getRemark, SIMULATION_MARKER));
         for (MesProEdhrBatchExecutionDO batch : batches) {
-            runIdFromMarker(batch.getRemark(), actorUserId);
+            String runId = tryRunIdFromMarker(batch.getRemark(), actorUserId);
+            if (runId == null) {
+                continue;
+            }
             batchRecordExecutionMapper.delete(new LambdaQueryWrapper<MesProBatchRecordExecutionDO>()
                     .eq(MesProBatchRecordExecutionDO::getBatchExecutionId, batch.getId()));
             batchTaskMapper.selectListByBatchExecutionId(batch.getId())
@@ -694,7 +700,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                 .setEntryBusinessId(receipt.getCompletionTransactionId())
                 .setSourceCredentialType(CREDENTIAL_TYPE)
                 .setSourceCredentialId(receipt.getReceiptId())
-                .setSourceContextHash(receipt.getSourceContextHash())
+                .setSourceContextHash(receipt.getSourceSnapshotHash())
                 .setActiveOrderId(activeOrder.getId())
                 .setPickListBindingId(binding.getId())
                 .setPickListId(binding.getPickListId())
@@ -713,8 +719,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
                 .setSourceEvidence(receipt.getSourceEvidence())
                 .setIdempotencyKey(batchIdempotencyKey)
                 .setExpectedSourceVersion(receipt.getSourceVersion())
-                .setPayloadHash(receipt.getPayloadHash())
-                .setCompletionBackfillReceipt(receipt);
+                .setPayloadHash(receipt.getPayloadHash());
     }
 
     private Map<String, Object> buildSnapshot(
@@ -878,14 +883,22 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
     }
 
     private String runIdFromMarker(String value, Long actorUserId) {
+        String runId = tryRunIdFromMarker(value, actorUserId);
+        if (runId == null) {
+            throw new IllegalStateException("STAGE2_5_CLEANUP_SCOPE_INVALID");
+        }
+        return runId;
+    }
+
+    private String tryRunIdFromMarker(String value, Long actorUserId) {
         String prefix = SIMULATION_MARKER + "[simulationRunId=";
         String actorToken = "][actorUserId=" + actorUserId + "]";
         if (value == null || !value.startsWith(prefix) || !value.endsWith(actorToken)) {
-            throw new IllegalStateException("STAGE2_5_CLEANUP_SCOPE_INVALID");
+            return null;
         }
         String runId = value.substring(prefix.length(), value.length() - actorToken.length());
         if (!runId.matches("[A-Za-z0-9._:-]{1,128}")) {
-            throw new IllegalStateException("STAGE2_5_CLEANUP_SCOPE_INVALID");
+            return null;
         }
         return runId;
     }

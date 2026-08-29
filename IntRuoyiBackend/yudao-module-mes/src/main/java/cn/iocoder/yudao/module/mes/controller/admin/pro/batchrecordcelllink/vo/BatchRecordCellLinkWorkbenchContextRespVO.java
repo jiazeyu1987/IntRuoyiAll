@@ -12,10 +12,12 @@ public class BatchRecordCellLinkWorkbenchContextRespVO {
     private String scopeType;
     private Long scopeId;
     private Long routeId;
+    private Long dccProjectCodeId;
     private Long batchRecordDefinitionId;
     private Long batchRecordVersionId;
     private List<BatchRecordCellLinkFormRespVO> forms;
 
+    private List<BatchRecordCellLinkRouteProcessVO> routeProcesses;
     private List<BatchRecordCellLinkPqcProcessVO> pqcProcesses;
     private List<BatchRecordCellLinkSourceFieldVO> sourceFields;
     private String defaultSourceReportId;

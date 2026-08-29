@@ -901,12 +901,18 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private JSONArray buildFormBindingSnapshots(List<MesProRouteFlowProcessBatchRecordDO> records) {
         JSONArray result = new JSONArray();
         records.stream()
-                .filter(record -> record.getFormTemplateId() != null)
+                .filter(this::isDynamicFormBindingSnapshot)
                 .sorted(Comparator.comparing(MesProRouteFlowProcessBatchRecordDO::getReportSort,
                         Comparator.nullsLast(Integer::compareTo)))
                 .map(this::buildFormBindingSnapshot)
                 .forEach(result::add);
         return result;
+    }
+
+    private boolean isDynamicFormBindingSnapshot(MesProRouteFlowProcessBatchRecordDO record) {
+        return record != null
+                && StrUtil.isBlank(record.getBatchRecordReportId())
+                && record.getFormTemplateId() != null;
     }
 
     private JSONObject buildFormBindingSnapshot(MesProRouteFlowProcessBatchRecordDO record) {

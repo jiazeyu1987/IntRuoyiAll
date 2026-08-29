@@ -28,7 +28,8 @@ public interface DccRegistrationCertificateQueryMapper {
     DccRegistrationCertificateQueryRecord selectDetail(
             @Param("tenantId") Long tenantId,
             @Param("companyIds") List<Long> companyIds,
-            @Param("certificateId") Long certificateId);
+            @Param("certificateId") Long certificateId,
+            @Param("versionId") Long versionId);
 
     @SelectProvider(type = SqlProvider.class, method = "countOldIndex")
     long countOldIndex(@Param("tenantId") Long tenantId,
@@ -59,7 +60,12 @@ public interface DccRegistrationCertificateQueryMapper {
         }
 
         public static String selectDetail() {
-            return script(select(), commonWhere() + " AND c.id = #{certificateId}",
+            return script(select(), commonWhere() + """
+                       AND c.id = #{certificateId}
+                       <if test="versionId != null">
+                         AND v.id = #{versionId}
+                       </if>
+                    """,
                     " ORDER BY CASE v.status"
                             + " WHEN 'CURRENT' THEN 1"
                             + " WHEN 'PENDING_EFFECTIVE' THEN 2"
@@ -296,6 +302,24 @@ public interface DccRegistrationCertificateQueryMapper {
                       </if>
                       <if test="query.projectCode != null and query.projectCode != ''">
                         AND pc.project_code LIKE CONCAT('%', #{query.projectCode}, '%')
+                      </if>
+                      <if test="query.firstObtainedStart != null">
+                        AND c.first_obtained_date &gt;= #{query.firstObtainedStart}
+                      </if>
+                      <if test="query.firstObtainedEnd != null">
+                        AND c.first_obtained_date &lt;= #{query.firstObtainedEnd}
+                      </if>
+                      <if test="query.approvalStart != null">
+                        AND v.approval_date &gt;= #{query.approvalStart}
+                      </if>
+                      <if test="query.approvalEnd != null">
+                        AND v.approval_date &lt;= #{query.approvalEnd}
+                      </if>
+                      <if test="query.effectiveStart != null">
+                        AND v.effective_date &gt;= #{query.effectiveStart}
+                      </if>
+                      <if test="query.effectiveEnd != null">
+                        AND v.effective_date &lt;= #{query.effectiveEnd}
                       </if>
                       <if test="query.expiryStart != null">
                         AND v.expiry_date &gt;= #{query.expiryStart}

@@ -227,9 +227,24 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
-    void duplicateInspectionDetailsMustBeRejectedBeforeBackfill() {
+    void multipleInspectionDetailsForOneConfirmedTaskMustBeAccepted() {
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L))
-                .thenReturn(List.of(detail(801L, 701L, 101L), detail(802L, 701L, 101L)));
+                .thenReturn(List.of(detail(801L, 701L, 101L, 2), detail(802L, 701L, 101L, 2)));
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 101L, 2)));
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+
+        MesTeamLeaderActiveOrderCompletionBackfillDraft draft = port.prepare(20L, order(), command());
+
+        assertTrue(draft.getProcessInspectionSourceIdsJson().contains("701"));
+        assertTrue(draft.getProcessInspectionSourceIdsJson().contains("801"));
+        assertTrue(draft.getProcessInspectionSourceIdsJson().contains("802"));
+    }
+
+    @Test
+    void inspectionDetailWithoutFormalPieceSourceMustBeRejectedBeforeBackfill() {
+        MesPqcProcessInspectionAggregateDetailDO invalid = detail(801L, 701L, 101L)
+                .setSourcePieceDetailId(null);
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(invalid));
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> port.prepare(20L, order(), command()));
@@ -304,8 +319,14 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     private MesPqcInspectionTaskDO task(Long id, Long routeProcessId) {
+        return task(id, routeProcessId, 1);
+    }
+
+    private MesPqcInspectionTaskDO task(Long id, Long routeProcessId, Integer actualInspectionQuantity) {
         return MesPqcInspectionTaskDO.builder().id(id).activeOrderId(10L).workOrderId(30L).routeId(40L)
-                .routeVersionId(41L).routeProcessId(routeProcessId).processId(1L).taskStatus("CONFIRMED").build();
+                .routeVersionId(41L).routeProcessId(routeProcessId).processId(1L)
+                .actualInspectionQuantity(actualInspectionQuantity).submittedEventId(401L)
+                .taskStatus("CONFIRMED").build();
     }
 
     private MesPqcProcessInspectionAggregateDetailDO detail() {
@@ -313,9 +334,15 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     private MesPqcProcessInspectionAggregateDetailDO detail(Long id, Long taskId, Long routeProcessId) {
+        return detail(id, taskId, routeProcessId, 1);
+    }
+
+    private MesPqcProcessInspectionAggregateDetailDO detail(Long id, Long taskId, Long routeProcessId,
+                                                            Integer actualInspectionQuantity) {
         return MesPqcProcessInspectionAggregateDetailDO.builder().id(id).activeOrderId(10L)
                 .workOrderId(30L).routeId(40L).routeVersionId(41L).routeProcessId(routeProcessId).processId(1L)
-                .pqcTaskId(taskId).build();
+                .sourcePqcRecordId(901L).sourcePieceDetailId(id + 1000L).eventId(401L).reviewId(601L)
+                .actualInspectionQuantity(actualInspectionQuantity).pqcTaskId(taskId).build();
     }
 
     private MesProWorkOrderDO workOrder() {

@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -107,7 +108,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_VERSION_CONFLICT, activeOrder.getId(),
                     currentVersion, currentVersion + 1);
         }
-        LocalDateTime completedAt = LocalDateTime.now();
+        LocalDateTime completedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         MesProcessPoolActiveOrderCompletionReceiptDO receipt = MesProcessPoolActiveOrderCompletionReceiptDO.builder()
                 .activeOrderId(activeOrder.getId())
                 .build();

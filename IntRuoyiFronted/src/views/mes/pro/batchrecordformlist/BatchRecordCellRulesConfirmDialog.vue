@@ -608,10 +608,12 @@ import {
   type BatchRecordReportAssistRowVO,
   type BatchRecordReportCellRuleVO,
   type BatchRecordReportCellRulesRespVO,
+  type BatchRecordReportSignatureCellMarkerVO,
   type BatchRecordReportCellValueType,
   type BatchRecordReportVO
 } from '@/api/mes/pro/batchrecordreport'
 import {
+  buildTemplateFieldIdentity,
   cellRuleDefaultComponentMap,
   cellRuleValueTypeOptions,
   cleanedRuleConstraints,
@@ -946,6 +948,43 @@ const parseSheetLayout = (sheetLayoutJson?: string): RuleEditorRawLayout | null 
 
 const sortRules = (rules: BatchRecordReportCellRuleVO[]) =>
   [...rules].sort((left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex)
+
+const isSignatureRuleForSave = (rule: BatchRecordReportCellRuleVO) =>
+  normalizeCellRule(rule).valueType === 'SIGNATURE' ||
+  String(rule.componentFlag || '').toLowerCase().includes('signature')
+
+const buildSignatureMarkersForSave = (
+  rules: BatchRecordReportCellRuleVO[]
+): BatchRecordReportSignatureCellMarkerVO[] => {
+  return sortRules(rules)
+    .filter(isSignatureRuleForSave)
+    .map((rule) => {
+      const existingMarker =
+        sheetLayout.value?.rows?.[String(rule.rowIndex)]?.cells?.[String(rule.columnIndex)]
+          ?.edhrSignature
+      return {
+        rowIndex: rule.rowIndex,
+        columnIndex: rule.columnIndex,
+        enabled: true,
+        actionType: existingMarker?.actionType || 'FORM_REVIEW',
+        label: rule.label || existingMarker?.label || '签名',
+        signatureCellKey:
+          existingMarker?.signatureCellKey ||
+          buildTemplateFieldIdentity(rule.rowIndex, rule.columnIndex),
+        displayFormat: existingMarker?.displayFormat || 'ACTOR_SIGNED_AT',
+        ...(existingMarker?.reviewSourceType
+          ? { reviewSourceType: existingMarker.reviewSourceType }
+          : {}),
+        ...(existingMarker?.reviewSourceId ? { reviewSourceId: existingMarker.reviewSourceId } : {}),
+        ...(existingMarker?.reviewSourceIds?.length
+          ? { reviewSourceIds: existingMarker.reviewSourceIds }
+          : {}),
+        ...(existingMarker?.reviewSourceName
+          ? { reviewSourceName: existingMarker.reviewSourceName }
+          : {})
+      }
+    })
+}
 
 const selectedRule = computed(() =>
   ruleRows.value.find((rule) => ruleIdentity(rule) === selectedRuleKey.value)
@@ -2323,9 +2362,11 @@ const confirmAllRules = async () => {
     validateRuleRowsBeforeSave()
     const assistRowsForSave = normalizedAssistRowsForSave()
     const hasAssistRowsForSave = assistRowsForSave.length > 0
+    const rules = ruleRows.value.map(toManualReviewedRule)
     const data = await BatchRecordReportApi.saveCellRules({
       reportId: reportId.value,
-      rules: ruleRows.value.map(toManualReviewedRule),
+      rules,
+      signatureCellMarkers: buildSignatureMarkersForSave(rules),
       ...(hasAssistRowsForSave
         ? {
             assistRows: assistRowsForSave,

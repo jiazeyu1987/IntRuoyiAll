@@ -31,14 +31,26 @@ assert.match(api, /REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_ID_HEADER\s*=\s*['"]X
   'upload API must define the formal DCC audit request id header')
 assert.match(api, /\[REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_ID_HEADER\]:\s*idempotencyKey/,
   'upload API must send the same bounded upload id as the DCC audit request id')
+assert.match(api, /export\s+const\s+getUploadEntrustedEnterprises\b/,
+  'upload API must expose entrusted enterprise candidates')
+assert.match(api, /url:\s*['"]\/dcc\/registration-certificates\/uploads\/entrusted-enterprises['"]/,
+  'upload entrusted enterprise API must use the upload-owned candidate endpoint')
+assert.match(api, /export\s+const\s+getUploadOwnerCompanies\b/,
+  'upload API must expose current-user owner company candidates')
+assert.match(api, /url:\s*['"]\/dcc\/registration-certificates\/uploads\/owner-companies['"]/,
+  'upload owner company API must use the upload-owned company candidate endpoint')
 for (const field of [
   'companyName',
+  'productName',
   'projectCodeId',
   'certificateNo',
   'firstObtainedDate',
   'effectiveDate',
   'expiryDate',
   'classification',
+  'entrustedProduction',
+  'selfProduction',
+  'entrustedEnterpriseIds',
   'remark'
 ]) {
   assert.match(api, new RegExp(field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
@@ -49,7 +61,9 @@ const list = read(listPath)
 assert.match(list, /上传注册证/, 'list page must expose the upload action')
 assert.match(list, /openUploadDialog/, 'list page must open the upload dialog')
 assert.match(list, /registration-certificate-upload-dialog/, 'list page must mount the upload dialog')
-assert.match(list, /approval-center\?moduleCode=DCC&viewType=TODO/, 'upload save must route to the approval center')
+assert.match(list, /approval-center\/todo\?viewType=TODO/, 'upload save must route to the approval center todo page')
+assert.doesNotMatch(list, /approval-center\?moduleCode=DCC&viewType=TODO/,
+  'upload save must not force the DCC controlled-file filter for native BPM registration-certificate approval tasks')
 for (const legacyToken of ['RegistrationCertificateActionPanel', 'openCreateDraft', 'showCreateDraft', '新增注册证']) {
   assert.doesNotMatch(list, new RegExp(legacyToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     `list page must not keep ${legacyToken}`)
@@ -68,6 +82,10 @@ for (const token of [
   '生效日期',
   '有效期至',
   '类别',
+  '是否委托生产',
+  '是否自行生产',
+  '受托企业',
+  '受托企业：',
   '备注',
   '注册证文件'
 ]) {
@@ -83,8 +101,6 @@ for (const token of [
   '技术要求',
   '注册人住所',
   '生产地址',
-  '是否委托生产',
-  '是否自行生产',
   '受托企业 ID',
   '访问申请',
   '正式化',
@@ -95,9 +111,25 @@ for (const token of [
     `upload dialog must not contain ${token}`)
 }
 assert.match(uploadDialog, /getProjectCodePage/, 'upload dialog must load DCC project codes')
-assert.match(uploadDialog, /requireDccProductCode:\s*true/,
-  'upload dialog must only offer project codes bound to a valid DCC product code')
+assert.doesNotMatch(uploadDialog, /requireDccProductCode:\s*true/,
+  'upload dialog must not require selected project codes to already bind a DCC product code')
 assert.match(uploadDialog, /getProduct/, 'upload dialog must resolve product name from the selected project code')
+assert.match(uploadDialog, /getUploadOwnerCompanies/,
+  'upload dialog must load current-user owner companies for company-name selection')
+assert.doesNotMatch(uploadDialog, /<el-input\s+v-model="form\.companyName"/,
+  'upload dialog must not keep company name as arbitrary free text')
+assert.match(uploadDialog, /getUploadEntrustedEnterprises/,
+  'upload dialog must load enabled entrusted enterprises when entrusted production is selected')
+assert.match(uploadDialog, /是否委托生产和是否自行生产不能同时为否/,
+  'upload dialog must reject both production modes set to no')
+assert.match(uploadDialog, /请选择受托企业/,
+  'upload dialog must require entrusted enterprise selection when entrusted production is yes')
+assert.match(uploadDialog, /payload\.append\('entrustedProduction', String\(form\.entrustedProduction\)\)/,
+  'upload dialog must submit entrusted production')
+assert.match(uploadDialog, /payload\.append\('selfProduction', String\(form\.selfProduction\)\)/,
+  'upload dialog must submit self production')
+assert.match(uploadDialog, /entrustedEnterpriseIds\.forEach\(\(enterpriseId\) => payload\.append\('entrustedEnterpriseIds', String\(enterpriseId\)\)\)/,
+  'upload dialog must submit entrusted enterprise ids')
 assert.match(uploadDialog, /submitRegistrationCertificateUpload/, 'upload dialog must submit through the upload API')
 assert.match(uploadDialog, /FormData/, 'upload dialog must post multipart form data')
 

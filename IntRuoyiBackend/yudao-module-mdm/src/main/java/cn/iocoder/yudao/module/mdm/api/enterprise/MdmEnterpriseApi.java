@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface MdmEnterpriseApi {
 
+    List<MdmEnterpriseRespDTO> listEnabledEnterprises(Collection<String> allowedTypes, String keyword, int limit);
+
     List<MdmEnterpriseRespDTO> getEnabledEnterprises(Collection<Long> enterpriseIds,
                                                       Collection<String> allowedTypes);
 

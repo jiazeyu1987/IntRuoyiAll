@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -74,6 +75,52 @@ class MesTeamLeaderActiveOrderCompletionFlow6ReceiptPortTest {
         assertEquals(receipt.getReceiptHash(), handoff.getReceiptHash());
         assertEquals(101L, handoff.getBatchRecordId());
         assertEquals(102L, handoff.getProcessInspectionId());
+    }
+
+    @Test
+    void receiptHashMustSurviveDatabaseDatetimePrecision() {
+        MesProcessPoolActiveOrderCompletionReceiptDO receipt = validReceipt()
+                .setCompletedAt(LocalDateTime.of(2026, 8, 23, 10, 0, 0, 123_456_789));
+        String receiptHash = MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt);
+        receipt.setReceiptHash(receiptHash);
+        receipt.setCompletedAt(receipt.getCompletedAt().truncatedTo(ChronoUnit.SECONDS));
+        when(receiptMapper.selectByIdAndTenantId(99L, 7L)).thenReturn(receipt);
+
+        MesFlow6CompletionBackfillReceipt handoff = port.getByReceiptId(99L, 7L);
+
+        assertEquals(receiptHash, handoff.getReceiptHash());
+    }
+
+    @Test
+    void receiptHashMustSurviveDatabaseDecimalScale() {
+        MesProcessPoolActiveOrderCompletionReceiptDO receipt = validReceipt()
+                .setLossQuantity(new BigDecimal("1"));
+        String receiptHash = MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt);
+        receipt.setReceiptHash(receiptHash);
+        receipt.setLossQuantity(new BigDecimal("1.000000"));
+        when(receiptMapper.selectByIdAndTenantId(99L, 7L)).thenReturn(receipt);
+
+        MesFlow6CompletionBackfillReceipt handoff = port.getByReceiptId(99L, 7L);
+
+        assertEquals(receiptHash, handoff.getReceiptHash());
+    }
+
+    @Test
+    void receiptHashMustSurviveDatabaseJsonNormalization() {
+        MesProcessPoolActiveOrderCompletionReceiptDO receipt = validReceipt()
+                .setFormalSourceSnapshotJson("{\"z\":1,\"a\":{\"b\":2}}")
+                .setSignatureSnapshotJson("{\"signatures\":[{\"userId\":20,\"type\":\"PQC\"}]}")
+                .setLossConditionFactsJson("[{\"status\":\"REQUIRED\",\"lossQuantity\":1}]");
+        String receiptHash = MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt);
+        receipt.setReceiptHash(receiptHash);
+        receipt.setFormalSourceSnapshotJson("{\"a\":{\"b\":2}, \"z\":1.000000}");
+        receipt.setSignatureSnapshotJson("{\"signatures\" : [ { \"type\" : \"PQC\", \"userId\" : 20.000000 } ]}");
+        receipt.setLossConditionFactsJson("[ { \"lossQuantity\" : 1.000000, \"status\" : \"REQUIRED\" } ]");
+        when(receiptMapper.selectByIdAndTenantId(99L, 7L)).thenReturn(receipt);
+
+        MesFlow6CompletionBackfillReceipt handoff = port.getByReceiptId(99L, 7L);
+
+        assertEquals(receiptHash, handoff.getReceiptHash());
     }
 
     @Test

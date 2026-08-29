@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict')
+const { spawnSync } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 const { chromium } = require('playwright')
@@ -12,6 +13,10 @@ const config = {
   screenshotPath: path.resolve(
     __dirname,
     '../../../doc/tasks/20260828-form-template-edit-button-batch-record-designer/template-edit-jimu-editor.png'
+  ),
+  iframeScreenshotPath: path.resolve(
+    __dirname,
+    '../../../doc/tasks/20260828-form-template-edit-button-batch-record-designer/template-edit-jimu-editor-iframe.png'
   )
 }
 
@@ -76,6 +81,62 @@ function unwrapCacheValue(raw) {
   return current
 }
 
+function analyzePngNonWhitePixels(file) {
+  const script = [
+    'import json, sys',
+    'from PIL import Image',
+    'img = Image.open(sys.argv[1]).convert("RGBA")',
+    'data = img.tobytes()',
+    'non_white = 0',
+    'total = 0',
+    'for index in range(0, len(data), 64):',
+    '    red = data[index]',
+    '    green = data[index + 1]',
+    '    blue = data[index + 2]',
+    '    alpha = data[index + 3]',
+    '    total += 1',
+    '    if alpha > 0 and not (red > 248 and green > 248 and blue > 248):',
+    '        non_white += 1',
+    'print(json.dumps({"nonWhite": non_white, "sampled": total}))'
+  ].join('\n')
+  const result = spawnSync('python', ['-X', 'utf8', '-c', script, file], {
+    encoding: 'utf8'
+  })
+  assert.equal(result.status, 0, `截图像素分析失败：${result.stderr || result.stdout}`)
+  return JSON.parse(result.stdout)
+}
+
+async function waitForVisibleDesignerShell(page) {
+  await page.waitForFunction(
+    () =>
+      Array.from(document.querySelectorAll('.iframe-shell .el-loading-mask')).every((mask) => {
+        const style = window.getComputedStyle(mask)
+        const rect = mask.getBoundingClientRect()
+        return (
+          style.display === 'none' ||
+          style.visibility === 'hidden' ||
+          Number(style.opacity || 1) === 0 ||
+          rect.width <= 1 ||
+          rect.height <= 1
+        )
+      }),
+    { timeout: 120000 }
+  )
+  return await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.iframe-shell .el-loading-mask')).filter((mask) => {
+      const style = window.getComputedStyle(mask)
+      const rect = mask.getBoundingClientRect()
+      return (
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        Number(style.opacity || 1) > 0 &&
+        rect.width > 1 &&
+        rect.height > 1
+      )
+    }).length
+  )
+}
+
 async function authHeaders(page) {
   const cache = await page.evaluate(() =>
     Object.fromEntries(
@@ -121,10 +182,12 @@ async function apiGet(page, apiPath) {
 }
 
 async function findTemplateCandidate(page) {
+  let firstWritableCandidate = null
+  let firstWritableCandidatePageNo = 1
   for (let pageNo = 1; pageNo <= 20; pageNo += 1) {
     const data = await apiGet(page, `/form-center/template-pool?pageNo=${pageNo}&pageSize=50`)
     const rows = Array.isArray(data?.list) ? data.list : []
-    const candidate = rows.find(
+    const candidates = rows.filter(
       (row) =>
         row.status !== 'OBSOLETE' &&
         row.status !== 'PENDING_APPROVAL' &&
@@ -133,10 +196,18 @@ async function findTemplateCandidate(page) {
         typeof row.jimuSchemaJson === 'string' &&
         row.jimuSchemaJson.trim()
     )
+    const candidate = candidates.find((row) => row.status === 'DRAFT')
     if (candidate) {
       return { candidate, pageNo }
     }
+    if (!firstWritableCandidate && candidates.length > 0) {
+      firstWritableCandidate = candidates[0]
+      firstWritableCandidatePageNo = pageNo
+    }
     if (rows.length < 50) break
+  }
+  if (firstWritableCandidate) {
+    return { candidate: firstWritableCandidate, pageNo: firstWritableCandidatePageNo }
   }
   throw new Error('模板列表中未找到可用于模板编辑的模板')
 }
@@ -242,22 +313,65 @@ async function openTemplateDesignerFromEdit(page) {
       url.pathname === '/mdm/form-center/template' &&
       url.searchParams.get('mode') === 'designer' &&
       url.searchParams.get('reportMode') === 'edit' &&
-      url.searchParams.get('reportId') === targetRow.designerReportId &&
       url.searchParams.get('templateId') === String(targetRow.templateId) &&
-      url.searchParams.get('versionNo') === targetRow.versionNo,
+      Boolean(url.searchParams.get('versionNo')) &&
+      String(url.searchParams.get('reportId') || '').startsWith('FORMTPL:'),
     { timeout: 120000, waitUntil: 'commit' }
   )
   await editButton.click()
   logStep('template edit clicked')
   await navigationPromise
   logStep(`template designer url reached: ${page.url()}`)
+  const templateRoute = normalizeDesignerUrl(page.url())
+  const editableVersion = await apiGet(
+    page,
+    `/form-center/templates/${targetRow.templateId}/versions/${encodeURIComponent(templateRoute.versionNo)}`
+  )
+  assert.equal(editableVersion.status, 'DRAFT', '表单模板“编辑”必须打开可写草稿版本')
+  if (targetRow.status === 'DRAFT') {
+    assert.equal(templateRoute.versionNo, targetRow.versionNo, '草稿模板编辑时不应切换到其它版本')
+    assert.equal(templateRoute.reportId, targetRow.designerReportId, '草稿模板编辑时必须使用当前草稿 reportId')
+  } else {
+    assert.notEqual(templateRoute.versionNo, targetRow.versionNo, '非草稿模板编辑必须先切换到可写草稿版本')
+  }
   const iframe = page.locator('iframe[src*="/jmreport/index/"]').first()
-  await iframe.waitFor({ state: 'visible', timeout: 120000 })
+  try {
+    await iframe.waitFor({ state: 'visible', timeout: 120000 })
+  } catch (error) {
+    const diagnosticPath = path.resolve(
+      __dirname,
+      '../../../doc/tasks/20260828-form-template-edit-button-batch-record-designer/template-edit-no-iframe-diagnostic.png'
+    )
+    await page.screenshot({ path: diagnosticPath, fullPage: false })
+    const diagnostics = await page.evaluate(() => ({
+      href: window.location.href,
+      title: document.title,
+      bodyText: document.body?.innerText?.slice(0, 2000) || '',
+      formTemplateDesignerWrapperCount: document.querySelectorAll('.form-template-designer-wrapper').length,
+      designerLoadingCount: document.querySelectorAll('.designer-loading').length,
+      alertText: Array.from(document.querySelectorAll('.el-alert__title, .el-message__content')).map((item) =>
+        item.textContent?.trim()
+      ),
+      iframeSources: Array.from(document.querySelectorAll('iframe')).map((item) => item.getAttribute('src') || '')
+    }))
+    console.error(
+      JSON.stringify(
+        {
+          diagnosticPath,
+          diagnostics,
+          targetResponses
+        },
+        null,
+        2
+      )
+    )
+    throw error
+  }
   const iframeSrc = await iframe.getAttribute('src')
   assert.ok(iframeSrc && iframeSrc.includes('/jmreport/index/'), `表单模板“编辑”未进入 Jimu 编辑器: ${iframeSrc}`)
   assert.ok(
-    iframeSrc.includes(targetRow.designerReportId) ||
-      iframeSrc.includes(encodeURIComponent(targetRow.designerReportId)),
+    iframeSrc.includes(templateRoute.reportId) ||
+      iframeSrc.includes(encodeURIComponent(templateRoute.reportId)),
     `表单模板“编辑”未使用当前模板自己的 Jimu 报表 ID: ${iframeSrc}`
   )
   const iframeHandle = await iframe.elementHandle()
@@ -320,6 +434,7 @@ async function openTemplateDesignerFromEdit(page) {
       textCellCount
     }
   })
+  const outerLoadingMaskVisibleCount = await waitForVisibleDesignerShell(page)
   assert.equal(
     await page.locator('text=JMReport 表单编辑行高适配失败').count(),
     0,
@@ -331,15 +446,25 @@ async function openTemplateDesignerFromEdit(page) {
     '表单模板“编辑”不得回退到填写配置规则面板'
   )
   assert.equal(page.url().includes('/mes/pro/batch-record-form-list'), false, '表单模板“编辑”不得进入批记录表单模块')
+  await iframe.screenshot({ path: config.iframeScreenshotPath })
+  const iframeScreenshotStats = analyzePngNonWhitePixels(config.iframeScreenshotPath)
+  assert.ok(
+    iframeScreenshotStats.nonWhite > 5000,
+    `表单模板 Jimu iframe 视觉上仍接近空白：nonWhite=${iframeScreenshotStats.nonWhite}`
+  )
   await page.screenshot({ path: config.screenshotPath, fullPage: false })
   return {
-    templateName: targetRow.templateName,
-    versionNo: targetRow.versionNo,
+    templateName: editableVersion.templateName,
+    versionNo: editableVersion.versionNo,
+    sourceVersionNo: targetRow.versionNo,
     templateId: targetRow.templateId,
-    reportId: targetRow.designerReportId,
+    reportId: templateRoute.reportId,
+    sourceReportId: targetRow.designerReportId,
     url: page.url(),
     iframeSrc,
     jimuInfo,
+    outerLoadingMaskVisibleCount,
+    iframeScreenshotStats,
     workspace: 'form-template',
     screenshotPath: config.screenshotPath
   }
@@ -392,7 +517,7 @@ async function main() {
     assert.equal(templateRoute.reportMode, 'edit', `表单模板“编辑”必须进入 reportMode=edit 的 Jimu 编辑器: ${templateFlow.url}`)
     assert.equal(templateRoute.reportId, templateFlow.reportId, `表单模板“编辑”必须使用当前模板自己的 reportId: ${templateFlow.url}`)
     assert.equal(templateRoute.templateId, String(templateFlow.templateId), `表单模板“编辑”必须携带当前模板 ID: ${templateFlow.url}`)
-    assert.equal(templateRoute.versionNo, templateFlow.versionNo, `表单模板“编辑”必须携带当前模板版本: ${templateFlow.url}`)
+    assert.equal(templateRoute.versionNo, templateFlow.versionNo, `表单模板“编辑”必须携带可写草稿版本: ${templateFlow.url}`)
 
     console.log(
       JSON.stringify(
@@ -402,11 +527,15 @@ async function main() {
           username: config.username,
           templateName: templateFlow.templateName,
           templateVersionNo: templateFlow.versionNo,
+          sourceVersionNo: templateFlow.sourceVersionNo,
           templateId: templateFlow.templateId,
           reportId: templateFlow.reportId,
+          sourceReportId: templateFlow.sourceReportId,
           templateEditUrl: templateFlow.url,
           iframeSrc: templateFlow.iframeSrc,
           jimuInfo: templateFlow.jimuInfo,
+          outerLoadingMaskVisibleCount: templateFlow.outerLoadingMaskVisibleCount,
+          iframeScreenshotStats: templateFlow.iframeScreenshotStats,
           workspace: templateFlow.workspace,
           screenshotPath: templateFlow.screenshotPath
         },

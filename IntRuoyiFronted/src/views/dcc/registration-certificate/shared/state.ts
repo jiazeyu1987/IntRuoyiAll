@@ -1,5 +1,8 @@
 import type { TagProps } from 'element-plus'
-import type { DccRegistrationCertificateStatus } from '@/api/dcc/registrationCertificate'
+import type {
+  DccRegistrationCertificateLocalDateValue,
+  DccRegistrationCertificateStatus
+} from '@/api/dcc/registrationCertificate'
 
 export interface RegistrationCertificateStatusMeta {
   label: string
@@ -54,6 +57,43 @@ export const getRegistrationCertificateReminderTagType = (color?: string | null)
 export const displayText = (value?: string | number | boolean | null) => {
   if (value === undefined || value === null || value === '') return '—'
   return String(value)
+}
+
+const assertValidLocalDate = (year: number, month: number, day: number) => {
+  const daysInMonth = [
+    31,
+    year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31
+  ]
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) {
+    throw new Error('注册证日期字段格式无效。')
+  }
+}
+
+export const formatRegistrationCertificateDate = (
+  value?: DccRegistrationCertificateLocalDateValue | null
+) => {
+  if (value === undefined || value === null || value === '') return '—'
+  if (typeof value === 'string') return value
+  if (!Array.isArray(value) || value.length !== 3 || !value.every(Number.isInteger)) {
+    throw new Error('注册证日期字段格式无效。')
+  }
+  const [year, month, day] = value
+  assertValidLocalDate(year, month, day)
+  return [
+    String(year).padStart(4, '0'),
+    String(month).padStart(2, '0'),
+    String(day).padStart(2, '0')
+  ].join('-')
 }
 
 interface EntrustedEnterpriseSnapshot {

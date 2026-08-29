@@ -680,6 +680,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
+import Dialog from '@/components/Dialog/src/Dialog.vue'
 import type {
   BatchRecordReportAssistRowVO,
   BatchRecordReportCellRuleVO,
@@ -847,7 +848,7 @@ const dialogVisible = computed({
   set: (value: boolean) => emit('update:modelValue', value)
 })
 const embeddedMode = computed(() => props.embedded === true)
-const editorShellComponent = computed(() => (embeddedMode.value ? 'div' : 'Dialog'))
+const editorShellComponent = computed(() => (embeddedMode.value ? 'div' : Dialog))
 const editorShellClass = computed(() => [
   'scheme-d-basic-data-page scheme-d-basic-data-page--form-template scheme-d-form-control',
   { 'form-template-fill-config-editor--embedded': embeddedMode.value }

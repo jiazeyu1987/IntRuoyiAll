@@ -9,6 +9,12 @@ public interface FormCenterRuntimeService {
 
     FormCenterTemplateRespVO getTemplateVersion(Long templateId, String versionNo);
 
+    String getTemplateDesignerPath(Long templateId, String versionNo);
+
+    String getTemplateEditPath(Long templateId, String versionNo);
+
+    FormTemplateEditableDraftRespVO ensureTemplateEditableDraft(Long templateId, String versionNo);
+
     PageResult<FormPolicyRespVO> getPolicyPage(FormPolicyPageReqVO reqVO);
 
     FormCenterTemplateImportRespVO importDoc(FormCenterTemplateImportReqVO reqVO, Long applicantUserId);
@@ -20,6 +26,10 @@ public interface FormCenterRuntimeService {
     FormPolicyRespVO switchPolicyApprovalMode(Long policyId, FormPolicySwitchApprovalModeReqVO reqVO);
 
     void saveJimuSchema(Long templateId, String versionNo, FormCenterTemplateJimuSchemaReqVO reqVO);
+
+    void validateTemplateJimuReportSaveWritable(String reportId, Long tenantId);
+
+    void syncTemplateJimuReportSave(String reportId, Long tenantId);
 
     FormTemplateFillRuleAutoDetectRespVO autoDetectTemplateFillRules(Long templateId, String versionNo);
 

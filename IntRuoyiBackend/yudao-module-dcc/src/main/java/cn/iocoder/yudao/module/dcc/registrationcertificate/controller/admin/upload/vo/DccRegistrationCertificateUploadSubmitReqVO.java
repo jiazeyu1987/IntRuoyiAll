@@ -11,6 +11,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.springframework.format.annotation.DateTimeFormat.ISO.DATE;
 
@@ -18,15 +19,19 @@ import static org.springframework.format.annotation.DateTimeFormat.ISO.DATE;
 @Data
 public class DccRegistrationCertificateUploadSubmitReqVO {
 
-    @Schema(description = "DCC项目代码编号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "DCC项目代码不能为空")
-    @Positive(message = "DCC项目代码不能为空")
+    @Schema(description = "DCC项目代码编号，选填", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+    @Positive(message = "DCC项目代码不合法")
     private Long projectCodeId;
 
     @Schema(description = "公司名称", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "公司名称不能为空")
     @Size(max = 255, message = "公司名称长度不能超过255个字符")
     private String companyName;
+
+    @Schema(description = "产品名称", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "产品名称不能为空")
+    @Size(max = 255, message = "产品名称长度不能超过255个字符")
+    private String productName;
 
     @Schema(description = "注册证号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "注册证号不能为空")
@@ -53,6 +58,17 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
     @Size(max = 64, message = "类别长度不能超过64个字符")
     private String classification;
 
+    @Schema(description = "是否委托生产", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "是否委托生产不能为空")
+    private Boolean entrustedProduction;
+
+    @Schema(description = "是否自行生产", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "是否自行生产不能为空")
+    private Boolean selfProduction;
+
+    @Schema(description = "受托企业编号列表")
+    private List<@NotNull(message = "受托企业不能为空") @Positive(message = "受托企业不能为空") Long> entrustedEnterpriseIds;
+
     @Schema(description = "备注")
     @Size(max = 1024, message = "备注长度不能超过1024个字符")
     private String remark;
@@ -61,9 +77,24 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
     @NotNull(message = "注册证文件不能为空")
     private MultipartFile file;
 
+    @jakarta.validation.constraints.AssertTrue(message = "是否委托生产和是否自行生产不能同时为否")
+    public boolean isProductionModeValid() {
+        return entrustedProduction == null || selfProduction == null || entrustedProduction || selfProduction;
+    }
+
+    @jakarta.validation.constraints.AssertTrue(message = "请选择受托企业")
+    public boolean isEntrustedEnterpriseValid() {
+        if (entrustedProduction == null) {
+            return true;
+        }
+        boolean hasEntrustedEnterprise = entrustedEnterpriseIds != null && !entrustedEnterpriseIds.isEmpty();
+        return entrustedProduction ? hasEntrustedEnterprise : !hasEntrustedEnterprise;
+    }
+
     public DccRegistrationCertificateUploadCommand toCommand() {
         return new DccRegistrationCertificateUploadCommand(
-                projectCodeId, companyName, certificateNo, firstObtainedDate,
-                effectiveDate, expiryDate, classification, remark, file);
+                projectCodeId, companyName, productName, certificateNo, firstObtainedDate,
+                effectiveDate, expiryDate, classification, entrustedProduction, selfProduction,
+                entrustedEnterpriseIds, remark, file);
     }
 }

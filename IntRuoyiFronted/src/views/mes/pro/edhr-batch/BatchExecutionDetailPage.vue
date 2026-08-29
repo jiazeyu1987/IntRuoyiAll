@@ -22,14 +22,16 @@
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="warning"
           :loading="stage4SimulationLoading"
+          data-batch-simulate-stage4-dossier
           @click="handleStage4DossierUploadSimulation"
         >
-          批次执行三类文件上传模拟
+          批次执行四份材料上传模拟
         </el-button>
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="danger"
           :loading="stage5SimulationLoading"
+          data-batch-simulate-stage5-final-release
           @click="handleStage5FinalReleaseSimulation"
         >
           最终放行模拟准备
@@ -55,6 +57,10 @@
           <template #title>Stage4 资料上传模拟完成：dossierReadyForRelease=true</template>
           <div class="edhr-batch-detail__stage4-summary-meta">
             <span>simulationRunId：{{ stage4SimulationResult.simulationRunId }}</span>
+            <span v-if="stage4SimulationResult.inputMode === 'STAGE4_INDEPENDENT_BATCH_EXECUTION'">
+              Stage4 独立批次执行输入
+            </span>
+            <span v-else>输入模式：{{ stage4SimulationResult.inputMode }}</span>
             <span v-if="stage4SimulationResult.cleanedSimulationRunId">
               cleanedSimulationRunId：{{ stage4SimulationResult.cleanedSimulationRunId }}
             </span>
@@ -1661,6 +1667,10 @@ const stage4SimulationNodeDefinitions = [
   { nodeType: 'FINISHED_PRODUCT_INSPECTION_REPORT', label: '成品检报告' },
   { nodeType: 'FINISHED_PRODUCT_INSPECTION_RECORD', label: '成品检记录' }
 ] as const
+const STAGE4_INPUT_MODE_STAGE2_5 = 'STAGE2_5_BATCH_EXECUTION'
+const STAGE4_INPUT_MODE_INDEPENDENT = 'STAGE4_INDEPENDENT_BATCH_EXECUTION'
+const resolveStage4SimulationInputMode = (upstreamSimulationRunId: string) =>
+  upstreamSimulationRunId ? STAGE4_INPUT_MODE_STAGE2_5 : STAGE4_INPUT_MODE_INDEPENDENT
 const readStage4SnapshotRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 const stage4SimulationNodes = computed<Stage4SimulationNodeView[]>(() => {
@@ -4575,29 +4585,34 @@ const handleStage4DossierUploadSimulation = async () => {
   stage4SimulationLoading.value = true
   try {
     const simulationRunId = `STAGE4-DOSSIER-${dayjs().format('YYYYMMDDHHmmss')}-${generateUUID()}`
-    const upstreamSimulationRunId = String(route.query.simulationRunId || '').trim()
-    if (!batchExecutionId.value || !upstreamSimulationRunId) {
-      throw new Error('当前批次缺少流程2.5正式来源，不能上传流程4资料。')
-    }
+    const upstreamSimulationRunId = String(
+      route.query.stage2_5SimulationRunId ||
+        (!route.query.stage4SimulationRunId ? route.query.simulationRunId : '') ||
+        ''
+    ).trim()
+    const inputMode = resolveStage4SimulationInputMode(upstreamSimulationRunId)
     const result = await simulateEdhrStage4DossierUpload(
       simulationRunId,
-      batchExecutionId.value,
-      upstreamSimulationRunId
+      inputMode === STAGE4_INPUT_MODE_INDEPENDENT ? undefined : batchExecutionId.value,
+      upstreamSimulationRunId || undefined,
+      inputMode
     )
     if (!result.dossierReadyForRelease || result.blockers?.length) {
       throw new Error(result.blockers?.join('；') || 'Stage4 模拟未形成齐套放行资料。')
     }
     stage4SimulationResult.value = result
-    message.success('三类文件上传模拟完成，正在打开模拟批次详情。')
+    message.success('四份材料上传模拟完成，正在打开批次详情。')
     await router.push({
       query: {
         ...route.query,
         id: result.batchExecutionId,
+        stage2_5SimulationRunId: upstreamSimulationRunId || undefined,
+        stage4SimulationRunId: result.simulationRunId,
         simulationRunId: result.simulationRunId
       }
     })
   } catch (error) {
-    message.error(resolveErrorMessage(error, '三类文件上传模拟失败。'))
+    message.error(resolveErrorMessage(error, '四份材料上传模拟失败。'))
   } finally {
     stage4SimulationLoading.value = false
   }
@@ -4609,7 +4624,7 @@ const handleStage5FinalReleaseSimulation = async () => {
   try {
     const simulationRunId = `STAGE5-FINAL-RELEASE-${dayjs().format('YYYYMMDDHHmmss')}-${generateUUID()}`
     const previousSimulationRunId = window.localStorage.getItem(STAGE5_SIMULATION_RUN_STORAGE_KEY) || undefined
-    const upstreamSimulationRunId = String(route.query.simulationRunId || '').trim()
+    const upstreamSimulationRunId = String(route.query.stage4SimulationRunId || '').trim()
     if (!batchExecutionId.value || !upstreamSimulationRunId) {
       throw new Error('当前批次缺少流程4正式来源，不能准备流程5放行。')
     }

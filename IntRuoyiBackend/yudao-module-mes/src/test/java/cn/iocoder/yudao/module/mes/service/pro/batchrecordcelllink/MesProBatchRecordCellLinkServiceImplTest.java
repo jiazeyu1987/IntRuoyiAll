@@ -23,6 +23,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesRouteDccProjectBindingDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolDeviceParameterRuleDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamDeviceDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamProcessDeviceDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
@@ -37,6 +39,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesRouteDccProjectBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolDeviceParameterRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamDeviceMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamProcessDeviceMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
@@ -93,6 +97,10 @@ class MesProBatchRecordCellLinkServiceImplTest {
     @Mock
     private MesProcessPoolDeviceParameterRuleMapper deviceParameterRuleMapper;
     @Mock
+    private MesProcessPoolTeamDeviceMapper teamDeviceMapper;
+    @Mock
+    private MesProcessPoolTeamProcessDeviceMapper processDeviceMapper;
+    @Mock
     private MesProBatchRecordRepeatRowGroupMapper repeatRowGroupMapper;
     @Mock
     private MesProductionPickListSourceService productionPickListSourceService;
@@ -131,7 +139,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         "material.3201.lotNumber", "手柄（MAT-001）- 物料批次号", "STRING", 5001L)));
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null, null);
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null, null, null);
 
         assertEquals(1, result.getSourceFields().stream()
                 .filter(field -> "PRODUCTION_PICK_LIST".equals(field.getSourceType()))
@@ -151,7 +159,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, 2001L, 3001L,
-                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L);
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L, null);
 
         assertEquals(1, result.getPqcProcesses().size());
         assertEquals(8001L, result.getPqcProcesses().get(0).getId());
@@ -174,7 +182,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, 2001L, 3001L,
-                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L);
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L, null);
 
         assertEquals("PQC_AGGREGATE_DETAIL", result.getDefaultSourceReportId());
         assertEquals("process-inspection-report", result.getDefaultTargetReportId());
@@ -200,7 +208,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, null, null,
-                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L);
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L, null);
 
         assertEquals("ROUTE_VERSION", result.getScopeType());
         assertEquals(3001L, result.getScopeId());
@@ -221,7 +229,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, 2001L, 3001L,
-                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L);
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L, null);
 
         assertEquals("ROUTE_VERSION", result.getScopeType());
         assertEquals(3001L, result.getScopeId());
@@ -237,35 +245,389 @@ class MesProBatchRecordCellLinkServiceImplTest {
         lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
                 routeBinding(5001L, 3001L, "target-report"),
                 routeBinding(5002L, 3001L, "target-report")));
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(MesProRouteProcessDO.builder()
+                .id(5001L)
+                .routeId(9001L)
+                .processId(7101L)
+                .build());
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5002L)).thenReturn(MesProRouteProcessDO.builder()
+                .id(5002L)
+                .routeId(9001L)
+                .processId(7102L)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8101L)
+                        .leaderUserId(9001L)
+                        .processId(7101L)
+                        .deviceId(7001L)
+                        .enabled(Boolean.TRUE)
+                        .build(),
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8102L)
+                        .leaderUserId(9001L)
+                        .processId(7102L)
+                        .deviceId(7002L)
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(teamDeviceMapper.selectBatchIds(any())).thenReturn(List.of(
+                teamDevice(7001L, 9001L, "A05075", "光固机"),
+                teamDevice(7002L, 9001L, "B09393", "超声波清洗机")));
         lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
-                parameterRule(11L, 5001L, "pressure", "扩张压力",
+                parameterRule(11L, 5001L, 7101L, 7001L, 9001L, "pressure", "扩张压力",
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL),
-                parameterRule(12L, 5002L, "holdTime", "保压时间",
+                parameterRule(12L, 5002L, 7102L, 7002L, 9001L, "holdTime", "保压时间",
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER)));
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null, null);
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null, null, null);
 
-        assertProcessPoolSourceField(result, "allocatedQuantity", "放行分配数量", "NUMBER", null);
-        assertProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工", "NUMBER", null);
+        assertMissingProcessPoolSourceField(result, "allocatedQuantity", "放行分配数量");
+        assertMissingProcessPoolSourceField(result, "lossReasonCodeSnapshot", "损耗原因编码");
+        assertMissingProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工");
+        assertMissingProcessPoolSourceField(result, "laborScrapQuantity", "本次报工工废数量");
+        assertMissingProcessPoolSourceField(result, "materialScrapQuantity", "本次报工料废数量");
+        assertMissingProcessPoolSourceField(result, "otherScrapQuantity", "本次报工其他废品数量");
+        assertMissingProcessPoolSourceField(result, "lossReasonNameSnapshot", "损耗原因名称");
+        assertMissingProcessPoolSourceField(result, "deviceId", "事件设备编号");
+        assertMissingProcessPoolSourceField(result, "workstationId", "工作站编号");
+        assertMissingProcessPoolSourceField(result, "deviceAccountId", "设备账号");
         assertProcessPoolSourceField(result, "serverSubmitTime", "提交时间", "STRING", null);
+        assertMissingProcessPoolSourceField(result, "signatureId", "提交签名编号");
+        assertProcessPoolSourceField(result, "signatureUserId", "提交签名用户", "NUMBER", null);
+        assertProcessPoolSourceField(result, "reviewedAt", "审核时间", "STRING", null);
+        assertMissingProcessPoolSourceField(result, "reviewSignatureId", "审核人签名编号");
+        assertProcessPoolSourceField(result, "reviewSignatureUserId", "审核人签名用户", "NUMBER", null);
         assertProcessPoolSourceField(result, "selectedDevice.deviceName", "选用设备名称", "STRING", null);
         assertProcessPoolSourceField(result, "deviceMeteringValidity.inMeteringValidityPeriod",
                 "选用设备计量有效期内", "BOOLEAN", null);
         assertProcessPoolSourceField(result, "clearanceConfirmations.workplace.confirmed", "清场确认", "BOOLEAN", null);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.value",
-                "扩张压力实际值", "NUMBER", 5001L);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.unit", "扩张压力单位", "STRING", 5001L);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.lowerLimit",
-                "扩张压力下限", "NUMBER", 5001L);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.upperLimit",
-                "扩张压力上限", "NUMBER", 5001L);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.parameterStatus",
-                "扩张压力状态", "STRING", 5001L);
-        assertProcessPoolSourceField(result, "equipmentParameterRules.pressure.standardText",
-                "扩张压力参考标准", "STRING", 5001L);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.holdTime.value",
-                "保压时间实际值", "NUMBER", 5002L);
+        assertMissingProcessPoolSourceField(result, "deviceParameterReadings.pressure.value",
+                "扩张压力实际值");
+        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.value@device:7001",
+                "扩张压力实际值（光固机 / A05075）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.unit@device:7001",
+                "扩张压力单位（光固机 / A05075）", "STRING", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.lowerLimit@device:7001",
+                "扩张压力下限（光固机 / A05075）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.upperLimit@device:7001",
+                "扩张压力上限（光固机 / A05075）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.parameterStatus@device:7001",
+                "扩张压力状态（光固机 / A05075）", "STRING", 5001L);
+        assertProcessPoolSourceField(result, "equipmentParameterRules.pressure.standardText@device:7001",
+                "扩张压力参考标准（光固机 / A05075）", "STRING", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.holdTime.value@device:7002",
+                "保压时间实际值（超声波清洗机 / B09393）", "NUMBER", 5002L);
+    }
+
+    @Test
+    void getWorkbenchContext_exposesRealDeviceIdentityForEachProcessPoolDeviceField() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "光固机生产记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(MesProRouteProcessDO.builder()
+                .id(5001L)
+                .routeId(9001L)
+                .processId(7101L)
+                .build());
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(
+                MesProRouteProcessDO.builder()
+                        .id(5001L)
+                        .routeId(9001L)
+                        .processId(7101L)
+                        .sort(10)
+                        .batchRecordReportId("target-report")
+                        .build()));
+        when(processMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(
+                MesProProcessDO.builder()
+                        .id(7101L)
+                        .code("UV")
+                        .name("光固")
+                        .build()));
+        when(routeDccProjectBindingMapper.selectCurrentByRouteId(9001L)).thenReturn(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
+                        .routeId(9001L)
+                        .dccProjectCodeId(147L)
+                        .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8101L)
+                        .leaderUserId(9001L)
+                        .processId(7101L)
+                        .deviceId(7001L)
+                        .enabled(Boolean.TRUE)
+                        .build(),
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8102L)
+                        .leaderUserId(9001L)
+                        .processId(7101L)
+                        .deviceId(7002L)
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(teamDeviceMapper.selectBatchIds(any())).thenReturn(List.of(
+                teamDevice(7001L, 9001L, "A05075", "光固机"),
+                teamDevice(7002L, 9001L, "A05076", "光固机")));
+        lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of());
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, 2001L, 3001L, "PROCESS_POOL_REPORT",
+                        null, null, 5001L, null, 147L);
+
+        assertMissingProcessPoolSourceField(result, "selectedDevice.deviceId", "选用设备编号");
+        assertMissingProcessPoolSourceField(result, "selectedDevice.deviceCode", "选用设备编码");
+        assertMissingProcessPoolSourceField(result, "selectedDevice.deviceName", "选用设备名称");
+        assertMissingProcessPoolSourceField(result, "deviceMeteringValidity.inMeteringValidityPeriod",
+                "选用设备计量有效期内");
+        assertProcessPoolSourceField(result, "selectedDevice.deviceId@device:7001",
+                "选用设备编号（光固机 / A05075）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "selectedDevice.deviceId@device:7002",
+                "选用设备编号（光固机 / A05076）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result,
+                "deviceMeteringValidity.inMeteringValidityPeriod@device:7001",
+                "选用设备计量有效期内（光固机 / A05075）", "BOOLEAN", 5001L);
+        assertProcessPoolSourceField(result,
+                "deviceMeteringValidity.inMeteringValidityPeriod@device:7002",
+                "选用设备计量有效期内（光固机 / A05076）", "BOOLEAN", 5001L);
+    }
+
+    @Test
+    void getWorkbenchContext_scopesProcessPoolParameterFieldsByFormalDevice() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "光固机生产记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .id(5001L)
+                .routeId(9001L)
+                .processId(7101L)
+                .sort(10)
+                .batchRecordReportId("target-report")
+                .build();
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess);
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(routeProcess));
+        when(processMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(
+                MesProProcessDO.builder()
+                        .id(7101L)
+                        .code("UV")
+                        .name("光固")
+                        .build()));
+        when(routeDccProjectBindingMapper.selectCurrentByRouteId(9001L)).thenReturn(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
+                        .routeId(9001L)
+                        .dccProjectCodeId(147L)
+                        .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8101L)
+                        .leaderUserId(9001L)
+                        .processId(7101L)
+                        .deviceId(7001L)
+                        .enabled(Boolean.TRUE)
+                        .build(),
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8102L)
+                        .leaderUserId(9001L)
+                        .processId(7101L)
+                        .deviceId(7002L)
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(teamDeviceMapper.selectBatchIds(any())).thenReturn(List.of(
+                teamDevice(7001L, 9001L, "A05075", "光固机"),
+                teamDevice(7002L, 9001L, "A05076", "光固机")));
+        when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
+                parameterRule(21L, 5001L, 7101L, 7001L, 9001L, "pressure", "扩张压力",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL),
+                parameterRule(22L, 5001L, 7101L, 7002L, 9001L, "pressure", "光照强度",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL)));
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, 2001L, 3001L, "PROCESS_POOL_REPORT",
+                        null, null, 5001L, null, 147L);
+
+        assertMissingProcessPoolSourceField(result, "deviceParameterReadings.pressure.value", "扩张压力实际值");
+        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.value@device:7001",
+                "扩张压力实际值（光固机 / A05075）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.value@device:7002",
+                "光照强度实际值（光固机 / A05076）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "equipmentParameterRules.pressure.standardText@device:7001",
+                "扩张压力参考标准（光固机 / A05075）", "STRING", 5001L);
+        assertProcessPoolSourceField(result, "equipmentParameterRules.pressure.standardText@device:7002",
+                "光照强度参考标准（光固机 / A05076）", "STRING", 5001L);
+    }
+
+    @Test
+    void getWorkbenchContext_rejectsSelectedProcessWithoutActiveFormalDeviceBinding() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
+        when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(147L)).thenReturn(List.of(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
+                        .routeId(9001L)
+                        .dccProjectCodeId(147L)
+                        .build()));
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(9001L, "BATCH")).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        lenient().when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .id(5001L)
+                .routeId(9001L)
+                .processId(7101L)
+                .sort(10)
+                .batchRecordReportId("target-report")
+                .build();
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(routeProcess));
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess);
+        when(processMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(
+                MesProProcessDO.builder()
+                        .id(7101L)
+                        .code("CW")
+                        .name("粗洗")
+                        .build()));
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of());
+
+        ServiceException ex = assertThrows(ServiceException.class, () ->
+                service.getWorkbenchContext(null, null, null, "PROCESS_POOL_REPORT",
+                        null, null, 5001L, null, 147L));
+
+        assertEquals(
+                MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PROCESS_POOL_DEVICE_MISSING
+                        .getCode(),
+                ex.getCode());
+    }
+
+    @Test
+    void getWorkbenchContext_resolvesProcessPoolReportRouteAndProcessesFromDccProjectCode() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
+        when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(147L)).thenReturn(List.of(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
+                        .routeId(9001L)
+                        .dccProjectCodeId(147L)
+                        .build()));
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(9001L, "BATCH")).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(
+                MesProRouteProcessDO.builder()
+                        .id(5001L)
+                        .routeId(9001L)
+                        .processId(7101L)
+                        .sort(10)
+                        .batchRecordReportId("target-report")
+                        .build()));
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(MesProRouteProcessDO.builder()
+                .id(5001L)
+                .routeId(9001L)
+                .processId(7101L)
+                .build());
+        when(processMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(
+                MesProProcessDO.builder()
+                        .id(7101L)
+                        .code("CW")
+                        .name("粗洗")
+                        .build()));
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8101L)
+                        .leaderUserId(9001L)
+                        .processId(7101L)
+                        .deviceId(7001L)
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(teamDeviceMapper.selectBatchIds(any())).thenReturn(List.of(
+                teamDevice(7001L, 9001L, "A05075", "光固机")));
+        when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
+                parameterRule(11L, 5001L, 7101L, 7001L, 9001L, "pressure", "扩张压力",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL)));
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(null, null, null, "PROCESS_POOL_REPORT",
+                        null, null, 5001L, null, 147L);
+
+        assertEquals(9001L, result.getRouteId());
+        assertEquals(147L, result.getDccProjectCodeId());
+        assertEquals(1, result.getRouteProcesses().size());
+        assertEquals(5001L, result.getRouteProcesses().get(0).getId());
+        assertEquals("CW", result.getRouteProcesses().get(0).getProcessCode());
+        assertEquals("粗洗", result.getRouteProcesses().get(0).getProcessName());
+        assertEquals(10, result.getRouteProcesses().get(0).getSort());
+        assertProcessPoolSourceField(result, "deviceParameterReadings.pressure.value@device:7001",
+                "扩张压力实际值（光固机 / A05075）", "NUMBER", 5001L);
+    }
+
+    @Test
+    void getWorkbenchContext_returnsRouteProcessesBeforeProcessSelectedWithoutLoadingPickList() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
+        when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(129L)).thenReturn(List.of(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
+                        .routeId(980091L)
+                        .dccProjectCodeId(129L)
+                        .build()));
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(980091L, "BATCH")).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        when(routeProcessMapper.selectListByRouteId(980091L)).thenReturn(List.of(
+                MesProRouteProcessDO.builder()
+                        .id(5001L)
+                        .routeId(980091L)
+                        .processId(7101L)
+                        .sort(10)
+                        .batchRecordReportId("target-report")
+                        .build()));
+        when(processMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(
+                MesProProcessDO.builder()
+                        .id(7101L)
+                        .code("CW")
+                        .name("粗洗")
+                        .build()));
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(null, null, null, "PROCESS_POOL_REPORT",
+                        null, null, null, null, 129L);
+
+        assertEquals(980091L, result.getRouteId());
+        assertEquals(129L, result.getDccProjectCodeId());
+        assertEquals(1, result.getRouteProcesses().size());
+        assertEquals(5001L, result.getRouteProcesses().get(0).getId());
+        verify(productionPickListSourceService, never()).listSourceFields(980091L);
+    }
+
+    @Test
+    void getWorkbenchContext_rejectsProcessPoolReportDccProjectCodeWithoutUniqueRouteBinding() {
+        when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(147L)).thenReturn(List.of(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
+                        .routeId(9001L)
+                        .dccProjectCodeId(147L)
+                        .build(),
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6102L)
+                        .routeId(9002L)
+                        .dccProjectCodeId(147L)
+                        .build()));
+
+        ServiceException ex = assertThrows(ServiceException.class, () ->
+                service.getWorkbenchContext(null, null, null, "PROCESS_POOL_REPORT",
+                        null, null, null, null, 147L));
+
+        assertEquals(
+                MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_DCC_ROUTE_BINDING_REQUIRED
+                        .getCode(),
+                ex.getCode());
     }
 
     @Test
@@ -282,39 +644,54 @@ class MesProBatchRecordCellLinkServiceImplTest {
         when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
         lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any()))
                 .thenReturn(List.of(roughWashBinding, otherRouteBinding));
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(MesProRouteProcessDO.builder()
+                .id(5001L)
+                .routeId(9001L)
+                .processId(7101L)
+                .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8101L)
+                        .leaderUserId(9001L)
+                        .processId(7101L)
+                        .deviceId(7001L)
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(teamDeviceMapper.selectBatchIds(any())).thenReturn(List.of(
+                teamDevice(7001L, 9001L, "B09393", "超声波清洗机")));
         lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
-                parameterRule(11L, 5001L, "cleaningCount", "清洗次数",
+                parameterRule(11L, 5001L, 7101L, 7001L, 9001L, "cleaningCount", "清洗次数",
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER),
-                parameterRule(12L, 5001L, "cleaningMedium", "清洗介质",
+                parameterRule(12L, 5001L, 7101L, 7001L, 9001L, "cleaningMedium", "清洗介质",
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT),
-                parameterRule(13L, 5001L, "cleaningPower", "清洗功率",
+                parameterRule(13L, 5001L, 7101L, 7001L, 9001L, "cleaningPower", "清洗功率",
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL),
-                parameterRule(14L, 5001L, "roomTemperature", "室温",
+                parameterRule(14L, 5001L, 7101L, 7001L, 9001L, "roomTemperature", "室温",
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL),
-                parameterRule(15L, 5001L, "cleaningDuration", "清洗时间",
+                parameterRule(15L, 5001L, 7101L, 7001L, 9001L, "cleaningDuration", "清洗时间",
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER)));
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null, null);
+                service.getWorkbenchContext(9001L, 2001L, 3001L, null, null, null, null, null, null);
 
         assertEquals(5001L, result.getForms().get(0).getRouteProcessId());
         assertProcessPoolSourceField(result, "outputQuantity", "本次报工产出数量", "NUMBER", null);
-        assertProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工", "NUMBER", null);
+        assertMissingProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工");
         assertProcessPoolSourceField(result, "serverSubmitTime", "提交时间", "STRING", null);
         assertProcessPoolSourceField(result, "selectedDevice.deviceName", "选用设备名称", "STRING", null);
         assertProcessPoolSourceField(result, "deviceMeteringValidity.inMeteringValidityPeriod",
                 "选用设备计量有效期内", "BOOLEAN", null);
         assertProcessPoolSourceField(result, "clearanceConfirmations.workplace.confirmed", "清场确认", "BOOLEAN", null);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningCount.value",
-                "清洗次数实际值", "NUMBER", 5001L);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningMedium.value",
-                "清洗介质实际值", "STRING", 5001L);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningPower.value",
-                "清洗功率实际值", "NUMBER", 5001L);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.roomTemperature.value",
-                "室温实际值", "NUMBER", 5001L);
-        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningDuration.value",
-                "清洗时间实际值", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningCount.value@device:7001",
+                "清洗次数实际值（超声波清洗机 / B09393）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningMedium.value@device:7001",
+                "清洗介质实际值（超声波清洗机 / B09393）", "STRING", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningPower.value@device:7001",
+                "清洗功率实际值（超声波清洗机 / B09393）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.roomTemperature.value@device:7001",
+                "室温实际值（超声波清洗机 / B09393）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningDuration.value@device:7001",
+                "清洗时间实际值（超声波清洗机 / B09393）", "NUMBER", 5001L);
     }
 
     @Test
@@ -322,15 +699,15 @@ class MesProBatchRecordCellLinkServiceImplTest {
         stubProcessPoolSaveContext();
         when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
 
-        service.saveRules(processPoolRuleSaveRequest("deviceParameterReadings.pressure.value", "SUM"));
+        service.saveRules(processPoolRuleSaveRequest("deviceParameterReadings.pressure.value@device:7001", "SUM"));
 
         ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
         verify(ruleMapper).insertBatch(captor.capture());
         MesProBatchRecordCellLinkRuleDO row = captor.getValue().get(0);
         assertEquals("PROCESS_POOL_REPORT", row.getSourceType());
         assertEquals("PROCESS_POOL_REPORT", row.getSourceReportId());
-        assertEquals("deviceParameterReadings.pressure.value", row.getSourceFieldCode());
-        assertEquals("扩张压力实际值", row.getSourceFieldName());
+        assertEquals("deviceParameterReadings.pressure.value@device:7001", row.getSourceFieldCode());
+        assertEquals("扩张压力实际值（光固机 / A05075）", row.getSourceFieldName());
         assertEquals("SUM", row.getAggregationStrategy());
         assertEquals("1:2", row.getTargetCellKey());
     }
@@ -413,14 +790,14 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .thenReturn(List.of(currentRouteBinding, otherRouteBinding));
         when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
 
-        service.saveRules(processPoolRuleSaveRequest("deviceParameterReadings.pressure.value", "SUM"));
+        service.saveRules(processPoolRuleSaveRequest("deviceParameterReadings.pressure.value@device:7001", "SUM"));
 
         ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
         verify(ruleMapper).insertBatch(captor.capture());
         MesProBatchRecordCellLinkRuleDO row = captor.getValue().get(0);
         assertEquals(9001L, row.getRouteId());
-        assertEquals("deviceParameterReadings.pressure.value", row.getSourceFieldCode());
-        assertEquals("扩张压力实际值", row.getSourceFieldName());
+        assertEquals("deviceParameterReadings.pressure.value@device:7001", row.getSourceFieldCode());
+        assertEquals("扩张压力实际值（光固机 / A05075）", row.getSourceFieldName());
     }
 
     @Test
@@ -428,7 +805,8 @@ class MesProBatchRecordCellLinkServiceImplTest {
         stubProcessPoolSaveContext();
 
         ServiceException error = assertThrows(ServiceException.class,
-                () -> service.saveRules(processPoolRuleSaveRequest("deviceParameterReadings.pressure.value", null)));
+                () -> service.saveRules(processPoolRuleSaveRequest(
+                        "deviceParameterReadings.pressure.value@device:7001", null)));
 
         assertEquals(
                 MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED.getCode(),
@@ -483,6 +861,16 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .count());
     }
 
+    private static void assertMissingProcessPoolSourceField(BatchRecordCellLinkWorkbenchContextRespVO result,
+                                                            String fieldCode,
+                                                            String fieldName) {
+        assertEquals(0, result.getSourceFields().stream()
+                .filter(field -> "PROCESS_POOL_REPORT".equals(field.getSourceType()))
+                .filter(field -> fieldCode.equals(field.getFieldCode()))
+                .filter(field -> fieldName.equals(field.getFieldName()))
+                .count());
+    }
+
     private static void assertPqcSourceField(BatchRecordCellLinkWorkbenchContextRespVO result,
                                              String fieldCode,
                                              String fieldName,
@@ -504,7 +892,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
         when(ruleMapper.selectListByScope("FORM_TEMPLATE_VERSION", 7001L)).thenReturn(List.of());
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
-                service.getWorkbenchContext(null, null, null, null, 1001L, "V3.0", null, null);
+                service.getWorkbenchContext(null, null, null, null, 1001L, "V3.0", null, null, null);
 
         assertEquals("FORM_TEMPLATE_VERSION", result.getScopeType());
         assertEquals(7001L, result.getScopeId());
@@ -523,7 +911,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, null, null,
-                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5001L, 8001L);
+                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5001L, 8001L, null);
 
         assertEquals("FORM_TEMPLATE_VERSION", result.getScopeType());
         assertEquals("PQC_AGGREGATE_DETAIL", result.getDefaultSourceReportId());
@@ -542,7 +930,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         ServiceException error = assertThrows(ServiceException.class, () ->
                 service.getWorkbenchContext(9001L, 2001L, 3001L,
-                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, null));
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, null, null));
 
         assertEquals(
                 MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PQC_QA_CATALOG_MISSING.getCode(),
@@ -568,7 +956,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, null, null,
-                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L);
+                        "PQC_AGGREGATE_DETAIL", null, null, 5001L, 8001L, null);
 
         assertEquals("FORM_TEMPLATE_VERSION", result.getScopeType());
         assertEquals(7001L, result.getScopeId());
@@ -589,7 +977,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, null, null,
-                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5002L, 8102L);
+                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5002L, 8102L, null);
 
         assertPqcSourceField(result, "FIRST|FINE-CLEAN|1|measuredValue",
                 "首检 / 精洗外观 / 第1件 / 实测值", "STRING", 5002L);
@@ -606,7 +994,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, null, null,
-                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5006L, 8106L);
+                        "PQC_AGGREGATE_DETAIL", 1001L, "V3.0", 5006L, 8106L, null);
 
         assertPqcSourceField(result, "FIRST|LIGHT-CURE|1|measuredValue",
                 "首检 / 光固强度 / 第1件 / 实测值", "STRING", 5006L);
@@ -1069,8 +1457,8 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         new BatchRecordRepeatRowGroupRecordSaveReqVO().setRecordSequence(3).setStartRowIndex(12).setEndRowIndex(12)))
                 .setMappings(List.of(new BatchRecordRepeatRowGroupMappingSaveReqVO()
                         .setSourceType("PROCESS_POOL_REPORT")
-                        .setSourceFieldCode("deviceParameterReadings.pressure.value")
-                        .setSourceFieldName("扩张压力实际值")
+                        .setSourceFieldCode("deviceParameterReadings.pressure.value@device:7001")
+                        .setSourceFieldName("扩张压力实际值（光固机 / A05075）")
                         .setSourceValueType("NUMBER")
                         .setTemplateTargetRowIndex(10)
                         .setTemplateTargetColumnIndex(2)
@@ -1187,8 +1575,23 @@ class MesProBatchRecordCellLinkServiceImplTest {
         lenient().when(reportService.getCellRules("target-report")).thenReturn(targetCellRules());
         lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(
                 List.of(routeBinding(5001L, 3001L, "target-report")));
+        lenient().when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(MesProRouteProcessDO.builder()
+                .id(5001L)
+                .routeId(9001L)
+                .processId(7101L)
+                .build());
+        lenient().when(processDeviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8101L)
+                        .leaderUserId(9001L)
+                        .processId(7101L)
+                        .deviceId(7001L)
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        lenient().when(teamDeviceMapper.selectBatchIds(any())).thenReturn(List.of(
+                teamDevice(7001L, 9001L, "A05075", "光固机")));
         lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
-                parameterRule(11L, 5001L, "pressure", "扩张压力",
+                parameterRule(11L, 5001L, 7101L, 7001L, 9001L, "pressure", "扩张压力",
                         MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL)));
     }
 
@@ -1320,5 +1723,27 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .setParameterName(parameterName)
                 .setValueType(valueType)
                 .setEnabled(true);
+    }
+
+    private MesProcessPoolDeviceParameterRuleDO parameterRule(Long id, Long routeProcessId,
+                                                              Long processId, Long deviceId, Long leaderUserId,
+                                                              String parameterCode, String parameterName,
+                                                              String valueType) {
+        return parameterRule(id, routeProcessId, parameterCode, parameterName, valueType)
+                .setProcessId(processId)
+                .setDeviceId(deviceId)
+                .setLeaderUserId(leaderUserId);
+    }
+
+    private MesProcessPoolTeamDeviceDO teamDevice(Long id, Long leaderUserId, String deviceCode,
+                                                   String deviceName) {
+        return MesProcessPoolTeamDeviceDO.builder()
+                .id(id)
+                .leaderUserId(leaderUserId)
+                .deviceCode(deviceCode)
+                .deviceName(deviceName)
+                .deviceStatus("ENABLED")
+                .enabled(Boolean.TRUE)
+                .build();
     }
 }

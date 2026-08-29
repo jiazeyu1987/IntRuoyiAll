@@ -2,7 +2,9 @@ package cn.iocoder.yudao.module.bpm.formcenter.runtime;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
 import cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi;
 import cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext;
@@ -40,12 +42,18 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.annotation.Resource;
 import org.flowable.task.api.Task;
 import org.flowable.engine.TaskService;
+import org.jeecg.modules.jmreport.desreport.dao.JimuReportDao;
+import org.jeecg.modules.jmreport.desreport.entity.JimuReport;
+import org.jeecg.modules.jmreport.desreport.entity.JimuReportCategory;
+import org.jeecg.modules.jmreport.desreport.model.TreeModel;
+import org.jeecg.modules.jmreport.desreport.service.IJimuReportCategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.util.Base64;
+import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -53,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -60,6 +69,30 @@ import java.util.regex.Pattern;
 public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
 
     private static final String FORM_TEMPLATE_REPORT_PREFIX = "FORMTPL:";
+    private static final String FORM_TEMPLATE_JIMU_CATEGORY_NAME = "表单中心模板";
+    private static final String FILL_FORM_PREVIEW_CSS = """
+            .fillForm-box,
+            .fillForm-box .ivu-form-item,
+            .fillForm-box .ivu-form-item-content {
+              background: transparent !important;
+            }
+            .fillForm-box .inputText,
+            .fillForm-box textarea,
+            .fillForm-box .ivu-input {
+              border: 0 !important;
+              background: transparent !important;
+              box-shadow: none !important;
+              border-radius: 0 !important;
+              padding: 0 2px !important;
+            }
+            .fillForm-box .ivu-input-wrapper,
+            .fillForm-box .ivu-input-type-text,
+            .fillForm-box .ivu-input-type-textarea {
+              border: 0 !important;
+              background: transparent !important;
+              box-shadow: none !important;
+            }
+            """;
     private static final String BUSINESS_KEY_PREFIX = "FORM_ACTION:";
     private static final String TEMPLATE_IMPORT_ACTION_CREATE = "CREATE";
     private static final String TEMPLATE_IMPORT_ACTION_UPGRADE = "UPGRADE";
@@ -71,6 +104,10 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
 
     @Resource
     private FormTemplateVersionMapper templateVersionMapper;
+    @Resource
+    private IJimuReportCategoryService reportCategoryService;
+    @Resource
+    private JimuReportDao jimuReportDao;
     @Resource
     private FormActionPolicyMapper actionPolicyMapper;
     @Resource
@@ -111,6 +148,41 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     @Override
     public FormCenterTemplateRespVO getTemplateVersion(Long templateId, String versionNo) {
         return toTemplateResp(requireCurrentTenantTemplateVersion(templateId, versionNo));
+    }
+
+    @Override
+    public String getTemplateDesignerPath(Long templateId, String versionNo) {
+        FormTemplateVersionDO version = requireCurrentTenantTemplateVersion(templateId, versionNo);
+        String reportId = buildFormTemplateReportId(version);
+        ensureFormTemplateJimuReport(version, reportId);
+        return buildTemplatePreviewPath(reportId);
+    }
+
+    @Override
+    public String getTemplateEditPath(Long templateId, String versionNo) {
+        FormTemplateVersionDO version = requireCurrentTenantTemplateVersion(templateId, versionNo);
+        requireDraftTemplateVersion(version, templateId + "/" + versionNo);
+        String reportId = buildFormTemplateReportId(version);
+        ensureFormTemplateJimuReport(version, reportId);
+        return buildTemplateDesignerPath(reportId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public FormTemplateEditableDraftRespVO ensureTemplateEditableDraft(Long templateId, String versionNo) {
+        FormTemplateVersionDO sourceVersion = requireCurrentTenantTemplateVersion(templateId, versionNo);
+        FormTemplateVersionDO editableVersion = sourceVersion;
+        boolean draftCreated = false;
+        if (!FormTemplateStatus.DRAFT.name().equals(sourceVersion.getStatus())) {
+            editableVersion = templateVersionMapper.selectDraftByTemplateId(
+                    TenantContextHolder.getRequiredTenantId(), templateId);
+            if (editableVersion == null) {
+                editableVersion = cloneTemplateVersionAsDraft(sourceVersion, resolveNextDraftVersionNo(sourceVersion));
+                templateVersionMapper.insert(editableVersion);
+                draftCreated = true;
+            }
+        }
+        return toEditableDraftResp(sourceVersion, editableVersion, draftCreated);
     }
 
     @Override
@@ -282,6 +354,26 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         }
         version.setJimuSchemaJson(reqVO.getJimuSchema());
         templateVersionMapper.updateById(version);
+    }
+
+    @Override
+    public void validateTemplateJimuReportSaveWritable(String reportId, Long tenantId) {
+        executeWithRequiredTenant(tenantId, () -> requireDraftTemplateVersionForJimuReport(reportId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void syncTemplateJimuReportSave(String reportId, Long tenantId) {
+        executeWithRequiredTenant(tenantId, () -> {
+            FormTemplateVersionDO version = requireDraftTemplateVersionForJimuReport(reportId);
+            JimuReport report = jimuReportDao.get(reportId);
+            if (report == null || report.getJsonStr() == null || report.getJsonStr().isBlank()) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                        "Saved Jimu report json is missing: " + reportId);
+            }
+            version.setJimuSchemaJson(mergeFormTemplateDesignerJson(version, report.getJsonStr(), reportId));
+            templateVersionMapper.updateById(version);
+        });
     }
 
     @Override
@@ -715,6 +807,29 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
                     "Template version number cannot be auto-incremented: " + latestVersionNo);
         }
         return matcher.group(1) + (current + 1) + matcher.group(3);
+    }
+
+    private FormTemplateVersionDO cloneTemplateVersionAsDraft(FormTemplateVersionDO sourceVersion, String versionNo) {
+        return FormTemplateVersionDO.builder()
+                .templateId(sourceVersion.getTemplateId())
+                .tenantId(sourceVersion.getTenantId())
+                .templateName(sourceVersion.getTemplateName())
+                .versionNo(versionNo)
+                .status(FormTemplateStatus.DRAFT.name())
+                .sourceFileName(sourceVersion.getSourceFileName())
+                .sourceFileContent(sourceVersion.getSourceFileContent())
+                .recognizedSchemaJson(sourceVersion.getRecognizedSchemaJson())
+                .jimuSchemaJson(sourceVersion.getJimuSchemaJson())
+                .remark(sourceVersion.getRemark())
+                .build();
+    }
+
+    private String resolveNextDraftVersionNo(FormTemplateVersionDO sourceVersion) {
+        String nextVersionNo = nextVersionNo(sourceVersion.getVersionNo());
+        while (templateVersionMapper.selectByTemplateIdAndVersionNo(sourceVersion.getTemplateId(), nextVersionNo) != null) {
+            nextVersionNo = nextVersionNo(nextVersionNo);
+        }
+        return nextVersionNo;
     }
 
     private BusinessApprovalRequest submitTemplateUpgradeApproval(Long tenantId, FormTemplateVersionDO version,
@@ -1413,11 +1528,222 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         return respVO;
     }
 
+    private FormTemplateEditableDraftRespVO toEditableDraftResp(FormTemplateVersionDO sourceVersion,
+            FormTemplateVersionDO editableVersion, boolean draftCreated) {
+        FormTemplateEditableDraftRespVO respVO = new FormTemplateEditableDraftRespVO();
+        respVO.setTemplateId(sourceVersion.getTemplateId());
+        respVO.setTemplateName(sourceVersion.getTemplateName());
+        respVO.setSourceVersionNo(sourceVersion.getVersionNo());
+        respVO.setVersionNo(editableVersion.getVersionNo());
+        respVO.setTargetStatus(FormTemplateStatus.DRAFT.name());
+        respVO.setDraftCreated(draftCreated);
+        return respVO;
+    }
+
     private String buildFormTemplateReportId(FormTemplateVersionDO version) {
         if (version.getId() == null) {
             throw new IllegalStateException("template version id is missing");
         }
         return FORM_TEMPLATE_REPORT_PREFIX + version.getId();
+    }
+
+    private void ensureFormTemplateJimuReport(FormTemplateVersionDO version, String reportId) {
+        String jsonStr = extractFormTemplateDesignerJson(version, reportId);
+        Date now = new Date();
+        JimuReport report = jimuReportDao.get(reportId);
+        boolean insert = report == null;
+        if (insert) {
+            report = new JimuReport();
+            report.setId(reportId);
+            report.setCode(reportId);
+            report.setCreateBy(resolveJimuActor());
+            report.setCreateTime(now);
+            report.setViewCount(0L);
+            report.setDelFlag(0);
+            report.setUpdateCount(0);
+        } else {
+            report.setUpdateCount(report.getUpdateCount() == null ? 1 : report.getUpdateCount() + 1);
+        }
+        report.setName(formTemplateJimuReportName(version));
+        report.setType(ensureFormTemplateJimuCategoryId());
+        report.setJsonStr(jsonStr);
+        report.setUpdateBy(resolveJimuActor());
+        report.setUpdateTime(now);
+        report.setTenantId(String.valueOf(TenantContextHolder.getRequiredTenantId()));
+        report.setTemplate(0);
+        report.setSubmitForm(1);
+        report.setIsMultiSheet(0);
+        report.setCssStr(FILL_FORM_PREVIEW_CSS);
+        if (insert) {
+            jimuReportDao.insert(report);
+        } else {
+            jimuReportDao.update(report);
+        }
+    }
+
+    private String ensureFormTemplateJimuCategoryId() {
+        String existingCategoryId = findFormTemplateJimuCategoryId();
+        if (existingCategoryId != null && !existingCategoryId.isBlank()) {
+            return existingCategoryId;
+        }
+        Date now = new Date();
+        JimuReportCategory category = new JimuReportCategory();
+        category.setId(newSimpleUuid());
+        category.setName(FORM_TEMPLATE_JIMU_CATEGORY_NAME);
+        category.setParentId("0");
+        category.setIzLeaf(1);
+        category.setSourceType("report");
+        category.setCreateBy(resolveJimuActor());
+        category.setCreateTime(now);
+        category.setUpdateBy(resolveJimuActor());
+        category.setUpdateTime(now);
+        category.setTenantId(String.valueOf(TenantContextHolder.getRequiredTenantId()));
+        category.setSortNo(resolveNextJimuCategorySortNo());
+        reportCategoryService.save(category);
+        return category.getId();
+    }
+
+    private String findFormTemplateJimuCategoryId() {
+        JimuReportCategory query = new JimuReportCategory();
+        query.setSourceType("report");
+        List<TreeModel> categories = reportCategoryService.queryList(query);
+        for (TreeModel category : categories) {
+            if (FORM_TEMPLATE_JIMU_CATEGORY_NAME.equals(category.getTitle())) {
+                return category.getId();
+            }
+        }
+        return null;
+    }
+
+    private Integer resolveNextJimuCategorySortNo() {
+        Integer current = reportCategoryService.getMinSortByParentId("0", "report");
+        return current == null ? 99 : current + 1;
+    }
+
+    private String extractFormTemplateDesignerJson(FormTemplateVersionDO version, String reportId) {
+        Map<String, Object> templateSchema = parseJsonObject(version.getJimuSchemaJson(), reportId);
+        Object sheetLayoutJson = templateSchema.get("sheetLayoutJson");
+        if (!(sheetLayoutJson instanceof String layoutJson) || layoutJson.isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    reportId + " missing sheetLayoutJson");
+        }
+        Map<String, Object> designerRoot = parseDesignerJsonObject(layoutJson, reportId);
+        if (!(designerRoot.get("cols") instanceof Map<?, ?>)) {
+            designerRoot.put("cols", new LinkedHashMap<>());
+        }
+        return JsonUtils.toJsonString(designerRoot);
+    }
+
+    private String mergeFormTemplateDesignerJson(FormTemplateVersionDO version, String designerJson, String reportId) {
+        Map<String, Object> templateSchema = parseJsonObject(version.getJimuSchemaJson(), reportId);
+        Map<String, Object> designerRoot = parseDesignerJsonObject(designerJson, reportId);
+        if (!(designerRoot.get("cols") instanceof Map<?, ?>)) {
+            designerRoot.put("cols", new LinkedHashMap<>());
+        }
+        templateSchema.put("sheetLayoutJson", JsonUtils.toJsonString(designerRoot));
+        return JsonUtils.toJsonString(templateSchema);
+    }
+
+    private FormTemplateVersionDO requireDraftTemplateVersionForJimuReport(String reportId) {
+        Long templateVersionId = parseFormTemplateVersionId(reportId);
+        FormTemplateVersionDO version = requireTenantTemplateVersion(templateVersionId);
+        requireDraftTemplateVersion(version, reportId);
+        return version;
+    }
+
+    private void requireDraftTemplateVersion(FormTemplateVersionDO version, String objectRef) {
+        if (!FormTemplateStatus.DRAFT.name().equals(version.getStatus())) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_VERSION_IMMUTABLE,
+                    "Only draft template versions can be adjusted: " + objectRef);
+        }
+    }
+
+    private Long parseFormTemplateVersionId(String reportId) {
+        if (reportId == null || !reportId.startsWith(FORM_TEMPLATE_REPORT_PREFIX)) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Form template Jimu report id is invalid: " + reportId);
+        }
+        String rawVersionId = reportId.substring(FORM_TEMPLATE_REPORT_PREFIX.length()).trim();
+        if (rawVersionId.isEmpty()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Form template Jimu report id is invalid: " + reportId);
+        }
+        try {
+            return Long.valueOf(rawVersionId);
+        } catch (NumberFormatException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    "Form template Jimu report id is invalid: " + reportId);
+        }
+    }
+
+    private void executeWithRequiredTenant(Long tenantId, Runnable runnable) {
+        if (tenantId == null) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Tenant context is required for form template Jimu save");
+        }
+        Long currentTenantId = TenantContextHolder.getTenantId();
+        if (currentTenantId != null && !Objects.equals(currentTenantId, tenantId)) {
+            throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                    "Request tenant does not match current tenant context: " + tenantId);
+        }
+        TenantUtils.execute(tenantId, runnable);
+    }
+
+    private Map<String, Object> parseJsonObject(String jsonStr, String reportId) {
+        if (jsonStr == null || jsonStr.isBlank()) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    reportId + " blank json");
+        }
+        try {
+            Map<String, Object> root = JsonUtils.parseObject(jsonStr, new TypeReference<Map<String, Object>>() {});
+            if (root == null) {
+                throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                        reportId + " empty json");
+            }
+            return root;
+        } catch (FormCenterException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    reportId + " " + ex.getMessage());
+        }
+    }
+
+    private Map<String, Object> parseDesignerJsonObject(String jsonStr, String reportId) {
+        Map<String, Object> root = parseJsonObject(jsonStr, reportId);
+        if (!(root.get("rows") instanceof Map<?, ?>)) {
+            throw new FormCenterException(FormCenterErrorCode.TEMPLATE_SOURCE_INVALID,
+                    reportId + " missing rows");
+        }
+        return root;
+    }
+
+    private String buildTemplateDesignerPath(String reportId) {
+        return "/jmreport/index/" + reportId + "?tenantId=" + TenantContextHolder.getRequiredTenantId();
+    }
+
+    private String buildTemplatePreviewPath(String reportId) {
+        return "/jmreport/view/" + reportId + "?tenantId=" + TenantContextHolder.getRequiredTenantId();
+    }
+
+    private String formTemplateJimuReportName(FormTemplateVersionDO version) {
+        String templateName = version.getTemplateName() == null || version.getTemplateName().isBlank()
+                ? buildFormTemplateReportId(version) : version.getTemplateName().trim();
+        return version.getVersionNo() == null || version.getVersionNo().isBlank()
+                ? templateName : templateName + " " + version.getVersionNo().trim();
+    }
+
+    private String resolveJimuActor() {
+        String nickname = SecurityFrameworkUtils.getLoginUserNickname();
+        if (nickname != null && !nickname.isBlank()) {
+            return nickname;
+        }
+        Long userId = SecurityFrameworkUtils.getLoginUserId();
+        return userId == null ? "system" : String.valueOf(userId);
+    }
+
+    private String newSimpleUuid() {
+        return UUID.randomUUID().toString().replace("-", "");
     }
 
     private List<FormRecognizedField> parseRecognizedFields(String recognizedSchemaJson) {

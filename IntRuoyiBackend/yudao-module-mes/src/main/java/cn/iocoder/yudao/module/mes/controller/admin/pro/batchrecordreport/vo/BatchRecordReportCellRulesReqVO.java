@@ -20,6 +20,9 @@ public class BatchRecordReportCellRulesReqVO {
     private List<BatchRecordReportCellRuleVO> rules;
 
     @Valid
+    private List<BatchRecordReportSignatureCellMarkerVO> signatureCellMarkers;
+
+    @Valid
     private List<BatchRecordReportAssistRowVO> assistRows;
 
     private Integer assistGridRowCount;

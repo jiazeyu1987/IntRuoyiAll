@@ -13,18 +13,20 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateAccessRequestMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateFileMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
-import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateEntrustedEnterprise;
-import cn.iocoder.yudao.module.dcc.registrationcertificate.domain.DccRegistrationCertificateProductionRelation;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateBusinessClock;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateCommandService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateDraftData;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.certificate.DccRegistrationCertificateCommandMutex;
+import cn.iocoder.yudao.module.dcc.registrationcertificate.service.notification.event.DccRegistrationCertificateBusinessEventNotifier;
 import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
+import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
+import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseTypeEnum;
+import cn.iocoder.yudao.module.mdm.enums.MdmProductStatusConstants;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,7 +37,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -53,6 +54,9 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_TENANT_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH;
@@ -76,6 +80,9 @@ public class DccRegistrationCertificateUploadService {
     private static final String REQUEST_FILE_STATUS_REJECTED = "REJECTED";
     private static final String UPLOAD_REQUEST_PURPOSE = "上传注册证，待注册部经理审批";
     private static final Set<String> OWNED_COMPANY = Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType());
+    private static final Set<String> ENTRUSTED_PARTY = Set.of(MdmEnterpriseTypeEnum.ENTRUSTED_PARTY.getType());
+    private static final int OWNER_COMPANY_CANDIDATE_LIMIT = 20;
+    private static final int ENTRUSTED_ENTERPRISE_CANDIDATE_LIMIT = 20;
 
     private final DccRegistrationCertificateCommandMutex commandMutex;
     private final DccRegistrationCertificateCommandService commandService;
@@ -87,7 +94,9 @@ public class DccRegistrationCertificateUploadService {
     private final DccProjectCodeService projectCodeService;
     private final MdmCompanyScopeApi companyScopeApi;
     private final MdmEnterpriseApi enterpriseApi;
+    private final MdmProductApi productApi;
     private final DccRegistrationCertificateBusinessClock businessClock;
+    private final DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
 
     public DccRegistrationCertificateUploadService(
             DccRegistrationCertificateCommandMutex commandMutex,
@@ -100,7 +109,9 @@ public class DccRegistrationCertificateUploadService {
             DccProjectCodeService projectCodeService,
             MdmCompanyScopeApi companyScopeApi,
             MdmEnterpriseApi enterpriseApi,
-            DccRegistrationCertificateBusinessClock businessClock) {
+            MdmProductApi productApi,
+            DccRegistrationCertificateBusinessClock businessClock,
+            DccRegistrationCertificateBusinessEventNotifier businessEventNotifier) {
         this.commandMutex = require(commandMutex, "commandMutex");
         this.commandService = require(commandService, "commandService");
         this.requestMapper = require(requestMapper, "requestMapper");
@@ -111,7 +122,57 @@ public class DccRegistrationCertificateUploadService {
         this.projectCodeService = require(projectCodeService, "projectCodeService");
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.enterpriseApi = require(enterpriseApi, "enterpriseApi");
+        this.productApi = require(productApi, "productApi");
         this.businessClock = require(businessClock, "businessClock");
+        this.businessEventNotifier = require(businessEventNotifier, "businessEventNotifier");
+    }
+
+    public List<MdmEnterpriseRespDTO> listEntrustedEnterprises(Long tenantId, String keyword) {
+        if (tenantId == null || tenantId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+        }
+        List<MdmEnterpriseRespDTO> enterprises = enterpriseApi.listEnabledEnterprises(
+                ENTRUSTED_PARTY, normalizeText(keyword), ENTRUSTED_ENTERPRISE_CANDIDATE_LIMIT);
+        if (enterprises == null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+        }
+        for (MdmEnterpriseRespDTO enterprise : enterprises) {
+            if (enterprise == null || enterprise.getId() == null || enterprise.getId() <= 0
+                    || !Objects.equals(tenantId, enterprise.getTenantId())
+                    || isBlank(enterprise.getName())
+                    || !ENTRUSTED_PARTY.contains(enterprise.getType())) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+            }
+        }
+        return List.copyOf(enterprises);
+    }
+
+    public List<MdmEnterpriseRespDTO> listOwnerCompanies(Long tenantId, Long actorId, String keyword) {
+        if (tenantId == null || tenantId <= 0 || actorId == null || actorId <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+        }
+        Set<Long> companyIds = companyScopeApi.getEnabledCompanyIdsForUser(actorId);
+        if (companyIds == null || companyIds.isEmpty()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+        }
+        List<MdmEnterpriseRespDTO> enterprises = enterpriseApi.getEnabledEnterprises(companyIds, OWNED_COMPANY);
+        if (enterprises == null || enterprises.isEmpty()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+        }
+        for (MdmEnterpriseRespDTO enterprise : enterprises) {
+            if (enterprise == null || enterprise.getId() == null || enterprise.getId() <= 0
+                    || !Objects.equals(tenantId, enterprise.getTenantId())
+                    || isBlank(enterprise.getName())
+                    || !OWNED_COMPANY.contains(enterprise.getType())) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+            }
+        }
+        String normalizedKeyword = normalizeText(keyword);
+        return enterprises.stream()
+                .filter(item -> matchesOwnerCompanyKeyword(item, normalizedKeyword))
+                .sorted(Comparator.comparing(MdmEnterpriseRespDTO::getId))
+                .limit(OWNER_COMPANY_CANDIDATE_LIMIT)
+                .toList();
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -130,10 +191,16 @@ public class DccRegistrationCertificateUploadService {
         DccRegistrationCertificateAccessRequestDO request = requireUploadRequest(tenantId, requestId);
         UploadRequestDetail detail = parseUploadRequestDetail(request);
         DccRegistrationCertificateAccessRequestFileDO requestFile = requireSingleRequestFile(tenantId, requestId);
-        commandService.formalize(tenantId, approverId, approvalKey, approvalKey, request.getCertificateId(),
-                detail.draftRowVersion(), detail.draftSnapshotRevision(), requestFile.getBusinessFileId());
+        commandService.formalizeApprovedUpload(tenantId, approverId, requireRequesterUserId(request),
+                approvalKey, approvalKey, request.getCertificateId(), detail.draftRowVersion(),
+                detail.draftSnapshotRevision(), requestFile.getBusinessFileId());
         requestFile.setStatus(REQUEST_FILE_STATUS_APPROVED);
         requireUpdated(requestFileMapper.updateById(requestFile));
+        DccRegistrationCertificateVersionDO version = requireFormalizedVersion(
+                tenantId, request.getCertificateId(), requestFile.getBusinessFileId());
+        businessEventNotifier.notifyNewCertificateFormalized(
+                tenantId, request.getOwnerCompanyId(), request.getCertificateId(), version.getId(),
+                approverId, approvalKey, version.getCertificateNo());
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -151,10 +218,14 @@ public class DccRegistrationCertificateUploadService {
     private DccRegistrationCertificateUploadSubmitResult submitInternal(
             Long tenantId, Long actorId, String idempotencyKey, String requestTraceId,
             DccRegistrationCertificateUploadCommand command) {
+        List<Long> entrustedEnterpriseIds = requireUploadProductionRelation(command);
         UploadFile uploadFile = requireUploadFile(command.file());
         Long ownerCompanyId = resolveOwnerCompanyId(tenantId, actorId, command.companyName());
         DccProjectCodeDO projectCode = requireProjectCode(tenantId, actorId, command.projectCodeId());
-        String payloadHash = submitPayloadHash(command, ownerCompanyId, projectCode.getProductMasterId(), uploadFile);
+        Long projectCodeId = projectCode == null ? null : projectCode.getId();
+        Long productMasterId = resolveProductMasterId(command, projectCode);
+        String payloadHash = submitPayloadHash(
+                command, ownerCompanyId, productMasterId, projectCodeId, entrustedEnterpriseIds, uploadFile);
 
         DccRegistrationCertificateAccessRequestDO existing =
                 requestMapper.selectByTenantAndRequestKey(tenantId, idempotencyKey);
@@ -163,11 +234,11 @@ public class DccRegistrationCertificateUploadService {
         }
 
         DccRegistrationCertificateDraftData draft = new DccRegistrationCertificateDraftData(
-                ownerCompanyId, projectCode.getProductMasterId(), projectCode.getId(),
+                ownerCompanyId, productMasterId, projectCodeId,
                 command.firstObtainedDate(), trim(command.certificateNo()),
                 null, command.effectiveDate(), command.expiryDate(), trim(command.classification()),
                 trim(command.companyName()), null, null, null, null, null, null,
-                false, false, List.of(), trim(command.remark()));
+                command.entrustedProduction(), command.selfProduction(), entrustedEnterpriseIds, trim(command.remark()));
         Long certificateId = commandService.createDraft(
                 tenantId, actorId, idempotencyKey, requestTraceId, draft);
         DccRegistrationCertificateVersionDO draftVersion = requireDraftVersion(tenantId, certificateId);
@@ -195,11 +266,11 @@ public class DccRegistrationCertificateUploadService {
                 .requestType(REQUEST_TYPE_UPLOAD_CERTIFICATE)
                 .requestKey(idempotencyKey)
                 .purpose(UPLOAD_REQUEST_PURPOSE)
-                .projectCodeId(projectCode.getId())
+                .projectCodeId(projectCodeId)
                 .status(STATUS_SUBMITTED)
                 .requestedAt(businessClock.now())
                 .detailJson(JsonUtils.toJsonString(submitDetail(
-                        payloadHash, ownerCompanyId, projectCode.getProductMasterId(), projectCode.getId())))
+                        payloadHash, ownerCompanyId, productMasterId, projectCodeId)))
                 .build();
         request.setTenantId(tenantId);
         requireUpdated(requestMapper.insert(request));
@@ -245,6 +316,13 @@ public class DccRegistrationCertificateUploadService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
         }
         return request;
+    }
+
+    private Long requireRequesterUserId(DccRegistrationCertificateAccessRequestDO request) {
+        if (request.getRequesterUserId() == null || request.getRequesterUserId() <= 0) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT);
+        }
+        return request.getRequesterUserId();
     }
 
     private DccRegistrationCertificateAccessRequestFileDO requireSingleRequestFile(Long tenantId, Long requestId) {
@@ -300,7 +378,10 @@ public class DccRegistrationCertificateUploadService {
     }
 
     private DccProjectCodeDO requireProjectCode(Long tenantId, Long actorId, Long projectCodeId) {
-        if (projectCodeId == null || projectCodeId <= 0) {
+        if (projectCodeId == null) {
+            return null;
+        }
+        if (projectCodeId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID);
         }
         DccProjectCodeDO projectCode = projectCodeService.getProjectCode(actorId, projectCodeId);
@@ -313,10 +394,42 @@ public class DccRegistrationCertificateUploadService {
         if (!DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED);
         }
-        if (projectCode.getProductMasterId() == null || projectCode.getProductMasterId() <= 0) {
+        if (projectCode.getProductMasterId() != null && projectCode.getProductMasterId() <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
         }
         return projectCode;
+    }
+
+    private Long resolveProductMasterId(
+            DccRegistrationCertificateUploadCommand command, DccProjectCodeDO projectCode) {
+        String normalizedProductName = trim(command.productName());
+        if (isBlank(normalizedProductName)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED);
+        }
+        MdmProductRespDTO product = requireUniqueEnabledDccProductByName(normalizedProductName);
+        Long productMasterId = product.getId();
+        if (projectCode != null && projectCode.getProductMasterId() != null
+                && !Objects.equals(projectCode.getProductMasterId(), productMasterId)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
+        }
+        return productMasterId;
+    }
+
+    private MdmProductRespDTO requireUniqueEnabledDccProductByName(String productName) {
+        List<MdmProductRespDTO> products = productApi.listSimpleProducts(
+                MdmProductStatusConstants.ENABLE, true, productName);
+        if (products == null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
+        }
+        List<MdmProductRespDTO> matches = products.stream()
+                .filter(item -> item != null && item.getId() != null && item.getId() > 0
+                        && Objects.equals(productName, trim(item.getNameCn())))
+                .sorted(Comparator.comparing(MdmProductRespDTO::getId))
+                .toList();
+        if (matches.size() != 1) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
+        }
+        return matches.get(0);
     }
 
     private DccRegistrationCertificateVersionDO requireDraftVersion(Long tenantId, Long certificateId) {
@@ -329,6 +442,24 @@ public class DccRegistrationCertificateUploadService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
         }
         return versions.get(0);
+    }
+
+    private DccRegistrationCertificateVersionDO requireFormalizedVersion(
+            Long tenantId, Long certificateId, Long businessFileId) {
+        DccRegistrationCertificateFileDO businessFile = fileMapper.selectById(businessFileId);
+        if (businessFile == null || !Objects.equals(tenantId, businessFile.getTenantId())
+                || !FILE_OWNER_VERSION.equals(businessFile.getOwnerType())
+                || businessFile.getOwnerId() == null || businessFile.getOwnerId() <= 0
+                || !FILE_KIND_REGISTRATION_CERTIFICATE.equals(businessFile.getFileKind())
+                || !FILE_STATUS_BOUND.equals(businessFile.getStatus())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
+        }
+        DccRegistrationCertificateVersionDO version = versionMapper.selectById(businessFile.getOwnerId());
+        if (version == null || !Objects.equals(tenantId, version.getTenantId())
+                || !Objects.equals(certificateId, version.getCertificateId())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
+        }
+        return version;
     }
 
     private static Map<String, Object> submitDetail(
@@ -346,23 +477,51 @@ public class DccRegistrationCertificateUploadService {
 
     private String submitPayloadHash(
             DccRegistrationCertificateUploadCommand command, Long ownerCompanyId,
-            Long productMasterId, UploadFile uploadFile) {
+            Long productMasterId, Long projectCodeId, List<Long> entrustedEnterpriseIds, UploadFile uploadFile) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("companyName", trim(command.companyName()));
+        payload.put("productName", trim(command.productName()));
         payload.put("ownerCompanyId", ownerCompanyId);
-        payload.put("projectCodeId", command.projectCodeId());
+        payload.put("projectCodeId", projectCodeId);
         payload.put("productMasterId", productMasterId);
         payload.put("certificateNo", trim(command.certificateNo()));
         payload.put("firstObtainedDate", command.firstObtainedDate());
         payload.put("effectiveDate", command.effectiveDate());
         payload.put("expiryDate", command.expiryDate());
         payload.put("classification", trim(command.classification()));
+        payload.put("entrustedProduction", command.entrustedProduction());
+        payload.put("selfProduction", command.selfProduction());
+        payload.put("entrustedEnterpriseIds", entrustedEnterpriseIds);
         payload.put("remark", trim(command.remark()));
         payload.put("fileName", uploadFile.originalName());
         payload.put("mimeType", uploadFile.mimeType());
         payload.put("fileSize", uploadFile.fileSize());
         payload.put("fileSha256", uploadFile.sha256());
         return sha256Hex(JsonUtils.toJsonString(payload));
+    }
+
+    private static List<Long> requireUploadProductionRelation(DccRegistrationCertificateUploadCommand command) {
+        if (command == null || command.entrustedProduction() == null || command.selfProduction() == null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+        }
+        boolean entrustedProduction = Boolean.TRUE.equals(command.entrustedProduction());
+        boolean selfProduction = Boolean.TRUE.equals(command.selfProduction());
+        if (!entrustedProduction && !selfProduction) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+        }
+        List<Long> entrustedEnterpriseIds = command.entrustedEnterpriseIds() == null
+                ? List.of() : command.entrustedEnterpriseIds();
+        if (entrustedEnterpriseIds.stream().anyMatch(id -> id == null || id <= 0)
+                || new LinkedHashSet<>(entrustedEnterpriseIds).size() != entrustedEnterpriseIds.size()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+        }
+        if (entrustedProduction && entrustedEnterpriseIds.isEmpty()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+        }
+        if (!entrustedProduction && !entrustedEnterpriseIds.isEmpty()) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID);
+        }
+        return List.copyOf(entrustedEnterpriseIds);
     }
 
     private static UploadFile requireUploadFile(MultipartFile file) {
@@ -438,6 +597,14 @@ public class DccRegistrationCertificateUploadService {
 
     private static String normalizeText(String value) {
         return value == null ? null : value.trim();
+    }
+
+    private static boolean matchesOwnerCompanyKeyword(MdmEnterpriseRespDTO enterprise, String keyword) {
+        if (isBlank(keyword)) {
+            return true;
+        }
+        return trim(enterprise.getName()).contains(keyword)
+                || (!isBlank(enterprise.getEnterpriseCode()) && trim(enterprise.getEnterpriseCode()).contains(keyword));
     }
 
     private static String trim(String value) {

@@ -26,7 +26,6 @@
             <el-option
               label="报工数据"
               :value="PROCESS_POOL_REPORT_SOURCE_REPORT_ID"
-              :disabled="!hasFormalRouteProcessContext"
             />
             <el-option
               label="领料单数据"
@@ -105,6 +104,7 @@
           class="batch-record-cell-link__pane is-source"
           :class="{
             'batch-record-cell-link__work-order-field-panel': isStructuredSourceSelected,
+            'batch-record-cell-link__process-pool-source-panel': isProcessPoolReportSelected,
             'batch-record-cell-link__pqc-source-panel': isPqcAggregateSelected
           }"
           :data-process-pool-report-source-fields="sourceType === SOURCE_TYPE_PROCESS_POOL_REPORT ? 'true' : undefined"
@@ -117,6 +117,56 @@
           <div class="batch-record-cell-link__pane-title">
             <span>{{ isStructuredSourceSelected ? '源字段' : '源表单' }}</span>
             <strong>{{ sourcePanelTitle }}</strong>
+          </div>
+          <div
+            v-if="isProcessPoolReportSelected"
+            class="batch-record-cell-link__process-pool-selector"
+            data-process-pool-context-selector
+          >
+            <div class="batch-record-cell-link__process-pool-selector-main">
+              <span>DCC项目代码</span>
+              <el-select
+                v-model="selectedProcessPoolDccProjectCodeId"
+                class="batch-record-cell-link__process-pool-select"
+                placeholder="请输入项目名称或项目代码搜索"
+                filterable
+                remote
+                clearable
+                reserve-keyword
+                :remote-method="loadProcessPoolDccProjectCodeOptions"
+                :loading="processPoolDccProjectCodeLoading"
+                data-process-pool-dcc-project-select
+                @visible-change="(visible) => visible && loadProcessPoolDccProjectCodeOptions()"
+                @change="handleProcessPoolDccProjectCodeChange"
+              >
+                <el-option
+                  v-for="projectCode in processPoolDccProjectCodeOptions"
+                  :key="projectCode.id"
+                  :label="formatDccProjectCodeOption(projectCode)"
+                  :value="projectCode.id"
+                />
+              </el-select>
+            </div>
+            <div class="batch-record-cell-link__process-pool-selector-main">
+              <span>工序</span>
+              <el-select
+                v-model="selectedProcessPoolRouteProcessId"
+                class="batch-record-cell-link__process-pool-select"
+                placeholder="选择工序"
+                filterable
+                clearable
+                :disabled="!selectedProcessPoolDccProjectCodeId && !processPoolRouteProcesses.length"
+                data-process-pool-route-process-select
+                @change="handleProcessPoolRouteProcessChange"
+              >
+                <el-option
+                  v-for="process in processPoolRouteProcesses"
+                  :key="process.id"
+                  :label="`${process.sort ?? '-'}. ${process.processName || '未命名工序'}`"
+                  :value="process.id"
+                />
+              </el-select>
+            </div>
           </div>
           <div v-if="isPqcAggregateSelected" class="batch-record-cell-link__pqc-process-selector" data-pqc-process-selector>
             <div class="batch-record-cell-link__pqc-process-selector-main">
@@ -144,7 +194,10 @@
               <strong>{{ selectedPqcQaProcess?.processName || '请选择工序' }}</strong>
             </div>
           </div>
-          <div class="batch-record-cell-link__sheet-scroll">
+          <div
+            class="batch-record-cell-link__sheet-scroll batch-record-cell-link__source-sheet-scroll"
+            data-cell-link-scroll-pane="source"
+          >
             <BatchRecordLinkSheet
               :columns="sourceRenderableSheet.columns"
               :rows="sourceRenderableSheet.rows"
@@ -158,7 +211,10 @@
             <span>目标表单</span>
             <strong>{{ targetForm?.reportName || '未选择' }}</strong>
           </div>
-          <div class="batch-record-cell-link__sheet-scroll">
+          <div
+            class="batch-record-cell-link__sheet-scroll batch-record-cell-link__target-sheet-scroll"
+            data-cell-link-scroll-pane="target"
+          >
             <BatchRecordLinkSheet
               :columns="targetRenderableSheet.columns"
               :rows="targetRenderableSheet.rows"
@@ -250,6 +306,7 @@ import {
   type BatchRecordCellLinkFormCellsVO,
   type BatchRecordCellLinkFormVO,
   type BatchRecordCellLinkPqcProcessVO,
+  type BatchRecordCellLinkRouteProcessVO,
   type BatchRecordCellLinkRuleVO,
   type BatchRecordCellLinkSourceFieldVO,
   type BatchRecordCellLinkWorkbenchContextVO,
@@ -257,6 +314,11 @@ import {
   type BatchRecordRepeatRowGroupRecordVO,
   type BatchRecordRepeatRowGroupVO
 } from '@/api/mes/pro/batchrecordcelllink'
+import {
+  DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCodePage,
+  type DccProjectCodeRespVO
+} from '@/api/dcc/controlledFile/projectCodes'
 import {
   normalizeTemplateCellMerge,
   stringifyTemplateCell,
@@ -419,6 +481,11 @@ const loading = ref(false)
 const saving = ref(false)
 const context = ref<BatchRecordCellLinkWorkbenchContextVO>()
 const forms = ref<BatchRecordCellLinkFormVO[]>([])
+const processPoolDccProjectCodeLoading = ref(false)
+const processPoolDccProjectCodeOptions = ref<DccProjectCodeRespVO[]>([])
+const selectedProcessPoolDccProjectCodeId = ref<number>()
+const processPoolRouteProcesses = ref<BatchRecordCellLinkRouteProcessVO[]>([])
+const selectedProcessPoolRouteProcessId = ref<number>()
 const pqcProcesses = ref<BatchRecordCellLinkPqcProcessVO[]>([])
 const selectedPqcQaProcessId = ref<number>()
 const productionWorkOrderSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
@@ -438,6 +505,9 @@ const selectedTargetCell = ref<BatchRecordCellLinkCellVO>()
 const relationDetailDialogVisible = ref(false)
 const linkMode = ref(LINK_MODE_CELL_LINK)
 const repeatRowGroups = ref<BatchRecordRepeatRowGroupVO[]>([])
+if (requestedTargetRouteProcessId !== undefined) {
+  selectedProcessPoolRouteProcessId.value = requestedTargetRouteProcessId
+}
 const repeatTemplateStartRowIndex = ref<number>()
 const repeatTemplateEndRowIndex = ref<number>()
 const repeatAreaStartRowIndex = ref<number>()
@@ -510,10 +580,20 @@ const sourceForm = computed(() =>
     : forms.value.find((form) => form.reportId === sourceReportId.value)
 )
 const targetForm = computed(() => forms.value.find((form) => form.reportId === targetReportId.value))
+const selectedProcessPoolRouteProcess = computed(() =>
+  processPoolRouteProcesses.value.find((process) =>
+    Number(process.id) === Number(selectedProcessPoolRouteProcessId.value)
+  )
+)
 const selectedPqcQaProcess = computed(() =>
   pqcProcesses.value.find((process) => Number(process.id) === Number(selectedPqcQaProcessId.value))
 )
-const activeTargetRouteProcessId = computed(() => targetForm.value?.routeProcessId ?? requestedTargetRouteProcessId)
+const activeTargetRouteProcessId = computed(() => {
+  if (isProcessPoolReportSelected.value) {
+    return selectedProcessPoolRouteProcessId.value ?? requestedTargetRouteProcessId
+  }
+  return targetForm.value?.routeProcessId ?? requestedTargetRouteProcessId
+})
 const hasFormalRouteProcessContext = computed(() => Boolean(
   context.value?.routeId && (
     activeTargetRouteProcessId.value !== undefined ||
@@ -522,10 +602,16 @@ const hasFormalRouteProcessContext = computed(() => Boolean(
 ))
 const filteredProcessPoolReportSourceFields = computed(() => {
   const targetRouteProcessId = activeTargetRouteProcessId.value
+  if (isProcessPoolReportSelected.value && targetRouteProcessId === undefined) {
+    return []
+  }
   return processPoolReportSourceFields.value.filter((field) =>
     field.routeProcessId === undefined ||
     field.routeProcessId === null ||
     field.routeProcessId === targetRouteProcessId
+  ).filter((field) =>
+    !isProcessPoolDeviceSourceField(field) ||
+    (field.deviceId !== undefined && Boolean(field.deviceCode) && Boolean(field.deviceName))
   )
 })
 const filteredProductionPickListSourceFields = computed(() => {
@@ -543,6 +629,16 @@ const filteredPqcAggregateSourceFields = computed(() => {
 })
 const targetForms = computed(() => {
   if (isStructuredSourceSelected.value) {
+    if (isProcessPoolReportSelected.value) {
+      const targetRouteProcessId = activeTargetRouteProcessId.value
+      return targetRouteProcessId === undefined
+        ? forms.value
+        : forms.value.filter((form) =>
+            form.routeProcessId === undefined ||
+            form.routeProcessId === null ||
+            Number(form.routeProcessId) === Number(targetRouteProcessId)
+          )
+    }
     return forms.value
   }
   const candidates = forms.value.filter((form) => form.reportId !== sourceReportId.value)
@@ -577,7 +673,9 @@ const sourceLinkedRules = computed<SourceLinkedRule[]>(() =>
 )
 const sourceLinkCountText = computed(() => `${sourceLinkedRules.value.length} 个链接`)
 const currentProcessPoolReportSourceTitle = computed(() =>
-  `${targetForm.value?.reportName || '当前工序'}的一线生产字段`
+  selectedProcessPoolRouteProcess.value
+    ? `${selectedProcessPoolRouteProcess.value.sort ?? '-'}. ${selectedProcessPoolRouteProcess.value.processName || '未命名工序'}的一线生产字段`
+    : `${targetForm.value?.reportName || '当前工序'}的一线生产字段`
 )
 const currentPqcAggregateSourceTitle = computed(() =>
   selectedPqcQaProcess.value
@@ -585,6 +683,21 @@ const currentPqcAggregateSourceTitle = computed(() =>
     : '请选择工序后查看一线PQC字段'
 )
 const sourceSheetEmptyText = computed(() => {
+  if (isProcessPoolReportSelected.value) {
+    if (loading.value) {
+      return '正在加载当前工序的一线生产字段'
+    }
+    if (!selectedProcessPoolDccProjectCodeId.value && !hasFormalRouteProcessContext.value) {
+      return '请选择DCC项目代码'
+    }
+    if (activeTargetRouteProcessId.value === undefined) {
+      return '请选择工序'
+    }
+    if (!filteredProcessPoolReportSourceFields.value.length) {
+      return '当前工序暂无正式一线生产字段'
+    }
+    return '请选择源表单'
+  }
   if (!isPqcAggregateSelected.value) {
     return '请选择源表单'
   }
@@ -660,9 +773,19 @@ watch(targetForms, (items) => {
   }
 })
 
+const resolveDefaultSourceReportId = (defaultSourceReportId: string, requestedTargetReportId?: string) => {
+  if (!requestedTargetReportId || defaultSourceReportId !== requestedTargetReportId) {
+    return defaultSourceReportId
+  }
+  return forms.value.find((form) => form.reportId !== requestedTargetReportId)?.reportId || ''
+}
+
 async function loadWorkbenchContext() {
   loading.value = true
   try {
+    const routeProcessIdForContext = isProcessPoolReportSelected.value
+      ? selectedProcessPoolRouteProcessId.value ?? requestedTargetRouteProcessId
+      : requestedTargetRouteProcessId
     const data = await BatchRecordCellLinkApi.getWorkbenchContext({
       routeId: parseNumber(route.query.routeId),
       definitionId: parseNumber(route.query.definitionId),
@@ -670,11 +793,22 @@ async function loadWorkbenchContext() {
       sourceReportId: sourceReportId.value || String(route.query.sourceReportId || ''),
       templateId: parseNumber(route.query.templateId),
       versionNo: String(route.query.versionNo || ''),
-      routeProcessId: requestedTargetRouteProcessId,
-      qaProcessId: selectedPqcQaProcessId.value
+      routeProcessId: routeProcessIdForContext,
+      qaProcessId: selectedPqcQaProcessId.value,
+      dccProjectCodeId: isProcessPoolReportSelected.value ? selectedProcessPoolDccProjectCodeId.value : undefined
     })
     context.value = data
     forms.value = data.forms || []
+    if (isProcessPoolReportSelected.value && data.dccProjectCodeId) {
+      selectedProcessPoolDccProjectCodeId.value = data.dccProjectCodeId
+    }
+    processPoolRouteProcesses.value = (data.routeProcesses || []).slice().sort((left, right) =>
+      (left.sort ?? Number.MAX_SAFE_INTEGER) - (right.sort ?? Number.MAX_SAFE_INTEGER)
+    )
+    if (requestedTargetRouteProcessId !== undefined &&
+      processPoolRouteProcesses.value.some((process) => Number(process.id) === Number(requestedTargetRouteProcessId))) {
+      selectedProcessPoolRouteProcessId.value = requestedTargetRouteProcessId
+    }
     pqcProcesses.value = (data.pqcProcesses || []).slice().sort((left, right) =>
       (left.sort ?? Number.MAX_SAFE_INTEGER) - (right.sort ?? Number.MAX_SAFE_INTEGER)
     )
@@ -691,7 +825,17 @@ async function loadWorkbenchContext() {
       (field) => field.sourceType === SOURCE_TYPE_PQC_AGGREGATE_DETAIL
     )
     rules.value = data.rules || []
-    const defaultSourceReportId = data.defaultSourceReportId || forms.value[0]?.reportId || ''
+    const requestedTargetForm = forms.value.find((form) =>
+      (!requestedTargetReportId || form.reportId === requestedTargetReportId) &&
+      (routeProcessIdForContext === undefined || form.routeProcessId === undefined ||
+        form.routeProcessId === null || Number(form.routeProcessId) === Number(routeProcessIdForContext))
+    )
+    if ((requestedTargetReportId || routeProcessIdForContext !== undefined) && !requestedTargetForm) {
+      throw new Error(
+        `当前路线工序未绑定目标批记录表单：routeProcessId=${routeProcessIdForContext || '-'}，reportId=${requestedTargetReportId || '-'}`
+      )
+    }
+    const defaultSourceReportId = resolveDefaultSourceReportId(data.defaultSourceReportId || forms.value[0]?.reportId || '', requestedTargetForm?.reportId)
     sourceReportId.value = defaultSourceReportId
     sourceType.value = defaultSourceReportId === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID
       ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
@@ -699,19 +843,9 @@ async function loadWorkbenchContext() {
         ? SOURCE_TYPE_PROCESS_POOL_REPORT
         : defaultSourceReportId === PRODUCTION_PICK_LIST_SOURCE_REPORT_ID
           ? SOURCE_TYPE_PRODUCTION_PICK_LIST
-          : defaultSourceReportId === PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID
+        : defaultSourceReportId === PQC_AGGREGATE_DETAIL_SOURCE_REPORT_ID
             ? SOURCE_TYPE_PQC_AGGREGATE_DETAIL
         : SOURCE_TYPE_BATCH_RECORD_CELL
-    const requestedTargetForm = forms.value.find((form) =>
-      (!requestedTargetReportId || form.reportId === requestedTargetReportId) &&
-      (requestedTargetRouteProcessId === undefined || form.routeProcessId === undefined ||
-        form.routeProcessId === null || form.routeProcessId === requestedTargetRouteProcessId)
-    )
-    if ((requestedTargetReportId || requestedTargetRouteProcessId !== undefined) && !requestedTargetForm) {
-      throw new Error(
-        `当前路线工序未绑定目标批记录表单：routeProcessId=${requestedTargetRouteProcessId || '-'}，reportId=${requestedTargetReportId || '-'}`
-      )
-    }
     targetReportId.value = requestedTargetForm?.reportId || data.defaultTargetReportId || targetForms.value[0]?.reportId || ''
     sourceFieldCode.value = currentStructuredSourceFields()[0]?.fieldCode || ''
     await Promise.all([loadSourceCells(), loadTargetCells()])
@@ -720,6 +854,56 @@ async function loadWorkbenchContext() {
   } finally {
     loading.value = false
   }
+}
+
+const loadProcessPoolDccProjectCodeOptions = async (keyword = '') => {
+  processPoolDccProjectCodeLoading.value = true
+  try {
+    const page = await getProjectCodePage({
+      pageNo: 1,
+      pageSize: 20,
+      keyword: keyword.trim() || undefined,
+      status: DCC_PROJECT_CODE_STATUS_ENABLE,
+      routeConfigured: true,
+      mainBatchRecordConfigured: true
+    })
+    processPoolDccProjectCodeOptions.value = page.list || []
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '加载DCC项目代码失败。'))
+    throw error
+  } finally {
+    processPoolDccProjectCodeLoading.value = false
+  }
+}
+
+const formatDccProjectCodeOption = (projectCode: DccProjectCodeRespVO) =>
+  [projectCode.projectCode, projectCode.projectName, projectCode.id].filter(Boolean).join(' / ')
+
+const handleProcessPoolDccProjectCodeChange = async () => {
+  selectedProcessPoolRouteProcessId.value = undefined
+  processPoolRouteProcesses.value = []
+  processPoolReportSourceFields.value = []
+  selectedSourceCell.value = undefined
+  selectedTargetCell.value = undefined
+  sourceFieldCode.value = ''
+  sourceCells.value = undefined
+  if (!selectedProcessPoolDccProjectCodeId.value) {
+    await loadSourceCells()
+    return
+  }
+  await loadWorkbenchContext()
+}
+
+const handleProcessPoolRouteProcessChange = async () => {
+  selectedSourceCell.value = undefined
+  selectedTargetCell.value = undefined
+  sourceFieldCode.value = ''
+  sourceCells.value = undefined
+  if (!selectedProcessPoolRouteProcessId.value) {
+    await loadSourceCells()
+    return
+  }
+  await loadWorkbenchContext()
 }
 
 const handlePqcProcessChange = async () => {
@@ -749,6 +933,18 @@ const handleSourceSelectionChange = async () => {
   aggregationStrategy.value = ''
   if (isStructuredSourceSelected.value) {
     sourceFieldCode.value = currentStructuredSourceFields()[0]?.fieldCode || ''
+  }
+  if (isProcessPoolReportSelected.value) {
+    await loadProcessPoolDccProjectCodeOptions()
+    if (selectedProcessPoolDccProjectCodeId.value || parseNumber(route.query.routeId) !== undefined) {
+      await loadWorkbenchContext()
+      return
+    }
+    processPoolRouteProcesses.value = []
+    processPoolReportSourceFields.value = []
+    sourceFieldCode.value = ''
+    await Promise.all([loadSourceCells(), loadTargetCells()])
+    return
   }
   if (isPqcAggregateSelected.value) {
     selectedPqcQaProcessId.value = undefined
@@ -941,7 +1137,7 @@ const createRule = async () => {
     isProductionPickListSource || isPqcAggregateSource
   if (!isStructuredSource && !sourceForm.value) return
   if (isStructuredSource && activeTargetRouteProcessId.value === undefined) {
-    message.warning('请从具体工序进入批记录链接页后再配置该来源。')
+    message.warning(isProcessPoolReportSource ? '请先选择DCC项目代码和工序。' : '请从具体工序进入批记录链接页后再配置该来源。')
     return
   }
   if (isProcessPoolReportSource && !aggregationStrategy.value) {
@@ -1294,6 +1490,13 @@ function parseNumber(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+function isProcessPoolDeviceSourceField(field: BatchRecordCellLinkSourceFieldVO) {
+  return field.fieldCode.startsWith('selectedDevice.') ||
+    field.fieldCode.startsWith('deviceMeteringValidity.') ||
+    field.fieldCode.startsWith('deviceParameterReadings.') ||
+    field.fieldCode.startsWith('equipmentParameterRules.')
+}
+
 function resolveErrorMessage(error: unknown, fallback: string) {
   const candidate = error as { message?: string; msg?: string }
   return candidate?.msg || candidate?.message || fallback
@@ -1302,9 +1505,11 @@ function resolveErrorMessage(error: unknown, fallback: string) {
 
 <style scoped>
 .batch-record-cell-link {
-  min-height: calc(100vh - 112px);
+  height: calc(100vh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding) - var(--app-content-padding) - 2px);
+  min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
   background: #f4f7fb;
   color: #172033;
 }
@@ -1426,6 +1631,7 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1px;
+  overflow: hidden;
   background: #dbe3ef;
 }
 
@@ -1434,13 +1640,16 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   min-height: 0;
   display: grid;
   grid-template-rows: 44px minmax(0, 1fr);
+  overflow: hidden;
   background: #ffffff;
 }
 
+.batch-record-cell-link__process-pool-source-panel,
 .batch-record-cell-link__pqc-source-panel {
   grid-template-rows: 44px auto minmax(0, 1fr);
 }
 
+.batch-record-cell-link__process-pool-selector,
 .batch-record-cell-link__pqc-process-selector {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr);
@@ -1451,6 +1660,7 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   background: #f8fbff;
 }
 
+.batch-record-cell-link__process-pool-selector-main,
 .batch-record-cell-link__pqc-process-selector-main,
 .batch-record-cell-link__pqc-process-meta {
   display: flex;
@@ -1459,6 +1669,7 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   min-width: 0;
 }
 
+.batch-record-cell-link__process-pool-selector-main > span,
 .batch-record-cell-link__pqc-process-selector-main > span,
 .batch-record-cell-link__pqc-process-meta > span {
   flex: none;
@@ -1466,6 +1677,7 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   font-size: 12px;
 }
 
+.batch-record-cell-link__process-pool-select,
 .batch-record-cell-link__pqc-process-select {
   min-width: 0;
   flex: 1;
@@ -1501,7 +1713,9 @@ function resolveErrorMessage(error: unknown, fallback: string) {
 .batch-record-cell-link__sheet-scroll {
   min-height: 0;
   min-width: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 8px;
   background: #f8fafc;
 }

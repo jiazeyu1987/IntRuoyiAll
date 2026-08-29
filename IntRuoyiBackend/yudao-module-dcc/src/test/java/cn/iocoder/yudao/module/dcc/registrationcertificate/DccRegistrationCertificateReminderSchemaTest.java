@@ -78,7 +78,13 @@ class DccRegistrationCertificateReminderSchemaTest extends BaseDbUnitTest {
                 "constraint `chk_dcc_reg_cert_reminder_delivery_status` check",
                 "constraint `chk_dcc_reg_cert_reminder_delivery_message` check",
                 "registrationcertificatereminderdailyjob",
+                "\"roleids\":[910218,910231]",
+                "\"permission\":\"dcc:registration-certificate:query-current\"",
                 "0 0 9 * * ?");
+        assertFalse(normalized.contains("registrationcertificatereminderdailyjob', ''"),
+                "reminder job seed must include recipient scope params instead of a blank handler_param");
+        assertFalse(normalized.contains("`handler_param` = ''"),
+                "reminder job update must keep recipient scope params instead of resetting handler_param to blank");
         assertFalse(normalized.contains("'other'"), "reminder persisted code sets must not define OTHER");
     }
 

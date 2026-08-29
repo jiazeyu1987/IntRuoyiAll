@@ -88,13 +88,18 @@ assert.equal(
   2,
   'current and old certificate tabs must each render a UnifiedListTemplate'
 )
-for (const tableKey of ['dcc.registrationCertificate.current', 'dcc.registrationCertificate.old']) {
+for (const tableKey of [
+  'dcc.registrationCertificate.current.actionsWideV2',
+  'dcc.registrationCertificate.old.actionsWideV2'
+]) {
   assert.match(
     index,
-    new RegExp(`table-key=\"${tableKey}\"`),
+    new RegExp(`const\\s+(CURRENT|OLD)_TABLE_KEY\\s*=\\s*'${tableKey}'`),
     `${tableKey} must have its own standard list identity`
   )
 }
+assert.match(index, /:table-key="CURRENT_TABLE_KEY"/, 'current list must bind the standard list identity')
+assert.match(index, /:table-key="OLD_TABLE_KEY"/, 'old list must bind the standard list identity')
 for (const token of [
   'getRegistrationCertificatePage',
   'getRegistrationCertificateOldIndexPage',
@@ -142,10 +147,25 @@ assert.doesNotMatch(
   /<pre\s+class="detail-json">[\s\S]*entrustedEnterprisesJson[\s\S]*<\/pre>/,
   'detail page must not render raw entrustedEnterprisesJson JSON'
 )
-assert.doesNotMatch(
+assert.match(
   detail,
-  /RegistrationCertificateActionPanel/,
-  'detail page must not mount the workflow action panel'
+  /<RegistrationCertificateActionPanel/,
+  'detail page must expose the workflow action panel for access requests'
+)
+assert.match(
+  detail,
+  /:read-only="viewMode !== 'current'"/,
+  'detail page must lock non-current certificate maintenance actions'
+)
+assert.match(
+  detail,
+  /:initial-action="viewMode === 'current' \? 'draft' : 'access'"/,
+  'old/detail access modes must open the access request action first'
+)
+assert.match(
+  detail,
+  /:downloadable-files="downloadableFiles"/,
+  'detail page must pass formal downloadable file options to the action panel'
 )
 assert.doesNotMatch(
   detail,

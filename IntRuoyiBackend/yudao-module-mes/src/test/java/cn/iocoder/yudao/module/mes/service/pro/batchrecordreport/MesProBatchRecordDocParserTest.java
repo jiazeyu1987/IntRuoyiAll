@@ -37,6 +37,8 @@ class MesProBatchRecordDocParserTest {
     private static final Path PRESSURE_PUMP_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final Path PROCESS_INSPECTION_DOCX_SAMPLE = Path.of(
             "C:\\Users\\BJB110\\Desktop\\\u6587\u6863\\\u8fc7\u7a0b\u68c0\u9a8c\u8bb0\u5f55.docx");
+    private static final Path FORM_CENTER_PROCESS_INSPECTION_DOCX_SAMPLE = Path.of(
+            "E:\\IntRuoyi\\resource\\\u6309\u538b\u5f0f\u7403\u56ca\u6269\u5145\u538b\u529b\u6cf5IDI-001\\\u8fc7\u7a0b\u68c0\u9a8c\u8bb0\u5f55.docx");
 
     private static final List<String> EXPECTED_TITLES = List.of(
             "\u4ea7\u54c1\u4fe1\u606f",
@@ -173,6 +175,25 @@ class MesProBatchRecordDocParserTest {
         assertEquals(3, table.getRows().get(0).get(0).getColSpan());
         assertContainsText(table, "检验项目");
         assertContainsText(table, "判定");
+    }
+
+    @Test
+    void parseWord_whenFormCenterProcessInspectionDocxProvided_readsSingleVisibleFormTable() throws Exception {
+        assertTrue(Files.exists(FORM_CENTER_PROCESS_INSPECTION_DOCX_SAMPLE),
+                "specified process inspection docx fixture is required for unified form import verification");
+        byte[] bytes = Files.readAllBytes(FORM_CENTER_PROCESS_INSPECTION_DOCX_SAMPLE);
+
+        List<MesProBatchRecordParsedTable> tables = parser.parseWord(
+                bytes, FORM_CENTER_PROCESS_INSPECTION_DOCX_SAMPLE.getFileName().toString());
+
+        assertEquals(1, tables.size(), "single-page form docx should enter the unified list as one form");
+        MesProBatchRecordParsedTable table = tables.get(0);
+        assertFalse(table.getTableTitle().isBlank());
+        assertContainsText(table.getDocumentFrame().getHeaderRows(), "过程检验记录");
+        assertTrue(table.getRowCount() >= 40, "process inspection form should keep its body rows");
+        assertTrue(table.getColumnCount() >= 18, "process inspection form should keep its inspection grid");
+        assertContainsText(table, "生产批号");
+        assertContainsText(table, "气密性检测工装：________");
     }
 
     @Test

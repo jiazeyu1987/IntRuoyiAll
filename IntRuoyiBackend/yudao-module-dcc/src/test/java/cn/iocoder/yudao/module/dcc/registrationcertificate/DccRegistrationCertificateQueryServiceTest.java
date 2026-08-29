@@ -141,7 +141,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .thenReturn(List.of(owner(10L, "Owner A")));
 
         DccRegistrationCertificateDetail detail = queryService.getDetail(
-                1L, 99L, visible.certificateId(), context("REQ-DETAIL-FILE-ID"));
+                1L, 99L, visible.certificateId(), null, context("REQ-DETAIL-FILE-ID"));
 
         assertEquals(visible.registrationFileId(), detail.getRegistrationFileId(),
                 "detail must return the formal business-file id selected by the query mapper");
@@ -197,7 +197,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                         .pageNo(1).pageSize(10).certificateNo("CERT-REMINDER").build(),
                 context("REQ-REMINDER-PAGE"));
         DccRegistrationCertificateDetail detail = queryService.getDetail(
-                1L, 99L, visible.certificateId(), context("REQ-REMINDER-DETAIL"));
+                1L, 99L, visible.certificateId(), null, context("REQ-REMINDER-DETAIL"));
 
         assertEquals("LIGHT", page.getList().get(0).getReminderColor());
         assertEquals("T_8", page.getList().get(0).getVisualState());
@@ -254,7 +254,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
 
         ServiceException error = assertThrows(ServiceException.class,
-                () -> queryService.getDetail(1L, 99L, hidden.certificateId(), context("REQ-HIDDEN-001")));
+                () -> queryService.getDetail(1L, 99L, hidden.certificateId(), null, context("REQ-HIDDEN-001")));
 
         assertEquals(REGISTRATION_CERTIFICATE_NOT_EXISTS.getCode(), error.getCode());
         DccRegistrationCertificateAuditDO audit = auditMapper.selectByTenantIdAndEventKey(
@@ -291,12 +291,48 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .map(java.lang.reflect.Field::getName)
                 .collect(Collectors.toSet());
         assertEquals(Set.of("certificateId", "versionId", "ownerCompanyId", "ownerCompanyName",
-                "productMasterId", "productName", "projectCodeId",
+                "productMasterId", "productName", "projectCodeId", "projectCode",
                 "certificateNo", "versionNo", "expiryDate", "status"), fields);
         assertFalse(fields.contains("registrantName"));
         assertFalse(fields.contains("productionAddress"));
         assertFalse(fields.contains("fileId"));
         assertFalse(fields.contains("previewUrl"));
+    }
+
+    @Test
+    void oldIndexAppliesFirstObtainedEffectiveAndExpiryDateRangeFilters() {
+        FormalFixture visible = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-OLD-DATE-VISIBLE", true, 20L);
+        FormalFixture outside = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-OLD-DATE-OUTSIDE", true, 20L);
+        assertEquals(1, jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate
+                   SET first_obtained_date = ?
+                 WHERE tenant_id = 1 AND id = ?
+                """, LocalDate.of(2025, 1, 1), outside.certificateId()));
+        assertEquals(1, jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_version
+                   SET effective_date = ?, expiry_date = ?
+                 WHERE tenant_id = 1 AND id = ?
+                """, LocalDate.of(2027, 9, 1), LocalDate.of(2031, 9, 1), outside.versionId()));
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+        DccRegistrationCertificatePageQuery query = DccRegistrationCertificatePageQuery.builder()
+                .pageNo(1).pageSize(10)
+                .firstObtainedStart(LocalDate.of(2026, 1, 1))
+                .firstObtainedEnd(LocalDate.of(2026, 1, 1))
+                .effectiveStart(LocalDate.of(2026, 9, 1))
+                .effectiveEnd(LocalDate.of(2026, 9, 1))
+                .expiryStart(LocalDate.of(2031, 9, 1))
+                .expiryEnd(LocalDate.of(2031, 9, 1))
+                .build();
+
+        PageResult<DccRegistrationCertificateOldIndexItem> page = queryService.getOldIndexPage(
+                1L, 99L, query, context("REQ-OLD-DATE-FILTER"));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(List.of(visible.certificateId()), page.getList().stream()
+                .map(DccRegistrationCertificateOldIndexItem::getCertificateId).toList());
+        assertEquals(1L, queryMapper.countOldIndex(1L, List.of(10L), query));
     }
 
     @Test
@@ -349,7 +385,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .thenReturn(List.of(owner(10L, "Owner A")));
 
         ServiceException error = assertThrows(ServiceException.class,
-                () -> queryService.getDetail(1L, 99L, old.certificateId(), context("REQ-OLD-EXPIRED")));
+                () -> queryService.getDetail(1L, 99L, old.certificateId(), null, context("REQ-OLD-EXPIRED")));
 
         assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED.getCode(), error.getCode());
     }
@@ -364,10 +400,32 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .thenReturn(List.of(owner(10L, "Owner A")));
 
         DccRegistrationCertificateDetail detail = queryService.getDetail(
-                1L, 99L, old.certificateId(), context("REQ-OLD-GRANTED"));
+                1L, 99L, old.certificateId(), null, context("REQ-OLD-GRANTED"));
 
         assertEquals(old.certificateId(), detail.getCertificateId());
         assertEquals("OLD", detail.getStatus());
+    }
+
+    @Test
+    void detailReturnsRequestedOldVersionWhenVersionIdIsProvided() {
+        FormalFixture current = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-CURRENT-WITH-OLD", true, 20L);
+        FormalFixture old = seedOldVersionOnCertificate(current, "CERT-OLD-SPECIFIC-VERSION");
+        seedOldViewGrant(current.certificateId(), LocalDateTime.of(2026, 8, 19, 8, 0),
+                LocalDateTime.of(2100, 1, 1, 0, 0));
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        DccRegistrationCertificateDetail defaultDetail = queryService.getDetail(
+                1L, 99L, current.certificateId(), null, context("REQ-DETAIL-DEFAULT-CURRENT"));
+        DccRegistrationCertificateDetail oldDetail = queryService.getDetail(
+                1L, 99L, current.certificateId(), old.versionId(), context("REQ-DETAIL-SPECIFIC-OLD"));
+
+        assertEquals(current.versionId(), defaultDetail.getVersionId());
+        assertEquals("CURRENT", defaultDetail.getStatus());
+        assertEquals(old.versionId(), oldDetail.getVersionId());
+        assertEquals("OLD", oldDetail.getStatus());
+        assertEquals("CERT-OLD-SPECIFIC-VERSION", oldDetail.getCertificateNo());
     }
 
     @Test
@@ -391,11 +449,11 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .thenReturn(List.of(owner(10L, "Owner A")));
 
         DccRegistrationCertificateDetail first = assertDoesNotThrow(() -> queryService.getDetail(
-                1L, 99L, visible.certificateId(), context("REQ-DETAIL-DUP")));
+                1L, 99L, visible.certificateId(), null, context("REQ-DETAIL-DUP")));
         assertEquals(visible.certificateId(), first.getCertificateId());
 
         ServiceException duplicateAudit = assertThrows(ServiceException.class,
-                () -> queryService.getDetail(1L, 99L, visible.certificateId(), context("REQ-DETAIL-DUP")));
+                () -> queryService.getDetail(1L, 99L, visible.certificateId(), null, context("REQ-DETAIL-DUP")));
         assertEquals(1_080_000_219, duplicateAudit.getCode());
     }
 
@@ -532,6 +590,52 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                  WHERE tenant_id = 1 AND id = ?
                 """, version.getId(), certificateId));
         return new FormalFixture(certificateId, version.getId(), snapshot.getId(), null);
+    }
+
+    private FormalFixture seedOldVersionOnCertificate(FormalFixture current, String certificateNo) {
+        DccRegistrationCertificateVersionDO version = DccRegistrationCertificateVersionDO.builder()
+                .certificateId(current.certificateId())
+                .versionNo(2)
+                .versionType("RENEWAL_CERTIFICATE")
+                .certificateNo(certificateNo)
+                .approvalDate(LocalDate.of(2021, 8, 25))
+                .effectiveDate(LocalDate.of(2021, 8, 25))
+                .expiryDate(LocalDate.of(2026, 8, 25))
+                .classification("II")
+                .remark("Old remark " + certificateNo)
+                .categoryChanged(false)
+                .status("OLD")
+                .baseSnapshotId(current.snapshotId())
+                .formalizedAt(java.time.LocalDateTime.of(2021, 8, 25, 9, 0))
+                .formalizedBy(99L)
+                .build();
+        version.setTenantId(1L);
+        assertEquals(1, versionMapper.insert(version));
+
+        DccRegistrationCertificateSnapshotDO snapshot = DccRegistrationCertificateSnapshotDO.builder()
+                .versionId(version.getId())
+                .revisionNo(1)
+                .productName("Product " + certificateNo)
+                .registrantName("Sensitive Registrant")
+                .modelSpecification("Sensitive Model")
+                .structureComposition("Sensitive Structure")
+                .intendedUse("Sensitive Use")
+                .technicalRequirements("Sensitive Requirement")
+                .residenceAddress("Sensitive Residence")
+                .productionAddress("Sensitive Production")
+                .entrustedProduction(true)
+                .selfProduction(false)
+                .entrustedEnterprisesJson("[{\"enterpriseId\":30,\"enterpriseName\":\"Factory A\"}]")
+                .effectiveAt(java.time.LocalDateTime.of(2021, 8, 25, 0, 0))
+                .build();
+        snapshot.setTenantId(1L);
+        assertEquals(1, snapshotMapper.insert(snapshot));
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_snapshot_entrusted
+                    (snapshot_id, enterprise_id, enterprise_name_snapshot, sort_order, tenant_id, deleted)
+                VALUES (?, ?, ?, ?, ?, 0)
+                """, snapshot.getId(), 30L, "Factory A", 1, 1L));
+        return new FormalFixture(current.certificateId(), version.getId(), snapshot.getId(), null);
     }
 
     private void seedProjectCode(Long tenantId, Long projectCodeId) {

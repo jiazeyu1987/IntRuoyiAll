@@ -130,6 +130,28 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     }
 
     @Test
+    void submitDownloadRequestAcceptsSpecifiedOldCertificateAndChangeApprovalFiles() {
+        FormalFixture current = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND");
+        Long oldVersionId = seedAdditionalVersion(current.certificateId(), 2, "CERT-ACCESS-OLD", "OLD");
+        Long oldFileId = seedBusinessFile("VERSION", oldVersionId, "REGISTRATION_CERTIFICATE", "old.pdf");
+        Long changeId = seedAppliedChange(current.certificateId(), current.versionId());
+        Long changeFileId = seedBusinessFile("CHANGE", changeId, "CHANGE_APPROVAL", "change.pdf");
+        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
+                DccProjectCodeStatusConstants.ENABLE));
+
+        DccRegistrationCertificateAccessRequestResult result = service.submit(1L, 99L, "download-old-change",
+                download(current.certificateId(), 40L, List.of(oldFileId, changeFileId)));
+
+        assertEquals(List.of(oldFileId, changeFileId), result.businessFileIds());
+        assertEquals(2, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file "
+                + "WHERE tenant_id = 1 AND request_id = ? AND download_requested = TRUE AND status = 'REQUESTED'",
+                result.requestId()));
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request_file "
+                + "WHERE tenant_id = 1 AND request_id = ? AND business_file_id = ? AND file_kind = 'CHANGE_APPROVAL'",
+                result.requestId(), changeFileId));
+    }
+
+    @Test
     void viewOldCertificateRequestDoesNotRequireProjectOrFileRows() {
         FormalFixture fixture = seedFormalCertificate("EXPIRED_UNRENEWED", "OLD", "BOUND");
 
@@ -335,6 +357,60 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
         file.setTenantId(1L);
         assertEquals(1, registrationCertificateFileMapper.insert(file));
         return new FormalFixture(certificate.getId(), version.getId(), file.getId());
+    }
+
+    private Long seedAdditionalVersion(Long certificateId, int versionNo, String certificateNo, String status) {
+        DccRegistrationCertificateVersionDO version = DccRegistrationCertificateVersionDO.builder()
+                .certificateId(certificateId)
+                .versionNo(versionNo)
+                .versionType("RENEWAL_CERTIFICATE")
+                .certificateNo(certificateNo)
+                .approvalDate(LocalDate.of(2021, 2, 1))
+                .effectiveDate(LocalDate.of(2021, 3, 1))
+                .expiryDate(LocalDate.of(2026, 3, 1))
+                .classification("II")
+                .categoryChanged(false)
+                .status(status)
+                .build();
+        version.setTenantId(1L);
+        assertEquals(1, versionMapper.insert(version));
+        return version.getId();
+    }
+
+    private Long seedAppliedChange(Long certificateId, Long sourceVersionId) {
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_change
+                  (tenant_id, owner_company_id, certificate_id, source_version_id, source_snapshot_id,
+                   resulting_snapshot_id, event_id, approval_date, selected_change_types_json,
+                   selected_item_count, status, actor_id, applied_at)
+                VALUES (1, 10, ?, ?, 91001, 91002, 97001, ?, '[\"PRODUCT_NAME\"]', 1, 'APPLIED', 99, ?)
+                """, certificateId, sourceVersionId, LocalDate.of(2026, 8, 17),
+                java.time.LocalDateTime.of(2026, 8, 17, 9, 0)));
+        Long changeId = jdbcTemplate.queryForObject("""
+                SELECT id FROM dcc_registration_certificate_change
+                 WHERE tenant_id = 1 AND event_id = 97001
+                """, Long.class);
+        assertNotNull(changeId);
+        return changeId;
+    }
+
+    private Long seedBusinessFile(String ownerType, Long ownerId, String fileKind, String originalName) {
+        DccRegistrationCertificateFileDO file = DccRegistrationCertificateFileDO.builder()
+                .ownerType(ownerType)
+                .ownerId(ownerId)
+                .fileKind(fileKind)
+                .infraFileId(7_100L + Math.abs(System.nanoTime() % 1000L))
+                .originalName(originalName)
+                .mimeType("application/pdf")
+                .fileSize(128L)
+                .sha256("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+                .status("BOUND")
+                .boundAt(java.time.LocalDateTime.of(2026, 8, 17, 9, 5))
+                .boundBy(99L)
+                .build();
+        file.setTenantId(1L);
+        assertEquals(1, registrationCertificateFileMapper.insert(file));
+        return file.getId();
     }
 
     private DccProjectCodeDO projectCode(Long tenantId, Long productMasterId, String status) {

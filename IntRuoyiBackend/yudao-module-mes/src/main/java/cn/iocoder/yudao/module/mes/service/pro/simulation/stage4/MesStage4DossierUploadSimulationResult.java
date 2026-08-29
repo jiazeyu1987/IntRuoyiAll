@@ -11,10 +11,12 @@ import java.util.Map;
 public class MesStage4DossierUploadSimulationResult {
 
     private String simulationRunId;
+    private String inputMode;
     private String cleanedSimulationRunId;
     private String batchExecutionId;
     private String batchExecutionCode;
     private String detailPath;
+    private Map<String, Object> completeBatchExecutionSnapshot;
     private Map<String, Object> batchExecutionSnapshot;
     private Map<String, Object> batchExecutionDossierSnapshot;
     private boolean dossierReadyForRelease;

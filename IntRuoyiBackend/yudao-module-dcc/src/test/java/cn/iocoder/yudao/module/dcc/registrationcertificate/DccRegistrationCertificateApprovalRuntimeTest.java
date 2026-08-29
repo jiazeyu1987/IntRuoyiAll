@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.service.grant.DccRegi
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.upload.DccRegistrationCertificateUploadService;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.renewal.DccRegistrationCertificateRenewalService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +67,8 @@ class DccRegistrationCertificateApprovalRuntimeTest {
     @Mock
     private RoleApi roleApi;
     @Mock
+    private PermissionApi permissionApi;
+    @Mock
     private DccRegistrationCertificateBusinessClock businessClock;
     @Mock
     private DccRegistrationCertificateRenewalService renewalService;
@@ -78,7 +81,8 @@ class DccRegistrationCertificateApprovalRuntimeTest {
     void setUp() {
         service = new DccRegistrationCertificateApprovalService(
                 requestMapper, bindingMapper, grantMapper, grantService,
-                bpmProcessInstanceApi, companyScopeApi, roleApi, businessClock, renewalService, uploadService);
+                bpmProcessInstanceApi, companyScopeApi, roleApi, permissionApi,
+                businessClock, renewalService, uploadService);
         lenient().when(requestMapper.updateById(any(DccRegistrationCertificateAccessRequestDO.class))).thenReturn(1);
         lenient().when(bindingMapper.updateById(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
         lenient().when(grantMapper.updateById(any(DccRegistrationCertificateGrantDO.class))).thenReturn(1);

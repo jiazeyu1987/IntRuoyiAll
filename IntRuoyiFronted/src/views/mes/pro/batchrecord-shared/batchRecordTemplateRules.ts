@@ -10,6 +10,9 @@ export type TemplateRawCell = {
   text?: unknown
   value?: unknown
   merge?: unknown
+  fillForm?: Record<string, unknown>
+  edhrCellRule?: Record<string, unknown>
+  edhrSignature?: BatchRecordReportSignatureCellMarkerVO
 }
 
 export type TemplateRawRow = {
@@ -352,9 +355,18 @@ const resolveTemplateSimulationComponentKind = (
   marker?: BatchRecordReportSignatureCellMarkerVO
 ): TemplateSimulationComponentKind => {
   const rawComponent = String(rule.componentFlag || '').toLowerCase()
+  const compactComponent = rawComponent.replace(/[\s_-]+/g, '')
   const selectionMode = String(rule.constraints?.selectionMode || '').trim().toLowerCase()
   const options = cleanedSelectOptions(rule.constraints?.options)
-  if (marker?.enabled || rule.valueType === 'SIGNATURE' || rawComponent.includes('signature')) {
+  if (
+    marker?.enabled ||
+    rule.valueType === 'SIGNATURE' ||
+    rawComponent.includes('signature') ||
+    rawComponent.includes('sign') ||
+    rawComponent.includes('电子签名') ||
+    rawComponent.includes('签名') ||
+    rawComponent.includes('签字')
+  ) {
     return 'signature'
   }
   if (
@@ -362,6 +374,10 @@ const resolveTemplateSimulationComponentKind = (
     rawComponent.includes('upload-image') ||
     rawComponent.includes('upload-images') ||
     rawComponent.includes('attachment') ||
+    compactComponent.includes('uploadfile') ||
+    rawComponent.includes('附件') ||
+    rawComponent.includes('文件') ||
+    rawComponent.includes('图片') ||
     cleanedAttachmentRule(rule.attachmentRule)
   ) {
     return 'attachment'
@@ -370,7 +386,11 @@ const resolveTemplateSimulationComponentKind = (
     rawComponent.includes('radio-group') ||
     rawComponent.includes('radio') ||
     rawComponent.includes('option-group') ||
-    rawComponent.includes('single-choice')
+    rawComponent.includes('single-choice') ||
+    compactComponent.includes('radiogroup') ||
+    compactComponent.includes('optiongroup') ||
+    compactComponent.includes('singlechoice') ||
+    rawComponent.includes('单选')
   ) {
     return 'radio'
   }
@@ -392,15 +412,21 @@ const resolveTemplateSimulationComponentKind = (
   if (rawComponent.includes('textarea') || rawComponent.includes('multiline')) {
     return 'textarea'
   }
-  if (rawComponent.includes('number') || rawComponent.includes('digit') || rawComponent.includes('decimal')) {
+  if (
+    rawComponent.includes('number') ||
+    rawComponent.includes('digit') ||
+    rawComponent.includes('decimal') ||
+    rawComponent.includes('数字')
+  ) {
     return 'number'
   }
-  if (rawComponent.includes('datetime') || rawComponent.includes('date-time')) {
+  if (rawComponent.includes('datetime') || rawComponent.includes('date-time') || rawComponent.includes('日期时间')) {
     return 'datetime'
   }
-  if (rawComponent === 'date' || rawComponent.includes('date-picker')) {
+  if (rawComponent === 'date' || rawComponent.includes('date-picker') || rawComponent.includes('日期')) {
     return 'date'
   }
+  if (rawComponent.includes('时间')) return 'datetime'
   return templateSimulationComponentMap[rule.valueType] || 'text'
 }
 

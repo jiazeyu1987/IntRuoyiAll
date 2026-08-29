@@ -561,6 +561,7 @@ const adaptSameOriginDesignerEditRowHeight = async (loadToken: number) => {
       return
     }
     if (isDesignerEditCanvasPainted(frameWindow)) {
+      loading.value = false
       await delay(DESIGNER_EDIT_PAINT_STABLE_DELAY_MS)
       if (loadToken !== currentLoadToken.value) {
         return

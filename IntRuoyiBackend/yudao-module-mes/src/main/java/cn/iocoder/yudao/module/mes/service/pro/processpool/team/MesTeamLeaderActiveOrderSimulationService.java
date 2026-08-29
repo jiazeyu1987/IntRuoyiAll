@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolQuantityFragmentDO;
@@ -14,6 +15,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.qa.regulation.MesQaInspectionRegulationItemDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionPieceDetailMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
@@ -22,6 +24,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationItemMapper;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreateEventReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolCreatePqcInspectionReqDTO;
@@ -62,6 +66,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
 
     private static final String ACTIVE_STATUS_ACTIVE = "ACTIVE";
     private static final String PQC_INSPECTION_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
+    private static final String PRODUCTION_FEEDBACK_SOURCE_TYPE = "MES_PRO_FEEDBACK";
     private static final String SIMULATION_TEMPLATE_TYPE_PRODUCTION = "SIMULATED_PRODUCTION_SUBMIT";
     private static final String SIMULATION_TEMPLATE_TYPE_PQC = "SIMULATED_PQC_INSPECTION";
     private static final String SIMULATION_SOURCE_TYPE = "MES_ACTIVE_ORDER_SIMULATION";
@@ -78,6 +83,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
     private final MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
     private final MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper;
     private final MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper;
+    private final MesProFeedbackMapper feedbackMapper;
     private final MesProcessPoolEventService processPoolEventService;
     private final MesReportAllocationCommandService reportAllocationCommandService;
     private final MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService;
@@ -93,6 +99,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
             MesPqcInspectionTaskMapper pqcInspectionTaskMapper,
             MesQaInspectionRegulationItemMapper inspectionRegulationItemMapper,
             MesPqcInspectionPieceDetailMapper pqcPieceDetailMapper,
+            MesProFeedbackMapper feedbackMapper,
             MesProcessPoolEventService processPoolEventService,
             MesReportAllocationCommandService reportAllocationCommandService,
             MesPqcProcessInspectionAggregationService pqcProcessInspectionAggregationService,
@@ -105,6 +112,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         this.pqcInspectionTaskMapper = pqcInspectionTaskMapper;
         this.inspectionRegulationItemMapper = inspectionRegulationItemMapper;
         this.pqcPieceDetailMapper = pqcPieceDetailMapper;
+        this.feedbackMapper = feedbackMapper;
         this.processPoolEventService = processPoolEventService;
         this.reportAllocationCommandService = reportAllocationCommandService;
         this.pqcProcessInspectionAggregationService = pqcProcessInspectionAggregationService;
@@ -242,10 +250,10 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     simulationStage, simulationRunId);
             reportAllocationCommandService.createInitialAllocation(eventId, activeOrder.getId(), remainingQuantity);
             markSimulationAllocations(eventId, simulationStage, simulationRunId);
-            Long reviewId = insertApprovedReview(eventId, leaderUserId,
+            MesProcessPoolSubmissionReviewDO review = insertApprovedReview(eventId, leaderUserId,
                     MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, "模拟生产组长复核",
                     simulationStage, simulationRunId);
-            List<MesProcessPoolReportAllocationDO> confirmedAllocations = linkAllocationsToReview(eventId, reviewId);
+            List<MesProcessPoolReportAllocationDO> confirmedAllocations = linkAllocationsToReview(eventId, review);
             orderProcessCompletionService.reconcileAffectedAllocations(simulatedProductionEvent(
                     eventId, activeOrder, snapshot, leaderUserId), confirmedAllocations);
             submitCount++;
@@ -285,11 +293,14 @@ public class MesTeamLeaderActiveOrderSimulationService {
         payload.put("routeProcessId", snapshot.getRouteProcessId());
         payload.put("processId", snapshot.getProcessId());
         payload.put("outputQuantity", quantity);
+        payload.put("lossDetails", List.of());
         payload.put("source", "active-order-simulate-completion");
         putSimulationMetadata(payload, simulationStage, simulationRunId);
         if (simulationRunId != null && !simulationRunId.isBlank()) {
             idempotencyKey = idempotencyKey + "-" + simulationRunId;
         }
+        Long feedbackId = createZeroLossProductionFeedback(activeOrder, snapshot, quantity, leaderUserId, now,
+                simulationStage, simulationRunId);
         return processPoolEventService.createEvent(MesProcessPoolCreateEventReqDTO.builder()
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
                 .eventIdempotencyKey(idempotencyKey)
@@ -301,8 +312,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .deviceAccountId(leaderUserId)
                 .workstationId(leaderUserId)
                 .templateType(SIMULATION_TEMPLATE_TYPE_PRODUCTION)
-                .feedbackSourceType(SIMULATION_SOURCE_TYPE)
-                .feedbackSourceId(activeOrder.getId())
+                .feedbackSourceType(PRODUCTION_FEEDBACK_SOURCE_TYPE)
+                .feedbackSourceId(feedbackId)
                 .rawPayload(JsonUtils.toJsonString(payload))
                 .clientSubmitTime(now)
                 .signatureId(nextSimulationSignatureId())
@@ -323,6 +334,55 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .build());
     }
 
+    private Long createZeroLossProductionFeedback(MesProcessPoolActiveOrderDO activeOrder,
+                                                  MesProcessPoolActiveOrderProcessSnapshotDO snapshot,
+                                                  BigDecimal quantity,
+                                                  Long leaderUserId,
+                                                  LocalDateTime feedbackTime,
+                                                  String simulationStage,
+                                                  String simulationRunId) {
+        MesProFeedbackDO feedback = MesProFeedbackDO.builder()
+                .code(feedbackCode(activeOrder, snapshot))
+                .type(MesProFeedbackTypeEnum.SELF.getType())
+                .channel("ACTIVE_ORDER_SIMULATION")
+                .feedbackTime(feedbackTime)
+                .workstationId(leaderUserId)
+                .routeId(activeOrder.getRouteId())
+                .processId(snapshot.getProcessId())
+                .workOrderId(activeOrder.getWorkOrderId())
+                .scheduledQuantity(quantity)
+                .feedbackQuantity(quantity)
+                .qualifiedQuantity(quantity)
+                .unqualifiedQuantity(BigDecimal.ZERO)
+                .uncheckQuantity(BigDecimal.ZERO)
+                .laborScrapQuantity(BigDecimal.ZERO)
+                .materialScrapQuantity(BigDecimal.ZERO)
+                .otherScrapQuantity(BigDecimal.ZERO)
+                .feedbackUserId(leaderUserId)
+                .approveUserId(leaderUserId)
+                .status(MesProFeedbackStatusEnum.FINISHED.getStatus())
+                .remark(feedbackRemark(leaderUserId, simulationStage, simulationRunId))
+                .build();
+        if (feedbackMapper.insert(feedback) <= 0 || feedback.getId() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionFeedback");
+        }
+        return feedback.getId();
+    }
+
+    private String feedbackCode(MesProcessPoolActiveOrderDO activeOrder,
+                                MesProcessPoolActiveOrderProcessSnapshotDO snapshot) {
+        return "S1-FB-" + activeOrder.getId() + "-" + snapshot.getRouteProcessId();
+    }
+
+    private String feedbackRemark(Long leaderUserId, String simulationStage, String simulationRunId) {
+        if (simulationStage == null || simulationStage.isBlank()
+                || simulationRunId == null || simulationRunId.isBlank()) {
+            return "active-order-simulate-completion";
+        }
+        return "[" + simulationStage + "_SIMULATION][simulationRunId=" + simulationRunId
+                + "][actorUserId=" + leaderUserId + "]";
+    }
+
     private void markSimulationAllocations(Long eventId, String simulationStage, String simulationRunId) {
         if (simulationStage == null || simulationStage.isBlank()
                 || simulationRunId == null || simulationRunId.isBlank()) {
@@ -337,18 +397,30 @@ public class MesTeamLeaderActiveOrderSimulationService {
         }
     }
 
-    private List<MesProcessPoolReportAllocationDO> linkAllocationsToReview(Long eventId, Long reviewId) {
+    private List<MesProcessPoolReportAllocationDO> linkAllocationsToReview(Long eventId,
+                                                                           MesProcessPoolSubmissionReviewDO review) {
+        if (review == null || review.getId() == null || review.getReviewedAt() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionAllocation.review");
+        }
         List<MesProcessPoolReportAllocationDO> allocations =
                 reportAllocationMapper.selectListByEventIdForUpdate(eventId);
         if (allocations.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionAllocation.reviewId");
         }
         for (MesProcessPoolReportAllocationDO allocation : allocations) {
-            if (allocation.getReviewId() != null && !Objects.equals(allocation.getReviewId(), reviewId)) {
+            if (allocation.getReviewId() != null && !Objects.equals(allocation.getReviewId(), review.getId())) {
                 throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionAllocation.reviewId");
             }
+            boolean changed = false;
             if (allocation.getReviewId() == null) {
-                allocation.setReviewId(reviewId);
+                allocation.setReviewId(review.getId());
+                changed = true;
+            }
+            if (!Objects.equals(allocation.getConfirmedAt(), review.getReviewedAt())) {
+                allocation.setConfirmedAt(review.getReviewedAt());
+                changed = true;
+            }
+            if (changed) {
                 reportAllocationMapper.updateById(allocation);
             }
         }
@@ -376,10 +448,10 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                         "活跃订单 PQC 任务状态不可模拟，activeOrderId=" + activeOrder.getId());
             }
-            Long reviewId = insertApprovedReview(eventId, leaderUserId,
+            MesProcessPoolSubmissionReviewDO review = insertApprovedReview(eventId, leaderUserId,
                     MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, "模拟PQC组长复核",
                     simulationStage, simulationRunId);
-            pqcProcessInspectionAggregationService.aggregateApprovedPqcSubmission(eventId, reviewId);
+            pqcProcessInspectionAggregationService.aggregateApprovedPqcSubmission(eventId, review.getId());
             reviewCount++;
         }
         BigDecimal inspectionProgressPercent = calculateInspectionProgressPercent(activeOrder, formalIdentitySet,
@@ -548,13 +620,14 @@ public class MesTeamLeaderActiveOrderSimulationService {
         return JsonUtils.toJsonString(payload);
     }
 
-    private Long insertApprovedReview(Long eventId, Long leaderUserId, String leaderType, String remark,
-                                      String simulationStage, String simulationRunId) {
+    private MesProcessPoolSubmissionReviewDO insertApprovedReview(Long eventId, Long leaderUserId, String leaderType,
+                                                                  String remark, String simulationStage,
+                                                                  String simulationRunId) {
         MesProcessPoolSubmissionReviewDO existing = submissionReviewMapper.selectLatestByEventIdForUpdate(eventId);
         if (existing != null) {
             if (MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(existing.getReviewStatus())
                     && Objects.equals(leaderType, existing.getLeaderType())) {
-                return existing.getId();
+                return existing;
             }
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "submissionReview.status");
         }
@@ -575,7 +648,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 .simulationRunId(simulationRunId)
                 .build();
         submissionReviewMapper.insert(review);
-        return review.getId();
+        return review;
     }
 
     private ProgressSnapshot calculateProgress(MesProcessPoolActiveOrderDO activeOrder,
