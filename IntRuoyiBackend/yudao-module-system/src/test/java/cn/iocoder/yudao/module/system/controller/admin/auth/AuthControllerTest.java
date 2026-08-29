@@ -1,8 +1,11 @@
 package cn.iocoder.yudao.module.system.controller.admin.auth;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVoucherPrintTicketValidateReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthInvoiceVoucherPrintAssistantStatusRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthPermissionInfoRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.MenuDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
@@ -10,30 +13,41 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.enums.permission.MenuTypeEnum;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
 import cn.iocoder.yudao.module.system.service.auth.AdminAuthService;
+import cn.iocoder.yudao.module.system.service.invoicevoucherprintassistant.InvoiceVoucherPrintAssistantService;
 import cn.iocoder.yudao.module.system.service.permission.MenuService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
 import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.social.SocialClientService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static cn.hutool.core.collection.ListUtil.toList;
 import static cn.iocoder.yudao.framework.common.util.collection.SetUtils.asSet;
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomPojo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AuthControllerTest extends BaseMockitoUnitTest {
@@ -53,6 +67,12 @@ class AuthControllerTest extends BaseMockitoUnitTest {
     private PermissionService permissionService;
     @Mock
     private SocialClientService socialClientService;
+    @Mock
+    private StringRedisTemplate stringRedisTemplate;
+    @Mock
+    private InvoiceVoucherPrintAssistantService invoiceVoucherPrintAssistantService;
+    @Mock
+    private ValueOperations<String, String> valueOperations;
 
     @Test
     void getPermissionInfoHidesSrmMenusAndPermissionsWhenUserLacksSrmAdminRole() {
@@ -356,6 +376,202 @@ class AuthControllerTest extends BaseMockitoUnitTest {
             assertTrue(respVO.getPermissions().contains("mes:pro-edhr-batch-execution:update"));
             assertFalse(respVO.getPermissions().contains("mes:pro-feedback:manage"));
         }
+    }
+
+    @Test
+    void getPermissionInfoHidesInvoiceVoucherPrintMenuWhenSuperAdminLacksFinancePrintRole() {
+        Long loginUserId = 202L;
+        AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("tenantAdmin");
+        RoleDO superAdminRole = randomPojo(RoleDO.class)
+                .setId(1L)
+                .setCode(RoleCodeEnum.SUPER_ADMIN.getCode())
+                .setStatus(CommonStatusEnum.ENABLE.getStatus());
+        MenuDO erpRoot = menu(2563L, 0L, "ERP 系统", "/erp", null, MenuTypeEnum.DIR.getType());
+        MenuDO financeRoot = menu(2645L, 2563L, "财务管理", "finance", null, MenuTypeEnum.DIR.getType());
+        MenuDO invoicePrint = menu(6034L, 2645L, "发票凭证打印", "invoice-voucher-print",
+                "erp:invoice-voucher-print:query", MenuTypeEnum.MENU.getType())
+                .setComponent("erp/finance/invoice-voucher-print/index")
+                .setComponentName("ErpInvoiceVoucherPrint");
+
+        when(userService.getUser(eq(loginUserId))).thenReturn(user);
+        when(permissionService.getUserRoleIdListByUserId(eq(loginUserId))).thenReturn(Set.of(1L));
+        when(roleService.getRoleList(eq(Set.of(1L)))).thenReturn(toList(superAdminRole));
+        when(permissionService.getRoleMenuListByRoleId(eq(Set.of(1L)))).thenReturn(asSet(2563L, 2645L, 6034L));
+        when(menuService.getMenuList(anyCollection())).thenAnswer(invocation -> {
+            Collection<Long> ids = invocation.getArgument(0);
+            return toList(erpRoot, financeRoot, invoicePrint).stream()
+                    .filter(menu -> ids.contains(menu.getId()))
+                    .toList();
+        });
+        when(menuService.getMenu(eq(2563L))).thenReturn(erpRoot);
+        when(menuService.getMenu(eq(2645L))).thenReturn(financeRoot);
+        when(menuService.filterDisableMenus(anyList())).thenAnswer(invocation ->
+                keepMenusWithPresentParents(invocation.getArgument(0)));
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(loginUserId);
+
+            AuthPermissionInfoRespVO respVO = authController.getPermissionInfo().getData();
+
+            assertFalse(respVO.getPermissions().contains("erp:invoice-voucher-print:query"));
+            assertFalse(containsMenuPath(respVO.getMenus(), "invoice-voucher-print"));
+        }
+    }
+
+    @Test
+    void getPermissionInfoKeepsInvoiceVoucherPrintMenuWhenUserHasFinancePrintRole() {
+        Long loginUserId = 203L;
+        AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("financePrinter");
+        RoleDO financePrintRole = randomPojo(RoleDO.class)
+                .setId(6034L)
+                .setCode("finance_invoice_voucher_print")
+                .setStatus(CommonStatusEnum.ENABLE.getStatus());
+        MenuDO erpRoot = menu(2563L, 0L, "ERP 系统", "/erp", null, MenuTypeEnum.DIR.getType());
+        MenuDO financeRoot = menu(2645L, 2563L, "财务管理", "finance", null, MenuTypeEnum.DIR.getType());
+        MenuDO invoicePrint = menu(6034L, 2645L, "发票凭证打印", "invoice-voucher-print",
+                "erp:invoice-voucher-print:query", MenuTypeEnum.MENU.getType())
+                .setComponent("erp/finance/invoice-voucher-print/index")
+                .setComponentName("ErpInvoiceVoucherPrint");
+
+        when(userService.getUser(eq(loginUserId))).thenReturn(user);
+        when(permissionService.getUserRoleIdListByUserId(eq(loginUserId))).thenReturn(Set.of(6034L));
+        when(roleService.getRoleList(eq(Set.of(6034L)))).thenReturn(toList(financePrintRole));
+        when(permissionService.getRoleMenuListByRoleId(eq(Set.of(6034L)))).thenReturn(asSet(2563L, 2645L, 6034L));
+        when(menuService.getMenuList(anyCollection())).thenAnswer(invocation -> {
+            Collection<Long> ids = invocation.getArgument(0);
+            return toList(erpRoot, financeRoot, invoicePrint).stream()
+                    .filter(menu -> ids.contains(menu.getId()))
+                    .toList();
+        });
+        when(menuService.getMenu(eq(2563L))).thenReturn(erpRoot);
+        when(menuService.getMenu(eq(2645L))).thenReturn(financeRoot);
+        when(menuService.filterDisableMenus(anyList())).thenAnswer(invocation ->
+                keepMenusWithPresentParents(invocation.getArgument(0)));
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(loginUserId);
+
+            AuthPermissionInfoRespVO respVO = authController.getPermissionInfo().getData();
+
+            assertTrue(respVO.getPermissions().contains("erp:invoice-voucher-print:query"));
+            assertTrue(containsMenuPath(respVO.getMenus(), "invoice-voucher-print"));
+        }
+    }
+
+    @Test
+    void createInvoiceVoucherPrintTicketStoresShortLivedTicketWhenUserHasFinancePrintRole() {
+        Long loginUserId = 203L;
+        AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("financePrinter");
+        RoleDO financePrintRole = randomPojo(RoleDO.class)
+                .setId(6034L)
+                .setCode("finance_invoice_voucher_print")
+                .setStatus(CommonStatusEnum.ENABLE.getStatus());
+
+        when(userService.getUser(eq(loginUserId))).thenReturn(user);
+        when(permissionService.getUserRoleIdListByUserId(eq(loginUserId))).thenReturn(Set.of(6034L));
+        when(roleService.getRoleList(eq(Set.of(6034L)))).thenReturn(toList(financePrintRole));
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(loginUserId);
+
+            var respVO = authController.createInvoiceVoucherPrintTicket().getData();
+
+            assertNotNull(respVO.getTicket());
+            assertTrue(respVO.getExpiresTime().isAfter(LocalDateTime.now()));
+            ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> valueCaptor = ArgumentCaptor.forClass(String.class);
+            verify(valueOperations).set(keyCaptor.capture(), valueCaptor.capture(), eq(120L), eq(TimeUnit.SECONDS));
+            assertTrue(keyCaptor.getValue().startsWith("invoice_voucher_print_ticket:"));
+            assertTrue(valueCaptor.getValue().contains("erp:invoice-voucher-print:query"));
+        }
+    }
+
+    @Test
+    void createInvoiceVoucherPrintTicketRejectsUserWithoutFinancePrintRole() {
+        Long loginUserId = 204L;
+        AdminUserDO user = randomPojo(AdminUserDO.class).setId(loginUserId).setUsername("aoteman");
+        RoleDO normalRole = randomPojo(RoleDO.class)
+                .setId(2L)
+                .setCode("normal_user")
+                .setStatus(CommonStatusEnum.ENABLE.getStatus());
+
+        when(userService.getUser(eq(loginUserId))).thenReturn(user);
+        when(permissionService.getUserRoleIdListByUserId(eq(loginUserId))).thenReturn(Set.of(2L));
+        when(roleService.getRoleList(eq(Set.of(2L)))).thenReturn(toList(normalRole));
+
+        try (MockedStatic<SecurityFrameworkUtils> mockedSecurity = mockStatic(SecurityFrameworkUtils.class)) {
+            mockedSecurity.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(loginUserId);
+
+            ServiceException exception = assertThrows(ServiceException.class,
+                    () -> authController.createInvoiceVoucherPrintTicket());
+
+            assertEquals(403, exception.getCode());
+            verify(stringRedisTemplate, never()).opsForValue();
+        }
+    }
+
+    @Test
+    void validateInvoiceVoucherPrintTicketConsumesValidTicket() {
+        String ticket = "valid-ticket";
+        String redisKey = "invoice_voucher_print_ticket:" + ticket;
+        LocalDateTime expiresTime = LocalDateTime.now().plusMinutes(1);
+        AuthInvoiceVoucherPrintTicketValidateReqVO reqVO = new AuthInvoiceVoucherPrintTicketValidateReqVO();
+        reqVO.setTicket(ticket);
+
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(eq(redisKey))).thenReturn("203|erp:invoice-voucher-print:query|" + expiresTime);
+
+        var respVO = authController.validateInvoiceVoucherPrintTicket(reqVO).getData();
+
+        assertTrue(respVO.getValid());
+        assertEquals(203L, respVO.getUserId());
+        assertEquals("erp:invoice-voucher-print:query", respVO.getPermission());
+        verify(stringRedisTemplate).delete(eq(redisKey));
+    }
+
+    @Test
+    void validateInvoiceVoucherPrintTicketRejectsMissingTicket() {
+        AuthInvoiceVoucherPrintTicketValidateReqVO reqVO = new AuthInvoiceVoucherPrintTicketValidateReqVO();
+        reqVO.setTicket("missing-ticket");
+
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(eq("invoice_voucher_print_ticket:missing-ticket"))).thenReturn(null);
+
+        var respVO = authController.validateInvoiceVoucherPrintTicket(reqVO).getData();
+
+        assertFalse(respVO.getValid());
+        verify(stringRedisTemplate, never()).delete(anyString());
+    }
+
+    @Test
+    void getInvoiceVoucherPrintAssistantStatusReturnsServiceStatus() {
+        AuthInvoiceVoucherPrintAssistantStatusRespVO status = AuthInvoiceVoucherPrintAssistantStatusRespVO.builder()
+                .running(false)
+                .launchable(true)
+                .message("发票凭证打印助手尚未启动，请点击启动助手。")
+                .build();
+        when(invoiceVoucherPrintAssistantService.getStatus()).thenReturn(status);
+
+        AuthInvoiceVoucherPrintAssistantStatusRespVO respVO = authController.getInvoiceVoucherPrintAssistantStatus().getData();
+
+        assertEquals(status, respVO);
+        verify(invoiceVoucherPrintAssistantService).getStatus();
+    }
+
+    @Test
+    void startInvoiceVoucherPrintAssistantReturnsServiceStatus() {
+        AuthInvoiceVoucherPrintAssistantStatusRespVO status = AuthInvoiceVoucherPrintAssistantStatusRespVO.builder()
+                .running(true)
+                .launchable(true)
+                .message("发票凭证打印助手已启动")
+                .build();
+        when(invoiceVoucherPrintAssistantService.start()).thenReturn(status);
+
+        AuthInvoiceVoucherPrintAssistantStatusRespVO respVO = authController.startInvoiceVoucherPrintAssistant().getData();
+
+        assertEquals(status, respVO);
+        verify(invoiceVoucherPrintAssistantService).start();
     }
 
     private static boolean containsMenuPath(List<AuthPermissionInfoRespVO.MenuVO> menus, String path) {

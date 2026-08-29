@@ -65,6 +65,90 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invoice voucher print menu 6034 route/component mismatch';
   END IF;
 
+  DROP TEMPORARY TABLE IF EXISTS `tmp_erp_finance_invoice_voucher_print_package_scope`;
+  CREATE TEMPORARY TABLE `tmp_erp_finance_invoice_voucher_print_package_scope` (
+    `package_id` bigint NOT NULL PRIMARY KEY
+  ) ENGINE=Memory;
+
+  INSERT IGNORE INTO `tmp_erp_finance_invoice_voucher_print_package_scope` (`package_id`)
+  SELECT `package`.`id`
+    FROM `system_tenant_package` AS `package`
+   WHERE `package`.`deleted` = b'0'
+     AND JSON_VALID(`package`.`menu_ids`)
+     AND (
+       JSON_CONTAINS(`package`.`menu_ids`, CAST('2563' AS JSON), '$')
+       OR JSON_CONTAINS(`package`.`menu_ids`, CAST('2645' AS JSON), '$')
+       OR JSON_CONTAINS(`package`.`menu_ids`, CAST('6034' AS JSON), '$')
+     );
+
+  IF (SELECT COUNT(*) FROM `tmp_erp_finance_invoice_voucher_print_package_scope`) = 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Missing invoice voucher print tenant package menu merge rows';
+  END IF;
+
+  DROP TEMPORARY TABLE IF EXISTS `tmp_erp_finance_invoice_voucher_print_package_menu_ids`;
+  CREATE TEMPORARY TABLE `tmp_erp_finance_invoice_voucher_print_package_menu_ids` (
+    `package_id` bigint NOT NULL,
+    `menu_id` bigint NOT NULL,
+    PRIMARY KEY (`package_id`, `menu_id`)
+  ) ENGINE=Memory;
+
+  INSERT IGNORE INTO `tmp_erp_finance_invoice_voucher_print_package_menu_ids` (`package_id`, `menu_id`)
+  SELECT
+    `package`.`id`,
+    CAST(`existing_menu`.`menu_id` AS UNSIGNED)
+    FROM `system_tenant_package` AS `package`
+    JOIN `tmp_erp_finance_invoice_voucher_print_package_scope` AS `scope`
+      ON `scope`.`package_id` = `package`.`id`
+    JOIN JSON_TABLE(
+      `package`.`menu_ids`,
+      '$[*]' COLUMNS (`menu_id` bigint PATH '$')
+    ) AS `existing_menu`
+   WHERE `package`.`deleted` = b'0'
+     AND JSON_VALID(`package`.`menu_ids`);
+
+  INSERT IGNORE INTO `tmp_erp_finance_invoice_voucher_print_package_menu_ids` (`package_id`, `menu_id`)
+  SELECT
+    `scope`.`package_id`,
+    `required_menu`.`menu_id`
+    FROM `tmp_erp_finance_invoice_voucher_print_package_scope` AS `scope`
+    JOIN (
+      SELECT 2563 AS `menu_id`
+      UNION ALL SELECT 2645 AS `menu_id`
+      UNION ALL SELECT 6034 AS `menu_id`
+    ) AS `required_menu`;
+
+  UPDATE `system_tenant_package` AS `package`
+    JOIN (
+      SELECT DISTINCT
+        `package_id`,
+        JSON_ARRAYAGG(`menu_id`) OVER (
+          PARTITION BY `package_id`
+          ORDER BY `menu_id`
+          ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+        ) AS `menu_ids`
+        FROM `tmp_erp_finance_invoice_voucher_print_package_menu_ids`
+    ) AS `merged`
+      ON `merged`.`package_id` = `package`.`id`
+     SET `package`.`menu_ids` = `merged`.`menu_ids`,
+         `package`.`updater` = 'erp-invoice-voucher-print-role-permission',
+         `package`.`update_time` = NOW();
+
+  IF EXISTS (
+    SELECT 1
+      FROM `system_tenant_package` AS `package`
+      JOIN `tmp_erp_finance_invoice_voucher_print_package_scope` AS `scope`
+        ON `scope`.`package_id` = `package`.`id`
+     WHERE `package`.`deleted` = b'0'
+       AND JSON_VALID(`package`.`menu_ids`)
+       AND (
+         NOT JSON_CONTAINS(`package`.`menu_ids`, CAST('2563' AS JSON), '$')
+         OR NOT JSON_CONTAINS(`package`.`menu_ids`, CAST('2645' AS JSON), '$')
+         OR NOT JSON_CONTAINS(`package`.`menu_ids`, CAST('6034' AS JSON), '$')
+       )
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invoice voucher print tenant package menu merge incomplete';
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1
       FROM `system_users` AS `user`
@@ -97,8 +181,33 @@ BEGIN
    WHERE `tenant`.`id` = 1
      AND `tenant`.`deleted` = b'0';
 
+  INSERT IGNORE INTO `tmp_erp_finance_invoice_voucher_print_target_tenant` (`tenant_id`)
+  SELECT DISTINCT `role`.`tenant_id`
+    FROM `system_role_menu` AS `existing_role_menu`
+    JOIN `system_role` AS `role`
+      ON `role`.`id` = `existing_role_menu`.`role_id`
+     AND `role`.`tenant_id` = `existing_role_menu`.`tenant_id`
+     AND `role`.`deleted` = b'0'
+    JOIN `system_tenant` AS `tenant`
+      ON `tenant`.`id` = `role`.`tenant_id`
+     AND `tenant`.`deleted` = b'0'
+   WHERE `existing_role_menu`.`menu_id` = 6034
+     AND `existing_role_menu`.`deleted` = b'0';
+
   IF (SELECT COUNT(*) FROM `tmp_erp_finance_invoice_voucher_print_target_tenant`) = 0 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Missing target tenant for finance invoice voucher print role';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM `system_role_category` AS `category`
+      JOIN `tmp_erp_finance_invoice_voucher_print_target_tenant` AS `target_tenant`
+        ON `target_tenant`.`tenant_id` = `category`.`tenant_id`
+     WHERE `category`.`code` = 'finance'
+     GROUP BY `category`.`tenant_id`
+    HAVING COUNT(*) > 1
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Duplicate finance role category code in target tenant';
   END IF;
 
   INSERT INTO `system_role_category` (
@@ -119,10 +228,9 @@ BEGIN
     FROM `tmp_erp_finance_invoice_voucher_print_target_tenant` AS `target_tenant`
    WHERE NOT EXISTS (
      SELECT 1
-       FROM `system_role_category` AS `existing`
-      WHERE `existing`.`tenant_id` = `target_tenant`.`tenant_id`
+      FROM `system_role_category` AS `existing`
+     WHERE `existing`.`tenant_id` = `target_tenant`.`tenant_id`
         AND `existing`.`code` = 'finance'
-        AND `existing`.`deleted` = b'0'
    );
 
   UPDATE `system_role_category` AS `category`
@@ -436,8 +544,6 @@ BEGIN
         ON `role`.`id` = `role_menu`.`role_id`
        AND `role`.`tenant_id` = `role_menu`.`tenant_id`
        AND `role`.`deleted` = b'0'
-      JOIN `tmp_erp_finance_invoice_voucher_print_target_tenant` AS `target_tenant`
-        ON `target_tenant`.`tenant_id` = `role_menu`.`tenant_id`
      WHERE `role_menu`.`menu_id` = 6034
        AND `role_menu`.`deleted` = b'0'
        AND `role`.`code` <> 'finance_invoice_voucher_print'
@@ -449,6 +555,8 @@ BEGIN
   DROP TEMPORARY TABLE IF EXISTS `tmp_erp_finance_invoice_voucher_print_role_permission_menu`;
   DROP TEMPORARY TABLE IF EXISTS `tmp_erp_finance_invoice_voucher_print_role`;
   DROP TEMPORARY TABLE IF EXISTS `tmp_erp_finance_invoice_voucher_print_target_tenant`;
+  DROP TEMPORARY TABLE IF EXISTS `tmp_erp_finance_invoice_voucher_print_package_menu_ids`;
+  DROP TEMPORARY TABLE IF EXISTS `tmp_erp_finance_invoice_voucher_print_package_scope`;
 END//
 DELIMITER ;
 

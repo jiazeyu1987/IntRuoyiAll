@@ -68,6 +68,14 @@ public interface RedisKeyConstants {
     String OAUTH2_ACCESS_TOKEN = "oauth2_access_token:%s";
 
     /**
+     * 发票凭证打印助手访问票据
+     * <p>
+     * KEY 格式：invoice_voucher_print_ticket:{ticket}
+     * VALUE 数据格式：String 票据载荷
+     */
+    String INVOICE_VOUCHER_PRINT_TICKET = "invoice_voucher_print_ticket:%s";
+
+    /**
      * 站内信模版的缓存
      * <p>
      * KEY 格式：notify_template:{code}

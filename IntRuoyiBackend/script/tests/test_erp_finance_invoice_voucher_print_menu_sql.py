@@ -10,6 +10,7 @@ def test_invoice_voucher_print_menu_migration_targets_print_assistant_entry():
     assert MIGRATION.exists(), f"required migration missing: {MIGRATION}"
     sql = MIGRATION.read_text(encoding="utf-8")
 
+    assert "SET NAMES utf8mb4;" in sql
     assert "ERP 系统 / 财务管理 / 发票凭证打印" in sql
     assert "6034, '发票凭证打印', 'erp:invoice-voucher-print:query'" in sql
     assert "2, 90, 2645, 'invoice-voucher-print', 'ep:printer'" in sql

@@ -11,6 +11,19 @@ export interface SmsLoginVO {
   code: string
 }
 
+export interface InvoiceVoucherPrintTicketRespVO {
+  ticket: string
+  expiresTime: string
+}
+
+export interface InvoiceVoucherPrintAssistantStatusRespVO {
+  running: boolean
+  launchable: boolean
+  message?: string
+}
+
+const INVOICE_VOUCHER_PRINT_ASSISTANT_REQUEST_TIMEOUT = 120000
+
 // 登录
 export const login = (data: UserLoginVO, tenantId?: number | boolean) => {
   return request.post({
@@ -46,6 +59,29 @@ export const loginOut = () => {
 // 获取用户权限信息
 export const getInfo = () => {
   return request.get({ url: '/system/auth/get-permission-info' })
+}
+
+// 创建发票凭证打印助手访问票据
+export const createInvoiceVoucherPrintTicket = () => {
+  return request.post<InvoiceVoucherPrintTicketRespVO>({
+    url: '/system/auth/invoice-voucher-print-ticket'
+  })
+}
+
+// 获得发票凭证打印助手运行状态
+export const getInvoiceVoucherPrintAssistantStatus = () => {
+  return request.get<InvoiceVoucherPrintAssistantStatusRespVO>({
+    url: '/system/auth/invoice-voucher-print-assistant/status',
+    timeout: INVOICE_VOUCHER_PRINT_ASSISTANT_REQUEST_TIMEOUT
+  })
+}
+
+// 启动发票凭证打印助手
+export const startInvoiceVoucherPrintAssistant = () => {
+  return request.post<InvoiceVoucherPrintAssistantStatusRespVO>({
+    url: '/system/auth/invoice-voucher-print-assistant/start',
+    timeout: INVOICE_VOUCHER_PRINT_ASSISTANT_REQUEST_TIMEOUT
+  })
 }
 
 //获取登录验证码

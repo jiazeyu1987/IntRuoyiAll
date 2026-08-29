@@ -48,6 +48,14 @@ def test_role_permission_sql_creates_finance_category_and_role() -> None:
     assert "'finance_invoice_voucher_print'" in text
     assert "`category`.`code` = 'finance'" in text
     assert "`role`.`category_id` = `category`.`id`" in text
+    assert "Duplicate finance role category code in target tenant" in text
+
+    category_insert_block = text.split("INSERT INTO `system_role_category`", 1)[1].split(
+        "UPDATE `system_role_category` AS `category`",
+        1,
+    )[0]
+    assert "`existing`.`code` = 'finance'" in category_insert_block
+    assert "`existing`.`deleted` = b'0'" not in category_insert_block
 
 
 def test_role_permission_sql_grants_only_required_menu_chain_to_finance_print_role() -> None:
@@ -63,6 +71,20 @@ def test_role_permission_sql_grants_only_required_menu_chain_to_finance_print_ro
     assert "Invoice voucher print role menu permission grant has duplicate active bindings" in text
 
 
+def test_role_permission_sql_merges_tenant_packages_from_erp_parent_to_finance_chain() -> None:
+    text = read_sql()
+
+    assert "tmp_erp_finance_invoice_voucher_print_package_menu_ids" in text
+    assert "JSON_TABLE(" in text
+    assert "JSON_ARRAYAGG(`menu_id`)" in text
+    assert "UPDATE `system_tenant_package` AS `package`" in text
+    assert "JSON_CONTAINS(`package`.`menu_ids`, CAST('2563' AS JSON), '$')" in text
+    assert "JSON_CONTAINS(`package`.`menu_ids`, CAST('2645' AS JSON), '$')" in text
+    assert "2645 AS `menu_id`" in text
+    assert "6034 AS `menu_id`" in text
+    assert "Missing invoice voucher print tenant package menu merge rows" in text
+
+
 def test_role_permission_sql_assigns_admin_and_restricts_other_roles_without_destructive_sql() -> None:
     text = read_sql()
     upper_text = text.upper()
@@ -74,6 +96,14 @@ def test_role_permission_sql_assigns_admin_and_restricts_other_roles_without_des
     assert "`role_menu`.`menu_id` = 6034" in text
     assert "`role`.`code` <> 'finance_invoice_voucher_print'" in text
     assert "Active invoice voucher print menu is still granted to a non-finance print role" in text
+    assert "SELECT DISTINCT `role`.`tenant_id`" in text
+    assert "FROM `system_role_menu` AS `existing_role_menu`" in text
+
+    global_non_print_guard = text.rsplit(
+        "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Active invoice voucher print menu is still granted to a non-finance print role'",
+        1,
+    )[0].rsplit("IF EXISTS", 1)[1]
+    assert "tmp_erp_finance_invoice_voucher_print_target_tenant" not in global_non_print_guard
 
     for forbidden in [
         "DELETE FROM `SYSTEM_ROLE_MENU`",

@@ -1,6 +1,8 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=menu; riskLevel=low
 -- ERP 系统 / 财务管理 / 发票凭证打印
 
+SET NAMES utf8mb4;
+
 INSERT INTO `system_menu` (
     `id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`,
     `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`
