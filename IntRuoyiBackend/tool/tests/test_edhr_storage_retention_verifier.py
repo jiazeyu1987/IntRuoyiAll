@@ -87,6 +87,53 @@ class EdhrStorageRetentionVerifierTestCase(unittest.TestCase):
         self.assertNotIn("visible-secret", sanitized)
         self.assertEqual(sanitized.count("[REDACTED]"), 2)
 
+    def test_s3_client_uses_bounded_timeout_and_retry_config(self) -> None:
+        captured: dict[str, object] = {}
+
+        class CapturingConfig:
+            def __init__(self, **kwargs: object) -> None:
+                captured["config"] = kwargs
+
+        class FakeClient:
+            def get_bucket_versioning(self, Bucket: str) -> dict[str, str]:  # noqa: N803 - boto3 uses Bucket.
+                return {"Status": "Suspended"}
+
+        class FakeBoto3:
+            def client(self, service_name: str, **kwargs: object) -> FakeClient:
+                captured["service_name"] = service_name
+                captured["client"] = kwargs
+                return FakeClient()
+
+        env = {
+            "EDHR_S3_ENDPOINT": "http://127.0.0.1:9000",
+            "EDHR_S3_BUCKET": "edhr-retention-verifier-test",
+            "EDHR_S3_REGION": "us-east-1",
+            "EDHR_S3_ACCESS_KEY": "access-value",
+            "EDHR_S3_SECRET_KEY": "secret-value",
+            "EDHR_S3_RETENTION_MODE": "COMPLIANCE",
+            "EDHR_S3_RETAIN_UNTIL_DAYS": "7",
+            "EDHR_S3_REQUIRE_LEGAL_HOLD": "true",
+        }
+        dependencies = {
+            "boto3": FakeBoto3(),
+            "Config": CapturingConfig,
+            "ClientError": Exception,
+            "BotoCoreError": RuntimeError,
+            "missing": [],
+        }
+        stdout = io.StringIO()
+
+        with mock.patch.object(verifier, "_load_dependencies", return_value=dependencies), \
+                contextlib.redirect_stdout(stdout):
+            verifier._run(env, verifier._base_result(env))
+
+        config = captured["config"]
+        self.assertIsInstance(config, dict)
+        self.assertEqual(config["signature_version"], "s3v4")
+        self.assertLessEqual(config["connect_timeout"], 5)
+        self.assertLessEqual(config["read_timeout"], 15)
+        self.assertEqual(config["retries"], {"max_attempts": 2, "mode": "standard"})
+
 
 if __name__ == "__main__":
     unittest.main()

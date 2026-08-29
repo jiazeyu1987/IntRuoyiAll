@@ -28,6 +28,10 @@ EXIT_PASS = 0
 EXIT_FAIL = 1
 EXIT_BLOCKED = 2
 
+S3_CONNECT_TIMEOUT_SECONDS = 5
+S3_READ_TIMEOUT_SECONDS = 15
+S3_RETRY_MAX_ATTEMPTS = 2
+
 
 @dataclass(frozen=True)
 class VerifierConfig:
@@ -98,7 +102,12 @@ def _run(env: dict[str, str], result: dict[str, Any]) -> int:
             region_name=config.region,
             aws_access_key_id=config.access_key,
             aws_secret_access_key=config.secret_key,
-            config=Config(signature_version="s3v4"),
+            config=Config(
+                signature_version="s3v4",
+                connect_timeout=S3_CONNECT_TIMEOUT_SECONDS,
+                read_timeout=S3_READ_TIMEOUT_SECONDS,
+                retries={"max_attempts": S3_RETRY_MAX_ATTEMPTS, "mode": "standard"},
+            ),
         )
     except Exception as exc:  # noqa: BLE001 - boto client construction errors are prerequisites.
         return _blocked(
