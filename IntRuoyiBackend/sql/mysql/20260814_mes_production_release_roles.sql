@@ -73,8 +73,8 @@ BEGIN
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_pqc_button`;
   CREATE TEMPORARY TABLE `tmp_mes_production_release_pqc_button` (
-    `permission` varchar(128) NOT NULL PRIMARY KEY,
-    `name` varchar(50) NOT NULL,
+    `permission` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL PRIMARY KEY,
+    `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     `sort` int NOT NULL
   ) ENGINE=Memory;
 
@@ -169,10 +169,10 @@ BEGIN
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_desired_role`;
   CREATE TEMPORARY TABLE `tmp_mes_production_release_desired_role` (
-    `role_code` varchar(100) NOT NULL PRIMARY KEY,
-    `role_name` varchar(30) NOT NULL,
+    `role_code` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL PRIMARY KEY,
+    `role_name` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     `role_sort` int NOT NULL,
-    `initial_username` varchar(30) NOT NULL
+    `initial_username` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL
   ) ENGINE=Memory;
 
   INSERT INTO `tmp_mes_production_release_desired_role`
@@ -229,7 +229,7 @@ BEGIN
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_role`;
   CREATE TEMPORARY TABLE `tmp_mes_production_release_role` (
     `role_id` bigint NOT NULL PRIMARY KEY,
-    `role_code` varchar(100) NOT NULL UNIQUE
+    `role_code` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL UNIQUE
   ) ENGINE=Memory;
 
   INSERT INTO `tmp_mes_production_release_role` (`role_id`, `role_code`)
@@ -248,8 +248,8 @@ BEGIN
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_required_permission`;
   CREATE TEMPORARY TABLE `tmp_mes_production_release_required_permission` (
-    `role_code` varchar(100) NOT NULL,
-    `permission` varchar(128) NOT NULL,
+    `role_code` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    `permission` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     PRIMARY KEY (`role_code`, `permission`)
   ) ENGINE=Memory;
 
@@ -280,14 +280,14 @@ BEGIN
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_required_role_menu`;
   CREATE TEMPORARY TABLE `tmp_mes_production_release_required_role_menu` (
-    `role_code` varchar(100) NOT NULL,
+    `role_code` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     `menu_id` bigint NOT NULL,
     PRIMARY KEY (`role_code`, `menu_id`)
   ) ENGINE=Memory;
 
   DROP TEMPORARY TABLE IF EXISTS `tmp_mes_production_release_required_role_menu_source`;
   CREATE TEMPORARY TABLE `tmp_mes_production_release_required_role_menu_source` (
-    `role_code` varchar(100) NOT NULL,
+    `role_code` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     `menu_id` bigint NOT NULL,
     PRIMARY KEY (`role_code`, `menu_id`)
   ) ENGINE=Memory;
@@ -301,7 +301,7 @@ BEGIN
      AND `menu`.`deleted` = b'0';
 
   REPEAT
-    TRUNCATE TABLE `tmp_mes_production_release_required_role_menu_source`;
+    DELETE FROM `tmp_mes_production_release_required_role_menu_source`;
     INSERT INTO `tmp_mes_production_release_required_role_menu_source` (`role_code`, `menu_id`)
     SELECT `required_menu`.`role_code`, `required_menu`.`menu_id`
       FROM `tmp_mes_production_release_required_role_menu` AS `required_menu`;

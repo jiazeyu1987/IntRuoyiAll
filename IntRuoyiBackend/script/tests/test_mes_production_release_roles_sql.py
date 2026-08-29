@@ -91,6 +91,26 @@ def test_migration_grants_only_frozen_permission_sets_and_no_broad_batch_approva
     assert "Production release role permission set mismatch" in text
 
 
+def test_migration_temp_tables_pin_text_collation_for_test_runtime() -> None:
+    text = read_sql()
+
+    text_columns = [
+        "`permission` varchar(128)",
+        "`name` varchar(50)",
+        "`role_code` varchar(100)",
+        "`role_name` varchar(30)",
+        "`initial_username` varchar(30)",
+    ]
+    for column in text_columns:
+        assert (
+            f"{column} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci" in text
+        ), f"{column} must not inherit the test database default collation"
+
+    assert "`tmp_mes_production_release_pqc_button`" in text
+    assert "`tmp_mes_production_release_desired_role`" in text
+    assert "`tmp_mes_production_release_required_permission`" in text
+
+
 def test_migration_is_non_destructive_and_has_no_fixed_identity_allocation() -> None:
     upper = read_sql().upper()
 
