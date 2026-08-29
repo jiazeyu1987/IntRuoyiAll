@@ -25,6 +25,26 @@ def test_core_sql_repairs_legacy_registrant_name_nullability_before_assertion():
     assert sql.index(repair_marker) < sql.index(assertion_marker)
 
 
+def test_core_sql_repairs_legacy_production_relation_check_before_assertion():
+    sql = _normalized(SQL_PATH)
+
+    repair_marker = "legacy production relation check drift"
+    old_expression = (
+        "(((entrusted_production=0x01)or(self_production=0x01))and"
+        "(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or"
+        "((entrusted_production=0x00)and(entrusted_enterprise_count=0))))"
+    )
+    drop_statement = "drop check `chk_dcc_reg_cert_production_relation`"
+    add_statement = "add constraint `chk_dcc_reg_cert_production_relation` check"
+    assertion_marker = "dcc registration certificate core exact check expression mismatch"
+
+    assert repair_marker in sql
+    assert old_expression in sql
+    assert drop_statement in sql
+    assert add_statement in sql
+    assert sql.index(repair_marker) < sql.index(assertion_marker)
+
+
 def test_mysql_core_contract_script_keeps_registrant_name_nullable():
     script = _normalized(MYSQL_SCRIPT_PATH)
 

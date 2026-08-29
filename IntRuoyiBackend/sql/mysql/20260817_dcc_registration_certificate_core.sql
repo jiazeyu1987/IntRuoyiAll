@@ -40,6 +40,40 @@ BEGIN
         MODIFY COLUMN `registrant_name` varchar(255) DEFAULT NULL COMMENT 'Registrant name snapshot';
     END IF;
 
+    IF EXISTS (
+      SELECT 1
+        FROM information_schema.TABLE_CONSTRAINTS AS actual_check
+        JOIN information_schema.CHECK_CONSTRAINTS AS actual_check_expression
+          ON actual_check_expression.CONSTRAINT_SCHEMA = actual_check.CONSTRAINT_SCHEMA
+         AND actual_check_expression.CONSTRAINT_NAME = actual_check.CONSTRAINT_NAME
+       WHERE actual_check.CONSTRAINT_SCHEMA = DATABASE()
+         AND actual_check.TABLE_NAME = 'dcc_registration_certificate_snapshot'
+         AND actual_check.CONSTRAINT_NAME = 'chk_dcc_reg_cert_production_relation'
+         AND actual_check.CONSTRAINT_TYPE = 'CHECK'
+         AND REGEXP_REPLACE(
+               REPLACE(REPLACE(REPLACE(LOWER(actual_check_expression.CHECK_CLAUSE), '`', ''),
+                 '_utf8mb4', ''), CHAR(92), ''),
+               '[[:space:]]+', '') =
+             '(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0))))'
+    ) THEN
+      -- Normalize legacy production relation CHECK drift before strict CHECK assertions.
+      ALTER TABLE `dcc_registration_certificate_snapshot`
+        DROP CHECK `chk_dcc_reg_cert_production_relation`;
+      ALTER TABLE `dcc_registration_certificate_snapshot`
+        ADD CONSTRAINT `chk_dcc_reg_cert_production_relation` CHECK (
+          (
+            `entrusted_production` = b'0'
+            AND `self_production` = b'0'
+            AND `entrusted_enterprise_count` = 0
+          )
+          OR (
+            (`entrusted_production` = b'1' OR `self_production` = b'1')
+            AND ((`entrusted_production` = b'1' AND `entrusted_enterprise_count` >= 1)
+              OR (`entrusted_production` = b'0' AND `entrusted_enterprise_count` = 0))
+          )
+        );
+    END IF;
+
     DROP TEMPORARY TABLE IF EXISTS tmp_dcc_reg_cert_expected_column;
     CREATE TEMPORARY TABLE tmp_dcc_reg_cert_expected_column (
       table_name varchar(128) NOT NULL,
