@@ -45,6 +45,28 @@ def test_core_sql_repairs_legacy_production_relation_check_before_assertion():
     assert sql.index(repair_marker) < sql.index(assertion_marker)
 
 
+def test_core_sql_expected_production_relation_check_matches_mysql_normalized_expression():
+    sql = _normalized(SQL_PATH)
+
+    mysql_normalized_expression = (
+        "(((entrusted_production=0x00)and(self_production=0x00)and"
+        "(entrusted_enterprise_count=0))or(((entrusted_production=0x01)or"
+        "(self_production=0x01))and(((entrusted_production=0x01)and"
+        "(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and"
+        "(entrusted_enterprise_count=0)))))"
+    )
+    over_parenthesized_expression = (
+        "((((entrusted_production=0x00)and(self_production=0x00)and"
+        "(entrusted_enterprise_count=0)))or(((entrusted_production=0x01)or"
+        "(self_production=0x01))and(((entrusted_production=0x01)and"
+        "(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and"
+        "(entrusted_enterprise_count=0)))))"
+    )
+
+    assert mysql_normalized_expression in sql
+    assert over_parenthesized_expression not in sql
+
+
 def test_mysql_core_contract_script_keeps_registrant_name_nullable():
     script = _normalized(MYSQL_SCRIPT_PATH)
 

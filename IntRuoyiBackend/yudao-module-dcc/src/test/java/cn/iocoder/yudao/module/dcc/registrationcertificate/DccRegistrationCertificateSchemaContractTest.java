@@ -113,6 +113,7 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 "drop check `chk_dcc_reg_cert_production_relation`",
                 "add constraint `chk_dcc_reg_cert_production_relation` check",
                 "(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0))))",
+                "(((entrusted_production=0x00)and(self_production=0x00)and(entrusted_enterprise_count=0))or(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0)))))",
                 "default charset=utf8mb4 collate=utf8mb4_unicode_ci",
                 "dcc registration certificate core exact check expression mismatch",
                 "dcc registration certificate core exact generated expression mismatch",
@@ -128,6 +129,8 @@ class DccRegistrationCertificateSchemaContractTest extends BaseDbUnitTest {
                 "trigger `trg_dcc_reg_cert_file_immutable_bd`",
                 "trigger `trg_dcc_reg_cert_audit_immutable_bu`",
                 "trigger `trg_dcc_reg_cert_audit_immutable_bd`");
+        assertFalse(normalized.contains("((((entrusted_production=0x00)and(self_production=0x00)and(entrusted_enterprise_count=0)))or"),
+                "production relation expected CHECK must match MySQL 8 normalized parenthesization");
         assertFalse(normalized.contains("'other'"), "core persisted code sets must not define OTHER");
     }
 

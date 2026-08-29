@@ -380,7 +380,7 @@ BEGIN
       ('dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_snapshot_json_array',
        '(json_type(entrusted_enterprises_json)=''array'')'),
       ('dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation',
-       '((((entrusted_production=0x00)and(self_production=0x00)and(entrusted_enterprise_count=0)))or(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0)))))'),
+       '(((entrusted_production=0x00)and(self_production=0x00)and(entrusted_enterprise_count=0))or(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0)))))'),
       ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type',
        '(owner_typein(''version'',''change'',''supporting_document''))'),
       ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind',
