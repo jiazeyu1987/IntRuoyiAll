@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260828_erp_finance_invoice_voucher_print_menu,20260707_system_role_category_management; type=data; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260828_erp_finance_invoice_voucher_print_menu,20260707_system_role_category_management; type=permission; riskLevel=medium
 -- Ensure only finance_invoice_voucher_print owns the visible invoice voucher print entry.
 
 SET NAMES utf8mb4;

@@ -3,11 +3,19 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SQL_PATH = REPO_ROOT / "sql" / "mysql" / "20260829_erp_finance_invoice_voucher_print_role_permission.sql"
+TEST_USER_SQL_PATH = (
+    REPO_ROOT / "sql" / "mysql" / "20260830_erp_finance_invoice_voucher_print_test_tenant_user_permission.sql"
+)
 
 
 def read_sql() -> str:
     assert SQL_PATH.exists(), "missing finance invoice voucher print role permission migration"
     return SQL_PATH.read_text(encoding="utf-8")
+
+
+def read_test_user_sql() -> str:
+    assert TEST_USER_SQL_PATH.exists(), "missing test tenant invoice voucher print user permission migration"
+    return TEST_USER_SQL_PATH.read_text(encoding="utf-8")
 
 
 def test_role_permission_sql_declares_release_contract_and_fail_fast_guards() -> None:
@@ -16,7 +24,7 @@ def test_role_permission_sql_declares_release_contract_and_fail_fast_guards() ->
     assert text.splitlines()[0] == (
         "-- release-migration: allowedEnvironments=test,backup,prod; "
         "dependsOn=20260828_erp_finance_invoice_voucher_print_menu,20260707_system_role_category_management; "
-        "type=data; riskLevel=medium"
+        "type=permission; riskLevel=medium"
     )
     assert "SET NAMES utf8mb4;" in text
     assert "START TRANSACTION;" in text
@@ -112,6 +120,32 @@ def test_role_permission_sql_assigns_admin_and_restricts_other_roles_without_des
         "DELETE FROM SYSTEM_USER_ROLE",
         "TRUNCATE TABLE",
         "MAX(`EXISTING_ROLE`.`ID`)",
+        "MAX(ID)",
+        "LAST_INSERT_ID()",
+    ]:
+        assert forbidden not in upper_text
+
+
+def test_test_tenant_user_permission_sql_assigns_aoteman_via_code_only_permission_migration() -> None:
+    text = read_test_user_sql()
+    upper_text = text.upper()
+
+    assert text.splitlines()[0] == (
+        "-- release-migration: allowedEnvironments=test; "
+        "dependsOn=20260829_erp_finance_invoice_voucher_print_role_permission; "
+        "type=permission; riskLevel=low"
+    )
+    assert "`tenant`.`name` = '测试租户'" in text
+    assert "`user`.`username` = 'aoteman'" in text
+    assert "`role`.`code` = 'finance_invoice_voucher_print'" in text
+    assert "INSERT INTO `system_user_role`" in text
+    assert "Test tenant aoteman is not assigned invoice voucher print role" in text
+
+    for forbidden in [
+        "DELETE FROM",
+        "TRUNCATE TABLE",
+        "DROP TABLE",
+        "DROP TEMPORARY TABLE",
         "MAX(ID)",
         "LAST_INSERT_ID()",
     ]:
