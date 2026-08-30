@@ -30,6 +30,21 @@ def test_local_restart_applies_system_user_lifecycle_deactivation_migration() ->
     assert "handler_name = 'userLifecycleDeactivateJob'" in text
 
 
+def test_local_restart_applies_batch_record_cell_link_structured_source_widths_migration() -> None:
+    script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "20260830_mes_batch_record_cell_link_structured_source_widths.sql" in text
+    assert "MES batch record cell link structured source widths" in text
+    assert "TABLE_NAME = 'mes_pro_batch_record_cell_link_rule'" in text
+    assert "COLUMN_NAME = 'source_cell_key'" in text
+    assert "COLUMN_NAME = 'source_field_code'" in text
+    assert "COLUMN_NAME = 'source_field_name'" in text
+    assert "CHARACTER_MAXIMUM_LENGTH >= 128" in text
+    assert "CHARACTER_MAXIMUM_LENGTH >= 1024" in text
+    assert "CHARACTER_MAXIMUM_LENGTH >= 255" in text
+
+
 def test_local_restart_applies_idi_device_parameter_rules_migration() -> None:
     script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
     text = script_path.read_text(encoding="utf-8")

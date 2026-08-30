@@ -78,3 +78,5 @@
 - completed：新增 SQL 后复跑 release migration policy gate PASS，迁移数量 546。
 - completed：BPM 审批路线角色展示变更复跑 `pnpm ts:check` PASS，`node tests\e2e\bpm-model-approval-route-name-static.spec.js` PASS，`node tests\e2e\bpm-model-view-participants-static.spec.js` PASS。
 - completed：未跟踪 `IntRuoyiFronted\tests\e2e\registration-certificate-reminder-sort-runtime.spec.js` 不含硬编码默认口令，已做 `node --check` 语法检查 PASS；真实运行仍需要登录租户、用户名和密码前置，本轮未用 mock 或 API-only 替代。
+- completed：最终复扫发现本地重启脚本新增 MES 结构化字段长度迁移探针和 Python 合同；`python -X utf8 -m pytest script\tests\test_restart_int_ruoyi_local_schema.py` PASS，23 tests。
+- completed：最终复扫发现 MES 空规则清空回归测试；对应服务行为当前已满足，`mvn -pl yudao-module-mes "-Dtest=cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkServiceImplTest#saveRules_allowsEmptyRouteVersionRuleListToClearExistingLinks" test` PASS，1 test。

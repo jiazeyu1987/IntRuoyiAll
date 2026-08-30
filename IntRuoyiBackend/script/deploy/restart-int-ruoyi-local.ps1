@@ -710,6 +710,35 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260830_system_user_lifecycle_deactivation.sql'
     },
     [PSCustomObject]@{
+        Name = 'MES batch record cell link structured source widths'
+        ProbeSql = @'
+SELECT CASE WHEN
+  (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'mes_pro_batch_record_cell_link_rule'
+      AND (
+        (
+          COLUMN_NAME = 'source_cell_key'
+          AND CHARACTER_MAXIMUM_LENGTH >= 128
+          AND IS_NULLABLE = 'NO'
+        )
+        OR (
+          COLUMN_NAME = 'source_field_code'
+          AND CHARACTER_MAXIMUM_LENGTH >= 1024
+        )
+        OR (
+          COLUMN_NAME = 'source_field_name'
+          AND CHARACTER_MAXIMUM_LENGTH >= 255
+        )
+      )
+  ) = 3
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260830_mes_batch_record_cell_link_structured_source_widths.sql'
+    },
+    [PSCustomObject]@{
         Name = 'MES process pool IDI device parameter rules'
         ProbeSql = @'
 SELECT CASE WHEN

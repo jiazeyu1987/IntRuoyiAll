@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkFormCellsRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkPrefillRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRuleSaveItemReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkWorkbenchContextRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordRepeatRowGroupMappingSaveReqVO;
@@ -1022,6 +1023,22 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals("扩张压力", row.getSourceFieldName());
         assertEquals("SUM", row.getAggregationStrategy());
         assertEquals("1:2", row.getTargetCellKey());
+    }
+
+    @Test
+    void saveRules_allowsEmptyRouteVersionRuleListToClearExistingLinks() {
+        BatchRecordCellLinkRulesSaveRespVO result = service.saveRules(new BatchRecordCellLinkRulesSaveReqVO()
+                .setScopeType("ROUTE_VERSION")
+                .setScopeId(3001L)
+                .setRouteId(9001L)
+                .setBatchRecordDefinitionId(2001L)
+                .setBatchRecordVersionId(3001L)
+                .setRules(List.of()));
+
+        assertEquals(0, result.getSavedCount());
+        assertEquals(List.of(), result.getRules());
+        verify(ruleMapper).deleteByScope("ROUTE_VERSION", 3001L);
+        verify(ruleMapper, never()).insertBatch(any());
     }
 
     @Test

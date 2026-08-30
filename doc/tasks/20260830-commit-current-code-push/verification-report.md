@@ -8,6 +8,7 @@
 - 排序修正与最终收尾复扫提交：`2a54d2526 fix: avoid numeric registration reminder sort literal`。
 - MES 报工数据结构化字段 key 与字段长度补齐已完成：长字段编码使用稳定短 `sourceCellKey` 保存，完整字段编码保留在 `sourceFieldCode`，并新增正式字段长度迁移。
 - BPM 审批路线角色展示和注册证提醒排序运行态脚本已复核；提醒排序真实运行因登录凭据前置缺失未执行。
+- 本地重启脚本已挂载 MES 结构化字段长度迁移探针；MES 空规则清空回归测试已覆盖。
 - `git push origin int_main` 已成功，远端 `int_main` 已包含本轮当前代码和收尾复扫提交。
 - 推送后本地 `int_main` 与 `origin/int_main` 一致，`HEAD...origin/int_main` 为 `0 0`。
 - 远端 fetch 成功，`git rev-list --left-right --count HEAD...origin/int_main` 在提交前为 `10 0`。
@@ -66,6 +67,8 @@
 - `node tests\e2e\bpm-model-approval-route-name-static.spec.js` -> PASS
 - `node tests\e2e\bpm-model-view-participants-static.spec.js` -> PASS
 - `node --check tests\e2e\registration-certificate-reminder-sort-runtime.spec.js` -> PASS
+- `python -X utf8 -m pytest script\tests\test_restart_int_ruoyi_local_schema.py` -> PASS, 23 tests
+- `mvn -pl yudao-module-mes "-Dtest=cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkServiceImplTest#saveRules_allowsEmptyRouteVersionRuleListToClearExistingLinks" test` -> PASS, 1 test
 
 ## Remaining Verification
 
