@@ -67,3 +67,6 @@
 - completed：首次收尾记录推送后复扫发现 `docs\experience-index.md` 与 `docs\frontend-development.md` 仍有审批路线正式候选来源经验沉淀改动；已纳入最终补提交，未包含临时目录或运行日志。
 - completed：二次复扫发现 `IntRuoyiFronted\tests\e2e\registration-certificate-list-sort-static.spec.js` 增加“提醒排序不得生成 `ORDER BY 0`”静态守卫；复跑该静态合同 PASS 后纳入最终补提交。
 - completed：配套 `DccRegistrationCertificateQueryMapper` 将空值排序常量从裸数字改为 SQL 表达式；`mvn -pl yudao-module-dcc -DskipTests clean test-compile` PASS。
+- completed：最终补提交 `2a54d2526 fix: avoid numeric registration reminder sort literal` 已推送到 `origin/int_main`；推送后 `git rev-list --left-right --count HEAD...origin/int_main` 为 `0 0`。
+- completed：最终 `git status --porcelain=v1 -uno` 无跟踪文件脏改动；仅 `.pytest-temp/` 与 `LOG_FILE_IS_UNDEFINED` 仍为未跟踪临时/运行产物，未纳入提交。
+- completed：复核未跟踪 `IntRuoyiFronted\tests\e2e\registration-certificate-upload-admin-role-approval-real.spec.js`，发现其属于另一任务目录、包含默认口令兜底并会写入真实注册证审批数据；按无 fallback、真实 E2E 和任务归属规则，未将其纳入本轮安全提交边界。

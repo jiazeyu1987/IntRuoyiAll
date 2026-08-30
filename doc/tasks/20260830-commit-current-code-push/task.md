@@ -22,6 +22,7 @@
 - GitHub 待推送对象大小扫描
 - `git push origin int_main`
 - 推送后 `git status --short --branch`
+- 未跟踪真实 E2E 脚本安全边界核对
 
 ## Applicable Experience Gates
 
@@ -29,11 +30,11 @@
 - GitHub 大文件门禁：推送前扫描待推送对象，发现超过 100 MB blob 必须停止，不做历史重写或 LFS 迁移，除非用户另行明确授权。
 - 本地主线领先远端复核门禁：记录 ahead/behind 数量和本地 ahead 提交清单；若 fetch 后远端也领先，必须先处理融合与验证，不得直接推送。
 - Branch runtime port guard 门禁：提交和推送前运行 `scripts\preflight\branch-runtime-port-guard.ps1`，守住 `E:\IntRuoyi` 的 `int_main` 端口合同。
-- 临时产物边界门禁：`.pytest-temp/`、`LOG_FILE_IS_UNDEFINED` 等运行/测试产物不得混入提交；若确需提交，必须有明确归属和理由。
+- 临时产物和未验证真实 E2E 边界门禁：`.pytest-temp/`、`LOG_FILE_IS_UNDEFINED` 等运行/测试产物不得混入提交；未跟踪真实 E2E 脚本若存在硬编码口令兜底或写真实数据且未完成归属/前置确认，不纳入安全提交边界。
 
 ## Current Status
 
-completed - 当前代码、后续补齐变更、任务记录和二次经验文档复扫变更已提交并推送到 `origin/int_main`；最终推送后 `HEAD...origin/int_main` 为 `0 0`。
+completed - 当前代码、后续补齐变更、任务记录和收尾复扫变更已提交并推送到 `origin/int_main`；最终推送后 `HEAD...origin/int_main` 为 `0 0`。
 
 ## 设计约束检查
 
