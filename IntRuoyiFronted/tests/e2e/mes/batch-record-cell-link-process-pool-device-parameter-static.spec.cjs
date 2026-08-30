@@ -24,7 +24,15 @@ const backfillService = fs.readFileSync(
 assert.ok(
   frontendView.includes("field.fieldCode.startsWith('deviceParameterReadings.')") &&
     frontendView.includes("field.fieldCode.startsWith('equipmentParameterRules.')"),
-  '报工数据参数字段必须纳入逐设备字段过滤，禁止无设备身份参数在左侧列表可见。'
+  '报工数据参数字段必须纳入工序设备字段过滤，禁止跨工序参数在左侧列表可见。'
+)
+
+assert.ok(
+  frontendView.includes('function isProcessPoolDeviceGroupSourceField') &&
+    frontendView.includes("field.fieldCode.includes('@deviceGroup:')") &&
+    frontendView.includes('Boolean(field.deviceName)') &&
+    frontendView.includes('field.deviceId !== undefined && Boolean(field.deviceCode) && Boolean(field.deviceName)'),
+  '前端过滤设备字段时必须区分设备名称分组字段和旧物理设备字段，不能要求设备组字段携带物理设备 ID。'
 )
 
 assert.ok(
@@ -35,20 +43,27 @@ assert.ok(
 
 assert.match(
   backendService,
-  /"deviceParameterReadings\."\s*\+\s*code\s*\+\s*"\.value"[\s\S]*\.forDevice\(rule\.getRouteProcessId\(\), device\)/,
-  '设备参数实际值来源字段必须带真实设备作用域。'
+  /"deviceParameterReadings\."\s*\+\s*code\s*\+\s*"\.value"[\s\S]*\.forDeviceGroup\(rule\.getRouteProcessId\(\), deviceGroup[\s\S]*false\)/,
+  '设备参数实际值来源字段必须按设备名称分组，不能按物理设备编码重复展示。'
 )
 
 assert.match(
   backendService,
-  /"equipmentParameterRules\."\s*\+\s*code\s*\+\s*"\.standardText"[\s\S]*\.forDevice\(rule\.getRouteProcessId\(\), device\)/,
-  '设备参数标准来源字段必须带真实设备作用域。'
+  /"equipmentParameterRules\."\s*\+\s*code\s*\+\s*"\.standardText"[\s\S]*\.forDeviceGroup\(rule\.getRouteProcessId\(\), deviceGroup[\s\S]*false\)/,
+  '设备参数标准来源字段必须按设备名称分组，避免同类多台设备重复。'
+)
+
+assert.ok(
+  backendService.includes('PROCESS_POOL_DEVICE_GROUP_SCOPE_SEPARATOR') &&
+    backendService.includes('encodeProcessPoolDeviceGroupScope('),
+  '后端字段编码必须带正式设备名称分组作用域，供回填按实际选中设备过滤。'
 )
 
 assert.ok(
   backfillService.includes('baseFieldCode.startsWith("deviceParameterReadings.")') &&
-    backfillService.includes('baseFieldCode.startsWith("equipmentParameterRules.")'),
-  '回填解析器必须识别带 @device 的参数读数和参数标准字段。'
+    backfillService.includes('baseFieldCode.startsWith("equipmentParameterRules.")') &&
+    backfillService.includes('deviceGroupName'),
+  '回填解析器必须识别按设备名称分组的参数读数和参数标准字段。'
 )
 
 console.log('batch-record-cell-link process-pool device parameter static contract passed')

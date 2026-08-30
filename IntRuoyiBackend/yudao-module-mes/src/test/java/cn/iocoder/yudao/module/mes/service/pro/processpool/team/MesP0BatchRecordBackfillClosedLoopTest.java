@@ -295,6 +295,87 @@ class MesP0BatchRecordBackfillClosedLoopTest {
         assertEquals("高光标准", changes.get(3).getNewValueJson());
     }
 
+    @Test
+    void shouldBackfillDeviceGroupParameterValuesFromActualSelectedDevice() {
+        MesProProcessPoolEventDO cleaningEvent = MesProProcessPoolEventDO.builder()
+                .id(1001L)
+                .routeId(7001L)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .rawPayload("""
+                        {
+                          "selectedDevice":{"deviceId":41,"deviceCode":"B09393","deviceName":"超声波清洗机"},
+                          "deviceParameterReadings":[
+                            {"deviceId":41,"deviceCode":"B09393","deviceName":"超声波清洗机",
+                             "parameterCode":"cleaningCount","parameterName":"清洗次数",
+                             "value":2,"parameterStatus":"NORMAL"}
+                          ]
+                        }
+                        """)
+                .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 10, 0))
+                .build();
+        MesProProcessPoolEventDO dryingEvent = MesProProcessPoolEventDO.builder()
+                .id(1002L)
+                .routeId(7001L)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .rawPayload("""
+                        {
+                          "selectedDevice":{"deviceId":51,"deviceCode":"H01001","deviceName":"烘干机"},
+                          "deviceParameterReadings":[
+                            {"deviceId":51,"deviceCode":"H01001","deviceName":"烘干机",
+                             "parameterCode":"dryingTemperature","parameterName":"烘干温度℃",
+                             "value":65,"parameterStatus":"NORMAL"}
+                          ]
+                        }
+                        """)
+                .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 10, 5))
+                .build();
+        MesProcessPoolReportAllocationDO dryingAllocation = allocation()
+                .setId(7102L)
+                .setEventId(1002L);
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(formalBinding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8805L));
+        when(executionMapper.selectById(8805L)).thenReturn(executionWithProductionElementFields()
+                .setId(8805L)
+                .setExecutionSnapshotJson("""
+                        {"fields":[
+                          {"fieldPath":"report.cleaningDeviceCode","fieldKey":"cleaningDeviceCode","rowIndex":7,"columnIndex":2,"valueType":"STRING"},
+                          {"fieldPath":"report.cleaningCount","fieldKey":"cleaningCount","rowIndex":8,"columnIndex":2,"valueType":"NUMBER"},
+                          {"fieldPath":"report.dryingTemperature","fieldKey":"dryingTemperature","rowIndex":9,"columnIndex":2,"valueType":"NUMBER"}
+                        ]}
+                        """));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(
+                        reportRule(1L, "selectedDevice.deviceCode@deviceGroup:6LaF5aOw5rOi5riF5rSX5py6", 7, 2,
+                                "STRING"),
+                        reportRule(2L, "deviceParameterReadings.cleaningCount.value@deviceGroup:6LaF5aOw5rOi5riF5rSX5py6",
+                                8, 2, "NUMBER"),
+                        reportRule(3L, "deviceParameterReadings.dryingTemperature.value@deviceGroup:54OY5bmy5py6",
+                                9, 2, "NUMBER")));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult().setChangedFieldCount(3));
+
+        service.backfillCompletedProcess(new MesTeamLeaderBatchRecordBackfillCommand()
+                .setEvent(cleaningEvent)
+                .setAllocation(allocation())
+                .setSourceEvents(List.of(cleaningEvent, dryingEvent))
+                .setAllocations(List.of(allocation(), dryingAllocation))
+                .setWorkOrder(workOrder())
+                .setPickListBindingId(8801L)
+                .setDccProjectCodeId(8001L));
+
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
+        List<MesProBatchRecordExecutionFieldAuditChange> changes = auditCaptor.getValue().getChanges();
+        assertEquals("B09393", changes.get(0).getNewValueJson());
+        assertEquals(new BigDecimal("2"), changes.get(1).getNewValueJson());
+        assertEquals(new BigDecimal("65"), changes.get(2).getNewValueJson());
+    }
+
     private static MesTeamLeaderBatchRecordBackfillCommand backfillCommand() {
         return new MesTeamLeaderBatchRecordBackfillCommand()
                 .setEvent(event())
