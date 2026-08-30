@@ -63,26 +63,31 @@ BEGIN
          AND actual_check.TABLE_NAME = 'dcc_registration_certificate_snapshot'
          AND actual_check.CONSTRAINT_NAME = 'chk_dcc_reg_cert_production_relation'
          AND actual_check.CONSTRAINT_TYPE = 'CHECK'
-         AND REGEXP_REPLACE(
-               REPLACE(REPLACE(REPLACE(LOWER(actual_check_expression.CHECK_CLAUSE), '`', ''),
-                 '_utf8mb4', ''), CHAR(92), ''),
-               '[[:space:]]+', '') =
-             '(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0))))'
+          AND REGEXP_REPLACE(
+                REPLACE(REPLACE(REPLACE(LOWER(actual_check_expression.CHECK_CLAUSE), '`', ''),
+                  '_utf8mb4', ''), CHAR(92), ''),
+                '[[:space:]]+', '') IN (
+                  '(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0))))',
+                  '(((entrusted_production=0x00)and(self_production=0x00)and(entrusted_enterprise_count=0))or(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0)))))'
+                )
     ) THEN
       -- Normalize legacy production relation CHECK drift before strict CHECK assertions.
       ALTER TABLE `dcc_registration_certificate_snapshot`
         DROP CHECK `chk_dcc_reg_cert_production_relation`;
       ALTER TABLE `dcc_registration_certificate_snapshot`
         ADD CONSTRAINT `chk_dcc_reg_cert_production_relation` CHECK (
-          (
-            `entrusted_production` = b'0'
-            AND `self_production` = b'0'
-            AND `entrusted_enterprise_count` = 0
-          )
-          OR (
-            (`entrusted_production` = b'1' OR `self_production` = b'1')
-            AND ((`entrusted_production` = b'1' AND `entrusted_enterprise_count` >= 1)
-              OR (`entrusted_production` = b'0' AND `entrusted_enterprise_count` = 0))
+          JSON_TYPE(`entrusted_enterprises_json`) = 'ARRAY'
+          AND (
+            (
+              `entrusted_production` = b'0'
+              AND `self_production` = b'0'
+              AND `entrusted_enterprise_count` = 0
+            )
+            OR (
+              (`entrusted_production` = b'1' OR `self_production` = b'1')
+              AND ((`entrusted_production` = b'1' AND `entrusted_enterprise_count` >= 1)
+                OR (`entrusted_production` = b'0' AND `entrusted_enterprise_count` = 0))
+            )
           )
         );
     END IF;
@@ -393,7 +398,7 @@ BEGIN
       ('dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_snapshot_json_array',
        '(json_type(entrusted_enterprises_json)=''array'')'),
       ('dcc_registration_certificate_snapshot', 'chk_dcc_reg_cert_production_relation',
-       '(((entrusted_production=0x00)and(self_production=0x00)and(entrusted_enterprise_count=0))or(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0)))))'),
+       '((json_type(entrusted_enterprises_json)=''array'')and(((entrusted_production=0x00)and(self_production=0x00)and(entrusted_enterprise_count=0))or(((entrusted_production=0x01)or(self_production=0x01))and(((entrusted_production=0x01)and(entrusted_enterprise_count>=1))or((entrusted_production=0x00)and(entrusted_enterprise_count=0))))))'),
       ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_owner_type',
        '(owner_typein(''version'',''change'',''supporting_document''))'),
       ('dcc_registration_certificate_file', 'chk_dcc_reg_cert_file_kind',
@@ -576,15 +581,18 @@ CREATE TABLE IF NOT EXISTS `dcc_registration_certificate_snapshot` (
   CONSTRAINT `chk_dcc_reg_cert_snapshot_json_array` CHECK
     (JSON_TYPE(`entrusted_enterprises_json`) = 'ARRAY'),
   CONSTRAINT `chk_dcc_reg_cert_production_relation` CHECK (
-    (
-      `entrusted_production` = b'0'
-      AND `self_production` = b'0'
-      AND `entrusted_enterprise_count` = 0
-    )
-    OR (
-      (`entrusted_production` = b'1' OR `self_production` = b'1')
-      AND ((`entrusted_production` = b'1' AND `entrusted_enterprise_count` >= 1)
-        OR (`entrusted_production` = b'0' AND `entrusted_enterprise_count` = 0))
+    JSON_TYPE(`entrusted_enterprises_json`) = 'ARRAY'
+    AND (
+      (
+        `entrusted_production` = b'0'
+        AND `self_production` = b'0'
+        AND `entrusted_enterprise_count` = 0
+      )
+      OR (
+        (`entrusted_production` = b'1' OR `self_production` = b'1')
+        AND ((`entrusted_production` = b'1' AND `entrusted_enterprise_count` >= 1)
+          OR (`entrusted_production` = b'0' AND `entrusted_enterprise_count` = 0))
+      )
     )
   ),
   UNIQUE KEY `uk_dcc_reg_cert_snapshot_revision` (`tenant_id`, `version_id`, `revision_no`),
