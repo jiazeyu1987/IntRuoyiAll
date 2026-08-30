@@ -55,7 +55,8 @@ ready_for_closeout
 
 ## Current Blockers
 
-- 无功能或验证 blocker；剩余步骤仅为将已验证的融合提交 fast-forward 到 `int_main`，然后清理本任务 worktree。
+- 功能、验证和 `int_main` 融合均无 blocker。
+- Cleanup blocker：`task_closeout.py --mode preview` 因 `E:\IntRuoyi` 存在其它并行任务未提交改动而拒绝 apply。未执行 stash、reset、clean、自动删除 worktree 或修改其它任务内容；任务保持 `ready_for_closeout`。
 
 ## Implementation Summary
 
@@ -70,3 +71,4 @@ ready_for_closeout
 - 真实 E2E 脚本：新增 `tests\e2e\edhr-nonconformance-review-mvp-real.e2e.js`，目标覆盖测试租户登录、菜单进入、页面造批次、两个来源、冻结提示、三类处置和差异化追溯。
 - E2E 缺陷修复：`syncBatchStatus` 现在把 `frozen(15)` 作为受保护状态，详情加载或状态同步不再把冻结批次改回任务计算状态；冻结时打开任务也明确拒绝。
 - 真实 E2E 最终结果：`ncr-20260830-04` 一次性覆盖 `PQC_RELEASE -> 让步放行`、`PQC_SUBMISSION -> 返工`、`PQC_RELEASE -> 作废`，评审 ID 为 `4/5/6`，最终批次状态为 `voided(60)`，三类追溯均可见。
+- 主线融合：源提交 `e5df7e02d` 经过最新 `int_main` 语义重放形成 `549b9d1a8`，再由并行文档保护提交 `9c03ce584` 收缩范围；`int_main` 已从 `c445dd0f9` fast-forward 到 `9c03ce584`，未 push。

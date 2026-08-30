@@ -82,7 +82,8 @@
 
 ## Blockers
 
-- 无功能或验证 blocker。原 linked worktree 缺少 `int_main` checked-out worktree 的收尾 blocker，已通过在 `E:\IntRuoyi` 所属仓库创建正式融合 worktree 解除。
+- 无功能、验证或主线融合 blocker。`int_main` 已 fast-forward 到 `9c03ce584`。
+- 仅剩 cleanup blocker：主工作区存在其它并行任务未提交改动，`task_closeout.py --mode preview` 按规则拒绝 apply；本任务 worktree 尚未自动删除，任务状态保持 `ready_for_closeout`。
 
 ## int_main Integration Verification
 
@@ -93,7 +94,7 @@
 - 前端：静态合同 PASS；真实 E2E 脚本 `node --check` PASS；`pnpm ts:check` PASS。
 - 数据库：目标迁移与依赖迁移闭包门禁 PASS，共 2 个迁移。
 - 并行保护：未把主工作区正在修改的 `docs/backend-development.md`、`docs/database-rules.md`、`docs/e2e-rules.md`、`docs/experience-index.md` 纳入最终融合结果；其余任务代码、测试和文档无主工作区 dirty 路径重叠。
-- 结论：语义融合验证通过，可 fast-forward 到 `int_main`；不需要重复写入测试租户数据，原真实 E2E 结果仍作为业务流程验收证据。
+- 结论：语义融合验证通过并已 fast-forward 到 `int_main@9c03ce584`；不需要重复写入测试租户数据，原真实 E2E 结果仍作为业务流程验收证据。未 push。
 
 ## Release Recommendation
 

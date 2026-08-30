@@ -116,3 +116,9 @@
 - GREEN: `pnpm install --frozen-lockfile` -> PASS，锁文件未变更；`pnpm ts:check` -> PASS。
 - GREEN: `mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile` -> PASS，24 个 Maven 模块全部 SUCCESS。
 - GREEN: `git diff --cached --check` -> PASS，仅 CRLF 提示。
+- 融合提交：`549b9d1a837e0c6e10812ea56c3ac6e9250d147a`（功能融合）与 `9c03ce584b626f013acbc813ffd412d738744428`（并行经验文档保护）。
+- 快进前主工作区交集检查：任务最终 34 个路径与主工作区 70 个 dirty/untracked 路径交集为 `0`；`c445dd0f9` 是 `9c03ce584` 的祖先。
+- 首次 `git merge --ff-only` -> BLOCKED，`E:\IntRuoyi\.git\index.lock` 已存在。核验锁文件为 0 字节、创建于 `22:30:25`、超过一小时未更新且可独占打开，证明没有进程持有；只删除该精确陈旧锁后重试。
+- `git merge --ff-only codex/nonconformance-review-mvp-int-main-20260830` -> PASS；`int_main` 从 `c445dd0f9` fast-forward 到 `9c03ce584`，post-merge v7 端口门禁 PASS，原并行 dirty/untracked 内容保持未暂存。
+- 未执行 push；`int_main` 相对 `origin/int_main` ahead 2。
+- Closeout preview after merge: `task_closeout.py --task-id nonconformance-review-mvp-implementation --mode preview` -> BLOCKED，仅因为 `E:\IntRuoyi` 主工作区含其它并行任务 dirty 内容。keep 为三份核心任务文档、delete 为空；未执行 apply 或删除本任务 worktree。
