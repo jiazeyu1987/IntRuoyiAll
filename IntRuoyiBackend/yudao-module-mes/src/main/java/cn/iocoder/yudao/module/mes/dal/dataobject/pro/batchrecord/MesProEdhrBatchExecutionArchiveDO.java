@@ -44,7 +44,17 @@ public class MesProEdhrBatchExecutionArchiveDO extends BaseDO {
 
     private String filePath;
 
+    private Long fileId;
+
+    private String storageRetentionJson;
+
     private String contentHash;
+
+    private String pdfaProfile;
+
+    private String pdfaValidationStatus;
+
+    private LocalDateTime pdfaValidatedAt;
 
     private String sourceManifestJson;
 

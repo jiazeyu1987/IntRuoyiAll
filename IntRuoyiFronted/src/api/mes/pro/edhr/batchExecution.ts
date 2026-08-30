@@ -360,6 +360,9 @@ export interface EdhrBatchExecutionArchiveRespVO {
   fileName?: string
   fileSize?: number
   contentHash?: string
+  pdfaProfile?: string
+  pdfaValidationStatus?: string
+  pdfaValidatedAt?: string
   sourceManifestJson?: string
   generatedAt?: string
   canDownloadArchive?: boolean

@@ -22,6 +22,26 @@
       class="edhr-form-trace-batch-trace__alert"
     />
 
+    <el-descriptions
+      v-if="!loading && latestBatchArchive"
+      :column="3"
+      border
+      class="edhr-form-trace-batch-trace__archive-summary"
+    >
+      <el-descriptions-item label="归档版本">
+        V{{ latestBatchArchive.archiveVersion || '--' }}
+      </el-descriptions-item>
+      <el-descriptions-item label="长期归档格式">
+        <el-tag v-if="latestBatchArchivePdfAValid" type="success">
+          {{ latestBatchArchive.pdfaProfile }} 已校验
+        </el-tag>
+        <span v-else>PDF/A 未验证</span>
+      </el-descriptions-item>
+      <el-descriptions-item label="校验时间">
+        {{ formatTraceTime(latestBatchArchive.pdfaValidatedAt) }}
+      </el-descriptions-item>
+    </el-descriptions>
+
     <el-skeleton v-if="loading" :rows="8" animated />
     <el-tabs v-else v-model="activeTab" class="edhr-form-trace-batch-trace__tabs">
       <el-tab-pane label="批记录表单" name="recordForm">
@@ -291,6 +311,7 @@ import ReleaseEventListPane from '@/views/mes/pro/edhr/components/ReleaseEventLi
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
 import {
   getEdhrBatchReviewTimeline,
+  type EdhrBatchExecutionArchiveRespVO,
   type EdhrBatchExecutionReviewAttachmentSummary,
   type EdhrBatchExecutionReviewExecutionRespVO,
   type EdhrBatchReviewTimelineRespVO
@@ -339,6 +360,12 @@ const drawerVisible = computed({
 const loading = ref(false)
 const loadError = ref('')
 const timeline = ref<EdhrBatchReviewTimelineRespVO>()
+const isValidPdfAArchive = (archive: EdhrBatchExecutionArchiveRespVO) =>
+  archive.pdfaValidationStatus === 'VALID' && Boolean(archive.pdfaProfile)
+const latestBatchArchive = computed(() => timeline.value?.archiveVersions?.[0])
+const latestBatchArchivePdfAValid = computed(() =>
+  latestBatchArchive.value ? isValidPdfAArchive(latestBatchArchive.value) : false
+)
 const activeTab = ref<'recordForm' | 'fieldResponsibility' | 'operationAudit' | 'signatures' | 'releaseEvents'>(
   'recordForm'
 )
@@ -537,6 +564,10 @@ watch([executionEntries, recordExecutionReviews], syncSelectedExecutions)
 
 .edhr-form-trace-batch-trace__tabs {
   min-height: 0;
+}
+
+.edhr-form-trace-batch-trace__archive-summary {
+  margin-bottom: 12px;
 }
 
 .edhr-form-trace-batch-trace__section {
