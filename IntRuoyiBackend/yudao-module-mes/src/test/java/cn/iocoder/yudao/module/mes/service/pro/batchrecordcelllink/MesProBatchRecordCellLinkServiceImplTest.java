@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkFormCellsRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkPrefillRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRuleSaveItemReqVO;
@@ -56,6 +57,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -69,6 +71,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -409,7 +412,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
     }
 
     @Test
-    void getWorkbenchContext_filtersSelectedProcessDeviceGroupsByRouteScopedParameterRules() {
+    void getWorkbenchContext_keepsBoundDeviceGroupsAndScopesParametersByRouteRules() {
         MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
         when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
         when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
@@ -464,12 +467,15 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 service.getWorkbenchContext(9001L, 2001L, 3001L, "PROCESS_POOL_REPORT",
                         null, null, 5001L, null, 129L);
 
-        assertMissingProcessPoolSourceField(result,
+        assertProcessPoolSourceField(result,
                 "selectedDevice.deviceId@deviceGroup:" + DEVICE_GROUP_SCOPE_BALLOON_FORMING,
-                "选用设备编号（球囊成型机）");
+                "选用设备编号（球囊成型机）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result,
+                "selectedDevice.deviceCode@deviceGroup:" + DEVICE_GROUP_SCOPE_BALLOON_FORMING,
+                "选用设备编码（球囊成型机）", "STRING", 5001L);
         assertMissingProcessPoolSourceField(result,
-                "deviceMeteringValidity.inMeteringValidityPeriod@deviceGroup:" + DEVICE_GROUP_SCOPE_BALLOON_FORMING,
-                "选用设备计量有效期内（球囊成型机）");
+                "deviceParameterReadings.cleaningCount.value@deviceGroup:" + DEVICE_GROUP_SCOPE_BALLOON_FORMING,
+                "清洗次数");
         assertProcessPoolSourceField(result,
                 "selectedDevice.deviceId@deviceGroup:" + DEVICE_GROUP_SCOPE_CLEANING,
                 "选用设备编号（超声波清洗机）", "NUMBER", 5001L);
@@ -479,6 +485,78 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertProcessPoolSourceField(result,
                 "deviceParameterReadings.cleaningMedium.value@deviceGroup:" + DEVICE_GROUP_SCOPE_CLEANING,
                 "清洗介质", "STRING", 5001L);
+    }
+
+    @Test
+    void getWorkbenchContext_filtersSelectedProcessDevicesByLoginLeaderBindingWithoutRouteRules() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .id(5001L)
+                .routeId(9001L)
+                .processId(7101L)
+                .sort(10)
+                .batchRecordReportId("target-report")
+                .build();
+        lenient().when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess);
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(routeProcess));
+        when(processMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(
+                MesProProcessDO.builder()
+                        .id(7101L)
+                        .code("ROUGH_WASH")
+                        .name("粗洗")
+                        .build()));
+        when(routeDccProjectBindingMapper.selectCurrentByRouteId(9001L)).thenReturn(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
+                        .routeId(9001L)
+                        .dccProjectCodeId(129L)
+                        .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8101L)
+                        .leaderUserId(100L)
+                        .processId(7101L)
+                        .deviceId(7002L)
+                        .enabled(Boolean.TRUE)
+                        .build(),
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8102L)
+                        .leaderUserId(200L)
+                        .processId(7101L)
+                        .deviceId(7001L)
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(teamDeviceMapper.selectBatchIds(any())).thenReturn(List.of(
+                teamDevice(7001L, 200L, "A03190", "球囊成型机"),
+                teamDevice(7002L, 100L, "B09393", "超声波清洗机")));
+        when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of());
+
+        BatchRecordCellLinkWorkbenchContextRespVO result;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(100L);
+            result = service.getWorkbenchContext(9001L, 2001L, 3001L, "PROCESS_POOL_REPORT",
+                    null, null, 5001L, null, 129L);
+        }
+
+        assertProcessPoolSourceField(result,
+                "selectedDevice.deviceId@deviceGroup:" + DEVICE_GROUP_SCOPE_CLEANING,
+                "选用设备编号（超声波清洗机）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result,
+                "selectedDevice.deviceCode@deviceGroup:" + DEVICE_GROUP_SCOPE_CLEANING,
+                "选用设备编码（超声波清洗机）", "STRING", 5001L);
+        assertProcessPoolSourceField(result,
+                "selectedDevice.deviceName@deviceGroup:" + DEVICE_GROUP_SCOPE_CLEANING,
+                "选用设备名称（超声波清洗机）", "STRING", 5001L);
+        assertProcessPoolSourceField(result,
+                "deviceMeteringValidity.inMeteringValidityPeriod@deviceGroup:" + DEVICE_GROUP_SCOPE_CLEANING,
+                "选用设备计量有效期内（超声波清洗机）", "BOOLEAN", 5001L);
+        assertMissingProcessPoolSourceField(result,
+                "selectedDevice.deviceId@deviceGroup:" + DEVICE_GROUP_SCOPE_BALLOON_FORMING,
+                "选用设备编号（球囊成型机）");
     }
 
     @Test
