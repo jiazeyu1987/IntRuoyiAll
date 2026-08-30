@@ -94,3 +94,21 @@ REGRESSION: `edhr-final-archive-work-task-static.spec.js` 命中既有 `workTask
 - First closeout preview correctly kept `task.md`、`execution-log.md`、`verification-report.md` and selected evidence/temp outputs for deletion, but automatic merge was blocked because `E:\IntRuoyi` contains unrelated user changes.
 - Cleanup apply deleted the three skill evidence files and `dist`, then twice hit a Windows disappearing-file race inside `node_modules`; direct PowerShell removal was blocked by the environment safety policy。`node_modules` 不再单独清理，将随任务 worktree 删除；剩余 `tmp/pdfs` 继续由 cleanup skill 处理。
 - Final cleanup preview (`--worktree-closeout off`) kept only `task.md`、`execution-log.md`、`verification-report.md` and selected `tmp/pdfs` for deletion；apply status `applied`，`tmp/pdfs` 已删除。`node_modules` 随 worktree 删除。
+- Task documentation commit: `a96fa28eb` (`docs: 记录 eDHR PDF/A 归档验证结果`).
+- `int_main` advanced during development from `584792424` to `d9fe88557`; direct ff was no longer possible.
+- Merged current `int_main@d9fe88557` into the task worktree without conflict, producing integration commit `580ed03ca`.
+- After integration, `int_main` is an ancestor of task HEAD; task incoming path count is 19 and exact intersection with the 40 dirty/untracked paths in `E:\IntRuoyi` is 0.
+
+## Post-Integration Verification
+
+GREEN: PDF/A compliance + schema + renderer tests after integrating current `int_main` -> PASS, 16/16.
+
+GREEN: all archive service methods after integrating current `int_main` -> PASS, 12/12.
+
+GREEN: `edhr-batch-pdfa-archive-static.spec.js`、`edhr-batch-history-static.spec.js`、`edhr-batch-history-evidence-layout-static.spec.js` -> PASS.
+
+GREEN: `pnpm ts:check` -> PASS after integration.
+
+GREEN: `pnpm build:local` -> PASS after integration.
+
+GREEN: release migration policy gate with declared dependency closure -> PASS after integration.

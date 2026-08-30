@@ -22,6 +22,7 @@ PASS - PDF/A-1b 最小归档闭环已在任务范围内实现并通过定向验�
 
 ## Commands And Results
 
+- The same task-scope verification was rerun after merging current `int_main@d9fe88557` into the task branch.
 - Backend PDF/A/render/schema tests: 16/16 PASS.
 - Backend archive service methods: 12/12 PASS.
 - Frontend PDF/A plus current history static contracts: PASS.
@@ -30,6 +31,7 @@ PASS - PDF/A-1b 最小归档闭环已在任务范围内实现并通过定向验�
 - Migration policy gate with declared dependency closure: PASS.
 - Backend, database and frontend evidence validators: PASS.
 - `git diff --check`: PASS.
+- Post-integration incoming/dirty intersection: 0 paths.
 
 ## PDF Inspection
 
