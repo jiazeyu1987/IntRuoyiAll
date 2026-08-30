@@ -71,6 +71,15 @@
 - Forbidden action: 禁止用 `git add doc docs scripts` 或 `git add -A` 代替候选清单；禁止为了修正暂存区而回滚、删除或覆盖工作区改动。
 - Evidence: 2026-07-28 文档目录加入 Git 前，复核发现前端源码/测试误在暂存区，使用 `git restore --staged` 保留工作区内容并只留下 `doc`、`docs` 文档文件。
 
+### Ignored 路径暂存失败复核门禁
+
+- Trigger: `git add` 大量路径时提示 `The following paths are ignored by one of your .gitignore files`，尤其命中 `doc/tasks/<task-id>`、临时测试目录或生成证据目录。
+- Preflight check: 不要假设本次 `git add` 完全失败或完全成功；立即运行 `git diff --cached --name-status` 和 `git status --short --branch --untracked-files=all`，确认哪些文件已经部分进入暂存区，哪些 ignored 文件仍未暂存。
+- Blocker: ignored 路径包含当前任务必须保留的任务记录、验证证据或正式测试，但尚未精确确认归属；暂存区已经混入临时目录、运行日志、PID、秘密文件或无法归属产物时必须停止。
+- Verification: 对确需提交且被忽略规则挡住的任务记录使用 `git add -f -- <exact-files>`，随后复跑 `git diff --cached --name-status`、`git diff --cached --check` 和排除项扫描，确认暂存区只包含授权范围。
+- Forbidden action: 禁止看到 ignored 提示后直接继续 `git commit`；禁止用更宽的 `git add -f -A` 把 ignored 临时产物一起带入；禁止为了清理暂存区回滚或删除工作区内容。
+- Evidence: `doc/tasks/20260830-commit-current-code-push/execution-log.md`，批量暂存当前代码时旧任务目录被 `.gitignore` 提示拦截但其它文件已部分暂存，随后先复核 staged 清单、排除 `.pytest-temp/` 和 `LOG_FILE_IS_UNDEFINED`，再对本任务记录单独使用精确 `git add -f`。
+
 ### 批量暂存脚本被拦截时的显式路径门禁
 
 - Trigger: 准备提交大量前后端、文档和证据文件，复杂 PowerShell 脚本或 `pathspec-from-file` 暂存命令被 Codex/终端策略拦截。

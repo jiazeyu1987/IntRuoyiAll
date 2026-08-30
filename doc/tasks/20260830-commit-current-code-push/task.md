@@ -1,0 +1,42 @@
+# 20260830 Commit Current Code Push
+
+## Task Goal
+
+提交并推送当前 `int_main` 分支中可安全归属的当前代码与任务记录，推送到 `origin/int_main`。
+
+## Milestones
+
+- [x] 读取 Git、PowerShell、任务收尾和 worktree 相关规则。
+- [x] 盘点当前分支、远端、暂存区、工作区变更和本地领先提交。
+- [x] 排除测试临时目录、运行日志等不应提交产物，确认提交边界。
+- [x] 提交可安全归属的当前变更。
+- [ ] 运行推送前门禁并推送 `int_main`。
+- [ ] 复核推送后分支不再领先远端，记录最终结果。
+
+## Expected Verification
+
+- `git status --short --branch`
+- `git diff --cached --name-status`
+- `git diff --check`
+- `scripts\preflight\branch-runtime-port-guard.ps1`
+- GitHub 待推送对象大小扫描
+- `git push origin int_main`
+- 推送后 `git status --short --branch`
+
+## Applicable Experience Gates
+
+- Git 提交推送门禁：提交前必须确认当前分支、远端、暂存清单、冲突状态和脏文件边界；推送后必须确认本地分支不再领先远端。
+- GitHub 大文件门禁：推送前扫描待推送对象，发现超过 100 MB blob 必须停止，不做历史重写或 LFS 迁移，除非用户另行明确授权。
+- 本地主线领先远端复核门禁：记录 ahead/behind 数量和本地 ahead 提交清单；若 fetch 后远端也领先，必须先处理融合与验证，不得直接推送。
+- Branch runtime port guard 门禁：提交和推送前运行 `scripts\preflight\branch-runtime-port-guard.ps1`，守住 `E:\IntRuoyi` 的 `int_main` 端口合同。
+- 临时产物边界门禁：`.pytest-temp/`、`LOG_FILE_IS_UNDEFINED` 等运行/测试产物不得混入提交；若确需提交，必须有明确归属和理由。
+
+## Current Status
+
+ready_for_closeout - 当前代码基线已提交为 `a15678c63`，推送前门禁已通过；剩余工作是 cleanup preview/apply、本任务记录提交、推送和推送后复核。
+
+## 设计约束检查
+
+- `是否引入 fallback/降级/吞异常`：否。
+- `是否从根因和长期维护角度解决`：是，本任务仅执行用户明确要求的 Git 提交推送，不引入业务代码变更。
+- `是否存在临时补丁或绕过`：否。
