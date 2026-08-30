@@ -88,6 +88,9 @@ def test_role_permission_sql_merges_tenant_packages_from_erp_parent_to_finance_c
     assert "UPDATE `system_tenant_package` AS `package`" in text
     assert "JSON_CONTAINS(`package`.`menu_ids`, CAST('2563' AS JSON), '$')" in text
     assert "JSON_CONTAINS(`package`.`menu_ids`, CAST('2645' AS JSON), '$')" in text
+    assert "`tenant`.`id` = 122" in text
+    assert "`tenant`.`name` = '测试租户'" in text
+    assert "`package`.`id` = `tenant`.`package_id`" in text
     assert "2645 AS `menu_id`" in text
     assert "6034 AS `menu_id`" in text
     assert "Missing invoice voucher print tenant package menu merge rows" in text

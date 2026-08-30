@@ -78,8 +78,19 @@ BEGIN
      AND (
        JSON_CONTAINS(`package`.`menu_ids`, CAST('2563' AS JSON), '$')
        OR JSON_CONTAINS(`package`.`menu_ids`, CAST('2645' AS JSON), '$')
-       OR JSON_CONTAINS(`package`.`menu_ids`, CAST('6034' AS JSON), '$')
-     );
+        OR JSON_CONTAINS(`package`.`menu_ids`, CAST('6034' AS JSON), '$')
+      );
+
+  INSERT IGNORE INTO `tmp_erp_finance_invoice_voucher_print_package_scope` (`package_id`)
+  SELECT `package`.`id`
+    FROM `system_tenant` AS `tenant`
+    JOIN `system_tenant_package` AS `package`
+      ON `package`.`id` = `tenant`.`package_id`
+     AND `package`.`deleted` = b'0'
+     AND JSON_VALID(`package`.`menu_ids`)
+   WHERE `tenant`.`id` = 122
+     AND `tenant`.`name` = '测试租户'
+     AND `tenant`.`deleted` = b'0';
 
   IF (SELECT COUNT(*) FROM `tmp_erp_finance_invoice_voucher_print_package_scope`) = 0 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Missing invoice voucher print tenant package menu merge rows';
