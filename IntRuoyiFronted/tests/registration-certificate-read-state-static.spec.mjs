@@ -45,6 +45,11 @@ for (const exported of [
 ]) {
   assert.match(api, new RegExp(`export\\s+const\\s+${exported}\\b`), `${exported} must be exported`)
 }
+assert.match(
+  api,
+  /interface\s+DccRegistrationCertificateDetailVO[\s\S]*registrationFileName\?:\s*string/,
+  'detail API contract must expose the uploaded registration attachment original name'
+)
 assert.doesNotMatch(
   api,
   /localStorage|sessionStorage|new\s+Date|Date\.now/,
@@ -134,7 +139,8 @@ for (const token of [
   'formatRegistrationCertificateStatus',
   'formatEntrustedEnterpriseNames',
   'data-testid="registration-certificate-detail-page"',
-  'hasRegistrationFile'
+  'data-testid="registration-certificate-detail-attachment"',
+  'detail.registrationFileName'
 ]) {
   assert.match(
     detail,
@@ -142,6 +148,21 @@ for (const token of [
     `detail page must contain ${token}`
   )
 }
+assert.match(
+  detail,
+  /v-if="detail\.registrationFileId\s*&&\s*detail\.registrationFileName"[\s\S]{0,240}\{\{\s*detail\.registrationFileName\s*\}\}/,
+  'detail page must render the original name of the formally bound registration attachment'
+)
+assert.match(
+  detail,
+  /v-else[\s\S]{0,100}>未提供</,
+  'detail page must explicitly show when no formal registration attachment exists'
+)
+assert.doesNotMatch(
+  detail,
+  /formatMissingMarker\(detail\.hasRegistrationFile\)/,
+  'detail page must not replace the uploaded attachment with an availability marker'
+)
 assert.doesNotMatch(
   detail,
   /<pre\s+class="detail-json">[\s\S]*entrustedEnterprisesJson[\s\S]*<\/pre>/,
