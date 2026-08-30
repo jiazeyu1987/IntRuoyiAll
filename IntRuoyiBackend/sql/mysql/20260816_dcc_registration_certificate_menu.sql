@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260818_dcc_registration_certificate_reminder,20260626_dcc_basic_data_global_submenu; type=data; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260818_dcc_registration_certificate_reminder,20260626_dcc_basic_data_global_submenu; type=menu; riskLevel=medium
 -- Purpose: Add domestic registration certificate dynamic menu, hidden routes and independent permissions.
 
 BEGIN;
