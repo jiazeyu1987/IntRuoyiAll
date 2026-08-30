@@ -32,7 +32,7 @@ assert.match(
 
 assert.match(
   source,
-  /const\s+revalidateDateFields\s*=\s*\(\)\s*=>\s*\{[\s\S]*validateField\(\['firstObtainedDate', 'effectiveDate', 'expiryDate'\]\)/,
+  /const\s+revalidateDateFields\s*=\s*\(\)\s*=>\s*\{[\s\S]*validateField\(\s*\['firstObtainedDate', 'effectiveDate', 'expiryDate'\]\)/,
   'date changes should revalidate all dependent date fields'
 )
 

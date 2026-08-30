@@ -89,7 +89,7 @@ assert.equal(
   'current and old certificate tabs must each render a UnifiedListTemplate'
 )
 for (const tableKey of [
-  'dcc.registrationCertificate.current.actionsWideV2',
+  'dcc.registrationCertificate.current.actionsCompactV3',
   'dcc.registrationCertificate.old.actionsWideV2'
 ]) {
   assert.match(

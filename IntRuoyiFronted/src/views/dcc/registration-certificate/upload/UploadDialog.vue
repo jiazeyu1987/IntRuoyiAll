@@ -492,7 +492,9 @@ const revalidateProductionFields = () => {
 }
 
 const revalidateDateFields = () => {
-  void formRef.value?.validateField(['firstObtainedDate', 'effectiveDate', 'expiryDate']).catch(() => undefined)
+  void formRef.value
+    ?.validateField(['firstObtainedDate', 'effectiveDate', 'expiryDate'])
+    .catch(() => undefined)
 }
 
 const handleEntrustedProductionChange = async () => {

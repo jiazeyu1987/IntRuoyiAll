@@ -198,10 +198,10 @@
                   label="操作"
                   align="center"
                   fixed="right"
-                  :width="getCurrentColumnWidthString('actions', 420)"
+                  :width="getCurrentColumnWidthString('actions', 140)"
                 >
                   <template #default="{ row }">
-                    <div class="registration-certificate-row-actions">
+                    <div class="registration-certificate-row-actions registration-certificate-row-actions--compact">
                       <el-button link type="primary" @click="openDetail(row.certificateId)">
                         详情
                       </el-button>
@@ -212,17 +212,6 @@
                         @click="openRenewalDialog(row)"
                       >
                         延续
-                      </el-button>
-                      <el-button link type="primary" @click="openLinkedProductManagement(row.productMasterId)">
-                        产品
-                      </el-button>
-                      <el-button
-                        v-if="row.projectCodeId"
-                        link
-                        type="primary"
-                        @click="openLinkedProjectCodeManagement(row.projectCodeId)"
-                      >
-                        项目代码
                       </el-button>
                     </div>
                   </template>
@@ -435,7 +424,7 @@ const oldTotal = ref(0)
 const showUploadDialog = ref(false)
 const showRenewalDialog = ref(false)
 const selectedRenewalCertificate = ref<DccRegistrationCertificatePageItemVO>()
-const CURRENT_TABLE_KEY = 'dcc.registrationCertificate.current.actionsWideV2'
+const CURRENT_TABLE_KEY = 'dcc.registrationCertificate.current.actionsCompactV3'
 const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.actionsWideV2'
 
 type RegistrationCertificatePageQuery = DccRegistrationCertificatePageReqVO &
@@ -496,7 +485,7 @@ const currentColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'effectiveDate', label: '生效日', width: 120 },
   { key: 'expiryDate', label: '有效期至', width: 120 },
   { key: 'remark', label: '备注', minWidth: 220 },
-  { key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 140, hideable: false, business: false, sortable: false }
 ]
 
 const oldColumnDefinitions: UserTableColumnDefinition[] = [
@@ -972,6 +961,11 @@ watch(
   align-items: center;
   justify-items: center;
   gap: 4px 8px;
+}
+
+.registration-certificate-row-actions--compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
 }
 
 .registration-certificate-row-actions :deep(.el-button) {
