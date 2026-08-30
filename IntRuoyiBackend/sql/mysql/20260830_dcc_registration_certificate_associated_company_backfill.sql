@@ -38,6 +38,7 @@ BEGIN
         JOIN `mdm_enterprise` AS `enterprise`
           ON `enterprise`.`id` = `certificate`.`owner_company_id`
        WHERE `certificate`.`deleted` = b'0'
+         AND `certificate`.`status` = 'ACTIVE'
          AND `certificate`.`owner_company_id` IS NOT NULL
          AND `certificate`.`owner_company_id` > 0
          AND (
@@ -68,6 +69,7 @@ BEGIN
          `certificate`.`owner_company_id`
     FROM `dcc_registration_certificate` AS `certificate`
    WHERE `certificate`.`deleted` = b'0'
+     AND `certificate`.`status` = 'ACTIVE'
      AND `certificate`.`owner_company_id` IS NOT NULL
      AND `certificate`.`owner_company_id` > 0
      AND NOT EXISTS (
@@ -132,6 +134,7 @@ BEGIN
          AND `enterprise`.`type` = 'OWNED_COMPANY'
          AND `enterprise`.`status` = 'ENABLE'
        WHERE `certificate`.`deleted` = b'0'
+         AND `certificate`.`status` = 'ACTIVE'
          AND `certificate`.`owner_company_id` IS NOT NULL
          AND `certificate`.`owner_company_id` > 0
          AND `enterprise`.`id` IS NULL

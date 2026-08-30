@@ -321,13 +321,13 @@ const loading = ref(false) // 列表的加载中
 const list = ref<ProRouteProductVO[]>([]) // 列表的数据
 const routeProductTableKey = 'mes.pro.route.product'
 const routeProductDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'itemCode', label: '产品物料编码', width: 150, hideable: false },
-  { key: 'itemName', label: '产品物料名称', width: 150 },
-  { key: 'specification', label: '规格型号', width: 150 },
-  { key: 'unitName', label: '单位', width: 80 },
-  { key: 'quantity', label: '生产数量', width: 100 },
-  { key: 'productionTime', label: '生产用时', width: 120 },
-  { key: 'remark', label: '备注', minWidth: 120 },
+  { key: 'itemCode', label: '产品物料编码', width: 150, hideable: false, sortable: true },
+  { key: 'itemName', label: '产品物料名称', width: 150, sortable: true },
+  { key: 'specification', label: '规格型号', width: 150, sortable: true },
+  { key: 'unitName', label: '单位', width: 80, sortable: true },
+  { key: 'quantity', label: '生产数量', width: 100, sortable: true },
+  { key: 'productionTime', label: '生产用时', width: 120, sortable: true },
+  { key: 'remark', label: '备注', minWidth: 120, sortable: true },
   { key: 'operation', label: '操作', width: 170, hideable: false, business: false, sortable: false }
 ]
 const {

@@ -1289,19 +1289,19 @@ const nonMaterialReplanIssues = computed<ProTaskAutoScheduleIssueVO[]>(() =>
   )
 )
 const schedulerWorkbenchProcessWipDefaultColumns: UserTableColumnDefinition[] = [
-  { key: 'routeCode', label: '工艺路线编码', width: 150, minWidth: 136 },
-  { key: 'routeName', label: '工艺路线名称', width: 180, minWidth: 160 },
-  { key: 'processCode', label: '工序编号', width: 130, minWidth: 120 },
-  { key: 'processName', label: '工序名称', width: 160, minWidth: 140 },
-  { key: 'wipOrderCount', label: '在制单数', width: 148, minWidth: 132 },
-  { key: 'shiftCapacityTotal', label: '班次产能', width: 160, minWidth: 148 },
-  { key: 'shiftStatus', label: '班次状态', width: 104, minWidth: 96 },
-  { key: 'nightShiftEnabled', label: '夜班', width: 116, minWidth: 108 },
-  { key: 'plannedStartDate', label: '开排日期', width: 164, minWidth: 150 },
-  { key: 'unfinishedDemandQuantity', label: '未完需求', width: 140, minWidth: 128 },
-  { key: 'estimatedStartTime', label: '预计开始', width: 168, minWidth: 156 },
-  { key: 'estimatedCompletionTime', label: '预计完工', width: 168, minWidth: 156 },
-  { key: 'todayFeedbackQuantity', label: '今日报工', width: 148, minWidth: 132 }
+  { key: 'routeCode', label: '工艺路线编码', width: 150, minWidth: 136, sortable: true },
+  { key: 'routeName', label: '工艺路线名称', width: 180, minWidth: 160, sortable: true },
+  { key: 'processCode', label: '工序编号', width: 130, minWidth: 120, sortable: true },
+  { key: 'processName', label: '工序名称', width: 160, minWidth: 140, sortable: true },
+  { key: 'wipOrderCount', label: '在制单数', width: 148, minWidth: 132, sortable: true },
+  { key: 'shiftCapacityTotal', label: '班次产能', width: 160, minWidth: 148, sortable: true },
+  { key: 'shiftStatus', label: '班次状态', width: 104, minWidth: 96, sortable: true },
+  { key: 'nightShiftEnabled', label: '夜班', width: 116, minWidth: 108, sortable: true },
+  { key: 'plannedStartDate', label: '开排日期', width: 164, minWidth: 150, sortable: true },
+  { key: 'unfinishedDemandQuantity', label: '未完需求', width: 140, minWidth: 128, sortable: true },
+  { key: 'estimatedStartTime', label: '预计开始', width: 168, minWidth: 156, sortable: true },
+  { key: 'estimatedCompletionTime', label: '预计完工', width: 168, minWidth: 156, sortable: true },
+  { key: 'todayFeedbackQuantity', label: '今日报工', width: 148, minWidth: 132, sortable: true }
 ]
 const {
   columns: schedulerWorkbenchProcessWipColumns,

@@ -38,4 +38,5 @@ public class DccRegistrationCertificateQueryRecord {
     private Boolean selfProduction;
     private String entrustedEnterprisesJson;
     private Long registrationFileId;
+    private String registrationFileName;
 }

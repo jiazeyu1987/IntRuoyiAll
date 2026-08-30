@@ -30,6 +30,7 @@ def test_backfill_sql_adds_only_registration_certificate_owned_companies() -> No
     assert "dcc_registration_certificate" in text
     assert "mdm_enterprise" in text
     assert "`certificate`.`owner_company_id`" in text
+    assert "`certificate`.`status` = 'ACTIVE'" in text
     assert "'OWNED_COMPANY'" in text
     assert "'ENABLE'" in text
     assert "HIST-REG-OWN-" in text

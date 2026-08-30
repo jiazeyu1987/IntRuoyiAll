@@ -29,8 +29,13 @@ const titleResolver = approvalCenter.slice(titleResolverStart, titleResolverEnd)
 
 assert.match(
   titleResolver,
-  /containsEnglishLetters\(replacedTitle\)\s*&&\s*!containsChineseCharacters\(replacedTitle\)/,
-  '业务标题只应在没有中文且仍含英文时显示“未配置中文标题”。'
+  /return replacedTitle/,
+  '审批中心必须直接显示正式业务标题，不能用配置占位文案隐藏审批内容。'
+)
+assert.doesNotMatch(
+  titleResolver,
+  /未配置中文标题/,
+  '审批中心不得再用“未配置中文标题”替换已有的审批内容。'
 )
 
 const identifierResolverStart = approvalCenter.indexOf('const resolveBusinessIdentifierLabel')

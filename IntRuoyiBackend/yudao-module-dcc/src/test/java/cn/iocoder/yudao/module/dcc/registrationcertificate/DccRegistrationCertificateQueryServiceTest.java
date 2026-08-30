@@ -120,6 +120,8 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     void detailContractExposesFormalRegistrationBusinessFileId() {
         assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("registrationFileId"),
                 "detail response must expose the formal registration business-file id");
+        assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("registrationFileName"),
+                "detail response must expose the original name of the formal registration file");
         assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("rowVersion"),
                 "detail response must expose the server row version for automatic concurrency control");
         assertDoesNotThrow(() -> DccRegistrationCertificateDetail.class.getDeclaredField("snapshotRevision"),
@@ -154,6 +156,8 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
 
         assertEquals(visible.registrationFileId(), detail.getRegistrationFileId(),
                 "detail must return the formal business-file id selected by the query mapper");
+        assertEquals("sensitive-CERT-FILE-ID.pdf", detail.getRegistrationFileName(),
+                "detail must return the original name from the same formal registration file");
         assertEquals(2, detail.getRowVersion(),
                 "detail must return the server row version instead of asking the user to type it");
         assertEquals(1, detail.getSnapshotRevision(),

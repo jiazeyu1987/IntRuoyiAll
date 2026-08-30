@@ -489,13 +489,13 @@ const currentColumnDefinitions: UserTableColumnDefinition[] = [
 ]
 
 const oldColumnDefinitions: UserTableColumnDefinition[] = [
-  { key: 'certificateNo', label: '注册证编号', minWidth: 180 },
-  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180 },
-  { key: 'productName', label: '产品', minWidth: 180 },
-  { key: 'classification', label: '分类', minWidth: 110 },
-  { key: 'versionNo', label: '版本', width: 90 },
-  { key: 'status', label: '状态', width: 130 },
-  { key: 'expiryDate', label: '原有效期至', width: 140 },
+  { key: 'certificateNo', label: '注册证编号', minWidth: 180, sortable: 'custom' },
+  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180, sortable: 'custom' },
+  { key: 'productName', label: '产品', minWidth: 180, sortable: 'custom' },
+  { key: 'classification', label: '分类', minWidth: 110, sortable: 'custom' },
+  { key: 'versionNo', label: '版本', width: 90, sortable: 'custom' },
+  { key: 'status', label: '状态', width: 130, sortable: 'custom' },
+  { key: 'expiryDate', label: '原有效期至', width: 140, sortable: 'custom' },
   { key: 'actions', label: '操作', width: 210, hideable: false, business: false, sortable: false }
 ]
 

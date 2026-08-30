@@ -87,8 +87,8 @@ for (const key of [
 
 for (const action of [
   'openModelView(row)',
-  "openModelForm('create')",
-  "openModelForm('update'",
+  'openCreateApprovalParticipantConfig',
+  'openApprovalParticipantConfig(row)',
   "openModelForm('copy'",
   'handleDeploy',
   'handleDefinitionList',
@@ -121,7 +121,7 @@ assert.match(
 )
 assert.match(
   source,
-  /<Dialog\s+title="流程审批路线"/,
+  /<Dialog\s+:title="modelApprovalRouteDialogTitle"/,
   'BPM model page must render a read-only model view dialog'
 )
 

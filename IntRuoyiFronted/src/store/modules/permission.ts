@@ -20,6 +20,16 @@ const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_ROUTE_NAME = 'SignatureGovernanceOver
 const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_TITLE = '总览'
 const APPROVAL_CENTER_ROUTE_PATH = '/approval-center'
 const APPROVAL_CENTER_ROUTE_NAME = 'ApprovalCenter'
+const APPROVAL_CENTER_WORKFLOW_MANAGEMENT_ROUTE_NAME = 'ApprovalCenterWorkflowManagement'
+const APPROVAL_CENTER_BPM_MODEL_ROUTE_NAME = 'ApprovalCenterBpmModel'
+const APPROVAL_CENTER_CC_ROUTE_NAME = 'ApprovalCenterCc'
+const APPROVAL_CENTER_OA_EXAMPLE_ROUTE_NAME = 'ApprovalCenterOaExample'
+const APPROVAL_CENTER_WORKFLOW_MANAGEMENT_ROUTE_PATH = 'manager'
+const APPROVAL_CENTER_BPM_MODEL_ROUTE_PATH = 'model'
+const APPROVAL_CENTER_BPM_MODEL_MENU_PATH = 'manager/model'
+const APPROVAL_CENTER_BPM_MODEL_TITLE = '流程模型'
+const APPROVAL_CENTER_CC_TITLE = '抄送我的'
+const APPROVAL_CENTER_OA_EXAMPLE_TITLE = 'OA 示例'
 
 const normalizeTopLevelRoutePath = (path: string) => {
   if (!path || isUrl(path) || path.startsWith('/')) {
@@ -217,6 +227,155 @@ const isApprovalCenterShellRoute = (route: AppRouteRecordRaw) =>
   normalizeTopLevelRoutePath(getRoutePath(route)).replace(/\/+$/, '') === APPROVAL_CENTER_ROUTE_PATH ||
   getRouteName(route) === APPROVAL_CENTER_ROUTE_NAME
 
+const isApprovalCenterWorkflowManagementRoute = (route: AppRouteRecordRaw) =>
+  getRouteName(route) === APPROVAL_CENTER_WORKFLOW_MANAGEMENT_ROUTE_NAME ||
+  normalizeComparableRoutePath(getRoutePath(route)) === APPROVAL_CENTER_WORKFLOW_MANAGEMENT_ROUTE_PATH
+
+const isApprovalCenterBpmModelRoute = (route: AppRouteRecordRaw) => {
+  const routePath = normalizeComparableRoutePath(getRoutePath(route))
+  return (
+    getRouteName(route) === APPROVAL_CENTER_BPM_MODEL_ROUTE_NAME ||
+    routePath === APPROVAL_CENTER_BPM_MODEL_ROUTE_PATH ||
+    routePath === APPROVAL_CENTER_BPM_MODEL_MENU_PATH ||
+    String(route.meta?.title || '') === APPROVAL_CENTER_BPM_MODEL_TITLE
+  )
+}
+
+const isApprovalCenterCcRoute = (route: AppRouteRecordRaw) =>
+  getRouteName(route) === APPROVAL_CENTER_CC_ROUTE_NAME ||
+  normalizeComparableRoutePath(getRoutePath(route)) === 'cc' ||
+  String(route.meta?.title || '') === APPROVAL_CENTER_CC_TITLE
+
+const isApprovalCenterOaExampleRoute = (route: AppRouteRecordRaw) =>
+  getRouteName(route) === APPROVAL_CENTER_OA_EXAMPLE_ROUTE_NAME ||
+  normalizeComparableRoutePath(getRoutePath(route)) === 'oa' ||
+  String(route.meta?.title || '') === APPROVAL_CENTER_OA_EXAMPLE_TITLE
+
+const resolveApprovalCenterMenuChildPath = (
+  parentPath: string,
+  childPath: string
+) => {
+  const normalizedParentPath = normalizeComparableRoutePath(parentPath)
+  const normalizedChildPath = normalizeComparableRoutePath(childPath)
+  const approvalCenterPath = normalizeComparableRoutePath(APPROVAL_CENTER_ROUTE_PATH)
+  if (!normalizedChildPath || !normalizedParentPath) {
+    return normalizedChildPath || normalizedParentPath
+  }
+  if (normalizedChildPath.startsWith(`${approvalCenterPath}/`)) {
+    return normalizedChildPath.slice(approvalCenterPath.length + 1)
+  }
+  if (
+    normalizedChildPath === normalizedParentPath ||
+    normalizedChildPath.startsWith(`${normalizedParentPath}/`)
+  ) {
+    return normalizedChildPath
+  }
+  return `${normalizedParentPath}/${normalizedChildPath}`.replace(/\/+/g, '/')
+}
+
+const hideApprovalCenterMenuRoute = (route: AppRouteRecordRaw): AppRouteRecordRaw => {
+  const hiddenRoute = cloneDeep(route)
+  hiddenRoute.meta = {
+    ...hiddenRoute.meta,
+    hidden: true,
+    alwaysShow: false
+  }
+  if (hiddenRoute.children?.length) {
+    hiddenRoute.children = hiddenRoute.children.map(hideApprovalCenterMenuRoute)
+  }
+  return hiddenRoute
+}
+
+const createPromotedApprovalCenterModelMenuRoute = (
+  workflowManagementRoute: AppRouteRecordRaw,
+  modelRoute: AppRouteRecordRaw
+): AppRouteRecordRaw => {
+  const promotedRoute = cloneDeep(modelRoute)
+  promotedRoute.path = resolveApprovalCenterMenuChildPath(
+    getRoutePath(workflowManagementRoute),
+    getRoutePath(modelRoute)
+  )
+  promotedRoute.meta = {
+    ...promotedRoute.meta,
+    hidden: false,
+    activeMenu: `${APPROVAL_CENTER_ROUTE_PATH}/${APPROVAL_CENTER_BPM_MODEL_MENU_PATH}`
+  }
+  return promotedRoute
+}
+
+const insertApprovalCenterModelMenuAfterCc = (
+  approvalCenterChildren: AppRouteRecordRaw[],
+  promotedModelRoute: AppRouteRecordRaw
+) => {
+  const children: AppRouteRecordRaw[] = []
+  let inserted = false
+
+  for (const child of approvalCenterChildren) {
+    if (!inserted && isApprovalCenterOaExampleRoute(child)) {
+      children.push(promotedModelRoute)
+      inserted = true
+    }
+    children.push(child)
+    if (!inserted && isApprovalCenterCcRoute(child)) {
+      children.push(promotedModelRoute)
+      inserted = true
+    }
+  }
+
+  if (!inserted) {
+    children.push(promotedModelRoute)
+  }
+
+  return children
+}
+
+const normalizeApprovalCenterWorkflowManagementMenu = (
+  approvalCenterRoute: AppRouteRecordRaw
+): AppRouteRecordRaw => {
+  const normalizedRoute = cloneDeep(approvalCenterRoute)
+  const approvalCenterChildren = normalizedRoute.children || []
+  const workflowManagementRoute = approvalCenterChildren.find(isApprovalCenterWorkflowManagementRoute)
+  if (!workflowManagementRoute) {
+    return normalizedRoute
+  }
+
+  const modelRoute = (workflowManagementRoute.children || []).find(isApprovalCenterBpmModelRoute)
+  const oaExampleRoute = approvalCenterChildren.find(isApprovalCenterOaExampleRoute)
+  const hiddenApprovalCenterOaExampleRoute = oaExampleRoute
+    ? hideApprovalCenterMenuRoute(oaExampleRoute)
+    : undefined
+  const hiddenWorkflowManagementRoute = hideApprovalCenterMenuRoute({
+    ...workflowManagementRoute,
+    children: (workflowManagementRoute.children || []).filter(
+      (child) => !isApprovalCenterBpmModelRoute(child)
+    )
+  })
+  const visibleApprovalCenterChildren = approvalCenterChildren.filter(
+    (child) =>
+      !isApprovalCenterWorkflowManagementRoute(child) &&
+      !isApprovalCenterBpmModelRoute(child) &&
+      !isApprovalCenterOaExampleRoute(child)
+  )
+
+  normalizedRoute.children =
+    modelRoute && !modelRoute.meta?.hidden
+      ? [
+          ...insertApprovalCenterModelMenuAfterCc(
+            visibleApprovalCenterChildren,
+            createPromotedApprovalCenterModelMenuRoute(workflowManagementRoute, modelRoute)
+          ),
+          hiddenWorkflowManagementRoute,
+          ...(hiddenApprovalCenterOaExampleRoute ? [hiddenApprovalCenterOaExampleRoute] : [])
+        ]
+      : [
+          ...visibleApprovalCenterChildren,
+          hiddenWorkflowManagementRoute,
+          ...(hiddenApprovalCenterOaExampleRoute ? [hiddenApprovalCenterOaExampleRoute] : [])
+        ]
+
+  return normalizedRoute
+}
+
 const findMatchingDynamicRoute = (
   staticRoute: AppRouteRecordRaw,
   dynamicRoutes: AppRouteRecordRaw[]
@@ -276,7 +435,7 @@ const mergeApprovalCenterRoute = (
     alwaysShow: dynamicRoute.meta?.alwaysShow ?? mergedRoute.meta?.alwaysShow
   }
   mergedRoute.redirect = dynamicRoute.redirect ?? mergedRoute.redirect
-  return mergedRoute
+  return normalizeApprovalCenterWorkflowManagementMenu(mergedRoute)
 }
 
 const mergeHiddenStaticChildWithDynamicChild = (

@@ -2,8 +2,10 @@ package cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
@@ -13,6 +15,8 @@ import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerT
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureRespVO;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowIdempotency;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
@@ -61,6 +65,9 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @Mock private MesProductionReleaseBatchExecutionPort batchExecutionPort;
     @Mock private MesProductionReleaseReportStageInitializer reportStageInitializer;
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
+    @Mock private MesProBatchRecordExecutionSignatureService signatureService;
+    @Mock private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Mock private MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
 
     private MesPqcProductionReleaseService service;
 
@@ -69,7 +76,8 @@ class MesPqcReleaseBatchExecutionServiceTest {
         TenantContextHolder.setTenantId(TENANT_ID);
         service = new MesPqcProductionReleaseServiceImpl(
                 applicationMapper, workTaskMapper, candidateResolver, dossierPort,
-                batchExecutionPort, reportStageInitializer, auditRecorder,
+                batchExecutionPort, reportStageInitializer, auditRecorder, signatureService,
+                nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         lenient().when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application());
         lenient().when(workTaskMapper.selectById(PQC_WORK_TASK_ID)).thenReturn(workTask());
@@ -107,6 +115,9 @@ class MesPqcReleaseBatchExecutionServiceTest {
         when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
                 eq(PQC_USER_ID), any(), eq("report-hash"), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
+        when(signatureService.recordPqcReleaseSignature(
+                eq(PQC_USER_ID), eq(BATCH_EXECUTION_ID), eq("signature-password"), eq("正式来源核对通过")))
+                .thenReturn(9901L);
 
         MesPqcProductionReleaseDecisionResult result = service.approve(PQC_USER_ID,
                 new MesPqcProductionReleaseApproveCommand()
@@ -114,6 +125,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
                         .setExpectedVersion(VERSION)
                         .setIdempotencyKey("pqc-approve-7001")
+                        .setSignaturePassword("signature-password")
                         .setApprovalOpinion("正式来源核对通过")
                         .setEntryType("ACTIVE_ORDER_PQC")
                         .setEntryBusinessId("release-application-7001")
@@ -126,6 +138,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         assertEquals("APPROVE", result.getDecision());
         assertEquals(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING, result.getStatus());
         assertEquals(BATCH_EXECUTION_ID, result.getBatchExecutionId());
+        assertEquals(9901L, result.getSignatureId());
         assertEquals(List.of(101L), result.getBatchRecordEvidenceIds());
         assertEquals(List.of(201L), result.getProcessInspectionEvidenceIds());
         assertEquals(List.of(), result.getLossReportEvidenceIds());
@@ -141,6 +154,8 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         && "payload-7001".equals(item.getPayloadHash())));
         verify(dossierPort).write(dossierPlan, BATCH_EXECUTION_ID);
         verify(reportStageInitializer).initializeRequiredReportStage(any());
+        verify(nonconformanceReviewService).ensureWorkOrderNotFrozen(3001L, "PQC放行");
+        verify(signatureService).validatePqcSubmitSignature(PQC_USER_ID, "signature-password");
     }
 
     @Test
@@ -167,6 +182,55 @@ class MesPqcReleaseBatchExecutionServiceTest {
         verify(dossierPort, never()).plan(any(), any());
         verify(dossierPort, never()).write(any(), any());
         verify(reportStageInitializer, never()).initializeRequiredReportStage(any());
+    }
+
+    @Test
+    void pqcApproveRequiresElectronicSignatureBeforeDownstreamWork() {
+        MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class,
+                () -> service.approve(PQC_USER_ID, approveCommand("pqc-approve-no-signature")
+                        .setSignaturePassword("")));
+
+        assertEquals(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION,
+                failure.getFailure().getBlockers().get(0).getBlockerType());
+        verify(batchExecutionPort, never()).openOrCreate(any());
+        verify(dossierPort, never()).plan(any(), any());
+    }
+
+    @Test
+    void pqcReleasePageSeparatesFiveBusinessViews() {
+        List<MesProcessPoolActiveOrderReleaseApplicationDO> applications = List.of(
+                application().setId(7001L).setPqcReleaseWorkTaskId(8001L),
+                application().setId(7002L).setPqcReleaseWorkTaskId(8002L)
+                        .setApplicationStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
+                        .setBatchExecutionId(9002L),
+                application().setId(7003L).setPqcReleaseWorkTaskId(8003L),
+                application().setId(7004L).setPqcReleaseWorkTaskId(8004L),
+                application().setId(7005L).setPqcReleaseWorkTaskId(8005L)
+                        .setApplicationStatus(MesReleaseFlowStatus.REPORT_UPLOAD_PENDING)
+                        .setBatchExecutionId(9005L));
+        when(applicationMapper.selectListForPqcReleasePage(null, null)).thenReturn(applications);
+        when(workTaskMapper.selectByIds(any())).thenReturn(List.of(
+                workTask(8001L, 7001L), workTask(8002L, 7002L), workTask(8003L, 7003L),
+                workTask(8004L, 7004L), workTask(8005L, 7005L)));
+        when(nonconformanceReviewMapper.selectLatestBySourceIds(eq("PQC_RELEASE"), any())).thenReturn(List.of(
+                closedReview(103L, 7003L, "void"),
+                closedReview(104L, 7004L, "rework"),
+                closedReview(105L, 7005L, "concession_release")));
+
+        assertEquals(1L, page("PENDING").getTotal());
+        assertEquals(7001L, page("PENDING").getList().get(0).getApplicationId());
+        assertEquals(7002L, page("RELEASED").getList().get(0).getApplicationId());
+        assertEquals(7003L, page("VOIDED").getList().get(0).getApplicationId());
+        assertEquals(7004L, page("REWORKED").getList().get(0).getApplicationId());
+        assertEquals(7005L, page("CONCESSION_RELEASED").getList().get(0).getApplicationId());
+    }
+
+    @Test
+    void pqcReleasePageSkipsLegacyApplicationsWithoutPqcWorkTask() {
+        when(applicationMapper.selectListForPqcReleasePage(null, null)).thenReturn(
+                List.of(application().setPqcReleaseWorkTaskId(null)));
+
+        assertEquals(0L, page("PENDING").getTotal());
     }
 
     @Test
@@ -317,6 +381,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 .setApplicationId(APPLICATION_ID)
                 .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID)
                 .setExpectedVersion(VERSION)
+                .setSignaturePassword("signature-password")
                 .setIdempotencyKey(key);
     }
 
@@ -337,13 +402,35 @@ class MesPqcReleaseBatchExecutionServiceTest {
     }
 
     private MesProEdhrWorkTaskDO workTask() {
+        return workTask(PQC_WORK_TASK_ID, APPLICATION_ID);
+    }
+
+    private MesProEdhrWorkTaskDO workTask(Long taskId, Long applicationId) {
         return new MesProEdhrWorkTaskDO()
-                .setId(PQC_WORK_TASK_ID)
+                .setId(taskId)
                 .setTaskType("PQC_PRODUCTION_RELEASE")
                 .setBusinessScopeType("RELEASE_APPLICATION")
-                .setBusinessScopeId(APPLICATION_ID)
+                .setBusinessScopeId(applicationId)
                 .setCandidateUserSnapshot("7101,7102")
                 .setStatus(MesProEdhrWorkTaskStatus.TODO);
+    }
+
+    private MesProEdhrNonconformanceReviewDO closedReview(Long id, Long applicationId, String disposition) {
+        return new MesProEdhrNonconformanceReviewDO()
+                .setId(id)
+                .setSourceType("PQC_RELEASE")
+                .setSourceId(applicationId)
+                .setReviewStatus("closed")
+                .setDisposition(disposition)
+                .setNonconformanceReason("评审原因");
+    }
+
+    private cn.iocoder.yudao.framework.common.pojo.PageResult<MesPqcProductionReleasePageItem> page(
+            String viewStatus) {
+        return service.getPqcReleasePage(PQC_USER_ID, new MesPqcProductionReleasePageQuery()
+                .setPageNo(1)
+                .setPageSize(10)
+                .setViewStatus(viewStatus));
     }
 
     private List<MesProductionReleaseReportUploadTaskReceipt> reportTasks() {

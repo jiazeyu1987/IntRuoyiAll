@@ -44,6 +44,8 @@ import java.util.Objects;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_CANDIDATE_VOID_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_REQUEST_CONFLICT;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_NOT_STAGED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT;
@@ -521,10 +523,10 @@ public class DccRegistrationCertificateRenewalService {
                 || firstObtainedDate != null && firstObtainedDate.isAfter(approvalDate)
                 || approvalDate.isAfter(effectiveDate)
                 || !effectiveDate.isBefore(expiryDate)) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT);
+            throw new ServiceException(REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID);
         }
         if (approvalDate.isAfter(businessClock.businessDate())) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT);
+            throw new ServiceException(REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID);
         }
     }
 

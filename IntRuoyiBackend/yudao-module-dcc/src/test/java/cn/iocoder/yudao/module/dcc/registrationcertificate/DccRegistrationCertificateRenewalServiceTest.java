@@ -46,6 +46,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_RENEWAL_PENDING_CONFLICT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -259,6 +262,52 @@ class DccRegistrationCertificateRenewalServiceTest extends BaseDbUnitTest {
                    AND r.status IN ('SUBMITTED', 'BPM_BOUND')
                    AND r.deleted = 0
                 """, current.currentVersionId(), current.certificateId()));
+    }
+
+    @Test
+    void submittedRenewalApprovalRejectsFutureApprovalDateAsApprovalDateInvalid() {
+        CurrentFixture current = seedCurrentCertificate();
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.submitRenewalForApproval(new DccRegistrationCertificateRenewalSubmitCommand(
+                        1L, 99L, "renewal-future-approval", "trace-renewal-future-approval",
+                        current.certificateId(), 1, current.currentVersionId(),
+                        LocalDate.of(2026, 8, 18), LocalDate.of(2026, 9, 1),
+                        LocalDate.of(2031, 9, 1), false, null, null, renewalApprovalFile())));
+
+        assertEquals(REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID.getCode(), error.getCode());
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
+                + "WHERE tenant_id = 1 AND request_key = ?", "renewal-future-approval"));
+    }
+
+    @Test
+    void submittedRenewalApprovalRejectsInvalidDateOrderAsDateOrderInvalid() {
+        CurrentFixture current = seedCurrentCertificate();
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.submitRenewalForApproval(new DccRegistrationCertificateRenewalSubmitCommand(
+                        1L, 99L, "renewal-date-order", "trace-renewal-date-order",
+                        current.certificateId(), 1, current.currentVersionId(),
+                        LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1),
+                        LocalDate.of(2026, 9, 1), false, null, null, renewalApprovalFile())));
+
+        assertEquals(REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID.getCode(), error.getCode());
+        assertEquals(0, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
+                + "WHERE tenant_id = 1 AND request_key = ?", "renewal-date-order"));
+    }
+
+    @Test
+    void submittedRenewalApprovalStillRejectsRealCurrentVersionMismatchAsBaseConflict() {
+        CurrentFixture current = seedCurrentCertificate();
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.submitRenewalForApproval(new DccRegistrationCertificateRenewalSubmitCommand(
+                        1L, 99L, "renewal-wrong-base", "trace-renewal-wrong-base",
+                        current.certificateId(), 1, current.currentVersionId() + 1,
+                        LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1),
+                        LocalDate.of(2031, 9, 1), false, null, null, renewalApprovalFile())));
+
+        assertEquals(REGISTRATION_CERTIFICATE_RENEWAL_BASE_CONFLICT.getCode(), error.getCode());
     }
 
     @Test

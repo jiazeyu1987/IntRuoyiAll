@@ -33,6 +33,7 @@
               placeholder="请选择日期"
               type="date"
               value-format="YYYY-MM-DD"
+              @change="revalidateRenewalDateFields"
             />
           </el-form-item>
         </el-col>
@@ -45,6 +46,7 @@
               placeholder="请选择日期"
               type="date"
               value-format="YYYY-MM-DD"
+              @change="revalidateRenewalDateFields"
             />
           </el-form-item>
         </el-col>
@@ -57,6 +59,7 @@
               placeholder="请选择日期"
               type="date"
               value-format="YYYY-MM-DD"
+              @change="revalidateRenewalDateFields"
             />
           </el-form-item>
         </el-col>
@@ -157,6 +160,8 @@ const saving = ref(false)
 const fileList = ref<UploadUserFile[]>([])
 const selectedFile = ref<File | null>(null)
 const REGISTRATION_CERTIFICATE_RENEWAL_CLASSIFICATION_OPTIONS = ['三类', '二类', '一类'] as const
+const RENEWAL_DATE_ORDER_MESSAGE = '注册证日期顺序不正确：批准日期不能晚于生效日期，生效日期必须早于有效期至'
+const RENEWAL_APPROVAL_DATE_MESSAGE = '批准日期不能晚于当前日期'
 
 const form = reactive({
   approvalDate: '',
@@ -174,10 +179,70 @@ const dialogVisible = computed({
   set: (value: boolean) => emit('update:modelValue', value)
 })
 
+function currentLocalDateText() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function isRenewalDateOrderValid() {
+  if (!form.approvalDate || !form.effectiveDate || !form.expiryDate) {
+    return true
+  }
+  return !(form.approvalDate > form.effectiveDate || form.effectiveDate >= form.expiryDate)
+}
+
+function isRenewalApprovalDateInFuture() {
+  if (!form.approvalDate) {
+    return false
+  }
+  return form.approvalDate > currentLocalDateText()
+}
+
+function validateRenewalDateOrder(
+  _rule: unknown,
+  _value: unknown,
+  callback: (error?: Error) => void
+) {
+  if (!isRenewalDateOrderValid()) {
+    callback(new Error(RENEWAL_DATE_ORDER_MESSAGE))
+    return
+  }
+  callback()
+}
+
+function validateRenewalApprovalDate(
+  _rule: unknown,
+  _value: unknown,
+  callback: (error?: Error) => void
+) {
+  if (isRenewalApprovalDateInFuture()) {
+    callback(new Error(RENEWAL_APPROVAL_DATE_MESSAGE))
+    return
+  }
+  callback()
+}
+
+const revalidateRenewalDateFields = () => {
+  void formRef.value?.validateField(['approvalDate', 'effectiveDate', 'expiryDate'])
+}
+
 const rules = reactive<FormRules>({
-  approvalDate: [{ required: true, message: '请选择批准日期', trigger: 'change' }],
-  effectiveDate: [{ required: true, message: '请选择生效日期', trigger: 'change' }],
-  expiryDate: [{ required: true, message: '请选择有效期至', trigger: 'change' }],
+  approvalDate: [
+    { required: true, message: '请选择批准日期', trigger: 'change' },
+    { validator: validateRenewalDateOrder, trigger: 'change' },
+    { validator: validateRenewalApprovalDate, trigger: 'change' }
+  ],
+  effectiveDate: [
+    { required: true, message: '请选择生效日期', trigger: 'change' },
+    { validator: validateRenewalDateOrder, trigger: 'change' }
+  ],
+  expiryDate: [
+    { required: true, message: '请选择有效期至', trigger: 'change' },
+    { validator: validateRenewalDateOrder, trigger: 'change' }
+  ],
   categoryChanged: [{ required: true, message: '请选择类别否变更', trigger: 'change' }],
   certificateNo: [
     {
@@ -247,6 +312,14 @@ const submit = async () => {
   }
   if (!selectedFile.value) {
     message.error('请先选择延续注册证文件')
+    return
+  }
+  if (!isRenewalDateOrderValid()) {
+    message.error(RENEWAL_DATE_ORDER_MESSAGE)
+    return
+  }
+  if (isRenewalApprovalDateInFuture()) {
+    message.error(RENEWAL_APPROVAL_DATE_MESSAGE)
     return
   }
 

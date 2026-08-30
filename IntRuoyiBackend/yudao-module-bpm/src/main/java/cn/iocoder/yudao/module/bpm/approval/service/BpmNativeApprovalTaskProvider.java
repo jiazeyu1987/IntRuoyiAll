@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,6 +53,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             "MES_ROUTE_VERSION_PUBLISH";
     private static final String REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE =
             "UPLOAD_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_RENEWAL_OPERATION =
+            "RENEWAL_CERTIFICATE";
     private static final String REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE =
             "dcc_registration_certificate_approver";
     private static final String REGISTRATION_CERTIFICATE_UPLOAD_APPROVAL_PERMISSION =
@@ -227,8 +231,23 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         PageResult<HistoricTaskInstance> page = taskService.getTaskDonePage(resolveQueryUserId(context), reqVO);
         Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: BPM done");
         Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: BPM done");
+        if (page.getList().isEmpty()) {
+            return new PageResult<>(List.of(), page.getTotal());
+        }
+        Set<String> processInstanceIds = page.getList().stream()
+                .map(HistoricTaskInstance::getProcessInstanceId)
+                .map(id -> requireText(id, "APPROVAL_PROCESS_INSTANCE_ID_REQUIRED: BPM done"))
+                .collect(Collectors.toSet());
+        Map<String, HistoricProcessInstance> processInstancesById = processInstanceService
+                .getHistoricProcessInstances(processInstanceIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        instance -> requireText(instance.getId(),
+                                "APPROVAL_PROCESS_INSTANCE_ID_REQUIRED: BPM done history"),
+                        Function.identity()));
         List<ApprovalTaskSummary> summaries = page.getList().stream()
-                .map(this::toDoneSummary)
+                .map(task -> toDoneSummary(task, requireHistoricProcessInstance(
+                        processInstancesById, task.getProcessInstanceId())))
                 .toList();
         return new PageResult<>(summaries, page.getTotal());
     }
@@ -295,12 +314,12 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 .build();
     }
 
-    private ApprovalTaskSummary toDoneSummary(HistoricTaskInstance task) {
+    private ApprovalTaskSummary toDoneSummary(HistoricTaskInstance task, HistoricProcessInstance instance) {
         requireTaskIdentity(task.getId(), task.getProcessInstanceId(), "BPM done");
         Map<String, String> detailQuery = new LinkedHashMap<>();
         detailQuery.put("id", task.getProcessInstanceId());
         detailQuery.put("taskId", task.getId());
-        Map<String, Object> variables = task.getProcessVariables();
+        Map<String, Object> variables = instance.getProcessVariables();
         Map<String, String> decisionDetailQuery = buildDecisionDetailQuery(variables, task.getProcessInstanceId());
         ApprovalTaskReviewResult approvalResult = resolveDoneApprovalResult(task);
         return ApprovalTaskSummary.builder()
@@ -308,8 +327,8 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 .moduleCode(ApprovalModuleCode.BPM)
                 .sourceTaskType(DONE_SOURCE)
                 .sourceTaskId(task.getId())
-                .businessKey(task.getProcessInstanceId())
-                .businessTitle(resolveBusinessTitle(task.getName(), variables))
+                .businessKey(instance.getBusinessKey())
+                .businessTitle(resolveBusinessTitle(instance.getName(), variables))
                 .businessCode(resolveBusinessCode(variables))
                 .businessContextTags(resolveBusinessContextTags(variables))
                 .businessStatus("DONE")
@@ -338,13 +357,16 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         }
         Map<String, String> detailQuery = new LinkedHashMap<>();
         detailQuery.put("id", instance.getId());
+        Map<String, Object> variables = instance.getProcessVariables();
         return ApprovalTaskSummary.builder()
                 .id("BPM:" + PROCESS_INSTANCE_SOURCE + ":" + instance.getId())
                 .moduleCode(ApprovalModuleCode.BPM)
                 .sourceTaskType(PROCESS_INSTANCE_SOURCE)
                 .sourceTaskId(instance.getId())
                 .businessKey(instance.getBusinessKey())
-                .businessTitle(instance.getName())
+                .businessTitle(resolveBusinessTitle(instance.getName(), variables))
+                .businessCode(resolveBusinessCode(variables))
+                .businessContextTags(resolveBusinessContextTags(variables))
                 .businessStatus("MY_INITIATED")
                 .currentNodeName("我发起的")
                 .initiatorUserId(parseLong(instance.getStartUserId()))
@@ -358,6 +380,15 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 .availableActions(DETAIL_ACTIONS)
                 .capabilities(CAPABILITIES)
                 .build();
+    }
+
+    private static HistoricProcessInstance requireHistoricProcessInstance(
+            Map<String, HistoricProcessInstance> processInstancesById, String processInstanceId) {
+        HistoricProcessInstance instance = processInstancesById.get(processInstanceId);
+        if (instance == null) {
+            throw new IllegalStateException("APPROVAL_PROCESS_INSTANCE_REQUIRED: BPM done " + processInstanceId);
+        }
+        return instance;
     }
 
     private ApprovalTaskSummary toCopySummary(BpmProcessInstanceCopyDO copy) {
@@ -486,7 +517,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
     }
 
     private static String resolveRegistrationCertificateAccessTitle(Map<String, Object> variables) {
-        StringBuilder title = new StringBuilder(resolveRegistrationCertificateRequestTypeLabel(variables.get("requestType")));
+        StringBuilder title = new StringBuilder(resolveRegistrationCertificateRequestTypeLabel(variables));
         appendTitlePart(title, firstText(variables.get("requestKey"), variables.get("registrationCertificateAccessRequestId"),
                 variables.get("requestId")));
         return title.toString();
@@ -549,7 +580,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             addTag(tags, "工序", variables.get("processName"));
             addTag(tags, "工作站", variables.get("workstationName"));
         } else if (isRegistrationCertificateAccessApproval(variables)) {
-            addTag(tags, "申请类型", resolveRegistrationCertificateRequestTypeLabel(variables.get("requestType"))
+            addTag(tags, "申请类型", resolveRegistrationCertificateRequestTypeLabel(variables)
                     .replace("审批", ""));
             addTag(tags, "申请编号", firstText(variables.get("registrationCertificateAccessRequestId"),
                     variables.get("requestId")));
@@ -619,13 +650,14 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         };
     }
 
-    private static String resolveRegistrationCertificateRequestTypeLabel(Object requestType) {
-        String type = firstText(requestType);
+    private static String resolveRegistrationCertificateRequestTypeLabel(Map<String, Object> variables) {
+        String type = firstText(variables.get("requestType"));
         if (!hasText(type)) {
             return "注册证访问审批";
         }
         return switch (type) {
-            case "UPLOAD_CERTIFICATE" -> "注册证上传审批";
+            case "UPLOAD_CERTIFICATE" -> REGISTRATION_CERTIFICATE_RENEWAL_OPERATION.equals(
+                    firstText(variables.get("requestOperation"))) ? "注册证延续审批" : "注册证上传审批";
             case "VIEW_OLD_CERTIFICATE" -> "旧注册证查看审批";
             case "DOWNLOAD_FILE" -> "注册证下载审批";
             default -> "注册证访问审批";

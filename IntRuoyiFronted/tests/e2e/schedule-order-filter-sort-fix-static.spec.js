@@ -89,7 +89,7 @@ assert.match(
 )
 assert.match(
   page,
-  /const handleScheduleOrderSortChange = async \(\{ prop, order \}: \{ prop\?: string; order\?: string \| null \}\) => \{/,
+  /const handleScheduleOrderSortChange = async \(\{\s*prop,\s*order\s*\}:\s*\{\s*prop\?: string\s*order\?: string \| null\s*\}\) => \{/,
   '排产工单页面必须实现正式排序事件处理器。'
 )
 assert.match(

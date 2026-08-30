@@ -2886,6 +2886,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .map(MesProBatchRecordVersionDO::getRouteId)
                 .filter(Objects::nonNull)
                 .collect(LinkedHashSet::new, Set::add, Set::addAll);
+        Map<Long, Long> dccProjectCodeIdByRouteId = resolveDccProjectCodeIdsByRouteId(routeIds);
         List<MesProRouteProductDO> routeProducts = routeProductMapper.selectListByRouteIds(routeIds);
         Set<Long> itemIds = routeProducts.stream()
                 .map(MesProRouteProductDO::getItemId)
@@ -2914,14 +2915,38 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 productNames = StrUtil.isBlank(report.productName()) ? List.of() : List.of(report.productName());
             }
             if (productNames.isEmpty()) {
-                expandedReports.add(copyReportWithVersionProduct(report, version, null));
+                expandedReports.add(copyReportWithVersionProduct(report, version, null,
+                        resolveReportDccProjectCodeId(report, version, dccProjectCodeIdByRouteId)));
                 continue;
             }
             productNames.stream()
                     .distinct()
-                    .forEach(productName -> expandedReports.add(copyReportWithVersionProduct(report, version, productName)));
+                    .forEach(productName -> expandedReports.add(copyReportWithVersionProduct(report, version, productName,
+                            resolveReportDccProjectCodeId(report, version, dccProjectCodeIdByRouteId))));
         }
         return expandedReports;
+    }
+
+    private Map<Long, Long> resolveDccProjectCodeIdsByRouteId(Set<Long> routeIds) {
+        if (routeIds == null || routeIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Long> dccProjectCodeIdByRouteId = new LinkedHashMap<>();
+        for (Long routeId : routeIds) {
+            MesRouteDccProjectBindingDO binding = routeDccProjectBindingMapper.selectCurrentByRouteId(routeId);
+            if (binding != null && binding.getDccProjectCodeId() != null) {
+                dccProjectCodeIdByRouteId.put(routeId, binding.getDccProjectCodeId());
+            }
+        }
+        return dccProjectCodeIdByRouteId;
+    }
+
+    private Long resolveReportDccProjectCodeId(MesProBatchRecordReportView report,
+                                               MesProBatchRecordVersionDO version,
+                                               Map<Long, Long> dccProjectCodeIdByRouteId) {
+        Long boundDccProjectCodeId = version == null
+                ? null : dccProjectCodeIdByRouteId.get(version.getRouteId());
+        return boundDccProjectCodeId == null ? report.dccProjectCodeId() : boundDccProjectCodeId;
     }
 
     private List<MesProBatchRecordReportView> filterLatestBatchRecordVersions(List<MesProBatchRecordReportView> reports) {
@@ -3001,13 +3026,15 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
 
     private MesProBatchRecordReportView copyReportWithVersionProduct(MesProBatchRecordReportView report,
                                                                      MesProBatchRecordVersionDO version,
-                                                                     String productName) {
+                                                                     String productName,
+                                                                     Long dccProjectCodeId) {
         return MesProBatchRecordReportView.builder()
                 .batchRecordName(report.batchRecordName())
                 .batchRecordDefinitionId(report.batchRecordDefinitionId())
                 .batchRecordVersionId(report.batchRecordVersionId())
                 .productName(productName)
                 .projectCode(report.projectCode())
+                .dccProjectCodeId(dccProjectCodeId)
                 .versionNo(version == null ? null : version.getVersionNo())
                 .versionStatus(version == null ? null : version.getStatus())
                 .formSlotType(report.formSlotType())

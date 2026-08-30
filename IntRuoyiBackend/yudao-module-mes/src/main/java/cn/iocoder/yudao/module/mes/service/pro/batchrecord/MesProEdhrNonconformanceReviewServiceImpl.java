@@ -10,8 +10,11 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
@@ -56,43 +59,56 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     private MesProEdhrNonconformanceReviewMapper reviewMapper;
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    @Resource
+    private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrNonconformanceReviewRespVO create(MesProEdhrNonconformanceReviewCreateReqVO reqVO) {
         String sourceType = requireSourceType(reqVO.getSourceType());
         String reason = requireText(reqVO.getNonconformanceReason());
-        MesProEdhrBatchExecutionDO batch = requireBatchExecution(reqVO.getBatchExecutionId());
-        if (reviewMapper.selectPendingByBatchExecutionId(batch.getId()) != null) {
-            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_PENDING_EXISTS);
-        }
-        if (Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED)
-                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED)
-                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED)
-                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
-                || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN)) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        MesProEdhrBatchExecutionDO batch = null;
+        MesProcessPoolActiveOrderReleaseApplicationDO application = null;
+        if (SOURCE_TYPE_PQC_RELEASE.equals(sourceType) && reqVO.getBatchExecutionId() == null) {
+            application = requirePqcReleaseApplication(reqVO.getSourceId());
+            if (reviewMapper.selectLatestBySource(sourceType, application.getId()) != null) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_PENDING_EXISTS);
+            }
+        } else {
+            batch = requireBatchExecution(reqVO.getBatchExecutionId());
+            if (reviewMapper.selectPendingByBatchExecutionId(batch.getId()) != null) {
+                throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_PENDING_EXISTS);
+            }
+            if (Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED)
+                    || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED)
+                    || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED)
+                    || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                    || Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN)) {
+                throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+            }
         }
         LocalDateTime now = now();
         MesProEdhrNonconformanceReviewDO review = MesProEdhrNonconformanceReviewDO.builder()
-                .reviewCode(buildReviewCode(batch.getId(), now))
+                .reviewCode(buildReviewCode(batch == null ? application.getId() : batch.getId(), now))
                 .sourceType(sourceType)
                 .sourceId(reqVO.getSourceId())
-                .batchExecutionId(batch.getId())
-                .batchExecutionCode(batch.getBatchExecutionCode())
-                .workOrderId(batch.getWorkOrderId())
-                .workOrderCode(batch.getWorkOrderCode())
-                .batchCode(batch.getBatchCode())
-                .previousBatchStatus(batch.getStatus())
+                .batchExecutionId(batch == null ? null : batch.getId())
+                .batchExecutionCode(batch == null ? null : batch.getBatchExecutionCode())
+                .workOrderId(batch == null ? application.getWorkOrderId() : batch.getWorkOrderId())
+                .workOrderCode(batch == null ? application.getWorkOrderCode() : batch.getWorkOrderCode())
+                .batchCode(batch == null ? application.getBatchCode() : batch.getBatchCode())
+                .previousBatchStatus(batch == null ? null : batch.getStatus())
                 .reviewStatus(STATUS_PENDING_REVIEW)
                 .nonconformanceReason(reason)
                 .frozenAt(now)
                 .remark(StrUtil.trim(reqVO.getRemark()))
                 .build();
         reviewMapper.insert(review);
-        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
-                .setId(batch.getId())
-                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN));
+        if (batch != null) {
+            batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                    .setId(batch.getId())
+                    .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN));
+        }
         return toResp(review);
     }
 
@@ -104,15 +120,14 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         String reviewOpinion = requireText(reqVO.getReviewOpinion());
         String qaSignature = requireText(reqVO.getQaSignature());
         MesProEdhrNonconformanceReviewDO review = requirePendingReview(reqVO.getId());
-        MesProEdhrBatchExecutionDO batch = requireBatchExecution(review.getBatchExecutionId());
-        if (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN)) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
-        }
-        if (review.getPreviousBatchStatus() == null) {
+        MesProEdhrBatchExecutionDO batch = review.getBatchExecutionId() == null
+                ? null : requireBatchExecution(review.getBatchExecutionId());
+        if (batch != null && (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_FROZEN)
+                || review.getPreviousBatchStatus() == null)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         LocalDateTime now = now();
-        Integer nextBatchStatus = DISPOSITION_VOID.equals(disposition)
+        Integer nextBatchStatus = batch == null ? null : DISPOSITION_VOID.equals(disposition)
                 ? MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED : review.getPreviousBatchStatus();
         MesProEdhrNonconformanceReviewDO update = new MesProEdhrNonconformanceReviewDO()
                 .setId(review.getId())
@@ -127,9 +142,11 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 .setVoidedAt(DISPOSITION_VOID.equals(disposition) ? now : null);
         update.setTraceSnapshotJson(buildTraceSnapshotJson(review, update, nextBatchStatus));
         reviewMapper.updateById(update);
-        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
-                .setId(batch.getId())
-                .setStatus(nextBatchStatus));
+        if (batch != null) {
+            batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                    .setId(batch.getId())
+                    .setStatus(nextBatchStatus));
+        }
         return toResp(reviewMapper.selectById(review.getId()));
     }
 
@@ -170,7 +187,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
 
     @Override
     public void ensureWorkOrderNotFrozen(Long workOrderId, String actionName) {
-        if (workOrderId != null && reviewMapper.selectPendingCountByWorkOrderId(workOrderId) > 0) {
+        if (workOrderId != null && reviewMapper.selectBlockingCountByWorkOrderId(workOrderId) > 0) {
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED, actionName);
         }
     }
@@ -192,6 +209,17 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
         return batch;
+    }
+
+    private MesProcessPoolActiveOrderReleaseApplicationDO requirePqcReleaseApplication(Long applicationId) {
+        MesProcessPoolActiveOrderReleaseApplicationDO application = applicationId == null
+                ? null : releaseApplicationMapper.selectById(applicationId);
+        if (application == null
+                || !MesReleaseFlowStatus.PQC_RELEASE_PENDING.equals(application.getApplicationStatus())
+                || application.getWorkOrderId() == null) {
+            throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+        }
+        return application;
     }
 
     private String requireSourceType(String rawSourceType) {

@@ -35,6 +35,9 @@ public class MesPqcProductionReleaseApproveReqVO {
     @Size(max = 500)
     private String approvalOpinion;
 
+    @NotBlank(message = "电子签名密码不能为空")
+    private String signaturePassword;
+
     private String entryType;
     private String entryBusinessId;
     private String sourceCredentialType;

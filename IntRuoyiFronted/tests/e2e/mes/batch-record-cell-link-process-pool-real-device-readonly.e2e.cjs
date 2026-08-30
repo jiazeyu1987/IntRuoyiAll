@@ -209,6 +209,57 @@ function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
+function summarizeTargetFormCells(targetFormCells) {
+  const cells = Array.isArray(targetFormCells?.cells) ? targetFormCells.cells : []
+  const interestingCells = cells
+    .filter((cell) => {
+      const label = normalizeText(cell.label)
+      return (
+        cell.signatureCell ||
+        String(cell.valueType || '').toUpperCase() === 'SIGNATURE' ||
+        String(cell.componentFlag || '').toLowerCase().includes('signature') ||
+        label.includes('签名') ||
+        label.includes('操作人') ||
+        label.includes('复核人') ||
+        (label === '?' && !cell.linkableAsTarget)
+      )
+    })
+    .slice(0, 80)
+    .map((cell) => ({
+      rowIndex: cell.rowIndex,
+      columnIndex: cell.columnIndex,
+      cellKey: cell.cellKey,
+      label: cell.label,
+      valueType: cell.valueType,
+      componentFlag: cell.componentFlag,
+      readonly: cell.readonly,
+      signatureCell: cell.signatureCell,
+      linkableAsTarget: cell.linkableAsTarget
+    }))
+  return {
+    reportId: targetFormCells?.reportId,
+    reportName: targetFormCells?.reportName,
+    cellCount: cells.length,
+    signatureCellCount: cells.filter((cell) => cell.signatureCell).length,
+    linkableTargetCount: cells.filter((cell) => cell.linkableAsTarget).length,
+    interestingCells
+  }
+}
+
+function isTargetSignatureCell(cell) {
+  const label = normalizeText(cell?.label)
+  return Boolean(
+    cell?.signatureCell ||
+    String(cell?.valueType || '').toUpperCase() === 'SIGNATURE' ||
+    String(cell?.componentFlag || '').toLowerCase().includes('signature') ||
+    (cell?.linkableAsTarget && (
+      label.includes('签名') ||
+      label.includes('操作人') ||
+      label.includes('复核人')
+    ))
+  )
+}
+
 function formatDccProjectCodeOption(projectCode) {
   return [projectCode.projectCode, projectCode.projectName, projectCode.id].filter(Boolean).join(' / ')
 }
@@ -511,6 +562,7 @@ async function main() {
   const workbenchResponses = []
   const saveResponses = []
   let candidate
+  let targetFormCellsSummary
 
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 960 } })
@@ -624,6 +676,15 @@ async function main() {
       panelText.includes(`${processOptionText}的一线生产字段`),
       `source_panel_must_identify_selected_process:${panelText}`
     )
+    assert.ok(panelText.includes('本次报工总量'), `total_quantity_field_not_visible:${panelText}`)
+    assert.ok(
+      selectedSourceFields.some((field) =>
+        field.fieldCode === 'totalQuantity' &&
+        field.fieldName === '本次报工总量' &&
+        field.valueType === 'NUMBER'
+      ),
+      'total_quantity_source_field_missing'
+    )
     assert.ok(!panelText.includes('设备编码 / 设备名称'), 'generic_device_placeholder_must_not_be_visible')
     assert.ok(!panelText.includes(' / B'), 'physical_device_code_suffix_must_not_be_visible')
     for (const device of selectedDevices) {
@@ -656,10 +717,71 @@ async function main() {
     for (const hiddenText of ['单位', '下限', '上限', '状态', '参考标准', '默认文本', '默认值']) {
       assert.ok(!panelText.includes(hiddenText), `device_parameter_metadata_text_must_not_be_visible:${hiddenText}`)
     }
+    const signatureSourceField =
+      selectedSourceFields.find((field) =>
+        field.fieldCode === 'reviewSignatureUserId' && field.fieldName === '审核人签名用户'
+      ) ||
+      selectedSourceFields.find((field) =>
+        field.fieldCode === 'signatureUserId' && field.fieldName === '提交签名用户'
+      )
+    assert.ok(signatureSourceField, 'process_pool_signature_user_source_field_missing')
+    const targetFormCells = unwrapCommonResult(
+      await apiGet(page, '/mes/pro/batch-record-cell-link/form-cells', {
+        reportId: candidate.targetReport.reportId,
+        versionId: candidate.context.batchRecordVersionId
+      }),
+      'target_form_cells'
+    )
+    targetFormCellsSummary = summarizeTargetFormCells(targetFormCells)
+    const signatureTargetCell = (targetFormCells.cells || []).find(isTargetSignatureCell)
+    assert.ok(signatureTargetCell, 'target_signature_cell_missing')
+    const targetPane = page.locator('.batch-record-cell-link__pane.is-target').first()
+    const createButton = page.locator('.batch-record-cell-link__create-button').first()
+    const signatureSourceCell = sourcePane
+      .locator('.batch-record-cell-link-sheet__cell.is-source-selectable')
+      .filter({ hasText: signatureSourceField.fieldName })
+      .first()
+    await signatureSourceCell.waitFor({ state: 'visible', timeout: 30000 })
+    await signatureSourceCell.click()
+    const signatureTargetLocator = targetPane
+      .locator(`.batch-record-cell-link-sheet__cell[data-cell-key="${signatureTargetCell.cellKey}"]`)
+      .first()
+    await signatureTargetLocator.waitFor({ state: 'visible', timeout: 30000 })
+    assert.ok(
+      await signatureTargetLocator.evaluate((element) => element.classList.contains('is-target-selectable')),
+      `signature_target_must_be_selectable_after_signature_source:${signatureTargetCell.cellKey}`
+    )
+    await signatureTargetLocator.click()
+    assert.ok(
+      await signatureTargetLocator.evaluate((element) => element.classList.contains('is-selected')),
+      `signature_target_must_be_selected_after_click:${signatureTargetCell.cellKey}`
+    )
+    assert.ok(
+      await createButton.isEnabled(),
+      'create_button_must_be_enabled_after_signature_source_and_signature_target_selection'
+    )
     const sourceCellForLink = sourcePane
       .locator('.batch-record-cell-link-sheet__cell.is-source-selectable')
       .filter({ hasText: selectedParameterFields[0].fieldName })
       .first()
+    const totalQuantityCell = sourcePane
+      .locator('.batch-record-cell-link-sheet__cell.is-source-selectable')
+      .filter({ hasText: '本次报工总量' })
+      .first()
+    await totalQuantityCell.waitFor({ state: 'visible', timeout: 30000 })
+    await totalQuantityCell.click()
+    assert.equal(
+      await signatureTargetLocator.evaluate((element) => element.classList.contains('is-selected')),
+      false,
+      'signature_target_must_clear_after_non_signature_source_selection'
+    )
+    const totalAggregationSelectText = normalizeText(
+      await page.locator('.batch-record-cell-link__aggregation-select').first().innerText()
+    )
+    assert.ok(
+      totalAggregationSelectText.includes('求和'),
+      `process_pool_total_quantity_must_default_to_sum:${totalAggregationSelectText}`
+    )
     await sourceCellForLink.waitFor({ state: 'visible', timeout: 30000 })
     await sourceCellForLink.click()
     const aggregationSelectText = normalizeText(
@@ -669,13 +791,19 @@ async function main() {
       aggregationSelectText.includes('最后一笔'),
       `process_pool_parameter_must_default_to_last_aggregation:${aggregationSelectText}`
     )
-    const targetPane = page.locator('.batch-record-cell-link__pane.is-target').first()
+    let initialSourceLinkCountText = null
+    let finalSourceLinkCountText = null
+    if (config.createAndCleanup) {
+      const sourceLinkCountButton = page.locator('.batch-record-cell-link__source-link-count').first()
+      await sourceLinkCountButton.waitFor({ state: 'visible', timeout: 30000 })
+      initialSourceLinkCountText = normalizeText(await sourceLinkCountButton.innerText())
+      assert.ok(/^0\s*个链接$/.test(initialSourceLinkCountText), `create_cleanup_requires_unlinked_source:${initialSourceLinkCountText}`)
+    }
     const targetCandidateCells = config.createAndCleanup
       ? targetPane.locator('.batch-record-cell-link-sheet__cell.is-target-selectable:not(.is-linked)')
       : targetPane.locator('.batch-record-cell-link-sheet__cell.is-target-selectable')
     assert.ok((await targetCandidateCells.count()) > 0, 'target_linkable_cells_missing')
     await targetCandidateCells.first().click()
-    const createButton = page.locator('.batch-record-cell-link__create-button').first()
     assert.ok(
       await createButton.isEnabled(),
       'create_button_must_be_enabled_after_process_pool_source_and_target_selection'
@@ -704,6 +832,8 @@ async function main() {
       assert.ok(cleanupResponse.ok(), `cleanup_link_http_failed:${cleanupResponse.status()}`)
       assert.ok(isSuccessPayload(cleanupPayload), `cleanup_link_business_failed:${JSON.stringify(cleanupPayload)}`)
       await waitForNoLoading(page)
+      finalSourceLinkCountText = normalizeText(await detailButton.innerText())
+      assert.ok(/^0\s*个链接$/.test(finalSourceLinkCountText), `cleanup_must_restore_unlinked_source:${finalSourceLinkCountText}`)
     } else {
       assert.deepEqual(writeRequests, [], 'readonly E2E must not write DCC or cell-link data')
     }
@@ -727,6 +857,8 @@ async function main() {
       targetReportName: candidate.targetReport.reportName || '',
       dccOptionText,
       processOptionText,
+      initialSourceLinkCountText,
+      finalSourceLinkCountText,
       sourceFieldCount: fieldCount,
       devices: selectedDevices,
       sampledParameterFields: selectedParameterFields.slice(0, 8).map((field) => ({
@@ -738,6 +870,12 @@ async function main() {
         deviceName: field.deviceName,
         sourceCellKey: field.sourceCellKey
       })),
+      signatureSourceField: {
+        fieldCode: signatureSourceField.fieldCode,
+        fieldName: signatureSourceField.fieldName
+      },
+      signatureTargetCellKey: signatureTargetCell.cellKey,
+      signatureCreateButtonEnabledAfterSelection: true,
       aggregationSelectText,
       createButtonEnabledAfterSelection: true,
       workbenchResponses,
@@ -763,8 +901,11 @@ async function main() {
       username: config.username,
       projectCodeId: candidate?.projectCode?.id,
       routeProcessId: candidate?.process?.id,
+      targetReportId: candidate?.targetReport?.reportId,
+      targetReportName: candidate?.targetReport?.reportName,
       createAndCleanup: config.createAndCleanup,
       error: error.message,
+      targetFormCellsSummary,
       workbenchResponses,
       saveResponses,
       writeRequests,

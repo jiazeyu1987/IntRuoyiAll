@@ -140,6 +140,40 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
     }
 
     @Test
+    void shouldBackfillReportTotalQuantityFromOutputAndLossQuantity() {
+        MesProProcessPoolEventDO sourceEvent = event(1001L,
+                "{\"outputQuantity\":80,\"lossQuantity\":5}",
+                LocalDateTime.of(2026, 8, 1, 9, 0));
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(executionService.openOrCreateByContext(any(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class)))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(execution().setExecutionSnapshotJson("""
+                {"fields":[{"fieldPath":"report.totalQuantity","fieldKey":"totalQuantity",
+                "rowIndex":8,"columnIndex":2,"valueType":"NUMBER"}]}
+                """));
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(rule(1L, "totalQuantity", 8, 2,
+                        MesProBatchRecordExecutionFieldAuditValueType.NUMBER)));
+        when(fieldAuditService.saveSystemCellLinkChanges(any(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class)))
+                .thenReturn(new MesProBatchRecordExecutionFieldAuditSaveResult().setChangedFieldCount(1));
+
+        MesTeamLeaderBatchRecordBackfillResult result = service.backfillCompletedProcess(
+                command()
+                        .setEvent(sourceEvent)
+                        .setSourceEvents(List.of(sourceEvent)));
+
+        assertEquals(1, result.getAppliedFieldCount());
+        ArgumentCaptor<MesProBatchRecordExecutionFieldAuditSaveChangesCommand> auditCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSaveChangesCommand.class);
+        verify(fieldAuditService).saveSystemCellLinkChanges(auditCaptor.capture());
+        MesProBatchRecordExecutionFieldAuditChange change = auditCaptor.getValue().getChanges().get(0);
+        assertEquals("report.totalQuantity", change.getFieldPath());
+        assertEquals("totalQuantity", change.getFieldKey());
+        assertEquals(new BigDecimal("85"), change.getNewValueJson());
+    }
+
+    @Test
     void shouldBackfillReviewerSignatureFieldsFromFormalSubmissionReview() {
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
                 .thenReturn(List.of(binding()));

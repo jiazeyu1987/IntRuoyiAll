@@ -186,7 +186,7 @@ const emit = defineEmits<{
   pagination: [payload: UnifiedListPaginationPayload]
 }>()
 
-const DEFAULT_COLUMN_SORTABLE = true
+const DEFAULT_COLUMN_SORTABLE = false
 const STANDARD_SORT_ORDERS: UnifiedListSortOrder[] = ['ascending', 'descending', null]
 
 const resolvedMultiFilterState = computed(() => props.multiFilterState || EMPTY_MULTI_FILTER_STATE)
@@ -236,7 +236,7 @@ const normalizeSortableColumn = (column: UnifiedListSortableColumnInput): Unifie
   return {
     key: column.key,
     prop: column.prop || column.key,
-    sortable: column.sortable || DEFAULT_COLUMN_SORTABLE,
+    sortable: column.sortable ?? DEFAULT_COLUMN_SORTABLE,
     sortOrders: column.sortOrders
   }
 }
@@ -296,7 +296,7 @@ const getStandardSortColumnAttrs = (columnKeyOrConfig: string | UnifiedListSorta
     }
   }
   return {
-    sortable: sortableColumn.sortable || DEFAULT_COLUMN_SORTABLE,
+    sortable: sortableColumn.sortable ?? DEFAULT_COLUMN_SORTABLE,
     sortOrders: sortableColumn.sortOrders || STANDARD_SORT_ORDERS
   }
 }

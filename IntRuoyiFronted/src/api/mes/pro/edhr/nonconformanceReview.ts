@@ -29,7 +29,7 @@ export type EdhrNonconformanceReviewDisposition =
 export interface EdhrNonconformanceReviewCreateReqVO {
   sourceType: EdhrNonconformanceReviewSourceType
   sourceId?: EdhrRouteId
-  batchExecutionId: EdhrRouteId
+  batchExecutionId?: EdhrRouteId
   nonconformanceReason: string
   remark?: string
 }

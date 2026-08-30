@@ -5290,6 +5290,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 """,
                 routeId, "ROUTE-FORM-LIST", "拆行路线", CommonStatusEnum.ENABLE.getStatus(),
                 "批记录表单拆行测试", "tester", "tester", false, 1L);
+        Long dccProjectCodeId = seedDccProjectCode("拆行路线项目", "SPLIT-DCC");
+        bindRouteToDccProject(routeId, dccProjectCodeId);
         jdbcTemplate().update("""
                 INSERT INTO mes_pro_route_product
                 (id, route_id, item_id, quantity, production_time, time_unit_type, remark, creator, updater, deleted, tenant_id)
@@ -5341,11 +5343,13 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         assertEquals("V2.0", firstProductRow.versionNo());
         assertEquals("APPROVED", firstProductRow.versionStatus());
         assertEquals(MesProBatchRecordFormSlotType.MAIN.getType(), firstProductRow.formSlotType());
+        assertEquals(dccProjectCodeId, firstProductRow.dccProjectCodeId());
         MesProBatchRecordReportView unboundRow = pageResult.getList().stream()
                 .filter(row -> "split-unbound-report-1".equals(row.reportId()))
                 .findFirst()
                 .orElseThrow();
         assertNull(unboundRow.productName());
+        assertNull(unboundRow.dccProjectCodeId());
     }
 
     @Test

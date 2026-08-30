@@ -307,14 +307,26 @@ public interface DccRegistrationCertificateQueryMapper {
                            s.entrusted_production,
                            s.self_production,
                            s.entrusted_enterprises_json,
-                           (SELECT MIN(f.id)
+                           (SELECT f.id
                               FROM dcc_registration_certificate_file f
                              WHERE f.tenant_id = c.tenant_id
                                AND f.owner_type = 'VERSION'
                                AND f.owner_id = v.id
                                AND f.file_kind = 'REGISTRATION_CERTIFICATE'
                                AND f.status = 'BOUND'
-                               AND f.deleted = 0) AS registration_file_id
+                               AND f.deleted = 0
+                             ORDER BY f.id ASC
+                             LIMIT 1) AS registration_file_id,
+                           (SELECT f.original_name
+                              FROM dcc_registration_certificate_file f
+                             WHERE f.tenant_id = c.tenant_id
+                               AND f.owner_type = 'VERSION'
+                               AND f.owner_id = v.id
+                               AND f.file_kind = 'REGISTRATION_CERTIFICATE'
+                               AND f.status = 'BOUND'
+                               AND f.deleted = 0
+                             ORDER BY f.id ASC
+                             LIMIT 1) AS registration_file_name
                     """ + from();
         }
 
