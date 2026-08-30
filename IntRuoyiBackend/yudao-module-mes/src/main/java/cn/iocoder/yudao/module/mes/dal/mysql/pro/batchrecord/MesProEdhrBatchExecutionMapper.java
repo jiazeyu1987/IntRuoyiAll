@@ -17,6 +17,7 @@ import java.util.Map;
 public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBatchExecutionDO> {
 
     int BATCH_STATUS_ARCHIVED = 40;
+    int BATCH_STATUS_FROZEN = 15;
     int BATCH_STATUS_REJECTED = 50;
     int BATCH_STATUS_VOIDED = 60;
 
@@ -91,11 +92,13 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
         }
         if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
             queryWrapper.and(wrapper -> wrapper
-                    .in(MesProEdhrBatchExecutionDO::getStatus, List.of(BATCH_STATUS_ARCHIVED, BATCH_STATUS_REJECTED))
+                    .in(MesProEdhrBatchExecutionDO::getStatus,
+                            BATCH_STATUS_ARCHIVED, BATCH_STATUS_REJECTED, BATCH_STATUS_VOIDED)
                     .or()
                     .exists(releasedTransactionExistsSql()));
+        } else {
+            queryWrapper.notIn(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_VOIDED);
         }
-        queryWrapper.notIn(MesProEdhrBatchExecutionDO::getStatus, BATCH_STATUS_VOIDED);
         QuickFilterUtils.filter(queryWrapper, reqVO.getQuickFilter(), Map.of(
                 "batchExecutionCode", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getBatchExecutionCode),
                 "workOrderCode", QuickFilterUtils.QuickFilterField.text(MesProEdhrBatchExecutionDO::getWorkOrderCode),

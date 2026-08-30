@@ -170,4 +170,16 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_466, "四份放行材料未齐套或当前版本无效：{}");
     ErrorCode PRO_EDHR_RELEASE_MATERIAL_MANIFEST_STALE =
             new ErrorCode(1_040_750_467, "四份放行材料版本或清单摘要已变化，请重新预检");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_NOT_EXISTS =
+            new ErrorCode(1_040_750_469, "eDHR 不合格评审单不存在");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_PENDING_EXISTS =
+            new ErrorCode(1_040_750_470, "当前 eDHR 批次已存在待处置不合格评审单");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID =
+            new ErrorCode(1_040_750_471, "eDHR 不合格评审来源类型无效");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_DISPOSITION_INVALID =
+            new ErrorCode(1_040_750_472, "eDHR 不合格评审处置结论无效");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_REQUIRED =
+            new ErrorCode(1_040_750_473, "eDHR 不合格评审原因、材料、意见和 QA 签名均不能为空");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED =
+            new ErrorCode(1_040_750_474, "当前批次存在待处置不合格评审，禁止{}");
 }

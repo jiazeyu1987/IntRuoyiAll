@@ -93,9 +93,18 @@
               <div class="edhr-release-page__muted">批准：{{ formatDateTime(row.approvedAt) }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="追溯" width="160" fixed="right">
+          <el-table-column label="追溯" width="220" fixed="right">
             <template #default="{ row }">
               <div class="edhr-release-page__actions">
+                <el-button
+                  v-hasPermi="['mes:pro-edhr-nonconformance-review:create']"
+                  link
+                  type="danger"
+                  :disabled="!row.batchExecutionId"
+                  @click="openNonconformanceReviewEntry(row)"
+                >
+                  不合格审查
+                </el-button>
                 <el-button link type="primary" :disabled="!row.releaseTransactionId" @click="openCheckItems(row)">
                   检查项
                 </el-button>
@@ -224,6 +233,7 @@ import {
   type EdhrReleaseRowVO,
   type EdhrReleaseStatus
 } from '@/api/mes/pro/edhr/release'
+import { SOURCE_TYPE_PQC_RELEASE } from '@/api/mes/pro/edhr/nonconformanceReview'
 import {
   resolveReleaseCheckCategoryLabel,
   resolveReleaseCheckCodeLabel,
@@ -239,6 +249,7 @@ import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 defineOptions({ name: 'MesProEdhrReleasePage' })
 
 const message = useMessage()
+const router = useRouter()
 
 const loading = ref(false)
 const checkItemLoading = ref(false)
@@ -343,6 +354,21 @@ const openCheckItems = async (row: EdhrReleaseRowVO) => {
   checkItemQuery.pageNo = 1
   checkItemQuery.releaseTransactionId = row.releaseTransactionId
   await getCheckItems()
+}
+
+const openNonconformanceReviewEntry = (row: EdhrReleaseRowVO) => {
+  if (!row.batchExecutionId) {
+    actionError.value = '缺少批次执行ID，无法发起不合格审查。'
+    return
+  }
+  router.push({
+    name: 'MesProFeedbackEdhrNonconformanceReview',
+    query: {
+      sourceType: SOURCE_TYPE_PQC_RELEASE,
+      sourceId: row.releaseTransactionId ? String(row.releaseTransactionId) : undefined,
+      batchExecutionId: String(row.batchExecutionId)
+    }
+  })
 }
 
 const getCheckItems = async () => {

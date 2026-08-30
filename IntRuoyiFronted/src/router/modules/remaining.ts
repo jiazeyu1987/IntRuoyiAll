@@ -1646,6 +1646,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-nonconformance-review',
+        component: () => import('@/views/mes/pro/edhr-nonconformance/NonconformanceReviewPage.vue'),
+        name: 'MesProFeedbackEdhrNonconformanceReview',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '不合格评审',
+          activeMenu: '/mes/pro/feedback/edhr-batch-execution',
+          permission: ['mes:pro-edhr-nonconformance-review:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-domain-trace',
         component: () => import('@/views/mes/pro/edhr/DomainTracePage.vue'),
         name: 'MesProFeedbackEdhrDomainTrace',

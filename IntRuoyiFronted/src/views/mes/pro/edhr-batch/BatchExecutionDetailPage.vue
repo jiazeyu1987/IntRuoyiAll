@@ -1040,69 +1040,6 @@
       </template>
     </Dialog>
 
-    <Dialog title="质量拒收电子批记录批次" v-model="qualityRejectDialogVisible" width="560px">
-      <el-alert
-        v-if="qualityRejectError"
-        :title="qualityRejectError"
-        type="error"
-        :closable="false"
-        show-icon
-        class="edhr-batch-detail__dialog-alert"
-      />
-      <el-form label-width="108px">
-        <el-form-item label="批次编号">
-          {{ detail?.batchExecutionCode || detail?.id || '--' }}
-        </el-form-item>
-        <el-form-item label="质量拒收原因" required>
-          <el-input
-            v-model="qualityRejectForm.reason"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入质量拒收原因"
-          />
-        </el-form-item>
-        <el-form-item label="签名密码" required>
-          <el-input
-            v-model="qualityRejectForm.password"
-            type="password"
-            show-password
-            placeholder="请输入当前账号密码"
-            @keyup.enter="submitQualityReject"
-          />
-        </el-form-item>
-        <el-divider content-position="left">签名显示时间</el-divider>
-        <el-form-item label="签名时间">
-          <el-date-picker
-            v-model="qualityRejectSignatureTimeForm.selectedSignedAt"
-            type="datetime"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            placeholder="可选择人工签名时间"
-            class="!w-1/1"
-          />
-        </el-form-item>
-        <el-form-item label="签名时区">
-          <el-input
-            v-model="qualityRejectSignatureTimeForm.selectedTimeZone"
-            placeholder="例如 Asia/Shanghai"
-          />
-        </el-form-item>
-        <el-form-item label="时间原因">
-          <el-input
-            v-model="qualityRejectSignatureTimeForm.selectedTimeReason"
-            type="textarea"
-            :rows="2"
-            placeholder="选择人工签名时间时必须说明原因"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="qualityRejectDialogVisible = false">取 消</el-button>
-        <el-button type="danger" :loading="qualityRejectLoading" @click="submitQualityReject"
-          >确认拒收</el-button
-        >
-      </template>
-    </Dialog>
-
     <Dialog :title="currentSkipDialogTitle" v-model="specialNodeSkipDialogVisible" width="560px">
       <el-alert
         v-if="specialNodeSkipError"
@@ -1483,6 +1420,7 @@ import {
   EDHR_BATCH_STATUS_ARCHIVED,
   EDHR_BATCH_STATUS_CLOSED,
   EDHR_BATCH_STATUS_CREATED,
+  EDHR_BATCH_STATUS_FROZEN,
   EDHR_BATCH_STATUS_IN_PROGRESS,
   EDHR_BATCH_STATUS_READY_TO_CLOSE,
   EDHR_BATCH_STATUS_REWORK_REQUIRED,
@@ -1516,7 +1454,6 @@ import {
   prepareEdhrProductionReleaseReportAttachmentUpload,
   savePendingEdhrBatchSpecialNodeAttachments,
   printEdhrBatchArchive,
-  qualityRejectEdhrBatchExecution,
   reexecuteRejectedEdhrBatchExecution,
   skipEdhrBatchSpecialNode,
   simulateEdhrStage4DossierUpload,
@@ -1534,6 +1471,10 @@ import {
   type EdhrStage4DossierUploadSimulationRespVO,
   type MesProductionReleaseReportNodeCompleteRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
+import {
+  SOURCE_TYPE_PQC_RELEASE,
+  SOURCE_TYPE_PQC_SUBMISSION
+} from '@/api/mes/pro/edhr/nonconformanceReview'
 import {
   EDHR_PRODUCTION_RELEASE_REPORT_NODE_TYPES,
   EDHR_WORK_TASK_STATUS_TODO,
@@ -1634,7 +1575,6 @@ const STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY = 'mes:stage5-final-release:signoff-
 const STAGE5_SIMULATION_BATCH_STORAGE_KEY = 'mes:stage5-final-release:last-batch-id'
 const reopenLoading = ref(false)
 const reexecuteLoading = ref(false)
-const qualityRejectLoading = ref(false)
 const specialNodeSkipLoading = ref(false)
 const specialNodeCompleteLoading = ref(false)
 const specialNodeAttachmentUploading = ref(false)
@@ -1644,7 +1584,6 @@ const secondaryLoadError = ref('')
 const recordbookGlobalEnabled = ref(true)
 const reopenError = ref('')
 const reexecuteError = ref('')
-const qualityRejectError = ref('')
 const specialNodeSkipError = ref('')
 const specialNodeCompleteError = ref('')
 const productionReleaseReportCandidateError = ref('')
@@ -1746,7 +1685,6 @@ const UX_CHECKLIST_ITEMS = [
 ]
 const reopenDialogVisible = ref(false)
 const reexecuteDialogVisible = ref(false)
-const qualityRejectDialogVisible = ref(false)
 const specialNodeSkipDialogVisible = ref(false)
 const specialNodeCompleteDialogVisible = ref(false)
 const currentSpecialNode = ref<EdhrBatchExecutionTaskRespVO>()
@@ -1769,11 +1707,6 @@ const reexecuteForm = reactive({
   reason: '',
   remark: ''
 })
-const qualityRejectForm = reactive({
-  reason: '',
-  password: ''
-})
-const qualityRejectSignatureTimeForm = reactive<EdhrSignatureTimeForm>(createSignatureTimeForm())
 const specialNodeSkipForm = reactive({
   reason: '',
   password: ''
@@ -2582,15 +2515,24 @@ const edhrVoidActionProjection = computed(() =>
     disabledReason: pendingVoidActionLockMessage.value
   })
 )
+const NONCONFORMANCE_FROZEN_ACTION_LOCKED_MESSAGE =
+  '不合格评审待处理，冻结后禁止报工、PQC提交、PQC放行。'
+const nonconformanceFrozenActionLocked = computed(
+  () => batchStatus.value === EDHR_BATCH_STATUS_FROZEN
+)
 const batchActionLocked = computed(
   () =>
     !hasGoldenFingerActionBypass.value &&
-    (pendingVoidActionLocked.value || releaseActionLocked.value)
+    (pendingVoidActionLocked.value ||
+      nonconformanceFrozenActionLocked.value ||
+      releaseActionLocked.value)
 )
 const batchActionLockMessage = computed(() =>
   pendingVoidActionLocked.value
     ? edhrVoidActionProjection.value.blockerMessage
-    : edhrReleaseActionProjection.value.blockerMessage || releaseActionLockMessage.value
+    : nonconformanceFrozenActionLocked.value
+      ? NONCONFORMANCE_FROZEN_ACTION_LOCKED_MESSAGE
+      : edhrReleaseActionProjection.value.blockerMessage || releaseActionLockMessage.value
 )
 const resolveEdhrBatchActionProjection = (
   actionCode: string,
@@ -2624,19 +2566,21 @@ const archiveProjectionState = computed(() =>
     detail.value?.canArchive === true && batchStatus.value !== EDHR_BATCH_STATUS_ARCHIVED
   )
 )
-const qualityRejectProjectionState = computed(() =>
+const nonconformanceReviewProjectionState = computed(() =>
   resolveEdhrBatchActionProjection(
-    'QUALITY_REJECT',
-    '质量拒收',
+    'NONCONFORMANCE_REVIEW',
+    '不合格审查',
     Boolean(detail.value?.id) &&
       batchStatus.value !== EDHR_BATCH_STATUS_ARCHIVED &&
-      batchStatus.value !== EDHR_BATCH_STATUS_REJECTED
+      batchStatus.value !== EDHR_BATCH_STATUS_REJECTED &&
+      batchStatus.value !== EDHR_BATCH_STATUS_VOIDED &&
+      batchStatus.value !== EDHR_BATCH_STATUS_FROZEN
   )
 )
 const canGenerateArchive = computed(() => archiveProjectionState.value.allowed)
-const canQualityReject = computed(
+const canOpenNonconformanceReview = computed(
   () =>
-    qualityRejectProjectionState.value.allowed &&
+    nonconformanceReviewProjectionState.value.allowed &&
     releaseStatus.value !== 'RELEASED' &&
     (resolveReleaseStageKey() === 'precheck' || resolveReleaseStageKey() === 'release-approval')
 )
@@ -2656,9 +2600,12 @@ const canOpenArchivePrintDrawer = computed(
 const canRunReleasePrecheck = computed(
   () =>
     Boolean(detail.value?.id) &&
-    ![EDHR_BATCH_STATUS_ARCHIVED, EDHR_BATCH_STATUS_REJECTED, EDHR_BATCH_STATUS_VOIDED].includes(
-      batchStatus.value
-    ) &&
+    ![
+      EDHR_BATCH_STATUS_ARCHIVED,
+      EDHR_BATCH_STATUS_REJECTED,
+      EDHR_BATCH_STATUS_FROZEN,
+      EDHR_BATCH_STATUS_VOIDED
+    ].includes(batchStatus.value) &&
     !['PENDING_APPROVAL', 'RELEASED'].includes(String(releaseStatus.value || '')) &&
     (!batchActionLocked.value || hasGoldenFingerActionBypass.value)
 )
@@ -2946,12 +2893,12 @@ function buildReleaseDecisionActionItems(): ReleaseStageActionItem[] {
       onClick: openReleaseReturnDialog
     },
     {
-      key: 'quality-reject',
-      label: '质量拒收',
+      key: 'nonconformance-review',
+      label: '不合格审查',
       type: 'danger',
-      permission: ['mes:pro-edhr-batch-execution:quality-reject'],
-      disabled: !canQualityReject.value,
-      onClick: openQualityRejectDialog
+      permission: ['mes:pro-edhr-nonconformance-review:create'],
+      disabled: !canOpenNonconformanceReview.value,
+      onClick: () => openNonconformanceReviewEntry(SOURCE_TYPE_PQC_RELEASE)
     },
     {
       key: 'release-signature',
@@ -3490,6 +3437,7 @@ const resolveBatchStatusLabel = (status?: number) => {
   const labels: Record<number, string> = {
     [EDHR_BATCH_STATUS_CREATED]: '已创建',
     [EDHR_BATCH_STATUS_IN_PROGRESS]: '执行中',
+    [EDHR_BATCH_STATUS_FROZEN]: '冻结中',
     [EDHR_BATCH_STATUS_READY_TO_CLOSE]: '待关闭',
     [EDHR_BATCH_STATUS_REWORK_REQUIRED]: '需返工/需修订',
     [EDHR_BATCH_STATUS_CLOSED]: '已关闭',
@@ -3502,6 +3450,7 @@ const resolveBatchStatusLabel = (status?: number) => {
 const resolveBatchStatusType = (status?: number) => {
   if (status === EDHR_BATCH_STATUS_ARCHIVED || status === EDHR_BATCH_STATUS_CLOSED) return 'success'
   if (status === EDHR_BATCH_STATUS_REJECTED) return 'danger'
+  if (status === EDHR_BATCH_STATUS_FROZEN) return 'warning'
   if (status === EDHR_BATCH_STATUS_READY_TO_CLOSE || status === EDHR_BATCH_STATUS_REWORK_REQUIRED)
     return 'warning'
   if (status === EDHR_BATCH_STATUS_IN_PROGRESS) return 'primary'
@@ -5104,60 +5053,25 @@ const submitReleaseReturn = async () => {
   }
 }
 
-const resetQualityRejectForm = () => {
-  qualityRejectForm.reason = ''
-  qualityRejectForm.password = ''
-  Object.assign(qualityRejectSignatureTimeForm, createSignatureTimeForm())
-  qualityRejectError.value = ''
-}
-
-const openQualityRejectDialog = () => {
-  if (!ensureViewedReleaseStageWritable('质量拒收')) return
-  if (!canQualityReject.value) {
+const openNonconformanceReviewEntry = (sourceType = SOURCE_TYPE_PQC_SUBMISSION) => {
+  if (!ensureViewedReleaseStageWritable('不合格审查')) return
+  if (!canOpenNonconformanceReview.value) {
     message.error(
-      batchActionLocked.value ? batchActionLockMessage.value : '当前批次不允许质量拒收。'
+      batchActionLocked.value ? batchActionLockMessage.value : '当前批次不允许发起不合格审查。'
     )
     return
   }
-  resetQualityRejectForm()
-  qualityRejectDialogVisible.value = true
-}
-
-const submitQualityReject = async () => {
-  if (!ensureViewedReleaseStageWritable('质量拒收')) return
-  if (!canQualityReject.value) {
-    qualityRejectError.value = batchActionLocked.value
-      ? batchActionLockMessage.value
-      : '当前批次不允许质量拒收。'
-    message.error(qualityRejectError.value)
-    return
-  }
-  if (!qualityRejectForm.reason.trim()) {
-    qualityRejectError.value = '拒收原因不能为空。'
-    return
-  }
-  if (!qualityRejectForm.password.trim()) {
-    qualityRejectError.value = '签名密码不能为空。'
-    return
-  }
-  qualityRejectLoading.value = true
-  qualityRejectError.value = ''
-  try {
-    await qualityRejectEdhrBatchExecution({
-      id: assertBatchExecutionId(),
-      reason: qualityRejectForm.reason.trim(),
-      password: qualityRejectForm.password.trim(),
-      signatureTime: buildSignatureTimePayload(qualityRejectSignatureTimeForm)
-    })
-    qualityRejectDialogVisible.value = false
-    message.success('质量拒收已提交')
-    await loadDetail()
-  } catch (error) {
-    qualityRejectError.value = resolveErrorMessage(error, '质量拒收失败。')
-    message.error(qualityRejectError.value)
-  } finally {
-    qualityRejectLoading.value = false
-  }
+  router.push({
+    name: 'MesProFeedbackEdhrNonconformanceReview',
+    query: {
+      sourceType,
+      sourceId:
+        sourceType === SOURCE_TYPE_PQC_RELEASE && traceRecordReleaseTransactionId.value
+          ? String(traceRecordReleaseTransactionId.value)
+          : String(assertBatchExecutionId()),
+      batchExecutionId: String(assertBatchExecutionId())
+    }
+  })
 }
 
 const handleOpenTask = async (

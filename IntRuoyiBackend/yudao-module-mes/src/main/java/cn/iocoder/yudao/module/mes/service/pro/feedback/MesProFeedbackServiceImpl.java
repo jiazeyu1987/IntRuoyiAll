@@ -23,6 +23,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.wm.MesWmQualityStatusEnum;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.scheduleorder.MesProScheduleOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.task.MesProTaskService;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
@@ -59,6 +60,8 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     private MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
     @Resource
     private FeedbackScheduleLinkageGuard feedbackScheduleLinkageGuard;
+    @Resource
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @Resource
     private MesProWorkOrderService workOrderService;
@@ -101,6 +104,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     private Long createFeedbackInternal(MesProFeedbackSaveReqVO createReqVO, boolean keepProvidedScheduleSnapshot) {
         // 1. 校验
         MesProTaskDO task = validateFeedbackData(createReqVO, keepProvidedScheduleSnapshot);
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(createReqVO.getWorkOrderId(), "报工");
 
         // 2. 插入（自动填充 itemId）
         MesProFeedbackDO feedback = BeanUtils.toBean(createReqVO, MesProFeedbackDO.class)
@@ -159,6 +163,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     public void submitFeedback(Long id, boolean allowImportedDraft) {
         // 1. 校验存在 + 草稿状态
         MesProFeedbackDO feedback = validateFeedbackStatusPrepare(id);
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(feedback.getWorkOrderId(), "报工");
         if (!allowImportedDraft && feedback.getSourceImportRecordId() != null) {
             throw exception(PRO_FEEDBACK_IMPORT_DIRECT_SUBMIT_FORBIDDEN);
         }
@@ -190,6 +195,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     public boolean approveFeedback(Long id) {
         // 1.1 校验存在 + 审批中状态
         MesProFeedbackDO feedback = validateFeedbackStatusApproving(id);
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(feedback.getWorkOrderId(), "PQC提交");
         // 1.2 校验报工数量 > 0
         if (feedback.getFeedbackQuantity() == null
                 || feedback.getFeedbackQuantity().compareTo(BigDecimal.ZERO) <= 0) {
@@ -478,6 +484,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
                                                 BigDecimal laborScrapQty, BigDecimal materialScrapQty, BigDecimal otherScrapQty) {
         // 1. 校验报工单存在且为待检验状态
         MesProFeedbackDO feedback = validateFeedbackExists(feedbackId);
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(feedback.getWorkOrderId(), "PQC提交");
         if (ObjUtil.notEqual(feedback.getStatus(), MesProFeedbackStatusEnum.UNCHECK.getStatus())) {
             throw exception(PRO_FEEDBACK_NOT_UNCHECK);
         }

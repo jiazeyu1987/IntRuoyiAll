@@ -488,6 +488,14 @@
             重填
           </button>
           <button
+            class="frontline-pqc-nonconformance-button"
+            type="button"
+            :disabled="!routeBatchExecutionId || payloadLoading || pqcSubmitResultUncertain"
+            @click="openNonconformanceReviewEntry"
+          >
+            不合格审查
+          </button>
+          <button
             class="frontline-pqc-submit-button"
             type="button"
             :disabled="isPqcSubmitBlocked"
@@ -1304,6 +1312,7 @@ import {
   type FrontlineTemplatePayloadReqVO,
   type FrontlineTemplatePayloadVO
 } from '@/api/mes/pro/feedbackFrontlineTemplate'
+import { SOURCE_TYPE_PQC_SUBMISSION } from '@/api/mes/pro/edhr/nonconformanceReview'
 import {
   ProFeedbackApi,
   type FrontlineActiveOrderVO,
@@ -1545,6 +1554,7 @@ const showParameterAuditWarning = (submitResult: ProFrontlineFeedbackSubmitRespV
   message.warning(`报工已成功，设备参数需复核：${[...new Set(warnings)].join('；')}`)
 }
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
 
 const catalog = ref<FrontlineTemplateDefinitionVO[]>([])
@@ -1639,6 +1649,9 @@ const pqcSignaturePassword = ref('')
 const pqcSubmitResultUncertain = ref(false)
 
 const isPqcMode = computed(() => props.mode === 'pqc')
+const routeBatchExecutionId = computed(() =>
+  firstRouteQueryNumber(['batchExecutionId', 'edhrBatchExecutionId'])
+)
 const PRODUCTION_CANVAS_WIDTH = 1920
 const PRODUCTION_CANVAS_HEIGHT = 1080
 const productionViewportScale = ref(1)
@@ -3534,6 +3547,22 @@ const handleResetPqc = () => {
   resetPqcSubmissionDraft()
 }
 
+const openNonconformanceReviewEntry = () => {
+  const batchExecutionId = routeBatchExecutionId.value
+  if (!batchExecutionId) {
+    message.error('缺少批次执行ID，无法发起不合格审查。')
+    return
+  }
+  router.push({
+    name: 'MesProFeedbackEdhrNonconformanceReview',
+    query: {
+      sourceType: SOURCE_TYPE_PQC_SUBMISSION,
+      sourceId: context.workOrderId ? String(context.workOrderId) : undefined,
+      batchExecutionId: String(batchExecutionId)
+    }
+  })
+}
+
 const openPicker = (picker: PickerType) => {
   if (isPqcMode.value && picker === 'employee') {
     return
@@ -5365,13 +5394,15 @@ onUnmounted(() => {
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-submit-bar,
 .frontline-operator-panel:fullscreen .frontline-pqc-submit-bar {
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 280px 360px minmax(0, 1fr);
   gap: 24px;
 }
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-reset-button,
+.frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-nonconformance-button,
 .frontline-operator-panel.is-pqc-fullscreen .frontline-pqc-submit-button,
 .frontline-operator-panel:fullscreen .frontline-pqc-reset-button,
+.frontline-operator-panel:fullscreen .frontline-pqc-nonconformance-button,
 .frontline-operator-panel:fullscreen .frontline-pqc-submit-button {
   border-radius: 28px;
   font-size: 50px;
@@ -7203,7 +7234,7 @@ onUnmounted(() => {
   display: grid;
   grid-column: 1;
   grid-row: 2;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 280px 360px minmax(0, 1fr);
   gap: 24px;
   min-height: 0;
 }
@@ -7270,6 +7301,7 @@ onUnmounted(() => {
 }
 
 .frontline-pqc-reset-button,
+.frontline-pqc-nonconformance-button,
 .frontline-pqc-submit-button {
   border: 0;
   border-radius: 28px;
@@ -7282,6 +7314,17 @@ onUnmounted(() => {
   border: 3px solid var(--frontline-line);
   background: #ffffff;
   color: var(--frontline-ink);
+}
+
+.frontline-pqc-nonconformance-button {
+  border: 3px solid #b93a3a;
+  background: #ffffff;
+  color: #9e2828;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+  }
 }
 
 .frontline-pqc-submit-button {

@@ -92,6 +92,61 @@
           </div>
         </div>
 
+        <div
+          v-if="detail.nonconformanceReviews?.length"
+          class="edhr-domain-trace-detail__section"
+        >
+          <div class="edhr-domain-trace-detail__section-title">不合格评审</div>
+          <el-table
+            :data="detail.nonconformanceReviews"
+            border
+            :show-overflow-tooltip="true"
+            empty-text="暂无不合格评审"
+          >
+            <el-table-column label="评审单" min-width="210">
+              <template #default="{ row }">
+                <div class="edhr-domain-trace-detail__strong">{{ row.reviewCode || '--' }}</div>
+                <div class="edhr-domain-trace-detail__muted">
+                  {{ row.nonconformanceReason || '--' }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="处置结论" width="150">
+              <template #default="{ row }">
+                <el-tag :type="resolveNonconformanceDispositionTagType(row.disposition)">
+                  {{ resolveNonconformanceDispositionLabel(row.disposition) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="评审信息" min-width="260">
+              <template #default="{ row }">
+                <div>评审材料：{{ row.reviewMaterialUrl || '--' }}</div>
+                <div class="edhr-domain-trace-detail__muted">评审意见：{{ row.reviewOpinion || '--' }}</div>
+                <div class="edhr-domain-trace-detail__muted">QA签名：{{ row.qaSignature || '--' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="时间" min-width="220">
+              <template #default="{ row }">
+                <div>冻结：{{ formatEdhrDateTime(row.frozenAt, '--') }}</div>
+                <div v-if="row.disposition === 'concession_release'" class="edhr-domain-trace-detail__muted">
+                  解冻：{{ formatEdhrDateTime(row.unfrozenAt, '--') }}
+                </div>
+                <div v-if="row.disposition === 'rework'" class="edhr-domain-trace-detail__muted">
+                  返工：{{ formatEdhrDateTime(row.unfrozenAt, '--') }}
+                </div>
+                <div v-if="row.disposition === 'void'" class="edhr-domain-trace-detail__muted">
+                  作废：{{ formatEdhrDateTime(row.voidedAt, '--') }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="结果" min-width="220">
+              <template #default="{ row }">
+                {{ resolveNonconformanceDispositionNote(row.disposition) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
         <el-collapse
           v-model="domainTraceDetailTechnicalEvidenceNames"
           class="edhr-domain-trace-detail__technical-evidence"
@@ -301,6 +356,27 @@ const resolveItemStatusType = (status?: string) => {
 const resolveItemStatusLabel = (status?: EdhrDomainTraceItemVO['status']) => {
   const rawStatus = status ? String(status) : ''
   return ITEM_STATUS_LABEL_MAP[rawStatus] || rawStatus || '--'
+}
+
+const resolveNonconformanceDispositionLabel = (disposition?: string) => {
+  if (disposition === 'concession_release') return '让步放行'
+  if (disposition === 'rework') return '返工'
+  if (disposition === 'void') return '作废'
+  return '待评审'
+}
+
+const resolveNonconformanceDispositionTagType = (disposition?: string) => {
+  if (disposition === 'concession_release') return 'success'
+  if (disposition === 'rework') return 'warning'
+  if (disposition === 'void') return 'danger'
+  return 'info'
+}
+
+const resolveNonconformanceDispositionNote = (disposition?: string) => {
+  if (disposition === 'concession_release') return '批次解冻并继续主流程。'
+  if (disposition === 'rework') return 'MVP返工确认后直接回到主流程。'
+  if (disposition === 'void') return '批次已作废，只允许只读追溯。'
+  return 'QA尚未完成处置。'
 }
 
 const resolveBlockerCount = (current: EdhrDomainTraceDetailRespVO) => {

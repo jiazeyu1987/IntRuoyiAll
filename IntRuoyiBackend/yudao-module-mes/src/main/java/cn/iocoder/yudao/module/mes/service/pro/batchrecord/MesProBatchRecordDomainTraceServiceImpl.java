@@ -11,10 +11,12 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordDomainTraceSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordDomainTraceItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordDomainTraceSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
@@ -54,6 +56,8 @@ public class MesProBatchRecordDomainTraceServiceImpl implements MesProBatchRecor
     private MesProBatchRecordExecutionAttachmentMapper attachmentMapper;
     @Resource
     private MesProBatchRecordExecutionAttachmentService attachmentService;
+    @Resource
+    private MesProEdhrNonconformanceReviewMapper nonconformanceReviewMapper;
 
     @Override
     public MesProBatchRecordDomainTraceDetailRespVO getTraceDetail(Long executionId) {
@@ -211,6 +215,7 @@ public class MesProBatchRecordDomainTraceServiceImpl implements MesProBatchRecor
                         && StrUtil.isNotBlank(execution.getFieldAuditHeadHash()),
                 buildFieldAuditBaselineJson(execution),
                 "EDHR_DOMAIN_TRACE_FIELD_AUDIT_BASELINE_REQUIRED", "Field audit baseline hash and revision are required");
+        addNonconformanceReviewItems(items, execution);
 
         int blockerCount = (int) items.stream().filter(item -> STATUS_BLOCKED.equals(item.getStatus())).count();
         String status = blockerCount == 0 ? STATUS_VERIFIED : STATUS_BLOCKED;
@@ -266,6 +271,19 @@ public class MesProBatchRecordDomainTraceServiceImpl implements MesProBatchRecor
                 execution.getExecutionCode(), SNAPSHOT_VERSION, complete, blockerCode, blockerMessage)
                 .setSnapshotJson(complete ? normalizedSnapshot : null)
                 .setSnapshotHash(complete ? DigestUtil.sha256Hex(normalizedSnapshot) : null));
+    }
+
+    private void addNonconformanceReviewItems(List<MesProBatchRecordDomainTraceItemDO> items,
+                                              MesProBatchRecordExecutionDO execution) {
+        for (MesProEdhrNonconformanceReviewDO review : selectNonconformanceReviews(execution)) {
+            String snapshotJson = StrUtil.blankToDefault(review.getTraceSnapshotJson(),
+                    buildNonconformanceReviewTraceSnapshotJson(review));
+            items.add(baseItem(execution, "NONCONFORMANCE_REVIEW", review.getReviewCode(), "不合格评审",
+                    "mes_pro_edhr_nonconformance_review", review.getId(), review.getReviewCode(),
+                    review.getReviewStatus(), true, null, null)
+                    .setSnapshotJson(snapshotJson)
+                    .setSnapshotHash(DigestUtil.sha256Hex(snapshotJson)));
+        }
     }
 
     private MesProBatchRecordDomainTraceItemDO baseItem(MesProBatchRecordExecutionDO execution,
@@ -354,6 +372,9 @@ public class MesProBatchRecordDomainTraceServiceImpl implements MesProBatchRecor
                 .setDomainTraceSnapshotId(snapshot.getId())
                 .setDomainTraceHash(snapshot.getSnapshotHash())
                 .setVerifiedAt(snapshot.getVerifiedAt());
+        detail.setNonconformanceReviews(selectNonconformanceReviews(execution).stream()
+                .map(this::toNonconformanceReviewTrace)
+                .toList());
         detail.setItems(items.stream().map(this::toItem).toList());
         detail.setBlockers(items.stream()
                 .filter(item -> STATUS_BLOCKED.equals(item.getStatus()))
@@ -475,6 +496,63 @@ public class MesProBatchRecordDomainTraceServiceImpl implements MesProBatchRecor
                 .setItemKey(item.getItemKey())
                 .setBlockerCode(item.getBlockerCode())
                 .setBlockerMessage(item.getBlockerMessage());
+    }
+
+    private List<MesProEdhrNonconformanceReviewDO> selectNonconformanceReviews(
+            MesProBatchRecordExecutionDO execution) {
+        if (execution.getBatchExecutionId() == null) {
+            return List.of();
+        }
+        return nonconformanceReviewMapper.selectListByBatchExecutionId(execution.getBatchExecutionId());
+    }
+
+    private String buildNonconformanceReviewTraceSnapshotJson(MesProEdhrNonconformanceReviewDO review) {
+        JSONObject payload = new JSONObject(true);
+        payload.put("reviewId", review.getId());
+        payload.put("reviewCode", review.getReviewCode());
+        payload.put("sourceType", review.getSourceType());
+        payload.put("sourceId", review.getSourceId());
+        payload.put("batchExecutionId", review.getBatchExecutionId());
+        payload.put("batchExecutionCode", review.getBatchExecutionCode());
+        payload.put("workOrderCode", review.getWorkOrderCode());
+        payload.put("batchCode", review.getBatchCode());
+        payload.put("reviewStatus", review.getReviewStatus());
+        payload.put("nonconformanceReason", review.getNonconformanceReason());
+        payload.put("reviewMaterialUrl", review.getReviewMaterialUrl());
+        payload.put("reviewOpinion", review.getReviewOpinion());
+        payload.put("qaSignature", review.getQaSignature());
+        payload.put("qaUserId", review.getQaUserId());
+        payload.put("disposition", review.getDisposition());
+        payload.put("frozenAt", review.getFrozenAt());
+        payload.put("unfrozenAt", review.getUnfrozenAt());
+        payload.put("voidedAt", review.getVoidedAt());
+        payload.put("closedAt", review.getClosedAt());
+        return payload.toJSONString();
+    }
+
+    private MesProBatchRecordDomainTraceDetailRespVO.NonconformanceReviewTrace toNonconformanceReviewTrace(
+            MesProEdhrNonconformanceReviewDO review) {
+        return new MesProBatchRecordDomainTraceDetailRespVO.NonconformanceReviewTrace()
+                .setId(review.getId())
+                .setReviewCode(review.getReviewCode())
+                .setSourceType(review.getSourceType())
+                .setSourceId(review.getSourceId())
+                .setBatchExecutionId(review.getBatchExecutionId())
+                .setBatchExecutionCode(review.getBatchExecutionCode())
+                .setWorkOrderCode(review.getWorkOrderCode())
+                .setBatchCode(review.getBatchCode())
+                .setReviewStatus(review.getReviewStatus())
+                .setNonconformanceReason(review.getNonconformanceReason())
+                .setReviewMaterialUrl(review.getReviewMaterialUrl())
+                .setReviewOpinion(review.getReviewOpinion())
+                .setQaSignature(review.getQaSignature())
+                .setQaUserId(review.getQaUserId())
+                .setDisposition(review.getDisposition())
+                .setFrozenAt(review.getFrozenAt())
+                .setClosedAt(review.getClosedAt())
+                .setUnfrozenAt(review.getUnfrozenAt())
+                .setVoidedAt(review.getVoidedAt())
+                .setTraceSnapshotJson(review.getTraceSnapshotJson());
     }
 
     private MesProBatchRecordExecutionDO requireExecution(Long executionId) {

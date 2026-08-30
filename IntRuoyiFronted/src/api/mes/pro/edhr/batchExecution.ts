@@ -6,6 +6,7 @@ import type { FormRecognizedFieldVO } from '@/api/form-center/template'
 export const EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF = 'BATCH_FINAL_PDF'
 export const EDHR_BATCH_STATUS_CREATED = 0
 export const EDHR_BATCH_STATUS_IN_PROGRESS = 10
+export const EDHR_BATCH_STATUS_FROZEN = 15
 export const EDHR_BATCH_STATUS_READY_TO_CLOSE = 20
 export const EDHR_BATCH_STATUS_REWORK_REQUIRED = 25
 export const EDHR_BATCH_STATUS_CLOSED = 30

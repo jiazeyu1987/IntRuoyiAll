@@ -46,6 +46,29 @@ export interface EdhrDomainTraceItemVO {
   blockerReason?: string
 }
 
+export interface EdhrDomainTraceNonconformanceReviewVO {
+  id: number
+  reviewCode?: string
+  sourceType?: string
+  sourceId?: number
+  batchExecutionId?: number
+  batchExecutionCode?: string
+  workOrderCode?: string
+  batchCode?: string
+  reviewStatus?: string
+  nonconformanceReason?: string
+  reviewMaterialUrl?: string
+  reviewOpinion?: string
+  qaSignature?: string
+  qaUserId?: number
+  disposition?: 'concession_release' | 'rework' | 'void' | string
+  frozenAt?: string
+  closedAt?: string
+  unfrozenAt?: string
+  voidedAt?: string
+  traceSnapshotJson?: string
+}
+
 export interface EdhrDomainTracePageRowVO {
   executionId: number
   executionCode?: string
@@ -66,6 +89,7 @@ export interface EdhrDomainTraceDetailRespVO extends EdhrDomainTracePageRowVO {
   verifiedByName?: string
   blockers: EdhrDomainTraceBlockerVO[]
   items: EdhrDomainTraceItemVO[]
+  nonconformanceReviews?: EdhrDomainTraceNonconformanceReviewVO[]
 }
 
 export interface EdhrDomainTraceVerifyReqVO {

@@ -723,6 +723,7 @@ import {
   EDHR_BATCH_STATUS_ARCHIVED,
   EDHR_BATCH_STATUS_CLOSED,
   EDHR_BATCH_STATUS_CREATED,
+  EDHR_BATCH_STATUS_FROZEN,
   EDHR_BATCH_STATUS_IN_PROGRESS,
   EDHR_BATCH_STATUS_READY_TO_CLOSE,
   EDHR_BATCH_STATUS_REWORK_REQUIRED,
@@ -879,6 +880,7 @@ const edhrBatchQuickFilterDefinitions: TableQuickFilterDefinition[] = [
     options: [
       { label: '已创建', value: EDHR_BATCH_STATUS_CREATED },
       { label: '执行中', value: EDHR_BATCH_STATUS_IN_PROGRESS },
+      { label: '冻结中', value: EDHR_BATCH_STATUS_FROZEN },
       { label: '待关闭', value: EDHR_BATCH_STATUS_READY_TO_CLOSE },
       { label: '需返工', value: EDHR_BATCH_STATUS_REWORK_REQUIRED },
       { label: '已关闭', value: EDHR_BATCH_STATUS_CLOSED }
@@ -1277,6 +1279,7 @@ const resolveBatchStatusLabel = (status?: number | string | null) => {
   const labels: Record<number, string> = {
     [EDHR_BATCH_STATUS_CREATED]: '已创建',
     [EDHR_BATCH_STATUS_IN_PROGRESS]: '执行中',
+    [EDHR_BATCH_STATUS_FROZEN]: '冻结中',
     [EDHR_BATCH_STATUS_READY_TO_CLOSE]: '待关闭',
     [EDHR_BATCH_STATUS_REWORK_REQUIRED]: '需返工',
     [EDHR_BATCH_STATUS_CLOSED]: '已关闭',
@@ -1305,6 +1308,7 @@ const resolveBatchMainStageLabel = (row: EdhrBatchExecutionRespVO) => {
   const status = normalizeBatchStatusValue(row.status)
   if (status === EDHR_BATCH_STATUS_ARCHIVED) return '已归档'
   if (status === EDHR_BATCH_STATUS_VOIDED) return '已作废'
+  if (status === EDHR_BATCH_STATUS_FROZEN) return '不合格评审'
   if (status === EDHR_BATCH_STATUS_CLOSED) return '待放行'
   if (status === EDHR_BATCH_STATUS_READY_TO_CLOSE) return '待关闭'
   if (status === EDHR_BATCH_STATUS_REWORK_REQUIRED) return '待返工'
@@ -1321,6 +1325,7 @@ const resolveBatchStatusType = (status?: number | string | null) => {
   if (normalizedStatus === EDHR_BATCH_STATUS_ARCHIVED || normalizedStatus === EDHR_BATCH_STATUS_CLOSED) return 'success'
   if (normalizedStatus === EDHR_BATCH_STATUS_VOIDED) return 'danger'
   if (normalizedStatus === EDHR_BATCH_STATUS_REJECTED) return 'danger'
+  if (normalizedStatus === EDHR_BATCH_STATUS_FROZEN) return 'warning'
   if (normalizedStatus === EDHR_BATCH_STATUS_READY_TO_CLOSE || normalizedStatus === EDHR_BATCH_STATUS_REWORK_REQUIRED) return 'warning'
   if (normalizedStatus === EDHR_BATCH_STATUS_IN_PROGRESS) return 'primary'
   return 'info'

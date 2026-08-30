@@ -221,6 +221,15 @@
 - Forbidden action: 禁止用 `Remove-Item -Recurse` 替代正常 `git worktree remove` 作为首选路径；禁止删除未指定 worktree；禁止因为 `Directory not empty` 就扩大清理范围；禁止静默丢弃未提交变更；禁止删除或释放其他任务的端口登记项。
 - Evidence: 2026-07-26 删除已合入 worktree 前补齐长期经验门禁，要求先确认合入状态、未提交变更授权、路径边界和删除后注册状态。
 
+### task-closeout 主线 worktree 可见性门禁
+
+- Trigger: 在 linked worktree 中运行 `task_closeout.py --mode preview/apply`，输出 `No checked-out worktree for main branch <branch> was found`，或当前任务需要自动 cleanup、快进合并、删除附加 worktree。
+- Preflight check: 执行 closeout 前先运行 `git worktree list --porcelain`，确认目标主线分支如 `int_main` 已有 checked-out worktree；若主线未检出，先定位正确主工作区或显式切换为非自动合并收尾。
+- Blocker: 找不到主线 checked-out worktree、主线 worktree 脏、任务分支未完成目标验证、或当前任务仍有未解释 blocker 时必须停止 apply，不得伪造 completed 状态。
+- Verification: `task_closeout.py --task-id <task-id> --mode preview` 至少能列出 `worktree: linked=True current_branch=<task> main_branch=<main>` 且无 blocked；apply 后再验证 `git worktree list --porcelain`、主线 `git status --short` 和任务记录状态。
+- Forbidden action: 禁止在 preview blocked 时继续 apply；禁止手动复制改动到任意主线目录冒充 ff-only merge；禁止为了 closeout 创建临时主线 worktree 后不记录路径和验证。
+- Evidence: `doc/tasks/nonconformance-review-mvp-implementation/verification-report.md`，linked worktree closeout preview 因未找到 `int_main` checked-out worktree 阻塞，任务未执行 apply/合并/删除。
+
 ### Dirty Worktree 删除保全门禁
 
 - Trigger: 用户要求删除一个或多个 worktree，但 `git -C <path> status --short --untracked-files=all` 显示源码、SQL、测试或任务文档未提交，尤其是当前目标看起来属于其它并行任务。

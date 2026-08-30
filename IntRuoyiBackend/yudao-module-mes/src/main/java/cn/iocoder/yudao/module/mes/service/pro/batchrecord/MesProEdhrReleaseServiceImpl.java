@@ -192,6 +192,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesReleaseAuthoritativeContextPort authoritativeContextPort;
     @Resource
     private MesProEdhrFourMaterialGateService fourMaterialGateService;
+    @Resource
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -400,6 +402,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         }
         Long batchExecutionId = existingTransaction == null ? reqVO.getBatchExecutionId() : existingTransaction.getBatchExecutionId();
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(batchExecutionId);
+        nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "PQC放行");
         MesProEdhrReleaseTransactionDO transaction = existingTransaction == null
                 ? releaseTransactionMapper.selectByBatchExecutionId(batch.getId()) : existingTransaction;
         if (transaction != null) {
@@ -471,6 +474,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         requirePrecheckPassed(transaction);
         requirePrecheckMaterialManifestCurrent(transaction);
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
+        nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "PQC放行");
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();
         Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
@@ -653,6 +657,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             return get(command.getReleaseTransactionId());
         }
         requirePendingApproval(transaction);
+        nonconformanceReviewService.ensureBatchNotFrozen(transaction.getBatchExecutionId(), "PQC放行");
         MesProEdhrWorkTaskDO approvalTask = workTaskService.validateReleaseApprovalTask(
                 command.getWorkTaskId(), transaction.getId());
         if (approvalTask == null || approvalTask.getId() == null) {
@@ -753,8 +758,12 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         }
         if (Boolean.TRUE.equals(reqVO.getCompletedTraceOnly())) {
             return STATUS_RELEASED.equals(item.getReleaseStatus())
-                    || MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED == item.getBatchExecutionStatus()
-                    || MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED == item.getBatchExecutionStatus();
+                    || Objects.equals(item.getBatchExecutionStatus(),
+                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED)
+                    || Objects.equals(item.getBatchExecutionStatus(),
+                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED)
+                    || Objects.equals(item.getBatchExecutionStatus(),
+                    MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED);
         }
         return true;
     }

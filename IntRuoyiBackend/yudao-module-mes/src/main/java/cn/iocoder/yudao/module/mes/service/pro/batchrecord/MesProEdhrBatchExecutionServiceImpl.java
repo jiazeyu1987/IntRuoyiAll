@@ -212,6 +212,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     public static final int BATCH_STATUS_CREATED = 0;
     public static final int BATCH_STATUS_IN_PROGRESS = 10;
+    public static final int BATCH_STATUS_FROZEN = 15;
     public static final int BATCH_STATUS_READY_TO_CLOSE = 20;
     public static final int BATCH_STATUS_REWORK_REQUIRED = 25;
     public static final int BATCH_STATUS_CLOSED = 30;
@@ -226,6 +227,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private static final String TARGET_SCOPE_BATCH = "BATCH";
     private static final String PENDING_VOID_ACTION_LOCK_REASON = "作废申请待处理，只能撤回作废申请";
     private static final String PENDING_RELEASE_ACTION_LOCK_REASON = "放行审批待处理，只能处理放行审批或撤回放行";
+    private static final String NONCONFORMANCE_FROZEN_ACTION_LOCK_REASON =
+            "不合格评审待处理，冻结后禁止报工、PQC提交、PQC放行";
     private static final String VOIDED_ACTION_LOCK_REASON = "批次已作废，只能追溯审计";
 
     public static final int TASK_STATUS_WAITING = 0;
@@ -419,6 +422,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     @Resource
     private MesProEdhrReleaseTransactionEventMapper releaseTransactionEventMapper;
+    @Resource
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @Resource
     private MesProEdhrWorkTaskAssignmentRuleMapper workTaskAssignmentRuleMapper;
     @Resource
@@ -2845,6 +2850,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         }
         MesProEdhrBatchExecutionDO batch = validateBatchExists(task.getBatchExecutionId());
         if (Objects.equals(batch.getStatus(), BATCH_STATUS_CLOSED)
+                || Objects.equals(batch.getStatus(), BATCH_STATUS_FROZEN)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_ARCHIVED)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_REJECTED)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
@@ -3283,6 +3289,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (Objects.equals(batch.getStatus(), BATCH_STATUS_CLOSED)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_ARCHIVED)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_REJECTED)
+                || Objects.equals(batch.getStatus(), BATCH_STATUS_FROZEN)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
@@ -6053,6 +6060,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (Objects.equals(batch.getStatus(), BATCH_STATUS_CLOSED)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_ARCHIVED)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_REJECTED)
+                || Objects.equals(batch.getStatus(), BATCH_STATUS_FROZEN)
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
             status = batch.getStatus();
         }
@@ -6398,8 +6406,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrRecordChangeEventDO pendingVoidChange = selectPendingBatchVoidChange(latest.getId());
         boolean pendingVoid = pendingVoidChange != null;
         boolean voidedTerminal = Objects.equals(latest.getStatus(), BATCH_STATUS_VOIDED);
+        boolean nonconformanceFrozen = nonconformanceReviewService.isBatchFrozen(latest.getId());
         boolean pendingReleaseApproval = isReleasePendingApproval(releaseTransaction);
         String actionLockReason = goldenFingerActionBypass ? null : pendingVoid ? PENDING_VOID_ACTION_LOCK_REASON
+                : nonconformanceFrozen ? NONCONFORMANCE_FROZEN_ACTION_LOCK_REASON
                 : pendingReleaseApproval ? PENDING_RELEASE_ACTION_LOCK_REASON
                 : voidedTerminal ? VOIDED_ACTION_LOCK_REASON : null;
         return new EdhrBatchExecutionRespVO()
@@ -6495,6 +6505,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (selectPendingBatchVoidChange(batchExecutionId) != null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED);
         }
+        nonconformanceReviewService.ensureBatchNotFrozen(batchExecutionId, "eDHR批次操作");
         requireReleaseActionUnlocked(batchExecutionId);
     }
 
@@ -6506,6 +6517,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (selectPendingBatchVoidChange(batchExecutionId) != null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED);
         }
+        nonconformanceReviewService.ensureBatchNotFrozen(batchExecutionId, "eDHR批次操作");
         if (isReleasePendingApproval(releaseTransactionMapper.selectByBatchExecutionId(batchExecutionId))
                 && !isSubmittedOrdinaryRouteFormTask(task)) {
             throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
