@@ -100,7 +100,7 @@ public interface DccRegistrationCertificateQueryMapper {
         private static final String SORT_FIELD_EXPIRY_DATE = "expiryDate";
         private static final String SORT_FIELD_REMINDER = "reminder";
         private static final String SORT_FIELD_REMARK = "remark";
-        private static final String NO_EMPTY_RANK = "0";
+        private static final String NO_EMPTY_RANK = "CASE WHEN 1 = 1 THEN 0 ELSE 0 END";
         private static final String OWNER_COMPANY_NAME_SORT_EXPRESSION =
                 "(SELECT MIN(e.name) FROM mdm_enterprise e"
                         + " WHERE e.tenant_id = c.tenant_id"

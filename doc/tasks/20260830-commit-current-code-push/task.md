@@ -33,7 +33,7 @@
 
 ## Current Status
 
-completed - 当前代码、后续补齐变更、任务记录和经验文档已提交并推送到 `origin/int_main`；推送后 `HEAD...origin/int_main` 为 `0 0`。
+completed - 当前代码、后续补齐变更、任务记录和二次经验文档复扫变更已提交并推送到 `origin/int_main`；最终推送后 `HEAD...origin/int_main` 为 `0 0`。
 
 ## 设计约束检查
 

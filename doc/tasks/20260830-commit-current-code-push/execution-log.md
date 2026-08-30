@@ -64,3 +64,6 @@
 - completed：推送前 branch runtime port guard、staged 空白检查、临时/日志排除扫描、高置信密钥扫描、待推送对象大小扫描均通过；最大待推送 blob 为 950080 bytes。
 - completed：`git push origin int_main` 成功，远端从 `b131a226c` 更新到 `f7c145920`。
 - completed：推送后 `git rev-list --left-right --count HEAD...origin/int_main` 为 `0 0`；`git status --short --branch --untracked-files=all` 仅剩 `.pytest-temp/` 与 `LOG_FILE_IS_UNDEFINED` 未跟踪临时产物。
+- completed：首次收尾记录推送后复扫发现 `docs\experience-index.md` 与 `docs\frontend-development.md` 仍有审批路线正式候选来源经验沉淀改动；已纳入最终补提交，未包含临时目录或运行日志。
+- completed：二次复扫发现 `IntRuoyiFronted\tests\e2e\registration-certificate-list-sort-static.spec.js` 增加“提醒排序不得生成 `ORDER BY 0`”静态守卫；复跑该静态合同 PASS 后纳入最终补提交。
+- completed：配套 `DccRegistrationCertificateQueryMapper` 将空值排序常量从裸数字改为 SQL 表达式；`mvn -pl yudao-module-dcc -DskipTests clean test-compile` PASS。

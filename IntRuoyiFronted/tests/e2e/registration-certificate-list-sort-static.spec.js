@@ -197,6 +197,15 @@ requireIncludes(mapperSource, 'oldIndexOrderBy()', 'old index must use dynamic w
 requireIncludes(mapperSource, 'SORT_FIELD_CERTIFICATE_NO', 'mapper sort fields must be fixed constants')
 requireIncludes(mapperSource, 'SORT_FIELD_REMINDER', 'mapper sort fields must include fixed reminder constant')
 requireIncludes(mapperSource, 'REMINDER_STATE_EXPRESSION', 'mapper must use a fixed reminder-state expression')
+assert.ok(
+  !/NO_EMPTY_RANK\s*=\s*"0"/.test(mapperSource),
+  'reminder sort must not emit ORDER BY 0 because MySQL treats it as an invalid select-list ordinal'
+)
+requireIncludes(
+  mapperSource,
+  'NO_EMPTY_RANK = "CASE WHEN 1 = 1 THEN 0 ELSE 0 END"',
+  'reminder sort must use a SQL expression constant instead of a bare numeric ORDER BY literal'
+)
 requireIncludes(
   mapperSource,
   'query.reminderState == \'NORMAL\'',

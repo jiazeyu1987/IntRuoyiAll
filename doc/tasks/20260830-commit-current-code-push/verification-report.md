@@ -47,6 +47,9 @@
 - `git push origin int_main` -> PASS, `b131a226c..f7c145920`
 - 推送后 `git rev-list --left-right --count HEAD...origin/int_main` -> PASS, `0 0`
 - 推送后 `git status --short --branch --untracked-files=all` -> PASS, 仅剩 `.pytest-temp/` 与 `LOG_FILE_IS_UNDEFINED` 未跟踪临时产物
+- 二次经验文档复扫 -> PASS, `docs\experience-index.md` 与 `docs\frontend-development.md` 的审批路线正式候选来源经验变更纳入最终补提交
+- 二次注册证排序静态合同复跑 -> PASS, 覆盖提醒排序不得使用裸数字 `ORDER BY 0`
+- `mvn -pl yudao-module-dcc -DskipTests clean test-compile` -> PASS
 
 ## Remaining Verification
 
