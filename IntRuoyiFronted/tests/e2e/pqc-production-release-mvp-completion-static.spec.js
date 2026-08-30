@@ -1,0 +1,30 @@
+const assert = require('assert/strict')
+const fs = require('fs')
+const path = require('path')
+
+const root = path.resolve(__dirname, '..', '..')
+const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
+
+const api = read('src/api/mes/pro/productionRelease/index.ts')
+assert.match(api, /PQC_RELEASE_VIEW_PENDING\s*=\s*'PENDING'/)
+assert.match(api, /PQC_RELEASE_VIEW_RELEASED\s*=\s*'RELEASED'/)
+assert.match(api, /PQC_RELEASE_VIEW_VOIDED\s*=\s*'VOIDED'/)
+assert.match(api, /PQC_RELEASE_VIEW_REWORKED\s*=\s*'REWORKED'/)
+assert.match(api, /PQC_RELEASE_VIEW_CONCESSION_RELEASED\s*=\s*'CONCESSION_RELEASED'/)
+assert.match(api, /signaturePassword:\s*string/)
+assert.match(api, /url:\s*'\/mes\/pro\/production-release\/pqc\/page'/)
+
+const page = read('src/views/mes/pro/production-release/PqcProductionReleasePage.vue')
+for (const label of ['待放行', '已放行', '已作废', '已返工', '已让步放行']) {
+  assert.match(page, new RegExp(`label="${label}"`))
+}
+assert.match(page, />\s*放行\s*</)
+assert.match(page, />\s*不合格审查\s*</)
+assert.match(page, /电子签名密码/)
+assert.match(page, /确认放行/)
+assert.match(page, /查看批记录/)
+assert.match(page, /MesProFeedbackEdhrNonconformanceReview/)
+assert.match(page, /MesProEdhrBatchExecutionDetail/)
+assert.doesNotMatch(page, /确认拒绝|rejectPqcProductionRelease/)
+
+console.log('pqc-production-release-mvp-completion-static: PASS')

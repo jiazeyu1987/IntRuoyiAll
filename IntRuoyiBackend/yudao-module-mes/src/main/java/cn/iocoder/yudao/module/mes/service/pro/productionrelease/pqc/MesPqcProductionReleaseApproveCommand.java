@@ -17,6 +17,7 @@ public class MesPqcProductionReleaseApproveCommand {
     private Integer expectedVersion;
     private String idempotencyKey;
     private String approvalOpinion;
+    private String signaturePassword;
 
     private String entryType;
     private String entryBusinessId;

@@ -11,14 +11,14 @@
 
       <el-alert v-if="errorText" :title="errorText" type="error" :closable="false" show-icon />
 
-      <div v-if="entryBatchExecutionId" class="edhr-ncr__section">
+      <div v-if="canCreateEntry" class="edhr-ncr__section">
         <div class="edhr-ncr__section-title">发起评审</div>
         <el-form label-width="110px" :model="entryForm">
           <el-form-item label="来源">
             <el-tag>{{ resolveSourceTypeLabel(entryForm.sourceType) }}</el-tag>
           </el-form-item>
-          <el-form-item label="批次执行ID">
-            <el-input :model-value="String(entryBatchExecutionId)" disabled />
+          <el-form-item :label="entryBatchExecutionId ? '批次执行ID' : '放行申请ID'">
+            <el-input :model-value="String(entryBatchExecutionId || entrySourceId)" disabled />
           </el-form-item>
           <el-form-item label="不合格原因" required>
             <el-input
@@ -91,7 +91,9 @@
               </div>
               <div>
                 <span class="edhr-ncr__label">批次</span>
-                <span>{{ selectedReview.batchExecutionCode || selectedReview.batchExecutionId || '--' }}</span>
+                <span>{{
+                  selectedReview.batchExecutionCode || selectedReview.batchExecutionId || '--'
+                }}</span>
               </div>
               <div>
                 <span class="edhr-ncr__label">冻结时间</span>
@@ -102,7 +104,11 @@
             <template v-if="selectedReview.reviewStatus === REVIEW_STATUS_PENDING_REVIEW">
               <el-form label-width="110px" :model="disposeForm" class="edhr-ncr__dispose-form">
                 <el-form-item label="评审材料" required>
-                  <UploadFile :is-show-tip="false" v-model="disposeForm.reviewMaterialUrl" :limit="1" />
+                  <UploadFile
+                    :is-show-tip="false"
+                    v-model="disposeForm.reviewMaterialUrl"
+                    :limit="1"
+                  />
                 </el-form-item>
                 <el-form-item label="评审意见" required>
                   <el-input
@@ -214,10 +220,19 @@ const queryParams = reactive({
   pageSize: 10
 })
 
-const entryBatchExecutionId = computed(() => parsePositiveRouteQueryId(route.query.batchExecutionId))
+const entryBatchExecutionId = computed(() =>
+  parsePositiveRouteQueryId(route.query.batchExecutionId)
+)
 const entrySourceId = computed(() => parsePositiveRouteQueryId(route.query.sourceId))
 const entrySourceType = computed<EdhrNonconformanceReviewSourceType>(() =>
-  route.query.sourceType === SOURCE_TYPE_PQC_RELEASE ? SOURCE_TYPE_PQC_RELEASE : SOURCE_TYPE_PQC_SUBMISSION
+  route.query.sourceType === SOURCE_TYPE_PQC_RELEASE
+    ? SOURCE_TYPE_PQC_RELEASE
+    : SOURCE_TYPE_PQC_SUBMISSION
+)
+const canCreateEntry = computed(
+  () =>
+    Boolean(entryBatchExecutionId.value) ||
+    (entrySourceType.value === SOURCE_TYPE_PQC_RELEASE && Boolean(entrySourceId.value))
 )
 
 const entryForm = reactive({
@@ -232,7 +247,8 @@ const disposeForm = reactive({
 })
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
-  const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
+  const responseMessage =
+    (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
   if (typeof responseMessage === 'string' && responseMessage.trim()) return responseMessage
   if (error instanceof Error && error.message.trim()) return error.message
   return fallback
@@ -309,8 +325,11 @@ const fillDisposeForm = (review: EdhrNonconformanceReviewRespVO) => {
 
 const submitCreateReview = async () => {
   const batchExecutionId = entryBatchExecutionId.value
-  if (!batchExecutionId) {
-    message.error('缺少批次执行ID，无法发起不合格评审。')
+  if (
+    !batchExecutionId &&
+    !(entryForm.sourceType === SOURCE_TYPE_PQC_RELEASE && entrySourceId.value)
+  ) {
+    message.error('缺少批次执行或生产放行申请，无法发起不合格评审。')
     return
   }
   const reason = entryForm.nonconformanceReason.trim()
@@ -324,13 +343,15 @@ const submitCreateReview = async () => {
     const review = await createNonconformanceReview({
       sourceType: entryForm.sourceType,
       sourceId: entrySourceId.value,
-      batchExecutionId,
+      batchExecutionId: batchExecutionId || undefined,
       nonconformanceReason: reason
     })
     selectedReview.value = review
     resetDisposeForm()
     entryForm.nonconformanceReason = ''
-    message.success('不合格评审已创建，批次已冻结')
+    message.success(
+      batchExecutionId ? '不合格评审已创建，批次已冻结' : '不合格评审已创建，工单已冻结'
+    )
     await loadPendingReviews()
   } catch (error) {
     errorText.value = resolveErrorMessage(error, '不合格评审创建失败。')
@@ -345,7 +366,11 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
     message.error('请选择待处置评审单。')
     return
   }
-  if (!disposeForm.reviewMaterialUrl || !disposeForm.reviewOpinion.trim() || !disposeForm.qaSignature.trim()) {
+  if (
+    !disposeForm.reviewMaterialUrl ||
+    !disposeForm.reviewOpinion.trim() ||
+    !disposeForm.qaSignature.trim()
+  ) {
     message.error('评审材料、评审意见和 QA签名均不能为空。')
     return
   }
@@ -371,7 +396,13 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
 }
 
 watch(
-  () => [route.name, route.query.batchExecutionId, route.query.sourceType, route.query.reviewId] as const,
+  () =>
+    [
+      route.name,
+      route.query.batchExecutionId,
+      route.query.sourceType,
+      route.query.reviewId
+    ] as const,
   ([routeName]) => {
     if (routeName !== 'MesProFeedbackEdhrNonconformanceReview') return
     entryForm.sourceType = entrySourceType.value

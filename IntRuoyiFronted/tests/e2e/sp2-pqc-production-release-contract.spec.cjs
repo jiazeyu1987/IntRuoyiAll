@@ -44,17 +44,16 @@ assert(
   'Candidate page must not hide PQC tasks behind a REVIEW-only query'
 )
 for (const marker of [
-  'data-pqc-release-approve',
-  'data-pqc-release-reject',
-  'pqcDecisionForm.rejectReason',
-  'resolvePqcProductionReleaseFailure',
-  'recoverUncertainPqcProductionReleaseDecision',
-  'getPqcProductionRelease',
-  'result.batchExecutionId',
-  'result.reportUploadTasks'
+  'data-pqc-release-open',
+  'openPqcProductionReleasePage',
+  "name: 'MesPqcProductionRelease'"
 ]) {
   assert(boardPage.includes(marker), `Missing PQC workbench behavior: ${marker}`)
 }
+assert(
+  !boardPage.includes('data-pqc-release-reject'),
+  'PQC row actions must not expose legacy reject'
+)
 assert(
   boardPage.includes("activeTab.value === 'candidate'") &&
     boardPage.includes('EDHR_WORK_TASK_STATUS_TODO'),

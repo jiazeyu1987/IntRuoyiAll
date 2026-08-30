@@ -255,6 +255,14 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                 .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
     }
 
+    default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectListForPqcReleasePage(
+            String workOrderCode, String batchCode) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .likeIfPresent(MesProcessPoolActiveOrderReleaseApplicationDO::getWorkOrderCode, workOrderCode)
+                .likeIfPresent(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchCode, batchCode)
+                .orderByDesc(MesProcessPoolActiveOrderReleaseApplicationDO::getId));
+    }
+
     default int deleteByActiveOrderId(Long activeOrderId) {
         return activeOrderId == null ? 0 : physicalDeleteByActiveOrderId(activeOrderId);
     }

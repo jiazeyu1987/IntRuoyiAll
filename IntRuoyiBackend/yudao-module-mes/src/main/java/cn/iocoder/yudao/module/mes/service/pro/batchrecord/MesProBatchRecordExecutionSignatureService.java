@@ -49,6 +49,7 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_FORM_REVIEW = "FORM_REVIEW";
     public static final String ACTION_PRODUCTION_SUBMIT = "PRODUCTION_SUBMIT";
     public static final String ACTION_PQC_SUBMIT = "PQC_SUBMIT";
+    public static final String ACTION_PQC_RELEASE = "PQC_RELEASE";
     public static final String ACTION_TEAM_LEADER_REVIEW = "TEAM_LEADER_REVIEW";
     public static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
     public static final String SIGNATURE_MODE_LOGIN_SESSION = "LOGIN_SESSION";
@@ -103,6 +104,16 @@ public class MesProBatchRecordExecutionSignatureService {
         return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_PQC_SUBMIT,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordPqcReleaseSignature(Long actorId, Long executionId, String password, String comment) {
+        if (executionId == null || executionId <= 0) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_CONTEXT_MISSING);
+        }
+        return recordSignatureForActor(actorId, executionId, password, comment, ACTION_PQC_RELEASE,
+                null, null, null, null, null, null, null, "PQC_RELEASE_APPLICATION", null,
+                "PQC生产放行", ACTION_PQC_RELEASE, null, null, null, null, null);
     }
 
     public void validatePqcSubmitSignature(Long actorId, String password) {
@@ -681,6 +692,7 @@ public class MesProBatchRecordExecutionSignatureService {
             case ACTION_FORM_REVIEW -> "表单复核";
             case ACTION_PRODUCTION_SUBMIT -> "一线生产报工提交";
             case ACTION_PQC_SUBMIT -> "PQC检验提交";
+            case ACTION_PQC_RELEASE -> "PQC生产放行";
             case ACTION_TEAM_LEADER_REVIEW -> "组长复核";
             default -> actionType;
         };

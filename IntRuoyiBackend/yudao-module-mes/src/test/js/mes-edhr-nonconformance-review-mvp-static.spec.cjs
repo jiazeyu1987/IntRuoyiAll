@@ -33,6 +33,7 @@ const mapper = readModule(
 )
 assert.match(mapper, /selectPendingByBatchExecutionId/)
 assert.match(mapper, /selectPendingCountByWorkOrderId/)
+assert.match(mapper, /selectBlockingCountByWorkOrderId/)
 assert.match(mapper, /selectListByBatchExecutionId/)
 
 const batchMapper = readModule(

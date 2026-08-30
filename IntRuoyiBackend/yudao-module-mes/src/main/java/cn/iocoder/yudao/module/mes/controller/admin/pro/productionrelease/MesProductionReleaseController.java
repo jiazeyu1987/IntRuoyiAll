@@ -1,13 +1,18 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseApproveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseDecisionRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleasePageItemRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleasePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesProductionReleaseReportUploadTaskRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseApproveCommand;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseDecisionResult;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleasePageItem;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleasePageQuery;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseRejectCommand;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,6 +55,7 @@ public class MesProductionReleaseController {
                         .setExpectedVersion(reqVO.getExpectedVersion())
                         .setIdempotencyKey(reqVO.getIdempotencyKey())
                         .setApprovalOpinion(reqVO.getApprovalOpinion())
+                        .setSignaturePassword(reqVO.getSignaturePassword())
                         .setEntryType(reqVO.getEntryType())
                         .setEntryBusinessId(reqVO.getEntryBusinessId())
                         .setSourceCredentialType(reqVO.getSourceCredentialType())
@@ -104,6 +110,45 @@ public class MesProductionReleaseController {
                 SecurityFrameworkUtils.getLoginUserId(), applicationId)));
     }
 
+    @GetMapping("/pqc/page")
+    @Operation(summary = "取得 PQC 生产放行分页")
+    @PreAuthorize("@ss.hasPermission('mes:pro-production-release:query')")
+    public CommonResult<PageResult<MesPqcProductionReleasePageItemRespVO>> getPqcReleasePage(
+            @Valid MesPqcProductionReleasePageReqVO reqVO) {
+        PageResult<MesPqcProductionReleasePageItem> page = pqcProductionReleaseService.getPqcReleasePage(
+                SecurityFrameworkUtils.getLoginUserId(), new MesPqcProductionReleasePageQuery()
+                        .setPageNo(reqVO.getPageNo())
+                        .setPageSize(reqVO.getPageSize())
+                        .setViewStatus(reqVO.getViewStatus())
+                        .setWorkOrderCode(reqVO.getWorkOrderCode())
+                        .setBatchCode(reqVO.getBatchCode()));
+        return success(new PageResult<>(page.getList().stream().map(this::toPageItemResp).toList(), page.getTotal()));
+    }
+
+    private MesPqcProductionReleasePageItemRespVO toPageItemResp(MesPqcProductionReleasePageItem item) {
+        return new MesPqcProductionReleasePageItemRespVO()
+                .setApplicationId(item.getApplicationId())
+                .setPqcReleaseWorkTaskId(item.getPqcReleaseWorkTaskId())
+                .setVersion(item.getVersion())
+                .setViewStatus(item.getViewStatus())
+                .setApplicationStatus(item.getApplicationStatus())
+                .setActiveOrderId(item.getActiveOrderId())
+                .setWorkOrderId(item.getWorkOrderId())
+                .setWorkOrderCode(item.getWorkOrderCode())
+                .setBatchCode(item.getBatchCode())
+                .setProductId(item.getProductId())
+                .setBatchExecutionId(item.getBatchExecutionId())
+                .setAppliedAt(item.getAppliedAt())
+                .setAppliedBy(item.getAppliedBy())
+                .setDecidedAt(item.getDecidedAt())
+                .setDecidedBy(item.getDecidedBy())
+                .setUnderReview(item.getUnderReview())
+                .setNonconformanceReviewId(item.getNonconformanceReviewId())
+                .setNonconformanceDisposition(item.getNonconformanceDisposition())
+                .setNonconformanceReason(item.getNonconformanceReason())
+                .setNonconformanceClosedAt(item.getNonconformanceClosedAt());
+    }
+
     private MesPqcProductionReleaseDecisionRespVO toResp(MesPqcProductionReleaseDecisionResult result) {
         return new MesPqcProductionReleaseDecisionRespVO()
                 .setApplicationId(result.getApplicationId())
@@ -112,6 +157,7 @@ public class MesProductionReleaseController {
                 .setStatus(result.getStatus())
                 .setRejectReason(result.getRejectReason())
                 .setBatchExecutionId(result.getBatchExecutionId())
+                .setSignatureId(result.getSignatureId())
                 .setBatchRecordEvidenceIds(result.getBatchRecordEvidenceIds())
                 .setProcessInspectionEvidenceIds(result.getProcessInspectionEvidenceIds())
                 .setLossReportEvidenceIds(result.getLossReportEvidenceIds())

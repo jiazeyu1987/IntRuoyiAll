@@ -185,24 +185,14 @@
             <div v-if="isPqcProductionReleaseTask(row)">
               <template v-if="canHandlePqcProductionRelease(row)">
                 <el-button
-                  v-hasPermi="['mes:pro-production-release:pqc-approve']"
+                  v-hasPermi="['mes:pro-production-release:query']"
                   link
-                  type="success"
-                  :data-pqc-release-approve="row.id"
+                  type="primary"
+                  :data-pqc-release-open="row.id"
                   :disabled="isPqcDecisionLocked(row)"
-                  @click="openPqcDecisionDialog(row, 'APPROVE')"
+                  @click="openPqcProductionReleasePage(row)"
                 >
-                  PQC通过
-                </el-button>
-                <el-button
-                  v-hasPermi="['mes:pro-production-release:pqc-approve']"
-                  link
-                  type="danger"
-                  :data-pqc-release-reject="row.id"
-                  :disabled="isPqcDecisionLocked(row)"
-                  @click="openPqcDecisionDialog(row, 'REJECT')"
-                >
-                  PQC拒绝
+                  进入生产放行
                 </el-button>
               </template>
             </div>
@@ -309,19 +299,26 @@
             :rules="pqcDecisionRules"
             label-width="96px"
           >
-            <el-form-item
-              v-if="pqcDecisionAction === 'APPROVE'"
-              label="审批意见"
-              prop="approvalOpinion"
-            >
-              <el-input
-                v-model="pqcDecisionForm.approvalOpinion"
-                type="textarea"
-                :rows="3"
-                maxlength="500"
-                show-word-limit
-              />
-            </el-form-item>
+            <template v-if="pqcDecisionAction === 'APPROVE'">
+              <el-form-item label="电子签名" prop="signaturePassword">
+                <el-input
+                  v-model="pqcDecisionForm.signaturePassword"
+                  type="password"
+                  show-password
+                  autocomplete="current-password"
+                  placeholder="请输入当前账号电子签名密码"
+                />
+              </el-form-item>
+              <el-form-item label="审批意见" prop="approvalOpinion">
+                <el-input
+                  v-model="pqcDecisionForm.approvalOpinion"
+                  type="textarea"
+                  :rows="3"
+                  maxlength="500"
+                  show-word-limit
+                />
+              </el-form-item>
+            </template>
             <el-form-item v-else label="拒绝原因" prop="rejectReason">
               <el-input
                 v-model="pqcDecisionForm.rejectReason"
@@ -667,10 +664,12 @@ const queryParams = reactive({
   processName: ''
 })
 const pqcDecisionForm = reactive({
+  signaturePassword: '',
   approvalOpinion: '',
   rejectReason: ''
 })
 const pqcDecisionRules: FormRules<typeof pqcDecisionForm> = {
+  signaturePassword: [{ required: true, message: '请输入电子签名密码', trigger: 'blur' }],
   rejectReason: [
     { required: true, message: '请输入拒绝原因', trigger: 'blur' },
     { max: 500, message: '拒绝原因不能超过500个字符', trigger: 'blur' }
@@ -886,9 +885,7 @@ const isPqcDecisionLocked = (row: EdhrWorkTaskRespVO) =>
   Boolean(row.businessScopeId && pqcDecisionLockedApplicationIds.has(row.businessScopeId))
 
 const isManagerReleaseLocked = (row: EdhrWorkTaskRespVO) =>
-  Boolean(
-    row.businessScopeId && managerReleaseLockedTransactionIds.has(row.businessScopeId)
-  )
+  Boolean(row.businessScopeId && managerReleaseLockedTransactionIds.has(row.businessScopeId))
 
 const buildQuery = () => ({
   pageNo: queryParams.pageNo,
@@ -1265,6 +1262,7 @@ const resetPqcDecisionDialog = () => {
   pqcDecisionBlockers.value = []
   pqcDecisionUncertainMessage.value = ''
   pqcDecisionIdempotencyKey.value = ''
+  pqcDecisionForm.signaturePassword = ''
   pqcDecisionForm.approvalOpinion = ''
   pqcDecisionForm.rejectReason = ''
   pqcDecisionFormRef.value?.clearValidate()
@@ -1356,6 +1354,11 @@ const openPqcDecisionDialog = async (row: EdhrWorkTaskRespVO, action: 'APPROVE' 
   }
 }
 
+const openPqcProductionReleasePage = (row: EdhrWorkTaskRespVO) => {
+  requirePqcDecisionTaskContext(row)
+  router.push({ name: 'MesPqcProductionRelease' })
+}
+
 const recoverUncertainPqcProductionReleaseDecision = async (
   row: EdhrWorkTaskRespVO,
   action: 'APPROVE' | 'REJECT',
@@ -1420,6 +1423,7 @@ const submitPqcProductionReleaseDecision = async () => {
             pqcReleaseWorkTaskId: context.workTaskId,
             expectedVersion,
             idempotencyKey: pqcDecisionIdempotencyKey.value,
+            signaturePassword: pqcDecisionForm.signaturePassword,
             approvalOpinion: pqcDecisionForm.approvalOpinion.trim() || undefined
           })
         : await rejectPqcProductionRelease({
@@ -1430,6 +1434,7 @@ const submitPqcProductionReleaseDecision = async () => {
             rejectReason: pqcDecisionForm.rejectReason.trim()
           })
   } catch (writeError) {
+    pqcDecisionForm.signaturePassword = ''
     const failure = resolvePqcProductionReleaseFailure(writeError)
     if (failure) {
       pqcDecisionBlockers.value = failure.blockers
@@ -1444,12 +1449,14 @@ const submitPqcProductionReleaseDecision = async () => {
   try {
     assertPqcDecisionResult(result, row, pqcDecisionAction.value)
   } catch (receiptError) {
+    pqcDecisionForm.signaturePassword = ''
     await recoverUncertainPqcProductionReleaseDecision(row, pqcDecisionAction.value, receiptError)
     pqcDecisionSubmitting.value = false
     return
   }
 
   pqcDecisionReceipt.value = result
+  pqcDecisionForm.signaturePassword = ''
   pqcDecisionIdempotencyKey.value = ''
   message.success(
     pqcDecisionAction.value === 'APPROVE'
@@ -1517,10 +1524,7 @@ const assertManagerReleaseApprovalResult = (
   if (!receipt.approvedAt || !receipt.approvedBy) {
     throw new Error('最终放行回执缺少审批人或审批时间。')
   }
-  if (
-    signoffEvidenceHash &&
-    receipt.approvalSignoffEvidenceHash !== signoffEvidenceHash
-  ) {
+  if (signoffEvidenceHash && receipt.approvalSignoffEvidenceHash !== signoffEvidenceHash) {
     throw new Error('最终放行回执的签核证据与本次提交不一致。')
   }
 }
@@ -1534,9 +1538,9 @@ const openManagerReleaseDialog = async (row: EdhrWorkTaskRespVO) => {
     const simulationRunId =
       typeof route.query.simulationRunId === 'string' ? route.query.simulationRunId.trim() : ''
     if (simulationRunId) {
-      const signoffEvidenceHash = window.localStorage.getItem(
-        `${STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY}:${simulationRunId}`
-      )?.trim()
+      const signoffEvidenceHash = window.localStorage
+        .getItem(`${STAGE5_SIMULATION_SIGNOFF_STORAGE_KEY}:${simulationRunId}`)
+        ?.trim()
       if (!signoffEvidenceHash) {
         throw new Error('Stage5模拟缺少管理者电子签名证据哈希，无法提交正式放行。')
       }
@@ -1582,11 +1586,7 @@ const recoverUncertainManagerReleaseApproval = async (
     if (receipt.releaseStatus !== 'RELEASED') {
       throw new Error(`权威回执仍为${resolveManagerReleaseStatusLabel(receipt.releaseStatus)}。`)
     }
-    assertManagerReleaseApprovalResult(
-      receipt,
-      row,
-      managerReleaseForm.signoffEvidenceHash.trim()
-    )
+    assertManagerReleaseApprovalResult(receipt, row, managerReleaseForm.signoffEvidenceHash.trim())
     await loadStage5ReleaseSnapshot(receipt)
     managerReleaseReceipt.value = receipt
     managerReleaseIdempotencyKey.value = ''
@@ -1672,11 +1672,7 @@ const submitManagerReleaseApproval = async () => {
   }
 
   try {
-    assertManagerReleaseApprovalResult(
-      result,
-      row,
-      managerReleaseForm.signoffEvidenceHash.trim()
-    )
+    assertManagerReleaseApprovalResult(result, row, managerReleaseForm.signoffEvidenceHash.trim())
   } catch (receiptError) {
     if (await recoverUncertainManagerReleaseApproval(row, receiptError)) {
       await refreshManagerReleaseListAfterSuccess()
