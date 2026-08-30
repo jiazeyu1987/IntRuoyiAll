@@ -397,15 +397,6 @@
 - Verification: E2E 必须按精确任务路线编码创建批次，创建前只读确认任务路线 ACTIVE/候选发布快照仍保留 `batchRecordAttachmentOwners` 数组，创建后只读确认目标 `batchRecordReportId` 的批次任务真实存在；finally 必须恢复报表配置、作废任务批次并删除任务路线副本。
 - Forbidden action: 禁止在共享路线缺正式批记录绑定或复制路线缺附件负责人快照时继续创建批次后再解释员工无待办；禁止用当前登录人、旧路线绑定、动态表单槽位或默认附件负责人推导批记录任务。
 
-## eDHR 不合格评审真实夹具前置门禁
-
-- Trigger: 真实 E2E 需要从“打开/创建 eDHR 批次执行”建立任务自有批次，再验证不合格评审冻结、让步放行、返工、作废或追溯；或页面提示“eDHR 批次执行对应工艺路线不存在”。
-- Preflight check: 在启动写入型 Playwright 前，先对目标测试租户做只读夹具核对：生产工单未取消、未临时冻结且有正式 `product_id`；该产品存在未删除的 `mes_pro_route_product` 关系；目标 `mes_pro_route` 当前启用；需要生成批记录任务时还要确认路线存在正式 BATCH 配置。随后通过真实创建弹框选择工单，确认 `work-order-route-options` 返回至少一条可见路线，才允许填写任务唯一批次号并提交。
-- Blocker: 正式可选组合数量为 `0`、路线选项接口返回路线不存在、只能修改共享旧工单/共享路线、或只能复用其它任务活跃批次时必须在首次业务写入前停止。缺测试夹具属于环境前置阻塞，不能写成不合格评审状态机失败。
-- Verification: 证据记录租户/账号标签、只读可选组合数量、真实菜单与创建弹框、路线选项业务码、任务批次唯一标识、批次创建响应，以及失败轮次任务批次和评审记录均为 `0`。补齐正式夹具后必须从同一真实页面路径重跑，并按任务批次清理门禁收口。
-- Forbidden action: 禁止用 SQL/API 直接创建工单、路线绑定、批次或评审单；禁止改用 admin 基线租户；禁止冻结、返工或作废其它任务批次；禁止把历史 E2E 批次重新标记为本任务自有数据。
-- Evidence: `doc/tasks/nonconformance-review-mvp-implementation/verification-report.md`。
-
 ## eDHR 同名批记录报表精确选择门禁
 
 - Trigger: 路线候选版本或其它 Element Plus 下拉需要选择批记录报表，且正式报表目录可能存在同名报表。

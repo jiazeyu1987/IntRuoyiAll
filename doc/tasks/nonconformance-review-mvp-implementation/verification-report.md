@@ -92,7 +92,7 @@
 - 后端：静态合同 PASS；`mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile` PASS，24 个模块全部 SUCCESS。
 - 前端：静态合同 PASS；真实 E2E 脚本 `node --check` PASS；`pnpm ts:check` PASS。
 - 数据库：目标迁移与依赖迁移闭包门禁 PASS，共 2 个迁移。
-- 并行保护：未把主工作区正在修改的 `docs/backend-development.md`、`docs/database-rules.md`、`docs/experience-index.md` 纳入融合提交；其余任务代码、测试和文档无主工作区 dirty 路径重叠。
+- 并行保护：未把主工作区正在修改的 `docs/backend-development.md`、`docs/database-rules.md`、`docs/e2e-rules.md`、`docs/experience-index.md` 纳入最终融合结果；其余任务代码、测试和文档无主工作区 dirty 路径重叠。
 - 结论：语义融合验证通过，可 fast-forward 到 `int_main`；不需要重复写入测试租户数据，原真实 E2E 结果仍作为业务流程验收证据。
 
 ## Release Recommendation

@@ -110,7 +110,7 @@
 - 融合工作树：`D:\IntRuoyiWorktree\nonconformance-review-mvp-int-main-20260830`，分支 `codex/nonconformance-review-mvp-int-main-20260830`，登记 `int_main slot 54`（`8309/48309`）。
 - 冲突处理：保留主线放行四材料门禁、经理审批和电子签核链路，同时加入不合格冻结检查；作废状态加入完成追溯；不合格错误码因主线占用 `1040750466..468` 调整为 `1040750469..474`。
 - 前端冲突处理：以最新批次详情和一线 PQC 大屏为底稿，移除旧“质量拒收”弹框，统一跳转 `MesProFeedbackEdhrNonconformanceReview`；PQC 页新增同一入口并保留主线现有工单、工序、签名和大屏交互。
-- 并行改动保护：`E:\IntRuoyi` 的 `docs/backend-development.md`、`docs/database-rules.md`、`docs/experience-index.md` 正被其它任务修改，融合提交显式保留主线版本，不覆盖或提交这些并行改动；本任务代码、测试、任务记录及无重叠的 `docs/e2e-rules.md`、`docs/worktree-memory.md` 正常融合。
+- 并行改动保护：`E:\IntRuoyi` 的 `docs/backend-development.md`、`docs/database-rules.md`、`docs/experience-index.md` 正被其它任务修改，首个融合提交显式保留主线版本。融合提交形成后、最终快进前，`docs/e2e-rules.md` 也出现并行修改，因此增加一个范围收缩提交把该文件恢复为主线版本。最终不覆盖或提交这四份并行经验文档；本任务代码、测试、任务记录及无重叠的 `docs/worktree-memory.md` 正常融合。
 - GREEN: 最新 v7 `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS（融合前与冲突解决后各一次）。
 - GREEN: 融合基线后端静态合同 -> PASS；前端静态合同与真实 E2E 脚本语法检查 -> PASS；迁移依赖闭包门禁 -> PASS。
 - GREEN: `pnpm install --frozen-lockfile` -> PASS，锁文件未变更；`pnpm ts:check` -> PASS。
