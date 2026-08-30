@@ -1,13 +1,17 @@
 package cn.iocoder.yudao.module.mdm.service.companyscope;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mdm.api.companyscope.dto.MdmRoleCompanyScopeCreateReqDTO;
 import cn.iocoder.yudao.module.mdm.api.companyscope.dto.MdmUserCompanyScopeCreateReqDTO;
+import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopePageReqVO;
+import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopeRespVO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.companyscope.MdmRoleCompanyScopeDO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.companyscope.MdmUserCompanyScopeDO;
+import cn.iocoder.yudao.module.mdm.dal.dataobject.enterprise.MdmEnterpriseDO;
 import cn.iocoder.yudao.module.mdm.dal.mysql.companyscope.MdmRoleCompanyScopeMapper;
 import cn.iocoder.yudao.module.mdm.dal.mysql.companyscope.MdmUserCompanyScopeMapper;
 import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseStatusEnum;
@@ -17,13 +21,16 @@ import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import jakarta.annotation.Resource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -47,6 +54,10 @@ import static cn.iocoder.yudao.module.mdm.service.companyscope.MdmCompanyScopeEr
 @Validated
 public class MdmCompanyScopeServiceImpl implements MdmCompanyScopeService {
 
+    private static final String SCOPE_TYPE_USER = "USER";
+    private static final String SCOPE_TYPE_ROLE = "ROLE";
+    private static final Set<String> OWNED_COMPANY = Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType());
+
     private static final String USER_SCOPE_UNIQUE_CONSTRAINT =
             "uk_mdm_user_company_scope_tenant_user_company";
     private static final String ROLE_SCOPE_UNIQUE_CONSTRAINT =
@@ -64,6 +75,61 @@ public class MdmCompanyScopeServiceImpl implements MdmCompanyScopeService {
     private RoleApi roleApi;
     @Resource
     private MdmCompanyScopeRecipientResolver recipientResolver;
+
+    @Override
+    public PageResult<MdmCompanyScopeRespVO> getCompanyScopePage(MdmCompanyScopePageReqVO reqVO) {
+        if (reqVO == null) {
+            throw exception(MDM_COMPANY_SCOPE_FIELD_REQUIRED, "request");
+        }
+        String scopeType = normalizeScopeType(reqVO.getScopeType());
+        String status = normalizeOptionalStatus(reqVO.getStatus());
+        String keyword = StrUtil.trimToNull(reqVO.getKeyword());
+
+        List<MdmUserCompanyScopeDO> userScopes = scopeType == null || SCOPE_TYPE_USER.equals(scopeType)
+                ? userScopeMapper.selectList(new LambdaQueryWrapperX<MdmUserCompanyScopeDO>()
+                .eq(MdmUserCompanyScopeDO::getDeleted, false)
+                .eqIfPresent(MdmUserCompanyScopeDO::getCompanyId, reqVO.getCompanyId())
+                .eqIfPresent(MdmUserCompanyScopeDO::getStatus, status))
+                : List.of();
+        List<MdmRoleCompanyScopeDO> roleScopes = scopeType == null || SCOPE_TYPE_ROLE.equals(scopeType)
+                ? roleScopeMapper.selectList(new LambdaQueryWrapperX<MdmRoleCompanyScopeDO>()
+                .eq(MdmRoleCompanyScopeDO::getDeleted, false)
+                .eqIfPresent(MdmRoleCompanyScopeDO::getCompanyId, reqVO.getCompanyId())
+                .eqIfPresent(MdmRoleCompanyScopeDO::getStatus, status))
+                : List.of();
+        if (userScopes == null || roleScopes == null) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+
+        List<Long> companyIds = new ArrayList<>();
+        userScopes.forEach(row -> companyIds.add(requireScopeCompanyId(row)));
+        roleScopes.forEach(row -> companyIds.add(requireScopeCompanyId(row)));
+        List<Long> normalizedCompanyIds = companyIds.stream().distinct().sorted().toList();
+        Map<Long, MdmEnterpriseDO> companies = companyMap(normalizedCompanyIds);
+        Map<Long, AdminUserRespDTO> users = userMap(userScopes);
+        Map<Long, RoleRespDTO> roles = roleMap(roleScopes);
+
+        List<MdmCompanyScopeRespVO> rows = new ArrayList<>(userScopes.size() + roleScopes.size());
+        userScopes.forEach(scope -> rows.add(toUserScopeResp(scope, users, companies)));
+        roleScopes.forEach(scope -> rows.add(toRoleScopeResp(scope, roles, companies)));
+        if (keyword != null) {
+            String normalizedKeyword = keyword.toLowerCase(Locale.ROOT);
+            rows.removeIf(row -> !containsIgnoreCase(row.getPrincipalName(), normalizedKeyword)
+                    && !containsIgnoreCase(row.getPrincipalCode(), normalizedKeyword)
+                    && !containsIgnoreCase(row.getCompanyCode(), normalizedKeyword)
+                    && !containsIgnoreCase(row.getCompanyName(), normalizedKeyword));
+        }
+        rows.sort(Comparator
+                .comparing(MdmCompanyScopeRespVO::getUpdateTime,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(MdmCompanyScopeRespVO::getId, Comparator.reverseOrder())
+                .thenComparing(MdmCompanyScopeRespVO::getScopeType));
+
+        long total = rows.size();
+        int fromIndex = Math.min((reqVO.getPageNo() - 1) * reqVO.getPageSize(), rows.size());
+        int toIndex = Math.min(fromIndex + reqVO.getPageSize(), rows.size());
+        return new PageResult<>(rows.subList(fromIndex, toIndex), total);
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -227,6 +293,166 @@ public class MdmCompanyScopeServiceImpl implements MdmCompanyScopeService {
     @Override
     public Set<Long> resolveRecipientUserIds(Long companyId, Collection<Long> roleIds, String permission) {
         return recipientResolver.resolve(companyId, roleIds, permission);
+    }
+
+    private Map<Long, MdmEnterpriseDO> companyMap(List<Long> companyIds) {
+        if (companyIds.isEmpty()) {
+            return Map.of();
+        }
+        List<MdmEnterpriseDO> companies = enterpriseService.getEnabledEnterprises(companyIds, OWNED_COMPANY);
+        if (companies == null || companies.size() != companyIds.size()) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        Map<Long, MdmEnterpriseDO> result = new LinkedHashMap<>();
+        for (MdmEnterpriseDO company : companies) {
+            if (company == null || company.getId() == null || result.putIfAbsent(company.getId(), company) != null
+                    || !companyIds.contains(company.getId())) {
+                throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+            }
+        }
+        if (result.size() != companyIds.size()) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        return result;
+    }
+
+    private Map<Long, AdminUserRespDTO> userMap(List<MdmUserCompanyScopeDO> scopes) {
+        List<Long> ids = scopes.stream().map(this::requireScopeUserId).distinct().sorted().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        List<AdminUserRespDTO> users = adminUserApi.getUserList(ids);
+        if (users == null || users.size() != ids.size()) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        Map<Long, AdminUserRespDTO> result = new LinkedHashMap<>();
+        for (AdminUserRespDTO user : users) {
+            if (user == null || user.getId() == null || StrUtil.isBlank(user.getUsername())
+                    || result.putIfAbsent(user.getId(), user) != null || !ids.contains(user.getId())) {
+                throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+            }
+        }
+        if (result.size() != ids.size()) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        return result;
+    }
+
+    private Map<Long, RoleRespDTO> roleMap(List<MdmRoleCompanyScopeDO> scopes) {
+        List<Long> ids = scopes.stream().map(this::requireScopeRoleId).distinct().sorted().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        List<RoleRespDTO> roles = roleApi.getRoleList(ids);
+        if (roles == null || roles.size() != ids.size()) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        Map<Long, RoleRespDTO> result = new LinkedHashMap<>();
+        for (RoleRespDTO role : roles) {
+            if (role == null || role.getId() == null || StrUtil.isBlank(role.getName())
+                    || StrUtil.isBlank(role.getCode()) || result.putIfAbsent(role.getId(), role) != null
+                    || !ids.contains(role.getId())) {
+                throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+            }
+        }
+        if (result.size() != ids.size()) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        return result;
+    }
+
+    private MdmCompanyScopeRespVO toUserScopeResp(MdmUserCompanyScopeDO scope,
+                                                   Map<Long, AdminUserRespDTO> users,
+                                                   Map<Long, MdmEnterpriseDO> companies) {
+        AdminUserRespDTO user = users.get(requireScopeUserId(scope));
+        return buildScopeResp(scope.getId(), SCOPE_TYPE_USER, user.getId(), user.getNickname(),
+                user.getUsername(), scope.getCompanyId(), companies.get(scope.getCompanyId()), scope.getStatus(),
+                scope.getRevision(), scope.getUpdateTime());
+    }
+
+    private MdmCompanyScopeRespVO toRoleScopeResp(MdmRoleCompanyScopeDO scope,
+                                                   Map<Long, RoleRespDTO> roles,
+                                                   Map<Long, MdmEnterpriseDO> companies) {
+        RoleRespDTO role = roles.get(requireScopeRoleId(scope));
+        return buildScopeResp(scope.getId(), SCOPE_TYPE_ROLE, role.getId(), role.getName(), role.getCode(),
+                scope.getCompanyId(), companies.get(scope.getCompanyId()), scope.getStatus(), scope.getRevision(),
+                scope.getUpdateTime());
+    }
+
+    private MdmCompanyScopeRespVO buildScopeResp(Long id, String scopeType, Long principalId, String principalName,
+                                                  String principalCode, Long companyId, MdmEnterpriseDO company,
+                                                  String status, Integer revision, java.time.LocalDateTime updateTime) {
+        if (company == null || !Objects.equals(companyId, company.getId())
+                || StrUtil.isBlank(company.getEnterpriseCode()) || StrUtil.isBlank(company.getName())) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        MdmCompanyScopeRespVO response = new MdmCompanyScopeRespVO();
+        response.setId(id);
+        response.setScopeType(scopeType);
+        response.setPrincipalId(principalId);
+        response.setPrincipalName(principalName);
+        response.setPrincipalCode(principalCode);
+        response.setCompanyId(companyId);
+        response.setCompanyCode(company.getEnterpriseCode());
+        response.setCompanyName(company.getName());
+        response.setStatus(status);
+        response.setRevision(revision);
+        response.setUpdateTime(updateTime);
+        return response;
+    }
+
+    private Long requireScopeCompanyId(MdmUserCompanyScopeDO scope) {
+        if (scope == null || scope.getId() == null || scope.getId() <= 0 || scope.getCompanyId() == null
+                || scope.getCompanyId() <= 0 || scope.getRevision() == null || scope.getRevision() <= 0
+                || !MdmEnterpriseStatusEnum.isValid(scope.getStatus())) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        return scope.getCompanyId();
+    }
+
+    private Long requireScopeCompanyId(MdmRoleCompanyScopeDO scope) {
+        if (scope == null || scope.getId() == null || scope.getId() <= 0 || scope.getCompanyId() == null
+                || scope.getCompanyId() <= 0 || scope.getRevision() == null || scope.getRevision() <= 0
+                || !MdmEnterpriseStatusEnum.isValid(scope.getStatus())) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        return scope.getCompanyId();
+    }
+
+    private Long requireScopeUserId(MdmUserCompanyScopeDO scope) {
+        requireScopeCompanyId(scope);
+        if (scope.getUserId() == null || scope.getUserId() <= 0) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        return scope.getUserId();
+    }
+
+    private Long requireScopeRoleId(MdmRoleCompanyScopeDO scope) {
+        requireScopeCompanyId(scope);
+        if (scope.getRoleId() == null || scope.getRoleId() <= 0) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        return scope.getRoleId();
+    }
+
+    private String normalizeScopeType(String value) {
+        String normalized = StrUtil.trimToNull(value);
+        if (normalized != null && !Set.of(SCOPE_TYPE_USER, SCOPE_TYPE_ROLE).contains(normalized)) {
+            throw exception(MDM_COMPANY_SCOPE_FIELD_REQUIRED, "scopeType");
+        }
+        return normalized;
+    }
+
+    private String normalizeOptionalStatus(String value) {
+        String normalized = StrUtil.trimToNull(value);
+        if (normalized != null && !MdmEnterpriseStatusEnum.isValid(normalized)) {
+            throw exception(MDM_COMPANY_SCOPE_FIELD_REQUIRED, "status");
+        }
+        return normalized;
+    }
+
+    private boolean containsIgnoreCase(String value, String keyword) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
     private void validateEnabledOwnedCompany(Long companyId) {

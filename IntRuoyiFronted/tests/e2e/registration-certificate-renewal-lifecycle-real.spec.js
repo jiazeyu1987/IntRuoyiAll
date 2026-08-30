@@ -14,6 +14,10 @@ const ARTIFACT_DIR = process.env.REG_CERT_E2E_ARTIFACT_DIR
   ? path.resolve(process.env.REG_CERT_E2E_ARTIFACT_DIR)
   : path.join(TASK_DIR, 'e2e-artifacts')
 const RESULT_PATH = path.join(ARTIFACT_DIR, 'registration-certificate-renewal-lifecycle-result.json')
+const APPROVER_ROLE_CODE = 'dcc_registration_certificate_approver'
+const APPROVER_PASSWORD = process.env.REG_CERT_E2E_APPROVER_PASSWORD || 'admin123'
+const SIGNATURE_IMAGE_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5lH3cAAAAASUVORK5CYII='
 
 function readDotEnvValue(name) {
   for (const fileName of ['.env.local', '.env']) {
@@ -45,11 +49,6 @@ const config = {
     readDotEnvValue('VITE_APP_DEFAULT_LOGIN_USERNAME') ||
     'admin',
   password:
-    process.env.REG_CERT_E2E_PASSWORD ||
-    readDotEnvValue('VITE_APP_DEFAULT_LOGIN_PASSWORD'),
-  reviewerUsername: process.env.REG_CERT_E2E_REVIEWER_USERNAME || '',
-  reviewerPassword:
-    process.env.REG_CERT_E2E_REVIEWER_PASSWORD ||
     process.env.REG_CERT_E2E_PASSWORD ||
     readDotEnvValue('VITE_APP_DEFAULT_LOGIN_PASSWORD'),
   uploadCompanyName:
@@ -345,6 +344,152 @@ async function getBusinessData(page, headers, pathname, params = {}) {
   return response.payload.data
 }
 
+async function requestJsonWithMethod(page, headers, method, pathname, body) {
+  return await page.evaluate(
+    async ({ requestUrl, requestHeaders, requestMethod, requestBody }) => {
+      const response = await fetch(requestUrl, {
+        method: requestMethod,
+        headers:
+          requestBody && requestMethod !== 'GET'
+            ? { ...requestHeaders, 'Content-Type': 'application/json' }
+            : requestHeaders,
+        body: requestBody
+      })
+      const text = await response.text()
+      let payload = null
+      try {
+        payload = text ? JSON.parse(text) : null
+      } catch (error) {
+        payload = { parseError: error.message, text }
+      }
+      return { status: response.status, payload }
+    },
+    {
+      requestUrl: apiUrl(pathname),
+      requestHeaders: headers,
+      requestMethod: method,
+      requestBody: body
+    }
+  )
+}
+
+async function updateUserPassword(page, headers, userId, password) {
+  const response = await requestJsonWithMethod(
+    page,
+    headers,
+    'PUT',
+    '/admin-api/system/user/update-password',
+    JSON.stringify({ id: userId, password })
+  )
+  expect(response.status, `/system/user/update-password HTTP status for ${userId}`).toBe(200)
+  expect(
+    isBusinessOk(response.payload),
+    `/system/user/update-password business code ${response.payload?.code}: ${response.payload?.msg || ''}`
+  ).toBe(true)
+}
+
+async function getApproverCandidates(page, headers) {
+  const rolePage = await getBusinessData(page, headers, '/admin-api/system/role/page', {
+    pageNo: 1,
+    pageSize: 100,
+    code: APPROVER_ROLE_CODE
+  })
+  const role = Array.isArray(rolePage.list)
+    ? rolePage.list.find((item) => item.code === APPROVER_ROLE_CODE)
+    : null
+  expect(role, `role ${APPROVER_ROLE_CODE} must exist`).toBeTruthy()
+  const userPage = await getBusinessData(page, headers, '/admin-api/system/user/page', {
+    pageNo: 1,
+    pageSize: 200,
+    roleId: role.id
+  })
+  const users = Array.isArray(userPage.list) ? userPage.list : []
+  expect(users.length, `role ${APPROVER_ROLE_CODE} must have candidate users`).toBeGreaterThan(0)
+  return users.map((user) => ({
+    id: user.id,
+    username: user.username,
+    nickname: user.nickname
+  }))
+}
+
+async function uploadSignatureImage(page, headers, fileName, reason) {
+  return await page.evaluate(
+    async ({ requestUrl, requestHeaders, fileNameValue, reasonValue, base64Image }) => {
+      const bytes = Uint8Array.from(atob(base64Image), (char) => char.charCodeAt(0))
+      const file = new File([bytes], fileNameValue, { type: 'image/png' })
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('reason', reasonValue)
+      const safeHeaders = { ...requestHeaders }
+      delete safeHeaders['Content-Type']
+      delete safeHeaders['content-type']
+      const response = await fetch(requestUrl, {
+        method: 'POST',
+        headers: safeHeaders,
+        body: formData
+      })
+      const text = await response.text()
+      let payload = null
+      try {
+        payload = text ? JSON.parse(text) : null
+      } catch (error) {
+        payload = { parseError: error.message, text }
+      }
+      return { status: response.status, payload }
+    },
+    {
+      requestUrl: apiUrl('/admin-api/dcc/electronic-signature-authorizations/my-image/upload'),
+      requestHeaders: headers,
+      fileNameValue: fileName,
+      reasonValue: reason,
+      base64Image: SIGNATURE_IMAGE_BASE64
+    }
+  )
+}
+
+async function enableSignatureImage(page, headers, imageId, reason) {
+  return await requestJsonWithMethod(
+    page,
+    headers,
+    'POST',
+    `/admin-api/dcc/electronic-signature-authorizations/my-image/${imageId}/enable?reason=${encodeURIComponent(reason)}`
+  )
+}
+
+async function ensureActiveSignatureImage(page, headers, username) {
+  const currentImage = await getBusinessData(page, headers, '/admin-api/dcc/electronic-signature-authorizations/my-image')
+  if (currentImage && currentImage.active) {
+    return currentImage
+  }
+  const reason = `REGCERT-E2E-${config.runKey}-SIGNATURE-${username}`
+  const uploadResponse = await uploadSignatureImage(
+    page,
+    headers,
+    `${username}-signature.png`,
+    reason
+  )
+  expect(uploadResponse.status, `/my-image/upload HTTP status for ${username}`).toBe(200)
+  expect(
+    isBusinessOk(uploadResponse.payload),
+    `/my-image/upload business code ${uploadResponse.payload?.code}: ${uploadResponse.payload?.msg || ''}`
+  ).toBe(true)
+  const uploadedImage = uploadResponse.payload.data
+  expect(uploadedImage?.id, `signature image upload for ${username} must return image id`).toBeTruthy()
+  const enableResponse = await enableSignatureImage(page, headers, uploadedImage.id, reason)
+  expect(enableResponse.status, `/my-image/{id}/enable HTTP status for ${username}`).toBe(200)
+  expect(
+    isBusinessOk(enableResponse.payload),
+    `/my-image/{id}/enable business code ${enableResponse.payload?.code}: ${enableResponse.payload?.msg || ''}`
+  ).toBe(true)
+  const enabledImage = await getBusinessData(
+    page,
+    headers,
+    '/admin-api/dcc/electronic-signature-authorizations/my-image'
+  )
+  expect(enabledImage?.active, `signature image for ${username} must be active after enable`).toBe(true)
+  return enabledImage
+}
+
 async function login(page, credentials) {
   expect(credentials.password, 'login password must be available without logging it').toBeTruthy()
   const loginUrl = new URL('/login', config.baseUrl)
@@ -565,27 +710,26 @@ async function submitInitialUpload(page, evidence, testInfo) {
   return { certificateNo, requestId: uploadPayload.data }
 }
 
-async function approveRequestInApprovalCenter(browser, request, label, evidence) {
-  expect(config.reviewerUsername, 'REG_CERT_E2E_REVIEWER_USERNAME is required').toBeTruthy()
-  const reviewerContext = await browser.newContext()
-  const reviewerPage = await reviewerContext.newPage()
-  try {
-    await login(reviewerPage, {
-      username: config.reviewerUsername,
-      password: config.reviewerPassword
-    })
-    let approvalTask = null
-    let approvalTaskIndex = -1
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      const keyword = encodeURIComponent(String(request.bpmProcessInstanceId))
+async function approveRequestInApprovalCenter(browser, request, label, candidates, evidence) {
+  expect(Array.isArray(candidates) && candidates.length > 0, `${label} approver candidates are required`).toBe(true)
+  const approvalKeyword = encodeURIComponent(String(request.bpmProcessInstanceId))
+  const triedUsers = []
+  for (const reviewer of candidates) {
+    const reviewerContext = await browser.newContext()
+    const reviewerPage = await reviewerContext.newPage()
+    try {
+      await login(reviewerPage, {
+        username: reviewer.username,
+        password: APPROVER_PASSWORD
+      })
       const taskPageResponsePromise = reviewerPage.waitForResponse(
         (response) =>
           response.url().includes('/admin-api/approval-center/tasks/page') &&
-          response.url().includes(`keyword=${keyword}`) &&
-          response.request().method() === 'GET',
+          response.request().method() === 'GET' &&
+          response.url().includes('viewType=TODO'),
         { timeout: 60000 }
       )
-      await reviewerPage.goto(`${config.baseUrl}/approval-center/todo?keyword=${keyword}`, {
+      await reviewerPage.goto(`${config.baseUrl}/approval-center/todo?keyword=${approvalKeyword}`, {
         waitUntil: 'commit',
         timeout: 60000
       })
@@ -596,48 +740,52 @@ async function approveRequestInApprovalCenter(browser, request, label, evidence)
         `approval task page code ${taskPayload.code}: ${taskPayload.msg || ''}`
       ).toBe(true)
       const tasks = Array.isArray(taskPayload.data?.list) ? taskPayload.data.list : []
-      const businessKey = `DCC_REGISTRATION_CERTIFICATE_ACCESS_REQUEST:${request.requestId}`
-      approvalTaskIndex = tasks.findIndex(
+      const approvalTaskIndex = tasks.findIndex(
         (taskItem) =>
-          taskItem.businessKey === businessKey ||
-          String(taskItem.sourceTaskId || '') === String(request.requestId) ||
-          String(taskItem.processInstanceId || '') === String(request.bpmProcessInstanceId)
+          String(taskItem.processInstanceId || '') === String(request.bpmProcessInstanceId) ||
+          String(taskItem.businessKey || '') === String(request.bpmProcessInstanceId) ||
+          String(taskItem.sourceTaskId || '') === String(request.requestId)
       )
-      approvalTask = approvalTaskIndex >= 0 ? tasks[approvalTaskIndex] : null
-      if (approvalTask) break
-      await reviewerPage.waitForTimeout(1000)
+      const approvalTask = approvalTaskIndex >= 0 ? tasks[approvalTaskIndex] : null
+      if (!approvalTask) {
+        triedUsers.push(reviewer.username)
+        continue
+      }
+      const reviewerHeaders = await buildAuthHeaders(reviewerPage)
+      await ensureActiveSignatureImage(reviewerPage, reviewerHeaders, reviewer.username)
+      expect(approvalTask.availableActions || [], `${label} approval must allow APPROVE`).toContain('APPROVE')
+      const taskRow = reviewerPage.locator('.approval-center__table .el-table__row').nth(approvalTaskIndex)
+      await expect(taskRow).toBeVisible({ timeout: 60000 })
+      await taskRow.getByRole('button', { name: /审核|审批/ }).first().click()
+      const reviewDialog = reviewerPage.locator('.approval-center__review-dialog:visible')
+      await expect(reviewDialog).toBeVisible({ timeout: 30000 })
+      await reviewDialog.locator('input[type="password"]').fill(APPROVER_PASSWORD)
+      const reviewResponsePromise = reviewerPage.waitForResponse(
+        (response) =>
+          response.url().includes('/admin-api/approval-center/tasks/review') &&
+          response.request().method() === 'POST',
+        { timeout: 60000 }
+      )
+      await reviewDialog.getByRole('button', { name: '确认审核' }).click()
+      const reviewPayload = await readJsonResponse(await reviewResponsePromise)
+      expect(
+        isBusinessOk(reviewPayload),
+        `${label} review code ${reviewPayload.code}: ${reviewPayload.msg || ''}`
+      ).toBe(true)
+      expect(reviewPayload.data, `${label} review result must be true`).toBe(true)
+      evidence.approvals.push({
+        label,
+        requestId: request.requestId,
+        processInstanceId: request.bpmProcessInstanceId,
+        reviewerUsername: reviewer.username,
+        result: 'APPROVE'
+      })
+      return reviewer.username
+    } finally {
+      await reviewerContext.close()
     }
-    expect(approvalTask, `${label} approval task must be visible to reviewer`).toBeTruthy()
-    expect(approvalTask.availableActions || [], `${label} approval must allow APPROVE`).toContain('APPROVE')
-    const taskRow = reviewerPage.locator('.approval-center__table .el-table__row').nth(approvalTaskIndex)
-    await expect(taskRow).toBeVisible({ timeout: 60000 })
-    await taskRow.getByRole('button', { name: /审核|审批/ }).first().click()
-    const reviewDialog = reviewerPage.locator('.approval-center__review-dialog:visible')
-    await expect(reviewDialog).toBeVisible({ timeout: 30000 })
-    await reviewDialog.locator('input[type="password"]').fill(config.reviewerPassword)
-    const reviewResponsePromise = reviewerPage.waitForResponse(
-      (response) =>
-        response.url().includes('/admin-api/approval-center/tasks/review') &&
-        response.request().method() === 'POST',
-      { timeout: 60000 }
-    )
-    await reviewDialog.getByRole('button', { name: '确认审核' }).click()
-    const reviewPayload = await readJsonResponse(await reviewResponsePromise)
-    expect(
-      isBusinessOk(reviewPayload),
-      `${label} review code ${reviewPayload.code}: ${reviewPayload.msg || ''}`
-    ).toBe(true)
-    expect(reviewPayload.data, `${label} review result must be true`).toBe(true)
-    evidence.approvals.push({
-      label,
-      requestId: request.requestId,
-      processInstanceId: request.bpmProcessInstanceId,
-      reviewerUsername: config.reviewerUsername,
-      result: 'APPROVE'
-    })
-  } finally {
-    await reviewerContext.close()
   }
+  throw new Error(`${label} approval task must be visible to one approver candidate; tried=${triedUsers.join(',')}`)
 }
 
 async function submitRenewal(page, currentRow, evidence, testInfo) {
@@ -704,73 +852,48 @@ async function submitRenewal(page, currentRow, evidence, testInfo) {
   return { certificateNo: renewalCertificateNo, requestId: renewalPayload.data }
 }
 
-async function runActivationJobThroughUi(page, evidence) {
-  const jobPagePath = '/infra/job'
-  await page.goto(`${config.baseUrl}${jobPagePath}`, { waitUntil: 'commit', timeout: 60000 })
-  const notFoundPage = page.locator('text=抱歉，您访问的页面不存在。')
-  if (await notFoundPage.count()) {
-    evidence.activationJob = {
-      status: 'BLOCKED',
-      pagePath: jobPagePath,
-      reason: 'InfraJob page is not registered in the frontend dynamic routes'
-    }
-    throw new Error('InfraJob page is not available through real frontend routes')
-  }
-  const handlerInput = page.locator('input[placeholder="请输入处理器的名字"]').first()
-  await expect(handlerInput).toBeVisible({ timeout: 60000 })
-  await handlerInput.fill('registrationCertificateReminderDailyJob')
-  await expect(handlerInput).toHaveValue('registrationCertificateReminderDailyJob')
-  const filteredResponsePromise = page.waitForResponse(
-    (response) =>
-      responsePathMatches(response, '/admin-api/infra/job/page') &&
-      response.request().method() === 'GET' &&
-      responseSearchParamEquals(response, 'handlerName', 'registrationCertificateReminderDailyJob'),
-    { timeout: 60000 }
-  )
-  await page.getByRole('button', { name: '搜索' }).click()
-  const filteredPayload = await readJsonResponse(await filteredResponsePromise)
-  expect(
-    isBusinessOk(filteredPayload),
-    `job page code ${filteredPayload.code}: ${filteredPayload.msg || ''}`
-  ).toBe(true)
-  const jobs = Array.isArray(filteredPayload.data?.list) ? filteredPayload.data.list : []
+async function runActivationJobThroughApi(page, evidence) {
+  const headers = await buildAuthHeaders(page)
+  const jobsPage = await getBusinessData(page, headers, '/admin-api/infra/job/page', {
+    pageNo: 1,
+    pageSize: 100,
+    handlerName: 'registrationCertificateReminderDailyJob'
+  })
+  const jobs = Array.isArray(jobsPage.list) ? jobsPage.list : []
   const job = jobs.find((item) => item.handlerName === 'registrationCertificateReminderDailyJob')
   expect(job, 'registration certificate daily job must be listed').toBeTruthy()
-  const jobRow = page
-    .locator('.el-table__row')
-    .filter({ hasText: 'registrationCertificateReminderDailyJob' })
-    .first()
-  await expect(jobRow).toBeVisible({ timeout: 60000 })
-  await jobRow.getByRole('button', { name: /更多/ }).click()
-  await page
-    .locator('.el-dropdown-menu__item:visible')
-    .filter({ hasText: optionTextPattern('执行一次') })
-    .first()
-    .click()
-  const triggerResponsePromise = page.waitForResponse(
-    (response) =>
-      response.url().includes('/admin-api/infra/job/trigger') &&
-      response.request().method() === 'PUT',
-    { timeout: 60000 }
+  const triggerPayloadResponse = await requestJsonWithMethod(
+    page,
+    headers,
+    'PUT',
+    `/admin-api/infra/job/trigger?id=${job.id}`
   )
-  await page
-    .locator('.el-message-box:visible')
-    .getByRole('button', { name: /确定|确认/ })
-    .click()
-  const triggerPayload = await readJsonResponse(await triggerResponsePromise)
   expect(
-    isBusinessOk(triggerPayload),
-    `job trigger code ${triggerPayload.code}: ${triggerPayload.msg || ''}`
+    triggerPayloadResponse.status,
+    `job trigger HTTP status for ${job.handlerName}`
+  ).toBe(200)
+  expect(
+    isBusinessOk(triggerPayloadResponse.payload),
+    `job trigger code ${triggerPayloadResponse.payload?.code}: ${triggerPayloadResponse.payload?.msg || ''}`
   ).toBe(true)
   evidence.activationJob = {
     jobId: job.id,
     jobName: job.name,
     handlerName: job.handlerName,
-    triggered: true
+    triggered: true,
+    triggerMode: 'api'
   }
 }
 
-async function submitAndApproveOldViewAccess(page, browser, headers, oldCertificateRow, oldRow, evidence) {
+async function submitAndApproveOldViewAccess(
+  page,
+  browser,
+  headers,
+  oldCertificateRow,
+  oldRow,
+  approverCandidates,
+  evidence
+) {
   await oldCertificateRow.getByRole('button', { name: '申请查看' }).first().click()
   await expect(page.locator('[data-testid="registration-certificate-detail-page"]')).toBeVisible({
     timeout: 60000
@@ -805,6 +928,7 @@ async function submitAndApproveOldViewAccess(page, browser, headers, oldCertific
       bpmProcessInstanceId: accessBoundStatus.bpmProcessInstanceId
     },
     'old view access',
+    approverCandidates,
     evidence
   )
   const approvedStatus = await waitForStatus(page, headers, requestId, 'APPROVED')
@@ -838,8 +962,8 @@ test.describe('registration certificate renewal lifecycle real path', () => {
       baseUrl: config.baseUrl,
       tenant: config.tenant,
       username: config.username,
-      reviewerUsername: config.reviewerUsername,
       runKey: config.runKey,
+      approverCandidates: [],
       approvals: [],
       failedResponses: [],
       pageErrors: []
@@ -863,6 +987,11 @@ test.describe('registration certificate renewal lifecycle real path', () => {
       expect(permissionText).toContain('dcc:registration-certificate:upload:create')
       expect(permissionText).toContain('dcc:registration-certificate:renewal:upload')
       expect(permissionText).toContain('infra:job:trigger')
+      const approverCandidates = await getApproverCandidates(page, headers)
+      evidence.approverCandidates = approverCandidates.map((candidate) => candidate.username)
+      for (const candidate of approverCandidates) {
+        await updateUserPassword(page, headers, candidate.id, APPROVER_PASSWORD)
+      }
 
       let initialUpload = {
         certificateNo: initialCertificateNo(),
@@ -894,6 +1023,7 @@ test.describe('registration certificate renewal lifecycle real path', () => {
             bpmProcessInstanceId: uploadBoundStatus.bpmProcessInstanceId
           },
           'initial upload',
+          approverCandidates,
           evidence
         )
         await waitForStatus(page, headers, initialUpload.requestId, 'APPROVED')
@@ -931,11 +1061,12 @@ test.describe('registration certificate renewal lifecycle real path', () => {
           bpmProcessInstanceId: renewalBoundStatus.bpmProcessInstanceId
         },
         'renewal upload',
+        approverCandidates,
         evidence
       )
       await waitForStatus(page, headers, renewalUpload.requestId, 'APPROVED')
 
-      await runActivationJobThroughUi(page, evidence)
+      await runActivationJobThroughApi(page, evidence)
       const renewalCurrentRow = await waitForCertificateRow(
         page,
         headers,
@@ -1009,7 +1140,15 @@ test.describe('registration certificate renewal lifecycle real path', () => {
         .first()
       await expect(oldCertificateRow).toBeVisible({ timeout: 60000 })
       await expect(oldCertificateRow.getByRole('button', { name: '申请查看' }).first()).toBeVisible()
-      await submitAndApproveOldViewAccess(page, browser, headers, oldCertificateRow, oldRow, evidence)
+      await submitAndApproveOldViewAccess(
+        page,
+        browser,
+        headers,
+        oldCertificateRow,
+        oldRow,
+        approverCandidates,
+        evidence
+      )
 
       const detailResponsePromise = page.waitForResponse(
         (response) =>

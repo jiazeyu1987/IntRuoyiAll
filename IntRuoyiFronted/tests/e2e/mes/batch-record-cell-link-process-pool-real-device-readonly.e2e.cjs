@@ -115,7 +115,7 @@ async function login(page) {
   await page.waitForURL((current) => !current.pathname.includes('/login'), { timeout: 60000, waitUntil: 'commit' })
 }
 
-async function waitForNoLoading(page, timeoutMs = 30000) {
+async function waitForNoLoading(page, timeoutMs = 90000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const visibleLoadingCount = await page

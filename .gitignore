@@ -29,6 +29,10 @@ runtime-ops/
 **/runtime/
 **/runtime-ops/
 **/.runtime/
+!**/src/main/java/**/runtime/
+!**/src/main/java/**/runtime/**
+!**/src/test/java/**/runtime/
+!**/src/test/java/**/runtime/**
 .playwright-cli/
 **/.playwright-cli/
 

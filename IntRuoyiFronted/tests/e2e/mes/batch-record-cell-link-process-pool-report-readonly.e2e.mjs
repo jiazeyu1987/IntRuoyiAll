@@ -245,9 +245,25 @@ async function verifyIndependentPanelScrolling(page) {
     `target form must overflow its scroll container: ${JSON.stringify(before)}`
   )
 
-  await targetScroll.hover()
-  await page.mouse.wheel(0, Math.max(600, Math.floor(before.targetClientHeight * 0.8)))
-  await page.waitForTimeout(150)
+  const targetBox = await targetScroll.boundingBox()
+  assert.ok(targetBox, 'target scroll container must expose a bounding box')
+  await page.mouse.move(
+    targetBox.x + Math.max(8, targetBox.width - 12),
+    targetBox.y + Math.min(targetBox.height - 8, Math.max(24, Math.floor(targetBox.height / 2)))
+  )
+  await page.waitForTimeout(100)
+  const wheelDelta = Math.max(600, Math.floor(before.targetClientHeight * 0.8))
+  await page.mouse.wheel(0, wheelDelta)
+  await page.waitForTimeout(100)
+  if ((await targetScroll.evaluate((element) => element.scrollTop)) <= before.targetScrollTop) {
+    await page.mouse.move(
+      targetBox.x + Math.max(8, targetBox.width - 12),
+      targetBox.y + Math.min(targetBox.height - 8, Math.max(24, Math.floor(targetBox.height / 2)))
+    )
+    await page.waitForTimeout(100)
+    await page.mouse.wheel(0, wheelDelta)
+    await page.waitForTimeout(150)
+  }
 
   const after = await page.evaluate(() => {
     const source = document.querySelector('[data-cell-link-scroll-pane="source"]')
