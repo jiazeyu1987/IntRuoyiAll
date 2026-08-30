@@ -623,6 +623,27 @@ async function main() {
     for (const hiddenText of ['单位', '下限', '上限', '状态', '参考标准', '默认文本', '默认值']) {
       assert.ok(!panelText.includes(hiddenText), `device_parameter_metadata_text_must_not_be_visible:${hiddenText}`)
     }
+    const sourceCellForLink = sourcePane
+      .locator('.batch-record-cell-link-sheet__cell.is-source-selectable')
+      .filter({ hasText: selectedParameterFields[0].fieldName })
+      .first()
+    await sourceCellForLink.waitFor({ state: 'visible', timeout: 30000 })
+    await sourceCellForLink.click()
+    const aggregationSelectText = normalizeText(
+      await page.locator('.batch-record-cell-link__aggregation-select').first().innerText()
+    )
+    assert.ok(
+      aggregationSelectText.includes('最后一笔'),
+      `process_pool_parameter_must_default_to_last_aggregation:${aggregationSelectText}`
+    )
+    const targetPane = page.locator('.batch-record-cell-link__pane.is-target').first()
+    const targetCandidateCells = targetPane.locator('.batch-record-cell-link-sheet__cell.is-target-selectable')
+    assert.ok((await targetCandidateCells.count()) > 0, 'target_linkable_cells_missing')
+    await targetCandidateCells.first().click()
+    assert.ok(
+      await page.locator('.batch-record-cell-link__create-button').first().isEnabled(),
+      'create_button_must_be_enabled_after_process_pool_source_and_target_selection'
+    )
     assert.deepEqual(writeRequests, [], 'readonly E2E must not write DCC or cell-link data')
 
     const screenshot = path.join(taskRoot, 'process-pool-real-device-readonly-pass.png')
@@ -653,6 +674,8 @@ async function main() {
         deviceCode: field.deviceCode,
         deviceName: field.deviceName
       })),
+      aggregationSelectText,
+      createButtonEnabledAfterSelection: true,
       workbenchResponses,
       writeRequests,
       screenshot

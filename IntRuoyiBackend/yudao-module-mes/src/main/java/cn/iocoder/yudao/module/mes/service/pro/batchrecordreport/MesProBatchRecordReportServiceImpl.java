@@ -376,6 +376,14 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         return projectCode;
     }
 
+    private String requireReportProjectCode(DccProjectCodeDO selectedDccProjectCode) {
+        String projectCode = StrUtil.trimToNull(selectedDccProjectCode.getProjectCode());
+        if (projectCode == null) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_DCC_PROJECT_CODE_REQUIRED);
+        }
+        return projectCode;
+    }
+
     private void ensureNoDuplicateRouteForDccProject(DccProjectCodeDO selectedDccProjectCode) {
         List<MesProRouteDO> routes = resolveGovernedRoutesForDccProject(selectedDccProjectCode);
         if (routes.size() <= 1) {
@@ -737,6 +745,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         String normalizedBatchRecordName = normalizeBatchRecordName(batchRecordName);
         DccProjectCodeDO selectedDccProjectCode = requireSelectedDccProjectCode(
                 dccProjectCodeId, normalizedBatchRecordName);
+        String normalizedProjectCode = requireReportProjectCode(selectedDccProjectCode);
         ensureNoDuplicateRouteForDccProject(selectedDccProjectCode);
         List<String> normalizedProductNames = normalizeRouteProductNames(productNames);
         validateDccProjectNameMatchesBatchRecordName(normalizedBatchRecordName, normalizedProductNames);
@@ -805,7 +814,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         if (reusablePendingVersion != null && hasGeneratedReports(definition.getId(), reusablePendingVersion.getId())) {
             if (Objects.equals(sourceVersion == null ? null : sourceVersion.getSourceFileSha256(), sha256)) {
                 return buildReusableImportResult(definition, reusablePendingVersion,
-                        resolveReportProductName(normalizedProductNames), approvalSubmitterUserId);
+                        resolveReportProductName(normalizedProductNames), normalizedProjectCode,
+                        approvalSubmitterUserId);
             }
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_FORM_SLOT_EXISTS,
                     normalizedBatchRecordName, "主批记录");
@@ -837,7 +847,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         if (upgradeImport && rebuildRecord && hasGeneratedReports(definition.getId(), targetVersion.getId())) {
             if (Objects.equals(targetSourceVersion == null ? null : targetSourceVersion.getSourceFileSha256(), sha256)) {
                 return buildReusableImportResult(definition, targetVersion,
-                        resolveReportProductName(normalizedProductNames), approvalSubmitterUserId);
+                        resolveReportProductName(normalizedProductNames), normalizedProjectCode,
+                        approvalSubmitterUserId);
             }
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_FORM_SLOT_EXISTS,
                     normalizedBatchRecordName, "主批记录");
@@ -847,7 +858,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 scopeSampleKeyByTenant(buildBatchRecordVersionSampleKey(normalizedBatchRecordName, targetVersion.getId())),
                 normalizedRouteKey, normalizedBatchRecordName, GeneratedReportSource.UPLOADED_DOC, false,
                 MesProBatchRecordFormSlotType.MAIN.getType(), definition.getId(), targetVersion.getId(), true,
-                resolveReportProductName(normalizedProductNames))
+                resolveReportProductName(normalizedProductNames), normalizedProjectCode)
                 : targetVersion == null ? emptyImportResult() : buildCurrentVersionImportResult(definition, targetVersion);
         if (upgradeImport && rebuildRecord) {
             copySourceVersionReportFillRules(definition.getId(), targetSourceVersion, targetVersion,
@@ -2102,12 +2113,32 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                                                                Long batchRecordVersionId,
                                                                boolean forceCreateSnapshot,
                                                                String productName) {
+        return saveGeneratedReports(parsedTables, sourceFileName, sha256, sampleKey, routeKey, batchRecordName,
+                source, matchByBatchRecordName, formSlotType, batchRecordDefinitionId, batchRecordVersionId,
+                forceCreateSnapshot, productName, null);
+    }
+
+    private MesProBatchRecordImportResult saveGeneratedReports(List<MesProBatchRecordParsedTable> parsedTables,
+                                                               String sourceFileName,
+                                                               String sha256,
+                                                               String sampleKey,
+                                                               String routeKey,
+                                                               String batchRecordName,
+                                                               GeneratedReportSource source,
+                                                               boolean matchByBatchRecordName,
+                                                               String formSlotType,
+                                                               Long batchRecordDefinitionId,
+                                                               Long batchRecordVersionId,
+                                                               boolean forceCreateSnapshot,
+                                                               String productName,
+                                                               String projectCode) {
         String normalizedRouteKey = MesProBatchRecordRecognitionRouteKeys.normalize(routeKey);
         String normalizedFormSlotType = normalizeFormSlotType(formSlotType);
         String normalizedProductName = StrUtil.trim(productName);
         if (StrUtil.isBlank(normalizedProductName)) {
             normalizedProductName = null;
         }
+        String normalizedProjectCode = StrUtil.trimToNull(projectCode);
         String categoryId = jimuReportGateway.ensureElectronicBatchRecordCategoryId();
         LocalDateTime now = LocalDateTime.now();
         int createdCount = 0;
@@ -2138,6 +2169,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 created.setSampleKey(sampleKey);
                 created.setBatchRecordName(batchRecordName);
                 created.setProductName(normalizedProductName);
+                created.setProjectCode(normalizedProjectCode);
                 created.setFormSlotType(normalizedFormSlotType);
                 created.setRouteKey(normalizedRouteKey);
                 created.setBatchRecordDefinitionId(batchRecordDefinitionId);
@@ -2157,6 +2189,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 existing.setSampleKey(sampleKey);
                 existing.setBatchRecordName(batchRecordName);
                 existing.setProductName(normalizedProductName);
+                existing.setProjectCode(normalizedProjectCode);
                 existing.setFormSlotType(normalizedFormSlotType);
                 existing.setRouteKey(normalizedRouteKey);
                 existing.setBatchRecordDefinitionId(batchRecordDefinitionId);
@@ -2177,6 +2210,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     .batchRecordDefinitionId(batchRecordDefinitionId)
                     .batchRecordVersionId(batchRecordVersionId)
                     .productName(normalizedProductName)
+                    .projectCode(normalizedProjectCode)
                     .formSlotType(normalizedFormSlotType)
                     .routeKey(normalizedRouteKey)
                     .sourceTableIndex(parsedTable.getSourceTableIndex())
@@ -2535,12 +2569,20 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     private MesProBatchRecordImportResult buildReusableImportResult(MesProBatchRecordDefinitionDO definition,
                                                                     MesProBatchRecordVersionDO reusableVersion,
                                                                     String productName) {
-        return buildReusableImportResult(definition, reusableVersion, productName, null);
+        return buildReusableImportResult(definition, reusableVersion, productName, null, null);
     }
 
     private MesProBatchRecordImportResult buildReusableImportResult(MesProBatchRecordDefinitionDO definition,
                                                                     MesProBatchRecordVersionDO reusableVersion,
                                                                     String productName,
+                                                                    Long approvalSubmitterUserId) {
+        return buildReusableImportResult(definition, reusableVersion, productName, null, approvalSubmitterUserId);
+    }
+
+    private MesProBatchRecordImportResult buildReusableImportResult(MesProBatchRecordDefinitionDO definition,
+                                                                    MesProBatchRecordVersionDO reusableVersion,
+                                                                    String productName,
+                                                                    String projectCode,
                                                                     Long approvalSubmitterUserId) {
         if (approvalSubmitterUserId != null && Objects.equals("PRECHECK_PASSED", reusableVersion.getStatus())) {
             reusableVersion = submitPrecheckVersionForApproval(reusableVersion, approvalSubmitterUserId);
@@ -2548,11 +2590,22 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         List<MesProBatchRecordReportDO> reusableReports = reportMapper.selectListByDefinitionIdAndVersionId(
                 definition.getId(), reusableVersion.getId());
         String normalizedProductName = StrUtil.trim(productName);
-        if (StrUtil.isNotBlank(normalizedProductName)) {
+        String normalizedProjectCode = StrUtil.trimToNull(projectCode);
+        if (StrUtil.isNotBlank(normalizedProductName) || StrUtil.isNotBlank(normalizedProjectCode)) {
             LocalDateTime now = LocalDateTime.now();
             for (MesProBatchRecordReportDO reusableReport : reusableReports) {
-                if (!Objects.equals(normalizedProductName, reusableReport.getProductName())) {
+                boolean metadataChanged = false;
+                if (StrUtil.isNotBlank(normalizedProductName)
+                        && !Objects.equals(normalizedProductName, reusableReport.getProductName())) {
                     reusableReport.setProductName(normalizedProductName);
+                    metadataChanged = true;
+                }
+                if (StrUtil.isNotBlank(normalizedProjectCode)
+                        && !Objects.equals(normalizedProjectCode, reusableReport.getProjectCode())) {
+                    reusableReport.setProjectCode(normalizedProjectCode);
+                    metadataChanged = true;
+                }
+                if (metadataChanged) {
                     reusableReport.setLastImportTime(now);
                     reportMapper.updateById(reusableReport);
                 }
@@ -2718,6 +2771,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .batchRecordDefinitionId(metadata.getBatchRecordDefinitionId())
                 .batchRecordVersionId(metadata.getBatchRecordVersionId())
                 .productName(metadata.getProductName())
+                .projectCode(metadata.getProjectCode())
                 .formSlotType(metadata.getFormSlotType())
                 .routeKey(metadata.getRouteKey())
                 .sourceTableIndex(metadata.getSourceTableIndex())
@@ -2790,6 +2844,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .batchRecordDefinitionId(metadata.getBatchRecordDefinitionId())
                 .batchRecordVersionId(metadata.getBatchRecordVersionId())
                 .productName(metadata.getProductName())
+                .projectCode(metadata.getProjectCode())
                 .formSlotType(normalizeFormSlotType(metadata.getFormSlotType()))
                 .routeKey(metadata.getRouteKey())
                 .sourceTableIndex(metadata.getSourceTableIndex())
@@ -2952,6 +3007,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .batchRecordDefinitionId(report.batchRecordDefinitionId())
                 .batchRecordVersionId(report.batchRecordVersionId())
                 .productName(productName)
+                .projectCode(report.projectCode())
                 .versionNo(version == null ? null : version.getVersionNo())
                 .versionStatus(version == null ? null : version.getStatus())
                 .formSlotType(report.formSlotType())

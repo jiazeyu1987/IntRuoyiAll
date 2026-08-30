@@ -50,6 +50,12 @@ const currentSortFields = [
   'remark'
 ]
 
+const currentColumnDefinitionsMatch = pageSource.match(
+  /const currentColumnDefinitions:\s*UserTableColumnDefinition\[\]\s*=\s*\[([\s\S]*?)\]\s*\r?\n\s*const oldColumnDefinitions:/
+)
+assert.ok(currentColumnDefinitionsMatch, 'current list column definitions block must be found')
+const currentColumnDefinitionsBlock = currentColumnDefinitionsMatch[1]
+
 const oldSortFields = [
   'certificateNo',
   'ownerCompanyName',
@@ -98,6 +104,15 @@ for (const field of currentSortFields) {
     currentTableBlock,
     `v-bind="sortColumnAttrs('${field}')"`,
     `current list column ${field} must be registered as server-sortable`
+  )
+  const columnEntryMatch = currentColumnDefinitionsBlock.match(
+    new RegExp(String.raw`\{\s*key:\s*'${field}'[^}]*\}`)
+  )
+  assert.ok(columnEntryMatch, `current list column ${field} definition must exist`)
+  assert.match(
+    columnEntryMatch[0],
+    /sortable:\s*'custom'/,
+    `current list column ${field} must use Element Plus custom server sorting`
   )
 }
 

@@ -6,7 +6,7 @@ const repoRoot = path.resolve(__dirname, '..', '..')
 const source = fs.readFileSync(path.join(repoRoot, 'src/views/bpm/model/index.vue'), 'utf8')
 
 const viewDialogMatch = source.match(
-  /<Dialog\s+title="流程审批路线"[\s\S]*?<\/Dialog>\s*<Dialog\s+title="表单详情"/
+  /<Dialog\s+:title="modelApprovalRouteDialogTitle"\s+v-model="viewDetailVisible"[\s\S]*?<\/Dialog>\s*<Dialog\s+title="表单详情"/
 )
 
 assert.ok(viewDialogMatch, 'BPM model page must keep the read-only model view dialog')
@@ -167,6 +167,42 @@ assert.match(
 
 assert.match(
   source,
+  /const\s+REGISTRATION_CERTIFICATE_APPROVAL_PROCESS_KEY\s*=\s*'dcc-registration-certificate-access'/,
+  'registration certificate approval route display must be keyed by the stable process key'
+)
+
+assert.match(
+  source,
+  /const\s+REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE\s*=\s*'dcc_registration_certificate_approver'/,
+  'registration certificate approval route display must use the formal registration manager role code'
+)
+
+assert.match(
+  source,
+  /const\s+resolveApprovalRoleNameByCode\s*=/,
+  'approval route must resolve business-owned approver role names by formal role code'
+)
+
+assert.match(
+  source,
+  /未识别角色（编码：/,
+  'unmatched business role codes must be explicit instead of hiding the missing role'
+)
+
+assert.match(
+  source,
+  /const\s+resolveBusinessApprovalRouteParticipants\s*=/,
+  'approval route must expose business-owned participant summaries when a flow has business-side assignee resolution'
+)
+
+assert.match(
+  source,
+  /审批对象：\$\{roleNames\}/,
+  'registration certificate route must display the resolved registration manager as the approval object'
+)
+
+assert.match(
+  source,
   /未识别角色（ID：/,
   'unmatched role ids must be explicit instead of exposing an unreadable raw id'
 )
@@ -213,8 +249,20 @@ assert.match(
 
 assert.match(
   source,
+  /const\s+businessParticipants\s*=\s*resolveBusinessApprovalRouteParticipants\(model\)/,
+  'participant summary must apply business-owned approval route participants before falling back to raw BPMN strategy text'
+)
+
+assert.match(
+  source,
   /const\s+modelApprovalRouteSteps\s*=\s*computed\(/,
   'view dialog must derive vertical approval route steps from participant summary'
+)
+
+assert.match(
+  source,
+  /isRegistrationCertificateApprovalModel\(selectedModel\.value\)[\s\S]*?filter\(\(step\)\s*=>\s*step\.key\s*===\s*'starter'\s*\|\|\s*!isUnconfiguredApprovalRouteStep\(step\)\)/,
+  'single-node registration certificate route must hide empty generic audit or approval buckets'
 )
 
 assert.match(

@@ -37,8 +37,8 @@ assert.match(
 
 assert.match(
   modelSource,
-  /selectParticipantSource\(simpleParticipants\.approvers,\s*bpmnParticipants\.approvers\)[\s\S]*?\.map\(\s*\(item\)\s*=>\s*formatApprovalRouteParticipant\(item,\s*approvalRouteName\)\s*\)/,
-  '批准环节必须把候选审批节点转换为审批路线名称后再展示。'
+  /selectBusinessParticipantSource\(\s*businessParticipants\.approvers,\s*simpleParticipants\.approvers,\s*bpmnParticipants\.approvers\s*\)[\s\S]*?\.map\(\s*\(item\)\s*=>\s*formatApprovalRouteParticipant\(item,\s*approvalRouteName\)\s*\)/,
+  '批准环节必须在业务审批人映射后把候选审批节点转换为审批路线名称展示。'
 )
 
 console.log('PASS: BPM model approval route view displays the route name')

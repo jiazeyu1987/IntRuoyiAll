@@ -21,6 +21,9 @@ public class BatchRecordReportRespVO {
     @Schema(description = "表单对应的产品名称")
     private String productName;
 
+    @Schema(description = "DCC 项目代码")
+    private String projectCode;
+
     @Schema(description = "批记录版本号")
     private String versionNo;
 

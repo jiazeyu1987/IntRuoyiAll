@@ -16,10 +16,13 @@ import cn.iocoder.yudao.module.bpm.framework.flowable.core.util.FlowableUtils;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceCopyService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -46,6 +49,12 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             "EDHR_BATCH_EXECUTION_VOID";
     private static final String MES_ROUTE_VERSION_PUBLISH_BUSINESS_TYPE =
             "MES_ROUTE_VERSION_PUBLISH";
+    private static final String REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE =
+            "UPLOAD_CERTIFICATE";
+    private static final String REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE =
+            "dcc_registration_certificate_approver";
+    private static final String REGISTRATION_CERTIFICATE_UPLOAD_APPROVAL_PERMISSION =
+            "dcc:registration-certificate:upload:approve";
     private static final String BATCH_RECORD_VERSION_DETAIL_ROUTE =
             "/mes/pro/batch-record-form-list";
     private static final String EDHR_RECORD_CHANGE_DETAIL_ROUTE =
@@ -69,13 +78,19 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
     private final BpmProcessInstanceService processInstanceService;
     private final BpmProcessInstanceCopyService copyService;
     private final BpmTaskService taskService;
+    private final org.flowable.engine.TaskService flowableTaskService;
+    private final PermissionApi permissionApi;
 
     public BpmNativeApprovalTaskProvider(BpmProcessInstanceService processInstanceService,
                                          BpmProcessInstanceCopyService copyService,
-                                         BpmTaskService taskService) {
+                                         BpmTaskService taskService,
+                                         org.flowable.engine.TaskService flowableTaskService,
+                                         PermissionApi permissionApi) {
         this.processInstanceService = processInstanceService;
         this.copyService = copyService;
         this.taskService = taskService;
+        this.flowableTaskService = flowableTaskService;
+        this.permissionApi = permissionApi;
     }
 
     @Override
@@ -126,6 +141,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void review(ApprovalTaskReviewContext context) {
         Objects.requireNonNull(context, "APPROVAL_REVIEW_CONTEXT_REQUIRED");
         if (!TODO_SOURCE.equals(context.getSourceTaskType())) {
@@ -134,6 +150,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         }
         String taskId = requireText(context.getSourceTaskId(), "APPROVAL_TASK_ID_REQUIRED: BPM review");
         if (context.getResult() == ApprovalTaskReviewResult.APPROVE) {
+            claimRegistrationUploadTaskIfPermitted(context, taskId);
             taskService.approveTask(context.getLoginUserId(), new BpmTaskApproveReqVO()
                     .setId(taskId)
                     .setReason(trimToNull(context.getReason()))
@@ -142,12 +159,41 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             return;
         }
         if (context.getResult() == ApprovalTaskReviewResult.REJECT) {
+            claimRegistrationUploadTaskIfPermitted(context, taskId);
             taskService.rejectTask(context.getLoginUserId(), new BpmTaskRejectReqVO()
                     .setId(taskId)
                     .setReason(requireText(context.getReason(), "APPROVAL_REJECT_REASON_REQUIRED")));
             return;
         }
         throw new IllegalArgumentException("APPROVAL_REVIEW_RESULT_UNSUPPORTED: " + context.getResult());
+    }
+
+    private void claimRegistrationUploadTaskIfPermitted(ApprovalTaskReviewContext context, String taskId) {
+        Long loginUserId = context.getLoginUserId();
+        if (loginUserId == null) {
+            return;
+        }
+        Task task = taskService.getTask(taskId);
+        if (task == null || !hasText(task.getAssignee())
+                || Objects.equals(String.valueOf(loginUserId), task.getAssignee())) {
+            return;
+        }
+        String processInstanceId = task.getProcessInstanceId();
+        if (!hasText(processInstanceId)) {
+            return;
+        }
+        if (hasText(context.getProcessInstanceId())
+                && !Objects.equals(context.getProcessInstanceId(), processInstanceId)) {
+            throw new IllegalArgumentException("APPROVAL_TASK_PROCESS_INSTANCE_MISMATCH: BPM review "
+                    + taskId);
+        }
+        ProcessInstance processInstance = processInstanceService.getProcessInstance(processInstanceId);
+        Map<String, Object> variables = processInstance == null ? null : processInstance.getProcessVariables();
+        if (!isRegistrationCertificateUploadApproval(variables)
+                || !hasRegistrationCertificateUploadApprovalAuthority(loginUserId)) {
+            return;
+        }
+        flowableTaskService.setAssignee(taskId, String.valueOf(loginUserId));
     }
 
     private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
@@ -547,6 +593,19 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 && (hasText(firstText(variables.get("registrationCertificateAccessRequestId"),
                 variables.get("certificateId")))
                 || isRegistrationCertificateRequestType(variables.get("requestType")));
+    }
+
+    private static boolean isRegistrationCertificateUploadApproval(Map<String, Object> variables) {
+        return variables != null
+                && REGISTRATION_CERTIFICATE_UPLOAD_REQUEST_TYPE.equals(firstText(variables.get("requestType")))
+                && hasText(firstText(variables.get("registrationCertificateAccessRequestId"),
+                variables.get("requestId")))
+                && hasText(firstText(variables.get("certificateId")));
+    }
+
+    private boolean hasRegistrationCertificateUploadApprovalAuthority(Long userId) {
+        return permissionApi.hasAnyRoles(userId, REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE)
+                && permissionApi.hasAnyPermissions(userId, REGISTRATION_CERTIFICATE_UPLOAD_APPROVAL_PERMISSION);
     }
 
     private static boolean isRegistrationCertificateRequestType(Object requestType) {

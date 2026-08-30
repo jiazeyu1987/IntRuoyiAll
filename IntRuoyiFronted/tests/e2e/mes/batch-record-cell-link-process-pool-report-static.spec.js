@@ -40,12 +40,36 @@ for (const token of [
   'buildSourceFieldCells(filteredProcessPoolReportSourceFields.value, PROCESS_POOL_REPORT_SOURCE_REPORT_ID',
   'PROCESS_POOL_REPORT_AGGREGATION_OPTIONS',
   "type ProcessPoolSourceValueType = 'NUMBER' | 'STRING' | 'BOOLEAN'",
+  'PROCESS_POOL_REPORT_QUANTITY_AGGREGATION_SOURCE_FIELDS',
+  'resolveDefaultProcessPoolReportAggregationStrategy',
+  'syncProcessPoolReportAggregationStrategy',
   'v-if="sourceType === SOURCE_TYPE_PROCESS_POOL_REPORT"',
   'v-model="aggregationStrategy"',
   'aggregationStrategy: isProcessPoolReportSource ? aggregationStrategy.value : undefined'
 ]) {
   assert.ok(page.includes(token), `page misses process-pool report mapping token: ${token}`)
 }
+
+assert.match(
+  page,
+  /PROCESS_POOL_REPORT_QUANTITY_AGGREGATION_SOURCE_FIELDS[\s\S]*'outputQuantity'[\s\S]*'lossQuantity'/,
+  'process-pool report quantity fields must have an explicit SUM default field set.'
+)
+assert.match(
+  page,
+  /resolveDefaultProcessPoolReportAggregationStrategy[\s\S]*PROCESS_POOL_REPORT_QUANTITY_AGGREGATION_SOURCE_FIELDS\.has[\s\S]*'SUM'[\s\S]*'LAST'/,
+  'process-pool report default aggregation must use SUM for quantities and LAST for device parameters/identity/time/signature fields.'
+)
+assert.match(
+  page,
+  /const canCreateRule = computed\(\(\) => Boolean\([\s\S]*aggregationStrategy\.value[\s\S]*\)\)/,
+  'create button may keep the backend-required aggregation gate, but the UI must auto-fill it after source selection.'
+)
+assert.ok(
+  page.includes('syncProcessPoolReportAggregationStrategy(selectedSourceCell.value)') &&
+    page.includes('syncProcessPoolReportAggregationStrategy(cell)'),
+  'process-pool source auto-selection and user source clicks must both set a default aggregation strategy.'
+)
 
 for (const token of [
   "const SOURCE_TYPE_PQC_AGGREGATE_DETAIL = 'PQC_AGGREGATE_DETAIL'",
@@ -146,7 +170,6 @@ for (const sourceField of [
   'selectedDevice.deviceName',
   'deviceParameterReadings.',
   'deviceParameterReadings." + code + ".value',
-  'equipmentParameterRules.',
   'deviceMeteringValidity.inMeteringValidityPeriod',
   'clearanceConfirmations.workplace.confirmed'
 ]) {
@@ -165,7 +188,8 @@ for (const hiddenFieldDeclaration of [
   'ProcessPoolReportSourceField.base("workstationId", "工作站编号"',
   'ProcessPoolReportSourceField.base("deviceAccountId", "设备账号"',
   'ProcessPoolReportSourceField.base("signatureId", "提交签名编号"',
-  'ProcessPoolReportSourceField.base("reviewSignatureId", "审核人签名编号"'
+  'ProcessPoolReportSourceField.base("reviewSignatureId", "审核人签名编号"',
+  '"equipmentParameterRules." + code'
 ]) {
   assert.ok(!backendService.includes(hiddenFieldDeclaration),
     'process-pool report catalog must hide non-linkable field: ' + hiddenFieldDeclaration)

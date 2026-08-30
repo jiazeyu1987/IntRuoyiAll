@@ -20,7 +20,7 @@ expectIncludes(
   '批记录表单左侧列表必须直接导入标准列表模板。'
 )
 expectIncludes('<UnifiedListTemplate', '批记录表单左侧必须使用标准列表模板。')
-expectIncludes('table-key="mes.pro.edhrBatch.recordFormList"', '批记录表单列表必须使用稳定 tableKey。')
+expectIncludes('table-key="mes.pro.edhrBatch.recordFormList.projectCodeV1"', '批记录表单列表新增默认列后必须升级稳定 tableKey。')
 expectIncludes(':show-quick-filter-label="false"', '批记录表单列表必须删除红框中的快速过滤文字标签。')
 expectIncludes(':columns="recordFormColumns"', '标准列表模板必须接入显示字段配置。')
 expectIncludes('@column-change="saveRecordFormColumnConfig"', '列表列配置必须可保存。')
@@ -45,7 +45,7 @@ expectIncludes('ElMessageBox.confirm', '同名批记录导入必须保留升版�
 expectIncludes('wordImportRouteKey', '导入逻辑必须保留 B/E 路线识别。')
 expectIncludes('@pagination="getList"', '分页必须由标准列表模板触发真实列表加载。')
 
-for (const column of ['产品名称', '表单名称', '类型', '版本', '状态', '更新时间']) {
+for (const column of ['产品名称', '项目代码', '表单名称', '类型', '版本', '状态', '更新时间']) {
   assert(page.includes(`label: '${column}'`) || page.includes(`label="${column}"`), `列表必须显示列：${column}`)
 }
 
@@ -115,6 +115,7 @@ for (const mapping of [
 }
 
 assert.match(api, /productName\?:\s*string/, '前端报表 VO 必须包含产品名称字段。')
+assert.match(api, /projectCode\?:\s*string/, '前端报表 VO 必须包含 DCC 项目代码字段。')
 assert.match(api, /versionNo\?:\s*string/, '前端报表 VO 必须包含版本号字段。')
 assert.match(api, /versionStatus\?:\s*string/, '前端报表 VO 必须包含版本状态字段。')
 assert.match(api, /deleteGeneratedReports:\s*async/, '前端 API 必须暴露批量删除接口。')

@@ -471,20 +471,20 @@ const OLD_SERVER_SORT_FIELDS = new Set<RegistrationCertificateSortField>([
 ])
 
 const currentColumnDefinitions: UserTableColumnDefinition[] = [
-  { key: 'certificateNo', label: '注册证编号', minWidth: 180 },
-  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180 },
-  { key: 'productName', label: '产品', minWidth: 180 },
-  { key: 'classification', label: '分类', minWidth: 110 },
-  { key: 'projectCode', label: '实际项目代码', minWidth: 150 },
-  { key: 'versionNo', label: '版本', width: 90 },
-  { key: 'status', label: '状态', width: 130 },
-  { key: 'reminder', label: '提醒状态', width: 120 },
-  { key: 'hasProjectCode', label: '项目代码', width: 110 },
-  { key: 'hasRegistrationFile', label: '注册证文件', width: 120 },
-  { key: 'approvalDate', label: '批准日', width: 120 },
-  { key: 'effectiveDate', label: '生效日', width: 120 },
-  { key: 'expiryDate', label: '有效期至', width: 120 },
-  { key: 'remark', label: '备注', minWidth: 220 },
+  { key: 'certificateNo', label: '注册证编号', minWidth: 180, sortable: 'custom' },
+  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180, sortable: 'custom' },
+  { key: 'productName', label: '产品', minWidth: 180, sortable: 'custom' },
+  { key: 'classification', label: '分类', minWidth: 110, sortable: 'custom' },
+  { key: 'projectCode', label: '实际项目代码', minWidth: 150, sortable: 'custom' },
+  { key: 'versionNo', label: '版本', width: 90, sortable: 'custom' },
+  { key: 'status', label: '状态', width: 130, sortable: 'custom' },
+  { key: 'reminder', label: '提醒状态', width: 120, sortable: 'custom' },
+  { key: 'hasProjectCode', label: '项目代码', width: 110, sortable: 'custom' },
+  { key: 'hasRegistrationFile', label: '注册证文件', width: 120, sortable: 'custom' },
+  { key: 'approvalDate', label: '批准日', width: 120, sortable: 'custom' },
+  { key: 'effectiveDate', label: '生效日', width: 120, sortable: 'custom' },
+  { key: 'expiryDate', label: '有效期至', width: 120, sortable: 'custom' },
+  { key: 'remark', label: '备注', minWidth: 220, sortable: 'custom' },
   { key: 'actions', label: '操作', width: 140, hideable: false, business: false, sortable: false }
 ]
 

@@ -405,6 +405,10 @@ const PROCESS_POOL_REPORT_AGGREGATION_OPTIONS: readonly ProcessPoolReportAggrega
   { value: 'MIN', label: '最小值', sourceValueTypes: ['NUMBER'] },
   { value: 'MAX', label: '最大值', sourceValueTypes: ['NUMBER'] }
 ]
+const PROCESS_POOL_REPORT_QUANTITY_AGGREGATION_SOURCE_FIELDS = new Set([
+  'outputQuantity',
+  'lossQuantity'
+])
 
 const BatchRecordLinkSheet = defineComponent({
   name: 'BatchRecordLinkSheet',
@@ -497,6 +501,7 @@ const sourceType = ref(SOURCE_TYPE_BATCH_RECORD_CELL)
 const sourceReportId = ref('')
 const sourceFieldCode = ref('')
 const aggregationStrategy = ref('')
+const lastSyncedProcessPoolAggregationSourceFieldCode = ref('')
 const targetReportId = ref('')
 const sourceCells = ref<BatchRecordCellLinkFormCellsVO>()
 const targetCells = ref<BatchRecordCellLinkFormCellsVO>()
@@ -661,6 +666,43 @@ const availableAggregationOptions = computed(() => {
     option.sourceValueTypes.includes(sourceValueType)
   )
 })
+
+function resolveDefaultProcessPoolReportAggregationStrategy(cell?: BatchRecordCellLinkCellVO) {
+  const sourceFieldCode = String(cell?.sourceFieldCode || cell?.cellKey || '')
+  const sourceValueType = (cell?.valueType || 'STRING') as ProcessPoolSourceValueType
+  if (sourceValueType === 'NUMBER' &&
+    PROCESS_POOL_REPORT_QUANTITY_AGGREGATION_SOURCE_FIELDS.has(sourceFieldCode)) {
+    return 'SUM'
+  }
+  if (PROCESS_POOL_REPORT_AGGREGATION_OPTIONS.some((option) =>
+    option.value === 'LAST' && option.sourceValueTypes.includes(sourceValueType))) {
+    return 'LAST'
+  }
+  return PROCESS_POOL_REPORT_AGGREGATION_OPTIONS.find((option) =>
+    option.sourceValueTypes.includes(sourceValueType)
+  )?.value || ''
+}
+
+function syncProcessPoolReportAggregationStrategy(cell?: BatchRecordCellLinkCellVO) {
+  if (sourceType.value !== SOURCE_TYPE_PROCESS_POOL_REPORT) {
+    return
+  }
+  const sourceFieldCodeForAggregation = String(cell?.sourceFieldCode || cell?.cellKey || '')
+  if (!sourceFieldCodeForAggregation) {
+    aggregationStrategy.value = ''
+    lastSyncedProcessPoolAggregationSourceFieldCode.value = ''
+    return
+  }
+  const currentStrategyMatchesFieldType = availableAggregationOptions.value.some(
+    (option) => option.value === aggregationStrategy.value
+  )
+  if (!currentStrategyMatchesFieldType ||
+    !aggregationStrategy.value ||
+    lastSyncedProcessPoolAggregationSourceFieldCode.value !== sourceFieldCodeForAggregation) {
+    aggregationStrategy.value = resolveDefaultProcessPoolReportAggregationStrategy(cell)
+  }
+  lastSyncedProcessPoolAggregationSourceFieldCode.value = sourceFieldCodeForAggregation
+}
 const sourceRuleKeys = computed(() => new Set(rules.value.map((rule) => `${rule.sourceReportId}:${rule.sourceCellKey}`)))
 const targetRuleKeys = computed(() => new Set(rules.value.map((rule) => `${rule.targetReportId}:${rule.targetCellKey}`)))
 const sourceLinkedRules = computed<SourceLinkedRule[]>(() =>
@@ -933,8 +975,9 @@ const handleSourceSelectionChange = async () => {
       ? SOURCE_TYPE_PRODUCTION_PICK_LIST
       : isPqcAggregateSelected.value
         ? SOURCE_TYPE_PQC_AGGREGATE_DETAIL
-        : SOURCE_TYPE_BATCH_RECORD_CELL
+      : SOURCE_TYPE_BATCH_RECORD_CELL
   aggregationStrategy.value = ''
+  lastSyncedProcessPoolAggregationSourceFieldCode.value = ''
   if (isStructuredSourceSelected.value) {
     sourceFieldCode.value = currentStructuredSourceFields()[0]?.fieldCode || ''
   }
@@ -993,6 +1036,7 @@ const loadSourceCells = async () => {
     sourceCells.value = buildSourceFieldCells(filteredProcessPoolReportSourceFields.value, PROCESS_POOL_REPORT_SOURCE_REPORT_ID,
       currentProcessPoolReportSourceTitle.value, SOURCE_TYPE_PROCESS_POOL_REPORT)
     selectedSourceCell.value = sourceCells.value.cells.find((cell) => cell.sourceFieldCode === sourceFieldCode.value)
+    syncProcessPoolReportAggregationStrategy(selectedSourceCell.value)
     return
   }
   if (sourceType.value === SOURCE_TYPE_PRODUCTION_PICK_LIST) {
@@ -1037,8 +1081,8 @@ const selectSourceCell = (cell?: BatchRecordCellLinkCellVO) => {
     sourceFieldCode.value = cell.sourceFieldCode
   }
   if (sourceType.value === SOURCE_TYPE_PROCESS_POOL_REPORT
-    && !availableAggregationOptions.value.some((option) => option.value === aggregationStrategy.value)) {
-    aggregationStrategy.value = ''
+  ) {
+    syncProcessPoolReportAggregationStrategy(cell)
   }
 }
 

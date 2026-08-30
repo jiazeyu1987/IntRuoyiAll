@@ -10,10 +10,13 @@ import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveR
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.task.BpmProcessInstanceCopyDO;
+import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceCopyService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,6 +51,10 @@ class BpmNativeApprovalTaskProviderTest {
     private BpmProcessInstanceCopyService copyService;
     @Mock
     private BpmTaskService taskService;
+    @Mock
+    private org.flowable.engine.TaskService flowableTaskService;
+    @Mock
+    private PermissionApi permissionApi;
     @InjectMocks
     private BpmNativeApprovalTaskProvider provider;
 
@@ -328,6 +336,58 @@ class BpmNativeApprovalTaskProviderTest {
         verify(taskService).approveTask(eq(100L), captor.capture());
         assertEquals("task-approve-101", captor.getValue().getId());
         assertEquals("http://127.0.0.1:9000/yudao/signature/user-100.png", captor.getValue().getSignPicUrl());
+    }
+
+    @Test
+    void reviewClaimsRegistrationUploadTaskWhenLoginUserHasApproverRoleAndPermission() {
+        Task task = mock(Task.class);
+        when(task.getAssignee()).thenReturn("200");
+        when(task.getProcessInstanceId()).thenReturn("pi-upload-approve");
+        when(taskService.getTask("task-upload-approve")).thenReturn(task);
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 150L,
+                "requestId", 150L,
+                "certificateId", 990819196L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
+                Map.of("REG_CERT_ACCESS_APPROVAL", List.of(200L))));
+        when(processInstanceService.getProcessInstance("pi-upload-approve")).thenReturn(processInstance);
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(true);
+        when(permissionApi.hasAnyPermissions(100L, "dcc:registration-certificate:upload:approve")).thenReturn(true);
+
+        provider.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                "BPM_TASK_TODO", "task-upload-approve", "pi-upload-approve", "pi-upload-approve",
+                ApprovalTaskReviewResult.APPROVE, null, "secret", false)
+                .setSignatureImageFileUrl("http://127.0.0.1:9000/yudao/signature/user-100.png"));
+
+        verify(flowableTaskService).setAssignee("task-upload-approve", "100");
+        ArgumentCaptor<BpmTaskApproveReqVO> captor = ArgumentCaptor.forClass(BpmTaskApproveReqVO.class);
+        verify(taskService).approveTask(eq(100L), captor.capture());
+        assertEquals("task-upload-approve", captor.getValue().getId());
+    }
+
+    @Test
+    void reviewDoesNotClaimRegistrationUploadTaskWithoutApproverRole() {
+        Task task = mock(Task.class);
+        when(task.getAssignee()).thenReturn("200");
+        when(task.getProcessInstanceId()).thenReturn("pi-upload-approve");
+        when(taskService.getTask("task-upload-approve")).thenReturn(task);
+        ProcessInstance processInstance = mock(ProcessInstance.class);
+        when(processInstance.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 150L,
+                "certificateId", 990819196L,
+                "requestType", "UPLOAD_CERTIFICATE"));
+        when(processInstanceService.getProcessInstance("pi-upload-approve")).thenReturn(processInstance);
+        when(permissionApi.hasAnyRoles(100L, "dcc_registration_certificate_approver")).thenReturn(false);
+
+        provider.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                "BPM_TASK_TODO", "task-upload-approve", "pi-upload-approve", "pi-upload-approve",
+                ApprovalTaskReviewResult.APPROVE, null, "secret", false)
+                .setSignatureImageFileUrl("http://127.0.0.1:9000/yudao/signature/user-100.png"));
+
+        verify(flowableTaskService, never()).setAssignee("task-upload-approve", "100");
+        verify(taskService).approveTask(eq(100L), any(BpmTaskApproveReqVO.class));
     }
 
     @Test

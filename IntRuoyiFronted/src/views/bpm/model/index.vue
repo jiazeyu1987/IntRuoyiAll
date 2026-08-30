@@ -428,6 +428,9 @@ const MODEL_DISPLAY_NAME_MAP: Record<string, string> = {
   'eDHR Approval V1': 'eDHR 审批 V1'
 }
 
+const REGISTRATION_CERTIFICATE_APPROVAL_PROCESS_KEY = 'dcc-registration-certificate-access'
+const REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE = 'dcc_registration_certificate_approver'
+
 const resolveModelDisplayName = (row?: Pick<ModelInfo, 'name'> | null) => {
   const modelName = row?.name?.trim()
   if (!modelName) return ''
@@ -656,6 +659,15 @@ const resolveApprovalRoleName = (
   return matchedRole?.name || `未识别角色（ID：${roleIdText}）`
 }
 
+const resolveApprovalRoleNameByCode = (
+  roleCode: string,
+  roles: ReadonlyArray<RoleApi.RoleVO>
+) => {
+  const roleCodeText = roleCode.trim()
+  const matchedRole = roles.find((item) => item.code === roleCodeText)
+  return matchedRole?.name || `未识别角色（编码：${roleCodeText}）`
+}
+
 const formatApprovalRoleCandidateParam = (
   candidateParam: string | undefined,
   roles: ReadonlyArray<RoleApi.RoleVO>
@@ -706,8 +718,37 @@ const formatApprovalRouteParticipant = (participantText: string, routeName?: str
     : `审批路线：${approvalRouteName}`
 }
 
+const formatBusinessApprovalRouteParticipant = (routeName: string, roleNames: string) => {
+  const approvalRouteName = routeName.trim() || '未配置审批路线名称'
+  return `审批路线：${approvalRouteName}\n审批对象：${roleNames}`
+}
+
 const selectParticipantSource = (primaryItems: string[], fallbackItems: string[]) => {
   return primaryItems.length > 0 ? primaryItems : fallbackItems
+}
+
+const selectBusinessParticipantSource = (
+  businessItems: string[] | undefined,
+  primaryItems: string[],
+  fallbackItems: string[]
+) => {
+  return businessItems !== undefined ? businessItems : selectParticipantSource(primaryItems, fallbackItems)
+}
+
+const isRegistrationCertificateApprovalModel = (model?: Pick<ModelInfo, 'key'> | null) => {
+  return model?.key === REGISTRATION_CERTIFICATE_APPROVAL_PROCESS_KEY
+}
+
+const resolveBusinessApprovalRouteParticipants = (model?: ModelInfo | null) => {
+  if (!isRegistrationCertificateApprovalModel(model)) return {}
+  const roleNames = resolveApprovalRoleNameByCode(
+    REGISTRATION_CERTIFICATE_APPROVER_ROLE_CODE,
+    approvalRoleList.value
+  )
+  return {
+    reviewers: [],
+    approvers: [formatBusinessApprovalRouteParticipant(resolveModelDisplayName(model), roleNames)]
+  }
 }
 
 const classifyParticipantRole = (nodeName?: string, nodeType?: number) => {
@@ -784,38 +825,53 @@ const modelViewParticipants = computed(() => {
   const simpleParticipants = collectSimpleModelParticipants(model?.simpleModel)
   const bpmnParticipants = parseBpmnUserTaskParticipants(model?.bpmnXml)
   const approvalRouteName = resolveModelDisplayName(model)
+  const businessParticipants = resolveBusinessApprovalRouteParticipants(model)
   return {
     starter: formatStartParticipants(model),
     reviewer: formatParticipantList(
-      selectParticipantSource(simpleParticipants.reviewers, bpmnParticipants.reviewers),
+      selectBusinessParticipantSource(
+        businessParticipants.reviewers,
+        simpleParticipants.reviewers,
+        bpmnParticipants.reviewers
+      ),
       '未配置审核环节'
     ),
     approver: formatParticipantList(
-      selectParticipantSource(simpleParticipants.approvers, bpmnParticipants.approvers).map((item) =>
-        formatApprovalRouteParticipant(item, approvalRouteName)
-      ),
+      selectBusinessParticipantSource(
+        businessParticipants.approvers,
+        simpleParticipants.approvers,
+        bpmnParticipants.approvers
+      ).map((item) => formatApprovalRouteParticipant(item, approvalRouteName)),
       '未配置批准环节'
     )
   }
 })
 
-const modelApprovalRouteSteps = computed(() => [
-  {
-    key: 'starter',
-    label: '发起权限',
-    value: modelViewParticipants.value.starter
-  },
-  {
-    key: 'reviewer',
-    label: '审核环节',
-    value: modelViewParticipants.value.reviewer
-  },
-  {
-    key: 'approver',
-    label: '批准环节',
-    value: modelViewParticipants.value.approver
+const isUnconfiguredApprovalRouteStep = (step: { value: string }) => /^未配置.+环节$/.test(step.value)
+
+const modelApprovalRouteSteps = computed(() => {
+  const steps = [
+    {
+      key: 'starter',
+      label: '发起权限',
+      value: modelViewParticipants.value.starter
+    },
+    {
+      key: 'reviewer',
+      label: '审核环节',
+      value: modelViewParticipants.value.reviewer
+    },
+    {
+      key: 'approver',
+      label: '批准环节',
+      value: modelViewParticipants.value.approver
+    }
+  ]
+  if (isRegistrationCertificateApprovalModel(selectedModel.value)) {
+    return steps.filter((step) => step.key === 'starter' || !isUnconfiguredApprovalRouteStep(step))
   }
-])
+  return steps
+})
 
 const modelApprovalRouteDialogTitle = computed(() => {
   const approvalRouteName = resolveModelDisplayName(selectedModel.value)

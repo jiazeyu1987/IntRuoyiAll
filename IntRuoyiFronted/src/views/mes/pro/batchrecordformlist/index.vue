@@ -19,7 +19,7 @@
           class="batch-record-form-layout__alert"
         />
         <UnifiedListTemplate
-          table-key="mes.pro.edhrBatch.recordFormList"
+          table-key="mes.pro.edhrBatch.recordFormList.projectCodeV1"
           :query-model="queryParams"
           :filter-definitions="recordFormQuickFilterDefinitions"
           :show-quick-filter-label="false"
@@ -79,6 +79,19 @@
               >
                 <template #default="{ row }">
                   <span>{{ row.productName || '-' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                v-if="isRecordFormColumnVisible('projectCode')"
+                label="项目代码"
+                prop="projectCode"
+                :width="getRecordFormColumnWidthString('projectCode', 140)"
+                :min-width="getRecordFormColumnMinWidthString('projectCode', 120)"
+                show-overflow-tooltip
+                v-bind="sortColumnAttrs('projectCode')"
+              >
+                <template #default="{ row }">
+                  <span>{{ row.projectCode || '-' }}</span>
                 </template>
               </el-table-column>
               <el-table-column
@@ -759,6 +772,7 @@ const queryParams = reactive({
 
 const recordFormDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'productName', label: '产品名称', width: 180 },
+  { key: 'projectCode', label: '项目代码', width: 140 },
   { key: 'reportName', label: '表单名称', minWidth: 220 },
   { key: 'fillRule', label: '填写人', width: 220 },
   { key: 'formSlotType', label: '类型', width: 120 },
@@ -775,7 +789,7 @@ const {
   getColumnMinWidthString: getRecordFormColumnMinWidthString,
   handleHeaderDragend: handleRecordFormHeaderDragend,
   saveConfig: saveRecordFormColumnConfig
-} = useUserTableColumns('mes.pro.edhrBatch.recordFormList', recordFormDefaultColumns)
+} = useUserTableColumns('mes.pro.edhrBatch.recordFormList.projectCodeV1', recordFormDefaultColumns)
 
 const formSlotTypeLabels: Record<BatchRecordFormSlotType, string> = {
   MAIN: '批记录',

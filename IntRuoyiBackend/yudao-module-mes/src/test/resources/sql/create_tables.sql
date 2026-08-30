@@ -1994,6 +1994,7 @@ CREATE TABLE IF NOT EXISTS "mes_pro_batch_record_report" (
     "sample_key" varchar(64) NOT NULL,
     "batch_record_name" varchar(100) NOT NULL DEFAULT '棘突球囊',
     "product_name" varchar(128) DEFAULT NULL,
+    "project_code" varchar(64) DEFAULT NULL,
     "form_slot_type" varchar(32) NOT NULL DEFAULT 'MAIN',
     "route_key" varchar(32) NOT NULL DEFAULT 'LEGACY',
     "batch_record_definition_id" bigint DEFAULT NULL,
