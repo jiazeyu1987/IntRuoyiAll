@@ -93,6 +93,12 @@ export interface DccNasControlAuditFileRespVO {
   archiveErrorCode?: string | null
   archiveError?: string | null
   controlledFileId?: number | null
+  originalPathSyncStatus?: string | null
+  originalPathSyncFileId?: number | null
+  originalPathSyncTaskId?: number | null
+  originalPathSyncTaskItemId?: number | null
+  originalPathSyncErrorCode?: string | null
+  originalPathSyncError?: string | null
 }
 
 export interface DccNasControlAuditRecognizeRespVO {
@@ -118,6 +124,15 @@ export interface DccNasUncontrolledImportLocalWriteResultReqVO {
   localWriteStatus: 'LOCAL_WRITTEN' | 'LOCAL_WRITE_FAILED'
   localWriteErrorCode?: string
   localWriteError?: string
+}
+
+export interface DccNasOriginalPathSyncReqVO {
+  selectionScope: 'FIRST_UNSYNCED' | 'EXPLICIT_SELECTED_FILES' | 'ALL_UNSYNCED'
+  idempotencyKey: string
+  selectedFiles?: Array<{
+    auditFileId: number
+    sourceSignature: string
+  }>
 }
 
 export const getNasConfig = async () => {
@@ -173,6 +188,22 @@ export const importSelectedNasUncontrolledFiles = async (
   return await request.post({
     url: `/dcc/controlled-files/nas-control-audit/${taskId}/import-selected`,
     data
+  })
+}
+
+export const syncNasOriginalPathFiles = async (
+  taskId: number,
+  data: DccNasOriginalPathSyncReqVO
+): Promise<ControlledFileNasTransferRespVO> => {
+  return await request.post({
+    url: `/dcc/controlled-files/nas-control-audit/${taskId}/original-path-sync`,
+    data
+  })
+}
+
+export const deleteNasOriginalPathSyncFile = async (syncFileId: number): Promise<boolean> => {
+  return await request.delete({
+    url: `/dcc/controlled-files/nas-control-audit/original-path-sync/${syncFileId}`
   })
 }
 

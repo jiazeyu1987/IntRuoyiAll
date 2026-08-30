@@ -846,3 +846,12 @@
 - Verification: 后端单测覆盖完整一致组、缺失成员、重复成员、配置不一致、局部请求篡改既有组且快照保存未被调用；发布投影和路线快照测试证明显式组身份不丢失，迁移合同证明组字段可空且有路线级索引。
 - Forbidden action: 禁止自动补齐缺失组成员、历史数据推断回填、吞掉校验异常、部分保存，或让多个工序复用同一正式绑定身份。
 - Evidence: `doc/tasks/20260817-route-form-global-sync/verification-report.md`。
+
+## MyBatis Plus 空值更新门禁
+
+- Trigger: 删除、撤销、恢复、解绑或重新计算流程需要把已有外键、状态明细、错误码、错误文本、业务引用字段清空为 `NULL`。
+- Preflight check: 先确认当前 Mapper 更新语句是否会跳过 `NULL` 字段；凡是业务结果依赖字段被清空的路径，必须使用显式 SQL、`LambdaUpdateWrapper#set(..., null)` 或已验证的字段策略，并在测试中断言数据库真实为 `NULL`。
+- Blocker: 页面或返回值显示已删除/已解绑，但数据库仍保留旧引用；单元测试只校验对象内存值，未校验 Mapper 被调用的实际清空语义；或删除后下一轮统计依然被旧关联排除时必须停止。
+- Verification: 后端单测必须覆盖清空字段的 Mapper 调用；真实 E2E 或数据库验证必须证明有效业务记录不再被旧外键、旧任务号或旧状态影响。
+- Forbidden action: 禁止用 `updateById` 设置对象字段为 `null` 后直接宣称数据库已清空，禁止靠前端状态文案掩盖旧外键残留，禁止吞掉清空失败。
+- Evidence: `doc/tasks/20260830-nas-original-path-sync/verification-report.md`。

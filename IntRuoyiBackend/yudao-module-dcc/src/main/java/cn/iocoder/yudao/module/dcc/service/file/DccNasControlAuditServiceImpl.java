@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasSourc
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditSkippedDirectoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditTaskDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasOriginalPathSyncFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMatchRuleMapper;
@@ -23,6 +24,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasSourceMapp
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditSkippedDirectoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditTaskMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasOriginalPathSyncFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
@@ -122,6 +124,8 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
     private DccNasControlAuditSkippedDirectoryMapper skippedDirectoryMapper;
     @Resource
     private DccNasControlAuditFileMapper auditFileMapper;
+    @Resource
+    private DccNasOriginalPathSyncFileMapper originalPathSyncFileMapper;
     @Resource
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
@@ -283,15 +287,18 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
                 throw new IllegalStateException("NAS share changed after audit task creation: taskShare="
                         + task.getNasShareName() + ", currentShare=" + config.share());
             }
+            Long tenantId = TenantContextHolder.getRequiredTenantId();
             Map<Long, ExpectedLegacyNasSource> expectedLegacySources = migrateLegacyNasSources(config.share());
             List<DccControlledFileNasSourceMapper.ActiveNasSourceRow> sources =
-                    nasSourceMapper.selectCurrentActiveSources(TenantContextHolder.getRequiredTenantId(), config.share());
+                    nasSourceMapper.selectCurrentActiveSources(tenantId, config.share());
             verifyLegacyNasSourceBaseline(expectedLegacySources, sources);
             Map<String, List<DccControlledFileNasSourceMapper.ActiveNasSourceRow>> sourcesByHash = sources.stream()
                     .collect(Collectors.groupingBy(
                             DccControlledFileNasSourceMapper.ActiveNasSourceRow::getPathHash,
                             LinkedHashMap::new,
                             Collectors.toList()));
+            Map<String, DccNasOriginalPathSyncFileDO> originalPathSyncByHash =
+                    originalPathSyncByHash(tenantId, config.share());
             Set<String> seenHashes = new HashSet<>();
             tempReport = createTempReportPath();
             try (AuditReportWriter writer = new AuditReportWriter(config.share(), FIXED_SCAN_ROOTS, startedAt)) {
@@ -305,7 +312,8 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
 
                     @Override
                     public void onFile(NasRecursiveScannedFile file) {
-                        handleScannedFile(progress, writer, sourcesByHash, seenHashes, config.share(), file);
+                        handleScannedFile(progress, writer, sourcesByHash, originalPathSyncByHash,
+                                seenHashes, config.share(), file);
                     }
 
                     @Override
@@ -353,6 +361,7 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
     private void handleScannedFile(DccNasControlAuditTaskDO progress,
                                    AuditReportWriter writer,
                                    Map<String, List<DccControlledFileNasSourceMapper.ActiveNasSourceRow>> sourcesByHash,
+                                   Map<String, DccNasOriginalPathSyncFileDO> originalPathSyncByHash,
                                    Set<String> seenHashes,
                                    String nasShareName,
                                    NasRecursiveScannedFile file) {
@@ -363,9 +372,13 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
         List<DccControlledFileNasSourceMapper.ActiveNasSourceRow> matches =
                 sourcesByHash.getOrDefault(pathHash, List.of());
         if (matches.isEmpty()) {
-            progress.setNotControlledFileCount(defaultLong(progress.getNotControlledFileCount()) + 1);
-            persistNotControlledAuditFile(progress.getId(), nasShareName, file, normalizedPath, pathHash);
-            writer.writeNotControlled(file, "NAS 路径没有对应的当前 ACTIVE 受控文件");
+            if (originalPathSyncByHash.containsKey(pathHash)) {
+                progress.setControlledFileCount(defaultLong(progress.getControlledFileCount()) + 1);
+            } else {
+                progress.setNotControlledFileCount(defaultLong(progress.getNotControlledFileCount()) + 1);
+                persistNotControlledAuditFile(progress.getId(), nasShareName, file, normalizedPath, pathHash);
+                writer.writeNotControlled(file, "NAS 路径没有对应的当前 ACTIVE 受控文件");
+            }
         } else if (matches.size() == 1 && isExactSource(matches.get(0))) {
             progress.setControlledFileCount(defaultLong(progress.getControlledFileCount()) + 1);
         } else {
@@ -797,6 +810,21 @@ public class DccNasControlAuditServiceImpl implements DccNasControlAuditService 
 
     private <T> List<T> nullToEmpty(List<T> values) {
         return values == null ? List.of() : values;
+    }
+
+    private Map<String, DccNasOriginalPathSyncFileDO> originalPathSyncByHash(Long tenantId, String nasShareName) {
+        Map<String, DccNasOriginalPathSyncFileDO> rowsByHash = new LinkedHashMap<>();
+        for (DccNasOriginalPathSyncFileDO row :
+                nullToEmpty(originalPathSyncFileMapper.selectActiveRows(tenantId, nasShareName))) {
+            if (StrUtil.isBlank(row.getPathHash())) {
+                throw new IllegalStateException("NAS 原路径同步记录缺少路径哈希: " + row.getId());
+            }
+            DccNasOriginalPathSyncFileDO previous = rowsByHash.putIfAbsent(row.getPathHash(), row);
+            if (previous != null) {
+                throw new IllegalStateException("NAS 原路径同步记录重复: " + row.getPathHash());
+            }
+        }
+        return rowsByHash;
     }
 
     private String sourceSignature(String pathHash, Long fileSize, Long modifiedAtUtcEpochMillis) {

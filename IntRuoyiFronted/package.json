@@ -160,6 +160,8 @@
     "e2e:dcc:product-category-rule:static": "node tests/e2e/dcc-product-category-rule-static.spec.js",
     "e2e:dcc:nas-product-code-unified:static": "node tests/e2e/dcc-nas-product-code-unified-static.spec.js",
     "e2e:dcc:nas-uncontrolled-local-import:static": "node tests/e2e/dcc-nas-uncontrolled-local-import-static.spec.js",
+    "e2e:dcc:nas-original-path-sync:static": "node tests/e2e/dcc-nas-original-path-sync-static.spec.js",
+    "e2e:dcc:nas-original-path-sync:real": "node tests/e2e/dcc-nas-original-path-sync-real.e2e.js",
     "e2e:dcc:nas-uncontrolled-local-import:real:check": "node tests/e2e/dcc-nas-uncontrolled-local-import-real.e2e.js --check",
     "e2e:dcc:nas-uncontrolled-local-import:real": "node tests/e2e/dcc-nas-uncontrolled-local-import-real.e2e.js",
     "e2e:dcc:doc-control-department-distribution:real": "node tests/e2e/dcc-doc-control-department-distribution-real.e2e.js",

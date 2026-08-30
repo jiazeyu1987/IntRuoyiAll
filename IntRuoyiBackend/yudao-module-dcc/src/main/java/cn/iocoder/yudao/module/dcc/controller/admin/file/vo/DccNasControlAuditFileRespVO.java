@@ -98,4 +98,22 @@ public class DccNasControlAuditFileRespVO {
 
     @Schema(description = "Controlled file id after archive")
     private Long controlledFileId;
+
+    @Schema(description = "NAS original-path sync status")
+    private String originalPathSyncStatus;
+
+    @Schema(description = "NAS original-path sync record id")
+    private Long originalPathSyncFileId;
+
+    @Schema(description = "NAS original-path sync task id")
+    private Long originalPathSyncTaskId;
+
+    @Schema(description = "NAS original-path sync task item id")
+    private Long originalPathSyncTaskItemId;
+
+    @Schema(description = "NAS original-path sync failure code")
+    private String originalPathSyncErrorCode;
+
+    @Schema(description = "NAS original-path sync failure detail")
+    private String originalPathSyncError;
 }

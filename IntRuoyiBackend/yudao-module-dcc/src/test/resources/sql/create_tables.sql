@@ -886,6 +886,12 @@ CREATE TABLE IF NOT EXISTS `dcc_nas_control_audit_file` (
   `archive_error_code` VARCHAR(64) NULL,
   `archive_error` VARCHAR(512) NULL,
   `controlled_file_id` BIGINT NULL,
+  `original_path_sync_status` VARCHAR(32) NULL,
+  `original_path_sync_file_id` BIGINT NULL,
+  `original_path_sync_task_id` BIGINT NULL,
+  `original_path_sync_task_item_id` BIGINT NULL,
+  `original_path_sync_error_code` VARCHAR(64) NULL,
+  `original_path_sync_error` VARCHAR(512) NULL,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   `create_time` DATETIME NULL,
   `update_time` DATETIME NULL,
@@ -894,6 +900,36 @@ CREATE TABLE IF NOT EXISTS `dcc_nas_control_audit_file` (
   `deleted` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 );
+
+CREATE TABLE IF NOT EXISTS `dcc_nas_original_path_sync_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `audit_task_id` BIGINT NOT NULL,
+  `audit_file_id` BIGINT NOT NULL,
+  `transfer_task_id` BIGINT NOT NULL,
+  `transfer_task_item_id` BIGINT NOT NULL,
+  `source_file_id` BIGINT NOT NULL,
+  `nas_share_name` VARCHAR(128) NOT NULL,
+  `root_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `normalized_relative_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `path_hash` CHAR(64) NOT NULL,
+  `file_name` VARCHAR(255) NOT NULL,
+  `file_size` BIGINT NOT NULL,
+  `modified_at` DATETIME NOT NULL,
+  `source_signature` CHAR(64) NOT NULL,
+  `sync_status` VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+  `synced_by_user_id` BIGINT NOT NULL,
+  `synced_at` DATETIME NOT NULL,
+  `deleted_by_user_id` BIGINT NULL,
+  `deleted_at` DATETIME NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_nas_control_audit_skipped_directory` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `task_id` BIGINT NOT NULL,

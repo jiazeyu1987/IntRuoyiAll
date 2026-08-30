@@ -35,11 +35,13 @@
 
 - Trigger: 当前任务需要 RED/GREEN 静态契约，但已有大契约或全量 `pnpm ts:check` 先失败在无关历史问题上。
 - API 静态合同应容忍合法的函数签名换行、缩进和格式化差异，只锁定参数、正式 URL、载荷和错误行为；排版导致的失败应收窄正则并记录为无关噪声，不得修改生产 API 来迎合脆弱合同。
+- SFC 静态合同包含负向断言时，必须先截取目标 handler、模板或配置块，再在该块内断言旧能力不存在；当旧能力在同页其它正式流程仍存在时，不得扫描整页、整段 `<script>`、所有 import 或共享 helper 名称。
 - Preflight check: 先运行最接近的既有契约并冻结首个无关失败；若失败点不属于当前任务，新增或改用任务专用最小静态契约覆盖当前行为。静态合同从单个源码文件截取函数、模板或配置块时，结束锚点必须是“下一个明确同类块/函数名”或配对标记；测试列表、弹窗或标准组件时优先使用该组件自身的结束标签，不得借用相邻且可能被删除的展示区块标记作为结束边界；解析 TypeScript 数组声明如 `const x: Type[] = [...]` 时，必须先定位赋值号再寻找数组起始 `[`，避免把类型标注 `[]` 当作数组字面量；同文件后续可能追加相邻产品模板、角色模板或配置块时，禁止用宽泛的 `const qaRegulationItems`、`</script>`、文件结尾等远端锚点导致新增块被旧合同误计数。
 - Blocker: 无法证明失败点与当前任务无关、或专用契约不能稳定先 RED 后 GREEN 时，不得宣称当前行为完成。新增相邻模板后，既有合同若出现行数翻倍、误报重复项或负向断言跨块命中，必须先收窄旧合同边界再判断业务是否回归，不得为了通过测试删除新模板或放宽计数断言。
 - Verification: `execution-log.md` 同时记录无关 blocker、专用契约 RED/GREEN、以及全量回归命令的剩余阻塞摘要。
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。任务 `doc/tasks/20260806-qa-id-balloon-pressure-pump-pdf-items/`，新增 `PQC-ID-001` 相邻产品模板后，旧 `PQC-IDI-001` 静态合同原本用 `const qaRegulationItems` 作远端结束锚点，误把新 17 行计入旧 22 行合同；最终将旧合同结束锚点收窄到 `const createBalloonPressurePumpQaRegulationItems`，并新增 ID 专用合同。任务 `doc/tasks/20260806-qa-idi-pressure-pump-screenshot-pages-verify/`，逐页截图对表时必须同时锁定源码顺序、PDF 页码、`itemName` 和 `sourceOriginalItem`，避免图 4 `整体粘结 / 外观` 被后续图 5 `气密性` 合并单元格分组污染。任务 `doc/tasks/20260807-team-leader-review-leader-name/`，`data-production-leader-module-tab-report\b` 会把 `data-production-leader-module-tab-report-history` 一并计入，因为 `-` 是非单词字符；静态合同统计 `data-*` 前缀时必须使用 `(?=[\s/>])`、负向断言或完整属性边界。
+- Evidence extension: 任务 `doc/tasks/20260830-nas-original-path-sync/`，NAS 未受控文件新增“按原路径同步”流程时，同页仍保留浏览器本地归类下载 `showDirectoryPicker`；静态合同必须抽取 `handleSyncNasOriginalPathFiles` 目标 handler 后再做负向断言，不能整页禁止 `showDirectoryPicker`。
 
 ## 前端日期响应格式门禁
 

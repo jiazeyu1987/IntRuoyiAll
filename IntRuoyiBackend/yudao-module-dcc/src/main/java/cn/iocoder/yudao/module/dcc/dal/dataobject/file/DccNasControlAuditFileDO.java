@@ -86,5 +86,17 @@ public class DccNasControlAuditFileDO extends BaseDO {
 
     private Long controlledFileId;
 
+    private String originalPathSyncStatus;
+
+    private Long originalPathSyncFileId;
+
+    private Long originalPathSyncTaskId;
+
+    private Long originalPathSyncTaskItemId;
+
+    private String originalPathSyncErrorCode;
+
+    private String originalPathSyncError;
+
     private Long tenantId;
 }

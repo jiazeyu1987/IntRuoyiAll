@@ -680,3 +680,12 @@
 - Verification: E2E 需断言 `/mes/pro/edhr-operation-audit/page` 请求包含 `batchExecutionId`，不包含 `objectType/objectId`，并在表格中看到目标 operationType、权限判定、结果状态和 audit hash。
 - Forbidden action: 禁止只验证审计表落库而不验证批次追溯可见性；禁止把权限缺失解释为页面无数据；禁止记录登录密码。
 - Evidence: `doc/tasks/20260724-batch-fda-audit-log-coverage/verification-report.md`。
+
+## 逻辑删除表真实 E2E 断言门禁
+
+- Trigger: 真实页面 E2E 验证删除、移除、撤销同步、解绑附件、作废文件、清理任务数据，且相关表使用 `deleted`、状态字段或类似软删除机制。
+- Preflight check: 先确认被验证对象的正式删除语义是物理删除还是逻辑删除；逻辑删除表必须区分“有效记录不存在”和“历史行仍保留且 `deleted=1`/删除状态正确”。
+- Blocker: E2E 只断言页面文案已删除但没有查有效记录；或者按物理行不存在断言逻辑删除表，导致脚本与正式数据保留策略冲突时必须修正测试，不得改业务代码去迎合错误断言。
+- Verification: 成功路径至少证明页面状态、有效记录计数、逻辑删除标记或删除状态三者一致；任务自有数据清理后要只读确认无有效残留。
+- Forbidden action: 禁止把逻辑删除历史行当成未清理残留，禁止为了通过 E2E 对正式审计/文件表做物理删除，禁止吞掉异常清理失败。
+- Evidence: `doc/tasks/20260830-nas-original-path-sync/verification-report.md`。

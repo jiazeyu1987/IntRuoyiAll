@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLoc
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLocalFolderImportUploadStateRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasOriginalPathSyncReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportLocalWriteResultReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO;
 
@@ -19,6 +20,11 @@ public interface DccControlledFileNasTransferService {
 
     DccControlledFileNasTransferRespVO createUncontrolledImportTask(
             Long userId, Long auditTaskId, DccNasUncontrolledImportSelectedReqVO reqVO);
+
+    DccControlledFileNasTransferRespVO createOriginalPathSyncTask(
+            Long userId, Long auditTaskId, DccNasOriginalPathSyncReqVO reqVO);
+
+    void deleteOriginalPathSyncFile(Long userId, Long syncFileId);
 
     DccControlledFileBinary readUncontrolledImportContent(
             Long userId, Long importTaskId, Long auditFileId, String sourceSignature, String localRelativePath);

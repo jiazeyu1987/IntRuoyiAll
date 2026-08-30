@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditFi
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditRecognizeRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditTaskRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasOriginalPathSyncReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasUncontrolledImportSelectedReqVO;
 import cn.iocoder.yudao.module.dcc.service.file.DccNasControlAuditReportFile;
 import cn.iocoder.yudao.module.dcc.service.file.DccNasControlAuditService;
@@ -18,6 +19,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -79,6 +81,23 @@ public class DccNasControlAuditController {
             @PathVariable("taskId") Long taskId,
             @Valid @RequestBody DccNasUncontrolledImportSelectedReqVO reqVO) {
         return success(nasTransferService.createUncontrolledImportTask(getLoginUserId(), taskId, reqVO));
+    }
+
+    @PostMapping("/{taskId}/original-path-sync")
+    @Operation(summary = "Sync NAS uncontrolled files into DCC by original NAS path")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<DccControlledFileNasTransferRespVO> syncOriginalPathAuditFiles(
+            @PathVariable("taskId") Long taskId,
+            @Valid @RequestBody DccNasOriginalPathSyncReqVO reqVO) {
+        return success(nasTransferService.createOriginalPathSyncTask(getLoginUserId(), taskId, reqVO));
+    }
+
+    @DeleteMapping("/original-path-sync/{syncFileId}")
+    @Operation(summary = "Remove an active NAS original-path sync record")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<Boolean> deleteOriginalPathSyncFile(@PathVariable("syncFileId") Long syncFileId) {
+        nasTransferService.deleteOriginalPathSyncFile(getLoginUserId(), syncFileId);
+        return success(true);
     }
 
     @GetMapping("/{taskId}/download")

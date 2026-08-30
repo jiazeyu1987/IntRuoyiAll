@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasSourceDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasOriginalPathSyncFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
@@ -15,6 +16,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasSourceMapp
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditSkippedDirectoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasControlAuditTaskMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccNasOriginalPathSyncFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
@@ -82,6 +84,8 @@ class DccNasControlAuditServiceImplTest extends BaseMockitoUnitTest {
     private DccNasControlAuditSkippedDirectoryMapper skippedDirectoryMapper;
     @Mock
     private DccNasControlAuditFileMapper auditFileMapper;
+    @Mock
+    private DccNasOriginalPathSyncFileMapper originalPathSyncFileMapper;
     @Mock
     private FileService fileService;
     @Mock
@@ -339,6 +343,45 @@ class DccNasControlAuditServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(0L, task.getControlledFileCount());
         assertEquals(1L, task.getNotControlledFileCount());
         verify(nasSourceMapper, never()).insert(any(DccControlledFileNasSourceDO.class));
+    }
+
+    @Test
+    void processWaitingTasks_countsOriginalPathSyncAsControlledAndDoesNotPersistAuditFile() {
+        ReflectionTestUtils.setField(auditService, "transactionManager", noopTransactionManager());
+        ReflectionTestUtils.setField(auditService, "multipartLocation", tempDir.toString());
+        TenantContextHolder.setTenantId(TENANT_ID);
+        NasConnectionConfig config = new NasConnectionConfig("nas.local", 445, NAS_SHARE_NAME, "", "user", "secret");
+        DccNasControlAuditTaskDO task = waitingAuditTask();
+        String normalizedPath = DccNasPathUtils.normalizeRelativePath(NAS_PATH);
+        String pathHash = DccNasPathUtils.pathHash(NAS_SHARE_NAME, normalizedPath);
+        DccNasOriginalPathSyncFileDO syncedFile = DccNasOriginalPathSyncFileDO.builder()
+                .id(8801L)
+                .nasShareName(NAS_SHARE_NAME)
+                .normalizedRelativePath(normalizedPath)
+                .pathHash(pathHash)
+                .syncStatus("ACTIVE")
+                .tenantId(TENANT_ID)
+                .build();
+        when(taskMapper.selectWaitingTasks()).thenReturn(List.of(task));
+        when(taskMapper.claimWaitingTask(eq(TASK_ID), any(LocalDateTime.class))).thenReturn(1);
+        when(taskMapper.selectById(TASK_ID)).thenReturn(task);
+        when(nasSettingsService.getRequiredNasConfig()).thenReturn(config);
+        when(nasSourceMapper.selectLegacyNasSourceCandidates(TENANT_ID, NAS_SHARE_NAME)).thenReturn(List.of());
+        when(nasSourceMapper.selectCurrentActiveSources(TENANT_ID, NAS_SHARE_NAME)).thenReturn(List.of());
+        when(originalPathSyncFileMapper.selectActiveRows(TENANT_ID, NAS_SHARE_NAME)).thenReturn(List.of(syncedFile));
+        doAnswer(invocation -> {
+            NasRecursiveScanHandler handler = invocation.getArgument(2);
+            handler.onFile(scannedFile());
+            return null;
+        }).when(nasRecursiveScanService).scan(eq(config), anyCollection(), any(NasRecursiveScanHandler.class));
+        when(fileService.createFileAndReturnId(any(Path.class), anyLong(), eq("NAS受控状态统计-" + TASK_ID + ".xlsx"),
+                eq("dcc-nas-control-audit"), anyString())).thenReturn(900L);
+
+        auditService.processWaitingTasks();
+
+        assertEquals(1L, task.getControlledFileCount());
+        assertEquals(0L, task.getNotControlledFileCount());
+        verify(auditFileMapper, never()).insert(any(DccNasControlAuditFileDO.class));
     }
 
     @Test

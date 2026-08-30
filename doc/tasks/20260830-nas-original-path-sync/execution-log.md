@@ -1,0 +1,85 @@
+# 20260830 NAS 原路径同步未受控文件 Execution Log
+
+## User Intent
+
+用户要求在 worktree 中完成 NAS 未受控文件按 NAS 原文件夹路径一次性同步到 DCC 系统的设计、开发和验证。业务目标是：原统计为 7000 个未同步文件时，可以先同步 1 个验证；同步后 DCC 系统能按原 NAS 路径找到该文件，重新统计变为 6999；删除该同步文件后重新统计恢复为 7000。
+
+## BDD Scenarios
+
+BDD: 同步一个未识别 NAS 文件后重新统计减少 -> Given NAS 统计任务中有一个未受控且待识别的文件，When 用户选择“同步 1 个验证”，Then 系统按原 NAS 相对路径保存该文件，并在下一次统计时不再计入未同步数量。
+
+BDD: 删除原路径同步记录后重新统计恢复 -> Given 一个 NAS 文件已经通过原路径同步进入 DCC 系统，When 用户在 DCC 系统删除该同步记录，Then 下一次 NAS 统计会重新把该 NAS 文件计入未同步数量。
+
+BDD: 同步全部不受当前页限制 -> Given NAS 统计任务共有多页未同步文件，When 用户选择“同步全部未同步文件”，Then 后端按统计任务中的全部未同步文件创建同步记录，而不是只处理前端当前页。
+
+BDD: 源文件签名不一致时失败 -> Given 用户选择的 NAS 文件在统计后已发生大小或更新时间变化，When 用户发起原路径同步，Then 系统拒绝该文件同步并提示源文件已变化，不能静默写入旧识别结果。
+
+## Command Log
+
+- 读取 worktree、端口、后端、前端、数据库、PowerShell、E2E 和任务收尾规则，用于本次实现约束。
+- 创建 worktree：`D:\IntRuoyiWorktree\nas-original-path-sync`，分支 `codex/nas-original-path-sync`。
+- 预留运行 slot：`slot=55`，前端端口 `8310`，后端端口 `48310`。
+- 读取 `docs\experience-index.md` 并打开相关门禁小节：浏览器本地目录写入、E2E 脚本入口、DCC 受控浏览权限隔离、前端静态合同边界、DCC 文件类别规则种子。
+- 收尾前读取 `project-experience-consolidation`，将本次“同页保留旧下载流程时，负向静态合同必须限定目标 handler”经验合并到 `docs\frontend-development.md`，并补充 MyBatis 空值更新、逻辑删除 E2E 断言两条项目门禁。
+- 收尾前读取 `task-closeout-cleanup` 并执行 preview；因未获得 Git 集成授权且主工作区存在脏改，未执行 apply、提交、合并或删除 worktree。
+
+## TDD Evidence
+
+RED: `python -m pytest script\tests\test_dcc_nas_original_path_sync_sql.py -q` -> FAIL, missing `sql/mysql/20260830_dcc_nas_original_path_sync.sql` and missing test schema table.
+
+RED: `node tests\e2e\dcc-nas-original-path-sync-static.spec.js` -> FAIL, NAS audit file API did not expose original-path sync fields and page lacked sync controls/pagination.
+
+RED: `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileNasTransferServiceTest,DccNasControlAuditServiceImplTest" test` -> FAIL, missing `DccNasOriginalPathSyncReqVO`、`DccNasOriginalPathSyncFileDO`、`DccNasOriginalPathSyncFileMapper` and related service contract.
+
+GREEN: `python -m pytest script\tests\test_dcc_nas_original_path_sync_sql.py -q` -> PASS, 2 passed.
+
+REGRESSION: `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileNasTransferServiceTest,DccNasControlAuditServiceImplTest" test` -> FAIL, after adding physical source-file deletion assertion, test compile required checked `Exception` handling for `fileService.deleteFile`.
+
+GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileNasTransferServiceTest,DccNasControlAuditServiceImplTest" test` -> PASS, 59 tests, 0 failures, 0 errors.
+
+GREEN: `pnpm e2e:dcc:nas-original-path-sync:static` -> PASS, package script executed `node tests/e2e/dcc-nas-original-path-sync-static.spec.js`.
+
+GREEN: `git diff --check` -> PASS, no whitespace errors.
+
+GREEN: `pnpm install --frozen-lockfile` -> PASS, frontend worktree dependencies installed from lockfile for TypeScript and Playwright verification.
+
+GREEN: `pnpm ts:check` -> PASS, TypeScript compiler completed with exit code 0.
+
+BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260830-nas-original-path-sync --mode preview` -> BLOCKED, closeout apply would require task-owned changes to be committed/merged and main workspace to be clean, but this project policy requires explicit user authorization for Git commit/merge/delete and `E:\IntRuoyi` has unrelated dirty state.
+
+BDD: 单个文件真实页面同步验证 -> Given 本地前后端运行态可用、测试租户账号可登录、NAS 中存在一个可读取文件，When 用户在 NAS 管理页的统计弹窗点击“同步 1 个验证”，Then 页面显示该文件“已同步”，系统文件存储写入原路径同步目录，候选数量从 1 变为 0；When 用户点击“移除同步记录”，Then 页面显示“已移除”，存储文件被删除，候选数量恢复为 1。
+
+RED: `pnpm e2e:dcc:nas-original-path-sync:real` -> FAIL, 页面删除后已显示“已移除”，但数据库 `original_path_sync_file_id` 仍保留旧编号；根因是 MyBatis 默认更新策略跳过 `NULL` 字段，不能用 `updateById` 清空同步文件编号。
+
+REGRESSION: `pnpm e2e:dcc:nas-original-path-sync:real` -> FAIL, 同步编号清空已生效，但验证脚本误按“物理删除 `infra_file` 行”断言；实际文件服务使用逻辑删除，已调整为断言无有效文件记录且原记录 `deleted=1`。
+
+GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileNasTransferServiceTest,DccNasControlAuditServiceImplTest" test` -> PASS, mapper 显式清空 `original_path_sync_file_id` 后 59 tests, 0 failures, 0 errors.
+
+GREEN: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS, rebuilt local backend runnable jar for true E2E.
+
+GREEN: `node --check tests\e2e\dcc-nas-original-path-sync-real.e2e.js` -> PASS, real E2E script syntax valid after cleanup-failure propagation change.
+
+GREEN: `pnpm e2e:dcc:nas-original-path-sync:real` -> PASS, auditTaskId=5, auditFileId=7, syncTaskId=27; 页面从未同步 -> 已同步 -> 已移除，候选计数从 1 -> 0 -> 1，存储文件有效记录移除且历史行逻辑删除。
+
+GREEN: `docker exec ... mysql readonly cleanup counts` -> PASS, latest E2E fixture has `ACTIVE_SYNC_ROWS=0`, `OPEN_FIXTURE_TASKS=0`, `OPEN_FIXTURE_FILES=0`.
+
+GREEN: `git diff --check` -> PASS, no whitespace errors; Git only reported line-ending normalization warnings.
+
+GREEN: `Stop-Process` for task-owned listeners on ports `48310` and `8310` -> PASS, stopped backend PID 15952 and frontend PID 52732; follow-up listener check reported no remaining task port listeners.
+
+## Milestone Updates
+
+- 启动：已创建合规 worktree 与任务文档。
+- 经验门禁：已补入任务文档，确认本任务不得用浏览器本地下载、默认类别、API-only 或静态合同冒充完整业务入库。
+- 后端实现：新增 NAS 原路径同步记录表、DO/Mapper、请求 VO、统计排除 ACTIVE 同步记录、同步任务创建/执行、删除同步记录并删除对应文件存储记录。
+- 前端实现：统计明细增加分页、原路径同步状态列、同步 1 个验证、同步选中文件、同步全部未同步文件、移除同步记录；待识别文件可选。
+- 验证：SQL 合同、后端单测、前端静态合同、TypeScript 检查、真实单文件 E2E 和 diff 结构检查均已通过。
+- 真实 E2E 修复：首轮发现删除后页面状态正确但数据库仍保留同步文件编号；根因是 MyBatis 默认更新跳过 `NULL` 字段，已改为 Mapper 显式清空并用后端测试与真实 E2E 复验。
+- 真实 E2E 断言修正：确认 `infra_file` 是逻辑删除语义，E2E 改为断言无有效文件记录且历史行 `deleted=1`。
+- 经验沉淀：已更新 `docs\frontend-development.md` 的前端静态契约隔离门禁，记录同页旧/新流程共存时负向断言必须限定目标代码块；已更新 `docs\backend-development.md` 和 `docs\e2e-rules.md`，记录空值更新与逻辑删除断言门禁。
+- 运行态清理：单文件 E2E 专用前端 `8310`、后端 `48310` 已停止，并确认无剩余监听。
+- 收尾预检：task-closeout-cleanup preview 已执行并记录阻塞；当前按项目 Git 政策停留在 `ready_for_closeout`，不自动提交、合并或删除 worktree。
+
+## Blockers
+
+- task-closeout-cleanup apply 未执行：需要用户明确授权 Git 提交/合并/删除 worktree，并先处理或隔离 `E:\IntRuoyi` 主工作区的无关脏改。

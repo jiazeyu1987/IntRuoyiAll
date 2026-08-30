@@ -852,7 +852,7 @@ export interface ControlledFileLocalFolderImportUploadStateRespVO {
   files: ControlledFileLocalFolderImportUploadFileStateVO[]
 }
 
-export type ControlledFileNasTransferSourceType = 'NAS' | 'LOCAL_FOLDER' | 'NAS_UNCONTROLLED_IMPORT'
+export type ControlledFileNasTransferSourceType = 'NAS' | 'LOCAL_FOLDER' | 'NAS_UNCONTROLLED_IMPORT' | 'NAS_ORIGINAL_PATH_SYNC'
 
 export interface ControlledFileNasTransferFailureVO {
   nasPath: string

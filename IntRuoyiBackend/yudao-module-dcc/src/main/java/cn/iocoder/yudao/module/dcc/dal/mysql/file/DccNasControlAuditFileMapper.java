@@ -8,6 +8,8 @@ import cn.iocoder.yudao.framework.mybatis.core.query.QueryWrapperX;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccNasControlAuditFilePageReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccNasControlAuditFileDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -41,4 +43,18 @@ public interface DccNasControlAuditFileMapper extends BaseMapperX<DccNasControlA
                 .eq(DccNasControlAuditFileDO::getClassificationStatus, "PENDING_RECOGNITION")
                 .orderByAsc(DccNasControlAuditFileDO::getId));
     }
+
+    @Update("""
+            UPDATE dcc_nas_control_audit_file
+            SET original_path_sync_status = 'ORIGINAL_PATH_DELETED',
+                original_path_sync_file_id = NULL,
+                original_path_sync_error_code = NULL,
+                original_path_sync_error = NULL,
+                update_time = CURRENT_TIMESTAMP
+            WHERE id = #{auditFileId}
+              AND original_path_sync_file_id = #{syncFileId}
+              AND deleted = b'0'
+            """)
+    int markOriginalPathSyncDeleted(@Param("auditFileId") Long auditFileId,
+                                    @Param("syncFileId") Long syncFileId);
 }
