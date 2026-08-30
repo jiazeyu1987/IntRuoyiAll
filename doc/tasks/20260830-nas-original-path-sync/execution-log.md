@@ -81,6 +81,24 @@ GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS after rebase.
 
 BLOCKED: merge into `E:\IntRuoyi` / `int_main` -> BLOCKED before executing merge. Branch increment has 27 files and the main worktree has 141 dirty paths; 5 paths overlap with the branch increment: `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferServiceTest.java`, `IntRuoyiFronted/package.json`, `docs/backend-development.md`, `docs/e2e-rules.md`, `docs/frontend-development.md`. Per dirty-worktree merge gate, no merge/stash/reset was performed against main.
 
+GREEN: user-authorized main baseline commit -> PASS, staged only tracked/allowed main changes while excluding `.pytest-temp`, `LOG_FILE_IS_UNDEFINED`, `resource`, and `design_doc`; `git diff --cached --check` passed and commit `61ba07435 chore: 保存 int_main 融合前基线` was created.
+
+GREEN: stale `E:\IntRuoyi\.git\index.lock` handling -> PASS, verified the lock was zero-byte, older than 60 seconds, and no active Git process held it; exact lock deletion succeeded after PowerShell `Remove-Item` was locally blocked.
+
+GREEN: `git rebase int_main` after baseline -> PASS, one conflict in `docs/frontend-development.md` was resolved by preserving both project rules; implementation commit became `6b5f29a76` and task branch tip became `733bcddb1`.
+
+GREEN: branch/main overlap check -> PASS, task branch increment count was 27, remaining main dirty count was 74, and overlap count was 0.
+
+GREEN: `git merge --ff-only codex/nas-original-path-sync` in `E:\IntRuoyi` -> PASS, `int_main` fast-forwarded from `61ba07435` to `733bcddb1`.
+
+GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` after merge -> PASS, `int_main` ports remain frontend `8081`, backend `48081`.
+
+GREEN: post-merge quick verification -> PASS, `node --check tests\e2e\dcc-nas-original-path-sync-real.e2e.js`, `pnpm e2e:dcc:nas-original-path-sync:static`, `scripts\preflight\branch-runtime-port-guard.ps1`, and `git diff --check` all passed; Git reported only line-ending normalization warnings from unrelated dirty files.
+
+GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260830-nas-original-path-sync --mode preview` after merge -> PASS, no task-owned temporary paths to delete and no blockers.
+
+GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260830-nas-original-path-sync --mode apply` after merge -> PASS, no files deleted; preserved task, execution log, and verification report.
+
 ## Milestone Updates
 
 - 启动：已创建合规 worktree 与任务文档。
@@ -92,10 +110,14 @@ BLOCKED: merge into `E:\IntRuoyi` / `int_main` -> BLOCKED before executing merge
 - 真实 E2E 断言修正：确认 `infra_file` 是逻辑删除语义，E2E 改为断言无有效文件记录且历史行 `deleted=1`。
 - 经验沉淀：已更新 `docs\frontend-development.md` 的前端静态契约隔离门禁，记录同页旧/新流程共存时负向断言必须限定目标代码块；已更新 `docs\backend-development.md` 和 `docs\e2e-rules.md`，记录空值更新与逻辑删除断言门禁。
 - 运行态清理：单文件 E2E 专用前端 `8310`、后端 `48310` 已停止，并确认无剩余监听。
-- 融合预检：任务实现已提交并 rebase 到本地 `int_main` 最新提交之上，但主工作区存在同文件未提交改动，融合阻塞；未触碰主工作区脏改。
-- 收尾预检：task-closeout-cleanup preview 已执行并记录阻塞；当前按项目 Git 政策停留在 `ready_for_closeout`，不自动提交、合并或删除 worktree。
+- 融合预检：任务实现已提交并 rebase 到本地 `int_main` 最新提交之上；首次融合因主工作区同文件脏改被正确阻塞。
+- 主干基线：用户授权后已提交 `int_main` 融合前基线 `61ba07435`，排除了 `.pytest-temp`、`LOG_FILE_IS_UNDEFINED`、`resource` 和 `design_doc`。
+- 最终融合：任务分支重新 rebase 到主干基线后，`int_main` 已 fast-forward 到 `733bcddb1`，NAS 原路径同步功能已进入主干。
+- 合并后验证：NAS 静态合同、真实 E2E 脚本语法、端口守卫和 diff 检查通过。
+- 收尾记录：task-closeout-cleanup preview/apply 已通过且无删除项；任务状态更新为 `completed`；未执行 push；任务 worktree 保留，避免在主工作区仍有无关脏文件时扩大清理范围。
 
 ## Blockers
 
-- task-closeout-cleanup apply 未执行：需要用户明确授权 Git 提交/合并/删除 worktree，并先处理或隔离 `E:\IntRuoyi` 主工作区的无关脏改。
-- `int_main` 融合阻塞：`E:\IntRuoyi` 当前有未提交改动，且与本任务增量在 5 个文件上重叠；需要先提交、清理或由用户明确授权处理这些主工作区改动后才能继续 fast-forward merge。
+- 当前 NAS 原路径同步功能与 `int_main` 融合无阻塞。
+- `E:\IntRuoyi` 仍有主干基线之后产生的无关脏文件，本任务未触碰、未提交、未清理。
+- 未执行 push；如需推送远端，需要另行授权并重新执行推送前门禁。

@@ -11,7 +11,7 @@
 - [x] 后端能力：建立 NAS 原路径同步正式记录、同步接口、删除接口、统计排除逻辑。
 - [x] 前端能力：列表分页、待识别文件可勾选、同步 1 个/选中/全部操作与状态展示。
 - [x] 单文件真实 E2E：通过本地前后端页面验证“同步 1 个验证”和“移除同步记录”闭环。
-- [x] 验证与收尾：后端、前端静态合同、结构检查通过，记录未执行项和阻塞项。
+- [x] 验证与收尾：后端、前端静态合同、结构检查、真实单文件 E2E、`int_main` 融合与收尾记录完成。
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## Worktree
 
@@ -35,14 +35,14 @@ blocked
 
 ## Integration Status
 
-- Implementation commit after rebase onto local `int_main`: `9fee56003`.
-- Merge into `E:\IntRuoyi` / `int_main` is blocked because the main worktree has uncommitted changes on files also changed by this task:
-  - `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferServiceTest.java`
-  - `IntRuoyiFronted/package.json`
-  - `docs/backend-development.md`
-  - `docs/e2e-rules.md`
-  - `docs/frontend-development.md`
-- No merge, push, reset, stash, or deletion has been performed against `E:\IntRuoyi`.
+- Main workspace baseline commit before integration: `61ba07435`.
+- Rebased implementation commit: `6b5f29a76`.
+- Task branch integration tip merged into `int_main`: `733bcddb1`.
+- `E:\IntRuoyi` / `int_main` completed a fast-forward merge from `codex/nas-original-path-sync`.
+- Post-merge branch runtime port guard passed for `int_main`: frontend `8081`, backend `48081`.
+- Post-merge task-closeout-cleanup preview/apply passed with no deletion items.
+- No push was performed.
+- The task worktree remains at `D:\IntRuoyiWorktree\nas-original-path-sync`; it is clean, but removal was deferred because the main workspace still contains unrelated post-baseline dirty files outside this task.
 
 ## 设计约束检查
 

@@ -27,6 +27,13 @@
 - `git diff --check` -> PASS, no whitespace errors; only line-ending normalization warnings.
 - Task-owned runtime cleanup -> PASS, stopped local frontend `8310` and backend `48310`; no remaining listeners on those ports.
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260830-nas-original-path-sync --mode preview` -> BLOCKED: closeout apply requires Git commit/merge/delete authorization and a clean main workspace; project policy does not allow those Git operations without explicit user request.
+- `git merge --ff-only codex/nas-original-path-sync` in `E:\IntRuoyi` -> PASS, `int_main` fast-forwarded to `733bcddb1`.
+- `node --check tests\e2e\dcc-nas-original-path-sync-real.e2e.js` after merge -> PASS.
+- `pnpm e2e:dcc:nas-original-path-sync:static` after merge -> PASS.
+- `scripts\preflight\branch-runtime-port-guard.ps1` after merge -> PASS, `int_main` ports remain frontend `8081`, backend `48081`.
+- `git diff --check` after merge -> PASS, no whitespace errors; only line-ending normalization warnings from unrelated dirty files.
+- `task-closeout-cleanup --mode preview` after merge -> PASS, no task-owned temporary paths to delete and no blockers.
+- `task-closeout-cleanup --mode apply` after merge -> PASS, no files deleted; preserved task records.
 
 ## Real E2E Evidence
 
@@ -37,10 +44,13 @@
 
 ## Result
 
-blocked
+completed
 
-## Integration Blocker
+## Integration Completion
 
-- Implementation commit after rebase onto local `int_main`: `9fee56003`.
-- Merge into `E:\IntRuoyi` / `int_main` was not executed because the main worktree has uncommitted overlapping changes in `DccControlledFileNasTransferServiceTest.java`, `package.json`, `docs/backend-development.md`, `docs/e2e-rules.md`, and `docs/frontend-development.md`.
-- No main-worktree stash, reset, merge, push, worktree deletion, or unrelated-file commit was performed.
+- Main baseline commit before integration: `61ba07435`.
+- Rebased implementation commit: `6b5f29a76`.
+- Task branch integration tip: `733bcddb1`.
+- `E:\IntRuoyi` / `int_main` completed a fast-forward merge from `codex/nas-original-path-sync`.
+- No push was performed; `int_main` remains local ahead of `origin/int_main`.
+- Remaining main workspace dirty files are unrelated post-baseline changes and were not staged, committed, cleaned, reset, or merged by this task.
