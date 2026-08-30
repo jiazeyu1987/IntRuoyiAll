@@ -66,7 +66,7 @@ if (!config.password) {
 
 const taskRoot = path.resolve(
   process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_TASK_ROOT ||
-    path.resolve(__dirname, '../../../../doc/tasks/20260829-dcc-process-pool-real-device-labels/e2e-artifacts')
+    path.resolve(__dirname, '../../../../doc/tasks/20260830-dcc-process-device-type-parameter-catalog/e2e-artifacts')
 )
 fs.mkdirSync(taskRoot, { recursive: true })
 
@@ -233,17 +233,14 @@ function buildWorkbenchResponseSummary(response, payload) {
   }
 }
 
-function isRealDeviceSourceField(field) {
+function isDeviceGroupSourceField(field) {
   return (
     field &&
     field.sourceType === 'PROCESS_POOL_REPORT' &&
     typeof field.fieldCode === 'string' &&
-    field.fieldCode.includes('@device:') &&
-    field.deviceId !== undefined &&
-    field.deviceId !== null &&
-    Boolean(field.deviceCode) &&
+    field.fieldCode.includes('@deviceGroup:') &&
     Boolean(field.deviceName) &&
-    String(field.fieldName || '').includes(`（${field.deviceName} / ${field.deviceCode}）`)
+    !String(field.fieldName || '').includes(` / `)
   )
 }
 
@@ -257,32 +254,30 @@ function selectedProcessSourceFields(context, processId) {
   )
 }
 
-function requiredDeviceFields(sourceFields) {
-  const fields = sourceFields.filter(isRealDeviceSourceField)
-  const byDeviceId = new Map()
+function requiredDeviceGroups(sourceFields) {
+  const fields = sourceFields.filter(isDeviceGroupSourceField)
+  const byDeviceName = new Map()
   for (const field of fields) {
-    const key = String(field.deviceId)
-    const current = byDeviceId.get(key) || {
-      deviceId: field.deviceId,
-      deviceCode: field.deviceCode,
+    const key = String(field.deviceName)
+    const current = byDeviceName.get(key) || {
       deviceName: field.deviceName,
       fieldNames: [],
       fieldCodes: []
     }
     current.fieldNames.push(field.fieldName)
     current.fieldCodes.push(field.fieldCode)
-    byDeviceId.set(key, current)
+    byDeviceName.set(key, current)
   }
-  return Array.from(byDeviceId.values()).filter((device) =>
-    device.fieldCodes.some((fieldCode) => fieldCode.startsWith('selectedDevice.deviceId@device:')) &&
-    device.fieldCodes.some((fieldCode) => fieldCode.startsWith('deviceMeteringValidity.inMeteringValidityPeriod@device:'))
+  return Array.from(byDeviceName.values()).filter((device) =>
+    device.fieldCodes.some((fieldCode) => fieldCode.startsWith('selectedDevice.deviceCode@deviceGroup:')) &&
+    device.fieldCodes.some((fieldCode) => fieldCode.startsWith('deviceMeteringValidity.inMeteringValidityPeriod@deviceGroup:'))
   )
 }
 
-function deviceScopedParameterFields(sourceFields) {
+function deviceGroupedParameterFields(sourceFields) {
   return sourceFields.filter(
     (field) =>
-      isRealDeviceSourceField(field) &&
+      isDeviceGroupSourceField(field) &&
       (field.fieldCode.startsWith('deviceParameterReadings.') ||
         field.fieldCode.startsWith('equipmentParameterRules.'))
   )
@@ -296,7 +291,7 @@ function unscopedParameterFields(sourceFields) {
       typeof field.fieldCode === 'string' &&
       (field.fieldCode.startsWith('deviceParameterReadings.') ||
         field.fieldCode.startsWith('equipmentParameterRules.')) &&
-      !field.fieldCode.includes('@device:')
+      !field.fieldCode.includes('@deviceGroup:')
   )
 }
 
@@ -350,15 +345,15 @@ async function findCandidate(page) {
         }
         const processContext = processContextResult.payload.data || {}
         const sourceFields = selectedProcessSourceFields(processContext, processId)
-        const devices = requiredDeviceFields(sourceFields)
-        const parameterFields = deviceScopedParameterFields(sourceFields)
+        const devices = requiredDeviceGroups(sourceFields)
+        const parameterFields = deviceGroupedParameterFields(sourceFields)
         const genericParameterFields = unscopedParameterFields(sourceFields)
         if (!devices.length) {
           diagnostics.push({
             projectCodeId,
             processId,
             sourceFieldCount: sourceFields.length,
-            message: 'no_real_device_source_field'
+            message: 'no_real_device_group_source_field'
           })
           continue
         }
@@ -367,7 +362,7 @@ async function findCandidate(page) {
             projectCodeId,
             processId,
             sourceFieldCount: sourceFields.length,
-            message: 'unscoped_device_parameter_fields_visible',
+            message: 'unscoped_device_group_parameter_fields_visible',
             fields: genericParameterFields.map((field) => field.fieldCode).slice(0, 5)
           })
           continue
@@ -509,9 +504,12 @@ async function main() {
     const projectSearchText = String(candidate.projectCode.projectCode || candidate.projectCode.projectName || '')
     assert.ok(projectSearchText, 'dcc_project_code_or_name_missing')
     await openSelectAndSearch(dccSelect, projectSearchText)
-    const dccResponsePromise = page.waitForResponse(isWorkbenchContextResponse, { timeout: 60000 })
+    const dccResponsePromise = page
+      .waitForResponse(isWorkbenchContextResponse, { timeout: 60000 })
+      .catch((error) => error)
     const dccOptionText = await chooseVisibleOption(page, { exactText: dccOptionLabel }, 60000)
-    await dccResponsePromise
+    const dccResponseOrError = await dccResponsePromise
+    if (dccResponseOrError instanceof Error) throw dccResponseOrError
     await waitForNoLoading(page)
 
     const processSelect = page.locator('[data-process-pool-route-process-select]').first()
@@ -520,23 +518,27 @@ async function main() {
     const processSearchText = String(candidate.process.processName || candidate.process.processCode || candidate.process.sort || '')
     assert.ok(processSearchText, 'route_process_name_or_code_missing')
     await openSelectAndSearch(processSelect, processSearchText)
-    const processResponsePromise = page.waitForResponse(isWorkbenchContextResponse, { timeout: 60000 })
+    const processResponsePromise = page
+      .waitForResponse(isWorkbenchContextResponse, { timeout: 60000 })
+      .catch((error) => error)
     const processOptionText = await chooseVisibleOption(page, { exactText: processOptionLabel }, 60000)
-    const processPayload = await (await processResponsePromise).json()
+    const processResponseOrError = await processResponsePromise
+    if (processResponseOrError instanceof Error) throw processResponseOrError
+    const processPayload = await processResponseOrError.json()
     assert.ok([0, 200].includes(Number(processPayload?.code)), `process_context_failed:${processPayload?.msg || processPayload?.message || processPayload?.code}`)
     await waitForNoLoading(page)
 
     const selectedSourceFields = selectedProcessSourceFields(processPayload.data || {}, candidate.process.id)
-    const selectedDevices = requiredDeviceFields(selectedSourceFields)
-    const selectedParameterFields = deviceScopedParameterFields(selectedSourceFields)
+    const selectedDevices = requiredDeviceGroups(selectedSourceFields)
+    const selectedParameterFields = deviceGroupedParameterFields(selectedSourceFields)
     const selectedGenericParameterFields = unscopedParameterFields(selectedSourceFields)
-    assert.ok(selectedDevices.length > 0, 'selected_process_has_no_real_device_source_fields')
+    assert.ok(selectedDevices.length > 0, 'selected_process_has_no_real_device_group_source_fields')
     assert.deepEqual(
       selectedGenericParameterFields.map((field) => field.fieldCode),
       [],
-      'selected_process_must_not_expose_unscoped_device_parameter_fields'
+      'selected_process_must_not_expose_unscoped_device_group_parameter_fields'
     )
-    assert.ok(selectedParameterFields.length > 0, 'selected_process_has_no_device_scoped_parameter_fields')
+    assert.ok(selectedParameterFields.length > 0, 'selected_process_has_no_device_grouped_parameter_fields')
 
     const sourcePane = page.locator('.batch-record-cell-link__pane.is-source').first()
     await sourcePane.waitFor({ state: 'visible', timeout: 60000 })
@@ -551,28 +553,28 @@ async function main() {
       `source_panel_must_identify_selected_process:${panelText}`
     )
     assert.ok(!panelText.includes('设备编码 / 设备名称'), 'generic_device_placeholder_must_not_be_visible')
+    assert.ok(!panelText.includes(' / B'), 'physical_device_code_suffix_must_not_be_visible')
     for (const device of selectedDevices) {
-      const identity = `${device.deviceName} / ${device.deviceCode}`
-      assert.ok(panelText.includes(identity), `real_device_identity_not_visible:${identity}`)
+      const identity = `${device.deviceName}`
+      assert.ok(panelText.includes(identity), `real_device_group_not_visible:${identity}`)
       assert.ok(
         selectedSourceFields.some((field) =>
-          field.fieldCode === `selectedDevice.deviceId@device:${device.deviceId}` &&
-          field.fieldName === `选用设备编号（${identity}）`
+          field.fieldCode.startsWith('selectedDevice.deviceCode@deviceGroup:') &&
+          field.fieldName === `选用设备编码（${identity}）`
         ),
-        `selected_device_id_field_missing_for_real_device:${identity}`
+        `selected_device_code_field_missing_for_real_device_group:${identity}`
       )
       assert.ok(
         selectedSourceFields.some((field) =>
-          field.fieldCode === `deviceMeteringValidity.inMeteringValidityPeriod@device:${device.deviceId}` &&
+          field.fieldCode.startsWith('deviceMeteringValidity.inMeteringValidityPeriod@deviceGroup:') &&
           field.fieldName === `选用设备计量有效期内（${identity}）`
         ),
-        `metering_validity_field_missing_for_real_device:${identity}`
+        `metering_validity_field_missing_for_real_device_group:${identity}`
       )
     }
     for (const field of selectedParameterFields.slice(0, 8)) {
-      const identity = `${field.deviceName} / ${field.deviceCode}`
-      assert.ok(field.fieldCode.endsWith(`@device:${field.deviceId}`), `device_parameter_scope_mismatch:${field.fieldCode}`)
-      assert.ok(panelText.includes(identity), `device_parameter_identity_not_visible:${identity}`)
+      assert.ok(field.fieldCode.includes('@deviceGroup:'), `device_parameter_group_scope_mismatch:${field.fieldCode}`)
+      assert.ok(!String(field.fieldName || '').includes(' / '), `device_parameter_physical_identity_leaked:${field.fieldName}`)
       assert.ok(panelText.includes(field.fieldName), `device_parameter_field_not_visible:${field.fieldName}`)
     }
     assert.deepEqual(writeRequests, [], 'readonly E2E must not write DCC or cell-link data')

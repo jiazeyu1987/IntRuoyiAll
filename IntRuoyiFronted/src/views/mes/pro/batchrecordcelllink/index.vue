@@ -611,7 +611,9 @@ const filteredProcessPoolReportSourceFields = computed(() => {
     field.routeProcessId === targetRouteProcessId
   ).filter((field) =>
     !isProcessPoolDeviceSourceField(field) ||
-    (field.deviceId !== undefined && Boolean(field.deviceCode) && Boolean(field.deviceName))
+    (isProcessPoolDeviceGroupSourceField(field)
+      ? Boolean(field.deviceName)
+      : field.deviceId !== undefined && Boolean(field.deviceCode) && Boolean(field.deviceName))
   )
 })
 const filteredProductionPickListSourceFields = computed(() => {
@@ -1495,6 +1497,10 @@ function isProcessPoolDeviceSourceField(field: BatchRecordCellLinkSourceFieldVO)
     field.fieldCode.startsWith('deviceMeteringValidity.') ||
     field.fieldCode.startsWith('deviceParameterReadings.') ||
     field.fieldCode.startsWith('equipmentParameterRules.')
+}
+
+function isProcessPoolDeviceGroupSourceField(field: BatchRecordCellLinkSourceFieldVO) {
+  return isProcessPoolDeviceSourceField(field) && field.fieldCode.includes('@deviceGroup:')
 }
 
 function resolveErrorMessage(error: unknown, fallback: string) {

@@ -73,7 +73,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -112,6 +114,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private static final String WORK_ORDER_SOURCE_FIELD_BATCH_CODE = "batchCode";
     private static final String PROCESS_POOL_TEAM_DEVICE_STATUS_ENABLED = "ENABLED";
     private static final String PROCESS_POOL_DEVICE_SCOPE_SEPARATOR = "@device:";
+    private static final String PROCESS_POOL_DEVICE_GROUP_SCOPE_SEPARATOR = "@deviceGroup:";
     private static final String OVERWRITE_POLICY_ONLY_WHEN_EMPTY = "ONLY_WHEN_EMPTY";
     private static final List<Integer> ACTIVE_EXECUTION_STATUSES = List.of(0, 1, 2, 3);
     private static final List<WorkOrderSourceField> PRODUCTION_WORK_ORDER_SOURCE_FIELDS = List.of(
@@ -1684,20 +1687,39 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                     MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PROCESS_POOL_DEVICE_MISSING,
                     targetRouteProcessId);
         }
-        devicesByRouteProcess.forEach((routeProcessId, devices) ->
-                devices.forEach(device -> PROCESS_POOL_REPORT_BASE_SOURCE_FIELDS.stream()
+        Map<Long, List<ProcessPoolReportDeviceGroup>> deviceGroupsByRouteProcess =
+                listProcessPoolReportDeviceGroupsByRouteProcess(devicesByRouteProcess);
+        deviceGroupsByRouteProcess.forEach((routeProcessId, deviceGroups) ->
+                deviceGroups.forEach(deviceGroup -> PROCESS_POOL_REPORT_BASE_SOURCE_FIELDS.stream()
                         .filter(field -> PROCESS_POOL_REPORT_DEVICE_SOURCE_FIELD_CODES.contains(field.code()))
-                        .map(field -> field.forDevice(routeProcessId, device))
+                        .map(field -> field.forDeviceGroup(routeProcessId, deviceGroup, true))
                         .forEach(field -> addProcessPoolReportField(fields, field))));
         for (MesProcessPoolDeviceParameterRuleDO rule : parameterRules) {
             String code = StrUtil.trim(rule.getParameterCode());
             String name = StrUtil.trim(rule.getParameterName());
             ProcessPoolReportDevice device = requireProcessPoolReportDevice(
                     devicesByRouteProcess, rule.getRouteProcessId(), rule.getDeviceId(), code);
-            addProcessPoolReportParameterFields(fields, rule, device, code, name,
+            ProcessPoolReportDeviceGroup deviceGroup = new ProcessPoolReportDeviceGroup(device.deviceName());
+            addProcessPoolReportParameterFields(fields, rule, deviceGroup, code, name,
                     processPoolReportValueType(rule.getValueType()));
         }
         return List.copyOf(fields.values());
+    }
+
+    private Map<Long, List<ProcessPoolReportDeviceGroup>> listProcessPoolReportDeviceGroupsByRouteProcess(
+            Map<Long, List<ProcessPoolReportDevice>> devicesByRouteProcess) {
+        Map<Long, List<ProcessPoolReportDeviceGroup>> result = new LinkedHashMap<>();
+        devicesByRouteProcess.forEach((routeProcessId, devices) -> {
+            Set<String> emittedNames = new LinkedHashSet<>();
+            List<ProcessPoolReportDeviceGroup> groups = new ArrayList<>();
+            for (ProcessPoolReportDevice device : devices) {
+                if (emittedNames.add(device.deviceName())) {
+                    groups.add(new ProcessPoolReportDeviceGroup(device.deviceName()));
+                }
+            }
+            result.put(routeProcessId, groups);
+        });
+        return result;
     }
 
     private ProcessPoolReportDevice requireProcessPoolReportDevice(
@@ -1834,34 +1856,34 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
 
     private void addProcessPoolReportParameterFields(Map<String, ProcessPoolReportSourceField> fields,
                                                      MesProcessPoolDeviceParameterRuleDO rule,
-                                                     ProcessPoolReportDevice device,
+                                                     ProcessPoolReportDeviceGroup deviceGroup,
                                                      String code,
                                                      String name,
                                                      String valueType) {
         addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
-                "deviceParameterReadings." + code + ".value", name + "实际值", valueType, rule.getRouteProcessId())
-                .forDevice(rule.getRouteProcessId(), device));
+                "deviceParameterReadings." + code + ".value", name, valueType, rule.getRouteProcessId())
+                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
         addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
                 "deviceParameterReadings." + code + ".unit", name + "单位", "STRING", rule.getRouteProcessId())
-                .forDevice(rule.getRouteProcessId(), device));
+                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
         addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
                 "deviceParameterReadings." + code + ".lowerLimit", name + "下限", "NUMBER", rule.getRouteProcessId())
-                .forDevice(rule.getRouteProcessId(), device));
+                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
         addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
                 "deviceParameterReadings." + code + ".upperLimit", name + "上限", "NUMBER", rule.getRouteProcessId())
-                .forDevice(rule.getRouteProcessId(), device));
+                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
         addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
                 "deviceParameterReadings." + code + ".parameterStatus", name + "状态", "STRING", rule.getRouteProcessId())
-                .forDevice(rule.getRouteProcessId(), device));
+                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
         addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
                 "equipmentParameterRules." + code + ".standardText", name + "参考标准", "STRING", rule.getRouteProcessId())
-                .forDevice(rule.getRouteProcessId(), device));
+                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
         addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
                 "equipmentParameterRules." + code + ".defaultText", name + "默认文本", "STRING", rule.getRouteProcessId())
-                .forDevice(rule.getRouteProcessId(), device));
+                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
         addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
                 "equipmentParameterRules." + code + ".defaultValue", name + "默认值", "NUMBER", rule.getRouteProcessId())
-                .forDevice(rule.getRouteProcessId(), device));
+                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
     }
 
     private void addProcessPoolReportField(Map<String, ProcessPoolReportSourceField> fields,
@@ -1889,6 +1911,11 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                     MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
                     "PROCESS_POOL_REPORT 参数值类型：" + parameterValueType);
         };
+    }
+
+    private static String encodeProcessPoolDeviceGroupScope(String deviceName) {
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(StrUtil.trim(deviceName).getBytes(StandardCharsets.UTF_8));
     }
 
     private String requireProcessPoolReportAggregationStrategy(String strategy, String valueType) {
@@ -2527,9 +2554,21 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                     name + "（" + device.deviceName() + " / " + device.deviceCode() + "）",
                     valueType, routeProcessId, device.deviceId(), device.deviceCode(), device.deviceName());
         }
+
+        ProcessPoolReportSourceField forDeviceGroup(Long routeProcessId, ProcessPoolReportDeviceGroup deviceGroup,
+                                                    boolean includeDeviceGroupInName) {
+            String scopedName = includeDeviceGroupInName ? name + "（" + deviceGroup.deviceName() + "）" : name;
+            return new ProcessPoolReportSourceField(
+                    code + PROCESS_POOL_DEVICE_GROUP_SCOPE_SEPARATOR
+                            + encodeProcessPoolDeviceGroupScope(deviceGroup.deviceName()),
+                    scopedName, valueType, routeProcessId, null, null, deviceGroup.deviceName());
+        }
     }
 
     private record ProcessPoolReportDevice(Long deviceId, String deviceCode, String deviceName) {
+    }
+
+    private record ProcessPoolReportDeviceGroup(String deviceName) {
     }
 
     private record PqcAggregateSourceField(String code, String sourceCellKey, String name, String valueType,
