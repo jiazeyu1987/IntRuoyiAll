@@ -112,3 +112,15 @@ GREEN: `pnpm ts:check` -> PASS after integration.
 GREEN: `pnpm build:local` -> PASS after integration.
 
 GREEN: release migration policy gate with declared dependency closure -> PASS after integration.
+
+## Final Merge And Removal
+
+- Current-main documentation commit `9b9b16274` was merged into the task branch after post-integration verification; it changed only the parallel PQC task records and did not require code re-verification.
+- Final task integration HEAD: `a25f5adc660341f538d42d5b4fe259f4c57364a0`.
+- Main fast-forward: `int_main` moved from `9b9b16274b4920005eaa9de421deae245c3c29e9` to `a25f5adc660341f538d42d5b4fe259f4c57364a0` with 19 incoming task paths and `dirtyIntersection=0`.
+- Main post-merge branch runtime guard: PASS (`8081/48081`).
+- Verified task branch is an ancestor of `int_main`.
+- `git worktree remove --force D:\IntRuoyiWorktree\20260831-edhr-pdfa-archive-minimal` succeeded; Git registration removed.
+- Residual untracked `node_modules` directory had no `.git`, process or port listener and was removed after an in-process child-path safety check.
+- Registry entry `int_main slot 58`, frontend `8313`, backend `48313` changed to `active=false` under the same mutex used by the allocator; no listeners remained.
+- `M6`: completed.

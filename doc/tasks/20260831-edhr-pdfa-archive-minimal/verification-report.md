@@ -55,3 +55,12 @@ PASS - PDF/A-1b 最小归档闭环已在任务范围内实现并通过定向验�
 
 - Deployment must provide valid `EDHR_S3_*` configuration and the configured PDF fonts. Missing prerequisites fail fast.
 - This milestone does not prove every product template is pixel-identical to every approved paper master; it proves PDF/A compliance and nonblank printable rendering for the representative archive sample.
+
+## Closeout
+
+- Implementation commit: `0dc0ff392`.
+- Task documentation commit: `a96fa28eb`.
+- Post-integration documentation commit: `226e76a86`.
+- Final integrated main HEAD before this closeout-record commit: `a25f5adc660341f538d42d5b4fe259f4c57364a0`.
+- Task worktree removed and runtime slot 58 released.
+- Final task status: `completed`.

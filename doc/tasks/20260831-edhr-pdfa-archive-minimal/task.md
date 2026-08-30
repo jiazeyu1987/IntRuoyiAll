@@ -27,7 +27,7 @@
 3. `M3`：实现批次归档原文件受保护存储、数据库字段和原文件下载。
 4. `M4`：实现历史页 PDF/A 状态与失败反馈。
 5. `M5`：完成后端、数据库、前端、PDF 格式及视觉验证。
-6. `M6`：收尾、提交并快进融合到 `int_main`。
+6. `M6`：收尾、提交并快进融合到 `int_main`。`completed`
 
 ## Expected Verification
 
@@ -56,7 +56,7 @@
 
 ## Current Status
 
-ready_for_closeout - 开发和任务范围验证已完成，待清理任务临时产物、提交并融合到 `int_main`。
+completed - 代码、迁移、测试和任务记录已提交并快进融合到 `int_main`；任务 worktree 已删除，slot 58 已释放。
 
 ## Cleanup Candidates
 
