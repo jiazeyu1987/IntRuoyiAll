@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 ## Worktree
 
@@ -32,6 +32,17 @@ ready_for_closeout
 - Reserved slot: `55`
 - Reserved frontend port: `8310`
 - Reserved backend port: `48310`
+
+## Integration Status
+
+- Implementation commit after rebase onto local `int_main`: `9fee56003`.
+- Merge into `E:\IntRuoyi` / `int_main` is blocked because the main worktree has uncommitted changes on files also changed by this task:
+  - `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferServiceTest.java`
+  - `IntRuoyiFronted/package.json`
+  - `docs/backend-development.md`
+  - `docs/e2e-rules.md`
+  - `docs/frontend-development.md`
+- No merge, push, reset, stash, or deletion has been performed against `E:\IntRuoyi`.
 
 ## 设计约束检查
 

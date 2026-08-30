@@ -37,4 +37,10 @@
 
 ## Result
 
-ready_for_closeout
+blocked
+
+## Integration Blocker
+
+- Implementation commit after rebase onto local `int_main`: `9fee56003`.
+- Merge into `E:\IntRuoyi` / `int_main` was not executed because the main worktree has uncommitted overlapping changes in `DccControlledFileNasTransferServiceTest.java`, `package.json`, `docs/backend-development.md`, `docs/e2e-rules.md`, and `docs/frontend-development.md`.
+- No main-worktree stash, reset, merge, push, worktree deletion, or unrelated-file commit was performed.

@@ -67,6 +67,20 @@ GREEN: `git diff --check` -> PASS, no whitespace errors; Git only reported line-
 
 GREEN: `Stop-Process` for task-owned listeners on ports `48310` and `8310` -> PASS, stopped backend PID 15952 and frontend PID 52732; follow-up listener check reported no remaining task port listeners.
 
+PRECHECK: User requested merge into `int_main`; reread worktree, branch runtime port, PowerShell/Git, encoding, task closeout, and task-closeout-cleanup rules before Git operations.
+
+BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260830-nas-original-path-sync --mode preview` -> BLOCKED before implementation commit, current branch could not fast-forward merge into `int_main`, main worktree was dirty, and task implementation changes were still pending.
+
+GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS before commit, branch `codex/nas-original-path-sync` uses frontend `8310` and backend `48310`.
+
+GREEN: `git commit -m "feat: 支持 NAS 原路径同步未受控文件"` -> PASS, initial implementation commit `7c423ef15` included 27 task-owned source, test, migration, task record, and experience document files.
+
+GREEN: `git rebase int_main` -> PASS, rebased the implementation onto local `int_main`; rebased implementation commit is `9fee56003`.
+
+GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS after rebase.
+
+BLOCKED: merge into `E:\IntRuoyi` / `int_main` -> BLOCKED before executing merge. Branch increment has 27 files and the main worktree has 141 dirty paths; 5 paths overlap with the branch increment: `IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferServiceTest.java`, `IntRuoyiFronted/package.json`, `docs/backend-development.md`, `docs/e2e-rules.md`, `docs/frontend-development.md`. Per dirty-worktree merge gate, no merge/stash/reset was performed against main.
+
 ## Milestone Updates
 
 - 启动：已创建合规 worktree 与任务文档。
@@ -78,8 +92,10 @@ GREEN: `Stop-Process` for task-owned listeners on ports `48310` and `8310` -> PA
 - 真实 E2E 断言修正：确认 `infra_file` 是逻辑删除语义，E2E 改为断言无有效文件记录且历史行 `deleted=1`。
 - 经验沉淀：已更新 `docs\frontend-development.md` 的前端静态契约隔离门禁，记录同页旧/新流程共存时负向断言必须限定目标代码块；已更新 `docs\backend-development.md` 和 `docs\e2e-rules.md`，记录空值更新与逻辑删除断言门禁。
 - 运行态清理：单文件 E2E 专用前端 `8310`、后端 `48310` 已停止，并确认无剩余监听。
+- 融合预检：任务实现已提交并 rebase 到本地 `int_main` 最新提交之上，但主工作区存在同文件未提交改动，融合阻塞；未触碰主工作区脏改。
 - 收尾预检：task-closeout-cleanup preview 已执行并记录阻塞；当前按项目 Git 政策停留在 `ready_for_closeout`，不自动提交、合并或删除 worktree。
 
 ## Blockers
 
 - task-closeout-cleanup apply 未执行：需要用户明确授权 Git 提交/合并/删除 worktree，并先处理或隔离 `E:\IntRuoyi` 主工作区的无关脏改。
+- `int_main` 融合阻塞：`E:\IntRuoyi` 当前有未提交改动，且与本任务增量在 5 个文件上重叠；需要先提交、清理或由用户明确授权处理这些主工作区改动后才能继续 fast-forward merge。
