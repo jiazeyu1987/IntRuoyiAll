@@ -1355,6 +1355,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                     .map(field -> new BatchRecordCellLinkSourceFieldVO()
                             .setSourceType(SOURCE_TYPE_PROCESS_POOL_REPORT)
                             .setFieldCode(field.code())
+                            .setSourceCellKey(field.sourceCellKey())
                             .setFieldName(field.name())
                             .setValueType(field.valueType())
                             .setRouteProcessId(field.routeProcessId())
@@ -1628,7 +1629,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 ? PROCESS_POOL_REPORT_BASE_SOURCE_FIELDS
                 : processPoolReportSourceFields(scope, targetRouteProcessId);
         return supportedFields.stream()
-                .filter(field -> field.code().equals(normalized))
+                .filter(field -> field.code().equals(normalized) || field.sourceCellKey().equals(normalized))
                 .findFirst()
                 .orElseThrow(() -> exception(
                         MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
@@ -1903,6 +1904,19 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private static String encodeProcessPoolDeviceGroupScope(String deviceName) {
         return Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(StrUtil.trim(deviceName).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String processPoolReportSourceCellKey(String sourceFieldCode) {
+        String normalized = StrUtil.trim(sourceFieldCode);
+        if (StrUtil.isBlank(normalized)) {
+            throw exception(
+                    MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                    SOURCE_TYPE_PROCESS_POOL_REPORT);
+        }
+        if (normalized.length() <= 32) {
+            return normalized;
+        }
+        return "PPR:" + DigestUtil.sha256Hex(normalized).substring(0, 28);
     }
 
     private String requireProcessPoolReportAggregationStrategy(String strategy, String valueType) {
@@ -2525,30 +2539,36 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     }
 
     private record ProcessPoolReportSourceField(String code, String name, String valueType, Long routeProcessId,
-                                                Long deviceId, String deviceCode, String deviceName) {
+                                                Long deviceId, String deviceCode, String deviceName,
+                                                String sourceCellKey) {
         static ProcessPoolReportSourceField base(String code, String name, String valueType) {
-            return new ProcessPoolReportSourceField(code, name, valueType, null, null, null, null);
+            return new ProcessPoolReportSourceField(code, name, valueType, null, null, null, null,
+                    processPoolReportSourceCellKey(code));
         }
 
         static ProcessPoolReportSourceField ofRouteProcess(String code, String name, String valueType,
                                                            Long routeProcessId) {
-            return new ProcessPoolReportSourceField(code, name, valueType, routeProcessId, null, null, null);
+            return new ProcessPoolReportSourceField(code, name, valueType, routeProcessId, null, null, null,
+                    processPoolReportSourceCellKey(code));
         }
 
         ProcessPoolReportSourceField forDevice(Long routeProcessId, ProcessPoolReportDevice device) {
+            String scopedCode = code + PROCESS_POOL_DEVICE_SCOPE_SEPARATOR + device.deviceId();
             return new ProcessPoolReportSourceField(
-                    code + PROCESS_POOL_DEVICE_SCOPE_SEPARATOR + device.deviceId(),
+                    scopedCode,
                     name + "（" + device.deviceName() + " / " + device.deviceCode() + "）",
-                    valueType, routeProcessId, device.deviceId(), device.deviceCode(), device.deviceName());
+                    valueType, routeProcessId, device.deviceId(), device.deviceCode(), device.deviceName(),
+                    processPoolReportSourceCellKey(scopedCode));
         }
 
         ProcessPoolReportSourceField forDeviceGroup(Long routeProcessId, ProcessPoolReportDeviceGroup deviceGroup,
                                                     boolean includeDeviceGroupInName) {
+            String scopedCode = code + PROCESS_POOL_DEVICE_GROUP_SCOPE_SEPARATOR
+                    + encodeProcessPoolDeviceGroupScope(deviceGroup.deviceName());
             String scopedName = includeDeviceGroupInName ? name + "（" + deviceGroup.deviceName() + "）" : name;
             return new ProcessPoolReportSourceField(
-                    code + PROCESS_POOL_DEVICE_GROUP_SCOPE_SEPARATOR
-                            + encodeProcessPoolDeviceGroupScope(deviceGroup.deviceName()),
-                    scopedName, valueType, routeProcessId, null, null, deviceGroup.deviceName());
+                    scopedCode, scopedName, valueType, routeProcessId, null, null, deviceGroup.deviceName(),
+                    processPoolReportSourceCellKey(scopedCode));
         }
     }
 
@@ -2591,7 +2611,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
 
         static SourceSpec processPoolReport(ProcessPoolReportSourceField field) {
             return new SourceSpec(SOURCE_TYPE_PROCESS_POOL_REPORT, PROCESS_POOL_REPORT_SOURCE_REPORT_ID,
-                    PROCESS_POOL_REPORT_SOURCE_REPORT_NAME, -1, -1, field.code(), field.code(), field.name(),
+                    PROCESS_POOL_REPORT_SOURCE_REPORT_NAME, -1, -1, field.sourceCellKey(), field.code(), field.name(),
                     field.name(), field.valueType(), SOURCE_TYPE_PROCESS_POOL_REPORT + ":" + field.code());
         }
 

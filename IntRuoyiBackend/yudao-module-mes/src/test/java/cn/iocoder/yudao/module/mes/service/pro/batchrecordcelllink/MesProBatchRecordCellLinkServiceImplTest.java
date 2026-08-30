@@ -1016,6 +1016,9 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals("PROCESS_POOL_REPORT", row.getSourceReportId());
         assertEquals("deviceParameterReadings.pressure.value@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
                 row.getSourceFieldCode());
+        assertEquals("PPR:", row.getSourceCellKey().substring(0, 4));
+        assertFalse(row.getSourceCellKey().contains("deviceParameterReadings."));
+        assertEquals(32, row.getSourceCellKey().length());
         assertEquals("扩张压力", row.getSourceFieldName());
         assertEquals("SUM", row.getAggregationStrategy());
         assertEquals("1:2", row.getTargetCellKey());

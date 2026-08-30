@@ -132,7 +132,25 @@ assert.match(
 assert.match(
   source,
   /审批对象：\$\{text\}/,
-  'approval route participant entries must label approval objects for human readability'
+  'approval route participant entries must label non-role approval objects for human readability'
+)
+
+assert.match(
+  source,
+  /const\s+isApprovalRoleRuleText\s*=/,
+  'approval route must identify role candidate text before wrapping participant labels'
+)
+
+assert.match(
+  source,
+  /if\s*\(isApprovalRoleRuleText\(text\)\)\s*return\s*`节点：\$\{name\}\\n\$\{text\}`/,
+  'role candidate entries must display as 审批角色：角色名 instead of 审批对象：审批角色：角色名'
+)
+
+assert.match(
+  source,
+  /const\s+approvalParticipantLine\s*=[\s\S]*?startsWith\('审批角色：'\)[\s\S]*?startsWith\('审批对象：'\)/,
+  'approval route participant wrapper must preserve role candidate lines and non-role approval-object lines'
 )
 
 assert.match(
@@ -197,8 +215,8 @@ assert.match(
 
 assert.match(
   source,
-  /审批对象：\$\{roleNames\}/,
-  'registration certificate route must display the resolved registration manager as the approval object'
+  /审批角色：\$\{roleNames\}/,
+  'registration certificate route must display the resolved registration manager as an approval role'
 )
 
 assert.match(

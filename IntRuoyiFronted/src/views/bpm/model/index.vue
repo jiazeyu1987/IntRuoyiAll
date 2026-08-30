@@ -700,27 +700,30 @@ const formatCandidateRule = (
   return `${strategyLabel}：${paramText}`
 }
 
+const isApprovalRoleRuleText = (text: string) => text.startsWith('审批角色：')
+
 const formatParticipantNode = (nodeName?: string, ruleText?: string) => {
   const name = formatApprovalRouteTemplateText(nodeName) || '未命名节点'
   const text = formatApprovalRouteTemplateText(ruleText)
   if (!text || text === name) return `节点：${name}`
+  if (isApprovalRoleRuleText(text)) return `节点：${name}\n${text}`
   return `节点：${name}\n审批对象：${text}`
 }
 
 const formatApprovalRouteParticipant = (participantText: string, routeName?: string) => {
   const approvalRouteName = routeName?.trim() || '未配置审批路线名称'
-  const approvalObjectLine = participantText
+  const approvalParticipantLine = participantText
     .split('\n')
     .map((item) => item.trim())
-    .find((item) => item.startsWith('审批对象：'))
-  return approvalObjectLine
-    ? `审批路线：${approvalRouteName}\n${approvalObjectLine}`
+    .find((item) => item.startsWith('审批角色：') || item.startsWith('审批对象：'))
+  return approvalParticipantLine
+    ? `审批路线：${approvalRouteName}\n${approvalParticipantLine}`
     : `审批路线：${approvalRouteName}`
 }
 
 const formatBusinessApprovalRouteParticipant = (routeName: string, roleNames: string) => {
   const approvalRouteName = routeName.trim() || '未配置审批路线名称'
-  return `审批路线：${approvalRouteName}\n审批对象：${roleNames}`
+  return `审批路线：${approvalRouteName}\n审批角色：${roleNames}`
 }
 
 const selectParticipantSource = (primaryItems: string[], fallbackItems: string[]) => {

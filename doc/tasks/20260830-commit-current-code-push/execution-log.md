@@ -28,6 +28,9 @@
 - BDD: BPM 模型审批路线展示 -> Given BPM 模型是注册证访问审批流程 / When 查看流程审批路线 / Then 页面按正式业务角色展示审批对象，并隐藏空的通用审核或批准桶。
 - GREEN: `node tests\e2e\bpm-model-approval-route-name-static.spec.js` -> PASS。
 - GREEN: `node tests\e2e\bpm-model-view-participants-static.spec.js` -> PASS。
+- BDD: 报工数据结构化来源字段持久化 -> Given 用户把报工数据里的设备参数字段链接到批记录单元格 / When 保存链接规则 / Then 系统保存稳定短 `sourceCellKey`，并完整保留正式 `sourceFieldCode`、字段名称和数据库字段长度合同。
+- RED: `mvn -pl yudao-module-mes "-Dtest=cn.iocoder.yudao.module.mes.MesProBatchRecordCellLinkSchemaTest,cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkServiceImplTest" test` -> FAIL, 缺少 `20260830_mes_batch_record_cell_link_structured_source_widths.sql`，且服务仍把长字段编码直接保存为 `sourceCellKey`。
+- GREEN: 补齐正式迁移、测试建表字段长度和稳定短 key 后，同一 Maven 命令 -> PASS，47 tests。
 
 ## Preflight Evidence
 
@@ -70,3 +73,8 @@
 - completed：最终补提交 `2a54d2526 fix: avoid numeric registration reminder sort literal` 已推送到 `origin/int_main`；推送后 `git rev-list --left-right --count HEAD...origin/int_main` 为 `0 0`。
 - completed：最终 `git status --porcelain=v1 -uno` 无跟踪文件脏改动；仅 `.pytest-temp/` 与 `LOG_FILE_IS_UNDEFINED` 仍为未跟踪临时/运行产物，未纳入提交。
 - completed：复核未跟踪 `IntRuoyiFronted\tests\e2e\registration-certificate-upload-admin-role-approval-real.spec.js`，发现其属于另一任务目录、包含默认口令兜底并会写入真实注册证审批数据；按无 fallback、真实 E2E 和任务归属规则，未将其纳入本轮安全提交边界。
+- completed：最终复扫暴露 MES 单元格链接测试仍有跟踪改动；首次目标 Maven 用例失败，根因为缺少结构化字段长度迁移，且长报工字段编码仍作为 `sourceCellKey` 持久化。
+- completed：已补齐 `20260830_mes_batch_record_cell_link_structured_source_widths.sql`、测试建表字段长度和 `PROCESS_POOL_REPORT` 稳定短 key 生成；目标 Maven 用例 PASS，47 tests。
+- completed：新增 SQL 后复跑 release migration policy gate PASS，迁移数量 546。
+- completed：BPM 审批路线角色展示变更复跑 `pnpm ts:check` PASS，`node tests\e2e\bpm-model-approval-route-name-static.spec.js` PASS，`node tests\e2e\bpm-model-view-participants-static.spec.js` PASS。
+- completed：未跟踪 `IntRuoyiFronted\tests\e2e\registration-certificate-reminder-sort-runtime.spec.js` 不含硬编码默认口令，已做 `node --check` 语法检查 PASS；真实运行仍需要登录租户、用户名和密码前置，本轮未用 mock 或 API-only 替代。

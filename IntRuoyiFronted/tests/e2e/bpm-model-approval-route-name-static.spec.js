@@ -31,6 +31,12 @@ assert.match(
 
 assert.match(
   modelSource,
+  /审批角色：\$\{roleNames\}/,
+  '业务层解析出的角色类审批对象必须显示为“审批角色：角色名”。'
+)
+
+assert.match(
+  modelSource,
   /const\s+approvalRouteName\s*=\s*resolveModelDisplayName\(model\)/,
   '审批路线名称必须来自流程模型的正式显示名。'
 )

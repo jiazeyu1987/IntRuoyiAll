@@ -6,6 +6,8 @@
 - 本任务记录首次提交：`65bc051ad docs: record current code push task`。
 - 后续当前代码补齐提交：`f7c145920 feat: finish current approval and batch record updates`。
 - 排序修正与最终收尾复扫提交：`2a54d2526 fix: avoid numeric registration reminder sort literal`。
+- MES 报工数据结构化字段 key 与字段长度补齐已完成：长字段编码使用稳定短 `sourceCellKey` 保存，完整字段编码保留在 `sourceFieldCode`，并新增正式字段长度迁移。
+- BPM 审批路线角色展示和注册证提醒排序运行态脚本已复核；提醒排序真实运行因登录凭据前置缺失未执行。
 - `git push origin int_main` 已成功，远端 `int_main` 已包含本轮当前代码和收尾复扫提交。
 - 推送后本地 `int_main` 与 `origin/int_main` 一致，`HEAD...origin/int_main` 为 `0 0`。
 - 远端 fetch 成功，`git rev-list --left-right --count HEAD...origin/int_main` 在提交前为 `10 0`。
@@ -57,6 +59,13 @@
 - 最终推送后 `git rev-list --left-right --count HEAD...origin/int_main` -> PASS, `0 0`
 - 最终 `git status --porcelain=v1 -uno` -> PASS, 无跟踪文件脏改动
 - 未跟踪真实 E2E 脚本安全边界核对 -> PASS, 已排除另一任务且带默认口令兜底的写数据脚本
+- MES 结构化来源字段目标用例 RED -> PASS, 首次失败确认为缺少正式迁移和稳定短 key 持久化
+- `mvn -pl yudao-module-mes "-Dtest=cn.iocoder.yudao.module.mes.MesProBatchRecordCellLinkSchemaTest,cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkServiceImplTest" test` -> PASS, 47 tests
+- `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql` -> PASS, 546 migrations
+- `pnpm ts:check` -> PASS
+- `node tests\e2e\bpm-model-approval-route-name-static.spec.js` -> PASS
+- `node tests\e2e\bpm-model-view-participants-static.spec.js` -> PASS
+- `node --check tests\e2e\registration-certificate-reminder-sort-runtime.spec.js` -> PASS
 
 ## Remaining Verification
 

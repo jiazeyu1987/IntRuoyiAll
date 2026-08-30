@@ -10,6 +10,8 @@
 - [x] 盘点当前分支、远端、暂存区、工作区变更和本地领先提交。
 - [x] 排除测试临时目录、运行日志等不应提交产物，确认提交边界。
 - [x] 提交可安全归属的当前变更。
+- [x] 补齐最终复扫发现的 MES 报工数据结构化字段 key 与字段长度正式迁移。
+- [x] 复核最终复扫发现的 BPM 审批角色展示和注册证提醒排序运行态脚本边界。
 - [x] 运行推送前门禁并推送 `int_main`。
 - [x] 复核推送后分支不再领先远端，记录最终结果。
 
@@ -20,6 +22,11 @@
 - `git diff --check`
 - `scripts\preflight\branch-runtime-port-guard.ps1`
 - GitHub 待推送对象大小扫描
+- MES 单元格链接目标用例
+- Release migration policy gate
+- `pnpm ts:check`
+- BPM 模型静态合同
+- 提醒排序运行态脚本语法检查
 - `git push origin int_main`
 - 推送后 `git status --short --branch`
 - 未跟踪真实 E2E 脚本安全边界核对
@@ -34,10 +41,10 @@
 
 ## Current Status
 
-completed - 当前代码、后续补齐变更、任务记录和收尾复扫变更已提交并推送到 `origin/int_main`；最终推送后 `HEAD...origin/int_main` 为 `0 0`。
+completed - 当前代码、最终复扫补齐变更、任务记录和收尾复扫变更已提交并推送到 `origin/int_main`；最终推送后 `HEAD...origin/int_main` 为 `0 0`。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是，提交推送前对已暴露的测试契约失败做了最小根因修正，并记录真实 E2E 缺少密码前置，未用 mock 或跳过声明替代。
+- `是否从根因和长期维护角度解决`：是，提交推送前对已暴露的测试契约失败做了最小根因修正，并记录真实 E2E 缺少密码前置和未跟踪写数据脚本边界，未用 mock 或跳过声明替代。
 - `是否存在临时补丁或绕过`：否。
