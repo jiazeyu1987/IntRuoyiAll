@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.springframework.stereotype.Service;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -20,6 +21,7 @@ import java.util.Objects;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVER_ROLE_CODE;
 
 @Service
 public class DccRegistrationCertificateAccessPolicyService {
@@ -37,6 +39,7 @@ public class DccRegistrationCertificateAccessPolicyService {
     private final DccRegistrationCertificateFileMapper fileMapper;
     private final DccRegistrationCertificateGrantMapper grantMapper;
     private final MdmCompanyScopeApi companyScopeApi;
+    private final PermissionApi permissionApi;
     private final JdbcTemplate jdbcTemplate;
 
     public DccRegistrationCertificateAccessPolicyService(
@@ -45,12 +48,14 @@ public class DccRegistrationCertificateAccessPolicyService {
             DccRegistrationCertificateFileMapper fileMapper,
             DccRegistrationCertificateGrantMapper grantMapper,
             MdmCompanyScopeApi companyScopeApi,
+            PermissionApi permissionApi,
             JdbcTemplate jdbcTemplate) {
         this.certificateMapper = require(certificateMapper, "certificateMapper");
         this.versionMapper = require(versionMapper, "versionMapper");
         this.fileMapper = require(fileMapper, "fileMapper");
         this.grantMapper = require(grantMapper, "grantMapper");
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
+        this.permissionApi = require(permissionApi, "permissionApi");
         this.jdbcTemplate = require(jdbcTemplate, "jdbcTemplate");
     }
 
@@ -69,6 +74,11 @@ public class DccRegistrationCertificateAccessPolicyService {
     }
 
     public void assertOldViewAllowed(Long tenantId, Long actorId, Long certificateId, LocalDateTime at) {
+        if (hasRegistrationManagerRole(actorId)) {
+            DccRegistrationCertificateDO certificate = requireLiveCertificate(tenantId, certificateId);
+            assertCompanyScope(actorId, certificate.getOwnerCompanyId());
+            return;
+        }
         List<DccRegistrationCertificateGrantDO> grants = grantMapper.selectByCertificate(
                 tenantId, actorId, certificateId, GRANT_TYPE_VIEW_OLD_CERTIFICATE);
         DccRegistrationCertificateGrantDO grant = selectValidGrant(grants, at);
@@ -106,6 +116,10 @@ public class DccRegistrationCertificateAccessPolicyService {
                 && FILE_KIND_REGISTRATION_CERTIFICATE.equals(file.getFileKind()))
                 || ("CHANGE".equals(file.getOwnerType())
                 && "CHANGE_APPROVAL".equals(file.getFileKind()));
+    }
+
+    private boolean hasRegistrationManagerRole(Long actorId) {
+        return actorId != null && permissionApi.hasAnyRolesOrSuperAdmin(actorId, APPROVER_ROLE_CODE);
     }
 
     private Long resolveVersionId(Long tenantId, DccRegistrationCertificateFileDO file) {

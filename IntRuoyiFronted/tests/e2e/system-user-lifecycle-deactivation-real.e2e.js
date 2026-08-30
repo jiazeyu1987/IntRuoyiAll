@@ -368,6 +368,23 @@ async function verifyLifecycleResult(page, authContext, fixture) {
   return user
 }
 
+async function deleteStaleLifecycleE2eUsers(page, authContext) {
+  const payload = await apiJson(
+    page,
+    authContext,
+    '/admin-api/system/user/page?pageNo=1&pageSize=100&username=e2eulc'
+  )
+  const data = unwrap(payload)
+  const list = Array.isArray(data?.list) ? data.list : []
+  const staleUsers = list.filter(
+    (item) => typeof item.username === 'string' && item.username.startsWith('e2eulc')
+  )
+  for (const user of staleUsers) {
+    await apiJson(page, authContext, `/admin-api/system/user/delete?id=${user.id}`, 'DELETE')
+  }
+  return staleUsers.length
+}
+
 async function deleteCreatedUser(page, authContext, userId, username) {
   await apiJson(page, authContext, `/admin-api/system/user/delete?id=${userId}`, 'DELETE')
   const payload = await apiJson(
@@ -404,6 +421,7 @@ async function main() {
     fixtureUsername: fixture.username,
     documentNo: fixture.documentNo,
     createdUserId: null,
+    preflightDeletedStaleUsers: 0,
     lifecycleRegistered: false,
     apiVerified: false,
     uiVerified: false,
@@ -422,6 +440,7 @@ async function main() {
     authContext = await login(page)
     assertUserManagementAccess(authContext.permissionInfo)
     await openSystemUserPage(page)
+    summary.preflightDeletedStaleUsers = await deleteStaleLifecycleE2eUsers(page, authContext)
     summary.createdUserId = await createUserThroughUi(page, fixture)
     await searchUserByUsername(page, fixture.username)
     await registerLifecycleDeactivationThroughUi(page, fixture)

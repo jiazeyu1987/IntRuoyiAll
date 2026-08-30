@@ -34,6 +34,14 @@
 - `git diff --check` after merge -> PASS, no whitespace errors; only line-ending normalization warnings from unrelated dirty files.
 - `task-closeout-cleanup --mode preview` after merge -> PASS, no task-owned temporary paths to delete and no blockers.
 - `task-closeout-cleanup --mode apply` after merge -> PASS, no files deleted; preserved task records.
+- `pnpm e2e:dcc:nas-original-path-sync:real` on `int_main` `8081/48081` -> FAIL before frontend confirmation-layer fix, “确认移除” click was intercepted by the active statistics dialog.
+- `pnpm e2e:dcc:nas-original-path-sync:static` after adding regression assertions -> FAIL before fix, missing `modalClass: NAS_TRANSFER_CONFIRM_MODAL_CLASS`.
+- `pnpm e2e:dcc:nas-original-path-sync:static` after fix -> PASS.
+- `node --check tests\e2e\dcc-nas-original-path-sync-real.e2e.js` after fix -> PASS.
+- `pnpm e2e:dcc:nas-original-path-sync:real` on `int_main` `8081/48081` after fix -> PASS, auditTaskId=7, auditFileId=9, syncTaskId=29.
+- Cleanup database check after post-merge E2E -> PASS, `ACTIVE_SYNC_ROWS=0`, `OPEN_FIXTURE_TASKS=0`, `OPEN_FIXTURE_FILES=0`.
+- `pnpm ts:check` after fix -> PASS.
+- Bug regression evidence validation -> PASS, `doc/tasks/20260830-nas-original-path-sync/bug-regression-evidence.md`.
 
 ## Real E2E Evidence
 
@@ -41,6 +49,15 @@
 - Screenshots: `doc/tasks/20260830-nas-original-path-sync/artifacts/nas-original-path-sync-single-before.png`, `nas-original-path-sync-single-after-sync.png`, `nas-original-path-sync-single-after-delete.png`
 - Sample file: `1. QMS documents/0 QM/2025年质量方针与目标.pdf`
 - Observed business result: before sync candidate count `1`; after sync active sync count `1` and candidate count `0`; after remove active sync count `0` and candidate count `1`.
+
+## Post-Merge Int Main Evidence
+
+- Runtime: `E:\IntRuoyi` / `int_main`, frontend `http://127.0.0.1:8081`, backend `http://127.0.0.1:48081`.
+- Runtime identity: frontend PID `31856` from `E:\IntRuoyi\IntRuoyiFronted`; backend PID `21452` from `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260830-182447.jar`.
+- Backend Jar check: nested DCC module contains `DccNasOriginalPathSyncReqVO`, `DccNasOriginalPathSyncFileDO`, `DccNasOriginalPathSyncFileMapper`, `DccNasControlAuditController`, `DccControlledFileNasTransferServiceImpl`, and `DccNasControlAuditServiceImpl`.
+- Latest result: auditTaskId `7`, auditFileId `9`, syncTaskId `29`; storage path `dcc/nas-original-path-sync/1. QMS documents/0 QM/20260830/2025年质量方针与目标.pdf`.
+- Cleanup result: no active task-owned sync rows, audit tasks, or audit files remain.
+- Evidence retention: latest cleanup preview is ready but would remove the current screenshots, evidence JSON, and bug regression evidence file, so cleanup apply was intentionally not run after this post-merge E2E.
 
 ## Result
 

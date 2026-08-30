@@ -177,7 +177,9 @@ export const useProfileWorkbenchTodoBadgeStore = defineStore('profileWorkbenchTo
     lastLoadedAt: 0
   }),
   getters: {
-    getTodoBadgeText: (state) => (state.loaded ? String(state.todoTotal) : '')
+    getHasVisibleTodoBadge: (state) => state.loaded && state.todoTotal > 0,
+    getTodoBadgeText: (state) =>
+      state.loaded && state.todoTotal > 0 ? String(state.todoTotal) : ''
   },
   actions: {
     applyTodoTotal(total: unknown) {

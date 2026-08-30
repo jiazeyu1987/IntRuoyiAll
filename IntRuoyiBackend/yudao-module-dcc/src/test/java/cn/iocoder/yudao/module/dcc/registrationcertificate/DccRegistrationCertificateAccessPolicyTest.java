@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistra
 import cn.iocoder.yudao.module.dcc.registrationcertificate.dal.mysql.DccRegistrationCertificateVersionMapper;
 import cn.iocoder.yudao.module.dcc.registrationcertificate.service.accesspolicy.DccRegistrationCertificateAccessPolicyService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,11 +30,13 @@ import java.time.LocalDateTime;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_REVOKED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID;
+import static cn.iocoder.yudao.module.dcc.registrationcertificate.service.approval.DccRegistrationCertificateApprovalContract.APPROVER_ROLE_CODE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Import({DccRegistrationCertificateAccessPolicyService.class,
         DccRegistrationCertificateAccessPolicyTest.JdbcTestConfiguration.class})
@@ -59,10 +62,12 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
     private DccRegistrationCertificateGrantMapper grantMapper;
     @MockitoBean
     private MdmCompanyScopeApi companyScopeApi;
+    @MockitoBean
+    private PermissionApi permissionApi;
 
     @BeforeEach
     void setUp() {
-        reset(companyScopeApi);
+        reset(companyScopeApi, permissionApi);
     }
 
     @Test
@@ -95,6 +100,34 @@ class DccRegistrationCertificateAccessPolicyTest extends BaseDbUnitTest {
                 () -> accessPolicyService.assertOldViewAllowed(1L, 99L, fixture.certificateId(), grantedAt.plusHours(24)));
 
         assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED.getCode(), expired.getCode());
+    }
+
+    @Test
+    void oldViewAllowsRegistrationManagerRoleWithoutGrant() {
+        FormalFixture fixture = seedFormal("EXPIRED_UNRENEWED", "OLD", "BOUND");
+        LocalDateTime viewedAt = LocalDateTime.of(2026, 8, 30, 10, 0);
+        when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
+
+        accessPolicyService.assertOldViewAllowed(1L, 99L, fixture.certificateId(), viewedAt);
+
+        verify(permissionApi).hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE);
+        verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+    }
+
+    @Test
+    void oldViewRegistrationManagerRoleStillRequiresCompanyScope() {
+        FormalFixture fixture = seedFormal("EXPIRED_UNRENEWED", "OLD", "BOUND");
+        LocalDateTime viewedAt = LocalDateTime.of(2026, 8, 30, 10, 0);
+        when(permissionApi.hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE)).thenReturn(true);
+        doThrow(new ServiceException(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID))
+                .when(companyScopeApi).validateUserCompanyAccess(99L, 10L);
+
+        ServiceException denied = assertThrows(ServiceException.class,
+                () -> accessPolicyService.assertOldViewAllowed(1L, 99L, fixture.certificateId(), viewedAt));
+
+        assertEquals(REGISTRATION_CERTIFICATE_ACCESS_GRANT_SCOPE_INVALID.getCode(), denied.getCode());
+        verify(permissionApi).hasAnyRolesOrSuperAdmin(99L, APPROVER_ROLE_CODE);
+        verify(companyScopeApi).validateUserCompanyAccess(99L, 10L);
     }
 
     @Test

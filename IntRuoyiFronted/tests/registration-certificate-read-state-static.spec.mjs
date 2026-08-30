@@ -90,7 +90,7 @@ assert.equal(
 )
 for (const tableKey of [
   'dcc.registrationCertificate.current.actionsCompactV3',
-  'dcc.registrationCertificate.old.actionsWideV2'
+  'dcc.registrationCertificate.old.actionsCompactV3'
 ]) {
   assert.match(
     index,

@@ -335,26 +335,18 @@
                   label="操作"
                   align="center"
                   fixed="right"
-                  :width="getOldColumnWidthString('actions', 420)"
+                  :width="getOldColumnWidthString('actions', 210)"
                 >
                   <template #default="{ row }">
-                    <div class="registration-certificate-row-actions">
+                    <div class="registration-certificate-row-actions registration-certificate-row-actions--compact registration-certificate-row-actions--old-manager-view">
                       <el-button link type="primary" @click="openOldDetail(row.certificateId, row.versionId)">
                         详情
                       </el-button>
+                      <el-button v-hasRole="['dcc_registration_certificate_approver']" link type="success" @click="openOldDirectView(row.certificateId, row.versionId)">
+                        查看
+                      </el-button>
                       <el-button link type="warning" @click="openOldAccessRequest(row.certificateId)">
                         申请查看
-                      </el-button>
-                      <el-button link type="primary" @click="openLinkedProductManagement(row.productMasterId)">
-                        产品
-                      </el-button>
-                      <el-button
-                        v-if="row.projectCodeId"
-                        link
-                        type="primary"
-                        @click="openLinkedProjectCodeManagement(row.projectCodeId)"
-                      >
-                        项目代码
                       </el-button>
                     </div>
                   </template>
@@ -432,7 +424,7 @@ const showUploadDialog = ref(false)
 const showRenewalDialog = ref(false)
 const selectedRenewalCertificate = ref<DccRegistrationCertificatePageItemVO>()
 const CURRENT_TABLE_KEY = 'dcc.registrationCertificate.current.actionsCompactV3'
-const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.actionsWideV2'
+const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.actionsCompactV3'
 
 type RegistrationCertificatePageQuery = DccRegistrationCertificatePageReqVO &
   Required<Pick<PageParam, 'pageNo' | 'pageSize'>>
@@ -504,7 +496,7 @@ const oldColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'versionNo', label: '版本', width: 90 },
   { key: 'status', label: '状态', width: 130 },
   { key: 'expiryDate', label: '原有效期至', width: 140 },
-  { key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false }
+  { key: 'actions', label: '操作', width: 210, hideable: false, business: false, sortable: false }
 ]
 
 const {
@@ -868,22 +860,12 @@ const openOldDetail = (certificateId: number | string, versionId: number | strin
   })
 }
 
+const openOldDirectView = (certificateId: number | string, versionId: number | string) => {
+  openOldDetail(certificateId, versionId)
+}
+
 const openOldAccessRequest = (certificateId: number | string) => {
   router.push('/mdm/registration-certificate/detail/' + String(certificateId) + '?mode=access-request')
-}
-
-const openLinkedProductManagement = (productMasterId: number | string) => {
-  router.push({
-    path: '/mdm/product',
-    query: { productMasterId: String(productMasterId) }
-  })
-}
-
-const openLinkedProjectCodeManagement = (projectCodeId: number | string) => {
-  router.push({
-    path: '/mdm/project-code',
-    query: { projectCodeId: String(projectCodeId) }
-  })
 }
 
 const openUploadDialog = () => {
@@ -1028,6 +1010,11 @@ watch(
 
 .registration-certificate-row-actions--compact {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.registration-certificate-row-actions--old-manager-view {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
 }
 

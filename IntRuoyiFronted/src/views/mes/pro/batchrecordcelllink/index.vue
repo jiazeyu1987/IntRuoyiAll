@@ -610,6 +610,8 @@ const filteredProcessPoolReportSourceFields = computed(() => {
     field.routeProcessId === null ||
     field.routeProcessId === targetRouteProcessId
   ).filter((field) =>
+    !isProcessPoolDeviceParameterMetadataSourceField(field)
+  ).filter((field) =>
     !isProcessPoolDeviceSourceField(field) ||
     (isProcessPoolDeviceGroupSourceField(field)
       ? Boolean(field.deviceName)
@@ -1495,8 +1497,18 @@ function parseNumber(value: unknown): number | undefined {
 function isProcessPoolDeviceSourceField(field: BatchRecordCellLinkSourceFieldVO) {
   return field.fieldCode.startsWith('selectedDevice.') ||
     field.fieldCode.startsWith('deviceMeteringValidity.') ||
-    field.fieldCode.startsWith('deviceParameterReadings.') ||
-    field.fieldCode.startsWith('equipmentParameterRules.')
+    isProcessPoolDeviceParameterValueSourceField(field)
+}
+
+function isProcessPoolDeviceParameterValueSourceField(field: BatchRecordCellLinkSourceFieldVO) {
+  return field.fieldCode.startsWith('deviceParameterReadings.') &&
+    field.fieldCode.includes('.value@deviceGroup:')
+}
+
+function isProcessPoolDeviceParameterMetadataSourceField(field: BatchRecordCellLinkSourceFieldVO) {
+  return field.fieldCode.startsWith('equipmentParameterRules.') ||
+    (field.fieldCode.startsWith('deviceParameterReadings.') &&
+      !isProcessPoolDeviceParameterValueSourceField(field))
 }
 
 function isProcessPoolDeviceGroupSourceField(field: BatchRecordCellLinkSourceFieldVO) {

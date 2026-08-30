@@ -14,6 +14,8 @@ BDD: 同步全部不受当前页限制 -> Given NAS 统计任务共有多页未�
 
 BDD: 源文件签名不一致时失败 -> Given 用户选择的 NAS 文件在统计后已发生大小或更新时间变化，When 用户发起原路径同步，Then 系统拒绝该文件同步并提示源文件已变化，不能静默写入旧识别结果。
 
+BDD: 融合后主干单文件同步移除确认可点击 -> Given NAS 原路径同步功能已融合到 `int_main`，且统计弹窗中存在一个已同步文件，When 用户点击“移除同步记录”并看到确认弹窗，Then 确认弹窗必须显示在统计弹窗上方，用户可以真实点击“确认移除”，并完成 0 -> 1 的统计恢复闭环。
+
 ## Command Log
 
 - 读取 worktree、端口、后端、前端、数据库、PowerShell、E2E 和任务收尾规则，用于本次实现约束。
@@ -99,6 +101,28 @@ GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_
 
 GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260830-nas-original-path-sync --mode apply` after merge -> PASS, no files deleted; preserved task, execution log, and verification report.
 
+RED: `DCC_NAS_ORIGINAL_PATH_SYNC_BASE_URL=http://127.0.0.1:8081 DCC_NAS_ORIGINAL_PATH_SYNC_BACKEND_HEALTH_URL=http://127.0.0.1:48081/actuator/health pnpm e2e:dcc:nas-original-path-sync:real` on `int_main` -> FAIL, Playwright completed the single-file sync half but could not click the “确认移除” button because the confirmation message box rendered beneath the active statistics dialog; failure screenshot saved as `doc/tasks/20260830-nas-original-path-sync/artifacts/nas-original-path-sync-single-failure.png`.
+
+RED: `pnpm e2e:dcc:nas-original-path-sync:static` after adding confirmation-layer regression assertions -> FAIL, `confirmNasOriginalPathSyncAll` and `handleDeleteNasOriginalPathSyncFile` did not pass `modalClass: NAS_TRANSFER_CONFIRM_MODAL_CLASS`.
+
+GREEN: NAS original-path confirmation layer fix -> PASS, added `modalClass: NAS_TRANSFER_CONFIRM_MODAL_CLASS` to the sync-all and delete confirmations and raised `.nas-transfer-confirm-message-box-overlay` to `z-index: 4000 !important`.
+
+GREEN: `pnpm e2e:dcc:nas-original-path-sync:static` -> PASS after the confirmation-layer fix.
+
+GREEN: `node --check tests\e2e\dcc-nas-original-path-sync-real.e2e.js` -> PASS after the confirmation-layer fix.
+
+GREEN: `DCC_NAS_ORIGINAL_PATH_SYNC_BASE_URL=http://127.0.0.1:8081 DCC_NAS_ORIGINAL_PATH_SYNC_BACKEND_HEALTH_URL=http://127.0.0.1:48081/actuator/health pnpm e2e:dcc:nas-original-path-sync:real` on `int_main` -> PASS, auditTaskId=7, auditFileId=9, syncTaskId=29; before candidate count `1`, after sync active count `1` and candidate count `0`, after remove active count `0` and candidate count `1`.
+
+GREEN: `docker exec ... mysql readonly cleanup counts` after post-merge E2E -> PASS, `ACTIVE_SYNC_ROWS=0`, `OPEN_FIXTURE_TASKS=0`, `OPEN_FIXTURE_FILES=0`.
+
+GREEN: `pnpm ts:check` after confirmation-layer fix -> PASS.
+
+GREEN: bug-regression evidence validation -> PASS, `doc/tasks/20260830-nas-original-path-sync/bug-regression-evidence.md` satisfies the required RED/GREEN/Verification/Blockers structure.
+
+GREEN: project experience consolidation -> PASS, merged nested business dialog confirmation-layer rule into `docs/frontend-development.md`.
+
+PREVIEW: `task-closeout-cleanup --mode preview` after post-merge E2E -> READY, but delete candidates include the current E2E screenshots, evidence JSON, and bug regression evidence file; apply was intentionally not run so the user can inspect this verification evidence.
+
 ## Milestone Updates
 
 - 启动：已创建合规 worktree 与任务文档。
@@ -115,6 +139,9 @@ GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_
 - 最终融合：任务分支重新 rebase 到主干基线后，`int_main` 已 fast-forward 到 `733bcddb1`，NAS 原路径同步功能已进入主干。
 - 合并后验证：NAS 静态合同、真实 E2E 脚本语法、端口守卫和 diff 检查通过。
 - 收尾记录：task-closeout-cleanup preview/apply 已通过且无删除项；任务状态更新为 `completed`；未执行 push；任务 worktree 保留，避免在主工作区仍有无关脏文件时扩大清理范围。
+- 融合后主干 E2E：首次主干真实 E2E 暴露“移除同步记录”确认框层级低于统计弹窗，已用静态合同 RED 复现并修复。
+- 融合后主干复验：`int_main` 真实单文件 E2E 在 `8081/48081` 通过，证明同步 1 个后统计候选 1 -> 0，移除后恢复 0 -> 1，且任务自有数据清理为 0。
+- 证据保留：最新 cleanup preview 会删除本轮截图、JSON 和 bug 回归证据；为便于用户查看本次 E2E 证据，未执行 cleanup apply。
 
 ## Blockers
 

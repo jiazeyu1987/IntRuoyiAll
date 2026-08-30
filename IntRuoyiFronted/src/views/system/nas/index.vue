@@ -1746,7 +1746,8 @@ const confirmNasOriginalPathSyncAll = async () => {
       {
         confirmButtonText: '确认同步',
         cancelButtonText: '取消',
-        type: 'warning'
+        type: 'warning',
+        modalClass: NAS_TRANSFER_CONFIRM_MODAL_CLASS
       }
     )
     return true
@@ -1780,7 +1781,8 @@ const handleDeleteNasOriginalPathSyncFile = async (row: DccNasControlAuditFileRe
     await ElMessageBox.confirm('移除后，下次重新统计时该 NAS 文件会重新计入未受控数量。', '移除同步记录', {
       confirmButtonText: '确认移除',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
+      modalClass: NAS_TRANSFER_CONFIRM_MODAL_CLASS
     })
   } catch {
     return
@@ -2457,6 +2459,6 @@ onUnmounted(() => {
 
 <style scoped>
 :global(.nas-transfer-confirm-message-box-overlay) {
-  z-index: 3200 !important;
+  z-index: 4000 !important;
 }
 </style>

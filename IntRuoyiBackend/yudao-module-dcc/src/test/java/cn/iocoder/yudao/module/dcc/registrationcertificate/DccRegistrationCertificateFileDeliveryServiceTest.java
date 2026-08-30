@@ -31,6 +31,7 @@ import cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -108,10 +109,12 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     private DccProjectCodeService projectCodeService;
     @MockitoBean
     private FileService fileService;
+    @MockitoBean
+    private PermissionApi permissionApi;
 
     @BeforeEach
     void setUp() {
-        reset(companyScopeApi, projectCodeService, fileService);
+        reset(companyScopeApi, projectCodeService, fileService, permissionApi);
     }
 
     @Test

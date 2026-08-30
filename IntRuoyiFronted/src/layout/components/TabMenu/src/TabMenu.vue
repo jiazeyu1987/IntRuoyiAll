@@ -45,10 +45,13 @@ export default defineComponent({
     const tabRouters = computed(() => unref(routers).filter((v) => !v?.meta?.hidden))
 
     const shouldShowApprovalTodoBadge = (meta?: AppRouteRecordRaw['meta']) =>
-      Boolean(meta?.approvalTodoBadge && approvalTodoBadgeStore.loaded)
+      Boolean(meta?.approvalTodoBadge && approvalTodoBadgeStore.getHasVisibleTodoBadge)
 
     const shouldShowProfileWorkbenchTodoBadge = (meta?: AppRouteRecordRaw['meta']) =>
-      Boolean(meta?.personalWorkbenchTodoBadge && profileWorkbenchTodoBadgeStore.loaded)
+      Boolean(
+        meta?.personalWorkbenchTodoBadge &&
+          profileWorkbenchTodoBadgeStore.getHasVisibleTodoBadge
+      )
 
     const reportApprovalTodoBadgeError = (error: unknown) => {
       console.error('审批待办数量加载失败', error)

@@ -81,6 +81,11 @@ assert.doesNotMatch(
 )
 assert.match(badgeStore, /throw error/, 'badge store must rethrow load failures instead of swallowing them')
 assert.doesNotMatch(badgeStore, /mock|fallback|降级|吞异常/i, 'badge store must not use mock or fallback counts')
+assert.match(
+  badgeStore,
+  /getHasVisibleTodoBadge:\s*\(state\)\s*=>\s*state\.loaded\s*&&\s*state\.todoTotal\s*>\s*0/,
+  'badge store must expose a positive-count visibility getter so zero does not render'
+)
 
 for (const [source, label] of [
   [menuTitle, 'left menu title renderer'],
@@ -104,12 +109,12 @@ assert.match(
 )
 assert.match(
   tagsView,
-  /isApprovalTodoBadgeTagsViewItem\(item\)[\s\S]*item\?\.meta\?\.approvalTodoBadge[\s\S]*approvalTodoBadgeStore\.loaded/,
-  'top tags view must require the exact TODO route before rendering the todo badge'
+  /isApprovalTodoBadgeTagsViewItem\(item\)[\s\S]*item\?\.meta\?\.approvalTodoBadge[\s\S]*approvalTodoBadgeStore\.getHasVisibleTodoBadge/,
+  'top tags view must require the exact TODO route and a positive count before rendering the todo badge'
 )
 assert.doesNotMatch(
   tagsView,
-  /const\s+shouldShowApprovalTodoBadge\s*=\s*\(item:\s*RouteLocationNormalizedLoaded\)\s*=>\s*\n\s*Boolean\(item\?\.meta\?\.approvalTodoBadge\s*&&\s*approvalTodoBadgeStore\.loaded\)/,
+  /const\s+shouldShowApprovalTodoBadge\s*=\s*\(item:\s*RouteLocationNormalizedLoaded\)\s*=>\s*\n\s*Boolean\(item\?\.meta\?\.approvalTodoBadge\s*&&\s*approvalTodoBadgeStore\.getHasVisibleTodoBadge\)/,
   'top tags view must not render badges from parent-merged approvalTodoBadge meta on manager pages'
 )
 

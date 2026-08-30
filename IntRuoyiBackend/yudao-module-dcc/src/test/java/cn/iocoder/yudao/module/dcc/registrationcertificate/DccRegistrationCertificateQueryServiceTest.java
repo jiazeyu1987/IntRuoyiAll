@@ -30,6 +30,7 @@ import cn.iocoder.yudao.module.dcc.service.file.DccRequestAuditContext;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
@@ -107,10 +108,12 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     private MdmCompanyScopeApi companyScopeApi;
     @MockitoBean
     private MdmEnterpriseApi enterpriseApi;
+    @MockitoBean
+    private PermissionApi permissionApi;
 
     @BeforeEach
     void setUp() {
-        reset(companyScopeApi, enterpriseApi);
+        reset(companyScopeApi, enterpriseApi, permissionApi);
     }
 
     @Test

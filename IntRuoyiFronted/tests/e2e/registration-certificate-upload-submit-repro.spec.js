@@ -236,7 +236,6 @@ test('upload submit succeeds without SkyWalking trace id', async ({ page }, test
   const allowedLabels = [
     'DCC项目代码',
     '公司名称',
-    '项目代码',
     '产品名称',
     '注册证号',
     '类别',
@@ -255,32 +254,24 @@ test('upload submit succeeds without SkyWalking trace id', async ({ page }, test
   for (const legacyLabel of ['批注日期', '变更内容', '变更后内容', '注册人名称', '型号规格', '生产地址']) {
     expect(visibleLabels).not.toContain(legacyLabel)
   }
-  const projectCodeLoad = page.waitForResponse(
-    (response) =>
-      response.url().includes('/dcc/project-codes/page') && response.request().method() === 'GET',
-    { timeout: 60000 }
-  )
-  await dialog.locator('.el-select input[role="combobox"], .el-select__input').first().click()
-  await projectCodeLoad
-  const projectCodeOption = page
-    .locator(
-      '.el-popper[aria-hidden="false"] .el-select-dropdown__item:not(.is-disabled), .el-select-dropdown:visible .el-select-dropdown__item:not(.is-disabled)'
-    )
-    .first()
-  await projectCodeOption.waitFor({ state: 'visible', timeout: 30000 })
-  await projectCodeOption.click()
 
   const certificateNo = `REGCERT-NET-ERROR-${Date.now()}-${testInfo.workerIndex}`
+  const productName = `注册证上传回归产品-${Date.now()}-${testInfo.workerIndex}`
   const pdfPath = testInfo.outputPath('registration-certificate-upload-repro.pdf')
   fs.writeFileSync(pdfPath, Buffer.from('%PDF-1.4\n% Codex repro file\n', 'utf8'))
   await dialog.locator('input[type="file"]').setInputFiles(pdfPath)
-  await dialog.locator('input[placeholder="请输入公司名称"]').fill(config.uploadCompanyName)
+  const ownerCompanyText = await selectFirstOptionFromSelect(
+    page,
+    dialog.locator('[data-testid="registration-certificate-upload-owner-company"]')
+  )
+  expect(ownerCompanyText).toBeTruthy()
+  await dialog.locator('input[placeholder="请输入产品名称"]').fill(productName)
   await dialog.locator('input[placeholder="请输入注册证号"]').fill(certificateNo)
   const dateInputs = dialog.locator('input[placeholder="请选择日期"]')
   await dateInputs.nth(0).fill('2025-01-01')
   await dateInputs.nth(1).fill('2025-01-02')
   await dateInputs.nth(2).fill('2026-01-01')
-  await dialog.locator('input[placeholder="请输入类别"]').fill('A类')
+  await selectDialogOption(page, dialog, '类别', '三类')
   await dialog.locator('textarea[placeholder="请输入备注"]').fill('network error repro')
   await dialog.locator('textarea[placeholder="请输入备注"]').blur()
 
@@ -351,16 +342,19 @@ test('upload submit succeeds without SkyWalking trace id', async ({ page }, test
       response.url().includes('/approval-center/tasks/page') &&
       response.request().method() === 'GET',
     { timeout: 60000 }
-  )
+  ).catch((error) => ({ error }))
   await saveButton.click()
   const uploadResponse = await uploadResponsePromise
   const uploadPayload = await readJsonResponse(uploadResponse)
-  const approvalCenterLoadResponse = await approvalCenterLoadPromise
-  const approvalCenterLoadPayload = await readJsonResponse(approvalCenterLoadResponse)
 
   console.log(JSON.stringify(events, null, 2))
   expect(uploadResponse.ok(), `upload HTTP status ${uploadResponse.status()}`).toBe(true)
   expect(uploadPayload.code, `upload business code ${uploadPayload.code}: ${uploadPayload.msg || ''}`).toBe(0)
+  const approvalCenterLoadResponse = await approvalCenterLoadPromise
+  if (approvalCenterLoadResponse.error) {
+    throw approvalCenterLoadResponse.error
+  }
+  const approvalCenterLoadPayload = await readJsonResponse(approvalCenterLoadResponse)
   expect(approvalCenterLoadResponse.ok(), `approval-center HTTP status ${approvalCenterLoadResponse.status()}`).toBe(true)
   expect(
     approvalCenterLoadPayload.code,

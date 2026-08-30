@@ -282,7 +282,7 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
-  <Dialog title="流程审批路线" v-model="viewDetailVisible" width="520">
+  <Dialog :title="modelApprovalRouteDialogTitle" v-model="viewDetailVisible" width="520">
     <div
       v-if="selectedModel"
       v-loading="modelDetailLoading"
@@ -695,6 +695,17 @@ const formatParticipantNode = (nodeName?: string, ruleText?: string) => {
   return `节点：${name}\n审批对象：${text}`
 }
 
+const formatApprovalRouteParticipant = (participantText: string, routeName?: string) => {
+  const approvalRouteName = routeName?.trim() || '未配置审批路线名称'
+  const approvalObjectLine = participantText
+    .split('\n')
+    .map((item) => item.trim())
+    .find((item) => item.startsWith('审批对象：'))
+  return approvalObjectLine
+    ? `审批路线：${approvalRouteName}\n${approvalObjectLine}`
+    : `审批路线：${approvalRouteName}`
+}
+
 const selectParticipantSource = (primaryItems: string[], fallbackItems: string[]) => {
   return primaryItems.length > 0 ? primaryItems : fallbackItems
 }
@@ -772,6 +783,7 @@ const modelViewParticipants = computed(() => {
   const model = selectedModel.value
   const simpleParticipants = collectSimpleModelParticipants(model?.simpleModel)
   const bpmnParticipants = parseBpmnUserTaskParticipants(model?.bpmnXml)
+  const approvalRouteName = resolveModelDisplayName(model)
   return {
     starter: formatStartParticipants(model),
     reviewer: formatParticipantList(
@@ -779,7 +791,9 @@ const modelViewParticipants = computed(() => {
       '未配置审核环节'
     ),
     approver: formatParticipantList(
-      selectParticipantSource(simpleParticipants.approvers, bpmnParticipants.approvers),
+      selectParticipantSource(simpleParticipants.approvers, bpmnParticipants.approvers).map((item) =>
+        formatApprovalRouteParticipant(item, approvalRouteName)
+      ),
       '未配置批准环节'
     )
   }
@@ -802,6 +816,11 @@ const modelApprovalRouteSteps = computed(() => [
     value: modelViewParticipants.value.approver
   }
 ])
+
+const modelApprovalRouteDialogTitle = computed(() => {
+  const approvalRouteName = resolveModelDisplayName(selectedModel.value)
+  return approvalRouteName ? `审批路线：${approvalRouteName}` : '流程审批路线'
+})
 
 const openModelView = async (row: ModelInfo) => {
   modelDetailLoading.value = true

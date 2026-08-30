@@ -15,8 +15,8 @@ assert.match(
 )
 assert.match(
   list,
-  /const OLD_TABLE_KEY = 'dcc\.registrationCertificate\.old\.actionsWideV2'/,
-  'old registration-certificate table key must stay unchanged because the compact two-action requirement only applies to the current certificate list'
+  /const OLD_TABLE_KEY = 'dcc\.registrationCertificate\.old\.actionsCompactV3'/,
+  'old registration-certificate table must use a new versioned key so old widened widths do not override the compact operation column'
 )
 assert.match(
   list,
@@ -49,8 +49,8 @@ assert.match(
 )
 assert.match(
   oldColumns,
-  /\{ key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false \}/,
-  'old registration-certificate action column must keep its existing 420px default'
+  /\{ key: 'actions', label: '操作', width: 210, hideable: false, business: false, sortable: false \}/,
+  'old registration-certificate action column must default to half of the previous 420px width'
 )
 
 assert.match(
@@ -60,8 +60,8 @@ assert.match(
 )
 assert.match(
   list,
-  /:width="getOldColumnWidthString\('actions', 420\)"/,
-  'old registration-certificate action column must keep the existing 420px fallback'
+  /:width="getOldColumnWidthString\('actions', 210\)"/,
+  'old registration-certificate action column must render with the compact 210px fallback'
 )
 
 const extractActionPanel = (source, visibilityToken) => {
@@ -104,8 +104,33 @@ assert.doesNotMatch(
 )
 assert.match(
   oldActionPanel,
-  /<div class="registration-certificate-row-actions">/,
-  'old registration-certificate action panel must keep its existing row-actions container'
+  /<div class="registration-certificate-row-actions registration-certificate-row-actions--compact registration-certificate-row-actions--old-manager-view">/,
+  'old registration-certificate action panel must use the manager-view row-actions container'
+)
+assert.equal(
+  (oldActionPanel.match(/<el-button\b/g) ?? []).length,
+  3,
+  'old registration-certificate action panel must render exactly three buttons'
+)
+assert.match(
+  oldActionPanel,
+  /<el-button link type="primary" @click="openOldDetail\(row\.certificateId,\s*row\.versionId\)">\s*详情\s*<\/el-button>/,
+  'old registration-certificate action panel must keep the detail action and handler'
+)
+assert.match(
+  oldActionPanel,
+  /<el-button\s+v-hasRole="\['dcc_registration_certificate_approver'\]"\s+link\s+type="success"\s+@click="openOldDirectView\(row\.certificateId,\s*row\.versionId\)">\s*查看\s*<\/el-button>/,
+  'old registration-certificate action panel must show direct old-certificate view only for the registration-manager role'
+)
+assert.match(
+  oldActionPanel,
+  /<el-button link type="warning" @click="openOldAccessRequest\(row\.certificateId\)">\s*申请查看\s*<\/el-button>/,
+  'old registration-certificate action panel must keep the old-certificate access request action and handler'
+)
+assert.doesNotMatch(
+  oldActionPanel,
+  />\s*(产品|项目代码)\s*</,
+  'old registration-certificate action panel must remove the red-box product and project-code actions'
 )
 
 assert.match(
@@ -117,6 +142,11 @@ assert.match(
   list,
   /\.registration-certificate-row-actions--compact\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);[\s\S]*gap:\s*4px;/,
   'current registration-certificate compact row actions must use a two-column grid'
+)
+assert.match(
+  list,
+  /\.registration-certificate-row-actions--old-manager-view\s*\{[\s\S]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);[\s\S]*gap:\s*4px;/,
+  'old registration-certificate manager-view row actions must use a three-column grid inside the compact operation column'
 )
 assert.match(
   list,

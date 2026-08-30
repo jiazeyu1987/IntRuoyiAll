@@ -93,7 +93,7 @@
                     </span>
                   </div>
                   <div
-                    v-if="row.moduleCode === 'DCC' && row.businessContextTags?.length"
+                    v-if="row.businessContextTags?.length"
                     class="approval-center__dcc-context"
                     data-testid="approval-center-dcc-business-context"
                   >
@@ -530,6 +530,8 @@ const APPROVAL_BUSINESS_KEY_PREFIX_LABELS: Record<string, string> = {
 }
 
 const ENGLISH_LETTER_PATTERN = /[A-Za-z]/
+const CHINESE_CHARACTER_PATTERN = /[\u4e00-\u9fff]/
+const BUSINESS_CONTEXT_CODE_PATTERN = /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9._/-]*$/
 
 const modules = ref<ApprovalProviderDescriptorVO[]>([])
 const list = ref<ApprovalTaskSummaryVO[]>([])
@@ -1130,6 +1132,10 @@ const normalizeApprovalDisplayText = (value?: string | number | null) => {
 
 const containsEnglishLetters = (value: string) => ENGLISH_LETTER_PATTERN.test(value)
 
+const containsChineseCharacters = (value: string) => CHINESE_CHARACTER_PATTERN.test(value)
+
+const isBusinessContextCode = (value: string) => BUSINESS_CONTEXT_CODE_PATTERN.test(value)
+
 const resolveMappedApprovalText = (
   value: string | undefined | null,
   labels: Record<string, string>,
@@ -1172,13 +1178,15 @@ const resolveBusinessTitleLabel = (row: ApprovalTaskSummaryVO | undefined) => {
     (result, [englishTitle, chineseTitle]) => result.replaceAll(englishTitle, chineseTitle),
     rawTitle
   )
-  return containsEnglishLetters(replacedTitle) ? '未配置中文标题' : replacedTitle
+  return containsEnglishLetters(replacedTitle) && !containsChineseCharacters(replacedTitle)
+    ? '未配置中文标题'
+    : replacedTitle
 }
 
-const resolveBusinessIdentifierLabel = (row: ApprovalTaskSummaryVO) => {
+const resolveBusinessIdentifierValueLabel = (row: ApprovalTaskSummaryVO) => {
   const businessCode = normalizeApprovalDisplayText(row.businessCode)
   if (businessCode) {
-    return containsEnglishLetters(businessCode) ? '业务编号已配置' : businessCode
+    return businessCode
   }
   const businessKey = normalizeApprovalDisplayText(row.businessKey)
   if (businessKey) {
@@ -1191,6 +1199,14 @@ const resolveBusinessIdentifierLabel = (row: ApprovalTaskSummaryVO) => {
   }
   const sourceTaskId = normalizeApprovalDisplayText(row.sourceTaskId)
   return containsEnglishLetters(sourceTaskId) ? '任务编号已配置' : sourceTaskId || EMPTY_APPROVAL_DISPLAY
+}
+
+const resolveBusinessIdentifierLabel = (row: ApprovalTaskSummaryVO) => {
+  const businessCode = normalizeApprovalDisplayText(row.businessCode)
+  if (businessCode) {
+    return `业务编号：${businessCode}`
+  }
+  return resolveBusinessIdentifierValueLabel(row)
 }
 
 const resolveNodeNameLabel = (row: ApprovalTaskSummaryVO) => {
@@ -1228,7 +1244,11 @@ const resolveBusinessContextValueLabel = (value: string, missingLabel: string) =
     (result, [englishTitle, chineseTitle]) => result.replaceAll(englishTitle, chineseTitle),
     text
   )
-  return containsEnglishLetters(replacedText) ? missingLabel : replacedText
+  return containsEnglishLetters(replacedText)
+    && !containsChineseCharacters(replacedText)
+    && !isBusinessContextCode(replacedText)
+    ? missingLabel
+    : replacedText
 }
 
 const normalizeDccContextTag = (tag: string) => tag.replace(/^[^:：]+[:：]\s*/, '').trim()
@@ -1257,7 +1277,7 @@ const findDccContextTagValue = (row: ApprovalTaskSummaryVO, patterns: RegExp[]) 
 const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => [
   {
     label: '文件编号',
-    value: resolveBusinessIdentifierLabel(row)
+    value: resolveBusinessIdentifierValueLabel(row)
   },
   {
     label: '版本',

@@ -279,8 +279,8 @@ function deviceGroupedParameterFields(sourceFields) {
   return sourceFields.filter(
     (field) =>
       isDeviceGroupSourceField(field) &&
-      (field.fieldCode.startsWith('deviceParameterReadings.') ||
-        field.fieldCode.startsWith('equipmentParameterRules.'))
+      field.fieldCode.startsWith('deviceParameterReadings.') &&
+      field.fieldCode.includes('.value@deviceGroup:')
   )
 }
 
@@ -290,9 +290,18 @@ function unscopedParameterFields(sourceFields) {
       field &&
       field.sourceType === 'PROCESS_POOL_REPORT' &&
       typeof field.fieldCode === 'string' &&
-      (field.fieldCode.startsWith('deviceParameterReadings.') ||
-        field.fieldCode.startsWith('equipmentParameterRules.')) &&
+      field.fieldCode.startsWith('deviceParameterReadings.') &&
       !field.fieldCode.includes('@deviceGroup:')
+  )
+}
+
+function deviceGroupedParameterMetadataFields(sourceFields) {
+  return sourceFields.filter(
+    (field) =>
+      isDeviceGroupSourceField(field) &&
+      typeof field.fieldCode === 'string' &&
+      (field.fieldCode.startsWith('equipmentParameterRules.') ||
+        (field.fieldCode.startsWith('deviceParameterReadings.') && !field.fieldCode.includes('.value@deviceGroup:')))
   )
 }
 
@@ -365,6 +374,7 @@ async function findCandidateForProject(page, projectCode, diagnostics) {
     const sourceFields = selectedProcessSourceFields(processContext, processId)
     const devices = requiredDeviceGroups(sourceFields)
     const parameterFields = deviceGroupedParameterFields(sourceFields)
+    const metadataParameterFields = deviceGroupedParameterMetadataFields(sourceFields)
     const genericParameterFields = unscopedParameterFields(sourceFields)
     if (!devices.length) {
       diagnostics.push({
@@ -392,6 +402,16 @@ async function findCandidateForProject(page, projectCode, diagnostics) {
         sourceFieldCount: sourceFields.length,
         deviceCount: devices.length,
         message: 'no_device_scoped_parameter_fields'
+      })
+      continue
+    }
+    if (metadataParameterFields.length) {
+      diagnostics.push({
+        projectCodeId,
+        processId,
+        sourceFieldCount: sourceFields.length,
+        message: 'device_parameter_metadata_fields_visible',
+        fields: metadataParameterFields.map((field) => field.fieldCode).slice(0, 8)
       })
       continue
     }
@@ -547,6 +567,7 @@ async function main() {
     const selectedSourceFields = selectedProcessSourceFields(processPayload.data || {}, candidate.process.id)
     const selectedDevices = requiredDeviceGroups(selectedSourceFields)
     const selectedParameterFields = deviceGroupedParameterFields(selectedSourceFields)
+    const selectedParameterMetadataFields = deviceGroupedParameterMetadataFields(selectedSourceFields)
     const selectedGenericParameterFields = unscopedParameterFields(selectedSourceFields)
     assert.ok(selectedDevices.length > 0, 'selected_process_has_no_real_device_group_source_fields')
     assert.deepEqual(
@@ -555,6 +576,11 @@ async function main() {
       'selected_process_must_not_expose_unscoped_device_group_parameter_fields'
     )
     assert.ok(selectedParameterFields.length > 0, 'selected_process_has_no_device_grouped_parameter_fields')
+    assert.deepEqual(
+      selectedParameterMetadataFields.map((field) => field.fieldCode),
+      [],
+      'selected_process_must_not_expose_device_parameter_metadata_fields'
+    )
 
     const sourcePane = page.locator('.batch-record-cell-link__pane.is-source').first()
     await sourcePane.waitFor({ state: 'visible', timeout: 60000 })
@@ -590,8 +616,12 @@ async function main() {
     }
     for (const field of selectedParameterFields.slice(0, 8)) {
       assert.ok(field.fieldCode.includes('@deviceGroup:'), `device_parameter_group_scope_mismatch:${field.fieldCode}`)
+      assert.ok(field.fieldCode.includes('.value@deviceGroup:'), `device_parameter_must_be_actual_value_field:${field.fieldCode}`)
       assert.ok(!String(field.fieldName || '').includes(' / '), `device_parameter_physical_identity_leaked:${field.fieldName}`)
       assert.ok(panelText.includes(field.fieldName), `device_parameter_field_not_visible:${field.fieldName}`)
+    }
+    for (const hiddenText of ['单位', '下限', '上限', '状态', '参考标准', '默认文本', '默认值']) {
+      assert.ok(!panelText.includes(hiddenText), `device_parameter_metadata_text_must_not_be_visible:${hiddenText}`)
     }
     assert.deepEqual(writeRequests, [], 'readonly E2E must not write DCC or cell-link data')
 

@@ -7,7 +7,7 @@ import { useProfileWorkbenchTodoBadgeStoreWithOut } from '@/store/modules/profil
 export const useRenderMenuTitle = () => {
   const renderApprovalTodoBadge = (meta: RouteMeta) => {
     const approvalTodoBadgeStore = useApprovalTodoBadgeStoreWithOut()
-    if (!meta.approvalTodoBadge || !approvalTodoBadgeStore.loaded) {
+    if (!meta.approvalTodoBadge || !approvalTodoBadgeStore.getHasVisibleTodoBadge) {
       return undefined
     }
     return (
@@ -19,7 +19,7 @@ export const useRenderMenuTitle = () => {
 
   const renderProfileWorkbenchTodoBadge = (meta: RouteMeta) => {
     const profileWorkbenchTodoBadgeStore = useProfileWorkbenchTodoBadgeStoreWithOut()
-    if (!meta.personalWorkbenchTodoBadge || !profileWorkbenchTodoBadgeStore.loaded) {
+    if (!meta.personalWorkbenchTodoBadge || !profileWorkbenchTodoBadgeStore.getHasVisibleTodoBadge) {
       return undefined
     }
     return (

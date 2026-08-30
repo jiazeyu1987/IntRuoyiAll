@@ -316,23 +316,9 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 "deviceParameterReadings.pressure.value@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
                 "扩张压力", "NUMBER", 5001L);
         assertProcessPoolSourceField(result,
-                "deviceParameterReadings.pressure.unit@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
-                "扩张压力单位", "STRING", 5001L);
-        assertProcessPoolSourceField(result,
-                "deviceParameterReadings.pressure.lowerLimit@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
-                "扩张压力下限", "NUMBER", 5001L);
-        assertProcessPoolSourceField(result,
-                "deviceParameterReadings.pressure.upperLimit@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
-                "扩张压力上限", "NUMBER", 5001L);
-        assertProcessPoolSourceField(result,
-                "deviceParameterReadings.pressure.parameterStatus@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
-                "扩张压力状态", "STRING", 5001L);
-        assertProcessPoolSourceField(result,
-                "equipmentParameterRules.pressure.standardText@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
-                "扩张压力参考标准", "STRING", 5001L);
-        assertProcessPoolSourceField(result,
                 "deviceParameterReadings.holdTime.value@deviceGroup:" + DEVICE_GROUP_SCOPE_CLEANING,
                 "保压时间", "NUMBER", 5002L);
+        assertNoProcessPoolParameterMetadataFields(result);
     }
 
     @Test
@@ -684,12 +670,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertProcessPoolSourceField(result,
                 "deviceParameterReadings.pressure.value@deviceGroup:" + DEVICE_GROUP_SCOPE_HIGH_LIGHT,
                 "光照强度", "NUMBER", 5001L);
-        assertProcessPoolSourceField(result,
-                "equipmentParameterRules.pressure.standardText@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
-                "扩张压力参考标准", "STRING", 5001L);
-        assertProcessPoolSourceField(result,
-                "equipmentParameterRules.pressure.standardText@deviceGroup:" + DEVICE_GROUP_SCOPE_HIGH_LIGHT,
-                "光照强度参考标准", "STRING", 5001L);
+        assertNoProcessPoolParameterMetadataFields(result);
     }
 
     @Test
@@ -768,6 +749,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertGroupedProcessPoolParameterSourceField(result, "cleaningMedium", "清洗介质", "STRING", 1);
         assertGroupedProcessPoolParameterSourceField(result, "dryingTemperature", "烘干温度℃", "NUMBER", 1);
         assertGroupedProcessPoolParameterSourceField(result, "dryingDuration", "烘干时间", "NUMBER", 1);
+        assertNoProcessPoolParameterMetadataFields(result);
         assertGroupedProcessPoolDeviceSourceField(result, "selectedDevice.deviceCode", "选用设备编码（超声波清洗机）");
         assertGroupedProcessPoolDeviceSourceField(result, "selectedDevice.deviceCode", "选用设备编码（烘干机）");
         assertFalse(result.getSourceFields().stream()
@@ -1225,6 +1207,17 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .filter(field -> field.getFieldCode().startsWith(baseFieldCode + "@deviceGroup:"))
                 .filter(field -> fieldName.equals(field.getFieldName()))
                 .filter(field -> Objects.equals(5001L, field.getRouteProcessId()))
+                .count());
+    }
+
+    private static void assertNoProcessPoolParameterMetadataFields(BatchRecordCellLinkWorkbenchContextRespVO result) {
+        assertEquals(0, result.getSourceFields().stream()
+                .filter(field -> "PROCESS_POOL_REPORT".equals(field.getSourceType()))
+                .map(field -> field.getFieldCode())
+                .filter(Objects::nonNull)
+                .filter(fieldCode -> fieldCode.startsWith("equipmentParameterRules.")
+                        || (fieldCode.startsWith("deviceParameterReadings.")
+                        && !fieldCode.contains(".value@deviceGroup:")))
                 .count());
     }
 

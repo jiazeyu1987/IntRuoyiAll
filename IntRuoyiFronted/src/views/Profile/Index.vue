@@ -7,7 +7,7 @@
             <span class="profile-workbench-tab">
               <span>个人工作台</span>
               <span
-                v-if="profileWorkbenchTodoBadgeStore.loaded"
+                v-if="profileWorkbenchTodoBadgeStore.getHasVisibleTodoBadge"
                 class="personal-workbench-todo-badge"
                 :aria-label="`个人工作台待处理数量 ${profileWorkbenchTodoBadgeStore.todoTotal}`"
               >

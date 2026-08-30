@@ -12,6 +12,7 @@
 - [x] 前端能力：列表分页、待识别文件可勾选、同步 1 个/选中/全部操作与状态展示。
 - [x] 单文件真实 E2E：通过本地前后端页面验证“同步 1 个验证”和“移除同步记录”闭环。
 - [x] 验证与收尾：后端、前端静态合同、结构检查、真实单文件 E2E、`int_main` 融合与收尾记录完成。
+- [x] 融合后主干单文件 E2E 复验：在 `E:\IntRuoyi` / `int_main` 的 `8081/48081` 运行态重新验证同步与移除闭环。
 
 ## Expected Verification
 
@@ -41,6 +42,7 @@ completed
 - `E:\IntRuoyi` / `int_main` completed a fast-forward merge from `codex/nas-original-path-sync`.
 - Post-merge branch runtime port guard passed for `int_main`: frontend `8081`, backend `48081`.
 - Post-merge task-closeout-cleanup preview/apply passed with no deletion items.
+- Post-merge single-file E2E on `8081/48081` passed after fixing the nested confirmation layer issue; latest E2E evidence uses auditTaskId `7`, auditFileId `9`, syncTaskId `29`.
 - No push was performed.
 - The task worktree remains at `D:\IntRuoyiWorktree\nas-original-path-sync`; it is clean, but removal was deferred because the main workspace still contains unrelated post-baseline dirty files outside this task.
 

@@ -275,9 +275,14 @@ public class DccRegistrationCertificateAccessRequestService {
         if (!DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED);
         }
-        if (!Objects.equals(projectCode.getProductMasterId(), productMasterId)) {
+        if (hasConflictingProductBinding(productMasterId, projectCode.getProductMasterId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
         }
+    }
+
+    private boolean hasConflictingProductBinding(Long certificateProductMasterId, Long projectProductMasterId) {
+        return certificateProductMasterId != null && projectProductMasterId != null
+                && !Objects.equals(certificateProductMasterId, projectProductMasterId);
     }
 
     private List<DccRegistrationCertificateFileDO> validateFiles(

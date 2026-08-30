@@ -37,6 +37,8 @@ def test_local_restart_applies_idi_device_parameter_rules_migration() -> None:
     assert "20260830_mes_process_pool_idi_device_parameter_rules.sql" in text
     assert "MES process pool IDI device parameter rules" in text
     assert "RT000028-IDI" in text
+    assert "_utf8mb4 0xe68c89e58e8be5bc8fe79083e59b8ae689a9e58585e58e8be58a9be6b3b5" in text
+    assert "project.`project_name` = '按压式球囊扩充压力泵'" not in text
     assert "B09393" in text
     assert "COUNT(DISTINCT target_rule.`parameter_code`)" in text
     assert "'ROUGH_WASH_COUNT'" in text

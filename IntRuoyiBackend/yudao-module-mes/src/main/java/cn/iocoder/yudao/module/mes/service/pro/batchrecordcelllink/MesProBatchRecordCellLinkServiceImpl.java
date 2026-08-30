@@ -1871,27 +1871,6 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
                 "deviceParameterReadings." + code + ".value", name, valueType, rule.getRouteProcessId())
                 .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
-        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
-                "deviceParameterReadings." + code + ".unit", name + "单位", "STRING", rule.getRouteProcessId())
-                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
-        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
-                "deviceParameterReadings." + code + ".lowerLimit", name + "下限", "NUMBER", rule.getRouteProcessId())
-                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
-        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
-                "deviceParameterReadings." + code + ".upperLimit", name + "上限", "NUMBER", rule.getRouteProcessId())
-                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
-        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
-                "deviceParameterReadings." + code + ".parameterStatus", name + "状态", "STRING", rule.getRouteProcessId())
-                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
-        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
-                "equipmentParameterRules." + code + ".standardText", name + "参考标准", "STRING", rule.getRouteProcessId())
-                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
-        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
-                "equipmentParameterRules." + code + ".defaultText", name + "默认文本", "STRING", rule.getRouteProcessId())
-                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
-        addProcessPoolReportField(fields, ProcessPoolReportSourceField.ofRouteProcess(
-                "equipmentParameterRules." + code + ".defaultValue", name + "默认值", "NUMBER", rule.getRouteProcessId())
-                .forDeviceGroup(rule.getRouteProcessId(), deviceGroup, false));
     }
 
     private void addProcessPoolReportField(Map<String, ProcessPoolReportSourceField> fields,

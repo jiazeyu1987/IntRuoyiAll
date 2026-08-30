@@ -138,6 +138,64 @@ class BpmNativeApprovalTaskProviderTest {
     }
 
     @Test
+    void pageTodoUsesEdhrExecutionVariablesForReadableBusinessSummary() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-edhr-execution");
+        when(task.getName()).thenReturn("eDHR Approval V1");
+        when(task.getTaskDefinitionKey()).thenReturn("approveNode");
+        when(task.getProcessInstanceId()).thenReturn("pi-edhr-execution");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "edhrExecutionId", 7001L,
+                "edhrExecutionCode", "EDHR-20260830-001",
+                "workOrderId", 6001L,
+                "workOrderCode", "WO-20260830-001",
+                "batchCode", "BATCH-20260830-001",
+                "processName", "组装",
+                "workstationName", "组装工位A"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "EDHR", 1, 10)).getList().get(0);
+
+        assertEquals("电子批记录审核 EDHR-20260830-001 工单 WO-20260830-001 批次 BATCH-20260830-001 工序 组装",
+                summary.getBusinessTitle());
+        assertEquals("EDHR-20260830-001", summary.getBusinessCode());
+        assertEquals(List.of("工单：WO-20260830-001", "批次：BATCH-20260830-001", "工序：组装", "工作站：组装工位A"),
+                summary.getBusinessContextTags());
+        assertEquals("电子批记录审核", summary.getCurrentNodeName());
+    }
+
+    @Test
+    void pageTodoUsesRegistrationCertificateAccessVariablesForReadableBusinessSummary() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-regcert-access-summary");
+        when(task.getName()).thenReturn("Registration certificate access approval");
+        when(task.getTaskDefinitionKey()).thenReturn("regcertAccessApproval");
+        when(task.getProcessInstanceId()).thenReturn("pi-regcert-access-summary");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "registrationCertificateAccessRequestId", 8801L,
+                "requestId", 8801L,
+                "certificateId", 7701L,
+                "ownerCompanyId", 6601L,
+                "requestType", "UPLOAD_CERTIFICATE",
+                "requestKey", "REG-UPLOAD-20260830-001"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "REG-UPLOAD", 1, 10)).getList().get(0);
+
+        assertEquals("注册证上传审批 REG-UPLOAD-20260830-001", summary.getBusinessTitle());
+        assertEquals("REG-UPLOAD-20260830-001", summary.getBusinessCode());
+        assertEquals(List.of("申请类型：注册证上传", "申请编号：8801", "注册证：7701", "所属公司：6601"),
+                summary.getBusinessContextTags());
+        assertEquals("注册证访问审批", summary.getCurrentNodeName());
+    }
+
+    @Test
     void pageTodoMapsBatchRecordVersionVariablesToDecisionDetailRoute() {
         Task task = mock(Task.class);
         when(task.getId()).thenReturn("task-batch-version-detail");
@@ -229,6 +287,12 @@ class BpmNativeApprovalTaskProviderTest {
         ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "作废", 1, 10)).getList().get(0);
 
+        assertEquals("电子批记录批次作废 EDHRB-1783609501380 批次 BATCH-VOID-001 工单 WO-20260717",
+                summary.getBusinessTitle());
+        assertEquals("EDHRB-1783609501380", summary.getBusinessCode());
+        assertEquals(List.of("工单：WO-20260717", "批次：BATCH-VOID-001", "原因：质量复核要求作废"),
+                summary.getBusinessContextTags());
+        assertEquals("电子批记录批次作废审核", summary.getCurrentNodeName());
         assertEquals("/mes/pro/feedback/edhr-change", summary.getDecisionDetailRoute());
         assertEquals("EDHR_BATCH_EXECUTION_VOID", summary.getDecisionDetailQuery().get("businessType"));
         assertEquals("VOID", summary.getDecisionDetailQuery().get("changeType"));

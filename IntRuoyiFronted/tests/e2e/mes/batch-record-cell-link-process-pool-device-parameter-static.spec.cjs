@@ -22,9 +22,10 @@ const backfillService = fs.readFileSync(
 )
 
 assert.ok(
-  frontendView.includes("field.fieldCode.startsWith('deviceParameterReadings.')") &&
-    frontendView.includes("field.fieldCode.startsWith('equipmentParameterRules.')"),
-  '报工数据参数字段必须纳入工序设备字段过滤，禁止跨工序参数在左侧列表可见。'
+  frontendView.includes('isProcessPoolDeviceParameterValueSourceField(field)') &&
+    frontendView.includes('isProcessPoolDeviceParameterMetadataSourceField(field)') &&
+    frontendView.includes('!isProcessPoolDeviceParameterMetadataSourceField(field)'),
+  '报工数据设备参数可见字段必须收敛为一线生产实际提交值，禁止把单位/上下限/默认值等配置字段纳入左侧目录。'
 )
 
 assert.ok(
@@ -55,10 +56,13 @@ assert.match(
   '设备参数实际值来源字段必须按设备名称分组，不能按物理设备编码重复展示。'
 )
 
-assert.match(
-  backendService,
-  /"equipmentParameterRules\."\s*\+\s*code\s*\+\s*"\.standardText"[\s\S]*\.forDeviceGroup\(rule\.getRouteProcessId\(\), deviceGroup[\s\S]*false\)/,
-  '设备参数标准来源字段必须按设备名称分组，避免同类多台设备重复。'
+assert.ok(
+  !backendService.includes('"deviceParameterReadings." + code + ".unit"') &&
+    !backendService.includes('"deviceParameterReadings." + code + ".lowerLimit"') &&
+    !backendService.includes('"deviceParameterReadings." + code + ".upperLimit"') &&
+    !backendService.includes('"deviceParameterReadings." + code + ".parameterStatus"') &&
+    !backendService.includes('"equipmentParameterRules." + code'),
+  '批记录链接左侧只显示一线生产提交值字段，不能继续生成单位、范围、状态、参考标准或默认值字段。'
 )
 
 assert.ok(
@@ -69,9 +73,8 @@ assert.ok(
 
 assert.ok(
   backfillService.includes('baseFieldCode.startsWith("deviceParameterReadings.")') &&
-    backfillService.includes('baseFieldCode.startsWith("equipmentParameterRules.")') &&
     backfillService.includes('deviceGroupName'),
-  '回填解析器必须识别按设备名称分组的参数读数和参数标准字段。'
+  '回填解析器必须识别按设备名称分组的实际参数读数字段。'
 )
 
 console.log('batch-record-cell-link process-pool device parameter static contract passed')

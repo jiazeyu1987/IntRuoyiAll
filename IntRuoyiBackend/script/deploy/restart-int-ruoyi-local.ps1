@@ -757,7 +757,7 @@ SELECT CASE WHEN
      AND target_rule.`deleted` = b'0'
     WHERE project.`tenant_id` = 1
       AND project.`project_code` = 'IDI'
-      AND project.`project_name` = '按压式球囊扩充压力泵'
+      AND project.`project_name` = _utf8mb4 0xe68c89e58e8be5bc8fe79083e59b8ae689a9e58585e58e8be58a9be6b3b5
       AND project.`status` = 'ENABLE'
       AND project.`deleted` = 0
   ) >= 37
@@ -813,7 +813,7 @@ SELECT CASE WHEN
      )
     WHERE project.`tenant_id` = 1
       AND project.`project_code` = 'IDI'
-      AND project.`project_name` = '按压式球囊扩充压力泵'
+      AND project.`project_name` = _utf8mb4 0xe68c89e58e8be5bc8fe79083e59b8ae689a9e58585e58e8be58a9be6b3b5
       AND project.`status` = 'ENABLE'
       AND project.`deleted` = 0
   ) = 5

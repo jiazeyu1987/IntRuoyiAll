@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -230,9 +231,11 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 .sourceTaskId(task.getId())
                 .businessKey(task.getProcessInstanceId())
                 .businessTitle(resolveBusinessTitle(task.getName(), variables))
+                .businessCode(resolveBusinessCode(variables))
+                .businessContextTags(resolveBusinessContextTags(variables))
                 .businessStatus("TODO")
                 .currentNodeCode(task.getTaskDefinitionKey())
-                .currentNodeName(task.getName())
+                .currentNodeName(resolveCurrentNodeName(task.getName(), task.getTaskDefinitionKey(), variables))
                 .assigneeUserId(parseLong(task.getAssignee()))
                 .processInstanceId(task.getProcessInstanceId())
                 .taskCreatedAt(toLocalDateTime(task.getCreateTime()))
@@ -261,9 +264,11 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 .sourceTaskId(task.getId())
                 .businessKey(task.getProcessInstanceId())
                 .businessTitle(resolveBusinessTitle(task.getName(), variables))
+                .businessCode(resolveBusinessCode(variables))
+                .businessContextTags(resolveBusinessContextTags(variables))
                 .businessStatus("DONE")
                 .currentNodeCode(task.getTaskDefinitionKey())
-                .currentNodeName(task.getName())
+                .currentNodeName(resolveCurrentNodeName(task.getName(), task.getTaskDefinitionKey(), variables))
                 .assigneeUserId(parseLong(task.getAssignee()))
                 .processInstanceId(task.getProcessInstanceId())
                 .taskCreatedAt(toLocalDateTime(task.getCreateTime()))
@@ -389,8 +394,17 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         if (Objects.equals(BATCH_RECORD_VERSION_APPROVAL_BUSINESS_TYPE, businessType)) {
             return resolveBatchRecordVersionTitle(variables);
         }
+        if (Objects.equals(EDHR_BATCH_EXECUTION_VOID_BUSINESS_TYPE, businessType)) {
+            return resolveEdhrBatchExecutionVoidTitle(variables);
+        }
         if (Objects.equals(MES_ROUTE_VERSION_PUBLISH_BUSINESS_TYPE, businessType)) {
             return resolveRouteVersionPublishTitle(variables);
+        }
+        if (isEdhrExecutionApproval(variables)) {
+            return resolveEdhrExecutionApprovalTitle(variables);
+        }
+        if (isRegistrationCertificateAccessApproval(variables)) {
+            return resolveRegistrationCertificateAccessTitle(variables);
         }
         return sanitizeBusinessTitle(fallback, variables);
     }
@@ -408,6 +422,30 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         return title.toString();
     }
 
+    private static String resolveEdhrExecutionApprovalTitle(Map<String, Object> variables) {
+        StringBuilder title = new StringBuilder("电子批记录审核");
+        appendTitlePart(title, firstText(variables.get("edhrExecutionCode"), variables.get("edhrExecutionId")));
+        appendLabeledTitlePart(title, "工单", variables.get("workOrderCode"));
+        appendLabeledTitlePart(title, "批次", variables.get("batchCode"));
+        appendLabeledTitlePart(title, "工序", variables.get("processName"));
+        return title.toString();
+    }
+
+    private static String resolveEdhrBatchExecutionVoidTitle(Map<String, Object> variables) {
+        StringBuilder title = new StringBuilder("电子批记录批次作废");
+        appendTitlePart(title, firstText(variables.get("batchExecutionCode"), variables.get("batchExecutionId")));
+        appendLabeledTitlePart(title, "批次", variables.get("batchCode"));
+        appendLabeledTitlePart(title, "工单", variables.get("workOrderCode"));
+        return title.toString();
+    }
+
+    private static String resolveRegistrationCertificateAccessTitle(Map<String, Object> variables) {
+        StringBuilder title = new StringBuilder(resolveRegistrationCertificateRequestTypeLabel(variables.get("requestType")));
+        appendTitlePart(title, firstText(variables.get("requestKey"), variables.get("registrationCertificateAccessRequestId"),
+                variables.get("requestId")));
+        return title.toString();
+    }
+
     private static String resolveRouteVersionPublishTitle(Map<String, Object> variables) {
         String routeDisplay = firstText(variables.get("routeName"), variables.get("routeCode"),
                 variables.get("routeId"), variables.get("objectId"));
@@ -420,6 +458,140 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
             title.append(' ').append(versionNo.trim());
         }
         return title.toString();
+    }
+
+    private static String resolveBusinessCode(Map<String, Object> variables) {
+        if (variables == null || variables.isEmpty()) {
+            return null;
+        }
+        return firstText(variables.get("businessCode"),
+                variables.get("edhrExecutionCode"),
+                variables.get("batchExecutionCode"),
+                variables.get("requestKey"),
+                variables.get("routeCode"),
+                variables.get("batchRecordCode"),
+                variables.get("batchRecordVersionId"),
+                variables.get("batchCode"),
+                variables.get("workOrderCode"),
+                variables.get("objectId"),
+                variables.get("businessKey"));
+    }
+
+    private static List<String> resolveBusinessContextTags(Map<String, Object> variables) {
+        if (variables == null || variables.isEmpty()) {
+            return null;
+        }
+        List<String> tags = new ArrayList<>();
+        String businessType = asText(variables.get("businessType"));
+        if (Objects.equals(BATCH_RECORD_VERSION_APPROVAL_BUSINESS_TYPE, businessType)) {
+            addTag(tags, "批记录", variables.get("batchRecordName"));
+            addTag(tags, "版本", variables.get("versionNo"));
+            addTag(tags, "源版本", variables.get("sourceVersionNo"));
+            addTag(tags, "工艺路线", firstText(variables.get("routeName"), variables.get("routeCode"),
+                    variables.get("routeId")));
+        } else if (Objects.equals(MES_ROUTE_VERSION_PUBLISH_BUSINESS_TYPE, businessType)) {
+            addTag(tags, "路线编号", variables.get("routeCode"));
+            addTag(tags, "路线名称", variables.get("routeName"));
+            addTag(tags, "版本", firstText(variables.get("routeVersionNo"), variables.get("objectVersion")));
+        } else if (Objects.equals(EDHR_BATCH_EXECUTION_VOID_BUSINESS_TYPE, businessType)) {
+            addTag(tags, "工单", variables.get("workOrderCode"));
+            addTag(tags, "批次", variables.get("batchCode"));
+            addTag(tags, "原因", firstText(variables.get("reasonText"), variables.get("reasonCategory")));
+        } else if (isEdhrExecutionApproval(variables)) {
+            addTag(tags, "工单", variables.get("workOrderCode"));
+            addTag(tags, "批次", variables.get("batchCode"));
+            addTag(tags, "工序", variables.get("processName"));
+            addTag(tags, "工作站", variables.get("workstationName"));
+        } else if (isRegistrationCertificateAccessApproval(variables)) {
+            addTag(tags, "申请类型", resolveRegistrationCertificateRequestTypeLabel(variables.get("requestType"))
+                    .replace("审批", ""));
+            addTag(tags, "申请编号", firstText(variables.get("registrationCertificateAccessRequestId"),
+                    variables.get("requestId")));
+            addTag(tags, "注册证", variables.get("certificateId"));
+            addTag(tags, "所属公司", variables.get("ownerCompanyId"));
+        }
+        return tags.isEmpty() ? null : tags;
+    }
+
+    private static String resolveCurrentNodeName(String taskName, String taskDefinitionKey,
+                                                 Map<String, Object> variables) {
+        String businessType = variables == null ? null : asText(variables.get("businessType"));
+        if (Objects.equals(BATCH_RECORD_VERSION_APPROVAL_BUSINESS_TYPE, businessType)) {
+            return "批记录升版审核";
+        }
+        if (Objects.equals(MES_ROUTE_VERSION_PUBLISH_BUSINESS_TYPE, businessType)) {
+            return "工艺路线发布审核";
+        }
+        if (Objects.equals(EDHR_BATCH_EXECUTION_VOID_BUSINESS_TYPE, businessType)) {
+            return "电子批记录批次作废审核";
+        }
+        if (isEdhrExecutionApproval(variables)) {
+            return "电子批记录审核";
+        }
+        if (isRegistrationCertificateAccessApproval(variables)) {
+            return "注册证访问审批";
+        }
+        if ("approveNode".equals(taskDefinitionKey)) {
+            return "审核节点";
+        }
+        return taskName;
+    }
+
+    private static boolean isEdhrExecutionApproval(Map<String, Object> variables) {
+        return variables != null
+                && hasText(firstText(variables.get("edhrExecutionCode"), variables.get("edhrExecutionId")));
+    }
+
+    private static boolean isRegistrationCertificateAccessApproval(Map<String, Object> variables) {
+        return variables != null
+                && (hasText(firstText(variables.get("registrationCertificateAccessRequestId"),
+                variables.get("certificateId")))
+                || isRegistrationCertificateRequestType(variables.get("requestType")));
+    }
+
+    private static boolean isRegistrationCertificateRequestType(Object requestType) {
+        String type = firstText(requestType);
+        if (!hasText(type)) {
+            return false;
+        }
+        return switch (type) {
+            case "UPLOAD_CERTIFICATE", "VIEW_OLD_CERTIFICATE", "DOWNLOAD_FILE" -> true;
+            default -> false;
+        };
+    }
+
+    private static String resolveRegistrationCertificateRequestTypeLabel(Object requestType) {
+        String type = firstText(requestType);
+        if (!hasText(type)) {
+            return "注册证访问审批";
+        }
+        return switch (type) {
+            case "UPLOAD_CERTIFICATE" -> "注册证上传审批";
+            case "VIEW_OLD_CERTIFICATE" -> "旧注册证查看审批";
+            case "DOWNLOAD_FILE" -> "注册证下载审批";
+            default -> "注册证访问审批";
+        };
+    }
+
+    private static void appendTitlePart(StringBuilder title, Object value) {
+        String text = asText(value);
+        if (hasText(text)) {
+            title.append(' ').append(text.trim());
+        }
+    }
+
+    private static void appendLabeledTitlePart(StringBuilder title, String label, Object value) {
+        String text = asText(value);
+        if (hasText(text)) {
+            title.append(' ').append(label).append(' ').append(text.trim());
+        }
+    }
+
+    private static void addTag(List<String> tags, String label, Object value) {
+        String text = asText(value);
+        if (hasText(text)) {
+            tags.add(label + "：" + text.trim());
+        }
     }
 
     private static String sanitizeBusinessTitle(String fallback, Map<String, Object> variables) {

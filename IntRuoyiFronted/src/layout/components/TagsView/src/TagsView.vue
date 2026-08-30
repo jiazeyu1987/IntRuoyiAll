@@ -275,7 +275,7 @@ const shouldShowApprovalTodoBadge = (item: RouteLocationNormalizedLoaded) =>
   Boolean(
     isApprovalTodoBadgeTagsViewItem(item) &&
     item?.meta?.approvalTodoBadge &&
-    approvalTodoBadgeStore.loaded
+    approvalTodoBadgeStore.getHasVisibleTodoBadge
   )
 
 const isProfileWorkbenchTodoBadgeTagsViewItem = (item: RouteLocationNormalizedLoaded) =>
@@ -285,7 +285,7 @@ const shouldShowProfileWorkbenchTodoBadge = (item: RouteLocationNormalizedLoaded
   Boolean(
     isProfileWorkbenchTodoBadgeTagsViewItem(item) &&
       item?.meta?.personalWorkbenchTodoBadge &&
-      profileWorkbenchTodoBadgeStore.loaded
+      profileWorkbenchTodoBadgeStore.getHasVisibleTodoBadge
   )
 
 const reportApprovalTodoBadgeError = (error: unknown) => {

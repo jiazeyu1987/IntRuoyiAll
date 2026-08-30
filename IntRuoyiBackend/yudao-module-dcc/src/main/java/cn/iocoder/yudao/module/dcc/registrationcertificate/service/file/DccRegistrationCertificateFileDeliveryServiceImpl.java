@@ -219,11 +219,16 @@ public class DccRegistrationCertificateFileDeliveryServiceImpl implements DccReg
     private DccProjectCodeDO requireLiveProjectCode(Long userId, Long projectCodeId, Long productMasterId) {
         DccProjectCodeDO projectCode = projectCodeService.getProjectCode(userId, projectCodeId);
         if (projectCode == null || !DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())
-                || !Objects.equals(projectCode.getProductMasterId(), productMasterId)
+                || hasConflictingProductBinding(productMasterId, projectCode.getProductMasterId())
                 || StrUtil.isBlank(projectCode.getProjectCode())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_DOWNLOAD_PROJECT_CODE_INVALID);
         }
         return projectCode;
+    }
+
+    private boolean hasConflictingProductBinding(Long certificateProductMasterId, Long projectProductMasterId) {
+        return certificateProductMasterId != null && projectProductMasterId != null
+                && !Objects.equals(certificateProductMasterId, projectProductMasterId);
     }
 
     private FileDO requireInfraFile(DccRegistrationCertificateFileDO businessFile) {

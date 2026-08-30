@@ -81,6 +81,31 @@ assert.match(
   /deleteNasOriginalPathSyncFile[\s\S]*loadNasControlAuditFilePage/,
   'removing a sync record must refresh the audit file list.'
 )
+const syncAllConfirmBlock = nasPage.slice(
+  nasPage.indexOf('const confirmNasOriginalPathSyncAll'),
+  nasPage.indexOf('const handleSyncNasOriginalPathAll')
+)
+assert.notEqual(syncAllConfirmBlock, '', 'original-path sync all confirmation must exist.')
+assert.match(
+  syncAllConfirmBlock,
+  /modalClass:\s*NAS_TRANSFER_CONFIRM_MODAL_CLASS/,
+  'sync-all confirmation must render above the statistics dialog.'
+)
+const deleteOriginalPathSyncBlock = nasPage.slice(
+  nasPage.indexOf('const handleDeleteNasOriginalPathSyncFile'),
+  nasPage.indexOf('const handleNasControlAuditFilePageSizeChange')
+)
+assert.notEqual(deleteOriginalPathSyncBlock, '', 'original-path sync delete handler must exist.')
+assert.match(
+  deleteOriginalPathSyncBlock,
+  /modalClass:\s*NAS_TRANSFER_CONFIRM_MODAL_CLASS/,
+  'delete confirmation must render above the statistics dialog.'
+)
+assert.match(
+  nasPage,
+  /:global\(\.nas-transfer-confirm-message-box-overlay\)\s*\{[\s\S]*z-index:\s*4000\s*!important/,
+  'NAS original-path confirmations must use a high-priority overlay above nested dialogs.'
+)
 assert.match(
   nasPage,
   /el-pagination[\s\S]*v-model:current-page="controlAuditFiles\.pageNo"[\s\S]*v-model:page-size="controlAuditFiles\.pageSize"[\s\S]*:total="controlAuditFiles\.total"/,
