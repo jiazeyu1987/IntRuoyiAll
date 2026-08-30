@@ -44,6 +44,7 @@ public class DccRegistrationCertificateDetail {
     private Boolean selfProduction;
     private String entrustedEnterprisesJson;
     private Long registrationFileId;
+    private String registrationFileName;
     private Boolean hasRegistrationFile;
     private String reminderColor;
     private String visualState;

@@ -552,7 +552,6 @@ class BpmNativeApprovalTaskProviderTest {
     @Test
     void pageDoneFailsWhenHistoricProcessInstanceIsMissing() {
         HistoricTaskInstance task = mock(HistoricTaskInstance.class);
-        when(task.getId()).thenReturn("task-done-missing-instance");
         when(task.getProcessInstanceId()).thenReturn("pi-done-missing");
         when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
