@@ -9,6 +9,7 @@
 - MES 报工数据结构化字段 key 与字段长度补齐已完成：长字段编码使用稳定短 `sourceCellKey` 保存，完整字段编码保留在 `sourceFieldCode`，并新增正式字段长度迁移。
 - BPM 审批路线角色展示和注册证提醒排序运行态脚本已复核；提醒排序真实运行因登录凭据前置缺失未执行。
 - 本地重启脚本已挂载 MES 结构化字段长度迁移探针；MES 空规则清空回归测试已覆盖。
+- MES 单元格链接真实 E2E 脚本已扩展可选创建后清理模式；本轮只做语法检查，未在缺少登录密码前置时执行真实写入。
 - `git push origin int_main` 已成功，远端 `int_main` 已包含本轮当前代码和收尾复扫提交。
 - 推送后本地 `int_main` 与 `origin/int_main` 一致，`HEAD...origin/int_main` 为 `0 0`。
 - 远端 fetch 成功，`git rev-list --left-right --count HEAD...origin/int_main` 在提交前为 `10 0`。
@@ -69,6 +70,8 @@
 - `node --check tests\e2e\registration-certificate-reminder-sort-runtime.spec.js` -> PASS
 - `python -X utf8 -m pytest script\tests\test_restart_int_ruoyi_local_schema.py` -> PASS, 23 tests
 - `mvn -pl yudao-module-mes "-Dtest=cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkServiceImplTest#saveRules_allowsEmptyRouteVersionRuleListToClearExistingLinks" test` -> PASS, 1 test
+- `mvn -pl yudao-module-mes "-Dtest=cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkServiceImplTest" test` -> PASS, 45 tests
+- `node --check tests\e2e\mes\batch-record-cell-link-process-pool-real-device-readonly.e2e.cjs` -> PASS
 
 ## Remaining Verification
 

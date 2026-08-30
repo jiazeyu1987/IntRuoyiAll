@@ -39,7 +39,8 @@ const config = {
   username: process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_USERNAME || defaultLogin.username || 'aoteman',
   password: process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_PASSWORD || defaultLogin.password || '',
   targetProjectCodeId: Number(process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_PROJECT_CODE_ID || 0) || null,
-  headed: process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_HEADED === '1'
+  headed: process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_HEADED === '1',
+  createAndCleanup: process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_CREATE_AND_CLEANUP === '1'
 }
 
 const allowedReadonlyIdentity = (
@@ -77,7 +78,12 @@ const isScopedWriteRequest = (url) =>
 
 function writeResult(result) {
   fs.writeFileSync(
-    path.join(taskRoot, 'process-pool-real-device-readonly-result.json'),
+    path.join(
+      taskRoot,
+      config.createAndCleanup
+        ? 'process-pool-real-device-create-cleanup-result.json'
+        : 'process-pool-real-device-readonly-result.json'
+    ),
     `${JSON.stringify(result, null, 2)}\n`,
     'utf8'
   )
@@ -216,6 +222,17 @@ function isWorkbenchContextResponse(response) {
     response.url().includes('/admin-api/mes/pro/batch-record-cell-link/workbench-context') &&
     response.request().method() === 'GET'
   )
+}
+
+function isSaveRulesResponse(response) {
+  return (
+    response.url().includes('/admin-api/mes/pro/batch-record-cell-link/rules/save') &&
+    response.request().method() === 'POST'
+  )
+}
+
+function isSuccessPayload(payload) {
+  return payload && [0, 200].includes(Number(payload.code))
 }
 
 function buildWorkbenchResponseSummary(response, payload) {
@@ -492,6 +509,7 @@ async function main() {
   const browser = await chromium.launch({ headless: !config.headed, args: ['--disable-dev-shm-usage'] })
   const writeRequests = []
   const workbenchResponses = []
+  const saveResponses = []
   let candidate
 
   try {
@@ -507,6 +525,18 @@ async function main() {
       if (!isWorkbenchContextResponse(response)) return
       const payload = await response.json().catch(() => null)
       workbenchResponses.push(buildWorkbenchResponseSummary(response, payload))
+    })
+
+    page.on('response', async (response) => {
+      if (!isSaveRulesResponse(response)) return
+      const payload = await response.json().catch(() => null)
+      saveResponses.push({
+        status: response.status(),
+        ok: response.ok(),
+        code: payload?.code,
+        message: payload?.msg || payload?.message || '',
+        savedCount: payload?.data?.savedCount
+      })
     })
 
     page.on('request', (request) => {
@@ -617,6 +647,9 @@ async function main() {
     for (const field of selectedParameterFields.slice(0, 8)) {
       assert.ok(field.fieldCode.includes('@deviceGroup:'), `device_parameter_group_scope_mismatch:${field.fieldCode}`)
       assert.ok(field.fieldCode.includes('.value@deviceGroup:'), `device_parameter_must_be_actual_value_field:${field.fieldCode}`)
+      assert.ok(field.sourceCellKey, `device_parameter_source_cell_key_missing:${field.fieldCode}`)
+      assert.ok(field.sourceCellKey.length <= 32, `device_parameter_source_cell_key_too_long:${field.sourceCellKey}`)
+      assert.ok(!field.sourceCellKey.includes('deviceParameterReadings.'), `device_parameter_source_cell_key_must_be_compact:${field.sourceCellKey}`)
       assert.ok(!String(field.fieldName || '').includes(' / '), `device_parameter_physical_identity_leaked:${field.fieldName}`)
       assert.ok(panelText.includes(field.fieldName), `device_parameter_field_not_visible:${field.fieldName}`)
     }
@@ -637,14 +670,43 @@ async function main() {
       `process_pool_parameter_must_default_to_last_aggregation:${aggregationSelectText}`
     )
     const targetPane = page.locator('.batch-record-cell-link__pane.is-target').first()
-    const targetCandidateCells = targetPane.locator('.batch-record-cell-link-sheet__cell.is-target-selectable')
+    const targetCandidateCells = config.createAndCleanup
+      ? targetPane.locator('.batch-record-cell-link-sheet__cell.is-target-selectable:not(.is-linked)')
+      : targetPane.locator('.batch-record-cell-link-sheet__cell.is-target-selectable')
     assert.ok((await targetCandidateCells.count()) > 0, 'target_linkable_cells_missing')
     await targetCandidateCells.first().click()
+    const createButton = page.locator('.batch-record-cell-link__create-button').first()
     assert.ok(
-      await page.locator('.batch-record-cell-link__create-button').first().isEnabled(),
+      await createButton.isEnabled(),
       'create_button_must_be_enabled_after_process_pool_source_and_target_selection'
     )
-    assert.deepEqual(writeRequests, [], 'readonly E2E must not write DCC or cell-link data')
+    if (config.createAndCleanup) {
+      const createResponsePromise = page.waitForResponse(isSaveRulesResponse, { timeout: 60000 })
+      await createButton.click()
+      const createResponse = await createResponsePromise
+      const createPayload = await createResponse.json().catch(() => null)
+      assert.ok(createResponse.ok(), `create_link_http_failed:${createResponse.status()}`)
+      assert.ok(isSuccessPayload(createPayload), `create_link_business_failed:${JSON.stringify(createPayload)}`)
+      await waitForNoLoading(page)
+
+      const detailButton = page.locator('.batch-record-cell-link__source-link-count').first()
+      await detailButton.click()
+      const dialog = page.locator('.batch-record-cell-link__detail-dialog').first()
+      await dialog.waitFor({ state: 'visible', timeout: 30000 })
+      const createdRow = dialog.locator('.el-table__row')
+        .filter({ hasText: selectedParameterFields[0].fieldName })
+        .first()
+      await createdRow.waitFor({ state: 'visible', timeout: 30000 })
+      const cleanupResponsePromise = page.waitForResponse(isSaveRulesResponse, { timeout: 60000 })
+      await createdRow.getByRole('button', { name: '删除' }).click()
+      const cleanupResponse = await cleanupResponsePromise
+      const cleanupPayload = await cleanupResponse.json().catch(() => null)
+      assert.ok(cleanupResponse.ok(), `cleanup_link_http_failed:${cleanupResponse.status()}`)
+      assert.ok(isSuccessPayload(cleanupPayload), `cleanup_link_business_failed:${JSON.stringify(cleanupPayload)}`)
+      await waitForNoLoading(page)
+    } else {
+      assert.deepEqual(writeRequests, [], 'readonly E2E must not write DCC or cell-link data')
+    }
 
     const screenshot = path.join(taskRoot, 'process-pool-real-device-readonly-pass.png')
     await page.screenshot({ path: screenshot, fullPage: true })
@@ -653,6 +715,7 @@ async function main() {
       baseUrl: config.baseUrl,
       tenant: config.tenant,
       username: config.username,
+      createAndCleanup: config.createAndCleanup,
       targetUrl: targetUrl.toString(),
       projectCodeId: candidate.projectCode.id,
       projectCode: candidate.projectCode.projectCode || '',
@@ -672,11 +735,13 @@ async function main() {
         routeProcessId: field.routeProcessId,
         deviceId: field.deviceId,
         deviceCode: field.deviceCode,
-        deviceName: field.deviceName
+        deviceName: field.deviceName,
+        sourceCellKey: field.sourceCellKey
       })),
       aggregationSelectText,
       createButtonEnabledAfterSelection: true,
       workbenchResponses,
+      saveResponses,
       writeRequests,
       screenshot
     }
@@ -698,8 +763,10 @@ async function main() {
       username: config.username,
       projectCodeId: candidate?.projectCode?.id,
       routeProcessId: candidate?.process?.id,
+      createAndCleanup: config.createAndCleanup,
       error: error.message,
       workbenchResponses,
+      saveResponses,
       writeRequests,
       screenshot: fs.existsSync(screenshot) ? screenshot : undefined
     })

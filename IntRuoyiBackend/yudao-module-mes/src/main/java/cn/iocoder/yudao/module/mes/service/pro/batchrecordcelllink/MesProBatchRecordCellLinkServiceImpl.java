@@ -412,11 +412,18 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     @Override
     @Transactional(rollbackFor = Exception.class)
     public BatchRecordCellLinkRulesSaveRespVO saveRules(BatchRecordCellLinkRulesSaveReqVO reqVO) {
-        if (reqVO.getRules() == null || reqVO.getRules().isEmpty()) {
+        if (reqVO.getRules() == null) {
             throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_RULE_EMPTY);
         }
         Scope scope = resolveSaveScope(reqVO);
         long ruleVersion = System.currentTimeMillis();
+        if (reqVO.getRules().isEmpty()) {
+            ruleMapper.deleteByScope(scope.type(), scope.id());
+            return new BatchRecordCellLinkRulesSaveRespVO()
+                    .setSavedCount(0)
+                    .setRuleVersion(ruleVersion)
+                    .setRules(List.of());
+        }
         List<MesProBatchRecordCellLinkRuleDO> ruleRows = new ArrayList<>();
         Set<String> targetKeys = new LinkedHashSet<>();
         Set<String> pairKeys = new LinkedHashSet<>();
