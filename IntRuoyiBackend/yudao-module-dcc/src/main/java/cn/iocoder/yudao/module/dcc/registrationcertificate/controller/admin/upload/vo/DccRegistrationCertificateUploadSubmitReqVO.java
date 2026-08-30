@@ -23,10 +23,10 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
     @Positive(message = "DCC项目代码不合法")
     private Long projectCodeId;
 
-    @Schema(description = "公司名称", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "公司名称不能为空")
-    @Size(max = 255, message = "公司名称长度不能超过255个字符")
-    private String companyName;
+    @Schema(description = "授权公司编号", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "请选择公司名称")
+    @Positive(message = "请选择公司名称")
+    private Long companyId;
 
     @Schema(description = "产品名称", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "产品名称不能为空")
@@ -93,7 +93,7 @@ public class DccRegistrationCertificateUploadSubmitReqVO {
 
     public DccRegistrationCertificateUploadCommand toCommand() {
         return new DccRegistrationCertificateUploadCommand(
-                projectCodeId, companyName, productName, certificateNo, firstObtainedDate,
+                projectCodeId, companyId, productName, certificateNo, firstObtainedDate,
                 effectiveDate, expiryDate, classification, entrustedProduction, selfProduction,
                 entrustedEnterpriseIds, remark, file);
     }

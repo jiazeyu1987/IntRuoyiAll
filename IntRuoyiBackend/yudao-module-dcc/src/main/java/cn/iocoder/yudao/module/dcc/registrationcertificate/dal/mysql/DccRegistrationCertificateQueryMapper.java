@@ -98,7 +98,9 @@ public interface DccRegistrationCertificateQueryMapper {
         private static final String SORT_FIELD_APPROVAL_DATE = "approvalDate";
         private static final String SORT_FIELD_EFFECTIVE_DATE = "effectiveDate";
         private static final String SORT_FIELD_EXPIRY_DATE = "expiryDate";
+        private static final String SORT_FIELD_REMINDER = "reminder";
         private static final String SORT_FIELD_REMARK = "remark";
+        private static final String NO_EMPTY_RANK = "0";
         private static final String OWNER_COMPANY_NAME_SORT_EXPRESSION =
                 "(SELECT MIN(e.name) FROM mdm_enterprise e"
                         + " WHERE e.tenant_id = c.tenant_id"
@@ -117,6 +119,15 @@ public interface DccRegistrationCertificateQueryMapper {
                         + " AND f.status = 'BOUND'"
                         + " AND f.deleted = 0"
                         + ") THEN 1 ELSE 0 END";
+        private static final String REMINDER_CLEARED_EXISTS_EXPRESSION =
+                "EXISTS (SELECT 1 FROM dcc_registration_certificate_supporting_document sd"
+                        + " WHERE sd.tenant_id = c.tenant_id"
+                        + " AND sd.certificate_id = c.id"
+                        + " AND sd.document_type IN ('RENEWAL_ACCEPTANCE_RECEIPT', 'RENEWAL_SUPPLEMENT_NOTICE')"
+                        + " AND sd.status = 'EFFECTIVE'"
+                        + " AND sd.deleted = 0)";
+        private static final String REMINDER_STATE_EXPRESSION = reminderStateExpression();
+        private static final String REMINDER_PRIORITY_SORT_EXPRESSION = reminderPrioritySortExpression();
 
         private static String currentOrderBy() {
             String stableOrder = ", c.owner_company_id ASC, v.expiry_date ASC, c.id ASC, v.version_no ASC";
@@ -171,6 +182,10 @@ public interface DccRegistrationCertificateQueryMapper {
                     nullLast("v.expiry_date"), stableOrder)
                     + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_DESC, "v.expiry_date",
                     nullLast("v.expiry_date"), stableOrder)
+                    + sortWhen(SORT_FIELD_REMINDER, SORT_ORDER_ASC, REMINDER_PRIORITY_SORT_EXPRESSION,
+                    NO_EMPTY_RANK, stableOrder)
+                    + sortWhen(SORT_FIELD_REMINDER, SORT_ORDER_DESC, REMINDER_PRIORITY_SORT_EXPRESSION,
+                    NO_EMPTY_RANK, stableOrder)
                     + sortWhen(SORT_FIELD_REMARK, SORT_ORDER_ASC, "v.remark",
                     textBlankLast("v.remark"), stableOrder)
                     + sortWhen(SORT_FIELD_REMARK, SORT_ORDER_DESC, "v.remark",
@@ -229,6 +244,32 @@ public interface DccRegistrationCertificateQueryMapper {
 
         private static String nullLast(String expression) {
             return "CASE WHEN " + expression + " IS NULL THEN 1 ELSE 0 END";
+        }
+
+        private static String reminderStateExpression() {
+            return "CASE"
+                    + " WHEN " + reminderDateCrossed(1) + " THEN 'T_1'"
+                    + " WHEN " + reminderDateCrossed(2) + " THEN 'T_2'"
+                    + " WHEN " + reminderDateCrossed(8) + " AND " + REMINDER_CLEARED_EXISTS_EXPRESSION
+                    + " THEN 'CLEARED'"
+                    + " WHEN " + reminderDateCrossed(8) + " THEN 'T_8'"
+                    + " WHEN " + reminderDateCrossed(30) + " THEN 'T_30'"
+                    + " ELSE 'NONE' END";
+        }
+
+        private static String reminderPrioritySortExpression() {
+            return "CASE"
+                    + " WHEN " + reminderDateCrossed(1) + " THEN 4"
+                    + " WHEN " + reminderDateCrossed(2) + " THEN 3"
+                    + " WHEN " + reminderDateCrossed(8) + " AND " + REMINDER_CLEARED_EXISTS_EXPRESSION
+                    + " THEN 0"
+                    + " WHEN " + reminderDateCrossed(8) + " THEN 2"
+                    + " WHEN " + reminderDateCrossed(30) + " THEN 1"
+                    + " ELSE 0 END";
+        }
+
+        private static String reminderDateCrossed(int months) {
+            return "#{query.businessDate} >= TIMESTAMPADD(MONTH, -" + months + ", v.expiry_date)";
         }
 
         private static String script(String select, String where, String suffix) {
@@ -309,7 +350,7 @@ public interface DccRegistrationCertificateQueryMapper {
 
         private static String currentWhere() {
             return commonWhere() + """
-                    AND c.status = 'ACTIVE'
+                    AND c.status IN ('ACTIVE', 'PENDING_FIRST_EFFECTIVE')
                     AND v.id = COALESCE(c.pending_version_id, c.current_version_id)
                     AND v.status IN ('CURRENT', 'PENDING_EFFECTIVE')
                     """;
@@ -329,6 +370,16 @@ public interface DccRegistrationCertificateQueryMapper {
                       </if>
                       <if test="query.status != null and query.status != ''">
                         AND v.status = #{query.status}
+                      </if>
+                      <if test="query.reminderState != null and query.reminderState == 'NORMAL'">
+                        AND
+                    """ + REMINDER_STATE_EXPRESSION + """
+                        IN ('NONE', 'CLEARED')
+                      </if>
+                      <if test="query.reminderState != null and query.reminderState != 'NORMAL'">
+                        AND
+                    """ + REMINDER_STATE_EXPRESSION + """
+                        = #{query.reminderState}
                       </if>
                       <if test="query.certificateNo != null and query.certificateNo != ''">
                         AND v.certificate_no LIKE CONCAT('%', #{query.certificateNo}, '%')

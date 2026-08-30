@@ -61,6 +61,15 @@
 - Forbidden action: 禁止把维护仓副本、`schtasks` 错误/空输出、旧路径、禁用任务、默认仓库、当前用户/SYSTEM/最高权限、命令行明文凭据、仅有历史备份文件或缺少恢复/新鲜度证据包装成“定时备份正常”。
 - Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260813-production-operations-hardening-plan\` 规划包及其独立复审报告。
 
+## 备用服运行承载对齐门禁
+
+- Trigger: 将备用服或备份服运行环境改成与正式服一致，尤其涉及 `/var/lib/docker/intruoyi-data/runtime-data`、`/var/lib/docker/intruoyi-releases`、`/var/lib/docker`、`/dev/vdb`、MinIO 容器名、运行数据目录或 `/etc/fstab`。
+- Preflight check: 停服或迁移前必须只读证明目标块设备存在、目标挂载点落在目标设备、目标目录存在或可创建且非冲突目录、目标可用容量大于当前 `/opt/intruoyi/runtime/data` 与 release 包数据并保留增长空间；同时记录当前 `df/findmnt/lsblk/du`、运行容器、health、前端和展厅 HTTP、MinIO 桶可读性、当前 fstab 和回滚路径。
+- Blocker: `/dev/vdb` 不存在、`/var/lib/docker` 落在根分区且容量不足、当前数据量大于目标可用空间、目标目录已有无法归属数据、MinIO 容器名不匹配、Docker/SSH/health 前置检查失败、或无法形成回滚路径时必须停止，不得停服迁移。
+- Verification: 迁移后必须复核 `/opt/intruoyi/runtime/data`、`/var/lib/docker/intruoyi-data/runtime-data`、`/var/lib/docker/intruoyi-releases` 均落在目标设备；后端 health、前端、展厅、MySQL、Redis、MinIO、OnlyOffice 和容器状态通过，并记录迁移前后数据量和 fstab 变更。
+- Forbidden action: 禁止用符号链接、伪造 `/dev/vdb`、迁到根分区、压缩删减业务数据、跳过 MySQL/MinIO 数据、绕过容量检查、或只改脚本参数冒充真实运行环境一致。
+- Evidence: `doc/tasks/20260827-align-backup-runtime-with-prod/verification-report.md`。
+
 ## 禁止做法
 
 - 禁止直接在主工作区构建发布包，除非任务明确证明无需发布隔离且用户授权。

@@ -14,6 +14,38 @@ def test_local_restart_applies_mes_route_use_config_enabled_migration() -> None:
     assert "COLUMN_NAME = 'enabled'" in text or "column_name = 'enabled'" in text
 
 
+def test_local_restart_applies_system_user_lifecycle_deactivation_migration() -> None:
+    script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "20260830_system_user_lifecycle_deactivation.sql" in text
+    assert "System user lifecycle deactivation schema" in text
+    assert "TABLE_NAME = 'system_users'" in text
+    assert "'lifecycle_document_type'" in text
+    assert "'lifecycle_document_no'" in text
+    assert "'lifecycle_document_time'" in text
+    assert "'lifecycle_effective_time'" in text
+    assert "'lifecycle_deactivated_time'" in text
+    assert "INDEX_NAME = 'idx_system_users_lifecycle_due'" in text
+    assert "handler_name = 'userLifecycleDeactivateJob'" in text
+
+
+def test_local_restart_applies_idi_device_parameter_rules_migration() -> None:
+    script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "20260830_mes_process_pool_idi_device_parameter_rules.sql" in text
+    assert "MES process pool IDI device parameter rules" in text
+    assert "RT000028-IDI" in text
+    assert "B09393" in text
+    assert "COUNT(DISTINCT target_rule.`parameter_code`)" in text
+    assert "'ROUGH_WASH_COUNT'" in text
+    assert "'ROUGH_WASH_MEDIUM'" in text
+    assert "'ROUGH_WASH_POWER'" in text
+    assert "'ROUGH_WASH_ROOM_TEMPERATURE'" in text
+    assert "'ROUGH_WASH_TIME'" in text
+
+
 def test_local_restart_accepts_completed_route_flow_unification() -> None:
     script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
     text = script_path.read_text(encoding="utf-8")

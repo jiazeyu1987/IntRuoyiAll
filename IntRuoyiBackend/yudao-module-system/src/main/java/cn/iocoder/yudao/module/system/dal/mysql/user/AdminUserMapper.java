@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserPageReqV
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -61,6 +62,17 @@ public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
 
     default List<AdminUserDO> selectListByStatus(Integer status) {
         return selectList(AdminUserDO::getStatus, status);
+    }
+
+    default List<AdminUserDO> selectListByPendingLifecycleDeactivation(LocalDateTime now, int limit) {
+        return selectList(new LambdaQueryWrapperX<AdminUserDO>()
+                .isNotNull(AdminUserDO::getLifecycleDocumentType)
+                .isNotNull(AdminUserDO::getLifecycleDocumentNo)
+                .isNotNull(AdminUserDO::getLifecycleEffectiveTime)
+                .isNull(AdminUserDO::getLifecycleDeactivatedTime)
+                .le(AdminUserDO::getLifecycleEffectiveTime, now)
+                .orderByAsc(AdminUserDO::getLifecycleEffectiveTime)
+                .last("LIMIT " + limit));
     }
 
     default List<AdminUserDO> selectListByDeptIds(Collection<Long> deptIds) {

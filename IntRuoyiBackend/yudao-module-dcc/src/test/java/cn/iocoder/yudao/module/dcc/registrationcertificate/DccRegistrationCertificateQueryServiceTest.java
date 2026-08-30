@@ -53,6 +53,7 @@ import java.util.stream.Collectors;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REMINDER_STATE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_SORT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -277,6 +278,80 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void currentPageAppliesReminderSortAndFilterInFormalQuery() {
+        LocalDate businessDate = LocalDate.now(DccRegistrationCertificateBusinessClock.BUSINESS_ZONE);
+        FormalFixture normal = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-NONE-REMINDER", true, 20L);
+        FormalFixture warning = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-T8-REMINDER", true, 21L);
+        FormalFixture urgent = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-T1-REMINDER", true, 22L);
+        updateExpiryDate(normal.versionId(), businessDate.plusMonths(40));
+        updateExpiryDate(warning.versionId(), businessDate.plusMonths(3));
+        updateExpiryDate(urgent.versionId(), businessDate.plusDays(10));
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        PageResult<DccRegistrationCertificatePageItem> sortedPage = queryService.getPage(
+                1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                        .pageNo(1)
+                        .pageSize(10)
+                        .sortField("reminder")
+                        .sortOrder("desc")
+                        .build(),
+                context("REQ-CURRENT-SORT-REMINDER-DESC"));
+
+        assertEquals(3L, sortedPage.getTotal());
+        assertEquals(List.of(urgent.certificateId(), warning.certificateId(), normal.certificateId()),
+                sortedPage.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+        assertEquals(List.of("T_1", "T_8", "NONE"),
+                sortedPage.getList().stream().map(DccRegistrationCertificatePageItem::getVisualState).toList());
+
+        DccRegistrationCertificatePageQuery filterQuery = DccRegistrationCertificatePageQuery.builder()
+                .pageNo(1)
+                .pageSize(10)
+                .reminderState("T_8")
+                .build();
+        PageResult<DccRegistrationCertificatePageItem> filteredPage = queryService.getPage(
+                1L, 99L, filterQuery, context("REQ-CURRENT-FILTER-REMINDER-T8"));
+
+        assertEquals(1L, filteredPage.getTotal());
+        assertEquals(List.of(warning.certificateId()),
+                filteredPage.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+        assertEquals(1L, queryMapper.countPage(1L, List.of(10L), filterQuery));
+    }
+
+    @Test
+    void currentPageReminderNormalFilterIncludesNoneAndClearedStates() {
+        LocalDate businessDate = LocalDate.now(DccRegistrationCertificateBusinessClock.BUSINESS_ZONE);
+        FormalFixture cleared = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-CLEARED-REMINDER", true, 20L);
+        FormalFixture normal = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-NONE-REMINDER", true, 21L);
+        FormalFixture warning = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-T8-REMINDER", true, 22L);
+        updateExpiryDate(cleared.versionId(), businessDate.plusMonths(3));
+        updateExpiryDate(normal.versionId(), businessDate.plusMonths(40));
+        updateExpiryDate(warning.versionId(), businessDate.plusMonths(3));
+        seedSupportingDocument(cleared, "RENEWAL_ACCEPTANCE_RECEIPT");
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        DccRegistrationCertificatePageQuery query = DccRegistrationCertificatePageQuery.builder()
+                .pageNo(1)
+                .pageSize(10)
+                .reminderState("NORMAL")
+                .sortField("certificateNo")
+                .sortOrder("asc")
+                .build();
+        PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
+                1L, 99L, query, context("REQ-CURRENT-FILTER-REMINDER-NORMAL"));
+
+        assertEquals(2L, page.getTotal());
+        assertEquals(List.of(cleared.certificateId(), normal.certificateId()),
+                page.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+        assertEquals(List.of("CLEARED", "NONE"),
+                page.getList().stream().map(DccRegistrationCertificatePageItem::getVisualState).toList());
+        assertEquals(2L, queryMapper.countPage(1L, List.of(10L), query));
+    }
+
+    @Test
     void oldIndexAppliesServerSortFieldAndDirection() {
         FormalFixture lower = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-A-OLD-SORT", true, 20L);
         FormalFixture higher = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-Z-OLD-SORT", true, 21L);
@@ -362,6 +437,30 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                         .build(), context("REQ-CURRENT-SORT-INVALID")));
 
         assertEquals(REGISTRATION_CERTIFICATE_SORT_INVALID.getCode(), error.getCode());
+    }
+
+    @Test
+    void invalidReminderStateFailsFastWithoutIgnoringFilter() {
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> queryService.getPage(1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                        .pageNo(1)
+                        .pageSize(10)
+                        .reminderState("UNKNOWN")
+                        .build(), context("REQ-CURRENT-REMINDER-INVALID")));
+
+        assertEquals(REGISTRATION_CERTIFICATE_REMINDER_STATE_INVALID.getCode(), error.getCode());
+    }
+
+    @Test
+    void oldIndexRejectsReminderStateWithoutSilentIgnore() {
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> queryService.getOldIndexPage(1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                        .pageNo(1)
+                        .pageSize(10)
+                        .reminderState("T_8")
+                        .build(), context("REQ-OLD-REMINDER-UNSUPPORTED")));
+
+        assertEquals(REGISTRATION_CERTIFICATE_REMINDER_STATE_INVALID.getCode(), error.getCode());
     }
 
     @Test
@@ -490,6 +589,28 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertEquals(LocalDate.of(2026, 8, 1), item.getApprovalDate());
         assertEquals(LocalDate.of(2026, 10, 1), item.getEffectiveDate());
         assertEquals(LocalDate.of(2031, 10, 1), item.getExpiryDate());
+    }
+
+    @Test
+    void currentPageShowsApprovedInitialUploadWaitingForFirstEffectiveDate() {
+        FormalFixture pendingInitial = seedFormal(
+                1L, 10L, "PENDING_FIRST_EFFECTIVE", "PENDING_EFFECTIVE",
+                "CERT-UPLOAD-FUTURE", true, null);
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
+                1L, 99L, DccRegistrationCertificatePageQuery.builder().pageNo(1).pageSize(10).build(),
+                context("REQ-CURRENT-PAGE-PENDING-FIRST"));
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(1, page.getList().size());
+        DccRegistrationCertificatePageItem item = page.getList().get(0);
+        assertEquals(pendingInitial.certificateId(), item.getCertificateId());
+        assertEquals(pendingInitial.versionId(), item.getVersionId());
+        assertEquals("PENDING_EFFECTIVE", item.getStatus());
+        assertEquals(LocalDate.of(2026, 9, 1), item.getEffectiveDate());
     }
 
     @Test
@@ -656,6 +777,30 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         certificate.setCurrentSnapshotId("CURRENT".equals(versionStatus) ? snapshot.getId() : null);
         assertEquals(1, certificateMapper.updateById(certificate));
         return new FormalFixture(certificate.getId(), version.getId(), snapshot.getId(), registrationFileId);
+    }
+
+    private void updateExpiryDate(Long versionId, LocalDate expiryDate) {
+        assertEquals(1, jdbcTemplate.update("""
+                UPDATE dcc_registration_certificate_version
+                   SET expiry_date = ?
+                 WHERE tenant_id = 1 AND id = ?
+                """, expiryDate, versionId));
+    }
+
+    private void seedSupportingDocument(FormalFixture fixture, String documentType) {
+        Long ownerCompanyId = jdbcTemplate.queryForObject("""
+                SELECT owner_company_id
+                  FROM dcc_registration_certificate
+                 WHERE tenant_id = 1 AND id = ?
+                """, Long.class, fixture.certificateId());
+        assertEquals(1, jdbcTemplate.update("""
+                INSERT INTO dcc_registration_certificate_supporting_document
+                    (tenant_id, owner_company_id, certificate_id, version_id, business_file_id,
+                     document_type, status, uploaded_at, uploaded_by, confirmed_at, confirmed_by, creator, deleted)
+                VALUES (1, ?, ?, ?, ?, ?, 'EFFECTIVE', ?, 99, ?, 99, 'junit', 0)
+                """, ownerCompanyId, fixture.certificateId(), fixture.versionId(),
+                900000L + fixture.versionId(), documentType,
+                LocalDateTime.of(2026, 8, 17, 9, 0), LocalDateTime.of(2026, 8, 17, 9, 5)));
     }
 
     private FormalFixture seedPendingRenewal(Long certificateId, Long baseSnapshotId) {

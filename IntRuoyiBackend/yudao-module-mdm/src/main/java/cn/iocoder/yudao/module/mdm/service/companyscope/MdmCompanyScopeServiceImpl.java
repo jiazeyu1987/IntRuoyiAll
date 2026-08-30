@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mdm.api.companyscope.dto.MdmRoleCompanyScopeCreat
 import cn.iocoder.yudao.module.mdm.api.companyscope.dto.MdmUserCompanyScopeCreateReqDTO;
 import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopePageReqVO;
 import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopeRespVO;
+import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopeSaveReqVO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.companyscope.MdmRoleCompanyScopeDO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.companyscope.MdmUserCompanyScopeDO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.enterprise.MdmEnterpriseDO;
@@ -129,6 +130,60 @@ public class MdmCompanyScopeServiceImpl implements MdmCompanyScopeService {
         int fromIndex = Math.min((reqVO.getPageNo() - 1) * reqVO.getPageSize(), rows.size());
         int toIndex = Math.min(fromIndex + reqVO.getPageSize(), rows.size());
         return new PageResult<>(rows.subList(fromIndex, toIndex), total);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createCompanyScope(MdmCompanyScopeSaveReqVO reqVO) {
+        if (reqVO == null) {
+            throw exception(MDM_COMPANY_SCOPE_FIELD_REQUIRED, "request");
+        }
+        String scopeType = requireScopeType(reqVO.getScopeType());
+        if (SCOPE_TYPE_USER.equals(scopeType)) {
+            MdmUserCompanyScopeCreateReqDTO request = new MdmUserCompanyScopeCreateReqDTO();
+            request.setUserId(reqVO.getPrincipalId());
+            request.setCompanyId(reqVO.getCompanyId());
+            request.setStatus(reqVO.getStatus());
+            return createUserCompanyScope(request);
+        }
+        MdmRoleCompanyScopeCreateReqDTO request = new MdmRoleCompanyScopeCreateReqDTO();
+        request.setRoleId(reqVO.getPrincipalId());
+        request.setCompanyId(reqVO.getCompanyId());
+        request.setStatus(reqVO.getStatus());
+        return createRoleCompanyScope(request);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateCompanyScope(MdmCompanyScopeSaveReqVO reqVO) {
+        if (reqVO == null) {
+            throw exception(MDM_COMPANY_SCOPE_FIELD_REQUIRED, "request");
+        }
+        Long id = requirePositiveId(reqVO.getId(), "id");
+        String scopeType = requireScopeType(reqVO.getScopeType());
+        Long principalId = requirePositiveId(reqVO.getPrincipalId(), "principalId");
+        Long companyId = requirePositiveId(reqVO.getCompanyId(), "companyId");
+        String status = requireStatus(reqVO.getStatus());
+        validateEnabledOwnedCompany(companyId);
+        if (SCOPE_TYPE_USER.equals(scopeType)) {
+            updateUserCompanyScope(id, principalId, companyId, status);
+            return;
+        }
+        updateRoleCompanyScope(id, principalId, companyId, status);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteCompanyScope(String scopeType, Long id) {
+        Long requiredId = requirePositiveId(id, "id");
+        String requiredScopeType = requireScopeType(scopeType);
+        if (SCOPE_TYPE_USER.equals(requiredScopeType)) {
+            requireExistingUserScope(requiredId);
+            requireSingleAffectedRow(userScopeMapper.deleteById(requiredId));
+            return;
+        }
+        requireExistingRoleScope(requiredId);
+        requireSingleAffectedRow(roleScopeMapper.deleteById(requiredId));
     }
 
     @Override
@@ -295,6 +350,78 @@ public class MdmCompanyScopeServiceImpl implements MdmCompanyScopeService {
         return recipientResolver.resolve(companyId, roleIds, permission);
     }
 
+    private void updateUserCompanyScope(Long id, Long userId, Long companyId, String status) {
+        MdmUserCompanyScopeDO existing = requireExistingUserScope(id);
+        validateEnabledUser(userId);
+        MdmUserCompanyScopeDO update = MdmUserCompanyScopeDO.builder()
+                .id(existing.getId())
+                .userId(userId)
+                .companyId(companyId)
+                .status(status)
+                .revision(nextRevision(existing.getRevision()))
+                .build();
+        try {
+            requireSingleAffectedRow(userScopeMapper.updateById(update));
+        } catch (DuplicateKeyException duplicateKeyException) {
+            if (!isNamedUniqueConflict(duplicateKeyException, USER_SCOPE_UNIQUE_CONSTRAINT)) {
+                throw duplicateKeyException;
+            }
+            throw exception(MDM_USER_COMPANY_SCOPE_DUPLICATE);
+        }
+    }
+
+    private void updateRoleCompanyScope(Long id, Long roleId, Long companyId, String status) {
+        MdmRoleCompanyScopeDO existing = requireExistingRoleScope(id);
+        validateEnabledRole(roleId);
+        MdmRoleCompanyScopeDO update = MdmRoleCompanyScopeDO.builder()
+                .id(existing.getId())
+                .roleId(roleId)
+                .companyId(companyId)
+                .status(status)
+                .revision(nextRevision(existing.getRevision()))
+                .build();
+        try {
+            requireSingleAffectedRow(roleScopeMapper.updateById(update));
+        } catch (DuplicateKeyException duplicateKeyException) {
+            if (!isNamedUniqueConflict(duplicateKeyException, ROLE_SCOPE_UNIQUE_CONSTRAINT)) {
+                throw duplicateKeyException;
+            }
+            throw exception(MDM_ROLE_COMPANY_SCOPE_DUPLICATE);
+        }
+    }
+
+    private MdmUserCompanyScopeDO requireExistingUserScope(Long id) {
+        MdmUserCompanyScopeDO scope = userScopeMapper.selectById(id);
+        if (scope == null || Boolean.TRUE.equals(scope.getDeleted())) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        if (!Objects.equals(tenantId, scope.getTenantId())
+                || scope.getUserId() == null || scope.getUserId() <= 0
+                || scope.getCompanyId() == null || scope.getCompanyId() <= 0
+                || scope.getRevision() == null || scope.getRevision() <= 0
+                || !MdmEnterpriseStatusEnum.isValid(scope.getStatus())) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        return scope;
+    }
+
+    private MdmRoleCompanyScopeDO requireExistingRoleScope(Long id) {
+        MdmRoleCompanyScopeDO scope = roleScopeMapper.selectById(id);
+        if (scope == null || Boolean.TRUE.equals(scope.getDeleted())) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        if (!Objects.equals(tenantId, scope.getTenantId())
+                || scope.getRoleId() == null || scope.getRoleId() <= 0
+                || scope.getCompanyId() == null || scope.getCompanyId() <= 0
+                || scope.getRevision() == null || scope.getRevision() <= 0
+                || !MdmEnterpriseStatusEnum.isValid(scope.getStatus())) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        return scope;
+    }
+
     private Map<Long, MdmEnterpriseDO> companyMap(List<Long> companyIds) {
         if (companyIds.isEmpty()) {
             return Map.of();
@@ -443,6 +570,14 @@ public class MdmCompanyScopeServiceImpl implements MdmCompanyScopeService {
         return normalized;
     }
 
+    private String requireScopeType(String value) {
+        String normalized = normalizeScopeType(value);
+        if (normalized == null) {
+            throw exception(MDM_COMPANY_SCOPE_FIELD_REQUIRED, "scopeType");
+        }
+        return normalized;
+    }
+
     private String normalizeOptionalStatus(String value) {
         String normalized = StrUtil.trimToNull(value);
         if (normalized != null && !MdmEnterpriseStatusEnum.isValid(normalized)) {
@@ -537,6 +672,19 @@ public class MdmCompanyScopeServiceImpl implements MdmCompanyScopeService {
         if (affectedRows != 1 || id == null || id <= 0) {
             throw exception(MDM_COMPANY_SCOPE_WRITE_RESULT_INVALID);
         }
+    }
+
+    private void requireSingleAffectedRow(int affectedRows) {
+        if (affectedRows != 1) {
+            throw exception(MDM_COMPANY_SCOPE_WRITE_RESULT_INVALID);
+        }
+    }
+
+    private Integer nextRevision(Integer revision) {
+        if (revision == null || revision <= 0) {
+            throw exception(MDM_COMPANY_SCOPE_CONFIG_INVALID);
+        }
+        return revision + 1;
     }
 
     private boolean isNamedUniqueConflict(DuplicateKeyException exception, String constraint) {

@@ -28,6 +28,8 @@ public class DccRegistrationCertificatePageQuery {
     private String projectCode;
     private Boolean missingProjectCode;
     private Boolean missingFile;
+    private String reminderState;
+    private LocalDate businessDate;
     private LocalDate firstObtainedStart;
     private LocalDate firstObtainedEnd;
     private LocalDate approvalStart;

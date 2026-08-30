@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.system.service.user;
 
 import cn.hutool.core.util.RandomUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.collection.ArrayUtils;
@@ -15,6 +16,7 @@ import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserDingTalk
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserDingTalkImportRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportExcelVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserLifecycleDeactivateReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSaveReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
@@ -26,6 +28,7 @@ import cn.iocoder.yudao.module.system.dal.mysql.dept.DeptMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.UserPostMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.enums.common.SexEnum;
+import cn.iocoder.yudao.module.system.enums.user.UserLifecycleDocumentTypeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.dept.PostService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
@@ -49,7 +52,9 @@ import java.util.Collections;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static cn.hutool.core.util.RandomUtil.randomEle;
 import static cn.iocoder.yudao.framework.common.util.collection.SetUtils.asSet;
@@ -167,6 +172,24 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testCreateUser_genericAccountForbidden() {
+        UserSaveReqVO reqVO = randomPojo(UserSaveReqVO.class, o -> {
+            o.setUsername("admin01");
+            o.setMobile(randomString());
+            o.setPostIds(null);
+            o.setPassword("Create2026");
+        }).setId(null);
+        TenantDO tenant = randomPojo(TenantDO.class, o -> o.setAccountCount(1));
+        doNothing().when(tenantService).handleTenantInfo(argThat(handler -> {
+            handler.handle(tenant);
+            return true;
+        }));
+
+        assertServiceException(() -> userService.createUser(reqVO), USER_GENERIC_ACCOUNT_FORBIDDEN, "admin01");
+        assertNull(userMapper.selectByUsername("admin01"));
+    }
+
+    @Test
     public void testCreateUser_weakPassword() {
         UserSaveReqVO reqVO = randomPojo(UserSaveReqVO.class, o -> {
             o.setPassword("yuanma");
@@ -224,6 +247,21 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         List<UserPostDO> userPosts = userPostMapper.selectListByUserId(user.getId());
         assertEquals(2L, userPosts.get(0).getPostId());
         assertEquals(3L, userPosts.get(1).getPostId());
+    }
+
+    @Test
+    public void testUpdateUser_genericAccountForbidden() {
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setUsername("operator01"));
+        userMapper.insert(dbUser);
+        UserSaveReqVO reqVO = randomPojo(UserSaveReqVO.class, o -> {
+            o.setId(dbUser.getId());
+            o.setUsername("test");
+            o.setMobile(randomString());
+            o.setPostIds(null);
+        });
+
+        assertServiceException(() -> userService.updateUser(reqVO), USER_GENERIC_ACCOUNT_FORBIDDEN, "test");
+        assertEquals("operator01", userMapper.selectById(dbUser.getId()).getUsername());
     }
 
     @Test
@@ -378,6 +416,78 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         // 断言
         AdminUserDO user = userMapper.selectById(userId);
         assertEquals(status, user.getStatus());
+    }
+
+    @Test
+    public void testRecordUserLifecycleDeactivation_dueResignationDisablesAtEffectiveTime() {
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        userMapper.insert(dbUser);
+        LocalDateTime documentTime = LocalDateTime.of(2026, 8, 1, 9, 0);
+        LocalDateTime effectiveTime = LocalDateTime.of(2026, 8, 15, 18, 0);
+        UserLifecycleDeactivateReqVO reqVO = buildLifecycleDeactivateReqVO(dbUser.getId(),
+                UserLifecycleDocumentTypeEnum.RESIGNATION.getType(), "LZ-20260815-001",
+                documentTime, effectiveTime);
+
+        userService.recordUserLifecycleDeactivation(reqVO);
+
+        AdminUserDO user = userMapper.selectById(dbUser.getId());
+        assertEquals(CommonStatusEnum.DISABLE.getStatus(), user.getStatus());
+        assertEquals(UserLifecycleDocumentTypeEnum.RESIGNATION.getType(), user.getLifecycleDocumentType());
+        assertEquals("LZ-20260815-001", user.getLifecycleDocumentNo());
+        assertEquals(documentTime, user.getLifecycleDocumentTime());
+        assertEquals(effectiveTime, user.getLifecycleEffectiveTime());
+        assertEquals(effectiveTime, user.getLifecycleDeactivatedTime());
+        verify(oauth2TokenService).removeAccessToken(dbUser.getId(), UserTypeEnum.ADMIN.getValue());
+    }
+
+    @Test
+    public void testRecordUserLifecycleDeactivation_futureTransferProcessedByDueJob() {
+        AdminUserDO dbUser = randomAdminUserDO(o -> o.setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        userMapper.insert(dbUser);
+        LocalDateTime documentTime = LocalDateTime.of(2098, 12, 1, 9, 0);
+        LocalDateTime effectiveTime = LocalDateTime.of(2099, 1, 1, 8, 30);
+        UserLifecycleDeactivateReqVO reqVO = buildLifecycleDeactivateReqVO(dbUser.getId(),
+                UserLifecycleDocumentTypeEnum.TRANSFER.getType(), "ZG-20990101-001",
+                documentTime, effectiveTime);
+
+        userService.recordUserLifecycleDeactivation(reqVO);
+
+        AdminUserDO pendingUser = userMapper.selectById(dbUser.getId());
+        assertEquals(CommonStatusEnum.ENABLE.getStatus(), pendingUser.getStatus());
+        assertEquals(UserLifecycleDocumentTypeEnum.TRANSFER.getType(), pendingUser.getLifecycleDocumentType());
+        assertEquals("ZG-20990101-001", pendingUser.getLifecycleDocumentNo());
+        assertEquals(documentTime, pendingUser.getLifecycleDocumentTime());
+        assertEquals(effectiveTime, pendingUser.getLifecycleEffectiveTime());
+        assertNull(pendingUser.getLifecycleDeactivatedTime());
+        verify(oauth2TokenService, never()).removeAccessToken(eq(dbUser.getId()), anyInt());
+
+        int notDueCount = userService.processDueLifecycleDeactivations(effectiveTime.minusMinutes(1), 20);
+        assertEquals(0, notDueCount);
+
+        int dueCount = userService.processDueLifecycleDeactivations(effectiveTime, 20);
+        assertEquals(1, dueCount);
+        AdminUserDO deactivatedUser = userMapper.selectById(dbUser.getId());
+        assertEquals(CommonStatusEnum.DISABLE.getStatus(), deactivatedUser.getStatus());
+        assertEquals(effectiveTime, deactivatedUser.getLifecycleDeactivatedTime());
+        verify(oauth2TokenService).removeAccessToken(dbUser.getId(), UserTypeEnum.ADMIN.getValue());
+    }
+
+    @Test
+    public void testUpdateUserStatus_enableLifecycleDeactivatedUserForbidden() {
+        LocalDateTime effectiveTime = LocalDateTime.of(2026, 8, 15, 18, 0);
+        AdminUserDO dbUser = randomAdminUserDO(o -> {
+            o.setStatus(CommonStatusEnum.DISABLE.getStatus());
+            o.setLifecycleDocumentType(UserLifecycleDocumentTypeEnum.RESIGNATION.getType());
+            o.setLifecycleDocumentNo("LZ-20260815-002");
+            o.setLifecycleDocumentTime(LocalDateTime.of(2026, 8, 1, 9, 0));
+            o.setLifecycleEffectiveTime(effectiveTime);
+            o.setLifecycleDeactivatedTime(effectiveTime);
+        });
+        userMapper.insert(dbUser);
+
+        assertServiceException(() -> userService.updateUserStatus(dbUser.getId(), CommonStatusEnum.ENABLE.getStatus()),
+                USER_LIFECYCLE_DEACTIVATED_ENABLE_FORBIDDEN, "LZ-20260815-002");
+        assertEquals(CommonStatusEnum.DISABLE.getStatus(), userMapper.selectById(dbUser.getId()).getStatus());
     }
 
     @Test
@@ -710,6 +820,36 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testImportUserList_genericAccountForbidden() {
+        UserImportExcelVO importUser = UserImportExcelVO.builder()
+                .username("guest")
+                .nickname("访客")
+                .email("guest@example.test")
+                .mobile(randomMobile())
+                .sex(SexEnum.MALE.getSex())
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        UserImportExcelVO allowedUser = UserImportExcelVO.builder()
+                .username("operator02")
+                .nickname("操作员")
+                .email("operator02@example.test")
+                .mobile(randomMobile())
+                .sex(SexEnum.FEMALE.getSex())
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        when(passwordEncoder.encode(eq(TEST_INIT_PASSWORD))).thenReturn("java");
+
+        UserImportRespVO respVO = userService.importUserList(newArrayList(importUser, allowedUser), true);
+
+        assertEquals(List.of("operator02"), respVO.getCreateUsernames());
+        assertEquals(0, respVO.getUpdateUsernames().size());
+        assertEquals(1, respVO.getFailureUsernames().size());
+        assertEquals("用户账号不能使用通用账户：guest", respVO.getFailureUsernames().get("guest"));
+        assertNull(userMapper.selectByUsername("guest"));
+        assertNotNull(userMapper.selectByUsername("operator02"));
+    }
+
+    @Test
     public void testImportDingTalkUserList_success() {
         when(passwordEncoder.encode(eq(TEST_INIT_PASSWORD))).thenReturn("java");
         List<UserDingTalkImportExcelVO> importUsers = List.of(
@@ -745,6 +885,19 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         assertEquals(zhangsan.getId(), docCenter.getLeaderUserId());
         assertEquals("zhangsan", respVO.getLeaderAssignedDeptPaths().get("上海瑛泰医疗器械股份有限公司 / 质量管理部"));
         assertEquals("zhangsan", respVO.getLeaderAssignedDeptPaths().get("上海瑛泰医疗器械股份有限公司 / 质量管理部 / 文控中心"));
+    }
+
+    @Test
+    public void testImportDingTalkUserList_genericGeneratedUsernameForbidden() {
+        UserDingTalkImportRespVO respVO = userService.importDingTalkUserList(List.of(
+                buildDingTalkUser("admin", "admin@example.test", "E001", "admin",
+                        "上海瑛泰医疗器械股份有限公司", "dept-quality", "质量管理部", null, null, null, null, null)
+        ));
+
+        assertEquals(0, respVO.getCreateUsernames().size());
+        assertEquals(1, respVO.getFailureUsernames().size());
+        assertEquals("用户账号不能使用通用账户：admin", respVO.getFailureUsernames().get("admin"));
+        assertNull(userMapper.selectByUsername("admin"));
     }
 
     @Test
@@ -1027,6 +1180,19 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testGetGenericAccountUserList() {
+        userMapper.insert(randomAdminUserDO(o -> o.setUsername("admin")));
+        userMapper.insert(randomAdminUserDO(o -> o.setUsername("test01")));
+        userMapper.insert(randomAdminUserDO(o -> o.setUsername("System2")));
+        userMapper.insert(randomAdminUserDO(o -> o.setUsername("operator01")));
+
+        List<AdminUserDO> result = userService.getGenericAccountUserList();
+
+        Set<String> usernames = result.stream().map(AdminUserDO::getUsername).collect(Collectors.toSet());
+        assertEquals(Set.of("admin", "test01", "System2"), usernames);
+    }
+
+    @Test
     public void testValidateUserList_success() {
         // mock 数据
         AdminUserDO userDO = randomAdminUserDO().setStatus(CommonStatusEnum.ENABLE.getStatus());
@@ -1070,8 +1236,26 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
             o.setLoginFailureCount(0);
             o.setLoginLocked(0);
             o.setLoginLockedTime(null);
+            o.setLifecycleDocumentType(null);
+            o.setLifecycleDocumentNo(null);
+            o.setLifecycleDocumentTime(null);
+            o.setLifecycleEffectiveTime(null);
+            o.setLifecycleDeactivatedTime(null);
         };
         return randomPojo(AdminUserDO.class, ArrayUtils.append(consumer, consumers));
+    }
+
+    private static UserLifecycleDeactivateReqVO buildLifecycleDeactivateReqVO(Long userId, String documentType,
+                                                                              String documentNo,
+                                                                              LocalDateTime documentTime,
+                                                                              LocalDateTime effectiveTime) {
+        UserLifecycleDeactivateReqVO reqVO = new UserLifecycleDeactivateReqVO();
+        reqVO.setId(userId);
+        reqVO.setDocumentType(documentType);
+        reqVO.setDocumentNo(documentNo);
+        reqVO.setDocumentTime(documentTime);
+        reqVO.setEffectiveTime(effectiveTime);
+        return reqVO;
     }
 
     private static UserDingTalkImportExcelVO buildDingTalkUser(String name, String email, String employeeNo,

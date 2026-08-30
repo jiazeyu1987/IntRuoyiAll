@@ -10,6 +10,21 @@ export type DccRegistrationCertificateStatus =
   | 'OLD'
   | 'VOIDED'
 
+export type DccRegistrationCertificateReminderVisualState =
+  | 'NONE'
+  | 'CLEARED'
+  | 'T_30'
+  | 'T_8'
+  | 'T_2'
+  | 'T_1'
+
+export type DccRegistrationCertificateReminderFilterState =
+  | 'NORMAL'
+  | 'T_30'
+  | 'T_8'
+  | 'T_2'
+  | 'T_1'
+
 export type RegistrationCertificateSortField =
   | 'certificateNo'
   | 'ownerCompanyName'
@@ -23,6 +38,7 @@ export type RegistrationCertificateSortField =
   | 'approvalDate'
   | 'effectiveDate'
   | 'expiryDate'
+  | 'reminder'
   | 'remark'
 
 export type DccRegistrationCertificateLocalDateValue = string | [number, number, number]
@@ -43,6 +59,7 @@ export interface DccRegistrationCertificatePageReqVO extends PageParam {
   projectCode?: string
   missingProjectCode?: boolean
   missingFile?: boolean
+  reminderState?: DccRegistrationCertificateReminderFilterState
   firstObtainedStart?: string
   firstObtainedEnd?: string
   approvalStart?: string
@@ -74,7 +91,7 @@ export interface DccRegistrationCertificatePageItemVO {
   hasProjectCode: boolean
   hasRegistrationFile: boolean
   reminderColor: string
-  visualState: string
+  visualState: DccRegistrationCertificateReminderVisualState
   firstObtainedDate?: DccRegistrationCertificateLocalDateValue
   approvalDate?: DccRegistrationCertificateLocalDateValue
   effectiveDate?: DccRegistrationCertificateLocalDateValue
@@ -131,7 +148,7 @@ export interface DccRegistrationCertificateDetailVO {
   registrationFileId?: number | string
   hasRegistrationFile: boolean
   reminderColor: string
-  visualState: string
+  visualState: DccRegistrationCertificateReminderVisualState
 }
 
 export interface DccRegistrationCertificateHistoryItemVO {
@@ -197,7 +214,7 @@ export interface DccRegistrationCertificateSupportingDocumentUploadReqVO {
 }
 
 export interface DccRegistrationCertificateUploadSubmitReqVO {
-  companyName: string
+  companyId: number | string
   productName: string
   projectCodeId?: number | string
   certificateNo: string

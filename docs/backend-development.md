@@ -186,16 +186,18 @@
 - Batch code source boundary: `PRODUCTION_WORK_ORDER.batchCode` 在批记录执行运行态必须读取创建/打开执行记录时已解析并写入 `mes_pro_batch_record_execution.batch_code` 的正式执行上下文批号；生产工单主表 `batch_code` 只可作为创建执行记录时的输入来源之一，不得在单元格链接落库阶段绕过执行上下文直接作为唯一来源。
 - Source ownership boundary: `PROCESS_POOL_REPORT` 等来自生产组长报工确认、订单工序完成或其它专用业务写链路的来源字段，不应由通用 `/batch-record-cell-link/prefill` 自动预填接管；通用预填应跳过该来源，由对应专用服务负责读取正式业务事件、分配记录、字段映射和字段审计写入。
 - Lifecycle boundary: 批记录单元格或重复行链接配置、正式一线生产事实形成、放行资料生成是三个独立阶段。配置保存只定义来源字段到目标单元格或重复记录的关系，不得创建批记录、写目标值或预占重复行；一线生产提交只形成后续可追溯的正式来源事实；若业务合同规定在生产组长“申请放行”时统一生成资料，则只能由申请放行专用事务按冻结路线/表单版本和正式提交顺序执行映射、人员取值、操作时间取值、目标结构校验与原子写入，禁止在配置保存或一线提交阶段提前物化。
-- Process-pool field catalog boundary: 批记录单元格链接页选择“报工数据”时，字段目录必须来自当前路线版本/当前工序的正式一线生产运行配置和报工事件结构；除基础数量外，还必须覆盖选用设备、设备参数读数、参数单位/上下限/状态、参数标准、计量有效期、清场/物料/清洁确认、实际员工和提交/签名上下文。设备参数实际值必须使用正式事件路径 `deviceParameterReadings.<parameterCode>.value`，下拉或文本参数必须保留 `textValue`，不得退回只读扁平数量字段或前端手工字段清单。
+- Process-pool field catalog boundary: 批记录单元格链接页选择“报工数据”时，字段目录必须来自当前路线版本/当前工序的正式一线生产运行配置和报工事件结构；当前没有单独选择生产组长时，选用设备身份字段必须按当前登录生产组长的工序设备绑定读取，参数字段再按同一路线工序、同一生产组长、同一设备的参数规则读取，禁止跨生产组长或跨路线工序混入同名工序设备。除基础数量外，还必须覆盖选用设备、设备参数读数、参数单位/上下限/状态、参数标准、计量有效期、清场/物料/清洁确认、实际员工和提交/签名上下文。设备参数实际值必须使用正式事件路径 `deviceParameterReadings.<parameterCode>.value`，同一工序同码参数的标准、默认值、上下限和状态也必须按 `deviceId` 作用域分开，编码形态应保留 `deviceParameterReadings.<parameterCode>...@device:<deviceId>` / `equipmentParameterRules.<parameterCode>...@device:<deviceId>`；下拉或文本参数必须保留 `textValue`，不得退回只读扁平数量字段或前端手工字段清单。
+- Process-pool linkable display boundary: 正式报工事件仍可保留完整数量、人员和签名审计数据，但“报工数据”可链接字段目录必须按已确认的业务展示口径输出；被要求隐藏的放行分配数量、损耗原因名称、损耗原因编码、实际操作员工、事件设备编号、工作站编号、设备账号、提交签名编号和审核人签名编号不得进入目录，不能用 CSS 隐藏或仅在前端过滤掩盖。提交签名用户、审核时间和审核人签名用户等仍需展示的业务字段继续从正式事件/审核记录读取；隐藏展示不等于删除底层审计数据。
+- Process-pool source-specific loading boundary: 批记录单元格链接页已明确选择 `PROCESS_POOL_REPORT` 且只选择了 DCC 项目代码、尚未选择 `routeProcessId` 时，后端工作台上下文必须先返回该 DCC 项目代码对应路线的 `routeProcesses`；不得预加载 `PRODUCTION_PICK_LIST`、PQC 或其它来源字段并让其它来源的 fail-fast 错误阻断“工序”下拉。
 - Production pick-list source boundary: 批记录单元格链接页选择“领料单数据”时，字段目录必须按当前 DCC 项目绑定、路线产品和目标 `routeProcessId` 生成，至少覆盖物料编码、名称、规格、单位、物料批次号和领料数量。路线维护了工序物料清单时必须按该清单精确限定；整条路线未维护工序物料清单时，必须按路线产品编码读取已同步 ERP 生产用料清单作为正式产品物料目录，再绑定到用户当前配置的 `routeProcessId`，不得把其它路线或前端静态物料作为替代。申请放行解析领料单时必须按当前 DCC 路线产品、生产工单正式编号、唯一已审核单据和物料编码再次核对来源关系。同一物料存在多条明细时，只能按正式 `sourceEntryId` 升序取第一条；缺少稳定分录号、DCC/产品/工序关系不一致、领料单不唯一或物料缺失必须在任何目标资料写入前阻断。配置保存只保存来源到目标单元格的关系，不得提前生成批记录。
 - Production pick-list source verification: 后端回归必须覆盖字段目录按工序筛选、同物料多明细首条确定性、唯一已审核领料单校验和异常关系 fail-fast；来源证据哈希必须参与放行幂等键，避免来源变更后复用旧结果。
 - Formal binding identity boundary: 工序批记录绑定的正式身份必须从 `batch_record_report_id -> mes_pro_batch_record_report.report_id` 解析报表、定义和版本；绑定表中的 `batch_record_definition_id/batch_record_version_id` 只是冗余快照，历史值可能为空，不得作为唯一查询条件。请求带 `routeId` 时必须同时按当前路线限定同一报表的 `routeProcessId`，避免跨路线合并；正式报表元数据缺失时必须阻塞，禁止用 `formBindings`、默认 `MAIN` 文案、首条绑定或空工序字段替代。
-- Route process context propagation boundary: 同一正式批记录报表可能被多条路线或多个工序复用。从工艺路线当前工序进入批记录表单列表、再进入单元格链接页时，必须全程携带并校验 `routeId + routeProcessId + targetReportId`；切换到“报工数据”后仍须保持同一目标工序，保存单元格链接或重复行组时也必须用请求 `routeId` 解析目标工序。缺少正式路线工序上下文、目标报表与工序不匹配或解析结果不唯一时，页面应禁用“报工数据”并由后端 fail-fast，禁止退化为只显示通用字段、任取首个共享报表工序或跨路线保存。
+- Route process context propagation boundary: 同一正式批记录报表可能被多条路线或多个工序复用。从工艺路线当前工序进入批记录表单列表、再进入单元格链接页时，必须全程携带并校验 `routeId + routeProcessId + targetReportId`；从某张批记录表单点击“链接”时，该表单代表右侧目标表单，不是左侧来源表单，左侧默认来源必须避开同一张目标表单并选择其它正式来源表单。切换到“报工数据”后仍须保持同一目标工序，保存单元格链接或重复行组时也必须用请求 `routeId` 解析目标工序。缺少正式路线工序上下文、目标报表与工序不匹配或解析结果不唯一时，页面应禁用“报工数据”并由后端 fail-fast，禁止退化为只显示通用字段、任取首个共享报表工序、把当前点击表单当来源表单或跨路线保存。
 - Blocker: 来源值存在且链接规则启用，但目标 execution 未保存到 `cell_values_json` 时，必须把修复收敛到创建/打开执行记录的后端落库链路；若字段审计系统写入证据缺失，也必须阻塞，不能直接 update 主表。
 - Idempotency schema check: 自动落库写入字段审计前必须核对幂等键列长度；语义组合键可能超过 `varchar(64)` 时，使用稳定原始组合键的 SHA-256 作为保存和查询共用键，并同时测试写入路径与重复打开查询路径恰好生成 64 位小写十六进制。
 - Verification: 后端回归需覆盖创建执行记录、打开历史空 DRAFT、重复打开幂等、目标已有人工值不覆盖、来源批号缺失 fail-fast、专用来源被通用预填跳过且由专用服务回填，并复验字段审计 hash/head revision、审计批次数量和幂等键长度；真实 E2E 需同时断言打开任务响应、执行详情 `cellValuesJson`、页面目标输入值和重复打开不追加审计批次。
 - Forbidden action: 禁止把 `/prefill` 返回值或前端 `hydrateDraftState` 当作已保存结果；禁止前端写空值兜底、查询接口隐式写库、直接 SQL 回填、把专用业务来源当成通用不支持字段抛错，或绕过字段审计链。
-- Evidence: `doc/tasks/20260727-edhr-cell-link-auto-persist-design/verification-report.md`；`doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/verification-report.md`；`doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md`；`doc/tasks/20260812-process-pool-all-fields-cell-link/verification-report.md`；`doc/tasks/20260814-batch-record-repeat-row-link-implementation/verification-report.md`；`doc/tasks/20260814-batch-record-process-parameter-fields-fix/verification-report.md`。
+- Evidence: `doc/tasks/20260727-edhr-cell-link-auto-persist-design/verification-report.md`；`doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/verification-report.md`；`doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md`；`doc/tasks/20260812-process-pool-all-fields-cell-link/verification-report.md`；`doc/tasks/20260814-batch-record-repeat-row-link-implementation/verification-report.md`；`doc/tasks/20260814-batch-record-process-parameter-fields-fix/verification-report.md`；`doc/tasks/20260830-dcc-rough-wash-device-filter-bug/verification-report.md`。
 
 ## eDHR 批记录 Word 表格解析门禁
 
@@ -226,6 +228,15 @@
 - Forbidden action: 禁止只修前端预览、手工写入模板 JSON、按 V7 文件名做特例，或用识别字段列表替代源表格结构。
 - Evidence: doc/tasks/20260821-pressure-pump-form-parser-v7-regression/verification-report.md。
 
+### 表单模板 Jimu 保存回写正式版本门禁
+
+- Trigger: 表单模板页内 Jimu 编辑器、`FORMTPL:*` 报表、`/jmreport/save`、`jimuSchemaJson.sheetLayoutJson`、草稿模板版本、用户在 Jimu 画布新增/删除单元格后要求保存回原表单模板。
+- Preflight check: 先确认编辑入口使用当前表单模板版本的虚拟报表 ID `FORMTPL:<templateVersionId>`；非草稿版本点击编辑必须先生成或复用同模板草稿版本，Jimu 原生保存请求必须在后端按租户和模板版本状态校验，只允许写 `DRAFT`，且保存成功后把 Jimu 最新画布同步回该模板版本正式 `jimuSchemaJson.sheetLayoutJson`。
+- Blocker: `/jmreport/save` 只更新 Jimu 报表表而没有回写模板版本、保存请求缺租户、`FORMTPL:*` 指向非当前租户或非草稿版本、保存成功但模板详情接口读回的 `sheetLayoutJson` 未变化、或回写覆盖 `cellRules/assistRows/signatureCellMarkers/fillAssignments` 等外层规则配置时必须停止。
+- Verification: 后端合同必须覆盖 `FORMTPL:*` 保存过滤器、草稿写保护、保存后只替换 `sheetLayoutJson` 并保留外层配置；真实 E2E 必须从表单模板页面进入 Jimu 编辑器，临时新增或删除单元格，触发 Jimu 原生保存，再通过表单模板正式详情接口读回确认变化，最后恢复测试改动。
+- Forbidden action: 禁止用直接 SQL、只改 Jimu 报表表、API-only 写模板版本、前端本地缓存、重新导入模板、发布版静默改草稿、吞掉保存失败或默认成功来冒充 Jimu 保存回写。
+- Evidence: `doc/tasks/20260828-form-template-edit-button-batch-record-designer/verification-report.md`。
+
 ### 批记录/路线导入真实 fixture 覆盖范围变更边界
 
 - Trigger: 批记录 Word、Sheet1 Excel、路线导入、真实 fixture、`NoSuchFileException`、用户明确说“不需要覆盖这个”或取消真实样本覆盖。
@@ -249,6 +260,7 @@
 - Trigger: Jimu 编辑页右侧“当前组件”与批记录单元格语义不一致、日期/签名日期单元格显示为“多行文本”或普通文本、`fillForm.componentFlag=input-textarea` / `input-text`、`记录人/日期` / `操作人/日期` / `复核人/日期` 等签名日期宽空白格。
 - Preflight check: 先审计后端 `MesProBatchRecordReportJsonBuilder` 生成的 `fillForm.componentFlag`、`edhrSignature` 与相邻/同一行标签语义；Jimu 右侧当前组件以 `fillForm.componentFlag` 为准，只有 `edhrSignature` 元数据不足以显示电子签名控件；宽合并空白格不得在语义判断前被 `isWideBlankNarrativeArea` 直接归类为 textarea。
 - Formalization boundary: 识别出来的可填格子正式化时只补正式身份、映射 key 和版本关联，不得重算 `componentFlag` / `valueType`；日期、电子签名、普通文本必须沿用识别阶段语义，不能在“正式化”步骤里悄悄降级成通用文本。
+- Save cell rules boundary: 批记录填写配置保存接口接收 `SIGNATURE` 规则时，必须在校验前同步生成启用的 `edhrSignature` marker；同一格改回文本/数字/日期等普通类型或旧已审核签名规则被移除时，必须清理对应签名 marker，避免规则类型与单元格元数据分离。
 - Blocker: 如果无法用最小合成表格稳定复现组件类型误判，或无法证明普通叙述型宽空白格仍保持 textarea，不得宣称修复完成。
 - Verification: 必须同时覆盖“签名日期宽空白格生成 `componentFlag=signature` 并保留 `edhrSignature`”和“普通高/合并叙述空白格仍生成 `input-textarea`”两个回归断言。
 - Verification supplement: 新增正式化链路时优先用定点测试分别断言日期、签名、文本三类格子正式化后类型不变且幂等；如果同模块全量类已有既有失败，必须单独记录为背景噪音，不能拿它替代当前链路验证。
@@ -284,12 +296,12 @@
 
 ## 注册证上传审批入口与入库门禁
 
-- Trigger: 注册证上传弹框、`/dcc/registration-certificates/uploads`、`UPLOAD_CERTIFICATE`、`dcc:registration-certificate:upload:create`、`dcc:registration-certificate:upload:approve`、保存后进入审批中心、审批通过后进入注册证列表。
-- Preflight check: 先区分“首证上传提交”和旧“草稿维护/正式化”入口；上传页只采集业务要求字段和注册证文件，后端必须用专用上传 Controller 创建待审批请求并立即绑定 Native BPM，审批候选权限使用上传审批权限，审批通过后再正式化入库。
-- Blocker: 上传接口仍复用草稿维护/正式化权限、保存后只刷新当前列表、`UPLOAD_CERTIFICATE` 未进入访问请求约束、审批候选仍按访问申请权限解析、审批前草稿出现在正式列表，或审批通过未绑定注册证文件时必须停止。
-- Verification: 前端静态合同锁定上传弹框字段、上传 API、保存后 `/approval-center?moduleCode=DCC&viewType=TODO` 跳转和旧入口负向断言；后端回归覆盖 `UPLOAD_CERTIFICATE` 约束、上传审批权限候选、审批通过调用首证上传正式化且不创建访问授权。
-- Forbidden action: 禁止用旧草稿按钮、API-only 成功、toast、列表刷新、默认审批权限、空文件成功或 SQL 直改状态冒充上传审批闭环。
-- Evidence: `doc/tasks/20260828-registration-certificate-upload-approval-simplify/verification-report.md`。
+- Trigger: 注册证上传弹框、`/dcc/registration-certificates/uploads`、`UPLOAD_CERTIFICATE`、`dcc:registration-certificate:upload:create`、`dcc:registration-certificate:upload:approve`、保存后进入审批中心、审批通过后进入注册证列表、授权公司、`companyId`、生产方式、是否委托生产、是否自行生产、受托企业、手填产品名称、DCC 项目代码选填、注册证日期顺序、`Registration certificate access BPM candidate list is empty`、`Registration certificate company scope denied`、`Registration certificate product is missing or disabled`、`Registration certificate date order is invalid`。
+- Preflight check: 先区分“首证上传提交”和旧“草稿维护/正式化”入口；上传页只采集业务要求字段和注册证文件，公司名称只能作为授权公司选择的展示文本，请求必须提交正式 `companyId` 并用申请人账号校验 `mdm_company_scope`，禁止按公司名称、展示名或输入文本反查授权公司；产品名称是注册证表单文本字段，DCC 项目代码选填；无论项目代码是否绑定产品，上传链路的 `product_master_id` 都不得由项目代码反填，必须允许为空并保存手填产品名称，不得按产品名称反查或猜测 MDM 产品主数据；项目代码只校验自身存在、启用和租户一致，不校验绑定产品启用或名称一致；日期顺序必须显式校验“首次获证日期 <= 生效日期 < 有效期至”，前端保存前提示中文错误且后端保留同规则兜底；生产方式必须显式采集“是否委托生产/是否自行生产”，两项不可同时为否；委托生产为是时受托企业必须来自当前租户已启用的 MDM 受托企业主数据并随草稿保存为 ID；后端必须用专用上传 Controller 创建待审批请求并立即绑定 Native BPM；首证上传审批候选必须直接来自注册部经理角色及其 `dcc:registration-certificate:upload:approve` 权限，不得再按公司范围过滤；审批通过后正式化时，审批记录、审计和绑定确认使用注册部经理身份，已提交草稿的公司/项目范围复核使用原上传申请人身份；审批通过后的待首次生效首证必须进入注册证当前列表。
+- Blocker: 上传接口仍复用草稿维护/正式化权限、保存后只刷新当前列表、`UPLOAD_CERTIFICATE` 未进入访问请求约束、上传公司仍按公司名称/展示名匹配授权范围、上传弹框按 DCC 项目代码自动覆盖产品名称、上传草稿把手填产品名称强制匹配启用产品主数据、项目代码绑定产品缺失/停用/名称不一致阻断上传、上传链路仍要求 `product_master_id` 非空、上传日期顺序错误仍透出英文或前端仍提交无效日期、上传草稿把生产方式默认成否/否、委托生产为是但没有受托企业 ID、受托企业使用自由文本绕过 MDM 主数据、审批候选仍按访问申请权限或公司范围解析、审批通过正式化继续用审批人复核草稿公司范围、用角色范围绕过申请人草稿复核、审批前草稿出现在正式列表、审批通过后的待首次生效首证不在当前列表、审批候选为空，或审批通过未绑定注册证文件时必须停止。
+- Verification: 前端静态合同锁定上传弹框字段、上传 API 提交 `companyId` 而不是 `companyName`、产品名称手填、DCC 项目代码选填且不调用 MDM 产品接口覆盖产品名称、日期顺序保存前拦截、生产方式互斥校验、受托企业候选接口和保存后进入审批中心待办全局视图，且不得强制使用 DCC 文控筛选隐藏 Native BPM 注册证待办；后端回归覆盖 `UPLOAD_CERTIFICATE` 约束、上传公司按申请人授权 `companyId` 校验、无项目代码、未绑定项目代码或已绑定项目代码时上传草稿均保留手填产品名称且 `product_master_id` 为空、日期顺序错误码中文提示、上传草稿保留生产方式和受托企业 ID、上传审批权限候选直接按注册部经理角色取人、审批通过调用首证上传正式化且不创建访问授权、待首次生效首证进入当前列表，并断言正式化审计操作者为注册部经理、草稿范围复核人为上传申请人；schema 合同必须覆盖 `dcc_registration_certificate.product_master_id` 可为空。
+- Forbidden action: 禁止用旧草稿按钮、API-only 成功、toast、列表刷新、默认审批权限、按公司名称反查授权公司、按产品名称猜主数据、强制补建产品主数据、只改后端英文文案不做前端保存前日期拦截、默认否/否生产方式、自由文本受托企业、空文件成功或 SQL 直改状态冒充上传审批闭环。
+- Evidence: `doc/tasks/20260828-registration-certificate-upload-approval-simplify/verification-report.md`；`doc/tasks/20260829-registration-certificate-upload-production-fields/bug-regression-evidence.md`；`doc/tasks/20260830-registration-certificate-upload-flow-verification/bug-regression-evidence.md`；`doc/tasks/20260830-registration-upload-optimization/verification-report.md`。
 
 ## 业务审批策略按配置执行门禁
 
@@ -337,23 +349,25 @@
 - Preflight check: 后端必须作为权威门禁核对当前用户生产组长负责范围、活跃订单生产进度和检验进度均为 100%、发布态路线快照、逐工序正式 BATCH 批记录绑定、过程检验汇集确认明细、生产工单与领料单正式对应、损耗事实、管理者代表新权限角色和申请幂等键。一线生产、一线 PQC 签名提交以及生产组长、PQC 组长复核都只形成正式来源事实，不得触发最终表单回填；只有活跃订单点击完成时，才在同一业务节点统一执行批记录回填、过程检验单回填和损耗单回填。批记录来源只能来自工序设置逐工序 BATCH 绑定、`RECORD_CATEGORY_BATCH_RECORD`、一线生产事实、生产工单和领料单；过程检验来源只能来自已确认的 PQC 汇集明细，过程检验设备字段只能使用提交/汇集明细中的 `selectedEquipmentId/Code/Name/Number` 快照；损耗单只在一线生产存在损耗时写入，无损耗时不得生成空损耗单或零损耗报告。三类回填成功后才允许创建或复用批次执行，并把一线生产、生产工单、领料单、一线 PQC 和损耗来源映射到批次执行及对应资料。批次执行创建后必须完成来料检、灭菌、成品检三类文件上传；若当前系统把成品检拆成“成品检报告/成品检记录”两个节点，则两个节点都属于成品检文件齐套要求。三类文件全部上传成功后，才允许创建或通过管理者代表批记录放行；管理者代表角色首版授权 `xujianhai`。
 - Active order add rule: 生产组长加入活跃订单时，生产工单是唯一硬前置；领料单或其它单据存在时只能作为附加来源，不得成为必填门禁。没有领料单时，后端仍应返回可追溯的活跃订单上下文，只是不绑定领料单来源。
 - Loss-source seam: 损耗来源若要从生产填写链路之外接入，必须通过独立 reader/port 接口承接；现有 reader 接口可以作为正式接入口继续演进，不得把写损耗报表的 writer 直接耦合到固定生产 payload 形状。
+- No-loss fact closure: 无损耗不是“没有损耗单”就算完成；每个工序必须能从正式生产反馈、生产提交事件、分配记录和生产组长 APPROVED 复核读取唯一闭环。生产提交必须指向 `MES_PRO_FEEDBACK`，raw payload 必须有结构化 `lossDetails`，无损耗时为 `[]`；分配记录的 `reviewId` 和 `confirmedAt` 必须对齐对应生产组长复核的 ID 与 `reviewedAt`，否则 Flow4 completion receipt 必须阻断为 `LOSS_CONDITION_FACTS`。
 - Simulation preflight extension: 多阶段放行模拟在创建任务自有工单、生产/PQC 事实或库存前，必须只读确认目标产品正式路线的批记录版本已批准，所有需要批记录的 `MAIN` 绑定均有正式 definition/version ID 和启用字段映射，实际生成 PQC 任务的工序均有正式过程检验绑定；预检失败时直接返回 blocker，禁止先执行整套业务写入后才发现版本 `PRECHECK_FAILED`，也禁止由模拟服务修补路线主数据。
 - Blocker: 进度不足、非当前组长负责范围、一线生产或 PQC 复核事实缺失、生产工单与领料单未正式对应、完成节点前已写入最终批记录/过程检验单/损耗单、回填前已创建正式批次执行、缺正式批记录绑定、过程检验槽位只有动态表单模板而无传统 `batchRecordReportId`、PQC 汇集未确认或无结构化明细、过程检验设备字段反查 QA 版本设备或当前最新租户设备配置、有损耗但损耗单正式映射未证明、无损耗却生成损耗单、来料检/灭菌/成品检文件任一未上传成功、缺管理者代表角色或 `xujianhai` 授权、幂等冲突、eDHR 批次或放行事务无法持久化时必须返回 blocker 或 fail fast，不得创建不完整资料或提前放行。
 - Verification: 后端静态/单元回归至少覆盖成功、进度不足、非当前组长、一线生产/PQC/组长复核不触发回填、活跃订单完成节点一次性回填批记录和过程检验单、PQC 提交后 QA 版本设备或租户级设备配置变化时放行仍使用提交/汇集设备快照、有损耗时回填损耗单、无损耗时不写损耗单、回填后才创建批次执行、正式来源缺失、来料检/灭菌/成品检文件缺任一份阻塞、管理者代表候选为 `xujianhai`、重复申请幂等和负责人缺失；schema 测试锁定申请表唯一键、状态字段、来源快照和权限码；前端静态合同覆盖双 100% 完成按钮、确认文案、刷新和 blocker 展示；真实 E2E 必须使用任务自有双 100% 活跃订单、正式生产/PQC/领料来源、三类上传文件、`xujianhai`、签名、正式模板和可清理数据。
 
 ### eDHR 四份材料必须绑定正式来源快照
 
-- Trigger: 四份放行材料、来料检报告、灭菌报告、成品检报告、成品检记录、MATERIALS_READY、sourceSnapshotHash、routeBindingSnapshotHash、Flow 7 来源变化或材料门禁异常。
-- Preflight check: 创建四个材料任务时，必须从已校验的 Flow 6/Flow 7 正式来源凭证取得 sourceSnapshotHash，并分别持久化到专用材料任务来源快照字段；门禁只允许将该字段与 Flow 7 Origin/TraceLink 预检返回的来源快照比较。routeBindingSnapshotHash 只能表示路线/表单绑定配置，不得作为材料来源证明。
-- Blocker: 材料任务缺少专用来源快照、来源快照与 Flow 7 不一致、Flow 7 来源预检缺 Origin/TraceLink、或仅有路线绑定快照而没有正式来源快照时，必须阻断 MATERIALS_READY 和后续放行；历史任务不得通过默认值、路线配置快照或旧附件自动补齐。
-- Verification: 后端回归必须覆盖四个材料任务创建后来源快照一致、Flow 7 来源变化后进入 MATERIALS_RECHECK_REQUIRED、专用来源快照刷新后才恢复 MATERIALS_READY，以及 routeBindingSnapshotHash 与来源哈希相同但专用字段为空时仍阻断；迁移必须以幂等 schema 合同验证专用列存在。
-- Forbidden action: 禁止把路线/表单配置哈希、附件哈希、批次号、当前最新来源查询结果或前端字段拼接当作已冻结材料来源；禁止为兼容历史任务写默认快照、跳过来源预检或用旧附件版本绕过门禁。
-- Evidence: doc/tasks/20260824-flow8-four-material-gate/；IntRuoyiBackend/sql/mysql/20260826_mes_edhr_material_task_source_witness.sql。
+- Trigger: 四份放行材料、来料检报告、灭菌报告、成品检报告、成品检记录、MATERIALS_READY、sourceSnapshotHash、routeBindingSnapshotHash、Flow 7 来源变化、材料门禁异常、`STAGE4_INDEPENDENT_BATCH_EXECUTION`、`stage4IndependentBatchExecutionSnapshot.v1` 或 trace manifest 缺失。
+- Preflight check: 创建四个材料任务时，必须从已校验的 Flow 6/Flow 7 正式来源凭证取得 sourceSnapshotHash，并分别持久化到专用材料任务来源快照字段；门禁只允许将该字段与 Flow 7 Origin/TraceLink 预检返回的来源快照比较。routeBindingSnapshotHash 只能表示路线/表单绑定配置，不得作为材料来源证明。Stage4 或预放行资料上传只能完成四个材料节点并写 release report evidence，不得复用会触发 `createNextFillAfterSpecialNodeResolved` 的普通特殊节点完成路径。若阶段被明确要求独立于上一阶段运行，必须由请求显式携带独立 input mode，先持久化完整批次执行 fixture，再从稳定版本快照的 Stage4 projection 提取材料输入，并同步生成正式 trace origin、trace links 和 manifest。
+- Blocker: 材料任务缺少专用来源快照、来源快照与 Flow 7 不一致、Flow 7 来源预检缺 Origin/TraceLink、仅有路线绑定快照而没有正式来源快照、独立 fixture 缺工单/活跃订单/物料/完成回执/回填/供数记录或 trace manifest、或四份材料上传后开始创建下一普通工序填报任务时，必须阻断 MATERIALS_READY 和后续放行；历史任务不得通过默认值、路线配置快照或旧附件自动补齐。
+- Verification: 后端回归必须覆盖四个材料任务创建后来源快照一致、Flow 7 来源变化后进入 MATERIALS_RECHECK_REQUIRED、专用来源快照刷新后才恢复 MATERIALS_READY，以及 routeBindingSnapshotHash 与来源哈希相同但专用字段为空时仍阻断；迁移必须以幂等 schema 合同验证专用列存在。Stage4 回归必须覆盖真实 Stage2.5 批次、显式独立 input mode、完整 fixture 快照抽取、四份材料上传、重跑只清理自身附件、`sourceSnapshotHash` 传递、独立 fixture 的 trace origin/link/manifest、未创建最终放行记录，以及未触发 Stage5 或普通工序推进。
+- Forbidden action: 禁止把路线/表单配置哈希、附件哈希、批次号、当前最新来源查询结果或前端字段拼接当作已冻结材料来源；禁止为兼容历史任务写默认快照、跳过来源预检、用旧附件版本绕过门禁，或用 `completeSpecialNode` 冒充预放行资料上传；禁止在 Stage2.5 校验异常后通过 catch 隐式切换到独立 fixture。
+- Evidence: doc/tasks/20260824-flow8-four-material-gate/；IntRuoyiBackend/sql/mysql/20260826_mes_edhr_material_task_source_witness.sql；doc/tasks/20260829-stage4-dossier-upload-improvement/verification-report.md；doc/tasks/20260829-stage4-independent-fixture-input/verification-report.md。
 
 ### eDHR 批次创建入口必须与正式入口合同一致
 
 - Trigger: eDHR 批次创建弹窗、`/open-or-create`、`entryType` 缺失或“批次入口缺少 entryType”。
 - Preflight check: 前端只能调用与业务入口匹配的正式接口，并提交该入口实际生成的 `entryType`、`entryBusinessId`、来源凭证、来源上下文哈希和幂等键；`MANUAL`、`PQC_INDEPENDENT`、活跃订单完成或排产入口的凭证链路必须分别由正式来源生成。只有工单、路线、批次号和备注的旧弹窗不能直接调用受 Flow 9 合同保护的创建接口。
+- Active-order completion handoff: Stage2.5 或其它活跃订单完成后的建批入口只能把服务端已持久化 receipt 的 `sourceCredentialId`/receipt hash/source snapshot hash 交给 Flow6，由 Flow6 自己读取权威 receipt；禁止把完整 completion receipt 嵌套在请求体里传回建批入口。活跃订单来源场景的 `sourceContextHash` 必须使用 receipt 的 `sourceSnapshotHash`，不得使用本地重新拼出的 context hash 或请求端字段。
 - Schedule boundary: 当前排产/手动重排与批记录创建是两条分开的业务；批记录只能由正式批记录入口（例如生产组长加入活跃工单后的批记录链路）生成，不得在排产完成后自动创建 eDHR 批次、自动签发 `SCHEDULED_BATCH` 凭证，或让排产提交被 eDHR 凭证幂等冲突阻断。若 `replanApply` 仍然调用 `getScheduleCompletionMissingItems` / `openOrCreateFromScheduleCompletion`，或报出“排产完成创建 eDHR 批次缺少前置条件：首任务责任来源/候选池”，就说明重排链路又误连回批记录创建，必须在排产提交分支里移除这条 eDHR 路径。未来若要恢复排产触发批记录，必须先定义正式入口合同、迁移策略和回归/E2E 证据。
 - Blocker: 禁止在前端填固定 `entryType`、空字符串、默认来源 ID、伪造 receipt 或将 `formBindings`、工序开始配置、页面文案当作批次入口来源；缺少正式人工入口凭证服务时必须阻塞并明确提示，而不是继续请求后端。
 - Verification: 前端合同测试必须同时锁定入口类型与完整正式字段；后端入口合同测试必须覆盖缺字段、场景不匹配和正式凭证校验；真实页面验证必须证明请求来自对应业务入口并记录实际写请求。
@@ -371,8 +385,8 @@
 ### 已取消历史任务不得参与受保护任务冲突
 
 - Trigger: 手动重排、排产预览、`PROTECTED_TASK`、提示“同一工单工序存在多个受保护任务”、同一生产工单同一工序存在多条 `CANCELED` 历史任务、用户选择当前订单后被历史取消任务阻断。
-- Preflight check: 修改排产重排保护规则前，先区分工单状态与任务历史状态；工单自身已取消或已完成时必须在工单层阻断参与排产，历史 `CANCELED` 任务只保留审计，不得进入当前重排范围、受保护任务分组、替换/删除候选或前后序连线计算。`FINISHED`、`IN_PROGRESS`、`LOCKED`、`MANUAL` 和已有报工事实仍按正式保护规则处理。
-- Blocker: 若已取消历史任务仍能触发 `PROTECTED_TASK` 多保护冲突、被作为可替换任务删除、被重新连线影响当前计划，或其它订单因同工序存在取消历史任务被阻断，必须停止并补后端回归；不得用前端隐藏原因、清数据库、跳过保护检查或默认可排来掩盖。
+- Preflight check: 修改排产重排保护规则前，先区分工单状态与任务历史状态；工单自身已取消或已完成时必须在工单层阻断参与排产，历史 `CANCELED` 任务只保留审计，不得进入当前重排范围、受保护任务分组、替换/删除候选或前后序连线计算。`FINISHED`、`IN_PROGRESS`、`LOCKED`、`MANUAL` 和已有报工事实仍按正式保护规则处理。`mes_pro_task_schedule_ext` 记录若已软删或不存在，不能默认按 `MANUAL` 手动保留处理；只有 ext 明确存在且来源不是 `AUTO` 时才可进入手动保留分支。
+- Blocker: 若已取消历史任务仍能触发 `PROTECTED_TASK` 多保护冲突、被作为可替换任务删除、被重新连线影响当前计划，或其它订单因同工序存在取消历史任务被阻断，或软删/缺失扩展记录被误判为手动保留，必须停止并补后端回归；不得用前端隐藏原因、清数据库、跳过保护检查或默认可排来掩盖。
 - Verification: 后端回归必须同时覆盖“同一工单同一工序存在多个已取消历史任务时不阻断且能生成当前计划任务”和“同一工单同一工序存在多个已完成历史任务时仍阻断”；定向命令需记录 RED/GREEN，完整排产算法合同测试需通过。
 - Forbidden action: 禁止把 `CANCELED` 当作强保护终态，禁止为了重排先物理删除历史任务或直接改任务状态，禁止放宽所有终态保护导致已完成任务被重排覆盖，禁止只按工序名称跨订单扫描历史任务。
 - Evidence: `doc/tasks/20260828-replan-cancelled-task-protection/verification-report.md`。

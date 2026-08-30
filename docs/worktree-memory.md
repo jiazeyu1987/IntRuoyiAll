@@ -250,10 +250,10 @@
 
 ### Git 注册已移除但前端依赖目录残留
 
-- Trigger: `git worktree remove <path>` 已移除 Git 注册，但返回 `Directory not empty`，且残留主要位于 `IntRuoyiFronted\node_modules`、pnpm/esbuild 依赖目录、或 Windows 报 `Access to the path '<name>' is denied`。
+- Trigger: `git worktree remove <path>` 已移除 Git 注册，但返回 `Directory not empty`、`Result too large`，且残留主要位于 `IntRuoyiFronted\node_modules`、pnpm/esbuild 依赖目录、或 Windows 报 `Access to the path '<name>' is denied`。
 - Preflight check: 先确认 `git worktree list --porcelain` 已无该路径、残留目录没有 `.git` 文件、目标绝对路径仍在 `D:\IntRuoyiWorktree\` 下、目标登记端口没有监听、且 `Get-CimInstance Win32_Process` 未发现命令行指向该目标路径的 Node/Java/PowerShell 进程。
 - Blocker: 若仍有 Git 注册、残留目录存在 `.git`、仍有归属不明进程或端口、路径越界、或拒绝访问文件不在当前目标目录内，必须停止，不得扩大删除范围。
-- Cleanup rule: 若 PowerShell `Remove-Item -Recurse` 或 `cmd /c rmdir /s /q <path>` 对 pnpm `node_modules` 输出大量 `The system cannot find the path specified`、`Could not find a part of the path` 或留下空壳目录，先用当前任务专用空目录对目标 `node_modules` 执行 `robocopy <empty-dir> <target-node_modules> /MIR /R:0 /W:0`，确认子项计数为 0 后再逐层删除 `node_modules`、`IntRuoyiFronted` 和目标 worktree 根目录。若删除仅因目标依赖文件的 `ReadOnly` 属性报 `Access denied`，可在上述路径、注册、进程和端口门禁全部通过后，只清除目标目录树内的 `ReadOnly` 属性再重试；不得修改目标外文件属性。
+- Cleanup rule: 若 PowerShell `Remove-Item -Recurse` 或 `cmd /c rmdir /s /q <path>` 对 pnpm `node_modules` 输出大量 `The system cannot find the path specified`、`Could not find a part of the path` 或留下空壳目录，先用当前任务专用空目录对目标 `node_modules` 执行 `robocopy <empty-dir> <target-node_modules> /MIR /R:0 /W:0`，确认子项计数为 0 后再逐层删除 `node_modules`、`IntRuoyiFronted` 和目标 worktree 根目录。若删除仅因目标依赖文件的 `ReadOnly` 属性报 `Access denied`，可在上述路径、注册、进程和端口门禁全部通过后，只清除目标目录树内的 `ReadOnly` 属性再重试；不得修改目标外文件属性。若当前执行环境策略拒绝递归删除，记录 Git 登记已移除、路径边界、端口登记和残留范围，停止自动清理并等待人工或明确授权的同等边界清理方式。
 - Verification: 仅对目标残留目录清理属性或空目录镜像后删除，之后重新验证 `Test-Path <path>` 为 `False`、`git worktree list --porcelain` 不含该路径、目标登记项已标记 `active=false/deletedAt/cleanupTask`。
 - Forbidden action: 禁止为了处理 `node_modules` 残留删除父级 worktree 根目录；禁止跳过进程和端口核验；禁止在 Git 注册仍存在时把 worktree 当普通目录强删。
 - Evidence: `doc/tasks/20260727-merge-remaining-worktrees/verification-report.md`，`codex-test-process-route` 在 Git 注册移除后残留前端依赖目录，确认无 `.git`、无目标进程和 8082/48082 监听后仅清理目标目录并复核不存在；`doc/tasks/20260730-worktree-prune-keep-banzuzhang/verification-report.md`，多个 worktree 的 pnpm `node_modules` 残留需先用空目录 `robocopy /MIR` 清空再删除空目录链；`doc/tasks/20260813-scheduler-seven-issues-closure/verification-report.md`，验证 worktree 的 Git 注册移除后仅残留 pnpm 依赖目录，清理目标只读属性后删除成功，并复核端口、物理路径和 slot 登记全部释放。

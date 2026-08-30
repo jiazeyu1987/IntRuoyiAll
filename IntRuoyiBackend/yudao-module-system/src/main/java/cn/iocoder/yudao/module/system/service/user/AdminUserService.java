@@ -10,11 +10,13 @@ import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportEx
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserDingTalkImportExcelVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserDingTalkImportRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserLifecycleDeactivateReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSaveReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import jakarta.validation.Valid;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -103,6 +105,22 @@ public interface AdminUserService {
      * @param status 状态
      */
     void updateUserStatus(Long id, Integer status);
+
+    /**
+     * 登记离职/转岗单据，并按生效时间联动停用用户。
+     *
+     * @param reqVO 离职/转岗单据信息
+     */
+    void recordUserLifecycleDeactivation(@Valid UserLifecycleDeactivateReqVO reqVO);
+
+    /**
+     * 处理到期的离职/转岗账号停用。
+     *
+     * @param now 当前时间
+     * @param limit 单次处理上限
+     * @return 处理数量
+     */
+    int processDueLifecycleDeactivations(LocalDateTime now, int limit);
 
     /**
      * 删除用户
@@ -203,6 +221,13 @@ public interface AdminUserService {
      * @return 用户列表
      */
     List<AdminUserDO> getUserListByNickname(String nickname);
+
+    /**
+     * 获得存量通用账户用户列表
+     *
+     * @return 用户列表
+     */
+    List<AdminUserDO> getGenericAccountUserList();
 
     /**
      * 批量导入用户

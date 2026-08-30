@@ -214,6 +214,23 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void downloadAllowsUploadedCertificateWithoutProductMasterBinding() throws Exception {
+        FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND",
+                "uploaded-registration.pdf", null);
+        when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "uploaded-registration.pdf"));
+        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(project(DccProjectCodeStatusConstants.ENABLE, 21L));
+        when(fileService.getFileContent(fixture.infraConfigId(), fixture.infraPath()))
+                .thenReturn("UPLOADED-CERT".getBytes(StandardCharsets.UTF_8));
+
+        DccRegistrationCertificateFileDownloadResult result = deliveryService.download(
+                1L, 99L, fixture.businessFileId(), "attempt-uploaded-download", context("REQ-UPLOADED-DOWNLOAD"));
+
+        assertEquals("PRJ-001_20200201_ProductA_CERT-DL-001.pdf", result.fileName());
+        assertArrayEquals("UPLOADED-CERT".getBytes(StandardCharsets.UTF_8), result.bytes());
+        assertEquals(1L, consumptionMapper.countSuccess(1L, fixture.grantId(), fixture.businessFileId()));
+    }
+
+    @Test
     void projectCodeInfrastructureFailureIsAuditedBeforeStorageIoAndPropagatesOriginalException() throws Exception {
         FormalFixture fixture = seedGrantedDownload("ACTIVE", "CURRENT", "BOUND", "registration.pdf");
         when(fileService.getFile(fixture.infraFileId())).thenReturn(infraFile(fixture, "registration.pdf"));
@@ -350,13 +367,18 @@ class DccRegistrationCertificateFileDeliveryServiceTest extends BaseDbUnitTest {
 
     private FormalFixture seedGrantedDownload(String masterStatus, String versionStatus, String fileStatus,
                                               String infraOriginalName) {
+        return seedGrantedDownload(masterStatus, versionStatus, fileStatus, infraOriginalName, 20L);
+    }
+
+    private FormalFixture seedGrantedDownload(String masterStatus, String versionStatus, String fileStatus,
+                                              String infraOriginalName, Long productMasterId) {
         Long infraFileId = 930_000L + Math.abs(System.nanoTime() % 10_000L);
         Long infraConfigId = 7001L;
         String infraPath = "registration/" + infraOriginalName;
 
         DccRegistrationCertificateDO certificate = DccRegistrationCertificateDO.builder()
                 .ownerCompanyId(10L)
-                .productMasterId(20L)
+                .productMasterId(productMasterId)
                 .projectCodeId(40L)
                 .firstObtainedDate(LocalDate.of(2020, 1, 1))
                 .status(masterStatus)

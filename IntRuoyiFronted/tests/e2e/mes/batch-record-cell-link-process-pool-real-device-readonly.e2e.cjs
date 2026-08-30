@@ -38,6 +38,7 @@ const config = {
   tenant: process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_TENANT || defaultLogin.tenant || '测试租户',
   username: process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_USERNAME || defaultLogin.username || 'aoteman',
   password: process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_PASSWORD || defaultLogin.password || '',
+  targetProjectCodeId: Number(process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_PROJECT_CODE_ID || 0) || null,
   headed: process.env.BATCH_RECORD_CELL_LINK_REAL_DEVICE_HEADED === '1'
 }
 
@@ -297,6 +298,15 @@ function unscopedParameterFields(sourceFields) {
 
 async function findCandidate(page) {
   const diagnostics = []
+  if (config.targetProjectCodeId) {
+    const projectCode = unwrapCommonResult(
+      await apiGet(page, `/dcc/project-codes/${config.targetProjectCodeId}`),
+      'target_project_code'
+    )
+    const candidate = await findCandidateForProject(page, projectCode, diagnostics)
+    if (candidate) return candidate
+    throw new Error(`target_project_code_has_no_real_device_parameter_fields:${JSON.stringify(diagnostics)}`)
+  }
   for (let pageNo = 1; pageNo <= 20; pageNo += 1) {
     const projectPage = unwrapCommonResult(
       await apiGet(page, '/dcc/project-codes/page', {
@@ -311,94 +321,100 @@ async function findCandidate(page) {
     const projectCodes = projectPage?.list || []
     if (!projectCodes.length) break
     for (const projectCode of projectCodes) {
-      const projectCodeId = Number(projectCode.id)
-      if (!Number.isFinite(projectCodeId)) continue
-      const contextResult = await apiGet(page, '/mes/pro/batch-record-cell-link/workbench-context', {
-        sourceReportId: 'PROCESS_POOL_REPORT',
-        dccProjectCodeId: projectCodeId
-      })
-      if (!contextResult.ok || ![0, 200].includes(Number(contextResult.payload?.code))) {
-        diagnostics.push({
-          projectCodeId,
-          code: contextResult.payload?.code,
-          message: contextResult.payload?.msg || contextResult.payload?.message || `HTTP ${contextResult.status}`
-        })
-        continue
-      }
-      const baseContext = contextResult.payload.data || {}
-      for (const process of baseContext.routeProcesses || []) {
-        const processId = Number(process.id)
-        if (!Number.isFinite(processId)) continue
-        const processContextResult = await apiGet(page, '/mes/pro/batch-record-cell-link/workbench-context', {
-          sourceReportId: 'PROCESS_POOL_REPORT',
-          dccProjectCodeId: projectCodeId,
-          routeProcessId: processId
-        })
-        if (!processContextResult.ok || ![0, 200].includes(Number(processContextResult.payload?.code))) {
-          diagnostics.push({
-            projectCodeId,
-            processId,
-            code: processContextResult.payload?.code,
-            message: processContextResult.payload?.msg || processContextResult.payload?.message || `HTTP ${processContextResult.status}`
-          })
-          continue
-        }
-        const processContext = processContextResult.payload.data || {}
-        const sourceFields = selectedProcessSourceFields(processContext, processId)
-        const devices = requiredDeviceGroups(sourceFields)
-        const parameterFields = deviceGroupedParameterFields(sourceFields)
-        const genericParameterFields = unscopedParameterFields(sourceFields)
-        if (!devices.length) {
-          diagnostics.push({
-            projectCodeId,
-            processId,
-            sourceFieldCount: sourceFields.length,
-            message: 'no_real_device_group_source_field'
-          })
-          continue
-        }
-        if (genericParameterFields.length) {
-          diagnostics.push({
-            projectCodeId,
-            processId,
-            sourceFieldCount: sourceFields.length,
-            message: 'unscoped_device_group_parameter_fields_visible',
-            fields: genericParameterFields.map((field) => field.fieldCode).slice(0, 5)
-          })
-          continue
-        }
-        if (!parameterFields.length) {
-          diagnostics.push({
-            projectCodeId,
-            processId,
-            sourceFieldCount: sourceFields.length,
-            deviceCount: devices.length,
-            message: 'no_device_scoped_parameter_fields'
-          })
-          continue
-        }
-        const forms = processContext.forms || []
-        const targetReport =
-          forms.find((form) => String(form.reportId) === String(process.batchRecordReportId)) ||
-          forms.find((form) => Number(form.routeProcessId) === processId) ||
-          forms[0]
-        if (!targetReport?.reportId) {
-          diagnostics.push({ projectCodeId, processId, message: 'no_target_report' })
-          continue
-        }
-        return {
-          projectCode,
-          process,
-          context: processContext,
-          targetReport,
-          sourceFields,
-          devices,
-          parameterFields
-        }
-      }
+      const candidate = await findCandidateForProject(page, projectCode, diagnostics)
+      if (candidate) return candidate
     }
   }
   throw new Error(`no_real_device_process_pool_candidate:${JSON.stringify(diagnostics.slice(0, 20))}`)
+}
+
+async function findCandidateForProject(page, projectCode, diagnostics) {
+  const projectCodeId = Number(projectCode.id)
+  if (!Number.isFinite(projectCodeId)) return null
+  const contextResult = await apiGet(page, '/mes/pro/batch-record-cell-link/workbench-context', {
+    sourceReportId: 'PROCESS_POOL_REPORT',
+    dccProjectCodeId: projectCodeId
+  })
+  if (!contextResult.ok || ![0, 200].includes(Number(contextResult.payload?.code))) {
+    diagnostics.push({
+      projectCodeId,
+      code: contextResult.payload?.code,
+      message: contextResult.payload?.msg || contextResult.payload?.message || `HTTP ${contextResult.status}`
+    })
+    return null
+  }
+  const baseContext = contextResult.payload.data || {}
+  for (const process of baseContext.routeProcesses || []) {
+    const processId = Number(process.id)
+    if (!Number.isFinite(processId)) continue
+    const processContextResult = await apiGet(page, '/mes/pro/batch-record-cell-link/workbench-context', {
+      sourceReportId: 'PROCESS_POOL_REPORT',
+      dccProjectCodeId: projectCodeId,
+      routeProcessId: processId
+    })
+    if (!processContextResult.ok || ![0, 200].includes(Number(processContextResult.payload?.code))) {
+      diagnostics.push({
+        projectCodeId,
+        processId,
+        code: processContextResult.payload?.code,
+        message: processContextResult.payload?.msg || processContextResult.payload?.message || `HTTP ${processContextResult.status}`
+      })
+      continue
+    }
+    const processContext = processContextResult.payload.data || {}
+    const sourceFields = selectedProcessSourceFields(processContext, processId)
+    const devices = requiredDeviceGroups(sourceFields)
+    const parameterFields = deviceGroupedParameterFields(sourceFields)
+    const genericParameterFields = unscopedParameterFields(sourceFields)
+    if (!devices.length) {
+      diagnostics.push({
+        projectCodeId,
+        processId,
+        sourceFieldCount: sourceFields.length,
+        message: 'no_real_device_group_source_field'
+      })
+      continue
+    }
+    if (genericParameterFields.length) {
+      diagnostics.push({
+        projectCodeId,
+        processId,
+        sourceFieldCount: sourceFields.length,
+        message: 'unscoped_device_group_parameter_fields_visible',
+        fields: genericParameterFields.map((field) => field.fieldCode).slice(0, 5)
+      })
+      continue
+    }
+    if (!parameterFields.length) {
+      diagnostics.push({
+        projectCodeId,
+        processId,
+        sourceFieldCount: sourceFields.length,
+        deviceCount: devices.length,
+        message: 'no_device_scoped_parameter_fields'
+      })
+      continue
+    }
+    const forms = processContext.forms || []
+    const targetReport =
+      forms.find((form) => String(form.reportId) === String(process.batchRecordReportId)) ||
+      forms.find((form) => Number(form.routeProcessId) === processId) ||
+      forms[0]
+    if (!targetReport?.reportId) {
+      diagnostics.push({ projectCodeId, processId, message: 'no_target_report' })
+      continue
+    }
+    return {
+      projectCode,
+      process,
+      context: processContext,
+      targetReport,
+      sourceFields,
+      devices,
+      parameterFields
+    }
+  }
+  return null
 }
 
 async function chooseVisibleOption(page, matcher, timeoutMs = 30000) {

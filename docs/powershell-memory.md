@@ -33,7 +33,7 @@
 - Blocker: 复验仍失败、命令被沙箱/ACL 拦截且无法按审批重跑、或无法证明 blocker 已解除时，保持 blocked 并停止提交。
 - Verification: 复验通过后更新 `task.md`、`execution-log.md` 和 `verification-report.md`，记录旧 blocker 解除、命令输出摘要和新的收尾状态。
 - Forbidden action: 禁止只因用户要求提交就绕过 `blocked` 状态；禁止把旧 blocker 当作已解决而不重跑原门禁。
-- Evidence: `doc\tasks\20260724-batch-fda-audit-log-coverage\execution-log.md`，2026-07-25 提交前重跑 Maven compile、目标 JUnit、`pnpm ts:check` 后解除旧阻塞。
+- Evidence: `doc\tasks\20260724-batch-fda-audit-log-coverage\execution-log.md`，2026-07-25 提交前重跑 Maven compile、目标 JUnit、`pnpm ts:check` 后解除旧阻塞；`doc\tasks\20260829-bpm-formcenter-compile-fix\verification-report.md`，BPM FormCenter 旧 `IOException` 编译 blocker 在当前源码中不可复现，使用 BPM clean compile、主应用 clean package 和 FormCenter 定向测试确认解除。
 
 ### 脏工作区基线门禁
 
@@ -142,8 +142,9 @@
 - Preflight check: 每个会影响验收结论的测试命令必须单独执行，或在每条命令后检查 `$LASTEXITCODE` 并失败即停止。
 - Blocker: 前一个测试输出断言失败、异常栈或非零退出码，但后续命令继续执行并让最终命令返回 0。
 - Verification: 对目标测试逐条记录退出码；批量命令必须证明中间失败不会被最后一条 PASS 掩盖。
-- Forbidden action: 禁止把 `cmd1; cmd2; cmd3` 的最终退出码 0 当作全部测试通过；禁止只引用最后一条 PASS 输出。
+- Forbidden action: 禁止把 `cmd1; cmd2; cmd3` 的最终退出码 0 当作全部测试通过；禁止只引用最后一条 PASS 输出；禁止在 `pnpm/node` 测试后直接跟 `Remove-Item Env:\...` 等清理命令并用清理命令的 0 退出码覆盖测试失败。
 - Evidence: `doc\tasks\20260728-edhr-detail-assist-preview-switch\execution-log.md`，相邻静态合同串联运行时 `edhr-assist-fill-mode-static.spec.js` 断言失败被后续 PASS 命令掩盖，改为单独复跑后正确记录失败。
+- Evidence: `doc\tasks\20260829-registration-certificate-upload-production-fields\execution-log.md`，注册证上传审批 E2E 首次用 `$env:REG_CERT_E2E_REQUEST_ID='102'; pnpm exec node ...; Remove-Item Env:\REG_CERT_E2E_REQUEST_ID` 串联运行，注册部经理登录失败被最后环境变量清理命令掩盖为退出码 0；改为保存 `$LASTEXITCODE`、清理环境变量后 `exit $approvalExit`，后续请求 103 审批脚本正确返回失败码 1。
 
 ### 任务状态脚本串行写入门禁
 
@@ -192,19 +193,21 @@
 
 - Trigger: 使用 `officecli import`、TSV/CSV 或批处理生成 `.xlsx`，特别是含中文工作表名、中文表头或已预置格式的 Excel 交付物。
 - Preflight check: 导入命令返回成功后，必须立即用 `officecli get <file> '/<sheet>/A1:<end>' --json` 或 `officecli view <file> text` 复核关键表头和前几行真实 cell text；不能只看 `Imported N rows x M cols`、`outline` 行列数或 `validate` 结果。
-- Blocker: `outline` 显示行列存在但 `get`/`view text` 为空、单元格仍为 `empty=true`，或 HTML 预览没有业务内容时，必须停止并重写单元格值；不得把空工作簿交付给用户。
-- Verification: 记录写入方式、关键单元格 `get` 输出、`officecli view issues`、`officecli validate`、错误单元格查询和 HTML 预览占位符检查；必要时用 `officecli batch` 对 TSV/CSV 逐单元格写值后再次复核。
+- Blocker: `outline` 显示行列存在但 `get`/`view text` 为空、单元格仍为 `empty=true`，或 HTML 预览没有业务内容时，必须停止并重写单元格值；不得把空工作簿交付给用户。若已对同一范围执行 `add table`，不得再对该范围设置 sheet `autoFilter`；表格自带筛选，重复设置会触发 OfficeCLI 原子回滚，必须去掉重复筛选后重建或重跑格式批处理。若 `officecli validate` 因 WPS 表格自定义属性 `etc:filterBottomFollowUsedRange` 报 schema error，必须确认业务内容和表格 `ref` 后用 raw-set 替换该 `autoFilter` 节点为标准 `ref`，不得把校验失败的 xlsx 交付。
+- Verification: 记录写入方式、关键单元格 `get` 输出、`officecli view issues`、`officecli validate`、错误单元格查询和 HTML 预览占位符检查；必要时用 `officecli batch` 对 TSV/CSV 逐单元格写值后再次复核；若处理过 WPS 自定义属性，记录 raw-set 前后的 table XML 片段和 validate PASS。
 - Forbidden action: 禁止把 OfficeCLI import 成功消息、结构验证通过或格式存在当作内容已写入；禁止跳过首行/样例行读取；禁止在发现空值后只修样式不修数据。
 - Evidence: `doc/tasks/20260819-iso13485-electronic-system-gap-analysis/execution-log.md`，ISO13485 差距分析工作簿首次显示 18x9/5x3 且 validate 通过，但 `view text` 与 `get` 证实单元格为空；改用 UTF-8 TSV 读取并 `officecli batch` 写入 177 个单元格后，表头、前两行、评分说明和 HTML 预览均复核通过。
+- Evidence: `doc/tasks/20260827-edhr-customer-requirement-excel/execution-log.md`，客户需求 Excel 导出完成后用 `outline`、`view text`、`get`、`issues`、`validate` 和 `html` 复核，确认导出的 `.xlsx` 不是空工作簿。
+- Evidence: `doc/tasks/edhr-requirements-classification-20260827/execution-log.md`，eDHR 用户需求分类工作簿写入后，`validate` 因 WPS `etc:filterBottomFollowUsedRange` 自定义属性失败；确认表格范围为 `A1:F41` 后用 raw-set 替换 `/xl/tables/table1.xml` 的 `autoFilter` 节点，复跑 `validate` 和 `view issues` 均通过。
 
 ### PowerShell Maven -D 参数引号门禁
 
 - Trigger: 在 PowerShell 中运行 Maven 且参数包含带点属性名的 `-D`，例如 `-Dsurefire.failIfNoSpecifiedTests=false`。
-- Preflight check: 将每个 Maven `-D...` 参数整体加双引号，例如 `"-Dtest=CodexTestCaseServiceImplTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`；多模块目标测试继续保留 `-pl <module> -am`。
+- Preflight check: 将每个 Maven `-D...` 参数整体加引号，单引号或双引号均可，例如 `'-Dtest=CodexTestCaseServiceImplTest'` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'`；多模块目标测试继续保留 `-pl <module> -am`。
 - Blocker: Maven 报 `Unknown lifecycle phase ".<property>=..."` 时必须停止并按 PowerShell 参数解析问题处理，不得改动测试范围或跳过目标 JUnit。
 - Verification: 复跑加引号后的 Maven 命令，记录原失败与复跑 PASS；若上游 reactor 模块不含目标测试类，同时记录 `surefire.failIfNoSpecifiedTests=false` 的依据。
 - Forbidden action: 禁止把 PowerShell 参数拆分错误误判为产品编译失败；禁止移除 `-am` 或改成更宽测试作为绕过。
-- Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码。
+- Evidence: `doc\tasks\20260726-codex-test-case-project-column\execution-log.md`，目标 JUnit 首次因 PowerShell 拆分 `-Dsurefire.failIfNoSpecifiedTests=false` 失败，整体加引号后通过；`doc\tasks\20260726-work-order-field-cell-link\execution-log.md`，目标 MES JUnit 需同时整体加引号 `"-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest"` 与 `"-Dsurefire.failIfNoSpecifiedTests=false"`，并保留 `-am` 编译依赖模块源码；`doc\tasks\20260830-system-user-generic-account-governance\execution-log.md`，System 用户服务目标测试首次因未引用 `-Dsurefire.failIfNoSpecifiedTests=false` 被拆成 Maven lifecycle phase，改用单引号包裹 `'-Dtest=AdminUserServiceImplTest'` 与 `'-Dsurefire.failIfNoSpecifiedTests=false'` 后进入真实 RED/GREEN。
 
 ### Maven 编译结论与行为测试失败分层门禁
 
@@ -213,7 +216,7 @@
 - Blocker: clean 后出现 javac/testCompile 错误才判定为编译阻塞；若生产/测试编译已通过、仅行为测试断言失败，则保持编译结论独立，并按失败模块另立行为回归任务。
 - Verification: 主应用执行 `mvn -pl yudao-server -am "-DskipTests" package`；受影响模块执行 `mvn -pl <module> -am clean test` 或同一 clean 状态下的 `-DskipTests`；目标合同测试必须进入 Surefire 并记录实际测试数。
 - Forbidden action: 禁止以增量 `Nothing to compile` 作为源码已验证的唯一证据，禁止把 `Surefire` 行为失败写成 javac RED，禁止为绕过行为失败使用 `maven.test.skip` 或修改无关测试。
-- Evidence: `doc/tasks/20260826-fix-backend-compile-errors/execution-log.md`，clean reactor 编译通过、`yudao-module-infra` 行为测试另有 39 failures/1 error，随后主应用 clean `-DskipTests` 构建和 MES Stage 6 9/9 定向测试通过。
+- Evidence: `doc/tasks/20260826-fix-backend-compile-errors/execution-log.md`，clean reactor 编译通过、`yudao-module-infra` 行为测试另有 39 failures/1 error，随后主应用 clean `-DskipTests` 构建和 MES Stage 6 9/9 定向测试通过；`doc/tasks/20260829-bpm-formcenter-compile-fix/verification-report.md`，增量 BPM 和主应用打包先通过但存在 `Nothing to compile`，随后 BPM clean compile 与主应用 clean package 均通过，确认不是旧 target 掩盖。
 
 ### PowerShell JDBC/JShell 中文证据输出门禁
 
@@ -235,13 +238,13 @@
 
 ### Maven 同模块 target/classes 陈旧门禁
 
-- Trigger: 已修改当前模块 main 源码的方法签名、构造器参数或 mapper 默认方法，但 `mvn -pl <module> -am "-Dtest=..." test` 在 testCompile 阶段仍报旧签名、旧构造器或“找不到刚新增的方法”，且日志显示 main `compile` 为 `Nothing to compile - all classes are up to date`。
+- Trigger: 已修改当前模块 main 源码的方法签名、构造器参数、新增 mapper 或 mapper 默认方法，但 `mvn -pl <module> -am "-Dtest=..." test` 在 testCompile / Surefire 阶段仍报旧签名、旧构造器、`ClassNotFoundException` 缺少刚新增 mapper class，或“找不到刚新增的方法”，且日志显示 main `compile` 为 `Nothing to compile - all classes are up to date`。
 - Preflight check: 先确认生产源码确实包含新签名，再只对当前目标模块运行 `mvn -pl <module> clean test "-Dtest=..." "-Dsurefire.failIfNoSpecifiedTests=false"`；不得清理无关模块 target。
 - Preflight check: 若目标测试已进入 Surefire 但异常行为与当前源码明显不一致，必须检查 `target/test-classes` 是否残留与 `target/classes` 同路径的生产 `.class`；Surefire 会优先加载测试输出目录，旧生产类会覆盖当前正式编译结果。确认污染后优先精确清除重复生产类；若安全策略或并发写入不允许精确删除，则只对当前模块运行标准 `mvn clean` 并重新验证。
 - Blocker: 当前模块 `clean` 后仍看见旧签名、`target` 删除失败、或存在并行 Maven 写同一模块 target 时，必须停止并按目标目录异常门禁处理。
-- Verification: 记录第一次未重编译或旧类覆盖的失败、重复生产类计数、`clean test` 是否进入 Surefire、目标测试数量和 PASS/FAIL。
+- Verification: 记录第一次未重编译或旧类覆盖的失败、缺失 class 的源码路径与 `target/classes` 检查结果、重复生产类计数、`clean test` 或当前模块强制重编译是否进入 Surefire、目标测试数量和 PASS/FAIL。
 - Forbidden action: 禁止把同模块陈旧 class 的 testCompile 失败当成业务失败；禁止把 `target/test-classes` 旧生产类覆盖导致的 Surefire 失败当成当前源码缺陷；禁止靠修改测试绕过旧 class；禁止用全仓清理替代当前模块最小 clean。
-- Evidence: `doc\tasks\20260808-active-order-product-search\execution-log.md`，活跃订单产品搜索新增 `MesMdItemMapper` 构造器依赖和 mapper 方法后，`-pl yudao-module-mes -am` testCompile 仍看到旧 class；仅清理 `yudao-module-mes` 后 main 重新编译，43 个目标测试 PASS。`doc/tasks/20260811-process-pool-report-cell-link-config/execution-log.md`，报工字段映射验证中 Surefire 已进入目标测试但仍执行旧动态表单逻辑，最终定位 `target/test-classes` 残留 19 个生产类覆盖 `target/classes`；执行当前模块 `mvn clean` 后批记录链接全类 19/19 和相邻回归 15/15 PASS。`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，DCC-QA 定向测试异常堆栈与当前源码不一致时再次确认同类污染，当前 MES 模块标准 `mvn clean` 后生产/测试编译及 19 个核心测试通过。
+- Evidence: `doc\tasks\20260808-active-order-product-search\execution-log.md`，活跃订单产品搜索新增 `MesMdItemMapper` 构造器依赖和 mapper 方法后，`-pl yudao-module-mes -am` testCompile 仍看到旧 class；仅清理 `yudao-module-mes` 后 main 重新编译，43 个目标测试 PASS。`doc/tasks/20260811-process-pool-report-cell-link-config/execution-log.md`，报工字段映射验证中 Surefire 已进入目标测试但仍执行旧动态表单逻辑，最终定位 `target/test-classes` 残留 19 个生产类覆盖 `target/classes`；执行当前模块 `mvn clean` 后批记录链接全类 19/19 和相邻回归 15/15 PASS。`doc/tasks/20260811-dcc-qa-backend-persistence/execution-log.md`，DCC-QA 定向测试异常堆栈与当前源码不一致时再次确认同类污染，当前 MES 模块标准 `mvn clean` 后生产/测试编译及 19 个核心测试通过。`doc/tasks/20260826-edhr-pdf-signature-compliance/verification-report.md`，eDHR PDF 签名修复中 Surefire 上下文加载报缺少源码已存在的 `MesProBatchRecordVersionMigrationItemMapper.class`，确认 `target/classes` 缺 class 后等待同仓 Maven 释放，当前模块重编译恢复 class，复跑定向回归 14/14 PASS。
 
 ### Maven 静态源码合同工作目录门禁
 
@@ -271,7 +274,8 @@
 - Verification: 记录目标命令、超时秒数、PID、`jcmd` 关键栈、已停止的任务自有 PID、未停止的并行 PID、是否生成目标 surefire，以及后续释放并行 Maven 后的复跑结果。
 - Forbidden action: 禁止把 `RUNNABLE` 状态误判为业务测试失败；禁止强杀并行任务 Maven；禁止在未释放同仓 Maven 时提交实现或继续跑更多 Maven；禁止用旧 surefire 报告冒充本次目标命令结果。
 - Evidence: `doc\tasks\20260805-role-matrix-code-repair\execution-log.md`，AC-M22 放行预检修复中目标 Maven 多次停在 javac/Lombok 写 class 阶段，本任务仅停止自有超时 PID，保留同仓并行 Maven；并行阻塞释放后复跑标准 `-pl ... -am` 目标 JUnit 并以 Surefire PASS 作为最终 GREEN。
-- Supplementary evidence: 若必须在 Maven 阻塞时证明 RED/GREEN，可用 JUnit Console + 显式 javac 参数文件运行任务目标测试，但只能记录为补充证据；必须把 classpath 隔离清楚（旧实现 RED、新实现 GREEN）、同时保留标准 Maven 为 blocked，禁止把该补充结果写成 Maven/Surefire 通过。
+- Supplementary evidence: 若必须在 Maven 阻塞时证明 RED/GREEN，可用 JUnit Console 或“显式 javac 参数文件编译目标测试类 + `mvn ... surefire:test`”运行任务目标测试，但只能记录为补充证据；必须把 classpath 隔离清楚（旧实现 RED、新实现 GREEN）、同时保留标准 Maven lifecycle 为 blocked，禁止把该补充结果写成完整 Maven lifecycle 通过。
+- Supplementary evidence: `doc/tasks/20260826-edhr-pdf-signature-compliance/verification-report.md`，eDHR PDF 签名修复中标准 `-pl yudao-module-mes -am` 目标测试被无关 testCompile 失败阻塞且一次 Maven 主编译触发 JVM native memory OOM；在主代码 `compile` PASS 后，用 `dependency:build-classpath` 生成 classpath、显式 javac 参数文件只编译 `ExecutionArchiveRendererTest`，再执行 `mvn -pl yudao-module-mes -Dtest=ExecutionArchiveRendererTest surefire:test` 获得 11/11 PASS，并继续把标准 lifecycle 记录为 blocked。
 
 ### Windows Maven 页面文件不足门禁
 
@@ -282,6 +286,7 @@
 - Forbidden action: 禁止用更小测试范围冒充目标验证通过；禁止在未达到 Surefire 测试结果时宣称业务 GREEN；禁止因为环境阻塞而提交未记录的验证缺口。
 - Evidence: `doc\tasks\20260805-ac-m19-deterministic-backfill\verification-report.md`，AC-M19 聚合回填修复中目标 Maven 首次因页面文件不足失败，低内存重试超时，仅停止本任务 PID 55008 并记录剩余阻塞。
 - Evidence: `doc/tasks/20260805-ac-m20-pqc-review-fix/execution-log.md`，AC-M20 PQC 复核修复中，标准 Maven 先因 JVM native memory/pagefile 失败，低内存参数后仍长时间处于 Lombok/Javac 编译且并发 Java 任务较多，最终停止本任务 Maven PID 并保持后端 JUnit blocked，待资源释放后复跑标准 Maven 取得 GREEN。
+- Evidence: `doc/tasks/20260826-edhr-pdf-signature-compliance/verification-report.md`，eDHR PDF 签名修复中一次 `mvn -pl yudao-module-mes -am ... test` 在主编译阶段报 JVM native memory allocation failure；后续仅记录窄范围补充验证 PASS，标准 lifecycle 仍保持 blocked。
 ## 执行顺序
 
 1. 阶段 1：任务提交/推送预检

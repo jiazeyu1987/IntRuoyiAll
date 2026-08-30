@@ -27,6 +27,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -76,6 +77,7 @@ class DccRegistrationCertificateUploadControllerTest {
         assertFalse(requestTraceId.getValue().isBlank());
         assertTrue(requestTraceId.getValue().length() <= 128);
         assertEquals(1001L, command.getValue().projectCodeId());
+        assertEquals(501L, command.getValue().companyId());
         assertEquals(Boolean.TRUE, command.getValue().entrustedProduction());
         assertEquals(Boolean.FALSE, command.getValue().selfProduction());
         assertEquals("一次性使用无菌导管", command.getValue().productName());
@@ -87,11 +89,16 @@ class DccRegistrationCertificateUploadControllerTest {
     @Test
     void submitRequestTreatsProjectCodeAsOptionalAndProductNameAsRequired() throws Exception {
         Field projectCodeId = DccRegistrationCertificateUploadSubmitReqVO.class.getDeclaredField("projectCodeId");
+        Field companyId = DccRegistrationCertificateUploadSubmitReqVO.class.getDeclaredField("companyId");
         Field productName = DccRegistrationCertificateUploadSubmitReqVO.class.getDeclaredField("productName");
 
         assertFalse(hasAnnotation(projectCodeId, "jakarta.validation.constraints.NotNull"));
         assertTrue(hasAnnotation(projectCodeId, "jakarta.validation.constraints.Positive"));
+        assertTrue(hasAnnotation(companyId, "jakarta.validation.constraints.NotNull"));
+        assertTrue(hasAnnotation(companyId, "jakarta.validation.constraints.Positive"));
         assertTrue(hasAnnotation(productName, "jakarta.validation.constraints.NotBlank"));
+        assertThrows(NoSuchFieldException.class,
+                () -> DccRegistrationCertificateUploadSubmitReqVO.class.getDeclaredField("companyName"));
     }
 
     @Test
@@ -149,7 +156,7 @@ class DccRegistrationCertificateUploadControllerTest {
     private static DccRegistrationCertificateUploadSubmitReqVO uploadRequest() {
         DccRegistrationCertificateUploadSubmitReqVO reqVO = new DccRegistrationCertificateUploadSubmitReqVO();
         reqVO.setProjectCodeId(1001L);
-        reqVO.setCompanyName("上海七木医疗器械有限公司");
+        reqVO.setCompanyId(501L);
         reqVO.setProductName("一次性使用无菌导管");
         reqVO.setCertificateNo("REG-CERT-UPLOAD-1");
         reqVO.setFirstObtainedDate(LocalDate.of(2025, 1, 1));

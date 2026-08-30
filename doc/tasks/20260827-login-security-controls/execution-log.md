@@ -42,3 +42,16 @@
 ## Blockers
 
 - 无任务阻塞；仅有仓库既有前端类型错误噪声。
+
+## int_main E2E Completion
+
+- 用户追加要求：融合进 `int_main` 后进行真实 E2E 验证。
+- GREEN: `node E:\IntRuoyi\doc\tasks\20260827-login-security-int-main-e2e\system-login-security-real.e2e.js` -> PASS。
+- 覆盖结果：真实登录页连续错误登录最终锁定账号；锁定后正确密码仍被拒绝；管理员真实页面解锁后账号恢复登录；普通用户分配超级管理员和含日志权限角色均被服务端拒绝；15 分钟空闲退出返回登录页。
+- 任务数据：E2E 任务账号已通过真实用户管理页面删除；只读 DB 复核无未删除 `e2elock%` 账号残留。
+- 详细证据：`doc/tasks/20260827-login-security-int-main-e2e/verification-report.md`。
+## Cleanup And Closeout
+
+- Cleanup preview: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260827-login-security-controls --mode preview -> ready，无 blocked/warnings。
+- Cleanup apply: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260827-login-security-controls --mode apply -> applied，无删除项。
+- Final status: completed。

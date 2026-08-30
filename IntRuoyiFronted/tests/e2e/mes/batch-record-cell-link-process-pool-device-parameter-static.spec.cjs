@@ -41,6 +41,14 @@ assert.ok(
   '后端必须校验参数规则绑定到当前工序的有效正式设备。'
 )
 
+assert.ok(
+  backendService.includes('processPoolReportDeviceIds(devicesByRouteProcess)') &&
+    backendService.includes('.in(MesProcessPoolDeviceParameterRuleDO::getDeviceId, processPoolReportDeviceIds)') &&
+    !backendService.includes('.eqIfPresent(MesProcessPoolDeviceParameterRuleDO::getLeaderUserId, processPoolLeaderUserId)') &&
+    !backendService.includes('参数规则生产组长不匹配'),
+  '参数规则必须按当前生产组长已绑定设备 ID 读取，不能再用规则行的冗余生产组长字段过滤导致参数消失。'
+)
+
 assert.match(
   backendService,
   /"deviceParameterReadings\."\s*\+\s*code\s*\+\s*"\.value"[\s\S]*\.forDeviceGroup\(rule\.getRouteProcessId\(\), deviceGroup[\s\S]*false\)/,

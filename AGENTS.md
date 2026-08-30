@@ -60,17 +60,15 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 
 - Keep user-facing updates concise and necessary: blocking questions, blockers, completed work, verification results, or information explicitly requested by the user.
 - When ambiguity affects safety, data, scope, release, or irreversible changes, stop and ask a concise action-oriented question before proceeding.
+- If the ambiguity is local and can be resolved from the workspace, inspect first and proceed with the safest reasonable assumption, then record that assumption in the task log.
 - 用户提示不合理时，先核对当前代码、文档和业务规则；发现错误或风险必须指出并给出可执行修正，不得盲从。
 - 回复用户时默认按“用户不懂代码”处理：用简单、业务化的话说明做了什么、业务影响、风险和下一步；除非用户明确要求技术细节，不要用代码、文件名、函数、类、接口等技术表达来解释。
 
 ## 子 Agent 禁止规则
 
-- 本项目禁止启动、创建、委派或使用任何子 Agent、子智能体、协作线程或外部协作任务。
-- 除非用户在当前消息中明确提出“启动子 Agent”“委派子任务”“使用协作 Agent”或等价要求，否则不得调用任何 Agent 创建、分叉、委派或线程创建工具，包括 `collaboration__spawn_agent`、`functions.collaboration.spawn_agent`、`create_thread`、`fork_thread` 及等价工具。
-- 任务复杂、需要并行、需要代码审查、需要测试、需要独立验证或预计耗时较长，都不是启动子 Agent 的理由；由当前 Agent 独立完成。
-- 不得主动询问用户是否要启动子 Agent，也不得以提高效率、并行处理、独立验证或减少等待为理由启动子 Agent。
+- 除非用户在当前消息中明确提出“启动子 Agent”“委派子任务”“使用协作 Agent”或等价要求，否则不得启动、创建、委派或使用任何子 Agent、子智能体、协作线程或外部协作任务。
+- 复杂、并行、需要审查、需要测试或预计耗时较长，本身不足以成为委派理由；默认由当前 Agent 独立完成。
 - `multi_tool_use.parallel` 只能并行执行普通工具调用，不得用于创建、分叉、委派或触发 Agent。
-- 每次调用工具前，若工具可能创建或触发 Agent，必须先确认当前用户消息存在明确委派授权；没有授权时禁止调用。
 - 如果误创建 Agent，必须立即中断该 Agent，停止后续协作调用，并在最终说明中报告误操作及其影响。
 
 ## Rule Precedence and Ownership
@@ -79,16 +77,18 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Current task ownership applies only to files, processes, worktrees, logs, and temporary artifacts created or modified for this task.
 - Do not modify unrelated concurrent task artifacts. If another task conflicts on the same file, branch, runtime port, database, or deployment target, stop and report the conflict.
 
-## Strict No-Fallback Policy
+## Strict No-Fallback Policy (Default)
 
-- Do not introduce fallback, graceful degradation, compatibility shims, mock success, placeholder success, default-success values, or silent downgrade unless the user explicitly requests that exact fallback.
+- Do not introduce fallback, graceful degradation, compatibility shims, mock success, placeholder success, default-success values, or silent downgrade by default.
+- Only when the user explicitly requests it, or when a documented compliance, compatibility, availability, or SLO requirement makes it necessary, may you add the smallest possible fallback. Mark trigger conditions, risk, and removal or rollback strategy clearly.
 - Missing prerequisites must fail fast with the exact missing input, service, schema, environment, credential, data, or document, plus the impact.
 - Do not swallow exceptions or hide backend/API/frontend errors. Surface failures in code, logs, tests, or UI as appropriate.
-- If the user explicitly asks for a fallback, implement the smallest scoped fallback and document trigger conditions, risks, and removal or rollback strategy.
+- If a fallback is kept, document why it must exist and how to remove it later.
 
 ## Task Documentation
 
-- Before changing files, running builds/tests/releases, modifying environments, or touching data, create or identify `doc\tasks\<task-id>\`.
+- Before starting a non-trivial task that changes files, runs builds/tests/releases, modifies environments, or touches data, create or identify `doc\tasks\<task-id>\`.
+- Pure read-only questions do not require a task directory unless a nearer rule explicitly requires one.
 - The task document must include task goal, milestones, expected verification, current status, and a fixed `设计约束检查` section:
   - `是否引入 fallback/降级/吞异常`：是/否；如是，记录用户明确要求、触发条件、风险和移除/回滚策略。
   - `是否从根因和长期维护角度解决`：是/否；如否，先阻塞并说明缺少的正式方案前置条件。
@@ -168,6 +168,8 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 
 - Refactors must be justified from long-term maintainability and extensibility before code changes.
 - Use BDD/TDD and task documentation for refactors.
+- Reuse existing systems, shared modules, and utilities whenever they already satisfy the need; do not create a new module that duplicates an existing capability unless a documented gap requires it.
+- Implement the smallest usable solution first; do not begin with a large, all-encompassing module.
 - Prefer removing implicit fallback branches unless an explicit requirement, compliance rule, or SLO policy requires keeping them.
 
 ## Closeout Policy

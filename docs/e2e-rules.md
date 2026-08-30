@@ -46,12 +46,22 @@
 
 - Trigger: 任务验收文档指定 `pnpm test:e2e ...`、`pnpm test <target>`、Playwright spec 文件或新增真实用户路径 E2E。
 - Preflight check: 运行前读取当前前端 `package.json` 的 scripts，确认命令名存在、命名 runner 能识别目标、spec 文件存在，并记录实际工作目录；PowerShell 下若 `pnpm --dir` 或 `pnpm -C` 解析异常，改用显式 `workdir` 复核，不把第一次命令解析失败当作业务 E2E 结果。
+- Preflight check: 静态合同脚本可能按仓库根目录或前端根目录解析相对路径，运行前必须从脚本的 `process.cwd()` 和路径拼接方式确认期望工作目录；若只因工作目录错误导致文件不存在，应修正命令后重跑，不能把路径错误写成业务 FAIL。
 - Preflight check: 验收文档包含写入型用户路径时，还必须同时确认真实页面入口、前端 route、权限 meta、页面主按钮和写 API wrapper 全链路存在；只有 API wrapper 或只读追溯页存在时，不得宣称写路径已实现。
 - Preflight check: 复用历史真实脚本前，必须先按当前源码或真实 DOM 核对入口按钮文案、稳定锚点和可点击条件；按钮已 visible 但仍受 loading、navigationLoading、saving 或权限状态禁用时，脚本应等待正式可点击状态并记录禁用来源，不能把瞬时 disabled 或旧文案定位失败直接写成产品功能失败。
 - Blocker: `ERR_PNPM_NO_SCRIPT`、named target unknown、spec 文件缺失、真实页面入口缺失、菜单权限或测试租户账号缺失，或当前源码/DOM 已证明入口文案和历史脚本定位不一致且未修正脚本时，必须停止并记录具体前置缺口。
 - Verification: 证据必须区分静态合同 PASS、TypeScript PASS、Playwright 真实路径 PASS 和 E2E BLOCKED；真实 E2E 只有在 Playwright 操作真实页面并完成目标断言后才能记为 PASS。
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`；`doc/tasks/20260828-batch-record-mappable-cells-int-main-e2e/verification-report.md`，融合后批记录可映射格子 E2E 先因旧按钮文案“规则”和按钮加载禁用态校准失败，最终按当前“填写配置”入口并等待“正式化可映射格子”按钮可点击后通过真实页面验证。
+
+### 前端 API 路径同源门禁
+
+- Trigger: Playwright 已通过真实页面完成提交或导入，但后续用 `fetch` 做最终状态核验时返回模块禁用兜底、请求地址不存在、401/403 或与页面网络请求不一致；尤其是 Form Center、DCC、MES 等前端 API wrapper 自带业务前缀时。
+- Preflight check: E2E 脚本中的只读/API 核验路径必须从当前前端 API wrapper 或页面真实网络请求反推，不能凭模块名手工拼接额外前缀。若页面接口是 `/admin-api/form-center/...`，脚本不得改写成 `/admin-api/bpm/form-center/...`；发现模块禁用提示时先核对 pathname 是否与前端 wrapper 完全一致，再判断运行态模块是否缺失。
+- Blocker: 页面动作已成功但核验接口命中错误模块前缀、脚本无法说明路径来源、或只因脚本路径错误就把产品导入/发布链路判为失败时，必须修正 E2E 脚本并重跑，不得改后端路由或开启无关模块来迎合脚本。
+- Verification: 记录前端 API wrapper 路径、实际失败 pathname、修正后的真实 E2E 命令和最终业务码；若修正后仍失败，才进入对应模块运行态或业务逻辑排查。
+- Forbidden action: 禁止把脚本手拼路径的 501/404 当成产品业务失败，禁止为了通过脚本新增兼容路由、模块前缀 fallback 或隐藏错误 toast。
+- Evidence: `doc/tasks/20260828-form-template-import-auto-recognition-publish-flow/execution-log.md`，表单模板 Word 导入真实 E2E 已导入成功，但详情核验误用 `/admin-api/bpm/form-center/...` 命中 BPM 禁用兜底；修正为前端 wrapper 的 `/admin-api/form-center/...` 后通过并验证发布版本规则。
 
 ### 列表筛选输入与请求参数同步门禁
 
@@ -137,11 +147,11 @@
 ### Playwright 登录重定向与目标接口监听门禁
 
 - Trigger: 真实 E2E 登录 URL 的 `redirect` 已指向目标页面，但脚本登录后才注册 `waitForResponse`、目标列表/详情接口监听、toast observer 或 console 断言。
-- Preflight check: 目标接口监听必须先于触发该接口的导航、点击、输入、`blur` 或其它会发起请求的页面动作注册；若登录只用于拿到会话，登录 `redirect` 使用 `/` 等中性落点，然后在目标监听和页面 observer 安装完成后再进入目标页面。若必须登录后直达目标页，必须在登录前安装覆盖目标接口的监听并把该响应作为目标证据。
-- Blocker: `waitForResponse` 超时、目标页面已经由登录重定向加载、Vue Router 缓存未再次请求目标接口，或 observer 安装晚于目标 toast/console 时，必须先归因为脚本监听顺序问题，不得把超时记录为业务页面失败。
-- Verification: 修正顺序后重跑真实页面路径，证据需包含登录落点、目标导航 URL、目标接口响应或明确的无目标写请求计数、console/pageerror/toast 采集结果和截图/result JSON。
+- Preflight check: 目标接口监听必须先于触发该接口的导航、点击、输入、`blur` 或其它会发起请求的页面动作注册；若登录只用于拿到会话，登录 `redirect` 使用 `/` 等中性落点，然后在目标监听和页面 observer 安装完成后再进入目标页面。若必须登录后直达目标页，必须在登录前安装覆盖目标接口的监听并把该响应作为目标证据。登录页本身也要按本机冷启动处理，当前页面可能同时挂载多套隐藏 `.login-form`，脚本应等待有实际宽高且包含账号登录关键文本的可见表单，再填租户、用户名和密码；不得只用短超时等待第一条 `form.login-form`。登录后的动态权限和路由初始化必须等待 `/system/auth/get-permission-info` 返回业务成功后再进入目标页面；该接口在本机并发验证或后端冷启动时可能超过 60 秒，脚本不得用短超时 `catch(() => null)` 后继续导航并把应用加载页误判为目标业务失败。
+- Blocker: `waitForResponse` 超时、目标页面已经由登录重定向加载、Vue Router 缓存未再次请求目标接口、observer 安装晚于目标 toast/console、登录截图已经显示账号登录面板但脚本选择器仍未命中可见表单，或权限路由初始化尚未完成时页面停留在应用加载页，必须先归因为脚本监听/登录前置顺序问题，不得把超时记录为业务页面失败。
+- Verification: 修正顺序后重跑真实页面路径，证据需包含登录落点、权限信息接口业务码、目标导航 URL、目标接口响应或明确的无目标写请求计数、console/pageerror/toast 采集结果和截图/result JSON。
 - Forbidden action: 禁止通过加长超时、读取旧 `result.json`、API-only 查询、重复刷新碰运气或忽略缺失目标响应来宣称 E2E 通过或未复现。
-- Evidence: `doc/tasks/20260808-process-route-editor-stack-overflow-repro/verification-report.md`，工艺路线编辑器复现脚本先把登录 redirect 从目标页改为 `/`，再显式进入工艺路线列表，避免列表接口响应在监听前被登录重定向提前消费；`doc/tasks/20260808-dcc-upload-optimization-fixes/verification-report.md`，DCC 上传 current-version 真实 E2E 将 `waitForResponse` 提前到文件编号 `fill/blur` 前，避免请求过快导致脚本漏听。
+- Evidence: `doc/tasks/20260808-process-route-editor-stack-overflow-repro/verification-report.md`，工艺路线编辑器复现脚本先把登录 redirect 从目标页改为 `/`，再显式进入工艺路线列表，避免列表接口响应在监听前被登录重定向提前消费；`doc/tasks/20260808-dcc-upload-optimization-fixes/verification-report.md`，DCC 上传 current-version 真实 E2E 将 `waitForResponse` 提前到文件编号 `fill/blur` 前，避免请求过快导致脚本漏听；`doc/tasks/20260829-stage1-simulation-fix/verification-report.md`，Stage1 真实 E2E 曾因权限信息接口耗时超过脚本 60 秒等待而停留应用加载页，也曾因登录页多套表单和短选择器等待导致业务接口未调用；修正为等待可见账号登录表单与权限路由完成后再进入生产组长页面。
 
 ### 动态菜单真实入口与直达地址假阳性门禁
 
@@ -310,6 +320,7 @@
 
 - Trigger: 写入型、多账号、权限范围、共享数据或跨角色可见性的真实 E2E 初始判断为缺少测试账号、租户、路线、工序、报工样本或可清理数据前置。
 - Preflight check: 先判断缺口是否可在本机测试租户内用任务自有前缀、安全 fixture 脚本和正式 schema/API 补齐；fixture 必须创建真实账号、角色、权限、业务对象和清理范围，密码只能由环境变量注入，不得写入日志或证据。角色权限除目标菜单外，还必须盘点页面全局壳层会自动请求的角标、待办或导航查询权限；缺少这些只读权限会制造与目标业务无关的控制台错误，必须在 fixture 合同中显式列出，不能靠 E2E 忽略。涉及正式生产提交、报工、批记录或生产组长可见性闭环时，fixture 还必须逐项断言已确认工单、非空记录本字段 schema、生产组长 `PRODUCTION + EMPLOYEE` 正式人员范围，以及每轮运行新业务签名，不能复用旧提交痕迹。验收要求覆盖不同员工或不同工序时，任何写请求前必须从页面运行态盘点去重后的正式员工、路线工序和 MES 工序数量；不足目标组合时先 BLOCKED，再用固定任务身份补齐正式员工档案、人员范围、工序配置、签名授权及授权审计，不能把选择入口可用当作已覆盖组合。涉及同一目标工序的多类传统报表资料时，启动任何写路径前必须只读统计每类正式 `batchRecordReportId` 的非空数，并证明同一任务自有路线工序具备完整组合；`formSlotType + formTemplateId` 只能证明动态表单槽位，不能替代传统报表绑定。涉及过程检验、损耗单等动态 FormCenter 槽位时，E2E 前置脚本也必须按当前路线工序正式绑定的 `formTemplateId + lastPublishedTemplateVersionId` 校验，不得把截图中的模板 ID 或历史测试模板 ID 写死为通过条件。跨角色签名链路还必须先证明每个业务账号能登录且签名口令已通过安全环境变量注入，数据库中仅存在账号或签名授权行不算凭据可用。
+- Preflight check: 涉及由按钮或二级页面打开的跳转页时，真实 E2E 的 URL 断言必须跟当前源码和实际跳转结果一致，优先校验页面是否打开、关键 DOM 是否可见和返回路径是否正确；不要把已经不在当前页面契约里的旧 query 参数或历史 helper 参数名当成必需条件。
 - 如果上一轮真实 E2E 已执行 cleanup 并清空任务数据，后续重跑前必须重新 prepare fixture；若 verify 提示 `Task-owned users or roles are missing`，说明当前 manifest 对应的任务用户或角色已被清掉，不能复用旧 manifest 或旧 runId，必须先重建任务自有账号/角色再继续 Playwright。
 - Blocker: 无测试租户授权、缺正式 schema、缺目标工序要求的任一传统报表绑定、只有动态表单槽位、跨角色登录/签名凭据未证明、缺必要菜单/角色权限、无法清理任务自有数据、只能使用 `芋道源码/admin` 或需要生产/无关真实业务数据时，必须继续记录 BLOCKED。
 - Verification: 模拟环境完成后必须分别记录 fixture 输出、运行态 API 只读核验、真实 Playwright 页面路径、跨账号可见性、目标写接口业务 `code=0`、目标 HTTP/page errors 为空，以及删除/禁用/清理后的状态。正式提交链路必须额外记录生成的报工、记录本、工序池事件 ID；多员工、多工序验收还必须逐轮记录页面所选员工、路线工序、MES 工序和签名主体，并以正式数据库事实证明匹配，不能只统计入口数量。人员范围验收还需用对应组长可见、非对应组长不可见证明范围生效。若前置阻塞，证据必须记录各正式来源总数/非空数、完整组合查询结果、缺失的凭据类别、实际业务写请求数和任务残留数，不能只写“缺 fixture”。
@@ -462,12 +473,12 @@
 - Evidence: `doc/tasks/20260725-hide-edhr-right-fill-meta-redbox/bug-regression-evidence.md`；`doc/tasks/20260726-batch-record-detail-panel-form-filter/bug-regression-evidence.md`。
 ## Element Plus 下拉选择门禁
 
-- Trigger: Playwright 在 Element Plus `el-select` 中选择租户、工单、工艺路线、角色、用户或其他写入型业务对象。
-- Preflight check: 优先按页面可见业务唯一文本定位选项，例如租户名称、工单编码、路线编码/名称/ID；填入搜索词后必须等待目标 `.el-select-dropdown__item:visible` 出现并点击该选项。Element Plus 的 placeholder 可能由外层组件展示而不写入真实 `input[placeholder]`，真实 E2E 定位搜索型 `el-select` 时应先用 DOM 快照确认可见 `input.el-select__input[role="combobox"]` 或控件作用域内稳定选择器，再填值触发远程搜索。若 `el-select` 位于 `el-popover`、抽屉内局部弹层或 click-outside 容器中，必须确认下拉面板归属不会触发外层误关闭，必要时使用受控可见状态和 `:teleported="false"` 静态合同锁定。
-- Blocker: 如果只按 `input[placeholder=...]` 找不到控件、只填输入框后按 Enter 未触发真实选项选择、目标选项未出现、页面显示文本与脚本断言字段不一致，或选择项点击导致外层 Popover 在确认动作前误关闭，必须停止并记录输入框 DOM 快照、下拉可见文本、弹层状态和相关接口响应，不得继续提交写入。
+- Trigger: Playwright 在 Element Plus `el-select` 中选择租户、工单、工艺路线、角色、用户、弹框表单项或其他写入型业务对象。
+- Preflight check: 优先按页面可见业务唯一文本定位选项，例如租户名称、工单编码、路线编码/名称/ID；填入搜索词后必须等待目标 `.el-select-dropdown__item:visible` 出现并点击该选项。Element Plus 的 placeholder 可能由外层组件展示而不写入真实 `input[placeholder]`，真实 E2E 定位搜索型 `el-select` 时应先用 DOM 快照确认可见 `input.el-select__input[role="combobox"]` 或控件作用域内稳定选择器，再填值触发远程搜索。若同一弹框内存在多个下拉或校验消息会产生重复可见文本，必须先按精确可见 `.el-form-item__label` 定位当前表单项，再在该 `.el-form-item` 内读取当前 combobox 的 `aria-controls`，只从对应下拉面板选择选项。若标签存在包含关系，例如“类别”和“类别否变更”，不得用 `hasText('类别').first()` 定位目标下拉，应给目标控件增加稳定 `data-testid` 或使用精确标签边界定位。若 `el-select` 位于 `el-popover`、抽屉内局部弹层或 click-outside 容器中，必须确认下拉面板归属不会触发外层误关闭，必要时使用受控可见状态和 `:teleported="false"` 静态合同锁定。
+- Blocker: 如果只按 `input[placeholder=...]` 找不到控件、只填输入框后按 Enter 未触发真实选项选择、目标选项未出现、页面显示文本与脚本断言字段不一致、同名校验消息或重复下拉项导致 locator 命中多个字段、或选择项点击导致外层 Popover 在确认动作前误关闭，必须停止并记录输入框 DOM 快照、下拉可见文本、弹层状态和相关接口响应，不得继续提交写入。
 - Verification: 对写入结果使用 UI 响应和最终只读 API/DB 核验；涉及发布版/草稿版差异时，必须核验落库版本 ID、版本号、快照 JSON 和当前草稿仍存在。Popover 内下拉还必须验证“选择后保持打开、确认成功后显式关闭”。
 - Forbidden action: 禁止把接口数组下标、隐藏 value、输入框残留文本、API-only 选中或坐标点击当作真实页面选择。
-- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/execution-log.md`；`doc/tasks/20260726-route-flow-copy-popover-stability/execution-log.md`；`doc/tasks/20260730-standard-template-list-search-alias/`，顶部菜单搜索框视觉上显示 placeholder，但真实 DOM 只有 `input.el-select__input[role="combobox"]`，最终真实 E2E 改用 combobox 后通过。
+- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/execution-log.md`；`doc/tasks/20260726-route-flow-copy-popover-stability/execution-log.md`；`doc/tasks/20260730-standard-template-list-search-alias/`，顶部菜单搜索框视觉上显示 placeholder，但真实 DOM 只有 `input.el-select__input[role="combobox"]`，最终真实 E2E 改用 combobox 后通过；`doc/tasks/20260829-registration-certificate-upload-production-fields/bug-regression-evidence.md`。
 
 ### Element Plus 权限树与多选提交门禁
 

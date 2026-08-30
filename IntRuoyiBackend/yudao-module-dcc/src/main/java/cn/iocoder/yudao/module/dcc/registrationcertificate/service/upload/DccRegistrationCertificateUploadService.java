@@ -213,13 +213,14 @@ public class DccRegistrationCertificateUploadService {
             DccRegistrationCertificateUploadCommand command) {
         List<Long> entrustedEnterpriseIds = requireUploadProductionRelation(command);
         UploadFile uploadFile = requireUploadFile(command.file());
-        Long ownerCompanyId = resolveOwnerCompanyId(tenantId, actorId, command.companyName());
+        MdmEnterpriseRespDTO ownerCompany = resolveOwnerCompany(tenantId, actorId, command.companyId());
+        Long ownerCompanyId = ownerCompany.getId();
         DccProjectCodeDO projectCode = requireProjectCode(tenantId, actorId, command.projectCodeId());
         Long projectCodeId = projectCode == null ? null : projectCode.getId();
         String productName = requireProductName(command.productName());
-        Long productMasterId = resolveProductMasterId(projectCode);
+        Long productMasterId = null;
         String payloadHash = submitPayloadHash(
-                command, ownerCompanyId, productMasterId, projectCodeId, entrustedEnterpriseIds, uploadFile);
+                command, ownerCompany, productMasterId, projectCodeId, entrustedEnterpriseIds, uploadFile);
 
         DccRegistrationCertificateAccessRequestDO existing =
                 requestMapper.selectByTenantAndRequestKey(tenantId, idempotencyKey);
@@ -231,7 +232,7 @@ public class DccRegistrationCertificateUploadService {
                 ownerCompanyId, productMasterId, productName, projectCodeId,
                 command.firstObtainedDate(), trim(command.certificateNo()),
                 null, command.effectiveDate(), command.expiryDate(), trim(command.classification()),
-                trim(command.companyName()), null, null, null, null, null, null,
+                null, null, null, null, null, null, null,
                 command.entrustedProduction(), command.selfProduction(), entrustedEnterpriseIds, trim(command.remark()));
         Long certificateId = commandService.createDraft(
                 tenantId, actorId, idempotencyKey, requestTraceId, draft);
@@ -347,28 +348,32 @@ public class DccRegistrationCertificateUploadService {
         return new UploadRequestDetail(payloadHash, draftRowVersion, draftSnapshotRevision);
     }
 
-    private Long resolveOwnerCompanyId(Long tenantId, Long actorId, String companyName) {
-        Set<Long> companyIds = companyScopeApi.getEnabledCompanyIdsForUser(actorId);
-        if (companyIds == null || companyIds.isEmpty()) {
+    private MdmEnterpriseRespDTO resolveOwnerCompany(Long tenantId, Long actorId, Long companyId) {
+        if (companyId == null || companyId <= 0) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         }
-        List<MdmEnterpriseRespDTO> enterprises = enterpriseApi.getEnabledEnterprises(companyIds, OWNED_COMPANY);
-        if (enterprises == null || enterprises.isEmpty()) {
+        try {
+            companyScopeApi.validateUserCompanyAccess(actorId, companyId);
+        } catch (ServiceException exception) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         }
-        String normalizedName = trim(companyName);
-        List<MdmEnterpriseRespDTO> matches = enterprises.stream()
-                .filter(item -> Objects.equals(normalizedName, trim(item.getName())))
-                .sorted(Comparator.comparing(MdmEnterpriseRespDTO::getId))
-                .toList();
-        if (matches.size() != 1) {
+        List<MdmEnterpriseRespDTO> enterprises;
+        try {
+            enterprises = enterpriseApi.getEnabledEnterprises(List.of(companyId), OWNED_COMPANY);
+        } catch (ServiceException exception) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         }
-        MdmEnterpriseRespDTO enterprise = matches.get(0);
-        if (!Objects.equals(tenantId, enterprise.getTenantId()) || enterprise.getId() == null || enterprise.getId() <= 0) {
+        if (enterprises == null || enterprises.size() != 1) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
         }
-        return enterprise.getId();
+        MdmEnterpriseRespDTO enterprise = enterprises.get(0);
+        if (enterprise == null || !Objects.equals(tenantId, enterprise.getTenantId())
+                || !Objects.equals(companyId, enterprise.getId())
+                || isBlank(enterprise.getName())
+                || !OWNED_COMPANY.contains(enterprise.getType())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED);
+        }
+        return enterprise;
     }
 
     private DccProjectCodeDO requireProjectCode(Long tenantId, Long actorId, Long projectCodeId) {
@@ -400,10 +405,6 @@ public class DccRegistrationCertificateUploadService {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED);
         }
         return normalizedProductName;
-    }
-
-    private Long resolveProductMasterId(DccProjectCodeDO projectCode) {
-        return projectCode == null ? null : projectCode.getProductMasterId();
     }
 
     private DccRegistrationCertificateVersionDO requireDraftVersion(Long tenantId, Long certificateId) {
@@ -450,12 +451,12 @@ public class DccRegistrationCertificateUploadService {
     }
 
     private String submitPayloadHash(
-            DccRegistrationCertificateUploadCommand command, Long ownerCompanyId,
+            DccRegistrationCertificateUploadCommand command, MdmEnterpriseRespDTO ownerCompany,
             Long productMasterId, Long projectCodeId, List<Long> entrustedEnterpriseIds, UploadFile uploadFile) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("companyName", trim(command.companyName()));
+        payload.put("ownerCompanyId", ownerCompany.getId());
+        payload.put("ownerCompanyName", trim(ownerCompany.getName()));
         payload.put("productName", trim(command.productName()));
-        payload.put("ownerCompanyId", ownerCompanyId);
         payload.put("projectCodeId", projectCodeId);
         payload.put("productMasterId", productMasterId);
         payload.put("certificateNo", trim(command.certificateNo()));

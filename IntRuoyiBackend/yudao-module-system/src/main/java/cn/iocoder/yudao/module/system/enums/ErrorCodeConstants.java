@@ -95,6 +95,13 @@ public interface ErrorCodeConstants {
     ErrorCode USER_TABLE_COLUMN_CONFIG_INVALID = new ErrorCode(1_002_003_022, "用户列表列配置非法");
     ErrorCode PROFILE_WORKBENCH_TASK_VISIBILITY_INVALID = new ErrorCode(1_002_003_023, "个人工作台任务隐藏配置非法");
     ErrorCode USER_ASSIGN_HIGH_PERMISSION_FORBIDDEN = new ErrorCode(1_002_003_024, "普通用户不能被分配管理员或日志权限");
+    ErrorCode USER_GENERIC_ACCOUNT_FORBIDDEN = new ErrorCode(1_002_003_025, "用户账号不能使用通用账户：{}");
+    ErrorCode USER_LIFECYCLE_DOCUMENT_REQUIRED = new ErrorCode(1_002_003_026, "离职/转岗单据信息不能为空");
+    ErrorCode USER_LIFECYCLE_DOCUMENT_TYPE_INVALID = new ErrorCode(1_002_003_027, "离职/转岗单据类型不支持：{}");
+    ErrorCode USER_LIFECYCLE_ALREADY_DEACTIVATED = new ErrorCode(1_002_003_028, "账号已按离职/转岗单【{}】联动停用");
+    ErrorCode USER_LIFECYCLE_DEACTIVATED_ENABLE_FORBIDDEN = new ErrorCode(1_002_003_029, "账号已按离职/转岗单【{}】联动停用，不能手工启用");
+    ErrorCode USER_LIFECYCLE_PROCESS_TIME_REQUIRED = new ErrorCode(1_002_003_030, "账号生命周期停用处理时间不能为空");
+    ErrorCode USER_LIFECYCLE_PROCESS_LIMIT_INVALID = new ErrorCode(1_002_003_031, "账号生命周期停用处理数量必须大于 0");
 
     // ========== 部门模块 1-002-004-000 ==========
     ErrorCode DEPT_NAME_DUPLICATE = new ErrorCode(1_002_004_000, "已经存在该名字的部门");

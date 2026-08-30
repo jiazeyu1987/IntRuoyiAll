@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mdm.api.companyscope.dto.MdmUserCompanyScopeCreat
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopePageReqVO;
 import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopeRespVO;
+import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopeSaveReqVO;
 
 import java.util.Collection;
 import java.util.Set;
@@ -12,6 +13,12 @@ import java.util.Set;
 public interface MdmCompanyScopeService {
 
     PageResult<MdmCompanyScopeRespVO> getCompanyScopePage(MdmCompanyScopePageReqVO reqVO);
+
+    Long createCompanyScope(MdmCompanyScopeSaveReqVO reqVO);
+
+    void updateCompanyScope(MdmCompanyScopeSaveReqVO reqVO);
+
+    void deleteCompanyScope(String scopeType, Long id);
 
     Long createUserCompanyScope(MdmUserCompanyScopeCreateReqDTO reqDTO);
 

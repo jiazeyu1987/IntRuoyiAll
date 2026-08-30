@@ -14,13 +14,13 @@
 ### 运行态迁移漂移系统异常门禁
 
 - Trigger: 页面或接口在当前代码已支持的路径上提示 `系统异常`，后端栈包含缺表、缺列、`doesn't have a default value`、`cannot be null`、旧索引冲突，或源码已有对应正式迁移但运行库 schema 可能滞后。
-- Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
+- Preflight check: 先从后端失败栈冻结首个数据库异常、Mapper 与目标表，再以当前后端 Java 进程实际启动参数/运行态数据源作为真实连接库，不能只看 `application-local.yaml` 或默认配置；随后用 `information_schema.columns/statistics` 或 `SHOW COLUMNS/INDEX` 对比当前运行库和目标正式迁移；同时确认迁移 metadata、`dependsOn` 和 release migration policy gate 通过。不得先改业务代码适配旧库。
 - Blocker: 无法确认当前后端实际连接库、目标迁移依赖未满足、运行态表结构与迁移前置不一致、迁移会破坏现有唯一性或历史数据，或只能通过默认值、吞异常、伪造上下文继续提交时必须停止。
 - Verification: 迁移前用可重复运行的运行态 schema 契约记录 RED；执行正式迁移后用同一契约记录 GREEN，并运行目标服务回归和不写基线业务数据的真实页面复验。成功写入型 E2E 仍须遵守测试租户、任务自有数据和明确授权门禁。
-- Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若订单初始化或个人中心聚合页的任一子请求返回业务码 500 且日志为缺列，先修复运行库迁移漂移，再判断前端错误归属；不要通过隐藏该子请求错误或返回空数据掩盖 schema 缺口。
+- Diagnosis order: HTTP 200 不能证明接口成功；必须同时记录业务码/消息、Mapper 首个数据库异常和真实连接库。若本机重启脚本或运行 Jar 覆盖了数据源地址，迁移也必须打到该运行库；配置文件库迁移成功不代表页面运行库已修复。若订单初始化、排产工单主列表或个人中心聚合页的任一子请求返回业务码 500 且日志为缺列，先修复运行库迁移漂移，再判断前端错误归属；不要通过隐藏该子请求错误或返回空数据掩盖 schema 缺口。
 - Policy scope: 完整 SQL 根目录门禁若被无关文件阻断，不得修改无关迁移或绕过记录；应冻结目标迁移的完整 dependsOn 闭包单独核验并同时记录根目录门禁阻断，未通过的完整门禁不能宣称全库发布就绪。
 - Forbidden action: 禁止在源码已有正式迁移时新增业务 fallback、把空业务上下文伪造成默认 ID、手工只改单列而遗漏生成列/索引/相邻表、仅凭迁移文件存在宣称运行态已修复，或在未授权的 admin 基线租户自动重放正式写请求。
-- Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`；`doc/tasks/20260826-user-profile-system-error/verification-report.md`。
+- Evidence: `doc/tasks/20260809-fix-frontline-chenli-submit-system-error/verification-report.md`；`doc/tasks/20260826-user-profile-system-error/verification-report.md`；`doc/tasks/20260826-schedule-order-system-exception/verification-report.md`。
 
 ### 一对多读模型聚合门禁
 
@@ -85,6 +85,15 @@
 - Forbidden action: 禁止依赖“通常不会失败”拆开提交关联 DML，禁止第一条成功后用第二条重试脚本补数据，禁止以页面只显示其中一部分字段掩盖迁移不完整。
 - Evidence: `doc/tasks/20260811-fine-wash-cleaning-params/execution-log.md`；`doc/tasks/20260811-cleaning-process-medium-temperature/execution-log.md`。
 
+### 旧表单模板绑定切换表单中心门禁
+
+- Trigger: 旧表单模板、`form_template_id`、`last_published_template_version_id`、`FORMTPL:*`、`formBindings` 切换到统一表单中心或批记录表单列表。
+- Preflight check: 先冻结旧模板版本、路线绑定表、路线版本快照和 Jimu 报表四处影响范围；目标报表 ID 必须由旧模板版本 ID 生成或读取稳定映射，不能按中文表单名、版本文本或当前最新模板猜测。迁移必须同时生成表单中心报表元数据、Jimu 设计器记录，并把路线快照中的旧 `formBindings` 转成 `batchRecordReports`。
+- Blocker: 旧模板版本未发布、源文件或 Jimu schema 缺失、目标 `FORMTPL:*` 报表冲突、同一模板版本映射多个槽位、路线快照中旧绑定无法找到目标报表元数据、Jimu 报表未生成或 JSON 无效时必须停止。
+- Verification: 执行前用静态合同记录 RED；执行后核对旧绑定清零、迁移绑定数量、旧模板版本 `BOUND`、路线快照无旧 `formTemplateId`、表单中心列表可查 `FORMTPL:*` 且真实页面能打开目标表单。
+- Forbidden action: 禁止只更新路线绑定表而不更新路线快照，禁止保留运行态继续把已迁移行当旧 `formBindings` 输出，禁止用 API-only 或数据库行存在代替真实页面列表验证，禁止删除旧模板字段来掩盖追溯关系。
+- Evidence: `doc/tasks/20260829-switch-old-form-template-bindings/verification-report.md`。
+
 ### DCC 文件类别规则种子门禁
 
 - Trigger: DCC 项目代码文件分类、`dcc_file_category_match_rule`、OQ/PQ、零配件图纸、类别规则 seed、批量识别 `AMBIGUOUS` / `UNCLASSIFIED` 根因修复。
@@ -115,38 +124,38 @@
 ### 中文菜单名称 ASCII 安全迁移门禁
 
 - Trigger: 菜单、权限、租户套餐或动态路由 SQL 需要写入中文入口名称，尤其通过 MySQL 客户端、Docker `mysql < file.sql`、PowerShell/stdin 或发布迁移执行 `system_menu.name` 更新。
-- Preflight check: 中文目标值必须有 ASCII 安全写入方案，例如 `CONVERT(UNHEX('<utf8-hex>') USING utf8mb4)`，或先明确证明客户端连接已使用 `utf8mb4`；目标行必须用稳定主键加权限/路径等字段精确锁定。
+- Preflight check: 中文目标值必须有 ASCII 安全写入方案，例如 `CONVERT(UNHEX('<utf8-hex>') USING utf8mb4)`，或先明确证明客户端连接已使用 `utf8mb4`；若该表达式参与 `SET`、`WHERE`、存储过程局部变量比较或执行后断言，必须显式统一到目标列排序规则，例如 `COLLATE utf8mb4_unicode_ci`；目标行必须用稳定主键加权限/路径等字段精确锁定。
 - Blocker: 执行后 `HEX(name)` 不是预期 UTF-8、出现 mojibake/问号、目标行定位不唯一、只验证页面文案但未核对运行库 HEX，或 SQL 缺少 release migration 元数据时必须停止。
-- Verification: 记录修复前旧值或乱码 HEX、修复后 `HEX(name)`、目标行 `permission/path/component/component_name/deleted` 不变、聚焦 migration policy gate，以及真实页面动态菜单不再显示旧名称。
+- Verification: 记录修复前旧值或乱码 HEX、修复后 `HEX(name)`、目标行 `permission/path/component/component_name/deleted` 不变、目标列排序规则与 SQL 字符串表达式排序规则一致、聚焦 migration policy gate，以及真实页面动态菜单不再显示旧名称。
 - Forbidden action: 禁止用前端硬编码标题遮盖动态菜单旧值；禁止直接执行含中文字符串字面量的 SQL 后不复核 HEX；禁止扩大 `WHERE` 范围或改角色/租户绑定来掩盖菜单名未更新。
-- Evidence: `doc/tasks/20260728-fix-product-menu-title-runtime/execution-log.md`。
+- Evidence: `doc/tasks/20260728-fix-product-menu-title-runtime/execution-log.md`；`doc/tasks/20260829-form-center-unified-import-int-main/execution-log.md`，表单中心菜单改名首次执行后数据已更新但过程内校验因 `utf8mb4_0900_ai_ci` / `utf8mb4_unicode_ci` 混用失败，补充显式 `COLLATE utf8mb4_unicode_ci` 后幂等通过。
 
 ### 动态菜单跨父级移动路径保持门禁
 
 - Trigger: 将已有动态菜单从一个父菜单移动到另一个父菜单、调整同级顺序，且要求点击后继续进入原页面地址。
-- Preflight check: 先冻结移动前的完整路由、父级路径和子菜单 `path`，再按新父级路径计算移动后的子菜单 `path`；同时核对目标同级不存在完整路径冲突，并冻结菜单 ID、`type`、`component`、`component_name`、`permission`、按钮权限子菜单、角色菜单绑定和租户套餐绑定。迁移应只接受明确的移动前状态或目标最终状态，缺少正式菜单或出现冲突时 fail fast。
-- Blocker: 新父级与旧父级路径不同但仍沿用旧相对子路径，导致完整 URL 漂移；目标同级已占用计算后的路径；菜单组件或权限契约无法唯一确认；或必须改角色、套餐绑定才能掩盖菜单 ID 变化时必须停止。
-- Verification: 先用聚焦迁移合同记录 RED/GREEN，断言父级、同级 `sort`、目标 `path`、组件和权限保持契约；运行 release migration policy gate 的完整依赖闭包；在真实库幂等执行后比对按钮权限子菜单数、角色绑定和套餐绑定不变；最后使用 fresh 登录展开新父菜单，确认层级与同级顺序，点击菜单并断言 URL 仍为移动前完整地址。动态菜单缓存核对同时遵守 `docs/frontend-development.md#动态菜单真实可见性缓存门禁`。
+- Preflight check: 先冻结移动前的完整路由、父级路径和子菜单 `path`，再按新父级路径计算移动后的子菜单 `path`；同时核对目标同级不存在完整路径冲突，并冻结菜单 ID、`type`、`component`、`component_name`、`permission`、按钮权限子菜单、角色菜单绑定和租户套餐绑定。菜单 `component` 指向前端页面时，还必须核对对应页面和正式 API 源文件存在；迁移应只接受明确的移动前状态或目标最终状态，缺少正式菜单、正式页面链路或出现冲突时 fail fast。
+- Blocker: 新父级与旧父级路径不同但仍沿用旧相对子路径，导致完整 URL 漂移；目标同级已占用计算后的路径；菜单组件或权限契约无法唯一确认；前端页面/API 源文件缺失但仍要保留为可见入口；或必须改角色、套餐绑定才能掩盖菜单 ID 变化时必须停止。
+- Verification: 先用聚焦迁移合同记录 RED/GREEN，断言父级、同级 `sort`、目标 `path`、组件和权限保持契约；运行 release migration policy gate 的完整依赖闭包；在真实库幂等执行后比对按钮权限子菜单数、角色绑定和套餐绑定不变；最后使用 fresh 登录按真实层级逐级展开父菜单，确认层级与同级顺序，点击菜单并断言 URL 仍为移动前完整地址。动态菜单缓存核对同时遵守 `docs/frontend-development.md#动态菜单真实可见性缓存门禁`。
 - Forbidden action: 禁止只改前端静态路由或硬编码侧边栏入口，禁止为保留地址新增重定向 fallback，禁止删除重建菜单造成 ID 和授权漂移，禁止用旧登录会话、直接 URL、API-only 或数据库结果代替真实侧边栏点击验证。
-- Evidence: `doc/tasks/20260813-move-form-template-menu/verification-report.md`。
+- Evidence: `doc/tasks/20260813-move-form-template-menu/verification-report.md`；`doc/tasks/20260829-registration-certificate-menu-hierarchy/verification-report.md`。
 
 ### 动态菜单入口隐藏与运行权限隔离门禁
 
 - Trigger: 用户要求删除、隐藏或下线左侧动态菜单/页签，但对应菜单树下仍有按钮权限、后台运行权限、实例处理或其它非页面能力需要保留。
-- Preflight check: 先区分 `type=1/2` 的可见目录/菜单和 `type=3` 的按钮权限；冻结目标可见入口、子入口、按钮权限、角色绑定、租户套餐绑定和相邻保留入口。仅需移除页面入口时，应只调整目标可见菜单的 `visible/always_show`，不得连带删除运行权限或业务数据。
-- Blocker: 无法确认子菜单是否仍被后台运行调用、必须删除 `type=3` 权限才能让页面消失、相邻保留菜单与目标父菜单仍存在依赖，或只有前端硬编码隐藏方案时必须停止。
-- Verification: 聚焦迁移合同先记录 RED/GREEN；运行完整 migration policy dependency closure；真实库执行后核对目标入口不可见、按钮权限和授权绑定不变；fresh 登录展开父菜单，确认目标入口消失、相邻保留入口仍可点击并进入原页面。
-- Forbidden action: 禁止把“删除页签”直接解释为删除表单/实例/权限数据，禁止软删除父菜单导致运行权限树丢失，禁止只删前端静态路由或用 CSS 隐藏，禁止用旧登录会话或直接 URL 代替真实侧边栏验证。
-- Evidence: `doc/tasks/20260813-remove-form-center-menu/verification-report.md`。
+- Preflight check: 先区分 `type=1/2` 的可见目录/菜单和 `type=3` 的按钮权限；冻结目标可见入口、子入口、按钮权限、角色绑定、租户套餐绑定和相邻保留入口。仅需移除页面入口且运行权限仍需保留时，应只调整目标可见菜单的 `visible/always_show`，不得连带删除运行权限或业务数据；若入口本身缺少正式页面链路且用户明确要求删除，应按菜单 ID 清理角色授权和租户套餐中的有效绑定，避免权限树继续暴露无效入口。
+- Blocker: 无法确认子菜单是否仍被后台运行调用、必须删除 `type=3` 权限才能让页面消失、相邻保留菜单与目标父菜单仍存在依赖、用户未明确授权删除缺页入口，或只有前端硬编码隐藏方案时必须停止。
+- Verification: 聚焦迁移合同先记录 RED/GREEN；运行完整 migration policy dependency closure；真实库执行后核对目标入口不可见、应保留的按钮权限和授权绑定不变、应删除的可见入口不再出现在角色/套餐中；fresh 登录展开父菜单，确认目标入口消失、相邻保留入口仍可点击并进入原页面。
+- Forbidden action: 禁止把“删除页签”直接解释为删除表单/实例/权限数据，禁止软删除父菜单导致运行权限树丢失，禁止只删前端静态路由或用 CSS 隐藏，禁止用旧登录会话或直接 URL 代替真实侧边栏验证，禁止用空页面、默认跳转或重定向 fallback 代替正式删除或正式补页。
+- Evidence: `doc/tasks/20260813-remove-form-center-menu/verification-report.md`；`doc/tasks/20260829-registration-certificate-menu-hierarchy/verification-report.md`。
 
 ### 系统角色菜单授权 tenant 1 admin 门禁
 
-- Trigger: 新增或收敛 `system_role`、`system_role_menu`、`system_user_role`、动态菜单权限角色、admin 授权、只允许特定角色看某菜单/页签，且迁移通过 `system_tenant_package.menu_ids` 扫描目标租户。
-- Preflight check: 写角色/菜单迁移前，必须核对 tenant 1 的 `system_tenant.package_id` 是否能通过套餐表命中；若 admin 用户需要被赋权，迁移必须显式把 tenant 1 纳入目标角色集合，不能只依赖套餐 menu_ids 扫描。
-- Blocker: tenant 1 `admin` 用户存在但目标角色集合不包含 tenant 1、`system_role_category.code='menu'` 缺失、同租户目标角色 code 重复，或迁移只能让租户套餐角色看到菜单而 admin 用户不能通过标准权限解析拿到权限时必须停止。
-- Verification: 静态 SQL 合同必须断言 tenant 1 显式纳入目标集合、admin 被写入 `system_user_role`、目标菜单只授权给正式角色、非目标角色仅软删除；同时运行聚焦 role/menu SQL 测试和 release migration policy gate 依赖闭包。
-- Forbidden action: 禁止把 `tenant_admin`/`super_admin` 菜单绑定当作“只有目标角色可见”的替代；禁止用前端隐藏菜单、硬编码 admin bypass、默认成功权限或 broad role grant 掩盖 role/menu/user-role 链路未命中。
-- Evidence: `doc/tasks/20260806-qa-role-permission-tab/verification-report.md`；`IntRuoyiBackend/sql/mysql/20260806_mes_qa_role_permission_tab.sql`。
+- Trigger: 新增或收敛 `system_role`、`system_role_menu`、`system_user_role`、动态菜单权限角色、admin 授权、只允许特定角色看某菜单/页签、授权公司菜单、关联公司菜单、外部工具入口只允许专用角色可见，且迁移通过 `system_tenant_package.menu_ids` 扫描目标租户。
+- Preflight check: 写角色/菜单迁移前，必须核对 tenant 1 的 `system_tenant.package_id` 是否能通过套餐表命中；若 admin 用户需要被赋权，迁移必须显式把 tenant 1 纳入目标角色集合，不能只依赖套餐 menu_ids 扫描。还要先读回 `admin` 的真实有效角色，不能默认它一定是 `tenant_admin`；若实际有效角色是 `super_admin`，也必须把该角色作为正式授权对象写入/回读。普通业务角色不得加入高权限枚举或 admin 特权链路，必须用稳定 `role.code`、目标菜单和精确权限码完成隔离。维护型页面必须同时写入页面 query 权限和按钮 create/update/delete 权限，并把这些权限同步进目标套餐和真实角色菜单；菜单更新必须优先锁定本次拥有的稳定菜单 ID，若按权限名发现其它活动菜单占用同一权限，应先 fail fast，不得用宽泛 `permission IN (...)` 更新历史记录。
+- Blocker: tenant 1 `admin` 用户存在但目标角色集合不包含 tenant 1，或没有把 `admin` 的真实有效角色（例如 `super_admin`）纳入目标集合、`system_role_category.code='menu'` 缺失、同租户目标角色 code 重复、维护型页面只新增 query 菜单但缺少 create/update/delete 按钮权限、权限码被其它活动菜单占用、目标固定菜单 ID 的最终契约无法证明、目标菜单仍授权给非目标角色、普通业务角色被接入高权限枚举，或迁移只能让租户套餐角色看到菜单而 admin 用户不能通过标准权限解析拿到权限时必须停止。
+- Verification: 静态 SQL 合同必须断言 tenant 1 显式纳入目标集合、admin 被写入 `system_user_role`、目标页面与按钮权限进入套餐和正式角色、非目标角色仅软删除；同时运行聚焦 role/menu SQL 测试和 release migration policy gate 依赖闭包。若该角色控制动态菜单可见性，还必须用 fresh Playwright 分别验证已授权 admin 可见、未授权账号不可见，并回读 `get-permission-info` 证明菜单已出现在真实权限树里。
+- Forbidden action: 禁止把 `tenant_admin`/`super_admin` 菜单绑定当作“只有目标角色可见”的替代；禁止默认 `admin` 一定走 `tenant_admin`；禁止用前端隐藏菜单、硬编码 admin bypass、默认成功权限、broad role grant、宽泛按权限名更新菜单或高权限枚举掩盖 role/menu/user-role 链路未命中。
+- Evidence: `doc/tasks/20260829-admin-associated-company-menu-visible/verification-report.md`；`doc/tasks/20260829-erp-invoice-print-role-permission/verification-report.md`；`doc/tasks/20260830-registration-upload-optimization/verification-report.md`；`IntRuoyiBackend/sql/mysql/20260829_erp_finance_invoice_voucher_print_role_permission.sql`。
 
 ### 定时任务迁移业务键与运行态注册门禁
 

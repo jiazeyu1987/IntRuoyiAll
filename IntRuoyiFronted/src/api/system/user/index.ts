@@ -14,6 +14,11 @@ export interface UserVO {
   loginFailureCount?: number
   loginLocked?: number
   loginLockedTime?: Date
+  lifecycleDocumentType?: string
+  lifecycleDocumentNo?: string
+  lifecycleDocumentTime?: Date | string
+  lifecycleEffectiveTime?: Date | string
+  lifecycleDeactivatedTime?: Date | string
   loginIp: string
   status: number
   remark: string
@@ -29,6 +34,14 @@ export interface UserDingTalkImportRespVO {
   enabledDeptPaths: string[]
   leaderAssignedDeptPaths: Record<string, string>
   leaderSkippedDeptPaths: Record<string, string>
+}
+
+export interface UserLifecycleDeactivateReqVO {
+  id: number
+  documentType: 'RESIGNATION' | 'TRANSFER'
+  documentNo: string
+  documentTime: string
+  effectiveTime: string
 }
 
 // 查询用户管理列表
@@ -71,6 +84,11 @@ export const exportUser = (params: any) => {
   return request.download({ url: '/system/user/export-excel', params })
 }
 
+// 导出通用账户不合规清单
+export const exportGenericAccountUsers = () => {
+  return request.download({ url: '/system/user/export-generic-account-excel' })
+}
+
 // 下载用户导入模板
 export const importUserTemplate = () => {
   return request.download({ url: '/system/user/get-import-template' })
@@ -97,6 +115,11 @@ export const updateUserStatus = (id: number, status: number) => {
     status
   }
   return request.put({ url: '/system/user/update-status', data: data })
+}
+
+// 登记离职/转岗账号联动停用
+export const recordUserLifecycleDeactivation = (data: UserLifecycleDeactivateReqVO) => {
+  return request.put({ url: '/system/user/lifecycle-deactivation', data })
 }
 
 // 解锁用户

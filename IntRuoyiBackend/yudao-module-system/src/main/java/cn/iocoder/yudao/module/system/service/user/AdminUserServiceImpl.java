@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserDingTalk
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserDingTalkImportRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportExcelVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserImportRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserLifecycleDeactivateReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserPageReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSaveReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
@@ -29,6 +30,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.DeptMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.UserPostMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
+import cn.iocoder.yudao.module.system.enums.user.UserLifecycleDocumentTypeEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.dept.PostService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
@@ -266,7 +268,10 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Override
     public void updateUserStatus(Long id, Integer status) {
         // 校验用户存在
-        validateUserExists(id);
+        AdminUserDO user = validateUserExists(id);
+        if (CommonStatusEnum.isEnable(status) && user.getLifecycleDeactivatedTime() != null) {
+            throw exception(USER_LIFECYCLE_DEACTIVATED_ENABLE_FORBIDDEN, user.getLifecycleDocumentNo());
+        }
         // 更新状态
         AdminUserDO updateObj = new AdminUserDO();
         updateObj.setId(id);
@@ -277,6 +282,71 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (CommonStatusEnum.isDisable(status)) {
             oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void recordUserLifecycleDeactivation(UserLifecycleDeactivateReqVO reqVO) {
+        AdminUserDO user = validateUserExists(reqVO.getId());
+        if (user.getLifecycleDeactivatedTime() != null) {
+            throw exception(USER_LIFECYCLE_ALREADY_DEACTIVATED, user.getLifecycleDocumentNo());
+        }
+        String documentType = StrUtil.trim(reqVO.getDocumentType());
+        String documentNo = StrUtil.trim(reqVO.getDocumentNo());
+        validateLifecycleDeactivationRequest(documentType, documentNo, reqVO.getDocumentTime(), reqVO.getEffectiveTime());
+
+        boolean due = !reqVO.getEffectiveTime().isAfter(LocalDateTime.now());
+        LocalDateTime updatedAt = LocalDateTime.now();
+        var updateWrapper = Wrappers.lambdaUpdate(AdminUserDO.class)
+                .eq(AdminUserDO::getId, user.getId())
+                .set(AdminUserDO::getLifecycleDocumentType, documentType)
+                .set(AdminUserDO::getLifecycleDocumentNo, documentNo)
+                .set(AdminUserDO::getLifecycleDocumentTime, reqVO.getDocumentTime())
+                .set(AdminUserDO::getLifecycleEffectiveTime, reqVO.getEffectiveTime())
+                .set(AdminUserDO::getLifecycleDeactivatedTime, due ? reqVO.getEffectiveTime() : null)
+                .set(AdminUserDO::getUpdateTime, updatedAt);
+        if (due) {
+            updateWrapper.set(AdminUserDO::getStatus, CommonStatusEnum.DISABLE.getStatus());
+        }
+        userMapper.update(null, updateWrapper);
+        if (due && !CommonStatusEnum.isDisable(user.getStatus())) {
+            oauth2TokenService.removeAccessToken(user.getId(), UserTypeEnum.ADMIN.getValue());
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int processDueLifecycleDeactivations(LocalDateTime now, int limit) {
+        if (now == null) {
+            throw exception(USER_LIFECYCLE_PROCESS_TIME_REQUIRED);
+        }
+        if (limit <= 0) {
+            throw exception(USER_LIFECYCLE_PROCESS_LIMIT_INVALID);
+        }
+        List<AdminUserDO> users = userMapper.selectListByPendingLifecycleDeactivation(now, limit);
+        int processedCount = 0;
+        for (AdminUserDO user : users) {
+            if (applyLifecycleDeactivation(user)) {
+                processedCount++;
+            }
+        }
+        return processedCount;
+    }
+
+    private boolean applyLifecycleDeactivation(AdminUserDO user) {
+        int updatedCount = userMapper.update(null, Wrappers.lambdaUpdate(AdminUserDO.class)
+                .eq(AdminUserDO::getId, user.getId())
+                .isNull(AdminUserDO::getLifecycleDeactivatedTime)
+                .set(AdminUserDO::getStatus, CommonStatusEnum.DISABLE.getStatus())
+                .set(AdminUserDO::getLifecycleDeactivatedTime, user.getLifecycleEffectiveTime())
+                .set(AdminUserDO::getUpdateTime, LocalDateTime.now()));
+        if (updatedCount <= 0) {
+            return false;
+        }
+        if (!CommonStatusEnum.isDisable(user.getStatus())) {
+            oauth2TokenService.removeAccessToken(user.getId(), UserTypeEnum.ADMIN.getValue());
+        }
+        return true;
     }
 
     @Override
@@ -408,6 +478,13 @@ public class AdminUserServiceImpl implements AdminUserService {
         return userMapper.selectListByNickname(nickname);
     }
 
+    @Override
+    public List<AdminUserDO> getGenericAccountUserList() {
+        return userMapper.selectList().stream()
+                .filter(user -> AdminUserGenericAccountPolicy.isGenericUsername(user.getUsername()))
+                .toList();
+    }
+
     /**
      * 获得部门条件：查询指定部门的子部门编号们，包括自身
      *
@@ -483,6 +560,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         return DataPermissionUtils.executeIgnore(() -> {
             // 校验用户存在
             AdminUserDO user = validateUserExists(id);
+            // 校验用户名不是通用账户
+            validateGenericAccountUsername(username);
             // 校验用户名唯一
             validateUsernameUnique(id, username);
             // 校验手机号唯一
@@ -507,6 +586,13 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw exception(USER_NOT_EXISTS);
         }
         return user;
+    }
+
+    @VisibleForTesting
+    void validateGenericAccountUsername(String username) {
+        if (AdminUserGenericAccountPolicy.isGenericUsername(username)) {
+            throw exception(USER_GENERIC_ACCOUNT_FORBIDDEN, StrUtil.trim(username));
+        }
     }
 
     @VisibleForTesting
@@ -587,6 +673,18 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
     }
 
+    @VisibleForTesting
+    void validateLifecycleDeactivationRequest(String documentType, String documentNo,
+                                              LocalDateTime documentTime, LocalDateTime effectiveTime) {
+        if (StrUtil.isBlank(documentType) || StrUtil.isBlank(documentNo)
+                || documentTime == null || effectiveTime == null) {
+            throw exception(USER_LIFECYCLE_DOCUMENT_REQUIRED);
+        }
+        if (!UserLifecycleDocumentTypeEnum.isValid(documentType)) {
+            throw exception(USER_LIFECYCLE_DOCUMENT_TYPE_INVALID, documentType);
+        }
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class) // 添加事务，异常则回滚所有导入
     public UserImportRespVO importUserList(List<UserImportExcelVO> importUsers, boolean isUpdateSupport) {
@@ -617,6 +715,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             }
             // 2.1.2 校验，判断是否有不符合的原因
             try {
+                validateGenericAccountUsername(importUser.getUsername());
                 validateUserForCreateOrUpdate(null, null, importUser.getMobile(), importUser.getEmail(),
                         importUser.getDeptId(), null);
             } catch (ServiceException ex) {

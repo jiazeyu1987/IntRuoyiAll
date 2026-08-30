@@ -881,6 +881,25 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void validatorAllowsManualProductNameWhenSelectedProjectCodeHasProductBinding() {
+        DccRegistrationCertificatePrerequisiteValidator validator = validValidator();
+        DccRegistrationCertificateDraftData draft = new DccRegistrationCertificateDraftData(
+                10L, null, " 手填注册证产品 ", 40L,
+                LocalDate.of(2026, 1, 1), "CERT-MANUAL-PROJECT",
+                null, LocalDate.of(2026, 9, 1), LocalDate.of(2031, 9, 1),
+                "II", null, null, null, null, null, null, null,
+                true, false, List.of(30L), "Manual project product remark");
+        when(projectCodeService.getProjectCode(99L, 40L))
+                .thenReturn(projectCode(1L, 20L, DccProjectCodeStatusConstants.ENABLE));
+
+        DccRegistrationCertificateResolvedDraft resolved = validator.validate(1L, 99L, draft);
+
+        assertEquals("手填注册证产品", resolved.productName());
+        verify(productApi, never()).getEnabledDccProduct(any());
+        verify(projectCodeService).getProjectCode(99L, 40L);
+    }
+
+    @Test
     void createDraft_allowsMinimalVisibleFieldsWithoutHiddenDraftAttributes() {
         configureDbValidDependencies();
         DccRegistrationCertificateDraftData draft = new DccRegistrationCertificateDraftData(

@@ -1,6 +1,8 @@
 import type { TagProps } from 'element-plus'
 import type {
   DccRegistrationCertificateLocalDateValue,
+  DccRegistrationCertificateReminderFilterState,
+  DccRegistrationCertificateReminderVisualState,
   DccRegistrationCertificateStatus
 } from '@/api/dcc/registrationCertificate'
 
@@ -43,7 +45,20 @@ export const formatMissingMarker = (present?: boolean | null) => (present ? '已
 export const getMissingMarkerTagType = (present?: boolean | null): TagProps['type'] =>
   present ? 'success' : 'danger'
 
-export const formatRegistrationCertificateReminder = (state?: string | null) => {
+export const REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS: Array<{
+  value: DccRegistrationCertificateReminderFilterState
+  label: string
+}> = [
+  { value: 'NORMAL', label: '正常' },
+  { value: 'T_30', label: 'T-30' },
+  { value: 'T_8', label: 'T-8' },
+  { value: 'T_2', label: 'T-2' },
+  { value: 'T_1', label: 'T-1' }
+]
+
+export const formatRegistrationCertificateReminder = (
+  state?: DccRegistrationCertificateReminderVisualState | string | null
+) => {
   if (!state || state === 'NONE' || state === 'CLEARED') return '正常'
   return state.replace('_', '-')
 }

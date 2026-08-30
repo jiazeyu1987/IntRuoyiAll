@@ -1682,15 +1682,18 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         }
         Map<Long, List<ProcessPoolReportDevice>> devicesByRouteProcess =
                 listProcessPoolReportDevicesByRouteProcess(routeProcessIds, processPoolLeaderUserId);
-        List<MesProcessPoolDeviceParameterRuleDO> parameterRules = deviceParameterRuleMapper.selectList(
-                new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
+        Set<Long> processPoolReportDeviceIds = processPoolReportDeviceIds(devicesByRouteProcess);
+        List<MesProcessPoolDeviceParameterRuleDO> parameterRules = processPoolReportDeviceIds.isEmpty()
+                ? List.of()
+                : deviceParameterRuleMapper.selectList(new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
                         .in(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, routeProcessIds)
-                        .eqIfPresent(MesProcessPoolDeviceParameterRuleDO::getLeaderUserId, processPoolLeaderUserId)
+                        .in(MesProcessPoolDeviceParameterRuleDO::getDeviceId, processPoolReportDeviceIds)
                         .eq(MesProcessPoolDeviceParameterRuleDO::getEnabled, Boolean.TRUE)
+                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId)
+                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getDeviceId)
                         .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getParameterCode)
                         .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getId));
-        parameterRules.forEach(rule -> validateProcessPoolReportParameterRule(rule, routeProcessIds,
-                processPoolLeaderUserId));
+        parameterRules.forEach(rule -> validateProcessPoolReportParameterRule(rule, routeProcessIds));
         if (requireFormalDeviceBinding
                 && targetRouteProcessId != null
                 && devicesByRouteProcess.getOrDefault(targetRouteProcessId, List.of()).isEmpty()) {
@@ -1715,6 +1718,14 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                     processPoolReportValueType(rule.getValueType()));
         }
         return List.copyOf(fields.values());
+    }
+
+    private Set<Long> processPoolReportDeviceIds(Map<Long, List<ProcessPoolReportDevice>> devicesByRouteProcess) {
+        return devicesByRouteProcess.values().stream()
+                .flatMap(List::stream)
+                .map(ProcessPoolReportDevice::deviceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private Map<Long, List<ProcessPoolReportDeviceGroup>> listProcessPoolReportDeviceGroupsByRouteProcess(
@@ -1748,8 +1759,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     }
 
     private void validateProcessPoolReportParameterRule(MesProcessPoolDeviceParameterRuleDO rule,
-                                                        List<Long> routeProcessIds,
-                                                        Long processPoolLeaderUserId) {
+                                                        List<Long> routeProcessIds) {
         String code = StrUtil.trim(rule.getParameterCode());
         String name = StrUtil.trim(rule.getParameterName());
         if (rule.getRouteProcessId() == null || !routeProcessIds.contains(rule.getRouteProcessId())
@@ -1758,12 +1768,6 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             throw exception(
                     MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
                     "PROCESS_POOL_REPORT 参数定义不完整");
-        }
-        if (processPoolLeaderUserId != null && !Objects.equals(rule.getLeaderUserId(), processPoolLeaderUserId)) {
-            throw exception(
-                    MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
-                    "PROCESS_POOL_REPORT 参数规则生产组长不匹配：routeProcessId=" + rule.getRouteProcessId()
-                            + "，deviceId=" + rule.getDeviceId());
         }
     }
 

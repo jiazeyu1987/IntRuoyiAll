@@ -40,7 +40,7 @@ assert.match(api, /export\s+const\s+getUploadOwnerCompanies\b/,
 assert.match(api, /url:\s*['"]\/dcc\/registration-certificates\/uploads\/owner-companies['"]/,
   'upload owner company API must use the upload-owned company candidate endpoint')
 for (const field of [
-  'companyName',
+  'companyId',
   'productName',
   'projectCodeId',
   'certificateNo',
@@ -113,11 +113,18 @@ for (const token of [
 assert.match(uploadDialog, /getProjectCodePage/, 'upload dialog must load DCC project codes')
 assert.doesNotMatch(uploadDialog, /requireDccProductCode:\s*true/,
   'upload dialog must not require selected project codes to already bind a DCC product code')
-assert.match(uploadDialog, /getProduct/, 'upload dialog must resolve product name from the selected project code')
+assert.doesNotMatch(uploadDialog, /getProduct/,
+  'upload dialog must not resolve or overwrite the manually entered product name from the selected project code')
 assert.match(uploadDialog, /getUploadOwnerCompanies/,
   'upload dialog must load current-user owner companies for company-name selection')
 assert.doesNotMatch(uploadDialog, /<el-input\s+v-model="form\.companyName"/,
   'upload dialog must not keep company name as arbitrary free text')
+assert.match(uploadDialog, /v-model="form\.companyId"/,
+  'upload dialog must submit selected owner company id rather than matching by company name')
+assert.match(uploadDialog, /payload\.append\('companyId',\s*String\(form\.companyId\)\)/,
+  'upload dialog must post the selected owner company id')
+assert.doesNotMatch(uploadDialog, /payload\.append\('companyName'/,
+  'upload dialog must not post owner company name text for authorization matching')
 assert.match(uploadDialog, /getUploadEntrustedEnterprises/,
   'upload dialog must load enabled entrusted enterprises when entrusted production is selected')
 assert.match(uploadDialog, /是否委托生产和是否自行生产不能同时为否/,

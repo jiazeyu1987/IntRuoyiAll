@@ -47,6 +47,9 @@ const companyNameItem = uploadDialog.slice(
   uploadDialog.indexOf('</el-form-item>', uploadDialog.indexOf('<el-form-item label="公司名称"'))
 )
 assert.match(companyNameItem, /<el-select\b/, 'company name must be selected from authorized companies')
+assert.match(companyNameItem, /prop="companyId"/, 'company selector must validate the selected authorized company id')
+assert.match(companyNameItem, /v-model="form\.companyId"/, 'company selector must bind to companyId')
+assert.match(companyNameItem, /:value="item\.id"/, 'company selector must submit the authorized company id')
 assert.match(companyNameItem, /remote/, 'company name selection must search authorized companies remotely')
 assert.match(
   companyNameItem,
@@ -75,6 +78,14 @@ const productNameItem = uploadDialog.slice(
 )
 assert.match(productNameItem, /prop="productName"/, 'product name must participate in form validation')
 assert.doesNotMatch(productNameItem, /\breadonly\b/, 'product name must be editable when no project code is selected')
+assert.doesNotMatch(productNameItem, /@input="handleProductNameInput"/,
+  'product name must not be coupled to project-code auto-fill state')
+assert.doesNotMatch(uploadDialog, /getProduct/,
+  'upload dialog must not call MDM product APIs to overwrite the manually entered registration product name')
+assert.doesNotMatch(uploadDialog, /autoFilledProductName/,
+  'upload dialog must not keep project-code driven product auto-fill state')
+assert.doesNotMatch(uploadDialog, /applyProjectCode/,
+  'upload dialog must not apply DCC project code selection by changing product name')
 
 const rulesBlock = uploadDialog.slice(
   uploadDialog.indexOf('const rules = reactive<FormRules>'),
@@ -87,8 +98,8 @@ assert.doesNotMatch(
 )
 assert.match(
   rulesBlock,
-  /companyName:\s*\[\{\s*required:\s*true,\s*message:\s*'请选择公司名称',\s*trigger:\s*'change'/,
-  'company name validation must match the authorized company selector'
+  /companyId:\s*\[\{\s*required:\s*true,\s*message:\s*'请选择公司名称',\s*trigger:\s*'change'/,
+  'company selection validation must require an authorized company id'
 )
 assert.match(
   rulesBlock,
@@ -127,6 +138,16 @@ assert.doesNotMatch(
 )
 assert.match(
   submitBlock,
+  /payload\.append\('companyId',\s*String\(form\.companyId\)\)/,
+  'submit must send the selected authorized company id'
+)
+assert.doesNotMatch(
+  submitBlock,
+  /payload\.append\('companyName'/,
+  'submit must not send company name text for authorization matching'
+)
+assert.match(
+  submitBlock,
   /payload\.append\('productName',\s*form\.productName\.trim\(\)\)/,
   'submit must send the required product name'
 )
@@ -134,4 +155,14 @@ assert.match(
   submitBlock,
   /if\s*\(form\.projectCodeId\)\s*\{[\s\S]*payload\.append\('projectCodeId',\s*String\(form\.projectCodeId\)\)[\s\S]*\}/,
   'submit must only send projectCodeId when the user selected one'
+)
+assert.doesNotMatch(
+  submitBlock,
+  /catch\s*\([^)]*\)\s*\{[\s\S]*message\.error/,
+  'submit must let the global request handler show upload API errors instead of duplicating local error toasts'
+)
+assert.doesNotMatch(
+  submitBlock,
+  /throw\s+error/,
+  'submit must not rethrow a locally handled upload error after showing a duplicate toast'
 )

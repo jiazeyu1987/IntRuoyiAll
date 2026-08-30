@@ -38,18 +38,22 @@
             </template>
 
             <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
-              <el-table
-                v-loading="loading"
-                data-user-table-column-explicit
-                :data-user-table-key="CURRENT_TABLE_KEY"
-                :data="list"
-                border
-                :stripe="true"
-                :show-overflow-tooltip="true"
-                row-key="certificateId"
-                @header-dragend="handleCurrentHeaderDragend"
-                @sort-change="handleTemplateSortChange"
-              >
+              <div class="registration-certificate-current-table-scroll-region">
+                <el-table
+                  v-loading="loading"
+                  class="registration-certificate-current-table"
+                  data-user-table-column-explicit
+                  :data-user-table-key="CURRENT_TABLE_KEY"
+                  :data="list"
+                  height="100%"
+                  border
+                  :stripe="true"
+                  :show-overflow-tooltip="true"
+                  scrollbar-always-on
+                  row-key="certificateId"
+                  @header-dragend="handleCurrentHeaderDragend"
+                  @sort-change="handleTemplateSortChange"
+                >
                 <el-table-column
                   v-if="isCurrentColumnVisible('certificateNo')"
                   label="注册证编号"
@@ -115,8 +119,9 @@
                 <el-table-column
                   v-if="isCurrentColumnVisible('reminder')"
                   label="提醒状态"
-                  width="120"
-                  :sortable="false"
+                  prop="reminder"
+                  :width="getCurrentColumnWidthString('reminder', 120)"
+                  v-bind="sortColumnAttrs('reminder')"
                 >
                   <template #default="{ row }">
                     <el-tag :type="getRegistrationCertificateReminderTagType(row.reminderColor)">
@@ -216,7 +221,8 @@
                     </div>
                   </template>
                 </el-table-column>
-              </el-table>
+                </el-table>
+              </div>
             </template>
           </UnifiedListTemplate>
         </div>
@@ -396,6 +402,7 @@ import {
 import RegistrationCertificateUploadDialog from '../upload/UploadDialog.vue'
 import RegistrationCertificateRenewalDialog from '../renewal/RenewalDialog.vue'
 import {
+  REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS,
   REGISTRATION_CERTIFICATE_STATUS_OPTIONS,
   formatMissingMarker,
   formatRegistrationCertificateDate,
@@ -457,6 +464,7 @@ const CURRENT_SERVER_SORT_FIELDS = new Set<RegistrationCertificateSortField>([
   'approvalDate',
   'effectiveDate',
   'expiryDate',
+  'reminder',
   'remark'
 ])
 
@@ -478,7 +486,7 @@ const currentColumnDefinitions: UserTableColumnDefinition[] = [
   { key: 'projectCode', label: '实际项目代码', minWidth: 150 },
   { key: 'versionNo', label: '版本', width: 90 },
   { key: 'status', label: '状态', width: 130 },
-  { key: 'reminder', label: '提醒状态', width: 120, sortable: false },
+  { key: 'reminder', label: '提醒状态', width: 120 },
   { key: 'hasProjectCode', label: '项目代码', width: 110 },
   { key: 'hasRegistrationFile', label: '注册证文件', width: 120 },
   { key: 'approvalDate', label: '批准日', width: 120 },
@@ -589,6 +597,13 @@ const currentQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() 
     type: 'select',
     queryParamKey: 'status',
     options: REGISTRATION_CERTIFICATE_STATUS_OPTIONS
+  },
+  {
+    key: 'reminderState',
+    label: '提醒状态',
+    type: 'select',
+    queryParamKey: 'reminderState',
+    options: REGISTRATION_CERTIFICATE_REMINDER_FILTER_OPTIONS
   },
   {
     key: 'missingProjectCode',
@@ -930,6 +945,54 @@ watch(
 </script>
 
 <style scoped>
+.registration-certificate-current-list {
+  height: calc(100vh - 180px);
+  min-height: 520px;
+  overflow: hidden;
+}
+
+.registration-certificate-current-list :deep(.unified-list-template__query-form) {
+  flex: 0 0 auto;
+}
+
+.registration-certificate-current-list :deep(.unified-list-template__table-shell) {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.registration-certificate-current-list :deep(.el-pagination) {
+  flex: 0 0 auto;
+}
+
+.registration-certificate-current-table-scroll-region {
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.registration-certificate-current-table {
+  width: 100%;
+}
+
+.registration-certificate-current-table :deep(.el-table__body-wrapper) {
+  overflow-y: auto;
+}
+
+.registration-certificate-current-table :deep(.el-scrollbar__bar.is-horizontal) {
+  display: block;
+  height: 8px;
+  opacity: 1;
+}
+
+.registration-certificate-current-table :deep(.el-scrollbar__bar.is-horizontal > div) {
+  background-color: #9caec4;
+}
+
 @media (min-width: 1181px) {
   .registration-certificate-current-list.unified-list-template--single-line-toolbar
     :deep(.unified-list-template__query-form) {

@@ -7,7 +7,7 @@ import java.util.List;
 
 public record DccRegistrationCertificateUploadCommand(
         Long projectCodeId,
-        String companyName,
+        Long companyId,
         String productName,
         String certificateNo,
         LocalDate firstObtainedDate,

@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -99,7 +100,7 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     @Test
-    void submitUploadForApprovalCreatesDraftWithProductionRelation() {
+    void submitUploadForApprovalKeepsManualProductNameWhenProjectCodeHasProductBinding() {
         mockOwnedCompany();
         mockProjectCode();
         when(requestMapper.selectByTenantAndRequestKey(TENANT_ID, "UPLOAD-KEY-1")).thenReturn(null);
@@ -136,8 +137,10 @@ class DccRegistrationCertificateUploadServiceTest {
         assertEquals(9401L, result.requestId());
         assertEquals(9001L, result.certificateId());
         assertEquals(9301L, result.businessFileId());
-        assertEquals(2001L, draft.getValue().productMasterId());
+        assertNull(draft.getValue().productMasterId());
+        assertEquals(501L, draft.getValue().ownerCompanyId());
         assertEquals("一次性使用无菌导管", draft.getValue().productName());
+        assertEquals(1001L, draft.getValue().projectCodeId());
         assertEquals(Boolean.TRUE, draft.getValue().entrustedProduction());
         assertEquals(Boolean.FALSE, draft.getValue().selfProduction());
         assertEquals(List.of(301L, 302L), draft.getValue().entrustedEnterpriseIds());
@@ -325,12 +328,13 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     @Test
-    void submitUploadForApprovalRejectsUnknownOwnerCompanyWithChineseMessage() {
-        mockOwnedCompany();
+    void submitUploadForApprovalRejectsUnauthorizedOwnerCompanyIdWithChineseMessage() {
+        org.mockito.Mockito.doThrow(new ServiceException(REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED))
+                .when(companyScopeApi).validateUserCompanyAccess(ACTOR_ID, 999L);
 
         ServiceException exception = assertThrows(ServiceException.class, () -> uploadService.submitUploadForApproval(
-                TENANT_ID, ACTOR_ID, "UPLOAD-KEY-UNKNOWN-COMPANY", "TRACE-UNKNOWN-COMPANY",
-                uploadCommand(1001L, "不存在的公司", "一次性使用无菌导管", false, true, List.of())));
+                TENANT_ID, ACTOR_ID, "UPLOAD-KEY-UNAUTHORIZED-COMPANY", "TRACE-UNAUTHORIZED-COMPANY",
+                uploadCommand(1001L, 999L, "一次性使用无菌导管", false, true, List.of())));
 
         assertEquals("当前账号无该公司注册证上传权限，请选择已授权公司", exception.getMessage());
         verify(commandService, never()).createDraft(any(), any(), any(), any(), any());
@@ -407,7 +411,7 @@ class DccRegistrationCertificateUploadServiceTest {
     }
 
     private void mockOwnedCompany() {
-        when(companyScopeApi.getEnabledCompanyIdsForUser(ACTOR_ID)).thenReturn(Set.of(501L));
+        lenient().when(companyScopeApi.getEnabledCompanyIdsForUser(ACTOR_ID)).thenReturn(Set.of(501L));
         MdmEnterpriseRespDTO owner = MdmEnterpriseRespDTO.builder()
                 .id(501L)
                 .tenantId(TENANT_ID)
@@ -417,7 +421,9 @@ class DccRegistrationCertificateUploadServiceTest {
                 .status("ENABLE")
                 .revision(1)
                 .build();
-        when(enterpriseApi.getEnabledEnterprises(Set.of(501L),
+        lenient().when(enterpriseApi.getEnabledEnterprises(Set.of(501L),
+                Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType()))).thenReturn(List.of(owner));
+        lenient().when(enterpriseApi.getEnabledEnterprises(List.of(501L),
                 Set.of(MdmEnterpriseTypeEnum.OWNED_COMPANY.getType()))).thenReturn(List.of(owner));
     }
 
@@ -451,16 +457,16 @@ class DccRegistrationCertificateUploadServiceTest {
     private DccRegistrationCertificateUploadCommand uploadCommand(
             Long projectCodeId, String productName,
             Boolean entrustedProduction, Boolean selfProduction, List<Long> entrustedEnterpriseIds) {
-        return uploadCommand(projectCodeId, "上海七木医疗器械有限公司", productName,
+        return uploadCommand(projectCodeId, 501L, productName,
                 entrustedProduction, selfProduction, entrustedEnterpriseIds);
     }
 
     private DccRegistrationCertificateUploadCommand uploadCommand(
-            Long projectCodeId, String companyName, String productName,
+            Long projectCodeId, Long companyId, String productName,
             Boolean entrustedProduction, Boolean selfProduction, List<Long> entrustedEnterpriseIds) {
         return new DccRegistrationCertificateUploadCommand(
                 projectCodeId,
-                companyName,
+                companyId,
                 productName,
                 "REG-CERT-UPLOAD-1",
                 LocalDate.of(2025, 1, 1),

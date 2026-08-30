@@ -674,6 +674,152 @@ SELECT CASE WHEN
 THEN 1 ELSE 0 END;
 '@
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260822_mes_edhr_release_final_state_trace.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'System user lifecycle deactivation schema'
+        ProbeSql = @'
+SELECT CASE WHEN
+  (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'system_users'
+      AND COLUMN_NAME IN (
+        'lifecycle_document_type',
+        'lifecycle_document_no',
+        'lifecycle_document_time',
+        'lifecycle_effective_time',
+        'lifecycle_deactivated_time'
+      )
+  ) = 5
+  AND EXISTS (
+    SELECT 1
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'system_users'
+      AND INDEX_NAME = 'idx_system_users_lifecycle_due'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM `infra_job`
+    WHERE handler_name = 'userLifecycleDeactivateJob'
+      AND `deleted` = b'0'
+  )
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260830_system_user_lifecycle_deactivation.sql'
+    },
+    [PSCustomObject]@{
+        Name = 'MES process pool IDI device parameter rules'
+        ProbeSql = @'
+SELECT CASE WHEN
+  (
+    SELECT COUNT(*)
+    FROM `dcc_project_code` project
+    JOIN `mes_pro_route_dcc_project_binding` binding
+      ON binding.`dcc_project_code_id` = project.`id`
+     AND binding.`tenant_id` = project.`tenant_id`
+     AND binding.`deleted` = b'0'
+     AND binding.`active_route_id` = binding.`route_id`
+    JOIN `mes_pro_route` target_route
+      ON target_route.`id` = binding.`route_id`
+     AND target_route.`tenant_id` = project.`tenant_id`
+     AND target_route.`deleted` = b'0'
+     AND target_route.`code` = 'RT000028-IDI'
+    JOIN `mes_pro_route_process` target_route_process
+      ON target_route_process.`route_id` = target_route.`id`
+     AND target_route_process.`tenant_id` = target_route.`tenant_id`
+     AND target_route_process.`deleted` = b'0'
+    JOIN `mes_pro_process_pool_team_process_device` target_binding
+      ON target_binding.`tenant_id` = target_route_process.`tenant_id`
+     AND target_binding.`process_id` = target_route_process.`process_id`
+     AND target_binding.`enabled` = b'1'
+     AND target_binding.`deleted` = b'0'
+    JOIN `system_users` leader
+      ON leader.`id` = target_binding.`leader_user_id`
+     AND leader.`tenant_id` = target_binding.`tenant_id`
+     AND leader.`username` = 'admin'
+     AND leader.`deleted` = b'0'
+    JOIN `mes_pro_process_pool_team_device` target_device
+      ON target_device.`id` = target_binding.`device_id`
+     AND target_device.`leader_user_id` = target_binding.`leader_user_id`
+     AND target_device.`tenant_id` = target_binding.`tenant_id`
+     AND target_device.`device_status` = 'ENABLED'
+     AND target_device.`enabled` = b'1'
+     AND target_device.`deleted` = b'0'
+    JOIN `mes_pro_process_pool_device_parameter_rule` target_rule
+      ON target_rule.`tenant_id` = target_route_process.`tenant_id`
+     AND target_rule.`leader_user_id` = target_binding.`leader_user_id`
+     AND target_rule.`route_process_id` = target_route_process.`id`
+     AND target_rule.`process_id` = target_route_process.`process_id`
+     AND target_rule.`device_id` = target_device.`id`
+     AND target_rule.`enabled` = b'1'
+     AND target_rule.`deleted` = b'0'
+    WHERE project.`tenant_id` = 1
+      AND project.`project_code` = 'IDI'
+      AND project.`project_name` = '按压式球囊扩充压力泵'
+      AND project.`status` = 'ENABLE'
+      AND project.`deleted` = 0
+  ) >= 37
+  AND (
+    SELECT COUNT(DISTINCT target_rule.`parameter_code`)
+    FROM `dcc_project_code` project
+    JOIN `mes_pro_route_dcc_project_binding` binding
+      ON binding.`dcc_project_code_id` = project.`id`
+     AND binding.`tenant_id` = project.`tenant_id`
+     AND binding.`deleted` = b'0'
+     AND binding.`active_route_id` = binding.`route_id`
+    JOIN `mes_pro_route` target_route
+      ON target_route.`id` = binding.`route_id`
+     AND target_route.`tenant_id` = project.`tenant_id`
+     AND target_route.`deleted` = b'0'
+     AND target_route.`code` = 'RT000028-IDI'
+    JOIN `mes_pro_route_process` target_route_process
+      ON target_route_process.`route_id` = target_route.`id`
+     AND target_route_process.`tenant_id` = target_route.`tenant_id`
+     AND target_route_process.`deleted` = b'0'
+    JOIN `mes_pro_process_pool_team_process_device` target_binding
+      ON target_binding.`tenant_id` = target_route_process.`tenant_id`
+     AND target_binding.`process_id` = target_route_process.`process_id`
+     AND target_binding.`enabled` = b'1'
+     AND target_binding.`deleted` = b'0'
+    JOIN `system_users` leader
+      ON leader.`id` = target_binding.`leader_user_id`
+     AND leader.`tenant_id` = target_binding.`tenant_id`
+     AND leader.`username` = 'admin'
+     AND leader.`deleted` = b'0'
+    JOIN `mes_pro_process_pool_team_device` target_device
+      ON target_device.`id` = target_binding.`device_id`
+     AND target_device.`leader_user_id` = target_binding.`leader_user_id`
+     AND target_device.`tenant_id` = target_binding.`tenant_id`
+     AND target_device.`device_status` = 'ENABLED'
+     AND target_device.`enabled` = b'1'
+     AND target_device.`deleted` = b'0'
+     AND target_device.`device_code` = 'B09393'
+    JOIN `mes_pro_process_pool_device_parameter_rule` target_rule
+      ON target_rule.`tenant_id` = target_route_process.`tenant_id`
+     AND target_rule.`leader_user_id` = target_binding.`leader_user_id`
+     AND target_rule.`route_process_id` = target_route_process.`id`
+     AND target_rule.`process_id` = target_route_process.`process_id`
+     AND target_rule.`device_id` = target_device.`id`
+     AND target_rule.`enabled` = b'1'
+     AND target_rule.`deleted` = b'0'
+     AND target_rule.`parameter_code` IN (
+       'ROUGH_WASH_COUNT',
+       'ROUGH_WASH_MEDIUM',
+       'ROUGH_WASH_POWER',
+       'ROUGH_WASH_ROOM_TEMPERATURE',
+       'ROUGH_WASH_TIME'
+     )
+    WHERE project.`tenant_id` = 1
+      AND project.`project_code` = 'IDI'
+      AND project.`project_name` = '按压式球囊扩充压力泵'
+      AND project.`status` = 'ENABLE'
+      AND project.`deleted` = 0
+  ) = 5
+THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260830_mes_process_pool_idi_device_parameter_rules.sql'
     }
 )
 $RequiredDccDownloadEncryptionEnv = @(

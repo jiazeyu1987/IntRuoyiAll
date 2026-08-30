@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_REMINDER_STATE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_SORT_INVALID;
 
 @Service
@@ -46,6 +47,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             "approvalDate",
             "effectiveDate",
             "expiryDate",
+            "reminder",
             "remark");
     private static final Set<String> OLD_INDEX_SORT_FIELDS = Set.of(
             "certificateNo",
@@ -55,6 +57,12 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             "versionNo",
             "status",
             "expiryDate");
+    private static final Set<String> CURRENT_REMINDER_STATES = Set.of(
+            "NORMAL",
+            "T_30",
+            "T_8",
+            "T_2",
+            "T_1");
 
     private final DccRegistrationCertificateQueryMapper queryMapper;
     private final MdmCompanyScopeApi companyScopeApi;
@@ -86,7 +94,9 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             Long tenantId, Long actorId, DccRegistrationCertificatePageQuery query,
             DccRequestAuditContext auditContext) {
         DccRegistrationCertificatePageQuery normalized = normalize(query);
+        normalized.setBusinessDate(businessClock.businessDate());
         validateSort(normalized, CURRENT_SORT_FIELDS);
+        validateCurrentReminderState(normalized);
         List<Long> scopedCompanyIds = scopedCompanyIds(actorId);
         long total = queryMapper.countPage(tenantId, scopedCompanyIds, normalized);
         List<DccRegistrationCertificateQueryRecord> rows = total == 0 ? List.of()
@@ -131,6 +141,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             DccRequestAuditContext auditContext) {
         DccRegistrationCertificatePageQuery normalized = normalize(query);
         validateSort(normalized, OLD_INDEX_SORT_FIELDS);
+        validateOldIndexReminderState(normalized);
         List<Long> scopedCompanyIds = scopedCompanyIds(actorId);
         long total = queryMapper.countOldIndex(tenantId, scopedCompanyIds, normalized);
         List<DccRegistrationCertificateQueryRecord> rows = total == 0 ? List.of()
@@ -347,6 +358,22 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 || !allowedFields.contains(query.getSortField())
                 || !SORT_ORDERS.contains(query.getSortOrder())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_SORT_INVALID);
+        }
+    }
+
+    private static void validateCurrentReminderState(DccRegistrationCertificatePageQuery query) {
+        String reminderState = trimToNull(query.getReminderState());
+        query.setReminderState(reminderState);
+        if (reminderState != null && !CURRENT_REMINDER_STATES.contains(reminderState)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_STATE_INVALID);
+        }
+    }
+
+    private static void validateOldIndexReminderState(DccRegistrationCertificatePageQuery query) {
+        String reminderState = trimToNull(query.getReminderState());
+        query.setReminderState(reminderState);
+        if (reminderState != null) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_REMINDER_STATE_INVALID);
         }
     }
 

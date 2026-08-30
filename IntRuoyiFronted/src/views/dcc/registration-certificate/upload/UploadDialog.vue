@@ -28,7 +28,6 @@
               :remote-method="searchProjectCodes"
               :loading="projectCodeLoading"
               placeholder="请选择DCC项目代码"
-              @change="handleProjectCodeChange"
             >
               <el-option
                 v-for="item in projectCodeOptions"
@@ -40,9 +39,9 @@
           </el-form-item>
         </el-col>
         <el-col :span="12">
-          <el-form-item label="公司名称" prop="companyName">
+          <el-form-item label="公司名称" prop="companyId">
             <el-select
-              v-model="form.companyName"
+              v-model="form.companyId"
               clearable
               filterable
               remote
@@ -56,7 +55,7 @@
                 v-for="item in ownerCompanyOptions"
                 :key="item.id"
                 :label="formatOwnerCompanyOption(item)"
-                :value="item.name"
+                :value="item.id"
               />
             </el-select>
           </el-form-item>
@@ -236,11 +235,9 @@ import {
 } from '@/api/dcc/registrationCertificate'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
-  getProjectCode,
   getProjectCodePage,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
-import { getProduct } from '@/api/mdm/product'
 import { generateUUID } from '@/utils'
 import { computed, reactive, ref, watch } from 'vue'
 import type { FormInstance, FormRules, UploadFile, UploadFiles, UploadUserFile } from 'element-plus'
@@ -272,9 +269,10 @@ const DATE_ORDER_MESSAGE = '注册证日期顺序不正确：首次获证日期�
 
 type RegistrationCertificateUploadForm = Omit<
   DccRegistrationCertificateUploadSubmitReqVO,
-  'projectCodeId' | 'entrustedProduction' | 'selfProduction' | 'entrustedEnterpriseIds' | 'remark'
+  'projectCodeId' | 'companyId' | 'entrustedProduction' | 'selfProduction' | 'entrustedEnterpriseIds' | 'remark'
 > & {
   projectCodeId?: number | string
+  companyId?: number | string
   productName: string
   entrustedProduction?: boolean
   selfProduction?: boolean
@@ -284,7 +282,7 @@ type RegistrationCertificateUploadForm = Omit<
 
 const form = reactive<RegistrationCertificateUploadForm>({
   projectCodeId: undefined,
-  companyName: '',
+  companyId: undefined,
   productName: '',
   certificateNo: '',
   firstObtainedDate: '',
@@ -349,7 +347,7 @@ function validateDateOrder(
 }
 
 const rules = reactive<FormRules>({
-  companyName: [{ required: true, message: '请选择公司名称', trigger: 'change' }],
+  companyId: [{ required: true, message: '请选择公司名称', trigger: 'change' }],
   productName: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
   certificateNo: [{ required: true, message: '请输入注册证号', trigger: 'blur' }],
   firstObtainedDate: [
@@ -378,7 +376,7 @@ const rules = reactive<FormRules>({
 
 const resetForm = () => {
   form.projectCodeId = undefined
-  form.companyName = ''
+  form.companyId = undefined
   form.productName = ''
   form.certificateNo = ''
   form.firstObtainedDate = ''
@@ -466,25 +464,6 @@ const formatOwnerCompanyOption = (item: DccRegistrationCertificateUploadCompanyR
   return parts.join(' - ')
 }
 
-const applyProjectCode = async (projectCodeId?: number | string) => {
-  if (!projectCodeId) {
-    return
-  }
-  let projectCode = projectCodeOptions.value.find((item) => item.id === projectCodeId)
-  if (!projectCode) {
-    projectCode = await getProjectCode(projectCodeId)
-  }
-  if (projectCode.productMasterId) {
-    const product = await getProduct(projectCode.productMasterId)
-    form.productName = product.nameCn || ''
-  }
-}
-
-const handleProjectCodeChange = async (projectCodeId: number | string | undefined) => {
-  form.projectCodeId = projectCodeId
-  await applyProjectCode(projectCodeId)
-}
-
 const revalidateProductionFields = () => {
   void formRef.value
     ?.validateField(['entrustedProduction', 'selfProduction', 'entrustedEnterpriseIds'])
@@ -532,7 +511,7 @@ const submit = async () => {
     return
   }
   const payload = new FormData()
-  payload.append('companyName', form.companyName.trim())
+  payload.append('companyId', String(form.companyId))
   payload.append('productName', form.productName.trim())
   if (form.projectCodeId) {
     payload.append('projectCodeId', String(form.projectCodeId))
@@ -556,9 +535,6 @@ const submit = async () => {
     message.success('已提交审批')
     dialogVisible.value = false
     emit('saved')
-  } catch (error) {
-    message.error((error as { message?: string })?.message || '提交失败')
-    throw error
   } finally {
     saving.value = false
   }
@@ -572,9 +548,6 @@ watch(
     }
     await loadOwnerCompanies('')
     await loadProjectCodes('')
-    if (form.projectCodeId) {
-      await applyProjectCode(form.projectCodeId)
-    }
     if (form.entrustedProduction === true) {
       await loadEntrustedEnterprises('')
     }

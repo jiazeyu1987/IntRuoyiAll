@@ -259,6 +259,21 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
     }
 
     @Test
+    void downloadRequestAllowsUploadedCertificateWithoutProductMasterBinding() {
+        FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "BOUND", 40L, null);
+        when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 21L,
+                DccProjectCodeStatusConstants.ENABLE));
+
+        DccRegistrationCertificateAccessRequestResult result = service.submit(1L, 99L, "download-uploaded",
+                download(fixture.certificateId(), 40L, List.of(fixture.fileId())));
+
+        assertEquals(fixture.certificateId(), result.certificateId());
+        assertEquals(List.of(fixture.fileId()), result.businessFileIds());
+        assertEquals(1, count("SELECT COUNT(*) FROM dcc_registration_certificate_access_request "
+                + "WHERE tenant_id = 1 AND id = ? AND project_code_id = 40", result.requestId()));
+    }
+
+    @Test
     void downloadFileMustBeBoundRegistrationCertificateFileForTheSameCertificate() {
         FormalFixture fixture = seedFormalCertificate("ACTIVE", "CURRENT", "STAGED");
         when(projectCodeService.getProjectCode(99L, 40L)).thenReturn(projectCode(1L, 20L,
@@ -313,9 +328,14 @@ class DccRegistrationCertificateAccessRequestServiceTest extends BaseDbUnitTest 
 
     private FormalFixture seedFormalCertificate(String masterStatus, String versionStatus, String fileStatus,
                                                 Long projectCodeId) {
+        return seedFormalCertificate(masterStatus, versionStatus, fileStatus, projectCodeId, 20L);
+    }
+
+    private FormalFixture seedFormalCertificate(String masterStatus, String versionStatus, String fileStatus,
+                                                Long projectCodeId, Long productMasterId) {
         DccRegistrationCertificateDO certificate = DccRegistrationCertificateDO.builder()
                 .ownerCompanyId(10L)
-                .productMasterId(20L)
+                .productMasterId(productMasterId)
                 .projectCodeId(projectCodeId)
                 .firstObtainedDate(LocalDate.of(2020, 1, 1))
                 .status(masterStatus)

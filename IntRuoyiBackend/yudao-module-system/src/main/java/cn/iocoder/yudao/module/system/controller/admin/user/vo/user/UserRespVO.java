@@ -73,6 +73,26 @@ public class UserRespVO{
     @ExcelProperty("登录锁定时间")
     private LocalDateTime loginLockedTime;
 
+    @Schema(description = "账号生命周期单据类型，RESIGNATION-离职单，TRANSFER-转岗单")
+    @ExcelProperty("账号生命周期单据类型")
+    private String lifecycleDocumentType;
+
+    @Schema(description = "离职/转岗单号")
+    @ExcelProperty("离职/转岗单号")
+    private String lifecycleDocumentNo;
+
+    @Schema(description = "离职/转岗单据时间", example = "时间戳格式")
+    @ExcelProperty("离职/转岗单据时间")
+    private LocalDateTime lifecycleDocumentTime;
+
+    @Schema(description = "账号停用生效时间", example = "时间戳格式")
+    @ExcelProperty("账号停用生效时间")
+    private LocalDateTime lifecycleEffectiveTime;
+
+    @Schema(description = "账号联动停用时间", example = "时间戳格式")
+    @ExcelProperty("账号联动停用时间")
+    private LocalDateTime lifecycleDeactivatedTime;
+
     @Schema(description = "最后登录 IP", requiredMode = Schema.RequiredMode.REQUIRED, example = "192.168.1.1")
     @ExcelProperty("最后登录IP")
     private String loginIp;

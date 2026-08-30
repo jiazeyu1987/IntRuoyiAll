@@ -101,6 +101,26 @@ public class AdminUserDO extends TenantBaseDO {
      */
     private LocalDateTime loginLockedTime;
     /**
+     * 账号生命周期单据类型：RESIGNATION-离职单，TRANSFER-转岗单
+     */
+    private String lifecycleDocumentType;
+    /**
+     * 离职/转岗单号
+     */
+    private String lifecycleDocumentNo;
+    /**
+     * 离职/转岗单据时间
+     */
+    private LocalDateTime lifecycleDocumentTime;
+    /**
+     * 账号停用生效时间
+     */
+    private LocalDateTime lifecycleEffectiveTime;
+    /**
+     * 账号联动停用时间，应与离职/转岗单生效时间一致
+     */
+    private LocalDateTime lifecycleDeactivatedTime;
+    /**
      * 最后登录IP
      */
     private String loginIp;

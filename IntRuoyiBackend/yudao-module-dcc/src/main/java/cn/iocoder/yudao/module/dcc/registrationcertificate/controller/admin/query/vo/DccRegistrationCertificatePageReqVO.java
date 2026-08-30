@@ -27,6 +27,7 @@ public class DccRegistrationCertificatePageReqVO extends PageParam {
     private String projectCode;
     private Boolean missingProjectCode;
     private Boolean missingFile;
+    private String reminderState;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate firstObtainedStart;
@@ -66,6 +67,7 @@ public class DccRegistrationCertificatePageReqVO extends PageParam {
                 .projectCode(projectCode)
                 .missingProjectCode(missingProjectCode)
                 .missingFile(missingFile)
+                .reminderState(reminderState)
                 .firstObtainedStart(firstObtainedStart)
                 .firstObtainedEnd(firstObtainedEnd)
                 .approvalStart(approvalStart)

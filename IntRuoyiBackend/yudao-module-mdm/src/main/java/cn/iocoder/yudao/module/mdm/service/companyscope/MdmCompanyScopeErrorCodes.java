@@ -5,29 +5,29 @@ import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 public interface MdmCompanyScopeErrorCodes {
 
     ErrorCode MDM_COMPANY_SCOPE_FIELD_REQUIRED = new ErrorCode(1_081_001_001,
-            "Company scope field is required or invalid: {}");
+            "授权公司字段缺失或不合法：{}");
     ErrorCode MDM_USER_COMPANY_SCOPE_DENIED = new ErrorCode(1_081_001_002,
-            "User has no enabled company scope");
+            "当前账号未配置可用授权公司");
     ErrorCode MDM_USER_COMPANY_SCOPE_DISABLED = new ErrorCode(1_081_001_003,
-            "User company scope is disabled");
+            "当前账号的授权公司已停用");
     ErrorCode MDM_ROLE_COMPANY_SCOPE_MISSING = new ErrorCode(1_081_001_004,
-            "Role company scope is missing: {}");
+            "角色未配置授权公司：{}");
     ErrorCode MDM_ROLE_COMPANY_SCOPE_DISABLED = new ErrorCode(1_081_001_005,
-            "Role company scope is disabled: {}");
+            "角色授权公司已停用：{}");
     ErrorCode MDM_COMPANY_SCOPE_CONFIG_INVALID = new ErrorCode(1_081_001_006,
-            "Company scope configuration is invalid");
+            "授权公司配置不完整或不一致");
     ErrorCode MDM_USER_COMPANY_SCOPE_DUPLICATE = new ErrorCode(1_081_001_007,
-            "User company scope already exists in the current tenant");
+            "当前租户下该用户已存在相同授权公司");
     ErrorCode MDM_ROLE_COMPANY_SCOPE_DUPLICATE = new ErrorCode(1_081_001_008,
-            "Role company scope already exists in the current tenant");
+            "当前租户下该角色已存在相同授权公司");
     ErrorCode MDM_COMPANY_SCOPE_RECIPIENT_NOT_FOUND = new ErrorCode(1_081_001_009,
-            "No enabled recipient satisfies the role, permission and company scope");
+            "没有找到同时满足角色、权限和授权公司的可用审批人");
     ErrorCode MDM_COMPANY_SCOPE_SYSTEM_USER_INVALID = new ErrorCode(1_081_001_010,
-            "System user configuration is missing or disabled: {}");
+            "系统用户不存在或已停用：{}");
     ErrorCode MDM_COMPANY_SCOPE_SYSTEM_ROLE_INVALID = new ErrorCode(1_081_001_011,
-            "System role configuration is missing or disabled: {}");
+            "系统角色不存在或已停用：{}");
     ErrorCode MDM_COMPANY_SCOPE_PERMISSION_MISSING = new ErrorCode(1_081_001_012,
-            "Role lacks the required explicit permission: {}");
+            "角色缺少必要权限：{}");
     ErrorCode MDM_COMPANY_SCOPE_WRITE_RESULT_INVALID = new ErrorCode(1_081_001_013,
-            "Company scope write result is inconsistent");
+            "授权公司写入结果不一致");
 }

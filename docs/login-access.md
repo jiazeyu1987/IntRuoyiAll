@@ -44,6 +44,17 @@
 - 若范围仅为账号密码登录，不得顺手关闭注册、忘记密码、短信验证码等其它验证码链路。
 - 验证至少覆盖一个前端静态合同、一个后端登录服务单测和前端类型检查；如果本机运行态可用，再通过真实登录页确认不出现滑块/点选/图形验证码。
 
+## ERP 外部助手短期票据授权门禁
+
+- Trigger: ERP 菜单接入独立外部工具、iframe 打印助手、发票凭证打印助手，或用户要求“知道助手地址也不能直接访问”。
+- Preflight check: 先确认 ERP 角色、菜单权限和入口路径，再确认前端不会直接把 iframe 指向助手首页；前端必须先向 ERP 后端申请短期票据，助手只能通过 `/auth/callback` 校验票据并换取助手会话，首页和业务 API 直连必须拒绝。
+- Runtime readiness: 外部助手由 ERP 页面承载时，进入页签先通过 ERP 后端探测助手是否在线；在线才申请票据并加载 iframe，未在线且配置可启动时显示明确的“启动助手”动作，由 ERP 后端启动配置的助手程序并等待健康探测成功后再进入，不能把连接拒绝页直接展示给业务用户。状态查询和启动接口必须继续使用同一业务权限保护。
+- Port contract: 发票凭证打印助手使用独立固定端口 `18733`，不得占用 ERP 前端 `8081` 或通过环境变量静默改成其它端口。测试服务器和正式服务器是不同机器时可以复用 `18733`；助手和 ERP 后端都必须在启动阶段拒绝非 `18733` 配置。
+- Blocker: 助手缺少 ERP 票据校验地址、票据不是短期有效或一次性消费、无权限用户可拿到票据、iframe 直接打开助手首页、助手首页/API 直连仍展示业务功能，或只隐藏菜单但独立助手仍可直连时必须停止。
+- Verification: 后端单测覆盖有权限签票、无权限拒绝、票据校验和消费；前端静态合同覆盖票据入口与 `/auth/callback`；助手静态合同覆盖会话拦截；真实 Playwright 必须证明 admin 从 ERP 菜单可打开助手、无权限账号看不到菜单、直接访问助手返回 403。
+- Forbidden action: 禁止把菜单隐藏当成直连防护，禁止把 ERP 登录态 token 直接暴露给外部助手，禁止用 mock 校验、默认放行、配置缺失时开放访问或 API-only 冒充页面验收。
+- Evidence: `doc/tasks/20260829-invoice-voucher-print-assistant-auth-gate/verification-report.md`。
+
 ## ERP 金蝶账套登录连通性门禁
 
 - Trigger: 更换金蝶账套、验证 `acctId`、复用当前 ERP `baseUrl`、调用 `ValidateUser`、判断金蝶 WebAPI 是否连接成功。
@@ -51,6 +62,8 @@
 - Blocker: `yudao.erp.kingdee.connection.active` 缺失或为空、HTTP 非 200、响应无法解析、`LoginResultType` 不为 `1` 且 `IsSuccessByAPI` 不为 `true`、或缺会话 Cookie 时必须判定登录失败；控制组也失败时，当前凭据或认证基线无效，不能把失败归因于目标账套；目标组单独失败时，阻塞于目标账套账号、密码、授权或登录方式。
 - Verification: 仅调用 `AuthService.ValidateUser.common.kdsvc`，记录脱敏的接口来源、路径、HTTP 状态、业务登录状态、Cookie 是否存在和安全错误摘要；登录成功必须同时满足 HTTP、金蝶业务状态和会话 Cookie 条件。若用户名包含中文，验证探针还必须证明 UTF-8 编码链路完整，乱码请求的失败结果不得归因于密码或账套。
 - Read permission check: 登录成功只证明会话可建立，不证明具体业务对象可读；验证生产订单、采购订单等对象时，必须在同一会话中调用目标表单的正式只读接口，并限制到最小字段和少量行。`ExecuteBillQuery` 返回合法数组才可判定读取权限通过；HTTP 200、Cookie、错误对象或含错误信息的数组都不能代替业务对象读取成功。
+- Credential refresh check: 正式账套用户名、密码或账套编号变更后，必须先读回当前保存配置，再用同一组正式凭据做至少一条真实表单查询；只验证 `ValidateUser`、只验证 Cookie、或只看配置写入成功都不算正式读取通过。
+- Test config mirror check: 需要把测试保存配置同步为正式访问方式时，必须先比对 `yudao.erp.kingdee.config` 与 `yudao.erp.kingdee.connection.production` 的连接字段，再用更新后的测试保存配置做真实 `ValidateUser` 和至少一条 `ExecuteBillQuery` 验证；不能把正式连接成功误当成测试保存配置已更新。
 - Field contract check: 金蝶不同账套、补丁版本或业务表单的字段标识可能不同；新增同步对象时必须先在目标账套逐步探测正式字段合同，并把不可读字段视为阻塞或从正式模型中移除，不得按页面列名猜字段、用旧表单字段替代或把错误数组当作数据数组。日期格式也必须以目标账套真实返回为准并纳入解析测试。
 - Sync timeout check: 执行金蝶全量同步前，必须确认客户端等待时间和服务端 ERP HTTP 客户端超时都明确可观测；客户端超时只证明调用方放弃等待，不等于服务端线程已停止或同步失败记录已落库。全量入口必须先提交后台运行记录，再执行 `ExecuteBillQuery` / `RestTemplate.postForEntity` 等远程请求；开始记录不能与远程 ERP 查询共用一个长事务，否则其他页面会持续显示未执行。若线程栈停在 ERP 响应路径，必须先记录运行表、访问日志和线程栈，再判定为外部 ERP 响应阻塞；不得启动第二轮全量同步、按单据号分批替代全量、切换连接或手工写表冒充完成。
 - Connection switch: 多账套切换必须把各账套连接配置与当前连接类型分别保存在后端；查询接口只返回类型、名称和固定选项，不得返回连接凭据。前端选择态只能标记“待保存”，不得直接改变实际连接；保存时必须先校验目标连接配置完整有效，再持久化当前类型，失败时保持原连接。所有 ERP 同步服务必须从同一后端有效配置解析入口读取当前连接；缺少当前连接选择配置必须明确报错，不得各自缓存、推断、默认 TEST 或回退。
@@ -75,21 +88,31 @@
 - 账号级延长仅在用户明确授权的测试数据操作范围内执行；按公式反推更新时间时应记录计算口径，不得修改全局认证策略、增加账号级绕过或把临时数据修复写成产品逻辑。
 - 禁止做法：禁止把不存在的过期列当作事实、把 NOW()+窗口的移动值与延迟回读结果直接作严格相等比较、API-only 冒充真实登录，或在日志中记录密码、哈希和连接凭据。
 
+### 离职转岗账号联动停用门禁
+
+- Trigger: 用户管理、离职账号、转岗账号、账号生命周期、HR/BPM 单据要求账号停用时间与单据生效时间一致。
+- Preflight check: 先确认 `system_users` 是否有 `lifecycle_document_type`、`lifecycle_document_no`、`lifecycle_document_time`、`lifecycle_effective_time`、`lifecycle_deactivated_time`；再确认登记入口、到期任务和导出/详情字段都走这些正式字段。定时任务迁移必须按 `handler_name=userLifecycleDeactivateJob` 注册，并显式配置 `{"limit":正整数}`。
+- Blocker: 只有手工启停用、缺少单据编号/单据时间/生效时间、联动停用时间取扫描时间而非单据生效时间、已联动停用账号仍可手工启用、或任务参数缺失仍默认继续时必须停止。
+- Verification: 后端单测覆盖立即离职停用、未来转岗到期停用、令牌移除、禁止手工启用和 job 参数 fail-fast；静态迁移合同覆盖字段、索引、`infra_job.handler_name` 业务键与无固定任务 ID；release migration policy gate 必须通过。
+- Forbidden action: 禁止用备注字段、状态原因文本、管理员手工操作日志或默认任务参数代替正式单据字段；禁止迁移时自动禁用存量账号；禁止没有 HR/BPM 来源表时模拟单据来源。
+- Evidence: `doc/tasks/20260830-system-user-lifecycle-deactivation/verification-report.md`。
+
 ### 账号锁定解锁与空闲退出门禁
 
 - Trigger: 连续错误登录锁定、账号解锁、失败计数清零、后台登录后空闲自动退出或锁屏。
 - Preflight check: 先确认 `system_users` 已有失败计数、锁定标记和锁定时间正式字段；重置锁定必须显式清零失败计数、锁定标记和锁定时间，不能依赖 ORM 默认忽略 null；前端空闲退出必须挂在认证布局的统一 hook，监听鼠标、键盘、触摸、滚动和可见性变化。
 - Blocker: 失败次数达到阈值但未锁定、解锁后锁定时间仍残留、成功登录未清零、前端空闲超时只弹窗不退出/锁屏、或超时后未清空标签/锁状态时必须停止。
-- Verification: 后端单测必须覆盖第 5 次失败锁定、锁定后拒绝登录、成功登录清零、解锁后恢复；前端静态合同或类型检查必须覆盖 15 分钟定时器、活动事件监听、登录页重定向和注销时清空锁状态。
+- Verification: 后端单测必须覆盖第 5 次失败锁定、锁定后拒绝登录、成功登录清零、解锁后恢复；真实 E2E 中第 5 次错误登录可直接返回“账号已锁定”，断言应以“最终进入锁定状态且随后正确密码仍被拒绝”为准；前端静态合同或类型检查必须覆盖 15 分钟定时器、活动事件监听、登录页重定向和注销时清空锁状态。
 - Forbidden action: 禁止用 fallback 解锁、默认成功清零、吞掉登录失败、或只改 UI 文案不改正式会话状态。
-- Evidence: `doc/tasks/20260827-login-security-controls/verification-report.md`
+- Evidence: `doc/tasks/20260827-login-security-controls/verification-report.md`；`doc/tasks/20260827-login-security-int-main-e2e/verification-report.md`
 
 ### ERP 表格全量同步写入门禁
 
 - Trigger: ERP 自动同步页面新增“全量同步”、需要补齐某张 ERP 表，或发现全量任务把已有本地数据更新/重复计数。
 - Timeout/page-window check: 对可能返回大量数据的 ERP 全量查询，必须把业务时间窗口和单页规模作为任务上下文显式传入查询客户端，并验证分页会继续读取；不能依赖客户端内部隐式日期、单次大响应或把读取超时当成成功。
 - Preflight check: 全量入口必须传递显式同步类型并从统一当前连接解析入口取得账套；逐表冻结正式业务编号字段和本地唯一键；执行前确认任务记录能分别表达新增、更新、跳过和失败。
+- Production order selectOne check: 金蝶生产订单同步涉及同步记录、生产工单编码、物料编码、默认物料分类、计量单位编码/名称、排产有效工单等同租户唯一查询；任一查询出现 `TooManyResultsException` 时必须用生产订单同步错误码返回包含冲突键的业务 blocker。不得复用采购订单错误码、不得 `selectFirstOne`、不得默认取第一条继续同步。
 - Blocker: 当前连接未明确选择、同步类型不在正式白名单、业务编号字段缺失/来自页面文案猜测、全量路径复用增量水位、或已有相同业务编号仍会更新本地记录时必须停止。
-- Verification: 以一个本地已存在编号和一个本地不存在编号做服务级回归；前者必须只计入 `skipped` 且无 insert/update，后者才计入 `created`；全量任务记录的 `updated` 在跳过合同下必须为 0。
+- Verification: 以一个本地已存在编号和一个本地不存在编号做服务级回归；前者必须只计入 `skipped` 且无 insert/update，后者才计入 `created`；全量任务记录的 `updated` 在跳过合同下必须为 0。生产订单同步重复唯一键修复后，必须至少覆盖一组 Java 回归和静态契约，并用当前模块 `clean test` 证明编译产物不是旧缓存。
 - Forbidden action: 禁止用增量时间窗口伪装全量、按单据分批冒充全量、默认切换测试/正式账套、覆盖已有本地记录、把跳过计入新增或更新，或吞异常返回成功。
-- Evidence: `doc/tasks/20260821-erp-table-incremental-full-sync-actions/verification-report.md`。
+- Evidence: `doc/tasks/20260821-erp-table-incremental-full-sync-actions/verification-report.md`；`doc/tasks/20260830-test-server-production-order-sync-selectone/verification-report.md`。

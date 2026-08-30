@@ -54,6 +54,15 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 槽位 41..50 使用第三独立扩展端口段：int_shedule 8226-8235/48226-48235、int_batch 8236-8245/48236-48245、int_qms 8246-8255/48246-48255、int_main 8256-8265/48256-48265、int_main_d 8266-8275/48266-48275。
 - 槽位 51..60、61..70、71..80、81..90、91..100 使用第四至第八独立扩展端口段：`docs\branch-runtime-ports.md` 是唯一完整映射来源。
 
+## 前端在线但后端未监听业务系统异常门禁
+
+- Trigger: 8081 前端可打开，但点击排产、重排、个人中心聚合或其它业务按钮提示 `系统异常`；前端 `.env.local` 指向 `VITE_BASE_URL=http://127.0.0.1:48081`；或用户怀疑“后端不是最新”。
+- Preflight check: 先分别确认 `8081` 与 `48081` 监听状态、`http://127.0.0.1:48081/actuator/health`、48081 PID 命令行和运行 Jar 时间；再看目标业务接口日志。前端 HTTP 200 只能证明 Vite 在线，不能证明后端已启动或已加载最新 Jar。
+- Blocker: 48081 未监听、health 拒绝/超时、48081 PID 不属于 `E:\IntRuoyi` 的 `int_main`、标准重启还在打包或 Spring 启动未出现 `Started YudaoServerApplication` 时，必须先恢复后端运行态；不得通过刷新前端、切换端口、隐藏 toast 或 API-only 旧结果宣称业务恢复。
+- Verification: 后端 health 必须 HTTP 200 / UP；真实页面或登录态接口复验目标业务路径，记录目标接口 HTTP 状态、业务 code、关键日志时间段和截图。若旧日志已有业务 NPE，例如 `productionMaterialListSyncService is null`，新后端启动后必须对同一路径重新验证成功。若日志只出现 `/admin-api/mes/pro/schedule-order/page` 的 `AsyncRequestNotUsableException` / `ClientAbortException` / `SocketTimeoutException`，需先核对目标按钮链路的实际响应；该类客户端断开日志不能单独证明手动重排 `preflight`、`replan/preview` 或 `replan/apply` 失败。
+- Forbidden action: 禁止只看 8081 可打开就判断系统在线；禁止在后端未监听时排查前端列配置或按钮逻辑；禁止用旧截图、旧 result JSON 或未登录请求替代当前 48081 运行态证明。
+- Evidence: `doc/tasks/20260828-schedule-click-system-exception/verification-report.md`。
+
 ## 2026-07-24 本地重启脚本路径门禁
 
 - Trigger: 本地重启、E2E 复验、`restart-int-ruoyi-local.ps1`、`Missing int_main frontend path`、`yudao-ui-admin-vue3`、`IntRuoyiFronted`。
@@ -234,12 +243,12 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 ## 2026-08-14 主工作区并发重启所有权门禁
 
-- Trigger: `restart-int-ruoyi-local.ps1 -Component full` 长时间打包期间，`8081/48081` 监听 PID、运行 Jar 或启动时间发生变化；同一 `E:\IntRuoyi` 主工作区还有其它 Maven 测试、打包或重启任务；当前重启准备再次执行 `Stop-Port`。
-- Preflight check: 重启前记录 `8081/48081` 的 PID、启动时间、命令行和运行路径；长时间打包期间再次检查监听归属。若监听 PID 在当前脚本尚未启动新服务前变化，必须把它视为可能由并发任务新启动的共享运行态，并核对同工作区 Maven/Java 进程和新运行 Jar 时间，不能继续沿用启动前的“旧进程可停止”判断。
-- Blocker: 新监听进程不是本次重启启动、同一工作区存在并发测试或重启、或无法证明新 PID 可由当前任务停止时，必须中止当前任务自有构建并保留新进程；不得让标准脚本后续第二次 `Stop-Port` 终止并发任务的新运行态。
-- Verification: 记录本次任务自有构建已停止且无残留 Maven 进程；分别核对最终前端、后端 PID 与启动时间，确认均在用户请求后启动、路径属于 `E:\IntRuoyi`，并验证前端 HTTP `200`、后端 health `UP`。若后端由并发任务重启、前端由当前任务单独重启，必须明确记录组件归属，不得宣称当前 `full` 脚本退出码为 `0`。
-- Forbidden action: 禁止只凭“同属 int_main”强停请求后新出现的 PID；禁止并发任务仍在共享主工作区构建或重启时盲目重跑 `full`；禁止把被中止的 `full` 脚本记录为成功。
-- Evidence: `doc/tasks/20260814-restart-local-runtime/verification-report.md`。
+- Trigger: `restart-int-ruoyi-local.ps1 -Component full` 长时间打包期间，`8081/48081` 监听 PID、运行 Jar 或启动时间发生变化；同一 `E:\IntRuoyi` 主工作区还有其它 Maven 测试、打包或重启任务；当前重启准备再次执行 `Stop-Port`；标准重启后 `backend-runtime-control-*.jar` 明显小于历史完整 fat jar、启动报“没有主清单属性”；或 `Copy-Item` 复制 `backend-runtime-control-*.jar` 报文件正在被其它进程使用。
+- Preflight check: 重启前记录 `8081/48081` 的 PID、启动时间、命令行和运行路径；长时间打包期间再次检查监听归属。若监听 PID 在当前脚本尚未启动新服务前变化，必须把它视为可能由并发任务新启动的共享运行态，并核对同工作区 Maven/Java 进程和新运行 Jar 时间，不能继续沿用启动前的“旧进程可停止”判断。若发现同一主工作区存在多个 `mvn -pl yudao-server -am -DskipTests package` 或重复 `restart-int-ruoyi-local.ps1`，必须先按进程启动时间、父进程、当前任务归属和输出目录判断是否为当前任务自有重复构建；只有明确属于当前任务的重复构建才可停止。若 `Copy-Item` 报目标运行 Jar 被占用，先查占用者是否已经是同一 `int_main` 新 Java 或并发 full 重启派发的新包；若是，应等待并验证 health 与目标接口，不能再覆盖该 Jar 或强停新进程。
+- Blocker: 新监听进程不是本次重启启动、同一工作区存在无法归属的并发测试或重启、无法证明新 PID 可由当前任务停止、或 `yudao-server-exec.jar` / `backend-runtime-control-*.jar` 中任一 Jar 缺少 Spring Boot 可执行清单时，必须停止完整重启结论；不得让标准脚本后续第二次 `Stop-Port` 终止并发任务的新运行态，也不得把不可执行 Jar 的派发记录为成功。
+- Verification: 记录本次任务自有构建已停止且无残留同目录 Maven 进程；分别核对最终前端、后端 PID 与启动时间，确认均在用户请求后启动、路径属于 `E:\IntRuoyi`，并验证前端 HTTP `200`、后端 health `UP`。若后端由并发任务重启、前端由当前任务单独重启，必须明确记录组件归属，不得宣称当前 `full` 脚本退出码为 `0`。对重启后“系统异常”复现，必须同时记录运行 Jar 大小、manifest 可读性、err.log、`BUILD SUCCESS` 时间和 48081 health。目标验证后若 `48081` PID 或运行 Jar 再次变化，前一轮页面证据不能直接代表当前运行态，必须重新核对最新 Jar 关键 class 并重跑最小登录态业务请求或真实页面断言。
+- Forbidden action: 禁止只凭“同属 int_main”强停请求后新出现的 PID；禁止并发任务仍在共享主工作区构建或重启时盲目重跑 `full`；禁止把被中止的 `full` 脚本记录为成功；禁止复制明显不完整或不可执行的 Jar 后继续刷新前端冒充恢复。
+- Evidence: `doc/tasks/20260814-restart-local-runtime/verification-report.md`；`doc/tasks/20260828-schedule-click-system-exception/verification-report.md`，重复 Maven 构建导致 `backend-runtime-control-20260828-080057.jar` 缺少主清单属性，停止同目录重复构建后单次标准重启生成完整 fat jar 并恢复 48081；`doc/tasks/20260828-schedule-order-stale-protected-issue/verification-report.md`，标准 backend 重启在复制 `backend-runtime-control-20260828-182442.jar` 时遇到文件锁，随后确认并发 full 已派发 `backend-runtime-control-20260828-182812.jar` 并完成 48081 health 与目标页面验证。
 
 ## 2026-08-17 Spring Boot 重打包长时 I/O 门禁
 
@@ -249,6 +258,14 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Verification: 以 Maven `BUILD SUCCESS`、`yudao-server-exec.jar` 完整生成、标准重启脚本退出码 `0`、新 `48081/8081` 进程归属及最终 health/HTTP 检查共同证明完成；线程栈只能证明“仍在执行”，不能代替最终成功结果。
 - Forbidden action: 禁止因临时 `0` 字节 Jar 或终端静默强停本任务构建、改用旧 Jar、跳过重打包或手工启动旧后端冒充成功。
 - Evidence: `doc/tasks/20260817-restart-local-runtime/verification-report.md`。
+
+## 2026-08-29 本地重启脚本 WMI 查询卡住门禁
+
+- Trigger: 标准本地重启脚本在 `Stop-MatchingProcesses` 阶段长时间无输出，或 `Get-CimInstance Win32_Process` 查询不返回，导致脚本未进入服务启动阶段。
+- Preflight check: 先用 `netstat -ano` 核对目标端口监听状态，再用已知 PID 的 `Get-Process` 核对进程名称、启动时间和路径；不要把 WMI 查询卡住解释为目标服务已停止，也不要在归属未确认时强杀进程。
+- Blocker: 无法确认监听 PID、运行 Jar 来源或启动参数等价性时，必须停止重启成功结论；不得重复执行卡住的停止阶段、静默换端口或用健康检查旧结果冒充新运行态。
+- Verification: 恢复运行态后重新检查目标端口、前端 HTTP、后端 health、PID 和运行 Jar；真实页面验证必须在这些检查之后执行，并记录实际验证时的最新 PID 与 Jar。
+- Forbidden action: 禁止因 WMI 卡住就修改共享端口配置、删除未知进程、切换旧 Jar 或把手工启动未验证参数的服务当作标准重启成功。
 
 
 ## 2026-08-21 E 盘 NTFS Dirty/索引损坏最小修复门禁

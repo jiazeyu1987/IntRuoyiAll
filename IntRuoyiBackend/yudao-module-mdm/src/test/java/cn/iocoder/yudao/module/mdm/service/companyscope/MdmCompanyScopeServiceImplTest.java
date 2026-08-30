@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mdm.api.companyscope.dto.MdmRoleCompanyScopeCreateReqDTO;
 import cn.iocoder.yudao.module.mdm.api.companyscope.dto.MdmUserCompanyScopeCreateReqDTO;
+import cn.iocoder.yudao.module.mdm.controller.admin.companyscope.vo.MdmCompanyScopeSaveReqVO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.companyscope.MdmRoleCompanyScopeDO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.companyscope.MdmUserCompanyScopeDO;
 import cn.iocoder.yudao.module.mdm.dal.dataobject.enterprise.MdmEnterpriseDO;
@@ -442,6 +443,64 @@ class MdmCompanyScopeServiceImplTest {
     }
 
     @Test
+    void createCompanyScopePersistsSelectedUserAndRoleAuthorization() {
+        MdmCompanyScopeSaveReqVO userRequest = saveRequest(null, "USER", USER_ID, COMPANY_ID,
+                MdmEnterpriseStatusEnum.ENABLE.getStatus());
+        stubEnabledCompany();
+        when(adminUserApi.getUserList(List.of(USER_ID))).thenReturn(List.of(enabledUser(USER_ID)));
+        doAnswer(invocation -> {
+            invocation.<MdmUserCompanyScopeDO>getArgument(0).setId(701L);
+            return 1;
+        }).when(userScopeMapper).insert(any(MdmUserCompanyScopeDO.class));
+
+        assertEquals(701L, service.createCompanyScope(userRequest));
+
+        MdmCompanyScopeSaveReqVO roleRequest = saveRequest(null, "ROLE", ROLE_ID, COMPANY_ID,
+                MdmEnterpriseStatusEnum.ENABLE.getStatus());
+        stubEnabledCompany();
+        when(roleApi.getRoleList(List.of(ROLE_ID))).thenReturn(List.of(enabledRole(ROLE_ID)));
+        doAnswer(invocation -> {
+            invocation.<MdmRoleCompanyScopeDO>getArgument(0).setId(702L);
+            return 1;
+        }).when(roleScopeMapper).insert(any(MdmRoleCompanyScopeDO.class));
+
+        assertEquals(702L, service.createCompanyScope(roleRequest));
+    }
+
+    @Test
+    void updateCompanyScopeUpdatesValidatedUserMappingById() {
+        MdmUserCompanyScopeDO existing = userScope(801L, TENANT_ID, USER_ID, COMPANY_ID,
+                MdmEnterpriseStatusEnum.ENABLE.getStatus(), 3, false);
+        when(userScopeMapper.selectById(801L)).thenReturn(existing);
+        stubEnabledCompany();
+        when(adminUserApi.getUserList(List.of(USER_ID))).thenReturn(List.of(enabledUser(USER_ID)));
+        when(userScopeMapper.updateById(any(MdmUserCompanyScopeDO.class))).thenReturn(1);
+
+        service.updateCompanyScope(saveRequest(801L, "USER", USER_ID, COMPANY_ID,
+                MdmEnterpriseStatusEnum.DISABLE.getStatus()));
+
+        ArgumentCaptor<MdmUserCompanyScopeDO> captor = ArgumentCaptor.forClass(MdmUserCompanyScopeDO.class);
+        verify(userScopeMapper).updateById(captor.capture());
+        assertEquals(801L, captor.getValue().getId());
+        assertEquals(USER_ID, captor.getValue().getUserId());
+        assertEquals(COMPANY_ID, captor.getValue().getCompanyId());
+        assertEquals(MdmEnterpriseStatusEnum.DISABLE.getStatus(), captor.getValue().getStatus());
+        assertEquals(4, captor.getValue().getRevision());
+    }
+
+    @Test
+    void deleteCompanyScopeDeletesValidatedUserMappingById() {
+        MdmUserCompanyScopeDO existing = userScope(901L, TENANT_ID, USER_ID, COMPANY_ID,
+                MdmEnterpriseStatusEnum.ENABLE.getStatus(), 2, false);
+        when(userScopeMapper.selectById(901L)).thenReturn(existing);
+        when(userScopeMapper.deleteById(901L)).thenReturn(1);
+
+        service.deleteCompanyScope("USER", 901L);
+
+        verify(userScopeMapper).deleteById(901L);
+    }
+
+    @Test
     void resolveRecipientUserIdsDelegatesWithoutAlteringResult() {
         Set<Long> recipients = Set.of(1001L, 1002L);
         when(recipientResolver.resolve(COMPANY_ID, List.of(ROLE_ID), "dcc:registration-certificate:notify"))
@@ -510,6 +569,17 @@ class MdmCompanyScopeServiceImplTest {
         request.setRoleId(ROLE_ID);
         request.setCompanyId(COMPANY_ID);
         request.setStatus(MdmEnterpriseStatusEnum.ENABLE.getStatus());
+        return request;
+    }
+
+    private MdmCompanyScopeSaveReqVO saveRequest(Long id, String scopeType, Long principalId, Long companyId,
+                                                 String status) {
+        MdmCompanyScopeSaveReqVO request = new MdmCompanyScopeSaveReqVO();
+        request.setId(id);
+        request.setScopeType(scopeType);
+        request.setPrincipalId(principalId);
+        request.setCompanyId(companyId);
+        request.setStatus(status);
         return request;
     }
 

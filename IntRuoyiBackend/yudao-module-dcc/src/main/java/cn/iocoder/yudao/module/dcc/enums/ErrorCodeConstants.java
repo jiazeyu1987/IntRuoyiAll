@@ -311,11 +311,11 @@ public interface ErrorCodeConstants {
     ErrorCode CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED = new ErrorCode(1_080_000_207,
             "历史签名受控副本绑定迁移被阻止：{}");
     ErrorCode REGISTRATION_CERTIFICATE_NOT_EXISTS = new ErrorCode(1_080_000_208,
-            "Registration certificate does not exist");
+            "注册证不存在");
     ErrorCode REGISTRATION_CERTIFICATE_DRAFT_NOT_EXISTS = new ErrorCode(1_080_000_209,
-            "Registration certificate draft does not exist");
+            "注册证草稿不存在");
     ErrorCode REGISTRATION_CERTIFICATE_STATUS_INVALID = new ErrorCode(1_080_000_210,
-            "Registration certificate status is invalid");
+            "注册证状态不合法");
     ErrorCode REGISTRATION_CERTIFICATE_VERSION_CONFLICT = new ErrorCode(1_080_000_211,
             "Registration certificate version already exists");
     ErrorCode REGISTRATION_CERTIFICATE_CURRENT_CONFLICT = new ErrorCode(1_080_000_212,
@@ -323,7 +323,7 @@ public interface ErrorCodeConstants {
     ErrorCode REGISTRATION_CERTIFICATE_PENDING_CONFLICT = new ErrorCode(1_080_000_213,
             "Registration certificate already has a pending version");
     ErrorCode REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID = new ErrorCode(1_080_000_214,
-            "Registration certificate production relation is invalid");
+            "注册证生产方式不合法：是否委托生产和是否自行生产不能同时为否，委托生产为是时必须选择受托企业");
     ErrorCode REGISTRATION_CERTIFICATE_PROJECTION_MISMATCH = new ErrorCode(1_080_000_215,
             "Registration certificate entrusted projection does not match authoritative facts");
     ErrorCode REGISTRATION_CERTIFICATE_FILE_CONFLICT = new ErrorCode(1_080_000_216,
@@ -343,37 +343,37 @@ public interface ErrorCodeConstants {
     ErrorCode REGISTRATION_CERTIFICATE_TENANT_MISMATCH = new ErrorCode(1_080_000_223,
             "Registration certificate tenant mismatch");
     ErrorCode REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED = new ErrorCode(1_080_000_224,
-            "Registration certificate owner company is required");
+            "请选择公司名称");
     ErrorCode REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED = new ErrorCode(1_080_000_225,
             "当前账号无该公司注册证上传权限，请选择已授权公司");
     ErrorCode REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED = new ErrorCode(1_080_000_226,
-            "Registration certificate product is required");
+            "请输入产品名称");
     ErrorCode REGISTRATION_CERTIFICATE_PRODUCT_INVALID = new ErrorCode(1_080_000_227,
-            "Registration certificate product is missing or disabled");
+            "所选 DCC 项目代码绑定的产品不存在或已停用，请更换项目代码或维护产品状态");
     ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_INVALID = new ErrorCode(1_080_000_228,
-            "Registration certificate project code is invalid");
+            "DCC项目代码不存在或不合法");
     ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED = new ErrorCode(1_080_000_229,
-            "Registration certificate project code is disabled");
+            "DCC项目代码已停用");
     ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_TENANT_MISMATCH = new ErrorCode(1_080_000_230,
-            "Registration certificate project code tenant mismatch");
+            "DCC项目代码不属于当前租户");
     ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH = new ErrorCode(1_080_000_231,
-            "Registration certificate project code product mismatch");
+            "DCC项目代码绑定的产品不合法");
     ErrorCode REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID = new ErrorCode(1_080_000_232,
             "注册证日期顺序不正确：首次获证日期不能晚于生效日期，生效日期必须早于有效期至");
     ErrorCode REGISTRATION_CERTIFICATE_FIRST_OBTAINED_DATE_INVALID = new ErrorCode(1_080_000_233,
-            "Registration certificate first obtained date is invalid");
+            "首次获证日期不合法");
     ErrorCode REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID = new ErrorCode(1_080_000_234,
-            "Registration certificate approval date is invalid");
+            "批准日期不合法");
     ErrorCode REGISTRATION_CERTIFICATE_FILE_REQUIRED = new ErrorCode(1_080_000_235,
-            "Registration certificate business file is required");
+            "请先选择注册证文件");
     ErrorCode REGISTRATION_CERTIFICATE_FILE_NOT_STAGED = new ErrorCode(1_080_000_236,
-            "Registration certificate business file is not staged");
+            "注册证文件尚未完成暂存");
     ErrorCode REGISTRATION_CERTIFICATE_FILE_TENANT_MISMATCH = new ErrorCode(1_080_000_237,
-            "Registration certificate business file tenant mismatch");
+            "注册证文件不属于当前租户");
     ErrorCode REGISTRATION_CERTIFICATE_FILE_OWNER_CONFLICT = new ErrorCode(1_080_000_238,
-            "Registration certificate business file owner conflict");
+            "注册证文件归属状态冲突");
     ErrorCode REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT = new ErrorCode(1_080_000_239,
-            "Registration certificate formalization conflict");
+            "注册证审批入库状态冲突，请刷新后重试");
     ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_FIELD_FORBIDDEN = new ErrorCode(1_080_000_240,
             "Registration certificate renewal field is forbidden");
     ErrorCode REGISTRATION_CERTIFICATE_RENEWAL_CATEGORY_CHANGE_REQUIRED = new ErrorCode(1_080_000_241,
@@ -465,9 +465,9 @@ public interface ErrorCodeConstants {
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_PROJECT_CODE_REQUIRED = new ErrorCode(1_080_000_284,
             "Registration certificate access download requires a valid project code");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_BPM_BINDING_CONFLICT = new ErrorCode(1_080_000_285,
-            "Registration certificate access BPM binding conflict");
+            "注册证审批绑定状态异常，请刷新后重试");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_BPM_CANDIDATE_EMPTY = new ErrorCode(1_080_000_286,
-            "Registration certificate access BPM candidate list is empty");
+            "未配置注册部经理审批人，请先配置注册证上传审批权限");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_APPROVAL_REJECT_REASON_REQUIRED = new ErrorCode(1_080_000_287,
             "Registration certificate access approval reject reason is required");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_WITHDRAW_CONFLICT = new ErrorCode(1_080_000_288,
@@ -496,5 +496,7 @@ public interface ErrorCodeConstants {
             "Registration certificate access schema conflict");
     ErrorCode REGISTRATION_CERTIFICATE_SORT_INVALID = new ErrorCode(1_080_000_300,
             "Registration certificate list sort parameter is invalid");
+    ErrorCode REGISTRATION_CERTIFICATE_REMINDER_STATE_INVALID = new ErrorCode(1_080_000_301,
+            "Registration certificate reminder state parameter is invalid");
 
 }

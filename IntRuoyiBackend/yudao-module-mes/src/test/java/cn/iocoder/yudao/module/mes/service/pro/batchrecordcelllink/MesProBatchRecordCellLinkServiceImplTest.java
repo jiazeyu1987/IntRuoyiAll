@@ -560,6 +560,68 @@ class MesProBatchRecordCellLinkServiceImplTest {
     }
 
     @Test
+    void getWorkbenchContext_keepsParameterRulesForCurrentLeaderBoundDeviceWhenRuleLeaderIsBlank() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .id(5001L)
+                .routeId(9001L)
+                .processId(7101L)
+                .sort(10)
+                .batchRecordReportId("target-report")
+                .build();
+        lenient().when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess);
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(routeProcess));
+        when(processMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(
+                MesProProcessDO.builder()
+                        .id(7101L)
+                        .code("ROUGH_WASH")
+                        .name("粗洗")
+                        .build()));
+        when(routeDccProjectBindingMapper.selectCurrentByRouteId(9001L)).thenReturn(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
+                        .routeId(9001L)
+                        .dccProjectCodeId(129L)
+                        .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8101L)
+                        .leaderUserId(100L)
+                        .processId(7101L)
+                        .deviceId(7002L)
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(teamDeviceMapper.selectBatchIds(any())).thenReturn(List.of(
+                teamDevice(7002L, 100L, "B09393", "超声波清洗机")));
+        when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
+                parameterRule(41L, 5001L, 7101L, 7002L, 100L, "cleaningCount", "清洗次数",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER).setLeaderUserId(null),
+                parameterRule(42L, 5001L, 7101L, 7002L, 100L, "cleaningMedium", "清洗介质",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT).setLeaderUserId(null)));
+
+        BatchRecordCellLinkWorkbenchContextRespVO result;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(100L);
+            result = service.getWorkbenchContext(9001L, 2001L, 3001L, "PROCESS_POOL_REPORT",
+                    null, null, 5001L, null, 129L);
+        }
+
+        assertProcessPoolSourceField(result,
+                "selectedDevice.deviceCode@deviceGroup:" + DEVICE_GROUP_SCOPE_CLEANING,
+                "选用设备编码（超声波清洗机）", "STRING", 5001L);
+        assertProcessPoolSourceField(result,
+                "deviceParameterReadings.cleaningCount.value@deviceGroup:" + DEVICE_GROUP_SCOPE_CLEANING,
+                "清洗次数", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result,
+                "deviceParameterReadings.cleaningMedium.value@deviceGroup:" + DEVICE_GROUP_SCOPE_CLEANING,
+                "清洗介质", "STRING", 5001L);
+    }
+
+    @Test
     void getWorkbenchContext_scopesProcessPoolParameterFieldsByDeviceGroup() {
         MesProBatchRecordReportDO targetReport = report("target-report", "光固机生产记录", 2001L, 3001L);
         when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
