@@ -47,6 +47,8 @@ assert.match(list, />\s*延续\s*<\/el-button>/, 'row actions must show a visibl
 assert.match(list, /@saved="handleRenewalSaved"/, 'renewal success must refresh the current list')
 
 const dialog = read(renewalDialogPath)
+const dateOrderMessage = '注册证日期顺序不正确：批准日期不能晚于生效日期，生效日期必须早于有效期至'
+const approvalDateMessage = '批准日期不能晚于当前日期'
 assert.match(dialog, /data-testid="registration-certificate-renewal-dialog"/,
   'renewal dialog must expose a stable anchor')
 assert.match(dialog, /title="延续注册证"/, 'renewal dialog title must match the business action')
@@ -64,6 +66,61 @@ for (const token of ['批准日期', '生效日期', '有效期至']) {
     `renewal date field ${token} must use a half-width row column instead of cramped thirds`
   )
 }
+assert.match(dialog, new RegExp(`const\\s+RENEWAL_DATE_ORDER_MESSAGE\\s*=\\s*'${dateOrderMessage}'`),
+  'renewal dialog should define a Chinese renewal date order message')
+assert.match(dialog, new RegExp(`const\\s+RENEWAL_APPROVAL_DATE_MESSAGE\\s*=\\s*'${approvalDateMessage}'`),
+  'renewal dialog should define a Chinese future approval date message')
+assert.match(dialog,
+  /function\s+isRenewalDateOrderValid\s*\(\)\s*\{[\s\S]*form\.approvalDate\s*>\s*form\.effectiveDate[\s\S]*form\.effectiveDate\s*>=\s*form\.expiryDate/,
+  'renewal dialog should validate approvalDate <= effectiveDate < expiryDate')
+assert.match(dialog,
+  /function\s+validateRenewalDateOrder\s*\([\s\S]*callback[\s\S]*new Error\(RENEWAL_DATE_ORDER_MESSAGE\)/,
+  'renewal dialog should expose renewal date order validation as an Element Plus validator')
+assert.match(dialog,
+  /function\s+validateRenewalApprovalDate\s*\([\s\S]*callback[\s\S]*new Error\(RENEWAL_APPROVAL_DATE_MESSAGE\)/,
+  'renewal dialog should expose future approval date validation as an Element Plus validator')
+assert.match(dialog,
+  /const\s+revalidateRenewalDateFields\s*=\s*\(\)\s*=>\s*\{[\s\S]*validateField\(\s*\['approvalDate', 'effectiveDate', 'expiryDate'\]\)/,
+  'renewal date changes should revalidate all dependent renewal date fields')
+for (const token of ['批准日期', '生效日期', '有效期至']) {
+  const itemStart = dialog.indexOf(`<el-form-item label="${token}"`)
+  assert.notEqual(itemStart, -1, `${token} form item should exist`)
+  const itemEnd = dialog.indexOf('</el-form-item>', itemStart)
+  assert.notEqual(itemEnd, -1, `${token} form item should be closed`)
+  const itemSource = dialog.slice(itemStart, itemEnd)
+  assert.match(itemSource, /@change="revalidateRenewalDateFields"/,
+    `${token} date picker should revalidate renewal cross-field dates`)
+}
+const renewalRulesStart = dialog.indexOf('const rules = reactive<FormRules>')
+const renewalRulesEnd = dialog.indexOf('const resetForm')
+assert.ok(renewalRulesStart > -1 && renewalRulesEnd > renewalRulesStart,
+  'renewal form rules block should be present')
+const renewalRules = dialog.slice(renewalRulesStart, renewalRulesEnd)
+for (const field of ['approvalDate', 'effectiveDate', 'expiryDate']) {
+  assert.match(renewalRules, new RegExp(`${field}:\\s*\\[[\\s\\S]*validator:\\s*validateRenewalDateOrder`),
+    `${field} should include renewal date order validation`)
+}
+assert.match(renewalRules, /approvalDate:\s*\[[\s\S]*validator:\s*validateRenewalApprovalDate/,
+  'approvalDate should include future-date validation')
+const renewalSubmitStart = dialog.indexOf('const submit = async')
+const renewalSubmitEnd = dialog.indexOf('</script>', renewalSubmitStart)
+assert.ok(renewalSubmitStart > -1 && renewalSubmitEnd > renewalSubmitStart,
+  'renewal submit block should be present')
+const renewalSubmitBlock = dialog.slice(renewalSubmitStart, renewalSubmitEnd)
+const invalidRenewalDateIndex = renewalSubmitBlock.indexOf('if (!isRenewalDateOrderValid())')
+const futureApprovalIndex = renewalSubmitBlock.indexOf('if (isRenewalApprovalDateInFuture())')
+const renewalFormDataIndex = renewalSubmitBlock.indexOf('const payload = new FormData()')
+assert.ok(invalidRenewalDateIndex > -1, 'renewal submit should check date order before upload')
+assert.ok(futureApprovalIndex > invalidRenewalDateIndex,
+  'renewal submit should check future approval date after date order')
+assert.ok(renewalFormDataIndex > futureApprovalIndex,
+  'renewal date checks should run before FormData creation')
+assert.match(renewalSubmitBlock.slice(invalidRenewalDateIndex, futureApprovalIndex),
+  /message\.error\(RENEWAL_DATE_ORDER_MESSAGE\)[\s\S]*return/,
+  'invalid renewal date order should show the Chinese message and stop submission')
+assert.match(renewalSubmitBlock.slice(futureApprovalIndex, renewalFormDataIndex),
+  /message\.error\(RENEWAL_APPROVAL_DATE_MESSAGE\)[\s\S]*return/,
+  'future renewal approval date should show the Chinese message and stop submission')
 for (const token of ['产品名称', '注册人名称', '型号规格', '结构组成', '适用范围']) {
   assert.doesNotMatch(dialog, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     `renewal dialog must not expose editable non-renewal field ${token}`)

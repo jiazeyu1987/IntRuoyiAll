@@ -169,6 +169,30 @@ class DccRegistrationCertificateBpmIntegrationTest {
     }
 
     @Test
+    void startCarriesRenewalOperationIntoNativeApprovalVariables() {
+        DccRegistrationCertificateAccessRequestDO request = submittedUploadRequest();
+        request.setDetailJson("{\"operation\":\"RENEWAL_CERTIFICATE\"}");
+        when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);
+        when(bindingMapper.selectByRequestId(TENANT_ID, REQUEST_ID)).thenReturn(null);
+        when(permissionApi.hasAnyPermissionsInRoles(List.of(8L), UPLOAD_APPROVAL_PERMISSION))
+                .thenReturn(true);
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(8L)))
+                .thenReturn(new LinkedHashSet<>(List.of(ACTOR_ID, 120L)));
+        when(bpmProcessInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
+                .thenReturn("proc-renewal-1001");
+        when(bindingMapper.insert(any(DccRegistrationCertificateBpmBindingDO.class))).thenReturn(1);
+        when(requestMapper.updateById(any(DccRegistrationCertificateAccessRequestDO.class))).thenReturn(1);
+
+        service.startNativeApproval(
+                TENANT_ID, ACTOR_ID, new DccRegistrationCertificateApprovalStartCommand(REQUEST_ID));
+
+        ArgumentCaptor<BpmProcessInstanceCreateReqDTO> captor =
+                ArgumentCaptor.forClass(BpmProcessInstanceCreateReqDTO.class);
+        verify(bpmProcessInstanceApi).createProcessInstance(eq(ACTOR_ID), captor.capture());
+        assertEquals("RENEWAL_CERTIFICATE", captor.getValue().getVariables().get("requestOperation"));
+    }
+
+    @Test
     void approvedNativeContractCannotBeOverriddenByCallerSuppliedProcessRoleOrPermission() {
         DccRegistrationCertificateAccessRequestDO request = submittedRequest();
         when(requestMapper.selectById(REQUEST_ID)).thenReturn(request);

@@ -1178,9 +1178,7 @@ const resolveBusinessTitleLabel = (row: ApprovalTaskSummaryVO | undefined) => {
     (result, [englishTitle, chineseTitle]) => result.replaceAll(englishTitle, chineseTitle),
     rawTitle
   )
-  return containsEnglishLetters(replacedTitle) && !containsChineseCharacters(replacedTitle)
-    ? '未配置中文标题'
-    : replacedTitle
+  return replacedTitle
 }
 
 const resolveBusinessIdentifierValueLabel = (row: ApprovalTaskSummaryVO) => {

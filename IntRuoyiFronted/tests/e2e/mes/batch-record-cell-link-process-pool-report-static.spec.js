@@ -52,7 +52,7 @@ for (const token of [
 
 assert.match(
   page,
-  /PROCESS_POOL_REPORT_QUANTITY_AGGREGATION_SOURCE_FIELDS[\s\S]*'outputQuantity'[\s\S]*'lossQuantity'/,
+  /PROCESS_POOL_REPORT_QUANTITY_AGGREGATION_SOURCE_FIELDS[\s\S]*'outputQuantity'[\s\S]*'lossQuantity'[\s\S]*'totalQuantity'/,
   'process-pool report quantity fields must have an explicit SUM default field set.'
 )
 assert.match(
@@ -70,6 +70,53 @@ assert.ok(
     page.includes('syncProcessPoolReportAggregationStrategy(cell)'),
   'process-pool source auto-selection and user source clicks must both set a default aggregation strategy.'
 )
+assert.match(
+  page,
+  /PROCESS_POOL_REPORT_SIGNATURE_TARGET_SOURCE_FIELDS[\s\S]*'signatureUserId'[\s\S]*'reviewSignatureUserId'/,
+  'process-pool signature target source fields must be explicitly whitelisted.'
+)
+assert.match(
+  page,
+  /function isProcessPoolReportSignatureTargetSourceCell[\s\S]*SOURCE_TYPE_PROCESS_POOL_REPORT[\s\S]*PROCESS_POOL_REPORT_SIGNATURE_TARGET_SOURCE_FIELDS\.has/,
+  'signature target eligibility must depend on a process-pool signature user source field.'
+)
+assert.match(
+  page,
+  /SIGNATURE_TARGET_LABEL_KEYWORDS[\s\S]*'签名'[\s\S]*'操作人'[\s\S]*'复核人'/,
+  'signature target cells must include formal operation/reviewer label recognition.'
+)
+assert.match(
+  page,
+  /function isSignatureTargetCell[\s\S]*cell\?\.signatureCell[\s\S]*SIGNATURE_TARGET_LABEL_KEYWORDS/,
+  'signature target detection must use both backend markers and operation/reviewer labels.'
+)
+assert.match(
+  page,
+  /function canUseTargetCellWithSource[\s\S]*isSignatureTargetCell\(cell\)[\s\S]*isProcessPoolReportSignatureTargetSourceCell[\s\S]*cell\.linkableAsTarget/,
+  'target selection must check signature target eligibility before ordinary writable-cell eligibility.'
+)
+assert.match(
+  page,
+  /const selectTargetCell = \(cell\?: BatchRecordCellLinkCellVO\) => \{[\s\S]*canUseTargetCellWithSource\(cell\)[\s\S]*selectedTargetCell\.value = cell/,
+  'target click handler must use signature-aware target eligibility.'
+)
+for (const token of [
+  'data-cell-key',
+  'data-cell-signature-cell',
+  'isSignatureTargetCell(meta)',
+  'canUseTargetCellWithSource(meta)',
+  'selectedTargetCell.value = undefined'
+]) {
+  assert.ok(page.includes(token), `signature target UI contract missing token: ${token}`)
+}
+for (const token of [
+  'SIGNATURE_TARGET_LABEL_KEYWORDS',
+  'private boolean isSignatureTargetCell',
+  'if (isSignatureTargetCell(targetCell))',
+  'canLinkProcessPoolSignatureTarget(source)'
+]) {
+  assert.ok(backendService.includes(token), `backend signature target contract missing token: ${token}`)
+}
 
 for (const token of [
   "const SOURCE_TYPE_PQC_AGGREGATE_DETAIL = 'PQC_AGGREGATE_DETAIL'",
@@ -161,6 +208,8 @@ for (const token of [
 }
 for (const sourceField of [
   'serverSubmitTime',
+  'totalQuantity',
+  '本次报工总量',
   'signatureUserId',
   'reviewedAt',
   'reviewSignatureUserId',

@@ -271,138 +271,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
     },
     children: [
       {
-        path: 'manager',
-        redirect: '/approval-center/manager/model',
-        name: 'ApprovalCenterWorkflowManagement',
-        meta: {
-          title: '流程管理',
-          icon: 'fa:dedent',
-          alwaysShow: true
-        },
-        children: [
-          {
-            path: 'model',
-            component: () => import('@/views/bpm/model/index.vue'),
-            name: 'ApprovalCenterBpmModel',
-            meta: {
-              noCache: true,
-              canTo: true,
-              title: '流程模型',
-              activeMenu: '/approval-center/manager/model',
-              permission: ['bpm:model:query']
-            }
-          },
-          {
-            path: 'form',
-            component: () => import('@/views/bpm/form/index.vue'),
-            name: 'ApprovalCenterBpmForm',
-            meta: {
-              noCache: true,
-              canTo: true,
-              title: '流程表单',
-              activeMenu: '/approval-center/manager/form',
-              permission: ['bpm:form:query']
-            }
-          },
-          {
-            path: 'category',
-            component: () => import('@/views/bpm/category/index.vue'),
-            name: 'ApprovalCenterBpmCategory',
-            meta: {
-              noCache: true,
-              canTo: true,
-              title: '流程分类',
-              activeMenu: '/approval-center/manager/category',
-              permission: ['bpm:category:query']
-            }
-          },
-          {
-            path: 'business-approval-policy',
-            component: () => import('@/views/bpm/businessApprovalPolicy/index.vue'),
-            name: 'ApprovalCenterBpmBusinessApprovalPolicy',
-            meta: {
-              noCache: true,
-              canTo: true,
-              title: '业务审批策略',
-              activeMenu: '/approval-center/manager/business-approval-policy',
-              permission: ['bpm:business-approval-policy:query']
-            }
-          },
-          {
-            path: 'user-group',
-            component: () => import('@/views/bpm/group/index.vue'),
-            name: 'ApprovalCenterBpmUserGroup',
-            meta: {
-              noCache: true,
-              canTo: true,
-              title: '用户分组',
-              activeMenu: '/approval-center/manager/user-group',
-              permission: ['bpm:user-group:query']
-            }
-          },
-          {
-            path: 'process-expression',
-            component: () => import('@/views/bpm/processExpression/index.vue'),
-            name: 'ApprovalCenterBpmProcessExpression',
-            meta: {
-              noCache: true,
-              canTo: true,
-              title: '流程表达式',
-              activeMenu: '/approval-center/manager/process-expression',
-              permission: ['bpm:process-expression:query']
-            }
-          },
-          {
-            path: 'form-center',
-            redirect: '/approval-center/manager/form-center/template',
-            name: 'ApprovalCenterFormCenter',
-            meta: {
-              title: '表单中心',
-              icon: 'ep:document',
-              alwaysShow: true
-            },
-            children: [
-              {
-                path: 'template',
-                component: () => import('@/views/form-center/template/index.vue'),
-                name: 'ApprovalCenterFormCenterTemplate',
-                meta: {
-                  noCache: true,
-                  canTo: true,
-                  title: '表单模板',
-                  activeMenu: '/mdm/form-center/template',
-                  permission: ['form:template:query']
-                }
-              },
-              {
-                path: 'policy',
-                component: () => import('@/views/form-center/policy/index.vue'),
-                name: 'ApprovalCenterFormCenterPolicy',
-                meta: {
-                  noCache: true,
-                  canTo: true,
-                  title: '表单策略',
-                  activeMenu: '/mdm/form-center/policy',
-                  permission: ['form:policy:query']
-                }
-              },
-              {
-                path: 'effect',
-                component: () => import('@/views/form-center/effect/index.vue'),
-                name: 'ApprovalCenterFormCenterEffect',
-                meta: {
-                  noCache: true,
-                  canTo: true,
-                  title: '生效待处理',
-                  activeMenu: '/mdm/form-center/effect',
-                  permission: ['form:effect:query']
-                }
-              }
-            ]
-          }
-        ]
-      },
-      {
         path: 'todo',
         component: () => import('@/views/approval-center/index.vue'),
         name: 'ApprovalCenterTodo',
@@ -462,6 +330,147 @@ const remainingRouter: AppRouteRecordRaw[] = [
           activeMenu: '/approval-center/cc',
           permission: ['bpm:task:query']
         }
+      },
+      {
+        path: 'manager',
+        redirect: '/approval-center/manager/model',
+        name: 'ApprovalCenterWorkflowManagement',
+        meta: {
+          title: '流程管理',
+          icon: 'fa:dedent',
+          alwaysShow: false
+        },
+        children: [
+          {
+            path: 'model',
+            component: () => import('@/views/bpm/model/index.vue'),
+            name: 'ApprovalCenterBpmModel',
+            meta: {
+              noCache: true,
+              canTo: true,
+              title: '流程模型',
+              activeMenu: '/approval-center/manager/model',
+              permission: ['bpm:model:query']
+            }
+          },
+          {
+            path: 'form',
+            component: () => import('@/views/bpm/form/index.vue'),
+            name: 'ApprovalCenterBpmForm',
+            meta: {
+              noCache: true,
+              hidden: true,
+              canTo: true,
+              title: '流程表单',
+              activeMenu: '/approval-center/manager/form',
+              permission: ['bpm:form:query']
+            }
+          },
+          {
+            path: 'category',
+            component: () => import('@/views/bpm/category/index.vue'),
+            name: 'ApprovalCenterBpmCategory',
+            meta: {
+              noCache: true,
+              hidden: true,
+              canTo: true,
+              title: '流程分类',
+              activeMenu: '/approval-center/manager/category',
+              permission: ['bpm:category:query']
+            }
+          },
+          {
+            path: 'business-approval-policy',
+            component: () => import('@/views/bpm/businessApprovalPolicy/index.vue'),
+            name: 'ApprovalCenterBpmBusinessApprovalPolicy',
+            meta: {
+              noCache: true,
+              hidden: true,
+              canTo: true,
+              title: '业务审批策略',
+              activeMenu: '/approval-center/manager/business-approval-policy',
+              permission: ['bpm:business-approval-policy:query']
+            }
+          },
+          {
+            path: 'user-group',
+            component: () => import('@/views/bpm/group/index.vue'),
+            name: 'ApprovalCenterBpmUserGroup',
+            meta: {
+              noCache: true,
+              hidden: true,
+              canTo: true,
+              title: '用户分组',
+              activeMenu: '/approval-center/manager/user-group',
+              permission: ['bpm:user-group:query']
+            }
+          },
+          {
+            path: 'process-expression',
+            component: () => import('@/views/bpm/processExpression/index.vue'),
+            name: 'ApprovalCenterBpmProcessExpression',
+            meta: {
+              noCache: true,
+              hidden: true,
+              canTo: true,
+              title: '流程表达式',
+              activeMenu: '/approval-center/manager/process-expression',
+              permission: ['bpm:process-expression:query']
+            }
+          },
+          {
+            path: 'form-center',
+            redirect: '/approval-center/manager/form-center/template',
+            name: 'ApprovalCenterFormCenter',
+            meta: {
+              hidden: true,
+              title: '表单中心',
+              icon: 'ep:document',
+              alwaysShow: false
+            },
+            children: [
+              {
+                path: 'template',
+                component: () => import('@/views/form-center/template/index.vue'),
+                name: 'ApprovalCenterFormCenterTemplate',
+                meta: {
+                  noCache: true,
+                  hidden: true,
+                  canTo: true,
+                  title: '表单模板',
+                  activeMenu: '/mdm/form-center/template',
+                  permission: ['form:template:query']
+                }
+              },
+              {
+                path: 'policy',
+                component: () => import('@/views/form-center/policy/index.vue'),
+                name: 'ApprovalCenterFormCenterPolicy',
+                meta: {
+                  noCache: true,
+                  hidden: true,
+                  canTo: true,
+                  title: '表单策略',
+                  activeMenu: '/mdm/form-center/policy',
+                  permission: ['form:policy:query']
+                }
+              },
+              {
+                path: 'effect',
+                component: () => import('@/views/form-center/effect/index.vue'),
+                name: 'ApprovalCenterFormCenterEffect',
+                meta: {
+                  noCache: true,
+                  hidden: true,
+                  canTo: true,
+                  title: '生效待处理',
+                  activeMenu: '/mdm/form-center/effect',
+                  permission: ['form:effect:query']
+                }
+              }
+            ]
+          }
+        ]
       },
       {
         path: 'oa',

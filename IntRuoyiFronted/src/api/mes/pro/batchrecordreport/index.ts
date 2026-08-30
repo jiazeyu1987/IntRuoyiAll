@@ -8,6 +8,7 @@ export interface BatchRecordReportVO {
   batchRecordVersionId?: number
   productName?: string
   projectCode?: string
+  dccProjectCodeId?: number
   versionNo?: string
   versionStatus?: string
   sourceTableIndex: number

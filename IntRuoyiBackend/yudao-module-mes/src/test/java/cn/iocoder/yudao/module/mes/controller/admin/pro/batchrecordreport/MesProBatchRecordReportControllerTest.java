@@ -78,6 +78,8 @@ class MesProBatchRecordReportControllerTest {
                         .batchRecordDefinitionId(10L)
                         .batchRecordVersionId(20L)
                         .productName("球囊扩张压力泵")
+                        .projectCode("IDPR")
+                        .dccProjectCodeId(901L)
                         .versionNo("V2.0")
                         .versionStatus("APPROVED")
                         .formSlotType("MAIN")
@@ -104,6 +106,8 @@ class MesProBatchRecordReportControllerTest {
                         .batchRecordDefinitionId(10L)
                         .batchRecordVersionId(20L)
                         .productName("球囊扩张压力泵")
+                        .projectCode("IDPR")
+                        .dccProjectCodeId(901L)
                         .versionNo("V2.0")
                         .versionStatus("APPROVED")
                         .formSlotType("MAIN")
@@ -184,6 +188,8 @@ class MesProBatchRecordReportControllerTest {
         assertEquals(10L, pageResult.getData().getList().get(0).getBatchRecordDefinitionId());
         assertEquals(20L, pageResult.getData().getList().get(0).getBatchRecordVersionId());
         assertEquals("球囊扩张压力泵", pageResult.getData().getList().get(0).getProductName());
+        assertEquals("IDPR", pageResult.getData().getList().get(0).getProjectCode());
+        assertEquals(901L, pageResult.getData().getList().get(0).getDccProjectCodeId());
         assertEquals("V2.0", pageResult.getData().getList().get(0).getVersionNo());
         assertEquals("APPROVED", pageResult.getData().getList().get(0).getVersionStatus());
         assertEquals("MAIN", pageResult.getData().getList().get(0).getFormSlotType());

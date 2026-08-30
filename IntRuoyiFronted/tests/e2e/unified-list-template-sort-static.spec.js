@@ -14,6 +14,15 @@ const packageJson = JSON.parse(readSource('package.json'))
 const unifiedTemplate = readSource('src/components/UnifiedListTemplate/index.vue')
 const userTableColumnsHook = readSource('src/hooks/web/useUserTableColumns.ts')
 const projectCodePage = readSource('src/views/dcc/controlled-file/basic-data/components/ProjectCodeTabPanel.vue')
+const productCatalogPage = readSource(
+  'src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue'
+)
+const registrationCertificatePage = readSource(
+  'src/views/dcc/registration-certificate/index/index.vue'
+)
+const routeProductListPage = readSource('src/views/mes/pro/route/RouteProductList.vue')
+const schedulerWorkbenchPage = readSource('src/views/mes/pro/scheduler-workbench/index.vue')
+const scheduleOrderPage = readSource('src/views/mes/pro/scheduleorder/index.vue')
 
 assert.equal(
   packageJson.scripts['e2e:unified-list-template-sort:static'],
@@ -43,7 +52,8 @@ for (const [pattern, description] of [
   [/:handle-sort-change="handleStandardSortChange"/, 'table slot sort-change adapter'],
   [/const standardSortableColumns = computed/, 'computed sortable column registry'],
   [/const getStandardSortColumnAttrs = \(/, 'standard sort column attr helper'],
-  [/sortable:\s*sortableColumn\.sortable\s*\|\|\s*DEFAULT_COLUMN_SORTABLE/, 'standard sortable columns default without per-column declarations'],
+  [/sortable:\s*column\.sortable\s*\?\?\s*DEFAULT_COLUMN_SORTABLE/, 'explicit column sortable metadata preservation'],
+  [/sortable:\s*sortableColumn\.sortable\s*\?\?\s*DEFAULT_COLUMN_SORTABLE/, 'standard sortable attrs preserve explicit false and custom values'],
   [/const handleStandardSortChange = \(/, 'standard sort-change adapter'],
   [/emit\('update:sortState', nextState\)/, 'sort state update is emitted'],
   [/emit\('sort-change', \{ \.\.\.nextState, column: payload\?\.column \}\)/, 'normalized sort event is emitted']
@@ -59,8 +69,8 @@ assert.match(
 
 assert.match(
   unifiedTemplate,
-  /const DEFAULT_COLUMN_SORTABLE = true/,
-  'standard list template business columns must be sortable by default'
+  /const DEFAULT_COLUMN_SORTABLE = false/,
+  'standard list template business columns must not be sortable unless a page declares a formal sort capability'
 )
 assert.match(
   unifiedTemplate,
@@ -79,13 +89,13 @@ assert.match(
 )
 assert.doesNotMatch(
   unifiedTemplate,
-  /if \(!column\.sortable\) continue/,
-  'standard list template must not require per-column sortable declarations'
+  /sortable:\s*(?:column|sortableColumn)\.sortable\s*\|\|\s*DEFAULT_COLUMN_SORTABLE/,
+  'standard list template must not overwrite sortable: false with the default'
 )
-assert.doesNotMatch(
+assert.match(
   projectCodePage,
   /\{ key:\s*'associatedFileCount', label:\s*'关联文件数', width:\s*120, sortable:\s*'custom' \}/,
-  'project code associated file count column must not need explicit sortable metadata'
+  'project code associated file count must explicitly opt into backend custom sorting'
 )
 assert.match(
   projectCodePage,
@@ -106,6 +116,95 @@ assert.match(
   projectCodePage,
   /v-bind="sortColumnAttrs\('associatedFileCount'\)"/,
   'project code associated file count header must get sortable attrs from the standard list template'
+)
+for (const field of ['projectName', 'projectCode']) {
+  assert.match(
+    productCatalogPage,
+    new RegExp(`\\{ key:\\s*'${field}'[^}]*sortable:\\s*'custom'`),
+    `product catalog ${field} must explicitly opt into backend custom sorting`
+  )
+}
+for (const field of [
+  'certificateNo',
+  'ownerCompanyName',
+  'productName',
+  'classification',
+  'projectCode',
+  'versionNo',
+  'status',
+  'hasProjectCode',
+  'hasRegistrationFile',
+  'approvalDate',
+  'effectiveDate',
+  'expiryDate',
+  'reminder',
+  'remark'
+]) {
+  assert.match(
+    registrationCertificatePage,
+    new RegExp(`\\{ key:\\s*'${field}'[^}]*sortable:\\s*'custom'`),
+    `registration certificate current list ${field} must explicitly opt into backend custom sorting`
+  )
+}
+const oldColumnDefinitions = registrationCertificatePage.match(
+  /const oldColumnDefinitions:\s*UserTableColumnDefinition\[\]\s*=\s*\[([\s\S]*?)\]\s*\r?\n\s*const \{/
+)
+assert.ok(oldColumnDefinitions, 'registration certificate old list column definition block must exist')
+for (const field of [
+  'certificateNo',
+  'ownerCompanyName',
+  'productName',
+  'classification',
+  'versionNo',
+  'status',
+  'expiryDate'
+]) {
+  assert.match(
+    oldColumnDefinitions[1],
+    new RegExp(`\\{ key:\\s*'${field}'[^}]*sortable:\\s*'custom'`),
+    `registration certificate old list ${field} must explicitly opt into backend custom sorting`
+  )
+}
+for (const field of [
+  'itemCode',
+  'itemName',
+  'specification',
+  'unitName',
+  'quantity',
+  'productionTime',
+  'remark'
+]) {
+  assert.match(
+    routeProductListPage,
+    new RegExp(`\\{ key:\\s*'${field}'[^}]*sortable:\\s*true`),
+    `route product local full-list column ${field} must explicitly opt into local full-data sorting`
+  )
+}
+for (const field of [
+  'routeCode',
+  'routeName',
+  'processCode',
+  'processName',
+  'wipOrderCount',
+  'shiftCapacityTotal',
+  'shiftStatus',
+  'nightShiftEnabled',
+  'plannedStartDate',
+  'unfinishedDemandQuantity',
+  'estimatedStartTime',
+  'estimatedCompletionTime',
+  'todayFeedbackQuantity'
+]) {
+  assert.match(
+    schedulerWorkbenchPage,
+    new RegExp(`\\{ key:\\s*'${field}'[^}]*sortable:\\s*true`),
+    `scheduler workbench process WIP local full-list column ${field} must explicitly opt into local full-data sorting`
+  )
+}
+assert.match(
+  scheduleOrderPage,
+  /sortColumnAttrs\(\{ key:\s*'priorityNo', sortable:\s*'custom' \}\)/,
+  'schedule order priority header must remain an explicit backend custom sort field'
 )
 assert.doesNotMatch(
   unifiedTemplate,
