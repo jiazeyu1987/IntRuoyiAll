@@ -39,3 +39,10 @@ PQC 生产放行 MVP 的代码、迁移、构建、类型、单元/合同测试�
 - Profile/slot：`int_main slot 56`。
 - Frontend/backend：`8311/48311`。
 - 本地验证库已幂等应用两条 20260831 迁移并回读目标状态。
+
+## Integration
+
+- 功能提交重放后为 `d9fe88557`。
+- `int_main` 使用 `ff-only` 融合到 `d9fe88557`。
+- 主工作区并行未提交改动未被暂存、覆盖或提交。
+- 额外 worktree 和运行端口均已收口。

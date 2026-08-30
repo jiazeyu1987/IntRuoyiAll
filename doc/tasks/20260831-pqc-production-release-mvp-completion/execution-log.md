@@ -51,3 +51,12 @@ M5 - ready for branch commit and int_main integration.
 
 - `task-closeout-cleanup --mode preview` 正确保留三份任务记录并建议删除 migration policy JSON；生成 JSON 已删除。
 - 自动 apply 被阻塞：主工作区存在并行未提交改动，且 cleanup 脚本无法从任务文档自动识别全部生产代码归属。按用户明确要求改为精确提交当前分支、核对与主工作区脏文件无交集后执行 `ff-only` 融合；不覆盖或提交并行改动。
+
+## Integration And Cleanup
+
+- 初始功能提交：`ff417d3ef`。
+- 开发期间 `int_main` 前进 3 个并行提交；已核对主线已提交文件、主工作区未提交文件与本任务 34 个文件交集均为 0。
+- 将功能提交重放到最新 `int_main` 后得到 `d9fe88557`，branch runtime guard PASS。
+- `int_main` 通过 `git merge --ff-only codex/20260831-pqc-production-release-mvp-completion` 快进到 `d9fe88557`；主工作区原有并行改动保持未暂存。
+- 额外 worktree 已从 Git 登记移除；pnpm 残留目录清除只针对本任务 worktree，最终路径不存在；8311/48311 已停止监听。
+- `int_main slot 56` 登记已在 worktree 路径删除后原子更新为 `active=false`，登记表无临时文件残留。
