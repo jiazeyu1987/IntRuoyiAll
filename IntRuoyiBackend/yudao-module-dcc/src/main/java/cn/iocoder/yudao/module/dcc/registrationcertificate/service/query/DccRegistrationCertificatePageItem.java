@@ -26,6 +26,7 @@ public class DccRegistrationCertificatePageItem {
     private String certificateNo;
     private Integer versionNo;
     private String status;
+    private String classification;
     private String remark;
     private Boolean hasProjectCode;
     private Boolean hasRegistrationFile;

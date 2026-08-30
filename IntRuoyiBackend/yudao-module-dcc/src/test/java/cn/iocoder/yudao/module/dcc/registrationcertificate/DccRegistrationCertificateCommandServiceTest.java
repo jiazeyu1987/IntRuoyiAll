@@ -842,6 +842,7 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
                         true, false, List.of(30L))));
 
         assertEquals(REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID.getCode(), order.getCode());
+        assertEquals("注册证日期顺序不正确：首次获证日期不能晚于生效日期，生效日期必须早于有效期至", order.getMessage());
         assertEquals(REGISTRATION_CERTIFICATE_FIRST_OBTAINED_DATE_INVALID.getCode(), firstFuture.getCode());
         assertEquals(REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID.getCode(), approvalFuture.getCode());
     }
@@ -891,6 +892,35 @@ class DccRegistrationCertificateCommandServiceTest extends BaseDbUnitTest {
 
         assertDoesNotThrow(() -> independentDbCommandService().createDraft(
                 1L, 99L, "create-minimal", "trace-minimal", draft));
+    }
+
+    @Test
+    void createDraft_allowsManualProductNameWithoutProductMaster() {
+        configureDbValidDependencies();
+        DccRegistrationCertificateDraftData draft = new DccRegistrationCertificateDraftData(
+                10L, null, " 手填注册证产品 ", null,
+                LocalDate.of(2026, 1, 1), "CERT-MANUAL-PRODUCT",
+                null, LocalDate.of(2026, 2, 1), LocalDate.of(2031, 2, 1),
+                "II", null, null, null, null, null, null, null, true, false,
+                List.of(30L), "Manual product remark");
+
+        Long certificateId = assertDoesNotThrow(() -> independentDbCommandService().createDraft(
+                1L, 99L, "create-manual-product", "trace-manual-product", draft));
+
+        DccRegistrationCertificateDO certificate = dbCertificateMapper.selectById(certificateId);
+        assertNotNull(certificate);
+        assertNull(certificate.getProductMasterId());
+        String snapshotProductName = jdbcTemplate.queryForObject("""
+                        SELECT s.product_name
+                          FROM dcc_registration_certificate_snapshot s
+                          JOIN dcc_registration_certificate_version v ON v.id = s.version_id
+                         WHERE v.tenant_id = 1
+                           AND v.certificate_id = ?
+                           AND v.status = 'DRAFT'
+                        """,
+                String.class, certificateId);
+        assertEquals("手填注册证产品", snapshotProductName);
+        verify(dbProductApi, never()).getEnabledDccProduct(any());
     }
 
     @Test

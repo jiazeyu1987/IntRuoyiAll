@@ -109,10 +109,13 @@ def test_mes_scheduling_domain_contract_doc_declares_risk_guardrails() -> None:
         "算法变更门禁",
         "工序身份变更门禁",
         "日历产能变更门禁",
+        "排程日历用料映射告警门禁",
         "工作台最近一次排产口径门禁",
         "报工联动变更门禁",
         "应用重排必须重新计算",
         "禁止用 processId 跨路线合并",
+        "生产用料清单子项未映射本地物料",
+        "MATERIAL_DEMAND / WARNING",
         "默认值必须明确是业务默认还是历史兼容",
     ]
 

@@ -298,7 +298,7 @@ test.describe('AC-040 domestic registration certificate real flow', () => {
         renewalDialog.locator('input[placeholder="请输入变更后的注册证号"]')
       ).toBeVisible()
       await expect(
-        renewalDialog.locator('input[placeholder="请输入变更后的类别"]')
+        renewalDialog.locator('[data-testid="registration-certificate-renewal-classification"]')
       ).toBeVisible()
       await selectDialogOption(page, renewalDialog, '类别否变更', '否')
       await expect(

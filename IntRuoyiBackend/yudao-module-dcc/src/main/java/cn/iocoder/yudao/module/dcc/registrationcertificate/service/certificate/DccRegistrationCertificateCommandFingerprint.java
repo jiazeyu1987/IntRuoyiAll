@@ -20,6 +20,7 @@ final class DccRegistrationCertificateCommandFingerprint {
         add(canonical, snapshotRevision);
         add(canonical, draft.ownerCompanyId());
         add(canonical, draft.productMasterId());
+        add(canonical, normalizeText(draft.productName()));
         add(canonical, draft.projectCodeId());
         add(canonical, draft.firstObtainedDate());
         add(canonical, normalizeText(draft.certificateNo()));

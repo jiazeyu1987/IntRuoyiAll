@@ -57,13 +57,11 @@
       </el-card>
 
       <RegistrationCertificateActionPanel
-        :initial-action="viewMode === 'current' ? 'draft' : 'access'"
-        :read-only="viewMode !== 'current'"
-        :certificate-status="detail.status"
+        v-if="viewMode === 'access-request'"
+        initial-action="access"
+        read-only
         :certificate-id="detail.certificateId"
-        :row-version="detail.rowVersion"
         :version-id="detail.versionId"
-        :snapshot-revision="detail.snapshotRevision"
         :project-code-id="detail.projectCodeId"
         :business-file-id="detail.registrationFileId"
         :downloadable-files="downloadableFiles"

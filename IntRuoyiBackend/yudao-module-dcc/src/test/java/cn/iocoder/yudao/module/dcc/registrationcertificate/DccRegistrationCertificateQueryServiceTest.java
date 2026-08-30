@@ -53,6 +53,7 @@ import java.util.stream.Collectors;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_ACCESS_GRANT_EXPIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_SORT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -123,6 +124,10 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 "detail response must expose the formal DCC project code business value");
         assertDoesNotThrow(() -> DccRegistrationCertificatePageItem.class.getDeclaredField("projectCode"),
                 "current page response must expose the formal DCC project code business value");
+        assertDoesNotThrow(() -> DccRegistrationCertificatePageItem.class.getDeclaredField("classification"),
+                "current page response must expose the formal registration certificate category");
+        assertDoesNotThrow(() -> DccRegistrationCertificateOldIndexItem.class.getDeclaredField("classification"),
+                "old page response must expose the formal registration certificate category");
         assertDoesNotThrow(() -> DccRegistrationCertificatePageItem.class.getDeclaredField("reminderColor"),
                 "current page response must expose the registration reminder color");
         assertDoesNotThrow(() -> DccRegistrationCertificatePageItem.class.getDeclaredField("visualState"),
@@ -171,6 +176,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 page.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
         assertEquals("Owner A", page.getList().get(0).getOwnerCompanyName());
         assertEquals("DCC-PROJ-20", page.getList().get(0).getProjectCode());
+        assertEquals("II", page.getList().get(0).getClassification());
         assertEquals("Remark CERT-VISIBLE", page.getList().get(0).getRemark());
         assertEquals(1, auditMapper.selectListByCertificateId(visible.certificateId()).size());
         assertEquals(0, auditMapper.selectListByCertificateId(hidden.certificateId()).size());
@@ -249,6 +255,116 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void currentPageAppliesServerSortFieldAndDirection() {
+        FormalFixture lower = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-A-SORT", true, 20L);
+        FormalFixture higher = seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-Z-SORT", true, 21L);
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
+                1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                        .pageNo(1)
+                        .pageSize(10)
+                        .sortField("certificateNo")
+                        .sortOrder("desc")
+                        .build(),
+                context("REQ-CURRENT-SORT-CERTIFICATE-NO-DESC"));
+
+        assertEquals(2L, page.getTotal());
+        assertEquals(List.of(higher.certificateId(), lower.certificateId()),
+                page.getList().stream().map(DccRegistrationCertificatePageItem::getCertificateId).toList());
+    }
+
+    @Test
+    void oldIndexAppliesServerSortFieldAndDirection() {
+        FormalFixture lower = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-A-OLD-SORT", true, 20L);
+        FormalFixture higher = seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-Z-OLD-SORT", true, 21L);
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        PageResult<DccRegistrationCertificateOldIndexItem> page = queryService.getOldIndexPage(
+                1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                        .pageNo(1)
+                        .pageSize(10)
+                        .sortField("certificateNo")
+                        .sortOrder("asc")
+                        .build(),
+                context("REQ-OLD-SORT-CERTIFICATE-NO-ASC"));
+
+        assertEquals(2L, page.getTotal());
+        assertEquals(List.of(lower.certificateId(), higher.certificateId()),
+                page.getList().stream().map(DccRegistrationCertificateOldIndexItem::getCertificateId).toList());
+    }
+
+    @Test
+    void currentPageExecutesEveryDisplayedServerSortFieldAndDirection() {
+        seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-A-SORT-BRANCH", true, 20L);
+        seedFormal(1L, 10L, "ACTIVE", "CURRENT", "CERT-Z-SORT-BRANCH", false, null);
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        List<String> fields = List.of("certificateNo", "ownerCompanyName", "productName", "classification",
+                "projectCode", "versionNo", "status", "hasProjectCode", "hasRegistrationFile", "approvalDate",
+                "effectiveDate", "expiryDate", "remark");
+        for (String field : fields) {
+            for (String order : List.of("asc", "desc")) {
+                PageResult<DccRegistrationCertificatePageItem> page = queryService.getPage(
+                        1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                                .pageNo(1)
+                                .pageSize(10)
+                                .sortField(field)
+                                .sortOrder(order)
+                                .build(),
+                        context("REQ-CURRENT-SORT-" + field + "-" + order));
+
+                assertEquals(2L, page.getTotal(), field + " " + order);
+            }
+        }
+    }
+
+    @Test
+    void oldIndexExecutesEveryDisplayedServerSortFieldAndDirection() {
+        seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-A-OLD-SORT-BRANCH", true, 20L);
+        seedFormal(1L, 10L, "EXPIRED_UNRENEWED", "OLD", "CERT-Z-OLD-SORT-BRANCH", false, 21L);
+        when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
+        when(enterpriseApi.getEnabledEnterprises(eq(List.of(10L)), any()))
+                .thenReturn(List.of(owner(10L, "Owner A")));
+
+        List<String> fields = List.of("certificateNo", "ownerCompanyName", "productName", "classification",
+                "versionNo", "status", "expiryDate");
+        for (String field : fields) {
+            for (String order : List.of("asc", "desc")) {
+                PageResult<DccRegistrationCertificateOldIndexItem> page = queryService.getOldIndexPage(
+                        1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                                .pageNo(1)
+                                .pageSize(10)
+                                .sortField(field)
+                                .sortOrder(order)
+                                .build(),
+                        context("REQ-OLD-SORT-" + field + "-" + order));
+
+                assertEquals(2L, page.getTotal(), field + " " + order);
+            }
+        }
+    }
+
+    @Test
+    void invalidSortFailsFastWithoutDefaultOrderFallback() {
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> queryService.getPage(1L, 99L, DccRegistrationCertificatePageQuery.builder()
+                        .pageNo(1)
+                        .pageSize(10)
+                        .sortField("visualState")
+                        .sortOrder("asc")
+                        .build(), context("REQ-CURRENT-SORT-INVALID")));
+
+        assertEquals(REGISTRATION_CERTIFICATE_SORT_INVALID.getCode(), error.getCode());
+    }
+
+    @Test
     void detailOutsideCompanyScopeReturnsNotFoundAndRecordsFailureWithoutSensitiveFields() {
         FormalFixture hidden = seedFormal(1L, 11L, "ACTIVE", "CURRENT", "CERT-HIDDEN", true, 21L);
         when(companyScopeApi.getEnabledCompanyIdsForUser(99L)).thenReturn(Set.of(10L));
@@ -283,6 +399,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
         assertEquals(old.versionId(), item.getVersionId());
         assertEquals("Owner A", item.getOwnerCompanyName());
         assertEquals("Product CERT-OLD", item.getProductName());
+        assertEquals("II", item.getClassification());
         assertEquals("CERT-OLD", item.getCertificateNo());
         assertEquals(LocalDate.of(2031, 9, 1), item.getExpiryDate());
 
@@ -292,7 +409,7 @@ class DccRegistrationCertificateQueryServiceTest extends BaseDbUnitTest {
                 .collect(Collectors.toSet());
         assertEquals(Set.of("certificateId", "versionId", "ownerCompanyId", "ownerCompanyName",
                 "productMasterId", "productName", "projectCodeId", "projectCode",
-                "certificateNo", "versionNo", "expiryDate", "status"), fields);
+                "classification", "certificateNo", "versionNo", "expiryDate", "status"), fields);
         assertFalse(fields.contains("registrantName"));
         assertFalse(fields.contains("productionAddress"));
         assertFalse(fields.contains("fileId"));

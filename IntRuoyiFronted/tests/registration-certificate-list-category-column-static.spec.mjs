@@ -45,51 +45,53 @@ const extractTableBlock = (source, tableKeyName) => {
   return source.slice(tableStart, tableEnd + '</el-table>'.length)
 }
 
-const currentColumnDefinitions = extractArrayBlock(index, 'currentColumnDefinitions')
-const currentColumnDefinitionKeys = [...currentColumnDefinitions.matchAll(/key:\s*'([^']+)'/g)]
-  .map((match) => match[1])
-assert.equal(
-  currentColumnDefinitionKeys.at(-2),
-  'remark',
-  'current registration-certificate remark column definition must be the last business column before actions'
-)
-assert.equal(
-  currentColumnDefinitionKeys.at(-1),
-  'actions',
-  'current registration-certificate operation column must remain the final fixed control column'
-)
-
+const currentDefinitions = extractArrayBlock(index, 'currentColumnDefinitions')
+const oldDefinitions = extractArrayBlock(index, 'oldColumnDefinitions')
 const currentTable = extractTableBlock(index, 'CURRENT_TABLE_KEY')
-const currentTableVisibleKeys = [...currentTable.matchAll(/isCurrentColumnVisible\('([^']+)'\)/g)]
-  .map((match) => match[1])
-assert.equal(
-  currentTableVisibleKeys.at(-2),
-  'remark',
-  'current registration-certificate rendered remark column must be the last business column before actions'
-)
-assert.equal(
-  currentTableVisibleKeys.at(-1),
-  'actions',
-  'current registration-certificate rendered actions column must remain the final fixed control column'
-)
+const oldTable = extractTableBlock(index, 'OLD_TABLE_KEY')
 
 assert.match(
   api,
-  /export interface DccRegistrationCertificatePageItemVO \{[\s\S]{0,800}remark\??:\s*string/,
-  'current registration-certificate list item must expose remark'
+  /export interface DccRegistrationCertificatePageItemVO \{[\s\S]{0,900}classification:\s*string/,
+  'current registration-certificate list item must expose the formal classification field'
 )
 assert.match(
-  currentColumnDefinitions,
-  /key:\s*'remark'[\s\S]{0,80}label:\s*'备注'/,
-  'current registration-certificate list column definitions must include remark'
+  api,
+  /export interface DccRegistrationCertificateOldIndexItemVO \{[\s\S]{0,700}classification:\s*string/,
+  'old registration-certificate list item must expose the formal classification field'
 )
+
+assert.match(
+  currentDefinitions,
+  /key:\s*'classification'[\s\S]{0,80}label:\s*'分类'/,
+  'current registration-certificate column definitions must include classification'
+)
+assert.match(
+  oldDefinitions,
+  /key:\s*'classification'[\s\S]{0,80}label:\s*'分类'/,
+  'old registration-certificate column definitions must include classification'
+)
+
 assert.match(
   currentTable,
-  /isCurrentColumnVisible\('remark'\)[\s\S]{0,500}label="备注"[\s\S]{0,220}prop="remark"/,
-  'current registration-certificate list must render the remark column'
+  /isCurrentColumnVisible\('classification'\)[\s\S]{0,180}label="分类"[\s\S]{0,120}prop="classification"/,
+  'current registration-certificate table must render the classification column'
+)
+assert.match(
+  oldTable,
+  /isOldColumnVisible\('classification'\)[\s\S]{0,180}label="分类"[\s\S]{0,120}prop="classification"/,
+  'old registration-certificate table must render the classification column'
+)
+
+assert.match(
+  index,
+  /queryParamKey:\s*'classification'[\s\S]{0,60}placeholder:\s*'输入分类'/,
+  'classification quick filter must keep querying the formal classification field with classification wording'
 )
 assert.doesNotMatch(
-  index,
-  /remark[\s\S]{0,120}(mock|placeholder|defaultSuccess)|localStorage|sessionStorage/,
-  'remark column must use the server field without fake local state'
+  currentTable + oldTable,
+  /classification[\s\S]{0,160}(displayText|mock|placeholder|defaultSuccess|localStorage|sessionStorage)/,
+  'classification column must use the server field directly without fake local state'
 )
+
+console.log('registration certificate list classification column contract: PASS')

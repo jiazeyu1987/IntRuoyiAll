@@ -19,6 +19,8 @@ public class DccRegistrationCertificateDraftReqVO {
     @NotNull
     @Positive
     private Long productMasterId;
+    @Size(max = 255)
+    private String productName;
     @Positive
     private Long projectCodeId;
     @NotNull
@@ -50,7 +52,7 @@ public class DccRegistrationCertificateDraftReqVO {
 
     public DccRegistrationCertificateDraftData toDraftData() {
         return new DccRegistrationCertificateDraftData(
-                ownerCompanyId, productMasterId, projectCodeId, firstObtainedDate,
+                ownerCompanyId, productMasterId, productName, projectCodeId, firstObtainedDate,
                 certificateNo, approvalDate, effectiveDate, expiryDate, classification,
                 registrantName, modelSpecification, structureComposition, intendedUse,
                 technicalRequirements, residenceAddress, productionAddress,

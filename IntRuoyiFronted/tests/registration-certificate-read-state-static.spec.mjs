@@ -149,24 +149,37 @@ assert.doesNotMatch(
 )
 assert.match(
   detail,
-  /<RegistrationCertificateActionPanel/,
-  'detail page must expose the workflow action panel for access requests'
+  /<RegistrationCertificateActionPanel\s+v-if="viewMode === 'access-request'"/,
+  'normal detail mode must not mount the workflow action panel'
 )
 assert.match(
   detail,
-  /:read-only="viewMode !== 'current'"/,
-  'detail page must lock non-current certificate maintenance actions'
+  /initial-action="access"/,
+  'explicit access-request mode must open the access request action'
 )
 assert.match(
   detail,
-  /:initial-action="viewMode === 'current' \? 'draft' : 'access'"/,
-  'old/detail access modes must open the access request action first'
+  /read-only/,
+  'explicit access-request mode must keep maintenance actions locked'
 )
 assert.match(
   detail,
   /:downloadable-files="downloadableFiles"/,
-  'detail page must pass formal downloadable file options to the action panel'
+  'explicit access-request mode must keep formal downloadable file options'
 )
+for (const token of [
+  `:initial-action="viewMode === 'current' ? 'draft' : 'access'"`,
+  `:read-only="viewMode !== 'current'"`,
+  ':certificate-status="detail.status"',
+  ':row-version="detail.rowVersion"',
+  ':snapshot-revision="detail.snapshotRevision"'
+]) {
+  assert.doesNotMatch(
+    detail,
+    new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `normal detail page must not keep current-certificate workflow token ${token}`
+  )
+}
 assert.doesNotMatch(
   detail,
   /<el-descriptions-item\s+label="备注"/,

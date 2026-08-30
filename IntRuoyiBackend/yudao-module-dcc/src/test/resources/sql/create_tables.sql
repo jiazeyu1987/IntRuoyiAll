@@ -1752,7 +1752,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_source_migration` (
 CREATE TABLE IF NOT EXISTS `dcc_registration_certificate` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `owner_company_id` BIGINT NOT NULL,
-  `product_master_id` BIGINT NOT NULL,
+  `product_master_id` BIGINT NULL,
   `project_code_id` BIGINT NULL,
   `first_obtained_date` DATE NULL,
   `current_version_id` BIGINT NULL,

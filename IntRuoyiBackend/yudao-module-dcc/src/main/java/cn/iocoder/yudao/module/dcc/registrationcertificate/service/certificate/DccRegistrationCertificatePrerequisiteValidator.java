@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID;
@@ -40,6 +41,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
     private static final Set<String> ENTRUSTED_TYPES = Set.of(
             MdmEnterpriseTypeEnum.OWNED_COMPANY.getType(), MdmEnterpriseTypeEnum.ENTRUSTED_PARTY.getType());
     private static final int CERTIFICATE_NO_MAX_LENGTH = 128;
+    private static final int PRODUCT_NAME_MAX_LENGTH = 255;
     private static final int CLASSIFICATION_MAX_LENGTH = 64;
     private static final int REGISTRANT_NAME_MAX_LENGTH = 255;
 
@@ -67,9 +69,9 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         requirePositive(tenantId, REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
         requirePositive(actorId, REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT);
         requirePositive(draft.ownerCompanyId(), REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
-        requirePositive(draft.productMasterId(), REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED);
         validateRequiredText(draft);
         validateDates(draft);
+        String productName = resolveProductName(draft);
 
         validateCompanyScope(actorId, draft.ownerCompanyId());
         List<MdmEnterpriseRespDTO> owners;
@@ -80,20 +82,34 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         }
         requireExactEnterprises(owners, List.of(draft.ownerCompanyId()), tenantId,
                 REGISTRATION_CERTIFICATE_OWNER_COMPANY_REQUIRED);
+        validateProjectCode(tenantId, actorId, draft.projectCodeId(), draft.productMasterId());
+        return new DccRegistrationCertificateResolvedDraft(productName,
+                resolveProductionRelation(tenantId, draft));
+    }
 
+    private String resolveProductName(DccRegistrationCertificateDraftData draft) {
+        String draftProductName = trim(draft.productName());
+        if (draft.productMasterId() == null) {
+            if (isBlank(draftProductName)) {
+                throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED);
+            }
+            return draftProductName;
+        }
+        requirePositive(draft.productMasterId(), REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED);
         MdmProductRespDTO product;
         try {
             product = productApi.getEnabledDccProduct(draft.productMasterId());
         } catch (RuntimeException exception) {
             throw dependencyFailure(REGISTRATION_CERTIFICATE_PRODUCT_INVALID, exception);
         }
-        if (product == null || !draft.productMasterId().equals(product.getId())
-                || product.getNameCn() == null || product.getNameCn().isBlank()) {
+        String masterProductName = product == null ? null : trim(product.getNameCn());
+        if (product == null || !draft.productMasterId().equals(product.getId()) || isBlank(masterProductName)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
         }
-        validateProjectCode(tenantId, actorId, draft.projectCodeId(), draft.productMasterId());
-        return new DccRegistrationCertificateResolvedDraft(product.getNameCn(),
-                resolveProductionRelation(tenantId, draft));
+        if (!isBlank(draftProductName) && !Objects.equals(draftProductName, masterProductName)) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
+        }
+        return isBlank(draftProductName) ? masterProductName : draftProductName;
     }
 
     public void validateCompanyScope(Long actorId, Long ownerCompanyId) {
@@ -126,7 +142,8 @@ public class DccRegistrationCertificatePrerequisiteValidator {
         if (!DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED);
         }
-        if (projectCode.getProductMasterId() != null && !productMasterId.equals(projectCode.getProductMasterId())) {
+        if (projectCode.getProductMasterId() != null
+                && !Objects.equals(productMasterId, projectCode.getProductMasterId())) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
         }
     }
@@ -155,6 +172,7 @@ public class DccRegistrationCertificatePrerequisiteValidator {
     private void validateRequiredText(DccRegistrationCertificateDraftData draft) {
         if (isBlank(draft.certificateNo()) || isBlank(draft.classification())
                 || normalizedLengthExceeds(draft.certificateNo(), CERTIFICATE_NO_MAX_LENGTH)
+                || normalizedLengthExceeds(draft.productName(), PRODUCT_NAME_MAX_LENGTH)
                 || normalizedLengthExceeds(draft.classification(), CLASSIFICATION_MAX_LENGTH)
                 || normalizedLengthExceeds(draft.registrantName(), REGISTRANT_NAME_MAX_LENGTH)
                 || normalizedLengthExceeds(draft.remark(), 1024)) {
@@ -219,6 +237,10 @@ public class DccRegistrationCertificatePrerequisiteValidator {
 
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private static String trim(String value) {
+        return value == null ? null : value.trim();
     }
 
     private static void requirePositive(Long value, cn.iocoder.yudao.framework.common.exception.ErrorCode errorCode) {

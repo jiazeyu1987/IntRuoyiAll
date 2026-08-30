@@ -5,7 +5,7 @@
     data-testid="registration-certificate-renewal-dialog"
     destroy-on-close
     title="延续注册证"
-    width="720px"
+    width="860px"
     @closed="handleClosed"
   >
     <el-descriptions v-if="certificate" :column="2" border class="mb-16px">
@@ -20,11 +20,11 @@
       class="registration-certificate-renewal-dialog__form"
       :model="form"
       :rules="rules"
-      label-width="120px"
+      label-width="128px"
       data-testid="registration-certificate-renewal-form"
     >
-      <el-row :gutter="16">
-        <el-col :span="8">
+      <el-row :gutter="24">
+        <el-col :span="12" :xs="24">
           <el-form-item label="批准日期" prop="approvalDate">
             <el-date-picker
               v-model="form.approvalDate"
@@ -36,7 +36,7 @@
             />
           </el-form-item>
         </el-col>
-        <el-col :span="8">
+        <el-col :span="12" :xs="24">
           <el-form-item label="生效日期" prop="effectiveDate">
             <el-date-picker
               v-model="form.effectiveDate"
@@ -48,7 +48,7 @@
             />
           </el-form-item>
         </el-col>
-        <el-col :span="8">
+        <el-col :span="12" :xs="24">
           <el-form-item label="有效期至" prop="expiryDate">
             <el-date-picker
               v-model="form.expiryDate"
@@ -60,7 +60,7 @@
             />
           </el-form-item>
         </el-col>
-        <el-col :span="8">
+        <el-col :span="12" :xs="24">
           <el-form-item label="类别否变更" prop="categoryChanged">
             <el-select
               v-model="form.categoryChanged"
@@ -73,7 +73,7 @@
           </el-form-item>
         </el-col>
         <template v-if="form.categoryChanged">
-          <el-col :span="8">
+          <el-col :span="12" :xs="24">
             <el-form-item label="注册证号" prop="certificateNo">
               <el-input
                 v-model="form.certificateNo"
@@ -83,18 +83,25 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="12" :xs="24">
             <el-form-item label="类别" prop="classification">
-              <el-input
+              <el-select
                 v-model="form.classification"
                 clearable
-                maxlength="64"
-                placeholder="请输入变更后的类别"
-              />
+                placeholder="请选择变更后的类别"
+                data-testid="registration-certificate-renewal-classification"
+              >
+                <el-option
+                  v-for="option in REGISTRATION_CERTIFICATE_RENEWAL_CLASSIFICATION_OPTIONS"
+                  :key="option"
+                  :label="option"
+                  :value="option"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
         </template>
-        <el-col :span="24">
+        <el-col :span="24" :xs="24">
           <el-form-item label="延续注册证文件">
             <el-upload
               v-model:file-list="fileList"
@@ -149,6 +156,7 @@ const formRef = ref<FormInstance>()
 const saving = ref(false)
 const fileList = ref<UploadUserFile[]>([])
 const selectedFile = ref<File | null>(null)
+const REGISTRATION_CERTIFICATE_RENEWAL_CLASSIFICATION_OPTIONS = ['三类', '二类', '一类'] as const
 
 const form = reactive({
   approvalDate: '',
@@ -187,12 +195,12 @@ const rules = reactive<FormRules>({
     {
       validator: (_rule, value: string, callback) => {
         if (form.categoryChanged && !value?.trim()) {
-          callback(new Error('请输入变更后的类别'))
+          callback(new Error('请选择变更后的类别'))
           return
         }
         callback()
       },
-      trigger: 'blur'
+      trigger: 'change'
     }
   ]
 })
@@ -283,7 +291,7 @@ const submit = async () => {
   .el-dialog__body {
     max-height: calc(100vh - 180px);
     overflow-y: auto;
-    padding: 20px 24px !important;
+    padding: 24px 32px !important;
   }
 
   .el-dialog__footer {
@@ -291,21 +299,54 @@ const submit = async () => {
   }
 
   .registration-certificate-renewal-dialog__form {
+    .el-row {
+      row-gap: 4px;
+    }
+
     .el-form-item {
-      margin-bottom: 18px;
+      margin-bottom: 20px;
     }
 
     .el-form-item__label {
       height: auto;
-      padding: 0;
-      margin-bottom: 8px;
+      padding-right: 12px;
+      margin-bottom: 0;
       color: #263247;
       font-weight: 600;
-      line-height: 20px;
+      line-height: 32px;
+      white-space: nowrap;
     }
 
+    .el-input,
+    .el-select,
     .el-date-editor {
       width: 100%;
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .registration-certificate-renewal-dialog {
+    .el-dialog__body {
+      padding: 20px 16px !important;
+    }
+
+    .registration-certificate-renewal-dialog__form {
+      .el-form-item {
+        display: block;
+      }
+
+      .el-form-item__label {
+        width: 100% !important;
+        justify-content: flex-start;
+        padding-right: 0;
+        margin-bottom: 8px;
+        line-height: 20px;
+      }
+
+      .el-form-item__content {
+        margin-left: 0 !important;
+      }
     }
   }
 }

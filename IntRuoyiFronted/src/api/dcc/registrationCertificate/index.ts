@@ -10,6 +10,21 @@ export type DccRegistrationCertificateStatus =
   | 'OLD'
   | 'VOIDED'
 
+export type RegistrationCertificateSortField =
+  | 'certificateNo'
+  | 'ownerCompanyName'
+  | 'productName'
+  | 'classification'
+  | 'projectCode'
+  | 'versionNo'
+  | 'status'
+  | 'hasProjectCode'
+  | 'hasRegistrationFile'
+  | 'approvalDate'
+  | 'effectiveDate'
+  | 'expiryDate'
+  | 'remark'
+
 export type DccRegistrationCertificateLocalDateValue = string | [number, number, number]
 
 export interface DccRegistrationCertificatePageReqVO extends PageParam {
@@ -36,6 +51,8 @@ export interface DccRegistrationCertificatePageReqVO extends PageParam {
   effectiveEnd?: string
   expiryStart?: string
   expiryEnd?: string
+  sortField?: RegistrationCertificateSortField
+  sortOrder?: 'asc' | 'desc'
 }
 
 export interface DccRegistrationCertificatePageItemVO {
@@ -52,6 +69,7 @@ export interface DccRegistrationCertificatePageItemVO {
   certificateNo: string
   versionNo: number
   status: DccRegistrationCertificateStatus
+  classification: string
   remark?: string
   hasProjectCode: boolean
   hasRegistrationFile: boolean
@@ -74,6 +92,7 @@ export interface DccRegistrationCertificateOldIndexItemVO {
   projectCode?: string
   certificateNo: string
   versionNo: number
+  classification: string
   expiryDate?: DccRegistrationCertificateLocalDateValue
   status: DccRegistrationCertificateStatus
 }

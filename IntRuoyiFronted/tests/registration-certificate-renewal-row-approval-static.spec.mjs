@@ -50,14 +50,44 @@ const dialog = read(renewalDialogPath)
 assert.match(dialog, /data-testid="registration-certificate-renewal-dialog"/,
   'renewal dialog must expose a stable anchor')
 assert.match(dialog, /title="延续注册证"/, 'renewal dialog title must match the business action')
+assert.match(dialog, /width="8[4-9]0px"/, 'renewal dialog must be wide enough for complete date inputs')
+assert.match(dialog, /label-width="12[4-9]px"/, 'renewal form labels must reserve readable label width')
+assert.match(dialog, /<el-row\s+:gutter="2[4-9]"/, 'renewal form columns must keep horizontal breathing room')
 for (const token of ['批准日期', '生效日期', '有效期至', '类别否变更', '注册证号', '类别', '延续注册证文件']) {
   assert.match(dialog, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     `renewal dialog must contain ${token}`)
+}
+for (const token of ['批准日期', '生效日期', '有效期至']) {
+  assert.match(
+    dialog,
+    new RegExp(`<el-col\\s+:span="12"[^>]*>[\\s\\S]*?<el-form-item label="${token}"`),
+    `renewal date field ${token} must use a half-width row column instead of cramped thirds`
+  )
 }
 for (const token of ['产品名称', '注册人名称', '型号规格', '结构组成', '适用范围']) {
   assert.doesNotMatch(dialog, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     `renewal dialog must not expose editable non-renewal field ${token}`)
 }
+const styleStart = dialog.indexOf('<style')
+const styleEnd = dialog.indexOf('</style>')
+assert.notEqual(styleStart, -1, 'renewal dialog must keep scoped layout styles')
+assert.notEqual(styleEnd, -1, 'renewal dialog must close the style block')
+const style = dialog.slice(styleStart, styleEnd)
+const labelRule = style.match(/\.el-form-item__label\s*\{[\s\S]*?\}/)?.[0] || ''
+const mobileRule = style.match(/@media\s*\(max-width:\s*720px\)\s*\{[\s\S]*$/)?.[0] || ''
+assert.match(labelRule, /padding-right:\s*12px\s*;/, 'renewal labels must keep a fixed gap before controls')
+assert.match(labelRule, /line-height:\s*32px\s*;/, 'renewal labels must align with standard input height')
+assert.match(labelRule, /white-space:\s*nowrap\s*;/, 'renewal labels must not wrap into date controls')
+assert.doesNotMatch(labelRule, /padding:\s*0\s*;/, 'renewal labels must not reset all padding to zero')
+assert.match(style, /\.el-row\s*\{[\s\S]*?row-gap:\s*4px\s*;/, 'renewal form rows must keep vertical breathing room')
+assert.match(style, /\.el-form-item\s*\{[\s\S]*?margin-bottom:\s*20px\s*;/,
+  'renewal form items must keep a comfortable bottom gap')
+assert.match(style, /\.el-input,\s*\n\s*\.el-select,\s*\n\s*\.el-date-editor\s*\{[\s\S]*?width:\s*100%\s*;/,
+  'renewal controls must fill their column width')
+assert.match(mobileRule, /\.el-form-item\s*\{[\s\S]*?display:\s*block\s*;/,
+  'narrow screens must switch renewal form items to stacked layout')
+assert.match(mobileRule, /\.el-form-item__label\s*\{[\s\S]*?width:\s*100%\s*!important\s*;/,
+  'narrow screens must place renewal labels above inputs')
 assert.match(dialog, /submitRegistrationCertificateRenewal/, 'dialog must submit through the dedicated renewal API')
 assert.match(dialog, /payload\.append\('expectedRowVersion', String\(props\.certificate\.rowVersion\)\)/,
   'dialog must submit the rowVersion from the selected row')

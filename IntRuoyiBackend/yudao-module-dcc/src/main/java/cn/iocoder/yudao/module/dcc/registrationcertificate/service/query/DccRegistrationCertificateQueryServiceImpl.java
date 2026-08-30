@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -25,11 +26,35 @@ import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_COMPANY_SCOPE_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_SORT_INVALID;
 
 @Service
 public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrationCertificateQueryService {
 
     private static final Set<String> OWNED_COMPANY = Set.of("OWNED_COMPANY");
+    private static final Set<String> SORT_ORDERS = Set.of("asc", "desc");
+    private static final Set<String> CURRENT_SORT_FIELDS = Set.of(
+            "certificateNo",
+            "ownerCompanyName",
+            "productName",
+            "classification",
+            "projectCode",
+            "versionNo",
+            "status",
+            "hasProjectCode",
+            "hasRegistrationFile",
+            "approvalDate",
+            "effectiveDate",
+            "expiryDate",
+            "remark");
+    private static final Set<String> OLD_INDEX_SORT_FIELDS = Set.of(
+            "certificateNo",
+            "ownerCompanyName",
+            "productName",
+            "classification",
+            "versionNo",
+            "status",
+            "expiryDate");
 
     private final DccRegistrationCertificateQueryMapper queryMapper;
     private final MdmCompanyScopeApi companyScopeApi;
@@ -61,6 +86,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             Long tenantId, Long actorId, DccRegistrationCertificatePageQuery query,
             DccRequestAuditContext auditContext) {
         DccRegistrationCertificatePageQuery normalized = normalize(query);
+        validateSort(normalized, CURRENT_SORT_FIELDS);
         List<Long> scopedCompanyIds = scopedCompanyIds(actorId);
         long total = queryMapper.countPage(tenantId, scopedCompanyIds, normalized);
         List<DccRegistrationCertificateQueryRecord> rows = total == 0 ? List.of()
@@ -104,6 +130,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             Long tenantId, Long actorId, DccRegistrationCertificatePageQuery query,
             DccRequestAuditContext auditContext) {
         DccRegistrationCertificatePageQuery normalized = normalize(query);
+        validateSort(normalized, OLD_INDEX_SORT_FIELDS);
         List<Long> scopedCompanyIds = scopedCompanyIds(actorId);
         long total = queryMapper.countOldIndex(tenantId, scopedCompanyIds, normalized);
         List<DccRegistrationCertificateQueryRecord> rows = total == 0 ? List.of()
@@ -205,6 +232,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .certificateNo(row.getCertificateNo())
                 .versionNo(row.getVersionNo())
                 .status(row.getStatus())
+                .classification(row.getClassification())
                 .remark(row.getRemark())
                 .hasProjectCode(row.getProjectCodeId() != null)
                 .hasRegistrationFile(row.getRegistrationFileId() != null)
@@ -286,6 +314,7 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
                 .projectCode(row.getProjectCode())
                 .certificateNo(row.getCertificateNo())
                 .versionNo(row.getVersionNo())
+                .classification(row.getClassification())
                 .expiryDate(row.getExpiryDate())
                 .status(row.getStatus())
                 .build();
@@ -304,6 +333,28 @@ public class DccRegistrationCertificateQueryServiceImpl implements DccRegistrati
             value.setPageSize(100);
         }
         return value;
+    }
+
+    private static void validateSort(DccRegistrationCertificatePageQuery query, Set<String> allowedFields) {
+        String sortField = trimToNull(query.getSortField());
+        String sortOrder = trimToNull(query.getSortOrder());
+        query.setSortField(sortField);
+        query.setSortOrder(sortOrder == null ? null : sortOrder.toLowerCase(Locale.ROOT));
+        if (query.getSortField() == null && query.getSortOrder() == null) {
+            return;
+        }
+        if (query.getSortField() == null || query.getSortOrder() == null
+                || !allowedFields.contains(query.getSortField())
+                || !SORT_ORDERS.contains(query.getSortOrder())) {
+            throw new ServiceException(REGISTRATION_CERTIFICATE_SORT_INVALID);
+        }
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
     private static int offset(DccRegistrationCertificatePageQuery query) {

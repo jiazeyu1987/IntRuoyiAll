@@ -23,10 +23,7 @@ import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
-import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
-import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseTypeEnum;
-import cn.iocoder.yudao.module.mdm.enums.MdmProductStatusConstants;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -54,7 +51,6 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FILE_TENANT_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_FORMALIZATION_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_NOT_EXISTS;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_DISABLED;
@@ -94,7 +90,6 @@ public class DccRegistrationCertificateUploadService {
     private final DccProjectCodeService projectCodeService;
     private final MdmCompanyScopeApi companyScopeApi;
     private final MdmEnterpriseApi enterpriseApi;
-    private final MdmProductApi productApi;
     private final DccRegistrationCertificateBusinessClock businessClock;
     private final DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
 
@@ -109,7 +104,6 @@ public class DccRegistrationCertificateUploadService {
             DccProjectCodeService projectCodeService,
             MdmCompanyScopeApi companyScopeApi,
             MdmEnterpriseApi enterpriseApi,
-            MdmProductApi productApi,
             DccRegistrationCertificateBusinessClock businessClock,
             DccRegistrationCertificateBusinessEventNotifier businessEventNotifier) {
         this.commandMutex = require(commandMutex, "commandMutex");
@@ -122,7 +116,6 @@ public class DccRegistrationCertificateUploadService {
         this.projectCodeService = require(projectCodeService, "projectCodeService");
         this.companyScopeApi = require(companyScopeApi, "companyScopeApi");
         this.enterpriseApi = require(enterpriseApi, "enterpriseApi");
-        this.productApi = require(productApi, "productApi");
         this.businessClock = require(businessClock, "businessClock");
         this.businessEventNotifier = require(businessEventNotifier, "businessEventNotifier");
     }
@@ -223,7 +216,8 @@ public class DccRegistrationCertificateUploadService {
         Long ownerCompanyId = resolveOwnerCompanyId(tenantId, actorId, command.companyName());
         DccProjectCodeDO projectCode = requireProjectCode(tenantId, actorId, command.projectCodeId());
         Long projectCodeId = projectCode == null ? null : projectCode.getId();
-        Long productMasterId = resolveProductMasterId(command, projectCode);
+        String productName = requireProductName(command.productName());
+        Long productMasterId = resolveProductMasterId(projectCode);
         String payloadHash = submitPayloadHash(
                 command, ownerCompanyId, productMasterId, projectCodeId, entrustedEnterpriseIds, uploadFile);
 
@@ -234,7 +228,7 @@ public class DccRegistrationCertificateUploadService {
         }
 
         DccRegistrationCertificateDraftData draft = new DccRegistrationCertificateDraftData(
-                ownerCompanyId, productMasterId, projectCodeId,
+                ownerCompanyId, productMasterId, productName, projectCodeId,
                 command.firstObtainedDate(), trim(command.certificateNo()),
                 null, command.effectiveDate(), command.expiryDate(), trim(command.classification()),
                 trim(command.companyName()), null, null, null, null, null, null,
@@ -400,36 +394,16 @@ public class DccRegistrationCertificateUploadService {
         return projectCode;
     }
 
-    private Long resolveProductMasterId(
-            DccRegistrationCertificateUploadCommand command, DccProjectCodeDO projectCode) {
-        String normalizedProductName = trim(command.productName());
+    private String requireProductName(String productName) {
+        String normalizedProductName = trim(productName);
         if (isBlank(normalizedProductName)) {
             throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_REQUIRED);
         }
-        MdmProductRespDTO product = requireUniqueEnabledDccProductByName(normalizedProductName);
-        Long productMasterId = product.getId();
-        if (projectCode != null && projectCode.getProductMasterId() != null
-                && !Objects.equals(projectCode.getProductMasterId(), productMasterId)) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH);
-        }
-        return productMasterId;
+        return normalizedProductName;
     }
 
-    private MdmProductRespDTO requireUniqueEnabledDccProductByName(String productName) {
-        List<MdmProductRespDTO> products = productApi.listSimpleProducts(
-                MdmProductStatusConstants.ENABLE, true, productName);
-        if (products == null) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
-        }
-        List<MdmProductRespDTO> matches = products.stream()
-                .filter(item -> item != null && item.getId() != null && item.getId() > 0
-                        && Objects.equals(productName, trim(item.getNameCn())))
-                .sorted(Comparator.comparing(MdmProductRespDTO::getId))
-                .toList();
-        if (matches.size() != 1) {
-            throw new ServiceException(REGISTRATION_CERTIFICATE_PRODUCT_INVALID);
-        }
-        return matches.get(0);
+    private Long resolveProductMasterId(DccProjectCodeDO projectCode) {
+        return projectCode == null ? null : projectCode.getProductMasterId();
     }
 
     private DccRegistrationCertificateVersionDO requireDraftVersion(Long tenantId, Long certificateId) {

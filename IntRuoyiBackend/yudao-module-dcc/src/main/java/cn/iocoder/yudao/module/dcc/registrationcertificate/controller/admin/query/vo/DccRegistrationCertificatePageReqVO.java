@@ -44,6 +44,8 @@ public class DccRegistrationCertificatePageReqVO extends PageParam {
     private LocalDate expiryStart;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate expiryEnd;
+    private String sortField;
+    private String sortOrder;
 
     public DccRegistrationCertificatePageQuery toQuery() {
         return DccRegistrationCertificatePageQuery.builder()
@@ -72,6 +74,8 @@ public class DccRegistrationCertificatePageReqVO extends PageParam {
                 .effectiveEnd(effectiveEnd)
                 .expiryStart(expiryStart)
                 .expiryEnd(expiryEnd)
+                .sortField(sortField)
+                .sortOrder(sortOrder)
                 .build();
     }
 }

@@ -24,10 +24,7 @@ import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.mdm.api.companyscope.MdmCompanyScopeApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.MdmEnterpriseApi;
 import cn.iocoder.yudao.module.mdm.api.enterprise.dto.MdmEnterpriseRespDTO;
-import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
-import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.mdm.enums.MdmEnterpriseTypeEnum;
-import cn.iocoder.yudao.module.mdm.enums.MdmProductStatusConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,7 +41,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PRODUCTION_RELATION_INVALID;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -84,8 +80,6 @@ class DccRegistrationCertificateUploadServiceTest {
     @Mock
     private MdmEnterpriseApi enterpriseApi;
     @Mock
-    private MdmProductApi productApi;
-    @Mock
     private DccRegistrationCertificateBusinessClock businessClock;
     @Mock
     private DccRegistrationCertificateBusinessEventNotifier businessEventNotifier;
@@ -96,7 +90,7 @@ class DccRegistrationCertificateUploadServiceTest {
     void setUp() {
         uploadService = new DccRegistrationCertificateUploadService(
                 commandMutex, commandService, requestMapper, requestFileMapper, fileMapper, versionMapper,
-                fileService, projectCodeService, companyScopeApi, enterpriseApi, productApi, businessClock,
+                fileService, projectCodeService, companyScopeApi, enterpriseApi, businessClock,
                 businessEventNotifier);
         lenient().doAnswer(invocation -> {
             Supplier<?> action = invocation.getArgument(1);
@@ -108,7 +102,6 @@ class DccRegistrationCertificateUploadServiceTest {
     void submitUploadForApprovalCreatesDraftWithProductionRelation() {
         mockOwnedCompany();
         mockProjectCode();
-        mockProduct("一次性使用无菌导管", 2001L);
         when(requestMapper.selectByTenantAndRequestKey(TENANT_ID, "UPLOAD-KEY-1")).thenReturn(null);
         ArgumentCaptor<DccRegistrationCertificateDraftData> draft =
                 ArgumentCaptor.forClass(DccRegistrationCertificateDraftData.class);
@@ -143,15 +136,16 @@ class DccRegistrationCertificateUploadServiceTest {
         assertEquals(9401L, result.requestId());
         assertEquals(9001L, result.certificateId());
         assertEquals(9301L, result.businessFileId());
+        assertEquals(2001L, draft.getValue().productMasterId());
+        assertEquals("一次性使用无菌导管", draft.getValue().productName());
         assertEquals(Boolean.TRUE, draft.getValue().entrustedProduction());
         assertEquals(Boolean.FALSE, draft.getValue().selfProduction());
         assertEquals(List.of(301L, 302L), draft.getValue().entrustedEnterpriseIds());
     }
 
     @Test
-    void submitUploadForApprovalCreatesDraftWithoutProjectCodeWhenProductNameIsUnique() {
+    void submitUploadForApprovalCreatesDraftWithoutProjectCodeWhenProductNameIsManual() {
         mockOwnedCompany();
-        mockProduct("一次性使用无菌导管", 2001L);
         when(requestMapper.selectByTenantAndRequestKey(TENANT_ID, "UPLOAD-KEY-NO-PROJECT")).thenReturn(null);
         ArgumentCaptor<DccRegistrationCertificateDraftData> draft =
                 ArgumentCaptor.forClass(DccRegistrationCertificateDraftData.class);
@@ -188,9 +182,53 @@ class DccRegistrationCertificateUploadServiceTest {
         assertEquals(9402L, result.requestId());
         assertEquals(9002L, result.certificateId());
         assertEquals(9302L, result.businessFileId());
-        assertEquals(2001L, draft.getValue().productMasterId());
+        assertNull(draft.getValue().productMasterId());
+        assertEquals("一次性使用无菌导管", draft.getValue().productName());
         assertNull(draft.getValue().projectCodeId());
         assertNull(request.getValue().getProjectCodeId());
+        verify(projectCodeService, never()).getProjectCode(any(), any());
+    }
+
+    @Test
+    void submitUploadForApprovalCreatesDraftWithManualProductNameWithoutProductMaster() {
+        mockOwnedCompany();
+        when(requestMapper.selectByTenantAndRequestKey(TENANT_ID, "UPLOAD-KEY-MANUAL-PRODUCT")).thenReturn(null);
+        ArgumentCaptor<DccRegistrationCertificateDraftData> draft =
+                ArgumentCaptor.forClass(DccRegistrationCertificateDraftData.class);
+        when(commandService.createDraft(eq(TENANT_ID), eq(ACTOR_ID), eq("UPLOAD-KEY-MANUAL-PRODUCT"),
+                eq("TRACE-MANUAL-PRODUCT"), draft.capture())).thenReturn(9004L);
+        DccRegistrationCertificateVersionDO draftVersion = DccRegistrationCertificateVersionDO.builder()
+                .id(9104L)
+                .certificateId(9004L)
+                .status("DRAFT")
+                .build();
+        draftVersion.setTenantId(TENANT_ID);
+        when(versionMapper.selectList(any())).thenReturn(List.of(draftVersion));
+        when(fileService.createFileAndReturnId(any(byte[].class), eq("registration.pdf"),
+                eq("dcc/registration-certificate/upload/9004"), eq("application/pdf"))).thenReturn(9204L);
+        doAnswer(invocation -> {
+            DccRegistrationCertificateFileDO file = invocation.getArgument(0);
+            file.setId(9304L);
+            return 1;
+        }).when(fileMapper).insert(any(DccRegistrationCertificateFileDO.class));
+        doAnswer(invocation -> {
+            DccRegistrationCertificateAccessRequestDO request = invocation.getArgument(0);
+            request.setId(9404L);
+            return 1;
+        }).when(requestMapper).insert(any(DccRegistrationCertificateAccessRequestDO.class));
+        when(requestFileMapper.insert(any(DccRegistrationCertificateAccessRequestFileDO.class))).thenReturn(1);
+        when(businessClock.now()).thenReturn(LocalDateTime.of(2026, 8, 29, 10, 0));
+
+        DccRegistrationCertificateUploadSubmitResult result = uploadService.submitUploadForApproval(
+                TENANT_ID, ACTOR_ID, "UPLOAD-KEY-MANUAL-PRODUCT", "TRACE-MANUAL-PRODUCT",
+                uploadCommand(null, "手填注册证产品", false, true, List.of()));
+
+        assertEquals(9404L, result.requestId());
+        assertEquals(9004L, result.certificateId());
+        assertEquals(9304L, result.businessFileId());
+        assertNull(draft.getValue().productMasterId());
+        assertEquals("手填注册证产品", draft.getValue().productName());
+        assertNull(draft.getValue().projectCodeId());
         verify(projectCodeService, never()).getProjectCode(any(), any());
     }
 
@@ -198,7 +236,6 @@ class DccRegistrationCertificateUploadServiceTest {
     void submitUploadForApprovalAllowsSelectedProjectCodeWithoutProductBinding() {
         mockOwnedCompany();
         mockProjectCodeWithoutProductBinding();
-        mockProduct("一次性使用无菌导管", 2001L);
         when(requestMapper.selectByTenantAndRequestKey(TENANT_ID, "UPLOAD-KEY-UNBOUND-PROJECT")).thenReturn(null);
         ArgumentCaptor<DccRegistrationCertificateDraftData> draft =
                 ArgumentCaptor.forClass(DccRegistrationCertificateDraftData.class);
@@ -229,22 +266,9 @@ class DccRegistrationCertificateUploadServiceTest {
         uploadService.submitUploadForApproval(TENANT_ID, ACTOR_ID, "UPLOAD-KEY-UNBOUND-PROJECT",
                 "TRACE-UNBOUND-PROJECT", uploadCommand(1001L, "一次性使用无菌导管", false, true, List.of()));
 
-        assertEquals(2001L, draft.getValue().productMasterId());
+        assertNull(draft.getValue().productMasterId());
+        assertEquals("一次性使用无菌导管", draft.getValue().productName());
         assertEquals(1001L, draft.getValue().projectCodeId());
-    }
-
-    @Test
-    void submitUploadForApprovalRejectsSelectedProjectCodeBoundToDifferentProductName() {
-        mockOwnedCompany();
-        mockProjectCode();
-        mockProduct("另一个产品", 2002L);
-
-        ServiceException exception = assertThrows(ServiceException.class, () -> uploadService.submitUploadForApproval(
-                TENANT_ID, ACTOR_ID, "UPLOAD-KEY-MISMATCH", "TRACE-MISMATCH",
-                uploadCommand(1001L, "另一个产品", false, true, List.of())));
-
-        assertEquals(REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH.getCode(), exception.getCode());
-        verify(commandService, never()).createDraft(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -416,15 +440,6 @@ class DccRegistrationCertificateUploadServiceTest {
                 .build();
         projectCode.setTenantId(TENANT_ID);
         when(projectCodeService.getProjectCode(ACTOR_ID, 1001L)).thenReturn(projectCode);
-    }
-
-    private void mockProduct(String productName, Long productMasterId) {
-        when(productApi.listSimpleProducts(MdmProductStatusConstants.ENABLE, true, productName))
-                .thenReturn(List.of(MdmProductRespDTO.builder()
-                        .id(productMasterId)
-                        .nameCn(productName)
-                        .status(MdmProductStatusConstants.ENABLE)
-                        .build()));
     }
 
     private DccRegistrationCertificateUploadCommand uploadCommand(

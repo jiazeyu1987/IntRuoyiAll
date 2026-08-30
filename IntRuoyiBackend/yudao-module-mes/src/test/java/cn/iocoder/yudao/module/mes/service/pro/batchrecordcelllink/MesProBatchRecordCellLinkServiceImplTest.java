@@ -370,7 +370,11 @@ class MesProBatchRecordCellLinkServiceImplTest {
         when(teamDeviceMapper.selectBatchIds(any())).thenReturn(List.of(
                 teamDevice(7001L, 9001L, "A05075", "光固机"),
                 teamDevice(7002L, 9001L, "A05076", "光固机")));
-        lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of());
+        lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
+                parameterRule(21L, 5001L, 7101L, 7001L, 9001L, "pressure", "扩张压力",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL),
+                parameterRule(22L, 5001L, 7101L, 7002L, 9001L, "lightIntensity", "光照强度",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL)));
 
         BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(9001L, 2001L, 3001L, "PROCESS_POOL_REPORT",
@@ -391,6 +395,79 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertProcessPoolSourceField(result,
                 "deviceMeteringValidity.inMeteringValidityPeriod@device:7002",
                 "选用设备计量有效期内（光固机 / A05076）", "BOOLEAN", 5001L);
+    }
+
+    @Test
+    void getWorkbenchContext_filtersSelectedProcessDevicesByRouteScopedParameterRules() {
+        MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
+        when(reportMapper.selectListByDefinitionIdAndVersionId(2001L, 3001L)).thenReturn(List.of(targetReport));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of(
+                routeBinding(5001L, 3001L, "target-report")));
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .id(5001L)
+                .routeId(9001L)
+                .processId(7101L)
+                .sort(10)
+                .batchRecordReportId("target-report")
+                .build();
+        lenient().when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess);
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(routeProcess));
+        when(processMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(
+                MesProProcessDO.builder()
+                        .id(7101L)
+                        .code("ROUGH_WASH")
+                        .name("粗洗")
+                        .build()));
+        when(routeDccProjectBindingMapper.selectCurrentByRouteId(9001L)).thenReturn(
+                MesRouteDccProjectBindingDO.builder()
+                        .id(6101L)
+                        .routeId(9001L)
+                        .dccProjectCodeId(129L)
+                        .build());
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of(
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8101L)
+                        .leaderUserId(9001L)
+                        .processId(7101L)
+                        .deviceId(7001L)
+                        .enabled(Boolean.TRUE)
+                        .build(),
+                MesProcessPoolTeamProcessDeviceDO.builder()
+                        .id(8102L)
+                        .leaderUserId(9001L)
+                        .processId(7101L)
+                        .deviceId(7002L)
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(teamDeviceMapper.selectBatchIds(any())).thenReturn(List.of(
+                teamDevice(7001L, 9001L, "A03190", "球囊成型机"),
+                teamDevice(7002L, 9001L, "B09393", "超声波清洗机")));
+        when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of(
+                parameterRule(31L, 5001L, 7101L, 7002L, 9001L, "cleaningCount", "清洗次数",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_INTEGER),
+                parameterRule(32L, 5001L, 7101L, 7002L, 9001L, "cleaningMedium", "清洗介质",
+                        MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_SELECT)));
+
+        BatchRecordCellLinkWorkbenchContextRespVO result =
+                service.getWorkbenchContext(9001L, 2001L, 3001L, "PROCESS_POOL_REPORT",
+                        null, null, 5001L, null, 129L);
+
+        assertMissingProcessPoolSourceField(result, "selectedDevice.deviceId@device:7001",
+                "选用设备编号（球囊成型机 / A03190）");
+        assertMissingProcessPoolSourceField(result, "selectedDevice.deviceCode@device:7001",
+                "选用设备编码（球囊成型机 / A03190）");
+        assertMissingProcessPoolSourceField(result, "selectedDevice.deviceName@device:7001",
+                "选用设备名称（球囊成型机 / A03190）");
+        assertMissingProcessPoolSourceField(result,
+                "deviceMeteringValidity.inMeteringValidityPeriod@device:7001",
+                "选用设备计量有效期内（球囊成型机 / A03190）");
+        assertProcessPoolSourceField(result, "selectedDevice.deviceId@device:7002",
+                "选用设备编号（超声波清洗机 / B09393）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningCount.value@device:7002",
+                "清洗次数实际值（超声波清洗机 / B09393）", "NUMBER", 5001L);
+        assertProcessPoolSourceField(result, "deviceParameterReadings.cleaningMedium.value@device:7002",
+                "清洗介质实际值（超声波清洗机 / B09393）", "STRING", 5001L);
     }
 
     @Test
@@ -483,14 +560,14 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .batchRecordReportId("target-report")
                 .build();
         when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(routeProcess));
-        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess);
+        lenient().when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess);
         when(processMapper.selectListByIdsIgnoreDeleted(any())).thenReturn(List.of(
                 MesProProcessDO.builder()
                         .id(7101L)
                         .code("CW")
                         .name("粗洗")
                         .build()));
-        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        lenient().when(processDeviceMapper.selectList(any())).thenReturn(List.of());
         lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of());
 
         ServiceException ex = assertThrows(ServiceException.class, () ->

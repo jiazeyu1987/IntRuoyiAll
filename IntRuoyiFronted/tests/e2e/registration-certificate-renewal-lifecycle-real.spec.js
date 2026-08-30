@@ -669,7 +669,11 @@ async function submitInitialUpload(page, evidence, testInfo) {
   })
   await selectRemoteOwnerCompany(page, dialog, config.uploadCompanyName)
   await fillFormInput(dialog, '注册证号', certificateNo)
-  await fillFormInput(dialog, '类别', 'II类')
+  await selectBooleanOption(
+    page,
+    dialog.locator('[data-testid="registration-certificate-upload-classification"]'),
+    '二类'
+  )
   const dateInputs = dialog.locator('input[placeholder="请选择日期"]')
   await dateInputs.nth(0).fill('2025-12-31')
   await dateInputs.nth(1).fill(INITIAL_EFFECTIVE_DATE)
@@ -819,7 +823,11 @@ async function submitRenewal(page, currentRow, evidence, testInfo) {
   await dateInputs.nth(2).fill(RENEWAL_EXPIRY_DATE)
   await selectDialogOption(page, dialog, '类别否变更', '是')
   await dialog.locator('input[placeholder="请输入变更后的注册证号"]').fill(renewalCertificateNo)
-  await dialog.locator('input[placeholder="请输入变更后的类别"]').fill('III类')
+  await selectBooleanOption(
+    page,
+    dialog.locator('[data-testid="registration-certificate-renewal-classification"]'),
+    '三类'
+  )
   await dialog.locator('input[type="file"]').setInputFiles(renewalFilePath)
 
   const renewalResponsePromise = page.waitForResponse(
@@ -847,7 +855,7 @@ async function submitRenewal(page, currentRow, evidence, testInfo) {
     effectiveDate: config.businessDate,
     expiryDate: RENEWAL_EXPIRY_DATE,
     categoryChanged: true,
-    classification: 'III类'
+    classification: '三类'
   }
   return { certificateNo: renewalCertificateNo, requestId: renewalPayload.data }
 }
@@ -1113,7 +1121,7 @@ test.describe('registration certificate renewal lifecycle real path', () => {
       }
       expect(renewalDetail.certificateNo).toBe(renewalUpload.certificateNo)
       expect(renewalDetail.versionId).toBe(renewalCurrentRow.versionId)
-      expect(renewalDetail.classification).toBe('III类')
+      expect(renewalDetail.classification).toBe('三类')
 
       await page.goto(`${config.baseUrl}/mdm/registration-certificate`, {
         waitUntil: 'commit',

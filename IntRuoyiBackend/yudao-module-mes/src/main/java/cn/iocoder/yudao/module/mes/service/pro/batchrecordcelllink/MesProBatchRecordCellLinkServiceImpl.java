@@ -1666,8 +1666,17 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         if (routeProcessIds.isEmpty()) {
             return List.copyOf(fields.values());
         }
+        List<MesProcessPoolDeviceParameterRuleDO> parameterRules = deviceParameterRuleMapper.selectList(
+                new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
+                        .in(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, routeProcessIds)
+                        .eq(MesProcessPoolDeviceParameterRuleDO::getEnabled, Boolean.TRUE)
+                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getParameterCode)
+                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getId));
+        parameterRules.forEach(rule -> validateProcessPoolReportParameterRule(rule, routeProcessIds));
+        Map<Long, Set<Long>> routeScopedDeviceIdsByRouteProcess =
+                routeScopedDeviceIdsByRouteProcess(parameterRules);
         Map<Long, List<ProcessPoolReportDevice>> devicesByRouteProcess =
-                listProcessPoolReportDevicesByRouteProcess(routeProcessIds);
+                listProcessPoolReportDevicesByRouteProcess(routeProcessIds, routeScopedDeviceIdsByRouteProcess);
         if (requireFormalDeviceBinding
                 && targetRouteProcessId != null
                 && devicesByRouteProcess.getOrDefault(targetRouteProcessId, List.of()).isEmpty()) {
@@ -1680,22 +1689,9 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                         .filter(field -> PROCESS_POOL_REPORT_DEVICE_SOURCE_FIELD_CODES.contains(field.code()))
                         .map(field -> field.forDevice(routeProcessId, device))
                         .forEach(field -> addProcessPoolReportField(fields, field))));
-        List<MesProcessPoolDeviceParameterRuleDO> parameterRules = deviceParameterRuleMapper.selectList(
-                new LambdaQueryWrapperX<MesProcessPoolDeviceParameterRuleDO>()
-                        .in(MesProcessPoolDeviceParameterRuleDO::getRouteProcessId, routeProcessIds)
-                        .eq(MesProcessPoolDeviceParameterRuleDO::getEnabled, Boolean.TRUE)
-                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getParameterCode)
-                        .orderByAsc(MesProcessPoolDeviceParameterRuleDO::getId));
         for (MesProcessPoolDeviceParameterRuleDO rule : parameterRules) {
             String code = StrUtil.trim(rule.getParameterCode());
             String name = StrUtil.trim(rule.getParameterName());
-            if (rule.getRouteProcessId() == null || !routeProcessIds.contains(rule.getRouteProcessId())
-                    || rule.getDeviceId() == null || rule.getDeviceId() <= 0
-                    || StrUtil.isBlank(code) || StrUtil.isBlank(name) || StrUtil.isBlank(rule.getValueType())) {
-                throw exception(
-                        MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
-                        "PROCESS_POOL_REPORT 参数定义不完整");
-            }
             ProcessPoolReportDevice device = requireProcessPoolReportDevice(
                     devicesByRouteProcess, rule.getRouteProcessId(), rule.getDeviceId(), code);
             addProcessPoolReportParameterFields(fields, rule, device, code, name,
@@ -1718,8 +1714,37 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                                 + "，deviceId=" + deviceId + "，parameterCode=" + parameterCode));
     }
 
+    private void validateProcessPoolReportParameterRule(MesProcessPoolDeviceParameterRuleDO rule,
+                                                        List<Long> routeProcessIds) {
+        String code = StrUtil.trim(rule.getParameterCode());
+        String name = StrUtil.trim(rule.getParameterName());
+        if (rule.getRouteProcessId() == null || !routeProcessIds.contains(rule.getRouteProcessId())
+                || rule.getDeviceId() == null || rule.getDeviceId() <= 0
+                || StrUtil.isBlank(code) || StrUtil.isBlank(name) || StrUtil.isBlank(rule.getValueType())) {
+            throw exception(
+                    MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                    "PROCESS_POOL_REPORT 参数定义不完整");
+        }
+    }
+
+    private Map<Long, Set<Long>> routeScopedDeviceIdsByRouteProcess(
+            List<MesProcessPoolDeviceParameterRuleDO> parameterRules) {
+        Map<Long, Set<Long>> result = new LinkedHashMap<>();
+        for (MesProcessPoolDeviceParameterRuleDO rule : parameterRules) {
+            result.computeIfAbsent(rule.getRouteProcessId(), ignored -> new LinkedHashSet<>())
+                    .add(rule.getDeviceId());
+        }
+        return result;
+    }
+
     private Map<Long, List<ProcessPoolReportDevice>> listProcessPoolReportDevicesByRouteProcess(
-            List<Long> routeProcessIds) {
+            List<Long> routeProcessIds, Map<Long, Set<Long>> routeScopedDeviceIdsByRouteProcess) {
+        Set<Long> routeScopedDeviceIds = routeScopedDeviceIdsByRouteProcess.values().stream()
+                .flatMap(Set::stream)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (routeScopedDeviceIds.isEmpty()) {
+            return Map.of();
+        }
         Map<Long, Long> processIdByRouteProcessId = new LinkedHashMap<>();
         Map<Long, List<Long>> routeProcessIdsByProcessId = new LinkedHashMap<>();
         for (Long routeProcessId : routeProcessIds) {
@@ -1737,6 +1762,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         List<MesProcessPoolTeamProcessDeviceDO> bindings = processDeviceMapper.selectList(
                 new LambdaQueryWrapperX<MesProcessPoolTeamProcessDeviceDO>()
                         .in(MesProcessPoolTeamProcessDeviceDO::getProcessId, processIdByRouteProcessId.values())
+                        .in(MesProcessPoolTeamProcessDeviceDO::getDeviceId, routeScopedDeviceIds)
                         .eq(MesProcessPoolTeamProcessDeviceDO::getEnabled, Boolean.TRUE)
                         .orderByAsc(MesProcessPoolTeamProcessDeviceDO::getProcessId)
                         .orderByAsc(MesProcessPoolTeamProcessDeviceDO::getId));
@@ -1778,6 +1804,11 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             ProcessPoolReportDevice processPoolDevice =
                     new ProcessPoolReportDevice(device.getId(), deviceCode, deviceName);
             for (Long routeProcessId : routeProcessIdsForProcess) {
+                Set<Long> routeScopedDeviceIdsForProcess =
+                        routeScopedDeviceIdsByRouteProcess.getOrDefault(routeProcessId, Set.of());
+                if (!routeScopedDeviceIdsForProcess.contains(device.getId())) {
+                    continue;
+                }
                 String emittedKey = routeProcessId + "|" + device.getId();
                 if (emittedDeviceKeys.add(emittedKey)) {
                     result.computeIfAbsent(routeProcessId, ignored -> new ArrayList<>()).add(processPoolDevice);

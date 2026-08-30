@@ -273,17 +273,23 @@ test.describe('registration certificate renewal row dialog real UI', () => {
       await expect(dialog.getByRole('button', { name: '提交审批' })).toBeVisible()
 
       await expect(dialog.locator('input[placeholder="请输入变更后的注册证号"]')).toHaveCount(0)
-      await expect(dialog.locator('input[placeholder="请输入变更后的类别"]')).toHaveCount(0)
+      await expect(
+        dialog.locator('[data-testid="registration-certificate-renewal-classification"]')
+      ).toHaveCount(0)
       await selectDialogOption(page, dialog, '类别否变更', '是')
       await expect(dialog.locator('input[placeholder="请输入变更后的注册证号"]')).toBeVisible()
-      await expect(dialog.locator('input[placeholder="请输入变更后的类别"]')).toBeVisible()
+      await expect(
+        dialog.locator('[data-testid="registration-certificate-renewal-classification"]')
+      ).toBeVisible()
 
       const screenshotPath = testInfo.outputPath('registration-certificate-renewal-dialog.png')
       await page.screenshot({ path: screenshotPath, fullPage: true })
 
       await selectDialogOption(page, dialog, '类别否变更', '否')
       await expect(dialog.locator('input[placeholder="请输入变更后的注册证号"]')).toHaveCount(0)
-      await expect(dialog.locator('input[placeholder="请输入变更后的类别"]')).toHaveCount(0)
+      await expect(
+        dialog.locator('[data-testid="registration-certificate-renewal-classification"]')
+      ).toHaveCount(0)
 
       expect(evidence.writeRequests, 'read-only dialog inspection must not submit writes').toEqual([])
       expect(evidence.requestFailures, 'targeted auth and registration requests must not fail').toEqual([])

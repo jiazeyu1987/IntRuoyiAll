@@ -87,6 +87,15 @@
 - 夜班启用必须有对应日历规则和可用班次；缺少夜班日历不能用白班、默认日期或空窗口继续排。
 - 产线日历缺失、路线工序日历缺失、班时冲突、容量覆盖不足都必须形成明确 issue；是否 BLOCKING 或 WARNING 必须由业务规则显式决定。
 
+## 排程日历用料映射告警门禁
+
+- Trigger: 排程日历月份视图、单日详情、生产用料清单、`mes_kingdee_production_material_list`、`childMaterialId`、`生产用料清单子项未映射本地物料`、`MATERIAL_DEMAND`。
+- Preflight check: 先区分“整张生产用料清单缺失”“用料清单子项缺应发数量”“子项 ERP 编码存在但本地物料 ID 未映射”三类情况；未映射子项只能在排程日历读模型中作为 `WARNING` 告警暴露，库存需求只统计已经解析到正式本地物料 ID 的子项。
+- Blocker: 整张生产用料清单缺失、已映射子项缺应发数量、试图伪造或跨租户填充 `childMaterialId`、或把未映射子项计入库存汇总时必须停止。
+- Verification: 后端回归必须覆盖月份视图和单日详情在未映射子项存在时主流程继续，单日详情 `scheduleIssueSummary` 返回 `MATERIAL_DEMAND / WARNING`，且 `materialDemandSummary` 不包含无本地物料 ID 的子项；同时保留整张清单缺失和缺应发数量的阻断测试。
+- Forbidden action: 禁止吞掉告警、返回默认库存充足、手工补本地物料 ID、跨租户引用物料、把未映射 ERP 编码当作本地物料参与缺料计算，或为了日历展示放宽生产用料清单同步的数据治理。
+- Evidence: `doc/tasks/20260830-schedule-calendar-material-mapping-warning/verification-report.md`。
+
 ## 工作台产能覆盖门禁
 
 - Trigger: 排产员工作台编辑“班次产能”、保存 `process-wip-settings`、统一班次小时、手动重排刷新路线配置快照或修改 `refreshScheduleOrderProcessesFromRouteConfig`。

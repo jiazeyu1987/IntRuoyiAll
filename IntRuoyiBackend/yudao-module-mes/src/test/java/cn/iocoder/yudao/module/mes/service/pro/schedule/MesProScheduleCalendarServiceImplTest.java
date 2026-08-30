@@ -2439,6 +2439,74 @@ class MesProScheduleCalendarServiceImplTest {
     }
 
     @Test
+    void getDayDetail_shouldWarnAndContinueWhenProductionMaterialItemIsUnmapped() {
+        stubRuleAndSimulation();
+        MesProTaskDO task = MesProTaskDO.builder()
+                .id(100L)
+                .code("PT-0001")
+                .workOrderId(200L)
+                .workstationId(300L)
+                .processId(400L)
+                .itemId(500L)
+                .quantity(BigDecimal.ONE)
+                .startTime(LocalDateTime.of(2026, 5, 13, 8, 0))
+                .endTime(LocalDateTime.of(2026, 5, 13, 16, 0))
+                .build();
+        task.setUpdateTime(LocalDateTime.of(2026, 5, 13, 9, 0));
+        when(taskMapper.selectListByStartTimeRange(isNull(), any())).thenReturn(List.of(task));
+        when(taskMapper.selectCurrentScheduleCount()).thenReturn(1L);
+        when(taskMapper.selectLatestUpdatedTask()).thenReturn(task);
+        when(workOrderService.getWorkOrderMap(anyCollection())).thenReturn(Map.of(
+                200L, MesProWorkOrderDO.builder().id(200L).code("881MO101365").productId(500L).build()));
+        when(productionMaterialListMapper.selectListByWorkOrderIds(anyCollection())).thenReturn(List.of(
+                MesKingdeeProductionMaterialListDO.builder()
+                        .id(901L)
+                        .workOrderId(200L)
+                        .childMaterialCode("A006.015.2003")
+                        .childMaterialName("未映射子项")
+                        .requiredQuantity(BigDecimal.ONE)
+                        .build()));
+        when(workstationMapper.selectByIds(anyCollection())).thenReturn(List.of(
+                MesMdWorkstationDO.builder().id(300L).workshopId(700L).productionLineId(600L).build()));
+        when(productionLineService.getProductionLineMap(anyCollection())).thenReturn(Map.of(600L,
+                MesMdProductionLineDO.builder().id(600L).calendarPlanId(800L).code("LINE-01").name("Line 01").build()));
+        when(workshopService.getWorkshopMap(anyCollection())).thenReturn(Map.of(700L,
+                MesMdWorkshopDO.builder().id(700L).code("WS-01").name("Workshop 01").build()));
+        when(processService.getProcessMap(anyCollection())).thenReturn(Map.of(400L,
+                MesProProcessDO.builder().id(400L).name("Cut").build()));
+        when(itemService.getItemMap(anyCollection())).thenReturn(Map.of(500L,
+                new MesMdItemDO().setId(500L).setCode("ITEM-01").setName("Item 01")));
+        when(taskScheduleExtMapper.selectListByTaskIds(anyCollection())).thenReturn(List.of(
+                MesProTaskScheduleExtDO.builder().taskId(100L).scheduleSource("AUTO").locked(false).riskStatus("NONE").build()));
+        when(planShiftService.getPlanShiftListByPlanId(800L)).thenReturn(List.of(
+                MesCalPlanShiftDO.builder().id(801L).planId(800L).sort(1).name("Day").startTime("08:00").endTime("16:00").build()));
+        when(capacityPlanMapper.selectListByLineIdsAndDate(anyCollection(), any())).thenReturn(List.of(
+                MesProCapacityPlanDO.builder()
+                        .id(950L).lineId(600L).shiftId(801L)
+                        .calendarDate(LocalDateTime.of(2026, 5, 13, 0, 0))
+                        .capacityMinutes(480).enabled(true).build()));
+        when(scheduleIssueMapper.selectListByWorkOrderIds(anyCollection())).thenReturn(Collections.emptyList());
+
+        var monthResp = assertDoesNotThrow(() -> service.getMonth("2026-05"));
+        var dayResp = assertDoesNotThrow(() -> service.getDayDetail("2026-05-13"));
+
+        assertEquals(1, monthResp.getDays().stream()
+                .filter(day -> "2026-05-13".equals(day.getDate()))
+                .findFirst()
+                .orElseThrow()
+                .getTotalTaskCount());
+        assertEquals(1, dayResp.getWorkshops().get(0).getLines().get(0).getTasks().size());
+        assertEquals(0, dayResp.getMaterialDemandSummary().getMaterialCount());
+        assertEquals(1, dayResp.getScheduleIssueSummary().getOpenIssueCount());
+        assertEquals(0, dayResp.getScheduleIssueSummary().getBlockingIssueCount());
+        var warning = dayResp.getScheduleIssueSummary().getItems().get(0);
+        assertEquals("MATERIAL_DEMAND", warning.getIssueType());
+        assertEquals("WARNING", warning.getSeverity());
+        assertEquals("881MO101365", warning.getWorkOrderCode());
+        assertTrue(warning.getMessage().contains("A006.015.2003"));
+    }
+
+    @Test
     void getMonth_shouldFailFastWhenProductionMaterialListMissing() {
         stubRuleAndSimulation();
         MesProTaskDO task = MesProTaskDO.builder()

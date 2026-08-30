@@ -8,6 +8,7 @@
       <el-tab-pane name="current" label="注册证">
         <div data-testid="registration-certificate-current-tab">
           <UnifiedListTemplate
+            class="registration-certificate-current-list"
             :table-key="CURRENT_TABLE_KEY"
             :query-model="queryParams"
             label-width="82px"
@@ -20,12 +21,15 @@
             :column-saving="currentColumnSaving"
             :show-column-reset="false"
             :total="total"
+            single-line-toolbar
             v-model:page="queryParams.pageNo"
             v-model:limit="queryParams.pageSize"
             @update:quick-filter-state="currentQuickFilter.updateState"
             @quick-filter-query="currentQuickFilter.applyQuickFilter"
             @column-change="saveCurrentColumnConfig"
             @pagination="loadPage"
+            v-model:sort-state="currentSortState"
+            @sort-change="handleCurrentSortChange"
           >
             <template #actions>
               <el-button v-hasPermi="['dcc:registration-certificate:upload:create']" type="success" @click="openUploadDialog">
@@ -33,7 +37,7 @@
               </el-button>
             </template>
 
-            <template #table>
+            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-table
                 v-loading="loading"
                 data-user-table-column-explicit
@@ -44,6 +48,7 @@
                 :show-overflow-tooltip="true"
                 row-key="certificateId"
                 @header-dragend="handleCurrentHeaderDragend"
+                @sort-change="handleTemplateSortChange"
               >
                 <el-table-column
                   v-if="isCurrentColumnVisible('certificateNo')"
@@ -51,6 +56,7 @@
                   prop="certificateNo"
                   :min-width="getCurrentColumnMinWidthString('certificateNo', 180)"
                   :width="getCurrentColumnWidthString('certificateNo')"
+                  v-bind="sortColumnAttrs('certificateNo')"
                 />
                 <el-table-column
                   v-if="isCurrentColumnVisible('ownerCompanyName')"
@@ -58,6 +64,7 @@
                   prop="ownerCompanyName"
                   :min-width="getCurrentColumnMinWidthString('ownerCompanyName', 180)"
                   :width="getCurrentColumnWidthString('ownerCompanyName')"
+                  v-bind="sortColumnAttrs('ownerCompanyName')"
                 />
                 <el-table-column
                   v-if="isCurrentColumnVisible('productName')"
@@ -65,6 +72,15 @@
                   prop="productName"
                   :min-width="getCurrentColumnMinWidthString('productName', 180)"
                   :width="getCurrentColumnWidthString('productName')"
+                  v-bind="sortColumnAttrs('productName')"
+                />
+                <el-table-column
+                  v-if="isCurrentColumnVisible('classification')"
+                  label="分类"
+                  prop="classification"
+                  :min-width="getCurrentColumnMinWidthString('classification', 110)"
+                  :width="getCurrentColumnWidthString('classification')"
+                  v-bind="sortColumnAttrs('classification')"
                 />
                 <el-table-column
                   v-if="isCurrentColumnVisible('projectCode')"
@@ -72,6 +88,7 @@
                   prop="projectCode"
                   :min-width="getCurrentColumnMinWidthString('projectCode', 150)"
                   :width="getCurrentColumnWidthString('projectCode')"
+                  v-bind="sortColumnAttrs('projectCode')"
                 />
                 <el-table-column
                   v-if="isCurrentColumnVisible('versionNo')"
@@ -79,6 +96,7 @@
                   prop="versionNo"
                   align="center"
                   :width="getCurrentColumnWidthString('versionNo', 90)"
+                  v-bind="sortColumnAttrs('versionNo')"
                 />
                 <el-table-column
                   v-if="isCurrentColumnVisible('status')"
@@ -86,6 +104,7 @@
                   prop="status"
                   align="center"
                   :width="getCurrentColumnWidthString('status', 130)"
+                  v-bind="sortColumnAttrs('status')"
                 >
                   <template #default="{ row }">
                     <el-tag :type="getRegistrationCertificateStatusTagType(row.status)">
@@ -96,8 +115,8 @@
                 <el-table-column
                   v-if="isCurrentColumnVisible('reminder')"
                   label="提醒状态"
-                  prop="visualState"
                   width="120"
+                  :sortable="false"
                 >
                   <template #default="{ row }">
                     <el-tag :type="getRegistrationCertificateReminderTagType(row.reminderColor)">
@@ -108,8 +127,10 @@
                 <el-table-column
                   v-if="isCurrentColumnVisible('hasProjectCode')"
                   label="项目代码"
+                  prop="hasProjectCode"
                   align="center"
                   :width="getCurrentColumnWidthString('hasProjectCode', 110)"
+                  v-bind="sortColumnAttrs('hasProjectCode')"
                 >
                   <template #default="{ row }">
                     <el-tag :type="getMissingMarkerTagType(row.hasProjectCode)">
@@ -120,8 +141,10 @@
                 <el-table-column
                   v-if="isCurrentColumnVisible('hasRegistrationFile')"
                   label="注册证文件"
+                  prop="hasRegistrationFile"
                   align="center"
                   :width="getCurrentColumnWidthString('hasRegistrationFile', 120)"
+                  v-bind="sortColumnAttrs('hasRegistrationFile')"
                 >
                   <template #default="{ row }">
                     <el-tag :type="getMissingMarkerTagType(row.hasRegistrationFile)">
@@ -134,6 +157,7 @@
                   label="批准日"
                   prop="approvalDate"
                   :width="getCurrentColumnWidthString('approvalDate', 120)"
+                  v-bind="sortColumnAttrs('approvalDate')"
                 >
                   <template #default="{ row }">
                     {{ formatRegistrationCertificateDate(row.approvalDate) }}
@@ -144,6 +168,7 @@
                   label="生效日"
                   prop="effectiveDate"
                   :width="getCurrentColumnWidthString('effectiveDate', 120)"
+                  v-bind="sortColumnAttrs('effectiveDate')"
                 >
                   <template #default="{ row }">
                     {{ formatRegistrationCertificateDate(row.effectiveDate) }}
@@ -154,6 +179,7 @@
                   label="有效期至"
                   prop="expiryDate"
                   :width="getCurrentColumnWidthString('expiryDate', 120)"
+                  v-bind="sortColumnAttrs('expiryDate')"
                 >
                   <template #default="{ row }">
                     {{ formatRegistrationCertificateDate(row.expiryDate) }}
@@ -165,6 +191,7 @@
                   prop="remark"
                   :min-width="getCurrentColumnMinWidthString('remark', 220)"
                   :width="getCurrentColumnWidthString('remark')"
+                  v-bind="sortColumnAttrs('remark')"
                 />
                 <el-table-column
                   v-if="isCurrentColumnVisible('actions')"
@@ -227,8 +254,10 @@
             @quick-filter-query="oldQuickFilter.applyQuickFilter"
             @column-change="saveOldColumnConfig"
             @pagination="loadOldIndexPage"
+            v-model:sort-state="oldSortState"
+            @sort-change="handleOldSortChange"
           >
-            <template #table>
+            <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
               <el-table
                 v-loading="oldLoading"
                 data-user-table-column-explicit
@@ -239,6 +268,7 @@
                 :show-overflow-tooltip="true"
                 row-key="versionId"
                 @header-dragend="handleOldHeaderDragend"
+                @sort-change="handleTemplateSortChange"
               >
                 <el-table-column
                   v-if="isOldColumnVisible('certificateNo')"
@@ -246,6 +276,7 @@
                   prop="certificateNo"
                   :min-width="getOldColumnMinWidthString('certificateNo', 180)"
                   :width="getOldColumnWidthString('certificateNo')"
+                  v-bind="sortColumnAttrs('certificateNo')"
                 />
                 <el-table-column
                   v-if="isOldColumnVisible('ownerCompanyName')"
@@ -253,6 +284,7 @@
                   prop="ownerCompanyName"
                   :min-width="getOldColumnMinWidthString('ownerCompanyName', 180)"
                   :width="getOldColumnWidthString('ownerCompanyName')"
+                  v-bind="sortColumnAttrs('ownerCompanyName')"
                 />
                 <el-table-column
                   v-if="isOldColumnVisible('productName')"
@@ -260,6 +292,15 @@
                   prop="productName"
                   :min-width="getOldColumnMinWidthString('productName', 180)"
                   :width="getOldColumnWidthString('productName')"
+                  v-bind="sortColumnAttrs('productName')"
+                />
+                <el-table-column
+                  v-if="isOldColumnVisible('classification')"
+                  label="分类"
+                  prop="classification"
+                  :min-width="getOldColumnMinWidthString('classification', 110)"
+                  :width="getOldColumnWidthString('classification')"
+                  v-bind="sortColumnAttrs('classification')"
                 />
                 <el-table-column
                   v-if="isOldColumnVisible('versionNo')"
@@ -267,6 +308,7 @@
                   prop="versionNo"
                   align="center"
                   :width="getOldColumnWidthString('versionNo', 90)"
+                  v-bind="sortColumnAttrs('versionNo')"
                 />
                 <el-table-column
                   v-if="isOldColumnVisible('status')"
@@ -274,6 +316,7 @@
                   prop="status"
                   align="center"
                   :width="getOldColumnWidthString('status', 130)"
+                  v-bind="sortColumnAttrs('status')"
                 >
                   <template #default="{ row }">
                     <el-tag :type="getRegistrationCertificateStatusTagType(row.status)">
@@ -286,6 +329,7 @@
                   label="原有效期至"
                   prop="expiryDate"
                   :width="getOldColumnWidthString('expiryDate', 140)"
+                  v-bind="sortColumnAttrs('expiryDate')"
                 >
                   <template #default="{ row }">
                     {{ formatRegistrationCertificateDate(row.expiryDate) }}
@@ -348,7 +392,8 @@ import {
   getRegistrationCertificatePage,
   type DccRegistrationCertificateOldIndexItemVO,
   type DccRegistrationCertificatePageItemVO,
-  type DccRegistrationCertificatePageReqVO
+  type DccRegistrationCertificatePageReqVO,
+  type RegistrationCertificateSortField
 } from '@/api/dcc/registrationCertificate'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -395,34 +440,73 @@ const OLD_TABLE_KEY = 'dcc.registrationCertificate.old.actionsWideV2'
 
 type RegistrationCertificatePageQuery = DccRegistrationCertificatePageReqVO &
   Required<Pick<PageParam, 'pageNo' | 'pageSize'>>
+type RegistrationCertificateSortOrder = 'ascending' | 'descending' | null
+type RegistrationCertificateSortState = {
+  key?: string
+  prop?: string
+  order?: RegistrationCertificateSortOrder
+}
+type RegistrationCertificateSortChange = RegistrationCertificateSortState & {
+  column?: unknown
+}
 
 const queryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
 const oldQueryParams = reactive<RegistrationCertificatePageQuery>({ pageNo: 1, pageSize: 10 })
+const currentSortState = ref<RegistrationCertificateSortState>({})
+const oldSortState = ref<RegistrationCertificateSortState>({})
+
+const CURRENT_SERVER_SORT_FIELDS = new Set<RegistrationCertificateSortField>([
+  'certificateNo',
+  'ownerCompanyName',
+  'productName',
+  'classification',
+  'projectCode',
+  'versionNo',
+  'status',
+  'hasProjectCode',
+  'hasRegistrationFile',
+  'approvalDate',
+  'effectiveDate',
+  'expiryDate',
+  'remark'
+])
+
+const OLD_SERVER_SORT_FIELDS = new Set<RegistrationCertificateSortField>([
+  'certificateNo',
+  'ownerCompanyName',
+  'productName',
+  'classification',
+  'versionNo',
+  'status',
+  'expiryDate'
+])
 
 const currentColumnDefinitions: UserTableColumnDefinition[] = [
-  { key: 'certificateNo', label: '注册证编号', minWidth: 180, sortable: false },
-  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180, sortable: false },
-  { key: 'productName', label: '产品', minWidth: 180, sortable: false },
-  { key: 'projectCode', label: '实际项目代码', minWidth: 150, sortable: false },
-  { key: 'versionNo', label: '版本', width: 90, sortable: false },
-  { key: 'status', label: '状态', width: 130, sortable: false },
+  { key: 'certificateNo', label: '注册证编号', minWidth: 180 },
+  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180 },
+  { key: 'productName', label: '产品', minWidth: 180 },
+  { key: 'classification', label: '分类', minWidth: 110 },
+  { key: 'projectCode', label: '实际项目代码', minWidth: 150 },
+  { key: 'versionNo', label: '版本', width: 90 },
+  { key: 'status', label: '状态', width: 130 },
   { key: 'reminder', label: '提醒状态', width: 120, sortable: false },
-  { key: 'hasProjectCode', label: '项目代码', width: 110, sortable: false },
-  { key: 'hasRegistrationFile', label: '注册证文件', width: 120, sortable: false },
-  { key: 'approvalDate', label: '批准日', width: 120, sortable: false },
-  { key: 'effectiveDate', label: '生效日', width: 120, sortable: false },
-  { key: 'expiryDate', label: '有效期至', width: 120, sortable: false },
-  { key: 'remark', label: '备注', minWidth: 220, sortable: false },
+  { key: 'hasProjectCode', label: '项目代码', width: 110 },
+  { key: 'hasRegistrationFile', label: '注册证文件', width: 120 },
+  { key: 'approvalDate', label: '批准日', width: 120 },
+  { key: 'effectiveDate', label: '生效日', width: 120 },
+  { key: 'expiryDate', label: '有效期至', width: 120 },
+  { key: 'remark', label: '备注', minWidth: 220 },
   { key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false }
 ]
 
 const oldColumnDefinitions: UserTableColumnDefinition[] = [
-  { key: 'certificateNo', label: '注册证编号', minWidth: 180, sortable: false },
-  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180, sortable: false },
-  { key: 'productName', label: '产品', minWidth: 180, sortable: false },
-  { key: 'versionNo', label: '版本', width: 90, sortable: false },
-  { key: 'status', label: '状态', width: 130, sortable: false },
-  { key: 'expiryDate', label: '原有效期至', width: 140, sortable: false },
+  { key: 'certificateNo', label: '注册证编号', minWidth: 180 },
+  { key: 'ownerCompanyName', label: '所属公司', minWidth: 180 },
+  { key: 'productName', label: '产品', minWidth: 180 },
+  { key: 'classification', label: '分类', minWidth: 110 },
+  { key: 'versionNo', label: '版本', width: 90 },
+  { key: 'status', label: '状态', width: 130 },
+  { key: 'expiryDate', label: '原有效期至', width: 140 },
   { key: 'actions', label: '操作', width: 420, hideable: false, business: false, sortable: false }
 ]
 
@@ -695,6 +779,57 @@ const loadOldIndexPage = async () => {
   }
 }
 
+const applyRegistrationCertificateSort = (
+  payload: RegistrationCertificateSortChange,
+  query: RegistrationCertificatePageQuery,
+  updateSortState: (state: RegistrationCertificateSortState) => void,
+  allowedFields: Set<RegistrationCertificateSortField>,
+  load: () => Promise<void>
+) => {
+  const sortField = payload.prop || payload.key
+  const order = payload.order
+  if (!order) {
+    delete query.sortField
+    delete query.sortOrder
+    query.pageNo = 1
+    updateSortState({})
+    void load()
+    return
+  }
+  if (!sortField || !allowedFields.has(sortField as RegistrationCertificateSortField)) {
+    throw new Error(`注册证列表排序字段未配置：${sortField || '-'}`)
+  }
+  query.sortField = sortField as RegistrationCertificateSortField
+  query.sortOrder = order === 'ascending' ? 'asc' : 'desc'
+  query.pageNo = 1
+  updateSortState({ key: sortField, prop: sortField, order })
+  void load()
+}
+
+const handleCurrentSortChange = (payload: RegistrationCertificateSortChange) => {
+  applyRegistrationCertificateSort(
+    payload,
+    queryParams,
+    (state) => {
+      currentSortState.value = state
+    },
+    CURRENT_SERVER_SORT_FIELDS,
+    loadPage
+  )
+}
+
+const handleOldSortChange = (payload: RegistrationCertificateSortChange) => {
+  applyRegistrationCertificateSort(
+    payload,
+    oldQueryParams,
+    (state) => {
+      oldSortState.value = state
+    },
+    OLD_SERVER_SORT_FIELDS,
+    loadOldIndexPage
+  )
+}
+
 const currentQuickFilter = useTableQuickFilter(
   'dcc.registrationCertificate.current',
   currentQuickFilterDefinitions,
@@ -806,6 +941,30 @@ watch(
 </script>
 
 <style scoped>
+@media (min-width: 1181px) {
+  .registration-certificate-current-list.unified-list-template--single-line-toolbar
+    :deep(.unified-list-template__query-form) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .registration-certificate-current-list.unified-list-template--single-line-toolbar
+    :deep(.unified-list-template__multi-filter) {
+    min-width: 0;
+  }
+
+  .registration-certificate-current-list.unified-list-template--single-line-toolbar
+    :deep(.table-multi-filter),
+  .registration-certificate-current-list.unified-list-template--single-line-toolbar
+    :deep(.table-multi-filter__tabs-empty) {
+    min-width: 0;
+  }
+
+  .registration-certificate-current-list.unified-list-template--single-line-toolbar
+    :deep(.unified-list-template__toolbar) {
+    white-space: nowrap;
+  }
+}
+
 .registration-certificate-row-actions {
   display: grid;
   width: 100%;

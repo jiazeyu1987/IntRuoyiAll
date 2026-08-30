@@ -359,7 +359,7 @@ public interface ErrorCodeConstants {
     ErrorCode REGISTRATION_CERTIFICATE_PROJECT_CODE_PRODUCT_MISMATCH = new ErrorCode(1_080_000_231,
             "Registration certificate project code product mismatch");
     ErrorCode REGISTRATION_CERTIFICATE_DATE_ORDER_INVALID = new ErrorCode(1_080_000_232,
-            "Registration certificate date order is invalid");
+            "注册证日期顺序不正确：首次获证日期不能晚于生效日期，生效日期必须早于有效期至");
     ErrorCode REGISTRATION_CERTIFICATE_FIRST_OBTAINED_DATE_INVALID = new ErrorCode(1_080_000_233,
             "Registration certificate first obtained date is invalid");
     ErrorCode REGISTRATION_CERTIFICATE_APPROVAL_DATE_INVALID = new ErrorCode(1_080_000_234,
@@ -494,5 +494,7 @@ public interface ErrorCodeConstants {
             "Registration certificate access audit conflict");
     ErrorCode REGISTRATION_CERTIFICATE_ACCESS_SCHEMA_CONFLICT = new ErrorCode(1_080_000_299,
             "Registration certificate access schema conflict");
+    ErrorCode REGISTRATION_CERTIFICATE_SORT_INVALID = new ErrorCode(1_080_000_300,
+            "Registration certificate list sort parameter is invalid");
 
 }

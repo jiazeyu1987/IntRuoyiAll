@@ -29,6 +29,7 @@ import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.apache.ibatis.exceptions.TooManyResultsException;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -702,6 +703,67 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
         verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
         verify(syncRecordMapper, never()).updateById(any(MesKingdeeProductionOrderSyncRecordDO.class));
+    }
+
+    @Test
+    void syncWorkOrders_failsFastWithBusinessMessageWhenSourceRecordKeyIsDuplicated() {
+        ErpKingdeeProductionOrder order = buildOrder();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
+        when(syncRecordMapper.selectBySourceKey("310119", "MAT-001"))
+                .thenThrow(new TooManyResultsException(
+                        "Expected one result (or null) to be returned by selectOne(), but found: 2"));
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> syncService.syncWorkOrders());
+
+        assertTrue(exception.getMessage().contains("生产订单同步记录重复"));
+        assertTrue(exception.getMessage().contains("sourceFid=310119"));
+        assertTrue(exception.getMessage().contains("sourceMaterialNumber=MAT-001"));
+        assertTrue(!exception.getMessage().contains("Expected one result"));
+        verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
+        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+    }
+
+    @Test
+    void syncWorkOrders_failsFastWithBusinessMessageWhenWorkOrderCodeIsDuplicated() {
+        ErpKingdeeProductionOrder order = buildOrder();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
+        when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
+        when(workOrderService.getWorkOrder("881MO091049"))
+                .thenThrow(new TooManyResultsException(
+                        "Expected one result (or null) to be returned by selectOne(), but found: 2"));
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> syncService.syncWorkOrders());
+
+        assertTrue(exception.getMessage().contains("生产工单编码重复"));
+        assertTrue(exception.getMessage().contains("workOrderCode=881MO091049"));
+        assertTrue(exception.getMessage().contains("sourceKey=310119:MAT-001"));
+        assertTrue(!exception.getMessage().contains("Expected one result"));
+        verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
+        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+    }
+
+    @Test
+    void syncWorkOrders_failsFastWithBusinessMessageWhenUnitCodeIsDuplicated() {
+        ErpKingdeeProductionOrder order = buildOrder();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
+        when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
+        when(workOrderService.getWorkOrder("881MO091049")).thenReturn(null);
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(null);
+        when(unitMeasureMapper.selectByCode("kg"))
+                .thenThrow(new TooManyResultsException(
+                        "Expected one result (or null) to be returned by selectOne(), but found: 2"));
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> syncService.syncWorkOrders());
+
+        assertTrue(exception.getMessage().contains("计量单位编码重复"));
+        assertTrue(exception.getMessage().contains("unitCode=kg"));
+        assertTrue(exception.getMessage().contains("workOrderCode=881MO091049"));
+        assertTrue(!exception.getMessage().contains("Expected one result"));
+        verify(itemMapper, never()).insert(any(MesMdItemDO.class));
+        verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
     }
 
     @Test

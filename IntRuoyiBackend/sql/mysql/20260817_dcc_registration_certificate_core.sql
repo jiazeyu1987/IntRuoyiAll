@@ -42,6 +42,19 @@ BEGIN
 
     IF EXISTS (
       SELECT 1
+        FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'dcc_registration_certificate'
+         AND COLUMN_NAME = 'product_master_id'
+         AND IS_NULLABLE = 'NO'
+    ) THEN
+      -- Uploads can keep a hand-entered product name in the snapshot without binding an MDM product.
+      ALTER TABLE `dcc_registration_certificate`
+        MODIFY COLUMN `product_master_id` bigint DEFAULT NULL COMMENT 'Optional MDM product master id';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
         FROM information_schema.TABLE_CONSTRAINTS AS actual_check
         JOIN information_schema.CHECK_CONSTRAINTS AS actual_check_expression
           ON actual_check_expression.CONSTRAINT_SCHEMA = actual_check.CONSTRAINT_SCHEMA
@@ -88,7 +101,7 @@ BEGIN
     VALUES
       ('dcc_registration_certificate', 'id', 'bigint', 'NO', FALSE),
       ('dcc_registration_certificate', 'owner_company_id', 'bigint', 'NO', FALSE),
-      ('dcc_registration_certificate', 'product_master_id', 'bigint', 'NO', FALSE),
+      ('dcc_registration_certificate', 'product_master_id', 'bigint', 'YES', FALSE),
       ('dcc_registration_certificate', 'project_code_id', 'bigint', 'YES', FALSE),
       ('dcc_registration_certificate', 'first_obtained_date', 'date', 'YES', FALSE),
       ('dcc_registration_certificate', 'current_version_id', 'bigint', 'YES', FALSE),
@@ -471,7 +484,7 @@ CALL assert_dcc_registration_certificate_core_contract();
 CREATE TABLE IF NOT EXISTS `dcc_registration_certificate` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Registration certificate aggregate id',
   `owner_company_id` bigint NOT NULL COMMENT 'Owning company enterprise id',
-  `product_master_id` bigint NOT NULL COMMENT 'MDM product master id',
+  `product_master_id` bigint DEFAULT NULL COMMENT 'Optional MDM product master id',
   `project_code_id` bigint DEFAULT NULL COMMENT 'Optional DCC project code id',
   `first_obtained_date` date DEFAULT NULL COMMENT 'First certificate obtained date',
   `current_version_id` bigint DEFAULT NULL COMMENT 'Current formal version id',

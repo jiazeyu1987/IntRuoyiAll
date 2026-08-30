@@ -36,4 +36,6 @@ public class DccRegistrationCertificatePageQuery {
     private LocalDate effectiveEnd;
     private LocalDate expiryStart;
     private LocalDate expiryEnd;
+    private String sortField;
+    private String sortOrder;
 }

@@ -167,7 +167,8 @@ public class DccRegistrationCertificateCommandTransactionService {
     private static DccRegistrationCertificateDraftData storedDraft(DccRegistrationCertificateDraftState state) {
         return new DccRegistrationCertificateDraftData(
                 state.certificate().getOwnerCompanyId(), state.certificate().getProductMasterId(),
-                state.certificate().getProjectCodeId(), state.certificate().getFirstObtainedDate(),
+                state.snapshot().getProductName(), state.certificate().getProjectCodeId(),
+                state.certificate().getFirstObtainedDate(),
                 state.version().getCertificateNo(), state.version().getApprovalDate(),
                 state.version().getEffectiveDate(), state.version().getExpiryDate(),
                 state.version().getClassification(), state.snapshot().getRegistrantName(),

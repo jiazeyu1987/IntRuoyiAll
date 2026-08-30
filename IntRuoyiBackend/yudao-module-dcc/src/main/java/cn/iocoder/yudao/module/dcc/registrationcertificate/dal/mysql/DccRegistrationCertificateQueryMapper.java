@@ -55,7 +55,7 @@ public interface DccRegistrationCertificateQueryMapper {
 
         public static String selectPage() {
             return script(select(), currentWhere() + filters(),
-                    " ORDER BY c.owner_company_id ASC, v.expiry_date ASC, c.id ASC, v.version_no ASC"
+                    currentOrderBy()
                             + " LIMIT #{limit} OFFSET #{offset}");
         }
 
@@ -80,8 +80,155 @@ public interface DccRegistrationCertificateQueryMapper {
 
         public static String selectOldIndexPage() {
             return script(select(), commonWhere() + " AND v.status = 'OLD'" + oldIndexFilters(),
-                    " ORDER BY v.expiry_date DESC, c.id ASC, v.version_no DESC"
+                    oldIndexOrderBy()
                             + " LIMIT #{limit} OFFSET #{offset}");
+        }
+
+        private static final String SORT_ORDER_ASC = "asc";
+        private static final String SORT_ORDER_DESC = "desc";
+        private static final String SORT_FIELD_CERTIFICATE_NO = "certificateNo";
+        private static final String SORT_FIELD_OWNER_COMPANY_NAME = "ownerCompanyName";
+        private static final String SORT_FIELD_PRODUCT_NAME = "productName";
+        private static final String SORT_FIELD_CLASSIFICATION = "classification";
+        private static final String SORT_FIELD_PROJECT_CODE = "projectCode";
+        private static final String SORT_FIELD_VERSION_NO = "versionNo";
+        private static final String SORT_FIELD_STATUS = "status";
+        private static final String SORT_FIELD_HAS_PROJECT_CODE = "hasProjectCode";
+        private static final String SORT_FIELD_HAS_REGISTRATION_FILE = "hasRegistrationFile";
+        private static final String SORT_FIELD_APPROVAL_DATE = "approvalDate";
+        private static final String SORT_FIELD_EFFECTIVE_DATE = "effectiveDate";
+        private static final String SORT_FIELD_EXPIRY_DATE = "expiryDate";
+        private static final String SORT_FIELD_REMARK = "remark";
+        private static final String OWNER_COMPANY_NAME_SORT_EXPRESSION =
+                "(SELECT MIN(e.name) FROM mdm_enterprise e"
+                        + " WHERE e.tenant_id = c.tenant_id"
+                        + " AND e.id = c.owner_company_id"
+                        + " AND e.deleted = 0"
+                        + " AND e.type = 'OWNED_COMPANY')";
+        private static final String PROJECT_CODE_EXISTS_SORT_EXPRESSION =
+                "CASE WHEN c.project_code_id IS NULL THEN 0 ELSE 1 END";
+        private static final String REGISTRATION_FILE_EXISTS_SORT_EXPRESSION =
+                "CASE WHEN EXISTS ("
+                        + "SELECT 1 FROM dcc_registration_certificate_file f"
+                        + " WHERE f.tenant_id = c.tenant_id"
+                        + " AND f.owner_type = 'VERSION'"
+                        + " AND f.owner_id = v.id"
+                        + " AND f.file_kind = 'REGISTRATION_CERTIFICATE'"
+                        + " AND f.status = 'BOUND'"
+                        + " AND f.deleted = 0"
+                        + ") THEN 1 ELSE 0 END";
+
+        private static String currentOrderBy() {
+            String stableOrder = ", c.owner_company_id ASC, v.expiry_date ASC, c.id ASC, v.version_no ASC";
+            return "<choose>"
+                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_ASC, "v.certificate_no",
+                    textBlankLast("v.certificate_no"), stableOrder)
+                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_DESC, "v.certificate_no",
+                    textBlankLast("v.certificate_no"), stableOrder)
+                    + sortWhen(SORT_FIELD_OWNER_COMPANY_NAME, SORT_ORDER_ASC, OWNER_COMPANY_NAME_SORT_EXPRESSION,
+                    textBlankLast(OWNER_COMPANY_NAME_SORT_EXPRESSION), stableOrder)
+                    + sortWhen(SORT_FIELD_OWNER_COMPANY_NAME, SORT_ORDER_DESC, OWNER_COMPANY_NAME_SORT_EXPRESSION,
+                    textBlankLast(OWNER_COMPANY_NAME_SORT_EXPRESSION), stableOrder)
+                    + sortWhen(SORT_FIELD_PRODUCT_NAME, SORT_ORDER_ASC, "s.product_name",
+                    textBlankLast("s.product_name"), stableOrder)
+                    + sortWhen(SORT_FIELD_PRODUCT_NAME, SORT_ORDER_DESC, "s.product_name",
+                    textBlankLast("s.product_name"), stableOrder)
+                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_ASC, "v.classification",
+                    textBlankLast("v.classification"), stableOrder)
+                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_DESC, "v.classification",
+                    textBlankLast("v.classification"), stableOrder)
+                    + sortWhen(SORT_FIELD_PROJECT_CODE, SORT_ORDER_ASC, "pc.project_code",
+                    textBlankLast("pc.project_code"), stableOrder)
+                    + sortWhen(SORT_FIELD_PROJECT_CODE, SORT_ORDER_DESC, "pc.project_code",
+                    textBlankLast("pc.project_code"), stableOrder)
+                    + sortWhen(SORT_FIELD_VERSION_NO, SORT_ORDER_ASC, "v.version_no",
+                    nullLast("v.version_no"), stableOrder)
+                    + sortWhen(SORT_FIELD_VERSION_NO, SORT_ORDER_DESC, "v.version_no",
+                    nullLast("v.version_no"), stableOrder)
+                    + sortWhen(SORT_FIELD_STATUS, SORT_ORDER_ASC, "v.status",
+                    textBlankLast("v.status"), stableOrder)
+                    + sortWhen(SORT_FIELD_STATUS, SORT_ORDER_DESC, "v.status",
+                    textBlankLast("v.status"), stableOrder)
+                    + sortWhen(SORT_FIELD_HAS_PROJECT_CODE, SORT_ORDER_ASC, PROJECT_CODE_EXISTS_SORT_EXPRESSION,
+                    nullLast(PROJECT_CODE_EXISTS_SORT_EXPRESSION), stableOrder)
+                    + sortWhen(SORT_FIELD_HAS_PROJECT_CODE, SORT_ORDER_DESC, PROJECT_CODE_EXISTS_SORT_EXPRESSION,
+                    nullLast(PROJECT_CODE_EXISTS_SORT_EXPRESSION), stableOrder)
+                    + sortWhen(SORT_FIELD_HAS_REGISTRATION_FILE, SORT_ORDER_ASC,
+                    REGISTRATION_FILE_EXISTS_SORT_EXPRESSION,
+                    nullLast(REGISTRATION_FILE_EXISTS_SORT_EXPRESSION), stableOrder)
+                    + sortWhen(SORT_FIELD_HAS_REGISTRATION_FILE, SORT_ORDER_DESC,
+                    REGISTRATION_FILE_EXISTS_SORT_EXPRESSION,
+                    nullLast(REGISTRATION_FILE_EXISTS_SORT_EXPRESSION), stableOrder)
+                    + sortWhen(SORT_FIELD_APPROVAL_DATE, SORT_ORDER_ASC, "v.approval_date",
+                    nullLast("v.approval_date"), stableOrder)
+                    + sortWhen(SORT_FIELD_APPROVAL_DATE, SORT_ORDER_DESC, "v.approval_date",
+                    nullLast("v.approval_date"), stableOrder)
+                    + sortWhen(SORT_FIELD_EFFECTIVE_DATE, SORT_ORDER_ASC, "v.effective_date",
+                    nullLast("v.effective_date"), stableOrder)
+                    + sortWhen(SORT_FIELD_EFFECTIVE_DATE, SORT_ORDER_DESC, "v.effective_date",
+                    nullLast("v.effective_date"), stableOrder)
+                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_ASC, "v.expiry_date",
+                    nullLast("v.expiry_date"), stableOrder)
+                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_DESC, "v.expiry_date",
+                    nullLast("v.expiry_date"), stableOrder)
+                    + sortWhen(SORT_FIELD_REMARK, SORT_ORDER_ASC, "v.remark",
+                    textBlankLast("v.remark"), stableOrder)
+                    + sortWhen(SORT_FIELD_REMARK, SORT_ORDER_DESC, "v.remark",
+                    textBlankLast("v.remark"), stableOrder)
+                    + "<otherwise> ORDER BY c.owner_company_id ASC, v.expiry_date ASC, c.id ASC, v.version_no ASC</otherwise>"
+                    + "</choose>";
+        }
+
+        private static String oldIndexOrderBy() {
+            String stableOrder = ", v.expiry_date DESC, c.id ASC, v.version_no DESC";
+            return "<choose>"
+                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_ASC, "v.certificate_no",
+                    textBlankLast("v.certificate_no"), stableOrder)
+                    + sortWhen(SORT_FIELD_CERTIFICATE_NO, SORT_ORDER_DESC, "v.certificate_no",
+                    textBlankLast("v.certificate_no"), stableOrder)
+                    + sortWhen(SORT_FIELD_OWNER_COMPANY_NAME, SORT_ORDER_ASC, OWNER_COMPANY_NAME_SORT_EXPRESSION,
+                    textBlankLast(OWNER_COMPANY_NAME_SORT_EXPRESSION), stableOrder)
+                    + sortWhen(SORT_FIELD_OWNER_COMPANY_NAME, SORT_ORDER_DESC, OWNER_COMPANY_NAME_SORT_EXPRESSION,
+                    textBlankLast(OWNER_COMPANY_NAME_SORT_EXPRESSION), stableOrder)
+                    + sortWhen(SORT_FIELD_PRODUCT_NAME, SORT_ORDER_ASC, "s.product_name",
+                    textBlankLast("s.product_name"), stableOrder)
+                    + sortWhen(SORT_FIELD_PRODUCT_NAME, SORT_ORDER_DESC, "s.product_name",
+                    textBlankLast("s.product_name"), stableOrder)
+                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_ASC, "v.classification",
+                    textBlankLast("v.classification"), stableOrder)
+                    + sortWhen(SORT_FIELD_CLASSIFICATION, SORT_ORDER_DESC, "v.classification",
+                    textBlankLast("v.classification"), stableOrder)
+                    + sortWhen(SORT_FIELD_VERSION_NO, SORT_ORDER_ASC, "v.version_no",
+                    nullLast("v.version_no"), stableOrder)
+                    + sortWhen(SORT_FIELD_VERSION_NO, SORT_ORDER_DESC, "v.version_no",
+                    nullLast("v.version_no"), stableOrder)
+                    + sortWhen(SORT_FIELD_STATUS, SORT_ORDER_ASC, "v.status",
+                    textBlankLast("v.status"), stableOrder)
+                    + sortWhen(SORT_FIELD_STATUS, SORT_ORDER_DESC, "v.status",
+                    textBlankLast("v.status"), stableOrder)
+                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_ASC, "v.expiry_date",
+                    nullLast("v.expiry_date"), stableOrder)
+                    + sortWhen(SORT_FIELD_EXPIRY_DATE, SORT_ORDER_DESC, "v.expiry_date",
+                    nullLast("v.expiry_date"), stableOrder)
+                    + "<otherwise> ORDER BY v.expiry_date DESC, c.id ASC, v.version_no DESC</otherwise>"
+                    + "</choose>";
+        }
+
+        private static String sortWhen(
+                String field, String order, String expression, String emptyRankExpression, String stableOrder) {
+            String direction = SORT_ORDER_ASC.equals(order) ? "ASC" : "DESC";
+            return "<when test=\"query != null and query.sortField == '" + field
+                    + "' and query.sortOrder == '" + order + "'\">"
+                    + " ORDER BY " + emptyRankExpression + " ASC, " + expression + " " + direction + stableOrder
+                    + "</when>";
+        }
+
+        private static String textBlankLast(String expression) {
+            return "CASE WHEN " + expression + " IS NULL OR TRIM(" + expression + ") = '' THEN 1 ELSE 0 END";
+        }
+
+        private static String nullLast(String expression) {
+            return "CASE WHEN " + expression + " IS NULL THEN 1 ELSE 0 END";
         }
 
         private static String script(String select, String where, String suffix) {

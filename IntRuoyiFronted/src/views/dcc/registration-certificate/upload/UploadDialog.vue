@@ -81,11 +81,19 @@
         </el-col>
         <el-col :span="12">
           <el-form-item label="类别" prop="classification">
-            <el-input
+            <el-select
               v-model="form.classification"
-              maxlength="64"
-              placeholder="请输入类别"
-            />
+              clearable
+              placeholder="请选择类别"
+              data-testid="registration-certificate-upload-classification"
+            >
+              <el-option
+                v-for="option in REGISTRATION_CERTIFICATE_CLASSIFICATION_OPTIONS"
+                :key="option"
+                :label="option"
+                :value="option"
+              />
+            </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -97,6 +105,7 @@
               placeholder="请选择日期"
               type="date"
               value-format="YYYY-MM-DD"
+              @change="revalidateDateFields"
             />
           </el-form-item>
         </el-col>
@@ -109,6 +118,7 @@
               placeholder="请选择日期"
               type="date"
               value-format="YYYY-MM-DD"
+              @change="revalidateDateFields"
             />
           </el-form-item>
         </el-col>
@@ -121,6 +131,7 @@
               placeholder="请选择日期"
               type="date"
               value-format="YYYY-MM-DD"
+              @change="revalidateDateFields"
             />
           </el-form-item>
         </el-col>
@@ -256,6 +267,8 @@ const entrustedEnterpriseLoading = ref(false)
 const entrustedEnterpriseOptions = ref<DccRegistrationCertificateUploadEntrustedEnterpriseRespVO[]>([])
 const fileList = ref<UploadUserFile[]>([])
 const selectedFile = ref<File | null>(null)
+const REGISTRATION_CERTIFICATE_CLASSIFICATION_OPTIONS = ['三类', '二类', '一类'] as const
+const DATE_ORDER_MESSAGE = '注册证日期顺序不正确：首次获证日期不能晚于生效日期，生效日期必须早于有效期至'
 
 type RegistrationCertificateUploadForm = Omit<
   DccRegistrationCertificateUploadSubmitReqVO,
@@ -313,14 +326,45 @@ function validateEntrustedEnterpriseIds(
   callback()
 }
 
+function isDateOrderValid() {
+  if (!form.firstObtainedDate || !form.effectiveDate || !form.expiryDate) {
+    return true
+  }
+  if (form.firstObtainedDate > form.effectiveDate || form.effectiveDate >= form.expiryDate) {
+    return false
+  }
+  return true
+}
+
+function validateDateOrder(
+  _rule: unknown,
+  _value: unknown,
+  callback: (error?: Error) => void
+) {
+  if (!isDateOrderValid()) {
+    callback(new Error(DATE_ORDER_MESSAGE))
+    return
+  }
+  callback()
+}
+
 const rules = reactive<FormRules>({
   companyName: [{ required: true, message: '请选择公司名称', trigger: 'change' }],
   productName: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
   certificateNo: [{ required: true, message: '请输入注册证号', trigger: 'blur' }],
-  firstObtainedDate: [{ required: true, message: '请选择首次获证日期', trigger: 'change' }],
-  effectiveDate: [{ required: true, message: '请选择生效日期', trigger: 'change' }],
-  expiryDate: [{ required: true, message: '请选择有效期至', trigger: 'change' }],
-  classification: [{ required: true, message: '请输入类别', trigger: 'blur' }],
+  firstObtainedDate: [
+    { required: true, message: '请选择首次获证日期', trigger: 'change' },
+    { validator: validateDateOrder, trigger: 'change' }
+  ],
+  effectiveDate: [
+    { required: true, message: '请选择生效日期', trigger: 'change' },
+    { validator: validateDateOrder, trigger: 'change' }
+  ],
+  expiryDate: [
+    { required: true, message: '请选择有效期至', trigger: 'change' },
+    { validator: validateDateOrder, trigger: 'change' }
+  ],
+  classification: [{ required: true, message: '请选择类别', trigger: 'change' }],
   entrustedProduction: [
     { required: true, message: '请选择是否委托生产', trigger: 'change' },
     { validator: validateProductionRelation, trigger: 'change' }
@@ -447,6 +491,10 @@ const revalidateProductionFields = () => {
     .catch(() => undefined)
 }
 
+const revalidateDateFields = () => {
+  void formRef.value?.validateField(['firstObtainedDate', 'effectiveDate', 'expiryDate']).catch(() => undefined)
+}
+
 const handleEntrustedProductionChange = async () => {
   if (form.entrustedProduction !== true) {
     form.entrustedEnterpriseIds = []
@@ -471,6 +519,11 @@ const handleFileRemove = () => {
 }
 
 const submit = async () => {
+  if (!isDateOrderValid()) {
+    revalidateDateFields()
+    message.error(DATE_ORDER_MESSAGE)
+    return
+  }
   await formRef.value?.validate()
   if (!selectedFile.value) {
     message.error('请先选择注册证文件')

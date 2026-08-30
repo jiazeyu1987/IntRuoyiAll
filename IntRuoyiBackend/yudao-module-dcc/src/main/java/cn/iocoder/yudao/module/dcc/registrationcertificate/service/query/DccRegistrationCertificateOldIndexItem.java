@@ -23,6 +23,7 @@ public class DccRegistrationCertificateOldIndexItem {
     private String projectCode;
     private String certificateNo;
     private Integer versionNo;
+    private String classification;
     private LocalDate expiryDate;
     private String status;
 }
