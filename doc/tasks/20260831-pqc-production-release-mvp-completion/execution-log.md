@@ -103,3 +103,9 @@ M5 - ready for branch commit and int_main integration.
 - Final gate: 后端 7 个相关测试类共 38 tests PASS；前端两项静态合同、真实 E2E 语法检查、`pnpm ts:check`、branch runtime port guard 和 `git diff --check` PASS。
 - Closeout preview: 默认保留三份任务记录、无建议删除文件；自动 apply 因无法从任务目录推断 17 个正式源码/测试归属、主工作区有无关脏改动、分支需重放到新主线而阻塞。按用户明确的提交/融合要求采用精确文件清单，不使用宽泛暂存或覆盖主工作区改动。
 - Integration preflight: merge-base 为 `9b9b16274b4920005eaa9de421deae245c3c29e9`；本任务 20 个文件与 `int_main` 后续 23 个已提交文件交集为 0，与主工作区 36 个脏文件交集为 0。
+- Implementation commit: 初始提交 `52b2f0cf6`；重放到最新 `int_main` 后为 `f23ed1252`。
+- Post-rebase verification: 38 个相关后端测试、前端两项静态合同、真实 E2E 语法、`pnpm ts:check`、branch runtime port guard、`git diff --check int_main..HEAD` 和 30 模块 `yudao-server` package 全部 PASS。
+- Integration: `int_main` 从 `85d0d91d0` 通过 `git merge --ff-only codex/20260831-pqc-production-release-write-e2e` 快进到 `f23ed1252`；主工作区原有并行脏文件保持未暂存且未覆盖。
+- Worktree cleanup: Git worktree 登记已移除；残留目录仅包含本任务前端依赖/构建产物，精确删除后 `Test-Path=False`；8311/48311 无监听。
+- Slot cleanup: `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中本任务 `int_main slot 56` 已原子更新为 `active=false`，临时登记文件不存在。
+- Final status: completed。

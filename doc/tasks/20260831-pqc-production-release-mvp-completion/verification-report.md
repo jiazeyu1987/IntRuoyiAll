@@ -61,3 +61,6 @@ PQC 生产放行 MVP 的代码、迁移、构建、类型、单元/合同测试�
 - `int_main` 使用 `ff-only` 融合到 `d9fe88557`。
 - 主工作区并行未提交改动未被暂存、覆盖或提交。
 - 额外 worktree 和运行端口均已收口。
+- M6 续验修复提交为 `f23ed1252`，在最新主线复验后再次通过 `ff-only` 融合到 `int_main`。
+- 额外 worktree `D:\IntRuoyiWorktree\pqc-production-release-write-e2e-20260831` 已移除，slot 56 已释放，8311/48311 无监听。
+- 最终结论：按用户明确授权的映射延期口径，本任务完成；映射可用后补跑真实 PQC 签名、批次创建、资料落库和本机测试证据清理。
