@@ -79,7 +79,7 @@ class MesFrontlineSessionSnapshotServiceTest {
                 9001L, 10001L, 101L, 1001L, 201L, false,
                 new MesFrontlineTemplateDescriptor("TPL-001", "PRODUCTION", 1001L, 201L, 10001L));
         return new MesFrontlineSessionSnapshotContent(1L, 9001L, 101L, 1001L, 201L, 301L,
-                List.of(employee), List.of(), List.of(),
+                List.of(employee), List.of(), List.of(), List.of(),
                 new MesFrontlineProductionSubmitContext(null, null, null, null,
                         101L, 1001L, 201L, 301L, null, 9001L, null, null, null));
     }

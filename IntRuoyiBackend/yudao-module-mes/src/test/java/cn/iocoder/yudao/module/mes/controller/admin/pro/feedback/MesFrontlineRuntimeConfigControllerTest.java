@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceParam
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineDeviceAccountContextService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchResult;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProcessMaterial;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineProductionSubmitContext;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfig;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfigService;
@@ -61,6 +62,7 @@ class MesFrontlineRuntimeConfigControllerTest {
                                  new BigDecimal("10"), new BigDecimal("20"), new BigDecimal("15"), "DECIMAL",
                                  "10-20MPa，目标15MPa", List.of("10", "15", "20"), "15", 1)))),
                 List.of(new MesFrontlineDefectReasonOption(8301L, "LOSS", "LOSS-001", "正常损耗")),
+                List.of(new MesFrontlineProcessMaterial(501L, "A001", "弹簧", null, BigDecimal.ONE)),
                 new MesFrontlineProductionSubmitContext(41L, "WO-F2-001", "F2正式工单",
                         51L, 101L, 1001L, 201L, 301L, 61L, 9001L, 901L,
                         new BigDecimal("300.000"), LocalDateTime.of(2026, 8, 30, 0, 0)),
@@ -98,6 +100,10 @@ class MesFrontlineRuntimeConfigControllerTest {
         assertEquals("15", data.getDevices().get(0).getParameters().get(0).getDefaultText());
         assertEquals(1, data.getDevices().get(0).getParameters().get(0).getDecimalScale());
         assertEquals("正常损耗", data.getDefectReasons().get(0).getReasonName());
+        assertEquals(501L, data.getMaterials().get(0).getMaterialId());
+        assertEquals("弹簧", data.getMaterials().get(0).getMaterialName());
+        assertEquals(BigDecimal.ONE, data.getMaterials().get(0).getBomQuantity());
+        assertEquals(List.of(), data.getMaterials().get(0).getBatchCodes());
         assertEquals(41L, data.getProductionSubmitContext().getWorkOrderId());
         assertEquals("WO-F2-001", data.getProductionSubmitContext().getWorkOrderCode());
         assertEquals(51L, data.getProductionSubmitContext().getTaskId());

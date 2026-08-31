@@ -64,6 +64,7 @@ public class MesFrontlineSessionSnapshotServiceImpl implements MesFrontlineSessi
                 || content.routeProcessId() == null || content.processId() == null
                 || content.workstationId() == null || content.employeeSwitchSnapshots() == null
                 || content.devices() == null || content.defectReasons() == null
+                || content.materials() == null
                 || content.productionSubmitContext() == null) {
             throw exception(PRO_FRONTLINE_SESSION_SNAPSHOT_INVALID, "snapshot content");
         }

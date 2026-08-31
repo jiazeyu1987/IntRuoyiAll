@@ -37,7 +37,7 @@ assert.doesNotMatch(
 )
 
 const lossDetailPayloadBlock = panel.match(
-  /const buildProductionLossDetailsPayload[\s\S]*?(?=\nconst buildProductionSelectedDevicePayload)/
+  /const buildProductionLossDetailsFromDraft[\s\S]*?(?=\nconst buildProductionSelectedDeviceFromDevice)/
 )?.[0] || ''
 for (const field of ['reasonId: defect.reasonId', 'reasonCode: defect.reasonCode', 'reasonName: defect.label']) {
   assert.match(

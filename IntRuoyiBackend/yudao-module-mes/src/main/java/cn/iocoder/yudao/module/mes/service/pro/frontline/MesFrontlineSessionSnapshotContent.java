@@ -11,5 +11,6 @@ public record MesFrontlineSessionSnapshotContent(Long tenantId,
                                                  List<MesFrontlineEmployeeSwitchResult> employeeSwitchSnapshots,
                                                  List<MesFrontlineTeamDeviceOption> devices,
                                                  List<MesFrontlineDefectReasonOption> defectReasons,
+                                                 List<MesFrontlineProcessMaterial> materials,
                                                  MesFrontlineProductionSubmitContext productionSubmitContext) {
 }

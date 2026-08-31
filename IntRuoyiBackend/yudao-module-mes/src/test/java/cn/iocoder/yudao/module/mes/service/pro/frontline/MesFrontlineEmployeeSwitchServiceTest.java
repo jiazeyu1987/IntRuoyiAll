@@ -205,7 +205,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
                         List.of(new MesFrontlineTeamEmployeeOption(employeeProfileId, systemUserId,
                                 systemUserId == null ? "TMP-001" : "E1001", employeeName, employeeName,
                                 employeeType)),
-                        List.of(), List.of(), null,
+                        List.of(), List.of(), List.of(), null,
                         List.of(new MesFrontlineEmployeeSwitchResult(LOGIN_USER_ID,
                                 systemUserId == null ? employeeProfileId : systemUserId,
                                 ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID, false,

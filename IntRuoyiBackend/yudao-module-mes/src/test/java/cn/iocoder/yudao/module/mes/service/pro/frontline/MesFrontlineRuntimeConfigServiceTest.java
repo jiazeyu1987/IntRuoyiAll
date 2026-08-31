@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -63,6 +64,8 @@ class MesFrontlineRuntimeConfigServiceTest {
     private MesFrontlineSessionSnapshotService sessionSnapshotService;
     @Mock
     private MesFrontlineActiveOrderProcessService activeOrderProcessService;
+    @Mock
+    private MesFrontlineProcessMaterialService processMaterialService;
 
     private MesFrontlineRuntimeConfigServiceImpl service;
 
@@ -70,7 +73,7 @@ class MesFrontlineRuntimeConfigServiceTest {
     void setUp() {
         service = new MesFrontlineRuntimeConfigServiceImpl(contextService, templateResolver, employeeProfileMapper,
                 processDeviceMapper, deviceMapper, parameterRuleMapper, processSnapshotMapper,
-                defectReasonMapper, sessionSnapshotService, activeOrderProcessService);
+                defectReasonMapper, sessionSnapshotService, activeOrderProcessService, processMaterialService);
         org.mockito.Mockito.lenient().when(sessionSnapshotService.issue(any()))
                 .thenReturn(new MesFrontlineSessionSnapshotReference("snapshot-001", "hash-001"));
         org.mockito.Mockito.lenient().when(contextService.resolveResponsibleLeaderUserId(LOGIN_USER_ID))
@@ -300,13 +303,23 @@ class MesFrontlineRuntimeConfigServiceTest {
                         .setRouteVersionId(627L)
                         .setRouteProcessId(frozenRouteProcessId)
                         .setProcessId(PROCESS_ID));
+        when(processMaterialService.listFrozenMaterials(activeOrderId, ROUTE_ID, frozenRouteProcessId, PROCESS_ID))
+                .thenReturn(List.of(
+                        new MesFrontlineProcessMaterial(501L, "A001", "弹簧", null, BigDecimal.ONE),
+                        new MesFrontlineProcessMaterial(502L, "A002", "杠杆", null, BigDecimal.ONE)));
 
         MesFrontlineRuntimeConfig config = assertDoesNotThrow(() -> service.getRuntimeConfig(
                 LOGIN_USER_ID, activeOrderId, ROUTE_ID, frozenRouteProcessId, PROCESS_ID));
 
         assertEquals(frozenRouteProcessId, config.routeProcessId());
+        assertEquals(List.of(501L, 502L), config.materials().stream()
+                .map(MesFrontlineProcessMaterial::materialId).toList());
         assertEquals("PRODUCTION_SIMPLIFIED", config.employeeSwitchSnapshots().get(0).template().templateNo());
         assertEquals(5101L, config.productionSubmitContext().activeOrderProcessSnapshotId());
+        ArgumentCaptor<MesFrontlineSessionSnapshotContent> snapshotCaptor =
+                ArgumentCaptor.forClass(MesFrontlineSessionSnapshotContent.class);
+        verify(sessionSnapshotService).issue(snapshotCaptor.capture());
+        assertEquals(config.materials(), snapshotCaptor.getValue().materials());
         verify(contextService, never()).requireAuthorizedProcess(LOGIN_USER_ID, ROUTE_ID,
                 frozenRouteProcessId, PROCESS_ID);
     }

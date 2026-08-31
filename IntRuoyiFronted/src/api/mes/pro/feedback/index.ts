@@ -147,6 +147,15 @@ export interface ProFrontlineFeedbackPayloadReqVO {
   remark?: string
 }
 
+export interface ProFrontlineFeedbackMaterialReqVO {
+  materialId: number
+  outputQuantity: number
+  lossQuantity: number
+  lossDetails?: ProFrontlineLossDetailReqVO[]
+  selectedDevice?: ProFrontlineSelectedDeviceReqVO
+  deviceParameterReadings?: ProFrontlineDeviceParameterReadingReqVO[]
+}
+
 export interface ProFrontlineRecordbookPayloadReqVO {
   recordbookId: number
   entryTitle: string
@@ -171,6 +180,7 @@ export interface ProFrontlineProcessPoolContextReqVO {
 }
 
 export interface ProFrontlineFeedbackSubmitReqVO {
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[]
   feedbackPayload: ProFrontlineFeedbackPayloadReqVO
   recordbookPayload?: ProFrontlineRecordbookPayloadReqVO
   processPoolContext: ProFrontlineProcessPoolContextReqVO
@@ -492,6 +502,15 @@ export interface FrontlineRuntimeDefectReasonVO {
   reasonName: string
 }
 
+export interface FrontlineRuntimeMaterialVO {
+  materialId: number
+  materialCode: string
+  materialName: string
+  materialSpecification?: string
+  bomQuantity: number
+  batchCodes: string[]
+}
+
 export interface FrontlineProductionSubmitContextVO {
   workOrderId?: number
   workOrderCode?: string
@@ -520,6 +539,7 @@ export interface FrontlineRuntimeConfigVO {
   employees: FrontlineRuntimeEmployeeVO[]
   devices: FrontlineRuntimeDeviceVO[]
   defectReasons: FrontlineRuntimeDefectReasonVO[]
+  materials: FrontlineRuntimeMaterialVO[]
   productionSubmitContext: FrontlineProductionSubmitContextVO
   employeeSwitchSnapshots: FrontlineSwitchActualEmployeeRespVO[]
   frontlineSessionSnapshotId: string

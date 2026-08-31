@@ -45,7 +45,7 @@ class MesFrontlineSubmitIdentityTraceTest {
         MesFrontlineSessionSnapshotContent content = new MesFrontlineSessionSnapshotContent(
                 1L, 9001L, 101L, 1001L, 201L, 301L, List.of(employee),
                 List.of(new MesFrontlineTeamDeviceOption(501L, "D-501", "Device 501", "ENABLED", List.of())),
-                List.of(), new MesFrontlineProductionSubmitContext(null, null, null, null,
+                List.of(), List.of(), new MesFrontlineProductionSubmitContext(null, null, null, null,
                 101L, 1001L, 201L, 301L, null, 9001L, null, null, null));
         MesFrontlineSessionSnapshot snapshot = new MesFrontlineSessionSnapshot("snapshot-001", "hash-001", content);
         when(sessionSnapshotService.require("snapshot-001", "hash-001", 9001L)).thenReturn(snapshot);

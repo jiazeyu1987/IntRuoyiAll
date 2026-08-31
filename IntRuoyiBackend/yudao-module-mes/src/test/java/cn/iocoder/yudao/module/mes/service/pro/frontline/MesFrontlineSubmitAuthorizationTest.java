@@ -165,7 +165,7 @@ class MesFrontlineSubmitAuthorizationTest {
     private void givenSnapshot(List<MesFrontlineEmployeeSwitchResult> employees,
                                List<MesFrontlineTeamDeviceOption> devices) {
         MesFrontlineSessionSnapshotContent content = new MesFrontlineSessionSnapshotContent(
-                1L, 9001L, 101L, 1001L, 201L, 301L, employees, devices, List.of(),
+                1L, 9001L, 101L, 1001L, 201L, 301L, employees, devices, List.of(), List.of(),
                 new MesFrontlineProductionSubmitContext(null, null, null, null,
                         101L, 1001L, 201L, 301L, null, 9001L, null, null, null));
         when(sessionSnapshotService.require("snapshot-001", "hash-001", 9001L))

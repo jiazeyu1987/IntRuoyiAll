@@ -28,6 +28,16 @@ assert.match(
   /signaturePassword:\s*string/,
   'frontline production submit request must carry the employee signature password for server-side signature creation.'
 )
+assert.match(
+  feedbackApi,
+  /ProFrontlineFeedbackMaterialReqVO[\s\S]*materialId:\s*number[\s\S]*outputQuantity:\s*number[\s\S]*lossQuantity:\s*number[\s\S]*deviceParameterReadings/,
+  'formal submission API must carry one independent fact for every process material.'
+)
+assert.match(
+  feedbackApi,
+  /ProFrontlineFeedbackSubmitReqVO[\s\S]*materialDetails:\s*ProFrontlineFeedbackMaterialReqVO\[\]/,
+  'formal submission must send all material facts in one request.'
+)
 
 assert.match(
   panel,
@@ -63,6 +73,16 @@ assert.match(
   panel,
   /请填写完成数量/,
   'production submit must give a precise validation message when output quantity is missing.'
+)
+assert.match(
+  panel,
+  /const progressQuantity = Math\.min\(\.\.\.materialDetails\.map\(\(material\) => material\.outputQuantity\)\)/,
+  'the frontend summary must calculate process progress from the minimum material output quantity.'
+)
+assert.match(
+  panel,
+  /materialDetails,\s*\n\s*feedbackPayload:/,
+  'all process material facts must be included in the same formal submit request.'
 )
 assert.match(
   panel,

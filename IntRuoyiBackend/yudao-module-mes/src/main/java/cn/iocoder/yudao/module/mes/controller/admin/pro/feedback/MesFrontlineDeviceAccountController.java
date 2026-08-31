@@ -458,6 +458,16 @@ public class MesFrontlineDeviceAccountController {
             item.setReasonName(reason.reasonName());
             return item;
         }).toList());
+        respVO.setMaterials(config.materials().stream().map(material -> {
+            MesFrontlineRuntimeConfigRespVO.Material item = new MesFrontlineRuntimeConfigRespVO.Material();
+            item.setMaterialId(material.materialId());
+            item.setMaterialCode(material.materialCode());
+            item.setMaterialName(material.materialName());
+            item.setMaterialSpecification(material.materialSpecification());
+            item.setBomQuantity(material.bomQuantity());
+            item.setBatchCodes(material.batchCodes());
+            return item;
+        }).toList());
         respVO.setProductionSubmitContext(toProductionSubmitContextRespVO(config.productionSubmitContext()));
         respVO.setEmployeeSwitchSnapshots(config.employeeSwitchSnapshots().stream()
                 .map(MesFrontlineDeviceAccountController::toSwitchEmployeeRespVO)
