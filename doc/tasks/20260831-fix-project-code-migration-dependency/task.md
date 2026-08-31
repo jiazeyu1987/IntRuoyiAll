@@ -38,7 +38,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Milestone Status
 
@@ -46,4 +46,4 @@ in_progress
 2. RED：completed。目标测试 1 failed/1 passed，精确命中错误 dependsOn。
 3. 实现：completed。仅修改 SQL 首行 dependsOn 为真实建表 migration。
 4. 回归：completed。目标测试 2/2、组合迁移测试 31/31、实际维护 gate 551 项、target-bound preflight status=passed/blocked=0/目标 action=APPLY。
-5. 提交与融合：in_progress。
+5. 提交与融合：completed。实现提交 `7949cedc9`；合入并行主线提交后 branch head=`2c7bd07fa`，`int_main` 已 ff-only 到同一提交；主线回归 31/31、实际 gate 551 项和端口守卫通过。

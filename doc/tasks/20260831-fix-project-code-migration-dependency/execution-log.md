@@ -19,3 +19,8 @@ GREEN: 同一目标 pytest -> PASS，`2 passed`。
 - GREEN: evidence-validators -> bug-regression evidence 与 database-schema evidence validator 均 PASS。
 - GREEN: branch-runtime-port-guard -> PASS，branch profile=`int_main`、frontend=8313、backend=48313。
 - INFO: integration-drift -> 修复期间 `int_main` 从 base `85d0d91d` 前进 1 个无路径重叠提交 `f23ed125`；提交本任务后将先把该主线提交合入修复分支并复验，再允许主线 ff-only。
+- GREEN: implementation-commit -> PASS，commit=`7949cedc9`，5 files，仅目标 SQL、回归测试和任务记录。
+- GREEN: merge-main-into-fix -> PASS，merge commit=`2c7bd07fa`；并行 PQC commit=`f23ed125` 完整保留，无路径冲突。
+- GREEN: merged-branch-regression -> PASS，31 passed，实际维护 gate status=passed/migrationCount=551，branch runtime guard PASS，worktree clean。
+- GREEN: int-main-fast-forward -> PASS，`int_main` 从 `f23ed125` ff-only 到 `2c7bd07fa`；目标路径无主线 dirty overlap。
+- GREEN: int-main-regression -> PASS，31 passed in 13.78s，实际维护 gate 551 项通过，branch runtime guard PASS，branch ancestor=true。

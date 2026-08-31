@@ -2,7 +2,7 @@
 
 ## Status
 
-ready_for_commit
+ready_for_closeout
 
 ## Verification Summary
 
@@ -12,6 +12,9 @@ ready_for_commit
 - Actual maintenance gate: status=passed，migrationCount=551。
 - Target-bound code-only preflight: status=passed、blockedCount=0、目标 action=APPLY。
 - Data safety: DDL 正文未改、无数据库写入、无 data migration、无 ledger 修改。
+- Implementation commit: `7949cedc9`。
+- Integration: branch head/`int_main`=`2c7bd07fa`，ff-only 完成，并行主线提交完整保留。
+- Main verification: 31 passed、实际 migration gate 551 项、branch runtime guard PASS。
 
 ## Required Evidence
 
