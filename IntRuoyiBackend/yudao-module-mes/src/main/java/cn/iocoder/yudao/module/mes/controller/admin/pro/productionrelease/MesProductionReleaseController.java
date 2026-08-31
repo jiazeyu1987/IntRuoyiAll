@@ -9,6 +9,9 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.Mes
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleasePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesPqcProductionReleaseRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.productionrelease.vo.MesProductionReleaseReportUploadTaskRespVO;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowExceptionAdvice;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowFailureRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseApproveCommand;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseDecisionResult;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleasePageItem;
@@ -23,6 +26,7 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,6 +45,12 @@ public class MesProductionReleaseController {
 
     public MesProductionReleaseController(MesPqcProductionReleaseService pqcProductionReleaseService) {
         this.pqcProductionReleaseService = pqcProductionReleaseService;
+    }
+
+    @ExceptionHandler(MesReleaseFlowBlockerException.class)
+    public CommonResult<MesReleaseFlowFailureRespVO> handleReleaseFlowBlocker(
+            MesReleaseFlowBlockerException exception) {
+        return MesReleaseFlowExceptionAdvice.toResult(exception);
     }
 
     @PostMapping("/pqc/approve")

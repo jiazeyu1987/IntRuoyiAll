@@ -12,6 +12,8 @@ const controller = readModule(
 )
 assert.match(controller, /@GetMapping\("\/pqc\/page"\)/)
 assert.match(controller, /getPqcReleasePage/)
+assert.match(controller, /@ExceptionHandler\(MesReleaseFlowBlockerException\.class\)/)
+assert.match(controller, /MesReleaseFlowExceptionAdvice\.toResult\(exception\)/)
 
 const approveReq = readModule(
   'src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/productionrelease/vo/MesPqcProductionReleaseApproveReqVO.java'

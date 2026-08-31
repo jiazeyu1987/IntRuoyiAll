@@ -33,7 +33,11 @@ assert.deepStrictEqual(
 assert.match(applyRequest, /activeOrderId:\s*number/)
 assert.match(applyRequest, /idempotencyKey:\s*string/)
 assert.match(applyRequest, /applyRemark\?:\s*string/)
-assert.doesNotMatch(api, /clientRequestId/, 'the frontend must not introduce a second client request id.')
+assert.doesNotMatch(
+  api,
+  /clientRequestId/,
+  'the frontend must not introduce a second client request id.'
+)
 
 const blockerResponse = extractInterface(api, 'TeamLeaderActiveOrderReleaseBlockerRespVO')
 for (const field of [
@@ -73,7 +77,11 @@ for (const field of [
   'version',
   'appliedAt'
 ]) {
-  assert.match(applyResponse, new RegExp(`^\\s*${field}\\s*:`, 'm'), `${field} must be a required receipt field.`)
+  assert.match(
+    applyResponse,
+    new RegExp(`^\\s*${field}\\s*:`, 'm'),
+    `${field} must be a required receipt field.`
+  )
 }
 assert.doesNotMatch(applyResponse, /generatedDocuments/, 'V4 must not invent generatedDocuments.')
 
@@ -86,8 +94,8 @@ assert.match(page, /blocker\.suggestion/)
 assert.doesNotMatch(
   extractBlock(
     page,
-    '<el-alert\n        v-if="releaseApplicationBlockers.length"',
-    '<el-dialog\n        v-model="activeOrderDetailVisible"'
+    'v-if="releaseApplicationBlockers.length"',
+    'v-model="activeOrderDetailVisible"'
   ),
   /blocker\.reason\s*\|\|\s*blocker\.blockerType/,
   'required blocker reason must not silently fall back to blockerType.'
@@ -96,7 +104,7 @@ assert.doesNotMatch(
 const releaseFlow = extractBlock(
   page,
   'const releaseApplicationIdempotencyKeys',
-  'const submitRemoveActiveOrder'
+  'const submitMoveActiveOrder'
 )
 assert.match(
   releaseFlow,
@@ -113,7 +121,8 @@ assert.match(
   /applyTeamLeaderActiveOrderRelease\(\{\s*activeOrderId(?:\s*,|\s*:)[\s\S]*idempotencyKey(?:\s*,|\s*:)[\s\S]*applyRemark\s*:[\s\S]*\}\)/,
   'the page must submit the three formal M0 request fields.'
 )
-const applyCall = releaseFlow.match(/applyTeamLeaderActiveOrderRelease\(\{[\s\S]*?\n\s*\}\)/)?.[0] || ''
+const applyCall =
+  releaseFlow.match(/applyTeamLeaderActiveOrderRelease\(\{[\s\S]*?\n\s*\}\)/)?.[0] || ''
 assert.doesNotMatch(
   applyCall,
   /(?:batchExecutionId|releaseTransactionId|releaseApprovalWorkTaskId|sourceSnapshotHash|signatureEvidenceCount)\s*:/,
@@ -132,8 +141,13 @@ assert.match(
 )
 assert.match(
   releaseFlow,
-  /catch \(writeError\) \{[\s\S]*resolveActiveOrderReleaseFailure\(writeError\)[\s\S]*recoverUncertainActiveOrderReleaseApplication\(row, writeError\)/,
-  'the write-error branch must confirm the formal receipt before allowing a retry.'
+  /const isDefinitiveActiveOrderReleaseBusinessFailure[\s\S]*typeof code === 'number'/,
+  'a backend business error must be distinguishable from an uncertain network response.'
+)
+assert.match(
+  releaseFlow,
+  /catch \(writeError\) \{[\s\S]*resolveActiveOrderReleaseFailure\(writeError\)[\s\S]*isDefinitiveActiveOrderReleaseBusinessFailure\(writeError\)[\s\S]*releaseApplicationLocks\.delete\(row\.id\)[\s\S]*recoverUncertainActiveOrderReleaseApplication\(row, writeError\)/,
+  'the write-error branch must show definitive completion/configuration failures directly and only recover genuinely uncertain responses.'
 )
 assert.match(
   releaseFlow,
@@ -143,7 +157,7 @@ assert.match(
 assert.match(releaseFlow, /申请响应不确定[\s\S]*请人工核对/)
 assert.match(
   page,
-  /:disabled="!canApplyActiveOrderRelease\(row\) \|\| isActiveOrderReleaseApplicationLocked\(row\.id\)"/,
+  /:disabled="\s*!canApplyActiveOrderRelease\(row\)\s*\|\|\s*isActiveOrderReleaseApplicationLocked\(row\.id\)/,
   'a locally confirmed or uncertain write must disable duplicate submission.'
 )
 assert.match(page, /data-team-leader-active-order-release-uncertain/)
@@ -162,6 +176,11 @@ assert.match(
   releaseFlow,
   /assertActiveOrderReleaseApplicationReceipt\(result, row\.id, true\)/,
   'the UI must consume a formal backend receipt rather than fabricate success state.'
+)
+assert.match(
+  releaseFlow,
+  /系统将先完成生产订单和正式资料回填，再提交生产放行申请并生成一个PQC待办/,
+  'the confirmation copy must disclose the formal completion and backfill step before the PQC application.'
 )
 
 console.log('PASS: team leader active-order release application static contract')

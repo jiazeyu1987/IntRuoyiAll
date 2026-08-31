@@ -246,6 +246,28 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         verify(receiptMapper, never()).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
     }
 
+    @Test
+    void releaseCompletionReusesExistingReceiptIdentityAndRevalidatesCurrentSource() {
+        MesProcessPoolActiveOrderDO order = order().setVersion(3);
+        MesProcessPoolActiveOrderCompletionReceiptDO existing = MesProcessPoolActiveOrderCompletionReceiptDO.builder()
+                .id(99L).activeOrderId(10L).requestIdempotencyKey("original-completion-key")
+                .requestPayloadHash("8e9ae074ef36b3938dae18c619f84ea504026a2334c9e7520a72d0810ffb117d")
+                .sourceSnapshotHash("source-hash").expectedVersion(2).completedVersion(3)
+                .provisionHandoff("PENDING_FLOW6").build();
+        when(activeOrderMapper.selectByIdForUpdate(10L)).thenReturn(order);
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(existing);
+        when(receiptMapper.selectByIdempotencyKeyForUpdate("original-completion-key")).thenReturn(existing);
+        when(backfillPort.readSourceSnapshotHash(anyLong(), any(), any())).thenReturn("source-hash");
+
+        MesTeamLeaderActiveOrderCompletionResult result =
+                service.completeForRelease(20L, 10L, "release-key");
+
+        assertEquals(99L, result.getCompletionReceiptId());
+        verify(backfillPort).readSourceSnapshotHash(anyLong(), any(), any());
+        verify(backfillPort, never()).prepare(anyLong(), any(), any());
+        verify(activeOrderMapper, never()).markCompleted(anyLong(), any(), anyLong());
+    }
+
     private MesTeamLeaderActiveOrderCompletionCommand command() {
         return new MesTeamLeaderActiveOrderCompletionCommand()
                 .setActiveOrderId(10L).setExpectedVersion(2).setIdempotencyKey("key-1");

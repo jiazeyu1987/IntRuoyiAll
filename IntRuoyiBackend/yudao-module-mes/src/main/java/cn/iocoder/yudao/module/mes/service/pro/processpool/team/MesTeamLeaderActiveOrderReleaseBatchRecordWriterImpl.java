@@ -3,8 +3,10 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordCellLinkRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
@@ -13,6 +15,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -52,6 +55,7 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
     private static final String LEADER_TYPE_PRODUCTION = "PRODUCTION";
 
     private final MesProRouteFlowProcessBatchRecordMapper bindingMapper;
+    private final MesProBatchRecordReportMapper reportMapper;
     private final MesProBatchRecordCellLinkRuleMapper ruleMapper;
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     private final MesTeamLeaderBatchRecordBackfillService backfillService;
@@ -59,11 +63,13 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
 
     public MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(
             MesProRouteFlowProcessBatchRecordMapper bindingMapper,
+            MesProBatchRecordReportMapper reportMapper,
             MesProBatchRecordCellLinkRuleMapper ruleMapper,
             MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
             MesTeamLeaderBatchRecordBackfillService backfillService,
             MesProductionPickListSourceService productionPickListSourceService) {
         this.bindingMapper = bindingMapper;
+        this.reportMapper = reportMapper;
         this.ruleMapper = ruleMapper;
         this.batchTaskMapper = batchTaskMapper;
         this.backfillService = backfillService;
@@ -262,13 +268,13 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                         && Objects.equals(snapshot.getRouteId(), binding.getRouteId())
                         && Objects.equals(snapshot.getRouteProcessId(), binding.getRouteProcessId())
                         && StrUtil.isNotBlank(binding.getBatchRecordReportId())
-                        && binding.getBatchRecordDefinitionId() != null
-                        && binding.getBatchRecordVersionId() != null
                         && RECORD_CATEGORY_BATCH_RECORD.equals(binding.getRecordCategory())
                         && !PROCESS_INSPECTION.equals(binding.getFormSlotType())
                         && !LOSS_REPORT.equals(binding.getFormSlotType()))
                 .toList();
         if (formal.isEmpty()) {
+            blockers.add(blocker("BATCH_RECORD_BINDING_REQUIRED", "ROUTE_PROCESS", snapshot.getRouteProcessId(),
+                    "工序缺少逐工序正式批记录绑定", "请在工序设置中绑定唯一正式批记录表单"));
             return null;
         }
         if (formal.size() != 1) {
@@ -277,7 +283,29 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
                     "请在工序设置中维护唯一正式批记录表单"));
             return null;
         }
-        return formal.get(0);
+        MesProRouteFlowProcessBatchRecordDO binding = formal.get(0);
+        MesProBatchRecordReportDO report = reportMapper.selectByReportId(binding.getBatchRecordReportId());
+        if (report == null || report.getBatchRecordDefinitionId() == null
+                || report.getBatchRecordVersionId() == null) {
+            blockers.add(blocker("BATCH_RECORD_BINDING_REQUIRED", "ROUTE_PROCESS", snapshot.getRouteProcessId(),
+                    "正式批记录报表缺少定义或版本身份：reportId=" + binding.getBatchRecordReportId(),
+                    "请恢复该批记录报表的正式定义和已发布版本元数据"));
+            return null;
+        }
+        if (binding.getBatchRecordDefinitionId() != null
+                && !Objects.equals(binding.getBatchRecordDefinitionId(), report.getBatchRecordDefinitionId())
+                || binding.getBatchRecordVersionId() != null
+                && !Objects.equals(binding.getBatchRecordVersionId(), report.getBatchRecordVersionId())) {
+            blockers.add(blocker("BATCH_RECORD_BINDING_REQUIRED", "ROUTE_PROCESS", snapshot.getRouteProcessId(),
+                    "路线批记录冻结身份与正式报表元数据不一致：reportId=" + binding.getBatchRecordReportId(),
+                    "请重新绑定与正式报表定义和版本一致的批记录表单"));
+            return null;
+        }
+        MesProRouteFlowProcessBatchRecordDO resolved =
+                BeanUtils.toBean(binding, MesProRouteFlowProcessBatchRecordDO.class);
+        resolved.setBatchRecordDefinitionId(report.getBatchRecordDefinitionId());
+        resolved.setBatchRecordVersionId(report.getBatchRecordVersionId());
+        return resolved;
     }
 
     private List<MesProBatchRecordCellLinkRuleDO> formalRules(
