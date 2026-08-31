@@ -78,6 +78,8 @@
 - 2026-08-31：按 `project-experience-consolidation` 将多物料父子事实/数量守恒经验合并到 `docs/backend-development.md`，将 `vue-tsc` 与 Vite parser 差异补入既有 Vue SFC 泛型箭头门禁，并更新 `docs/experience-index.md` 路由。
 - 2026-08-31：停止本任务 worktree 前后端，端口 `8311/48311` 均无监听；任务状态转为 `ready_for_closeout`。
 - 2026-08-31：`task-closeout-cleanup` preview/apply 保留正式任务文档并删除 E2E、迁移门禁和基线临时产物；一个深层基线副本因 Python/Windows 长路径删除失败，核对目标仍在任务目录后使用 `\\?\` 扩展路径逐文件、逐空目录删除，最终 `Test-Path=False`。
+- 2026-08-31：功能提交 `3be91f119` 已在干净融合 worktree 重放为 `39d1b5cc9`，关键门禁再次通过；保留主工作区并行脏改动，`int_main` 通过 `ff-only` 快进至 `c0f957188`，三份经验文档以 `c385f762d` 单独提交。
+- 2026-08-31：两个任务 worktree 已删除；端口 `8311/48311`、`8315/48315` 无监听；登记表核验任务条目 `slot=56/60 active=false`；任务状态最终标记为 `completed`。
 
 ## Blockers
 

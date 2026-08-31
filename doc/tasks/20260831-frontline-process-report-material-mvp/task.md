@@ -11,7 +11,7 @@
 - [x] 按 BDD/TDD 完成数据库与后端多物料提交、读取和系统同步批号查询能力。
 - [x] 按 BDD/TDD 完成一线生产物料页签、独立草稿、灰绿状态和统一提交。
 - [x] 运行数据库、后端、前端、真实页面和相邻回归验证。
-- [ ] 完成经验归档、收尾清理、任务提交和 `int_main` 融合。
+- [x] 完成经验归档、收尾清理、任务提交和 `int_main` 融合。
 
 ## Expected Verification
 
@@ -25,9 +25,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-实现、验证、任务数据清理和经验归档已完成；任务运行进程已停止，等待收尾清理、提交和 `int_main` 融合。
+实现、验证、任务数据清理、经验归档、worktree 收尾和 `int_main` 融合均已完成。
 
 ## 设计约束检查
 
@@ -41,6 +41,7 @@ ready_for_closeout
 - Branch: `codex/20260831-frontline-process-report-material-mvp`
 - Base: `int_main@58479242435efa1f7eafd6e0a17e36bd9c811e5f`
 - Runtime slot: `56`；前端 `8311`，后端 `48311`。
+- 收尾：原实现分支提交 `3be91f119`，融合分支提交 `39d1b5cc9`，`int_main` 快进至 `c0f957188`，经验文档补充提交 `c385f762d`；两个 worktree 已删除，slot `56/60` 已标记 `active=false`。
 
 ## Resolved Implementation Decisions
 
