@@ -20,3 +20,4 @@ GREEN: 同一目标 pytest -> PASS，`2 passed`。
 - GREEN: implementation-commit -> PASS，commit=`273b5dad6`，5 files，仅目标 SQL、回归测试和任务记录。
 - GREEN: int-main-fast-forward -> PASS，app `int_main` 从 `c3a134a7` ff-only 到 `273b5dad6`；目标路径无 dirty overlap。
 - GREEN: int-main-regression -> PASS，46 passed in 11.08s、实际维护 gate 551 项、branch runtime guard PASS、commit ancestor=true。
+- GREEN: closeout -> PASS，fix worktree Git registration=0、physical path=false、branch 已融合；slot 59 active=false/deletedAt 已记录；最终 migration APPLIED、publish SUCCESS。

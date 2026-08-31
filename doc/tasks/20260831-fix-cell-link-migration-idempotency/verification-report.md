@@ -2,7 +2,7 @@
 
 ## Status
 
-ready_for_closeout
+completed
 
 ## Verification Summary
 
@@ -14,6 +14,7 @@ ready_for_closeout
 - Data safety: 仅迁移脚本幂等守卫和测试；无数据库写入、无 ledger 修改。
 - Implementation commit / `int_main`: `273b5dad6`，ff-only 完成。
 - Main verification: 46 passed、实际 migration gate 551、branch runtime guard PASS。
+- Closeout: worktree removed、slot 59 inactive、目标 migration APPLIED、最终测试服 release SUCCESS。
 
 ## Required Evidence
 

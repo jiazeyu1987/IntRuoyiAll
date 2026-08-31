@@ -37,7 +37,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Milestone Status
 
@@ -46,3 +46,9 @@ ready_for_closeout
 3. 实现：completed。改为表级 fail-fast + 三列独立存在性检查/ALTER，DDL 定义不变。
 4. 回归：completed。目标 2/2、release 组合 46/46、实际 migration gate 551 项、target-bound plan passed/blocked=0/目标 action=APPLY。
 5. 提交融合：completed。实现 commit=`273b5dad6`，`int_main` ff-only 到同一提交；主线 46/46、实际 gate 551 项和端口守卫通过。
+
+## Closeout
+
+- 修复 worktree 已从 Git 注册和物理路径清理。
+- Slot 59 已标记 inactive，端口 8314/48314 无监听。
+- 最终测试服 migration `20260726_mes_batch_record_cell_link_work_order_source` APPLIED，checksum 与成功 manifest 一致。

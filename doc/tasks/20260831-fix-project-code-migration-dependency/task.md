@@ -38,7 +38,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Milestone Status
 
@@ -47,3 +47,9 @@ ready_for_closeout
 3. 实现：completed。仅修改 SQL 首行 dependsOn 为真实建表 migration。
 4. 回归：completed。目标测试 2/2、组合迁移测试 31/31、实际维护 gate 551 项、target-bound preflight status=passed/blocked=0/目标 action=APPLY。
 5. 提交与融合：completed。实现提交 `7949cedc9`；合入并行主线提交后 branch head=`2c7bd07fa`，`int_main` 已 ff-only 到同一提交；主线回归 31/31、实际 gate 551 项和端口守卫通过。
+
+## Closeout
+
+- 修复 worktree 已从 Git 注册和物理路径清理。
+- Slot 58 已标记 inactive，端口 8313/48313 无监听。
+- 最终发布 `release-20260831-cell-link-idempotency-test-r260831c-r1` 已在测试服成功，原 scope dependency blocker 不再出现。

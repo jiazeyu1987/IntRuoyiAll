@@ -24,3 +24,4 @@ GREEN: 同一目标 pytest -> PASS，`2 passed`。
 - GREEN: merged-branch-regression -> PASS，31 passed，实际维护 gate status=passed/migrationCount=551，branch runtime guard PASS，worktree clean。
 - GREEN: int-main-fast-forward -> PASS，`int_main` 从 `f23ed125` ff-only 到 `2c7bd07fa`；目标路径无主线 dirty overlap。
 - GREEN: int-main-regression -> PASS，31 passed in 13.78s，实际维护 gate 551 项通过，branch runtime guard PASS，branch ancestor=true。
+- GREEN: closeout -> PASS，fix worktree Git registration=0、physical path=false、branch 已融合；slot 58 active=false/deletedAt 已记录；最终测试服发布 SUCCESS。
