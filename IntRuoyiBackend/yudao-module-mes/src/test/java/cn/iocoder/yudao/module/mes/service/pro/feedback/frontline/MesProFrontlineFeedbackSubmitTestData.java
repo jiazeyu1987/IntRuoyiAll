@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackPayloadReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackMaterialReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineProcessPoolContextReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineRecordbookPayloadReqVO;
@@ -62,6 +63,21 @@ final class MesProFrontlineFeedbackSubmitTestData {
                 .setActualEmployeeId(9001L)
                 .setSignatureEmployeeId(9001L)
                 .setSignaturePassword("sign-123")
+                .setMaterialDetails(List.of(
+                        new MesProFrontlineFeedbackMaterialReqVO()
+                                .setMaterialId(501L)
+                                .setOutputQuantity(new BigDecimal("100.500"))
+                                .setLossQuantity(new BigDecimal("2.500"))
+                                .setLossDetails(lossDetails)
+                                .setSelectedDevice(selectedDevice)
+                                .setDeviceParameterReadings(deviceParameterReadings),
+                        new MesProFrontlineFeedbackMaterialReqVO()
+                                .setMaterialId(502L)
+                                .setOutputQuantity(new BigDecimal("100.500"))
+                                .setLossQuantity(BigDecimal.ZERO)
+                                .setLossDetails(List.of())
+                                .setSelectedDevice(selectedDevice)
+                                .setDeviceParameterReadings(deviceParameterReadings)))
                 .setFeedbackPayload(new MesProFrontlineFeedbackPayloadReqVO()
                         .setCode("FB-F2-001")
                         .setType(1)
@@ -107,5 +123,30 @@ final class MesProFrontlineFeedbackSubmitTestData {
                         .setDeviceAccountUserId(9001L)
                         .setTemplateType("PRODUCTION_SIMPLE"))
                 .setRawPayload(rawPayload);
+    }
+
+    static void stubLossReasonValidator(MesFrontlineLossReasonValidator validator) {
+        org.mockito.Mockito.lenient().when(validator.requireSnapshotLossReasons(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> {
+                    List<MesProFrontlineFeedbackPayloadReqVO.LossDetailReqVO> details = invocation.getArgument(1);
+                    if (details == null) {
+                        return List.of();
+                    }
+                    return details.stream()
+                            .filter(detail -> detail != null && detail.getQuantity() != null
+                                    && detail.getQuantity().compareTo(BigDecimal.ZERO) > 0)
+                            .map(detail -> new MesFrontlineLossReasonSnapshot(
+                                    detail.getReasonId(), "LOSS-001", "正常损耗"))
+                            .toList();
+                });
+    }
+
+    static void stubActiveOrderSnapshot(
+            cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver resolver) {
+        org.mockito.Mockito.lenient().when(resolver.requireEffective(81L))
+                .thenReturn(new cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver
+                        .ActiveOrderSnapshot(81L, 41L, 21L, 627L, 71L, 72L, 73L));
     }
 }

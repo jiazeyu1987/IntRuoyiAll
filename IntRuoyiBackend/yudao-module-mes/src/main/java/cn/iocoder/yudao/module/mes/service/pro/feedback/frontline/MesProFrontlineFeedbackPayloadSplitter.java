@@ -137,6 +137,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         payload.put("zeroLossConfirmed", !hasActualLoss);
         payload.put("lossDecision", hasActualLoss ? "REQUIRED" : "NO_LOSS");
         payload.put("lossDetails", feedback.getLossDetails());
+        payload.put("materialDetails", reqVO.getMaterialDetails());
         payload.put("selectedDevice", feedback.getSelectedDevice());
         payload.put("deviceParameterReadings", feedback.getDeviceParameterReadings());
         if (lossReasonSnapshot != null) {

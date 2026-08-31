@@ -5,6 +5,7 @@ import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordServic
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.ActiveOrderSnapshotResolver;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,8 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     @Mock
     private MesProFeedbackService feedbackService;
     @Mock
+    private MesProFeedbackMaterialService feedbackMaterialService;
+    @Mock
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
     @Mock
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
@@ -45,6 +48,8 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @Mock
     private MesProBatchRecordExecutionSignatureService signatureService;
+    @Mock
+    private ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -52,15 +57,18 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     void setUp() {
         submitService = new MesProFrontlineFeedbackSubmitServiceImpl(
                 feedbackService,
+                feedbackMaterialService,
                 processPoolSubmitEventService,
                 submitAuthorizationService,
-                lossReasonValidator,
-                deviceParameterValidator,
                 parameterAuditService,
+                new MesProFrontlineFeedbackMaterialSubmissionValidator(lossReasonValidator),
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
-                signatureService);
+                signatureService,
+                activeOrderSnapshotResolver);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
+        MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
+        MesProFrontlineFeedbackSubmitTestData.stubActiveOrderSnapshot(activeOrderSnapshotResolver);
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
                 .thenReturn(MesFrontlineParameterAuditResult.empty());
         org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any()))
@@ -92,6 +100,7 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
 
         verify(feedbackService).createFrontlineFeedback(any());
         verify(feedbackService).submitFeedback(501L);
+        verify(feedbackMaterialService).createMaterials(any());
         verify(processPoolSubmitEventService).createSubmitEvent(any());
     }
 }

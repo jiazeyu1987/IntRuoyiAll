@@ -250,11 +250,11 @@
 ## Vue SFC 泛型箭头函数解析门禁
 
 - Trigger: Vite 或 `vite-plugin-eslint` 在 `.vue` 文件中报 `Parsing error: Unexpected token. Did you mean {'>'} or &gt;?`，且报错行是 `<script setup lang="ts">` 内的 `<T>`、`<K, V>` 等泛型箭头函数。
-- Preflight check: 先定位报错行是否是 `const fn = <T>(...) =>` 这类 SFC 易歧义写法；修复前新增或更新最小静态契约，让旧写法先 RED。
+- Preflight check: 先定位报错行是否是 `const fn = <T>(...) =>` 这类 SFC 易歧义写法；`vue-tsc` 通过不能证明 Vite/ESLint parser 可接受该语法，涉及 `.vue` 新增泛型 helper 时必须同时运行目标 SFC ESLint 或真实 Vite 模块转换。修复前新增或更新最小静态契约，让旧写法先 RED。
 - Blocker: 直接关闭 Vite overlay、禁用 ESLint、移除 TypeScript 类型、改成 `any`、或只改测试不改源文件时，必须停止。
-- Verification: 聚焦静态契约必须证明目标 SFC 不再使用歧义泛型箭头写法，并优先改为 `function fn<T>(...) {}`；再运行相邻静态契约或可响应的 ESLint/类型检查。
+- Verification: 聚焦静态契约必须证明目标 SFC 不再使用歧义泛型箭头写法，并优先改为 `function fn<T>(...) {}`；再运行目标 SFC ESLint、`pnpm ts:check` 和真实 Vite 页面或模块转换，三者均通过后才可收口。
 - Forbidden action: 禁止用配置降级、parser 替换、忽略规则或隐藏页面来绕过源代码解析错误。
-- Evidence: 任务 `doc/tasks/20260803-dcc-controlled-file-detail-vue-parse/`，`getPagedDetailRows` 的 `const ... = <T>(...) =>` 触发 Vite/ESLint 解析错误，改为命名泛型函数并用静态契约 RED/GREEN 验证。
+- Evidence: 任务 `doc/tasks/20260803-dcc-controlled-file-detail-vue-parse/`，`getPagedDetailRows` 的 `const ... = <T>(...) =>` 触发 Vite/ESLint 解析错误，改为命名泛型函数并用静态契约 RED/GREEN 验证；任务 `doc/tasks/20260831-frontline-process-report-material-mvp/verification-report.md` 再次证明 `pnpm ts:check` 可通过但真实 Vite 页面仍因同类泛型箭头函数显示 overlay，改为命名泛型函数后 ESLint、类型检查和真实页面同时通过。
 
 ## Vue SFC 区块边界编译门禁
 

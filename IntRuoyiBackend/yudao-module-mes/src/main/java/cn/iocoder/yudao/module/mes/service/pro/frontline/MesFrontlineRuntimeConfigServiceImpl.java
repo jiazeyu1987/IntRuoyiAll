@@ -50,6 +50,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
     private final MesProcessPoolDefectReasonMapper defectReasonMapper;
     private final MesFrontlineSessionSnapshotService sessionSnapshotService;
     private final MesFrontlineActiveOrderProcessService activeOrderProcessService;
+    private final MesFrontlineProcessMaterialService processMaterialService;
 
     public MesFrontlineRuntimeConfigServiceImpl(
             MesFrontlineDeviceAccountContextService contextService,
@@ -61,7 +62,8 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
             MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
             MesProcessPoolDefectReasonMapper defectReasonMapper,
             MesFrontlineSessionSnapshotService sessionSnapshotService,
-            MesFrontlineActiveOrderProcessService activeOrderProcessService) {
+            MesFrontlineActiveOrderProcessService activeOrderProcessService,
+            MesFrontlineProcessMaterialService processMaterialService) {
         this.contextService = contextService;
         this.templateResolver = templateResolver;
         this.employeeProfileMapper = employeeProfileMapper;
@@ -72,6 +74,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         this.defectReasonMapper = defectReasonMapper;
         this.sessionSnapshotService = sessionSnapshotService;
         this.activeOrderProcessService = activeOrderProcessService;
+        this.processMaterialService = processMaterialService;
     }
 
     @Override
@@ -96,6 +99,9 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         List<MesFrontlineTeamDeviceOption> devices = toDeviceOptions(processDeviceBindings, process, leaderUserIds,
                 parameterSnapshot);
         List<MesFrontlineDefectReasonOption> defectReasons = toDefectReasonOptions(process, leaderUserIds);
+        List<MesFrontlineProcessMaterial> materials = activeOrderId == null ? List.of()
+                : processMaterialService.listFrozenMaterials(activeOrderId, process.routeId(),
+                process.routeProcessId(), process.processId());
         MesFrontlineProductionSubmitContext productionSubmitContext =
                 resolveProductionSubmitContext(process, responsibleLeaderUserId, parameterSnapshot);
         List<MesFrontlineEmployeeSwitchResult> employeeSwitchSnapshots =
@@ -103,9 +109,9 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
         MesFrontlineSessionSnapshotReference snapshotReference = sessionSnapshotService.issue(
                 new MesFrontlineSessionSnapshotContent(TenantContextHolder.getTenantId(), loginUserId,
                         process.routeId(), process.routeProcessId(), process.processId(), process.workstationId(),
-                        employeeSwitchSnapshots, devices, defectReasons, productionSubmitContext));
+                        employeeSwitchSnapshots, devices, defectReasons, materials, productionSubmitContext));
         return new MesFrontlineRuntimeConfig(process.routeId(), process.routeProcessId(), process.processId(),
-                employees, devices, defectReasons, productionSubmitContext, employeeSwitchSnapshots,
+                employees, devices, defectReasons, materials, productionSubmitContext, employeeSwitchSnapshots,
                 snapshotReference.snapshotId(), snapshotReference.snapshotHash());
     }
 

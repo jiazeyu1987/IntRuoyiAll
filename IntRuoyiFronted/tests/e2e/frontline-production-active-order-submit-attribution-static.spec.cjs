@@ -45,7 +45,7 @@ assert.match(
 )
 assert.match(
   panel,
-  /rawPayload:\s*buildProductionStructuredRawPayload\(rawPayload,\s*formalContext\)/,
+  /rawPayload:\s*buildProductionStructuredRawPayload\([\s\S]*rawPayload,[\s\S]*formalContext,[\s\S]*materialDetails[\s\S]*\)/,
   '生产正式提交 rawPayload 必须使用同一个正式上下文生成活跃订单工序快照'
 )
 assert.match(

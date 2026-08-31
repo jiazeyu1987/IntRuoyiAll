@@ -364,7 +364,18 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
         if (ObjUtil.notEqual(workstation.getProcessId(), routeContext.relationProcessId())) {
             throw exception(PRO_WORKSTATION_PROCESS_MISMATCH);
         }
-        validateFeedbackQuantity(reqVO, routeContext.routeProcess());
+        validateFrontlineFeedbackQuantity(reqVO);
+    }
+
+    private void validateFrontlineFeedbackQuantity(MesProFeedbackSaveReqVO reqVO) {
+        BigDecimal feedbackQuantity = reqVO.getFeedbackQuantity();
+        BigDecimal qualifiedQuantity = ObjectUtil.defaultIfNull(reqVO.getQualifiedQuantity(), BigDecimal.ZERO);
+        BigDecimal unqualifiedQuantity = ObjectUtil.defaultIfNull(reqVO.getUnqualifiedQuantity(), BigDecimal.ZERO);
+        if (feedbackQuantity.compareTo(BigDecimal.ZERO) < 0
+                || qualifiedQuantity.compareTo(BigDecimal.ZERO) < 0
+                || unqualifiedQuantity.compareTo(BigDecimal.ZERO) < 0) {
+            throw exception(PRO_FEEDBACK_QUANTITY_MUST_POSITIVE);
+        }
     }
 
     private void validateFeedbackQuantity(MesProFeedbackSaveReqVO reqVO, MesProRouteProcessDO routeProcess) {

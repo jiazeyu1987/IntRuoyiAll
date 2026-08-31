@@ -821,6 +821,39 @@
                 </div>
               </div>
             </section>
+            <section
+              v-if="configuredProductionMaterials.length > 0"
+              class="frontline-production-material-tabs"
+              data-frontline-production-material-tabs
+              role="tablist"
+              aria-label="物料切换"
+            >
+              <button
+                v-for="material in configuredProductionMaterials"
+                :key="material.key"
+                class="frontline-production-material-tab"
+                :class="{
+                  'is-selected': material.key === selectedProductionMaterialKey,
+                  'is-complete': isProductionMaterialCompletionEntered(material.key)
+                }"
+                type="button"
+                role="tab"
+                data-frontline-production-material-tab
+                :aria-selected="material.key === selectedProductionMaterialKey"
+                :aria-label="`${material.materialName} ${material.materialCode}`"
+                :disabled="payloadLoading"
+                @click="switchProductionMaterial(material.key)"
+              >
+                <strong>{{ material.materialName }}</strong>
+                <small>{{ material.materialCode }}</small>
+                <small
+                  v-if="material.batchCodes.length > 0"
+                  class="frontline-production-material-batches"
+                >
+                  批号 {{ material.batchCodes.join('、') }}
+                </small>
+              </button>
+            </section>
             <div
               class="frontline-inline-error-slot"
               data-frontline-error-slot
@@ -1330,9 +1363,11 @@ import {
   type FrontlinePqcTaskOptionVO,
   type FrontlineRuntimeDeviceVO,
   type FrontlineRuntimeDeviceParameterVO,
+  type FrontlineRuntimeMaterialVO,
   type ProFrontlineDeviceParameterReadingReqVO,
   type ProFrontlineFeedbackSubmitRespVO,
   type ProFrontlineFeedbackSubmitReqVO,
+  type ProFrontlineFeedbackMaterialReqVO,
   type ProFrontlineLossDetailReqVO,
   type ProFrontlineParameterStatus,
   type ProFrontlineSelectedDeviceReqVO
@@ -1380,6 +1415,13 @@ type ProductionDeviceParameterKey = string
 type ProductionDeviceParameterDraft = Record<ProductionDeviceParameterKey, number | string | boolean | undefined>
 type ProductionDeviceMeteringValidityDraft = Record<string, boolean | undefined>
 type ProductionClearanceConfirmationKey = 'workplace' | 'validity' | 'material' | 'cleaning'
+type ProductionMaterialDraftState = {
+  outputQuantity?: number
+  defectQuantities: Record<ProductionDefectKey, number>
+  selectedDeviceKey?: string
+  deviceParameters: Record<string, ProductionDeviceParameterDraft>
+  deviceMeteringValidity: ProductionDeviceMeteringValidityDraft
+}
 type FrontlineEmployeeSwitchResult = {
   actualEmployeeId: number
   template?: {
@@ -1437,6 +1479,10 @@ interface ProductionDefectOption {
   reasonId: number
   reasonCode: string
   label: string
+}
+
+interface ProductionMaterialOption extends FrontlineRuntimeMaterialVO {
+  key: string
 }
 
 interface ProductionDeviceCard {
@@ -1620,6 +1666,8 @@ const productionDraft = reactive({
 
 const productionDefectDraft = reactive<Record<ProductionDefectKey, number>>({})
 
+const productionMaterialDrafts = reactive<Record<string, ProductionMaterialDraftState>>({})
+const selectedProductionMaterialKey = ref<string>()
 const selectedProductionDeviceKey = ref<string>()
 const deviceParameterDraft = reactive<Record<string, ProductionDeviceParameterDraft>>({})
 const deviceMeteringValidityDraft = reactive<ProductionDeviceMeteringValidityDraft>({})
@@ -2076,6 +2124,13 @@ const configuredDefectReasons = computed<ProductionDefectOption[]>(() =>
   }))
 )
 
+const configuredProductionMaterials = computed<ProductionMaterialOption[]>(() =>
+  (deviceState.runtimeConfig?.materials || []).map((material) => ({
+    ...material,
+    key: String(material.materialId)
+  }))
+)
+
 const resolveProductionDeviceTabLabel = (
   device: Pick<FrontlineRuntimeDeviceVO, 'deviceCode'>
 ) => {
@@ -2224,6 +2279,125 @@ const resetProductionDeviceMeteringValidityDraft = () => {
   syncProductionDeviceMeteringValidityDraft(visibleDeviceCards.value)
 }
 
+const cloneProductionDeviceParameters = (
+  source: Record<string, ProductionDeviceParameterDraft>
+) => Object.fromEntries(
+  Object.entries(source).map(([deviceKey, parameters]) => [deviceKey, { ...parameters }])
+) as Record<string, ProductionDeviceParameterDraft>
+
+function replaceReactiveRecord<T>(target: Record<string, T>, source: Record<string, T>) {
+  for (const key of Object.keys(target)) {
+    delete target[key]
+  }
+  Object.assign(target, source)
+}
+
+const createProductionMaterialDraftState = (): ProductionMaterialDraftState => ({
+  outputQuantity: undefined,
+  defectQuantities: Object.fromEntries(
+    configuredDefectReasons.value.map((defect) => [defect.key, 0])
+  ),
+  selectedDeviceKey: visibleDeviceCards.value[0]?.key,
+  deviceParameters: cloneProductionDeviceParameters(deviceParameterDraft),
+  deviceMeteringValidity: { ...deviceMeteringValidityDraft }
+})
+
+const persistActiveProductionMaterialDraft = () => {
+  const materialKey = selectedProductionMaterialKey.value
+  if (!materialKey || !productionMaterialDrafts[materialKey]) {
+    return
+  }
+  productionMaterialDrafts[materialKey] = {
+    outputQuantity: productionDraft.outputQuantity,
+    defectQuantities: { ...productionDefectDraft },
+    selectedDeviceKey: selectedProductionDeviceKey.value,
+    deviceParameters: cloneProductionDeviceParameters(deviceParameterDraft),
+    deviceMeteringValidity: { ...deviceMeteringValidityDraft }
+  }
+}
+
+const restoreProductionMaterialDraft = (materialKey: string) => {
+  const materialDraft = productionMaterialDrafts[materialKey]
+  if (!materialDraft) {
+    throw new Error(`报工物料草稿不存在：${materialKey}`)
+  }
+  productionDraft.outputQuantity = materialDraft.outputQuantity
+  replaceReactiveRecord(productionDefectDraft, { ...materialDraft.defectQuantities })
+  for (const defect of configuredDefectReasons.value) {
+    if (productionDefectDraft[defect.key] === undefined) {
+      productionDefectDraft[defect.key] = 0
+    }
+  }
+  replaceReactiveRecord(
+    deviceParameterDraft,
+    cloneProductionDeviceParameters(materialDraft.deviceParameters)
+  )
+  syncProductionDeviceParameterDraft(visibleDeviceCards.value)
+  replaceReactiveRecord(deviceMeteringValidityDraft, { ...materialDraft.deviceMeteringValidity })
+  syncProductionDeviceMeteringValidityDraft(visibleDeviceCards.value)
+  selectedProductionDeviceKey.value = visibleDeviceCards.value.some(
+    (device) => device.key === materialDraft.selectedDeviceKey
+  )
+    ? materialDraft.selectedDeviceKey
+    : visibleDeviceCards.value[0]?.key
+}
+
+const clearProductionMaterialDrafts = () => {
+  for (const materialKey of Object.keys(productionMaterialDrafts)) {
+    delete productionMaterialDrafts[materialKey]
+  }
+  selectedProductionMaterialKey.value = undefined
+  productionDraft.outputQuantity = undefined
+  replaceReactiveRecord(productionDefectDraft, {})
+  resetProductionDeviceParameterDraft()
+  resetProductionDeviceMeteringValidityDraft()
+}
+
+const syncProductionMaterialDrafts = (materials: ProductionMaterialOption[]) => {
+  if (!materials.length) {
+    clearProductionMaterialDrafts()
+    return
+  }
+  const materialKeys = new Set(materials.map((material) => material.key))
+  for (const materialKey of Object.keys(productionMaterialDrafts)) {
+    if (!materialKeys.has(materialKey)) {
+      delete productionMaterialDrafts[materialKey]
+    }
+  }
+  for (const material of materials) {
+    if (!productionMaterialDrafts[material.key]) {
+      productionMaterialDrafts[material.key] = createProductionMaterialDraftState()
+    }
+  }
+  const activeMaterialKey = selectedProductionMaterialKey.value
+  selectedProductionMaterialKey.value = activeMaterialKey && materialKeys.has(activeMaterialKey)
+    ? activeMaterialKey
+    : materials[0].key
+  restoreProductionMaterialDraft(selectedProductionMaterialKey.value)
+}
+
+const resetProductionMaterialDrafts = () => {
+  clearProductionMaterialDrafts()
+  syncProductionMaterialDrafts(configuredProductionMaterials.value)
+}
+
+const switchProductionMaterial = (materialKey: string) => {
+  if (materialKey === selectedProductionMaterialKey.value) {
+    return
+  }
+  if (!productionMaterialDrafts[materialKey]) {
+    throw new Error(`报工物料不属于当前冻结工序：${materialKey}`)
+  }
+  persistActiveProductionMaterialDraft()
+  selectedProductionMaterialKey.value = materialKey
+  restoreProductionMaterialDraft(materialKey)
+}
+
+const isProductionMaterialCompletionEntered = (materialKey: string) =>
+  materialKey === selectedProductionMaterialKey.value
+    ? productionDraft.outputQuantity !== undefined
+    : productionMaterialDrafts[materialKey]?.outputQuantity !== undefined
+
 const activeProductionDevice = computed(() =>
   visibleDeviceCards.value.find((device) => device.key === selectedProductionDeviceKey.value) ||
   visibleDeviceCards.value[0]
@@ -2368,6 +2542,7 @@ watch(
   (templateCode) => {
     context.templateCode = templateCode
     Object.assign(draft.fieldValues, createFrontlineDefaultValues(templateCode))
+    resetProductionMaterialDrafts()
     resetProductionDeviceMeteringValidityDraft()
     resetProductionClearanceConfirmations()
     payloadPreview.value = undefined
@@ -2383,6 +2558,7 @@ watch(
       Object.assign(draft.fieldValues, createFrontlineDefaultValues(context.templateCode))
       payloadPreview.value = undefined
       productionSubmitDraftKey.value = createProductionSubmitDraftKey()
+      resetProductionMaterialDrafts()
       resetProductionDeviceMeteringValidityDraft()
       resetProductionClearanceConfirmations()
       pqcSubmitResultUncertain.value = false
@@ -2422,6 +2598,12 @@ watch(
       }
     }
   },
+  { immediate: true }
+)
+
+watch(
+  configuredProductionMaterials,
+  (materials) => syncProductionMaterialDrafts(materials),
   { immediate: true }
 )
 
@@ -2662,12 +2844,7 @@ const buildProductionDeviceMeteringValidityPayload = () =>
   }))
 
 const resetProductionSubmissionDraft = () => {
-  productionDraft.outputQuantity = undefined
-  for (const defect of configuredDefectReasons.value) {
-    productionDefectDraft[defect.key] = 0
-  }
-  resetProductionDeviceParameterDraft()
-  resetProductionDeviceMeteringValidityDraft()
+  resetProductionMaterialDrafts()
   resetProductionClearanceConfirmations()
   Object.assign(draft.fieldValues, createFrontlineDefaultValues(context.templateCode))
   payloadPreview.value = undefined
@@ -4024,11 +4201,24 @@ watch(currentLoginUserId, async () => {
 })
 
 const assertProductionSubmissionReady = () => {
-  if (!productionDraft.outputQuantity || productionDraft.outputQuantity <= 0) {
-    throw new Error('请填写完成数量')
+  persistActiveProductionMaterialDraft()
+  if (!configuredProductionMaterials.value.length) {
+    throw new Error('当前工序没有冻结物料，无法提交')
   }
-  if (productionScrapQuantity.value > productionDraft.outputQuantity) {
-    throw new Error('损耗数量不能大于完成数量')
+  const missingMaterials = configuredProductionMaterials.value.filter(
+    (material) => productionMaterialDrafts[material.key]?.outputQuantity === undefined
+  )
+  if (missingMaterials.length) {
+    throw new Error(`请填写完成数量：${missingMaterials.map((material) => material.materialName).join('、')}`)
+  }
+  const invalidLossMaterials = configuredProductionMaterials.value.filter((material) => {
+    const materialDraft = productionMaterialDrafts[material.key]
+    const lossQuantity = Object.values(materialDraft.defectQuantities)
+      .reduce((total, quantity) => total + quantity, 0)
+    return lossQuantity > materialDraft.outputQuantity!
+  })
+  if (invalidLossMaterials.length) {
+    throw new Error(`损耗数量不能大于完成数量：${invalidLossMaterials.map((material) => material.materialName).join('、')}`)
   }
   const device = activeProductionDevice.value
   if (!device) {
@@ -4053,6 +4243,14 @@ const assertProductionSubmissionReady = () => {
 }
 
 const buildProductionFormalSubmitConfirmation = () => {
+  const materialDetails = buildProductionMaterialDetailsPayload()
+  const progressQuantity = Math.min(...materialDetails.map((material) => material.outputQuantity))
+  const materialSummary = configuredProductionMaterials.value
+    .map((material, index) => {
+      const detail = materialDetails[index]
+      return `${material.materialName}=完成${detail.outputQuantity}件、损耗${detail.lossQuantity}件`
+    })
+    .join('；')
   const device = activeProductionDevice.value
   const parameterSummary = device
     ? getProductionSubmittableParameters(device).map((parameter) => {
@@ -4076,6 +4274,8 @@ const buildProductionFormalSubmitConfirmation = () => {
     `生产订单：${productionOrderLabel.value}`,
     `工序：${selectedProcessLabel.value}`,
     `实际员工：${selectedEmployeeLabel.value}`,
+    `物料：${materialSummary}`,
+    `工序进度：${progressQuantity}件`,
     `完成数量：${productionDraft.outputQuantity}件`,
     `损耗数量：${productionScrapQuantity.value}件`,
     `设备：${device?.label || '无设备'}`,
@@ -4482,9 +4682,6 @@ const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmit
       missingFields.push(label)
     }
   }
-  if (!productionDraft.outputQuantity || productionDraft.outputQuantity <= 0) {
-    missingFields.push('产出数量')
-  }
   if (
     formalContext.signatureEmployeeId &&
     context.actualEmployeeId &&
@@ -4526,6 +4723,12 @@ const buildFrontlineFormalSubmitPayload = (
     throw new Error('请输入所选员工的电子签名密码。')
   }
   const selectedDevice = activeProductionDevice.value
+  const materialDetails = buildProductionMaterialDetailsPayload()
+  const progressQuantity = Math.min(...materialDetails.map((material) => material.outputQuantity))
+  const totalLossQuantity = materialDetails.reduce(
+    (total, material) => total + material.lossQuantity,
+    0
+  )
   const equipmentParameters = selectedDevice
     ? { [selectedDevice.label]: buildProductionDeviceParameterPayload(selectedDevice.key) }
     : {}
@@ -4539,6 +4742,7 @@ const buildFrontlineFormalSubmitPayload = (
         entryContent: {
           fieldValues: { ...draft.fieldValues },
           defects: { ...productionDefectDraft },
+          materialDetails,
           clearanceConfirmations: buildProductionClearanceConfirmationPayload(),
           productionOrder: productionOrderLabel.value,
           process: selectedProcessLabel.value,
@@ -4552,6 +4756,7 @@ const buildFrontlineFormalSubmitPayload = (
     : undefined
   const runtimeConfig = deviceState.runtimeConfig!
   return {
+    materialDetails,
     feedbackPayload: {
       workstationId: formalContext.workstationId!,
       routeId: formalContext.routeId!,
@@ -4564,12 +4769,12 @@ const buildFrontlineFormalSubmitPayload = (
       itemId: formalContext.itemId,
       expireDate: formalContext.expireDate,
       scheduledQuantity: formalContext.scheduledQuantity,
-      outputQuantity: productionDraft.outputQuantity!,
-      lossQuantity: productionScrapQuantity.value,
+      outputQuantity: progressQuantity,
+      lossQuantity: totalLossQuantity,
       lossDetails: buildProductionLossDetailsPayload(),
       selectedDevice: buildProductionSelectedDevicePayload(),
       deviceParameterReadings: buildProductionDeviceParameterReadingsPayload(),
-      laborScrapQuantity: productionScrapQuantity.value,
+      laborScrapQuantity: totalLossQuantity,
       materialScrapQuantity: 0,
       otherScrapQuantity: 0,
       approveUserId: formalContext.approveUserId!,
@@ -4594,7 +4799,11 @@ const buildFrontlineFormalSubmitPayload = (
     signaturePassword,
     frontlineSessionSnapshotId: runtimeConfig.frontlineSessionSnapshotId,
     frontlineSessionSnapshotHash: runtimeConfig.frontlineSessionSnapshotHash,
-    rawPayload: buildProductionStructuredRawPayload(rawPayload, formalContext) as unknown as Record<string, unknown>
+    rawPayload: buildProductionStructuredRawPayload(
+      rawPayload,
+      formalContext,
+      materialDetails
+    ) as unknown as Record<string, unknown>
   }
 }
 
@@ -4611,18 +4820,24 @@ const buildProductionDeviceParameterPayload = (deviceKey: string) => {
   )
 }
 
-const buildProductionLossDetailsPayload = (): ProFrontlineLossDetailReqVO[] =>
+const buildProductionLossDetailsFromDraft = (
+  defectQuantities: Record<ProductionDefectKey, number>
+): ProFrontlineLossDetailReqVO[] =>
   configuredDefectReasons.value
     .map((defect) => ({
       reasonId: defect.reasonId,
       reasonCode: defect.reasonCode,
       reasonName: defect.label,
-      quantity: productionDefectDraft[defect.key] || 0
+      quantity: defectQuantities[defect.key] || 0
     }))
     .filter((defect) => defect.quantity > 0)
 
-const buildProductionSelectedDevicePayload = (): ProFrontlineSelectedDeviceReqVO | undefined => {
-  const device = activeProductionDevice.value
+const buildProductionLossDetailsPayload = (): ProFrontlineLossDetailReqVO[] =>
+  buildProductionLossDetailsFromDraft(productionDefectDraft)
+
+const buildProductionSelectedDeviceFromDevice = (
+  device?: ProductionDeviceCard
+): ProFrontlineSelectedDeviceReqVO | undefined => {
   if (!device) {
     return undefined
   }
@@ -4633,16 +4848,21 @@ const buildProductionSelectedDevicePayload = (): ProFrontlineSelectedDeviceReqVO
   }
 }
 
-const buildProductionDeviceParameterReadingsPayload =
-  (): ProFrontlineDeviceParameterReadingReqVO[] => {
-    const device = activeProductionDevice.value
+const buildProductionSelectedDevicePayload = (): ProFrontlineSelectedDeviceReqVO | undefined =>
+  buildProductionSelectedDeviceFromDevice(activeProductionDevice.value)
+
+const buildProductionDeviceParameterReadingsFromDraft = (
+  device: ProductionDeviceCard | undefined,
+  parameterDraft: Record<string, ProductionDeviceParameterDraft>
+): ProFrontlineDeviceParameterReadingReqVO[] => {
     if (!device) {
       return []
     }
+    const parameterValues = parameterDraft[device.key] || {}
     return getProductionSubmittableParameters(device)
       .filter((parameter) => !isTextStandardParameter(parameter))
       .map<ProFrontlineDeviceParameterReadingReqVO | undefined>((parameter) => {
-        const value = getProductionDeviceParameter(device.key, parameter.parameterCode)
+        const value = parameterValues[parameter.parameterCode]
         if (isSelectParameter(parameter)) {
           const textValue = typeof value === 'string' ? value.trim() : ''
           if (!textValue) {
@@ -4697,6 +4917,38 @@ const buildProductionDeviceParameterReadingsPayload =
       .filter((item): item is ProFrontlineDeviceParameterReadingReqVO => item !== undefined)
   }
 
+const buildProductionDeviceParameterReadingsPayload =
+  (): ProFrontlineDeviceParameterReadingReqVO[] =>
+    buildProductionDeviceParameterReadingsFromDraft(
+      activeProductionDevice.value,
+      deviceParameterDraft
+    )
+
+const buildProductionMaterialDetailsPayload = (): ProFrontlineFeedbackMaterialReqVO[] => {
+  persistActiveProductionMaterialDraft()
+  return configuredProductionMaterials.value.map((material) => {
+    const materialDraft = productionMaterialDrafts[material.key]
+    if (!materialDraft || materialDraft.outputQuantity === undefined) {
+      throw new Error(`请填写完成数量：${material.materialName}`)
+    }
+    const lossDetails = buildProductionLossDetailsFromDraft(materialDraft.defectQuantities)
+    const selectedDevice = visibleDeviceCards.value.find(
+      (device) => device.key === materialDraft.selectedDeviceKey
+    )
+    return {
+      materialId: material.materialId,
+      outputQuantity: materialDraft.outputQuantity,
+      lossQuantity: lossDetails.reduce((total, detail) => total + detail.quantity, 0),
+      lossDetails,
+      selectedDevice: buildProductionSelectedDeviceFromDevice(selectedDevice),
+      deviceParameterReadings: buildProductionDeviceParameterReadingsFromDraft(
+        selectedDevice,
+        materialDraft.deviceParameters
+      )
+    }
+  })
+}
+
 const buildProductionEquipmentParameterRulesPayload = () =>
   activeProductionDevice.value
     ? Object.fromEntries([[
@@ -4718,7 +4970,8 @@ const buildProductionEquipmentParameterRulesPayload = () =>
 
 const buildProductionStructuredRawPayload = (
   rawPayload: FrontlineTemplatePayloadReqVO,
-  formalContext: FrontlineFormalSubmitContext
+  formalContext: FrontlineFormalSubmitContext,
+  materialDetails: ProFrontlineFeedbackMaterialReqVO[]
 ) => ({
   ...rawPayload,
   activeOrderProcess: {
@@ -4729,6 +4982,7 @@ const buildProductionStructuredRawPayload = (
     routeProcessId: formalContext.routeProcessId,
     processId: formalContext.processId
   },
+  materialDetails,
   lossDetails: buildProductionLossDetailsPayload(),
   lossReasonDetails: buildProductionLossDetailsPayload(),
   selectedDevice: buildProductionSelectedDevicePayload(),
@@ -5721,8 +5975,63 @@ onUnmounted(() => {
 .frontline-production-quantity-panel {
   grid-column: 1;
   grid-row: 1;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   gap: 16px;
+}
+
+.frontline-production-material-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.frontline-production-material-tab {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  min-height: 88px;
+  padding: 10px 14px;
+  border: 4px solid var(--frontline-line);
+  border-radius: 14px;
+  background: #eef1ef;
+  color: var(--frontline-ink);
+  cursor: pointer;
+
+  strong,
+  small {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    letter-spacing: 0;
+  }
+
+  strong {
+    font-size: 28px;
+    line-height: 1.1;
+  }
+
+  small {
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  &.is-selected {
+    border-color: #111915;
+    box-shadow: inset 0 0 0 2px #ffffff;
+  }
+
+  &.is-complete {
+    border-color: #116b4e;
+    background: #17835f;
+    color: #ffffff;
+  }
+}
+
+.frontline-production-material-batches {
+  overflow-wrap: anywhere;
+  color: inherit;
+  line-height: 1.25;
 }
 
 .frontline-inline-error-slot {
