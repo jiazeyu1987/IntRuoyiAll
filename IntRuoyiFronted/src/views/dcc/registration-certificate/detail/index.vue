@@ -95,10 +95,10 @@
               <div class="renewal-history__version">
                 <strong v-if="item.versionNo">V{{ item.versionNo }}</strong>
                 <strong v-else class="renewal-history__missing">版本信息缺失</strong>
-                <span>提交时间 {{ formatDateTimeValue(item.occurredAt) }}</span>
+                <span>记录时间 {{ formatDateTimeValue(item.occurredAt) }}</span>
               </div>
-              <el-tag :type="item.categoryChanged ? 'warning' : 'info'">
-                {{ item.categoryChanged ? '类别已变更' : '类别未变更' }}
+              <el-tag :type="getCategoryChangedTagType(item.categoryChanged)">
+                {{ formatCategoryChangedStatus(item.categoryChanged) }}
               </el-tag>
             </div>
 
@@ -133,7 +133,7 @@
             </dl>
 
             <div class="renewal-history__file">
-              <Icon icon="ep:document" />
+              <Icon icon="lucide:file-text" />
               <span class="renewal-history__file-label">延续注册证文件</span>
               <span v-if="item.originalFileName" class="renewal-history__file-name">
                 {{ item.originalFileName }}
@@ -215,6 +215,18 @@ const formatBooleanChoice = (value?: boolean) => {
   return '缺少正式记录'
 }
 
+const formatCategoryChangedStatus = (value?: boolean) => {
+  if (value === true) return '类别已变更'
+  if (value === false) return '类别未变更'
+  return '类别变更记录缺失'
+}
+
+const getCategoryChangedTagType = (value?: boolean) => {
+  if (value === true) return 'warning'
+  if (value === false) return 'info'
+  return 'danger'
+}
+
 type DownloadableFileOption = {
   businessFileId: number | string
   fileKind: string
@@ -235,18 +247,14 @@ const downloadableFiles = computed<DownloadableFileOption[]>(() => {
   }
   let changeApprovalFileIndex = 0
   history.value.forEach((item) => {
-    if (!item.businessFileId || !item.fileKind) {
+    if (!item.businessFileId || item.fileKind !== 'CHANGE_APPROVAL') {
       return
     }
-    if (item.fileKind === 'CHANGE_APPROVAL') {
-      changeApprovalFileIndex += 1
-    }
+    changeApprovalFileIndex += 1
     files.push({
       businessFileId: item.businessFileId,
       fileKind: item.fileKind,
-      label: item.fileKind === 'CHANGE_APPROVAL'
-        ? `变更批件文件 ${changeApprovalFileIndex}`
-        : `业务文件 ${files.length + 1}`
+      label: `变更批件文件 ${changeApprovalFileIndex}`
     })
   })
   const seen = new Set<string>()

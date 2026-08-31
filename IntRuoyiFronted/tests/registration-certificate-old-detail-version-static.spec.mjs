@@ -118,9 +118,14 @@ assert.match(
   /export\s+const\s+formatRegistrationCertificateDate\s*=/,
   'shared state must export a dedicated registration certificate date formatter'
 )
+const dateFormatterStart = state.indexOf('export const formatRegistrationCertificateDate')
+const dateFormatterEnd = state.indexOf('\n}', dateFormatterStart)
+assert.ok(dateFormatterStart >= 0 && dateFormatterEnd > dateFormatterStart,
+  'registration certificate date formatter block must exist')
+const dateFormatter = state.slice(dateFormatterStart, dateFormatterEnd)
 assert.match(
-  state,
-  /Array\.isArray\(value\)[\s\S]{0,240}padStart\(2,\s*'0'\)/,
+  dateFormatter,
+  /Array\.isArray\(value\)[\s\S]*padStart\(2,\s*'0'\)/,
   'date formatter must normalize Java LocalDate arrays to zero-padded YYYY-MM-DD text'
 )
 

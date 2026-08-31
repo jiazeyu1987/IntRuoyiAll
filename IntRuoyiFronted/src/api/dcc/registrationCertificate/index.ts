@@ -170,7 +170,7 @@ export interface DccRegistrationCertificateHistoryItemVO {
   classification?: string
   originalFileName?: string
   fileStatus?: string
-  occurredAt?: string
+  occurredAt?: string | number
 }
 
 export interface DccRegistrationCertificateDraftReqVO {

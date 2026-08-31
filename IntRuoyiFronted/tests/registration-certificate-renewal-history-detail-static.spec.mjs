@@ -15,6 +15,11 @@ for (const file of [apiPath, detailPath]) {
 
 const api = read(apiPath)
 const detail = read(detailPath)
+const historyInterfaceStart = api.indexOf('export interface DccRegistrationCertificateHistoryItemVO')
+const historyInterfaceEnd = api.indexOf('\n}', historyInterfaceStart)
+assert.ok(historyInterfaceStart >= 0 && historyInterfaceEnd > historyInterfaceStart,
+  'history API interface block must exist')
+const historyInterface = api.slice(historyInterfaceStart, historyInterfaceEnd)
 
 for (const field of [
   'targetVersionId',
@@ -30,11 +35,16 @@ for (const field of [
   'occurredAt'
 ]) {
   assert.match(
-    api,
-    new RegExp(`export interface DccRegistrationCertificateHistoryItemVO[\\s\\S]*?\\b${field}\\??:`),
+    historyInterface,
+    new RegExp(`\\b${field}\\??:`),
     `history API type must expose ${field}`
   )
 }
+assert.match(
+  historyInterface,
+  /occurredAt\?:\s*string\s*\|\s*number/,
+  'history event time must match the runtime string-or-epoch response contract'
+)
 
 assert.match(
   detail,
@@ -87,6 +97,11 @@ assert.doesNotMatch(
   detail,
   /downloadRegistrationCertificateFile/,
   'history display must not bypass the existing file-download authorization flow'
+)
+assert.match(
+  detail,
+  /item\.fileKind\s*!==\s*'CHANGE_APPROVAL'/,
+  'renewal history files must not silently expand the existing download-request candidates'
 )
 
 console.log('registration certificate renewal history detail static contract passed')
