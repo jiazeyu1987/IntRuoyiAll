@@ -41,5 +41,7 @@ M5 - implementation commit, cleanup, fast-forward integration and worktree remov
 ## Final Closeout
 
 - Final implementation commit: `51550d308` (`fix: pqc production release consistency`).
-- `int_main` was fast-forwarded to the verified commit after rebasing onto the latest mainline tip.
+- Closeout record commit: `2d45eb452` (`chore: complete pqc release consistency task`).
+- Project experience commit: `a4f78dfda` (`docs: record pqc release consistency gate`).
+- `int_main` was advanced through the verified implementation, closeout record, and project experience commits after rebasing onto the latest mainline tip.
 - Task-only temporary evidence files and the one-off registry helper script were deleted from the task directory.

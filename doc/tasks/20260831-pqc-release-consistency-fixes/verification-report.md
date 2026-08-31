@@ -13,7 +13,7 @@ PASS - completed
 - branch runtime guard：PASS（slot 61，8356/48356）。
 - `git diff --check`：PASS。
 - backend API、frontend feature、database schema evidence validators：PASS。
-- `int_main` fast-forwarded to `51550d308` (`fix: pqc production release consistency`).
+- Implementation commit `51550d308`, closeout record commit `2d45eb452`, and project experience commit `a4f78dfda` are on `int_main`.
 - Task-only temporary evidence files and the one-off registry helper script were removed.
 
 ## Acceptance Summary
