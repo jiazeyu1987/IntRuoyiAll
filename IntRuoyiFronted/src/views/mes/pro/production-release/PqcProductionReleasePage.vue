@@ -65,6 +65,12 @@
                 {{ formatDateTime(row.nonconformanceClosedAt) }}
               </div>
             </template>
+            <template v-else-if="row.approvalReady === false">
+              <div>{{ row.approvalBlockerReason || '放行资料尚未就绪' }}</div>
+              <div v-if="row.approvalBlockerSuggestion" class="pqc-release-page__secondary">
+                {{ row.approvalBlockerSuggestion }}
+              </div>
+            </template>
             <span v-else class="pqc-release-page__secondary">--</span>
           </template>
         </el-table-column>
@@ -76,7 +82,8 @@
                   v-hasPermi="['mes:pro-production-release:pqc-approve']"
                   link
                   type="success"
-                  :disabled="row.underReview"
+                  :disabled="row.underReview || !row.approvalReady"
+                  :title="row.approvalBlockerReason || '放行'"
                   data-pqc-production-release-approve
                   @click="openReleaseDialog(row)"
                 >
@@ -189,6 +196,7 @@
           v-if="!releaseResult"
           type="primary"
           :loading="releaseSubmitting"
+          :disabled="releaseOutcomeUncertain"
           @click="submitRelease"
         >
           确认放行
@@ -207,6 +215,7 @@ import {
   PQC_RELEASE_VIEW_REWORKED,
   PQC_RELEASE_VIEW_VOIDED,
   approvePqcProductionRelease,
+  getPqcProductionRelease,
   getPqcProductionReleasePage,
   type MesPqcProductionReleaseDecisionRespVO,
   type MesPqcProductionReleasePageItemRespVO,
@@ -229,6 +238,8 @@ const releaseSubmitting = ref(false)
 const releaseError = ref('')
 const selectedRow = ref<MesPqcProductionReleasePageItemRespVO>()
 const releaseResult = ref<MesPqcProductionReleaseDecisionRespVO>()
+const releaseOutcomeUncertain = ref(false)
+const releaseIdempotencyKeys = new Map<string, string>()
 
 const queryParams = reactive({
   pageNo: 1,
@@ -325,6 +336,7 @@ const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
   selectedRow.value = row
   releaseError.value = ''
   releaseResult.value = undefined
+  releaseOutcomeUncertain.value = false
   releaseForm.signaturePassword = ''
   releaseForm.approvalOpinion = ''
   releaseDialogVisible.value = true
@@ -335,11 +347,99 @@ const resetReleaseDialog = () => {
   releaseForm.approvalOpinion = ''
   releaseError.value = ''
   releaseResult.value = undefined
+  releaseOutcomeUncertain.value = false
   selectedRow.value = undefined
 }
 
-const createIdempotencyKey = (applicationId: string) =>
-  `pqc-release-${applicationId}-${Date.now()}-${crypto.randomUUID()}`
+const getOrCreateReleaseIdempotencyKey = (applicationId: string) => {
+  const existingKey = releaseIdempotencyKeys.get(applicationId)
+  if (existingKey) return existingKey
+  const key = `pqc-release-${applicationId}-${Date.now()}-${crypto.randomUUID()}`
+  releaseIdempotencyKeys.set(applicationId, key)
+  return key
+}
+
+const isDefinitiveReleaseBusinessFailure = (error: unknown) => {
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'number' && Number.isFinite(code)
+}
+
+const assertReleasedReceipt = (result: MesPqcProductionReleaseDecisionRespVO) => {
+  if (
+    result.decision !== 'APPROVE' ||
+    !['REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING', 'RELEASED'].includes(result.status) ||
+    !result.batchExecutionId ||
+    !result.signatureId
+  ) {
+    throw new Error('生产放行回执不完整，请刷新后核对。')
+  }
+}
+
+const applyReleaseSuccess = async (
+  row: MesPqcProductionReleasePageItemRespVO,
+  result: MesPqcProductionReleaseDecisionRespVO,
+  recovered: boolean
+) => {
+  assertReleasedReceipt(result)
+  releaseIdempotencyKeys.delete(row.applicationId)
+  releaseForm.signaturePassword = ''
+  releaseOutcomeUncertain.value = false
+  releaseResult.value = result
+  activeView.value =
+    row.nonconformanceDisposition === 'concession_release'
+      ? PQC_RELEASE_VIEW_CONCESSION_RELEASED
+      : PQC_RELEASE_VIEW_RELEASED
+  queryParams.pageNo = 1
+  await getList()
+  recovered
+    ? message.warning('响应异常，但权威回执已确认生产放行完成')
+    : message.success('生产放行完成')
+}
+
+const recoverUncertainRelease = async (
+  row: MesPqcProductionReleasePageItemRespVO,
+  writeError: unknown
+) => {
+  let receipt: MesPqcProductionReleaseDecisionRespVO
+  try {
+    receipt = await getPqcProductionRelease(row.applicationId)
+  } catch (receiptError) {
+    releaseOutcomeUncertain.value = true
+    releaseError.value =
+      `生产放行响应不确定，权威回执查询失败。请刷新核对后再操作。` +
+      `写入错误：${resolveErrorMessage(writeError, '响应异常')}；` +
+      `回执错误：${resolveErrorMessage(receiptError, '查询失败')}`
+    return
+  }
+  if (receipt.status === 'PQC_RELEASE_PENDING') {
+    releaseOutcomeUncertain.value = false
+    releaseError.value =
+      `权威回执显示申请仍待放行，可重新输入签名密码并使用同一请求重试。` +
+      `原错误：${resolveErrorMessage(writeError, '响应异常')}`
+    return
+  }
+  if (receipt.status === 'PQC_RELEASE_REJECTED') {
+    releaseIdempotencyKeys.delete(row.applicationId)
+    releaseOutcomeUncertain.value = false
+    releaseError.value =
+      receipt.decision === 'NONCONFORMANCE_REWORK'
+        ? '权威回执显示该申请已返工，不能继续放行。'
+        : receipt.decision === 'NONCONFORMANCE_VOID'
+          ? '权威回执显示该申请已作废，不能继续放行。'
+          : '权威回执显示该申请已终结，不能继续放行。'
+    if (receipt.decision === 'NONCONFORMANCE_REWORK') activeView.value = PQC_RELEASE_VIEW_REWORKED
+    if (receipt.decision === 'NONCONFORMANCE_VOID') activeView.value = PQC_RELEASE_VIEW_VOIDED
+    queryParams.pageNo = 1
+    await getList()
+    return
+  }
+  try {
+    await applyReleaseSuccess(row, receipt, true)
+  } catch (receiptError) {
+    releaseOutcomeUncertain.value = true
+    releaseError.value = resolveErrorMessage(receiptError, '权威回执状态无法确认。')
+  }
+}
 
 const submitRelease = async () => {
   const row = selectedRow.value
@@ -351,31 +451,25 @@ const submitRelease = async () => {
   }
   releaseSubmitting.value = true
   releaseError.value = ''
+  releaseOutcomeUncertain.value = false
+  const idempotencyKey = getOrCreateReleaseIdempotencyKey(row.applicationId)
   try {
     const result = await approvePqcProductionRelease({
       applicationId: row.applicationId,
       pqcReleaseWorkTaskId: row.pqcReleaseWorkTaskId,
       expectedVersion: row.version,
-      idempotencyKey: createIdempotencyKey(row.applicationId),
+      idempotencyKey,
       signaturePassword,
       approvalOpinion: releaseForm.approvalOpinion.trim() || undefined
     })
-    if (
-      result.status !== 'REPORT_UPLOAD_PENDING' ||
-      !result.batchExecutionId ||
-      !result.signatureId
-    ) {
-      throw new Error('生产放行回执不完整，请刷新后核对。')
-    }
-    releaseForm.signaturePassword = ''
-    releaseResult.value = result
-    activeView.value = PQC_RELEASE_VIEW_RELEASED
-    queryParams.pageNo = 1
-    await getList()
-    message.success('生产放行完成')
+    await applyReleaseSuccess(row, result, false)
   } catch (error) {
     releaseForm.signaturePassword = ''
-    releaseError.value = resolveErrorMessage(error, '生产放行失败。')
+    if (isDefinitiveReleaseBusinessFailure(error)) {
+      releaseError.value = resolveErrorMessage(error, '生产放行失败。')
+    } else {
+      await recoverUncertainRelease(row, error)
+    }
   } finally {
     releaseSubmitting.value = false
   }

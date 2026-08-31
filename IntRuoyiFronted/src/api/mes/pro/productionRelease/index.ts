@@ -67,7 +67,7 @@ export interface MesPqcProductionReleaseRejectReqVO {
 export interface MesPqcProductionReleaseDecisionRespVO {
   applicationId: string
   pqcReleaseWorkTaskId: string
-  decision?: 'APPROVE' | 'REJECT'
+  decision?: 'APPROVE' | 'REJECT' | 'NONCONFORMANCE_REWORK' | 'NONCONFORMANCE_VOID'
   status: MesProductionReleaseApplicationStatus
   rejectReason?: string
   batchExecutionId?: string
@@ -110,6 +110,9 @@ export interface MesPqcProductionReleasePageItemRespVO {
   nonconformanceDisposition?: string
   nonconformanceReason?: string
   nonconformanceClosedAt?: string | number
+  approvalReady?: boolean
+  approvalBlockerReason?: string
+  approvalBlockerSuggestion?: string
 }
 
 export const approvePqcProductionRelease = async (data: MesPqcProductionReleaseApproveReqVO) => {

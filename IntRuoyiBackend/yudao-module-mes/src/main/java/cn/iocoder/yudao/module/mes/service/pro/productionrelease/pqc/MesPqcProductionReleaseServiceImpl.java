@@ -346,7 +346,37 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         int pageSize = Math.max(1, query.getPageSize());
         int fromIndex = Math.min(visibleRows.size(), (pageNo - 1) * pageSize);
         int toIndex = Math.min(visibleRows.size(), fromIndex + pageSize);
-        return new PageResult<>(visibleRows.subList(fromIndex, toIndex), (long) visibleRows.size());
+        List<MesPqcProductionReleasePageItem> pageRows = new ArrayList<>(
+                visibleRows.subList(fromIndex, toIndex));
+        if (VIEW_STATUS_PENDING.equals(query.getViewStatus())) {
+            Map<Long, MesProcessPoolActiveOrderReleaseApplicationDO> applicationsById = applications.stream()
+                    .collect(Collectors.toMap(MesProcessPoolActiveOrderReleaseApplicationDO::getId, item -> item));
+            pageRows.forEach(item -> applyApprovalReadiness(
+                    item, applicationsById.get(item.getApplicationId()), actorUserId));
+        }
+        return new PageResult<>(pageRows, (long) visibleRows.size());
+    }
+
+    private void applyApprovalReadiness(
+            MesPqcProductionReleasePageItem item,
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            Long actorUserId) {
+        if (Boolean.TRUE.equals(item.getUnderReview())) {
+            item.setApprovalReady(false)
+                    .setApprovalBlockerReason("不合格审查尚未处置")
+                    .setApprovalBlockerSuggestion("等待 QA 完成评审处置后再放行");
+            return;
+        }
+        MesPqcReleaseDossierReadiness readiness = dossierPort.readiness(application, actorUserId);
+        if (readiness == null) {
+            throw blocker(MesReleaseFlowBlockerType.BATCH_RECORD_SOURCE_REQUIRED, application,
+                    "RELEASE_DOSSIER", String.valueOf(application.getId()),
+                    "release dossier readiness result is missing",
+                    "repair the formal dossier preflight before querying PQC release records");
+        }
+        item.setApprovalReady(readiness.isReady())
+                .setApprovalBlockerReason(readiness.getBlockerReason())
+                .setApprovalBlockerSuggestion(readiness.getBlockerSuggestion());
     }
 
     private void requireApproveCommand(Long actorUserId, MesPqcProductionReleaseApproveCommand command) {

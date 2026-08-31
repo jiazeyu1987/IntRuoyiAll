@@ -100,6 +100,29 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
     @Override
     public MesPqcReleaseDossierPlan plan(
             MesProcessPoolActiveOrderReleaseApplicationDO application, Long actorUserId) {
+        return plan(application, actorUserId, true);
+    }
+
+    @Override
+    public MesPqcReleaseDossierReadiness readiness(
+            MesProcessPoolActiveOrderReleaseApplicationDO application, Long actorUserId) {
+        try {
+            plan(application, actorUserId, false);
+            return MesPqcReleaseDossierReadiness.ready();
+        } catch (MesReleaseFlowBlockerException exception) {
+            List<MesReleaseFlowBlocker> blockers = exception.getFailure().getBlockers();
+            if (blockers == null || blockers.isEmpty()) {
+                throw exception;
+            }
+            MesReleaseFlowBlocker blocker = blockers.get(0);
+            return MesPqcReleaseDossierReadiness.blocked(blocker.getReason(), blocker.getSuggestion());
+        }
+    }
+
+    private MesPqcReleaseDossierPlan plan(
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            Long actorUserId,
+            boolean lockSnapshots) {
         Long tenantId = TenantContextHolder.getTenantId();
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectById(application.getActiveOrderId());
         MesProcessPoolActiveOrderPickListBindingDO pickListBinding =
@@ -109,8 +132,9 @@ public class MesPqcReleaseDossierPortImpl implements MesPqcReleaseDossierPort {
                     "active order lacks formal pick-list binding");
         }
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(application.getWorkOrderId());
-        List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = list(
-                processSnapshotMapper.selectListByActiveOrderIdForUpdate(application.getActiveOrderId()));
+        List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = list(lockSnapshots
+                ? processSnapshotMapper.selectListByActiveOrderIdForUpdate(application.getActiveOrderId())
+                : processSnapshotMapper.selectListByActiveOrderId(application.getActiveOrderId()));
         List<MesProcessPoolOrderProcessCompletionDO> completions = list(
                 completionMapper.selectListByWorkOrderIds(List.of(application.getWorkOrderId())));
         List<MesPqcInspectionTaskDO> inspectionTasks = list(

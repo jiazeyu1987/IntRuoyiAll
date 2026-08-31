@@ -1167,6 +1167,8 @@ public interface ErrorCodeConstants {
             "Stage1 模拟缺少可复制的正式领料单来源，请先完成领料单绑定或选择来源完整的活跃订单");
     ErrorCode PRO_PROCESS_POOL_STAGE1_SIMULATION_PICK_LIST_PRODUCT_REQUIRED = new ErrorCode(1_040_760_392,
             "Stage1 模拟无法按领料单格式生成明细：工单缺少有效产品主数据");
+    ErrorCode PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN = new ErrorCode(1_040_760_393,
+            "生产工单已临时冻结，禁止{}：workOrderId={}");
     ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS = new ErrorCode(1_040_760_307,
             "班组员工档案不存在或已禁用：{}");
     ErrorCode PRO_PROCESS_POOL_TEAM_DEVICE_NOT_EXISTS = new ErrorCode(1_040_760_308,

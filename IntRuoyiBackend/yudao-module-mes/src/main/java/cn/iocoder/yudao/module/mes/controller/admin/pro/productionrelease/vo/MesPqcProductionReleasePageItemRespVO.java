@@ -31,4 +31,7 @@ public class MesPqcProductionReleasePageItemRespVO {
     private String nonconformanceDisposition;
     private String nonconformanceReason;
     private LocalDateTime nonconformanceClosedAt;
+    private Boolean approvalReady;
+    private String approvalBlockerReason;
+    private String approvalBlockerSuggestion;
 }

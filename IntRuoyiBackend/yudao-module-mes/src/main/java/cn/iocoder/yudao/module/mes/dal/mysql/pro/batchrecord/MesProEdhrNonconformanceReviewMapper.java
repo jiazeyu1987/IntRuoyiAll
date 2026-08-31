@@ -6,6 +6,8 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrNonconformanceReviewPageReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 import java.util.Collection;
@@ -14,6 +16,10 @@ import java.util.Collection;
 public interface MesProEdhrNonconformanceReviewMapper extends BaseMapperX<MesProEdhrNonconformanceReviewDO> {
 
     String STATUS_PENDING_REVIEW = "pending_review";
+
+    @Select("SELECT * FROM mes_pro_edhr_nonconformance_review WHERE id = #{id} "
+            + "AND deleted = b'0' FOR UPDATE")
+    MesProEdhrNonconformanceReviewDO selectByIdForUpdate(@Param("id") Long id);
 
     default PageResult<MesProEdhrNonconformanceReviewDO> selectPage(
             MesProEdhrNonconformanceReviewPageReqVO reqVO) {

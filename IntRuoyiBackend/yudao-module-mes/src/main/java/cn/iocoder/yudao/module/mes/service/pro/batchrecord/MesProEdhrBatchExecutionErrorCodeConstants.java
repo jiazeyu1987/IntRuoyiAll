@@ -190,4 +190,6 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_473, "eDHR 不合格评审原因、材料、意见和 QA 签名均不能为空");
     ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED =
             new ErrorCode(1_040_750_474, "当前批次存在待处置不合格评审，禁止{}");
+    ErrorCode PRO_EDHR_NONCONFORMANCE_REVIEW_WORK_ORDER_STATE_REQUIRED =
+            new ErrorCode(1_040_750_491, "不合格评审缺少工单冻结前状态，禁止恢复工单");
 }

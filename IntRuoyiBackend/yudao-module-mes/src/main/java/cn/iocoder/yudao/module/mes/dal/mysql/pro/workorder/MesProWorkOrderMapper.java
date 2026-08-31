@@ -168,11 +168,11 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
         return selectCount(MesProWorkOrderDO::getVendorId, vendorId);
     }
 
-    default void updateTemporaryFrozenByIds(Collection<Long> ids, Boolean temporaryFrozen) {
+    default int updateTemporaryFrozenByIds(Collection<Long> ids, Boolean temporaryFrozen) {
         if (ids == null || ids.isEmpty()) {
-            return;
+            return 0;
         }
-        update(null, new LambdaUpdateWrapper<MesProWorkOrderDO>()
+        return update(null, new LambdaUpdateWrapper<MesProWorkOrderDO>()
                 .in(MesProWorkOrderDO::getId, ids)
                 .set(MesProWorkOrderDO::getTemporaryFrozen, temporaryFrozen));
     }

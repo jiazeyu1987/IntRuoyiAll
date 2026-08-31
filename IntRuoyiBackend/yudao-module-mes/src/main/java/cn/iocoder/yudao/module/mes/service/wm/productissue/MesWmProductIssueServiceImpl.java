@@ -12,6 +12,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIs
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.wm.productissue.MesWmProductIssueLineDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.MesBizTypeConstants;
 import cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.wm.MesWmTransactionTypeEnum;
@@ -55,6 +57,8 @@ public class MesWmProductIssueServiceImpl implements MesWmProductIssueService {
     private MesMdWorkstationService workstationService;
     @Resource
     private MesProWorkOrderService workOrderService;
+    @Resource
+    private MesProWorkOrderMapper workOrderMapper;
     @Resource
     private MesWmTransactionService wmTransactionService;
     @Resource
@@ -118,7 +122,8 @@ public class MesWmProductIssueServiceImpl implements MesWmProductIssueService {
     @Transactional(rollbackFor = Exception.class)
     public void submitProductIssue(Long id) {
         // 校验存在 + 草稿状态
-        validateProductIssueExistsAndPrepare(id);
+        MesWmProductIssueDO issue = validateProductIssueExistsAndPrepare(id);
+        ensureWorkOrderNotFrozen(issue, "提交领料出库单");
         // 校验至少有一条行
         List<MesWmProductIssueLineDO> lines = issueLineService.getProductIssueLineListByIssueId(id);
         if (CollUtil.isEmpty(lines)) {
@@ -135,6 +140,7 @@ public class MesWmProductIssueServiceImpl implements MesWmProductIssueService {
     public void stockProductIssue(Long id) {
         // 校验存在
         MesWmProductIssueDO issue = validateProductIssueExists(id);
+        ensureWorkOrderNotFrozen(issue, "领料拣货");
         if (ObjUtil.notEqual(MesWmProductIssueStatusEnum.APPROVING.getStatus(), issue.getStatus())) {
             throw exception(WM_PRODUCT_ISSUE_STATUS_INVALID);
         }
@@ -153,6 +159,7 @@ public class MesWmProductIssueServiceImpl implements MesWmProductIssueService {
     public void finishProductIssue(Long id) {
         // 1. 校验存在
         MesWmProductIssueDO issue = validateProductIssueExists(id);
+        ensureWorkOrderNotFrozen(issue, "完成领料出库");
         if (ObjUtil.notEqual(MesWmProductIssueStatusEnum.APPROVED.getStatus(), issue.getStatus())) {
             throw exception(WM_PRODUCT_ISSUE_STATUS_INVALID);
         }
@@ -278,6 +285,17 @@ public class MesWmProductIssueServiceImpl implements MesWmProductIssueService {
         workOrderService.validateWorkOrderConfirmed(reqVO.getWorkOrderId());
         if (reqVO.getWorkstationId() != null) {
             workstationService.validateWorkstationExistsAndEnable(reqVO.getWorkstationId());
+        }
+    }
+
+    private void ensureWorkOrderNotFrozen(MesWmProductIssueDO issue, String actionName) {
+        MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(issue.getWorkOrderId());
+        if (workOrder == null) {
+            throw exception(PRO_WORK_ORDER_NOT_EXISTS);
+        }
+        if (Boolean.TRUE.equals(workOrder.getTemporaryFrozen())) {
+            throw exception(PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN,
+                    actionName, issue.getWorkOrderId());
         }
     }
 

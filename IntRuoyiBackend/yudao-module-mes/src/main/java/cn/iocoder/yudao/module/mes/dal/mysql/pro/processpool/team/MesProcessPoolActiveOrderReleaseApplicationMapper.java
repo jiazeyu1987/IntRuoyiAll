@@ -167,6 +167,28 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                           @Param("rejectReason") String rejectReason,
                           @Param("dossierSummaryJson") String dossierSummaryJson);
 
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order_release_application
+            SET application_status = 'PQC_RELEASE_REJECTED',
+                pqc_decision = #{pqcDecision},
+                pqc_decided_by = #{decidedBy},
+                pqc_decided_at = #{decidedAt},
+                pqc_reject_reason = #{rejectReason},
+                dossier_summary_json = #{dossierSummaryJson},
+                version = version + 1
+            WHERE id = #{id}
+              AND deleted = b'0'
+              AND version = #{expectedVersion}
+              AND application_status = 'PQC_RELEASE_PENDING'
+            """)
+    int closeFromNonconformance(@Param("id") Long id,
+                                @Param("expectedVersion") Integer expectedVersion,
+                                @Param("pqcDecision") String pqcDecision,
+                                @Param("decidedBy") Long decidedBy,
+                                @Param("decidedAt") LocalDateTime decidedAt,
+                                @Param("rejectReason") String rejectReason,
+                                @Param("dossierSummaryJson") String dossierSummaryJson);
+
     default MesProcessPoolActiveOrderReleaseApplicationDO selectByRequestIdempotencyKey(
             Long activeOrderId, String requestIdempotencyKey) {
         if (activeOrderId == null || requestIdempotencyKey == null || requestIdempotencyKey.isBlank()) {

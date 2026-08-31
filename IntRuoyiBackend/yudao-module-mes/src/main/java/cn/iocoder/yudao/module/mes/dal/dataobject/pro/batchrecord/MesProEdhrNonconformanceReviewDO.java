@@ -46,6 +46,8 @@ public class MesProEdhrNonconformanceReviewDO extends BaseDO {
 
     private Integer previousBatchStatus;
 
+    private Boolean previousWorkOrderTemporaryFrozen;
+
     private String reviewStatus;
 
     private String nonconformanceReason;

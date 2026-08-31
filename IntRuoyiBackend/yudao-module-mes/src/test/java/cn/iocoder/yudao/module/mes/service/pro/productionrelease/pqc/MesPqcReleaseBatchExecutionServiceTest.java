@@ -86,6 +86,8 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 .thenReturn(new MesProductionReleaseRoleCandidates(
                         91L, MesProductionReleaseRoleCodes.PQC_RELEASE_OWNER,
                         List.of(PQC_USER_ID, 7102L), "pqc-candidate-hash"));
+        lenient().when(dossierPort.readiness(any(), eq(PQC_USER_ID)))
+                .thenReturn(MesPqcReleaseDossierReadiness.ready());
     }
 
     @AfterEach
@@ -231,6 +233,29 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 List.of(application().setPqcReleaseWorkTaskId(null)));
 
         assertEquals(0L, page("PENDING").getTotal());
+    }
+
+    @Test
+    void pendingPageProjectsDossierBlockerOnlyForCurrentPage() {
+        MesProcessPoolActiveOrderReleaseApplicationDO first = application()
+                .setId(7001L).setPqcReleaseWorkTaskId(8001L);
+        MesProcessPoolActiveOrderReleaseApplicationDO second = application()
+                .setId(7002L).setPqcReleaseWorkTaskId(8002L);
+        when(applicationMapper.selectListForPqcReleasePage(null, null)).thenReturn(List.of(first, second));
+        when(workTaskMapper.selectByIds(any())).thenReturn(List.of(
+                workTask(8001L, 7001L), workTask(8002L, 7002L)));
+        when(dossierPort.readiness(first, PQC_USER_ID)).thenReturn(
+                MesPqcReleaseDossierReadiness.blocked("批记录存在空数据", "补齐正式批记录"));
+
+        cn.iocoder.yudao.framework.common.pojo.PageResult<MesPqcProductionReleasePageItem> page =
+                service.getPqcReleasePage(PQC_USER_ID, new MesPqcProductionReleasePageQuery()
+                        .setPageNo(1).setPageSize(1).setViewStatus("PENDING"));
+
+        assertEquals(2L, page.getTotal());
+        assertEquals(false, page.getList().get(0).getApprovalReady());
+        assertEquals("批记录存在空数据", page.getList().get(0).getApprovalBlockerReason());
+        verify(dossierPort).readiness(first, PQC_USER_ID);
+        verify(dossierPort, never()).readiness(second, PQC_USER_ID);
     }
 
     @Test
