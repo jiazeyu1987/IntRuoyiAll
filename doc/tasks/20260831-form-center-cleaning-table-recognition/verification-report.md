@@ -44,6 +44,7 @@ PASS：表单中心能够从包含多个物理表格和同表多个工序的 Wor
 - 未修改表单中心上传 API、审批、版本或持久化合同。
 - 用户已确认截图正确并要求融合至 `int_main`；融合过程不得覆盖主工作区其它任务的未提交改动。
 - 正式回归样本存放于 BPM 模块测试资源目录，测试不依赖或改写主工作区 `resource` 下正被打开的用户原文件。
+- 实现已通过 `--ff-only` 融合进入 `int_main`；主工作区并行文档改动经独立 stash 审计、恢复和哈希/numstat 复核后保持未提交状态，未混入本任务提交。
 
 ## Closeout
 
@@ -51,3 +52,6 @@ PASS：表单中心能够从包含多个物理表格和同表多个工序的 Wor
 - cleanup preview 无阻塞；apply 已删除临时截图、技能证据文件和前端依赖目录，`mvn clean` 已删除后端构建产物。
 - 保留 `task.md`、`execution-log.md`、`verification-report.md`、生产代码、正式回归测试和真实 DOCX fixture。
 - 用户要求查看识别结果后，已从最终作废模板 `Codex清洗工序识别20260831C` 的真实表单中心最大化预览重新生成 4 张分段截图并列入任务保留清单；未重新导入或修改业务数据。
+- 融合后在 `E:\IntRuoyi` 重跑后端 10 项回归、前端静态合同、ESLint、TypeScript、完整后端打包和端口门禁，结果全部通过。
+- `D:\IntRuoyiWorktree\form-center-cleaning-recognition` 已从 Git worktree 登记和文件系统中删除；本地任务分支提交已由 `int_main` 包含。
+- 端口登记中的 `form-center-cleaning-recognition / slot 57 / 8312 / 48312` 已标记 `active=false`，并保留 `deletedAt`、`cleanupTask` 审计信息；其它 worktree 登记未变。
