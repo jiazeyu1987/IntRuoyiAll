@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordCellLinkRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
@@ -12,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProce
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +53,8 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
     @Mock
     private MesProRouteFlowProcessBatchRecordMapper bindingMapper;
     @Mock
+    private MesProBatchRecordReportMapper reportMapper;
+    @Mock
     private MesProBatchRecordCellLinkRuleMapper ruleMapper;
     @Mock
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
@@ -64,7 +68,8 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
     @BeforeEach
     void setUp() {
         writer = new MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(
-                bindingMapper, ruleMapper, batchTaskMapper, backfillService, productionPickListSourceService);
+                bindingMapper, reportMapper, ruleMapper, batchTaskMapper, backfillService,
+                productionPickListSourceService);
     }
 
     @Test
@@ -167,6 +172,25 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
     }
 
     @Test
+    void shouldResolveFormalBindingIdentityFromReportMetadataWhenRedundantColumnsAreEmpty() {
+        MesProRouteFlowProcessBatchRecordDO unresolved = binding();
+        unresolved.setBatchRecordDefinitionId(null);
+        unresolved.setBatchRecordVersionId(null);
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
+                .thenReturn(List.of(unresolved));
+        when(reportMapper.selectByReportId("BR-FORM-A")).thenReturn(report());
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(rule(1L, "outputQuantity")));
+
+        MesTeamLeaderActiveOrderReleaseBatchRecordPlan plan = writer.plan(command());
+
+        assertTrue(plan.getBlockers().isEmpty());
+        assertEquals(1, plan.getPreparedProcesses().size());
+        assertEquals(400L, plan.getPreparedProcesses().get(0).getBinding().getBatchRecordDefinitionId());
+        assertEquals(401L, plan.getPreparedProcesses().get(0).getBinding().getBatchRecordVersionId());
+    }
+
+    @Test
     void shouldFailFastWithoutBackfillWhenCurrentBatchTaskDoesNotMatchFormalBinding() {
         mockFormalPlanSources();
         when(batchTaskMapper.selectListByBatchExecutionId(BATCH_EXECUTION_ID))
@@ -207,6 +231,7 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
     void shouldPreflightProductionPickListMappingsBeforeAnyBatchRecordWrite() {
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
                 .thenReturn(List.of(binding()));
+        when(reportMapper.selectByReportId("BR-FORM-A")).thenReturn(report());
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
                 .thenReturn(List.of(rule(1L, "outputQuantity"), pickRule(2L, "material.3201.lotNumber")));
         when(productionPickListSourceService.resolveValue(any()))
@@ -224,6 +249,7 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
     private void mockFormalPlanSources() {
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(ROUTE_PROCESS_ID), "BATCH"))
                 .thenReturn(List.of(binding()));
+        when(reportMapper.selectByReportId("BR-FORM-A")).thenReturn(report());
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
                 .thenReturn(List.of(rule(1L, "outputQuantity"), rule(2L, "pressure")));
     }
@@ -353,6 +379,14 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
                 .formSlotType(null)
                 .permissionScopeId(9901L)
                 .build();
+    }
+
+    private static MesProBatchRecordReportDO report() {
+        MesProBatchRecordReportDO report = new MesProBatchRecordReportDO();
+        report.setReportId("BR-FORM-A");
+        report.setBatchRecordDefinitionId(400L);
+        report.setBatchRecordVersionId(401L);
+        return report;
     }
 
     private static MesProBatchRecordCellLinkRuleDO rule(Long id, String sourceFieldCode) {

@@ -63,6 +63,7 @@ class MesProductionReleaseControllerJsonTest {
         approve.setPqcReleaseWorkTaskId(2L);
         approve.setExpectedVersion(1);
         approve.setIdempotencyKey("pqc-approve-1");
+        approve.setSignaturePassword("valid-test-signature-input");
         assertTrue(validator.validate(approve).isEmpty());
         approve.setIdempotencyKey("contains space");
         assertTrue(validator.validate(approve).stream()

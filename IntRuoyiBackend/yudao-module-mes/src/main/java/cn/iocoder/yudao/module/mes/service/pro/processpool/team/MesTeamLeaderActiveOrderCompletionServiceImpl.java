@@ -27,6 +27,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLeaderActiveOrderCompletionService {
 
+    private static final String RELEASE_COMPLETION_KEY_PREFIX = "PQC_RELEASE_COMPLETION:";
+
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderCompletionReceiptMapper receiptMapper;
     private final MesTeamLeaderActiveOrderCompletionProgressPort progressPort;
@@ -41,6 +43,40 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         this.receiptMapper = receiptMapper;
         this.progressPort = progressPort;
         this.backfillPort = backfillPort;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesTeamLeaderActiveOrderCompletionResult completeForRelease(
+            Long leaderUserId, Long activeOrderId, String releaseIdempotencyKey) {
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(activeOrderId);
+        if (activeOrder == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
+        }
+        if (!java.util.Objects.equals(activeOrder.getLeaderUserId(), leaderUserId)) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_NOT_OWNED, activeOrder.getId());
+        }
+        MesProcessPoolActiveOrderCompletionReceiptDO existing =
+                receiptMapper.selectByActiveOrderIdForUpdate(activeOrder.getId());
+        if (existing != null) {
+            if (existing.getExpectedVersion() == null || existing.getRequestIdempotencyKey() == null
+                    || existing.getRequestIdempotencyKey().isBlank()) {
+                throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED, activeOrder.getId());
+            }
+            return complete(leaderUserId, new MesTeamLeaderActiveOrderCompletionCommand()
+                    .setActiveOrderId(activeOrder.getId())
+                    .setExpectedVersion(existing.getExpectedVersion())
+                    .setIdempotencyKey(existing.getRequestIdempotencyKey()));
+        }
+        if (releaseIdempotencyKey == null || releaseIdempotencyKey.isBlank()) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING,
+                    activeOrder.getId(), "RELEASE_IDEMPOTENCY_KEY_REQUIRED");
+        }
+        return complete(leaderUserId, new MesTeamLeaderActiveOrderCompletionCommand()
+                .setActiveOrderId(activeOrder.getId())
+                .setExpectedVersion(activeOrder.getVersion())
+                .setIdempotencyKey(RELEASE_COMPLETION_KEY_PREFIX
+                        + sha256(activeOrder.getId() + "|" + releaseIdempotencyKey)));
     }
 
     @Override

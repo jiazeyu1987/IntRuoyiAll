@@ -1,6 +1,6 @@
 <template>
   <ContentWrap>
-    <div class="pqc-release-page">
+    <div class="pqc-release-page" data-pqc-production-release-page>
       <div class="pqc-release-page__header">
         <div>
           <h2>PQC生产放行</h2>
@@ -34,6 +34,7 @@
       <el-table
         v-loading="loading"
         :data="list"
+        data-pqc-production-release-list
         stripe
         row-key="applicationId"
         empty-text="当前状态暂无生产放行记录"
@@ -76,6 +77,7 @@
                   link
                   type="success"
                   :disabled="row.underReview"
+                  data-pqc-production-release-approve
                   @click="openReleaseDialog(row)"
                 >
                   放行
@@ -85,6 +87,7 @@
                   link
                   type="danger"
                   :disabled="row.underReview || Boolean(row.nonconformanceDisposition)"
+                  data-pqc-production-release-nonconformance
                   @click="openNonconformanceReview(row)"
                 >
                   不合格审查
@@ -113,6 +116,7 @@
 
     <Dialog
       v-model="releaseDialogVisible"
+      data-pqc-production-release-dialog
       title="确认生产放行"
       width="540px"
       @closed="resetReleaseDialog"

@@ -60,3 +60,46 @@ M5 - ready for branch commit and int_main integration.
 - `int_main` 通过 `git merge --ff-only codex/20260831-pqc-production-release-mvp-completion` 快进到 `d9fe88557`；主工作区原有并行改动保持未暂存。
 - 额外 worktree 已从 Git 登记移除；pnpm 残留目录清除只针对本任务 worktree，最终路径不存在；8311/48311 已停止监听。
 - `int_main slot 56` 登记已在 worktree 路径删除后原子更新为 `active=false`，登记表无临时文件残留。
+
+## M6 Completion Audit Continuation
+
+- 完成审计结论：上一轮真实页面只证明菜单、五页签和空列表，未证明电子签名放行、不合格审查写入和状态迁移，因此重新标记 `in_progress`。
+- 只读凭据核对：`芋道源码/admin` 已正式属于 `MES_PQC_RELEASE_OWNER`，本机默认测试凭据与该账号匹配；无需修改角色或密码。
+- 计划路径：真实登录 -> 生产组长活跃订单 Stage1 模拟 -> 完成/申请放行 -> PQC生产放行签名或不合格审查 -> 状态核对 -> 通过正式清理入口删除任务自有模拟数据。
+- RED: `node tests\e2e\pqc-production-release-write-flow-real.e2e.js` -> FAIL；真实页面已创建 Stage1 任务自有活跃订单并显示生产/检验进度均为 100%，直接申请放行被正式后端以“formal production progress is below 100%”拒绝，确认 Stage1 完成记录仍为未回填状态。
+- RED: 补齐页面“模拟完工”步骤后复跑 -> FAIL，业务码 `1040750243`；正式回填发现当前路线批记录/过程检验模板存在未确认填写规则，坐标覆盖第 4 至 52 行的目标可填单元格。系统在创建批次或放行申请前正确 fail-fast。
+- Supporting read-only audit: 当前本地路线绑定的多数生产记录模板仍为 `source=AUTO, reviewed=false`；没有 `CELL_RULE_RECONCILED` 确认证据。只读核对未修改模板、角色、密码或业务状态。
+- Cleanup GREEN: 通过真实生产组长页面调用 `/active-order/remove`，业务码 `0`；任务订单 `347` 回读为 `REMOVED/REMOVED`，无本轮活动模拟订单残留。
+- Blocker: 模板填写规则必须由模板管理员基于业务含义逐张确认。禁止自动把建议态规则标成已确认，禁止直接改 Jimu JSON、跳过 `validateConfirmedCellRules`、使用 SQL/API-only 造待放行申请或把当前整体 E2E 记为 PASS。
+
+## M6 Formal Completion And Release Continuation
+
+- BDD: 完工并申请放行原子编排 -> Given 活跃订单生产和检验进度均为 100% 且尚未形成完工回执; When 生产组长点击“完工”并确认申请放行; Then 系统必须先执行正式资料回填和完工回执，再创建 PQC 放行申请；任一回填失败时不得创建申请。
+- BDD: 已有完工回执安全复用 -> Given 活跃订单已有成功完工回执; When 重试生产放行申请; Then 系统必须使用回执原始版本和幂等键重新校验当前正式来源，不得重复回填或跳过来源校验。
+- BDD: 批记录绑定正式身份解析 -> Given 路线逐工序绑定具有正式 `batchRecordReportId`，但冗余定义/版本字段为空; When PQC 放行规划批记录映射; Then writer 必须从正式报表元数据解析定义和版本；冗余值与元数据冲突时仍应阻断。
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest,MesTeamLeaderActiveOrderCompletionServiceTest" -DforkCount=0 test` -> FAIL，缺少 `completeForRelease` 和完工/申请编排。
+- GREEN: 同命令 -> PASS，13 tests；申请服务在同一事务内先完成回填，再生成 PQC 申请。
+- RED: `node tests\e2e\team-leader-active-order-release-application-static.spec.js` -> FAIL，前端未区分明确业务错误与网络不确定响应，确认文案也未说明先完工回填。
+- GREEN: 同命令 -> PASS；明确后端业务错误直接展示并允许修复后重试，只有无业务码的响应才进入不确定回执核对。
+- RED: writer 目标测试 -> FAIL，构造器缺少正式报表 mapper，冗余定义/版本为空的绑定无法解析。
+- GREEN: `mvn -pl yudao-module-mes "-Dtest=MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest,MesTeamLeaderActiveOrderReleaseBatchRecordWriterImplTest" -DforkCount=0 test` -> PASS，9 tests。
+- GREEN: `MesProductionReleaseControllerJsonTest` -> PASS，3 tests；生产放行 blocker 由控制器返回结构化业务响应，不再落入全局 `500 系统异常`。
+- GREEN: `mvn -pl yudao-server -am -DskipTests package` -> PASS，30 reactor modules。
+- GREEN: 前端 `pnpm ts:check`、PQC MVP 静态合同、生产组长放行申请静态合同 -> PASS。
+- Real write: Stage1 生成活跃订单 `348`；`/active-order/release/apply` 业务码 `0`，创建申请 `9`、PQC 待办 `2391`；不合格审查创建 `7` 并由 QA 让步处置，两个写接口业务码均为 `0`。
+- Real gate: `/production-release/pqc/approve` 返回结构化 blocker `formal batch-record plan is missing`；申请仍为 `PQC_RELEASE_PENDING/version=1`、待办仍为 `TODO`、`PQC_RELEASE:9` 批次数量为 `0`。
+- Formal mapping audit: 粗洗、精洗、清洗、清洁、组装 I、光固 I、硅化 I、硅化 II、组装 II、检测、光固 II、单包装、中包装、大包装共 14 张逐工序批记录，放行可接受映射数全部为 `0`；粗洗仅有 `PRODUCTION_WORK_ORDER` 映射，其余 13 张没有启用映射。
+- Remaining blocker: 映射需要模板/工艺负责人确认每个目标单元格的业务来源。当前申请和评审属于任务自有可追踪证据，但系统没有对已让步且待签名申请的正式取消/清理入口，未擅自删除审计记录。
+- Final focused regression: 相关后端 7 个测试类合计 38 tests 全部 PASS；前端生产组长放行申请合同、PQC MVP 合同、真实 E2E 语法检查和 `pnpm ts:check` 全部 PASS；`git diff --check` PASS。
+
+## User-Authorized Mapping Deferral
+
+- User decision: 当前正式字段映射暂时无法完成；明确授权本次跳过映射部分，若逻辑卡在映射门禁，则以静态代码逻辑检查通过作为验收通过。
+- Scope: 仅调整本次验收证据口径，不修改生产门禁、不写入猜测映射、不把 blocker 改成默认成功，也不伪造批次或签名。
+- Static logic review: PASS。生产组长申请在同一事务内先完成正式回填再创建 PQC 申请；已有完工回执按原版本/幂等身份重新校验；PQC 让步评审关闭后仍需再次签名；批准事务先验证角色、候选、冻结状态、评审结果和签名密码，再规划逐工序批记录/过程检验/损耗资料；映射 writer 只接受唯一正式逐工序绑定和已支持来源，校验生产提交、分配、复核签名与来源值后写入当前批次任务和字段审计；任一 blocker 会在批次、签名和状态推进前回滚。
+- Static review result: 未发现可导致绕过签名、跨工序取错批记录、重复创建申请、业务错误误锁定前端或 blocker 被吞掉的逻辑缺口。
+- Deferred risk: 14 张正式批记录完成映射后的真实批次创建、资料落库、PQC 电子签名和任务清理尚未动态验证；映射可用后必须恢复该 E2E。
+- Local evidence retained: 申请 `9`、待办 `2391`、评审 `7` 和活跃订单 `348` 为本机任务自有审计证据；因当前没有正式取消已让步待签名申请的入口，未通过 SQL 或 API-only 删除。
+- Final gate: 后端 7 个相关测试类共 38 tests PASS；前端两项静态合同、真实 E2E 语法检查、`pnpm ts:check`、branch runtime port guard 和 `git diff --check` PASS。
+- Closeout preview: 默认保留三份任务记录、无建议删除文件；自动 apply 因无法从任务目录推断 17 个正式源码/测试归属、主工作区有无关脏改动、分支需重放到新主线而阻塞。按用户明确的提交/融合要求采用精确文件清单，不使用宽泛暂存或覆盖主工作区改动。
+- Integration preflight: merge-base 为 `9b9b16274b4920005eaa9de421deae245c3c29e9`；本任务 20 个文件与 `int_main` 后续 23 个已提交文件交集为 0，与主工作区 36 个脏文件交集为 0。
