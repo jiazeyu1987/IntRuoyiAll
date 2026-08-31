@@ -17,3 +17,6 @@ GREEN: 同一目标 pytest -> PASS，`2 passed`。
 - GREEN: evidence-validators -> bug-regression/database-schema evidence validator PASS。
 - GREEN: branch-runtime-port-guard -> PASS，slot 59，8314/48314；本任务未启动服务。
 - INFO: integration-preflight -> app `int_main` 仍为 base `c3a134a7`，目标 SQL/test/task paths 无 dirty overlap，可在实现提交后 ff-only。
+- GREEN: implementation-commit -> PASS，commit=`273b5dad6`，5 files，仅目标 SQL、回归测试和任务记录。
+- GREEN: int-main-fast-forward -> PASS，app `int_main` 从 `c3a134a7` ff-only 到 `273b5dad6`；目标路径无 dirty overlap。
+- GREEN: int-main-regression -> PASS，46 passed in 11.08s、实际维护 gate 551 项、branch runtime guard PASS、commit ancestor=true。

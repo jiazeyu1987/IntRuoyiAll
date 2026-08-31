@@ -37,7 +37,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Milestone Status
 
@@ -45,4 +45,4 @@ in_progress
 2. RED：completed。目标合同 1 failed/1 passed，精确捕获无逐列守卫。
 3. 实现：completed。改为表级 fail-fast + 三列独立存在性检查/ALTER，DDL 定义不变。
 4. 回归：completed。目标 2/2、release 组合 46/46、实际 migration gate 551 项、target-bound plan passed/blocked=0/目标 action=APPLY。
-5. 提交融合：in_progress。
+5. 提交融合：completed。实现 commit=`273b5dad6`，`int_main` ff-only 到同一提交；主线 46/46、实际 gate 551 项和端口守卫通过。

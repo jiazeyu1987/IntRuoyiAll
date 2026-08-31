@@ -2,7 +2,7 @@
 
 ## Status
 
-ready_for_commit
+ready_for_closeout
 
 ## Verification Summary
 
@@ -12,6 +12,8 @@ ready_for_commit
 - Actual maintenance migration gate: passed，551 migrations。
 - Target-bound code-only plan: passed、blocked=0、目标 action=APPLY。
 - Data safety: 仅迁移脚本幂等守卫和测试；无数据库写入、无 ledger 修改。
+- Implementation commit / `int_main`: `273b5dad6`，ff-only 完成。
+- Main verification: 46 passed、实际 migration gate 551、branch runtime guard PASS。
 
 ## Required Evidence
 
