@@ -9,6 +9,7 @@
 
 - Keywords: eDHR 四份材料、MATERIALS_READY、sourceSnapshotHash、routeBindingSnapshotHash、来料检报告、灭菌报告、成品检报告、成品检记录、来源快照、Stage4、Stage4 独立输入、STAGE4_INDEPENDENT_BATCH_EXECUTION、stage4IndependentBatchExecutionSnapshot.v1、trace origin、trace links、trace manifest、completeSpecialNode、completePreReleaseDossierNode、createNextFillAfterSpecialNodeResolved -> docs/backend-development.md#eDHR-四份材料必须绑定正式来源快照
 - Keywords: Stage2.5, completion receipt, sourceCredentialId, sourceContextHash, sourceSnapshotHash, nested receipt, LOSS_CONDITION_FACTS, no-loss fact closure, confirmedAt, reviewedAt, MES_PRO_FEEDBACK, lossDetails -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源` and `docs/backend-development.md#edhr-批次创建入口必须与正式入口合同一致`
+- Keywords: PQC生产放行不合格评审, 工单冻结, temporary_frozen, previousWorkOrderTemporaryFrozen, 返工恢复冻结, 作废保持冻结, 让步继续签字, 生产报工冻结门禁, 领料出库冻结门禁, 申请待办原子终结 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 
 - Keywords: 租户级 PQC 检验设备配置、QA 项目切换、dccProjectCodeId、item-equipment/items、历史 QA 脏数据、同名检验项目、项目范围先过滤 -> `docs/backend-development.md#项目范围设备候选必须先过滤正式项目身份`
 - Keywords: 工艺路线过程检验映射, PQC_AGGREGATE_DETAIL, routeProcessId, PROCESS_INSPECTION, formTemplateId, lastPublishedTemplateVersionId, QA工序缺失, 清洗冒充粗洗, 表单槽位正常入口 -> `docs/e2e-rules.md#工艺路线过程检验映射正式来源门禁`
