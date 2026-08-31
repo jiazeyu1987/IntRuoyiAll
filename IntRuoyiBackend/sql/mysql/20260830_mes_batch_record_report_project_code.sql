@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260829_mes_old_form_template_binding_switch; type=schema; riskLevel=low
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260514_mes_batch_record_report; type=schema; riskLevel=low
 -- Persist the DCC project code chosen during main batch-record Word import for form-center list display.
 
 DROP PROCEDURE IF EXISTS ensure_mes_batch_record_report_project_code_column;
